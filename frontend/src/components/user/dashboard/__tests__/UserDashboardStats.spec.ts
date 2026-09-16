@@ -15,7 +15,6 @@ vi.mock('vue-i18n', async () => {
 
 import UserDashboardStats from '../UserDashboardStats.vue'
 import type { UserDashboardStats as UserStatsType, PlatformDashboardStats } from '@/api/usage'
-import type { PlatformQuotaItem } from '@/types'
 
 function makeStats(over: Partial<UserStatsType> = {}): UserStatsType {
   return {
@@ -57,21 +56,9 @@ function usage(platform: string, cost: number): PlatformDashboardStats {
   }
 }
 
-function quota(over: Partial<PlatformQuotaItem> & { platform: string }): PlatformQuotaItem {
-  return {
-    daily_limit_usd: null,
-    weekly_limit_usd: null,
-    monthly_limit_usd: null,
-    daily_usage_usd: 0,
-    weekly_usage_usd: 0,
-    monthly_usage_usd: 0,
-    ...over,
-  } as PlatformQuotaItem
-}
-
-function mountStats(stats: UserStatsType, platformQuotas: PlatformQuotaItem[] | null = null, isSimple = false) {
+function mountStats(stats: UserStatsType, isSimple = false) {
   return mount(UserDashboardStats, {
-    props: { stats, balance: 0, isSimple, platformQuotas },
+    props: { stats, balance: 0, isSimple },
     global: { stubs: { Icon: true } },
   })
 }
@@ -82,45 +69,11 @@ function cardPlatforms(w: VueWrapper): string[] {
 }
 
 describe('UserDashboardStats 按平台拆分', () => {
-  it('只有用量的平台才产生卡片；三档全空的限额记录不产生卡片', () => {
+  it('只有用量的平台才产生卡片', () => {
     const w = mountStats(
-      makeStats({ total_actual_cost: 0.03, today_actual_cost: 0.03, by_platform: [usage('grok', 0.03)] }),
-      [
-        quota({ platform: 'anthropic' }),
-        quota({ platform: 'openai' }),
-        quota({ platform: 'gemini' }),
-        quota({ platform: 'grok' }),
-      ]
+      makeStats({ total_actual_cost: 0.03, today_actual_cost: 0.03, by_platform: [usage('grok', 0.03)] })
     )
     expect(cardPlatforms(w)).toEqual(['grok'])
-    expect(w.text()).toContain('dashboard.platformCount:{"count":1}')
-    expect(w.html()).not.toContain('dashboard.platformQuota.title')
-  })
-
-  it('配置了限额但没有用量的平台也产生卡片，并渲染配额区', () => {
-    const w = mountStats(
-      makeStats({ total_actual_cost: 0.03, today_actual_cost: 0.03, by_platform: [usage('grok', 0.03)] }),
-      [quota({ platform: 'openai', daily_limit_usd: 10, daily_usage_usd: 2.5 }), quota({ platform: 'anthropic' })]
-    )
-    // 固定顺序：openai 排在 grok 前
-    expect(cardPlatforms(w)).toEqual(['openai', 'grok'])
-    expect(w.text()).toContain('dashboard.platformQuota.title')
-    expect(w.text()).toContain('dashboard.platformCount:{"count":2}')
-  })
-
-  it('同一平台既有用量又有限额只产生一张卡片', () => {
-    const w = mountStats(
-      makeStats({ total_actual_cost: 1, today_actual_cost: 1, by_platform: [usage('openai', 1)] }),
-      [quota({ platform: 'openai', daily_limit_usd: 10, daily_usage_usd: 1 })]
-    )
-    expect(cardPlatforms(w)).toEqual(['openai'])
-    expect(w.text()).toContain('dashboard.platformQuota.title')
-  })
-
-  it('限额为 0 的平台视为已配置，渲染禁用态', () => {
-    const w = mountStats(makeStats(), [quota({ platform: 'gemini', weekly_limit_usd: 0 })])
-    expect(cardPlatforms(w)).toEqual(['gemini'])
-    expect(w.text()).toContain('dashboard.platformQuota.disabled')
     expect(w.text()).toContain('dashboard.platformCount:{"count":1}')
   })
 
@@ -141,14 +94,14 @@ describe('UserDashboardStats 按平台拆分', () => {
     expect(w.text()).toContain('dashboard.platformCount:{"count":1}')
   })
 
-  it('没有任何用量也没有配置限额时不渲染整块', () => {
-    const w = mountStats(makeStats(), [quota({ platform: 'anthropic' }), quota({ platform: 'openai' })])
+  it('没有任何用量时不渲染整块', () => {
+    const w = mountStats(makeStats())
     expect(w.html()).not.toContain('dashboard.platformBreakdown')
     expect(cardPlatforms(w)).toEqual([])
   })
 
   it('简易模式不渲染整块', () => {
-    const w = mountStats(makeStats({ by_platform: [usage('openai', 1)] }), null, true)
+    const w = mountStats(makeStats({ by_platform: [usage('openai', 1)] }), true)
     expect(w.html()).not.toContain('dashboard.platformBreakdown')
   })
 })

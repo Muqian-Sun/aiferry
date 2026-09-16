@@ -112,7 +112,6 @@ func newOAuthEmailFlowAuthService(
 	refreshTokenCache RefreshTokenCache,
 	settings map[string]string,
 	emailCache EmailCache,
-	quotaRepo UserPlatformQuotaRepository, // 新增
 ) *AuthService {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
@@ -143,7 +142,6 @@ func newOAuthEmailFlowAuthService(
 		nil,
 		nil,
 		nil,
-		quotaRepo, // 替换原来的 nil
 	)
 }
 
@@ -177,7 +175,6 @@ func TestRegisterOAuthEmailAccountRollsBackCreatedUserWhenTokenPairGenerationFai
 			SettingKeyEmailVerifyEnabled:    "true",
 		},
 		emailCache,
-		nil,
 	)
 
 	tokenPair, user, err := authService.RegisterOAuthEmailAccount(
@@ -215,7 +212,6 @@ func TestRegisterOAuthEmailAccount_NonWhitelistDomainLimit(t *testing.T) {
 			CreatedAt: time.Now().UTC(),
 			ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
 		}},
-		nil,
 	)
 
 	_, _, err := authService.RegisterOAuthEmailAccount(
@@ -242,7 +238,6 @@ func TestRegisterVerifiedOAuthEmailAccount_NonWhitelistDomainLimit(t *testing.T)
 			SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 		},
 		&emailCacheStub{},
-		nil,
 	)
 
 	_, _, err := authService.RegisterVerifiedOAuthEmailAccount(
@@ -268,7 +263,6 @@ func TestSendPendingOAuthVerifyCode_NonWhitelistDomainLimit(t *testing.T) {
 			SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 		},
 		&emailCacheStub{},
-		nil,
 	)
 
 	_, err := authService.SendPendingOAuthVerifyCode(context.Background(), "second@custom.example")
@@ -287,7 +281,6 @@ func TestSendPendingOAuthVerifyCode_NonWhitelistDomainRejectedWhenQuotaDisabled(
 			SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
 		},
 		&emailCacheStub{},
-		nil,
 	)
 
 	_, err := authService.SendPendingOAuthVerifyCode(context.Background(), "first@custom.example")
@@ -321,7 +314,6 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 			SettingKeyEmailVerifyEnabled:  "true",
 		},
 		emailCache,
-		nil,
 	)
 
 	tokenPair, user, err := authService.RegisterOAuthEmailAccount(
@@ -381,7 +373,6 @@ func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T)
 					SettingKeyEmailVerifyEnabled:  "true",
 				},
 				emailCache,
-				nil,
 			)
 
 			tokenPair, user, err := authService.RegisterOAuthEmailAccount(
@@ -421,7 +412,6 @@ func TestRegisterOAuthEmailAccountFallsBackUnknownSignupSourceToEmail(t *testing
 			SettingKeyEmailVerifyEnabled:  "true",
 		},
 		emailCache,
-		nil,
 	)
 
 	tokenPair, user, err := authService.RegisterOAuthEmailAccount(
@@ -469,7 +459,6 @@ func TestRollbackOAuthEmailAccountCreationRestoresInvitationUsage(t *testing.T) 
 			SettingKeyInvitationCodeEnabled: "true",
 		},
 		&emailCacheStub{},
-		nil,
 	)
 
 	err := authService.RollbackOAuthEmailAccountCreation(context.Background(), 42, "INVITE123")
@@ -492,63 +481,10 @@ func TestRollbackOAuthEmailAccountCreationPropagatesDeleteError(t *testing.T) {
 			SettingKeyRegistrationEnabled: "true",
 		},
 		&emailCacheStub{},
-		nil,
 	)
 
 	err := authService.RollbackOAuthEmailAccountCreation(context.Background(), 42, "")
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "delete created oauth user")
-}
-
-func TestFinalizeOAuthEmailAccount_SnapshotsPlatformQuotaDefaults(t *testing.T) {
-	userRepo := &userRepoStub{nextID: 99}
-	quotaRepo := &userPlatformQuotaRepoStub{}
-
-	authService := newOAuthEmailFlowAuthService(
-		userRepo,
-		nil,
-		&refreshTokenCacheStub{},
-		map[string]string{
-			SettingKeyRegistrationEnabled:   "true",
-			SettingKeyEmailVerifyEnabled:    "true",
-			SettingKeyDefaultPlatformQuotas: `{"anthropic": {"daily": 5.5}}`,
-		},
-		&emailCacheStub{},
-		quotaRepo,
-	)
-
-	user := &User{
-		ID:           99,
-		Email:        "newuser@example.com",
-		Role:         RoleUser,
-		Status:       StatusActive,
-		SignupSource: "oidc",
-	}
-
-	err := authService.FinalizeOAuthEmailAccount(
-		context.Background(),
-		user,
-		"",
-		"oidc",
-		"",
-	)
-
-	require.NoError(t, err)
-
-	require.Len(t, quotaRepo.bulkInsertCalls, 1, "snapshotPlatformQuotaDefaults must call BulkInsertInitial once on successful OAuth signup")
-
-	records := quotaRepo.bulkInsertCalls[0]
-	require.Len(t, records, 1, "only platforms with a configured limit get a row")
-	var anthropicRecord *UserPlatformQuotaRecord
-	for i := range records {
-		if records[i].Platform == "anthropic" {
-			anthropicRecord = &records[i]
-			break
-		}
-	}
-	require.NotNil(t, anthropicRecord, "expected anthropic platform record")
-	require.Equal(t, int64(99), anthropicRecord.UserID)
-	require.NotNil(t, anthropicRecord.DailyLimitUSD)
-	require.InDelta(t, 5.5, *anthropicRecord.DailyLimitUSD, 0.0001)
 }

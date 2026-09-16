@@ -141,7 +141,6 @@ func TestAuthService_Register_InvitationCodeSingleUseUnderConcurrency(t *testing
 		&refreshTokenCacheStub{},
 		settings,
 		nil, // emailCache：注册不要求邮箱验证，保持关闭
-		&userPlatformQuotaRepoStub{},
 	)
 
 	const n = 8
@@ -202,7 +201,6 @@ func TestAuthService_Register_InvitationCodeRejectedWhenAlreadyUsed(t *testing.T
 		&refreshTokenCacheStub{},
 		settings,
 		nil,
-		&userPlatformQuotaRepoStub{},
 	)
 
 	_, _, err := svc.RegisterWithVerification(context.Background(), "later@example.com", "Password123!", "", "", code, "")
@@ -224,7 +222,6 @@ func TestAuthService_Register_InvitationCodeMissingWhenEnabled(t *testing.T) {
 		&refreshTokenCacheStub{},
 		settings,
 		nil,
-		&userPlatformQuotaRepoStub{},
 	)
 
 	_, _, err := svc.RegisterWithVerification(context.Background(), "no-invite@example.com", "Password123!", "", "", "", "")

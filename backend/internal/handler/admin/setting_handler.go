@@ -403,13 +403,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		payload.OpenAIFastPolicySettings = openaiFastPolicySettingsToDTO(fastPolicy)
 	}
 
-	// Default platform quotas（JSON map）
-	if platformQuotas, err := h.settingService.GetDefaultPlatformQuotas(c.Request.Context()); err != nil {
-		slog.Error("default_platform_quotas_get_failed", "error", err)
-	} else {
-		payload.DefaultPlatformQuotas = platformQuotas
-	}
-
 	response.Success(c, systemSettingsResponseData(payload, authSourceDefaults))
 }
 
@@ -521,13 +514,6 @@ func systemSettingsResponseData(settings dto.SystemSettings, authSourceDefaults 
 	data["auth_source_default_google_subscriptions"] = authSourceDefaults.Google.Subscriptions
 	data["auth_source_default_google_grant_on_signup"] = authSourceDefaults.Google.GrantOnSignup
 	data["auth_source_default_google_grant_on_first_bind"] = authSourceDefaults.Google.GrantOnFirstBind
-	data["auth_source_default_email_platform_quotas"] = authSourceDefaults.Email.PlatformQuotas
-	data["auth_source_default_linuxdo_platform_quotas"] = authSourceDefaults.LinuxDo.PlatformQuotas
-	data["auth_source_default_oidc_platform_quotas"] = authSourceDefaults.OIDC.PlatformQuotas
-	data["auth_source_default_wechat_platform_quotas"] = authSourceDefaults.WeChat.PlatformQuotas
-	data["auth_source_default_github_platform_quotas"] = authSourceDefaults.GitHub.PlatformQuotas
-	data["auth_source_default_google_platform_quotas"] = authSourceDefaults.Google.PlatformQuotas
-	data["auth_source_default_dingtalk_platform_quotas"] = authSourceDefaults.DingTalk.PlatformQuotas
 	data["force_email_on_third_party_signup"] = authSourceDefaults.ForceEmailOnThirdPartySignup
 
 	return data
