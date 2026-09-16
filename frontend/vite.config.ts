@@ -77,11 +77,45 @@ function injectPublicSettings(backendUrl: string): Plugin {
   }
 }
 
+type AppName = 'user' | 'admin'
+
+/** 用户站与管理站是两个入口、两份产物；开发端口与后端监听端口一一对应。 */
+const APP_DEFAULTS: Record<AppName, { devPort: number; backendUrl: string }> = {
+  user: { devPort: 3000, backendUrl: 'http://127.0.0.1:8080' },
+  admin: { devPort: 3001, backendUrl: 'http://127.0.0.1:8081' },
+}
+
+function resolveApp(raw: string | undefined): AppName {
+  const value = (raw || 'user').trim()
+  if (value !== 'user' && value !== 'admin') {
+    throw new Error(`VITE_APP must be "user" or "admin", got "${value}"`)
+  }
+  return value
+}
+
+/** index.html 的入口脚本写成占位符，按站点替换；找不到占位符即报错，避免静默打错入口。 */
+function appEntry(app: AppName): Plugin {
+  const placeholder = '/src/apps/__APP__/main.ts'
+  return {
+    name: 'app-entry',
+    transformIndexHtml: {
+      order: 'pre',
+      handler(html) {
+        if (!html.includes(placeholder)) {
+          throw new Error(`index.html is missing the entry placeholder ${placeholder}`)
+        }
+        return html.replace(placeholder, `/src/apps/${app}/main.ts`)
+      }
+    }
+  }
+}
+
 export default defineConfig(({ mode }) => {
   // 加载环境变量
   const env = loadEnv(mode, process.cwd(), '')
-  const backendUrl = env.VITE_DEV_PROXY_TARGET || 'http://localhost:8080'
-  const devPort = Number(env.VITE_DEV_PORT || 3000)
+  const app = resolveApp(env.VITE_APP)
+  const backendUrl = env.VITE_DEV_PROXY_TARGET || APP_DEFAULTS[app].backendUrl
+  const devPort = Number(env.VITE_DEV_PORT || APP_DEFAULTS[app].devPort)
 
   return {
     plugins: [
@@ -89,6 +123,7 @@ export default defineConfig(({ mode }) => {
       checker({
         vueTsc: true
       }),
+      appEntry(app),
       injectPublicSettings(backendUrl)
     ],
   resolve: {
@@ -101,10 +136,12 @@ export default defineConfig(({ mode }) => {
   define: {
     // 启用 vue-i18n JIT 编译，在 CSP 环境下处理消息插值
     // JIT 编译器生成 AST 对象而非 JS 代码，无需 unsafe-eval
-    __INTLIFY_JIT_COMPILATION__: true
+    __INTLIFY_JIT_COMPILATION__: true,
+    // 站点在编译期固定为字面量，另一站点的分支可被整体剪掉
+    'import.meta.env.VITE_APP': JSON.stringify(app)
   },
   build: {
-    outDir: '../backend/internal/web/dist',
+    outDir: `../backend/internal/web/dist/${app}`,
     emptyOutDir: true,
     rollupOptions: {
       output: {
