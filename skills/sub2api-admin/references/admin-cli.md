@@ -97,13 +97,6 @@ node scripts/sub2api-admin.js accounts import-data --file accounts-export.json
 node scripts/sub2api-admin.js accounts import-codex-session --file payload.json
 ```
 
-CRS 同步：
-
-```bash
-node scripts/sub2api-admin.js accounts crs-preview --file payload.json
-node scripts/sub2api-admin.js accounts crs-sync --file payload.json
-```
-
 旧版 JSON 导入仍可用，会把模板账号的配置复制给导入账号：
 
 ```bash
@@ -239,8 +232,6 @@ node scripts/sub2api-admin.js api POST /admin/accounts/bulk-update \
 - `GET /api/v1/admin/accounts/data`
 - `POST /api/v1/admin/accounts/data`
 - `POST /api/v1/admin/accounts/import/codex-session`
-- `POST /api/v1/admin/accounts/sync/crs/preview`
-- `POST /api/v1/admin/accounts/sync/crs`
 - `GET /api/v1/admin/accounts/antigravity/default-model-mapping`
 - `GET /api/v1/admin/groups/all`
 - `GET /api/v1/admin/proxies/all`

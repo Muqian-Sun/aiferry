@@ -39,8 +39,8 @@ func (r *accountBillingSettingsAdminRepo) UpdateWithAccountBillingSettings(
 		return ErrAccountNotFound
 	}
 	updated := *account
-	updated.Credentials = mergeMap(nil, account.Credentials)
-	updated.Extra = mergeMap(nil, account.Extra)
+	updated.Credentials = shallowCopyMap(account.Credentials)
+	updated.Extra = shallowCopyMap(account.Extra)
 	if updated.Extra == nil {
 		updated.Extra = make(map[string]any)
 	}
@@ -474,7 +474,7 @@ func TestUpdateAccountRejectsManualRateWhileRateSyncEnabled(t *testing.T) {
 
 	t.Run("sync enabled rejects manual rate", func(t *testing.T) {
 		accountID := int64(153)
-		repo := newRepo(accountID, mergeMap(nil, syncEnabled))
+		repo := newRepo(accountID, shallowCopyMap(syncEnabled))
 
 		_, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
 			RateMultiplier: &manualRate,
@@ -501,7 +501,7 @@ func TestUpdateAccountRejectsManualRateWhileRateSyncEnabled(t *testing.T) {
 	// 用户显式收回所有权：同一请求关闭同步并改倍率必须放行。
 	t.Run("disabling sync in the same request allows manual rate", func(t *testing.T) {
 		accountID := int64(155)
-		repo := newRepo(accountID, mergeMap(nil, syncEnabled))
+		repo := newRepo(accountID, shallowCopyMap(syncEnabled))
 		disable := false
 
 		updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{

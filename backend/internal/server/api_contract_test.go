@@ -1469,7 +1469,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
 	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil, nil)
-	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	jwtAuth := func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{
@@ -1860,10 +1860,6 @@ func (s *stubAccountRepo) ExistsByID(ctx context.Context, id int64) (bool, error
 	return false, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) GetByCRSAccountID(ctx context.Context, crsAccountID string) (*service.Account, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (s *stubAccountRepo) FindByExtraField(ctx context.Context, key string, value any) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
@@ -2037,10 +2033,6 @@ func (s *stubAccountRepo) ResetQuotaUsedAndClearRateLimitCooldown(ctx context.Co
 func (s *stubAccountRepo) BulkUpdate(ctx context.Context, ids []int64, updates service.AccountBulkUpdate) (int64, error) {
 	s.bulkUpdateIDs = append([]int64{}, ids...)
 	return int64(len(ids)), nil
-}
-
-func (s *stubAccountRepo) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
-	return nil, errors.New("not implemented")
 }
 
 func (s *stubAccountRepo) RevertProxyFallback(ctx context.Context, accountID int64) error {

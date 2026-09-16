@@ -547,7 +547,7 @@ default:
 `config.yaml` では追加のセキュリティ関連オプションも利用できます:
 
 - `cors.allowed_origins` - CORS 許可リスト
-- `security.url_allowlist` - 上流/価格/CRS ホストの許可リスト
+- `security.url_allowlist` - 上流/価格ホストの許可リスト
 - `security.url_allowlist.enabled` - URL バリデーションの無効化（注意して使用）
 - `security.url_allowlist.allow_insecure_http` - バリデーション無効時に HTTP URL を許可
 - `security.url_allowlist.allow_private_hosts` - プライベート/ローカル IP アドレスを許可

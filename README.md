@@ -547,7 +547,7 @@ default:
 Additional security-related options are available in `config.yaml`:
 
 - `cors.allowed_origins` for CORS allowlist
-- `security.url_allowlist` for upstream/pricing/CRS host allowlists
+- `security.url_allowlist` for upstream/pricing host allowlists
 - `security.url_allowlist.enabled` to disable URL validation (use with caution)
 - `security.url_allowlist.allow_insecure_http` to allow HTTP URLs when validation is disabled
 - `security.url_allowlist.allow_private_hosts` to allow private/local IP addresses

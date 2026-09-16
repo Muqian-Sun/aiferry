@@ -82,7 +82,7 @@ func TestAccountHandlerSimpleModeUsesMinimalGroupReferences(t *testing.T) {
 	}
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService(), account: account}
 	svc.accounts = []service.Account{account}
-	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	h.cfg = &config.Config{RunMode: config.RunModeSimple}
 	r := gin.New()
 	r.GET("/accounts", h.List)
@@ -147,7 +147,7 @@ func TestAccountHandlerSimpleModeLitePreservesCompactShapeAndETag(t *testing.T) 
 	}
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService(), account: account}
 	svc.accounts = []service.Account{account}
-	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	h.cfg = &config.Config{RunMode: config.RunModeSimple}
 	r := gin.New()
 	r.GET("/accounts", h.List)
@@ -184,7 +184,7 @@ func TestAccountHandlerSimpleModeRejectsCompositeGroupBindingsBeforeWrites(t *te
 		t.Run(tt.name, func(t *testing.T) {
 			svc := &simpleModeAccountService{stubAdminService: newStubAdminService()}
 			svc.groups = []service.Group{{ID: 7, Platform: service.PlatformAnthropic}, {ID: 9, Platform: service.PlatformComposite}}
-			h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+			h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 			h.cfg = &config.Config{RunMode: config.RunModeSimple}
 			r := gin.New()
 			r.POST("/accounts", h.Create)
@@ -205,7 +205,7 @@ func TestAccountHandlerSimpleModeRejectsCompositeGroupBindingsBeforeWrites(t *te
 func TestAccountHandlerSimpleModePreservesBasicGroupBinding(t *testing.T) {
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService(), account: service.Account{ID: 3}}
 	svc.groups = []service.Group{{ID: 7, Platform: service.PlatformAnthropic}}
-	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	h.cfg = &config.Config{RunMode: config.RunModeSimple}
 	r := gin.New()
 	r.POST("/accounts", h.Create)
@@ -220,7 +220,7 @@ func TestAccountHandlerSimpleModePreservesBasicGroupBinding(t *testing.T) {
 func TestAccountHandlerSimpleModeBatchPrevalidatesAllGroupsAtomically(t *testing.T) {
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService()}
 	svc.groups = []service.Group{{ID: 7, Platform: service.PlatformAnthropic}, {ID: 9, Platform: service.PlatformComposite}}
-	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	h.cfg = &config.Config{RunMode: config.RunModeSimple}
 	r := gin.New()
 	r.POST("/accounts/batch", h.BatchCreate)
@@ -234,7 +234,7 @@ func TestAccountHandlerSimpleModeBatchPrevalidatesAllGroupsAtomically(t *testing
 
 func TestAccountHandlerAdvancedModeKeepsFullGroupReferences(t *testing.T) {
 	group := &service.Group{ID: 7, Name: "advanced", RateMultiplier: 9, SubscriptionType: service.SubscriptionTypeSubscription}
-	h := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	h := NewAccountHandler(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	raw, err := json.Marshal(h.buildAccountResponseWithRuntime(context.Background(), &service.Account{Groups: []*service.Group{group}}))
 	require.NoError(t, err)
 	require.Contains(t, string(raw), `"rate_multiplier":9`)

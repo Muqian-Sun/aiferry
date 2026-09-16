@@ -571,7 +571,7 @@ func TestProxyIdentityUpdateInvalidatesOllamaSnapshotAndRejectsInFlightCAS(t *te
 	require.ErrorIs(t, err, service.ErrOllamaCloudUsageIdentityChanged)
 }
 
-// 无变化的凭证持久化（如 CRS 同步重放同一凭证）不得触发任何 extra 清理；
+// 无变化的凭证持久化（如重复提交同一凭证）不得触发任何 extra 清理；
 // 真实变化仍必须按旧语义清 openai 探测快照。
 func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T) {
 	ctx := context.Background()

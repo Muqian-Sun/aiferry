@@ -73,8 +73,8 @@ func (r *upstreamBillingProbeAccountRepo) GetByID(_ context.Context, id int64) (
 		return nil, ErrAccountNotFound
 	}
 	clone := *account
-	clone.Credentials = mergeMap(nil, account.Credentials)
-	clone.Extra = mergeMap(nil, account.Extra)
+	clone.Credentials = shallowCopyMap(account.Credentials)
+	clone.Extra = shallowCopyMap(account.Extra)
 	return &clone, nil
 }
 
