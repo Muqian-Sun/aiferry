@@ -994,6 +994,9 @@ func (a *Account) GetBaseURL() string {
 	if a.Type != AccountTypeAPIKey {
 		return ""
 	}
+	if endpoint := a.ProtocolEndpoint(APIProtocolAnthropic); endpoint != "" {
+		return endpoint
+	}
 	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return "https://api.anthropic.com"
@@ -1008,6 +1011,9 @@ func (a *Account) GetBaseURL() string {
 // 校验（upstream_models.go）相互矛盾：填根地址则模型同步拒绝，填完整地址则
 // 转发拼成 /antigravity/antigravity。
 func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
+	if endpoint := a.ProtocolEndpoint(APIProtocolGemini); endpoint != "" {
+		return endpoint
+	}
 	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return defaultBaseURL
@@ -1375,6 +1381,9 @@ func (a *Account) IsOpenAIApiKey() bool {
 func (a *Account) GetOpenAIBaseURL() string {
 	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
 		return ""
+	}
+	if endpoint := a.ProtocolEndpoint(APIProtocolChatCompletions); endpoint != "" {
+		return endpoint
 	}
 	if a.IsMultiProtocolAPIKey() && a.IsAdaptiveAPIProtocol() {
 		if baseURLs, ok := a.Credentials["api_base_urls"].(map[string]any); ok {
@@ -3292,4 +3301,14 @@ func (a *Account) QuotaDimensionOrDefault() string {
 		return QuotaDimensionGlobal
 	}
 	return a.QuotaDimension
+}
+
+// GetOpenAIResponsesBaseURL 解析 Responses 端点的上游地址。
+// 协议映射里单独配了 responses 就用它，否则回落到 Chat Completions 的地址——
+// 多数第三方中转两个端点同源，只有少数会把 Responses 放在不同主机上。
+func (a *Account) GetOpenAIResponsesBaseURL() string {
+	if endpoint := a.ProtocolEndpoint(APIProtocolResponses); endpoint != "" {
+		return endpoint
+	}
+	return a.GetOpenAIBaseURL()
 }

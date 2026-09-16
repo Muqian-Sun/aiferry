@@ -64,3 +64,22 @@ func NormalizeProtocolEndpoints(in map[string]string) (map[string]string, error)
 	}
 	return out, nil
 }
+
+// ProtocolEndpoint 返回账号为指定协议配置的上游地址，未配置时返回空串。
+func (a *Account) ProtocolEndpoint(protocol string) string {
+	if a == nil || len(a.ProtocolEndpoints) == 0 {
+		return ""
+	}
+	return strings.TrimSpace(a.ProtocolEndpoints[protocol])
+}
+
+// ProtocolEndpointOr 返回指定协议的上游地址，未配置时回落到 fallback。
+//
+// 这是地址解析从「按平台推导」过渡到「按协议配置」的唯一收口点：配置了就用配置的，
+// 没配置就维持原有行为，因此可以逐个协议切换而不需要一次性迁移全部账号。
+func (a *Account) ProtocolEndpointOr(protocol string, fallback string) string {
+	if endpoint := a.ProtocolEndpoint(protocol); endpoint != "" {
+		return endpoint
+	}
+	return fallback
+}
