@@ -2294,6 +2294,8 @@ type AccountMutation struct {
 	_type                       *string
 	credentials                 *map[string]interface{}
 	extra                       *map[string]interface{}
+	source_kind                 *string
+	protocol_endpoints          *map[string]string
 	proxy_fallback_origin_id    *int64
 	addproxy_fallback_origin_id *int64
 	concurrency                 *int
@@ -2784,6 +2786,91 @@ func (m *AccountMutation) OldExtra(ctx context.Context) (v map[string]interface{
 // ResetExtra resets all changes to the "extra" field.
 func (m *AccountMutation) ResetExtra() {
 	m.extra = nil
+}
+
+// SetSourceKind sets the "source_kind" field.
+func (m *AccountMutation) SetSourceKind(s string) {
+	m.source_kind = &s
+}
+
+// SourceKind returns the value of the "source_kind" field in the mutation.
+func (m *AccountMutation) SourceKind() (r string, exists bool) {
+	v := m.source_kind
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldSourceKind returns the old "source_kind" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldSourceKind(ctx context.Context) (v *string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldSourceKind is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldSourceKind requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldSourceKind: %w", err)
+	}
+	return oldValue.SourceKind, nil
+}
+
+// ClearSourceKind clears the value of the "source_kind" field.
+func (m *AccountMutation) ClearSourceKind() {
+	m.source_kind = nil
+	m.clearedFields[account.FieldSourceKind] = struct{}{}
+}
+
+// SourceKindCleared returns if the "source_kind" field was cleared in this mutation.
+func (m *AccountMutation) SourceKindCleared() bool {
+	_, ok := m.clearedFields[account.FieldSourceKind]
+	return ok
+}
+
+// ResetSourceKind resets all changes to the "source_kind" field.
+func (m *AccountMutation) ResetSourceKind() {
+	m.source_kind = nil
+	delete(m.clearedFields, account.FieldSourceKind)
+}
+
+// SetProtocolEndpoints sets the "protocol_endpoints" field.
+func (m *AccountMutation) SetProtocolEndpoints(value map[string]string) {
+	m.protocol_endpoints = &value
+}
+
+// ProtocolEndpoints returns the value of the "protocol_endpoints" field in the mutation.
+func (m *AccountMutation) ProtocolEndpoints() (r map[string]string, exists bool) {
+	v := m.protocol_endpoints
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldProtocolEndpoints returns the old "protocol_endpoints" field's value of the Account entity.
+// If the Account object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *AccountMutation) OldProtocolEndpoints(ctx context.Context) (v map[string]string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldProtocolEndpoints is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldProtocolEndpoints requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldProtocolEndpoints: %w", err)
+	}
+	return oldValue.ProtocolEndpoints, nil
+}
+
+// ResetProtocolEndpoints resets all changes to the "protocol_endpoints" field.
+func (m *AccountMutation) ResetProtocolEndpoints() {
+	m.protocol_endpoints = nil
 }
 
 // SetProxyID sets the "proxy_id" field.
@@ -4138,7 +4225,7 @@ func (m *AccountMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *AccountMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 33)
 	if m.created_at != nil {
 		fields = append(fields, account.FieldCreatedAt)
 	}
@@ -4165,6 +4252,12 @@ func (m *AccountMutation) Fields() []string {
 	}
 	if m.extra != nil {
 		fields = append(fields, account.FieldExtra)
+	}
+	if m.source_kind != nil {
+		fields = append(fields, account.FieldSourceKind)
+	}
+	if m.protocol_endpoints != nil {
+		fields = append(fields, account.FieldProtocolEndpoints)
 	}
 	if m.proxy != nil {
 		fields = append(fields, account.FieldProxyID)
@@ -4258,6 +4351,10 @@ func (m *AccountMutation) Field(name string) (ent.Value, bool) {
 		return m.Credentials()
 	case account.FieldExtra:
 		return m.Extra()
+	case account.FieldSourceKind:
+		return m.SourceKind()
+	case account.FieldProtocolEndpoints:
+		return m.ProtocolEndpoints()
 	case account.FieldProxyID:
 		return m.ProxyID()
 	case account.FieldProxyFallbackOriginID:
@@ -4329,6 +4426,10 @@ func (m *AccountMutation) OldField(ctx context.Context, name string) (ent.Value,
 		return m.OldCredentials(ctx)
 	case account.FieldExtra:
 		return m.OldExtra(ctx)
+	case account.FieldSourceKind:
+		return m.OldSourceKind(ctx)
+	case account.FieldProtocolEndpoints:
+		return m.OldProtocolEndpoints(ctx)
 	case account.FieldProxyID:
 		return m.OldProxyID(ctx)
 	case account.FieldProxyFallbackOriginID:
@@ -4444,6 +4545,20 @@ func (m *AccountMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetExtra(v)
+		return nil
+	case account.FieldSourceKind:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetSourceKind(v)
+		return nil
+	case account.FieldProtocolEndpoints:
+		v, ok := value.(map[string]string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetProtocolEndpoints(v)
 		return nil
 	case account.FieldProxyID:
 		v, ok := value.(int64)
@@ -4698,6 +4813,9 @@ func (m *AccountMutation) ClearedFields() []string {
 	if m.FieldCleared(account.FieldNotes) {
 		fields = append(fields, account.FieldNotes)
 	}
+	if m.FieldCleared(account.FieldSourceKind) {
+		fields = append(fields, account.FieldSourceKind)
+	}
 	if m.FieldCleared(account.FieldProxyID) {
 		fields = append(fields, account.FieldProxyID)
 	}
@@ -4762,6 +4880,9 @@ func (m *AccountMutation) ClearField(name string) error {
 		return nil
 	case account.FieldNotes:
 		m.ClearNotes()
+		return nil
+	case account.FieldSourceKind:
+		m.ClearSourceKind()
 		return nil
 	case account.FieldProxyID:
 		m.ClearProxyID()
@@ -4842,6 +4963,12 @@ func (m *AccountMutation) ResetField(name string) error {
 		return nil
 	case account.FieldExtra:
 		m.ResetExtra()
+		return nil
+	case account.FieldSourceKind:
+		m.ResetSourceKind()
+		return nil
+	case account.FieldProtocolEndpoints:
+		m.ResetProtocolEndpoints()
 		return nil
 	case account.FieldProxyID:
 		m.ResetProxyID()

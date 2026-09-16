@@ -34,6 +34,10 @@ const (
 	FieldCredentials = "credentials"
 	// FieldExtra holds the string denoting the extra field in the database.
 	FieldExtra = "extra"
+	// FieldSourceKind holds the string denoting the source_kind field in the database.
+	FieldSourceKind = "source_kind"
+	// FieldProtocolEndpoints holds the string denoting the protocol_endpoints field in the database.
+	FieldProtocolEndpoints = "protocol_endpoints"
 	// FieldProxyID holds the string denoting the proxy_id field in the database.
 	FieldProxyID = "proxy_id"
 	// FieldProxyFallbackOriginID holds the string denoting the proxy_fallback_origin_id field in the database.
@@ -140,6 +144,8 @@ var Columns = []string{
 	FieldType,
 	FieldCredentials,
 	FieldExtra,
+	FieldSourceKind,
+	FieldProtocolEndpoints,
 	FieldProxyID,
 	FieldProxyFallbackOriginID,
 	FieldConcurrency,
@@ -204,6 +210,10 @@ var (
 	DefaultCredentials func() map[string]interface{}
 	// DefaultExtra holds the default value on creation for the "extra" field.
 	DefaultExtra func() map[string]interface{}
+	// SourceKindValidator is a validator for the "source_kind" field. It is called by the builders before save.
+	SourceKindValidator func(string) error
+	// DefaultProtocolEndpoints holds the default value on creation for the "protocol_endpoints" field.
+	DefaultProtocolEndpoints func() map[string]string
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
 	DefaultConcurrency int
 	// DefaultPriority holds the default value on creation for the "priority" field.
@@ -289,6 +299,11 @@ func ByPlatform(opts ...sql.OrderTermOption) OrderOption {
 // ByType orders the results by the type field.
 func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
+}
+
+// BySourceKind orders the results by the source_kind field.
+func BySourceKind(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSourceKind, opts...).ToFunc()
 }
 
 // ByProxyID orders the results by the proxy_id field.
