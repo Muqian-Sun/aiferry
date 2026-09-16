@@ -646,7 +646,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
     const baseInput = wrapper
       .findAll('input')
-      .find((candidate) => candidate.attributes('placeholder') === 'https://cloudcode-pa.googleapis.com')
+      .find((candidate) => candidate.attributes('placeholder') === 'https://relay.example.com/antigravity')
     expect(baseInput).toBeDefined()
     await baseInput?.setValue('https://relay.example')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
