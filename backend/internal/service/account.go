@@ -61,6 +61,13 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
+	// SourceKind 账号来源："" / "subscription" / "api_key"。
+	// 空值表示历史数据尚未分类，见 migrations/239。
+	SourceKind string
+	// ProtocolEndpoints 协议 → 上游地址。第三方 key 用它取代按平台推导地址，
+	// 现阶段只做读写打通，尚未参与地址解析。
+	ProtocolEndpoints map[string]string
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64

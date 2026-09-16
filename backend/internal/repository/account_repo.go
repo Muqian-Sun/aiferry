@@ -187,6 +187,8 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
+	builder.SetSourceKind(accountSourceKind(account))
+	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	if account.ParentAccountID != nil {
 		builder.SetParentAccountID(*account.ParentAccountID)
 	}
@@ -604,6 +606,10 @@ func (r *accountRepository) updateLockedAccount(
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
+	// type 可以被改（见上方 SetType），来源维度必须跟着一起改，否则会出现
+	// 「类型是 apikey、来源却是 subscription」这种只在数据里看得出来的错配。
+	builder.SetSourceKind(accountSourceKind(account))
+	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	builder.SetNillableParentAccountID(account.ParentAccountID)
 
 	return builder.Save(ctx)
@@ -3480,7 +3486,26 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
+		SourceKind:              derefString(m.SourceKind),
+		ProtocolEndpoints:       m.ProtocolEndpoints,
 	}
+}
+
+// accountSourceKind 取账号来源维度：调用方显式指定时以其为准，否则按类型推导，
+// 与 migrations/239 的回填口径同源。
+func accountSourceKind(account *service.Account) string {
+	if kind := strings.TrimSpace(account.SourceKind); kind != "" {
+		return kind
+	}
+	return service.DeriveAccountSourceKind(account.Type)
+}
+
+// normalizeProtocolEndpoints 保证写入的是非 nil map，与列上的 NOT NULL DEFAULT '{}' 一致。
+func normalizeProtocolEndpoints(in map[string]string) map[string]string {
+	if in == nil {
+		return map[string]string{}
+	}
+	return in
 }
 
 func normalizeJSONMap(in map[string]any) map[string]any {
