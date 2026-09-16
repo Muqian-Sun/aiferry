@@ -1308,6 +1308,12 @@ func (a *Account) IsAnthropic() bool {
 	return a.Platform == PlatformAnthropic
 }
 
+// IsAntigravity 报告账号是否为 Antigravity 平台。
+// 与 IsAnthropic / IsOpenAI 同语义，均为裸平台判定，不含类型维度。
+func (a *Account) IsAntigravity() bool {
+	return a.Platform == PlatformAntigravity
+}
+
 func (a *Account) IsOpenAIOAuth() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeOAuth
 }
