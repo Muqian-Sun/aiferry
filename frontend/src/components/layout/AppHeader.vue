@@ -24,7 +24,7 @@
       <!-- Right: Announcements + Docs + Language + Subscriptions + Balance + User Dropdown -->
       <div class="flex min-w-0 items-center gap-1 sm:gap-3">
         <!-- Announcement Bell -->
-        <AnnouncementBell v-if="user" />
+        <AnnouncementBell v-if="isUserSite && user" />
 
         <!-- Docs Link -->
         <a
@@ -38,9 +38,9 @@
           <span class="hidden sm:inline">{{ t('nav.docs') }}</span>
         </a>
 
-        <!-- Model Plaza Entry -->
+        <!-- Model Plaza Entry（用户站） -->
         <router-link
-          v-if="user && modelPlazaEnabled"
+          v-if="isUserSite && user && modelPlazaEnabled"
           :to="{ path: '/model-plaza', query: { embedded: '1' } }"
           class="hidden items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-100 hover:text-gray-900 dark:text-dark-400 dark:hover:bg-dark-800 dark:hover:text-white sm:flex"
         >
@@ -52,11 +52,11 @@
         <LocaleSwitcher />
 
         <!-- Subscription Progress (for users with active subscriptions; not mounted at all when the feature is off) -->
-        <SubscriptionProgressMini v-if="user && subscriptionFeatureEnabled" />
+        <SubscriptionProgressMini v-if="isUserSite && user && subscriptionFeatureEnabled" />
 
-        <!-- Balance Display -->
+        <!-- Balance Display（用户站） -->
         <div
-          v-if="user"
+          v-if="isUserSite && user"
           class="group relative hidden items-center gap-2 rounded-xl bg-primary-50 px-3 py-1.5 dark:bg-primary-900/20 sm:flex"
         >
           <svg
@@ -139,8 +139,8 @@
                 <div class="text-xs text-gray-500 dark:text-dark-400">{{ user.email }}</div>
               </div>
 
-              <!-- Balance (mobile only) -->
-              <div class="border-b border-gray-100 px-4 py-2 dark:border-dark-700 sm:hidden">
+              <!-- Balance (mobile only, 用户站) -->
+              <div v-if="isUserSite" class="border-b border-gray-100 px-4 py-2 dark:border-dark-700 sm:hidden">
                 <div class="text-xs text-gray-500 dark:text-dark-400">
                   {{ t('common.balance') }}
                 </div>
@@ -158,13 +158,13 @@
                   {{ t('nav.profile') }}
                 </router-link>
 
-                <router-link to="/keys" @click="closeDropdown" class="dropdown-item">
+                <router-link v-if="isUserSite" to="/keys" @click="closeDropdown" class="dropdown-item">
                   <Icon name="key" size="sm" />
                   {{ t('nav.apiKeys') }}
                 </router-link>
 
                 <a
-                  v-if="authStore.isAdmin"
+                  v-if="!isUserSite"
                   href="https://github.com/Wei-Shaw/sub2api"
                   target="_blank"
                   rel="noopener noreferrer"
@@ -254,7 +254,8 @@ import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore, useOnboardingStore } from '@/stores'
-import { useAdminSettingsStore } from '@/stores/adminSettings'
+import { IS_ADMIN_SITE } from '@/app/site'
+import { getSiteContext } from '@/app/siteContext'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import SubscriptionProgressMini from '@/components/common/SubscriptionProgressMini.vue'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
@@ -269,7 +270,8 @@ const route = useRoute()
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
-const adminSettingsStore = useAdminSettingsStore()
+// 余额、订阅、公告、模型广场、API 密钥都是用户站功能；管理后台不渲染，也就不会请求这些接口
+const isUserSite = !IS_ADMIN_SITE
 const onboardingStore = useOnboardingStore()
 
 const user = computed(() => authStore.user)
@@ -323,9 +325,7 @@ const pageTitle = computed(() => {
   // For custom pages, use the menu item's label instead of generic "自定义页面"
   if (route.name === 'CustomPage') {
     const id = route.params.id as string
-    const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
-    const menuItem = publicItems.find((item) => item.id === id)
-      ?? (authStore.isAdmin ? adminSettingsStore.customMenuItems.find((item) => item.id === id) : undefined)
+    const menuItem = getSiteContext().getCustomMenuItems().find((item) => item.id === id)
     if (menuItem?.label) return menuItem.label
   }
   const titleKey = routeMetaKeys.value.titleKey

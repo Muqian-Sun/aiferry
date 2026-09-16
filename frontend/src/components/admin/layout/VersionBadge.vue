@@ -1,7 +1,6 @@
 <template>
   <div class="relative">
-    <!-- Admin: Full version badge with dropdown -->
-    <template v-if="isAdmin">
+    <!-- 管理后台版本徽标：检查更新、升级、回滚 -->
       <button
         @click="toggleDropdown"
         class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-xs transition-colors"
@@ -628,19 +627,13 @@
           </div>
         </div>
       </transition>
-    </template>
-
-    <!-- Non-admin: Simple static version text -->
-    <span v-else-if="version" class="text-xs text-gray-500 dark:text-dark-400">
-      v{{ version }}
-    </span>
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useAuthStore, useAppStore } from '@/stores'
+import { useAdminVersionStore } from '@/stores/adminVersion'
 import {
   performUpdate,
   restartService,
@@ -661,21 +654,18 @@ const props = defineProps<{
   version?: string
 }>()
 
-const authStore = useAuthStore()
-const appStore = useAppStore()
-
-const isAdmin = computed(() => authStore.isAdmin)
+const versionStore = useAdminVersionStore()
 
 const dropdownOpen = ref(false)
 const dropdownRef = ref<HTMLElement | null>(null)
 
 // Use store's cached version state
-const loading = computed(() => appStore.versionLoading)
-const currentVersion = computed(() => appStore.currentVersion || props.version || '')
-const latestVersion = computed(() => appStore.latestVersion)
-const hasUpdate = computed(() => appStore.hasUpdate)
-const releaseInfo = computed(() => appStore.releaseInfo)
-const buildType = computed(() => appStore.buildType)
+const loading = computed(() => versionStore.versionLoading)
+const currentVersion = computed(() => versionStore.currentVersion || props.version || '')
+const latestVersion = computed(() => versionStore.latestVersion)
+const hasUpdate = computed(() => versionStore.hasUpdate)
+const releaseInfo = computed(() => versionStore.releaseInfo)
+const buildType = computed(() => versionStore.buildType)
 
 // Update process states (local to this component)
 const updating = ref(false)
@@ -740,7 +730,6 @@ function closeDropdown() {
 }
 
 async function refreshVersion(force = true) {
-  if (!isAdmin.value) return
 
   // Reset update states when refreshing
   updateError.value = ''
@@ -748,7 +737,7 @@ async function refreshVersion(force = true) {
   needRestart.value = false
   resetRollbackState()
 
-  await appStore.fetchVersion(force)
+  await versionStore.fetchVersion(force)
 }
 
 async function handleUpdate() {
@@ -764,7 +753,7 @@ async function handleUpdate() {
     updateSuccess.value = true
     needRestart.value = result.need_restart
     // Clear version cache to reflect update completed
-    appStore.clearVersionCache()
+    versionStore.clearVersionCache()
   } catch (error: unknown) {
     const err = error as { response?: { data?: { message?: string } }; message?: string }
     updateError.value = err.response?.data?.message || err.message || t('version.updateFailed')
@@ -783,7 +772,6 @@ function resetRollbackState() {
 }
 
 async function toggleRollbackPanel() {
-  if (!isAdmin.value) return
   rollbackPanelOpen.value = !rollbackPanelOpen.value
   // Source builds only show a hint, no version list to fetch
   if (
@@ -797,7 +785,6 @@ async function toggleRollbackPanel() {
 }
 
 async function loadRollbackVersions() {
-  if (!isAdmin.value) return
   rollbackVersionsLoading.value = true
   rollbackVersionsError.value = ''
   try {
@@ -826,7 +813,6 @@ function formatPublishedAt(publishedAt: string): string {
 }
 
 async function handleRollback() {
-  if (!isAdmin.value) return
   if (rollingBack.value || !selectedRollbackVersion.value) return
 
   rollingBack.value = true
@@ -839,7 +825,7 @@ async function handleRollback() {
     needRestart.value = result.need_restart
     rollbackPanelOpen.value = false
     // Clear version cache so the next check reflects the rolled-back version
-    appStore.clearVersionCache()
+    versionStore.clearVersionCache()
   } catch (error: unknown) {
     const err = error as { response?: { data?: { message?: string } }; message?: string }
     rollbackError.value = err.response?.data?.message || err.message || t('version.rollbackFailed')
@@ -910,10 +896,8 @@ function handleClickOutside(event: MouseEvent) {
 }
 
 onMounted(() => {
-  if (isAdmin.value) {
-    // Use cached version if available, otherwise fetch
-    appStore.fetchVersion(false)
-  }
+  // Use cached version if available, otherwise fetch
+  versionStore.fetchVersion(false)
   document.addEventListener('click', handleClickOutside)
 })
 
