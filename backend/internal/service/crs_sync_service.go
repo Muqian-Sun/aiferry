@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"io"
 	"log/slog"
 	"net/http"
@@ -515,16 +516,17 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				continue
 			}
 			account := &Account{
-				Name:        defaultName(src.Name, src.ID),
-				Platform:    PlatformAnthropic,
-				Type:        AccountTypeAPIKey,
-				Credentials: credentials,
-				Extra:       extra,
-				ProxyID:     proxyID,
-				Concurrency: concurrency,
-				Priority:    priority,
-				Status:      status,
-				Schedulable: src.Schedulable,
+				Name:              defaultName(src.Name, src.ID),
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				Credentials:       credentials,
+				ProtocolEndpoints: protocolEndpointsFromCredentials(PlatformAnthropic, credentials),
+				Extra:             extra,
+				ProxyID:           proxyID,
+				Concurrency:       concurrency,
+				Priority:          priority,
+				Status:            status,
+				Schedulable:       src.Schedulable,
 			}
 			if err := s.accountRepo.Create(ctx, account); err != nil {
 				item.Action = "failed"
@@ -821,16 +823,17 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				continue
 			}
 			account := &Account{
-				Name:        defaultName(src.Name, src.ID),
-				Platform:    PlatformOpenAI,
-				Type:        AccountTypeAPIKey,
-				Credentials: credentials,
-				Extra:       extra,
-				ProxyID:     proxyID,
-				Concurrency: concurrency,
-				Priority:    priority,
-				Status:      status,
-				Schedulable: src.Schedulable,
+				Name:              defaultName(src.Name, src.ID),
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Credentials:       credentials,
+				ProtocolEndpoints: protocolEndpointsFromCredentials(PlatformOpenAI, credentials),
+				Extra:             extra,
+				ProxyID:           proxyID,
+				Concurrency:       concurrency,
+				Priority:          priority,
+				Status:            status,
+				Schedulable:       src.Schedulable,
 			}
 			if err := s.accountRepo.Create(ctx, account); err != nil {
 				item.Action = "failed"
@@ -1081,16 +1084,17 @@ func (s *CRSSyncService) SyncFromCRS(ctx context.Context, input SyncFromCRSInput
 				continue
 			}
 			account := &Account{
-				Name:        defaultName(src.Name, src.ID),
-				Platform:    PlatformGemini,
-				Type:        AccountTypeAPIKey,
-				Credentials: credentials,
-				Extra:       extra,
-				ProxyID:     proxyID,
-				Concurrency: 3,
-				Priority:    clampPriority(src.Priority),
-				Status:      mapCRSStatus(src.IsActive, src.Status),
-				Schedulable: src.Schedulable,
+				Name:              defaultName(src.Name, src.ID),
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				Credentials:       credentials,
+				ProtocolEndpoints: protocolEndpointsFromCredentials(PlatformGemini, credentials),
+				Extra:             extra,
+				ProxyID:           proxyID,
+				Concurrency:       3,
+				Priority:          clampPriority(src.Priority),
+				Status:            mapCRSStatus(src.IsActive, src.Status),
+				Schedulable:       src.Schedulable,
 			}
 			if err := s.accountRepo.Create(ctx, account); err != nil {
 				item.Action = "failed"
@@ -1173,7 +1177,15 @@ func reconcileCRSUpstreamBillingProbeExtra(
 	if existing == nil {
 		return
 	}
-	target := &Account{Platform: targetPlatform, Type: targetType, Credentials: targetCredentials}
+	// 现场拼出的目标账号必须带上协议映射：Ollama Cloud 等判定读的是上游地址，
+	// 而第三方 key 的地址来自协议映射而非 credentials.base_url。少带这一项，
+	// 判定会静默落空——不会报错，只是托管字段悄悄不被保留。
+	target := &Account{
+		Platform:          targetPlatform,
+		Type:              targetType,
+		Credentials:       targetCredentials,
+		ProtocolEndpoints: protocolEndpointsFromCredentials(targetPlatform, targetCredentials),
+	}
 	if IsUpstreamBillingProbeIdentity(targetPlatform, targetType) {
 		probeEnabled := false
 		if enabled, ok := existing.Extra[UpstreamBillingProbeEnabledExtraKey]; ok {
@@ -1585,4 +1597,31 @@ func (s *CRSSyncService) PreviewFromCRS(ctx context.Context, input SyncFromCRSIn
 	}
 
 	return result, nil
+}
+
+// protocolEndpointsFromCredentials 把「平台 + credentials.base_url」这种旧形态
+// 转成协议映射。CRS 同步导入的是对方平台的账号数据，没有协议维度，需要在这里补齐；
+// 缺少 base_url 时按平台官方端点兜底，避免导入出一个没有上游地址的账号。
+func protocolEndpointsFromCredentials(platform string, credentials map[string]any) map[string]string {
+	protocol := DefaultProtocolForPlatform(platform)
+	if protocol == "" {
+		return nil
+	}
+	baseURL := ""
+	if raw, ok := credentials["base_url"].(string); ok {
+		baseURL = strings.TrimRight(strings.TrimSpace(raw), "/")
+	}
+	if baseURL == "" {
+		switch platform {
+		case PlatformAnthropic:
+			baseURL = "https://api.anthropic.com"
+		case PlatformOpenAI:
+			baseURL = "https://api.openai.com"
+		case PlatformGemini:
+			baseURL = geminicli.AIStudioBaseURL
+		default:
+			return nil
+		}
+	}
+	return map[string]string{protocol: baseURL}
 }
