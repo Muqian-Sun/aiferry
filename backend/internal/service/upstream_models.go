@@ -636,7 +636,7 @@ func upstreamModelRegistryBaseURL(account *Account) string {
 	case account.IsAntigravity():
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	default:
-		return strings.TrimSpace(account.GetCredential("base_url"))
+		return account.StoredBaseURL()
 	}
 }
 
@@ -824,7 +824,7 @@ func (s *AccountTestService) buildGrokUpstreamModelsRequest(ctx context.Context,
 			return nil, newUpstreamModelSyncConfigError("No Grok API key is available", nil)
 		}
 
-		baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+		baseURL := account.StoredBaseURL()
 		if baseURL == "" {
 			baseURL = "https://api.x.ai"
 		}
@@ -971,7 +971,7 @@ func (s *AccountTestService) buildAntigravityAPIKeyModelsRequest(ctx context.Con
 		return nil, newUpstreamModelSyncConfigError("No Antigravity API key is available", nil)
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(account.GetCredential("base_url")), "/")
+	baseURL := strings.TrimRight(account.StoredBaseURL(), "/")
 	if baseURL == "" {
 		return nil, newUpstreamModelSyncConfigError("Antigravity API-key base URL is required for upstream model sync", nil)
 	}

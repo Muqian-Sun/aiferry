@@ -73,7 +73,7 @@ func shouldPreserveOpenAIResponsesNoneReasoningEffort(account *Account) bool {
 	if !account.IsOpenAIApiKey() {
 		return false
 	}
-	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	baseURL := account.StoredBaseURL()
 	return baseURL == "" || isOfficialOpenAIModelsBaseURL(baseURL)
 }
 

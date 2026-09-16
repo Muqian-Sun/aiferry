@@ -156,7 +156,7 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 	if account.Type != AccountTypeAPIKey {
 		return false
 	}
-	rawBaseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	rawBaseURL := account.StoredBaseURL()
 	if rawBaseURL == "" {
 		return false
 	}

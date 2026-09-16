@@ -338,6 +338,15 @@ func (a *Account) CanGetUsage() bool {
 	return a.Type == AccountTypeOAuth
 }
 
+// StoredBaseURL 返回账号凭证里存的上游地址，去掉首尾空白。
+//
+// 各处读取 base_url 的写法此前并不统一：多数调用方自己 TrimSpace，少数直接读
+// 凭证或 map。统一入口是为了后续把 base_url 换成「协议 → 地址」的映射表时，
+// 只有一个地方需要改。
+func (a *Account) StoredBaseURL() string {
+	return strings.TrimSpace(a.GetCredential("base_url"))
+}
+
 func (a *Account) GetCredential(key string) string {
 	if a.Credentials == nil {
 		return ""
@@ -992,7 +1001,7 @@ func (a *Account) GetBaseURL() string {
 // 校验（upstream_models.go）相互矛盾：填根地址则模型同步拒绝，填完整地址则
 // 转发拼成 /antigravity/antigravity。
 func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
-	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return defaultBaseURL
 	}
@@ -1368,7 +1377,7 @@ func (a *Account) GetOpenAIBaseURL() string {
 		}
 	}
 	if a.Type == AccountTypeAPIKey || a.Type == AccountTypeUpstream {
-		if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
+		if baseURL := a.StoredBaseURL(); baseURL != "" {
 			return baseURL
 		}
 	}
@@ -1487,7 +1496,7 @@ func (a *Account) GetCNProtocolBaseURL(protocol string) string {
 			}
 		}
 		if protocol == APIProtocolChatCompletions {
-			if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
+			if baseURL := a.StoredBaseURL(); baseURL != "" {
 				return baseURL
 			}
 		}
@@ -1553,7 +1562,7 @@ func (a *Account) GetAnthropicProtocolBaseURL() string {
 		return a.GetCNProtocolBaseURL(APIProtocolAnthropic)
 	}
 	if a.Type == AccountTypeAPIKey || a.Type == AccountTypeUpstream {
-		if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
+		if baseURL := a.StoredBaseURL(); baseURL != "" {
 			return baseURL
 		}
 	}
@@ -1690,7 +1699,7 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 			defaultBaseURL = xai.DefaultBaseURL
 		}
 	}
-	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return defaultBaseURL
 	}
