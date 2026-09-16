@@ -682,7 +682,7 @@ func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, e
 		if err != nil {
 			return "", err
 		}
-		return buildOpenAIEndpointURL(validatedURL, "/v1/alpha/search"), nil
+		return joinUpstreamEndpointURL(validatedURL, "/v1/alpha/search"), nil
 	default:
 		return "", fmt.Errorf("unsupported OpenAI account type: %s", account.Type)
 	}

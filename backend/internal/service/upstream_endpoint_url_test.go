@@ -6,7 +6,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBuildOpenAIEndpointURLPreservesURLComponents(t *testing.T) {
+func TestJoinUpstreamEndpointURLPreservesURLComponents(t *testing.T) {
 	tests := []struct {
 		name     string
 		base     string
@@ -25,7 +25,7 @@ func TestBuildOpenAIEndpointURLPreservesURLComponents(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, buildOpenAIEndpointURL(tt.base, tt.endpoint))
+			require.Equal(t, tt.want, joinUpstreamEndpointURL(tt.base, tt.endpoint))
 		})
 	}
 }

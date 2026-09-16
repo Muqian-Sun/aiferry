@@ -1216,7 +1216,7 @@ func buildV1ModelsURL(base string) string {
 }
 
 func buildOpenAIModelsURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/models")
+	return joinUpstreamEndpointURL(base, "/v1/models")
 }
 
 func buildGeminiModelsURL(base string) string {

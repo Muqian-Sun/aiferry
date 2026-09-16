@@ -248,5 +248,5 @@ func firstPositiveGJSONInt(values ...gjson.Result) int {
 }
 
 func buildOpenAIEmbeddingsURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/embeddings")
+	return joinUpstreamEndpointURL(base, "/v1/embeddings")
 }
