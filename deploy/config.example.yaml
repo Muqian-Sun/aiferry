@@ -14,9 +14,15 @@ server:
   # Bind address (0.0.0.0 for all interfaces)
   # 绑定地址（0.0.0.0 表示监听所有网络接口）
   host: "0.0.0.0"
-  # Port to listen on
-  # 监听端口
+  # Port to listen on (user site: user panel API, model gateway, payments)
+  # 监听端口（用户站：用户面板 API、模型网关、支付）
   port: 8080
+  # Admin console bind address; empty means same as host. Consider an internal address.
+  # 管理后台绑定地址，留空与 host 相同；建议绑定内网地址
+  admin_host: ""
+  # Admin console port; admin pages and admin API are served only here. Must differ from port.
+  # 管理后台端口，管理页面与管理 API 只在这里提供，必须与 port 不同
+  admin_port: 8081
   # Mode: "debug" for development, "release" for production
   # 运行模式："debug" 用于开发，"release" 用于生产环境
   mode: "release"

@@ -2630,3 +2630,22 @@ func TestLoad_DefaultGatewayImageStreamConfig(t *testing.T) {
 		t.Fatalf("image stream timeout = %d, want greater than ordinary stream timeout %d", cfg.Gateway.ImageStreamDataIntervalTimeout, cfg.Gateway.StreamDataIntervalTimeout)
 	}
 }
+
+// TestAdminListenerConfig 管理站是独立监听器：默认 8081，admin_host 留空沿用 host，端口不得与用户站相同。
+func TestAdminListenerConfig(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	cfg, err := Load()
+	require.NoError(t, err)
+	require.Equal(t, 8081, cfg.Server.AdminPort)
+	require.Equal(t, cfg.Server.Host+":8081", cfg.Server.AdminAddress())
+	require.NoError(t, cfg.Validate())
+
+	cfg.Server.AdminHost = "127.0.0.1"
+	require.Equal(t, "127.0.0.1:8081", cfg.Server.AdminAddress())
+
+	cfg.Server.AdminPort = cfg.Server.Port
+	require.ErrorContains(t, cfg.Validate(), "server.admin_port must differ from server.port")
+
+	cfg.Server.AdminPort = 0
+	require.ErrorContains(t, cfg.Validate(), "server.admin_port must be between 1 and 65535")
+}
