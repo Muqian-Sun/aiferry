@@ -42,6 +42,24 @@ func TestGetBaseURL(t *testing.T) {
 			expected: "https://custom.example.com",
 		},
 		{
+			name: "base_url 首尾空白会被去掉",
+			account: Account{
+				Type:        AccountTypeAPIKey,
+				Platform:    PlatformAnthropic,
+				Credentials: map[string]any{"base_url": "  https://custom.example.com  "},
+			},
+			expected: "https://custom.example.com",
+		},
+		{
+			name: "base_url 只有空白视为未配置，回落官方地址",
+			account: Account{
+				Type:        AccountTypeAPIKey,
+				Platform:    PlatformAnthropic,
+				Credentials: map[string]any{"base_url": "   "},
+			},
+			expected: "https://api.anthropic.com",
+		},
+		{
 			name: "antigravity apikey 按填写值原样返回，不补 /antigravity",
 			account: Account{
 				Type:        AccountTypeAPIKey,

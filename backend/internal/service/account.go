@@ -987,7 +987,7 @@ func (a *Account) GetBaseURL() string {
 	if a.Type != AccountTypeAPIKey {
 		return ""
 	}
-	baseURL := a.GetCredential("base_url")
+	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return "https://api.anthropic.com"
 	}

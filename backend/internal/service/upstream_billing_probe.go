@@ -625,7 +625,7 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	if apiKey == "" {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_api_key", 0)
 	}
-	baseURL := account.GetCredential("base_url")
+	baseURL := account.StoredBaseURL()
 	if account.IsCNProvider() && account.IsAdaptiveAPIProtocol() {
 		baseURL = account.GetCNProtocolBaseURL(APIProtocolChatCompletions)
 	}
