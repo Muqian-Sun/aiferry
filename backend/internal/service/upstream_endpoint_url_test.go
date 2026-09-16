@@ -29,3 +29,58 @@ func TestJoinUpstreamEndpointURLPreservesURLComponents(t *testing.T) {
 		})
 	}
 }
+
+// TestJoinAnthropicBetaEndpointURL 固定第三方中转 base_url 的拼接口径。
+// 关键用例是「base_url 末尾带 /v1」：改用统一拼接前会拼成 /v1/v1/messages，
+// 只表现为上游 404，界面上看不出是配置填错。
+func TestJoinAnthropicBetaEndpointURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		base     string
+		endpoint string
+		want     string
+	}{
+		{
+			name:     "官方域名",
+			base:     "https://api.anthropic.com",
+			endpoint: "/v1/messages",
+			want:     "https://api.anthropic.com/v1/messages?beta=true",
+		},
+		{
+			name:     "base 末尾已带 v1",
+			base:     "https://relay.example.com/v1",
+			endpoint: "/v1/messages",
+			want:     "https://relay.example.com/v1/messages?beta=true",
+		},
+		{
+			name:     "base 末尾带 v1 和斜杠",
+			base:     "https://relay.example.com/v1/",
+			endpoint: "/v1/messages",
+			want:     "https://relay.example.com/v1/messages?beta=true",
+		},
+		{
+			name:     "base 带非版本号路径前缀",
+			base:     "https://relay.example.com/claude",
+			endpoint: "/v1/messages",
+			want:     "https://relay.example.com/claude/v1/messages?beta=true",
+		},
+		{
+			name:     "base 自带查询串不会拼出两个问号",
+			base:     "https://relay.example.com?token=abc",
+			endpoint: "/v1/messages",
+			want:     "https://relay.example.com/v1/messages?beta=true&token=abc",
+		},
+		{
+			name:     "count_tokens 端点同样处理 v1 后缀",
+			base:     "https://relay.example.com/v1",
+			endpoint: "/v1/messages/count_tokens",
+			want:     "https://relay.example.com/v1/messages/count_tokens?beta=true",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, joinAnthropicBetaEndpointURL(tt.base, tt.endpoint))
+		})
+	}
+}
