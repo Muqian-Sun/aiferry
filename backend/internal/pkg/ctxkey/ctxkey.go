@@ -20,6 +20,10 @@ const (
 	// CompositeRouteSource 标识 composite 解析结果来自显式路由还是内置模型探测。
 	CompositeRouteSource Key = "ctx_composite_route_source"
 
+	// InboundProtocol 是本次请求的入站协议（anthropic / chat_completions /
+	// responses / gemini），由网关入口按请求路径设置，供调度做协议偏好。
+	InboundProtocol Key = "ctx_inbound_protocol"
+
 	// RequestID 为服务端生成/透传的请求 ID。
 	RequestID Key = "ctx_request_id"
 
