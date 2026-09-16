@@ -6,6 +6,7 @@ import (
 	"log"
 	"log/slog"
 	"net/http"
+	"sync/atomic"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -13,6 +14,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/Wei-Shaw/sub2api/internal/web"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/wire"
@@ -22,12 +24,26 @@ import (
 
 // ProviderSet 提供服务器层的依赖
 var ProviderSet = wire.NewSet(
-	ProvideRouter,
-	ProvideHTTPServer,
+	ProvideRouters,
+	ProvideHTTPServers,
 )
 
-// ProvideRouter 提供路由器
-func ProvideRouter(
+const frameSrcRefreshTimeout = 5 * time.Second
+
+// Routers 是用户站与管理站各自的路由器。两者路由集合互不相交，分别监听不同端口。
+type Routers struct {
+	User  *gin.Engine
+	Admin *gin.Engine
+}
+
+// HTTPServers 是用户站与管理站各自的 HTTP 服务器。
+type HTTPServers struct {
+	User  *http.Server
+	Admin *http.Server
+}
+
+// ProvideRouters 提供用户站与管理站的路由器
+func ProvideRouters(
 	cfg *config.Config,
 	handlers *handler.Handlers,
 	jwtAuth middleware2.JWTAuthMiddleware,
@@ -42,14 +58,10 @@ func ProvideRouter(
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
 	redisClient *redis.Client,
-) *gin.Engine {
+) *Routers {
 	if cfg.Server.Mode == "release" {
 		gin.SetMode(gin.ReleaseMode)
 	}
-
-	r := gin.New()
-	r.Use(middleware2.Recovery())
-	configureTrustedProxies(r, cfg.Server)
 
 	// Wire up websearch Manager builder so it initializes on startup and rebuilds on config save.
 	settingService.SetWebSearchManagerBuilder(context.Background(), func(cfg *service.WebSearchEmulationConfig, proxyURLs map[int64]string) {
@@ -87,7 +99,73 @@ func ProvideRouter(
 		service.SetWebSearchManager(websearch.NewManager(configs, redisClient))
 	})
 
-	return SetupRouter(r, handlers, jwtAuth, optionalJWTAuth, adminAuth, apiKeyAuth, auditLog, stepUpAuth, apiKeyService, subscriptionService, opsService, settingService, compositeResolver, cfg, redisClient)
+	middleware2.SetIngressRejectRecorder(opsService)
+
+	// 缓存 iframe 页面的 origin 列表，用于动态注入 CSP frame-src；两个站点共用。
+	var cachedFrameOrigins atomic.Pointer[[]string]
+	emptyOrigins := []string{}
+	cachedFrameOrigins.Store(&emptyOrigins)
+	refreshFrameOrigins := func() {
+		ctx, cancel := context.WithTimeout(context.Background(), frameSrcRefreshTimeout)
+		defer cancel()
+		origins, err := settingService.GetFrameSrcOrigins(ctx)
+		if err != nil {
+			// 获取失败时保留已有缓存，避免 frame-src 被意外清空
+			return
+		}
+		cachedFrameOrigins.Store(&origins)
+	}
+	refreshFrameOrigins() // 启动时初始化
+	frameOrigins := func() []string {
+		if p := cachedFrameOrigins.Load(); p != nil {
+			return *p
+		}
+		return nil
+	}
+
+	userFrontend, invalidateUser := siteFrontend(web.AppUser, settingService)
+	adminFrontend, invalidateAdmin := siteFrontend(web.AppAdmin, settingService)
+	// 设置回调是覆盖式注册，只能设一次：两个站点的 HTML 缓存与 frame-src 一起刷新。
+	settingService.SetOnUpdateCallback(func() {
+		for _, invalidate := range []func(){invalidateUser, invalidateAdmin} {
+			if invalidate != nil {
+				invalidate()
+			}
+		}
+		refreshFrameOrigins()
+	})
+
+	deps := routeDeps{
+		handlers:            handlers,
+		jwtAuth:             jwtAuth,
+		optionalJWTAuth:     optionalJWTAuth,
+		adminAuth:           adminAuth,
+		apiKeyAuth:          apiKeyAuth,
+		auditLog:            auditLog,
+		stepUpAuth:          stepUpAuth,
+		apiKeyService:       apiKeyService,
+		subscriptionService: subscriptionService,
+		opsService:          opsService,
+		settingService:      settingService,
+		compositeResolver:   compositeResolver,
+		cfg:                 cfg,
+		redisClient:         redisClient,
+	}
+	return &Routers{
+		User:  setupSiteRouter(newEngine(cfg), service.SiteUser, deps, frameOrigins, userFrontend),
+		Admin: setupSiteRouter(newEngine(cfg), service.SiteAdmin, deps, frameOrigins, adminFrontend),
+	}
+}
+
+func newEngine(cfg *config.Config) *gin.Engine {
+	r := gin.New()
+	r.Use(middleware2.Recovery())
+	configureTrustedProxies(r, cfg.Server)
+	return r
+}
+
+func logFrontendFallback(app web.App, err error) {
+	log.Printf("Warning: Failed to create %s frontend server with settings injection: %v, using legacy mode", app, err)
 }
 
 func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {
@@ -109,11 +187,18 @@ func configureTrustedProxies(r *gin.Engine, cfg config.ServerConfig) {
 	}
 }
 
-// ProvideHTTPServer 提供 HTTP 服务器
-func ProvideHTTPServer(cfg *config.Config, router *gin.Engine) *http.Server {
+// ProvideHTTPServers 提供用户站与管理站的 HTTP 服务器，分别监听 server.port 与 server.admin_port。
+func ProvideHTTPServers(cfg *config.Config, routers *Routers) *HTTPServers {
+	return &HTTPServers{
+		User:  newHTTPServer(cfg, cfg.Server.Address(), routers.User),
+		Admin: newHTTPServer(cfg, cfg.Server.AdminAddress(), routers.Admin),
+	}
+}
+
+func newHTTPServer(cfg *config.Config, addr string, router *gin.Engine) *http.Server {
 	httpHandler := http.Handler(router)
 	server := &http.Server{
-		Addr:           cfg.Server.Address(),
+		Addr:           addr,
 		Handler:        httpHandler,
 		MaxHeaderBytes: cfg.Server.MaxHeaderBytes,
 		// ReadHeaderTimeout: 读取请求头的超时时间，防止慢速请求头攻击

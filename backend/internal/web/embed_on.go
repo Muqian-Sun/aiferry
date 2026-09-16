@@ -45,8 +45,8 @@ type FrontendServer struct {
 }
 
 // NewFrontendServer creates a new frontend server with settings injection
-func NewFrontendServer(settingsProvider PublicSettingsProvider) (*FrontendServer, error) {
-	distFS, err := fs.Sub(frontendFS, "dist")
+func NewFrontendServer(settingsProvider PublicSettingsProvider, app App) (*FrontendServer, error) {
+	distFS, err := fs.Sub(frontendFS, "dist/"+string(app))
 	if err != nil {
 		return nil, err
 	}
@@ -300,8 +300,8 @@ func replaceNoncePlaceholder(html []byte, nonce string) []byte {
 
 // ServeEmbeddedFrontend returns a middleware for serving embedded frontend
 // This is the legacy function for backward compatibility when no settings provider is available
-func ServeEmbeddedFrontend() gin.HandlerFunc {
-	distFS, err := fs.Sub(frontendFS, "dist")
+func ServeEmbeddedFrontend(app App) gin.HandlerFunc {
+	distFS, err := fs.Sub(frontendFS, "dist/"+string(app))
 	if err != nil {
 		panic("failed to get dist subdirectory: " + err.Error())
 	}
@@ -389,7 +389,7 @@ func serveIndexHTML(c *gin.Context, fsys fs.FS) {
 	c.Abort()
 }
 
-func HasEmbeddedFrontend() bool {
-	_, err := frontendFS.ReadFile("dist/index.html")
+func HasEmbeddedFrontend(app App) bool {
+	_, err := frontendFS.ReadFile("dist/" + string(app) + "/index.html")
 	return err == nil
 }

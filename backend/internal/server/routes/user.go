@@ -8,7 +8,67 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterUserRoutes 注册用户相关路由（需要认证）
+// accountRouteGroup 返回面板登录态接口共用的分组：JWT 认证、后端模式守卫、按用户限流、审计。
+func accountRouteGroup(
+	v1 *gin.RouterGroup,
+	jwtAuth middleware.JWTAuthMiddleware,
+	auditLog middleware.AuditLogMiddleware,
+	settingService *service.SettingService,
+	panelRateLimiter *middleware.PanelRateLimiter,
+) *gin.RouterGroup {
+	authenticated := v1.Group("")
+	authenticated.Use(gin.HandlerFunc(jwtAuth))
+	authenticated.Use(middleware.BackendModeUserGuard(settingService))
+	// 面板全局按用户限流：防止单个账号高频刷接口打爆数据库
+	authenticated.Use(panelRateLimiter.Global())
+	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
+	authenticated.Use(gin.HandlerFunc(auditLog))
+	return authenticated
+}
+
+// RegisterAccountSecurityRoutes 注册账号资料与安全路由，用户站与管理站共用。
+//
+// 管理员同样要改密码、配置双因素；管理接口的 step-up 校验也依赖 /user/totp/step-up。
+func RegisterAccountSecurityRoutes(
+	v1 *gin.RouterGroup,
+	h *handler.Handlers,
+	jwtAuth middleware.JWTAuthMiddleware,
+	auditLog middleware.AuditLogMiddleware,
+	settingService *service.SettingService,
+	panelRateLimiter *middleware.PanelRateLimiter,
+) {
+	authenticated := accountRouteGroup(v1, jwtAuth, auditLog, settingService, panelRateLimiter)
+	user := authenticated.Group("/user")
+	{
+		user.GET("/profile", h.User.GetProfile)
+		user.PUT("/password", h.User.ChangePassword)
+		user.PUT("", h.User.UpdateProfile)
+
+		// TOTP 双因素认证
+		totp := user.Group("/totp")
+		{
+			totp.GET("/status", h.Totp.GetStatus)
+			totp.GET("/verification-method", h.Totp.GetVerificationMethod)
+			totp.POST("/send-code", h.Totp.SendVerifyCode)
+			totp.POST("/setup", h.Totp.InitiateSetup)
+			totp.POST("/enable", h.Totp.Enable)
+			totp.POST("/disable", h.Totp.Disable)
+			// 敏感操作二次验证：授予当前会话一段时间的 step-up 权限
+			totp.POST("/step-up", h.Totp.StepUp)
+		}
+
+		passkeys := user.Group("/passkeys")
+		{
+			passkeys.GET("", h.Passkey.List)
+			passkeys.POST("/register/begin", h.Passkey.BeginRegistration)
+			passkeys.POST("/register/finish", h.Passkey.FinishRegistration)
+			passkeys.PATCH("/:id", h.Passkey.Rename)
+			passkeys.DELETE("/:id", h.Passkey.Delete)
+		}
+	}
+}
+
+// RegisterUserRoutes 注册用户站专属路由（需要认证）。账号安全类路由见 RegisterAccountSecurityRoutes。
 func RegisterUserRoutes(
 	v1 *gin.RouterGroup,
 	h *handler.Handlers,
@@ -17,20 +77,11 @@ func RegisterUserRoutes(
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
-	authenticated := v1.Group("")
-	authenticated.Use(gin.HandlerFunc(jwtAuth))
-	authenticated.Use(middleware.BackendModeUserGuard(settingService))
-	// 面板全局按用户限流：防止单个账号高频刷接口打爆数据库
-	authenticated.Use(panelRateLimiter.Global())
-	// 用户管理面变更类操作入审计（含 TOTP 启用/禁用、step-up 验证、密码修改等安全事件）
-	authenticated.Use(gin.HandlerFunc(auditLog))
+	authenticated := accountRouteGroup(v1, jwtAuth, auditLog, settingService, panelRateLimiter)
 	{
 		// 用户接口
 		user := authenticated.Group("/user")
 		{
-			user.GET("/profile", h.User.GetProfile)
-			user.PUT("/password", h.User.ChangePassword)
-			user.PUT("", h.User.UpdateProfile)
 			user.GET("/aff", h.User.GetAffiliate)
 			user.POST("/aff/transfer", h.User.TransferAffiliateQuota)
 			user.POST("/account-bindings/email/send-code", h.User.SendEmailBindingCode)
@@ -46,28 +97,6 @@ func RegisterUserRoutes(
 				notifyEmail.POST("/verify", h.User.VerifyNotifyEmail)
 				notifyEmail.PUT("/toggle", h.User.ToggleNotifyEmail)
 				notifyEmail.DELETE("", h.User.RemoveNotifyEmail)
-			}
-
-			// TOTP 双因素认证
-			totp := user.Group("/totp")
-			{
-				totp.GET("/status", h.Totp.GetStatus)
-				totp.GET("/verification-method", h.Totp.GetVerificationMethod)
-				totp.POST("/send-code", h.Totp.SendVerifyCode)
-				totp.POST("/setup", h.Totp.InitiateSetup)
-				totp.POST("/enable", h.Totp.Enable)
-				totp.POST("/disable", h.Totp.Disable)
-				// 敏感操作二次验证：授予当前会话一段时间的 step-up 权限
-				totp.POST("/step-up", h.Totp.StepUp)
-			}
-
-			passkeys := user.Group("/passkeys")
-			{
-				passkeys.GET("", h.Passkey.List)
-				passkeys.POST("/register/begin", h.Passkey.BeginRegistration)
-				passkeys.POST("/register/finish", h.Passkey.FinishRegistration)
-				passkeys.PATCH("/:id", h.Passkey.Rename)
-				passkeys.DELETE("/:id", h.Passkey.Delete)
 			}
 		}
 

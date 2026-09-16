@@ -9,16 +9,13 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// RegisterPaymentRoutes registers all payment-related routes:
-// user-facing endpoints, webhook endpoints, and admin endpoints.
+// RegisterPaymentRoutes registers user-site payment routes: user-facing
+// endpoints, public order lookups, and provider webhooks.
 func RegisterPaymentRoutes(
 	v1 *gin.RouterGroup,
 	paymentHandler *handler.PaymentHandler,
 	webhookHandler *handler.PaymentWebhookHandler,
-	adminPaymentHandler *admin.PaymentHandler,
 	jwtAuth middleware.JWTAuthMiddleware,
-	adminAuth middleware.AdminAuthMiddleware,
-	auditLog middleware.AuditLogMiddleware,
 	settingService *service.SettingService,
 	panelRateLimiter *middleware.PanelRateLimiter,
 ) {
@@ -68,7 +65,16 @@ func RegisterPaymentRoutes(
 		webhook.POST("/airwallex", webhookHandler.AirwallexWebhook)
 	}
 
-	// --- Admin payment endpoints (admin auth) ---
+}
+
+// RegisterAdminPaymentRoutes registers admin-site payment management routes.
+func RegisterAdminPaymentRoutes(
+	v1 *gin.RouterGroup,
+	adminPaymentHandler *admin.PaymentHandler,
+	adminAuth middleware.AdminAuthMiddleware,
+	auditLog middleware.AuditLogMiddleware,
+	settingService *service.SettingService,
+) {
 	adminGroup := v1.Group("/admin/payment")
 	adminGroup.Use(gin.HandlerFunc(adminAuth))
 	adminGroup.Use(gin.HandlerFunc(auditLog))
