@@ -25,6 +25,7 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -123,6 +124,9 @@ func newAccountRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor, schedul
 }
 
 func (r *accountRepository) Create(ctx context.Context, account *service.Account) error {
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
+	}
 	if err := createAccountRecord(ctx, r.client, account); err != nil {
 		return err
 	}
@@ -209,6 +213,9 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 func (r *accountRepository) CreateWithAccountGroups(ctx context.Context, account *service.Account, groups []service.AccountGroup) error {
 	if account == nil {
 		return service.ErrAccountNilInput
+	}
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
 	}
 	tx, err := r.client.Tx(ctx)
 	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
@@ -439,6 +446,9 @@ func (r *accountRepository) ListCRSAccountIDs(ctx context.Context) (map[string]i
 }
 
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
+	}
 	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
 }
 
@@ -626,6 +636,11 @@ func lockAndMergeAccountProbeExtra(
 	if err != nil {
 		return nil, err
 	}
+	// 第三方 key 的上游坐标在 protocol_endpoints 里，换上游必须同样视为身份变化。
+	protocolEndpoints, err := json.Marshal(normalizeProtocolEndpoints(account.ProtocolEndpoints))
+	if err != nil {
+		return nil, err
+	}
 	var proxyID any
 	if account.ProxyID != nil {
 		proxyID = *account.ProxyID
@@ -635,6 +650,7 @@ func lockAndMergeAccountProbeExtra(
 			platform = $2
 			AND type = $3
 			AND credentials = $4::jsonb
+			AND protocol_endpoints = $6::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			COALESCE(
 				platform IN (`+ollamaCloudUsagePlatformsSQL+`)
@@ -642,8 +658,8 @@ func lockAndMergeAccountProbeExtra(
 				AND type = 'apikey'
 				AND $3 = 'apikey'
 				AND credentials -> 'api_key' IS NOT DISTINCT FROM $4::jsonb -> 'api_key'
-				AND `+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+`
-				AND `+ollamaCloudBaseURLMatchesSQL("$4::jsonb ->> 'base_url'")+`,
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb", "$2::text"))+`,
 				false
 			),
 			proxy_id IS NOT DISTINCT FROM $5,
@@ -656,7 +672,7 @@ func lockAndMergeAccountProbeExtra(
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
-	`, account.ID, account.Platform, account.Type, string(credentials), proxyID)
+	`, account.ID, account.Platform, account.Type, string(credentials), proxyID, string(protocolEndpoints))
 	if err != nil {
 		return nil, err
 	}
@@ -830,10 +846,8 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 					AND credentials IS DISTINCT FROM $1::jsonb
 					AND (
 						credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'
-						OR NOT (
-							`+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+`
-							AND `+ollamaCloudBaseURLMatchesSQL("$1::jsonb ->> 'base_url'")+`
-						)
+						-- 本语句不改 protocol_endpoints，上游地址前后相同，只需看本行是否仍是 Ollama。
+						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
 					)
 				THEN COALESCE(extra, '{}'::jsonb)
 					- 'upstream_billing_probe'
@@ -2994,14 +3008,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		idx++
 	}
 
-	ollamaGroupIdentityChanges := make([]string, 0, 2)
+	// 批量更新不改 protocol_endpoints；Ollama 账号必为第三方 key，其 credentials.base_url
+	// 不参与取址，所以组身份只随 api_key 变化。
+	ollamaGroupIdentityChanges := make([]string, 0, 1)
 	if _, ok := updates.Credentials["api_key"]; ok {
 		ollamaGroupIdentityChanges = append(ollamaGroupIdentityChanges, "credentials -> 'api_key' IS DISTINCT FROM "+credentialPlaceholder+"::jsonb -> 'api_key'")
-	}
-	if _, ok := updates.Credentials["base_url"]; ok {
-		ollamaGroupIdentityChanges = append(ollamaGroupIdentityChanges,
-			"NOT ("+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+
-				" AND "+ollamaCloudBaseURLMatchesSQL(credentialPlaceholder+"::jsonb ->> 'base_url'")+")")
 	}
 
 	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" || updates.EnsureCodexFingerprintSeed {
@@ -3489,6 +3500,18 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SourceKind:              derefString(m.SourceKind),
 		ProtocolEndpoints:       m.ProtocolEndpoints,
 	}
+}
+
+// guardProtocolEndpoints 在落库前守住「第三方 key 必须有协议地址」这条不变量。
+//
+// 放在仓储层而不是管理接口，是因为创建账号有六条路径（管理接口、复制、影子、
+// CRS 同步等）。只在接口处校验会留下缺口，而缺口的表现是账号建成功、转发时
+// 才发现没有上游地址。
+func guardProtocolEndpoints(account *service.Account) error {
+	if err := account.ValidateProtocolEndpoints(); err != nil {
+		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
+	}
+	return nil
 }
 
 // accountSourceKind 取账号来源维度：调用方显式指定时以其为准，否则按类型推导，

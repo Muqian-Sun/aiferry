@@ -1220,6 +1220,10 @@ func upstreamBillingProbeIdentity(account *Account) map[string]any {
 			identity[key] = value
 		}
 	}
+	// 第三方 key 的上游坐标在协议映射里；只在非空时放入，避免 nil 与空 map 被 DeepEqual 判成不同。
+	if len(account.ProtocolEndpoints) > 0 {
+		identity["protocol_endpoints"] = account.ProtocolEndpoints
+	}
 	return identity
 }
 
