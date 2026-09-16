@@ -3026,9 +3026,17 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		BaseURL      string            `json:"base_url"`
 		APIKey       string            `json:"api_key" binding:"required"`
 		ModelMapping map[string]string `json:"model_mapping"`
+		// ProtocolEndpoints 与建号接口同一规则：第三方 key 的上游地址只认协议映射，
+		// 预览同步用的临时账号不能例外，否则预览通过、真建号却取不到地址。
+		ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	protocolEndpoints, err := service.NormalizeProtocolEndpoints(req.ProtocolEndpoints)
+	if err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 	modelMapping := make(map[string]any, len(req.ModelMapping))
@@ -3044,6 +3052,7 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 			"base_url":      req.BaseURL,
 			"model_mapping": modelMapping,
 		},
+		ProtocolEndpoints: protocolEndpoints,
 	}
 
 	if h.accountTestService == nil {
@@ -3304,4 +3313,32 @@ func sanitizeExtraBaseRPM(extra map[string]any) {
 		v = 10000
 	}
 	extra["base_rpm"] = v
+}
+
+// GetProtocolDefaults 返回各平台各协议的官方端点地址，供管理端建号时预填。
+//
+// 后端提供而不是前端硬编码：官方端点在转发、探测、测试连接等处都以常量形式存在，
+// 再抄一份到前端就会出现两处需要同步维护的地址表。
+func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
+	platforms := service.PlatformsWithProtocolDefaults()
+	modes := []string{"", service.AccountModeCoding, service.AccountModeZen, service.AccountModeGo}
+	out := make(map[string]map[string]map[string]string, len(platforms))
+	for _, platform := range platforms {
+		perMode := make(map[string]map[string]string, len(modes))
+		for _, mode := range modes {
+			defaults := service.PlatformProtocolDefaults(platform, mode)
+			if len(defaults) == 0 {
+				continue
+			}
+			key := mode
+			if key == "" {
+				key = "default"
+			}
+			perMode[key] = defaults
+		}
+		if len(perMode) > 0 {
+			out[platform] = perMode
+		}
+	}
+	response.Success(c, gin.H{"protocols": service.UpstreamProtocols(), "defaults": out})
 }
