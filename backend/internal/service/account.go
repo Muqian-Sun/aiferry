@@ -982,21 +982,19 @@ func (a *Account) GetBaseURL() string {
 	if baseURL == "" {
 		return "https://api.anthropic.com"
 	}
-	if a.IsAntigravity() {
-		return strings.TrimRight(baseURL, "/") + "/antigravity"
-	}
 	return baseURL
 }
 
 // GetGeminiBaseURL 返回 Gemini 兼容端点的 base URL。
-// Antigravity 平台的 APIKey 账号自动拼接 /antigravity。
+//
+// 地址以管理员填写的为准，不做任何隐式改写。Antigravity 的 API-Key 账号此前
+// 会被自动补 /antigravity 后缀，与「同步上游模型」要求存库地址自带该后缀的
+// 校验（upstream_models.go）相互矛盾：填根地址则模型同步拒绝，填完整地址则
+// 转发拼成 /antigravity/antigravity。
 func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
 	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
 	if baseURL == "" {
 		return defaultBaseURL
-	}
-	if a.IsAntigravity() && a.Type == AccountTypeAPIKey {
-		return strings.TrimRight(baseURL, "/") + "/antigravity"
 	}
 	return baseURL
 }
