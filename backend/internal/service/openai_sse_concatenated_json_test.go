@@ -60,15 +60,16 @@ func TestOpenAIWSv2StreamingRepairsConcatenatedJSONDocumentsInSingleMessage(t *t
 		toolCorrector:    NewCodexToolCorrector(),
 	}
 	account := &Account{
-		ID:          2,
-		Name:        "ws-test",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                2,
+		Name:              "ws-test",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	recorder := httptest.NewRecorder()
@@ -132,15 +133,16 @@ func TestOpenAIWSv2RejectsMalformedEventAfterWritingDownstream(t *testing.T) {
 		toolCorrector:    NewCodexToolCorrector(),
 	}
 	account := &Account{
-		ID:          5,
-		Name:        "ws-malformed-event-after-output",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                5,
+		Name:              "ws-malformed-event-after-output",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	recorder := httptest.NewRecorder()
@@ -195,15 +197,16 @@ func testOpenAIWSv2RejectsMalformedEventBeforeWritingDownstream(t *testing.T, ma
 		toolCorrector:    NewCodexToolCorrector(),
 	}
 	account := &Account{
-		ID:          4,
-		Name:        "ws-malformed-event",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                4,
+		Name:              "ws-malformed-event",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	recorder := httptest.NewRecorder()
@@ -270,15 +273,16 @@ func TestOpenAIWSv2StreamingBreaksConnectionWhenTerminalHasTrailingDocument(t *t
 		toolCorrector:    NewCodexToolCorrector(),
 	}
 	account := &Account{
-		ID:          3,
-		Name:        "ws-terminal-tail",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                3,
+		Name:              "ws-terminal-tail",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	recorder := httptest.NewRecorder()

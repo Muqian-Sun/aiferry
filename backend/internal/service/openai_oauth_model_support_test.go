@@ -104,9 +104,10 @@ func TestIsModelSupported_OpenAIOAuthPassthroughIgnoresLeftoverMapping(t *testin
 
 func TestIsModelSupported_OpenAIAPIKeyEmptyMappingAllowsAll(t *testing.T) {
 	account := &Account{
-		ID:       2,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	// API Key 账号（第三方 OpenAI 兼容上游）可服务任意别名，语义不变。

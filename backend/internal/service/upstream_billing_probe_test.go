@@ -281,6 +281,9 @@ func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
 			"api_key":  "sk-sensitive",
 			"base_url": "https://upstream.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example/v1",
+		},
 		Extra: map[string]any{
 			UpstreamBillingProbeEnabledExtraKey:    true,
 			UpstreamBillingRateSyncEnabledExtraKey: true,
@@ -355,6 +358,9 @@ func TestUpstreamBillingProbeAdaptiveCNUsesChatProtocolBaseURL(t *testing.T) {
 				APIProtocolChatCompletions: "https://chat-relay.example/v1",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://chat-relay.example/v1",
+		},
 		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
@@ -393,6 +399,7 @@ func TestUpstreamBillingProbeSyncsResolvedRateForAllAPIKeyPlatforms(t *testing.T
 					"api_key":  "sk-sensitive",
 					"base_url": "https://upstream.example",
 				},
+				ProtocolEndpoints: map[string]string{DefaultProtocolForPlatform(platform): "https://upstream.example"},
 				Extra: map[string]any{
 					UpstreamBillingProbeEnabledExtraKey:    true,
 					UpstreamBillingRateSyncEnabledExtraKey: true,
@@ -424,7 +431,8 @@ func TestUpstreamBillingProbeOnlyDoesNotChangeAccountRate(t *testing.T) {
 			"api_key":  "sk-sensitive",
 			"base_url": "https://upstream.example",
 		},
-		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		Extra:             map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://upstream.example", APIProtocolResponses: "https://upstream.example"},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	svc := newUpstreamBillingProbeTestService(repo, &upstreamBillingProbeHTTPStub{}, &upstreamBillingProbeSettingRepo{})
@@ -504,6 +512,9 @@ func TestUpstreamBillingProbeKeepsRateWhenDeclarationOutOfSyncRange(t *testing.T
 					"api_key":  "sk-sensitive",
 					"base_url": "https://upstream.example",
 				},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: "https://upstream.example",
+				},
 				Extra: map[string]any{
 					UpstreamBillingProbeEnabledExtraKey:    true,
 					UpstreamBillingRateSyncEnabledExtraKey: true,
@@ -552,6 +563,9 @@ func TestUpstreamBillingProbeWithoutSyncIgnoresUnusableDeclaredRate(t *testing.T
 		Credentials: map[string]any{
 			"api_key":  "sk-sensitive",
 			"base_url": "https://upstream.example",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
 		},
 		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
@@ -605,7 +619,10 @@ func TestUpstreamBillingProbeDiscardsResultWhenIdentityChangesInFlight(t *testin
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-old", "base_url": "https://upstream.example"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &upstreamBillingProbeHTTPStub{beforeResponse: func() {
@@ -737,6 +754,9 @@ func TestUpstreamBillingProbeFailurePreservesLastSuccessAndRetryAfter(t *testing
 		Concurrency:    1,
 		RateMultiplier: &initialRate,
 		Credentials:    map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
 		Extra: map[string]any{
 			UpstreamBillingProbeEnabledExtraKey: true,
 			UpstreamBillingProbeExtraKey:        previous,
@@ -800,7 +820,10 @@ func TestUpstreamBillingProbeUnsupportedBackoffDefersRunnerButNotManualProbe(t *
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-ollama", "base_url": "https://ollama.com/v1"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com/v1",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &upstreamBillingProbeHTTPStub{}
@@ -843,6 +866,9 @@ func TestUpstreamBillingProbeEmptyResponseIsPersistedAsFailure(t *testing.T) {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	svc := newUpstreamBillingProbeTestService(repo, &httpUpstreamRecorder{}, &upstreamBillingProbeSettingRepo{})
@@ -871,6 +897,9 @@ func TestUpstreamBillingProbeUnsupportedAndAccountToggle(t *testing.T) {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
@@ -918,7 +947,10 @@ func TestUpstreamBillingProbeRunnerIsBoundedAndManualProbeIgnoresSwitches(t *tes
 			Status:      StatusActive,
 			Concurrency: 1,
 			Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
-			Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+			ProtocolEndpoints: map[string]string{
+				APIProtocolChatCompletions: "https://upstream.example",
+			},
+			Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: accounts}
@@ -957,7 +989,10 @@ func TestUpstreamBillingProbeRunnerRechecksEnabledAfterDueSelection(t *testing.T
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: false},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: false},
 	}
 	staleDue := *account
 	staleDue.Extra = map[string]any{UpstreamBillingProbeEnabledExtraKey: true}
@@ -993,8 +1028,11 @@ func TestUpstreamBillingProbeNeverDowngradesMissingConfiguredProxyToDirect(t *te
 				Status:      StatusActive,
 				Concurrency: 1,
 				Credentials: map[string]any{"api_key": "sk-sensitive", "base_url": "https://upstream.example"},
-				ProxyID:     &proxyID,
-				Proxy:       tc.proxy,
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: "https://upstream.example",
+				},
+				ProxyID: &proxyID,
+				Proxy:   tc.proxy,
 			}
 			repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 			upstream := &upstreamBillingProbeHTTPStub{}
@@ -1025,7 +1063,10 @@ func TestUpstreamBillingProbeRunnerOnlyScansOnLeader(t *testing.T) {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &upstreamBillingProbeHTTPStub{}
@@ -1086,7 +1127,10 @@ func TestUpstreamBillingProbeFiveInstancesRunOneConcurrentBatch(t *testing.T) {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://127.0.0.1:8080"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "http://127.0.0.1:8080",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	settingsRepo := &upstreamBillingProbeSettingRepo{values: map[string]string{
@@ -1142,6 +1186,9 @@ func TestUpstreamBillingProbeManualBatchesShareConcurrencyLimit(t *testing.T) {
 			Status:      StatusActive,
 			Concurrency: 1,
 			Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://127.0.0.1:8080"},
+			ProtocolEndpoints: map[string]string{
+				APIProtocolChatCompletions: "http://127.0.0.1:8080",
+			},
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: accounts}
@@ -1202,7 +1249,10 @@ func TestUpstreamBillingProbeManualAndScheduledRequestsShareOneNetworkProbe(t *t
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	started := make(chan struct{})
@@ -1246,7 +1296,10 @@ func TestUpstreamBillingProbeScheduledRechecksAfterWaitingForSlot(t *testing.T) 
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example"},
-		Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://upstream.example",
+		},
+		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &upstreamBillingProbeHTTPStub{}
@@ -1278,7 +1331,10 @@ func TestUpstreamBillingProbeLeaderLockCoversStaggeredInstancesInCadenceWindow(t
 			Status:      StatusActive,
 			Concurrency: 1,
 			Credentials: map[string]any{"api_key": "sk-test", "base_url": "http://127.0.0.1:8080"},
-			Extra:       map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+			ProtocolEndpoints: map[string]string{
+				APIProtocolChatCompletions: "http://127.0.0.1:8080",
+			},
+			Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
 		}
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{41: account(41)}}

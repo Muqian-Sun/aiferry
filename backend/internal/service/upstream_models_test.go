@@ -250,6 +250,9 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 			"api_key":  "anthropic-key",
 			"base_url": "https://anthropic.example.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://anthropic.example.com/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "https://anthropic.example.com/v1/models", anthropicReq.URL.String())
@@ -262,6 +265,9 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "ollama-key",
 			"base_url": "https://ollama.com",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com",
 		},
 		Extra: map[string]any{
 			"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
@@ -280,6 +286,9 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 			"api_key":  "openai-key",
 			"base_url": "https://openai.example.com",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://openai.example.com",
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "https://openai.example.com/v1/models", openAIReq.URL.String())
@@ -292,6 +301,7 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 			"api_key":  "xai-key",
 			"base_url": "https://xai.example.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.example.com/v1", APIProtocolResponses: "https://xai.example.com/v1"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "https://xai.example.com/v1/models", grokReq.URL.String())
@@ -304,6 +314,9 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 			"api_key":  "gemini-key",
 			"base_url": "https://generativelanguage.googleapis.com/v1beta",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolGemini: "https://generativelanguage.googleapis.com/v1beta",
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, "https://generativelanguage.googleapis.com/v1beta/models", geminiReq.URL.String())
@@ -315,6 +328,9 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "antigravity-key",
 			"base_url": "https://gateway.example.com/antigravity",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://gateway.example.com/antigravity",
 		},
 	})
 	require.NoError(t, err)
@@ -365,6 +381,9 @@ func TestBuildAntigravityAPIKeyModelsRequestRejectsOfficialCloudCodeBase(t *test
 			"api_key":  "antigravity-key",
 			"base_url": "https://cloudcode-pa.googleapis.com",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://cloudcode-pa.googleapis.com",
+		},
 	})
 	require.Error(t, err)
 
@@ -409,6 +428,9 @@ func TestFetchUpstreamSupportedModelsParsesOpenAIResponse(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "openai-key",
 			"base_url": "https://openai.example.com/v1",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://openai.example.com/v1",
 		},
 	})
 	require.NoError(t, err)
@@ -465,6 +487,9 @@ func TestSyncUpstreamModelCatalogEnrichesOpenCodeIDOnlyListAndPersistsSnapshot(t
 			"header_overrides": map[string]any{
 				"X-Custom-Account-Header": "account-secret",
 			},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://opencode.ai/zen/v1",
 		},
 	}
 
@@ -543,6 +568,9 @@ func TestSyncUpstreamModelCatalogUsesConfiguredModelsWhenListEndpointUnsupported
 				"empty":      "",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	}
 
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
@@ -587,6 +615,9 @@ func TestSyncUpstreamModelCatalogDoesNotUseConfiguredModelsForRealUpstreamFailur
 					"base_url":      "https://provider.example/v1",
 					"model_mapping": map[string]any{"public-glm": "glm-5.3"},
 				},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: "https://provider.example/v1",
+				},
 			})
 			require.Error(t, err)
 			require.Len(t, upstream.requests, 1)
@@ -605,6 +636,9 @@ func TestSyncUpstreamModelCatalogRequiresConfiguredModelsForUnsupportedListEndpo
 	_, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 99, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	})
 	require.Error(t, err)
 	require.Equal(t, http.StatusMethodNotAllowed, upstreamModelSyncStatusCode(err))
@@ -632,6 +666,9 @@ func TestSyncUpstreamModelCatalogPrefersDirectUpstreamMetadata(t *testing.T) {
 	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 92, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1, "complete upstream metadata must not be replaced by a registry fetch")
@@ -670,6 +707,9 @@ func TestSyncUpstreamModelCatalogReplacesSnapshotWhenUpstreamModelsChange(t *tes
 		Credentials: map[string]any{
 			"api_key":  "key",
 			"base_url": "https://provider.example/v1",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
 		},
 	}
 
@@ -710,6 +750,9 @@ func TestSyncUpstreamModelCatalogPersistsExplicitNonReasoningCapability(t *testi
 	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 94, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
@@ -739,6 +782,9 @@ func TestSyncUpstreamModelCatalogClassifiesSnapshotPersistenceFailureAsInternal(
 	_, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 95, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	})
 	require.Error(t, err)
 	var syncErr *UpstreamModelSyncError
@@ -758,6 +804,9 @@ func TestSyncUpstreamModelCatalogDoesNotOverwriteSnapshotWhenRegistryFails(t *te
 	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 93, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://opencode.ai/zen/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://opencode.ai/zen/v1",
+		},
 		Extra: map[string]any{UpstreamModelMetadataExtraKey: map[string]any{
 			"source": "models.dev", "models": map[string]any{"x-preview-f-free": map[string]any{"reasoning": true}},
 		}},
@@ -786,6 +835,9 @@ func TestSyncUpstreamModelCatalogDoesNotPersistPartialMetadataWhenRegistryFails(
 	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 96, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 		Extra: map[string]any{UpstreamModelMetadataExtraKey: map[string]any{
 			"source": "upstream", "models": map[string]any{"partially-described-model": map[string]any{
 				"reasoning": true, "supported_reasoning_levels": []any{"low", "high"},
@@ -850,6 +902,9 @@ func TestSyncUpstreamModelCatalogIgnoresDedicatedMediaModelsForCompleteness(t *t
 				"gpt-image-2": "gpt-image-2",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Empty(t, catalog.Warnings, "media generators must not keep agent capability sync in a failed state")
@@ -883,6 +938,9 @@ func TestFetchUpstreamSupportedModelsUsesConfiguredBodyLimit(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "openai-key",
 			"base_url": "https://openai.example.com/v1",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://openai.example.com/v1",
 		},
 	})
 	require.Error(t, err)
@@ -979,6 +1037,9 @@ func TestSyncUpstreamModelCatalogEnrichesOfficialOpenAIHostWithoutRegistryAPIFie
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Empty(t, catalog.Warnings)
@@ -1040,6 +1101,9 @@ func TestSyncUpstreamModelCatalogPersistsCompleteModelsWhenSomeRemainIncomplete(
 	catalog, err := svc.SyncUpstreamModelCatalog(context.Background(), &Account{
 		ID: 111, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://provider.example/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"complete-model", "incomplete-model"}, catalog.Models)
@@ -1103,6 +1167,9 @@ func TestSyncUpstreamModelCatalogEnrichesConfiguredMappingModelsMissingFromUpstr
 				"gpt-6-astra": "gpt-6-astra",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com/v1",
+		},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []string{"gpt-5.6-sol"}, catalog.Models, "UI model list stays upstream-only")
@@ -1135,6 +1202,9 @@ func TestSyncUpstreamModelCatalogAstraPartialRefreshPreservesKnownCapabilities(t
 	account := &Account{ID: 114, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "test", "base_url": "https://api.openai.com/v1",
 			"model_mapping": map[string]any{"public-model": "mapped-only"}},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com/v1",
+		},
 	}
 	old := UpstreamModelMetadata{ID: "still-listed", ContextWindow: 256000}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{

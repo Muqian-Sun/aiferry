@@ -78,6 +78,7 @@ func TestAccountHandlerSimpleModeUsesMinimalGroupReferences(t *testing.T) {
 			{AccountID: 3, GroupID: 7, Priority: 2, Group: richGroup, Account: &service.Account{ID: 3, Extra: map[string]any{"secret": true}}},
 			{AccountID: 3, GroupID: 9, Priority: 3, Group: historicalComposite},
 		},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService(), account: account}
 	svc.accounts = []service.Account{account}
@@ -141,7 +142,8 @@ func TestAccountHandlerSimpleModeLitePreservesCompactShapeAndETag(t *testing.T) 
 	account := service.Account{
 		ID: 3, Name: "account", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey, Status: service.StatusActive,
 		GroupIDs: []int64{7, 9}, Groups: []*service.Group{richGroup, historicalComposite},
-		AccountGroups: []service.AccountGroup{{AccountID: 3, GroupID: 7, Group: richGroup}, {AccountID: 3, GroupID: 9, Group: historicalComposite}},
+		AccountGroups:     []service.AccountGroup{{AccountID: 3, GroupID: 7, Group: richGroup}, {AccountID: 3, GroupID: 9, Group: historicalComposite}},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	svc := &simpleModeAccountService{stubAdminService: newStubAdminService(), account: account}
 	svc.accounts = []service.Account{account}

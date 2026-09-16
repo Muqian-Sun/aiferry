@@ -72,14 +72,12 @@ func TestAccountTestService_OpenAIImageAPIKeyUsesConfiguredV1BaseURL(t *testing.
 		cfg:          &config.Config{},
 	}
 	account := &Account{
-		ID:       54,
-		Name:     "openai-apikey",
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_key":  "test-api-key",
-			"base_url": "https://image-upstream.example/v1",
-		},
+		ID:                54,
+		Name:              "openai-apikey",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "test-api-key"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://image-upstream.example/v1"},
 	}
 
 	err := svc.testOpenAIImageAPIKey(c, context.Background(), account, "gpt-image-2", "draw a cat")

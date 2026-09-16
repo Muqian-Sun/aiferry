@@ -40,17 +40,17 @@ func (r *fakeCNCheckRepo) ListByPlatform(ctx context.Context, platform string) (
 
 func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
 	kimiActive := Account{ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 	// 已被阈值停调的 coding 账号也要刷新快照（决定是否续停）。
 	kimiPaused := Account{ID: 2, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: false,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 	// 非激活账号跳过。
 	kimiInactive := Account{ID: 3, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusDisabled,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 	zhipuCoding := Account{ID: 4, Platform: PlatformZhipu, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}}
 	minimaxCoding := Account{ID: 5, Platform: PlatformMiniMax, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.minimaxi.com/anthropic", APIProtocolChatCompletions: "https://api.minimaxi.com/v1", APIProtocolResponses: "https://api.minimaxi.com/v1"}}
 
 	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{
 		PlatformKimi:    {kimiActive, kimiPaused, kimiInactive},
@@ -73,7 +73,7 @@ func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
 func TestCNProviderBalanceCheckRunOnceWithoutQuotaService(t *testing.T) {
 	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{
 		PlatformZhipu: {{ID: 4, Platform: PlatformZhipu, Type: AccountTypeAPIKey, Status: StatusActive,
-			Credentials: map[string]any{"account_mode": "coding"}}},
+			Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}}},
 	}}
 	svc := &CNProviderBalanceCheckService{accountRepo: repo, cfg: &config.Config{}}
 	require.NotPanics(t, func() { svc.runOnce() })
@@ -99,13 +99,15 @@ func (r *recordingCNBalanceLoadRepo) GetByID(ctx context.Context, id int64) (*Ac
 func TestCNProviderBalanceCheckRunOnceSkipsOllamaCloudUsageAccounts(t *testing.T) {
 	// 对照组：普通 kimi coding 账号仍进额度探测。
 	kimiCoding := Account{ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": "coding"}}
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 	// ollama.com 挂 kimi：coding 模式不进额度目标。
 	ollamaKimiCoding := Account{ID: 2, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": "coding", "base_url": "https://ollama.com"}}
+		Credentials:       map[string]any{"account_mode": "coding", "base_url": "https://ollama.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"}}
 	// ollama.com 挂 kimi：payg 模式不进 payg 检查队列。
 	ollamaKimiPayg := Account{ID: 3, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true,
-		Credentials: map[string]any{"base_url": "https://ollama.com", "api_key": "sk-ollama"}}
+		Credentials:       map[string]any{"base_url": "https://ollama.com", "api_key": "sk-ollama"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"}}
 
 	loadRepo := &recordingCNBalanceLoadRepo{}
 	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{

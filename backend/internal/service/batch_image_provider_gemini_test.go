@@ -33,15 +33,15 @@ func TestGeminiProvider_SupportsOnlyGeminiAPIKeyWithSecret(t *testing.T) {
 	provider := NewGeminiAPIBatchImageProvider(&fakeGeminiBatchClient{})
 
 	require.True(t, provider.SupportsAccount(geminiAPIKeyAccount("sk-gemini")))
-	require.False(t, provider.SupportsAccount(&Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, Credentials: map[string]any{}}))
+	require.False(t, provider.SupportsAccount(&Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, Credentials: map[string]any{}, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}))
 	require.False(t, provider.SupportsAccount(&Account{Platform: PlatformGemini, Type: AccountTypeOAuth, Credentials: map[string]any{"api_key": "sk"}}))
-	require.False(t, provider.SupportsAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk"}}))
+	require.False(t, provider.SupportsAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}))
 	require.False(t, provider.SupportsAccount(nil))
 }
 
 func TestGeminiProvider_MissingAPIKeyRejected(t *testing.T) {
 	provider := NewGeminiAPIBatchImageProvider(&fakeGeminiBatchClient{})
-	_, err := provider.Submit(context.Background(), nil, &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey}, validGeminiBatchInput())
+	_, err := provider.Submit(context.Background(), nil, &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}, validGeminiBatchInput())
 	require.ErrorIs(t, err, ErrBatchImageProviderMissingAPIKey)
 }
 
@@ -269,9 +269,10 @@ func validGeminiBatchInput() BatchImageInput {
 
 func geminiAPIKeyAccount(apiKey string) *Account {
 	return &Account{
-		Platform:    PlatformGemini,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": apiKey},
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+		Credentials:       map[string]any{"api_key": apiKey},
 	}
 }
 

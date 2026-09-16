@@ -199,6 +199,7 @@ func passthroughArgsFallbackAccount() *Account {
 			"api_key":  "sk-test",
 			"base_url": "http://upstream.example",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example"},
 	}
 }
 

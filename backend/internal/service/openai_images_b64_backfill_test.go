@@ -41,6 +41,9 @@ func b64BackfillAccount(enabled bool) *Account {
 			"api_key":  "sk-test",
 			"base_url": "https://relay.example.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.com/v1",
+		},
 	}
 	if enabled {
 		account.Extra = map[string]any{AccountExtraImagesURLToB64JSON: true}

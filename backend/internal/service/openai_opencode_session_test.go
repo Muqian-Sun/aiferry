@@ -43,6 +43,9 @@ func openCodeSessionTestAccount(baseURL string) *Account {
 			credKeyHeaderOverrideEnabled: true,
 			credKeyHeaderOverrides:       map[string]any{"x-opencode-session": "fixed-account-value"},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: baseURL,
+		},
 	}
 }
 
@@ -132,6 +135,9 @@ func TestApplyOpenCodeSessionHeaderOpenCodeGoAlwaysSetsSession(t *testing.T) {
 		Credentials: map[string]any{
 			"base_url": "https://relay.example.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.com/v1",
+		},
 	}
 	headers := make(http.Header)
 	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://relay.example.com/v1/chat/completions", headers)
@@ -139,7 +145,7 @@ func TestApplyOpenCodeSessionHeaderOpenCodeGoAlwaysSetsSession(t *testing.T) {
 }
 
 func TestApplyOpenCodeSessionHeaderMapsCallerSessionID(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	c := newOpenCodeSessionTestContext(t, "")
 	c.Request.Header.Set("session_id", "conv-from-client")
 	headers := make(http.Header)
@@ -148,7 +154,7 @@ func TestApplyOpenCodeSessionHeaderMapsCallerSessionID(t *testing.T) {
 }
 
 func TestApplyOpenCodeSessionHeaderRejectsControlCharsInPromptCacheKey(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	body := []byte("{\"model\":\"glm-5.3\",\"prompt_cache_key\":\"a\\nb\",\"input\":\"hello\"}")
 	headers := make(http.Header)
 	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://opencode.ai/zen/go/v1/responses", headers, body)
@@ -159,7 +165,7 @@ func TestApplyOpenCodeSessionHeaderRejectsControlCharsInPromptCacheKey(t *testin
 }
 
 func TestApplyOpenCodeSessionHeaderUsesPromptCacheKeyInsteadOfRandomUUID(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	body := []byte(`{"model":"grok-4.6","prompt_cache_key":"kimi-session-42","input":"hello"}`)
 	headers := make(http.Header)
 	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://opencode.ai/zen/go/v1/responses", headers, body)
@@ -172,7 +178,7 @@ func TestApplyOpenCodeSessionHeaderUsesPromptCacheKeyInsteadOfRandomUUID(t *test
 }
 
 func TestApplyOpenCodeSessionHeaderUsesAnthropicMetadataUserID(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	body := []byte(`{"model":"minimax-m3","metadata":{"user_id":"coding-agent-session"},"messages":[{"role":"user","content":"hi"}]}`)
 	headers := make(http.Header)
 	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://opencode.ai/zen/go/v1/messages", headers, body)
@@ -180,7 +186,7 @@ func TestApplyOpenCodeSessionHeaderUsesAnthropicMetadataUserID(t *testing.T) {
 }
 
 func TestApplyOpenCodeSessionHeaderUnwrapsClaudeCodeMetadataSessionJSON(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	body := []byte(`{"model":"claude-sonnet-4","metadata":{"user_id":"{\"session_id\":\"meta-session-xyz\"}"},"messages":[]}`)
 	headers := make(http.Header)
 	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://opencode.ai/zen/go/v1/messages", headers, body)
@@ -188,7 +194,7 @@ func TestApplyOpenCodeSessionHeaderUnwrapsClaudeCodeMetadataSessionJSON(t *testi
 }
 
 func TestApplyOpenCodeSessionHeaderBodyBeatsGeneratedUUIDAndLosesToCallerHeader(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 	body := []byte(`{"prompt_cache_key":"from-body"}`)
 
 	headers := make(http.Header)
@@ -202,7 +208,7 @@ func TestApplyOpenCodeSessionHeaderBodyBeatsGeneratedUUIDAndLosesToCallerHeader(
 }
 
 func TestApplyOpenCodeSessionHeaderUsesRememberedInboundBodyAfterConversion(t *testing.T) {
-	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}}
 
 	c := newOpenCodeSessionTestContext(t, "")
 	rememberOpenCodeInboundBody(c, []byte(`{"model":"gpt-5","prompt_cache_key":"inbound-responses-session","input":"hello"}`))
@@ -267,6 +273,10 @@ func TestOpenCodeSessionForwardedFromPromptCacheKeyWithoutCallerHeader(t *testin
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
 			"base_url": "https://opencode.ai/zen/go/v1",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1",
+			APIProtocolResponses:       "https://opencode.ai/zen/go/v1",
 		},
 	}
 	c := newOpenCodeSessionTestContext(t, "")
@@ -342,6 +352,9 @@ func TestOpenCodeSessionIsNotForwardedToOtherUpstreams(t *testing.T) {
 				Platform:    PlatformOpenAI,
 				Type:        AccountTypeAPIKey,
 				Credentials: map[string]any{"base_url": baseURL},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: baseURL,
+				},
 			}
 			c := newOpenCodeSessionTestContext(t, "private-conversation")
 			req, err := svc.buildUpstreamRequest(context.Background(), c, account, body, "token", false, "", false)

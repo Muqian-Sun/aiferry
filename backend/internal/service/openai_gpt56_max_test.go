@@ -119,7 +119,7 @@ func TestNormalizeOpenAICodexCompactReasoningEffortForAccountScopesCompatibility
 		{
 			name:    "OpenAI API Key compact 保留",
 			path:    "/openai/v1/responses/compact",
-			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+			account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			want:    "max",
 		},
 		{
@@ -167,6 +167,9 @@ func TestOpenAIGatewayServiceForwardPreservesGPT56MaxEffort(t *testing.T) {
 			"api_key":  "sk-test",
 			"base_url": "https://example.com",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://example.com",
+		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
 	rec := httptest.NewRecorder()
@@ -208,6 +211,9 @@ func TestOpenAIGatewayServiceForwardPreservesMappedGPT56MaxEffort(t *testing.T) 
 			"model_mapping": map[string]any{
 				"sol": "gpt-5.6-sol",
 			},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://example.com",
 		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
@@ -354,6 +360,9 @@ func TestOpenAIGatewayServiceForwardAPIKeyRemoteCompactV2PreservesResponsesWire(
 			"compact_model_mapping": map[string]any{
 				"gpt-5.6-sol": "gpt-5.6-sol-openai-compact",
 			},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://example.com/v1",
 		},
 		Extra:       map[string]any{"use_responses_api": true},
 		Status:      StatusActive,

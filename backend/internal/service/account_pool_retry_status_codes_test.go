@@ -23,17 +23,19 @@ func TestGetPoolModeRetryStatusCodes(t *testing.T) {
 		{
 			name: "nil_credentials_returns_nil",
 			account: &Account{
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformOpenAI,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			expected: nil,
 		},
 		{
 			name: "missing_key_returns_nil",
 			account: &Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformOpenAI,
-				Credentials: map[string]any{"pool_mode": true},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformOpenAI,
+				Credentials:       map[string]any{"pool_mode": true},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			expected: nil,
 		},

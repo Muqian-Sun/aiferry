@@ -39,8 +39,8 @@ func TestSchedulerCacheWriteAccountIDsSkipsUnencodableTimes(t *testing.T) {
 	invalidTime := time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)
 
 	accountIDs, err := cache.writeAccountIDs(ctx, []service.Account{
-		{ID: 111, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey},
-		{ID: 112, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime},
+		{ID: 111, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}},
+		{ID: 112, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}},
 	})
 	require.NoError(t, err)
 	require.Equal(t, []int64{111}, accountIDs)
@@ -58,7 +58,7 @@ func TestSchedulerCacheSetAccountClearsUnencodablePayload(t *testing.T) {
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
 
-	account := service.Account{ID: 113, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 113, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 	require.NoError(t, cache.SetAccount(ctx, &account))
 
 	invalidTime := time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -73,7 +73,7 @@ func TestSchedulerCacheSetAccountClearsUnencodablePayload(t *testing.T) {
 func TestSchedulerCacheUpdateLastUsedClearsUnencodablePayload(t *testing.T) {
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
-	account := service.Account{ID: 114, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 114, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 	require.NoError(t, cache.SetAccount(ctx, &account))
 
 	invalidTime := time.Date(10000, time.January, 1, 0, 0, 0, 0, time.UTC)
@@ -97,8 +97,8 @@ func TestSchedulerCacheSnapshotAccountIDReusePreservesPayloadAndMembers(t *testi
 		Extra:       map[string]any{"mixed_scheduling": true},
 		GroupIDs:    []int64{17},
 	}
-	validTwo := service.Account{ID: 702, Name: "second", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
-	invalid := service.Account{ID: 799, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime}
+	validTwo := service.Account{ID: 702, Name: "second", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
+	invalid := service.Account{ID: 799, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 	accounts := []service.Account{validOne, invalid, validTwo, validOne}
 
 	single := service.SchedulerBucket{GroupID: 17, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
@@ -156,8 +156,8 @@ func TestSchedulerCacheSetSnapshotMatchesIDPublishing(t *testing.T) {
 		Extra:       map[string]any{"mixed_scheduling": true},
 		GroupIDs:    []int64{21},
 	}
-	validTwo := service.Account{ID: 722, Name: "second", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
-	invalid := service.Account{ID: 799, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime}
+	validTwo := service.Account{ID: 722, Name: "second", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
+	invalid := service.Account{ID: 799, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ExpiresAt: &invalidTime, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 	accounts := []service.Account{validOne, invalid, validTwo, validOne}
 
 	normal := service.SchedulerBucket{GroupID: 21, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
@@ -586,7 +586,7 @@ func TestSchedulerCacheBucketRetirementFencesWritersAndReopen(t *testing.T) {
 	cache, mr := newSchedulerCacheUnitWithRedis(t)
 	bucket := service.SchedulerBucket{GroupID: 41, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
 	otherBucket := service.SchedulerBucket{GroupID: 42, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
-	account := service.Account{ID: 4101, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 4101, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 
 	token, err := cache.CaptureBucketWriteToken(ctx, bucket)
 	require.NoError(t, err)
@@ -598,7 +598,7 @@ func TestSchedulerCacheBucketRetirementFencesWritersAndReopen(t *testing.T) {
 	require.ErrorIs(t, err, service.ErrSchedulerBucketWriteFenced)
 	_, err = cache.rdb.Get(ctx, schedulerBucketKey(schedulerVersionPrefix, otherBucket)).Result()
 	require.ErrorIs(t, err, redis.Nil)
-	otherAccount := service.Account{ID: 4201, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
+	otherAccount := service.Account{ID: 4201, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 	otherToken, err := cache.CaptureBucketWriteToken(ctx, otherBucket)
 	require.NoError(t, err)
 	require.NoError(t, cache.SetSnapshot(ctx, otherBucket, otherToken, []service.Account{otherAccount}))
@@ -685,7 +685,7 @@ func TestSchedulerCacheActivationIsFencedAfterRetire(t *testing.T) {
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
 	bucket := service.SchedulerBucket{GroupID: 51, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeMixed}
-	account := service.Account{ID: 5101, Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 5101, Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"}}
 
 	token, err := cache.CaptureBucketWriteToken(ctx, bucket)
 	require.NoError(t, err)
@@ -721,7 +721,7 @@ func TestSchedulerCacheConcurrentReopenReturnsSameToken(t *testing.T) {
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
 	bucket := service.SchedulerBucket{GroupID: 53, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeForced}
-	account := service.Account{ID: 5301, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 5301, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}
 
 	oldToken, err := cache.CaptureBucketWriteToken(ctx, bucket)
 	require.NoError(t, err)
@@ -756,7 +756,7 @@ func TestSchedulerCacheReopenExpiresPreviousActiveSnapshot(t *testing.T) {
 	ctx := context.Background()
 	cache, mr := newSchedulerCacheUnitWithRedis(t)
 	bucket := service.SchedulerBucket{GroupID: 52, Platform: service.PlatformGemini, Mode: service.SchedulerModeForced}
-	account := service.Account{ID: 5201, Platform: service.PlatformGemini, Type: service.AccountTypeAPIKey}
+	account := service.Account{ID: 5201, Platform: service.PlatformGemini, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
 
 	oldToken, err := cache.CaptureBucketWriteToken(ctx, bucket)
 	require.NoError(t, err)

@@ -382,9 +382,10 @@ func TestOpenAITokenProvider_WrongPlatform(t *testing.T) {
 func TestOpenAITokenProvider_WrongAccountType(t *testing.T) {
 	provider := NewOpenAITokenProvider(nil, nil, nil)
 	account := &Account{
-		ID:       105,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
+		ID:                105,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	token, err := provider.GetAccessToken(context.Background(), account)

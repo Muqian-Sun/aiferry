@@ -295,8 +295,9 @@ func (s *ollamaUsageHTTPStub) DoWithTLS(req *http.Request, proxyURL string, acco
 func ollamaUsageAccount(id int64) *Account {
 	return &Account{
 		ID: id, Name: fmt.Sprintf("ollama-%d", id), Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"base_url": "https://ollama.com", "api_key": fmt.Sprintf("key-%d", id)},
-		Extra:       map[string]any{}, Status: StatusActive, Schedulable: true, Concurrency: 1,
+		Credentials:       map[string]any{"base_url": "https://ollama.com", "api_key": fmt.Sprintf("key-%d", id)},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"},
+		Extra:             map[string]any{}, Status: StatusActive, Schedulable: true, Concurrency: 1,
 	}
 }
 
@@ -447,6 +448,7 @@ func TestScheduleOllamaCloudUsageActivityOnlyForOllama(t *testing.T) {
 	ollama := ollamaUsageAccount(1)
 	other := ollamaUsageAccount(2)
 	other.Credentials["base_url"] = "https://api.openai.com"
+	other.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.openai.com"}
 
 	scheduleOllamaCloudUsageActivity(deferred, ollama)
 	scheduleOllamaCloudUsageActivity(deferred, other)
@@ -489,7 +491,9 @@ func TestIsOllamaCloudUsageAccountStrictOfficialHost(t *testing.T) {
 		t.Run(test.baseURL+test.platform, func(t *testing.T) {
 			account := ollamaUsageAccount(1)
 			account.Platform = test.platform
+			// 第三方 key 的地址来自协议映射，base_url 仅为历史字段。
 			account.Credentials["base_url"] = test.baseURL
+			account.ProtocolEndpoints = map[string]string{DefaultProtocolForPlatform(test.platform): test.baseURL}
 			require.Equal(t, test.want, IsOllamaCloudUsageAccount(account))
 		})
 	}

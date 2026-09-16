@@ -245,7 +245,8 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
 		},
 		{
 			ID: 3, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"model_mapping": map[string]any{alias: "gpt-5.6-sol"}},
+			Credentials:       map[string]any{"model_mapping": map[string]any{alias: "gpt-5.6-sol"}},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	tests := []struct {
@@ -261,7 +262,7 @@ func TestGatewayModels_UnmappedOpenAIAccountsSupplementMappedModels(t *testing.T
 		},
 		{
 			name:     "unmapped API key account also contributes defaults",
-			accounts: append([]service.Account{{ID: 4, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey}}, accounts[1:]...),
+			accounts: append([]service.Account{{ID: 4, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"}}}, accounts[1:]...),
 			want:     append(openai.DefaultModelIDs(), alias),
 		},
 		{
@@ -1064,6 +1065,7 @@ func TestGatewayModels_AnthropicCustomModelsListIncludesOAuthClaudeAndMappedDeep
 								"deepseek-v4-pro": "deepseek-v4-pro",
 							},
 						},
+						ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 					},
 				},
 			},
@@ -1115,6 +1117,7 @@ func TestGatewayModels_AnthropicCustomModelsListDisabledKeepsMappedModelList(t *
 								"deepseek-v4-pro": "deepseek-v4-pro",
 							},
 						},
+						ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 					},
 				},
 			},

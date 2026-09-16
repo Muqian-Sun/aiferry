@@ -68,6 +68,10 @@ func TestAccountFromServiceShallow_RedactsOllamaCloudManagedExtra(t *testing.T) 
 	src := &service.Account{
 		ID: 9, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "https://ollama.com", "api_key": "secret-key"},
+		// 第三方 key 的上游地址来自协议映射，Ollama Cloud 判定读的是它。
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: "https://ollama.com",
+		},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "ciphertext-secret",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,

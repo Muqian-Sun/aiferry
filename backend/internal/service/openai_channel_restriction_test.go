@@ -163,7 +163,8 @@ func TestIsUpstreamModelRestrictedByChannel_PassthroughMatchesForwardPath(t *tes
 				"gpt-5.4-channel": "gpt-5.4-compact",
 			},
 		},
-		Extra: map[string]any{"openai_passthrough": true},
+		Extra:             map[string]any{"openai_passthrough": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	tests := []struct {
 		name                   string
@@ -233,6 +234,7 @@ func TestIsUpstreamModelRestrictedByChannel_PassthroughFlagWithRawChatFallbackMa
 			"openai_passthrough":         true,
 			"openai_responses_supported": false,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	for _, useCompactModelMapping := range []bool{false, true} {
@@ -284,6 +286,7 @@ func TestIsUpstreamModelRestrictedByChannel_ForwardModelContextMatchesNormalForw
 			"openai_passthrough":         true,
 			"openai_responses_supported": false,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	channelSvc := newTestChannelService(makeStandardRepo(Channel{
 		ID:                 1,

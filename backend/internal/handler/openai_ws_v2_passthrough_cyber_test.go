@@ -41,6 +41,10 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 
 	groupID := int64(4301)
 	account := service.Account{
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: upstreamURL,
+			service.APIProtocolResponses:       upstreamURL,
+		},
 		ID:          9951,
 		Name:        "openai-ws-passthrough-cyber",
 		Platform:    service.PlatformOpenAI,

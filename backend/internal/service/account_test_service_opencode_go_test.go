@@ -21,12 +21,11 @@ func openCodeGoTestAccount(id int64) *Account {
 		Credentials: map[string]any{
 			"api_key":      "sk-opencode-go-test",
 			"api_protocol": APIProtocolAdaptive,
-			"base_url":     "https://opencode.ai/zen/go/v1",
-			"api_base_urls": map[string]any{
-				APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1",
-				APIProtocolAnthropic:       "https://opencode.ai/zen/go",
-				APIProtocolResponses:       "https://opencode.ai/zen/go/v1",
-			},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1",
+			APIProtocolAnthropic:       "https://opencode.ai/zen/go",
+			APIProtocolResponses:       "https://opencode.ai/zen/go/v1",
 		},
 	}
 }

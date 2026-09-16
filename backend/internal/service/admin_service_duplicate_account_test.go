@@ -140,6 +140,7 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 		SessionWindowStart:      &sessionWindowStart,
 		SessionWindowEnd:        &sessionWindowEnd,
 		SessionWindowStatus:     "active",
+		ProtocolEndpoints:       map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	source.Extra[UpstreamBillingProbeEnabledExtraKey] = true
 	source.Extra[UpstreamBillingRateSyncEnabledExtraKey] = true
@@ -252,11 +253,12 @@ func TestDuplicateAccountPreservesUngroupedState(t *testing.T) {
 	repo := newDuplicateAccountRepoStub()
 	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
 	source := &Account{
-		Name:        "ungrouped",
-		Platform:    PlatformAnthropic,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "secret"},
-		GroupIDs:    nil,
+		Name:              "ungrouped",
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "secret"},
+		GroupIDs:          nil,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
 
@@ -280,6 +282,7 @@ func TestDuplicateAccountSimpleModeRejectsCompositeGroupBinding(t *testing.T) {
 	source := &Account{
 		Name: "composite-bound", Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "secret"}, GroupIDs: []int64{9},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
 
@@ -294,12 +297,13 @@ func TestDuplicateAccountAtomicCreateFailureLeavesNoOrphan(t *testing.T) {
 	repo := newDuplicateAccountRepoStub()
 	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
 	source := &Account{
-		Name:          "source",
-		Platform:      PlatformAnthropic,
-		Type:          AccountTypeAPIKey,
-		Credentials:   map[string]any{"api_key": "secret"},
-		GroupIDs:      []int64{7},
-		AccountGroups: []AccountGroup{{GroupID: 7, Priority: 25}},
+		Name:              "source",
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "secret"},
+		GroupIDs:          []int64{7},
+		AccountGroups:     []AccountGroup{{GroupID: 7, Priority: 25}},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
 	repo.atomicCreateErr = errors.New("group binding failed")
@@ -322,10 +326,11 @@ func TestDuplicateAccountReturnsExistingCopyForSameOperationKey(t *testing.T) {
 	repo := newDuplicateAccountRepoStub()
 	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
 	source := &Account{
-		Name:        "source",
-		Platform:    PlatformAnthropic,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "secret"},
+		Name:              "source",
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "secret"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
 

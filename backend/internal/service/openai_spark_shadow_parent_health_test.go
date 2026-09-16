@@ -202,11 +202,12 @@ func TestParentHealthyForShadow(t *testing.T) {
 		// 外审 D:母账号被改成非 OpenAI OAuth(如 apikey)后,透传凭据解析必失败,
 		// 影子应 fail-closed 不进调度候选(即便账号 active、凭据未过期)。
 		apikeyParent := &Account{
-			ID:          100,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
+			ID:                100,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		lookup := func(id int64) *Account {
 			if id == apikeyParent.ID {

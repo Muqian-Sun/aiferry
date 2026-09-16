@@ -24,65 +24,47 @@ func TestGetBaseURL(t *testing.T) {
 			expected: "",
 		},
 		{
-			name: "apikey without base_url returns default anthropic",
+			name: "apikey with configured anthropic endpoint",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAnthropic,
-				Credentials: map[string]any{},
-			},
-			expected: "https://api.anthropic.com",
-		},
-		{
-			name: "apikey with custom base_url",
-			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAnthropic,
-				Credentials: map[string]any{"base_url": "https://custom.example.com"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAnthropic,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://custom.example.com"},
 			},
 			expected: "https://custom.example.com",
 		},
 		{
-			name: "base_url 首尾空白会被去掉",
+			name: "协议地址首尾空白会被去掉",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAnthropic,
-				Credentials: map[string]any{"base_url": "  https://custom.example.com  "},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAnthropic,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "  https://custom.example.com  "},
 			},
 			expected: "https://custom.example.com",
-		},
-		{
-			name: "base_url 只有空白视为未配置，回落官方地址",
-			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAnthropic,
-				Credentials: map[string]any{"base_url": "   "},
-			},
-			expected: "https://api.anthropic.com",
 		},
 		{
 			name: "antigravity apikey 按填写值原样返回，不补 /antigravity",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAntigravity,
-				Credentials: map[string]any{"base_url": "https://upstream.example.com"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAntigravity,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://upstream.example.com"},
 			},
 			expected: "https://upstream.example.com",
 		},
 		{
 			name: "antigravity apikey 已带 /antigravity 不会被重复拼接",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAntigravity,
-				Credentials: map[string]any{"base_url": "https://upstream.example.com/antigravity"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAntigravity,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://upstream.example.com/antigravity"},
 			},
 			expected: "https://upstream.example.com/antigravity",
 		},
 		{
 			name: "antigravity non-apikey returns empty",
 			account: Account{
-				Type:        AccountTypeOAuth,
-				Platform:    PlatformAntigravity,
-				Credentials: map[string]any{"base_url": "https://upstream.example.com"},
+				Type:              AccountTypeOAuth,
+				Platform:          PlatformAntigravity,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://upstream.example.com"},
 			},
 			expected: "",
 		},
@@ -107,38 +89,40 @@ func TestGetGeminiBaseURL(t *testing.T) {
 		expected string
 	}{
 		{
-			name: "apikey without base_url returns default",
+			// 第三方 key 未配 gemini 端点时返回空，由调用方按配置错误处理，
+			// 不再回落官方地址。
+			name: "apikey without gemini endpoint returns empty",
 			account: Account{
 				Type:        AccountTypeAPIKey,
 				Platform:    PlatformGemini,
 				Credentials: map[string]any{},
 			},
-			expected: defaultGeminiURL,
+			expected: "",
 		},
 		{
-			name: "apikey with custom base_url",
+			name: "apikey with configured gemini endpoint",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformGemini,
-				Credentials: map[string]any{"base_url": "https://custom-gemini.example.com"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGemini,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://custom-gemini.example.com"},
 			},
 			expected: "https://custom-gemini.example.com",
 		},
 		{
 			name: "antigravity apikey 按填写值原样返回，不补 /antigravity",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAntigravity,
-				Credentials: map[string]any{"base_url": "https://upstream.example.com"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAntigravity,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://upstream.example.com"},
 			},
 			expected: "https://upstream.example.com",
 		},
 		{
 			name: "antigravity apikey 已带 /antigravity 不会被重复拼接",
 			account: Account{
-				Type:        AccountTypeAPIKey,
-				Platform:    PlatformAntigravity,
-				Credentials: map[string]any{"base_url": "https://upstream.example.com/antigravity"},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformAntigravity,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://upstream.example.com/antigravity"},
 			},
 			expected: "https://upstream.example.com/antigravity",
 		},
@@ -161,12 +145,12 @@ func TestGetGeminiBaseURL(t *testing.T) {
 			expected: defaultGeminiURL,
 		},
 		{
-			name: "nil credentials returns default",
+			name: "nil credentials returns empty for third-party key",
 			account: Account{
 				Type:     AccountTypeAPIKey,
 				Platform: PlatformGemini,
 			},
-			expected: defaultGeminiURL,
+			expected: "",
 		},
 	}
 
@@ -262,13 +246,23 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 			expected: "https://relay.example.com/xai/v1",
 		},
 		{
-			name: "API key without base_url uses official credit-backed API",
+			// 第三方 key 不回落官方端点：没配协议映射就是空，由调用方按缺地址报错。
+			name: "API key without protocol endpoints has no fallback",
 			account: Account{
 				Type:        AccountTypeAPIKey,
 				Platform:    PlatformGrok,
-				Credentials: map[string]any{},
+				Credentials: map[string]any{"base_url": xai.DefaultBaseURL},
 			},
-			expected: xai.DefaultBaseURL,
+			expected: "",
+		},
+		{
+			name: "API key uses its protocol endpoint",
+			account: Account{
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGrok,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok-relay.example.com/v1"},
+			},
+			expected: "https://grok-relay.example.com/v1",
 		},
 	}
 
@@ -376,11 +370,9 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 		{
 			name: "API key retains its configured media API",
 			account: Account{
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGrok,
-				Credentials: map[string]any{
-					"base_url": "https://grok.example.com/v1",
-				},
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGrok,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.com/v1"},
 			},
 			expected: "https://grok.example.com/v1",
 		},

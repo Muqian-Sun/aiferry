@@ -378,9 +378,10 @@ func TestClaudeTokenProvider_WrongPlatform(t *testing.T) {
 func TestClaudeTokenProvider_WrongAccountType(t *testing.T) {
 	provider := NewClaudeTokenProvider(nil, nil, nil)
 	account := &Account{
-		ID:       105,
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
+		ID:                105,
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 
 	token, err := provider.GetAccessToken(context.Background(), account)

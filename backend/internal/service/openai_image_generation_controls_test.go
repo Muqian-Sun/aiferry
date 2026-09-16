@@ -749,5 +749,6 @@ func newOpenAIImageGenerationControlTestAccount() *Account {
 		Credentials: map[string]any{
 			"api_key": "sk-test",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 }

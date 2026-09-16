@@ -141,7 +141,7 @@ func TestAdminService_CreateAccountAllowsCompositeGroupAssignment(t *testing.T) 
 func TestAdminService_UpdateAccountAllowsCompositeGroupAssignment(t *testing.T) {
 	accountRepo := &accountRepoStubForBulkUpdate{
 		getByIDAccounts: map[int64]*Account{
-			7: {ID: 7, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Extra: map[string]any{}},
+			7: {ID: 7, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Extra: map[string]any{}, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 		},
 	}
 	groupRepo := &groupRepoStubForAdmin{

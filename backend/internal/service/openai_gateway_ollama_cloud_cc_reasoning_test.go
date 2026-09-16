@@ -27,6 +27,7 @@ func ollamaCloudRawChatCompletionsTestAccount() *Account {
 			"api_key":  "sk-test",
 			"base_url": "https://ollama.com",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"},
 		Extra: map[string]any{
 			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 		},
@@ -45,6 +46,7 @@ func TestIsOllamaCloudRawChatCompletionsAccount(t *testing.T) {
 		t.Parallel()
 		account := rawChatCompletionsTestAccount()
 		account.Credentials["base_url"] = "https://example.invalid/v1"
+		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://example.invalid/v1"}
 		account.Extra = map[string]any{
 			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 			OllamaCloudUsageSnapshotExtraKey:    map[string]any{"status": "ok"},
@@ -57,6 +59,7 @@ func TestIsOllamaCloudRawChatCompletionsAccount(t *testing.T) {
 		account := rawChatCompletionsTestAccount()
 		account.Name = "DeepSeek"
 		account.Credentials["base_url"] = "https://api.deepseek.com"
+		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
 		account.Extra = map[string]any{
 			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 		}
@@ -67,6 +70,7 @@ func TestIsOllamaCloudRawChatCompletionsAccount(t *testing.T) {
 		t.Parallel()
 		account := rawChatCompletionsTestAccount()
 		account.Credentials["base_url"] = "https://opencode.ai/zen/go/v1"
+		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1"}
 		account.Extra = map[string]any{
 			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 			"opencode_go_usage_auto_refresh":    true,
@@ -162,12 +166,14 @@ func TestApplyOllamaCloudRawChatCompletionsLeavesForeignAccountsUnchanged(t *tes
 	official := rawChatCompletionsTestAccount()
 	official.Name = "DeepSeek"
 	official.Credentials["base_url"] = "https://api.deepseek.com"
+	official.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
 	official.Extra = map[string]any{
 		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 	}
 
 	opencode := rawChatCompletionsTestAccount()
 	opencode.Credentials["base_url"] = "https://opencode.ai/zen/go/v1"
+	opencode.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1"}
 	opencode.Extra = map[string]any{
 		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 		"opencode_go_usage_auto_refresh":    true,

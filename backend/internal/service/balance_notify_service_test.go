@@ -139,6 +139,7 @@ func TestBuildQuotaDims_AllDimensionsReturned(t *testing.T) {
 			"quota_weekly_used":                  300.0,
 			"quota_used":                         1000.0,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 
 	dims := buildQuotaDims(a)
@@ -169,9 +170,10 @@ func TestBuildQuotaDims_AllDimensionsReturned(t *testing.T) {
 func TestBuildQuotaDims_EmptyExtra(t *testing.T) {
 	// Missing fields default to zero/disabled.
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	dims := buildQuotaDims(a)
 	require.Len(t, dims, 3)
@@ -195,6 +197,7 @@ func TestBuildQuotaDimsFromState_UsesStateValues(t *testing.T) {
 			"quota_daily_used":             999.0, // should be ignored
 			"quota_daily_limit":            999.0, // should be ignored
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	state := &AccountQuotaState{
 		DailyUsed:   77.0,

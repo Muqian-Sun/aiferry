@@ -16,7 +16,7 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func adaptiveProtocolTestAccount(platform string, baseURLs map[string]any) *Account {
+func adaptiveProtocolTestAccount(platform string, endpoints map[string]string) *Account {
 	return &Account{
 		ID:          701,
 		Name:        "adaptive-cn",
@@ -24,11 +24,11 @@ func adaptiveProtocolTestAccount(platform string, baseURLs map[string]any) *Acco
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":       "sk-test",
-			"api_protocol":  APIProtocolAdaptive,
-			"account_mode":  AccountModePayG,
-			"api_base_urls": baseURLs,
+			"api_key":      "sk-test",
+			"api_protocol": APIProtocolAdaptive,
+			"account_mode": AccountModePayG,
 		},
+		ProtocolEndpoints: endpoints,
 	}
 }
 
@@ -84,7 +84,7 @@ func TestAdaptiveProtocolRoutesChatCompletionsToNativeChat(t *testing.T) {
 	body := []byte(`{"model":"glm-4.7","messages":[{"role":"user","content":"hello"}],"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 	})
@@ -101,7 +101,7 @@ func TestAdaptiveProtocolRoutesResponsesShapedChatToNativeResponses(t *testing.T
 	body := []byte(`{"model":"deepseek-v4","input":"hello","max_output_tokens":32,"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformDeepseek, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformDeepseek, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 		APIProtocolResponses:       "http://responses.example",
@@ -119,7 +119,7 @@ func TestAdaptiveProtocolConvertsResponsesShapedChatForChatOnlyProvider(t *testi
 	body := []byte(`{"model":"glm-4.7","input":"hello","max_output_tokens":32,"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 	})
@@ -136,7 +136,7 @@ func TestAdaptiveProtocolRoutesKimiResponsesShapedChatToNativeResponses(t *testi
 	body := []byte(`{"model":"k3-256k","input":"hello","max_output_tokens":32,"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 		APIProtocolResponses:       "http://responses.example/v1",
@@ -154,7 +154,7 @@ func TestAdaptiveProtocolRoutesMessagesToNativeAnthropic(t *testing.T) {
 	body := []byte(`{"model":"glm-4.7","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformZhipu, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 	})
@@ -170,7 +170,7 @@ func TestAdaptiveProtocolRoutesKimiResponsesToNativeResponses(t *testing.T) {
 	body := []byte(`{"model":"k3-256k","input":"hello","store":true,"previous_response_id":"resp_old","stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 		APIProtocolResponses:       "http://responses.example/v1",
@@ -190,7 +190,7 @@ func TestAdaptiveProtocolRoutesKimiCodingResponsesToNativeResponses(t *testing.T
 	body := []byte(`{"model":"k3-256k","input":"hello","stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformKimi, map[string]string{
 		APIProtocolChatCompletions: "https://api.kimi.com/coding/v1",
 		APIProtocolAnthropic:       "https://api.kimi.com/coding",
 		APIProtocolResponses:       "https://api.kimi.com/coding/v1",
@@ -208,7 +208,7 @@ func TestAdaptiveProtocolRoutesDeepSeekResponsesToNativeResponses(t *testing.T) 
 	body := []byte(`{"model":"deepseek-v4","input":"hello","max_output_tokens":32,"store":true,"previous_response_id":"resp_old","stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	account := adaptiveProtocolTestAccount(PlatformDeepseek, map[string]any{
+	account := adaptiveProtocolTestAccount(PlatformDeepseek, map[string]string{
 		APIProtocolChatCompletions: "http://chat.example",
 		APIProtocolAnthropic:       "http://anthropic.example",
 		APIProtocolResponses:       "http://responses.example",
@@ -231,7 +231,7 @@ func TestFixedCNChatProtocolOverridesStaleResponsesMode(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			account := adaptiveProtocolTestAccount(PlatformDeepseek, nil)
 			account.Credentials["api_protocol"] = APIProtocolChatCompletions
-			account.Credentials["base_url"] = "http://chat.example"
+			account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "http://chat.example"}
 			account.Extra = map[string]any{
 				openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceResponses),
 			}
@@ -252,7 +252,7 @@ func TestFixedCNResponsesProtocolOverridesStaleChatMode(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			account := adaptiveProtocolTestAccount(PlatformDeepseek, nil)
 			account.Credentials["api_protocol"] = APIProtocolResponses
-			account.Credentials["base_url"] = "http://responses.example"
+			account.ProtocolEndpoints = map[string]string{APIProtocolResponses: "http://responses.example"}
 			account.Extra = map[string]any{
 				openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 			}

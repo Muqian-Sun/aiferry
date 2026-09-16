@@ -316,6 +316,7 @@ func openAIModelNotFoundTempAccount() *Account {
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 }
 

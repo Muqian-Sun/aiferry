@@ -62,3 +62,23 @@ func TestNormalizeProtocolEndpoints(t *testing.T) {
 		require.Error(t, err)
 	})
 }
+
+// TestPlatformProtocolDefaultsCoverRoutedProtocols 固定官方预填与转发路径的一致性：
+// 预填缺了某个协议，按预填建出来的 key 走到该协议时就会报缺地址。
+func TestPlatformProtocolDefaultsCoverRoutedProtocols(t *testing.T) {
+	modes := []string{"", AccountModeCoding, AccountModeGo}
+	for _, platform := range PlatformsWithProtocolDefaults() {
+		for _, mode := range modes {
+			defaults := PlatformProtocolDefaults(platform, mode)
+			require.NotEmptyf(t, defaults, "%s/%s 应有官方预填", platform, mode)
+
+			// 平台默认协议是 PrimaryUpstreamBaseURL 等主地址判断的首选键。
+			require.Containsf(t, defaults, DefaultProtocolForPlatform(platform), "%s/%s 缺默认协议", platform, mode)
+
+			// 支持原生 Responses 的供应商在 adaptive 模式下会按 responses 协议取址。
+			if (&Account{Platform: platform}).SupportsNativeCNResponses() {
+				require.Containsf(t, defaults, APIProtocolResponses, "%s/%s 支持原生 Responses 却未预填", platform, mode)
+			}
+		}
+	}
+}

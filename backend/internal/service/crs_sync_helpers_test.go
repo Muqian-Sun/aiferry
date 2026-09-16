@@ -138,6 +138,8 @@ func TestReconcileCRSUpstreamBillingProbeExtra(t *testing.T) {
 			UpstreamBillingRateSyncEnabledExtraKey: false,
 			UpstreamBillingProbeExtraKey:           map[string]any{"status": "local"},
 		},
+		// CRS 导入的账号由 protocolEndpointsFromCredentials 生成映射，只有平台默认协议一个键。
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://127.0.0.1:8080"},
 	}
 
 	t.Run("same identity keeps local state", func(t *testing.T) {

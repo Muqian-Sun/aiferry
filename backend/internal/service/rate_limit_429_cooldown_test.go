@@ -141,7 +141,7 @@ func TestHandle429_FallbackUsesDefaultSecondsWhenSettingServiceMissing(t *testin
 	cfg := &config.Config{}
 	svc := NewRateLimitService(accountRepo, nil, cfg, nil, nil)
 
-	account := &Account{ID: 44, Platform: PlatformGemini, Type: AccountTypeAPIKey}
+	account := &Account{ID: 44, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
 	before := time.Now()
 	svc.handle429(context.Background(), account, http.Header{}, []byte(`{"error":{"message":"slow down"}}`))
 	after := time.Now()

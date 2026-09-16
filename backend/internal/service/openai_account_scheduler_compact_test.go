@@ -18,24 +18,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactPrefersSupported
 	groupID := int64(91001)
 	accounts := []Account{
 		{
-			ID:          71001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{}, // unknown
+			ID:                71001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{}, // unknown
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          71002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{"openai_compact_supported": true}, // tier=2
+			ID:                71002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{"openai_compact_supported": true}, // tier=2
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -72,24 +74,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactRejectsExplicitl
 	groupID := int64(91002)
 	accounts := []Account{
 		{
-			ID:          71010,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{"openai_compact_mode": OpenAICompactModeForceOff},
+			ID:                71010,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{"openai_compact_mode": OpenAICompactModeForceOff},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          71011,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{"openai_compact_supported": false},
+			ID:                71011,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{"openai_compact_supported": false},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -164,6 +168,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionIgnores
 					"openai_compact_supported":   false,
 					"openai_responses_supported": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}}, advanced)
 
 			selection, err := selectOpenAICompactionSchedulerTestAccount(t, svc, 91007, false)
@@ -189,6 +194,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionAllowsF
 					"openai_compact_mode":        OpenAICompactModeForceOff,
 					"openai_responses_supported": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}}, advanced)
 
 			selection, err := selectOpenAICompactionSchedulerTestAccount(t, svc, 91008, false)
@@ -214,6 +220,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionRequire
 					"openai_compact_mode":        OpenAICompactModeForceOn,
 					"openai_responses_supported": false,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}}, advanced)
 
 			selection, err := selectOpenAICompactionSchedulerTestAccount(t, svc, 91009, false)
@@ -241,6 +248,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCo
 						"openai_compact_supported":   false,
 						"openai_responses_supported": true,
 					},
+					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 				},
 				{
 					ID:          71016,
@@ -253,6 +261,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCo
 						"openai_compact_mode":        OpenAICompactModeForceOff,
 						"openai_responses_supported": true,
 					},
+					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 				},
 			}, advanced)
 
@@ -283,6 +292,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactRequiresResponse
 			"openai_compact_supported":   true,
 			"openai_responses_supported": false,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}}
 	cfg := &config.Config{}
 	cfg.Gateway.Scheduling.LoadBatchEnabled = false
@@ -329,6 +339,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactSkipsChatOnlyAcc
 				"openai_compact_supported":   true,
 				"openai_responses_supported": false,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          71061,
@@ -342,6 +353,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactSkipsChatOnlyAcc
 				"openai_compact_supported":   true,
 				"openai_responses_supported": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -381,24 +393,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactFallsBackToUnkno
 	groupID := int64(91003)
 	accounts := []Account{
 		{
-			ID:          71020,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{"openai_compact_supported": false}, // tier=0
+			ID:                71020,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{"openai_compact_supported": false}, // tier=0
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          71021,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			Extra:       map[string]any{}, // unknown -> tier=1
+			ID:                71021,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			Extra:             map[string]any{}, // unknown -> tier=1
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}

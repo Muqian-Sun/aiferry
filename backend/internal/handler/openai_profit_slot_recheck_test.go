@@ -53,6 +53,7 @@ func profitSlotTestAccount(id int64, rate float64) *service.Account {
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 }
 

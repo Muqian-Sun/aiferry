@@ -121,6 +121,7 @@ func TestCodexContextWindowRegistryEnrichment(t *testing.T) {
 			account.Type = AccountTypeAPIKey
 			account.Credentials["api_key"] = "test-key"
 			account.Credentials["base_url"] = "https://provider.example/v1"
+			account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://provider.example/v1"}
 			upstream := &httpUpstreamRecorder{responses: []*http.Response{
 				{
 					StatusCode: http.StatusOK,

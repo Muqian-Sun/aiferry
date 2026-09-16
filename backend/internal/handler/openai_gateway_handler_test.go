@@ -2185,7 +2185,8 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 				"pool_mode_retry_count":        float64(1),
 				"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
 			},
-			Extra: map[string]any{"openai_passthrough": true},
+			Extra:             map[string]any{"openai_passthrough": true},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 		{
 			ID: 9911, Name: "fallback-api-key", Platform: service.PlatformOpenAI,
@@ -2194,7 +2195,8 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 				"api_key":  "sk-fallback",
 				"base_url": "https://api.example.test",
 			},
-			Extra: map[string]any{"openai_passthrough": true},
+			Extra:             map[string]any{"openai_passthrough": true},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
@@ -2284,7 +2286,8 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 						"pool_mode_retry_count":        float64(1),
 						"pool_mode_retry_status_codes": []any{float64(tt.statusCode)},
 					},
-					Extra: map[string]any{"openai_passthrough": true},
+					Extra:             map[string]any{"openai_passthrough": true},
+					ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 				},
 				{
 					ID: 9911, Name: "fallback-api-key", Platform: service.PlatformOpenAI,
@@ -2293,7 +2296,8 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 						"api_key":  "sk-fallback",
 						"base_url": "https://api.example.test",
 					},
-					Extra: map[string]any{"openai_passthrough": true},
+					Extra:             map[string]any{"openai_passthrough": true},
+					ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 				},
 			}
 			cfg := &config.Config{RunMode: config.RunModeSimple}
@@ -2375,7 +2379,8 @@ func TestOpenAIResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t 
 				"pool_mode_retry_count":        float64(1),
 				"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
 			},
-			Extra: map[string]any{"openai_passthrough": true},
+			Extra:             map[string]any{"openai_passthrough": true},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.example.test", service.APIProtocolResponses: "https://api.example.test"},
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
@@ -2492,6 +2497,10 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	groupID := int64(4202)
 	accounts := []service.Account{
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: firstUpstream.URL,
+				service.APIProtocolResponses:       firstUpstream.URL,
+			},
 			ID:          9902,
 			Name:        "openai-ws-rate-limited",
 			Platform:    service.PlatformOpenAI,
@@ -2510,6 +2519,10 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 			},
 		},
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: secondUpstream.URL,
+				service.APIProtocolResponses:       secondUpstream.URL,
+			},
 			ID:          9903,
 			Name:        "openai-ws-healthy",
 			Platform:    service.PlatformOpenAI,
@@ -2703,6 +2716,10 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	groupID := int64(4212)
 	accounts := []service.Account{
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: firstUpstream.URL,
+				service.APIProtocolResponses:       firstUpstream.URL,
+			},
 			ID:          9912,
 			Name:        "openai-ws-first-semantic-timeout",
 			Platform:    service.PlatformOpenAI,
@@ -2718,6 +2735,10 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 			},
 		},
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: secondUpstream.URL,
+				service.APIProtocolResponses:       secondUpstream.URL,
+			},
 			ID:          9913,
 			Name:        "openai-ws-failover-healthy",
 			Platform:    service.PlatformOpenAI,
@@ -2919,6 +2940,11 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 			"api_key":       "sk-test",
 			"base_url":      upstreamServer.URL,
 			"model_mapping": tc.accountModelMapping,
+		},
+		// 第三方 key 的上游地址只认协议映射；Responses WS 走 responses 协议。
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolResponses:       upstreamServer.URL,
+			service.APIProtocolChatCompletions: upstreamServer.URL,
 		},
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,

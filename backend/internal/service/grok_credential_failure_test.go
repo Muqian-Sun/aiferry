@@ -1338,6 +1338,7 @@ func TestGetRequestCredentialAPIKeyBypassesOAuthFailureMapping(t *testing.T) {
 			"api_key":  "third-party-key",
 			"base_url": "https://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
 	}
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	svc := &OpenAIGatewayService{}

@@ -142,6 +142,9 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -212,6 +215,9 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 			"api_key":  "sk-test",
 			"base_url": server.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: server.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -260,7 +266,10 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake502RecordsModelTransient(t *t
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": server.URL},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: server.URL,
+		},
+		Extra: map[string]any{"responses_websockets_v2_enabled": true},
 	}
 	svc := &OpenAIGatewayService{
 		cfg:              cfg,
@@ -324,6 +333,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ErrorEventUsageL
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
 	rateSvc := &RateLimitService{accountRepo: repo}
@@ -571,9 +581,10 @@ func TestOpenAIWSRateLimitFailoverError_OAuthKeepsSameAccountDeadline(t *testing
 	require.Equal(t, "30", oauthErr.ResponseHeaders.Get("Retry-After"))
 
 	apiKeyErr := svc.newOpenAIWSRateLimitFailoverError(&Account{
-		ID:       905,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
+		ID:                905,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}, headers, body, "limited")
 	require.False(t, apiKeyErr.RetryableOnSameAccount)
 	require.True(t, apiKeyErr.SameAccountRetryDeadline.IsZero())

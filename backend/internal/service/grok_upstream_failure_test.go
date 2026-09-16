@@ -272,6 +272,7 @@ func TestHandleGrokAccountUpstreamError_FreeUsageDoesNotCoolPoolMode(t *testing.
 		Credentials: map[string]any{
 			"pool_mode": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	body := []byte(`{"error":{"code":"subscription:free-usage-exhausted","message":"free usage exhausted"}}`)
 

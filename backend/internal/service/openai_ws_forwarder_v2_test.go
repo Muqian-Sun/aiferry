@@ -66,15 +66,16 @@ func TestForwardOpenAIWSV2_KeepsOutboundAndObservedServiceTiersSeparate(t *testi
 				openaiWSPool:     pool,
 			}
 			account := &Account{
-				ID:          5882,
-				Name:        "openai-ws-v2-tier",
-				Platform:    PlatformOpenAI,
-				Type:        AccountTypeAPIKey,
-				Status:      StatusActive,
-				Schedulable: true,
-				Concurrency: 1,
-				Credentials: map[string]any{"api_key": "sk-test"},
-				Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+				ID:                5882,
+				Name:              "openai-ws-v2-tier",
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Status:            StatusActive,
+				Schedulable:       true,
+				Concurrency:       1,
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 
 			body := []byte(fmt.Sprintf(
@@ -145,8 +146,9 @@ func TestForwardOpenAIWSV2_MarksCyberPolicyForFailureEventShapes(t *testing.T) {
 			account := &Account{
 				ID: 5883, Name: "openai-ws-v2-cyber", Platform: PlatformOpenAI,
 				Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1,
-				Credentials: map[string]any{"api_key": "sk-test"},
-				Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 
 			result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.5","stream":false,"input":"hello"}`))

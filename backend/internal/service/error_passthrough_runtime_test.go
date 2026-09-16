@@ -49,7 +49,7 @@ func TestGatewayHandleErrorResponse_NoRuleKeepsDefault(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(respBody)),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 11, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	account := &Account{ID: 11, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
@@ -75,7 +75,7 @@ func TestOpenAIHandleErrorResponse_NoRuleKeepsDefault(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(respBody)),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 12, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 12, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil)
 	require.Error(t, err)
@@ -102,7 +102,7 @@ func TestOpenAIHandleErrorResponse_ContextWindow502KeepsMessageWithoutFailover(t
 		Body:       io.NopCloser(bytes.NewReader(respBody)),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 14, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 14, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil)
 	require.Error(t, err)
@@ -125,7 +125,7 @@ func TestGeminiWriteGeminiMappedError_NoRuleKeepsDefault(t *testing.T) {
 
 	svc := &GeminiMessagesCompatService{}
 	respBody := []byte(`{"error":{"code":422,"message":"Invalid schema for field messages","status":"INVALID_ARGUMENT"}}`)
-	account := &Account{ID: 13, Platform: PlatformGemini, Type: AccountTypeAPIKey}
+	account := &Account{ID: 13, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
 
 	err := svc.writeGeminiMappedError(c, account, http.StatusUnprocessableEntity, "req-2", respBody)
 	require.Error(t, err)
@@ -155,7 +155,7 @@ func TestGatewayHandleErrorResponse_AppliesRuleFor422(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(respBody)),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	account := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
@@ -185,7 +185,7 @@ func TestOpenAIHandleErrorResponse_AppliesRuleFor422(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader(respBody)),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil)
 	require.Error(t, err)
@@ -210,7 +210,7 @@ func TestGeminiWriteGeminiMappedError_AppliesRuleFor422(t *testing.T) {
 
 	svc := &GeminiMessagesCompatService{}
 	respBody := []byte(`{"error":{"code":422,"message":"Invalid schema for field messages","status":"INVALID_ARGUMENT"}}`)
-	account := &Account{ID: 3, Platform: PlatformGemini, Type: AccountTypeAPIKey}
+	account := &Account{ID: 3, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
 
 	err := svc.writeGeminiMappedError(c, account, http.StatusUnprocessableEntity, "req-1", respBody)
 	require.Error(t, err)
@@ -294,7 +294,7 @@ func TestHandleErrorResponse_SetsResponseCommitted(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":{"message":"temperature: range: 0..1"}}`))),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 100, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	account := &Account{ID: 100, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
@@ -320,7 +320,7 @@ func TestHandleErrorResponse_PassthroughRuleSetsCommitted(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":{"message":"temperature: range: 0..1"}}`))),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 200, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	account := &Account{ID: 200, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account)
 	require.Error(t, err)
@@ -344,7 +344,7 @@ func TestOpenAIHandleErrorResponse_SetsResponseCommitted(t *testing.T) {
 		Body:       io.NopCloser(bytes.NewReader([]byte(`{"error":{"message":"rate limit exceeded"}}`))),
 		Header:     http.Header{},
 	}
-	account := &Account{ID: 101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil)
 	require.Error(t, err)
@@ -358,7 +358,7 @@ func TestGeminiWriteGeminiMappedError_SetsResponseCommitted(t *testing.T) {
 
 	svc := &GeminiMessagesCompatService{}
 	body := []byte(`{"error":{"message":"invalid field"}}`)
-	account := &Account{ID: 102, Platform: PlatformGemini, Type: AccountTypeAPIKey}
+	account := &Account{ID: 102, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
 
 	err := svc.writeGeminiMappedError(c, account, http.StatusBadRequest, "req-99", body)
 	require.Error(t, err)

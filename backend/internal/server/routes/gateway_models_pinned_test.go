@@ -47,6 +47,10 @@ func (u *pinnedModelsRoutesUpstream) Do(req *http.Request, _ string, _ int64, _ 
 func TestGatewayRoutesPinnedModelsDispatchesOrdinaryAndCodexRequests(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &pinnedModelsRoutesRepository{account: service.Account{
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: "https://models.example/v1",
+			service.APIProtocolResponses:       "https://models.example/v1",
+		},
 		ID: 7, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Status: service.StatusActive, Schedulable: true,
 		Credentials: map[string]any{"api_key": "test-models-key", "base_url": "https://models.example/v1"},
@@ -96,6 +100,10 @@ func TestGatewayRoutesPinnedModelsDispatchesOrdinaryAndCodexRequests(t *testing.
 func TestGatewayRoutesRetrievePinnedModel(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &pinnedModelsRoutesRepository{account: service.Account{
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: "https://models.example/v1",
+			service.APIProtocolResponses:       "https://models.example/v1",
+		},
 		ID: 7, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Status: service.StatusActive, Schedulable: true,
 		Credentials: map[string]any{"api_key": "test-models-key", "base_url": "https://models.example/v1"},

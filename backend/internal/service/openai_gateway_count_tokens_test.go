@@ -71,6 +71,9 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_APIKeyUsesResponsesI
 			"api_key":  "sk-test",
 			"base_url": "http://upstream.example",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "http://upstream.example",
+		},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -341,7 +344,7 @@ func TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI(t *testing.T) {
 		},
 	}
 
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			prepared, err := prepareOpenAIInputTokensCountRequest(tc.anthropicBody, account, tc.defaultOpenAIModel)

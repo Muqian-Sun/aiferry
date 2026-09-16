@@ -31,6 +31,9 @@ func ollama429Account(id int64, platform string) *Account {
 			"base_url": "https://www.ollama.com",
 			"api_key":  "ollama429-key",
 		},
+		ProtocolEndpoints: map[string]string{
+			DefaultProtocolForPlatform(platform): "https://www.ollama.com",
+		},
 	}
 }
 
@@ -266,7 +269,7 @@ func TestHandle429_OllamaEarlyBranchAcrossPlatforms(t *testing.T) {
 
 func TestHandle429_NonOllamaUnchanged(t *testing.T) {
 	acct := &Account{ID: 202, Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"base_url": "https://api.anthropic.com", "api_key": "k"}}
+		Credentials: map[string]any{"base_url": "https://api.anthropic.com", "api_key": "k"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 	repo := newOllama429Repo(acct)
 	scheduler := newOllama429SchedulerStub(true)
 	svc, _ := ollama429Fixture(t, repo, scheduler)

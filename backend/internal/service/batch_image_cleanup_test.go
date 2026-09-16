@@ -193,7 +193,7 @@ func newTestBatchImageCleanupService() (*BatchImageCleanupService, *fakeBatchIma
 	svc := &BatchImageCleanupService{
 		Repo:             repo,
 		ProviderRegistry: NewBatchImageProviderRegistry(provider),
-		AccountResolver:  &fakeBatchImageAccountResolver{account: &Account{ID: accountID, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true}},
+		AccountResolver:  &fakeBatchImageAccountResolver{account: &Account{ID: accountID, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}},
 		Config:           &config.Config{BatchImage: config.BatchImageConfig{CleanupBatchSize: 10, InputRetentionAfterTerminalHours: 24}},
 	}
 	return svc, repo, provider

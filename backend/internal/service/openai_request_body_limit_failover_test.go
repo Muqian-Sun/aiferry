@@ -62,8 +62,9 @@ func TestOpenAIRequestBodyLimitFailover_HTTP413SwitchesAccountsBeforeWrite(t *te
 					"openai_passthrough":         passthrough,
 					"openai_responses_supported": true,
 				},
-				Status:      StatusActive,
-				Schedulable: true,
+				Status:            StatusActive,
+				Schedulable:       true,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test"},
 			}
 
 			result, err := svc.Forward(context.Background(), c, account, requestBody)
@@ -119,6 +120,7 @@ func TestOpenAIRequestBodyLimitFailover_ContextWindow413DoesNotSwitchAccounts(t 
 					"openai_responses_supported": true,
 				},
 				Status: StatusActive, Schedulable: true,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test"},
 			}
 
 			result, err := svc.Forward(context.Background(), c, account, requestBody)

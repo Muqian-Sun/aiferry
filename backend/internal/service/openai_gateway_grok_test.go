@@ -918,6 +918,7 @@ func TestBuildGrokResponsesRequestAllowsPublicAPIKeyBaseURLByDefault(t *testing.
 		Credentials: map[string]any{
 			"base_url": "https://grok.example.test/v1/",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1/", APIProtocolResponses: "https://grok.example.test/v1/"},
 	}
 
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "api-key", "", nil)
@@ -988,6 +989,7 @@ func TestBuildGrokResponsesRequestIgnoresBlockedHeaderOverrides(t *testing.T) {
 				"x-grok-conv-id": "pinned-conversation",
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "api-key", "conv-2", nil)
@@ -1211,6 +1213,7 @@ func TestForwardGrokMediaImagesGenerationNormalizesImagineAlias(t *testing.T) {
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1330,6 +1333,7 @@ func TestForwardGrokMediaAppliesAccountModelMappingAfterEndpointNormalization(t 
 					"base_url":      "https://xai.test/v1",
 					"model_mapping": tt.modelMapping,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1369,6 +1373,7 @@ func TestForwardGrokMediaImagesGenerationRejectsEmptySuccessfulResponse(t *testi
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1407,6 +1412,7 @@ func TestForwardGrokMediaImagesGenerationStripsUnsupportedSize(t *testing.T) {
 			"base_url":      "https://xai.test/v1",
 			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1458,6 +1464,7 @@ func TestForwardGrokMediaImagesEditMultipartConvertsToJSON(t *testing.T) {
 			"base_url":      "https://xai.test/v1",
 			"model_mapping": map[string]any{"grok-imagine-edit": "vendor-image-edit"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1516,6 +1523,7 @@ func TestForwardGrokMediaImagesEditMultipartPreservesExplicitGeometry(t *testing
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1553,6 +1561,7 @@ func TestForwardGrokMediaVideoGenerationReturnsUsageAndResponseID(t *testing.T) 
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1600,6 +1609,7 @@ func TestForwardGrokMediaVideoGenerationReturnsTaskIDAsResponseID(t *testing.T) 
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1645,6 +1655,7 @@ func TestForwardGrokMediaVideoGenerationPreservesImageToVideoModel(t *testing.T)
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1726,6 +1737,7 @@ func TestForwardGrokMediaVideoStatusUsesGETWithoutBody(t *testing.T) {
 			"api_key":  "api-key",
 			"base_url": "https://xai.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -1778,6 +1790,7 @@ func TestForwardGrokMediaVideoMutationEndpoints(t *testing.T) {
 					"base_url":      "https://xai.test/v1",
 					"model_mapping": map[string]any{"grok-imagine-video": "vendor-video-mutation"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 			}
 			upstream := &httpUpstreamRecorder{resp: &http.Response{
 				StatusCode: http.StatusOK,
@@ -1852,6 +1865,7 @@ func TestForwardGrokMedia429ReconcilesRateLimitBeforeCustomErrorBypass(t *testin
 			"custom_error_codes_enabled": true,
 			"custom_error_codes":         []any{float64(http.StatusBadRequest)},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://xai.test/v1", APIProtocolResponses: "https://xai.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusTooManyRequests,
@@ -2060,6 +2074,7 @@ func TestForwardGrokResponsesAPIKeyUsesXAIResponses(t *testing.T) {
 			"api_key":  "xai-test-key",
 			"base_url": "https://api.x.ai/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstreamBody := strings.Join([]string{
 		`data: {"type":"response.output_text.delta","sequence_number":0,"delta":"ok"}`,
@@ -2102,6 +2117,7 @@ func TestForwardGrokResponsesUsesMetadataSessionForCacheIdentityWithoutForwardin
 			"api_key":  "xai-test-key",
 			"base_url": "https://api.x.ai/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2168,6 +2184,7 @@ func TestForwardGrokResponsesRetriesInvalidEncryptedContentOnce(t *testing.T) {
 			"api_key":  "same-token",
 			"base_url": "https://api.x.ai/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2257,12 +2274,13 @@ func TestForwardGrokResponsesInvalidEncryptedContentRecoveryDoesNotOvermatch(t *
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 			account := &Account{
-				ID:          4536,
-				Name:        "grok-api-key",
-				Platform:    PlatformGrok,
-				Type:        AccountTypeAPIKey,
-				Concurrency: 1,
-				Credentials: map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+				ID:                4536,
+				Name:              "grok-api-key",
+				Platform:          PlatformGrok,
+				Type:              AccountTypeAPIKey,
+				Concurrency:       1,
+				Credentials:       map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 			}
 			upstream := &httpUpstreamRecorder{responses: []*http.Response{{
 				StatusCode: http.StatusBadRequest,
@@ -2299,12 +2317,13 @@ func TestForwardGrokResponsesInvalidEncryptedContentRecoveryNestedErrorShape(t *
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 	account := &Account{
-		ID:          4538,
-		Name:        "grok-api-key",
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+		ID:                4538,
+		Name:              "grok-api-key",
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "token", "base_url": "https://api.x.ai/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
 		{
@@ -2337,12 +2356,13 @@ func TestForwardGrokResponsesInvalidEncryptedContentRetryFailureIsTerminal(t *te
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 
 	account := &Account{
-		ID:          4537,
-		Name:        "grok-api-key",
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "same-token", "base_url": "https://api.x.ai/v1"},
+		ID:                4537,
+		Name:              "grok-api-key",
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "same-token", "base_url": "https://api.x.ai/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	newInvalidEncryptedResponse := func(requestID string) *http.Response {
 		return &http.Response{
@@ -2395,6 +2415,7 @@ func TestForwardAsChatCompletionsForGrokAPIKeyUsesConfiguredRawEndpointWithoutOA
 			"api_key":  "third-party-key",
 			"base_url": "https://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -2427,6 +2448,7 @@ func TestForwardAsChatCompletionsForGrokAPIKeyRejectsNonStreamingResponseWithout
 			"api_key":  "third-party-key",
 			"base_url": "https://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -2461,6 +2483,7 @@ func TestAccountTestServiceGrokAPIKeyUsesXAIResponses(t *testing.T) {
 			"api_key":  "xai-test-key",
 			"base_url": "https://api.x.ai/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -2495,6 +2518,7 @@ func TestAccountTestServiceGrokAPIKeyAllowsConfiguredHTTPWhenGlobalPolicyDoes(t 
 			"api_key":  "third-party-key",
 			"base_url": "http://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://grok.example.test/v1", APIProtocolResponses: "http://grok.example.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -3112,6 +3136,7 @@ func TestHandleGrokAccountUpstreamError5xxRespectsPoolMode(t *testing.T) {
 			Credentials: map[string]any{
 				"pool_mode": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		}
 		repo := &grokQuotaAccountRepo{}
 		svc := &OpenAIGatewayService{accountRepo: repo}
@@ -3125,7 +3150,7 @@ func TestHandleGrokAccountUpstreamError5xxRespectsPoolMode(t *testing.T) {
 	})
 
 	t.Run("non-pool mode keeps two minute cooldown", func(t *testing.T) {
-		account := &Account{ID: 612, Platform: PlatformGrok, Type: AccountTypeAPIKey}
+		account := &Account{ID: 612, Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
 		repo := &grokQuotaAccountRepo{}
 		svc := &OpenAIGatewayService{accountRepo: repo}
 		before := time.Now()
@@ -3163,6 +3188,7 @@ func TestHandleGrokAccountUpstreamError429PoolModeKeepsSchedulingState(t *testin
 		Credentials: map[string]any{
 			"pool_mode": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	repo := &grokQuotaAccountRepo{}
 	svc := &OpenAIGatewayService{accountRepo: repo}
@@ -3314,11 +3340,12 @@ func TestGrokRateLimitResetAtForAccountLeavesAPIKey429PolicyUnchanged(t *testing
 	previousReset := now.Add(-time.Second)
 	previousLimited := previousReset.Add(-grokRateLimitSustainedCooldown)
 	account := &Account{
-		ID:               632,
-		Platform:         PlatformGrok,
-		Type:             AccountTypeAPIKey,
-		RateLimitedAt:    &previousLimited,
-		RateLimitResetAt: &previousReset,
+		ID:                632,
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		RateLimitedAt:     &previousLimited,
+		RateLimitResetAt:  &previousReset,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	snapshot := &xai.QuotaSnapshot{
 		StatusCode:        http.StatusTooManyRequests,
@@ -3483,11 +3510,12 @@ func TestUpdateGrokUsageFromResponseRecoveryRespectsCancellationAndAPIKeyBoundar
 
 	t.Run("API key success does not alter OAuth cooldown state", func(t *testing.T) {
 		account := &Account{
-			ID:               662,
-			Platform:         PlatformGrok,
-			Type:             AccountTypeAPIKey,
-			RateLimitedAt:    &observedLimitedAt,
-			RateLimitResetAt: &observedResetAt,
+			ID:                662,
+			Platform:          PlatformGrok,
+			Type:              AccountTypeAPIKey,
+			RateLimitedAt:     &observedLimitedAt,
+			RateLimitResetAt:  &observedResetAt,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		}
 		repo := &grokQuotaAccountRepo{recoveryClearResult: true}
 		svc := &OpenAIGatewayService{accountRepo: repo}

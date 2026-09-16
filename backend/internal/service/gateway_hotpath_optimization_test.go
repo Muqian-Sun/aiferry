@@ -351,10 +351,11 @@ func TestWithWindowCostPrefetch_BatchReadAndContextReuse(t *testing.T) {
 			SessionWindowEnd:   &windowEnd,
 		},
 		{
-			ID:       3,
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Extra:    map[string]any{"window_cost_limit": 100.0},
+			ID:                3,
+			Platform:          PlatformAnthropic,
+			Type:              AccountTypeAPIKey,
+			Extra:             map[string]any{"window_cost_limit": 100.0},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 
@@ -852,14 +853,15 @@ func TestInvalidateAvailableModelsCache_ByDimensions(t *testing.T) {
 func TestSelectAccountWithLoadAwareness_StickyReadReuse(t *testing.T) {
 	now := time.Now().Add(-time.Minute)
 	account := Account{
-		ID:          88,
-		Platform:    PlatformAnthropic,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 4,
-		Priority:    1,
-		LastUsedAt:  &now,
+		ID:                88,
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       4,
+		Priority:          1,
+		LastUsedAt:        &now,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 
 	repo := stubOpenAIAccountRepo{accounts: []Account{account}}

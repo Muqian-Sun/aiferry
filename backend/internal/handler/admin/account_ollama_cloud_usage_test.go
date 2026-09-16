@@ -125,8 +125,12 @@ func TestOllamaCloudUsageEncryptionKeyStateConsistentAcrossAccountResponses(t *t
 				Platform:    service.PlatformOpenAI,
 				Type:        service.AccountTypeAPIKey,
 				Credentials: map[string]any{"base_url": "https://ollama.com", "api_key": "test-key"},
-				Extra:       map[string]any{},
-				Status:      service.StatusActive,
+				// 第三方 key 的上游地址来自协议映射，Ollama Cloud 判定读的是它。
+				ProtocolEndpoints: map[string]string{
+					service.APIProtocolChatCompletions: "https://ollama.com",
+				},
+				Extra:  map[string]any{},
+				Status: service.StatusActive,
 			}
 			adminService := newStubAdminService()
 			adminService.accounts = []service.Account{*account}
@@ -191,6 +195,10 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 	source := &service.Account{
 		ID: 7, Name: "source", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "https://ollama.com", "api_key": "shared-secret-key"},
+		// 第三方 key 的上游地址来自协议映射，Ollama Cloud 判定读的是它。
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: "https://ollama.com",
+		},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "ciphertext-secret",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -204,7 +212,10 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 	sibling := &service.Account{
 		ID: 8, Name: "sibling", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "HTTPS://WWW.OLLAMA.COM:443/v1", "api_key": "shared-secret-key"},
-		Extra:       map[string]any{}, Status: service.StatusActive,
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolAnthropic: "HTTPS://WWW.OLLAMA.COM:443/v1",
+		},
+		Extra: map[string]any{}, Status: service.StatusActive,
 	}
 	repo := &ollamaCloudUsageHandlerTestRepo{accounts: []*service.Account{source, sibling}}
 	adminService := newStubAdminService()

@@ -41,6 +41,7 @@ func newNonStreamingFailoverAccount() *Account {
 		Credentials: map[string]any{
 			"pool_mode": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 }
 

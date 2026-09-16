@@ -70,6 +70,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429), float64(500)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 429,
 			body:       []byte(`{"error":"rate limited"}`),
@@ -85,6 +86,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 500,
 			body:       []byte(`{"error":"internal"}`),
@@ -93,9 +95,10 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 		{
 			name: "gemini_apikey_no_custom_codes_returns_none",
 			account: &Account{
-				ID:       102,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
+				ID:                102,
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGemini,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 500,
 			body:       []byte(`{"error":"internal"}`),
@@ -117,6 +120,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 503,
 			body:       []byte(`overloaded service`),
@@ -139,6 +143,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 401,
 			body:       []byte(`unauthorized`),
@@ -162,6 +167,7 @@ func TestCheckErrorPolicy_GeminiAccounts(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode: 503,
 			body:       []byte(`overloaded`),
@@ -211,6 +217,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:        429,
 			respBody:          []byte(`{"error":"rate limited"}`),
@@ -227,6 +234,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:        500,
 			respBody:          []byte(`{"error":"internal"}`),
@@ -243,6 +251,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:        400,
 			respBody:          []byte(`{"error":"bad request"}`),
@@ -265,6 +274,7 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:        503,
 			respBody:          []byte(`overloaded`),
@@ -275,9 +285,10 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 		{
 			name: "no_policy_429_failover_via_shouldFailover",
 			account: &Account{
-				ID:       203,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
+				ID:                203,
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGemini,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:           429,
 			respBody:             []byte(`{"error":"rate limited"}`),
@@ -288,9 +299,10 @@ func TestGeminiErrorPolicyIntegration(t *testing.T) {
 		{
 			name: "no_policy_400_no_failover",
 			account: &Account{
-				ID:       204,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformGemini,
+				ID:                204,
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformGemini,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			statusCode:        400,
 			respBody:          []byte(`{"error":"bad request"}`),
@@ -391,6 +403,7 @@ func TestSkippedErrorPolicyFailoverError(t *testing.T) {
 			"custom_error_codes_enabled": true,
 			"custom_error_codes":         []any{float64(429)},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 	}
 
 	tests := []struct {
@@ -454,6 +467,7 @@ func TestGeminiErrorPolicy_NilRateLimitService(t *testing.T) {
 			"custom_error_codes_enabled": true,
 			"custom_error_codes":         []any{float64(429)},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 	}
 
 	// The nil check should prevent CheckErrorPolicy from being called
@@ -529,19 +543,21 @@ func TestHandleGeminiUpstreamError_PoolMode429(t *testing.T) {
 		{
 			name: "pool_mode_apikey_stays_in_pool",
 			account: &Account{
-				ID:          600,
-				Platform:    PlatformGemini,
-				Type:        AccountTypeAPIKey,
-				Credentials: map[string]any{"pool_mode": true},
+				ID:                600,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+				Credentials:       map[string]any{"pool_mode": true},
 			},
 			expectRateLimited: false,
 		},
 		{
 			name: "custom_error_codes_hit_overrides_pool_mode",
 			account: &Account{
-				ID:       601,
-				Platform: PlatformGemini,
-				Type:     AccountTypeAPIKey,
+				ID:                601,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 				Credentials: map[string]any{
 					"pool_mode":                  true,
 					"custom_error_codes_enabled": true,
@@ -553,9 +569,10 @@ func TestHandleGeminiUpstreamError_PoolMode429(t *testing.T) {
 		{
 			name: "custom_error_codes_miss_skips",
 			account: &Account{
-				ID:       602,
-				Platform: PlatformGemini,
-				Type:     AccountTypeAPIKey,
+				ID:                602,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 				Credentials: map[string]any{
 					"pool_mode":                  true,
 					"custom_error_codes_enabled": true,
@@ -567,9 +584,10 @@ func TestHandleGeminiUpstreamError_PoolMode429(t *testing.T) {
 		{
 			name: "non_pool_apikey_still_rate_limited",
 			account: &Account{
-				ID:       603,
-				Platform: PlatformGemini,
-				Type:     AccountTypeAPIKey,
+				ID:                603,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			expectRateLimited: true,
 		},

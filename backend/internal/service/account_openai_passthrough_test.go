@@ -14,6 +14,7 @@ func TestAccount_IsOpenAIPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"openai_passthrough": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.True(t, account.IsOpenAIPassthroughEnabled())
 	})
@@ -66,6 +67,7 @@ func TestAccount_IsOpenAIOAuthPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"openai_passthrough": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.False(t, apiKeyAccount.IsOpenAIOAuthPassthroughEnabled())
 	})
@@ -121,6 +123,7 @@ func TestAccount_IsCodexCLIOnlyEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"codex_cli_only": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.False(t, apiKeyAccount.IsCodexCLIOnlyEnabled())
 
@@ -154,6 +157,7 @@ func TestAccount_IsOpenAIResponsesWebSocketV2Enabled(t *testing.T) {
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.True(t, account.IsOpenAIResponsesWebSocketV2Enabled())
 	})
@@ -189,6 +193,7 @@ func TestAccount_IsOpenAIResponsesWebSocketV2Enabled(t *testing.T) {
 			Extra: map[string]any{
 				"responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.True(t, account.IsOpenAIResponsesWebSocketV2Enabled())
 	})
@@ -200,6 +205,7 @@ func TestAccount_IsOpenAIResponsesWebSocketV2Enabled(t *testing.T) {
 			Extra: map[string]any{
 				"responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		}
 		require.False(t, account.IsOpenAIResponsesWebSocketV2Enabled())
 	})
@@ -247,6 +253,7 @@ func TestAccount_ResolveOpenAIResponsesWebSocketV2Mode(t *testing.T) {
 			Extra: map[string]any{
 				"responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.Equal(t, OpenAIWSIngressModeCtxPool, account.ResolveOpenAIResponsesWebSocketV2Mode(OpenAIWSIngressModeOff))
 	})
@@ -280,6 +287,7 @@ func TestAccount_ResolveOpenAIResponsesWebSocketV2Mode(t *testing.T) {
 				"openai_apikey_responses_websockets_v2_enabled": false,
 				"responses_websockets_v2_enabled":               true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.Equal(t, OpenAIWSIngressModeOff, account.ResolveOpenAIResponsesWebSocketV2Mode(OpenAIWSIngressModeCtxPool))
 	})

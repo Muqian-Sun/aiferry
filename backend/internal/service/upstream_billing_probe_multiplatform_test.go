@@ -92,6 +92,7 @@ func TestUpstreamBillingProbeGrokAccountPersistsSnapshot(t *testing.T) {
 			"api_key":  "sk-grok-relay",
 			"base_url": "https://relay.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
@@ -121,11 +122,12 @@ func TestUpstreamBillingProbeGrokAccountPersistsSnapshot(t *testing.T) {
 // /v1/sub2api/billing：不发请求，直接落 unsupported。
 func TestUpstreamBillingProbeNonOpenAIWithoutBaseURLIsUnsupportedWithoutRequest(t *testing.T) {
 	account := &Account{
-		ID:          152,
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Credentials: map[string]any{"api_key": "sk-grok-official"},
+		ID:                152,
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Credentials:       map[string]any{"api_key": "sk-grok-official"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &httpUpstreamRecorder{}
@@ -177,11 +179,12 @@ func TestUpstreamBillingProbeOfficialAPIBaseURLIsUnsupportedWithoutRequest(t *te
 	}
 	for i, tc := range cases {
 		account := &Account{
-			ID:          int64(200 + i),
-			Platform:    tc.platform,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Credentials: map[string]any{"api_key": "sk-official", "base_url": tc.baseURL},
+			ID:                int64(200 + i),
+			Platform:          tc.platform,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Credentials:       map[string]any{"api_key": "sk-official", "base_url": tc.baseURL},
+			ProtocolEndpoints: map[string]string{DefaultProtocolForPlatform(tc.platform): tc.baseURL},
 		}
 		repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 		upstream := &httpUpstreamRecorder{}
@@ -235,11 +238,12 @@ func TestUpstreamBillingProbeOfficialAPIHostMatchingIsNormalized(t *testing.T) {
 // OpenAI 语义保持不变：无自定义 base 时仍探官方域，且沿用 openai 传输画像。
 func TestUpstreamBillingProbeOpenAIDefaultBaseURLPreserved(t *testing.T) {
 	account := &Account{
-		ID:          17,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Credentials: map[string]any{"api_key": "sk-openai"},
+		ID:                17,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Credentials:       map[string]any{"api_key": "sk-openai"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
@@ -257,11 +261,12 @@ func TestUpstreamBillingProbeOpenAIDefaultBaseURLPreserved(t *testing.T) {
 
 func TestUpstreamBillingProbeSetAccountEnabledAcceptsGrokAPIKey(t *testing.T) {
 	grokAPIKey := &Account{
-		ID:          151,
-		Platform:    PlatformGrok,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Credentials: map[string]any{"api_key": "sk", "base_url": "https://relay.example"},
+		ID:                151,
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Credentials:       map[string]any{"api_key": "sk", "base_url": "https://relay.example"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example", APIProtocolResponses: "https://relay.example"},
 	}
 	grokOAuth := &Account{ID: 152, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive}
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{

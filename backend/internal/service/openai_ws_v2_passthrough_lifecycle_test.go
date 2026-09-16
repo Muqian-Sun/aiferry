@@ -152,6 +152,7 @@ func passthroughLifecycleAccount() *Account {
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 }
 

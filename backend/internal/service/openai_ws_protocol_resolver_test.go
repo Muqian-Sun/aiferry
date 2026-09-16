@@ -151,6 +151,7 @@ func TestOpenAIWSProtocolResolver_Resolve(t *testing.T) {
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		decision := NewOpenAIWSProtocolResolver(&cfg).Resolve(account)
 		require.Equal(t, OpenAIUpstreamTransportHTTPSSE, decision.Transport)
@@ -217,6 +218,7 @@ func TestOpenAIWSProtocolResolver_Resolve_ModeRouterV2(t *testing.T) {
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		decision := NewOpenAIWSProtocolResolver(cfg).Resolve(legacyAccount)
 		require.Equal(t, OpenAIUpstreamTransportResponsesWebsocketV2, decision.Transport)

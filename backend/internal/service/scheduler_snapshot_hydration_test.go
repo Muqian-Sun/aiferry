@@ -98,6 +98,7 @@ func TestOpenAISelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedul
 						"gpt-4": "gpt-4",
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		},
 		accounts: map[int64]*Account{
@@ -113,6 +114,7 @@ func TestOpenAISelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedul
 					"api_key":       "sk-live",
 					"model_mapping": map[string]any{"gpt-4": "gpt-4"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		},
 	}
@@ -165,13 +167,14 @@ func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedu
 	cache := &snapshotHydrationCache{
 		snapshot: []*Account{
 			{
-				ID:          9,
-				Platform:    PlatformAnthropic,
-				Type:        AccountTypeAPIKey,
-				Status:      StatusActive,
-				Schedulable: true,
-				Concurrency: 1,
-				Priority:    1,
+				ID:                9,
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				Status:            StatusActive,
+				Schedulable:       true,
+				Concurrency:       1,
+				Priority:          1,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 		accounts: map[int64]*Account{
@@ -186,6 +189,7 @@ func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedu
 				Credentials: map[string]any{
 					"api_key": "anthropic-live-key",
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 	}

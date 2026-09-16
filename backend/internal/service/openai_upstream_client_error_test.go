@@ -56,9 +56,9 @@ func TestOpenAICompatibleModelNotFound400FailoverScope(t *testing.T) {
 		account *Account
 		want    bool
 	}{
-		{name: "openai api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, want: true},
-		{name: "compatible provider", account: &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey}, want: true},
-		{name: "anthropic account", account: &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, want: false},
+		{name: "openai api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, want: true},
+		{name: "compatible provider", account: &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.deepseek.com/anthropic", APIProtocolChatCompletions: "https://api.deepseek.com", APIProtocolResponses: "https://api.deepseek.com"}}, want: true},
+		{name: "anthropic account", account: &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}, want: false},
 		{name: "missing account", account: nil, want: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -69,7 +69,7 @@ func TestOpenAICompatibleModelNotFound400FailoverScope(t *testing.T) {
 	}
 
 	require.False(t, svc.shouldFailoverOpenAIUpstreamResponse(
-		&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 		http.StatusBadRequest,
 		"Invalid value for temperature",
 		[]byte(`{"error":{"code":"invalid_request_error","message":"Invalid value for temperature"}}`),
@@ -91,7 +91,7 @@ func TestOpenAICompatibleModelNotFound400WithoutManagedCandidatesRemainsTerminal
 func TestFailoverOpenAIUpstreamHTTPError_ModelNotFoundIsNextAccountEligible(t *testing.T) {
 	c, _ := newOpenAIUpstreamErrorTestContext(t)
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, accountRepo: &modelNotFoundManagedAccountRepo{}}
-	account := &Account{ID: 42, Name: "compatible", Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 42, Name: "compatible", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	body := []byte(`{"error":{"code":"model_not_found","message":"model not found"}}`)
 	resp := newOpenAIUpstreamErrorResponse(http.StatusBadRequest, string(body))
 

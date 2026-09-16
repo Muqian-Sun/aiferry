@@ -321,8 +321,8 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 
 func TestAdminServiceBulkUpdateAccounts_NormalizesOpenAISettings(t *testing.T) {
 	repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{
-		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
-		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
+		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}}
 	svc := &adminServiceImpl{accountRepo: repo}
 
@@ -370,7 +370,7 @@ func TestAdminServiceBulkUpdateAccounts_AcceptsLongContextAccountTypes(t *testin
 
 func TestAdminServiceBulkUpdateAccounts_EmbeddingsOnlyResetsResponsesMode(t *testing.T) {
 	repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{
-		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}}
 	svc := &adminServiceImpl{accountRepo: repo}
 
@@ -484,6 +484,7 @@ func TestAdminServiceBulkUpdateAccounts_ForcedResponsesRequiresChatCapability(t 
 		Credentials: map[string]any{
 			openAIEndpointCapabilitiesCredentialKey: []any{"embeddings"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}}}
 	svc := &adminServiceImpl{accountRepo: repo}
 
@@ -505,6 +506,7 @@ func TestAdminServiceBulkUpdateAccounts_ForcedResponsesAcceptsChatCapabilityUpda
 		Credentials: map[string]any{
 			openAIEndpointCapabilitiesCredentialKey: []any{"embeddings"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}}}
 	svc := &adminServiceImpl{accountRepo: repo}
 

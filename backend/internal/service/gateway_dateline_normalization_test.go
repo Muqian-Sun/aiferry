@@ -24,7 +24,7 @@ func TestGatewayClientDatelineNormalization_Scope(t *testing.T) {
 	// Default (missing key): fallback in parseSettings/cache loader is true.
 	require.True(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
 	require.True(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}))
-	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}))
+	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}))
 	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
 
 	// Switch off: no account qualifies.
@@ -59,7 +59,7 @@ func TestGatewayClientDatelineNormalization_HelperNoRewrite(t *testing.T) {
 	clean := []byte(`{"messages":[{"role":"user","content":"just hello"}]}`)
 
 	// API-Key account: never rewrites, even with dirty payload.
-	next, ok := svc.normalizeClientDatelineIfEnabled(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}, dirty)
+	next, ok := svc.normalizeClientDatelineIfEnabled(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}, dirty)
 	require.False(t, ok)
 	require.Nil(t, next)
 

@@ -193,7 +193,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGateway
 	for i := range accounts {
 		accounts[i] = service.Account{ID: int64(i + 1), Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey,
 			Status: service.StatusActive, Schedulable: true, Concurrency: 50, Priority: i,
-			GroupIDs: []int64{24}, Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}}
+			GroupIDs: []int64{24}, Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
 		if oauth {
 			accounts[i].Type = service.AccountTypeOAuth
 			accounts[i].Credentials["refresh_token"] = "test-refresh"

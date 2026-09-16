@@ -201,6 +201,10 @@ func TestOllamaCloudUsageRateLimitProbeSkipsMissingCookieAndNonOllamaAccount(t *
 	noCookie.Extra = map[string]any{} // no session
 	nonOllama := ollamaUsageAccount(32)
 	nonOllama.Credentials["base_url"] = "https://api.openai.com"
+	nonOllama.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.openai.com"}
+	// 给 nonOllama 一个有效 session，让「非 Ollama 上游」成为它被跳过的唯一原因；
+	// 否则它会和 noCookie 一样因缺 cookie 被跳过，这条断言对上游判定不敏感。
+	nonOllama.Extra[OllamaCloudUsageSessionExtraKey] = "cipher:wos-session=secret"
 	repo := &ollamaUsageTestRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{
 		accounts: map[int64]*Account{noCookie.ID: noCookie, nonOllama.ID: nonOllama},
 	}}

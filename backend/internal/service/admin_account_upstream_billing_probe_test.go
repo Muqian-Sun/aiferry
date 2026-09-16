@@ -85,6 +85,7 @@ func TestUpdateAccountRoutesRateIntentThroughAtomicBillingUpdater(t *testing.T) 
 					UpstreamBillingProbeEnabledExtraKey:    true,
 					UpstreamBillingRateSyncEnabledExtraKey: true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		}},
 		concurrentRate: &concurrentRate,
@@ -174,6 +175,7 @@ func TestUpdateAccountPreservesManagedUpstreamBillingProbeStateForUnrelatedEdit(
 				UpstreamBillingRateSyncEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:           map[string]any{"status": "ok"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -235,15 +237,19 @@ func TestUpdateAccountPreservesProbeSnapshotWhenIdentityValuesAreUnchanged(t *te
 				UpstreamBillingProbeEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://upstream.example", APIProtocolResponses: "https://upstream.example"},
 		},
 	}}
 
+	// 协议映射原样重提（编辑表单整对象回写的常态）不算身份变化。
+	sameEndpoints := map[string]string{APIProtocolResponses: "https://upstream.example", APIProtocolChatCompletions: "https://upstream.example"}
 	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
 		Credentials: map[string]any{
 			"base_url":                   "https://upstream.example",
 			credKeyHeaderOverrideEnabled: true,
 			credKeyHeaderOverrides:       map[string]any{"x-route": "stable"},
 		},
+		ProtocolEndpoints: &sameEndpoints,
 	})
 
 	require.NoError(t, err)
@@ -264,6 +270,12 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenUpstreamIdentityChanges(t *tes
 		{
 			name:        "base url",
 			input:       &UpdateAccountInput{Credentials: map[string]any{"base_url": "https://new.example"}},
+			wantEnabled: true,
+		},
+		{
+			// 第三方 key 的上游坐标在协议映射里：只换映射、凭证不动，同样是换了上游。
+			name:        "protocol endpoints",
+			input:       &UpdateAccountInput{ProtocolEndpoints: &map[string]string{APIProtocolChatCompletions: "https://new.example"}},
 			wantEnabled: true,
 		},
 		{
@@ -299,6 +311,7 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenUpstreamIdentityChanges(t *tes
 						UpstreamBillingRateSyncEnabledExtraKey: true,
 						UpstreamBillingProbeExtraKey:           map[string]any{"status": "ok"},
 					},
+					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://old.example", APIProtocolResponses: "https://old.example"},
 				},
 			}}
 
@@ -332,6 +345,7 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenProxyChanges(t *testing.T) {
 				UpstreamBillingProbeEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -362,6 +376,7 @@ func TestUpdateAccountPreservesProbeSnapshotWhenProxyIsUnchanged(t *testing.T) {
 				UpstreamBillingProbeEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -379,11 +394,12 @@ func TestUpdateAccountAcceptsProbeEnabledAndRejectsInjectedSnapshot(t *testing.T
 	accountID := int64(111)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 		accountID: {
-			ID:       accountID,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Status:   StatusActive,
-			Extra:    map[string]any{},
+			ID:                accountID,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Extra:             map[string]any{},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -406,11 +422,12 @@ func TestUpdateAccountRateSyncControlsProbeAndManualMode(t *testing.T) {
 	accountID := int64(151)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 		accountID: {
-			ID:       accountID,
-			Platform: PlatformGemini,
-			Type:     AccountTypeAPIKey,
-			Status:   StatusActive,
-			Extra:    map[string]any{},
+			ID:                accountID,
+			Platform:          PlatformGemini,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Extra:             map[string]any{},
+			ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		},
 	}}
 	svc := &adminServiceImpl{accountRepo: repo}
@@ -439,12 +456,13 @@ func TestUpdateAccountRejectsManualRateWhileRateSyncEnabled(t *testing.T) {
 		initialRate := 0.25
 		return &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 			accountID: {
-				ID:             accountID,
-				Platform:       PlatformOpenAI,
-				Type:           AccountTypeAPIKey,
-				Status:         StatusActive,
-				RateMultiplier: &initialRate,
-				Extra:          extra,
+				ID:                accountID,
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Status:            StatusActive,
+				RateMultiplier:    &initialRate,
+				Extra:             extra,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		}}
 	}
@@ -515,10 +533,11 @@ func TestUpdateAccountRejectsSyncWithExplicitlyDisabledProbe(t *testing.T) {
 	accountID := int64(152)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 		accountID: {
-			ID:       accountID,
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Status:   StatusActive,
+			ID:                accountID,
+			Platform:          PlatformAnthropic,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}}
 	probeEnabled := false
@@ -545,6 +564,7 @@ func TestUpdateAccountExplicitProbeDisableUsesDedicatedExtraUpdate(t *testing.T)
 				UpstreamBillingProbeEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -562,11 +582,12 @@ func TestUpdateAccountExplicitUnchangedProbeEnabledStillUsesDedicatedExtraUpdate
 	accountID := int64(114)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 		accountID: {
-			ID:       accountID,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Status:   StatusActive,
-			Extra:    map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+			ID:                accountID,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Extra:             map[string]any{UpstreamBillingProbeEnabledExtraKey: true},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -583,11 +604,12 @@ func TestUpdateAccountRejectsInvalidProbeEnabled(t *testing.T) {
 	accountID := int64(112)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
 		accountID: {
-			ID:       accountID,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Status:   StatusActive,
-			Extra:    map[string]any{},
+			ID:                accountID,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Extra:             map[string]any{},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}}
 
@@ -602,7 +624,7 @@ func TestUpdateAccountRejectsInvalidProbeEnabled(t *testing.T) {
 func TestUpdateAccountExtraDropsManagedBillingProbeFields(t *testing.T) {
 	accountID := int64(153)
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
-		accountID: {ID: accountID, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		accountID: {ID: accountID, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}}
 
 	err := (&adminServiceImpl{accountRepo: repo}).UpdateAccountExtra(context.Background(), accountID, map[string]any{
@@ -647,8 +669,8 @@ func TestBulkUpdateAccountsAcceptsDedicatedUpstreamBillingProbeSetting(t *testin
 	for _, enabled := range []bool{true, false} {
 		t.Run(map[bool]string{true: "enable", false: "disable"}[enabled], func(t *testing.T) {
 			repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
-				1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
-				2: {ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+				1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
+				2: {ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			}}
 
 			result, err := (&adminServiceImpl{accountRepo: repo}).BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
@@ -673,7 +695,7 @@ func TestBulkUpdateAccountsRejectsProbeSettingForIneligibleTargetBeforeWrite(t *
 	for _, enabled := range []bool{true, false} {
 		t.Run(map[bool]string{true: "enable", false: "disable"}[enabled], func(t *testing.T) {
 			repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
-				1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+				1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 				2: {ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
 			}}
 
@@ -691,7 +713,7 @@ func TestBulkUpdateAccountsRejectsProbeSettingForIneligibleTargetBeforeWrite(t *
 func TestBulkUpdateAccountsRejectsProbeSettingWhenTargetIsMissing(t *testing.T) {
 	enabled := true
 	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
-		1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		1: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}}
 
 	_, err := (&adminServiceImpl{accountRepo: repo}).BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{

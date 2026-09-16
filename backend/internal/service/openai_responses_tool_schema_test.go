@@ -517,8 +517,9 @@ func TestOpenAIResponsesToolSchemaPlatformGate_APIKeyAndOAuth(t *testing.T) {
 	}
 
 	normalized, changed, err := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, &Account{
-		Platform: PlatformGrok,
-		Type:     AccountTypeAPIKey,
+		Platform:          PlatformGrok,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}, false)
 	require.NoError(t, err)
 	require.False(t, changed)

@@ -27,7 +27,7 @@ func TestOpenAISchedulerSelectReturnsRealLatency(t *testing.T) {
 		var accounts []Account
 		if withAccount {
 			name = "selected_account"
-			accounts = []Account{{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 5}}
+			accounts = []Account{{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}}
 		}
 		t.Run(name, func(t *testing.T) {
 			scheduler := &defaultOpenAIAccountScheduler{

@@ -40,10 +40,11 @@ data: {"candidates":[{"content":{"parts":[{"text":"!"}],"role":"model"},"finishR
 
 func geminiSignalTestAccount() *Account {
 	return &Account{
-		ID:       703,
-		Name:     "gemini-signal-test",
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey,
+		ID:                703,
+		Name:              "gemini-signal-test",
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "test-key",
 		},

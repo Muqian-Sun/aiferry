@@ -165,6 +165,9 @@ func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScope
 				"duration_minutes": float64(1),
 			}},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "http://upstream.example",
+		},
 	}
 
 	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
@@ -210,6 +213,7 @@ func TestFailoverOpenAIUpstreamHTTPError_NilContextSkipsTempUnschedulablePolicy(
 				"duration_minutes": float64(1),
 			}},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	body := []byte(`{"error":{"message":"Custom temporary outage."}}`)
 	resp := &http.Response{StatusCode: http.StatusBadRequest, Header: http.Header{}}
@@ -565,7 +569,7 @@ func TestOpenAIGatewayService_BindHTTPResponseAccount(t *testing.T) {
 	SetOpenAIHTTPResponseOwner(c, 601, 501)
 
 	svc := &OpenAIGatewayService{}
-	account := &Account{ID: 37001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 37001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc.bindHTTPResponseAccount(context.Background(), c, account, "resp_http_001")
 
 	got, err := svc.getOpenAIWSStateStore().GetResponseAccount(context.Background(), groupID, "resp_http_001")
@@ -768,23 +772,25 @@ func TestOpenAISelectAccountWithLoadAwareness_FiltersUnschedulable(t *testing.T)
 	groupID := int64(1)
 
 	rateLimited := Account{
-		ID:               1,
-		Platform:         PlatformOpenAI,
-		Type:             AccountTypeAPIKey,
-		Status:           StatusActive,
-		Schedulable:      true,
-		Concurrency:      1,
-		Priority:         0,
-		RateLimitResetAt: &resetAt,
+		ID:                1,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          0,
+		RateLimitResetAt:  &resetAt,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	available := Account{
-		ID:          2,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    1,
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	svc := &OpenAIGatewayService{
@@ -826,15 +832,17 @@ func TestOpenAISelectAccountWithLoadAwareness_ImageRateLimitSkipsOnlyImageReques
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	available := Account{
-		ID:          2,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    1,
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	svc := &OpenAIGatewayService{
 		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{imageLimited, available}},
@@ -864,23 +872,25 @@ func TestOpenAISelectAccountWithLoadAwareness_FiltersUnschedulableWhenNoConcurre
 	groupID := int64(1)
 
 	rateLimited := Account{
-		ID:               1,
-		Platform:         PlatformOpenAI,
-		Type:             AccountTypeAPIKey,
-		Status:           StatusActive,
-		Schedulable:      true,
-		Concurrency:      1,
-		Priority:         0,
-		RateLimitResetAt: &resetAt,
+		ID:                1,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          0,
+		RateLimitResetAt:  &resetAt,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	available := Account{
-		ID:          2,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    1,
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	svc := &OpenAIGatewayService{
@@ -1810,6 +1820,7 @@ func TestOpenAIStreamingResponseFailedBeforeOutputCapacityErrorReturnsFailover(t
 		Credentials: map[string]any{
 			"pool_mode": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	_, err := svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "model", "model")
 	require.Error(t, err)
@@ -1904,6 +1915,7 @@ func TestOpenAIStreamingResponseFailedBeforeOutputRateLimitUsesPoolRetryPolicy(t
 			"pool_mode_retry_count":        float64(1),
 			"pool_mode_retry_status_codes": []any{float64(http.StatusTooManyRequests)},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	_, err := svc.handleStreamingResponse(c.Request.Context(), resp, c, account, time.Now(), "model", "model")
@@ -2429,7 +2441,7 @@ func TestOpenAIStreamingPassthroughMissingTerminalEventReturnsIncompleteError(t 
 func TestOpenAIStreamingPassthroughPostOutputDisconnectQuarantinesSharedProxy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	proxyID := int64(4698)
-	account := &Account{ID: 469804, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProxyID: &proxyID}
+	account := &Account{ID: 469804, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProxyID: &proxyID, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
 	// collapseInterval 0: the loop below records within the production collapse
 	// window and must count as distinct failure events here.
@@ -2910,6 +2922,9 @@ func TestOpenAIInvalidBaseURLWhenAllowlistDisabled(t *testing.T) {
 		Platform:    PlatformOpenAI,
 		Type:        AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "://invalid-url"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "://invalid-url",
+		},
 	}
 
 	_, err := svc.buildUpstreamRequest(c.Request.Context(), c, account, []byte("{}"), "token", false, "", false)
@@ -3095,7 +3110,7 @@ func TestOpenAIBuildUpstreamRequestOpenAIPassthroughPreservesExplicitAPIKeyBetaH
 			URLAllowlist: config.URLAllowlistConfig{Enabled: false},
 		},
 	}}
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	req, err := svc.buildUpstreamRequestOpenAIPassthrough(c.Request.Context(), c, account, []byte(`{"model":"gpt-5"}`), "token")
 	require.NoError(t, err)
@@ -3162,6 +3177,9 @@ func TestOpenAIBuildUpstreamRequestPreservesCompactPathForAPIKeyBaseURL(t *testi
 		Type:        AccountTypeAPIKey,
 		Platform:    PlatformOpenAI,
 		Credentials: map[string]any{"base_url": "https://example.com/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://example.com/v1",
+		},
 	}
 
 	req, err := svc.buildUpstreamRequest(c.Request.Context(), c, account, []byte(`{"model":"gpt-5"}`), "token", false, "", false)
@@ -3185,7 +3203,7 @@ func TestOpenAIBuildUpstreamRequestPreservesCodexIdentityHeaders(t *testing.T) {
 			URLAllowlist: config.URLAllowlistConfig{Enabled: false},
 		},
 	}}
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	req, err := svc.buildUpstreamRequest(c.Request.Context(), c, account, body, "token", false, "", true)
 	require.NoError(t, err)

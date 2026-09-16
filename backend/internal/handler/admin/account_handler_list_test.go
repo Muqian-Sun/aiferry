@@ -167,9 +167,10 @@ func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {
 			AccountGroups: []service.AccountGroup{
 				{AccountID: 101, GroupID: groupID, Priority: 100, Group: &service.Group{ID: groupID, Name: "openai"}},
 			},
-			GroupIDs:  []int64{groupID},
-			CreatedAt: now,
-			UpdatedAt: now,
+			GroupIDs:          []int64{groupID},
+			CreatedAt:         now,
+			UpdatedAt:         now,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          102,
@@ -183,9 +184,10 @@ func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {
 			AccountGroups: []service.AccountGroup{
 				{AccountID: 102, GroupID: groupID, Priority: 1, Group: &service.Group{ID: groupID, Name: "openai"}},
 			},
-			GroupIDs:  []int64{groupID},
-			CreatedAt: now,
-			UpdatedAt: now,
+			GroupIDs:          []int64{groupID},
+			CreatedAt:         now,
+			UpdatedAt:         now,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 
@@ -250,16 +252,17 @@ func TestAccountHandlerListSkipsSchedulerScoresByDefault(t *testing.T) {
 	now := time.Now().UTC()
 	adminSvc.accounts = []service.Account{
 		{
-			ID:          110,
-			Name:        "openai-account",
-			Platform:    service.PlatformOpenAI,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: true,
-			Concurrency: 10,
-			Priority:    1,
-			CreatedAt:   now,
-			UpdatedAt:   now,
+			ID:                110,
+			Name:              "openai-account",
+			Platform:          service.PlatformOpenAI,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       true,
+			Concurrency:       10,
+			Priority:          1,
+			CreatedAt:         now,
+			UpdatedAt:         now,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 
@@ -298,9 +301,10 @@ func TestAccountHandlerListKeepsSchedulerScoreScopedToFilter(t *testing.T) {
 		AccountGroups: []service.AccountGroup{
 			{AccountID: 201, GroupID: groupID, Priority: 1, Group: &service.Group{ID: groupID, Name: "openai"}},
 		},
-		GroupIDs:  []int64{groupID},
-		CreatedAt: now,
-		UpdatedAt: now,
+		GroupIDs:          []int64{groupID},
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	hiddenGroupPeer := service.Account{
 		ID:          202,
@@ -314,9 +318,10 @@ func TestAccountHandlerListKeepsSchedulerScoreScopedToFilter(t *testing.T) {
 		AccountGroups: []service.AccountGroup{
 			{AccountID: 202, GroupID: groupID, Priority: 2, Group: &service.Group{ID: groupID, Name: "openai"}},
 		},
-		GroupIDs:  []int64{groupID},
-		CreatedAt: now,
-		UpdatedAt: now,
+		GroupIDs:          []int64{groupID},
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	adminSvc.accounts = []service.Account{visibleAccount}
 	adminSvc.accountSchedulerScoreFilterAccounts = []service.Account{visibleAccount, hiddenGroupPeer}
@@ -354,28 +359,30 @@ func TestAccountHandlerListSchedulerScoreIgnoresPagination(t *testing.T) {
 	router, adminSvc := setupAccountListRouter()
 	now := time.Now().UTC()
 	visibleAccount := service.Account{
-		ID:          301,
-		Name:        "visible-low-priority",
-		Platform:    service.PlatformOpenAI,
-		Type:        service.AccountTypeAPIKey,
-		Status:      service.StatusActive,
-		Schedulable: true,
-		Concurrency: 10,
-		Priority:    100000,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                301,
+		Name:              "visible-low-priority",
+		Platform:          service.PlatformOpenAI,
+		Type:              service.AccountTypeAPIKey,
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		Concurrency:       10,
+		Priority:          100000,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	hiddenFilterPeer := service.Account{
-		ID:          302,
-		Name:        "hidden-high-priority",
-		Platform:    service.PlatformOpenAI,
-		Type:        service.AccountTypeAPIKey,
-		Status:      service.StatusActive,
-		Schedulable: true,
-		Concurrency: 10,
-		Priority:    1,
-		CreatedAt:   now,
-		UpdatedAt:   now,
+		ID:                302,
+		Name:              "hidden-high-priority",
+		Platform:          service.PlatformOpenAI,
+		Type:              service.AccountTypeAPIKey,
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		Concurrency:       10,
+		Priority:          1,
+		CreatedAt:         now,
+		UpdatedAt:         now,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	adminSvc.accounts = []service.Account{visibleAccount}
 	adminSvc.accountSchedulerScoreFilterAccounts = []service.Account{visibleAccount, hiddenFilterPeer}

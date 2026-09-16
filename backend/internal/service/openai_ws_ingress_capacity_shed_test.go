@@ -95,15 +95,16 @@ func TestProxyResponsesWebSocketFromClient_RewritesCapacityShedCodeForClient(t *
 			pool.setClientDialerForTest(&openAIWSCaptureDialer{conn: captureConn})
 
 			account := Account{
-				ID:          5401,
-				Name:        "openai-ingress-capacity-shed",
-				Platform:    PlatformOpenAI,
-				Type:        AccountTypeAPIKey,
-				Status:      StatusActive,
-				Schedulable: true,
-				Concurrency: 1,
-				Credentials: map[string]any{"api_key": "sk-test"},
-				Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+				ID:                5401,
+				Name:              "openai-ingress-capacity-shed",
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Status:            StatusActive,
+				Schedulable:       true,
+				Concurrency:       1,
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 			repo := &openAIWSIngressCapacityShedRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
 			svc := &OpenAIGatewayService{
@@ -239,6 +240,7 @@ func TestProxyResponsesWebSocketFromClient_MarksCyberPolicyBeforeEarlyReturn(t *
 				Extra: map[string]any{
 					"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeCtxPool,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 
 			markCh := make(chan *CyberPolicyMark, 1)

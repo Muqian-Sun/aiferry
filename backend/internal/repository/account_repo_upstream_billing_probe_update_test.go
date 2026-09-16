@@ -79,17 +79,19 @@ func TestLockAndMergeAccountProbeExtraUsesCurrentDatabaseSnapshot(t *testing.T) 
 			client := dbent.NewClient(dbent.Driver(entsql.OpenDB(dialect.Postgres, db)))
 			t.Cleanup(func() { _ = client.Close() })
 
-			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
-				WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+			// 第三方 key 换上游只改 protocol_endpoints，身份比较必须覆盖它。
+			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("AND protocol_endpoints = $6::jsonb")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
+				WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil, `{"chat_completions":"https://api.openai.com","responses":"https://api.openai.com"}`).
 				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "ollama_group_unchanged", "ollama_proxy_unchanged", "enabled", "rate_sync_enabled", "snapshot", "ollama_session", "ollama_auto", "ollama_snapshot"}).
 					AddRow(tt.identityUnchanged, false, true, tt.databaseEnabled, nil, tt.databaseSnapshot, nil, nil, nil))
 
 			account := &service.Account{
-				ID:          27,
-				Platform:    service.PlatformOpenAI,
-				Type:        service.AccountTypeAPIKey,
-				Credentials: map[string]any{"api_key": "sk-test"},
-				Extra:       tt.inputExtra,
+				ID:                27,
+				Platform:          service.PlatformOpenAI,
+				Type:              service.AccountTypeAPIKey,
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				Extra:             tt.inputExtra,
+				ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 			}
 			got, err := lockAndMergeAccountProbeExtra(context.Background(), client, account, nil, nil)
 			require.NoError(t, err)
@@ -171,15 +173,16 @@ func TestLockAndMergeAccountProbeExtraNeverInfersProbeFromRateSync(t *testing.T)
 			t.Cleanup(func() { _ = client.Close() })
 
 			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
-				WithArgs(int64(31), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+				WithArgs(int64(31), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil, `{"chat_completions":"https://api.openai.com","responses":"https://api.openai.com"}`).
 				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "ollama_group_unchanged", "ollama_proxy_unchanged", "enabled", "rate_sync_enabled", "snapshot", "ollama_session", "ollama_auto", "ollama_snapshot"}).
 					AddRow(true, false, true, tt.databaseEnabled, tt.databaseRateSync, nil, nil, nil, nil))
 
 			account := &service.Account{
-				ID:          31,
-				Platform:    service.PlatformOpenAI,
-				Type:        service.AccountTypeAPIKey,
-				Credentials: map[string]any{"api_key": "sk-test"},
+				ID:                31,
+				Platform:          service.PlatformOpenAI,
+				Type:              service.AccountTypeAPIKey,
+				Credentials:       map[string]any{"api_key": "sk-test"},
+				ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 			}
 			got, err := lockAndMergeAccountProbeExtra(
 				context.Background(), client, account, tt.explicitProbeEnabled, tt.explicitRateSync,
@@ -210,13 +213,17 @@ func TestLockAndMergeAccountProbeExtraProtectsOllamaManagedFields(t *testing.T) 
 			t.Cleanup(func() { _ = client.Close() })
 
 			mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
-				WithArgs(int64(29), service.PlatformAnthropic, service.AccountTypeAPIKey, `{"api_key":"key","base_url":"https://ollama.com"}`, nil).
+				WithArgs(int64(29), service.PlatformAnthropic, service.AccountTypeAPIKey, `{"api_key":"key","base_url":"https://ollama.com"}`, nil, `{"anthropic":"https://ollama.com"}`).
 				WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "ollama_group_unchanged", "ollama_proxy_unchanged", "enabled", "rate_sync_enabled", "snapshot", "ollama_session", "ollama_auto", "ollama_snapshot"}).
 					AddRow(identityUnchanged, identityUnchanged, true, nil, nil, nil, []byte(`"local-ciphertext"`), []byte(`true`), []byte(`{"status":"ok"}`)))
 
 			account := &service.Account{
 				ID: 29, Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
 				Credentials: map[string]any{"api_key": "key", "base_url": "https://ollama.com"},
+				// 第三方 key 的上游地址来自协议映射，Ollama Cloud 判定读的是它。
+				ProtocolEndpoints: map[string]string{
+					service.APIProtocolAnthropic: "https://ollama.com",
+				},
 				Extra: map[string]any{
 					service.OllamaCloudUsageSessionExtraKey:     "forged-ciphertext",
 					service.OllamaCloudUsageAutoRefreshExtraKey: false,
@@ -370,7 +377,7 @@ func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) 
 
 	mock.ExpectBegin()
 	mock.ExpectQuery(`(?s)`+regexp.QuoteMeta("SELECT")+`.*`+regexp.QuoteMeta("FOR NO KEY UPDATE")).
-		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil).
+		WithArgs(int64(27), service.PlatformOpenAI, service.AccountTypeAPIKey, `{"api_key":"sk-test"}`, nil, `{"chat_completions":"https://api.openai.com","responses":"https://api.openai.com"}`).
 		WillReturnRows(sqlmock.NewRows([]string{"identity_unchanged", "ollama_group_unchanged", "ollama_proxy_unchanged", "enabled", "rate_sync_enabled", "snapshot", "ollama_session", "ollama_auto", "ollama_snapshot"}).
 			AddRow(true, false, true, []byte(`true`), []byte(`true`), []byte(`{"status":"ok"}`), nil, nil, nil))
 	mock.ExpectExec(`(?s)UPDATE .*accounts.*SET.*WHERE .*id.*`).
@@ -391,10 +398,11 @@ func TestUpdateWithAccountBillingSettingsRollsBackWhenOutboxFails(t *testing.T) 
 		Extra: map[string]any{
 			service.UpstreamBillingProbeExtraKey: map[string]any{"status": "stale"},
 		},
-		Concurrency: 1,
-		Priority:    1,
-		Status:      service.StatusActive,
-		Schedulable: true,
+		Concurrency:       1,
+		Priority:          1,
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	probeDisabled := false

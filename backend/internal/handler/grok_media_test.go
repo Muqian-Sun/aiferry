@@ -130,7 +130,7 @@ func TestEnsureGrokMediaAccountEligibility(t *testing.T) {
 	t.Run("non oauth account does not probe", func(t *testing.T) {
 		prober := &grokMediaEligibilityProberStub{}
 		h := &OpenAIGatewayHandler{grokMediaEligibilityProber: prober}
-		account := &service.Account{Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey}
+		account := &service.Account{Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
 
 		eligible, reason, err := h.ensureGrokMediaAccountEligibility(context.Background(), account)
 

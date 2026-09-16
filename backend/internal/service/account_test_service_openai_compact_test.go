@@ -139,12 +139,12 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesNativeR
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://example.com/v1",
+			"api_key": "sk-test",
 			// post-#5641：compact_model_mapping 仅作用于 legacy /responses/compact，
 			// 原生 v2 探测不应用它。
 			"compact_model_mapping": map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1"},
 	}
 	repo := &snapshotUpdateAccountRepo{
 		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},
@@ -177,13 +177,13 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesNativeR
 	require.Equal(t, true, updates["openai_compact_supported"])
 }
 
-func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyDefaultBaseURLUsesResponsesPath(t *testing.T) {
+func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyOfficialBaseURLUsesResponsesPath(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	updateCalls := make(chan map[string]any, 1)
 	account := Account{
 		ID:          4,
-		Name:        "openai-apikey-default",
+		Name:        "openai-apikey-official",
 		Platform:    PlatformOpenAI,
 		Type:        AccountTypeAPIKey,
 		Status:      StatusActive,
@@ -192,6 +192,8 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyDefaultBase
 		Credentials: map[string]any{
 			"api_key": "sk-test",
 		},
+		// 官方端点也要显式配置：第三方 key 不再有隐式默认地址。
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"},
 	}
 	repo := &snapshotUpdateAccountRepo{
 		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},

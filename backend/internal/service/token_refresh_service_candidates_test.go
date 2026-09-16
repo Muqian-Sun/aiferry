@@ -135,11 +135,12 @@ func TestTokenRefreshService_ProcessRefreshUsesOAuthRefreshCandidates(t *testing
 				Credentials: map[string]any{},
 			},
 			{
-				ID:          3,
-				Platform:    PlatformGemini,
-				Type:        AccountTypeAPIKey,
-				Status:      StatusActive,
-				Credentials: map[string]any{"refresh_token": "refresh-token"},
+				ID:                3,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				Status:            StatusActive,
+				Credentials:       map[string]any{"refresh_token": "refresh-token"},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			{
 				ID:                      4,

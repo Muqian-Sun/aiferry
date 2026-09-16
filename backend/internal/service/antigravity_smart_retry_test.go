@@ -460,10 +460,11 @@ func TestHandleSmartRetry_503_ModelCapacityExhausted_ContextCancel(t *testing.T)
 // TestHandleSmartRetry_NonAntigravityAccount_ContinuesDefaultLogic 测试非 Antigravity 平台账号走默认逻辑
 func TestHandleSmartRetry_NonAntigravityAccount_ContinuesDefaultLogic(t *testing.T) {
 	account := &Account{
-		ID:       4,
-		Name:     "acc-4",
-		Type:     AccountTypeAPIKey, // 非 Antigravity 平台账号
-		Platform: PlatformAnthropic,
+		ID:                4,
+		Name:              "acc-4",
+		Type:              AccountTypeAPIKey, // 非 Antigravity 平台账号
+		Platform:          PlatformAnthropic,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 
 	// 即使是模型限流响应，非 OAuth 账号也应该走默认逻辑

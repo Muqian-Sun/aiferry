@@ -351,12 +351,13 @@ func grokReconcileFixtures() []Account {
 			Credentials: map[string]any{"access_token": "access-secret", "refresh_token": "refresh-secret", "expires_at": now.Add(4 * time.Hour).Format(time.RFC3339)},
 		},
 		{
-			ID:          5,
-			Platform:    PlatformGrok,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Credentials: map[string]any{"api_key": "api-key-secret"},
+			ID:                5,
+			Platform:          PlatformGrok,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Credentials:       map[string]any{"api_key": "api-key-secret"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		},
 	}
 }

@@ -37,6 +37,11 @@ func openCodeMappedTestAccount() *Account {
 				"opencode/glm-5.3":                          "glm-5.3",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://opencode.ai/zen/v1",
+			APIProtocolAnthropic:       "https://opencode.ai/zen",
+			APIProtocolResponses:       "https://opencode.ai/zen/v1",
+		},
 	}
 }
 

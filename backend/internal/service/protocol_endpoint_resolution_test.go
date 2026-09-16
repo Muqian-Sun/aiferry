@@ -8,9 +8,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// TestProtocolEndpointPreferredOverStoredBaseURL 固定地址解析的优先级：
-// 协议映射里配了就用它，没配才回落到 credentials.base_url 或官方默认地址。
-// 回落是过渡期的关键——存量账号没有协议映射，行为必须与切换前完全一致。
+// TestProtocolEndpointPreferredOverStoredBaseURL 固定第三方 key 的地址解析：
+// 地址只认 protocol_endpoints，credentials.base_url 不再参与。
 func TestProtocolEndpointPreferredOverStoredBaseURL(t *testing.T) {
 	t.Run("anthropic 配了协议映射时优先使用", func(t *testing.T) {
 		account := Account{
@@ -20,20 +19,6 @@ func TestProtocolEndpointPreferredOverStoredBaseURL(t *testing.T) {
 			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://protocol.example.com"},
 		}
 		require.Equal(t, "https://protocol.example.com", account.GetBaseURL())
-	})
-
-	t.Run("anthropic 未配协议映射时回落 base_url", func(t *testing.T) {
-		account := Account{
-			Type:        AccountTypeAPIKey,
-			Platform:    PlatformAnthropic,
-			Credentials: map[string]any{"base_url": "https://legacy.example.com"},
-		}
-		require.Equal(t, "https://legacy.example.com", account.GetBaseURL())
-	})
-
-	t.Run("两者都没有时仍回落官方地址", func(t *testing.T) {
-		account := Account{Type: AccountTypeAPIKey, Platform: PlatformAnthropic}
-		require.Equal(t, "https://api.anthropic.com", account.GetBaseURL())
 	})
 
 	t.Run("非 apikey 账号不受协议映射影响", func(t *testing.T) {
@@ -87,15 +72,13 @@ func TestProtocolEndpointPreferredOverStoredBaseURL(t *testing.T) {
 		require.Equal(t, "https://gemini.example.com", account.GetGeminiBaseURL("https://default.example.com"))
 	})
 
-	t.Run("gemini 未配时回落 base_url，再回落默认值", func(t *testing.T) {
-		withBase := Account{
-			Type:        AccountTypeAPIKey,
-			Platform:    PlatformGemini,
-			Credentials: map[string]any{"base_url": "https://legacy.example.com"},
-		}
-		require.Equal(t, "https://legacy.example.com", withBase.GetGeminiBaseURL("https://default.example.com"))
-
+	t.Run("gemini 第三方 key 未配协议映射时不回落默认值", func(t *testing.T) {
 		bare := Account{Type: AccountTypeAPIKey, Platform: PlatformGemini}
-		require.Equal(t, "https://default.example.com", bare.GetGeminiBaseURL("https://default.example.com"))
+		require.Equal(t, "", bare.GetGeminiBaseURL("https://default.example.com"))
+	})
+
+	t.Run("gemini 成品号未配 base_url 时使用调用方给的默认值", func(t *testing.T) {
+		oauth := Account{Type: AccountTypeOAuth, Platform: PlatformGemini}
+		require.Equal(t, "https://default.example.com", oauth.GetGeminiBaseURL("https://default.example.com"))
 	})
 }

@@ -235,13 +235,13 @@ func TestResolveOpenAIUpstreamEndpointPrefersForwardResult(t *testing.T) {
 		},
 		{
 			name:    "opencode go conversion result reports responses",
-			account: &service.Account{Platform: service.PlatformOpenCodeGo, Type: service.AccountTypeAPIKey},
+			account: &service.Account{Platform: service.PlatformOpenCodeGo, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://opencode.ai/zen", service.APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}},
 			result:  &service.OpenAIForwardResult{UpstreamEndpoint: EndpointResponses},
 			want:    EndpointResponses,
 		},
 		{
 			name:    "opencode go empty result without runtime stays inbound",
-			account: &service.Account{Platform: service.PlatformOpenCodeGo, Type: service.AccountTypeAPIKey},
+			account: &service.Account{Platform: service.PlatformOpenCodeGo, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://opencode.ai/zen", service.APIProtocolChatCompletions: "https://opencode.ai/zen/v1"}},
 			result:  &service.OpenAIForwardResult{},
 			want:    EndpointChatCompletions,
 		},

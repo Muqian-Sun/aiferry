@@ -60,10 +60,11 @@ func TestReleaseAccountSession_ReleasesRegisteredSlot(t *testing.T) {
 // 以上场景均为 no-op，不得触发 UnregisterSession。
 func TestReleaseAccountSession_NoOpForInapplicableAccounts(t *testing.T) {
 	apiKeyAcc := &Account{
-		ID:       43,
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{"max_sessions": 1},
+		ID:                43,
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{"max_sessions": 1},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	noLimitAcc := &Account{
 		ID:       44,

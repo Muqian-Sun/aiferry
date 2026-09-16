@@ -14,6 +14,7 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"anthropic_passthrough": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		}
 		require.True(t, account.IsAnthropicAPIKeyPassthroughEnabled())
 	})
@@ -25,6 +26,7 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"anthropic_passthrough": false,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		}
 		require.False(t, account.IsAnthropicAPIKeyPassthroughEnabled())
 	})
@@ -36,6 +38,7 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"anthropic_passthrough": "true",
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		}
 		require.False(t, account.IsAnthropicAPIKeyPassthroughEnabled())
 	})
@@ -56,6 +59,7 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 			Extra: map[string]any{
 				"anthropic_passthrough": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		require.False(t, openai.IsAnthropicAPIKeyPassthroughEnabled())
 	})
@@ -70,8 +74,9 @@ func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 		{
 			name: "missing extra defaults to x-api-key",
 			account: &Account{
-				Platform: PlatformAnthropic,
-				Type:     AccountTypeAPIKey,
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 			want: AnthropicAPIKeyAuthSchemeXAPIKey,
 		},
@@ -83,6 +88,7 @@ func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 				Extra: map[string]any{
 					"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 			want: AnthropicAPIKeyAuthSchemeAuthorizationBearer,
 		},
@@ -94,6 +100,7 @@ func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 				Extra: map[string]any{
 					"anthropic_apikey_auth_scheme": "bearer",
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 			want: AnthropicAPIKeyAuthSchemeXAPIKey,
 		},
@@ -105,6 +112,7 @@ func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 				Extra: map[string]any{
 					"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			want: AnthropicAPIKeyAuthSchemeXAPIKey,
 		},

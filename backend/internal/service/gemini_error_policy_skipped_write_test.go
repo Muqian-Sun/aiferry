@@ -48,9 +48,10 @@ func newGeminiSkippedWriteService(status int, body string) (*GeminiMessagesCompa
 
 func geminiPoolModeAPIKeyAccount() *Account {
 	return &Account{
-		ID:       700,
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey,
+		ID:                700,
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key":   "test-key",
 			"pool_mode": true,
@@ -60,9 +61,10 @@ func geminiPoolModeAPIKeyAccount() *Account {
 
 func geminiCustomCodesAPIKeyAccount() *Account {
 	return &Account{
-		ID:       701,
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey,
+		ID:                701,
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key":                    "test-key",
 			"custom_error_codes_enabled": true,

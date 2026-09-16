@@ -48,6 +48,7 @@ func grokMediaContentTestAccount() *Account {
 			"api_key":  "upstream-key",
 			"base_url": "https://relay.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 	}
 }
 

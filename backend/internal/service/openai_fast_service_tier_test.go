@@ -356,6 +356,10 @@ func TestForwardAsChatCompletions_ServiceTierFastNormalizedToPriorityUpstream(t 
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          21,
 		Name:        "openai-compatible",
 		Platform:    PlatformOpenAI,
@@ -393,6 +397,10 @@ func TestForwardAsChatCompletions_ServiceTierPriorityPreservedUpstream(t *testin
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          2,
 		Name:        "openai-compatible",
 		Platform:    PlatformOpenAI,
@@ -431,6 +439,10 @@ func TestForward_ResponsesServiceTierFastNormalizedToPriorityUpstream(t *testing
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,
@@ -476,6 +488,10 @@ func TestForward_ResponsesServiceTierOmittedStaysOmitted(t *testing.T) {
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,
@@ -526,6 +542,10 @@ func TestForwardStreaming_ServiceTierPropagatedToResult(t *testing.T) {
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,
@@ -576,6 +596,10 @@ func TestForward_ResponsesKeepsOutboundAndObservedServiceTiersSeparate(t *testin
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,
@@ -623,6 +647,10 @@ func TestForwardStreaming_KeepsOutboundAndObservedServiceTiersSeparate(t *testin
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,
@@ -670,6 +698,10 @@ func TestForwardAsChatCompletions_KeepsOutboundAndObservedServiceTiersSeparate(t
 		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          21,
 		Name:        "openai-compatible",
 		Platform:    PlatformOpenAI,
@@ -729,6 +761,10 @@ func TestForward_ServiceTierFilteredByPolicyBillsStandard(t *testing.T) {
 		settingService: NewSettingService(repo, &config.Config{}),
 	}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
+		},
 		ID:          7,
 		Name:        "openai-apikey",
 		Platform:    PlatformOpenAI,

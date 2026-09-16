@@ -53,7 +53,8 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 
 	account := &Account{
 		ID: 800, Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
-		Credentials: map[string]any{"api_key": "test-key", "base_url": "https://grok.example.test/v1"},
+		Credentials:       map[string]any{"api_key": "test-key", "base_url": "https://grok.example.test/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,

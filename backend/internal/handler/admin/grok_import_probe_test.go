@@ -250,7 +250,7 @@ func TestGrokImportProbeSchedulerSkipsMissingServiceAndNonGrokAccounts(t *testin
 
 	scheduler.schedule(nil, newGrokOAuthImportAccount(301))
 	scheduler.schedule(prober, &service.Account{ID: 302, Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth})
-	scheduler.schedule(prober, &service.Account{ID: 303, Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey})
+	scheduler.schedule(prober, &service.Account{ID: 303, Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}})
 
 	select {
 	case id := <-prober.started:
