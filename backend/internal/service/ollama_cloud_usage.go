@@ -1038,7 +1038,7 @@ func IsOllamaCloudUsageAccount(account *Account) bool {
 	if account == nil || account.Type != AccountTypeAPIKey || !isOllamaCloudUsagePlatform(account.Platform) {
 		return false
 	}
-	return isOllamaCloudBaseURL(account.StoredBaseURL())
+	return isOllamaCloudBaseURL(account.PrimaryUpstreamBaseURL())
 }
 
 func isOllamaCloudBaseURL(raw string) bool {

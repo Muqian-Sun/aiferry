@@ -322,9 +322,5 @@ func (a *Account) ResolveOpenCodeGoUpstreamProtocol(model string) string {
 }
 
 func openCodeGoQuotaURL(baseURL string) string {
-	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if base == "" {
-		base = DefaultOpenCodeGoBaseURL
-	}
-	return base + openCodeGoUsagePath
+	return strings.TrimRight(strings.TrimSpace(baseURL), "/") + openCodeGoUsagePath
 }

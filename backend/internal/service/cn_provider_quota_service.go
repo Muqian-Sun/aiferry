@@ -140,7 +140,11 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NO_APIKEY", "account api_key is empty")
 	}
 
+	// 与 GetCodingPlanProvider 的识别口径保持同一个地址。
 	baseURL := account.GetOpenAIBaseURL()
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolChatCompletions)
+	}
 	var (
 		targetURL  string
 		authHeader string

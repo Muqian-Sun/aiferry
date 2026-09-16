@@ -625,18 +625,17 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	if apiKey == "" {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_api_key", 0)
 	}
-	baseURL := account.StoredBaseURL()
+	baseURL := account.PrimaryUpstreamBaseURL()
 	if account.IsCNProvider() && account.IsAdaptiveAPIProtocol() {
 		baseURL = account.GetCNProtocolBaseURL(APIProtocolChatCompletions)
 	}
-	if account.Platform == PlatformOpenAI {
-		if baseURL == "" {
-			// 保持官方语义：OpenAI 账号无自定义 base 时探官方域（404 → unsupported）。
-			baseURL = "https://api.openai.com"
-		}
-	} else if upstreamBillingProbeTargetIsOfficialAPI(baseURL) {
-		// 其他平台 base_url 为空或指向官方 API 根域（前端创建时会把空值
-		// 填成官方默认域，且提供 us-east-1.api.x.ai 等官方区域预设）⇒
+	if baseURL == "" {
+		// 第三方 key 没配地址是配置错误，不再替它去探官方域。
+		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_protocol_endpoint", 0)
+	}
+	if account.Platform != PlatformOpenAI && upstreamBillingProbeTargetIsOfficialAPI(baseURL) {
+		// 其他平台指向官方 API 根域（前端创建时预填官方默认域，且提供
+		// us-east-1.api.x.ai 等官方区域预设）⇒
 		// 必无 /v1/sub2api/billing；不发请求，直接记 unsupported，避免
 		// 拿账号 Key 周期性请求官方域的不存在路径。
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "unsupported", 0)
