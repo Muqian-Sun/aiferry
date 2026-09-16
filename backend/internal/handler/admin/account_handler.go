@@ -130,6 +130,8 @@ type CreateAccountRequest struct {
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
+	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
 
 // UpdateAccountRequest represents update account request
@@ -152,6 +154,8 @@ type UpdateAccountRequest struct {
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
+	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -1037,6 +1041,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			ExpiresAt:             req.ExpiresAt,
 			AutoPauseOnExpired:    req.AutoPauseOnExpired,
 			ProbeEnabled:          req.ProbeEnabled,
+			ProtocolEndpoints:     req.ProtocolEndpoints,
 			SkipMixedChannelCheck: skipCheck,
 		})
 		if execErr != nil {
@@ -1170,6 +1175,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
 		ProbeEnabled:          req.ProbeEnabled,
 		RateSyncEnabled:       req.RateSyncEnabled,
+		ProtocolEndpoints:     req.ProtocolEndpoints,
 		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {

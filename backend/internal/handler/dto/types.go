@@ -309,6 +309,10 @@ type Account struct {
 	// 影子账号关系（spark 维度影子）
 	ParentAccountID *int64 `json:"parent_account_id,omitempty"`
 	QuotaDimension  string `json:"quota_dimension,omitempty"`
+	// SourceKind 账号来源：subscription / api_key；空表示历史数据尚未分类。
+	SourceKind string `json:"source_kind,omitempty"`
+	// ProtocolEndpoints 协议 → 上游地址映射。
+	ProtocolEndpoints map[string]string `json:"protocol_endpoints,omitempty"`
 
 	// 影子账号回填的母账号信息（仅影子非空，源自母账号 Credentials/Extra）
 	ParentEmail                 string `json:"parent_email,omitempty"`
