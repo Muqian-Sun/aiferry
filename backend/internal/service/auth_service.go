@@ -1381,6 +1381,9 @@ func isReservedEmail(email string) bool {
 // 使用新的access_token_expire_minutes配置项（如果配置了），否则回退到expire_hour。
 // 会话指纹（IP/UA）从 ctx 中提取（由 HTTP 入口中间件注入），缺失时生成不带绑定的 token。
 func (s *AuthService) GenerateToken(ctx context.Context, user *User) (string, error) {
+	if err := CheckSiteRole(ctx, user.Role); err != nil {
+		return "", err
+	}
 	sessionID, err := randomHexString(8)
 	if err != nil {
 		return "", fmt.Errorf("generate session id: %w", err)
@@ -1659,6 +1662,10 @@ type TokenPairWithUser struct {
 // GenerateTokenPair 生成Access Token和Refresh Token对
 // familyID: 可选的Token家族ID，用于Token轮转时保持家族关系
 func (s *AuthService) GenerateTokenPair(ctx context.Context, user *User, familyID string) (*TokenPair, error) {
+	// access token 只经 GenerateToken 与本函数两处签发，站点校验两处都放。
+	if err := CheckSiteRole(ctx, user.Role); err != nil {
+		return nil, err
+	}
 	// 检查 refreshTokenCache 是否可用
 	if s.refreshTokenCache == nil {
 		return nil, errors.New("refresh token cache not configured")
