@@ -696,14 +696,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		normalizedExtra = prepareCodexFingerprintExtraForUpdate(account, normalizedExtra)
 		account.Extra = normalizedExtra
-		if account.Platform == PlatformAntigravity && wasOveragesEnabled && !account.IsOveragesEnabled() {
+		if account.IsAntigravity() && wasOveragesEnabled && !account.IsOveragesEnabled() {
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 			// 清除 AICredits 限流 key
 			if rawLimits, ok := account.Extra[modelRateLimitsKey].(map[string]any); ok {
 				delete(rawLimits, creditsExhaustedKey)
 			}
 		}
-		if account.Platform == PlatformAntigravity && !wasOveragesEnabled && account.IsOveragesEnabled() {
+		if account.IsAntigravity() && !wasOveragesEnabled && account.IsOveragesEnabled() {
 			delete(account.Extra, modelRateLimitsKey)
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 		}
@@ -1713,7 +1713,7 @@ func (s *adminServiceImpl) ForceOpenAIPrivacy(ctx context.Context, account *Acco
 // 仅当 privacy_mode 已成功设置（"privacy_set"）时跳过；
 // 未设置或之前失败（"privacy_set_failed"）均会重试。
 func (s *adminServiceImpl) EnsureAntigravityPrivacy(ctx context.Context, account *Account) string {
-	if account.Platform != PlatformAntigravity || account.Type != AccountTypeOAuth {
+	if !account.IsAntigravity() || account.Type != AccountTypeOAuth {
 		return ""
 	}
 	if account.Extra != nil {
@@ -1751,7 +1751,7 @@ func (s *adminServiceImpl) EnsureAntigravityPrivacy(ctx context.Context, account
 
 // ForceAntigravityPrivacy 强制重新设置 Antigravity OAuth 账号隐私，无论当前状态。
 func (s *adminServiceImpl) ForceAntigravityPrivacy(ctx context.Context, account *Account) string {
-	if account.Platform != PlatformAntigravity || account.Type != AccountTypeOAuth {
+	if !account.IsAntigravity() || account.Type != AccountTypeOAuth {
 		return ""
 	}
 

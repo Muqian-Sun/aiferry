@@ -234,7 +234,7 @@ func (s *AntigravityGatewayService) handleAntigravityModelRateLimitBeforePolicy(
 	if statusCode != http.StatusTooManyRequests && statusCode != http.StatusServiceUnavailable {
 		return false
 	}
-	if p.account == nil || p.account.Platform != PlatformAntigravity {
+	if p.account == nil || !p.account.IsAntigravity() {
 		return false
 	}
 	_, shouldRateLimitModel, waitDuration, modelName, isModelCapacityExhausted := shouldTriggerAntigravitySmartRetry(p.account, respBody)

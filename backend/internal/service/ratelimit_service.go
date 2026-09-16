@@ -481,7 +481,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			if upstreamMsg != "" {
 				msg = "OAuth 401: " + upstreamMsg
 			}
-			if authAccount.Platform == PlatformAntigravity {
+			if authAccount.IsAntigravity() {
 				extraUpdates := antigravityForceTokenRefreshExtra("401_invalid")
 				if err := s.accountRepo.UpdateExtra(ctx, authAccount.ID, extraUpdates); err != nil {
 					slog.Warn("antigravity_401_force_refresh_mark_failed", "account_id", authAccount.ID, "error", err)
@@ -982,7 +982,7 @@ func buildForbiddenErrorMessage(prefix string, upstreamMsg string, responseBody 
 // Antigravity 平台区分 validation/violation/generic 三种类型，均 SetError 永久禁用；
 // 其他平台保持原有 SetError 行为。
 func (s *RateLimitService) handle403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		return s.handleAntigravity403(ctx, account, upstreamMsg, responseBody)
 	}
 	// Kimi reports its transient per-account concurrency/business limit as a 403.
@@ -2517,7 +2517,7 @@ func modelRateLimitKeyForUpstreamModelNotFound(ctx context.Context, account *Acc
 	if account == nil || modelKey == "" {
 		return modelKey
 	}
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		if resolved := strings.TrimSpace(resolveFinalAntigravityModelKey(ctx, account, modelKey)); resolved != "" {
 			return resolved
 		}
@@ -2603,7 +2603,7 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
 	// 401 首次命中可临时不可调度（给 token 刷新窗口）；
 	// 若历史上已因 401 进入过临时不可调度，则本次应升级为 error（返回 false 交由默认错误逻辑处理）。
 	// Antigravity 跳过：其 401 由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制，无需升级逻辑。
-	if statusCode == http.StatusUnauthorized && account.Platform != PlatformAntigravity {
+	if statusCode == http.StatusUnauthorized && !account.IsAntigravity() {
 		reason := account.TempUnschedulableReason
 		// 缓存可能没有 reason，从 DB 回退读取
 		if reason == "" {

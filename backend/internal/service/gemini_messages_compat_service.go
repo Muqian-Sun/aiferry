@@ -291,7 +291,7 @@ func (s *GeminiMessagesCompatService) isAccountValidForPlatform(account *Account
 	if account.Platform == platform {
 		return true
 	}
-	if useMixedScheduling && account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled() {
+	if useMixedScheduling && account.IsAntigravity() && account.IsMixedSchedulingEnabled() {
 		return true
 	}
 	return false
@@ -408,7 +408,7 @@ func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *
 
 // isModelSupportedByAccount 根据账户平台检查模型支持
 func (s *GeminiMessagesCompatService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}

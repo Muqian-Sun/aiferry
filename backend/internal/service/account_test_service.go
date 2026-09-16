@@ -381,7 +381,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.testGrokAccountConnection(c, account, modelID, prompt, mode, testOpts)
 	}
 
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		return s.routeAntigravityTest(c, account, modelID, prompt)
 	}
 

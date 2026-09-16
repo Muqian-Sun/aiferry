@@ -982,7 +982,7 @@ func (a *Account) GetBaseURL() string {
 	if baseURL == "" {
 		return "https://api.anthropic.com"
 	}
-	if a.Platform == PlatformAntigravity {
+	if a.IsAntigravity() {
 		return strings.TrimRight(baseURL, "/") + "/antigravity"
 	}
 	return baseURL
@@ -995,7 +995,7 @@ func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
 	if baseURL == "" {
 		return defaultBaseURL
 	}
-	if a.Platform == PlatformAntigravity && a.Type == AccountTypeAPIKey {
+	if a.IsAntigravity() && a.Type == AccountTypeAPIKey {
 		return strings.TrimRight(baseURL, "/") + "/antigravity"
 	}
 	return baseURL
@@ -2060,7 +2060,7 @@ func (a *Account) IsOpenAITokenExpired() bool {
 // IsMixedSchedulingEnabled 检查 antigravity 账户是否启用混合调度
 // 启用后可参与 anthropic/gemini 分组的账户调度
 func (a *Account) IsMixedSchedulingEnabled() bool {
-	if a.Platform != PlatformAntigravity {
+	if !a.IsAntigravity() {
 		return false
 	}
 	if a.Extra == nil {
@@ -2076,7 +2076,7 @@ func (a *Account) IsMixedSchedulingEnabled() bool {
 
 // IsOveragesEnabled 检查 Antigravity 账号是否启用 AI Credits 超量请求。
 func (a *Account) IsOveragesEnabled() bool {
-	if a.Platform != PlatformAntigravity {
+	if !a.IsAntigravity() {
 		return false
 	}
 	if a.Extra == nil {

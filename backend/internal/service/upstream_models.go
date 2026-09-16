@@ -633,7 +633,7 @@ func upstreamModelRegistryBaseURL(account *Account) string {
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	case account.IsAnthropic():
 		return account.GetBaseURL()
-	case account.Platform == PlatformAntigravity:
+	case account.IsAntigravity():
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	default:
 		return strings.TrimSpace(account.GetCredential("base_url"))
@@ -732,7 +732,7 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 		return nil, nil, newUpstreamModelSyncConfigError("Account is required", nil)
 	}
 
-	if account.Platform == PlatformAntigravity && account.Type != AccountTypeAPIKey {
+	if account.IsAntigravity() && account.Type != AccountTypeAPIKey {
 		models, err := s.fetchAntigravityOAuthUpstreamModels(ctx, account)
 		return models, nil, err
 	}
@@ -788,7 +788,7 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
 	switch {
-	case account.Platform == PlatformAntigravity:
+	case account.IsAntigravity():
 		return s.buildAntigravityAPIKeyModelsRequest(ctx, account)
 	case account.IsGrok():
 		return s.buildGrokUpstreamModelsRequest(ctx, account)

@@ -467,7 +467,7 @@ func (s *AntigravityGatewayService) handleSingleAccountRetryInPlace(
 func (s *AntigravityGatewayService) antigravityRetryLoop(p antigravityRetryLoopParams) (*antigravityRetryLoopResult, error) {
 	// 预检查：模型限流 + overages 启用 + 积分未耗尽 → 直接注入 AI Credits
 	overagesInjected := false
-	if p.requestedModel != "" && p.account.Platform == PlatformAntigravity &&
+	if p.requestedModel != "" && p.account.IsAntigravity() &&
 		p.account.IsOveragesEnabled() && !p.account.isCreditsExhausted() &&
 		p.account.isModelRateLimitedWithContext(p.ctx, p.requestedModel) {
 		if creditsBody := injectEnabledCreditTypes(p.body); creditsBody != nil {
@@ -1054,7 +1054,7 @@ func parseAntigravitySmartRetryInfo(body []byte) *antigravitySmartRetryInfo {
 //   - modelName: 限流的模型名称
 //   - isModelCapacityExhausted: 是否为模型容量不足（MODEL_CAPACITY_EXHAUSTED）
 func shouldTriggerAntigravitySmartRetry(account *Account, respBody []byte) (shouldRetry bool, shouldRateLimitModel bool, waitDuration time.Duration, modelName string, isModelCapacityExhausted bool) {
-	if account.Platform != PlatformAntigravity {
+	if !account.IsAntigravity() {
 		return false, false, 0, "", false
 	}
 
