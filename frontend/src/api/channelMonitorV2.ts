@@ -1,4 +1,5 @@
 import { apiClient } from './client'
+import { IS_ADMIN_SITE } from '@/app/site'
 
 export type MonitorRange = '90m' | '24h' | '7d' | '30d'
 export type HealthState = 'unknown' | 'healthy' | 'warning' | 'critical'
@@ -235,7 +236,8 @@ const requestConfig = (filter: MonitorFilter, signal?: AbortSignal, extraParams:
   signal,
 })
 
-function base(admin: boolean) { return admin ? '/admin/channel-monitor-v2' : '/channel-monitor-v2' }
+// 管理端监控接口只在管理后台可用；用户站构建时该分支被剪掉
+function base(admin: boolean) { return IS_ADMIN_SITE && admin ? '/admin/channel-monitor-v2' : '/channel-monitor-v2' }
 
 export async function getDimensions(filter: MonitorFilter, admin = false, signal?: AbortSignal) {
   const { data } = await apiClient.get<MonitorDimensions>(`${base(admin)}/dimensions`, requestConfig(filter, signal))

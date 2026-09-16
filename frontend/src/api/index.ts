@@ -23,8 +23,7 @@ export { passkeyAPI, type PasskeyCredentialSummary } from './passkey'
 export { default as announcementsAPI } from './announcements'
 export { channelMonitorUserAPI } from './channelMonitor'
 
-// Admin APIs
-export { adminAPI } from './admin'
+// 管理 API 不从这里导出：管理端代码直接从 '@/api/admin' 引入，用户站经由本入口不会带上管理端代码
 
 // Default export
 export { default } from './client'

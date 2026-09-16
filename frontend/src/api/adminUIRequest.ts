@@ -1,7 +1,10 @@
+import { APP_SITE, type AppSite } from '@/app/site'
+
 export const ADMIN_UI_REQUEST_HEADER = 'X-Admin-UI-Request'
 export const USER_UI_REQUEST_HEADER = 'X-User-UI-Request'
 
-function isAdminPath(path: string): boolean {
+/** 管理 API 路径（相对 /api/v1 或绝对形式）。页面路径不再参与判断：管理后台是独立站点。 */
+function isAdminAPIPath(path: string): boolean {
   return (
     path === '/admin' ||
     path.startsWith('/admin/') ||
@@ -67,10 +70,12 @@ export function isUserTimingAPIPath(requestURL: string): boolean {
   return false
 }
 
-export function shouldMarkAdminUIRequest(requestURL: string, pagePath?: string): boolean {
-  const currentPath =
-    pagePath ?? (typeof window !== 'undefined' ? window.location.pathname : '')
-  return isAdminPath(requestPath(requestURL)) || isAdminPath(currentPath)
+/**
+ * 管理界面发出的请求打上管理 UI 标记（Server-Timing 范围信号，不参与鉴权）。
+ * 管理后台是独立站点，其页面发出的所有请求都属于管理界面；用户站只标记直接访问管理 API 的请求。
+ */
+export function shouldMarkAdminUIRequest(requestURL: string, site: AppSite = APP_SITE): boolean {
+  return site === 'admin' || isAdminAPIPath(requestPath(requestURL))
 }
 
 export function shouldMarkUserUIRequest(requestURL: string): boolean {

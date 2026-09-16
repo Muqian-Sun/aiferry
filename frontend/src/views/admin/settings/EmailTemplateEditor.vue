@@ -232,7 +232,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { adminAPI } from "@/api";
+import { adminAPI } from "@/api/admin";
 import type {
   EmailTemplateEventOption,
   EmailTemplateOption,

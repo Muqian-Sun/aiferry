@@ -17,7 +17,10 @@ const {
   getDownloadURL: vi.fn(),
 }))
 
-vi.mock('@/api', () => ({
+// 子组件（双因素确认弹窗）经 '@/api' 引入真实 HTTP 客户端，这里隔离掉
+vi.mock('@/api', () => ({}))
+
+vi.mock('@/api/admin', () => ({
   adminAPI: {
     backup: {
       getS3Config,

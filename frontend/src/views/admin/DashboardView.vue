@@ -311,6 +311,7 @@
               :ranking-error="rankingError"
               :start-date="startDate"
               :end-date="endDate"
+              :load-user-breakdown="getUserBreakdown"
               @ranking-click="goToUserUsage"
             />
             <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
@@ -348,6 +349,7 @@ import { useAppStore } from '@/stores/app'
 
 const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
+import { getUserBreakdown } from '@/api/admin/dashboard'
 import type {
   DashboardStats,
   TrendDataPoint,

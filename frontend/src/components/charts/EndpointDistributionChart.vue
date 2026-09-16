@@ -140,7 +140,7 @@ import { Doughnut } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
-import { getUserBreakdown } from '@/api/admin/dashboard'
+import type { UserBreakdownLoader } from './userBreakdown'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -160,7 +160,8 @@ const props = withDefaults(
     source?: EndpointSource
     showMetricToggle?: boolean
     showSourceToggle?: boolean
-    enableBreakdown?: boolean
+    /** 按用户下钻的加载函数；不传则不提供下钻（用户站复用本图表时不传）。 */
+    loadUserBreakdown?: UserBreakdownLoader
     startDate?: string
     endDate?: string
     filters?: Record<string, any>
@@ -173,8 +174,7 @@ const props = withDefaults(
     metric: 'tokens',
     source: 'inbound',
     showMetricToggle: false,
-    showSourceToggle: false,
-    enableBreakdown: true
+    showSourceToggle: false
   }
 )
 
@@ -183,11 +183,14 @@ const emit = defineEmits<{
   'update:source': [value: EndpointSource]
 }>()
 
+const enableBreakdown = computed(() => props.loadUserBreakdown !== undefined)
 const expandedKey = ref<string | null>(null)
 const breakdownItems = ref<UserBreakdownItem[]>([])
 const breakdownLoading = ref(false)
 
 const toggleBreakdown = async (endpoint: string) => {
+  const loadUserBreakdown = props.loadUserBreakdown
+  if (!loadUserBreakdown) return
   if (expandedKey.value === endpoint) {
     expandedKey.value = null
     return
@@ -196,7 +199,7 @@ const toggleBreakdown = async (endpoint: string) => {
   breakdownLoading.value = true
   breakdownItems.value = []
   try {
-    const res = await getUserBreakdown({
+    const res = await loadUserBreakdown({
       ...props.filters,
       start_date: props.startDate,
       end_date: props.endDate,

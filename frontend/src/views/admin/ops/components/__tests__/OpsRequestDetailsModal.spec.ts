@@ -12,9 +12,11 @@ const { listRequestDetails, viewport } = vi.hoisted(() => ({
 
 vi.mock('@vueuse/core', () => ({ useMediaQuery: () => ref(viewport.desktop) }))
 vi.mock('@/api/admin/ops', () => ({ opsAPI: { listRequestDetails } }))
-vi.mock('@/api', () => ({ adminAPI: { groups: { getAll: vi.fn().mockResolvedValue([]) } } }))
+vi.mock('@/api/admin', () => ({ adminAPI: { groups: { getAll: vi.fn().mockResolvedValue([]) } } }))
 vi.mock('@/stores', () => ({
   useAppStore: () => ({ showError: vi.fn() }),
+}))
+vi.mock('@/stores/adminSettings', () => ({
   useAdminSettingsStore: () => ({ opsRealtimeMonitoringEnabled: false }),
 }))
 vi.mock('@/composables/useClipboard', () => ({ useClipboard: () => ({ copyToClipboard: vi.fn() }) }))

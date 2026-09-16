@@ -132,7 +132,7 @@ import { useResizeObserver } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
-import { useAdminSettingsStore } from '@/stores/adminSettings'
+import { getSiteContext } from '@/app/siteContext'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { buildApiUrl } from '@/api/client'
@@ -150,7 +150,6 @@ const { t, locale } = useI18n()
 const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
-const adminSettingsStore = useAdminSettingsStore()
 
 const loading = ref(false)
 const pageTheme = ref<'light' | 'dark'>('light')
@@ -222,13 +221,8 @@ const menuItemId = computed(() => route.params.id as string)
 
 const menuItem = computed(() => {
   const id = menuItemId.value
-  const publicItems = appStore.cachedPublicSettings?.custom_menu_items ?? []
-  const found = publicItems.find((item) => item.id === id) ?? null
-  if (found) return found
-  if (authStore.isAdmin) {
-    return adminSettingsStore.customMenuItems.find((item) => item.id === id) ?? null
-  }
-  return null
+  // 站点上下文按站点给出可见的菜单项：用户站为公开项，管理后台另含仅管理员可见的项
+  return getSiteContext().getCustomMenuItems().find((item) => item.id === id) ?? null
 })
 
 const markdownSlug = computed(() => {
