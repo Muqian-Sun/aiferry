@@ -84,11 +84,11 @@
               :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
               :title="sidebarCollapsed ? item.label : undefined"
               :id="
-                item.path === '/admin/accounts'
+                item.path === '/accounts'
                   ? 'sidebar-channel-manage'
-                  : item.path === '/admin/groups'
+                  : item.path === '/groups'
                     ? 'sidebar-group-manage'
-                    : item.path === '/admin/redeem'
+                    : item.path === '/redeem'
                       ? 'sidebar-wallet'
                       : undefined
               "
@@ -252,7 +252,7 @@ const isAdmin = computed(() => authStore.isAdmin)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const isDark = ref(document.documentElement.classList.contains('dark'))
 
-const homePath = computed(() => (isAdmin.value ? '/admin/dashboard' : '/dashboard'))
+const homePath = computed(() => '/dashboard')
 
 // Per-group expand/collapse overrides. A group with no entry follows the
 // automatic behavior (expanded while the active route is one of its children);
@@ -775,68 +775,68 @@ const customMenuItemsForAdmin = computed(() => {
 // Admin navigation items
 const adminNavItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
-    { path: '/admin/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
-    { path: '/admin/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
-    { path: '/admin/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
-    { path: '/admin/groups', label: t('nav.groups'), icon: FolderIcon },
+    { path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
+    { path: '/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
+    { path: '/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
+    { path: '/groups', label: t('nav.groups'), icon: FolderIcon },
     {
-      path: '/admin/channels',
+      path: '/channels',
       label: t('nav.channelManagement'),
       icon: ChannelIcon,
       hideInSimpleMode: true,
       expandOnly: true,
       children: [
-        { path: '/admin/channels/pricing', label: t('nav.channelPricing'), icon: PriceTagIcon },
-        { path: '/admin/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
+        { path: '/channels/pricing', label: t('nav.channelPricing'), icon: PriceTagIcon },
+        { path: '/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
     },
     // 「仅充值」站点连管理端的「订阅管理」入口也一并收起（路由本身不拦截）。
-    { path: '/admin/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription },
-    { path: '/admin/accounts', label: t('nav.accounts'), icon: GlobeIcon },
-    { path: '/admin/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
-    { path: '/admin/announcements', label: t('nav.announcements'), icon: BellIcon },
-    { path: '/admin/proxies', label: t('nav.proxies'), icon: ServerIcon },
+    { path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription },
+    { path: '/accounts', label: t('nav.accounts'), icon: GlobeIcon },
+    { path: '/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
+    { path: '/announcements', label: t('nav.announcements'), icon: BellIcon },
+    { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
     {
-      path: '/admin/security-audit',
+      path: '/security-audit',
       label: t('nav.securityAudit'),
       icon: ShieldIcon,
       expandOnly: true,
       featureFlag: flagRiskControl,
       children: [
-        { path: '/admin/risk-control', label: t('nav.contentModeration'), icon: ShieldIcon },
-        { path: '/admin/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon },
+        { path: '/risk-control', label: t('nav.contentModeration'), icon: ShieldIcon },
+        { path: '/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon },
       ],
     },
-    { path: '/admin/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
-    { path: '/admin/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
+    { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
+    { path: '/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
     {
-      path: '/admin/affiliates',
+      path: '/affiliates',
       label: t('nav.affiliateManagement'),
       icon: UsersIcon,
       hideInSimpleMode: true,
       expandOnly: true,
       featureFlag: flagAffiliate,
       children: [
-        { path: '/admin/affiliates/invites', label: t('nav.affiliateInviteRecords'), icon: UsersIcon },
-        { path: '/admin/affiliates/rebates', label: t('nav.affiliateRebateRecords'), icon: OrderIcon },
-        { path: '/admin/affiliates/transfers', label: t('nav.affiliateTransferRecords'), icon: CreditCardIcon },
+        { path: '/affiliates/invites', label: t('nav.affiliateInviteRecords'), icon: UsersIcon },
+        { path: '/affiliates/rebates', label: t('nav.affiliateRebateRecords'), icon: OrderIcon },
+        { path: '/affiliates/transfers', label: t('nav.affiliateTransferRecords'), icon: CreditCardIcon },
       ],
     },
     {
-      path: '/admin/orders',
+      path: '/orders',
       label: t('nav.orderManagement'),
       icon: OrderIcon,
       hideInSimpleMode: true,
       expandOnly: true,
       featureFlag: flagAdminPayment,
       children: [
-        { path: '/admin/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
-        { path: '/admin/orders', label: t('nav.orderManagement'), icon: OrderIcon },
-        { path: '/admin/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
+        { path: '/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
+        { path: '/orders', label: t('nav.orderManagement'), icon: OrderIcon },
+        { path: '/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
       ],
     },
-    { path: '/admin/usage', label: t('nav.usage'), icon: ChartIcon },
-    { path: '/admin/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true }
+    { path: '/usage', label: t('nav.usage'), icon: ChartIcon },
+    { path: '/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true }
   ]
 
   const visible = applyFeatureFlags(baseItems)
@@ -845,14 +845,14 @@ const adminNavItems = computed((): NavItem[] => {
   if (authStore.isSimpleMode) {
     const filtered = visible.filter(item => !item.hideInSimpleMode)
     filtered.push({ path: '/keys', label: t('nav.apiKeys'), icon: KeyIcon })
-    filtered.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+    filtered.push({ path: '/settings', label: t('nav.settings'), icon: CogIcon })
     for (const cm of customMenuItemsForAdmin.value) {
       filtered.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
     }
     return filtered
   }
 
-  visible.push({ path: '/admin/settings', label: t('nav.settings'), icon: CogIcon })
+  visible.push({ path: '/settings', label: t('nav.settings'), icon: CogIcon })
   for (const cm of customMenuItemsForAdmin.value) {
     visible.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
   }
@@ -882,8 +882,8 @@ function handleMenuItemClick(itemPath: string) {
 
   // Map paths to tour selectors
   const pathToSelector: Record<string, string> = {
-    '/admin/groups': '#sidebar-group-manage',
-    '/admin/accounts': '#sidebar-channel-manage',
+    '/groups': '#sidebar-group-manage',
+    '/accounts': '#sidebar-channel-manage',
     '/keys': '[data-tour="sidebar-my-keys"]'
   }
 

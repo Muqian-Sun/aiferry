@@ -70,7 +70,7 @@ describe('AppSidebar subscription feature flag', () => {
   })
 
   it('also hides the admin Subscription Management entry on recharge-only sites', () => {
-    expect(componentSource).toMatch(/path: '\/admin\/subscriptions'[^\n]*featureFlag: flagSubscription/)
+    expect(componentSource).toMatch(/path: '\/subscriptions'[^\n]*featureFlag: flagSubscription/)
   })
 
   it('derives the purchase entry label from the site billing mode', () => {

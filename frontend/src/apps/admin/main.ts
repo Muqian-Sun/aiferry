@@ -1,5 +1,7 @@
 import App from '@/App.vue'
-import router from '@/router'
 import { bootstrapApp } from '@/app/bootstrap'
+import { setSiteContext } from '@/app/siteContext'
+import router, { adminCustomMenuItems } from './router'
 
+setSiteContext({ router, getCustomMenuItems: adminCustomMenuItems })
 void bootstrapApp(App, router)

@@ -4,6 +4,10 @@ import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   plugins: [vue()],
+  // 与 vite.config.ts 一致在编译期固定站点；单测默认按用户站运行，管理后台行为的用例自行 mock '@/app/site'
+  define: {
+    'import.meta.env.VITE_APP': JSON.stringify('user')
+  },
   resolve: {
     alias: {
       '@': resolve(__dirname, 'src'),

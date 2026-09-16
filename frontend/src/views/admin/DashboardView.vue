@@ -246,7 +246,7 @@
             <button
               type="button"
               class="group flex items-center gap-3 rounded-lg bg-gray-50 p-3 text-left transition-colors hover:bg-emerald-50 dark:bg-dark-800/50 dark:hover:bg-emerald-900/20"
-              @click="router.push('/admin/groups')"
+              @click="router.push('/groups')"
             >
               <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400">
                 <Icon name="grid" size="md" :stroke-width="2" />
@@ -613,7 +613,7 @@ const formatDuration = (ms: number): string => {
 
 const goToUserUsage = (item: UserSpendingRankingItem) => {
   void router.push({
-    path: '/admin/usage',
+    path: '/usage',
     query: {
       user_id: String(item.user_id),
       start_date: startDate.value,

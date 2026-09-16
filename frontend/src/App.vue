@@ -5,6 +5,7 @@ import Toast from '@/components/common/Toast.vue'
 import NavigationProgress from '@/components/common/NavigationProgress.vue'
 import AdminComplianceDialog from '@/components/admin/AdminComplianceDialog.vue'
 import { resolveRouteDocumentTitle } from '@/router/title'
+import { getSiteContext } from '@/app/siteContext'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
 import { useAppStore, useAuthStore, useSubscriptionStore, useAnnouncementStore, useAdminComplianceStore, useAdminSettingsStore } from '@/stores'
 import { getSetupStatus } from '@/api/setup'
@@ -22,11 +23,7 @@ const adminComplianceStore = useAdminComplianceStore()
 const adminSettingsStore = useAdminSettingsStore()
 
 function updateDocumentTitle() {
-  const customMenuItems = [
-    ...(appStore.cachedPublicSettings?.custom_menu_items ?? []),
-    ...(authStore.isAdmin ? adminSettingsStore.customMenuItems : []),
-  ]
-  document.title = resolveRouteDocumentTitle(route, appStore.siteName, customMenuItems, {
+  document.title = resolveRouteDocumentTitle(route, appStore.siteName, getSiteContext().getCustomMenuItems(), {
     billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
   })
 }

@@ -36,7 +36,7 @@
           modeV2: t('channelMonitorV2.settings.modeV2'),
         })
       }}
-      <router-link class="ml-1 font-medium underline" to="/admin/settings">{{ t('admin.settings.tabs.features') }}</router-link>
+      <router-link class="ml-1 font-medium underline" to="/settings">{{ t('admin.settings.tabs.features') }}</router-link>
     </div>
 
     <div

@@ -10,9 +10,9 @@ const read = (path: string) => readFileSync(resolve(here, path), 'utf8')
 
 describe('Prompt Audit integration surface', () => {
   it('registers an admin and risk-control guarded route', () => {
-    const router = read('../../../router/index.ts')
-    expect(router).toContain("path: '/admin/prompt-audit'")
-    const route = router.slice(router.indexOf("path: '/admin/prompt-audit'"), router.indexOf("path: '/admin/usage'"))
+    const router = read('../../../apps/admin/routes.ts')
+    expect(router).toContain("path: '/prompt-audit'")
+    const route = router.slice(router.indexOf("path: '/prompt-audit'"), router.indexOf("path: '/usage'"))
     expect(route).toContain('requiresAuth: true')
     expect(route).toContain('requiresAdmin: true')
     expect(route).toContain('requiresRiskControl: true')
@@ -20,10 +20,12 @@ describe('Prompt Audit integration surface', () => {
 
   it('keeps the legacy content moderation route and adds both pages under an expand-only security group', () => {
     const sidebar = read('../../../components/layout/AppSidebar.vue')
-    const group = sidebar.slice(sidebar.indexOf("path: '/admin/security-audit'"), sidebar.indexOf("path: '/admin/redeem'"))
+    const groupStart = sidebar.indexOf("path: '/security-audit'")
+    // 侧边栏同时含用户与管理导航，/redeem 两处都有；取安全审计分组之后的那一处
+    const group = sidebar.slice(groupStart, sidebar.indexOf("path: '/redeem'", groupStart))
     expect(group).toContain('expandOnly: true')
-    expect(group).toContain("path: '/admin/risk-control'")
-    expect(group).toContain("path: '/admin/prompt-audit'")
+    expect(group).toContain("path: '/risk-control'")
+    expect(group).toContain("path: '/prompt-audit'")
   })
 
   it('keeps Prompt Audit locale trees symmetric and all operational controls named', () => {

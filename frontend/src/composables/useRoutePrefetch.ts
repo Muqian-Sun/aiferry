@@ -9,6 +9,7 @@
  */
 import { ref, readonly } from 'vue'
 import type { RouteLocationNormalized, Router } from 'vue-router'
+import { APP_SITE, type AppSite } from '@/app/site'
 
 /**
  * 组件导入函数类型
@@ -19,20 +20,26 @@ type ComponentImportFn = () => Promise<unknown>
  * 预加载邻接表：定义每个路由应该预加载哪些相邻路由
  * 只存储路由路径，不存储 import 函数，避免打包问题
  */
-const PREFETCH_ADJACENCY: Record<string, string[]> = {
-  // Admin routes - 预加载最常访问的相邻页面
-  '/admin/dashboard': ['/admin/accounts', '/admin/users'],
-  '/admin/accounts': ['/admin/dashboard', '/admin/users'],
-  '/admin/users': ['/admin/groups', '/admin/dashboard'],
-  '/admin/groups': ['/admin/subscriptions', '/admin/users'],
-  '/admin/subscriptions': ['/admin/groups', '/admin/redeem'],
-  // User routes
-  '/dashboard': ['/keys', '/usage'],
-  '/keys': ['/dashboard', '/usage'],
-  '/usage': ['/keys', '/redeem'],
-  '/redeem': ['/usage', '/profile'],
-  '/profile': ['/dashboard', '/keys']
+const PREFETCH_ADJACENCY_BY_SITE: Record<AppSite, Record<string, string[]>> = {
+  // 管理后台：预加载最常访问的相邻页面（管理后台是独立站点，路径不带 /admin 前缀）
+  admin: {
+    '/dashboard': ['/accounts', '/users'],
+    '/accounts': ['/dashboard', '/users'],
+    '/users': ['/groups', '/dashboard'],
+    '/groups': ['/subscriptions', '/users'],
+    '/subscriptions': ['/groups', '/redeem']
+  },
+  user: {
+    '/dashboard': ['/keys', '/usage'],
+    '/keys': ['/dashboard', '/usage'],
+    '/usage': ['/keys', '/redeem'],
+    '/redeem': ['/usage', '/profile'],
+    '/profile': ['/dashboard', '/keys']
+  }
 }
+
+// 两个站点有同名路径（如 /dashboard），邻接表必须按站点区分
+const PREFETCH_ADJACENCY = PREFETCH_ADJACENCY_BY_SITE[APP_SITE]
 
 /**
  * requestIdleCallback 的返回类型
@@ -168,13 +175,6 @@ export function useRoutePrefetch(router?: Router) {
   }
 
   /**
-   * 判断是否为管理员路由
-   */
-  const isAdminRoute = (path: string): boolean => {
-    return path.startsWith('/admin')
-  }
-
-  /**
    * 获取预加载配置（兼容旧 API）
    */
   const getPrefetchConfig = (route: RouteLocationNormalized): ComponentImportFn[] => {
@@ -192,11 +192,8 @@ export function useRoutePrefetch(router?: Router) {
     triggerPrefetch,
     cancelPendingPrefetch,
     resetPrefetchState,
-    _getPrefetchConfig: getPrefetchConfig,
-    _isAdminRoute: isAdminRoute
+    _getPrefetchConfig: getPrefetchConfig
   }
 }
 
-// 兼容旧测试的导出
-export const _adminPrefetchMap = PREFETCH_ADJACENCY
-export const _userPrefetchMap = PREFETCH_ADJACENCY
+export const _prefetchAdjacencyBySite = PREFETCH_ADJACENCY_BY_SITE

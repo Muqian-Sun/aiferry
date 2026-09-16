@@ -1,532 +1,140 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
-import { setActivePinia, createPinia } from 'pinia'
-import { resolveCompletedSetupRedirectPath } from '@/router/setupRedirect'
+/**
+ * 站点导航守卫测试：直接驱动生产代码 createSiteGuard，不在测试里重写守卫逻辑。
+ * （旧版本在测试内复制了一份守卫逻辑再断言副本，删掉生产守卫也能通过。）
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RouteLocationNormalized } from 'vue-router'
+import type { AppSite } from '@/app/site'
 
-// Mock 导航加载状态
-vi.mock('@/composables/useNavigationLoading', () => {
-  const mockStart = vi.fn()
-  const mockEnd = vi.fn()
-  return {
-    useNavigationLoadingState: () => ({
-      startNavigation: mockStart,
-      endNavigation: mockEnd,
-      isLoading: { value: false },
-    }),
-    useNavigationLoading: () => ({
-      startNavigation: mockStart,
-      endNavigation: mockEnd,
-      isLoading: { value: false },
-    }),
-  }
+const authStore = vi.hoisted(() => ({
+  checkAuth: vi.fn(),
+  isAuthenticated: false,
+  isAdmin: false,
+  isSimpleMode: false,
+  hasPendingAuthSession: false,
+}))
+
+const appStore = vi.hoisted(() => ({
+  siteName: 'Sub2API',
+  backendModeEnabled: false,
+  publicSettingsLoaded: true,
+  cachedPublicSettings: {} as Record<string, unknown>,
+  fetchPublicSettings: vi.fn(),
+}))
+
+const setup = vi.hoisted(() => ({ needsSetup: true }))
+
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
+vi.mock('@/api/setup', () => ({
+  getSetupStatus: vi.fn(async () => ({ needs_setup: setup.needsSetup })),
+}))
+
+import { createSiteGuard } from '@/router/siteGuard'
+
+type Outcome = { redirect: unknown; allowed: boolean }
+
+async function navigate(site: AppSite, path: string, meta: Record<string, unknown> = {}): Promise<Outcome> {
+  const guard = createSiteGuard({ site, getCustomMenuItems: () => [] })
+  const next = vi.fn()
+  const to = { path, fullPath: path, name: undefined, params: {}, query: {}, hash: '', matched: [], redirectedFrom: undefined, meta } as unknown as RouteLocationNormalized
+  await guard(to, to, next)
+  expect(next).toHaveBeenCalledOnce()
+  const arg = next.mock.calls[0][0]
+  return { redirect: arg, allowed: arg === undefined }
+}
+
+const publicMeta = { requiresAuth: false }
+const protectedMeta = { requiresAuth: true }
+
+function signIn(role: 'user' | 'admin') {
+  authStore.isAuthenticated = true
+  authStore.isAdmin = role === 'admin'
+}
+
+beforeEach(() => {
+  authStore.isAuthenticated = false
+  authStore.isAdmin = false
+  authStore.isSimpleMode = false
+  authStore.hasPendingAuthSession = false
+  appStore.backendModeEnabled = false
+  appStore.publicSettingsLoaded = true
+  appStore.cachedPublicSettings = {}
+  setup.needsSetup = true
 })
 
-// Mock 路由预加载
-vi.mock('@/composables/useRoutePrefetch', () => ({
-  useRoutePrefetch: () => ({
-    triggerPrefetch: vi.fn(),
-    cancelPendingPrefetch: vi.fn(),
-    resetPrefetchState: vi.fn(),
-  }),
-}))
+describe.each<AppSite>(['user', 'admin'])('%s 站点通用守卫', (site) => {
+  const role = site === 'admin' ? 'admin' : 'user'
 
-// Mock API 相关模块
-vi.mock('@/api', () => ({
-  authAPI: {
-    getCurrentUser: vi.fn().mockResolvedValue({ data: {} }),
-    logout: vi.fn(),
-  },
-  isTotp2FARequired: () => false,
-}))
+  it('未登录访问受保护页面去登录页并带回跳地址', async () => {
+    expect((await navigate(site, '/dashboard', protectedMeta)).redirect).toEqual({ path: '/login', query: { redirect: '/dashboard' } })
+  })
 
-vi.mock('@/api/admin/system', () => ({
-  checkUpdates: vi.fn(),
-}))
+  it('已登录访问登录页去本站仪表盘', async () => {
+    signIn(role)
+    expect((await navigate(site, '/login', publicMeta)).redirect).toBe('/dashboard')
+  })
 
-vi.mock('@/api/auth', () => ({
-  getPublicSettings: vi.fn(),
-}))
+  it('已登录访问受保护页面放行', async () => {
+    signIn(role)
+    expect((await navigate(site, '/dashboard', protectedMeta)).allowed).toBe(true)
+  })
 
+  it('本地残留另一站点的登录态：受保护页面回登录页，登录页本身放行（不能形成循环）', async () => {
+    signIn(site === 'admin' ? 'user' : 'admin')
+    expect((await navigate(site, '/dashboard', protectedMeta)).redirect).toBe('/login')
+    expect((await navigate(site, '/login', publicMeta)).allowed).toBe(true)
+  })
 
-// 用于测试的 auth 状态
-interface MockAuthState {
-  isAuthenticated: boolean
-  isAdmin: boolean
-  isSimpleMode: boolean
-  backendModeEnabled: boolean
-  hasPendingAuthSession: boolean
-  setupNeedsSetup?: boolean
-}
+  it('简易模式隐藏订阅与兑换页面', async () => {
+    signIn(role)
+    authStore.isSimpleMode = true
+    expect((await navigate(site, '/subscriptions', protectedMeta)).redirect).toBe('/dashboard')
+    expect((await navigate(site, '/redeem', protectedMeta)).redirect).toBe('/dashboard')
+    expect((await navigate(site, '/dashboard', protectedMeta)).allowed).toBe(true)
+  })
+})
 
-/**
- * 将 router/index.ts 中 beforeEach 守卫的核心逻辑提取为可测试的函数
- */
-function simulateGuard(
-  toPath: string,
-  toMeta: Record<string, any>,
-  authState: MockAuthState
-): string | null {
-  const requiresAuth = toMeta.requiresAuth !== false
-  const requiresAdmin = toMeta.requiresAdmin === true
-
-  if (toPath === '/setup' && authState.setupNeedsSetup === false) {
-    return resolveCompletedSetupRedirectPath(authState.isAuthenticated, authState.isAdmin)
-  }
-
-  // 不需要认证的路由
-  if (!requiresAuth) {
-    if (
-      authState.isAuthenticated &&
-      (toPath === '/login' || toPath === '/register')
-    ) {
-      if (authState.backendModeEnabled && !authState.isAdmin) {
-        return null
-      }
-      return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
-    }
-    if (authState.backendModeEnabled && !authState.isAuthenticated) {
-      const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
-      const callbackPaths = [
-        '/auth/callback',
-        '/auth/linuxdo/callback',
-        '/auth/oidc/callback',
-        '/auth/wechat/callback',
-        '/auth/wechat/payment/callback',
-      ]
-      const pendingAuthPaths = ['/register', '/email-verify']
-      const isAllowed =
-        allowed.some((path) => toPath === path || toPath.startsWith(path)) ||
-        callbackPaths.includes(toPath) ||
-        (authState.hasPendingAuthSession && pendingAuthPaths.includes(toPath))
-      if (!isAllowed) {
-        return '/login'
-      }
-    }
-    return null // 允许通过
-  }
-
-  // 需要认证但未登录
-  if (!authState.isAuthenticated) {
-    return '/login'
-  }
-
-  // 需要管理员但不是管理员
-  if (requiresAdmin && !authState.isAdmin) {
-    return '/dashboard'
-  }
-
-  // 简易模式限制
-  if (authState.isSimpleMode) {
-    const restrictedPaths = [
-      '/admin/subscriptions',
-      '/admin/redeem',
-      '/subscriptions',
-      '/redeem',
-    ]
-    if (restrictedPaths.some((path) => toPath.startsWith(path))) {
-      return authState.isAdmin ? '/admin/dashboard' : '/dashboard'
-    }
-  }
-
-  // Backend mode: admin gets full access, non-admin blocked
-  if (authState.backendModeEnabled) {
-    if (authState.isAuthenticated && authState.isAdmin) {
-      return null
-    }
-    const allowed = ['/login', '/key-usage', '/setup', '/payment/result']
-    const callbackPaths = [
-      '/auth/callback',
-      '/auth/linuxdo/callback',
-      '/auth/oidc/callback',
-      '/auth/wechat/callback',
-      '/auth/wechat/payment/callback',
-    ]
-    const pendingAuthPaths = ['/register', '/email-verify']
-    const isAllowed =
-      allowed.some((path) => toPath === path || toPath.startsWith(path)) ||
-      callbackPaths.includes(toPath) ||
-      (authState.hasPendingAuthSession && pendingAuthPaths.includes(toPath))
-    if (!isAllowed) {
-      return '/login'
-    }
-  }
-
-  return null // 允许通过
-}
-
-describe('路由守卫逻辑', () => {
+describe('Backend mode 只作用于用户站', () => {
   beforeEach(() => {
-    setActivePinia(createPinia())
+    appStore.backendModeEnabled = true
   })
 
-  // --- 未认证用户 ---
-
-  describe('未认证用户', () => {
-    const authState: MockAuthState = {
-      isAuthenticated: false,
-      isAdmin: false,
-      isSimpleMode: false,
-      backendModeEnabled: false,
-      hasPendingAuthSession: false,
-    }
-
-    it('访问需要认证的页面重定向到 /login', () => {
-      const redirect = simulateGuard('/dashboard', {}, authState)
-      expect(redirect).toBe('/login')
-    })
-
-    it('访问管理页面重定向到 /login', () => {
-      const redirect = simulateGuard('/admin/dashboard', { requiresAdmin: true }, authState)
-      expect(redirect).toBe('/login')
-    })
-
-    it('访问公开页面允许通过', () => {
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('访问 /home 公开页面允许通过', () => {
-      const redirect = simulateGuard('/home', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
+  it('用户站：未登录访问首页去登录页，登录页与 key 用量页放行', async () => {
+    expect((await navigate('user', '/home', publicMeta)).redirect).toBe('/login')
+    expect((await navigate('user', '/login', publicMeta)).allowed).toBe(true)
+    expect((await navigate('user', '/key-usage', publicMeta)).allowed).toBe(true)
   })
 
-  // --- 已认证普通用户 ---
-
-  describe('已认证普通用户', () => {
-    const authState: MockAuthState = {
-      isAuthenticated: true,
-      isAdmin: false,
-      isSimpleMode: false,
-      backendModeEnabled: false,
-      hasPendingAuthSession: false,
-    }
-
-    it('访问 /login 重定向到 /dashboard', () => {
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
-    it('访问 /register 重定向到 /dashboard', () => {
-      const redirect = simulateGuard('/register', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
-    it('访问 /dashboard 允许通过', () => {
-      const redirect = simulateGuard('/dashboard', {}, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('访问管理页面被拒绝，重定向到 /dashboard', () => {
-      const redirect = simulateGuard('/admin/dashboard', { requiresAdmin: true }, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
-    it('访问 /admin/users 被拒绝', () => {
-      const redirect = simulateGuard('/admin/users', { requiresAdmin: true }, authState)
-      expect(redirect).toBe('/dashboard')
-    })
+  it('用户站：回调页放行；注册页仅在有待完成的第三方登录会话时放行', async () => {
+    expect((await navigate('user', '/auth/wechat/payment/callback', publicMeta)).allowed).toBe(true)
+    expect((await navigate('user', '/register', publicMeta)).redirect).toBe('/login')
+    authStore.hasPendingAuthSession = true
+    expect((await navigate('user', '/register', publicMeta)).allowed).toBe(true)
   })
 
-  // --- 已认证管理员 ---
-
-  describe('已认证管理员', () => {
-    const authState: MockAuthState = {
-      isAuthenticated: true,
-      isAdmin: true,
-      isSimpleMode: false,
-      backendModeEnabled: false,
-      hasPendingAuthSession: false,
-    }
-
-    it('访问 /login 重定向到 /admin/dashboard', () => {
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/admin/dashboard')
-    })
-
-    it('访问管理页面允许通过', () => {
-      const redirect = simulateGuard('/admin/dashboard', { requiresAdmin: true }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('访问用户页面允许通过', () => {
-      const redirect = simulateGuard('/dashboard', {}, authState)
-      expect(redirect).toBeNull()
-    })
+  it('用户站：已登录普通用户被挡在受保护页面外，停留在登录页不循环', async () => {
+    signIn('user')
+    expect((await navigate('user', '/dashboard', protectedMeta)).redirect).toBe('/login')
+    expect((await navigate('user', '/login', publicMeta)).allowed).toBe(true)
   })
 
-  // --- 简易模式 ---
+  it('管理后台不受影响', async () => {
+    signIn('admin')
+    expect((await navigate('admin', '/dashboard', protectedMeta)).allowed).toBe(true)
+    expect((await navigate('admin', '/login', publicMeta)).redirect).toBe('/dashboard')
+  })
+})
 
-  describe('简易模式受限路由', () => {
-    it('普通用户简易模式访问 /subscriptions 重定向到 /dashboard', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/subscriptions', {}, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
-    it('普通用户简易模式访问 /redeem 重定向到 /dashboard', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/redeem', {}, authState)
-      expect(redirect).toBe('/dashboard')
-    })
-
-    it('管理员简易模式访问 /admin/groups 允许通过', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: true,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/admin/groups', { requiresAdmin: true }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('管理员简易模式访问 /admin/subscriptions 重定向', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: true,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard(
-        '/admin/subscriptions',
-        { requiresAdmin: true },
-        authState
-      )
-      expect(redirect).toBe('/admin/dashboard')
-    })
-
-    it('简易模式下非受限页面正常访问', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/dashboard', {}, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('简易模式下 /keys 正常访问', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: true,
-        backendModeEnabled: false,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/keys', {}, authState)
-      expect(redirect).toBeNull()
-    })
+describe('安装向导', () => {
+  it('尚未安装时放行', async () => {
+    expect((await navigate('admin', '/setup', publicMeta)).allowed).toBe(true)
   })
 
-  describe('Backend Mode', () => {
-    it('unauthenticated: /home redirects to /login', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/home', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/login')
-    })
-
-    it('unauthenticated: /login is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: /key-usage is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/key-usage', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: /setup is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/setup', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: initialized /setup redirects to /login', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-        setupNeedsSetup: false,
-      }
-      const redirect = simulateGuard('/setup', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/login')
-    })
-
-    it('admin: initialized /setup redirects to /admin/dashboard', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: true,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-        setupNeedsSetup: false,
-      }
-      const redirect = simulateGuard('/setup', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/admin/dashboard')
-    })
-
-    it('admin: /admin/dashboard is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: true,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/admin/dashboard', { requiresAdmin: true }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('admin: /login redirects to /admin/dashboard', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: true,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/admin/dashboard')
-    })
-
-    it('non-admin authenticated: /dashboard redirects to /login', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/dashboard', {}, authState)
-      expect(redirect).toBe('/login')
-    })
-
-    it('non-admin authenticated: /login is allowed (no redirect loop)', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/login', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('non-admin authenticated: /key-usage is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: true,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/key-usage', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: callback routes are allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/auth/wechat/callback', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: WeChat payment callback route is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/auth/wechat/payment/callback', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: /payment/result is allowed', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/payment/result', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: /register is allowed when a pending auth session exists', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: true,
-      }
-      const redirect = simulateGuard('/register', { requiresAuth: false }, authState)
-      expect(redirect).toBeNull()
-    })
-
-    it('unauthenticated: /email-verify is blocked without a pending auth session', () => {
-      const authState: MockAuthState = {
-        isAuthenticated: false,
-        isAdmin: false,
-        isSimpleMode: false,
-        backendModeEnabled: true,
-        hasPendingAuthSession: false,
-      }
-      const redirect = simulateGuard('/email-verify', { requiresAuth: false }, authState)
-      expect(redirect).toBe('/login')
-    })
+  it('已安装时：未登录去登录页，已登录去仪表盘', async () => {
+    setup.needsSetup = false
+    expect((await navigate('admin', '/setup', publicMeta)).redirect).toBe('/login')
+    signIn('admin')
+    expect((await navigate('admin', '/setup', publicMeta)).redirect).toBe('/dashboard')
   })
 })

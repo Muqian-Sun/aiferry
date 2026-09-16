@@ -118,15 +118,9 @@ describe('HomeView compact mode', () => {
   it('links authenticated users to their dashboard', () => {
     authStore.isAuthenticated = true
 
-    expect(compactDestination(mountHome({ compact_home_enabled: true }))).toBe('/dashboard')
-  })
-
-  it('links administrators to the admin dashboard', () => {
-    authStore.isAuthenticated = true
-    authStore.isAdmin = true
-
     const wrapper = mountHome({ compact_home_enabled: true })
-    expect(compactDestination(wrapper)).toBe('/admin/dashboard')
+    // 首页只在用户站提供，管理员不会登录用户站，已登录一律去用户仪表盘
+    expect(compactDestination(wrapper)).toBe('/dashboard')
     expect(authStore.checkAuth).toHaveBeenCalledOnce()
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
   })
