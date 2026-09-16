@@ -346,6 +346,15 @@
               {{ t('setup.admin.passwordMismatch') }}
             </p>
           </div>
+
+          <div>
+            <label class="input-label">{{ t('setup.admin.adminPort') }}</label>
+            <input v-model.number="formData.server.admin_port" type="number" min="1" max="65535" class="input" />
+            <p v-if="adminPortConflict" class="input-error-text">
+              {{ t('setup.admin.adminPortConflict') }}
+            </p>
+            <p v-else class="input-hint">{{ t('setup.admin.adminPortHint') }}</p>
+          </div>
         </div>
 
         <!-- Step 4: Complete -->
@@ -385,6 +394,13 @@
                 {{ t('setup.ready.adminEmail') }}
               </h3>
               <p class="text-gray-900 dark:text-white">{{ formData.admin.email }}</p>
+            </div>
+
+            <div class="rounded-xl bg-gray-50 p-4 dark:bg-dark-700">
+              <h3 class="mb-2 text-sm font-medium text-gray-500 dark:text-dark-400">
+                {{ t('setup.ready.adminConsole') }}
+              </h3>
+              <p class="text-gray-900 dark:text-white">{{ adminConsoleLoginUrl(currentLocation, formData.server.admin_port) }}</p>
             </div>
           </div>
         </div>
@@ -503,6 +519,7 @@ import { ref, reactive, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { testDatabase, testRedis, install, type InstallRequest } from '@/api/setup'
 import { buildGatewayUrl } from '@/api/client'
+import { DEFAULT_ADMIN_PORT, adminConsoleLoginUrl } from './adminConsoleUrl'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -563,9 +580,19 @@ const formData = reactive<InstallRequest>({
   server: {
     host: '0.0.0.0',
     port: getCurrentPort(), // Use current port from browser
+    admin_port: DEFAULT_ADMIN_PORT,
     mode: 'release'
   }
 })
+
+const currentLocation = { protocol: window.location.protocol, hostname: window.location.hostname }
+
+// 管理后台与用户站是两个监听器，端口相同会让其中一个起不来
+const adminPortValid = computed(() => {
+  const port = formData.server.admin_port
+  return Number.isInteger(port) && port >= 1 && port <= 65535
+})
+const adminPortConflict = computed(() => formData.server.admin_port === formData.server.port)
 
 const canProceed = computed(() => {
   switch (currentStep.value) {
@@ -577,7 +604,9 @@ const canProceed = computed(() => {
       return (
         formData.admin.email &&
         formData.admin.password.length >= 8 &&
-        formData.admin.password === confirmPassword.value
+        formData.admin.password === confirmPassword.value &&
+        adminPortValid.value &&
+        !adminPortConflict.value
       )
     default:
       return true
@@ -630,10 +659,10 @@ async function performInstall() {
   errorMessage.value = ''
 
   try {
-    await install(formData)
+    const result = await install(formData)
     installSuccess.value = true
     // Start polling for service restart
-    waitForServiceRestart()
+    waitForServiceRestart(result.admin_port)
   } catch (error: unknown) {
     const err = error as { response?: { data?: { detail?: string; message?: string } }; message?: string }
     errorMessage.value =
@@ -644,7 +673,7 @@ async function performInstall() {
 }
 
 // Wait for service to restart and become available
-async function waitForServiceRestart() {
+async function waitForServiceRestart(adminPort: number) {
   const maxAttempts = 60 // Increase to 60 attempts, ~60 seconds max
   const interval = 1000 // 1 second between attempts
 
@@ -665,9 +694,9 @@ async function waitForServiceRestart() {
         // If needs_setup is false, service has restarted in normal mode
         if (data.data && !data.data.needs_setup) {
           serviceReady.value = true
-          // Redirect to login page after a short delay
+          // 重启后管理后台只在管理端口提供：跳到管理端口的登录页
           setTimeout(() => {
-            window.location.href = '/login'
+            window.location.href = adminConsoleLoginUrl(window.location, adminPort)
           }, 1500)
           return
         }

@@ -44,6 +44,8 @@ export interface AdminConfig {
 export interface ServerConfig {
   host: string
   port: number
+  /** 管理后台端口，与 port 不同 */
+  admin_port: number
   mode: string
 }
 
@@ -57,6 +59,8 @@ export interface InstallRequest {
 export interface InstallResponse {
   message: string
   restart: boolean
+  /** 重启后管理后台所在端口 */
+  admin_port: number
 }
 
 /**

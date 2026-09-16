@@ -248,6 +248,7 @@ export default {
     passwordMinLength: '密码至少需要 6 个字符',
     loginFailed: '登录失败，请检查您的凭据后重试。',
     errors: {
+      SITE_ROLE_FORBIDDEN: '该账号不能在此站点登录：管理员请前往管理后台，普通用户请前往用户站',
       USER_NOT_ACTIVE: '账号已被禁用',
     },
     registrationFailed: '注册失败，请重试。',

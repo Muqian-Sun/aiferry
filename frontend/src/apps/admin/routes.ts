@@ -354,6 +354,17 @@ export const adminRoutes: RouteRecordRaw[] = [
 
   // ==================== 404 Not Found ====================
   {
+    path: '/profile',
+    name: 'AdminAccountSecurity',
+    component: () => import('@/views/admin/AccountSecurityView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Account Security',
+      titleKey: 'nav.accountSecurity'
+    }
+  },
+  {
     path: '/:pathMatch(.*)*',
     name: 'NotFound',
     component: () => import('@/views/NotFoundView.vue'),
