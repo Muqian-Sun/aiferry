@@ -773,13 +773,14 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 		targetURL = openAIImagesEditsURL
 	}
 	baseURL := account.GetOpenAIBaseURL()
-	if baseURL != "" {
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return nil, err
-		}
-		targetURL = buildOpenAIImagesURL(validatedURL, endpoint)
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolChatCompletions)
 	}
+	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	targetURL = buildOpenAIImagesURL(validatedURL, endpoint)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {

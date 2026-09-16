@@ -1387,14 +1387,13 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
 		}
 		if baseURL == "" {
-			targetURL = openaiPlatformAPIURL
-		} else {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, err
-			}
-			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
+			return nil, MissingProtocolEndpointError(account, APIProtocolResponses)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, err
+		}
+		targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 	default:
 		targetURL = openaiPlatformAPIURL
 	}

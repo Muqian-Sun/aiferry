@@ -27,7 +27,7 @@ func isOllamaCloudRawChatCompletionsAccount(account *Account) bool {
 	if account.Credentials == nil {
 		return false
 	}
-	return isOllamaCloudBaseURL(account.StoredBaseURL())
+	return isOllamaCloudBaseURL(account.PrimaryUpstreamBaseURL())
 }
 
 func accountHasOllamaCloudUsageExtra(account *Account) bool {

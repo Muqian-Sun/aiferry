@@ -631,6 +631,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 
 			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+			if baseURL == "" {
+				return nil, "", MissingProtocolEndpointError(account, APIProtocolGemini)
+			}
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -1200,6 +1203,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 
 			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+			if baseURL == "" {
+				return nil, "", MissingProtocolEndpointError(account, APIProtocolGemini)
+			}
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -2864,6 +2870,9 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 	path = sanitizedPath
 
 	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolGemini)
+	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
 		return nil, err

@@ -676,7 +676,7 @@ func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, e
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {
-			return openAIPlatformAlphaSearchURL, nil
+			return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
 		}
 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {

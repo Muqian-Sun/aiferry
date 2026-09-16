@@ -327,6 +327,9 @@ func (s *GeminiMessagesCompatService) buildGeminiChatCompletionsUpstreamRequestF
 			}
 
 			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+			if baseURL == "" {
+				return nil, "", MissingProtocolEndpointError(account, APIProtocolGemini)
+			}
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err

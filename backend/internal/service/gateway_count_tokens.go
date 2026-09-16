@@ -379,13 +379,14 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 	body = stripDeferredToolCacheControl(body)
 	targetURL := claudeAPICountTokensURL
 	baseURL := account.GetBaseURL()
-	if baseURL != "" {
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return nil, err
-		}
-		targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 	}
+	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
 	body = sanitizeCountTokensRequestBody(body)
 
 	// 同 buildUpstreamRequestAnthropicAPIKeyPassthrough：能力维度 sanitize。
@@ -447,13 +448,14 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 	targetURL := claudeAPICountTokensURL
 	if account.Type == AccountTypeAPIKey {
 		baseURL := account.GetBaseURL()
-		if baseURL != "" {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, nil, err
-			}
-			targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
+		if baseURL == "" {
+			return nil, nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, nil, err
+		}
+		targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
 	} else if account.IsCustomBaseURLEnabled() {
 		customURL := account.GetCustomBaseURL()
 		if customURL == "" {
