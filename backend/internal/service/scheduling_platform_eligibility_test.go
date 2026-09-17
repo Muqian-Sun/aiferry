@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"testing"
 	"time"
 
@@ -140,6 +141,101 @@ func TestOpenAISchedulers_SelectCrossLabelKeyByInboundProtocol(t *testing.T) {
 			require.ErrorIs(t, err, ErrNoAvailableAccounts)
 			require.Nil(t, selection)
 		})
+	}
+}
+
+// 粘性会话路径同样按协议判断：会话绑定到跨标签 key 时继续命中它，而不是改选优先级更高的账号。
+func TestOpenAISchedulers_StickySessionKeepsCrossLabelKey(t *testing.T) {
+	groupID := int64(20902)
+	sticky := schedulingTestKey(20912, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
+	sticky.Priority = 5
+	preferred := schedulingTestKey(20913, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
+	preferred.Priority = 0
+	const sessionHash = "cross-label-sticky"
+
+	for _, scoring := range []bool{false, true} {
+		name := "legacy"
+		if scoring {
+			name = "scoring"
+		}
+		t.Run(name, func(t *testing.T) {
+			resetOpenAIAdvancedSchedulerSettingCacheForTest()
+			defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
+			cfg := newSchedulerTestSubscriptionPriorityConfig() // Top-1 按优先级打分，结果确定
+			cfg.Gateway.Scheduling.LoadBatchEnabled = true
+			svc := &OpenAIGatewayService{
+				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: []Account{preferred, sticky}}},
+				cache:              &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + sessionHash: sticky.ID}},
+				cfg:                cfg,
+				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
+			}
+			if scoring {
+				svc.rateLimitService = newOpenAIAdvancedSchedulerRateLimitService("true")
+			}
+			require.Equal(t, scoring, svc.isOpenAIAdvancedSchedulerEnabled(context.Background()))
+
+			ctx := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
+			selection, _, err := svc.SelectAccountWithSchedulerForCapability(
+				ctx, &groupID, "", "", "gpt-5.1", nil,
+				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
+				false, false, false, PlatformOpenAI,
+			)
+			require.NoError(t, err)
+			require.Equal(t, preferred.ID, selection.Account.ID, "without a session the higher-priority key wins")
+			if selection.ReleaseFunc != nil {
+				selection.ReleaseFunc()
+			}
+
+			selection, _, err = svc.SelectAccountWithSchedulerForCapability(
+				ctx, &groupID, "", sessionHash, "gpt-5.1", nil,
+				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
+				false, false, false, PlatformOpenAI,
+			)
+			require.NoError(t, err)
+			require.Equal(t, sticky.ID, selection.Account.ID)
+		})
+	}
+}
+
+// 粘性会话路径（负载感知 Layer 1.5、传统单平台与混合调度）同样按协议判断跨标签 key。
+func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
+	const sessionHash = "gateway-cross-label-sticky"
+	groups := map[string]int64{PlatformAnthropic: 20951, PlatformAntigravity: 20952}
+	for groupPlatform, groupID := range groups {
+		for _, loadBatch := range []bool{true, false} {
+			t.Run(fmt.Sprintf("%s load batch=%v", groupPlatform, loadBatch), func(t *testing.T) {
+				sticky := schedulingTestKey(20961, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
+				sticky.Priority = 5
+				preferred := Account{
+					ID: 20962, Platform: groupPlatform, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
+					Concurrency: 5, Priority: 0, GroupIDs: []int64{groupID}, AccountGroups: []AccountGroup{{AccountID: 20962, GroupID: groupID}},
+				}
+				repo := &mockAccountRepoForPlatform{accounts: []Account{preferred, sticky}, accountsByID: map[int64]*Account{}}
+				for i := range repo.accounts {
+					repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+				}
+				cfg := testConfig()
+				cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
+				svc := &GatewayService{
+					accountRepo: repo,
+					groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
+						groupID: {ID: groupID, Platform: groupPlatform, Status: StatusActive, Hydrated: true},
+					}},
+					cache:              &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{sessionHash: sticky.ID}},
+					cfg:                cfg,
+					concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
+				}
+				ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
+
+				result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", nil, "", 0)
+				require.NoError(t, err)
+				require.Equal(t, preferred.ID, result.Account.ID, "without a session the higher-priority account wins")
+
+				result, err = svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-sonnet-4-5", nil, "", 0)
+				require.NoError(t, err)
+				require.Equal(t, sticky.ID, result.Account.ID)
+			})
+		}
 	}
 }
 
@@ -327,4 +423,33 @@ func TestShouldAutoPauseOpenAIAccountByQuota_KeysIgnoreLabel(t *testing.T) {
 	anthropicOAuth := Account{ID: 2, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Extra: codexExtra()}
 	paused, _ = shouldAutoPauseOpenAIAccountByQuota(context.Background(), &anthropicOAuth)
 	require.False(t, paused)
+}
+
+// Gemini AI Studio 端点（GET /v1beta/models 等）只转发到 Gemini 协议：第三方 key 按有无
+// gemini 地址参与选号，不看平台标签。
+func TestGeminiSelectAccountForAIStudioEndpoints_KeysByGeminiEndpoint(t *testing.T) {
+	groupID := int64(21201)
+	geminiEndpointAnthropicLabel := schedulingTestKey(21211, PlatformAnthropic, map[string]string{APIProtocolGemini: schedulingTestRelayURL}, groupID)
+	geminiEndpointAnthropicLabel.Priority = 2
+	geminiEndpointAnthropicLabel.Credentials = map[string]any{"api_key": "relay-key"}
+	anthropicEndpointGeminiLabel := schedulingTestKey(21212, PlatformGemini, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
+	anthropicEndpointGeminiLabel.Priority = 1
+	anthropicEndpointGeminiLabel.Credentials = map[string]any{"api_key": "relay-key"}
+
+	repo := &mockAccountRepoForGemini{
+		accounts:     []Account{anthropicEndpointGeminiLabel, geminiEndpointAnthropicLabel},
+		accountsByID: map[int64]*Account{},
+	}
+	for i := range repo.accounts {
+		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+	}
+	svc := &GeminiMessagesCompatService{accountRepo: repo, groupRepo: &mockGroupRepoForGemini{groups: map[int64]*Group{}}}
+
+	selected, err := svc.SelectAccountForAIStudioEndpoints(context.Background(), &groupID)
+	require.NoError(t, err)
+	require.Equal(t, geminiEndpointAnthropicLabel.ID, selected.ID)
+
+	repo.accounts = []Account{anthropicEndpointGeminiLabel}
+	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background(), &groupID)
+	require.Error(t, err)
 }
