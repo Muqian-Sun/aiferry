@@ -211,7 +211,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			stageCodexFingerprintIDs(c, fpIDs)
 		}
 	}
-	if account != nil && account.IsOpenAI() {
+	if openAIProtocolFeaturesApply(account) {
 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
 		normalizedBody, normalized, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account, responsesLite)
 		if normalizeErr != nil {
@@ -232,7 +232,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		}
 	}
 
-	if account != nil && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey &&
+	if keyUsesOpenAIProtocolFeatures(account) &&
 		!isOpenAIResponsesCompactPath(c) && needsOpenAIResponsesClientToolAdaptation(body) {
 		adaptedBody, mapping, adaptErr := adaptOpenAIResponsesClientTools(body)
 		if adaptErr != nil {
@@ -1864,7 +1864,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
 	clientOutputStarted := false
-	codexFailureTerminal := account != nil && account.Platform == PlatformOpenAI
+	codexFailureTerminal := openAIProtocolFeaturesApply(account)
 	failureDelivered := false
 	suppressCurrentEvent := false
 	responseFailedPending := false
@@ -2022,7 +2022,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			if codexFailureTerminal && sawBareError && !sawResponseFailed && eventType != "response.failed" {
 				suppressCurrentEvent = true
 			}
-			if !capacityFailoverSuppressedLogged && account != nil && account.Platform == PlatformOpenAI &&
+			if !capacityFailoverSuppressedLogged && openAIProtocolFeaturesApply(account) &&
 				(eventType == "error" || eventType == "response.failed") &&
 				openAIStreamClientOutputStarted(c, clientOutputStarted) &&
 				isOpenAIUpstreamCapacityShedEvent(dataBytes) {

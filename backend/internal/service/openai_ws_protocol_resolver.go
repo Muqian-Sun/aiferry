@@ -39,8 +39,12 @@ func (r *defaultOpenAIWSProtocolResolver) Resolve(account *Account) OpenAIWSProt
 	if account == nil {
 		return openAIWSHTTPDecision("account_missing")
 	}
-	if !account.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(account) {
 		return openAIWSHTTPDecision("platform_not_openai")
+	}
+	// WSv2 是 Responses 协议的传输：第三方 key 本次不以 responses 协议转发（没配地址）时走 HTTP。
+	if account.IsThirdPartyKey() && openAIGatewayKeyProtocol(account, APIProtocolResponses) != APIProtocolResponses {
+		return openAIWSHTTPDecision("responses_endpoint_missing")
 	}
 	if account.IsOpenAIWSForceHTTPEnabled() {
 		return openAIWSHTTPDecision("account_force_http")
@@ -60,7 +64,7 @@ func (r *defaultOpenAIWSProtocolResolver) Resolve(account *Account) OpenAIWSProt
 		if !wsCfg.OAuthEnabled {
 			return openAIWSHTTPDecision("oauth_disabled")
 		}
-	} else if account.IsOpenAIApiKey() {
+	} else if account.IsThirdPartyKey() {
 		if !wsCfg.APIKeyEnabled {
 			return openAIWSHTTPDecision("apikey_disabled")
 		}

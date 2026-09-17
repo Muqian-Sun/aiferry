@@ -58,7 +58,7 @@ func shouldFlattenOpenAIResponsesNamespaces(
 // namespaces for OpenAI OAuth and API Key HTTP forwarding. Native WSv2 keeps
 // namespaces because that protocol supports them and does not restore payloads.
 func shouldStripOpenAIResponsesInputNamespaces(account *Account, transport OpenAIUpstreamTransport, passthroughEnabled bool) bool {
-	if account == nil || (!account.IsOpenAIOAuthLike() && !account.IsOpenAIApiKey()) {
+	if account == nil || (!account.IsOpenAIOAuthLike() && !keyUsesOpenAIProtocolFeatures(account)) {
 		return false
 	}
 	if transport == OpenAIUpstreamTransportResponsesWebsocketV2 && !passthroughEnabled {
@@ -95,7 +95,7 @@ func shouldKeepOpenAIResponsesToolCallNamespaces(
 	if compactPath {
 		return false
 	}
-	if account.IsOpenAIApiKey() {
+	if keyUsesOpenAIProtocolFeatures(account) {
 		return hasOpenAIResponsesNamespaceToolDeclaration(body)
 	}
 	if !account.IsOpenAIOAuthLike() {

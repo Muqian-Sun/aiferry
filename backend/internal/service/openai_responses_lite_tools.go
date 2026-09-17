@@ -269,7 +269,7 @@ func normalizeOpenAIResponsesLiteParallelToolCallsPayload(body []byte) ([]byte, 
 }
 
 func normalizeOpenAIResponsesLitePayloadForAccount(body []byte, account *Account) ([]byte, bool, error) {
-	if account == nil || !account.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(account) {
 		return body, false, nil
 	}
 	if account.IsOpenAIOAuthLike() {

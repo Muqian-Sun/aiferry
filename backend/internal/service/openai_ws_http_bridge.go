@@ -445,7 +445,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	_, grokExplicitToolsField := openAIWSHTTPBridgeRawField(grokIntentSourceBody, "tools")
 	grokExplicitToolIntent := grokVendor && hasGrokResponsesToolIntent(grokIntentSourceBody)
 	var clientToolMapping apicompat.ResponsesClientToolMapping
-	functionToolUpstream := (account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey) || grokVendor
+	functionToolUpstream := keyUsesOpenAIProtocolFeatures(account) || grokVendor
 	if functionToolUpstream {
 		if grokVendor {
 			body, err = sanitizeGrokResponsesInput(body)
@@ -637,7 +637,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 	pendingClientMessageBytes := int64(0)
 	capacityFailoverSuppressedLogged := false
 	clientDisconnected := false
-	officialOpenAIResponses := account != nil && account.Platform == PlatformOpenAI
+	standardOpenAIResponses := openAIProtocolFeaturesApply(account)
 	bareErrorPending := false
 	var bareErrorPayload []byte
 	bareErrorMessage := ""
@@ -796,7 +796,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 		replayCollector.AddEvent(eventType, upstreamMessage)
 
 		var upstreamEventErr error
-		if officialOpenAIResponses && bareErrorPending && (eventType == "response.completed" || eventType == "response.done") {
+		if standardOpenAIResponses && bareErrorPending && (eventType == "response.completed" || eventType == "response.done") {
 			// Some upstreams emit a recoverable bare error before the authoritative
 			// successful terminal. Do not replace that terminal with a synthetic
 			// failure or retain side effects from the superseded error.
@@ -804,7 +804,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			bareErrorPayload = nil
 			bareErrorMessage = ""
 		}
-		suppressClientMessage := officialOpenAIResponses && bareErrorPending && eventType != "response.failed"
+		suppressClientMessage := standardOpenAIResponses && bareErrorPending && eventType != "response.failed"
 		if eventType == "error" || eventType == "response.failed" {
 			errMessage := extractOpenAISSEErrorMessage(upstreamMessage)
 			if errMessage == "" {
@@ -844,7 +844,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 				return nil, s.newOpenAIStreamFailoverErrorWithModel(c, account, true, resp.Header.Get("x-request-id"), upstreamMessage, errMessage, mappedModel, resp.Header)
 			}
 			if !grokVendor && !failureAccountSideEffectsApplied {
-				if eventType == "response.failed" || (!officialOpenAIResponses && shouldFailover && !requestScopedCapacity) {
+				if eventType == "response.failed" || (!standardOpenAIResponses && shouldFailover && !requestScopedCapacity) {
 					failureAccountSideEffectsApplied = s.handleOpenAIWSFailureAccountSideEffects(ctx, account, mappedModel, resp.Header, upstreamMessage)
 				}
 			}
@@ -852,7 +852,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 				logOpenAICapacityFailoverSuppressed(ctx, account, "ws_http_bridge", resp.Header.Get("x-request-id"), eventType)
 				capacityFailoverSuppressedLogged = true
 			}
-			if eventType == "error" && !officialOpenAIResponses {
+			if eventType == "error" && !standardOpenAIResponses {
 				upstreamEventErr = errors.New(errMessage)
 			} else if eventType == "error" {
 				bareErrorPending = true
@@ -875,7 +875,7 @@ func (s *OpenAIGatewayService) proxyOpenAIWSHTTPBridgeTurn(
 			}
 		}
 		if !clientDisconnected && !suppressClientMessage {
-			stageBeforeSemanticOutput := turn == 1 && account.Platform == PlatformOpenAI && !wroteDownstream
+			stageBeforeSemanticOutput := turn == 1 && standardOpenAIResponses && !wroteDownstream
 			commitStagedMessages := !stageBeforeSemanticOutput ||
 				openAIStreamDataStartsClientOutput(string(clientMessage), eventType) ||
 				isOpenAIWSTerminalEvent(eventType)

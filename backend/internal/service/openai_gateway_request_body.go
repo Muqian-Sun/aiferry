@@ -87,11 +87,8 @@ func shouldPreserveOpenAIResponsesNoneReasoningEffort(account *Account) bool {
 	if account.IsOpenAIOAuthLike() {
 		return true
 	}
-	if !account.IsOpenAIApiKey() {
-		return false
-	}
-	baseURL := account.PrimaryUpstreamBaseURL()
-	return baseURL == "" || isOfficialOpenAIModelsBaseURL(baseURL)
+	// 第三方 key 只在地址指向 OpenAI 官方时保留：兼容上游不认 "none"。
+	return account.IsThirdPartyKey() && account.Vendor() == PlatformOpenAI
 }
 
 // Codex 0.149.0 needs a single advertised effort to directly select a visible
@@ -1206,7 +1203,7 @@ func normalizeOpenAIResponseFormatSchemasBody(body []byte) ([]byte, bool, error)
 }
 
 func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Account, responsesLite bool) ([]byte, bool, error) {
-	if account == nil || !account.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(account) {
 		return body, false, nil
 	}
 	normalized := body
@@ -1224,7 +1221,7 @@ func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Ac
 		normalized = next
 		changed = true
 	}
-	if account.IsOpenAIApiKey() {
+	if keyUsesOpenAIProtocolFeatures(account) {
 		if next, normalizedParallel, err := normalizeOpenAIParallelToolCallsWithoutTools(normalized, responsesLite); err != nil {
 			return body, false, err
 		} else if normalizedParallel {
@@ -1321,7 +1318,7 @@ func normalizeOpenAIResponsesWebSocketCompatibilityBody(body []byte, account *Ac
 		}
 	}
 	if account != nil {
-		if schemaBody, schemaChanged, err := sanitizeOpenAIResponsesToolSchemasForPlatform(normalized, account.Platform); err != nil {
+		if schemaBody, schemaChanged, err := sanitizeOpenAIResponsesToolSchemasForPlatform(normalized, openAIToolSchemaPlatform(account, APIProtocolResponses)); err != nil {
 			return body, false, fmt.Errorf("normalize websocket tool schemas: %w", err)
 		} else if schemaChanged {
 			normalized = schemaBody
@@ -1691,7 +1688,7 @@ func (s *OpenAIGatewayService) evaluateOpenAIFastPolicy(ctx context.Context, acc
 // the dedicated "missing" tier matcher; legacy "all" rules continue to apply
 // only to requests that explicitly selected a recognized tier.
 func (s *OpenAIGatewayService) shouldForceOpenAIFastPriorityForMissingTier(ctx context.Context, account *Account, model string) bool {
-	if account == nil || account.Platform != PlatformOpenAI {
+	if !openAIProtocolFeaturesApply(account) {
 		return false
 	}
 	action, _ := s.evaluateOpenAIFastPolicy(ctx, account, model, OpenAIFastTierMissing)
@@ -1794,7 +1791,7 @@ func openAIFastPolicySettingsFromContext(ctx context.Context) *OpenAIFastPolicyS
 }
 
 func openAIGroupForcesFast(ctx context.Context, account *Account) bool {
-	if ctx == nil || account == nil || account.Platform != PlatformOpenAI {
+	if ctx == nil || !openAIProtocolFeaturesApply(account) {
 		return false
 	}
 	group, _ := ctx.Value(ctxkey.Group).(*Group)

@@ -181,10 +181,10 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	compatPromptCacheInjected := false
-	if promptCacheKey == "" && !isResponsesShape && (account.UsesOpenAICodexProtocol() || account.IsOpenAIApiKey()) && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
+	if promptCacheKey == "" && !isResponsesShape && (account.UsesOpenAICodexProtocol() || keyUsesOpenAIProtocolFeatures(account)) && shouldAutoInjectPromptCacheKeyForCompat(upstreamModel) {
 		promptCacheKey = deriveCompatPromptCacheKey(&chatReq, upstreamModel)
 		compatPromptCacheInjected = promptCacheKey != ""
-		if compatPromptCacheInjected && account.IsOpenAIApiKey() {
+		if compatPromptCacheInjected && keyUsesOpenAIProtocolFeatures(account) {
 			promptCacheKey = isolateOpenAISessionID(getAPIKeyIDFromContext(c), promptCacheKey)
 			compatPromptCacheTenantIsolated = true
 		}

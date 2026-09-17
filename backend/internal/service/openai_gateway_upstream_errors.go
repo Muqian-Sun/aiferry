@@ -275,7 +275,7 @@ func (s *OpenAIGatewayService) shouldFailoverOpenAIUpstreamResponse(account *Acc
 	// preserve the deterministic upstream 400 instead of returning an unwritten
 	// retry signal. Managed gateway instances always have an account repository;
 	// their handler can exclude this account and actually select another one.
-	if s != nil && s.accountRepo != nil && account != nil && account.IsOpenAICompatible() && statusCode == http.StatusBadRequest &&
+	if s != nil && s.accountRepo != nil && account != nil && (account.IsThirdPartyKey() || account.IsOpenAICompatible()) && statusCode == http.StatusBadRequest &&
 		isOpenAICompatibleModelNotFound400(upstreamBody) {
 		return true
 	}

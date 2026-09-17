@@ -924,7 +924,7 @@ func (a *Account) ResolveMappedModel(requestedModel string) (mappedModel string,
 // GetOpenAICompactMode returns the compact routing mode for an OpenAI account.
 // Missing or invalid values fall back to "auto".
 func (a *Account) GetOpenAICompactMode() string {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return OpenAICompactModeAuto
 	}
 	mode, _ := a.Extra["openai_compact_mode"].(string)
@@ -934,7 +934,7 @@ func (a *Account) GetOpenAICompactMode() string {
 // OpenAICompactSupportKnown reports whether compact capability is known for this
 // account and, when known, whether it is supported.
 func (a *Account) OpenAICompactSupportKnown() (supported bool, known bool) {
-	if a == nil || !a.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(a) {
 		return false, false
 	}
 
@@ -959,7 +959,7 @@ func (a *Account) OpenAICompactSupportKnown() (supported bool, known bool) {
 // requests. Unknown capability remains allowed to avoid breaking older accounts
 // before an explicit probe has been run.
 func (a *Account) AllowsOpenAICompact() bool {
-	if a == nil || !a.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(a) {
 		return false
 	}
 	supported, known := a.OpenAICompactSupportKnown()
@@ -1920,7 +1920,7 @@ func (a *Account) IsOveragesEnabled() bool {
 // 兼容字段：accounts.extra.openai_oauth_passthrough（历史 OAuth 开关）。
 // 字段缺失或类型不正确时，按 false（关闭）处理。
 func (a *Account) IsOpenAIPassthroughEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return false
 	}
 	if enabled, ok := a.Extra["openai_passthrough"].(bool); ok {
@@ -1946,7 +1946,7 @@ func (a *Account) IsOpenAIPassthroughEnabled() bool {
 // 1. 按账号类型读取分类型字段
 // 2. 分类型字段缺失时，回退兼容字段
 func (a *Account) IsOpenAIResponsesWebSocketV2Enabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return false
 	}
 	if a.IsOpenAIOAuthLike() {
@@ -1954,7 +1954,7 @@ func (a *Account) IsOpenAIResponsesWebSocketV2Enabled() bool {
 			return enabled
 		}
 	}
-	if a.IsOpenAIApiKey() {
+	if a.IsThirdPartyKey() {
 		if enabled, ok := a.Extra["openai_apikey_responses_websockets_v2_enabled"].(bool); ok {
 			return enabled
 		}
@@ -2015,7 +2015,7 @@ func normalizeOpenAIWSIngressDefaultMode(mode string) string {
 // 4. defaultMode（非法时回退 ctx_pool）
 func (a *Account) ResolveOpenAIResponsesWebSocketV2Mode(defaultMode string) string {
 	resolvedDefault := normalizeOpenAIWSIngressDefaultMode(defaultMode)
-	if a == nil || !a.IsOpenAI() {
+	if !openAIProtocolFeaturesApply(a) {
 		return OpenAIWSIngressModeOff
 	}
 	if a.Extra == nil {
@@ -2060,7 +2060,7 @@ func (a *Account) ResolveOpenAIResponsesWebSocketV2Mode(defaultMode string) stri
 			return mode
 		}
 	}
-	if a.IsOpenAIApiKey() {
+	if a.IsThirdPartyKey() {
 		if mode, ok := resolveModeString("openai_apikey_responses_websockets_v2_mode"); ok {
 			return mode
 		}
@@ -2084,7 +2084,7 @@ func (a *Account) ResolveOpenAIResponsesWebSocketV2Mode(defaultMode string) stri
 // IsOpenAIWSForceHTTPEnabled 返回账号级"强制 HTTP"开关。
 // 字段：accounts.extra.openai_ws_force_http。
 func (a *Account) IsOpenAIWSForceHTTPEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return false
 	}
 	enabled, ok := a.Extra["openai_ws_force_http"].(bool)
@@ -2110,7 +2110,7 @@ func (a *Account) IsOpenAIResponsesFlattenNamespacesEnabled() bool {
 // IsOpenAIWSAllowStoreRecoveryEnabled 返回账号级 store 恢复开关。
 // 字段：accounts.extra.openai_ws_allow_store_recovery。
 func (a *Account) IsOpenAIWSAllowStoreRecoveryEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return false
 	}
 	enabled, ok := a.Extra["openai_ws_allow_store_recovery"].(bool)

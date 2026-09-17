@@ -79,7 +79,7 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 	if normalizedBody, normalized := NormalizeGLMOpenAIReasoningEffort(chatBody, upstreamModel); normalized {
 		chatBody = normalizedBody
 	}
-	if account.Platform == PlatformOpenAI {
+	if openAIProtocolFeaturesApply(account) {
 		policyBody, changed, policyErr := ApplyOpenAIReasoningEffortPolicyFromContext(ctx, chatBody)
 		if policyErr != nil {
 			if IsReasoningEffortPolicyDenied(policyErr) {

@@ -54,11 +54,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		observer = beginUpstreamResponseModelObservation(c)
 	}
 	firstOutputTimeout := time.Duration(0)
-	if account != nil && account.Platform == PlatformOpenAI {
+	if openAIProtocolFeaturesApply(account) {
 		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffort)
 	}
 	guardFirstOutput := firstOutputTimeout > 0
-	stageFirstOutput := account != nil && account.Platform == PlatformOpenAI
+	stageFirstOutput := openAIProtocolFeaturesApply(account)
 	var attemptResponseHeaders http.Header
 	if stageFirstOutput {
 		if s.responseHeaderFilter != nil {
@@ -509,7 +509,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				responseID = extractOpenAIResponseIDFromJSONBytes(dataBytes)
 			}
 			forceFlushFailedEvent := false
-			if !capacityFailoverSuppressedLogged && account != nil && account.Platform == PlatformOpenAI &&
+			if !capacityFailoverSuppressedLogged && openAIProtocolFeaturesApply(account) &&
 				(eventType == "error" || eventType == "response.failed") &&
 				openAIStreamClientOutputStarted(c, clientOutputStarted) &&
 				isOpenAIUpstreamCapacityShedEvent(dataBytes) {
@@ -684,7 +684,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// response.completed (no output, no usage, no error, nothing sent
 			// to the client) are silent upstream refusals: fail over instead of
 			// recording a successful 0/0 usage turn (issue #5009).
-			if account != nil && account.Platform == PlatformOpenAI &&
+			if openAIProtocolFeaturesApply(account) &&
 				(eventType == "response.completed" || eventType == "response.done") &&
 				!sawFailedEvent && !responsesSemanticOutputSeen && !clientOutputStarted &&
 				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
