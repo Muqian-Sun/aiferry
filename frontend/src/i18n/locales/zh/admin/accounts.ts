@@ -293,7 +293,6 @@ export default {
           title: 'API 协议',
           adaptive: '自适应',
           adaptiveDesc: '按入站协议优先使用供应商原生端点，仅在没有对应端点时转换。',
-          endpoints: '协议端点',
           responsesFallbackDesc: '该供应商没有原生 Responses 端点，Responses 请求将转换为 Chat Completions。',
           chatCompletions: 'Chat Completions',
           chatCompletionsDesc: '标准 OpenAI 兼容端点，其他格式请求将被转换。',
@@ -629,8 +628,28 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: '添加方式',
       setupTokenLongLived: 'Setup Token（长期有效）',
+      protocolEndpoints: {
+        title: '协议地址',
+        hint: '第三方 key 只按这里的地址转发，不会回落到任何默认地址。官方 key 已预填官方地址；聚合平台请改成它的地址，不支持的协议删掉即可。',
+        urlPlaceholder: 'https://api.example.com',
+        add: '添加 {protocol}',
+        remove: '删除 {protocol} 地址',
+        empty: '还没有配置协议地址，至少需要一个。',
+        loadFailed: '官方地址加载失败，请手动填写各协议地址。',
+        restoreOfficial: '填入官方地址',
+        errors: {
+          empty: '请至少配置一个协议地址',
+          blank: '{protocol} 的地址不能为空',
+          missingRequired: '当前 API 协议为 {protocol}，请配置它的地址'
+        },
+        protocols: {
+          anthropic: 'Anthropic Messages',
+          chat_completions: 'OpenAI Chat Completions',
+          responses: 'OpenAI Responses',
+          gemini: 'Gemini'
+        }
+      },
       baseUrl: 'Base URL',
-      baseUrlHint: '留空使用官方 Anthropic API',
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: '您的 Claude Console API Key',
@@ -644,7 +663,6 @@ export default {
       },
       // OpenAI specific hints
       openai: {
-        baseUrlHint: '留空使用官方 OpenAI API',
         apiKeyHint: '您的 OpenAI API Key',
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
@@ -1088,11 +1106,9 @@ export default {
       leaveEmptyToKeep: '留空以保持当前密钥',
       // Upstream type
       upstream: {
-        baseUrl: '上游 Base URL',
         baseUrlHint: '按上游实际地址填写，系统不会自动补任何路径。第三方网关通常形如 https://relay.example.com/antigravity',
         apiKey: '上游 API Key',
         apiKeyHint: '上游服务的 API Key',
-        pleaseEnterBaseUrl: '请输入上游 Base URL',
         pleaseEnterApiKey: '请输入上游 API Key'
       },
       // OAuth flow
@@ -1355,7 +1371,6 @@ export default {
         },
         modelPassthrough: 'Gemini 直接转发模型',
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
-        baseUrlHint: '留空使用官方 Gemini API',
         apiKeyHint: '您的 Gemini API Key（以 AIza 开头）',
         tier: {
           label: '账号等级',

@@ -1,16 +1,18 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { flushPromises, mount } from '@vue/test-utils'
 
-const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode } = vi.hoisted(() => ({
+const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode, getProtocolDefaultsMock, showErrorMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
   checkMixedChannelRiskMock: vi.fn(),
-  authIsSimpleMode: { value: true }
+  authIsSimpleMode: { value: true },
+  getProtocolDefaultsMock: vi.fn(),
+  showErrorMock: vi.fn()
 }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError: showErrorMock,
     showSuccess: vi.fn(),
     showInfo: vi.fn()
   })
@@ -41,7 +43,8 @@ vi.mock('@/api/admin', () => ({
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  getAntigravityDefaultModelMapping: vi.fn()
+  getAntigravityDefaultModelMapping: vi.fn(),
+  accountsAPI: { getProtocolDefaults: getProtocolDefaultsMock }
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -55,6 +58,33 @@ vi.mock('vue-i18n', async () => {
 })
 
 import EditAccountModal from '../EditAccountModal.vue'
+import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
+
+// 与后端 GET /admin/accounts/protocol-defaults 同形（节选）。
+const PROTOCOL_DEFAULTS = {
+  protocols: ['anthropic', 'chat_completions', 'responses', 'gemini'],
+  defaults: {
+    openai: { default: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' } },
+    kimi: {
+      default: {
+        anthropic: 'https://api.moonshot.cn/anthropic',
+        chat_completions: 'https://api.moonshot.cn/v1',
+        responses: 'https://api.moonshot.cn/v1'
+      },
+      coding: {
+        anthropic: 'https://api.kimi.com/coding',
+        chat_completions: 'https://api.kimi.com/coding/v1',
+        responses: 'https://api.kimi.com/coding/v1'
+      }
+    }
+  }
+}
+
+beforeEach(() => {
+  resetProtocolDefaultsCacheForTest()
+  getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
+  showErrorMock.mockReset()
+})
 
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
@@ -149,11 +179,11 @@ function buildAccount() {
     type: 'apikey',
     credentials: {
       api_key: 'sk-test',
-      base_url: 'https://api.openai.com',
       model_mapping: {
         'gpt-5.2': 'gpt-5.2'
       }
     },
+    protocol_endpoints: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' },
     extra: {},
     proxy_id: null,
     concurrency: 1,
@@ -274,6 +304,7 @@ function buildGrokAPIKeyAccount() {
     name: 'Grok API Key',
     platform: 'grok',
     credentials: {},
+    protocol_endpoints: { chat_completions: 'https://api.x.ai/v1', responses: 'https://api.x.ai/v1' },
     credentials_status: { has_api_key: true },
     concurrency: 2
   } as any
@@ -448,16 +479,15 @@ describe('EditAccountModal', () => {
   it('preserves OpenCode Zen account type and endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'opencode_go'
+    account.protocol_endpoints = {
+      chat_completions: 'https://opencode.ai/zen/v1',
+      anthropic: 'https://opencode.ai/zen',
+      responses: 'https://opencode.ai/zen/v1'
+    }
     account.credentials = {
       api_key: 'sk-opencode',
       account_mode: 'zen',
       api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/v1',
-      api_base_urls: {
-        chat_completions: 'https://opencode.ai/zen/v1',
-        anthropic: 'https://opencode.ai/zen',
-        responses: 'https://opencode.ai/zen/v1'
-      },
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -473,15 +503,10 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(account.protocol_endpoints)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       account_mode: 'zen',
       api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/v1',
-      api_base_urls: {
-        chat_completions: 'https://opencode.ai/zen/v1',
-        anthropic: 'https://opencode.ai/zen',
-        responses: 'https://opencode.ai/zen/v1'
-      },
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -495,15 +520,10 @@ describe('EditAccountModal', () => {
   it('treats a legacy OpenCode account without account_mode as GO', async () => {
     const account = buildAccount()
     account.platform = 'opencode_go'
+    account.protocol_endpoints = { chat_completions: 'https://opencode.ai/zen/go/v1' }
     account.credentials = {
       api_key: 'sk-opencode',
-      api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/go/v1',
-      api_base_urls: {
-        chat_completions: 'https://opencode.ai/zen/go/v1',
-        anthropic: 'https://opencode.ai/zen/go',
-        responses: 'https://opencode.ai/zen/go/v1'
-      }
+      api_protocol: 'adaptive'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -514,24 +534,18 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       account_mode: 'go',
-      api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/go/v1'
+      api_protocol: 'adaptive'
     })
   })
 
   it('preserves adaptive Kimi Responses endpoint on submit', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
+    account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
     account.credentials = {
       api_key: 'sk-kimi',
       account_mode: 'payg',
-      api_protocol: 'adaptive',
-      base_url: 'https://api.moonshot.cn/v1',
-      api_base_urls: {
-        chat_completions: 'https://api.moonshot.cn/v1',
-        anthropic: 'https://api.moonshot.cn/anthropic',
-        responses: 'https://api.moonshot.cn/v1'
-      }
+      api_protocol: 'adaptive'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -540,30 +554,24 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       account_mode: 'payg',
-      api_protocol: 'adaptive',
-      base_url: 'https://api.moonshot.cn/v1',
-      api_base_urls: {
-        chat_completions: 'https://api.moonshot.cn/v1',
-        anthropic: 'https://api.moonshot.cn/anthropic',
-        responses: 'https://api.moonshot.cn/v1'
-      }
+      api_protocol: 'adaptive'
     })
   })
 
   it('preserves adaptive GLM endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
+    account.protocol_endpoints = {
+      chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      anthropic: 'https://open.bigmodel.cn/api/anthropic'
+    }
     account.credentials = {
       api_key: 'sk-glm',
       account_mode: 'coding',
-      api_protocol: 'adaptive',
-      base_url: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      api_base_urls: {
-        chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        anthropic: 'https://open.bigmodel.cn/api/anthropic'
-      }
+      api_protocol: 'adaptive'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -572,14 +580,13 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
+      anthropic: 'https://open.bigmodel.cn/api/anthropic'
+    })
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       account_mode: 'coding',
-      api_protocol: 'adaptive',
-      base_url: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      api_base_urls: {
-        chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
-        anthropic: 'https://open.bigmodel.cn/api/anthropic'
-      }
+      api_protocol: 'adaptive'
     })
   })
 
@@ -589,10 +596,10 @@ describe('EditAccountModal', () => {
   ])('preserves a custom CN relay for %s accounts', async (_name, storedProtocol) => {
     const account = buildAccount()
     account.platform = 'zhipu'
+    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
     account.credentials = {
       api_key: 'sk-glm',
-      account_mode: 'payg',
-      base_url: 'https://relay.example.com/v1'
+      account_mode: 'payg'
     }
     if (storedProtocol) {
       account.credentials.api_protocol = storedProtocol
@@ -604,26 +611,21 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    const submittedCredentials = updateAccountMock.mock.calls[0]?.[1]?.credentials
-    expect(submittedCredentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'chat_completions',
-      base_url: 'https://relay.example.com/v1'
-    })
-    expect(submittedCredentials).not.toHaveProperty('api_base_urls')
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
+    expect(payload?.credentials).toMatchObject({ account_mode: 'payg', api_protocol: 'chat_completions' })
   })
 
-  it('uses the legacy base_url when adaptive endpoints are missing', async () => {
+  it('strips address fields that are no longer read from third-party key credentials', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
+    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
     account.credentials = {
       api_key: 'sk-glm',
       account_mode: 'payg',
       api_protocol: 'adaptive',
-      base_url: 'https://relay.example.com/v1',
-      api_base_urls: {
-        chat_completions: '   '
-      }
+      base_url: 'https://stale.example.com/v1',
+      api_base_urls: { chat_completions: 'https://stale.example.com/v1' }
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -632,25 +634,16 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      api_protocol: 'adaptive',
-      base_url: 'https://relay.example.com/v1',
-      api_base_urls: {
-        chat_completions: 'https://relay.example.com/v1',
-        anthropic: 'https://open.bigmodel.cn/api/anthropic'
-      }
-    })
+    const credentials = updateAccountMock.mock.calls[0]?.[1]?.credentials
+    expect(credentials).not.toHaveProperty('base_url')
+    expect(credentials).not.toHaveProperty('api_base_urls')
   })
 
-  it('carries a fixed Chat relay into Adaptive when the user switches protocols', async () => {
+  it('keeps protocol endpoints unchanged when the API protocol is switched', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
-    account.credentials = {
-      api_key: 'sk-glm',
-      account_mode: 'payg',
-      api_protocol: 'chat_completions',
-      base_url: 'https://relay.example.com/v1'
-    }
+    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
+    account.credentials = { api_key: 'sk-glm', account_mode: 'payg', api_protocol: 'chat_completions' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -663,65 +656,146 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      api_protocol: 'adaptive',
-      base_url: 'https://relay.example.com/v1',
-      api_base_urls: {
-        chat_completions: 'https://relay.example.com/v1'
-      }
-    })
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.credentials).toMatchObject({ api_protocol: 'adaptive' })
+    expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
   })
 
-  it.each([
-    {
-      name: 'Anthropic',
-      platform: 'zhipu',
-      protocol: 'anthropic',
-      baseUrl: 'https://relay.example.com/anthropic',
-      expectedBaseUrl: 'https://open.bigmodel.cn/api/paas/v4',
-      expectedProtocolUrls: {
-        chat_completions: 'https://open.bigmodel.cn/api/paas/v4',
-        anthropic: 'https://relay.example.com/anthropic'
-      }
-    },
-    {
-      name: 'Responses',
-      platform: 'deepseek',
-      protocol: 'responses',
-      baseUrl: 'https://relay.example.com/responses',
-      expectedBaseUrl: 'https://api.deepseek.com',
-      expectedProtocolUrls: {
-        chat_completions: 'https://api.deepseek.com',
-        anthropic: 'https://api.deepseek.com/anthropic',
-        responses: 'https://relay.example.com/responses'
-      }
-    }
-  ])('keeps a fixed $name relay in its protocol slot when switching to Adaptive', async (testCase) => {
+  it('refuses to save when the pinned protocol has no endpoint', async () => {
     const account = buildAccount()
-    account.platform = testCase.platform
-    account.credentials = {
-      api_key: 'sk-cn',
-      account_mode: 'payg',
-      api_protocol: testCase.protocol,
-      base_url: testCase.baseUrl
-    }
+    account.platform = 'kimi'
+    account.protocol_endpoints = { chat_completions: 'https://api.moonshot.cn/v1' }
+    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'anthropic' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
-    const adaptiveButton = wrapper
-      .findAll('button')
-      .find(button => button.text().includes('admin.accounts.cnProviders.apiProtocol.adaptive'))
-    expect(adaptiveButton).toBeDefined()
-    await adaptiveButton!.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.missingRequired')
+  })
+
+  it('keeps stored relay endpoints after the official addresses finish loading', async () => {
+    const account = buildAccount()
+    account.platform = 'kimi'
+    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
+    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'adaptive' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    await flushPromises()
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: 'https://relay.example.com/v1'
+    })
+  })
+
+  it('does not replace stored endpoints while switching to another account', async () => {
+    // 官方地址已加载后换一个账号：回填会让官方地址从 coding 变成 payg。B 账号存的恰好是
+    // coding 的官方地址（模式与地址不一致的存量数据），回填窗口内不能被 payg 官方地址覆盖。
+    const first = buildAccount()
+    first.platform = 'kimi'
+    first.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
+    first.credentials = { api_key: 'sk-kimi', account_mode: 'coding', api_protocol: 'adaptive' }
+    const second = buildAccount()
+    second.id = 99
+    second.platform = 'kimi'
+    second.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
+    second.credentials = { api_key: 'sk-kimi-2', account_mode: 'payg', api_protocol: 'adaptive' }
+    updateAccountMock.mockReset().mockResolvedValue(second)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(first)
+    await flushPromises()
+    await wrapper.setProps({ account: second })
+    await flushPromises()
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[0]).toBe(99)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
+  })
+
+  it('saves legacy upstream-type accounts with protocol endpoints only', async () => {
+    const account = buildAccount()
+    account.platform = 'antigravity'
+    account.type = 'upstream'
+    account.protocol_endpoints = { anthropic: 'https://relay.example.com/antigravity' }
+    account.credentials = { base_url: 'https://stale.example.com' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      api_protocol: 'adaptive',
-      base_url: testCase.expectedBaseUrl,
-      api_base_urls: testCase.expectedProtocolUrls
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://relay.example.com/antigravity' })
+    expect(payload?.credentials).not.toHaveProperty('base_url')
+  })
+
+  it('fills the preset protocol endpoint when a Chinese provider preset is picked', async () => {
+    const account = buildAccount()
+    account.platform = 'minimax'
+    account.protocol_endpoints = { chat_completions: 'https://api.minimaxi.com/v1' }
+    account.credentials = { api_key: 'sk-minimax', account_mode: 'payg', api_protocol: 'adaptive' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const preset = wrapper
+      .findAll('[data-testid="cn-base-url-preset"]')
+      .find(button => button.text().startsWith('MiniMax Intl Anthropic (api.minimax.io/anthropic)'))
+    expect(preset).toBeDefined()
+    await preset!.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    const payload = updateAccountMock.mock.calls[0]?.[1]
+    expect(payload?.credentials).toMatchObject({ api_protocol: 'adaptive' })
+    expect(payload?.protocol_endpoints).toEqual({
+      chat_completions: 'https://api.minimaxi.com/v1',
+      anthropic: 'https://api.minimax.io/anthropic'
     })
+  })
+
+  it('applies a Grok preset to the configured Grok endpoints', async () => {
+    const account = buildGrokAPIKeyAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    const preset = wrapper.findAll('[data-testid="grok-base-url-preset"]').find(button => button.text().includes('eu-west-1'))
+    expect(preset).toBeDefined()
+    await preset!.trigger('click')
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: 'https://eu-west-1.api.x.ai/v1',
+      responses: 'https://eu-west-1.api.x.ai/v1'
+    })
+  })
+
+  it('switches unedited official endpoints when the admin changes the account mode', async () => {
+    const account = buildAccount()
+    account.platform = 'kimi'
+    account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
+    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'adaptive' }
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+
+    const wrapper = mountModal(account)
+    await flushPromises()
+    const codingButton = wrapper
+      .findAll('button')
+      .find(button => button.text().includes('admin.accounts.cnProviders.accountMode.coding'))
+    expect(codingButton).toBeDefined()
+    await codingButton!.trigger('click')
+    await flushPromises()
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
   })
 
   it('preserves model mappings when editing the whitelist', async () => {
@@ -1034,7 +1108,7 @@ describe('EditAccountModal', () => {
     })
   })
 
-  it('uses the official xAI base URL when a Grok API-key account omits base_url', async () => {
+  it('saves a Grok API-key account with its stored endpoints and no base_url fallback', async () => {
     const account = buildGrokAPIKeyAccount()
     updateAccountMock.mockReset()
     checkMixedChannelRiskMock.mockReset()
@@ -1043,13 +1117,18 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
-    expect((wrapper.get('input[placeholder="https://api.x.ai/v1"]').element as HTMLInputElement).value)
-      .toBe('https://api.x.ai/v1')
+    expect(
+      (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
+    ).toBe('https://api.x.ai/v1')
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.base_url).toBe('https://api.x.ai/v1')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: 'https://api.x.ai/v1',
+      responses: 'https://api.x.ai/v1'
+    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('base_url')
   })
 
   it('only submits model mapping credentials when saving an OpenAI spark shadow account', async () => {
@@ -1125,7 +1204,8 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.platform = 'grok'
     account.name = 'grok-relay'
-    account.credentials = { api_key: 'sk-grok', base_url: 'https://relay.example/v1' }
+    account.credentials = { api_key: 'sk-grok' }
+    account.protocol_endpoints = { chat_completions: 'https://relay.example/v1' }
     updateAccountMock.mockReset()
     checkMixedChannelRiskMock.mockReset()
     checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })

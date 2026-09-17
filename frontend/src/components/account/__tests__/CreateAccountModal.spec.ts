@@ -10,6 +10,8 @@ const {
   importCodexSessionMock,
   createOpenAICodexPATMock,
   authIsSimpleMode,
+  getProtocolDefaultsMock,
+  showErrorMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
   probeUpstreamBillingMock: vi.fn(),
@@ -18,11 +20,13 @@ const {
   importCodexSessionMock: vi.fn(),
   createOpenAICodexPATMock: vi.fn(),
   authIsSimpleMode: { value: true },
+  getProtocolDefaultsMock: vi.fn(),
+  showErrorMock: vi.fn(),
 }))
 
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
-    showError: vi.fn(),
+    showError: showErrorMock,
     showSuccess: vi.fn(),
     showWarning: showWarningMock,
   }),
@@ -58,6 +62,7 @@ vi.mock('@/api/admin', () => ({
 
 vi.mock('@/api/admin/accounts', () => ({
   getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue([]),
+  accountsAPI: { getProtocolDefaults: getProtocolDefaultsMock },
 }))
 
 vi.mock('vue-i18n', async () => {
@@ -69,6 +74,54 @@ vi.mock('vue-i18n', async () => {
 })
 
 import CreateAccountModal from '../CreateAccountModal.vue'
+import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
+
+// 与后端 GET /admin/accounts/protocol-defaults 同形；取自开发实例的真实返回（节选）。
+const PROTOCOL_DEFAULTS = {
+  protocols: ['anthropic', 'chat_completions', 'responses', 'gemini'],
+  defaults: {
+    anthropic: { default: { anthropic: 'https://api.anthropic.com' } },
+    openai: { default: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' } },
+    grok: { default: { chat_completions: 'https://api.x.ai/v1', responses: 'https://api.x.ai/v1' } },
+    kimi: {
+      default: {
+        anthropic: 'https://api.moonshot.cn/anthropic',
+        chat_completions: 'https://api.moonshot.cn/v1',
+        responses: 'https://api.moonshot.cn/v1',
+      },
+      coding: {
+        anthropic: 'https://api.kimi.com/coding',
+        chat_completions: 'https://api.kimi.com/coding/v1',
+        responses: 'https://api.kimi.com/coding/v1',
+      },
+    },
+    minimax: {
+      default: {
+        anthropic: 'https://api.minimaxi.com/anthropic',
+        chat_completions: 'https://api.minimaxi.com/v1',
+        responses: 'https://api.minimaxi.com/v1',
+      },
+    },
+    opencode_go: {
+      zen: {
+        anthropic: 'https://opencode.ai/zen',
+        chat_completions: 'https://opencode.ai/zen/v1',
+        responses: 'https://opencode.ai/zen/v1',
+      },
+      go: {
+        anthropic: 'https://opencode.ai/zen/go',
+        chat_completions: 'https://opencode.ai/zen/go/v1',
+        responses: 'https://opencode.ai/zen/go/v1',
+      },
+    },
+  },
+}
+
+beforeEach(() => {
+  resetProtocolDefaultsCacheForTest()
+  getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
+  showErrorMock.mockReset()
+})
 
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
@@ -455,15 +508,12 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.zen)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('base_url')
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_base_urls')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'zen',
       api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/v1',
-      api_base_urls: {
-        chat_completions: 'https://opencode.ai/zen/v1',
-        anthropic: 'https://opencode.ai/zen',
-        responses: 'https://opencode.ai/zen/v1'
-      },
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -485,15 +535,10 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.go)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'go',
       api_protocol: 'adaptive',
-      base_url: 'https://opencode.ai/zen/go/v1',
-      api_base_urls: {
-        chat_completions: 'https://opencode.ai/zen/go/v1',
-        anthropic: 'https://opencode.ai/zen/go',
-        responses: 'https://opencode.ai/zen/go/v1'
-      },
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -514,15 +559,10 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'payg',
-      api_protocol: 'adaptive',
-      base_url: 'https://api.moonshot.cn/v1',
-      api_base_urls: {
-        chat_completions: 'https://api.moonshot.cn/v1',
-        anthropic: 'https://api.moonshot.cn/anthropic',
-        responses: 'https://api.moonshot.cn/v1'
-      }
+      api_protocol: 'adaptive'
     })
   })
 
@@ -537,15 +577,10 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'coding',
-      api_protocol: 'adaptive',
-      base_url: 'https://api.kimi.com/coding/v1',
-      api_base_urls: {
-        chat_completions: 'https://api.kimi.com/coding/v1',
-        anthropic: 'https://api.kimi.com/coding',
-        responses: 'https://api.kimi.com/coding/v1'
-      }
+      api_protocol: 'adaptive'
     })
   })
 
@@ -559,32 +594,146 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.minimax.default)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'payg',
-      api_protocol: 'adaptive',
-      base_url: 'https://api.minimaxi.com/v1',
-      api_base_urls: {
-        chat_completions: 'https://api.minimaxi.com/v1',
-        anthropic: 'https://api.minimaxi.com/anthropic',
-        responses: 'https://api.minimaxi.com/v1'
-      }
+      api_protocol: 'adaptive'
     })
   })
 
-  it('uses the edited adaptive Chat endpoint when previewing upstream models', async () => {
+  it('previews upstream models with the edited protocol endpoints', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
     await wrapper
-      .get('[data-testid="cn-adaptive-base-url-chat_completions"]')
+      .get('[data-testid="protocol-endpoint-input-chat_completions"]')
       .setValue('https://relay.example.com/v1')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-relay')
 
-    expect(wrapper.getComponent(ModelWhitelistSelectorStub).props('syncCredentials')).toMatchObject({
+    const syncCredentials = wrapper.getComponent(ModelWhitelistSelectorStub).props('syncCredentials')
+    expect(syncCredentials).toMatchObject({
       platform: 'kimi',
       type: 'apikey',
-      base_url: 'https://relay.example.com/v1',
-      api_key: 'sk-relay'
+      api_key: 'sk-relay',
+      protocol_endpoints: {
+        ...PROTOCOL_DEFAULTS.defaults.kimi.default,
+        chat_completions: 'https://relay.example.com/v1'
+      }
     })
+    expect(syncCredentials).not.toHaveProperty('base_url')
+  })
+
+  it('submits the official endpoints prefilled from the backend for an OpenAI API key', async () => {
+    await submitApiKeyAccount('openai')
+
+    const payload = createAccountMock.mock.calls[0]?.[0]
+    expect(payload?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.openai.default)
+    expect(payload?.credentials).not.toHaveProperty('base_url')
+  })
+
+  it('refuses to create a third-party key without any protocol endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('no endpoint')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.empty')
+  })
+
+  it('requires an endpoint for the protocol a Chinese provider account is pinned to', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await selectButtonByText(wrapper, 'admin.accounts.cnProviders.apiProtocol.anthropic')
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi anthropic')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
+
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).not.toHaveBeenCalled()
+    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.missingRequired')
+  })
+
+  it('switches to the new official endpoints on mode change but keeps edited ones', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.coding')
+    await flushPromises()
+    expect(
+      (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
+    ).toBe('https://api.kimi.com/coding/v1')
+
+    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
+    await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.payg')
+    await flushPromises()
+
+    expect(
+      (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
+    ).toBe('https://relay.example.com/v1')
+  })
+
+  it('fills only the preset protocol and keeps adaptive mode when a Chinese provider preset is picked', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'MiniMax')
+    await flushPromises()
+    // 选一个与官方预填不同的地址（国际站），才能区分「预设回填」与「官方预填」。
+    const preset = wrapper
+      .findAll('[data-testid="cn-base-url-preset"]')
+      .find((button) => button.text().startsWith('MiniMax Intl Anthropic (api.minimax.io/anthropic)'))
+    expect(preset).toBeDefined()
+    await preset!.trigger('click')
+    await flushPromises()
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('minimax preset')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    const payload = createAccountMock.mock.calls[0]?.[0]
+    expect(payload?.credentials).toMatchObject({ account_mode: 'payg', api_protocol: 'adaptive' })
+    expect(payload?.protocol_endpoints).toEqual({
+      ...PROTOCOL_DEFAULTS.defaults.minimax.default,
+      anthropic: 'https://api.minimax.io/anthropic'
+    })
+  })
+
+  it('applies a Grok preset to both Chat Completions and Responses endpoints', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Grok')
+    await wrapper.get('[data-testid="grok-account-type-api-key"]').trigger('click')
+    await flushPromises()
+    const preset = wrapper.findAll('[data-testid="grok-base-url-preset"]').find((button) => button.text().includes('us-east-1'))
+    expect(preset).toBeDefined()
+    await preset!.trigger('click')
+
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('grok preset')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('xai-test')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({
+      chat_completions: 'https://us-east-1.api.x.ai/v1',
+      responses: 'https://us-east-1.api.x.ai/v1'
+    })
+  })
+
+  it('asks for manual endpoints when official addresses fail to load', async () => {
+    getProtocolDefaultsMock.mockReset().mockRejectedValue(new Error('offline'))
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="protocol-defaults-load-failed"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="protocol-endpoint-input-anthropic"]').exists()).toBe(false)
   })
 
   it('exposes Agent Identity in the OpenAI authorization methods', async () => {
@@ -644,11 +793,9 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await selectButtonByText(wrapper, 'Antigravity')
     await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
-    const baseInput = wrapper
-      .findAll('input')
-      .find((candidate) => candidate.attributes('placeholder') === 'https://relay.example.com/antigravity')
-    expect(baseInput).toBeDefined()
-    await baseInput?.setValue('https://relay.example')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
@@ -657,6 +804,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     const payload = createAccountMock.mock.calls[0]?.[0]
     expect(payload?.platform).toBe('antigravity')
     expect(payload?.type).toBe('apikey')
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://relay.example/antigravity' })
+    expect(payload?.credentials).not.toHaveProperty('base_url')
     expect(payload?.upstream_billing_probe_enabled).toBe(true)
     // 创建成功后前端立即发起一次首探（与其他 apikey 平台一致）。
     expect(probeUpstreamBillingMock).toHaveBeenCalledWith(42)

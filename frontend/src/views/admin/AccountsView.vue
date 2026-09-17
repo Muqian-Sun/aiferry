@@ -523,6 +523,7 @@ import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { sanitizeUrl } from '@/utils/url'
+import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
 import { formatMultiplier } from '@/utils/formatters'
 import type { Account, AccountListItem, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
@@ -1701,9 +1702,11 @@ function accountDisplayEmail(row: any): string {
   return row.extra?.email_address || row.extra?.email || row.credentials?.email || row.parent_email || ''
 }
 
+// 第三方 key 名称链接到上游站点主页：地址只在协议映射里，按协议顺序取第一个已配置的。
 function accountHomepageUrl(row: Account): string {
-  if (row.type !== 'apikey' || typeof row.credentials?.base_url !== 'string') return ''
-  const baseUrl = sanitizeUrl(row.credentials.base_url)
+  if (row.type !== 'apikey') return ''
+  const endpoint = UPSTREAM_PROTOCOLS.map((protocol) => row.protocol_endpoints?.[protocol]).find((url) => !!url?.trim())
+  const baseUrl = endpoint ? sanitizeUrl(endpoint) : ''
   return baseUrl ? new URL(baseUrl).origin : ''
 }
 

@@ -275,11 +275,6 @@ export function cnSupportsNativeResponses(platform: string): boolean {
   return platform === 'deepseek' || platform === 'kimi' || platform === 'minimax' || platform === 'opencode_go'
 }
 
-export const OPENCODE_GO_BASE_URL = 'https://opencode.ai/zen/go/v1'
-export const OPENCODE_GO_ANTHROPIC_BASE_URL = 'https://opencode.ai/zen/go'
-export const OPENCODE_ZEN_BASE_URL = 'https://opencode.ai/zen/v1'
-export const OPENCODE_ZEN_ANTHROPIC_BASE_URL = 'https://opencode.ai/zen'
-
 export function isOpenCodeGoPlatform(platform: string): boolean {
   return platform === 'opencode_go'
 }
@@ -363,7 +358,7 @@ export function isMultiProtocolApiKeyPlatform(platform: string): boolean {
 
 export interface CnBaseUrlPreset {
   mode: CnAccountMode
-  protocol: CnApiProtocol
+  protocol: CnNativeApiProtocol
   /** 专有名词，不参与 i18n */
   label: string
   url: string
@@ -404,59 +399,6 @@ export const CN_BASE_URL_PRESETS: Record<CnProviderPlatform, CnBaseUrlPreset[]> 
     { mode: 'coding', protocol: 'anthropic', label: 'MiniMax Coding Intl Anthropic', url: 'https://api.minimax.io/anthropic' },
     { mode: 'coding', protocol: 'responses', label: 'MiniMax Coding Intl Responses', url: 'https://api.minimax.io/v1' }
   ]
-}
-
-/** 返回指定供应商 + 账号类型 + API 协议的默认 base url。 */
-export function defaultCNBaseUrl(
-  platform: string,
-  mode: CnAccountMode | OpenCodeAccountMode,
-  protocol: CnApiProtocol = 'chat_completions'
-): string {
-  if (protocol === 'anthropic') {
-    switch (platform) {
-      case 'kimi':
-        return mode === 'coding' ? 'https://api.kimi.com/coding' : 'https://api.moonshot.cn/anthropic'
-      case 'zhipu':
-        return 'https://open.bigmodel.cn/api/anthropic'
-      case 'deepseek':
-        return 'https://api.deepseek.com/anthropic'
-      case 'minimax':
-        return 'https://api.minimaxi.com/anthropic'
-      case 'opencode_go':
-        return mode === 'zen' ? OPENCODE_ZEN_ANTHROPIC_BASE_URL : OPENCODE_GO_ANTHROPIC_BASE_URL
-      default:
-        return ''
-    }
-  }
-  // responses：Kimi / DeepSeek / MiniMax 的 base 与 chat_completions 相同（端点路径差异由后端处理）。
-  switch (platform) {
-    case 'kimi':
-      return mode === 'coding' ? 'https://api.kimi.com/coding/v1' : 'https://api.moonshot.cn/v1'
-    case 'zhipu':
-      return mode === 'coding'
-        ? 'https://open.bigmodel.cn/api/coding/paas/v4'
-        : 'https://open.bigmodel.cn/api/paas/v4'
-    case 'deepseek':
-      return 'https://api.deepseek.com'
-    case 'minimax':
-      return 'https://api.minimaxi.com/v1'
-    case 'opencode_go':
-      return mode === 'zen' ? OPENCODE_ZEN_BASE_URL : OPENCODE_GO_BASE_URL
-    default:
-      return ''
-  }
-}
-
-/** 返回自适应模式下需要配置的原生协议及其默认端点。 */
-export function defaultCNAdaptiveBaseUrls(
-  platform: CnProviderPlatform | 'opencode_go',
-  mode: CnAccountMode | OpenCodeAccountMode
-): Record<CnNativeApiProtocol, string> {
-  return {
-    chat_completions: defaultCNBaseUrl(platform, mode, 'chat_completions'),
-    anthropic: defaultCNBaseUrl(platform, mode, 'anthropic'),
-    responses: cnSupportsNativeResponses(platform) ? defaultCNBaseUrl(platform, mode, 'responses') : ''
-  }
 }
 
 // ===== 国产供应商用量单元格可见性（单一事实源） =====

@@ -305,14 +305,23 @@ describe('admin AccountsView — 账号行展示', () => {
     wrapper.unmount()
   })
 
-  it('仅将具有安全 base_url 的 API Key 账号名称链接到站点主页', async () => {
+  it('仅将协议地址安全的 API Key 账号名称链接到站点主页', async () => {
     listAccounts.mockResolvedValue({
       items: [
-        { id: 101, name: 'relay-account', platform: 'openai', type: 'apikey', credentials: { base_url: 'https://relay.example.com/api/v1/' } },
+        {
+          id: 101,
+          name: 'relay-account',
+          platform: 'openai',
+          type: 'apikey',
+          // 凭据里残留的旧 base_url 不再被读取；按协议顺序取第一个已配置的地址
+          credentials: { base_url: 'https://stale.example.com/v1' },
+          protocol_endpoints: { responses: 'https://second.example.com/v1', chat_completions: 'https://relay.example.com/api/v1/' },
+        },
         { id: 102, name: 'oauth-account', platform: 'openai', type: 'oauth', credentials: { base_url: 'https://oauth.example.com/v1' } },
-        { id: 103, name: 'invalid-url', platform: 'openai', type: 'apikey', credentials: { base_url: 'javascript:alert(1)' } },
+        { id: 103, name: 'invalid-url', platform: 'openai', type: 'apikey', protocol_endpoints: { chat_completions: 'javascript:alert(1)' } },
+        { id: 104, name: 'legacy-base-url-only', platform: 'openai', type: 'apikey', credentials: { base_url: 'https://legacy.example.com/v1' } },
       ],
-      total: 3,
+      total: 4,
       page: 1,
       page_size: 20,
       pages: 1,

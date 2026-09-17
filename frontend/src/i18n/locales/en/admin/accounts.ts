@@ -89,7 +89,6 @@ export default {
           title: 'API Protocol',
           adaptive: 'Adaptive',
           adaptiveDesc: 'Uses the matching native provider endpoint for each inbound protocol, converting only when unavailable.',
-          endpoints: 'Protocol endpoints',
           responsesFallbackDesc: 'Responses requests are converted to Chat Completions because this provider has no native Responses endpoint.',
           chatCompletions: 'Chat Completions',
           chatCompletionsDesc: 'Standard OpenAI-compatible endpoint; requests in other formats are converted.',
@@ -541,8 +540,28 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: 'Add Method',
       setupTokenLongLived: 'Setup Token (Long-lived)',
+      protocolEndpoints: {
+        title: 'Protocol endpoints',
+        hint: 'Third-party keys are forwarded only to these addresses and never fall back to a default. Official addresses are prefilled for official keys; for an aggregator, replace them with its addresses and remove unsupported protocols.',
+        urlPlaceholder: 'https://api.example.com',
+        add: 'Add {protocol}',
+        remove: 'Remove {protocol} endpoint',
+        empty: 'No protocol endpoint configured yet; at least one is required.',
+        loadFailed: 'Failed to load official addresses. Please fill in each protocol endpoint manually.',
+        restoreOfficial: 'Use official addresses',
+        errors: {
+          empty: 'Configure at least one protocol endpoint',
+          blank: 'The {protocol} endpoint cannot be empty',
+          missingRequired: 'The API protocol is {protocol}; configure its endpoint'
+        },
+        protocols: {
+          anthropic: 'Anthropic Messages',
+          chat_completions: 'OpenAI Chat Completions',
+          responses: 'OpenAI Responses',
+          gemini: 'Gemini'
+        }
+      },
       baseUrl: 'Base URL',
-      baseUrlHint: 'Leave default for official Anthropic API',
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
@@ -556,7 +575,6 @@ export default {
       },
       // OpenAI specific hints
       openai: {
-        baseUrlHint: 'Leave default for official OpenAI API',
         apiKeyHint: 'Your OpenAI API Key',
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
@@ -1017,11 +1035,9 @@ export default {
       leaveEmptyToKeep: 'Leave empty to keep current key',
       // Upstream type
       upstream: {
-        baseUrl: 'Upstream Base URL',
         baseUrlHint: 'Enter the exact upstream address; no path is appended automatically. Third-party gateways usually look like https://relay.example.com/antigravity',
         apiKey: 'Upstream API Key',
         apiKeyHint: 'API Key for the upstream service',
-        pleaseEnterBaseUrl: 'Please enter upstream Base URL',
         pleaseEnterApiKey: 'Please enter upstream API Key'
       },
       // OAuth flow
@@ -1295,7 +1311,6 @@ export default {
         modelPassthrough: 'Gemini Model Passthrough',
         modelPassthroughDesc:
           'All model requests are forwarded directly to the Gemini API without model restrictions or mappings.',
-        baseUrlHint: 'Leave default for official Gemini API',
         apiKeyHint: 'Your Gemini API Key (starts with AIza)',
         tier: {
           label: 'Account Tier',
