@@ -336,10 +336,11 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 	})
 	s.Require().NoError(s.client.Account.UpdateOneID(unschedulable.ID).SetSchedulable(false).Exec(s.ctx))
 	mustCreateAccount(s.T(), s.client, &service.Account{
-		Name:     "grok-api-key-excluded",
-		Platform: service.PlatformGrok,
-		Type:     service.AccountTypeAPIKey,
-		Status:   service.StatusActive,
+		Name:              "grok-api-key-excluded",
+		Platform:          service.PlatformGrok,
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1"},
+		Status:            service.StatusActive,
 		Credentials: map[string]any{
 			"api_key":       "api-key",
 			"refresh_token": "must-not-make-api-key-eligible",
@@ -434,7 +435,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 			name: "filter_by_type",
 			setup: func(client *dbent.Client) {
 				mustCreateAccount(s.T(), client, &service.Account{Name: "t1", Type: service.AccountTypeOAuth})
-				mustCreateAccount(s.T(), client, &service.Account{Name: "t2", Type: service.AccountTypeAPIKey})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "t2", Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"}})
 			},
 			accType:   service.AccountTypeAPIKey,
 			wantCount: 1,

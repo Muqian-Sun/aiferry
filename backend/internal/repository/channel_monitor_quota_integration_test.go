@@ -26,7 +26,8 @@ func TestChannelMonitorQuotaModeRoundTrip(t *testing.T) {
 
 	account := mustCreateAccount(t, integrationEntClient, &service.Account{
 		Name: "quota-linked-kimi", Platform: domain.PlatformKimi, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-kimi", "account_mode": service.AccountModeCoding},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: service.DefaultKimiCodingBaseURL},
+		Credentials:       map[string]any{"api_key": "sk-kimi", "account_mode": service.AccountModeCoding},
 	})
 	t.Cleanup(func() {
 		_ = integrationEntClient.Account.DeleteOneID(account.ID).Exec(ctx)

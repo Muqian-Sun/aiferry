@@ -25,13 +25,14 @@ func TestCreateWithAccountGroupsPersistsPausedCopyAtomically(t *testing.T) {
 	require.NoError(t, err)
 
 	success := &service.Account{
-		Name:        fmt.Sprintf("duplicate-success-%d", suffix),
-		Platform:    service.PlatformAnthropic,
-		Type:        service.AccountTypeAPIKey,
-		Status:      service.StatusActive,
-		Schedulable: false,
-		Credentials: map[string]any{"api_key": "secret"},
-		Extra:       map[string]any{},
+		Name:              fmt.Sprintf("duplicate-success-%d", suffix),
+		Platform:          service.PlatformAnthropic,
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
+		Status:            service.StatusActive,
+		Schedulable:       false,
+		Credentials:       map[string]any{"api_key": "secret"},
+		Extra:             map[string]any{},
 	}
 	require.NoError(t, repo.CreateWithAccountGroups(ctx, success, []service.AccountGroup{{GroupID: group.ID, Priority: 37}}))
 	t.Cleanup(func() {
@@ -52,13 +53,14 @@ func TestCreateWithAccountGroupsPersistsPausedCopyAtomically(t *testing.T) {
 	require.Equal(t, 1, outboxCount)
 
 	failure := &service.Account{
-		Name:        fmt.Sprintf("duplicate-failure-%d", suffix),
-		Platform:    service.PlatformAnthropic,
-		Type:        service.AccountTypeAPIKey,
-		Status:      service.StatusActive,
-		Schedulable: false,
-		Credentials: map[string]any{"api_key": "secret"},
-		Extra:       map[string]any{},
+		Name:              fmt.Sprintf("duplicate-failure-%d", suffix),
+		Platform:          service.PlatformAnthropic,
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
+		Status:            service.StatusActive,
+		Schedulable:       false,
+		Credentials:       map[string]any{"api_key": "secret"},
+		Extra:             map[string]any{},
 	}
 	err = repo.CreateWithAccountGroups(ctx, failure, []service.AccountGroup{{GroupID: int64(^uint64(0) >> 1), Priority: 1}})
 	require.Error(t, err)
