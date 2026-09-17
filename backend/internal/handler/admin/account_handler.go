@@ -2953,7 +2953,6 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 	var req struct {
 		Platform     string            `json:"platform" binding:"required"`
 		Type         string            `json:"type" binding:"required"`
-		BaseURL      string            `json:"base_url"`
 		APIKey       string            `json:"api_key" binding:"required"`
 		ModelMapping map[string]string `json:"model_mapping"`
 		// ProtocolEndpoints 与建号接口同一规则：第三方 key 的上游地址只认协议映射，
@@ -2979,7 +2978,6 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		Type:     req.Type,
 		Credentials: map[string]any{
 			"api_key":       req.APIKey,
-			"base_url":      req.BaseURL,
 			"model_mapping": modelMapping,
 		},
 		ProtocolEndpoints: protocolEndpoints,
