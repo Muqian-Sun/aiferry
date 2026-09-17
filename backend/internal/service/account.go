@@ -2194,11 +2194,16 @@ func (a *Account) IsOpenAIOAuthPassthroughEnabled() bool {
 	return a != nil && a.IsOpenAIOAuth() && a.IsOpenAIPassthroughEnabled()
 }
 
-// IsAnthropicAPIKeyPassthroughEnabled 返回 Anthropic API Key 账号是否启用"自动透传（仅替换认证）"。
+// IsAnthropicAPIKeyPassthroughEnabled 返回第三方 key 是否启用"自动透传（仅替换认证）"。
 // 字段：accounts.extra.anthropic_passthrough。
 // 字段缺失或类型不正确时，按 false（关闭）处理。
+//
+// 透传是 Anthropic 协议上的转发模式，只在 Anthropic Messages / count_tokens 转发路径上
+// 读取，因此对任何展示标签的第三方 key 都生效；成品号不透传。不按厂商收窄：透传分支
+// 本身已照顾 GLM / Kimi / DeepSeek 这类第三方 Anthropic 上游（见
+// forwardAnthropicAPIKeyPassthroughWithInput 里对 web search 历史块的过滤）。
 func (a *Account) IsAnthropicAPIKeyPassthroughEnabled() bool {
-	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
+	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
 		return false
 	}
 	enabled, ok := a.Extra["anthropic_passthrough"].(bool)

@@ -37,10 +37,12 @@ func TestIsHeaderOverrideEligible(t *testing.T) {
 		{"zhipu oauth", PlatformZhipu, AccountTypeOAuth, false},
 		{"deepseek oauth", PlatformDeepseek, AccountTypeOAuth, false},
 		{"opencode go oauth", PlatformOpenCodeGo, AccountTypeOAuth, false},
-		{"gemini apikey", PlatformGemini, AccountTypeAPIKey, false},
+		{"gemini apikey", PlatformGemini, AccountTypeAPIKey, true},
 		{"grok apikey", PlatformGrok, AccountTypeAPIKey, true},
 		{"grok oauth", PlatformGrok, AccountTypeOAuth, true},
-		{"antigravity apikey", PlatformAntigravity, AccountTypeAPIKey, false},
+		{"antigravity apikey", PlatformAntigravity, AccountTypeAPIKey, true},
+		{"gemini oauth", PlatformGemini, AccountTypeOAuth, false},
+		{"antigravity oauth", PlatformAntigravity, AccountTypeOAuth, false},
 		{"anthropic bedrock", PlatformAnthropic, AccountTypeBedrock, false},
 	}
 	for _, tt := range tests {
@@ -71,11 +73,11 @@ func TestIsHeaderOverrideEnabled(t *testing.T) {
 		credKeyHeaderOverrideEnabled: false,
 	}).IsHeaderOverrideEnabled())
 
-	// 不符合平台/类型条件时即使配置了 true 也不启用
+	// 成品号（Grok OAuth 除外）即使配置了 true 也不启用；第三方 key 不论标签都启用
 	require.False(t, headerOverrideTestAccount(PlatformAnthropic, AccountTypeOAuth, map[string]any{
 		credKeyHeaderOverrideEnabled: true,
 	}).IsHeaderOverrideEnabled())
-	require.False(t, headerOverrideTestAccount(PlatformGemini, AccountTypeAPIKey, map[string]any{
+	require.True(t, headerOverrideTestAccount(PlatformGemini, AccountTypeAPIKey, map[string]any{
 		credKeyHeaderOverrideEnabled: true,
 	}).IsHeaderOverrideEnabled())
 }

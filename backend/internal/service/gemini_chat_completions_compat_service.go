@@ -351,6 +351,7 @@ func (s *GeminiMessagesCompatService) buildGeminiChatCompletionsUpstreamRequestF
 			}
 			upstreamReq.Header.Set("Content-Type", "application/json")
 			upstreamReq.Header.Set("x-goog-api-key", apiKey)
+			account.ApplyHeaderOverrides(upstreamReq.Header)
 			return upstreamReq, "x-request-id", nil
 		}, "x-request-id"
 

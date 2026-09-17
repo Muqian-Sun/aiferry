@@ -655,6 +655,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 			upstreamReq.Header.Set("Content-Type", "application/json")
 			upstreamReq.Header.Set("x-goog-api-key", apiKey)
+			account.ApplyHeaderOverrides(upstreamReq.Header)
 			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
@@ -1222,6 +1223,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 			upstreamReq.Header.Set("Content-Type", "application/json")
 			upstreamReq.Header.Set("x-goog-api-key", apiKey)
+			account.ApplyHeaderOverrides(upstreamReq.Header)
 			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
@@ -2896,6 +2898,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 			return nil, errors.New("gemini api_key not configured")
 		}
 		req.Header.Set("x-goog-api-key", apiKey)
+		account.ApplyHeaderOverrides(req.Header)
 	case AccountTypeOAuth:
 		if s.tokenProvider == nil {
 			return nil, errors.New("gemini token provider not configured")

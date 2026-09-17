@@ -43,7 +43,7 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 		require.False(t, account.IsAnthropicAPIKeyPassthroughEnabled())
 	})
 
-	t.Run("非 Anthropic API Key 账号始终关闭", func(t *testing.T) {
+	t.Run("成品号始终关闭", func(t *testing.T) {
 		oauth := &Account{
 			Platform: PlatformAnthropic,
 			Type:     AccountTypeOAuth,
@@ -52,16 +52,20 @@ func TestAccount_IsAnthropicAPIKeyPassthroughEnabled(t *testing.T) {
 			},
 		}
 		require.False(t, oauth.IsAnthropicAPIKeyPassthroughEnabled())
+	})
 
-		openai := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Extra: map[string]any{
-				"anthropic_passthrough": true,
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+	t.Run("任何标签的第三方 key 开启即生效", func(t *testing.T) {
+		for _, label := range []string{PlatformOpenAI, PlatformGemini, PlatformAntigravity, PlatformKimi} {
+			key := &Account{
+				Platform: label,
+				Type:     AccountTypeAPIKey,
+				Extra: map[string]any{
+					"anthropic_passthrough": true,
+				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
+			}
+			require.True(t, key.IsAnthropicAPIKeyPassthroughEnabled(), "label %s", label)
 		}
-		require.False(t, openai.IsAnthropicAPIKeyPassthroughEnabled())
 	})
 }
 
@@ -105,14 +109,37 @@ func TestAccount_GetAnthropicAPIKeyAuthScheme(t *testing.T) {
 			want: AnthropicAPIKeyAuthSchemeXAPIKey,
 		},
 		{
-			name: "non Anthropic API key defaults to x-api-key",
+			name: "key of another label honours bearer",
 			account: &Account{
 				Platform: PlatformOpenAI,
 				Type:     AccountTypeAPIKey,
 				Extra: map[string]any{
 					"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
+			},
+			want: AnthropicAPIKeyAuthSchemeAuthorizationBearer,
+		},
+		{
+			name: "gemini-labelled key honours bearer",
+			account: &Account{
+				Platform: PlatformGemini,
+				Type:     AccountTypeAPIKey,
+				Extra: map[string]any{
+					"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
+				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
+			},
+			want: AnthropicAPIKeyAuthSchemeAuthorizationBearer,
+		},
+		{
+			name: "subscription account ignores the setting",
+			account: &Account{
+				Platform: PlatformAnthropic,
+				Type:     AccountTypeOAuth,
+				Extra: map[string]any{
+					"anthropic_apikey_auth_scheme": AnthropicAPIKeyAuthSchemeAuthorizationBearer,
+				},
 			},
 			want: AnthropicAPIKeyAuthSchemeXAPIKey,
 		},
