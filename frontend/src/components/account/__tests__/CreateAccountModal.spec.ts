@@ -511,9 +511,9 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.zen)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('base_url')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_base_urls')
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'zen',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -536,9 +536,9 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.go)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'go',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -549,7 +549,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     })
   })
 
-  it('submits adaptive Kimi protocol endpoints', async () => {
+  it('submits Kimi protocol endpoints without an API protocol', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi adaptive')
@@ -560,13 +560,11 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('submits adaptive Kimi Coding Plan Responses endpoint', async () => {
+  it('submits Kimi Coding Plan Responses endpoint', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.coding')
@@ -578,13 +576,11 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'coding',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'coding' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('submits adaptive MiniMax protocol endpoints', async () => {
+  it('submits MiniMax protocol endpoints', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'MiniMax')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('MiniMax adaptive')
@@ -595,10 +591,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.minimax.default)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('previews upstream models with the edited protocol endpoints', async () => {
@@ -646,20 +640,22 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.empty')
   })
 
-  it('requires an endpoint for the protocol a Chinese provider account is pinned to', async () => {
+  it('has no API protocol selector: a Chinese provider key keeps whichever endpoints it configures', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await flushPromises()
-    await selectButtonByText(wrapper, 'admin.accounts.cnProviders.apiProtocol.anthropic')
+    expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.apiProtocol.title')
     await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi anthropic')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi without anthropic')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(createAccountMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.missingRequired')
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    const payload = createAccountMock.mock.calls[0]?.[0]
+    expect(payload?.protocol_endpoints).not.toHaveProperty('anthropic')
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('switches to the new official endpoints on mode change but keeps edited ones', async () => {
@@ -681,7 +677,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     ).toBe('https://relay.example.com/v1')
   })
 
-  it('fills only the preset protocol and keeps adaptive mode when a Chinese provider preset is picked', async () => {
+  it('fills only the preset protocol when a Chinese provider preset is picked', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'MiniMax')
     await flushPromises()
@@ -699,7 +695,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     const payload = createAccountMock.mock.calls[0]?.[0]
-    expect(payload?.credentials).toMatchObject({ account_mode: 'payg', api_protocol: 'adaptive' })
+    expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
     expect(payload?.protocol_endpoints).toEqual({
       ...PROTOCOL_DEFAULTS.defaults.minimax.default,
       anthropic: 'https://api.minimax.io/anthropic'

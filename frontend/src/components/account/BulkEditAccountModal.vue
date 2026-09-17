@@ -1042,52 +1042,6 @@
         </div>
       </div>
 
-      <!-- OpenAI API Key Responses route -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <div class="mb-3 flex items-center justify-between gap-4">
-          <div class="flex-1">
-            <label
-              id="bulk-edit-openai-responses-mode-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-responses-mode-enabled"
-            >
-              {{ t('admin.accounts.openai.responsesMode') }}
-            </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.responsesModeDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAIResponsesMode"
-            id="bulk-edit-openai-responses-mode-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-responses-mode-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-responses-mode-body"
-          :class="!enableOpenAIResponsesMode && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-openai-responses-mode-label"
-        >
-          <Select
-            v-model="openAIResponsesMode"
-            :disabled="!enableOpenAIResponsesMode || !openAIResponsesModeApplicable"
-            data-testid="bulk-edit-openai-responses-mode-select"
-            :options="openAIResponsesModeOptions"
-            aria-labelledby="bulk-edit-openai-responses-mode-label"
-          />
-          <p
-            v-if="enableOpenAIEndpointCapabilities && !openAITextGenerationCapabilityEnabled"
-            class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-            data-testid="bulk-edit-openai-responses-mode-not-applicable"
-          >
-            {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
-          </p>
-        </div>
-      </div>
-
       <!-- OpenAI API Key WS mode -->
       <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1445,8 +1399,7 @@ import type {
   AccountPlatform,
   AccountType,
   OpenAICompactMode,
-  OpenAIEndpointCapability,
-  OpenAIResponsesMode
+  OpenAIEndpointCapability
 } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
@@ -1615,7 +1568,6 @@ const enableOpenAIPassthrough = ref(false)
 const enableOpenAIFlattenNamespaces = ref(false)
 const enableOpenAILongContextBilling = ref(false)
 const enableOpenAIEndpointCapabilities = ref(false)
-const enableOpenAIResponsesMode = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
 const enableUpstreamBillingAutoProbe = ref(false)
@@ -1653,7 +1605,6 @@ const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>([
   'chat_completions',
   'embeddings'
 ])
-const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 const openaiOAuthResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const openaiAPIKeyResponsesWebSocketV2Mode = ref<OpenAIWSMode>(OPENAI_WS_MODE_OFF)
 const upstreamBillingAutoProbeMode = ref<'enabled' | 'disabled'>('enabled')
@@ -1718,35 +1669,12 @@ const openAICompactModeOptions = computed(() => [
   { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
   { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
 ])
-const openAIResponsesModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.responsesModeAuto') },
-  { value: 'force_responses', label: t('admin.accounts.openai.responsesModeForceResponses') },
-  {
-    value: 'force_chat_completions',
-    label: t('admin.accounts.openai.responsesModeForceChatCompletions')
-  }
-])
-const openAITextEndpointCapabilityLabel = computed(() => {
-  if (openAIResponsesMode.value === 'force_responses') {
-    return t('admin.accounts.openai.capabilityResponses')
-  }
-  if (openAIResponsesMode.value === 'force_chat_completions') {
-    return t('admin.accounts.openai.capabilityChatCompletions')
-  }
-  return t('admin.accounts.openai.capabilityTextAuto')
-})
 const openAIEndpointCapabilityOptions = computed<
   Array<{ value: OpenAIEndpointCapability; label: string }>
 >(() => [
-  { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
   { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
 ])
-const openAITextGenerationCapabilityEnabled = computed(() =>
-  openAIEndpointCapabilities.value.includes('chat_completions')
-)
-const openAIResponsesModeApplicable = computed(
-  () => !enableOpenAIEndpointCapabilities.value || openAITextGenerationCapabilityEnabled.value
-)
 
 const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
   const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
@@ -1767,9 +1695,6 @@ const toggleOpenAIEndpointCapability = (
     openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
       (value) => value !== capability
     )
-    if (!openAITextGenerationCapabilityEnabled.value) {
-      openAIResponsesMode.value = 'auto'
-    }
     return
   }
   openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
@@ -1881,7 +1806,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     enableOpenAILongContextBilling.value && allOpenAIPassthroughCapable.value
   const applyOpenAIEndpointCapabilities =
     enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value
-  const applyOpenAIResponsesMode = enableOpenAIResponsesMode.value && allOpenAIAPIKey.value
   const ensureExtra = (): Record<string, unknown> => {
     if (!updates.extra) {
       updates.extra = {}
@@ -1945,17 +1869,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
         ? null
         : [...openAIEndpointCapabilities.value]
     credentialsChanged = true
-  }
-
-  if (
-    applyOpenAIResponsesMode ||
-    (applyOpenAIEndpointCapabilities && !openAITextGenerationCapabilityEnabled.value)
-  ) {
-    const extra = ensureExtra()
-    extra.openai_responses_mode =
-      !openAIResponsesModeApplicable.value || openAIResponsesMode.value === 'auto'
-        ? null
-        : openAIResponsesMode.value
   }
 
   if (enableModelRestriction.value && !isOpenAIModelRestrictionDisabled.value) {
@@ -2149,7 +2062,6 @@ const handleSubmit = async () => {
     enableOpenAIFlattenNamespaces.value ||
     (enableOpenAILongContextBilling.value && allOpenAIPassthroughCapable.value) ||
     (enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value) ||
-    (enableOpenAIResponsesMode.value && allOpenAIAPIKey.value) ||
     enableModelRestriction.value ||
     enableCustomErrorCodes.value ||
     enableInterceptWarmup.value ||
@@ -2300,7 +2212,6 @@ watch(
       enableOpenAIFlattenNamespaces.value = false
       enableOpenAILongContextBilling.value = false
       enableOpenAIEndpointCapabilities.value = false
-      enableOpenAIResponsesMode.value = false
       enableOpenAIWSMode.value = false
       enableOpenAIAPIKeyWSMode.value = false
       enableUpstreamBillingAutoProbe.value = false
@@ -2317,7 +2228,6 @@ watch(
       openaiFlattenNamespacesEnabled.value = false
       openAILongContextBillingEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
-      openAIResponsesMode.value = 'auto'
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []
       modelMappings.value = []

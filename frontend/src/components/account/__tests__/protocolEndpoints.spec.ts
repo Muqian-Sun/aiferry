@@ -103,19 +103,13 @@ describe('validateProtocolEndpoints', () => {
     })
   })
 
-  it('requires the protocol the account is pinned to', () => {
-    expect(validateProtocolEndpoints({ chat_completions: 'https://api.deepseek.com' }, 'anthropic')).toEqual({
-      kind: 'missingRequired',
-      protocol: 'anthropic'
-    })
-  })
-
-  it('accepts a complete mapping', () => {
+  it('accepts any non-empty mapping without requiring a particular protocol', () => {
+    expect(validateProtocolEndpoints({ chat_completions: 'https://api.deepseek.com' })).toBeNull()
     expect(
-      validateProtocolEndpoints(
-        { chat_completions: 'https://api.deepseek.com', anthropic: 'https://api.deepseek.com/anthropic' },
-        'anthropic'
-      )
+      validateProtocolEndpoints({
+        chat_completions: 'https://api.deepseek.com',
+        anthropic: 'https://api.deepseek.com/anthropic'
+      })
     ).toBeNull()
   })
 })
@@ -126,9 +120,6 @@ describe('describeProtocolEndpointsIssue', () => {
   it('names the protocol with its display label', () => {
     expect(describeProtocolEndpointsIssue({ kind: 'blank', protocol: 'responses' }, t)).toBe(
       'admin.accounts.protocolEndpoints.errors.blank|admin.accounts.protocolEndpoints.protocols.responses'
-    )
-    expect(describeProtocolEndpointsIssue({ kind: 'missingRequired', protocol: 'anthropic' }, t)).toBe(
-      'admin.accounts.protocolEndpoints.errors.missingRequired|admin.accounts.protocolEndpoints.protocols.anthropic'
     )
     expect(describeProtocolEndpointsIssue({ kind: 'empty' }, t)).toBe('admin.accounts.protocolEndpoints.errors.empty')
   })

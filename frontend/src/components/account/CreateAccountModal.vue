@@ -592,40 +592,6 @@
         </div>
       </div>
 
-      <!-- API Protocol Selection (Kimi / Zhipu / DeepSeek / OpenCode) -->
-      <div v-if="isMultiProtocolPlatform" class="mt-4">
-        <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
-        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <button
-            v-for="opt in cnProtocolOptions"
-            :key="opt.value"
-            type="button"
-            @click="apiProtocol = opt.value"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              apiProtocol === opt.value
-                ? cnAccentActiveClass
-                : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                apiProtocol === opt.value
-                  ? cnAccentIconClass
-                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
-              ]"
-            >
-              <Icon :name="opt.value === 'adaptive' ? 'swap' : opt.value === 'anthropic' ? 'sparkles' : opt.value === 'responses' ? 'terminal' : 'chat'" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t(`admin.accounts.cnProviders.apiProtocol.${opt.labelKey}`) }}</span>
-              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t(`admin.accounts.cnProviders.apiProtocol.${opt.labelKey}Desc`) }}</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
       <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
       <div v-if="form.platform === 'zhipu' && accountMode === 'coding'" class="mt-4">
         <div class="flex items-center">
@@ -1374,19 +1340,11 @@
             class="mt-2"
             :platform="cnPresetPlatform"
             :mode="accountMode"
-            :protocol="cnPresetProtocol"
-            :current-url="cnPresetCurrentUrl"
             @select="onCnPresetSelect"
           />
-          <p
-            v-if="isMultiProtocolPlatform && apiProtocol === 'adaptive' && !cnSupportsNativeResponses(form.platform)"
-            class="input-hint"
-          >
-            {{ t('admin.accounts.cnProviders.apiProtocol.responsesFallbackDesc') }}
-          </p>
         </div>
         <OpenCodeGoProtocolRulesEditor
-          v-if="isOpenCodeGoPlatform && apiProtocol === 'adaptive'"
+          v-if="isOpenCodeGoPlatform"
           v-model:rows="openCodeGoProtocolRules"
           :plan="openCodeAccountMode"
         />
@@ -3263,34 +3221,11 @@
         </div>
       </div>
 
-      <!-- OpenAI APIKey Responses API support mode -->
+      <!-- OpenAI APIKey endpoint capabilities -->
       <div
         v-if="form.platform === 'openai' && accountCategory === 'apikey'"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.responsesModeDesc') }}
-            </p>
-          </div>
-          <div class="w-56">
-            <Select
-              v-model="openAIResponsesMode"
-              :options="openAIResponsesModeOptions"
-              :disabled="!openAITextGenerationCapabilityEnabled"
-              data-testid="openai-responses-mode-select"
-            />
-          </div>
-        </div>
-        <p
-          v-if="!openAITextGenerationCapabilityEnabled"
-          class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-          data-testid="openai-responses-mode-not-applicable"
-        >
-          {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
-        </p>
         <div>
           <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -3827,10 +3762,8 @@ import type {
   CreateAccountRequest,
   CodexSessionImportMessage,
   OpenAICompactMode,
-  OpenAIResponsesMode,
   OpenAIEndpointCapability,
-  ProtocolEndpoints,
-  UpstreamProtocol
+  ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -3868,13 +3801,11 @@ import {
   applyInterceptWarmup,
   applyOpenCodeGoProtocolRules,
   cloneOpenCodeGoProtocolRules,
-  cnSupportsNativeResponses,
   defaultOpenCodeProtocolRules,
   isCNProviderPlatform,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
   type CnAccountMode,
-  type CnApiProtocol,
   type CnBaseUrlPreset,
   type CnProviderPlatform,
   type HeaderOverrideRow,
@@ -4047,12 +3978,10 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
 
-// ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型、API 协议与端点 ──
+// ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型与端点 ──
+// 转发协议不在这里选：后端按入站协议在已配置的协议地址里挑选。
 const accountMode = ref<CnAccountMode>('payg')
 const openCodeAccountMode = ref<OpenCodeAccountMode>('zen')
-// API 协议决定转发端点与格式：cc=现有转换链，anthropic=原生直通（Claude Code），
-// responses=deepseek / kimi 原生 Responses 端点（Codex）。与账号类型正交。
-const apiProtocol = ref<CnApiProtocol>('adaptive')
 const openCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(
   cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
 )
@@ -4061,7 +3990,6 @@ const zhipuOrganization = ref('')
 const zhipuProject = ref('')
 const isCNPlatform = computed(() => isCNProviderPlatform(form.platform))
 const isOpenCodeGoPlatform = computed(() => form.platform === 'opencode_go')
-const isMultiProtocolPlatform = computed(() => isCNPlatform.value || isOpenCodeGoPlatform.value)
 
 // ── 第三方 key 协议地址 ──
 // 官方地址由后端 protocol-defaults 预填，存库的就是这份显式地址；管理员可改成中转
@@ -4077,10 +4005,6 @@ const protocolDefaultsMode = computed(() => {
 const officialProtocolEndpoints = computed(() =>
   protocolDefaultsFor(protocolDefaults.value, form.platform, protocolDefaultsMode.value)
 )
-// 国产供应商指定了具体协议时，该协议必须有地址，否则保存成功、转发时才报缺地址。
-const requiredUpstreamProtocol = computed<UpstreamProtocol | undefined>(() =>
-  isMultiProtocolPlatform.value && apiProtocol.value !== 'adaptive' ? apiProtocol.value : undefined
-)
 async function ensureProtocolDefaults() {
   try {
     protocolDefaults.value = await loadProtocolDefaults()
@@ -4091,7 +4015,7 @@ async function ensureProtocolDefaults() {
 }
 // 提交前校验协议地址，有问题直接提示并返回 null。
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
-  const issue = validateProtocolEndpoints(protocolEndpoints.value, requiredUpstreamProtocol.value)
+  const issue = validateProtocolEndpoints(protocolEndpoints.value)
   if (issue) {
     appStore.showError(describeProtocolEndpointsIssue(issue, t))
     return null
@@ -4105,23 +4029,6 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
     return form.platform
   }
   return 'kimi'
-})
-// 自适应模式下展示该平台全部协议的预设；指定协议时只展示该协议的预设。
-const cnPresetProtocol = computed(() => (apiProtocol.value === 'adaptive' ? undefined : apiProtocol.value))
-const cnPresetCurrentUrl = computed(() =>
-  apiProtocol.value === 'adaptive' ? undefined : protocolEndpoints.value[apiProtocol.value]
-)
-// 当前平台可选的协议档（responses 仅 deepseek / kimi）。
-const cnProtocolOptions = computed<Array<{ value: CnApiProtocol; labelKey: string }>>(() => {
-  const opts: Array<{ value: CnApiProtocol; labelKey: string }> = [
-    { value: 'adaptive', labelKey: 'adaptive' },
-    { value: 'chat_completions', labelKey: 'chatCompletions' },
-    { value: 'anthropic', labelKey: 'anthropic' }
-  ]
-  if (cnSupportsNativeResponses(form.platform)) {
-    opts.push({ value: 'responses', labelKey: 'responses' })
-  }
-  return opts
 })
 // 当前选中平台的品牌色（选中卡片描边 / 图标底色），与 platformColors 取色一致。
 const cnAccentActiveClass = computed(() => {
@@ -4156,13 +4063,12 @@ const cnAccentIconClass = computed(() => {
       return 'bg-primary-500 text-white'
   }
 })
-// 切换国产供应商平台：强制 apikey 类型，deepseek 无 coding 套餐故锁定 payg，
-// 协议回落 adaptive。协议地址由官方地址预填的 watcher 处理。
+// 切换国产供应商平台：强制 apikey 类型，deepseek 无 coding 套餐故锁定 payg。
+// 协议地址由官方地址预填的 watcher 处理。
 function selectCNPlatform(platform: CnProviderPlatform) {
   form.platform = platform
   form.type = 'apikey'
   accountCategory.value = 'apikey'
-  apiProtocol.value = 'adaptive'
   if (platform === 'deepseek') {
     accountMode.value = 'payg'
   }
@@ -4171,7 +4077,6 @@ function selectOpenCodeGoPlatform() {
   form.platform = 'opencode_go'
   form.type = 'apikey'
   accountCategory.value = 'apikey'
-  apiProtocol.value = 'adaptive'
   openCodeAccountMode.value = 'zen'
   openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(openCodeAccountMode.value))
 }
@@ -4183,12 +4088,9 @@ watch(openCodeAccountMode, (mode, previousMode) => {
     openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(mode))
   }
 })
-// 点击国产供应商预设：回填账号类型和该协议的地址；指定协议模式下同时切到该协议。
+// 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   accountMode.value = preset.mode
-  if (apiProtocol.value !== 'adaptive') {
-    apiProtocol.value = preset.protocol
-  }
   protocolEndpoints.value = { ...protocolEndpoints.value, [preset.protocol]: preset.url }
 }
 // Grok 预设地址同时服务 Chat Completions 与 Responses。
@@ -4281,7 +4183,6 @@ const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
-const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
 const openAIImagesUrlToB64JsonEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
@@ -4358,27 +4259,10 @@ const openAICompactModeOptions = computed(() => [
   { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
   { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
 ])
-const openAIResponsesModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.responsesModeAuto') },
-  { value: 'force_responses', label: t('admin.accounts.openai.responsesModeForceResponses') },
-  { value: 'force_chat_completions', label: t('admin.accounts.openai.responsesModeForceChatCompletions') }
-])
-const openAITextEndpointCapabilityLabel = computed(() => {
-  if (openAIResponsesMode.value === 'force_responses') {
-    return t('admin.accounts.openai.capabilityResponses')
-  }
-  if (openAIResponsesMode.value === 'force_chat_completions') {
-    return t('admin.accounts.openai.capabilityChatCompletions')
-  }
-  return t('admin.accounts.openai.capabilityTextAuto')
-})
 const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
-  { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
   { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
 ])
-const openAITextGenerationCapabilityEnabled = computed(() =>
-  openAIEndpointCapabilities.value.includes('chat_completions')
-)
 
 const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
   const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
@@ -4396,9 +4280,6 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
     openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
       (value) => value !== capability
     )
-    if (!openAITextGenerationCapabilityEnabled.value) {
-      openAIResponsesMode.value = 'auto'
-    }
     return
   }
   openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
@@ -5154,7 +5035,6 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   accountMode.value = 'payg'
   openCodeAccountMode.value = 'zen'
-  apiProtocol.value = 'adaptive'
   openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
   apiKeyValue.value = ''
   upstreamRequestIdHeader.value = ''
@@ -5194,7 +5074,6 @@ const resetForm = () => {
   openAILongContextBillingEnabled.value = false
   openAILongContextBillingTouched.value = false
   openAICompactMode.value = 'auto'
-  openAIResponsesMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -5310,15 +5189,6 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     delete extra.openai_compact_mode
   }
 
-  if (
-    accountCategory.value === 'apikey' &&
-    openAITextGenerationCapabilityEnabled.value &&
-    openAIResponsesMode.value !== 'auto'
-  ) {
-    extra.openai_responses_mode = openAIResponsesMode.value
-  } else {
-    delete extra.openai_responses_mode
-  }
   if (accountCategory.value === 'apikey' && openAIImagesUrlToB64JsonEnabled.value) {
     extra.images_url_to_b64_json = true
   } else {
@@ -5614,12 +5484,11 @@ const handleSubmit = async () => {
     credentials.tier_id = geminiTierAIStudio.value
   }
 
-  // 国产供应商：账号模式与协议写入凭据；后端按 account_mode 路由额度/余额探测，
-  // 按 api_protocol 选择转发协议，地址取自协议映射。注意 CN apikey 走本函数
-  // 的通用路径（直接 doCreateAccount），不经过 createAccountAndFinish。
+  // 国产供应商：账号模式写入凭据，后端按 account_mode 路由额度/余额探测；转发协议由
+  // 协议地址决定。注意 CN apikey 走本函数的通用路径（直接 doCreateAccount），
+  // 不经过 createAccountAndFinish。
   if (isCNProviderPlatform(form.platform) || form.platform === 'opencode_go') {
     credentials.account_mode = form.platform === 'opencode_go' ? openCodeAccountMode.value : accountMode.value
-    credentials.api_protocol = apiProtocol.value
     // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写）
     if (form.platform === 'zhipu' && accountMode.value === 'coding') {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()

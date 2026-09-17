@@ -290,16 +290,9 @@ export default {
           codingDesc: '订阅制编程套餐，按 5 小时 / 每周滚动用量窗口限流。',
         },
         apiProtocol: {
-          title: 'API 协议',
-          adaptive: '自适应',
-          adaptiveDesc: '按入站协议优先使用供应商原生端点，仅在没有对应端点时转换。',
-          responsesFallbackDesc: '该供应商没有原生 Responses 端点，Responses 请求将转换为 Chat Completions。',
           chatCompletions: 'Chat Completions',
-          chatCompletionsDesc: '标准 OpenAI 兼容端点，其他格式请求将被转换。',
           anthropic: 'Anthropic',
-          anthropicDesc: '直通供应商原生 Anthropic 端点，零转换，适配 Claude Code。',
           responses: 'Responses',
-          responsesDesc: '供应商原生 Responses 端点，适配 Codex。',
         },
         zhipuTeam: {
           title: '团队版组织 / 项目 ID',
@@ -635,8 +628,7 @@ export default {
         restoreOfficial: '填入官方地址',
         errors: {
           empty: '请至少配置一个协议地址',
-          blank: '{protocol} 的地址不能为空',
-          missingRequired: '当前 API 协议为 {protocol}，请配置它的地址'
+          blank: '{protocol} 的地址不能为空'
         },
         protocols: {
           anthropic: 'Anthropic Messages',
@@ -689,30 +681,14 @@ export default {
         apiKeyResponsesWebsocketsV2Desc:
           '仅对 OpenAI API Key 生效。开启后该账号才允许使用 OpenAI WebSocket Mode 协议。',
         responsesWebsocketsV2PassthroughHint: '当前已开启自动透传：仅影响 HTTP 透传链路，不影响 WS mode。',
-        responsesMode: 'Responses API 支持',
-        responsesModeDesc:
-          '仅对 OpenAI API Key 的文本转发链路生效。自动跟随探测结果，强制模式会覆盖自动探测。',
-        responsesModeAuto: '自动',
-        responsesModeForceResponses: '强制 Responses',
-        responsesModeForceChatCompletions: '强制 Chat Completions',
-        responsesModeTextDisabledHint: '未启用 Responses / Chat Completions 端点时，此设置不适用。',
         imagesUrlToB64Json: '生图结果 URL 转 base64',
         imagesUrlToB64JsonDesc:
           '仅对 OpenAI API Key 的 Images 非流式响应生效。上游返回的图片缺少 b64_json 但带 url 时，网关下载该 url 并以 base64 回填 b64_json（url 保留），兼容按官方接口实现的客户端；下载失败则原样返回。',
         endpointCapabilities: '端点能力',
         endpointCapabilitiesDesc:
-          '用于调度筛选。文本端点会跟随上方 Responses API 支持显示为 Responses、Chat Completions 或自动模式；Embeddings 独立控制 /v1/embeddings。',
-        capabilityResponses: 'Responses',
-        capabilityTextAuto: 'Responses / Chat Completions（自动）',
-        capabilityResponsesAuto: 'Responses（自动探测）',
-        capabilityChatCompletions: 'Chat Completions',
-        capabilityChatCompletionsAuto: 'Chat Completions（自动探测）',
+          '用于调度筛选。文本端点接收 Responses 与 Chat Completions 请求，按已配置的协议地址转发；Embeddings 独立控制 /v1/embeddings。',
+        capabilityText: 'Responses / Chat Completions',
         capabilityEmbeddings: 'Embeddings',
-        responsesStatusAutoSupported: '自动探测：Responses',
-        responsesStatusAutoUnsupported: '自动探测：Chat Completions',
-        responsesStatusAutoUnknown: '自动探测：未探测',
-        responsesStatusForcedResponses: '已强制 Responses',
-        responsesStatusForcedChatCompletions: '已强制 Chat Completions',
         planType: '订阅档位（手动覆盖）',
         planTypeDesc: '手动纠正本账号的 ChatGPT 订阅档位（Plus / Pro / Free）。注意：令牌临期刷新或命中 429 限流时，会用真实档位自动覆盖此处设置。',
         planTypeClear: '清空（自动识别）',

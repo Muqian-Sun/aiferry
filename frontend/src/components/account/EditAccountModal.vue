@@ -45,16 +45,8 @@
             class="mt-2"
             :platform="cnPresetPlatform"
             :mode="editAccountMode"
-            :protocol="cnPresetProtocol"
-            :current-url="cnPresetCurrentUrl"
             @select="onCnPresetSelect"
           />
-          <p
-            v-if="isCNApiKeyAccount && editApiProtocol === 'adaptive' && !cnSupportsNativeResponses(account.platform)"
-            class="input-hint"
-          >
-            {{ t('admin.accounts.cnProviders.apiProtocol.responsesFallbackDesc') }}
-          </p>
         </div>
         <!-- OpenCode Zen vs GO -->
         <div v-if="isCNApiKeyAccount && account.platform === 'opencode_go'">
@@ -129,29 +121,8 @@
           </div>
           <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
         </div>
-        <!-- API Protocol Selection (CN providers / OpenCode) -->
-        <div v-if="isCNApiKeyAccount">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <button
-              v-for="opt in cnProtocolOptions"
-              :key="opt.value"
-              type="button"
-              :class="[
-                'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
-                editApiProtocol === opt.value
-                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:text-gray-300 dark:hover:border-gray-600'
-              ]"
-              @click="editApiProtocol = opt.value"
-            >
-              {{ t(`admin.accounts.cnProviders.apiProtocol.${opt.labelKey}`) }}
-            </button>
-          </div>
-          <p class="input-hint">{{ t(`admin.accounts.cnProviders.apiProtocol.${cnProtocolDescKey}Desc`) }}</p>
-        </div>
         <OpenCodeGoProtocolRulesEditor
-          v-if="account.platform === 'opencode_go' && editApiProtocol === 'adaptive'"
+          v-if="account.platform === 'opencode_go'"
           v-model:rows="editOpenCodeGoProtocolRules"
           :plan="editOpenCodeAccountMode"
         />
@@ -1796,40 +1767,11 @@
         </div>
       </div>
 
-      <!-- OpenAI APIKey Responses API support mode -->
+      <!-- OpenAI APIKey endpoint capabilities -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'apikey'"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.responsesModeDesc') }}
-            </p>
-          </div>
-          <div class="w-56">
-            <Select
-              v-model="openAIResponsesMode"
-              :options="openAIResponsesModeOptions"
-              :disabled="!openAITextGenerationCapabilityEnabled"
-              data-testid="openai-responses-mode-select"
-            />
-          </div>
-        </div>
-        <div
-          v-if="openAITextGenerationCapabilityEnabled"
-          class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300"
-        >
-          <span class="font-medium">{{ t(openAIResponsesStatusKey) }}</span>
-        </div>
-        <div
-          v-else
-          class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-          data-testid="openai-responses-mode-not-applicable"
-        >
-          {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
-        </div>
         <div>
           <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -2913,13 +2855,11 @@ import type {
   Group,
   CheckMixedChannelResponse,
   OpenAICompactMode,
-  OpenAIResponsesMode,
   OpenAIEndpointCapability,
   OllamaCloudUsageState,
   GrokMediaEligibilityMode,
   GrokMediaEligibilityState,
-  ProtocolEndpoints,
-  UpstreamProtocol
+  ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -2965,12 +2905,10 @@ import {
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
-  cnSupportsNativeResponses,
   isCNProviderPlatform,
   HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   type CnAccountMode,
-  type CnApiProtocol,
   type CnBaseUrlPreset,
   type CnProviderPlatform,
   type HeaderOverrideRow,
@@ -3065,9 +3003,9 @@ interface TempUnschedRuleForm {
 const submitting = ref(false)
 const editApiKey = ref('')
 
-// ── 国产供应商（Kimi / Zhipu / DeepSeek）account_mode / api_protocol 编辑 ──
-// account_mode 决定额度/余额监控路径，api_protocol 决定转发端点与格式；
-// 二者均可修正（早期创建的账号可能存错默认值）。
+// ── 国产供应商（Kimi / Zhipu / DeepSeek）account_mode 编辑 ──
+// account_mode 决定额度/余额监控路径，可修正（早期创建的账号可能存错默认值）；
+// 转发协议由协议地址决定，这里不再选。
 const isCNApiKeyAccount = computed(
   () =>
     props.account?.type === 'apikey' &&
@@ -3082,7 +3020,6 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
   }
   return 'kimi'
 })
-const editApiProtocol = ref<CnApiProtocol>('adaptive')
 const editOpenCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(cloneOpenCodeGoProtocolRules())
 const editAccountMode = ref<CnAccountMode>('payg')
 const editOpenCodeAccountMode = ref<OpenCodeAccountMode>('go')
@@ -3116,10 +3053,6 @@ watch(officialProtocolEndpoints, (next, previous) => {
   if (syncingForm.value) return
   editProtocolEndpoints.value = endpointsAfterDefaultsChange(editProtocolEndpoints.value, previous ?? {}, next)
 })
-// 国产供应商指定了具体协议时，该协议必须有地址。
-const requiredUpstreamProtocol = computed<UpstreamProtocol | undefined>(() =>
-  isCNApiKeyAccount.value && editApiProtocol.value !== 'adaptive' ? editApiProtocol.value : undefined
-)
 async function ensureProtocolDefaults() {
   try {
     protocolDefaults.value = await loadProtocolDefaults()
@@ -3137,18 +3070,13 @@ watch(
 )
 // 提交前校验协议地址，有问题直接提示并返回 null。
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
-  const issue = validateProtocolEndpoints(editProtocolEndpoints.value, requiredUpstreamProtocol.value)
+  const issue = validateProtocolEndpoints(editProtocolEndpoints.value)
   if (issue) {
     appStore.showError(describeProtocolEndpointsIssue(issue, t))
     return null
   }
   return trimProtocolEndpoints(editProtocolEndpoints.value)
 }
-// 自适应模式下展示该平台全部协议的预设；指定协议时只展示该协议的预设。
-const cnPresetProtocol = computed(() => (editApiProtocol.value === 'adaptive' ? undefined : editApiProtocol.value))
-const cnPresetCurrentUrl = computed(() =>
-  editApiProtocol.value === 'adaptive' ? undefined : editProtocolEndpoints.value[editApiProtocol.value]
-)
 const cnAccountModeOptions = computed<Array<{ value: CnAccountMode; labelKey: 'payg' | 'coding' }>>(
   () => {
     // DeepSeek 无 coding 套餐（与创建弹窗一致），仅保留按量付费。
@@ -3161,17 +3089,6 @@ const cnAccountModeOptions = computed<Array<{ value: CnAccountMode; labelKey: 'p
     ]
   }
 )
-const cnProtocolOptions = computed<Array<{ value: CnApiProtocol; labelKey: string }>>(() => {
-  const opts: Array<{ value: CnApiProtocol; labelKey: string }> = [
-    { value: 'adaptive', labelKey: 'adaptive' },
-    { value: 'chat_completions', labelKey: 'chatCompletions' },
-    { value: 'anthropic', labelKey: 'anthropic' }
-  ]
-  if (cnSupportsNativeResponses(props.account?.platform ?? '')) {
-    opts.push({ value: 'responses', labelKey: 'responses' })
-  }
-  return opts
-})
 watch(editAccountMode, (mode) => {
   if (!isCNApiKeyAccount.value || syncingForm.value) return
   if (props.account?.platform === 'opencode_go') return
@@ -3188,15 +3105,9 @@ watch(editOpenCodeAccountMode, (mode, previousMode) => {
     editOpenCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(mode))
   }
 })
-const cnProtocolDescKey = computed(
-  () => cnProtocolOptions.value.find(o => o.value === editApiProtocol.value)?.labelKey ?? 'chatCompletions'
-)
-// 点击国产供应商预设：回填账号类型和该协议的地址；指定协议模式下同时切到该协议。
+// 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   editAccountMode.value = preset.mode
-  if (editApiProtocol.value !== 'adaptive') {
-    editApiProtocol.value = preset.protocol
-  }
   editProtocolEndpoints.value = { ...editProtocolEndpoints.value, [preset.protocol]: preset.url }
 }
 // Grok 预设地址同时服务 Chat Completions 与 Responses。
@@ -3392,7 +3303,6 @@ const openAILongContextBillingEnabled = ref(false)
 // 存于 credentials.plan_type;'' 表示清空/自动识别
 const editPlanType = ref<string>('')
 const openAICompactMode = ref<OpenAICompactMode>('auto')
-const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
 const openAIImagesUrlToB64JsonEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
@@ -3533,34 +3443,10 @@ const openAICompactModeOptions = computed(() => [
 const planTypeOptions = computed(() =>
   buildPlanTypeOptions(editPlanType.value, t('admin.accounts.openai.planTypeClear'))
 )
-const openAIResponsesModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.responsesModeAuto') },
-  { value: 'force_responses', label: t('admin.accounts.openai.responsesModeForceResponses') },
-  { value: 'force_chat_completions', label: t('admin.accounts.openai.responsesModeForceChatCompletions') }
-])
-const openAITextEndpointCapabilityLabel = computed(() => {
-  if (openAIResponsesMode.value === 'force_responses') {
-    return t('admin.accounts.openai.capabilityResponses')
-  }
-  if (openAIResponsesMode.value === 'force_chat_completions') {
-    return t('admin.accounts.openai.capabilityChatCompletions')
-  }
-  const extra = props.account?.extra as Record<string, unknown> | undefined
-  if (extra?.openai_responses_supported === true) {
-    return t('admin.accounts.openai.capabilityResponsesAuto')
-  }
-  if (extra?.openai_responses_supported === false) {
-    return t('admin.accounts.openai.capabilityChatCompletionsAuto')
-  }
-  return t('admin.accounts.openai.capabilityTextAuto')
-})
 const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
-  { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
   { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
 ])
-const openAITextGenerationCapabilityEnabled = computed(() =>
-  openAIEndpointCapabilities.value.includes('chat_completions')
-)
 
 const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
   const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
@@ -3598,9 +3484,6 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
     openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
       (value) => value !== capability
     )
-    if (!openAITextGenerationCapabilityEnabled.value) {
-      openAIResponsesMode.value = 'auto'
-    }
     return
   }
   openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
@@ -3617,31 +3500,9 @@ const applyOpenAIEndpointCapabilities = (credentials: Record<string, unknown>) =
   }
   credentials.openai_capabilities = capabilities
 }
-const normalizeOpenAIResponsesMode = (mode: unknown): OpenAIResponsesMode => {
-  if (mode === 'force_responses' || mode === 'force_chat_completions') {
-    return mode
-  }
-  return 'auto'
-}
 const isOpenAIModelRestrictionDisabled = computed(() =>
   props.account?.platform === 'openai' && openaiPassthroughEnabled.value
 )
-const openAIResponsesStatusKey = computed(() => {
-  if (openAIResponsesMode.value === 'force_responses') {
-    return 'admin.accounts.openai.responsesStatusForcedResponses'
-  }
-  if (openAIResponsesMode.value === 'force_chat_completions') {
-    return 'admin.accounts.openai.responsesStatusForcedChatCompletions'
-  }
-  const extra = props.account?.extra as Record<string, unknown> | undefined
-  if (extra?.openai_responses_supported === true) {
-    return 'admin.accounts.openai.responsesStatusAutoSupported'
-  }
-  if (extra?.openai_responses_supported === false) {
-    return 'admin.accounts.openai.responsesStatusAutoUnsupported'
-  }
-  return 'admin.accounts.openai.responsesStatusAutoUnknown'
-})
 const openAICompactStatusKey = computed(() => {
   const extra = props.account?.extra as Record<string, unknown> | undefined
   if (!props.account || props.account.platform !== 'openai') return ''
@@ -3859,7 +3720,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   openAILongContextBillingEnabled.value = false
   editPlanType.value = ''
   openAICompactMode.value = 'auto'
-  openAIResponsesMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
   openAICompactModelMappings.value = []
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -3883,13 +3743,9 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       : ''
     openAICompactMode.value = (extra?.openai_compact_mode as OpenAICompactMode) || 'auto'
     if (newAccount.type === 'apikey') {
-      openAIResponsesMode.value = normalizeOpenAIResponsesMode(extra?.openai_responses_mode)
       openAIEndpointCapabilities.value = readOpenAIEndpointCapabilities(
         newAccount.credentials as Record<string, unknown> | undefined
       )
-      if (!openAITextGenerationCapabilityEnabled.value) {
-        openAIResponsesMode.value = 'auto'
-      }
     }
     const codexImageGenerationBridgeValue = typeof extra?.codex_image_generation_bridge === 'boolean'
       ? extra.codex_image_generation_bridge
@@ -4046,24 +3902,13 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
-    // 国产供应商：读取 account_mode 与 api_protocol 作为可编辑初始值
-    // （编辑弹窗允许修正两者，用于修复早期存错默认值的账号）。
+    // 国产供应商：读取 account_mode 作为可编辑初始值
+    // （编辑弹窗允许修正，用于修复早期存错默认值的账号）。
     if (isCNProviderPlatform(newAccount.platform) || newAccount.platform === 'opencode_go') {
       if (newAccount.platform === 'opencode_go') {
         editOpenCodeAccountMode.value = resolveOpenCodeAccountMode(credentials.account_mode)
       } else {
         editAccountMode.value = credentials.account_mode === 'coding' ? 'coding' : 'payg'
-      }
-      const storedProtocol = credentials.api_protocol
-      editApiProtocol.value =
-        storedProtocol === 'adaptive' ||
-        storedProtocol === 'chat_completions' ||
-        storedProtocol === 'anthropic' ||
-        storedProtocol === 'responses'
-          ? storedProtocol
-          : 'chat_completions'
-      if (!cnSupportsNativeResponses(newAccount.platform) && editApiProtocol.value === 'responses') {
-        editApiProtocol.value = 'chat_completions'
       }
       // 智谱团队版 Coding Plan：回填组织/项目 ID
       if (newAccount.platform === 'zhipu') {
@@ -4780,14 +4625,14 @@ const handleSubmit = async () => {
 
       // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      // 第三方 key 的地址只在协议映射里；清掉凭据里不再被读取的旧地址字段。
+      // 第三方 key 的地址与转发协议只由协议映射决定；清掉凭据里不再被读取的旧字段。
       delete newCredentials.base_url
       delete newCredentials.api_base_urls
+      delete newCredentials.api_protocol
 
-      // 国产供应商：模式与协议写入凭据（决定额度/余额探测与转发端点/格式）。
+      // 国产供应商：模式写入凭据（决定额度/余额探测）。
       if (isCNApiKeyAccount.value) {
         newCredentials.account_mode = currentOpenCodeOrCNMode()
-        newCredentials.api_protocol = editApiProtocol.value
         if (props.account.platform === 'opencode_go') {
           applyOpenCodeGoProtocolRules(newCredentials, editOpenCodeGoProtocolRules.value, 'edit')
         }
@@ -5248,11 +5093,9 @@ const handleSubmit = async () => {
         newExtra.openai_compact_mode = openAICompactMode.value
       }
 		if (props.account.type === 'apikey') {
-        if (!openAITextGenerationCapabilityEnabled.value || openAIResponsesMode.value === 'auto') {
-          delete newExtra.openai_responses_mode
-        } else {
-          newExtra.openai_responses_mode = openAIResponsesMode.value
-        }
+        // Responses 路由改由协议地址决定，已退役的探测标记与强制模式保存时清掉。
+        delete newExtra.openai_responses_mode
+        delete newExtra.openai_responses_supported
         if (openAIImagesUrlToB64JsonEnabled.value) {
           newExtra.images_url_to_b64_json = true
         } else {

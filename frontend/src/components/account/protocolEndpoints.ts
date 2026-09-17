@@ -69,20 +69,13 @@ export function endpointsAfterDefaultsChange(
   return current
 }
 
-export type ProtocolEndpointsIssue =
-  | { kind: 'empty' }
-  | { kind: 'blank'; protocol: UpstreamProtocol }
-  | { kind: 'missingRequired'; protocol: UpstreamProtocol }
+export type ProtocolEndpointsIssue = { kind: 'empty' } | { kind: 'blank'; protocol: UpstreamProtocol }
 
 /**
- * 提交前校验。与后端仓储守卫同一口径：至少一个协议地址、地址不能为空；
- * 另外账号指定了具体协议（如国产供应商选 Anthropic）时，该协议必须有地址，
- * 否则保存成功、转发时才报缺地址。
+ * 提交前校验。与后端仓储守卫同一口径：至少一个协议地址、地址不能为空。
+ * 转发协议由已配置的地址决定，不存在「必须配某个协议」的约束。
  */
-export function validateProtocolEndpoints(
-  endpoints: ProtocolEndpoints,
-  requiredProtocol?: UpstreamProtocol
-): ProtocolEndpointsIssue | null {
+export function validateProtocolEndpoints(endpoints: ProtocolEndpoints): ProtocolEndpointsIssue | null {
   const protocols = configuredProtocols(endpoints)
   if (protocols.length === 0) {
     return { kind: 'empty' }
@@ -90,9 +83,6 @@ export function validateProtocolEndpoints(
   const blank = protocols.find((protocol) => !endpoints[protocol]?.trim())
   if (blank) {
     return { kind: 'blank', protocol: blank }
-  }
-  if (requiredProtocol && !endpoints[requiredProtocol]?.trim()) {
-    return { kind: 'missingRequired', protocol: requiredProtocol }
   }
   return null
 }
@@ -105,9 +95,7 @@ export function describeProtocolEndpointsIssue(issue: ProtocolEndpointsIssue, t:
     return t('admin.accounts.protocolEndpoints.errors.empty')
   }
   const protocol = t(`admin.accounts.protocolEndpoints.protocols.${issue.protocol}`)
-  return issue.kind === 'blank'
-    ? t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
-    : t('admin.accounts.protocolEndpoints.errors.missingRequired', { protocol })
+  return t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
 }
 
 /**
