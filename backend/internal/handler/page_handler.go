@@ -258,7 +258,9 @@ func (h *PageHandler) checkImageSlugVisibility(c *gin.Context, slug string) bool
 }
 
 // RegisterPageRoutes registers page routes on a router group.
-func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.HandlerFunc, adminAuth gin.HandlerFunc, settingService *service.SettingService) {
+//
+// 页面内容与图片两站都要：管理站侧边栏同样挂自定义页面。页面列表只在管理站。
+func RegisterPageRoutes(v1 *gin.RouterGroup, site service.Site, dataDir string, jwtAuth gin.HandlerFunc, adminAuth gin.HandlerFunc, settingService *service.SettingService) {
 	h := NewPageHandler(dataDir, settingService)
 
 	// Authenticated page content (JWT required + visibility check)
@@ -272,6 +274,10 @@ func RegisterPageRoutes(v1 *gin.RouterGroup, dataDir string, jwtAuth gin.Handler
 	pageImages := v1.Group("/pages")
 	{
 		pageImages.GET("/:slug/images/*filename", h.ServePageImage)
+	}
+
+	if site != service.SiteAdmin {
+		return
 	}
 
 	// Admin-only: list all available pages

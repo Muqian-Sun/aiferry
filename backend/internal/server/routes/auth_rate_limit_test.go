@@ -9,6 +9,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/handler"
 	servermiddleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
+	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/require"
@@ -21,6 +22,7 @@ func newAuthRoutesTestRouter(redisClient *redis.Client) *gin.Engine {
 
 	RegisterAuthRoutes(
 		v1,
+		service.SiteUser,
 		&handler.Handlers{
 			Auth:    &handler.AuthHandler{},
 			Setting: &handler.SettingHandler{},

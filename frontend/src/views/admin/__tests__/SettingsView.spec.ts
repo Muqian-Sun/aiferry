@@ -81,7 +81,7 @@ const {
 
 const localeRef = vi.hoisted(() => ({ value: "zh-CN" }));
 
-vi.mock("@/api", () => ({
+vi.mock("@/api/admin", () => ({
   adminAPI: {
     settings: {
       getSettings,

@@ -175,6 +175,7 @@ export default {
     affiliateRebateRecords: '返利记录',
     affiliateTransferRecords: '提取记录',
     profile: '个人资料',
+    accountSecurity: '账号安全',
     users: '用户管理',
     groups: '分组管理',
     channels: '渠道管理',
@@ -247,6 +248,7 @@ export default {
     passwordMinLength: '密码至少需要 6 个字符',
     loginFailed: '登录失败，请检查您的凭据后重试。',
     errors: {
+      SITE_ROLE_FORBIDDEN: '该账号不能在此站点登录：管理员请前往管理后台，普通用户请前往用户站',
       USER_NOT_ACTIVE: '账号已被禁用',
     },
     registrationFailed: '注册失败，请重试。',

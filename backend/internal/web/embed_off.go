@@ -21,7 +21,7 @@ type PublicSettingsProvider interface {
 type FrontendServer struct{}
 
 // NewFrontendServer returns an error when frontend is not embedded
-func NewFrontendServer(settingsProvider PublicSettingsProvider) (*FrontendServer, error) {
+func NewFrontendServer(settingsProvider PublicSettingsProvider, app App) (*FrontendServer, error) {
 	return nil, errors.New("frontend not embedded")
 }
 
@@ -36,13 +36,13 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 	}
 }
 
-func ServeEmbeddedFrontend() gin.HandlerFunc {
+func ServeEmbeddedFrontend(app App) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.String(http.StatusNotFound, "Frontend not embedded. Build with -tags embed to include frontend.")
 		c.Abort()
 	}
 }
 
-func HasEmbeddedFrontend() bool {
+func HasEmbeddedFrontend(app App) bool {
 	return false
 }

@@ -232,9 +232,13 @@ export default {
       confirmPassword: '确认密码',
       passwordPlaceholder: '至少 8 个字符',
       confirmPasswordPlaceholder: '确认密码',
-      passwordMismatch: '密码不匹配'
+      passwordMismatch: '密码不匹配',
+      adminPort: '管理后台端口',
+      adminPortHint: '管理页面与管理 API 只在该端口提供，建议只对内网开放',
+      adminPortConflict: '管理后台端口不能与当前服务端口相同'
     },
     ready: {
+      adminConsole: '管理后台地址',
       title: '准备安装',
       description: '检查您的配置并完成安装',
       database: '数据库',

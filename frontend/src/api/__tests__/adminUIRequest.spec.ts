@@ -19,25 +19,23 @@ describe('Admin UI request marker', () => {
     '/api/v1/admin',
     '/api/v1/admin/accounts?status=active',
     'https://api.example.test/api/v1/admin/dashboard',
-  ])('marks Admin API request %s before page navigation', (requestURL) => {
-    expect(shouldMarkAdminUIRequest(requestURL, '/login')).toBe(true)
+  ])('marks Admin API request %s even from the user site', (requestURL) => {
+    expect(shouldMarkAdminUIRequest(requestURL, 'user')).toBe(true)
   })
 
-  it.each(['/keys', '/groups/available', '/auth/me', '/announcements'])(
-    'marks shared request %s while an Admin page is active',
+  it.each(['/keys', '/groups/available', '/auth/me', '/announcements', '/dashboard'])(
+    'marks every request %s sent from the admin console',
     (requestURL) => {
-      expect(shouldMarkAdminUIRequest(requestURL, '/admin/dashboard')).toBe(true)
+      expect(shouldMarkAdminUIRequest(requestURL, 'admin')).toBe(true)
     }
   )
 
-  it.each([
-    ['/keys', '/dashboard'],
-    ['/api/v1/administer', '/dashboard'],
-    ['/keys', '/administrator'],
-    ['', '/'],
-  ])('does not mark request %s on page %s', (requestURL, pagePath) => {
-    expect(shouldMarkAdminUIRequest(requestURL, pagePath)).toBe(false)
-  })
+  it.each(['/keys', '/api/v1/administer', '/administrator', ''])(
+    'does not mark non-admin request %s from the user site',
+    (requestURL) => {
+      expect(shouldMarkAdminUIRequest(requestURL, 'user')).toBe(false)
+    }
+  )
 })
 
 describe('User UI request marker', () => {

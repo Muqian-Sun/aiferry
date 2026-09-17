@@ -6,7 +6,6 @@ package main
 import (
 	"context"
 	"log"
-	"net/http"
 	"sync"
 	"time"
 
@@ -25,7 +24,7 @@ import (
 )
 
 type Application struct {
-	Server        *http.Server
+	Servers       *server.HTTPServers
 	PromptAudit   *securityaudit.PromptService
 	PluginManager *service.PluginManager
 	Cleanup       func()
@@ -58,7 +57,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 		provideCleanup,
 
 		// Application struct
-		wire.Struct(new(Application), "Server", "PromptAudit", "PluginManager", "Cleanup"),
+		wire.Struct(new(Application), "Servers", "PromptAudit", "PluginManager", "Cleanup"),
 	)
 	return nil, nil
 }

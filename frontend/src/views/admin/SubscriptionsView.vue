@@ -222,7 +222,7 @@
                 </span>
               </div>
               <RouterLink
-                :to="{ path: '/admin/usage', query: { user_id: row.user_id } }"
+                :to="{ path: '/usage', query: { user_id: row.user_id } }"
                 class="rounded font-medium text-gray-900 hover:text-primary-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary-500 focus-visible:ring-offset-2 dark:text-white dark:hover:text-primary-400 dark:focus-visible:ring-offset-dark-800"
               >
                 {{ userColumnMode === 'email'
@@ -783,7 +783,7 @@
               </ol>
               <div class="ml-8 mt-2">
                 <router-link
-                  to="/admin/groups"
+                  to="/groups"
                   @click="showGuideModal = false"
                   class="inline-flex items-center gap-1 text-sm font-medium text-primary-600 hover:text-primary-700 dark:text-primary-400 dark:hover:text-primary-300"
                 >

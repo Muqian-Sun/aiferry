@@ -149,8 +149,8 @@ RUN mkdir -p /app/data && chown sub2api:sub2api /app/data
 COPY deploy/docker-entrypoint.sh /app/docker-entrypoint.sh
 RUN chmod +x /app/docker-entrypoint.sh
 
-# Expose port (can be overridden by SERVER_PORT env var)
-EXPOSE 8080
+# Expose ports: user site (SERVER_PORT) and admin console (SERVER_ADMIN_PORT)
+EXPOSE 8080 8081
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \

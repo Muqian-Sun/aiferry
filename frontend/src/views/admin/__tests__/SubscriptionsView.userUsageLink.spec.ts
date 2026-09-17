@@ -222,7 +222,7 @@ describe('admin subscription users', () => {
 
     const link = wrapper.getComponent(RouterLinkStub)
     expect(link.text()).toBe('reader@example.com')
-    expect(link.props('to')).toEqual({ path: '/admin/usage', query: { user_id: 42 } })
+    expect(link.props('to')).toEqual({ path: '/usage', query: { user_id: 42 } })
   })
 
   it('uses the user ID label for the usage link when username mode has no username', async () => {
@@ -254,6 +254,6 @@ describe('admin subscription users', () => {
 
     const link = wrapper.getComponent(RouterLinkStub)
     expect(link.text()).toBe('User #42')
-    expect(link.props('to')).toEqual({ path: '/admin/usage', query: { user_id: 42 } })
+    expect(link.props('to')).toEqual({ path: '/usage', query: { user_id: 42 } })
   })
 })

@@ -232,9 +232,13 @@ export default {
       confirmPassword: 'Confirm Password',
       passwordPlaceholder: 'Min 8 characters',
       confirmPasswordPlaceholder: 'Confirm password',
-      passwordMismatch: 'Passwords do not match'
+      passwordMismatch: 'Passwords do not match',
+      adminPort: 'Admin Console Port',
+      adminPortHint: 'The admin console and admin API are served only on this port; keep it on an internal network',
+      adminPortConflict: 'The admin console port must differ from the current server port'
     },
     ready: {
+      adminConsole: 'Admin Console',
       title: 'Ready to Install',
       description: 'Review your configuration and complete setup',
       database: 'Database',

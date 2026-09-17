@@ -30,7 +30,6 @@
             :loading="modelStatsLoading"
             :show-source-toggle="false"
             :show-metric-toggle="true"
-            :enable-breakdown="false"
             :show-account-cost="false"
             :start-date="startDate"
             :end-date="endDate"
@@ -40,7 +39,6 @@
             :group-stats="groupStats"
             :loading="chartsLoading"
             :show-metric-toggle="true"
-            :enable-breakdown="false"
             :show-account-cost="false"
             :start-date="startDate"
             :end-date="endDate"
@@ -57,7 +55,6 @@
             :loading="endpointStatsLoading"
             :show-source-toggle="false"
             :show-metric-toggle="true"
-            :enable-breakdown="false"
             :title="t('usage.endpointDistribution')"
             :start-date="startDate"
             :end-date="endDate"
@@ -228,8 +225,8 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'
-import UsageTable from '@/components/admin/usage/UsageTable.vue'
+import UsageStatsCards from '@/components/usage/UsageStatsCards.vue'
+import UsageTable from '@/components/usage/UsageTable.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import GroupDistributionChart from '@/components/charts/GroupDistributionChart.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'

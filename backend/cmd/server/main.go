@@ -104,8 +104,9 @@ func runSetupServer() {
 	setup.RegisterRoutes(r)
 
 	// Serve embedded frontend if available
-	if web.HasEmbeddedFrontend() {
-		r.Use(web.ServeEmbeddedFrontend())
+	// 安装向导属于管理端产物。
+	if web.HasEmbeddedFrontend(web.AppAdmin) {
+		r.Use(web.ServeEmbeddedFrontend(web.AppAdmin))
 	}
 
 	// Get server address from config.yaml or environment variables (SERVER_HOST, SERVER_PORT)
@@ -168,14 +169,15 @@ func runMainServer() {
 		}
 	}
 
-	// 启动服务器
-	go func() {
-		if err := app.Server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			log.Fatalf("Failed to start server: %v", err)
-		}
-	}()
-
-	log.Printf("Server started on %s", app.Server.Addr)
+	// 启动用户站与管理站两个监听器；任一启动失败即退出，不允许只起半边。
+	for name, srv := range map[string]*http.Server{"user site": app.Servers.User, "admin console": app.Servers.Admin} {
+		go func(name string, srv *http.Server) {
+			if err := srv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+				log.Fatalf("Failed to start %s: %v", name, err)
+			}
+		}(name, srv)
+		log.Printf("%s started on %s", name, srv.Addr)
+	}
 
 	// 等待中断信号
 	quit := make(chan os.Signal, 1)
@@ -187,8 +189,10 @@ func runMainServer() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
-	if err := app.Server.Shutdown(ctx); err != nil {
-		log.Printf("Server forced to shutdown: %v", err)
+	for name, srv := range map[string]*http.Server{"user site": app.Servers.User, "admin console": app.Servers.Admin} {
+		if err := srv.Shutdown(ctx); err != nil {
+			log.Printf("%s forced to shutdown: %v", name, err)
+		}
 	}
 
 	log.Println("Server exited")

@@ -313,6 +313,10 @@ func install(c *gin.Context) {
 		response.Error(c, http.StatusBadRequest, "Invalid server port")
 		return
 	}
+	if req.Server.AdminPort != 0 && !validatePort(req.Server.AdminPort) {
+		response.Error(c, http.StatusBadRequest, "Invalid admin port")
+		return
+	}
 
 	// ========== SET DEFAULTS ==========
 	if req.Database.SSLMode == "" {
@@ -327,6 +331,13 @@ func install(c *gin.Context) {
 	}
 	if req.Server.Port == 0 {
 		req.Server.Port = 8080
+	}
+	if req.Server.AdminPort == 0 {
+		req.Server.AdminPort = 8081
+	}
+	if req.Server.AdminPort == req.Server.Port {
+		response.Error(c, http.StatusBadRequest, "Admin port must differ from server port")
+		return
 	}
 	if req.Server.Mode == "" {
 		req.Server.Mode = "release"
@@ -363,5 +374,7 @@ func install(c *gin.Context) {
 	response.Success(c, gin.H{
 		"message": "Installation completed successfully. Service will restart automatically.",
 		"restart": true,
+		// 重启后管理后台只在管理端口提供，向导据此跳转。
+		"admin_port": cfg.Server.AdminPort,
 	})
 }

@@ -201,6 +201,18 @@ func RunCLI() error {
 		}
 		fmt.Println("  Invalid port. Must be between 1 and 65535.")
 	}
+	for {
+		cfg.Server.AdminPort = promptInt(reader, "Admin Console Port", 8081)
+		if !cliValidatePort(cfg.Server.AdminPort) {
+			fmt.Println("  Invalid port. Must be between 1 and 65535.")
+			continue
+		}
+		if cfg.Server.AdminPort == cfg.Server.Port {
+			fmt.Println("  Admin console port must differ from server port.")
+			continue
+		}
+		break
+	}
 
 	// Confirm and install
 	fmt.Println()
@@ -209,7 +221,7 @@ func RunCLI() error {
 	fmt.Printf("Redis: %s:%d\n", cfg.Redis.Host, cfg.Redis.Port)
 	fmt.Printf("Redis TLS: %s\n", map[bool]string{true: "enabled", false: "disabled"}[cfg.Redis.EnableTLS])
 	fmt.Printf("Admin: %s\n", cfg.Admin.Email)
-	fmt.Printf("Server: :%d\n", cfg.Server.Port)
+	fmt.Printf("Server: :%d (admin console :%d)\n", cfg.Server.Port, cfg.Server.AdminPort)
 	fmt.Println()
 
 	if !promptConfirm(reader, "Proceed with installation?") {
@@ -233,7 +245,8 @@ func RunCLI() error {
 	fmt.Println("Start the server with:")
 	fmt.Println("  ./sub2api")
 	fmt.Println()
-	fmt.Printf("Admin panel: http://localhost:%d\n", cfg.Server.Port)
+	fmt.Printf("User site: http://localhost:%d\n", cfg.Server.Port)
+	fmt.Printf("Admin console: http://localhost:%d\n", cfg.Server.AdminPort)
 	fmt.Println()
 
 	return nil

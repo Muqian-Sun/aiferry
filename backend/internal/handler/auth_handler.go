@@ -120,6 +120,12 @@ func respondWithTokenPair(c *gin.Context, authService *service.AuthService, user
 		response.ErrorFrom(c, err)
 		return
 	}
+	// 站点角色不符必须直接拒绝：下方签发失败会回退到只发 access token，
+	// 若在回退里才发现，错误会被当成 500 吞掉。
+	if err := service.CheckSiteRole(c.Request.Context(), user.Role); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
 
 	tokenPair, err := authService.GenerateTokenPair(c.Request.Context(), user, "")
 	if err != nil {

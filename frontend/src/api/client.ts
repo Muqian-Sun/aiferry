@@ -6,6 +6,7 @@
 import axios, { AxiosInstance, AxiosError, InternalAxiosRequestConfig, AxiosResponse } from 'axios'
 import type { ApiResponse } from '@/types'
 import { getLocale } from '@/i18n'
+import { IS_ADMIN_SITE } from '@/app/site'
 import {
   ADMIN_UI_REQUEST_HEADER,
   USER_UI_REQUEST_HEADER,
@@ -14,6 +15,14 @@ import {
 } from './adminUIRequest'
 import { refreshAuthTokens } from './tokenRefresh'
 import { getAPIBaseURL } from './url'
+
+/**
+ * 运维监控被关闭时，停留在运维页的管理后台需要离开到设置页。
+ * 运维页只在管理后台，且管理后台路径不带 /admin 前缀；用户站永不跳转。
+ */
+export function opsDisabledRedirectTarget(pathname: string, isAdminSite: boolean = IS_ADMIN_SITE): string | null {
+  return isAdminSite && (pathname === '/ops' || pathname.startsWith('/ops/')) ? '/settings' : null
+}
 export { buildApiUrl, buildGatewayUrl } from './url'
 
 // ==================== Axios Instance Configuration ====================
@@ -131,8 +140,9 @@ apiClient.interceptors.response.use(
           // ignore event failures
         }
 
-        if (window.location.pathname.startsWith('/admin/ops')) {
-          window.location.href = '/admin/settings'
+        const redirectTarget = opsDisabledRedirectTarget(window.location.pathname)
+        if (redirectTarget) {
+          window.location.href = redirectTarget
         }
 
         return Promise.reject({

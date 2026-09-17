@@ -678,6 +678,8 @@ type PricingConfig struct {
 type ServerConfig struct {
 	Host                     string    `mapstructure:"host"`
 	Port                     int       `mapstructure:"port"`
+	AdminHost                string    `mapstructure:"admin_host"`            // 管理站监听地址，留空与 host 相同；可单独绑内网
+	AdminPort                int       `mapstructure:"admin_port"`            // 管理站监听端口，与 port 分开，管理端页面与管理 API 只在这里提供
 	Mode                     string    `mapstructure:"mode"`                  // debug/release
 	EnableServerTiming       bool      `mapstructure:"enable_server_timing"`  // Admin UI Server-Timing response header
 	FrontendURL              string    `mapstructure:"frontend_url"`          // 前端基础 URL，用于生成邮件中的外部链接
@@ -1497,6 +1499,15 @@ func (s *ServerConfig) Address() string {
 	return fmt.Sprintf("%s:%d", s.Host, s.Port)
 }
 
+// AdminAddress 返回管理站监听地址。admin_host 留空时沿用 host。
+func (s *ServerConfig) AdminAddress() string {
+	host := strings.TrimSpace(s.AdminHost)
+	if host == "" {
+		host = s.Host
+	}
+	return fmt.Sprintf("%s:%d", host, s.AdminPort)
+}
+
 // DatabaseConfig 数据库连接配置
 // 性能优化：新增连接池参数，避免频繁创建/销毁连接
 type DatabaseConfig struct {
@@ -1979,6 +1990,8 @@ func setDefaults() {
 	// Server
 	viper.SetDefault("server.host", "0.0.0.0")
 	viper.SetDefault("server.port", 8080)
+	viper.SetDefault("server.admin_host", "")
+	viper.SetDefault("server.admin_port", 8081)
 	viper.SetDefault("server.mode", "release")
 	viper.SetDefault("server.enable_server_timing", false)
 	viper.SetDefault("server.frontend_url", "")
@@ -2647,6 +2660,12 @@ func (c *Config) Validate() error {
 	}
 	if c.Plugins.StartTimeoutSeconds < 1 || c.Plugins.StartTimeoutSeconds > 120 {
 		return fmt.Errorf("plugins.start_timeout_seconds must be between 1 and 120")
+	}
+	if c.Server.AdminPort < 1 || c.Server.AdminPort > 65535 {
+		return fmt.Errorf("server.admin_port must be between 1 and 65535")
+	}
+	if c.Server.AdminPort == c.Server.Port {
+		return fmt.Errorf("server.admin_port must differ from server.port: the admin console and the user site are served on separate listeners")
 	}
 	if c.Server.ReadHeaderTimeout < 1 || c.Server.ReadHeaderTimeout > 60 {
 		return fmt.Errorf("server.read_header_timeout must be between 1 and 60 seconds")

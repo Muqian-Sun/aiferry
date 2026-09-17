@@ -7,6 +7,13 @@ vi.mock('@/i18n', () => ({
   getLocale: () => 'zh-CN',
 }))
 
+// 管理 UI 标记按站点决定（管理后台是独立站点），按用例切换
+const site = vi.hoisted(() => ({ admin: false }))
+vi.mock('@/app/site', () => ({
+  get IS_ADMIN_SITE() { return site.admin },
+  get APP_SITE() { return site.admin ? 'admin' : 'user' },
+}))
+
 describe('API Client', () => {
   let apiClient: AxiosInstance
 
@@ -14,6 +21,7 @@ describe('API Client', () => {
     localStorage.clear()
     sessionStorage.clear()
     window.history.replaceState({}, '', '/')
+    site.admin = false
     // 每次测试重新导入以获取干净的模块状态
     vi.resetModules()
     const mod = await import('@/api/client')
@@ -139,8 +147,8 @@ describe('API Client', () => {
       expect(config.headers.get('X-Admin-UI-Request')).toBe('1')
     })
 
-    it('管理页面调用共享 API 时带 Admin UI 标记', async () => {
-      window.history.replaceState({}, '', '/admin/dashboard')
+    it('管理后台调用共享 API 时带 Admin UI 标记', async () => {
+      site.admin = true
       const adapter = vi.fn().mockResolvedValue({
         status: 200,
         data: { code: 0, data: {} },
@@ -206,8 +214,8 @@ describe('API Client', () => {
       expect(adapter.mock.calls[1][0].headers.get('X-User-UI-Request')).toBeFalsy()
     })
 
-    it('管理页调用共享 API 时同时带 Admin 与 User UI 标记', async () => {
-      window.history.replaceState({}, '', '/admin/dashboard')
+    it('管理后台调用共享 API 时同时带 Admin 与 User UI 标记', async () => {
+      site.admin = true
       const adapter = vi.fn().mockResolvedValue({
         status: 200,
         data: { code: 0, data: {} },
@@ -527,5 +535,20 @@ describe('API Client', () => {
         apiClient.get('/test', { cancelToken: source.token })
       ).rejects.toBeDefined()
     })
+  })
+})
+
+describe('opsDisabledRedirectTarget', () => {
+  it('sends the admin console away from ops pages to settings', async () => {
+    const { opsDisabledRedirectTarget } = await import('@/api/client')
+    expect(opsDisabledRedirectTarget('/ops', true)).toBe('/settings')
+    expect(opsDisabledRedirectTarget('/ops/alerts', true)).toBe('/settings')
+  })
+
+  it('stays put on other admin pages and never redirects on the user site', async () => {
+    const { opsDisabledRedirectTarget } = await import('@/api/client')
+    expect(opsDisabledRedirectTarget('/settings', true)).toBeNull()
+    expect(opsDisabledRedirectTarget('/operators', true)).toBeNull()
+    expect(opsDisabledRedirectTarget('/ops', false)).toBeNull()
   })
 })

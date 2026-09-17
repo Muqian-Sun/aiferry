@@ -3,8 +3,8 @@
     <!-- Background Decoration -->
     <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
 
-    <!-- Sidebar -->
-    <AppSidebar />
+    <!-- Sidebar：由站点根组件提供（用户站 / 管理后台各自的导航） -->
+    <component :is="siteLayout.sidebar" />
 
     <!-- Main Content Area -->
     <div
@@ -24,21 +24,23 @@
 
 <script setup lang="ts">
 import '@/styles/onboarding.css'
-import { computed, onMounted } from 'vue'
-import { useAppStore } from '@/stores'
-import { useAuthStore } from '@/stores/auth'
+import { computed, inject, onMounted } from 'vue'
+import { useAppStore } from '@/stores/app'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { useOnboardingStore } from '@/stores/onboarding'
-import AppSidebar from './AppSidebar.vue'
+import { SITE_LAYOUT } from '@/app/siteLayout'
 import AppHeader from './AppHeader.vue'
 
+const siteLayout = inject(SITE_LAYOUT)
+if (!siteLayout) {
+  throw new Error('AppLayout requires a site layout; provide SITE_LAYOUT from the site root component')
+}
+
 const appStore = useAppStore()
-const authStore = useAuthStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
-const isAdmin = computed(() => authStore.user?.role === 'admin')
 
 const { replayTour } = useOnboardingTour({
-  storageKey: isAdmin.value ? 'admin_guide' : 'user_guide',
+  storageKey: siteLayout.onboardingStorageKey,
   autoStart: true
 })
 

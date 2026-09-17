@@ -1,14 +1,9 @@
-import { beforeAll, beforeEach, describe, expect, it, vi } from 'vitest'
-
-type NavigationGuard = (
-  to: Record<string, any>,
-  from: Record<string, any>,
-  next: ReturnType<typeof vi.fn>
-) => Promise<void>
-
-const routerHarness = vi.hoisted(() => ({
-  guard: null as NavigationGuard | null,
-}))
+/**
+ * 功能开关类路由（支付 / 风控 / 订阅）的守卫行为，直接驱动 createSiteGuard。
+ */
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RouteLocationNormalized } from 'vue-router'
+import type { AppSite } from '@/app/site'
 
 const authStore = vi.hoisted(() => ({
   checkAuth: vi.fn(),
@@ -26,57 +21,15 @@ const appStore = vi.hoisted(() => ({
     payment_enabled?: boolean
     risk_control_enabled?: boolean
     subscription_enabled?: boolean
-    custom_menu_items?: []
   },
   fetchPublicSettings: vi.fn(),
 }))
 
-vi.mock('vue-router', () => ({
-  createWebHistory: vi.fn(() => ({})),
-  createRouter: vi.fn(() => ({
-    beforeEach: vi.fn((guard: NavigationGuard) => {
-      routerHarness.guard = guard
-    }),
-    afterEach: vi.fn(),
-    onError: vi.fn(),
-  })),
-}))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
+vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
+vi.mock('@/api/setup', () => ({ getSetupStatus: vi.fn() }))
 
-vi.mock('@/stores/auth', () => ({
-  useAuthStore: () => authStore,
-}))
-
-vi.mock('@/stores/app', () => ({
-  useAppStore: () => appStore,
-}))
-
-vi.mock('@/stores/adminSettings', () => ({
-  useAdminSettingsStore: () => ({ customMenuItems: [] }),
-}))
-
-vi.mock('@/stores/adminCompliance', () => ({
-  useAdminComplianceStore: () => ({
-    initialized: true,
-    fetchStatus: vi.fn(),
-    requireAcknowledgement: vi.fn(),
-  }),
-}))
-
-vi.mock('@/composables/useNavigationLoading', () => ({
-  useNavigationLoadingState: () => ({
-    startNavigation: vi.fn(),
-    endNavigation: vi.fn(),
-    isLoading: { value: false },
-  }),
-}))
-
-vi.mock('@/composables/useRoutePrefetch', () => ({
-  useRoutePrefetch: () => ({
-    triggerPrefetch: vi.fn(),
-    cancelPendingPrefetch: vi.fn(),
-    resetPrefetchState: vi.fn(),
-  }),
-}))
+import { createSiteGuard } from '@/router/siteGuard'
 
 function createDeferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void
@@ -86,34 +39,19 @@ function createDeferred<T>() {
   return { promise, resolve }
 }
 
-function runGuard(meta: Record<string, unknown>, path: string) {
-  if (!routerHarness.guard) {
-    throw new Error('router guard was not registered')
-  }
-
+function runGuard(site: AppSite, meta: Record<string, unknown>, path: string) {
+  // 两个站点各自只有一种角色，登录态按站点给出
+  authStore.isAdmin = site === 'admin'
+  const guard = createSiteGuard({ site, getCustomMenuItems: () => [] })
   const next = vi.fn()
-  const navigation = routerHarness.guard(
-    {
-      path,
-      fullPath: path,
-      name: 'FeatureRoute',
-      params: {},
-      meta: { requiresAuth: true, ...meta },
-    },
-    {},
-    next
-  )
+  const to = { path, fullPath: path, name: 'FeatureRoute', params: {}, meta: { requiresAuth: true, ...meta } } as unknown as RouteLocationNormalized
+  const navigation = guard(to, to, next)
   return { navigation, next }
 }
 
 describe('feature route guard', () => {
-  beforeAll(async () => {
-    await import('@/router')
-  })
-
   beforeEach(() => {
     authStore.isAuthenticated = true
-    authStore.isAdmin = false
     authStore.isSimpleMode = false
     appStore.publicSettingsLoaded = false
     appStore.cachedPublicSettings = null
@@ -129,7 +67,7 @@ describe('feature route guard', () => {
       return settings
     })
 
-    const { navigation, next } = runGuard({ requiresPayment: true }, '/purchase')
+    const { navigation, next } = runGuard('user', { requiresPayment: true }, '/purchase')
 
     await vi.waitFor(() => expect(appStore.fetchPublicSettings).toHaveBeenCalledTimes(1))
     expect(next).not.toHaveBeenCalled()
@@ -140,15 +78,14 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith()
   })
 
-  it.each([
-    ['payment', { requiresPayment: true }, '/purchase'],
-    ['risk control', { requiresRiskControl: true }, '/admin/risk-control'],
-    ['subscription', { requiresSubscription: true }, '/subscriptions'],
-  ])('does not treat a failed %s settings load as explicitly disabled', async (_name, meta, path) => {
-    authStore.isAdmin = meta.requiresRiskControl === true
+  it.each<[string, AppSite, Record<string, unknown>, string]>([
+    ['payment', 'user', { requiresPayment: true }, '/purchase'],
+    ['risk control', 'admin', { requiresRiskControl: true }, '/risk-control'],
+    ['subscription', 'user', { requiresSubscription: true }, '/subscriptions'],
+  ])('does not treat a failed %s settings load as explicitly disabled', async (_name, site, meta, path) => {
     appStore.fetchPublicSettings.mockResolvedValue(null)
 
-    const { navigation, next } = runGuard(meta, path)
+    const { navigation, next } = runGuard(site, meta, path)
     await navigation
 
     expect(appStore.publicSettingsLoaded).toBe(false)
@@ -156,21 +93,17 @@ describe('feature route guard', () => {
     expect(next).toHaveBeenCalledWith()
   })
 
-  it.each([
-    ['payment', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
-    [
-      'risk control',
-      { requiresRiskControl: true },
-      { risk_control_enabled: false },
-      '/admin/settings',
-    ],
-    ['subscription', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
-  ])('redirects when loaded settings explicitly disable %s', async (_name, meta, settings, target) => {
-    authStore.isAdmin = meta.requiresRiskControl === true
+  it.each<[string, AppSite, Record<string, unknown>, Record<string, boolean>, string]>([
+    ['payment on the user site', 'user', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
+    ['payment on the admin console', 'admin', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
+    ['risk control on the admin console', 'admin', { requiresRiskControl: true }, { risk_control_enabled: false }, '/settings'],
+    ['subscription on the user site', 'user', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
+    ['subscription on the admin console', 'admin', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
+  ])('redirects when loaded settings explicitly disable %s', async (_name, site, meta, settings, target) => {
     appStore.cachedPublicSettings = settings
     appStore.publicSettingsLoaded = true
 
-    const { navigation, next } = runGuard(meta, '/feature')
+    const { navigation, next } = runGuard(site, meta, '/feature')
     await navigation
 
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
@@ -181,7 +114,6 @@ describe('feature route guard', () => {
 
 describe('subscription route guard (opt-out flag)', () => {
   beforeEach(() => {
-    authStore.isAdmin = false
     authStore.isSimpleMode = false
     appStore.publicSettingsLoaded = true
     appStore.fetchPublicSettings.mockReset()
@@ -193,20 +125,10 @@ describe('subscription route guard (opt-out flag)', () => {
   ])('lets /subscriptions through when the flag is %s', async (_name, settings) => {
     appStore.cachedPublicSettings = settings
 
-    const { navigation, next } = runGuard({ requiresSubscription: true }, '/subscriptions')
+    const { navigation, next } = runGuard('user', { requiresSubscription: true }, '/subscriptions')
     await navigation
 
     expect(next).toHaveBeenCalledOnce()
     expect(next).toHaveBeenCalledWith()
-  })
-
-  it('sends admins to the admin dashboard when subscriptions are disabled', async () => {
-    authStore.isAdmin = true
-    appStore.cachedPublicSettings = { subscription_enabled: false }
-
-    const { navigation, next } = runGuard({ requiresSubscription: true }, '/subscriptions')
-    await navigation
-
-    expect(next).toHaveBeenCalledWith('/admin/dashboard')
   })
 })

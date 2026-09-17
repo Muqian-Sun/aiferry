@@ -1,12 +1,12 @@
 import { createApp } from 'vue'
 import { createPinia } from 'pinia'
-import App from './App.vue'
-import router from './router'
-import i18n, { initI18n } from './i18n'
+import type { Component } from 'vue'
+import type { Router } from 'vue-router'
+import i18n, { initI18n } from '@/i18n'
 import { useAppStore } from '@/stores/app'
 import { updateFavicon } from '@/utils/branding'
 import { isIOSDevice } from '@/utils/device'
-import './style.css'
+import '@/style.css'
 
 function initIOSViewportZoomFix() {
   // iOS Safari 在输入框字号小于 16px 时聚焦会自动放大页面，且失焦后不会恢复。
@@ -30,7 +30,11 @@ function initThemeClass() {
   document.documentElement.classList.toggle('dark', shouldUseDark)
 }
 
-async function bootstrap() {
+/**
+ * 两个站点共用的启动流程：主题、站点配置、i18n、路由就绪后挂载。
+ * 根组件与路由由各自入口传入，本模块不引用任何站点专属代码。
+ */
+export async function bootstrapApp(App: Component, router: Router): Promise<void> {
   // Apply theme class globally before app mount to keep all routes consistent.
   initThemeClass()
   initIOSViewportZoomFix()
@@ -60,4 +64,3 @@ async function bootstrap() {
   app.mount('#app')
 }
 
-bootstrap()

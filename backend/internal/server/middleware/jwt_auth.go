@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -89,6 +90,12 @@ func jwtAuth(
 		// This check ensures tokens issued before a password change are rejected
 		if claims.TokenVersion != user.TokenVersion {
 			AbortWithError(c, 401, "TOKEN_REVOKED", "Token has been revoked (password changed)")
+			return
+		}
+
+		// 站点隔离：token 不绑定站点，管理员 token 不能用于用户站，反之亦然。
+		if err := service.CheckSiteRole(c.Request.Context(), user.Role); err != nil {
+			AbortWithError(c, 403, "SITE_ROLE_FORBIDDEN", infraerrors.Message(err))
 			return
 		}
 

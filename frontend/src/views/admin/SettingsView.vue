@@ -6908,7 +6908,7 @@
             </p>
             <p class="mt-1.5 text-xs">
               <router-link
-                to="/admin/channels/monitor"
+                to="/channels/monitor"
                 class="inline-flex items-center gap-1 text-primary-600 hover:underline dark:text-primary-400"
               >
                 {{ t('admin.settings.features.channelMonitor.configureLink') }}
@@ -7039,7 +7039,7 @@
             </p>
             <p class="mt-1.5 text-xs">
               <router-link
-                to="/admin/channels/pricing"
+                to="/channels/pricing"
                 class="inline-flex items-center gap-1 text-primary-600 hover:underline dark:text-primary-400"
               >
                 {{ t('admin.settings.features.availableChannels.configureLink') }}
@@ -7176,7 +7176,7 @@
             </p>
             <p class="mt-1.5 text-xs">
               <router-link
-                to="/admin/risk-control"
+                to="/risk-control"
                 class="inline-flex items-center gap-1 text-primary-600 hover:underline dark:text-primary-400"
               >
                 {{ t('admin.settings.features.riskControl.configureLink') }}
@@ -8693,7 +8693,7 @@
 <script setup lang="ts">
 import { ref, reactive, computed, onMounted, watch } from "vue";
 import { useI18n } from "vue-i18n";
-import { adminAPI } from "@/api";
+import { adminAPI } from "@/api/admin";
 import {
   appendAuthSourceDefaultsToUpdateRequest,
   buildAuthSourceDefaultsState,

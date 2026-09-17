@@ -156,7 +156,8 @@ import {
   type OpsThroughputTrendResponse,
   type OpsMetricThresholds
 } from '@/api/admin/ops'
-import { useAdminSettingsStore, useAppStore } from '@/stores'
+import { useAppStore } from '@/stores'
+import { useAdminSettingsStore } from '@/stores/adminSettings'
 import OpsDashboardHeader from './components/OpsDashboardHeader.vue'
 import OpsDashboardSkeleton from './components/OpsDashboardSkeleton.vue'
 import OpsConcurrencyCard from './components/OpsConcurrencyCard.vue'
@@ -809,7 +810,7 @@ onMounted(async () => {
 
   await adminSettingsStore.fetch()
   if (!adminSettingsStore.opsMonitoringEnabled) {
-    await router.replace('/admin/settings')
+    await router.replace('/settings')
     return
   }
 

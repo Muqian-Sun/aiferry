@@ -4,7 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import UsageView from '../UsageView.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import UsageTable from '@/components/admin/usage/UsageTable.vue'
+import UsageTable from '@/components/usage/UsageTable.vue'
 
 const {
   query,

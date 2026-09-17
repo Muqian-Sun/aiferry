@@ -24,6 +24,9 @@ const (
 	// responses / gemini），由网关入口按请求路径设置，供调度做协议偏好。
 	InboundProtocol Key = "ctx_inbound_protocol"
 
+	// Site 标识请求进入的是用户站还是管理站，由各自监听器的最外层中间件设置。
+	Site Key = "ctx_site"
+
 	// RequestID 为服务端生成/透传的请求 ID。
 	RequestID Key = "ctx_request_id"
 

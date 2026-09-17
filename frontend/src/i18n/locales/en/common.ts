@@ -175,6 +175,7 @@ export default {
     affiliateRebateRecords: 'Rebate Records',
     affiliateTransferRecords: 'Transfer Records',
     profile: 'Profile',
+    accountSecurity: 'Account Security',
     users: 'Users',
     groups: 'Groups',
     channels: 'Channels',
@@ -247,6 +248,7 @@ export default {
     passwordMinLength: 'Password must be at least 6 characters',
     loginFailed: 'Login failed. Please check your credentials and try again.',
     errors: {
+      SITE_ROLE_FORBIDDEN: 'This account cannot sign in here: administrators use the admin console, other users use the user site',
       USER_NOT_ACTIVE: 'Account has been disabled.',
     },
     registrationFailed: 'Registration failed. Please try again.',
