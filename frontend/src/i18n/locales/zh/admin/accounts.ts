@@ -629,6 +629,27 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: '添加方式',
       setupTokenLongLived: 'Setup Token（长期有效）',
+      protocolEndpoints: {
+        title: '协议地址',
+        hint: '第三方 key 只按这里的地址转发，不会回落到任何默认地址。官方 key 已预填官方地址；聚合平台请改成它的地址，不支持的协议删掉即可。',
+        urlPlaceholder: 'https://api.example.com',
+        add: '添加 {protocol}',
+        remove: '删除 {protocol} 地址',
+        empty: '还没有配置协议地址，至少需要一个。',
+        loadFailed: '官方地址加载失败，请手动填写各协议地址。',
+        restoreOfficial: '填入官方地址',
+        errors: {
+          empty: '请至少配置一个协议地址',
+          blank: '{protocol} 的地址不能为空',
+          missingRequired: '当前 API 协议为 {protocol}，请配置它的地址'
+        },
+        protocols: {
+          anthropic: 'Anthropic Messages',
+          chat_completions: 'OpenAI Chat Completions',
+          responses: 'OpenAI Responses',
+          gemini: 'Gemini'
+        }
+      },
       baseUrl: 'Base URL',
       baseUrlHint: '留空使用官方 Anthropic API',
       apiKeyRequired: 'API Key *',

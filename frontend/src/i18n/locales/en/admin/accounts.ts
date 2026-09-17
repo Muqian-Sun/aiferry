@@ -541,6 +541,27 @@ export default {
       oauthSetupToken: 'OAuth / Setup Token',
       addMethod: 'Add Method',
       setupTokenLongLived: 'Setup Token (Long-lived)',
+      protocolEndpoints: {
+        title: 'Protocol endpoints',
+        hint: 'Third-party keys are forwarded only to these addresses and never fall back to a default. Official addresses are prefilled for official keys; for an aggregator, replace them with its addresses and remove unsupported protocols.',
+        urlPlaceholder: 'https://api.example.com',
+        add: 'Add {protocol}',
+        remove: 'Remove {protocol} endpoint',
+        empty: 'No protocol endpoint configured yet; at least one is required.',
+        loadFailed: 'Failed to load official addresses. Please fill in each protocol endpoint manually.',
+        restoreOfficial: 'Use official addresses',
+        errors: {
+          empty: 'Configure at least one protocol endpoint',
+          blank: 'The {protocol} endpoint cannot be empty',
+          missingRequired: 'The API protocol is {protocol}; configure its endpoint'
+        },
+        protocols: {
+          anthropic: 'Anthropic Messages',
+          chat_completions: 'OpenAI Chat Completions',
+          responses: 'OpenAI Responses',
+          gemini: 'Gemini'
+        }
+      },
       baseUrl: 'Base URL',
       baseUrlHint: 'Leave default for official Anthropic API',
       apiKeyRequired: 'API Key *',

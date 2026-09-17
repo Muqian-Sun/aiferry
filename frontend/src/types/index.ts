@@ -1155,6 +1155,15 @@ export interface OllamaCloudUsageSettings {
   debounce_minutes: number
 }
 
+/** 第三方 key 可配置地址的上游协议，与后端 service.UpstreamProtocols() 一致。 */
+export type UpstreamProtocol = 'anthropic' | 'chat_completions' | 'responses' | 'gemini'
+
+/** 协议 → 上游地址。第三方 key 只按这里的地址转发，没有任何隐式默认地址。 */
+export type ProtocolEndpoints = Partial<Record<UpstreamProtocol, string>>
+
+/** 账号来源：subscription=成品号（OAuth / Setup Token / Bedrock / Vertex），api_key=第三方 key。 */
+export type AccountSourceKind = 'subscription' | 'api_key'
+
 export interface Account {
   id: number
   name: string
@@ -1167,6 +1176,8 @@ export interface Account {
   // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
   credentials_status?: Record<string, boolean>
+  source_kind?: AccountSourceKind
+  protocol_endpoints?: ProtocolEndpoints
   ollama_cloud_usage?: OllamaCloudUsageState
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.
   extra?: (CodexUsageSnapshot & OpenAICompactState & {
@@ -1476,6 +1487,7 @@ export interface CreateAccountRequest {
   platform: AccountPlatform
   type: AccountType
   credentials: Record<string, unknown>
+  protocol_endpoints?: ProtocolEndpoints
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number
@@ -1494,6 +1506,7 @@ export interface UpdateAccountRequest {
   notes?: string | null
   type?: AccountType
   credentials?: Record<string, unknown>
+  protocol_endpoints?: ProtocolEndpoints
   extra?: Record<string, unknown>
   proxy_id?: number | null
   concurrency?: number

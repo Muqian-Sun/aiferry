@@ -28,7 +28,9 @@ import type {
   OllamaCloudUsageSettings,
   OllamaCloudUsageState,
   GrokMediaEligibilityMode,
-  GrokMediaEligibilityState
+  GrokMediaEligibilityState,
+  ProtocolEndpoints,
+  UpstreamProtocol
 } from '@/types'
 
 /**
@@ -656,6 +658,22 @@ export async function syncUpstreamModelsPreview(params: SyncUpstreamPreviewParam
   return data
 }
 
+export interface ProtocolDefaultsResponse {
+  /** 全部可配置协议，顺序固定。 */
+  protocols: UpstreamProtocol[]
+  /** 平台 → 账号模式（default / coding / zen / go）→ 协议 → 官方地址。 */
+  defaults: Record<string, Record<string, ProtocolEndpoints>>
+}
+
+/**
+ * 各平台各协议的官方地址，建号时预填用。
+ * 地址表只在后端维护，前端不再保留副本。
+ */
+export async function getProtocolDefaults(): Promise<ProtocolDefaultsResponse> {
+  const { data } = await apiClient.get<ProtocolDefaultsResponse>('/admin/accounts/protocol-defaults')
+  return data
+}
+
 export async function exportData(options?: {
   ids?: number[]
   filters?: {
@@ -1043,6 +1061,7 @@ export const accountsAPI = {
   getAvailableModels,
   syncUpstreamModels,
   syncUpstreamModelsPreview,
+  getProtocolDefaults,
   generateAuthUrl,
   exchangeCode,
   refreshOpenAIToken,
