@@ -1477,7 +1477,7 @@ func (a *Account) GetOpenAIRefreshToken() string {
 // grok_default_base_url_mode (via SettingService.ResolveGrokBaseURL) picks which
 // one. Accounts carry no per-account address override.
 func (a *Account) GetGrokBaseURL() string {
-	if a == nil || !a.IsGrok() {
+	if a == nil || (!a.IsThirdPartyKey() && !a.IsGrok()) {
 		return ""
 	}
 	if a.IsGrokOAuth() {
@@ -1490,13 +1490,16 @@ func (a *Account) GetGrokBaseURL() string {
 // their protocol endpoints; subscription accounts use the supplied official
 // default (normally the site-wide mode), never a per-account override.
 func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
-	if a == nil || !a.IsGrok() {
+	if a == nil {
 		return ""
 	}
-	// 第三方 key：地址只认协议映射，站点默认区域与 CLI 网关都不参与。
+	// 第三方 key：地址只认协议映射，平台标签、站点默认区域与 CLI 网关都不参与。
 	// 需要按协议区分 responses / chat_completions 的调用方走 grokProtocolBaseURL。
 	if a.IsThirdPartyKey() {
 		return a.PrimaryUpstreamBaseURL()
+	}
+	if !a.IsGrok() {
+		return ""
 	}
 	defaultBaseURL = strings.TrimRight(strings.TrimSpace(defaultBaseURL), "/")
 	if defaultBaseURL == "" {
@@ -1515,6 +1518,11 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 // selected endpoint (official/regional API hosts or custom relays) serves
 // media as-is.
 func (a *Account) GetGrokMediaBaseURL() string {
+	// 第三方 key：媒体与语音是扩展端点，取 KeyUpstreamProtocols 入站为空时的协议地址
+	// （chat_completions 根地址），不看平台标签。
+	if a.IsThirdPartyKey() {
+		return openAIGatewayKeyExtensionBaseURL(a)
+	}
 	if !a.IsGrok() {
 		return ""
 	}
@@ -1841,7 +1849,9 @@ func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapabilit
 	if capability == "" {
 		return true
 	}
-	if !a.IsOpenAI() {
+	// /v1/images 是 OpenAI 协议的扩展端点：成品号只有 OpenAI；第三方 key 看厂商，官方
+	// OpenAI 与通用中转承接，其他已知厂商没有这个端点。
+	if !openAIProtocolFeaturesApply(a) {
 		return false
 	}
 	switch capability {

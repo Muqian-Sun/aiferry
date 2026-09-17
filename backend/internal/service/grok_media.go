@@ -647,7 +647,8 @@ func (s *OpenAIGatewayService) ForwardGrokMedia(
 	if account == nil {
 		return nil, fmt.Errorf("grok account is required")
 	}
-	if account.Platform != PlatformGrok {
+	// 第三方 key 不看平台标签（能否承接由调度按端点能力判定）；成品号只有 Grok。
+	if !account.IsThirdPartyKey() && account.Platform != PlatformGrok {
 		return nil, fmt.Errorf("account platform %s is not supported for grok media", account.Platform)
 	}
 

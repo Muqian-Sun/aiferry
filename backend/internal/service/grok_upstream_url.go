@@ -141,7 +141,7 @@ func buildGrokMediaURL(account *Account, cfg *config.Config, endpoint GrokMediaE
 	}
 	baseURL := account.GetGrokMediaBaseURL()
 	if baseURL == "" {
-		return "", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform))
+		return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
 	}
 	switch endpoint {
 	case GrokMediaEndpointImagesGenerations:
@@ -180,7 +180,7 @@ func buildGrokVoiceURL(account *Account, cfg *config.Config, endpoint string) (s
 	if account != nil {
 		base = account.GetGrokMediaBaseURL()
 		if base == "" && account.IsThirdPartyKey() {
-			return "", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform))
+			return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
 		}
 	}
 	if strings.TrimSpace(base) == "" || isGrokCLIProxyBaseURL(base) {
