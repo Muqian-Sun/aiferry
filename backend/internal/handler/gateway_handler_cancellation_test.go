@@ -35,16 +35,17 @@ func TestGatewayHandlerPreCancelledCompatibleRequestsDoNotSelectAccount(t *testi
 	account := &service.Account{
 		ID: 9101, Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
 		Status: service.StatusActive, Schedulable: true, Concurrency: 1,
-		AccountGroups: []service.AccountGroup{{AccountID: 9101, GroupID: groupID}},
+		AccountGroups:     []service.AccountGroup{{AccountID: 9101, GroupID: groupID}},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	schedulerCache := &countingGatewaySchedulerCache{fakeSchedulerCache: &fakeSchedulerCache{accounts: []*service.Account{account}}}
 	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil)
 	gatewayService := service.NewGatewayService(
 		nil, &fakeGroupRepo{group: group}, nil, nil, nil, nil, nil, nil, nil,
-		schedulerSnapshot, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		schedulerSnapshot, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	billingCacheService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	billingCacheService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingCacheService.Stop)
 	h := &GatewayHandler{
 		gatewayService:      gatewayService,

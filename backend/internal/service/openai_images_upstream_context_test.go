@@ -47,6 +47,7 @@ func newOpenAIImagesAPIKeyAccount() *Account {
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 }
 

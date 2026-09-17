@@ -1382,19 +1382,18 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 		}
 	case AccountTypeAPIKey:
 		// API Key accounts use Platform API or custom base URL
-		baseURL := account.GetOpenAIBaseURL()
+		baseURL := account.GetOpenAIResponsesBaseURL()
 		if account.UsesNativeCNResponses() && account.IsAdaptiveAPIProtocol() {
 			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
 		}
 		if baseURL == "" {
-			targetURL = openaiPlatformAPIURL
-		} else {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, err
-			}
-			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
+			return nil, MissingProtocolEndpointError(account, APIProtocolResponses)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, err
+		}
+		targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 	default:
 		targetURL = openaiPlatformAPIURL
 	}

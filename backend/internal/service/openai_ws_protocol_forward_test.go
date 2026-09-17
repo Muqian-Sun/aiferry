@@ -108,6 +108,9 @@ func TestOpenAIGatewayService_Forward_PreservePreviousResponseIDWhenWSEnabled(t 
 			"api_key":  "sk-test",
 			"base_url": wsFallbackServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsFallbackServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -166,6 +169,9 @@ func TestOpenAIGatewayService_Forward_HTTPIngressStaysHTTPWhenWSEnabled(t *testi
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsFallbackServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -241,6 +247,9 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesInvalidEncryptedContentO
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsFallbackServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -331,6 +340,9 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesWrappedInvalidEncryptedC
 			"api_key":  "sk-test",
 			"base_url": wsFallbackServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsFallbackServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -400,6 +412,9 @@ func TestOpenAIGatewayService_Forward_APIKeyHTTPPreservesPreviousResponseIDWhenW
 			"api_key":  "sk-test",
 			"base_url": wsFallbackServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsFallbackServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -459,6 +474,9 @@ func TestOpenAIGatewayService_Forward_WSv2Dial426FallbackHTTP(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": ws426Server.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: ws426Server.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -522,6 +540,9 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -581,6 +602,9 @@ func TestOpenAIGatewayService_Forward_ReturnErrorWhenOnlyWSv1Enabled(t *testing.
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1/responses",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com/v1/responses",
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -620,7 +644,6 @@ func TestNewOpenAIGatewayService_InitializesOpenAIWSResolver(t *testing.T) {
 		nil,
 		nil,
 		nil,
-		nil, // userPlatformQuotaRepo
 	)
 
 	decision := svc.getOpenAIWSProtocolResolver().Resolve(nil)
@@ -674,6 +697,9 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackWhenResponseAlreadyWrittenRetu
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": ws426Server.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: ws426Server.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -768,6 +794,9 @@ func TestOpenAIGatewayService_Forward_WSv2StreamEarlyCloseFallbackHTTP(t *testin
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -850,6 +879,9 @@ func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *test
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -930,6 +962,9 @@ func TestOpenAIGatewayService_Forward_WSv2PolicyViolationFastFallbackHTTP(t *tes
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1014,6 +1049,9 @@ func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbac
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1122,6 +1160,9 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundRecoversByDrop
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -1222,6 +1263,9 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryF
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -1320,6 +1364,9 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryW
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -1416,6 +1463,9 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundOnlyRecoversOn
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1532,6 +1582,9 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversOnce(t 
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
@@ -1635,6 +1688,9 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentSkipsRecoveryWi
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1751,6 +1807,9 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversSingleO
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1869,6 +1928,9 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentKeepsPreviousRe
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": wsServer.URL,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,

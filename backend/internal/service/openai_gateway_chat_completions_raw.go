@@ -556,5 +556,5 @@ func (s *OpenAIGatewayService) bufferRawChatCompletions(
 //
 // 与 buildOpenAIResponsesURL 是姐妹函数。
 func buildOpenAIChatCompletionsURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/chat/completions")
+	return joinUpstreamEndpointURL(base, "/v1/chat/completions")
 }

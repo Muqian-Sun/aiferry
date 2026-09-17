@@ -25,7 +25,7 @@ func (s *AntigravityGatewayService) ForwardUpstream(ctx context.Context, c *gin.
 	prefix := logPrefix(sessionID, account.Name)
 
 	// 获取上游配置
-	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	baseURL := account.PrimaryUpstreamBaseURL()
 	apiKey := strings.TrimSpace(account.GetCredential("api_key"))
 	if baseURL == "" || apiKey == "" {
 		return nil, fmt.Errorf("upstream account missing base_url or api_key")
@@ -43,7 +43,7 @@ func (s *AntigravityGatewayService) ForwardUpstream(ctx context.Context, c *gin.
 	originalModel := claudeReq.Model
 
 	// 构建上游请求 URL
-	upstreamURL := baseURL + "/v1/messages"
+	upstreamURL := joinUpstreamEndpointURL(baseURL, "/v1/messages")
 
 	// 能力维度 sanitize：Anthropic-compatible 上游透传路径也需要保证 body↔beta header
 	// 对称。客户端 anthropic-beta header 不含 context-management-2025-06-27 但 body 带

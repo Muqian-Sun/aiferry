@@ -74,17 +74,10 @@ func (m *mockAccountRepoForPlatform) ListSchedulableByGroupIDAndPlatform(ctx con
 func (m *mockAccountRepoForPlatform) Create(ctx context.Context, account *Account) error {
 	return nil
 }
-func (m *mockAccountRepoForPlatform) GetByCRSAccountID(ctx context.Context, crsAccountID string) (*Account, error) {
-	return nil, nil
-}
-
 func (m *mockAccountRepoForPlatform) FindByExtraField(ctx context.Context, key string, value any) ([]Account, error) {
 	return nil, nil
 }
 
-func (m *mockAccountRepoForPlatform) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
-	return nil, nil
-}
 func (m *mockAccountRepoForPlatform) Update(ctx context.Context, account *Account) error {
 	return nil
 }
@@ -401,13 +394,14 @@ func TestGatewayService_SelectAccountForModelWithExclusions_CompositeAliasRequir
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
-				ID:            1,
-				Platform:      PlatformAnthropic,
-				Type:          AccountTypeAPIKey,
-				Priority:      1,
-				Status:        StatusActive,
-				Schedulable:   true,
-				AccountGroups: []AccountGroup{{GroupID: groupID}},
+				ID:                1,
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				Priority:          1,
+				Status:            StatusActive,
+				Schedulable:       true,
+				AccountGroups:     []AccountGroup{{GroupID: groupID}},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 			{
 				ID:          2,
@@ -419,7 +413,8 @@ func TestGatewayService_SelectAccountForModelWithExclusions_CompositeAliasRequir
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"reasoning-alias": "claude-opus-4-8"},
 				},
-				AccountGroups: []AccountGroup{{GroupID: groupID}},
+				AccountGroups:     []AccountGroup{{GroupID: groupID}},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 		accountsByID: map[int64]*Account{},
@@ -515,7 +510,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_GeminiOAuthPreference(
 
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey},
+			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeOAuth},
 		},
 		accountsByID: map[int64]*Account{},
@@ -1004,7 +999,7 @@ func TestGatewayService_SelectAccountForModelWithPlatform_GeminiPreferOAuth(t *t
 
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey},
+			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeOAuth},
 		},
 		accountsByID: map[int64]*Account{},
@@ -1033,22 +1028,24 @@ func TestGatewayService_SelectAccountForModelWithPlatform_GeminiAPIKeyModelMappi
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
-				ID:          1,
-				Platform:    PlatformGemini,
-				Type:        AccountTypeAPIKey,
-				Priority:    1,
-				Status:      StatusActive,
-				Schedulable: true,
-				Credentials: map[string]any{"model_mapping": map[string]any{"gemini-2.5-pro": "gemini-2.5-pro"}},
+				ID:                1,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				Priority:          1,
+				Status:            StatusActive,
+				Schedulable:       true,
+				Credentials:       map[string]any{"model_mapping": map[string]any{"gemini-2.5-pro": "gemini-2.5-pro"}},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			{
-				ID:          2,
-				Platform:    PlatformGemini,
-				Type:        AccountTypeAPIKey,
-				Priority:    2,
-				Status:      StatusActive,
-				Schedulable: true,
-				Credentials: map[string]any{"model_mapping": map[string]any{"gemini-2.5-flash": "gemini-2.5-flash"}},
+				ID:                2,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				Priority:          2,
+				Status:            StatusActive,
+				Schedulable:       true,
+				Credentials:       map[string]any{"model_mapping": map[string]any{"gemini-2.5-flash": "gemini-2.5-flash"}},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 		},
 		accountsByID: map[int64]*Account{},
@@ -1253,7 +1250,7 @@ func TestGatewayService_isModelSupportedByAccount(t *testing.T) {
 		},
 		{
 			name:     "Gemini平台-无映射配置-支持所有模型",
-			account:  &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey},
+			account:  &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			model:    "gemini-2.5-flash",
 			expected: true,
 		},
@@ -1265,6 +1262,7 @@ func TestGatewayService_isModelSupportedByAccount(t *testing.T) {
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"gemini-2.5-pro": "gemini-2.5-pro"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			model:    "gemini-2.5-flash",
 			expected: false,
@@ -1277,6 +1275,7 @@ func TestGatewayService_isModelSupportedByAccount(t *testing.T) {
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"gemini-2.5-pro": "gemini-2.5-pro"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 			model:    "gemini-2.5-pro",
 			expected: true,
@@ -1298,7 +1297,7 @@ func TestGatewayService_selectAccountWithMixedScheduling(t *testing.T) {
 	t.Run("混合调度-Gemini优先选择OAuth账户", func(t *testing.T) {
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeOAuth},
 			},
 			accountsByID: map[int64]*Account{},
@@ -3038,7 +3037,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, Type: AccountTypeAPIKey},
+				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 				{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, Type: AccountTypeOAuth},
 			},
 			accountsByID: map[int64]*Account{},

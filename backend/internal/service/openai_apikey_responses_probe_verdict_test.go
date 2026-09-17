@@ -23,6 +23,11 @@ func newResponsesProbeAccount(id int64) Account {
 			"api_key":  "sk-test",
 			"base_url": "https://compat-upstream.example/v1",
 		},
+		// 第三方 key 的上游地址只认协议映射；Responses 探测走 responses 协议。
+		ProtocolEndpoints: map[string]string{
+			APIProtocolResponses:       "https://compat-upstream.example/v1",
+			APIProtocolChatCompletions: "https://compat-upstream.example/v1",
+		},
 	}
 }
 

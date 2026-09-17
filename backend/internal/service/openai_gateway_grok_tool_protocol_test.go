@@ -512,7 +512,8 @@ func grokProtocolAPIKeyAccount(id int64) *Account {
 	return &Account{
 		ID: id, Name: "grok-api-key-protocol", Platform: PlatformGrok, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1,
-		Credentials: map[string]any{"api_key": "xai-protocol-key", "base_url": "https://api.x.ai/v1"},
+		Credentials:       map[string]any{"api_key": "xai-protocol-key", "base_url": "https://api.x.ai/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 }
 

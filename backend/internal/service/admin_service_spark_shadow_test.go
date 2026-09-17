@@ -508,7 +508,7 @@ func TestCreateShadow_StructuredErrors(t *testing.T) {
 	t.Run("non_oauth_parent_400", func(t *testing.T) {
 		repo := newSparkShadowRepoStub()
 		svc := &adminServiceImpl{accountRepo: repo}
-		parent := &Account{Name: "apikey-parent", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive}
+		parent := &Account{Name: "apikey-parent", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 		require.NoError(t, repo.Create(ctx, parent))
 		_, err := svc.CreateShadow(ctx, parent.ID, ShadowOptions{Name: "s"})
 		require.Error(t, err)

@@ -416,22 +416,24 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabledUsesLega
 	groupID := int64(10106)
 	accounts := []Account{
 		{
-			ID:          36001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    5,
+			ID:                36001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          5,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          36002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                36002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -498,14 +500,16 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_LoadBat
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{"gpt-4o": "gpt-4o"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	excluded := Account{
-		ID:          36005,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
+		ID:                36005,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cfg := &config.Config{}
 	cfg.Gateway.Scheduling.LoadBatchEnabled = true
@@ -542,13 +546,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Require
 	groupID := int64(10108)
 	accounts := []Account{
 		{
-			ID:          36011,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                36011,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          36012,
@@ -561,6 +566,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Require
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestOpenAIWSV2Config()
@@ -596,13 +602,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Require
 	groupID := int64(10109)
 	accounts := []Account{
 		{
-			ID:          36021,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                36021,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestOpenAIWSV2Config()
@@ -646,6 +653,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Embeddi
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          36032,
@@ -658,6 +666,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_Embeddi
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions", "embeddings"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -697,17 +706,20 @@ func TestOpenAIGatewayService_SelectAccountForTokenCount_DoesNotAcquireGeneratio
 		{
 			ID: 36501, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
-			Credentials: map[string]any{"openai_capabilities": []any{"chat_completions"}},
+			Credentials:       map[string]any{"openai_capabilities": []any{"chat_completions"}},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID: 36502, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5,
-			Credentials: map[string]any{"openai_capabilities": []any{"embeddings"}},
+			Credentials:       map[string]any{"openai_capabilities": []any{"embeddings"}},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID: 36503, Platform: PlatformGrok, Type: AccountTypeAPIKey,
 			Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
-			Credentials: map[string]any{"openai_capabilities": []any{"chat_completions"}},
+			Credentials:       map[string]any{"openai_capabilities": []any{"chat_completions"}},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		},
 		{
 			ID: 36504, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
@@ -716,6 +728,7 @@ func TestOpenAIGatewayService_SelectAccountForTokenCount_DoesNotAcquireGeneratio
 				"openai_capabilities": []any{"chat_completions"},
 				"model_mapping":       map[string]any{"gpt-4o": "gpt-4o"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	svc := &OpenAIGatewayService{
@@ -765,12 +778,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ResponsesCapabilityExcl
 	supported := Account{
 		ID: 37001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	// 更高优先级但探测确认不支持 Responses——若门控失效会被优先选中。
 	unsupported := Account{
 		ID: 37002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5,
-		Extra: map[string]any{"openai_responses_supported": false},
+		Extra:             map[string]any{"openai_responses_supported": false},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	t.Run("生图意图仅选中支持 responses 的账号", func(t *testing.T) {
@@ -821,13 +836,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_AlphaSearchAllowsAPIKey
 	groupID := int64(10125)
 	accounts := []Account{
 		{
-			ID:          38001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                38001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -1075,14 +1091,16 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorAggrega
 		Credentials: map[string]any{
 			"model_mapping": map[string]any{"gpt-4o": "gpt-4o"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	excluded := Account{
-		ID:          38123,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
+		ID:                38123,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	svc := &OpenAIGatewayService{
 		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: []Account{quotaPaused, mappingMiss, excluded}},
@@ -1141,15 +1159,17 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_EnabledUsesAdvancedPrev
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          37002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                37002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -1196,24 +1216,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyWeightedSessionIn
 	groupID := int64(101071)
 	accounts := []Account{
 		{
-			ID:          37101,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    100,
-			GroupIDs:    []int64{groupID},
+			ID:                37101,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          100,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          37102,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{groupID},
+			ID:                37102,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -1275,6 +1297,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyWeightedPreviousR
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          37112,
@@ -1288,6 +1311,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyWeightedPreviousR
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestOpenAIWSV2Config()
@@ -1375,6 +1399,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_PreviousResponseCompact
 				"openai_apikey_responses_websockets_v2_enabled": true,
 				"openai_compact_mode":                           OpenAICompactModeForceOff,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          37122,
@@ -1389,6 +1414,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_PreviousResponseCompact
 				"openai_apikey_responses_websockets_v2_enabled": true,
 				"openai_compact_mode":                           OpenAICompactModeForceOn,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestOpenAIWSV2Config()
@@ -1450,6 +1476,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_Enabled_EmbeddingsSkips
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          37012,
@@ -1462,6 +1489,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_Enabled_EmbeddingsSkips
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions", "embeddings"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -1515,6 +1543,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_Enabled_EmbeddingsSkips
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          37022,
@@ -1530,6 +1559,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_Enabled_EmbeddingsSkips
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestOpenAIWSV2Config()
@@ -1698,8 +1728,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AutoPauseBy5hT
 			"codex_5h_used_percent":   95.0,
 			"auto_pause_5h_threshold": 0.95,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1722,8 +1753,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AllowsBelow5hT
 			"codex_5h_used_percent":   80.0,
 			"auto_pause_5h_threshold": 0.95,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1746,8 +1778,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AutoPauseBy7dT
 			"codex_7d_used_percent":   95.0,
 			"auto_pause_7d_threshold": 0.95,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1758,8 +1791,8 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AutoPauseBy7dT
 
 func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_UnconfiguredThresholdKeepsLegacyBehavior(t *testing.T) {
 	ctx := context.Background()
-	primary := Account{ID: 35301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, Extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_7d_used_percent": 99.0}}
-	secondary := Account{ID: 35302, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	primary := Account{ID: 35301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, Extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_7d_used_percent": 99.0}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
+	secondary := Account{ID: 35302, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1781,8 +1814,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_UsesGlobalDefa
 		Extra: map[string]any{
 			"codex_5h_used_percent": 95.0,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35402, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35402, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1811,8 +1845,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_PerAccountDisa
 			"codex_5h_used_percent":  99.0,
 			"auto_pause_5h_disabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1838,8 +1873,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_PerWindowDisab
 			"auto_pause_5h_disabled":  true,
 			"auto_pause_7d_threshold": 0.95,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1866,8 +1902,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageWind
 			"auto_pause_5h_threshold": 0.95,
 			"codex_5h_reset_at":       time.Now().Add(-time.Minute).Format(time.RFC3339),
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35502, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35502, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1892,8 +1929,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshUsageWind
 			"auto_pause_5h_threshold": 0.95,
 			"codex_5h_reset_at":       time.Now().Add(time.Hour).Format(time.RFC3339),
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35602, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35602, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1925,8 +1963,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnap
 			// Snapshot is stale: older than openAICodexAutoPauseStaleAfter (2h).
 			"codex_usage_updated_at": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -1955,8 +1994,9 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshExhausted
 			// Snapshot refreshed 1 minute ago: not stale, so the account stays paused.
 			"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5}
+	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
 
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
@@ -2006,15 +2046,17 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_ModelRateLimit
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	secondary := Account{
-		ID:          32102,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    5,
+		ID:                32102,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Priority:          5,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	svc := &OpenAIGatewayService{
 		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}},
@@ -2092,8 +2134,8 @@ func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_DBRuntimeReche
 func TestOpenAIGatewayService_SelectAccountWithScheduler_DBFreshGroupRecheckReleasesMovedAccount(t *testing.T) {
 	ctx := context.Background()
 	groupID, otherGroupID := int64(10105), int64(10106)
-	stalePrimary := &Account{ID: 34101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}}
-	staleBackup := &Account{ID: 34102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10, GroupIDs: []int64{groupID}}
+	stalePrimary := &Account{ID: 34101, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
+	staleBackup := &Account{ID: 34102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	dbPrimary := *stalePrimary
 	dbPrimary.GroupIDs = []int64{otherGroupID}
 	dbBackup := *staleBackup
@@ -2130,8 +2172,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DBFreshGroupRecheckRele
 func TestOpenAIGatewayService_SelectAccountWithLoadAwareness_DBFreshGroupRecheckWaitsOnValidAccount(t *testing.T) {
 	ctx := context.Background()
 	groupID, otherGroupID := int64(10107), int64(10108)
-	stalePrimary := &Account{ID: 34201, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}}
-	staleBackup := &Account{ID: 34202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10, GroupIDs: []int64{groupID}}
+	stalePrimary := &Account{ID: 34201, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
+	staleBackup := &Account{ID: 34202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	dbPrimary := *stalePrimary
 	dbPrimary.GroupIDs = []int64{otherGroupID}
 	dbBackup := *staleBackup
@@ -2158,7 +2200,7 @@ func TestOpenAIGatewayService_SelectAccountWithLoadAwareness_DBFreshGroupRecheck
 }
 
 func TestOpenAIGatewayService_RecheckSelectedOpenAIAccountFromDB_SimpleModeUsesFullPool(t *testing.T) {
-	grouped := Account{ID: 34301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, GroupIDs: []int64{99}}
+	grouped := Account{ID: 34301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, GroupIDs: []int64{99}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{
 		accountRepo:       schedulerTestOpenAIAccountRepo{accounts: []Account{grouped}},
 		cfg:               &config.Config{RunMode: config.RunModeSimple},
@@ -2197,6 +2239,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_PreviousResponseSticky(
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &schedulerTestGatewayCache{}
 	cfg := &config.Config{}
@@ -2292,24 +2335,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyBusyKeepsS
 	groupID := int64(10100)
 	accounts := []Account{
 		{
-			ID:          21001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{groupID},
+			ID:                21001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          21002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    9,
-			GroupIDs:    []int64{groupID},
+			ID:                21002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          9,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cache := &schedulerTestGatewayCache{
@@ -2376,24 +2421,26 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyEscapeByTT
 	groupID := int64(10101)
 	accounts := []Account{
 		{
-			ID:          21101,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{groupID},
+			ID:                21101,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          21102,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    1,
-			GroupIDs:    []int64{groupID},
+			ID:                21102,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          1,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:session_hash_sticky_ttft": 21101}}
@@ -2448,8 +2495,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyEscapeByEr
 	ctx := context.Background()
 	groupID := int64(10102)
 	accounts := []Account{
-		{ID: 21201, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}},
-		{ID: 21202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}},
+		{ID: 21201, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
+		{ID: 21202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:session_hash_sticky_error_rate": 21201}}
 	cfg := &config.Config{}
@@ -2498,8 +2545,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyBusyEscape
 	ctx := context.Background()
 	groupID := int64(10103)
 	accounts := []Account{
-		{ID: 21301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}},
-		{ID: 21302, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}},
+		{ID: 21301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
+		{ID: 21302, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:session_hash_sticky_busy_escape": 21301}}
 	cfg := &config.Config{}
@@ -2541,8 +2588,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyEscapeDisa
 	ctx := context.Background()
 	groupID := int64(10104)
 	accounts := []Account{
-		{ID: 21401, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}},
-		{ID: 21402, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}},
+		{ID: 21401, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
+		{ID: 21402, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:session_hash_sticky_disabled": 21401}}
 	cfg := &config.Config{}
@@ -2648,14 +2695,15 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SubscriptionPriorityFal
 			Credentials: map[string]any{"plan_type": "team"},
 		},
 		{
-			ID:          21612,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    9,
-			GroupIDs:    []int64{groupID},
+			ID:                21612,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          9,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	concurrencyCache := schedulerTestConcurrencyCache{
@@ -2701,14 +2749,15 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SubscriptionPriorityDis
 			Credentials: map[string]any{"plan_type": "pro"},
 		},
 		{
-			ID:          21622,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{groupID},
+			ID:                21622,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	concurrencyCache := schedulerTestConcurrencyCache{
@@ -2752,7 +2801,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_UsesAccountPriorityWith
 			AccountGroups: []AccountGroup{
 				{AccountID: 21631, GroupID: groupID, Priority: 100},
 			},
-			GroupIDs: []int64{groupID},
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          21632,
@@ -2765,7 +2815,8 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_UsesAccountPriorityWith
 			AccountGroups: []AccountGroup{
 				{AccountID: 21632, GroupID: groupID, Priority: 1},
 			},
-			GroupIDs: []int64{groupID},
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := newSchedulerTestSubscriptionPriorityConfig()
@@ -2792,7 +2843,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_UsesAccountPriorityWith
 
 func TestOpenAIAccountScheduler_SkipsAccountBlockedForRequestedModel(t *testing.T) {
 	now := time.Now()
-	account := &Account{ID: 21633, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 21633, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	svc := &OpenAIGatewayService{openaiModelTransient: newOpenAIAccountModelTransientState(128)}
 	svc.openaiModelTransient.recordFailure(account.ID, "gpt-5.5", now)
 	svc.openaiModelTransient.recordFailure(account.ID, "gpt-5.5", now.Add(time.Millisecond))
@@ -2909,14 +2960,15 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_RequiredWSV2_SkipsStick
 	groupID := int64(1011)
 	accounts := []Account{
 		{
-			ID:          2201,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{groupID},
+			ID:                2201,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          2202,
@@ -2930,6 +2982,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_RequiredWSV2_SkipsStick
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cache := &schedulerTestGatewayCache{
@@ -2982,13 +3035,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ClearsStickyAccountOuts
 	groupID := int64(1013)
 	accounts := []Account{
 		{
-			ID:          2401,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                2401,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          2402,
@@ -3001,6 +3055,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ClearsStickyAccountOuts
 			AccountGroups: []AccountGroup{
 				{AccountID: 2402, GroupID: groupID},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cache := &schedulerTestGatewayCache{
@@ -3083,31 +3138,34 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKFallback
 	groupID := int64(11)
 	accounts := []Account{
 		{
-			ID:          3001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                3001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          3002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                3002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          3003,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
+			ID:                3003,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 
@@ -3182,15 +3240,17 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKExcludes
 				"codex_5h_used_percent":   96.0,
 				"auto_pause_5h_threshold": 0.95,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          37002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    5,
+			ID:                37002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          5,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 
@@ -3245,13 +3305,14 @@ func TestOpenAIGatewayService_OpenAIAccountSchedulerMetrics(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(12)
 	account := Account{
-		ID:          4001,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		GroupIDs:    []int64{groupID},
+		ID:                4001,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		GroupIDs:          []int64{groupID},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &schedulerTestGatewayCache{
 		sessionBindings: map[string]int64{
@@ -3409,31 +3470,34 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceDistributesA
 	groupID := int64(15)
 	accounts := []Account{
 		{
-			ID:          5101,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 3,
-			Priority:    0,
+			ID:                5101,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       3,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          5102,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 3,
-			Priority:    0,
+			ID:                5102,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       3,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
-			ID:          5103,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 3,
-			Priority:    0,
+			ID:                5103,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       3,
+			Priority:          0,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -3659,6 +3723,7 @@ func TestDefaultOpenAIAccountScheduler_IsAccountTransportCompatible_Branches(t *
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	require.True(t, scheduler.isAccountTransportCompatible(account, OpenAIUpstreamTransportResponsesWebsocketV2))
 	require.True(t, scheduler.isAccountTransportCompatible(account, OpenAIUpstreamTransportResponsesWebsocketV2Ingress))
@@ -3684,25 +3749,27 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_StickyWeightedFallbackS
 	otherGroupID := int64(101082)
 	accounts := []Account{
 		{
-			ID:          38001,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    10,
-			GroupIDs:    []int64{groupID},
+			ID:                38001,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          10,
+			GroupIDs:          []int64{groupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			// 会话粘连绑定指向的账号已被移出请求分组（绑定 TTL 内账号改组的场景）。
-			ID:          38002,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    0,
-			GroupIDs:    []int64{otherGroupID},
+			ID:                38002,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          0,
+			GroupIDs:          []int64{otherGroupID},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	cfg := &config.Config{}
@@ -3771,15 +3838,16 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SubscriptionPriorityWai
 		},
 		{
 			// 常规账号：明确不支持 compact，无法服务本次请求。
-			ID:          38012,
-			Platform:    PlatformOpenAI,
-			Type:        AccountTypeAPIKey,
-			Status:      StatusActive,
-			Schedulable: true,
-			Concurrency: 1,
-			Priority:    9,
-			GroupIDs:    []int64{groupID},
-			Extra:       map[string]any{"openai_compact_supported": false},
+			ID:                38012,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Status:            StatusActive,
+			Schedulable:       true,
+			Concurrency:       1,
+			Priority:          9,
+			GroupIDs:          []int64{groupID},
+			Extra:             map[string]any{"openai_compact_supported": false},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	concurrencyCache := schedulerTestConcurrencyCache{

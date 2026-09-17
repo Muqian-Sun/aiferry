@@ -76,6 +76,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(429)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 529,
 			body:       []byte(`{"error":{"message":"overloaded"}}`),
@@ -90,6 +91,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 				Credentials: map[string]any{
 					"pool_mode": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 529,
 			body:       []byte(`{"error":{"message":"overloaded"}}`),
@@ -98,9 +100,10 @@ func TestCheckErrorPolicy(t *testing.T) {
 		{
 			name: "ordinary_account_uses_global_529_cooldown",
 			account: &Account{
-				ID:       35,
-				Type:     AccountTypeAPIKey,
-				Platform: PlatformOpenAI,
+				ID:                35,
+				Type:              AccountTypeAPIKey,
+				Platform:          PlatformOpenAI,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 529,
 			body:       []byte(`{"error":{"message":"overloaded"}}`),
@@ -116,6 +119,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(529)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 529,
 			body:       []byte(`{"error":{"message":"overloaded"}}`),
@@ -245,6 +249,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 					"custom_error_codes_enabled": true,
 					"custom_error_codes":         []any{float64(401), float64(403)},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 401,
 			body:       []byte(`unauthorized`),
@@ -259,6 +264,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 				Credentials: map[string]any{
 					"pool_mode": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: 401,
 			body:       []byte(`unauthorized`),
@@ -281,6 +287,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: http.StatusServiceUnavailable,
 			body:       []byte(`Service temporarily unavailable`),
@@ -303,6 +310,7 @@ func TestCheckErrorPolicy(t *testing.T) {
 						},
 					},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 			statusCode: http.StatusServiceUnavailable,
 			body:       []byte(`Service temporarily unavailable`),
@@ -332,6 +340,7 @@ func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
 			Credentials: map[string]any{
 				"pool_mode": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		shouldDisable := svc.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))
@@ -353,6 +362,7 @@ func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
 				"custom_error_codes_enabled": true,
 				"custom_error_codes":         []any{float64(401)},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		shouldDisable := svc.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))
@@ -380,6 +390,7 @@ func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
 					},
 				},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		shouldDisable := svc.HandleUpstreamError(
@@ -413,6 +424,7 @@ func TestHandleUpstreamError_PoolModePolicies(t *testing.T) {
 					},
 				},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		shouldDisable := svc.HandleUpstreamError(

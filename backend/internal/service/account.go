@@ -61,6 +61,13 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
+	// SourceKind 账号来源："" / "subscription" / "api_key"。
+	// 空值表示历史数据尚未分类，见 migrations/239。
+	SourceKind string
+	// ProtocolEndpoints 协议 → 上游地址。第三方 key 用它取代按平台推导地址，
+	// 现阶段只做读写打通，尚未参与地址解析。
+	ProtocolEndpoints map[string]string
+
 	Proxy         *Proxy
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
@@ -336,6 +343,15 @@ func (a *Account) IsGeminiGoogleOne() bool {
 
 func (a *Account) CanGetUsage() bool {
 	return a.Type == AccountTypeOAuth
+}
+
+// StoredBaseURL 返回账号凭证里存的上游地址，去掉首尾空白。
+//
+// 各处读取 base_url 的写法此前并不统一：多数调用方自己 TrimSpace，少数直接读
+// 凭证或 map。统一入口是为了后续把 base_url 换成「协议 → 地址」的映射表时，
+// 只有一个地方需要改。
+func (a *Account) StoredBaseURL() string {
+	return strings.TrimSpace(a.GetCredential("base_url"))
 }
 
 func (a *Account) GetCredential(key string) string {
@@ -974,29 +990,34 @@ func (a *Account) ResolveCompactMappedModel(requestedModel string) (mappedModel 
 	return requestedModel, false
 }
 
+// GetBaseURL 返回第三方 key 的 Anthropic 协议上游地址。
+//
+// 地址只认 protocol_endpoints：要用官方端点就把官方地址显式填进去。没有
+// credentials.base_url 回落，也没有官方地址兜底——隐式默认值会让「忘了配地址」
+// 表现成「请求打到官方端点然后 401」，排查成本远高于建号时直接拒绝。
 func (a *Account) GetBaseURL() string {
-	if a.Type != AccountTypeAPIKey {
+	if !a.IsThirdPartyKey() {
 		return ""
 	}
-	baseURL := a.GetCredential("base_url")
-	if baseURL == "" {
-		return "https://api.anthropic.com"
-	}
-	if a.Platform == PlatformAntigravity {
-		return strings.TrimRight(baseURL, "/") + "/antigravity"
-	}
-	return baseURL
+	return a.ProtocolEndpoint(APIProtocolAnthropic)
 }
 
 // GetGeminiBaseURL 返回 Gemini 兼容端点的 base URL。
-// Antigravity 平台的 APIKey 账号自动拼接 /antigravity。
+//
+// 地址以管理员填写的为准，不做任何隐式改写。Antigravity 的 API-Key 账号此前
+// 会被自动补 /antigravity 后缀，与「同步上游模型」要求存库地址自带该后缀的
+// 校验（upstream_models.go）相互矛盾：填根地址则模型同步拒绝，填完整地址则
+// 转发拼成 /antigravity/antigravity。
 func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
-	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	if a.IsThirdPartyKey() {
+		// 与 Anthropic / OpenAI 两个取址口径一致：第三方 key 没配就返回空，
+		// 由调用方按「缺地址 = 配置错误」处理，不在这里兜官方端点。
+		return a.ProtocolEndpoint(APIProtocolGemini)
+	}
+	// 成品号：OAuth / 服务账号走厂商官方端点，自定义中转仍由 base_url 指定。
+	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return defaultBaseURL
-	}
-	if a.Platform == PlatformAntigravity && a.Type == AccountTypeAPIKey {
-		return strings.TrimRight(baseURL, "/") + "/antigravity"
 	}
 	return baseURL
 }
@@ -1308,6 +1329,12 @@ func (a *Account) IsAnthropic() bool {
 	return a.Platform == PlatformAnthropic
 }
 
+// IsAntigravity 报告账号是否为 Antigravity 平台。
+// 与 IsAnthropic / IsOpenAI 同语义，均为裸平台判定，不含类型维度。
+func (a *Account) IsAntigravity() bool {
+	return a.Platform == PlatformAntigravity
+}
+
 func (a *Account) IsOpenAIOAuth() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeOAuth
 }
@@ -1356,19 +1383,11 @@ func (a *Account) GetOpenAIBaseURL() string {
 	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
 		return ""
 	}
-	if a.IsMultiProtocolAPIKey() && a.IsAdaptiveAPIProtocol() {
-		if baseURLs, ok := a.Credentials["api_base_urls"].(map[string]any); ok {
-			if baseURL, ok := baseURLs[APIProtocolChatCompletions].(string); ok && strings.TrimSpace(baseURL) != "" {
-				return strings.TrimSpace(baseURL)
-			}
-		}
+	// 第三方 key：地址只认协议映射，没有默认端点兜底。
+	if a.IsThirdPartyKey() {
+		return a.ProtocolEndpoint(APIProtocolChatCompletions)
 	}
-	if a.Type == AccountTypeAPIKey || a.Type == AccountTypeUpstream {
-		if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
-			return baseURL
-		}
-	}
-	// 平台默认 base_url：CN 供应商按 account_mode 选择 payg / coding 默认值。
+	// 成品号：走厂商官方端点。
 	switch a.Platform {
 	case PlatformKimi:
 		if a.GetAccountMode() == AccountModeCoding {
@@ -1472,64 +1491,14 @@ func (a *Account) IsAdaptiveAPIProtocol() bool {
 // GetCNProtocolBaseURL 返回国产供应商指定协议的上游 base URL。
 // adaptive 账号优先使用 api_base_urls 中的分协议地址，缺失时按平台和
 // account_mode 使用官方默认端点。base_url 继续作为 Chat Completions 地址兼容旧字段。
+// GetCNProtocolBaseURL 返回指定协议的上游地址。
+// 国产供应商账号一律是第三方 key，地址只认协议映射，不再有 api_base_urls
+// 与平台默认端点两套来源。
 func (a *Account) GetCNProtocolBaseURL(protocol string) string {
-	if a == nil || !a.IsMultiProtocolAPIKey() {
+	if a == nil {
 		return ""
 	}
-	if a.IsAdaptiveAPIProtocol() {
-		if baseURLs, ok := a.Credentials["api_base_urls"].(map[string]any); ok {
-			if baseURL, ok := baseURLs[protocol].(string); ok && strings.TrimSpace(baseURL) != "" {
-				return strings.TrimSpace(baseURL)
-			}
-		}
-		if protocol == APIProtocolChatCompletions {
-			if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
-				return baseURL
-			}
-		}
-	}
-	return a.defaultCNProtocolBaseURL(protocol)
-}
-
-func (a *Account) defaultCNProtocolBaseURL(protocol string) string {
-	switch protocol {
-	case APIProtocolAnthropic:
-		switch a.Platform {
-		case PlatformKimi:
-			if a.GetAccountMode() == AccountModeCoding {
-				return DefaultKimiCodingAnthropicBaseURL
-			}
-			return DefaultKimiPayGAnthropicBaseURL
-		case PlatformZhipu:
-			return DefaultZhipuAnthropicBaseURL
-		case PlatformDeepseek:
-			return DefaultDeepseekAnthropicBaseURL
-		case PlatformMiniMax:
-			return DefaultMiniMaxAnthropicBaseURL
-		case PlatformOpenCodeGo:
-			return a.openCodeDefaultAnthropicBaseURL()
-		}
-	case APIProtocolChatCompletions, APIProtocolResponses:
-		switch a.Platform {
-		case PlatformKimi:
-			if a.GetAccountMode() == AccountModeCoding {
-				return DefaultKimiCodingBaseURL
-			}
-			return DefaultKimiPayGBaseURL
-		case PlatformZhipu:
-			if a.GetAccountMode() == AccountModeCoding {
-				return DefaultZhipuCodingBaseURL
-			}
-			return DefaultZhipuPayGBaseURL
-		case PlatformDeepseek:
-			return DefaultDeepseekBaseURL
-		case PlatformMiniMax:
-			return DefaultMiniMaxBaseURL
-		case PlatformOpenCodeGo:
-			return a.openCodeDefaultChatBaseURL()
-		}
-	}
-	return ""
+	return a.ProtocolEndpoint(protocol)
 }
 
 // IsAnthropicProtocol 报告账号是否以原生 Anthropic 协议接入上游
@@ -1541,35 +1510,12 @@ func (a *Account) IsAnthropicProtocol() bool {
 // GetAnthropicProtocolBaseURL 返回 Anthropic 协议账号的上游 base_url
 // （上游路径为 {base}/v1/messages）。优先取凭证 base_url，缺失时按
 // 供应商 × 接入模式返回默认端点。非 Anthropic 协议账号返回空串。
+// GetAnthropicProtocolBaseURL 返回 Anthropic 协议端点地址（上游路径 {base}/v1/messages）。
 func (a *Account) GetAnthropicProtocolBaseURL() string {
-	if a == nil || (!a.IsAnthropicProtocol() && !a.IsAdaptiveAPIProtocol()) {
+	if a == nil {
 		return ""
 	}
-	if a.IsAdaptiveAPIProtocol() {
-		return a.GetCNProtocolBaseURL(APIProtocolAnthropic)
-	}
-	if a.Type == AccountTypeAPIKey || a.Type == AccountTypeUpstream {
-		if baseURL := strings.TrimSpace(a.GetCredential("base_url")); baseURL != "" {
-			return baseURL
-		}
-	}
-	switch a.Platform {
-	case PlatformKimi:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultKimiCodingAnthropicBaseURL
-		}
-		return DefaultKimiPayGAnthropicBaseURL
-	case PlatformZhipu:
-		return DefaultZhipuAnthropicBaseURL
-	case PlatformDeepseek:
-		return DefaultDeepseekAnthropicBaseURL
-	case PlatformMiniMax:
-		return DefaultMiniMaxAnthropicBaseURL
-	case PlatformOpenCodeGo:
-		return a.openCodeDefaultAnthropicBaseURL()
-	default:
-		return ""
-	}
+	return a.ProtocolEndpoint(APIProtocolAnthropic)
 }
 
 // GetOpenAIFormatBaseURL 返回供 OpenAI 格式端点（/v1/models、/v1/chat/completions
@@ -1577,30 +1523,12 @@ func (a *Account) GetAnthropicProtocolBaseURL() string {
 // 一致（凭证 base_url 或平台默认）；anthropic 协议下凭证 base_url 指向 Anthropic
 // 端点，不能拿来拼 OpenAI 路径，此时返回该供应商 × 模式的 Chat Completions
 // 默认 base（模型同步等协议族共用路径仍可用）。
+// GetOpenAIFormatBaseURL 返回 OpenAI 形态（Chat Completions）端点地址。
 func (a *Account) GetOpenAIFormatBaseURL() string {
-	if a == nil || !a.IsAnthropicProtocol() {
-		return a.GetOpenAIBaseURL()
+	if a == nil {
+		return ""
 	}
-	switch a.Platform {
-	case PlatformKimi:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultKimiCodingBaseURL
-		}
-		return DefaultKimiPayGBaseURL
-	case PlatformZhipu:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultZhipuCodingBaseURL
-		}
-		return DefaultZhipuPayGBaseURL
-	case PlatformDeepseek:
-		return DefaultDeepseekBaseURL
-	case PlatformMiniMax:
-		return DefaultMiniMaxBaseURL
-	case PlatformOpenCodeGo:
-		return a.openCodeDefaultChatBaseURL()
-	default:
-		return a.GetOpenAIBaseURL()
-	}
+	return a.GetOpenAIBaseURL()
 }
 
 // GetCNAPIKey 返回国产 OpenAI 兼容供应商账号的 api_key 凭据（kimi/zhipu/deepseek）。
@@ -1678,6 +1606,11 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 	if a == nil || !a.IsGrok() {
 		return ""
 	}
+	// 第三方 key：地址只认协议映射，站点默认区域与 CLI 网关都不参与。
+	// 需要按协议区分 responses / chat_completions 的调用方走 grokProtocolBaseURL。
+	if a.IsThirdPartyKey() {
+		return a.PrimaryUpstreamBaseURL()
+	}
 	defaultBaseURL = strings.TrimRight(strings.TrimSpace(defaultBaseURL), "/")
 	if defaultBaseURL == "" {
 		if a.IsGrokOAuth() {
@@ -1686,7 +1619,7 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 			defaultBaseURL = xai.DefaultBaseURL
 		}
 	}
-	baseURL := strings.TrimSpace(a.GetCredential("base_url"))
+	baseURL := a.StoredBaseURL()
 	if baseURL == "" {
 		return defaultBaseURL
 	}
@@ -2054,7 +1987,7 @@ func (a *Account) IsOpenAITokenExpired() bool {
 // IsMixedSchedulingEnabled 检查 antigravity 账户是否启用混合调度
 // 启用后可参与 anthropic/gemini 分组的账户调度
 func (a *Account) IsMixedSchedulingEnabled() bool {
-	if a.Platform != PlatformAntigravity {
+	if !a.IsAntigravity() {
 		return false
 	}
 	if a.Extra == nil {
@@ -2070,7 +2003,7 @@ func (a *Account) IsMixedSchedulingEnabled() bool {
 
 // IsOveragesEnabled 检查 Antigravity 账号是否启用 AI Credits 超量请求。
 func (a *Account) IsOveragesEnabled() bool {
-	if a.Platform != PlatformAntigravity {
+	if !a.IsAntigravity() {
 		return false
 	}
 	if a.Extra == nil {
@@ -3272,4 +3205,14 @@ func (a *Account) QuotaDimensionOrDefault() string {
 		return QuotaDimensionGlobal
 	}
 	return a.QuotaDimension
+}
+
+// GetOpenAIResponsesBaseURL 解析 Responses 端点的上游地址。
+// 协议映射里单独配了 responses 就用它，否则回落到 Chat Completions 的地址——
+// 多数第三方中转两个端点同源，只有少数会把 Responses 放在不同主机上。
+func (a *Account) GetOpenAIResponsesBaseURL() string {
+	if endpoint := a.ProtocolEndpoint(APIProtocolResponses); endpoint != "" {
+		return endpoint
+	}
+	return a.GetOpenAIBaseURL()
 }

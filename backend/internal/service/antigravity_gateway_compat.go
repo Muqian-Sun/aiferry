@@ -140,7 +140,7 @@ func (s *AntigravityGatewayService) ForwardAsResponses(
 }
 
 func (s *AntigravityGatewayService) validateAntigravityCompatAccount(c *gin.Context, account *Account) error {
-	if account != nil && account.Platform == PlatformAntigravity && account.Type == AccountTypeOAuth {
+	if account != nil && account.IsAntigravity() && account.Type == AccountTypeOAuth {
 		return nil
 	}
 	return s.writeAntigravityCompatError(

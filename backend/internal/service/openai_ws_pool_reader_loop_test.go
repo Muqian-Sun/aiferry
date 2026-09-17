@@ -303,7 +303,7 @@ func TestOpenAIWSConnPool_PeerClosedIdleConnEvictedImmediately(t *testing.T) {
 	dialer := &openAIWSReaderLoopFakeDialer{}
 	pool.setClientDialerForTest(dialer)
 
-	account := &Account{ID: 307, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 307, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	req := openAIWSAcquireRequest{Account: account, WSURL: "wss://example.com/v1/responses"}
 
 	first, err := pool.Acquire(context.Background(), req)
@@ -342,7 +342,7 @@ func newReaderLoopTestPool(t *testing.T, maxConns int) (*openAIWSConnPool, *open
 	t.Cleanup(pool.Close)
 	dialer := &openAIWSReaderLoopFakeDialer{}
 	pool.setClientDialerForTest(dialer)
-	account := &Account{ID: 308, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 308, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	return pool, dialer, openAIWSAcquireRequest{Account: account, WSURL: "wss://example.com/v1/responses"}
 }
 
@@ -616,7 +616,7 @@ func TestOpenAIWSConnPool_AcquireIdleHealthCheckStillAppliesWithoutReaderLoop(t 
 		&openAIWSFakeConn{},
 	}}
 	pool.setClientDialerForTest(dialer)
-	account := &Account{ID: 311, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 311, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	req := openAIWSAcquireRequest{Account: account, WSURL: "wss://example.com/v1/responses"}
 
 	first, err := pool.Acquire(context.Background(), req)
@@ -743,7 +743,7 @@ func TestOpenAIWSConnPool_AcquireSnapshotsIdleBefore(t *testing.T) {
 	defer pool.Close()
 	pool.setClientDialerForTest(&openAIWSReaderLoopFakeDialer{})
 
-	account := &Account{ID: 306, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 306, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	req := openAIWSAcquireRequest{Account: account, WSURL: "wss://example.com/v1/responses"}
 
 	first, err := pool.Acquire(context.Background(), req)
@@ -772,7 +772,7 @@ func TestOpenAIWSConnPool_AcquireSkipsDirtyIdleConn(t *testing.T) {
 	dialer := &openAIWSReaderLoopFakeDialer{}
 	pool.setClientDialerForTest(dialer)
 
-	account := &Account{ID: 305, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 305, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	req := openAIWSAcquireRequest{Account: account, WSURL: "wss://example.com/v1/responses"}
 
 	first, err := pool.Acquire(context.Background(), req)

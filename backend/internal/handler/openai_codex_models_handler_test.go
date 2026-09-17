@@ -137,6 +137,10 @@ func TestCodexModelsAppliesLocalFiltersBeforeClientETag(t *testing.T) {
 	groupID := int64(43)
 	repo := &codexModelsFailoverAccountRepo{accounts: []service.Account{
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: "https://upstream.example/v1",
+				service.APIProtocolResponses:       "https://upstream.example/v1",
+			},
 			ID:          1,
 			Name:        "custom-openai",
 			Platform:    service.PlatformOpenAI,
@@ -157,7 +161,7 @@ func TestCodexModelsAppliesLocalFiltersBeforeClientETag(t *testing.T) {
 		repo,
 		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
 	group := &service.Group{
@@ -206,6 +210,10 @@ func TestCodexModelsAPIKeyCacheDoesNotLeakGroupFilters(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &codexModelsFailoverAccountRepo{accounts: []service.Account{
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: "https://upstream.example/v1",
+				service.APIProtocolResponses:       "https://upstream.example/v1",
+			},
 			ID:          1,
 			Name:        "shared-api-key",
 			Platform:    service.PlatformOpenAI,
@@ -226,7 +234,7 @@ func TestCodexModelsAPIKeyCacheDoesNotLeakGroupFilters(t *testing.T) {
 		repo,
 		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
 	groupA := &service.Group{
@@ -297,6 +305,10 @@ func TestCodexModelsSupplementsConfiguredModelsWithUnmappedAccountDefaults(t *te
 	groupID := int64(44)
 	repo := &codexModelsFailoverAccountRepo{accounts: []service.Account{
 		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: "https://ark.example/v1",
+				service.APIProtocolResponses:       "https://ark.example/v1",
+			},
 			ID:          1,
 			Name:        "ark-compatible",
 			Platform:    service.PlatformOpenAI,
@@ -332,7 +344,7 @@ func TestCodexModelsSupplementsConfiguredModelsWithUnmappedAccountDefaults(t *te
 		repo,
 		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
 
@@ -381,7 +393,7 @@ func TestCodexModelsUnmappedParentAndSparkShadowHonorCustomListAndETag(t *testin
 		repo,
 		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
 	group := &service.Group{ID: 45, Platform: service.PlatformOpenAI}
@@ -590,6 +602,11 @@ func newCodexModelsFailoverTestHandlerWithAccountCount(firstStatus, accountCount
 				"api_key":  fmt.Sprintf("sk-%d", i),
 				"base_url": fmt.Sprintf("https://upstream-%d.example/v1", i),
 			},
+			// 第三方 key 的上游地址只认协议映射，与 base_url 指向同一地址。
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: fmt.Sprintf("https://upstream-%d.example/v1", i),
+				service.APIProtocolResponses:       fmt.Sprintf("https://upstream-%d.example/v1", i),
+			},
 		})
 	}
 	upstream := &codexModelsFailoverHTTPUpstream{firstStatus: firstStatus}
@@ -598,7 +615,7 @@ func newCodexModelsFailoverTestHandlerWithAccountCount(firstStatus, accountCount
 		codexModelsFailoverAccountRepo{accounts: accounts},
 		nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches}, upstream, groupID
 }
@@ -746,6 +763,11 @@ func newPinnedCodexAccount(id int64, status string, schedulable bool, rateLimite
 			"api_key":  fmt.Sprintf("sk-pinned-%d", id),
 			"base_url": fmt.Sprintf("https://pinned-%d.example/v1", id),
 		},
+		// 第三方 key 的上游地址只认协议映射，与 base_url 指向同一地址。
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: fmt.Sprintf("https://pinned-%d.example/v1", id),
+			service.APIProtocolResponses:       fmt.Sprintf("https://pinned-%d.example/v1", id),
+		},
 	}
 	if rateLimited {
 		reset := time.Now().Add(10 * time.Minute)
@@ -761,7 +783,7 @@ func newPinnedCodexTestHandler(accounts []service.Account, upstream *codexModels
 		codexModelsFailoverAccountRepo{accounts: accounts},
 		nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil,
 	)
 	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches}
 }

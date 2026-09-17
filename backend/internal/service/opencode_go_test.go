@@ -152,6 +152,7 @@ func TestShouldForwardOpenAIResponsesViaRawChatCompletions_OpenCodeGoIgnoresProb
 		Extra: map[string]any{
 			"openai_responses_supported": false,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"},
 	}
 	require.False(t, shouldForwardOpenAIResponsesViaRawChatCompletions(account))
 	require.Equal(t, APIProtocolResponses, account.ResolveOpenCodeGoUpstreamProtocol("grok-4.6"))
@@ -205,7 +206,6 @@ func TestNormalizeOpenCodeGoProtocolRulesCredentials(t *testing.T) {
 
 func TestOpenCodeGoQuotaURL(t *testing.T) {
 	t.Parallel()
-	require.Equal(t, "https://opencode.ai/zen/go/v1/usage", openCodeGoQuotaURL(""))
 	require.Equal(t, "https://opencode.ai/zen/go/v1/usage", openCodeGoQuotaURL(DefaultOpenCodeGoBaseURL+"/"))
 	require.Equal(t, "https://custom.example/v1/usage", openCodeGoQuotaURL("https://custom.example/v1"))
 }

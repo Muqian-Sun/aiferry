@@ -101,7 +101,7 @@ func setupDuplicateAccountRouter(t *testing.T, svc service.AdminService) *gin.En
 		c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 77})
 		c.Next()
 	})
-	handler := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(svc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router.POST("/api/v1/admin/accounts/:id/duplicate", handler.Duplicate)
 	return router
 }
@@ -109,13 +109,14 @@ func setupDuplicateAccountRouter(t *testing.T, svc service.AdminService) *gin.En
 func TestDuplicateAccountHandlerRedactsCredentials(t *testing.T) {
 	svc := &duplicateAccountAdminServiceStub{
 		account: &service.Account{
-			ID:          43,
-			Name:        "primary (Copy)",
-			Platform:    service.PlatformAnthropic,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: false,
-			Credentials: map[string]any{"api_key": "top-secret-key"},
+			ID:                43,
+			Name:              "primary (Copy)",
+			Platform:          service.PlatformAnthropic,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       false,
+			Credentials:       map[string]any{"api_key": "top-secret-key"},
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 	router := setupDuplicateAccountRouter(t, svc)
@@ -154,12 +155,13 @@ func TestDuplicateAccountHandlerRejectsInvalidID(t *testing.T) {
 func TestDuplicateAccountHandlerReplaysSameIdempotencyKey(t *testing.T) {
 	svc := &duplicateAccountAdminServiceStub{
 		account: &service.Account{
-			ID:          43,
-			Name:        "primary (Copy)",
-			Platform:    service.PlatformAnthropic,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: false,
+			ID:                43,
+			Name:              "primary (Copy)",
+			Platform:          service.PlatformAnthropic,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       false,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 	router := setupDuplicateAccountRouter(t, svc)
@@ -189,12 +191,13 @@ func TestDuplicateAccountHandlerReplaysSameIdempotencyKey(t *testing.T) {
 func TestDuplicateAccountHandlerRecoversAfterMarkSucceededFailure(t *testing.T) {
 	svc := &duplicateAccountAdminServiceStub{
 		account: &service.Account{
-			ID:          43,
-			Name:        "primary (Copy)",
-			Platform:    service.PlatformAnthropic,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: false,
+			ID:                43,
+			Name:              "primary (Copy)",
+			Platform:          service.PlatformAnthropic,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       false,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 	router := setupDuplicateAccountRouter(t, svc)
@@ -226,12 +229,13 @@ func TestDuplicateAccountHandlerRecoversAfterMarkSucceededFailure(t *testing.T) 
 func TestDuplicateAccountHandlerPreservesIdempotencyErrorWhenRecoveryLookupFails(t *testing.T) {
 	svc := &duplicateAccountAdminServiceStub{
 		account: &service.Account{
-			ID:          43,
-			Name:        "primary (Copy)",
-			Platform:    service.PlatformAnthropic,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: false,
+			ID:                43,
+			Name:              "primary (Copy)",
+			Platform:          service.PlatformAnthropic,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       false,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 		recoverErr: errors.New("recovery database unavailable"),
 	}
@@ -254,12 +258,13 @@ func TestDuplicateAccountHandlerPreservesIdempotencyErrorWhenRecoveryLookupFails
 func TestDuplicateAccountHandlerDoesNotReexecuteWhileOriginalIsProcessing(t *testing.T) {
 	svc := &blockingDuplicateAdminServiceStub{
 		account: &service.Account{
-			ID:          43,
-			Name:        "primary (Copy)",
-			Platform:    service.PlatformAnthropic,
-			Type:        service.AccountTypeAPIKey,
-			Status:      service.StatusActive,
-			Schedulable: false,
+			ID:                43,
+			Name:              "primary (Copy)",
+			Platform:          service.PlatformAnthropic,
+			Type:              service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Schedulable:       false,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 		started:    make(chan struct{}),
 		release:    make(chan struct{}),

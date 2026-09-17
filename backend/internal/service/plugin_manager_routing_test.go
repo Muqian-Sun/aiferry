@@ -43,7 +43,7 @@ func TestPluginManagerRoutingDoesNotTouchAPIKeyOrOtherProviders(t *testing.T) {
 	require.NoError(t, err)
 
 	accounts := []*Account{
-		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 		{ID: 2, Platform: PlatformAnthropic, Type: AccountTypeOAuth},
 		{ID: 3, Platform: PlatformGemini, Type: AccountTypeOAuth},
 	}
@@ -73,7 +73,7 @@ func TestPluginManagerRoutingSelectsOnlyEligibleOpenAIOAuthAccounts(t *testing.T
 	manager.route.Store(&pluginRoute{pluginID: 1, rolloutPercent: 100, unavailable: "测试不可用"})
 
 	assert.True(t, manager.ShouldRouteOpenAIOAuth(&Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
-	assert.False(t, manager.ShouldRouteOpenAIOAuth(&Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}))
+	assert.False(t, manager.ShouldRouteOpenAIOAuth(&Account{ID: 10, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}))
 	assert.False(t, manager.ShouldRouteOpenAIOAuth(&Account{ID: 10, Platform: PlatformGrok, Type: AccountTypeOAuth}))
 	assert.False(t, manager.ShouldRouteOpenAIOAuth(nil))
 }
@@ -88,6 +88,7 @@ func TestOpenAIGatewayPluginRoutingPreservesAPIKeyAndFailsClosedForOAuth(t *test
 	require.NoError(t, err)
 	apiKeyResponse, err := service.doOpenAIUpstream(apiKeyRequest, "", &Account{
 		ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, apiKeyResponse)

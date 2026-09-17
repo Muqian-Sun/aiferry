@@ -100,10 +100,6 @@ func cloneAccountJSONMap(value map[string]any) (map[string]any, error) {
 var duplicateAccountDiscardedExtraKeys = map[string]struct{}{
 	// A retry identity belongs to the operation that created one copy, not to later copies.
 	duplicateAccountOperationIDExtraKey: {},
-	// External sync identity belongs to one local account only.
-	"crs_account_id": {},
-	"crs_kind":       {},
-	"crs_synced_at":  {},
 	// Local quota usage and derived window timestamps must start fresh.
 	"quota_used":            {},
 	"quota_daily_used":      {},
@@ -419,18 +415,27 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 	delete(accountExtra, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(accountExtra, OllamaCloudUsageSnapshotExtraKey)
 	accountExtra = prepareCodexFingerprintExtraForCreate(input.Platform, input.Type, accountExtra)
+	protocolEndpoints, err := NormalizeProtocolEndpoints(input.ProtocolEndpoints)
+	if err != nil {
+		return nil, infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
+	}
+
 	account := &Account{
-		Name:        input.Name,
-		Notes:       normalizeAccountNotes(input.Notes),
-		Platform:    input.Platform,
-		Type:        input.Type,
-		Credentials: input.Credentials,
-		Extra:       accountExtra,
-		ProxyID:     input.ProxyID,
-		Concurrency: normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
-		Priority:    input.Priority,
-		Status:      StatusActive,
-		Schedulable: true,
+		Name:              input.Name,
+		Notes:             normalizeAccountNotes(input.Notes),
+		Platform:          input.Platform,
+		Type:              input.Type,
+		Credentials:       input.Credentials,
+		Extra:             accountExtra,
+		ProxyID:           input.ProxyID,
+		Concurrency:       normalizeAccountConcurrency(input.Platform, input.Type, input.Concurrency),
+		Priority:          input.Priority,
+		Status:            StatusActive,
+		Schedulable:       true,
+		ProtocolEndpoints: protocolEndpoints,
+		// 来源维度在仓储层写库时也会推导一次，这里显式带上是为了让创建响应
+		// 直接带回该字段；否则调用方拿到的对象里它是空的，看起来像「未分类」。
+		SourceKind: DeriveAccountSourceKind(input.Type),
 	}
 	if input.ProbeEnabled != nil && *input.ProbeEnabled {
 		if !isUpstreamBillingProbeAccount(account) {
@@ -627,11 +632,20 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	wasOveragesEnabled := account.IsOveragesEnabled()
 
+	if input.ProtocolEndpoints != nil {
+		normalizedEndpoints, perr := NormalizeProtocolEndpoints(*input.ProtocolEndpoints)
+		if perr != nil {
+			return nil, infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", perr.Error())
+		}
+		account.ProtocolEndpoints = normalizedEndpoints
+	}
 	if input.Name != "" {
 		account.Name = input.Name
 	}
 	if input.Type != "" {
 		account.Type = input.Type
+		// 类型变了，来源维度必须跟着变，内存对象与库内保持一致。
+		account.SourceKind = DeriveAccountSourceKind(account.Type)
 	}
 	if input.Notes != nil {
 		account.Notes = normalizeAccountNotes(input.Notes)
@@ -696,14 +710,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 		}
 		normalizedExtra = prepareCodexFingerprintExtraForUpdate(account, normalizedExtra)
 		account.Extra = normalizedExtra
-		if account.Platform == PlatformAntigravity && wasOveragesEnabled && !account.IsOveragesEnabled() {
+		if account.IsAntigravity() && wasOveragesEnabled && !account.IsOveragesEnabled() {
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 			// 清除 AICredits 限流 key
 			if rawLimits, ok := account.Extra[modelRateLimitsKey].(map[string]any); ok {
 				delete(rawLimits, creditsExhaustedKey)
 			}
 		}
-		if account.Platform == PlatformAntigravity && !wasOveragesEnabled && account.IsOveragesEnabled() {
+		if account.IsAntigravity() && !wasOveragesEnabled && account.IsOveragesEnabled() {
 			delete(account.Extra, modelRateLimitsKey)
 			delete(account.Extra, "antigravity_credits_overages") // 清理旧版 overages 运行态
 		}
@@ -1202,6 +1216,10 @@ func upstreamBillingProbeIdentity(account *Account) map[string]any {
 			identity[key] = value
 		}
 	}
+	// 第三方 key 的上游坐标在协议映射里；只在非空时放入，避免 nil 与空 map 被 DeepEqual 判成不同。
+	if len(account.ProtocolEndpoints) > 0 {
+		identity["protocol_endpoints"] = account.ProtocolEndpoints
+	}
 	return identity
 }
 
@@ -1463,8 +1481,7 @@ func (s *adminServiceImpl) propagateProxyToShadows(ctx context.Context, parentID
 }
 
 // propagateAccountProxyToShadows 把母账号的 proxy 同步到其所有 spark 影子(影子 proxy 恒继承母账号)。
-// 供 AdminService 编辑路径与 CRS 同步路径共用——后者改动母账号 proxy 后必须同样传播,否则影子保留
-// 旧 proxy 出现出站漂移(外审第8轮)。
+// 母账号 proxy 改动后必须传播,否则影子保留旧 proxy 出现出站漂移(外审第8轮)。
 func propagateAccountProxyToShadows(ctx context.Context, repo AccountRepository, parentID int64, proxyID *int64) error {
 	shadows, err := repo.ListShadowsByParent(ctx, parentID)
 	if err != nil {
@@ -1713,7 +1730,7 @@ func (s *adminServiceImpl) ForceOpenAIPrivacy(ctx context.Context, account *Acco
 // 仅当 privacy_mode 已成功设置（"privacy_set"）时跳过；
 // 未设置或之前失败（"privacy_set_failed"）均会重试。
 func (s *adminServiceImpl) EnsureAntigravityPrivacy(ctx context.Context, account *Account) string {
-	if account.Platform != PlatformAntigravity || account.Type != AccountTypeOAuth {
+	if !account.IsAntigravity() || account.Type != AccountTypeOAuth {
 		return ""
 	}
 	if account.Extra != nil {
@@ -1751,7 +1768,7 @@ func (s *adminServiceImpl) EnsureAntigravityPrivacy(ctx context.Context, account
 
 // ForceAntigravityPrivacy 强制重新设置 Antigravity OAuth 账号隐私，无论当前状态。
 func (s *adminServiceImpl) ForceAntigravityPrivacy(ctx context.Context, account *Account) string {
-	if account.Platform != PlatformAntigravity || account.Type != AccountTypeOAuth {
+	if !account.IsAntigravity() || account.Type != AccountTypeOAuth {
 		return ""
 	}
 

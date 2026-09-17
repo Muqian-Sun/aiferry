@@ -144,6 +144,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_KeepLeaseAcrossT
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -282,15 +283,16 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_LeaseLossSendsRe
 		openaiWSPool:     pool,
 	}
 	account := &Account{
-		ID:          118,
-		Name:        "openai-ingress-lease-loss",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                118,
+		Name:              "openai-ingress-lease-loss",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -408,15 +410,16 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_IdleTimeoutRelea
 		openaiWSPool:     pool,
 	}
 	account := &Account{
-		ID:          116,
-		Name:        "openai-ingress-idle-timeout",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                116,
+		Name:              "openai-ingress-idle-timeout",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -539,6 +542,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_FollowupCreateCa
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -899,6 +903,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_DedicatedModeDoe
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeDedicated,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 2)
@@ -1019,6 +1024,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughModeR
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -1196,6 +1202,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PassthroughBridg
 				Extra: map[string]any{
 					"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModePassthrough,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 
 			errCh := make(chan error, 1)
@@ -1440,6 +1447,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_HTTPBridgeModeRe
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeHTTPBridge,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -1582,6 +1590,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ModeOffReturnsPo
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeOff,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -1695,6 +1704,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -1842,6 +1852,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -1983,6 +1994,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreEnabledSkip
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2115,6 +2127,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2247,6 +2260,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledFun
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2379,6 +2393,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledToo
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2514,6 +2529,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledFun
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2649,6 +2665,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledFun
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2783,6 +2800,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledFun
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -2926,6 +2944,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PreflightPingFai
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3068,6 +3087,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledStr
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3220,6 +3240,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3375,6 +3396,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3521,6 +3543,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledPre
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3662,6 +3685,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_WriteFailBeforeD
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	var hooksMu sync.Mutex
 	beforeTurnCalls := make(map[int]int)
@@ -3825,6 +3849,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PreviousResponse
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -3976,6 +4001,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StoreDisabledStr
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -4132,6 +4158,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_PreviousResponse
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -4257,6 +4284,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_RejectsMessageID
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -4505,6 +4533,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ClientDisconnect
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)
@@ -4636,6 +4665,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_InvalidEncrypted
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)

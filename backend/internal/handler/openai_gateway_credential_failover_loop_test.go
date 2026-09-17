@@ -879,6 +879,7 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 	if mode == "oauth_429_apikey_500" {
 		accounts[1].Type = service.AccountTypeAPIKey
 		accounts[1].Credentials = map[string]any{"api_key": "third-party-key"}
+		accounts[1].ProtocolEndpoints = service.PlatformProtocolDefaults(service.PlatformGrok, "")
 	}
 	if mode == "all_revoked" {
 		accounts[1].Credentials["expires_at"] = time.Now().Add(-time.Minute).UTC().Format(time.RFC3339)
@@ -923,11 +924,11 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3
-	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
-		&service.DeferredService{}, nil, provider, nil, nil, nil, nil, nil,
+		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
 	)
 	cache := &concurrencyCacheMock{
 		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },

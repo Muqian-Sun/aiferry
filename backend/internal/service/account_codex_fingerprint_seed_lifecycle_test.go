@@ -184,6 +184,7 @@ func TestDuplicateAccountDoesNotCopyCodexFingerprintSeed(t *testing.T) {
 			codexFingerprintModeExtraKey: "session",
 			codexFingerprintSeedExtraKey: testCodexFingerprintSeed,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
 

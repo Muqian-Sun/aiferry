@@ -63,17 +63,10 @@ func (m *mockAccountRepoForGemini) ListSchedulableByGroupIDAndPlatform(ctx conte
 
 // Stub methods to implement AccountRepository interface
 func (m *mockAccountRepoForGemini) Create(ctx context.Context, account *Account) error { return nil }
-func (m *mockAccountRepoForGemini) GetByCRSAccountID(ctx context.Context, crsAccountID string) (*Account, error) {
-	return nil, nil
-}
-
 func (m *mockAccountRepoForGemini) FindByExtraField(ctx context.Context, key string, value any) ([]Account, error) {
 	return nil, nil
 }
 
-func (m *mockAccountRepoForGemini) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
-	return nil, nil
-}
 func (m *mockAccountRepoForGemini) Update(ctx context.Context, account *Account) error { return nil }
 func (m *mockAccountRepoForGemini) Delete(ctx context.Context, id int64) error         { return nil }
 func (m *mockAccountRepoForGemini) List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
@@ -472,7 +465,7 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_OAuthPr
 
 	repo := &mockAccountRepoForGemini{
 		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Type: AccountTypeAPIKey, Priority: 1, Status: StatusActive, Schedulable: true, LastUsedAt: nil},
+			{ID: 1, Platform: PlatformGemini, Type: AccountTypeAPIKey, Priority: 1, Status: StatusActive, Schedulable: true, LastUsedAt: nil, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			{ID: 2, Platform: PlatformGemini, Type: AccountTypeOAuth, Priority: 1, Status: StatusActive, Schedulable: true, LastUsedAt: nil},
 		},
 		accountsByID: map[int64]*Account{},
@@ -832,7 +825,7 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_PreferO
 	ctx := context.Background()
 	repo := &mockAccountRepoForGemini{
 		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey},
+			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeOAuth},
 		},
 		accountsByID: map[int64]*Account{},

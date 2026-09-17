@@ -32,8 +32,9 @@ func TestUsageBillingRepositoryApply_DeduplicatesBalanceBilling(t *testing.T) {
 		Quota:  1,
 	})
 	account := mustCreateAccount(t, client, &service.Account{
-		Name: "usage-billing-account-" + uuid.NewString(),
-		Type: service.AccountTypeAPIKey,
+		Name:              "usage-billing-account-" + uuid.NewString(),
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	})
 
 	requestID := uuid.NewString()
@@ -177,8 +178,9 @@ func TestUsageBillingRepositoryApply_UpdatesAccountQuota(t *testing.T) {
 		Name:   "billing-account",
 	})
 	account := mustCreateAccount(t, client, &service.Account{
-		Name: "usage-billing-account-quota-" + uuid.NewString(),
-		Type: service.AccountTypeAPIKey,
+		Name:              "usage-billing-account-quota-" + uuid.NewString(),
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 		Extra: map[string]any{
 			"quota_limit": 100.0,
 		},
@@ -216,9 +218,10 @@ func TestUsageBillingRepositoryApply_EnqueuesSchedulerOutboxOnQuotaCrossing(t *t
 			Name:   "billing-outbox",
 		})
 		account := mustCreateAccount(t, client, &service.Account{
-			Name:  "usage-billing-outbox-" + uuid.NewString(),
-			Type:  service.AccountTypeAPIKey,
-			Extra: extra,
+			Name:              "usage-billing-outbox-" + uuid.NewString(),
+			Type:              service.AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
+			Extra:             extra,
 		})
 		return apiKey.ID, account.ID
 	}

@@ -270,6 +270,9 @@ func TestForwardAlphaSearchAPIKeyMapsModelAndPassesThroughError(t *testing.T) {
 				"gpt-5.6-sol": "upstream-5.6",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://compat.example/v4",
+		},
 	}
 
 	result, err := service.ForwardAlphaSearch(context.Background(), c, account, body)
@@ -305,6 +308,7 @@ func TestForwardAlphaSearchReturnsFailoverBeforeWriting(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key": "sk-test",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	result, err := service.ForwardAlphaSearch(context.Background(), c, account, body)
@@ -572,6 +576,9 @@ func TestForwardAlphaSearchAPIKeyEndpointNotFoundFailsOver(t *testing.T) {
 			"api_key":  "sk-test",
 			"base_url": "https://relay.example",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example",
+		},
 	}
 
 	result, err := service.ForwardAlphaSearch(context.Background(), c, account, body)
@@ -647,7 +654,7 @@ func TestSanitizeOpenAIAlphaSearchBody_RemovesResponsesOnlyFields(t *testing.T) 
 }
 
 func TestIsOpenAIAlphaSearchEndpointUnsupported(t *testing.T) {
-	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	apiKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	oauth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 
 	require.True(t, isOpenAIAlphaSearchEndpointUnsupported(apiKey, http.StatusNotFound))

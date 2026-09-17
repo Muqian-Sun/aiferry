@@ -24,6 +24,9 @@ func TestProbeOpenAIAPIKeyResponsesSupportUsesCodexProbeHeaders(t *testing.T) {
 			"api_key":  "sk-test",
 			"base_url": "https://compat-upstream.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://compat-upstream.example/v1",
+		},
 	}
 	repo := &snapshotUpdateAccountRepo{
 		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},

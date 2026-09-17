@@ -17,6 +17,7 @@ func TestGrokAPIKeyURLPolicyFollowsGlobalSecurityConfig(t *testing.T) {
 		Credentials: map[string]any{
 			"base_url": "http://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "http://grok.example.test/v1", APIProtocolResponses: "http://grok.example.test/v1"},
 	}
 
 	t.Run("insecure HTTP enabled with allowlist disabled", func(t *testing.T) {
@@ -68,6 +69,7 @@ func TestGrokAPIKeyURLPolicyAppliesAllowlistAndPrivateHostControls(t *testing.T)
 		Credentials: map[string]any{
 			"base_url": "https://grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
 	}
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = true
@@ -81,7 +83,7 @@ func TestGrokAPIKeyURLPolicyAppliesAllowlistAndPrivateHostControls(t *testing.T)
 	_, err = buildGrokResponsesURL(account, cfg)
 	require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
 
-	account.Credentials["base_url"] = "https://127.0.0.1/v1"
+	account.ProtocolEndpoints[APIProtocolResponses] = "https://127.0.0.1/v1"
 	cfg.Security.URLAllowlist.UpstreamHosts = []string{"127.0.0.1"}
 	_, err = buildGrokResponsesURL(account, cfg)
 	require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
@@ -99,6 +101,7 @@ func TestGrokAPIKeyURLPolicyRedactsMalformedConfiguredURL(t *testing.T) {
 		Credentials: map[string]any{
 			"base_url": "https://%zz:secret@grok.example.test/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://%zz:secret@grok.example.test/v1", APIProtocolResponses: "https://%zz:secret@grok.example.test/v1"},
 	}
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true

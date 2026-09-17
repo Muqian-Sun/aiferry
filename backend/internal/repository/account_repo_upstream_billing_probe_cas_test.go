@@ -72,6 +72,7 @@ func TestUpdateUpstreamBillingProbeSnapshotRequiresSameIdentityAndSnapshot(t *te
 				Extra: map[string]any{
 					service.UpstreamBillingProbeExtraKey: map[string]any{"status": "stale"},
 				},
+				ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "http://127.0.0.1:8080", service.APIProtocolResponses: "http://127.0.0.1:8080"},
 			}
 
 			txCtx := dbent.NewTxContext(context.Background(), tx)
@@ -116,6 +117,7 @@ func TestUpdateUpstreamBillingProbeSnapshotCommitsSnapshotAndOutboxAtomically(t 
 			service.UpstreamBillingProbeEnabledExtraKey:    true,
 			service.UpstreamBillingRateSyncEnabledExtraKey: true,
 		},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	rateMultiplier := 0.065
 
@@ -156,6 +158,7 @@ func TestUpdateUpstreamBillingProbeSnapshotRejectsChangedProxyIdentity(t *testin
 			ID: proxyID, Protocol: "http", Host: "old.example", Port: 3128,
 			Username: "user", Password: "pass", Status: service.StatusActive,
 		},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	repo := newAccountRepositoryWithSQL(client, db, nil)
 	err = repo.UpdateUpstreamBillingProbeSnapshot(dbent.NewTxContext(context.Background(), tx), account, &service.UpstreamBillingProbeSnapshot{Status: service.UpstreamBillingProbeStatusOK}, nil)
@@ -191,6 +194,7 @@ func TestUpdateUpstreamBillingProbeSnapshotRollsBackWhenOutboxFails(t *testing.T
 			service.UpstreamBillingProbeEnabledExtraKey:    true,
 			service.UpstreamBillingRateSyncEnabledExtraKey: true,
 		},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 	rateMultiplier := 0.7
 

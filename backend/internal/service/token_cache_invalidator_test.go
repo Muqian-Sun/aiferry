@@ -155,25 +155,28 @@ func TestCompositeTokenCacheInvalidator_SkipNonOAuth(t *testing.T) {
 		{
 			name: "gemini_api_key",
 			account: &Account{
-				ID:       1,
-				Platform: PlatformGemini,
-				Type:     AccountTypeAPIKey,
+				ID:                1,
+				Platform:          PlatformGemini,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 			},
 		},
 		{
 			name: "openai_api_key",
 			account: &Account{
-				ID:       2,
-				Platform: PlatformOpenAI,
-				Type:     AccountTypeAPIKey,
+				ID:                2,
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		},
 		{
 			name: "claude_api_key",
 			account: &Account{
-				ID:       3,
-				Platform: PlatformAnthropic,
-				Type:     AccountTypeAPIKey,
+				ID:                3,
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 		{

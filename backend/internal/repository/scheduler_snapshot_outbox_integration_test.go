@@ -35,15 +35,16 @@ func TestSchedulerSnapshotOutboxReplay(t *testing.T) {
 	}
 
 	account := &service.Account{
-		Name:        "outbox-replay-" + time.Now().Format("150405.000000"),
-		Platform:    service.PlatformOpenAI,
-		Type:        service.AccountTypeAPIKey,
-		Status:      service.StatusActive,
-		Schedulable: true,
-		Concurrency: 3,
-		Priority:    1,
-		Credentials: map[string]any{},
-		Extra:       map[string]any{},
+		Name:              "outbox-replay-" + time.Now().Format("150405.000000"),
+		Platform:          service.PlatformOpenAI,
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com"},
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		Concurrency:       3,
+		Priority:          1,
+		Credentials:       map[string]any{},
+		Extra:             map[string]any{},
 	}
 	require.NoError(t, accountRepo.Create(ctx, account))
 	require.NoError(t, cache.SetAccount(ctx, account))

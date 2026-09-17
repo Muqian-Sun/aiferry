@@ -586,7 +586,7 @@ func TestRefreshIfNeeded_RevalidatesFreshAccountBeforeRefresh(t *testing.T) {
 		name  string
 		fresh *Account
 	}{
-		{name: "converted to API key", fresh: &Account{ID: 82, Platform: PlatformGrok, Type: AccountTypeAPIKey, Status: StatusActive}},
+		{name: "converted to API key", fresh: &Account{ID: 82, Platform: PlatformGrok, Type: AccountTypeAPIKey, Status: StatusActive, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}},
 		{name: "disabled", fresh: &Account{ID: 82, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusDisabled}},
 	}
 	for _, tt := range tests {

@@ -98,7 +98,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 
 	diag := ModelAvailabilityDiagnosis{}
 	for i := range accounts {
-		if useMixed && accounts[i].Platform == PlatformAntigravity && !accounts[i].IsMixedSchedulingEnabled() {
+		if useMixed && accounts[i].IsAntigravity() && !accounts[i].IsMixedSchedulingEnabled() {
 			continue
 		}
 		diag.HasAccountsInPool = true

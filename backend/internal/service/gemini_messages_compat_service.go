@@ -291,7 +291,7 @@ func (s *GeminiMessagesCompatService) isAccountValidForPlatform(account *Account
 	if account.Platform == platform {
 		return true
 	}
-	if useMixedScheduling && account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled() {
+	if useMixedScheduling && account.IsAntigravity() && account.IsMixedSchedulingEnabled() {
 		return true
 	}
 	return false
@@ -408,7 +408,7 @@ func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *
 
 // isModelSupportedByAccount 根据账户平台检查模型支持
 func (s *GeminiMessagesCompatService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}
@@ -631,6 +631,9 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 
 			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+			if baseURL == "" {
+				return nil, "", MissingProtocolEndpointError(account, APIProtocolGemini)
+			}
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -1200,6 +1203,9 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 
 			baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+			if baseURL == "" {
+				return nil, "", MissingProtocolEndpointError(account, APIProtocolGemini)
+			}
 			normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 			if err != nil {
 				return nil, "", err
@@ -2864,6 +2870,9 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 	path = sanitizedPath
 
 	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolGemini)
+	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
 		return nil, err

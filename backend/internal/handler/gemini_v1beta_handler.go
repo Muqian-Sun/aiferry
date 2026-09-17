@@ -322,7 +322,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}
 
 	// 2) billing eligibility check (after wait)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription, service.QuotaPlatform(c.Request.Context(), apiKey)); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
 		reqLog.Info("gemini.billing_eligibility_check_failed", zap.Error(err))
 		status, _, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -646,13 +646,11 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
 		// ForceCacheBilling 提前拍成标量，避免 worker 闭包保活 failover 状态里的响应体。
 		forceCacheBilling := fs.ForceCacheBilling
-		quotaPlatform := service.QuotaPlatform(c.Request.Context(), apiKey)
 		sessionID := service.ExtractClientSessionID(c)
 		// 长上下文阶梯由目录数据驱动，统一在计费路径内生效，入口无需声明。
 		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
 				Result:             result,
-				QuotaPlatform:      quotaPlatform,
 				APIKey:             apiKey,
 				User:               apiKey.User,
 				Account:            account,

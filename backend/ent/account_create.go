@@ -111,6 +111,26 @@ func (_c *AccountCreate) SetExtra(v map[string]interface{}) *AccountCreate {
 	return _c
 }
 
+// SetSourceKind sets the "source_kind" field.
+func (_c *AccountCreate) SetSourceKind(v string) *AccountCreate {
+	_c.mutation.SetSourceKind(v)
+	return _c
+}
+
+// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
+func (_c *AccountCreate) SetNillableSourceKind(v *string) *AccountCreate {
+	if v != nil {
+		_c.SetSourceKind(*v)
+	}
+	return _c
+}
+
+// SetProtocolEndpoints sets the "protocol_endpoints" field.
+func (_c *AccountCreate) SetProtocolEndpoints(v map[string]string) *AccountCreate {
+	_c.mutation.SetProtocolEndpoints(v)
+	return _c
+}
+
 // SetProxyID sets the "proxy_id" field.
 func (_c *AccountCreate) SetProxyID(v int64) *AccountCreate {
 	_c.mutation.SetProxyID(v)
@@ -553,6 +573,13 @@ func (_c *AccountCreate) defaults() error {
 		v := account.DefaultExtra()
 		_c.mutation.SetExtra(v)
 	}
+	if _, ok := _c.mutation.ProtocolEndpoints(); !ok {
+		if account.DefaultProtocolEndpoints == nil {
+			return fmt.Errorf("ent: uninitialized account.DefaultProtocolEndpoints (forgotten import ent/runtime?)")
+		}
+		v := account.DefaultProtocolEndpoints()
+		_c.mutation.SetProtocolEndpoints(v)
+	}
 	if _, ok := _c.mutation.Concurrency(); !ok {
 		v := account.DefaultConcurrency
 		_c.mutation.SetConcurrency(v)
@@ -621,6 +648,14 @@ func (_c *AccountCreate) check() error {
 	}
 	if _, ok := _c.mutation.Extra(); !ok {
 		return &ValidationError{Name: "extra", err: errors.New(`ent: missing required field "Account.extra"`)}
+	}
+	if v, ok := _c.mutation.SourceKind(); ok {
+		if err := account.SourceKindValidator(v); err != nil {
+			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.ProtocolEndpoints(); !ok {
+		return &ValidationError{Name: "protocol_endpoints", err: errors.New(`ent: missing required field "Account.protocol_endpoints"`)}
 	}
 	if _, ok := _c.mutation.Concurrency(); !ok {
 		return &ValidationError{Name: "concurrency", err: errors.New(`ent: missing required field "Account.concurrency"`)}
@@ -720,6 +755,14 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
 		_node.Extra = value
+	}
+	if value, ok := _c.mutation.SourceKind(); ok {
+		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
+		_node.SourceKind = &value
+	}
+	if value, ok := _c.mutation.ProtocolEndpoints(); ok {
+		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)
+		_node.ProtocolEndpoints = value
 	}
 	if value, ok := _c.mutation.ProxyFallbackOriginID(); ok {
 		_spec.SetField(account.FieldProxyFallbackOriginID, field.TypeInt64, value)
@@ -1044,6 +1087,36 @@ func (u *AccountUpsert) SetExtra(v map[string]interface{}) *AccountUpsert {
 // UpdateExtra sets the "extra" field to the value that was provided on create.
 func (u *AccountUpsert) UpdateExtra() *AccountUpsert {
 	u.SetExcluded(account.FieldExtra)
+	return u
+}
+
+// SetSourceKind sets the "source_kind" field.
+func (u *AccountUpsert) SetSourceKind(v string) *AccountUpsert {
+	u.Set(account.FieldSourceKind, v)
+	return u
+}
+
+// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateSourceKind() *AccountUpsert {
+	u.SetExcluded(account.FieldSourceKind)
+	return u
+}
+
+// ClearSourceKind clears the value of the "source_kind" field.
+func (u *AccountUpsert) ClearSourceKind() *AccountUpsert {
+	u.SetNull(account.FieldSourceKind)
+	return u
+}
+
+// SetProtocolEndpoints sets the "protocol_endpoints" field.
+func (u *AccountUpsert) SetProtocolEndpoints(v map[string]string) *AccountUpsert {
+	u.Set(account.FieldProtocolEndpoints, v)
+	return u
+}
+
+// UpdateProtocolEndpoints sets the "protocol_endpoints" field to the value that was provided on create.
+func (u *AccountUpsert) UpdateProtocolEndpoints() *AccountUpsert {
+	u.SetExcluded(account.FieldProtocolEndpoints)
 	return u
 }
 
@@ -1599,6 +1672,41 @@ func (u *AccountUpsertOne) SetExtra(v map[string]interface{}) *AccountUpsertOne 
 func (u *AccountUpsertOne) UpdateExtra() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateExtra()
+	})
+}
+
+// SetSourceKind sets the "source_kind" field.
+func (u *AccountUpsertOne) SetSourceKind(v string) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSourceKind(v)
+	})
+}
+
+// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateSourceKind() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSourceKind()
+	})
+}
+
+// ClearSourceKind clears the value of the "source_kind" field.
+func (u *AccountUpsertOne) ClearSourceKind() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearSourceKind()
+	})
+}
+
+// SetProtocolEndpoints sets the "protocol_endpoints" field.
+func (u *AccountUpsertOne) SetProtocolEndpoints(v map[string]string) *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetProtocolEndpoints(v)
+	})
+}
+
+// UpdateProtocolEndpoints sets the "protocol_endpoints" field to the value that was provided on create.
+func (u *AccountUpsertOne) UpdateProtocolEndpoints() *AccountUpsertOne {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateProtocolEndpoints()
 	})
 }
 
@@ -2384,6 +2492,41 @@ func (u *AccountUpsertBulk) SetExtra(v map[string]interface{}) *AccountUpsertBul
 func (u *AccountUpsertBulk) UpdateExtra() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateExtra()
+	})
+}
+
+// SetSourceKind sets the "source_kind" field.
+func (u *AccountUpsertBulk) SetSourceKind(v string) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetSourceKind(v)
+	})
+}
+
+// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateSourceKind() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateSourceKind()
+	})
+}
+
+// ClearSourceKind clears the value of the "source_kind" field.
+func (u *AccountUpsertBulk) ClearSourceKind() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.ClearSourceKind()
+	})
+}
+
+// SetProtocolEndpoints sets the "protocol_endpoints" field.
+func (u *AccountUpsertBulk) SetProtocolEndpoints(v map[string]string) *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.SetProtocolEndpoints(v)
+	})
+}
+
+// UpdateProtocolEndpoints sets the "protocol_endpoints" field to the value that was provided on create.
+func (u *AccountUpsertBulk) UpdateProtocolEndpoints() *AccountUpsertBulk {
+	return u.Update(func(s *AccountUpsert) {
+		s.UpdateProtocolEndpoints()
 	})
 }
 

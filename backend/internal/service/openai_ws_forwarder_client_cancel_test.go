@@ -75,6 +75,7 @@ func TestForwardOpenAIWSV2_ClientCancellationDrainsWithoutSyntheticFailure(t *te
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_mode": OpenAIWSIngressModeCtxPool,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	result, err := svc.Forward(ctx, c, account, []byte(`{"model":"gpt-5.5","stream":true,"input":[{"type":"input_text","text":"hello"}]}`))

@@ -156,7 +156,8 @@ func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
 	if account.Type != AccountTypeAPIKey {
 		return false
 	}
-	rawBaseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	// 与 buildInputTokensUpstreamRequest 判断同一个地址，否则会出现「按 A 判定是否中转、实际请求 B」。
+	rawBaseURL := account.GetOpenAIResponsesBaseURL()
 	if rawBaseURL == "" {
 		return false
 	}
@@ -435,13 +436,16 @@ func (s *OpenAIGatewayService) buildInputTokensUpstreamRequest(
 ) (*http.Request, error) {
 	targetURL := openaiPlatformAPIInputTokensURL
 	if account.Type == AccountTypeAPIKey {
-		if baseURL := account.GetOpenAIBaseURL(); strings.TrimSpace(baseURL) != "" {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, err
-			}
-			targetURL = buildOpenAIResponsesInputTokensURL(validatedURL)
+		// input_tokens 是 Responses 端点的子路径，地址必须取 responses 协议。
+		baseURL := account.GetOpenAIResponsesBaseURL()
+		if baseURL == "" {
+			return nil, MissingProtocolEndpointError(account, APIProtocolResponses)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, err
+		}
+		targetURL = buildOpenAIResponsesInputTokensURL(validatedURL)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))

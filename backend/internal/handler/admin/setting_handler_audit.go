@@ -603,10 +603,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.CyberSessionBlockTTLSeconds != after.CyberSessionBlockTTLSeconds {
 		changed = append(changed, "cyber_session_block_ttl_seconds")
 	}
-	// Default platform quotas（JSON map，整体比较）
-	if !equalPlatformQuotaSettings(before.DefaultPlatformQuotas, after.DefaultPlatformQuotas) {
-		changed = append(changed, service.SettingKeyDefaultPlatformQuotas)
-	}
 	if !equalAccountSchedulingThresholds(before.AccountSchedulingThresholds, after.AccountSchedulingThresholds) {
 		changed = append(changed, service.SettingKeyAccountSchedulingThresholds)
 	}
@@ -652,10 +648,6 @@ func appendAuthSourceDefaultChanges(changed []string, before *service.AuthSource
 		}
 		if field.before.GrantOnFirstBind != field.after.GrantOnFirstBind {
 			changed = append(changed, "auth_source_default_"+field.name+"_grant_on_first_bind")
-		}
-		// Platform quotas diff：整体替换语义，发单个 JSON key。
-		if !equalPlatformQuotaSettings(field.before.PlatformQuotas, field.after.PlatformQuotas) {
-			changed = append(changed, service.SettingKeyAuthSourcePlatformQuotas(field.name))
 		}
 	}
 	if before.ForceEmailOnThirdPartySignup != after.ForceEmailOnThirdPartySignup {
@@ -724,17 +716,6 @@ func defaultSubscriptionsValueOrDefault(input *[]dto.DefaultSubscriptionSetting,
 	return result
 }
 
-// platformQuotasValueOrDefault 处理 auth-source platform quota 的 nil 语义：
-// nil = 请求未包含该字段（保留 fallback），non-nil（含 empty map）= 整体覆盖。
-// 注意：JSON null 与字段省略等价——两者均反序列化为 nil map，因此都保留旧值；
-// 若要清空某 source 的所有 quota 配置，须显式发空对象 {}。
-func platformQuotasValueOrDefault(value, fallback map[string]*service.DefaultPlatformQuotaSetting) map[string]*service.DefaultPlatformQuotaSetting {
-	if value == nil {
-		return fallback
-	}
-	return value
-}
-
 func equalStringSlice(a, b []string) bool {
 	if len(a) != len(b) {
 		return false
@@ -795,34 +776,6 @@ func equalNotifyEmailEntries(a, b []service.NotifyEmailEntry) bool {
 	return true
 }
 
-// equalNullableFloat compares two *float64 values treating nil as a distinct case.
-func equalNullableFloat(a, b *float64) bool {
-	if a == nil && b == nil {
-		return true
-	}
-	if a == nil || b == nil {
-		return false
-	}
-	return *a == *b
-}
-
-// slotOf returns the *float64 for the given window from a DefaultPlatformQuotaSetting.
-func slotOf(s *service.DefaultPlatformQuotaSetting, win string) *float64 {
-	if s == nil {
-		return nil
-	}
-	switch win {
-	case "daily":
-		return s.DailyLimitUSD
-	case "weekly":
-		return s.WeeklyLimitUSD
-	case "monthly":
-		return s.MonthlyLimitUSD
-	}
-	return nil
-}
-
-// equalPlatformQuotaSettings reports whether two platform-quota maps are identical across all allowed slots.
 func equalAccountSchedulingThresholds(before, after map[string]int) bool {
 	for _, platform := range service.AllowedSchedulingThresholdPlatforms {
 		beforeValue := 100
@@ -838,23 +791,6 @@ func equalAccountSchedulingThresholds(before, after map[string]int) bool {
 			}
 		}
 		if beforeValue != afterValue {
-			return false
-		}
-	}
-	return true
-}
-
-func equalPlatformQuotaSettings(before, after map[string]*service.DefaultPlatformQuotaSetting) bool {
-	for _, platform := range service.AllowedQuotaPlatforms {
-		b := before[platform]
-		a := after[platform]
-		if !equalNullableFloat(slotOf(b, "daily"), slotOf(a, "daily")) {
-			return false
-		}
-		if !equalNullableFloat(slotOf(b, "weekly"), slotOf(a, "weekly")) {
-			return false
-		}
-		if !equalNullableFloat(slotOf(b, "monthly"), slotOf(a, "monthly")) {
 			return false
 		}
 	}

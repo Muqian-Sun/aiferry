@@ -34,6 +34,7 @@ func TestForwardResponsesInputTokensCustomRelayUsesLocalEstimate(t *testing.T) {
 			"api_key":  "relay-key",
 			"base_url": "https://relay.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 	}
 	body := []byte(`{"model":"gpt-5.4","instructions":"Be concise.","input":"hello world","tools":[{"type":"function","name":"lookup","description":"Look up a value","parameters":{"type":"object"}}]}`)
 
@@ -90,6 +91,7 @@ func TestForwardResponsesInputTokensUpstream404FallsBackLocally(t *testing.T) {
 			"api_key":  "official-key",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 	body := []byte(`{"model":"gpt-5.4","instructions":"Be concise.","input":"hello world"}`)
 

@@ -19,7 +19,7 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 	require.NoError(t, err)
 	account := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
 		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
-	}}
+	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: metadata})
 	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account}, nil, nil, true)
 	require.NoError(t, err)
@@ -38,7 +38,7 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 
 func TestAstraUltraCatalogPreservesExplicitWorkflowOverrides(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"base_url": "https://relay.example/v1"}}
+		Credentials: map[string]any{"base_url": "https://relay.example/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	for _, fields := range []string{
 		`"multi_agent_reasoning_effort":"high","multi_agent_version":"v1"`,
 		`"multi_agent_reasoning_effort":null,"multi_agent_version":null`,
@@ -65,7 +65,13 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 	newAccount := func(baseURL string) Account {
 		return Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
 			"base_url": baseURL, "model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
-		}}
+		},
+			// 第三方 key 的上游地址只认协议映射，与 base_url 指向同一地址。
+			ProtocolEndpoints: map[string]string{
+				APIProtocolChatCompletions: baseURL,
+				APIProtocolResponses:       baseURL,
+			},
+		}
 	}
 	official := newAccount("https://api.openai.com/v1")
 	custom := newAccount("https://relay.example/v1")
@@ -110,7 +116,7 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 
 func TestAstraCodexToolCapabilitiesPreserveLiveNullAndFalse(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"base_url": "https://api.openai.com/v1"}}
+		Credentials: map[string]any{"base_url": "https://api.openai.com/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{
 			"supports_search_tool": json.RawMessage("true"), "apply_patch_tool_type": json.RawMessage(`"freeform"`),
@@ -170,6 +176,7 @@ func TestBuildCodexModelsManifestForGroupUsesSyncedAccountMetadata(t *testing.T)
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/v1", APIProtocolResponses: "https://opencode.ai/zen/v1"},
 	}
 	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
 		groupID: {account},
@@ -204,6 +211,7 @@ func TestBuildCodexModelsManifestForGroupUsesNoneForExplicitNonReasoningMetadata
 			"base_url":      "https://provider.example/v1",
 			"model_mapping": map[string]any{"company-coding-model": "company-coding-model"},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 	}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"company-coding-model": {
@@ -235,7 +243,8 @@ func TestBuildCodexModelsManifestForGroupAdvertisesSearchOnlyForChatBridgeRoutes
 				"base_url":      "https://provider.example/v1",
 				"model_mapping": map[string]any{"company-coding-model": "company-coding-model"},
 			},
-			Extra: map[string]any{"openai_responses_supported": nativeResponses},
+			Extra:             map[string]any{"openai_responses_supported": nativeResponses},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 		}
 	}
 
@@ -271,7 +280,8 @@ func TestCompleteAPIKeyCodexManifestSearchCapabilityPreservesUpstreamAndFailsClo
 		Credentials: map[string]any{
 			"base_url": "https://provider.example/v1",
 		},
-		Extra: map[string]any{"openai_responses_supported": true},
+		Extra:             map[string]any{"openai_responses_supported": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 	}
 	body, err := completeAPIKeyCodexModelsManifestMetadata([]byte(`{"models":[
 		{"slug":"explicit","supports_search_tool":true},
@@ -288,7 +298,8 @@ func TestCompleteAPIKeyCodexManifestSearchCapabilityPreservesUpstreamAndFailsClo
 		Credentials: map[string]any{
 			"base_url": "https://provider.example/v1",
 		},
-		Extra: map[string]any{"openai_responses_supported": false},
+		Extra:             map[string]any{"openai_responses_supported": false},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 	}
 	body, err = completeAPIKeyCodexModelsManifestMetadata(
 		[]byte(`{"models":[
@@ -315,6 +326,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsSyncedAccountMetadata(t *test
 				"base_url":      "https://provider.example/v1",
 				"model_mapping": map[string]any{"shared-model": "shared-model"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 		}
 		account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 			"shared-model": {
@@ -358,6 +370,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsDifferentMappedTargetsWithout
 				"base_url":      "https://provider.example/v1",
 				"model_mapping": map[string]any{"my-coder": target},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 		}
 		account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 			target: {
@@ -574,6 +587,7 @@ func TestBuildCodexModelsManifestForGroupDoesNotAdvertiseNoneWhenAccountReasonin
 				"base_url":      "https://provider.example/v1",
 				"model_mapping": map[string]any{"shared-model": "shared-model"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 		}
 		account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 			"shared-model": metadata,
@@ -608,7 +622,7 @@ func TestBuildCodexModelsManifestForGroupDoesNotAdvertiseNoneWhenAccountReasonin
 func TestAstraCodexToolCapabilitiesFollowAPIKeyAlias(t *testing.T) {
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
 		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"my-astra": "gpt-6-astra"},
-	}}
+	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{
 			"supports_search_tool": json.RawMessage("true"), "apply_patch_tool_type": json.RawMessage(`"freeform"`),
@@ -633,7 +647,7 @@ func TestAstraCodexToolCapabilitiesFollowAPIKeyAlias(t *testing.T) {
 func TestAstraCodexToolCapabilitiesKeepAPIKeyResponsesLiteGuard(t *testing.T) {
 	account := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{
 		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"my-astra": "gpt-6-astra"},
-	}}
+	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
 	}})
@@ -661,6 +675,7 @@ func TestCodexAliasFailoverMappingHonorsModelRouting(t *testing.T) {
 				"base_url":      "https://relay.example/v1",
 				"model_mapping": map[string]any{"gpt-6-astra": target},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"},
 		}
 	}
 	// Account 16-alike serves the alias natively; account 1-alike is the failover

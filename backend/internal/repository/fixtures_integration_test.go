@@ -211,6 +211,9 @@ func mustCreateAccount(t *testing.T, client *dbent.Client, a *service.Account) *
 		SetSchedulable(a.Schedulable).
 		SetErrorMessage(a.ErrorMessage)
 
+	if a.ProtocolEndpoints != nil {
+		create.SetProtocolEndpoints(a.ProtocolEndpoints)
+	}
 	if a.ProxyID != nil {
 		create.SetProxyID(*a.ProxyID)
 	}

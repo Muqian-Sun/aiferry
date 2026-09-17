@@ -151,9 +151,9 @@ func (s *AccountTestService) ProbeOpenAIAPIKeyResponsesSupport(ctx context.Conte
 		logger.LegacyPrintf("service.openai_probe", "probe_skip_no_apikey: account_id=%d", accountID)
 		return
 	}
-	baseURL := account.GetOpenAIBaseURL()
-	if baseURL == "" {
-		baseURL = "https://api.openai.com"
+	baseURL, err := ResolveUpstreamBaseURL(account, account.GetOpenAIResponsesBaseURL(), APIProtocolResponses, "https://api.openai.com")
+	if err != nil {
+		return
 	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {

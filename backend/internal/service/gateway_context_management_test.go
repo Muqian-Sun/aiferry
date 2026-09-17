@@ -424,9 +424,10 @@ func newAnthropicAPIKeyPassthroughAccountForBetaTest() *Account {
 		Credentials: map[string]any{
 			"api_key": "upstream-key",
 		},
-		Extra:       map[string]any{"anthropic_passthrough": true},
-		Status:      StatusActive,
-		Schedulable: true,
+		Extra:             map[string]any{"anthropic_passthrough": true},
+		Status:            StatusActive,
+		Schedulable:       true,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 }
 
@@ -537,6 +538,7 @@ func TestBuildUpstreamRequest_APIKeyHaiku_RemainsUnmimicked(t *testing.T) {
 		ID: 404, Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-ant-xxx"},
 		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	body := []byte(`{"model":"claude-haiku-4-5","system":"API-key client system","thinking":{"type":"enabled"},"messages":[]}`)
 	svc := newTestGatewayServiceForBeta(true)
@@ -686,6 +688,7 @@ func TestBuildCountTokensRequest_APIKeyHaiku_StripsContextManagementEndToEnd(t *
 	account := &Account{ID: 412, Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-ant-xxx"},
 		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	body := []byte(`{"model":"claude-haiku-4-5","context_management":{"edits":[]},"messages":[]}`)
 	svc := &GatewayService{cfg: &config.Config{}}
@@ -712,7 +715,7 @@ func TestBuildCountTokensRequest_StripsCacheControlOnlyFromLiteralDeferredTools(
 	}{
 		{
 			name:      "generic API key",
-			account:   &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey},
+			account:   &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}},
 			token:     "sk-ant-test",
 			tokenType: "apikey",
 		},
@@ -775,6 +778,7 @@ func TestBuildUpstreamRequest_APIKeyHaikuWithContextManagement_StripsField(t *te
 	account := &Account{ID: 404, Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-ant-xxx"},
 		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	body := []byte(`{"model":"claude-haiku-4-5","context_management":{"edits":[]},"messages":[]}`)
 	svc := &GatewayService{cfg: &config.Config{}}

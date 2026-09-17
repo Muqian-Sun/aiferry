@@ -278,13 +278,6 @@ func (a *Account) openCodeDefaultChatBaseURL() string {
 	return DefaultOpenCodeGoBaseURL
 }
 
-func (a *Account) openCodeDefaultAnthropicBaseURL() string {
-	if a.IsOpenCodeZen() {
-		return DefaultOpenCodeZenAnthropicBaseURL
-	}
-	return DefaultOpenCodeGoAnthropicBaseURL
-}
-
 func (a *Account) IsMultiProtocolAPIKey() bool {
 	return a != nil && IsMultiProtocolAPIKeyProvider(a.Platform)
 }
@@ -322,9 +315,5 @@ func (a *Account) ResolveOpenCodeGoUpstreamProtocol(model string) string {
 }
 
 func openCodeGoQuotaURL(baseURL string) string {
-	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
-	if base == "" {
-		base = DefaultOpenCodeGoBaseURL
-	}
-	return base + openCodeGoUsagePath
+	return strings.TrimRight(strings.TrimSpace(baseURL), "/") + openCodeGoUsagePath
 }

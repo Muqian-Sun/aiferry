@@ -224,9 +224,10 @@ func TestRateLimitService_HandleUpstreamError_NonOAuth401(t *testing.T) {
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetTokenCacheInvalidator(invalidator)
 	account := &Account{
-		ID:       102,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
+		ID:                102,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	shouldDisable := service.HandleUpstreamError(context.Background(), account, 401, http.Header{}, []byte("unauthorized"))

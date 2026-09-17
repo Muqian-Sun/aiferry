@@ -23,14 +23,15 @@ import (
 func TestSchedulerCachePreservesRateMultiplier(t *testing.T) {
 	rate := 0.75
 	account := service.Account{
-		ID:             9001,
-		Name:           "profit-gate-rate",
-		Platform:       service.PlatformOpenAI,
-		Type:           service.AccountTypeAPIKey,
-		Status:         service.StatusActive,
-		Schedulable:    true,
-		Concurrency:    2,
-		RateMultiplier: &rate,
+		ID:                9001,
+		Name:              "profit-gate-rate",
+		Platform:          service.PlatformOpenAI,
+		Type:              service.AccountTypeAPIKey,
+		Status:            service.StatusActive,
+		Schedulable:       true,
+		Concurrency:       2,
+		RateMultiplier:    &rate,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	t.Run("metadata payload keeps the field", func(t *testing.T) {

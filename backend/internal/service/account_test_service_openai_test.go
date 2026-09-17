@@ -268,8 +268,11 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key":      "sk-test",
-			"base_url":     "https://relay.example.com/v1",
 			"api_protocol": APIProtocolResponses,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.com/v1",
+			APIProtocolResponses:       "https://relay.example.com/v1",
 		},
 		Extra: map[string]any{
 			openai_compat.ExtraKeyResponsesSupported: true,
@@ -302,8 +305,11 @@ func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 		Concurrency: 1,
 		Credentials: map[string]any{
 			"api_key":      "sk-test",
-			"base_url":     "https://relay.example.com/v1",
 			"api_protocol": APIProtocolResponses,
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.com/v1",
+			APIProtocolResponses:       "https://relay.example.com/v1",
 		},
 		Extra: map[string]any{
 			openai_compat.ExtraKeyResponsesSupported: true,
@@ -320,39 +326,6 @@ func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 	require.NoError(t, err)
 	require.Len(t, upstream.requests, 1)
 	require.Equal(t, "https://relay.example.com/v1/responses", upstream.requests[0].URL.String())
-}
-
-func TestAccountTestService_DeepSeekDefaultBaseURLUsesNativeResponsesPath(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	ctx, _ := newTestContext()
-
-	resp := newJSONResponse(http.StatusOK, "")
-	resp.Body = io.NopCloser(strings.NewReader(`data: {"type":"response.completed"}
-
-`))
-	upstream := &queuedHTTPUpstream{responses: []*http.Response{resp}}
-	svc := &AccountTestService{
-		httpUpstream: upstream,
-		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
-	}
-	account := &Account{
-		ID:          92,
-		Platform:    PlatformDeepseek,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolResponses,
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesSupported: true,
-		},
-	}
-
-	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
-	require.NoError(t, err)
-	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "https://api.deepseek.com/responses", upstream.requests[0].URL.String())
 }
 
 func TestAccountTestService_OpenAI429PersistsSnapshotAndRateLimitState(t *testing.T) {
@@ -547,9 +520,10 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUsesCodexProbeHeaders(t *testin
 		Platform:    PlatformOpenAI,
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://compat-upstream.example/v1",
+		Credentials: map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://compat-upstream.example/v1",
+			APIProtocolResponses:       "https://compat-upstream.example/v1",
 		},
 		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: true},
 	}
@@ -584,15 +558,13 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUnsupportedUsesChatCompletionsP
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
 	account := &Account{
-		ID:          91,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://compat-upstream.example/v1",
-		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
+		ID:                91,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example/v1"},
+		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "hello", "")
@@ -623,15 +595,13 @@ func TestAccountTestService_OpenAIChatCompletionsPathReturns4xx(t *testing.T) {
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
 	account := &Account{
-		ID:          92,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://compat-upstream.example",
-		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
+		ID:                92,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
+		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -652,15 +622,13 @@ func TestAccountTestService_OpenAIChatCompletionsPathTimeout(t *testing.T) {
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
 	account := &Account{
-		ID:          93,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://compat-upstream.example",
-		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
+		ID:                93,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
+		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -686,15 +654,13 @@ func TestAccountTestService_OpenAIChatCompletionsPathRejectsNonJSONStream(t *tes
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
 	account := &Account{
-		ID:          94,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Concurrency: 1,
-		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "https://compat-upstream.example",
-		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
+		ID:                94,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
+		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")

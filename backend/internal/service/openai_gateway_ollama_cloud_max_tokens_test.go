@@ -150,6 +150,7 @@ func TestApplyOllamaCloudRawChatCompletionsRequestClampsMaxTokens(t *testing.T) 
 	// 官方 DeepSeek（api.deepseek.com + force_chat_completions）→ 字节级不变。
 	official := rawChatCompletionsTestAccount()
 	official.Credentials["base_url"] = "https://api.deepseek.com"
+	official.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
 	official.Extra = map[string]any{
 		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
 	}
@@ -182,7 +183,8 @@ func ollamaUpstreamTestAccount(platform string, id int64) *Account {
 			"api_key":  "sk-test",
 			"base_url": "https://ollama.com/v1",
 		},
-		Extra: map[string]any{},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com/v1"},
+		Extra:             map[string]any{},
 	}
 }
 
@@ -197,6 +199,9 @@ func officialDeepSeekTestAccount(id int64) *Account {
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://api.deepseek.com",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.deepseek.com",
 		},
 		Extra: map[string]any{
 			OllamaCloudUsageSnapshotExtraKey: map[string]any{"status": "ok"},
@@ -274,6 +279,7 @@ func TestClampOllamaCloudUpstreamMaxTokens(t *testing.T) {
 			account: func() *Account {
 				account := ollamaCloudRawChatCompletionsTestAccount()
 				account.Credentials["base_url"] = "https://example.invalid/v1"
+				account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://example.invalid/v1"}
 				account.Extra[OllamaCloudUsageSnapshotExtraKey] = map[string]any{"status": "ok"}
 				return account
 			}(),
@@ -441,7 +447,7 @@ func TestForwardResponsesClampUsesResponsesUpstreamBaseURL(t *testing.T) {
 	t.Run("ollama CC base but non-ollama responses base is not clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 341)
 		account.Credentials["api_protocol"] = APIProtocolAdaptive
-		account.Credentials["api_base_urls"] = map[string]any{
+		account.ProtocolEndpoints = map[string]string{
 			APIProtocolChatCompletions: "https://ollama.com/v1",
 			APIProtocolResponses:       "https://api.deepseek.com",
 		}
@@ -454,7 +460,7 @@ func TestForwardResponsesClampUsesResponsesUpstreamBaseURL(t *testing.T) {
 	t.Run("non-ollama CC base but ollama responses base is clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 342)
 		account.Credentials["api_protocol"] = APIProtocolAdaptive
-		account.Credentials["api_base_urls"] = map[string]any{
+		account.ProtocolEndpoints = map[string]string{
 			APIProtocolChatCompletions: "https://api.deepseek.com",
 			APIProtocolResponses:       "https://ollama.com/v1",
 		}

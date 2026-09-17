@@ -24,7 +24,8 @@ func TestAccountRepositorySetRateLimitedIfUnchanged(t *testing.T) {
 	makeAcct := func(name string) *service.Account {
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"base_url": "https://www.ollama.com", "api_key": name},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://www.ollama.com"},
+			Credentials:       map[string]any{"api_key": name},
 		})
 	}
 

@@ -135,6 +135,7 @@ func TestUpdateAccount_EmptyExtraPayloadCanClearQuotaLimits(t *testing.T) {
 				"quota_daily_limit":  10.0,
 				"quota_weekly_limit": 40.0,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 
@@ -171,6 +172,7 @@ func TestUpdateAccount_FixedWeeklyResetClearsLegacyRollingUsage(t *testing.T) {
 				"quota_weekly_used":  12.5,
 				"quota_weekly_start": legacyRollingStart.Format(time.RFC3339),
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		},
 	}
 

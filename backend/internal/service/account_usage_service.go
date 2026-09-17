@@ -375,7 +375,7 @@ func (s *AccountUsageService) getUsageForAccount(ctx context.Context, account *A
 	}
 
 	// Antigravity 平台：使用 AntigravityQuotaFetcher 获取额度
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		usage, err := s.getAntigravityUsage(ctx, account)
 		if err == nil {
 			s.tryClearRecoverableAccountError(ctx, account)

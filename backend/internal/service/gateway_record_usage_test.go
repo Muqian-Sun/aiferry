@@ -45,7 +45,6 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		nil,
 		nil,
-		nil, // userPlatformQuotaRepo
 	)
 }
 
@@ -217,7 +216,7 @@ func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *te
 				},
 				APIKey:  &APIKey{ID: 501, GroupID: &group.ID, Group: group},
 				User:    &User{ID: 601},
-				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey},
+				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			})
 
 			require.NoError(t, err)

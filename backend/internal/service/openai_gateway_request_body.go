@@ -47,7 +47,7 @@ func (s *OpenAIGatewayService) validateOutboundURL(raw string) (string, error) {
 // - base 已是 /responses：原样返回
 // - 其他情况：追加 /v1/responses
 func buildOpenAIResponsesURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/responses")
+	return joinUpstreamEndpointURL(base, "/v1/responses")
 }
 
 // buildOpenAIResponsesURLForPlatform 组装 Responses 端点（平台感知）。
@@ -55,7 +55,7 @@ func buildOpenAIResponsesURL(base string) string {
 // 其余平台维持 /v1/responses。
 func buildOpenAIResponsesURLForPlatform(platform string, base string) string {
 	if platform == PlatformDeepseek {
-		return buildOpenAIEndpointURL(base, "/responses")
+		return joinUpstreamEndpointURL(base, "/responses")
 	}
 	return buildOpenAIResponsesURL(base)
 }
@@ -73,7 +73,7 @@ func shouldPreserveOpenAIResponsesNoneReasoningEffort(account *Account) bool {
 	if !account.IsOpenAIApiKey() {
 		return false
 	}
-	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	baseURL := account.PrimaryUpstreamBaseURL()
 	return baseURL == "" || isOfficialOpenAIModelsBaseURL(baseURL)
 }
 

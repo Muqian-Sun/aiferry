@@ -58,7 +58,7 @@ func TestSetOpenAICodexRoutingHintCanonicalizesOfficialServiceTiers(t *testing.T
 		headers := make(http.Header)
 		headers[openAICodexRoutingHintHeader] = []string{"lowercase-spoof"}
 		headers["X-Codex-Routing-Hint"] = []string{"canonical-spoof"}
-		setOpenAICodexRoutingHint(headers, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, "gpt-5.6", "priority")
+		setOpenAICodexRoutingHint(headers, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, "gpt-5.6", "priority")
 		for key := range headers {
 			require.False(t, strings.EqualFold(key, openAICodexRoutingHintHeader))
 		}
@@ -163,6 +163,7 @@ func TestOpenAIHTTPPassthroughStripsOnlyOAuthLegacyResponsesBeta(t *testing.T) {
 		Credentials: map[string]any{
 			"api_key": "test-api-key",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	t.Run("oauth legacy only is removed including raw lowercase key", func(t *testing.T) {
@@ -220,7 +221,7 @@ func TestBuildOpenAIWSHeadersSendsOAuthRoutingHintOnly(t *testing.T) {
 	require.Equal(t, "model=gpt-5.6-codex;tier=priority", build(t, oauthAccount, "fast").Get(openAICodexRoutingHintHeader))
 	require.Equal(t, "model=gpt-5.6-codex;tier=ultrafast", build(t, oauthAccount, "ultrafast").Get(openAICodexRoutingHintHeader))
 	require.Equal(t, "model=gpt-5.6-codex", build(t, oauthAccount, "default").Get(openAICodexRoutingHintHeader))
-	require.Empty(t, build(t, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, "priority").Get(openAICodexRoutingHintHeader))
+	require.Empty(t, build(t, &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, "priority").Get(openAICodexRoutingHintHeader))
 }
 
 func TestOpenAIRoutingDiagnosticsUseFinalDerivedValuesOnly(t *testing.T) {

@@ -51,7 +51,7 @@ func TestRegistrationEmailQuotaRejectsMalformedDomainWhenWhitelistConfigured(t *
 		SettingKeyRegistrationEnabled:                 "true",
 		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
 		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil, nil)
+	}, nil)
 
 	_, _, err := svc.Register(context.Background(), "malformed-email", "password")
 

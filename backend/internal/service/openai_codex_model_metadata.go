@@ -56,7 +56,7 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 	}
 	// Codex 0.153's bundled Astra catalog verifies these values. API-key routes
 	// use standard Responses, not the ChatGPT-only Responses Lite wire.
-	baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+	baseURL := account.PrimaryUpstreamBaseURL()
 	if baseURL == "" {
 		baseURL = account.GetOpenAIBaseURL()
 	}

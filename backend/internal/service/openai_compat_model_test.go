@@ -325,6 +325,10 @@ func rawGPT56ResponsesAPIKeyAccount(requestedModel, mappedModel string) *Account
 			"base_url":      "https://api.example.com/v1",
 			"model_mapping": map[string]any{requestedModel: mappedModel},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolResponses:       "https://api.example.com/v1",
+			APIProtocolChatCompletions: "https://api.example.com/v1",
+		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
 }
@@ -387,6 +391,7 @@ func TestForwardAsAnthropic_MappedClaudeModelAcceptsChatUsageShape(t *testing.T)
 				"gpt-5.5": "gpt-5.5",
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.5")
@@ -437,6 +442,7 @@ func TestForwardAsAnthropic_InjectsPromptCacheKeyForAPIKeyMessagesDispatch(t *te
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "stable-cache-key", "gpt-5.3-codex")
@@ -483,6 +489,7 @@ func TestForwardAsAnthropic_AutoDerivesPromptCacheKeyWhenMessagesDispatchHasNoSe
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-5.3-codex")
@@ -521,6 +528,7 @@ func TestForwardAsAnthropic_GPT6AstraPromptCacheIdentityStableAcrossAppendedTurn
 					"api_key":  "sk-test",
 					"base_url": "https://api.openai.com/v1",
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 			}
 
 			bodies := [][]byte{
@@ -590,6 +598,7 @@ func TestForwardAsAnthropic_DoesNotAutoDerivePromptCacheKeyForNonCodexModel(t *t
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "gpt-4o")
@@ -643,6 +652,7 @@ func TestForwardAsAnthropic_TrimsFullReplayOnlyForCodexCompatModels(t *testing.T
 				"api_key":  "sk-test",
 				"base_url": "https://api.openai.com/v1",
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 		}
 
 		result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", mappedModel)
@@ -725,6 +735,7 @@ func TestForwardAsAnthropic_AttachesPreviousResponseIDForCompatContinuation(t *t
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":false}`)
@@ -777,6 +788,7 @@ func TestForwardAsAnthropic_PreviousResponseIDKeepsMultiToolCallContext(t *testi
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"inspect files"}],"stream":false}`)
@@ -832,6 +844,7 @@ func TestForwardAsAnthropic_ReplaysFullToolHistoryWhenPreviousResponseUnavailabl
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
@@ -894,7 +907,7 @@ func TestForwardAsAnthropic_PreviousResponseUnavailableRetryFailureDoesNotLoop(t
 		httpUpstream: upstream,
 		cfg:          &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 	}
-	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1"}}
+	account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1, Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.openai.com/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_missing")
 	body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
 	rec := httptest.NewRecorder()
@@ -926,6 +939,7 @@ func TestForwardAsAnthropic_DisablesAPIKeyContinuationWhenUpstreamRequiresWebSoc
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	svc.bindOpenAICompatSessionResponseID(context.Background(), nil, account, "stable-cache-key", "resp_http_unsupported")
@@ -997,6 +1011,7 @@ func TestForwardAsAnthropic_APIKeyMetadataSessionSurvivesChangingCacheControlAnc
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstRec := httptest.NewRecorder()
@@ -1475,6 +1490,7 @@ func TestForwardAsAnthropic_StoresStreamingResponseIDWithoutUsage(t *testing.T) 
 			"api_key":  "sk-test",
 			"base_url": "https://api.openai.com/v1",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
 	}
 
 	firstBody := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"first"}],"stream":true}`)

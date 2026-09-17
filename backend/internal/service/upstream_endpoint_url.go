@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-func buildOpenAIEndpointURL(base string, endpoint string) string {
+func joinUpstreamEndpointURL(base string, endpoint string) string {
 	normalized := strings.TrimSpace(base)
 	endpoint = "/" + strings.TrimLeft(strings.TrimSpace(endpoint), "/")
 	relative := strings.TrimPrefix(endpoint, "/v1")
@@ -15,7 +15,7 @@ func buildOpenAIEndpointURL(base string, endpoint string) string {
 	}
 	path := strings.TrimRight(parsed.Path, "/")
 	if !strings.HasSuffix(path, endpoint) && !strings.HasSuffix(path, relative) {
-		if openAIBaseURLHasVersionSuffix(path) {
+		if upstreamBaseURLHasVersionSuffix(path) {
 			path += relative
 		} else {
 			path += endpoint
@@ -28,10 +28,26 @@ func buildOpenAIEndpointURL(base string, endpoint string) string {
 }
 
 func buildOpenAIResponsesInputTokensURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/responses/input_tokens")
+	return joinUpstreamEndpointURL(base, "/v1/responses/input_tokens")
 }
 
-func openAIBaseURLHasVersionSuffix(raw string) bool {
+// joinAnthropicBetaEndpointURL 拼接 Anthropic 协议端点并附加 beta 查询参数。
+//
+// 与直接做字符串拼接的区别有二：base_url 末尾带不带 /v1 得到同一结果（裸拼接会
+// 拼出 /v1/v1/messages，只表现为上游 404）；base_url 自带查询串时不会拼出两个 '?'。
+func joinAnthropicBetaEndpointURL(base string, endpoint string) string {
+	joined := joinUpstreamEndpointURL(base, endpoint)
+	parsed, err := url.Parse(joined)
+	if err != nil {
+		return joined + "?beta=true"
+	}
+	query := parsed.Query()
+	query.Set("beta", "true")
+	parsed.RawQuery = query.Encode()
+	return parsed.String()
+}
+
+func upstreamBaseURLHasVersionSuffix(raw string) bool {
 	trimmed := strings.TrimSpace(raw)
 	if trimmed == "" {
 		return false
@@ -53,10 +69,10 @@ func openAIBaseURLHasVersionSuffix(raw string) bool {
 	if lastSlash >= 0 {
 		segment = pathValue[lastSlash+1:]
 	}
-	return isOpenAIAPIVersionSegment(segment)
+	return isUpstreamAPIVersionSegment(segment)
 }
 
-func isOpenAIAPIVersionSegment(segment string) bool {
+func isUpstreamAPIVersionSegment(segment string) bool {
 	s := strings.ToLower(strings.TrimSpace(segment))
 	if len(s) < 2 || s[0] != 'v' || !isASCIIDigit(s[1]) {
 		return false

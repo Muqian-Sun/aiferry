@@ -65,6 +65,9 @@ func newDeepSeekBalanceProbeAccount() *Account {
 			"api_key":      "sk-test",
 			"base_url":     "https://relay.example.com",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.com",
+		},
 	}
 }
 

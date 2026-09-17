@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -19,13 +21,38 @@ const (
 	// 镜像：Ollama Cloud key 允许挂在 openai/anthropic 与国产 OpenAI 兼容平台
 	// 下复用。所有平台白名单 SQL 只允许引用本常量，不得各处重写字面量，防止漂移。
 	ollamaCloudUsagePlatformsSQL = "'openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax'"
-	ollamaCloudUsageEligibleSQL  = `
+)
+
+var ollamaCloudUsageEligibleSQL = `
 	platform IN (` + ollamaCloudUsagePlatformsSQL + `)
 	AND type = 'apikey'
-	AND ` + ollamaCloudBaseURLMatchSQLPrefix + `credentials ->> 'base_url'` + ollamaCloudBaseURLMatchSQLSuffix + `
+	AND ` + ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")) + `
 	AND jsonb_typeof(credentials -> 'api_key') = 'string'
 `
-)
+
+// ollamaCloudPrimaryEndpointSQL 是 service.Account.PrimaryUpstreamBaseURL 对第三方 key
+// 的 SQL 镜像：先取平台默认协议的地址，再按 service.UpstreamProtocols() 的顺序取任一
+// 已配置协议。
+//
+// 协议名与平台默认协议都由 Go 侧真相源生成，不手写，两边不会漂移。只覆盖有默认协议
+// 的平台（PlatformsWithProtocolDefaults），足以涵盖 ollamaCloudUsagePlatformsSQL。
+// endpoints / platform 是 SQL 表达式，只接受本包内的常量或占位符，不接受外部输入。
+func ollamaCloudPrimaryEndpointSQL(endpoints, platform string) string {
+	var b strings.Builder
+	_, _ = b.WriteString("COALESCE(CASE ")
+	_, _ = b.WriteString(platform)
+	for _, p := range service.PlatformsWithProtocolDefaults() {
+		if protocol := service.DefaultProtocolForPlatform(p); protocol != "" {
+			fmt.Fprintf(&b, " WHEN '%s' THEN %s ->> '%s'", p, endpoints, protocol)
+		}
+	}
+	_, _ = b.WriteString(" END")
+	for _, protocol := range service.UpstreamProtocols() {
+		fmt.Fprintf(&b, ", %s ->> '%s'", endpoints, protocol)
+	}
+	_, _ = b.WriteString(")")
+	return b.String()
+}
 
 func ollamaCloudBaseURLMatchesSQL(expression string) string {
 	return ollamaCloudBaseURLMatchSQLPrefix + expression + ollamaCloudBaseURLMatchSQLSuffix

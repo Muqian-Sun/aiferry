@@ -75,7 +75,10 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": wsServer.URL},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: wsServer.URL,
+		},
+		Extra: map[string]any{"responses_websockets_v2_enabled": true},
 	}
 
 	reqBody := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)

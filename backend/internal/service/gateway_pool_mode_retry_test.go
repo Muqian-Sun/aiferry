@@ -63,6 +63,7 @@ func TestGatewayCompatPoolMode429AllowsSameAccountRetry(t *testing.T) {
 					"api_key":   "test-key",
 					"pool_mode": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			}
 
 			result, err := tt.call(svc, context.Background(), c, account, tt.body)

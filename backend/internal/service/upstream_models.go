@@ -633,10 +633,10 @@ func upstreamModelRegistryBaseURL(account *Account) string {
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	case account.IsAnthropic():
 		return account.GetBaseURL()
-	case account.Platform == PlatformAntigravity:
+	case account.IsAntigravity():
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	default:
-		return strings.TrimSpace(account.GetCredential("base_url"))
+		return account.PrimaryUpstreamBaseURL()
 	}
 }
 
@@ -732,7 +732,7 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 		return nil, nil, newUpstreamModelSyncConfigError("Account is required", nil)
 	}
 
-	if account.Platform == PlatformAntigravity && account.Type != AccountTypeAPIKey {
+	if account.IsAntigravity() && account.Type != AccountTypeAPIKey {
 		models, err := s.fetchAntigravityOAuthUpstreamModels(ctx, account)
 		return models, nil, err
 	}
@@ -788,7 +788,7 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
 	switch {
-	case account.Platform == PlatformAntigravity:
+	case account.IsAntigravity():
 		return s.buildAntigravityAPIKeyModelsRequest(ctx, account)
 	case account.IsGrok():
 		return s.buildGrokUpstreamModelsRequest(ctx, account)
@@ -824,9 +824,9 @@ func (s *AccountTestService) buildGrokUpstreamModelsRequest(ctx context.Context,
 			return nil, newUpstreamModelSyncConfigError("No Grok API key is available", nil)
 		}
 
-		baseURL := strings.TrimSpace(account.GetCredential("base_url"))
+		baseURL := account.PrimaryUpstreamBaseURL()
 		if baseURL == "" {
-			baseURL = "https://api.x.ai"
+			return nil, newUpstreamModelSyncConfigError("No Grok upstream address is configured", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform)))
 		}
 		validatedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
@@ -923,8 +923,8 @@ func (s *AccountTestService) buildAnthropicUpstreamModelsRequest(ctx context.Con
 			return nil, newUpstreamModelSyncConfigError("No Anthropic API key is available", nil)
 		}
 		baseURL = account.GetBaseURL()
-		if strings.TrimSpace(baseURL) == "" {
-			baseURL = "https://api.anthropic.com"
+		if baseURL == "" {
+			return nil, newUpstreamModelSyncConfigError("No Anthropic upstream address is configured", MissingProtocolEndpointError(account, APIProtocolAnthropic))
 		}
 		apiKeyAuthToken = apiKey
 		betaHeader = claude.APIKeyBetaHeader
@@ -971,7 +971,7 @@ func (s *AccountTestService) buildAntigravityAPIKeyModelsRequest(ctx context.Con
 		return nil, newUpstreamModelSyncConfigError("No Antigravity API key is available", nil)
 	}
 
-	baseURL := strings.TrimRight(strings.TrimSpace(account.GetCredential("base_url")), "/")
+	baseURL := strings.TrimRight(account.PrimaryUpstreamBaseURL(), "/")
 	if baseURL == "" {
 		return nil, newUpstreamModelSyncConfigError("Antigravity API-key base URL is required for upstream model sync", nil)
 	}
@@ -1023,8 +1023,8 @@ func buildOpenAIAPIKeyModelsRequest(ctx context.Context, account *Account, valid
 	// 协议感知：Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，模型
 	// 列表同步需使用 OpenAI 格式 base（供应商 × 模式默认）。
 	baseURL := account.GetOpenAIFormatBaseURL()
-	if strings.TrimSpace(baseURL) == "" {
-		baseURL = "https://api.openai.com"
+	if baseURL == "" {
+		return nil, newUpstreamModelSyncConfigError("No OpenAI upstream address is configured", MissingProtocolEndpointError(account, APIProtocolChatCompletions))
 	}
 	normalizedBaseURL, err := validateBaseURL(baseURL)
 	if err != nil {
@@ -1106,8 +1106,8 @@ func (s *AccountTestService) buildOpenAIOAuthUpstreamModelsRequest(ctx context.C
 
 func (s *AccountTestService) buildGeminiUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
 	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
-	if strings.TrimSpace(baseURL) == "" {
-		baseURL = geminicli.AIStudioBaseURL
+	if baseURL == "" {
+		return nil, newUpstreamModelSyncConfigError("No Gemini upstream address is configured", MissingProtocolEndpointError(account, APIProtocolGemini))
 	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
@@ -1216,7 +1216,7 @@ func buildV1ModelsURL(base string) string {
 }
 
 func buildOpenAIModelsURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/models")
+	return joinUpstreamEndpointURL(base, "/v1/models")
 }
 
 func buildGeminiModelsURL(base string) string {

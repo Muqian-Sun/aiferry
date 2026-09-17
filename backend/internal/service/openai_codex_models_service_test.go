@@ -130,6 +130,9 @@ func newCodexCatalogMappedAccount(
 			"base_url":      fmt.Sprintf("https://provider-%d.example/v1", id),
 			"model_mapping": mapping,
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: fmt.Sprintf("https://provider-%d.example/v1", id),
+		},
 	}
 	models := map[string]UpstreamModelMetadata{
 		target: {
@@ -694,7 +697,8 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "grok-4.5",
 			accounts: []Account{{
 				ID: 13, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"base_url": "https://relay.example.test/v1"},
+				Credentials:       map[string]any{"base_url": "https://relay.example.test/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1", APIProtocolResponses: "https://relay.example.test/v1"},
 			}},
 			modalities: []any{"text"},
 		},
@@ -703,7 +707,8 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "grok-4.5",
 			accounts: []Account{{
 				ID: 19, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"base_url": "::invalid::url"},
+				Credentials:       map[string]any{"base_url": "::invalid::url"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "::invalid::url", APIProtocolResponses: "::invalid::url"},
 			}},
 			modalities: []any{"text"},
 		},
@@ -714,7 +719,8 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 				{ID: 14, Platform: PlatformGrok, Type: AccountTypeOAuth},
 				{
 					ID: 15, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-					Credentials: map[string]any{"base_url": "https://relay.example.test/v1"},
+					Credentials:       map[string]any{"base_url": "https://relay.example.test/v1"},
+					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1", APIProtocolResponses: "https://relay.example.test/v1"},
 				},
 			},
 			modalities: []any{"text"},
@@ -724,6 +730,7 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "deepseek-v4-pro",
 			accounts: []Account{{
 				ID: 16, Platform: PlatformDeepseek, Type: AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.deepseek.com/anthropic", APIProtocolChatCompletions: "https://api.deepseek.com", APIProtocolResponses: "https://api.deepseek.com"},
 			}},
 			modalities: []any{"text"},
 		},
@@ -732,6 +739,7 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "gpt-5.6-sol",
 			accounts: []Account{{
 				ID: 17, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}},
 			modalities: []any{"text", "image"},
 		},
@@ -740,6 +748,7 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "gpt-3.5-turbo",
 			accounts: []Account{{
 				ID: 20, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}},
 			modalities: []any{"text"},
 		},
@@ -748,7 +757,8 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "gpt-5.6-sol",
 			accounts: []Account{{
 				ID: 18, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
+				Credentials:       map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1", APIProtocolResponses: "https://openai-compatible.example.test/v1"},
 			}},
 			modalities: []any{"text", "image"},
 		},
@@ -757,7 +767,8 @@ func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testin
 			model: "company-coding-model",
 			accounts: []Account{{
 				ID: 29, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
+				Credentials:       map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1", APIProtocolResponses: "https://openai-compatible.example.test/v1"},
 			}},
 			modalities: []any{"text"},
 		},
@@ -867,6 +878,9 @@ func TestBuildCodexModelsManifestForGroupPrefersSyncedOpenAIImageCapabilities(t 
 		account := Account{
 			ID: id, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			Credentials: map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
+			ProtocolEndpoints: map[string]string{
+				APIProtocolChatCompletions: "https://openai-compatible.example.test/v1",
+			},
 		}
 		if modalities != nil {
 			account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
@@ -996,6 +1010,7 @@ func TestBuildCodexModelsManifestForGroupUsesMappedTargetMetadataForCompositeAli
 			Credentials: map[string]any{
 				"model_mapping": map[string]any{"reasoning-alias": "claude-opus-4-8"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 		}},
 	}}}
 
@@ -1029,6 +1044,7 @@ func TestBuildCodexModelsManifestForGroupUsesSafeFallbackForConflictingAliasTarg
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"shared-alias": "claude-opus-4-8"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 			{
 				ID:       25,
@@ -1037,6 +1053,7 @@ func TestBuildCodexModelsManifestForGroupUsesSafeFallbackForConflictingAliasTarg
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"shared-alias": "claude-haiku-4-5-20251001"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 			},
 		},
 	}}}
@@ -1070,6 +1087,7 @@ func TestBuildCodexModelsManifestForGroupOmitsDedicatedMediaTargetAlias(t *testi
 			Credentials: map[string]any{
 				"model_mapping": map[string]any{"creative-alias": "gpt-image-2"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}},
 	}}}
 
@@ -1221,6 +1239,7 @@ func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t
 				"gpt-image-2": "gpt-image-2",
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	arkAccount.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"glm-5.3": {
@@ -1287,6 +1306,7 @@ func TestBuildGroupConfiguredCodexModelsManifestExpandsSelectedModelCoveredByWil
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"gpt-*": "gpt-5.6-sol"},
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}},
 		},
 	}}
@@ -1406,7 +1426,7 @@ func TestBuildGroupConfiguredCodexModelsManifestFallsThroughWithoutConfiguration
 	const groupID int64 = 78
 	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
 		byGroup: map[int64][]Account{
-			groupID: {{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}},
+			groupID: {{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}},
 		},
 	}}
 
@@ -1673,15 +1693,18 @@ func newCodexModelsAPIKeyTestService(upstream HTTPUpstream) *OpenAIGatewayServic
 
 func newCodexModelsAPIKeyTestAccount(baseURL string) *Account {
 	credentials := map[string]any{"api_key": "sk-upstream"}
+	var endpoints map[string]string
 	if baseURL != "" {
 		credentials["base_url"] = baseURL
+		endpoints = map[string]string{APIProtocolChatCompletions: baseURL}
 	}
 	return &Account{
-		ID:          2,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Credentials: credentials,
-		Concurrency: 3,
+		ID:                2,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Credentials:       credentials,
+		ProtocolEndpoints: endpoints,
+		Concurrency:       3,
 	}
 }
 
@@ -2305,7 +2328,7 @@ func TestCompleteAPIKeyCodexModelsManifestForClientMarksOnlyOfficialVisionGPTIma
 
 	svc := &OpenAIGatewayService{}
 	manifest := &OpenAIModelsResponse{Body: []byte(`{"models":[{"slug":"gpt-6-astra"},{"slug":"gpt-5.6-sol"},{"slug":"gpt-4o"},{"slug":"gpt-3.5-turbo"},{"slug":"gpt-4"}]}`)}
-	account := newCodexModelsAPIKeyTestAccount("")
+	account := newCodexModelsAPIKeyTestAccount("https://api.openai.com")
 
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(manifest, account))
 	models := decodeCodexManifestModels(t, manifest.Body)
@@ -2333,7 +2356,7 @@ func TestCompleteAPIKeyCodexModelsManifestForClientFiltersOfficialNonAgentModels
 
 	svc := &OpenAIGatewayService{}
 	manifest := &OpenAIModelsResponse{Body: []byte(`{"models":[{"slug":"gpt-5.6-sol"},{"slug":"gpt-4o-realtime-preview"},{"slug":"gpt-4o-mini-tts"},{"slug":"text-embedding-3-large"},{"slug":"omni-moderation-latest"},{"slug":"o4-mini"},{"slug":"codex-mini-latest"}]}`)}
-	account := newCodexModelsAPIKeyTestAccount("")
+	account := newCodexModelsAPIKeyTestAccount("https://api.openai.com")
 
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(manifest, account))
 	require.Equal(t, []string{"gpt-5.6-sol", "o4-mini", "codex-mini-latest"}, codexManifestModelSlugs(t, manifest.Body))
@@ -3394,7 +3417,6 @@ func TestFetchCodexModelsManifestAPIKeyUsesOfficialOpenAIModelsEndpoint(t *testi
 		name    string
 		baseURL string
 	}{
-		{name: "missing base URL"},
 		{name: "official host", baseURL: "https://api.openai.com"},
 		{name: "official versioned URL", baseURL: "https://API.OPENAI.COM:443/v1/"},
 	}

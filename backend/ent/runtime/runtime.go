@@ -43,7 +43,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/userallowedgroup"
 	"github.com/Wei-Shaw/sub2api/ent/userattributedefinition"
 	"github.com/Wei-Shaw/sub2api/ent/userattributevalue"
-	"github.com/Wei-Shaw/sub2api/ent/userplatformquota"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 )
@@ -226,34 +225,42 @@ func init() {
 	accountDescExtra := accountFields[5].Descriptor()
 	// account.DefaultExtra holds the default value on creation for the extra field.
 	account.DefaultExtra = accountDescExtra.Default.(func() map[string]interface{})
+	// accountDescSourceKind is the schema descriptor for source_kind field.
+	accountDescSourceKind := accountFields[6].Descriptor()
+	// account.SourceKindValidator is a validator for the "source_kind" field. It is called by the builders before save.
+	account.SourceKindValidator = accountDescSourceKind.Validators[0].(func(string) error)
+	// accountDescProtocolEndpoints is the schema descriptor for protocol_endpoints field.
+	accountDescProtocolEndpoints := accountFields[7].Descriptor()
+	// account.DefaultProtocolEndpoints holds the default value on creation for the protocol_endpoints field.
+	account.DefaultProtocolEndpoints = accountDescProtocolEndpoints.Default.(func() map[string]string)
 	// accountDescConcurrency is the schema descriptor for concurrency field.
-	accountDescConcurrency := accountFields[8].Descriptor()
+	accountDescConcurrency := accountFields[10].Descriptor()
 	// account.DefaultConcurrency holds the default value on creation for the concurrency field.
 	account.DefaultConcurrency = accountDescConcurrency.Default.(int)
 	// accountDescPriority is the schema descriptor for priority field.
-	accountDescPriority := accountFields[10].Descriptor()
+	accountDescPriority := accountFields[12].Descriptor()
 	// account.DefaultPriority holds the default value on creation for the priority field.
 	account.DefaultPriority = accountDescPriority.Default.(int)
 	// accountDescRateMultiplier is the schema descriptor for rate_multiplier field.
-	accountDescRateMultiplier := accountFields[11].Descriptor()
+	accountDescRateMultiplier := accountFields[13].Descriptor()
 	// account.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
 	account.DefaultRateMultiplier = accountDescRateMultiplier.Default.(float64)
 	// accountDescStatus is the schema descriptor for status field.
-	accountDescStatus := accountFields[12].Descriptor()
+	accountDescStatus := accountFields[14].Descriptor()
 	// account.DefaultStatus holds the default value on creation for the status field.
 	account.DefaultStatus = accountDescStatus.Default.(string)
 	// account.StatusValidator is a validator for the "status" field. It is called by the builders before save.
 	account.StatusValidator = accountDescStatus.Validators[0].(func(string) error)
 	// accountDescAutoPauseOnExpired is the schema descriptor for auto_pause_on_expired field.
-	accountDescAutoPauseOnExpired := accountFields[16].Descriptor()
+	accountDescAutoPauseOnExpired := accountFields[18].Descriptor()
 	// account.DefaultAutoPauseOnExpired holds the default value on creation for the auto_pause_on_expired field.
 	account.DefaultAutoPauseOnExpired = accountDescAutoPauseOnExpired.Default.(bool)
 	// accountDescSchedulable is the schema descriptor for schedulable field.
-	accountDescSchedulable := accountFields[17].Descriptor()
+	accountDescSchedulable := accountFields[19].Descriptor()
 	// account.DefaultSchedulable holds the default value on creation for the schedulable field.
 	account.DefaultSchedulable = accountDescSchedulable.Default.(bool)
 	// accountDescSessionWindowStatus is the schema descriptor for session_window_status field.
-	accountDescSessionWindowStatus := accountFields[25].Descriptor()
+	accountDescSessionWindowStatus := accountFields[27].Descriptor()
 	// account.SessionWindowStatusValidator is a validator for the "session_window_status" field. It is called by the builders before save.
 	account.SessionWindowStatusValidator = accountDescSessionWindowStatus.Validators[0].(func(string) error)
 	accountgroupFields := schema.AccountGroup{}.Fields()
@@ -2387,56 +2394,6 @@ func init() {
 	userattributevalueDescValue := userattributevalueFields[2].Descriptor()
 	// userattributevalue.DefaultValue holds the default value on creation for the value field.
 	userattributevalue.DefaultValue = userattributevalueDescValue.Default.(string)
-	userplatformquotaMixin := schema.UserPlatformQuota{}.Mixin()
-	userplatformquotaMixinHooks1 := userplatformquotaMixin[1].Hooks()
-	userplatformquota.Hooks[0] = userplatformquotaMixinHooks1[0]
-	userplatformquotaMixinInters1 := userplatformquotaMixin[1].Interceptors()
-	userplatformquota.Interceptors[0] = userplatformquotaMixinInters1[0]
-	userplatformquotaMixinFields0 := userplatformquotaMixin[0].Fields()
-	_ = userplatformquotaMixinFields0
-	userplatformquotaFields := schema.UserPlatformQuota{}.Fields()
-	_ = userplatformquotaFields
-	// userplatformquotaDescCreatedAt is the schema descriptor for created_at field.
-	userplatformquotaDescCreatedAt := userplatformquotaMixinFields0[0].Descriptor()
-	// userplatformquota.DefaultCreatedAt holds the default value on creation for the created_at field.
-	userplatformquota.DefaultCreatedAt = userplatformquotaDescCreatedAt.Default.(func() time.Time)
-	// userplatformquotaDescUpdatedAt is the schema descriptor for updated_at field.
-	userplatformquotaDescUpdatedAt := userplatformquotaMixinFields0[1].Descriptor()
-	// userplatformquota.DefaultUpdatedAt holds the default value on creation for the updated_at field.
-	userplatformquota.DefaultUpdatedAt = userplatformquotaDescUpdatedAt.Default.(func() time.Time)
-	// userplatformquota.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
-	userplatformquota.UpdateDefaultUpdatedAt = userplatformquotaDescUpdatedAt.UpdateDefault.(func() time.Time)
-	// userplatformquotaDescPlatform is the schema descriptor for platform field.
-	userplatformquotaDescPlatform := userplatformquotaFields[1].Descriptor()
-	// userplatformquota.PlatformValidator is a validator for the "platform" field. It is called by the builders before save.
-	userplatformquota.PlatformValidator = func() func(string) error {
-		validators := userplatformquotaDescPlatform.Validators
-		fns := [...]func(string) error{
-			validators[0].(func(string) error),
-			validators[1].(func(string) error),
-			validators[2].(func(string) error),
-		}
-		return func(platform string) error {
-			for _, fn := range fns {
-				if err := fn(platform); err != nil {
-					return err
-				}
-			}
-			return nil
-		}
-	}()
-	// userplatformquotaDescDailyUsageUsd is the schema descriptor for daily_usage_usd field.
-	userplatformquotaDescDailyUsageUsd := userplatformquotaFields[5].Descriptor()
-	// userplatformquota.DefaultDailyUsageUsd holds the default value on creation for the daily_usage_usd field.
-	userplatformquota.DefaultDailyUsageUsd = userplatformquotaDescDailyUsageUsd.Default.(float64)
-	// userplatformquotaDescWeeklyUsageUsd is the schema descriptor for weekly_usage_usd field.
-	userplatformquotaDescWeeklyUsageUsd := userplatformquotaFields[6].Descriptor()
-	// userplatformquota.DefaultWeeklyUsageUsd holds the default value on creation for the weekly_usage_usd field.
-	userplatformquota.DefaultWeeklyUsageUsd = userplatformquotaDescWeeklyUsageUsd.Default.(float64)
-	// userplatformquotaDescMonthlyUsageUsd is the schema descriptor for monthly_usage_usd field.
-	userplatformquotaDescMonthlyUsageUsd := userplatformquotaFields[7].Descriptor()
-	// userplatformquota.DefaultMonthlyUsageUsd holds the default value on creation for the monthly_usage_usd field.
-	userplatformquota.DefaultMonthlyUsageUsd = userplatformquotaDescMonthlyUsageUsd.Default.(float64)
 	usersubscriptionMixin := schema.UserSubscription{}.Mixin()
 	usersubscriptionMixinHooks1 := usersubscriptionMixin[1].Hooks()
 	usersubscription.Hooks[0] = usersubscriptionMixinHooks1[0]

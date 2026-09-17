@@ -635,9 +635,10 @@ func TestTokenRefreshService_RefreshWithRetry_NonOAuthAccount(t *testing.T) {
 	}
 	service := NewTokenRefreshService(repo, nil, nil, nil, nil, invalidator, nil, cfg, nil)
 	account := &Account{
-		ID:       9,
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey, // 非 OAuth
+		ID:                9,
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey, // 非 OAuth
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 	}
 	refresher := &tokenRefresherStub{
 		credentials: map[string]any{

@@ -22,6 +22,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Hit(t *testing.T
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -63,6 +64,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedM
 			"codex_5h_used_percent":                         96.0,
 			"auto_pause_5h_threshold":                       0.95,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -103,6 +105,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RateLimitedMiss(
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -139,6 +142,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheck
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	dbAccount := Account{
 		ID:               13,
@@ -151,6 +155,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheck
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -190,6 +195,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Excluded(t *test
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -223,6 +229,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_APIKeyForceHTTPH
 			"openai_ws_force_http":            true,
 			"responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -294,6 +301,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyKeepsSticky(
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:          22,
@@ -306,6 +314,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyKeepsSticky(
 			Extra: map[string]any{
 				"openai_apikey_responses_websockets_v2_enabled": true,
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 
@@ -361,6 +370,7 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismat
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)

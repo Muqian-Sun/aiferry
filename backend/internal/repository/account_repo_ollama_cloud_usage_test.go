@@ -31,6 +31,10 @@ func ollamaCloudUsageRepositoryAccount() *service.Account {
 	return &service.Account{
 		ID: 17, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "key", "base_url": "https://ollama.com"},
+		// 第三方 key 的上游地址来自协议映射，Ollama Cloud 判定读的是它。
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: "https://ollama.com",
+		},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=secret",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -153,6 +157,7 @@ func TestOllamaCloudBaseURLSQLRegexMatchesServiceSemantics(t *testing.T) {
 			require.NoError(t, err)
 			account := ollamaCloudUsageRepositoryAccount()
 			account.Credentials["base_url"] = baseURL
+			account.ProtocolEndpoints[service.APIProtocolChatCompletions] = baseURL
 			require.Equal(t, service.IsOllamaCloudUsageAccount(account), matched)
 		})
 	}
@@ -172,6 +177,9 @@ func TestListOllamaCloudUsageGroupAccountsUsesOneStrictBatchQuery(t *testing.T) 
 	second.ID = 18
 	second.Platform = service.PlatformAnthropic
 	second.Credentials = map[string]any{"api_key": "key", "base_url": "https://www.ollama.com:443/v1"}
+	second.ProtocolEndpoints = map[string]string{
+		service.APIProtocolAnthropic: "https://www.ollama.com:443/v1",
+	}
 
 	accounts, err := repo.ListOllamaCloudUsageGroupAccounts(context.Background(), []*service.Account{first, second})
 
@@ -181,7 +189,9 @@ func TestListOllamaCloudUsageGroupAccountsUsesOneStrictBatchQuery(t *testing.T) 
 	require.Contains(t, query, "credentials ->> 'api_key' = ANY($1)")
 	require.Contains(t, query, "platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax')")
 	require.Contains(t, query, "jsonb_typeof(credentials -> 'api_key') = 'string'")
-	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'"))
+	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")))
+	// 第三方 key 的地址只在 protocol_endpoints 里，读 credentials.base_url 会让分组静默失效。
+	require.NotContains(t, query, "->> 'base_url'")
 	require.NotContains(t, query, "~*")
 	require.NoError(t, mock.ExpectationsWereMet())
 }
@@ -209,7 +219,7 @@ func TestListDueOllamaCloudUsageAccountsFiltersOrdersAndLimits(t *testing.T) {
 		"status = 'active'",
 		"platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax')",
 		"type = 'apikey'",
-		ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'"),
+		ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")),
 		"jsonb_typeof(extra -> 'ollama_cloud_usage_session') = 'string'",
 		`extra @> '{"ollama_cloud_usage_auto_refresh": true}'::jsonb`,
 		"MAX(last_used_at) AS group_last_used_at",
@@ -237,19 +247,29 @@ func TestListDueOllamaCloudUsageAccountsFiltersOrdersAndLimits(t *testing.T) {
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-func TestBulkUpdateOllamaIdentityCleanupIsValueConditional(t *testing.T) {
+// 批量更新不改 protocol_endpoints，Ollama 账号的上游地址不会因此变化：
+// 只改 credentials.base_url 不得触发 Ollama 托管字段清理，只有 api_key 变化才算组身份变化。
+func TestBulkUpdateOllamaIdentityCleanupFollowsAPIKeyOnly(t *testing.T) {
+	baseURLOnly := &recordingSQLExecutor{result: rowsAffectedResult(1)}
+	_, err := newAccountRepositoryWithSQL(nil, baseURLOnly, nil).BulkUpdate(context.Background(), []int64{17}, service.AccountBulkUpdate{
+		Credentials: map[string]any{"base_url": "https://www.ollama.com:443/v1"},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, baseURLOnly.execQueries)
+	require.NotContains(t, normalizeSQLWhitespace(baseURLOnly.execQueries[0]), "ollama_cloud_usage_session")
+
 	exec := &recordingSQLExecutor{result: rowsAffectedResult(1)}
 	repo := newAccountRepositoryWithSQL(nil, exec, nil)
 
-	_, err := repo.BulkUpdate(context.Background(), []int64{17}, service.AccountBulkUpdate{
-		Credentials: map[string]any{"base_url": "https://www.ollama.com:443/v1"},
+	_, err = repo.BulkUpdate(context.Background(), []int64{17}, service.AccountBulkUpdate{
+		Credentials: map[string]any{"api_key": "new-key"},
 	})
 
 	require.NoError(t, err)
 	require.NotEmpty(t, exec.execQueries)
 	query := normalizeSQLWhitespace(exec.execQueries[0])
-	require.Contains(t, query, "NOT ("+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'"))
-	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL("$1::jsonb ->> 'base_url'"))
+	require.Contains(t, query, "credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'")
+	require.NotContains(t, query, "->> 'base_url'")
 	require.NotContains(t, query, "~*")
 	require.Contains(t, query, "platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax') AND type = 'apikey'")
 	require.Contains(t, query, "- 'ollama_cloud_usage_session' - 'ollama_cloud_usage_auto_refresh' - 'ollama_cloud_usage_snapshot'")

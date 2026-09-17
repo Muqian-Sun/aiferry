@@ -195,7 +195,7 @@ func TestOpenAIAuthenticationHeadersPreserveOAuthPATAndAPIKeyBearerModes(t *test
 	}{
 		{name: "oauth", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, token: "oauth-runtime-token"},
 		{name: "personal access token", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"auth_mode": OpenAIAuthModePersonalAccessToken}}, token: "pat-runtime-token"},
-		{name: "api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, token: "api-key-runtime-token"},
+		{name: "api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, token: "api-key-runtime-token"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -234,7 +234,7 @@ func TestValidateOpenAIWSBearerTokenAllowsAgentIdentityWithoutStoredToken(t *tes
 		accounts := []*Account{
 			{Platform: PlatformOpenAI, Type: AccountTypeOAuth},
 			{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: map[string]any{"auth_mode": OpenAIAuthModePersonalAccessToken}},
-			{Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+			{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 		}
 
 		for _, account := range accounts {

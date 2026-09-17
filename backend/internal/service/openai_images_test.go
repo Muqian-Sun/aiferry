@@ -496,8 +496,9 @@ func TestAccountSupportsOpenAIImageCapability_EmptyRequirementDoesNotRejectGrok(
 func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 	t.Run("OpenAI APIKey 默认兼容 chat、embeddings 和 alpha search", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
@@ -520,16 +521,18 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		// OAuth/PAT 走 chatgpt.com Codex 端点，APIKey 走 {base_url}/v1/alpha/search，
 		// 两类都能承接独立搜索（APIKey 被排除曾导致纯 APIKey 分组搜索失效的回归）。
 		apiKey := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 		oauth := &Account{
 			Platform: PlatformOpenAI,
 			Type:     AccountTypeOAuth,
 		}
 		grok := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeAPIKey,
+			Platform:          PlatformGrok,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		}
 
 		require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
@@ -544,6 +547,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions", "embeddings"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
@@ -557,6 +561,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"chat_completions"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
@@ -587,6 +592,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 					"embeddings":       true,
 				},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
@@ -656,8 +662,9 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 	t.Run("未知能力不应默认放行", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapability("unknown")))
@@ -665,8 +672,9 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 	t.Run("responses 能力：未探测的 APIKey 默认放行", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -674,9 +682,10 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 	t.Run("responses 能力：探测确认不支持的 APIKey 被排除", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Extra:    map[string]any{"openai_responses_supported": false},
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Extra:             map[string]any{"openai_responses_supported": false},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -686,9 +695,10 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 	t.Run("responses 能力：探测确认支持的 APIKey 放行", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Extra:    map[string]any{"openai_responses_supported": true},
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Extra:             map[string]any{"openai_responses_supported": true},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -696,9 +706,10 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 
 	t.Run("responses 能力：force_chat_completions 覆盖排除 APIKey", func(t *testing.T) {
 		account := &Account{
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Extra:    map[string]any{"openai_responses_mode": "force_chat_completions"},
+			Platform:          PlatformOpenAI,
+			Type:              AccountTypeAPIKey,
+			Extra:             map[string]any{"openai_responses_mode": "force_chat_completions"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -722,6 +733,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 			Credentials: map[string]any{
 				"openai_capabilities": []any{"embeddings"},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -1372,6 +1384,9 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyGenerationUsesConfiguredV1BaseU
 			"api_key":  "test-api-key",
 			"base_url": "https://image-upstream.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://image-upstream.example/v1",
+		},
 	}
 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
@@ -1419,6 +1434,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyAccessStateUsesTypedFailover(t 
 		Credentials: map[string]any{
 			"api_key": "sk-test",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
@@ -1473,6 +1489,9 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyStreamJSONResponseBillsImage(t 
 			"api_key":  "test-api-key",
 			"base_url": "https://image-upstream.example/v1",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://image-upstream.example/v1",
+		},
 	}
 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
@@ -1521,6 +1540,9 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyStreamRawJSONEventStreamFallbac
 		Credentials: map[string]any{
 			"api_key":  "test-api-key",
 			"base_url": "https://image-upstream.example/v1",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://image-upstream.example/v1",
 		},
 	}
 
@@ -1574,6 +1596,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyStreamMultilineSSEDataBillsImag
 		Credentials: map[string]any{
 			"api_key": "test-api-key",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")
@@ -1635,6 +1658,9 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyEditUsesConfiguredV1BaseURL(t *
 		Credentials: map[string]any{
 			"api_key":  "test-api-key",
 			"base_url": "https://image-upstream.example/v1/",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://image-upstream.example/v1/",
 		},
 	}
 
@@ -1774,6 +1800,7 @@ func TestOpenAIGatewayServiceForwardImages_APIKeyStreamingDrainsAfterClientDisco
 		Credentials: map[string]any{
 			"api_key": "test-api-key",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	result, err := svc.ForwardImages(context.Background(), c, account, body, parsed, "")

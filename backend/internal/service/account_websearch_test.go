@@ -10,45 +10,50 @@ import (
 
 func TestGetWebSearchEmulationMode_Enabled(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: "enabled"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeEnabled, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_Disabled(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: "disabled"},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: "disabled"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDisabled, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_Default(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: "default"},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: "default"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_UnknownString(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: "unknown"},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: "unknown"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_OldBoolTrue(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: true},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: true},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	// bool true → tolerant fallback → enabled (not default)
 	require.Equal(t, WebSearchModeEnabled, a.GetWebSearchEmulationMode())
@@ -56,9 +61,10 @@ func TestGetWebSearchEmulationMode_OldBoolTrue(t *testing.T) {
 
 func TestGetWebSearchEmulationMode_OldBoolFalse(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: false},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: false},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
@@ -70,27 +76,30 @@ func TestGetWebSearchEmulationMode_NilAccount(t *testing.T) {
 
 func TestGetWebSearchEmulationMode_NilExtra(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    nil,
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             nil,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_MissingField(t *testing.T) {
 	a := &Account{
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{},
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_NonAnthropicPlatform(t *testing.T) {
 	a := &Account{
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: "enabled"},
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: "enabled"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }

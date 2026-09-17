@@ -39,8 +39,6 @@ function usage() {
   sub2api-admin.js accounts batch-clear-error --ids 1,2
   sub2api-admin.js accounts temp-unschedulable <id>
   sub2api-admin.js accounts reset-temp-unschedulable <id>
-  sub2api-admin.js accounts crs-preview --json '{...}' | --file payload.json
-  sub2api-admin.js accounts crs-sync --json '{...}' | --file payload.json
   sub2api-admin.js accounts import-codex-session --json '{...}' | --file payload.json
   sub2api-admin.js accounts antigravity-default-model-mapping
   sub2api-admin.js accounts import-json --file <path> --template-name <name> [--skip-name <name>] [--dry-run]
@@ -500,16 +498,6 @@ async function commandAccounts(args) {
     const id = args.positional[2];
     if (!id) throw new Error("accounts reset-temp-unschedulable requires <id>");
     printJson(await adminRequest("DELETE", `/admin/accounts/${id}/temp-unschedulable`));
-    return;
-  }
-
-  if (sub === "crs-preview") {
-    printJson(await adminRequest("POST", "/admin/accounts/sync/crs/preview", readJsonPayload(args.flags)));
-    return;
-  }
-
-  if (sub === "crs-sync") {
-    printJson(await adminRequest("POST", "/admin/accounts/sync/crs", readJsonPayload(args.flags)));
     return;
   }
 

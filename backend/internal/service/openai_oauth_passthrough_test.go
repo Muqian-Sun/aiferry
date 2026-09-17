@@ -203,6 +203,9 @@ func TestOpenAIGatewayService_NativeResponsesBodyModificationPreservesHTMLChars(
 			"api_key":  "sk-test",
 			"base_url": "http://upstream.example",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "http://upstream.example",
+		},
 		Extra: map[string]any{
 			openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
 			openai_compat.ExtraKeyResponsesSupported: true,
@@ -1391,6 +1394,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_RebuildsUpstreamErrors(t *testin
 					"api_key":  "sk-test",
 					"base_url": "https://secret-upstream.example",
 				},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: "https://secret-upstream.example",
+				},
 				Extra:       map[string]any{"openai_passthrough": true},
 				Status:      StatusActive,
 				Schedulable: true,
@@ -1483,7 +1489,10 @@ func TestOpenAIGatewayService_APIKeyPassthrough_CompactErrorBeforeKeepaliveIsSin
 	account := &Account{
 		ID: 125, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://secret-upstream.example"},
-		Extra:       map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://secret-upstream.example",
+		},
+		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
 
 	_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
@@ -1518,7 +1527,10 @@ func TestOpenAIGatewayService_APIKeyPassthrough_CompactErrorAfterKeepaliveIsFail
 	account := &Account{
 		ID: 126, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://secret-upstream.example"},
-		Extra:       map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://secret-upstream.example",
+		},
+		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
 
 	_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
@@ -1556,6 +1568,7 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetryableStatusesTriggerFailover
 			account.Credentials = map[string]any{"access_token": "oauth-token", "chatgpt_account_id": "chatgpt-acc"}
 		case AccountTypeAPIKey:
 			account.Credentials = map[string]any{"api_key": "sk-test"}
+			account.ProtocolEndpoints = PlatformProtocolDefaults(PlatformOpenAI, "")
 		}
 		return account
 	}
@@ -1762,6 +1775,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_Transient5xxTriggersFailover(t *
 					"api_key":  "sk-test",
 					"base_url": "https://api.example.test",
 				},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolChatCompletions: "https://api.example.test",
+				},
 				Extra:       map[string]any{"openai_passthrough": true},
 				Status:      StatusActive,
 				Schedulable: true,
@@ -1809,7 +1825,10 @@ func TestOpenAIGatewayService_APIKeyPassthrough_ContextWindow502DoesNotFailover(
 	account := &Account{
 		ID: 127, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.example.test"},
-		Extra:       map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.example.test",
+		},
+		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
 
 	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
@@ -1845,6 +1864,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxRetriesSame
 			"base_url":                     "https://api.example.test",
 			"pool_mode":                    true,
 			"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.example.test",
 		},
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
@@ -1904,8 +1926,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeAuthErrorsTriggerFailove
 			}
 			account := &Account{
 				ID: 129, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
-				Credentials: credentials,
-				Extra:       map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
+				Credentials:       credentials,
+				ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.example.test"},
+				Extra:             map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 			}
 
 			_, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.2","input":"hello"}`))
@@ -2568,6 +2591,9 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PreservesBodyAndUsesResponsesEnd
 			"api_key":       "sk-api-key",
 			"base_url":      "https://api.openai.com",
 			"model_mapping": map[string]any{"gpt-5.2": "gpt-5.2-account"},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
 		},
 		Extra:          map[string]any{"openai_passthrough": true},
 		Status:         StatusActive,

@@ -152,7 +152,6 @@ const mountBulkDeleteView = () => mount(UsersView, {
       UserCreateModal: true,
       UserEditModal: true,
       BulkEditUserModal: true,
-      UserPlatformQuotaModal: true,
       UserApiKeysModal: true,
       UserAllowedGroupsModal: true,
       UserBalanceModal: true,
@@ -291,7 +290,6 @@ describe('admin UsersView', () => {
           UserCreateModal: true,
           UserEditModal: true,
           BulkEditUserModal: BulkEditUserModalStub,
-          UserPlatformQuotaModal: true,
           UserApiKeysModal: true,
           UserAllowedGroupsModal: true,
           UserBalanceModal: true,
@@ -337,8 +335,7 @@ describe('admin UsersView', () => {
         'usage_anthropic',
         'usage_openai',
         'usage_gemini',
-        'usage_antigravity',
-        'balance_platform_quota'
+        'usage_antigravity'
       ])
     )
 
@@ -377,7 +374,6 @@ describe('admin UsersView', () => {
           UserCreateModal: true,
           UserEditModal: true,
           BulkEditUserModal: BulkEditUserModalStub,
-          UserPlatformQuotaModal: true,
           UserApiKeysModal: true,
           UserAllowedGroupsModal: true,
           UserBalanceModal: true,
@@ -455,7 +451,6 @@ describe('admin UsersView', () => {
           UserCreateModal: true,
           UserEditModal: true,
           BulkEditUserModal: BulkEditUserModalStub,
-          UserPlatformQuotaModal: true,
           UserApiKeysModal: true,
           UserAllowedGroupsModal: true,
           UserBalanceModal: true,

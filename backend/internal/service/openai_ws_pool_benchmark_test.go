@@ -19,7 +19,7 @@ func BenchmarkOpenAIWSPoolAcquire(b *testing.B) {
 	pool := newOpenAIWSConnPool(cfg)
 	pool.setClientDialerForTest(&openAIWSCountingDialer{})
 
-	account := &Account{ID: 1001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	account := &Account{ID: 1001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	req := openAIWSAcquireRequest{
 		Account: account,
 		WSURL:   "wss://example.com/v1/responses",

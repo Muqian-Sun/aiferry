@@ -324,6 +324,7 @@ func TestHandleUpstreamError_529CustomCodeDisablesInsteadOfOverloadCooldown(t *t
 			"custom_error_codes_enabled": true,
 			"custom_error_codes":         []any{float64(529)},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	shouldDisable := svc.HandleUpstreamError(context.Background(), account, 529, nil, []byte(`{"error":{"message":"overloaded"}}`))

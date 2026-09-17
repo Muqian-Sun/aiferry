@@ -25,6 +25,7 @@ import (
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -123,6 +124,9 @@ func newAccountRepositoryWithSQL(client *dbent.Client, sqlq sqlExecutor, schedul
 }
 
 func (r *accountRepository) Create(ctx context.Context, account *service.Account) error {
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
+	}
 	if err := createAccountRecord(ctx, r.client, account); err != nil {
 		return err
 	}
@@ -187,6 +191,8 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
+	builder.SetSourceKind(accountSourceKind(account))
+	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	if account.ParentAccountID != nil {
 		builder.SetParentAccountID(*account.ParentAccountID)
 	}
@@ -207,6 +213,9 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 func (r *accountRepository) CreateWithAccountGroups(ctx context.Context, account *service.Account, groups []service.AccountGroup) error {
 	if account == nil {
 		return service.ErrAccountNilInput
+	}
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
 	}
 	tx, err := r.client.Tx(ctx)
 	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
@@ -373,69 +382,6 @@ func (r *accountRepository) ExistsByID(ctx context.Context, id int64) (bool, err
 	return exists, nil
 }
 
-func (r *accountRepository) GetByCRSAccountID(ctx context.Context, crsAccountID string) (*service.Account, error) {
-	if crsAccountID == "" {
-		return nil, nil
-	}
-
-	// 使用 sqljson.ValueEQ 生成 JSON 路径过滤，避免手写 SQL 片段导致语法兼容问题。
-	// 排除 spark 影子账号(parent_account_id 非空):影子不持凭据,绝不能被 CRS 当作普通账号
-	// 更新而覆盖 type/credentials/proxy。即便影子 Extra 被误写入 crs_account_id 也不会命中
-	// (外审第7轮 P1)。
-	m, err := r.client.Account.Query().
-		Where(dbaccount.ParentAccountIDIsNil()).
-		Where(func(s *entsql.Selector) {
-			s.Where(sqljson.ValueEQ(dbaccount.FieldExtra, crsAccountID, sqljson.Path("crs_account_id")))
-		}).
-		Only(ctx)
-	if err != nil {
-		if dbent.IsNotFound(err) {
-			return nil, nil
-		}
-		return nil, err
-	}
-
-	accounts, err := r.accountsToService(ctx, []*dbent.Account{m})
-	if err != nil {
-		return nil, err
-	}
-	if len(accounts) == 0 {
-		return nil, nil
-	}
-	return &accounts[0], nil
-}
-
-func (r *accountRepository) ListCRSAccountIDs(ctx context.Context) (map[string]int64, error) {
-	// parent_account_id IS NULL 排除 spark 影子账号:影子不是 CRS 账号,绝不能进 CRS 同步映射
-	// (否则会被当普通账号更新而覆盖 type/credentials/proxy)(外审第7轮 P1)。
-	rows, err := r.sql.QueryContext(ctx, `
-		SELECT id, extra->>'crs_account_id'
-		FROM accounts
-		WHERE deleted_at IS NULL
-			AND parent_account_id IS NULL
-			AND extra->>'crs_account_id' IS NOT NULL
-			AND extra->>'crs_account_id' != ''
-	`)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	result := make(map[string]int64)
-	for rows.Next() {
-		var id int64
-		var crsID string
-		if err := rows.Scan(&id, &crsID); err != nil {
-			return nil, err
-		}
-		result[crsID] = id
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return result, nil
-}
-
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
 	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
 }
@@ -462,6 +408,11 @@ func (r *accountRepository) updateAccount(
 ) error {
 	if account == nil {
 		return nil
+	}
+	// Update 与管理端编辑（UpdateWithAccountBillingSettings）都经过这里，守卫放在
+	// 汇合点，避免任一入口漏掉。
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
 	}
 
 	baseCtx := ctx
@@ -604,6 +555,10 @@ func (r *accountRepository) updateLockedAccount(
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
+	// type 可以被改（见上方 SetType），来源维度必须跟着一起改，否则会出现
+	// 「类型是 apikey、来源却是 subscription」这种只在数据里看得出来的错配。
+	builder.SetSourceKind(accountSourceKind(account))
+	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	builder.SetNillableParentAccountID(account.ParentAccountID)
 
 	return builder.Save(ctx)
@@ -620,6 +575,11 @@ func lockAndMergeAccountProbeExtra(
 	if err != nil {
 		return nil, err
 	}
+	// 第三方 key 的上游坐标在 protocol_endpoints 里，换上游必须同样视为身份变化。
+	protocolEndpoints, err := json.Marshal(normalizeProtocolEndpoints(account.ProtocolEndpoints))
+	if err != nil {
+		return nil, err
+	}
 	var proxyID any
 	if account.ProxyID != nil {
 		proxyID = *account.ProxyID
@@ -629,6 +589,7 @@ func lockAndMergeAccountProbeExtra(
 			platform = $2
 			AND type = $3
 			AND credentials = $4::jsonb
+			AND protocol_endpoints = $6::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			COALESCE(
 				platform IN (`+ollamaCloudUsagePlatformsSQL+`)
@@ -636,8 +597,8 @@ func lockAndMergeAccountProbeExtra(
 				AND type = 'apikey'
 				AND $3 = 'apikey'
 				AND credentials -> 'api_key' IS NOT DISTINCT FROM $4::jsonb -> 'api_key'
-				AND `+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+`
-				AND `+ollamaCloudBaseURLMatchesSQL("$4::jsonb ->> 'base_url'")+`,
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb", "$2::text"))+`,
 				false
 			),
 			proxy_id IS NOT DISTINCT FROM $5,
@@ -650,7 +611,7 @@ func lockAndMergeAccountProbeExtra(
 		FROM accounts
 		WHERE id = $1 AND deleted_at IS NULL
 		FOR NO KEY UPDATE
-	`, account.ID, account.Platform, account.Type, string(credentials), proxyID)
+	`, account.ID, account.Platform, account.Type, string(credentials), proxyID, string(protocolEndpoints))
 	if err != nil {
 		return nil, err
 	}
@@ -824,10 +785,8 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 					AND credentials IS DISTINCT FROM $1::jsonb
 					AND (
 						credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'
-						OR NOT (
-							`+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+`
-							AND `+ollamaCloudBaseURLMatchesSQL("$1::jsonb ->> 'base_url'")+`
-						)
+						-- 本语句不改 protocol_endpoints，上游地址前后相同，只需看本行是否仍是 Ollama。
+						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
 					)
 				THEN COALESCE(extra, '{}'::jsonb)
 					- 'upstream_billing_probe'
@@ -2988,14 +2947,11 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		idx++
 	}
 
-	ollamaGroupIdentityChanges := make([]string, 0, 2)
+	// 批量更新不改 protocol_endpoints；Ollama 账号必为第三方 key，其 credentials.base_url
+	// 不参与取址，所以组身份只随 api_key 变化。
+	ollamaGroupIdentityChanges := make([]string, 0, 1)
 	if _, ok := updates.Credentials["api_key"]; ok {
 		ollamaGroupIdentityChanges = append(ollamaGroupIdentityChanges, "credentials -> 'api_key' IS DISTINCT FROM "+credentialPlaceholder+"::jsonb -> 'api_key'")
-	}
-	if _, ok := updates.Credentials["base_url"]; ok {
-		ollamaGroupIdentityChanges = append(ollamaGroupIdentityChanges,
-			"NOT ("+ollamaCloudBaseURLMatchesSQL("credentials ->> 'base_url'")+
-				" AND "+ollamaCloudBaseURLMatchesSQL(credentialPlaceholder+"::jsonb ->> 'base_url'")+")")
 	}
 
 	if len(updates.Extra) > 0 || len(ollamaGroupIdentityChanges) > 0 || ollamaProxyIdentityChanged != "" || updates.EnsureCodexFingerprintSeed {
@@ -3480,7 +3436,38 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
+		SourceKind:              derefString(m.SourceKind),
+		ProtocolEndpoints:       m.ProtocolEndpoints,
 	}
+}
+
+// guardProtocolEndpoints 在落库前守住「第三方 key 必须有协议地址」这条不变量。
+//
+// 放在仓储层而不是管理接口，是因为创建账号不止管理接口一条路径（还有复制、
+// 影子等）。只在接口处校验会留下缺口，而缺口的表现是账号建成功、转发时才发现
+// 没有上游地址。
+func guardProtocolEndpoints(account *service.Account) error {
+	if err := account.ValidateProtocolEndpoints(); err != nil {
+		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
+	}
+	return nil
+}
+
+// accountSourceKind 取账号来源维度：调用方显式指定时以其为准，否则按类型推导，
+// 与 migrations/239 的回填口径同源。
+func accountSourceKind(account *service.Account) string {
+	if kind := strings.TrimSpace(account.SourceKind); kind != "" {
+		return kind
+	}
+	return service.DeriveAccountSourceKind(account.Type)
+}
+
+// normalizeProtocolEndpoints 保证写入的是非 nil map，与列上的 NOT NULL DEFAULT '{}' 一致。
+func normalizeProtocolEndpoints(in map[string]string) map[string]string {
+	if in == nil {
+		return map[string]string{}
+	}
+	return in
 }
 
 func normalizeJSONMap(in map[string]any) map[string]any {

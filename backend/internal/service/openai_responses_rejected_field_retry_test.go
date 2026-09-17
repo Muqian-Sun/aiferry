@@ -682,8 +682,9 @@ func newOpenAIRejectedFieldTestAccount() *Account {
 			openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
 			openai_compat.ExtraKeyResponsesSupported: true,
 		},
-		Status:      StatusActive,
-		Schedulable: true,
+		Status:            StatusActive,
+		Schedulable:       true,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat.example", APIProtocolResponses: "https://compat.example"},
 	}
 }
 

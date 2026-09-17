@@ -1155,7 +1155,7 @@ func TestForwardAsChatCompletions_UnknownResponsesSupportFallbackUsesVersionedCh
 		httpUpstream: upstream,
 	}
 	account := rawChatCompletionsTestAccount()
-	account.Credentials["base_url"] = "https://open.bigmodel.cn/api/paas/v4"
+	account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}
 
 	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 	require.NoError(t, err)
@@ -1231,6 +1231,9 @@ func rawChatCompletionsTestAccount() *Account {
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "http://upstream.example",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "http://upstream.example",
 		},
 	}
 }

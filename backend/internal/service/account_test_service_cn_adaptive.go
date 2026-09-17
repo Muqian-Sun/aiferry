@@ -304,7 +304,7 @@ func cnAnthropicBaseURLMisconfigHint(baseURL string) string {
 	openAICompatShaped := strings.Contains(path, "/paas/") ||
 		strings.HasSuffix(path, "/chat/completions") ||
 		strings.HasSuffix(path, "/responses") ||
-		openAIBaseURLHasVersionSuffix(path)
+		upstreamBaseURLHasVersionSuffix(path)
 	if !openAICompatShaped {
 		return ""
 	}

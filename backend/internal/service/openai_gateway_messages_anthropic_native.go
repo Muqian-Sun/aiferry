@@ -135,7 +135,7 @@ func (s *OpenAIGatewayService) nativeAnthropicTargetURL(account *Account) (strin
 	}
 	if account.IsOpenCodeGo() {
 		// OpenCode Go 的 Chat Completions base 带 /v1；用版本感知拼接避免 /v1/v1/messages。
-		return buildOpenAIEndpointURL(validatedURL, "/v1/messages"), nil
+		return joinUpstreamEndpointURL(validatedURL, "/v1/messages"), nil
 	}
 	return strings.TrimRight(validatedURL, "/") + "/v1/messages", nil
 }

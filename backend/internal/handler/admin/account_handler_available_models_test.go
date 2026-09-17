@@ -32,7 +32,7 @@ func (s *availableModelsAdminService) GetAccount(_ context.Context, id int64) (*
 func setupAvailableModelsRouter(adminSvc service.AdminService) *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	router.GET("/api/v1/admin/accounts/:id/models", handler.GetAvailableModels)
 	return router
 }
@@ -72,7 +72,7 @@ func setupSyncUpstreamModelsRouter(adminSvc service.AdminService, upstream servi
 		&config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 		nil,
 	)
-	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil, nil)
+	handler := NewAccountHandler(adminSvc, nil, nil, nil, nil, nil, nil, nil, accountTestSvc, nil, nil, nil, nil)
 	router.POST("/api/v1/admin/accounts/:id/models/sync-upstream", handler.SyncUpstreamModels)
 	router.POST("/api/v1/admin/accounts/models/sync-upstream-preview", handler.SyncUpstreamModelsPreview)
 	return router
@@ -232,6 +232,7 @@ func TestAccountHandlerGetAvailableModels_OpenAIAPIKeyDefaultsToConcreteGPT56Sol
 			Credentials: map[string]any{
 				"api_key": "test-key",
 			},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com", service.APIProtocolResponses: "https://api.openai.com"},
 		},
 	}
 	router := setupAvailableModelsRouter(svc)
@@ -342,6 +343,7 @@ func TestAccountHandlerSyncUpstreamModels_ConfigErrorReturnsBadRequest(t *testin
 			Credentials: map[string]any{
 				"base_url": "https://openai.example.com/v1",
 			},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://openai.example.com/v1", service.APIProtocolResponses: "https://openai.example.com/v1"},
 		},
 	}
 	router := setupSyncUpstreamModelsRouter(svc, &syncUpstreamHTTPUpstream{})
@@ -360,7 +362,8 @@ func TestAccountHandlerSyncUpstreamModelsReturnsCapabilityMetadata(t *testing.T)
 		account: service.Account{
 			ID: 48, Name: "custom-openai", Platform: service.PlatformOpenAI,
 			Type: service.AccountTypeAPIKey, Status: service.StatusActive,
-			Credentials: map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+			Credentials:       map[string]any{"api_key": "key", "base_url": "https://provider.example/v1"},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://provider.example/v1", service.APIProtocolResponses: "https://provider.example/v1"},
 		},
 	}
 	upstream := &syncUpstreamHTTPUpstream{resp: &http.Response{
@@ -431,6 +434,7 @@ func TestAccountHandlerSyncUpstreamModelsPreviewUsesProvidedModelMapping(t *test
 			"platform":"openai",
 			"type":"apikey",
 			"base_url":"https://provider.example/v1",
+			"protocol_endpoints":{"chat_completions":"https://provider.example/v1","responses":"https://provider.example/v1"},
 			"api_key":"key",
 			"model_mapping":{"public-glm":"glm-5.3"}
 		}`),
@@ -460,6 +464,7 @@ func TestAccountHandlerSyncUpstreamModels_UpstreamErrorDoesNotExposeBody(t *test
 				"api_key":  "openai-key",
 				"base_url": "https://openai.example.com/v1",
 			},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://openai.example.com/v1", service.APIProtocolResponses: "https://openai.example.com/v1"},
 		},
 	}
 	upstream := &syncUpstreamHTTPUpstream{resp: &http.Response{
@@ -492,6 +497,7 @@ func TestAccountHandlerSyncUpstreamModels_MetadataEnrichmentFailureReturnsWarnin
 				"api_key":  "opencode-key",
 				"base_url": "https://opencode.ai/zen/v1",
 			},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://opencode.ai/zen/v1", service.APIProtocolResponses: "https://opencode.ai/zen/v1"},
 		},
 	}
 	upstream := &syncUpstreamHTTPUpstream{responses: []*http.Response{

@@ -346,6 +346,7 @@ func TestHandleGrokAccountUpstreamErrorDefaultCooldownsRespectPoolMode(t *testin
 				Credentials: map[string]any{
 					"pool_mode": true,
 				},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 			}
 			body := []byte(`{"error":{"message":"grok access or entitlement denied"}}`)
 
@@ -382,6 +383,7 @@ func TestHandleGrokAccountUpstreamErrorDefaultCooldownsRespectPoolMode(t *testin
 					},
 				},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 		}
 		before := time.Now()
 

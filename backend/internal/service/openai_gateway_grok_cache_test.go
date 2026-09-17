@@ -974,9 +974,10 @@ func TestGrokFreeMessagesFunctionToolCacheRouteRequiresKnownFreeTier(t *testing.
 		{
 			name: "api key remains unchanged",
 			account: &Account{
-				ID:       914,
-				Platform: PlatformGrok,
-				Type:     AccountTypeAPIKey,
+				ID:                914,
+				Platform:          PlatformGrok,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 			},
 		},
 	}

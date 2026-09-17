@@ -92,13 +92,13 @@ func TestCheckAccountQuotaAfterIncrement_NilAccount(t *testing.T) {
 
 func TestCheckAccountQuotaAfterIncrement_ZeroCost(t *testing.T) {
 	s, _ := newBalanceNotifyServiceForTest()
-	a := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	a := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 	s.CheckAccountQuotaAfterIncrement(context.Background(), a, 0, nil)
 }
 
 func TestCheckAccountQuotaAfterIncrement_NegativeCost(t *testing.T) {
 	s, _ := newBalanceNotifyServiceForTest()
-	a := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	a := &Account{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 	s.CheckAccountQuotaAfterIncrement(context.Background(), a, -5, nil)
 }
 
@@ -115,6 +115,7 @@ func TestCheckAccountQuotaAfterIncrement_GlobalDisabled(t *testing.T) {
 			"quota_daily_limit":            1000.0,
 			"quota_daily_used":             950.0,
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	// Global disabled → no processing even if a dim would cross.
 	s.CheckAccountQuotaAfterIncrement(context.Background(), a, 100, nil)

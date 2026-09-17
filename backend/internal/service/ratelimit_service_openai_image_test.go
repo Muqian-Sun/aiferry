@@ -338,6 +338,7 @@ func TestRateLimitServiceHandleOpenAIImageCapabilityLoss_RespectsPlatformAndErro
 				"custom_error_codes_enabled": true,
 				"custom_error_codes":         []any{float64(http.StatusTooManyRequests)},
 			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
 		require.False(t, account.ShouldHandleErrorCode(http.StatusBadRequest))

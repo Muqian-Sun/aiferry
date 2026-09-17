@@ -244,7 +244,6 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil,
 		nil,
-		nil, // userPlatformQuotaRepo
 	)
 	svc.userGroupRateResolver = newUserGroupRateResolver(
 		rateRepo,
@@ -3058,7 +3057,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 		},
 		APIKey:  &APIKey{ID: 1017},
 		User:    &User{ID: 2017},
-		Account: &Account{ID: 3017, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		Account: &Account{ID: 3017, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 
 	require.NoError(t, err)
@@ -3139,7 +3138,8 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 		User:   &User{ID: 2020},
 		Account: &Account{
 			ID: 3020, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-			ParentAccountID: &parentID,
+			ParentAccountID:   &parentID,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 	})
 
@@ -3220,7 +3220,7 @@ func TestGroupBillsOpenAIFastAtStandardRequiresOpenAIAccount(t *testing.T) {
 	))
 	require.False(t, groupBillsOpenAIFastAtStandard(
 		apiKey,
-		&Account{Platform: PlatformGrok, Type: AccountTypeAPIKey},
+		&Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}},
 		"priority",
 	))
 }
@@ -3242,7 +3242,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 		},
 		APIKey:  &APIKey{ID: 1018},
 		User:    &User{ID: 2018},
-		Account: &Account{ID: 3018, Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+		Account: &Account{ID: 3018, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 
 	require.NoError(t, err)

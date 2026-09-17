@@ -447,7 +447,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			// 自定义域名 kimi coding：GetCodingPlanProvider 识别不到 → 无额度端点。
 			name: "custom-domain kimi coding unsupported",
 			account: &Account{ID: 2, Platform: domain.PlatformKimi, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"account_mode": AccountModeCoding, "base_url": "https://cw.example.com"}},
+				Credentials: map[string]any{"account_mode": AccountModeCoding, "base_url": "https://cw.example.com"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://cw.example.com", APIProtocolChatCompletions: "https://cw.example.com"}},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
@@ -465,7 +465,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 		{
 			name: "custom-domain minimax coding unsupported",
 			account: &Account{ID: 16, Platform: domain.PlatformMiniMax, Type: AccountTypeAPIKey,
-				Credentials: map[string]any{"account_mode": AccountModeCoding, "base_url": "https://relay.example.com/v1"}},
+				Credentials: map[string]any{"account_mode": AccountModeCoding, "base_url": "https://relay.example.com/v1"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://relay.example.com/v1", APIProtocolChatCompletions: "https://relay.example.com/v1", APIProtocolResponses: "https://relay.example.com/v1"}},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
@@ -488,7 +488,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 		},
 		{
 			name:    "anthropic api key cannot query usage",
-			account: &Account{ID: 8, Platform: domain.PlatformAnthropic, Type: AccountTypeAPIKey},
+			account: &Account{ID: 8, Platform: domain.PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
@@ -501,7 +501,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 		},
 		{
 			name:    "openai api key cannot query usage",
-			account: &Account{ID: 11, Platform: domain.PlatformOpenAI, Type: AccountTypeAPIKey},
+			account: &Account{ID: 11, Platform: domain.PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
@@ -511,7 +511,7 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 		{
 			// 防过度拦截：gemini/grok/antigravity 走本地统计/值通道降级，不会永久 error。
 			name:    "gemini api key ok",
-			account: &Account{ID: 13, Platform: domain.PlatformGemini, Type: AccountTypeAPIKey},
+			account: &Account{ID: 13, Platform: domain.PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 		},
 		{
 			name:    "grok ok",

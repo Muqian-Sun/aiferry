@@ -82,6 +82,9 @@ func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
 			"api_key":      "sk-test",
 			"base_url":     "https://relay.attacker.example/api.kimi.com/coding",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.attacker.example/api.kimi.com/coding",
+		},
 	}}
 	upstream := &recordingHTTPUpstream{}
 	svc := NewCNProviderQuotaService(repo, nil, upstream, cnProbeAllowlistConfig("api.kimi.com"))
@@ -100,6 +103,9 @@ func TestCNProviderBalanceService_RejectsURLBlockedByPolicy(t *testing.T) {
 			"account_mode": "payg",
 			"api_key":      "sk-test",
 			"base_url":     "https://relay.attacker.example",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.attacker.example",
 		},
 	}}
 	upstream := &recordingHTTPUpstream{}
@@ -120,6 +126,7 @@ func TestCNProviderBalanceService_OfficialHostPassesValidation(t *testing.T) {
 			"account_mode": "payg",
 			"api_key":      "sk-test",
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"},
 	}}
 	upstream := &recordingHTTPUpstream{}
 	svc := NewCNProviderBalanceService(repo, nil, upstream, cnProbeAllowlistConfig("api.deepseek.com"))

@@ -336,10 +336,11 @@ func (s *AccountRepoSuite) TestListOAuthRefreshCandidatePage_GrokCursorAndExclus
 	})
 	s.Require().NoError(s.client.Account.UpdateOneID(unschedulable.ID).SetSchedulable(false).Exec(s.ctx))
 	mustCreateAccount(s.T(), s.client, &service.Account{
-		Name:     "grok-api-key-excluded",
-		Platform: service.PlatformGrok,
-		Type:     service.AccountTypeAPIKey,
-		Status:   service.StatusActive,
+		Name:              "grok-api-key-excluded",
+		Platform:          service.PlatformGrok,
+		Type:              service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1"},
+		Status:            service.StatusActive,
 		Credentials: map[string]any{
 			"api_key":       "api-key",
 			"refresh_token": "must-not-make-api-key-eligible",
@@ -434,7 +435,7 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 			name: "filter_by_type",
 			setup: func(client *dbent.Client) {
 				mustCreateAccount(s.T(), client, &service.Account{Name: "t1", Type: service.AccountTypeOAuth})
-				mustCreateAccount(s.T(), client, &service.Account{Name: "t2", Type: service.AccountTypeAPIKey})
+				mustCreateAccount(s.T(), client, &service.Account{Name: "t2", Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"}})
 			},
 			accType:   service.AccountTypeAPIKey,
 			wantCount: 1,
@@ -1621,72 +1622,6 @@ func (s *AccountRepoSuite) TestUpdateExtra_SchedulerRelevantStillEnqueuesOutbox(
 	err = scanSingleRow(s.ctx, s.repo.sql, "SELECT COUNT(*) FROM scheduler_outbox", nil, &count)
 	s.Require().NoError(err)
 	s.Require().Equal(1, count)
-}
-
-// --- GetByCRSAccountID ---
-
-func (s *AccountRepoSuite) TestGetByCRSAccountID() {
-	crsID := "crs-12345"
-	mustCreateAccount(s.T(), s.client, &service.Account{
-		Name:  "acc-crs",
-		Extra: map[string]any{"crs_account_id": crsID},
-	})
-
-	got, err := s.repo.GetByCRSAccountID(s.ctx, crsID)
-	s.Require().NoError(err)
-	s.Require().NotNil(got)
-	s.Require().Equal("acc-crs", got.Name)
-}
-
-func (s *AccountRepoSuite) TestGetByCRSAccountID_NotFound() {
-	got, err := s.repo.GetByCRSAccountID(s.ctx, "non-existent")
-	s.Require().NoError(err)
-	s.Require().Nil(got)
-}
-
-func (s *AccountRepoSuite) TestGetByCRSAccountID_EmptyString() {
-	got, err := s.repo.GetByCRSAccountID(s.ctx, "")
-	s.Require().NoError(err)
-	s.Require().Nil(got)
-}
-
-// TestGetByCRSAccountID_ExcludesSparkShadow 验证外审第7轮 P1:即便 spark 影子的 Extra 被误写入
-// crs_account_id,CRS 查询也绝不能命中影子(否则会被当普通账号更新而覆盖 type/credentials/proxy)。
-func (s *AccountRepoSuite) TestGetByCRSAccountID_ExcludesSparkShadow() {
-	crsID := "crs-shadow-only-99"
-	parent := mustCreateAccount(s.T(), s.client, &service.Account{
-		Name: "crs-mother", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
-	})
-	mustCreateAccount(s.T(), s.client, &service.Account{
-		Name: "crs-shadow", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
-		ParentAccountID: &parent.ID,
-		QuotaDimension:  service.QuotaDimensionSpark,
-		Extra:           map[string]any{"crs_account_id": crsID},
-	})
-
-	got, err := s.repo.GetByCRSAccountID(s.ctx, crsID)
-	s.Require().NoError(err)
-	s.Require().Nil(got, "spark 影子即便带 crs_account_id 也不应被 CRS 命中")
-}
-
-// TestListCRSAccountIDs_ExcludesSparkShadow 验证外审第7轮 P1:影子的 crs_account_id 不应进入
-// CRS 同步映射(否则后续 CRS 同步会把影子当普通账号更新)。
-func (s *AccountRepoSuite) TestListCRSAccountIDs_ExcludesSparkShadow() {
-	parent := mustCreateAccount(s.T(), s.client, &service.Account{
-		Name: "crs-list-mother", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
-	})
-	shadowCRSID := "crs-list-shadow-77"
-	mustCreateAccount(s.T(), s.client, &service.Account{
-		Name: "crs-list-shadow", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
-		ParentAccountID: &parent.ID,
-		QuotaDimension:  service.QuotaDimensionSpark,
-		Extra:           map[string]any{"crs_account_id": shadowCRSID},
-	})
-
-	ids, err := s.repo.ListCRSAccountIDs(s.ctx)
-	s.Require().NoError(err)
-	_, ok := ids[shadowCRSID]
-	s.Require().False(ok, "影子的 crs_account_id 不应进入 CRS 映射")
 }
 
 // --- BulkUpdate ---

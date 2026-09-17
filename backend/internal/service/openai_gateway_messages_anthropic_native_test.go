@@ -34,6 +34,9 @@ func nativeAnthropicTestAccount() *Account {
 				APIProtocolAnthropic: "http://anthropic.example",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "http://anthropic.example",
+		},
 	}
 }
 

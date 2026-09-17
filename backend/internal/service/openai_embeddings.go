@@ -53,9 +53,9 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 	}
 	// 协议感知：Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，
 	// embeddings 需使用 OpenAI 格式 base。
-	baseURL := account.GetOpenAIFormatBaseURL()
-	if baseURL == "" {
-		baseURL = "https://api.openai.com"
+	baseURL, err := ResolveUpstreamBaseURL(account, account.GetOpenAIFormatBaseURL(), APIProtocolChatCompletions, "https://api.openai.com")
+	if err != nil {
+		return nil, err
 	}
 	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
@@ -248,5 +248,5 @@ func firstPositiveGJSONInt(values ...gjson.Result) int {
 }
 
 func buildOpenAIEmbeddingsURL(base string) string {
-	return buildOpenAIEndpointURL(base, "/v1/embeddings")
+	return joinUpstreamEndpointURL(base, "/v1/embeddings")
 }

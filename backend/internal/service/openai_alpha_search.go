@@ -676,13 +676,13 @@ func (s *OpenAIGatewayService) openAIAlphaSearchURL(account *Account) (string, e
 	case AccountTypeAPIKey:
 		baseURL := account.GetOpenAIBaseURL()
 		if baseURL == "" {
-			return openAIPlatformAlphaSearchURL, nil
+			return "", MissingProtocolEndpointError(account, APIProtocolChatCompletions)
 		}
 		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
 			return "", err
 		}
-		return buildOpenAIEndpointURL(validatedURL, "/v1/alpha/search"), nil
+		return joinUpstreamEndpointURL(validatedURL, "/v1/alpha/search"), nil
 	default:
 		return "", fmt.Errorf("unsupported OpenAI account type: %s", account.Type)
 	}

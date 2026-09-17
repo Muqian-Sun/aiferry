@@ -75,11 +75,29 @@ func buildGrokResponsesURL(account *Account, cfg *config.Config, settings ...*Se
 	if err != nil {
 		return "", err
 	}
-	baseURL := account.GetGrokBaseURL()
-	if len(settings) > 0 && settings[0] != nil {
-		baseURL = settings[0].ResolveGrokBaseURL(context.Background(), account)
+	baseURL, err := grokProtocolBaseURL(account, APIProtocolResponses, settings...)
+	if err != nil {
+		return "", err
 	}
 	return xai.BuildResponsesURLWithValidator(baseURL, validator)
+}
+
+// grokProtocolBaseURL 取 Grok 文本流量在指定协议下的上游地址。
+//
+// 第三方 key 只认该协议的映射，缺了直接报错；成品号沿用原有口径：账号地址优先，
+// 其次站点配置的默认区域。
+func grokProtocolBaseURL(account *Account, protocol string, settings ...*SettingService) (string, error) {
+	if account.IsThirdPartyKey() {
+		baseURL := account.ProtocolEndpoint(protocol)
+		if baseURL == "" {
+			return "", MissingProtocolEndpointError(account, protocol)
+		}
+		return baseURL, nil
+	}
+	if len(settings) > 0 && settings[0] != nil {
+		return settings[0].ResolveGrokBaseURL(context.Background(), account), nil
+	}
+	return account.GetGrokBaseURL(), nil
 }
 
 func buildGrokChatCompletionsURL(account *Account, cfg *config.Config, settings ...*SettingService) (string, error) {
@@ -87,9 +105,9 @@ func buildGrokChatCompletionsURL(account *Account, cfg *config.Config, settings 
 	if err != nil {
 		return "", err
 	}
-	baseURL := account.GetGrokBaseURL()
-	if len(settings) > 0 && settings[0] != nil {
-		baseURL = settings[0].ResolveGrokBaseURL(context.Background(), account)
+	baseURL, err := grokProtocolBaseURL(account, APIProtocolChatCompletions, settings...)
+	if err != nil {
+		return "", err
 	}
 	return xai.BuildChatCompletionsURLWithValidator(baseURL, validator)
 }
@@ -117,6 +135,9 @@ func buildGrokMediaURL(account *Account, cfg *config.Config, endpoint GrokMediaE
 		return "", err
 	}
 	baseURL := account.GetGrokMediaBaseURL()
+	if baseURL == "" {
+		return "", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform))
+	}
 	switch endpoint {
 	case GrokMediaEndpointImagesGenerations:
 		return xai.BuildImagesGenerationsURLWithValidator(baseURL, validator)
@@ -153,6 +174,9 @@ func buildGrokVoiceURL(account *Account, cfg *config.Config, endpoint string) (s
 	base := ""
 	if account != nil {
 		base = account.GetGrokMediaBaseURL()
+		if base == "" && account.IsThirdPartyKey() {
+			return "", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform))
+		}
 	}
 	if strings.TrimSpace(base) == "" || isGrokCLIProxyBaseURL(base) {
 		base = xai.DefaultBaseURL

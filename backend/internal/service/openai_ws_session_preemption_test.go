@@ -178,7 +178,7 @@ func TestOpenAIWSSessionPreemptContextEligibilityAndLocalCancellation(t *testing
 	stateStore := NewOpenAIWSStateStore(nil)
 	svc := &OpenAIGatewayService{openaiWSStateStore: stateStore}
 	oauth := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-	apiKey := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
+	apiKey := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	grok := &Account{ID: 3, Platform: PlatformGrok, Type: AccountTypeOAuth}
 
 	_, cleanup, armed, _ := svc.beginOpenAIWSSessionPreemptContext(context.Background(), apiKey, 7, 11, "sess", false, nil)

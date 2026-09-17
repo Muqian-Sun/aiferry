@@ -49,7 +49,8 @@ func messagesClampOllamaAccount(id int64, platform string) *Account {
 			"api_key":  "sk-test",
 			"base_url": "https://ollama.com",
 		},
-		Extra: map[string]any{},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://ollama.com"},
+		Extra:             map[string]any{},
 	}
 }
 
@@ -79,6 +80,7 @@ func TestBuildUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(t *testing.T) {
 	t.Run("official anthropic base is untouched", func(t *testing.T) {
 		official := messagesClampOllamaAccount(402, PlatformAnthropic)
 		official.Credentials["base_url"] = "https://api.anthropic.com"
+		official.ProtocolEndpoints = map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}
 		_, wire, err := svc.buildUpstreamRequest(
 			context.Background(), c, official, body, "sk-test", "api_key",
 			"deepseek-v4-flash", false, false,
@@ -171,7 +173,7 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 	t.Run("adaptive uses anthropic base not cc base", func(t *testing.T) {
 		account := messagesClampOllamaAccount(422, PlatformDeepseek)
 		account.Credentials["api_protocol"] = APIProtocolAdaptive
-		account.Credentials["api_base_urls"] = map[string]any{
+		account.ProtocolEndpoints = map[string]string{
 			APIProtocolAnthropic:       "https://ollama.com",
 			APIProtocolChatCompletions: "https://api.deepseek.com",
 		}
@@ -191,7 +193,7 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 	t.Run("non-ollama anthropic base with cc ollama base and usage extra untouched", func(t *testing.T) {
 		account := messagesClampOllamaAccount(423, PlatformDeepseek)
 		account.Credentials["api_protocol"] = APIProtocolAdaptive
-		account.Credentials["api_base_urls"] = map[string]any{
+		account.ProtocolEndpoints = map[string]string{
 			APIProtocolAnthropic:       "https://api.deepseek.com/anthropic",
 			APIProtocolChatCompletions: "https://ollama.com",
 		}
@@ -218,7 +220,8 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 				"api_key":      "sk-test",
 				"api_protocol": APIProtocolAnthropic,
 			},
-			Extra: map[string]any{},
+			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: DefaultDeepseekAnthropicBaseURL},
+			Extra:             map[string]any{},
 		}
 		targetURL, err := svc.nativeAnthropicTargetURL(account)
 		require.NoError(t, err)
@@ -263,6 +266,11 @@ func messagesClampProductionAccount(id int64) *Account {
 				APIProtocolChatCompletions: "https://ollama.com/v1",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic:       "https://ollama.com/",
+			APIProtocolResponses:       "https://ollama.com/v1",
+			APIProtocolChatCompletions: "https://ollama.com/v1",
+		},
 		Extra: map[string]any{},
 	}
 }
@@ -304,6 +312,7 @@ func TestBuildUpstreamRequest_ClampsTrailingSlashOllamaBase(t *testing.T) {
 	newAccount := func(id int64) *Account {
 		account := messagesClampOllamaAccount(id, PlatformAnthropic)
 		account.Credentials["base_url"] = "https://ollama.com/"
+		account.ProtocolEndpoints = map[string]string{APIProtocolAnthropic: "https://ollama.com/"}
 		return account
 	}
 
@@ -329,7 +338,7 @@ func TestBuildUpstreamRequest_ClampsTrailingSlashOllamaBase(t *testing.T) {
 	t.Run("evil suffix and custom path never match", func(t *testing.T) {
 		for _, base := range []string{"https://ollama.com.evil.com/", "https://ollama.com/anthropic/"} {
 			account := newAccount(443)
-			account.Credentials["base_url"] = base
+			account.ProtocolEndpoints = map[string]string{APIProtocolAnthropic: base}
 			_, wireBody, err := svc.buildUpstreamRequest(
 				context.Background(), c, account, body, "sk-test", "api_key",
 				"deepseek-v4-flash", false, false,

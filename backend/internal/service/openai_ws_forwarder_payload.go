@@ -41,19 +41,18 @@ func (s *OpenAIGatewayService) buildOpenAIResponsesWSURL(account *Account) (stri
 			targetURL = openaiPlatformAPIURL
 		}
 	case AccountTypeAPIKey:
-		baseURL := account.GetOpenAIBaseURL()
+		baseURL := account.GetOpenAIResponsesBaseURL()
 		if account.UsesNativeCNResponses() && account.IsAdaptiveAPIProtocol() {
 			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
 		}
 		if baseURL == "" {
-			targetURL = openaiPlatformAPIURL
-		} else {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return "", err
-			}
-			targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
+			return "", MissingProtocolEndpointError(account, APIProtocolResponses)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return "", err
+		}
+		targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
 	default:
 		targetURL = openaiPlatformAPIURL
 	}

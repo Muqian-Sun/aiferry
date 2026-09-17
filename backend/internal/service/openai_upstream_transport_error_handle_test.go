@@ -222,13 +222,14 @@ func TestForwardAsRawChatCompletions_TransportErrorFailsOver(t *testing.T) {
 		Port:     8080,
 	}
 	account := &Account{
-		ID:          81,
-		Name:        "oc-20053",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://opencode.ai/zen/v1"},
-		ProxyID:     &proxyID,
-		Proxy:       proxy,
+		ID:                81,
+		Name:              "oc-20053",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "sk-test", "base_url": "https://opencode.ai/zen/v1"},
+		ProxyID:           &proxyID,
+		Proxy:             proxy,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/v1", APIProtocolResponses: "https://opencode.ai/zen/v1"},
 	}
 	c, rec := newOpenAITransportErrTestContext()
 	body := []byte(`{"model":"deepseek-v4-flash-free","messages":[{"role":"user","content":"hello"}]}`)
@@ -266,9 +267,9 @@ func TestForwardAsRawChatCompletions_RecordsProxyPerAccountAttempt(t *testing.T)
 	proxyB := &Proxy{ID: 8001, Name: "proxy-b", Protocol: "http", Host: "proxy-b.example", Port: 8080}
 	fallbackOriginID := int64(10150)
 	accounts := []*Account{
-		{ID: 81, Name: "account-a", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "a", "base_url": "https://example.com/v1"}, ProxyID: &proxyA.ID, Proxy: proxyA},
-		{ID: 82, Name: "account-b", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "b", "base_url": "https://example.com/v1"}, ProxyID: &proxyB.ID, Proxy: proxyB, ProxyFallbackOriginID: &fallbackOriginID},
-		{ID: 83, Name: "account-direct", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "c", "base_url": "https://example.com/v1"}},
+		{ID: 81, Name: "account-a", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "a", "base_url": "https://example.com/v1"}, ProxyID: &proxyA.ID, Proxy: proxyA, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1"}},
+		{ID: 82, Name: "account-b", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "b", "base_url": "https://example.com/v1"}, ProxyID: &proxyB.ID, Proxy: proxyB, ProxyFallbackOriginID: &fallbackOriginID, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1"}},
+		{ID: 83, Name: "account-direct", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "c", "base_url": "https://example.com/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1"}},
 	}
 	c, _ := newOpenAITransportErrTestContext()
 	body := []byte(`{"model":"test","messages":[{"role":"user","content":"hello"}]}`)
@@ -302,11 +303,13 @@ func TestHandleOpenAIUpstreamTransportError_RecordsOllamaActivityOnly(t *testing
 	}
 	ollama := &Account{
 		ID: 501, Name: "ollama-cloud", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com", APIProtocolResponses: "https://ollama.com"},
 	}
 	other := &Account{
 		ID: 502, Name: "openai-official", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "k-openai", "base_url": "https://api.openai.com"},
+		Credentials:       map[string]any{"api_key": "k-openai", "base_url": "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	c, _ := newOpenAITransportErrTestContext()
 
@@ -327,7 +330,8 @@ func TestHandleOpenAIUpstreamTransportError_ContextCanceledSkipsOllamaActivity(t
 	}
 	ollama := &Account{
 		ID: 503, Name: "ollama-canceled", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com", APIProtocolResponses: "https://ollama.com"},
 	}
 	c, _ := newOpenAITransportErrTestContext()
 
@@ -343,11 +347,13 @@ func TestHandleOpenAIAccountUpstreamError_RecordsOllamaActivityOnly(t *testing.T
 	svc := &OpenAIGatewayService{deferredService: deferred}
 	ollama := &Account{
 		ID: 504, Name: "ollama-429", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com", APIProtocolResponses: "https://ollama.com"},
 	}
 	other := &Account{
 		ID: 505, Name: "openai-429", Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "k-openai", "base_url": "https://api.openai.com"},
+		Credentials:       map[string]any{"api_key": "k-openai", "base_url": "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	_ = svc.handleOpenAIAccountUpstreamError(context.Background(), ollama, http.StatusTooManyRequests, http.Header{}, []byte(`{"error":{"message":"rate"}}`), "gpt-test")

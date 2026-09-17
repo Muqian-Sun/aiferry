@@ -216,6 +216,7 @@ func TestHandleNonStreamingResponse_NonJSON2xxMatchesModelScopedTempUnschedulabl
 				},
 			},
 		},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	body := []byte("(upstream request failed)")
 	resp := &http.Response{

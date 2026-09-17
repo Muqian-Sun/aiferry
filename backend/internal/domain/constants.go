@@ -51,6 +51,7 @@ const (
 	APIProtocolAnthropic       = "anthropic"        // 原生 Anthropic /v1/messages（适配 Claude Code）
 	APIProtocolResponses       = "responses"        // OpenAI Responses（deepseek / kimi / minimax 原生端点，适配 Codex）
 	APIProtocolAdaptive        = "adaptive"         // 按入站协议优先选择供应商原生端点
+	APIProtocolGemini          = "gemini"           // Gemini v1beta generateContent
 )
 
 // Account type constants
@@ -62,6 +63,36 @@ const (
 	AccountTypeBedrock        = "bedrock"         // AWS Bedrock 类型账号（通过 SigV4 签名或 API Key 连接 Bedrock，由 credentials.auth_mode 区分）
 	AccountTypeServiceAccount = "service_account" // Google Service Account 类型账号（用于 Vertex AI）
 )
+
+// IsUpstreamProtocol 报告 p 是否为具体的上游协议，可用作 accounts.protocol_endpoints 的键。
+// adaptive 是「按入站协议选择」的选择模式，不是具体协议，因此不在此列。
+func IsUpstreamProtocol(p string) bool {
+	switch p {
+	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses, APIProtocolGemini:
+		return true
+	default:
+		return false
+	}
+}
+
+// Account source kind constants
+// 账号来源维度，与 type 正交：type 描述凭证形态，source_kind 描述这份资源从哪来。
+// 成品号需要厂商特有的令牌刷新、客户端伪装与额度窗口解析；第三方 key 不需要。
+const (
+	AccountSourceSubscription = "subscription" // 成品号：oauth / setup-token / bedrock / service_account
+	AccountSourceAPIKey       = "api_key"      // 第三方 key：apikey / upstream
+)
+
+// DeriveAccountSourceKind 由账号类型推导来源维度。
+// 迁移 239 的回填口径与此一致，新建账号也走这里，保证两条路径不会分叉。
+func DeriveAccountSourceKind(accountType string) string {
+	switch accountType {
+	case AccountTypeAPIKey, AccountTypeUpstream:
+		return AccountSourceAPIKey
+	default:
+		return AccountSourceSubscription
+	}
+}
 
 // Redeem type constants
 const (

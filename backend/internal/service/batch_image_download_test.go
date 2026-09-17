@@ -224,7 +224,7 @@ func newTestBatchImageDownloadService() (*BatchImageDownloadService, *fakeBatchI
 	svc := &BatchImageDownloadService{
 		Repo:             repo,
 		ProviderRegistry: NewBatchImageProviderRegistry(provider),
-		AccountResolver:  &fakeBatchImageAccountResolver{account: &Account{ID: accountID, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true}},
+		AccountResolver:  &fakeBatchImageAccountResolver{account: &Account{ID: accountID, Platform: PlatformGemini, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}},
 		Limiter:          limiter,
 		Config:           &config.Config{BatchImage: config.BatchImageConfig{MaxDownloadItemsZip: 10, MaxDownloadDurationSeconds: 60}},
 	}

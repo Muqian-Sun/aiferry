@@ -44,7 +44,7 @@ func TestApplyServiceTierBillingResolutionOnlyRewritesDowngrades(t *testing.T) {
 	t.Run("openai downgrade rewrites tier", func(t *testing.T) {
 		requested := "priority"
 		result := &OpenAIForwardResult{ServiceTier: &requested, UpstreamResponseServiceTier: "default"}
-		resolution := ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, result)
+		resolution := ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, result)
 		require.True(t, resolution.Downgraded)
 		require.NotNil(t, result.ServiceTier)
 		require.Equal(t, "default", *result.ServiceTier)
@@ -53,13 +53,13 @@ func TestApplyServiceTierBillingResolutionOnlyRewritesDowngrades(t *testing.T) {
 	t.Run("openai honoured tier keeps pointer", func(t *testing.T) {
 		requested := "priority"
 		result := &OpenAIForwardResult{ServiceTier: &requested, UpstreamResponseServiceTier: "priority"}
-		require.False(t, ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, result).Downgraded)
+		require.False(t, ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, result).Downgraded)
 		require.Same(t, &requested, result.ServiceTier)
 	})
 
 	t.Run("openai untiered request stays nil", func(t *testing.T) {
 		result := &OpenAIForwardResult{UpstreamResponseServiceTier: "priority"}
-		require.False(t, ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}, result).Downgraded)
+		require.False(t, ApplyOpenAIServiceTierBillingResolution(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, result).Downgraded)
 		require.Nil(t, result.ServiceTier)
 	})
 

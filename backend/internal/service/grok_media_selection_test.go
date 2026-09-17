@@ -15,7 +15,7 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			groupID := int64(24)
 			ownerID := int64(1)
 			owner := Account{ID: ownerID, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}}
+				Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
 			other := owner
 			other.ID = 2
 			if state == "unavailable" {
@@ -85,7 +85,7 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 func TestGrokVideoStickySelectionIgnoresHealthEscape(t *testing.T) {
 	groupID := int64(24)
 	account := Account{ID: 1, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-		Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}}
+		Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
 	svc := &OpenAIGatewayService{
 		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{account}},
 		cache:       &schedulerTestGatewayCache{},

@@ -29,13 +29,14 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 	targetURL := claudeAPIURL
 	if account.Type == AccountTypeAPIKey {
 		baseURL := account.GetBaseURL()
-		if baseURL != "" {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, nil, err
-			}
-			targetURL = validatedURL + "/v1/messages?beta=true"
+		if baseURL == "" {
+			return nil, nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, nil, err
+		}
+		targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages")
 	} else if account.IsCustomBaseURLEnabled() {
 		customURL := account.GetCustomBaseURL()
 		if customURL == "" {

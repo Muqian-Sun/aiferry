@@ -300,15 +300,15 @@ func (s *GatewayService) buildUpstreamRequestAnthropicAPIKeyPassthrough(
 	token string,
 ) (*http.Request, []byte, error) {
 	body = stripDeferredToolCacheControl(body)
-	targetURL := claudeAPIURL
 	baseURL := account.GetBaseURL()
-	if baseURL != "" {
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return nil, nil, err
-		}
-		targetURL = validatedURL + "/v1/messages?beta=true"
+	if baseURL == "" {
+		return nil, nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 	}
+	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return nil, nil, err
+	}
+	targetURL := joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages")
 
 	// 能力维度 body sanitize：透传路径上 anthropic-beta header 原样透传客户端值，
 	// 依此决定是否保留 body 中的 context_management。避免“客户端 body 带字段但

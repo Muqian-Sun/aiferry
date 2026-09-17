@@ -66,8 +66,7 @@ func newAliyunAuthServiceForTest(cfg *config.Config, settings map[string]string,
 		nil, // emailQueueService
 		nil, // promoService
 		nil, // defaultSubAssigner
-		nil, // affiliateService
-		nil, // userPlatformQuotaRepo
+		nil,
 	)
 	authService.SetAliyunCaptchaService(NewAliyunCaptchaService(settingService, aliyunSpy))
 	return authService

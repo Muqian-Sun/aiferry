@@ -134,7 +134,7 @@ func TestHandle403_CNProviderStructured403TempUnschedulableFirstHit(t *testing.T
 	counter := &openAI403CounterCacheStub{counts: []int64{1}}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
-	account := &Account{ID: 402, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+	account := &Account{ID: 402, Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 
 	shouldDisable := service.HandleUpstreamError(
 		context.Background(),
@@ -180,7 +180,7 @@ func TestHandle403_OtherCNProviderWithKimiConcurrencyMessageUsesNormalPolicy(t *
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
 	service.SetAccountRuntimeBlocker(blocker)
-	account := &Account{ID: 405, Platform: PlatformZhipu, Type: AccountTypeAPIKey}
+	account := &Account{ID: 405, Platform: PlatformZhipu, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}}
 
 	shouldDisable := service.HandleUpstreamError(
 		context.Background(), account, http.StatusForbidden, http.Header{},
@@ -201,7 +201,7 @@ func TestHandle403_CNProviderConcurrencyLimitAlwaysUsesTemporaryCooldown(t *test
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
 	service.SetAccountRuntimeBlocker(blocker)
-	account := &Account{ID: 403, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+	account := &Account{ID: 403, Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 
 	shouldDisable := service.HandleUpstreamError(
 		context.Background(), account, http.StatusForbidden, http.Header{},
@@ -225,7 +225,7 @@ func TestHandle403_KimiConcurrencyLimitRepositoryFailureKeepsRuntimeBlock(t *tes
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
 	service.SetAccountRuntimeBlocker(blocker)
-	account := &Account{ID: 406, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+	account := &Account{ID: 406, Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 
 	shouldDisable := service.HandleUpstreamError(
 		context.Background(), account, http.StatusForbidden, http.Header{},
@@ -247,7 +247,7 @@ func TestHandle403_CNProviderNearMatchRetainsNormalPermanentErrorPolicy(t *testi
 	counter := &openAI403CounterCacheStub{counts: []int64{openAI403DisableThreshold}}
 	service := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
 	service.SetOpenAI403CounterCache(counter)
-	account := &Account{ID: 404, Platform: PlatformKimi, Type: AccountTypeAPIKey}
+	account := &Account{ID: 404, Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.moonshot.cn/anthropic", APIProtocolChatCompletions: "https://api.moonshot.cn/v1"}}
 
 	shouldDisable := service.HandleUpstreamError(
 		context.Background(), account, http.StatusForbidden, http.Header{},

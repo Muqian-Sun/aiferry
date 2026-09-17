@@ -39,6 +39,9 @@ func newAnthropicAPIKeyAccountForTest() *Account {
 			"api_key":  "upstream-anthropic-key",
 			"base_url": "https://api.anthropic.com",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
+		},
 		Extra: map[string]any{
 			"anthropic_passthrough": true,
 		},
@@ -162,6 +165,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardStreamPreservesBodyAnd
 			"base_url":      "https://api.anthropic.com",
 			"model_mapping": map[string]any{"claude-3-7-sonnet-20250219": "claude-3-haiku-20240307"},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
+		},
 		Extra: map[string]any{
 			"anthropic_passthrough": true,
 		},
@@ -242,6 +248,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ForwardCountTokensPreservesBo
 			"base_url":      "https://api.anthropic.com",
 			"model_mapping": map[string]any{"claude-3-5-sonnet-latest": "claude-3-opus-20240229"},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
+		},
 		Extra: map[string]any{
 			"anthropic_passthrough": true,
 		},
@@ -284,6 +293,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_BearerAuthScheme(t *testing.T
 		Credentials: map[string]any{
 			"api_key":  "ollama-key",
 			"base_url": "https://ollama.com",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com",
 		},
 		Extra: map[string]any{
 			"anthropic_passthrough":        true,
@@ -407,15 +419,16 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ModelMappingEdgeCases(t *test
 			}
 
 			account := &Account{
-				ID:          300,
-				Name:        "edge-case-test",
-				Platform:    PlatformAnthropic,
-				Type:        AccountTypeAPIKey,
-				Concurrency: 1,
-				Credentials: credentials,
-				Extra:       map[string]any{"anthropic_passthrough": true},
-				Status:      StatusActive,
-				Schedulable: true,
+				ID:                300,
+				Name:              "edge-case-test",
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				Concurrency:       1,
+				Credentials:       credentials,
+				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
+				Extra:             map[string]any{"anthropic_passthrough": true},
+				Status:            StatusActive,
+				Schedulable:       true,
 			}
 
 			if tt.endpoint == "messages" {
@@ -509,6 +522,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ModelMappingPreservesOtherFie
 			"base_url":      "https://api.anthropic.com",
 			"model_mapping": map[string]any{"claude-sonnet-4-20250514": "claude-sonnet-4-5-20241022"},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
+		},
 		Extra:       map[string]any{"anthropic_passthrough": true},
 		Status:      StatusActive,
 		Schedulable: true,
@@ -564,6 +580,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_CountTokensFiltersGenerationF
 		Credentials: map[string]any{
 			"api_key":  "upstream-key",
 			"base_url": "https://api.anthropic.com",
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
 		},
 		Extra:       map[string]any{"anthropic_passthrough": true},
 		Status:      StatusActive,
@@ -628,6 +647,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_EmptyModelSkipsMapping(t *tes
 			"api_key":       "upstream-key",
 			"base_url":      "https://api.anthropic.com",
 			"model_mapping": map[string]any{"*": "claude-3-opus-20240229"},
+		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://api.anthropic.com",
 		},
 		Extra:       map[string]any{"anthropic_passthrough": true},
 		Status:      StatusActive,
@@ -716,6 +738,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_CountTokens404PassthroughNotE
 					"api_key":  "sk-proxy",
 					"base_url": "https://proxy.example.com",
 				},
+				ProtocolEndpoints: map[string]string{
+					APIProtocolAnthropic: "https://proxy.example.com",
+				},
 				Extra:       map[string]any{"anthropic_passthrough": true},
 				Status:      StatusActive,
 				Schedulable: true,
@@ -763,6 +788,9 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_BuildRequestRejectsInvalidBas
 			"api_key":  "k",
 			"base_url": "://invalid-url",
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "://invalid-url",
+		},
 	}
 
 	_, _, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, []byte(`{}`), "k")
@@ -775,7 +803,7 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_StripsDeferredToolCacheContro
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 	svc := &GatewayService{cfg: &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}}}
-	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
+	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}
 	body := []byte(`{"tools":[{"name":"deferred","custom":{"defer_loading":true},"cache_control":{"type":"ephemeral"}},{"name":"top-level-deferred","defer_loading":true,"cache_control":{"type":"ephemeral"}},{"name":"ordinary","defer_loading":false,"cache_control":{"type":"ephemeral"}},{"name":"malformed","defer_loading":"true","cache_control":{"type":"ephemeral"}}]}`)
 
 	_, wireBody, err := svc.buildUpstreamRequestAnthropicAPIKeyPassthrough(context.Background(), c, account, body, "k")
@@ -1677,8 +1705,11 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_TransportErrorRecordsOllamaAc
 		ID: 601, Name: "ollama-anthropic", Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
-		Extra:       map[string]any{"anthropic_passthrough": true},
-		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com",
+		},
+		Extra:  map[string]any{"anthropic_passthrough": true},
+		Status: StatusActive, Schedulable: true,
 	}
 	other := newAnthropicAPIKeyAccountForTest()
 	other.ID = 602
@@ -1718,8 +1749,11 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_ContextCanceledSkipsOllamaAct
 		ID: 603, Name: "ollama-canceled", Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
-		Extra:       map[string]any{"anthropic_passthrough": true},
-		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com",
+		},
+		Extra:  map[string]any{"anthropic_passthrough": true},
+		Status: StatusActive, Schedulable: true,
 	}
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -1757,8 +1791,11 @@ func TestGatewayService_AnthropicAPIKeyPassthrough_Non2xxRecordsOllamaActivity(t
 		ID: 604, Name: "ollama-400", Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "k-ollama", "base_url": "https://ollama.com"},
-		Extra:       map[string]any{"anthropic_passthrough": true},
-		Status:      StatusActive, Schedulable: true,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic: "https://ollama.com",
+		},
+		Extra:  map[string]any{"anthropic_passthrough": true},
+		Status: StatusActive, Schedulable: true,
 	}
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

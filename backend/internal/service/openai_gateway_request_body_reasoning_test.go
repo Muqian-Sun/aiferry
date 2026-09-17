@@ -283,20 +283,20 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount(t *testing.T) {
 	}{
 		{
 			name:          "custom compatible endpoint strips none placeholders",
-			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://compat.example/v1"}},
+			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://compat.example/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat.example/v1", APIProtocolResponses: "https://compat.example/v1"}},
 			body:          `{"reasoning":{"effort":"none"},"reasoning_effort":"NONE"}`,
 			wantReasoning: false,
 		},
 		{
 			name:          "third-party platform keeps other reasoning members",
-			account:       &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey},
+			account:       &Account{Platform: PlatformGrok, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}},
 			body:          `{"reasoning":{"effort":" none ","summary":"auto"}}`,
 			wantSummary:   true,
 			wantReasoning: true,
 		},
 		{
 			name:          "non-none effort is unchanged",
-			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://compat.example/v1"}},
+			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"base_url": "https://compat.example/v1"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat.example/v1", APIProtocolResponses: "https://compat.example/v1"}},
 			body:          `{"reasoning":{"effort":"high"},"reasoning_effort":"low"}`,
 			wantNested:    true,
 			wantFlat:      true,
@@ -304,7 +304,7 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount(t *testing.T) {
 		},
 		{
 			name:          "official OpenAI API key preserves none",
-			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey},
+			account:       &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 			body:          `{"reasoning":{"effort":"none"},"reasoning_effort":"none"}`,
 			wantNested:    true,
 			wantFlat:      true,
@@ -339,7 +339,8 @@ func TestFilterOpenAIResponsesNoneReasoningEffortForAccount_APIKeyAutomaticPasst
 		Credentials: map[string]any{
 			"base_url": "https://compat.example/v1",
 		},
-		Extra: map[string]any{"openai_passthrough": true},
+		Extra:             map[string]any{"openai_passthrough": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat.example/v1", APIProtocolResponses: "https://compat.example/v1"},
 	}
 
 	got, err := filterOpenAIResponsesNoneReasoningEffortForAccount(account, body)
@@ -420,8 +421,9 @@ func TestNormalizeOpenAIResponsesWebSocketCompatibilityBodyStripsReasoningConten
 	}
 
 	normalized, changed, err := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, &Account{
-		Platform: PlatformZhipu,
-		Type:     AccountTypeAPIKey,
+		Platform:          PlatformZhipu,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"},
 	}, false)
 	require.NoError(t, err)
 	require.False(t, changed)

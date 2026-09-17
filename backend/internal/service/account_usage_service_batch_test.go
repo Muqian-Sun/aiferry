@@ -159,9 +159,10 @@ func TestAccountUsageService_GetUsageBatch_BestEffortByAccount(t *testing.T) {
 				},
 			},
 			{
-				ID:       7003,
-				Platform: PlatformOpenAI,
-				Type:     AccountTypeAPIKey,
+				ID:                7003,
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		},
 	}

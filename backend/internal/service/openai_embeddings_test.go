@@ -82,6 +82,9 @@ func TestForwardEmbeddings_APIKeyPassthroughRecordsUsageAndBatchInput(t *testing
 				"nowledge-embedding": "jina-embeddings-v5-text-small",
 			},
 		},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.jina.ai",
+		},
 	}
 
 	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody, "")
@@ -124,6 +127,9 @@ func TestForwardEmbeddings_AccessStateUsesTypedFailover(t *testing.T) {
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+		},
 		ID:       43,
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
@@ -164,6 +170,9 @@ func TestForwardEmbeddings_NonAccessFailoverKeepsLegacyShape(t *testing.T) {
 	}}
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	account := &Account{
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://api.openai.com",
+		},
 		ID:       44,
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,

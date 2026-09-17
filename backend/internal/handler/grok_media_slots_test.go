@@ -193,7 +193,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGateway
 	for i := range accounts {
 		accounts[i] = service.Account{ID: int64(i + 1), Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey,
 			Status: service.StatusActive, Schedulable: true, Concurrency: 50, Priority: i,
-			GroupIDs: []int64{24}, Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}}
+			GroupIDs: []int64{24}, Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
 		if oauth {
 			accounts[i].Type = service.AccountTypeOAuth
 			accounts[i].Credentials["refresh_token"] = "test-refresh"
@@ -217,11 +217,11 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGateway
 		_, err := provider.GetAccessToken(context.Background(), &accounts[1])
 		require.NoError(t, err)
 	}
-	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, nil, nil)
+	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, nil)
 	groupID := int64(24)
 	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), &groupID, "task", 10, 20, 1))
 	bindings.writes = 0
-	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg, nil)
+	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billing.Stop)
 	handler := NewOpenAIGatewayHandler(gateway, concurrency, billing, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg), nil, nil, nil, nil, cfg)
 	return handler, slots, bindings, upstream

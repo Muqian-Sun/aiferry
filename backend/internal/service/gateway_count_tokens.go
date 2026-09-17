@@ -88,7 +88,7 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 
 	// Antigravity 账户不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
 	// 返回 nil 避免 handler 层记录为错误，也不设置 ops 上游错误上下文。
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		s.countTokensError(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
 		return nil
 	}
@@ -377,15 +377,15 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 	token string,
 ) (*http.Request, error) {
 	body = stripDeferredToolCacheControl(body)
-	targetURL := claudeAPICountTokensURL
 	baseURL := account.GetBaseURL()
-	if baseURL != "" {
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return nil, err
-		}
-		targetURL = validatedURL + "/v1/messages/count_tokens?beta=true"
+	if baseURL == "" {
+		return nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 	}
+	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return nil, err
+	}
+	targetURL := joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
 	body = sanitizeCountTokensRequestBody(body)
 
 	// 同 buildUpstreamRequestAnthropicAPIKeyPassthrough：能力维度 sanitize。
@@ -447,13 +447,14 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 	targetURL := claudeAPICountTokensURL
 	if account.Type == AccountTypeAPIKey {
 		baseURL := account.GetBaseURL()
-		if baseURL != "" {
-			validatedURL, err := s.validateUpstreamBaseURL(baseURL)
-			if err != nil {
-				return nil, nil, err
-			}
-			targetURL = validatedURL + "/v1/messages/count_tokens?beta=true"
+		if baseURL == "" {
+			return nil, nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
 		}
+		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		if err != nil {
+			return nil, nil, err
+		}
+		targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
 	} else if account.IsCustomBaseURLEnabled() {
 		customURL := account.GetCustomBaseURL()
 		if customURL == "" {

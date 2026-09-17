@@ -58,7 +58,6 @@ type AccountHandler struct {
 	accountUsageService     *service.AccountUsageService
 	accountTestService      *service.AccountTestService
 	concurrencyService      *service.ConcurrencyService
-	crsSyncService          *service.CRSSyncService
 	sessionLimitCache       service.SessionLimitCache
 	rpmCache                service.RPMCache
 	tokenCacheInvalidator   service.TokenCacheInvalidator
@@ -89,7 +88,6 @@ func NewAccountHandler(
 	accountUsageService *service.AccountUsageService,
 	accountTestService *service.AccountTestService,
 	concurrencyService *service.ConcurrencyService,
-	crsSyncService *service.CRSSyncService,
 	sessionLimitCache service.SessionLimitCache,
 	rpmCache service.RPMCache,
 	tokenCacheInvalidator service.TokenCacheInvalidator,
@@ -105,7 +103,6 @@ func NewAccountHandler(
 		accountUsageService:     accountUsageService,
 		accountTestService:      accountTestService,
 		concurrencyService:      concurrencyService,
-		crsSyncService:          crsSyncService,
 		sessionLimitCache:       sessionLimitCache,
 		rpmCache:                rpmCache,
 		tokenCacheInvalidator:   tokenCacheInvalidator,
@@ -130,6 +127,8 @@ type CreateAccountRequest struct {
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
+	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
 
 // UpdateAccountRequest represents update account request
@@ -152,6 +151,8 @@ type UpdateAccountRequest struct {
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
 	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
+	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
+	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
@@ -1037,6 +1038,7 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			ExpiresAt:             req.ExpiresAt,
 			AutoPauseOnExpired:    req.AutoPauseOnExpired,
 			ProbeEnabled:          req.ProbeEnabled,
+			ProtocolEndpoints:     req.ProtocolEndpoints,
 			SkipMixedChannelCheck: skipCheck,
 		})
 		if execErr != nil {
@@ -1170,6 +1172,7 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
 		ProbeEnabled:          req.ProbeEnabled,
 		RateSyncEnabled:       req.RateSyncEnabled,
+		ProtocolEndpoints:     req.ProtocolEndpoints,
 		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {
@@ -1251,20 +1254,6 @@ type TestAccountRequest struct {
 	AudioDataURL string `json:"audio_data_url"`
 }
 
-type SyncFromCRSRequest struct {
-	BaseURL            string   `json:"base_url" binding:"required"`
-	Username           string   `json:"username" binding:"required"`
-	Password           string   `json:"password" binding:"required"`
-	SyncProxies        *bool    `json:"sync_proxies"`
-	SelectedAccountIDs []string `json:"selected_account_ids"`
-}
-
-type PreviewFromCRSRequest struct {
-	BaseURL  string `json:"base_url" binding:"required"`
-	Username string `json:"username" binding:"required"`
-	Password string `json:"password" binding:"required"`
-}
-
 // Test handles testing account connectivity with SSE streaming
 // POST /api/v1/admin/accounts/:id/test
 func (h *AccountHandler) Test(c *gin.Context) {
@@ -1324,59 +1313,6 @@ func (h *AccountHandler) RecoverState(c *gin.Context) {
 	}
 
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
-}
-
-// SyncFromCRS handles syncing accounts from claude-relay-service (CRS)
-// POST /api/v1/admin/accounts/sync/crs
-func (h *AccountHandler) SyncFromCRS(c *gin.Context) {
-	var req SyncFromCRSRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-
-	// Default to syncing proxies (can be disabled by explicitly setting false)
-	syncProxies := true
-	if req.SyncProxies != nil {
-		syncProxies = *req.SyncProxies
-	}
-
-	result, err := h.crsSyncService.SyncFromCRS(c.Request.Context(), service.SyncFromCRSInput{
-		BaseURL:            req.BaseURL,
-		Username:           req.Username,
-		Password:           req.Password,
-		SyncProxies:        syncProxies,
-		SelectedAccountIDs: req.SelectedAccountIDs,
-	})
-	if err != nil {
-		// Provide detailed error message for CRS sync failures
-		response.InternalError(c, "CRS sync failed: "+err.Error())
-		return
-	}
-
-	response.Success(c, result)
-}
-
-// PreviewFromCRS handles previewing accounts from CRS before sync
-// POST /api/v1/admin/accounts/sync/crs/preview
-func (h *AccountHandler) PreviewFromCRS(c *gin.Context) {
-	var req PreviewFromCRSRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-
-	result, err := h.crsSyncService.PreviewFromCRS(c.Request.Context(), service.SyncFromCRSInput{
-		BaseURL:  req.BaseURL,
-		Username: req.Username,
-		Password: req.Password,
-	})
-	if err != nil {
-		response.InternalError(c, "CRS preview failed: "+err.Error())
-		return
-	}
-
-	response.Success(c, result)
 }
 
 // refreshSingleAccount refreshes credentials for a single OAuth account.
@@ -3020,9 +2956,17 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 		BaseURL      string            `json:"base_url"`
 		APIKey       string            `json:"api_key" binding:"required"`
 		ModelMapping map[string]string `json:"model_mapping"`
+		// ProtocolEndpoints 与建号接口同一规则：第三方 key 的上游地址只认协议映射，
+		// 预览同步用的临时账号不能例外，否则预览通过、真建号却取不到地址。
+		ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	protocolEndpoints, err := service.NormalizeProtocolEndpoints(req.ProtocolEndpoints)
+	if err != nil {
+		response.BadRequest(c, err.Error())
 		return
 	}
 	modelMapping := make(map[string]any, len(req.ModelMapping))
@@ -3038,6 +2982,7 @@ func (h *AccountHandler) SyncUpstreamModelsPreview(c *gin.Context) {
 			"base_url":      req.BaseURL,
 			"model_mapping": modelMapping,
 		},
+		ProtocolEndpoints: protocolEndpoints,
 	}
 
 	if h.accountTestService == nil {
@@ -3298,4 +3243,32 @@ func sanitizeExtraBaseRPM(extra map[string]any) {
 		v = 10000
 	}
 	extra["base_rpm"] = v
+}
+
+// GetProtocolDefaults 返回各平台各协议的官方端点地址，供管理端建号时预填。
+//
+// 后端提供而不是前端硬编码：官方端点在转发、探测、测试连接等处都以常量形式存在，
+// 再抄一份到前端就会出现两处需要同步维护的地址表。
+func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
+	platforms := service.PlatformsWithProtocolDefaults()
+	modes := []string{"", service.AccountModeCoding, service.AccountModeZen, service.AccountModeGo}
+	out := make(map[string]map[string]map[string]string, len(platforms))
+	for _, platform := range platforms {
+		perMode := make(map[string]map[string]string, len(modes))
+		for _, mode := range modes {
+			defaults := service.PlatformProtocolDefaults(platform, mode)
+			if len(defaults) == 0 {
+				continue
+			}
+			key := mode
+			if key == "" {
+				key = "default"
+			}
+			perMode[key] = defaults
+		}
+		if len(perMode) > 0 {
+			out[platform] = perMode
+		}
+	}
+	response.Success(c, gin.H{"protocols": service.UpstreamProtocols(), "defaults": out})
 }

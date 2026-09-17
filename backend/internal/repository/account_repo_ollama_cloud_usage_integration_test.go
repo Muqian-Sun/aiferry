@@ -34,8 +34,9 @@ func TestListDueOllamaCloudUsageAccountsOrderingLimitAndProxyHydration(t *testin
 		}
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": name, "base_url": baseURL},
-			Extra:       extra, ProxyID: proxyID, LastUsedAt: lastUsed,
+			Credentials:       map[string]any{"api_key": name},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: baseURL},
+			Extra:             extra, ProxyID: proxyID, LastUsedAt: lastUsed,
 		})
 	}
 
@@ -107,7 +108,8 @@ func TestListDueOllamaCloudUsageAccountsParsesAllRFC3339Precisions(t *testing.T)
 	for name, fetchedAt := range notDue {
 		_ = mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: "ollama-precision-" + name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": "precision-" + name, "base_url": "https://ollama.com"},
+			Credentials:       map[string]any{"api_key": "precision-" + name},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 			Extra: map[string]any{
 				service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 				service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -125,7 +127,8 @@ func TestListDueOllamaCloudUsageAccountsParsesAllRFC3339Precisions(t *testing.T)
 	staleFetched := now.Add(-2 * time.Hour)
 	due := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-precision-due", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "precision-due", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "precision-due"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -158,7 +161,8 @@ func TestListDueOllamaCloudUsageAccountsUsesGroupMaxLastUsedAndFailsOpen(t *test
 
 	leader := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-group-leader", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "shared-key", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "shared-key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -173,12 +177,14 @@ func TestListDueOllamaCloudUsageAccountsUsesGroupMaxLastUsedAndFailsOpen(t *test
 	})
 	_ = mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-group-sibling", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "shared-key", "base_url": "https://www.ollama.com/v1"},
-		LastUsedAt:  &newer,
+		Credentials:       map[string]any{"api_key": "shared-key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://www.ollama.com/v1"},
+		LastUsedAt:        &newer,
 	})
 	invalid := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-invalid-snapshot", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "invalid-key", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "invalid-key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -189,7 +195,8 @@ func TestListDueOllamaCloudUsageAccountsUsesGroupMaxLastUsedAndFailsOpen(t *test
 	})
 	idle := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-idle-ok", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "idle-key", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "idle-key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -221,6 +228,8 @@ func TestListDueOllamaCloudUsageAccountsUsesGroupMaxLastUsedAndFailsOpen(t *test
 func TestLockAndMergeAccountProbeExtraCoalescesNullableOllamaGroupIdentity(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
+	// 故意不配协议映射：仓储层会拒绝这样的第三方 key，这里经 ent 直写构造，
+	// 只为钉住 Ollama 资格表达式取到 NULL 时按 false 扫描，而不是报错。
 	account := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ordinary-openai-without-base-url", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-no-base-url"},
@@ -240,17 +249,18 @@ func TestOllamaCloudUsageGroupWritesAreAtomicAcrossPlatformsAndURLVariants(t *te
 	ctx := context.Background()
 	tx := testEntTx(t)
 	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
-	create := func(name, platform, apiKey, baseURL string) *service.Account {
+	create := func(name, platform, protocol, apiKey, baseURL string) *service.Account {
 		t.Helper()
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: platform, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": apiKey, "base_url": baseURL},
-			Extra:       map[string]any{},
+			Credentials:       map[string]any{"api_key": apiKey},
+			ProtocolEndpoints: map[string]string{protocol: baseURL},
+			Extra:             map[string]any{},
 		})
 	}
-	first := create("ollama-group-openai", service.PlatformOpenAI, "shared-key", "https://ollama.com")
-	second := create("ollama-group-anthropic", service.PlatformAnthropic, "shared-key", "HTTPS://WWW.OLLAMA.COM:443/v1")
-	different := create("ollama-group-different", service.PlatformOpenAI, "different-key", "https://ollama.com")
+	first := create("ollama-group-openai", service.PlatformOpenAI, service.APIProtocolChatCompletions, "shared-key", "https://ollama.com")
+	second := create("ollama-group-anthropic", service.PlatformAnthropic, service.APIProtocolAnthropic, "shared-key", "HTTPS://WWW.OLLAMA.COM:443/v1")
+	different := create("ollama-group-different", service.PlatformOpenAI, service.APIProtocolChatCompletions, "different-key", "https://ollama.com")
 
 	require.NoError(t, repo.SaveOllamaCloudUsageSession(ctx, first, "cipher:shared", false))
 	for _, id := range []int64{first.ID, second.ID} {
@@ -285,7 +295,7 @@ func TestOllamaCloudUsageGroupWritesAreAtomicAcrossPlatformsAndURLVariants(t *te
 
 	staleSecond := secondLoaded
 	require.NoError(t, repo.UpdateCredentials(ctx, second.ID, map[string]any{
-		"api_key": "rotated-key", "base_url": "https://ollama.com",
+		"api_key": "rotated-key",
 	}))
 	require.ErrorIs(t, repo.DisableOllamaCloudUsageAutoRefresh(ctx, staleSecond), service.ErrOllamaCloudUsageIdentityChanged)
 	firstLoaded, err = repo.GetByID(ctx, first.ID)
@@ -310,19 +320,20 @@ func TestConcurrentOllamaCloudUsageSaveAndDeleteSerializeGroupState(t *testing.T
 	repo := newAccountRepositoryWithSQL(client, integrationDB, nil)
 	suffix := time.Now().UnixNano()
 	apiKey := fmt.Sprintf("ollama-concurrent-%d", suffix)
-	create := func(platform string) *service.Account {
+	create := func(platform, protocol string) *service.Account {
 		t.Helper()
 		return mustCreateAccount(t, client, &service.Account{
 			Name: fmt.Sprintf("%s-%s", apiKey, platform), Platform: platform, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": apiKey, "base_url": "https://ollama.com"},
+			Credentials:       map[string]any{"api_key": apiKey},
+			ProtocolEndpoints: map[string]string{protocol: "https://ollama.com"},
 			Extra: map[string]any{
 				service.OllamaCloudUsageSessionExtraKey:     "cipher:initial",
 				service.OllamaCloudUsageAutoRefreshExtraKey: true,
 			},
 		})
 	}
-	first := create(service.PlatformOpenAI)
-	second := create(service.PlatformAnthropic)
+	first := create(service.PlatformOpenAI, service.APIProtocolChatCompletions)
+	second := create(service.PlatformAnthropic, service.APIProtocolAnthropic)
 	t.Cleanup(func() {
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id IN ($1, $2)", first.ID, second.ID)
 	})
@@ -393,18 +404,19 @@ func TestOllamaCloudUsageEligibilityExtendsToCNOpenAICompatPlatforms(t *testing.
 	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
 	now := time.Now().UTC()
 	activity := now.Add(-time.Minute)
-	create := func(name, platform, baseURL string) *service.Account {
+	create := func(name, platform, protocol, baseURL string) *service.Account {
 		t.Helper()
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: platform, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": "cn-shared-key", "base_url": baseURL},
-			Extra:       map[string]any{}, LastUsedAt: &activity,
+			Credentials:       map[string]any{"api_key": "cn-shared-key"},
+			ProtocolEndpoints: map[string]string{protocol: baseURL},
+			Extra:             map[string]any{}, LastUsedAt: &activity,
 		})
 	}
-	kimi := create("ollama-cn-kimi", service.PlatformKimi, "https://ollama.com")
-	zhipu := create("ollama-cn-zhipu", service.PlatformZhipu, "HTTPS://WWW.OLLAMA.COM:443/v1")
-	deepseek := create("ollama-cn-deepseek", service.PlatformDeepseek, "https://ollama.com/v1")
-	gemini := create("ollama-cn-gemini", service.PlatformGemini, "https://ollama.com")
+	kimi := create("ollama-cn-kimi", service.PlatformKimi, service.APIProtocolChatCompletions, "https://ollama.com")
+	zhipu := create("ollama-cn-zhipu", service.PlatformZhipu, service.APIProtocolChatCompletions, "HTTPS://WWW.OLLAMA.COM:443/v1")
+	deepseek := create("ollama-cn-deepseek", service.PlatformDeepseek, service.APIProtocolChatCompletions, "https://ollama.com/v1")
+	gemini := create("ollama-cn-gemini", service.PlatformGemini, service.APIProtocolGemini, "https://ollama.com")
 
 	require.NoError(t, repo.SaveOllamaCloudUsageSession(ctx, kimi, "cipher:cn-shared", true))
 	for _, id := range []int64{kimi.ID, zhipu.ID, deepseek.ID} {
@@ -416,7 +428,7 @@ func TestOllamaCloudUsageEligibilityExtendsToCNOpenAICompatPlatforms(t *testing.
 	geminiLoaded, err := repo.GetByID(ctx, gemini.ID)
 	require.NoError(t, err)
 	require.NotContains(t, geminiLoaded.Extra, service.OllamaCloudUsageSessionExtraKey,
-		"用量窗口不随 base_url 放开到白名单外平台")
+		"用量窗口不随上游地址放开到白名单外平台")
 
 	// lockAndMerge 组身份守卫：CN 行凭证未变时必须保留 ollama 托管键。
 	kimiLoaded, err := repo.GetByID(ctx, kimi.ID)
@@ -454,7 +466,8 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupIsSemanticallyEquivalent(t 
 	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
 	account := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "plain-kimi-apikey", Platform: service.PlatformKimi, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-moonshot", "base_url": "https://api.moonshot.cn"},
+		Credentials:       map[string]any{"api_key": "sk-moonshot"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.moonshot.cn"},
 		Extra: map[string]any{
 			service.UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			service.UpstreamBillingProbeEnabledExtraKey: true,
@@ -463,7 +476,7 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupIsSemanticallyEquivalent(t 
 	})
 
 	require.NoError(t, repo.UpdateCredentials(ctx, account.ID, map[string]any{
-		"api_key": "sk-moonshot-rotated", "base_url": "https://api.moonshot.cn",
+		"api_key": "sk-moonshot-rotated",
 	}))
 
 	loaded, err := repo.GetByID(ctx, account.ID)
@@ -484,7 +497,8 @@ func TestOllamaCloudUsageCredentialAndBulkUpdatesPreserveManagedStateOnlyWhenSaf
 	newAccount := func(name string) *service.Account {
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": "old-key", "base_url": "https://ollama.com"},
+			Credentials:       map[string]any{"api_key": "old-key"},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 			Extra: map[string]any{
 				service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 				service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -495,9 +509,10 @@ func TestOllamaCloudUsageCredentialAndBulkUpdatesPreserveManagedStateOnlyWhenSaf
 		})
 	}
 
+	// 凭证更新：换 api_key 即换了 Ollama 组身份，托管状态必须清掉。
 	rawAccount := newAccount("ollama-raw-credentials")
 	require.NoError(t, repo.UpdateCredentials(ctx, rawAccount.ID, map[string]any{
-		"api_key": "old-key", "base_url": "https://ollama.com/V1",
+		"api_key": "new-key",
 	}))
 	rawUpdated, err := repo.GetByID(ctx, rawAccount.ID)
 	require.NoError(t, err)
@@ -505,9 +520,23 @@ func TestOllamaCloudUsageCredentialAndBulkUpdatesPreserveManagedStateOnlyWhenSaf
 	require.NotContains(t, rawUpdated.Extra, service.OllamaCloudUsageAutoRefreshExtraKey)
 	require.NotContains(t, rawUpdated.Extra, service.OllamaCloudUsageSnapshotExtraKey)
 
+	// 上游地址只在协议映射里：改成不被识别为 Ollama 的写法（路径大写）后，
+	// 账号不再有资格持有托管状态。
+	endpointAccount := newAccount("ollama-endpoint-change")
+	endpointLoaded, err := repo.GetByID(ctx, endpointAccount.ID)
+	require.NoError(t, err)
+	endpointLoaded.ProtocolEndpoints = map[string]string{service.APIProtocolChatCompletions: "https://ollama.com/V1"}
+	require.NoError(t, repo.Update(ctx, endpointLoaded))
+	endpointUpdated, err := repo.GetByID(ctx, endpointAccount.ID)
+	require.NoError(t, err)
+	require.NotContains(t, endpointUpdated.Extra, service.OllamaCloudUsageSessionExtraKey)
+	require.NotContains(t, endpointUpdated.Extra, service.OllamaCloudUsageAutoRefreshExtraKey)
+	require.NotContains(t, endpointUpdated.Extra, service.OllamaCloudUsageSnapshotExtraKey)
+
 	bulkAccount := newAccount("ollama-bulk-credentials")
+	// 批量更新带上原样的 api_key：组身份未变，托管状态保留。
 	rows, err := repo.BulkUpdate(ctx, []int64{bulkAccount.ID}, service.AccountBulkUpdate{
-		Credentials: map[string]any{"base_url": "HTTPS://WWW.OLLAMA.COM:443/v1"},
+		Credentials: map[string]any{"api_key": "old-key"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), rows)
@@ -516,15 +545,15 @@ func TestOllamaCloudUsageCredentialAndBulkUpdatesPreserveManagedStateOnlyWhenSaf
 	require.Contains(t, bulkUnchanged.Extra, service.OllamaCloudUsageSnapshotExtraKey)
 
 	rows, err = repo.BulkUpdate(ctx, []int64{bulkAccount.ID}, service.AccountBulkUpdate{
-		Credentials: map[string]any{"base_url": "https://ollama.com/V1"},
+		Credentials: map[string]any{"api_key": "rotated-key"},
 	})
 	require.NoError(t, err)
 	require.Equal(t, int64(1), rows)
-	bulkIneligible, err := repo.GetByID(ctx, bulkAccount.ID)
+	bulkRotated, err := repo.GetByID(ctx, bulkAccount.ID)
 	require.NoError(t, err)
-	require.NotContains(t, bulkIneligible.Extra, service.OllamaCloudUsageSessionExtraKey)
-	require.NotContains(t, bulkIneligible.Extra, service.OllamaCloudUsageAutoRefreshExtraKey)
-	require.NotContains(t, bulkIneligible.Extra, service.OllamaCloudUsageSnapshotExtraKey)
+	require.NotContains(t, bulkRotated.Extra, service.OllamaCloudUsageSessionExtraKey)
+	require.NotContains(t, bulkRotated.Extra, service.OllamaCloudUsageAutoRefreshExtraKey)
+	require.NotContains(t, bulkRotated.Extra, service.OllamaCloudUsageSnapshotExtraKey)
 }
 
 func TestProxyIdentityUpdateInvalidatesOllamaSnapshotAndRejectsInFlightCAS(t *testing.T) {
@@ -539,8 +568,9 @@ func TestProxyIdentityUpdateInvalidatesOllamaSnapshotAndRejectsInFlightCAS(t *te
 	now := time.Now().UTC()
 	account := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-proxy-account", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "key", "base_url": "https://ollama.com"},
-		ProxyID:     &proxy.ID,
+		Credentials:       map[string]any{"api_key": "key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://ollama.com"},
+		ProxyID:           &proxy.ID,
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -571,7 +601,7 @@ func TestProxyIdentityUpdateInvalidatesOllamaSnapshotAndRejectsInFlightCAS(t *te
 	require.ErrorIs(t, err, service.ErrOllamaCloudUsageIdentityChanged)
 }
 
-// 无变化的凭证持久化（如 CRS 同步重放同一凭证）不得触发任何 extra 清理；
+// 无变化的凭证持久化（如重复提交同一凭证）不得触发任何 extra 清理；
 // 真实变化仍必须按旧语义清 openai 探测快照。
 func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T) {
 	ctx := context.Background()
@@ -580,14 +610,15 @@ func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T)
 
 	probeAccount := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "openai-probe-unchanged", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-probe", "base_url": "https://relay.example.com/v1"},
+		Credentials:       map[string]any{"api_key": "sk-probe"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com/v1"},
 		Extra: map[string]any{
 			service.UpstreamBillingProbeEnabledExtraKey: true,
 			service.UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 		},
 	})
 	require.NoError(t, repo.UpdateCredentials(ctx, probeAccount.ID, map[string]any{
-		"api_key": "sk-probe", "base_url": "https://relay.example.com/v1",
+		"api_key": "sk-probe",
 	}))
 	probeLoaded, err := repo.GetByID(ctx, probeAccount.ID)
 	require.NoError(t, err)
@@ -597,7 +628,8 @@ func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T)
 	now := time.Now().UTC()
 	ollamaAccount := mustCreateAccount(t, tx.Client(), &service.Account{
 		Name: "ollama-unchanged", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "ollama-key", "base_url": "https://ollama.com"},
+		Credentials:       map[string]any{"api_key": "ollama-key"},
+		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://ollama.com"},
 		Extra: map[string]any{
 			service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 			service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -607,7 +639,7 @@ func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T)
 		},
 	})
 	require.NoError(t, repo.UpdateCredentials(ctx, ollamaAccount.ID, map[string]any{
-		"api_key": "ollama-key", "base_url": "https://ollama.com",
+		"api_key": "ollama-key",
 	}))
 	ollamaLoaded, err := repo.GetByID(ctx, ollamaAccount.ID)
 	require.NoError(t, err)
@@ -616,7 +648,7 @@ func TestUpdateCredentialsUnchangedCredentialsPreserveManagedExtra(t *testing.T)
 	require.Contains(t, ollamaLoaded.Extra, service.OllamaCloudUsageSnapshotExtraKey)
 
 	require.NoError(t, repo.UpdateCredentials(ctx, probeAccount.ID, map[string]any{
-		"api_key": "sk-probe", "base_url": "https://relay.example.org/v1",
+		"api_key": "sk-probe-rotated",
 	}))
 	probeLoaded, err = repo.GetByID(ctx, probeAccount.ID)
 	require.NoError(t, err)
@@ -640,7 +672,8 @@ func TestListDueOllamaCloudUsageAccountsSQLDueRulesMatchService(t *testing.T) {
 		t.Helper()
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": name, "base_url": "https://ollama.com"},
+			Credentials:       map[string]any{"api_key": name},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 			Extra: map[string]any{
 				service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 				service.OllamaCloudUsageAutoRefreshExtraKey: true,
@@ -668,7 +701,8 @@ func TestListDueOllamaCloudUsageAccountsSQLDueRulesMatchService(t *testing.T) {
 		}
 		return mustCreateAccount(t, tx.Client(), &service.Account{
 			Name: name, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
-			Credentials: map[string]any{"api_key": name, "base_url": "https://ollama.com"},
+			Credentials:       map[string]any{"api_key": name},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://ollama.com"},
 			Extra: map[string]any{
 				service.OllamaCloudUsageSessionExtraKey:     "cipher:wos-session=fixture",
 				service.OllamaCloudUsageAutoRefreshExtraKey: true,

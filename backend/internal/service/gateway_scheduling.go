@@ -1059,7 +1059,7 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 		}
 		filtered := make([]Account, 0, len(accounts))
 		for _, acc := range accounts {
-			if acc.Platform == PlatformAntigravity && !acc.IsMixedSchedulingEnabled() {
+			if acc.IsAntigravity() && !acc.IsMixedSchedulingEnabled() {
 				continue
 			}
 			filtered = append(filtered, acc)
@@ -1141,7 +1141,7 @@ func (s *GatewayService) isAccountAllowedForPlatform(account *Account, platform 
 		if account.Platform == platform {
 			return true
 		}
-		return account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()
+		return account.IsAntigravity() && account.IsMixedSchedulingEnabled()
 	}
 	return account.Platform == platform
 }
@@ -2187,7 +2187,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 							_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 						}
 						if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) {
-							if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
+							if account.Platform == nativePlatform || (account.IsAntigravity() && account.IsMixedSchedulingEnabled()) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 								}
@@ -2242,7 +2242,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				continue
 			}
 			// 过滤：原生平台直接通过，antigravity 需要启用混合调度
-			if acc.Platform == PlatformAntigravity && !acc.IsMixedSchedulingEnabled() {
+			if acc.IsAntigravity() && !acc.IsMixedSchedulingEnabled() {
 				continue
 			}
 			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2311,7 +2311,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 						_ = s.cache.DeleteSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
 					}
 					if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && s.isAccountInGroup(account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForQuota(account) && s.isAccountSchedulableForWindowCost(ctx, account, true) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
-						if account.Platform == nativePlatform || (account.Platform == PlatformAntigravity && account.IsMixedSchedulingEnabled()) {
+						if account.Platform == nativePlatform || (account.IsAntigravity() && account.IsMixedSchedulingEnabled()) {
 							return account, nil
 						}
 					}
@@ -2357,7 +2357,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			continue
 		}
 		// 过滤：原生平台直接通过，antigravity 需要启用混合调度
-		if acc.Platform == PlatformAntigravity && !acc.IsMixedSchedulingEnabled() {
+		if acc.IsAntigravity() && !acc.IsMixedSchedulingEnabled() {
 			continue
 		}
 		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2563,7 +2563,7 @@ func isPlatformFilteredForSelection(acc *Account, platform string, allowMixedSch
 		return true
 	}
 	if allowMixedScheduling {
-		if acc.Platform == PlatformAntigravity {
+		if acc.IsAntigravity() {
 			return !acc.IsMixedSchedulingEnabled()
 		}
 		return acc.Platform != platform
@@ -2613,7 +2613,7 @@ func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Contex
 			return false
 		}
 	}
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}
@@ -2637,7 +2637,7 @@ func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Contex
 
 // isModelSupportedByAccount 根据账户平台检查模型支持（无 context，用于非 Antigravity 平台）
 func (s *GatewayService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}

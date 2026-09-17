@@ -62,7 +62,7 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	gatewayService := service.NewOpenAIGatewayService(
 		nil, nil, nil, nil, nil, nil, nil, cfg,
 		nil, nil, nil, nil, nil, &openAIFastPolicyForwardingHTTPUpstream{client: upstreamServer.Client()},
-		nil, nil, nil, nil, nil, nil, settingService, nil,
+		nil, nil, nil, nil, nil, nil, settingService,
 	)
 
 	groupID := int64(101)
@@ -79,6 +79,10 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	}
 	apiKeyService := service.NewAPIKeyService(&openAIFastPolicyForwardingAPIKeyRepo{apiKeys: apiKeys}, nil, nil, nil, nil, nil, cfg)
 	account := &service.Account{
+		ProtocolEndpoints: map[string]string{
+			service.APIProtocolChatCompletions: upstreamServer.URL,
+			service.APIProtocolResponses:       upstreamServer.URL,
+		},
 		ID:          900,
 		Name:        "openai-upstream",
 		Platform:    service.PlatformOpenAI,

@@ -12,10 +12,11 @@ func TestBuildCodexModelsManifestForGroupCorrectsOfficialAstraStaleModalities(t 
 
 	const groupID int64 = 780
 	account := Account{
-		ID:          1,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "sk-test"},
+		ID:                1,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 	}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{
 		Models: map[string]UpstreamModelMetadata{
@@ -48,6 +49,9 @@ func TestBuildCodexModelsManifestForGroupPreservesCompatibleAstraTextOnlyMetadat
 		Platform:    PlatformOpenAI,
 		Type:        AccountTypeAPIKey,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://relay.example.test/v1"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: "https://relay.example.test/v1",
+		},
 	}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{
 		Models: map[string]UpstreamModelMetadata{

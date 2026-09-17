@@ -135,9 +135,10 @@ func TestGeminiForwardAsChatCompletions_StreamsOpenAIChunksFromGeminiSSE(t *test
 		cfg:          &config.Config{},
 	}
 	account := &Account{
-		ID:       102,
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey,
+		ID:                102,
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "gemini-api-key",
 		},
@@ -187,9 +188,10 @@ func TestGeminiForwardAsChatCompletions_FunctionNamedWebSearchStaysClientSide(t 
 		cfg:          &config.Config{},
 	}
 	account := &Account{
-		ID:       103,
-		Platform: PlatformGemini,
-		Type:     AccountTypeAPIKey,
+		ID:                103,
+		Platform:          PlatformGemini,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "gemini-api-key",
 		},
@@ -585,8 +587,9 @@ func TestGeminiMessagesCompatServiceForward_PreservesRequestedModelAndMappedUpst
 	}
 	svc := &GeminiMessagesCompatService{httpUpstream: httpStub, cfg: &config.Config{}}
 	account := &Account{
-		ID:   1,
-		Type: AccountTypeAPIKey,
+		ID:                1,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "test-key",
 			"model_mapping": map[string]any{
@@ -621,8 +624,9 @@ func TestGeminiMessagesCompatServiceForward_NormalizesWebSearchToolForAIStudio(t
 	}
 	svc := &GeminiMessagesCompatService{httpUpstream: httpStub, cfg: &config.Config{}}
 	account := &Account{
-		ID:   1,
-		Type: AccountTypeAPIKey,
+		ID:                1,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"},
 		Credentials: map[string]any{
 			"api_key": "test-key",
 		},

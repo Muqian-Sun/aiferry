@@ -158,10 +158,11 @@ var nonWebSearchToolBody = []byte(`{"tools":[{"type":"text_editor"}],"messages":
 // newAnthropicAPIKeyAccount creates a test Account with the given web search emulation mode.
 func newAnthropicAPIKeyAccount(mode string) *Account {
 	return &Account{
-		ID:       1,
-		Platform: PlatformAnthropic,
-		Type:     AccountTypeAPIKey,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: mode},
+		ID:                1,
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		Extra:             map[string]any{featureKeyWebSearchEmulation: mode},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 }
 

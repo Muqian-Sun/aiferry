@@ -87,15 +87,16 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StateBoundToExec
 	}
 	groupID := int64(9)
 	account := &Account{
-		ID:          454,
-		Name:        "openai-ingress-exec-scope",
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"responses_websockets_v2_enabled": true},
+		ID:                454,
+		Name:              "openai-ingress-exec-scope",
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		Status:            StatusActive,
+		Schedulable:       true,
+		Concurrency:       1,
+		Credentials:       map[string]any{"api_key": "sk-test"},
+		Extra:             map[string]any{"responses_websockets_v2_enabled": true},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 
 	serverErrCh := make(chan error, 1)

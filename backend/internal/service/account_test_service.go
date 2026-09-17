@@ -381,7 +381,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return s.testGrokAccountConnection(c, account, modelID, prompt, mode, testOpts)
 	}
 
-	if account.Platform == PlatformAntigravity {
+	if account.IsAntigravity() {
 		return s.routeAntigravityTest(c, account, modelID, prompt)
 	}
 
@@ -495,9 +495,9 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
 
-		baseURL := account.GetBaseURL()
-		if baseURL == "" {
-			baseURL = "https://api.anthropic.com"
+		baseURL, err := ResolveUpstreamBaseURL(account, account.GetBaseURL(), APIProtocolAnthropic, "https://api.anthropic.com")
+		if err != nil {
+			return err
 		}
 		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
@@ -817,9 +817,11 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
 
-		baseURL := credentialAccount.GetOpenAIBaseURL()
-		if baseURL == "" {
-			baseURL = "https://api.openai.com"
+		// 测试连接必须与实际转发取同一个地址，否则只配了 responses 的账号
+		// 会出现「转发正常、测试连接打到官方端点」的假象。
+		baseURL, err := ResolveUpstreamBaseURL(credentialAccount, credentialAccount.GetOpenAIResponsesBaseURL(), APIProtocolResponses, "https://api.openai.com")
+		if err != nil {
+			return err
 		}
 		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
@@ -2167,9 +2169,11 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 		if authToken == "" {
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
-		baseURL := account.GetOpenAIBaseURL()
-		if baseURL == "" {
-			baseURL = "https://api.openai.com"
+		// 这条分支拼的是 Responses 端点，取址与校验都必须用 responses 协议，
+		// 否则只配了 responses 的账号会被误判成缺地址。
+		baseURL, err := ResolveUpstreamBaseURL(account, account.GetOpenAIResponsesBaseURL(), APIProtocolResponses, "https://api.openai.com")
+		if err != nil {
+			return err
 		}
 		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 		if err != nil {
@@ -2470,9 +2474,9 @@ func (s *AccountTestService) buildGeminiAPIKeyRequest(ctx context.Context, accou
 		return nil, fmt.Errorf("no API key available")
 	}
 
-	baseURL := account.GetCredential("base_url")
+	baseURL := account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	if baseURL == "" {
-		baseURL = geminicli.AIStudioBaseURL
+		return nil, MissingProtocolEndpointError(account, APIProtocolGemini)
 	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
@@ -2978,9 +2982,9 @@ func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.C
 		return s.sendErrorAndEnd(c, "No API key available")
 	}
 
-	baseURL := account.GetOpenAIBaseURL()
-	if baseURL == "" {
-		baseURL = "https://api.openai.com"
+	baseURL, err := ResolveUpstreamBaseURL(account, account.GetOpenAIBaseURL(), APIProtocolChatCompletions, "https://api.openai.com")
+	if err != nil {
+		return err
 	}
 	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
