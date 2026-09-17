@@ -48,6 +48,15 @@ function configuredProtocols(endpoints: ProtocolEndpoints): UpstreamProtocol[] {
   return Object.keys(endpoints) as UpstreamProtocol[]
 }
 
+/**
+ * 第三方 key 配了 Anthropic 协议地址：Anthropic 协议上的 key 设置（自动透传、上游认证方式、
+ * web search 模拟）只在按该协议转发时生效，账号弹窗据此展示，不看平台标签。
+ * 看的是编辑中的地址行，刚添加、还没填地址的行也算（提交前另有非空校验）。
+ */
+export function hasAnthropicEndpoint(endpoints: ProtocolEndpoints): boolean {
+  return 'anthropic' in endpoints
+}
+
 export function sameEndpoints(a: ProtocolEndpoints, b: ProtocolEndpoints): boolean {
   const keysA = configuredProtocols(a)
   const keysB = configuredProtocols(b)

@@ -73,6 +73,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+import { adminAPI } from '@/api/admin'
 import CreateAccountModal from '../CreateAccountModal.vue'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
@@ -909,5 +910,87 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(false)
     await selectButtonByText(wrapper, 'Grok')
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(true)
+  })
+
+  it('shows Anthropic protocol settings for a Kimi key with an anthropic endpoint and submits them', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await fillKeyBasics(wrapper, 'kimi relay')
+
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+    await wrapper.get('[data-testid="create-web-search-emulation"] select').setValue('enabled')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer',
+      web_search_emulation: 'enabled'
+    })
+  })
+
+  it('hides Anthropic protocol settings once an Anthropic-labelled key drops its anthropic endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
+    await fillKeyBasics(wrapper, 'anthropic label without anthropic endpoint')
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
+  })
+
+  it('clears Anthropic protocol settings when switching to another platform label', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+
+    // MiniMax 的官方地址同样带 anthropic，区块一直可见
+    await selectButtonByText(wrapper, 'MiniMax')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
+    await fillKeyBasics(wrapper, 'minimax after kimi')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('minimax')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
+  })
+
+  it('submits Anthropic protocol settings for an Antigravity upstream key', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
+    await fillKeyBasics(wrapper, 'antigravity relay')
+
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
+  })
+
+  it('never shows the key-only Anthropic settings for Anthropic subscription accounts', async () => {
+    const wrapper = mountModal()
+    await flushPromises()
+    // 默认是 Anthropic OAuth 成品号；协议地址预填了官方 anthropic 地址也不展示
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
   })
 })

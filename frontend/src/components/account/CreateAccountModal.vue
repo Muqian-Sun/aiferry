@@ -2966,9 +2966,10 @@
         </div>
       </div>
 
-      <!-- Anthropic API Key 自动透传开关 -->
+      <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey'"
+        v-if="anthropicKeySettingsVisible"
+        data-testid="create-anthropic-passthrough"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2980,6 +2981,7 @@
           </div>
           <button
             type="button"
+            data-testid="create-anthropic-passthrough-toggle"
             @click="anthropicPassthroughEnabled = !anthropicPassthroughEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -2997,7 +2999,7 @@
       </div>
 
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey'"
+        v-if="anthropicKeySettingsVisible"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -3007,16 +3009,21 @@
               {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
             </p>
           </div>
-          <select v-model="anthropicAPIKeyAuthScheme" class="input w-52 text-sm">
+          <select
+            v-model="anthropicAPIKeyAuthScheme"
+            data-testid="create-anthropic-auth-scheme"
+            class="input w-52 text-sm"
+          >
             <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
             <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
           </select>
         </div>
       </div>
 
-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
+      <!-- Web Search Emulation（Anthropic 协议上的 key 设置，全局关闭时隐藏） -->
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey' && webSearchGlobalEnabled"
+        v-if="anthropicKeySettingsVisible && webSearchGlobalEnabled"
+        data-testid="create-web-search-emulation"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -3746,6 +3753,7 @@ import {
   applyPresetUrl,
   describeProtocolEndpointsIssue,
   endpointsAfterDefaultsChange,
+  hasAnthropicEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
   trimProtocolEndpoints,
@@ -4439,6 +4447,12 @@ const isOAuthFlow = computed(() => {
   return accountCategory.value === 'oauth-based'
 })
 
+// 第三方 key（含 Antigravity 上游 key）的 Anthropic 协议设置按编辑中的协议地址展示，不看平台标签。
+// 区块隐藏（换成成品号、删掉 anthropic 地址行）时提交不写入（见 buildAnthropicExtra）；切换平台时清空。
+const anthropicKeySettingsVisible = computed(
+  () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
+)
+
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
 const isManualInputMethod = computed(() => {
@@ -4598,11 +4612,11 @@ watch(
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
     }
-    if (newPlatform !== 'anthropic') {
-      anthropicPassthroughEnabled.value = false
-      anthropicAPIKeyAuthScheme.value = 'x_api_key'
-      webSearchEmulationMode.value = 'default'
-    }
+    // Anthropic 协议上的 key 设置：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
+    // 同一平台内删掉 anthropic 地址行导致的隐藏，由提交时的可见性判断保证不写入。
+    anthropicPassthroughEnabled.value = false
+    anthropicAPIKeyAuthScheme.value = 'x_api_key'
+    webSearchEmulationMode.value = 'default'
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
     headerOverrideEnabled.value = false
@@ -4625,11 +4639,6 @@ watch(
     if (platform === 'openai' && category !== 'oauth-based') {
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
-    }
-    if (platform !== 'anthropic' || category !== 'apikey') {
-      anthropicPassthroughEnabled.value = false
-      anthropicAPIKeyAuthScheme.value = 'x_api_key'
-      webSearchEmulationMode.value = 'default'
     }
   }
 )
@@ -5177,7 +5186,7 @@ const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
 }
 
 const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  if (form.platform !== 'anthropic' || accountCategory.value !== 'apikey') {
+  if (!anthropicKeySettingsVisible.value) {
     return base
   }
 
@@ -5406,7 +5415,7 @@ const handleSubmit = async () => {
     }
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
-    const extra = buildAntigravityExtra()
+    const extra = buildAnthropicExtra(buildAntigravityExtra())
     await createAccountAndFinish(form.platform, 'apikey', credentials, extra, upstreamEndpoints)
     return
   }

@@ -57,6 +57,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+import { adminAPI } from '@/api/admin'
 import EditAccountModal from '../EditAccountModal.vue'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
@@ -1748,5 +1749,100 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     const grokOAuth = mountModal(buildGrokOAuthAccount())
     expect(grokOAuth.find('[data-testid="edit-header-override"]').exists()).toBe(true)
     grokOAuth.unmount()
+  })
+
+  it('shows Anthropic protocol settings for a Kimi-labelled key with an anthropic endpoint and submits them', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal(buildKey('kimi', {
+      anthropic: 'https://api.moonshot.cn/anthropic',
+      chat_completions: 'https://api.moonshot.cn/v1'
+    }))
+    await flushPromises()
+
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
+    await wrapper.get('[data-testid="edit-web-search-emulation"] select').setValue('enabled')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer',
+      web_search_emulation: 'enabled'
+    })
+  })
+
+  it('loads stored Anthropic protocol settings of a non-Anthropic-labelled key', async () => {
+    const wrapper = mountModal(buildKey(
+      'zhipu',
+      { anthropic: 'https://open.bigmodel.cn/api/anthropic' },
+      { anthropic_passthrough: true, anthropic_apikey_auth_scheme: 'authorization_bearer' }
+    ))
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').element as HTMLSelectElement).value)
+      .toBe('authorization_bearer')
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer'
+    })
+  })
+
+  it('hides Anthropic protocol settings for an Anthropic-labelled key without an anthropic endpoint', async () => {
+    const wrapper = mountModal(buildKey(
+      'anthropic',
+      { chat_completions: 'https://relay.example.com/v1' },
+      { anthropic_passthrough: true, anthropic_apikey_auth_scheme: 'authorization_bearer' }
+    ))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
+
+    // 隐藏区块不写界面值，账号已存的值原样保留
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer'
+    })
+  })
+
+  it('follows anthropic endpoint rows added or removed in the modal and does not submit hidden edits', async () => {
+    const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
+    await flushPromises()
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+  })
+
+  it('keeps Anthropic settings when an OpenAI-labelled key also has OpenAI settings to save', async () => {
+    const wrapper = mountModal(buildKey('openai', {
+      anthropic: 'https://relay.example.com',
+      responses: 'https://api.openai.com'
+    }))
+    await flushPromises()
+
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'off'
+    })
+  })
+
+  it('never shows the key-only Anthropic settings for subscription accounts', async () => {
+    const wrapper = mountModal({ ...buildOpenAIOAuthParentAccount(), platform: 'anthropic', protocol_endpoints: undefined } as any)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
   })
 })
