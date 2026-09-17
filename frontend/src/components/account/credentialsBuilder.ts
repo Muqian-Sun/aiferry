@@ -27,7 +27,7 @@ export function applyAntigravityProjectID(
   }
 }
 
-// ========== 请求头覆写（API-key 平台 + grok 的 api_key/oauth 账号） ==========
+// ========== 请求头覆写（任何第三方 key + Grok OAuth 成品号） ==========
 
 export const HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY = 'header_override_enabled'
 export const HEADER_OVERRIDES_CREDENTIAL_KEY = 'header_overrides'
@@ -37,23 +37,15 @@ export interface HeaderOverrideRow {
   value: string
 }
 
-/** 请求头覆写资格（与后端 IsHeaderOverrideEligible 保持一致） */
+/**
+ * 请求头覆写资格（与后端 IsHeaderOverrideEligible 保持一致）：第三方 key 不论平台标签
+ * 一律支持，覆写跟着 key 发出的每个上游请求走；成品号只开放 Grok OAuth。
+ */
 export function isHeaderOverrideCapable(platform: string, type: string): boolean {
-  if (
-    platform === 'anthropic' ||
-    platform === 'openai' ||
-    platform === 'kimi' ||
-    platform === 'zhipu' ||
-    platform === 'deepseek' ||
-    platform === 'minimax' ||
-    platform === 'opencode_go'
-  ) {
-    return type === 'apikey'
+  if (type === 'apikey') {
+    return true
   }
-  if (platform === 'grok') {
-    return type === 'apikey' || type === 'oauth'
-  }
-  return false
+  return platform === 'grok' && type === 'oauth'
 }
 
 /** 禁止覆写的请求头（与后端 headerOverrideBlockedNames 保持一致） */

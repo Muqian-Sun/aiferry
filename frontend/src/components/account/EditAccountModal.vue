@@ -601,8 +601,12 @@
         </div>
       </div>
 
-      <!-- Header Override Section (eligible API-key platforms + grok OAuth) -->
-      <div v-if="headerOverrideCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <!-- Header Override Section（任何第三方 key + Grok OAuth） -->
+      <div
+        v-if="headerOverrideCapable"
+        data-testid="edit-header-override"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
@@ -612,6 +616,7 @@
           </div>
           <button
             type="button"
+            data-testid="edit-header-override-toggle"
             @click="headerOverrideEnabled = !headerOverrideEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -4711,17 +4716,15 @@ const handleSubmit = async () => {
         delete newCredentials.custom_error_codes
       }
 
-      // Add header override if enabled for this API-key platform
-      if (isHeaderOverrideCapable(props.account.platform, 'apikey')) {
-        if (headerOverrideEnabled.value) {
-          const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-          if (headerError) {
-            appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-            return
-          }
+      // 请求头覆写对任何第三方 key 开放
+      if (headerOverrideEnabled.value) {
+        const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
+        if (headerError) {
+          appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
+          return
         }
-        applyHeaderOverride(newCredentials, headerOverrideEnabled.value, headerOverrideRows.value, 'edit')
       }
+      applyHeaderOverride(newCredentials, headerOverrideEnabled.value, headerOverrideRows.value, 'edit')
 
       // Add intercept warmup requests setting
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')

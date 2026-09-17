@@ -858,3 +858,56 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createOpenAICodexPATMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(false)
   })
 })
+
+describe('CreateAccountModal third-party key settings do not follow the platform label', () => {
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
+    probeUpstreamBillingMock.mockReset().mockResolvedValue({})
+    syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
+  })
+
+  async function fillKeyBasics(wrapper: ReturnType<typeof mountModal>, name: string) {
+    await wrapper.get('form#create-account-form input[type="text"]').setValue(name)
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+  }
+
+  async function submitPayload(wrapper: ReturnType<typeof mountModal>) {
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    return createAccountMock.mock.calls[0]?.[0]
+  }
+
+  it('offers header overrides for an Antigravity upstream key and submits them', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
+    await fillKeyBasics(wrapper, 'antigravity relay')
+
+    await wrapper.get('[data-testid="create-header-override-toggle"]').trigger('click')
+    const section = wrapper.get('[data-testid="create-header-override"]')
+    await selectButtonByText(wrapper, 'admin.accounts.headerOverride.addRow')
+    const [name, value] = section.findAll('input[type="text"]')
+    await name.setValue('X-Relay-Tenant')
+    await value.setValue('team-a')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.type).toBe('apikey')
+    expect(payload?.credentials).toMatchObject({
+      header_override_enabled: true,
+      header_overrides: { 'x-relay-tenant': 'team-a' }
+    })
+  })
+
+  it('keeps header overrides limited to Grok OAuth among subscription accounts', async () => {
+    const wrapper = mountModal()
+    // 默认是 Anthropic OAuth 成品号
+    expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(false)
+    await selectButtonByText(wrapper, 'Grok')
+    expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(true)
+  })
+})

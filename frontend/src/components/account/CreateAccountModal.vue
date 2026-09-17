@@ -1740,50 +1740,52 @@
           </div>
         </div>
 
-        <!-- Header Override Section (eligible API-key platforms) -->
-        <div
-          v-if="isHeaderOverrideCapable(form.platform, 'apikey')"
-          class="border-t border-gray-200 pt-4 dark:border-dark-600"
-        >
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.accounts.headerOverride.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="headerOverrideEnabled = !headerOverrideEnabled"
+      </div>
+
+      <!-- 请求头覆写：任何第三方 key（含 Antigravity 上游 key）与 Grok OAuth -->
+      <div
+        v-if="isHeaderOverrideCapable(form.platform, form.type)"
+        data-testid="create-header-override"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.headerOverride.hint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="create-header-override-toggle"
+            @click="headerOverrideEnabled = !headerOverrideEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="headerOverrideEnabled" class="space-y-3">
-            <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-              <p class="text-xs text-blue-700 dark:text-blue-400">
-                <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-                {{ t('admin.accounts.headerOverride.info') }}
-              </p>
-            </div>
-
-            <HeaderOverrideEditor
-              :rows="headerOverrideRows"
-              @update:rows="headerOverrideRows = $event"
             />
-          </div>
+          </button>
         </div>
 
+        <div v-if="headerOverrideEnabled" class="space-y-3">
+          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+            <p class="text-xs text-blue-700 dark:text-blue-400">
+              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+              {{ t('admin.accounts.headerOverride.info') }}
+            </p>
+          </div>
+
+          <HeaderOverrideEditor
+            :rows="headerOverrideRows"
+            @update:rows="headerOverrideRows = $event"
+          />
+        </div>
       </div>
 
       <!-- Bedrock credentials (only for Anthropic Bedrock type) -->
@@ -2151,50 +2153,6 @@
           @update:weeklyResetHour="editWeeklyResetHour = $event"
           @update:resetTimezone="editResetTimezone = $event"
         />
-      </div>
-
-      <!-- Grok OAuth Header Override (OAuth 类型没有 apikey 容器，需要独立区域) -->
-      <div
-        v-if="form.platform === 'grok' && isOAuthFlow"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.headerOverride.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="headerOverrideEnabled = !headerOverrideEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-
-        <div v-if="headerOverrideEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.headerOverride.info') }}
-            </p>
-          </div>
-
-          <HeaderOverrideEditor
-            :rows="headerOverrideRows"
-            @update:rows="headerOverrideRows = $event"
-          />
-        </div>
       </div>
 
       <!-- OpenAI OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
@@ -4157,10 +4115,10 @@ const customErrorCodeInput = ref<number | null>(null)
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
-// Grok OAuth 三条创建路径（授权码/RT 批量/SSO 批量）共用的前置校验。
-// 授权码路径必须在兑换 code 之前调用，避免校验失败时白白消耗一次性授权码。
-// 成品号只走官方地址，没有可配置的上游地址，这里只校验请求头覆写。
-const validateGrokOAuthUpstreamConfig = (): boolean => {
+// 请求头覆写的前置校验，失败时提示并返回 false。
+// Grok OAuth 三条创建路径（授权码/RT 批量/SSO 批量）必须在兑换 code 之前调用，
+// 避免校验失败时白白消耗一次性授权码。
+const validateHeaderOverrideForm = (): boolean => {
   if (headerOverrideEnabled.value) {
     const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
     if (headerError) {
@@ -4171,9 +4129,18 @@ const validateGrokOAuthUpstreamConfig = (): boolean => {
   return true
 }
 
-// 把已通过校验的请求头覆写写入 credentials
+// 把已通过校验的请求头覆写写入 credentials（Grok OAuth 成品号只走官方地址，只有这一项上游配置）
 const applyGrokOAuthUpstreamConfig = (credentials: Record<string, unknown>) => {
   applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+}
+
+// 第三方 key（含 Antigravity 上游 key）的请求头覆写：校验通过才写入 credentials。
+const applyKeyHeaderOverride = (credentials: Record<string, unknown>): boolean => {
+  if (!validateHeaderOverrideForm()) {
+    return false
+  }
+  applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  return true
 }
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
@@ -5434,6 +5401,9 @@ const handleSubmit = async () => {
       credentials.model_mapping = antigravityModelMapping
     }
 
+    if (!applyKeyHeaderOverride(credentials)) {
+      return
+    }
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
     const extra = buildAntigravityExtra()
@@ -5530,16 +5500,9 @@ const handleSubmit = async () => {
     credentials.custom_error_codes = [...selectedErrorCodes.value]
   }
 
-  // Add header override if enabled for this API-key platform
-  if (isHeaderOverrideCapable(form.platform, 'apikey')) {
-    if (headerOverrideEnabled.value) {
-      const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-      if (headerError) {
-        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-        return
-      }
-    }
-    applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  // 请求头覆写对任何第三方 key 开放
+  if (!applyKeyHeaderOverride(credentials)) {
+    return
   }
 
   applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
@@ -5703,7 +5666,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
     grokOAuth.error.value = t('admin.accounts.oauth.grok.pleaseEnterRefreshToken')
     return
   }
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''
@@ -5788,7 +5751,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     .map((token) => token.trim())
     .filter((token) => token)
   if (ssoTokens.length === 0) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''
@@ -5859,7 +5822,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
  */
 const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
   if (!emailPasswordInput.trim()) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   const lines = emailPasswordInput
     .split('\n')
@@ -6527,7 +6490,7 @@ const handleAntigravityExchange = async (authCode: string) => {
 // Grok OAuth 授权码兑换
 const handleGrokExchange = async (authCode: string) => {
   if (!authCode.trim() || !grokOAuth.sessionId.value) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''

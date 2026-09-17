@@ -1693,3 +1693,60 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
     wrapper.unmount()
   })
 })
+
+describe('EditAccountModal third-party key settings do not follow the platform label', () => {
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+  })
+
+  function buildKey(platform: string, protocolEndpoints: Record<string, string>, extra: Record<string, unknown> = {}) {
+    const account = {
+      ...buildAccount(),
+      platform,
+      credentials: {},
+      credentials_status: { has_api_key: true },
+      protocol_endpoints: protocolEndpoints,
+      extra
+    } as any
+    updateAccountMock.mockResolvedValue(account)
+    return account
+  }
+
+  async function submitPayload(wrapper: ReturnType<typeof mountModal>) {
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    return updateAccountMock.mock.calls[0]?.[1]
+  }
+
+  it('offers header overrides for a Gemini-labelled key and submits them', async () => {
+    const wrapper = mountModal(buildKey('gemini', { gemini: 'https://generativelanguage.googleapis.com' }))
+
+    await wrapper.get('[data-testid="edit-header-override-toggle"]').trigger('click')
+    const section = wrapper.get('[data-testid="edit-header-override"]')
+    const addRow = section.findAll('button').find((button) => button.text().includes('admin.accounts.headerOverride.addRow'))
+    expect(addRow).toBeDefined()
+    await addRow!.trigger('click')
+    const [name, value] = section.findAll('input[type="text"]')
+    await name.setValue('X-Relay-Tenant')
+    await value.setValue('team-a')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials).toMatchObject({
+      header_override_enabled: true,
+      header_overrides: { 'x-relay-tenant': 'team-a' }
+    })
+  })
+
+  it('keeps header overrides limited to Grok OAuth among subscription accounts', () => {
+    const openaiOAuth = mountModal(buildOpenAIOAuthParentAccount())
+    expect(openaiOAuth.find('[data-testid="edit-header-override"]').exists()).toBe(false)
+    openaiOAuth.unmount()
+
+    const grokOAuth = mountModal(buildGrokOAuthAccount())
+    expect(grokOAuth.find('[data-testid="edit-header-override"]').exists()).toBe(true)
+    grokOAuth.unmount()
+  })
+})

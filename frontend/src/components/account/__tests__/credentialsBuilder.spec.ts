@@ -148,30 +148,20 @@ describe('openCodeGo protocol rules', () => {
 })
 
 describe('isHeaderOverrideCapable', () => {
-  it('anthropic/openai only support apikey accounts', () => {
-    expect(isHeaderOverrideCapable('anthropic', 'apikey')).toBe(true)
-    expect(isHeaderOverrideCapable('openai', 'apikey')).toBe(true)
-    expect(isHeaderOverrideCapable('anthropic', 'oauth')).toBe(false)
-    expect(isHeaderOverrideCapable('openai', 'oauth')).toBe(false)
-  })
-
-  it('kimi/zhipu/deepseek only support apikey accounts', () => {
-    for (const platform of ['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']) {
+  it('supports every third-party key regardless of its platform label', () => {
+    for (const platform of ['anthropic', 'openai', 'gemini', 'antigravity', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go', '']) {
       expect(isHeaderOverrideCapable(platform, 'apikey')).toBe(true)
-      expect(isHeaderOverrideCapable(platform, 'oauth')).toBe(false)
     }
   })
 
-  it('grok supports both apikey and oauth accounts', () => {
-    expect(isHeaderOverrideCapable('grok', 'apikey')).toBe(true)
+  it('opens only Grok OAuth among subscription accounts', () => {
     expect(isHeaderOverrideCapable('grok', 'oauth')).toBe(true)
     expect(isHeaderOverrideCapable('grok', 'bedrock')).toBe(false)
-  })
-
-  it('other platforms are not supported', () => {
-    expect(isHeaderOverrideCapable('gemini', 'apikey')).toBe(false)
-    expect(isHeaderOverrideCapable('antigravity', 'apikey')).toBe(false)
-    expect(isHeaderOverrideCapable('', 'apikey')).toBe(false)
+    for (const platform of ['anthropic', 'openai', 'gemini', 'antigravity']) {
+      for (const type of ['oauth', 'setup-token', 'bedrock', 'service_account']) {
+        expect(isHeaderOverrideCapable(platform, type)).toBe(false)
+      }
+    }
   })
 })
 
