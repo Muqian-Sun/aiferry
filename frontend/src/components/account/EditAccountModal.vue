@@ -3898,7 +3898,7 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   if (!newAccount) {
     return
   }
-  // 进入回填窗口：抑制 CN 模式/协议 watcher 联动重置 base_url（见 syncingForm 注释）。
+  // 进入回填窗口：抑制模式 watcher 与官方地址联动（见 syncingForm 注释）。
   syncingForm.value = true
   void nextTick(() => {
     syncingForm.value = false
