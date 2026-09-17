@@ -1357,7 +1357,7 @@ func (h *AccountHandler) refreshSingleAccount(ctx context.Context, account *serv
 				newCredentials[k] = v
 			}
 		}
-	} else if account.Platform == service.PlatformAntigravity {
+	} else if account.IsAntigravity() {
 		tokenInfo, err := h.antigravityOAuthService.RefreshAccountToken(ctx, account)
 		if err != nil {
 			return nil, "", err
@@ -2806,7 +2806,7 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	// Handle Antigravity accounts: return Claude + Gemini models
-	if account.Platform == service.PlatformAntigravity {
+	if account.IsAntigravity() {
 		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
 		response.Success(c, antigravity.DefaultModels())
 		return

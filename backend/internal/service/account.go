@@ -641,7 +641,7 @@ func (a *Account) GetModelMapping() map[string]string {
 func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]string {
 	if a.Credentials == nil {
 		// Antigravity 平台使用默认映射
-		if a.Platform == domain.PlatformAntigravity {
+		if a.IsAntigravity() {
 			return domain.DefaultAntigravityModelMapping
 		}
 		if a.Platform == domain.PlatformGrok {
@@ -655,7 +655,7 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 			return geminicli.GoogleOneModelMapping()
 		}
 		// Antigravity 平台使用默认映射
-		if a.Platform == domain.PlatformAntigravity {
+		if a.IsAntigravity() {
 			return domain.DefaultAntigravityModelMapping
 		}
 		if a.Platform == domain.PlatformGrok {
@@ -671,7 +671,7 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		}
 	}
 	if len(result) > 0 {
-		if a.Platform == domain.PlatformAntigravity {
+		if a.IsAntigravity() {
 			ensureAntigravityDefaultPassthroughs(result, []string{
 				"gemini-3-flash",
 				"gemini-3.1-pro-high",
@@ -701,7 +701,7 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 	if a.IsGeminiGoogleOne() {
 		return geminicli.GoogleOneModelMapping()
 	}
-	if a.Platform == domain.PlatformAntigravity {
+	if a.IsAntigravity() {
 		return domain.DefaultAntigravityModelMapping
 	}
 	if a.Platform == domain.PlatformGrok {

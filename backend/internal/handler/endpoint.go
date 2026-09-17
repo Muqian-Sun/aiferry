@@ -343,6 +343,6 @@ func setActualUpstreamEndpoint(c *gin.Context, endpoint string) {
 
 func shouldUseAntigravityCompat(account *service.Account) bool {
 	return account != nil &&
-		account.Platform == service.PlatformAntigravity &&
+		account.IsAntigravity() &&
 		account.Type == service.AccountTypeOAuth
 }
