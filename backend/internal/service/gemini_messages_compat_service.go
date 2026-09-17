@@ -3113,6 +3113,13 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 			} else {
 				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (Google One OAuth, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
 			}
+		} else if account.IsThirdPartyKey() && account.Vendor() != PlatformGemini {
+			// 中转 key：PST 午夜是 AI Studio 官方日配额的重置点，套到中转上会把 key
+			// 停到第二天。解析不出重置时间时走通用的秒级 429 兜底。
+			if s.rateLimitService != nil {
+				s.rateLimitService.apply429FallbackRateLimit(ctx, account, "no_reset_time")
+			}
+			return
 		} else {
 			// API Key / AI Studio OAuth: PST 午夜
 			if ts := nextGeminiDailyResetUnix(); ts != nil {

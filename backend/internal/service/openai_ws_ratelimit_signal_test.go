@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,7 +14,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	coderws "github.com/coder/websocket"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/require"
 )
 
@@ -83,35 +83,18 @@ func (r *openAICodexExtraListRepo) ListWithFilters(_ context.Context, params pag
 	return r.accounts, &pagination.PaginationResult{Total: int64(len(r.accounts)), Page: params.Page, PageSize: params.PageSize}, nil
 }
 
+// usage_limit_reached 的 resets_at 是 OpenAI 官方上游的限流语义，只对官方地址（Vendor
+// 为 openai）的 key 生效。本地测试服务当不了官方域名，这里用抓包拨号器承载 error event，
+// 账号地址保持官方 OpenAI。
 func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	resetAt := time.Now().Add(2 * time.Hour).Unix()
-	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
-	wsServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := upgrader.Upgrade(w, r, nil)
-		if err != nil {
-			t.Errorf("upgrade websocket failed: %v", err)
-			return
-		}
-		defer func() { _ = conn.Close() }()
-
-		var req map[string]any
-		if err := conn.ReadJSON(&req); err != nil {
-			t.Errorf("read ws request failed: %v", err)
-			return
-		}
-		_ = conn.WriteJSON(map[string]any{
-			"type": "error",
-			"error": map[string]any{
-				"code":      "rate_limit_exceeded",
-				"type":      "usage_limit_reached",
-				"message":   "The usage limit has been reached",
-				"resets_at": resetAt,
-			},
-		})
-	}))
-	defer wsServer.Close()
+	captureConn := &openAIWSCaptureConn{
+		events: [][]byte{
+			[]byte(`{"type":"error","error":{"code":"rate_limit_exceeded","type":"usage_limit_reached","message":"The usage limit has been reached","resets_at":` + strconv.FormatInt(resetAt, 10) + `}}`),
+		},
+	}
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -129,6 +112,8 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 	cfg := newOpenAIWSV2TestConfig()
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(&openAIWSCaptureDialer{conn: captureConn})
 
 	account := Account{
 		ID:          501,
@@ -139,16 +124,17 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": wsServer.URL,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
 	}
+	require.Equal(t, PlatformOpenAI, account.Vendor())
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
 	rateSvc := &RateLimitService{accountRepo: repo}
 	svc := &OpenAIGatewayService{
@@ -159,6 +145,7 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 		cfg:              cfg,
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
+		openaiWSPool:     pool,
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)
@@ -171,20 +158,37 @@ func TestOpenAIGatewayService_Forward_WSv2ErrorEventUsageLimitPersistsRateLimit(
 	require.WithinDuration(t, time.Unix(resetAt, 0), repo.rateLimitCalls[0], 2*time.Second)
 }
 
+// openAIWSHandshakeRejectDialer 模拟握手阶段被上游以非 101 状态拒绝（带响应头与响应体）。
+type openAIWSHandshakeRejectDialer struct {
+	status  int
+	headers http.Header
+	body    []byte
+}
+
+func (d *openAIWSHandshakeRejectDialer) Dial(context.Context, string, http.Header, string) (openAIWSClientConn, int, http.Header, error) {
+	return nil, d.status, cloneHeader(d.headers), &openAIWSHandshakeError{
+		Body: append([]byte(nil), d.body...),
+		Err:  fmt.Errorf("expected handshake response status code 101 but got %d", d.status),
+	}
+}
+
+// x-codex-* 头是 OpenAI 官方上游的额度窗口语义，只对官方地址的 key 落库；
+// 与上面的 error event 用例同理，用拨号器模拟握手 429，账号地址保持官方 OpenAI。
 func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("x-codex-primary-used-percent", "100")
-		w.Header().Set("x-codex-primary-reset-after-seconds", "7200")
-		w.Header().Set("x-codex-primary-window-minutes", "10080")
-		w.Header().Set("x-codex-secondary-used-percent", "3")
-		w.Header().Set("x-codex-secondary-reset-after-seconds", "1800")
-		w.Header().Set("x-codex-secondary-window-minutes", "300")
-		w.WriteHeader(http.StatusTooManyRequests)
-		_, _ = w.Write([]byte(`{"error":{"type":"rate_limit_exceeded","message":"rate limited"}}`))
-	}))
-	defer server.Close()
+	handshakeHeaders := http.Header{}
+	handshakeHeaders.Set("x-codex-primary-used-percent", "100")
+	handshakeHeaders.Set("x-codex-primary-reset-after-seconds", "7200")
+	handshakeHeaders.Set("x-codex-primary-window-minutes", "10080")
+	handshakeHeaders.Set("x-codex-secondary-used-percent", "3")
+	handshakeHeaders.Set("x-codex-secondary-reset-after-seconds", "1800")
+	handshakeHeaders.Set("x-codex-secondary-window-minutes", "300")
+	dialer := &openAIWSHandshakeRejectDialer{
+		status:  http.StatusTooManyRequests,
+		headers: handshakeHeaders,
+		body:    []byte(`{"error":{"type":"rate_limit_exceeded","message":"rate limited"}}`),
+	}
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -202,6 +206,8 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 	cfg := newOpenAIWSV2TestConfig()
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
+	pool := newOpenAIWSConnPool(cfg)
+	pool.setClientDialerForTest(dialer)
 
 	account := Account{
 		ID:          502,
@@ -212,16 +218,17 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 		Schedulable: true,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": server.URL,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: server.URL,
+			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolResponses:       "https://api.openai.com",
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
 		},
 	}
+	require.Equal(t, PlatformOpenAI, account.Vendor())
 	repo := &openAIWSRateLimitSignalRepo{stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}}}
 	rateSvc := &RateLimitService{accountRepo: repo}
 	svc := &OpenAIGatewayService{
@@ -232,6 +239,7 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 		cfg:              cfg,
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
+		openaiWSPool:     pool,
 	}
 
 	body := []byte(`{"model":"gpt-5.1","stream":false,"input":[{"type":"input_text","text":"hello"}]}`)

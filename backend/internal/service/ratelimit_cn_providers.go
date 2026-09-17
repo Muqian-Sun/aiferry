@@ -31,7 +31,7 @@ const kimiConcurrentRequestLimitMessage = "You've reached your concurrent reques
 const cnConcurrencyLimitReasonPrefix = "cn_concurrency_limit"
 
 func isCNProviderConcurrencyLimit403(account *Account, upstreamMsg string) bool {
-	return account != nil && account.Platform == PlatformKimi &&
+	return account != nil && account.Vendor() == PlatformKimi &&
 		strings.TrimSpace(upstreamMsg) == kimiConcurrentRequestLimitMessage
 }
 
@@ -130,12 +130,15 @@ func cnProviderQuotaSnapshotReset(account *Account, now time.Time) *time.Time {
 	if account == nil || len(account.Extra) == 0 {
 		return nil
 	}
-	if !account.IsOpenCodeGo() && (!account.IsCNProvider() || !account.IsCodingPlan()) {
+	vendor := account.Vendor()
+	if vendor != PlatformOpenCodeGo && (!IsCNProvider(vendor) || !account.IsCodingPlan()) {
 		return nil
 	}
+	// 快照由额度探测任务按账号平台写入 Extra（键前缀取 account.Platform），这里按同一
+	// 前缀读取；是否启用快照冷却由上面的 Vendor 判定决定。
 	provider := account.Platform
 	suffixes := []string{cnExtraSuffix5hReset, cnExtraSuffixWeeklyReset}
-	if account.IsOpenCodeGo() {
+	if vendor == PlatformOpenCodeGo {
 		suffixes = append(suffixes, cnExtraSuffixMonthlyReset)
 	}
 	var earliest *time.Time
@@ -159,7 +162,8 @@ func (s *RateLimitService) applyCNProviderReactive429(
 	headers http.Header,
 	responseBody []byte,
 ) bool {
-	if account.IsOpenCodeGo() {
+	vendor := account.Vendor()
+	if vendor == PlatformOpenCodeGo {
 		if until := cnProviderQuotaSnapshotReset(account, time.Now()); until != nil {
 			s.notifyAccountSchedulingBlocked(account, *until, "429")
 			if err := s.accountRepo.SetRateLimited(ctx, account.ID, *until); err != nil {
@@ -189,7 +193,7 @@ func (s *RateLimitService) applyCNProviderReactive429(
 		}
 		return false
 	}
-	if !account.IsCNProvider() {
+	if !IsCNProvider(vendor) {
 		return false
 	}
 	// 1) 余额不足文案：可恢复临时停调（含智谱 payg 这类无余额端点的场景）。
