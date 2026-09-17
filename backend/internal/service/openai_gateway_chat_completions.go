@@ -546,7 +546,7 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 		// response.failed 到达在 HTTP 200 SSE 流上，无真实 HTTP 错误码；统一走语义
 		// 状态推断 + body 归一化（与 /v1/responses 路径一致），使按错误码配置的规则可命中。
 		if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(
-			c, account.Platform, payload, message,
+			c, openAIGatewayErrorPassthroughPlatform(c, account), payload, message,
 		); matched {
 			if errMsg == "" {
 				errMsg = message
@@ -805,7 +805,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 			// 统一走语义状态推断 + body 归一化（与 /v1/responses 路径一致），
 			// 使按错误码配置的透传规则可命中。
 			if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(
-				c, account.Platform, payloadBytes, message,
+				c, openAIGatewayErrorPassthroughPlatform(c, account), payloadBytes, message,
 			); matched {
 				if errMsg == "" {
 					errMsg = defaultMsg

@@ -1290,7 +1290,8 @@ func (s *OpenAIGatewayService) handleGrokMediaErrorResponse(
 
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
-		account.Platform,
+		// Grok 媒体端点固定按 grok 平台调度。
+		ErrorPassthroughRulePlatform(account, PlatformGrok),
 		resp.StatusCode,
 		body,
 		http.StatusBadGateway,

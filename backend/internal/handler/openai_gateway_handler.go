@@ -266,17 +266,6 @@ func wrapUsageRecordTaskContext(parent context.Context, task service.UsageRecord
 	}
 }
 
-func openAICompatibleRequestPlatform(ctx context.Context, apiKey *service.APIKey) string {
-	if platform, ok := service.ResolvedTargetPlatformFromContext(ctx); ok {
-		// 保留 grok 与国产供应商原值，其他归一为 openai（与调度器精确匹配语义一致）。
-		return service.NormalizeOpenAICompatiblePlatform(platform)
-	}
-	if apiKey != nil && apiKey.Group != nil {
-		return service.NormalizeOpenAICompatiblePlatform(apiKey.Group.Platform)
-	}
-	return service.PlatformOpenAI
-}
-
 func openAIResponsesRequiredCapability(imageIntent bool, platform string) service.OpenAIEndpointCapability {
 	if imageIntent && platform == service.PlatformOpenAI {
 		return service.OpenAIEndpointCapabilityResponses
@@ -581,7 +570,7 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 
 	// Get subscription info (may be nil)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
@@ -1219,7 +1208,7 @@ func (h *OpenAIGatewayHandler) Messages(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	routingStart := time.Now()
@@ -2513,7 +2502,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	requestPlatform := openAICompatibleRequestPlatform(ctx, apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(ctx, apiKey)
 	requiredTransport := service.OpenAIUpstreamTransportResponsesWebsocketV2Ingress
 	if requestPlatform == service.PlatformGrok {
 		requiredTransport = service.OpenAIUpstreamTransportHTTPSSE

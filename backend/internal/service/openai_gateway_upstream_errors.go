@@ -820,7 +820,7 @@ func (s *OpenAIGatewayService) handleCompatErrorResponse(
 
 	// Apply error passthrough rules
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
-		c, account.Platform, resp.StatusCode, body,
+		c, openAIGatewayErrorPassthroughPlatform(c, account), resp.StatusCode, body,
 		http.StatusBadGateway, "api_error", "Upstream request failed",
 	); matched {
 		MarkResponseCommitted(c)

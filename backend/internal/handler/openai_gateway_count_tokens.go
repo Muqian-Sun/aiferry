@@ -93,7 +93,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 
 	// Token counting is not billed, so it must not be excluded by the profit gate.
 	c.Request = c.Request.WithContext(service.WithOpenAIProfitControlSuppressed(c.Request.Context()))
-	requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	requestStart := time.Now()
 	account, err := h.gatewayService.SelectAccountForTokenCount(
@@ -274,11 +274,11 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		sessionHash,
 		currentRoutingModel,
 		service.OpenAIEndpointCapabilityChatCompletions,
-		openAICompatibleRequestPlatform(c.Request.Context(), apiKey),
+		service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey),
 	)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
-		requestPlatform := openAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 		reqLog.Warn("openai_count_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
 		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, currentRoutingModel, reqModel)
 		if !cls.ModelNotFound {

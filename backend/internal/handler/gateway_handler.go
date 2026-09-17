@@ -1023,7 +1023,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				if errors.As(err, &failoverErr) {
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
-						h.handleFailoverExhausted(c, failoverErr, account.Platform, true)
+						h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), currentAPIKey)), true)
 						return
 					}
 					action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
@@ -1034,7 +1034,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						delete(sessionSlotAccounts, account.ID)
 						continue
 					case FailoverExhausted:
-						h.handleFailoverExhausted(c, fs.LastFailoverErr, account.Platform, streamStarted)
+						h.handleFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), currentAPIKey)), streamStarted)
 						return
 					case FailoverCanceled:
 						failoverClientGone(c)
@@ -1851,6 +1851,8 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 	h.handleStreamingAwareErrorWithCode(c, status, errType, code, message, streamStarted)
 }
 
+// handleFailoverExhausted 写换号耗尽的错误响应。platform 是匹配错误透传规则的平台，
+// 调用方按 service.ErrorPassthroughRulePlatform 取值（第三方 key 不看平台标签）。
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
