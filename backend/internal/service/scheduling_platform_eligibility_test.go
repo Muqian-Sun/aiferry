@@ -364,12 +364,10 @@ func TestPreferGeminiOAuthInMixedScheduling(t *testing.T) {
 	geminiOAuth := &Account{Platform: PlatformGemini, Type: AccountTypeOAuth}
 	geminiServiceAccount := &Account{Platform: PlatformGemini, Type: AccountTypeServiceAccount}
 	antigravityOAuth := &Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth, Extra: map[string]any{"mixed_scheduling": true}}
-	antigravityUpstream := &Account{Platform: PlatformAntigravity, Type: AccountTypeUpstream}
 	anthropicLabelledKey := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
 
 	require.True(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, geminiServiceAccount))
 	require.True(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, anthropicLabelledKey))
-	require.True(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, antigravityUpstream))
 	require.False(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, antigravityOAuth))
 	require.False(t, preferGeminiOAuthInMixedScheduling(geminiServiceAccount, anthropicLabelledKey))
 	require.False(t, preferGeminiOAuthInMixedScheduling(anthropicLabelledKey, geminiServiceAccount))

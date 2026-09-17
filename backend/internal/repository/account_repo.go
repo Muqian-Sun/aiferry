@@ -2017,14 +2017,14 @@ func (r *accountRepository) ListSchedulableByGroupIDAndPlatform(ctx context.Cont
 }
 
 // thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：source_kind 显式
-// 为 api_key，或尚未分类（NULL）时按类型推导（apikey / upstream）。两边口径必须一致，
+// 为 api_key，或尚未分类（NULL）时按类型推导（apikey）。两边口径必须一致，
 // 否则装桶与选号对同一个账号的归类会分叉。
 func thirdPartyKeyPredicate() dbpredicate.Account {
 	return dbaccount.Or(
 		dbaccount.SourceKindEQ(service.AccountSourceAPIKey),
 		dbaccount.And(
 			dbaccount.SourceKindIsNil(),
-			dbaccount.TypeIn(service.AccountTypeAPIKey, service.AccountTypeUpstream),
+			dbaccount.TypeEQ(service.AccountTypeAPIKey),
 		),
 	)
 }

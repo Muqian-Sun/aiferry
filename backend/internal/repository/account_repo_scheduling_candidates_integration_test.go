@@ -38,7 +38,6 @@ type schedulingCandidateFixture struct {
 	subOpenAIInGroup        int64
 	keyNullSourceInGroup    int64 // source_kind 为 NULL，按类型推导为第三方 key
 	keyExplicitInGroup      int64 // source_kind 显式为 api_key
-	upstreamTypeInGroup     int64 // upstream 类型同属第三方 key
 	explicitSubscriptionKey int64 // 类型是 apikey，但 source_kind 显式为 subscription
 	disabledKeyInGroup      int64
 	keyUngrouped            int64
@@ -68,7 +67,6 @@ func (s *SchedulingCandidatesSuite) createFixture() schedulingCandidateFixture {
 	f.keyNullSourceInGroup = create("key-openai-label", service.PlatformOpenAI, service.AccountTypeAPIKey, group.ID)
 	f.keyExplicitInGroup = create("key-gemini-label", service.PlatformGemini, service.AccountTypeAPIKey, group.ID)
 	setSourceKind(f.keyExplicitInGroup, service.AccountSourceAPIKey)
-	f.upstreamTypeInGroup = create("upstream-antigravity-label", service.PlatformAntigravity, service.AccountTypeUpstream, group.ID)
 	f.explicitSubscriptionKey = create("apikey-typed-subscription", service.PlatformKimi, service.AccountTypeAPIKey, group.ID)
 	setSourceKind(f.explicitSubscriptionKey, service.AccountSourceSubscription)
 	f.disabledKeyInGroup = create("disabled-key", service.PlatformOpenAI, service.AccountTypeAPIKey, group.ID)
@@ -94,8 +92,8 @@ func (s *SchedulingCandidatesSuite) TestByGroupIDIncludesKeysOfAnyLabel() {
 	s.Require().NoError(err)
 
 	ids := candidateIDs(accounts)
-	s.Require().Len(ids, 4)
-	for _, id := range []int64{f.subAnthropicInGroup, f.keyNullSourceInGroup, f.keyExplicitInGroup, f.upstreamTypeInGroup} {
+	s.Require().Len(ids, 3)
+	for _, id := range []int64{f.subAnthropicInGroup, f.keyNullSourceInGroup, f.keyExplicitInGroup} {
 		s.Require().Contains(ids, id)
 	}
 }
@@ -121,7 +119,7 @@ func (s *SchedulingCandidatesSuite) TestAllAccountsIncludesKeysAcrossGroups() {
 	s.Require().NoError(err)
 
 	ids := candidateIDs(accounts)
-	for _, id := range []int64{f.subAnthropicInGroup, f.keyNullSourceInGroup, f.keyExplicitInGroup, f.upstreamTypeInGroup, f.keyUngrouped, f.subAnthropicUngrouped, f.keyInOtherGroup} {
+	for _, id := range []int64{f.subAnthropicInGroup, f.keyNullSourceInGroup, f.keyExplicitInGroup, f.keyUngrouped, f.subAnthropicUngrouped, f.keyInOtherGroup} {
 		s.Require().Contains(ids, id)
 	}
 	for _, id := range []int64{f.subOpenAIInGroup, f.explicitSubscriptionKey, f.disabledKeyInGroup} {
