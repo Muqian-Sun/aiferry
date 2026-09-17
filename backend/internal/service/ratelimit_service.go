@@ -520,8 +520,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	case 402:
 		// 国产供应商：余额不足是可恢复状态（充值/检测恢复后由周期任务自动解除），
 		// 不能走 handleAuthError 永久置 status=error。改为可恢复的临时停调。
-		// 这是厂商计费语义，按 Vendor 判定：中转的 402 走通用的永久停用。
-		if vendor := account.Vendor(); IsCNProvider(vendor) || (vendor == PlatformOpenCodeGo && account.IsOpenCodeZen()) {
+		// 这是厂商计费语义，按 Vendor 判定：中转的 402 走通用的永久停用。OpenCode 只有 Zen 按量
+		// 有余额概念；Go 订阅与 Zen 按协议地址区分（openCodeEndpointMode），不看平台标签。
+		if vendor := account.Vendor(); IsCNProvider(vendor) || (vendor == PlatformOpenCodeGo && account.openCodeEndpointMode() == AccountModeZen) {
 			s.handleCNProviderInsufficientBalance(ctx, account, upstreamMsg)
 			shouldDisable = true
 			break

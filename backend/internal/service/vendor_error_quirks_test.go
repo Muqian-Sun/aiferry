@@ -56,6 +56,32 @@ func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 		require.Equal(t, 1, repo.tempCalls)
 		require.True(t, strings.HasPrefix(repo.lastTempReason, cnBalanceLowReasonPrefix), repo.lastTempReason)
 	})
+
+	// OpenCode：Zen 按量有余额概念（可恢复暂停），Go 订阅没有（永久停用）；两者按地址区分，
+	// 标签与 credentials.account_mode 都不参与。
+	t.Run("openai label on opencode zen address gets the recoverable pause", func(t *testing.T) {
+		repo := &rateLimitAccountRepoStub{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		account := vendorTestKey(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: DefaultOpenCodeZenBaseURL})
+		require.Equal(t, PlatformOpenCodeGo, account.Vendor())
+
+		require.True(t, svc.HandleUpstreamError(context.Background(), account, http.StatusPaymentRequired, http.Header{}, body))
+		require.Zero(t, repo.setErrorCalls)
+		require.Equal(t, 1, repo.tempCalls)
+		require.True(t, strings.HasPrefix(repo.lastTempReason, cnBalanceLowReasonPrefix), repo.lastTempReason)
+	})
+
+	t.Run("opencode label with zen account_mode on go address is permanently disabled", func(t *testing.T) {
+		repo := &rateLimitAccountRepoStub{}
+		svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
+		account := vendorTestKey(PlatformOpenCodeGo, map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL, APIProtocolAnthropic: DefaultOpenCodeGoAnthropicBaseURL})
+		account.Credentials = map[string]any{"account_mode": AccountModeZen}
+		require.Equal(t, PlatformOpenCodeGo, account.Vendor())
+
+		require.True(t, svc.HandleUpstreamError(context.Background(), account, http.StatusPaymentRequired, http.Header{}, body))
+		require.Equal(t, 1, repo.setErrorCalls)
+		require.Zero(t, repo.tempCalls)
+	})
 }
 
 func TestHandleUpstreamError_CreditBalance400FollowsVendor(t *testing.T) {
