@@ -293,7 +293,6 @@ export default {
           title: 'API 协议',
           adaptive: '自适应',
           adaptiveDesc: '按入站协议优先使用供应商原生端点，仅在没有对应端点时转换。',
-          endpoints: '协议端点',
           responsesFallbackDesc: '该供应商没有原生 Responses 端点，Responses 请求将转换为 Chat Completions。',
           chatCompletions: 'Chat Completions',
           chatCompletionsDesc: '标准 OpenAI 兼容端点，其他格式请求将被转换。',
@@ -651,7 +650,6 @@ export default {
         }
       },
       baseUrl: 'Base URL',
-      baseUrlHint: '留空使用官方 Anthropic API',
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: '您的 Claude Console API Key',
@@ -665,7 +663,6 @@ export default {
       },
       // OpenAI specific hints
       openai: {
-        baseUrlHint: '留空使用官方 OpenAI API',
         apiKeyHint: '您的 OpenAI API Key',
         oauthPassthrough: '自动透传（仅替换认证）',
         oauthPassthroughDesc:
@@ -1109,11 +1106,9 @@ export default {
       leaveEmptyToKeep: '留空以保持当前密钥',
       // Upstream type
       upstream: {
-        baseUrl: '上游 Base URL',
         baseUrlHint: '按上游实际地址填写，系统不会自动补任何路径。第三方网关通常形如 https://relay.example.com/antigravity',
         apiKey: '上游 API Key',
         apiKeyHint: '上游服务的 API Key',
-        pleaseEnterBaseUrl: '请输入上游 Base URL',
         pleaseEnterApiKey: '请输入上游 API Key'
       },
       // OAuth flow
@@ -1376,7 +1371,6 @@ export default {
         },
         modelPassthrough: 'Gemini 直接转发模型',
         modelPassthroughDesc: '所有模型请求将直接转发至 Gemini API，不进行模型限制或映射。',
-        baseUrlHint: '留空使用官方 Gemini API',
         apiKeyHint: '您的 Gemini API Key（以 AIza 开头）',
         tier: {
           label: '账号等级',
