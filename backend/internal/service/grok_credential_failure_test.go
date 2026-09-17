@@ -555,7 +555,7 @@ func TestGetRequestCredentialMapsTransientAndProviderFailuresSeparately(t *testi
 			{
 				name: "account converted",
 				mutate: func(account *Account) {
-					account.Type = AccountTypeUpstream
+					account.Type = AccountTypeAPIKey
 				},
 			},
 			{

@@ -9,60 +9,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAntigravityTokenProvider_GetAccessToken_Upstream(t *testing.T) {
-	provider := &AntigravityTokenProvider{}
-
-	t.Run("upstream account with valid api_key", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAntigravity,
-			Type:     AccountTypeUpstream,
-			Credentials: map[string]any{
-				"api_key": "sk-test-key-12345",
-			},
-		}
-		token, err := provider.GetAccessToken(context.Background(), account)
-		require.NoError(t, err)
-		require.Equal(t, "sk-test-key-12345", token)
-	})
-
-	t.Run("upstream account missing api_key", func(t *testing.T) {
-		account := &Account{
-			Platform:    PlatformAntigravity,
-			Type:        AccountTypeUpstream,
-			Credentials: map[string]any{},
-		}
-		token, err := provider.GetAccessToken(context.Background(), account)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "upstream account missing api_key")
-		require.Empty(t, token)
-	})
-
-	t.Run("upstream account with empty api_key", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAntigravity,
-			Type:     AccountTypeUpstream,
-			Credentials: map[string]any{
-				"api_key": "",
-			},
-		}
-		token, err := provider.GetAccessToken(context.Background(), account)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "upstream account missing api_key")
-		require.Empty(t, token)
-	})
-
-	t.Run("upstream account with nil credentials", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformAntigravity,
-			Type:     AccountTypeUpstream,
-		}
-		token, err := provider.GetAccessToken(context.Background(), account)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "upstream account missing api_key")
-		require.Empty(t, token)
-	})
-}
-
 func TestAntigravityTokenProvider_GetAccessToken_Guards(t *testing.T) {
 	provider := &AntigravityTokenProvider{}
 
@@ -88,6 +34,19 @@ func TestAntigravityTokenProvider_GetAccessToken_Guards(t *testing.T) {
 		account := &Account{
 			Platform: PlatformAntigravity,
 			Type:     AccountTypeAPIKey,
+		}
+		token, err := provider.GetAccessToken(context.Background(), account)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "not an antigravity oauth account")
+		require.Empty(t, token)
+	})
+
+	// 历史类型 upstream 已并入 apikey：即便凭据里有静态 api_key，也不能被当作访问令牌交出去。
+	t.Run("legacy upstream type is not accepted", func(t *testing.T) {
+		account := &Account{
+			Platform:    PlatformAntigravity,
+			Type:        "upstream",
+			Credentials: map[string]any{"api_key": "sk-test-key-12345"},
 		}
 		token, err := provider.GetAccessToken(context.Background(), account)
 		require.Error(t, err)

@@ -523,7 +523,7 @@ func TestRefreshIfNeeded_RequestPathDBRereadRevalidatesExecutorContract(t *testi
 		freshType     string
 	}{
 		{name: "platform changed", freshPlatform: PlatformAnthropic, freshType: AccountTypeOAuth},
-		{name: "type changed", freshPlatform: PlatformGrok, freshType: AccountTypeUpstream},
+		{name: "type changed", freshPlatform: PlatformGrok, freshType: AccountTypeAPIKey},
 	}
 
 	for _, tt := range tests {

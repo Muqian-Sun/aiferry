@@ -32,11 +32,6 @@ func TestAccountSourceKind(t *testing.T) {
 			account:  service.Account{Type: service.AccountTypeOAuth},
 			expected: service.AccountSourceSubscription,
 		},
-		{
-			name:     "未指定时 upstream 推导为第三方 key",
-			account:  service.Account{Type: service.AccountTypeUpstream},
-			expected: service.AccountSourceAPIKey,
-		},
 	}
 
 	for _, tt := range tests {
