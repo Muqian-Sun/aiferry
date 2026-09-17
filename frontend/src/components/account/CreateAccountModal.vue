@@ -2883,9 +2883,10 @@
         </p>
       </div>
 
-      <!-- OpenAI 自动透传开关（OAuth/API Key） -->
+      <!-- OpenAI 自动透传开关：OpenAI 成品号；第三方 key 配了 responses / chat_completions 地址才展示，不看平台标签 -->
       <div
-        v-if="form.platform === 'openai'"
+        v-if="openAIResponsesSettingsVisible"
+        data-testid="create-openai-passthrough"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2894,9 +2895,17 @@
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
+            <p
+              v-if="form.type === 'apikey'"
+              data-testid="create-openai-key-protocol-hint"
+              class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+            >
+              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
+            </p>
           </div>
           <button
             type="button"
+            data-testid="create-openai-passthrough-toggle"
             @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -2944,9 +2953,9 @@
         </div>
       </div>
 
-      <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
+      <!-- OpenAI WS Mode（off/ctx_pool/passthrough/http_bridge），展示条件同自动透传 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="openAIResponsesSettingsVisible"
         data-testid="create-openai-ws-mode"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
@@ -3147,9 +3156,10 @@
         </div>
       </div>
 
-      <!-- OpenAI Compact 能力配置 -->
+      <!-- OpenAI Compact 能力配置，展示条件同自动透传 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="openAIResponsesSettingsVisible"
+        data-testid="create-openai-compact"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="flex items-center justify-between">
@@ -3754,6 +3764,7 @@ import {
   describeProtocolEndpointsIssue,
   endpointsAfterDefaultsChange,
   hasAnthropicEndpoint,
+  hasOpenAIEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
   trimProtocolEndpoints,
@@ -4282,6 +4293,17 @@ function buildAntigravityExtra(): Record<string, unknown> | undefined {
 const buildOpenAICompactModelMapping = () =>
   buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
 
+// 第三方 key 的 Compact 专属模型映射：与 Compact 模式同区块，区块可见才写入。
+const applyKeyCompactModelMapping = (credentials: Record<string, unknown>) => {
+  if (!openAIResponsesSettingsVisible.value) {
+    return
+  }
+  const compactModelMapping = buildOpenAICompactModelMapping()
+  if (compactModelMapping) {
+    credentials.compact_model_mapping = compactModelMapping
+  }
+}
+
 const showMixedChannelWarning = ref(false)
 const mixedChannelWarningDetails = ref<{ groupName: string; currentPlatform: string; otherPlatform: string } | null>(
   null
@@ -4343,13 +4365,13 @@ const openAIWSModeOptions = computed(() => [
 
 const openaiResponsesWebSocketV2Mode = computed({
   get: () => {
-    if (form.platform === 'openai' && accountCategory.value === 'apikey') {
+    if (form.type === 'apikey') {
       return openaiAPIKeyResponsesWebSocketV2Mode.value
     }
     return openaiOAuthResponsesWebSocketV2Mode.value
   },
   set: (mode: OpenAIWSMode) => {
-    if (form.platform === 'openai' && accountCategory.value === 'apikey') {
+    if (form.type === 'apikey') {
       openaiAPIKeyResponsesWebSocketV2Mode.value = mode
       return
     }
@@ -4359,10 +4381,6 @@ const openaiResponsesWebSocketV2Mode = computed({
 
 const openAIWSModeHintKey = computed(() =>
   resolveOpenAIWSModeHintKey(openaiResponsesWebSocketV2Mode.value)
-)
-
-const isOpenAIModelRestrictionDisabled = computed(() =>
-  form.platform === 'openai' && openaiPassthroughEnabled.value
 )
 
 const mixedChannelWarningMessageText = computed(() => {
@@ -4451,6 +4469,19 @@ const isOAuthFlow = computed(() => {
 // 区块隐藏（换成成品号、删掉 anthropic 地址行）时提交不写入（见 buildAnthropicExtra）；切换平台时清空。
 const anthropicKeySettingsVisible = computed(
   () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
+)
+
+// OpenAI Responses 协议设置（自动透传、WS mode、Compact）：OpenAI 成品号沿用平台规则；
+// 第三方 key 按编辑中的协议地址（responses 或 chat_completions）展示，不看平台标签。
+// 区块隐藏时提交不写入（见 buildOpenAIExtra）；切换平台时清空。
+const openAIResponsesSettingsVisible = computed(() => {
+  if (form.type === 'apikey') return hasOpenAIEndpoint(protocolEndpoints.value)
+  return form.platform === 'openai' && accountCategory.value === 'oauth-based'
+})
+
+// 自动透传会跳过模型改写：透传区块可见且开启时，模型限制不再可编辑。
+const isOpenAIModelRestrictionDisabled = computed(() =>
+  openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
 )
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
@@ -4604,16 +4635,19 @@ watch(
       interceptWarmupRequests.value = false
     }
     if (newPlatform !== 'openai') {
-      openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-      openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
     }
-    // Anthropic 协议上的 key 设置：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
-    // 同一平台内删掉 anthropic 地址行导致的隐藏，由提交时的可见性判断保证不写入。
+    // 第三方 key 也能配的协议设置（OpenAI 自动透传 / key 的 WS mode / Compact，Anthropic 透传 /
+    // 认证方式 / web search 模拟）：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
+    // 同一平台内删掉地址行导致的隐藏，由提交时的可见性判断保证不写入。
+    openaiPassthroughEnabled.value = false
+    openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+    openAICompactMode.value = 'auto'
+    openAICompactModelMappings.value = []
     anthropicPassthroughEnabled.value = false
     anthropicAPIKeyAuthScheme.value = 'x_api_key'
     webSearchEmulationMode.value = 'default'
@@ -5108,27 +5142,42 @@ const handleClose = () => {
 }
 
 const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  if (form.platform !== 'openai') {
+  const responsesSettingsVisible = openAIResponsesSettingsVisible.value
+  const openaiPlatform = form.platform === 'openai'
+  if (!responsesSettingsVisible && !openaiPlatform) {
     return base
   }
 
   const extra: Record<string, unknown> = { ...(base || {}) }
-  if (accountCategory.value === 'oauth-based') {
-    extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
-    extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
-  } else if (accountCategory.value === 'apikey') {
-    extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
-    extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
+  // OpenAI Responses 协议设置（自动透传 / WS mode / Compact）：只在区块可见时写入
+  if (responsesSettingsVisible) {
+    if (form.type === 'apikey') {
+      extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
+      extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
+    } else {
+      extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
+      extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
+    }
+    // 清理兼容旧键，统一改用分类型开关。
+    delete extra.responses_websockets_v2_enabled
+    delete extra.openai_ws_enabled
+    if (openaiPassthroughEnabled.value) {
+      extra.openai_passthrough = true
+    } else {
+      delete extra.openai_passthrough
+      delete extra.openai_oauth_passthrough
+    }
+    if (openAICompactMode.value !== 'auto') {
+      extra.openai_compact_mode = openAICompactMode.value
+    } else {
+      delete extra.openai_compact_mode
+    }
   }
-  // 清理兼容旧键，统一改用分类型开关。
-  delete extra.responses_websockets_v2_enabled
-  delete extra.openai_ws_enabled
-  if (openaiPassthroughEnabled.value) {
-    extra.openai_passthrough = true
-  } else {
-    delete extra.openai_passthrough
-    delete extra.openai_oauth_passthrough
+  if (!openaiPlatform) {
+    return Object.keys(extra).length > 0 ? extra : undefined
   }
+
+  // 以下是 OpenAI 平台专属设置（后端仍按平台读取）
   // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
   if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
     extra.openai_responses_flatten_namespaces = true
@@ -5158,11 +5207,6 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   } else {
     delete extra.codex_fingerprint_mode
-  }
-  if (openAICompactMode.value !== 'auto') {
-    extra.openai_compact_mode = openAICompactMode.value
-  } else {
-    delete extra.openai_compact_mode
   }
 
   if (accountCategory.value === 'apikey' && openAIImagesUrlToB64JsonEnabled.value) {
@@ -5413,9 +5457,10 @@ const handleSubmit = async () => {
     if (!applyKeyHeaderOverride(credentials)) {
       return
     }
+    applyKeyCompactModelMapping(credentials)
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
-    const extra = buildAnthropicExtra(buildAntigravityExtra())
+    const extra = buildAnthropicExtra(buildOpenAIExtra(buildAntigravityExtra()))
     await createAccountAndFinish(form.platform, 'apikey', credentials, extra, upstreamEndpoints)
     return
   }
@@ -5487,11 +5532,8 @@ const handleSubmit = async () => {
   }
   if (form.platform === 'openai') {
     applyOpenAIEndpointCapabilities(credentials)
-    const compactModelMapping = buildOpenAICompactModelMapping()
-    if (compactModelMapping) {
-      credentials.compact_model_mapping = compactModelMapping
-    }
   }
+  applyKeyCompactModelMapping(credentials)
 
   // Add pool mode if enabled
   if (poolModeEnabled.value) {

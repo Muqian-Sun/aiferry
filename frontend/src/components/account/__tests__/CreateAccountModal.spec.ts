@@ -986,6 +986,116 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
   })
 
+  it('shows OpenAI Responses settings with the vendor hint once an Anthropic-labelled key gains a responses endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example.com/v1')
+    expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(true)
+    wrapper.get('[data-testid="create-openai-ws-mode"]').findComponent({ name: 'Select' }).vm.$emit('update:modelValue', 'ctx_pool')
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+    expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
+    const compact = wrapper.get('[data-testid="create-openai-compact"]')
+    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
+    expect(addCompactMapping).toBeDefined()
+    await addCompactMapping!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+    await fillKeyBasics(wrapper, 'anthropic label with responses')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('anthropic')
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'ctx_pool',
+      openai_apikey_responses_websockets_v2_enabled: true
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('hides OpenAI Responses settings once an OpenAI-labelled key drops its responses and chat_completions endpoints', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example.com')
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-compact"]').exists()).toBe(false)
+    await fillKeyBasics(wrapper, 'openai label without openai endpoints')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
+  })
+
+  it('submits OpenAI Responses settings for an Antigravity upstream key with a responses endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example/v1')
+    await fillKeyBasics(wrapper, 'antigravity responses relay')
+
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+    const compact = wrapper.get('[data-testid="create-openai-compact"]')
+    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
+    await addCompactMapping!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'off'
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('clears OpenAI Responses settings when switching to another platform label', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+
+    // Kimi 的官方地址同样带 responses / chat_completions，区块一直可见
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
+    await fillKeyBasics(wrapper, 'kimi after openai')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
+  })
+
+  it('keeps OpenAI Responses settings for OpenAI subscriptions only, without the key hint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="create-openai-compact"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(false)
+
+    // Grok OAuth 成品号：协议地址预填了 chat_completions / responses 也不展示
+    await selectButtonByText(wrapper, 'Grok')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
+  })
+
   it('never shows the key-only Anthropic settings for Anthropic subscription accounts', async () => {
     const wrapper = mountModal()
     await flushPromises()

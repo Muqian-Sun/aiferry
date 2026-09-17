@@ -57,6 +57,16 @@ export function hasAnthropicEndpoint(endpoints: ProtocolEndpoints): boolean {
   return 'anthropic' in endpoints
 }
 
+/**
+ * 第三方 key 配了 OpenAI 系协议地址（Responses 或 Chat Completions）：OpenAI Responses 协议设置
+ * （自动透传、WS mode、Compact）可配置，账号弹窗据此展示，不看平台标签。后端只对地址指向
+ * OpenAI 官方或通用中转的 key 生效、其他厂商官方地址忽略——前端不识别厂商，只给提示。
+ * 与 hasAnthropicEndpoint 一样，未填地址的新行也算。
+ */
+export function hasOpenAIEndpoint(endpoints: ProtocolEndpoints): boolean {
+  return 'responses' in endpoints || 'chat_completions' in endpoints
+}
+
 export function sameEndpoints(a: ProtocolEndpoints, b: ProtocolEndpoints): boolean {
   const keysA = configuredProtocols(a)
   const keysB = configuredProtocols(b)
