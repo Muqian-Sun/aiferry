@@ -285,7 +285,7 @@ func ResolveUpstreamBaseURL(account *Account, resolved string, protocol string, 
 //
 // 用于那些「只需要知道这个账号大致指向哪」的判断：Ollama Cloud 识别、模型同步、
 // 计费探测等。第三方 key 取协议映射（优先该平台的默认协议，其次按固定顺序取
-// 任意已配置协议），成品号取 credentials.base_url。
+// 任意已配置协议）；成品号只走厂商官方地址、没有账号级地址，返回空串。
 //
 // 不引入这个入口的话，第三方 key 只配协议映射、不配 base_url 之后，这些判断会
 // 静默拿到空串——不报错，只是行为悄悄消失。
@@ -294,7 +294,7 @@ func (a *Account) PrimaryUpstreamBaseURL() string {
 		return ""
 	}
 	if !a.IsThirdPartyKey() {
-		return a.StoredBaseURL()
+		return ""
 	}
 	if preferred := DefaultProtocolForPlatform(a.Platform); preferred != "" {
 		if endpoint := a.ProtocolEndpoint(preferred); endpoint != "" {

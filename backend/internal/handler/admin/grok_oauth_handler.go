@@ -204,9 +204,6 @@ func (h *GrokOAuthHandler) RefreshAccountToken(c *gin.Context) {
 	}
 	newCredentials := h.grokOAuthService.BuildAccountCredentials(tokenInfo)
 	newCredentials = service.MergeCredentials(account.Credentials, newCredentials)
-	if baseURL := strings.TrimSpace(account.GetCredential("base_url")); baseURL != "" {
-		newCredentials["base_url"] = baseURL
-	}
 	updatedAccount, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
 		Credentials: newCredentials,
 	})
@@ -461,14 +458,13 @@ func (h *GrokOAuthHandler) createAccountFromSSOToken(ctx context.Context, req Gr
 }
 
 // grokSSOImportCredentials 合并 SSO 兑换出的凭据与导入请求携带的运营侧配置。
-// token 字段以 BuildAccountCredentials 为准（请求不可覆盖）；但 base_url 是运营侧
-// 配置且 Build 恒写官方地址，会吞掉导入时指定的自定义转发地址——与
-// RefreshAccountToken 的保留逻辑对齐，请求显式提供时以请求为准。
+// token 字段以 BuildAccountCredentials 为准（请求不可覆盖）。成品号只走官方地址，
+// 请求里的 base_url 不接收。
 func grokSSOImportCredentials(built map[string]any, reqCredentials map[string]any) map[string]any {
 	// Only merge operator config from the request — never free-form secrets
 	// (password / sso_token / cookie / etc.) into stored credentials.
 	allowedReqKeys := map[string]struct{}{
-		"base_url": {}, "model_mapping": {},
+		"model_mapping":   {},
 		"header_override": {}, "header_overrides": {}, "header_override_enabled": {},
 		"custom_headers": {},
 	}
@@ -492,9 +488,6 @@ func grokSSOImportCredentials(built map[string]any, reqCredentials map[string]an
 			}
 			delete(credentials, k)
 		}
-	}
-	if reqBaseURL, ok := reqCredentials["base_url"].(string); ok && strings.TrimSpace(reqBaseURL) != "" {
-		credentials["base_url"] = strings.TrimSpace(reqBaseURL)
 	}
 	return service.SanitizeStoredCredentials(service.PlatformGrok, credentials)
 }

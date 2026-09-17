@@ -92,8 +92,5 @@ func (r *GrokTokenRefresher) Refresh(ctx context.Context, account *Account) (map
 	}
 	newCredentials := r.grokOAuthService.BuildAccountCredentials(tokenInfo)
 	newCredentials = MergeCredentials(account.Credentials, newCredentials)
-	if baseURL := account.StoredBaseURL(); baseURL != "" {
-		newCredentials["base_url"] = baseURL
-	}
 	return newCredentials, nil
 }

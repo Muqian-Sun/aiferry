@@ -6,7 +6,6 @@ import (
 	"errors"
 	"hash/fnv"
 	"log/slog"
-	"net/url"
 	"reflect"
 	"sort"
 	"strconv"
@@ -343,15 +342,6 @@ func (a *Account) IsGeminiGoogleOne() bool {
 
 func (a *Account) CanGetUsage() bool {
 	return a.Type == AccountTypeOAuth
-}
-
-// StoredBaseURL 返回账号凭证里存的上游地址，去掉首尾空白。
-//
-// 各处读取 base_url 的写法此前并不统一：多数调用方自己 TrimSpace，少数直接读
-// 凭证或 map。统一入口是为了后续把 base_url 换成「协议 → 地址」的映射表时，
-// 只有一个地方需要改。
-func (a *Account) StoredBaseURL() string {
-	return strings.TrimSpace(a.GetCredential("base_url"))
 }
 
 func (a *Account) GetCredential(key string) string {
@@ -1014,12 +1004,8 @@ func (a *Account) GetGeminiBaseURL(defaultBaseURL string) string {
 		// 由调用方按「缺地址 = 配置错误」处理，不在这里兜官方端点。
 		return a.ProtocolEndpoint(APIProtocolGemini)
 	}
-	// 成品号：OAuth / 服务账号走厂商官方端点，自定义中转仍由 base_url 指定。
-	baseURL := a.StoredBaseURL()
-	if baseURL == "" {
-		return defaultBaseURL
-	}
-	return baseURL
+	// 成品号只走厂商官方地址，账号上不存在可覆盖的地址；要走中转请按第三方 key 建号。
+	return defaultBaseURL
 }
 
 func (a *Account) GetExtraString(key string) string {
@@ -1586,9 +1572,9 @@ func (a *Account) GetOpenAIRefreshToken() string {
 // Grok media traffic has a different transport contract and must use
 // GetGrokMediaBaseURL instead.
 //
-// The stored base_url only rewrites forwarding endpoints. Credential lifecycle
-// traffic (OAuth authorization and token refresh) always uses the official
-// auth endpoints regardless of this value.
+// OAuth accounts always use an official xAI host; the site-wide
+// grok_default_base_url_mode (via SettingService.ResolveGrokBaseURL) picks which
+// one. Accounts carry no per-account address override.
 func (a *Account) GetGrokBaseURL() string {
 	if a == nil || !a.IsGrok() {
 		return ""
@@ -1599,9 +1585,9 @@ func (a *Account) GetGrokBaseURL() string {
 	return a.GetGrokBaseURLOr(xai.DefaultBaseURL)
 }
 
-// GetGrokBaseURLOr resolves an explicit account endpoint, falling back to the
-// supplied default. Official OAuth endpoints are normalized here; custom
-// endpoints are retained for the request builder's operator URL policy.
+// GetGrokBaseURLOr returns the upstream for Grok traffic. Third-party keys use
+// their protocol endpoints; subscription accounts use the supplied official
+// default (normally the site-wide mode), never a per-account override.
 func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 	if a == nil || !a.IsGrok() {
 		return ""
@@ -1614,26 +1600,9 @@ func (a *Account) GetGrokBaseURLOr(defaultBaseURL string) string {
 	defaultBaseURL = strings.TrimRight(strings.TrimSpace(defaultBaseURL), "/")
 	if defaultBaseURL == "" {
 		if a.IsGrokOAuth() {
-			defaultBaseURL = xai.DefaultCLIBaseURL
-		} else {
-			defaultBaseURL = xai.DefaultBaseURL
+			return xai.DefaultCLIBaseURL
 		}
-	}
-	baseURL := a.StoredBaseURL()
-	if baseURL == "" {
-		return defaultBaseURL
-	}
-	if !a.IsGrokOAuth() {
-		return baseURL
-	}
-	// Explicit regional/API or custom values remain pinned. Custom endpoints are checked by the
-	// operator URL policy at the request builder, which has access to config.
-	if validated, err := xai.ValidateTrustedBaseURL(baseURL); err == nil {
-		return validated
-	}
-	if parsed, err := url.Parse(baseURL); err == nil && parsed.Scheme != "" && parsed.Host != "" &&
-		parsed.User == nil && parsed.RawQuery == "" && parsed.Fragment == "" {
-		return strings.TrimRight(baseURL, "/")
+		return xai.DefaultBaseURL
 	}
 	return defaultBaseURL
 }

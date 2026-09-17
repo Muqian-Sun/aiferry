@@ -182,7 +182,7 @@ func TestGrokOAuthServiceExternalFlowsRejectMissingClient(t *testing.T) {
 	require.Contains(t, err.Error(), "GROK_OAUTH_CLIENT_NOT_CONFIGURED")
 }
 
-func TestGrokOAuthServiceBuildAccountCredentialsDefaultsToSubscriptionProxy(t *testing.T) {
+func TestGrokOAuthServiceBuildAccountCredentialsStoresNoAddress(t *testing.T) {
 	svc := NewGrokOAuthService(nil, &grokOAuthClientStub{})
 	defer svc.Stop()
 
@@ -191,7 +191,8 @@ func TestGrokOAuthServiceBuildAccountCredentialsDefaultsToSubscriptionProxy(t *t
 		ExpiresAt:   time.Now().Add(time.Hour).Unix(),
 	})
 
-	require.Equal(t, xai.DefaultCLIBaseURL, credentials["base_url"])
+	// 地址由站点级模式决定，凭据里不写任何地址——写了会把账号钉死在该地址上。
+	require.NotContains(t, credentials, "base_url")
 }
 
 func TestGrokOAuthServiceConvertFromSSOExtractsBuildClaims(t *testing.T) {
