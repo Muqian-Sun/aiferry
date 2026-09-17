@@ -279,10 +279,6 @@ func (a *Account) openCodeDefaultChatBaseURL() string {
 	return DefaultOpenCodeGoBaseURL
 }
 
-func (a *Account) IsMultiProtocolAPIKey() bool {
-	return a != nil && IsMultiProtocolAPIKeyProvider(a.Platform)
-}
-
 // openCodeGoNativeProtocol 返回 OpenCode 官方网关上该模型的原生上游协议。
 // 规则未命中、空值或未知协议一律兜底 Chat Completions，避免落入 Responses 转换链。
 func openCodeGoNativeProtocol(account *Account, model string) string {

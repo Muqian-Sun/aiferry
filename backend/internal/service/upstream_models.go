@@ -626,7 +626,7 @@ func upstreamModelRegistryBaseURL(account *Account) string {
 	}
 	switch {
 	case account.IsOpenAI() || account.IsCNProvider() || account.IsOpenCodeGo():
-		return account.GetOpenAIFormatBaseURL()
+		return account.GetOpenAIBaseURL()
 	case account.IsGrok():
 		return account.GetGrokBaseURL()
 	case account.IsGemini():
@@ -1022,7 +1022,7 @@ func buildOpenAIAPIKeyModelsRequest(ctx context.Context, account *Account, valid
 
 	// 协议感知：Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，模型
 	// 列表同步需使用 OpenAI 格式 base（供应商 × 模式默认）。
-	baseURL := account.GetOpenAIFormatBaseURL()
+	baseURL := account.GetOpenAIBaseURL()
 	if baseURL == "" {
 		return nil, newUpstreamModelSyncConfigError("No OpenAI upstream address is configured", MissingProtocolEndpointError(account, APIProtocolChatCompletions))
 	}

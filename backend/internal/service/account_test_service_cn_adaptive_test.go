@@ -21,8 +21,7 @@ func adaptiveCNAccountTestAccount(id int64, platform string) *Account {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-adaptive-test",
-			"api_protocol": APIProtocolAdaptive,
+			"api_key": "sk-adaptive-test",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "http://chat.example/v1",
@@ -82,8 +81,11 @@ data: {"type":"response.completed"}
 	}
 }
 
-func TestAccountTestService_AdaptiveChatOnlyProvidersTestChatAndAnthropicEndpoints(t *testing.T) {
+// TestAccountTestService_CNKeyTestsOnlyConfiguredEndpoints：连接测试只测 key 配了地址的协议，
+// 没配 responses 地址就不测 Responses 端点。
+func TestAccountTestService_CNKeyTestsOnlyConfiguredEndpoints(t *testing.T) {
 	account := adaptiveCNAccountTestAccount(301, PlatformZhipu)
+	delete(account.ProtocolEndpoints, APIProtocolResponses)
 	svc, upstream := adaptiveCNAccountTestService(
 		account,
 		adaptiveCNChatTestResponse(),
@@ -188,9 +190,10 @@ func TestAccountTestService_AdaptiveRejectsInvalidAnthropicSuccessBody(t *testin
 	require.NotContains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-func TestAccountTestService_FixedCNChatProtocolStillTestsOnlyChatEndpoint(t *testing.T) {
+// TestAccountTestService_CNChatOnlyKeyTestsOnlyChatEndpoint：只配 chat_completions 地址的
+// 国产供应商 key 只测 Chat Completions 端点。
+func TestAccountTestService_CNChatOnlyKeyTestsOnlyChatEndpoint(t *testing.T) {
 	account := adaptiveCNAccountTestAccount(304, PlatformZhipu)
-	account.Credentials["api_protocol"] = APIProtocolChatCompletions
 	account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "http://fixed-chat.example/v1"}
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
 	c, recorder := newTestContext()
@@ -212,8 +215,7 @@ func anthropicProtocolCNAccount(id int64, platform string, anthropicEndpoint str
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-anthropic-test",
-			"api_protocol": APIProtocolAnthropic,
+			"api_key": "sk-anthropic-test",
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: anthropicEndpoint},
 	}

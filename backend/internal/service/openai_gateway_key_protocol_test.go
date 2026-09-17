@@ -313,6 +313,27 @@ func TestOpenAIGatewayKeyProtocol_ResponsesOutputLimitFollowsProtocol(t *testing
 	}
 }
 
+// TestNativeAnthropicTargetURLIgnoresLabel：Anthropic 上游地址只取 anthropic 协议地址，
+// 带不带 /v1 都拼成 {base}/v1/messages，与标签无关；没配地址报 MissingProtocolEndpointError。
+func TestNativeAnthropicTargetURLIgnoresLabel(t *testing.T) {
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig()}
+	for _, platform := range []string{PlatformKimi, PlatformOpenAI, PlatformOpenCodeGo} {
+		versioned := keyProtocolTestAccount(platform, map[string]string{APIProtocolAnthropic: "http://relay.example/v1"})
+		target, err := svc.nativeAnthropicTargetURL(versioned)
+		require.NoError(t, err)
+		require.Equal(t, "http://relay.example/v1/messages", target, platform)
+
+		root := keyProtocolTestAccount(platform, map[string]string{APIProtocolAnthropic: "http://relay.example/anthropic"})
+		target, err = svc.nativeAnthropicTargetURL(root)
+		require.NoError(t, err)
+		require.Equal(t, "http://relay.example/anthropic/v1/messages", target, platform)
+	}
+
+	_, err := svc.nativeAnthropicTargetURL(keyProtocolTestAccount(PlatformKimi, map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"}))
+	require.Error(t, err)
+	require.Equal(t, "MISSING_PROTOCOL_ENDPOINT", infraerrors.Reason(err))
+}
+
 func TestGetOpenAIResponsesBaseURLIsStrict(t *testing.T) {
 	chatOnly := keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})
 	require.Empty(t, chatOnly.GetOpenAIResponsesBaseURL())

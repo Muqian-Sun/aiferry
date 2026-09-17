@@ -266,8 +266,7 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolResponses,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
@@ -281,6 +280,8 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 	require.Equal(t, "https://relay.example.com/v1/responses", upstream.requests[0].URL.String())
 }
 
+// TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe：只配 responses 地址的国产供应商
+// key 在连接测试里走 OpenAI Responses 探测。
 func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := newTestContext()
@@ -300,12 +301,10 @@ func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolResponses,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://relay.example.com/v1",
-			APIProtocolResponses:       "https://relay.example.com/v1",
+			APIProtocolResponses: "https://relay.example.com/v1",
 		},
 	}
 	repo := &openAIAccountTestRepo{

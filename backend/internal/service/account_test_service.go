@@ -356,16 +356,7 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 
 	// Route to platform-specific test method
 	if account.IsCNProvider() {
-		switch account.GetAPIProtocol() {
-		case APIProtocolAdaptive:
-			return s.testCNProviderAdaptiveConnection(c, account, modelID, prompt)
-		case APIProtocolResponses:
-			return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
-		case APIProtocolChatCompletions:
-			return s.testCNProviderChatCompletionsConnection(c, account, modelID, prompt)
-		case APIProtocolAnthropic:
-			return s.testCNProviderAnthropicConnection(c, account, modelID)
-		}
+		return s.testCNProviderConfiguredEndpoints(c, account, modelID, prompt, mode)
 	}
 
 	if account.IsOpenAI() {
@@ -391,12 +382,12 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	return s.testClaudeAccountConnection(c, account, modelID)
 }
 
-// testOpenCodeGoAccountConnection probes the native endpoint for the selected
-// model. Adaptive accounts (the default) follow OpenCodeGoModelProtocol:
-// grok/gpt/muse-spark → Responses, minimax/qwen → Anthropic, everything else
-// (including deepseek-v4-flash) → Chat Completions. A pinned api_protocol
-// overrides that catalog. Falling through to the generic Claude tester used
-// credentials.base_url + /v1/messages?beta=true, which 404s as HTML on
+// testOpenCodeGoAccountConnection probes the endpoint the gateway would use for
+// the selected model: the same protocol choice as Chat Completions forwarding
+// (OpenCode official addresses route per model — grok/gpt/muse-spark → Responses,
+// minimax/qwen → Anthropic, everything else → Chat Completions — among the
+// configured protocol endpoints). Falling through to the generic Claude tester
+// used credentials.base_url + /v1/messages?beta=true, which 404s as HTML on
 // https://opencode.ai/zen/go/v1/v1/messages.
 func (s *AccountTestService) testOpenCodeGoAccountConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
 	testModelID := strings.TrimSpace(modelID)
@@ -404,11 +395,9 @@ func (s *AccountTestService) testOpenCodeGoAccountConnection(c *gin.Context, acc
 		testModelID = DefaultOpenCodeGoTestModel
 	}
 	testModelID = account.GetMappedModel(testModelID)
-	proto := account.GetAPIProtocol()
-	switch proto {
-	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses:
-	default:
-		proto = openCodeGoNativeProtocol(account, testModelID)
+	proto, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions, func() string { return testModelID })
+	if err != nil {
+		return s.sendErrorAndEnd(c, err.Error())
 	}
 	switch proto {
 	case APIProtocolAnthropic:

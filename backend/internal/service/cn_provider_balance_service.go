@@ -128,7 +128,7 @@ func (s *CNProviderBalanceService) queryBalanceForAccount(ctx context.Context, a
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_BALANCE_NO_ENDPOINT", "account provider has no balance endpoint")
 	}
 
-	apiKey := strings.TrimSpace(account.GetCNAPIKey())
+	apiKey := strings.TrimSpace(account.GetOpenAIProtocolAPIKey())
 	if apiKey == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_BALANCE_NO_APIKEY", "account api_key is empty")
 	}
@@ -298,7 +298,7 @@ func cnBalanceURL(account *Account) string {
 	case PlatformDeepseek:
 		// Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，余额探测需回退
 		// 到 OpenAI 格式 base（协议感知）再拼接 /user/balance。
-		return strings.TrimRight(account.GetOpenAIFormatBaseURL(), "/") + "/user/balance"
+		return strings.TrimRight(account.GetOpenAIBaseURL(), "/") + "/user/balance"
 	default:
 		return ""
 	}

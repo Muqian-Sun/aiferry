@@ -71,7 +71,6 @@ func TestResolveOpenCodeGoUpstreamProtocolUsesAccountRules(t *testing.T) {
 	account := &Account{
 		Platform: PlatformOpenCodeGo,
 		Credentials: map[string]any{
-			"api_protocol": APIProtocolAdaptive,
 			openCodeGoProtocolRulesKey: []any{
 				map[string]any{"pattern": "grok-*", "protocol": APIProtocolChatCompletions},
 				map[string]any{"pattern": "deepseek-v4-flash", "protocol": APIProtocolResponses},
@@ -118,7 +117,6 @@ func TestOpenCodeGoNativeProtocolUnmatchedFallsBackToChatCompletions(t *testing.
 	withRules := &Account{
 		Platform: PlatformOpenCodeGo,
 		Credentials: map[string]any{
-			"api_protocol": APIProtocolAdaptive,
 			openCodeGoProtocolRulesKey: []any{
 				map[string]any{"pattern": "grok-*", "protocol": APIProtocolResponses},
 				map[string]any{"pattern": "gpt-*", "protocol": APIProtocolResponses},

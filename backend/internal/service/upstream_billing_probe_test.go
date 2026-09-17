@@ -343,7 +343,9 @@ func TestUpstreamBillingProbeSuccessPersistsSanitizedSnapshot(t *testing.T) {
 	require.Equal(t, snapshot.Status, persisted.Status)
 }
 
-func TestUpstreamBillingProbeAdaptiveCNUsesChatProtocolBaseURL(t *testing.T) {
+// TestUpstreamBillingProbeCNUsesChatProtocolBaseURL：余额探测挂在 OpenAI API 根地址下，
+// 同时配了 anthropic 地址时仍取 chat_completions 地址。
+func TestUpstreamBillingProbeCNUsesChatProtocolBaseURL(t *testing.T) {
 	account := &Account{
 		ID:          18,
 		Platform:    PlatformKimi,
@@ -351,14 +353,14 @@ func TestUpstreamBillingProbeAdaptiveCNUsesChatProtocolBaseURL(t *testing.T) {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-sensitive",
-			"api_protocol": APIProtocolAdaptive,
-			"base_url":     "https://legacy-relay.example/v1",
+			"api_key":  "sk-sensitive",
+			"base_url": "https://legacy-relay.example/v1",
 			"api_base_urls": map[string]any{
 				APIProtocolChatCompletions: "https://chat-relay.example/v1",
 			},
 		},
 		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic:       "https://anthropic-relay.example",
 			APIProtocolChatCompletions: "https://chat-relay.example/v1",
 		},
 		Extra: map[string]any{UpstreamBillingProbeEnabledExtraKey: true},

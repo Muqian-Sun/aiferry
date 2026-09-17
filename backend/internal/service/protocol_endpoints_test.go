@@ -53,7 +53,7 @@ func TestNormalizeProtocolEndpoints(t *testing.T) {
 	})
 
 	t.Run("adaptive 不是具体协议，不能作为键", func(t *testing.T) {
-		_, err := NormalizeProtocolEndpoints(map[string]string{APIProtocolAdaptive: "https://relay.example.com"})
+		_, err := NormalizeProtocolEndpoints(map[string]string{"adaptive": "https://relay.example.com"})
 		require.Error(t, err)
 	})
 
@@ -75,8 +75,8 @@ func TestPlatformProtocolDefaultsCoverRoutedProtocols(t *testing.T) {
 			// 平台默认协议是 PrimaryUpstreamBaseURL 等主地址判断的首选键。
 			require.Containsf(t, defaults, DefaultProtocolForPlatform(platform), "%s/%s 缺默认协议", platform, mode)
 
-			// 支持原生 Responses 的供应商在 adaptive 模式下会按 responses 协议取址。
-			if (&Account{Platform: platform}).SupportsNativeCNResponses() {
+			// 官方提供 Responses 端点的厂商必须预填 responses 地址，否则 Responses 入站只能转换。
+			if hasStatelessVendorResponses(platform) {
 				require.Containsf(t, defaults, APIProtocolResponses, "%s/%s 支持原生 Responses 却未预填", platform, mode)
 			}
 		}

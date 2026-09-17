@@ -626,9 +626,6 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_api_key", 0)
 	}
 	baseURL := account.PrimaryUpstreamBaseURL()
-	if account.IsCNProvider() && account.IsAdaptiveAPIProtocol() {
-		baseURL = account.GetCNProtocolBaseURL(APIProtocolChatCompletions)
-	}
 	if baseURL == "" {
 		// 第三方 key 没配地址是配置错误，不再替它去探官方域。
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_protocol_endpoint", 0)
