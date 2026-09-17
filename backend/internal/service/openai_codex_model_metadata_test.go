@@ -759,3 +759,31 @@ func TestCodexAliasFailoverMappingHonorsModelRouting(t *testing.T) {
 }
 
 // Scenario: mixed groups prefer capability metadata synced for the routed account.
+
+// accountCodexToolCapabilities 不看第三方 key 的平台标签。
+func TestAccountCodexToolCapabilities_KeysIgnoreLabel(t *testing.T) {
+	t.Run("chat bridge search tool for any label", func(t *testing.T) {
+		bridge := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://bridge.example/v1"}}
+		require.True(t, shouldForwardOpenAIResponsesViaRawChatCompletions(bridge))
+		require.Equal(t, json.RawMessage("true"), accountCodexToolCapabilities(bridge, "gpt-5.1")["supports_search_tool"])
+	})
+
+	t.Run("astra official defaults follow openai vendor", func(t *testing.T) {
+		official := &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
+		require.Equal(t, PlatformOpenAI, official.Vendor())
+		capabilities := accountCodexToolCapabilities(official, "gpt-6-astra")
+		require.Equal(t, json.RawMessage(`"freeform"`), capabilities["apply_patch_tool_type"])
+		require.Equal(t, json.RawMessage("false"), capabilities["use_responses_lite"])
+	})
+
+	t.Run("responses lite guard for any key label", func(t *testing.T) {
+		key := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example/v1"}}
+		key.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
+			"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
+		}})
+		require.Equal(t, json.RawMessage("false"), accountCodexToolCapabilities(key, "gpt-6-astra")["use_responses_lite"])
+	})
+}
