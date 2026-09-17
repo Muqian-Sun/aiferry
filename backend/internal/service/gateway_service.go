@@ -1355,11 +1355,11 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	}
 
 	// Filter by platform if specified. 模型列表不对应某个入站协议（结果按分组+平台缓存），
-	// 第三方 key 按空入站协议判断能否在该网关平台承接请求。
+	// 第三方 key 能在该网关平台承接任一入站协议即计入。
 	if platform != "" {
 		filtered := make([]Account, 0)
 		for i := range accounts {
-			if accountServesSchedulingPlatform(&accounts[i], platform, "", false) {
+			if accountServesPlatformForAnyInbound(&accounts[i], platform) {
 				filtered = append(filtered, accounts[i])
 			}
 		}

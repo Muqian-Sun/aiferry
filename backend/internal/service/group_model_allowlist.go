@@ -31,13 +31,18 @@ func GroupModelAllowlistFromDomain(cfg domain.GroupModelAllowlist) GroupModelAll
 // supplementUnmappedOpenAIModels ensures a partial mapping catalog does not
 // hide models from unmapped OpenAI accounts. An empty catalog is left unchanged
 // so callers retain their existing discovery fallback.
+//
+// 「OpenAI 账号」不看第三方 key 的平台标签：能在 OpenAI 网关上承接请求，且按
+// openAIProtocolFeaturesApply 是官方 OpenAI 地址或通用中转。这类 key 空映射时按 OpenAI
+// 默认目录补齐（与全部账号都空映射时 handler 回退到 OpenAI 默认模型一致）；DeepSeek、
+// Kimi 等已知其他厂商的 key 有自己的目录，不补。成品号即 openai 平台账号，行为不变。
 func supplementUnmappedOpenAIModels(accounts []Account, models []string) []string {
 	if len(models) == 0 {
 		return models
 	}
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform == PlatformOpenAI && len(account.GetModelMapping()) == 0 {
+		if accountServesPlatformForAnyInbound(account, PlatformOpenAI) && openAIProtocolFeaturesApply(account) && len(account.GetModelMapping()) == 0 {
 			return dedupeAndSortModelIDs(slices.Concat(models, openai.DefaultModelIDs()))
 		}
 	}

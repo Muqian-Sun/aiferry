@@ -276,7 +276,8 @@ func openAIConfiguredCodexModelIDs(accounts []Account) []string {
 	models := make([]string, 0)
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != PlatformOpenAI {
+		// 第三方 key 的平台只是展示标签：能在 OpenAI 网关承接请求的 key 都贡献映射。
+		if !accountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 			continue
 		}
 		for modelID := range account.GetModelMapping() {

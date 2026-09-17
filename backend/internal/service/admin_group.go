@@ -117,8 +117,8 @@ func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id 
 			if !isConcreteRequestPlatform(acc.Platform) {
 				continue
 			}
-		} else if !accountServesSchedulingPlatform(acc, platform, "", false) {
-			// 管理端没有入站请求：第三方 key 按空入站协议判断能否在该网关平台承接请求。
+		} else if !accountServesPlatformForAnyInbound(acc, platform) {
+			// 管理端没有入站请求：第三方 key 能在该网关平台承接任一入站协议即计入。
 			continue
 		}
 		for model := range acc.GetModelMapping() {
