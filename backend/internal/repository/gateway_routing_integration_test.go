@@ -68,7 +68,7 @@ func (s *GatewayRoutingSuite) TestListSchedulableByPlatforms_GeminiAndAntigravit
 	})
 
 	// 查询 gemini + antigravity 平台
-	accounts, err := s.accountRepo.ListSchedulableByPlatforms(s.ctx, []string{
+	accounts, err := s.accountRepo.ListSchedulingCandidates(s.ctx, []string{
 		service.PlatformGemini,
 		service.PlatformAntigravity,
 	})
@@ -121,7 +121,7 @@ func (s *GatewayRoutingSuite) TestListSchedulableByGroupIDAndPlatforms_WithGroup
 	mustBindAccountToGroup(s.T(), s.client, boundAcc.ID, group.ID, 1)
 
 	// 查询分组内的账户
-	accounts, err := s.accountRepo.ListSchedulableByGroupIDAndPlatforms(s.ctx, group.ID, []string{
+	accounts, err := s.accountRepo.ListSchedulingCandidatesByGroupID(s.ctx, group.ID, []string{
 		service.PlatformGemini,
 		service.PlatformAntigravity,
 	})

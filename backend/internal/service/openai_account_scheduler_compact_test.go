@@ -217,10 +217,10 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionRequire
 				Schedulable: true,
 				Concurrency: 1,
 				Extra: map[string]any{
-					"openai_compact_mode":        OpenAICompactModeForceOn,
-					"openai_responses_supported": false,
+					"openai_compact_mode": OpenAICompactModeForceOn,
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+				// 没有 responses 地址：原生压缩无法转换成 Chat Completions。
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 			}}, advanced)
 
 			selection, err := selectOpenAICompactionSchedulerTestAccount(t, svc, 91009, false)
@@ -289,10 +289,10 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactRequiresResponse
 		Schedulable: true,
 		Concurrency: 1,
 		Extra: map[string]any{
-			"openai_compact_supported":   true,
-			"openai_responses_supported": false,
+			"openai_compact_supported": true,
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		// 没有 responses 地址：compact 触发会在 Responses→Chat 转换里丢失。
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 	}}
 	cfg := &config.Config{}
 	cfg.Gateway.Scheduling.LoadBatchEnabled = false
@@ -336,10 +336,10 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactSkipsChatOnlyAcc
 			Concurrency: 1,
 			Priority:    10,
 			Extra: map[string]any{
-				"openai_compact_supported":   true,
-				"openai_responses_supported": false,
+				"openai_compact_supported": true,
 			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			// 没有 responses 地址，只能落到 Chat Completions。
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 		},
 		{
 			ID:          71061,

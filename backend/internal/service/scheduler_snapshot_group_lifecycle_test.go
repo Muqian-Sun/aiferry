@@ -300,7 +300,7 @@ func (r *groupLifecycleTestAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx 
 	return r.load(ctx, platform)
 }
 
-func (r *groupLifecycleTestAccountRepo) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
+func (r *groupLifecycleTestAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
 	platform := "mixed"
 	if len(platforms) > 0 {
 		platform = platforms[0]

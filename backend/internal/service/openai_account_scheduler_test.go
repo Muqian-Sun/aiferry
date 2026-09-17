@@ -58,8 +58,60 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx c
 	return r.ListSchedulableByPlatform(ctx, platform)
 }
 
+// schedulingCandidateMatchesForTest 是 AccountRepository.ListSchedulingCandidates* 的内存版口径：
+// 平台属于 platforms 的成品号，加上任意平台标签的第三方 key。
+func schedulingCandidateMatchesForTest(acc Account, platforms []string) bool {
+	if acc.IsThirdPartyKey() {
+		return true
+	}
+	for _, platform := range platforms {
+		if acc.Platform == platform {
+			return true
+		}
+	}
+	return false
+}
+
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
+}
+
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
+}
+
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
+}
+
 type schedulerGroupAwareOpenAIAccountRepo struct {
 	schedulerTestOpenAIAccountRepo
+}
+
+func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
+}
+
+func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, nil) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
 }
 
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
@@ -780,12 +832,11 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_ResponsesCapabilityExcl
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	// 更高优先级但探测确认不支持 Responses——若门控失效会被优先选中。
+	// 没有 responses 地址（只能转换成 Chat Completions）——若门控失效会被选中。
 	unsupported := Account{
 		ID: 37002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5,
-		Extra:             map[string]any{"openai_responses_supported": false},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 	}
 
 	t.Run("生图意图仅选中支持 responses 的账号", func(t *testing.T) {

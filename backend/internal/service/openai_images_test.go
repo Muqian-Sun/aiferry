@@ -517,7 +517,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityEmbeddings))
 	})
 
-	t.Run("alpha search 允许 OpenAI OAuth/PAT 与 APIKey 账号，拒绝 Grok", func(t *testing.T) {
+	t.Run("alpha search 允许 OpenAI OAuth/PAT 与 APIKey 账号，拒绝指向 xAI 的 key", func(t *testing.T) {
 		// OAuth/PAT 走 chatgpt.com Codex 端点，APIKey 走 {base_url}/v1/alpha/search，
 		// 两类都能承接独立搜索（APIKey 被排除曾导致纯 APIKey 分组搜索失效的回归）。
 		apiKey := &Account{
@@ -529,15 +529,22 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 			Platform: PlatformOpenAI,
 			Type:     AccountTypeOAuth,
 		}
+		// 厂商看地址不看标签：openai 标签但指向 xAI 官方的 key 同样没有 alpha/search。
 		grok := &Account{
-			Platform:          PlatformGrok,
+			Platform:          PlatformOpenAI,
 			Type:              AccountTypeAPIKey,
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
+		}
+		grokLabelledRelay := &Account{
+			Platform:          PlatformGrok,
+			Type:              AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
 		}
 
 		require.True(t, apiKey.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 		require.True(t, oauth.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 		require.False(t, grok.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
+		require.True(t, grokLabelledRelay.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityAlphaSearch))
 	})
 
 	t.Run("显式列表支持同时声明 chat 和 embeddings", func(t *testing.T) {
@@ -680,12 +687,11 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
 	})
 
-	t.Run("responses 能力：探测确认不支持的 APIKey 被排除", func(t *testing.T) {
+	t.Run("responses 能力：没有 responses 地址的 APIKey 被排除", func(t *testing.T) {
 		account := &Account{
 			Platform:          PlatformOpenAI,
 			Type:              AccountTypeAPIKey,
-			Extra:             map[string]any{"openai_responses_supported": false},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 		}
 
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
@@ -704,15 +710,18 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
 	})
 
-	t.Run("responses 能力：force_chat_completions 覆盖排除 APIKey", func(t *testing.T) {
+	t.Run("responses 能力：APIKey 只看协议地址，已退役的探测标记与 responses_mode 不生效", func(t *testing.T) {
 		account := &Account{
-			Platform:          PlatformOpenAI,
-			Type:              AccountTypeAPIKey,
-			Extra:             map[string]any{"openai_responses_mode": "force_chat_completions"},
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Extra: map[string]any{
+				"openai_responses_supported": false,
+				"openai_responses_mode":      "force_chat_completions",
+			},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		}
 
-		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
+		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
 	})
 
 	t.Run("responses 能力：OAuth 账号不受探测标记影响", func(t *testing.T) {

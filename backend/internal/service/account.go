@@ -15,7 +15,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/domain"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
@@ -303,6 +302,8 @@ func (a *Account) IsCNProvider() bool {
 // IsOpenAICompatible 报告账号是否走 OpenAI 网关（OpenAI 协议族）。
 // openai/grok 原生走 OpenAI 网关；国产供应商同为 OpenAI Chat Completions
 // 兼容上游，也经 OpenAI 网关转发。OpenCode 同样经 OpenAI 网关按模型分流。
+// 只按平台判断，只对成品号有意义：第三方 key 的平台是展示标签，能否走某个网关
+// 看协议地址（见 accountServesSchedulingPlatform）。
 func (a *Account) IsOpenAICompatible() bool {
 	return a != nil && (a.Platform == PlatformOpenAI || a.Platform == PlatformGrok || a.IsCNProvider() || a.IsOpenCodeGo())
 }
@@ -1726,12 +1727,19 @@ func (a *Account) GetOpenAISessionID() string {
 	return strings.TrimSpace(a.GetExtraString("openai_session_id"))
 }
 
+// SupportsOpenAIEndpointCapability 报告账号能否承接需要该端点能力的 OpenAI 网关请求。
+//
+// 成品号按平台与账号类型判定（厂商绑定）。第三方 key 不看平台标签，见
+// keySupportsOpenAIEndpointCapability。
 func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {
 	if a == nil {
 		return false
 	}
 	if capability == "" {
 		return true
+	}
+	if a.IsThirdPartyKey() {
+		return a.keySupportsOpenAIEndpointCapability(capability)
 	}
 	if !a.IsOpenAICompatible() {
 		return false
@@ -1759,15 +1767,8 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 			!a.IsOpenAIPersonalAccessToken() &&
 			!a.IsOpenAIAgentIdentity()
 	case OpenAIEndpointCapabilityResponses:
-		// Responses 支持状态由 accounts.extra 的自动探测标记决定，而非
-		// credentials 能力集。已探测确认不支持 /v1/responses 的 APIKey 上游
-		// 必须排除——否则会在 forward 阶段被静默降级为 Chat Completions，
-		// 无法完成生图（#4417）。未探测/OAuth 账号保留旧行为（不排除）。
-		if a.Type == AccountTypeAPIKey && !openai_compat.ShouldUseResponsesAPI(a.Extra) {
-			return false
-		}
-		// 支持 Responses 的上游同样需具备 chat 能力：复用下方 chat_completions
-		// 配置集校验。
+		// 成品号走厂商的 Responses 通道，不排除。支持 Responses 的上游同样需具备
+		// chat 能力：复用下方 chat_completions 配置集校验。
 		capability = OpenAIEndpointCapabilityChatCompletions
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 的转发按账号类型分流：OAuth/PAT 走
@@ -1784,7 +1785,48 @@ func (a *Account) SupportsOpenAIEndpointCapability(capability OpenAIEndpointCapa
 	default:
 		return false
 	}
+	return a.openAIEndpointCapabilityConfigured(capability)
+}
 
+// keySupportsOpenAIEndpointCapability 是第三方 key 的端点能力判定：平台只是展示标签，
+// 能力由协议地址、厂商（地址是否指向官方域名）、账号类型与管理员配置的能力集决定。
+func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointCapability) bool {
+	switch capability {
+	case OpenAIEndpointCapabilityChatCompletions:
+	case OpenAIEndpointCapabilityResponses:
+		// 生图等必须走原生 Responses 的请求（#4417）只能落到配了 responses 地址的 key 上：
+		// 没有该地址的 key 只能把请求转换成别的协议，生图会失败。
+		if a.ProtocolEndpoint(APIProtocolResponses) == "" {
+			return false
+		}
+		// 与成品号一致：支持 Responses 的上游同样需具备 chat 能力。
+		capability = OpenAIEndpointCapabilityChatCompletions
+	case OpenAIEndpointCapabilityAlphaSearch:
+		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
+		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点。
+		if a.Type != AccountTypeAPIKey || !keyFollowsStandardOpenAIResponses(a) {
+			return false
+		}
+	case OpenAIEndpointCapabilityEmbeddings:
+		// API key 走 {base_url}/v1/embeddings；上游不支持时由转发层 failover 兜底。
+		if a.Type != AccountTypeAPIKey {
+			return false
+		}
+	case OpenAIEndpointCapabilityGrokMediaGeneration:
+		// xAI 的图片/视频生成是厂商私有端点：管理员显式开关优先，否则只有地址指向 xAI 官方的 key 具备。
+		if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
+			return override
+		}
+		return a.Vendor() == PlatformGrok
+	default:
+		// live 是 ChatGPT OAuth 专属能力，第三方 key 不具备。
+		return false
+	}
+	return a.openAIEndpointCapabilityConfigured(capability)
+}
+
+// openAIEndpointCapabilityConfigured 按管理员配置的 openai_capabilities 能力集判定；未配置时不限制。
+func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCapability) bool {
 	configured, found := a.openAIEndpointCapabilitySet()
 	if !found {
 		return true

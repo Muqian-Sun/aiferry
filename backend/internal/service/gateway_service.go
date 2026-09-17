@@ -1354,12 +1354,13 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 		return nil
 	}
 
-	// Filter by platform if specified
+	// Filter by platform if specified. 模型列表不对应某个入站协议（结果按分组+平台缓存），
+	// 第三方 key 按空入站协议判断能否在该网关平台承接请求。
 	if platform != "" {
 		filtered := make([]Account, 0)
-		for _, acc := range accounts {
-			if acc.Platform == platform {
-				filtered = append(filtered, acc)
+		for i := range accounts {
+			if accountServesSchedulingPlatform(&accounts[i], platform, "", false) {
+				filtered = append(filtered, accounts[i])
 			}
 		}
 		accounts = filtered
@@ -1437,6 +1438,8 @@ func (s *GatewayService) resolveCompositeModelOwnership(ctx context.Context, gro
 		return CompositeModelOwnership{}, err
 	}
 
+	// composite 分组按「哪个账号的映射认领了该模型」取目标平台，这里读的仍是账号的平台标签
+	// （第三方 key 也一样）。完全按模型路由留到下一步；目标平台确定之后，选号按协议地址判断 key。
 	platforms := make(map[string]struct{})
 	for _, account := range accounts {
 		platform := strings.TrimSpace(account.Platform)
@@ -1472,6 +1475,9 @@ func explicitModelMappingClaims(account Account, model string) bool {
 
 // GetSchedulablePlatforms returns the concrete platforms that currently have
 // schedulable accounts in the target group.
+//
+// 只用于 composite 分组的模型列表，与 resolveCompositeModelOwnership 一样按账号平台标签
+// 统计（第三方 key 也一样），完全按模型路由留到下一步。
 func (s *GatewayService) GetSchedulablePlatforms(ctx context.Context, groupID *int64) map[string]struct{} {
 	platforms := make(map[string]struct{})
 	if s == nil || s.accountRepo == nil {

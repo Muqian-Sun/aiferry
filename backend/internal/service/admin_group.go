@@ -109,12 +109,16 @@ func (s *adminServiceImpl) GetGroupModelsListCandidates(ctx context.Context, id 
 	for _, model := range candidates {
 		seen[model] = struct{}{}
 	}
-	for _, acc := range accounts {
+	for i := range accounts {
+		acc := &accounts[i]
 		if platform == PlatformComposite {
+			// composite 分组按账号平台标签归属目标平台（与 resolveCompositeModelOwnership 一致），
+			// 完全按模型路由留到下一步。
 			if !isConcreteRequestPlatform(acc.Platform) {
 				continue
 			}
-		} else if acc.Platform != platform {
+		} else if !accountServesSchedulingPlatform(acc, platform, "", false) {
+			// 管理端没有入站请求：第三方 key 按空入站协议判断能否在该网关平台承接请求。
 			continue
 		}
 		for model := range acc.GetModelMapping() {

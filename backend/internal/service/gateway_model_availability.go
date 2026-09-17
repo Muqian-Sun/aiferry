@@ -36,6 +36,14 @@ type ModelAvailabilityDiagnoser interface {
 	) ModelAvailabilityDiagnosis
 }
 
+// modelAvailabilityCandidatePlatforms 是模型可用性诊断查询的账号平台：第三方 key 的平台只是
+// 展示标签，任何标签的 key 都可能承接某个网关平台的请求，所以查全部平台，再按调度的平台准入
+// 规则（isAccountSchedulableOnPlatform）过滤。只在「无可用账号」的错误路径上运行。
+func modelAvailabilityCandidatePlatforms() []string {
+	platforms := schedulerSnapshotPlatforms()
+	return platforms[:]
+}
+
 // DiagnoseModelAvailabilityForPlatform inspects accounts enabled for scheduling
 // by persistent configuration and returns whether the requested model is
 // configured to be served by any of them. The dedicated repository query
@@ -70,10 +78,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 	}
 
 	useMixed := platform == PlatformAnthropic || platform == PlatformGemini
-	platforms := []string{platform}
-	if useMixed {
-		platforms = append(platforms, PlatformAntigravity)
-	}
+	platforms := modelAvailabilityCandidatePlatforms()
 
 	queryGroupID := groupID
 	includeGrouped := false
@@ -98,7 +103,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 
 	diag := ModelAvailabilityDiagnosis{}
 	for i := range accounts {
-		if useMixed && accounts[i].IsAntigravity() && !accounts[i].IsMixedSchedulingEnabled() {
+		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform, useMixed) {
 			continue
 		}
 		diag.HasAccountsInPool = true

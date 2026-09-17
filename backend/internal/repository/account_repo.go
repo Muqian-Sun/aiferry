@@ -2016,7 +2016,25 @@ func (r *accountRepository) ListSchedulableByGroupIDAndPlatform(ctx context.Cont
 	})
 }
 
-func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+// thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：source_kind 显式
+// 为 api_key，或尚未分类（NULL）时按类型推导（apikey / upstream）。两边口径必须一致，
+// 否则装桶与选号对同一个账号的归类会分叉。
+func thirdPartyKeyPredicate() dbpredicate.Account {
+	return dbaccount.Or(
+		dbaccount.SourceKindEQ(service.AccountSourceAPIKey),
+		dbaccount.And(
+			dbaccount.SourceKindIsNil(),
+			dbaccount.TypeIn(service.AccountTypeAPIKey, service.AccountTypeUpstream),
+		),
+	)
+}
+
+// schedulingCandidatePredicate 选出平台属于 platforms 的账号，加上任意平台标签的第三方 key。
+func schedulingCandidatePredicate(platforms []string) dbpredicate.Account {
+	return dbaccount.Or(dbaccount.PlatformIn(platforms...), thirdPartyKeyPredicate())
+}
+
+func (r *accountRepository) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
 	if len(platforms) == 0 {
 		return nil, nil
 	}
@@ -2025,7 +2043,7 @@ func (r *accountRepository) ListSchedulableByPlatforms(ctx context.Context, plat
 	now := time.Now()
 	accounts, err := r.client.Account.Query().
 		Where(
-			dbaccount.PlatformIn(platforms...),
+			schedulingCandidatePredicate(platforms),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			tempUnschedulablePredicate(),
@@ -2062,14 +2080,14 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Conte
 	return r.accountsToService(ctx, accounts)
 }
 
-func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+func (r *accountRepository) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
 	if len(platforms) == 0 {
 		return nil, nil
 	}
 	now := time.Now()
 	accounts, err := r.client.Account.Query().
 		Where(
-			dbaccount.PlatformIn(platforms...),
+			schedulingCandidatePredicate(platforms),
 			dbaccount.StatusEQ(service.StatusActive),
 			dbaccount.SchedulableEQ(true),
 			dbaccount.Not(dbaccount.HasAccountGroups()),
@@ -2086,15 +2104,16 @@ func (r *accountRepository) ListSchedulableUngroupedByPlatforms(ctx context.Cont
 	return r.accountsToService(ctx, accounts)
 }
 
-func (r *accountRepository) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
+func (r *accountRepository) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	if len(platforms) == 0 {
 		return nil, nil
 	}
 	// 复用按分组查询逻辑，保证分组优先级 + 账号优先级的排序与筛选一致。
 	return r.queryAccountsByGroup(ctx, groupID, accountGroupQueryOptions{
-		status:      service.StatusActive,
-		schedulable: true,
-		platforms:   platforms,
+		status:                service.StatusActive,
+		schedulable:           true,
+		platforms:             platforms,
+		includeThirdPartyKeys: true,
 	})
 }
 
@@ -3086,6 +3105,8 @@ type accountGroupQueryOptions struct {
 	schedulable          bool
 	ignoreTransientState bool
 	platforms            []string // 允许的多个平台，空切片表示不进行平台过滤
+	// includeThirdPartyKeys 为 true 时，平台过滤只约束成品号，任意平台标签的第三方 key 都保留。
+	includeThirdPartyKeys bool
 }
 
 func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID int64, opts accountGroupQueryOptions) ([]service.Account, error) {
@@ -3099,7 +3120,11 @@ func (r *accountRepository) queryAccountsByGroup(ctx context.Context, groupID in
 		preds = append(preds, dbaccount.StatusEQ(opts.status))
 	}
 	if len(opts.platforms) > 0 {
-		preds = append(preds, dbaccount.PlatformIn(opts.platforms...))
+		if opts.includeThirdPartyKeys {
+			preds = append(preds, schedulingCandidatePredicate(opts.platforms))
+		} else {
+			preds = append(preds, dbaccount.PlatformIn(opts.platforms...))
+		}
 	}
 	if opts.schedulable {
 		preds = append(preds, dbaccount.SchedulableEQ(true))

@@ -125,16 +125,16 @@ func (m *sessionWindowMockRepo) ListSchedulableByPlatform(context.Context, strin
 func (m *sessionWindowMockRepo) ListSchedulableByGroupIDAndPlatform(context.Context, int64, string) ([]Account, error) {
 	panic("unexpected")
 }
-func (m *sessionWindowMockRepo) ListSchedulableByPlatforms(context.Context, []string) ([]Account, error) {
+func (m *sessionWindowMockRepo) ListSchedulingCandidates(context.Context, []string) ([]Account, error) {
 	panic("unexpected")
 }
-func (m *sessionWindowMockRepo) ListSchedulableByGroupIDAndPlatforms(context.Context, int64, []string) ([]Account, error) {
+func (m *sessionWindowMockRepo) ListSchedulingCandidatesByGroupID(context.Context, int64, []string) ([]Account, error) {
 	panic("unexpected")
 }
 func (m *sessionWindowMockRepo) ListSchedulableUngroupedByPlatform(context.Context, string) ([]Account, error) {
 	panic("unexpected")
 }
-func (m *sessionWindowMockRepo) ListSchedulableUngroupedByPlatforms(context.Context, []string) ([]Account, error) {
+func (m *sessionWindowMockRepo) ListSchedulingCandidatesUngrouped(context.Context, []string) ([]Account, error) {
 	panic("unexpected")
 }
 func (m *sessionWindowMockRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {

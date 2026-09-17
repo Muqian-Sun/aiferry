@@ -715,10 +715,12 @@ func (h *OpenAIGatewayHandler) Responses(c *gin.Context) {
 			zap.Float64("load_skew", scheduleDecision.LoadSkew),
 		)
 		account := selection.Account
-		if previousResponseID != "" && requestPlatform == service.PlatformOpenAI && !account.IsOpenAIApiKey() {
-			// The public Responses HTTP API supports previous_response_id on API-key
-			// accounts. OAuth/SetupToken upstreams do not, so keep searching instead
-			// of silently deleting continuation state from a mixed account pool.
+		if previousResponseID != "" && requestPlatform == service.PlatformOpenAI && !service.AccountKeepsHTTPPreviousResponseID(account, requestPlatform) {
+			// The public Responses HTTP API supports previous_response_id on API keys
+			// that are forwarded over Responses to OpenAI or a generic relay.
+			// OAuth/SetupToken upstreams, other vendors and keys converted to another
+			// protocol do not, so keep searching instead of silently deleting
+			// continuation state from a mixed account pool.
 			failedAccountIDs[account.ID] = struct{}{}
 			if selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()

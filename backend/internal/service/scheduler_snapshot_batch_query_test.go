@@ -44,16 +44,16 @@ func (r *batchAccountQueryRepo) ListSchedulableByGroupIDAndPlatform(_ context.Co
 	return r.run(batchAccountQueryKey{groupID: groupID, platform: platform})
 }
 
-func (r *batchAccountQueryRepo) ListSchedulableByGroupIDAndPlatforms(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
-	return r.run(batchAccountQueryKey{groupID: groupID, platform: platforms[0], mixed: true})
+func (r *batchAccountQueryRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
+	return r.run(batchAccountQueryKey{groupID: groupID, platform: platforms[0], mixed: len(platforms) > 1})
 }
 
 func (r *batchAccountQueryRepo) ListSchedulableUngroupedByPlatform(_ context.Context, platform string) ([]Account, error) {
 	return r.run(batchAccountQueryKey{platform: platform})
 }
 
-func (r *batchAccountQueryRepo) ListSchedulableUngroupedByPlatforms(_ context.Context, platforms []string) ([]Account, error) {
-	return r.run(batchAccountQueryKey{platform: platforms[0], mixed: true})
+func (r *batchAccountQueryRepo) ListSchedulingCandidatesUngrouped(_ context.Context, platforms []string) ([]Account, error) {
+	return r.run(batchAccountQueryKey{platform: platforms[0], mixed: len(platforms) > 1})
 }
 
 func (r *batchAccountQueryRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {
@@ -64,8 +64,8 @@ func (r *batchAccountQueryRepo) ListSchedulableByPlatform(_ context.Context, pla
 	return r.run(batchAccountQueryKey{platform: platform})
 }
 
-func (r *batchAccountQueryRepo) ListSchedulableByPlatforms(_ context.Context, platforms []string) ([]Account, error) {
-	return r.run(batchAccountQueryKey{platform: platforms[0], mixed: true})
+func (r *batchAccountQueryRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]Account, error) {
+	return r.run(batchAccountQueryKey{platform: platforms[0], mixed: len(platforms) > 1})
 }
 
 func (r *batchAccountQueryRepo) run(key batchAccountQueryKey) ([]Account, error) {

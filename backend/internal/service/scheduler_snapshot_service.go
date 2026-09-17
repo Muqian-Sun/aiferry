@@ -207,6 +207,10 @@ func (s *SchedulerSnapshotService) Stop() {
 	s.wg.Wait()
 }
 
+// ListSchedulableAccounts 返回本次请求在 platform 网关平台上的调度候选。
+//
+// 桶内容与入站协议无关（第三方 key 进所属分组的每个网关平台桶），这里按请求 context
+// 里的入站协议过滤；缓存命中与数据库回源两条路径都要过滤，发布到缓存的仍是未过滤的桶。
 func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, bool, error) {
 	useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
 	mode := s.resolveMode(platform, hasForcePlatform)
@@ -225,7 +229,7 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 		if err != nil {
 			logger.LegacyPrintf("service.scheduler_snapshot", "[Scheduler] cache read failed: bucket=%s err=%v", bucket.String(), err)
 		} else if hit {
-			return derefAccounts(cached), useMixed, nil
+			return filterAccountsSchedulableOnPlatform(ctx, derefAccounts(cached), platform, useMixed), useMixed, nil
 		}
 		token, err := s.cache.CaptureBucketWriteToken(ctx, bucket)
 		if ctxErr := ctx.Err(); ctxErr != nil {
@@ -268,7 +272,7 @@ func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, 
 		}
 	}
 
-	return accounts, useMixed, nil
+	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform, useMixed), useMixed, nil
 }
 
 func (s *SchedulerSnapshotService) GetAccount(ctx context.Context, accountID int64) (*Account, error) {
@@ -608,6 +612,13 @@ func (s *SchedulerSnapshotService) handleBulkAccountEvent(ctx context.Context, p
 			continue
 		}
 		accountGroupIDs := s.normalizeGroupIDs(account.GroupIDs)
+		if account.IsThirdPartyKey() {
+			// 第三方 key 在所属分组每个网关平台的桶里（平台只是展示标签），全部平台都要重建。
+			for _, platform := range schedulerSnapshotPlatforms() {
+				addPlatformGroups(platform, accountGroupIDs)
+			}
+			continue
+		}
 		switch account.Platform {
 		case PlatformAnthropic, PlatformGemini, PlatformOpenAI, PlatformGrok, PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
 			addPlatformGroups(account.Platform, accountGroupIDs)
@@ -814,6 +825,10 @@ func (s *SchedulerSnapshotService) rebuildByAccount(ctx context.Context, account
 	groupIDs = s.normalizeGroupIDs(groupIDs)
 	if len(groupIDs) == 0 {
 		return nil
+	}
+	if account.IsThirdPartyKey() {
+		// 第三方 key 在所属分组每个网关平台的桶里（平台只是展示标签），全部平台都要重建。
+		return s.rebuildByGroupIDs(ctx, groupIDs, reason, seen)
 	}
 
 	buckets := s.bucketsForPlatform(account.Platform, groupIDs, seen)
@@ -1475,37 +1490,24 @@ func (s *SchedulerSnapshotService) loadAccountsFromDB(ctx context.Context, bucke
 		groupID = 0
 	}
 
-	if useMixed {
-		platforms := []string{bucket.Platform, PlatformAntigravity}
-		var accounts []Account
-		var err error
-		if groupID > 0 {
-			accounts, err = s.accountRepo.ListSchedulableByGroupIDAndPlatforms(ctx, groupID, platforms)
-		} else if s.isRunModeSimple() {
-			accounts, err = s.accountRepo.ListSchedulableByPlatforms(ctx, platforms)
-		} else {
-			accounts, err = s.accountRepo.ListSchedulableUngroupedByPlatforms(ctx, platforms)
-		}
-		if err != nil {
-			return nil, err
-		}
-		filtered := make([]Account, 0, len(accounts))
-		for _, acc := range accounts {
-			if acc.IsAntigravity() && !acc.IsMixedSchedulingEnabled() {
-				continue
-			}
-			filtered = append(filtered, acc)
-		}
-		return filtered, nil
-	}
-
+	platforms := schedulingCandidatePlatforms(bucket.Platform, useMixed)
+	var accounts []Account
+	var err error
 	if groupID > 0 {
-		return s.accountRepo.ListSchedulableByGroupIDAndPlatform(ctx, groupID, bucket.Platform)
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, groupID, platforms)
+	} else if s.isRunModeSimple() {
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
+	} else {
+		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
 	}
-	if s.isRunModeSimple() {
-		return s.accountRepo.ListSchedulableByPlatform(ctx, bucket.Platform)
+	if err != nil {
+		return nil, err
 	}
-	return s.accountRepo.ListSchedulableUngroupedByPlatform(ctx, bucket.Platform)
+	if useMixed {
+		// 混合桶查询了 antigravity 平台，未启用 mixed_scheduling 的 antigravity 成品号要剔除。
+		return filterSchedulingBucketAccounts(accounts, bucket.Platform, true), nil
+	}
+	return accounts, nil
 }
 
 func (s *SchedulerSnapshotService) loadAccountsForRebuild(

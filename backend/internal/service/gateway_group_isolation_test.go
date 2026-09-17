@@ -116,14 +116,14 @@ func (m *groupAwareMockAccountRepo) ListSchedulableUngroupedByPlatform(ctx conte
 }
 
 // ListSchedulableUngroupedByPlatforms 仅返回未分组账号（多平台版本）
-func (m *groupAwareMockAccountRepo) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]Account, error) {
+func (m *groupAwareMockAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
 	platformSet := make(map[string]bool, len(platforms))
 	for _, p := range platforms {
 		platformSet[p] = true
 	}
 	var result []Account
 	for _, acc := range m.allAccounts {
-		if platformSet[acc.Platform] && acc.IsSchedulable() && len(acc.AccountGroups) == 0 {
+		if (platformSet[acc.Platform] || acc.IsThirdPartyKey()) && acc.IsSchedulable() && len(acc.AccountGroups) == 0 {
 			result = append(result, acc)
 		}
 	}
@@ -142,14 +142,14 @@ func (m *groupAwareMockAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx cont
 }
 
 // ListSchedulableByGroupIDAndPlatforms 返回属于指定分组的账号（多平台版本）
-func (m *groupAwareMockAccountRepo) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+func (m *groupAwareMockAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	platformSet := make(map[string]bool, len(platforms))
 	for _, p := range platforms {
 		platformSet[p] = true
 	}
 	var result []Account
 	for _, acc := range m.allAccounts {
-		if platformSet[acc.Platform] && acc.IsSchedulable() && accountBelongsToGroup(acc, groupID) {
+		if (platformSet[acc.Platform] || acc.IsThirdPartyKey()) && acc.IsSchedulable() && accountBelongsToGroup(acc, groupID) {
 			result = append(result, acc)
 		}
 	}

@@ -339,11 +339,27 @@ func openAICompactSupportTier(account *Account) int {
 	if account == nil {
 		return 0
 	}
-	if account.IsGrok() {
-		return 2
-	}
-	if !account.IsOpenAI() {
-		return 0
+	if account.IsThirdPartyKey() {
+		// /responses/compact 是 Responses 协议的端点，不能转换成别的协议：没有 responses 地址的 key 不支持。
+		if account.ProtocolEndpoint(APIProtocolResponses) == "" {
+			return 0
+		}
+		switch account.Vendor() {
+		case PlatformGrok:
+			// xAI 官方原生支持（与 Grok 成品号一致）。
+			return 2
+		case PlatformOpenAI, "":
+			// 官方 OpenAI 与通用中转：按手动开关 / 探测结果分级，未知时保留为候选。
+		default:
+			return 0
+		}
+	} else {
+		if account.IsGrok() {
+			return 2
+		}
+		if !account.IsOpenAI() {
+			return 0
+		}
 	}
 	supported, known := account.OpenAICompactSupportKnown()
 	if !known {
@@ -392,7 +408,7 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 	if account == nil {
 		return "account_nil"
 	}
-	if account.Platform != platform || !account.IsOpenAICompatible() {
+	if !isAccountSchedulableOnPlatform(ctx, account, platform, false) {
 		return "platform_mismatch"
 	}
 	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
@@ -401,21 +417,19 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 		}
 		return "not_schedulable"
 	}
-	if account.IsOpenAI() {
-		if paused, reason := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
-			// Debug level: this fires per-candidate on the scheduling hot path, so Info
-			// would amplify into log spam once several accounts cross the threshold.
-			slog.Debug("account_auto_paused_by_quota",
-				"account_id", account.ID,
-				"window", reason.window,
-				"threshold", reason.threshold,
-				"utilization", reason.utilization,
-			)
-			if reason.window != "" {
-				return "quota_auto_pause_" + reason.window
-			}
-			return "quota_auto_pause"
+	if paused, reason := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
+		// Debug level: this fires per-candidate on the scheduling hot path, so Info
+		// would amplify into log spam once several accounts cross the threshold.
+		slog.Debug("account_auto_paused_by_quota",
+			"account_id", account.ID,
+			"window", reason.window,
+			"threshold", reason.threshold,
+			"utilization", reason.utilization,
+		)
+		if reason.window != "" {
+			return "quota_auto_pause_" + reason.window
 		}
+		return "quota_auto_pause"
 	}
 	if account.IsGrok() {
 		if paused, reason := shouldAutoPauseGrokAccountByQuota(account); paused {
@@ -518,8 +532,12 @@ func grokQuotaSnapshotStaleForPause(snapshot *xai.QuotaSnapshot, now time.Time) 
 	return now.Sub(updatedAt) >= openAICodexAutoPauseStaleAfter
 }
 
+// shouldAutoPauseOpenAIAccountByQuota 按 Codex 用量快照（codex_5h/7d_*）判断账号是否自动暂停调度。
+//
+// 适用 OpenAI 成品号，以及任意平台标签的第三方 key：key 的快照只可能来自上游回传的
+// x-codex-* 响应头（透传中转），有快照就按阈值暂停，与它选的平台标签无关。
 func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) (bool, openAIQuotaAutoPauseDecision) {
-	if account == nil || !account.IsOpenAI() {
+	if account == nil || !(account.IsThirdPartyKey() || account.IsOpenAI()) {
 		return false, openAIQuotaAutoPauseDecision{}
 	}
 	// 自动用卡有独立阈值：达到消费阈值时必须先退出调度；仅达到普通暂停阈值时，
@@ -1056,7 +1074,7 @@ func (s *OpenAIGatewayService) selectBestAccount(ctx context.Context, groupID *i
 	}
 	rateOrder := openAILegacyUpstreamRateOrder{}
 	if preferLowUpstreamRate {
-		rateOrder = newOpenAILegacyUpstreamRateOrder(eligible, time.Now(), s.openAIOAuthSchedulingRateMultiplier(ctx))
+		rateOrder = newOpenAILegacyUpstreamRateOrder(platform, eligible, time.Now(), s.openAIOAuthSchedulingRateMultiplier(ctx))
 	}
 	sort.SliceStable(eligible, func(i, j int) bool {
 		a, b := eligible[i], eligible[j]
@@ -1282,7 +1300,7 @@ func (s *OpenAIGatewayService) selectAccountWithLoadAwareness(ctx context.Contex
 	}
 	rateOrder := openAILegacyUpstreamRateOrder{}
 	if preferLowUpstreamRate {
-		rateOrder = newOpenAILegacyUpstreamRateOrder(candidates, time.Now(), s.openAIOAuthSchedulingRateMultiplier(ctx))
+		rateOrder = newOpenAILegacyUpstreamRateOrder(platform, candidates, time.Now(), s.openAIOAuthSchedulingRateMultiplier(ctx))
 	}
 
 	accountLoads := make([]AccountWithConcurrency, 0, len(candidates))
@@ -1487,16 +1505,18 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	}
 	var accounts []Account
 	var err error
+	platforms := schedulingCandidatePlatforms(platform, false)
 	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		accounts, err = s.accountRepo.ListSchedulableByPlatform(ctx, platform)
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 	} else if groupID != nil {
-		accounts, err = s.accountRepo.ListSchedulableByGroupIDAndPlatform(ctx, *groupID, platform)
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)
 	} else {
-		accounts, err = s.accountRepo.ListSchedulableUngroupedByPlatform(ctx, platform)
+		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}
+	accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false)
 	accounts = s.filterOpenAIAccountsBySchedulingThreshold(ctx, accounts)
 	if platform == PlatformGrok {
 		accounts = s.filterGrokFreeQuotaAccountsForOpenAI(ctx, accounts)

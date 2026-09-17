@@ -46,6 +46,14 @@ func gatewayProfitTestAccount(id int64, platform string, rate float64, groupID i
 		RateMultiplier: &rate,
 		AccountGroups:  []AccountGroup{{AccountID: id, GroupID: groupID}},
 		GroupIDs:       []int64{groupID},
+		// 第三方 key 能否在某个网关平台被调度看协议地址；四种协议都配上，
+		// 让利润控制用例与账号的平台标签、分组平台无关。
+		ProtocolEndpoints: map[string]string{
+			APIProtocolAnthropic:       "https://relay.example.com",
+			APIProtocolChatCompletions: "https://relay.example.com/v1",
+			APIProtocolResponses:       "https://relay.example.com/v1",
+			APIProtocolGemini:          "https://relay.example.com",
+		},
 	}
 }
 

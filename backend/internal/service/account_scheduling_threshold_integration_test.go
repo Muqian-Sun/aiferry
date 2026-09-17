@@ -16,22 +16,22 @@ type thresholdSelectionAccountRepoStub struct {
 	accounts []Account
 }
 
-func (r *thresholdSelectionAccountRepoStub) ListSchedulableByPlatform(_ context.Context, platform string) ([]Account, error) {
+func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidates(_ context.Context, platforms []string) ([]Account, error) {
 	filtered := make([]Account, 0, len(r.accounts))
 	for _, account := range r.accounts {
-		if account.Platform == platform {
+		if schedulingCandidateMatchesForTest(account, platforms) {
 			filtered = append(filtered, account)
 		}
 	}
 	return filtered, nil
 }
 
-func (r *thresholdSelectionAccountRepoStub) ListSchedulableByGroupIDAndPlatform(ctx context.Context, _ int64, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r *thresholdSelectionAccountRepoStub) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
 func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThresholdPlatforms(t *testing.T) {
