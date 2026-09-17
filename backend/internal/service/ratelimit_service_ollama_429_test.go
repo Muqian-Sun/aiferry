@@ -267,6 +267,22 @@ func TestHandle429_OllamaEarlyBranchAcrossPlatforms(t *testing.T) {
 	}
 }
 
+// 429 分支按地址识别 Ollama Cloud，不看平台标签：白名单外标签的 key 也拿到永不缩短的冷却，
+// 但异步用量 probe 属后台探测，仍受 IsOllamaCloudUsageAccount 的平台白名单约束。
+func TestHandle429_OllamaBranchByAddressNotLabel(t *testing.T) {
+	acct := ollama429Account(102, PlatformGrok)
+	acct.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://www.ollama.com"}
+	require.False(t, IsOllamaCloudUsageAccount(acct))
+	repo := newOllama429Repo(acct)
+	scheduler := newOllama429SchedulerStub(true)
+	svc, _ := ollama429Fixture(t, repo, scheduler)
+
+	svc.handle429(context.Background(), acct, http.Header{"Retry-After": []string{"120"}}, nil)
+
+	require.Len(t, repo.ifLaterWrites, 1, "Ollama Cloud key of any label must get the never-shrink cooldown")
+	require.Zero(t, scheduler.count(), "usage probe stays gated by the usage-account platform allowlist")
+}
+
 func TestHandle429_NonOllamaUnchanged(t *testing.T) {
 	acct := &Account{ID: 202, Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "https://api.anthropic.com", "api_key": "k"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}

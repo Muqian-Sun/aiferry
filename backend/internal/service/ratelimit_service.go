@@ -1186,11 +1186,12 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		}
 		return
 	}
-	// 真实 Ollama Cloud 用量账号（credentials base_url 指向 ollama.com）的 429 由
-	// ollama.com 的用量窗口驱动。其响应头不得被当作 OpenAI codex / Anthropic /
-	// CN 限流来解析，故在国产供应商分支之前单独处理：先设置永不缩短的临时冷却，
-	// 再调度异步 probe 学习真实重置点（详见 ratelimit_service_ollama_429.go）。
-	if account != nil && IsOllamaCloudUsageAccount(account) {
+	// 真实 Ollama Cloud 账号（主上游地址指向 ollama.com）的 429 由 ollama.com 的用量窗口
+	// 驱动。其响应头不得被当作 OpenAI codex / Anthropic / CN 限流来解析，故在国产供应商
+	// 分支之前单独处理：先设置永不缩短的临时冷却，再调度异步 probe 学习真实重置点（详见
+	// ratelimit_service_ollama_429.go）。是否走这条分支只看地址，不看平台标签；异步 probe
+	// 属后台用量探测，仍按 IsOllamaCloudUsageAccount 的平台白名单决定是否调度。
+	if isOllamaCloudUpstreamKey(account) {
 		s.handleOllamaCloudUsage429(ctx, account, headers)
 		return
 	}

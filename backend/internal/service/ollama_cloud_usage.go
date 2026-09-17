@@ -1034,6 +1034,15 @@ func isOllamaCloudUsagePlatform(platform string) bool {
 	}
 }
 
+// isOllamaCloudUpstreamKey 报告第三方 key 的主上游地址是否为 Ollama Cloud（ollama.com），只看
+// 地址、不看平台标签，供请求路径（429 处理）使用。PrimaryUpstreamBaseURL 对成品号返回空串。
+//
+// IsOllamaCloudUsageAccount 在此之上另加平台白名单：它决定后台用量探测的资格，与仓储层
+// 的 SQL 白名单（ollamaCloudUsagePlatformsSQL）互为镜像，属后台工具，本处不改。
+func isOllamaCloudUpstreamKey(account *Account) bool {
+	return account != nil && isOllamaCloudBaseURL(account.PrimaryUpstreamBaseURL())
+}
+
 func IsOllamaCloudUsageAccount(account *Account) bool {
 	if account == nil || account.Type != AccountTypeAPIKey || !isOllamaCloudUsagePlatform(account.Platform) {
 		return false
