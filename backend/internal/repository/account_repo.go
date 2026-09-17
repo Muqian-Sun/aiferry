@@ -383,9 +383,6 @@ func (r *accountRepository) ExistsByID(ctx context.Context, id int64) (bool, err
 }
 
 func (r *accountRepository) Update(ctx context.Context, account *service.Account) error {
-	if err := guardProtocolEndpoints(account); err != nil {
-		return err
-	}
 	return r.updateAccount(ctx, account, nil, nil, account.RateMultiplier)
 }
 
@@ -411,6 +408,11 @@ func (r *accountRepository) updateAccount(
 ) error {
 	if account == nil {
 		return nil
+	}
+	// Update 与管理端编辑（UpdateWithAccountBillingSettings）都经过这里，守卫放在
+	// 汇合点，避免任一入口漏掉。
+	if err := guardProtocolEndpoints(account); err != nil {
+		return err
 	}
 
 	baseCtx := ctx
