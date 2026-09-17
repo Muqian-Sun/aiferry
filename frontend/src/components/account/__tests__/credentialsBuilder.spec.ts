@@ -14,7 +14,6 @@ import {
   cloneOpenCodeGoProtocolRules,
   cnQuotaCellVisible,
   defaultOpenCodeProtocolRules,
-  isCustomGrokBaseUrl,
   resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   GROK_BASE_URL_PRESETS,
@@ -223,33 +222,6 @@ describe('serializeHeaderOverrideRows', () => {
       { name: 'b-header', value: '2' }
     ]
     expect(parseHeaderOverridesJson(serializeHeaderOverrideRows(rows))).toEqual(rows)
-  })
-})
-
-describe('isCustomGrokBaseUrl', () => {
-  it('treats only the default CLI gateway host as not customized', () => {
-    expect(isCustomGrokBaseUrl('https://cli-chat-proxy.grok.com/v1')).toBe(false)
-    expect(isCustomGrokBaseUrl('HTTPS://CLI-CHAT-PROXY.GROK.COM:443/')).toBe(false)
-  })
-
-  it('treats manually switched official/regional endpoints as customized (must echo back)', () => {
-    expect(isCustomGrokBaseUrl('https://api.x.ai/v1')).toBe(true)
-    expect(isCustomGrokBaseUrl('https://us-west-2.api.x.ai/v1')).toBe(true)
-    expect(isCustomGrokBaseUrl('https://eu-west-1.api.x.ai/v1')).toBe(true)
-  })
-
-  it('treats empty, non-string and unparseable values as not customized', () => {
-    expect(isCustomGrokBaseUrl('')).toBe(false)
-    expect(isCustomGrokBaseUrl('   ')).toBe(false)
-    expect(isCustomGrokBaseUrl(undefined)).toBe(false)
-    expect(isCustomGrokBaseUrl(42)).toBe(false)
-    expect(isCustomGrokBaseUrl('not a url')).toBe(false)
-  })
-
-  it('treats third-party hosts as customized', () => {
-    expect(isCustomGrokBaseUrl('https://relay.example.com/v1')).toBe(true)
-    expect(isCustomGrokBaseUrl('https://relay.example.com/xai/v1')).toBe(true)
-    expect(isCustomGrokBaseUrl('http://relay.example.com/v1')).toBe(true)
   })
 })
 

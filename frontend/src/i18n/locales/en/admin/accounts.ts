@@ -462,8 +462,6 @@ export default {
         title: 'Bulk Edit Accounts',
         selectionInfo:
           '{count} account(s) selected. Only checked or filled fields will be updated; others stay unchanged.',
-        baseUrlPlaceholder: 'https://api.anthropic.com or https://api.openai.com',
-        baseUrlNotice: 'Applies to API Key accounts and the forwarding endpoint of Grok OAuth accounts; leave empty to keep existing value',
         submit: 'Update Accounts',
         updating: 'Updating...',
         success: 'Updated {count} account(s)',
@@ -561,7 +559,6 @@ export default {
           gemini: 'Gemini'
         }
       },
-      baseUrl: 'Base URL',
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: 'Your Claude Console API Key',
@@ -839,11 +836,6 @@ export default {
         tooManyEntries: 'Too many header override entries (max 64)'
       },
       grokCustomBaseUrl: {
-        title: 'Custom Upstream URL',
-        hint: 'When enabled, account traffic (chat/media/probes) is forwarded to the specified address. OAuth authorization and token refresh are unaffected and stay on the official endpoints.',
-        placeholder: 'https://relay.example.com/v1',
-        required: 'An address is required when Custom Upstream URL is enabled',
-        invalid: 'Invalid upstream address (must be a full http(s):// URL)',
         presets: {
           cli: 'Grok Build CLI',
           official: 'Official API'
@@ -953,11 +945,6 @@ export default {
           hint: 'Force all cache creation tokens to be billed as the selected TTL tier (5m or 1h)',
           target: 'Target TTL',
           targetHint: 'Select the TTL tier for billing'
-        },
-        customBaseUrl: {
-          label: 'Custom Relay URL',
-          hint: 'Forward requests to a custom relay service. Proxy URL will be passed as a query parameter.',
-          urlHint: 'Relay service URL (e.g., https://relay.example.com)',
         },
         clientAffinity: {
           label: 'Client Affinity Scheduling',

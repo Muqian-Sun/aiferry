@@ -630,47 +630,6 @@
         </div>
       </div>
 
-      <!-- Grok OAuth Custom Upstream URL (仅改写转发端点，OAuth 授权/刷新不受影响) -->
-      <div
-        v-if="account.platform === 'grok' && account.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.grokCustomBaseUrl.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.grokCustomBaseUrl.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="grok-custom-base-url-toggle"
-            @click="grokOAuthCustomBaseUrlEnabled = !grokOAuthCustomBaseUrlEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              grokOAuthCustomBaseUrlEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                grokOAuthCustomBaseUrlEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-        <div v-if="grokOAuthCustomBaseUrlEnabled" class="space-y-2">
-          <input
-            v-model="grokOAuthBaseUrl"
-            type="text"
-            class="input"
-            data-testid="grok-custom-base-url-input"
-            :placeholder="t('admin.accounts.grokCustomBaseUrl.placeholder')"
-          />
-          <GrokBaseUrlPresets @select="grokOAuthBaseUrl = $event" />
-        </div>
-      </div>
-
       <!-- Header Override Section (eligible API-key platforms + grok OAuth) -->
       <div v-if="headerOverrideCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -2834,40 +2793,6 @@
           </div>
         </div>
 
-        <!-- Custom Base URL Relay -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
-          <div class="flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.customBaseUrl.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.accounts.quotaControl.customBaseUrl.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="customBaseUrlEnabled = !customBaseUrlEnabled"
-              :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                customBaseUrlEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  customBaseUrlEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          <div v-if="customBaseUrlEnabled" class="mt-3">
-            <input
-              v-model="customBaseUrl"
-              type="text"
-              class="input"
-              :placeholder="t('admin.accounts.quotaControl.customBaseUrl.urlHint')"
-            />
-          </div>
-        </div>
       </div>
 
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
@@ -3060,7 +2985,6 @@ import {
   parseOpenCodeGoProtocolRules,
   readPlanType,
   resolveOpenCodeAccountMode,
-  isCustomGrokBaseUrl,
   isHeaderOverrideCapable,
   splitHeaderOverridesObject,
   validateHeaderOverrideRows,
@@ -3369,9 +3293,6 @@ const headerOverrideCapable = computed(
   () => !!props.account && isHeaderOverrideCapable(props.account.platform, props.account.type)
 )
 
-// Grok OAuth 自定义上游地址（仅转发端点；OAuth 授权/令牌刷新不受影响）
-const grokOAuthCustomBaseUrlEnabled = ref(false)
-const grokOAuthBaseUrl = ref('')
 // Grok Free OAuth accounts use client-tool prompt caching by default. Keep an
 // explicit false in the account extra as the opt-out signal.
 const grokClientToolCacheEnabled = ref(true)
@@ -3484,8 +3405,6 @@ const tlsFingerprintProfiles = ref<{ id: number; name: string }[]>([])
 const sessionIdMaskingEnabled = ref(false)
 const cacheTTLOverrideEnabled = ref(false)
 const cacheTTLOverrideTarget = ref<string>('5m')
-const customBaseUrlEnabled = ref(false)
-const customBaseUrl = ref('')
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)
@@ -4130,9 +4049,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     )
   }
 
-  // Load Grok OAuth custom upstream URL state（存储的官方地址视同未定制）
-  grokOAuthCustomBaseUrlEnabled.value = false
-  grokOAuthBaseUrl.value = ''
   const grokClientToolCacheSetting =
     newAccount.platform === 'grok' && newAccount.type === 'oauth'
       ? newAccount.extra?.[GROK_CLIENT_TOOL_CACHE_EXTRA_KEY]
@@ -4150,14 +4066,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   } else {
     grokMediaEligibilityRequestVersion++
   }
-  if (newAccount.platform === 'grok' && newAccount.type === 'oauth' && newAccount.credentials) {
-    const grokCreds = newAccount.credentials as Record<string, unknown>
-    if (isCustomGrokBaseUrl(grokCreds.base_url)) {
-      grokOAuthCustomBaseUrlEnabled.value = true
-      grokOAuthBaseUrl.value = (grokCreds.base_url as string).trim()
-    }
-  }
-
   // Initialize API Key fields for apikey type
   if (newAccount.type === 'apikey' && newAccount.credentials) {
     const credentials = newAccount.credentials as Record<string, unknown>
@@ -4611,8 +4519,6 @@ function loadQuotaControlSettings(account: Account) {
   sessionIdMaskingEnabled.value = false
   cacheTTLOverrideEnabled.value = false
   cacheTTLOverrideTarget.value = '5m'
-  customBaseUrlEnabled.value = false
-  customBaseUrl.value = ''
 
   // Remaining quota control settings only apply to Anthropic accounts
   if (account.platform !== 'anthropic') {
@@ -4663,12 +4569,6 @@ function loadQuotaControlSettings(account: Account) {
   if (account.cache_ttl_override_enabled === true) {
     cacheTTLOverrideEnabled.value = true
     cacheTTLOverrideTarget.value = account.cache_ttl_override_target || '5m'
-  }
-
-  // Load custom base URL setting
-  if (account.custom_base_url_enabled === true) {
-    customBaseUrlEnabled.value = true
-    customBaseUrl.value = account.custom_base_url || ''
   }
 }
 
@@ -5174,28 +5074,12 @@ const handleSubmit = async () => {
       updatePayload.credentials = newCredentials
     }
 
-    // Grok OAuth: 自定义上游地址 + 请求头覆写。base_url 仅改写转发端点，
-    // OAuth 授权与令牌刷新链路不读取该值；关闭开关即恢复默认官方网关。
+    // Grok OAuth: 请求头覆写。成品号只走官方地址，没有可配置的上游地址。
     if (props.account.platform === 'grok' && props.account.type === 'oauth') {
       const currentCredentials =
         (updatePayload.credentials as Record<string, unknown>) ||
         ((props.account.credentials as Record<string, unknown>) || {})
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-
-      if (grokOAuthCustomBaseUrlEnabled.value) {
-        const trimmedBaseUrl = grokOAuthBaseUrl.value.trim()
-        if (!trimmedBaseUrl) {
-          appStore.showError(t('admin.accounts.grokCustomBaseUrl.required'))
-          return
-        }
-        if (!/^https?:\/\//i.test(trimmedBaseUrl)) {
-          appStore.showError(t('admin.accounts.grokCustomBaseUrl.invalid'))
-          return
-        }
-        newCredentials.base_url = trimmedBaseUrl
-      } else {
-        delete newCredentials.base_url
-      }
 
       if (headerOverrideEnabled.value) {
         const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
@@ -5346,15 +5230,6 @@ const handleSubmit = async () => {
       } else {
         delete newExtra.cache_ttl_override_enabled
         delete newExtra.cache_ttl_override_target
-      }
-
-      // Custom base URL relay setting
-      if (customBaseUrlEnabled.value && customBaseUrl.value.trim()) {
-        newExtra.custom_base_url_enabled = true
-        newExtra.custom_base_url = customBaseUrl.value.trim()
-      } else {
-        delete newExtra.custom_base_url_enabled
-        delete newExtra.custom_base_url
       }
 
       updatePayload.extra = newExtra

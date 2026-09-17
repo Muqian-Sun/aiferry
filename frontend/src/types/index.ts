@@ -1268,8 +1268,6 @@ export interface Account {
   cache_ttl_override_target?: string | null
 
   // 自定义 Base URL 中继转发（仅 Anthropic OAuth/SetupToken 账号有效）
-  custom_base_url_enabled?: boolean | null
-  custom_base_url?: string | null
 
   // API Key 账号配额限制
   quota_limit?: number | null
