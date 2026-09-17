@@ -94,14 +94,15 @@ func TestGetWebSearchEmulationMode_MissingField(t *testing.T) {
 	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
 }
 
-func TestGetWebSearchEmulationMode_NonAnthropicPlatform(t *testing.T) {
+// 账号级模式对任何展示标签的第三方 key 生效（模拟只在 Anthropic 协议转发路径上判定）。
+func TestGetWebSearchEmulationMode_NonAnthropicLabelKey(t *testing.T) {
 	a := &Account{
 		Platform:          PlatformOpenAI,
 		Type:              AccountTypeAPIKey,
 		Extra:             map[string]any{featureKeyWebSearchEmulation: "enabled"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
 	}
-	require.Equal(t, WebSearchModeDefault, a.GetWebSearchEmulationMode())
+	require.Equal(t, WebSearchModeEnabled, a.GetWebSearchEmulationMode())
 }
 
 func TestGetWebSearchEmulationMode_NonAPIKeyType(t *testing.T) {

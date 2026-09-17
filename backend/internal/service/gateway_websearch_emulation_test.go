@@ -309,6 +309,7 @@ func TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled(t *testing.T) {
 		},
 	}
 	channelSvc := newChannelServiceWithCache(42, ch)
+	channelSvc.cache.Load().(*channelCache).groupPlatform[42] = PlatformAnthropic
 	svc := &GatewayService{settingService: settingSvc, channelService: channelSvc}
 
 	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)
@@ -336,6 +337,7 @@ func TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled(t *testing.T) {
 		},
 	}
 	channelSvc := newChannelServiceWithCache(42, ch)
+	channelSvc.cache.Load().(*channelCache).groupPlatform[42] = PlatformAnthropic
 	svc := &GatewayService{settingService: settingSvc, channelService: channelSvc}
 
 	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)

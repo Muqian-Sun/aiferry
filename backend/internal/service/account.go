@@ -2220,8 +2220,11 @@ const (
 // GetWebSearchEmulationMode 返回账号的 WebSearch 模拟模式。
 // 三态：default（跟随渠道）/ enabled（强制开启）/ disabled（强制关闭）。
 // 兼容旧 bool 值：true→enabled, false→default（并记录 debug 日志）。
+//
+// 只有第三方 key 有账号级模式，不论展示标签：模拟只在 Anthropic Messages 转发路径上
+// 判定，账号走到那里用的就是 Anthropic 协议。成品号一律跟随渠道。
 func (a *Account) GetWebSearchEmulationMode() string {
-	if a == nil || a.Platform != PlatformAnthropic || a.Type != AccountTypeAPIKey || a.Extra == nil {
+	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
 		return WebSearchModeDefault
 	}
 	raw := a.Extra[featureKeyWebSearchEmulation]
