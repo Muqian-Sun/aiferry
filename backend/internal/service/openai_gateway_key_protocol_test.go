@@ -6,9 +6,12 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/gin-gonic/gin"
@@ -44,6 +47,7 @@ type keyProtocolIngress struct {
 	path    string
 	body    []byte
 	forward func(*OpenAIGatewayService, *gin.Context, *Account, []byte) error
+	setup   func(*gin.Context)
 }
 
 var (
@@ -83,7 +87,11 @@ func captureKeyProtocolRequest(t *testing.T, account *Account, ingress keyProtoc
 	gin.SetMode(gin.TestMode)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-	err := ingress.forward(svc, adaptiveProtocolTestContext(ingress.path, ingress.body), account, ingress.body)
+	c := adaptiveProtocolTestContext(ingress.path, ingress.body)
+	if ingress.setup != nil {
+		ingress.setup(c)
+	}
+	err := ingress.forward(svc, c, account, ingress.body)
 	require.Error(t, err)
 	require.Len(t, upstream.requests, 1, "exactly one upstream request")
 	return upstream
@@ -248,6 +256,138 @@ func TestOpenAIGatewayKeyProtocol_StatelessVendorResponses(t *testing.T) {
 	require.True(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
 	require.False(t, gjson.GetBytes(upstream.lastBody, "store").Bool())
 	require.False(t, gjson.GetBytes(upstream.lastBody, "previous_response_id").Exists())
+}
+
+// TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel：xAI 的请求改写与 Grok 请求构造
+// 只对地址识别为 xAI 的 key 启用。
+func TestOpenAIGatewayKeyProtocol_GrokQuirksFollowVendorNotLabel(t *testing.T) {
+	relay := func() *Account {
+		return keyProtocolTestAccount(PlatformGrok, map[string]string{
+			APIProtocolChatCompletions: "http://relay.example/v1",
+			APIProtocolResponses:       "http://relay.example/v1",
+		})
+	}
+	official := func() *Account {
+		return keyProtocolTestAccount(PlatformOpenAI, map[string]string{
+			APIProtocolChatCompletions: xaiOfficialTestBaseURL,
+			APIProtocolResponses:       xaiOfficialTestBaseURL,
+		})
+	}
+	chatIngress := keyProtocolChatIngress
+	chatIngress.body = []byte(`{"model":"grok-4.5","messages":[{"role":"user","content":"hello"}],"prompt_cache_key":"cache-1","stream":false}`)
+	// xAI 缓存身份按网关 API key 隔离，没有 key ID 时不生成。
+	chatIngress.setup = func(c *gin.Context) { c.Set("api_key", &APIKey{ID: 9}) }
+
+	t.Run("grok label on a relay uses its chat completions endpoint without xAI body patches", func(t *testing.T) {
+		upstream := captureKeyProtocolRequest(t, relay(), chatIngress)
+		require.Equal(t, "http://relay.example/v1/chat/completions", upstream.lastReq.URL.String())
+		require.Equal(t, "cache-1", gjson.GetBytes(upstream.lastBody, "prompt_cache_key").String())
+		require.Empty(t, upstream.lastReq.Header.Get(grokConversationIDHeader))
+	})
+
+	t.Run("grok label on a relay with a path prefix joins the versioned chat completions path", func(t *testing.T) {
+		// xAI 的 URL 构造在非空路径后直接拼 /chat/completions；key 的 CC 地址按通用规则补版本段。
+		account := keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: "http://relay.example/api"})
+		upstream := captureKeyProtocolRequest(t, account, chatIngress)
+		require.Equal(t, "http://relay.example/api/v1/chat/completions", upstream.lastReq.URL.String())
+	})
+
+	t.Run("openai label on api.x.ai gets xAI chat body patches", func(t *testing.T) {
+		upstream := captureKeyProtocolRequest(t, official(), chatIngress)
+		require.Equal(t, xaiOfficialTestBaseURL+"/chat/completions", upstream.lastReq.URL.String())
+		require.False(t, gjson.GetBytes(upstream.lastBody, "prompt_cache_key").Exists())
+		require.NotEmpty(t, upstream.lastReq.Header.Get(grokConversationIDHeader))
+	})
+
+	for _, ingress := range []keyProtocolIngress{keyProtocolResponsesIngress, keyProtocolMessagesIngress} {
+		t.Run(ingress.name+" on a grok-labelled relay uses the standard Responses request", func(t *testing.T) {
+			upstream := captureKeyProtocolRequest(t, relay(), ingress)
+			require.Equal(t, "http://relay.example/v1/responses", upstream.lastReq.URL.String())
+			require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
+		})
+		t.Run(ingress.name+" on an openai-labelled xAI key uses the Grok Responses request", func(t *testing.T) {
+			upstream := captureKeyProtocolRequest(t, official(), ingress)
+			require.Equal(t, xaiOfficialTestBaseURL+"/responses", upstream.lastReq.URL.String())
+			require.Equal(t, HTTPUpstreamProfileGrok, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
+		})
+	}
+}
+
+const xaiOfficialTestBaseURL = "https://api.x.ai/v1"
+
+// TestGrokVendorQuirkPredicatesFollowVendorNotLabel：xAI 专属的失败分类、流空闲重试、计费 ping 过滤、
+// WS HTTP bridge 强制与内容策略错误，都按地址识别的厂商决定。每条断言两侧：grok 标签挂中转不启用，
+// openai 标签发往 api.x.ai 启用。
+func TestGrokVendorQuirkPredicatesFollowVendorNotLabel(t *testing.T) {
+	relay := keyProtocolTestAccount(PlatformGrok, map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"})
+	official := keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: xaiOfficialTestBaseURL})
+	require.Equal(t, PlatformGrok, official.Vendor(), "fixture: api.x.ai must be recognised as xAI")
+	require.Equal(t, "", relay.Vendor(), "fixture: relay host must not be recognised as a vendor")
+
+	t.Run("stream idle same-account retry", func(t *testing.T) {
+		require.False(t, grokStreamIdleFailoverError(relay, time.Second).RetryableOnSameAccount)
+		require.True(t, grokStreamIdleFailoverError(official, time.Second).RetryableOnSameAccount)
+	})
+
+	t.Run("capacity 429 same-account retry", func(t *testing.T) {
+		body := []byte(`{"error":{"message":"The model is currently at capacity due to high demand"}}`)
+		require.False(t, grokRetryableOnSameAccount(relay, http.StatusTooManyRequests, body))
+		require.True(t, grokRetryableOnSameAccount(official, http.StatusTooManyRequests, body))
+	})
+
+	t.Run("billing ping SSE filter", func(t *testing.T) {
+		source := io.NopCloser(strings.NewReader(""))
+		require.True(t, newGrokResponsesBillingPingFilterBody(source, relay, defaultMaxLineSize) == source)
+		filtered := newGrokResponsesBillingPingFilterBody(source, official, defaultMaxLineSize)
+		require.False(t, filtered == source)
+		_ = filtered.Close()
+	})
+
+	t.Run("billable usage requirement", func(t *testing.T) {
+		require.False(t, requiresBillableGrokChatUsage(relay, "gpt-5.4"))
+		require.True(t, requiresBillableGrokChatUsage(official, "gpt-5.4"))
+	})
+
+	t.Run("WS HTTP bridge is forced", func(t *testing.T) {
+		svc := &OpenAIGatewayService{}
+		require.False(t, svc.shouldBridgeOpenAIWSHTTP(relay, 1, "resp_existing"))
+		require.True(t, svc.shouldBridgeOpenAIWSHTTP(official, 1, "resp_existing"))
+		require.False(t, svc.shouldBridgeOpenAIWSPassthroughFirstMessage(relay, []byte(`{}`)))
+		require.True(t, svc.shouldBridgeOpenAIWSPassthroughFirstMessage(official, []byte(`{}`)))
+		require.Equal(t, "OpenAI WS HTTP bridge", openAIWSHTTPBridgeToolUpstreamName(relay))
+		require.Equal(t, "Grok WS HTTP bridge", openAIWSHTTPBridgeToolUpstreamName(official))
+	})
+
+	t.Run("CC failover classifier", func(t *testing.T) {
+		// xAI 的 ModelInput 解码 422 是账号侧兼容问题，xAI 分类器判 failover；通用分类器不判。
+		body := []byte(`{"detail":"data did not match any variant of untagged enum ModelInput at input[3]"}`)
+		svc := &OpenAIGatewayService{}
+		failover := func(account *Account) *UpstreamFailoverError {
+			c := adaptiveProtocolTestContext("/v1/chat/completions", nil)
+			resp := &http.Response{StatusCode: http.StatusUnprocessableEntity, Header: http.Header{}}
+			return svc.failoverOpenAIUpstreamHTTPError(context.Background(), c, account, resp, body, "decode", "grok-4.5")
+		}
+		require.Nil(t, failover(relay))
+		require.NotNil(t, failover(official))
+	})
+
+	t.Run("content policy 403 is rewritten as a client error", func(t *testing.T) {
+		body := `{"error":{"code":"content_filter","message":"prohibited content"}}`
+		svc := &OpenAIGatewayService{}
+		status := func(account *Account) int {
+			c := adaptiveProtocolTestContext("/v1/responses", nil)
+			resp := &http.Response{
+				StatusCode: http.StatusForbidden,
+				Header:     http.Header{"Content-Type": []string{"application/json"}},
+				Body:       io.NopCloser(strings.NewReader(body)),
+			}
+			_, err := svc.handleErrorResponse(context.Background(), resp, c, account, nil, "grok-4.5")
+			require.Error(t, err)
+			return c.Writer.Status()
+		}
+		require.NotEqual(t, http.StatusForbidden, status(relay))
+		require.Equal(t, http.StatusForbidden, status(official))
+	})
 }
 
 func TestOpenAIGatewayKeyProtocol_OpenCodeModelRuleChoosesAmongConfiguredProtocols(t *testing.T) {

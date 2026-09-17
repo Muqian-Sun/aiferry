@@ -177,7 +177,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	// Grok: always enforce an upstream-read idle so hung SSE bodies fail over
 	// instead of holding the OAuth slot until the client cancels. Prefer the
 	// global gateway setting when set; otherwise apply a Grok-only default.
-	if account != nil && account.Platform == PlatformGrok {
+	if account != nil && account.Vendor() == PlatformGrok {
 		cfgSec := 0
 		if s.cfg != nil {
 			cfgSec = s.cfg.Gateway.StreamDataIntervalTimeout
@@ -907,7 +907,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// Grok: short cool + account failover when no client-visible bytes
 			// were committed yet (pre-commit). After output started we keep the
 			// legacy stream_timeout path so partial SSE is not dual-written.
-			if account != nil && account.Platform == PlatformGrok {
+			if account != nil && account.Vendor() == PlatformGrok {
 				s.tempUnscheduleGrok(ctx, account, grokStreamIdleCooldown, "grok stream idle timeout")
 				if !openAIStreamClientOutputStarted(c, clientOutputStarted) && !eventShouldFlush {
 					_ = resp.Body.Close()
@@ -1604,7 +1604,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if account.Type == AccountTypeOAuth && bodyLooksLikeSSE {
 		return s.handleSSEToJSON(resp, c, account, body, originalModel, mappedModel)
 	}
-	if account != nil && account.IsGrok() && isOpenAIResponsesCompactPath(c) {
+	if account != nil && account.Vendor() == PlatformGrok && isOpenAIResponsesCompactPath(c) {
 		body, err = convertGrokResponseToOpenAICompact(body)
 		if err != nil {
 			return nil, fmt.Errorf("convert Grok compact response: %w", err)

@@ -69,17 +69,15 @@ func applyOpenCodeSessionHeader(c *gin.Context, account *Account, targetURL stri
 	headers.Set(openCodeSessionHeader, sessionID)
 }
 
-func shouldSendOpenCodeSessionHeader(account *Account, targetURL string) bool {
-	if account != nil && account.IsOpenCodeGoPlan() {
-		return true
-	}
+// shouldSendOpenCodeSessionHeader 只看本次请求实际发往的地址是否 OpenCode 官方主机：
+// 会话头是 OpenCode 网关的厂商约定，平台标签不参与，发往中转时不带。
+func shouldSendOpenCodeSessionHeader(_ *Account, targetURL string) bool {
 	return isOfficialOpenCodeHost(targetURL)
 }
 
-func shouldGenerateOpenCodeSession(account *Account, targetURL string) bool {
-	if account != nil && account.IsOpenCodeGoPlan() {
-		return true
-	}
+// shouldGenerateOpenCodeSession：OpenCode Go 网关（/zen/go 路径）强制要求会话头，
+// 客户端没带任何稳定标识时才生成随机值；同样只看实际地址。
+func shouldGenerateOpenCodeSession(_ *Account, targetURL string) bool {
 	parsed, err := url.Parse(targetURL)
 	if err != nil {
 		return false

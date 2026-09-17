@@ -36,7 +36,7 @@ func grokStreamIdleFailoverError(account *Account, idle time.Duration) *Upstream
 		// same-account retry budget before switching credentials. This applies
 		// to both pooled and dedicated Grok accounts; the handler still enforces
 		// the request's retry limit.
-		RetryableOnSameAccount: account != nil && account.Platform == PlatformGrok,
+		RetryableOnSameAccount: account != nil && account.Vendor() == PlatformGrok,
 		RequestScopedTransient: true,
 		SameAccountRetryMax:    1,
 		// Permit at most one same-account replay after the idle failure. The

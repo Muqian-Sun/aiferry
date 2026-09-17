@@ -73,8 +73,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	SetOpsUpstreamModel(c, upstreamModel)
+	// xAI 厂商特化：成品号按平台，第三方 key 按地址识别的厂商。
+	grokVendor := account.Vendor() == PlatformGrok
 	grokCacheIdentity := ""
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		// Resolve before image bridging or other body rewrites so the fallback is
 		// anchored to the client's stable conversation prefix.
 		grokCacheIdentity = resolveGrokCacheIdentity(c, body, "", upstreamModel)
@@ -106,7 +108,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// Keep the final outbound tier separate from the observed response tier so
 	// usage recording can apply the selected credential's response contract.
 	serviceTier := extractOpenAIServiceTierFromBody(upstreamBody)
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		strippedBody, stripErr := stripRedundantGrokChatViewImageTool(upstreamBody)
 		if stripErr != nil {
 			return nil, fmt.Errorf("strip redundant Grok Chat view_image tool: %w", stripErr)
@@ -125,7 +127,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	}
 
 	var bridgeUsage OpenAIUsage
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		bridgedBody, usage, bridged, bridgeErr := s.bridgeGrokComposerImageInputs(ctx, c, account, upstreamBody, token)
 		if bridgeErr != nil {
 			var failoverErr *UpstreamFailoverError
@@ -147,7 +149,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 			return nil, fmt.Errorf("enable stream usage: %w", usageErr)
 		}
 	}
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		upstreamBody, err = stripGrokChatPromptCacheKey(upstreamBody)
 		if err != nil {
 			return nil, fmt.Errorf("remove Responses-only Grok prompt cache key: %w", err)
@@ -191,7 +193,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// 7. Handle error response with failover
 	if resp.StatusCode >= 400 {
 		respBody, upstreamMsg := s.readOpenAIUpstreamError(resp)
-		if account.Platform == PlatformGrok {
+		if grokVendor {
 			kind := "http_error"
 			if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 				kind = "failover"
@@ -229,7 +231,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		return s.handleChatCompletionsErrorResponse(resp, c, account, billingModel)
 	}
 
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		s.updateGrokUsageFromResponse(withGrokTeamRateLimitModel(ctx, upstreamModel), account, resp.Header, resp.StatusCode)
 	}
 
@@ -248,8 +250,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	return result, forwardErr
 }
 
+// rawChatCompletionsURL 解析 raw CC 的上游端点：第三方 key 只认 chat_completions 协议地址
+// （标签与厂商都不参与）；Grok 成品号走站点配置的 xAI 官方地址。
 func (s *OpenAIGatewayService) rawChatCompletionsURL(account *Account) (string, error) {
-	if account.Platform == PlatformGrok {
+	if !account.IsThirdPartyKey() && account.Platform == PlatformGrok {
 		targetURL, err := buildGrokChatCompletionsURL(account, s.cfg, s.settingService)
 		if err != nil {
 			return "", fmt.Errorf("invalid grok base_url: %w", err)

@@ -13,7 +13,14 @@ import (
 )
 
 func grokBaseURLValidator(account *Account, cfg *config.Config) (xai.BaseURLValidator, error) {
-	if account == nil || !account.IsGrok() {
+	if account == nil {
+		return nil, fmt.Errorf("grok account is required")
+	}
+	// 第三方 key 的地址来自管理员填写的协议映射，按出站 URL 安全策略校验，与标签无关。
+	if account.IsThirdPartyKey() {
+		return redactedGrokBaseURLValidator(grokOperatorPolicyValidator(cfg)), nil
+	}
+	if !account.IsGrok() {
 		return nil, fmt.Errorf("grok account is required")
 	}
 	switch account.Type {
@@ -33,8 +40,6 @@ func grokBaseURLValidator(account *Account, cfg *config.Config) (xai.BaseURLVali
 			}
 			return policyValidator(raw)
 		}), nil
-	case AccountTypeAPIKey:
-		return redactedGrokBaseURLValidator(grokOperatorPolicyValidator(cfg)), nil
 	default:
 		return nil, fmt.Errorf("unsupported grok account type: %s", account.Type)
 	}

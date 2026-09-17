@@ -50,6 +50,8 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}
 	setCodexToolNameReverse(c, nil)
+	// xAI 厂商特化（缓存身份、请求改写、加密推理重试）：成品号按平台，第三方 key 按地址识别的厂商。
+	grokVendor := account.Vendor() == PlatformGrok
 	if _, err := s.prepareCodexAccountIdentitySource(ctx, c, account); err != nil {
 		return nil, err
 	}
@@ -88,7 +90,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	// Grok is outside the gpt-5/codex compat injector, but Claude Code still
 	// carries a stable session id. Prefer that as the Grok prompt-cache seed so
 	// multi-turn /v1/messages traffic can hit xAI's server-side cache.
-	if promptCacheKey == "" && account.Platform == PlatformGrok {
+	if promptCacheKey == "" && grokVendor {
 		if sessionSeed := extractClaudeCodeSessionID(c, body); sessionSeed != "" {
 			promptCacheKey = sessionSeed
 			compatPromptCacheInjected = true
@@ -195,7 +197,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		return nil, fmt.Errorf("marshal responses request: %w", err)
 	}
 
-	if account.UsesOpenAICodexProtocol() && account.Platform != PlatformGrok {
+	if account.UsesOpenAICodexProtocol() && !grokVendor {
 		var reqBody map[string]any
 		if err := json.Unmarshal(responsesBody, &reqBody); err != nil {
 			return nil, fmt.Errorf("unmarshal for codex transform: %w", err)
@@ -307,7 +309,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	responsesBody = updatedBody
 	responsesReq.ServiceTier = normalizedOpenAIServiceTierValue(gjson.GetBytes(responsesBody, "service_tier").String())
 	grokCacheIdentity := ""
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		grokIntentBody := responsesBody
 		grokCacheIdentity = resolveGrokCacheIdentity(c, grokIntentBody, promptCacheKey, upstreamModel)
 		patchedBody, patchErr := patchGrokResponsesBody(grokIntentBody, upstreamModel)
@@ -331,7 +333,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	}
 
 	// 6. Build upstream request
-	if account.UsesOpenAICodexProtocol() && account.Platform != PlatformGrok {
+	if account.UsesOpenAICodexProtocol() && !grokVendor {
 		// Messages 兼容桥即使 body 未带 todo-guard/prompt_cache_key 标记（如映射到非
 		// gpt-5/codex 模型），也必须让 buildUpstreamRequest 走 bridge 分支，以保留
 		// 既有 body/session/conversation 行为。身份头在 post-build 阶段统一恢复。
@@ -339,7 +341,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	}
 	upstreamCtx, releaseUpstreamCtx := detachUpstreamContext(ctx)
 	var upstreamReq *http.Request
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		upstreamReq, err = buildGrokResponsesRequest(upstreamCtx, c, account, responsesBody, token, grokCacheIdentity, s.cfg, s.settingService)
 	} else {
 		upstreamReq, err = s.buildUpstreamRequest(upstreamCtx, c, account, responsesBody, token, isStream, promptCacheKey, false)
@@ -351,14 +353,14 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 
 	// Override session_id with a deterministic UUID derived from the isolated
 	// session key, ensuring different API keys produce different upstream sessions.
-	if account.Platform != PlatformGrok && promptCacheKey != "" {
+	if !grokVendor && promptCacheKey != "" {
 		isolatedSessionID := generateSessionUUID(isolateOpenAIUpstreamSessionID(apiKeyID, codexAccountIdentitySource(c, account), promptCacheKey))
 		upstreamReq.Header.Set("session_id", isolatedSessionID)
 		if upstreamReq.Header.Get("conversation_id") != "" {
 			upstreamReq.Header.Set("conversation_id", isolatedSessionID)
 		}
 	}
-	if account.UsesOpenAICodexProtocol() && account.Platform != PlatformGrok {
+	if account.UsesOpenAICodexProtocol() && !grokVendor {
 		// buildUpstreamRequest 保留 Messages bridge 的 body/session 兼容行为，并会先
 		// 清除身份头。真正发送前恢复完整 Codex 身份，避免 ChatGPT Codex 上游因缺失
 		// originator/OpenAI-Beta 返回 404（issue #3901）。
@@ -388,7 +390,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	var resp *http.Response
 	for attempt := 0; ; attempt++ {
 		if attempt > 0 {
-			if account.Platform != PlatformGrok {
+			if !grokVendor {
 				break
 			}
 			upstreamCtxRetry, releaseRetry := detachUpstreamContext(ctx)
@@ -402,7 +404,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		if err != nil {
 			return nil, s.handleOpenAIUpstreamTransportError(ctx, c, account, err, false)
 		}
-		if account.Platform != PlatformGrok || attempt > 0 || resp.StatusCode != http.StatusBadRequest {
+		if !grokVendor || attempt > 0 || resp.StatusCode != http.StatusBadRequest {
 			break
 		}
 		respBody := s.readUpstreamErrorBody(resp)
@@ -461,7 +463,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		// Grok account-switched history often fails decrypt; strip encrypted
 		// reasoning once at the client-body level so failover accounts can accept
 		// the multi-turn tool continuation instead of cascading 400s.
-		if account.Platform == PlatformGrok &&
+		if grokVendor &&
 			isGrokInvalidEncryptedContentResponse(resp.StatusCode, respBody) &&
 			!grokEncryptedContentStripRetried(ctx) {
 			if strippedBody, ok := stripAnthropicThinkingSignatures(body); ok {
@@ -477,7 +479,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 		// Non-failover error: return Anthropic-formatted error to client
 		return s.handleAnthropicErrorResponse(resp, c, account, billingModel)
 	}
-	if account.Platform == PlatformGrok && account.Type == AccountTypeOAuth && !account.IsShadow() {
+	if grokVendor && account.Type == AccountTypeOAuth && !account.IsShadow() {
 		s.updateGrokUsageFromResponse(withGrokTeamRateLimitModel(ctx, upstreamModel), account, resp.Header, resp.StatusCode)
 	}
 
@@ -528,7 +530,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 
 	// Extract and save Codex usage snapshot from response headers (for OAuth accounts).
 	// 排除 spark 影子:其 codex_* 仅由 QueryUsage(/wham/usage bengalfox)更新(外审第7轮 P1)。
-	if handleErr == nil && account.Type == AccountTypeOAuth && !account.IsShadow() && account.Platform != PlatformGrok {
+	if handleErr == nil && account.Type == AccountTypeOAuth && !account.IsShadow() && !grokVendor {
 		if snapshot := ParseCodexRateLimitHeaders(resp.Header); snapshot != nil {
 			s.updateCodexUsageSnapshot(ctx, account.ID, snapshot)
 		}
@@ -670,7 +672,7 @@ func (s *OpenAIGatewayService) handleAnthropicBufferedStreamingResponse(
 		Duration:                      time.Since(startTime),
 	}
 	// Grok /v1/messages uses Responses upstream; count native search for surcharge.
-	if account != nil && account.IsGrok() && finalResponse != nil {
+	if account != nil && account.Vendor() == PlatformGrok && finalResponse != nil {
 		if body, err := json.Marshal(finalResponse); err == nil {
 			if n := countGrokNativeSearchCallsFromJSONBytes(body); n > 0 {
 				result.SearchCount = n
@@ -938,7 +940,7 @@ func (s *OpenAIGatewayService) handleAnthropicStreamingResponse(
 	terminalEventType := ""
 	searchCount := 0
 	streamSearchSeen := make(map[string]struct{})
-	countSearch := account != nil && account.IsGrok()
+	countSearch := account != nil && account.Vendor() == PlatformGrok
 
 	scanner := s.newUpstreamSSEScanner(resp.Body)
 

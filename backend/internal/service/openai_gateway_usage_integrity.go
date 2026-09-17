@@ -28,7 +28,7 @@ func hasBillableGrokChatUsage(usage OpenAIUsage) bool {
 // OpenAI-compatible accounts, so account.Platform alone is not a safe billing
 // boundary.
 func requiresBillableGrokChatUsage(account *Account, models ...string) bool {
-	if account != nil && account.Platform == PlatformGrok {
+	if account != nil && account.Vendor() == PlatformGrok {
 		return true
 	}
 	for _, model := range models {

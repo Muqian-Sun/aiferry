@@ -52,9 +52,10 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 
 	account := &Account{
+		// view_image 剔除是 xAI 厂商特化：按官方地址识别厂商，标签不参与。
 		ID: 800, Platform: PlatformGrok, Type: AccountTypeAPIKey, Concurrency: 1,
-		Credentials:       map[string]any{"api_key": "test-key", "base_url": "https://grok.example.test/v1"},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://grok.example.test/v1", APIProtocolResponses: "https://grok.example.test/v1"},
+		Credentials:       map[string]any{"api_key": "test-key"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"},
 	}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -68,7 +69,7 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Equal(t, "https://grok.example.test/v1/chat/completions", upstream.lastReq.URL.String())
+	require.Equal(t, "https://api.x.ai/v1/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "image_url", gjson.GetBytes(upstream.lastBody, "messages.0.content.1.type").String())
 	assertGrokUpstreamKeepsOtherToolAndDropsViewImage(t, upstream.lastBody, "tools.#(function.name==\"%s\")")
 }

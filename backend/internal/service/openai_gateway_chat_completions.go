@@ -597,7 +597,7 @@ func (s *OpenAIGatewayService) handleChatBufferedStreamingResponse(
 		Duration:                      time.Since(startTime),
 	}
 	// Grok chat bridge: bill native search tools found in the terminal Responses body.
-	if account != nil && account.IsGrok() && finalResponse != nil {
+	if account != nil && account.Vendor() == PlatformGrok && finalResponse != nil {
 		if body, err := json.Marshal(finalResponse); err == nil {
 			if n := countGrokNativeSearchCallsFromJSONBytes(body); n > 0 {
 				result.SearchCount = n
@@ -682,7 +682,7 @@ func (s *OpenAIGatewayService) handleChatStreamingResponse(
 	// Grok chat bridge reuses Responses SSE; count native search tools for surcharge.
 	searchCount := 0
 	streamSearchSeen := make(map[string]struct{})
-	countSearch := account != nil && account.IsGrok()
+	countSearch := account != nil && account.Vendor() == PlatformGrok
 	observer := upstreamResponseModelObserverFromContext(c)
 	if observer == nil {
 		observer = beginUpstreamResponseModelObservation(c)
