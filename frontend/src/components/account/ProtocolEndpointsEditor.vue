@@ -13,6 +13,13 @@
       </button>
     </div>
     <p class="input-hint mb-2">{{ t('admin.accounts.protocolEndpoints.hint') }}</p>
+    <p
+      v-if="defaultsLoadFailed"
+      class="mb-2 text-sm text-amber-600 dark:text-amber-400"
+      data-testid="protocol-defaults-load-failed"
+    >
+      {{ t('admin.accounts.protocolEndpoints.loadFailed') }}
+    </p>
     <div v-if="configured.length > 0" class="space-y-2">
       <div v-for="protocol in configured" :key="protocol" class="flex items-center gap-2">
         <span class="w-44 shrink-0 text-sm text-gray-700 dark:text-gray-300">{{ protocolLabel(protocol) }}</span>
@@ -66,6 +73,8 @@ const props = defineProps<{
   protocols: readonly UpstreamProtocol[]
   /** 当前平台 / 模式的官方地址；非空且与当前值不同时提供「填入官方地址」。 */
   officialEndpoints?: ProtocolEndpoints
+  /** 官方地址加载失败：提示管理员手动填写。 */
+  defaultsLoadFailed?: boolean
 }>()
 
 const emit = defineEmits<{

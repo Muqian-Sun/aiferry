@@ -120,6 +120,15 @@ describe('ProtocolEndpointsEditor', () => {
     expect(official.chat_completions).toBe('https://api.openai.com')
   })
 
+  it('tells the admin to fill addresses manually when official addresses failed to load', () => {
+    const failed = mount(ProtocolEndpointsEditor, {
+      props: { modelValue: {}, protocols: ALL, defaultsLoadFailed: true },
+      global: { plugins: [i18n], stubs: { Icon: true } }
+    })
+    expect(failed.find('[data-testid="protocol-defaults-load-failed"]').exists()).toBe(true)
+    expect(mountEditor({}).find('[data-testid="protocol-defaults-load-failed"]').exists()).toBe(false)
+  })
+
   it('still shows a stored protocol that is not in the selectable list', () => {
     const wrapper = mountEditor({ gemini: 'https://g.example' }, ['anthropic'])
 

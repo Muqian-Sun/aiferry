@@ -8,11 +8,10 @@ const source = readFileSync(
 )
 
 describe('CreateAccountModal Grok account types', () => {
-  it('offers API-key setup alongside OAuth with the official xAI default', () => {
+  it('offers API-key setup alongside OAuth', () => {
+    // API-key 的官方地址由后端 protocol-defaults 预填，前端不再写死，见 CreateAccountModal.spec.ts
     expect(source).toContain('data-testid="grok-account-type-api-key"')
     expect(source).toContain("@click=\"accountCategory = 'apikey'\"")
-    expect(source).toContain("newPlatform === 'grok'")
-    expect(source).toContain("? 'https://api.x.ai/v1'")
     expect(source).toContain("form.platform === 'grok'")
     expect(source).toContain(':placeholder="apiKeyValuePlaceholder"')
     expect(source).toContain("return 'xai-...'")

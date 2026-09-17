@@ -363,7 +363,7 @@ export function isMultiProtocolApiKeyPlatform(platform: string): boolean {
 
 export interface CnBaseUrlPreset {
   mode: CnAccountMode
-  protocol: CnApiProtocol
+  protocol: CnNativeApiProtocol
   /** 专有名词，不参与 i18n */
   label: string
   url: string
