@@ -91,29 +91,11 @@ func schedulingCandidatePlatforms(platform string, useMixed bool) []string {
 	return []string{platform}
 }
 
-// AccountKeepsHTTPPreviousResponseID 报告账号能否在 HTTP Responses 请求里承接
-// previous_response_id（续链状态）。groupPlatform 是请求所在网关平台。
+// AccountKeepsHTTPPreviousResponseID 报告账号能否在 OpenAI 网关的 HTTP Responses 请求里
+// 承接 previous_response_id（续链状态）。
 //
 // 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
-// 第三方 key 按 Responses 协议特性规则：本次请求确实以 responses 协议转发（没被转换成
-// 别的协议，否则续链状态会被静默丢弃），且厂商是官方 OpenAI 或通用中转。
-func AccountKeepsHTTPPreviousResponseID(account *Account, groupPlatform string) bool {
-	if account == nil || !account.IsThirdPartyKey() {
-		return false
-	}
-	if account.KeyUpstreamProtocolFor(groupPlatform, APIProtocolResponses) != APIProtocolResponses {
-		return false
-	}
-	return keyFollowsStandardOpenAIResponses(account)
-}
-
-// keyFollowsStandardOpenAIResponses 是 OpenAI Responses 协议特性对第三方 key 的厂商门槛：
-// 官方 OpenAI，或通用中转（推定按标准协议实现）；其他已知厂商不启用。
-func keyFollowsStandardOpenAIResponses(account *Account) bool {
-	switch account.Vendor() {
-	case PlatformOpenAI, "":
-		return true
-	default:
-		return false
-	}
+// 第三方 key 见 keyKeepsHTTPPreviousResponseID。
+func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
+	return account != nil && keyKeepsHTTPPreviousResponseID(account)
 }

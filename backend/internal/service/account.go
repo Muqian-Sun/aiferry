@@ -1698,7 +1698,7 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
 		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点。
-		if a.Type != AccountTypeAPIKey || !keyFollowsStandardOpenAIResponses(a) {
+		if a.Type != AccountTypeAPIKey || !keyUsesOpenAIProtocolFeatures(a) {
 			return false
 		}
 	case OpenAIEndpointCapabilityEmbeddings:

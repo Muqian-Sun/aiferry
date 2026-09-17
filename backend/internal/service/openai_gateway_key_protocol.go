@@ -78,11 +78,17 @@ func openAIProtocolFeaturesApply(account *Account) bool {
 	if account == nil {
 		return false
 	}
-	switch account.Vendor() {
+	return openAIProtocolFeaturesApplyToVendor(account.Vendor(), account.IsThirdPartyKey())
+}
+
+// openAIProtocolFeaturesApplyToVendor 是 openAIProtocolFeaturesApply 的已算好 Vendor 版本，
+// 供热路径上已经取过 Vendor 的调用方复用，避免重复解析协议地址。
+func openAIProtocolFeaturesApplyToVendor(vendor string, thirdPartyKey bool) bool {
+	switch vendor {
 	case PlatformOpenAI:
 		return true
 	case "":
-		return account.IsThirdPartyKey()
+		return thirdPartyKey
 	default:
 		return false
 	}
