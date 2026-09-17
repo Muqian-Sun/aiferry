@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -43,6 +44,23 @@ func TestBatchImagePublicService_SelectAccountPriority(t *testing.T) {
 			require.Equal(t, tt.wantID, account.ID)
 		})
 	}
+}
+
+// 批量图片选号装载任何标签的第三方 key，由真实 Gemini provider 按厂商筛选。
+func TestBatchImagePublicService_SelectAccountLoadsKeysOfAnyLabel(t *testing.T) {
+	svc, _, _, _, _ := newTestBatchImagePublicService(true)
+	svc.ProviderRegistry = NewBatchImageProviderRegistry(NewGeminiAPIBatchImageProvider(&fakeGeminiBatchClient{}))
+	relayGeminiLabel := testBatchImageAccount(101, AccountTypeAPIKey)
+	relayGeminiLabel.ProtocolEndpoints = map[string]string{APIProtocolGemini: "https://gemini-relay.example.com"}
+	officialOpenAILabel := testBatchImageAccount(303, AccountTypeAPIKey)
+	officialOpenAILabel.Platform = PlatformOpenAI
+	officialOpenAILabel.ProtocolEndpoints = map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}
+	svc.AccountRepo = &publicBatchImageAccountRepo{accounts: []Account{relayGeminiLabel, officialOpenAILabel}}
+
+	_, account, err := svc.selectProviderAndAccount(context.Background(), testBatchImageOwner(), BatchImageProviderGeminiAPI, "gemini-2.5-flash-image")
+	require.NoError(t, err)
+	require.NotNil(t, account)
+	require.Equal(t, int64(303), account.ID)
 }
 
 func TestBatchImagePublicService_Submit(t *testing.T) {
@@ -861,18 +879,19 @@ func (r *publicBatchImageAccountRepo) GetByID(_ context.Context, id int64) (*Acc
 	return nil, errors.New("account not found")
 }
 
-func (r *publicBatchImageAccountRepo) ListSchedulableByPlatform(_ context.Context, platform string) ([]Account, error) {
+// ListSchedulingCandidates 模拟调度候选查询的 SQL 口径：成品号按平台匹配，第三方 key 全部返回。
+func (r *publicBatchImageAccountRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]Account, error) {
 	out := make([]Account, 0, len(r.accounts))
 	for _, account := range r.accounts {
-		if account.Platform == platform {
+		if account.IsThirdPartyKey() || slices.Contains(platforms, account.Platform) {
 			out = append(out, account)
 		}
 	}
 	return out, nil
 }
 
-func (r *publicBatchImageAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, _ int64, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r *publicBatchImageAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
 type publicBatchImageQueue struct {

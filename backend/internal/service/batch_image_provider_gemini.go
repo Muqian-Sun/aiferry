@@ -80,15 +80,21 @@ func (p *GeminiAPIBatchImageProvider) Name() string {
 	return BatchImageProviderGeminiAPI
 }
 
+// geminiBatchAPIKeyAccount 报告账号能否用于 Gemini Batch API。
+//
+// Files / Batches 接口只在 Google 官方 AI Studio 地址上提供，GeminiBatchHTTPClient 固定发往
+// 官方地址：这是厂商特性，只认 Vendor 为 gemini 的第三方 key（协议地址全部是官方 Gemini 域名），
+// 不看平台标签。指向中转的 key 不能把它的 key 发往 Google 官方地址。
+func geminiBatchAPIKeyAccount(account *Account) bool {
+	return account != nil && account.IsThirdPartyKey() && account.Vendor() == PlatformGemini
+}
+
 func (p *GeminiAPIBatchImageProvider) SupportsAccount(account *Account) bool {
-	return account != nil &&
-		account.Platform == PlatformGemini &&
-		account.Type == AccountTypeAPIKey &&
-		batchImageProviderAPIKey(account) != ""
+	return geminiBatchAPIKeyAccount(account) && batchImageProviderAPIKey(account) != ""
 }
 
 func (p *GeminiAPIBatchImageProvider) Submit(ctx context.Context, job *BatchImageJob, account *Account, input BatchImageInput) (*BatchProviderJob, error) {
-	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
+	if !geminiBatchAPIKeyAccount(account) {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
 	apiKey := batchImageProviderAPIKey(account)
@@ -136,7 +142,7 @@ func (p *GeminiAPIBatchImageProvider) Submit(ctx context.Context, job *BatchImag
 }
 
 func (p *GeminiAPIBatchImageProvider) Get(ctx context.Context, job *BatchImageJob, account *Account) (*BatchProviderStatus, error) {
-	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
+	if !geminiBatchAPIKeyAccount(account) {
 		return nil, ErrBatchImageProviderUnsupportedAccount
 	}
 	apiKey := batchImageProviderAPIKey(account)
@@ -174,7 +180,7 @@ func (p *GeminiAPIBatchImageProvider) Get(ctx context.Context, job *BatchImageJo
 }
 
 func (p *GeminiAPIBatchImageProvider) Cancel(ctx context.Context, job *BatchImageJob, account *Account) error {
-	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
+	if !geminiBatchAPIKeyAccount(account) {
 		return ErrBatchImageProviderUnsupportedAccount
 	}
 	apiKey := batchImageProviderAPIKey(account)
@@ -189,7 +195,7 @@ func (p *GeminiAPIBatchImageProvider) Cancel(ctx context.Context, job *BatchImag
 }
 
 func (p *GeminiAPIBatchImageProvider) OpenResult(ctx context.Context, job *BatchImageJob, account *Account) (io.ReadCloser, string, error) {
-	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
+	if !geminiBatchAPIKeyAccount(account) {
 		return nil, "", ErrBatchImageProviderUnsupportedAccount
 	}
 	apiKey := batchImageProviderAPIKey(account)
@@ -205,7 +211,7 @@ func (p *GeminiAPIBatchImageProvider) OpenResult(ctx context.Context, job *Batch
 }
 
 func (p *GeminiAPIBatchImageProvider) Cleanup(ctx context.Context, job *BatchImageJob, account *Account, target CleanupTarget) error {
-	if account == nil || account.Platform != PlatformGemini || account.Type != AccountTypeAPIKey {
+	if !geminiBatchAPIKeyAccount(account) {
 		return ErrBatchImageProviderUnsupportedAccount
 	}
 	apiKey := batchImageProviderAPIKey(account)

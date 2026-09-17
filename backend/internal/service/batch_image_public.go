@@ -35,8 +35,8 @@ const (
 
 type BatchImageAccountSelectionRepository interface {
 	GetByID(ctx context.Context, id int64) (*Account, error)
-	ListSchedulableByPlatform(ctx context.Context, platform string) ([]Account, error)
-	ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error)
+	ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error)
+	ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error)
 }
 
 type BatchImageGroupPricingRepository interface {
@@ -967,14 +967,16 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 	return nil, nil, ErrBatchImageNoAccountAvailable
 }
 
+// listCandidateAccounts 装载批量图片的候选账号：成品号按平台精确匹配，第三方 key 不论平台
+// 标签全部装载，由 provider.SupportsAccount 按账号类别与厂商筛选（与调度候选查询同一口径）。
 func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context, groupID *int64, platform string) ([]Account, error) {
 	if s.AccountRepo == nil {
 		return nil, ErrBatchImageNoAccountAvailable
 	}
 	if groupID != nil && *groupID > 0 {
-		return s.AccountRepo.ListSchedulableByGroupIDAndPlatform(ctx, *groupID, platform)
+		return s.AccountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, []string{platform})
 	}
-	return s.AccountRepo.ListSchedulableByPlatform(ctx, platform)
+	return s.AccountRepo.ListSchedulingCandidates(ctx, []string{platform})
 }
 
 func (s *BatchImagePublicService) ensureGroupAllowsBatchImage(ctx context.Context, groupID *int64) error {
