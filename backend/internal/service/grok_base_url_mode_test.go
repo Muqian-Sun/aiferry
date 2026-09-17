@@ -52,24 +52,15 @@ func TestGrokBaseURLForMode(t *testing.T) {
 	}
 }
 
-func TestSettingServiceResolveGrokBaseURLHonorsModeAndExplicitPins(t *testing.T) {
+func TestSettingServiceResolveGrokBaseURLFollowsSiteModeOnly(t *testing.T) {
 	repo := &grokBaseURLSettingRepoStub{values: map[string]string{SettingKeyGrokDefaultBaseURLMode: GrokDefaultBaseURLModeUSWest2}}
 	svc := NewSettingService(repo, nil)
 	account := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Credentials: map[string]any{}}
 	require.Equal(t, xai.DefaultUSWest2BaseURL, svc.ResolveGrokBaseURL(context.Background(), account))
 
-	// An explicit official endpoint remains pinned.
-	account.Credentials["base_url"] = xai.DefaultBaseURL
-	require.Equal(t, xai.DefaultBaseURL, svc.ResolveGrokBaseURL(context.Background(), account))
-
-	// An explicit regional pin remains authoritative.
-	account.Credentials["base_url"] = xai.DefaultEUWest1BaseURL
-	require.Equal(t, xai.DefaultEUWest1BaseURL, svc.ResolveGrokBaseURL(context.Background(), account))
-}
-
-func TestAccountGetGrokBaseURLOrPreservesCustomOAuthURLForPolicyValidation(t *testing.T) {
-	account := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Credentials: map[string]any{
-		"base_url": "https://attacker.invalid/v1",
-	}}
-	require.Equal(t, "https://attacker.invalid/v1", account.GetGrokBaseURLOr(xai.DefaultCLIBaseURL))
+	// 账号上残留的地址（官方、区域或中转）都不能覆盖站点级模式。
+	for _, stored := range []string{xai.DefaultBaseURL, xai.DefaultEUWest1BaseURL, "https://attacker.invalid/v1"} {
+		account.Credentials["base_url"] = stored
+		require.Equal(t, xai.DefaultUSWest2BaseURL, svc.ResolveGrokBaseURL(context.Background(), account))
+	}
 }

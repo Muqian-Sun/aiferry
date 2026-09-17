@@ -27,7 +27,6 @@ func (s *grokRefreshOAuthStub) BuildAccountCredentials(info *service.GrokTokenIn
 		"access_token":  info.AccessToken,
 		"refresh_token": info.RefreshToken,
 		"expires_at":    info.ExpiresAt,
-		"base_url":      "https://api.x.ai/v1",
 	}
 }
 
@@ -78,7 +77,6 @@ func TestRefreshSingleAccountRoutesGrokThroughGrokOAuthService(t *testing.T) {
 		Credentials: map[string]any{
 			"access_token":       "old-access",
 			"refresh_token":      "old-refresh",
-			"base_url":           "https://example.invalid/v1",
 			"subscription_tier":  "SUPER_GROK",
 			"entitlement_status": "ACTIVE",
 		},
@@ -91,7 +89,7 @@ func TestRefreshSingleAccountRoutesGrokThroughGrokOAuthService(t *testing.T) {
 	require.Same(t, account, grokOAuth.account)
 	require.Equal(t, "new-access", adminSvc.updatedCredentials["access_token"])
 	require.Equal(t, "new-refresh", adminSvc.updatedCredentials["refresh_token"])
-	require.Equal(t, "https://example.invalid/v1", adminSvc.updatedCredentials["base_url"])
+	require.NotContains(t, adminSvc.updatedCredentials, "base_url")
 	require.Equal(t, "SUPER_GROK", adminSvc.updatedCredentials["subscription_tier"])
 	require.Equal(t, "ACTIVE", adminSvc.updatedCredentials["entitlement_status"])
 	require.Equal(t, adminSvc.updatedCredentials, updated.Credentials)

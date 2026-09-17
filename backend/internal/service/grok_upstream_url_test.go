@@ -127,110 +127,34 @@ func TestGrokOAuthURLPolicy(t *testing.T) {
 		require.Equal(t, xai.DefaultCLIBaseURL+"/responses", target)
 	})
 
-	t.Run("stored official API endpoint is honored (manual endpoint switch)", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": xai.DefaultBaseURL,
-			},
-		}
-		cfg := &config.Config{}
+	t.Run("stored addresses are ignored even under restrictive allowlist", func(t *testing.T) {
+		// 成品号只走官方地址：残留的官方、区域或中转地址都不参与取址，也就不会
+		// 让 OAuth bearer 被发往任何非官方主机。
+		for _, stored := range []string{
+			xai.DefaultBaseURL,
+			"https://us-west-2.api.x.ai/v1",
+			"https://relay.example.test/xai/v1",
+			"http://relay.example.test/v1",
+		} {
+			account := &Account{
+				Platform:    PlatformGrok,
+				Type:        AccountTypeOAuth,
+				Credentials: map[string]any{"base_url": stored},
+			}
+			cfg := &config.Config{}
+			cfg.Security.URLAllowlist.Enabled = true
+			cfg.Security.URLAllowlist.UpstreamHosts = []string{"other.example.test"}
 
-		target, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, xai.DefaultBaseURL+"/responses", target)
+			target, err := buildGrokResponsesURL(account, cfg)
+			require.NoError(t, err, stored)
+			require.Equal(t, xai.DefaultCLIBaseURL+"/responses", target, stored)
+		}
 	})
 
-	t.Run("stored regional API endpoint is trusted even under restrictive allowlist", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "https://us-west-2.api.x.ai/v1",
-			},
-		}
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = true
-		cfg.Security.URLAllowlist.UpstreamHosts = []string{"other.example.test"}
-
-		target, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "https://us-west-2.api.x.ai/v1/responses", target)
-	})
-
-	t.Run("custom forwarding address follows operator policy", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "https://relay.example.test/v1",
-			},
-		}
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = false
-
-		target, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "https://relay.example.test/v1/responses", target)
-	})
-
-	t.Run("custom path prefix is preserved", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "https://relay.example.test/xai/v1",
-			},
-		}
-		cfg := &config.Config{}
-
-		target, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "https://relay.example.test/xai/v1/responses", target)
-	})
-
-	t.Run("custom forwarding address rejected by allowlist", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "https://relay.example.test/v1",
-			},
-		}
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = true
-		cfg.Security.URLAllowlist.UpstreamHosts = []string{"other.example.test"}
-
-		_, err := buildGrokResponsesURL(account, cfg)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-	})
-
-	t.Run("insecure HTTP custom address requires operator opt-in", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "http://relay.example.test/v1",
-			},
-		}
-		cfg := &config.Config{}
-		cfg.Security.URLAllowlist.Enabled = false
-		cfg.Security.URLAllowlist.AllowInsecureHTTP = false
-
-		_, err := buildGrokResponsesURL(account, cfg)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
-
-		cfg.Security.URLAllowlist.AllowInsecureHTTP = true
-		target, err := buildGrokResponsesURL(account, cfg)
-		require.NoError(t, err)
-		require.Equal(t, "http://relay.example.test/v1/responses", target)
-	})
-
-	t.Run("unsafe override switch does not relax the operator allowlist for custom hosts", func(t *testing.T) {
+	t.Run("unsafe override switch cannot route OAuth traffic to a stored host", func(t *testing.T) {
 		// XAI_ALLOW_UNSAFE_URL_OVERRIDES relaxes the trusted-host validator to
-		// accept-any; a custom OAuth forwarding host must still be governed by
-		// the operator allowlist so the bearer token cannot reach arbitrary hosts.
+		// accept-any; OAuth accounts carry no per-account address, so a stored
+		// host still cannot receive the bearer token.
 		t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 		cfg := &config.Config{}
 		cfg.Security.URLAllowlist.Enabled = true
@@ -243,16 +167,17 @@ func TestGrokOAuthURLPolicy(t *testing.T) {
 				"base_url": "http://10.0.0.1/v1",
 			},
 		}
-		_, err := buildGrokResponsesURL(custom, cfg)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
+		target, err := buildGrokResponsesURL(custom, cfg)
+		require.NoError(t, err)
+		require.Equal(t, xai.DefaultCLIBaseURL+"/responses", target)
 
-		// The official gateway still resolves even under the restrictive allowlist.
+		// The official gateway resolves under the restrictive allowlist.
 		official := &Account{
 			Platform:    PlatformGrok,
 			Type:        AccountTypeOAuth,
 			Credentials: map[string]any{},
 		}
-		target, err := buildGrokResponsesURL(official, cfg)
+		target, err = buildGrokResponsesURL(official, cfg)
 		require.NoError(t, err)
 		require.Equal(t, xai.DefaultCLIBaseURL+"/responses", target)
 	})
@@ -268,14 +193,14 @@ func TestBuildGrokBillingURLUsesCLIForOfficialAPIHosts(t *testing.T) {
 	}
 }
 
-func TestBuildGrokBillingURLKeepsCustomRelay(t *testing.T) {
+func TestBuildGrokBillingURLIgnoresStoredRelay(t *testing.T) {
 	account := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Credentials: map[string]any{
 		"base_url": "https://relay.example.test/xai/v1",
 	}}
 
 	monthly, err := buildGrokBillingURL(account, &config.Config{}, false)
 	require.NoError(t, err)
-	require.Equal(t, "https://relay.example.test/xai/v1"+xai.BillingMonthlyPath, monthly)
+	require.Equal(t, xai.DefaultCLIBaseURL+xai.BillingMonthlyPath, monthly)
 }
 
 func TestGrokBillingURLFollowsAccountBaseURL(t *testing.T) {
@@ -295,23 +220,8 @@ func TestGrokBillingURLFollowsAccountBaseURL(t *testing.T) {
 		require.Equal(t, xai.DefaultCLIBaseURL+"/billing", monthlyURL)
 	})
 
-	t.Run("oauth custom forwarding address carries billing probes", func(t *testing.T) {
-		account := &Account{
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"base_url": "https://relay.example.test/v1",
-			},
-		}
-
-		weeklyURL, err := buildGrokBillingURL(account, nil, true)
-		require.NoError(t, err)
-		require.Equal(t, "https://relay.example.test/v1/billing?format=credits", weeklyURL)
-	})
-
-	t.Run("billing probe honors the operator allowlist like forwarding", func(t *testing.T) {
-		// Probe paths must share the forwarding URL policy so a custom host the
-		// allowlist rejects cannot receive the OAuth bearer via a billing probe.
+	t.Run("oauth stored relay does not carry billing probes", func(t *testing.T) {
+		// 计费探测与转发同一口径：成品号只打官方网关，残留的中转地址不会收到 OAuth bearer。
 		account := &Account{
 			Platform: PlatformGrok,
 			Type:     AccountTypeOAuth,
@@ -323,7 +233,8 @@ func TestGrokBillingURLFollowsAccountBaseURL(t *testing.T) {
 		cfg.Security.URLAllowlist.Enabled = true
 		cfg.Security.URLAllowlist.UpstreamHosts = []string{"cli-chat-proxy.grok.com"}
 
-		_, err := buildGrokBillingURL(account, cfg, true)
-		require.EqualError(t, err, "invalid base url: base URL rejected by URL security policy")
+		weeklyURL, err := buildGrokBillingURL(account, cfg, true)
+		require.NoError(t, err)
+		require.Equal(t, xai.DefaultCLIBaseURL+"/billing?format=credits", weeklyURL)
 	})
 }

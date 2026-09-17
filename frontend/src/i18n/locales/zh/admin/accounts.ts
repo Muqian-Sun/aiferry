@@ -551,8 +551,6 @@ export default {
       bulkEdit: {
         title: '批量编辑账号',
         selectionInfo: '已选择 {count} 个账号。只更新您勾选或填写的字段，未勾选的字段保持不变。',
-        baseUrlPlaceholder: 'https://api.anthropic.com 或 https://api.openai.com',
-        baseUrlNotice: '适用于 API Key 账号及 Grok OAuth 账号的转发端点，留空则不修改',
         submit: '批量更新',
         updating: '更新中...',
         success: '成功更新 {count} 个账号',
@@ -649,7 +647,6 @@ export default {
           gemini: 'Gemini'
         }
       },
-      baseUrl: 'Base URL',
       apiKeyRequired: 'API Key *',
       apiKeyPlaceholder: 'sk-ant-api03-...',
       apiKeyHint: '您的 Claude Console API Key',
@@ -910,11 +907,6 @@ export default {
         tooManyEntries: '请求头覆写条目过多（最多 64 条）'
       },
       grokCustomBaseUrl: {
-        title: '自定义上游地址',
-        hint: '开启后账号流量（对话/媒体/探测）改发指定地址；OAuth 授权与令牌刷新不受影响，仍走官方端点。',
-        placeholder: 'https://relay.example.com/v1',
-        required: '开启自定义上游地址后必须填写地址',
-        invalid: '上游地址格式不正确（需为 http(s):// 开头的完整地址）',
         presets: {
           cli: 'Grok Build CLI',
           official: '官方 API'
@@ -1024,11 +1016,6 @@ export default {
           hint: '将所有缓存创建 token 强制按指定的 TTL 类型（5分钟或1小时）计费',
           target: '目标 TTL',
           targetHint: '选择计费使用的 TTL 类型'
-        },
-        customBaseUrl: {
-          label: '自定义转发地址',
-          hint: '启用后将请求转发到自定义中继服务，代理地址将作为 URL 参数传递给中继服务',
-          urlHint: '中继服务地址（如 https://relay.example.com）',
         },
         clientAffinity: {
           label: '客户端亲和调度',

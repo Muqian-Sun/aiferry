@@ -822,13 +822,14 @@ func TestCodexUnsupportedAdditionalToolsDoNotBecomeToolFreeCacheIntent(t *testin
 	require.Equal(t, "isolated-id", gjson.GetBytes(patched, "prompt_cache_key").String())
 }
 
-func TestBuildGrokResponsesRequestUsesAccountBaseURLAndBearerToken(t *testing.T) {
+func TestBuildGrokResponsesRequestUsesCLIGatewayAndBearerToken(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 
 	account := &Account{
 		Platform: PlatformGrok,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
+			// 残留的账号级地址不参与取址
 			"base_url": "https://xai.test/v1/",
 		},
 	}
@@ -836,7 +837,7 @@ func TestBuildGrokResponsesRequestUsesAccountBaseURLAndBearerToken(t *testing.T)
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "access-token", "isolated-cache-id", nil)
 	require.NoError(t, err)
 	require.Equal(t, http.MethodPost, req.Method)
-	require.Equal(t, "https://xai.test/v1/responses", req.URL.String())
+	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", req.URL.String())
 	require.Equal(t, "Bearer access-token", req.Header.Get("Authorization"))
 	require.Equal(t, "application/json", req.Header.Get("Content-Type"))
 	require.Contains(t, req.Header.Get("Accept"), "text/event-stream")
@@ -929,7 +930,7 @@ func TestBuildGrokResponsesRequestAllowsPublicAPIKeyBaseURLByDefault(t *testing.
 	require.NotEqual(t, defaultGrokUpstreamUserAgent(), req.Header.Get("User-Agent"))
 }
 
-func TestBuildGrokResponsesRequestHonorsOAuthOfficialEndpointSwitch(t *testing.T) {
+func TestBuildGrokResponsesRequestIgnoresStoredOAuthEndpoint(t *testing.T) {
 	t.Parallel()
 
 	account := &Account{
@@ -940,9 +941,10 @@ func TestBuildGrokResponsesRequestHonorsOAuthOfficialEndpointSwitch(t *testing.T
 		},
 	}
 
+	// 官方主机的选择由站点级模式决定，账号上存的官方地址同样不生效。
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "access-token", "", nil)
 	require.NoError(t, err)
-	require.Equal(t, xai.DefaultBaseURL+"/responses", req.URL.String())
+	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", req.URL.String())
 }
 
 func TestBuildGrokResponsesRequestAppliesHeaderOverridesLast(t *testing.T) {
@@ -952,7 +954,6 @@ func TestBuildGrokResponsesRequestAppliesHeaderOverridesLast(t *testing.T) {
 		Platform: PlatformGrok,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
-			"base_url":                "https://relay.example.test/v1",
 			"header_override_enabled": true,
 			"header_overrides": map[string]any{
 				"User-Agent":            "relay-client/2.0",
@@ -964,7 +965,7 @@ func TestBuildGrokResponsesRequestAppliesHeaderOverridesLast(t *testing.T) {
 
 	req, err := buildGrokResponsesRequest(context.Background(), nil, account, []byte(`{"model":"grok-4.3"}`), "access-token", "conv-1", nil)
 	require.NoError(t, err)
-	require.Equal(t, "https://relay.example.test/v1/responses", req.URL.String())
+	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", req.URL.String())
 	// 覆写值优先于内置 CLI 身份头。名字不在 wire casing 映射中的覆写头
 	// 以小写键直写（HTTP/2 线上语义），需按写入形态断言。
 	require.Equal(t, "relay-client/2.0", req.Header.Get("User-Agent"))

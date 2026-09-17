@@ -207,30 +207,7 @@ export function serializeHeaderOverrideRows(rows: HeaderOverrideRow[]): string {
   return JSON.stringify(record, null, 2)
 }
 
-// ========== Grok 自定义转发地址（base_url 仅改写转发端点，凭证生命周期不受影响） ==========
-
-/** OAuth 账号建号/刷新默认写入的 CLI 网关 host——只有它视同"未定制"。 */
-const GROK_DEFAULT_GATEWAY_HOST = 'cli-chat-proxy.grok.com'
-
-/**
- * 判断 Grok 账号存储的 base_url 是否为主动指定的上游端点。
- * 运营方可在官方 API / 区域 API / 第三方转发地址之间手动切换（应对单端点
- * 不可用），这些值都必须回显（开关开启 + 显示地址）。仅默认 CLI 网关
- * （建号/刷新自动写入）、空值与无法解析的值视为"未定制"（与后端
- * GetGrokBaseURL 的回落语义对齐），用于 OAuth 账号编辑时决定开关初始状态。
- */
-export function isCustomGrokBaseUrl(value: unknown): boolean {
-  if (typeof value !== 'string') return false
-  const trimmed = value.trim()
-  if (!trimmed) return false
-  let parsed: URL
-  try {
-    parsed = new URL(trimmed)
-  } catch {
-    return false
-  }
-  return parsed.hostname.toLowerCase() !== GROK_DEFAULT_GATEWAY_HOST
-}
+// ========== Grok 地址预设（第三方 key 的协议地址快速填充） ==========
 
 export interface GrokBaseUrlPreset {
   /** i18n 子键：admin.accounts.grokCustomBaseUrl.presets.<labelKey> */
@@ -241,8 +218,7 @@ export interface GrokBaseUrlPreset {
 }
 
 /**
- * Grok 快捷端点（仅供快速填充，输入框仍可自由填写任意转发地址）。
- * 官方端点偶发不可用时，运营方靠这组预设在端点间手动切换。
+ * Grok 快捷端点（仅供快速填充第三方 key 的协议地址，输入框仍可自由填写）。
  */
 export const GROK_BASE_URL_PRESETS: GrokBaseUrlPreset[] = [
   { labelKey: 'cli', url: 'https://cli-chat-proxy.grok.com/v1' },

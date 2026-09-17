@@ -124,82 +124,12 @@ describe('EditAccountModal Grok OAuth upstream config', () => {
     checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
   })
 
-  it('enabling the custom base URL toggle and saving persists base_url', async () => {
-    const account = buildGrokOAuthAccount({ base_url: 'https://cli-chat-proxy.grok.com/v1' })
-    updateAccountMock.mockResolvedValue(account)
+  it('offers no per-account upstream address for Grok OAuth accounts', () => {
+    // 成品号只走官方地址；要走中转请按第三方 key 建号
+    const wrapper = mountModal(buildGrokOAuthAccount({ base_url: 'https://relay.example.com/v1' }))
 
-    const wrapper = mountModal(account)
-
-    // 官方地址 → 开关初始为关（视同未定制）
-    const toggle = wrapper.get('[data-testid="grok-custom-base-url-toggle"]')
-    await toggle.trigger('click')
-
-    const input = wrapper.get('[data-testid="grok-custom-base-url-input"]')
-    await input.setValue('https://my-relay.example.com')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-    await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
-
-    const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.credentials?.base_url).toBe('https://my-relay.example.com')
-  })
-
-  it('accepts the official API host as a manual endpoint switch and persists it', async () => {
-    const account = buildGrokOAuthAccount({ base_url: 'https://cli-chat-proxy.grok.com/v1' })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('[data-testid="grok-custom-base-url-toggle"]').trigger('click')
-    await wrapper.get('[data-testid="grok-custom-base-url-input"]').setValue('https://api.x.ai/v1')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-    await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
-
-    const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.credentials?.base_url).toBe('https://api.x.ai/v1')
-  })
-
-  it('echoes a stored official API endpoint with the toggle on', async () => {
-    const account = buildGrokOAuthAccount({ base_url: 'https://us-west-2.api.x.ai/v1' })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    const input = wrapper.get('[data-testid="grok-custom-base-url-input"]')
-    expect((input.element as HTMLInputElement).value).toBe('https://us-west-2.api.x.ai/v1')
-  })
-
-  it('fills the input from an endpoint preset chip', async () => {
-    const account = buildGrokOAuthAccount({ base_url: 'https://cli-chat-proxy.grok.com/v1' })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('[data-testid="grok-custom-base-url-toggle"]').trigger('click')
-    const presets = wrapper.findAll('[data-testid="grok-base-url-preset"]')
-    expect(presets.length).toBe(5)
-
-    // 第二个预设为官方 API (api.x.ai/v1)
-    await presets[1].trigger('click')
-    const input = wrapper.get('[data-testid="grok-custom-base-url-input"]')
-    expect((input.element as HTMLInputElement).value).toBe('https://api.x.ai/v1')
-  })
-
-  it('loads an existing custom base_url with the toggle on and keeps it on save', async () => {
-    const account = buildGrokOAuthAccount({ base_url: 'https://my-relay.example.com' })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    const input = wrapper.get('[data-testid="grok-custom-base-url-input"]')
-    expect((input.element as HTMLInputElement).value).toBe('https://my-relay.example.com')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-    await vi.waitFor(() => expect(updateAccountMock).toHaveBeenCalledTimes(1))
-
-    const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.credentials?.base_url).toBe('https://my-relay.example.com')
+    expect(wrapper.find('[data-testid="grok-custom-base-url-toggle"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="grok-custom-base-url-input"]').exists()).toBe(false)
   })
 
   it('keeps stored header overrides intact on an untouched save', async () => {

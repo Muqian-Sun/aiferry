@@ -87,28 +87,27 @@ func (r *grokQuotaAccountRepo) SetTempUnschedulable(_ context.Context, id int64,
 	return nil
 }
 
-func TestSyncGrokObservedModelsRejectsOAuthCustomURLOutsideOperatorPolicy(t *testing.T) {
+func TestSyncGrokObservedModelsIgnoresStoredOAuthRelay(t *testing.T) {
 	account := &Account{
 		ID:       901,
 		Platform: PlatformGrok,
 		Type:     AccountTypeOAuth,
 		Credentials: map[string]any{
 			"access_token": "secret-token",
-			"base_url":     "https://blocked.example.test/v1",
+			"base_url":     "https://relay.example.test/v1",
 		},
 	}
 	repo := &grokQuotaAccountRepo{mockAccountRepoForPlatform: &mockAccountRepoForPlatform{
 		accountsByID: map[int64]*Account{account.ID: account},
 	}}
-	upstream := &httpUpstreamRecorder{}
-	cfg := &config.Config{}
-	cfg.Security.URLAllowlist.Enabled = true
-	cfg.Security.URLAllowlist.UpstreamHosts = []string{"allowed.example.test"}
-	svc := &GrokQuotaService{accountRepo: repo, httpUpstream: upstream, cfg: cfg}
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"id":"grok-4.5"}]}`)),
+	}}
+	svc := &GrokQuotaService{accountRepo: repo, httpUpstream: upstream, cfg: &config.Config{}}
 
-	err := svc.syncGrokObservedModels(context.Background(), account)
-	require.ErrorContains(t, err, "base URL rejected by URL security policy")
-	require.Nil(t, upstream.lastReq)
+	require.NoError(t, svc.syncGrokObservedModels(context.Background(), account))
+	require.Equal(t, xai.DefaultCLIBaseURL+"/models", upstream.lastReq.URL.String())
 }
 
 func TestSyncGrokObservedModelsUsesCLIIdentityAndAccountHeaders(t *testing.T) {

@@ -268,11 +268,6 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenUpstreamIdentityChanges(t *tes
 			wantEnabled: true,
 		},
 		{
-			name:        "base url",
-			input:       &UpdateAccountInput{Credentials: map[string]any{"base_url": "https://new.example"}},
-			wantEnabled: true,
-		},
-		{
 			// 第三方 key 的上游坐标在协议映射里：只换映射、凭证不动，同样是换了上游。
 			name:        "protocol endpoints",
 			input:       &UpdateAccountInput{ProtocolEndpoints: &map[string]string{APIProtocolChatCompletions: "https://new.example"}},
@@ -327,6 +322,35 @@ func TestUpdateAccountInvalidatesProbeSnapshotWhenUpstreamIdentityChanges(t *tes
 			}
 		})
 	}
+}
+
+// credentials.base_url 不再参与任何取址，只改它不是换了上游，探测快照保留。
+func TestUpdateAccountKeepsProbeSnapshotWhenOnlyStaleBaseURLChanges(t *testing.T) {
+	accountID := int64(139)
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{
+		accountID: {
+			ID:       accountID,
+			Platform: PlatformOpenAI,
+			Type:     AccountTypeAPIKey,
+			Status:   StatusActive,
+			Credentials: map[string]any{
+				"api_key":  "sk-old",
+				"base_url": "https://old.example",
+			},
+			Extra: map[string]any{
+				UpstreamBillingProbeEnabledExtraKey: true,
+				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
+			},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://old.example"},
+		},
+	}}
+
+	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
+		Credentials: map[string]any{"api_key": "sk-old", "base_url": "https://new.example"},
+	})
+
+	require.NoError(t, err)
+	require.Contains(t, updated.Extra, UpstreamBillingProbeExtraKey)
 }
 
 func TestUpdateAccountInvalidatesProbeSnapshotWhenProxyChanges(t *testing.T) {

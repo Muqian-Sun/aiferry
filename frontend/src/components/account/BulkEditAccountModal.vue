@@ -193,44 +193,6 @@
         </p>
       </div>
 
-      <!-- Base URL (API Key only) -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <div class="mb-3 flex items-center justify-between">
-          <label
-            id="bulk-edit-base-url-label"
-            class="input-label mb-0"
-            for="bulk-edit-base-url-enabled"
-          >
-            {{ t('admin.accounts.baseUrl') }}
-          </label>
-          <input
-            v-model="enableBaseUrl"
-            id="bulk-edit-base-url-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-base-url"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-        </div>
-        <input
-          v-model="baseUrl"
-          id="bulk-edit-base-url"
-          type="text"
-          :disabled="!enableBaseUrl"
-          class="input"
-          :class="!enableBaseUrl && 'cursor-not-allowed opacity-50'"
-          :placeholder="t('admin.accounts.bulkEdit.baseUrlPlaceholder')"
-          aria-labelledby="bulk-edit-base-url-label"
-        />
-        <GrokBaseUrlPresets
-          v-if="allTargetsGrok"
-          class="mt-2"
-          @select="baseUrl = $event; enableBaseUrl = true"
-        />
-        <p class="input-hint">
-          {{ t('admin.accounts.bulkEdit.baseUrlNotice') }}
-        </p>
-      </div>
-
       <!-- Model restriction -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1506,7 +1468,6 @@ import {
   HEADER_OVERRIDES_CREDENTIAL_KEY,
   type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
-import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import {
   OPENAI_WS_MODE_CTX_POOL,
   OPENAI_WS_MODE_OFF,
@@ -1546,12 +1507,6 @@ const targetMode = computed(() => props.target?.mode ?? 'selected')
 const targetPreviewCount = computed(() => props.target?.previewCount ?? props.accountIds.length)
 const targetSelectedPlatforms = computed(() => props.target?.selectedPlatforms ?? props.selectedPlatforms)
 const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.selectedTypes)
-// Grok 快捷端点仅在所选账号全部为 grok 平台时展示（其他平台不显示）
-const allTargetsGrok = computed(
-  () =>
-    targetSelectedPlatforms.value.length > 0 &&
-    targetSelectedPlatforms.value.every((p) => p === 'grok')
-)
 const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 
 const allOpenAIPassthroughCapable = computed(() => {
@@ -1645,7 +1600,6 @@ interface ModelMapping {
 }
 
 // State - field enable flags
-const enableBaseUrl = ref(false)
 const enableModelRestriction = ref(false)
 const enableCustomErrorCodes = ref(false)
 const enableInterceptWarmup = ref(false)
@@ -1676,7 +1630,6 @@ const submitting = ref(false)
 const showMixedChannelWarning = ref(false)
 const mixedChannelWarningMessage = ref('')
 const pendingUpdatesForConfirm = ref<Record<string, unknown> | null>(null)
-const baseUrl = ref('')
 const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
 const allowedModels = ref<string[]>([])
 const modelMappings = ref<ModelMapping[]>([])
@@ -1967,14 +1920,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     updates.group_ids = groupIds.value
   }
 
-  if (enableBaseUrl.value) {
-    const baseUrlValue = baseUrl.value.trim()
-    if (baseUrlValue) {
-      credentials.base_url = baseUrlValue
-      credentialsChanged = true
-    }
-  }
-
   if (enableOpenAIPassthrough.value) {
     const extra = ensureExtra()
     extra.openai_passthrough = openaiPassthroughEnabled.value
@@ -2200,7 +2145,6 @@ const handleSubmit = async () => {
   }
 
   const hasAnyFieldEnabled =
-    enableBaseUrl.value ||
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
     (enableOpenAILongContextBilling.value && allOpenAIPassthroughCapable.value) ||
@@ -2231,16 +2175,6 @@ const handleSubmit = async () => {
   if (!hasAnyFieldEnabled) {
     appStore.showError(t('admin.accounts.bulkEdit.noFieldsSelected'))
     return
-  }
-
-  // base_url 现在也会作用于 Grok OAuth 订阅账号的转发端点；坏值会让请求期
-  // 校验失败、账号请求全挂，因此保存前强制格式校验（与单账号编辑一致）。
-  if (enableBaseUrl.value) {
-    const trimmedBaseUrl = baseUrl.value.trim()
-    if (trimmedBaseUrl && !/^https?:\/\//i.test(trimmedBaseUrl)) {
-      appStore.showError(t('admin.accounts.grokCustomBaseUrl.invalid'))
-      return
-    }
   }
 
   if (enableHeaderOverride.value && headerOverrideEnabled.value) {
@@ -2351,7 +2285,6 @@ watch(
   (newShow) => {
     if (!newShow) {
       // Reset all enable flags
-      enableBaseUrl.value = false
       enableModelRestriction.value = false
       enableCustomErrorCodes.value = false
       enableInterceptWarmup.value = false
@@ -2380,7 +2313,6 @@ watch(
       enableRpmLimit.value = false
 
       // Reset all values
-      baseUrl.value = ''
       openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAILongContextBillingEnabled.value = false

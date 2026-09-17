@@ -127,13 +127,14 @@ func TestGetGeminiBaseURL(t *testing.T) {
 			expected: "https://upstream.example.com/antigravity",
 		},
 		{
-			name: "antigravity oauth does NOT append /antigravity",
+			// 成品号只走官方地址：凭据里残留的 base_url 不参与取址。
+			name: "antigravity oauth ignores stored base_url",
 			account: Account{
 				Type:        AccountTypeOAuth,
 				Platform:    PlatformAntigravity,
 				Credentials: map[string]any{"base_url": "https://upstream.example.com"},
 			},
-			expected: "https://upstream.example.com",
+			expected: defaultGeminiURL,
 		},
 		{
 			name: "oauth without base_url returns default",
@@ -164,7 +165,7 @@ func TestGetGeminiBaseURL(t *testing.T) {
 	}
 }
 
-func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
+func TestGetGrokBaseURLOAuthIgnoresStoredAddress(t *testing.T) {
 	tests := []struct {
 		name     string
 		account  Account
@@ -180,7 +181,8 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			name: "oauth stored official API endpoint is honored (manual endpoint switch)",
+			// 区域选择由站点级 grok_default_base_url_mode 决定，账号不能覆盖。
+			name: "oauth stored official API endpoint is ignored",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -188,10 +190,10 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 					"base_url": xai.DefaultBaseURL,
 				},
 			},
-			expected: xai.DefaultBaseURL,
+			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			name: "oauth stored regional API endpoint is honored",
+			name: "oauth stored regional API endpoint is ignored",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -199,10 +201,10 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 					"base_url": "https://us-west-2.api.x.ai/v1",
 				},
 			},
-			expected: "https://us-west-2.api.x.ai/v1",
+			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			name: "oauth stored CLI proxy is honored verbatim",
+			name: "oauth stored CLI proxy yields the CLI proxy",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -213,7 +215,7 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			name: "oauth unparseable base_url falls back to CLI proxy",
+			name: "oauth unparseable base_url is ignored",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -224,18 +226,8 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 			expected: xai.DefaultCLIBaseURL,
 		},
 		{
-			name: "oauth explicit custom base_url redirects forwarding traffic",
-			account: Account{
-				Type:     AccountTypeOAuth,
-				Platform: PlatformGrok,
-				Credentials: map[string]any{
-					"base_url": "https://custom.example.com/v1",
-				},
-			},
-			expected: "https://custom.example.com/v1",
-		},
-		{
-			name: "oauth custom base_url with path prefix redirects forwarding traffic",
+			// 成品号不走中转：要走中转请按第三方 key 建号。
+			name: "oauth stored custom relay is ignored",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -243,7 +235,7 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 					"base_url": "https://relay.example.com/xai/v1",
 				},
 			},
-			expected: "https://relay.example.com/xai/v1",
+			expected: xai.DefaultCLIBaseURL,
 		},
 		{
 			// 第三方 key 不回落官方端点：没配协议映射就是空，由调用方按缺地址报错。
@@ -273,7 +265,7 @@ func TestGetGrokBaseURLUsesSubscriptionProxyForOAuth(t *testing.T) {
 	}
 }
 
-func TestGetGrokBaseURLHonorsOAuthCustomRegardlessOfUnsafeOverrides(t *testing.T) {
+func TestGetGrokBaseURLIgnoresOAuthCustomEvenWithUnsafeOverrides(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	account := Account{
 		Type:     AccountTypeOAuth,
@@ -283,7 +275,7 @@ func TestGetGrokBaseURLHonorsOAuthCustomRegardlessOfUnsafeOverrides(t *testing.T
 		},
 	}
 
-	require.Equal(t, "https://custom.example.com/v1", account.GetGrokBaseURL())
+	require.Equal(t, xai.DefaultCLIBaseURL, account.GetGrokBaseURL())
 }
 
 func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
@@ -335,18 +327,7 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 			expected: xai.DefaultBaseURL,
 		},
 		{
-			name: "oauth stored official API endpoint is honored (manual endpoint switch)",
-			account: Account{
-				Type:     AccountTypeOAuth,
-				Platform: PlatformGrok,
-				Credentials: map[string]any{
-					"base_url": xai.DefaultBaseURL,
-				},
-			},
-			expected: xai.DefaultBaseURL,
-		},
-		{
-			name: "oauth stored regional API endpoint is honored for media",
+			name: "oauth stored regional API endpoint is ignored for media",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -354,10 +335,10 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 					"base_url": "https://us-west-2.api.x.ai/v1",
 				},
 			},
-			expected: "https://us-west-2.api.x.ai/v1",
+			expected: xai.DefaultBaseURL,
 		},
 		{
-			name: "oauth custom base_url redirects media traffic",
+			name: "oauth stored custom relay is ignored for media",
 			account: Account{
 				Type:     AccountTypeOAuth,
 				Platform: PlatformGrok,
@@ -365,7 +346,7 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 					"base_url": "https://custom.example.com/v1",
 				},
 			},
-			expected: "https://custom.example.com/v1",
+			expected: xai.DefaultBaseURL,
 		},
 		{
 			name: "API key retains its configured media API",
@@ -394,7 +375,7 @@ func TestGetGrokMediaBaseURLRedirectsCLIGatewayToOfficialAPI(t *testing.T) {
 	}
 }
 
-func TestGetGrokMediaBaseURLHonorsOAuthCustomRegardlessOfUnsafeOverrides(t *testing.T) {
+func TestGetGrokMediaBaseURLIgnoresOAuthCustomEvenWithUnsafeOverrides(t *testing.T) {
 	t.Setenv(xai.EnvAllowUnsafeURLOverrides, "true")
 	account := Account{
 		Type:     AccountTypeOAuth,
@@ -404,5 +385,5 @@ func TestGetGrokMediaBaseURLHonorsOAuthCustomRegardlessOfUnsafeOverrides(t *test
 		},
 	}
 
-	require.Equal(t, "https://custom.example.com/v1", account.GetGrokMediaBaseURL())
+	require.Equal(t, xai.DefaultBaseURL, account.GetGrokMediaBaseURL())
 }

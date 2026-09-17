@@ -139,12 +139,9 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 	// 先记录首发 wire body；如果后面进入 400 retry，retry 会基于未签名的逻辑 body 重新构建。
 	acceptedWireBody := wireBody
 
-	// 获取代理URL（自定义 base URL 模式下，proxy 通过 buildCustomRelayURL 作为查询参数传递）
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
-		if !account.IsCustomBaseURLEnabled() || account.GetCustomBaseURL() == "" {
-			proxyURL = account.Proxy.URL()
-		}
+		proxyURL = account.Proxy.URL()
 	}
 
 	// 发送请求
@@ -455,16 +452,6 @@ func (s *GatewayService) buildCountTokensRequest(ctx context.Context, c *gin.Con
 			return nil, nil, err
 		}
 		targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
-	} else if account.IsCustomBaseURLEnabled() {
-		customURL := account.GetCustomBaseURL()
-		if customURL == "" {
-			return nil, nil, fmt.Errorf("custom_base_url is enabled but not configured for account %d", account.ID)
-		}
-		validatedURL, err := s.validateUpstreamBaseURL(customURL)
-		if err != nil {
-			return nil, nil, err
-		}
-		targetURL = s.buildCustomRelayURL(validatedURL, "/v1/messages/count_tokens", account)
 	}
 
 	clientHeaders := http.Header{}

@@ -17,9 +17,10 @@ describe('CreateAccountModal Grok account types', () => {
     expect(source).toContain("return 'xai-...'")
   })
 
-  it('exposes custom upstream URL and header override for the OAuth create flow', () => {
-    expect(source).toContain('data-testid="grok-custom-base-url-toggle"')
-    expect(source).toContain('data-testid="grok-custom-base-url-input"')
+  it('exposes header override but no custom upstream URL for the OAuth create flow', () => {
+    // 成品号只走官方地址；要走中转请按第三方 key 建号
+    expect(source).not.toContain('data-testid="grok-custom-base-url-toggle"')
+    expect(source).not.toContain('data-testid="grok-custom-base-url-input"')
     expect(source).toContain('form.platform === \'grok\' && isOAuthFlow')
   })
 
