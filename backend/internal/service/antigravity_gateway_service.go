@@ -291,6 +291,19 @@ func mapAntigravityModel(account *Account, requestedModel string) string {
 	return ""
 }
 
+// antigravityThirdPartyKeyError 在第三方 key 被送进 v1internal 转发入口时返回错误。
+//
+// v1internal 只服务 Antigravity 成品号（OAuth 令牌、项目号、成品号模型映射）；第三方
+// key 必须按协议地址走标准网关，标签选了 antigravity 也一样。走到这里说明上游路由
+// 出错，直接以非 failover 错误暴露：若按取令牌失败处理（502 + failover），换号后请求
+// 照样能成功，错误路由会被悄悄吞掉。
+func antigravityThirdPartyKeyError(account *Account) error {
+	if account == nil || !account.IsThirdPartyKey() {
+		return nil
+	}
+	return fmt.Errorf("account %d is a third-party key and cannot be forwarded through the Antigravity v1internal upstream; it must be routed by its protocol endpoints", account.ID)
+}
+
 // getMappedModel 获取映射后的模型名
 // 完全依赖映射配置：账户映射（通配符）→ 默认映射兜底
 func (s *AntigravityGatewayService) getMappedModel(account *Account, requestedModel string) string {

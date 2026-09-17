@@ -251,9 +251,17 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
-		if groupPlatform == service.PlatformGemini && account.Platform != service.PlatformGemini {
+		forwardTarget := chatCompletionsForwardTarget(groupPlatform, account)
+		if forwardTarget == compatForwardSkip {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()
+			}
+			if account.IsThirdPartyKey() {
+				// 调度按协议地址放行 key，这里仍对不上说明两边口径不一致，留日志而不是静默换号。
+				reqLog.Warn("gateway.cc.key_protocol_unavailable",
+					zap.Int64("account_id", account.ID),
+					zap.String("group_platform", groupPlatform),
+				)
 			}
 			fs.FailedAccountIDs[account.ID] = struct{}{}
 			continue
@@ -267,7 +275,8 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 		var result *service.ForwardResult
 		setActualUpstreamEndpoint(c, "")
-		if account.Platform == service.PlatformGemini {
+		switch forwardTarget {
+		case compatForwardGemini:
 			if h.geminiCompatService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Gemini compatibility service is not configured")
 				if accountReleaseFunc != nil {
@@ -276,7 +285,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				return
 			}
 			result, err = h.geminiCompatService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody)
-		} else if shouldUseAntigravityCompat(account) {
+		case compatForwardAntigravity:
 			if h.antigravityGatewayService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
 				if accountReleaseFunc != nil {
@@ -286,7 +295,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			}
 			setActualUpstreamEndpoint(c, EndpointAntigravityGenerateContent)
 			result, err = h.antigravityGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
-		} else {
+		default:
 			result, err = h.gatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, parsedReq)
 		}
 

@@ -280,14 +280,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	)
 
 	// 获取平台：优先使用强制平台（/antigravity 路由），其次使用 composite 解析出的目标平台，否则使用分组平台
-	platform := ""
-	if forcePlatform, ok := middleware2.GetForcePlatformFromContext(c); ok {
-		platform = forcePlatform
-	} else if resolvedPlatform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok {
-		platform = resolvedPlatform
-	} else if apiKey.Group != nil {
-		platform = apiKey.Group.Platform
-	}
+	platform := messagesGatewayPlatform(c, apiKey)
 	sessionKey := sessionHash
 	if platform == service.PlatformGemini && sessionHash != "" {
 		sessionKey = "gemini:" + sessionHash
@@ -473,7 +466,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
 			writerSizeBeforeForward := c.Writer.Size()
-			if account.IsAntigravity() {
+			// 按账号类别分流：Antigravity 成品号走 v1internal；第三方 key（任何标签）与
+			// Gemini 成品号走 Gemini 兼容转发，key 的地址取 gemini 协议地址。
+			if usesAntigravityV1Internal(account) {
 				result, err = h.antigravityGatewayService.ForwardGemini(
 					requestCtx,
 					c,
@@ -888,7 +883,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
 			writerSizeBeforeForward := c.Writer.Size()
-			if account.IsAntigravity() && account.Type != service.AccountTypeAPIKey {
+			// Antigravity 成品号走 v1internal；第三方 key（任何标签）走 Anthropic Messages 标准转发。
+			if usesAntigravityV1Internal(account) {
 				result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
 			} else {
 				result, err = h.gatewayService.Forward(requestCtx, c, account, attemptParsedReq)
@@ -2169,6 +2165,12 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 	setOpsSelectedAccount(c, account.ID, account.Platform)
+
+	if account.IsThirdPartyKey() && !keyServesAnthropicCountTokens(messagesGatewayPlatform(c, apiKey), account) {
+		// 与 Antigravity 成品号一致返回 404，让客户端回退本地估算。
+		h.errorResponse(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
+		return
+	}
 
 	// 转发请求（不记录使用量）
 	if err := h.gatewayService.ForwardCountTokens(c.Request.Context(), c, account, parsedReq); err != nil {

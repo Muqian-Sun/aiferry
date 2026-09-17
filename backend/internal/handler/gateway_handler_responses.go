@@ -255,6 +255,19 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
+		forwardTarget := responsesForwardTarget(effectiveAPIKeyPlatform(c, apiKey), account)
+		if forwardTarget == compatForwardSkip {
+			if accountReleaseFunc != nil {
+				accountReleaseFunc()
+			}
+			reqLog.Warn("gateway.responses.key_protocol_unavailable",
+				zap.Int64("account_id", account.ID),
+				zap.String("group_platform", effectiveAPIKeyPlatform(c, apiKey)),
+			)
+			fs.FailedAccountIDs[account.ID] = struct{}{}
+			continue
+		}
+
 		// 5. Forward request
 		writerSizeBeforeForward := c.Writer.Size()
 		forwardBody := body
@@ -263,7 +276,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 		var result *service.ForwardResult
 		setActualUpstreamEndpoint(c, "")
-		if shouldUseAntigravityCompat(account) {
+		if forwardTarget == compatForwardAntigravity {
 			if h.antigravityGatewayService == nil {
 				h.responsesErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
 				if accountReleaseFunc != nil {

@@ -55,42 +55,38 @@ func TestGeminiModelAllowlist_DisabledPreservesNativeResponse(t *testing.T) {
 	require.Equal(t, body, filtered)
 }
 
-// TestGeminiV1BetaHandler_PlatformRoutingInvariant 文档化并验证 Handler 层的平台路由逻辑不变量
-// 该测试确保 gemini 和 antigravity 平台的路由逻辑符合预期
+// TestGeminiV1BetaHandler_PlatformRoutingInvariant 验证 GeminiV1BetaModels 的分流判定：
+// 只有 Antigravity 成品号走 ForwardGemini（v1internal），第三方 key 不论标签都走 ForwardNative。
 func TestGeminiV1BetaHandler_PlatformRoutingInvariant(t *testing.T) {
 	tests := []struct {
 		name            string
-		platform        string
+		account         *service.Account
 		expectedService string
-		description     string
 	}{
 		{
-			name:            "Gemini平台使用ForwardNative",
-			platform:        service.PlatformGemini,
+			name:            "Gemini成品号使用ForwardNative",
+			account:         &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth},
 			expectedService: "GeminiMessagesCompatService.ForwardNative",
-			description:     "Gemini OAuth 账户直接调用 Google API",
 		},
 		{
-			name:            "Antigravity平台使用ForwardGemini",
-			platform:        service.PlatformAntigravity,
+			name:            "Antigravity成品号使用ForwardGemini",
+			account:         &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth},
 			expectedService: "AntigravityGatewayService.ForwardGemini",
-			description:     "Antigravity 账户通过 CRS 中转，支持 Gemini 协议",
+		},
+		{
+			name:            "标签为antigravity的第三方key使用ForwardNative",
+			account:         &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeAPIKey},
+			expectedService: "GeminiMessagesCompatService.ForwardNative",
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 模拟 GeminiV1BetaModels 中的路由决策 (lines 199-205 in gemini_v1beta_handler.go)
-			var routedService string
-			if tt.platform == service.PlatformAntigravity {
+			routedService := "GeminiMessagesCompatService.ForwardNative"
+			if usesAntigravityV1Internal(tt.account) {
 				routedService = "AntigravityGatewayService.ForwardGemini"
-			} else {
-				routedService = "GeminiMessagesCompatService.ForwardNative"
 			}
-
-			require.Equal(t, tt.expectedService, routedService,
-				"平台 %s 应该路由到 %s: %s",
-				tt.platform, tt.expectedService, tt.description)
+			require.Equal(t, tt.expectedService, routedService)
 		})
 	}
 }
