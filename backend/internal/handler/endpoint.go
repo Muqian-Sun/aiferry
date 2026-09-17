@@ -272,8 +272,30 @@ func InboundEndpointMiddleware() gin.HandlerFunc {
 		if path == "" {
 			path = c.FullPath()
 		}
-		c.Set(ctxKeyInboundEndpoint, NormalizeInboundEndpoint(path))
+		endpoint := NormalizeInboundEndpoint(path)
+		c.Set(ctxKeyInboundEndpoint, endpoint)
+		if c.Request != nil {
+			// 调度在 service 层只拿得到 context，入站协议要随请求 context 带下去。
+			c.Request = c.Request.WithContext(service.WithInboundProtocol(c.Request.Context(), InboundProtocolForEndpoint(endpoint)))
+		}
 		c.Next()
+	}
+}
+
+// InboundProtocolForEndpoint 把规范化后的入站端点映射成入站协议。
+// 图片、向量、搜索、视频等 OpenAI 扩展端点不属于四种协议，返回空串。
+func InboundProtocolForEndpoint(endpoint string) string {
+	switch endpoint {
+	case EndpointMessages:
+		return service.APIProtocolAnthropic
+	case EndpointChatCompletions:
+		return service.APIProtocolChatCompletions
+	case EndpointResponses, EndpointResponsesCompact, EndpointResponsesInputTokens:
+		return service.APIProtocolResponses
+	case EndpointGeminiModels:
+		return service.APIProtocolGemini
+	default:
+		return ""
 	}
 }
 

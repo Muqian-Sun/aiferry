@@ -308,6 +308,41 @@ func TestInboundEndpointMiddleware(t *testing.T) {
 	require.Equal(t, EndpointMessages, captured)
 }
 
+// TestInboundEndpointMiddleware_SetsInboundProtocol 调度在 service 层只拿得到请求
+// context，入站协议必须随 context 带下去；扩展端点不属于四种协议，不写。
+func TestInboundEndpointMiddleware_SetsInboundProtocol(t *testing.T) {
+	tests := []struct {
+		routePath   string
+		requestPath string
+		want        string
+	}{
+		{"/antigravity/v1/messages", "/antigravity/v1/messages", service.APIProtocolAnthropic},
+		{"/v1/chat/completions", "/v1/chat/completions", service.APIProtocolChatCompletions},
+		{"/v1/responses/*subpath", "/v1/responses/compact", service.APIProtocolResponses},
+		{"/backend-api/codex/responses", "/backend-api/codex/responses", service.APIProtocolResponses},
+		{"/antigravity/v1beta/models/*modelAction", "/antigravity/v1beta/models/gemini-2.5-pro:generateContent", service.APIProtocolGemini},
+		{"/v1/images/generations", "/v1/images/generations", ""},
+	}
+	for _, tt := range tests {
+		t.Run(tt.requestPath, func(t *testing.T) {
+			router := gin.New()
+			router.Use(InboundEndpointMiddleware())
+
+			captured := "unset"
+			router.POST(tt.routePath, func(c *gin.Context) {
+				captured = service.InboundProtocolFromContext(c.Request.Context())
+				c.Status(http.StatusOK)
+			})
+
+			rec := httptest.NewRecorder()
+			router.ServeHTTP(rec, httptest.NewRequest(http.MethodPost, tt.requestPath, nil))
+
+			require.Equal(t, http.StatusOK, rec.Code)
+			require.Equal(t, tt.want, captured)
+		})
+	}
+}
+
 func TestGetInboundEndpoint_FallbackWithoutMiddleware(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

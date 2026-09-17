@@ -46,15 +46,7 @@ func RegisterGatewayRoutes(
 	groupModelAllowlist := middleware.GroupModelAllowlist()
 
 	isOpenAIResponsesCompatibleGatewayPlatform := func(c *gin.Context) bool {
-		switch getGroupPlatform(c) {
-		case service.PlatformOpenAI, service.PlatformGrok,
-			service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek,
-			service.PlatformMiniMax, service.PlatformOpenCodeGo:
-			// 国产 OpenAI 兼容供应商与 openai/grok 一样经 OpenAI 网关转发。
-			return true
-		default:
-			return false
-		}
+		return service.IsOpenAIGatewayPlatform(getGroupPlatform(c))
 	}
 	countTokensHandler := func(c *gin.Context) {
 		switch getGroupPlatform(c) {
