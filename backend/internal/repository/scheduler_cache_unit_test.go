@@ -307,12 +307,13 @@ func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSFlags(t *testing.T) {
 			"openai_oauth_responses_websockets_v2_enabled": true,
 			"openai_oauth_responses_websockets_v2_mode":    service.OpenAIWSIngressModePassthrough,
 			"openai_ws_force_http":                         true,
-			"openai_responses_mode":                        "force_chat_completions",
-			"openai_responses_supported":                   false,
-			"codex_fingerprint_mode":                       "session",
-			"codex_fingerprint_seed":                       "11111111-1111-4111-8111-111111111111",
-			"mixed_scheduling":                             true,
-			"unused_large_field":                           "drop-me",
+			// 已退役的 Responses 探测标记：没有读取方，不进调度投影。
+			"openai_responses_mode":      "force_chat_completions",
+			"openai_responses_supported": false,
+			"codex_fingerprint_mode":     "session",
+			"codex_fingerprint_seed":     "11111111-1111-4111-8111-111111111111",
+			"mixed_scheduling":           true,
+			"unused_large_field":         "drop-me",
 		},
 	}
 
@@ -321,8 +322,8 @@ func TestBuildSchedulerMetadataAccount_KeepsOpenAIWSFlags(t *testing.T) {
 	require.Equal(t, true, got.Extra["openai_oauth_responses_websockets_v2_enabled"])
 	require.Equal(t, service.OpenAIWSIngressModePassthrough, got.Extra["openai_oauth_responses_websockets_v2_mode"])
 	require.Equal(t, true, got.Extra["openai_ws_force_http"])
-	require.Equal(t, "force_chat_completions", got.Extra["openai_responses_mode"])
-	require.Equal(t, false, got.Extra["openai_responses_supported"])
+	require.NotContains(t, got.Extra, "openai_responses_mode")
+	require.NotContains(t, got.Extra, "openai_responses_supported")
 	require.Equal(t, "session", got.Extra["codex_fingerprint_mode"])
 	require.Equal(t, "11111111-1111-4111-8111-111111111111", got.Extra["codex_fingerprint_seed"])
 	require.Equal(t, true, got.Extra["mixed_scheduling"])

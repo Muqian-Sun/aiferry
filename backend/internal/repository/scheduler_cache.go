@@ -1012,8 +1012,6 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"responses_websockets_v2_enabled",
 		"openai_ws_enabled",
 		"openai_ws_force_http",
-		"openai_responses_mode",
-		"openai_responses_supported",
 		// 透传开关必须进投影：候选过滤(ListSchedulableAccounts)读的是本投影，
 		// 而 Account.IsModelSupported 靠 extra 上的这两个键短路 model_mapping 白名单。
 		// 裁掉它们，透传账号在选号阶段会退回按(常为过期的)白名单判定并被误判为
