@@ -134,9 +134,9 @@ func cnProviderQuotaSnapshotReset(account *Account, now time.Time) *time.Time {
 	if vendor != PlatformOpenCodeGo && (!IsCNProvider(vendor) || !account.IsCodingPlan()) {
 		return nil
 	}
-	// 快照由额度探测任务按账号平台写入 Extra（键前缀取 account.Platform），这里按同一
-	// 前缀读取；是否启用快照冷却由上面的 Vendor 判定决定。
-	provider := account.Platform
+	// 快照由额度探测任务写入 Extra，键前缀是 GetCodingPlanProvider 按官方地址识别出的厂商
+	// （OpenCode 为 opencodego），与 Vendor 同一口径；按 Vendor 读取，不看平台标签。
+	provider := vendor
 	suffixes := []string{cnExtraSuffix5hReset, cnExtraSuffixWeeklyReset}
 	if vendor == PlatformOpenCodeGo {
 		suffixes = append(suffixes, cnExtraSuffixMonthlyReset)
