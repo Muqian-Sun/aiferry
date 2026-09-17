@@ -49,7 +49,8 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 	cases := map[string]map[string]string{
 		// openai 标签，但只有 chat_completions 地址：续链状态会在转换里丢失。
 		"converted to chat completions": {service.APIProtocolChatCompletions: "https://relay.example.com/v1"},
-		// openai 标签，但地址指向 DeepSeek 官方：其他已知厂商不承接。
+		// openai 标签，但地址指向 DeepSeek 官方：其他已知厂商不承接。请求模型取 DeepSeek
+		// 白名单内的，保证这个 key 是在续链这一关被排除，而不是先在模型支持那一关。
 		"other known vendor": {service.APIProtocolResponses: service.DefaultDeepseekBaseURL},
 	}
 	for name, endpoints := range cases {
@@ -90,7 +91,7 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
 			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", strings.NewReader(
-				`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_key_continuation","input":"hello"}`,
+				`{"model":"deepseek-flash","stream":false,"previous_response_id":"resp_key_continuation","input":"hello"}`,
 			))
 			c.Request.Header.Set("Content-Type", "application/json")
 			// 入站协议由 InboundEndpointMiddleware 写入请求 context，这里直接构造 handler，手动补上。
