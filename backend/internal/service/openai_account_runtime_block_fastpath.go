@@ -90,6 +90,30 @@ func isOpenAIAccount(account *Account) bool {
 	return account != nil && (account.Platform == PlatformOpenAI || account.Platform == PlatformGrok)
 }
 
+// openAIProtocolFeaturesApply 报告 OpenAI 标准协议层面的特性与错误形态是否对账号生效。
+//
+// 成品号看厂商是否为 openai（等同平台）；第三方 key 看 Vendor：官方 OpenAI 地址生效，
+// 通用中转（Vendor 为空）按标准协议实现对待也生效，其他已知厂商不生效。
+func openAIProtocolFeaturesApply(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	return openAIProtocolFeaturesApplyToVendor(account.Vendor(), account.IsThirdPartyKey())
+}
+
+// openAIProtocolFeaturesApplyToVendor 是 openAIProtocolFeaturesApply 的已算好 Vendor 版本，
+// 供热路径上已经取过 Vendor 的调用方复用，避免重复解析协议地址。
+func openAIProtocolFeaturesApplyToVendor(vendor string, thirdPartyKey bool) bool {
+	switch vendor {
+	case PlatformOpenAI:
+		return true
+	case "":
+		return thirdPartyKey
+	default:
+		return false
+	}
+}
+
 // handleOpenAIAccountUpstreamError expects canonicalModel to be the model used
 // for scheduling after applying account mapping exactly once.
 func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, canonicalModel ...string) bool {

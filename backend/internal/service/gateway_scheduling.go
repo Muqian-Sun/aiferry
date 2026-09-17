@@ -2594,15 +2594,17 @@ func summarizeSelectionFailureStats(stats selectionFailureStats) string {
 	)
 }
 
-// isModelSupportedByAccountWithContext 根据账户平台检查模型支持（带 context）
-// 对于 Antigravity 平台，会先获取映射后的最终模型名（包括 thinking 后缀）再检查支持
+// isModelSupportedByAccountWithContext 根据账户上游厂商检查模型支持（带 context）
+// 对于 Antigravity 上游，会先获取映射后的最终模型名（包括 thinking 后缀）再检查支持。
+// Antigravity 只有成品号（第三方 key 的 Vendor 不会是 antigravity），标签为
+// antigravity 的 key 按普通账号的映射判定。
 func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Context, account *Account, requestedModel string) bool {
 	if source, ok := CompositeRouteSourceFromContext(ctx); ok && source == CompositeRouteSourceAccount {
 		if publicModel, modelOK := RequestedPublicModelFromContext(ctx); modelOK && !explicitModelMappingClaims(*account, publicModel) {
 			return false
 		}
 	}
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}
@@ -2624,9 +2626,9 @@ func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Contex
 	return s.isModelSupportedByAccount(account, requestedModel)
 }
 
-// isModelSupportedByAccount 根据账户平台检查模型支持（无 context，用于非 Antigravity 平台）
+// isModelSupportedByAccount 根据账户上游厂商检查模型支持（无 context，用于非 Antigravity 上游）
 func (s *GatewayService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}
@@ -2636,12 +2638,14 @@ func (s *GatewayService) isModelSupportedByAccount(account *Account, requestedMo
 		_, ok := ResolveBedrockModelID(account, requestedModel)
 		return ok
 	}
-	// OpenAI 透传模式：仅替换认证，允许所有模型
-	if account.Platform == PlatformOpenAI && account.IsOpenAIPassthroughEnabled() {
+	// OpenAI 透传模式：仅替换认证，允许所有模型。透传是 OpenAI 标准协议特性，
+	// 只对官方 OpenAI 与通用中转生效。
+	if openAIProtocolFeaturesApply(account) && account.IsOpenAIPassthroughEnabled() {
 		return true
 	}
-	// OAuth/SetupToken 账号使用 Anthropic 标准映射（短ID → 长ID）
-	if account.Platform == PlatformAnthropic && account.Type != AccountTypeAPIKey {
+	// OAuth/SetupToken/Vertex 成品号使用 Anthropic 标准映射（短ID → 长ID）。
+	// 第三方 key 不论标签都不走这条：它的模型名由管理员映射决定，不做官方短名展开。
+	if !account.IsThirdPartyKey() && account.Platform == PlatformAnthropic {
 		if account.Type == AccountTypeServiceAccount {
 			requestedModel = normalizeVertexAnthropicModelID(claude.NormalizeModelID(requestedModel))
 		} else {

@@ -629,13 +629,19 @@ func (a *Account) GetModelMapping() map[string]string {
 	return mapping
 }
 
+// resolveModelMapping 解析账号的有效模型映射。
+//
+// 厂商默认映射（Antigravity 默认表、xAI 模型目录）按 Vendor 启用，不看平台标签：
+// 第三方 key 的标签只用于展示，指向中转的 key 空映射即「允许所有」，不能被套上
+// 某个厂商的模型白名单与别名改写。成品号的 Vendor 就是平台，行为不变。
 func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]string {
+	vendor := a.Vendor()
 	if a.Credentials == nil {
 		// Antigravity 平台使用默认映射
-		if a.IsAntigravity() {
+		if vendor == PlatformAntigravity {
 			return domain.DefaultAntigravityModelMapping
 		}
-		if a.Platform == domain.PlatformGrok {
+		if vendor == PlatformGrok {
 			return xai.DefaultModelMapping()
 		}
 		// Bedrock 默认映射由 forwardBedrock 统一处理（需配合 region prefix 调整）
@@ -646,10 +652,10 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 			return geminicli.GoogleOneModelMapping()
 		}
 		// Antigravity 平台使用默认映射
-		if a.IsAntigravity() {
+		if vendor == PlatformAntigravity {
 			return domain.DefaultAntigravityModelMapping
 		}
-		if a.Platform == domain.PlatformGrok {
+		if vendor == PlatformGrok {
 			return xai.DefaultModelMapping()
 		}
 		return nil
@@ -662,7 +668,7 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 		}
 	}
 	if len(result) > 0 {
-		if a.IsAntigravity() {
+		if vendor == PlatformAntigravity {
 			ensureAntigravityDefaultPassthroughs(result, []string{
 				"gemini-3-flash",
 				"gemini-3.1-pro-high",
@@ -692,10 +698,10 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 	if a.IsGeminiGoogleOne() {
 		return geminicli.GoogleOneModelMapping()
 	}
-	if a.IsAntigravity() {
+	if vendor == PlatformAntigravity {
 		return domain.DefaultAntigravityModelMapping
 	}
-	if a.Platform == domain.PlatformGrok {
+	if vendor == PlatformGrok {
 		return xai.DefaultModelMapping()
 	}
 	return nil
@@ -808,12 +814,15 @@ func mappingHasWildcardForModel(mapping map[string]string, model string) bool {
 	return false
 }
 
-func normalizeRequestedModelForLookup(platform, requestedModel string) string {
+// normalizeRequestedModelForLookup 把请求模型归一成映射表里的查找名。vendor 取
+// Account.Vendor()：customtools 别名是 Google 模型目录的写法，只对 Gemini /
+// Antigravity 上游成立，不随平台标签套到中转 key 上。
+func normalizeRequestedModelForLookup(vendor, requestedModel string) string {
 	trimmed := strings.TrimSpace(requestedModel)
 	if trimmed == "" {
 		return ""
 	}
-	if platform != PlatformGemini && platform != PlatformAntigravity {
+	if vendor != PlatformGemini && vendor != PlatformAntigravity {
 		return trimmed
 	}
 	if trimmed == "gemini-3.1-pro-preview-customtools" {
@@ -856,15 +865,18 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 // 请求卡死在该账号上、无法 failover 到真正支持该模型的 API Key 账号（#3662）。
 // 未知/自定义别名仍保持允许（兼容渠道级映射），见 isOpenAIOAuthServableModel。
 //
-// 例外：DeepSeek 平台的空映射不再是「允许所有」，改按官方模型白名单判定
-// （isDeepseekServableModel）——未知模型名透传上游只会得到 404/400，并误触发
-// per-(账号,模型) 30 分钟冷却；带 [1m] 上下文后缀的写法先归一化再比对。
+// 例外：DeepSeek 上游（Vendor 为 deepseek）的空映射不再是「允许所有」，改按官方
+// 模型白名单判定（isDeepseekServableModel）——未知模型名透传上游只会得到 404/400，
+// 并误触发 per-(账号,模型) 30 分钟冷却；带 [1m] 上下文后缀的写法先归一化再比对。
+// 标签为 deepseek、地址指向中转的 key 不受白名单约束。
 func (a *Account) IsModelSupported(requestedModel string) bool {
 	// 透传模式仅替换认证、模型语义完全交由上游决定，因此放行所有模型。
 	// 该短路必须在 model_mapping 判定之前：账号从"白名单模式"切换到透传后，
 	// credentials 里常残留旧的非空 model_mapping，若不在此放行，透传账号会被
 	// model_mapping 白名单错误排除出候选集，导致 no available accounts / 404（issue #4936）。
-	if a.IsOpenAIPassthroughEnabled() {
+	// 透传是 OpenAI 标准协议特性：只对官方 OpenAI 与通用中转生效，其他已知厂商
+	// 的 key 即使带着开关也不放行，避免绕过该厂商的模型白名单。
+	if openAIProtocolFeaturesApply(a) && a.IsOpenAIPassthroughEnabled() {
 		return true
 	}
 	mapping := a.GetModelMapping()
@@ -872,7 +884,7 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 		if a.IsOpenAIOAuth() {
 			return isOpenAIOAuthServableModel(requestedModel)
 		}
-		if a.Platform == PlatformDeepseek {
+		if a.Vendor() == PlatformDeepseek {
 			return isDeepseekServableModel(requestedModel)
 		}
 		return true // 无映射 = 允许所有
@@ -880,7 +892,7 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 	if mappingSupportsRequestedModel(mapping, requestedModel) {
 		return true
 	}
-	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)
+	normalized := normalizeRequestedModelForLookup(a.Vendor(), requestedModel)
 	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
 }
 
@@ -901,7 +913,7 @@ func (a *Account) ResolveMappedModel(requestedModel string) (mappedModel string,
 	if mappedModel, matched := resolveRequestedModelInMapping(mapping, requestedModel); matched {
 		return mappedModel, true
 	}
-	normalized := normalizeRequestedModelForLookup(a.Platform, requestedModel)
+	normalized := normalizeRequestedModelForLookup(a.Vendor(), requestedModel)
 	if normalized != requestedModel {
 		if mappedModel, matched := resolveRequestedModelInMapping(mapping, normalized); matched {
 			return mappedModel, true
