@@ -74,10 +74,10 @@ func TestSchedulerSnapshot_KeyChangeRebuildsEveryGatewayPlatformBucket(t *testin
 
 	platforms := schedulerSnapshotPlatforms()
 	require.ElementsMatch(t, schedulerBucketsForTest([]int64{groupID}, platforms[:]...), cache.capturedBuckets())
-	// 桶不看入站协议：openai 桶里有这个 anthropic 标签的 key 与 openai 成品号；
-	// anthropic 混合桶里也有这个 key（尽管它没有 anthropic 地址），成品号仍按平台归桶。
+	// 桶不看入站协议与标签：openai 桶里有这个 anthropic 标签的 key 与 openai 成品号；
+	// gemini 混合桶里也有这个 key（尽管它没有 gemini 地址），成品号仍按平台归桶。
 	require.Equal(t, []int64{key.ID, subscription.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformOpenAI, Mode: SchedulerModeSingle}))
-	require.Equal(t, []int64{key.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformAnthropic, Mode: SchedulerModeMixed}))
+	require.Equal(t, []int64{key.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformGemini, Mode: SchedulerModeMixed}))
 	require.Equal(t, []int64{key.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformGrok, Mode: SchedulerModeForced}))
 }
 

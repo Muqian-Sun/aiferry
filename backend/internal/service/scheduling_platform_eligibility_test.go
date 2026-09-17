@@ -282,6 +282,42 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CrossLabelKeyByGroupProto
 	}
 }
 
+// antigravity 分组按入站协议只走一种上游协议：只有 gemini 地址的 key 不承接 /v1/messages，
+// 但承接 Gemini 原生请求。传统单平台选号循环依赖候选列表已按协议过滤。
+func TestGatewayService_AntigravityGroupKeyNeedsInboundProtocolEndpoint(t *testing.T) {
+	groupID := int64(20991)
+	key := schedulingTestKey(20992, PlatformAntigravity, map[string]string{APIProtocolGemini: schedulingTestRelayURL}, groupID)
+	for _, loadBatch := range []bool{true, false} {
+		t.Run(fmt.Sprintf("load batch=%v", loadBatch), func(t *testing.T) {
+			repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
+			for i := range repo.accounts {
+				repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
+			}
+			cfg := testConfig()
+			cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
+			svc := &GatewayService{
+				accountRepo: repo,
+				groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
+					groupID: {ID: groupID, Platform: PlatformAntigravity, Status: StatusActive, Hydrated: true},
+				}},
+				cache:              &mockGatewayCacheForPlatform{},
+				cfg:                cfg,
+				concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
+			}
+
+			anthropicCtx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
+			result, err := svc.SelectAccountWithLoadAwareness(anthropicCtx, &groupID, "", "", nil, "", 0)
+			require.ErrorIs(t, err, ErrNoAvailableAccounts)
+			require.Nil(t, result)
+
+			geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
+			result, err = svc.SelectAccountWithLoadAwareness(geminiCtx, &groupID, "", "", nil, "", 0)
+			require.NoError(t, err)
+			require.Equal(t, key.ID, result.Account.ID)
+		})
+	}
+}
+
 // 成品号的混合调度与平台匹配不受第三方 key 规则影响：anthropic 分组照旧选中启用了
 // mixed_scheduling 的 antigravity 成品号，跳过未启用的 antigravity 成品号与其他平台成品号。
 func TestGatewayService_SelectAccountWithLoadAwareness_SubscriptionMixedSchedulingUnchanged(t *testing.T) {
