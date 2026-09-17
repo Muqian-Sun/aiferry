@@ -148,9 +148,7 @@ export default {
         codeAssist: 'Code Assist',
         antigravityOauth: 'Antigravity OAuth',
         grokOauth: 'Grok OAuth',
-        antigravityApikey: 'Connect via Base URL + API Key',
-        upstream: 'Upstream',
-        upstreamDesc: 'Connect via Base URL + API Key'
+        antigravityApikey: 'Connect via Base URL + API Key'
       },
       antigravityProjectIdLabel: 'GCP Project ID (optional)',
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',

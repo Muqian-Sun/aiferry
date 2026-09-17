@@ -352,9 +352,7 @@ export default {
         codeAssist: 'Code Assist',
         antigravityOauth: 'Antigravity OAuth',
         grokOauth: 'Grok OAuth',
-        antigravityApikey: '通过 Base URL + API Key 连接',
-        upstream: '对接上游',
-        upstreamDesc: '通过 Base URL + API Key 连接上游'
+        antigravityApikey: '通过 Base URL + API Key 连接'
       },
       antigravityProjectIdLabel: 'GCP Project ID（可选）',
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',

@@ -807,29 +807,6 @@
         </template>
       </div>
 
-      <!-- Upstream fields (only for upstream type) -->
-      <div v-if="account.type === 'upstream'" class="space-y-4">
-        <div>
-          <ProtocolEndpointsEditor
-            v-model="editProtocolEndpoints"
-            :protocols="UPSTREAM_PROTOCOLS"
-            :official-endpoints="officialProtocolEndpoints"
-            :defaults-load-failed="protocolDefaultsLoadFailed"
-          />
-          <p class="input-hint">{{ t('admin.accounts.upstream.baseUrlHint') }}</p>
-        </div>
-        <div>
-          <label class="input-label">{{ t('admin.accounts.upstream.apiKey') }}</label>
-          <input
-            v-model="editApiKey"
-            type="password"
-            class="input font-mono"
-            placeholder="sk-..."
-          />
-          <p class="input-hint">{{ t('admin.accounts.leaveEmptyToKeep') }}</p>
-        </div>
-      </div>
-
       <!-- Vertex Service Account -->
       <div v-if="(account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account'" class="space-y-4">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -4903,29 +4880,6 @@ const handleSubmit = async () => {
 
       // Add intercept warmup requests setting
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-      applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
-      if (!applyTempUnschedConfig(newCredentials)) {
-        return
-      }
-
-      updatePayload.credentials = newCredentials
-    } else if (props.account.type === 'upstream') {
-      const upstreamEndpoints = validatedProtocolEndpoints()
-      if (!upstreamEndpoints) {
-        return
-      }
-      updatePayload.protocol_endpoints = upstreamEndpoints
-      const currentCredentials = (props.account.credentials as Record<string, unknown>) || {}
-      const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      delete newCredentials.base_url
-
-      if (editApiKey.value.trim()) {
-        newCredentials.api_key = editApiKey.value.trim()
-      }
-
-      // Add intercept warmup requests setting
-      applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
-
       applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
       if (!applyTempUnschedConfig(newCredentials)) {
         return

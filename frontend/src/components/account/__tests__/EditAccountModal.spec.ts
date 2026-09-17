@@ -718,24 +718,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
   })
 
-  it('saves legacy upstream-type accounts with protocol endpoints only', async () => {
-    const account = buildAccount()
-    account.platform = 'antigravity'
-    account.type = 'upstream'
-    account.protocol_endpoints = { anthropic: 'https://relay.example.com/antigravity' }
-    account.credentials = { base_url: 'https://stale.example.com' }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
-
-    const wrapper = mountModal(account)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://relay.example.com/antigravity' })
-    expect(payload?.credentials).not.toHaveProperty('base_url')
-  })
-
   it('fills the preset protocol endpoint when a Chinese provider preset is picked', async () => {
     const account = buildAccount()
     account.platform = 'minimax'
