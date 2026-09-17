@@ -53,13 +53,13 @@ func TestProtocolEndpointPreferredOverStoredBaseURL(t *testing.T) {
 		require.Equal(t, "https://resp.example.com", account.GetOpenAIResponsesBaseURL())
 	})
 
-	t.Run("responses 未单独配置时回落 chat_completions", func(t *testing.T) {
+	t.Run("responses 未配置时不借用 chat_completions 地址", func(t *testing.T) {
 		account := Account{
 			Type:              AccountTypeAPIKey,
 			Platform:          PlatformOpenAI,
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://cc.example.com"},
 		}
-		require.Equal(t, "https://cc.example.com", account.GetOpenAIResponsesBaseURL())
+		require.Empty(t, account.GetOpenAIResponsesBaseURL())
 	})
 
 	t.Run("gemini 优先使用 gemini 映射", func(t *testing.T) {

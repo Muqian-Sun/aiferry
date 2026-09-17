@@ -3,6 +3,7 @@ package service
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -282,7 +283,7 @@ func (a *Account) IsMultiProtocolAPIKey() bool {
 	return a != nil && IsMultiProtocolAPIKeyProvider(a.Platform)
 }
 
-// openCodeGoNativeProtocol 返回 OpenCode Go 实际上游协议。
+// openCodeGoNativeProtocol 返回 OpenCode 官方网关上该模型的原生上游协议。
 // 规则未命中、空值或未知协议一律兜底 Chat Completions，避免落入 Responses 转换链。
 func openCodeGoNativeProtocol(account *Account, model string) string {
 	if account == nil {
@@ -296,22 +297,36 @@ func openCodeGoNativeProtocol(account *Account, model string) string {
 	}
 }
 
-// ResolveOpenCodeGoUpstreamProtocol 按账号协议配置与模型规则决定上游协议。
-// 显式 pinned 协议优先；adaptive（默认）先走 credentials.protocol_rules，
-// 未配置时回落内置默认表；已配置但未命中则走 Chat Completions。
+// ResolveOpenCodeGoUpstreamProtocol 按模型规则返回 OpenCode 官方网关上该模型的原生
+// 上游协议：配置了 credentials.protocol_rules 就用它（未命中走 Chat Completions），
+// 否则用内置默认表。
+//
+// 按模型分流是 OpenCode 官方网关的厂商特化：只对地址识别为 OpenCode 的账号生效，
+// 平台标签不参与，其余账号返回空串。
 func (a *Account) ResolveOpenCodeGoUpstreamProtocol(model string) string {
-	if a == nil || !a.IsOpenCodeGo() {
+	if a == nil || a.Vendor() != PlatformOpenCodeGo {
 		return ""
 	}
-	switch a.GetAPIProtocol() {
-	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses:
-		return a.GetAPIProtocol()
-	default:
-		if rules, present := a.openCodeGoProtocolRules(); present {
-			return matchOpenCodeGoProtocolRules(model, rules)
-		}
-		return matchOpenCodeGoProtocolRules(model, defaultOpenCodeProtocolRules(a.GetOpenCodeAccountMode()))
+	if rules, present := a.openCodeGoProtocolRules(); present {
+		return matchOpenCodeGoProtocolRules(model, rules)
 	}
+	return matchOpenCodeGoProtocolRules(model, defaultOpenCodeProtocolRules(a.openCodeEndpointMode()))
+}
+
+// openCodeEndpointMode 按协议地址区分 OpenCode 的 Go 套餐与 Zen 按量：Go 的官方地址在
+// /zen/go 下。内置默认规则表按套餐不同，地址是比平台标签下的 account_mode 更直接的依据。
+func (a *Account) openCodeEndpointMode() string {
+	for _, endpoint := range a.ProtocolEndpoints {
+		parsed, err := url.Parse(strings.TrimSpace(endpoint))
+		if err != nil {
+			continue
+		}
+		path := strings.TrimRight(parsed.Path, "/")
+		if path == "/zen/go" || strings.HasPrefix(path, "/zen/go/") {
+			return AccountModeGo
+		}
+	}
+	return AccountModeZen
 }
 
 func openCodeGoQuotaURL(baseURL string) string {

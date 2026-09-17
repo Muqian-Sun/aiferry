@@ -127,17 +127,15 @@ func TestDeepSeekResponsesForwardRestoresClientToolsStreaming(t *testing.T) {
 		Body:       io.NopCloser(strings.NewReader(sse)),
 	}}
 	svc := openAIClientToolsTestService(upstream)
+	// 适配按地址识别出的厂商启用：标签是 openai，地址是 DeepSeek 官方。
 	account := &Account{
-		ID:       5661,
-		Platform: PlatformDeepseek,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_key":      "test-key",
-			"api_protocol": APIProtocolResponses,
-			"base_url":     "https://relay.example",
-		},
+		ID:          5661,
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test-key"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://relay.example",
+			APIProtocolChatCompletions: DefaultDeepseekBaseURL,
+			APIProtocolResponses:       DefaultDeepseekBaseURL,
 		},
 	}
 
@@ -170,18 +168,12 @@ func TestDeepSeekAdaptiveResponsesForwardRestoresClientToolsNonStreaming(t *test
 	}}
 	svc := openAIClientToolsTestService(upstream)
 	account := &Account{
-		ID:       5662,
-		Platform: PlatformDeepseek,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_key":      "test-key",
-			"api_protocol": APIProtocolAdaptive,
-			"api_base_urls": map[string]any{
-				APIProtocolResponses: "https://relay.example",
-			},
-		},
+		ID:          5662,
+		Platform:    PlatformDeepseek,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test-key"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolResponses: "https://relay.example",
+			APIProtocolResponses: DefaultDeepseekBaseURL,
 		},
 	}
 
@@ -211,16 +203,13 @@ func TestDeepSeekResponsesCompactSkipsClientToolAdaptation(t *testing.T) {
 	}}
 	svc := openAIClientToolsTestService(upstream)
 	account := &Account{
-		ID:       5663,
-		Platform: PlatformDeepseek,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_key":      "test-key",
-			"api_protocol": APIProtocolResponses,
-			"base_url":     "https://relay.example",
-		},
+		ID:          5663,
+		Platform:    PlatformDeepseek,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test-key"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://relay.example",
+			APIProtocolChatCompletions: DefaultDeepseekBaseURL,
+			APIProtocolResponses:       DefaultDeepseekBaseURL,
 		},
 	}
 
@@ -229,6 +218,38 @@ func TestDeepSeekResponsesCompactSkipsClientToolAdaptation(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, "custom", gjson.GetBytes(upstream.lastBody, "tools.0.type").String())
 	require.Equal(t, "/responses/compact", upstream.lastReq.URL.Path)
+}
+
+// TestDeepSeekLabelOnRelayKeepsClientTools：标签是 deepseek、地址是中转时不做 DeepSeek 适配，
+// custom 工具按标准 Responses 原样发往 /v1/responses。
+func TestDeepSeekLabelOnRelayKeepsClientTools(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	body := openAIClientToolsRequest(false)
+	recorder := httptest.NewRecorder()
+	c, _ := gin.CreateTestContext(recorder)
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
+
+	upstream := &httpUpstreamRecorder{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"id":"resp_relay","status":"completed","output":[],"usage":{"input_tokens":1,"output_tokens":1}}`)),
+	}}
+	svc := openAIClientToolsTestService(upstream)
+	account := &Account{
+		ID:          5664,
+		Platform:    PlatformDeepseek,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "test-key"},
+		ProtocolEndpoints: map[string]string{
+			APIProtocolResponses: "https://relay.example",
+		},
+	}
+
+	_, err := svc.Forward(context.Background(), c, account, body)
+
+	require.NoError(t, err)
+	require.Equal(t, "custom", gjson.GetBytes(upstream.lastBody, "tools.0.type").String())
+	require.Equal(t, "/v1/responses", upstream.lastReq.URL.Path)
 }
 
 func TestOpenAIPassthroughAPIKeyRestoresClientToolsNonStreaming(t *testing.T) {

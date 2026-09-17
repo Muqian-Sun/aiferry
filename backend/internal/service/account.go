@@ -104,8 +104,7 @@ const (
 	// require this capability so already-submitted requests remain queryable.
 	OpenAIEndpointCapabilityGrokMediaGeneration OpenAIEndpointCapability = "grok_media_generation"
 	// OpenAIEndpointCapabilityResponses 表示上游确实提供 /v1/responses 端点。
-	// 与其他能力不同：支持状态来自 accounts.extra 的自动探测标记
-	// （openai_responses_supported / openai_responses_mode），而非
+	// 与其他能力不同：第三方 key 的支持状态来自 responses 协议地址，而非
 	// credentials["openai_capabilities"] 配置集。仅用于生图意图的 /v1/responses
 	// 调度，避免把请求调度到会在 forward 阶段被降级为 Chat Completions 的账号（#4417）。
 	OpenAIEndpointCapabilityResponses OpenAIEndpointCapability = "responses"
@@ -1375,16 +1374,17 @@ func (a *Account) IsOpenAIApiKey() bool {
 	return a.IsOpenAI() && a.Type == AccountTypeAPIKey
 }
 
-// GetOpenAIBaseURL 解析 OpenAI 协议族账号的上游 base_url。
-// 适用 openai、国产 OpenAI 兼容供应商（kimi/zhipu/deepseek）与 OpenCode Go；
-// grok 走 GetGrokBaseURL，此处对 grok 返回 "" 以保持原有行为。
+// GetOpenAIBaseURL 解析 Chat Completions 协议的上游 base_url。
+//
+// 第三方 key 只认 chat_completions 协议地址，与平台标签无关，没有默认端点兜底。
+// 成品号走厂商官方端点：openai、国产供应商与 OpenCode Go 之外（grok 走
+// GetGrokBaseURL）返回空串。
 func (a *Account) GetOpenAIBaseURL() string {
-	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
-		return ""
-	}
-	// 第三方 key：地址只认协议映射，没有默认端点兜底。
 	if a.IsThirdPartyKey() {
 		return a.ProtocolEndpoint(APIProtocolChatCompletions)
+	}
+	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
+		return ""
 	}
 	// 成品号：走厂商官方端点。
 	switch a.Platform {
@@ -1658,33 +1658,19 @@ func (a *Account) GetOpenAIIDToken() string {
 	return a.GetCredential("id_token")
 }
 
-func (a *Account) GetOpenAIApiKey() string {
-	if !a.IsOpenAIApiKey() {
+// GetOpenAIProtocolAPIKey 返回第三方 key 的密钥（credentials.api_key），供 OpenAI
+// 网关转发鉴权、模型列表同步等路径使用。与平台标签无关；成品号没有 api_key，返回空串。
+func (a *Account) GetOpenAIProtocolAPIKey() string {
+	if !a.IsThirdPartyKey() {
 		return ""
 	}
 	return a.GetCredential("api_key")
 }
 
-// GetOpenAIProtocolAPIKey 返回 OpenAI 协议族 APIKey 账号的密钥。
-// 覆盖 openai 原生账号、国产 OpenAI 兼容供应商（kimi/zhipu/deepseek）
-// 以及 OpenCode Go 账号，供转发鉴权、模型列表同步等协议族共用路径使用。
-// 注意 IsOpenAIApiKey 语义上仅指 openai 平台账号，调度倍率/WS 能力门控
-// 继续以其为准，不受本方法影响。
-func (a *Account) GetOpenAIProtocolAPIKey() string {
-	if a == nil {
-		return ""
-	}
-	if a.IsMultiProtocolAPIKey() {
-		if a.Type != AccountTypeAPIKey {
-			return ""
-		}
-		return a.GetCredential("api_key")
-	}
-	return a.GetOpenAIApiKey()
-}
-
+// GetOpenAIUserAgent 返回账号自定义的上游 User-Agent。第三方 key 不看平台标签；
+// 成品号只有 OpenAI 平台支持该配置。
 func (a *Account) GetOpenAIUserAgent() string {
-	if !a.IsOpenAI() {
+	if !a.IsThirdPartyKey() && !a.IsOpenAI() {
 		return ""
 	}
 	return a.GetCredential("user_agent")
@@ -3216,12 +3202,15 @@ func (a *Account) QuotaDimensionOrDefault() string {
 	return a.QuotaDimension
 }
 
-// GetOpenAIResponsesBaseURL 解析 Responses 端点的上游地址。
-// 协议映射里单独配了 responses 就用它，否则回落到 Chat Completions 的地址——
-// 多数第三方中转两个端点同源，只有少数会把 Responses 放在不同主机上。
+// GetOpenAIResponsesBaseURL 返回第三方 key 的 Responses 协议上游地址，未配置时返回空串。
+//
+// 只认 responses 协议地址，不借用 Chat Completions 的地址：只配了 chat_completions
+// 的 key 不提供 /v1/responses，Responses 入站由协议选择转成 Chat Completions，
+// 调用方取到空串必须报 MissingProtocolEndpointError。成品号的 Responses 端点由厂商
+// 决定（Codex 走 chatgpt.com），返回空串。
 func (a *Account) GetOpenAIResponsesBaseURL() string {
-	if endpoint := a.ProtocolEndpoint(APIProtocolResponses); endpoint != "" {
-		return endpoint
+	if !a.IsThirdPartyKey() {
+		return ""
 	}
-	return a.GetOpenAIBaseURL()
+	return a.ProtocolEndpoint(APIProtocolResponses)
 }

@@ -32,25 +32,36 @@ func TestOpenCodeGoModelProtocol(t *testing.T) {
 	}
 }
 
+// openCodeKeyTestAccount 是挂在 OpenCode 官方地址上的第三方 key；平台标签故意不是
+// opencode_go，证明按模型分流只看地址。
+func openCodeKeyTestAccount(platform string, chatBase string, anthropicBase string) *Account {
+	return &Account{
+		Platform: platform,
+		Type:     AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{
+			APIProtocolChatCompletions: chatBase,
+			APIProtocolAnthropic:       anthropicBase,
+			APIProtocolResponses:       chatBase,
+		},
+	}
+}
+
 func TestResolveOpenCodeGoUpstreamProtocol(t *testing.T) {
 	t.Parallel()
-	adaptive := &Account{Platform: PlatformOpenCodeGo, Credentials: map[string]any{"api_protocol": APIProtocolAdaptive}}
-	require.Equal(t, APIProtocolAnthropic, adaptive.ResolveOpenCodeGoUpstreamProtocol("minimax-m3"))
-	require.Equal(t, APIProtocolResponses, adaptive.ResolveOpenCodeGoUpstreamProtocol("grok-4.6"))
-	require.Equal(t, APIProtocolChatCompletions, adaptive.ResolveOpenCodeGoUpstreamProtocol("glm-5.3"))
+	goPlan := openCodeKeyTestAccount(PlatformOpenAI, DefaultOpenCodeGoBaseURL, DefaultOpenCodeGoAnthropicBaseURL)
+	require.Equal(t, APIProtocolAnthropic, goPlan.ResolveOpenCodeGoUpstreamProtocol("minimax-m3"))
+	require.Equal(t, APIProtocolResponses, goPlan.ResolveOpenCodeGoUpstreamProtocol("grok-4.6"))
+	require.Equal(t, APIProtocolChatCompletions, goPlan.ResolveOpenCodeGoUpstreamProtocol("glm-5.3"))
 
-	pinned := &Account{Platform: PlatformOpenCodeGo, Credentials: map[string]any{"api_protocol": APIProtocolChatCompletions}}
-	require.Equal(t, APIProtocolChatCompletions, pinned.ResolveOpenCodeGoUpstreamProtocol("minimax-m3"))
-
-	empty := &Account{Platform: PlatformOpenCodeGo}
-	require.Equal(t, APIProtocolResponses, empty.ResolveOpenCodeGoUpstreamProtocol("gpt-5.6-luna"))
-	require.Equal(t, AccountModeGo, empty.GetOpenCodeAccountMode())
-	require.True(t, empty.IsOpenCodeGoPlan())
-
-	zen := &Account{Platform: PlatformOpenCodeGo, Credentials: map[string]any{"account_mode": AccountModeZen, "api_protocol": APIProtocolAdaptive}}
+	// Zen 与 Go 的默认规则表不同，按地址区分，不看凭据里的 account_mode。
+	zen := openCodeKeyTestAccount(PlatformOpenAI, DefaultOpenCodeZenBaseURL, DefaultOpenCodeZenAnthropicBaseURL)
+	zen.Credentials = map[string]any{"account_mode": AccountModeGo}
 	require.Equal(t, APIProtocolChatCompletions, zen.ResolveOpenCodeGoUpstreamProtocol("minimax-m3"))
 	require.Equal(t, APIProtocolAnthropic, zen.ResolveOpenCodeGoUpstreamProtocol("claude-opus-4-6"))
-	require.Equal(t, DefaultOpenCodeZenBaseURL, zen.GetOpenAIBaseURL())
+
+	// opencode_go 标签挂在中转地址上：不是 OpenCode 官方网关，不按模型分流。
+	relay := openCodeKeyTestAccount(PlatformOpenCodeGo, "https://relay.example.com/v1", "https://relay.example.com")
+	require.Equal(t, "", relay.ResolveOpenCodeGoUpstreamProtocol("minimax-m3"))
 
 	require.Equal(t, "", (&Account{Platform: PlatformKimi}).ResolveOpenCodeGoUpstreamProtocol("glm-5.3"))
 }
@@ -141,17 +152,13 @@ func TestParseOpenCodeGoProtocolRulesAcceptsTypedMaps(t *testing.T) {
 	}, rules)
 }
 
-func TestShouldForwardOpenAIResponsesViaRawChatCompletions_OpenCodeGoIgnoresProbe(t *testing.T) {
+// TestShouldForwardOpenAIResponsesViaRawChatCompletions_OpenCodeModelRules：OpenCode 官方地址
+// 按模型分流，不带模型时不判定为「Responses 转 Chat Completions」，即使没配 responses 地址。
+func TestShouldForwardOpenAIResponsesViaRawChatCompletions_OpenCodeModelRules(t *testing.T) {
 	t.Parallel()
 	account := &Account{
-		Platform: PlatformOpenCodeGo,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"api_protocol": APIProtocolAdaptive,
-		},
-		Extra: map[string]any{
-			"openai_responses_supported": false,
-		},
+		Platform:          PlatformOpenCodeGo,
+		Type:              AccountTypeAPIKey,
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://opencode.ai/zen", APIProtocolChatCompletions: "https://opencode.ai/zen/v1"},
 	}
 	require.False(t, shouldForwardOpenAIResponsesViaRawChatCompletions(account))

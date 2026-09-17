@@ -165,8 +165,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionIgnores
 				Schedulable: true,
 				Concurrency: 1,
 				Extra: map[string]any{
-					"openai_compact_supported":   false,
-					"openai_responses_supported": true,
+					"openai_compact_supported": false,
 				},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}}, advanced)
@@ -191,8 +190,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NativeCompactionAllowsF
 				Schedulable: true,
 				Concurrency: 1,
 				Extra: map[string]any{
-					"openai_compact_mode":        OpenAICompactModeForceOff,
-					"openai_responses_supported": true,
+					"openai_compact_mode": OpenAICompactModeForceOff,
 				},
 				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}}, advanced)
@@ -245,8 +243,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCo
 					Schedulable: true,
 					Concurrency: 1,
 					Extra: map[string]any{
-						"openai_compact_supported":   false,
-						"openai_responses_supported": true,
+						"openai_compact_supported": false,
 					},
 					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 				},
@@ -258,8 +255,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LegacyCompactionKeepsCo
 					Schedulable: true,
 					Concurrency: 1,
 					Extra: map[string]any{
-						"openai_compact_mode":        OpenAICompactModeForceOff,
-						"openai_responses_supported": true,
+						"openai_compact_mode": OpenAICompactModeForceOff,
 					},
 					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 				},
@@ -350,8 +346,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_CompactSkipsChatOnlyAcc
 			Concurrency: 1,
 			Priority:    0,
 			Extra: map[string]any{
-				"openai_compact_supported":   true,
-				"openai_responses_supported": true,
+				"openai_compact_supported": true,
 			},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},

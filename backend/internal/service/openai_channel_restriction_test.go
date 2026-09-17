@@ -231,10 +231,9 @@ func TestIsUpstreamModelRestrictedByChannel_PassthroughFlagWithRawChatFallbackMa
 			},
 		},
 		Extra: map[string]any{
-			"openai_passthrough":         true,
-			"openai_responses_supported": false,
+			"openai_passthrough": true,
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 	}
 
 	for _, useCompactModelMapping := range []bool{false, true} {
@@ -283,10 +282,9 @@ func TestIsUpstreamModelRestrictedByChannel_ForwardModelContextMatchesNormalForw
 			"model_mapping": map[string]any{"gpt-5.4-channel": "gpt-5.4-account"},
 		},
 		Extra: map[string]any{
-			"openai_passthrough":         true,
-			"openai_responses_supported": false,
+			"openai_passthrough": true,
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"},
 	}
 	channelSvc := newTestChannelService(makeStandardRepo(Channel{
 		ID:                 1,

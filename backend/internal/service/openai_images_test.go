@@ -677,7 +677,7 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapability("unknown")))
 	})
 
-	t.Run("responses 能力：未探测的 APIKey 默认放行", func(t *testing.T) {
+	t.Run("responses 能力：配了 responses 地址的 APIKey 放行", func(t *testing.T) {
 		account := &Account{
 			Platform:          PlatformOpenAI,
 			Type:              AccountTypeAPIKey,
@@ -728,14 +728,13 @@ func TestAccountSupportsOpenAIEndpointCapability(t *testing.T) {
 		account := &Account{
 			Platform: PlatformOpenAI,
 			Type:     AccountTypeOAuth,
-			Extra:    map[string]any{"openai_responses_supported": false},
 		}
 
 		require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityResponses))
 	})
 
 	t.Run("responses 能力：仍需通过 chat_completions 配置集校验", func(t *testing.T) {
-		// 未探测（默认支持 responses），但显式能力集未声明 chat_completions。
+		// 配了 responses 地址，但显式能力集未声明 chat_completions。
 		account := &Account{
 			Platform: PlatformOpenAI,
 			Type:     AccountTypeAPIKey,

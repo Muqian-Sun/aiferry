@@ -18,7 +18,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -205,10 +204,7 @@ func TestOpenAIGatewayService_NativeResponsesBodyModificationPreservesHTMLChars(
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "http://upstream.example",
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
-			openai_compat.ExtraKeyResponsesSupported: true,
+			APIProtocolResponses:       "http://upstream.example",
 		},
 		Status:      StatusActive,
 		Schedulable: true,
@@ -1395,7 +1391,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_RebuildsUpstreamErrors(t *testin
 					"base_url": "https://secret-upstream.example",
 				},
 				ProtocolEndpoints: map[string]string{
-					APIProtocolChatCompletions: "https://secret-upstream.example",
+					APIProtocolChatCompletions: "https://secret-upstream.example", APIProtocolResponses: "https://secret-upstream.example",
 				},
 				Extra:       map[string]any{"openai_passthrough": true},
 				Status:      StatusActive,
@@ -1490,7 +1486,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_CompactErrorBeforeKeepaliveIsSin
 		ID: 125, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://secret-upstream.example"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://secret-upstream.example",
+			APIProtocolChatCompletions: "https://secret-upstream.example", APIProtocolResponses: "https://secret-upstream.example",
 		},
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
@@ -1528,7 +1524,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_CompactErrorAfterKeepaliveIsFail
 		ID: 126, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://secret-upstream.example"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://secret-upstream.example",
+			APIProtocolChatCompletions: "https://secret-upstream.example", APIProtocolResponses: "https://secret-upstream.example",
 		},
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
@@ -1776,7 +1772,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_Transient5xxTriggersFailover(t *
 					"base_url": "https://api.example.test",
 				},
 				ProtocolEndpoints: map[string]string{
-					APIProtocolChatCompletions: "https://api.example.test",
+					APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test",
 				},
 				Extra:       map[string]any{"openai_passthrough": true},
 				Status:      StatusActive,
@@ -1826,7 +1822,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_ContextWindow502DoesNotFailover(
 		ID: 127, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://api.example.test"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.example.test",
+			APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test",
 		},
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
@@ -1866,7 +1862,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PoolModeConfigured5xxRetriesSame
 			"pool_mode_retry_status_codes": []any{float64(http.StatusBadGateway)},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.example.test",
+			APIProtocolChatCompletions: "https://api.example.test", APIProtocolResponses: "https://api.example.test",
 		},
 		Extra: map[string]any{"openai_passthrough": true}, Status: StatusActive, Schedulable: true,
 	}
@@ -2593,7 +2589,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_PreservesBodyAndUsesResponsesEnd
 			"model_mapping": map[string]any{"gpt-5.2": "gpt-5.2-account"},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com",
+			APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com",
 		},
 		Extra:          map[string]any{"openai_passthrough": true},
 		Status:         StatusActive,

@@ -44,7 +44,7 @@ func openCodeSessionTestAccount(baseURL string) *Account {
 			credKeyHeaderOverrides:       map[string]any{"x-opencode-session": "fixed-account-value"},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: baseURL,
+			APIProtocolChatCompletions: baseURL, APIProtocolResponses: baseURL,
 		},
 	}
 }
@@ -353,7 +353,7 @@ func TestOpenCodeSessionIsNotForwardedToOtherUpstreams(t *testing.T) {
 				Type:        AccountTypeAPIKey,
 				Credentials: map[string]any{"base_url": baseURL},
 				ProtocolEndpoints: map[string]string{
-					APIProtocolChatCompletions: baseURL,
+					APIProtocolChatCompletions: baseURL, APIProtocolResponses: baseURL,
 				},
 			}
 			c := newOpenCodeSessionTestContext(t, "private-conversation")

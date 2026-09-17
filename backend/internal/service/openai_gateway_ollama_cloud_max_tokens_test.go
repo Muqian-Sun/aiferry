@@ -8,7 +8,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -147,23 +146,11 @@ func TestApplyOllamaCloudRawChatCompletionsRequestClampsMaxTokens(t *testing.T) 
 	require.JSONEq(t, `{"model":"deepseek-chat","max_tokens":65535}`,
 		string(clampOllamaCloudUpstreamMaxTokens(ollama, body)))
 
-	// 官方 DeepSeek（api.deepseek.com + force_chat_completions）→ 字节级不变。
+	// 官方 DeepSeek（api.deepseek.com）→ 字节级不变。
 	official := rawChatCompletionsTestAccount()
-	official.Credentials["base_url"] = "https://api.deepseek.com"
 	official.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
-	official.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-	}
 	require.Equal(t, body, applyOllamaCloudRawChatCompletionsRequest(official, body))
 	require.Equal(t, string(body), string(clampOllamaCloudUpstreamMaxTokens(official, body)))
-
-	// ollama.com 但无 force_chat_completions：reasoning 钩子不生效；独立钩子按
-	// DeepSeek 系模型判定仍 clamp（DeepSeek 覆盖不依赖 responses_mode extra）。
-	noForce := ollamaCloudRawChatCompletionsTestAccount()
-	noForce.Extra = nil
-	require.Equal(t, body, applyOllamaCloudRawChatCompletionsRequest(noForce, body))
-	require.JSONEq(t, `{"model":"deepseek-chat","max_tokens":65535}`,
-		string(clampOllamaCloudUpstreamMaxTokens(noForce, body)))
 
 	// 空 body → 原样返回。
 	require.Equal(t, []byte(nil), applyOllamaCloudRawChatCompletionsRequest(ollama, nil))
@@ -233,18 +220,18 @@ func TestClampOllamaCloudUpstreamMaxTokens(t *testing.T) {
 			want:    `{"model":"deepseek-v4-flash","max_completion_tokens":65535}`,
 		},
 		{
-			// 新增范围只限 DeepSeek 系模型：kimi/zhipu 平台挂 ollama.com 跑非
-			// DeepSeek 模型的请求保持不变。
-			name:    "kimi platform non-deepseek model untouched",
+			// Ollama Cloud 的上限是 provider 级、与模型无关：任何标签的 key 发往
+			// ollama.com 的非 DeepSeek 模型同样 clamp。
+			name:    "kimi label non-deepseek model on ollama.com is clamped",
 			account: ollamaUpstreamTestAccount(PlatformKimi, 302),
 			body:    `{"model":"k3-256k","max_tokens":256000}`,
-			want:    `{"model":"k3-256k","max_tokens":256000}`,
+			want:    `{"model":"k3-256k","max_tokens":65535}`,
 		},
 		{
-			name:    "zhipu platform non-deepseek model untouched",
+			name:    "zhipu label non-deepseek model on ollama.com is clamped",
 			account: ollamaUpstreamTestAccount(PlatformZhipu, 302),
 			body:    `{"model":"glm-4.7","max_tokens":256000}`,
-			want:    `{"model":"glm-4.7","max_tokens":256000}`,
+			want:    `{"model":"glm-4.7","max_tokens":65535}`,
 		},
 		{
 			// 既有 openai 平台 Ollama 账号对 DeepSeek 模型的 clamp 幂等保持。
@@ -254,23 +241,25 @@ func TestClampOllamaCloudUpstreamMaxTokens(t *testing.T) {
 			want:    `{"model":"deepseek-v4-flash","max_tokens":65535}`,
 		},
 		{
-			// 既有 openai 平台 Ollama（真实 ollama.com + force_chat_completions）对
-			// 非 DeepSeek 模型的 clamp 保留。
-			name:    "openai platform ollama.com non-deepseek model keeps legacy clamp",
+			name:    "openai label ollama.com non-deepseek model is clamped",
 			account: ollamaCloudRawChatCompletionsTestAccount(),
 			body:    `{"model":"gpt-oss:120b-cloud","max_tokens":70000}`,
 			want:    `{"model":"gpt-oss:120b-cloud","max_tokens":65535}`,
 		},
 		{
-			// 非 DeepSeek 模型不扩展到其它平台。
-			name: "openai platform ollama.com non-deepseek model without force_cc untouched",
+			// 只配 responses 地址指向 ollama.com 时，raw CC 发往的 chat_completions 地址
+			// 不是 Ollama，不 clamp。
+			name: "ollama.com only on responses address is untouched",
 			account: func() *Account {
 				account := ollamaUpstreamTestAccount(PlatformOpenAI, 303)
-				account.Extra = nil
+				account.ProtocolEndpoints = map[string]string{
+					APIProtocolChatCompletions: "https://example.invalid/v1",
+					APIProtocolResponses:       "https://ollama.com/v1",
+				}
 				return account
 			}(),
-			body: `{"model":"gpt-oss:120b-cloud","max_tokens":70000}`,
-			want: `{"model":"gpt-oss:120b-cloud","max_tokens":70000}`,
+			body: `{"model":"deepseek-v4-flash","max_tokens":70000}`,
+			want: `{"model":"deepseek-v4-flash","max_tokens":70000}`,
 		},
 		{
 			// 残留 usage extra 不得把非 Ollama host 变成 Ollama（旧 reasoning 钩子内的
@@ -326,7 +315,6 @@ func TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens(t *testi
 	gin.SetMode(gin.TestMode)
 
 	account := ollamaUpstreamTestAccount(PlatformDeepseek, 311)
-	account.Credentials["api_protocol"] = APIProtocolChatCompletions
 	account.Credentials["model_mapping"] = map[string]any{"deepseek-chat": "deepseek-v4-flash"}
 
 	body := []byte(`{"model":"deepseek-chat","max_tokens":256000,"messages":[{"role":"user","content":"hi"}],"stream":false}`)
@@ -340,7 +328,6 @@ func TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens(t *testi
 
 	// 官方 DeepSeek（api.deepseek.com）+ 残留 usage extra：字节级不变。
 	official := officialDeepSeekTestAccount(312)
-	official.Credentials["api_protocol"] = APIProtocolChatCompletions
 	officialBody := []byte(`{"model":"deepseek-v4-flash","max_tokens":256000,"messages":[{"role":"user","content":"hi"}],"stream":false}`)
 	officialUpstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	officialSvc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: officialUpstream}
@@ -357,7 +344,6 @@ func TestForwardResponsesViaRawChatCompletions_DeepseekOllamaCloudClampsMaxToken
 	gin.SetMode(gin.TestMode)
 
 	account := ollamaUpstreamTestAccount(PlatformDeepseek, 321)
-	account.Credentials["api_protocol"] = APIProtocolChatCompletions
 
 	body := []byte(`{"model":"deepseek-v4-flash","input":"Reply with exactly OK and nothing else.","max_output_tokens":256000,"stream":false}`)
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
@@ -371,7 +357,7 @@ func TestForwardResponsesViaRawChatCompletions_DeepseekOllamaCloudClampsMaxToken
 }
 
 // TestForwardResponsesClampsOllamaCloudMaxOutputTokens 覆盖原生 /v1/responses 路径
-// （openai force_responses 与 deepseek api_protocol=responses）的 max_output_tokens
+// （配了 responses 地址的 key）的 max_output_tokens
 // clamp，实测依据：POST ollama.com/v1/responses max_output_tokens=256000 被上游以
 // "max_tokens (256000) exceeds model's maximum output tokens (65536)" 400 拒绝。
 func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
@@ -388,16 +374,16 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
 
 	t.Run("deepseek platform native responses is clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 331)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		upstream, err := run(account, responsesBody)
 		require.Error(t, err)
 		require.Equal(t, "https://ollama.com/v1/responses", upstream.lastReq.URL.String())
 		require.Equal(t, int64(65535), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
 	})
 
-	t.Run("openai platform force_responses is clamped", func(t *testing.T) {
+	t.Run("openai label responses address is clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformOpenAI, 332)
-		account.Extra[openai_compat.ExtraKeyResponsesMode] = string(openai_compat.ResponsesSupportModeForceResponses)
+		account.ProtocolEndpoints[APIProtocolResponses] = "https://ollama.com/v1"
 		upstream, err := run(account, responsesBody)
 		require.Error(t, err)
 		require.Equal(t, int64(65535), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
@@ -405,7 +391,7 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
 
 	t.Run("official deepseek with leftover usage extra is untouched", func(t *testing.T) {
 		account := officialDeepSeekTestAccount(333)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		upstream, err := run(account, responsesBody)
 		require.Error(t, err)
 		require.Equal(t, int64(256000), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
@@ -413,7 +399,7 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
 
 	t.Run("at cap is untouched", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 334)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		atCap := []byte(`{"model":"deepseek-v4-flash","input":"hi","max_output_tokens":65535,"stream":false}`)
 		upstream, err := run(account, atCap)
 		require.Error(t, err)
@@ -422,7 +408,7 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
 
 	t.Run("extra cap zero disables clamping", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 335)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		account.Extra[OllamaCloudMaxTokensCapExtraKey] = 0
 		upstream, err := run(account, responsesBody)
 		require.Error(t, err)
@@ -431,7 +417,7 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokens(t *testing.T) {
 }
 
 // TestForwardResponsesClampUsesResponsesUpstreamBaseURL 验证原生 Responses clamp 按
-// 实际 Responses 上游判定：adaptive 账号取 api_base_urls 的 responses 地址，而非 CC
+// 实际 Responses 上游判定：取 responses 协议地址，而非 CC
 // 地址（与 buildUpstreamRequest 的 URL 选择一致）。
 func TestForwardResponsesClampUsesResponsesUpstreamBaseURL(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -446,20 +432,19 @@ func TestForwardResponsesClampUsesResponsesUpstreamBaseURL(t *testing.T) {
 
 	t.Run("ollama CC base but non-ollama responses base is not clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 341)
-		account.Credentials["api_protocol"] = APIProtocolAdaptive
 		account.ProtocolEndpoints = map[string]string{
 			APIProtocolChatCompletions: "https://ollama.com/v1",
 			APIProtocolResponses:       "https://api.deepseek.com",
 		}
 		upstream, err := run(account)
 		require.Error(t, err)
-		require.Equal(t, "https://api.deepseek.com/responses", upstream.lastReq.URL.String())
+		// 地址分属不同主机，按通用中转对待，走标准 /v1/responses。
+		require.Equal(t, "https://api.deepseek.com/v1/responses", upstream.lastReq.URL.String())
 		require.Equal(t, int64(256000), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
 	})
 
 	t.Run("non-ollama CC base but ollama responses base is clamped", func(t *testing.T) {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 342)
-		account.Credentials["api_protocol"] = APIProtocolAdaptive
 		account.ProtocolEndpoints = map[string]string{
 			APIProtocolChatCompletions: "https://api.deepseek.com",
 			APIProtocolResponses:       "https://ollama.com/v1",
@@ -481,12 +466,12 @@ func TestForwardResponsesClampsOllamaCloudMaxOutputTokensForCodexClients(t *test
 
 	ollamaResponsesAccount := func() *Account {
 		account := ollamaUpstreamTestAccount(PlatformDeepseek, 336)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		return account
 	}
 	officialResponsesAccount := func() *Account {
 		account := officialDeepSeekTestAccount(337)
-		account.Credentials["api_protocol"] = APIProtocolResponses
+		account.ProtocolEndpoints[APIProtocolResponses] = account.ProtocolEndpoints[APIProtocolChatCompletions]
 		return account
 	}
 	codexUA := func(c *gin.Context) {

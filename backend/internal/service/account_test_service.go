@@ -30,7 +30,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/claude"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/urlvalidator"
 	"github.com/gin-gonic/gin"
@@ -817,8 +816,15 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 			return s.sendErrorAndEnd(c, "No API key available")
 		}
 
-		// 测试连接必须与实际转发取同一个地址，否则只配了 responses 的账号
-		// 会出现「转发正常、测试连接打到官方端点」的假象。
+		// 测试连接必须与实际转发取同一个协议与地址：Responses 入站首选 responses
+		// 地址，没配时转成 Chat Completions 发往 chat_completions 地址。
+		if openAIGatewayKeyProtocol(credentialAccount, APIProtocolResponses) == APIProtocolChatCompletions {
+			normalizedBaseURL, err := s.validateUpstreamBaseURL(credentialAccount.GetOpenAIBaseURL())
+			if err != nil {
+				return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
+			}
+			return s.testOpenAIChatCompletionsConnection(c, account, testModelID, prompt, normalizedBaseURL, authToken)
+		}
 		baseURL, err := ResolveUpstreamBaseURL(credentialAccount, credentialAccount.GetOpenAIResponsesBaseURL(), APIProtocolResponses, "https://api.openai.com")
 		if err != nil {
 			return err
@@ -827,10 +833,7 @@ func (s *AccountTestService) testOpenAIAccountConnection(c *gin.Context, account
 		if err != nil {
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
 		}
-		if !openai_compat.ShouldUseResponsesAPI(account.Extra) {
-			return s.testOpenAIChatCompletionsConnection(c, account, testModelID, prompt, normalizedBaseURL, authToken)
-		}
-		apiURL = buildOpenAIResponsesURLForPlatform(credentialAccount.Platform, normalizedBaseURL)
+		apiURL = buildOpenAIResponsesURLForVendor(credentialAccount.Vendor(), normalizedBaseURL)
 	} else {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account type: %s", account.Type))
 	}
@@ -2179,7 +2182,7 @@ func (s *AccountTestService) testOpenAICompactConnection(c *gin.Context, account
 		if err != nil {
 			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
 		}
-		apiURL = buildOpenAIResponsesURLForPlatform(account.Platform, normalizedBaseURL)
+		apiURL = buildOpenAIResponsesURLForVendor(account.Vendor(), normalizedBaseURL)
 	default:
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account type: %s", account.Type))
 	}
@@ -2977,7 +2980,7 @@ func (s *AccountTestService) processOpenAIStream(c *gin.Context, body io.Reader)
 
 // testOpenAIImageAPIKey tests OpenAI image generation using an API Key account.
 func (s *AccountTestService) testOpenAIImageAPIKey(c *gin.Context, ctx context.Context, account *Account, modelID, prompt string) error {
-	authToken := account.GetOpenAIApiKey()
+	authToken := account.GetOpenAIProtocolAPIKey()
 	if authToken == "" {
 		return s.sendErrorAndEnd(c, "No API key available")
 	}

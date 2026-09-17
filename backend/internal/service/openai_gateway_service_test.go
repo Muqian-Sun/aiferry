@@ -166,7 +166,7 @@ func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScope
 			}},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "http://upstream.example",
+			APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example",
 		},
 	}
 
@@ -2961,7 +2961,7 @@ func TestOpenAIInvalidBaseURLWhenAllowlistDisabled(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "://invalid-url"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "://invalid-url",
+			APIProtocolChatCompletions: "://invalid-url", APIProtocolResponses: "://invalid-url",
 		},
 	}
 
@@ -3216,7 +3216,7 @@ func TestOpenAIBuildUpstreamRequestPreservesCompactPathForAPIKeyBaseURL(t *testi
 		Platform:    PlatformOpenAI,
 		Credentials: map[string]any{"base_url": "https://example.com/v1"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://example.com/v1",
+			APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1",
 		},
 	}
 

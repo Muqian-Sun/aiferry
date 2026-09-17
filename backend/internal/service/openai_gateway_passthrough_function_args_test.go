@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -96,9 +95,8 @@ func TestForwardResponsesChatCompletionsFallbackKeepsFunctionArgumentsSingle(t *
 		Body:       io.NopCloser(strings.NewReader(upstreamBody)),
 	}}
 	account := passthroughArgsFallbackAccount()
-	account.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-	}
+	// 只留 chat_completions 地址：Responses 入站转成 Chat Completions。
+	delete(account.ProtocolEndpoints, APIProtocolResponses)
 	svc := &OpenAIGatewayService{
 		cfg:          passthroughArgsTestConfig(),
 		httpUpstream: upstream,

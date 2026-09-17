@@ -275,7 +275,7 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake502RecordsModelTransient(t *t
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test", "base_url": server.URL},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: server.URL,
+			APIProtocolChatCompletions: server.URL, APIProtocolResponses: server.URL,
 		},
 		Extra: map[string]any{"responses_websockets_v2_enabled": true},
 	}

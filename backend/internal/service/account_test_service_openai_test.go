@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -274,9 +273,6 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
 			APIProtocolResponses:       "https://relay.example.com/v1",
 		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesSupported: true,
-		},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -310,9 +306,6 @@ func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
 			APIProtocolResponses:       "https://relay.example.com/v1",
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesSupported: true,
 		},
 	}
 	repo := &openAIAccountTestRepo{
@@ -525,7 +518,6 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUsesCodexProbeHeaders(t *testin
 			APIProtocolChatCompletions: "https://compat-upstream.example/v1",
 			APIProtocolResponses:       "https://compat-upstream.example/v1",
 		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: true},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -564,7 +556,6 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUnsupportedUsesChatCompletionsP
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example/v1"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "hello", "")
@@ -601,7 +592,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathReturns4xx(t *testing.T) {
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -628,7 +618,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathTimeout(t *testing.T) {
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -660,7 +649,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathRejectsNonJSONStream(t *tes
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")

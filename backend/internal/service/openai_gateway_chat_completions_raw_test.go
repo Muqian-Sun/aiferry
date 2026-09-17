@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -147,7 +146,6 @@ func TestForwardAsChatCompletions_OpenAICompatibleGrokRawMissingUsageFailsBefore
 	}
 	account := rawChatCompletionsTestAccount()
 	account.Name = "openai-compatible-grok"
-	account.Extra = map[string]any{openai_compat.ExtraKeyResponsesSupported: false}
 
 	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
@@ -221,7 +219,6 @@ func TestForwardAsChatCompletions_OpenAICompatibleRawUsageGuard(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			account := rawChatCompletionsTestAccount()
 			account.Name = "openai-compatible"
-			account.Extra = map[string]any{openai_compat.ExtraKeyResponsesSupported: false}
 			if tt.modelMapping != nil {
 				account.Credentials["model_mapping"] = tt.modelMapping
 			}
@@ -1126,7 +1123,9 @@ func TestForwardAsRawChatCompletions_UpstreamRequestIgnoresClientCancel(t *testi
 	require.NoError(t, upstream.lastReq.Context().Err())
 }
 
-func TestForwardAsChatCompletions_UnknownResponsesSupportFallbackUsesVersionedChatURL(t *testing.T) {
+// TestForwardAsChatCompletions_ChatOnlyKeyUsesVersionedChatURLWithoutResponsesAttempt：
+// 只配 chat_completions 地址的 key 直接发往带版本段的 CC 端点，不再先试 /responses 再回落。
+func TestForwardAsChatCompletions_ChatOnlyKeyUsesVersionedChatURLWithoutResponsesAttempt(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	body := []byte(`{"model":"glm-4.5-air","messages":[{"role":"user","content":"hello"}],"stream":false}`)
@@ -1136,11 +1135,6 @@ func TestForwardAsChatCompletions_UnknownResponsesSupportFallbackUsesVersionedCh
 	c.Request.Header.Set("Content-Type", "application/json")
 
 	upstream := &httpUpstreamRecorder{responses: []*http.Response{
-		{
-			StatusCode: http.StatusNotFound,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader(`{"error":{"message":"not found"}}`)),
-		},
 		{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}, "x-request-id": []string{"rid_raw_fallback"}},
@@ -1162,9 +1156,8 @@ func TestForwardAsChatCompletions_UnknownResponsesSupportFallbackUsesVersionedCh
 	require.NotNil(t, result)
 	require.Equal(t, 1, result.Usage.InputTokens)
 	require.Equal(t, 2, result.Usage.OutputTokens)
-	require.Len(t, upstream.requests, 2)
-	require.Equal(t, "https://open.bigmodel.cn/api/paas/v4/responses", upstream.requests[0].URL.String())
-	require.Equal(t, "https://open.bigmodel.cn/api/paas/v4/chat/completions", upstream.requests[1].URL.String())
+	require.Len(t, upstream.requests, 1)
+	require.Equal(t, "https://open.bigmodel.cn/api/paas/v4/chat/completions", upstream.requests[0].URL.String())
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Contains(t, rec.Body.String(), `"content":"ok"`)
 }
@@ -1236,6 +1229,15 @@ func rawChatCompletionsTestAccount() *Account {
 			APIProtocolChatCompletions: "http://upstream.example",
 		},
 	}
+}
+
+// responsesKeyTestAccount 是只配了 responses 地址的第三方 key：三种入站在它上面都以
+// Responses 协议发往上游（Chat Completions 与 Messages 入站走转换链）。
+func responsesKeyTestAccount() *Account {
+	account := rawChatCompletionsTestAccount()
+	account.Name = "responses-openai-apikey"
+	account.ProtocolEndpoints = map[string]string{APIProtocolResponses: "http://upstream.example"}
+	return account
 }
 
 func largeRawChatCompletionsBody() []byte {

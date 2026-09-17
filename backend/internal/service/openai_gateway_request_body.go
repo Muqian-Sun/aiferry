@@ -50,14 +50,31 @@ func buildOpenAIResponsesURL(base string) string {
 	return joinUpstreamEndpointURL(base, "/v1/responses")
 }
 
-// buildOpenAIResponsesURLForPlatform 组装 Responses 端点（平台感知）。
+// buildOpenAIResponsesURLForVendor 组装 Responses 端点（厂商感知）。
 // DeepSeek 官方 Responses 端点为 /responses（无 /v1 前缀，适配 Codex）；
-// 其余平台维持 /v1/responses。
-func buildOpenAIResponsesURLForPlatform(platform string, base string) string {
-	if platform == PlatformDeepseek {
+// 其余厂商与通用中转维持 /v1/responses。
+//
+// 按厂商而不是按地址本身携带路径：同一个 responses 地址还要拼 /v1/responses/input_tokens
+// 与 WebSocket 端点，把 /responses 写进地址会让这些拼接出错。
+func buildOpenAIResponsesURLForVendor(vendor string, base string) string {
+	if vendor == PlatformDeepseek {
 		return joinUpstreamEndpointURL(base, "/responses")
 	}
 	return buildOpenAIResponsesURL(base)
+}
+
+// openAIKeyResponsesURL 组装第三方 key 的 Responses 端点：地址只认 responses 协议映射，
+// 未配置即报 MissingProtocolEndpointError，不借用 Chat Completions 的地址。
+func (s *OpenAIGatewayService) openAIKeyResponsesURL(account *Account) (string, error) {
+	baseURL := account.GetOpenAIResponsesBaseURL()
+	if baseURL == "" {
+		return "", MissingProtocolEndpointError(account, APIProtocolResponses)
+	}
+	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+	if err != nil {
+		return "", err
+	}
+	return buildOpenAIResponsesURLForVendor(account.Vendor(), validatedURL), nil
 }
 
 func shouldPreserveOpenAIResponsesNoneReasoningEffort(account *Account) bool {
@@ -126,12 +143,14 @@ func deleteOpenAIResponsesNoneReasoningEffortFromObject(account *Account, body m
 	}
 }
 
-// normalizeDeepSeekResponsesRequestBody 适配无状态 CN Responses 端点：
-// 强制 store=false 并清除 previous_response_id（DeepSeek / Kimi 官方
-// Responses 均不支持服务端状态存储，携带这些字段会被拒绝）。
-// 非原生 Responses 协议账号原样返回。
+// normalizeDeepSeekResponsesRequestBody 适配无状态的厂商 Responses 端点：
+// 强制 store=false 并清除 previous_response_id（DeepSeek / Kimi / MiniMax / OpenCode
+// 官方 Responses 均不支持服务端状态存储，携带这些字段会被拒绝）。
+//
+// 只在 Responses 请求构造处调用；按地址识别出的厂商启用，平台标签不参与，
+// 通用中转与 OpenAI 按标准协议保留这些字段。
 func normalizeDeepSeekResponsesRequestBody(account *Account, body []byte) []byte {
-	if account == nil || !account.UsesNativeCNResponses() {
+	if account == nil || !hasStatelessVendorResponses(account.Vendor()) {
 		return body
 	}
 	normalized, err := sjson.SetBytes(body, "store", false)

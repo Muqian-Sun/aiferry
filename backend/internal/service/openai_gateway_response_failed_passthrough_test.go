@@ -72,7 +72,7 @@ func TestForwardAsChatCompletions_ResponseFailed_PassthroughRule(t *testing.T) {
 		httpUpstream: upstream,
 	}
 
-	account := rawChatCompletionsTestAccount()
+	account := responsesKeyTestAccount()
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
@@ -203,7 +203,7 @@ func TestForwardAsAnthropic_ResponseFailed_PassthroughRule(t *testing.T) {
 		httpUpstream: upstream,
 	}
 
-	account := rawChatCompletionsTestAccount()
+	account := responsesKeyTestAccount()
 	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
@@ -233,7 +233,7 @@ func TestForwardAsChatCompletions_ResponseFailed_NoRule_Still502(t *testing.T) {
 		httpUpstream: upstream,
 	}
 
-	account := rawChatCompletionsTestAccount()
+	account := responsesKeyTestAccount()
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
@@ -281,7 +281,7 @@ func TestForwardAsChatCompletions_ResponseFailed_ErrorCodeRuleMatchesViaSemantic
 		httpUpstream: upstream,
 	}
 
-	account := rawChatCompletionsTestAccount()
+	account := responsesKeyTestAccount()
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)
@@ -312,7 +312,7 @@ func TestForwardAsAnthropic_ResponseFailed_ErrorCodeRuleMatchesViaSemanticStatus
 		httpUpstream: upstream,
 	}
 
-	account := rawChatCompletionsTestAccount()
+	account := responsesKeyTestAccount()
 	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
 
 	require.Error(t, err)

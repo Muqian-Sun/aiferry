@@ -12,7 +12,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -21,7 +20,17 @@ import (
 func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
 	beginUpstreamResponseModelObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
-	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+	keyProtocol := ""
+	if account.IsThirdPartyKey() {
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolResponses, func() string {
+			return resolveOpenCodeGoMappedModel(account, body, "")
+		})
+		if err != nil {
+			return nil, err
+		}
+		keyProtocol = protocol
+	}
+	if keyProtocol == APIProtocolChatCompletions {
 		SetActualOpenAIUpstreamEndpoint(c, "/v1/chat/completions")
 	}
 	filteredBody, filterErr := filterOpenAIResponsesNoneReasoningEffortForAccount(account, body)
@@ -137,9 +146,9 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		}
 	}
 
-	nativeCNResponses := account.UsesNativeCNResponses()
-	nativeDeepSeekResponses := account.Platform == PlatformDeepseek && nativeCNResponses
-	if nativeDeepSeekResponses && account.Type == AccountTypeAPIKey && !compactPath &&
+	// DeepSeek 官方 Responses 端点不认 Codex 的 custom / tool_search 工具，按厂商地址降级为 function 工具。
+	nativeDeepSeekResponses := keyProtocol == APIProtocolResponses && account.Vendor() == PlatformDeepseek
+	if nativeDeepSeekResponses && !compactPath &&
 		needsOpenAIResponsesClientToolAdaptation(body) {
 		adaptedBody, mapping, adaptErr := adaptOpenAIResponsesClientTools(body)
 		if adaptErr != nil {
@@ -155,27 +164,16 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	reqModel, reqStream, promptCacheKey := requestView.Model, requestView.Stream, requestView.PromptCacheKey
 	originalModel := reqModel
 
-	if account.Platform == PlatformGrok {
+	// xAI 的 Responses 端点有专属请求改写、缓存身份与重放重试：成品号按平台，
+	// 第三方 key 按地址识别出的厂商，且只在实际走 Responses 协议时启用。
+	if (!account.IsThirdPartyKey() && account.Platform == PlatformGrok) ||
+		(keyProtocol == APIProtocolResponses && account.Vendor() == PlatformGrok) {
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
 	}
 
-	if account.IsOpenCodeGo() {
-		mapped := resolveOpenCodeGoMappedModel(account, body, "")
-		switch openCodeGoNativeProtocol(account, mapped) {
-		case APIProtocolAnthropic:
-			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
-		case APIProtocolResponses:
-			break
-		default:
-			return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
-		}
-	}
-
-	// CN 供应商 anthropic 协议账号：/v1/responses 入站是交叉协议组合
-	// （Responses 客户端 × Anthropic 上游），转成 Anthropic 请求走原生端点。
-	// 不能落到下面的 raw-CC 分支——其 URL 构造会把 anthropic base 当 CC base 用。
-	if account.IsAnthropicProtocol() {
-		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, reqModel)
+	// Responses 客户端 × Anthropic 上游：转成 Anthropic 请求走原生端点。
+	if keyProtocol == APIProtocolAnthropic {
+		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
 	}
 	if account.IsOpenAIApiKey() {
 		if normalized, changed, normalizeErr := normalizeOpenAIParallelToolCallsWithoutTools(body, responsesLite); normalizeErr != nil {
@@ -195,7 +193,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		originalModel = reqModel
 	}
 
-	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+	if keyProtocol == APIProtocolChatCompletions {
 		return s.forwardResponsesViaRawChatCompletions(ctx, c, account, body)
 	}
 	SetActualOpenAIUpstreamEndpoint(c, openAIResponsesUpstreamEndpoint)
@@ -386,7 +384,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 	instructions := gjson.GetBytes(body, "instructions")
 	instructionsEmpty := !instructions.Exists() || instructions.Type != gjson.String || strings.TrimSpace(instructions.String()) == ""
-	if instructionsEmpty && account.UsesOpenAICodexProtocol() && !compatMessagesBridge && !nativeCNResponses {
+	if instructionsEmpty && account.UsesOpenAICodexProtocol() && !compatMessagesBridge {
 		markPatchSet("instructions", defaultCodexSynthInstructions(upstreamModel))
 	}
 	if billingModel != requestedModel {
@@ -585,41 +583,22 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 
 	if !isCodexCLI {
-		maxOutputTokens := gjson.GetBytes(body, "max_output_tokens")
-		if maxOutputTokens.Exists() {
-			switch account.Platform {
-			case PlatformOpenAI, PlatformDeepseek:
-				// Preserve Responses-native output limits unless the selected upstream
-				// explicitly rejects the field in the bounded HTTP retry loop below.
-			case PlatformAnthropic:
-				decoded, decodeErr := ensureReqBody()
-				if decodeErr != nil {
-					return nil, decodeErr
-				}
-				delete(decoded, "max_output_tokens")
-				if _, hasMaxTokens := decoded["max_tokens"]; !hasMaxTokens {
-					decoded["max_tokens"] = maxOutputTokens.Value()
-				}
-				markDecodedModified()
-			case PlatformGemini:
-				markPatchDelete("max_output_tokens")
-			default:
-				markPatchDelete("max_output_tokens")
-			}
-		}
-		// /v1/responses 的规范输出上限字段是 max_output_tokens；部分客户端仍按
-		// Chat Completions 习惯发送 max_tokens，兼容 Responses 上游会拒绝该字段（#4417）。
-		// 仅对 OpenAI 平台归一化：Anthropic 合法使用 max_tokens，其 max_output_tokens
-		// 反向转换已在上方 switch 中处理。
-		if account.Platform == PlatformOpenAI {
+		// 走到这里的请求一律以 Responses 协议发往上游（第三方 key 的 Anthropic / Chat
+		// Completions 上游已在前面分流并各自转换字段），输出上限按 Responses 协议归一化：
+		// 规范字段 max_output_tokens 原样保留（上游明确拒绝时由下方有界重试剥离）；
+		// 部分客户端仍按 Chat Completions 习惯发送 max_tokens，Responses 上游会拒绝
+		// 该字段（#4417），改写为 max_output_tokens。成品号只有 OpenAI 平台按此处理。
+		if account.IsThirdPartyKey() || account.Platform == PlatformOpenAI {
 			if maxTokens := gjson.GetBytes(body, "max_tokens"); maxTokens.Exists() {
 				if !gjson.GetBytes(body, "max_output_tokens").Exists() {
 					markPatchSet("max_output_tokens", maxTokens.Value())
 				}
 				markPatchDelete("max_tokens")
 			}
+		} else if gjson.GetBytes(body, "max_output_tokens").Exists() {
+			markPatchDelete("max_output_tokens")
 		}
-		if gjson.GetBytes(body, "max_completion_tokens").Exists() && (account.Type == AccountTypeAPIKey || account.Platform != PlatformOpenAI) {
+		if gjson.GetBytes(body, "max_completion_tokens").Exists() && (account.IsThirdPartyKey() || account.Platform != PlatformOpenAI) {
 			markPatchDelete("max_completion_tokens")
 		}
 		for _, unsupportedField := range []string{"prompt_cache_retention", "safety_identifier", "prompt_cache_options"} {
@@ -1343,30 +1322,6 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	}
 }
 
-func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
-	if account == nil || account.Type != AccountTypeAPIKey {
-		return false
-	}
-	if account.IsOpenCodeGo() {
-		// Model protocol_rules are the authority. Probe Extra must not collapse
-		// Grok/GPT/Muse into Chat Completions.
-		return false
-	}
-	if account.IsCNProvider() {
-		// CN 的显式协议配置优先于异步探针 Extra；adaptive 仅 DeepSeek / Kimi
-		// 有原生 Responses，GLM 回退 Chat Completions。
-		switch account.GetAPIProtocol() {
-		case APIProtocolChatCompletions:
-			return true
-		case APIProtocolAdaptive:
-			return !account.SupportsNativeCNResponses()
-		default:
-			return false
-		}
-	}
-	return !openai_compat.ShouldUseResponsesAPI(account.Extra)
-}
-
 func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Context, account *Account, body []byte, token string, isStream bool, promptCacheKey string, isCodexCLI bool) (*http.Request, error) {
 	// Determine target URL based on account type
 	var targetURL string
@@ -1381,25 +1336,17 @@ func (s *OpenAIGatewayService) buildUpstreamRequest(ctx context.Context, c *gin.
 			targetURL = openaiPlatformAPIURL
 		}
 	case AccountTypeAPIKey:
-		// API Key accounts use Platform API or custom base URL
-		baseURL := account.GetOpenAIResponsesBaseURL()
-		if account.UsesNativeCNResponses() && account.IsAdaptiveAPIProtocol() {
-			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
-		}
-		if baseURL == "" {
-			return nil, MissingProtocolEndpointError(account, APIProtocolResponses)
-		}
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		keyURL, err := s.openAIKeyResponsesURL(account)
 		if err != nil {
 			return nil, err
 		}
-		targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
+		targetURL = keyURL
 	default:
 		targetURL = openaiPlatformAPIURL
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
 
-	// DeepSeek / Kimi 原生 Responses 端点为无状态实现：强制 store=false、清除
+	// DeepSeek / Kimi 等厂商的官方 Responses 端点为无状态实现：强制 store=false、清除
 	// previous_response_id，避免携带状态字段被上游拒绝。
 	body = normalizeDeepSeekResponsesRequestBody(account, body)
 

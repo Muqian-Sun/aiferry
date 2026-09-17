@@ -168,7 +168,7 @@ func TestOpenAIGatewayServiceForwardPreservesGPT56MaxEffort(t *testing.T) {
 			"base_url": "https://example.com",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://example.com",
+			APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com",
 		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
@@ -213,7 +213,7 @@ func TestOpenAIGatewayServiceForwardPreservesMappedGPT56MaxEffort(t *testing.T) 
 			},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://example.com",
+			APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com",
 		},
 		Extra: map[string]any{"use_responses_api": true},
 	}
@@ -362,7 +362,7 @@ func TestOpenAIGatewayServiceForwardAPIKeyRemoteCompactV2PreservesResponsesWire(
 			},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://example.com/v1",
+			APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1",
 		},
 		Extra:       map[string]any{"use_responses_api": true},
 		Status:      StatusActive,
