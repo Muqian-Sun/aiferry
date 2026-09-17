@@ -194,9 +194,9 @@ func TestAntigravityCompatRejectsUnsupportedAccountType(t *testing.T) {
 		call        func(*AntigravityGatewayService, context.Context, *gin.Context, *Account, []byte) (*ForwardResult, error)
 	}{
 		{
-			name:        "chat completions upstream",
+			name:        "chat completions api key",
 			path:        "/v1/chat/completions",
-			accountType: AccountTypeUpstream,
+			accountType: AccountTypeAPIKey,
 			call: func(svc *AntigravityGatewayService, ctx context.Context, c *gin.Context, account *Account, body []byte) (*ForwardResult, error) {
 				return svc.ForwardAsChatCompletions(ctx, c, account, body, nil)
 			},
