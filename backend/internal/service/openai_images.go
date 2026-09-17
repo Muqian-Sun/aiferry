@@ -32,9 +32,6 @@ const (
 	openAIImagesGenerationsEndpoint = "/v1/images/generations"
 	openAIImagesEditsEndpoint       = "/v1/images/edits"
 
-	openAIImagesGenerationsURL = "https://api.openai.com/v1/images/generations"
-	openAIImagesEditsURL       = "https://api.openai.com/v1/images/edits"
-
 	openAIChatGPTStartURL                  = "https://chatgpt.com/"
 	openAIChatGPTFilesURL                  = "https://chatgpt.com/backend-api/files"
 	openAIImageBackendUserAgent            = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
@@ -768,10 +765,6 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	token string,
 	endpoint string,
 ) (*http.Request, error) {
-	targetURL := openAIImagesGenerationsURL
-	if endpoint == openAIImagesEditsEndpoint {
-		targetURL = openAIImagesEditsURL
-	}
 	baseURL := account.GetOpenAIBaseURL()
 	if baseURL == "" {
 		return nil, MissingProtocolEndpointError(account, APIProtocolChatCompletions)
@@ -780,7 +773,7 @@ func (s *OpenAIGatewayService) buildOpenAIImagesRequest(
 	if err != nil {
 		return nil, err
 	}
-	targetURL = buildOpenAIImagesURL(validatedURL, endpoint)
+	targetURL := buildOpenAIImagesURL(validatedURL, endpoint)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {

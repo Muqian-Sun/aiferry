@@ -377,7 +377,6 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 	token string,
 ) (*http.Request, error) {
 	body = stripDeferredToolCacheControl(body)
-	targetURL := claudeAPICountTokensURL
 	baseURL := account.GetBaseURL()
 	if baseURL == "" {
 		return nil, MissingProtocolEndpointError(account, APIProtocolAnthropic)
@@ -386,7 +385,7 @@ func (s *GatewayService) buildCountTokensRequestAnthropicAPIKeyPassthrough(
 	if err != nil {
 		return nil, err
 	}
-	targetURL = joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
+	targetURL := joinAnthropicBetaEndpointURL(validatedURL, "/v1/messages/count_tokens")
 	body = sanitizeCountTokensRequestBody(body)
 
 	// 同 buildUpstreamRequestAnthropicAPIKeyPassthrough：能力维度 sanitize。

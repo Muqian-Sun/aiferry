@@ -278,13 +278,6 @@ func (a *Account) openCodeDefaultChatBaseURL() string {
 	return DefaultOpenCodeGoBaseURL
 }
 
-func (a *Account) openCodeDefaultAnthropicBaseURL() string {
-	if a.IsOpenCodeZen() {
-		return DefaultOpenCodeZenAnthropicBaseURL
-	}
-	return DefaultOpenCodeGoAnthropicBaseURL
-}
-
 func (a *Account) IsMultiProtocolAPIKey() bool {
 	return a != nil && IsMultiProtocolAPIKeyProvider(a.Platform)
 }

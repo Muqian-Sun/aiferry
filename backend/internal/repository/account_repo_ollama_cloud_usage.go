@@ -39,18 +39,18 @@ var ollamaCloudUsageEligibleSQL = `
 // endpoints / platform 是 SQL 表达式，只接受本包内的常量或占位符，不接受外部输入。
 func ollamaCloudPrimaryEndpointSQL(endpoints, platform string) string {
 	var b strings.Builder
-	b.WriteString("COALESCE(CASE ")
-	b.WriteString(platform)
+	_, _ = b.WriteString("COALESCE(CASE ")
+	_, _ = b.WriteString(platform)
 	for _, p := range service.PlatformsWithProtocolDefaults() {
 		if protocol := service.DefaultProtocolForPlatform(p); protocol != "" {
 			fmt.Fprintf(&b, " WHEN '%s' THEN %s ->> '%s'", p, endpoints, protocol)
 		}
 	}
-	b.WriteString(" END")
+	_, _ = b.WriteString(" END")
 	for _, protocol := range service.UpstreamProtocols() {
 		fmt.Fprintf(&b, ", %s ->> '%s'", endpoints, protocol)
 	}
-	b.WriteString(")")
+	_, _ = b.WriteString(")")
 	return b.String()
 }
 
