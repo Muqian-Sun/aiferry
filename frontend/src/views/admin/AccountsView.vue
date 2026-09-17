@@ -457,6 +457,7 @@
       :account-ids="selIds"
       :selected-platforms="selPlatforms"
       :selected-types="selTypes"
+      :selected-key-endpoints="selKeyEndpoints"
       :target="bulkEditTarget ?? undefined"
       :proxies="proxies"
       :groups="groups"
@@ -526,7 +527,7 @@ import { sanitizeUrl } from '@/utils/url'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
 import { formatMultiplier } from '@/utils/formatters'
-import type { Account, AccountListItem, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AccountListItem, AccountPlatform, AccountSchedulerGroupScore, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -548,6 +549,7 @@ type AccountBulkEditTarget =
       accountIds: number[]
       selectedPlatforms: AccountPlatform[]
       selectedTypes: AccountType[]
+      selectedKeyEndpoints: ProtocolEndpoints[]
     }
   | {
       mode: 'filtered'
@@ -564,6 +566,7 @@ type AccountBulkEditTarget =
       previewCount: number
       selectedPlatforms: AccountPlatform[]
       selectedTypes: AccountType[]
+      selectedKeyEndpoints: ProtocolEndpoints[]
     }
 const selPlatforms = computed<AccountPlatform[]>(() => {
   const platforms = new Set(
@@ -581,6 +584,12 @@ const selTypes = computed<AccountType[]>(() => {
   )
   return [...types]
 })
+// 所选第三方 key 各自的协议地址：批量编辑按它判定 key 的协议设置，不看平台标签
+const keyEndpointsOf = (rows: AccountListItem[]): ProtocolEndpoints[] =>
+  rows.filter(account => account.type === 'apikey').map(account => account.protocol_endpoints ?? {})
+const selKeyEndpoints = computed<ProtocolEndpoints[]>(() =>
+  keyEndpointsOf(accounts.value.filter(a => isSelected(a.id)))
+)
 const showCreate = ref(false)
 const showEdit = ref(false)
 const showImportData = ref(false)
@@ -2077,7 +2086,7 @@ const handleSelectAllResults = async () => {
 const collectSelectionMetadata = (rows: Account[]) => {
   const selectedPlatforms = Array.from(new Set(rows.map(account => account.platform)))
   const selectedTypes = Array.from(new Set(rows.map(account => account.type)))
-  return { selectedPlatforms, selectedTypes }
+  return { selectedPlatforms, selectedTypes, selectedKeyEndpoints: keyEndpointsOf(rows) }
 }
 
 const openBulkEditSelected = () => {
@@ -2085,7 +2094,8 @@ const openBulkEditSelected = () => {
     mode: 'selected',
     accountIds: [...selIds.value],
     selectedPlatforms: [...selPlatforms.value],
-    selectedTypes: [...selTypes.value]
+    selectedTypes: [...selTypes.value],
+    selectedKeyEndpoints: [...selKeyEndpoints.value]
   }
   showBulkEdit.value = true
 }
@@ -2093,13 +2103,14 @@ const openBulkEditSelected = () => {
 const openBulkEditFiltered = async () => {
   const filters = buildBulkEditFilterSnapshot()
   const preview = await adminAPI.accounts.list(1, 100, filters)
-  const { selectedPlatforms, selectedTypes } = collectSelectionMetadata(preview.items)
+  const { selectedPlatforms, selectedTypes, selectedKeyEndpoints } = collectSelectionMetadata(preview.items)
   bulkEditTarget.value = {
     mode: 'filtered',
     filters,
     previewCount: preview.total,
     selectedPlatforms,
-    selectedTypes
+    selectedTypes,
+    selectedKeyEndpoints
   }
   showBulkEdit.value = true
 }

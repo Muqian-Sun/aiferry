@@ -31,9 +31,9 @@
         </p>
       </div>
 
-      <!-- OpenAI passthrough -->
+      <!-- OpenAI passthrough：OpenAI 成品号；第三方 key 要求每个都配了 responses / chat_completions 地址，不看平台标签 -->
       <div
-        v-if="allOpenAIPassthroughCapable"
+        v-if="allOpenAIResponsesSettingsCapable"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="mb-3 flex items-center justify-between">
@@ -47,6 +47,13 @@
             </label>
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
+            </p>
+            <p
+              v-if="targetSelectedTypes.includes('apikey')"
+              data-testid="bulk-edit-openai-key-protocol-hint"
+              class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+            >
+              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
             </p>
           </div>
           <input
@@ -135,7 +142,7 @@
 
       <!-- OpenAI API long-context billing -->
       <div
-        v-if="allOpenAIPassthroughCapable"
+        v-if="allOpenAIAccounts"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="mb-3 flex items-center justify-between gap-4">
@@ -1042,8 +1049,8 @@
         </div>
       </div>
 
-      <!-- OpenAI API Key WS mode -->
-      <div v-if="allOpenAIAPIKey" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <!-- 第三方 key 的 WS mode：每个 key 都配了 responses / chat_completions 地址，不看平台标签 -->
+      <div v-if="allKeysOpenAIResponsesSettingsCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <label
             id="bulk-edit-openai-apikey-ws-mode-label"
@@ -1079,8 +1086,8 @@
         </div>
       </div>
 
-      <!-- OpenAI Compact mode -->
-      <div v-if="allOpenAIPassthroughCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <!-- OpenAI Compact mode（展示条件同自动透传） -->
+      <div v-if="allOpenAIResponsesSettingsCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <div class="flex-1 pr-4">
             <label
@@ -1115,8 +1122,8 @@
         </div>
       </div>
 
-      <!-- OpenAI Compact model mapping -->
-      <div v-if="allOpenAIPassthroughCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <!-- OpenAI Compact model mapping（展示条件同自动透传） -->
+      <div v-if="allOpenAIResponsesSettingsCapable" class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
           <div class="flex-1 pr-4">
             <label
@@ -1399,8 +1406,10 @@ import type {
   AccountPlatform,
   AccountType,
   OpenAICompactMode,
-  OpenAIEndpointCapability
+  OpenAIEndpointCapability,
+  ProtocolEndpoints
 } from '@/types'
+import { hasOpenAIEndpoint } from '@/components/account/protocolEndpoints'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
@@ -1435,12 +1444,15 @@ interface Props {
   accountIds: number[]
   selectedPlatforms: AccountPlatform[]
   selectedTypes: AccountType[]
+  /** 所选第三方 key 各自的协议地址（每个 key 一项）；key 的协议设置按它判定，不看平台标签。 */
+  selectedKeyEndpoints: ProtocolEndpoints[]
   target?: {
     mode: 'selected' | 'filtered'
     filters?: Record<string, unknown>
     previewCount?: number
     selectedPlatforms?: AccountPlatform[]
     selectedTypes?: AccountType[]
+    selectedKeyEndpoints?: ProtocolEndpoints[]
   }
   proxies: ProxyConfig[]
   groups: AdminGroup[]
@@ -1460,14 +1472,43 @@ const targetMode = computed(() => props.target?.mode ?? 'selected')
 const targetPreviewCount = computed(() => props.target?.previewCount ?? props.accountIds.length)
 const targetSelectedPlatforms = computed(() => props.target?.selectedPlatforms ?? props.selectedPlatforms)
 const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.selectedTypes)
+const targetSelectedKeyEndpoints = computed(() => props.target?.selectedKeyEndpoints ?? props.selectedKeyEndpoints)
 const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 
-const allOpenAIPassthroughCapable = computed(() => {
+// OpenAI 平台账号（成品号与 openai 标签的 key）：只用于后端仍按平台读取的设置（长上下文计费）
+const allOpenAIAccounts = computed(() => {
   return (
     targetSelectedPlatforms.value.length === 1 &&
     targetSelectedPlatforms.value[0] === 'openai' &&
     targetSelectedTypes.value.length > 0 &&
     targetSelectedTypes.value.every(t => t === 'oauth' || t === 'setup-token' || t === 'apikey')
+  )
+})
+
+// 所选第三方 key 都配了 responses / chat_completions 地址
+const allKeysHaveOpenAIEndpoint = computed(() => targetSelectedKeyEndpoints.value.every(hasOpenAIEndpoint))
+
+// OpenAI Responses 协议设置（自动透传、Compact）：成品号仍只认 OpenAI 的 OAuth / Setup Token；
+// 第三方 key 看协议地址，不看平台标签。只有平台 / 类型两个集合时无法逐个配对成品号与 key，
+// 选中里有成品号就要求平台只有 openai（偏保守）。
+const allOpenAIResponsesSettingsCapable = computed(() => {
+  const types = targetSelectedTypes.value
+  if (types.length === 0 || !types.every(t => t === 'oauth' || t === 'setup-token' || t === 'apikey')) {
+    return false
+  }
+  const hasSubscriptions = types.some(t => t !== 'apikey')
+  if (hasSubscriptions && !(targetSelectedPlatforms.value.length === 1 && targetSelectedPlatforms.value[0] === 'openai')) {
+    return false
+  }
+  return allKeysHaveOpenAIEndpoint.value
+})
+
+// 第三方 key 专属的 WS mode：全部是 key，且每个都配了 OpenAI 系协议地址
+const allKeysOpenAIResponsesSettingsCapable = computed(() => {
+  return (
+    targetSelectedTypes.value.length > 0 &&
+    targetSelectedTypes.value.every(t => t === 'apikey') &&
+    allKeysHaveOpenAIEndpoint.value
   )
 })
 
@@ -1653,7 +1694,7 @@ const upstreamBillingAutoProbeOptions = computed(() => [
 ])
 const isOpenAIModelRestrictionDisabled = computed(
   () =>
-    allOpenAIPassthroughCapable.value &&
+    allOpenAIResponsesSettingsCapable.value &&
     enableOpenAIPassthrough.value &&
     openaiPassthroughEnabled.value
 )
@@ -1803,7 +1844,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   const credentials: Record<string, unknown> = {}
   let credentialsChanged = false
   const applyOpenAILongContextBilling =
-    enableOpenAILongContextBilling.value && allOpenAIPassthroughCapable.value
+    enableOpenAILongContextBilling.value && allOpenAIAccounts.value
   const applyOpenAIEndpointCapabilities =
     enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value
   const ensureExtra = (): Record<string, unknown> => {
@@ -1844,7 +1885,8 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     updates.group_ids = groupIds.value
   }
 
-  if (enableOpenAIPassthrough.value) {
+  // 同时校验可见性：勾选后目标变了、区块已隐藏时不提交（Compact 与 key 的 WS mode 同理）
+  if (enableOpenAIPassthrough.value && allOpenAIResponsesSettingsCapable.value) {
     const extra = ensureExtra()
     extra.openai_passthrough = openaiPassthroughEnabled.value
     if (!openaiPassthroughEnabled.value) {
@@ -1918,7 +1960,7 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     )
   }
 
-  if (enableOpenAIAPIKeyWSMode.value) {
+  if (enableOpenAIAPIKeyWSMode.value && allKeysOpenAIResponsesSettingsCapable.value) {
     const extra = ensureExtra()
     extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
     extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(
@@ -1967,12 +2009,12 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   }
 
-  if (enableOpenAICompactMode.value) {
+  if (enableOpenAICompactMode.value && allOpenAIResponsesSettingsCapable.value) {
     const extra = ensureExtra()
     extra.openai_compact_mode = openAICompactMode.value
   }
 
-  if (enableOpenAICompactModelMapping.value) {
+  if (enableOpenAICompactModelMapping.value && allOpenAIResponsesSettingsCapable.value) {
     credentials.compact_model_mapping = buildOpenAICompactModelMapping() ?? {}
     credentialsChanged = true
   }
@@ -2060,7 +2102,7 @@ const handleSubmit = async () => {
   const hasAnyFieldEnabled =
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
-    (enableOpenAILongContextBilling.value && allOpenAIPassthroughCapable.value) ||
+    (enableOpenAILongContextBilling.value && allOpenAIAccounts.value) ||
     (enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value) ||
     enableModelRestriction.value ||
     enableCustomErrorCodes.value ||
