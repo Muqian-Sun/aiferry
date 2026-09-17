@@ -252,9 +252,14 @@ func (a *Account) IsOAuth() bool {
 // IsPrivacySet 检查账号的 privacy 是否已成功设置。
 // OpenAI: privacy_mode == "training_off"
 // Antigravity: privacy_mode == "privacy_set"
-// 其他平台: 无 privacy 概念，始终返回 true
+// 其他厂商: 无 privacy 概念，始终返回 true
+//
+// privacy 是上游厂商的账号设置，按 Vendor 判定，不看第三方 key 的平台标签：成品号的
+// Vendor 就是平台，行为不变；官方 OpenAI 地址的 key 同样要求 training_off（privacy_mode
+// 只由 OAuth 隐私设置写入，key 实际上不会带），通用中转与其他厂商的 key 没有可确认的
+// privacy 概念，按「无 privacy 概念」放行。
 func (a *Account) IsPrivacySet() bool {
-	switch a.Platform {
+	switch a.Vendor() {
 	case PlatformOpenAI:
 		return a.getExtraString("privacy_mode") == PrivacyModeTrainingOff
 	case PlatformAntigravity:
