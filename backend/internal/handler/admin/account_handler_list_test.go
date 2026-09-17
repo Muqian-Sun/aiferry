@@ -247,6 +247,51 @@ func TestAccountHandlerListReturnsSchedulerScoresPerGroup(t *testing.T) {
 	require.Greater(t, high.SchedulerScores[0].BaseScore, low.SchedulerScores[0].BaseScore)
 }
 
+// 调度分与调度同一口径：能在 OpenAI 网关承接请求的第三方 key 不论平台标签都参与分组调度分。
+func TestAccountHandlerListSchedulerScoresIncludeKeysOfAnyLabel(t *testing.T) {
+	router, adminSvc := setupAccountListRouter()
+	now := time.Now().UTC()
+	groupID := int64(42)
+	newKey := func(id int64, label string, endpoints map[string]string) service.Account {
+		return service.Account{
+			ID: id, Name: "key", Platform: label, Type: service.AccountTypeAPIKey,
+			Status: service.StatusActive, Schedulable: true, Concurrency: 10, Priority: 1,
+			AccountGroups: []service.AccountGroup{
+				{AccountID: id, GroupID: groupID, Priority: 1, Group: &service.Group{ID: groupID, Name: "openai"}},
+			},
+			GroupIDs: []int64{groupID}, CreatedAt: now, UpdatedAt: now, ProtocolEndpoints: endpoints,
+		}
+	}
+	adminSvc.accounts = []service.Account{
+		newKey(201, service.PlatformAnthropic, map[string]string{service.APIProtocolResponses: "https://relay.example.com/v1"}),
+		// 页内没有 openai 标签的账号：是否进入打分路径也不能看标签。
+		newKey(202, service.PlatformGemini, map[string]string{service.APIProtocolGemini: "https://relay.example.com"}),
+	}
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts?page=1&page_size=20&include_scheduler_score=1", nil)
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var payload struct {
+		Data struct {
+			Items []struct {
+				ID              int64 `json:"id"`
+				SchedulerScores []struct {
+					GroupID *int64 `json:"group_id"`
+				} `json:"scheduler_scores"`
+			} `json:"items"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &payload))
+	scoresByID := make(map[int64]int)
+	for _, item := range payload.Data.Items {
+		scoresByID[item.ID] = len(item.SchedulerScores)
+	}
+	require.Equal(t, 1, scoresByID[201], "responses-endpoint key with anthropic label serves the OpenAI gateway")
+	require.Zero(t, scoresByID[202], "gemini-only key cannot serve the OpenAI gateway")
+}
+
 func TestAccountHandlerListSkipsSchedulerScoresByDefault(t *testing.T) {
 	router, adminSvc := setupAccountListRouter()
 	now := time.Now().UTC()

@@ -408,6 +408,12 @@ func (h *AccountHandler) buildAccountResponseWithRuntime(ctx context.Context, ac
 
 // scoreOpenAIAccountSchedulerPool 对池内 OpenAI 账号计算调度分数快照。
 // loadMap 为共享的账号负载数据（含池内全部账号即可，多余条目无害）；传 nil 时自行批查。
+// accountInOpenAISchedulerScore 报告账号是否参与 OpenAI 调度分：与调度同一口径，成品号看 openai
+// 平台，第三方 key 看能否在 OpenAI 网关承接任一入站协议，不看平台标签。
+func accountInOpenAISchedulerScore(account *service.Account) bool {
+	return service.AccountServesPlatformForAnyInbound(account, service.PlatformOpenAI)
+}
+
 func (h *AccountHandler) scoreOpenAIAccountSchedulerPool(ctx context.Context, accounts []service.Account, loadMap map[int64]*service.AccountLoadInfo) map[int64]AccountSchedulerScore {
 	if len(accounts) == 0 {
 		return nil
@@ -416,7 +422,7 @@ func (h *AccountHandler) scoreOpenAIAccountSchedulerPool(ctx context.Context, ac
 	openAIAccounts := make([]*service.Account, 0, len(accounts))
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != service.PlatformOpenAI {
+		if !accountInOpenAISchedulerScore(account) {
 			continue
 		}
 		openAIAccounts = append(openAIAccounts, account)
@@ -493,7 +499,7 @@ func (h *AccountHandler) buildOpenAIAccountSchedulerScores(
 	groupIDs := make(map[int64]struct{})
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != service.PlatformOpenAI {
+		if !accountInOpenAISchedulerScore(account) {
 			continue
 		}
 		pageOpenAIAccountIDs[account.ID] = struct{}{}
@@ -539,7 +545,7 @@ func (h *AccountHandler) buildOpenAIAccountSchedulerScores(
 	loadUnion := make([]*service.Account, 0, len(filterPool))
 	collectOpenAIAccounts := func(pool []service.Account) {
 		for i := range pool {
-			if pool[i].Platform == service.PlatformOpenAI {
+			if accountInOpenAISchedulerScore(&pool[i]) {
 				loadUnion = append(loadUnion, &pool[i])
 			}
 		}
@@ -701,7 +707,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 	var schedulerGroupScores map[int64][]AccountSchedulerGroupScore
 	pageHasOpenAIAccounts := false
 	for i := range accounts {
-		if accounts[i].Platform == service.PlatformOpenAI {
+		if accountInOpenAISchedulerScore(&accounts[i]) {
 			pageHasOpenAIAccounts = true
 			break
 		}

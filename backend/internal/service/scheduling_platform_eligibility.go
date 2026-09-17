@@ -28,7 +28,7 @@ func schedulingBucketAdmits(account *Account, platform string, useMixed bool) bo
 
 // accountServesSchedulingPlatform 报告账号能否为入站协议为 inboundProtocol 的请求，
 // 在 platform 网关平台上被调度。inboundProtocol 为空表示 OpenAI 扩展端点（图片、向量等）；
-// 没有入站请求的模型列表用 accountServesPlatformForAnyInbound。
+// 没有入站请求的模型列表用 AccountServesPlatformForAnyInbound。
 func accountServesSchedulingPlatform(account *Account, platform, inboundProtocol string, useMixed bool) bool {
 	if account == nil {
 		return false
@@ -39,13 +39,13 @@ func accountServesSchedulingPlatform(account *Account, platform, inboundProtocol
 	return subscriptionServesSchedulingPlatform(account, platform, useMixed)
 }
 
-// accountServesPlatformForAnyInbound 报告账号能否在 platform 网关平台上承接至少一种入站
+// AccountServesPlatformForAnyInbound 报告账号能否在 platform 网关平台上承接至少一种入站
 // 协议的请求，供没有入站请求的模型列表使用（网关 /v1/models、管理端模型候选）。
 //
 // 列表按分组+平台缓存，客户端之后可能用该网关上任一入站协议来调：第三方 key 只要能为
 // 其中一种入站协议选出已配地址的上游协议就计入。OpenAI 扩展端点（入站协议为空）只用
 // chat_completions 地址，已被 chat_completions 入站覆盖。成品号按平台精确匹配，不含混合调度。
-func accountServesPlatformForAnyInbound(account *Account, platform string) bool {
+func AccountServesPlatformForAnyInbound(account *Account, platform string) bool {
 	if account == nil {
 		return false
 	}

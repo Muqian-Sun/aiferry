@@ -277,7 +277,7 @@ func openAIConfiguredCodexModelIDs(accounts []Account) []string {
 	for i := range accounts {
 		account := &accounts[i]
 		// 第三方 key 的平台只是展示标签：能在 OpenAI 网关承接请求的 key 都贡献映射。
-		if !accountServesPlatformForAnyInbound(account, PlatformOpenAI) {
+		if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 			continue
 		}
 		for modelID := range account.GetModelMapping() {
@@ -313,7 +313,7 @@ func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []s
 		}
 		for i := range accounts {
 			account := &accounts[i]
-			if !accountServesPlatformForAnyInbound(account, PlatformOpenAI) {
+			if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 				continue
 			}
 			mappedModel, matched := account.ResolveMappedModel(selectedModel)

@@ -42,14 +42,33 @@ func (s *adminServiceImpl) ListAccountsForSchedulerScoreFilter(ctx context.Conte
 	return s.accountRepo.ListAllWithFilters(ctx, platform, accountType, status, search, groupID, privacyMode)
 }
 
+// ListOpenAISchedulableAccountsForSchedulerScore 返回管理端调度分用的 OpenAI 候选池，与调度
+// 同一口径：成品号按 openai 平台装载，第三方 key 不论标签装载后，保留能在 OpenAI 网关承接任一
+// 入站协议的（管理端没有入站请求，见 AccountServesPlatformForAnyInbound）。
 func (s *adminServiceImpl) ListOpenAISchedulableAccountsForSchedulerScore(ctx context.Context, groupID *int64) ([]Account, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, nil
 	}
+	var (
+		accounts []Account
+		err      error
+	)
+	platforms := []string{PlatformOpenAI}
 	if groupID != nil {
-		return s.accountRepo.ListSchedulableByGroupIDAndPlatform(ctx, *groupID, PlatformOpenAI)
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)
+	} else {
+		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
 	}
-	return s.accountRepo.ListSchedulableUngroupedByPlatform(ctx, PlatformOpenAI)
+	if err != nil {
+		return nil, err
+	}
+	pool := make([]Account, 0, len(accounts))
+	for i := range accounts {
+		if AccountServesPlatformForAnyInbound(&accounts[i], PlatformOpenAI) {
+			pool = append(pool, accounts[i])
+		}
+	}
+	return pool, nil
 }
 
 func (s *adminServiceImpl) GetAccount(ctx context.Context, id int64) (*Account, error) {

@@ -42,7 +42,7 @@ func supplementUnmappedOpenAIModels(accounts []Account, models []string) []strin
 	}
 	for i := range accounts {
 		account := &accounts[i]
-		if accountServesPlatformForAnyInbound(account, PlatformOpenAI) && openAIProtocolFeaturesApply(account) && len(account.GetModelMapping()) == 0 {
+		if AccountServesPlatformForAnyInbound(account, PlatformOpenAI) && openAIProtocolFeaturesApply(account) && len(account.GetModelMapping()) == 0 {
 			return dedupeAndSortModelIDs(slices.Concat(models, openai.DefaultModelIDs()))
 		}
 	}
