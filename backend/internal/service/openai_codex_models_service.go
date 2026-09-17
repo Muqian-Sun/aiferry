@@ -313,7 +313,7 @@ func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []s
 		}
 		for i := range accounts {
 			account := &accounts[i]
-			if account.Platform != PlatformOpenAI {
+			if !accountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 				continue
 			}
 			mappedModel, matched := account.ResolveMappedModel(selectedModel)
