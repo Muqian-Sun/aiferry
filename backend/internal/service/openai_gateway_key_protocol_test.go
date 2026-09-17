@@ -291,6 +291,28 @@ func TestOpenAIGatewayKeyProtocol_OpenCodeModelRuleChoosesAmongConfiguredProtoco
 	})
 }
 
+// TestOpenAIGatewayKeyProtocol_ResponsesOutputLimitFollowsProtocol：发往 Responses 上游的请求
+// 按 Responses 协议归一化输出上限，与标签无关（anthropic 标签不再改写成 max_tokens）。
+func TestOpenAIGatewayKeyProtocol_ResponsesOutputLimitFollowsProtocol(t *testing.T) {
+	endpoints := map[string]string{APIProtocolResponses: "http://relay.example/v1"}
+	for _, platform := range []string{PlatformAnthropic, PlatformGemini, PlatformKimi} {
+		t.Run(platform+" label keeps max_output_tokens", func(t *testing.T) {
+			ingress := keyProtocolResponsesIngress
+			ingress.body = []byte(`{"model":"gpt-5.4","input":"hello","max_output_tokens":64,"stream":false}`)
+			upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(platform, endpoints), ingress)
+			require.Equal(t, int64(64), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
+			require.False(t, gjson.GetBytes(upstream.lastBody, "max_tokens").Exists())
+		})
+		t.Run(platform+" label rewrites max_tokens", func(t *testing.T) {
+			ingress := keyProtocolResponsesIngress
+			ingress.body = []byte(`{"model":"gpt-5.4","input":"hello","max_tokens":48,"stream":false}`)
+			upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(platform, endpoints), ingress)
+			require.Equal(t, int64(48), gjson.GetBytes(upstream.lastBody, "max_output_tokens").Int())
+			require.False(t, gjson.GetBytes(upstream.lastBody, "max_tokens").Exists())
+		})
+	}
+}
+
 func TestGetOpenAIResponsesBaseURLIsStrict(t *testing.T) {
 	chatOnly := keyProtocolTestAccount(PlatformOpenAI, map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})
 	require.Empty(t, chatOnly.GetOpenAIResponsesBaseURL())
