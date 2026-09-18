@@ -354,11 +354,12 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 		return nil
 	}
 
-	// Route to platform-specific test method
-	if account.IsCNProvider() {
-		return s.testCNProviderConfiguredEndpoints(c, account, modelID, prompt, mode)
+	// 第三方 key：平台标签只是展示，测哪个地址、用哪种线格式由协议地址与 Vendor 决定。
+	if account.IsThirdPartyKey() {
+		return s.testThirdPartyKeyConnection(c, account, modelID, prompt, mode, testOpts)
 	}
 
+	// 成品号：厂商绑定，平台即厂商（Vendor() == Platform）。
 	if account.IsOpenAI() {
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
 	}
@@ -372,14 +373,25 @@ func (s *AccountTestService) TestAccountConnection(c *gin.Context, accountID int
 	}
 
 	if account.IsAntigravity() {
-		return s.routeAntigravityTest(c, account, modelID, prompt)
-	}
-
-	if account.IsOpenCodeGo() {
-		return s.testOpenCodeGoAccountConnection(c, account, modelID, prompt)
+		return s.testAntigravityAccountConnection(c, account, modelID)
 	}
 
 	return s.testClaudeAccountConnection(c, account, modelID)
+}
+
+// testThirdPartyKeyConnection 第三方 key 的连接测试入口。
+//
+// 厂商特化先分流：Grok 的图片/视频/搜索/语音端点与 OpenCode 的按模型分流只有官方
+// 地址才有，按 Vendor() 判定——贴着这两个标签的中转按通用协议测。其余一律按 key
+// 配置的协议地址探测，与真实转发同址同形。
+func (s *AccountTestService) testThirdPartyKeyConnection(c *gin.Context, account *Account, modelID, prompt, mode string, opts AccountTestOptions) error {
+	switch account.Vendor() {
+	case PlatformGrok:
+		return s.testGrokAccountConnection(c, account, modelID, prompt, mode, opts)
+	case PlatformOpenCodeGo:
+		return s.testOpenCodeGoAccountConnection(c, account, modelID, prompt)
+	}
+	return s.testKeyProtocolEndpointConnection(c, account, modelID, prompt, mode)
 }
 
 // testOpenCodeGoAccountConnection probes the endpoint the gateway would use for
@@ -401,11 +413,11 @@ func (s *AccountTestService) testOpenCodeGoAccountConnection(c *gin.Context, acc
 	}
 	switch proto {
 	case APIProtocolAnthropic:
-		return s.testCNProviderAnthropicConnection(c, account, testModelID)
+		return s.testKeyAnthropicConnection(c, account, testModelID)
 	case APIProtocolResponses:
 		return s.testOpenCodeGoResponsesConnection(c, account, testModelID)
 	default:
-		return s.testCNProviderChatCompletionsConnection(c, account, testModelID, prompt)
+		return s.testKeyChatCompletionsConnection(c, account, testModelID, prompt)
 	}
 }
 
@@ -420,10 +432,10 @@ func (s *AccountTestService) testOpenCodeGoResponsesConnection(c *gin.Context, a
 	c.Writer.Header().Set("X-Accel-Buffering", "no")
 	c.Writer.Flush()
 	s.sendEvent(c, TestEvent{Type: "test_start", Model: testModelID})
-	return s.testCNProviderAdaptiveResponsesConnection(c, account, testModelID, authToken)
+	return s.testKeySecondaryResponsesConnection(c, account, testModelID, authToken)
 }
 
-func (s *AccountTestService) testCNProviderChatCompletionsConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
+func (s *AccountTestService) testKeyChatCompletionsConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
 	testModelID := strings.TrimSpace(modelID)
 	if testModelID == "" {
 		testModelID = openai.DefaultTestModel
@@ -2402,18 +2414,6 @@ func (s *AccountTestService) testGeminiAccountConnection(c *gin.Context, account
 
 	// Process SSE stream
 	return s.processGeminiStream(c, resp.Body)
-}
-
-// routeAntigravityTest 路由 Antigravity 账号的测试请求。
-// APIKey 类型走原生协议（与 gateway_handler 路由一致），OAuth/Upstream 走 CRS 中转。
-func (s *AccountTestService) routeAntigravityTest(c *gin.Context, account *Account, modelID string, prompt string) error {
-	if account.Type == AccountTypeAPIKey {
-		if strings.HasPrefix(modelID, "gemini-") {
-			return s.testGeminiAccountConnection(c, account, modelID, prompt)
-		}
-		return s.testClaudeAccountConnection(c, account, modelID)
-	}
-	return s.testAntigravityAccountConnection(c, account, modelID)
 }
 
 // testAntigravityAccountConnection tests an Antigravity account's connection
