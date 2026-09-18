@@ -1783,7 +1783,7 @@
 
       <!-- OpenAI APIKey endpoint capabilities -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -1810,7 +1810,7 @@
 
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
-        v-if="account?.platform === 'openai' && account?.type === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -3356,6 +3356,12 @@ const openAIResponsesSettingsVisible = computed(() => {
   if (account.type === 'apikey') return hasOpenAIEndpoint(editProtocolEndpoints.value)
   return account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')
 })
+
+// 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
+// 按编辑中的协议地址展示，不看平台标签。
+const openAIKeySettingsVisible = computed(
+  () => props.account?.type === 'apikey' && hasOpenAIEndpoint(editProtocolEndpoints.value)
+)
 const {
   globalEnabled: quotaNotifyGlobalEnabled,
   state: quotaNotifyState,
@@ -3794,6 +3800,13 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       openAICompactModelMappings.value = Object.entries(compactMappings).map(([from, to]) => ({ from, to }))
     }
   }
+  // 端点能力是第三方 key 专属设置，与平台标签无关：任何标签的 key 都要回填，
+  // 否则保存时会把已存的能力限制覆盖成默认值。必须放在上面的默认值重置之后。
+  if (newAccount.type === 'apikey') {
+    openAIEndpointCapabilities.value = readOpenAIEndpointCapabilities(
+      newAccount.credentials as Record<string, unknown> | undefined
+    )
+  }
   // OpenAI 平台专属设置（后端仍按平台读取）
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token' || newAccount.type === 'apikey')) {
     openaiFlattenNamespacesEnabled.value =
@@ -3804,11 +3817,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     editPlanType.value = newAccount.type === 'oauth'
       ? readPlanType(newAccount.credentials as Record<string, unknown> | undefined)
       : ''
-    if (newAccount.type === 'apikey') {
-      openAIEndpointCapabilities.value = readOpenAIEndpointCapabilities(
-        newAccount.credentials as Record<string, unknown> | undefined
-      )
-    }
     const codexImageGenerationBridgeValue = typeof extra?.codex_image_generation_bridge === 'boolean'
       ? extra.codex_image_generation_bridge
       : extra?.codex_image_generation_bridge_enabled
@@ -4722,7 +4730,7 @@ const handleSubmit = async () => {
       } else if (currentCredentials.model_mapping) {
         newCredentials.model_mapping = currentCredentials.model_mapping
       }
-      if (props.account.platform === 'openai') {
+      if (openAIKeySettingsVisible.value) {
         applyOpenAIEndpointCapabilities(newCredentials)
       }
       // Compact 专属模型映射与 Compact 模式同区块，区块隐藏时保留已存值
@@ -5134,6 +5142,24 @@ const handleSubmit = async () => {
       updatePayload.extra = newExtra
     }
 
+    // 第三方 key 专属、按协议地址判定的 extra：不看平台标签。
+    if (props.account.type === 'apikey') {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      // Responses 路由改由协议地址决定，已退役的探测标记与强制模式保存时清掉。
+      delete newExtra.openai_responses_mode
+      delete newExtra.openai_responses_supported
+      // 生图结果转 base64 与端点能力同区块：区块隐藏时保留已存值，不按界面值改写。
+      if (openAIKeySettingsVisible.value) {
+        if (openAIImagesUrlToB64JsonEnabled.value) {
+          newExtra.images_url_to_b64_json = true
+        } else {
+          delete newExtra.images_url_to_b64_json
+        }
+      }
+      updatePayload.extra = newExtra
+    }
+
     // OpenAI 平台专属设置（成品号与 openai 标签的 key；后端仍按平台读取）
     if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'setup-token' || props.account.type === 'apikey')) {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
@@ -5150,16 +5176,6 @@ const handleSubmit = async () => {
       } else {
         newExtra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
       }
-		if (props.account.type === 'apikey') {
-        // Responses 路由改由协议地址决定，已退役的探测标记与强制模式保存时清掉。
-        delete newExtra.openai_responses_mode
-        delete newExtra.openai_responses_supported
-        if (openAIImagesUrlToB64JsonEnabled.value) {
-          newExtra.images_url_to_b64_json = true
-        } else {
-          delete newExtra.images_url_to_b64_json
-        }
-		}
 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
 			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100
 		} else {

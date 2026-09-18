@@ -986,6 +986,34 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
   })
 
+  it('submits endpoint capabilities and the b64 toggle for a Kimi key with an OpenAI endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await fillKeyBasics(wrapper, 'kimi relay capabilities')
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('hides endpoint capabilities and the b64 toggle for an Anthropic-labelled key without an OpenAI endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+  })
+
   it('shows OpenAI Responses settings with the vendor hint once an Anthropic-labelled key gains a responses endpoint', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')

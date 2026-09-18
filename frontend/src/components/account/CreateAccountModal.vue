@@ -3198,7 +3198,7 @@
 
       <!-- OpenAI APIKey endpoint capabilities -->
       <div
-        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -3225,7 +3225,7 @@
 
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
-        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -4479,6 +4479,12 @@ const openAIResponsesSettingsVisible = computed(() => {
   return form.platform === 'openai' && accountCategory.value === 'oauth-based'
 })
 
+// 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
+// 按填写中的协议地址展示，不看平台标签。
+const openAIKeySettingsVisible = computed(
+  () => form.type === 'apikey' && hasOpenAIEndpoint(protocolEndpoints.value)
+)
+
 // 自动透传会跳过模型改写：透传区块可见且开启时，模型限制不再可编辑。
 const isOpenAIModelRestrictionDisabled = computed(() =>
   openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
@@ -5173,6 +5179,13 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
       delete extra.openai_compact_mode
     }
   }
+  // 生图结果转 base64 与端点能力同区块：第三方 key 按协议地址判定，不看平台标签，
+  // 必须在 openai 平台专属段落之前写入。
+  if (openAIKeySettingsVisible.value && openAIImagesUrlToB64JsonEnabled.value) {
+    extra.images_url_to_b64_json = true
+  } else {
+    delete extra.images_url_to_b64_json
+  }
   if (!openaiPlatform) {
     return Object.keys(extra).length > 0 ? extra : undefined
   }
@@ -5207,12 +5220,6 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   } else {
     delete extra.codex_fingerprint_mode
-  }
-
-  if (accountCategory.value === 'apikey' && openAIImagesUrlToB64JsonEnabled.value) {
-    extra.images_url_to_b64_json = true
-  } else {
-    delete extra.images_url_to_b64_json
   }
 
   return Object.keys(extra).length > 0 ? extra : undefined
@@ -5530,7 +5537,7 @@ const handleSubmit = async () => {
       credentials.model_mapping = modelMapping
     }
   }
-  if (form.platform === 'openai') {
+  if (openAIKeySettingsVisible.value) {
     applyOpenAIEndpointCapabilities(credentials)
   }
   applyKeyCompactModelMapping(credentials)
@@ -5663,10 +5670,11 @@ const createAccountAndFinish = async (
       finalExtra = quotaExtra
     }
   }
+  // 端点能力按协议地址判定，不看平台标签。
+  if (openAIKeySettingsVisible.value) {
+    applyOpenAIEndpointCapabilities(credentials)
+  }
   if (platform === 'openai') {
-    if (type === 'apikey') {
-      applyOpenAIEndpointCapabilities(credentials)
-    }
     const compactModelMapping = buildOpenAICompactModelMapping()
     if (compactModelMapping) {
       credentials.compact_model_mapping = compactModelMapping

@@ -1900,6 +1900,73 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
   })
 
+  it('shows endpoint capabilities and the b64 toggle for a Kimi-labelled key with an OpenAI endpoint', async () => {
+    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('hides endpoint capabilities and the b64 toggle for an OpenAI-labelled key without an OpenAI endpoint', async () => {
+    const account = buildKey(
+      'openai',
+      { anthropic: 'https://relay.example.com' },
+      { images_url_to_b64_json: true }
+    )
+    account.credentials = { openai_capabilities: ['chat_completions'] }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    // 区块隐藏时保留账号已存的值，不按界面值改写
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('loads stored endpoint capabilities of a non-OpenAI-labelled key instead of resetting them', async () => {
+    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
+    account.credentials = { openai_capabilities: ['chat_completions'] }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    const embeddings = wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]')
+      .element as HTMLInputElement
+    expect(embeddings.checked).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+  })
+
+  it('does not submit endpoint capabilities or the b64 flag edited before the OpenAI endpoint was removed', async () => {
+    const account = buildKey('kimi', {
+      chat_completions: 'https://relay.example.com/v1',
+      anthropic: 'https://relay.example.com'
+    })
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials ?? {}).not.toHaveProperty('openai_capabilities')
+    expect(payload?.extra ?? {}).not.toHaveProperty('images_url_to_b64_json')
+  })
+
   it('hides OpenAI Responses settings for an OpenAI-labelled key without responses or chat_completions endpoints', async () => {
     const account = buildKey(
       'openai',
