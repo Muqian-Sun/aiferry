@@ -291,13 +291,16 @@ func validateCodingPlanAccount(account *Account) error {
 	if account == nil {
 		return infraerrors.New(http.StatusNotFound, "CN_QUOTA_ACCOUNT_NOT_FOUND", "account not found")
 	}
-	if account.IsOpenCodeGoPlan() {
-		return nil
-	}
-	if account.IsOpenCodeGo() {
+	// OpenCode Go 的额度窗口按官方地址识别（/zen/go），不看平台标签和 account_mode。
+	if account.Vendor() == PlatformOpenCodeGo {
+		if account.openCodeEndpointMode() == AccountModeGo {
+			return nil
+		}
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "opencode zen accounts have no subscription quota window")
 	}
-	if !account.IsCNProvider() {
+	// 国产 Coding Plan 额度端点只在官方域名上：Vendor 识别厂商，account_mode 区分
+	// payg / coding。中转 key（Vendor 为空）没有可核实的官方额度接口。
+	if !IsCNProvider(account.Vendor()) {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_INVALID_PLATFORM", "account is not a CN provider account")
 	}
 	if !account.IsCodingPlan() {

@@ -13,17 +13,34 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func officialCNEndpoints(platform string) map[string]string {
+	switch platform {
+	case PlatformKimi:
+		return map[string]string{APIProtocolChatCompletions: DefaultKimiPayGBaseURL}
+	case PlatformZhipu:
+		return map[string]string{APIProtocolChatCompletions: DefaultZhipuPayGBaseURL}
+	case PlatformDeepseek:
+		return map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL}
+	case PlatformMiniMax:
+		return map[string]string{APIProtocolChatCompletions: DefaultMiniMaxBaseURL}
+	default:
+		return nil
+	}
+}
+
 func codingAccount(platform string) *Account {
 	return &Account{
 		ID: 1, Platform: platform, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": AccountModeCoding, "api_key": "sk-test"},
+		Credentials:       map[string]any{"account_mode": AccountModeCoding, "api_key": "sk-test"},
+		ProtocolEndpoints: officialCNEndpoints(platform),
 	}
 }
 
 func paygAccount(platform string) *Account {
 	return &Account{
 		ID: 2, Platform: platform, Type: AccountTypeAPIKey, Status: StatusActive,
-		Credentials: map[string]any{"account_mode": AccountModePayG, "api_key": "sk-test"},
+		Credentials:       map[string]any{"account_mode": AccountModePayG, "api_key": "sk-test"},
+		ProtocolEndpoints: officialCNEndpoints(platform),
 	}
 }
 
@@ -47,6 +64,25 @@ func TestValidateCodingPlanAccount_Matrix(t *testing.T) {
 		{name: "kimi coding ok", account: codingAccount(PlatformKimi)},
 		{name: "zhipu coding ok", account: codingAccount(PlatformZhipu)},
 		{name: "minimax coding ok", account: codingAccount(PlatformMiniMax)},
+		{name: "openai label on kimi coding still ok", account: &Account{
+			ID: 6, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials:       map[string]any{"account_mode": AccountModeCoding, "api_key": "sk-test"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiCodingBaseURL},
+		}},
+		{name: "kimi label on relay coding rejected", account: &Account{
+			ID: 7, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials:       map[string]any{"account_mode": AccountModeCoding, "api_key": "sk-test"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
+		}, wantReason: "CN_QUOTA_INVALID_PLATFORM"},
+		{name: "opencode go by address not label", account: &Account{
+			ID: 8, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL},
+		}},
+		{name: "opencode zen by address rejected", account: &Account{
+			ID: 9, Platform: PlatformOpenCodeGo, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials:       map[string]any{"account_mode": AccountModeGo},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeZenBaseURL},
+		}, wantReason: "CN_QUOTA_NOT_CODING_PLAN"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -71,6 +107,16 @@ func TestValidatePayGAccount_Matrix(t *testing.T) {
 		{name: "coding has no balance endpoint", account: codingAccount(PlatformKimi), wantReason: "CN_BALANCE_CODING_PLAN"},
 		{name: "kimi payg ok", account: paygAccount(PlatformKimi)},
 		{name: "deepseek payg ok", account: paygAccount(PlatformDeepseek)},
+		{name: "anthropic label on moonshot still payg", account: &Account{
+			ID: 4, Platform: PlatformAnthropic, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials:       map[string]any{"account_mode": AccountModePayG, "api_key": "sk-test"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiPayGBaseURL},
+		}},
+		{name: "kimi label on relay rejected", account: &Account{
+			ID: 5, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials:       map[string]any{"account_mode": AccountModePayG, "api_key": "sk-test"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
+		}, wantReason: "CN_BALANCE_INVALID_PLATFORM"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

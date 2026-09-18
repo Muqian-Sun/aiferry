@@ -347,17 +347,47 @@ func TestGetCodingPlanProvider_MiniMax(t *testing.T) {
 	}).GetCodingPlanProvider())
 }
 
+func TestGetCodingPlanProvider_OpenCodeFollowsAddressNotLabel(t *testing.T) {
+	t.Parallel()
+	goPlan := &Account{
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL},
+	}
+	require.Equal(t, PlatformOpenCodeGo, goPlan.GetCodingPlanProvider())
+
+	zenOnGoLabel := &Account{
+		Platform:          PlatformOpenCodeGo,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"account_mode": AccountModeGo},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeZenBaseURL},
+	}
+	require.Empty(t, zenOnGoLabel.GetCodingPlanProvider())
+}
+
 // TestCNBalanceURL Kimi 固定端点；DeepSeek 基于 base_url 拼接。
 func TestCNBalanceURL(t *testing.T) {
 	t.Parallel()
-	kimi := &Account{Platform: PlatformKimi}
+	kimi := &Account{
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiPayGBaseURL},
+	}
 	require.Equal(t, "https://api.moonshot.cn/v1/users/me/balance", cnBalanceURL(kimi))
 
 	deepseek := &Account{
-		Platform:    PlatformDeepseek,
-		Credentials: map[string]any{"base_url": "https://api.deepseek.com"},
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL},
 	}
 	require.Equal(t, "https://api.deepseek.com/user/balance", cnBalanceURL(deepseek))
+
+	relay := &Account{
+		Platform:          PlatformKimi,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
+	}
+	require.Empty(t, cnBalanceURL(relay))
 }
 
 // TestCNProviderThresholdCandidates 从 Extra 快照读取 5h / weekly 候选。

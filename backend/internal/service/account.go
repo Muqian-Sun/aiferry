@@ -1441,7 +1441,7 @@ func (a *Account) GetCodingPlanProvider() string {
 	if a == nil {
 		return ""
 	}
-	if a.IsOpenCodeGoPlan() {
+	if a.Vendor() == PlatformOpenCodeGo && a.openCodeEndpointMode() == AccountModeGo {
 		return PlatformOpenCodeGo
 	}
 	if a.GetAccountMode() != AccountModeCoding {
