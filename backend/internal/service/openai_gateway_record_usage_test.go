@@ -2795,7 +2795,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndInd
 // groupID 只保留签名兼容：目录是全局的，不按分组隔离。
 func newOpenAIImageChannelPricingResolverForTest(t *testing.T, _ int64, model string, price float64) *ModelPricingResolver {
 	t.Helper()
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+	return newOpenAICatalogResolverFromCard(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
 		Models:          []string{model},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: &price,
@@ -2822,7 +2822,7 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 	inputPrice := 3e-6
 	outputPrice := 15e-6
 	imageOutputPrice := 15e-6
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+	return newOpenAICatalogResolverFromCard(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
 		Models:           []string{model},
 		BillingMode:      BillingModeToken,
 		InputPrice:       &inputPrice,
@@ -2830,6 +2830,70 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 		ImageOutputPrice: &imageOutputPrice,
 		TimePricing:      timePricing,
 	})
+}
+
+// newOpenAICatalogResolverFromCard 是本文件的本地 helper：本文件没有 //go:build unit，
+// 不能调用 unit-only 的 newResolverWithCatalogCards（golangci-lint 默认 tags 会 typecheck 失败）。
+func newOpenAICatalogResolverFromCard(bs *BillingService, card ChannelModelPricing) *ModelPricingResolver {
+	entry := ModelCatalogEntry{
+		ID:                           1,
+		ModelID:                      card.Models[0],
+		BillingMode:                  card.BillingMode,
+		Status:                       ModelCatalogStatusListed,
+		ManagedBy:                    ModelCatalogManagedByAdmin,
+		InputPrice:                   card.InputPrice,
+		OutputPrice:                  card.OutputPrice,
+		CacheWritePrice:              card.CacheWritePrice,
+		CacheWrite1hPrice:            card.CacheWrite1hPrice,
+		CacheReadPrice:               card.CacheReadPrice,
+		ImageInputPrice:              card.ImageInputPrice,
+		ImageOutputPrice:             card.ImageOutputPrice,
+		PerRequestPrice:              card.PerRequestPrice,
+		FastMultiplier:               card.FastMultiplier,
+		FlexMultiplier:               card.FlexMultiplier,
+		MaxReasoningEffortMultiplier: card.MaxReasoningEffortMultiplier,
+		Intervals:                    card.Intervals,
+		TimePricing:                  card.TimePricing,
+	}
+	catalog := NewModelCatalogService(&openAICatalogRepoStub{entries: []ModelCatalogEntry{entry}}, nil, ModelCatalogSeedInput{})
+	return NewModelPricingResolver(catalog, bs)
+}
+
+type openAICatalogRepoStub struct {
+	entries []ModelCatalogEntry
+}
+
+func (r *openAICatalogRepoStub) ListEntries(context.Context) ([]ModelCatalogEntry, error) {
+	out := make([]ModelCatalogEntry, len(r.entries))
+	copy(out, r.entries)
+	return out, nil
+}
+func (r *openAICatalogRepoStub) GetEntryByID(context.Context, int64) (*ModelCatalogEntry, error) {
+	return nil, ErrModelCatalogEntryNotFound
+}
+func (r *openAICatalogRepoStub) GetEntryByModelID(context.Context, string) (*ModelCatalogEntry, error) {
+	return nil, ErrModelCatalogEntryNotFound
+}
+func (r *openAICatalogRepoStub) CreateEntry(context.Context, *ModelCatalogEntry) error {
+	return ErrModelCatalogEntryNotFound
+}
+func (r *openAICatalogRepoStub) UpdateEntry(context.Context, *ModelCatalogEntry) error {
+	return ErrModelCatalogEntryNotFound
+}
+func (r *openAICatalogRepoStub) DeleteEntry(context.Context, int64) error {
+	return ErrModelCatalogEntryNotFound
+}
+func (r *openAICatalogRepoStub) CreateAlias(context.Context, *ModelCatalogAlias) error {
+	return ErrModelCatalogAliasNotFound
+}
+func (r *openAICatalogRepoStub) UpdateAlias(context.Context, *ModelCatalogAlias) error {
+	return ErrModelCatalogAliasNotFound
+}
+func (r *openAICatalogRepoStub) DeleteAlias(context.Context, int64) error {
+	return ErrModelCatalogAliasNotFound
+}
+func (r *openAICatalogRepoStub) InsertOrRefreshSeedEntries(context.Context, []ModelCatalogEntry) (ModelCatalogSeedResult, error) {
+	return ModelCatalogSeedResult{}, nil
 }
 
 type openAIMediaPriceGroupRepoStub struct {
@@ -2876,7 +2940,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
 		billingService: billingService,
-		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+		resolver: newOpenAICatalogResolverFromCard(billingService, ChannelModelPricing{
 			Models:          []string{"gemini-image"},
 			BillingMode:     BillingModeImage,
 			PerRequestPrice: &defaultPrice,
@@ -2992,7 +3056,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMis
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
 		billingService: billingService,
-		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+		resolver: newOpenAICatalogResolverFromCard(billingService, ChannelModelPricing{
 			Models:          []string{"gemini-image"},
 			BillingMode:     BillingModeImage,
 			PerRequestPrice: &defaultPrice,
