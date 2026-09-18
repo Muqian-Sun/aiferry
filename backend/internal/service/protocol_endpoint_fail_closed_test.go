@@ -138,7 +138,11 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			return err
 		}},
 		{"cn coding plan quota", func() error {
-			_, err := (&CNProviderQuotaService{cfg: cfg}).queryUsageForAccount(ctx, apiKey(PlatformOpenCodeGo))
+			// 只配 anthropic 官方 Go 地址：能识别成 OpenCode Go，额度 URL 仍要
+			// chat_completions 根地址，缺了必须报 MISSING_PROTOCOL_ENDPOINT。
+			account := apiKey(PlatformOpenAI)
+			account.ProtocolEndpoints = map[string]string{APIProtocolAnthropic: DefaultOpenCodeGoAnthropicBaseURL}
+			_, err := (&CNProviderQuotaService{cfg: cfg}).queryUsageForAccount(ctx, account)
 			return err
 		}},
 	}
