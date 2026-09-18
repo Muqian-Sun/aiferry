@@ -456,7 +456,9 @@ func (s *AccountTestService) testKeyChatCompletionsConnection(c *gin.Context, ac
 	return s.testOpenAIChatCompletionsConnection(c, account, testModelID, prompt, normalizedBaseURL, authToken)
 }
 
-// testClaudeAccountConnection tests an Anthropic Claude account's connection
+// testClaudeAccountConnection tests an Anthropic subscription account's connection.
+// 第三方 key 不走这里：它的 Anthropic 协议探针是 testKeyAnthropicConnection，
+// 地址只认协议映射，没有 https://api.anthropic.com 兜底。
 func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account *Account, modelID string) error {
 	ctx := c.Request.Context()
 
@@ -464,11 +466,6 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	testModelID := modelID
 	if testModelID == "" {
 		testModelID = claude.DefaultTestModel
-	}
-
-	// API Key 账号测试连接时也需要应用通配符模型映射。
-	if account.Type == "apikey" {
-		testModelID = account.GetMappedModel(testModelID)
 	}
 
 	// Bedrock accounts use a separate test path
@@ -489,21 +486,6 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 		if authToken == "" {
 			return s.sendErrorAndEnd(c, "No access token available")
 		}
-	} else if account.Type == "apikey" {
-		authToken = account.GetCredential("api_key")
-		if authToken == "" {
-			return s.sendErrorAndEnd(c, "No API key available")
-		}
-
-		baseURL, err := ResolveUpstreamBaseURL(account, account.GetBaseURL(), APIProtocolAnthropic, "https://api.anthropic.com")
-		if err != nil {
-			return err
-		}
-		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid base URL: %s", err.Error()))
-		}
-		apiURL = strings.TrimSuffix(normalizedBaseURL, "/") + "/v1/messages?beta=true"
 	} else {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Unsupported account type: %s", account.Type))
 	}
@@ -540,15 +522,8 @@ func (s *AccountTestService) testClaudeAccountConnection(c *gin.Context, account
 	}
 
 	// Set authentication header
-	if account.IsOAuth() {
-		req.Header.Set("anthropic-beta", claude.DefaultBetaHeader)
-		req.Header.Set("Authorization", "Bearer "+authToken)
-	} else {
-		req.Header.Set("anthropic-beta", claude.APIKeyBetaHeader)
-		// Ollama Cloud Anthropic 兼容端点按实际 base_url 强制 Bearer，
-		// 其余保持 extra/default 行为。
-		setAnthropicAPIKeyAuthHeader(req.Header, account, authToken, account.GetBaseURL())
-	}
+	req.Header.Set("anthropic-beta", claude.DefaultBetaHeader)
+	req.Header.Set("Authorization", "Bearer "+authToken)
 
 	// 账号级请求头覆写：测试请求与真实转发保持一致的最终头
 	account.ApplyHeaderOverrides(req.Header)
