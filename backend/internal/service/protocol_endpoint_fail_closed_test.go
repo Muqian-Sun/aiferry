@@ -106,7 +106,7 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			return err
 		}},
 		{"openai model sync", func() error {
-			_, err := buildOpenAIAPIKeyModelsRequest(ctx, apiKey(PlatformOpenAI), accountTest.validateUpstreamBaseURL)
+			_, err := buildOpenAIAPIKeyModelsRequest(ctx, apiKey(PlatformOpenAI), APIProtocolChatCompletions, accountTest.validateUpstreamBaseURL)
 			return err
 		}},
 		{"gemini model sync", func() error {
@@ -114,7 +114,11 @@ func TestThirdPartyKeyWithoutEndpointFailsClosed(t *testing.T) {
 			return err
 		}},
 		{"grok model sync", func() error {
-			_, err := accountTest.buildGrokUpstreamModelsRequest(ctx, apiKey(PlatformGrok))
+			_, err := accountTest.buildUpstreamModelsRequest(ctx, apiKey(PlatformGrok))
+			return err
+		}},
+		{"key model sync", func() error {
+			_, err := accountTest.buildUpstreamModelsRequest(ctx, apiKey(PlatformAnthropic))
 			return err
 		}},
 		{"grok responses", func() error {

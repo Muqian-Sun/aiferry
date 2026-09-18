@@ -226,7 +226,7 @@ func (s *AccountTestService) SyncUpstreamModelCatalog(ctx context.Context, accou
 	}
 	catalog := &UpstreamModelCatalog{Models: models, Metadata: make(map[string]UpstreamModelMetadata)}
 	if len(body) > 0 {
-		_, directMetadata, parseErr := extractUpstreamModelCatalog(body, account != nil && account.IsGrok())
+		_, directMetadata, parseErr := extractUpstreamModelCatalog(body, usesGrokModelCatalogShape(account))
 		if parseErr == nil {
 			catalog.Metadata = directMetadata
 		}
@@ -620,23 +620,33 @@ func reasoningLevelsFromModelsDevOptions(options []modelsDevReasoningOption) []s
 	return normalizeReasoningLevels(levels)
 }
 
+// usesGrokModelCatalogShape 报告模型列表响应是否按 xAI 的目录形态解析（模型 ID 在
+// model / modelId / _meta 里，而不是标准的 id）。这是厂商特化：按 Vendor 判定，
+// 贴着 grok 标签的中转返回的是标准 OpenAI 目录。
+func usesGrokModelCatalogShape(account *Account) bool {
+	return account != nil && account.Vendor() == PlatformGrok
+}
+
 func upstreamModelRegistryBaseURL(account *Account) string {
 	if account == nil {
 		return ""
+	}
+	if account.IsThirdPartyKey() {
+		// 第三方 key：用本次同步实际请求的地址去匹配 models.dev 供应商，与
+		// buildKeyUpstreamModelsRequest 取的是同一个协议地址。
+		return account.PrimaryUpstreamBaseURL()
 	}
 	switch {
 	case account.IsOpenAI() || account.IsCNProvider() || account.IsOpenCodeGo():
 		return account.GetOpenAIBaseURL()
 	case account.IsGrok():
 		return account.GetGrokBaseURL()
-	case account.IsGemini():
+	case account.IsGemini(), account.IsAntigravity():
 		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	case account.IsAnthropic():
 		return account.GetBaseURL()
-	case account.IsAntigravity():
-		return account.GetGeminiBaseURL(geminicli.AIStudioBaseURL)
 	default:
-		return account.PrimaryUpstreamBaseURL()
+		return ""
 	}
 }
 
@@ -772,7 +782,7 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 	}
 
 	extractModels := extractUpstreamModelIDs
-	if account.IsGrok() {
+	if usesGrokModelCatalogShape(account) {
 		extractModels = extractGrokUpstreamModelIDs
 	}
 	models, err := extractModels(body)
@@ -787,15 +797,16 @@ func (s *AccountTestService) fetchUpstreamModelList(ctx context.Context, account
 }
 
 func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+	if account.IsThirdPartyKey() {
+		return s.buildKeyUpstreamModelsRequest(ctx, account)
+	}
+	// 成品号：厂商决定端点形态（Vendor() == Platform）。Antigravity / Gemini 订阅号的
+	// OAuth 分支在 fetchUpstreamModelList 里已前置分流，走到这里的只有各厂商的订阅形态。
 	switch {
-	case account.IsAntigravity():
-		return s.buildAntigravityAPIKeyModelsRequest(ctx, account)
 	case account.IsGrok():
-		return s.buildGrokUpstreamModelsRequest(ctx, account)
-	case account.IsOpenAI() || account.IsCNProvider() || account.IsOpenCodeGo():
-		// 国产 OpenAI 兼容供应商（kimi/zhipu/deepseek）与 OpenCode Go
-		// 复用 OpenAI /v1/models 探测。
-		return s.buildOpenAIUpstreamModelsRequest(ctx, account)
+		return s.buildGrokOAuthUpstreamModelsRequest(ctx, account)
+	case account.IsOpenAI():
+		return s.buildOpenAIOAuthUpstreamModelsRequest(ctx, account)
 	case account.IsGemini():
 		return s.buildGeminiUpstreamModelsRequest(ctx, account)
 	case account.IsAnthropic():
@@ -807,62 +818,72 @@ func (s *AccountTestService) buildUpstreamModelsRequest(ctx context.Context, acc
 	}
 }
 
-func (s *AccountTestService) buildGrokUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+// buildKeyUpstreamModelsRequest 按第三方 key 配置的协议地址挑模型列表端点。
+//
+// 平台标签不参与：用哪种请求形态、打哪个地址，只看 key 配了哪些协议地址。取
+// PrimaryUpstreamProtocol——与 PrimaryUpstreamBaseURL 同一顺序（chat_completions 是
+// OpenAI API 根地址，/v1/models 与图片、向量等扩展端点都挂在它下面，其次 responses，
+// 再次 anthropic、gemini 两个协议专用根）。
+//
+// 只同步主协议一个目录，不把多个协议的目录并起来：
+//   - 并起来会把一次管理端点击放大成 N 次上游请求，而 kimi/zhipu/deepseek 的
+//     Anthropic 兼容端点多数不提供 /v1/models，第二条请求只会带来无意义的失败；
+//   - 同一个 key 的各协议地址指向同一家上游，模型表本来就是同一份；
+//   - 404/405 会回落到 model_mapping（见 SyncUpstreamModelCatalog），多协议合并后
+//     「部分成功」没有可解释的语义。
+func (s *AccountTestService) buildKeyUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
+	protocol := account.PrimaryUpstreamProtocol()
+	switch protocol {
+	case APIProtocolGemini:
+		return s.buildGeminiUpstreamModelsRequest(ctx, account)
+	case APIProtocolAnthropic:
+		return s.buildAnthropicUpstreamModelsRequest(ctx, account)
+	case APIProtocolChatCompletions, APIProtocolResponses:
+		return buildOpenAIAPIKeyModelsRequest(ctx, account, protocol, s.validateUpstreamBaseURL)
+	default:
+		return nil, newUpstreamModelSyncConfigError(
+			"No upstream address is configured for model sync",
+			MissingProtocolEndpointError(account, strings.Join(UpstreamProtocols(), " / ")),
+		)
+	}
+}
+
+// buildGrokOAuthUpstreamModelsRequest 是 Grok 成品号（OAuth）的模型列表请求。
+//
+// 第三方 key 不走这里：它的地址与请求形态由协议映射决定（buildKeyUpstreamModelsRequest），
+// 与「平台选了 grok」无关——Grok 的 API-Key 形态本来也只是 OpenAI /v1/models + Bearer。
+func (s *AccountTestService) buildGrokOAuthUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
 	if account == nil {
 		return nil, newUpstreamModelSyncConfigError("Account is required", nil)
 	}
-
-	var (
-		authToken         string
-		normalizedBaseURL string
-		isOAuth           = account.IsGrokOAuth()
-	)
-	switch account.Type {
-	case AccountTypeAPIKey:
-		authToken = strings.TrimSpace(account.GetCredential("api_key"))
-		if authToken == "" {
-			return nil, newUpstreamModelSyncConfigError("No Grok API key is available", nil)
-		}
-
-		baseURL := account.PrimaryUpstreamBaseURL()
-		if baseURL == "" {
-			return nil, newUpstreamModelSyncConfigError("No Grok upstream address is configured", MissingProtocolEndpointError(account, DefaultProtocolForPlatform(account.Platform)))
-		}
-		validatedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
-		if err != nil {
-			return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
-		}
-		normalizedBaseURL = validatedBaseURL
-	case AccountTypeOAuth:
-		if s.grokTokenProvider == nil {
-			return nil, newUpstreamModelSyncConfigError("Grok token provider is not configured", nil)
-		}
-		accessToken, err := s.grokTokenProvider.GetAccessTokenForManualTest(ctx, account)
-		if err != nil {
-			return nil, newUpstreamModelSyncUpstreamError("Failed to get Grok access token", err)
-		}
-		authToken = strings.TrimSpace(accessToken)
-		if authToken == "" {
-			return nil, newUpstreamModelSyncConfigError("No Grok access token is available", nil)
-		}
-
-		validator, err := grokBaseURLValidator(account, s.cfg)
-		if err != nil {
-			return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
-		}
-		baseURL := account.GetGrokBaseURL()
-		if s.settingService != nil {
-			baseURL = s.settingService.ResolveGrokBaseURL(ctx, account)
-		}
-		validatedBaseURL, err := validator(baseURL)
-		if err != nil {
-			return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
-		}
-		normalizedBaseURL = validatedBaseURL
-	default:
+	if account.Type != AccountTypeOAuth {
 		return nil, newUpstreamModelSyncUnsupportedError(
 			fmt.Sprintf("Unsupported Grok account type for upstream model sync: %s", account.Type), nil,
 		)
+	}
+	if s.grokTokenProvider == nil {
+		return nil, newUpstreamModelSyncConfigError("Grok token provider is not configured", nil)
+	}
+	accessToken, err := s.grokTokenProvider.GetAccessTokenForManualTest(ctx, account)
+	if err != nil {
+		return nil, newUpstreamModelSyncUpstreamError("Failed to get Grok access token", err)
+	}
+	authToken := strings.TrimSpace(accessToken)
+	if authToken == "" {
+		return nil, newUpstreamModelSyncConfigError("No Grok access token is available", nil)
+	}
+
+	validator, err := grokBaseURLValidator(account, s.cfg)
+	if err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
+	}
+	baseURL := account.GetGrokBaseURL()
+	if s.settingService != nil {
+		baseURL = s.settingService.ResolveGrokBaseURL(ctx, account)
+	}
+	normalizedBaseURL, err := validator(baseURL)
+	if err != nil {
+		return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
 	}
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildOpenAIModelsURL(normalizedBaseURL), nil)
@@ -871,18 +892,16 @@ func (s *AccountTestService) buildGrokUpstreamModelsRequest(ctx context.Context,
 	}
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+authToken)
-	if isOAuth {
-		// The shared HTTP transport adds the official CLI marker/version for the
-		// exact proxy host. Keep the request builder aligned with the other Grok
-		// probes and only forward account identity headers to that trusted host.
-		applyGrokCLIHeaders(req.Header)
-		if isGrokCLIProxyTarget(req.URL.String()) {
-			if userID := strings.TrimSpace(account.GetCredential("sub")); userID != "" {
-				req.Header.Set("X-UserID", userID)
-			}
-			if email := strings.TrimSpace(account.GetCredential("email")); email != "" {
-				req.Header.Set("X-Email", email)
-			}
+	// The shared HTTP transport adds the official CLI marker/version for the
+	// exact proxy host. Keep the request builder aligned with the other Grok
+	// probes and only forward account identity headers to that trusted host.
+	applyGrokCLIHeaders(req.Header)
+	if isGrokCLIProxyTarget(req.URL.String()) {
+		if userID := strings.TrimSpace(account.GetCredential("sub")); userID != "" {
+			req.Header.Set("X-UserID", userID)
+		}
+		if email := strings.TrimSpace(account.GetCredential("email")); email != "" {
+			req.Header.Set("X-Email", email)
 		}
 	}
 	account.ApplyHeaderOverrides(req.Header)
@@ -926,6 +945,13 @@ func (s *AccountTestService) buildAnthropicUpstreamModelsRequest(ctx context.Con
 		if baseURL == "" {
 			return nil, newUpstreamModelSyncConfigError("No Anthropic upstream address is configured", MissingProtocolEndpointError(account, APIProtocolAnthropic))
 		}
+		if isOfficialCloudCodeUpstream(baseURL) {
+			return nil, newUpstreamModelSyncUnsupportedError(
+				"Antigravity API-key upstream model sync requires a compatible gateway base URL; "+
+					"use Antigravity OAuth for official Cloud Code upstreams",
+				nil,
+			)
+		}
 		apiKeyAuthToken = apiKey
 		betaHeader = claude.APIKeyBetaHeader
 	} else {
@@ -960,56 +986,20 @@ func (s *AccountTestService) buildAnthropicUpstreamModelsRequest(ctx context.Con
 	return req, nil
 }
 
-func (s *AccountTestService) buildAntigravityAPIKeyModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
-	if account.Type != AccountTypeAPIKey {
-		return nil, newUpstreamModelSyncUnsupportedError(
-			fmt.Sprintf("Unsupported Antigravity account type for upstream model sync: %s", account.Type), nil,
-		)
-	}
-	apiKey := strings.TrimSpace(account.GetCredential("api_key"))
-	if apiKey == "" {
-		return nil, newUpstreamModelSyncConfigError("No Antigravity API key is available", nil)
-	}
-
-	baseURL := strings.TrimRight(account.PrimaryUpstreamBaseURL(), "/")
-	if baseURL == "" {
-		return nil, newUpstreamModelSyncConfigError("Antigravity API-key base URL is required for upstream model sync", nil)
-	}
-	if !strings.HasSuffix(strings.ToLower(baseURL), "/antigravity") {
-		return nil, newUpstreamModelSyncUnsupportedError(
-			"Antigravity API-key upstream model sync requires a compatible gateway base URL ending in /antigravity; use Antigravity OAuth for official Cloud Code upstreams",
-			nil,
-		)
-	}
-	normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
-	if err != nil {
-		return nil, newUpstreamModelSyncConfigError("Invalid Antigravity base URL", err)
-	}
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, buildV1ModelsURL(normalizedBaseURL), nil)
-	if err != nil {
-		return nil, newUpstreamModelSyncConfigError("Invalid Antigravity model list URL", err)
-	}
-	for key, value := range claude.DefaultHeaders {
-		req.Header.Set(key, value)
-	}
-	req.Header.Set("Accept", "application/json")
-	req.Header.Set("anthropic-version", "2023-06-01")
-	req.Header.Set("anthropic-beta", claude.APIKeyBetaHeader)
-	req.Header.Set("x-api-key", apiKey)
-	return req, nil
-}
-
-func (s *AccountTestService) buildOpenAIUpstreamModelsRequest(ctx context.Context, account *Account) (*http.Request, error) {
-	if account.IsOpenAIOAuth() {
-		return s.buildOpenAIOAuthUpstreamModelsRequest(ctx, account)
-	}
-	return buildOpenAIAPIKeyModelsRequest(ctx, account, s.validateUpstreamBaseURL)
+// isOfficialCloudCodeUpstream 报告地址是否为 Antigravity / Gemini CLI 的官方 Cloud Code
+// 上游。这些域名不提供 /v1/models（模型表只能由 OAuth 账号的 FetchAvailableModels 取），
+// 按地址识别而不是按平台标签：第三方 key 的平台只是展示标签。
+func isOfficialCloudCodeUpstream(rawURL string) bool {
+	host := upstreamHostOf(rawURL)
+	return host != "" && host == upstreamHostOf(geminicli.GeminiCliBaseURL)
 }
 
 // buildOpenAIAPIKeyModelsRequest is shared by admin discovery and public model
 // listing. Codex content negotiation is intentionally absent from this request.
-func buildOpenAIAPIKeyModelsRequest(ctx context.Context, account *Account, validateBaseURL func(string) (string, error)) (*http.Request, error) {
+//
+// protocol 指定取哪个协议地址：只配了 responses 地址的 key 同样从它的 API 根拉
+// /v1/models，不借用 chat_completions 地址（它可能根本没配）。
+func buildOpenAIAPIKeyModelsRequest(ctx context.Context, account *Account, protocol string, validateBaseURL func(string) (string, error)) (*http.Request, error) {
 	if account.Type != AccountTypeAPIKey {
 		return nil, newUpstreamModelSyncUnsupportedError(
 			fmt.Sprintf("Unsupported OpenAI account type for upstream model sync: %s", account.Type), nil,
@@ -1020,11 +1010,9 @@ func buildOpenAIAPIKeyModelsRequest(ctx context.Context, account *Account, valid
 		return nil, newUpstreamModelSyncConfigError("No OpenAI API key is available", nil)
 	}
 
-	// 协议感知：Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，模型
-	// 列表同步需使用 OpenAI 格式 base（供应商 × 模式默认）。
-	baseURL := account.GetOpenAIBaseURL()
+	baseURL := account.ProtocolEndpoint(protocol)
 	if baseURL == "" {
-		return nil, newUpstreamModelSyncConfigError("No OpenAI upstream address is configured", MissingProtocolEndpointError(account, APIProtocolChatCompletions))
+		return nil, newUpstreamModelSyncConfigError("No OpenAI upstream address is configured", MissingProtocolEndpointError(account, protocol))
 	}
 	normalizedBaseURL, err := validateBaseURL(baseURL)
 	if err != nil {

@@ -38,7 +38,8 @@ func (s *OpenAIGatewayService) FetchOpenAIModelsList(ctx context.Context, accoun
 		}
 		return &OpenAIModelsResponse{Body: body, ETag: codexModelsManifestBodyETag(body)}, nil
 	}
-	req, err := buildOpenAIAPIKeyModelsRequest(ctx, credentialAccount, s.validateUpstreamBaseURL)
+	// 用户侧 /v1/models 走 OpenAI 网关，目录取 chat_completions 根地址。
+	req, err := buildOpenAIAPIKeyModelsRequest(ctx, credentialAccount, APIProtocolChatCompletions, s.validateUpstreamBaseURL)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadGateway, "OPENAI_MODELS_REQUEST_INVALID", "cannot build upstream model list request: %v", err)
 	}
