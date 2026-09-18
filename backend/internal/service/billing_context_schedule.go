@@ -90,12 +90,7 @@ func (s *BillingService) ResolveContextPricingSchedule(ctx context.Context, reso
 		ctx = WithResolvedTargetPlatform(ctx, in.Platform)
 	}
 
-	pricingInput := PricingInput{Model: in.Model, Group: in.Group}
-	if in.Group != nil {
-		gid := in.Group.ID
-		pricingInput.GroupID = &gid
-	}
-	resolved := resolver.Resolve(ctx, pricingInput)
+	resolved := resolver.Resolve(ctx, PricingInput{Model: in.Model, Group: in.Group})
 	if resolved == nil {
 		return nil, ErrModelPricingUnavailable
 	}
@@ -135,14 +130,14 @@ func (s *BillingService) ResolveContextPricingSchedule(ctx context.Context, reso
 }
 
 // resolvedTimePricingSchedule 列出计费会生效的分时倍率时段。
-// 时段来自解析到的渠道定价配置，每个时段的倍率用计费自己的 resolvedChannelTimeMultiplier
-// 在时段内取值：定价来源不是渠道（分组价卡覆盖）、配置非法等情况下计费按 1 计，
-// 这里也就自然得到"无分时"。倍率为 1 的时段不列出。
+// 时段来自解析到的目录条目配置，每个时段的倍率用计费自己的
+// resolvedTimePricingMultiplier 在时段内取值：定价来源不是目录（分组价卡覆盖）、
+// 配置非法等情况下计费按 1 计，这里也就自然得到"无分时"。倍率为 1 的时段不列出。
 func resolvedTimePricingSchedule(resolved *ResolvedPricing) *TimePricingSchedule {
-	if resolved == nil || resolved.channelPricing == nil || resolved.channelPricing.TimePricing == nil {
+	if resolved == nil || resolved.configuredPricing == nil || resolved.configuredPricing.TimePricing == nil {
 		return nil
 	}
-	cfg := resolved.channelPricing.TimePricing
+	cfg := resolved.configuredPricing.TimePricing
 	location, err := loadChannelTimePricingLocation(cfg.Timezone)
 	if err != nil {
 		return nil
@@ -161,7 +156,7 @@ func resolvedTimePricingSchedule(resolved *ResolvedPricing) *TimePricingSchedule
 		// 锚点日必须是工作日（2026-01-05 为周一）：weekdays_only 配置在周末恒为 1，
 		// 锚点落在周末会把时段整组剔除。
 		at := time.Date(2026, time.January, 5, 0, 0, start+1, 0, location)
-		multiplier := resolvedChannelTimeMultiplier(resolved, at)
+		multiplier := resolvedTimePricingMultiplier(resolved, at)
 		if multiplier == 1 {
 			continue
 		}
@@ -359,10 +354,10 @@ type explicitContextFields struct {
 // 显式配置为 0 时计费按 $0 收，展示应为 $0 而非“无价”。
 func explicitContextPricingFields(resolved *ResolvedPricing, contextTokens int) explicitContextFields {
 	var out explicitContextFields
-	if resolved == nil || resolved.channelPricing == nil {
+	if resolved == nil || resolved.configuredPricing == nil {
 		return out
 	}
-	cp := resolved.channelPricing
+	cp := resolved.configuredPricing
 	out.input = cp.InputPrice != nil
 	out.output = cp.OutputPrice != nil
 	out.cacheWrite = cp.CacheWritePrice != nil

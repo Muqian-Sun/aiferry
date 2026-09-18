@@ -483,9 +483,8 @@ func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputToke
 	require.Equal(t, usage.ImageOutputTokens, usageRepo.lastLog.ImageOutputTokens)
 
 	expected, err := svc.billingService.CalculateCostUnified(CostInput{
-		Ctx:     context.Background(),
-		Model:   "gpt-5.1",
-		GroupID: i64p(groupID),
+		Ctx:   context.Background(),
+		Model: "gpt-5.1",
 		Tokens: UsageTokens{
 			InputTokens:       usage.InputTokens,
 			OutputTokens:      usage.OutputTokens,
@@ -596,7 +595,7 @@ func TestOpenAIGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingA
 				cache.loadedAt = time.Now()
 				svc.channelService = &ChannelService{}
 				svc.channelService.cache.Store(cache)
-				svc.resolver = NewModelPricingResolver(svc.channelService, svc.billingService)
+				svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 				alias := "customer-chat"
 				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
 				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8,
@@ -2792,53 +2791,45 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndInd
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
 }
 
-func newOpenAIImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string, price float64) *ModelPricingResolver {
+// 按次 / token 图片价卡已从渠道搬到模型目录，这些 helper 跟着改用目录条目。
+// groupID 只保留签名兼容：目录是全局的，不按分组隔离。
+func newOpenAIImageChannelPricingResolverForTest(t *testing.T, _ int64, model string, price float64) *ModelPricingResolver {
 	t.Helper()
-	cache := newEmptyChannelCache()
-	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: model}] = &ChannelModelPricing{
+	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+		Models:          []string{model},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: &price,
-	}
-	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
-	cache.groupPlatform[groupID] = ""
-	cache.loadedAt = time.Now()
-	cs := &ChannelService{}
-	cs.cache.Store(cache)
-	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+	})
 }
 
-func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, groupID int64, model string) *ModelPricingResolver {
+func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, _ int64, model string) *ModelPricingResolver {
 	t.Helper()
-	inputPrice := 3e-6
-	outputPrice := 15e-6
-	imageOutputPrice := 15e-6
-	cache := newEmptyChannelCache()
-	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: model}] = &ChannelModelPricing{
-		BillingMode:      BillingModeToken,
-		InputPrice:       &inputPrice,
-		OutputPrice:      &outputPrice,
-		ImageOutputPrice: &imageOutputPrice,
-	}
-	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
-	cache.groupPlatform[groupID] = ""
-	cache.loadedAt = time.Now()
-	cs := &ChannelService{}
-	cs.cache.Store(cache)
-	return NewModelPricingResolver(cs, NewBillingService(&config.Config{}, nil))
+	return newOpenAITokenImageCatalogResolverWithTime(t, model, nil)
 }
 
 func newOpenAITokenImageChannelPricingResolverWithTimeForTest(
 	t *testing.T,
-	groupID int64,
+	_ int64,
 	model string,
 	timePricing *ChannelTimePricing,
 ) *ModelPricingResolver {
 	t.Helper()
-	resolver := newOpenAITokenImageChannelPricingResolverForTest(t, groupID, model)
-	cached, ok := resolver.channelService.cache.Load().(*channelCache)
-	require.True(t, ok)
-	cached.pricingByGroupModel[channelModelKey{groupID: groupID, model: model}].TimePricing = timePricing
-	return resolver
+	return newOpenAITokenImageCatalogResolverWithTime(t, model, timePricing)
+}
+
+func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, timePricing *ChannelTimePricing) *ModelPricingResolver {
+	t.Helper()
+	inputPrice := 3e-6
+	outputPrice := 15e-6
+	imageOutputPrice := 15e-6
+	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+		Models:           []string{model},
+		BillingMode:      BillingModeToken,
+		InputPrice:       &inputPrice,
+		OutputPrice:      &outputPrice,
+		ImageOutputPrice: &imageOutputPrice,
+		TimePricing:      timePricing,
+	})
 }
 
 type openAIMediaPriceGroupRepoStub struct {
@@ -2854,7 +2845,7 @@ func (s *openAIMediaPriceGroupRepoStub) GetByIDLite(context.Context, int64) (*Gr
 	return s.group, nil
 }
 
-func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesImageCount(t *testing.T) {
+func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCount(t *testing.T) {
 	groupID := int64(126)
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
@@ -2878,27 +2869,22 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesImageCoun
 	require.InDelta(t, 0.5, cost.ActualCost, 1e-12)
 }
 
-func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesSizeTier(t *testing.T) {
+func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(t *testing.T) {
 	groupID := int64(127)
 	defaultPrice := 0.10
 	price4K := 0.40
-	cache := newEmptyChannelCache()
-	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: "gemini-image"}] = &ChannelModelPricing{
-		BillingMode:     BillingModeImage,
-		PerRequestPrice: &defaultPrice,
-		Intervals: []PricingInterval{{
-			TierLabel:       "4K",
-			PerRequestPrice: &price4K,
-		}},
-	}
-	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
-	cache.loadedAt = time.Now()
-	channelService := &ChannelService{}
-	channelService.cache.Store(cache)
-
+	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
-		billingService: NewBillingService(&config.Config{}, nil),
-		resolver:       NewModelPricingResolver(channelService, NewBillingService(&config.Config{}, nil)),
+		billingService: billingService,
+		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+			Models:          []string{"gemini-image"},
+			BillingMode:     BillingModeImage,
+			PerRequestPrice: &defaultPrice,
+			Intervals: []PricingInterval{{
+				TierLabel:       "4K",
+				PerRequestPrice: &price4K,
+			}},
+		}),
 	}
 
 	cost := svc.calculateRecordUsageCost(
@@ -2917,7 +2903,7 @@ func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingUsesSizeTier(
 	require.InDelta(t, 0.80, cost.ActualCost, 1e-12)
 }
 
-func TestGatewayServiceCalculateRecordUsageCost_GroupImagePriceOverridesChannelImagePrice(t *testing.T) {
+func TestGatewayServiceCalculateRecordUsageCost_GroupImagePriceOverridesCatalogImagePrice(t *testing.T) {
 	groupID := int64(129)
 	channelPrice := 0.25
 	groupImagePrice2K := 0.021
@@ -2999,27 +2985,22 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 	require.Equal(t, 100, logStub.lastLog.InputTokens, "计费 token 不变(正常计费)")
 }
 
-func TestGatewayServiceCalculateRecordUsageCost_ChannelImageBillingNormalizesMissingSizeTier(t *testing.T) {
+func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMissingSizeTier(t *testing.T) {
 	groupID := int64(128)
 	defaultPrice := 0.10
 	price2K := 0.22
-	cache := newEmptyChannelCache()
-	cache.pricingByGroupModel[channelModelKey{groupID: groupID, model: "gemini-image"}] = &ChannelModelPricing{
-		BillingMode:     BillingModeImage,
-		PerRequestPrice: &defaultPrice,
-		Intervals: []PricingInterval{{
-			TierLabel:       "2K",
-			PerRequestPrice: &price2K,
-		}},
-	}
-	cache.channelByGroupID[groupID] = &Channel{ID: groupID, Status: StatusActive}
-	cache.loadedAt = time.Now()
-	channelService := &ChannelService{}
-	channelService.cache.Store(cache)
-
+	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
-		billingService: NewBillingService(&config.Config{}, nil),
-		resolver:       NewModelPricingResolver(channelService, NewBillingService(&config.Config{}, nil)),
+		billingService: billingService,
+		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+			Models:          []string{"gemini-image"},
+			BillingMode:     BillingModeImage,
+			PerRequestPrice: &defaultPrice,
+			Intervals: []PricingInterval{{
+				TierLabel:       "2K",
+				PerRequestPrice: &price2K,
+			}},
+		}),
 	}
 
 	cost := svc.calculateRecordUsageCost(

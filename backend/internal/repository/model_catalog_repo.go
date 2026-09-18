@@ -1,0 +1,564 @@
+package repository
+
+import (
+	"context"
+	"errors"
+
+	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
+	"github.com/Wei-Shaw/sub2api/internal/service"
+)
+
+type modelCatalogRepository struct {
+	client *dbent.Client
+}
+
+// NewModelCatalogRepository 创建模型目录仓储。
+func NewModelCatalogRepository(client *dbent.Client) service.ModelCatalogRepository {
+	return &modelCatalogRepository{client: client}
+}
+
+// ListEntries 读取全量目录条目，并把别名、分档、分时一次性挂上去。
+// 目录是计费热路径的价格来源，服务层按整份快照缓存，分开读会让快照内部不自洽。
+func (r *modelCatalogRepository) ListEntries(ctx context.Context) ([]service.ModelCatalogEntry, error) {
+	client := clientFromContext(ctx, r.client)
+
+	rows, err := client.ModelCatalogEntry.Query().
+		Order(dbent.Asc(modelcatalogentry.FieldModelID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	entries := make([]service.ModelCatalogEntry, 0, len(rows))
+	byID := make(map[int64]*service.ModelCatalogEntry, len(rows))
+	for _, row := range rows {
+		entries = append(entries, *modelCatalogEntryToService(row))
+	}
+	for i := range entries {
+		byID[entries[i].ID] = &entries[i]
+	}
+	if len(entries) == 0 {
+		return entries, nil
+	}
+
+	aliases, err := client.ModelCatalogAlias.Query().
+		Order(dbent.Asc(modelcatalogalias.FieldAlias)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range aliases {
+		if entry, ok := byID[row.EntryID]; ok {
+			entry.Aliases = append(entry.Aliases, *modelCatalogAliasToService(row))
+		}
+	}
+
+	intervals, err := client.ModelCatalogPriceInterval.Query().
+		Order(
+			dbent.Asc(modelcatalogpriceinterval.FieldSortOrder),
+			dbent.Asc(modelcatalogpriceinterval.FieldID),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range intervals {
+		if entry, ok := byID[row.EntryID]; ok {
+			entry.Intervals = append(entry.Intervals, modelCatalogIntervalToService(row))
+		}
+	}
+
+	timePricings, err := client.ModelCatalogTimePricing.Query().All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range timePricings {
+		if entry, ok := byID[row.EntryID]; ok {
+			entry.TimePricing = modelCatalogTimePricingToService(row)
+		}
+	}
+
+	return entries, nil
+}
+
+func (r *modelCatalogRepository) GetEntryByID(ctx context.Context, id int64) (*service.ModelCatalogEntry, error) {
+	client := clientFromContext(ctx, r.client)
+	row, err := client.ModelCatalogEntry.Get(ctx, id)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
+	}
+	return r.hydrateEntry(ctx, modelCatalogEntryToService(row))
+}
+
+func (r *modelCatalogRepository) GetEntryByModelID(ctx context.Context, modelID string) (*service.ModelCatalogEntry, error) {
+	client := clientFromContext(ctx, r.client)
+	row, err := client.ModelCatalogEntry.Query().
+		Where(modelcatalogentry.ModelIDEqualFold(modelID)).
+		Only(ctx)
+	if err != nil {
+		return nil, translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
+	}
+	return r.hydrateEntry(ctx, modelCatalogEntryToService(row))
+}
+
+func (r *modelCatalogRepository) hydrateEntry(ctx context.Context, entry *service.ModelCatalogEntry) (*service.ModelCatalogEntry, error) {
+	client := clientFromContext(ctx, r.client)
+
+	aliases, err := client.ModelCatalogAlias.Query().
+		Where(modelcatalogalias.EntryIDEQ(entry.ID)).
+		Order(dbent.Asc(modelcatalogalias.FieldAlias)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range aliases {
+		entry.Aliases = append(entry.Aliases, *modelCatalogAliasToService(row))
+	}
+
+	intervals, err := client.ModelCatalogPriceInterval.Query().
+		Where(modelcatalogpriceinterval.EntryIDEQ(entry.ID)).
+		Order(
+			dbent.Asc(modelcatalogpriceinterval.FieldSortOrder),
+			dbent.Asc(modelcatalogpriceinterval.FieldID),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range intervals {
+		entry.Intervals = append(entry.Intervals, modelCatalogIntervalToService(row))
+	}
+
+	timePricing, err := client.ModelCatalogTimePricing.Query().
+		Where(modelcatalogtimepricing.EntryIDEQ(entry.ID)).
+		Only(ctx)
+	if err != nil && !dbent.IsNotFound(err) {
+		return nil, err
+	}
+	if timePricing != nil {
+		entry.TimePricing = modelCatalogTimePricingToService(timePricing)
+	}
+	return entry, nil
+}
+
+func (r *modelCatalogRepository) CreateEntry(ctx context.Context, entry *service.ModelCatalogEntry) error {
+	if entry == nil {
+		return service.ErrModelCatalogEntryNotFound
+	}
+	return r.withTx(ctx, func(tx *dbent.Tx) error {
+		created, err := applyCatalogEntryCreate(tx.ModelCatalogEntry.Create(), entry).Save(ctx)
+		if err != nil {
+			return translatePersistenceError(err, nil, service.ErrModelCatalogEntryExists)
+		}
+		entry.ID = created.ID
+		entry.CreatedAt = created.CreatedAt
+		entry.UpdatedAt = created.UpdatedAt
+		return replaceCatalogChildren(ctx, tx, entry)
+	})
+}
+
+func (r *modelCatalogRepository) UpdateEntry(ctx context.Context, entry *service.ModelCatalogEntry) error {
+	if entry == nil {
+		return service.ErrModelCatalogEntryNotFound
+	}
+	return r.withTx(ctx, func(tx *dbent.Tx) error {
+		updated, err := applyCatalogEntryUpdate(tx.ModelCatalogEntry.UpdateOneID(entry.ID), entry).Save(ctx)
+		if err != nil {
+			return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, service.ErrModelCatalogEntryExists)
+		}
+		entry.CreatedAt = updated.CreatedAt
+		entry.UpdatedAt = updated.UpdatedAt
+		return replaceCatalogChildren(ctx, tx, entry)
+	})
+}
+
+func (r *modelCatalogRepository) DeleteEntry(ctx context.Context, id int64) error {
+	client := clientFromContext(ctx, r.client)
+	if err := client.ModelCatalogEntry.DeleteOneID(id).Exec(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
+	}
+	return nil
+}
+
+func (r *modelCatalogRepository) CreateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
+	if alias == nil {
+		return service.ErrModelCatalogAliasNotFound
+	}
+	client := clientFromContext(ctx, r.client)
+	builder := client.ModelCatalogAlias.Create().
+		SetAlias(alias.Alias).
+		SetEntryID(alias.EntryID).
+		SetSource(alias.Source)
+	if alias.Notes != nil {
+		builder = builder.SetNotes(*alias.Notes)
+	}
+	created, err := builder.Save(ctx)
+	if err != nil {
+		return translatePersistenceError(err, nil, service.ErrModelCatalogAliasExists)
+	}
+	*alias = *modelCatalogAliasToService(created)
+	return nil
+}
+
+func (r *modelCatalogRepository) UpdateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
+	if alias == nil {
+		return service.ErrModelCatalogAliasNotFound
+	}
+	client := clientFromContext(ctx, r.client)
+	builder := client.ModelCatalogAlias.UpdateOneID(alias.ID).
+		SetAlias(alias.Alias).
+		SetEntryID(alias.EntryID).
+		SetSource(alias.Source)
+	if alias.Notes != nil {
+		builder = builder.SetNotes(*alias.Notes)
+	} else {
+		builder = builder.ClearNotes()
+	}
+	updated, err := builder.Save(ctx)
+	if err != nil {
+		return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, service.ErrModelCatalogAliasExists)
+	}
+	*alias = *modelCatalogAliasToService(updated)
+	return nil
+}
+
+func (r *modelCatalogRepository) DeleteAlias(ctx context.Context, id int64) error {
+	client := clientFromContext(ctx, r.client)
+	if err := client.ModelCatalogAlias.DeleteOneID(id).Exec(ctx); err != nil {
+		return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, nil)
+	}
+	return nil
+}
+
+// InsertOrRefreshSeedEntries 按「不存在则插入 / seed 则刷新 / admin 则跳过」写入播种条目。
+//
+// 播种只写条目本身：别名、分档、分时没有默认数据来源，播种既不写也不清空它们。
+func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
+	ctx context.Context,
+	entries []service.ModelCatalogEntry,
+) (service.ModelCatalogSeedResult, error) {
+	var result service.ModelCatalogSeedResult
+	if len(entries) == 0 {
+		return result, nil
+	}
+	client := clientFromContext(ctx, r.client)
+
+	existing, err := client.ModelCatalogEntry.Query().
+		Select(modelcatalogentry.FieldID, modelcatalogentry.FieldModelID, modelcatalogentry.FieldManagedBy).
+		All(ctx)
+	if err != nil {
+		return result, err
+	}
+	type existingEntry struct {
+		id        int64
+		managedBy string
+	}
+	byKey := make(map[string]existingEntry, len(existing))
+	for _, row := range existing {
+		byKey[service.NormalizeModelCatalogKey(row.ModelID)] = existingEntry{id: row.ID, managedBy: row.ManagedBy}
+	}
+
+	for i := range entries {
+		entry := entries[i]
+		key := service.NormalizeModelCatalogKey(entry.ModelID)
+		current, ok := byKey[key]
+		if !ok {
+			created, createErr := applyCatalogEntryCreate(client.ModelCatalogEntry.Create(), &entry).Save(ctx)
+			if createErr != nil {
+				// 并发播种（多实例同时启动）会撞唯一索引。此时另一边已经写进去了，
+				// 记为跳过而不是整体失败。
+				if isUniqueConstraintViolation(createErr) {
+					result.SkippedAdmin++
+					continue
+				}
+				return result, createErr
+			}
+			_ = created
+			result.Inserted++
+			continue
+		}
+		if current.managedBy != service.ModelCatalogManagedBySeed {
+			result.SkippedAdmin++
+			continue
+		}
+		if _, updateErr := applyCatalogEntryUpdate(client.ModelCatalogEntry.UpdateOneID(current.id), &entry).Save(ctx); updateErr != nil {
+			return result, updateErr
+		}
+		result.Refreshed++
+	}
+	return result, nil
+}
+
+func (r *modelCatalogRepository) withTx(ctx context.Context, fn func(tx *dbent.Tx) error) error {
+	if tx := dbent.TxFromContext(ctx); tx != nil {
+		return fn(tx)
+	}
+	tx, err := r.client.Tx(ctx)
+	if err != nil {
+		return err
+	}
+	if err := fn(tx); err != nil {
+		if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			return errors.Join(err, rollbackErr)
+		}
+		return err
+	}
+	return tx.Commit()
+}
+
+// replaceCatalogChildren 用整份配置覆盖条目的分档与分时（别名走独立端点，不在此处动）。
+func replaceCatalogChildren(ctx context.Context, tx *dbent.Tx, entry *service.ModelCatalogEntry) error {
+	if _, err := tx.ModelCatalogPriceInterval.Delete().
+		Where(modelcatalogpriceinterval.EntryIDEQ(entry.ID)).Exec(ctx); err != nil {
+		return err
+	}
+	for i := range entry.Intervals {
+		interval := entry.Intervals[i]
+		builder := tx.ModelCatalogPriceInterval.Create().
+			SetEntryID(entry.ID).
+			SetMinTokens(interval.MinTokens).
+			SetTierLabel(interval.TierLabel).
+			SetSortOrder(interval.SortOrder).
+			SetNillableMaxTokens(interval.MaxTokens).
+			SetNillableInputPrice(interval.InputPrice).
+			SetNillableOutputPrice(interval.OutputPrice).
+			SetNillableCacheWritePrice(interval.CacheWritePrice).
+			SetNillableCacheWrite1hPrice(interval.CacheWrite1hPrice).
+			SetNillableCacheReadPrice(interval.CacheReadPrice).
+			SetNillablePerRequestPrice(interval.PerRequestPrice).
+			SetNillableInputMultiplier(interval.InputMultiplier).
+			SetNillableOutputMultiplier(interval.OutputMultiplier).
+			SetNillableCacheWriteMultiplier(interval.CacheWriteMultiplier).
+			SetNillableCacheReadMultiplier(interval.CacheReadMultiplier)
+		created, err := builder.Save(ctx)
+		if err != nil {
+			return err
+		}
+		entry.Intervals[i].ID = created.ID
+	}
+
+	if _, err := tx.ModelCatalogTimePricing.Delete().
+		Where(modelcatalogtimepricing.EntryIDEQ(entry.ID)).Exec(ctx); err != nil {
+		return err
+	}
+	if entry.TimePricing == nil {
+		return nil
+	}
+	periods := make([]map[string]any, 0, len(entry.TimePricing.Periods))
+	for _, period := range entry.TimePricing.Periods {
+		periods = append(periods, map[string]any{
+			"start_time": period.StartTime,
+			"end_time":   period.EndTime,
+			"multiplier": period.Multiplier,
+		})
+	}
+	_, err := tx.ModelCatalogTimePricing.Create().
+		SetEntryID(entry.ID).
+		SetTimezone(entry.TimePricing.Timezone).
+		SetWeekdaysOnly(entry.TimePricing.WeekdaysOnly).
+		SetPeriods(periods).
+		Save(ctx)
+	return err
+}
+
+func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *service.ModelCatalogEntry) *dbent.ModelCatalogEntryCreate {
+	builder = builder.
+		SetModelID(entry.ModelID).
+		SetDisplayName(entry.DisplayName).
+		SetVendor(entry.Vendor).
+		SetBillingMode(string(entry.EffectiveBillingMode())).
+		SetStatus(entry.Status).
+		SetManagedBy(entry.ManagedBy).
+		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
+		SetNillableInputPrice(entry.InputPrice).
+		SetNillableOutputPrice(entry.OutputPrice).
+		SetNillableCacheWritePrice(entry.CacheWritePrice).
+		SetNillableCacheWrite1hPrice(entry.CacheWrite1hPrice).
+		SetNillableCacheReadPrice(entry.CacheReadPrice).
+		SetNillableImageInputPrice(entry.ImageInputPrice).
+		SetNillableImageOutputPrice(entry.ImageOutputPrice).
+		SetNillableImageCacheReadPrice(entry.ImageCacheReadPrice).
+		SetNillableInputPricePriority(entry.InputPricePriority).
+		SetNillableOutputPricePriority(entry.OutputPricePriority).
+		SetNillableCacheWritePricePriority(entry.CacheWritePricePriority).
+		SetNillableCacheReadPricePriority(entry.CacheReadPricePriority).
+		SetNillablePerRequestPrice(entry.PerRequestPrice).
+		SetNillableLongContextInputThreshold(entry.LongContextInputThreshold).
+		SetNillableLongContextInputMultiplier(entry.LongContextInputMultiplier).
+		SetNillableLongContextOutputMultiplier(entry.LongContextOutputMultiplier).
+		SetNillableFastMultiplier(entry.FastMultiplier).
+		SetNillableFlexMultiplier(entry.FlexMultiplier).
+		SetNillableMaxReasoningEffortMultiplier(entry.MaxReasoningEffortMultiplier)
+	if len(entry.Protocols) > 0 {
+		builder = builder.SetProtocols(entry.Protocols)
+	}
+	if entry.Notes != nil {
+		builder = builder.SetNotes(*entry.Notes)
+	}
+	return builder
+}
+
+// applyCatalogEntryUpdate 整条覆盖：没给值的列一律清空，避免旧值在部分更新后残留。
+func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *service.ModelCatalogEntry) *dbent.ModelCatalogEntryUpdateOne {
+	builder = builder.
+		SetModelID(entry.ModelID).
+		SetDisplayName(entry.DisplayName).
+		SetVendor(entry.Vendor).
+		SetBillingMode(string(entry.EffectiveBillingMode())).
+		SetStatus(entry.Status).
+		SetManagedBy(entry.ManagedBy).
+		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
+		SetProtocols(entry.Protocols)
+
+	setPrice := func(
+		set func(float64) *dbent.ModelCatalogEntryUpdateOne,
+		clear func() *dbent.ModelCatalogEntryUpdateOne,
+		value *float64,
+	) {
+		if value != nil {
+			builder = set(*value)
+			return
+		}
+		builder = clear()
+	}
+
+	setPrice(builder.SetInputPrice, builder.ClearInputPrice, entry.InputPrice)
+	setPrice(builder.SetOutputPrice, builder.ClearOutputPrice, entry.OutputPrice)
+	setPrice(builder.SetCacheWritePrice, builder.ClearCacheWritePrice, entry.CacheWritePrice)
+	setPrice(builder.SetCacheWrite1hPrice, builder.ClearCacheWrite1hPrice, entry.CacheWrite1hPrice)
+	setPrice(builder.SetCacheReadPrice, builder.ClearCacheReadPrice, entry.CacheReadPrice)
+	setPrice(builder.SetImageInputPrice, builder.ClearImageInputPrice, entry.ImageInputPrice)
+	setPrice(builder.SetImageOutputPrice, builder.ClearImageOutputPrice, entry.ImageOutputPrice)
+	setPrice(builder.SetImageCacheReadPrice, builder.ClearImageCacheReadPrice, entry.ImageCacheReadPrice)
+	setPrice(builder.SetInputPricePriority, builder.ClearInputPricePriority, entry.InputPricePriority)
+	setPrice(builder.SetOutputPricePriority, builder.ClearOutputPricePriority, entry.OutputPricePriority)
+	setPrice(builder.SetCacheWritePricePriority, builder.ClearCacheWritePricePriority, entry.CacheWritePricePriority)
+	setPrice(builder.SetCacheReadPricePriority, builder.ClearCacheReadPricePriority, entry.CacheReadPricePriority)
+	setPrice(builder.SetPerRequestPrice, builder.ClearPerRequestPrice, entry.PerRequestPrice)
+	setPrice(builder.SetLongContextInputMultiplier, builder.ClearLongContextInputMultiplier, entry.LongContextInputMultiplier)
+	setPrice(builder.SetLongContextOutputMultiplier, builder.ClearLongContextOutputMultiplier, entry.LongContextOutputMultiplier)
+	setPrice(builder.SetFastMultiplier, builder.ClearFastMultiplier, entry.FastMultiplier)
+	setPrice(builder.SetFlexMultiplier, builder.ClearFlexMultiplier, entry.FlexMultiplier)
+	setPrice(builder.SetMaxReasoningEffortMultiplier, builder.ClearMaxReasoningEffortMultiplier, entry.MaxReasoningEffortMultiplier)
+
+	if entry.LongContextInputThreshold != nil {
+		builder = builder.SetLongContextInputThreshold(*entry.LongContextInputThreshold)
+	} else {
+		builder = builder.ClearLongContextInputThreshold()
+	}
+	if entry.Notes != nil {
+		builder = builder.SetNotes(*entry.Notes)
+	} else {
+		builder = builder.ClearNotes()
+	}
+	return builder
+}
+
+func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCatalogEntry {
+	if row == nil {
+		return nil
+	}
+	return &service.ModelCatalogEntry{
+		ID:          row.ID,
+		ModelID:     row.ModelID,
+		DisplayName: row.DisplayName,
+		Vendor:      row.Vendor,
+		Protocols:   row.Protocols,
+		BillingMode: service.BillingMode(row.BillingMode),
+		Status:      row.Status,
+		ManagedBy:   row.ManagedBy,
+
+		InputPrice:          row.InputPrice,
+		OutputPrice:         row.OutputPrice,
+		CacheWritePrice:     row.CacheWritePrice,
+		CacheWrite1hPrice:   row.CacheWrite1hPrice,
+		CacheReadPrice:      row.CacheReadPrice,
+		ImageInputPrice:     row.ImageInputPrice,
+		ImageOutputPrice:    row.ImageOutputPrice,
+		ImageCacheReadPrice: row.ImageCacheReadPrice,
+
+		InputPricePriority:      row.InputPricePriority,
+		OutputPricePriority:     row.OutputPricePriority,
+		CacheWritePricePriority: row.CacheWritePricePriority,
+		CacheReadPricePriority:  row.CacheReadPricePriority,
+
+		PerRequestPrice: row.PerRequestPrice,
+
+		LongContextInputThreshold:     row.LongContextInputThreshold,
+		LongContextThresholdInclusive: row.LongContextThresholdInclusive,
+		LongContextInputMultiplier:    row.LongContextInputMultiplier,
+		LongContextOutputMultiplier:   row.LongContextOutputMultiplier,
+
+		FastMultiplier:               row.FastMultiplier,
+		FlexMultiplier:               row.FlexMultiplier,
+		MaxReasoningEffortMultiplier: row.MaxReasoningEffortMultiplier,
+
+		Notes:     row.Notes,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func modelCatalogAliasToService(row *dbent.ModelCatalogAlias) *service.ModelCatalogAlias {
+	if row == nil {
+		return nil
+	}
+	return &service.ModelCatalogAlias{
+		ID:        row.ID,
+		EntryID:   row.EntryID,
+		Alias:     row.Alias,
+		Source:    row.Source,
+		Notes:     row.Notes,
+		CreatedAt: row.CreatedAt,
+		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func modelCatalogIntervalToService(row *dbent.ModelCatalogPriceInterval) service.PricingInterval {
+	return service.PricingInterval{
+		ID:                   row.ID,
+		MinTokens:            row.MinTokens,
+		MaxTokens:            row.MaxTokens,
+		TierLabel:            row.TierLabel,
+		InputPrice:           row.InputPrice,
+		OutputPrice:          row.OutputPrice,
+		CacheWritePrice:      row.CacheWritePrice,
+		CacheWrite1hPrice:    row.CacheWrite1hPrice,
+		CacheReadPrice:       row.CacheReadPrice,
+		InputMultiplier:      row.InputMultiplier,
+		OutputMultiplier:     row.OutputMultiplier,
+		CacheWriteMultiplier: row.CacheWriteMultiplier,
+		CacheReadMultiplier:  row.CacheReadMultiplier,
+		PerRequestPrice:      row.PerRequestPrice,
+		SortOrder:            row.SortOrder,
+		CreatedAt:            row.CreatedAt,
+		UpdatedAt:            row.UpdatedAt,
+	}
+}
+
+func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *service.ChannelTimePricing {
+	if row == nil {
+		return nil
+	}
+	cfg := &service.ChannelTimePricing{
+		Timezone:     row.Timezone,
+		WeekdaysOnly: row.WeekdaysOnly,
+	}
+	for _, raw := range row.Periods {
+		period := service.ChannelTimePricingPeriod{}
+		if value, ok := raw["start_time"].(string); ok {
+			period.StartTime = value
+		}
+		if value, ok := raw["end_time"].(string); ok {
+			period.EndTime = value
+		}
+		if value, ok := raw["multiplier"].(float64); ok {
+			period.Multiplier = value
+		}
+		cfg.Periods = append(cfg.Periods, period)
+	}
+	return cfg
+}

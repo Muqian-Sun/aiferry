@@ -142,7 +142,7 @@ func TestIntervalExplicitPriceTakesPrecedenceOverMultiplier(t *testing.T) {
 	pricing := intervalToModelPricing(&PricingInterval{
 		InputPrice:      pricingMultiplier(7),
 		InputMultiplier: pricingMultiplier(2),
-	}, &ModelPricing{InputPricePerToken: 5}, nil)
+	}, &ModelPricing{InputPricePerToken: 5}, nil, false)
 
 	require.InDelta(t, 7, pricing.InputPricePerToken, 1e-12)
 }
@@ -153,7 +153,7 @@ func TestIntervalPricePreservesDefaultFastRatio(t *testing.T) {
 	}, &ModelPricing{
 		InputPricePerToken:         5,
 		InputPricePerTokenPriority: 10,
-	}, nil)
+	}, nil, false)
 
 	require.InDelta(t, 7, pricing.InputPricePerToken, 1e-12)
 	require.InDelta(t, 14, pricing.InputPricePerTokenPriority, 1e-12)

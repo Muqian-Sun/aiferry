@@ -208,11 +208,14 @@ func maxReasoningEffortBillingMultiplier(model, effort string, pricing *ModelPri
 	return 1
 }
 
-func resolvedChannelTimeMultiplier(resolved *ResolvedPricing, at time.Time) float64 {
-	if resolved == nil || resolved.Source != PricingSourceChannel || resolved.channelPricing == nil {
+// resolvedTimePricingMultiplier 返回命中价卡的分时倍率。
+// 只认目录来源：分组价卡在管理端就被 GROUP_MODEL_TIME_PRICING_UNSUPPORTED 拒掉
+// （admin_group.go），groups.model_pricing 是 JSONB，手工写进去的分时配置不该生效。
+func resolvedTimePricingMultiplier(resolved *ResolvedPricing, at time.Time) float64 {
+	if resolved == nil || resolved.Source != PricingSourceCatalog || resolved.configuredPricing == nil {
 		return 1
 	}
-	return resolved.channelPricing.TimePricing.MultiplierAt(at)
+	return resolved.configuredPricing.TimePricing.MultiplierAt(at)
 }
 
 // ErrModelPricingUnavailable indicates that none of the configured pricing
@@ -1181,6 +1184,24 @@ func (s *BillingService) HasIdentifiedTokenPricing(model string) bool {
 	return ok && pricing != nil
 }
 
+// SnapshotFallbackPricing 返回硬编码兜底价表的浅拷贝（键 → 条目副本），
+// 供模型目录播种使用。只含字面键，不含 getFallbackPricing 的系列子串兜底——
+// 子串兜底匹配的是不存在的型号名，播进目录只会凭空造出模型。
+func (s *BillingService) SnapshotFallbackPricing() map[string]*ModelPricing {
+	if s == nil {
+		return nil
+	}
+	out := make(map[string]*ModelPricing, len(s.fallbackPrices))
+	for name, pricing := range s.fallbackPrices {
+		if pricing == nil {
+			continue
+		}
+		cloned := *pricing
+		out[name] = &cloned
+	}
+	return out
+}
+
 // GetModelPricing 获取模型价格配置
 func (s *BillingService) GetModelPricing(model string) (*ModelPricing, error) {
 	// 无显式计费时点，DeepSeek pro→Flash 切换按当前时刻判定。
@@ -1275,7 +1296,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 		pricing.ImageOutputPricePerToken = 0
 	}
 	pricing.ImageOutputPriceExplicit = true
-	applyChannelImageInputPrice(channelPricing, pricing)
+	applyConfiguredImageInputPrice(channelPricing, pricing)
 	return pricing, nil
 }
 
@@ -1332,7 +1353,6 @@ func applyChannelTokenPriceOverrides(pricing *ModelPricing, channelPricing *Chan
 type CostInput struct {
 	Ctx                       context.Context
 	Model                     string
-	GroupID                   *int64 // 用于渠道定价查找
 	Group                     *Group
 	Tokens                    UsageTokens
 	RequestCount              int     // 按次计费时使用
@@ -1374,9 +1394,8 @@ func (s *BillingService) CalculateCostUnified(input CostInput) (*CostBreakdown, 
 	resolved := input.Resolved
 	if resolved == nil {
 		resolved = input.Resolver.Resolve(input.Ctx, PricingInput{
-			Model:   input.Model,
-			GroupID: input.GroupID,
-			Group:   input.Group,
+			Model: input.Model,
+			Group: input.Group,
 		})
 	}
 
@@ -1430,15 +1449,17 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 		pricingAt = timezone.Now()
 	}
 
-	// 默认价卡（Source=LiteLLM）应用 DeepSeek 官方价强制覆盖（幂等，GetModelPricing
-	// 内部已强制过）；分组/渠道自定义定价保留运营者配置，不强制覆盖官方价。
-	pricing = s.applyModelSpecificPricingPolicyEx(input.Model, pricing, resolved.Source == PricingSourceLiteLLM, pricingAt)
+	// 平台默认价卡应用 DeepSeek 官方价强制覆盖（幂等，GetModelPricing 内部已强制过）；
+	// 运营者定价（分组价卡、被管理员改过的目录条目）保留运营者配置，不强制覆盖官方价。
+	// 播种出来的目录条目与价格文件同源，仍属平台默认价卡，所以按 operatorPricing 判定
+	// 而不是按 Source——否则播种一上线，官方价政策就会整体失效。
+	pricing = s.applyModelSpecificPricingPolicyEx(input.Model, pricing, !resolved.operatorPricing, pricingAt)
 
 	// DeepSeek 模型默认价卡按官方峰谷口径调整：高峰时段（01:00–04:00 与
 	// 06:00–10:00 UTC，仅工作日；北京时间周末全天低谷）按 2× 低谷价计费。
-	// 仅作用于默认价卡（Source=LiteLLM，无分组/渠道自定义定价）——分组/渠道
-	// 自定义定价保持运营者语义，不叠加。先克隆再乘，避免污染共享 fallbackPrices 指针。
-	if resolved.Source == PricingSourceLiteLLM && isDeepSeekModel(input.Model) {
+	// 仅作用于平台默认价卡——运营者定价保持运营者语义，不叠加。
+	// 先克隆再乘，避免污染共享 fallbackPrices 指针。
+	if !resolved.operatorPricing && isDeepSeekModel(input.Model) {
 		if mult := deepseekPeakMultiplierAt(pricingAt); mult > 1 {
 			cloned := *pricing
 			cloned.InputPricePerToken *= mult
@@ -1452,7 +1473,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	applyLongCtx := len(resolved.Intervals) == 0 && contextTierPricingEnabled
 
 	breakdown := s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx)
-	applyCostBreakdownMultiplier(breakdown, resolvedChannelTimeMultiplier(resolved, input.PricingAt))
+	applyCostBreakdownMultiplier(breakdown, resolvedTimePricingMultiplier(resolved, input.PricingAt))
 	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(input.Model, input.ReasoningEffort, pricing))
 	return breakdown, nil
 }

@@ -42,6 +42,21 @@ func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient)
 	return svc, nil
 }
 
+// ProvideModelCatalogService 组装模型目录服务。
+// 播种不在这里跑：构造期写库会与迁移、其它服务的初始化次序纠缠在一起，
+// 播种由 main 在应用装配完成后显式调用（见 cmd/server/main.go）。
+func ProvideModelCatalogService(
+	repo ModelCatalogRepository,
+	cachePub ModelCatalogCachePubSub,
+	pricingService *PricingService,
+	billingService *BillingService,
+) *ModelCatalogService {
+	return NewModelCatalogService(repo, cachePub, ModelCatalogSeedInput{
+		PricingService: pricingService,
+		BillingService: billingService,
+	})
+}
+
 // ProvideUpdateService creates UpdateService with BuildInfo
 func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, buildInfo BuildInfo) *UpdateService {
 	return NewUpdateService(cache, githubClient, buildInfo.Version, buildInfo.BuildType)
@@ -930,6 +945,8 @@ var ProviderSet = wire.NewSet(
 	NewGroupCapacityService,
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),
+	ProvideModelCatalogService,
+	wire.Bind(new(ModelCatalogPricingSource), new(*ModelCatalogService)),
 	NewModelPricingResolver,
 	NewModelPlazaService,
 	NewContentModerationService,

@@ -11,21 +11,12 @@ import (
 )
 
 // newTokenCostTestEnv 构造带渠道定价的计费环境：group 100 挂一个渠道，定价由 pricing 指定。
-func newTokenCostTestEnv(t *testing.T, groupPlatform string, pricing []ChannelModelPricing, catalog *PricingService) (*BillingService, *ModelPricingResolver) {
+// newTokenCostTestEnv 搭一个「运营者显式配了价」的环境。价卡从渠道搬到了模型目录，
+// groupPlatform 只保留签名兼容（目录是全局的，不按平台隔离）。
+func newTokenCostTestEnv(t *testing.T, _ string, pricing []ChannelModelPricing, catalog *PricingService) (*BillingService, *ModelPricingResolver) {
 	t.Helper()
-	repo := &mockChannelRepository{
-		listAllFn: func(_ context.Context) ([]Channel, error) {
-			return []Channel{{
-				ID: 1, Name: "ch", Status: StatusActive, GroupIDs: []int64{100}, ModelPricing: pricing,
-			}}, nil
-		},
-		getGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
-			return map[int64]string{100: groupPlatform}, nil
-		},
-	}
-	cs := NewChannelService(repo, nil, nil, nil, nil)
 	bs := NewBillingService(&config.Config{}, catalog)
-	return bs, NewModelPricingResolver(cs, bs)
+	return bs, newResolverWithCatalogCards(bs, pricing...)
 }
 
 // geminiCatalogStub 无阶梯字段的 gemini 目录条目（用于验证"无数据即无阶梯"）。
@@ -67,9 +58,8 @@ func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *tes
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
 	}}, geminiLadderCatalogStub(t))
 	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	gid := group.ID
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", GroupID: &gid, Group: group})
-	require.Equal(t, PricingSourceChannel, resolved.Source)
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	require.Equal(t, PricingSourceCatalog, resolved.Source)
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
@@ -89,9 +79,8 @@ func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *t
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
 	}}, geminiLadderCatalogStub(t))
 	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	gid := group.ID
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", GroupID: &gid, Group: group})
-	require.Equal(t, PricingSourceChannel, resolved.Source)
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	require.Equal(t, PricingSourceCatalog, resolved.Source)
 	require.NotEmpty(t, resolved.Intervals)
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
@@ -112,8 +101,7 @@ func TestCalculateTokenCostForRequest_CatalogLadderFollowsGroupToggle(t *testing
 
 	for _, enabled := range []bool{true, false} {
 		group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: enabled}
-		gid := group.ID
-		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", GroupID: &gid, Group: group})
+		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
 		require.Equal(t, PricingSourceLiteLLM, resolved.Source)
 
 		got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
@@ -137,8 +125,7 @@ func TestCalculateTokenCostForRequest_CatalogLadderFollowsGroupToggle(t *testing
 func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiLadderCatalogStub(t))
 	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	gid := group.ID
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", GroupID: &gid, Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
 	require.Equal(t, PricingSourceLiteLLM, resolved.Source)
 
 	calc := func(tokens UsageTokens) *CostBreakdown {
@@ -171,8 +158,7 @@ func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing
 func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiCatalogStub())
 	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	gid := group.ID
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", GroupID: &gid, Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
@@ -187,9 +173,8 @@ func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) 
 func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformOpenAI, nil, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
 	group := &Group{ID: 100, Platform: PlatformOpenAI, LongContextPricingEnabled: true}
-	gid := group.ID
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gpt-5.4", GroupID: &gid, Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gpt-5.4", Group: group})
 
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
 		Ctx: context.Background(), Model: "gpt-5.4", Group: group, Tokens: tokens, RateMultiplier: 1,
@@ -197,7 +182,7 @@ func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T
 	})
 	require.NoError(t, err)
 	want, err := bs.CalculateCostUnified(CostInput{
-		Ctx: context.Background(), Model: "gpt-5.4", GroupID: &gid, Group: group, Tokens: tokens,
+		Ctx: context.Background(), Model: "gpt-5.4", Group: group, Tokens: tokens,
 		RequestCount: 1, RateMultiplier: 1, Resolver: resolver,
 	})
 	require.NoError(t, err)
@@ -242,8 +227,7 @@ func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier
 		MaxReasoningEffortMultiplier: &configured,
 	}}, nil)
 	group := &Group{ID: 100, Platform: PlatformAnthropic}
-	gid := group.ID
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-fable-5-1", GroupID: &gid, Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-fable-5-1", Group: group})
 
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
 		Ctx: context.Background(), Model: "claude-fable-5-1", Group: group,

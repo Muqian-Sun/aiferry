@@ -794,9 +794,8 @@ func (s *GatewayService) calculateRecordUsageCost(
 	if result.AudioUsage != nil {
 		if resolved := s.resolveChannelPricing(ctx, billingModel, apiKey); resolved != nil &&
 			resolved.Mode == BillingModePerRequest {
-			gid := apiKey.Group.ID
 			cost, err := s.billingService.CalculateCostUnified(CostInput{
-				Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+				Ctx: ctx, Model: billingModel, Group: apiKey.Group,
 				UsageUnits: result.AudioUsage.DurationOrUnits, SizeTier: result.AudioUsage.Mode,
 				RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
 			})
@@ -899,9 +898,8 @@ func (s *GatewayService) resolveChannelPricing(ctx context.Context, billingModel
 	if s.resolver == nil || apiKey.Group == nil {
 		return nil
 	}
-	gid := apiKey.Group.ID
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
-	if resolved.Source == PricingSourceGroup || resolved.Source == PricingSourceChannel {
+	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel, Group: apiKey.Group})
+	if resolved.operatorPricing {
 		return resolved
 	}
 	return nil
@@ -918,9 +916,8 @@ func (s *GatewayService) calculateImageCost(
 	sizeTier := NormalizeImageBillingTierOrDefault(result.ImageSize)
 	resolved := s.resolveChannelPricing(ctx, billingModel, apiKey)
 	if resolved != nil && resolved.Source == PricingSourceGroup {
-		gid := apiKey.Group.ID
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
-			Ctx: ctx, Model: billingModel, GroupID: &gid, Group: apiKey.Group,
+			Ctx: ctx, Model: billingModel, Group: apiKey.Group,
 			RequestCount: result.ImageCount, SizeTier: sizeTier,
 			RateMultiplier: multiplier, Resolver: s.resolver, Resolved: resolved,
 		})
@@ -932,17 +929,15 @@ func (s *GatewayService) calculateImageCost(
 	if apiKeyHasConfiguredImagePrice(apiKey, sizeTier) {
 		return s.billingService.CalculateImageCost(billingModel, sizeTier, result.ImageCount, groupConfig, multiplier)
 	}
-	if resolved != nil && resolved.Source == PricingSourceChannel {
+	if resolved != nil && resolved.Source == PricingSourceCatalog {
 		tokens := UsageTokens{
 			InputTokens:       result.Usage.InputTokens,
 			OutputTokens:      result.Usage.OutputTokens,
 			ImageOutputTokens: result.Usage.ImageOutputTokens,
 		}
-		gid := apiKey.Group.ID
 		cost, err := s.billingService.CalculateCostUnified(CostInput{
 			Ctx:            ctx,
 			Model:          billingModel,
-			GroupID:        &gid,
 			Group:          apiKey.Group,
 			Tokens:         tokens,
 			RequestCount:   result.ImageCount,
@@ -983,8 +978,7 @@ func (s *GatewayService) calculateTokenCost(
 
 	var resolved *ResolvedPricing
 	if s.resolver != nil && apiKey.Group != nil {
-		gid := apiKey.Group.ID
-		resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, GroupID: &gid, Group: apiKey.Group})
+		resolved = s.resolver.Resolve(ctx, PricingInput{Model: billingModel, Group: apiKey.Group})
 	}
 
 	cost, err := s.billingService.CalculateTokenCostForRequest(TokenCostRequest{

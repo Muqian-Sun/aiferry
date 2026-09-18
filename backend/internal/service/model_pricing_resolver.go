@@ -8,8 +8,9 @@ import (
 
 // PricingSource 定价来源标识
 const (
-	PricingSourceGroup    = "group"
-	PricingSourceChannel  = "channel"
+	PricingSourceGroup = "group"
+	// PricingSourceCatalog 表示价格来自 model_catalog_entries 里的条目。
+	PricingSourceCatalog  = "catalog"
 	PricingSourceLiteLLM  = "litellm"
 	PricingSourceFallback = "fallback"
 )
@@ -19,7 +20,7 @@ type ResolvedPricing struct {
 	// Mode 计费模式
 	Mode BillingMode
 
-	// Token 模式：基础定价（来自 LiteLLM 或 fallback）
+	// Token 模式：基础定价（来自模型目录 / LiteLLM / fallback）
 	BasePricing *ModelPricing
 
 	// Token 模式：区间定价列表（如有，覆盖 BasePricing 中的对应字段）
@@ -32,42 +33,51 @@ type ResolvedPricing struct {
 	DefaultPerRequestPrice float64
 
 	// 来源标识
-	Source string // "channel", "litellm", "fallback"
+	Source string // "group", "catalog", "litellm", "fallback"
 
 	// 是否支持缓存细分
 	SupportsCacheBreakdown bool
 
-	// 渠道定价原始配置（用于区间模式下获取 ImageOutputPrice）
-	channelPricing *ChannelModelPricing
+	// configuredPricing 是命中的价卡原始配置（分组价卡或目录条目投影），
+	// 用于区间模式取图片价、判定哪些字段被显式配置、以及分时倍率。
+	configuredPricing *ChannelModelPricing
+
+	// operatorPricing 表示胜出的价格是运营者写的（分组价卡，或被管理员改过的
+	// 目录条目），而不是平台默认价卡（播种出来的目录条目 / 价格文件 / 硬编码兜底价）。
+	//
+	// 这条区分承接了原先「Source == channel」与「Source == litellm」两个判断：
+	// 运营者定价保留运营者语义（不强制官方价、不叠加官方峰谷），平台默认价卡
+	// 则继续套用官方价政策。
+	operatorPricing bool
 
 	longContextPricingEnabled bool
 }
 
 // ModelPricingResolver 统一模型定价解析器。
-// 解析链：Group → Channel → LiteLLM → Fallback。
+// 解析链：Group 价卡 → 模型目录 → LiteLLM 价格文件 → 硬编码兜底价。
 type ModelPricingResolver struct {
-	channelService *ChannelService
+	catalog        ModelCatalogPricingSource
 	billingService *BillingService
 }
 
 // NewModelPricingResolver 创建定价解析器实例
-func NewModelPricingResolver(channelService *ChannelService, billingService *BillingService) *ModelPricingResolver {
+func NewModelPricingResolver(catalog ModelCatalogPricingSource, billingService *BillingService) *ModelPricingResolver {
 	return &ModelPricingResolver{
-		channelService: channelService,
+		catalog:        catalog,
 		billingService: billingService,
 	}
 }
 
 // PricingInput 定价解析输入
 type PricingInput struct {
-	Model   string
-	GroupID *int64 // nil 表示不检查渠道
-	Group   *Group
+	Model string
+	Group *Group
 }
 
 // Resolve 解析模型定价。
-// 1. 获取基础定价（LiteLLM → Fallback）
-// 2. 如果指定了 GroupID，查找渠道定价并覆盖
+//  1. 分组价卡（groups.model_pricing）命中即返回，仍是运营者的分组级覆盖层；
+//  2. 模型目录命中则作为基准价卡（叠加在价格文件之上，只写显式配置的项）；
+//  3. 都没有则回到价格文件 / 硬编码兜底价。
 func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) *ResolvedPricing {
 	longContextPricingEnabled := input.Group == nil || input.Group.LongContextPricingEnabled
 	if groupPricing := matchGroupModelPricing(input.Group, input.Model); groupPricing != nil {
@@ -79,34 +89,18 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 			groupPricing = &stripped
 		}
 		resolved := r.resolveConfiguredPricing(groupPricing, input.Model, PricingSourceGroup)
+		resolved.operatorPricing = true
 		resolved.longContextPricingEnabled = longContextPricingEnabled
 		return resolved
 	}
 
-	var chPricing *ChannelModelPricing
-	if input.GroupID != nil && r.channelService != nil {
-		chPricing = r.lookupChannelPricingNormalized(ctx, *input.GroupID, input.Model)
-		if chPricing != nil {
-			mode := chPricing.BillingMode
-			if mode == "" {
-				mode = BillingModeToken
-			}
-			if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
-				resolved := &ResolvedPricing{
-					Mode:           mode,
-					Source:         PricingSourceChannel,
-					channelPricing: chPricing,
-				}
-				resolved.longContextPricingEnabled = longContextPricingEnabled
-				r.applyRequestTierOverrides(chPricing, resolved)
-				return resolved
-			}
-		}
+	if entry := r.lookupCatalogEntry(ctx, input.Model); entry != nil {
+		resolved := r.resolveCatalogPricing(entry, input.Model)
+		resolved.longContextPricingEnabled = longContextPricingEnabled
+		return resolved
 	}
 
-	// 1. 获取基础定价
 	basePricing, source := r.resolveBasePricing(input.Model)
-
 	resolved := &ResolvedPricing{
 		Mode:                   BillingModeToken,
 		BasePricing:            basePricing,
@@ -114,16 +108,60 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 		SupportsCacheBreakdown: basePricing != nil && basePricing.SupportsCacheBreakdown,
 	}
 	resolved.longContextPricingEnabled = longContextPricingEnabled
+	return resolved
+}
 
-	// 2. 如果有 GroupID，尝试渠道覆盖
-	if chPricing != nil {
-		resolved.Source = PricingSourceChannel
-		resolved.channelPricing = chPricing
-		r.applyTokenOverrides(chPricing, resolved)
-	} else if input.GroupID != nil && r.channelService != nil {
-		r.applyChannelOverrides(ctx, *input.GroupID, input.Model, resolved)
+func (r *ModelPricingResolver) lookupCatalogEntry(ctx context.Context, model string) *ModelCatalogEntry {
+	if r == nil || r.catalog == nil {
+		return nil
+	}
+	return r.catalog.LookupPricingEntry(ctx, model)
+}
+
+// resolveCatalogPricing 用目录条目构造解析结果。
+//
+// 与分组/渠道价卡的关键差别：目录是**基准价**，只写条目里显式配置的项，不做
+// 「未配置即归零」。否则没配图片输出价的条目会把图片 token 静默算成免费，
+// 而今天它会回退到文本输出价。
+func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry, model string) *ResolvedPricing {
+	card := entry.PricingCard()
+	resolved := &ResolvedPricing{
+		Mode:              entry.EffectiveBillingMode(),
+		Source:            PricingSourceCatalog,
+		configuredPricing: card,
+		operatorPricing:   entry.IsOperatorAuthored(),
 	}
 
+	switch resolved.Mode {
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
+		r.applyRequestTierOverrides(card, resolved)
+		return resolved
+	}
+
+	base, _ := r.resolveBasePricing(model)
+	if base == nil && !entry.HasAnyTokenPrice() {
+		// 目录条目没有任何 token 价，底下的价格文件也定不到价：保持「无价」，
+		// 让计费链路走既有的 ErrModelPricingUnavailable 路径，而不是悄悄变成全 0 价卡。
+		return resolved
+	}
+	merged := &ModelPricing{}
+	if base != nil {
+		merged = &ModelPricing{}
+		*merged = *base
+	}
+	entry.ApplyToModelPricing(merged)
+	resolved.BasePricing = merged
+	resolved.SupportsCacheBreakdown = merged.SupportsCacheBreakdown
+	resolved.Intervals = filterValidIntervals(card.Intervals)
+	if len(resolved.Intervals) > 0 {
+		for i := range resolved.Intervals {
+			if resolved.Intervals[i].CacheWrite1hPrice != nil {
+				resolved.SupportsCacheBreakdown = true
+				resolved.BasePricing.SupportsCacheBreakdown = true
+				break
+			}
+		}
+	}
 	return resolved
 }
 
@@ -132,7 +170,7 @@ func (r *ModelPricingResolver) resolveConfiguredPricing(config *ChannelModelPric
 	if mode == "" {
 		mode = BillingModeToken
 	}
-	resolved := &ResolvedPricing{Mode: mode, Source: source, channelPricing: config}
+	resolved := &ResolvedPricing{Mode: mode, Source: source, configuredPricing: config}
 	if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
 		r.applyRequestTierOverrides(config, resolved)
 		return resolved
@@ -177,53 +215,8 @@ func (r *ModelPricingResolver) resolveBasePricing(model string) (*ModelPricing, 
 	return pricing, PricingSourceLiteLLM
 }
 
-// lookupChannelPricingNormalized 查找渠道定价：先用字面模型名做精确/通配匹配，
-// 未命中时用与官方兜底价一致的归一化模型名再查一次。
-//
-// 官方兜底价对 OpenAI/Codex 族会把 gpt-5.6-luna-high 这类变体名归一化到基名
-// （billing_service.go 的 normalizeKnownOpenAICodexModel 分支），而渠道定价此前
-// 只认字面名。两者不对称导致：管理员只配基名、请求模型带 effort 后缀时，渠道定价
-// 未命中而官方兜底命中，计费候选循环首个成功即返回，渠道定价永远轮不到（issue #5256）。
-//
-// 字面名优先，保证管理员对具体变体的显式配价不被基名覆盖；非 OpenAI 模型
-// normalizeKnownOpenAICodexModel 返回空串，此处天然 no-op。
-func (r *ModelPricingResolver) lookupChannelPricingNormalized(ctx context.Context, groupID int64, model string) *ChannelModelPricing {
-	if r.channelService == nil {
-		return nil
-	}
-	if pricing := r.channelService.GetChannelModelPricing(ctx, groupID, model); pricing != nil {
-		return pricing
-	}
-	normalized := normalizeKnownOpenAICodexModel(model)
-	if normalized == "" || strings.EqualFold(normalized, strings.TrimSpace(model)) {
-		return nil
-	}
-	return r.channelService.GetChannelModelPricing(ctx, groupID, normalized)
-}
-
-// applyChannelOverrides 应用渠道定价覆盖
-func (r *ModelPricingResolver) applyChannelOverrides(ctx context.Context, groupID int64, model string, resolved *ResolvedPricing) {
-	chPricing := r.lookupChannelPricingNormalized(ctx, groupID, model)
-	if chPricing == nil {
-		return
-	}
-
-	resolved.Source = PricingSourceChannel
-	resolved.channelPricing = chPricing
-	resolved.Mode = chPricing.BillingMode
-	if resolved.Mode == "" {
-		resolved.Mode = BillingModeToken
-	}
-
-	switch resolved.Mode {
-	case BillingModeToken:
-		r.applyTokenOverrides(chPricing, resolved)
-	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
-		r.applyRequestTierOverrides(chPricing, resolved)
-	}
-}
-
-// applyTokenOverrides 应用 token 模式的渠道覆盖
+// applyTokenOverrides 应用 token 模式的分组价卡覆盖。
+// 分组价卡是运营者定价，语义是「覆盖一切」：显式配置则用配置值，未配置则归零。
 func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing) {
 	if resolved.BasePricing == nil {
 		resolved.BasePricing = &ModelPricing{}
@@ -250,25 +243,25 @@ func (r *ModelPricingResolver) applyTokenOverrides(chPricing *ChannelModelPricin
 	if chPricing.MaxReasoningEffortMultiplier != nil {
 		resolved.BasePricing.MaxReasoningEffortMultiplier = chPricing.MaxReasoningEffortMultiplier
 	}
-	// 渠道定价覆盖一切：显式配置则用配置值，未配置则归零（不回退到 LiteLLM）
+	// 运营者价卡覆盖一切：显式配置则用配置值，未配置则归零（不回退到 LiteLLM）
 	if chPricing.ImageOutputPrice != nil {
 		resolved.BasePricing.ImageOutputPricePerToken = *chPricing.ImageOutputPrice
 	} else {
 		resolved.BasePricing.ImageOutputPricePerToken = 0
 	}
 	resolved.BasePricing.ImageOutputPriceExplicit = true
-	applyChannelImageInputPrice(chPricing, resolved.BasePricing)
+	applyConfiguredImageInputPrice(chPricing, resolved.BasePricing)
 
-	// 区间未命中时回退到上面已经应用渠道覆盖的基础价。
+	// 区间未命中时回退到上面已经应用覆盖的基础价。
 	resolved.Intervals = filterValidIntervals(chPricing.Intervals)
 }
 
-// applyChannelImageInputPrice 应用渠道图片输入价：显式配置则用配置值；
+// applyConfiguredImageInputPrice 应用运营者价卡的图片输入价：显式配置则用配置值；
 // 未配置时归零，使 computeTokenBreakdown 回退到文本输入价（向后兼容，
-// 避免 commit 引入的 LiteLLM 图片输入价泄漏进渠道自定义定价）。
+// 避免 LiteLLM 图片输入价泄漏进自定义定价）。
 // 与 image_output 不同，此处不设 Explicit 标志——图片输入未配置应回退文本价，
 // 而非硬置 0。
-func applyChannelImageInputPrice(chPricing *ChannelModelPricing, pricing *ModelPricing) {
+func applyConfiguredImageInputPrice(chPricing *ChannelModelPricing, pricing *ModelPricing) {
 	if chPricing != nil && chPricing.ImageInputPrice != nil {
 		pricing.ImageInputPricePerToken = *chPricing.ImageInputPrice
 	} else {
@@ -276,7 +269,7 @@ func applyChannelImageInputPrice(chPricing *ChannelModelPricing, pricing *ModelP
 	}
 }
 
-// applyRequestTierOverrides 应用按次/图片模式的渠道覆盖
+// applyRequestTierOverrides 应用按次/图片模式的价卡覆盖
 func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing) {
 	resolved.RequestTiers = filterValidIntervals(chPricing.Intervals)
 	if chPricing.PerRequestPrice != nil {
@@ -312,15 +305,18 @@ func (r *ModelPricingResolver) GetIntervalPricing(resolved *ResolvedPricing, tot
 		return resolved.BasePricing
 	}
 
-	pricing := intervalToModelPricing(iv, resolved.BasePricing, resolved.channelPricing)
+	// 目录条目是基准价，不做「未配置即归零」；分组价卡是运营者定价，保持覆盖一切。
+	pricing := intervalToModelPricing(iv, resolved.BasePricing, resolved.configuredPricing,
+		resolved.Source != PricingSourceCatalog)
 	// BasePricing 为 nil（仅配置区间）时拷贝不到该标志，从 resolved 回填，
 	// 保证 computeCacheCreationCost 的 5m/1h 分档判断不被区间路径吞掉。
 	pricing.SupportsCacheBreakdown = resolved.SupportsCacheBreakdown
 	return pricing
 }
 
-// intervalToModelPricing 将区间定价转换为 ModelPricing
-func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *ChannelModelPricing) *ModelPricing {
+// intervalToModelPricing 将区间定价转换为 ModelPricing。
+// overrideImagePrices 为 true 时按运营者价卡语义处理图片价（未配置即归零）。
+func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *ChannelModelPricing, overrideImagePrices bool) *ModelPricing {
 	pricing := &ModelPricing{}
 	if base != nil {
 		*pricing = *base
@@ -370,14 +366,14 @@ func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *
 		pricing.CacheReadPricePerToken = applyMultiplier(pricing.CacheReadPricePerToken, iv.CacheReadMultiplier)
 		pricing.CacheReadPricePerTokenPriority = applyMultiplier(pricing.CacheReadPricePerTokenPriority, iv.CacheReadMultiplier)
 	}
-	// 渠道定价存在时，ImageOutputPrice 显式覆盖；图片输入价用渠道级配置
+	// 运营者价卡存在时，ImageOutputPrice 显式覆盖；图片输入价用价卡级配置
 	// （区间不携带图片输入价，与 image_output 一致）。
-	if chPricing != nil {
+	if chPricing != nil && overrideImagePrices {
 		pricing.ImageOutputPriceExplicit = true
 		if chPricing.ImageOutputPrice != nil {
 			pricing.ImageOutputPricePerToken = *chPricing.ImageOutputPrice
 		}
-		applyChannelImageInputPrice(chPricing, pricing)
+		applyConfiguredImageInputPrice(chPricing, pricing)
 	}
 	return pricing
 }

@@ -481,7 +481,7 @@ func TestGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUp
 				svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
 				groupID := int64(905)
 				svc.channelService = newTestChannelServiceForStats(t, &Channel{ID: 1, Status: StatusActive}, groupID, PlatformDeepseek)
-				svc.resolver = NewModelPricingResolver(svc.channelService, svc.billingService)
+				svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 				alias := "customer-chat"
 				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
 				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8,

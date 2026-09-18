@@ -1628,6 +1628,26 @@ func (s *PricingService) ListModelNamesByProvider(provider string) []string {
 	return names
 }
 
+// SnapshotModelPricing 返回价格表的浅拷贝（键 → 条目副本），供模型目录播种使用。
+// 返回的每个条目都是值拷贝，调用方改动不会污染服务内部的价格表。
+func (s *PricingService) SnapshotModelPricing() map[string]*LiteLLMModelPricing {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make(map[string]*LiteLLMModelPricing, len(s.pricingData))
+	for name, pricing := range s.pricingData {
+		if pricing == nil {
+			continue
+		}
+		cloned := *pricing
+		out[name] = &cloned
+	}
+	return out
+}
+
 // isNumeric 检查字符串是否为纯数字
 func isNumeric(s string) bool {
 	for _, c := range s {

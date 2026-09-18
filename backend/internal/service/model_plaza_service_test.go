@@ -344,7 +344,11 @@ func TestListPlazaGroups_RepoErrorsPropagate(t *testing.T) {
 	require.ErrorIs(t, err2, sentinel)
 }
 
-// newPlazaServiceWithBilling 构造接入计费服务与解析器的广场服务：解析器的渠道服务与广场共用同一份渠道数据。
+// newPlazaServiceWithBilling 构造接入计费服务与解析器的广场服务。
+//
+// 广场的模型枚举与展示单价仍然来自渠道（渠道实体要到后面的阶段才删），
+// 但价格解析（阶梯表、分时）已改走模型目录，所以这里把同一批渠道价卡也灌进目录，
+// 让两边看到同一份价格。
 func newPlazaServiceWithBilling(channels []Channel, groups []Group, groupPlatforms map[int64]string, catalog *PricingService) *ModelPlazaService {
 	repo := &mockChannelRepository{
 		listAllFn: func(ctx context.Context) ([]Channel, error) { return channels, nil },
@@ -352,9 +356,13 @@ func newPlazaServiceWithBilling(channels []Channel, groups []Group, groupPlatfor
 			return groupPlatforms, nil
 		},
 	}
-	cs := NewChannelService(repo, nil, nil, nil, nil)
 	bs := NewBillingService(&config.Config{}, catalog)
-	return NewModelPlazaService(repo, &stubGroupRepoForAvailable{activeGroups: groups}, catalog, bs, NewModelPricingResolver(cs, bs))
+	cards := make([]ChannelModelPricing, 0)
+	for _, ch := range channels {
+		cards = append(cards, ch.ModelPricing...)
+	}
+	return NewModelPlazaService(repo, &stubGroupRepoForAvailable{activeGroups: groups}, catalog, bs,
+		newResolverWithCatalogCards(bs, cards...))
 }
 
 func plazaModelsByName(models []PlazaModel) map[string]PlazaModel {
