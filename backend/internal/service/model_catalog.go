@@ -1,7 +1,6 @@
 package service
 
 import (
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -324,33 +323,33 @@ func (e *ModelCatalogEntry) Normalize() {
 // Validate 校验条目字段，返回第一处错误。
 func (e *ModelCatalogEntry) Validate() error {
 	if e == nil {
-		return errors.New("nil model catalog entry")
+		return catalogValidationError("nil model catalog entry")
 	}
 	if e.ModelID == "" {
-		return errors.New("model_id is required")
+		return catalogValidationError("model_id is required")
 	}
 	if len(e.ModelID) > 200 {
-		return errors.New("model_id must be at most 200 characters")
+		return catalogValidationError("model_id must be at most 200 characters")
 	}
 	if !e.BillingMode.IsValid() {
-		return fmt.Errorf("invalid billing_mode: %s", e.BillingMode)
+		return catalogValidationError(fmt.Sprintf("invalid billing_mode: %s", e.BillingMode))
 	}
 	switch e.Status {
 	case ModelCatalogStatusListed, ModelCatalogStatusUnlisted:
 	default:
-		return fmt.Errorf("invalid status: %s", e.Status)
+		return catalogValidationError(fmt.Sprintf("invalid status: %s", e.Status))
 	}
 	switch e.ManagedBy {
 	case ModelCatalogManagedBySeed, ModelCatalogManagedByAdmin:
 	default:
-		return fmt.Errorf("invalid managed_by: %s", e.ManagedBy)
+		return catalogValidationError(fmt.Sprintf("invalid managed_by: %s", e.ManagedBy))
 	}
 	for _, protocol := range e.Protocols {
 		switch protocol {
 		case ModelCatalogProtocolAnthropic, ModelCatalogProtocolChatCompletions,
 			ModelCatalogProtocolResponses, ModelCatalogProtocolGemini:
 		default:
-			return fmt.Errorf("invalid protocol: %s", protocol)
+			return catalogValidationError(fmt.Sprintf("invalid protocol: %s", protocol))
 		}
 	}
 	prices := map[string]*float64{
@@ -370,7 +369,7 @@ func (e *ModelCatalogEntry) Validate() error {
 	}
 	for _, name := range sortedPriceFieldNames(prices) {
 		if value := prices[name]; value != nil && *value < 0 {
-			return fmt.Errorf("%s must be >= 0", name)
+			return catalogValidationError(fmt.Sprintf("%s must be >= 0", name))
 		}
 	}
 	multipliers := map[string]*float64{
@@ -382,21 +381,25 @@ func (e *ModelCatalogEntry) Validate() error {
 	}
 	for _, name := range sortedPriceFieldNames(multipliers) {
 		if value := multipliers[name]; value != nil && *value <= 0 {
-			return fmt.Errorf("%s must be > 0", name)
+			return catalogValidationError(fmt.Sprintf("%s must be > 0", name))
 		}
 	}
 	if e.LongContextInputThreshold != nil && *e.LongContextInputThreshold < 0 {
-		return errors.New("long_context_input_threshold must be >= 0")
+		return catalogValidationError("long_context_input_threshold must be >= 0")
 	}
 	if err := ValidateIntervals(e.Intervals, e.EffectiveBillingMode()); err != nil {
-		return err
+		return catalogValidationError(err.Error())
 	}
 	// 分时倍率复用渠道那一套校验（时区、HH:mm(:ss) 解析、倍率精度、时段不重叠），
 	// 保证目录与渠道的分时语义一致。
 	if err := validateChannelTimePricing(e.TimePricing); err != nil {
-		return fmt.Errorf("time_pricing: %w", err)
+		return catalogValidationError(fmt.Sprintf("time_pricing: %s", err.Error()))
 	}
 	return nil
+}
+
+func catalogValidationError(message string) error {
+	return infraerrors.BadRequest("MODEL_CATALOG_INVALID", message)
 }
 
 func sortedPriceFieldNames(m map[string]*float64) []string {
@@ -441,25 +444,25 @@ func NormalizeModelCatalogAlias(alias string) string {
 func ValidateModelCatalogAlias(alias, source string) error {
 	alias = NormalizeModelCatalogAlias(alias)
 	if alias == "" {
-		return errors.New("alias is required")
+		return catalogValidationError("alias is required")
 	}
 	if len(alias) > 200 {
-		return errors.New("alias must be at most 200 characters")
+		return catalogValidationError("alias must be at most 200 characters")
 	}
 	// "*" 只允许出现在末尾，且不能是单独一个 "*"：全量通配会让任意模型名都拿到
 	// 同一份价卡，等于关掉「查不到价」这个信号。
 	if star := strings.Index(alias, "*"); star >= 0 {
 		if star != len(alias)-1 {
-			return errors.New("alias wildcard '*' is only allowed as the last character")
+			return catalogValidationError("alias wildcard '*' is only allowed as the last character")
 		}
 		if star == 0 {
-			return errors.New("alias must not be a bare wildcard")
+			return catalogValidationError("alias must not be a bare wildcard")
 		}
 	}
 	switch source {
 	case ModelCatalogAliasSourceManual, ModelCatalogAliasSourceSeed, "":
 		return nil
 	default:
-		return fmt.Errorf("invalid alias source: %s", source)
+		return catalogValidationError(fmt.Sprintf("invalid alias source: %s", source))
 	}
 }

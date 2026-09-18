@@ -83,12 +83,11 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 				continue
 			}
 			key := NormalizeModelCatalogKey(name)
+			// 价格文件已经覆盖这个标识（精确键或查表阶梯命中）时跳过：
+			// 今天的解析顺序是「价格文件 → 硬编码兜底价」，播种不能把这个优先级翻过来。
 			if _, exists := byKey[key]; exists {
 				continue
 			}
-			// 价格文件的查表阶梯（拼写变体、去日期后缀、系列匹配）也能定到价时，
-			// 今天走的是价格文件那一份。把兜底价播进目录会让目录反过来压住它，
-			// 所以这里跳过。
 			if input.PricingService != nil && input.PricingService.GetModelPricing(name) != nil {
 				continue
 			}
