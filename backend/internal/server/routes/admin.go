@@ -114,6 +114,7 @@ func RegisterAdminRoutes(
 
 		// 渠道管理
 		registerChannelRoutes(admin, h)
+		registerModelCatalogRoutes(admin, h)
 
 		// 渠道监控
 		registerChannelMonitorRoutes(admin, h, settingService)
@@ -771,6 +772,25 @@ func registerChannelRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		channels.POST("", h.Admin.Channel.Create)
 		channels.PUT("/:id", h.Admin.Channel.Update)
 		channels.DELETE("/:id", h.Admin.Channel.Delete)
+	}
+}
+
+// registerModelCatalogRoutes 注册模型目录的管理端 CRUD。
+// 目录是「有哪些模型 + 基准价」的权威表；本阶段只有后端接口，前端页面留到后面的阶段。
+func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	catalog := admin.Group("/model-catalog")
+	{
+		catalog.GET("/entries", h.Admin.ModelCatalog.ListEntries)
+		catalog.GET("/entries/:id", h.Admin.ModelCatalog.GetEntry)
+		catalog.POST("/entries", h.Admin.ModelCatalog.CreateEntry)
+		catalog.PUT("/entries/:id", h.Admin.ModelCatalog.UpdateEntry)
+		catalog.DELETE("/entries/:id", h.Admin.ModelCatalog.DeleteEntry)
+
+		catalog.POST("/aliases", h.Admin.ModelCatalog.CreateAlias)
+		catalog.PUT("/aliases/:id", h.Admin.ModelCatalog.UpdateAlias)
+		catalog.DELETE("/aliases/:id", h.Admin.ModelCatalog.DeleteAlias)
+
+		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 	}
 }
 

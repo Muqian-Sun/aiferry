@@ -159,6 +159,17 @@ func runMainServer() {
 			log.Printf("Plugin manager started in degraded state: %v", err)
 		}
 	}
+	if app.ModelCatalog != nil {
+		// 播种在迁移之后、服务开始接流量之前跑一次：新部署起来就有一份可用的模型目录。
+		// 失败不拦启动——目录查不到时计费会退回价格文件 / 硬编码兜底价，与播种前一致。
+		result, err := app.ModelCatalog.Seed(context.Background())
+		if err != nil {
+			log.Printf("Model catalog seeding failed (falling back to the pricing file): %v", err)
+		} else {
+			log.Printf("Model catalog seeded: inserted=%d refreshed=%d skipped_admin=%d skipped_invalid=%d candidates=%d",
+				result.Inserted, result.Refreshed, result.SkippedAdmin, result.SkippedInvalid, result.CandidateModels)
+		}
+	}
 	if app.PromptAudit != nil {
 		if err := app.PromptAudit.Start(context.Background()); err != nil {
 			// Startup continues so unrelated APIs stay up. Fail-closed (unavailable)
