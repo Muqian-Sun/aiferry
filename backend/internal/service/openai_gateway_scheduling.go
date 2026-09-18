@@ -537,7 +537,7 @@ func grokQuotaSnapshotStaleForPause(snapshot *xai.QuotaSnapshot, now time.Time) 
 // 适用 OpenAI 成品号，以及任意平台标签的第三方 key：key 的快照只可能来自上游回传的
 // x-codex-* 响应头（透传中转），有快照就按阈值暂停，与它选的平台标签无关。
 func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) (bool, openAIQuotaAutoPauseDecision) {
-	if account == nil || !(account.IsThirdPartyKey() || account.IsOpenAI()) {
+	if account == nil || (!account.IsThirdPartyKey() && !account.IsOpenAI()) {
 		return false, openAIQuotaAutoPauseDecision{}
 	}
 	// 自动用卡有独立阈值：达到消费阈值时必须先退出调度；仅达到普通暂停阈值时，
