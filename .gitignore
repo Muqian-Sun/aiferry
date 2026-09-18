@@ -34,6 +34,9 @@ backend/.gocache/
 # ===================
 node_modules/
 frontend/node_modules/
+# 软链接形式的 node_modules（并行开发时把依赖链到主仓库）：上面带斜杠的规则只匹配目录
+node_modules
+frontend/node_modules
 frontend/dist/
 *.local
 *.tsbuildinfo
