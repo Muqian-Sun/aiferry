@@ -134,19 +134,43 @@ func TestHandleUpstreamError_OpenAIStructured403StillPenalizes(t *testing.T) {
 }
 
 // 作用域守卫：放行只针对 OpenAI 平台。其他平台的 403 处理不受影响。
-func TestHandleUpstreamError_HTML403OnOtherPlatformsUnchanged(t *testing.T) {
-	for _, platform := range []string{PlatformAnthropic, PlatformGemini} {
-		t.Run(platform, func(t *testing.T) {
+// 官方 Anthropic / Gemini 地址的 key 保持首次 403 即停用；标签不参与判断，
+// 标签写成 openai 的官方地址 key 同样停用。
+func TestHandleUpstreamError_HTML403OnOtherVendorsUnchanged(t *testing.T) {
+	for name, endpoints := range map[string]map[string]string{
+		"anthropic": {APIProtocolAnthropic: "https://api.anthropic.com"},
+		"gemini":    {APIProtocolGemini: "https://generativelanguage.googleapis.com"},
+	} {
+		t.Run(name, func(t *testing.T) {
 			repo := &rateLimitAccountRepoStub{}
 			svc := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-			account := &Account{ID: 506, Platform: platform, Type: AccountTypeAPIKey}
+			account := &Account{ID: 506, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: endpoints}
+			require.Equal(t, name, account.Vendor())
 
 			shouldDisable := svc.HandleUpstreamError(
 				context.Background(), account, http.StatusForbidden, http.Header{}, []byte(openAI403HTMLBody),
 			)
 
 			require.True(t, shouldDisable)
-			require.Equal(t, 1, repo.setErrorCalls, "其他平台保持原有 SetError 行为")
+			require.Equal(t, 1, repo.setErrorCalls, "其他厂商保持原有 SetError 行为")
+		})
+	}
+}
+
+// 通用中转 key 不论标签都走 HTML 豁免：拦截页不构成账号失效证据。
+func TestHandleUpstreamError_HTML403OnRelayKeySkipsPenaltyRegardlessOfLabel(t *testing.T) {
+	for _, platform := range []string{PlatformAnthropic, PlatformGemini} {
+		t.Run(platform, func(t *testing.T) {
+			h := newOpenAI403TestHarness(t, 507)
+			h.account = &Account{ID: 507, Platform: platform, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{
+				APIProtocolAnthropic: "https://relay.example.com",
+				APIProtocolGemini:    "https://relay.example.com",
+			}}
+			require.Empty(t, h.account.Vendor())
+
+			require.False(t, h.handle(openAI403HTMLBody))
+			h.requireNoAccountPenalty(t)
+			require.Zero(t, h.counter.increments)
 		})
 	}
 }

@@ -12,7 +12,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -677,10 +676,6 @@ func newOpenAIRejectedFieldTestAccount() *Account {
 		Credentials: map[string]any{
 			"api_key":  "sk-test",
 			"base_url": "https://compat.example",
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
-			openai_compat.ExtraKeyResponsesSupported: true,
 		},
 		Status:            StatusActive,
 		Schedulable:       true,

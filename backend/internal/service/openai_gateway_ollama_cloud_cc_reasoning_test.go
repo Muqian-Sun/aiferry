@@ -11,7 +11,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -28,67 +27,64 @@ func ollamaCloudRawChatCompletionsTestAccount() *Account {
 			"base_url": "https://ollama.com",
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-		},
+		Extra:             map[string]any{},
 	}
 }
 
+// TestIsOllamaCloudRawChatCompletionsAccount：raw CC 的 Ollama Cloud 适配只看本次实际
+// 使用的 chat_completions 地址是不是 ollama.com，平台标签与 usage extra 都不参与。
 func TestIsOllamaCloudRawChatCompletionsAccount(t *testing.T) {
 	t.Parallel()
 
-	t.Run("ollama.com + force_chat_completions", func(t *testing.T) {
+	t.Run("ollama.com chat_completions address", func(t *testing.T) {
 		t.Parallel()
 		require.True(t, isOllamaCloudRawChatCompletionsAccount(ollamaCloudRawChatCompletionsTestAccount()))
 	})
 
-	t.Run("extra usage signal without ollama host", func(t *testing.T) {
+	t.Run("any label on ollama.com", func(t *testing.T) {
+		t.Parallel()
+		account := ollamaCloudRawChatCompletionsTestAccount()
+		account.Platform = PlatformAnthropic
+		require.True(t, isOllamaCloudRawChatCompletionsAccount(account))
+	})
+
+	t.Run("usage extra without ollama host", func(t *testing.T) {
 		t.Parallel()
 		account := rawChatCompletionsTestAccount()
-		account.Credentials["base_url"] = "https://example.invalid/v1"
 		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://example.invalid/v1"}
-		account.Extra = map[string]any{
-			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-			OllamaCloudUsageSnapshotExtraKey:    map[string]any{"status": "ok"},
+		account.Extra = map[string]any{OllamaCloudUsageSnapshotExtraKey: map[string]any{"status": "ok"}}
+		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
+	})
+
+	t.Run("ollama.com only on the responses address", func(t *testing.T) {
+		t.Parallel()
+		account := rawChatCompletionsTestAccount()
+		account.ProtocolEndpoints = map[string]string{
+			APIProtocolChatCompletions: "https://example.invalid/v1",
+			APIProtocolResponses:       "https://ollama.com/v1",
 		}
-		require.True(t, isOllamaCloudRawChatCompletionsAccount(account))
+		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
 	})
 
 	t.Run("official DeepSeek", func(t *testing.T) {
 		t.Parallel()
 		account := rawChatCompletionsTestAccount()
-		account.Name = "DeepSeek"
-		account.Credentials["base_url"] = "https://api.deepseek.com"
 		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
-		account.Extra = map[string]any{
-			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-		}
 		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
 	})
 
 	t.Run("OpenCode Go extra", func(t *testing.T) {
 		t.Parallel()
 		account := rawChatCompletionsTestAccount()
-		account.Credentials["base_url"] = "https://opencode.ai/zen/go/v1"
 		account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1"}
-		account.Extra = map[string]any{
-			openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-			"opencode_go_usage_auto_refresh":    true,
-		}
+		account.Extra = map[string]any{"opencode_go_usage_auto_refresh": true}
 		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
 	})
 
-	t.Run("ollama.com without force_chat_completions", func(t *testing.T) {
+	t.Run("subscription account", func(t *testing.T) {
 		t.Parallel()
 		account := ollamaCloudRawChatCompletionsTestAccount()
-		account.Extra = nil
-		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
-	})
-
-	t.Run("anthropic ollama.com", func(t *testing.T) {
-		t.Parallel()
-		account := ollamaCloudRawChatCompletionsTestAccount()
-		account.Platform = PlatformAnthropic
+		account.Type = AccountTypeOAuth
 		require.False(t, isOllamaCloudRawChatCompletionsAccount(account))
 	})
 }
@@ -167,16 +163,12 @@ func TestApplyOllamaCloudRawChatCompletionsLeavesForeignAccountsUnchanged(t *tes
 	official.Name = "DeepSeek"
 	official.Credentials["base_url"] = "https://api.deepseek.com"
 	official.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://api.deepseek.com"}
-	official.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-	}
 
 	opencode := rawChatCompletionsTestAccount()
 	opencode.Credentials["base_url"] = "https://opencode.ai/zen/go/v1"
 	opencode.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1"}
 	opencode.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-		"opencode_go_usage_auto_refresh":    true,
+		"opencode_go_usage_auto_refresh": true,
 	}
 
 	for _, account := range []*Account{official, opencode} {

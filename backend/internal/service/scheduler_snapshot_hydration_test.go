@@ -133,7 +133,7 @@ func TestOpenAISelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedul
 	if selection == nil || selection.Account == nil {
 		t.Fatalf("expected selected account")
 	}
-	if got := selection.Account.GetOpenAIApiKey(); got != "sk-live" {
+	if got := selection.Account.GetOpenAIProtocolAPIKey(); got != "sk-live" {
 		t.Fatalf("expected hydrated api key, got %q", got)
 	}
 }

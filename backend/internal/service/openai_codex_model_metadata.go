@@ -50,7 +50,10 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 	if metadata, ok := account.GetUpstreamModelMetadata(modelID); ok {
 		applyCodexToolCapabilities(capabilities, metadata.CodexToolCapabilities, true)
 	}
-	if account.IsOpenAI() && shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
+	// 以下判定不看第三方 key 的平台标签：Chat Completions 桥接是协议转换（任何走该转换的 key），
+	// Astra 官方默认值是 OpenAI 厂商特性（Vendor 为 openai），Responses Lite 是 ChatGPT 专用线协议
+	// （任何第三方 key 都不走）。
+	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
 		// This bridge implements client-side tool discovery, even without a native manifest.
 		applyCodexToolCapabilities(capabilities, map[string]json.RawMessage{"supports_search_tool": json.RawMessage("true")}, false)
 	}
@@ -63,7 +66,7 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 	parsed, err := url.Parse(baseURL)
 	official := err == nil && (strings.EqualFold(parsed.Hostname(), "api.openai.com") ||
 		(account.IsOpenAIOAuth() && strings.EqualFold(parsed.Hostname(), "chatgpt.com")))
-	if account.IsOpenAI() && isOpenAIGPT6AstraModel(modelID) && official {
+	if account.Vendor() == PlatformOpenAI && isOpenAIGPT6AstraModel(modelID) && official {
 		defaults := map[string]json.RawMessage{
 			"supports_search_tool":  json.RawMessage("true"),
 			"apply_patch_tool_type": json.RawMessage(`"freeform"`),
@@ -77,7 +80,7 @@ func accountCodexToolCapabilities(account *Account, modelID string) map[string]j
 		}
 		applyCodexToolCapabilities(capabilities, defaults, false)
 	}
-	if account.IsOpenAIApiKey() {
+	if account.IsThirdPartyKey() {
 		target := modelID
 		if isOpenAIGPT6AstraModel(target) {
 			target = "gpt-6-astra"

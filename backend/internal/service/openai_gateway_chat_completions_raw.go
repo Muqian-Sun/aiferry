@@ -38,9 +38,8 @@ var openaiCCRawAllowedHeaders = map[string]bool{
 // forwardAsRawChatCompletions 直转客户端的 Chat Completions 请求到上游
 // `{base_url}/v1/chat/completions`，**不**做 CC↔Responses 协议转换。
 //
-// 适用场景：account.platform=openai && account.type=apikey && 上游已被探测确认
-// 不支持 /v1/responses 端点（如 GLM/Qwen 等第三方 OpenAI 兼容上游）；CN 供应商
-// 固定 chat_completions 协议也走此路径。
+// 适用场景：第三方 key 在协议选择中选中 chat_completions 协议（入站 Chat Completions
+// 且配了 chat_completions 地址），以及 Grok 成品号的原生 CC 请求。
 //
 // 与 ForwardAsChatCompletions 的关键差异：
 //
@@ -52,7 +51,7 @@ var openaiCCRawAllowedHeaders = map[string]bool{
 //   - 不注入 prompt_cache_key（OAuth 专属机制）
 //
 // 调用入口：openai_gateway_chat_completions.go::ForwardAsChatCompletions
-// 在函数顶部按 openai_compat.ShouldUseResponsesAPI 分流。
+// 按 resolveOpenAIGatewayKeyProtocol 的结果分流。
 func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	ctx context.Context,
 	c *gin.Context,
@@ -74,8 +73,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	SetOpsUpstreamModel(c, upstreamModel)
+	// xAI 厂商特化：成品号按平台，第三方 key 按地址识别的厂商。
+	grokVendor := account.Vendor() == PlatformGrok
 	grokCacheIdentity := ""
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		// Resolve before image bridging or other body rewrites so the fallback is
 		// anchored to the client's stable conversation prefix.
 		grokCacheIdentity = resolveGrokCacheIdentity(c, body, "", upstreamModel)
@@ -107,7 +108,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// Keep the final outbound tier separate from the observed response tier so
 	// usage recording can apply the selected credential's response contract.
 	serviceTier := extractOpenAIServiceTierFromBody(upstreamBody)
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		strippedBody, stripErr := stripRedundantGrokChatViewImageTool(upstreamBody)
 		if stripErr != nil {
 			return nil, fmt.Errorf("strip redundant Grok Chat view_image tool: %w", stripErr)
@@ -126,7 +127,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	}
 
 	var bridgeUsage OpenAIUsage
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		bridgedBody, usage, bridged, bridgeErr := s.bridgeGrokComposerImageInputs(ctx, c, account, upstreamBody, token)
 		if bridgeErr != nil {
 			var failoverErr *UpstreamFailoverError
@@ -148,7 +149,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 			return nil, fmt.Errorf("enable stream usage: %w", usageErr)
 		}
 	}
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		upstreamBody, err = stripGrokChatPromptCacheKey(upstreamBody)
 		if err != nil {
 			return nil, fmt.Errorf("remove Responses-only Grok prompt cache key: %w", err)
@@ -192,7 +193,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	// 7. Handle error response with failover
 	if resp.StatusCode >= 400 {
 		respBody, upstreamMsg := s.readOpenAIUpstreamError(resp)
-		if account.Platform == PlatformGrok {
+		if grokVendor {
 			kind := "http_error"
 			if s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody) {
 				kind = "failover"
@@ -230,7 +231,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 		return s.handleChatCompletionsErrorResponse(resp, c, account, billingModel)
 	}
 
-	if account.Platform == PlatformGrok {
+	if grokVendor {
 		s.updateGrokUsageFromResponse(withGrokTeamRateLimitModel(ctx, upstreamModel), account, resp.Header, resp.StatusCode)
 	}
 
@@ -249,8 +250,10 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	return result, forwardErr
 }
 
+// rawChatCompletionsURL 解析 raw CC 的上游端点：第三方 key 只认 chat_completions 协议地址
+// （标签与厂商都不参与）；Grok 成品号走站点配置的 xAI 官方地址。
 func (s *OpenAIGatewayService) rawChatCompletionsURL(account *Account) (string, error) {
-	if account.Platform == PlatformGrok {
+	if !account.IsThirdPartyKey() && account.Platform == PlatformGrok {
 		targetURL, err := buildGrokChatCompletionsURL(account, s.cfg, s.settingService)
 		if err != nil {
 			return "", fmt.Errorf("invalid grok base_url: %w", err)

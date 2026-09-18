@@ -127,27 +127,30 @@ func (m *mockAccountRepoForPlatform) ListSchedulable(ctx context.Context) ([]Acc
 func (m *mockAccountRepoForPlatform) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error) {
 	return nil, nil
 }
-func (m *mockAccountRepoForPlatform) ListSchedulableByPlatforms(ctx context.Context, platforms []string) ([]Account, error) {
+func (m *mockAccountRepoForPlatform) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
+	if m.listPlatformFunc != nil && len(platforms) > 0 {
+		return m.listPlatformFunc(ctx, platforms[0])
+	}
 	var result []Account
 	platformSet := make(map[string]bool)
 	for _, p := range platforms {
 		platformSet[p] = true
 	}
 	for _, acc := range m.accounts {
-		if platformSet[acc.Platform] && acc.IsSchedulable() {
+		if (platformSet[acc.Platform] || acc.IsThirdPartyKey()) && acc.IsSchedulable() {
 			result = append(result, acc)
 		}
 	}
 	return result, nil
 }
-func (m *mockAccountRepoForPlatform) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
-	return m.ListSchedulableByPlatforms(ctx, platforms)
+func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForPlatform) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
 	return m.ListSchedulableByPlatform(ctx, platform)
 }
-func (m *mockAccountRepoForPlatform) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]Account, error) {
-	return m.ListSchedulableByPlatforms(ctx, platforms)
+func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForPlatform) ListModelAvailabilityCandidates(_ context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error) {
 	platformSet := make(map[string]struct{}, len(platforms))

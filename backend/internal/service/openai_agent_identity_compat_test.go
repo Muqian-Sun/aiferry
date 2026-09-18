@@ -454,7 +454,6 @@ func TestOpenAIAgentIdentityChatRecoveryKeepsAutoDerivedSessionIsolationStable(t
 			"agent_private_key": privateKey,
 			"task_id":           "task-cache-old",
 		},
-		Extra: map[string]any{"openai_responses_supported": true},
 	}
 	repo := &agentIdentityForwardRepo{account: account}
 	registerServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

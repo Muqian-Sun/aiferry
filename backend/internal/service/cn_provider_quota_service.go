@@ -135,7 +135,7 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "account is not a kimi/zhipu/minimax coding plan or opencode go account")
 	}
 
-	apiKey := strings.TrimSpace(account.GetCNAPIKey())
+	apiKey := strings.TrimSpace(account.GetOpenAIProtocolAPIKey())
 	if apiKey == "" {
 		return nil, infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NO_APIKEY", "account api_key is empty")
 	}

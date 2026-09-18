@@ -1,10 +1,10 @@
 package service
 
-// 国产供应商（kimi/zhipu/deepseek）原生 Anthropic 端点直通路径。
+// OpenAI 网关上第三方 key 的原生 Anthropic 端点直通路径。
 //
-// 当账号 credentials["api_protocol"] = "anthropic" 时，入站 /v1/messages 请求
-// 不再做 Anthropic→CC→Anthropic 双重转换，而是零转换直通供应商的官方
-// Anthropic 兼容端点（如 https://open.bigmodel.cn/api/anthropic/v1/messages），
+// 协议选择为 anthropic 时（配了 anthropic 协议地址，见 resolveOpenAIGatewayKeyProtocol），
+// 入站 /v1/messages 请求不再做 Anthropic→CC→Anthropic 双重转换，而是零转换直通
+// 该地址的 Anthropic 兼容端点（如 https://open.bigmodel.cn/api/anthropic/v1/messages），
 // 适配 Claude Code 等原生 Anthropic 客户端。转发骨架以
 // gateway_anthropic_passthrough.go 的 APIKey 透传为模板（字节级 SSE 中继 +
 // usage 解析），错误/failover 语义对齐 OpenAI 网关其他路径
@@ -125,19 +125,16 @@ func (s *OpenAIGatewayService) forwardAnthropicViaNativeAnthropicEndpoint(
 // nativeAnthropicTargetURL 组装国产供应商原生 Anthropic messages 端点。
 // 第三方端点保持朴素路径，不附加 ?beta=true。
 func (s *OpenAIGatewayService) nativeAnthropicTargetURL(account *Account) (string, error) {
-	baseURL := strings.TrimSpace(account.GetAnthropicProtocolBaseURL())
+	baseURL := account.ProtocolEndpoint(APIProtocolAnthropic)
 	if baseURL == "" {
-		return "", fmt.Errorf("account %d has no anthropic protocol base url", account.ID)
+		return "", MissingProtocolEndpointError(account, APIProtocolAnthropic)
 	}
 	validatedURL, err := s.validateUpstreamBaseURL(baseURL)
 	if err != nil {
 		return "", fmt.Errorf("invalid base_url: %w", err)
 	}
-	if account.IsOpenCodeGo() {
-		// OpenCode Go 的 Chat Completions base 带 /v1；用版本感知拼接避免 /v1/v1/messages。
-		return joinUpstreamEndpointURL(validatedURL, "/v1/messages"), nil
-	}
-	return strings.TrimRight(validatedURL, "/") + "/v1/messages", nil
+	// 版本感知拼接：地址带不带 /v1 都得到 {base}/v1/messages，不会拼出 /v1/v1/messages。
+	return joinUpstreamEndpointURL(validatedURL, "/v1/messages"), nil
 }
 
 func resolveOpenCodeGoMappedModel(account *Account, body []byte, defaultMappedModel string) string {
@@ -170,9 +167,8 @@ func (s *OpenAIGatewayService) buildNativeAnthropicUpstreamRequest(
 	}
 
 	// Ollama Cloud DeepSeek 出站 max_tokens clamp：判定与 nativeAnthropicTargetURL
-	// 的 base 取值同源（GetAnthropicProtocolBaseURL，adaptive 时是 Anthropic 协议
-	// 地址而非 CC/Responses 地址），详见 helper 注释。
-	body = clampOllamaCloudAnthropicMessagesMaxTokens(account, account.GetAnthropicProtocolBaseURL(), body)
+	// 的 base 取值同源（anthropic 协议地址，而非 CC/Responses 地址），详见 helper 注释。
+	body = clampOllamaCloudAnthropicMessagesMaxTokens(account, account.ProtocolEndpoint(APIProtocolAnthropic), body)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, targetURL, bytes.NewReader(body))
 	if err != nil {
@@ -199,7 +195,7 @@ func (s *OpenAIGatewayService) buildNativeAnthropicUpstreamRequest(
 	req.Header.Del("x-api-key")
 	req.Header.Del("x-goog-api-key")
 	req.Header.Del("cookie")
-	setAnthropicAPIKeyAuthHeader(req.Header, account, apiKey, account.GetAnthropicProtocolBaseURL())
+	setAnthropicAPIKeyAuthHeader(req.Header, account, apiKey, account.ProtocolEndpoint(APIProtocolAnthropic))
 
 	if getHeaderRaw(req.Header, "content-type") == "" {
 		setHeaderRaw(req.Header, "content-type", "application/json")

@@ -1958,11 +1958,11 @@ func (s *stubAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Contex
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListSchedulableByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+func (s *stubAccountRepo) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
+func (s *stubAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1970,7 +1970,7 @@ func (s *stubAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]service.Account, error) {
+func (s *stubAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 

@@ -90,14 +90,14 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 ) *UpstreamFailoverError {
 	shouldFailover := s.shouldFailoverOpenAIUpstreamResponse(account, resp.StatusCode, upstreamMsg, respBody)
 	tempUnscheduled := false
-	if c != nil && account != nil && account.Platform != PlatformGrok && !shouldFailover && !IsResponseCommitted(c) && s.rateLimitService != nil {
+	if c != nil && account != nil && account.Vendor() != PlatformGrok && !shouldFailover && !IsResponseCommitted(c) && s.rateLimitService != nil {
 		tempUnscheduled = s.rateLimitService.CheckErrorPolicy(ctx, account, resp.StatusCode, respBody, upstreamModel) == ErrorPolicyTempUnscheduled
 		shouldFailover = tempUnscheduled
 	}
-	if account != nil && account.Platform == PlatformGrok {
+	if account != nil && account.Vendor() == PlatformGrok {
 		shouldFailover = s.shouldFailoverGrokUpstreamError(resp.StatusCode, respBody)
 	}
-	if account != nil && account.Platform == PlatformGrok {
+	if account != nil && account.Vendor() == PlatformGrok {
 		s.handleGrokAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody)
 	}
 	if !shouldFailover {
@@ -124,7 +124,7 @@ func (s *OpenAIGatewayService) failoverOpenAIUpstreamHTTPError(
 		Detail:             upstreamDetail,
 	})
 	shouldDisable := tempUnscheduled
-	if account.Platform != PlatformGrok && !tempUnscheduled {
+	if account.Vendor() != PlatformGrok && !tempUnscheduled {
 		shouldDisable = s.handleOpenAIAccountUpstreamError(ctx, account, resp.StatusCode, resp.Header, respBody, upstreamModel)
 	}
 	return s.newOpenAIAccountFailoverError(
@@ -214,7 +214,7 @@ func (s *OpenAIGatewayService) sendCCUpstreamRequest(
 		upstreamReq.Header.Set("user-agent", userAgent)
 	}
 
-	if account.Platform == PlatformGrok {
+	if account.Vendor() == PlatformGrok {
 		if account.IsGrokOAuth() {
 			applyGrokCLIHeaders(upstreamReq.Header)
 		}

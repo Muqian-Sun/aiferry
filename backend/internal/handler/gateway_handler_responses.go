@@ -97,7 +97,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 里的任何工具声明（含 Codex 被动 image_gen namespace）而关闭。生图意图
 	// 仅用于能力路由与图片计费；独立图片/视频端点才在利润门范围之外。
 	requestCtx, pricingAt := service.WithGatewayTokenRequestPricing(requestCtx)
-	if service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, openAICompatibleRequestPlatform(c.Request.Context(), apiKey)) {
+	if service.IsImageGenerationIntentForPlatform("/v1/responses", reqModel, body, service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)) {
 		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
 	}
 	c.Request = c.Request.WithContext(requestCtx)
@@ -255,6 +255,19 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
+		forwardTarget := responsesForwardTarget(effectiveAPIKeyPlatform(c, apiKey), account)
+		if forwardTarget == compatForwardSkip {
+			if accountReleaseFunc != nil {
+				accountReleaseFunc()
+			}
+			reqLog.Warn("gateway.responses.key_protocol_unavailable",
+				zap.Int64("account_id", account.ID),
+				zap.String("group_platform", effectiveAPIKeyPlatform(c, apiKey)),
+			)
+			fs.FailedAccountIDs[account.ID] = struct{}{}
+			continue
+		}
+
 		// 5. Forward request
 		writerSizeBeforeForward := c.Writer.Size()
 		forwardBody := body
@@ -263,7 +276,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 		var result *service.ForwardResult
 		setActualUpstreamEndpoint(c, "")
-		if shouldUseAntigravityCompat(account) {
+		if forwardTarget == compatForwardAntigravity {
 			if h.antigravityGatewayService == nil {
 				h.responsesErrorResponse(c, http.StatusBadGateway, "upstream_error", "Antigravity compatibility service is not configured")
 				if accountReleaseFunc != nil {
@@ -289,7 +302,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					h.handleResponsesFailoverExhausted(c, failoverErr, true)
 					return
 				}
-				action := fs.HandleFailoverError(requestCtx, h.gatewayService, account.ID, account.Platform, account.GetPoolModeRetryCount(), failoverErr)
+				action := fs.HandleFailoverError(requestCtx, h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
 				switch action {
 				case FailoverContinue:
 					continue

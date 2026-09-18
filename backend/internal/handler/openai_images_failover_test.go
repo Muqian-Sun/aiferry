@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sync"
 	"testing"
 
@@ -37,22 +38,23 @@ func (r openAIImagesFailoverAccountRepo) GetByID(_ context.Context, id int64) (*
 	return nil, service.ErrNoAvailableAccounts
 }
 
-func (r openAIImagesFailoverAccountRepo) ListSchedulableByGroupIDAndPlatform(_ context.Context, _ int64, platform string) ([]service.Account, error) {
-	return r.accountsForPlatform(platform), nil
+func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, _ int64, platforms []string) ([]service.Account, error) {
+	return r.schedulingCandidates(platforms), nil
 }
 
-func (r openAIImagesFailoverAccountRepo) ListSchedulableByPlatform(_ context.Context, platform string) ([]service.Account, error) {
-	return r.accountsForPlatform(platform), nil
+func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]service.Account, error) {
+	return r.schedulingCandidates(platforms), nil
 }
 
-func (r openAIImagesFailoverAccountRepo) ListSchedulableUngroupedByPlatform(_ context.Context, platform string) ([]service.Account, error) {
-	return r.accountsForPlatform(platform), nil
+func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesUngrouped(_ context.Context, platforms []string) ([]service.Account, error) {
+	return r.schedulingCandidates(platforms), nil
 }
 
-func (r openAIImagesFailoverAccountRepo) accountsForPlatform(platform string) []service.Account {
+// schedulingCandidates 与 ListSchedulingCandidates* 的口径一致：平台匹配的成品号，加上任意标签的第三方 key。
+func (r openAIImagesFailoverAccountRepo) schedulingCandidates(platforms []string) []service.Account {
 	out := make([]service.Account, 0, len(r.accounts))
 	for _, account := range r.accounts {
-		if account.Platform == platform {
+		if account.IsThirdPartyKey() || slices.Contains(platforms, account.Platform) {
 			out = append(out, account)
 		}
 	}

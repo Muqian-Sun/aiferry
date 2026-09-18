@@ -86,9 +86,10 @@ func (s *GatewayService) ForwardCountTokens(ctx context.Context, c *gin.Context,
 		}
 	}
 
-	// Antigravity 账户不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
+	// Antigravity 成品号不支持 count_tokens，返回 404 让客户端 fallback 到本地估算。
 	// 返回 nil 避免 handler 层记录为错误，也不设置 ops 上游错误上下文。
-	if account.IsAntigravity() {
+	// 第三方 key 走到这里时用的是 Anthropic 协议地址，标签选了 antigravity 也照常转发。
+	if account.IsAntigravity() && !account.IsThirdPartyKey() {
 		s.countTokensError(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
 		return nil
 	}

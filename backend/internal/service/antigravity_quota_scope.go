@@ -43,7 +43,8 @@ func (a *Account) IsSchedulableForModelWithContext(ctx context.Context, requeste
 	}
 	if a.isModelRateLimitedWithContext(ctx, requestedModel) {
 		// Antigravity + overages 启用 + 积分未耗尽 → 放行（有积分可用）
-		if a.IsAntigravity() && a.IsOveragesEnabled() && !a.isCreditsExhausted() {
+		// 积分是 Antigravity 成品号的厂商能力，按 Vendor 判定，标签为 antigravity 的 key 不享有。
+		if a.Vendor() == PlatformAntigravity && a.IsOveragesEnabled() && !a.isCreditsExhausted() {
 			return true
 		}
 		return false

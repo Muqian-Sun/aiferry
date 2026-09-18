@@ -445,7 +445,7 @@ func (s *GatewayService) handleErrorResponse(ctx context.Context, resp *http.Res
 	// 非 failover 错误也支持错误透传规则匹配。
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
-		account.Platform,
+		anthropicGatewayErrorPassthroughPlatform(c, account),
 		resp.StatusCode,
 		body,
 		http.StatusBadGateway,
@@ -610,7 +610,7 @@ func (s *GatewayService) handleRetryExhaustedError(ctx context.Context, resp *ht
 
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
-		account.Platform,
+		anthropicGatewayErrorPassthroughPlatform(c, account),
 		resp.StatusCode,
 		respBody,
 		http.StatusBadGateway,

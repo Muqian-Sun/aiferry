@@ -193,11 +193,11 @@ func (s *FailoverState) allExclusionsAreProfitVetoed() bool {
 func (s *FailoverState) HandleFailoverError(
 	ctx context.Context,
 	gatewayService TempUnscheduler,
-	accountID int64,
-	platform string,
+	account *service.Account,
 	retryLimit int,
 	failoverErr *service.UpstreamFailoverError,
 ) FailoverAction {
+	accountID := account.ID
 	// 客户端已断开：failover 只会用已取消的 context 重新选号并必然失败，
 	// 不应再被当成账号耗尽处理（误报 502）。
 	if ctx != nil && ctx.Err() != nil {
@@ -255,8 +255,9 @@ func (s *FailoverState) HandleFailoverError(
 		zap.Int("max_switches", s.MaxSwitches),
 	)
 
-	// Antigravity 平台换号线性递增延时
-	if platform == service.PlatformAntigravity {
+	// Antigravity 上游换号线性递增延时。这是厂商特性，按 Vendor 判定：第三方 key 的平台
+	// 只是展示标签，标签选 antigravity 的 key 不会被拖慢（key 的 Vendor 不会是 antigravity）。
+	if account.Vendor() == service.PlatformAntigravity {
 		delay := time.Duration(s.SwitchCount-1) * time.Second
 		if !sleepWithContext(ctx, delay) {
 			return FailoverCanceled

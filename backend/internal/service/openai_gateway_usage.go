@@ -135,7 +135,9 @@ func groupBillsOpenAIFastAtStandard(apiKey *APIKey, account *Account, serviceTie
 	if apiKey == nil || apiKey.Group == nil || !apiKey.Group.FreeOpenAIFast {
 		return false
 	}
-	if account == nil || !account.IsOpenAI() {
+	// service_tier=priority 是 OpenAI 协议字段：官方 OpenAI 与通用中转都按它计费，
+	// 分组「免费 Fast」对两者一致生效；其他已知厂商没有这一档位语义。
+	if !openAIProtocolFeaturesApply(account) {
 		return false
 	}
 	if !groupSupportsOpenAIFast(apiKey.Group.Platform) {
@@ -158,7 +160,8 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 	if result == nil {
 		return errors.New("openai usage result is nil")
 	}
-	if s.rateLimitService != nil && input.Account != nil && input.Account.Platform == PlatformOpenAI {
+	// 成功请求清零 403 连续计数，口径与 handle403 是否计数（usesEscalating403Policy）一致。
+	if s.rateLimitService != nil && usesEscalating403Policy(input.Account) {
 		s.rateLimitService.ResetOpenAI403Counter(ctx, input.Account.ID)
 	}
 
@@ -538,8 +541,22 @@ func (s *OpenAIGatewayService) hasIdentifiedOpenAIResponsePricing(ctx context.Co
 // nil — "no per-account gate" — and are governed by the group toggle alone.
 // Returning a hardcoded false for them would veto the official model ladders
 // (e.g. the Grok >=200k 2x card) that no account setting can ever re-enable.
+//
+// 第三方 key 的开关是管理员对这把 key 的计费设置，不是厂商特性：只要 Extra 里
+// 存了这个布尔值就按它门控，没存（管理端不提供该开关的 key）返回 nil 交给分组开关，
+// 不读平台标签。成品号保持原口径。
 func openAILongContextBillingGate(account *Account) *bool {
-	if account == nil || !account.IsOpenAI() {
+	if account == nil {
+		return nil
+	}
+	if account.IsThirdPartyKey() {
+		enabled, ok := account.Extra[openAILongContextBillingEnabledKey].(bool)
+		if !ok {
+			return nil
+		}
+		return &enabled
+	}
+	if !account.IsOpenAI() {
 		return nil
 	}
 	enabled := account.IsOpenAILongContextBillingEnabled()
@@ -917,8 +934,14 @@ func groupMediaPricingLooksIncomplete(group *Group) bool {
 // zero_cost），与定价层「未知型号不回退以避免误计价」的既有设计意图一致；
 // 运营者的修复手段是配置账号级 model_mapping（映射到已定价的 CN 模型）或
 // 分组/渠道显式定价。
+//
+// 按 Vendor 判定：这是国产官方上游「接受但不服务 claude-*」的厂商行为；标签为国产
+// 供应商、地址指向中转的 key 可能真的在服务 Claude，不过滤。
 func (s *OpenAIGatewayService) filterCNProviderBillingModelCandidates(ctx context.Context, account *Account, apiKey *APIKey, candidates []string) []string {
-	if account == nil || (!account.IsCNProvider() && !account.IsOpenCodeGo()) {
+	if account == nil {
+		return candidates
+	}
+	if vendor := account.Vendor(); !IsCNProvider(vendor) && vendor != PlatformOpenCodeGo {
 		return candidates
 	}
 	out := make([]string, 0, len(candidates))

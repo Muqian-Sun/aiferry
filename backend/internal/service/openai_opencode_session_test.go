@@ -44,7 +44,7 @@ func openCodeSessionTestAccount(baseURL string) *Account {
 			credKeyHeaderOverrides:       map[string]any{"x-opencode-session": "fixed-account-value"},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: baseURL,
+			APIProtocolChatCompletions: baseURL, APIProtocolResponses: baseURL,
 		},
 	}
 }
@@ -127,20 +127,37 @@ func TestApplyOpenCodeSessionHeaderTrustBoundary(t *testing.T) {
 	}
 }
 
-func TestApplyOpenCodeSessionHeaderOpenCodeGoAlwaysSetsSession(t *testing.T) {
-	account := &Account{
+// TestApplyOpenCodeSessionHeaderFollowsHostNotLabel：会话头只按实际地址决定——opencode_go 标签
+// 挂在中转上不带，发往 Zen 地址不生成；openai 标签发往 OpenCode Go 官方地址则生成。
+func TestApplyOpenCodeSessionHeaderFollowsHostNotLabel(t *testing.T) {
+	relay := &Account{
 		ID:       4,
 		Platform: PlatformOpenCodeGo,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"base_url": "https://relay.example.com/v1",
+			"account_mode": AccountModeGo,
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
 		},
 	}
 	headers := make(http.Header)
-	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), account, "https://relay.example.com/v1/chat/completions", headers)
+	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, "conversation-123"), relay, "https://relay.example.com/v1/chat/completions", headers)
+	require.Empty(t, headers.Get(openCodeSessionHeader))
+
+	// Go 套餐标签发往 OpenCode Zen 官方地址：带客户端会话但不强制生成。
+	headers = make(http.Header)
+	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), relay, "https://opencode.ai/zen/v1/chat/completions", headers)
+	require.Empty(t, headers.Get(openCodeSessionHeader))
+
+	official := &Account{
+		ID:                5,
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL},
+	}
+	headers = make(http.Header)
+	applyOpenCodeSessionHeader(newOpenCodeSessionTestContext(t, ""), official, "https://opencode.ai/zen/go/v1/chat/completions", headers)
 	require.NotEmpty(t, headers.Get(openCodeSessionHeader))
 }
 
@@ -353,7 +370,7 @@ func TestOpenCodeSessionIsNotForwardedToOtherUpstreams(t *testing.T) {
 				Type:        AccountTypeAPIKey,
 				Credentials: map[string]any{"base_url": baseURL},
 				ProtocolEndpoints: map[string]string{
-					APIProtocolChatCompletions: baseURL,
+					APIProtocolChatCompletions: baseURL, APIProtocolResponses: baseURL,
 				},
 			}
 			c := newOpenCodeSessionTestContext(t, "private-conversation")

@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -39,25 +40,25 @@ type grokCredentialHandlerRepo struct {
 	missingOnGet   map[int64]bool
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulableByPlatform(_ context.Context, platform string) ([]service.Account, error) {
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]service.Account, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.selectionCalls++
 	out := make([]service.Account, 0, len(r.accounts))
 	for _, account := range r.accounts {
-		if account.Platform == platform && account.IsSchedulable() {
+		if (account.IsThirdPartyKey() || slices.Contains(platforms, account.Platform)) && account.IsSchedulable() {
 			out = append(out, account)
 		}
 	}
 	return out, nil
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, _ int64, platform string) ([]service.Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]service.Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
 func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*service.Account, error) {

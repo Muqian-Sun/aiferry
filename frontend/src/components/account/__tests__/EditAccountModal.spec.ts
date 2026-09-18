@@ -57,6 +57,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+import { adminAPI } from '@/api/admin'
 import EditAccountModal from '../EditAccountModal.vue'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
@@ -487,7 +488,6 @@ describe('EditAccountModal', () => {
     account.credentials = {
       api_key: 'sk-opencode',
       account_mode: 'zen',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -506,7 +506,6 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(account.protocol_endpoints)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
       account_mode: 'zen',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -522,8 +521,7 @@ describe('EditAccountModal', () => {
     account.platform = 'opencode_go'
     account.protocol_endpoints = { chat_completions: 'https://opencode.ai/zen/go/v1' }
     account.credentials = {
-      api_key: 'sk-opencode',
-      api_protocol: 'adaptive'
+      api_key: 'sk-opencode'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -532,20 +530,16 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      account_mode: 'go',
-      api_protocol: 'adaptive'
-    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'go' })
   })
 
-  it('preserves adaptive Kimi Responses endpoint on submit', async () => {
+  it('preserves Kimi Responses endpoint on submit', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
     account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
     account.credentials = {
       api_key: 'sk-kimi',
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
+      account_mode: 'payg'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -555,13 +549,10 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
-    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'payg' })
   })
 
-  it('preserves adaptive GLM endpoints on submit', async () => {
+  it('preserves GLM endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
     account.protocol_endpoints = {
@@ -570,8 +561,7 @@ describe('EditAccountModal', () => {
     }
     account.credentials = {
       api_key: 'sk-glm',
-      account_mode: 'coding',
-      api_protocol: 'adaptive'
+      account_mode: 'coding'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
@@ -584,16 +574,13 @@ describe('EditAccountModal', () => {
       chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
       anthropic: 'https://open.bigmodel.cn/api/anthropic'
     })
-    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      account_mode: 'coding',
-      api_protocol: 'adaptive'
-    })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'coding' })
   })
 
   it.each([
-    ['explicit Chat Completions', 'chat_completions'],
-    ['legacy missing protocol', undefined]
-  ])('preserves a custom CN relay for %s accounts', async (_name, storedProtocol) => {
+    ['a stale stored API protocol', 'anthropic'],
+    ['no stored API protocol', undefined]
+  ])('preserves a custom CN relay for accounts with %s', async (_name, storedProtocol) => {
     const account = buildAccount()
     account.platform = 'zhipu'
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
@@ -613,7 +600,10 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const payload = updateAccountMock.mock.calls[0]?.[1]
     expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
-    expect(payload?.credentials).toMatchObject({ account_mode: 'payg', api_protocol: 'chat_completions' })
+    expect(showErrorMock).not.toHaveBeenCalled()
+    expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
+    // 转发协议只由协议映射决定，凭据里的旧 api_protocol 保存时清掉。
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('strips address fields that are no longer read from third-party key credentials', async () => {
@@ -623,7 +613,6 @@ describe('EditAccountModal', () => {
     account.credentials = {
       api_key: 'sk-glm',
       account_mode: 'payg',
-      api_protocol: 'adaptive',
       base_url: 'https://stale.example.com/v1',
       api_base_urls: { chat_completions: 'https://stale.example.com/v1' }
     }
@@ -639,48 +628,24 @@ describe('EditAccountModal', () => {
     expect(credentials).not.toHaveProperty('api_base_urls')
   })
 
-  it('keeps protocol endpoints unchanged when the API protocol is switched', async () => {
+  it('has no API protocol selector for Chinese provider keys', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
-    account.credentials = { api_key: 'sk-glm', account_mode: 'payg', api_protocol: 'chat_completions' }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+    account.credentials = { api_key: 'sk-glm', account_mode: 'payg' }
 
     const wrapper = mountModal(account)
-    const adaptiveButton = wrapper
-      .findAll('button')
-      .find(button => button.text().includes('admin.accounts.cnProviders.apiProtocol.adaptive'))
-    expect(adaptiveButton).toBeDefined()
-    await adaptiveButton!.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
 
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.credentials).toMatchObject({ api_protocol: 'adaptive' })
-    expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
-  })
-
-  it('refuses to save when the pinned protocol has no endpoint', async () => {
-    const account = buildAccount()
-    account.platform = 'kimi'
-    account.protocol_endpoints = { chat_completions: 'https://api.moonshot.cn/v1' }
-    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'anthropic' }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
-
-    const wrapper = mountModal(account)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.missingRequired')
+    expect(wrapper.text()).toContain('admin.accounts.cnProviders.accountMode.title')
+    expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.apiProtocol.title')
   })
 
   it('keeps stored relay endpoints after the official addresses finish loading', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
-    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'adaptive' }
+    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -699,12 +664,12 @@ describe('EditAccountModal', () => {
     const first = buildAccount()
     first.platform = 'kimi'
     first.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
-    first.credentials = { api_key: 'sk-kimi', account_mode: 'coding', api_protocol: 'adaptive' }
+    first.credentials = { api_key: 'sk-kimi', account_mode: 'coding' }
     const second = buildAccount()
     second.id = 99
     second.platform = 'kimi'
     second.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
-    second.credentials = { api_key: 'sk-kimi-2', account_mode: 'payg', api_protocol: 'adaptive' }
+    second.credentials = { api_key: 'sk-kimi-2', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(second)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -722,7 +687,7 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.platform = 'minimax'
     account.protocol_endpoints = { chat_completions: 'https://api.minimaxi.com/v1' }
-    account.credentials = { api_key: 'sk-minimax', account_mode: 'payg', api_protocol: 'adaptive' }
+    account.credentials = { api_key: 'sk-minimax', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -735,7 +700,7 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.credentials).toMatchObject({ api_protocol: 'adaptive' })
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
     expect(payload?.protocol_endpoints).toEqual({
       chat_completions: 'https://api.minimaxi.com/v1',
       anthropic: 'https://api.minimax.io/anthropic'
@@ -763,7 +728,7 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.platform = 'kimi'
     account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
-    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg', api_protocol: 'adaptive' }
+    account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -1139,7 +1104,7 @@ describe('EditAccountModal', () => {
     })
   })
 
-  it('submits OpenAI APIKey Responses support override mode', async () => {
+  it('has no OpenAI APIKey Responses routing control and drops the retired routing flags on save', async () => {
     const account = buildAccount()
     account.extra = {
       openai_responses_mode: 'force_chat_completions',
@@ -1152,12 +1117,13 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
-    await wrapper.get('[data-testid="openai-responses-mode-select"]').setValue('force_responses')
+    expect(wrapper.find('[data-testid="openai-responses-mode-select"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('admin.accounts.openai.responsesMode')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_mode).toBe('force_responses')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(false)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
+    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_supported')
   })
 
   it('submits the account upstream billing auto-probe setting', async () => {
@@ -1289,27 +1255,6 @@ describe('EditAccountModal', () => {
     expect(payload?.rate_multiplier).toBe(1)
   })
 
-  it('clears OpenAI APIKey Responses override when set back to auto', async () => {
-    const account = buildAccount()
-    account.extra = {
-      openai_responses_mode: 'force_chat_completions',
-      openai_responses_supported: true
-    }
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    await wrapper.get('[data-testid="openai-responses-mode-select"]').setValue('auto')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(true)
-  })
-
   it('submits OpenAI APIKey endpoint capabilities from credentials', async () => {
     const account = buildAccount()
     account.credentials.openai_capabilities = ['chat_completions']
@@ -1410,13 +1355,9 @@ describe('EditAccountModal', () => {
     ])
   })
 
-  it('disables text generation protocol when only embeddings requests are accepted', async () => {
+  it('submits an embeddings-only OpenAI APIKey endpoint capability', async () => {
     const account = buildAccount()
     account.credentials.openai_capabilities = ['embeddings']
-    account.extra = {
-      openai_responses_mode: 'force_responses',
-      openai_responses_supported: true
-    }
     updateAccountMock.mockReset()
     checkMixedChannelRiskMock.mockReset()
     checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
@@ -1424,21 +1365,13 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
-    const responsesModeSelect = wrapper.get<HTMLSelectElement>(
-      '[data-testid="openai-responses-mode-select"]'
-    )
-
-    expect(responsesModeSelect.element.disabled).toBe(true)
-    expect(wrapper.find('[data-testid="openai-responses-mode-not-applicable"]').exists()).toBe(true)
-
+    expect(wrapper.text()).toContain('admin.accounts.openai.capabilityText')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.openai_capabilities).toEqual([
       'embeddings'
     ])
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty('openai_responses_mode')
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_responses_supported).toBe(true)
   })
 
   it('submits Codex image tool force-inject mode as bridge override', async () => {
@@ -1759,5 +1692,348 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
     expect(updateAccountMock).not.toHaveBeenCalled()
     wrapper.unmount()
+  })
+})
+
+describe('EditAccountModal third-party key settings do not follow the platform label', () => {
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    updateAccountMock.mockReset()
+    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
+  })
+
+  function buildKey(platform: string, protocolEndpoints: Record<string, string>, extra: Record<string, unknown> = {}) {
+    const account = {
+      ...buildAccount(),
+      platform,
+      credentials: {},
+      credentials_status: { has_api_key: true },
+      protocol_endpoints: protocolEndpoints,
+      extra
+    } as any
+    updateAccountMock.mockResolvedValue(account)
+    return account
+  }
+
+  async function submitPayload(wrapper: ReturnType<typeof mountModal>) {
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    return updateAccountMock.mock.calls[0]?.[1]
+  }
+
+  it('offers header overrides for a Gemini-labelled key and submits them', async () => {
+    const wrapper = mountModal(buildKey('gemini', { gemini: 'https://generativelanguage.googleapis.com' }))
+
+    await wrapper.get('[data-testid="edit-header-override-toggle"]').trigger('click')
+    const section = wrapper.get('[data-testid="edit-header-override"]')
+    const addRow = section.findAll('button').find((button) => button.text().includes('admin.accounts.headerOverride.addRow'))
+    expect(addRow).toBeDefined()
+    await addRow!.trigger('click')
+    const [name, value] = section.findAll('input[type="text"]')
+    await name.setValue('X-Relay-Tenant')
+    await value.setValue('team-a')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials).toMatchObject({
+      header_override_enabled: true,
+      header_overrides: { 'x-relay-tenant': 'team-a' }
+    })
+  })
+
+  it('keeps header overrides limited to Grok OAuth among subscription accounts', () => {
+    const openaiOAuth = mountModal(buildOpenAIOAuthParentAccount())
+    expect(openaiOAuth.find('[data-testid="edit-header-override"]').exists()).toBe(false)
+    openaiOAuth.unmount()
+
+    const grokOAuth = mountModal(buildGrokOAuthAccount())
+    expect(grokOAuth.find('[data-testid="edit-header-override"]').exists()).toBe(true)
+    grokOAuth.unmount()
+  })
+
+  it('shows Anthropic protocol settings for a Kimi-labelled key with an anthropic endpoint and submits them', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal(buildKey('kimi', {
+      anthropic: 'https://api.moonshot.cn/anthropic',
+      chat_completions: 'https://api.moonshot.cn/v1'
+    }))
+    await flushPromises()
+
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
+    await wrapper.get('[data-testid="edit-web-search-emulation"] select').setValue('enabled')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer',
+      web_search_emulation: 'enabled'
+    })
+  })
+
+  it('loads stored Anthropic protocol settings of a non-Anthropic-labelled key', async () => {
+    const wrapper = mountModal(buildKey(
+      'zhipu',
+      { anthropic: 'https://open.bigmodel.cn/api/anthropic' },
+      { anthropic_passthrough: true, anthropic_apikey_auth_scheme: 'authorization_bearer' }
+    ))
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').element as HTMLSelectElement).value)
+      .toBe('authorization_bearer')
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer'
+    })
+  })
+
+  it('hides Anthropic protocol settings for an Anthropic-labelled key without an anthropic endpoint', async () => {
+    const wrapper = mountModal(buildKey(
+      'anthropic',
+      { chat_completions: 'https://relay.example.com/v1' },
+      { anthropic_passthrough: true, anthropic_apikey_auth_scheme: 'authorization_bearer' }
+    ))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
+
+    // 隐藏区块不写界面值，账号已存的值原样保留
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer'
+    })
+  })
+
+  it('follows anthropic endpoint rows added or removed in the modal and does not submit hidden edits', async () => {
+    const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
+    await flushPromises()
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+  })
+
+  it('keeps Anthropic settings when an OpenAI-labelled key also has OpenAI settings to save', async () => {
+    const wrapper = mountModal(buildKey('openai', {
+      anthropic: 'https://relay.example.com',
+      responses: 'https://api.openai.com'
+    }))
+    await flushPromises()
+
+    await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'off'
+    })
+  })
+
+  it('shows OpenAI Responses settings with the vendor hint for an Anthropic-labelled key with a responses endpoint', async () => {
+    const wrapper = mountModal(buildKey('anthropic', { responses: 'https://relay.example.com/v1' }))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="edit-openai-key-protocol-hint"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="edit-openai-passthrough-toggle"]').trigger('click')
+    expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
+    await wrapper.get('[data-testid="edit-openai-ws-mode-select"]').setValue('ctx_pool')
+    await wrapper.get('[data-testid="edit-openai-compact-mode-select"]').setValue('force_on')
+    const compact = wrapper.get('[data-testid="edit-openai-compact"]')
+    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
+    expect(addCompactMapping).toBeDefined()
+    await addCompactMapping!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'ctx_pool',
+      openai_apikey_responses_websockets_v2_enabled: true,
+      openai_compact_mode: 'force_on'
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('shows OpenAI Responses settings for a key that only has a chat_completions endpoint', async () => {
+    const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="edit-openai-ws-mode-select"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="edit-openai-compact"]').text()).toContain('admin.accounts.openai.compactAuto')
+  })
+
+  it('loads stored OpenAI Responses settings of a non-OpenAI-labelled key', async () => {
+    const account = buildKey(
+      'deepseek',
+      { chat_completions: 'https://relay.example.com/v1' },
+      {
+        openai_passthrough: true,
+        openai_compact_mode: 'force_on',
+        openai_apikey_responses_websockets_v2_mode: 'passthrough',
+        openai_apikey_responses_websockets_v2_enabled: true
+      }
+    )
+    account.credentials = { compact_model_mapping: { 'gpt-5.4': 'gpt-5.4-compact' } }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect((wrapper.get('[data-testid="edit-openai-ws-mode-select"]').element as HTMLSelectElement).value).toBe('passthrough')
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_compact_mode: 'force_on',
+      openai_apikey_responses_websockets_v2_mode: 'passthrough'
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('shows endpoint capabilities and the b64 toggle for a Kimi-labelled key with an OpenAI endpoint', async () => {
+    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('hides endpoint capabilities and the b64 toggle for an OpenAI-labelled key without an OpenAI endpoint', async () => {
+    const account = buildKey(
+      'openai',
+      { anthropic: 'https://relay.example.com' },
+      { images_url_to_b64_json: true }
+    )
+    account.credentials = { openai_capabilities: ['chat_completions'] }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    // 区块隐藏时保留账号已存的值，不按界面值改写
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('loads stored endpoint capabilities of a non-OpenAI-labelled key instead of resetting them', async () => {
+    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
+    account.credentials = { openai_capabilities: ['chat_completions'] }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    const embeddings = wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]')
+      .element as HTMLInputElement
+    expect(embeddings.checked).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+  })
+
+  it('does not submit endpoint capabilities or the b64 flag edited before the OpenAI endpoint was removed', async () => {
+    const account = buildKey('kimi', {
+      chat_completions: 'https://relay.example.com/v1',
+      anthropic: 'https://relay.example.com'
+    })
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.credentials ?? {}).not.toHaveProperty('openai_capabilities')
+    expect(payload?.extra ?? {}).not.toHaveProperty('images_url_to_b64_json')
+  })
+
+  it('hides OpenAI Responses settings for an OpenAI-labelled key without responses or chat_completions endpoints', async () => {
+    const account = buildKey(
+      'openai',
+      { anthropic: 'https://relay.example.com' },
+      { openai_passthrough: true, openai_compact_mode: 'force_off' }
+    )
+    account.credentials = { compact_model_mapping: { 'gpt-5.4': 'gpt-5.4-compact' } }
+    const wrapper = mountModal(account)
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-openai-ws-mode-select"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-openai-compact"]').exists()).toBe(false)
+    // 透传区块不可见，就不该因为已存的透传开关锁住模型限制
+    expect(wrapper.text()).not.toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
+
+    // 隐藏区块不写界面值，账号已存的值原样保留
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({ openai_passthrough: true, openai_compact_mode: 'force_off' })
+    expect(payload?.extra).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('follows responses endpoint rows added or removed in the modal and does not submit hidden edits', async () => {
+    const wrapper = mountModal(buildKey('kimi', { anthropic: 'https://api.moonshot.cn/anthropic' }))
+    await flushPromises()
+    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="edit-openai-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="edit-openai-compact-mode-select"]').setValue('force_on')
+    const compact = wrapper.get('[data-testid="edit-openai-compact"]')
+    await compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
+    expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_compact_mode')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
+    expect(payload?.credentials ?? {}).not.toHaveProperty('compact_model_mapping')
+  })
+
+  it('keeps OpenAI Responses settings for OpenAI subscriptions only, without the key hint', async () => {
+    const openaiOAuth = mountModal(buildOpenAIOAuthParentAccount())
+    await flushPromises()
+    expect(openaiOAuth.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
+    expect(openaiOAuth.find('[data-testid="edit-openai-compact"]').exists()).toBe(true)
+    expect(openaiOAuth.find('[data-testid="edit-openai-key-protocol-hint"]').exists()).toBe(false)
+    openaiOAuth.unmount()
+
+    const grokOAuth = mountModal(buildGrokOAuthAccount())
+    await flushPromises()
+    expect(grokOAuth.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
+    expect(grokOAuth.find('[data-testid="edit-openai-compact"]').exists()).toBe(false)
+    grokOAuth.unmount()
+  })
+
+  it('never shows the key-only Anthropic settings for subscription accounts', async () => {
+    const wrapper = mountModal({ ...buildOpenAIOAuthParentAccount(), platform: 'anthropic', protocol_endpoints: undefined } as any)
+    await flushPromises()
+    expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
   })
 })

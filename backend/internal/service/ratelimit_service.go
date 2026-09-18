@@ -370,7 +370,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	// It must take precedence over user-configured 429 temp-unsched rules,
 	// otherwise a broad "rate limit" keyword rule can shorten a multi-hour
 	// cooldown to a local temporary pause.
-	if statusCode == http.StatusTooManyRequests && account.Platform == PlatformAnthropic {
+	// 窗口头是 Anthropic 官方上游的语义，按 Vendor 判定：中转 key 透传的窗口头
+	// 说的是中转背后的账号，不能据此把整把 key 停到窗口重置。
+	if statusCode == http.StatusTooManyRequests && account.Vendor() == PlatformAnthropic {
 		// Fable may be rejected because the organization has no usage credits for
 		// this model. Anthropic reports that as 429, but it is a model entitlement
 		// failure rather than a shared account window exhaustion.
@@ -406,8 +408,9 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			msg := "Organization disabled (400): " + upstreamMsg
 			s.handleAuthError(ctx, account, msg)
 			shouldDisable = true
-		} else if account.Platform == PlatformAnthropic && strings.Contains(strings.ToLower(upstreamMsg), "credit balance") {
-			// Anthropic API key 余额不足（语义等同 402），停止调度
+		} else if account.Vendor() == PlatformAnthropic && strings.Contains(strings.ToLower(upstreamMsg), "credit balance") {
+			// Anthropic API key 余额不足（语义等同 402），停止调度。
+			// 只认官方地址：中转透传的同类文案说的是中转背后的账号。
 			msg := "Credit balance exhausted (400): " + upstreamMsg
 			s.handleAuthError(ctx, account, msg)
 			shouldDisable = true
@@ -430,7 +433,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 		}
 		// OpenAI: token_invalidated / token_revoked 表示 token 被永久作废（非过期），直接标记 error
 		openai401Code := extractUpstreamErrorCode(responseBody)
-		if authAccount.Platform == PlatformOpenAI && (openai401Code == "token_invalidated" || openai401Code == "token_revoked") {
+		if authAccount.Vendor() == PlatformOpenAI && (openai401Code == "token_invalidated" || openai401Code == "token_revoked") {
 			msg := "Token revoked (401): account authentication permanently revoked"
 			if upstreamMsg != "" {
 				msg = "Token revoked (401): " + upstreamMsg
@@ -440,7 +443,7 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 			break
 		}
 		// OpenAI: {"detail":"Unauthorized"} 表示 token 完全无效（非标准 OpenAI 错误格式），直接标记 error
-		if authAccount.Platform == PlatformOpenAI && gjson.GetBytes(responseBody, "detail").String() == "Unauthorized" {
+		if authAccount.Vendor() == PlatformOpenAI && gjson.GetBytes(responseBody, "detail").String() == "Unauthorized" {
 			msg := "Unauthorized (401): account authentication failed permanently"
 			if upstreamMsg != "" {
 				msg = "Unauthorized (401): " + upstreamMsg
@@ -517,13 +520,15 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 	case 402:
 		// 国产供应商：余额不足是可恢复状态（充值/检测恢复后由周期任务自动解除），
 		// 不能走 handleAuthError 永久置 status=error。改为可恢复的临时停调。
-		if account.IsCNProvider() || account.IsOpenCodeZen() {
+		// 这是厂商计费语义，按 Vendor 判定：中转的 402 走通用的永久停用。OpenCode 只有 Zen 按量
+		// 有余额概念；Go 订阅与 Zen 按协议地址区分（openCodeEndpointMode），不看平台标签。
+		if vendor := account.Vendor(); IsCNProvider(vendor) || (vendor == PlatformOpenCodeGo && account.openCodeEndpointMode() == AccountModeZen) {
 			s.handleCNProviderInsufficientBalance(ctx, account, upstreamMsg)
 			shouldDisable = true
 			break
 		}
 		// OpenAI: deactivated_workspace 表示工作区已停用，直接标记 error
-		if account.Platform == PlatformOpenAI && gjson.GetBytes(responseBody, "detail.code").String() == "deactivated_workspace" {
+		if account.Vendor() == PlatformOpenAI && gjson.GetBytes(responseBody, "detail.code").String() == "deactivated_workspace" {
 			msg := "Workspace deactivated (402): workspace has been deactivated"
 			s.handleAuthError(ctx, account, msg)
 			shouldDisable = true
@@ -576,8 +581,10 @@ func (s *RateLimitService) HandleUpstreamError(ctx context.Context, account *Acc
 
 // PreCheckUsage proactively checks local quota before dispatching a request.
 // Returns false when the account should be skipped.
+// 本地配额表是 Google 官方档位（AI Studio / Code Assist / Google One），按 Vendor
+// 判定；中转 key 没有这套配额，不做预检。
 func (s *RateLimitService) PreCheckUsage(ctx context.Context, account *Account, requestedModel string) (bool, error) {
-	if account == nil || account.Platform != PlatformGemini {
+	if account == nil || account.Vendor() != PlatformGemini {
 		return true, nil
 	}
 	if s.usageRepo == nil || s.geminiQuotaService == nil {
@@ -716,7 +723,7 @@ func (s *RateLimitService) PreCheckUsageBatch(ctx context.Context, accounts []*A
 	}
 	quotaAccounts := make([]quotaAccount, 0, len(accounts))
 	for _, account := range accounts {
-		if account == nil || account.Platform != PlatformGemini {
+		if account == nil || account.Vendor() != PlatformGemini {
 			continue
 		}
 		quota, ok := s.geminiQuotaService.QuotaForAccount(ctx, account)
@@ -982,7 +989,7 @@ func buildForbiddenErrorMessage(prefix string, upstreamMsg string, responseBody 
 // Antigravity 平台区分 validation/violation/generic 三种类型，均 SetError 永久禁用；
 // 其他平台保持原有 SetError 行为。
 func (s *RateLimitService) handle403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		return s.handleAntigravity403(ctx, account, upstreamMsg, responseBody)
 	}
 	// Kimi reports its transient per-account concurrency/business limit as a 403.
@@ -995,7 +1002,7 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	// 国产供应商与 openai 同口径:HTML 403(CDN/代理拦截页)不构成账号失效证据,
 	// 且 403 在 failover 状态集里会被逐账号重放——直接 SetError 会让一个坏请求/
 	// 一层坏代理连环永久禁用整组账号。走 HTML 豁免 + N 次累计 + 临时冷却。
-	if account.Platform == PlatformOpenAI || IsCNProvider(account.Platform) || account.IsOpenCodeGo() {
+	if usesEscalating403Policy(account) {
 		return s.handleOpenAI403(ctx, account, upstreamMsg, responseBody)
 	}
 	// 非 Antigravity 平台：保持原有行为
@@ -1007,6 +1014,28 @@ func (s *RateLimitService) handle403(ctx context.Context, account *Account, upst
 	)
 	s.handleAuthError(ctx, account, msg)
 	return true
+}
+
+// usesEscalating403Policy 报告账号的 403 是否走「HTML 豁免 + 连续计数 + 临时冷却」，
+// 而不是首次 403 即永久停用。
+//
+// 官方 OpenAI、国产供应商与 OpenCode 上游沿用原口径；通用中转（第三方 key 且
+// Vendor 为空）同样适用——中转前面多一层代理/CDN，拦截页和请求级 403 只会更多，
+// 首次即永久停用会把整组中转 key 连环打下线。其他已知厂商（Anthropic、Gemini、
+// Grok 官方地址）保持首次 403 即停用。成功请求清零计数的口径必须与此一致。
+func usesEscalating403Policy(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	vendor := account.Vendor()
+	switch {
+	case vendor == PlatformOpenAI, IsCNProvider(vendor), vendor == PlatformOpenCodeGo:
+		return true
+	case vendor == "":
+		return account.IsThirdPartyKey()
+	default:
+		return false
+	}
 }
 
 func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
@@ -1157,23 +1186,26 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		}
 		return
 	}
-	// 真实 Ollama Cloud 用量账号（credentials base_url 指向 ollama.com）的 429 由
-	// ollama.com 的用量窗口驱动。其响应头不得被当作 OpenAI codex / Anthropic /
-	// CN 限流来解析，故在国产供应商分支之前单独处理：先设置永不缩短的临时冷却，
-	// 再调度异步 probe 学习真实重置点（详见 ratelimit_service_ollama_429.go）。
-	if account != nil && IsOllamaCloudUsageAccount(account) {
+	// 真实 Ollama Cloud 账号（主上游地址指向 ollama.com）的 429 由 ollama.com 的用量窗口
+	// 驱动。其响应头不得被当作 OpenAI codex / Anthropic / CN 限流来解析，故在国产供应商
+	// 分支之前单独处理：先设置永不缩短的临时冷却，再调度异步 probe 学习真实重置点（详见
+	// ratelimit_service_ollama_429.go）。是否走这条分支只看地址，不看平台标签；异步 probe
+	// 属后台用量探测，仍按 IsOllamaCloudUsageAccount 的平台白名单决定是否调度。
+	if isOllamaCloudUpstreamKey(account) {
 		s.handleOllamaCloudUsage429(ctx, account, headers)
 		return
 	}
 	// 国产供应商（kimi/zhipu/deepseek）的 429 走专用可恢复路径：余额不足 → 临时停调，
 	// Coding Plan 窗口耗尽 → 冷却到快照重置点。未命中则继续默认 429 逻辑。
-	if account.IsCNProvider() || account.IsOpenCodeGo() {
+	// 以下各厂商分支都按 Vendor 判定：中转 key 的 429 走通用兜底，不解析厂商私有信号。
+	vendor := account.Vendor()
+	if IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
 		if s.applyCNProviderReactive429(ctx, account, headers, responseBody) {
 			return
 		}
 	}
 	// 1. OpenAI 平台：优先尝试解析 x-codex-* 响应头（用于 rate_limit_exceeded）
-	if account.Platform == PlatformOpenAI {
+	if vendor == PlatformOpenAI {
 		persistOpenAI429PlanType(ctx, s.accountRepo, account, responseBody)
 		s.persistOpenAICodexSnapshot(ctx, account, headers)
 		notifyOpenAIAutoReset(account.ID)
@@ -1188,8 +1220,17 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		}
 	}
 
+	// Anthropic 窗口头（5h / 7d / 聚合 reset）对第三方 key 只认官方 Anthropic 地址：
+	// 中转透传的窗口头描述的是中转背后的某个账号，按它把整把 key 停到窗口重置会
+	// 过度停调（HandleUpstreamError 里的 Fable / 窗口耗尽判定同一口径）。成品号保持原样。
+	anthropicWindowHeadersApply := !account.IsThirdPartyKey() || vendor == PlatformAnthropic
+
 	// 2. Anthropic 平台：尝试解析 per-window 头（5h / 7d），选择实际触发的窗口
-	if result := calculateAnthropic429ResetTime(headers); result != nil {
+	var anthropicWindowResult *anthropic429Result
+	if anthropicWindowHeadersApply {
+		anthropicWindowResult = calculateAnthropic429ResetTime(headers)
+	}
+	if result := anthropicWindowResult; result != nil {
 		s.notifyAccountSchedulingBlocked(account, result.resetAt, "429")
 		if err := s.accountRepo.SetRateLimited(ctx, account.ID, result.resetAt); err != nil {
 			slog.Warn("rate_limit_set_failed", "account_id", account.ID, "error", err)
@@ -1211,11 +1252,14 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 	}
 
 	// 3. 尝试从响应头解析重置时间（Anthropic 聚合头，向后兼容）
-	resetTimestamp := headers.Get("anthropic-ratelimit-unified-reset")
+	resetTimestamp := ""
+	if anthropicWindowHeadersApply {
+		resetTimestamp = headers.Get("anthropic-ratelimit-unified-reset")
+	}
 
 	// 4. 如果响应头没有，尝试从响应体解析（OpenAI usage_limit_reached, Gemini）
 	if resetTimestamp == "" {
-		switch account.Platform {
+		switch vendor {
 		case PlatformOpenAI:
 			// 尝试解析 OpenAI 的 usage_limit_reached 错误
 			if resetAt := parseOpenAIRateLimitResetTime(responseBody); resetAt != nil {
@@ -1246,7 +1290,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 		// 不适合按 5h/7d 窗口长时间封禁；但完全不标记会导致账号永不冷却，
 		// 调度器让每个请求反复撞同一批持续 429 的账号（failover 预算被白白烧掉，
 		// 客户端稳定收到 429）。因此同样走可配置的秒级兜底回避，管理端可调大或关闭。
-		if account.Platform == PlatformAnthropic {
+		if vendor == PlatformAnthropic {
 			slog.Warn("rate_limit_429_no_reset_time",
 				"account_id", account.ID,
 				"platform", account.Platform,
@@ -1879,7 +1923,7 @@ func parseOpenAIRateLimitPlanType(body []byte) string {
 }
 
 func persistOpenAI429PlanType(ctx context.Context, repo AccountRepository, account *Account, body []byte) {
-	if repo == nil || account == nil || account.Platform != PlatformOpenAI {
+	if repo == nil || account == nil || account.Vendor() != PlatformOpenAI {
 		return
 	}
 	// spark 影子账号恒不持凭据:即便收到带 plan_type 的 429,也不能把 plan_type 写进影子 credentials
@@ -2267,7 +2311,9 @@ func (s *RateLimitService) HandleOpenAIImageRateLimit(ctx context.Context, accou
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
-	if account.Platform != PlatformOpenAI {
+	// gpt-image 限流文案是 OpenAI 协议错误，中转原样透传；按「官方 OpenAI 或通用
+	// 中转」判定，读取侧 modelRateLimitKeysForRequest 用同一口径。
+	if !openAIProtocolFeaturesApply(account) {
 		return false
 	}
 	if !account.ShouldHandleErrorCode(statusCode) {
@@ -2328,7 +2374,8 @@ func (s *RateLimitService) HandleOpenAIImageCapabilityLoss(ctx context.Context, 
 	if s == nil || account == nil || s.accountRepo == nil {
 		return false
 	}
-	if account.Platform != PlatformOpenAI {
+	// image_generation 工具被拒是 Responses 协议的错误形态，与限流同口径。
+	if !openAIProtocolFeaturesApply(account) {
 		return false
 	}
 	if !account.ShouldHandleErrorCode(statusCode) {
@@ -2517,7 +2564,7 @@ func modelRateLimitKeyForUpstreamModelNotFound(ctx context.Context, account *Acc
 	if account == nil || modelKey == "" {
 		return modelKey
 	}
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		if resolved := strings.TrimSpace(resolveFinalAntigravityModelKey(ctx, account, modelKey)); resolved != "" {
 			return resolved
 		}
@@ -2603,7 +2650,7 @@ func (s *RateLimitService) tryTempUnschedulable(ctx context.Context, account *Ac
 	// 401 首次命中可临时不可调度（给 token 刷新窗口）；
 	// 若历史上已因 401 进入过临时不可调度，则本次应升级为 error（返回 false 交由默认错误逻辑处理）。
 	// Antigravity 跳过：其 401 由 applyErrorPolicy 的 temp_unschedulable_rules 自行控制，无需升级逻辑。
-	if statusCode == http.StatusUnauthorized && !account.IsAntigravity() {
+	if statusCode == http.StatusUnauthorized && account.Vendor() != PlatformAntigravity {
 		reason := account.TempUnschedulableReason
 		// 缓存可能没有 reason，从 DB 回退读取
 		if reason == "" {

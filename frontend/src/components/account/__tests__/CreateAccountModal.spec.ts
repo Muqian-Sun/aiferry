@@ -73,6 +73,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+import { adminAPI } from '@/api/admin'
 import CreateAccountModal from '../CreateAccountModal.vue'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
@@ -511,9 +512,9 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.zen)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('base_url')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_base_urls')
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'zen',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -536,9 +537,9 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.go)
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'go',
-      api_protocol: 'adaptive',
       protocol_rules: [
         { pattern: 'grok-*', protocol: 'responses' },
         { pattern: 'gpt-*', protocol: 'responses' },
@@ -549,7 +550,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     })
   })
 
-  it('submits adaptive Kimi protocol endpoints', async () => {
+  it('submits Kimi protocol endpoints without an API protocol', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi adaptive')
@@ -560,13 +561,11 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('submits adaptive Kimi Coding Plan Responses endpoint', async () => {
+  it('submits Kimi Coding Plan Responses endpoint', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.coding')
@@ -578,13 +577,11 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'coding',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'coding' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('submits adaptive MiniMax protocol endpoints', async () => {
+  it('submits MiniMax protocol endpoints', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'MiniMax')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('MiniMax adaptive')
@@ -595,10 +592,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.minimax.default)
-    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'payg',
-      api_protocol: 'adaptive'
-    })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('previews upstream models with the edited protocol endpoints', async () => {
@@ -646,20 +641,22 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.empty')
   })
 
-  it('requires an endpoint for the protocol a Chinese provider account is pinned to', async () => {
+  it('has no API protocol selector: a Chinese provider key keeps whichever endpoints it configures', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'Kimi')
     await flushPromises()
-    await selectButtonByText(wrapper, 'admin.accounts.cnProviders.apiProtocol.anthropic')
+    expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.apiProtocol.title')
     await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi anthropic')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi without anthropic')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
 
-    expect(createAccountMock).not.toHaveBeenCalled()
-    expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.missingRequired')
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    const payload = createAccountMock.mock.calls[0]?.[0]
+    expect(payload?.protocol_endpoints).not.toHaveProperty('anthropic')
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('switches to the new official endpoints on mode change but keeps edited ones', async () => {
@@ -681,7 +678,7 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     ).toBe('https://relay.example.com/v1')
   })
 
-  it('fills only the preset protocol and keeps adaptive mode when a Chinese provider preset is picked', async () => {
+  it('fills only the preset protocol when a Chinese provider preset is picked', async () => {
     const wrapper = mountModal()
     await selectButtonByText(wrapper, 'MiniMax')
     await flushPromises()
@@ -699,7 +696,8 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     const payload = createAccountMock.mock.calls[0]?.[0]
-    expect(payload?.credentials).toMatchObject({ account_mode: 'payg', api_protocol: 'adaptive' })
+    expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
+    expect(payload?.credentials).not.toHaveProperty('api_protocol')
     expect(payload?.protocol_endpoints).toEqual({
       ...PROTOCOL_DEFAULTS.defaults.minimax.default,
       anthropic: 'https://api.minimax.io/anthropic'
@@ -859,5 +857,278 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await flushPromises()
 
     expect(createOpenAICodexPATMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(false)
+  })
+})
+
+describe('CreateAccountModal third-party key settings do not follow the platform label', () => {
+  beforeEach(() => {
+    authIsSimpleMode.value = true
+    createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
+    probeUpstreamBillingMock.mockReset().mockResolvedValue({})
+    syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
+  })
+
+  async function fillKeyBasics(wrapper: ReturnType<typeof mountModal>, name: string) {
+    await wrapper.get('form#create-account-form input[type="text"]').setValue(name)
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
+  }
+
+  async function submitPayload(wrapper: ReturnType<typeof mountModal>) {
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    return createAccountMock.mock.calls[0]?.[0]
+  }
+
+  it('offers header overrides for an Antigravity upstream key and submits them', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
+    await fillKeyBasics(wrapper, 'antigravity relay')
+
+    await wrapper.get('[data-testid="create-header-override-toggle"]').trigger('click')
+    const section = wrapper.get('[data-testid="create-header-override"]')
+    await selectButtonByText(wrapper, 'admin.accounts.headerOverride.addRow')
+    const [name, value] = section.findAll('input[type="text"]')
+    await name.setValue('X-Relay-Tenant')
+    await value.setValue('team-a')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.type).toBe('apikey')
+    expect(payload?.credentials).toMatchObject({
+      header_override_enabled: true,
+      header_overrides: { 'x-relay-tenant': 'team-a' }
+    })
+  })
+
+  it('keeps header overrides limited to Grok OAuth among subscription accounts', async () => {
+    const wrapper = mountModal()
+    // 默认是 Anthropic OAuth 成品号
+    expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(false)
+    await selectButtonByText(wrapper, 'Grok')
+    expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(true)
+  })
+
+  it('shows Anthropic protocol settings for a Kimi key with an anthropic endpoint and submits them', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await fillKeyBasics(wrapper, 'kimi relay')
+
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+    await wrapper.get('[data-testid="create-web-search-emulation"] select').setValue('enabled')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.extra).toMatchObject({
+      anthropic_passthrough: true,
+      anthropic_apikey_auth_scheme: 'authorization_bearer',
+      web_search_emulation: 'enabled'
+    })
+  })
+
+  it('hides Anthropic protocol settings once an Anthropic-labelled key drops its anthropic endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
+    await fillKeyBasics(wrapper, 'anthropic label without anthropic endpoint')
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
+  })
+
+  it('clears Anthropic protocol settings when switching to another platform label', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
+
+    // MiniMax 的官方地址同样带 anthropic，区块一直可见
+    await selectButtonByText(wrapper, 'MiniMax')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
+    await fillKeyBasics(wrapper, 'minimax after kimi')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('minimax')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
+  })
+
+  it('submits Anthropic protocol settings for an Antigravity upstream key', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
+    await fillKeyBasics(wrapper, 'antigravity relay')
+
+    await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
+  })
+
+  it('submits endpoint capabilities and the b64 toggle for a Kimi key with an OpenAI endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    await fillKeyBasics(wrapper, 'kimi relay capabilities')
+
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+    await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
+    await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
+    expect(payload?.extra?.images_url_to_b64_json).toBe(true)
+  })
+
+  it('hides endpoint capabilities and the b64 toggle for an Anthropic-labelled key without an OpenAI endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
+    expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
+  })
+
+  it('shows OpenAI Responses settings with the vendor hint once an Anthropic-labelled key gains a responses endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example.com/v1')
+    expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(true)
+    wrapper.get('[data-testid="create-openai-ws-mode"]').findComponent({ name: 'Select' }).vm.$emit('update:modelValue', 'ctx_pool')
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+    expect(wrapper.text()).toContain('admin.accounts.openai.modelRestrictionDisabledByPassthrough')
+    const compact = wrapper.get('[data-testid="create-openai-compact"]')
+    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
+    expect(addCompactMapping).toBeDefined()
+    await addCompactMapping!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+    await fillKeyBasics(wrapper, 'anthropic label with responses')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('anthropic')
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'ctx_pool',
+      openai_apikey_responses_websockets_v2_enabled: true
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('hides OpenAI Responses settings once an OpenAI-labelled key drops its responses and chat_completions endpoints', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+
+    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example.com')
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-compact"]').exists()).toBe(false)
+    await fillKeyBasics(wrapper, 'openai label without openai endpoints')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
+  })
+
+  it('submits OpenAI Responses settings for an Antigravity upstream key with a responses endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example/v1')
+    await fillKeyBasics(wrapper, 'antigravity responses relay')
+
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+    const compact = wrapper.get('[data-testid="create-openai-compact"]')
+    const addCompactMapping = compact.findAll('button').find((button) => button.text().includes('admin.accounts.addMapping'))
+    await addCompactMapping!.trigger('click')
+    const [from, to] = compact.findAll('input[type="text"]')
+    await from.setValue('gpt-5.4')
+    await to.setValue('gpt-5.4-compact')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({
+      openai_passthrough: true,
+      openai_apikey_responses_websockets_v2_mode: 'off'
+    })
+    expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
+  })
+
+  it('clears OpenAI Responses settings when switching to another platform label', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await selectButtonByText(wrapper, 'API Key')
+    await flushPromises()
+    await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
+
+    // Kimi 的官方地址同样带 responses / chat_completions，区块一直可见
+    await selectButtonByText(wrapper, 'Kimi')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
+    await fillKeyBasics(wrapper, 'kimi after openai')
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.platform).toBe('kimi')
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
+  })
+
+  it('keeps OpenAI Responses settings for OpenAI subscriptions only, without the key hint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'OpenAI')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="create-openai-compact"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(false)
+
+    // Grok OAuth 成品号：协议地址预填了 chat_completions / responses 也不展示
+    await selectButtonByText(wrapper, 'Grok')
+    await flushPromises()
+    expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
+  })
+
+  it('never shows the key-only Anthropic settings for Anthropic subscription accounts', async () => {
+    const wrapper = mountModal()
+    await flushPromises()
+    // 默认是 Anthropic OAuth 成品号；协议地址预填了官方 anthropic 地址也不展示
+    expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
   })
 })

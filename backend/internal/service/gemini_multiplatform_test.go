@@ -112,7 +112,7 @@ func (m *mockAccountRepoForGemini) ListSchedulable(ctx context.Context) ([]Accou
 func (m *mockAccountRepoForGemini) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error) {
 	return nil, nil
 }
-func (m *mockAccountRepoForGemini) ListSchedulableByPlatforms(ctx context.Context, platforms []string) ([]Account, error) {
+func (m *mockAccountRepoForGemini) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
 	if m.listByPlatformFunc != nil {
 		return m.listByPlatformFunc(ctx, platforms)
 	}
@@ -122,26 +122,26 @@ func (m *mockAccountRepoForGemini) ListSchedulableByPlatforms(ctx context.Contex
 		platformSet[p] = true
 	}
 	for _, acc := range m.accounts {
-		if platformSet[acc.Platform] && acc.IsSchedulable() {
+		if (platformSet[acc.Platform] || acc.IsThirdPartyKey()) && acc.IsSchedulable() {
 			result = append(result, acc)
 		}
 	}
 	return result, nil
 }
-func (m *mockAccountRepoForGemini) ListSchedulableByGroupIDAndPlatforms(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	if m.listByGroupFunc != nil {
 		return m.listByGroupFunc(ctx, groupID, platforms)
 	}
-	return m.ListSchedulableByPlatforms(ctx, platforms)
+	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForGemini) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
 	return m.ListSchedulableByPlatform(ctx, platform)
 }
-func (m *mockAccountRepoForGemini) ListSchedulableUngroupedByPlatforms(ctx context.Context, platforms []string) ([]Account, error) {
-	return m.ListSchedulableByPlatforms(ctx, platforms)
+func (m *mockAccountRepoForGemini) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForGemini) ListModelAvailabilityCandidates(ctx context.Context, _ *int64, platforms []string, _ bool) ([]Account, error) {
-	return m.ListSchedulableByPlatforms(ctx, platforms)
+	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForGemini) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {
 	return nil

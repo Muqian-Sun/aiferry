@@ -366,7 +366,6 @@ func TestForwardAsChatCompletions_ServiceTierFastNormalizedToPriorityUpstream(t 
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-compatible"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 	}
 
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "gpt-5.5")
@@ -407,7 +406,6 @@ func TestForwardAsChatCompletions_ServiceTierPriorityPreservedUpstream(t *testin
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-compatible"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 	}
 
 	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "gpt-5.5")
@@ -449,7 +447,6 @@ func TestForward_ResponsesServiceTierFastNormalizedToPriorityUpstream(t *testing
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -498,7 +495,6 @@ func TestForward_ResponsesServiceTierOmittedStaysOmitted(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -552,7 +548,6 @@ func TestForwardStreaming_ServiceTierPropagatedToResult(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -606,7 +601,6 @@ func TestForward_ResponsesKeepsOutboundAndObservedServiceTiersSeparate(t *testin
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -657,7 +651,6 @@ func TestForwardStreaming_KeepsOutboundAndObservedServiceTiersSeparate(t *testin
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -708,7 +701,6 @@ func TestForwardAsChatCompletions_KeepsOutboundAndObservedServiceTiersSeparate(t
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-compatible"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}
@@ -771,7 +763,6 @@ func TestForward_ServiceTierFilteredByPolicyBillsStandard(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{"api_key": "sk-test"},
-		Extra:       map[string]any{"openai_responses_supported": true},
 		Status:      StatusActive,
 		Schedulable: true,
 	}

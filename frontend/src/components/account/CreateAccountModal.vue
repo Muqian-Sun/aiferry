@@ -592,40 +592,6 @@
         </div>
       </div>
 
-      <!-- API Protocol Selection (Kimi / Zhipu / DeepSeek / OpenCode) -->
-      <div v-if="isMultiProtocolPlatform" class="mt-4">
-        <label class="input-label">{{ t('admin.accounts.cnProviders.apiProtocol.title') }}</label>
-        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <button
-            v-for="opt in cnProtocolOptions"
-            :key="opt.value"
-            type="button"
-            @click="apiProtocol = opt.value"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              apiProtocol === opt.value
-                ? cnAccentActiveClass
-                : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                apiProtocol === opt.value
-                  ? cnAccentIconClass
-                  : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
-              ]"
-            >
-              <Icon :name="opt.value === 'adaptive' ? 'swap' : opt.value === 'anthropic' ? 'sparkles' : opt.value === 'responses' ? 'terminal' : 'chat'" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t(`admin.accounts.cnProviders.apiProtocol.${opt.labelKey}`) }}</span>
-              <span class="text-xs text-gray-500 dark:text-gray-400">{{ t(`admin.accounts.cnProviders.apiProtocol.${opt.labelKey}Desc`) }}</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
       <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
       <div v-if="form.platform === 'zhipu' && accountMode === 'coding'" class="mt-4">
         <div class="flex items-center">
@@ -1374,19 +1340,11 @@
             class="mt-2"
             :platform="cnPresetPlatform"
             :mode="accountMode"
-            :protocol="cnPresetProtocol"
-            :current-url="cnPresetCurrentUrl"
             @select="onCnPresetSelect"
           />
-          <p
-            v-if="isMultiProtocolPlatform && apiProtocol === 'adaptive' && !cnSupportsNativeResponses(form.platform)"
-            class="input-hint"
-          >
-            {{ t('admin.accounts.cnProviders.apiProtocol.responsesFallbackDesc') }}
-          </p>
         </div>
         <OpenCodeGoProtocolRulesEditor
-          v-if="isOpenCodeGoPlatform && apiProtocol === 'adaptive'"
+          v-if="isOpenCodeGoPlatform"
           v-model:rows="openCodeGoProtocolRules"
           :plan="openCodeAccountMode"
         />
@@ -1782,50 +1740,52 @@
           </div>
         </div>
 
-        <!-- Header Override Section (eligible API-key platforms) -->
-        <div
-          v-if="isHeaderOverrideCapable(form.platform, 'apikey')"
-          class="border-t border-gray-200 pt-4 dark:border-dark-600"
-        >
-          <div class="mb-3 flex items-center justify-between">
-            <div>
-              <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {{ t('admin.accounts.headerOverride.hint') }}
-              </p>
-            </div>
-            <button
-              type="button"
-              @click="headerOverrideEnabled = !headerOverrideEnabled"
+      </div>
+
+      <!-- 请求头覆写：任何第三方 key（含 Antigravity 上游 key）与 Grok OAuth -->
+      <div
+        v-if="isHeaderOverrideCapable(form.platform, form.type)"
+        data-testid="create-header-override"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3 flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.headerOverride.hint') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="create-header-override-toggle"
+            @click="headerOverrideEnabled = !headerOverrideEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                  headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="headerOverrideEnabled" class="space-y-3">
-            <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-              <p class="text-xs text-blue-700 dark:text-blue-400">
-                <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-                {{ t('admin.accounts.headerOverride.info') }}
-              </p>
-            </div>
-
-            <HeaderOverrideEditor
-              :rows="headerOverrideRows"
-              @update:rows="headerOverrideRows = $event"
             />
-          </div>
+          </button>
         </div>
 
+        <div v-if="headerOverrideEnabled" class="space-y-3">
+          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
+            <p class="text-xs text-blue-700 dark:text-blue-400">
+              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
+              {{ t('admin.accounts.headerOverride.info') }}
+            </p>
+          </div>
+
+          <HeaderOverrideEditor
+            :rows="headerOverrideRows"
+            @update:rows="headerOverrideRows = $event"
+          />
+        </div>
       </div>
 
       <!-- Bedrock credentials (only for Anthropic Bedrock type) -->
@@ -2193,50 +2153,6 @@
           @update:weeklyResetHour="editWeeklyResetHour = $event"
           @update:resetTimezone="editResetTimezone = $event"
         />
-      </div>
-
-      <!-- Grok OAuth Header Override (OAuth 类型没有 apikey 容器，需要独立区域) -->
-      <div
-        v-if="form.platform === 'grok' && isOAuthFlow"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
-      >
-        <div class="mb-3 flex items-center justify-between">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.headerOverride.hint') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            @click="headerOverrideEnabled = !headerOverrideEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-
-        <div v-if="headerOverrideEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
-              <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
-              {{ t('admin.accounts.headerOverride.info') }}
-            </p>
-          </div>
-
-          <HeaderOverrideEditor
-            :rows="headerOverrideRows"
-            @update:rows="headerOverrideRows = $event"
-          />
-        </div>
       </div>
 
       <!-- OpenAI OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
@@ -2967,9 +2883,10 @@
         </p>
       </div>
 
-      <!-- OpenAI 自动透传开关（OAuth/API Key） -->
+      <!-- OpenAI 自动透传开关：OpenAI 成品号；第三方 key 配了 responses / chat_completions 地址才展示，不看平台标签 -->
       <div
-        v-if="form.platform === 'openai'"
+        v-if="openAIResponsesSettingsVisible"
+        data-testid="create-openai-passthrough"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -2978,9 +2895,17 @@
             <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
+            <p
+              v-if="form.type === 'apikey'"
+              data-testid="create-openai-key-protocol-hint"
+              class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+            >
+              {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
+            </p>
           </div>
           <button
             type="button"
+            data-testid="create-openai-passthrough-toggle"
             @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -3028,9 +2953,9 @@
         </div>
       </div>
 
-      <!-- OpenAI WS Mode 三态（off/ctx_pool/passthrough） -->
+      <!-- OpenAI WS Mode（off/ctx_pool/passthrough/http_bridge），展示条件同自动透传 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="openAIResponsesSettingsVisible"
         data-testid="create-openai-ws-mode"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
@@ -3050,9 +2975,10 @@
         </div>
       </div>
 
-      <!-- Anthropic API Key 自动透传开关 -->
+      <!-- 第三方 key 的 Anthropic 协议设置：配了 anthropic 协议地址才展示，不看平台标签 -->
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey'"
+        v-if="anthropicKeySettingsVisible"
+        data-testid="create-anthropic-passthrough"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -3064,6 +2990,7 @@
           </div>
           <button
             type="button"
+            data-testid="create-anthropic-passthrough-toggle"
             @click="anthropicPassthroughEnabled = !anthropicPassthroughEnabled"
             :class="[
               'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
@@ -3081,7 +3008,7 @@
       </div>
 
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey'"
+        v-if="anthropicKeySettingsVisible"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -3091,16 +3018,21 @@
               {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
             </p>
           </div>
-          <select v-model="anthropicAPIKeyAuthScheme" class="input w-52 text-sm">
+          <select
+            v-model="anthropicAPIKeyAuthScheme"
+            data-testid="create-anthropic-auth-scheme"
+            class="input w-52 text-sm"
+          >
             <option value="x_api_key">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeXApiKey') }}</option>
             <option value="authorization_bearer">{{ t('admin.accounts.anthropic.apiKeyAuthSchemeBearer') }}</option>
           </select>
         </div>
       </div>
 
-      <!-- Anthropic API Key: Web Search Emulation (hidden when global disabled) -->
+      <!-- Web Search Emulation（Anthropic 协议上的 key 设置，全局关闭时隐藏） -->
       <div
-        v-if="form.platform === 'anthropic' && accountCategory === 'apikey' && webSearchGlobalEnabled"
+        v-if="anthropicKeySettingsVisible && webSearchGlobalEnabled"
+        data-testid="create-web-search-emulation"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between">
@@ -3224,9 +3156,10 @@
         </div>
       </div>
 
-      <!-- OpenAI Compact 能力配置 -->
+      <!-- OpenAI Compact 能力配置，展示条件同自动透传 -->
       <div
-        v-if="form.platform === 'openai' && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="openAIResponsesSettingsVisible"
+        data-testid="create-openai-compact"
         class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
       >
         <div class="flex items-center justify-between">
@@ -3263,34 +3196,11 @@
         </div>
       </div>
 
-      <!-- OpenAI APIKey Responses API support mode -->
+      <!-- OpenAI APIKey endpoint capabilities -->
       <div
-        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.responsesMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.responsesModeDesc') }}
-            </p>
-          </div>
-          <div class="w-56">
-            <Select
-              v-model="openAIResponsesMode"
-              :options="openAIResponsesModeOptions"
-              :disabled="!openAITextGenerationCapabilityEnabled"
-              data-testid="openai-responses-mode-select"
-            />
-          </div>
-        </div>
-        <p
-          v-if="!openAITextGenerationCapabilityEnabled"
-          class="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-          data-testid="openai-responses-mode-not-applicable"
-        >
-          {{ t('admin.accounts.openai.responsesModeTextDisabledHint') }}
-        </p>
         <div>
           <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
           <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -3315,7 +3225,7 @@
 
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
-        v-if="form.platform === 'openai' && accountCategory === 'apikey'"
+        v-if="openAIKeySettingsVisible"
         class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div>
@@ -3827,10 +3737,8 @@ import type {
   CreateAccountRequest,
   CodexSessionImportMessage,
   OpenAICompactMode,
-  OpenAIResponsesMode,
   OpenAIEndpointCapability,
-  ProtocolEndpoints,
-  UpstreamProtocol
+  ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
 import BaseDialog from '@/components/common/BaseDialog.vue'
@@ -3855,6 +3763,8 @@ import {
   applyPresetUrl,
   describeProtocolEndpointsIssue,
   endpointsAfterDefaultsChange,
+  hasAnthropicEndpoint,
+  hasOpenAIEndpoint,
   loadProtocolDefaults,
   protocolDefaultsFor,
   trimProtocolEndpoints,
@@ -3868,13 +3778,11 @@ import {
   applyInterceptWarmup,
   applyOpenCodeGoProtocolRules,
   cloneOpenCodeGoProtocolRules,
-  cnSupportsNativeResponses,
   defaultOpenCodeProtocolRules,
   isCNProviderPlatform,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
   type CnAccountMode,
-  type CnApiProtocol,
   type CnBaseUrlPreset,
   type CnProviderPlatform,
   type HeaderOverrideRow,
@@ -4047,12 +3955,10 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
 
-// ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型、API 协议与端点 ──
+// ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型与端点 ──
+// 转发协议不在这里选：后端按入站协议在已配置的协议地址里挑选。
 const accountMode = ref<CnAccountMode>('payg')
 const openCodeAccountMode = ref<OpenCodeAccountMode>('zen')
-// API 协议决定转发端点与格式：cc=现有转换链，anthropic=原生直通（Claude Code），
-// responses=deepseek / kimi 原生 Responses 端点（Codex）。与账号类型正交。
-const apiProtocol = ref<CnApiProtocol>('adaptive')
 const openCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(
   cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
 )
@@ -4061,7 +3967,6 @@ const zhipuOrganization = ref('')
 const zhipuProject = ref('')
 const isCNPlatform = computed(() => isCNProviderPlatform(form.platform))
 const isOpenCodeGoPlatform = computed(() => form.platform === 'opencode_go')
-const isMultiProtocolPlatform = computed(() => isCNPlatform.value || isOpenCodeGoPlatform.value)
 
 // ── 第三方 key 协议地址 ──
 // 官方地址由后端 protocol-defaults 预填，存库的就是这份显式地址；管理员可改成中转
@@ -4077,10 +3982,6 @@ const protocolDefaultsMode = computed(() => {
 const officialProtocolEndpoints = computed(() =>
   protocolDefaultsFor(protocolDefaults.value, form.platform, protocolDefaultsMode.value)
 )
-// 国产供应商指定了具体协议时，该协议必须有地址，否则保存成功、转发时才报缺地址。
-const requiredUpstreamProtocol = computed<UpstreamProtocol | undefined>(() =>
-  isMultiProtocolPlatform.value && apiProtocol.value !== 'adaptive' ? apiProtocol.value : undefined
-)
 async function ensureProtocolDefaults() {
   try {
     protocolDefaults.value = await loadProtocolDefaults()
@@ -4091,7 +3992,7 @@ async function ensureProtocolDefaults() {
 }
 // 提交前校验协议地址，有问题直接提示并返回 null。
 function validatedProtocolEndpoints(): ProtocolEndpoints | null {
-  const issue = validateProtocolEndpoints(protocolEndpoints.value, requiredUpstreamProtocol.value)
+  const issue = validateProtocolEndpoints(protocolEndpoints.value)
   if (issue) {
     appStore.showError(describeProtocolEndpointsIssue(issue, t))
     return null
@@ -4105,23 +4006,6 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
     return form.platform
   }
   return 'kimi'
-})
-// 自适应模式下展示该平台全部协议的预设；指定协议时只展示该协议的预设。
-const cnPresetProtocol = computed(() => (apiProtocol.value === 'adaptive' ? undefined : apiProtocol.value))
-const cnPresetCurrentUrl = computed(() =>
-  apiProtocol.value === 'adaptive' ? undefined : protocolEndpoints.value[apiProtocol.value]
-)
-// 当前平台可选的协议档（responses 仅 deepseek / kimi）。
-const cnProtocolOptions = computed<Array<{ value: CnApiProtocol; labelKey: string }>>(() => {
-  const opts: Array<{ value: CnApiProtocol; labelKey: string }> = [
-    { value: 'adaptive', labelKey: 'adaptive' },
-    { value: 'chat_completions', labelKey: 'chatCompletions' },
-    { value: 'anthropic', labelKey: 'anthropic' }
-  ]
-  if (cnSupportsNativeResponses(form.platform)) {
-    opts.push({ value: 'responses', labelKey: 'responses' })
-  }
-  return opts
 })
 // 当前选中平台的品牌色（选中卡片描边 / 图标底色），与 platformColors 取色一致。
 const cnAccentActiveClass = computed(() => {
@@ -4156,13 +4040,12 @@ const cnAccentIconClass = computed(() => {
       return 'bg-primary-500 text-white'
   }
 })
-// 切换国产供应商平台：强制 apikey 类型，deepseek 无 coding 套餐故锁定 payg，
-// 协议回落 adaptive。协议地址由官方地址预填的 watcher 处理。
+// 切换国产供应商平台：强制 apikey 类型，deepseek 无 coding 套餐故锁定 payg。
+// 协议地址由官方地址预填的 watcher 处理。
 function selectCNPlatform(platform: CnProviderPlatform) {
   form.platform = platform
   form.type = 'apikey'
   accountCategory.value = 'apikey'
-  apiProtocol.value = 'adaptive'
   if (platform === 'deepseek') {
     accountMode.value = 'payg'
   }
@@ -4171,7 +4054,6 @@ function selectOpenCodeGoPlatform() {
   form.platform = 'opencode_go'
   form.type = 'apikey'
   accountCategory.value = 'apikey'
-  apiProtocol.value = 'adaptive'
   openCodeAccountMode.value = 'zen'
   openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(openCodeAccountMode.value))
 }
@@ -4183,12 +4065,9 @@ watch(openCodeAccountMode, (mode, previousMode) => {
     openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(mode))
   }
 })
-// 点击国产供应商预设：回填账号类型和该协议的地址；指定协议模式下同时切到该协议。
+// 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   accountMode.value = preset.mode
-  if (apiProtocol.value !== 'adaptive') {
-    apiProtocol.value = preset.protocol
-  }
   protocolEndpoints.value = { ...protocolEndpoints.value, [preset.protocol]: preset.url }
 }
 // Grok 预设地址同时服务 Chat Completions 与 Responses。
@@ -4255,10 +4134,10 @@ const customErrorCodeInput = ref<number | null>(null)
 const headerOverrideEnabled = ref(false)
 const headerOverrideRows = ref<HeaderOverrideRow[]>([])
 
-// Grok OAuth 三条创建路径（授权码/RT 批量/SSO 批量）共用的前置校验。
-// 授权码路径必须在兑换 code 之前调用，避免校验失败时白白消耗一次性授权码。
-// 成品号只走官方地址，没有可配置的上游地址，这里只校验请求头覆写。
-const validateGrokOAuthUpstreamConfig = (): boolean => {
+// 请求头覆写的前置校验，失败时提示并返回 false。
+// Grok OAuth 三条创建路径（授权码/RT 批量/SSO 批量）必须在兑换 code 之前调用，
+// 避免校验失败时白白消耗一次性授权码。
+const validateHeaderOverrideForm = (): boolean => {
   if (headerOverrideEnabled.value) {
     const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
     if (headerError) {
@@ -4269,9 +4148,18 @@ const validateGrokOAuthUpstreamConfig = (): boolean => {
   return true
 }
 
-// 把已通过校验的请求头覆写写入 credentials
+// 把已通过校验的请求头覆写写入 credentials（Grok OAuth 成品号只走官方地址，只有这一项上游配置）
 const applyGrokOAuthUpstreamConfig = (credentials: Record<string, unknown>) => {
   applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+}
+
+// 第三方 key（含 Antigravity 上游 key）的请求头覆写：校验通过才写入 credentials。
+const applyKeyHeaderOverride = (credentials: Record<string, unknown>): boolean => {
+  if (!validateHeaderOverrideForm()) {
+    return false
+  }
+  applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  return true
 }
 const interceptWarmupRequests = ref(false)
 const autoPauseOnExpired = ref(true)
@@ -4281,7 +4169,6 @@ const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
 const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
-const openAIResponsesMode = ref<OpenAIResponsesMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
 const openAIImagesUrlToB64JsonEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>(['chat_completions', 'embeddings'])
@@ -4358,27 +4245,10 @@ const openAICompactModeOptions = computed(() => [
   { value: 'force_on', label: t('admin.accounts.openai.compactModeForceOn') },
   { value: 'force_off', label: t('admin.accounts.openai.compactModeForceOff') }
 ])
-const openAIResponsesModeOptions = computed(() => [
-  { value: 'auto', label: t('admin.accounts.openai.responsesModeAuto') },
-  { value: 'force_responses', label: t('admin.accounts.openai.responsesModeForceResponses') },
-  { value: 'force_chat_completions', label: t('admin.accounts.openai.responsesModeForceChatCompletions') }
-])
-const openAITextEndpointCapabilityLabel = computed(() => {
-  if (openAIResponsesMode.value === 'force_responses') {
-    return t('admin.accounts.openai.capabilityResponses')
-  }
-  if (openAIResponsesMode.value === 'force_chat_completions') {
-    return t('admin.accounts.openai.capabilityChatCompletions')
-  }
-  return t('admin.accounts.openai.capabilityTextAuto')
-})
 const openAIEndpointCapabilityOptions = computed<{ value: OpenAIEndpointCapability; label: string }[]>(() => [
-  { value: 'chat_completions', label: openAITextEndpointCapabilityLabel.value },
+  { value: 'chat_completions', label: t('admin.accounts.openai.capabilityText') },
   { value: 'embeddings', label: t('admin.accounts.openai.capabilityEmbeddings') }
 ])
-const openAITextGenerationCapabilityEnabled = computed(() =>
-  openAIEndpointCapabilities.value.includes('chat_completions')
-)
 
 const normalizeOpenAIEndpointCapabilities = (values: OpenAIEndpointCapability[]) => {
   const allowed: OpenAIEndpointCapability[] = ['chat_completions', 'embeddings']
@@ -4396,9 +4266,6 @@ const toggleOpenAIEndpointCapability = (capability: OpenAIEndpointCapability, ev
     openAIEndpointCapabilities.value = openAIEndpointCapabilities.value.filter(
       (value) => value !== capability
     )
-    if (!openAITextGenerationCapabilityEnabled.value) {
-      openAIResponsesMode.value = 'auto'
-    }
     return
   }
   openAIEndpointCapabilities.value = normalizeOpenAIEndpointCapabilities([
@@ -4425,6 +4292,17 @@ function buildAntigravityExtra(): Record<string, unknown> | undefined {
 
 const buildOpenAICompactModelMapping = () =>
   buildModelMappingObject('mapping', [], openAICompactModelMappings.value)
+
+// 第三方 key 的 Compact 专属模型映射：与 Compact 模式同区块，区块可见才写入。
+const applyKeyCompactModelMapping = (credentials: Record<string, unknown>) => {
+  if (!openAIResponsesSettingsVisible.value) {
+    return
+  }
+  const compactModelMapping = buildOpenAICompactModelMapping()
+  if (compactModelMapping) {
+    credentials.compact_model_mapping = compactModelMapping
+  }
+}
 
 const showMixedChannelWarning = ref(false)
 const mixedChannelWarningDetails = ref<{ groupName: string; currentPlatform: string; otherPlatform: string } | null>(
@@ -4487,13 +4365,13 @@ const openAIWSModeOptions = computed(() => [
 
 const openaiResponsesWebSocketV2Mode = computed({
   get: () => {
-    if (form.platform === 'openai' && accountCategory.value === 'apikey') {
+    if (form.type === 'apikey') {
       return openaiAPIKeyResponsesWebSocketV2Mode.value
     }
     return openaiOAuthResponsesWebSocketV2Mode.value
   },
   set: (mode: OpenAIWSMode) => {
-    if (form.platform === 'openai' && accountCategory.value === 'apikey') {
+    if (form.type === 'apikey') {
       openaiAPIKeyResponsesWebSocketV2Mode.value = mode
       return
     }
@@ -4503,10 +4381,6 @@ const openaiResponsesWebSocketV2Mode = computed({
 
 const openAIWSModeHintKey = computed(() =>
   resolveOpenAIWSModeHintKey(openaiResponsesWebSocketV2Mode.value)
-)
-
-const isOpenAIModelRestrictionDisabled = computed(() =>
-  form.platform === 'openai' && openaiPassthroughEnabled.value
 )
 
 const mixedChannelWarningMessageText = computed(() => {
@@ -4590,6 +4464,31 @@ const isOAuthFlow = computed(() => {
   }
   return accountCategory.value === 'oauth-based'
 })
+
+// 第三方 key（含 Antigravity 上游 key）的 Anthropic 协议设置按编辑中的协议地址展示，不看平台标签。
+// 区块隐藏（换成成品号、删掉 anthropic 地址行）时提交不写入（见 buildAnthropicExtra）；切换平台时清空。
+const anthropicKeySettingsVisible = computed(
+  () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
+)
+
+// OpenAI Responses 协议设置（自动透传、WS mode、Compact）：OpenAI 成品号沿用平台规则；
+// 第三方 key 按编辑中的协议地址（responses 或 chat_completions）展示，不看平台标签。
+// 区块隐藏时提交不写入（见 buildOpenAIExtra）；切换平台时清空。
+const openAIResponsesSettingsVisible = computed(() => {
+  if (form.type === 'apikey') return hasOpenAIEndpoint(protocolEndpoints.value)
+  return form.platform === 'openai' && accountCategory.value === 'oauth-based'
+})
+
+// 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
+// 按填写中的协议地址展示，不看平台标签。
+const openAIKeySettingsVisible = computed(
+  () => form.type === 'apikey' && hasOpenAIEndpoint(protocolEndpoints.value)
+)
+
+// 自动透传会跳过模型改写：透传区块可见且开启时，模型限制不再可编辑。
+const isOpenAIModelRestrictionDisabled = computed(() =>
+  openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
+)
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
 
@@ -4742,19 +4641,22 @@ watch(
       interceptWarmupRequests.value = false
     }
     if (newPlatform !== 'openai') {
-      openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
-      openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
     }
-    if (newPlatform !== 'anthropic') {
-      anthropicPassthroughEnabled.value = false
-      anthropicAPIKeyAuthScheme.value = 'x_api_key'
-      webSearchEmulationMode.value = 'default'
-    }
+    // 第三方 key 也能配的协议设置（OpenAI 自动透传 / key 的 WS mode / Compact，Anthropic 透传 /
+    // 认证方式 / web search 模拟）：切换平台一律清空（不看切到哪个平台），与请求头覆写一致；
+    // 同一平台内删掉地址行导致的隐藏，由提交时的可见性判断保证不写入。
+    openaiPassthroughEnabled.value = false
+    openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
+    openAICompactMode.value = 'auto'
+    openAICompactModelMappings.value = []
+    anthropicPassthroughEnabled.value = false
+    anthropicAPIKeyAuthScheme.value = 'x_api_key'
+    webSearchEmulationMode.value = 'default'
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
     headerOverrideEnabled.value = false
@@ -4777,11 +4679,6 @@ watch(
     if (platform === 'openai' && category !== 'oauth-based') {
       codexCLIOnlyEnabled.value = false
       codexCLIOnlyAppServerEnabled.value = false
-    }
-    if (platform !== 'anthropic' || category !== 'apikey') {
-      anthropicPassthroughEnabled.value = false
-      anthropicAPIKeyAuthScheme.value = 'x_api_key'
-      webSearchEmulationMode.value = 'default'
     }
   }
 )
@@ -5154,7 +5051,6 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   accountMode.value = 'payg'
   openCodeAccountMode.value = 'zen'
-  apiProtocol.value = 'adaptive'
   openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
   apiKeyValue.value = ''
   upstreamRequestIdHeader.value = ''
@@ -5194,7 +5090,6 @@ const resetForm = () => {
   openAILongContextBillingEnabled.value = false
   openAILongContextBillingTouched.value = false
   openAICompactMode.value = 'auto'
-  openAIResponsesMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
   openaiOAuthResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
   openaiAPIKeyResponsesWebSocketV2Mode.value = OPENAI_WS_MODE_OFF
@@ -5253,27 +5148,49 @@ const handleClose = () => {
 }
 
 const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  if (form.platform !== 'openai') {
+  const responsesSettingsVisible = openAIResponsesSettingsVisible.value
+  const openaiPlatform = form.platform === 'openai'
+  if (!responsesSettingsVisible && !openaiPlatform) {
     return base
   }
 
   const extra: Record<string, unknown> = { ...(base || {}) }
-  if (accountCategory.value === 'oauth-based') {
-    extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
-    extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
-  } else if (accountCategory.value === 'apikey') {
-    extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
-    extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
+  // OpenAI Responses 协议设置（自动透传 / WS mode / Compact）：只在区块可见时写入
+  if (responsesSettingsVisible) {
+    if (form.type === 'apikey') {
+      extra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
+      extra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)
+    } else {
+      extra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
+      extra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
+    }
+    // 清理兼容旧键，统一改用分类型开关。
+    delete extra.responses_websockets_v2_enabled
+    delete extra.openai_ws_enabled
+    if (openaiPassthroughEnabled.value) {
+      extra.openai_passthrough = true
+    } else {
+      delete extra.openai_passthrough
+      delete extra.openai_oauth_passthrough
+    }
+    if (openAICompactMode.value !== 'auto') {
+      extra.openai_compact_mode = openAICompactMode.value
+    } else {
+      delete extra.openai_compact_mode
+    }
   }
-  // 清理兼容旧键，统一改用分类型开关。
-  delete extra.responses_websockets_v2_enabled
-  delete extra.openai_ws_enabled
-  if (openaiPassthroughEnabled.value) {
-    extra.openai_passthrough = true
+  // 生图结果转 base64 与端点能力同区块：第三方 key 按协议地址判定，不看平台标签，
+  // 必须在 openai 平台专属段落之前写入。
+  if (openAIKeySettingsVisible.value && openAIImagesUrlToB64JsonEnabled.value) {
+    extra.images_url_to_b64_json = true
   } else {
-    delete extra.openai_passthrough
-    delete extra.openai_oauth_passthrough
+    delete extra.images_url_to_b64_json
   }
+  if (!openaiPlatform) {
+    return Object.keys(extra).length > 0 ? extra : undefined
+  }
+
+  // 以下是 OpenAI 平台专属设置（后端仍按平台读取）
   // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
   if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
     extra.openai_responses_flatten_namespaces = true
@@ -5304,26 +5221,6 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.codex_fingerprint_mode
   }
-  if (openAICompactMode.value !== 'auto') {
-    extra.openai_compact_mode = openAICompactMode.value
-  } else {
-    delete extra.openai_compact_mode
-  }
-
-  if (
-    accountCategory.value === 'apikey' &&
-    openAITextGenerationCapabilityEnabled.value &&
-    openAIResponsesMode.value !== 'auto'
-  ) {
-    extra.openai_responses_mode = openAIResponsesMode.value
-  } else {
-    delete extra.openai_responses_mode
-  }
-  if (accountCategory.value === 'apikey' && openAIImagesUrlToB64JsonEnabled.value) {
-    extra.images_url_to_b64_json = true
-  } else {
-    delete extra.images_url_to_b64_json
-  }
 
   return Object.keys(extra).length > 0 ? extra : undefined
 }
@@ -5340,7 +5237,7 @@ const buildOpenAICodexImportExtra = (): Record<string, unknown> | undefined => {
 }
 
 const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unknown> | undefined => {
-  if (form.platform !== 'anthropic' || accountCategory.value !== 'apikey') {
+  if (!anthropicKeySettingsVisible.value) {
     return base
   }
 
@@ -5564,9 +5461,13 @@ const handleSubmit = async () => {
       credentials.model_mapping = antigravityModelMapping
     }
 
+    if (!applyKeyHeaderOverride(credentials)) {
+      return
+    }
+    applyKeyCompactModelMapping(credentials)
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
-    const extra = buildAntigravityExtra()
+    const extra = buildAnthropicExtra(buildOpenAIExtra(buildAntigravityExtra()))
     await createAccountAndFinish(form.platform, 'apikey', credentials, extra, upstreamEndpoints)
     return
   }
@@ -5614,12 +5515,11 @@ const handleSubmit = async () => {
     credentials.tier_id = geminiTierAIStudio.value
   }
 
-  // 国产供应商：账号模式与协议写入凭据；后端按 account_mode 路由额度/余额探测，
-  // 按 api_protocol 选择转发协议，地址取自协议映射。注意 CN apikey 走本函数
-  // 的通用路径（直接 doCreateAccount），不经过 createAccountAndFinish。
+  // 国产供应商：账号模式写入凭据，后端按 account_mode 路由额度/余额探测；转发协议由
+  // 协议地址决定。注意 CN apikey 走本函数的通用路径（直接 doCreateAccount），
+  // 不经过 createAccountAndFinish。
   if (isCNProviderPlatform(form.platform) || form.platform === 'opencode_go') {
     credentials.account_mode = form.platform === 'opencode_go' ? openCodeAccountMode.value : accountMode.value
-    credentials.api_protocol = apiProtocol.value
     // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写）
     if (form.platform === 'zhipu' && accountMode.value === 'coding') {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()
@@ -5637,13 +5537,10 @@ const handleSubmit = async () => {
       credentials.model_mapping = modelMapping
     }
   }
-  if (form.platform === 'openai') {
+  if (openAIKeySettingsVisible.value) {
     applyOpenAIEndpointCapabilities(credentials)
-    const compactModelMapping = buildOpenAICompactModelMapping()
-    if (compactModelMapping) {
-      credentials.compact_model_mapping = compactModelMapping
-    }
   }
+  applyKeyCompactModelMapping(credentials)
 
   // Add pool mode if enabled
   if (poolModeEnabled.value) {
@@ -5661,16 +5558,9 @@ const handleSubmit = async () => {
     credentials.custom_error_codes = [...selectedErrorCodes.value]
   }
 
-  // Add header override if enabled for this API-key platform
-  if (isHeaderOverrideCapable(form.platform, 'apikey')) {
-    if (headerOverrideEnabled.value) {
-      const headerError = validateHeaderOverrideRows(headerOverrideRows.value)
-      if (headerError) {
-        appStore.showError(t(`admin.accounts.headerOverride.${headerError}`))
-        return
-      }
-    }
-    applyHeaderOverride(credentials, headerOverrideEnabled.value, headerOverrideRows.value, 'create')
+  // 请求头覆写对任何第三方 key 开放
+  if (!applyKeyHeaderOverride(credentials)) {
+    return
   }
 
   applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
@@ -5780,10 +5670,11 @@ const createAccountAndFinish = async (
       finalExtra = quotaExtra
     }
   }
+  // 端点能力按协议地址判定，不看平台标签。
+  if (openAIKeySettingsVisible.value) {
+    applyOpenAIEndpointCapabilities(credentials)
+  }
   if (platform === 'openai') {
-    if (type === 'apikey') {
-      applyOpenAIEndpointCapabilities(credentials)
-    }
     const compactModelMapping = buildOpenAICompactModelMapping()
     if (compactModelMapping) {
       credentials.compact_model_mapping = compactModelMapping
@@ -5834,7 +5725,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
     grokOAuth.error.value = t('admin.accounts.oauth.grok.pleaseEnterRefreshToken')
     return
   }
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''
@@ -5919,7 +5810,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
     .map((token) => token.trim())
     .filter((token) => token)
   if (ssoTokens.length === 0) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''
@@ -5990,7 +5881,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
  */
 const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
   if (!emailPasswordInput.trim()) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   const lines = emailPasswordInput
     .split('\n')
@@ -6658,7 +6549,7 @@ const handleAntigravityExchange = async (authCode: string) => {
 // Grok OAuth 授权码兑换
 const handleGrokExchange = async (authCode: string) => {
   if (!authCode.trim() || !grokOAuth.sessionId.value) return
-  if (!validateGrokOAuthUpstreamConfig()) return
+  if (!validateHeaderOverrideForm()) return
 
   grokOAuth.loading.value = true
   grokOAuth.error.value = ''

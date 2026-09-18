@@ -5,19 +5,15 @@ import (
 	"strconv"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 )
 
 type bulkOpenAISettings struct {
-	longContextBilling      bool
-	endpointCapabilities    bool
-	responsesMode           bool
-	capabilitiesIncludeChat bool
-	forcedResponsesMode     bool
+	longContextBilling   bool
+	endpointCapabilities bool
 }
 
 func (s bulkOpenAISettings) any() bool {
-	return s.longContextBilling || s.endpointCapabilities || s.responsesMode
+	return s.longContextBilling || s.endpointCapabilities
 }
 
 func normalizeBulkOpenAISettings(input *BulkUpdateAccountsInput) (bulkOpenAISettings, error) {
@@ -35,44 +31,19 @@ func normalizeBulkOpenAISettings(input *BulkUpdateAccountsInput) (bulkOpenAISett
 
 	if raw, exists := input.Credentials[openAIEndpointCapabilitiesCredentialKey]; exists {
 		settings.endpointCapabilities = true
-		capabilities, includeChat, err := normalizeBulkOpenAIEndpointCapabilities(raw)
+		capabilities, err := normalizeBulkOpenAIEndpointCapabilities(raw)
 		if err != nil {
 			return settings, err
 		}
-		settings.capabilitiesIncludeChat = includeChat
 		input.Credentials[openAIEndpointCapabilitiesCredentialKey] = capabilities
-	}
-
-	if raw, exists := input.Extra[openai_compat.ExtraKeyResponsesMode]; exists {
-		settings.responsesMode = true
-		mode, forced, err := normalizeBulkOpenAIResponsesMode(raw)
-		if err != nil {
-			return settings, err
-		}
-		settings.forcedResponsesMode = forced
-		input.Extra[openai_compat.ExtraKeyResponsesMode] = mode
-	}
-
-	if settings.endpointCapabilities && !settings.capabilitiesIncludeChat {
-		if settings.forcedResponsesMode {
-			return settings, infraerrors.BadRequest(
-				"OPENAI_RESPONSES_MODE_INVALID",
-				"a forced Responses route requires the chat_completions endpoint capability",
-			)
-		}
-		if input.Extra == nil {
-			input.Extra = make(map[string]any, 1)
-		}
-		input.Extra[openai_compat.ExtraKeyResponsesMode] = nil
-		settings.responsesMode = true
 	}
 
 	return settings, nil
 }
 
-func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
+func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, error) {
 	if raw == nil {
-		return nil, true, nil
+		return nil, nil
 	}
 
 	values := make([]string, 0, 2)
@@ -81,14 +52,14 @@ func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
 		for _, item := range typed {
 			value, ok := item.(string)
 			if !ok {
-				return nil, false, invalidBulkOpenAIEndpointCapabilities()
+				return nil, invalidBulkOpenAIEndpointCapabilities()
 			}
 			values = append(values, value)
 		}
 	case []string:
 		values = append(values, typed...)
 	default:
-		return nil, false, invalidBulkOpenAIEndpointCapabilities()
+		return nil, invalidBulkOpenAIEndpointCapabilities()
 	}
 
 	selected := make(map[string]bool, 2)
@@ -97,53 +68,27 @@ func normalizeBulkOpenAIEndpointCapabilities(raw any) (any, bool, error) {
 		case OpenAIEndpointCapabilityChatCompletions, OpenAIEndpointCapabilityEmbeddings:
 			selected[value] = true
 		default:
-			return nil, false, invalidBulkOpenAIEndpointCapabilities()
+			return nil, invalidBulkOpenAIEndpointCapabilities()
 		}
 	}
 	if len(selected) == 0 {
-		return nil, false, invalidBulkOpenAIEndpointCapabilities()
+		return nil, invalidBulkOpenAIEndpointCapabilities()
 	}
 
 	includeChat := selected[string(OpenAIEndpointCapabilityChatCompletions)]
 	if includeChat && selected[string(OpenAIEndpointCapabilityEmbeddings)] {
-		return nil, true, nil
+		return nil, nil
 	}
 	if includeChat {
-		return []string{string(OpenAIEndpointCapabilityChatCompletions)}, true, nil
+		return []string{string(OpenAIEndpointCapabilityChatCompletions)}, nil
 	}
-	return []string{string(OpenAIEndpointCapabilityEmbeddings)}, false, nil
+	return []string{string(OpenAIEndpointCapabilityEmbeddings)}, nil
 }
 
 func invalidBulkOpenAIEndpointCapabilities() error {
 	return infraerrors.BadRequest(
 		"OPENAI_ENDPOINT_CAPABILITIES_INVALID",
 		"openai_capabilities must contain chat_completions, embeddings, or both",
-	)
-}
-
-func normalizeBulkOpenAIResponsesMode(raw any) (any, bool, error) {
-	if raw == nil {
-		return nil, false, nil
-	}
-	mode, ok := raw.(string)
-	if !ok {
-		return nil, false, invalidBulkOpenAIResponsesMode()
-	}
-	switch openai_compat.ResponsesSupportMode(mode) {
-	case openai_compat.ResponsesSupportModeAuto:
-		return nil, false, nil
-	case openai_compat.ResponsesSupportModeForceResponses,
-		openai_compat.ResponsesSupportModeForceChatCompletions:
-		return mode, true, nil
-	default:
-		return nil, false, invalidBulkOpenAIResponsesMode()
-	}
-}
-
-func invalidBulkOpenAIResponsesMode() error {
-	return infraerrors.BadRequest(
-		"OPENAI_RESPONSES_MODE_INVALID",
-		"openai_responses_mode must be auto, force_responses, force_chat_completions, or null",
 	)
 }
 
@@ -172,16 +117,10 @@ func validateBulkOpenAISettingsTargets(
 			}
 		}
 
-		if settings.endpointCapabilities || settings.responsesMode {
+		if settings.endpointCapabilities {
 			if account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
-				return 0, invalidBulkOpenAITarget(accountID, "endpoint capabilities and Responses routing require an OpenAI API-key account")
+				return 0, invalidBulkOpenAITarget(accountID, "endpoint capabilities require an OpenAI API-key account")
 			}
-		}
-
-		if settings.forcedResponsesMode && !settings.capabilitiesIncludeChat &&
-			!settings.endpointCapabilities &&
-			!account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions) {
-			return 0, invalidBulkOpenAITarget(accountID, "a forced Responses route requires the chat_completions endpoint capability")
 		}
 	}
 

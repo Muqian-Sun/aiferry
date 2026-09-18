@@ -19,8 +19,7 @@ func openCodeGoTestAccount(id int64) *Account {
 		Status:      StatusActive,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-opencode-go-test",
-			"api_protocol": APIProtocolAdaptive,
+			"api_key": "sk-opencode-go-test",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1",
@@ -78,9 +77,11 @@ func TestAccountTestService_OpenCodeGoMiniMaxUsesAnthropicMessages(t *testing.T)
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-func TestAccountTestService_OpenCodeGoPinnedChatProtocolIgnoresCatalog(t *testing.T) {
+// TestAccountTestService_OpenCodeGoRuleProtocolWithoutEndpointFallsBack：模型规则选中的
+// responses 没配地址时，连接测试与转发一样回到通用选择（Chat Completions）。
+func TestAccountTestService_OpenCodeGoRuleProtocolWithoutEndpointFallsBack(t *testing.T) {
 	account := openCodeGoTestAccount(404)
-	account.Credentials["api_protocol"] = APIProtocolChatCompletions
+	delete(account.ProtocolEndpoints, APIProtocolResponses)
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
 	c, _ := newTestContext()
 

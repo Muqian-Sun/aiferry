@@ -43,14 +43,12 @@ const (
 	AccountModeGo     = "go"     // OpenCode Go：订阅额度窗口，https://opencode.ai/zen/go/v1
 )
 
-// API protocol constants 国产供应商的上游 API 协议维度。存储于
-// credentials["api_protocol"]，与 account_mode 正交：协议决定转发端点与格式，
-// 模式决定额度监控方式。同协议请求零转换直通；跨协议组合才走转换链。
+// API protocol constants 上游 API 协议，用作 accounts.protocol_endpoints 的键。
+// 第三方 key 的转发协议由配置了地址的协议决定；同协议请求零转换直通，跨协议组合才走转换链。
 const (
-	APIProtocolChatCompletions = "chat_completions" // OpenAI Chat Completions（默认）
+	APIProtocolChatCompletions = "chat_completions" // OpenAI Chat Completions
 	APIProtocolAnthropic       = "anthropic"        // 原生 Anthropic /v1/messages（适配 Claude Code）
-	APIProtocolResponses       = "responses"        // OpenAI Responses（deepseek / kimi / minimax 原生端点，适配 Codex）
-	APIProtocolAdaptive        = "adaptive"         // 按入站协议优先选择供应商原生端点
+	APIProtocolResponses       = "responses"        // OpenAI Responses（适配 Codex）
 	APIProtocolGemini          = "gemini"           // Gemini v1beta generateContent
 )
 
@@ -64,7 +62,6 @@ const (
 )
 
 // IsUpstreamProtocol 报告 p 是否为具体的上游协议，可用作 accounts.protocol_endpoints 的键。
-// adaptive 是「按入站协议选择」的选择模式，不是具体协议，因此不在此列。
 func IsUpstreamProtocol(p string) bool {
 	switch p {
 	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses, APIProtocolGemini:

@@ -269,7 +269,7 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequestWithPrecheck(
 
 	// 检查平台匹配
 	// Check platform matching
-	if !s.isAccountValidForPlatform(account, platform, useMixedScheduling) {
+	if !isAccountSchedulableOnPlatform(ctx, account, platform, useMixedScheduling) {
 		return false
 	}
 
@@ -280,21 +280,6 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequestWithPrecheck(
 	}
 
 	return true
-}
-
-// isAccountValidForPlatform 检查账号是否匹配目标平台。
-// 原生平台直接匹配；混合调度模式下 antigravity 需要启用 mixed_scheduling。
-//
-// isAccountValidForPlatform checks if account matches target platform.
-// Native platform matches directly; mixed scheduling mode requires antigravity to enable mixed_scheduling.
-func (s *GeminiMessagesCompatService) isAccountValidForPlatform(account *Account, platform string, useMixedScheduling bool) bool {
-	if account.Platform == platform {
-		return true
-	}
-	if useMixedScheduling && account.IsAntigravity() && account.IsMixedSchedulingEnabled() {
-		return true
-	}
-	return false
 }
 
 func (s *GeminiMessagesCompatService) passesRateLimitPreCheckWithCache(ctx context.Context, account *Account, requestedModel string, precheckResult map[int64]bool) bool {
@@ -406,9 +391,10 @@ func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *
 	}
 }
 
-// isModelSupportedByAccount 根据账户平台检查模型支持
+// isModelSupportedByAccount 根据账户厂商检查模型支持：antigravity 模型映射只属于 antigravity 成品号，
+// 第三方 key 的厂商不可能是 antigravity，不会因为平台标签套上它。
 func (s *GeminiMessagesCompatService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true
 		}
@@ -450,18 +436,21 @@ func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Co
 	}
 
 	useMixedScheduling := platform == PlatformGemini && !hasForcePlatform
-	queryPlatforms := []string{platform}
-	if useMixedScheduling {
-		queryPlatforms = []string{platform, PlatformAntigravity}
-	}
+	queryPlatforms := schedulingCandidatePlatforms(platform, useMixedScheduling)
 
+	var accounts []Account
+	var err error
 	if groupID != nil {
-		return s.accountRepo.ListSchedulableByGroupIDAndPlatforms(ctx, *groupID, queryPlatforms)
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, queryPlatforms)
+	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, queryPlatforms)
+	} else {
+		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, queryPlatforms)
 	}
-	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		return s.accountRepo.ListSchedulableByPlatforms(ctx, queryPlatforms)
+	if err != nil {
+		return nil, err
 	}
-	return s.accountRepo.ListSchedulableUngroupedByPlatforms(ctx, queryPlatforms)
+	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform, useMixedScheduling), nil
 }
 
 func (s *GeminiMessagesCompatService) validateUpstreamBaseURL(raw string) (string, error) {
@@ -655,6 +644,7 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 			}
 			upstreamReq.Header.Set("Content-Type", "application/json")
 			upstreamReq.Header.Set("x-goog-api-key", apiKey)
+			account.ApplyHeaderOverrides(upstreamReq.Header)
 			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
@@ -1222,6 +1212,7 @@ func (s *GeminiMessagesCompatService) ForwardNative(ctx context.Context, c *gin.
 			}
 			upstreamReq.Header.Set("Content-Type", "application/json")
 			upstreamReq.Header.Set("x-goog-api-key", apiKey)
+			account.ApplyHeaderOverrides(upstreamReq.Header)
 			return upstreamReq, "x-request-id", nil
 		}
 		requestIDHeader = "x-request-id"
@@ -2896,6 +2887,7 @@ func (s *GeminiMessagesCompatService) ForwardAIStudioGET(ctx context.Context, ac
 			return nil, errors.New("gemini api_key not configured")
 		}
 		req.Header.Set("x-goog-api-key", apiKey)
+		account.ApplyHeaderOverrides(req.Header)
 	case AccountTypeOAuth:
 		if s.tokenProvider == nil {
 			return nil, errors.New("gemini token provider not configured")
@@ -3121,6 +3113,13 @@ func (s *GeminiMessagesCompatService) handleGeminiUpstreamError(ctx context.Cont
 			} else {
 				logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini 429] Account %d (Google One OAuth, tier=%s, project=%s) rate limited, cooldown=%v", account.ID, tierID, projectID, time.Until(ra).Truncate(time.Second))
 			}
+		} else if account.IsThirdPartyKey() && account.Vendor() != PlatformGemini {
+			// 中转 key：PST 午夜是 AI Studio 官方日配额的重置点，套到中转上会把 key
+			// 停到第二天。解析不出重置时间时走通用的秒级 429 兜底。
+			if s.rateLimitService != nil {
+				s.rateLimitService.apply429FallbackRateLimit(ctx, account, "no_reset_time")
+			}
+			return
 		} else {
 			// API Key / AI Studio OAuth: PST 午夜
 			if ts := nextGeminiDailyResetUnix(); ts != nil {

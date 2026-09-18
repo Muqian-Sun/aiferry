@@ -144,7 +144,7 @@ func TestAccountTestService_TestAccountConnection_OpenAICompactAPIKeyUsesNativeR
 			// 原生 v2 探测不应用它。
 			"compact_model_mapping": map[string]any{"gpt-5.4": "gpt-5.4-openai-compact"},
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1"},
 	}
 	repo := &snapshotUpdateAccountRepo{
 		stubOpenAIAccountRepo: stubOpenAIAccountRepo{accounts: []Account{account}},

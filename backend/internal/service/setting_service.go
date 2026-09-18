@@ -23,6 +23,17 @@ const (
 	GrokDefaultBaseURLModeCLI     = "cli"
 )
 
+// GrokDefaultBaseURLModes 返回全部 Grok 默认地址模式，与上面的常量放在一起维护。
+func GrokDefaultBaseURLModes() []string {
+	return []string{
+		GrokDefaultBaseURLModeCLI,
+		GrokDefaultBaseURLModeAPI,
+		GrokDefaultBaseURLModeUSEast1,
+		GrokDefaultBaseURLModeUSWest2,
+		GrokDefaultBaseURLModeEUWest1,
+	}
+}
+
 func normalizeGrokDefaultBaseURLMode(mode string) string {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case GrokDefaultBaseURLModeAPI:

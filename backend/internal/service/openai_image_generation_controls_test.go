@@ -524,6 +524,29 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 			},
 			want: false,
 		},
+		// 第三方 key 按厂商，不看平台标签。
+		{
+			name:   "relay key with anthropic label honors account extra",
+			global: false,
+			account: &Account{
+				Platform:          PlatformAnthropic,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"},
+				Extra:             map[string]any{featureKeyCodexImageGenerationBridge: true},
+			},
+			want: true,
+		},
+		{
+			name:   "official deepseek key with openai label ignores account extra",
+			global: false,
+			account: &Account{
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				ProtocolEndpoints: map[string]string{APIProtocolResponses: DefaultDeepseekBaseURL},
+				Extra:             map[string]any{featureKeyCodexImageGenerationBridge: true},
+			},
+			want: false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -751,4 +774,18 @@ func newOpenAIImageGenerationControlTestAccount() *Account {
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
+}
+
+func TestAccountCodexImageGenerationExplicitToolPolicy_KeysFollowVendorNotLabel(t *testing.T) {
+	strip := map[string]any{featureKeyCodexImageGenerationExplicitToolPolicy: codexImageGenerationExplicitToolPolicyStrip}
+
+	openAIOAuth := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: strip}
+	relayKey := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}, Extra: strip}
+	deepseekKey := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: DefaultDeepseekBaseURL}, Extra: strip}
+	grokOAuth := &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, Extra: strip}
+
+	require.Equal(t, codexImageGenerationExplicitToolPolicyStrip, openAIOAuth.CodexImageGenerationExplicitToolPolicy())
+	require.Equal(t, codexImageGenerationExplicitToolPolicyStrip, relayKey.CodexImageGenerationExplicitToolPolicy())
+	require.Equal(t, codexImageGenerationExplicitToolPolicyAllow, deepseekKey.CodexImageGenerationExplicitToolPolicy())
+	require.Equal(t, codexImageGenerationExplicitToolPolicyAllow, grokOAuth.CodexImageGenerationExplicitToolPolicy())
 }

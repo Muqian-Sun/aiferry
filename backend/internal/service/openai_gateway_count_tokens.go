@@ -150,16 +150,20 @@ func prepareNativeOpenAIInputTokensCountRequest(body []byte, account *Account) (
 }
 
 func shouldEstimateOpenAIInputTokensLocally(account *Account) bool {
-	if account == nil || account.IsGrok() || account.IsCNProvider() {
+	if account == nil {
 		return true
 	}
-	if account.Type != AccountTypeAPIKey {
-		return false
+	if !account.IsThirdPartyKey() {
+		// 成品号：Grok 与国产供应商没有 input_tokens 端点；OpenAI 成品号走官方端点。
+		return account.IsGrok() || account.IsCNProvider()
 	}
-	// 与 buildInputTokensUpstreamRequest 判断同一个地址，否则会出现「按 A 判定是否中转、实际请求 B」。
+	// 第三方 key：input_tokens 是 OpenAI 官方 Responses 的子端点，只有 responses 地址指向
+	// api.openai.com 才发上游，平台标签不参与；没有 responses 地址（请求会转成别的协议）
+	// 同样本地估算。与 buildInputTokensUpstreamRequest 判断同一个地址，否则会出现「按 A
+	// 判定是否中转、实际请求 B」。
 	rawBaseURL := account.GetOpenAIResponsesBaseURL()
 	if rawBaseURL == "" {
-		return false
+		return true
 	}
 	parsed, err := url.Parse(rawBaseURL)
 	if err != nil {
@@ -272,7 +276,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	// count_tokens 为 "Anthropic only"，Kimi/智谱亦无任何文档承诺。转发上游
 	// 只会常态 404，且错误还会流入账号处置逻辑误伤整账号调度；Claude Code
 	// 高频调用此端点，本地 tiktoken 估算是与 Grok 一致的既有方案。
-	if account.IsCNProvider() || account.IsOpenCodeGo() {
+	if vendor := account.Vendor(); IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
 		estimated, err := estimateAnthropicCountTokensLocally(body)
 		if err != nil {
 			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")

@@ -67,8 +67,11 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
 		return nil
 	}
 
+	// 附加的限流 key 必须与 RateLimitService 写入时的厂商判定一致（按 Vendor，
+	// 不按平台标签），否则写进去的模型级限流永远读不到。
+	vendor := a.Vendor()
 	modelKey := a.GetMappedModel(requestedModel)
-	if a.IsAntigravity() {
+	if vendor == PlatformAntigravity {
 		modelKey = resolveFinalAntigravityModelKey(ctx, a, requestedModel)
 	}
 	modelKey = strings.TrimSpace(modelKey)
@@ -77,16 +80,16 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
 	}
 
 	keys := []string{modelKey}
-	switch a.Platform {
-	case PlatformAntigravity:
+	switch {
+	case vendor == PlatformAntigravity:
 		if isAntigravityGeminiModel(modelKey) && modelKey != antigravityGeminiModelRateLimitKey {
 			keys = append(keys, antigravityGeminiModelRateLimitKey)
 		}
-	case PlatformOpenAI:
+	case openAIProtocolFeaturesApplyToVendor(vendor, a.IsThirdPartyKey()):
 		if openAIImageGenerationRateLimitApplies(ctx, requestedModel, modelKey) && modelKey != openAIImageGenerationRateLimitKey {
 			keys = append(keys, openAIImageGenerationRateLimitKey)
 		}
-	case PlatformAnthropic:
+	case vendor == PlatformAnthropic:
 		if isAnthropicFableModel(modelKey) && modelKey != anthropicFableRateLimitKey {
 			keys = append(keys, anthropicFableRateLimitKey)
 		}

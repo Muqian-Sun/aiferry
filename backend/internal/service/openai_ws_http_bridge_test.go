@@ -1814,7 +1814,7 @@ func TestOpenAIWSHTTPBridgeAcceptsFirstFrameAboveLegacy16MiB(t *testing.T) {
 		Status:      StatusActive,
 
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://env-openai.example/v1",
+			APIProtocolChatCompletions: "https://env-openai.example/v1", APIProtocolResponses: "https://env-openai.example/v1",
 		},
 	}
 

@@ -211,7 +211,6 @@ func TestOpenAIGatewayService_Forward_NormalizesMaxTokensAndStripsPromptCacheOpt
 				"api_key":  "sk-test",
 				"base_url": "https://example.com",
 			},
-			Extra:             map[string]any{"openai_responses_supported": true},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://example.com", APIProtocolResponses: "https://example.com"},
 		}
 		rec := httptest.NewRecorder()

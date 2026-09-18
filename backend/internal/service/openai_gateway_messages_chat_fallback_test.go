@@ -12,18 +12,15 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
 )
 
+// forceChatMessagesFallbackAccount 是只配了 chat_completions 地址的第三方 key：
+// Messages 入站在它上面只能转成 Chat Completions。
 func forceChatMessagesFallbackAccount() *Account {
-	account := rawChatCompletionsTestAccount()
-	account.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode: string(openai_compat.ResponsesSupportModeForceChatCompletions),
-	}
-	return account
+	return rawChatCompletionsTestAccount()
 }
 
 // errTailReader yields the given data, then returns err instead of io.EOF,
@@ -459,10 +456,7 @@ func TestForwardAsAnthropic_ResponsesSupportedAccountStillUsesResponsesEndpoint(
 		httpUpstream: upstream,
 	}
 	account := rawChatCompletionsTestAccount()
-	account.Extra = map[string]any{
-		openai_compat.ExtraKeyResponsesMode:      string(openai_compat.ResponsesSupportModeAuto),
-		openai_compat.ExtraKeyResponsesSupported: true,
-	}
+	account.ProtocolEndpoints[APIProtocolResponses] = "http://upstream.example"
 
 	ctx := WithOpenAIReasoningEffortPolicy(context.Background(), "medium", nil, "")
 	result, err := svc.ForwardAsAnthropic(ctx, c, account, body, "", "")

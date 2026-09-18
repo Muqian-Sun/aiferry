@@ -432,7 +432,7 @@ func TestOpenAIUpstreamCostFactorsSparseProbeIsNeutral(t *testing.T) {
 		})
 	}
 
-	factors := openAIUpstreamCostFactors(accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	factors := openAIUpstreamCostFactors(PlatformOpenAI, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
 	for id := int64(1); id <= 10; id++ {
 		require.Equal(t, openAIUpstreamCostNeutralFactor, factors[id])
 	}
@@ -448,7 +448,7 @@ func TestOpenAIUpstreamCostFactorsCoverageShrinksSparseSignal(t *testing.T) {
 		accounts = append(accounts, &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}})
 	}
 
-	factors := openAIUpstreamCostFactors(accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	factors := openAIUpstreamCostFactors(PlatformOpenAI, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
 	center := math.Sqrt(0.03 * 0.8)
 	require.InDelta(t, 0.5+0.2*(1/(1+0.03/center)-0.5), factors[1], 1e-12)
 	require.InDelta(t, 0.5+0.2*(1/(1+0.8/center)-0.5), factors[2], 1e-12)
@@ -463,7 +463,7 @@ func TestOpenAIUpstreamCostFactorsUseMedianAgainstOutlier(t *testing.T) {
 		upstreamCostTestAccount(3, UpstreamBillingProbeStatusOK, 100, now.Add(-time.Minute), 30*time.Minute),
 	}
 
-	factors := openAIUpstreamCostFactors(accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	factors := openAIUpstreamCostFactors(PlatformOpenAI, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
 	require.InDelta(t, 2.0/3.0, factors[1], 1e-12)
 	require.InDelta(t, 0.5, factors[2], 1e-12)
 	require.InDelta(t, 1/(1+100/0.2), factors[3], 1e-12)
@@ -471,19 +471,19 @@ func TestOpenAIUpstreamCostFactorsUseMedianAgainstOutlier(t *testing.T) {
 
 func TestOpenAILegacyUpstreamRateOrderRequiresComparableRates(t *testing.T) {
 	now := time.Now()
-	oneKnown := newOpenAILegacyUpstreamRateOrder([]*Account{
+	oneKnown := newOpenAILegacyUpstreamRateOrder(PlatformOpenAI, []*Account{
 		upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.03, now.Add(-time.Minute), 30*time.Minute),
 		{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	}, now, defaultOpenAIOAuthSchedulingRateMultiplier)
 	require.False(t, oneKnown.enabled)
 
-	allEqual := newOpenAILegacyUpstreamRateOrder([]*Account{
+	allEqual := newOpenAILegacyUpstreamRateOrder(PlatformOpenAI, []*Account{
 		upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.3, now.Add(-time.Minute), 30*time.Minute),
 		upstreamCostTestAccount(2, UpstreamBillingProbeStatusOK, 0.3, now.Add(-time.Minute), 30*time.Minute),
 	}, now, defaultOpenAIOAuthSchedulingRateMultiplier)
 	require.False(t, allEqual.enabled)
 
-	distinct := newOpenAILegacyUpstreamRateOrder([]*Account{
+	distinct := newOpenAILegacyUpstreamRateOrder(PlatformOpenAI, []*Account{
 		upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.03, now.Add(-time.Minute), 30*time.Minute),
 		upstreamCostTestAccount(2, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute),
 		{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
@@ -494,43 +494,39 @@ func TestOpenAILegacyUpstreamRateOrderRequiresComparableRates(t *testing.T) {
 }
 
 // 探测资格已放宽到全部 API-key 平台，但调度侧的信任面没有跟着扩大：
-// 只有 OpenAI 平台账号的上游自报倍率参与 legacy 低倍率优先排序，
-// 否则中转方自报低价即可吸走流量，而实际结算走本地倍率。
-// 本用例钉死 newOpenAILegacyUpstreamRateOrder 与 openAIUpstreamCostFactors
-// 使用同一道平台门控。
-func TestOpenAILegacyUpstreamRateOrderIgnoresNonOpenAIPlatforms(t *testing.T) {
+// 上游自报倍率只在 OpenAI 分组的调度里参与低倍率优先排序，否则中转方自报低价
+// 即可吸走其他平台分组的流量，而实际结算走本地倍率。门控看分组平台、不看账号
+// 标签——第三方 key 的平台只是展示标签。本用例钉死 newOpenAILegacyUpstreamRateOrder
+// 与 openAIUpstreamCostFactors 使用同一道门控。
+func TestOpenAIUpstreamRateOrderGatesOnGroupPlatformNotKeyLabel(t *testing.T) {
 	now := time.Now()
-	nonOpenAI := func(id int64, platform string, rate float64) *Account {
+	labelledKey := func(id int64, platform string, rate float64) *Account {
 		account := upstreamCostTestAccount(id, UpstreamBillingProbeStatusOK, rate, now.Add(-time.Minute), 30*time.Minute)
 		account.Platform = platform
 		return account
 	}
-	grokCheap := nonOpenAI(1, PlatformGrok, 0.01)
-	anthropicExpensive := nonOpenAI(2, PlatformAnthropic, 0.9)
+	grokLabelledCheap := labelledKey(1, PlatformGrok, 0.01)
+	anthropicLabelledExpensive := labelledKey(2, PlatformAnthropic, 0.9)
+	accounts := []*Account{grokLabelledCheap, anthropicLabelledExpensive}
 
-	order := newOpenAILegacyUpstreamRateOrder([]*Account{grokCheap, anthropicExpensive, nil}, now, defaultOpenAIOAuthSchedulingRateMultiplier)
-	require.False(t, order.enabled)
-	require.Empty(t, order.rates)
-	require.Zero(t, order.compare(grokCheap, anthropicExpensive))
+	// OpenAI 分组：标签各异的 key 都按自报倍率参与排序。
+	order := newOpenAILegacyUpstreamRateOrder(PlatformOpenAI, []*Account{grokLabelledCheap, anthropicLabelledExpensive, nil}, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	require.True(t, order.enabled)
+	require.Len(t, order.rates, 2)
+	require.Negative(t, order.compare(grokLabelledCheap, anthropicLabelledExpensive))
 
-	factors := openAIUpstreamCostFactors([]*Account{grokCheap, anthropicExpensive}, now, defaultOpenAIOAuthSchedulingRateMultiplier)
-	require.Equal(t, openAIUpstreamCostNeutralFactor, factors[grokCheap.ID])
-	require.Equal(t, openAIUpstreamCostNeutralFactor, factors[anthropicExpensive.ID])
+	factors := openAIUpstreamCostFactors(PlatformOpenAI, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	require.Greater(t, factors[grokLabelledCheap.ID], factors[anthropicLabelledExpensive.ID])
 
-	// 混合候选集里，非 OpenAI 账号既不进 rates 也不影响 OpenAI 账号之间的排序。
-	openAICheap := upstreamCostTestAccount(3, UpstreamBillingProbeStatusOK, 0.02, now.Add(-time.Minute), 30*time.Minute)
-	openAIExpensive := upstreamCostTestAccount(4, UpstreamBillingProbeStatusOK, 0.12, now.Add(-time.Minute), 30*time.Minute)
-	mixed := newOpenAILegacyUpstreamRateOrder(
-		[]*Account{grokCheap, openAICheap, anthropicExpensive, openAIExpensive},
-		now, defaultOpenAIOAuthSchedulingRateMultiplier,
-	)
-	require.True(t, mixed.enabled)
-	require.Len(t, mixed.rates, 2)
-	require.NotContains(t, mixed.rates, grokCheap.ID)
-	require.NotContains(t, mixed.rates, anthropicExpensive.ID)
-	require.Negative(t, mixed.compare(openAICheap, openAIExpensive))
-	// 自报 0.01 的 grok 账号没有已知倍率，排在有倍率的 OpenAI 账号之后。
-	require.Positive(t, mixed.compare(grokCheap, openAIExpensive))
+	// 其他平台分组：同一批账号一律不参与，因子保持中性。
+	grokOrder := newOpenAILegacyUpstreamRateOrder(PlatformGrok, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	require.False(t, grokOrder.enabled)
+	require.Empty(t, grokOrder.rates)
+	require.Zero(t, grokOrder.compare(grokLabelledCheap, anthropicLabelledExpensive))
+
+	grokFactors := openAIUpstreamCostFactors(PlatformGrok, accounts, now, defaultOpenAIOAuthSchedulingRateMultiplier)
+	require.Equal(t, openAIUpstreamCostNeutralFactor, grokFactors[grokLabelledCheap.ID])
+	require.Equal(t, openAIUpstreamCostNeutralFactor, grokFactors[anthropicLabelledExpensive.ID])
 }
 
 func TestOpenAISchedulingRatePlacesOAuthAtConfiguredReference(t *testing.T) {
@@ -539,12 +535,12 @@ func TestOpenAISchedulingRatePlacesOAuthAtConfiguredReference(t *testing.T) {
 	oauth := upstreamCostTestOAuthAccount(2)
 	expensive := upstreamCostTestAccount(3, UpstreamBillingProbeStatusOK, 0.12, now.Add(-time.Minute), 30*time.Minute)
 
-	order := newOpenAILegacyUpstreamRateOrder([]*Account{cheap, oauth, expensive}, now, 0.05)
+	order := newOpenAILegacyUpstreamRateOrder(PlatformOpenAI, []*Account{cheap, oauth, expensive}, now, 0.05)
 	require.True(t, order.enabled)
 	require.Negative(t, order.compare(cheap, oauth))
 	require.Negative(t, order.compare(oauth, expensive))
 
-	factors := openAIUpstreamCostFactors([]*Account{cheap, oauth, expensive}, now, 0.05)
+	factors := openAIUpstreamCostFactors(PlatformOpenAI, []*Account{cheap, oauth, expensive}, now, 0.05)
 	require.Greater(t, factors[cheap.ID], factors[oauth.ID])
 	require.Greater(t, factors[oauth.ID], factors[expensive.ID])
 }

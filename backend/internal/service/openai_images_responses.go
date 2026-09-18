@@ -936,7 +936,8 @@ func (s *OpenAIGatewayService) handleOpenAIImagesErrorResponse(
 	// Honor admin-configured error passthrough rules first.
 	if status, errType, errMsg, matched := applyErrorPassthroughRule(
 		c,
-		account.Platform,
+		// 图片端点固定按 openai 平台调度（SelectAccountWithSchedulerForImages）。
+		ErrorPassthroughRulePlatform(account, PlatformOpenAI),
 		resp.StatusCode,
 		body,
 		http.StatusBadGateway,

@@ -13,7 +13,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/tlsfingerprint"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -267,15 +266,11 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolResponses,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "https://relay.example.com/v1",
 			APIProtocolResponses:       "https://relay.example.com/v1",
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesSupported: true,
 		},
 	}
 
@@ -285,6 +280,8 @@ func TestAccountTestService_DeepSeekCustomBaseURLUsesV1ResponsesPath(t *testing.
 	require.Equal(t, "https://relay.example.com/v1/responses", upstream.requests[0].URL.String())
 }
 
+// TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe：只配 responses 地址的国产供应商
+// key 在连接测试里走 OpenAI Responses 探测。
 func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	ctx, _ := newTestContext()
@@ -304,15 +301,10 @@ func TestAccountTestService_DeepSeekResponsesRoutesToOpenAIProbe(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolResponses,
+			"api_key": "sk-test",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://relay.example.com/v1",
-			APIProtocolResponses:       "https://relay.example.com/v1",
-		},
-		Extra: map[string]any{
-			openai_compat.ExtraKeyResponsesSupported: true,
+			APIProtocolResponses: "https://relay.example.com/v1",
 		},
 	}
 	repo := &openAIAccountTestRepo{
@@ -525,7 +517,6 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUsesCodexProbeHeaders(t *testin
 			APIProtocolChatCompletions: "https://compat-upstream.example/v1",
 			APIProtocolResponses:       "https://compat-upstream.example/v1",
 		},
-		Extra: map[string]any{openai_compat.ExtraKeyResponsesSupported: true},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -564,7 +555,6 @@ func TestAccountTestService_OpenAIAPIKeyResponsesUnsupportedUsesChatCompletionsP
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example/v1"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "hello", "")
@@ -601,7 +591,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathReturns4xx(t *testing.T) {
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -628,7 +617,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathTimeout(t *testing.T) {
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")
@@ -660,7 +648,6 @@ func TestAccountTestService_OpenAIChatCompletionsPathRejectsNonJSONStream(t *tes
 		Concurrency:       1,
 		Credentials:       map[string]any{"api_key": "sk-test"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://compat-upstream.example"},
-		Extra:             map[string]any{openai_compat.ExtraKeyResponsesSupported: false},
 	}
 
 	err := svc.testOpenAIAccountConnection(ctx, account, "gpt-5.4", "", "")

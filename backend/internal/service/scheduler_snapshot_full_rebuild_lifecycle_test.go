@@ -202,7 +202,7 @@ func (r *fullRebuildAccountRepo) ListSchedulableByGroupIDAndPlatform(_ context.C
 	return r.record(groupID, platform)
 }
 
-func (r *fullRebuildAccountRepo) ListSchedulableByGroupIDAndPlatforms(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
+func (r *fullRebuildAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.record(groupID, firstPlatform(platforms))
 }
 
@@ -210,7 +210,7 @@ func (r *fullRebuildAccountRepo) ListSchedulableUngroupedByPlatform(_ context.Co
 	return r.record(0, platform)
 }
 
-func (r *fullRebuildAccountRepo) ListSchedulableUngroupedByPlatforms(_ context.Context, platforms []string) ([]Account, error) {
+func (r *fullRebuildAccountRepo) ListSchedulingCandidatesUngrouped(_ context.Context, platforms []string) ([]Account, error) {
 	return r.record(0, firstPlatform(platforms))
 }
 
@@ -222,7 +222,7 @@ func (r *fullRebuildAccountRepo) ListSchedulableByPlatform(_ context.Context, pl
 	return r.record(0, platform)
 }
 
-func (r *fullRebuildAccountRepo) ListSchedulableByPlatforms(_ context.Context, platforms []string) ([]Account, error) {
+func (r *fullRebuildAccountRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]Account, error) {
 	return r.record(0, firstPlatform(platforms))
 }
 

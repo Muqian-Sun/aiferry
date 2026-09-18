@@ -211,7 +211,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 			stageCodexFingerprintIDs(c, fpIDs)
 		}
 	}
-	if account != nil && account.IsOpenAI() {
+	if openAIProtocolFeaturesApply(account) {
 		responsesLite := isOpenAIResponsesLiteHeader(c.GetHeader(responsesLiteHeader)) || isOpenAIResponsesLiteWebSocketPayload(body)
 		normalizedBody, normalized, normalizeErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(body, account, responsesLite)
 		if normalizeErr != nil {
@@ -232,7 +232,7 @@ func (s *OpenAIGatewayService) forwardOpenAIPassthrough(
 		}
 	}
 
-	if account != nil && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey &&
+	if keyUsesOpenAIProtocolFeatures(account) &&
 		!isOpenAIResponsesCompactPath(c) && needsOpenAIResponsesClientToolAdaptation(body) {
 		adaptedBody, mapping, adaptErr := adaptOpenAIResponsesClientTools(body)
 		if adaptErr != nil {
@@ -591,18 +591,11 @@ func (s *OpenAIGatewayService) buildUpstreamRequestOpenAIPassthrough(
 			targetURL = chatgptCodexURL
 		}
 	case AccountTypeAPIKey:
-		baseURL := account.GetOpenAIResponsesBaseURL()
-		if account.UsesNativeCNResponses() && account.IsAdaptiveAPIProtocol() {
-			baseURL = account.GetCNProtocolBaseURL(APIProtocolResponses)
-		}
-		if baseURL == "" {
-			return nil, MissingProtocolEndpointError(account, APIProtocolResponses)
-		}
-		validatedURL, err := s.validateUpstreamBaseURL(baseURL)
+		keyURL, err := s.openAIKeyResponsesURL(account)
 		if err != nil {
 			return nil, err
 		}
-		targetURL = buildOpenAIResponsesURLForPlatform(account.Platform, validatedURL)
+		targetURL = keyURL
 	}
 	targetURL = appendOpenAIResponsesRequestPathSuffix(targetURL, openAIResponsesRequestPathSuffix(c))
 
@@ -1504,7 +1497,8 @@ func openAIStreamFailedEventPassthroughBody(payload []byte, failedMessage string
 
 // applyOpenAIStreamFailedErrorPassthroughRule 对 response.failed 事件应用错误透传规则：
 // 归一化 body 供关键词匹配/消息提取，并推断语义状态码使按错误码配置的规则可以命中。
-// platform 必须传 account.Platform——本服务同时承载 openai 与 grok 平台账号，规则按平台匹配。
+// platform 取 openAIGatewayErrorPassthroughPlatform：本服务同时承载 openai 与 grok 等平台的账号，
+// 规则按平台匹配；第三方 key 按请求所在网关平台匹配（见 ErrorPassthroughRulePlatform）。
 func applyOpenAIStreamFailedErrorPassthroughRule(
 	c *gin.Context,
 	platform string,
@@ -1871,7 +1865,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	capacityFailoverSuppressedLogged := false
 	failedMessage := ""
 	clientOutputStarted := false
-	codexFailureTerminal := account != nil && account.Platform == PlatformOpenAI
+	codexFailureTerminal := openAIProtocolFeaturesApply(account)
 	failureDelivered := false
 	suppressCurrentEvent := false
 	responseFailedPending := false
@@ -2029,7 +2023,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 			if codexFailureTerminal && sawBareError && !sawResponseFailed && eventType != "response.failed" {
 				suppressCurrentEvent = true
 			}
-			if !capacityFailoverSuppressedLogged && account != nil && account.Platform == PlatformOpenAI &&
+			if !capacityFailoverSuppressedLogged && openAIProtocolFeaturesApply(account) &&
 				(eventType == "error" || eventType == "response.failed") &&
 				openAIStreamClientOutputStarted(c, clientOutputStarted) &&
 				isOpenAIUpstreamCapacityShedEvent(dataBytes) {
@@ -2100,7 +2094,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 							s.newOpenAIStreamFailoverErrorWithModel(c, account, true, upstreamRequestID, dataBytes, failedMessage, mappedModel, resp.Header)
 					}
 					if !cyberHit && !sawBareError {
-						if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(c, account.Platform, dataBytes, failedMessage); matched {
+						if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(c, openAIGatewayErrorPassthroughPlatform(c, account), dataBytes, failedMessage); matched {
 							// 命中透传规则也要记录 ops 上游错误事件（对齐 CC/Messages 与
 							// antigravity 先例），否则透传命中的 failed 在监控中不可见。
 							s.recordOpenAIStreamUpstreamError(c, account, true, upstreamRequestID, "http_error", dataBytes, failedMessage)

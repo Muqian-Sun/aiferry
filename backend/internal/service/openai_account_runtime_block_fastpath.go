@@ -86,14 +86,25 @@ func isGrokOAuthAccount(account *Account) bool {
 	return account != nil && account.Platform == PlatformGrok && account.Type == AccountTypeOAuth
 }
 
+// isOpenAIAccount 报告账号是否参与 OpenAI 网关的进程内调度阻断。
+//
+// 第三方 key 不论标签都可能被 OpenAI 网关的分组调度到，阻断状态必须对它们生效，
+// 否则标签不是 openai/grok 的 key 在认证失败后仍会被继续选中。成品号保持原口径。
 func isOpenAIAccount(account *Account) bool {
-	return account != nil && (account.Platform == PlatformOpenAI || account.Platform == PlatformGrok)
+	if account == nil {
+		return false
+	}
+	if account.IsThirdPartyKey() {
+		return true
+	}
+	return account.Platform == PlatformOpenAI || account.Platform == PlatformGrok
 }
 
 // handleOpenAIAccountUpstreamError expects canonicalModel to be the model used
 // for scheduling after applying account mapping exactly once.
 func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Context, account *Account, statusCode int, headers http.Header, responseBody []byte, canonicalModel ...string) bool {
-	if account != nil && account.Platform == PlatformGrok && isGrokContentPolicyRejection(statusCode, responseBody) {
+	// xAI 的内容安全拒绝文案是厂商私有语义，按 Vendor 识别。
+	if account != nil && account.Vendor() == PlatformGrok && isGrokContentPolicyRejection(statusCode, responseBody) {
 		return false
 	}
 	// Any non-2xx upstream HTTP response means the model request was actually sent.
@@ -102,12 +113,16 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	}
 	// Capacity shedding describes this request, not account health. Keep the
 	// account schedulable while the request-local retry budget handles recovery.
-	if account != nil && account.Platform == PlatformOpenAI && isOpenAIRequestScopedCapacityShed("", responseBody) {
+	// 过载文案是 OpenAI 协议错误形态，中转会原样透传；豁免只免除账号处罚，
+	// 对通用中转同样安全。
+	if openAIProtocolFeaturesApply(account) && isOpenAIRequestScopedCapacityShed("", responseBody) {
 		return false
 	}
 	stateCtx, cancel := openAIAccountStateContext(ctx)
 	defer cancel()
-	if account != nil && account.Platform == PlatformOpenAI && isOpenAIHTTPUpstreamAccessStateError(statusCode, "", responseBody) {
+	// 账号/工作区停用码描述的是 OpenAI 官方凭据本身，直接永久停用。中转透传的同类
+	// 错误码说的是中转背后某个上游账号，不能据此停用整把中转 key，只认官方地址。
+	if account != nil && account.Vendor() == PlatformOpenAI && isOpenAIHTTPUpstreamAccessStateError(statusCode, "", responseBody) {
 		message := "OpenAI upstream account or workspace is unavailable"
 		if upstreamMsg := strings.TrimSpace(extractUpstreamErrorMessage(responseBody)); upstreamMsg != "" {
 			message = upstreamMsg
@@ -121,7 +136,9 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 		return true
 	}
 
-	if account != nil && account.Platform == PlatformOpenAI && isOpenAIContextWindowError("", responseBody) {
+	// context_length_exceeded 是 OpenAI 协议的标准错误码，属于请求本身的问题；
+	// 豁免只免除账号处罚，对通用中转同样适用。
+	if openAIProtocolFeaturesApply(account) && isOpenAIContextWindowError("", responseBody) {
 		return false
 	}
 
@@ -181,7 +198,9 @@ func (s *OpenAIGatewayService) handleOpenAIAccountUpstreamError(ctx context.Cont
 	// same-account retry budget. Recording the generic account+model transient
 	// cooldown here would block the next approved retry before that budget is used.
 	poolModeRetryable := account.IsPoolMode() && account.IsPoolModeRetryableStatus(statusCode)
-	if !shouldDisable && account.Platform == PlatformOpenAI && account.Type == AccountTypeAPIKey &&
+	// 账号×模型的瞬时冷却针对第三方 key：5xx/52x 与 OpenAI 协议的处理中错误，
+	// 官方 OpenAI 地址与通用中转都适用；成品号不参与。
+	if !shouldDisable && account.IsThirdPartyKey() && openAIProtocolFeaturesApply(account) &&
 		shouldCooldownOpenAITransientUpstreamError(statusCode, responseBody) && !poolModeRetryable {
 		model := ""
 		if len(canonicalModel) > 0 {
@@ -432,7 +451,9 @@ func canonicalOpenAIAccountSchedulingModel(account *Account, requestedModel stri
 	if account == nil || model == "" {
 		return model
 	}
-	if account.IsOpenAI() {
+	// 第三方 key 在 OpenAI 网关上不论标签都走同一条转发模型解析链（映射、透传、
+	// 上游归一），调度与瞬时冷却的模型键必须与之一致，不能按标签分叉。
+	if account.IsOpenAI() || account.IsThirdPartyKey() {
 		return resolveOpenAIAccountUpstreamModelForRequest(account, model, false)
 	}
 	if mapped := strings.TrimSpace(account.GetMappedModel(model)); mapped != "" {

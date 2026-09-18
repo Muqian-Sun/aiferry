@@ -51,9 +51,8 @@ func (s *OpenAIGatewayService) ForwardEmbeddings(
 	if apiKey == "" {
 		return nil, fmt.Errorf("account %d missing api_key", account.ID)
 	}
-	// 协议感知：Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，
-	// embeddings 需使用 OpenAI 格式 base。
-	baseURL, err := ResolveUpstreamBaseURL(account, account.GetOpenAIFormatBaseURL(), APIProtocolChatCompletions, "https://api.openai.com")
+	// 向量端点挂在 OpenAI API 根地址下：第三方 key 取扩展端点的协议地址。
+	baseURL, err := ResolveUpstreamBaseURL(account, openAIGatewayKeyExtensionBaseURL(account), APIProtocolChatCompletions, "https://api.openai.com")
 	if err != nil {
 		return nil, err
 	}

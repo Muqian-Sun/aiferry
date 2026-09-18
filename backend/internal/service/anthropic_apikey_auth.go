@@ -12,16 +12,16 @@ const (
 	AnthropicAPIKeyAuthSchemeAuthorizationBearer = "authorization_bearer"
 )
 
-// GetAnthropicAPIKeyAuthScheme returns the upstream authentication scheme for
-// Anthropic API-key accounts. Missing or invalid values keep the historical
-// x-api-key behavior. CN providers using their native Anthropic endpoints
-// (api_protocol=anthropic) share the same override knob — Kimi/DeepSeek default
-// to x-api-key, Zhipu can opt into Authorization: Bearer.
+// GetAnthropicAPIKeyAuthScheme returns the authentication scheme a third-party
+// key uses on the Anthropic protocol. Missing or invalid values keep the
+// historical x-api-key behavior.
+//
+// The setting applies to keys of any display label: it is only read when a
+// request goes out over the Anthropic protocol, and Anthropic-compatible
+// upstreams differ in what they accept (Zhipu, for one, wants
+// Authorization: Bearer). Subscription accounts never use it.
 func (a *Account) GetAnthropicAPIKeyAuthScheme() string {
-	if a == nil || a.Type != AccountTypeAPIKey {
-		return AnthropicAPIKeyAuthSchemeXAPIKey
-	}
-	if a.Platform != PlatformAnthropic && !a.IsCNProvider() {
+	if a == nil || !a.IsThirdPartyKey() {
 		return AnthropicAPIKeyAuthSchemeXAPIKey
 	}
 

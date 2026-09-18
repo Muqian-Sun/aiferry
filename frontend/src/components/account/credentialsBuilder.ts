@@ -27,7 +27,7 @@ export function applyAntigravityProjectID(
   }
 }
 
-// ========== 请求头覆写（API-key 平台 + grok 的 api_key/oauth 账号） ==========
+// ========== 请求头覆写（任何第三方 key + Grok OAuth 成品号） ==========
 
 export const HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY = 'header_override_enabled'
 export const HEADER_OVERRIDES_CREDENTIAL_KEY = 'header_overrides'
@@ -37,23 +37,15 @@ export interface HeaderOverrideRow {
   value: string
 }
 
-/** 请求头覆写资格（与后端 IsHeaderOverrideEligible 保持一致） */
+/**
+ * 请求头覆写资格（与后端 IsHeaderOverrideEligible 保持一致）：第三方 key 不论平台标签
+ * 一律支持，覆写跟着 key 发出的每个上游请求走；成品号只开放 Grok OAuth。
+ */
 export function isHeaderOverrideCapable(platform: string, type: string): boolean {
-  if (
-    platform === 'anthropic' ||
-    platform === 'openai' ||
-    platform === 'kimi' ||
-    platform === 'zhipu' ||
-    platform === 'deepseek' ||
-    platform === 'minimax' ||
-    platform === 'opencode_go'
-  ) {
-    return type === 'apikey'
+  if (type === 'apikey') {
+    return true
   }
-  if (platform === 'grok') {
-    return type === 'apikey' || type === 'oauth'
-  }
-  return false
+  return platform === 'grok' && type === 'oauth'
 }
 
 /** 禁止覆写的请求头（与后端 headerOverrideBlockedNames 保持一致） */
@@ -231,24 +223,17 @@ export const GROK_BASE_URL_PRESETS: GrokBaseUrlPreset[] = [
 // ========== 国产供应商（Kimi / Zhipu / DeepSeek）base_url 预设 ==========
 // 与后端 service/domain_constants.go 的默认 base url 保持一致。
 // 账号类型（payg 按量付费 / coding 编程套餐）决定额度监控方式；
-// API 协议（chat_completions / anthropic / responses）决定转发端点与格式，
-// 两者正交。同协议请求零转换直通，跨协议组合才走转换链。
+// 转发协议由协议地址决定：同协议请求零转换直通，跨协议组合才走转换链。
 
 export type CnAccountMode = 'payg' | 'coding'
 export type OpenCodeAccountMode = 'zen' | 'go'
 export type CnProviderPlatform = 'kimi' | 'zhipu' | 'deepseek' | 'minimax'
 
-/** deepseek / kimi / minimax 支持原生 responses；adaptive 会按入站协议选择原生端点。 */
-export type CnApiProtocol = 'adaptive' | 'chat_completions' | 'anthropic' | 'responses'
-export type CnNativeApiProtocol = Exclude<CnApiProtocol, 'adaptive'>
+/** OpenCode 按模型分流时可选的原生上游协议。 */
+export type CnNativeApiProtocol = 'chat_completions' | 'anthropic' | 'responses'
 
 export function isCNProviderPlatform(platform: string): platform is CnProviderPlatform {
   return platform === 'kimi' || platform === 'zhipu' || platform === 'deepseek' || platform === 'minimax'
-}
-
-/** DeepSeek、Kimi 与 MiniMax 提供原生 Responses 端点。 */
-export function cnSupportsNativeResponses(platform: string): boolean {
-  return platform === 'deepseek' || platform === 'kimi' || platform === 'minimax' || platform === 'opencode_go'
 }
 
 export function isOpenCodeGoPlatform(platform: string): boolean {

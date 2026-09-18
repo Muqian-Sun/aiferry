@@ -862,6 +862,9 @@ func (c *schedulerCache) mgetChunked(ctx context.Context, keys []string) ([]any,
 	return out, nil
 }
 
+// buildSchedulerMetadataAccount 构造调度快照里的精简账号。候选过滤读的是这份投影：
+// 第三方 key 能否承接请求、厂商特化是否启用都由来源（SourceKind）与协议地址（ProtocolEndpoints）
+// 决定，裁掉它们会让缓存命中路径上的 key 全部被判为没有可用协议。
 func buildSchedulerMetadataAccount(account service.Account) service.Account {
 	return service.Account{
 		ID:                      account.ID,
@@ -887,6 +890,8 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		SessionWindowStatus:     account.SessionWindowStatus,
 		ParentAccountID:         account.ParentAccountID,
 		QuotaDimension:          account.QuotaDimension,
+		SourceKind:              account.SourceKind,
+		ProtocolEndpoints:       account.ProtocolEndpoints,
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
 		Credentials:             filterSchedulerCredentials(account.Credentials),
@@ -1007,8 +1012,6 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"responses_websockets_v2_enabled",
 		"openai_ws_enabled",
 		"openai_ws_force_http",
-		"openai_responses_mode",
-		"openai_responses_supported",
 		// 透传开关必须进投影：候选过滤(ListSchedulableAccounts)读的是本投影，
 		// 而 Account.IsModelSupported 靠 extra 上的这两个键短路 model_mapping 白名单。
 		// 裁掉它们，透传账号在选号阶段会退回按(常为过期的)白名单判定并被误判为

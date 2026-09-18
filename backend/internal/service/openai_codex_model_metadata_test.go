@@ -76,7 +76,8 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 	official := newAccount("https://api.openai.com/v1")
 	custom := newAccount("https://relay.example/v1")
 	bridge := newAccount("https://bridge.example/v1")
-	bridge.Extra = map[string]any{"openai_responses_supported": false}
+	// 只配 chat_completions 地址：Responses 入站转成 Chat Completions，由桥接实现工具发现。
+	delete(bridge.ProtocolEndpoints, APIProtocolResponses)
 	for _, tt := range []struct {
 		name     string
 		accounts []Account
@@ -237,15 +238,18 @@ func TestBuildCodexModelsManifestForGroupAdvertisesSearchOnlyForChatBridgeRoutes
 	t.Parallel()
 
 	newAccount := func(id int64, nativeResponses bool) Account {
-		return Account{
+		account := Account{
 			ID: id, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			Credentials: map[string]any{
 				"base_url":      "https://provider.example/v1",
 				"model_mapping": map[string]any{"company-coding-model": "company-coding-model"},
 			},
-			Extra:             map[string]any{"openai_responses_supported": nativeResponses},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1"},
 		}
+		if nativeResponses {
+			account.ProtocolEndpoints[APIProtocolResponses] = "https://provider.example/v1"
+		}
+		return account
 	}
 
 	for _, tc := range []struct {
@@ -280,7 +284,6 @@ func TestCompleteAPIKeyCodexManifestSearchCapabilityPreservesUpstreamAndFailsClo
 		Credentials: map[string]any{
 			"base_url": "https://provider.example/v1",
 		},
-		Extra:             map[string]any{"openai_responses_supported": true},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
 	}
 	body, err := completeAPIKeyCodexModelsManifestMetadata([]byte(`{"models":[
@@ -298,8 +301,7 @@ func TestCompleteAPIKeyCodexManifestSearchCapabilityPreservesUpstreamAndFailsClo
 		Credentials: map[string]any{
 			"base_url": "https://provider.example/v1",
 		},
-		Extra:             map[string]any{"openai_responses_supported": false},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1", APIProtocolResponses: "https://provider.example/v1"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://provider.example/v1"},
 	}
 	body, err = completeAPIKeyCodexModelsManifestMetadata(
 		[]byte(`{"models":[
@@ -757,3 +759,31 @@ func TestCodexAliasFailoverMappingHonorsModelRouting(t *testing.T) {
 }
 
 // Scenario: mixed groups prefer capability metadata synced for the routed account.
+
+// accountCodexToolCapabilities 不看第三方 key 的平台标签。
+func TestAccountCodexToolCapabilities_KeysIgnoreLabel(t *testing.T) {
+	t.Run("chat bridge search tool for any label", func(t *testing.T) {
+		bridge := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://bridge.example/v1"}}
+		require.True(t, shouldForwardOpenAIResponsesViaRawChatCompletions(bridge))
+		require.Equal(t, json.RawMessage("true"), accountCodexToolCapabilities(bridge, "gpt-5.1")["supports_search_tool"])
+	})
+
+	t.Run("astra official defaults follow openai vendor", func(t *testing.T) {
+		official := &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}}
+		require.Equal(t, PlatformOpenAI, official.Vendor())
+		capabilities := accountCodexToolCapabilities(official, "gpt-6-astra")
+		require.Equal(t, json.RawMessage(`"freeform"`), capabilities["apply_patch_tool_type"])
+		require.Equal(t, json.RawMessage("false"), capabilities["use_responses_lite"])
+	})
+
+	t.Run("responses lite guard for any key label", func(t *testing.T) {
+		key := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example/v1"}}
+		key.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
+			"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
+		}})
+		require.Equal(t, json.RawMessage("false"), accountCodexToolCapabilities(key, "gpt-6-astra")["use_responses_lite"])
+	})
+}

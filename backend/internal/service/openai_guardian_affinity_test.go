@@ -314,31 +314,30 @@ func TestOpenAIGatewayService_PreviousResponseHonorsGroupAndRequiredPrivacy(t *t
 			groupErr: errors.New("group repository unavailable"),
 		},
 		{
+			// 换了分组的成品号：privacy 合规，但不在本分组，同样不能凭续链绑定被选中。
 			name: "different group",
 			boundAccount: Account{
-				ID: 39041, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				ID: 39041, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Status: StatusActive, Schedulable: true, Concurrency: 1,
 				GroupIDs: []int64{groupID + 1},
 				Extra: map[string]any{
-					"openai_apikey_responses_websockets_v2_enabled": true,
 					"privacy_mode": PrivacyModeTrainingOff,
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			},
 		},
 	}
 
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
+			// 兜底账号必须是成品号：require_privacy_set 分组只收成品号，
+			// 第三方 key 没有 OAuth 写入的 privacy_mode，一律视为未设置。
 			fallback := Account{
-				ID: 39042, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+				ID: 39042, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
 				Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5,
 				GroupIDs: []int64{groupID},
 				Extra: map[string]any{
-					"openai_apikey_responses_websockets_v2_enabled": true,
 					"privacy_mode": PrivacyModeTrainingOff,
 				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 			}
 			accounts := []Account{tc.boundAccount, fallback}
 			repo := &guardianAffinityAccountRepo{schedulerGroupAwareOpenAIAccountRepo: schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}}

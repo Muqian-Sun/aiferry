@@ -160,21 +160,21 @@ func TestIntervalPricePreservesDefaultFastRatio(t *testing.T) {
 }
 
 func TestAnthropicSpeedServiceTier(t *testing.T) {
-	account := &Account{Platform: PlatformAnthropic}
+	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 
 	for _, model := range []string{"claude-opus-5", "claude-opus-4-8", "claude-opus-4.8"} {
-		tier := anthropicSpeedServiceTier(account, "fast", model)
+		tier := anthropicSpeedServiceTier(account, "fast", model, "")
 		require.NotNil(t, tier, "model %s should bill as fast", model)
 		require.Equal(t, "fast", *tier)
 	}
 
-	require.Nil(t, anthropicSpeedServiceTier(&Account{Platform: PlatformOpenAI}, "fast", "claude-opus-5"))
-	require.Nil(t, anthropicSpeedServiceTier(account, "standard", "claude-opus-5"))
+	require.Nil(t, anthropicSpeedServiceTier(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}, "fast", "claude-opus-5", ""))
+	require.Nil(t, anthropicSpeedServiceTier(account, "standard", "claude-opus-5", ""))
 }
 
 // fast mode 不存在于这些模型/承载上，即便客户端传了 speed=fast 也不能计 2x。
 func TestAnthropicSpeedServiceTierRejectsUnsupportedTargets(t *testing.T) {
-	account := &Account{Platform: PlatformAnthropic}
+	account := &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}
 
 	for _, model := range []string{
 		"claude-opus-4-7",  // fast mode 已被移除
@@ -184,12 +184,12 @@ func TestAnthropicSpeedServiceTierRejectsUnsupportedTargets(t *testing.T) {
 		"claude-haiku-4-5", //
 		"",                 //
 	} {
-		require.Nil(t, anthropicSpeedServiceTier(account, "fast", model),
+		require.Nil(t, anthropicSpeedServiceTier(account, "fast", model, ""),
 			"model %q must not bill as fast", model)
 	}
 
 	bedrock := &Account{Platform: PlatformAnthropic, Type: AccountTypeBedrock}
-	require.Nil(t, anthropicSpeedServiceTier(bedrock, "fast", "claude-opus-5"))
+	require.Nil(t, anthropicSpeedServiceTier(bedrock, "fast", "claude-opus-5", "fast"))
 }
 
 func TestAnthropicSpeedModelPrefersMappedUpstreamModel(t *testing.T) {

@@ -54,11 +54,11 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		observer = beginUpstreamResponseModelObservation(c)
 	}
 	firstOutputTimeout := time.Duration(0)
-	if account != nil && account.Platform == PlatformOpenAI {
+	if openAIProtocolFeaturesApply(account) {
 		firstOutputTimeout = s.openAIFirstOutputTimeout(reasoningEffort)
 	}
 	guardFirstOutput := firstOutputTimeout > 0
-	stageFirstOutput := account != nil && account.Platform == PlatformOpenAI
+	stageFirstOutput := openAIProtocolFeaturesApply(account)
 	var attemptResponseHeaders http.Header
 	if stageFirstOutput {
 		if s.responseHeaderFilter != nil {
@@ -177,7 +177,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 	// Grok: always enforce an upstream-read idle so hung SSE bodies fail over
 	// instead of holding the OAuth slot until the client cancels. Prefer the
 	// global gateway setting when set; otherwise apply a Grok-only default.
-	if account != nil && account.Platform == PlatformGrok {
+	if account != nil && account.Vendor() == PlatformGrok {
 		cfgSec := 0
 		if s.cfg != nil {
 			cfgSec = s.cfg.Gateway.StreamDataIntervalTimeout
@@ -509,7 +509,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 				responseID = extractOpenAIResponseIDFromJSONBytes(dataBytes)
 			}
 			forceFlushFailedEvent := false
-			if !capacityFailoverSuppressedLogged && account != nil && account.Platform == PlatformOpenAI &&
+			if !capacityFailoverSuppressedLogged && openAIProtocolFeaturesApply(account) &&
 				(eventType == "error" || eventType == "response.failed") &&
 				openAIStreamClientOutputStarted(c, clientOutputStarted) &&
 				isOpenAIUpstreamCapacityShedEvent(dataBytes) {
@@ -583,7 +583,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 						return
 					}
 					if !cyberHit && !sawBareError {
-						if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(c, account.Platform, dataBytes, failedMessage); matched {
+						if status, errType, errMsg, matched := applyOpenAIStreamFailedErrorPassthroughRule(c, openAIGatewayErrorPassthroughPlatform(c, account), dataBytes, failedMessage); matched {
 							sawFailedEvent = true
 							// 命中透传规则也要记录 ops 上游错误事件（对齐 CC/Messages 与
 							// antigravity 先例），否则透传命中的 failed 在监控中不可见。
@@ -684,7 +684,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// response.completed (no output, no usage, no error, nothing sent
 			// to the client) are silent upstream refusals: fail over instead of
 			// recording a successful 0/0 usage turn (issue #5009).
-			if account != nil && account.Platform == PlatformOpenAI &&
+			if openAIProtocolFeaturesApply(account) &&
 				(eventType == "response.completed" || eventType == "response.done") &&
 				!sawFailedEvent && !responsesSemanticOutputSeen && !clientOutputStarted &&
 				openAIResponsesCompletedEventIsEmpty(dataBytes, usage) {
@@ -907,7 +907,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 			// Grok: short cool + account failover when no client-visible bytes
 			// were committed yet (pre-commit). After output started we keep the
 			// legacy stream_timeout path so partial SSE is not dual-written.
-			if account != nil && account.Platform == PlatformGrok {
+			if account != nil && account.Vendor() == PlatformGrok {
 				s.tempUnscheduleGrok(ctx, account, grokStreamIdleCooldown, "grok stream idle timeout")
 				if !openAIStreamClientOutputStarted(c, clientOutputStarted) && !eventShouldFlush {
 					_ = resp.Body.Close()
@@ -1604,7 +1604,7 @@ func (s *OpenAIGatewayService) handleNonStreamingResponse(ctx context.Context, r
 	if account.Type == AccountTypeOAuth && bodyLooksLikeSSE {
 		return s.handleSSEToJSON(resp, c, account, body, originalModel, mappedModel)
 	}
-	if account != nil && account.IsGrok() && isOpenAIResponsesCompactPath(c) {
+	if account != nil && account.Vendor() == PlatformGrok && isOpenAIResponsesCompactPath(c) {
 		body, err = convertGrokResponseToOpenAICompact(body)
 		if err != nil {
 			return nil, fmt.Errorf("convert Grok compact response: %w", err)

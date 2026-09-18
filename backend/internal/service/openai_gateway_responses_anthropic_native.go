@@ -1,9 +1,9 @@
 package service
 
-// 国产供应商 Anthropic 协议账号的 Responses 入站反向路径。
+// OpenAI 网关上第三方 key 以 Anthropic 协议转发时的 Responses 入站反向路径。
 //
-// 客户端说 OpenAI Responses（/v1/responses，Codex 等）、上游是供应商原生
-// Anthropic 端点（api_protocol=anthropic）时的交叉组合：请求 Responses→Anthropic
+// 客户端说 OpenAI Responses（/v1/responses，Codex 等）、上游是 anthropic 协议
+// 地址（协议选择为 anthropic）时的交叉组合：请求 Responses→Anthropic
 // 单次转换，响应 Anthropic 事件→Responses 事件转换。转换链与 Anthropic 平台的
 // gateway_forward_as_responses.go 完全一致（复用同一组 apicompat 状态机），仅上游
 // 发送/错误处理对齐 OpenAI 网关语义（模型映射、failover、transport error）。

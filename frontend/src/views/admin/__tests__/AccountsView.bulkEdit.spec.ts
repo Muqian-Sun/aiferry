@@ -621,3 +621,117 @@ describe('admin AccountsView bulk edit scope', () => {
     expect(wrapper.get('[data-test="account-rate"]').text()).toBe('0.065x')
   })
 })
+
+describe('admin AccountsView bulk edit key endpoints', () => {
+  const row = (id: number, platform: string, type: string, protocolEndpoints?: Record<string, string>) => ({
+    id,
+    name: `account-${id}`,
+    platform,
+    type,
+    ...(protocolEndpoints ? { protocol_endpoints: protocolEndpoints } : {}),
+    status: 'active',
+    schedulable: true,
+    created_at: '2026-07-13T00:00:00Z',
+    updated_at: '2026-07-13T00:00:00Z'
+  })
+  const ROWS = [
+    row(1, 'kimi', 'apikey', { responses: 'https://relay.example.com/v1' }),
+    row(2, 'openai', 'oauth'),
+    row(3, 'openai', 'apikey')
+  ]
+  const page = (items: unknown[]) => ({ items, total: items.length, page: 1, page_size: 20, pages: 1 })
+
+  const BulkEditTargetStub = {
+    props: ['show', 'target', 'selectedKeyEndpoints'],
+    template: '<div data-test="bulk-edit-modal"></div>'
+  }
+  const BulkActionsStub = {
+    emits: ['edit-selected', 'edit-filtered'],
+    template: `
+      <div>
+        <button data-test="edit-selected" @click="$emit('edit-selected')">edit selected</button>
+        <button data-test="edit-filtered" @click="$emit('edit-filtered')">edit filtered</button>
+      </div>
+    `
+  }
+
+  function mountView() {
+    return mount(AccountsView, {
+      global: {
+        stubs: {
+          AppLayout: { template: '<div><slot /></div>' },
+          TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /></div>' },
+          DataTable: DataTableStub,
+          Pagination: true,
+          ConfirmDialog: true,
+          AccountTableActions: true,
+          AccountTableFilters: true,
+          AccountBulkActionsBar: BulkActionsStub,
+          AccountActionMenu: true,
+          ImportDataModal: true,
+          ReAuthAccountModal: true,
+          AccountTestModal: true,
+          AccountStatsModal: true,
+          ScheduledTestsPanel: true,
+          TempUnschedStatusModal: true,
+          ErrorPassthroughRulesModal: true,
+          TLSFingerprintProfilesModal: true,
+          CreateAccountModal: true,
+          EditAccountModal: true,
+          BulkEditAccountModal: BulkEditTargetStub,
+          PlatformTypeBadge: true,
+          AccountCapacityCell: true,
+          AccountStatusIndicator: true,
+          AccountTodayStatsCell: true,
+          AccountGroupsCell: true,
+          AccountUsageCell: true,
+          Icon: true
+        }
+      }
+    })
+  }
+
+  beforeEach(() => {
+    localStorage.clear()
+    listAccounts.mockReset()
+    listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: null, data: null })
+    getUpstreamBillingRatesWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: null, data: null })
+    getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
+    getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: true, interval_minutes: 30 })
+    getAllProxies.mockReset().mockResolvedValue([])
+    getAllGroups.mockReset().mockResolvedValue([])
+  })
+
+  it('passes the protocol endpoints of each selected key, and only keys', async () => {
+    listAccounts.mockResolvedValue(page(ROWS))
+    const wrapper = mountView()
+    await flushPromises()
+
+    for (const checkbox of wrapper.findAll('[data-test="select-row"] input')) {
+      await checkbox.trigger('change')
+    }
+    await wrapper.get('[data-test="edit-selected"]').trigger('click')
+    await flushPromises()
+
+    const modal = wrapper.getComponent(BulkEditTargetStub)
+    const expected = [{ responses: 'https://relay.example.com/v1' }, {}]
+    expect(modal.props('target')).toMatchObject({ mode: 'selected', selectedKeyEndpoints: expected })
+    expect(modal.props('selectedKeyEndpoints')).toEqual(expected)
+  })
+
+  it('passes the protocol endpoints of each previewed key for filtered results', async () => {
+    listAccounts.mockImplementation((_page: number, pageSize: number) =>
+      Promise.resolve(pageSize === 100 ? page(ROWS) : page([]))
+    )
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-test="edit-filtered"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.getComponent(BulkEditTargetStub).props('target')).toMatchObject({
+      mode: 'filtered',
+      selectedKeyEndpoints: [{ responses: 'https://relay.example.com/v1' }, {}]
+    })
+  })
+})

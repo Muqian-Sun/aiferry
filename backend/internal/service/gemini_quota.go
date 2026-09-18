@@ -154,7 +154,8 @@ func (s *GeminiQuotaService) Policy(ctx context.Context) *GeminiQuotaPolicy {
 }
 
 func (s *GeminiQuotaService) QuotaForAccount(ctx context.Context, account *Account) (GeminiQuota, bool) {
-	if account == nil || account.Platform != PlatformGemini {
+	// 配额表是 Google 官方档位，只对官方 Gemini 上游成立（按 Vendor，不按标签）。
+	if account == nil || account.Vendor() != PlatformGemini {
 		return GeminiQuota{}, false
 	}
 
@@ -175,7 +176,7 @@ func (s *GeminiQuotaService) CooldownForTier(ctx context.Context, tierID string)
 }
 
 func (s *GeminiQuotaService) CooldownForAccount(ctx context.Context, account *Account) time.Duration {
-	if s == nil || account == nil || account.Platform != PlatformGemini {
+	if s == nil || account == nil || account.Vendor() != PlatformGemini {
 		return 5 * time.Minute
 	}
 	tierKey := geminiQuotaTierKeyForAccount(account)
@@ -370,7 +371,7 @@ func geminiCooldownForTier(tierID string) time.Duration {
 }
 
 func geminiQuotaTierKeyForAccount(account *Account) string {
-	if account == nil || account.Platform != PlatformGemini {
+	if account == nil || account.Vendor() != PlatformGemini {
 		return ""
 	}
 

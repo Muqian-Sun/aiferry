@@ -109,7 +109,7 @@ func TestOpenAIGatewayService_Forward_PreservePreviousResponseIDWhenWSEnabled(t 
 			"base_url": wsFallbackServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsFallbackServer.URL,
+			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -171,7 +171,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressStaysHTTPWhenWSEnabled(t *testi
 			"base_url": wsFallbackServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsFallbackServer.URL,
+			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -249,7 +249,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesInvalidEncryptedContentO
 			"base_url": wsFallbackServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsFallbackServer.URL,
+			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -341,7 +341,7 @@ func TestOpenAIGatewayService_Forward_HTTPIngressRetriesWrappedInvalidEncryptedC
 			"base_url": wsFallbackServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsFallbackServer.URL,
+			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -413,7 +413,7 @@ func TestOpenAIGatewayService_Forward_APIKeyHTTPPreservesPreviousResponseIDWhenW
 			"base_url": wsFallbackServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsFallbackServer.URL,
+			APIProtocolChatCompletions: wsFallbackServer.URL, APIProtocolResponses: wsFallbackServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -476,7 +476,7 @@ func TestOpenAIGatewayService_Forward_WSv2Dial426FallbackHTTP(t *testing.T) {
 			"base_url": ws426Server.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: ws426Server.URL,
+			APIProtocolChatCompletions: ws426Server.URL, APIProtocolResponses: ws426Server.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -541,7 +541,7 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackCoolingSkipWS(t *testing.T) {
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -603,7 +603,7 @@ func TestOpenAIGatewayService_Forward_ReturnErrorWhenOnlyWSv1Enabled(t *testing.
 			"base_url": "https://api.openai.com/v1/responses",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com/v1/responses",
+			APIProtocolChatCompletions: "https://api.openai.com/v1/responses", APIProtocolResponses: "https://api.openai.com/v1/responses",
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -699,7 +699,7 @@ func TestOpenAIGatewayService_Forward_WSv2FallbackWhenResponseAlreadyWrittenRetu
 			"base_url": ws426Server.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: ws426Server.URL,
+			APIProtocolChatCompletions: ws426Server.URL, APIProtocolResponses: ws426Server.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -795,7 +795,7 @@ func TestOpenAIGatewayService_Forward_WSv2StreamEarlyCloseFallbackHTTP(t *testin
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -880,7 +880,7 @@ func TestOpenAIGatewayService_Forward_WSv2RetryFiveTimesThenFallbackHTTP(t *test
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -964,7 +964,7 @@ func TestOpenAIGatewayService_Forward_WSv2PolicyViolationFastFallbackHTTP(t *tes
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1051,7 +1051,7 @@ func TestOpenAIGatewayService_Forward_WSv2ConnectionLimitReachedRetryThenFallbac
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1161,7 +1161,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundRecoversByDrop
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1264,7 +1264,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryF
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1365,7 +1365,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundSkipsRecoveryW
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1465,7 +1465,7 @@ func TestOpenAIGatewayService_Forward_WSv2PreviousResponseNotFoundOnlyRecoversOn
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1583,7 +1583,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversOnce(t 
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1690,7 +1690,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentSkipsRecoveryWi
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1809,7 +1809,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentRecoversSingleO
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1930,7 +1930,7 @@ func TestOpenAIGatewayService_Forward_WSv2InvalidEncryptedContentKeepsPreviousRe
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,

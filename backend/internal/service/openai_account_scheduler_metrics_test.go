@@ -10,13 +10,13 @@ import (
 
 type schedulerLatencyAccountRepo struct{ schedulerTestOpenAIAccountRepo }
 
-func (r schedulerLatencyAccountRepo) ListSchedulableByPlatform(ctx context.Context, platform string) ([]Account, error) {
+func (r schedulerLatencyAccountRepo) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
 	time.Sleep(20 * time.Millisecond)
-	return r.schedulerTestOpenAIAccountRepo.ListSchedulableByPlatform(ctx, platform)
+	return r.schedulerTestOpenAIAccountRepo.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r schedulerLatencyAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
+func (r schedulerLatencyAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
 func TestOpenAISchedulerSelectReturnsRealLatency(t *testing.T) {

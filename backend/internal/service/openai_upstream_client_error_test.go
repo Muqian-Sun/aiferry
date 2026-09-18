@@ -58,7 +58,9 @@ func TestOpenAICompatibleModelNotFound400FailoverScope(t *testing.T) {
 	}{
 		{name: "openai api key", account: &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}, want: true},
 		{name: "compatible provider", account: &Account{Platform: PlatformDeepseek, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.deepseek.com/anthropic", APIProtocolChatCompletions: "https://api.deepseek.com", APIProtocolResponses: "https://api.deepseek.com"}}, want: true},
-		{name: "anthropic account", account: &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}, want: false},
+		// 第三方 key 的平台只是展示标签：进了 OpenAI 网关就按网关规则 failover。
+		{name: "anthropic-labelled key", account: &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}, want: true},
+		{name: "anthropic subscription", account: &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}, want: false},
 		{name: "missing account", account: nil, want: false},
 	} {
 		t.Run(tc.name, func(t *testing.T) {

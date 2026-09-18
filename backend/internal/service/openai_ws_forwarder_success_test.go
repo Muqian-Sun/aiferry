@@ -139,7 +139,7 @@ func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -248,7 +248,7 @@ func TestOpenAIGatewayService_Forward_WSv2_UsesPatchedBodyAfterValidationDecode(
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{"responses_websockets_v2_enabled": true},
 	}
@@ -368,7 +368,7 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -712,7 +712,7 @@ func TestOpenAIGatewayService_Forward_WSv2_PoolReuseNotOneToOne(t *testing.T) {
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1312,7 +1312,7 @@ func TestOpenAIGatewayService_Forward_WSv1_Unsupported(t *testing.T) {
 			"base_url": "https://api.openai.com/v1/responses",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://api.openai.com/v1/responses",
+			APIProtocolChatCompletions: "https://api.openai.com/v1/responses", APIProtocolResponses: "https://api.openai.com/v1/responses",
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1407,7 +1407,7 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateAndMetadataReplayOnReconnect
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1732,7 +1732,7 @@ func TestOpenAIGatewayService_Forward_WSv2StoreFalseSessionConnIsolation(t *test
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,
@@ -1842,7 +1842,7 @@ func TestOpenAIGatewayService_Forward_WSv2StoreFalseDisableForceNewConnAllowsReu
 			"base_url": wsServer.URL,
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: wsServer.URL,
+			APIProtocolChatCompletions: wsServer.URL, APIProtocolResponses: wsServer.URL,
 		},
 		Extra: map[string]any{
 			"responses_websockets_v2_enabled": true,

@@ -4,7 +4,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai_compat"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -13,37 +12,13 @@ import (
 // 而 DeepSeek/OpenAI 客户端只认 reasoning_content。仅在 raw CC 直转路径上做 wire JSON
 // 双向补齐，不改 CC↔Responses / Anthropic / Grok 桥。
 
+// isOllamaCloudRawChatCompletionsAccount 报告 raw CC 请求是否发往 Ollama Cloud：只看
+// 本次实际使用的 chat_completions 地址是不是 ollama.com，与平台标签无关。
 func isOllamaCloudRawChatCompletionsAccount(account *Account) bool {
-	if account == nil || account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
+	if account == nil || !account.IsThirdPartyKey() {
 		return false
 	}
-	mode, _ := account.Extra[openai_compat.ExtraKeyResponsesMode].(string)
-	if openai_compat.NormalizeResponsesSupportMode(mode) != openai_compat.ResponsesSupportModeForceChatCompletions {
-		return false
-	}
-	if accountHasOllamaCloudUsageExtra(account) {
-		return true
-	}
-	if account.Credentials == nil {
-		return false
-	}
-	return isOllamaCloudBaseURL(account.PrimaryUpstreamBaseURL())
-}
-
-func accountHasOllamaCloudUsageExtra(account *Account) bool {
-	if account == nil || account.Extra == nil {
-		return false
-	}
-	for _, key := range []string{
-		OllamaCloudUsageSessionExtraKey,
-		OllamaCloudUsageAutoRefreshExtraKey,
-		OllamaCloudUsageSnapshotExtraKey,
-	} {
-		if _, ok := account.Extra[key]; ok {
-			return true
-		}
-	}
-	return false
+	return isOllamaCloudBaseURL(account.GetOpenAIBaseURL())
 }
 
 // applyOllamaCloudRawChatCompletionsRequest 只做 Ollama Cloud reasoning 归一化；

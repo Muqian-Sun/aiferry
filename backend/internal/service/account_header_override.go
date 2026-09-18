@@ -9,8 +9,8 @@ import (
 	"golang.org/x/net/http/httpguts"
 )
 
-// 请求头覆写（header override）：对 Anthropic / OpenAI / Kimi / Zhipu / DeepSeek
-// 平台的 api_key 账号，以及 Grok 平台的 api_key / oauth 账号生效。
+// 请求头覆写（header override）：对任何展示标签的第三方 key 生效，成品号只开放
+// Grok OAuth。
 // 管理员在账号上配置一组 header name -> value，转发到上游前用配置值覆盖同名请求头
 // （匹配不区分大小写）；value 为空的条目视为"未填写"，不参与覆盖。
 const (
@@ -69,22 +69,19 @@ func isHeaderOverrideBlockedName(lowerName string) bool {
 	return blocked
 }
 
-// IsHeaderOverrideEligible 报告账号类型是否支持请求头覆写。
-// Anthropic / OpenAI / Kimi / Zhipu / DeepSeek 仅开放 api_key 账号；
-// Grok 额外开放 oauth 账号——
-// 订阅流量改发自定义转发地址时，通常需要补充中间层要求的准入头。
+// IsHeaderOverrideEligible 报告账号是否支持请求头覆写。
+//
+// 第三方 key 不论展示标签一律支持：覆写跟着 key 发出的每个上游请求走（Anthropic、
+// OpenAI 与 Gemini 协议的转发路径都会应用），标签不决定上游是谁。成品号只开放
+// Grok OAuth，其余成品号仍不支持。
 func (a *Account) IsHeaderOverrideEligible() bool {
 	if a == nil {
 		return false
 	}
-	switch a.Platform {
-	case PlatformAnthropic, PlatformOpenAI, PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
-		return a.Type == AccountTypeAPIKey
-	case PlatformGrok:
-		return a.Type == AccountTypeAPIKey || a.Type == AccountTypeOAuth
-	default:
-		return false
+	if a.IsThirdPartyKey() {
+		return true
 	}
+	return a.Platform == PlatformGrok && a.Type == AccountTypeOAuth
 }
 
 // IsHeaderOverrideEnabled 报告账号是否启用了请求头覆写。

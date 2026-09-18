@@ -145,8 +145,7 @@ func TestSetAnthropicAPIKeyAuthHeader_OllamaCloudForcesBearer(t *testing.T) {
 	}
 }
 
-// TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURLResolution：adaptive 账号经
-// GetCNProtocolBaseURL(anthropic) / GetAnthropicProtocolBaseURL 选出的分协议地址
+// TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURLResolution：anthropic 协议地址
 // 才是判定依据，Chat Completions 地址（GetOpenAIBaseURL 选到的 CC base）不参与。
 func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 	// adaptive：anthropic 分协议地址指向 ollama.com → Bearer；CC 地址同挂 ollama
@@ -157,8 +156,7 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 		Platform: PlatformKimi,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "kimi-key",
-			"api_protocol": APIProtocolAdaptive,
+			"api_key": "kimi-key",
 			"api_base_urls": map[string]any{
 				APIProtocolAnthropic:       "https://ollama.com",
 				APIProtocolChatCompletions: "https://api.moonshot.cn",
@@ -169,7 +167,7 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 			APIProtocolChatCompletions: "https://api.moonshot.cn",
 		},
 	}
-	anthropicBase := adaptiveOllamaAnthropic.GetCNProtocolBaseURL(APIProtocolAnthropic)
+	anthropicBase := adaptiveOllamaAnthropic.ProtocolEndpoint(APIProtocolAnthropic)
 	require.Equal(t, "https://ollama.com", anthropicBase)
 	header := http.Header{}
 	setAnthropicAPIKeyAuthHeader(header, adaptiveOllamaAnthropic, "kimi-key", anthropicBase)
@@ -184,8 +182,7 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 		Platform: PlatformKimi,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "kimi-key",
-			"api_protocol": APIProtocolAdaptive,
+			"api_key": "kimi-key",
 			"api_base_urls": map[string]any{
 				APIProtocolAnthropic:       "https://api.moonshot.cn/anthropic",
 				APIProtocolChatCompletions: "https://ollama.com/v1",
@@ -196,29 +193,28 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 			APIProtocolChatCompletions: "https://ollama.com/v1",
 		},
 	}
-	anthropicBase = adaptiveOllamaCC.GetCNProtocolBaseURL(APIProtocolAnthropic)
+	anthropicBase = adaptiveOllamaCC.ProtocolEndpoint(APIProtocolAnthropic)
 	require.Equal(t, "https://api.moonshot.cn/anthropic", anthropicBase)
 	header = http.Header{}
 	setAnthropicAPIKeyAuthHeader(header, adaptiveOllamaCC, "kimi-key", anthropicBase)
 	require.Empty(t, header.Get("Authorization"))
 	require.Equal(t, "kimi-key", header.Get("x-api-key"))
 
-	// anthropic 协议（非 adaptive）：凭证 base_url 指向 ollama.com → Bearer。
+	// 只配 anthropic 协议地址且指向 ollama.com → Bearer。
 	anthropicProtocolOllama := &Account{
 		ID:       904,
 		Name:     "anthropic-protocol-ollama",
 		Platform: PlatformKimi,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "kimi-key",
-			"api_protocol": APIProtocolAnthropic,
-			"base_url":     "https://ollama.com",
+			"api_key":  "kimi-key",
+			"base_url": "https://ollama.com",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolAnthropic: "https://ollama.com",
 		},
 	}
-	anthropicBase = anthropicProtocolOllama.GetAnthropicProtocolBaseURL()
+	anthropicBase = anthropicProtocolOllama.ProtocolEndpoint(APIProtocolAnthropic)
 	require.Equal(t, "https://ollama.com", anthropicBase)
 	header = http.Header{}
 	setAnthropicAPIKeyAuthHeader(header, anthropicProtocolOllama, "kimi-key", anthropicBase)
@@ -232,16 +228,15 @@ func TestSetAnthropicAPIKeyAuthHeader_CNAdaptiveBaseURL(t *testing.T) {
 		Platform: PlatformKimi,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "kimi-key",
-			"api_protocol": APIProtocolAnthropic,
-			"base_url":     "https://api.moonshot.cn/anthropic",
+			"api_key":  "kimi-key",
+			"base_url": "https://api.moonshot.cn/anthropic",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolAnthropic: "https://api.moonshot.cn/anthropic",
 		},
 	}
 	header = http.Header{}
-	setAnthropicAPIKeyAuthHeader(header, anthropicProtocolKimi, "kimi-key", anthropicProtocolKimi.GetAnthropicProtocolBaseURL())
+	setAnthropicAPIKeyAuthHeader(header, anthropicProtocolKimi, "kimi-key", anthropicProtocolKimi.ProtocolEndpoint(APIProtocolAnthropic))
 	require.Empty(t, header.Get("Authorization"))
 	require.Equal(t, "kimi-key", header.Get("x-api-key"))
 }
@@ -325,9 +320,8 @@ func TestOpenAIGatewayService_NativeAnthropicBridge_OllamaCloudBearer(t *testing
 		Platform: PlatformKimi,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "ollama-cloud-key",
-			"api_protocol": APIProtocolAnthropic,
-			"base_url":     "https://ollama.com",
+			"api_key":  "ollama-cloud-key",
+			"base_url": "https://ollama.com",
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolAnthropic: "https://ollama.com",

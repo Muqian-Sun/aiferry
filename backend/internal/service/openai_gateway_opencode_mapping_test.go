@@ -24,7 +24,6 @@ func openCodeMappedTestAccount() *Account {
 		Credentials: map[string]any{
 			"api_key":      "sk-opencode",
 			"account_mode": AccountModeZen,
-			"api_protocol": APIProtocolAdaptive,
 			"base_url":     "https://opencode.ai/zen/v1",
 			"api_base_urls": map[string]any{
 				APIProtocolChatCompletions: "https://opencode.ai/zen/v1",

@@ -36,9 +36,8 @@ func newMessagesClampTestContext(t *testing.T) *gin.Context {
 }
 
 // messagesClampOllamaAccount 构造挂在实际 ollama.com 上游的 APIKey 账号。
-// builder A / B 的 Messages base 取 GetBaseURL()（凭证 base_url），builder C 的
-// Anthropic 协议 base 取 GetAnthropicProtocolBaseURL()（anthropic 协议时同为
-// 凭证 base_url）。
+// builder A / B 的 Messages base 取 GetBaseURL()，builder C 的 Anthropic 协议 base
+// 取 anthropic 协议地址，二者同源。
 func messagesClampOllamaAccount(id int64, platform string) *Account {
 	return &Account{
 		ID:       id,
@@ -154,7 +153,6 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 
 	t.Run("anthropic protocol ollama base is clamped", func(t *testing.T) {
 		account := messagesClampOllamaAccount(421, PlatformDeepseek)
-		account.Credentials["api_protocol"] = APIProtocolAnthropic
 
 		targetURL, err := svc.nativeAnthropicTargetURL(account)
 		require.NoError(t, err)
@@ -168,11 +166,10 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 		require.Equal(t, int64(65535), gjson.GetBytes(wireBody, "max_tokens").Int())
 	})
 
-	// adaptive 账号按 Anthropic 协议地址（api_base_urls[anthropic]）判定，而非 CC
-	// 地址：anthropic 指向 ollama.com、chat_completions 指向官方 DeepSeek 时命中。
-	t.Run("adaptive uses anthropic base not cc base", func(t *testing.T) {
+	// 按 anthropic 协议地址判定，而非 CC 地址：anthropic 指向 ollama.com、
+	// chat_completions 指向官方 DeepSeek 时命中。
+	t.Run("uses anthropic base not cc base", func(t *testing.T) {
 		account := messagesClampOllamaAccount(422, PlatformDeepseek)
-		account.Credentials["api_protocol"] = APIProtocolAdaptive
 		account.ProtocolEndpoints = map[string]string{
 			APIProtocolAnthropic:       "https://ollama.com",
 			APIProtocolChatCompletions: "https://api.deepseek.com",
@@ -192,7 +189,6 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 	// 指向 ollama.com 且残留 usage extra，也不 clamp。
 	t.Run("non-ollama anthropic base with cc ollama base and usage extra untouched", func(t *testing.T) {
 		account := messagesClampOllamaAccount(423, PlatformDeepseek)
-		account.Credentials["api_protocol"] = APIProtocolAdaptive
 		account.ProtocolEndpoints = map[string]string{
 			APIProtocolAnthropic:       "https://api.deepseek.com/anthropic",
 			APIProtocolChatCompletions: "https://ollama.com",
@@ -217,8 +213,7 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 			Platform: PlatformDeepseek,
 			Type:     AccountTypeAPIKey,
 			Credentials: map[string]any{
-				"api_key":      "sk-test",
-				"api_protocol": APIProtocolAnthropic,
+				"api_key": "sk-test",
 			},
 			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: DefaultDeepseekAnthropicBaseURL},
 			Extra:             map[string]any{},
@@ -235,7 +230,6 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 	// 非 DeepSeek 模型（映射后出站 model）不变。
 	t.Run("non deepseek model untouched", func(t *testing.T) {
 		account := messagesClampOllamaAccount(425, PlatformDeepseek)
-		account.Credentials["api_protocol"] = APIProtocolAnthropic
 		nonDeepSeek := messagesClampBody("glm-4.7", 256000)
 		targetURL, err := svc.nativeAnthropicTargetURL(account)
 		require.NoError(t, err)
@@ -248,8 +242,7 @@ func TestBuildNativeAnthropicUpstreamRequest_ClampsOllamaCloudDeepSeekMaxTokens(
 }
 
 // messagesClampProductionAccount 复刻生产账号 162：platform=deepseek、type=apikey、
-// api_protocol=adaptive、base_url 与 api_base_urls 均指向 ollama.com（anthropic 地址
-// 带 trailing '/'，CC/Responses 地址带 /v1 后缀）。
+// 协议地址均指向 ollama.com（anthropic 地址带 trailing '/'，CC/Responses 地址带 /v1 后缀）。
 func messagesClampProductionAccount(id int64) *Account {
 	return &Account{
 		ID:       id,
@@ -257,9 +250,8 @@ func messagesClampProductionAccount(id int64) *Account {
 		Platform: PlatformDeepseek,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
-			"api_key":      "sk-test",
-			"api_protocol": APIProtocolAdaptive,
-			"base_url":     "https://ollama.com/v1",
+			"api_key":  "sk-test",
+			"base_url": "https://ollama.com/v1",
 			"api_base_urls": map[string]any{
 				APIProtocolAnthropic:       "https://ollama.com/",
 				APIProtocolResponses:       "https://ollama.com/v1",

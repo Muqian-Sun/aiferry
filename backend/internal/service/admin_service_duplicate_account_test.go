@@ -120,7 +120,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 			"codex_5h_used_percent":           80,
 			"codex_cli_only":                  true,
 			"grok_usage_snapshot":             map[string]any{"status_code": 429},
-			"openai_responses_supported":      false,
 			"openai_compact_checked_at":       "2026-07-15T00:00:00Z",
 			"session_window_utilization":      0.8,
 			"passive_usage_sampled_at":        "2026-07-15T00:00:00Z",

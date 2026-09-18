@@ -86,16 +86,9 @@ export default {
           codingDesc: 'Subscription coding package, rate-limited by 5-hour / weekly rolling usage windows.',
         },
         apiProtocol: {
-          title: 'API Protocol',
-          adaptive: 'Adaptive',
-          adaptiveDesc: 'Uses the matching native provider endpoint for each inbound protocol, converting only when unavailable.',
-          responsesFallbackDesc: 'Responses requests are converted to Chat Completions because this provider has no native Responses endpoint.',
           chatCompletions: 'Chat Completions',
-          chatCompletionsDesc: 'Standard OpenAI-compatible endpoint; requests in other formats are converted.',
           anthropic: 'Anthropic',
-          anthropicDesc: 'Native passthrough to the provider’s Anthropic endpoint — ideal for Claude Code.',
           responses: 'Responses',
-          responsesDesc: 'Provider’s native Responses endpoint — ideal for Codex.',
         },
         zhipuTeam: {
           title: 'Team Plan Organization / Project ID',
@@ -547,8 +540,7 @@ export default {
         restoreOfficial: 'Use official addresses',
         errors: {
           empty: 'Configure at least one protocol endpoint',
-          blank: 'The {protocol} endpoint cannot be empty',
-          missingRequired: 'The API protocol is {protocol}; configure its endpoint'
+          blank: 'The {protocol} endpoint cannot be empty'
         },
         protocols: {
           anthropic: 'Anthropic Messages',
@@ -574,6 +566,8 @@ export default {
         oauthPassthrough: 'Auto passthrough (auth only)',
         oauthPassthroughDesc:
           'When enabled, this OpenAI account uses automatic passthrough: the gateway forwards request/response as-is and only swaps auth, while keeping billing/concurrency/audit and necessary safety filtering.',
+        keyProtocolSettingsHint:
+          'For third-party keys, auto passthrough, WS mode and Compact settings only take effect when the protocol endpoints point to official OpenAI or a generic relay; the backend ignores them for other vendors\' official addresses.',
         flattenNamespaces: 'Flatten Codex namespace tools (compatibility)',
         flattenNamespacesDesc:
           'Disabled by default: Codex namespace tool declarations are forwarded as-is on /responses, which is what the ChatGPT Codex backend expects. Enable only when this OAuth account is routed to a relay that rejects namespace tools — flattening renames them to namespace__tool, which breaks models that address collaboration tools as functions.<namespace>.<tool>. Compaction requests always flatten regardless of this switch.',
@@ -606,31 +600,14 @@ export default {
           'Only applies to OpenAI API Key. This account can use OpenAI WebSocket Mode only when enabled.',
         responsesWebsocketsV2PassthroughHint:
           'Automatic passthrough is currently enabled: it only affects HTTP passthrough and does not disable WS mode.',
-        responsesMode: 'Responses API support',
-        responsesModeDesc:
-          'Only applies to the OpenAI API Key text forwarding path. Auto follows probe results; force modes override probing.',
-        responsesModeAuto: 'Auto',
-        responsesModeForceResponses: 'Force Responses',
-        responsesModeForceChatCompletions: 'Force Chat Completions',
-        responsesModeTextDisabledHint:
-          'Not applicable when the Responses / Chat Completions endpoint is not enabled.',
         imagesUrlToB64Json: 'Image result URL to base64',
         imagesUrlToB64JsonDesc:
           'Only applies to non-streaming Images responses of OpenAI API Key accounts. When an upstream image item has a url but no b64_json, the gateway downloads the url and fills b64_json with its base64 content (url is kept) for clients built on the official API; the response is returned unchanged if the download fails.',
         endpointCapabilities: 'Endpoint capabilities',
         endpointCapabilitiesDesc:
-          'Used by account routing. The text endpoint follows the Responses API support setting above and is shown as Responses, Chat Completions, or auto mode; Embeddings independently controls /v1/embeddings.',
-        capabilityResponses: 'Responses',
-        capabilityTextAuto: 'Responses / Chat Completions (Auto)',
-        capabilityResponsesAuto: 'Responses (auto probe)',
-        capabilityChatCompletions: 'Chat Completions',
-        capabilityChatCompletionsAuto: 'Chat Completions (auto probe)',
+          'Used by account routing. The text endpoint accepts Responses and Chat Completions requests, forwarded over whichever protocol endpoints are configured; Embeddings independently controls /v1/embeddings.',
+        capabilityText: 'Responses / Chat Completions',
         capabilityEmbeddings: 'Embeddings',
-        responsesStatusAutoSupported: 'Auto probe: Responses',
-        responsesStatusAutoUnsupported: 'Auto probe: Chat Completions',
-        responsesStatusAutoUnknown: 'Auto probe: unknown',
-        responsesStatusForcedResponses: 'Forced Responses',
-        responsesStatusForcedChatCompletions: 'Forced Chat Completions',
         planType: 'Plan tier (manual override)',
         planTypeDesc:
           "Manually correct this account's ChatGPT plan tier (Plus / Pro / Free). Note: a token refresh near expiry or a 429 rate-limit response will auto-overwrite this with the real tier.",
@@ -736,7 +713,7 @@ export default {
       anthropic: {
         apiKeyPassthrough: 'Auto passthrough (auth only)',
         apiKeyPassthroughDesc:
-          'Only applies to Anthropic API Key accounts. When enabled, messages/count_tokens are forwarded in passthrough mode with auth replacement only, while billing/concurrency/audit and safety filtering are preserved. Disable to roll back immediately.',
+          'Only applies to third-party keys with an Anthropic protocol endpoint. When enabled, messages/count_tokens are forwarded in passthrough mode with auth replacement only, while billing/concurrency/audit and safety filtering are preserved. Disable to roll back immediately.',
         apiKeyAuthScheme: 'Upstream auth scheme',
         apiKeyAuthSchemeDesc: 'Choose the API key auth header used when forwarding to an Anthropic-compatible upstream. Ollama Cloud uses Authorization: Bearer.',
         apiKeyAuthSchemeXApiKey: 'x-api-key',

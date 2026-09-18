@@ -389,7 +389,7 @@ func isGrokBillingQuotaText(low string) bool {
 // account is preferable before switching accounts. Free-usage and billing
 // exhaustion deliberately skip same-account retry and fail over immediately.
 func grokRetryableOnSameAccount(account *Account, statusCode int, responseBody []byte) bool {
-	if account == nil || !account.IsGrok() {
+	if account == nil || account.Vendor() != PlatformGrok {
 		return false
 	}
 	decision := classifyGrokUpstreamFailure(statusCode, responseBody, "")

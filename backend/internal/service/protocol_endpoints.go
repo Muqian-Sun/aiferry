@@ -284,8 +284,8 @@ func ResolveUpstreamBaseURL(account *Account, resolved string, protocol string, 
 // PrimaryUpstreamBaseURL 返回账号的主上游地址。
 //
 // 用于那些「只需要知道这个账号大致指向哪」的判断：Ollama Cloud 识别、模型同步、
-// 计费探测等。第三方 key 取协议映射（优先该平台的默认协议，其次按固定顺序取
-// 任意已配置协议）；成品号只走厂商官方地址、没有账号级地址，返回空串。
+// 计费探测等。第三方 key 按 primaryUpstreamProtocolOrder 取第一个已配置的协议地址，
+// 与平台标签无关；成品号只走厂商官方地址、没有账号级地址，返回空串。
 //
 // 不引入这个入口的话，第三方 key 只配协议映射、不配 base_url 之后，这些判断会
 // 静默拿到空串——不报错，只是行为悄悄消失。
@@ -296,17 +296,24 @@ func (a *Account) PrimaryUpstreamBaseURL() string {
 	if !a.IsThirdPartyKey() {
 		return ""
 	}
-	if preferred := DefaultProtocolForPlatform(a.Platform); preferred != "" {
-		if endpoint := a.ProtocolEndpoint(preferred); endpoint != "" {
-			return endpoint
-		}
-	}
-	for _, protocol := range UpstreamProtocols() {
+	for _, protocol := range primaryUpstreamProtocolOrder {
 		if endpoint := a.ProtocolEndpoint(protocol); endpoint != "" {
 			return endpoint
 		}
 	}
 	return ""
+}
+
+// primaryUpstreamProtocolOrder 是 PrimaryUpstreamBaseURL 取地址的协议顺序。
+//
+// OpenAI API 根地址（chat_completions，其次 responses）在前：余额查询、模型列表、
+// 图片等扩展端点都挂在它下面，与 KeyUpstreamProtocols 对扩展端点只认
+// chat_completions 地址一致。anthropic、gemini 地址是各自协议的专用根，排在后面。
+var primaryUpstreamProtocolOrder = []string{
+	APIProtocolChatCompletions,
+	APIProtocolResponses,
+	APIProtocolAnthropic,
+	APIProtocolGemini,
 }
 
 // MissingProtocolEndpointError 是第三方 key 缺少某协议上游地址时的统一错误。

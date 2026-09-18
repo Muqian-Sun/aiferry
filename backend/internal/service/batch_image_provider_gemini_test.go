@@ -39,6 +39,30 @@ func TestGeminiProvider_SupportsOnlyGeminiAPIKeyWithSecret(t *testing.T) {
 	require.False(t, provider.SupportsAccount(nil))
 }
 
+// Gemini Batch API 固定发往 Google 官方地址：只认 Vendor 为 gemini 的 key，不看平台标签。
+func TestGeminiProvider_AccountEligibilityFollowsVendorNotLabel(t *testing.T) {
+	provider := NewGeminiAPIBatchImageProvider(&fakeGeminiBatchClient{})
+	relayGeminiLabel := &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk"},
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://gemini-relay.example.com"}}
+	officialOpenAILabel := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: map[string]any{"api_key": "sk"},
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}
+	require.Empty(t, relayGeminiLabel.Vendor())
+	require.Equal(t, PlatformGemini, officialOpenAILabel.Vendor())
+
+	require.False(t, provider.SupportsAccount(relayGeminiLabel))
+	require.True(t, provider.SupportsAccount(officialOpenAILabel))
+
+	job := jobWithProviderName("batches/1")
+	_, err := provider.Submit(context.Background(), nil, relayGeminiLabel, validGeminiBatchInput())
+	require.ErrorIs(t, err, ErrBatchImageProviderUnsupportedAccount)
+	_, err = provider.Get(context.Background(), job, relayGeminiLabel)
+	require.ErrorIs(t, err, ErrBatchImageProviderUnsupportedAccount)
+	require.ErrorIs(t, provider.Cancel(context.Background(), job, relayGeminiLabel), ErrBatchImageProviderUnsupportedAccount)
+	_, _, err = provider.OpenResult(context.Background(), job, relayGeminiLabel)
+	require.ErrorIs(t, err, ErrBatchImageProviderUnsupportedAccount)
+	require.ErrorIs(t, provider.Cleanup(context.Background(), job, relayGeminiLabel, CleanupTarget("")), ErrBatchImageProviderUnsupportedAccount)
+}
+
 func TestGeminiProvider_MissingAPIKeyRejected(t *testing.T) {
 	provider := NewGeminiAPIBatchImageProvider(&fakeGeminiBatchClient{})
 	_, err := provider.Submit(context.Background(), nil, &Account{Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}}, validGeminiBatchInput())

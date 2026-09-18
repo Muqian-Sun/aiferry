@@ -9,6 +9,7 @@ import (
 	"net"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"sort"
 	"strings"
 	"sync"
@@ -37,10 +38,10 @@ func (r codexModelsFailoverAccountRepo) GetByID(_ context.Context, id int64) (*s
 	return nil, service.ErrNoAvailableAccounts
 }
 
-func (r codexModelsFailoverAccountRepo) ListSchedulableByPlatform(_ context.Context, platform string) ([]service.Account, error) {
+func (r codexModelsFailoverAccountRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]service.Account, error) {
 	accounts := make([]service.Account, 0, len(r.accounts))
 	for _, account := range r.accounts {
-		if account.Platform == platform {
+		if account.IsThirdPartyKey() || slices.Contains(platforms, account.Platform) {
 			accounts = append(accounts, account)
 		}
 	}

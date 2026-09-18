@@ -469,7 +469,8 @@ func (s *stubAdminService) ListOpenAISchedulableAccountsForSchedulerScore(_ cont
 	}
 	out := make([]service.Account, 0, len(accounts))
 	for _, account := range accounts {
-		if account.Platform != service.PlatformOpenAI || !account.IsSchedulable() {
+		// 与 adminServiceImpl 同一口径：成品号看 openai 平台，第三方 key 看协议地址。
+		if !service.AccountServesPlatformForAnyInbound(&account, service.PlatformOpenAI) || !account.IsSchedulable() {
 			continue
 		}
 		if groupID == nil {

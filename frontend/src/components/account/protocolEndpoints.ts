@@ -48,6 +48,25 @@ function configuredProtocols(endpoints: ProtocolEndpoints): UpstreamProtocol[] {
   return Object.keys(endpoints) as UpstreamProtocol[]
 }
 
+/**
+ * 第三方 key 配了 Anthropic 协议地址：Anthropic 协议上的 key 设置（自动透传、上游认证方式、
+ * web search 模拟）只在按该协议转发时生效，账号弹窗据此展示，不看平台标签。
+ * 看的是编辑中的地址行，刚添加、还没填地址的行也算（提交前另有非空校验）。
+ */
+export function hasAnthropicEndpoint(endpoints: ProtocolEndpoints): boolean {
+  return 'anthropic' in endpoints
+}
+
+/**
+ * 第三方 key 配了 OpenAI 系协议地址（Responses 或 Chat Completions）：OpenAI Responses 协议设置
+ * （自动透传、WS mode、Compact）可配置，账号弹窗据此展示，不看平台标签。后端只对地址指向
+ * OpenAI 官方或通用中转的 key 生效、其他厂商官方地址忽略——前端不识别厂商，只给提示。
+ * 与 hasAnthropicEndpoint 一样，未填地址的新行也算。
+ */
+export function hasOpenAIEndpoint(endpoints: ProtocolEndpoints): boolean {
+  return 'responses' in endpoints || 'chat_completions' in endpoints
+}
+
 export function sameEndpoints(a: ProtocolEndpoints, b: ProtocolEndpoints): boolean {
   const keysA = configuredProtocols(a)
   const keysB = configuredProtocols(b)
@@ -69,20 +88,13 @@ export function endpointsAfterDefaultsChange(
   return current
 }
 
-export type ProtocolEndpointsIssue =
-  | { kind: 'empty' }
-  | { kind: 'blank'; protocol: UpstreamProtocol }
-  | { kind: 'missingRequired'; protocol: UpstreamProtocol }
+export type ProtocolEndpointsIssue = { kind: 'empty' } | { kind: 'blank'; protocol: UpstreamProtocol }
 
 /**
- * 提交前校验。与后端仓储守卫同一口径：至少一个协议地址、地址不能为空；
- * 另外账号指定了具体协议（如国产供应商选 Anthropic）时，该协议必须有地址，
- * 否则保存成功、转发时才报缺地址。
+ * 提交前校验。与后端仓储守卫同一口径：至少一个协议地址、地址不能为空。
+ * 转发协议由已配置的地址决定，不存在「必须配某个协议」的约束。
  */
-export function validateProtocolEndpoints(
-  endpoints: ProtocolEndpoints,
-  requiredProtocol?: UpstreamProtocol
-): ProtocolEndpointsIssue | null {
+export function validateProtocolEndpoints(endpoints: ProtocolEndpoints): ProtocolEndpointsIssue | null {
   const protocols = configuredProtocols(endpoints)
   if (protocols.length === 0) {
     return { kind: 'empty' }
@@ -90,9 +102,6 @@ export function validateProtocolEndpoints(
   const blank = protocols.find((protocol) => !endpoints[protocol]?.trim())
   if (blank) {
     return { kind: 'blank', protocol: blank }
-  }
-  if (requiredProtocol && !endpoints[requiredProtocol]?.trim()) {
-    return { kind: 'missingRequired', protocol: requiredProtocol }
   }
   return null
 }
@@ -105,9 +114,7 @@ export function describeProtocolEndpointsIssue(issue: ProtocolEndpointsIssue, t:
     return t('admin.accounts.protocolEndpoints.errors.empty')
   }
   const protocol = t(`admin.accounts.protocolEndpoints.protocols.${issue.protocol}`)
-  return issue.kind === 'blank'
-    ? t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
-    : t('admin.accounts.protocolEndpoints.errors.missingRequired', { protocol })
+  return t('admin.accounts.protocolEndpoints.errors.blank', { protocol })
 }
 
 /**

@@ -17,16 +17,15 @@ describe('CreateAccountModal Grok account types', () => {
     expect(source).toContain("return 'xai-...'")
   })
 
-  it('exposes header override but no custom upstream URL for the OAuth create flow', () => {
-    // 成品号只走官方地址；要走中转请按第三方 key 建号
+  it('offers no custom upstream URL for the OAuth create flow', () => {
+    // 成品号只走官方地址；要走中转请按第三方 key 建号。请求头覆写的展示见 CreateAccountModal.spec.ts
     expect(source).not.toContain('data-testid="grok-custom-base-url-toggle"')
     expect(source).not.toContain('data-testid="grok-custom-base-url-input"')
-    expect(source).toContain('form.platform === \'grok\' && isOAuthFlow')
   })
 
   it('validates and applies upstream config on Grok OAuth create paths', () => {
     // 授权码兑换 / RT 批量 / SSO 批量（密码授权已隐藏）
-    expect(source.match(/validateGrokOAuthUpstreamConfig\(\)/g)?.length).toBeGreaterThanOrEqual(3)
+    expect(source.match(/validateHeaderOverrideForm\(\)/g)?.length).toBeGreaterThanOrEqual(3)
     expect(source.match(/applyGrokOAuthUpstreamConfig\(credentials\)/g)?.length).toBeGreaterThanOrEqual(3)
   })
 

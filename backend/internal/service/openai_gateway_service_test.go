@@ -166,7 +166,7 @@ func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScope
 			}},
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "http://upstream.example",
+			APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example",
 		},
 	}
 
@@ -228,8 +228,46 @@ func TestFailoverOpenAIUpstreamHTTPError_NilContextSkipsTempUnschedulablePolicy(
 	require.Empty(t, repo.modelRateLimitKey)
 }
 
+func (r stubOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
+}
+
+func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
+}
+
+func (r stubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	return r.ListSchedulingCandidates(ctx, platforms)
+}
+
 type groupAwareStubOpenAIAccountRepo struct {
 	stubOpenAIAccountRepo
+}
+
+func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
+}
+
+func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
+	var result []Account
+	for _, acc := range r.accounts {
+		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, nil) {
+			result = append(result, acc)
+		}
+	}
+	return result, nil
 }
 
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
@@ -2923,7 +2961,7 @@ func TestOpenAIInvalidBaseURLWhenAllowlistDisabled(t *testing.T) {
 		Type:        AccountTypeAPIKey,
 		Credentials: map[string]any{"base_url": "://invalid-url"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "://invalid-url",
+			APIProtocolChatCompletions: "://invalid-url", APIProtocolResponses: "://invalid-url",
 		},
 	}
 
@@ -3178,7 +3216,7 @@ func TestOpenAIBuildUpstreamRequestPreservesCompactPathForAPIKeyBaseURL(t *testi
 		Platform:    PlatformOpenAI,
 		Credentials: map[string]any{"base_url": "https://example.com/v1"},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://example.com/v1",
+			APIProtocolChatCompletions: "https://example.com/v1", APIProtocolResponses: "https://example.com/v1",
 		},
 	}
 

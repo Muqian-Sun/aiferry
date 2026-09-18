@@ -44,7 +44,7 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 	accounts, err := s.accountRepo.ListModelAvailabilityCandidates(
 		ctx,
 		queryGroupID,
-		[]string{platform},
+		modelAvailabilityCandidatePlatforms(),
 		includeGrouped,
 	)
 	if err != nil {
@@ -55,6 +55,9 @@ func (s *OpenAIGatewayService) DiagnoseModelAvailabilityForPlatform(
 
 	diag := ModelAvailabilityDiagnosis{}
 	for i := range accounts {
+		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform, false) {
+			continue
+		}
 		diag.HasAccountsInPool = true
 		// Mirrors the per-candidate filter used during account selection
 		// (openai_account_scheduler.isAccountRequestCompatible): empty

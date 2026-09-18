@@ -112,6 +112,27 @@ func TestOpenAIProxyStreamQuarantineBypassContext(t *testing.T) {
 	require.False(t, svc.isOpenAIProxyStreamQuarantined(withOpenAIProxyStreamQuarantineBypass(ctx), account))
 }
 
+func TestOpenAIProxyStreamCircuitProxyID_KeysFollowVendorNotLabel(t *testing.T) {
+	proxyID := int64(9)
+	tests := []struct {
+		name    string
+		account *Account
+		want    bool
+	}{
+		{"openai oauth", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, ProxyID: &proxyID}, true},
+		{"grok oauth", &Account{Platform: PlatformGrok, Type: AccountTypeOAuth, ProxyID: &proxyID}, false},
+		{"relay key with anthropic label", &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProxyID: &proxyID, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}}, true},
+		{"official deepseek key with openai label", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProxyID: &proxyID, ProtocolEndpoints: map[string]string{APIProtocolResponses: DefaultDeepseekBaseURL}}, false},
+		{"relay key without proxy", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, ok := openAIProxyStreamCircuitProxyID(tt.account)
+			require.Equal(t, tt.want, ok)
+		})
+	}
+}
+
 func TestOpenAIProxyStreamCircuitBoundsEntries(t *testing.T) {
 	base := time.Unix(1_800_000_000, 0)
 	circuit := newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{

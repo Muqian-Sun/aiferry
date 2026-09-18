@@ -528,7 +528,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		clearBinding()
 		return nil, false, nil
 	}
-	if shouldClearStickySession(account, req.RequestedModel) || account.Platform != NormalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() || !account.IsSchedulable() {
+	if shouldClearStickySession(account, req.RequestedModel) || !isAccountSchedulableOnPlatform(ctx, account, NormalizeOpenAICompatiblePlatform(req.Platform), false) || !account.IsSchedulable() {
 		clearBinding()
 		return nil, false, nil
 	}
@@ -952,7 +952,7 @@ func (s *defaultOpenAIAccountScheduler) buildOpenAIAccountLoadPlan(
 		for _, candidate := range candidates {
 			accounts = append(accounts, candidate.account)
 		}
-		upstreamCostFactors = openAIUpstreamCostFactors(accounts, now, s.service.openAIOAuthSchedulingRateMultiplier(ctx))
+		upstreamCostFactors = openAIUpstreamCostFactors(NormalizeOpenAICompatiblePlatform(req.Platform), accounts, now, s.service.openAIOAuthSchedulingRateMultiplier(ctx))
 		for _, factor := range upstreamCostFactors {
 			if factor != openAIUpstreamCostNeutralFactor {
 				plan.includeOverflowFallback = true
@@ -1453,7 +1453,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 			filterStats.exclude("not_schedulable")
 			continue
 		}
-		if account.Platform != NormalizeOpenAICompatiblePlatform(req.Platform) || !account.IsOpenAICompatible() {
+		if !isAccountSchedulableOnPlatform(ctx, account, NormalizeOpenAICompatiblePlatform(req.Platform), false) {
 			filterStats.exclude("platform_mismatch")
 			continue
 		}
@@ -2728,7 +2728,8 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 		for _, candidate := range candidates {
 			accounts = append(accounts, candidate.account)
 		}
-		upstreamCostFactors = openAIUpstreamCostFactors(accounts, now, oauthSchedulingRateMultiplier)
+		// 这份得分快照只供管理端 OpenAI 账号列表展示，按 OpenAI 分组的规则计算倍率因子。
+		upstreamCostFactors = openAIUpstreamCostFactors(PlatformOpenAI, accounts, now, oauthSchedulingRateMultiplier)
 	}
 	if weights.Reset > 0 {
 		for _, candidate := range candidates {
@@ -2800,7 +2801,7 @@ func buildOpenAIAccountSchedulerScoreSnapshot(
 	return result
 }
 
-func openAIUpstreamCostFactors(accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) map[int64]float64 {
+func openAIUpstreamCostFactors(platform string, accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) map[int64]float64 {
 	type rateSample struct {
 		accountID int64
 		rate      float64
@@ -2814,7 +2815,7 @@ func openAIUpstreamCostFactors(accounts []*Account, now time.Time, oauthScheduli
 			continue
 		}
 		factors[account.ID] = openAIUpstreamCostNeutralFactor
-		if !account.IsOpenAIApiKey() && !account.IsOpenAIOAuthLike() {
+		if !openAIUpstreamRateTrusted(platform, account) {
 			continue
 		}
 		eligibleCount++
@@ -2867,7 +2868,7 @@ type openAILegacyUpstreamRateOrder struct {
 	rates   map[int64]float64
 }
 
-func newOpenAILegacyUpstreamRateOrder(accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) openAILegacyUpstreamRateOrder {
+func newOpenAILegacyUpstreamRateOrder(platform string, accounts []*Account, now time.Time, oauthSchedulingRateMultiplier float64) openAILegacyUpstreamRateOrder {
 	rates := make(map[int64]float64, len(accounts))
 	var first float64
 	distinct := false
@@ -2875,10 +2876,8 @@ func newOpenAILegacyUpstreamRateOrder(accounts []*Account, now time.Time, oauthS
 		if account == nil {
 			continue
 		}
-		// 与 openAIUpstreamCostFactors 使用同一道平台门控：只有 OpenAI 平台账号
-		// 的倍率参与 legacy 低倍率优先排序。上游自报倍率来自中转方，不能让它对
-		// 其他平台的调度产生影响——否则自报低价即可吸走流量，而实际结算走本地倍率。
-		if !account.IsOpenAIApiKey() && !account.IsOpenAIOAuthLike() {
+		// 与 openAIUpstreamCostFactors 使用同一道平台门控（openAIUpstreamRateTrusted）。
+		if !openAIUpstreamRateTrusted(platform, account) {
 			continue
 		}
 		rate, ok := openAISchedulingRate(account, now, oauthSchedulingRateMultiplier)
@@ -2893,6 +2892,18 @@ func newOpenAILegacyUpstreamRateOrder(accounts []*Account, now time.Time, oauthS
 		rates[account.ID] = rate
 	}
 	return openAILegacyUpstreamRateOrder{enabled: len(rates) >= 2 && distinct, rates: rates}
+}
+
+// openAIUpstreamRateTrusted 报告账号的倍率能否参与 platform 网关平台上的低倍率优先排序。
+//
+// 只在 OpenAI 分组的调度里生效：上游自报倍率来自中转方，不能让它影响其他平台分组的调度——
+// 否则自报低价即可吸走流量，而实际结算走本地倍率。门控看分组平台而不是账号标签：
+// 第三方 key 的平台只是展示标签；OpenAI 分组里的成品号只有 OpenAI OAuth / SetupToken 有参考倍率。
+func openAIUpstreamRateTrusted(platform string, account *Account) bool {
+	if platform != PlatformOpenAI {
+		return false
+	}
+	return account.IsThirdPartyKey() || account.IsOpenAIOAuthLike()
 }
 
 func openAISchedulingRate(account *Account, now time.Time, oauthSchedulingRateMultiplier float64) (float64, bool) {

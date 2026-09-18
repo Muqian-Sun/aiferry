@@ -98,7 +98,7 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 	// partial-stream results all use the same billing and usage-log path.
 	defer func() {
 		if result != nil {
-			if tier := anthropicSpeedServiceTier(account, parsed.Speed, anthropicSpeedModel(parsed, result)); tier != nil {
+			if tier := anthropicSpeedServiceTier(account, parsed.Speed, anthropicSpeedModel(parsed, result), result.UpstreamResponseServiceTier); tier != nil {
 				result.ServiceTier = tier
 			}
 		}
@@ -136,7 +136,9 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 
 	// Beta policy: evaluate once; block check + cache filter set for buildUpstreamRequest.
 	// Always overwrite the cache to prevent stale values from a previous retry with a different account.
-	if account.Platform == PlatformAnthropic && c != nil {
+	// 走到这里的都是 Anthropic Messages 请求（Bedrock 已在上面分走），anthropic-beta 是该协议的
+	// 请求头：block 规则对任何展示标签的第三方 key 同样生效，与 filter 规则的口径一致。
+	if c != nil {
 		policy := s.evaluateBetaPolicy(ctx, c.GetHeader("anthropic-beta"), account, parsed.Model)
 		if policy.blockErr != nil {
 			return nil, policy.blockErr
@@ -644,13 +646,6 @@ func (s *GatewayService) Forward(ctx context.Context, c *gin.Context, account *A
 		}
 
 		// 不需要重试（成功或不可重试的错误），跳出循环
-		// DEBUG: 输出响应 headers（用于检测 rate limit 信息）
-		if account.Platform == PlatformGemini && resp.StatusCode < 400 && s.cfg != nil && s.cfg.Gateway.GeminiDebugResponseHeaders {
-			logger.LegacyPrintf("service.gateway", "[DEBUG] Gemini API Response Headers for account %d:", account.ID)
-			for k, v := range resp.Header {
-				logger.LegacyPrintf("service.gateway", "[DEBUG]   %s: %v", k, v)
-			}
-		}
 		break
 	}
 	if resp == nil || resp.Body == nil {
@@ -904,14 +899,21 @@ func anthropicSpeedModel(parsed *ParsedRequest, result *ForwardResult) string {
 // 承载（Opus 4.7 的 fast mode 已被移除，传 speed=fast 会直接报错）。这里按模型和
 // 平台收紧，避免上游根本没跑 fast 时仍然按 2x 计费——宁可漏收也不能多收。
 //
-// 这里只决定请求侧的档位；上游响应里的 usage.speed 由 UpstreamResponseServiceTier
-// 带回，用量记录时经 ResolveBillingServiceTier 只降不升（usage.speed=standard 则按
-// 标准价计费）。
-func anthropicSpeedServiceTier(account *Account, speed, model string) *string {
-	if account == nil || account.Platform != PlatformAnthropic || speed != "fast" {
+// 上游是否真跑了 fast mode 按厂商区分：
+//   - Anthropic 官方（成品号，或全部协议地址都是 Anthropic 官方域名的 key）：请求带
+//     speed=fast 就定为 fast；响应里的 usage.speed 由 UpstreamResponseServiceTier 带回，
+//     用量记录时经 ResolveBillingServiceTier 只降不升（usage.speed=standard 按标准价）。
+//   - 其他第三方 key（中转或其他厂商的 Anthropic 兼容地址）：不知道上游是否实现了
+//     fast mode，而响应不声明档位时 ResolveBillingServiceTier 会保留请求档位、照样
+//     计 2x。因此只有响应明确回了 usage.speed=fast（observedTier）才定为 fast。
+func anthropicSpeedServiceTier(account *Account, speed, model, observedTier string) *string {
+	if account == nil || speed != "fast" {
 		return nil
 	}
 	if account.IsBedrock() || !modelSupportsAnthropicFastMode(model) {
+		return nil
+	}
+	if account.Vendor() != PlatformAnthropic && observedTier != "fast" {
 		return nil
 	}
 	tier := "fast"
@@ -1010,7 +1012,7 @@ func (s *GatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context,
 
 // resolveAccountUpstreamModel 确定账号将请求模型映射为什么上游模型。
 func resolveAccountUpstreamModel(account *Account, requestedModel string) string {
-	if account.IsAntigravity() {
+	if account.Vendor() == PlatformAntigravity {
 		return mapAntigravityModel(account, requestedModel)
 	}
 	return account.GetMappedModel(requestedModel)

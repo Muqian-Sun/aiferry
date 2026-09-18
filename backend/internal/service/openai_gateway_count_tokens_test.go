@@ -72,7 +72,7 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_APIKeyUsesResponsesI
 			"base_url": "http://upstream.example",
 		},
 		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "http://upstream.example",
+			APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example",
 		},
 		Status:      StatusActive,
 		Schedulable: true,

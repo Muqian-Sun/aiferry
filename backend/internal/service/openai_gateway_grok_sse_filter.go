@@ -47,7 +47,7 @@ func (b *grokResponsesBillingPingFilterBody) closeSource() error {
 }
 
 func newGrokResponsesBillingPingFilterBody(source io.ReadCloser, account *Account, maxLineSize int) io.ReadCloser {
-	if account == nil || account.Platform != PlatformGrok {
+	if account == nil || account.Vendor() != PlatformGrok {
 		return source
 	}
 	reader, writer := io.Pipe()

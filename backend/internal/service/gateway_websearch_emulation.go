@@ -76,7 +76,9 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
 		if err != nil || ch == nil {
 			return false
 		}
-		return ch.IsWebSearchEmulationEnabled(account.Platform)
+		// 渠道开关按本次请求所在网关的平台查（强制平台 → 合成分组目标平台 → 分组平台），
+		// 与渠道定价查找同一口径，不看账号标签。
+		return ch.IsWebSearchEmulationEnabled(channelLookupPlatform(ctx, s.channelService.GetGroupPlatform(ctx, *groupID)))
 	}
 }
 

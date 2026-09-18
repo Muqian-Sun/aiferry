@@ -276,7 +276,8 @@ func openAIConfiguredCodexModelIDs(accounts []Account) []string {
 	models := make([]string, 0)
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != PlatformOpenAI {
+		// 第三方 key 的平台只是展示标签：能在 OpenAI 网关承接请求的 key 都贡献映射。
+		if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 			continue
 		}
 		for modelID := range account.GetModelMapping() {
@@ -312,7 +313,7 @@ func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []s
 		}
 		for i := range accounts {
 			account := &accounts[i]
-			if account.Platform != PlatformOpenAI {
+			if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
 				continue
 			}
 			mappedModel, matched := account.ResolveMappedModel(selectedModel)
@@ -1648,7 +1649,7 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		}
 	case credAccount.IsOpenAIApiKey():
 		baseURL := strings.TrimSpace(credAccount.GetOpenAIBaseURL())
-		authToken = strings.TrimSpace(credAccount.GetOpenAIApiKey())
+		authToken = strings.TrimSpace(credAccount.GetOpenAIProtocolAPIKey())
 		if authToken == "" {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_API_KEY_MISSING", "account has no API key for the Codex models upstream")
 		}

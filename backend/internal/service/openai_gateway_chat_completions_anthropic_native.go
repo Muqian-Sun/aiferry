@@ -1,9 +1,9 @@
 package service
 
-// 国产供应商 Anthropic 协议账号的 CC 入站反向路径。
+// OpenAI 网关上第三方 key 以 Anthropic 协议转发时的 CC 入站反向路径。
 //
-// 客户端说 OpenAI Chat Completions、上游是供应商原生 Anthropic 端点
-// （api_protocol=anthropic）时的交叉组合：请求 CC→Responses→Anthropic 转换，
+// 客户端说 OpenAI Chat Completions、上游是 anthropic 协议地址
+// （协议选择为 anthropic）时的交叉组合：请求 CC→Responses→Anthropic 转换，
 // 响应 Anthropic→Responses→CC 转换。转换链与 Anthropic 平台的
 // gateway_forward_as_chat_completions.go 完全一致（复用同一组 apicompat
 // 状态机），仅上游发送/错误处理对齐 OpenAI 网关语义。

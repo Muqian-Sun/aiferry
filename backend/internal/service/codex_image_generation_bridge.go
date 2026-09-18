@@ -80,8 +80,11 @@ func (c *Channel) CodexImageGenerationBridgeOverride(platform string) *bool {
 
 // CodexImageGenerationBridgeOverride returns the account-level override for Codex
 // image_generation bridge injection. Nil means follow the channel/global policy.
+//
+// image_generation 是 OpenAI Responses 协议的内置工具：账号级设置只对 openAIProtocolFeaturesApply
+// 的账号生效（OpenAI 成品号、官方 OpenAI 地址与通用中转的 key），不看第三方 key 的平台标签。
 func (a *Account) CodexImageGenerationBridgeOverride() *bool {
-	if a == nil || a.Platform != PlatformOpenAI || a.Extra == nil {
+	if a == nil || !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return nil
 	}
 	if override := boolOverrideFromMap(a.Extra, featureKeyCodexImageGenerationBridge, "codex_image_generation_bridge_enabled"); override != nil {
@@ -94,8 +97,9 @@ func (a *Account) CodexImageGenerationBridgeOverride() *bool {
 // CodexImageGenerationExplicitToolPolicy returns the account-level policy for
 // client-provided Codex /responses image_generation tools. Unknown or unset
 // values default to allow to preserve existing behavior.
+// 生效范围同 CodexImageGenerationBridgeOverride。
 func (a *Account) CodexImageGenerationExplicitToolPolicy() string {
-	if a == nil || a.Platform != PlatformOpenAI || a.Extra == nil {
+	if a == nil || !openAIProtocolFeaturesApply(a) || a.Extra == nil {
 		return codexImageGenerationExplicitToolPolicyAllow
 	}
 	if policy, ok := stringOverrideFromMap(a.Extra, featureKeyCodexImageGenerationExplicitToolPolicy); ok {

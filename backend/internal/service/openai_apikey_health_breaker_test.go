@@ -70,6 +70,26 @@ func openAIHealthPoolAccount() *Account {
 	}
 }
 
+func TestIsOpenAIAPIKeyHealthBreakerAccount_KeysFollowVendorNotLabel(t *testing.T) {
+	pool := map[string]any{"pool_mode": true}
+	tests := []struct {
+		name    string
+		account *Account
+		want    bool
+	}{
+		{"official openai pool key", openAIHealthPoolAccount(), true},
+		{"relay pool key with anthropic label", &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, Credentials: pool, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}}, true},
+		{"official deepseek pool key with openai label", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: pool, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL}}, false},
+		{"relay key without pool mode", &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://relay.example.com/v1"}}, false},
+		{"openai oauth", &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth, Credentials: pool}, false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.want, isOpenAIAPIKeyHealthBreakerAccount(tt.account))
+		})
+	}
+}
+
 func TestClassifyOpenAIAPIKeyHealthFailureExclusions(t *testing.T) {
 	tests := []struct {
 		name     string
