@@ -76,6 +76,7 @@ const navItems = computed((): NavItem[] => {
       expandOnly: true,
       children: [
         { path: '/channels/pricing', label: t('nav.channelPricing'), icon: PriceTagIcon },
+        { path: '/model-catalog', label: t('nav.modelCatalog'), icon: PriceTagIcon },
         { path: '/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
     },
