@@ -237,6 +237,54 @@ func (f IdentityAdoptionDecisionFunc) Mutate(ctx context.Context, m ent.Mutation
 	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.IdentityAdoptionDecisionMutation", m)
 }
 
+// The ModelCatalogAliasFunc type is an adapter to allow the use of ordinary
+// function as ModelCatalogAlias mutator.
+type ModelCatalogAliasFunc func(context.Context, *ent.ModelCatalogAliasMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ModelCatalogAliasFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ModelCatalogAliasMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelCatalogAliasMutation", m)
+}
+
+// The ModelCatalogEntryFunc type is an adapter to allow the use of ordinary
+// function as ModelCatalogEntry mutator.
+type ModelCatalogEntryFunc func(context.Context, *ent.ModelCatalogEntryMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ModelCatalogEntryFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ModelCatalogEntryMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelCatalogEntryMutation", m)
+}
+
+// The ModelCatalogPriceIntervalFunc type is an adapter to allow the use of ordinary
+// function as ModelCatalogPriceInterval mutator.
+type ModelCatalogPriceIntervalFunc func(context.Context, *ent.ModelCatalogPriceIntervalMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ModelCatalogPriceIntervalFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ModelCatalogPriceIntervalMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelCatalogPriceIntervalMutation", m)
+}
+
+// The ModelCatalogTimePricingFunc type is an adapter to allow the use of ordinary
+// function as ModelCatalogTimePricing mutator.
+type ModelCatalogTimePricingFunc func(context.Context, *ent.ModelCatalogTimePricingMutation) (ent.Value, error)
+
+// Mutate calls f(ctx, m).
+func (f ModelCatalogTimePricingFunc) Mutate(ctx context.Context, m ent.Mutation) (ent.Value, error) {
+	if mv, ok := m.(*ent.ModelCatalogTimePricingMutation); ok {
+		return f(ctx, mv)
+	}
+	return nil, fmt.Errorf("unexpected mutation type %T. expect *ent.ModelCatalogTimePricingMutation", m)
+}
+
 // The PaymentAuditLogFunc type is an adapter to allow the use of ordinary
 // function as PaymentAuditLog mutator.
 type PaymentAuditLogFunc func(context.Context, *ent.PaymentAuditLogMutation) (ent.Value, error)

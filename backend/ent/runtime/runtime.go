@@ -24,6 +24,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -1292,6 +1296,166 @@ func init() {
 	identityadoptiondecisionDescDecidedAt := identityadoptiondecisionFields[4].Descriptor()
 	// identityadoptiondecision.DefaultDecidedAt holds the default value on creation for the decided_at field.
 	identityadoptiondecision.DefaultDecidedAt = identityadoptiondecisionDescDecidedAt.Default.(func() time.Time)
+	modelcatalogaliasMixin := schema.ModelCatalogAlias{}.Mixin()
+	modelcatalogaliasMixinFields0 := modelcatalogaliasMixin[0].Fields()
+	_ = modelcatalogaliasMixinFields0
+	modelcatalogaliasFields := schema.ModelCatalogAlias{}.Fields()
+	_ = modelcatalogaliasFields
+	// modelcatalogaliasDescCreatedAt is the schema descriptor for created_at field.
+	modelcatalogaliasDescCreatedAt := modelcatalogaliasMixinFields0[0].Descriptor()
+	// modelcatalogalias.DefaultCreatedAt holds the default value on creation for the created_at field.
+	modelcatalogalias.DefaultCreatedAt = modelcatalogaliasDescCreatedAt.Default.(func() time.Time)
+	// modelcatalogaliasDescUpdatedAt is the schema descriptor for updated_at field.
+	modelcatalogaliasDescUpdatedAt := modelcatalogaliasMixinFields0[1].Descriptor()
+	// modelcatalogalias.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	modelcatalogalias.DefaultUpdatedAt = modelcatalogaliasDescUpdatedAt.Default.(func() time.Time)
+	// modelcatalogalias.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	modelcatalogalias.UpdateDefaultUpdatedAt = modelcatalogaliasDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// modelcatalogaliasDescAlias is the schema descriptor for alias field.
+	modelcatalogaliasDescAlias := modelcatalogaliasFields[0].Descriptor()
+	// modelcatalogalias.AliasValidator is a validator for the "alias" field. It is called by the builders before save.
+	modelcatalogalias.AliasValidator = func() func(string) error {
+		validators := modelcatalogaliasDescAlias.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(alias string) error {
+			for _, fn := range fns {
+				if err := fn(alias); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// modelcatalogaliasDescSource is the schema descriptor for source field.
+	modelcatalogaliasDescSource := modelcatalogaliasFields[2].Descriptor()
+	// modelcatalogalias.DefaultSource holds the default value on creation for the source field.
+	modelcatalogalias.DefaultSource = modelcatalogaliasDescSource.Default.(string)
+	// modelcatalogalias.SourceValidator is a validator for the "source" field. It is called by the builders before save.
+	modelcatalogalias.SourceValidator = modelcatalogaliasDescSource.Validators[0].(func(string) error)
+	modelcatalogentryMixin := schema.ModelCatalogEntry{}.Mixin()
+	modelcatalogentryMixinFields0 := modelcatalogentryMixin[0].Fields()
+	_ = modelcatalogentryMixinFields0
+	modelcatalogentryFields := schema.ModelCatalogEntry{}.Fields()
+	_ = modelcatalogentryFields
+	// modelcatalogentryDescCreatedAt is the schema descriptor for created_at field.
+	modelcatalogentryDescCreatedAt := modelcatalogentryMixinFields0[0].Descriptor()
+	// modelcatalogentry.DefaultCreatedAt holds the default value on creation for the created_at field.
+	modelcatalogentry.DefaultCreatedAt = modelcatalogentryDescCreatedAt.Default.(func() time.Time)
+	// modelcatalogentryDescUpdatedAt is the schema descriptor for updated_at field.
+	modelcatalogentryDescUpdatedAt := modelcatalogentryMixinFields0[1].Descriptor()
+	// modelcatalogentry.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	modelcatalogentry.DefaultUpdatedAt = modelcatalogentryDescUpdatedAt.Default.(func() time.Time)
+	// modelcatalogentry.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	modelcatalogentry.UpdateDefaultUpdatedAt = modelcatalogentryDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// modelcatalogentryDescModelID is the schema descriptor for model_id field.
+	modelcatalogentryDescModelID := modelcatalogentryFields[0].Descriptor()
+	// modelcatalogentry.ModelIDValidator is a validator for the "model_id" field. It is called by the builders before save.
+	modelcatalogentry.ModelIDValidator = func() func(string) error {
+		validators := modelcatalogentryDescModelID.Validators
+		fns := [...]func(string) error{
+			validators[0].(func(string) error),
+			validators[1].(func(string) error),
+		}
+		return func(model_id string) error {
+			for _, fn := range fns {
+				if err := fn(model_id); err != nil {
+					return err
+				}
+			}
+			return nil
+		}
+	}()
+	// modelcatalogentryDescDisplayName is the schema descriptor for display_name field.
+	modelcatalogentryDescDisplayName := modelcatalogentryFields[1].Descriptor()
+	// modelcatalogentry.DefaultDisplayName holds the default value on creation for the display_name field.
+	modelcatalogentry.DefaultDisplayName = modelcatalogentryDescDisplayName.Default.(string)
+	// modelcatalogentry.DisplayNameValidator is a validator for the "display_name" field. It is called by the builders before save.
+	modelcatalogentry.DisplayNameValidator = modelcatalogentryDescDisplayName.Validators[0].(func(string) error)
+	// modelcatalogentryDescVendor is the schema descriptor for vendor field.
+	modelcatalogentryDescVendor := modelcatalogentryFields[2].Descriptor()
+	// modelcatalogentry.DefaultVendor holds the default value on creation for the vendor field.
+	modelcatalogentry.DefaultVendor = modelcatalogentryDescVendor.Default.(string)
+	// modelcatalogentry.VendorValidator is a validator for the "vendor" field. It is called by the builders before save.
+	modelcatalogentry.VendorValidator = modelcatalogentryDescVendor.Validators[0].(func(string) error)
+	// modelcatalogentryDescBillingMode is the schema descriptor for billing_mode field.
+	modelcatalogentryDescBillingMode := modelcatalogentryFields[4].Descriptor()
+	// modelcatalogentry.DefaultBillingMode holds the default value on creation for the billing_mode field.
+	modelcatalogentry.DefaultBillingMode = modelcatalogentryDescBillingMode.Default.(string)
+	// modelcatalogentry.BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
+	modelcatalogentry.BillingModeValidator = modelcatalogentryDescBillingMode.Validators[0].(func(string) error)
+	// modelcatalogentryDescStatus is the schema descriptor for status field.
+	modelcatalogentryDescStatus := modelcatalogentryFields[5].Descriptor()
+	// modelcatalogentry.DefaultStatus holds the default value on creation for the status field.
+	modelcatalogentry.DefaultStatus = modelcatalogentryDescStatus.Default.(string)
+	// modelcatalogentry.StatusValidator is a validator for the "status" field. It is called by the builders before save.
+	modelcatalogentry.StatusValidator = modelcatalogentryDescStatus.Validators[0].(func(string) error)
+	// modelcatalogentryDescManagedBy is the schema descriptor for managed_by field.
+	modelcatalogentryDescManagedBy := modelcatalogentryFields[6].Descriptor()
+	// modelcatalogentry.DefaultManagedBy holds the default value on creation for the managed_by field.
+	modelcatalogentry.DefaultManagedBy = modelcatalogentryDescManagedBy.Default.(string)
+	// modelcatalogentry.ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
+	modelcatalogentry.ManagedByValidator = modelcatalogentryDescManagedBy.Validators[0].(func(string) error)
+	// modelcatalogentryDescLongContextThresholdInclusive is the schema descriptor for long_context_threshold_inclusive field.
+	modelcatalogentryDescLongContextThresholdInclusive := modelcatalogentryFields[21].Descriptor()
+	// modelcatalogentry.DefaultLongContextThresholdInclusive holds the default value on creation for the long_context_threshold_inclusive field.
+	modelcatalogentry.DefaultLongContextThresholdInclusive = modelcatalogentryDescLongContextThresholdInclusive.Default.(bool)
+	modelcatalogpriceintervalMixin := schema.ModelCatalogPriceInterval{}.Mixin()
+	modelcatalogpriceintervalMixinFields0 := modelcatalogpriceintervalMixin[0].Fields()
+	_ = modelcatalogpriceintervalMixinFields0
+	modelcatalogpriceintervalFields := schema.ModelCatalogPriceInterval{}.Fields()
+	_ = modelcatalogpriceintervalFields
+	// modelcatalogpriceintervalDescCreatedAt is the schema descriptor for created_at field.
+	modelcatalogpriceintervalDescCreatedAt := modelcatalogpriceintervalMixinFields0[0].Descriptor()
+	// modelcatalogpriceinterval.DefaultCreatedAt holds the default value on creation for the created_at field.
+	modelcatalogpriceinterval.DefaultCreatedAt = modelcatalogpriceintervalDescCreatedAt.Default.(func() time.Time)
+	// modelcatalogpriceintervalDescUpdatedAt is the schema descriptor for updated_at field.
+	modelcatalogpriceintervalDescUpdatedAt := modelcatalogpriceintervalMixinFields0[1].Descriptor()
+	// modelcatalogpriceinterval.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	modelcatalogpriceinterval.DefaultUpdatedAt = modelcatalogpriceintervalDescUpdatedAt.Default.(func() time.Time)
+	// modelcatalogpriceinterval.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	modelcatalogpriceinterval.UpdateDefaultUpdatedAt = modelcatalogpriceintervalDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// modelcatalogpriceintervalDescMinTokens is the schema descriptor for min_tokens field.
+	modelcatalogpriceintervalDescMinTokens := modelcatalogpriceintervalFields[1].Descriptor()
+	// modelcatalogpriceinterval.DefaultMinTokens holds the default value on creation for the min_tokens field.
+	modelcatalogpriceinterval.DefaultMinTokens = modelcatalogpriceintervalDescMinTokens.Default.(int)
+	// modelcatalogpriceintervalDescTierLabel is the schema descriptor for tier_label field.
+	modelcatalogpriceintervalDescTierLabel := modelcatalogpriceintervalFields[3].Descriptor()
+	// modelcatalogpriceinterval.DefaultTierLabel holds the default value on creation for the tier_label field.
+	modelcatalogpriceinterval.DefaultTierLabel = modelcatalogpriceintervalDescTierLabel.Default.(string)
+	// modelcatalogpriceinterval.TierLabelValidator is a validator for the "tier_label" field. It is called by the builders before save.
+	modelcatalogpriceinterval.TierLabelValidator = modelcatalogpriceintervalDescTierLabel.Validators[0].(func(string) error)
+	// modelcatalogpriceintervalDescSortOrder is the schema descriptor for sort_order field.
+	modelcatalogpriceintervalDescSortOrder := modelcatalogpriceintervalFields[14].Descriptor()
+	// modelcatalogpriceinterval.DefaultSortOrder holds the default value on creation for the sort_order field.
+	modelcatalogpriceinterval.DefaultSortOrder = modelcatalogpriceintervalDescSortOrder.Default.(int)
+	modelcatalogtimepricingMixin := schema.ModelCatalogTimePricing{}.Mixin()
+	modelcatalogtimepricingMixinFields0 := modelcatalogtimepricingMixin[0].Fields()
+	_ = modelcatalogtimepricingMixinFields0
+	modelcatalogtimepricingFields := schema.ModelCatalogTimePricing{}.Fields()
+	_ = modelcatalogtimepricingFields
+	// modelcatalogtimepricingDescCreatedAt is the schema descriptor for created_at field.
+	modelcatalogtimepricingDescCreatedAt := modelcatalogtimepricingMixinFields0[0].Descriptor()
+	// modelcatalogtimepricing.DefaultCreatedAt holds the default value on creation for the created_at field.
+	modelcatalogtimepricing.DefaultCreatedAt = modelcatalogtimepricingDescCreatedAt.Default.(func() time.Time)
+	// modelcatalogtimepricingDescUpdatedAt is the schema descriptor for updated_at field.
+	modelcatalogtimepricingDescUpdatedAt := modelcatalogtimepricingMixinFields0[1].Descriptor()
+	// modelcatalogtimepricing.DefaultUpdatedAt holds the default value on creation for the updated_at field.
+	modelcatalogtimepricing.DefaultUpdatedAt = modelcatalogtimepricingDescUpdatedAt.Default.(func() time.Time)
+	// modelcatalogtimepricing.UpdateDefaultUpdatedAt holds the default value on update for the updated_at field.
+	modelcatalogtimepricing.UpdateDefaultUpdatedAt = modelcatalogtimepricingDescUpdatedAt.UpdateDefault.(func() time.Time)
+	// modelcatalogtimepricingDescTimezone is the schema descriptor for timezone field.
+	modelcatalogtimepricingDescTimezone := modelcatalogtimepricingFields[1].Descriptor()
+	// modelcatalogtimepricing.DefaultTimezone holds the default value on creation for the timezone field.
+	modelcatalogtimepricing.DefaultTimezone = modelcatalogtimepricingDescTimezone.Default.(string)
+	// modelcatalogtimepricing.TimezoneValidator is a validator for the "timezone" field. It is called by the builders before save.
+	modelcatalogtimepricing.TimezoneValidator = modelcatalogtimepricingDescTimezone.Validators[0].(func(string) error)
+	// modelcatalogtimepricingDescWeekdaysOnly is the schema descriptor for weekdays_only field.
+	modelcatalogtimepricingDescWeekdaysOnly := modelcatalogtimepricingFields[2].Descriptor()
+	// modelcatalogtimepricing.DefaultWeekdaysOnly holds the default value on creation for the weekdays_only field.
+	modelcatalogtimepricing.DefaultWeekdaysOnly = modelcatalogtimepricingDescWeekdaysOnly.Default.(bool)
 	paymentauditlogFields := schema.PaymentAuditLog{}.Fields()
 	_ = paymentauditlogFields
 	// paymentauditlogDescOrderID is the schema descriptor for order_id field.

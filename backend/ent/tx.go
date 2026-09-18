@@ -52,6 +52,14 @@ type Tx struct {
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
+	// ModelCatalogAlias is the client for interacting with the ModelCatalogAlias builders.
+	ModelCatalogAlias *ModelCatalogAliasClient
+	// ModelCatalogEntry is the client for interacting with the ModelCatalogEntry builders.
+	ModelCatalogEntry *ModelCatalogEntryClient
+	// ModelCatalogPriceInterval is the client for interacting with the ModelCatalogPriceInterval builders.
+	ModelCatalogPriceInterval *ModelCatalogPriceIntervalClient
+	// ModelCatalogTimePricing is the client for interacting with the ModelCatalogTimePricing builders.
+	ModelCatalogTimePricing *ModelCatalogTimePricingClient
 	// PaymentAuditLog is the client for interacting with the PaymentAuditLog builders.
 	PaymentAuditLog *PaymentAuditLogClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -240,6 +248,10 @@ func (tx *Tx) init() {
 	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
+	tx.ModelCatalogAlias = NewModelCatalogAliasClient(tx.config)
+	tx.ModelCatalogEntry = NewModelCatalogEntryClient(tx.config)
+	tx.ModelCatalogPriceInterval = NewModelCatalogPriceIntervalClient(tx.config)
+	tx.ModelCatalogTimePricing = NewModelCatalogTimePricingClient(tx.config)
 	tx.PaymentAuditLog = NewPaymentAuditLogClient(tx.config)
 	tx.PaymentOrder = NewPaymentOrderClient(tx.config)
 	tx.PaymentProviderInstance = NewPaymentProviderInstanceClient(tx.config)
