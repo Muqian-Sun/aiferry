@@ -17,23 +17,54 @@ import (
 
 const accountTestSuppressCompletionContextKey = "account_test_suppress_completion"
 
-// testCNProviderConfiguredEndpoints verifies every protocol endpoint a
-// CN-provider key has configured: the gateway may forward over any of them
-// depending on the inbound protocol. A key without a Chat Completions endpoint
-// is tested on its single configured protocol.
-func (s *AccountTestService) testCNProviderConfiguredEndpoints(c *gin.Context, account *Account, modelID string, prompt string, mode string) error {
-	if account.ProtocolEndpoint(APIProtocolChatCompletions) == "" {
-		if account.ProtocolEndpoint(APIProtocolAnthropic) != "" {
-			return s.testCNProviderAnthropicConnection(c, account, modelID)
-		}
-		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
+// testKeyProtocolEndpointConnection 按第三方 key 配置的协议地址选探针。
+//
+// 协议顺序与 PrimaryUpstreamProtocol 一致：chat_completions 是 OpenAI 网关族的主
+// 地址（图片、向量等扩展端点也挂在它下面），其次 responses，再次 anthropic、gemini
+// 两个协议专用根。配了 chat_completions 的 key 顺带验证它的 anthropic / responses
+// 地址——这三个地址都会被真实请求按入站协议用到。
+//
+// 例外：管理员选了 gemini-* 模型且 key 配了 gemini 地址时直接测 Gemini 端点。模型
+// 决定协议族，同一个探针载荷不可能同时是合法的 Gemini 与 Anthropic 请求。
+func (s *AccountTestService) testKeyProtocolEndpointConnection(c *gin.Context, account *Account, modelID string, prompt string, mode string) error {
+	geminiEndpoint := account.ProtocolEndpoint(APIProtocolGemini)
+	if geminiEndpoint != "" && strings.HasPrefix(strings.TrimSpace(modelID), "gemini-") {
+		return s.testGeminiAccountConnection(c, account, modelID, prompt)
 	}
-	return s.testCNProviderAdaptiveConnection(c, account, modelID, prompt)
+	switch {
+	case account.ProtocolEndpoint(APIProtocolChatCompletions) != "":
+		return s.testKeyOpenAIFamilyConnection(c, account, modelID, prompt, mode)
+	case account.ProtocolEndpoint(APIProtocolResponses) != "":
+		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
+	case account.ProtocolEndpoint(APIProtocolAnthropic) != "":
+		return s.testKeyAnthropicConnection(c, account, modelID)
+	case geminiEndpoint != "":
+		return s.testGeminiAccountConnection(c, account, modelID, prompt)
+	default:
+		return s.sendErrorAndEnd(c, MissingProtocolEndpointError(account, strings.Join(UpstreamProtocols(), " / ")).Error())
+	}
 }
 
-// testCNProviderAdaptiveConnection verifies the Chat Completions endpoint of a
-// CN-provider key plus its Anthropic and Responses endpoints when configured.
-func (s *AccountTestService) testCNProviderAdaptiveConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
+// testKeyOpenAIFamilyConnection 处理配了 chat_completions 地址的 key。
+//
+// compact 探针（原生 remote compaction v2）与图片生成（/v1/images/generations）是
+// OpenAI 协议层面的专用线，由 testOpenAIAccountConnection 自己按协议取址，不走逐个
+// 协议端点的探测。
+func (s *AccountTestService) testKeyOpenAIFamilyConnection(c *gin.Context, account *Account, modelID string, prompt string, mode string) error {
+	mode = normalizeAccountTestMode(mode)
+	testModelID := strings.TrimSpace(modelID)
+	if testModelID == "" {
+		testModelID = openai.DefaultTestModel
+	}
+	if mode == AccountTestModeCompact || isOpenAIImageModel(account.GetMappedModel(testModelID)) {
+		return s.testOpenAIAccountConnection(c, account, modelID, prompt, mode)
+	}
+	return s.testKeyConfiguredOpenAIEndpoints(c, account, modelID, prompt)
+}
+
+// testKeyConfiguredOpenAIEndpoints verifies the Chat Completions endpoint of a
+// key plus its Anthropic and Responses endpoints when configured.
+func (s *AccountTestService) testKeyConfiguredOpenAIEndpoints(c *gin.Context, account *Account, modelID string, prompt string) error {
 	testModelID := strings.TrimSpace(modelID)
 	if testModelID == "" {
 		testModelID = openai.DefaultTestModel
@@ -49,18 +80,18 @@ func (s *AccountTestService) testCNProviderAdaptiveConnection(c *gin.Context, ac
 	// completion events until every native adaptive endpoint has passed.
 	c.Set(accountTestSuppressCompletionContextKey, true)
 	defer c.Set(accountTestSuppressCompletionContextKey, false)
-	if err := s.testCNProviderChatCompletionsConnection(c, account, modelID, prompt); err != nil {
+	if err := s.testKeyChatCompletionsConnection(c, account, modelID, prompt); err != nil {
 		return err
 	}
 
 	if account.ProtocolEndpoint(APIProtocolAnthropic) != "" {
-		if err := s.testCNProviderAdaptiveAnthropicConnection(c, account, testModelID, authToken); err != nil {
+		if err := s.testKeySecondaryAnthropicConnection(c, account, testModelID, authToken); err != nil {
 			return err
 		}
 	}
 
 	if account.ProtocolEndpoint(APIProtocolResponses) != "" {
-		if err := s.testCNProviderAdaptiveResponsesConnection(c, account, testModelID, authToken); err != nil {
+		if err := s.testKeySecondaryResponsesConnection(c, account, testModelID, authToken); err != nil {
 			return err
 		}
 	}
@@ -70,13 +101,14 @@ func (s *AccountTestService) testCNProviderAdaptiveConnection(c *gin.Context, ac
 	return nil
 }
 
-func (s *AccountTestService) testCNProviderAdaptiveAnthropicConnection(c *gin.Context, account *Account, testModelID string, authToken string) error {
+func (s *AccountTestService) testKeySecondaryAnthropicConnection(c *gin.Context, account *Account, testModelID string, authToken string) error {
 	ctx := c.Request.Context()
 	baseURL, err := s.validateUpstreamBaseURL(account.ProtocolEndpoint(APIProtocolAnthropic))
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid adaptive Anthropic base URL: %s", err.Error()))
 	}
-	apiURL := strings.TrimRight(baseURL, "/") + "/v1/messages"
+	// 与真实转发同一个拼接口径：地址带不带 /v1 都得到 {base}/v1/messages。
+	apiURL := joinUpstreamEndpointURL(baseURL, "/v1/messages")
 
 	payload, err := createTestPayload(testModelID)
 	if err != nil {
@@ -102,7 +134,7 @@ func (s *AccountTestService) testCNProviderAdaptiveAnthropicConnection(c *gin.Co
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenCodeSessionHeader(c, account, apiURL, req.Header, payloadBytes)
 
-	resp, err := s.doCNProviderAdaptiveRequest(req, account)
+	resp, err := s.doKeyProbeRequest(req, account)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Adaptive Anthropic endpoint request failed: %s", err.Error()))
 	}
@@ -116,14 +148,14 @@ func (s *AccountTestService) testCNProviderAdaptiveAnthropicConnection(c *gin.Co
 		return s.sendErrorAndEnd(c, errMsg)
 	}
 
-	if err := s.processCNProviderAdaptiveAnthropicStream(c, resp.Body); err != nil {
+	if err := s.processKeyAnthropicProbeStream(c, resp.Body); err != nil {
 		return err
 	}
 	s.sendEvent(c, TestEvent{Type: "status", Text: "已通过原生 /v1/messages 验证"})
 	return nil
 }
 
-func (s *AccountTestService) processCNProviderAdaptiveAnthropicStream(c *gin.Context, body io.Reader) error {
+func (s *AccountTestService) processKeyAnthropicProbeStream(c *gin.Context, body io.Reader) error {
 	reader := bufio.NewReader(body)
 	for {
 		line, err := reader.ReadString('\n')
@@ -168,7 +200,7 @@ func (s *AccountTestService) processCNProviderAdaptiveAnthropicStream(c *gin.Con
 	}
 }
 
-func (s *AccountTestService) testCNProviderAdaptiveResponsesConnection(c *gin.Context, account *Account, testModelID string, authToken string) error {
+func (s *AccountTestService) testKeySecondaryResponsesConnection(c *gin.Context, account *Account, testModelID string, authToken string) error {
 	ctx := c.Request.Context()
 	baseURL, err := s.validateUpstreamBaseURL(account.ProtocolEndpoint(APIProtocolResponses))
 	if err != nil {
@@ -196,7 +228,7 @@ func (s *AccountTestService) testCNProviderAdaptiveResponsesConnection(c *gin.Co
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenCodeSessionHeader(c, account, apiURL, req.Header, payloadBytes)
 
-	resp, err := s.doCNProviderAdaptiveRequest(req, account)
+	resp, err := s.doKeyProbeRequest(req, account)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Adaptive Responses endpoint request failed: %s", err.Error()))
 	}
@@ -217,7 +249,7 @@ func (s *AccountTestService) testCNProviderAdaptiveResponsesConnection(c *gin.Co
 	return nil
 }
 
-func (s *AccountTestService) doCNProviderAdaptiveRequest(req *http.Request, account *Account) (*http.Response, error) {
+func (s *AccountTestService) doKeyProbeRequest(req *http.Request, account *Account) (*http.Response, error) {
 	proxyURL := ""
 	if account.ProxyID != nil && account.Proxy != nil {
 		proxyURL = account.Proxy.URL()
@@ -225,15 +257,12 @@ func (s *AccountTestService) doCNProviderAdaptiveRequest(req *http.Request, acco
 	return s.httpUpstream.DoWithTLS(req, proxyURL, account.ID, account.Concurrency, s.tlsFPProfileService.ResolveTLSProfile(account))
 }
 
-// testCNProviderAnthropicConnection verifies the native Anthropic endpoint of a
-// CN-provider or OpenCode key whose request goes over the anthropic protocol.
-// Before this path existed such accounts fell through to the generic Claude
-// tester, which (a) appended ?beta=true and (b) defaulted a missing base_url to
-// https://api.anthropic.com — sending the provider's API key to Anthropic
-// instead of the provider's own Anthropic-compatible endpoint. The probe uses
+// testKeyAnthropicConnection verifies the native Anthropic endpoint of a
+// third-party key whose request goes over the anthropic protocol. The probe uses
 // the anthropic protocol endpoint (same address as real /v1/messages
-// forwarding) and the shared API-key auth header.
-func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, account *Account, modelID string) error {
+// forwarding) and the shared API-key auth header. A key without that address
+// never reaches here — no官方端点兜底，缺地址是配置错误。
+func (s *AccountTestService) testKeyAnthropicConnection(c *gin.Context, account *Account, modelID string) error {
 	ctx := c.Request.Context()
 
 	testModelID := strings.TrimSpace(modelID)
@@ -251,10 +280,16 @@ func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, a
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Invalid Anthropic base URL: %s", err.Error()))
 	}
-	if hint := cnAnthropicBaseURLMisconfigHint(baseURL); hint != "" {
+	if hint := anthropicProbeBaseURLMisconfigHint(baseURL); hint != "" {
 		return s.sendErrorAndEnd(c, hint)
 	}
-	apiURL := strings.TrimRight(baseURL, "/") + "/v1/messages"
+	// 与真实转发同一个拼接口径：地址带不带 /v1 都得到 {base}/v1/messages。
+	// ?beta=true 是 Anthropic 官方端点的 beta 开关（GatewayService 对 Anthropic
+	// 网关的 API-Key 转发就这么拼），厂商特化只对官方地址生效；中转按朴素路径。
+	apiURL := joinUpstreamEndpointURL(baseURL, "/v1/messages")
+	if account.Vendor() == PlatformAnthropic {
+		apiURL = joinAnthropicBetaEndpointURL(baseURL, "/v1/messages")
+	}
 
 	c.Writer.Header().Set("Content-Type", "text/event-stream")
 	c.Writer.Header().Set("Cache-Control", "no-cache")
@@ -280,13 +315,18 @@ func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, a
 	for key, value := range claude.DefaultHeaders {
 		req.Header.Set(key, value)
 	}
+	if account.Vendor() == PlatformAnthropic {
+		// 官方端点的 beta 能力开关，与 ?beta=true 同源的厂商特化；中转不带，
+		// 未知 beta 名会被部分中转当成 400。
+		req.Header.Set("anthropic-beta", claude.APIKeyBetaHeader)
+	}
 	// Ollama Cloud Anthropic 兼容端点按实际 base_url 强制 Bearer，其余保持
 	// extra/default 行为。
 	setAnthropicAPIKeyAuthHeader(req.Header, account, authToken, account.ProtocolEndpoint(APIProtocolAnthropic))
 	account.ApplyHeaderOverrides(req.Header)
 	applyOpenCodeSessionHeader(c, account, apiURL, req.Header, payloadBytes)
 
-	resp, err := s.doCNProviderAdaptiveRequest(req, account)
+	resp, err := s.doKeyProbeRequest(req, account)
 	if err != nil {
 		return s.sendErrorAndEnd(c, fmt.Sprintf("Anthropic endpoint request failed: %s", err.Error()))
 	}
@@ -303,12 +343,14 @@ func (s *AccountTestService) testCNProviderAnthropicConnection(c *gin.Context, a
 	return s.processClaudeStream(c, resp.Body)
 }
 
-// cnAnthropicBaseURLMisconfigHint reports an actionable error when an
+// anthropicProbeBaseURLMisconfigHint reports an actionable error when an
 // anthropic-protocol account's base_url still points at an OpenAI-compatible
-// endpoint (paas path, version segment, or chat/completions / responses
-// suffix). The naive {base}/v1/messages join would 404 (e.g.
-// .../api/paas/v4/v1/messages) with no hint about the actual misconfiguration.
-func cnAnthropicBaseURLMisconfigHint(baseURL string) string {
+// endpoint (paas path, chat/completions or responses suffix). The joined
+// {base}/v1/messages would 404 with no hint about the actual misconfiguration.
+//
+// 纯版本后缀（.../v1）不再算误配：拼接口径与转发一致（joinUpstreamEndpointURL 版本
+// 感知），https://api.anthropic.com/v1 这类地址能正确拼成 {base}/messages。
+func anthropicProbeBaseURLMisconfigHint(baseURL string) string {
 	parsed, err := url.Parse(strings.TrimSpace(baseURL))
 	if err != nil || parsed.Scheme == "" || parsed.Host == "" {
 		return ""
@@ -319,8 +361,7 @@ func cnAnthropicBaseURLMisconfigHint(baseURL string) string {
 	}
 	openAICompatShaped := strings.Contains(path, "/paas/") ||
 		strings.HasSuffix(path, "/chat/completions") ||
-		strings.HasSuffix(path, "/responses") ||
-		upstreamBaseURLHasVersionSuffix(path)
+		strings.HasSuffix(path, "/responses")
 	if !openAICompatShaped {
 		return ""
 	}

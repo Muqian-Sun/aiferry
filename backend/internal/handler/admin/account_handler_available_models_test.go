@@ -40,10 +40,12 @@ func setupAvailableModelsRouter(adminSvc service.AdminService) *gin.Engine {
 type syncUpstreamHTTPUpstream struct {
 	resp      *http.Response
 	responses []*http.Response
+	requests  []*http.Request
 	err       error
 }
 
 func (u *syncUpstreamHTTPUpstream) Do(req *http.Request, proxyURL string, accountID int64, accountConcurrency int) (*http.Response, error) {
+	u.requests = append(u.requests, req)
 	if u.err != nil {
 		return nil, u.err
 	}
@@ -530,4 +532,39 @@ func TestAccountHandlerSyncUpstreamModels_MetadataEnrichmentFailureReturnsWarnin
 	require.Equal(t, []string{"x-preview-f-free"}, resp.Data.Models)
 	require.Len(t, resp.Data.Warnings, 1)
 	require.Equal(t, "upstream_model_metadata_incomplete", resp.Data.Warnings[0].Code)
+}
+
+// Scenario: 建号 preview 的临时账号与已存账号同一条路径——标签 anthropic、只填了
+// chat_completions 地址的 key，同步走 OpenAI /v1/models 形态打那个地址。
+func TestAccountHandlerSyncUpstreamModelsPreviewFollowsProtocolEndpointNotPlatform(t *testing.T) {
+	upstream := &syncUpstreamHTTPUpstream{resp: &http.Response{
+		StatusCode: http.StatusOK,
+		Header:     http.Header{"Content-Type": []string{"application/json"}},
+		Body:       io.NopCloser(strings.NewReader(`{"data":[{"id":"relay-model"}]}`)),
+	}}
+	router := setupSyncUpstreamModelsRouter(newStubAdminService(), upstream)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/accounts/models/sync-upstream-preview",
+		strings.NewReader(`{
+			"platform":"anthropic",
+			"type":"apikey",
+			"protocol_endpoints":{"chat_completions":"https://relay.example/v1"},
+			"api_key":"sk-relay"
+		}`),
+	)
+	req.Header.Set("Content-Type", "application/json")
+	router.ServeHTTP(rec, req)
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Data service.UpstreamModelCatalog `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	require.Equal(t, []string{"relay-model"}, resp.Data.Models)
+	require.NotEmpty(t, upstream.requests)
+	require.Equal(t, "https://relay.example/v1/models", upstream.requests[0].URL.String())
+	require.Equal(t, "Bearer sk-relay", upstream.requests[0].Header.Get("Authorization"))
 }

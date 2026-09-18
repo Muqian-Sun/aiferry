@@ -279,7 +279,7 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	require.Empty(t, anthropicBearerReq.Header.Get("x-api-key"))
 	require.Equal(t, "2023-06-01", anthropicBearerReq.Header.Get("anthropic-version"))
 
-	openAIReq, err := svc.buildOpenAIUpstreamModelsRequest(ctx, &Account{
+	openAIReq, err := svc.buildUpstreamModelsRequest(ctx, &Account{
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
@@ -322,7 +322,7 @@ func TestBuildUpstreamModelsRequestsForAPIKeyAccounts(t *testing.T) {
 	require.Equal(t, "https://generativelanguage.googleapis.com/v1beta/models", geminiReq.URL.String())
 	require.Equal(t, "gemini-key", geminiReq.Header.Get("x-goog-api-key"))
 
-	antigravityReq, err := svc.buildAntigravityAPIKeyModelsRequest(ctx, &Account{
+	antigravityReq, err := svc.buildUpstreamModelsRequest(ctx, &Account{
 		Platform: PlatformAntigravity,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{
@@ -374,7 +374,7 @@ func TestBuildAntigravityAPIKeyModelsRequestRejectsOfficialCloudCodeBase(t *test
 	t.Parallel()
 
 	svc := &AccountTestService{cfg: upstreamModelSyncTestConfig()}
-	_, err := svc.buildAntigravityAPIKeyModelsRequest(context.Background(), &Account{
+	_, err := svc.buildUpstreamModelsRequest(context.Background(), &Account{
 		Platform: PlatformAntigravity,
 		Type:     AccountTypeAPIKey,
 		Credentials: map[string]any{

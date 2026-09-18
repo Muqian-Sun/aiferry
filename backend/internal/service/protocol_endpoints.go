@@ -290,15 +290,19 @@ func ResolveUpstreamBaseURL(account *Account, resolved string, protocol string, 
 // 不引入这个入口的话，第三方 key 只配协议映射、不配 base_url 之后，这些判断会
 // 静默拿到空串——不报错，只是行为悄悄消失。
 func (a *Account) PrimaryUpstreamBaseURL() string {
-	if a == nil {
-		return ""
-	}
-	if !a.IsThirdPartyKey() {
+	return a.ProtocolEndpoint(a.PrimaryUpstreamProtocol())
+}
+
+// PrimaryUpstreamProtocol 返回 PrimaryUpstreamBaseURL 选中的协议，未配置任何协议地址
+// 时返回空串。需要知道「主地址是哪个协议」的调用方（模型列表同步要按协议选请求形态）
+// 用它，避免再抄一份取址顺序。
+func (a *Account) PrimaryUpstreamProtocol() string {
+	if a == nil || !a.IsThirdPartyKey() {
 		return ""
 	}
 	for _, protocol := range primaryUpstreamProtocolOrder {
-		if endpoint := a.ProtocolEndpoint(protocol); endpoint != "" {
-			return endpoint
+		if a.ProtocolEndpoint(protocol) != "" {
+			return protocol
 		}
 	}
 	return ""
