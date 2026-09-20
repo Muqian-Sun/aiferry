@@ -243,11 +243,6 @@ func DefaultGeminiModels() []GeminiModel {
 	return result
 }
 
-// FallbackGeminiModelsList 返回 Gemini v1beta 格式的模型列表响应
-func FallbackGeminiModelsList() GeminiModelsListResponse {
-	return GeminiModelsListResponse{Models: DefaultGeminiModels()}
-}
-
 // FallbackGeminiModel 返回单个模型信息（v1beta 格式）
 func FallbackGeminiModel(model string) GeminiModel {
 	if model == "" {

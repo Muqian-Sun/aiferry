@@ -261,7 +261,7 @@ func TestPinnedOpenAIModelsListMixedAccountsShareColdCacheAcrossGroups(t *testin
 		wait.Add(1)
 		go func() {
 			defer wait.Done()
-			results[i].response, results[i].account, results[i].err = s.FetchPinnedOpenAIModelsList(context.Background(), group, 3, "")
+			results[i].response, results[i].account, results[i].err = s.FetchPinnedOpenAIModelsList(context.Background(), group, 3, "", func(string) bool { return true })
 		}()
 	}
 	wait.Wait()

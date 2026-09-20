@@ -80,7 +80,7 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 				acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
 				acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 			}
-			h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg)
+			h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, nil)
 			apiKey := &service.APIKey{
 				ID: 3201, UserID: 3301, GroupID: &groupID,
 				User:  &service.User{ID: 3301, Status: service.StatusActive},

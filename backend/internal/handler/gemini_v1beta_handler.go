@@ -46,14 +46,18 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
-	// 分组级模型白名单开启时过滤 models[].name（名字形如 models/xxx）。
-	filterGeminiModels := func(models []gemini.Model) []gemini.Model {
-		if apiKey.Group == nil || !apiKey.Group.ModelAllowlistEnabled() {
-			return models
+	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀），分组白名单开启时再按白名单过滤。
+	allowlistOn := apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
+	visible := func(name string) bool {
+		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(name) {
+			return false
 		}
+		return service.IsListedModel(c.Request.Context(), h.modelCatalog, strings.TrimPrefix(name, "models/"))
+	}
+	filterGeminiModels := func(models []gemini.Model) []gemini.Model {
 		filtered := make([]gemini.Model, 0, len(models))
 		for _, model := range models {
-			if apiKey.Group.ModelAllowlist.Allows(model.Name) {
+			if visible(model.Name) {
 				filtered = append(filtered, model)
 			}
 		}
@@ -62,18 +66,14 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 
 	// 强制 antigravity 模式：返回 antigravity 支持的模型列表
 	if forcePlatform == service.PlatformAntigravity {
-		if apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
-			agModels := antigravity.DefaultGeminiModels()
-			filtered := make([]antigravity.GeminiModel, 0, len(agModels))
-			for _, model := range agModels {
-				if apiKey.Group.ModelAllowlist.Allows(model.Name) {
-					filtered = append(filtered, model)
-				}
+		agModels := antigravity.DefaultGeminiModels()
+		filtered := make([]antigravity.GeminiModel, 0, len(agModels))
+		for _, model := range agModels {
+			if visible(model.Name) {
+				filtered = append(filtered, model)
 			}
-			c.JSON(http.StatusOK, antigravity.GeminiModelsListResponse{Models: filtered})
-			return
 		}
-		c.JSON(http.StatusOK, antigravity.FallbackGeminiModelsList())
+		c.JSON(http.StatusOK, antigravity.GeminiModelsListResponse{Models: filtered})
 		return
 	}
 
@@ -100,22 +100,20 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: filterGeminiModels(gemini.DefaultModels())})
 		return
 	}
-	if apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
-		if filtered, dropped, ok := filterUpstreamGeminiModelsBody(res.Body, apiKey.Group.ModelAllowlist); ok && dropped {
-			// 只在确有条目被过滤时替换响应体；全命中或解析失败时保持原始响应，
-			// 统一经 writeUpstreamResponse 写出（保留全部上游响应头）。
-			res.Body = filtered
-		}
+	if filtered, dropped, ok := filterUpstreamGeminiModelsBody(res.Body, visible); ok && dropped {
+		// 只在确有条目被过滤时替换响应体；全命中或解析失败时保持原始响应，
+		// 统一经 writeUpstreamResponse 写出（保留全部上游响应头）。
+		res.Body = filtered
 	}
 	writeUpstreamResponse(c, res)
 }
 
-// filterUpstreamGeminiModelsBody 按白名单过滤上游 /v1beta/models 响应中的
+// filterUpstreamGeminiModelsBody 按 keep 过滤上游 /v1beta/models 响应中的
 // models[].name，其余信封字段（如 nextPageToken）原样保留。
 // 返回值：filtered 为过滤后的响应体；dropped 表示是否有条目被移除（全命中时
 // 为 false，调用方应保持原始响应以完整透传上游头）；ok=false 表示解析失败，
 // 调用方同样应透传原始响应。
-func filterUpstreamGeminiModelsBody(body []byte, allowlist service.GroupModelAllowlist) (filtered []byte, dropped bool, ok bool) {
+func filterUpstreamGeminiModelsBody(body []byte, keep func(name string) bool) (filtered []byte, dropped bool, ok bool) {
 	var envelope map[string]json.RawMessage
 	if err := json.Unmarshal(body, &envelope); err != nil {
 		return nil, false, false
@@ -137,7 +135,7 @@ func filterUpstreamGeminiModelsBody(body []byte, allowlist service.GroupModelAll
 		if err := json.Unmarshal(raw, &model); err != nil {
 			return nil, false, false
 		}
-		if allowlist.Allows(model.Name) {
+		if keep(model.Name) {
 			kept = append(kept, raw)
 		}
 	}

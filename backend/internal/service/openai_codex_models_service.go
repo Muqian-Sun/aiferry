@@ -124,6 +124,7 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 	ctx context.Context,
 	group *Group,
 	ifNoneMatch string,
+	listed func(modelID string) bool,
 ) (*OpenAIModelsResponse, bool, error) {
 	if s == nil || s.accountRepo == nil || group == nil || group.Platform != PlatformOpenAI {
 		return nil, false, nil
@@ -158,6 +159,10 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 	if err != nil {
 		return nil, false, fmt.Errorf("build group configured Codex models: %w", err)
 	}
+	body, _, err = filterCodexModelsManifestBySlug(body, listed)
+	if err != nil {
+		return nil, false, fmt.Errorf("filter group configured Codex models: %w", err)
+	}
 	manifest := &OpenAIModelsResponse{
 		Body: body,
 		ETag: codexModelsManifestBodyETag(body),
@@ -172,12 +177,14 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 // MergeGroupConfiguredCodexModels adds account model aliases that are visible
 // to the authenticated OpenAI group without discarding metadata from upstream
 // Codex model entries. A group's custom models list also filters the picker,
-// matching the standard /v1/models display policy.
+// matching the standard /v1/models display policy. listed 最后再过滤一遍：只有
+// 目录上架的 slug 对用户可见；ETag 按最终响应体计算。
 func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 	ctx context.Context,
 	group *Group,
 	manifest *OpenAIModelsResponse,
 	ifNoneMatch string,
+	listed func(modelID string) bool,
 ) error {
 	if s == nil || s.accountRepo == nil || group == nil || manifest == nil || manifest.NotModified {
 		return nil
@@ -210,6 +217,11 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		}
 		changed = true
 	}
+	body, filtered, err := filterCodexModelsManifestBySlug(body, listed)
+	if err != nil {
+		return fmt.Errorf("filter Codex models by catalog: %w", err)
+	}
+	changed = changed || filtered
 	if changed {
 		manifest.Body = body
 		manifest.ETag = codexModelsManifestBodyETag(body)
@@ -219,6 +231,40 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		manifest.NotModified = true
 	}
 	return nil
+}
+
+// filterCodexModelsManifestBySlug 只保留 models[].slug 满足 listed 的条目；没有条目被移除时
+// 原样返回 body（changed=false）。
+func filterCodexModelsManifestBySlug(body []byte, listed func(modelID string) bool) ([]byte, bool, error) {
+	envelope, entries, err := modelCatalogEntries(body, "models")
+	if err != nil {
+		return nil, false, err
+	}
+	kept := make([]json.RawMessage, 0, len(entries))
+	for _, raw := range entries {
+		var model struct {
+			Slug string `json:"slug"`
+		}
+		if err := json.Unmarshal(raw, &model); err != nil {
+			return nil, false, err
+		}
+		if listed(model.Slug) {
+			kept = append(kept, raw)
+		}
+	}
+	if len(kept) == len(entries) {
+		return body, false, nil
+	}
+	mergedModels, err := json.Marshal(kept)
+	if err != nil {
+		return nil, false, err
+	}
+	envelope["models"] = mergedModels
+	merged, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, false, err
+	}
+	return merged, true, nil
 }
 
 func (s *OpenAIGatewayService) groupConfiguredCodexModelIDs(ctx context.Context, group *Group) ([]string, error) {

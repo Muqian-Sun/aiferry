@@ -18,3 +18,7 @@ func (admitAllCatalog) ResolveRoute(_ context.Context, model string) (service.Ca
 	}
 	return service.CatalogRoute{EntryID: 1, CanonicalModel: model, RequestedModel: model, Platform: platform}, true
 }
+
+// ListListedEntries 让 admitAllCatalog 也能充当 handler 的模型列表来源（空目录，
+// 路由测试里的列表内容来自固定账号清单或生成清单，逐条按 ResolveRoute 放行）。
+func (admitAllCatalog) ListListedEntries(context.Context) []service.ModelCatalogEntry { return nil }

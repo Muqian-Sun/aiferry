@@ -1209,6 +1209,7 @@ func TestMergeGroupConfiguredCodexModelsInjectsCurrentGroupAliases(t *testing.T)
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	models := decodeCodexManifestModels(t, manifest.Body)
@@ -1266,7 +1267,7 @@ func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t
 	}}
 	group := &Group{ID: groupID, Platform: PlatformOpenAI}
 
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "")
+	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
 	require.NoError(t, err)
 	require.True(t, configured)
 	models := decodeCodexManifestModels(t, manifest.Body)
@@ -1285,6 +1286,7 @@ func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t
 		context.Background(),
 		group,
 		"W/"+manifest.ETag,
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1319,7 +1321,7 @@ func TestBuildGroupConfiguredCodexModelsManifestExpandsSelectedModelCoveredByWil
 		},
 	}
 
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "")
+	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
 	require.NoError(t, err)
 	require.True(t, configured)
 	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
@@ -1361,6 +1363,7 @@ func TestBuildGroupConfiguredCodexModelsManifestIntersectsTransientlyUnschedulab
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1408,6 +1411,7 @@ func TestBuildGroupConfiguredCodexModelsManifestIgnoresPersistentlyDisabledMappe
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1434,6 +1438,7 @@ func TestBuildGroupConfiguredCodexModelsManifestFallsThroughWithoutConfiguration
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.False(t, configured)
@@ -1454,6 +1459,7 @@ func TestMergeGroupConfiguredCodexModelsFiltersAutoReviewByDefault(t *testing.T)
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	))
 	models := decodeCodexManifestModels(t, manifest.Body)
 	require.Len(t, models, 1)
@@ -1489,6 +1495,7 @@ func TestMergeGroupConfiguredCodexModelsFiltersAccountMappedAutoReviewByDefault(
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	))
 	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
 }
@@ -1511,7 +1518,7 @@ func TestMergeGroupConfiguredCodexModelsKeepsExplicitAutoReviewSelection(t *test
 		},
 	}
 
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
 	require.Equal(t, []string{"codex-auto-review"}, codexManifestModelSlugs(t, manifest.Body))
 }
 
@@ -1545,14 +1552,14 @@ func TestMergeGroupConfiguredCodexModelsHonorsCustomListAndFinalETag(t *testing.
 	upstreamBody := []byte(`{"models":[{"slug":"gpt-5.6","display_name":"GPT-5.6"}]}`)
 	manifest := &OpenAIModelsResponse{Body: upstreamBody}
 
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
 	models := decodeCodexManifestModels(t, manifest.Body)
 	require.Len(t, models, 1)
 	requireCompleteConfiguredCodexModel(t, models[0], "deepseek-4-pro")
 
 	finalETag := manifest.ETag
 	second := &OpenAIModelsResponse{Body: upstreamBody}
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, finalETag))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, finalETag, codexListAllForTest))
 	require.True(t, second.NotModified)
 	require.Empty(t, second.Body)
 	require.Equal(t, finalETag, second.ETag)
@@ -2075,14 +2082,14 @@ func TestFetchCodexModelsManifestAPIKeyCompleteBodyWithoutUpstreamETagUsesFinalB
 	first, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
 	require.NoError(t, err)
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(first, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, first, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, first, "", codexListAllForTest))
 	require.Equal(t, codexModelsManifestBodyETag(first.Body), first.ETag)
 	require.NotEmpty(t, first.ETag)
 
 	second, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
 	require.NoError(t, err)
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(second, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, first.ETag))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, first.ETag, codexListAllForTest))
 	require.True(t, second.NotModified)
 	require.Empty(t, second.Body)
 	require.Equal(t, int32(1), calls.Load())
@@ -2814,6 +2821,7 @@ func TestFetchCodexModelsManifestAPIKeyCacheSurvivesClientMutation(t *testing.T)
 		},
 		first,
 		"",
+		codexListAllForTest,
 	))
 	require.Equal(t, []string{"model-a"}, codexManifestModelSlugs(t, first.Body))
 
@@ -2841,6 +2849,7 @@ func TestFetchCodexModelsManifestAPIKeyCacheSurvivesClientMutation(t *testing.T)
 				},
 				manifest,
 				"",
+				codexListAllForTest,
 			))
 			require.Equal(t, []string{"model-b"}, codexManifestModelSlugs(t, manifest.Body))
 		}()
@@ -3687,7 +3696,7 @@ func TestFetchCodexModelsManifestOAuthSharedAcrossGroupsWithIndependentFiltering
 			<-begin
 			manifest, err := s.FetchCodexModelsManifest(context.Background(), account, "0.137.0", "")
 			if err == nil {
-				err = s.MergeGroupConfiguredCodexModels(context.Background(), g, manifest, "")
+				err = s.MergeGroupConfiguredCodexModels(context.Background(), g, manifest, "", codexListAllForTest)
 			}
 			slugs := []string{}
 			if err == nil {
@@ -3782,3 +3791,6 @@ func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
 	setupToken := &Account{ID: 33, Platform: PlatformOpenAI, Type: AccountTypeSetupToken}
 	require.False(t, accountCodexModelSupportsImageInput(setupToken, "gpt-5.6-sol"))
 }
+
+// codexListAllForTest 让目录过滤放行所有 slug。
+func codexListAllForTest(string) bool { return true }

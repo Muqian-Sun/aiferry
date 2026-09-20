@@ -47,6 +47,8 @@ type OpenAIGatewayHandler struct {
 	imageLimiter               *imageConcurrencyLimiter
 	maxAccountSwitches         int
 	cfg                        *config.Config
+	// modelCatalog 用户可见模型列表的来源：Codex 清单只露出目录上架的 slug。
+	modelCatalog service.CatalogListingSource
 }
 
 type openAIWSTurnChannelMappingSnapshot struct {
@@ -339,6 +341,7 @@ func NewOpenAIGatewayHandler(
 	contentModerationService *service.ContentModerationService,
 	opsService *service.OpsService,
 	cfg *config.Config,
+	modelCatalog service.CatalogListingSource,
 ) *OpenAIGatewayHandler {
 	pingInterval := time.Duration(0)
 	maxAccountSwitches := 3
@@ -360,6 +363,7 @@ func NewOpenAIGatewayHandler(
 		imageLimiter:             &imageConcurrencyLimiter{},
 		maxAccountSwitches:       maxAccountSwitches,
 		cfg:                      cfg,
+		modelCatalog:             modelCatalog,
 	}
 }
 

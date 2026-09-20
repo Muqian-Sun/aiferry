@@ -268,7 +268,9 @@ func ApplyPinnedCodexModelsMapping(response *OpenAIModelsResponse, account *Acco
 
 // FetchPinnedOpenAIModelsList includes explicitly enabled scheduler fallback.
 // An authoritative empty catalog is success, including after group filtering.
-func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, group *Group, maxAccountSwitches int, ifNoneMatch string) (*OpenAIModelsResponse, *Account, error) {
+// listed 决定上游发现出的模型哪些对用户可见（目录上架），在白名单之后过滤；
+// ETag 按最终响应体计算，所以过滤结果变化会让客户端缓存失效。
+func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, group *Group, maxAccountSwitches int, ifNoneMatch string, listed func(modelID string) bool) (*OpenAIModelsResponse, *Account, error) {
 	fetch := func(ctx context.Context, account *Account) (*OpenAIModelsResponse, error) {
 		response, err := s.FetchOpenAIModelsList(ctx, account)
 		if err != nil {
@@ -306,9 +308,17 @@ func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, 
 			}
 		}
 	}
+	selected := modelIDs
 	if group.ModelAllowlistEnabled() {
-		models = selectModelCatalogEntries(byID, group.ModelAllowlist.FilterForListing(modelIDs))
+		selected = group.ModelAllowlist.FilterForListing(modelIDs)
 	}
+	visible := make([]string, 0, len(selected))
+	for _, id := range selected {
+		if listed(id) {
+			visible = append(visible, id)
+		}
+	}
+	models = selectModelCatalogEntries(byID, visible)
 	body, err := json.Marshal(struct {
 		Object string            `json:"object"`
 		Data   []json.RawMessage `json:"data"`
