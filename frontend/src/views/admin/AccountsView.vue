@@ -253,6 +253,7 @@
             <div class="flex min-w-0 flex-col gap-1">
               <div class="flex flex-wrap items-center gap-1">
                 <PlatformTypeBadge :platform="row.platform" :type="row.type"
+                  :vendor="row.vendor"
                   :auth-mode="getOpenAIAuthMode(row)"
                   :plan-type="getAccountPlanType(row)"
                   :privacy-mode="row.extra?.privacy_mode || row.parent_privacy_mode"
@@ -262,6 +263,17 @@
                   :class="['inline-block rounded px-1.5 py-0.5 text-[10px] font-medium', getAntigravityTierClass(row)]"
                 >
                   {{ getAntigravityTierLabel(row) }}
+                </span>
+              </div>
+              <!-- 第三方 key 的坐标是协议地址：列出配了哪些协议，悬停看主机。 -->
+              <div v-if="keyProtocolChips(row).length" class="flex flex-wrap items-center gap-1" data-testid="key-protocol-chips">
+                <span
+                  v-for="chip in keyProtocolChips(row)"
+                  :key="chip.protocol"
+                  class="inline-flex items-center rounded bg-gray-100 px-1.5 py-0.5 text-[10px] font-medium text-gray-600 dark:bg-dark-700 dark:text-dark-300"
+                  :title="chip.host"
+                >
+                  {{ t(`admin.accounts.protocolShort.${chip.protocol}`) }}
                 </span>
               </div>
               <div
@@ -1709,6 +1721,21 @@ function getAntigravityTierLabel(row: any): string | null {
 // 供名称单元格 v-if/标题/文本三处共用,避免同一回退链在模板里重复三次。
 function accountDisplayEmail(row: any): string {
   return row.extra?.email_address || row.extra?.email || row.credentials?.email || row.parent_email || ''
+}
+
+// 第三方 key 配了哪些协议地址，按固定协议顺序；成品号没有协议地址（后端校验禁止），自然为空。
+function keyProtocolChips(row: Account): Array<{ protocol: string; host: string }> {
+  return UPSTREAM_PROTOCOLS.flatMap((protocol) => {
+    const url = row.protocol_endpoints?.[protocol]?.trim()
+    if (!url) return []
+    let host = url
+    try {
+      host = new URL(url).host
+    } catch {
+      // 非法地址原样展示，后端会在保存时拒绝
+    }
+    return [{ protocol, host }]
+  })
 }
 
 // 第三方 key 名称链接到上游站点主页：地址只在协议映射里，按协议顺序取第一个已配置的。

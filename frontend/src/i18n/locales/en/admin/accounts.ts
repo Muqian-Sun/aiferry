@@ -176,10 +176,16 @@ export default {
         viewTempUnschedDetails: 'View temp unschedulable details',
         tempUnschedulableUntil: 'Resumes {time}'
       },
+      protocolShort: {
+        anthropic: 'Messages',
+        chat_completions: 'Chat',
+        responses: 'Responses',
+        gemini: 'Gemini'
+      },
       columns: {
         name: 'Name',
         id: 'Account ID',
-        platformType: 'Platform/Type',
+        platformType: 'Vendor/Type',
         platform: 'Platform',
         type: 'Type',
         capacity: 'Capacity',

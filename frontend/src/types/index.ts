@@ -1174,6 +1174,11 @@ export interface Account {
   credentials?: Record<string, unknown>
   credentials_status?: Record<string, boolean>
   protocol_endpoints?: ProtocolEndpoints
+  /**
+   * 按上游地址识别出的官方厂商：成品号等于 platform；第三方 key 只有全部协议地址都是
+   * 某厂商官方域时才有值，中转 / 聚合平台为空。厂商特化按它启用，platform 对 key 只是展示标签。
+   */
+  vendor?: string
   ollama_cloud_usage?: OllamaCloudUsageState
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.
   extra?: (CodexUsageSnapshot & OpenAICompactState & {

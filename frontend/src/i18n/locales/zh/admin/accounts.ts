@@ -63,10 +63,17 @@ export default {
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
       groupCountTotal: '共 {count} 个分组',
+      // 第三方 key 列表里协议地址的短标签，悬停显示主机。
+      protocolShort: {
+        anthropic: 'Messages',
+        chat_completions: 'Chat',
+        responses: 'Responses',
+        gemini: 'Gemini'
+      },
       columns: {
         name: '名称',
         id: '账号ID',
-        platformType: '平台/类型',
+        platformType: '厂商/类型',
         platform: '平台',
         type: '类型',
         capacity: '容量',
