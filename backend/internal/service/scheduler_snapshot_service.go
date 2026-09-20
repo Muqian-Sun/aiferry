@@ -754,11 +754,11 @@ func (s *SchedulerSnapshotService) handleAccountEvent(ctx context.Context, accou
 	if len(groupIDs) == 0 {
 		groupIDs = account.GroupIDs
 	}
-	catalogBuckets, err := s.registeredCatalogBuckets(ctx, account.CatalogEntryIDs)
-	if err != nil {
-		return err
-	}
-	if len(catalogBuckets) > 0 {
+	if len(account.CatalogEntryIDs) > 0 {
+		catalogBuckets, err := s.registeredCatalogBuckets(ctx, account.CatalogEntryIDs)
+		if err != nil {
+			return err
+		}
 		if err := s.rebuildBuckets(ctx, catalogBuckets, "account_change"); err != nil {
 			return err
 		}
