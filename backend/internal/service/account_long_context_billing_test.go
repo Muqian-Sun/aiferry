@@ -18,7 +18,7 @@ func TestAccountIsOpenAILongContextBillingEnabled(t *testing.T) {
 		want    bool
 	}{
 		{name: "nil account is disabled", account: nil, want: false},
-		{name: "non OpenAI account is disabled", account: &Account{Platform: PlatformGrok}, want: false},
+		{name: "label does not matter: kimi-labelled key with the flag is enabled", account: &Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, Extra: map[string]any{"openai_long_context_billing_enabled": true}}, want: true},
 		{name: "missing extra defaults disabled", account: &Account{Platform: PlatformOpenAI}, want: false},
 		{name: "missing key defaults disabled", account: &Account{Platform: PlatformOpenAI, Extra: map[string]any{}}, want: false},
 		{name: "explicit true is enabled", account: &Account{Platform: PlatformOpenAI, Extra: map[string]any{"openai_long_context_billing_enabled": true}}, want: true},

@@ -1037,10 +1037,10 @@
 
           <button
             type="button"
-            @click="antigravityAccountType = 'upstream'"
+            @click="antigravityAccountType = 'apikey'"
             :class="[
               'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              antigravityAccountType === 'upstream'
+              antigravityAccountType === 'apikey'
                 ? 'border-purple-500 bg-purple-50 dark:bg-purple-900/20'
                 : 'border-gray-200 hover:border-purple-300 dark:border-dark-600 dark:hover:border-purple-700'
             ]"
@@ -1048,7 +1048,7 @@
             <div
               :class="[
                 'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                antigravityAccountType === 'upstream'
+                antigravityAccountType === 'apikey'
                   ? 'bg-purple-500 text-white'
                   : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
               ]"
@@ -1076,7 +1076,7 @@
       </div>
 
       <!-- Upstream config (only for Antigravity upstream type) -->
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'upstream'" class="space-y-4">
+      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'apikey'" class="space-y-4">
         <div>
           <ProtocolEndpointsEditor
             v-model="protocolEndpoints"
@@ -3052,7 +3052,7 @@
 
       <!-- OpenAI API 长上下文计费开关 -->
       <div
-        v-if="form.platform === 'openai' && !hideAccountLongContextBilling && (accountCategory === 'oauth-based' || accountCategory === 'apikey')"
+        v-if="openAILongContextBillingVisible"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -3283,8 +3283,8 @@
       </div>
 
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
-        <!-- Mixed Scheduling (only for antigravity accounts) -->
-        <div v-if="form.platform === 'antigravity'" class="flex items-center gap-2">
+        <!-- 混合调度 / 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这两项 -->
+        <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'oauth'" class="flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -3312,7 +3312,7 @@
             </div>
           </div>
         </div>
-        <div v-if="form.platform === 'antigravity'" class="mt-3 flex items-center gap-2">
+        <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'oauth'" class="mt-3 flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -4167,6 +4167,11 @@ const openaiPassthroughEnabled = ref(false)
 // OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
 const openaiFlattenNamespacesEnabled = ref(false)
 const openAILongContextBillingEnabled = ref(false)
+// 长上下文计费开关：OpenAI 成品号，或配了 OpenAI 协议地址的第三方 key（不看标签）。
+// 与模板 v-if 同源；buildOpenAIExtra 只在露出时写值。
+const openAILongContextBillingVisible = computed(
+  () => openAIResponsesSettingsVisible.value && !hideAccountLongContextBilling.value
+)
 const openAILongContextBillingTouched = ref(false)
 const openAICompactMode = ref<OpenAICompactMode>('auto')
 // Images 非流式响应缺 b64_json 时由网关下载 url 回填（仅 OpenAI API Key）。
@@ -4209,7 +4214,7 @@ adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
 loadQuotaNotifyGlobal()
 const mixedScheduling = ref(false) // For antigravity accounts: enable mixed scheduling
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
-const antigravityAccountType = ref<'oauth' | 'upstream'>('oauth') // For antigravity: oauth or upstream
+const antigravityAccountType = ref<'oauth' | 'apikey'>('oauth') // Antigravity：成品号（OAuth）或第三方 key
 const antigravityProjectId = ref('')
 const upstreamApiKey = ref('') // For upstream type: API key
 const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
@@ -4455,7 +4460,7 @@ const form = reactive({
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
   // Antigravity upstream 类型不需要 OAuth 流程
-  if (form.platform === 'antigravity' && antigravityAccountType.value === 'upstream') {
+  if (form.platform === 'antigravity' && antigravityAccountType.value === 'apikey') {
     return false
   }
   // Bedrock 类型不需要 OAuth 流程
@@ -4554,7 +4559,7 @@ watch(
   [accountCategory, addMethod, antigravityAccountType, () => form.platform],
   ([category, method, agType]) => {
     // Antigravity upstream 类型（实际创建为 apikey）
-    if (form.platform === 'antigravity' && agType === 'upstream') {
+    if (form.platform === 'antigravity' && agType === 'apikey') {
       form.type = 'apikey'
       return
     }
@@ -5186,18 +5191,23 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.images_url_to_b64_json
   }
+  // 长上下文计费开关按区块可见性写：成品号看平台，key 看协议地址；没露出来就不写值。
+  if (openAILongContextBillingVisible.value) {
+    extra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
+  } else {
+    delete extra.openai_long_context_billing_enabled
+  }
   if (!openaiPlatform) {
     return Object.keys(extra).length > 0 ? extra : undefined
   }
 
-  // 以下是 OpenAI 平台专属设置（后端仍按平台读取）
+  // 以下是 OpenAI 成品号专属设置
   // 缺省即保留 namespace，不写空值，避免 extra 里堆积默认项
   if (form.type === 'oauth' && openaiFlattenNamespacesEnabled.value) {
     extra.openai_responses_flatten_namespaces = true
   } else {
     delete extra.openai_responses_flatten_namespaces
   }
-  extra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
 
   if (accountCategory.value === 'oauth-based' && codexCLIOnlyEnabled.value) {
     extra.codex_cli_only = true
@@ -5215,8 +5225,9 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
     delete extra.codex_cli_only_allow_app_server
   }
   // 收敛是显式 opt-in：off 即默认值，不落键；device/session/full 必须显式写入，
-  // 否则管理员的选择会被当成默认而丢失（#5610）。
-  if (codexFingerprintMode.value !== 'off') {
+  // 否则管理员的选择会被当成默认而丢失（#5610）。区块只对 OpenAI 成品号露出，
+  // 换成 key 后不写残留值。
+  if (accountCategory.value === 'oauth-based' && codexFingerprintMode.value !== 'off') {
     extra.codex_fingerprint_mode = codexFingerprintMode.value
   } else {
     delete extra.codex_fingerprint_mode
@@ -5432,7 +5443,7 @@ const handleSubmit = async () => {
   }
 
   // For Antigravity upstream type, create directly
-  if (form.platform === 'antigravity' && antigravityAccountType.value === 'upstream') {
+  if (form.platform === 'antigravity' && antigravityAccountType.value === 'apikey') {
     if (!form.name.trim()) {
       appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
       return
@@ -5467,7 +5478,8 @@ const handleSubmit = async () => {
     applyKeyCompactModelMapping(credentials)
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
-    const extra = buildAnthropicExtra(buildOpenAIExtra(buildAntigravityExtra()))
+    // 第三方 key 没有混合调度 / 超量（那是 Antigravity 成品号的），不带 buildAntigravityExtra。
+    const extra = buildAnthropicExtra(buildOpenAIExtra())
     await createAccountAndFinish(form.platform, 'apikey', credentials, extra, upstreamEndpoints)
     return
   }
