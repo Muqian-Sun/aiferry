@@ -69,7 +69,7 @@ const OAuthButtonStub = defineComponent({
       'data-testid': 'oauth-start',
       onClick: () => emit('start', {
         provider: 'github',
-        params: { redirect: '/dashboard' }
+        params: { redirect: '/usage' }
       })
     })
   }
@@ -179,7 +179,7 @@ describe('Tencent captcha action gate', () => {
 
     expect(verifyActionMock).toHaveBeenCalledOnce()
     expect(startOAuthLoginMock).toHaveBeenCalledWith(
-      { provider: 'github', params: { redirect: '/dashboard' } },
+      { provider: 'github', params: { redirect: '/usage' } },
       {
         tencent_captcha_ticket: 'ticket-1',
         tencent_captcha_randstr: '@rand-1'

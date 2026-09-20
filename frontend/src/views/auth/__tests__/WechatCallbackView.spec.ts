@@ -361,7 +361,7 @@ describe('WechatCallbackView', () => {
       access_token: 'access-token',
       refresh_token: 'refresh-token',
       expires_in: 3600,
-      redirect: '/dashboard',
+      redirect: '/usage',
       adoption_required: true,
     })
     setTokenMock.mockResolvedValue({})
@@ -386,7 +386,7 @@ describe('WechatCallbackView', () => {
   it('waits for explicit adoption confirmation before finishing a non-invitation login', async () => {
     exchangePendingOAuthCompletionMock
       .mockResolvedValueOnce({
-        redirect: '/dashboard',
+        redirect: '/usage',
         adoption_required: true,
         suggested_display_name: 'WeChat Nick',
         suggested_avatar_url: 'https://cdn.example/wechat.png',
@@ -396,7 +396,7 @@ describe('WechatCallbackView', () => {
         refresh_token: 'wechat-refresh-token',
         expires_in: 3600,
         token_type: 'Bearer',
-        redirect: '/dashboard',
+        redirect: '/usage',
       })
     setTokenMock.mockResolvedValue({})
 
@@ -432,14 +432,14 @@ describe('WechatCallbackView', () => {
       adoptAvatar: false,
     })
     expect(setTokenMock).toHaveBeenCalledWith('wechat-access-token')
-    expect(replaceMock).toHaveBeenCalledWith('/dashboard')
+    expect(replaceMock).toHaveBeenCalledWith('/usage')
     expect(localStorage.getItem('refresh_token')).toBe('wechat-refresh-token')
   })
 
   it('supports bind completion after adoption confirmation', async () => {
     exchangePendingOAuthCompletionMock
       .mockResolvedValueOnce({
-        redirect: '/dashboard',
+        redirect: '/usage',
         adoption_required: true,
         suggested_display_name: 'WeChat Nick',
         suggested_avatar_url: 'https://cdn.example/wechat.png',
@@ -521,7 +521,7 @@ describe('WechatCallbackView', () => {
   it('keeps the oauth flow active when complete-registration returns another pending step', async () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       error: 'invitation_required',
-      redirect: '/dashboard',
+      redirect: '/usage',
       adoption_required: true,
       suggested_display_name: 'WeChat Nick',
       suggested_avatar_url: 'https://cdn.example/wechat.png',
@@ -529,7 +529,7 @@ describe('WechatCallbackView', () => {
     completeWeChatOAuthRegistrationMock.mockResolvedValue({
       auth_result: 'pending_session',
       step: 'choose_account_action_required',
-      redirect: '/dashboard',
+      redirect: '/usage',
       email: 'fresh@example.com',
       resolved_email: 'fresh@example.com',
       force_email_on_signup: true,

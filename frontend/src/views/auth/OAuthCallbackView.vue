@@ -1,21 +1,21 @@
 <template>
-  <div class="min-h-screen bg-gray-50 px-4 py-10 dark:bg-dark-900">
+  <div class="min-h-screen bg-af-sunken px-4 py-10">
     <div class="mx-auto max-w-2xl">
-      <div v-if="isProcessing" class="card p-6 text-center">
-        <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"></div>
-        <h1 class="mt-4 text-lg font-semibold text-gray-900 dark:text-white">
+      <div v-if="isProcessing" class="rounded-lg border border-af-hairline bg-af-sheet p-6 text-center">
+        <div class="mx-auto h-8 w-8 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
+        <h1 class="mt-4 text-lg font-semibold text-af-ink">
           {{ t('auth.oauth.callbackTitle') }}
         </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-sm text-af-ink-2">
           {{ t('auth.oauth.callbackHint') }}
         </p>
       </div>
 
-      <div v-else-if="needsRegistrationCompletion" class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <div v-else-if="needsRegistrationCompletion" class="rounded-lg border border-af-hairline bg-af-sheet p-6">
+        <h1 class="text-lg font-semibold text-af-ink">
           {{ t('auth.oidc.callbackTitle', { providerName }) }}
         </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-sm text-af-ink-2">
           {{ registrationHint }}
         </p>
 
@@ -65,7 +65,7 @@
               @keyup.enter="handleSubmitRegistration"
             />
           </div>
-          <p v-if="registrationError" class="text-sm text-red-600 dark:text-red-400">
+          <p v-if="registrationError" class="text-sm text-af-danger">
             {{ registrationError }}
           </p>
           <button
@@ -79,11 +79,11 @@
         </div>
       </div>
 
-      <div v-else-if="invalidCallback" class="card p-6 text-center">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <div v-else-if="invalidCallback" class="rounded-lg border border-af-hairline bg-af-sheet p-6 text-center">
+        <h1 class="text-lg font-semibold text-af-ink">
           {{ t('auth.oauth.invalidCallbackTitle') }}
         </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-sm text-af-ink-2">
           {{ t('auth.oauth.invalidCallbackHint') }}
         </p>
         <button class="btn btn-primary mt-6" type="button" @click="router.replace('/login')">
@@ -91,11 +91,11 @@
         </button>
       </div>
 
-      <div v-else class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <div v-else class="rounded-lg border border-af-hairline bg-af-sheet p-6">
+        <h1 class="text-lg font-semibold text-af-ink">
           {{ t('auth.oauth.callbackTitle') }}
         </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-sm text-af-ink-2">
           {{ t('auth.oauth.callbackHint') }}
         </p>
 
@@ -164,6 +164,11 @@ import {
   oauthAffiliatePayload
 } from '@/utils/oauthAffiliate'
 
+import { APP_SITE } from '@/app/site'
+import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+
+// 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
+const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 const route = useRoute()
 const router = useRouter()
 const { t } = useI18n()
@@ -180,7 +185,7 @@ const confirmPassword = ref('')
 const invitationCode = ref('')
 const registrationError = ref('')
 const pendingProvider = ref<'github' | 'google'>('github')
-const redirectTo = ref('/dashboard')
+const redirectTo = ref(DEFAULT_AUTHED_PATH)
 const invalidCallback = ref(false)
 const EMAIL_OAUTH_PENDING_PROVIDER_KEY = 'email_oauth_pending_provider'
 
@@ -240,11 +245,11 @@ function readTokenResponse(params: URLSearchParams): OAuthTokenResponse | null {
 }
 
 function sanitizeRedirectPath(path: string | null | undefined): string {
-  if (!path) return '/dashboard'
-  if (!path.startsWith('/')) return '/dashboard'
-  if (path.startsWith('//')) return '/dashboard'
-  if (path.includes('://')) return '/dashboard'
-  if (path.includes('\n') || path.includes('\r')) return '/dashboard'
+  if (!path) return DEFAULT_AUTHED_PATH
+  if (!path.startsWith('/')) return DEFAULT_AUTHED_PATH
+  if (path.startsWith('//')) return DEFAULT_AUTHED_PATH
+  if (path.includes('://')) return DEFAULT_AUTHED_PATH
+  if (path.includes('\n') || path.includes('\r')) return DEFAULT_AUTHED_PATH
   return path
 }
 
@@ -290,7 +295,7 @@ async function resumePendingEmailOAuth() {
   isProcessing.value = true
   try {
     const completion = await exchangePendingOAuthCompletion() as EmailOAuthPendingCompletion
-    const completionRedirect = completion.redirect || '/dashboard'
+    const completionRedirect = completion.redirect || DEFAULT_AUTHED_PATH
     if (hasOAuthTokenResponse(completion)) {
       await finalizeTokenResponse(completion, completionRedirect)
       return
@@ -388,7 +393,7 @@ onMounted(async () => {
 
   isProcessing.value = true
   try {
-    await finalizeTokenResponse(tokenResponse, params.get('redirect') || '/dashboard')
+    await finalizeTokenResponse(tokenResponse, params.get('redirect') || DEFAULT_AUTHED_PATH)
   } catch (error: unknown) {
     const message = (error as { message?: string })?.message || t('auth.loginFailed')
     appStore.showError(message)

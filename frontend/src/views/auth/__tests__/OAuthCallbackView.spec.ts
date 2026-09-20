@@ -160,7 +160,7 @@ describe('OAuthCallbackView', () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       error: 'invitation_required',
       provider: 'google',
-      redirect: '/dashboard',
+      redirect: '/usage',
       resolved_email: 'pending@example.com',
       invitation_required: true,
     })
@@ -193,7 +193,7 @@ describe('OAuthCallbackView', () => {
     exchangePendingOAuthCompletionMock.mockResolvedValue({
       error: 'registration_completion_required',
       provider: 'github',
-      redirect: '/dashboard',
+      redirect: '/usage',
       resolved_email: 'verified@example.com',
       invitation_required: false,
     })

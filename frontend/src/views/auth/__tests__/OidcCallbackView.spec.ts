@@ -171,7 +171,7 @@ describe('OidcCallbackView', () => {
       access_token: 'access-token',
       refresh_token: 'refresh-token',
       expires_in: 3600,
-      redirect: '/dashboard',
+      redirect: '/usage',
       adoption_required: true
     })
     setToken.mockResolvedValue({})
@@ -196,7 +196,7 @@ describe('OidcCallbackView', () => {
   it('waits for explicit adoption confirmation before finishing a non-invitation login', async () => {
     exchangePendingOAuthCompletion
       .mockResolvedValueOnce({
-        redirect: '/dashboard',
+        redirect: '/usage',
         adoption_required: true,
         suggested_display_name: 'OIDC Nick',
         suggested_avatar_url: 'https://cdn.example/oidc.png'
@@ -205,7 +205,7 @@ describe('OidcCallbackView', () => {
         access_token: 'access-token',
         refresh_token: 'refresh-token',
         expires_in: 3600,
-        redirect: '/dashboard'
+        redirect: '/usage'
       })
     setToken.mockResolvedValue({})
 
@@ -239,13 +239,13 @@ describe('OidcCallbackView', () => {
       adoptAvatar: true
     })
     expect(setToken).toHaveBeenCalledWith('access-token')
-    expect(replace).toHaveBeenCalledWith('/dashboard')
+    expect(replace).toHaveBeenCalledWith('/usage')
   })
 
   it('supports bind completion after adoption confirmation', async () => {
     exchangePendingOAuthCompletion
       .mockResolvedValueOnce({
-        redirect: '/dashboard',
+        redirect: '/usage',
         adoption_required: true,
         suggested_display_name: 'OIDC Nick',
         suggested_avatar_url: 'https://cdn.example/oidc.png'
@@ -348,7 +348,7 @@ describe('OidcCallbackView', () => {
   it('renders adoption choices for invitation flow and submits the selected values', async () => {
     exchangePendingOAuthCompletion.mockResolvedValue({
       error: 'invitation_required',
-      redirect: '/dashboard',
+      redirect: '/usage',
       adoption_required: true,
       suggested_display_name: 'OIDC Nick',
       suggested_avatar_url: 'https://cdn.example/oidc.png'
@@ -389,7 +389,7 @@ describe('OidcCallbackView', () => {
   it('keeps the oauth flow active when complete-registration returns another pending step', async () => {
     exchangePendingOAuthCompletion.mockResolvedValue({
       error: 'invitation_required',
-      redirect: '/dashboard',
+      redirect: '/usage',
       adoption_required: true,
       suggested_display_name: 'OIDC Nick',
       suggested_avatar_url: 'https://cdn.example/oidc.png'
@@ -397,7 +397,7 @@ describe('OidcCallbackView', () => {
     completeOIDCOAuthRegistration.mockResolvedValue({
       auth_result: 'pending_session',
       step: 'choose_account_action_required',
-      redirect: '/dashboard',
+      redirect: '/usage',
       email: 'fresh@example.com',
       resolved_email: 'fresh@example.com',
       force_email_on_signup: true,

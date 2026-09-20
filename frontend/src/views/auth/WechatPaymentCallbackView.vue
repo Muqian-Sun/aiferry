@@ -1,11 +1,11 @@
 <template>
-  <div class="min-h-screen bg-gray-50 px-4 py-10 dark:bg-dark-900">
+  <div class="min-h-screen bg-af-sunken px-4 py-10">
     <div class="mx-auto max-w-2xl">
-      <div class="card p-6">
-        <h1 class="text-lg font-semibold text-gray-900 dark:text-white">
+      <div class="rounded-lg border border-af-hairline bg-af-sheet p-6">
+        <h1 class="text-lg font-semibold text-af-ink">
           {{ callbackTitleText }}
         </h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
+        <p class="mt-2 text-sm text-af-ink-2">
           {{ errorMessage || callbackProcessingText }}
         </p>
 
@@ -14,15 +14,15 @@
           class="mt-6 flex items-center justify-center py-10"
         >
           <div
-            class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"
+            class="h-8 w-8 animate-spin rounded-full border-4 border-af-brand border-t-transparent"
           ></div>
         </div>
 
         <div
           v-else
-          class="mt-6 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/80"
+          class="mt-6 rounded-lg border border-af-hairline bg-af-sunken p-4"
         >
-          <p class="text-sm text-gray-700 dark:text-gray-300">
+          <p class="text-sm text-af-ink-2">
             {{ errorMessage }}
           </p>
           <button

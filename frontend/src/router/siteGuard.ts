@@ -12,6 +12,9 @@ import { useAppStore } from '@/stores/app'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
+import { defaultAuthedPath } from './defaultAuthedPath'
+
+export { defaultAuthedPath }
 
 export interface SiteGuardOptions {
   site: AppSite
@@ -36,10 +39,6 @@ const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 // 管理后台的订阅/兑换管理路径与旧用户站相同
 const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions', '/redeem']
 
-/** 已登录用户的默认落点：用户站是用量页（概览已并入），管理后台是仪表盘 */
-export function defaultAuthedPath(site: AppSite): string {
-  return site === 'user' ? '/usage' : '/dashboard'
-}
 
 export function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
   if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {

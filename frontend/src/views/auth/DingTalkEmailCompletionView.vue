@@ -1,11 +1,11 @@
 <template>
   <AuthLayout>
     <div class="space-y-6">
-      <div class="text-center">
-        <h2 class="text-2xl font-bold text-gray-900 dark:text-white">
+      <div>
+        <h2 class="text-xl font-semibold text-af-ink">
           {{ t('auth.dingtalk.createAccountTitle') }}
         </h2>
-        <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+        <p class="mt-2 text-sm text-af-ink-3">
           {{ t('auth.oauthFlow.createAccountHint') }}
         </p>
       </div>
@@ -36,6 +36,11 @@ import {
   persistOAuthTokenContext,
   type PendingOAuthExchangeResponse
 } from '@/api/auth'
+import { APP_SITE } from '@/app/site'
+import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+
+// 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
+const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 import { clearAllAffiliateReferralCodes } from '@/utils/oauthAffiliate'
 
 const route = useRoute()
@@ -51,11 +56,11 @@ const accountActionError = ref('')
 const initialEmail = (route.query.email as string | undefined) || ''
 
 function sanitizeRedirectPath(path: string | null | undefined): string {
-  if (!path) return '/dashboard'
-  if (!path.startsWith('/')) return '/dashboard'
-  if (path.startsWith('//')) return '/dashboard'
-  if (path.includes('://')) return '/dashboard'
-  if (path.includes('\n') || path.includes('\r')) return '/dashboard'
+  if (!path) return DEFAULT_AUTHED_PATH
+  if (!path.startsWith('/')) return DEFAULT_AUTHED_PATH
+  if (path.startsWith('//')) return DEFAULT_AUTHED_PATH
+  if (path.includes('://')) return DEFAULT_AUTHED_PATH
+  if (path.includes('\n') || path.includes('\r')) return DEFAULT_AUTHED_PATH
   return path
 }
 

@@ -25,11 +25,11 @@
     </button>
 
     <div v-if="showDivider" class="flex items-center gap-3">
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-      <span class="text-xs text-gray-500 dark:text-dark-400">
+      <div class="h-px flex-1 bg-af-hairline"></div>
+      <span class="text-xs text-af-ink-3">
         {{ t('auth.oauthOrContinue') }}
       </span>
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+      <div class="h-px flex-1 bg-af-hairline"></div>
     </div>
   </div>
 </template>
@@ -39,6 +39,11 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import type { OAuthLoginStart } from '@/api/auth'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
+import { APP_SITE } from '@/app/site'
+import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+
+// 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
+const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
@@ -55,7 +60,7 @@ const route = useRoute()
 const { t } = useI18n()
 
 function startLogin(): void {
-  const redirectTo = (route.query.redirect as string) || '/dashboard'
+  const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
   storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
   emit('start', { provider: 'dingtalk', params: { redirect: redirectTo } })
 }

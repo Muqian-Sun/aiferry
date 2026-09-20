@@ -2,7 +2,7 @@
   <div class="space-y-4">
     <button type="button" :disabled="buttonDisabled" class="btn btn-secondary w-full" @click="startLogin">
       <span
-        class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-green-100 text-xs font-semibold text-green-700 dark:bg-green-900/30 dark:text-green-300"
+        class="mr-2 inline-flex h-5 w-5 items-center justify-center rounded-full bg-af-success-tint text-xs font-semibold text-af-success"
       >
         W
       </span>
@@ -12,17 +12,17 @@
     <p
       v-if="disabledHint"
       data-testid="wechat-oauth-hint"
-      class="text-sm text-amber-600 dark:text-amber-400"
+      class="text-sm text-af-warning"
     >
       {{ disabledHint }}
     </p>
 
     <div v-if="showDivider" class="flex items-center gap-3">
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-      <span class="text-xs text-gray-500 dark:text-dark-400">
+      <div class="h-px flex-1 bg-af-hairline"></div>
+      <span class="text-xs text-af-ink-3">
         {{ t('auth.oauthOrContinue') }}
       </span>
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+      <div class="h-px flex-1 bg-af-hairline"></div>
     </div>
   </div>
 </template>
@@ -34,6 +34,11 @@ import { useI18n } from 'vue-i18n'
 import { resolveWeChatOAuthStart, type OAuthLoginStart } from '@/api/auth'
 import { useAppStore } from '@/stores'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
+import { APP_SITE } from '@/app/site'
+import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+
+// 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
+const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 
 const props = withDefaults(defineProps<{
   disabled?: boolean
@@ -88,7 +93,7 @@ function startLogin(): void {
   if (buttonDisabled.value || !resolvedStart.value.mode) {
     return
   }
-  const redirectTo = (route.query.redirect as string) || '/dashboard'
+  const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
   storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
   const mode = resolvedStart.value.mode
   emit('start', {
