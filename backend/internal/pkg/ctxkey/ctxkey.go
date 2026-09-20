@@ -11,6 +11,9 @@ const (
 	// ResolvedTargetPlatform 是 composite 分组按请求模型解析出的真实目标平台。
 	ResolvedTargetPlatform Key = "ctx_resolved_target_platform"
 
+	// CatalogRoute 是目录准入后挂上的 service.CatalogRoute：本次请求命中了哪个目录条目。
+	CatalogRoute Key = "ctx_catalog_route"
+
 	// ResolvedUpstreamModel 是 composite 分组将公开模型名解析到的上游模型名。
 	ResolvedUpstreamModel Key = "ctx_resolved_upstream_model"
 
