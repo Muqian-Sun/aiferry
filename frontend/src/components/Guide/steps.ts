@@ -246,11 +246,14 @@ export const getAdminSteps = (t: (key: string) => string, isSimpleMode = false):
 /**
  * 普通用户引导流程
  */
-export const getUserSteps = (t: (key: string) => string): DriveStep[] => [
+export const getUserSteps = (
+  t: (key: string, params?: Record<string, unknown>) => string,
+  siteName: string
+): DriveStep[] => [
   {
     popover: {
-      title: t('onboarding.user.welcome.title'),
-      description: t('onboarding.user.welcome.description'),
+      title: t('onboarding.user.welcome.title', { siteName }),
+      description: t('onboarding.user.welcome.description', { siteName }),
       align: 'center',
       nextBtnText: t('onboarding.user.welcome.nextBtn'),
       prevBtnText: t('onboarding.user.welcome.prevBtn')

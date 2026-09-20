@@ -255,8 +255,9 @@ export default {
     // User tour steps
     user: {
       welcome: {
-        title: '👋 Welcome to Sub2API',
-        description: '<div style="line-height: 1.8;"><p style="margin-bottom: 16px;">Hello! Welcome to the Sub2API AI service platform.</p><p style="margin-bottom: 12px;"><b>🎯 Quick Start:</b></p><ul style="margin-left: 20px; margin-bottom: 16px;"><li>🔑 Create API Key</li><li>📋 Copy key to your application</li><li>🚀 Start using AI services</li></ul><p style="color: #10b981; font-weight: 600;">Just 1 minute, let\'s get started →</p></div>',
+        title: 'Welcome to {siteName}',
+        description:
+          '<div style="line-height: 1.8;"><p style="margin-bottom: 12px;">Three steps to get started:</p><ol style="margin-left: 20px; margin-bottom: 12px;"><li>Create an API key</li><li>Put the key in your application</li><li>Send a request, then check it under Usage</li></ol><p>It takes about a minute.</p></div>',
         nextBtn: 'Start 🚀',
         prevBtn: 'Skip'
       },

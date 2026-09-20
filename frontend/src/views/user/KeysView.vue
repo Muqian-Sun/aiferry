@@ -1072,6 +1072,7 @@
       :base-url="publicSettings?.api_base_url || ''"
       :platform="selectedKey?.group?.platform || null"
       :allow-messages-dispatch="selectedKey?.group?.allow_messages_dispatch || false"
+      :site-name="publicSettings?.site_name || ''"
       @close="closeUseKeyModal"
     />
 
@@ -1199,6 +1200,7 @@
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
 	import { useClipboard } from '@/composables/useClipboard'
+import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
@@ -2036,7 +2038,7 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
       };
     }
   })`
-  const providerName = (publicSettings.value?.site_name || 'sub2api').trim() || 'sub2api'
+  const providerName = (publicSettings.value?.site_name || DEFAULT_SITE_NAME).trim() || DEFAULT_SITE_NAME
   const deeplink = buildCcSwitchImportDeeplink({
     baseUrl,
     platform,
