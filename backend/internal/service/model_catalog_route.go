@@ -159,43 +159,35 @@ var catalogBindingInboundProtocols = []string{
 	APIProtocolAnthropic, APIProtocolChatCompletions, APIProtocolResponses, APIProtocolGemini,
 }
 
+// CatalogRouteServes 报告账号在条目网关族上能承接哪些入站协议（选号用同一张矩阵，
+// 见 accountServesCatalogRoute）。绑定校验与诊断接口都读它。
+func CatalogRouteServes(entry *ModelCatalogEntry, account *Account) map[string]bool {
+	rp := CatalogRoutePlatform(entry)
+	serves := make(map[string]bool, len(catalogBindingInboundProtocols))
+	for _, inbound := range catalogBindingInboundProtocols {
+		serves[inbound] = accountServesCatalogRoute(account, rp, inbound)
+	}
+	return serves
+}
+
 // AccountServesCatalogEntry 绑定前检查资源能否承接该条目至少一种入站协议：
-// 第三方 key 看它在条目网关族上有没有可用的上游地址；成品号看厂商与网关族的关系。
+// 第三方 key 看它在条目网关族上有没有可用的上游地址；成品号看厂商 × 网关族的矩阵。
 func AccountServesCatalogEntry(entry *ModelCatalogEntry, account *Account) error {
 	if entry == nil || account == nil {
 		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE", "entry and account are required")
 	}
+	for _, ok := range CatalogRouteServes(entry, account) {
+		if ok {
+			return nil
+		}
+	}
 	rp := CatalogRoutePlatform(entry)
 	if account.IsThirdPartyKey() {
-		for _, inbound := range catalogBindingInboundProtocols {
-			if account.KeyUpstreamProtocolFor(rp, inbound) != "" {
-				return nil
-			}
-		}
 		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
 			fmt.Sprintf("account %d has no upstream address usable on the %s gateway", account.ID, rp))
 	}
-	if subscriptionServesRoutePlatform(account.Vendor(), rp) {
-		return nil
-	}
 	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
 		fmt.Sprintf("account %d (%s) cannot serve models on the %s gateway", account.ID, account.Vendor(), rp))
-}
-
-// subscriptionServesRoutePlatform 报告成品号厂商能否在该网关族上承接请求：
-// anthropic 成品号只走 Anthropic 族；antigravity 走 Anthropic 与 Gemini 族；gemini 成品号
-// 只走 Gemini 族；OpenAI 族成品号（openai / grok / 国产）要求族内平台精确一致。
-func subscriptionServesRoutePlatform(vendor, routePlatform string) bool {
-	switch vendor {
-	case PlatformAnthropic:
-		return routePlatform == PlatformAnthropic
-	case PlatformAntigravity:
-		return routePlatform == PlatformAnthropic || routePlatform == PlatformGemini
-	case PlatformGemini:
-		return routePlatform == PlatformGemini
-	default:
-		return IsOpenAIGatewayPlatform(routePlatform) && NormalizeOpenAICompatiblePlatform(routePlatform) == vendor
-	}
 }
 
 // CatalogBindingAccountSource 绑定校验时按 ID 取账号；AdminService 满足它。
