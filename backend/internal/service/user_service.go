@@ -107,8 +107,8 @@ type UserUpdateFields struct {
 	// RateMultiplier 覆盖 rate_multiplier 列。
 	RateMultiplier bool
 	SignupSource   bool
-	LastLoginAt  bool
-	LastActiveAt bool
+	LastLoginAt    bool
+	LastActiveAt   bool
 	// BalanceNotifySettings 覆盖 balance_notify_enabled / _threshold_type / _threshold。
 	BalanceNotifySettings bool
 	// BalanceNotifyExtraEmails 与上一项分开，避免"改通知阈值"覆盖并发的"加通知邮箱"。
