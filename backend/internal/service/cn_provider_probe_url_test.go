@@ -90,7 +90,7 @@ func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
 
 	_, err := svc.QueryUsage(context.Background(), 1)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "CN_QUOTA_INVALID_PLATFORM")
+	require.Contains(t, err.Error(), "CN_PROBE_ADDRESS_NOT_OFFICIAL")
 	require.Zero(t, upstream.calls, "probe must not issue any upstream request when URL policy rejects the target")
 }
 
@@ -112,7 +112,7 @@ func TestCNProviderBalanceService_RejectsURLBlockedByPolicy(t *testing.T) {
 
 	_, err := svc.QueryBalance(context.Background(), 2)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "CN_BALANCE_INVALID_PLATFORM")
+	require.Contains(t, err.Error(), "CN_PROBE_ADDRESS_NOT_OFFICIAL")
 	require.Zero(t, upstream.calls, "probe must not issue any upstream request when URL policy rejects the target")
 }
 

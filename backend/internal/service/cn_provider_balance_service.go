@@ -264,7 +264,7 @@ func validatePayGAccount(account *Account) error {
 	// 余额端点是厂商官方的：按 Vendor 识别，不看平台标签。中转 key（Vendor 为空）
 	// 没有可核实的官方余额接口，不能拿它的 key 去打官方站。
 	if cnBalanceProvider(account) == "" {
-		return infraerrors.New(http.StatusBadRequest, "CN_BALANCE_INVALID_PLATFORM", "account is not a CN provider account")
+		return errCNProbeAddressNotOfficial
 	}
 	// coding 账号走额度探测，余额端点不适用。
 	if account.IsCodingPlan() {
@@ -298,13 +298,18 @@ func cnBalanceURL(account *Account) string {
 	case PlatformKimi:
 		return "https://api.moonshot.cn/v1/users/me/balance"
 	case PlatformDeepseek:
-		// Anthropic 协议账号的凭证 base_url 指向 /anthropic 端点，余额探测需回退
-		// 到 OpenAI 格式 base（协议感知）再拼接 /user/balance。
+		// DeepSeek 余额端点挂在 Chat Completions 根地址下。
 		return strings.TrimRight(account.GetOpenAIBaseURL(), "/") + "/user/balance"
 	default:
 		return ""
 	}
 }
+
+// errCNProbeAddressNotOfficial：余额 / 额度探测只对协议地址落在厂商官方域名的账号开放。
+// 用专门的错误码，而不是笼统的「不是国产供应商账号」——标签是 kimi 却配了中转地址时，
+// 管理员需要知道被拒的原因是地址不是官方站。
+var errCNProbeAddressNotOfficial = infraerrors.New(http.StatusBadRequest, "CN_PROBE_ADDRESS_NOT_OFFICIAL",
+	"protocol endpoints do not point at an official Kimi / Zhipu / DeepSeek / MiniMax host")
 
 // cnBalanceProvider 返回有公开余额端点的官方厂商。只认 Vendor：Kimi / DeepSeek
 // 官方地址才有余额接口，中转和其他厂商返回空串。

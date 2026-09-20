@@ -59,7 +59,7 @@ func TestValidateCodingPlanAccount_Matrix(t *testing.T) {
 		wantReason string
 	}{
 		{name: "nil", account: nil, wantReason: "CN_QUOTA_ACCOUNT_NOT_FOUND"},
-		{name: "non cn provider", account: &Account{ID: 3, Platform: PlatformAnthropic}, wantReason: "CN_QUOTA_INVALID_PLATFORM"},
+		{name: "non cn provider", account: &Account{ID: 3, Platform: PlatformAnthropic}, wantReason: "CN_PROBE_ADDRESS_NOT_OFFICIAL"},
 		{name: "payg has no quota endpoint", account: paygAccount(PlatformKimi), wantReason: "CN_QUOTA_NOT_CODING_PLAN"},
 		{name: "kimi coding ok", account: codingAccount(PlatformKimi)},
 		{name: "zhipu coding ok", account: codingAccount(PlatformZhipu)},
@@ -73,7 +73,7 @@ func TestValidateCodingPlanAccount_Matrix(t *testing.T) {
 			ID: 7, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
 			Credentials:       map[string]any{"account_mode": AccountModeCoding, "api_key": "sk-test"},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
-		}, wantReason: "CN_QUOTA_INVALID_PLATFORM"},
+		}, wantReason: "CN_PROBE_ADDRESS_NOT_OFFICIAL"},
 		{name: "opencode go by address not label", account: &Account{
 			ID: 8, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL},
@@ -103,7 +103,7 @@ func TestValidatePayGAccount_Matrix(t *testing.T) {
 		wantReason string
 	}{
 		{name: "nil", account: nil, wantReason: "CN_BALANCE_ACCOUNT_NOT_FOUND"},
-		{name: "non cn provider", account: &Account{ID: 3, Platform: PlatformAnthropic}, wantReason: "CN_BALANCE_INVALID_PLATFORM"},
+		{name: "non cn provider", account: &Account{ID: 3, Platform: PlatformAnthropic}, wantReason: "CN_PROBE_ADDRESS_NOT_OFFICIAL"},
 		{name: "coding has no balance endpoint", account: codingAccount(PlatformKimi), wantReason: "CN_BALANCE_CODING_PLAN"},
 		{name: "kimi payg ok", account: paygAccount(PlatformKimi)},
 		{name: "deepseek payg ok", account: paygAccount(PlatformDeepseek)},
@@ -116,7 +116,7 @@ func TestValidatePayGAccount_Matrix(t *testing.T) {
 			ID: 5, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
 			Credentials:       map[string]any{"account_mode": AccountModePayG, "api_key": "sk-test"},
 			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
-		}, wantReason: "CN_BALANCE_INVALID_PLATFORM"},
+		}, wantReason: "CN_PROBE_ADDRESS_NOT_OFFICIAL"},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
@@ -155,7 +155,7 @@ func TestCNProviderBalanceService_QueryBalanceForAccount_RejectsInvalidAccount(t
 	require.Zero(t, upstream.calls)
 
 	_, err = svc.QueryBalanceForAccount(context.Background(), &Account{ID: 9, Platform: PlatformAnthropic})
-	requireReason(t, err, "CN_BALANCE_INVALID_PLATFORM")
+	requireReason(t, err, "CN_PROBE_ADDRESS_NOT_OFFICIAL")
 	require.Zero(t, upstream.calls)
 }
 

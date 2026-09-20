@@ -301,7 +301,7 @@ func validateCodingPlanAccount(account *Account) error {
 	// 国产 Coding Plan 额度端点只在官方域名上：Vendor 识别厂商，account_mode 区分
 	// payg / coding。中转 key（Vendor 为空）没有可核实的官方额度接口。
 	if !IsCNProvider(account.Vendor()) {
-		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_INVALID_PLATFORM", "account is not a CN provider account")
+		return errCNProbeAddressNotOfficial
 	}
 	if !account.IsCodingPlan() {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "account is not a coding plan account")
