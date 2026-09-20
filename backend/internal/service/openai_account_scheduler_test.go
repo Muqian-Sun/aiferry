@@ -105,7 +105,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByCatalogE
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -115,7 +115,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}
@@ -125,7 +125,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -135,7 +135,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatfor
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}

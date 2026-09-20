@@ -299,11 +299,8 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			zap.Int64("bound_account_id", sessionBoundAccountID),
 		)
 		if sessionBoundAccountID > 0 {
-			prefetchedGroupID := int64(0)
-			if apiKey.GroupID != nil {
-				prefetchedGroupID = *apiKey.GroupID
-			}
-			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedGroupID, h.metadataBridgeEnabled())
+			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
+			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedScopeID, h.metadataBridgeEnabled())
 			c.Request = c.Request.WithContext(ctx)
 		}
 	} else {
@@ -481,7 +478,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					reqStream,
 					body,
 					hasBoundSession,
-					service.WithForwardGeminiSession(derefGroupID(apiKey.GroupID), sessionKey),
+					service.WithForwardGeminiSession(service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID), sessionKey),
 				)
 			} else {
 				result, err = h.geminiCompatService.Forward(requestCtx, c, account, body)

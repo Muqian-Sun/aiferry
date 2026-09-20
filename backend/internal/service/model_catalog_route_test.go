@@ -211,3 +211,29 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 		require.Len(t, listed[0].Bindings, 2, "snapshot is reloaded after the write")
 	})
 }
+
+func TestSchedulingScopeID(t *testing.T) {
+	groupID := int64(3)
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+	require.Equal(t, int64(7), SchedulingScopeID(routed, &groupID), "catalog route scopes by entry")
+	require.Equal(t, int64(3), SchedulingScopeID(context.Background(), &groupID), "no route scopes by group")
+	require.Equal(t, int64(0), SchedulingScopeID(context.Background(), nil))
+}
+
+func TestAccountInSchedulingScope(t *testing.T) {
+	groupID := int64(3)
+	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}, GroupIDs: []int64{3}}
+	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}, GroupIDs: []int64{3}}
+	ungrouped := &Account{ID: 3}
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+
+	require.True(t, accountInSchedulingScope(routed, bound, &groupID))
+	require.False(t, accountInSchedulingScope(routed, unbound, &groupID), "group membership does not matter under a catalog route")
+	require.False(t, accountInSchedulingScope(routed, ungrouped, nil))
+
+	require.True(t, accountInSchedulingScope(context.Background(), bound, &groupID))
+	require.False(t, accountInSchedulingScope(context.Background(), ungrouped, &groupID))
+	require.True(t, accountInSchedulingScope(context.Background(), ungrouped, nil))
+	require.False(t, accountInSchedulingScope(context.Background(), bound, nil), "grouped accounts are not in the ungrouped pool")
+	require.False(t, accountInSchedulingScope(routed, nil, &groupID))
+}

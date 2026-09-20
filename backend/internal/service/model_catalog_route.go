@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
 
@@ -237,4 +238,39 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 	}
 	s.invalidate(ctx)
 	return nil
+}
+
+// SchedulingScopeID 粘性会话、Responses 会话窗、Gemini 摘要会话的作用域：目录路由下是条目 ID，
+// 否则是分组 ID（未分组为 0）。条目 ID 与分组 ID 共用数字空间：撞上时成员判定
+// （accountInSchedulingScope）会把不在池里的粘性账号判为未命中，只是多选一次号。
+func SchedulingScopeID(ctx context.Context, groupID *int64) int64 {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return route.EntryID
+	}
+	return derefGroupID(groupID)
+}
+
+// accountInSchedulingScope 账号是否属于本次请求的调度池：目录路由看绑定，否则看分组
+// （groupID 为 nil = 未分组账号）。
+func accountInSchedulingScope(ctx context.Context, account *Account, groupID *int64) bool {
+	if account == nil {
+		return false
+	}
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return slices.Contains(account.CatalogEntryIDs, route.EntryID)
+	}
+	if groupID == nil {
+		return len(account.AccountGroups) == 0 && len(account.GroupIDs) == 0
+	}
+	for _, id := range account.GroupIDs {
+		if id == *groupID {
+			return true
+		}
+	}
+	for _, ag := range account.AccountGroups {
+		if ag.GroupID == *groupID {
+			return true
+		}
+	}
+	return false
 }

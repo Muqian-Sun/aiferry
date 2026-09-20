@@ -893,6 +893,7 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		ProtocolEndpoints:       account.ProtocolEndpoints,
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
+		CatalogEntryIDs:         account.CatalogEntryIDs,
 		Credentials:             filterSchedulerCredentials(account.Credentials),
 		Extra:                   filterSchedulerExtra(account.Extra),
 	}

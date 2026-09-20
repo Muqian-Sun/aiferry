@@ -355,11 +355,8 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	if sessionKey != "" {
 		sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), apiKey.GroupID, sessionKey)
 		if sessionBoundAccountID > 0 {
-			prefetchedGroupID := int64(0)
-			if apiKey.GroupID != nil {
-				prefetchedGroupID = *apiKey.GroupID
-			}
-			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedGroupID, h.metadataBridgeEnabled())
+			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
+			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedScopeID, h.metadataBridgeEnabled())
 			c.Request = c.Request.WithContext(ctx)
 		}
 	}
@@ -398,7 +395,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				// 查找会话
 				foundUUID, foundAccountID, foundMatchedChain, found := h.gatewayService.FindGeminiSession(
 					c.Request.Context(),
-					derefGroupID(apiKey.GroupID),
+					service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID),
 					geminiPrefixHash,
 					geminiDigestChain,
 				)
@@ -580,7 +577,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if fs.SwitchCount > 0 {
 			requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
 		}
-		sessionGroupID := derefGroupID(apiKey.GroupID)
+		sessionGroupID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
 		// Antigravity 成品号走 v1internal；第三方 key（任何标签）原生转发到其 gemini 协议地址。
 		if usesAntigravityV1Internal(account) {
 			result, err = h.antigravityGatewayService.ForwardGemini(
@@ -628,7 +625,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if useDigestFallback && geminiDigestChain != "" && geminiPrefixHash != "" {
 			if err := h.gatewayService.SaveGeminiSession(
 				c.Request.Context(),
-				derefGroupID(apiKey.GroupID),
+				service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID),
 				geminiPrefixHash,
 				geminiDigestChain,
 				geminiSessionUUID,
@@ -878,9 +875,3 @@ func safeShortPrefix(value string, n int) string {
 }
 
 // derefGroupID 安全解引用 *int64，nil 返回 0
-func derefGroupID(groupID *int64) int64 {
-	if groupID == nil {
-		return 0
-	}
-	return *groupID
-}

@@ -483,7 +483,7 @@ func (s *OpenAIGatewayService) selectAccountByPreviousResponseIDForCapability(
 			derefGroupID(groupID),
 			accountID,
 			responseID,
-			store.BindResponseAccount(ctx, derefGroupID(groupID), responseID, accountID, s.openAIWSResponseStickyTTL()),
+			store.BindResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID, accountID, s.openAIWSResponseStickyTTL()),
 		)
 		return attachSelectionProfitGate(ctx, &AccountSelectionResult{
 			Account:     account,
@@ -541,7 +541,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		return 0, nil, "", nil
 	}
 
-	accountID, err := store.GetResponseAccount(ctx, derefGroupID(groupID), responseID)
+	accountID, err := store.GetResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 	if err != nil || accountID <= 0 {
 		return 0, nil, "", nil
 	}
@@ -553,7 +553,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 
 	account, err := s.getSchedulableAccount(ctx, accountID)
 	if err != nil || account == nil {
-		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+		_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 		return 0, nil, "", nil
 	}
 	// OAuth/SetupToken continuation state lives on the WSv2 session and cannot
@@ -564,11 +564,11 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		return 0, nil, "", nil
 	}
 	if shouldClearStickySession(account, requestedModel) || !openAIProtocolFeaturesApply(account) || !account.IsSchedulable() {
-		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+		_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 		return 0, nil, "", nil
 	}
 	if !parentHealthyForShadow(account, s.parentAccountLookup(ctx)) {
-		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+		_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 		return 0, nil, "", nil
 	}
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
@@ -593,21 +593,21 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 	if s.schedulerSnapshot != nil && s.accountRepo != nil {
 		latest, latestErr := s.accountRepo.GetByID(ctx, account.ID)
 		if latestErr != nil || latest == nil {
-			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
 		if shouldClearStickySession(latest, requestedModel) || !openAIProtocolFeaturesApply(latest) || !latest.IsSchedulable() {
-			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
-		if !s.openAIAccountMatchesSchedulingGroup(latest, groupID) {
+		if !s.openAIAccountMatchesSchedulingScope(ctx, latest, groupID) {
 			return 0, nil, "", nil
 		}
 		if s.openAIGroupRequiresPrivacySet(ctx, groupID) && !latest.IsPrivacySet() {
 			return 0, nil, "", nil
 		}
 		if !parentHealthyForShadow(latest, s.parentAccountLookup(ctx)) {
-			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
 		if requestedModel != "" && !latest.IsModelSupported(requestedModel) {
@@ -624,13 +624,13 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 			return 0, nil, "", nil
 		}
 		if s.isOpenAIAccountRequestRuntimeBlocked(latest, requestedModel) {
-			_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
 		account = latest
 	}
 	if requireCompact && openAICompactSupportTier(account) == 0 {
-		_ = store.DeleteResponseAccount(ctx, derefGroupID(groupID), responseID)
+		_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 		return 0, nil, "", nil
 	}
 	return accountID, account, responseID, store
