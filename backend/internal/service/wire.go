@@ -51,10 +51,14 @@ func ProvideModelCatalogService(
 	pricingService *PricingService,
 	billingService *BillingService,
 ) *ModelCatalogService {
-	return NewModelCatalogService(repo, cachePub, ModelCatalogSeedInput{
+	svc := NewModelCatalogService(repo, cachePub, ModelCatalogSeedInput{
 		PricingService: pricingService,
 		BillingService: billingService,
 	})
+	// 价格文件每 ~10 分钟同步一次，目录只在启动 / 手动播种时刷新：不挂回调的话
+	// 播种条目会冻在启动时刻的价格。
+	pricingService.OnPricingUpdated(svc.ReseedAfterPricingUpdate)
+	return svc
 }
 
 // ProvideUpdateService creates UpdateService with BuildInfo

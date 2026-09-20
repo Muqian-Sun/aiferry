@@ -160,14 +160,17 @@ func TestPricingHotReload_DeletedFileDropsItsLayer(t *testing.T) {
 	require.NotNil(t, svc.pricingData["custom-a"], "文件重新出现即恢复")
 }
 
-type stubPricingRemoteClient struct{ body string }
+type stubPricingRemoteClient struct {
+	body string
+	hash string
+}
 
 func (c stubPricingRemoteClient) FetchPricingJSON(context.Context, string) ([]byte, error) {
 	return []byte(c.body), nil
 }
 
 func (c stubPricingRemoteClient) FetchHashText(context.Context, string) (string, error) {
-	return "", nil
+	return c.hash, nil
 }
 
 // 远程下载重建后指纹必须同步到当前文件内容，否则下一轮定时比对会多做一次无意义重载。
@@ -214,4 +217,50 @@ func TestPricingSchedulerStartsForCustomFilesWithoutRemoteURL(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("scheduler must exit after Stop")
 	}
+}
+
+// 价格数据真的换过才通知回调：强制更新换了数据触发一次；哈希一致的空轮不触发。
+func TestPricingUpdateHook_FiresOnlyWhenDataChanged(t *testing.T) {
+	svc := newHotReloadPricingService(t, `{`+hotReloadModelJSON("custom-a", 4e-6, 8e-6)+`}`, "")
+	svc.cfg.Pricing.RemoteURL = "https://example.com/pricing.json"
+	svc.cfg.Pricing.HashURL = "https://example.com/pricing.sha256"
+	svc.remoteClient = stubPricingRemoteClient{body: hotReloadCatalogJSON}
+	fired := 0
+	svc.OnPricingUpdated(func() { fired++ })
+
+	require.NoError(t, svc.ForceUpdate())
+	require.Equal(t, 1, fired, "a successful download replaces the data and must notify")
+
+	// 远程哈希与本地一致（stub 返回空哈希 → 与空本地哈希比对前先把本地哈希对齐）：
+	// 这一轮不下载、不换数据，不得通知。
+	svc.remoteClient = stubPricingRemoteClient{body: hotReloadCatalogJSON, hash: svc.localHash}
+	svc.runScheduledUpdate(true, false)
+	require.Equal(t, 1, fired, "an idle sync round must not notify")
+
+	// 远程哈希变了 → 下载 → 通知。
+	svc.remoteClient = stubPricingRemoteClient{body: hotReloadCatalogJSON, hash: "different"}
+	svc.runScheduledUpdate(true, false)
+	require.Equal(t, 2, fired)
+}
+
+// 装配层把「价格文件更新 → 目录重播」挂上：强制更新换了数据后，seed 条目要跟上新价。
+func TestProvideModelCatalogService_ReseedsAfterPricingUpdate(t *testing.T) {
+	pricing := newHotReloadPricingService(t, "", "")
+	pricing.cfg.Pricing.RemoteURL = "https://example.com/pricing.json"
+	pricing.remoteClient = stubPricingRemoteClient{body: `{` + hotReloadModelJSON("remote-model", 9e-6, 1e-5) + `}`}
+	bs := &BillingService{cfg: &config.Config{}, pricingService: pricing, fallbackPrices: map[string]*ModelPricing{}}
+	repo := &stubModelCatalogRepo{}
+
+	catalog := ProvideModelCatalogService(repo, nil, pricing, bs)
+	_, err := catalog.Seed(context.Background())
+	require.NoError(t, err)
+	before := catalog.LookupPricingEntry(context.Background(), "remote-model")
+	require.NotNil(t, before)
+	require.InDelta(t, 1e-6, *before.InputPrice, 1e-12)
+
+	require.NoError(t, pricing.ForceUpdate())
+
+	after := catalog.LookupPricingEntry(context.Background(), "remote-model")
+	require.NotNil(t, after)
+	require.InDelta(t, 9e-6, *after.InputPrice, 1e-12, "seed entry must follow the refreshed pricing file")
 }

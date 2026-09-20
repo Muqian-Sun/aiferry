@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"sort"
 	"strings"
+	"time"
 )
 
 // ModelCatalogSeedInput 是播种的两个默认价来源：
@@ -56,6 +57,25 @@ func (s *ModelCatalogService) Seed(ctx context.Context) (ModelCatalogSeedResult,
 		s.invalidate(ctx)
 	}
 	return result, err
+}
+
+// modelCatalogReseedTimeout 是价格文件更新后自动重播的时长上限（同启动播种，拍的）。
+const modelCatalogReseedTimeout = 60 * time.Second
+
+// ReseedAfterPricingUpdate 在价格文件更新后重播一次，让 seed 条目跟上新价；
+// admin 条目照旧不动。跑在价格服务的调度 goroutine 里，用独立 ctx。
+func (s *ModelCatalogService) ReseedAfterPricingUpdate() {
+	ctx, cancel := context.WithTimeout(context.Background(), modelCatalogReseedTimeout)
+	defer cancel()
+	result, err := s.Seed(ctx)
+	if err != nil {
+		slog.Warn("model catalog reseed after pricing update aborted", "error", err,
+			"inserted", result.Inserted, "refreshed", result.Refreshed)
+		return
+	}
+	slog.Info("model catalog reseeded after pricing update",
+		"inserted", result.Inserted, "refreshed", result.Refreshed,
+		"skipped_admin", result.SkippedAdmin, "skipped_invalid", result.SkippedInvalid, "failed", result.Failed)
 }
 
 // buildModelCatalogSeedEntries 把两个默认价来源展开成目录条目。
