@@ -1,59 +1,50 @@
 <template>
-  <AppLayout>
-    <div
-      data-testid="profile-shell"
-      class="mx-auto max-w-[950px] space-y-6"
-    >
-      <ProfileInfoCard
-        :user="user"
-        :linuxdo-enabled="linuxdoOAuthEnabled"
-        :dingtalk-enabled="dingtalkOAuthEnabled"
-        :oidc-enabled="oidcOAuthEnabled"
-        :oidc-provider-name="oidcOAuthProviderName"
-        :wechat-enabled="wechatOAuthEnabled"
-        :wechat-open-enabled="wechatOAuthOpenEnabled"
-        :wechat-mp-enabled="wechatOAuthMPEnabled"
-      />
+  <!-- 账户：基本信息 / 安全 / 通知 三节，单列 640，区块之间只用 hairline -->
+  <SiteShell>
+    <div data-testid="profile-shell" class="max-w-form space-y-8">
+      <SheetSection :title="t('userUi.account.sections.profile')">
+        <ProfileInfoCard
+          :user="user"
+          :linuxdo-enabled="linuxdoOAuthEnabled"
+          :dingtalk-enabled="dingtalkOAuthEnabled"
+          :oidc-enabled="oidcOAuthEnabled"
+          :oidc-provider-name="oidcOAuthProviderName"
+          :wechat-enabled="wechatOAuthEnabled"
+          :wechat-open-enabled="wechatOAuthOpenEnabled"
+          :wechat-mp-enabled="wechatOAuthMPEnabled"
+        />
+        <p v-if="contactInfo" class="mt-4 text-13 text-af-ink-3">
+          {{ t('common.contactSupport') }}:
+          <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
+        </p>
+      </SheetSection>
 
-      <div
-        v-if="contactInfo"
-        class="card border-primary-200 bg-primary-50 p-6 dark:bg-primary-900/20"
-      >
-        <div class="flex items-center gap-4">
-          <div class="rounded-xl bg-primary-100 p-3 text-primary-600">
-            <Icon name="chat" size="lg" />
-          </div>
-          <div>
-            <h3 class="font-semibold text-primary-800 dark:text-primary-200">
-              {{ t('common.contactSupport') }}
-            </h3>
-            <p class="text-sm font-medium">{{ contactInfo }}</p>
-          </div>
+      <SheetSection :title="t('userUi.account.sections.security')">
+        <div class="space-y-6">
+          <ProfilePasswordForm />
+          <ProfileTotpCard />
+          <ProfilePasskeyCard :enabled="passkeyEnabled" />
         </div>
-      </div>
+      </SheetSection>
 
-      <ProfilePasswordForm />
-
-      <ProfileBalanceNotifyCard
-        v-if="user && balanceLowNotifyEnabled"
-        :enabled="user.balance_notify_enabled ?? true"
-        :threshold="user.balance_notify_threshold"
-        :extra-emails="user.balance_notify_extra_emails ?? []"
-        :system-default-threshold="systemDefaultThreshold"
-        :user-email="user.email"
-      />
-
-      <ProfileTotpCard />
-      <ProfilePasskeyCard :enabled="passkeyEnabled" />
+      <SheetSection v-if="user && balanceLowNotifyEnabled" :title="t('userUi.account.sections.notifications')">
+        <ProfileBalanceNotifyCard
+          :enabled="user.balance_notify_enabled ?? true"
+          :threshold="user.balance_notify_threshold"
+          :extra-emails="user.balance_notify_extra_emails ?? []"
+          :system-default-threshold="systemDefaultThreshold"
+          :user-email="user.email"
+        />
+      </SheetSection>
     </div>
-  </AppLayout>
+  </SiteShell>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Icon } from '@/components/icons'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import SiteShell from '@/components/user/shell/SiteShell.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
 import ProfileInfoCard from '@/components/user/profile/ProfileInfoCard.vue'
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
