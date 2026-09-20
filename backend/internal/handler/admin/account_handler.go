@@ -2683,8 +2683,12 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 		return
 	}
 
-	// Handle OpenAI accounts
-	if account.IsOpenAI() {
+	// 默认模型表按厂商族选：成品号看平台；第三方 key 不看标签——按地址识别出官方厂商就用
+	// 该厂商的表，指向中转的按主协议归到对应协议族（Anthropic / Gemini / OpenAI 兼容）。
+	family := service.AccountModelFamily(account)
+
+	// Handle OpenAI-compatible accounts
+	if family == service.PlatformOpenAI {
 		// Prefer the shared, account-keyed upstream catalog. If discovery fails,
 		// retain the legacy local catalog below so the test dialog remains usable.
 		if h.accountTestService != nil {
@@ -2730,7 +2734,7 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	// Handle Gemini accounts
-	if account.IsGemini() {
+	if family == service.PlatformGemini {
 		// Consumer Google One OAuth still uses the legacy Gemini CLI / Code
 		// Assist channel. Do not advertise newer 3.x or image models that the
 		// channel cannot serve.
@@ -2774,14 +2778,14 @@ func (h *AccountHandler) GetAvailableModels(c *gin.Context) {
 	}
 
 	// Handle Antigravity accounts: return Claude + Gemini models
-	if account.IsAntigravity() {
+	if family == service.PlatformAntigravity {
 		// 直接复用 antigravity.DefaultModels()，与 /v1/models 端点保持同步
 		response.Success(c, antigravity.DefaultModels())
 		return
 	}
 
 	// Handle Grok accounts
-	if account.Platform == service.PlatformGrok {
+	if family == service.PlatformGrok {
 		defaultModels := xai.DefaultModels()
 
 		hasExplicitMapping := false

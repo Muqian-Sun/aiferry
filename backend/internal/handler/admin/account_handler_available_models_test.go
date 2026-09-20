@@ -568,3 +568,35 @@ func TestAccountHandlerSyncUpstreamModelsPreviewFollowsProtocolEndpointNotPlatfo
 	require.Equal(t, "https://relay.example/v1/models", upstream.requests[0].URL.String())
 	require.Equal(t, "Bearer sk-relay", upstream.requests[0].Header.Get("Authorization"))
 }
+
+// 第三方 key 的默认模型表按地址与协议选，不看平台标签：anthropic 标签但只配了
+// Chat Completions 中转地址的 key 归 OpenAI 兼容族，拿到的是 GPT 表而不是 Claude 表。
+func TestAccountHandlerGetAvailableModels_KeyFamilyFollowsProtocolNotLabel(t *testing.T) {
+	svc := &availableModelsAdminService{
+		stubAdminService: newStubAdminService(),
+		account: service.Account{
+			ID: 45, Name: "relay-key", Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
+			Status:            service.StatusActive,
+			Credentials:       map[string]any{"api_key": "sk"},
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://relay.example/v1"},
+		},
+	}
+	router := setupAvailableModelsRouter(svc)
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/api/v1/admin/accounts/45/models", nil))
+
+	require.Equal(t, http.StatusOK, rec.Code)
+	var resp struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &resp))
+	ids := make([]string, 0, len(resp.Data))
+	for _, model := range resp.Data {
+		ids = append(ids, model.ID)
+	}
+	require.Contains(t, ids, "gpt-5.6-sol")
+	require.NotContains(t, ids, "claude-fable-5-1")
+}
