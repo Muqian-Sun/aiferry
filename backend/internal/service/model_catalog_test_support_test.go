@@ -15,18 +15,46 @@ type stubModelCatalogRepo struct {
 	entries   []ModelCatalogEntry
 	listErr   error
 	listCalls int
+	// listGate 非 nil 时 ListEntries 会阻塞到它被关闭，用来模拟慢库。
+	listGate chan struct{}
 }
 
-func (r *stubModelCatalogRepo) ListEntries(context.Context) ([]ModelCatalogEntry, error) {
+// ListEntries 像真实驱动一样尊重 ctx：已取消的 ctx 直接报错。
+func (r *stubModelCatalogRepo) ListEntries(ctx context.Context) ([]ModelCatalogEntry, error) {
+	if err := ctx.Err(); err != nil {
+		return nil, err
+	}
+	r.mu.Lock()
+	r.listCalls++
+	gate := r.listGate
+	r.mu.Unlock()
+	if gate != nil {
+		select {
+		case <-gate:
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		}
+	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.listCalls++
 	if r.listErr != nil {
 		return nil, r.listErr
 	}
 	out := make([]ModelCatalogEntry, len(r.entries))
 	copy(out, r.entries)
 	return out, nil
+}
+
+func (r *stubModelCatalogRepo) calls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.listCalls
+}
+
+func (r *stubModelCatalogRepo) appendEntry(entry ModelCatalogEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries = append(r.entries, entry)
 }
 
 func (r *stubModelCatalogRepo) GetEntryByID(_ context.Context, id int64) (*ModelCatalogEntry, error) {

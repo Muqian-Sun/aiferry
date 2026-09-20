@@ -49,6 +49,14 @@ type ModelCatalogSeedResult struct {
 // pub/sub 不可用（未接 Redis、消息丢失）时的兜底刷新周期。
 const modelCatalogCacheTTL = 60 * time.Second
 
+// modelCatalogReloadTimeout 限制一次快照重建的库读取时长；重建用独立 ctx，
+// 不随触发它的那个请求一起被取消。几百行的全表读是毫秒级，10s 只防挂死（拍的）。
+const modelCatalogReloadTimeout = 10 * time.Second
+
+// modelCatalogReloadBackoff 是重建失败后的退避：期间继续用陈旧快照，不再每个请求都打库。
+// 5s 是拍的：比 TTL 短一个量级，库恢复后很快跟上；比单次请求长，能压住失败风暴。
+const modelCatalogReloadBackoff = 5 * time.Second
+
 type wildcardCatalogAlias struct {
 	prefix string
 	entry  *ModelCatalogEntry
@@ -77,6 +85,12 @@ type ModelCatalogService struct {
 
 	mu       sync.RWMutex
 	snapshot *modelCatalogSnapshot
+	// reloading 非 nil 表示有一次重建在进行，重建结束时关闭；同一时刻只跑一次。
+	reloading chan struct{}
+	// retryAfter 是上次重建失败后允许再次重建的时刻。
+	retryAfter time.Time
+	// generation 每次失效 +1：失效之前开始的重建读到的是旧数据，结果作废。
+	generation uint64
 }
 
 // NewModelCatalogService 创建目录服务并订阅跨实例失效通知。
@@ -100,6 +114,7 @@ func (s *ModelCatalogService) invalidateLocal() {
 	}
 	s.mu.Lock()
 	s.snapshot = nil
+	s.generation++
 	s.mu.Unlock()
 }
 
@@ -114,34 +129,89 @@ func (s *ModelCatalogService) invalidate(ctx context.Context) {
 	}
 }
 
+func (snapshot *modelCatalogSnapshot) fresh() bool {
+	return snapshot != nil && time.Since(snapshot.loadedAt) < modelCatalogCacheTTL
+}
+
 // loadSnapshot 返回当前快照，必要时从库里重建。
+//
+// 重建不持锁、不占用请求的 ctx、同一时刻只跑一次：
+//   - 有陈旧快照（TTL 过期）：立刻返回陈旧快照，在后台刷新；
+//   - 没有快照（首次 / 写入后失效）：由第一个到达的请求同步重建，其余请求等它完成；
+//   - 重建失败：记退避时刻，期间继续用陈旧快照，不再每个请求都打库。
+// 宁可继续用陈旧快照，也不要让整条计费链路查不到价（静默 $0）。
 func (s *ModelCatalogService) loadSnapshot(ctx context.Context) *modelCatalogSnapshot {
 	if s == nil || s.repo == nil {
 		return nil
 	}
+	for {
+		s.mu.RLock()
+		current := s.snapshot
+		s.mu.RUnlock()
+		if current.fresh() {
+			return current
+		}
 
-	s.mu.RLock()
-	current := s.snapshot
-	s.mu.RUnlock()
-	if current != nil && time.Since(current.loadedAt) < modelCatalogCacheTTL {
-		return current
+		s.mu.Lock()
+		if s.snapshot.fresh() {
+			snapshot := s.snapshot
+			s.mu.Unlock()
+			return snapshot
+		}
+		stale := s.snapshot
+		done := s.reloading
+		if done != nil {
+			s.mu.Unlock()
+			if stale != nil {
+				return stale
+			}
+			select {
+			case <-done:
+				// 重建结果（成功 / 失败退避 / 被失效作废）交给下一轮判定。
+				continue
+			case <-ctx.Done():
+				return nil
+			}
+		}
+		if time.Now().Before(s.retryAfter) {
+			s.mu.Unlock()
+			return stale
+		}
+		done = make(chan struct{})
+		s.reloading = done
+		generation := s.generation
+		s.mu.Unlock()
+
+		if stale != nil {
+			go s.reloadSnapshot(done, generation)
+			return stale
+		}
+		s.reloadSnapshot(done, generation)
 	}
+}
+
+// reloadSnapshot 从库里重建快照并关闭 done。用独立 ctx：触发重建的请求可能随时被取消，
+// 不能让它把所有人的快照重建一起带走。generation 与开始时不一致说明中途发生过写入，
+// 读到的是旧数据，丢弃不装，由下一个读请求重来。
+func (s *ModelCatalogService) reloadSnapshot(done chan struct{}, generation uint64) {
+	ctx, cancel := context.WithTimeout(context.Background(), modelCatalogReloadTimeout)
+	defer cancel()
+	entries, err := s.repo.ListEntries(ctx)
 
 	s.mu.Lock()
 	defer s.mu.Unlock()
-	// 双检：等锁期间可能已有人重建过。
-	if s.snapshot != nil && time.Since(s.snapshot.loadedAt) < modelCatalogCacheTTL {
-		return s.snapshot
-	}
-
-	entries, err := s.repo.ListEntries(ctx)
+	defer close(done)
+	s.reloading = nil
 	if err != nil {
-		// 重建失败时宁可继续用陈旧快照，也不要让整条计费链路查不到价（静默 $0）。
 		slog.Warn("failed to reload model catalog", "error", err)
-		return s.snapshot
+		s.retryAfter = time.Now().Add(modelCatalogReloadBackoff)
+		return
 	}
+	if s.generation != generation {
+		return
+	}
+	s.retryAfter = time.Time{}
 	s.snapshot = buildModelCatalogSnapshot(entries)
-	return s.snapshot
 }
 
 func buildModelCatalogSnapshot(entries []ModelCatalogEntry) *modelCatalogSnapshot {
