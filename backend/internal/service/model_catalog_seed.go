@@ -46,14 +46,16 @@ func (s *ModelCatalogService) Seed(ctx context.Context) (ModelCatalogSeedResult,
 	}
 
 	written, err := s.repo.InsertOrRefreshSeedEntries(ctx, valid)
-	if err != nil {
-		return result, err
-	}
 	result.Inserted = written.Inserted
 	result.Refreshed = written.Refreshed
 	result.SkippedAdmin = written.SkippedAdmin
-	s.invalidate(ctx)
-	return result, nil
+	result.Failed = written.Failed
+	result.Errors = written.Errors
+	if result.Inserted+result.Refreshed > 0 {
+		// 整体中止（ctx 到期）前可能已经写进去一部分，照样失效缓存让它们生效。
+		s.invalidate(ctx)
+	}
+	return result, err
 }
 
 // buildModelCatalogSeedEntries 把两个默认价来源展开成目录条目。

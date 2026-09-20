@@ -17,6 +17,8 @@ type stubModelCatalogRepo struct {
 	listCalls int
 	// listGate 非 nil 时 ListEntries 会阻塞到它被关闭，用来模拟慢库。
 	listGate chan struct{}
+	// seedAbortAfter > 0 时，播种写入这么多条后返回 ctx 到期错误，模拟中途中止。
+	seedAbortAfter int
 }
 
 // ListEntries 像真实驱动一样尊重 ctx：已取消的 ctx 直接报错。
@@ -170,6 +172,9 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 		index[NormalizeModelCatalogKey(r.entries[i].ModelID)] = i
 	}
 	for i := range entries {
+		if r.seedAbortAfter > 0 && i >= r.seedAbortAfter {
+			return result, context.DeadlineExceeded
+		}
 		entry := entries[i]
 		key := NormalizeModelCatalogKey(entry.ModelID)
 		pos, ok := index[key]

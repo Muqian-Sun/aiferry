@@ -3,6 +3,7 @@ package repository
 import (
 	"context"
 	"errors"
+	"log/slog"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
@@ -270,22 +271,26 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 		byKey[service.NormalizeModelCatalogKey(row.ModelID)] = existingEntry{id: row.ID, managedBy: row.ManagedBy}
 	}
 
+	// 单条写失败只跳过这一条：一条坏数据不该让后面几百条都播不进去。
+	// ctx 到期（库挂死 / 启动超时）才整体中止。
 	for i := range entries {
 		entry := entries[i]
 		key := service.NormalizeModelCatalogKey(entry.ModelID)
 		current, ok := byKey[key]
 		if !ok {
-			created, createErr := applyCatalogEntryCreate(client.ModelCatalogEntry.Create(), &entry).Save(ctx)
+			_, createErr := applyCatalogEntryCreate(client.ModelCatalogEntry.Create(), &entry).Save(ctx)
 			if createErr != nil {
 				// 并发播种（多实例同时启动）会撞唯一索引。此时另一边已经写进去了，
-				// 记为跳过而不是整体失败。
+				// 记为跳过而不是失败。
 				if isUniqueConstraintViolation(createErr) {
 					result.SkippedAdmin++
 					continue
 				}
-				return result, createErr
+				if abort := seedRowFailed(ctx, &result, "insert", entry.ModelID, createErr); abort != nil {
+					return result, abort
+				}
+				continue
 			}
-			_ = created
 			result.Inserted++
 			continue
 		}
@@ -294,11 +299,25 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 			continue
 		}
 		if _, updateErr := applyCatalogEntryUpdate(client.ModelCatalogEntry.UpdateOneID(current.id), &entry).Save(ctx); updateErr != nil {
-			return result, updateErr
+			if abort := seedRowFailed(ctx, &result, "refresh", entry.ModelID, updateErr); abort != nil {
+				return result, abort
+			}
+			continue
 		}
 		result.Refreshed++
 	}
 	return result, nil
+}
+
+// seedRowFailed 处理一条播种写入失败：ctx 已到期说明失败不是这条数据的问题
+// （库挂死 / 启动超时），返回 ctx 错误让整批中止；否则记数、打日志、继续下一条。
+func seedRowFailed(ctx context.Context, result *service.ModelCatalogSeedResult, op, modelID string, err error) error {
+	if ctxErr := ctx.Err(); ctxErr != nil {
+		return ctxErr
+	}
+	slog.Warn("model catalog seed: "+op+" failed", "model_id", modelID, "error", err)
+	result.RecordFailure(modelID, err)
+	return nil
 }
 
 func (r *modelCatalogRepository) withTx(ctx context.Context, fn func(tx *dbent.Tx) error) error {

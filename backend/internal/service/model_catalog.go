@@ -5,6 +5,7 @@ import (
 	"sort"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -328,8 +329,29 @@ func (e *ModelCatalogEntry) Validate() error {
 	if e.ModelID == "" {
 		return catalogValidationError("model_id is required")
 	}
-	if len(e.ModelID) > 200 {
-		return catalogValidationError("model_id must be at most 200 characters")
+	// 长度上限与 243 号迁移里的 VARCHAR(n) 一致，按字符数计（与 PostgreSQL 口径相同）。
+	for _, column := range []struct {
+		name  string
+		value string
+		max   int
+	}{
+		{"model_id", e.ModelID, 200},
+		{"display_name", e.DisplayName, 200},
+		{"vendor", e.Vendor, 50},
+	} {
+		if err := validateCatalogLength(column.name, column.value, column.max); err != nil {
+			return err
+		}
+	}
+	for i := range e.Intervals {
+		if err := validateCatalogLength(fmt.Sprintf("intervals[%d].tier_label", i), e.Intervals[i].TierLabel, 50); err != nil {
+			return err
+		}
+	}
+	if e.TimePricing != nil {
+		if err := validateCatalogLength("time_pricing.timezone", e.TimePricing.Timezone, 64); err != nil {
+			return err
+		}
 	}
 	if !e.BillingMode.IsValid() {
 		return catalogValidationError(fmt.Sprintf("invalid billing_mode: %s", e.BillingMode))
@@ -440,14 +462,21 @@ func NormalizeModelCatalogAlias(alias string) string {
 	return strings.TrimSpace(alias)
 }
 
+func validateCatalogLength(name, value string, max int) error {
+	if utf8.RuneCountInString(value) > max {
+		return catalogValidationError(fmt.Sprintf("%s must be at most %d characters", name, max))
+	}
+	return nil
+}
+
 // ValidateModelCatalogAlias 校验别名。
 func ValidateModelCatalogAlias(alias, source string) error {
 	alias = NormalizeModelCatalogAlias(alias)
 	if alias == "" {
 		return catalogValidationError("alias is required")
 	}
-	if len(alias) > 200 {
-		return catalogValidationError("alias must be at most 200 characters")
+	if err := validateCatalogLength("alias", alias, 200); err != nil {
+		return err
 	}
 	// "*" 只允许出现在末尾，且不能是单独一个 "*"：全量通配会让任意模型名都拿到
 	// 同一份价卡，等于关掉「查不到价」这个信号。

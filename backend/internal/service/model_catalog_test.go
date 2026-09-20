@@ -4,6 +4,7 @@ package service
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -207,6 +208,34 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 		}
 		require.Error(t, entry.Validate())
 	})
+
+	// 长度上限与 243 号迁移的 VARCHAR(n) 一致；超长要在校验层拦住，不能等到落库时
+	// 让整次播种半途而废。按字符数计：200 个汉字是合法的 display_name。
+	t.Run("column lengths", func(t *testing.T) {
+		cjk := strings.Repeat("模", 200)
+		entry := valid()
+		entry.DisplayName = cjk
+		require.NoError(t, entry.Validate(), "length is counted in characters, not bytes")
+
+		for name, mutate := range map[string]func(*ModelCatalogEntry){
+			"model_id":     func(e *ModelCatalogEntry) { e.ModelID = strings.Repeat("m", 201) },
+			"display_name": func(e *ModelCatalogEntry) { e.DisplayName = cjk + "模" },
+			"vendor":       func(e *ModelCatalogEntry) { e.Vendor = strings.Repeat("v", 51) },
+			"tier_label": func(e *ModelCatalogEntry) {
+				e.Intervals = []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(1e-6), TierLabel: strings.Repeat("t", 51)}}
+			},
+			"timezone": func(e *ModelCatalogEntry) {
+				e.TimePricing = &ChannelTimePricing{
+					Timezone: strings.Repeat("Z", 65),
+					Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "10:00", Multiplier: 2}},
+				}
+			},
+		} {
+			entry := valid()
+			mutate(entry)
+			require.ErrorContains(t, entry.Validate(), name+" must be at most", name)
+		}
+	})
 }
 
 func TestValidateModelCatalogAlias(t *testing.T) {
@@ -217,6 +246,8 @@ func TestValidateModelCatalogAlias(t *testing.T) {
 	require.Error(t, ValidateModelCatalogAlias("*", ModelCatalogAliasSourceManual))
 	require.Error(t, ValidateModelCatalogAlias("claude-*-4", ModelCatalogAliasSourceManual))
 	require.Error(t, ValidateModelCatalogAlias("claude", "importer"))
+	require.NoError(t, ValidateModelCatalogAlias(strings.Repeat("别", 200), ModelCatalogAliasSourceManual))
+	require.ErrorContains(t, ValidateModelCatalogAlias(strings.Repeat("a", 201), ModelCatalogAliasSourceManual), "alias must be at most")
 }
 
 // 管理端任何一次写入都把 managed_by 翻成 admin，之后播种器不再覆盖。

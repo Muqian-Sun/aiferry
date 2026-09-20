@@ -6,6 +6,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -229,6 +230,98 @@ func TestModelCatalogRepository_InsertOrRefreshSeedEntries(t *testing.T) {
 	refreshed, err := repo.GetEntryByModelID(ctx, unique("fresh"))
 	require.NoError(t, err)
 	require.InDelta(t, 3e-6, *refreshed.InputPrice, 1e-15, "seed 条目应被刷新到当前价格文件")
+}
+
+// 单条写库失败（这里用违反 CHECK 约束的 billing_mode 触发）只跳过这一条：
+// 排在它后面的条目照常写入，失败计数与原因带回结果，不返回整体错误。
+func TestModelCatalogRepository_SeedSkipsFailedRows(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-rows")
+
+	candidates := []service.ModelCatalogEntry{
+		{
+			ModelID: unique("bad"), BillingMode: "bogus",
+			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(1e-6),
+		},
+		{
+			ModelID: unique("good"), BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(2e-6),
+		},
+	}
+
+	result, err := repo.InsertOrRefreshSeedEntries(ctx, candidates)
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Failed)
+	require.Len(t, result.Errors, 1)
+	require.Contains(t, result.Errors[0], unique("bad"))
+	require.Equal(t, 1, result.Inserted, "rows after the failed one must still be written")
+
+	_, err = repo.GetEntryByModelID(ctx, unique("good"))
+	require.NoError(t, err)
+}
+
+// ctx 到期要整体中止并把 ctx 错误返回，而不是把剩下几百条都记成「写库失败」。
+// 用足够多的候选配一个短超时，让截止时刻落在逐条写入的中途：本地 1000 条 upsert
+// 远超 30ms，初始查询远低于 30ms。
+func TestModelCatalogRepository_SeedAbortsWhenContextExpiresMidway(t *testing.T) {
+	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-ctx")
+	candidates := make([]service.ModelCatalogEntry, 0, 1000)
+	for i := 0; i < cap(candidates); i++ {
+		candidates = append(candidates, service.ModelCatalogEntry{
+			ModelID: unique(fmt.Sprintf("m%04d", i)), BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+			InputPrice: float64Value(1e-6),
+		})
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Millisecond)
+	defer cancel()
+
+	result, err := repo.InsertOrRefreshSeedEntries(ctx, candidates)
+
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Less(t, result.Inserted, len(candidates))
+	require.Zero(t, result.Failed, "rows skipped because the context expired must not be reported as row failures")
+	require.Empty(t, result.Errors)
+}
+
+// 播种刷新只动条目本身：真实仓储里别名 / 分档 / 分时必须原样保留。
+func TestModelCatalogRepository_SeedRefreshKeepsChildren(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-children")
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("m"), BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+		InputPrice: float64Value(1e-6),
+		Intervals: []service.PricingInterval{
+			{MinTokens: 0, InputPrice: float64Value(2e-6)},
+		},
+		TimePricing: &service.ChannelTimePricing{
+			Timezone: "UTC",
+			Periods:  []service.ChannelTimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
+		},
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	require.NoError(t, repo.CreateAlias(ctx, &service.ModelCatalogAlias{
+		Alias: unique("nick"), EntryID: entry.ID, Source: service.ModelCatalogAliasSourceManual,
+	}))
+
+	result, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{{
+		ModelID: unique("m"), BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedBySeed,
+		InputPrice: float64Value(5e-6),
+	}})
+	require.NoError(t, err)
+	require.Equal(t, 1, result.Refreshed)
+
+	loaded, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.InDelta(t, 5e-6, *loaded.InputPrice, 1e-15)
+	require.Len(t, loaded.Aliases, 1, "seed refresh must not drop aliases")
+	require.Len(t, loaded.Intervals, 1, "seed refresh must not drop price intervals")
+	require.NotNil(t, loaded.TimePricing, "seed refresh must not drop time pricing")
 }
 
 // ListEntries 必须把别名 / 分档 / 分时挂回对应条目：快照少挂一项，

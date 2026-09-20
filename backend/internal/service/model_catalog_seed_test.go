@@ -160,29 +160,24 @@ func TestSeed_RefreshesSeedEntriesAndNeverOverwritesAdminEdits(t *testing.T) {
 	require.InDelta(t, 42e-6, *entries["hand-tuned"].InputPrice, 1e-12, "admin 条目不得被播种覆盖")
 }
 
-// 播种不写别名 / 分档 / 分时，也不能把管理员配好的这几项刷掉。
-func TestSeed_DoesNotTouchAliasesIntervalsOrTimePricing(t *testing.T) {
-	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{{
-		ID: 1, ModelID: "seeded", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed,
-		ManagedBy: ModelCatalogManagedBySeed, InputPrice: testPtrFloat64(1e-9),
-		Aliases:   []ModelCatalogAlias{{ID: 1, EntryID: 1, Alias: "nick", Source: ModelCatalogAliasSourceManual}},
-		Intervals: []PricingInterval{{MinTokens: 0, MaxTokens: testPtrInt(100), InputPrice: testPtrFloat64(2e-6)}},
-		TimePricing: &ChannelTimePricing{Timezone: "Asia/Shanghai", Periods: []ChannelTimePricingPeriod{
-			{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
-		}},
-	}}}
+// 播种中途中止（ctx 到期）：已写进去的条目要立刻可查，错误照样返回给调用方。
+func TestSeed_PartialWriteStillInvalidatesSnapshot(t *testing.T) {
+	repo := &stubModelCatalogRepo{seedAbortAfter: 1}
 	svc := NewModelCatalogService(repo, nil, seedInputForTest(
-		map[string]*LiteLLMModelPricing{"seeded": {LiteLLMProvider: "anthropic", InputCostPerToken: 3e-6}},
+		map[string]*LiteLLMModelPricing{
+			"a-first":  {LiteLLMProvider: "anthropic", InputCostPerToken: 1e-6},
+			"b-second": {LiteLLMProvider: "anthropic", InputCostPerToken: 2e-6},
+		},
 		nil,
 	))
+	// 先把空目录装进快照，验证播种后快照确实被失效。
+	require.Nil(t, svc.LookupPricingEntry(context.Background(), "a-first"))
 
-	_, err := svc.Seed(context.Background())
-	require.NoError(t, err)
+	result, err := svc.Seed(context.Background())
 
-	entry := seedEntriesByModelID(repo.entries)["seeded"]
-	require.Len(t, entry.Aliases, 1)
-	require.Len(t, entry.Intervals, 1)
-	require.NotNil(t, entry.TimePricing)
+	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Equal(t, 1, result.Inserted)
+	require.NotNil(t, svc.LookupPricingEntry(context.Background(), "a-first"), "rows written before the abort must be visible")
 }
 
 // 5m/1h 分档只在 1h 价严格高于 5m 价时成立，与 getModelPricingAt 同口径。

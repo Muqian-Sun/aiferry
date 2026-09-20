@@ -42,6 +42,20 @@ type ModelCatalogSeedResult struct {
 	SkippedAdmin    int `json:"skipped_admin"`
 	SkippedInvalid  int `json:"skipped_invalid"`
 	CandidateModels int `json:"candidate_models"`
+	// Failed 是写库失败的条目数：单条失败不拖垮整批，但要计数并把前几条原因带回来。
+	Failed int      `json:"failed"`
+	Errors []string `json:"errors,omitempty"`
+}
+
+// modelCatalogSeedErrorSamples 是播种结果里最多带回的失败原因条数。
+const modelCatalogSeedErrorSamples = 10
+
+// RecordFailure 记一条写库失败：计数，并保留前几条原因供日志与管理端展示。
+func (r *ModelCatalogSeedResult) RecordFailure(modelID string, err error) {
+	r.Failed++
+	if len(r.Errors) < modelCatalogSeedErrorSamples {
+		r.Errors = append(r.Errors, modelID+": "+err.Error())
+	}
 }
 
 // modelCatalogCacheTTL 是本地快照的最长陈旧时间。
