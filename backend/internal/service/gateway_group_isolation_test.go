@@ -11,11 +11,10 @@ import (
 )
 
 // ============================================================================
-// Part 1: isAccountInGroup 单元测试
+// Part 1: accountInSchedulingScope（无目录路由时按分组）单元测试
 // ============================================================================
 
 func TestIsAccountInGroup(t *testing.T) {
-	svc := &GatewayService{}
 	groupID100 := int64(100)
 	groupID200 := int64(200)
 
@@ -87,8 +86,8 @@ func TestIsAccountInGroup(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			got := svc.isAccountInGroup(tt.account, tt.groupID)
-			require.Equal(t, tt.expected, got, "isAccountInGroup 结果不符预期")
+			got := accountInSchedulingScope(context.Background(), tt.account, tt.groupID)
+			require.Equal(t, tt.expected, got, "accountInSchedulingScope 结果不符预期")
 		})
 	}
 }

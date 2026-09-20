@@ -135,6 +135,25 @@ type ModelCatalogBindingAccountSummary struct {
 	Status   string `json:"status"`
 }
 
+// ModelCatalogDiagnosisItem 诊断一条绑定：账号此刻能不能被调度、在条目网关族上能承接哪些入站协议。
+type ModelCatalogDiagnosisItem struct {
+	ModelCatalogBindingAccountSummary
+	Priority *int `json:"priority"`
+	// Schedulable 账号此刻能否进入调度；BlockedReason 不能时的第一个原因
+	// （disabled / unschedulable / expired / overloaded / rate_limited / temp_unschedulable / quota_exceeded）。
+	Schedulable   bool   `json:"schedulable"`
+	BlockedReason string `json:"blocked_reason,omitempty"`
+	// Serves 入站协议 → 能否承接（anthropic / chat_completions / responses / gemini）。
+	Serves map[string]bool `json:"serves"`
+}
+
+// ModelCatalogDiagnosisResponse 条目的资源诊断。
+type ModelCatalogDiagnosisResponse struct {
+	EntryID       int64                       `json:"entry_id"`
+	RoutePlatform string                      `json:"route_platform"`
+	Accounts      []ModelCatalogDiagnosisItem `json:"accounts"`
+}
+
 // ModelCatalogAliasRequest 是别名的创建 / 更新请求体。
 type ModelCatalogAliasRequest struct {
 	Alias   string  `json:"alias" binding:"required"`
@@ -269,6 +288,44 @@ func (h *ModelCatalogHandler) ReplaceBindings(c *gin.Context) {
 		return
 	}
 	h.ListBindings(c)
+}
+
+// Diagnose 逐个说明条目绑定的资源此刻能不能承接请求：可调度与否、原因、能承接哪些入站协议。
+// GET /api/v1/admin/model-catalog/entries/:id/diagnosis
+func (h *ModelCatalogHandler) Diagnose(c *gin.Context) {
+	id, ok := parseModelCatalogID(c, "Invalid model catalog entry ID")
+	if !ok {
+		return
+	}
+	entry, err := h.service.GetEntry(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	items := make([]ModelCatalogDiagnosisItem, 0, len(entry.Bindings))
+	for _, binding := range entry.Bindings {
+		account, err := h.accounts.GetAccount(c.Request.Context(), binding.AccountID)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		reason := service.SchedulingBlockedReason(account)
+		items = append(items, ModelCatalogDiagnosisItem{
+			ModelCatalogBindingAccountSummary: ModelCatalogBindingAccountSummary{
+				ID: account.ID, Name: account.Name, Platform: account.Platform, Type: account.Type,
+				Vendor: account.Vendor(), Status: account.Status,
+			},
+			Priority:      binding.Priority,
+			Schedulable:   reason == "",
+			BlockedReason: reason,
+			Serves:        service.CatalogRouteServes(entry, account),
+		})
+	}
+	response.Success(c, ModelCatalogDiagnosisResponse{
+		EntryID:       entry.ID,
+		RoutePlatform: service.CatalogRoutePlatform(entry),
+		Accounts:      items,
+	})
 }
 
 // CreateAlias 新增别名。

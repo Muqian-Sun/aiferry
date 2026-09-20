@@ -108,3 +108,12 @@ func TestSchedulerMetadataAccountDropsInvalidUpstreamBillingProbe(t *testing.T) 
 		require.NotContains(t, metadata.Extra, service.UpstreamBillingProbeExtraKey)
 	}
 }
+
+// 命中缓存的账号也要能做目录池的成员判定（accountInSchedulingScope 读 CatalogEntryIDs）。
+func TestSchedulerMetadataAccountKeepsCatalogEntryIDs(t *testing.T) {
+	account := service.Account{ID: 25, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey, CatalogEntryIDs: []int64{7, 9}}
+
+	metadata := buildSchedulerMetadataAccount(account)
+
+	require.Equal(t, []int64{7, 9}, metadata.CatalogEntryIDs)
+}

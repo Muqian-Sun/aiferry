@@ -38,7 +38,6 @@ func newGatewayRoutesTestRouterWithGroup(group *service.Group) *gin.Engine {
 		nil,
 		nil,
 		nil,
-		nil,
 		admitAllCatalog{},
 		&config.Config{
 			Gateway: config.GatewayConfig{
@@ -63,16 +62,16 @@ func allowlistGroup(platform string, enabled bool, models ...string) *service.Gr
 // TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute follows the
 // source-level route assertion convention of prompt_audit_route_coverage_test.go:
 // every gateway chain must mount groupModelAllowlist after api key auth and
-// before the composite rewrite (gateway.go + rootRoute helper).
+// right after apiKeyAuth (gateway.go + rootRoute helper).
 func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T) {
 	routeSource, err := os.ReadFile("gateway.go")
 	require.NoError(t, err)
 	source := string(routeSource)
 
-	// rootRoute helper：apiKeyAuth 之后、compositeTarget 之前。
-	rootHelper := regexp.MustCompile(regexp.QuoteMeta(`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, compositeTarget, requireGroupAnthropic, handler)`))
+	// rootRoute helper：apiKeyAuth 之后。
+	rootHelper := regexp.MustCompile(regexp.QuoteMeta(`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic, handler)`))
 	require.Regexp(t, rootHelper, source,
-		"root alias helper must place catalog admission and the allowlist between apiKeyAuth and compositeTarget")
+		"root alias helper must place catalog admission and the allowlist right after apiKeyAuth")
 
 	// 每条链：auth → 目录准入 → 分组白名单 → 合成路由 / 分组门禁。
 	chains := []struct {
@@ -80,26 +79,26 @@ func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T
 		auth      string
 		admission string
 		marker    string
-		composite string
+		next      string
 	}{
-		{group: "gateway", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "gateway.Use(catalogAdmission)", marker: "gateway.Use(groupModelAllowlist)", composite: "gateway.Use(compositeTarget)"},
-		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmissionGemini)", marker: "gemini.Use(groupModelAllowlist)", composite: "gemini.Use(compositeGeminiTarget)"},
-		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmissionAntigravity)", marker: "antigravityV1.Use(groupModelAllowlist)", composite: "antigravityV1.Use(requireGroupAnthropic)"},
-		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmissionAntigravity)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", composite: "antigravityV1Beta.Use(requireGroupGoogle)"},
+		{group: "gateway", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "gateway.Use(catalogAdmission)", marker: "gateway.Use(groupModelAllowlist)", next: "gateway.Use(requireGroupAnthropic)"},
+		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmissionGemini)", marker: "gemini.Use(groupModelAllowlist)", next: "gemini.Use(requireGroupGoogle)"},
+		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmissionAntigravity)", marker: "antigravityV1.Use(groupModelAllowlist)", next: "antigravityV1.Use(requireGroupAnthropic)"},
+		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmissionAntigravity)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", next: "antigravityV1Beta.Use(requireGroupGoogle)"},
 	}
 	for _, chain := range chains {
 		re := regexp.MustCompile(
 			regexp.QuoteMeta(chain.group+".Use("+chain.auth) +
 				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.admission) +
 				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.marker) +
-				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.composite))
+				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.next))
 		require.Regexp(t, re, source,
-			"%s chain must mount catalog admission then groupModelAllowlist after auth and before %s", chain.group, chain.composite)
+			"%s chain must mount catalog admission then groupModelAllowlist after auth and before %s", chain.group, chain.next)
 	}
 
 	// codexDirect 链是一条 Use 调用，直接断言顺序。
-	codexDirect := regexp.MustCompile(regexp.QuoteMeta(`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, compositeTarget, requireGroupAnthropic)`))
-	require.Regexp(t, codexDirect, source, "codexDirect chain must mount catalog admission and the allowlist after auth and before compositeTarget")
+	codexDirect := regexp.MustCompile(regexp.QuoteMeta(`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic)`))
+	require.Regexp(t, codexDirect, source, "codexDirect chain must mount catalog admission and the allowlist after auth")
 
 	// 所有带 apiKeyAuth 的根路径路由必须收敛到 rootRoute，避免漏挂。
 	stray := regexp.MustCompile(`\br\.(GET|POST|PUT|PATCH|DELETE)\("[^"]+",[^(]*apiKeyAuth`)

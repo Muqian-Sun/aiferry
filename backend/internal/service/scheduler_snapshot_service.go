@@ -212,9 +212,7 @@ func (s *SchedulerSnapshotService) Stop() {
 // 桶内容与入站协议无关（第三方 key 进所属分组的每个网关平台桶），这里按请求 context
 // 里的入站协议过滤；缓存命中与数据库回源两条路径都要过滤，发布到缓存的仍是未过滤的桶。
 func (s *SchedulerSnapshotService) ListSchedulableAccounts(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, bool, error) {
-	useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
-	mode := s.resolveMode(platform, hasForcePlatform)
-	bucket := s.bucketFor(groupID, platform, mode)
+	bucket, useMixed := s.bucketForRequest(ctx, groupID, platform, hasForcePlatform)
 	var writeToken SchedulerBucketWriteToken
 	canPublish := false
 	if err := ctx.Err(); err != nil {
@@ -1625,6 +1623,17 @@ func (s *SchedulerSnapshotService) loadAccountsForRebuild(
 	}
 	queries.accounts[key] = accounts
 	return accounts, nil
+}
+
+// bucketForRequest 目录路由用目录桶（条目 ID + 条目网关族，不混合）；否则按分组 / 平台 / 模式。
+// platform 参数仍是本次生效平台（强制 antigravity 时是 antigravity），只用于分组桶；
+// 目录桶的候选之后由 filterAccountsSchedulableOnPlatform 按生效平台与入站协议过滤。
+func (s *SchedulerSnapshotService) bucketForRequest(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) (SchedulerBucket, bool) {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return SchedulerBucket{GroupID: route.EntryID, Platform: route.Platform, Mode: SchedulerModeCatalog}, false
+	}
+	useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
+	return s.bucketFor(groupID, platform, s.resolveMode(platform, hasForcePlatform)), useMixed
 }
 
 func (s *SchedulerSnapshotService) bucketFor(groupID *int64, platform string, mode string) SchedulerBucket {

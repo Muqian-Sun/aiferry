@@ -495,8 +495,8 @@ func prefetchedStickyGroupIDFromContext(ctx context.Context) (int64, bool) {
 }
 
 func prefetchedStickyAccountIDFromContext(ctx context.Context, groupID *int64) int64 {
-	prefetchedGroupID, ok := prefetchedStickyGroupIDFromContext(ctx)
-	if !ok || prefetchedGroupID != derefGroupID(groupID) {
+	prefetchedScopeID, ok := prefetchedStickyGroupIDFromContext(ctx)
+	if !ok || prefetchedScopeID != SchedulingScopeID(ctx, groupID) {
 		return 0
 	}
 	if accountID, ok := PrefetchedStickyAccountIDFromContext(ctx); ok && accountID > 0 {
@@ -911,7 +911,7 @@ func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, 
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
 		return nil
 	}
-	return s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), sessionHash, accountID, stickySessionTTL)
+	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash, accountID, stickySessionTTL)
 }
 
 // bindGatewayStickySessionDuringSelection preserves the normal eager sticky
@@ -938,7 +938,7 @@ func (s *GatewayService) BindStickySessionAfterProfitAdmission(ctx context.Conte
 	if !gatewayProfitControlGateActive(ctx) {
 		return s.BindStickySession(ctx, groupID, sessionHash, accountID)
 	}
-	existingAccountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
+	existingAccountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 	if err != nil && !errors.Is(err, ErrStickySessionNotFound) {
 		// 读失败时无法判断既有绑定，保守跳过而不是冒着覆盖健康绑定的风险写入。
 		slog.Warn("profit_control_sticky_binding_read_failed", "group_id", derefGroupID(groupID), "account_id", accountID, "error", err)
@@ -956,7 +956,7 @@ func (s *GatewayService) GetCachedSessionAccountID(ctx context.Context, groupID 
 	if sessionHash == "" || s.cache == nil {
 		return 0, nil
 	}
-	accountID, err := s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), sessionHash)
+	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 	if err != nil {
 		return 0, err
 	}

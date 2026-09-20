@@ -171,6 +171,7 @@ func TestOpenAIGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *
 			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
 		}}},
 		imageLimiter: &imageConcurrencyLimiter{},
+		modelCatalog: listAllCatalogStub{},
 	}
 	release, acquired := h.acquireImageGenerationSlot(c, false)
 	require.True(t, acquired)
@@ -215,6 +216,7 @@ func TestOpenAIGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *
 			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
 		}}},
 		imageLimiter: &imageConcurrencyLimiter{},
+		modelCatalog: listAllCatalogStub{},
 	}
 	release, acquired := h.acquireImageGenerationSlot(c, false)
 	require.True(t, acquired)

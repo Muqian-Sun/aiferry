@@ -106,6 +106,7 @@ func runOpenAIResponsesImagePermissionGateTest(t *testing.T, platform string, bo
 		)},
 		cfg:          &config.Config{},
 		imageLimiter: &imageConcurrencyLimiter{},
+		modelCatalog: listAllCatalogStub{},
 	}
 
 	h.Responses(c)

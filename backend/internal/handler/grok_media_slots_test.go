@@ -223,7 +223,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGateway
 	bindings.writes = 0
 	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billing.Stop)
-	handler := NewOpenAIGatewayHandler(gateway, concurrency, billing, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg), nil, nil, nil, nil, cfg, nil)
+	handler := NewOpenAIGatewayHandler(gateway, concurrency, billing, service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg), nil, nil, nil, nil, cfg, listAllCatalogStub{})
 	return handler, slots, bindings, upstream
 }
 

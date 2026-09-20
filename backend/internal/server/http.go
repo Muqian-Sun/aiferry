@@ -56,7 +56,6 @@ func ProvideRouters(
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
 	settingService *service.SettingService,
-	compositeResolver *service.CompositeRouteResolver,
 	modelCatalog *service.ModelCatalogService,
 	redisClient *redis.Client,
 ) *Routers {
@@ -148,7 +147,6 @@ func ProvideRouters(
 		subscriptionService: subscriptionService,
 		opsService:          opsService,
 		settingService:      settingService,
-		compositeResolver:   compositeResolver,
 		modelCatalog:        modelCatalog,
 		cfg:                 cfg,
 		redisClient:         redisClient,

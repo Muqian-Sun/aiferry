@@ -53,8 +53,19 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidates(_ context.Context, 
 	return out, nil
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
+// ListSchedulingCandidatesByCatalogEntry 把全部可调度账号当作绑定到条目的资源（不看平台），
+// 与 ListSchedulingCandidates 一样计入选号次数。
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.selectionCalls++
+	out := make([]service.Account, 0, len(r.accounts))
+	for _, account := range r.accounts {
+		if account.IsSchedulable() {
+			out = append(out, boundToCatalogEntry(account, entryID))
+		}
+	}
+	return out, nil
 }
 
 func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]service.Account, error) {
@@ -73,7 +84,7 @@ func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*servi
 	}
 	for _, account := range r.accounts {
 		if account.ID == id {
-			copy := account
+			copy := boundToCatalogEntry(account, listAllCatalogEntryID)
 			copy.Credentials = cloneCredentialMap(account.Credentials)
 			return &copy, nil
 		}
@@ -939,7 +950,7 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
 		acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 	}
-	h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, nil)
+	h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, listAllCatalogStub{})
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,
 		User:  &service.User{ID: 903, Status: service.StatusActive},

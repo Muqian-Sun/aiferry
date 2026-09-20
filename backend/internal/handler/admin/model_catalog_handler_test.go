@@ -208,6 +208,7 @@ func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
 	r.DELETE("/entries/:id", h.DeleteEntry)
 	r.GET("/entries/:id/bindings", h.ListBindings)
 	r.PUT("/entries/:id/bindings", h.ReplaceBindings)
+	r.GET("/entries/:id/diagnosis", h.Diagnose)
 	r.POST("/aliases", h.CreateAlias)
 	r.PUT("/aliases/:id", h.UpdateAlias)
 	r.DELETE("/aliases/:id", h.DeleteAlias)
@@ -510,4 +511,53 @@ func TestModelCatalogHandler_Bindings(t *testing.T) {
 		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(`{"model_id":"claude-sonnet-4","input_price":0.000003,"route_platform":"antigravity"}`)))
 		require.Equal(t, http.StatusBadRequest, rec.Code)
 	})
+}
+
+func TestModelCatalogHandler_Diagnose(t *testing.T) {
+	price := 3e-6
+	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
+		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic", RoutePlatform: service.PlatformOpenAI,
+		BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed,
+		ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+	}}}
+	accounts := catalogAccountsStub{
+		1: {ID: 1, Name: "chat-only", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive, Schedulable: true,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://cc.example.com"}},
+		2: {ID: 2, Name: "openai-oauth-disabled", Type: service.AccountTypeOAuth, Platform: service.PlatformOpenAI, Status: service.StatusDisabled, Schedulable: true},
+	}
+	router := newCatalogRouter(newCatalogHandlerWithAccounts(repo, accounts))
+
+	priority := 4
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"account_id":1,"priority":4},{"account_id":2}]}`)))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/diagnosis", nil))
+	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+	envelope := decodeCatalogResponse(t, rec)
+	raw, err := json.Marshal(envelope.Data)
+	require.NoError(t, err)
+	var got ModelCatalogDiagnosisResponse
+	require.NoError(t, json.Unmarshal(raw, &got))
+	require.Equal(t, int64(3), got.EntryID)
+	require.Equal(t, service.PlatformOpenAI, got.RoutePlatform)
+	require.Len(t, got.Accounts, 2)
+
+	require.Equal(t, "chat-only", got.Accounts[0].Name)
+	require.Equal(t, &priority, got.Accounts[0].Priority)
+	require.True(t, got.Accounts[0].Schedulable)
+	require.Empty(t, got.Accounts[0].BlockedReason)
+	require.Equal(t, map[string]bool{
+		service.APIProtocolAnthropic: true, service.APIProtocolChatCompletions: true,
+		service.APIProtocolResponses: true, service.APIProtocolGemini: false,
+	}, got.Accounts[0].Serves, "openai family converts messages / responses to the chat address")
+
+	require.Equal(t, "openai-oauth-disabled", got.Accounts[1].Name)
+	require.False(t, got.Accounts[1].Schedulable)
+	require.Equal(t, "disabled", got.Accounts[1].BlockedReason)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/42/diagnosis", nil))
+	require.Equal(t, http.StatusNotFound, rec.Code)
 }

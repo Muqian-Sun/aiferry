@@ -10,6 +10,7 @@ import (
 	"io"
 	"net/http"
 	"runtime/debug"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -200,6 +201,12 @@ func resolveOpenAIMessagesDispatchMappedModel(c *gin.Context, apiKey *service.AP
 	if apiKey == nil || apiKey.Group == nil {
 		return ""
 	}
+	if c != nil && c.Request != nil {
+		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
+			// 目录模型按请求名转发（账号级 model_mapping 仍生效），分组级 dispatch 映射不再改写。
+			return ""
+		}
+	}
 	// composite 解析到 grok/CN/OpenCode 目标时调度级映射不适用（Group 级映射的
 	// gpt-5.x 默认值是 openai 专属,发给这些上游必错）,模型改写交给账号级 model_mapping。
 	if apiKey.Group.Platform == service.PlatformComposite && c != nil && c.Request != nil {
@@ -288,6 +295,12 @@ func openAIResponsesRequiredCapabilityForRequest(imageIntent bool, needsResponse
 func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKey) bool {
 	if apiKey == nil || apiKey.Group == nil {
 		return true
+	}
+	if c != nil && c.Request != nil {
+		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
+			// 目录路由：上架条目走哪个网关族由条目决定，分组的 allow_messages_dispatch 开关不再拦。
+			return true
+		}
 	}
 	if apiKey.Group.Platform == service.PlatformGrok {
 		return true
@@ -2381,11 +2394,23 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "model is required in first response.create payload")
 		return
 	}
+	// 目录准入：首帧的模型必须解析到上架条目且落在 OpenAI 族，命中后把条目路由挂到 ctx
+	// （WS 入口没有经过 HTTP 准入中间件）。与 HTTP 准入一致：帧内重复 model 键 / 大小写
+	// 变体可能被上游按末值绑定，全部候选值逐一校验，任一未命中即拒绝。
+	firstCandidates := requestmodel.FromBodyCandidates("", "application/json", firstMessage)
+	route, blockedCandidate, routed := service.ResolveCatalogRouteForCandidates(c.Request.Context(), h.modelCatalog, firstCandidates)
+	if !routed || !service.IsOpenAIGatewayPlatform(route.Platform) {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+		middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotListed)
+		if blockedCandidate == "" {
+			blockedCandidate = reqModel
+		}
+		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available", blockedCandidate))
+		return
+	}
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
 	// 分组级模型白名单：首帧校验客户端模型，不通过则关闭连接并标记运维原因。
-	// 必须在 ensureCompositeTargetPlatform（合成路由改写）之前执行。
-	// 与 HTTP 准入一致：帧内重复 model 键/大小写变体可能被上游按末值绑定，
-	// 全部候选值逐一校验，任一未命中即拒绝。
-	if blocked := blockedModelAllowlistCandidate(apiKey.Group, requestmodel.FromBodyCandidates("", "application/json", firstMessage)); blocked != "" {
+	if blocked := blockedModelAllowlistCandidate(apiKey.Group, firstCandidates); blocked != "" {
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
 		middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotAllowed)
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available for this group", blocked))
@@ -2815,6 +2840,17 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
 					middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotAllowed)
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available for this group", blocked), nil)
+				}
+				// 目录准入：后续 turn 的模型也必须是上架条目；换到别的条目时连接绑死的账号
+				// 必须也绑定了那个条目（连接不会中途换号）。
+				turnRoute, blockedCandidate, ok := service.ResolveCatalogRouteForCandidates(ctx, h.modelCatalog, candidates)
+				if !ok {
+					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+					middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotListed)
+					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available", blockedCandidate), nil)
+				}
+				if turnRoute.EntryID != route.EntryID && !slices.Contains(account.CatalogEntryIDs, turnRoute.EntryID) {
+					return newOpenAIWSUnsupportedModelSwitchError(model)
 				}
 				if decision := h.checkSecurityAuditStage(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIResponses, model, payload, "subsequent_turn"); decision != nil && !decision.AllowNextStage {
 					writeSecurityAuditWSError(ctx, wsConn, decision)

@@ -82,8 +82,9 @@ func TestWithCatalogRoute(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, route, got)
 
-	_, ok = ResolvedTargetPlatformFromContext(ctx)
-	require.False(t, ok, "routing still follows the group until the request chain switches to catalog routes")
+	platform, ok := ResolvedTargetPlatformFromContext(ctx)
+	require.True(t, ok, "the entry's gateway family becomes the request's target platform")
+	require.Equal(t, PlatformOpenAI, platform)
 	require.Equal(t, "gpt-5.6-sol", ctx.Value(ctxkey.RequestedPublicModel))
 
 	_, ok = CatalogRouteFromContext(context.Background())
@@ -209,4 +210,58 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 		require.Len(t, listed, 1)
 		require.Len(t, listed[0].Bindings, 2, "snapshot is reloaded after the write")
 	})
+}
+
+func TestSchedulingScopeID(t *testing.T) {
+	groupID := int64(3)
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+	require.Equal(t, int64(7), SchedulingScopeID(routed, &groupID), "catalog route scopes by entry")
+	require.Equal(t, int64(3), SchedulingScopeID(context.Background(), &groupID), "no route scopes by group")
+	require.Equal(t, int64(0), SchedulingScopeID(context.Background(), nil))
+}
+
+func TestAccountInSchedulingScope(t *testing.T) {
+	groupID := int64(3)
+	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}, GroupIDs: []int64{3}}
+	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}, GroupIDs: []int64{3}}
+	ungrouped := &Account{ID: 3}
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+
+	require.True(t, accountInSchedulingScope(routed, bound, &groupID))
+	require.False(t, accountInSchedulingScope(routed, unbound, &groupID), "group membership does not matter under a catalog route")
+	require.False(t, accountInSchedulingScope(routed, ungrouped, nil))
+
+	require.True(t, accountInSchedulingScope(context.Background(), bound, &groupID))
+	require.False(t, accountInSchedulingScope(context.Background(), ungrouped, &groupID))
+	require.True(t, accountInSchedulingScope(context.Background(), ungrouped, nil))
+	require.False(t, accountInSchedulingScope(context.Background(), bound, nil), "grouped accounts are not in the ungrouped pool")
+	require.False(t, accountInSchedulingScope(routed, nil, &groupID))
+}
+
+func TestResolveCatalogRouteForCandidates(t *testing.T) {
+	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed,
+			Aliases: []ModelCatalogAlias{{ID: 10, EntryID: 1, Alias: "sonnet-latest"}}},
+		{ID: 2, ModelID: "gpt-5.6", Vendor: "openai", Status: ModelCatalogStatusListed},
+		{ID: 3, ModelID: "hidden", Vendor: "openai", Status: ModelCatalogStatusUnlisted},
+	}}
+	svc := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
+	ctx := context.Background()
+
+	route, blocked, ok := ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "sonnet-latest"})
+	require.True(t, ok, "alias and canonical name resolve to the same entry")
+	require.Empty(t, blocked)
+	require.Equal(t, int64(1), route.EntryID)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "gpt-5.6"})
+	require.False(t, ok, "candidates resolving to different entries are rejected")
+	require.Equal(t, "gpt-5.6", blocked)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"gpt-5.6", "hidden"})
+	require.False(t, ok)
+	require.Equal(t, "hidden", blocked)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, nil)
+	require.False(t, ok, "no candidates means no route")
+	require.Empty(t, blocked)
 }

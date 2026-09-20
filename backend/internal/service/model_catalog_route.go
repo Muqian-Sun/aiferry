@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"fmt"
+	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -19,12 +21,12 @@ type CatalogRoute struct {
 	Entry          *ModelCatalogEntry // 快照指针，只读
 }
 
-// WithCatalogRoute 把目录路由与客户端原始模型名挂到 ctx 上。
-//
-// 这里不写 ResolvedTargetPlatform：请求链的网关族分发与调度池目前仍由分组决定，
-// 切到按条目路由时（routePlatform 读 CatalogRoute.Platform）一并切换，避免半切状态。
+// WithCatalogRoute 把目录路由与客户端原始模型名挂到 ctx 上，并把条目的网关族写成本次请求的
+// 目标平台：handler 族分发（routes）、选号（resolvePlatform）、错误透传平台都先读这把钥匙，
+// 带模型的请求从此按条目路由，不看分组平台。
 func WithCatalogRoute(ctx context.Context, route CatalogRoute) context.Context {
 	ctx = context.WithValue(ctx, ctxkey.CatalogRoute, route)
+	ctx = WithResolvedTargetPlatform(ctx, route.Platform)
 	return context.WithValue(ctx, ctxkey.RequestedPublicModel, route.RequestedModel)
 }
 
@@ -112,6 +114,30 @@ func (s *ModelCatalogService) ResolveRoute(ctx context.Context, model string) (C
 	}, true
 }
 
+// CatalogRouteResolver 只需要 ResolveRoute；ModelCatalogService 满足它。
+type CatalogRouteResolver interface {
+	ResolveRoute(ctx context.Context, model string) (CatalogRoute, bool)
+}
+
+// ResolveCatalogRouteForCandidates 把一次请求里所有可能被下游绑定到的模型名（重复键、大小写变体、
+// session.model）逐一解析：任一解析不到上架条目、或解析到不同条目，都返回 false 与第一个
+// 出问题的候选名。HTTP 准入中间件与 Responses WS 逐帧准入共用这条规则。
+func ResolveCatalogRouteForCandidates(ctx context.Context, resolver CatalogRouteResolver, candidates []string) (CatalogRoute, string, bool) {
+	var route CatalogRoute
+	resolved := false
+	for _, candidate := range candidates {
+		candidateRoute, ok := resolver.ResolveRoute(ctx, candidate)
+		if !ok || (resolved && candidateRoute.EntryID != route.EntryID) {
+			return CatalogRoute{}, candidate, false
+		}
+		route, resolved = candidateRoute, true
+	}
+	if !resolved {
+		return CatalogRoute{}, "", false
+	}
+	return route, "", true
+}
+
 // ListListedEntries 返回用户可见 / 可调用的条目（快照副本，按模型标识排序）。
 func (s *ModelCatalogService) ListListedEntries(ctx context.Context) []ModelCatalogEntry {
 	if s == nil {
@@ -159,43 +185,35 @@ var catalogBindingInboundProtocols = []string{
 	APIProtocolAnthropic, APIProtocolChatCompletions, APIProtocolResponses, APIProtocolGemini,
 }
 
+// CatalogRouteServes 报告账号在条目网关族上能承接哪些入站协议（选号用同一张矩阵，
+// 见 accountServesCatalogRoute）。绑定校验与诊断接口都读它。
+func CatalogRouteServes(entry *ModelCatalogEntry, account *Account) map[string]bool {
+	rp := CatalogRoutePlatform(entry)
+	serves := make(map[string]bool, len(catalogBindingInboundProtocols))
+	for _, inbound := range catalogBindingInboundProtocols {
+		serves[inbound] = accountServesCatalogRoute(account, rp, inbound)
+	}
+	return serves
+}
+
 // AccountServesCatalogEntry 绑定前检查资源能否承接该条目至少一种入站协议：
-// 第三方 key 看它在条目网关族上有没有可用的上游地址；成品号看厂商与网关族的关系。
+// 第三方 key 看它在条目网关族上有没有可用的上游地址；成品号看厂商 × 网关族的矩阵。
 func AccountServesCatalogEntry(entry *ModelCatalogEntry, account *Account) error {
 	if entry == nil || account == nil {
 		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE", "entry and account are required")
 	}
+	for _, ok := range CatalogRouteServes(entry, account) {
+		if ok {
+			return nil
+		}
+	}
 	rp := CatalogRoutePlatform(entry)
 	if account.IsThirdPartyKey() {
-		for _, inbound := range catalogBindingInboundProtocols {
-			if account.KeyUpstreamProtocolFor(rp, inbound) != "" {
-				return nil
-			}
-		}
 		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
 			fmt.Sprintf("account %d has no upstream address usable on the %s gateway", account.ID, rp))
 	}
-	if subscriptionServesRoutePlatform(account.Vendor(), rp) {
-		return nil
-	}
 	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
 		fmt.Sprintf("account %d (%s) cannot serve models on the %s gateway", account.ID, account.Vendor(), rp))
-}
-
-// subscriptionServesRoutePlatform 报告成品号厂商能否在该网关族上承接请求：
-// anthropic 成品号只走 Anthropic 族；antigravity 走 Anthropic 与 Gemini 族；gemini 成品号
-// 只走 Gemini 族；OpenAI 族成品号（openai / grok / 国产）要求族内平台精确一致。
-func subscriptionServesRoutePlatform(vendor, routePlatform string) bool {
-	switch vendor {
-	case PlatformAnthropic:
-		return routePlatform == PlatformAnthropic
-	case PlatformAntigravity:
-		return routePlatform == PlatformAnthropic || routePlatform == PlatformGemini
-	case PlatformGemini:
-		return routePlatform == PlatformGemini
-	default:
-		return IsOpenAIGatewayPlatform(routePlatform) && NormalizeOpenAICompatiblePlatform(routePlatform) == vendor
-	}
 }
 
 // CatalogBindingAccountSource 绑定校验时按 ID 取账号；AdminService 满足它。
@@ -245,4 +263,70 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 	}
 	s.invalidate(ctx)
 	return nil
+}
+
+// SchedulingScopeID 粘性会话、Responses 会话窗、Gemini 摘要会话的作用域：目录路由下是条目 ID，
+// 否则是分组 ID（未分组为 0）。条目 ID 与分组 ID 共用数字空间：撞上时成员判定
+// （accountInSchedulingScope）会把不在池里的粘性账号判为未命中，只是多选一次号。
+func SchedulingScopeID(ctx context.Context, groupID *int64) int64 {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return route.EntryID
+	}
+	return derefGroupID(groupID)
+}
+
+// accountInSchedulingScope 账号是否属于本次请求的调度池：目录路由看绑定，否则看分组
+// （groupID 为 nil = 未分组账号）。
+func accountInSchedulingScope(ctx context.Context, account *Account, groupID *int64) bool {
+	if account == nil {
+		return false
+	}
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return slices.Contains(account.CatalogEntryIDs, route.EntryID)
+	}
+	if groupID == nil {
+		return len(account.AccountGroups) == 0 && len(account.GroupIDs) == 0
+	}
+	for _, id := range account.GroupIDs {
+		if id == *groupID {
+			return true
+		}
+	}
+	for _, ag := range account.AccountGroups {
+		if ag.GroupID == *groupID {
+			return true
+		}
+	}
+	return false
+}
+
+// SchedulingBlockedReason 返回账号此刻不可调度的第一个原因（与 IsSchedulable 同一套判定），
+// 可调度时返回空串。诊断接口用它解释「绑了却选不到」。
+func SchedulingBlockedReason(account *Account) string {
+	if account == nil {
+		return "missing"
+	}
+	if !account.IsActive() {
+		return "disabled"
+	}
+	if !account.Schedulable {
+		return "unschedulable"
+	}
+	now := time.Now()
+	if account.AutoPauseOnExpired && account.ExpiresAt != nil && !now.Before(*account.ExpiresAt) {
+		return "expired"
+	}
+	if account.OverloadUntil != nil && now.Before(*account.OverloadUntil) {
+		return "overloaded"
+	}
+	if account.RateLimitResetAt != nil && now.Before(*account.RateLimitResetAt) {
+		return "rate_limited"
+	}
+	if account.TempUnschedulableUntil != nil && now.Before(*account.TempUnschedulableUntil) {
+		return "temp_unschedulable"
+	}
+	if account.IsAPIKeyOrBedrock() && account.IsQuotaExceeded() {
+		return "quota_exceeded"
+	}
+	return ""
 }
