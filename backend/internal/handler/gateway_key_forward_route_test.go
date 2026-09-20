@@ -341,3 +341,20 @@ func TestGatewayHandlerResponses_GeminiGroupKeyIsSkippedInsteadOfSentAsAnthropic
 	require.Empty(t, hs.geminiUpstream.recorded())
 	require.Empty(t, hs.antigravityUpsteam.recorded())
 }
+
+// 网关平台只有 request.Context 一个来源：/antigravity 路由的强制平台在兜底分组重试时被清空后，
+// handler 侧的判定要跟着回到分组平台，不能再从 gin store 读到旧值。
+func TestMessagesGatewayPlatform_FollowsRequestContextNotGinStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformGemini}}
+
+	c.Set(string(middleware.ContextKeyForcePlatform), service.PlatformAntigravity)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, service.PlatformAntigravity))
+	require.Equal(t, service.PlatformAntigravity, messagesGatewayPlatform(c, apiKey))
+
+	// 兜底：只清 request.Context，gin store 里的旧值不得再被读到。
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, ""))
+	require.Equal(t, service.PlatformGemini, messagesGatewayPlatform(c, apiKey))
+}
