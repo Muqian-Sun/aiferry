@@ -1434,9 +1434,11 @@ func (a *Account) IsCodingPlan() bool {
 	return a.GetAccountMode() == AccountModeCoding
 }
 
-// GetCodingPlanProvider 根据 base_url 识别 Coding Plan 供应商（kimi / zhipu / minimax），
+// GetCodingPlanProvider 识别 Coding Plan 供应商（kimi / zhipu / minimax / opencode go），
 // 用于路由到对应的额度查询端点。非 coding 模式或无法识别时返回空串。
-// 只认官方域名：自定义中转不得把第三方 Key 发往厂商官方额度端点。
+//
+// 按 Vendor 只认官方域名（完整域名，不做子串匹配）：中转不得把第三方 Key 发往厂商官方
+// 额度端点。Kimi 的 Coding Plan 只在 api.kimi.com，按量在 api.moonshot.cn，同一厂商要再看主机。
 func (a *Account) GetCodingPlanProvider() string {
 	if a == nil {
 		return ""
@@ -1447,16 +1449,14 @@ func (a *Account) GetCodingPlanProvider() string {
 	if a.GetAccountMode() != AccountModeCoding {
 		return ""
 	}
-	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
-	switch {
-	case strings.Contains(baseURL, "api.kimi.com/coding"):
-		return PlatformKimi
-	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
-		return PlatformZhipu
-	case strings.Contains(baseURL, "minimax.io"),
-		strings.Contains(baseURL, "minimaxi.com"),
-		strings.Contains(baseURL, "minimax.com"):
-		return PlatformMiniMax
+	switch vendor := a.Vendor(); vendor {
+	case PlatformKimi:
+		if upstreamHostOf(a.GetOpenAIBaseURL()) == "api.kimi.com" {
+			return PlatformKimi
+		}
+		return ""
+	case PlatformZhipu, PlatformMiniMax:
+		return vendor
 	default:
 		return ""
 	}
