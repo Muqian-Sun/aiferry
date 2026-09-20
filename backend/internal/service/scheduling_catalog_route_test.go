@@ -72,6 +72,7 @@ func TestAccountServesCatalogRoute_KeysFollowUpstreamAddresses(t *testing.T) {
 	require.True(t, accountServesCatalogRoute(&anthropicAddr, PlatformAnthropic, APIProtocolChatCompletions))
 	require.True(t, accountServesCatalogRoute(&anthropicAddr, PlatformOpenAI, APIProtocolResponses), "openai family can convert responses to anthropic")
 	require.False(t, accountServesCatalogRoute(&anthropicAddr, PlatformGemini, APIProtocolGemini))
+	require.False(t, accountServesCatalogRoute(&anthropicAddr, PlatformAnthropic, APIProtocolGemini), "gemini inbound never reaches the anthropic family")
 	require.False(t, accountServesCatalogRoute(nil, PlatformOpenAI, APIProtocolChatCompletions))
 }
 

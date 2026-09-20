@@ -46,6 +46,10 @@ func accountServesCatalogRoute(account *Account, platform, inboundProtocol strin
 	if account == nil {
 		return false
 	}
+	if inboundProtocol == APIProtocolGemini && platform != PlatformGemini && platform != PlatformAntigravity {
+		// Gemini 原生入口只放行 gemini 族条目（/antigravity 路由强制 antigravity）；其余网关族收不到 gemini 入站。
+		return false
+	}
 	if account.IsThirdPartyKey() {
 		return account.KeyUpstreamProtocolFor(platform, inboundProtocol) != ""
 	}
