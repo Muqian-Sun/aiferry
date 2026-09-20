@@ -1020,7 +1020,6 @@ func OllamaCloudUsageStateFromAccount(account *Account) *OllamaCloudUsageState {
 	return state
 }
 
-
 // isOllamaCloudUpstreamKey 报告第三方 key 的主上游地址是否为 Ollama Cloud（ollama.com），只看
 // 地址、不看平台标签，供请求路径（429 处理）使用。PrimaryUpstreamBaseURL 对成品号返回空串。
 //
