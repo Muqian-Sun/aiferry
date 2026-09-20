@@ -52,8 +52,6 @@
                   :name="k.group.name"
                   :platform="k.group.platform"
                   :subscription-type="k.group.subscription_type"
-                  :rate-multiplier="k.group.rate_multiplier"
-                  :user-rate-multiplier="userGroupRates[k.group.id]"
                 />
                 <span v-else class="text-xs text-gray-400">—</span>
               </td>
@@ -86,10 +84,7 @@ const props = withDefaults(defineProps<{
   loading: boolean
   keys: ApiKey[]
   provider: Provider
-  userGroupRates?: Record<number, number>
-}>(), {
-  userGroupRates: () => ({}),
-})
+}>(), {})
 
 defineEmits<{
   (e: 'close'): void

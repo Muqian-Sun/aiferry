@@ -57,6 +57,7 @@ func TestAPIContracts(t *testing.T) {
 						"frozen_balance": 0,
 						"concurrency": 5,
 					"rpm_limit": 0,
+					"rate_multiplier": 0,
 					"status": "active",
 					"allowed_groups": null,
 					"created_at": "2025-01-02T03:04:05Z",
@@ -1643,7 +1644,7 @@ func (r *stubUserRepo) UpdateConcurrency(ctx context.Context, id int64, amount i
 
 func (r *stubUserRepo) BatchSetConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
 func (r *stubUserRepo) BatchAddConcurrency(context.Context, []int64, int) (int, error) { return 0, nil }
-func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int) (int, error) {
+func (r *stubUserRepo) BatchUpdateLimits(context.Context, []int64, *int, *int, *float64) (int, error) {
 	return 0, nil
 }
 

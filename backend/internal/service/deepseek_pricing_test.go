@@ -153,24 +153,21 @@ func TestCalculateCostUnified_DeepseekVersionedNamePeakMultiplier(t *testing.T) 
 	require.InDelta(t, offPeakTotal*2, peak.TotalCost, 1e-10)
 }
 
-func TestCalculateCostUnified_DeepseekGroupPricingNotScaledByPeak(t *testing.T) {
+func TestCalculateCostUnified_DeepseekOperatorPricingNotScaledByPeak(t *testing.T) {
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(nil, bs)
-
 	inputPrice := 1e-6
 	outputPrice := 2e-6
-	group := &Group{
-		ID: 1, Name: "ds-group", Platform: PlatformDeepseek, Status: StatusActive,
-		ModelPricing: []ChannelModelPricing{{
-			Models: []string{"deepseek-v4-flash"}, BillingMode: BillingModeToken,
-			InputPrice: &inputPrice, OutputPrice: &outputPrice,
-		}},
-	}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "deepseek-v4-flash", Group: group})
-	require.Equal(t, PricingSourceGroup, resolved.Source)
+	// 管理员改过的目录条目 = 运营者定价，不叠加官方峰谷。
+	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+		Models: []string{"deepseek-v4-flash"}, BillingMode: BillingModeToken,
+		InputPrice: &inputPrice, OutputPrice: &outputPrice,
+	})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "deepseek-v4-flash"})
+	require.Equal(t, PricingSourceCatalog, resolved.Source)
+	require.True(t, resolved.operatorPricing)
 
 	tokens := UsageTokens{InputTokens: 1000, OutputTokens: 500, CacheReadTokens: 1000}
-	// 分组自定义价：1000*1e-6 + 500*2e-6 + 1000*3e-9（缓存读沿用官方 flash 价）
+	// 运营者价：1000*1e-6 + 500*2e-6 + 1000*3e-9（缓存读沿用官方 flash 价）
 	groupTotal := 1000*1e-6 + 500*2e-6 + 1000*3e-9
 
 	for _, pricingAt := range []time.Time{
@@ -178,12 +175,12 @@ func TestCalculateCostUnified_DeepseekGroupPricingNotScaledByPeak(t *testing.T) 
 		time.Date(2026, 8, 24, 2, 0, 0, 0, time.UTC),  // 高峰
 	} {
 		cost, err := bs.CalculateCostUnified(CostInput{
-			Ctx: context.Background(), Model: "deepseek-v4-flash", Group: group,
+			Ctx: context.Background(), Model: "deepseek-v4-flash",
 			Tokens: tokens, RateMultiplier: 1.0, Resolver: resolver, PricingAt: pricingAt,
 		})
 		require.NoError(t, err)
 		require.InDelta(t, groupTotal, cost.TotalCost, 1e-10,
-			"分组自定义定价不应叠加官方峰谷倍率（pricingAt=%v）", pricingAt)
+			"运营者定价不应叠加官方峰谷倍率（pricingAt=%v）", pricingAt)
 	}
 }
 

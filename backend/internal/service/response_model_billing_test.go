@@ -59,7 +59,7 @@ func TestGatewayServiceRecordUsage_ResponseModelBillsCheaperResponseModel(t *tes
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -99,7 +99,7 @@ func TestGatewayServiceRecordUsage_ResponseModelRejectsPricierResponseModel(t *t
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -163,7 +163,7 @@ func TestGatewayServiceRecordUsage_ResponseModelSafeFallbacks(t *testing.T) {
 					Duration:                      time.Second,
 				},
 				APIKey:  &APIKey{ID: 501, Quota: 100},
-				User:    &User{ID: 601},
+				User:    &User{ID: 601, RateMultiplier: 1.1},
 				Account: &Account{ID: 701},
 				ChannelUsageFields: ChannelUsageFields{
 					ChannelID:          9,
@@ -200,7 +200,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelBillsCheaperResponseModel(
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -240,7 +240,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelRejectsPricierResponseMode
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -305,7 +305,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSafeFallbacks(t *testing.T
 					Duration:                      time.Second,
 				},
 				APIKey:  &APIKey{ID: 10},
-				User:    &User{ID: 20},
+				User:    &User{ID: 20, RateMultiplier: 1.1},
 				Account: &Account{ID: 30},
 				ChannelUsageFields: ChannelUsageFields{
 					ChannelID:          9,
@@ -403,7 +403,7 @@ func TestGatewayServiceRecordUsage_ResponseModelRejectsUnidentifiedFamilyName(t 
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -442,7 +442,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelRejectsUnidentifiedFamilyN
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -530,7 +530,7 @@ func TestGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedReques
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,
@@ -570,7 +570,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurcharged
 			Duration:              time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          9,

@@ -99,9 +99,11 @@ type DefaultSubscriptionAssigner interface {
 }
 
 type signupGrantPlan struct {
-	Balance       float64
-	Concurrency   int
-	Subscriptions []DefaultSubscriptionSetting
+	Balance     float64
+	Concurrency int
+	// RateMultiplier 新用户的计费倍率，来自 config default.rate_multiplier（≤ 0 时按 1）。
+	RateMultiplier float64
+	Subscriptions  []DefaultSubscriptionSetting
 }
 
 // NewAuthService 创建认证服务实例
@@ -232,13 +234,14 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 
 	// 创建用户
 	user := &User{
-		Email:        email,
-		PasswordHash: hashedPassword,
-		Role:         RoleUser,
-		Balance:      grantPlan.Balance,
-		Concurrency:  grantPlan.Concurrency,
-		RPMLimit:     defaultRPMLimit,
-		Status:       StatusActive,
+		Email:          email,
+		PasswordHash:   hashedPassword,
+		Role:           RoleUser,
+		Balance:        grantPlan.Balance,
+		Concurrency:    grantPlan.Concurrency,
+		RateMultiplier: grantPlan.RateMultiplier,
+		RPMLimit:       defaultRPMLimit,
+		Status:         StatusActive,
 	}
 
 	if err := s.createUserAndClaimInvitation(ctx, user, invitationRedeemCode); err != nil {
@@ -604,15 +607,16 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			}
 
 			newUser := &User{
-				Email:        email,
-				Username:     username,
-				PasswordHash: hashedPassword,
-				Role:         RoleUser,
-				Balance:      grantPlan.Balance,
-				Concurrency:  grantPlan.Concurrency,
-				RPMLimit:     defaultRPMLimit,
-				Status:       StatusActive,
-				SignupSource: signupSource,
+				Email:          email,
+				Username:       username,
+				PasswordHash:   hashedPassword,
+				Role:           RoleUser,
+				Balance:        grantPlan.Balance,
+				Concurrency:    grantPlan.Concurrency,
+				RateMultiplier: grantPlan.RateMultiplier,
+				RPMLimit:       defaultRPMLimit,
+				Status:         StatusActive,
+				SignupSource:   signupSource,
 			}
 
 			if err := s.userRepo.Create(ctx, newUser); err != nil {
@@ -752,15 +756,16 @@ func (s *AuthService) loginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			}
 
 			newUser := &User{
-				Email:        email,
-				Username:     username,
-				PasswordHash: hashedPassword,
-				Role:         RoleUser,
-				Balance:      grantPlan.Balance,
-				Concurrency:  grantPlan.Concurrency,
-				RPMLimit:     defaultRPMLimit,
-				Status:       StatusActive,
-				SignupSource: signupSource,
+				Email:          email,
+				Username:       username,
+				PasswordHash:   hashedPassword,
+				Role:           RoleUser,
+				Balance:        grantPlan.Balance,
+				Concurrency:    grantPlan.Concurrency,
+				RateMultiplier: grantPlan.RateMultiplier,
+				RPMLimit:       defaultRPMLimit,
+				Status:         StatusActive,
+				SignupSource:   signupSource,
 			}
 
 			if s.entClient != nil && invitationRedeemCode != nil {
@@ -889,10 +894,13 @@ func (s *AuthService) assignSubscriptions(ctx context.Context, userID int64, ite
 }
 
 func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource string) signupGrantPlan {
-	plan := signupGrantPlan{}
+	plan := signupGrantPlan{RateMultiplier: 1}
 	if s != nil && s.cfg != nil {
 		plan.Balance = s.cfg.Default.UserBalance
 		plan.Concurrency = s.cfg.Default.UserConcurrency
+		if s.cfg.Default.RateMultiplier > 0 {
+			plan.RateMultiplier = s.cfg.Default.RateMultiplier
+		}
 	}
 	if s == nil || s.settingService == nil {
 		return plan

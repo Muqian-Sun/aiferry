@@ -78,7 +78,7 @@ func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscrip
 			GroupID: i64p(groupID),
 			Group:   group,
 		},
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1},
 		Account: &Account{ID: 1, Platform: PlatformOpenAI},
 	})
 	require.NoError(t, err)

@@ -2041,39 +2041,6 @@
         />
       </div>
 
-      <!-- OpenAI API 长上下文计费开关 -->
-      <div
-        v-if="openAILongContextBillingVisible"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
-      >
-        <div class="flex items-center justify-between gap-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.openai.longContextBilling') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.longContextBillingDesc') }}
-            </p>
-          </div>
-          <button
-            type="button"
-            data-testid="openai-long-context-billing-toggle"
-            role="switch"
-            :aria-checked="openAILongContextBillingEnabled"
-            @click="openAILongContextBillingEnabled = !openAILongContextBillingEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openAILongContextBillingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openAILongContextBillingEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-      </div>
-
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token')"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
@@ -2948,7 +2915,6 @@ import {
 } from '@/utils/format'
 import { createStableObjectKeyResolver } from '@/utils/stableObjectKey'
 import { getAccountExpiryTimestamp } from '@/components/account/accountExpiry'
-import { allSelectedGroupsEnableLongContextPricing } from '@/components/account/longContextBilling'
 import { VERTEX_LOCATION_OPTIONS } from '@/constants/account'
 import {
   OPENAI_WS_MODE_CTX_POOL,
@@ -2999,10 +2965,6 @@ const selectableGroups = computed(() => {
 // Spark 影子账号(parent_account_id 非空):代理恒继承母账号,不可独立编辑(外审 B/P1),
 // 故隐藏代理选择器。
 const isSparkShadow = computed(() => props.account?.parent_account_id != null)
-
-const hideAccountLongContextBilling = computed(() => {
-  return allSelectedGroupsEnableLongContextPricing(form.group_ids, props.groups)
-})
 
 const handleOllamaCloudUsageUpdated = (state: OllamaCloudUsageState) => {
   if (props.account) emit('updated', { ...props.account, ollama_cloud_usage: state })
@@ -3323,7 +3285,6 @@ const cacheTTLOverrideTarget = ref<string>('5m')
 const openaiPassthroughEnabled = ref(false)
 // OpenAI Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
 const openaiFlattenNamespacesEnabled = ref(false)
-const openAILongContextBillingEnabled = ref(false)
 // OpenAI 订阅档位（Plus / Pro 20x / Pro 5x / Business Standard / Business Premium / Free）手动覆盖值,
 // 存于 credentials.plan_type;'' 表示清空/自动识别
 const editPlanType = ref<string>('')
@@ -3356,12 +3317,6 @@ const openAIResponsesSettingsVisible = computed(() => {
   if (account.type === 'apikey') return hasOpenAIEndpoint(editProtocolEndpoints.value)
   return account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')
 })
-
-// 长上下文计费开关：OpenAI 成品号，或配了 OpenAI 协议地址的第三方 key（不看标签）。
-// 区块隐藏时保存不改写已存值。
-const openAILongContextBillingVisible = computed(
-  () => openAIResponsesSettingsVisible.value && !isSparkShadow.value && !hideAccountLongContextBilling.value
-)
 
 // 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
 // 按编辑中的协议地址展示，不看平台标签。
@@ -3767,7 +3722,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   // Load OpenAI passthrough toggle (OpenAI OAuth/SetupToken/API Key)
   openaiPassthroughEnabled.value = false
   openaiFlattenNamespacesEnabled.value = false
-  openAILongContextBillingEnabled.value = false
   editPlanType.value = ''
   openAICompactMode.value = 'auto'
   openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
@@ -3814,7 +3768,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     )
   }
   // 长上下文计费开关对任意标签的 key 都生效，按已存值回填；区块可见性另算。
-  openAILongContextBillingEnabled.value = extra?.openai_long_context_billing_enabled === true
   // OpenAI 平台专属设置（成品号语义；openai 标签的 key 仍沿用，待协议化）
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token' || newAccount.type === 'apikey')) {
     openaiFlattenNamespacesEnabled.value =
@@ -5158,17 +5111,6 @@ const handleSubmit = async () => {
           delete newExtra.images_url_to_b64_json
         }
       }
-      updatePayload.extra = newExtra
-    }
-
-    // 长上下文计费开关：区块露出时按界面值写，隐藏时保留已存值（影子账号不落此键）。
-    if (openAILongContextBillingVisible.value) {
-      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
-      updatePayload.extra = { ...currentExtra, openai_long_context_billing_enabled: openAILongContextBillingEnabled.value }
-    } else if (isSparkShadow.value && props.account.extra && 'openai_long_context_billing_enabled' in (props.account.extra as Record<string, unknown>)) {
-      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
-      const newExtra: Record<string, unknown> = { ...currentExtra }
-      delete newExtra.openai_long_context_billing_enabled
       updatePayload.extra = newExtra
     }
 

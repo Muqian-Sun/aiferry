@@ -10,7 +10,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 )
 
@@ -28,8 +27,10 @@ func profitControlTestGroup(id int64, margin, buffer float64) *Group {
 	}
 }
 
+// profitControlTestCtx 模拟认证后的请求上下文：D 取用户倍率（用夹具分组的数当用户倍率）。
 func profitControlTestCtx(group *Group) context.Context {
-	return context.WithValue(context.Background(), ctxkey.Group, group)
+	ctx := context.WithValue(context.Background(), ctxkey.Group, group)
+	return WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: group.RateMultiplier})
 }
 
 func profitControlTestAccountWithRate(account *Account, rate float64) *Account {
@@ -87,17 +88,12 @@ func TestResolveOpenAIProfitControlGate(t *testing.T) {
 		require.Equal(t, groupID, gate.groupID)
 	})
 
-	t.Run("threshold applies peak factor exactly like billing", func(t *testing.T) {
+	t.Run("threshold uses the user rate multiplier exactly like billing", func(t *testing.T) {
 		group := profitControlTestGroup(groupID, 0.5, 0)
-		group.SubscriptionType = SubscriptionTypeSubscription
-		group.PeakRateEnabled = true
-		group.PeakStart = "00:00"
-		group.PeakEnd = "23:59"
-		group.PeakRateMultiplier = 3.0
-		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID)
+		ctx := WithUserRateMultiplier(profitControlTestCtx(group), &User{ID: 1, RateMultiplier: 3.0})
+		gate := svc.resolveOpenAIProfitControlGate(ctx, &groupID)
 		require.NotNil(t, gate)
-		expected := group.RateMultiplier * group.PeakMultiplierAt(timezone.Now()) * 0.5
-		require.InDelta(t, expected, gate.threshold, 1e-9)
+		require.InDelta(t, 3.0*0.5, gate.threshold, 1e-9)
 		require.Equal(t, PlatformOpenAI, gate.platform)
 	})
 }

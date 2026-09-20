@@ -36,29 +36,6 @@ func TestResolve_AliasUsesEntryModelIDForBasePricing(t *testing.T) {
 	require.InDelta(t, 15e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
 }
 
-// 分组价卡是覆盖层：没显式配的项要沿用目录基准价，而不是跳过目录直接落到价格文件。
-func TestResolve_GroupCardStacksOnCatalogBase(t *testing.T) {
-	bs := newTestBillingServiceForResolver()
-	catalog := newCatalogWithAlias("claude-sonnet-4", ModelCatalogManagedByAdmin, "team/best", ChannelModelPricing{
-		BillingMode: BillingModeToken,
-		InputPrice:  float64Ptr(9e-6),
-	})
-	r := NewModelPricingResolver(catalog, bs)
-	group := &Group{ID: 1, ModelPricing: []ChannelModelPricing{{
-		Models:      []string{"team/best"},
-		BillingMode: BillingModeToken,
-		OutputPrice: float64Ptr(20e-6),
-	}}}
-
-	resolved := r.Resolve(context.Background(), PricingInput{Model: "team/best", Group: group})
-
-	require.Equal(t, PricingSourceGroup, resolved.Source)
-	require.True(t, resolved.operatorPricing)
-	require.Equal(t, "claude-sonnet-4", resolved.CanonicalModel)
-	require.InDelta(t, 9e-6, resolved.BasePricing.InputPricePerToken, 1e-12, "input must come from the catalog entry, not the pricing file")
-	require.InDelta(t, 20e-6, resolved.BasePricing.OutputPricePerToken, 1e-12, "output must come from the group card")
-}
-
 // 厂商价格政策（这里取 DeepSeek 高峰倍率）按条目 model_id 判定：请求用别名时也要生效。
 func TestCalculateTokenCost_AliasAppliesVendorPolicyByCanonicalModel(t *testing.T) {
 	bs := NewBillingService(&config.Config{}, nil)

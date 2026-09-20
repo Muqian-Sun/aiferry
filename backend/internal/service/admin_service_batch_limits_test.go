@@ -12,19 +12,27 @@ import (
 
 type batchLimitsUserRepoStub struct {
 	*userRepoStub
-	calls       int
-	userIDs     []int64
-	concurrency *int
-	rpmLimit    *int
-	affected    int
-	err         error
+	calls          int
+	userIDs        []int64
+	concurrency    *int
+	rpmLimit       *int
+	rateMultiplier *float64
+	affected       int
+	err            error
 }
 
-func (s *batchLimitsUserRepoStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
+func (s *batchLimitsUserRepoStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
 	s.calls++
 	s.userIDs = append([]int64(nil), userIDs...)
 	s.concurrency = cloneBatchLimitValue(concurrency)
 	s.rpmLimit = cloneBatchLimitValue(rpmLimit)
+	if rateMultiplier != nil {
+		v := *rateMultiplier
+		s.rateMultiplier = &v
+	}
+	if s.affected == 0 && s.err == nil {
+		s.affected = len(s.userIDs)
+	}
 	return s.affected, s.err
 }
 
@@ -50,6 +58,7 @@ func TestAdminServiceBatchUpdateLimitsPassesOnlyProvidedFields(t *testing.T) {
 		[]int64{3, 0, 3, 7, -1},
 		&concurrency,
 		nil,
+		nil,
 	)
 
 	require.NoError(t, err)
@@ -69,7 +78,7 @@ func TestAdminServiceBatchUpdateLimitsDoesNotInvalidateCacheOnRepositoryError(t 
 	invalidator := &authCacheInvalidatorStub{}
 	service := &adminServiceImpl{userRepo: repo, authCacheInvalidator: invalidator}
 
-	affected, err := service.BatchUpdateLimits(context.Background(), []int64{1, 2}, nil, &rpmLimit)
+	affected, err := service.BatchUpdateLimits(context.Background(), []int64{1, 2}, nil, &rpmLimit, nil)
 
 	require.EqualError(t, err, "database unavailable")
 	require.Zero(t, affected)
@@ -80,7 +89,7 @@ func TestAdminServiceBatchUpdateLimitsRequiresAField(t *testing.T) {
 	repo := &batchLimitsUserRepoStub{userRepoStub: &userRepoStub{}}
 	service := &adminServiceImpl{userRepo: repo, authCacheInvalidator: &authCacheInvalidatorStub{}}
 
-	affected, err := service.BatchUpdateLimits(context.Background(), []int64{1}, nil, nil)
+	affected, err := service.BatchUpdateLimits(context.Background(), []int64{1}, nil, nil, nil)
 
 	require.Error(t, err)
 	require.Zero(t, affected)
@@ -89,4 +98,20 @@ func TestAdminServiceBatchUpdateLimitsRequiresAField(t *testing.T) {
 
 func pointerToInt(value int) *int {
 	return &value
+}
+
+func TestAdminServiceBatchUpdateLimitsRateMultiplier(t *testing.T) {
+	repo := &batchLimitsUserRepoStub{userRepoStub: &userRepoStub{}}
+	service := &adminServiceImpl{userRepo: repo, authCacheInvalidator: &authCacheInvalidatorStub{}}
+
+	half := 0.5
+	affected, err := service.BatchUpdateLimits(context.Background(), []int64{1}, nil, nil, &half)
+	require.NoError(t, err)
+	require.Equal(t, 1, affected)
+	require.NotNil(t, repo.rateMultiplier)
+	require.Equal(t, 0.5, *repo.rateMultiplier)
+
+	negative := -1.0
+	_, err = service.BatchUpdateLimits(context.Background(), []int64{1}, nil, nil, &negative)
+	require.ErrorContains(t, err, "rate_multiplier must be >= 0")
 }

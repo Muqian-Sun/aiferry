@@ -167,7 +167,6 @@ function mountView() {
         PlatformIcon: true,
         Icon: true,
         GroupCapacityBadge: true,
-        GroupRateMultipliersModal: true,
         GroupRPMOverridesModal: true,
         VueDraggable: true
       }
@@ -240,7 +239,6 @@ describe('GroupsView duplicate action', () => {
 
     expect(wrapper.find('[data-testid="group-duplicate"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="group-composite-routes"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="group-rate-multipliers"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="group-rpm-overrides"]').exists()).toBe(false)
     wrapper.unmount()
   })
