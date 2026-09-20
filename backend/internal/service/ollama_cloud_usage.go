@@ -1020,19 +1020,6 @@ func OllamaCloudUsageStateFromAccount(account *Account) *OllamaCloudUsageState {
 	return state
 }
 
-// isOllamaCloudUsagePlatform 收敛 Ollama Cloud 用量窗口的平台白名单。官方
-// ollama.com base_url 除官方两平台外，也允许挂在经 OpenAI 网关转发的国产
-// OpenAI 兼容平台下（用户把 Ollama Cloud key 挂在 kimi/zhipu/deepseek 分组
-// 里跑托管的 glm/kimi/deepseek 模型）。repository 侧 SQL 白名单
-// （ollamaCloudUsagePlatformsSQL）是本列表的镜像，两侧必须同步修改。
-func isOllamaCloudUsagePlatform(platform string) bool {
-	switch platform {
-	case PlatformOpenAI, PlatformAnthropic, PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax:
-		return true
-	default:
-		return false
-	}
-}
 
 // isOllamaCloudUpstreamKey 报告第三方 key 的主上游地址是否为 Ollama Cloud（ollama.com），只看
 // 地址、不看平台标签，供请求路径（429 处理）使用。PrimaryUpstreamBaseURL 对成品号返回空串。
@@ -1044,7 +1031,8 @@ func isOllamaCloudUpstreamKey(account *Account) bool {
 }
 
 func IsOllamaCloudUsageAccount(account *Account) bool {
-	if account == nil || account.Type != AccountTypeAPIKey || !isOllamaCloudUsagePlatform(account.Platform) {
+	// Ollama Cloud key 只按地址识别（ollama.com），平台标签不参与。
+	if account == nil || !account.IsThirdPartyKey() {
 		return false
 	}
 	return isOllamaCloudBaseURL(account.PrimaryUpstreamBaseURL())

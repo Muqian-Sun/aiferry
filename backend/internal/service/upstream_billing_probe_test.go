@@ -401,7 +401,7 @@ func TestUpstreamBillingProbeSyncsResolvedRateForAllAPIKeyPlatforms(t *testing.T
 					"api_key":  "sk-sensitive",
 					"base_url": "https://upstream.example",
 				},
-				ProtocolEndpoints: map[string]string{DefaultProtocolForPlatform(platform): "https://upstream.example"},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://upstream.example"},
 				Extra: map[string]any{
 					UpstreamBillingProbeEnabledExtraKey:    true,
 					UpstreamBillingRateSyncEnabledExtraKey: true,

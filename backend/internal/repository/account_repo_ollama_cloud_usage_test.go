@@ -187,9 +187,10 @@ func TestListOllamaCloudUsageGroupAccountsUsesOneStrictBatchQuery(t *testing.T) 
 	require.Empty(t, accounts)
 	query := normalizeSQLWhitespace(capturedSQL)
 	require.Contains(t, query, "credentials ->> 'api_key' = ANY($1)")
-	require.Contains(t, query, "platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax')")
+	require.NotContains(t, query, "platform IN", "Ollama Cloud grouping must not look at the display label")
+	require.Contains(t, query, "type = 'apikey'")
 	require.Contains(t, query, "jsonb_typeof(credentials -> 'api_key') = 'string'")
-	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")))
+	require.Contains(t, query, ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints")))
 	// 第三方 key 的地址只在 protocol_endpoints 里，读 credentials.base_url 会让分组静默失效。
 	require.NotContains(t, query, "->> 'base_url'")
 	require.NotContains(t, query, "~*")
@@ -217,9 +218,9 @@ func TestListDueOllamaCloudUsageAccountsFiltersOrdersAndLimits(t *testing.T) {
 	for _, clause := range []string{
 		"deleted_at IS NULL",
 		"status = 'active'",
-		"platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax')",
 		"type = 'apikey'",
-		ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")),
+		"type = 'apikey'",
+		ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints")),
 		"jsonb_typeof(extra -> 'ollama_cloud_usage_session') = 'string'",
 		`extra @> '{"ollama_cloud_usage_auto_refresh": true}'::jsonb`,
 		"MAX(last_used_at) AS group_last_used_at",
@@ -271,7 +272,8 @@ func TestBulkUpdateOllamaIdentityCleanupFollowsAPIKeyOnly(t *testing.T) {
 	require.Contains(t, query, "credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'")
 	require.NotContains(t, query, "->> 'base_url'")
 	require.NotContains(t, query, "~*")
-	require.Contains(t, query, "platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax') AND type = 'apikey'")
+	require.NotContains(t, query, "platform IN", "identity cleanup keys off the account type, never the display label")
+	require.Contains(t, query, "type = 'apikey' AND (credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key')")
 	require.Contains(t, query, "- 'ollama_cloud_usage_session' - 'ollama_cloud_usage_auto_refresh' - 'ollama_cloud_usage_snapshot'")
 	payload, ok := exec.execArgs[0][0].([]byte)
 	require.True(t, ok)
@@ -337,16 +339,9 @@ func TestUpdateCredentialsCleanupBranchRequiresChangedCredentials(t *testing.T) 
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
-// SQL 平台白名单常量与 service 判定必须互为镜像：对每个已知平台，常量里的
-// 成员关系都要与 IsOllamaCloudUsageAccount（apikey + 官方 ollama.com）一致，
-// 防止两侧平台列表各自漂移。
-func TestOllamaCloudUsagePlatformWhitelistMatchesServicePredicate(t *testing.T) {
-	matches := regexp.MustCompile(`'([^']+)'`).FindAllStringSubmatch(ollamaCloudUsagePlatformsSQL, -1)
-	sqlPlatforms := make(map[string]struct{}, len(matches))
-	for _, match := range matches {
-		sqlPlatforms[match[1]] = struct{}{}
-	}
-	require.Len(t, sqlPlatforms, 6)
+// Ollama Cloud 识别只看地址与类型，平台标签不参与：SQL 侧与 Go 侧对任意标签都同判。
+func TestOllamaCloudUsageEligibilityIgnoresPlatformLabel(t *testing.T) {
+	require.NotContains(t, ollamaCloudUsageEligibleSQL, "platform")
 	for _, platform := range []string{
 		service.PlatformOpenAI, service.PlatformAnthropic,
 		service.PlatformKimi, service.PlatformZhipu, service.PlatformDeepseek, service.PlatformMiniMax,
@@ -355,9 +350,11 @@ func TestOllamaCloudUsagePlatformWhitelistMatchesServicePredicate(t *testing.T) 
 	} {
 		account := ollamaCloudUsageRepositoryAccount()
 		account.Platform = platform
-		_, inSQL := sqlPlatforms[platform]
-		require.Equal(t, inSQL, service.IsOllamaCloudUsageAccount(account), platform)
+		require.True(t, service.IsOllamaCloudUsageAccount(account), platform)
 	}
+	oauth := ollamaCloudUsageRepositoryAccount()
+	oauth.Type = service.AccountTypeOAuth
+	require.False(t, service.IsOllamaCloudUsageAccount(oauth))
 }
 
 // 语义等价性：平台放开后，普通（非 ollama）kimi apikey 账号改凭证会从通用
@@ -392,8 +389,8 @@ func TestUpdateCredentialsPlainCNAPIKeyAccountCleanupStaysSemanticallyEquivalent
 
 	require.NoError(t, err)
 	query := normalizeSQLWhitespace(capturedSQL)
-	require.Contains(t, query,
-		"platform IN ('openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax') AND type = 'apikey' AND credentials IS DISTINCT FROM $1::jsonb")
+	require.Contains(t, query, "WHEN type = 'apikey' AND credentials IS DISTINCT FROM $1::jsonb")
+	require.NotContains(t, query, "platform IN")
 	require.Contains(t, query,
 		"THEN COALESCE(extra, '{}'::jsonb) - 'upstream_billing_probe' - 'ollama_cloud_usage_session' - 'ollama_cloud_usage_auto_refresh' - 'ollama_cloud_usage_snapshot'")
 	require.NotContains(t, query, "- 'upstream_billing_probe_enabled'")

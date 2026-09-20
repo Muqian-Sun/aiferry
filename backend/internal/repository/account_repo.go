@@ -590,13 +590,11 @@ func lockAndMergeAccountProbeExtra(
 			AND protocol_endpoints = $6::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			COALESCE(
-				platform IN (`+ollamaCloudUsagePlatformsSQL+`)
-				AND $2 IN (`+ollamaCloudUsagePlatformsSQL+`)
-				AND type = 'apikey'
+				`+ollamaCloudUsageKeySQL+`
 				AND $3 = 'apikey'
 				AND credentials -> 'api_key' IS NOT DISTINCT FROM $4::jsonb -> 'api_key'
-				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
-				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb", "$2::text"))+`,
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints"))+`
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb"))+`,
 				false
 			),
 			proxy_id IS NOT DISTINCT FROM $5,
@@ -778,13 +776,12 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 			extra = CASE
 				-- 凭证整体未变化 ⇒ Ollama 组身份必然未变化；顶层 DISTINCT 守卫防止
 				-- 非 Ollama 账号的无变化持久化误清探测快照或重写 NULL extra。
-				WHEN platform IN (`+ollamaCloudUsagePlatformsSQL+`)
-					AND type = 'apikey'
+				WHEN `+ollamaCloudUsageKeySQL+`
 					AND credentials IS DISTINCT FROM $1::jsonb
 					AND (
 						credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'
 						-- 本语句不改 protocol_endpoints，上游地址前后相同，只需看本行是否仍是 Ollama。
-						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
+						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints"))+`
 					)
 				THEN COALESCE(extra, '{}'::jsonb)
 					- 'upstream_billing_probe'
@@ -2981,7 +2978,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 				extraExpression = "(" + extraExpression + ") - 'ollama_cloud_usage_snapshot'"
 			}
 		}
-		eligibleAccount := "platform IN (" + ollamaCloudUsagePlatformsSQL + ") AND type = 'apikey'"
+		eligibleAccount := ollamaCloudUsageKeySQL
 		groupIdentityChanged := ""
 		if len(ollamaGroupIdentityChanges) > 0 {
 			groupIdentityChanged = "(" + eligibleAccount + " AND (" + joinClauses(ollamaGroupIdentityChanges, " OR ") + "))"

@@ -469,14 +469,13 @@ func TestIsOllamaCloudUsageAccountStrictOfficialHost(t *testing.T) {
 		{"https://ollama.com", PlatformOpenAI, true},
 		{"HTTPS://OLLAMA.COM", PlatformAnthropic, true},
 		{"https://www.OLLAMA.com:443/v1", PlatformOpenAI, true},
-		// 官方 ollama.com key 挂在国产 OpenAI 兼容平台下同样进用量窗口。
+		// 平台标签只是展示：任何标签下的官方 ollama.com key 都进用量窗口。
 		{"https://ollama.com", PlatformKimi, true},
 		{"https://www.ollama.com/v1", PlatformZhipu, true},
 		{"https://ollama.com:443", PlatformDeepseek, true},
-		// 用量窗口不随 base_url 放开到其余平台。
-		{"https://ollama.com", PlatformGemini, false},
-		{"https://ollama.com", PlatformGrok, false},
-		{"https://ollama.com", PlatformAntigravity, false},
+		{"https://ollama.com", PlatformGemini, true},
+		{"https://ollama.com", PlatformGrok, true},
+		{"https://ollama.com", PlatformAntigravity, true},
 		{"https://ollama.com/", PlatformAnthropic, false},
 		{"https://ollama.com/v1/", PlatformOpenAI, false},
 		{"http://ollama.com", PlatformOpenAI, false},
@@ -493,7 +492,7 @@ func TestIsOllamaCloudUsageAccountStrictOfficialHost(t *testing.T) {
 			account.Platform = test.platform
 			// 第三方 key 的地址来自协议映射，base_url 仅为历史字段。
 			account.Credentials["base_url"] = test.baseURL
-			account.ProtocolEndpoints = map[string]string{DefaultProtocolForPlatform(test.platform): test.baseURL}
+			account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: test.baseURL}
 			require.Equal(t, test.want, IsOllamaCloudUsageAccount(account))
 		})
 	}

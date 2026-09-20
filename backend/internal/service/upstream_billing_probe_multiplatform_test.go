@@ -182,7 +182,7 @@ func TestUpstreamBillingProbeOfficialAPIBaseURLIsUnsupportedWithoutRequest(t *te
 			Type:              AccountTypeAPIKey,
 			Status:            StatusActive,
 			Credentials:       map[string]any{"api_key": "sk-official", "base_url": tc.baseURL},
-			ProtocolEndpoints: map[string]string{DefaultProtocolForPlatform(tc.platform): tc.baseURL},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: tc.baseURL},
 		}
 		repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
 		upstream := &httpUpstreamRecorder{}

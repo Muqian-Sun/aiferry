@@ -146,21 +146,6 @@ func InboundProtocolFromContext(ctx context.Context) string {
 	return protocol
 }
 
-// DefaultProtocolForPlatform 返回该平台第三方 key 的默认协议标识。
-// 用于把「平台 + base_url」这种旧形态的账号数据转换成协议映射。
-func DefaultProtocolForPlatform(platform string) string {
-	switch platform {
-	case PlatformAnthropic, PlatformAntigravity:
-		return APIProtocolAnthropic
-	case PlatformGemini:
-		return APIProtocolGemini
-	case PlatformOpenAI, PlatformGrok, PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
-		return APIProtocolChatCompletions
-	default:
-		return ""
-	}
-}
-
 // ValidateProtocolEndpoints 校验账号的协议映射是否满足其来源维度的要求。
 //
 // 第三方 key 必须至少配置一个协议地址：地址是它唯一的上游坐标，缺了就没有任何
@@ -314,6 +299,12 @@ var primaryUpstreamProtocolOrder = []string{
 	APIProtocolResponses,
 	APIProtocolAnthropic,
 	APIProtocolGemini,
+}
+
+// PrimaryUpstreamProtocolOrder 把 PrimaryUpstreamBaseURL 的取址顺序暴露给需要在 SQL 里
+// 镜像同一判断的仓储层（Ollama Cloud 识别），两边共用一个真相源。
+func PrimaryUpstreamProtocolOrder() []string {
+	return append([]string(nil), primaryUpstreamProtocolOrder...)
 }
 
 // MissingProtocolEndpointError 是第三方 key 缺少某协议上游地址时的统一错误。
