@@ -338,4 +338,3 @@ func (h *APIKeyHandler) GetAvailableGroups(c *gin.Context) {
 	}
 	response.Success(c, out)
 }
-
