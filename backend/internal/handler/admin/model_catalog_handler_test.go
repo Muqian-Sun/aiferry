@@ -32,15 +32,20 @@ func (r *catalogRepoStub) ListEntries(context.Context) ([]service.ModelCatalogEn
 	defer r.mu.Unlock()
 	out := make([]service.ModelCatalogEntry, len(r.entries))
 	copy(out, r.entries)
+	for i := range out {
+		out[i].Bindings = append([]service.ModelCatalogBinding(nil), r.bindings[out[i].ID]...)
+	}
 	return out, nil
 }
 
+// GetEntryByID 像真实仓储一样把绑定挂上（hydrateEntry）。
 func (r *catalogRepoStub) GetEntryByID(_ context.Context, id int64) (*service.ModelCatalogEntry, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	for i := range r.entries {
 		if r.entries[i].ID == id {
 			cp := r.entries[i]
+			cp.Bindings = append([]service.ModelCatalogBinding(nil), r.bindings[id]...)
 			return &cp, nil
 		}
 	}
@@ -174,9 +179,23 @@ func (r *catalogRepoStub) ListEntryIDsByAccount(context.Context, int64) ([]int64
 	return nil, nil
 }
 
+// catalogAccountsStub 按 ID 取账号；不在表里的账号视为不存在。
+type catalogAccountsStub map[int64]*service.Account
+
+func (m catalogAccountsStub) GetAccount(_ context.Context, id int64) (*service.Account, error) {
+	if account, ok := m[id]; ok {
+		return account, nil
+	}
+	return nil, service.ErrAccountNotFound
+}
+
 func newCatalogHandler(repo *catalogRepoStub) *ModelCatalogHandler {
+	return newCatalogHandlerWithAccounts(repo, catalogAccountsStub{})
+}
+
+func newCatalogHandlerWithAccounts(repo *catalogRepoStub, accounts catalogAccountsStub) *ModelCatalogHandler {
 	svc := service.NewModelCatalogService(repo, nil, service.ModelCatalogSeedInput{})
-	return NewModelCatalogHandler(svc)
+	return NewModelCatalogHandler(svc, accounts)
 }
 
 func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
@@ -187,6 +206,8 @@ func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
 	r.POST("/entries", h.CreateEntry)
 	r.PUT("/entries/:id", h.UpdateEntry)
 	r.DELETE("/entries/:id", h.DeleteEntry)
+	r.GET("/entries/:id/bindings", h.ListBindings)
+	r.PUT("/entries/:id/bindings", h.ReplaceBindings)
 	r.POST("/aliases", h.CreateAlias)
 	r.PUT("/aliases/:id", h.UpdateAlias)
 	r.DELETE("/aliases/:id", h.DeleteAlias)
@@ -402,4 +423,91 @@ func TestModelCatalogHandler_SeedError(t *testing.T) {
 	rec := httptest.NewRecorder()
 	newCatalogRouter(h).ServeHTTP(rec, httptest.NewRequest(http.MethodPost, "/seed", nil))
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
+}
+
+func TestModelCatalogHandler_Bindings(t *testing.T) {
+	price := 3e-6
+	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
+		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
+	}}}
+	accounts := catalogAccountsStub{
+		1: {ID: 1, Name: "oauth-a", Type: service.AccountTypeOAuth, Platform: service.PlatformAnthropic, Status: service.StatusActive},
+		2: {ID: 2, Name: "relay-key", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive,
+			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}},
+		3: {ID: 3, Name: "chat-only", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://cc.example.com"}},
+	}
+	router := newCatalogRouter(newCatalogHandlerWithAccounts(repo, accounts))
+
+	decodeBindings := func(t *testing.T, rec *httptest.ResponseRecorder) []ModelCatalogBindingResponse {
+		t.Helper()
+		envelope := decodeCatalogResponse(t, rec)
+		raw, err := json.Marshal(envelope.Data)
+		require.NoError(t, err)
+		var out []ModelCatalogBindingResponse
+		require.NoError(t, json.Unmarshal(raw, &out))
+		return out
+	}
+
+	t.Run("empty at first", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/bindings", nil))
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.Empty(t, decodeBindings(t, rec))
+	})
+
+	t.Run("replace returns bindings with account summaries", func(t *testing.T) {
+		body := `{"bindings":[{"account_id":2,"priority":5},{"account_id":1}]}`
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(body)))
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := decodeBindings(t, rec)
+		require.Len(t, got, 2)
+		require.Equal(t, int64(2), got[0].AccountID)
+		require.Equal(t, 5, *got[0].Priority)
+		require.Equal(t, "relay-key", got[0].Account.Name)
+		require.Equal(t, "", got[0].Account.Vendor, "generic relay has no official vendor")
+		require.Equal(t, int64(1), got[1].AccountID)
+		require.Nil(t, got[1].Priority)
+		require.Equal(t, service.PlatformAnthropic, got[1].Account.Vendor)
+
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3", nil))
+		require.Contains(t, rec.Body.String(), `"bindings":[`, "entry payload carries bindings for the list column")
+	})
+
+	t.Run("unservable account is rejected as a whole", func(t *testing.T) {
+		body := `{"bindings":[{"account_id":1},{"account_id":3}]}`
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(body)))
+		require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
+		require.Contains(t, rec.Body.String(), "CATALOG_BINDING_UNSERVABLE")
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/3/bindings", nil))
+		require.Len(t, decodeBindings(t, rec), 2, "previous bindings are untouched")
+	})
+
+	t.Run("unknown account and entry", func(t *testing.T) {
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"account_id":99}]}`)))
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/42/bindings", bytes.NewBufferString(`{"bindings":[]}`)))
+		require.Equal(t, http.StatusNotFound, rec.Code)
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3/bindings", bytes.NewBufferString(`{"bindings":[{"priority":1}]}`)))
+		require.Equal(t, http.StatusBadRequest, rec.Code, "account_id is required")
+	})
+
+	t.Run("route_platform round-trips through update", func(t *testing.T) {
+		body := `{"model_id":"claude-sonnet-4","status":"listed","input_price":0.000003,"route_platform":"openai"}`
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(body)))
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		require.Equal(t, service.PlatformOpenAI, repo.entries[0].RoutePlatform)
+		rec = httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(`{"model_id":"claude-sonnet-4","input_price":0.000003,"route_platform":"antigravity"}`)))
+		require.Equal(t, http.StatusBadRequest, rec.Code)
+	})
 }

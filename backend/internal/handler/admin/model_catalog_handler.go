@@ -11,11 +11,13 @@ import (
 // ModelCatalogHandler 处理模型目录的管理端请求。
 type ModelCatalogHandler struct {
 	service *service.ModelCatalogService
+	// accounts 绑定资源时按 ID 取账号做承接校验与展示；生产上是 AdminService。
+	accounts service.CatalogBindingAccountSource
 }
 
 // NewModelCatalogHandler 创建模型目录处理器。
-func NewModelCatalogHandler(svc *service.ModelCatalogService) *ModelCatalogHandler {
-	return &ModelCatalogHandler{service: svc}
+func NewModelCatalogHandler(svc *service.ModelCatalogService, accounts service.CatalogBindingAccountSource) *ModelCatalogHandler {
+	return &ModelCatalogHandler{service: svc, accounts: accounts}
 }
 
 // ModelCatalogEntryRequest 是条目的创建 / 更新请求体。
@@ -29,6 +31,8 @@ type ModelCatalogEntryRequest struct {
 	Protocols   []string `json:"protocols"`
 	BillingMode string   `json:"billing_mode"`
 	Status      string   `json:"status"`
+	// RoutePlatform 条目走哪条网关族；空表示按 vendor 推导。
+	RoutePlatform string `json:"route_platform"`
 
 	InputPrice          *float64 `json:"input_price"`
 	OutputPrice         *float64 `json:"output_price"`
@@ -67,8 +71,9 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 		DisplayName: r.DisplayName,
 		Vendor:      r.Vendor,
 		Protocols:   r.Protocols,
-		BillingMode: service.BillingMode(r.BillingMode),
-		Status:      r.Status,
+		BillingMode:   service.BillingMode(r.BillingMode),
+		Status:        r.Status,
+		RoutePlatform: r.RoutePlatform,
 
 		InputPrice:          r.InputPrice,
 		OutputPrice:         r.OutputPrice,
@@ -99,6 +104,35 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 		Intervals:   r.Intervals,
 		TimePricing: r.TimePricing,
 	}
+}
+
+// ModelCatalogBindingRequest 是条目绑定资源的整份覆盖请求体。
+type ModelCatalogBindingRequest struct {
+	Bindings []ModelCatalogBindingItem `json:"bindings" binding:"dive"`
+}
+
+// ModelCatalogBindingItem 一条绑定：账号 ID 与可选的绑定优先级（空 = 跟随账号）。
+type ModelCatalogBindingItem struct {
+	AccountID int64 `json:"account_id" binding:"required"`
+	Priority  *int  `json:"priority"`
+}
+
+// ModelCatalogBindingResponse 绑定及其账号摘要。
+type ModelCatalogBindingResponse struct {
+	EntryID   int64                              `json:"entry_id"`
+	AccountID int64                              `json:"account_id"`
+	Priority  *int                               `json:"priority"`
+	Account   *ModelCatalogBindingAccountSummary `json:"account,omitempty"`
+}
+
+// ModelCatalogBindingAccountSummary 绑定列表里展示账号用的摘要。
+type ModelCatalogBindingAccountSummary struct {
+	ID       int64  `json:"id"`
+	Name     string `json:"name"`
+	Platform string `json:"platform"`
+	Type     string `json:"type"`
+	Vendor   string `json:"vendor"`
+	Status   string `json:"status"`
 }
 
 // ModelCatalogAliasRequest 是别名的创建 / 更新请求体。
@@ -183,6 +217,58 @@ func (h *ModelCatalogHandler) DeleteEntry(c *gin.Context) {
 		return
 	}
 	response.Success(c, gin.H{"message": "Model catalog entry deleted successfully"})
+}
+
+// ListBindings 返回条目绑定的资源及账号摘要。
+// GET /api/v1/admin/model-catalog/entries/:id/bindings
+func (h *ModelCatalogHandler) ListBindings(c *gin.Context) {
+	id, ok := parseModelCatalogID(c, "Invalid model catalog entry ID")
+	if !ok {
+		return
+	}
+	bindings, err := h.service.ListBindings(c.Request.Context(), id)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	out := make([]ModelCatalogBindingResponse, 0, len(bindings))
+	for _, binding := range bindings {
+		item := ModelCatalogBindingResponse{EntryID: binding.EntryID, AccountID: binding.AccountID, Priority: binding.Priority}
+		account, err := h.accounts.GetAccount(c.Request.Context(), binding.AccountID)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		item.Account = &ModelCatalogBindingAccountSummary{
+			ID: account.ID, Name: account.Name, Platform: account.Platform, Type: account.Type,
+			Vendor: account.Vendor(), Status: account.Status,
+		}
+		out = append(out, item)
+	}
+	response.Success(c, out)
+}
+
+// ReplaceBindings 用整份列表覆盖条目绑定的资源。
+// PUT /api/v1/admin/model-catalog/entries/:id/bindings
+func (h *ModelCatalogHandler) ReplaceBindings(c *gin.Context) {
+	id, ok := parseModelCatalogID(c, "Invalid model catalog entry ID")
+	if !ok {
+		return
+	}
+	var req ModelCatalogBindingRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	bindings := make([]service.ModelCatalogBinding, 0, len(req.Bindings))
+	for _, item := range req.Bindings {
+		bindings = append(bindings, service.ModelCatalogBinding{EntryID: id, AccountID: item.AccountID, Priority: item.Priority})
+	}
+	if err := h.service.ReplaceBindings(c.Request.Context(), id, bindings, h.accounts); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	h.ListBindings(c)
 }
 
 // CreateAlias 新增别名。
