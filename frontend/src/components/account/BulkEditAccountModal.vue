@@ -140,66 +140,6 @@
         </div>
       </div>
 
-      <!-- OpenAI API long-context billing -->
-      <div
-        v-if="allOpenAIAccounts"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
-      >
-        <div class="mb-3 flex items-center justify-between gap-4">
-          <div class="flex-1">
-            <label
-              id="bulk-edit-openai-long-context-billing-label"
-              class="input-label mb-0"
-              for="bulk-edit-openai-long-context-billing-enabled"
-            >
-              {{ t('admin.accounts.openai.longContextBilling') }}
-            </label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
-              {{ t('admin.accounts.openai.longContextBillingDesc') }}
-            </p>
-          </div>
-          <input
-            v-model="enableOpenAILongContextBilling"
-            id="bulk-edit-openai-long-context-billing-enabled"
-            type="checkbox"
-            aria-controls="bulk-edit-openai-long-context-billing-body"
-            class="rounded border-gray-300 text-primary-600 focus:ring-primary-500"
-          />
-        </div>
-        <div
-          id="bulk-edit-openai-long-context-billing-body"
-          :class="!enableOpenAILongContextBilling && 'pointer-events-none opacity-50'"
-          role="group"
-          aria-labelledby="bulk-edit-openai-long-context-billing-label"
-        >
-          <button
-            type="button"
-            data-testid="bulk-edit-openai-long-context-billing-toggle"
-            role="switch"
-            :disabled="!enableOpenAILongContextBilling"
-            :aria-checked="openAILongContextBillingEnabled"
-            :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openAILongContextBillingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
-            ]"
-            @click="openAILongContextBillingEnabled = !openAILongContextBillingEnabled"
-          >
-            <span
-              :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
-                openAILongContextBillingEnabled ? 'translate-x-5' : 'translate-x-0'
-              ]"
-            />
-          </button>
-        </div>
-        <p
-          class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-700 dark:bg-amber-900/20 dark:text-amber-300"
-          data-testid="bulk-edit-openai-long-context-shadow-hint"
-        >
-          {{ t('admin.accounts.bulkEdit.longContextShadowHint') }}
-        </p>
-      </div>
-
       <!-- Model restriction -->
       <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
         <div class="mb-3 flex items-center justify-between">
@@ -1478,10 +1418,6 @@ const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 // 所选第三方 key 都配了 responses / chat_completions 地址
 const allKeysHaveOpenAIEndpoint = computed(() => targetSelectedKeyEndpoints.value.every(hasOpenAIEndpoint))
 
-// 长上下文计费：与 OpenAI Responses 协议设置同口径——成品号只认 OpenAI 的 OAuth / Setup Token，
-// 第三方 key 看协议地址，不看平台标签（后端 supportsOpenAILongContextBilling 同规则）。
-const allOpenAIAccounts = computed(() => allOpenAIResponsesSettingsCapable.value)
-
 // OpenAI Responses 协议设置（自动透传、Compact）：成品号仍只认 OpenAI 的 OAuth / Setup Token；
 // 第三方 key 看协议地址，不看平台标签。只有平台 / 类型两个集合时无法逐个配对成品号与 key，
 // 选中里有成品号就要求平台只有 openai（偏保守）。
@@ -1596,7 +1532,6 @@ const enableStatus = ref(false)
 const enableGroups = ref(false)
 const enableOpenAIPassthrough = ref(false)
 const enableOpenAIFlattenNamespaces = ref(false)
-const enableOpenAILongContextBilling = ref(false)
 const enableOpenAIEndpointCapabilities = ref(false)
 const enableOpenAIWSMode = ref(false)
 const enableOpenAIAPIKeyWSMode = ref(false)
@@ -1630,7 +1565,6 @@ const groupIds = ref<number[]>([])
 const openaiPassthroughEnabled = ref(false)
 // Codex namespace 工具摊平兼容开关（仅 OAuth），缺省关闭即原样保留
 const openaiFlattenNamespacesEnabled = ref(false)
-const openAILongContextBillingEnabled = ref(false)
 const openAIEndpointCapabilities = ref<OpenAIEndpointCapability[]>([
   'chat_completions',
   'embeddings'
@@ -1832,8 +1766,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   const updates: Record<string, unknown> = {}
   const credentials: Record<string, unknown> = {}
   let credentialsChanged = false
-  const applyOpenAILongContextBilling =
-    enableOpenAILongContextBilling.value && allOpenAIAccounts.value
   const applyOpenAIEndpointCapabilities =
     enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value
   const ensureExtra = (): Record<string, unknown> => {
@@ -1887,11 +1819,6 @@ const buildUpdatePayload = (): Record<string, unknown> | null => {
   if (enableOpenAIFlattenNamespaces.value && allOpenAIOAuthOnly.value) {
     const extra = ensureExtra()
     extra.openai_responses_flatten_namespaces = openaiFlattenNamespacesEnabled.value
-  }
-
-  if (applyOpenAILongContextBilling) {
-    const extra = ensureExtra()
-    extra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
   }
 
   if (applyOpenAIEndpointCapabilities) {
@@ -2091,7 +2018,6 @@ const handleSubmit = async () => {
   const hasAnyFieldEnabled =
     enableOpenAIPassthrough.value ||
     enableOpenAIFlattenNamespaces.value ||
-    (enableOpenAILongContextBilling.value && allOpenAIAccounts.value) ||
     (enableOpenAIEndpointCapabilities.value && allOpenAIAPIKey.value) ||
     enableModelRestriction.value ||
     enableCustomErrorCodes.value ||
@@ -2163,22 +2089,11 @@ const submitBulkUpdate = async (baseUpdates: Record<string, unknown>) => {
       : await adminAPI.accounts.bulkUpdate(props.accountIds, updates)
     const success = res.success || 0
     const failed = res.failed || 0
-    const inherited = res.long_context_inherited_count || 0
 
     if (success > 0 && failed === 0) {
-      if (inherited > 0) {
-        appStore.showSuccess(t('admin.accounts.bulkEdit.successWithInherited', {
-          count: success,
-          inherited
-        }))
-      } else {
-        appStore.showSuccess(t('admin.accounts.bulkEdit.success', { count: success }))
-      }
+      appStore.showSuccess(t('admin.accounts.bulkEdit.success', { count: success }))
     } else if (success > 0) {
-      const key = inherited > 0
-        ? 'admin.accounts.bulkEdit.partialSuccessWithInherited'
-        : 'admin.accounts.bulkEdit.partialSuccess'
-      appStore.showError(t(key, { success, failed, inherited }))
+      appStore.showError(t('admin.accounts.bulkEdit.partialSuccess', { success, failed }))
     } else {
       appStore.showError(t('admin.accounts.bulkEdit.failed'))
     }
@@ -2198,8 +2113,6 @@ const submitBulkUpdate = async (baseUpdates: Record<string, unknown>) => {
       appStore.showError(t('admin.accounts.bulkEdit.rateSyncConflict', {
         count: error.metadata?.count ?? 1
       }))
-    } else if (error.reason === 'OPENAI_LONG_CONTEXT_PARENT_REQUIRED') {
-      appStore.showError(t('admin.accounts.bulkEdit.longContextParentRequired'))
     } else {
       appStore.showError(error.message || t('admin.accounts.bulkEdit.failed'))
       console.error('Error bulk updating accounts:', error)
@@ -2241,7 +2154,6 @@ watch(
       enableGroups.value = false
       enableOpenAIPassthrough.value = false
       enableOpenAIFlattenNamespaces.value = false
-      enableOpenAILongContextBilling.value = false
       enableOpenAIEndpointCapabilities.value = false
       enableOpenAIWSMode.value = false
       enableOpenAIAPIKeyWSMode.value = false
@@ -2257,7 +2169,6 @@ watch(
       // Reset all values
       openaiPassthroughEnabled.value = false
       openaiFlattenNamespacesEnabled.value = false
-      openAILongContextBillingEnabled.value = false
       openAIEndpointCapabilities.value = ['chat_completions', 'embeddings']
       modelRestrictionMode.value = 'whitelist'
       allowedModels.value = []

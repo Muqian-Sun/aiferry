@@ -440,9 +440,14 @@ func (s *adminServiceImpl) BatchUpdateConcurrency(ctx context.Context, userIDs [
 	return affected, nil
 }
 
-func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
-	if concurrency == nil && rpmLimit == nil {
-		return 0, fmt.Errorf("at least one of concurrency or rpm_limit is required")
+func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
+	if concurrency == nil && rpmLimit == nil && rateMultiplier == nil {
+		return 0, fmt.Errorf("at least one of concurrency, rpm_limit or rate_multiplier is required")
+	}
+	if rateMultiplier != nil {
+		if err := validateUserRateMultiplier(*rateMultiplier); err != nil {
+			return 0, err
+		}
 	}
 
 	cleaned := make([]int64, 0, len(userIDs))
@@ -461,7 +466,7 @@ func (s *adminServiceImpl) BatchUpdateLimits(ctx context.Context, userIDs []int6
 		return 0, nil
 	}
 
-	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit)
+	affected, err := s.userRepo.BatchUpdateLimits(ctx, cleaned, concurrency, rpmLimit, rateMultiplier)
 	if err != nil {
 		return 0, err
 	}

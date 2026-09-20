@@ -607,10 +607,11 @@ func (h *UserHandler) BatchUpdateConcurrency(c *gin.Context) {
 // BatchUpdateLimits overwrites concurrency and/or RPM limits for multiple users.
 // POST /api/v1/admin/users/batch-limits
 type BatchUpdateLimitsRequest struct {
-	UserIDs     []int64 `json:"user_ids"`
-	All         bool    `json:"all"`
-	Concurrency *int    `json:"concurrency" binding:"omitempty,min=0"`
-	RPMLimit    *int    `json:"rpm_limit" binding:"omitempty,min=0"`
+	UserIDs        []int64  `json:"user_ids"`
+	All            bool     `json:"all"`
+	Concurrency    *int     `json:"concurrency" binding:"omitempty,min=0"`
+	RPMLimit       *int     `json:"rpm_limit" binding:"omitempty,min=0"`
+	RateMultiplier *float64 `json:"rate_multiplier" binding:"omitempty,min=0"`
 }
 
 func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
@@ -619,8 +620,8 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	if req.Concurrency == nil && req.RPMLimit == nil {
-		response.BadRequest(c, "at least one of concurrency or rpm_limit is required")
+	if req.Concurrency == nil && req.RPMLimit == nil && req.RateMultiplier == nil {
+		response.BadRequest(c, "at least one of concurrency, rpm_limit or rate_multiplier is required")
 		return
 	}
 	if !req.All && len(req.UserIDs) == 0 {
@@ -663,6 +664,7 @@ func (h *UserHandler) BatchUpdateLimits(c *gin.Context) {
 		userIDs,
 		req.Concurrency,
 		req.RPMLimit,
+		req.RateMultiplier,
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)

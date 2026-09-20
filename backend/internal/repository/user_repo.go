@@ -677,6 +677,9 @@ func userListOrder(params pagination.PaginationParams) []func(*entsql.Selector) 
 	case "concurrency":
 		field = dbuser.FieldConcurrency
 		defaultField = false
+	case "rate_multiplier":
+		field = dbuser.FieldRateMultiplier
+		defaultField = false
 	case "status":
 		field = dbuser.FieldStatus
 		defaultField = false
@@ -1105,13 +1108,13 @@ func (r *userRepository) BatchAddConcurrency(ctx context.Context, userIDs []int6
 	return int(affected), nil
 }
 
-func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
-	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil) {
+func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
+	if len(userIDs) == 0 || (concurrency == nil && rpmLimit == nil && rateMultiplier == nil) {
 		return 0, nil
 	}
 
-	setClauses := make([]string, 0, 3)
-	args := make([]any, 0, 3)
+	setClauses := make([]string, 0, 4)
+	args := make([]any, 0, 4)
 	if concurrency != nil {
 		value := max(*concurrency, 0)
 		args = append(args, value)
@@ -1121,6 +1124,11 @@ func (r *userRepository) BatchUpdateLimits(ctx context.Context, userIDs []int64,
 		value := max(*rpmLimit, 0)
 		args = append(args, value)
 		setClauses = append(setClauses, fmt.Sprintf("rpm_limit = $%d", len(args)))
+	}
+	if rateMultiplier != nil {
+		value := max(*rateMultiplier, 0)
+		args = append(args, value)
+		setClauses = append(setClauses, fmt.Sprintf("rate_multiplier = $%d", len(args)))
 	}
 	setClauses = append(setClauses, "updated_at = NOW()")
 	args = append(args, pq.Array(userIDs))
