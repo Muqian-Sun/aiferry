@@ -62,6 +62,8 @@ var (
 	ErrModelCatalogAliasNotFound = infraerrors.NotFound("MODEL_CATALOG_ALIAS_NOT_FOUND", "model catalog alias not found")
 	// ErrModelCatalogAliasExists 别名已被占用（大小写不敏感，全局唯一）。
 	ErrModelCatalogAliasExists = infraerrors.Conflict("MODEL_CATALOG_ALIAS_EXISTS", "model catalog alias already exists")
+	// ErrModelCatalogBindingAccountNotFound 绑定引用的账号不存在。
+	ErrModelCatalogBindingAccountNotFound = infraerrors.NotFound("MODEL_CATALOG_BINDING_ACCOUNT_NOT_FOUND", "binding account not found")
 )
 
 // ModelCatalogAlias 是指向某个目录条目的别名。

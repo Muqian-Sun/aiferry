@@ -138,7 +138,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	channelRepository := repository.NewChannelRepository(db)
 	channelCachePubSub := repository.NewChannelCache(redisClient)
 	channelService := service.NewChannelService(channelRepository, groupRepository, apiKeyAuthCacheInvalidator, pricingService, channelCachePubSub)
-	modelCatalogRepository := repository.NewModelCatalogRepository(client)
+	modelCatalogRepository := repository.NewModelCatalogRepository(client, db)
 	modelCatalogCachePubSub := repository.NewModelCatalogCache(redisClient)
 	modelCatalogService := service.ProvideModelCatalogService(modelCatalogRepository, modelCatalogCachePubSub, pricingService, billingService)
 	modelPricingResolver := service.NewModelPricingResolver(modelCatalogService, billingService)

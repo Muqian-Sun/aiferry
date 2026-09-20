@@ -27,6 +27,11 @@ type ModelCatalogRepository interface {
 	// InsertOrRefreshSeedEntries 写入播种条目：模型标识不存在则插入，
 	// 已存在且 managed_by = 'seed' 则刷新价格，managed_by = 'admin' 则整条跳过。
 	InsertOrRefreshSeedEntries(ctx context.Context, entries []ModelCatalogEntry) (ModelCatalogSeedResult, error)
+
+	ListBindingsByEntry(ctx context.Context, entryID int64) ([]ModelCatalogBinding, error)
+	// ReplaceBindings 用整份列表覆盖条目的绑定，并向调度 outbox 投递 catalog_bindings_changed。
+	ReplaceBindings(ctx context.Context, entryID int64, bindings []ModelCatalogBinding) error
+	ListEntryIDsByAccount(ctx context.Context, accountID int64) ([]int64, error)
 }
 
 // ModelCatalogCachePubSub 在多实例之间广播目录缓存失效。
