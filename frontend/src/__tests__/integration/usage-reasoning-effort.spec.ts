@@ -128,6 +128,10 @@ vi.mock('@/stores/app', () => ({
   }),
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({ user: null, isSimpleMode: false, refreshUser: vi.fn().mockResolvedValue(null) }),
+}))
+
 vi.mock('vue-i18n', async () => {
   const actual = await vi.importActual<typeof import('vue-i18n')>('vue-i18n')
   return {
@@ -142,7 +146,7 @@ vi.mock('vue-router', () => ({
   useRoute: () => ({ query: {} }),
 }))
 
-const layoutStub = { template: '<div><slot /></div>' }
+const layoutStub = { template: '<div><slot name="actions" /><slot name="tabs" /><slot /></div>' }
 const chartStub = { template: '<div />' }
 const iconStub = { template: '<span />' }
 const adminFiltersStub = defineComponent({
@@ -200,6 +204,8 @@ const adminMappedLog = {
 
 const sharedPageStubs = {
   AppLayout: layoutStub,
+  SiteShell: layoutStub,
+  ModelUsageTable: chartStub,
   Pagination: true,
   Select: true,
   DateRangePicker: true,
