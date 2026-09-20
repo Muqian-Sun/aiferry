@@ -139,6 +139,7 @@ func (snapshot *modelCatalogSnapshot) fresh() bool {
 //   - 有陈旧快照（TTL 过期）：立刻返回陈旧快照，在后台刷新；
 //   - 没有快照（首次 / 写入后失效）：由第一个到达的请求同步重建，其余请求等它完成；
 //   - 重建失败：记退避时刻，期间继续用陈旧快照，不再每个请求都打库。
+//
 // 宁可继续用陈旧快照，也不要让整条计费链路查不到价（静默 $0）。
 func (s *ModelCatalogService) loadSnapshot(ctx context.Context) *modelCatalogSnapshot {
 	if s == nil || s.repo == nil {
