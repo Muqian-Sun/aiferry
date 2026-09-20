@@ -34,6 +34,10 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -100,6 +104,14 @@ type Client struct {
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
+	// ModelCatalogAlias is the client for interacting with the ModelCatalogAlias builders.
+	ModelCatalogAlias *ModelCatalogAliasClient
+	// ModelCatalogEntry is the client for interacting with the ModelCatalogEntry builders.
+	ModelCatalogEntry *ModelCatalogEntryClient
+	// ModelCatalogPriceInterval is the client for interacting with the ModelCatalogPriceInterval builders.
+	ModelCatalogPriceInterval *ModelCatalogPriceIntervalClient
+	// ModelCatalogTimePricing is the client for interacting with the ModelCatalogTimePricing builders.
+	ModelCatalogTimePricing *ModelCatalogTimePricingClient
 	// PaymentAuditLog is the client for interacting with the PaymentAuditLog builders.
 	PaymentAuditLog *PaymentAuditLogClient
 	// PaymentOrder is the client for interacting with the PaymentOrder builders.
@@ -168,6 +180,10 @@ func (c *Client) init() {
 	c.Group = NewGroupClient(c.config)
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
+	c.ModelCatalogAlias = NewModelCatalogAliasClient(c.config)
+	c.ModelCatalogEntry = NewModelCatalogEntryClient(c.config)
+	c.ModelCatalogPriceInterval = NewModelCatalogPriceIntervalClient(c.config)
+	c.ModelCatalogTimePricing = NewModelCatalogTimePricingClient(c.config)
 	c.PaymentAuditLog = NewPaymentAuditLogClient(c.config)
 	c.PaymentOrder = NewPaymentOrderClient(c.config)
 	c.PaymentProviderInstance = NewPaymentProviderInstanceClient(c.config)
@@ -298,6 +314,10 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
+		ModelCatalogAlias:             NewModelCatalogAliasClient(cfg),
+		ModelCatalogEntry:             NewModelCatalogEntryClient(cfg),
+		ModelCatalogPriceInterval:     NewModelCatalogPriceIntervalClient(cfg),
+		ModelCatalogTimePricing:       NewModelCatalogTimePricingClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
@@ -355,6 +375,10 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		Group:                         NewGroupClient(cfg),
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
+		ModelCatalogAlias:             NewModelCatalogAliasClient(cfg),
+		ModelCatalogEntry:             NewModelCatalogEntryClient(cfg),
+		ModelCatalogPriceInterval:     NewModelCatalogPriceIntervalClient(cfg),
+		ModelCatalogTimePricing:       NewModelCatalogTimePricingClient(cfg),
 		PaymentAuditLog:               NewPaymentAuditLogClient(cfg),
 		PaymentOrder:                  NewPaymentOrderClient(cfg),
 		PaymentProviderInstance:       NewPaymentProviderInstanceClient(cfg),
@@ -408,11 +432,12 @@ func (c *Client) Use(hooks ...Hook) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogEntry,
+		c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserSubscription,
 	} {
 		n.Use(hooks...)
@@ -428,11 +453,12 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.PaymentAuditLog, c.PaymentOrder,
-		c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage,
-		c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting, c.SubscriptionPlan,
-		c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog, c.User,
-		c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
+		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogEntry,
+		c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing, c.PaymentAuditLog,
+		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
+		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
+		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
+		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
 		c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
@@ -480,6 +506,14 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.IdempotencyRecord.mutate(ctx, m)
 	case *IdentityAdoptionDecisionMutation:
 		return c.IdentityAdoptionDecision.mutate(ctx, m)
+	case *ModelCatalogAliasMutation:
+		return c.ModelCatalogAlias.mutate(ctx, m)
+	case *ModelCatalogEntryMutation:
+		return c.ModelCatalogEntry.mutate(ctx, m)
+	case *ModelCatalogPriceIntervalMutation:
+		return c.ModelCatalogPriceInterval.mutate(ctx, m)
+	case *ModelCatalogTimePricingMutation:
+		return c.ModelCatalogTimePricing.mutate(ctx, m)
 	case *PaymentAuditLogMutation:
 		return c.PaymentAuditLog.mutate(ctx, m)
 	case *PaymentOrderMutation:
@@ -3566,6 +3600,538 @@ func (c *IdentityAdoptionDecisionClient) mutate(ctx context.Context, m *Identity
 		return (&IdentityAdoptionDecisionDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
 	default:
 		return nil, fmt.Errorf("ent: unknown IdentityAdoptionDecision mutation op: %q", m.Op())
+	}
+}
+
+// ModelCatalogAliasClient is a client for the ModelCatalogAlias schema.
+type ModelCatalogAliasClient struct {
+	config
+}
+
+// NewModelCatalogAliasClient returns a client for the ModelCatalogAlias from the given config.
+func NewModelCatalogAliasClient(c config) *ModelCatalogAliasClient {
+	return &ModelCatalogAliasClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `modelcatalogalias.Hooks(f(g(h())))`.
+func (c *ModelCatalogAliasClient) Use(hooks ...Hook) {
+	c.hooks.ModelCatalogAlias = append(c.hooks.ModelCatalogAlias, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `modelcatalogalias.Intercept(f(g(h())))`.
+func (c *ModelCatalogAliasClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ModelCatalogAlias = append(c.inters.ModelCatalogAlias, interceptors...)
+}
+
+// Create returns a builder for creating a ModelCatalogAlias entity.
+func (c *ModelCatalogAliasClient) Create() *ModelCatalogAliasCreate {
+	mutation := newModelCatalogAliasMutation(c.config, OpCreate)
+	return &ModelCatalogAliasCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ModelCatalogAlias entities.
+func (c *ModelCatalogAliasClient) CreateBulk(builders ...*ModelCatalogAliasCreate) *ModelCatalogAliasCreateBulk {
+	return &ModelCatalogAliasCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ModelCatalogAliasClient) MapCreateBulk(slice any, setFunc func(*ModelCatalogAliasCreate, int)) *ModelCatalogAliasCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ModelCatalogAliasCreateBulk{err: fmt.Errorf("calling to ModelCatalogAliasClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ModelCatalogAliasCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ModelCatalogAliasCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ModelCatalogAlias.
+func (c *ModelCatalogAliasClient) Update() *ModelCatalogAliasUpdate {
+	mutation := newModelCatalogAliasMutation(c.config, OpUpdate)
+	return &ModelCatalogAliasUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ModelCatalogAliasClient) UpdateOne(_m *ModelCatalogAlias) *ModelCatalogAliasUpdateOne {
+	mutation := newModelCatalogAliasMutation(c.config, OpUpdateOne, withModelCatalogAlias(_m))
+	return &ModelCatalogAliasUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ModelCatalogAliasClient) UpdateOneID(id int64) *ModelCatalogAliasUpdateOne {
+	mutation := newModelCatalogAliasMutation(c.config, OpUpdateOne, withModelCatalogAliasID(id))
+	return &ModelCatalogAliasUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ModelCatalogAlias.
+func (c *ModelCatalogAliasClient) Delete() *ModelCatalogAliasDelete {
+	mutation := newModelCatalogAliasMutation(c.config, OpDelete)
+	return &ModelCatalogAliasDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ModelCatalogAliasClient) DeleteOne(_m *ModelCatalogAlias) *ModelCatalogAliasDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ModelCatalogAliasClient) DeleteOneID(id int64) *ModelCatalogAliasDeleteOne {
+	builder := c.Delete().Where(modelcatalogalias.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ModelCatalogAliasDeleteOne{builder}
+}
+
+// Query returns a query builder for ModelCatalogAlias.
+func (c *ModelCatalogAliasClient) Query() *ModelCatalogAliasQuery {
+	return &ModelCatalogAliasQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeModelCatalogAlias},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ModelCatalogAlias entity by its id.
+func (c *ModelCatalogAliasClient) Get(ctx context.Context, id int64) (*ModelCatalogAlias, error) {
+	return c.Query().Where(modelcatalogalias.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ModelCatalogAliasClient) GetX(ctx context.Context, id int64) *ModelCatalogAlias {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ModelCatalogAliasClient) Hooks() []Hook {
+	return c.hooks.ModelCatalogAlias
+}
+
+// Interceptors returns the client interceptors.
+func (c *ModelCatalogAliasClient) Interceptors() []Interceptor {
+	return c.inters.ModelCatalogAlias
+}
+
+func (c *ModelCatalogAliasClient) mutate(ctx context.Context, m *ModelCatalogAliasMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ModelCatalogAliasCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ModelCatalogAliasUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ModelCatalogAliasUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ModelCatalogAliasDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ModelCatalogAlias mutation op: %q", m.Op())
+	}
+}
+
+// ModelCatalogEntryClient is a client for the ModelCatalogEntry schema.
+type ModelCatalogEntryClient struct {
+	config
+}
+
+// NewModelCatalogEntryClient returns a client for the ModelCatalogEntry from the given config.
+func NewModelCatalogEntryClient(c config) *ModelCatalogEntryClient {
+	return &ModelCatalogEntryClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `modelcatalogentry.Hooks(f(g(h())))`.
+func (c *ModelCatalogEntryClient) Use(hooks ...Hook) {
+	c.hooks.ModelCatalogEntry = append(c.hooks.ModelCatalogEntry, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `modelcatalogentry.Intercept(f(g(h())))`.
+func (c *ModelCatalogEntryClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ModelCatalogEntry = append(c.inters.ModelCatalogEntry, interceptors...)
+}
+
+// Create returns a builder for creating a ModelCatalogEntry entity.
+func (c *ModelCatalogEntryClient) Create() *ModelCatalogEntryCreate {
+	mutation := newModelCatalogEntryMutation(c.config, OpCreate)
+	return &ModelCatalogEntryCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ModelCatalogEntry entities.
+func (c *ModelCatalogEntryClient) CreateBulk(builders ...*ModelCatalogEntryCreate) *ModelCatalogEntryCreateBulk {
+	return &ModelCatalogEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ModelCatalogEntryClient) MapCreateBulk(slice any, setFunc func(*ModelCatalogEntryCreate, int)) *ModelCatalogEntryCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ModelCatalogEntryCreateBulk{err: fmt.Errorf("calling to ModelCatalogEntryClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ModelCatalogEntryCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ModelCatalogEntryCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ModelCatalogEntry.
+func (c *ModelCatalogEntryClient) Update() *ModelCatalogEntryUpdate {
+	mutation := newModelCatalogEntryMutation(c.config, OpUpdate)
+	return &ModelCatalogEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ModelCatalogEntryClient) UpdateOne(_m *ModelCatalogEntry) *ModelCatalogEntryUpdateOne {
+	mutation := newModelCatalogEntryMutation(c.config, OpUpdateOne, withModelCatalogEntry(_m))
+	return &ModelCatalogEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ModelCatalogEntryClient) UpdateOneID(id int64) *ModelCatalogEntryUpdateOne {
+	mutation := newModelCatalogEntryMutation(c.config, OpUpdateOne, withModelCatalogEntryID(id))
+	return &ModelCatalogEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ModelCatalogEntry.
+func (c *ModelCatalogEntryClient) Delete() *ModelCatalogEntryDelete {
+	mutation := newModelCatalogEntryMutation(c.config, OpDelete)
+	return &ModelCatalogEntryDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ModelCatalogEntryClient) DeleteOne(_m *ModelCatalogEntry) *ModelCatalogEntryDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ModelCatalogEntryClient) DeleteOneID(id int64) *ModelCatalogEntryDeleteOne {
+	builder := c.Delete().Where(modelcatalogentry.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ModelCatalogEntryDeleteOne{builder}
+}
+
+// Query returns a query builder for ModelCatalogEntry.
+func (c *ModelCatalogEntryClient) Query() *ModelCatalogEntryQuery {
+	return &ModelCatalogEntryQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeModelCatalogEntry},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ModelCatalogEntry entity by its id.
+func (c *ModelCatalogEntryClient) Get(ctx context.Context, id int64) (*ModelCatalogEntry, error) {
+	return c.Query().Where(modelcatalogentry.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ModelCatalogEntryClient) GetX(ctx context.Context, id int64) *ModelCatalogEntry {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ModelCatalogEntryClient) Hooks() []Hook {
+	return c.hooks.ModelCatalogEntry
+}
+
+// Interceptors returns the client interceptors.
+func (c *ModelCatalogEntryClient) Interceptors() []Interceptor {
+	return c.inters.ModelCatalogEntry
+}
+
+func (c *ModelCatalogEntryClient) mutate(ctx context.Context, m *ModelCatalogEntryMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ModelCatalogEntryCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ModelCatalogEntryUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ModelCatalogEntryUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ModelCatalogEntryDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ModelCatalogEntry mutation op: %q", m.Op())
+	}
+}
+
+// ModelCatalogPriceIntervalClient is a client for the ModelCatalogPriceInterval schema.
+type ModelCatalogPriceIntervalClient struct {
+	config
+}
+
+// NewModelCatalogPriceIntervalClient returns a client for the ModelCatalogPriceInterval from the given config.
+func NewModelCatalogPriceIntervalClient(c config) *ModelCatalogPriceIntervalClient {
+	return &ModelCatalogPriceIntervalClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `modelcatalogpriceinterval.Hooks(f(g(h())))`.
+func (c *ModelCatalogPriceIntervalClient) Use(hooks ...Hook) {
+	c.hooks.ModelCatalogPriceInterval = append(c.hooks.ModelCatalogPriceInterval, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `modelcatalogpriceinterval.Intercept(f(g(h())))`.
+func (c *ModelCatalogPriceIntervalClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ModelCatalogPriceInterval = append(c.inters.ModelCatalogPriceInterval, interceptors...)
+}
+
+// Create returns a builder for creating a ModelCatalogPriceInterval entity.
+func (c *ModelCatalogPriceIntervalClient) Create() *ModelCatalogPriceIntervalCreate {
+	mutation := newModelCatalogPriceIntervalMutation(c.config, OpCreate)
+	return &ModelCatalogPriceIntervalCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ModelCatalogPriceInterval entities.
+func (c *ModelCatalogPriceIntervalClient) CreateBulk(builders ...*ModelCatalogPriceIntervalCreate) *ModelCatalogPriceIntervalCreateBulk {
+	return &ModelCatalogPriceIntervalCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ModelCatalogPriceIntervalClient) MapCreateBulk(slice any, setFunc func(*ModelCatalogPriceIntervalCreate, int)) *ModelCatalogPriceIntervalCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ModelCatalogPriceIntervalCreateBulk{err: fmt.Errorf("calling to ModelCatalogPriceIntervalClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ModelCatalogPriceIntervalCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ModelCatalogPriceIntervalCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ModelCatalogPriceInterval.
+func (c *ModelCatalogPriceIntervalClient) Update() *ModelCatalogPriceIntervalUpdate {
+	mutation := newModelCatalogPriceIntervalMutation(c.config, OpUpdate)
+	return &ModelCatalogPriceIntervalUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ModelCatalogPriceIntervalClient) UpdateOne(_m *ModelCatalogPriceInterval) *ModelCatalogPriceIntervalUpdateOne {
+	mutation := newModelCatalogPriceIntervalMutation(c.config, OpUpdateOne, withModelCatalogPriceInterval(_m))
+	return &ModelCatalogPriceIntervalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ModelCatalogPriceIntervalClient) UpdateOneID(id int64) *ModelCatalogPriceIntervalUpdateOne {
+	mutation := newModelCatalogPriceIntervalMutation(c.config, OpUpdateOne, withModelCatalogPriceIntervalID(id))
+	return &ModelCatalogPriceIntervalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ModelCatalogPriceInterval.
+func (c *ModelCatalogPriceIntervalClient) Delete() *ModelCatalogPriceIntervalDelete {
+	mutation := newModelCatalogPriceIntervalMutation(c.config, OpDelete)
+	return &ModelCatalogPriceIntervalDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ModelCatalogPriceIntervalClient) DeleteOne(_m *ModelCatalogPriceInterval) *ModelCatalogPriceIntervalDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ModelCatalogPriceIntervalClient) DeleteOneID(id int64) *ModelCatalogPriceIntervalDeleteOne {
+	builder := c.Delete().Where(modelcatalogpriceinterval.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ModelCatalogPriceIntervalDeleteOne{builder}
+}
+
+// Query returns a query builder for ModelCatalogPriceInterval.
+func (c *ModelCatalogPriceIntervalClient) Query() *ModelCatalogPriceIntervalQuery {
+	return &ModelCatalogPriceIntervalQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeModelCatalogPriceInterval},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ModelCatalogPriceInterval entity by its id.
+func (c *ModelCatalogPriceIntervalClient) Get(ctx context.Context, id int64) (*ModelCatalogPriceInterval, error) {
+	return c.Query().Where(modelcatalogpriceinterval.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ModelCatalogPriceIntervalClient) GetX(ctx context.Context, id int64) *ModelCatalogPriceInterval {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ModelCatalogPriceIntervalClient) Hooks() []Hook {
+	return c.hooks.ModelCatalogPriceInterval
+}
+
+// Interceptors returns the client interceptors.
+func (c *ModelCatalogPriceIntervalClient) Interceptors() []Interceptor {
+	return c.inters.ModelCatalogPriceInterval
+}
+
+func (c *ModelCatalogPriceIntervalClient) mutate(ctx context.Context, m *ModelCatalogPriceIntervalMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ModelCatalogPriceIntervalCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ModelCatalogPriceIntervalUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ModelCatalogPriceIntervalUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ModelCatalogPriceIntervalDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ModelCatalogPriceInterval mutation op: %q", m.Op())
+	}
+}
+
+// ModelCatalogTimePricingClient is a client for the ModelCatalogTimePricing schema.
+type ModelCatalogTimePricingClient struct {
+	config
+}
+
+// NewModelCatalogTimePricingClient returns a client for the ModelCatalogTimePricing from the given config.
+func NewModelCatalogTimePricingClient(c config) *ModelCatalogTimePricingClient {
+	return &ModelCatalogTimePricingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `modelcatalogtimepricing.Hooks(f(g(h())))`.
+func (c *ModelCatalogTimePricingClient) Use(hooks ...Hook) {
+	c.hooks.ModelCatalogTimePricing = append(c.hooks.ModelCatalogTimePricing, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `modelcatalogtimepricing.Intercept(f(g(h())))`.
+func (c *ModelCatalogTimePricingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ModelCatalogTimePricing = append(c.inters.ModelCatalogTimePricing, interceptors...)
+}
+
+// Create returns a builder for creating a ModelCatalogTimePricing entity.
+func (c *ModelCatalogTimePricingClient) Create() *ModelCatalogTimePricingCreate {
+	mutation := newModelCatalogTimePricingMutation(c.config, OpCreate)
+	return &ModelCatalogTimePricingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ModelCatalogTimePricing entities.
+func (c *ModelCatalogTimePricingClient) CreateBulk(builders ...*ModelCatalogTimePricingCreate) *ModelCatalogTimePricingCreateBulk {
+	return &ModelCatalogTimePricingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ModelCatalogTimePricingClient) MapCreateBulk(slice any, setFunc func(*ModelCatalogTimePricingCreate, int)) *ModelCatalogTimePricingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ModelCatalogTimePricingCreateBulk{err: fmt.Errorf("calling to ModelCatalogTimePricingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ModelCatalogTimePricingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ModelCatalogTimePricingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ModelCatalogTimePricing.
+func (c *ModelCatalogTimePricingClient) Update() *ModelCatalogTimePricingUpdate {
+	mutation := newModelCatalogTimePricingMutation(c.config, OpUpdate)
+	return &ModelCatalogTimePricingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ModelCatalogTimePricingClient) UpdateOne(_m *ModelCatalogTimePricing) *ModelCatalogTimePricingUpdateOne {
+	mutation := newModelCatalogTimePricingMutation(c.config, OpUpdateOne, withModelCatalogTimePricing(_m))
+	return &ModelCatalogTimePricingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOneID returns an update builder for the given id.
+func (c *ModelCatalogTimePricingClient) UpdateOneID(id int64) *ModelCatalogTimePricingUpdateOne {
+	mutation := newModelCatalogTimePricingMutation(c.config, OpUpdateOne, withModelCatalogTimePricingID(id))
+	return &ModelCatalogTimePricingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ModelCatalogTimePricing.
+func (c *ModelCatalogTimePricingClient) Delete() *ModelCatalogTimePricingDelete {
+	mutation := newModelCatalogTimePricingMutation(c.config, OpDelete)
+	return &ModelCatalogTimePricingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// DeleteOne returns a builder for deleting the given entity.
+func (c *ModelCatalogTimePricingClient) DeleteOne(_m *ModelCatalogTimePricing) *ModelCatalogTimePricingDeleteOne {
+	return c.DeleteOneID(_m.ID)
+}
+
+// DeleteOneID returns a builder for deleting the given entity by its id.
+func (c *ModelCatalogTimePricingClient) DeleteOneID(id int64) *ModelCatalogTimePricingDeleteOne {
+	builder := c.Delete().Where(modelcatalogtimepricing.ID(id))
+	builder.mutation.id = &id
+	builder.mutation.op = OpDeleteOne
+	return &ModelCatalogTimePricingDeleteOne{builder}
+}
+
+// Query returns a query builder for ModelCatalogTimePricing.
+func (c *ModelCatalogTimePricingClient) Query() *ModelCatalogTimePricingQuery {
+	return &ModelCatalogTimePricingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeModelCatalogTimePricing},
+		inters: c.Interceptors(),
+	}
+}
+
+// Get returns a ModelCatalogTimePricing entity by its id.
+func (c *ModelCatalogTimePricingClient) Get(ctx context.Context, id int64) (*ModelCatalogTimePricing, error) {
+	return c.Query().Where(modelcatalogtimepricing.ID(id)).Only(ctx)
+}
+
+// GetX is like Get, but panics if an error occurs.
+func (c *ModelCatalogTimePricingClient) GetX(ctx context.Context, id int64) *ModelCatalogTimePricing {
+	obj, err := c.Get(ctx, id)
+	if err != nil {
+		panic(err)
+	}
+	return obj
+}
+
+// Hooks returns the client hooks.
+func (c *ModelCatalogTimePricingClient) Hooks() []Hook {
+	return c.hooks.ModelCatalogTimePricing
+}
+
+// Interceptors returns the client interceptors.
+func (c *ModelCatalogTimePricingClient) Interceptors() []Interceptor {
+	return c.inters.ModelCatalogTimePricing
+}
+
+func (c *ModelCatalogTimePricingClient) mutate(ctx context.Context, m *ModelCatalogTimePricingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ModelCatalogTimePricingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ModelCatalogTimePricingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ModelCatalogTimePricingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ModelCatalogTimePricingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ModelCatalogTimePricing mutation op: %q", m.Op())
 	}
 }
 
@@ -6670,22 +7236,26 @@ type (
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserSubscription []ent.Hook
+		Group, IdempotencyRecord, IdentityAdoptionDecision, ModelCatalogAlias,
+		ModelCatalogEntry, ModelCatalogPriceInterval, ModelCatalogTimePricing,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
 		AuthIdentityChannel, BatchImageEvent, BatchImageItem, BatchImageJob,
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
-		Group, IdempotencyRecord, IdentityAdoptionDecision, PaymentAuditLog,
-		PaymentOrder, PaymentProviderInstance, PendingAuthSession, PromoCode,
-		PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting, SubscriptionPlan,
-		TLSFingerprintProfile, UsageCleanupTask, UsageLog, User, UserAllowedGroup,
-		UserAttributeDefinition, UserAttributeValue, UserSubscription []ent.Interceptor
+		Group, IdempotencyRecord, IdentityAdoptionDecision, ModelCatalogAlias,
+		ModelCatalogEntry, ModelCatalogPriceInterval, ModelCatalogTimePricing,
+		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
+		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
+		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
+		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
+		UserSubscription []ent.Interceptor
 	}
 )
 

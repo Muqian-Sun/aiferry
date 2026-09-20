@@ -467,12 +467,7 @@ func TestResolveContextPricingSchedule_ParityWithBilling(t *testing.T) {
 			require.NotNil(t, sched)
 
 			// 消费方视角重建同一份计费请求（与网关一致）。
-			pricingInput := PricingInput{Model: sc.model, Group: sc.group}
-			if sc.group != nil {
-				gid := sc.group.ID
-				pricingInput.GroupID = &gid
-			}
-			resolved := resolver.Resolve(ctx, pricingInput)
+			resolved := resolver.Resolve(ctx, PricingInput{Model: sc.model, Group: sc.group})
 			cost := func(tokens UsageTokens) float64 {
 				bd, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
 					Ctx: ctx, Model: sc.model, Group: sc.group, Tokens: tokens, RateMultiplier: 1,
@@ -548,8 +543,7 @@ func TestResolveContextPricingSchedule_TimePricing(t *testing.T) {
 
 		// 对账：时段内的真实计费 = 标准单价 × token × 倍率
 		group := enabledGroup(PlatformAnthropic)
-		gid := group.ID
-		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", GroupID: &gid, Group: group})
+		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
 		loc, err := time.LoadLocation("Asia/Shanghai")
 		require.NoError(t, err)
 		for _, tc := range []struct {
@@ -587,8 +581,7 @@ func TestResolveContextPricingSchedule_TimePricing(t *testing.T) {
 
 		// 对账：工作日时段内乘倍率，周末同一时段按标准价
 		group := enabledGroup(PlatformAnthropic)
-		gid := group.ID
-		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", GroupID: &gid, Group: group})
+		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
 		loc, err := time.LoadLocation("Asia/Shanghai")
 		require.NoError(t, err)
 		for _, tc := range []struct {

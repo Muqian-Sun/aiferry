@@ -417,31 +417,24 @@
               </div>
             </div>
 
-            <!-- Model Pricing -->
+            <!-- Model Pricing：已不参与计费（价格从模型目录取），本阶段只读展示，渠道删除时一并下线 -->
             <div>
               <div class="mb-1 flex items-center justify-between">
                 <label class="input-label text-xs mb-0">{{ t('admin.channels.form.modelPricing', 'Model Pricing') }}</label>
-                <div class="flex items-center gap-2">
-                  <button
-                    type="button"
-                    @click="syncLatestModels(sIdx)"
-                    :disabled="syncingPlatform === section.platform"
-                    class="text-xs text-gray-500 hover:text-primary-600 disabled:opacity-50"
-                  >
-                    {{ syncingPlatform === section.platform ? t('admin.channels.form.syncingModels') : t('admin.channels.form.syncLatestModels') }}
-                  </button>
-                  <button type="button" @click="addPricingEntry(sIdx)" class="text-xs text-primary-600 hover:text-primary-700">
-                    + {{ t('common.add', 'Add') }}
-                  </button>
-                </div>
+              </div>
+              <div
+                class="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800 dark:border-amber-700/40 dark:bg-amber-900/20 dark:text-amber-200"
+                data-testid="channel-pricing-retired-banner"
+              >
+                {{ t('admin.channels.form.modelPricingRetiredHint') }}
               </div>
               <div
                 v-if="section.model_pricing.length === 0"
                 class="rounded border border-dashed border-gray-300 p-2 text-center text-xs text-gray-400 dark:border-dark-500"
               >
-                {{ t('admin.channels.form.noPricingRules', 'No pricing rules yet. Click "Add" to create one.') }}
+                {{ t('admin.channels.form.noPricingRules', 'No pricing rules yet.') }}
               </div>
-              <div v-else class="space-y-2">
+              <fieldset v-else disabled class="space-y-2 opacity-70" data-testid="channel-pricing-readonly">
                 <PricingEntryCard
                   v-for="(entry, idx) in section.model_pricing"
                   :key="idx"
@@ -449,10 +442,8 @@
                   :platform="section.platform"
                   enable-time-pricing
                   enable-tier-multipliers
-                  @update="updatePricingEntry(sIdx, idx, $event)"
-                  @remove="removePricingEntry(sIdx, idx)"
                 />
-              </div>
+              </fieldset>
             </div>
 
             <!-- Account Stats Pricing Rules (per-platform, always visible) -->
@@ -851,79 +842,6 @@ function toggleGroupInSection(sectionIdx: number, groupId: number) {
   } else {
     section.group_ids.push(groupId)
   }
-}
-
-// ── Pricing helpers ──
-function addPricingEntry(sectionIdx: number) {
-  form.platforms[sectionIdx].model_pricing.push({
-    models: [],
-    billing_mode: 'token',
-    input_price: null,
-    output_price: null,
-    cache_write_price: null,
-    cache_write_1h_price: null,
-    cache_read_price: null,
-    fast_multiplier: null,
-    flex_multiplier: null,
-    max_reasoning_effort_multiplier: null,
-    image_input_price: null,
-    image_output_price: null,
-    per_request_price: null,
-    intervals: [],
-    time_pricing: createDefaultTimePricingForm()
-  })
-}
-
-const syncingPlatform = ref<string | null>(null)
-
-async function syncLatestModels(sectionIdx: number) {
-  const platform = form.platforms[sectionIdx].platform
-  if (syncingPlatform.value) return
-  syncingPlatform.value = platform
-  try {
-    const result = await adminAPI.channels.syncPricingModels(platform)
-    // Collect all model names already present in this platform's pricing entries
-    const existingModels = new Set<string>()
-    for (const entry of form.platforms[sectionIdx].model_pricing) {
-      for (const m of entry.models) existingModels.add(m)
-    }
-    const newModels = result.models.filter(m => !existingModels.has(m))
-    if (newModels.length === 0) {
-      appStore.showSuccess(t('admin.channels.form.syncModelsAlreadyUpToDate'))
-      return
-    }
-    // Add new models as a single new pricing entry (user fills in prices)
-    form.platforms[sectionIdx].model_pricing.push({
-      models: newModels,
-      billing_mode: 'token',
-      input_price: null,
-      output_price: null,
-      cache_write_price: null,
-      cache_write_1h_price: null,
-      cache_read_price: null,
-      fast_multiplier: null,
-      flex_multiplier: null,
-      max_reasoning_effort_multiplier: null,
-      image_input_price: null,
-      image_output_price: null,
-      per_request_price: null,
-      intervals: [],
-      time_pricing: createDefaultTimePricingForm()
-    })
-    appStore.showSuccess(t('admin.channels.form.syncModelsSuccess', { count: newModels.length }))
-  } catch (error) {
-    appStore.showError(extractApiErrorMessage(error, t('admin.channels.form.syncModelsError')))
-  } finally {
-    syncingPlatform.value = null
-  }
-}
-
-function updatePricingEntry(sectionIdx: number, idx: number, updated: PricingFormEntry) {
-  form.platforms[sectionIdx].model_pricing.splice(idx, 1, updated)
-}
-
-function removePricingEntry(sectionIdx: number, idx: number) {
-  form.platforms[sectionIdx].model_pricing.splice(idx, 1)
 }
 
 // ── Model Mapping helpers ──

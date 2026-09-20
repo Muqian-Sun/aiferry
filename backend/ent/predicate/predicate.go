@@ -63,6 +63,18 @@ type IdempotencyRecord func(*sql.Selector)
 // IdentityAdoptionDecision is the predicate function for identityadoptiondecision builders.
 type IdentityAdoptionDecision func(*sql.Selector)
 
+// ModelCatalogAlias is the predicate function for modelcatalogalias builders.
+type ModelCatalogAlias func(*sql.Selector)
+
+// ModelCatalogEntry is the predicate function for modelcatalogentry builders.
+type ModelCatalogEntry func(*sql.Selector)
+
+// ModelCatalogPriceInterval is the predicate function for modelcatalogpriceinterval builders.
+type ModelCatalogPriceInterval func(*sql.Selector)
+
+// ModelCatalogTimePricing is the predicate function for modelcatalogtimepricing builders.
+type ModelCatalogTimePricing func(*sql.Selector)
+
 // PaymentAuditLog is the predicate function for paymentauditlog builders.
 type PaymentAuditLog func(*sql.Selector)
 

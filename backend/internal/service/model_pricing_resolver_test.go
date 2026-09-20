@@ -26,11 +26,10 @@ func newTestBillingServiceForResolver() *BillingService {
 
 func TestResolve_NoGroupID(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: nil,
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
@@ -44,11 +43,10 @@ func TestResolve_NoGroupID(t *testing.T) {
 
 func TestResolve_UnknownModel(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "unknown-model-xyz",
-		GroupID: nil,
+		Model: "unknown-model-xyz",
 	})
 
 	require.NotNil(t, resolved)
@@ -59,7 +57,7 @@ func TestResolve_UnknownModel(t *testing.T) {
 
 func TestGetIntervalPricing_NoIntervals(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	basePricing := &ModelPricing{InputPricePerToken: 5e-6}
 	resolved := &ResolvedPricing{
@@ -74,7 +72,7 @@ func TestGetIntervalPricing_NoIntervals(t *testing.T) {
 
 func TestGetIntervalPricing_MatchesInterval(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode:                   BillingModeToken,
@@ -99,7 +97,7 @@ func TestGetIntervalPricing_MatchesInterval(t *testing.T) {
 
 func TestGetIntervalPricing_NoMatch_FallsBackToBase(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	basePricing := &ModelPricing{InputPricePerToken: 99e-6}
 	resolved := &ResolvedPricing{
@@ -142,7 +140,7 @@ func TestGPT56ExplicitZeroCacheWritePriceIsPreserved(t *testing.T) {
 	})
 
 	t.Run("interval price", func(t *testing.T) {
-		pricing := intervalToModelPricing(&PricingInterval{CacheWritePrice: &zero}, &ModelPricing{}, nil)
+		pricing := intervalToModelPricing(&PricingInterval{CacheWritePrice: &zero}, &ModelPricing{}, nil, false)
 		require.True(t, pricing.CacheCreationPriceExplicit)
 
 		cost, err := bs.CalculateCostUnified(CostInput{
@@ -162,7 +160,7 @@ func TestGPT56ExplicitZeroCacheWritePriceIsPreserved(t *testing.T) {
 
 func TestGetRequestTierPrice(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -179,7 +177,7 @@ func TestGetRequestTierPrice(t *testing.T) {
 
 func TestGetRequestTierPriceByContext(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -195,7 +193,7 @@ func TestGetRequestTierPriceByContext(t *testing.T) {
 
 func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -211,39 +209,20 @@ func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
 // Channel override tests — exercises applyChannelOverrides via Resolve
 // ===========================================================================
 
-// helper: creates a resolver wired to a ChannelService that returns the given
-// channel (active, groupID=100, platform=anthropic) with the specified pricing.
-func newResolverWithChannel(t *testing.T, pricing []ChannelModelPricing) *ModelPricingResolver {
+// newResolverWithCatalog 用目录条目搭解析器：价卡能力已从渠道搬到 model_catalog，
+// 这些用例跟着搬，语义保持「运营者显式配了价」（managed_by = admin）。
+func newResolverWithCatalog(t *testing.T, pricing []ChannelModelPricing) *ModelPricingResolver {
 	t.Helper()
-	const groupID = 100
-	repo := &mockChannelRepository{
-		listAllFn: func(_ context.Context) ([]Channel, error) {
-			return []Channel{{
-				ID:           1,
-				Name:         "test-channel",
-				Status:       StatusActive,
-				GroupIDs:     []int64{groupID},
-				ModelPricing: pricing,
-			}}, nil
-		},
-		getGroupPlatformsFn: func(_ context.Context, _ []int64) (map[int64]string, error) {
-			return map[int64]string{groupID: "anthropic"}, nil
-		},
-	}
-	cs := NewChannelService(repo, nil, nil, nil, nil)
 	bs := newTestBillingServiceForResolver()
-	return NewModelPricingResolver(cs, bs)
+	return newResolverWithCatalogCards(bs, pricing...)
 }
-
-// groupIDPtr returns a pointer to groupID 100 (the test constant).
-func groupIDPtr() *int64 { v := int64(100); return &v }
 
 // ---------------------------------------------------------------------------
 // 1. Token mode overrides
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -252,13 +231,12 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
 	require.Equal(t, BillingModeToken, resolved.Mode)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.NotNil(t, resolved.BasePricing)
 	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
 	require.Zero(t, resolved.BasePricing.InputPricePerTokenPriority)
@@ -268,7 +246,7 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	// Channel only sets InputPrice; OutputPrice should remain from the base (LiteLLM/fallback).
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -277,12 +255,11 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.NotNil(t, resolved.BasePricing)
 	// InputPrice overridden by channel
 	require.InDelta(t, 20e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
@@ -291,7 +268,7 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 }
 
 func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -302,13 +279,12 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
-		Group:   &Group{LongContextPricingEnabled: false},
+		Model: "claude-sonnet-4",
+		Group: &Group{LongContextPricingEnabled: false},
 	})
 
 	require.NotNil(t, resolved)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.False(t, resolved.longContextPricingEnabled)
 	require.Len(t, resolved.Intervals, 2)
 
@@ -326,7 +302,7 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 	// Base pricing is nil (unknown model), channel has flat prices → creates new BasePricing.
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"unknown-model-xyz"},
 		BillingMode: BillingModeToken,
@@ -335,12 +311,11 @@ func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "unknown-model-xyz",
-		GroupID: groupIDPtr(),
+		Model: "unknown-model-xyz",
 	})
 
 	require.NotNil(t, resolved)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	// BasePricing was nil from resolveBasePricing but applyTokenOverrides creates a new one
 	require.NotNil(t, resolved.BasePricing)
 	require.InDelta(t, 7e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
@@ -352,7 +327,7 @@ func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModePerRequest,
@@ -364,13 +339,12 @@ func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
 	require.Equal(t, BillingModePerRequest, resolved.Mode)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.InDelta(t, 0.05, resolved.DefaultPerRequestPrice, 1e-12)
 	require.Len(t, resolved.RequestTiers, 2)
 
@@ -381,7 +355,7 @@ func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
 
 func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 	// PerRequestPrice nil → DefaultPerRequestPrice stays 0.
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModePerRequest,
@@ -392,8 +366,7 @@ func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
@@ -407,7 +380,7 @@ func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_Image(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModeImage,
@@ -420,19 +393,18 @@ func TestResolve_WithChannelOverride_Image(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.NotNil(t, resolved)
 	require.Equal(t, BillingModeImage, resolved.Mode)
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.InDelta(t, 0.08, resolved.DefaultPerRequestPrice, 1e-12)
 	require.Len(t, resolved.RequestTiers, 3)
 }
 
 func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeImage,
@@ -444,8 +416,7 @@ func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	require.InDelta(t, 0.04, r.GetRequestTierPrice(resolved, "1K"), 1e-12)
@@ -459,7 +430,7 @@ func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -467,16 +438,15 @@ func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 }
 
 func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 	// Channel pricing with empty BillingMode → defaults to BillingModeToken.
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: "", // intentionally empty
@@ -484,11 +454,10 @@ func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
-	require.Equal(t, "channel", resolved.Source)
+	require.Equal(t, "catalog", resolved.Source)
 	require.Equal(t, BillingModeToken, resolved.Mode)
 	require.NotNil(t, resolved.BasePricing)
 	require.InDelta(t, 5e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
@@ -500,7 +469,7 @@ func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 
 func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 	// Channel provides intervals that override the base pricing path.
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -511,8 +480,7 @@ func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	// Token count 50000 matches first interval
@@ -530,7 +498,7 @@ func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 
 func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 	// Channel intervals don't match token count → falls back to BasePricing.
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -542,8 +510,7 @@ func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 	}})
 
 	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		Model: "claude-sonnet-4",
 	})
 
 	// Token count 1000 doesn't match any interval (1000 <= 50000 minTokens)
@@ -558,28 +525,18 @@ func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 // 6. Error path tests
 // ===========================================================================
 
-func TestResolve_WithChannelOverride_CacheError(t *testing.T) {
-	// When ListAll returns an error, the ChannelService cache build fails.
-	// Resolve should gracefully fall back to base pricing without panicking.
-	repo := &mockChannelRepository{
-		listAllFn: func(_ context.Context) ([]Channel, error) {
-			return nil, errors.New("database unavailable")
-		},
-	}
-	cs := NewChannelService(repo, nil, nil, nil, nil)
+// TestResolve_CatalogLoadError 目录读库失败时不能 panic，也不能把「查不到目录」
+// 变成「查不到价」：必须退回价格文件 / 硬编码兜底价。
+func TestResolve_CatalogLoadError(t *testing.T) {
+	repo := &stubModelCatalogRepo{listErr: errors.New("database unavailable")}
+	catalog := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(cs, bs)
+	r := NewModelPricingResolver(catalog, bs)
 
-	gid := int64(100)
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: &gid,
-	})
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
 
 	require.NotNil(t, resolved)
-	// Should NOT panic, should NOT have source "channel"
-	require.NotEqual(t, "channel", resolved.Source)
-	// Base pricing should still be present (from BillingService fallback)
+	require.NotEqual(t, PricingSourceCatalog, resolved.Source)
 	require.NotNil(t, resolved.BasePricing)
 	require.InDelta(t, 3e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
 }
@@ -590,7 +547,7 @@ func TestResolve_WithChannelOverride_CacheError(t *testing.T) {
 
 func TestGetRequestTierPriceByContext_EmptyTiers(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode:         BillingModePerRequest,
@@ -612,7 +569,7 @@ func TestGetRequestTierPriceByContext_EmptyTiers(t *testing.T) {
 
 func TestGetRequestTierPriceByContext_ExactBoundary(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := NewModelPricingResolver(&ChannelService{}, bs)
+	r := NewModelPricingResolver(nil, bs)
 
 	resolved := &ResolvedPricing{
 		Mode: BillingModePerRequest,
@@ -719,133 +676,154 @@ func TestFilterValidIntervals(t *testing.T) {
 }
 
 // ===========================================================================
-// 9. ImageOutputPriceExplicit tests
+// 9. 图片输出价：目录是基准价（不归零），分组价卡是运营者定价（覆盖一切）
 // ===========================================================================
 
-func TestApplyTokenOverrides_FlatSetsImageOutputPriceExplicit(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
+// newBillingServiceWithImageOutputPrice 造一份带图片输出价的基准价卡，
+// 用来区分「目录没配图片价 → 保留基准价」与「分组价卡没配 → 归零」。
+func newBillingServiceWithImageOutputPrice() *BillingService {
+	bs := newTestBillingServiceForResolver()
+	bs.fallbackPrices["claude-sonnet-4"].ImageOutputPricePerToken = 40e-6
+	return bs
+}
+
+// TestCatalogTokenCard_KeepsBaseImageOutputPrice：目录条目没配图片输出价时，
+// 必须保留价格文件里的图片输出价，也不能置 Explicit——否则图片 token 会被
+// 静默按 $0 计费（今天是回退到文本输出价）。
+func TestCatalogTokenCard_KeepsBaseImageOutputPrice(t *testing.T) {
+	bs := newBillingServiceWithImageOutputPrice()
+	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(3e-6),
 		OutputPrice: testPtrFloat64(15e-6),
-		// ImageOutputPrice intentionally nil
-	}})
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
+		// ImageOutputPrice 故意留空
 	})
 
-	require.Equal(t, PricingSourceChannel, resolved.Source)
-	require.True(t, resolved.BasePricing.ImageOutputPriceExplicit)
-	require.Equal(t, 0.0, resolved.BasePricing.ImageOutputPricePerToken)
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
+
+	require.Equal(t, PricingSourceCatalog, resolved.Source)
+	require.False(t, resolved.BasePricing.ImageOutputPriceExplicit)
+	require.InDelta(t, 40e-6, resolved.BasePricing.ImageOutputPricePerToken, 1e-12)
 }
 
-func TestApplyTokenOverrides_FlatWithImageOutputPriceSetsExplicit(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:         "anthropic",
+// TestCatalogTokenCard_ImageOutputPriceSetsExplicit：目录条目显式配了图片输出价时
+// 生效并置 Explicit（显式 0 也按 0 收）。
+func TestCatalogTokenCard_ImageOutputPriceSetsExplicit(t *testing.T) {
+	bs := newBillingServiceWithImageOutputPrice()
+	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
 		Models:           []string{"claude-sonnet-4"},
 		BillingMode:      BillingModeToken,
 		InputPrice:       testPtrFloat64(3e-6),
 		OutputPrice:      testPtrFloat64(15e-6),
 		ImageOutputPrice: testPtrFloat64(50e-6),
-	}})
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
 	})
+
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
 
 	require.True(t, resolved.BasePricing.ImageOutputPriceExplicit)
 	require.InDelta(t, 50e-6, resolved.BasePricing.ImageOutputPricePerToken, 1e-12)
 }
 
-func TestApplyTokenOverrides_IntervalSetsImageOutputPriceExplicit(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
+// TestCatalogIntervalCard_KeepsBaseImageOutputPrice：命中分档时同样不得归零。
+func TestCatalogIntervalCard_KeepsBaseImageOutputPrice(t *testing.T) {
+	bs := newBillingServiceWithImageOutputPrice()
+	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
-		// No ImageOutputPrice
 		Intervals: []PricingInterval{
 			{MinTokens: 0, MaxTokens: testPtrInt(100000), InputPrice: testPtrFloat64(3e-6), OutputPrice: testPtrFloat64(15e-6)},
 		},
-	}})
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
 	})
 
-	// BasePricing should have explicit mark (for interval fallback)
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
+	require.False(t, resolved.BasePricing.ImageOutputPriceExplicit)
+
+	pricing := r.GetIntervalPricing(resolved, 50000)
+	require.False(t, pricing.ImageOutputPriceExplicit)
+	require.InDelta(t, 40e-6, pricing.ImageOutputPricePerToken, 1e-12)
+}
+
+// TestGroupTokenCard_ZeroesImageOutputPriceAndSetsExplicit：分组价卡是运营者定价，
+// 「未配置即归零」的老规则原样保留（平/分档两条路径都要覆盖）。
+func TestGroupTokenCard_ZeroesImageOutputPriceAndSetsExplicit(t *testing.T) {
+	bs := newBillingServiceWithImageOutputPrice()
+	r := NewModelPricingResolver(nil, bs)
+	group := &Group{ID: 100, ModelPricing: []ChannelModelPricing{{
+		Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken,
+		InputPrice: testPtrFloat64(3e-6), OutputPrice: testPtrFloat64(15e-6),
+	}}}
+
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
+
+	require.Equal(t, PricingSourceGroup, resolved.Source)
 	require.True(t, resolved.BasePricing.ImageOutputPriceExplicit)
 	require.Equal(t, 0.0, resolved.BasePricing.ImageOutputPricePerToken)
+}
 
-	// intervalToModelPricing should also have explicit mark
+func TestGroupIntervalCard_ZeroesImageOutputPriceAndSetsExplicit(t *testing.T) {
+	bs := newBillingServiceWithImageOutputPrice()
+	r := NewModelPricingResolver(nil, bs)
+	// 分组价卡在 token 模式下会被剥掉 Intervals（长上下文阶梯只走官方预设），
+	// 所以这里用 per_request 之外的显式非 token 模式来覆盖分档路径。
+	group := &Group{ID: 100, ModelPricing: []ChannelModelPricing{{
+		Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken,
+		InputPrice: testPtrFloat64(3e-6),
+	}}}
+
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
 	pricing := r.GetIntervalPricing(resolved, 50000)
 	require.True(t, pricing.ImageOutputPriceExplicit)
 	require.Equal(t, 0.0, pricing.ImageOutputPricePerToken)
 }
 
 // ===========================================================================
-// 10. Regression: channel overrides must not pollute fallbackPrices
+// 10. 回归：价卡覆盖不得污染共享的 fallbackPrices 指针
 // ===========================================================================
 
-// TestApplyTokenOverrides_FlatDoesNotPolluteFallbackPrices verifies that the
-// flat-override path in applyTokenOverrides clones the BasePricing struct
-// before mutation, so the shared fallbackPrices map entry is not written through.
-func TestApplyTokenOverrides_FlatDoesNotPolluteFallbackPrices(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
+// TestCatalogFlatCard_DoesNotPolluteFallbackPrices 目录平价覆盖前必须先克隆
+// BasePricing，否则会写穿共享的 fallbackPrices 条目。
+func TestCatalogFlatCard_DoesNotPolluteFallbackPrices(t *testing.T) {
+	bs := newTestBillingServiceForResolver()
+	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(10e-6), // base is 3e-6
 		OutputPrice: testPtrFloat64(50e-6), // base is 15e-6
-	}})
-
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
 	})
 
-	// Resolved pricing should reflect the channel override
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4"})
+
 	require.NotNil(t, resolved)
 	require.InDelta(t, 10e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
 	require.InDelta(t, 50e-6, resolved.BasePricing.OutputPricePerToken, 1e-12)
 
-	// Global fallbackPrices must NOT be polluted
 	fp := r.billingService.fallbackPrices["claude-sonnet-4"]
 	require.InDelta(t, 3e-6, fp.InputPricePerToken, 1e-12, "fallback InputPricePerToken polluted")
 	require.InDelta(t, 15e-6, fp.OutputPricePerToken, 1e-12, "fallback OutputPricePerToken polluted")
-	require.False(t, fp.ImageOutputPriceExplicit, "fallback ImageOutputPriceExplicit polluted")
+	require.False(t, fp.CacheCreationPriceExplicit, "fallback CacheCreationPriceExplicit polluted")
 }
 
-// TestApplyTokenOverrides_IntervalDoesNotPolluteFallbackPrices verifies that
-// the interval-override path also clones before mutation.
-func TestApplyTokenOverrides_IntervalDoesNotPolluteFallbackPrices(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
-		Platform:    "anthropic",
-		Models:      []string{"claude-sonnet-4"},
-		BillingMode: BillingModeToken,
-		Intervals: []PricingInterval{
-			{MinTokens: 0, MaxTokens: testPtrInt(100000), InputPrice: testPtrFloat64(2e-6), OutputPrice: testPtrFloat64(8e-6)},
-		},
-	}})
+// TestGroupFlatCard_DoesNotPolluteFallbackPrices 分组价卡路径同样要先克隆。
+func TestGroupFlatCard_DoesNotPolluteFallbackPrices(t *testing.T) {
+	bs := newTestBillingServiceForResolver()
+	r := NewModelPricingResolver(nil, bs)
+	group := &Group{ID: 100, ModelPricing: []ChannelModelPricing{{
+		Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken,
+		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
+	}}}
 
-	resolved := r.Resolve(context.Background(), PricingInput{
-		Model:   "claude-sonnet-4",
-		GroupID: groupIDPtr(),
-	})
-
-	require.NotNil(t, resolved)
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
 	require.True(t, resolved.BasePricing.ImageOutputPriceExplicit)
 
-	// Global fallbackPrices must NOT be polluted
 	fp := r.billingService.fallbackPrices["claude-sonnet-4"]
 	require.InDelta(t, 3e-6, fp.InputPricePerToken, 1e-12, "fallback InputPricePerToken polluted")
 	require.InDelta(t, 15e-6, fp.OutputPricePerToken, 1e-12, "fallback OutputPricePerToken polluted")
 	require.False(t, fp.ImageOutputPriceExplicit, "fallback ImageOutputPriceExplicit polluted")
 }
 
-func TestResolve_GroupPricingOverridesChannel(t *testing.T) {
-	r := newResolverWithChannel(t, []ChannelModelPricing{{
+func TestResolve_GroupPricingOverridesCatalog(t *testing.T) {
+	r := newResolverWithCatalog(t, []ChannelModelPricing{{
 		Platform: "anthropic", Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(20e-6),
 	}})
@@ -853,7 +831,7 @@ func TestResolve_GroupPricingOverridesChannel(t *testing.T) {
 		Models: []string{"claude-sonnet-*"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(1e-6), OutputPrice: testPtrFloat64(2e-6),
 	}}}
-	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", GroupID: groupIDPtr(), Group: group})
+	resolved := r.Resolve(context.Background(), PricingInput{Model: "claude-sonnet-4", Group: group})
 
 	require.Equal(t, PricingSourceGroup, resolved.Source)
 	require.InDelta(t, 1e-6, resolved.BasePricing.InputPricePerToken, 1e-12)
