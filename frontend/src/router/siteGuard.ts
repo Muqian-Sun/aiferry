@@ -1,6 +1,6 @@
 /**
  * 站点导航守卫。用户站与管理后台共用一套守卫，按站点区分差异：
- * - 两个站点各自只有一种角色（后端签发与鉴权都按站点拦截），已登录访问登录页一律去 /dashboard
+ * - 两个站点各自只有一种角色（后端签发与鉴权都按站点拦截），已登录访问登录页一律去本站默认落点（defaultAuthedPath）
  * - Backend mode 只作用于用户站；管理后台不受影响
  * - 管理端专属的前置检查（合规确认）由管理后台入口通过 beforeProtectedRoute 注入
  */
@@ -32,8 +32,14 @@ const BACKEND_MODE_CALLBACK_PATHS = [
 ]
 const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 
-// 简易模式下隐藏的页面：两个站点路径相同（用户站的订阅/兑换，管理后台的订阅/兑换管理）
-const SIMPLE_MODE_RESTRICTED_PATHS = ['/subscriptions', '/redeem']
+// 简易模式下隐藏的页面：用户站整个账务区（含旧路径 /subscriptions /redeem 的 redirect 入口），
+// 管理后台的订阅/兑换管理路径与旧用户站相同
+const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions', '/redeem']
+
+/** 已登录用户的默认落点：用户站是用量页（概览已并入），管理后台是仪表盘 */
+export function defaultAuthedPath(site: AppSite): string {
+  return site === 'user' ? '/usage' : '/dashboard'
+}
 
 export function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
   if (BACKEND_MODE_ALLOWED_PATHS.some((allowedPath) => path === allowedPath || path.startsWith(allowedPath))) {
@@ -48,6 +54,7 @@ export function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSess
 export function createSiteGuard(options: SiteGuardOptions) {
   const { site } = options
   const isUserSite = site === 'user'
+  const homePath = defaultAuthedPath(site)
   let authInitialized = false
 
   return async function siteGuard(
@@ -91,7 +98,7 @@ export function createSiteGuard(options: SiteGuardOptions) {
           next()
           return
         }
-        next('/dashboard')
+        next(homePath)
         return
       }
       // Model Plaza:公开路由但受「启用开关 + 可选强制登录」双重控制(后端同口径 fail-closed)
@@ -106,7 +113,7 @@ export function createSiteGuard(options: SiteGuardOptions) {
         const plazaSettings = appStore.cachedPublicSettings
         // 仅在设置成功加载且明确为 false 时拦截(瞬时加载失败视为未知,由后端 404 兜底)
         if (appStore.publicSettingsLoaded && plazaSettings?.model_plaza_enabled === false) {
-          next(authStore.isAuthenticated ? '/dashboard' : '/home')
+          next(authStore.isAuthenticated ? homePath : '/home')
           return
         }
         if (plazaSettings?.model_plaza_require_auth === true && !authStore.isAuthenticated) {
@@ -157,21 +164,21 @@ export function createSiteGuard(options: SiteGuardOptions) {
     // Only an explicit value from successfully loaded settings can disable a route.
     // A transient settings failure is unknown state, not a confirmed feature toggle.
     if (to.meta.requiresPayment && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.payment_enabled === false) {
-      next('/dashboard')
+      next(homePath)
       return
     }
     if (to.meta.requiresRiskControl && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.risk_control_enabled === false) {
-      next(isUserSite ? '/dashboard' : '/settings')
+      next(isUserSite ? homePath : '/settings')
       return
     }
     // 订阅功能是 opt-out 开关：只有显式 false 才拦截「我的订阅」页直达。
     if (to.meta.requiresSubscription && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.subscription_enabled === false) {
-      next('/dashboard')
+      next(homePath)
       return
     }
 
     if (authStore.isSimpleMode && SIMPLE_MODE_RESTRICTED_PATHS.some((path) => to.path.startsWith(path))) {
-      next('/dashboard')
+      next(homePath)
       return
     }
 

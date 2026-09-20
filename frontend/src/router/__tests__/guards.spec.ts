@@ -30,7 +30,7 @@ vi.mock('@/api/setup', () => ({
   getSetupStatus: vi.fn(async () => ({ needs_setup: setup.needsSetup })),
 }))
 
-import { createSiteGuard } from '@/router/siteGuard'
+import { createSiteGuard, defaultAuthedPath } from '@/router/siteGuard'
 
 type Outcome = { redirect: unknown; allowed: boolean }
 
@@ -65,6 +65,7 @@ beforeEach(() => {
 
 describe.each<AppSite>(['user', 'admin'])('%s 站点通用守卫', (site) => {
   const role = site === 'admin' ? 'admin' : 'user'
+  const home = defaultAuthedPath(site)
 
   it('未登录访问受保护页面去登录页并带回跳地址', async () => {
     expect((await navigate(site, '/dashboard', protectedMeta)).redirect).toEqual({ path: '/login', query: { redirect: '/dashboard' } })
@@ -72,7 +73,7 @@ describe.each<AppSite>(['user', 'admin'])('%s 站点通用守卫', (site) => {
 
   it('已登录访问登录页去本站仪表盘', async () => {
     signIn(role)
-    expect((await navigate(site, '/login', publicMeta)).redirect).toBe('/dashboard')
+    expect((await navigate(site, '/login', publicMeta)).redirect).toBe(home)
   })
 
   it('已登录访问受保护页面放行', async () => {
@@ -89,8 +90,9 @@ describe.each<AppSite>(['user', 'admin'])('%s 站点通用守卫', (site) => {
   it('简易模式隐藏订阅与兑换页面', async () => {
     signIn(role)
     authStore.isSimpleMode = true
-    expect((await navigate(site, '/subscriptions', protectedMeta)).redirect).toBe('/dashboard')
-    expect((await navigate(site, '/redeem', protectedMeta)).redirect).toBe('/dashboard')
+    expect((await navigate(site, '/subscriptions', protectedMeta)).redirect).toBe(home)
+    expect((await navigate(site, '/redeem', protectedMeta)).redirect).toBe(home)
+    expect((await navigate(site, '/billing/orders', protectedMeta)).redirect).toBe(home)
     expect((await navigate(site, '/dashboard', protectedMeta)).allowed).toBe(true)
   })
 })

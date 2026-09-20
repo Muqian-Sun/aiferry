@@ -2,6 +2,8 @@
  * 用户站路由。管理页面不在此注册，见 apps/admin/routes.ts。
  */
 import type { RouteRecordRaw } from 'vue-router'
+import { firstBillingPath } from '@/views/user/billing/billingTabs'
+import { readBillingFlags } from '@/views/user/billing/useBillingFlags'
 
 export const userRoutes: RouteRecordRaw[] = [
 
@@ -163,21 +165,16 @@ export const userRoutes: RouteRecordRaw[] = [
   },
 
   // ==================== User Routes ====================
+  // 控制台五个页签：用量（落地页）· 密钥 · 模型 · 账务 · 账户。
+  // 旧路径（/dashboard /purchase /subscriptions /orders /redeem /affiliate）长期保留 redirect，
+  // 书签、邮件、支付回跳都不断。
   {
     path: '/',
     redirect: '/home'
   },
   {
     path: '/dashboard',
-    name: 'Dashboard',
-    component: () => import('@/views/user/DashboardView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Dashboard',
-      titleKey: 'dashboard.title',
-      descriptionKey: 'dashboard.welcomeMessage'
-    }
+    redirect: '/usage'
   },
   {
     path: '/keys',
@@ -211,35 +208,98 @@ export const userRoutes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Usage Records',
-      titleKey: 'usage.title',
-      descriptionKey: 'usage.description'
+      title: 'Usage',
+      titleKey: 'userUi.usage.title',
+      descriptionKey: 'userUi.usage.description'
     }
   },
+
+  // ---------- 账务：四个页签共用一个页头 ----------
   {
-    path: '/redeem',
-    name: 'Redeem',
-    component: () => import('@/views/user/RedeemView.vue'),
+    path: '/billing',
+    component: () => import('@/views/user/billing/BillingView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Redeem Code',
-      titleKey: 'redeem.title',
-      descriptionKey: 'redeem.description'
-    }
+      title: 'Billing',
+      titleKey: 'userUi.billing.title',
+      descriptionKey: 'userUi.billing.description'
+    },
+    children: [
+      // 索引落到第一个可见页签（支付关闭时是兑换码，不会被 requiresPayment 守卫弹走）
+      { path: '', redirect: () => firstBillingPath(readBillingFlags()) },
+      {
+        // 路由名沿用 PurchaseSubscription：resolveRouteMetaKeys 据此按计费模式切换标题
+        path: 'recharge',
+        name: 'PurchaseSubscription',
+        component: () => import('@/views/user/PaymentView.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresAdmin: false,
+          title: 'Top up',
+          titleKey: 'nav.buySubscription',
+          descriptionKey: 'purchase.description',
+          requiresPayment: true
+        }
+      },
+      {
+        path: 'subscriptions',
+        name: 'Subscriptions',
+        component: () => import('@/views/user/SubscriptionsView.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresAdmin: false,
+          title: 'My Subscriptions',
+          titleKey: 'userSubscriptions.title',
+          descriptionKey: 'userSubscriptions.description',
+          requiresSubscription: true
+        }
+      },
+      {
+        path: 'orders',
+        name: 'OrderList',
+        component: () => import('@/views/user/UserOrdersView.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresAdmin: false,
+          title: 'My Orders',
+          titleKey: 'nav.myOrders',
+          requiresPayment: true
+        }
+      },
+      {
+        path: 'redeem',
+        name: 'Redeem',
+        component: () => import('@/views/user/RedeemView.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresAdmin: false,
+          title: 'Redeem Code',
+          titleKey: 'redeem.title',
+          descriptionKey: 'redeem.description'
+        }
+      },
+      {
+        path: 'affiliate',
+        name: 'Affiliate',
+        component: () => import('@/views/user/AffiliateView.vue'),
+        meta: {
+          requiresAuth: true,
+          requiresAdmin: false,
+          title: 'Affiliate',
+          titleKey: 'affiliate.title',
+          descriptionKey: 'affiliate.description'
+        }
+      }
+    ]
   },
-  {
-    path: '/affiliate',
-    name: 'Affiliate',
-    component: () => import('@/views/user/AffiliateView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Affiliate',
-      titleKey: 'affiliate.title',
-      descriptionKey: 'affiliate.description'
-    }
-  },
+  // 旧账务路径 → 新页签（保留 query，支付回跳 / 订阅购买入口都带参数）
+  // /purchase?tab=subscription 仍由充值页签内的 PaymentView 处理（套餐购买并入订阅页签是 S5 的事）
+  { path: '/purchase', redirect: (to) => ({ path: '/billing/recharge', query: to.query }) },
+  { path: '/subscriptions', redirect: (to) => ({ path: '/billing/subscriptions', query: to.query }) },
+  { path: '/orders', redirect: (to) => ({ path: '/billing/orders', query: to.query }) },
+  { path: '/redeem', redirect: (to) => ({ path: '/billing/redeem', query: to.query }) },
+  { path: '/affiliate', redirect: (to) => ({ path: '/billing/affiliate', query: to.query }) },
   {
     path: '/available-channels',
     name: 'UserAvailableChannels',
@@ -259,47 +319,9 @@ export const userRoutes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Profile',
-      titleKey: 'profile.title',
-      descriptionKey: 'profile.description'
-    }
-  },
-  {
-    path: '/subscriptions',
-    name: 'Subscriptions',
-    component: () => import('@/views/user/SubscriptionsView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'My Subscriptions',
-      titleKey: 'userSubscriptions.title',
-      descriptionKey: 'userSubscriptions.description',
-      requiresSubscription: true
-    }
-  },
-  {
-    path: '/purchase',
-    name: 'PurchaseSubscription',
-    component: () => import('@/views/user/PaymentView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'Purchase Subscription',
-      titleKey: 'nav.buySubscription',
-      descriptionKey: 'purchase.description',
-      requiresPayment: true
-    }
-  },
-  {
-    path: '/orders',
-    name: 'OrderList',
-    component: () => import('@/views/user/UserOrdersView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: false,
-      title: 'My Orders',
-      titleKey: 'nav.myOrders',
-      requiresPayment: true
+      title: 'Account',
+      titleKey: 'userUi.account.title',
+      descriptionKey: 'userUi.account.description'
     }
   },
   {
