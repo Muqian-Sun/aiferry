@@ -29,7 +29,7 @@
             {{ user?.status === 'active' ? t('common.active') : t('common.disabled') }}
           </span>
         </div>
-        <p v-if="primaryEmailDisplay" class="mt-0.5 truncate text-13 text-af-ink-3">
+        <p v-if="primaryEmailDisplay && primaryEmailDisplay !== displayName" class="mt-0.5 truncate text-13 text-af-ink-3">
           {{ primaryEmailDisplay }}
         </p>
         <ul v-if="sourceHints.length" class="mt-1 space-y-0.5 text-xs text-af-ink-4">

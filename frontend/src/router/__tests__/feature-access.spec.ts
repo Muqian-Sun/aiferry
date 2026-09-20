@@ -82,6 +82,7 @@ describe('feature route guard', () => {
     ['payment', 'user', { requiresPayment: true }, '/purchase'],
     ['risk control', 'admin', { requiresRiskControl: true }, '/risk-control'],
     ['subscription', 'user', { requiresSubscription: true }, '/subscriptions'],
+    ['affiliate', 'user', { requiresAffiliate: true }, '/billing/affiliate'],
   ])('does not treat a failed %s settings load as explicitly disabled', async (_name, site, meta, path) => {
     appStore.fetchPublicSettings.mockResolvedValue(null)
 
@@ -99,6 +100,7 @@ describe('feature route guard', () => {
     ['risk control on the admin console', 'admin', { requiresRiskControl: true }, { risk_control_enabled: false }, '/settings'],
     ['subscription on the user site', 'user', { requiresSubscription: true }, { subscription_enabled: false }, '/usage'],
     ['subscription on the admin console', 'admin', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
+    ['affiliate on the user site', 'user', { requiresAffiliate: true }, { affiliate_enabled: false }, '/usage'],
   ])('redirects when loaded settings explicitly disable %s', async (_name, site, meta, settings, target) => {
     appStore.cachedPublicSettings = settings
     appStore.publicSettingsLoaded = true

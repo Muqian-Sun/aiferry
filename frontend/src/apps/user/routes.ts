@@ -290,7 +290,8 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAdmin: false,
           title: 'Affiliate',
           titleKey: 'affiliate.title',
-          descriptionKey: 'affiliate.description'
+          descriptionKey: 'affiliate.description',
+          requiresAffiliate: true
         }
       }
     ]

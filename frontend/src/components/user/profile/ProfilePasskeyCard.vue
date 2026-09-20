@@ -74,12 +74,9 @@
           <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
         </div>
 
-        <div
-          v-else-if="credentials.length === 0"
-          class="rounded-lg border border-dashed border-af-hairline px-4 py-8 text-center text-sm text-af-ink-3"
-        >
+        <p v-else-if="credentials.length === 0 && enabled" class="text-13 text-af-ink-3">
           {{ t('profile.passkey.empty') }}
-        </div>
+        </p>
 
         <div v-else class="divide-y divide-af-hairline">
           <div
