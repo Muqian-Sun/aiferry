@@ -82,9 +82,8 @@ func TestWithCatalogRoute(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, route, got)
 
-	platform, ok := ResolvedTargetPlatformFromContext(ctx)
-	require.True(t, ok)
-	require.Equal(t, PlatformOpenAI, platform)
+	_, ok = ResolvedTargetPlatformFromContext(ctx)
+	require.False(t, ok, "routing still follows the group until the request chain switches to catalog routes")
 	require.Equal(t, "gpt-5.6-sol", ctx.Value(ctxkey.RequestedPublicModel))
 
 	_, ok = CatalogRouteFromContext(context.Background())

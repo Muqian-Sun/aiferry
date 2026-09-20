@@ -19,11 +19,12 @@ type CatalogRoute struct {
 	Entry          *ModelCatalogEntry // 快照指针，只读
 }
 
-// WithCatalogRoute 把目录路由挂到 ctx 上。同时写 ResolvedTargetPlatform：请求链下游
-// （resolvePlatform、错误透传平台、handler 族分发）都先读这把钥匙。
+// WithCatalogRoute 把目录路由与客户端原始模型名挂到 ctx 上。
+//
+// 这里不写 ResolvedTargetPlatform：请求链的网关族分发与调度池目前仍由分组决定，
+// 切到按条目路由时（routePlatform 读 CatalogRoute.Platform）一并切换，避免半切状态。
 func WithCatalogRoute(ctx context.Context, route CatalogRoute) context.Context {
 	ctx = context.WithValue(ctx, ctxkey.CatalogRoute, route)
-	ctx = WithResolvedTargetPlatform(ctx, route.Platform)
 	return context.WithValue(ctx, ctxkey.RequestedPublicModel, route.RequestedModel)
 }
 

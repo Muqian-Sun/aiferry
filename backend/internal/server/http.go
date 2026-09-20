@@ -57,6 +57,7 @@ func ProvideRouters(
 	opsService *service.OpsService,
 	settingService *service.SettingService,
 	compositeResolver *service.CompositeRouteResolver,
+	modelCatalog *service.ModelCatalogService,
 	redisClient *redis.Client,
 ) *Routers {
 	if cfg.Server.Mode == "release" {
@@ -148,6 +149,7 @@ func ProvideRouters(
 		opsService:          opsService,
 		settingService:      settingService,
 		compositeResolver:   compositeResolver,
+		modelCatalog:        modelCatalog,
 		cfg:                 cfg,
 		redisClient:         redisClient,
 	}
