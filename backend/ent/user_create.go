@@ -367,6 +367,20 @@ func (_c *UserCreate) SetNillableRpmLimit(v *int) *UserCreate {
 	return _c
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_c *UserCreate) SetRateMultiplier(v float64) *UserCreate {
+	_c.mutation.SetRateMultiplier(v)
+	return _c
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_c *UserCreate) SetNillableRateMultiplier(v *float64) *UserCreate {
+	if v != nil {
+		_c.SetRateMultiplier(*v)
+	}
+	return _c
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_c *UserCreate) AddAPIKeyIDs(ids ...int64) *UserCreate {
 	_c.mutation.AddAPIKeyIDs(ids...)
@@ -658,6 +672,10 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultRpmLimit
 		_c.mutation.SetRpmLimit(v)
 	}
+	if _, ok := _c.mutation.RateMultiplier(); !ok {
+		v := user.DefaultRateMultiplier
+		_c.mutation.SetRateMultiplier(v)
+	}
 	return nil
 }
 
@@ -749,6 +767,9 @@ func (_c *UserCreate) check() error {
 	}
 	if _, ok := _c.mutation.RpmLimit(); !ok {
 		return &ValidationError{Name: "rpm_limit", err: errors.New(`ent: missing required field "User.rpm_limit"`)}
+	}
+	if _, ok := _c.mutation.RateMultiplier(); !ok {
+		return &ValidationError{Name: "rate_multiplier", err: errors.New(`ent: missing required field "User.rate_multiplier"`)}
 	}
 	return nil
 }
@@ -876,6 +897,10 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.RpmLimit(); ok {
 		_spec.SetField(user.FieldRpmLimit, field.TypeInt, value)
 		_node.RpmLimit = value
+	}
+	if value, ok := _c.mutation.RateMultiplier(); ok {
+		_spec.SetField(user.FieldRateMultiplier, field.TypeFloat64, value)
+		_node.RateMultiplier = value
 	}
 	if nodes := _c.mutation.APIKeysIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
@@ -1485,6 +1510,24 @@ func (u *UserUpsert) AddRpmLimit(v int) *UserUpsert {
 	return u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *UserUpsert) SetRateMultiplier(v float64) *UserUpsert {
+	u.Set(user.FieldRateMultiplier, v)
+	return u
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *UserUpsert) UpdateRateMultiplier() *UserUpsert {
+	u.SetExcluded(user.FieldRateMultiplier)
+	return u
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *UserUpsert) AddRateMultiplier(v float64) *UserUpsert {
+	u.Add(user.FieldRateMultiplier, v)
+	return u
+}
+
 // UpdateNewValues updates the mutable fields using the new values that were set on create.
 // Using this option is equivalent to using:
 //
@@ -1947,6 +1990,27 @@ func (u *UserUpsertOne) AddRpmLimit(v int) *UserUpsertOne {
 func (u *UserUpsertOne) UpdateRpmLimit() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *UserUpsertOne) SetRateMultiplier(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateMultiplier(v)
+	})
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *UserUpsertOne) AddRateMultiplier(v float64) *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateMultiplier(v)
+	})
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *UserUpsertOne) UpdateRateMultiplier() *UserUpsertOne {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateMultiplier()
 	})
 }
 
@@ -2578,6 +2642,27 @@ func (u *UserUpsertBulk) AddRpmLimit(v int) *UserUpsertBulk {
 func (u *UserUpsertBulk) UpdateRpmLimit() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.UpdateRpmLimit()
+	})
+}
+
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (u *UserUpsertBulk) SetRateMultiplier(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.SetRateMultiplier(v)
+	})
+}
+
+// AddRateMultiplier adds v to the "rate_multiplier" field.
+func (u *UserUpsertBulk) AddRateMultiplier(v float64) *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.AddRateMultiplier(v)
+	})
+}
+
+// UpdateRateMultiplier sets the "rate_multiplier" field to the value that was provided on create.
+func (u *UserUpsertBulk) UpdateRateMultiplier() *UserUpsertBulk {
+	return u.Update(func(s *UserUpsert) {
+		s.UpdateRateMultiplier()
 	})
 }
 

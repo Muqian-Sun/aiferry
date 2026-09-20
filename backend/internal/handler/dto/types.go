@@ -33,6 +33,8 @@ type User struct {
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
+	// RateMultiplier 用户级计费倍率：用户价 = 目录价 × RateMultiplier；0 = 免费。
+	RateMultiplier float64 `json:"rate_multiplier"`
 
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
@@ -45,9 +47,6 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
-	// GroupRates 用户专属分组倍率配置
-	// map[groupID]rateMultiplier
-	GroupRates map[int64]float64 `json:"group_rates,omitempty"`
 	// RestrictPublicGroups 为 true 时，该用户仅可使用 allowed_groups 中列出的
 	// 公开分组。这是管理侧的权限开关，不下发给用户自身的接口。
 	RestrictPublicGroups bool `json:"restrict_public_groups"`

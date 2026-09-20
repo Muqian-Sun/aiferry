@@ -160,14 +160,16 @@ func ValidateSimpleModeGroupOperation(cfg *config.Config, operation AdminGroupOp
 
 // CreateUserInput represents input for creating a new user via admin operations.
 type CreateUserInput struct {
-	Email                string
-	Password             string
-	Username             string
-	Notes                string
-	Role                 string // 空字符串表示使用默认角色(user);合法值 admin/user
-	Balance              *float64
-	Concurrency          int
-	RPMLimit             int
+	Email       string
+	Password    string
+	Username    string
+	Notes       string
+	Role        string // 空字符串表示使用默认角色(user);合法值 admin/user
+	Balance     *float64
+	Concurrency int
+	RPMLimit    int
+	// RateMultiplier 用户级计费倍率；nil 表示默认 1。
+	RateMultiplier       *float64
 	AllowedGroups        []int64
 	RestrictPublicGroups bool
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
@@ -187,9 +189,8 @@ type UpdateUserInput struct {
 	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
 	// RestrictPublicGroups 指针区分"未提供"和"显式开关"。
 	RestrictPublicGroups *bool
-	// GroupRates 用户专属分组倍率配置
-	// map[groupID]*rate，nil 表示删除该分组的专属倍率
-	GroupRates map[int64]*float64
+	// RateMultiplier 用户级计费倍率（>= 0，0 = 免费）；指针区分"未提供"和"设置为0"。
+	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
 }

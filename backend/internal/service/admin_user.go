@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 	"time"
@@ -39,43 +40,7 @@ func (s *adminServiceImpl) ListUsers(ctx context.Context, page, pageSize int, fi
 			}
 		}
 	}
-	// 批量加载用户专属分组倍率
-	if s.userGroupRateRepo != nil && len(users) > 0 {
-		if batchRepo, ok := s.userGroupRateRepo.(userGroupRateBatchReader); ok {
-			userIDs := make([]int64, 0, len(users))
-			for i := range users {
-				userIDs = append(userIDs, users[i].ID)
-			}
-			ratesByUser, err := batchRepo.GetByUserIDs(ctx, userIDs)
-			if err != nil {
-				logger.LegacyPrintf("service.admin", "failed to load user group rates in batch: err=%v", err)
-				s.loadUserGroupRatesOneByOne(ctx, users)
-			} else {
-				for i := range users {
-					if rates, ok := ratesByUser[users[i].ID]; ok {
-						users[i].GroupRates = rates
-					}
-				}
-			}
-		} else {
-			s.loadUserGroupRatesOneByOne(ctx, users)
-		}
-	}
 	return users, result.Total, nil
-}
-
-func (s *adminServiceImpl) loadUserGroupRatesOneByOne(ctx context.Context, users []User) {
-	if s.userGroupRateRepo == nil {
-		return
-	}
-	for i := range users {
-		rates, err := s.userGroupRateRepo.GetByUserID(ctx, users[i].ID)
-		if err != nil {
-			logger.LegacyPrintf("service.admin", "failed to load user group rates: user_id=%d err=%v", users[i].ID, err)
-			continue
-		}
-		users[i].GroupRates = rates
-	}
 }
 
 func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error) {
@@ -88,15 +53,6 @@ func (s *adminServiceImpl) GetUser(ctx context.Context, id int64) (*User, error)
 		logger.LegacyPrintf("service.admin", "failed to load user last_used_at: user_id=%d err=%v", id, latestErr)
 	} else {
 		user.LastUsedAt = lastUsedAt
-	}
-	// 加载用户专属分组倍率
-	if s.userGroupRateRepo != nil {
-		rates, err := s.userGroupRateRepo.GetByUserID(ctx, id)
-		if err != nil {
-			logger.LegacyPrintf("service.admin", "failed to load user group rates: user_id=%d err=%v", id, err)
-		} else {
-			user.GroupRates = rates
-		}
 	}
 	return user, nil
 }
@@ -131,16 +87,25 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		return nil, err
 	}
 
+	rateMultiplier := 1.0
+	if input.RateMultiplier != nil {
+		if err := validateUserRateMultiplier(*input.RateMultiplier); err != nil {
+			return nil, err
+		}
+		rateMultiplier = *input.RateMultiplier
+	}
+
 	user := &User{
-		Email:         input.Email,
-		Username:      input.Username,
-		Notes:         input.Notes,
-		Role:          role,
-		Balance:       balance,
-		Concurrency:   input.Concurrency,
-		RPMLimit:      input.RPMLimit,
-		Status:        StatusActive,
-		AllowedGroups: input.AllowedGroups,
+		Email:          input.Email,
+		Username:       input.Username,
+		Notes:          input.Notes,
+		Role:           role,
+		Balance:        balance,
+		Concurrency:    input.Concurrency,
+		RPMLimit:       input.RPMLimit,
+		RateMultiplier: rateMultiplier,
+		Status:         StatusActive,
+		AllowedGroups:  input.AllowedGroups,
 
 		RestrictPublicGroups: input.RestrictPublicGroups,
 	}
@@ -195,12 +160,9 @@ func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userI
 }
 
 func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *UpdateUserInput) (*User, error) {
-	// 校验用户专属分组倍率：必须 > 0（nil 合法，表示清除专属倍率）
-	if input.GroupRates != nil {
-		for groupID, rate := range input.GroupRates {
-			if rate != nil && *rate <= 0 {
-				return nil, fmt.Errorf("rate_multiplier must be > 0 (group_id=%d)", groupID)
-			}
+	if input.RateMultiplier != nil {
+		if err := validateUserRateMultiplier(*input.RateMultiplier); err != nil {
+			return nil, err
 		}
 	}
 
@@ -276,6 +238,11 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		fields.RPMLimit = true
 	}
 
+	if input.RateMultiplier != nil {
+		user.RateMultiplier = *input.RateMultiplier
+		fields.RateMultiplier = true
+	}
+
 	if input.AllowedGroups != nil {
 		user.AllowedGroups = *input.AllowedGroups
 		fields.AllowedGroups = true
@@ -295,13 +262,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	if user.Role != oldRole {
 		logger.LegacyPrintf("service.admin", "audit: user role changed actor_admin_id=%d target_user_id=%d old_role=%s new_role=%s",
 			input.ActorAdminID, user.ID, oldRole, user.Role)
-	}
-
-	// 同步用户专属分组倍率
-	if input.GroupRates != nil && s.userGroupRateRepo != nil {
-		if err := s.userGroupRateRepo.SyncUserGroupRates(ctx, user.ID, input.GroupRates); err != nil {
-			logger.LegacyPrintf("service.admin", "failed to sync user group rates: user_id=%d err=%v", user.ID, err)
-		}
 	}
 
 	if s.authCacheInvalidator != nil {
@@ -1325,4 +1285,12 @@ func (s *adminServiceImpl) ExpireRedeemCode(ctx context.Context, id int64) (*Red
 		return nil, err
 	}
 	return code, nil
+}
+
+// validateUserRateMultiplier 用户级计费倍率必须 >= 0（0 = 免费）且是有限数。
+func validateUserRateMultiplier(v float64) error {
+	if math.IsNaN(v) || math.IsInf(v, 0) || v < 0 {
+		return fmt.Errorf("rate_multiplier must be >= 0")
+	}
+	return nil
 }

@@ -2439,6 +2439,10 @@ func init() {
 	userDescRpmLimit := userFields[21].Descriptor()
 	// user.DefaultRpmLimit holds the default value on creation for the rpm_limit field.
 	user.DefaultRpmLimit = userDescRpmLimit.Default.(int)
+	// userDescRateMultiplier is the schema descriptor for rate_multiplier field.
+	userDescRateMultiplier := userFields[22].Descriptor()
+	// user.DefaultRateMultiplier holds the default value on creation for the rate_multiplier field.
+	user.DefaultRateMultiplier = userDescRateMultiplier.Default.(float64)
 	userallowedgroupFields := schema.UserAllowedGroup{}.Fields()
 	_ = userallowedgroupFields
 	// userallowedgroupDescCreatedAt is the schema descriptor for created_at field.

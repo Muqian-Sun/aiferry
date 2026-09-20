@@ -58,6 +58,7 @@ type CreateUserRequest struct {
 	Balance              *float64 `json:"balance"`
 	Concurrency          int      `json:"concurrency"`
 	RPMLimit             int      `json:"rpm_limit"`
+	RateMultiplier       *float64 `json:"rate_multiplier"`
 	AllowedGroups        []int64  `json:"allowed_groups"`
 	RestrictPublicGroups bool     `json:"restrict_public_groups"`
 }
@@ -73,12 +74,10 @@ type UpdateUserRequest struct {
 	Balance              *float64 `json:"balance"`
 	Concurrency          *int     `json:"concurrency"`
 	RPMLimit             *int     `json:"rpm_limit"`
+	RateMultiplier       *float64 `json:"rate_multiplier"`
 	Status               string   `json:"status" binding:"omitempty,oneof=active disabled"`
 	AllowedGroups        *[]int64 `json:"allowed_groups"`
 	RestrictPublicGroups *bool    `json:"restrict_public_groups"`
-	// GroupRates 用户专属分组倍率配置
-	// map[groupID]*rate，nil 表示删除该分组的专属倍率
-	GroupRates map[int64]*float64 `json:"group_rates"`
 }
 
 // UpdateBalanceRequest represents balance update request
@@ -285,6 +284,7 @@ func (h *UserHandler) Create(c *gin.Context) {
 		Balance:              req.Balance,
 		Concurrency:          req.Concurrency,
 		RPMLimit:             req.RPMLimit,
+		RateMultiplier:       req.RateMultiplier,
 		AllowedGroups:        req.AllowedGroups,
 		RestrictPublicGroups: req.RestrictPublicGroups,
 		ActorAdminID:         getAdminIDFromContext(c),
@@ -344,10 +344,10 @@ func (h *UserHandler) Update(c *gin.Context) {
 		Balance:              req.Balance,
 		Concurrency:          req.Concurrency,
 		RPMLimit:             req.RPMLimit,
+		RateMultiplier:       req.RateMultiplier,
 		Status:               req.Status,
 		AllowedGroups:        req.AllowedGroups,
 		RestrictPublicGroups: req.RestrictPublicGroups,
-		GroupRates:           req.GroupRates,
 		ActorAdminID:         getAdminIDFromContext(c),
 	})
 	if err != nil {

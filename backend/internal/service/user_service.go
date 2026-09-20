@@ -104,7 +104,9 @@ type UserUpdateFields struct {
 	Status       bool
 	Concurrency  bool
 	RPMLimit     bool
-	SignupSource bool
+	// RateMultiplier 覆盖 rate_multiplier 列。
+	RateMultiplier bool
+	SignupSource   bool
 	LastLoginAt  bool
 	LastActiveAt bool
 	// BalanceNotifySettings 覆盖 balance_notify_enabled / _threshold_type / _threshold。
