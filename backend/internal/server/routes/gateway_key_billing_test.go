@@ -52,9 +52,9 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 		Hydrated:         true,
 		Platform:         service.PlatformOpenAI,
 		SubscriptionType: service.SubscriptionTypeStandard,
-		RateMultiplier:   0.75,
+		RateMultiplier:   9, // 分组倍率已无效
 	}
-	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
+	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: 0.75}
 	var groupID *int64
 	var apiKeyGroup *service.Group
 	if runMode != config.RunModeSimple {
@@ -76,11 +76,11 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 		&keyBillingRouteAPIKeyRepo{apiKey: apiKey}, nil, nil, nil, rateRepo, nil, cfg,
 	)
 	gatewayService := service.NewGatewayService(
-		nil, nil, nil, nil, nil, nil, rateRepo, nil, cfg, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	openAIGatewayService := service.NewOpenAIGatewayService(
-		nil, nil, nil, nil, nil, rateRepo, nil, cfg, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	gatewayHandler := handler.NewGatewayHandler(
@@ -147,7 +147,7 @@ func TestGatewayRoutesKeyBillingInfoEndToEnd(t *testing.T) {
 		require.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 		require.Equal(t, "sub2api.key_billing", body["object"])
 		require.Equal(t, 0.75, body["effective_rate_multiplier"])
-		require.Equal(t, 1, rateRepo.lookupCalls)
+		require.Zero(t, rateRepo.lookupCalls, "user multiplier comes from the user row, no user-group lookup")
 	})
 
 	t.Run("simple mode", func(t *testing.T) {

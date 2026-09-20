@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/domain"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
 type OpenAIMessagesDispatchModelConfig = domain.OpenAIMessagesDispatchModelConfig
@@ -306,29 +305,6 @@ func parseMinutes(hhmm string) (int, bool) {
 	return h*60 + m, true
 }
 
-// PeakMultiplierAt 返回指定时刻 now 的高峰因子。
-//   - 未启用 / 未配置 / 配置非法（start>=end 或格式错误） / 非高峰时段 → 返回 1.0（安全降级）
-//   - 区间为左闭右开 [PeakStart, PeakEnd)，仅支持当日区间，不支持跨天（如 22:00-次日02:00）
-//   - 时刻基于全局系统时区（timezone.Location）判定
-//
-// 该方法是纯函数，不读取任何外部状态，便于单测。
-func (g *Group) PeakMultiplierAt(now time.Time) float64 {
-	if g == nil || !g.IsSubscriptionType() || !g.PeakRateEnabled || g.PeakStart == "" || g.PeakEnd == "" {
-		return 1.0
-	}
-	start, ok1 := parseMinutes(g.PeakStart)
-	end, ok2 := parseMinutes(g.PeakEnd)
-	if !ok1 || !ok2 || start >= end {
-		return 1.0
-	}
-	t := now.In(timezone.Location())
-	cur := t.Hour()*60 + t.Minute()
-	if cur >= start && cur < end {
-		return g.PeakRateMultiplier
-	}
-	return 1.0
-}
-
 // ValidatePeakRateConfig 是高峰倍率配置的唯一校验来源，供 handler 与 service 层共用。
 // enabled=true 时仅允许订阅类型分组；并要求 start/end 合法且 end>start（不支持跨天），multiplier>=0。
 // multiplier=0 是允许的，表示高峰 token 请求按 0 倍计费，可用于折扣/免费策略。
@@ -384,20 +360,6 @@ func NormalizePeakRateConfig(subscriptionType string, enabled bool, start, end s
 		}
 	}
 	return enabled, start, end, multiplier
-}
-
-// computePeakAwareMultipliers 把"基础 token 倍率 base"（已含系统/分组/用户级倍率，但不含高峰）
-// 拆分为最终 token 倍率与图片按次倍率：图片按次倍率基于 base 现算、不受高峰影响；token 倍率在 base 上叠加高峰因子。
-// gateway_service.recordUsageCore 与 openai_gateway_service.RecordUsage 共用此函数，
-// 锁死"高峰因子只乘入 token 倍率、图片按次倍率不受影响"这一叠加顺序——任何调换都会被 group_peak_rate_test 覆盖。
-func computePeakAwareMultipliers(apiKey *APIKey, base float64, now time.Time) (text, image float64) {
-	image = resolveImageRateMultiplier(apiKey, base)
-	peak := 1.0
-	if apiKey != nil && apiKey.Group != nil {
-		peak = apiKey.Group.PeakMultiplierAt(now)
-	}
-	text = base * peak
-	return
 }
 
 // validProfitControlRatio 判定 margin/buffer 是否为可落库的合法小数：[0,1) 且非 NaN/Inf。

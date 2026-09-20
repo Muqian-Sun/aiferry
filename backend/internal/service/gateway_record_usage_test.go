@@ -24,7 +24,7 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 		nil,
 		userRepo,
 		subRepo,
-		nil,
+
 		nil,
 		cfg,
 		nil,
@@ -103,7 +103,7 @@ func TestGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T) {
 			ID:    501,
 			Quota: 100,
 		},
-		User:          &User{ID: 601},
+		User:          &User{ID: 601, RateMultiplier: 1.1},
 		Account:       &Account{ID: 701},
 		APIKeyService: quotaSvc,
 	})
@@ -133,7 +133,7 @@ func TestGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(
 			Duration: time.Second,
 		},
 		APIKey:             &APIKey{ID: 501, Quota: 100},
-		User:               &User{ID: 601},
+		User:               &User{ID: 601, RateMultiplier: 1.1},
 		Account:            &Account{ID: 701},
 		RequestPayloadHash: payloadHash,
 	})
@@ -159,7 +159,7 @@ func TestGatewayServiceRecordUsage_BillingFingerprintFallsBackToContextRequestID
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 	})
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func TestGatewayServiceRecordUsage_PreservesRequestedAndUpstreamModels(t *testin
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 	})
 
@@ -215,7 +215,7 @@ func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *te
 					Duration:      time.Second,
 				},
 				APIKey:  &APIKey{ID: 501, GroupID: &group.ID, Group: group},
-				User:    &User{ID: 601},
+				User:    &User{ID: 601, RateMultiplier: 0.15},
 				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			})
 
@@ -242,7 +242,7 @@ func TestGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *testin
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			OriginalModel:      "gpt-5.6-sol",
@@ -271,7 +271,7 @@ func TestGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstreamModel
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 501, Quota: 100},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1.1},
 		Account: &Account{ID: 701},
 		ChannelUsageFields: ChannelUsageFields{
 			OriginalModel:      "gpt-5.6-sol",
@@ -310,7 +310,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 				ImagePrice2K:   &imagePrice2K,
 			},
 		},
-		User:    &User{ID: 601},
+		User:    &User{ID: 601, RateMultiplier: 1},
 		Account: &Account{ID: 701},
 	})
 
@@ -325,59 +325,6 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 	require.Equal(t, ImageSizeSourceDefault, *usageRepo.lastLog.ImageSizeSource)
 	require.InDelta(t, 0.19, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.19, usageRepo.lastLog.ActualCost, 1e-12)
-}
-
-func TestGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *testing.T) {
-	groupID := int64(902)
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gemini-image")
-
-	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-		Result: &ForwardResult{
-			RequestID:  "gateway_peak_image_tokens",
-			Model:      "gemini-image",
-			ImageCount: 1,
-			Usage: ClaudeUsage{
-				InputTokens:       1000,
-				OutputTokens:      600,
-				ImageOutputTokens: 100,
-			},
-			Duration: time.Second,
-		},
-		APIKey: &APIKey{
-			ID:      802,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:                 groupID,
-				RateMultiplier:     1.0,
-				SubscriptionType:   SubscriptionTypeSubscription,
-				PeakRateEnabled:    true,
-				PeakStart:          "00:00",
-				PeakEnd:            "23:59",
-				PeakRateMultiplier: 3.0,
-			},
-		},
-		User:    &User{ID: 602},
-		Account: &Account{ID: 702},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.NotNil(t, usageRepo.lastLog.BillingMode)
-	require.Equal(t, string(BillingModeToken), *usageRepo.lastLog.BillingMode)
-	require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
-
-	textInput := 1000 * 3e-6
-	textOutput := 500 * 15e-6
-	imageOutput := 100 * 15e-6
-	expectedActual := (textInput + textOutput + imageOutput) * 3.0
-
-	require.InDelta(t, textInput+textOutput+imageOutput, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, imageOutput, usageRepo.lastLog.ImageOutputCost, 1e-12)
-	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
 }
 
 func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
@@ -400,7 +347,7 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 		APIKey: &APIKey{ID: 804, GroupID: i64p(groupID), Group: &Group{
 			ID: groupID, RateMultiplier: 0.8, SubscriptionType: SubscriptionTypeSubscription,
 		}},
-		User:      &User{ID: 604},
+		User:      &User{ID: 604, RateMultiplier: 0.8},
 		Account:   &Account{ID: 704},
 		PricingAt: requestStart,
 	})
@@ -412,53 +359,6 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 	require.InDelta(t, baseCost*2*0.8, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, 0.8, usageRepo.lastLog.RateMultiplier, 1e-12)
 }
-func TestGatewayServiceRecordUsage_UsesExplicitPricingAtForPeakRate(t *testing.T) {
-	for _, platform := range []string{PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity} {
-		t.Run(platform, func(t *testing.T) {
-			groupID := int64(903)
-			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-			userRepo := &openAIRecordUsageUserRepoStub{}
-			svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-			svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gemini-image")
-
-			pricingAt := time.Date(2026, time.January, 1, 0, 30, 0, 0, time.UTC)
-			err := svc.RecordUsage(context.Background(), &RecordUsageInput{
-				Result: &ForwardResult{
-					RequestID:  "gateway_explicit_pricing_at_" + platform,
-					Model:      "gemini-image",
-					ImageCount: 1,
-					Usage: ClaudeUsage{
-						InputTokens:       1000,
-						OutputTokens:      600,
-						ImageOutputTokens: 100,
-					},
-				},
-				APIKey: &APIKey{
-					ID:      803,
-					GroupID: i64p(groupID),
-					Group: &Group{
-						ID:                 groupID,
-						Platform:           platform,
-						RateMultiplier:     1.0,
-						SubscriptionType:   SubscriptionTypeSubscription,
-						PeakRateEnabled:    true,
-						PeakStart:          "00:00",
-						PeakEnd:            "01:00",
-						PeakRateMultiplier: 3.0,
-					},
-				},
-				User:      &User{ID: 603},
-				Account:   &Account{ID: 703, Platform: platform},
-				PricingAt: pricingAt,
-			})
-
-			require.NoError(t, err)
-			require.NotNil(t, usageRepo.lastLog)
-			require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
-		})
-	}
-}
-
 func TestGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUpstreamModel(t *testing.T) {
 	for _, model := range []struct {
 		name        string
@@ -496,7 +396,7 @@ func TestGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUp
 						Usage: ClaudeUsage{InputTokens: 1000, OutputTokens: 500, CacheReadInputTokens: 1000},
 					},
 					APIKey: &APIKey{ID: 805, GroupID: &groupID, Group: group},
-					User:   &User{ID: 605}, Account: &Account{ID: 705, Platform: PlatformDeepseek},
+					User:   &User{ID: 605, RateMultiplier: 0.8}, Account: &Account{ID: 705, Platform: PlatformDeepseek},
 					PricingAt:          slot.pricingAt,
 					ChannelUsageFields: ChannelUsageFields{OriginalModel: alias, BillingModelSource: BillingModelSourceRequested},
 				})
@@ -542,7 +442,7 @@ func TestGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t *testi
 			ID:    503,
 			Quota: 100,
 		},
-		User:          &User{ID: 603},
+		User:          &User{ID: 603, RateMultiplier: 1.1},
 		Account:       &Account{ID: 703},
 		APIKeyService: quotaSvc,
 	})
@@ -571,7 +471,7 @@ func TestGatewayServiceRecordUsage_UsesFallbackRequestIDForUsageLog(t *testing.T
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 504},
-		User:    &User{ID: 604},
+		User:    &User{ID: 604, RateMultiplier: 1.1},
 		Account: &Account{ID: 704},
 	})
 
@@ -598,7 +498,7 @@ func TestGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamRequestID(t
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 506},
-		User:    &User{ID: 606},
+		User:    &User{ID: 606, RateMultiplier: 1.1},
 		Account: &Account{ID: 706},
 	})
 
@@ -625,7 +525,7 @@ func TestGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing(t *te
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 507},
-		User:    &User{ID: 607},
+		User:    &User{ID: 607, RateMultiplier: 1.1},
 		Account: &Account{ID: 707},
 	})
 
@@ -656,7 +556,7 @@ func TestGatewayServiceRecordUsage_DroppedUsageLogFallsBackToSyncCreate(t *testi
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 508},
-		User:    &User{ID: 608},
+		User:    &User{ID: 608, RateMultiplier: 1.1},
 		Account: &Account{ID: 708},
 	})
 
@@ -686,7 +586,7 @@ func TestGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 505},
-		User:    &User{ID: 605},
+		User:    &User{ID: 605, RateMultiplier: 1.1},
 		Account: &Account{ID: 705},
 	})
 
@@ -719,7 +619,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortPersisted(t *testing.T) {
 			ReasoningEffort: &effort,
 		},
 		APIKey:  &APIKey{ID: 1},
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1.1},
 		Account: &Account{ID: 1},
 	})
 
@@ -744,7 +644,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1},
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1.1},
 		Account: &Account{ID: 1},
 	})
 
@@ -778,7 +678,7 @@ func TestGatewayServiceRecordUsage_FastSpeedDowngradedByUpstreamResponse(t *test
 			UpstreamResponseServiceTier: "standard",
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1.1},
 		Account: &Account{ID: 1, Platform: PlatformAnthropic},
 	})
 
@@ -811,7 +711,7 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredKeepsPremium(t *testing.T) {
 			UpstreamResponseServiceTier: "fast",
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1.1},
 		Account: &Account{ID: 1, Platform: PlatformAnthropic},
 	})
 

@@ -43,10 +43,6 @@ type BatchImageGroupPricingRepository interface {
 	GetByIDLite(ctx context.Context, id int64) (*Group, error)
 }
 
-type BatchImageUserGroupRateRepository interface {
-	GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error)
-}
-
 type BatchImageSubmitRequest struct {
 	Model            string                 `json:"model"`
 	TaskName         string                 `json:"task_name"`
@@ -79,19 +75,20 @@ type BatchImageOwner struct {
 	UserID   int64
 	APIKeyID int64
 	GroupID  *int64
+	// RateMultiplier 用户级计费倍率（用户价 = 目录价 × 它）。
+	RateMultiplier float64
 }
 
 type BatchImagePublicService struct {
-	Repo              BatchImageRepository
-	AccountRepo       BatchImageAccountSelectionRepository
-	GroupRepo         BatchImageGroupPricingRepository
-	UserGroupRateRepo BatchImageUserGroupRateRepository
-	Queue             BatchImageQueue
-	ProviderRegistry  *BatchImageProviderRegistry
-	Pricing           BatchImagePricingResolver
-	BillingRepo       UsageBillingRepository
-	AuthCache         APIKeyAuthCacheInvalidator
-	Config            *config.Config
+	Repo             BatchImageRepository
+	AccountRepo      BatchImageAccountSelectionRepository
+	GroupRepo        BatchImageGroupPricingRepository
+	Queue            BatchImageQueue
+	ProviderRegistry *BatchImageProviderRegistry
+	Pricing          BatchImagePricingResolver
+	BillingRepo      UsageBillingRepository
+	AuthCache        APIKeyAuthCacheInvalidator
+	Config           *config.Config
 }
 
 type BatchImagePricingSnapshot struct {
@@ -182,18 +179,17 @@ type BatchImageItemsQuery struct {
 	Cursor string
 }
 
-func NewBatchImagePublicService(repo BatchImageRepository, accountRepo AccountRepository, groupRepo GroupRepository, userGroupRateRepo UserGroupRateRepository, queue BatchImageQueue, pricing *BatchImageModelPricingResolver, billingRepo UsageBillingRepository, authCache APIKeyAuthCacheInvalidator, cfg *config.Config) *BatchImagePublicService {
+func NewBatchImagePublicService(repo BatchImageRepository, accountRepo AccountRepository, groupRepo GroupRepository, queue BatchImageQueue, pricing *BatchImageModelPricingResolver, billingRepo UsageBillingRepository, authCache APIKeyAuthCacheInvalidator, cfg *config.Config) *BatchImagePublicService {
 	return &BatchImagePublicService{
-		Repo:              repo,
-		AccountRepo:       accountRepo,
-		GroupRepo:         groupRepo,
-		UserGroupRateRepo: userGroupRateRepo,
-		Queue:             queue,
-		ProviderRegistry:  NewBatchImageProviderRegistryFromConfig(cfg),
-		Pricing:           pricing,
-		BillingRepo:       billingRepo,
-		AuthCache:         authCache,
-		Config:            cfg,
+		Repo:             repo,
+		AccountRepo:      accountRepo,
+		GroupRepo:        groupRepo,
+		Queue:            queue,
+		ProviderRegistry: NewBatchImageProviderRegistryFromConfig(cfg),
+		Pricing:          pricing,
+		BillingRepo:      billingRepo,
+		AuthCache:        authCache,
+		Config:           cfg,
 	}
 }
 
@@ -1001,7 +997,11 @@ func (s *BatchImagePublicService) ensureGroupAllowsBatchImage(ctx context.Contex
 
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
 	unit := -1.0
-	groupMultiplier := 1.0
+	// 用户价 = 目录价 × 用户倍率；分组的图片单价 / 批量折扣留到 PR-5 挪进目录。
+	groupMultiplier := owner.RateMultiplier
+	if groupMultiplier < 0 {
+		groupMultiplier = 0
+	}
 	discountMultiplier := defaultBatchImageDiscountMultiplier
 	holdMultiplier := defaultBatchImageHoldMultiplier
 	if owner.GroupID != nil && *owner.GroupID > 0 {
@@ -1014,27 +1014,6 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 		}
 		if !group.AllowBatchImageGeneration {
 			return nil, ErrBatchImageGroupDisabled
-		}
-		groupDefaultMultiplier := group.RateMultiplier
-		if groupDefaultMultiplier < 0 {
-			groupDefaultMultiplier = 0
-		}
-		effectiveGroupMultiplier := groupDefaultMultiplier
-		if s.UserGroupRateRepo != nil {
-			userRate, rateErr := s.UserGroupRateRepo.GetByUserAndGroup(ctx, owner.UserID, group.ID)
-			if rateErr != nil {
-				return nil, ErrBatchImageSettlementPricingMissing
-			}
-			if userRate != nil {
-				effectiveGroupMultiplier = *userRate
-			}
-		}
-		groupMultiplier = effectiveGroupMultiplier
-		if group.ImageRateIndependent {
-			groupMultiplier = group.ImageRateMultiplier
-		}
-		if groupMultiplier < 0 {
-			groupMultiplier = 0
 		}
 		discountMultiplier = group.BatchImageDiscountMultiplier
 		if discountMultiplier < 0 {

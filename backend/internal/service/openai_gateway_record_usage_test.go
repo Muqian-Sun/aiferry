@@ -79,7 +79,7 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
 	// 与 WS cyber / 正常请求口径一致（不再是 tokens=0 免费行）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:       &APIKey{ID: 2, User: &User{ID: 1}},
+		APIKey:       &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: 1.1}},
 		Account:      &Account{ID: 3},
 		RequestID:    "rid-cyber-stream",
 		Model:        "gpt-5.1",
@@ -111,7 +111,7 @@ func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
 
 	// 非流式直接拒：上游未报 token，mark token 为 0 → cost 自然为 0，仍写一条 cyber 行（可见）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
-		APIKey:    &APIKey{ID: 2, User: &User{ID: 1}},
+		APIKey:    &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: 1.1}},
 		Account:   &Account{ID: 3},
 		RequestID: "rid-cyber-400",
 		Model:     "gpt-5.1",
@@ -131,10 +131,10 @@ func TestRecordCyberPolicyUsageLog_SkipsWhenIncomplete(t *testing.T) {
 	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
 
 	acct := &Account{ID: 3}
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                              // APIKey nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"})      // User nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Model: "gpt-5"}) // Account nil
-	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1}}, Account: acct})  // Model 空
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                                                   // APIKey nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2}, Account: acct, Model: "gpt-5"})                           // User nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: 1.1}}, Model: "gpt-5"}) // Account nil
+	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{APIKey: &APIKey{ID: 2, User: &User{ID: 1, RateMultiplier: 1.1}}, Account: acct})  // Model 空
 	require.Equal(t, 0, usageRepo.calls, "APIKey/User/Account 缺失或 Model 空时跳过，不记不扣费")
 }
 
@@ -228,7 +228,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		userRepo,
 		subRepo,
-		rateRepo,
+
 		nil,
 		cfg,
 		nil,
@@ -243,15 +243,8 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil,
 		nil,
-		nil,
-	)
-	svc.userGroupRateResolver = newUserGroupRateResolver(
-		rateRepo,
-		nil,
-		resolveUserGroupRateCacheTTL(cfg),
-		nil,
-		"service.openai_gateway.test",
-	)
+		nil)
+
 	return svc
 }
 
@@ -308,7 +301,7 @@ func TestOpenAIGatewayServiceRecordUsage_ZeroUsageStillWritesUsageLog(t *testing
 			Duration:  time.Second,
 		},
 		APIKey:        &APIKey{ID: 1000, Quota: 100, Group: &Group{RateMultiplier: 1}},
-		User:          &User{ID: 2000},
+		User:          &User{ID: 2000, RateMultiplier: 1},
 		Account:       &Account{ID: 3000, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
 	})
@@ -361,7 +354,7 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 			Duration: time.Second,
 		},
 		APIKey:        &APIKey{ID: 1002, Quota: 100, Group: &Group{RateMultiplier: 1}},
-		User:          &User{ID: 2002},
+		User:          &User{ID: 2002, RateMultiplier: 1},
 		Account:       &Account{ID: 3002, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
 	})
@@ -393,21 +386,20 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 	require.Zero(t, billingRepo.lastCmd.AccountQuotaCost)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T) {
+// 用户价 = 目录价 × users.rate_multiplier；分组倍率不再参与。
+func TestOpenAIGatewayServiceRecordUsage_UsesUserRateMultiplier(t *testing.T) {
 	groupID := int64(11)
-	groupRate := 1.4
 	userRate := 1.8
 	usage := OpenAIUsage{InputTokens: 15, OutputTokens: 4, CacheReadInputTokens: 3}
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	rateRepo := &openAIUserGroupRateRepoStub{rate: &userRate}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
-			RequestID: "resp_user_group_rate",
+			RequestID: "resp_user_rate",
 			Usage:     usage,
 			Model:     "gpt-5.1",
 			Duration:  time.Second,
@@ -417,15 +409,14 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T)
 			GroupID: i64p(groupID),
 			Group: &Group{
 				ID:             groupID,
-				RateMultiplier: groupRate,
+				RateMultiplier: 9, // 分组倍率已无效
 			},
 		},
-		User:    &User{ID: 2001},
+		User:    &User{ID: 2001, RateMultiplier: userRate},
 		Account: &Account{ID: 3001},
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
 	require.NotNil(t, usageRepo.lastLog)
 	require.Equal(t, userRate, usageRepo.lastLog.RateMultiplier)
 	require.Equal(t, 12, usageRepo.lastLog.InputTokens)
@@ -435,204 +426,6 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserSpecificGroupRate(t *testing.T)
 	require.InDelta(t, expected.ActualCost, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
 	require.Equal(t, 1, userRepo.deductCalls)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_PeakRateAffectsTokenModeImageOutputTokens(t *testing.T) {
-	groupID := int64(14)
-	groupRate := 1.0
-	usage := OpenAIUsage{
-		InputTokens:       1000,
-		OutputTokens:      600,
-		ImageOutputTokens: 100,
-	}
-
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
-	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "gpt-5.1")
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID:  "resp_peak_image_tokens",
-			Usage:      usage,
-			Model:      "gpt-5.1",
-			Duration:   time.Second,
-			ImageCount: 1,
-		},
-		APIKey: &APIKey{
-			ID:      1004,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:                 groupID,
-				RateMultiplier:     groupRate,
-				SubscriptionType:   "subscription",
-				PeakRateEnabled:    true,
-				PeakStart:          "00:00",
-				PeakEnd:            "23:59",
-				PeakRateMultiplier: 3.0,
-			},
-		},
-		User:    &User{ID: 2004},
-		Account: &Account{ID: 3004},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, 3.0, usageRepo.lastLog.RateMultiplier)
-	require.Equal(t, usage.ImageOutputTokens, usageRepo.lastLog.ImageOutputTokens)
-
-	expected, err := svc.billingService.CalculateCostUnified(CostInput{
-		Ctx:   context.Background(),
-		Model: "gpt-5.1",
-		Tokens: UsageTokens{
-			InputTokens:       usage.InputTokens,
-			OutputTokens:      usage.OutputTokens,
-			ImageOutputTokens: usage.ImageOutputTokens,
-		},
-		RateMultiplier: 1.0,
-		Resolver:       svc.resolver,
-	})
-	require.NoError(t, err)
-	expectedActual := expected.TotalCost * 3.0
-
-	require.InDelta(t, expected.TotalCost, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, expected.ImageOutputCost, usageRepo.lastLog.ImageOutputCost, 1e-12)
-	require.InDelta(t, expectedActual, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, expectedActual, userRepo.lastAmount, 1e-12)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
-	groupID := int64(16)
-	requestStart := time.Date(2024, time.January, 2, 2, 0, 0, 0, time.UTC) // 上海 10:00
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
-	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, groupID, "gpt-5.1", &ChannelTimePricing{
-		Timezone: "Asia/Shanghai",
-		Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}},
-	})
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "openai_time_pricing_request_start",
-			Model:     "gpt-5.1",
-			Usage:     OpenAIUsage{InputTokens: 1000, OutputTokens: 500},
-		},
-		APIKey: &APIKey{ID: 1006, GroupID: i64p(groupID), Group: &Group{
-			ID: groupID, RateMultiplier: 0.8, SubscriptionType: SubscriptionTypeSubscription,
-		}},
-		User:      &User{ID: 2006},
-		Account:   &Account{ID: 3006},
-		PricingAt: requestStart,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	baseCost := 1000*3e-6 + 500*15e-6
-	require.InDelta(t, baseCost*2, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, baseCost*2*0.8, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.8, usageRepo.lastLog.RateMultiplier, 1e-12)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_TimePricingUsesExplicitPricingAt(t *testing.T) {
-	groupID := int64(17)
-	pricingAt := time.Date(2024, time.January, 2, 0, 0, 0, 0, time.UTC) // 上海 08:00
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
-	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, groupID, "gpt-5.1", &ChannelTimePricing{
-		Timezone: "Asia/Shanghai",
-		Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}},
-	})
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "openai_time_pricing_explicit",
-			Model:     "gpt-5.1",
-			Usage:     OpenAIUsage{InputTokens: 1000, OutputTokens: 500},
-		},
-		APIKey: &APIKey{ID: 1007, GroupID: i64p(groupID), Group: &Group{
-			ID: groupID, RateMultiplier: 0.8, SubscriptionType: SubscriptionTypeSubscription,
-		}},
-		User:      &User{ID: 2007},
-		Account:   &Account{ID: 3007},
-		PricingAt: pricingAt,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	baseCost := 1000*3e-6 + 500*15e-6
-	require.InDelta(t, baseCost, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, baseCost*0.8, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 0.8, usageRepo.lastLog.RateMultiplier, 1e-12)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUpstreamModel(t *testing.T) {
-	for _, model := range []struct {
-		name        string
-		offPeakCost float64
-	}{
-		{"deepseek-v4-flash", 1000*1.5e-7 + 500*6e-7 + 1000*3e-9},
-		{"deepseek-v4-pro", 1000*6.6e-7 + 500*1.98e-6 + 1000*2.2e-8},
-	} {
-		for _, slot := range []struct {
-			name       string
-			pricingAt  time.Time
-			multiplier float64
-		}{
-			{"peak", time.Date(2026, time.August, 24, 2, 0, 0, 0, time.UTC), 2},
-			{"off_peak", time.Date(2026, time.August, 24, 12, 0, 0, 0, time.UTC), 1},
-		} {
-			t.Run(model.name+"/"+slot.name, func(t *testing.T) {
-				usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-				userRepo := &openAIRecordUsageUserRepoStub{}
-				svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
-				groupID := int64(18)
-				cache := newEmptyChannelCache()
-				cache.channelByGroupID[groupID] = &Channel{ID: 1, Status: StatusActive}
-				cache.groupPlatform[groupID] = PlatformDeepseek
-				cache.loadedAt = time.Now()
-				svc.channelService = &ChannelService{}
-				svc.channelService.cache.Store(cache)
-				alias := "customer-chat"
-				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
-				// 运营者价来自管理员写的目录条目（别名即条目 model_id）
-				svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
-					Models: []string{alias}, BillingMode: BillingModeToken,
-					InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
-				})
-				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8}
-				err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-					Result: &OpenAIForwardResult{
-						RequestID: "openai_deepseek_account_stats_" + model.name + "_" + slot.name,
-						Model:     alias, BillingModel: alias, UpstreamModel: model.name,
-						Usage: OpenAIUsage{InputTokens: 2000, OutputTokens: 500, CacheReadInputTokens: 1000},
-					},
-					APIKey: &APIKey{ID: 1008, GroupID: &groupID, Group: group},
-					User:   &User{ID: 2008}, Account: &Account{ID: 3008, Platform: PlatformDeepseek},
-					PricingAt:          slot.pricingAt,
-					ChannelUsageFields: ChannelUsageFields{OriginalModel: alias, BillingModelSource: BillingModelSourceRequested},
-				})
-				require.NoError(t, err)
-				require.NotNil(t, usageRepo.lastLog)
-				log := usageRepo.lastLog
-				require.Equal(t, alias, log.RequestedModel)
-				require.NotNil(t, log.UpstreamModel)
-				require.Equal(t, model.name, *log.UpstreamModel)
-				require.WithinDuration(t, time.Now(), log.CreatedAt, time.Minute)
-				require.False(t, log.CreatedAt.Equal(slot.pricingAt), "request pricing time must differ from record creation")
-				customerTotal := 1000*inputPrice + 500*outputPrice + 1000*cachePrice
-				require.InDelta(t, customerTotal, log.TotalCost, 1e-12)
-				require.InDelta(t, customerTotal*0.8, log.ActualCost, 1e-12)
-				require.Equal(t, 1, userRepo.deductCalls)
-				require.InDelta(t, customerTotal*0.8, userRepo.lastAmount, 1e-12)
-				require.NotNil(t, log.AccountStatsCost)
-				require.InDelta(t, model.offPeakCost*slot.multiplier, *log.AccountStatsCost, 1e-12,
-					"account cost must use the upstream model and historical PricingAt")
-			})
-		}
-	}
 }
 
 func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) {
@@ -656,7 +449,7 @@ func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) 
 			ID:    1002,
 			Group: &Group{RateMultiplier: 1},
 		},
-		User:             &User{ID: 2002},
+		User:             &User{ID: 2002, RateMultiplier: 1},
 		Account:          &Account{ID: 3002},
 		InboundEndpoint:  " /v1/chat/completions ",
 		UpstreamEndpoint: " /v1/responses ",
@@ -668,80 +461,6 @@ func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) 
 	require.Equal(t, "/v1/chat/completions", *usageRepo.lastLog.InboundEndpoint)
 	require.NotNil(t, usageRepo.lastLog.UpstreamEndpoint)
 	require.Equal(t, "/v1/responses", *usageRepo.lastLog.UpstreamEndpoint)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_FallsBackToGroupDefaultRateOnResolverError(t *testing.T) {
-	groupID := int64(12)
-	groupRate := 1.6
-	usage := OpenAIUsage{InputTokens: 10, OutputTokens: 5, CacheReadInputTokens: 2}
-
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	rateRepo := &openAIUserGroupRateRepoStub{err: errors.New("db unavailable")}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "resp_group_default_on_error",
-			Usage:     usage,
-			Model:     "gpt-5.1",
-			Duration:  time.Second,
-		},
-		APIKey: &APIKey{
-			ID:      1002,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: groupRate,
-			},
-		},
-		User:    &User{ID: 2002},
-		Account: &Account{ID: 3002},
-	})
-
-	require.NoError(t, err)
-	require.Equal(t, 1, rateRepo.calls)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, groupRate, usageRepo.lastLog.RateMultiplier)
-
-	expected := expectedOpenAICost(t, svc, "gpt-5.1", usage, groupRate)
-	require.InDelta(t, expected.ActualCost, userRepo.lastAmount, 1e-12)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_FallsBackToGroupDefaultRateWhenResolverMissing(t *testing.T) {
-	groupID := int64(13)
-	groupRate := 1.25
-	usage := OpenAIUsage{InputTokens: 9, OutputTokens: 4, CacheReadInputTokens: 1}
-
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
-	svc.userGroupRateResolver = nil
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "resp_group_default_nil_resolver",
-			Usage:     usage,
-			Model:     "gpt-5.1",
-			Duration:  time.Second,
-		},
-		APIKey: &APIKey{
-			ID:      1003,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: groupRate,
-			},
-		},
-		User:    &User{ID: 2003},
-		Account: &Account{ID: 3003},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.Equal(t, groupRate, usageRepo.lastLog.RateMultiplier)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_DuplicateUsageLogSkipsBilling(t *testing.T) {
@@ -762,7 +481,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateUsageLogSkipsBilling(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1004},
-		User:    &User{ID: 2004},
+		User:    &User{ID: 2004, RateMultiplier: 1.1},
 		Account: &Account{ID: 3004},
 	})
 
@@ -795,7 +514,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateBillingKeySkipsBillingWithRepo
 			ID:    10045,
 			Quota: 100,
 		},
-		User:          &User{ID: 20045},
+		User:          &User{ID: 20045, RateMultiplier: 1.1},
 		Account:       &Account{ID: 30045},
 		APIKeyService: quotaSvc,
 	})
@@ -823,7 +542,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsWhenUsageLogCreateReturnsError(t *
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 10041},
-		User:    &User{ID: 20041},
+		User:    &User{ID: 20041, RateMultiplier: 1.1},
 		Account: &Account{ID: 30041},
 	})
 
@@ -854,7 +573,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t 
 			ID:    10043,
 			Quota: 100,
 		},
-		User:          &User{ID: 20043},
+		User:          &User{ID: 20043, RateMultiplier: 1.1},
 		Account:       &Account{ID: 30043},
 		APIKeyService: quotaSvc,
 	})
@@ -888,7 +607,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T
 			ID:    10042,
 			Quota: 100,
 		},
-		User:          &User{ID: 20042},
+		User:          &User{ID: 20042, RateMultiplier: 1.1},
 		Account:       &Account{ID: 30042},
 		APIKeyService: quotaSvc,
 	})
@@ -921,7 +640,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingRepoUsesDetachedContext(t *testi
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10046},
-		User:    &User{ID: 20046},
+		User:    &User{ID: 20046, RateMultiplier: 1.1},
 		Account: &Account{ID: 30046},
 	})
 
@@ -949,7 +668,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloa
 			Duration: time.Second,
 		},
 		APIKey:             &APIKey{ID: 501, Quota: 100},
-		User:               &User{ID: 601},
+		User:               &User{ID: 601, RateMultiplier: 1.1},
 		Account:            &Account{ID: 701},
 		RequestPayloadHash: payloadHash,
 	})
@@ -977,7 +696,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesFallbackRequestIDForBillingAndUsage
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10047},
-		User:    &User{ID: 20047},
+		User:    &User{ID: 20047, RateMultiplier: 1.1},
 		Account: &Account{ID: 30047},
 	})
 
@@ -1007,7 +726,7 @@ func TestOpenAIGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamReque
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10049},
-		User:    &User{ID: 20049},
+		User:    &User{ID: 20049, RateMultiplier: 1.1},
 		Account: &Account{ID: 30049},
 	})
 
@@ -1038,7 +757,7 @@ func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClien
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10050},
-		User:    &User{ID: 20050},
+		User:    &User{ID: 20050, RateMultiplier: 1.1},
 		Account: &Account{ID: 30050},
 	})
 
@@ -1067,7 +786,7 @@ func TestOpenAIGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10050},
-		User:    &User{ID: 20050},
+		User:    &User{ID: 20050, RateMultiplier: 1.1},
 		Account: &Account{ID: 30050},
 	})
 
@@ -1097,7 +816,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10048},
-		User:    &User{ID: 20048},
+		User:    &User{ID: 20048, RateMultiplier: 1.1},
 		Account: &Account{ID: 30048},
 	})
 
@@ -1132,7 +851,7 @@ func TestOpenAIGatewayServiceRecordUsage_UpdatesAPIKeyQuotaWhenConfigured(t *tes
 			ID:    1005,
 			Quota: 100,
 		},
-		User:          &User{ID: 2005},
+		User:          &User{ID: 2005, RateMultiplier: 1.1},
 		Account:       &Account{ID: 3005},
 		APIKeyService: quotaSvc,
 	})
@@ -1162,7 +881,7 @@ func TestOpenAIGatewayServiceRecordUsage_ClampsActualInputTokensToZero(t *testin
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1006},
-		User:    &User{ID: 2006},
+		User:    &User{ID: 2006, RateMultiplier: 1.1},
 		Account: &Account{ID: 3006},
 	})
 
@@ -1197,7 +916,7 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 1056},
-		User:    &User{ID: 2056},
+		User:    &User{ID: 2056, RateMultiplier: 1.1},
 		Account: &Account{ID: 3056},
 	})
 
@@ -1231,7 +950,7 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingDisabledWhenGrou
 			Duration: time.Second,
 		},
 		APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1014, false),
-		User:    &User{ID: 2014},
+		User:    &User{ID: 2014, RateMultiplier: 1.1},
 		Account: &Account{ID: 3014, Platform: PlatformOpenAI},
 	})
 
@@ -1275,7 +994,7 @@ func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingEnabledPerAccoun
 			Duration: time.Second,
 		},
 		APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1015, true),
-		User:   &User{ID: 2015},
+		User:   &User{ID: 2015, RateMultiplier: 1.1},
 		Account: &Account{
 			ID:       3015,
 			Platform: PlatformOpenAI,
@@ -1307,7 +1026,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupOrAccountLongContextAllows(t *test
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result:  &OpenAIForwardResult{RequestID: "resp_and_off", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
 			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1020, true),
-			User:    &User{ID: 2020},
+			User:    &User{ID: 2020, RateMultiplier: 1.1},
 			Account: &Account{ID: 3020, Platform: PlatformOpenAI},
 		})
 		require.NoError(t, err)
@@ -1323,7 +1042,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupOrAccountLongContextAllows(t *test
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result: &OpenAIForwardResult{RequestID: "resp_and_group_off", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
 			APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1021, false),
-			User:   &User{ID: 2021},
+			User:   &User{ID: 2021, RateMultiplier: 1.1},
 			Account: &Account{
 				ID: 3021, Platform: PlatformOpenAI,
 				Extra: map[string]any{"openai_long_context_billing_enabled": true},
@@ -1342,7 +1061,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupOrAccountLongContextAllows(t *test
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result: &OpenAIForwardResult{RequestID: "resp_and_on", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
 			APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1022, true),
-			User:   &User{ID: 2022},
+			User:   &User{ID: 2022, RateMultiplier: 1.1},
 			Account: &Account{
 				ID: 3022, Platform: PlatformOpenAI,
 				Extra: map[string]any{"openai_long_context_billing_enabled": true},
@@ -1372,7 +1091,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *t
 			Duration:  time.Second,
 		},
 		APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1031, false),
-		User:    &User{ID: 2031},
+		User:    &User{ID: 2031, RateMultiplier: 1.1},
 		Account: &Account{ID: 3031, Platform: PlatformGrok, Type: AccountTypeOAuth},
 	})
 	require.NoError(t, err)
@@ -1398,7 +1117,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *t
 			Duration:    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1015},
-		User:    &User{ID: 2015},
+		User:    &User{ID: 2015, RateMultiplier: 1.1},
 		Account: &Account{ID: 3015},
 	})
 
@@ -1429,7 +1148,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierFlexHalvesCost(t *testing.T)
 			Duration:    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1016},
-		User:    &User{ID: 2016},
+		User:    &User{ID: 2016, RateMultiplier: 1.1},
 		Account: &Account{ID: 3016},
 	})
 
@@ -1510,7 +1229,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesRequestedModelAndUpstreamModelMetad
 			FirstTokenMs: func() *int { v := 120; return &v }(),
 		},
 		APIKey:    &APIKey{ID: 10, GroupID: i64p(11), Group: &Group{ID: 11, RateMultiplier: 1.2}},
-		User:      &User{ID: 20},
+		User:      &User{ID: 20, RateMultiplier: 1.2},
 		Account:   &Account{ID: 30},
 		UserAgent: "codex-cli/1.0",
 		IPAddress: "127.0.0.1",
@@ -1558,7 +1277,7 @@ func TestOpenAIGatewayServiceRecordUsage_PersistsRequestedReasoningEffort(t *tes
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 	})
 
@@ -1588,7 +1307,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *
 			Duration: time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			OriginalModel:      "gpt-5.6-sol",
@@ -1619,7 +1338,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstrea
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			OriginalModel:      "gpt-5.6-sol",
@@ -1659,7 +1378,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsMappedRequestsUsingRequestedModel(
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 	})
 
@@ -1696,7 +1415,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelMappedDoesNotOverrideBillingMode
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          1,
@@ -1737,7 +1456,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelMappedOverridesBillingModelWhenM
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 		ChannelUsageFields: ChannelUsageFields{
 			ChannelID:          1,
@@ -1794,7 +1513,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponsesMappedBillingModelHonorsBillin
 					Duration:      time.Second,
 				},
 				APIKey:  &APIKey{ID: 10},
-				User:    &User{ID: 20},
+				User:    &User{ID: 20, RateMultiplier: 1.1},
 				Account: &Account{ID: 30},
 				ChannelUsageFields: ChannelUsageFields{
 					OriginalModel:      "gpt-5.4",
@@ -1835,7 +1554,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsCompactOpenAIModelAlias(t *testing
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 	})
 
@@ -1872,7 +1591,7 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToUpstreamModelWhenPrimaryUnpr
 			Duration:      time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 	})
 
@@ -1897,7 +1616,7 @@ func TestOpenAIGatewayServiceRecordUsage_UnpricedTokenModelFallsBackToZeroCostUs
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 10},
-		User:    &User{ID: 20},
+		User:    &User{ID: 20, RateMultiplier: 1.1},
 		Account: &Account{ID: 30},
 	})
 
@@ -1928,7 +1647,7 @@ func TestOpenAIGatewayServiceRecordUsage_SubscriptionBillingSetsSubscriptionFiel
 			Duration:  time.Second,
 		},
 		APIKey:       &APIKey{ID: 100, GroupID: i64p(88), Group: &Group{ID: 88, SubscriptionType: SubscriptionTypeSubscription, RateMultiplier: 1.0}},
-		User:         &User{ID: 200},
+		User:         &User{ID: 200, RateMultiplier: 1},
 		Account:      &Account{ID: 300},
 		Subscription: subscription,
 	})
@@ -1957,7 +1676,7 @@ func TestOpenAIGatewayServiceRecordUsage_SimpleModeSkipsBillingAfterPersist(t *t
 			Duration:  time.Second,
 		},
 		APIKey:  &APIKey{ID: 1000},
-		User:    &User{ID: 2000},
+		User:    &User{ID: 2000, RateMultiplier: 1.1},
 		Account: &Account{ID: 3000},
 	})
 
@@ -1982,7 +1701,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 			Duration:   time.Second,
 		},
 		APIKey:  &APIKey{ID: 1007},
-		User:    &User{ID: 2007},
+		User:    &User{ID: 2007, RateMultiplier: 1.1},
 		Account: &Account{ID: 3007},
 	})
 
@@ -2018,7 +1737,7 @@ func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndP
 				ImagePrice2K:   &imagePrice2K,
 			},
 		},
-		User:    &User{ID: 21201},
+		User:    &User{ID: 21201, RateMultiplier: 1},
 		Account: &Account{ID: 31201},
 	})
 
@@ -2066,7 +1785,7 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 				ImagePrice4K:   &imagePrice4K,
 			},
 		},
-		User:    &User{ID: 21202},
+		User:    &User{ID: 21202, RateMultiplier: 1},
 		Account: &Account{ID: 31202},
 	})
 
@@ -2116,7 +1835,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTo
 				ImagePrice1K:   &imagePrice,
 			},
 		},
-		User:    &User{ID: 2008},
+		User:    &User{ID: 2008, RateMultiplier: 1},
 		Account: &Account{ID: 3008},
 	})
 
@@ -2158,7 +1877,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 				ImagePrice1K:         &imagePrice,
 			},
 		},
-		User:    &User{ID: 20121},
+		User:    &User{ID: 20121, RateMultiplier: 0.15},
 		Account: &Account{ID: 30121},
 	})
 
@@ -2171,9 +1890,9 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierUsesUserGroupOverride(t *testing.T) {
+// 图片按次倍率就是用户倍率：分组倍率 / 图片独立倍率都不参与。
+func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.T) {
 	imagePrice := 0.5
-	userRate := 0.2
 	groupID := int64(125)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
@@ -2181,12 +1900,12 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierUsesUserGroupOverr
 		usageRepo,
 		&openAIRecordUsageUserRepoStub{},
 		&openAIRecordUsageSubRepoStub{},
-		&openAIUserGroupRateRepoStub{rate: &userRate},
+		nil,
 	)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
-			RequestID:  "resp_image_user_group_override",
+			RequestID:  "resp_image_user_rate",
 			Model:      "gpt-image-2",
 			ImageCount: 1,
 			ImageSize:  "1K",
@@ -2198,12 +1917,12 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierUsesUserGroupOverr
 			Group: &Group{
 				ID:                   groupID,
 				RateMultiplier:       0.15,
-				ImageRateIndependent: false,
-				ImageRateMultiplier:  1,
+				ImageRateIndependent: true,
+				ImageRateMultiplier:  9,
 				ImagePrice1K:         &imagePrice,
 			},
 		},
-		User:    &User{ID: 20125},
+		User:    &User{ID: 20125, RateMultiplier: 0.2},
 		Account: &Account{ID: 30125},
 	})
 
@@ -2214,46 +1933,8 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierUsesUserGroupOverr
 	require.InDelta(t, 0.2, usageRepo.lastLog.RateMultiplier, 1e-12)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_ImageIndependentMultiplierUsesImageRate(t *testing.T) {
-	imagePrice := 0.2
-	groupID := int64(122)
-
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID:  "resp_image_independent_multiplier",
-			Model:      "gpt-image-2",
-			ImageCount: 1,
-			ImageSize:  "1K",
-			Duration:   time.Second,
-		},
-		APIKey: &APIKey{
-			ID:      10122,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:                   groupID,
-				RateMultiplier:       0.15,
-				ImageRateIndependent: true,
-				ImageRateMultiplier:  1,
-				ImagePrice1K:         &imagePrice,
-			},
-		},
-		User:    &User{ID: 20122},
-		Account: &Account{ID: 30122},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.InDelta(t, 0.2, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, 0.2, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 1.0, usageRepo.lastLog.RateMultiplier, 1e-12)
-	require.NotNil(t, usageRepo.lastLog.BillingMode)
-	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
-}
-
-func TestGrokVideoBillingUsesSeparateVideoRateMultiplier(t *testing.T) {
+// 视频按次倍率就是用户倍率：分组的视频独立倍率不参与。
+func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 	imagePrice2K := 0.4
 	videoPrice480P := 0.08
 	groupID := int64(126)
@@ -2289,7 +1970,7 @@ func TestGrokVideoBillingUsesSeparateVideoRateMultiplier(t *testing.T) {
 				VideoPrice480P:       &videoPrice480P,
 			},
 		},
-		User:    &User{ID: 20126},
+		User:    &User{ID: 20126, RateMultiplier: 0.25},
 		Account: &Account{ID: 30126, Platform: PlatformGrok},
 	})
 
@@ -2335,7 +2016,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesDefaultRateCard(t *testing
 				RateMultiplier: 1,
 			},
 		},
-		User:    &User{ID: 201261},
+		User:    &User{ID: 201261, RateMultiplier: 1},
 		Account: &Account{ID: 301261, Platform: PlatformGrok},
 	})
 
@@ -2382,7 +2063,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupImagePriceOverridesChannelImagePri
 				ImagePrice2K:         &groupImagePrice2K,
 			},
 		},
-		User:    &User{ID: 20127},
+		User:    &User{ID: 20127, RateMultiplier: 1},
 		Account: &Account{ID: 30127, Platform: PlatformGrok},
 	})
 
@@ -2427,7 +2108,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupVideoPriceOverridesChannelImagePri
 				VideoPrice720P:       &groupVideoPrice720P,
 			},
 		},
-		User:    &User{ID: 20128},
+		User:    &User{ID: 20128, RateMultiplier: 1},
 		Account: &Account{ID: 30128, Platform: PlatformGrok},
 	})
 
@@ -2476,7 +2157,7 @@ func TestOpenAIGatewayServiceRecordUsage_GroupVideoModelPriceOverridesFlatAndCha
 				},
 			},
 		},
-		User:    &User{ID: 20129},
+		User:    &User{ID: 20129, RateMultiplier: 1},
 		Account: &Account{ID: 30129, Platform: PlatformGrok},
 	})
 
@@ -2524,7 +2205,7 @@ func TestOpenAIGatewayServiceRecordUsage_HydratesGroupImagePriceWhenAuthSnapshot
 				RateMultiplier: 1,
 			},
 		},
-		User:    &User{ID: 20130},
+		User:    &User{ID: 20130, RateMultiplier: 1},
 		Account: &Account{ID: 30130, Platform: PlatformGrok},
 	})
 
@@ -2573,7 +2254,7 @@ func TestOpenAIGatewayServiceRecordUsage_HydratesGroupVideoPriceWhenAuthSnapshot
 				RateMultiplier: 1,
 			},
 		},
-		User:    &User{ID: 20131},
+		User:    &User{ID: 20131, RateMultiplier: 1},
 		Account: &Account{ID: 30131, Platform: PlatformGrok},
 	})
 
@@ -2615,7 +2296,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoWithTokenChannelPricingKeepsVi
 				RateMultiplier: 1,
 			},
 		},
-		User:    &User{ID: 20132},
+		User:    &User{ID: 20132, RateMultiplier: 1},
 		Account: &Account{ID: 30132, Platform: PlatformGrok},
 	})
 
@@ -2656,7 +2337,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 				ImageRateMultiplier:  1,
 			},
 		},
-		User:    &User{ID: 20123},
+		User:    &User{ID: 20123, RateMultiplier: 0.15},
 		Account: &Account{ID: 30123},
 	})
 
@@ -2665,44 +2346,6 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 	require.InDelta(t, 0.75, usageRepo.lastLog.TotalCost, 1e-12)
 	require.InDelta(t, 0.1125, usageRepo.lastLog.ActualCost, 1e-12)
 	require.InDelta(t, 0.15, usageRepo.lastLog.RateMultiplier, 1e-12)
-	require.Equal(t, 3, usageRepo.lastLog.ImageCount)
-	require.NotNil(t, usageRepo.lastLog.BillingMode)
-	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndIndependentMultiplier(t *testing.T) {
-	groupID := int64(124)
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-	svc.resolver = newOpenAIImageChannelPricingResolverForTest(t, groupID, "gpt-image-2", 0.25)
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID:  "resp_image_channel_independent",
-			Model:      "gpt-image-2",
-			ImageCount: 3,
-			ImageSize:  "1K",
-			Duration:   time.Second,
-		},
-		APIKey: &APIKey{
-			ID:      10124,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:                   groupID,
-				RateMultiplier:       0.15,
-				ImageRateIndependent: true,
-				ImageRateMultiplier:  1,
-			},
-		},
-		User:    &User{ID: 20124},
-		Account: &Account{ID: 30124},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-	require.InDelta(t, 0.75, usageRepo.lastLog.TotalCost, 1e-12)
-	require.InDelta(t, 0.75, usageRepo.lastLog.ActualCost, 1e-12)
-	require.InDelta(t, 1.0, usageRepo.lastLog.RateMultiplier, 1e-12)
 	require.Equal(t, 3, usageRepo.lastLog.ImageCount)
 	require.NotNil(t, usageRepo.lastLog.BillingMode)
 	require.Equal(t, string(BillingModeImage), *usageRepo.lastLog.BillingMode)
@@ -2866,7 +2509,7 @@ func TestRecordUsageKeepsCompactionSemanticFlagOrthogonalToTransport(t *testing.
 			Usage:    OpenAIUsage{InputTokens: 100, OutputTokens: 10},
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 21},
+		User:    &User{ID: 21, RateMultiplier: 1},
 		Account: &Account{ID: 22},
 	}))
 
@@ -2892,7 +2535,7 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 			Usage:    OpenAIUsage{InputTokens: 100, OutputTokens: 0},
 		},
 		APIKey:  &APIKey{ID: 2, Group: &Group{RateMultiplier: 1}},
-		User:    &User{ID: 1},
+		User:    &User{ID: 1, RateMultiplier: 1},
 		Account: &Account{ID: 3},
 	}
 	require.NoError(t, svc.RecordUsage(context.Background(), in))
@@ -2954,7 +2597,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 			Duration:                    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1017},
-		User:    &User{ID: 2017},
+		User:    &User{ID: 2017, RateMultiplier: 1.1},
 		Account: &Account{ID: 3017, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 
@@ -2991,7 +2634,7 @@ func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsFastBilling(t *tes
 					Duration:                    time.Second,
 				},
 				APIKey:  &APIKey{ID: 1019},
-				User:    &User{ID: 2019},
+				User:    &User{ID: 2019, RateMultiplier: 1.1},
 				Account: &Account{ID: 3019, Platform: PlatformOpenAI, Type: accountType},
 			})
 
@@ -3033,7 +2676,7 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 			Duration:                    time.Second,
 		},
 		APIKey: &APIKey{ID: 1020},
-		User:   &User{ID: 2020},
+		User:   &User{ID: 2020, RateMultiplier: 1.1},
 		Account: &Account{
 			ID: 3020, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 			ParentAccountID:   &parentID,
@@ -3092,7 +2735,7 @@ func TestOpenAIGatewayServiceRecordUsage_FreeOpenAIFastChargesStandard(t *testin
 			Duration:                    time.Second,
 		},
 		APIKey:  apiKey,
-		User:    &User{ID: 2020},
+		User:    &User{ID: 2020, RateMultiplier: 0.5},
 		Account: &Account{ID: 3020, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
 	})
 
@@ -3138,7 +2781,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 			Duration:                    time.Second,
 		},
 		APIKey:  &APIKey{ID: 1018},
-		User:    &User{ID: 2018},
+		User:    &User{ID: 2018, RateMultiplier: 1.1},
 		Account: &Account{ID: 3018, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}},
 	})
 

@@ -58,7 +58,7 @@ func TestOpenAIRecordUsage_Resets403CounterWithEscalatingPolicyScope(t *testing.
 				Duration:  time.Second,
 			},
 			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 9500+account.ID, false),
-			User:    &User{ID: 9600},
+			User:    &User{ID: 9600, RateMultiplier: 1.1},
 			Account: account,
 		})
 		require.NoError(t, err)
