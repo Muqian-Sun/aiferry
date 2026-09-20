@@ -82,6 +82,10 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Con
 	return result, nil
 }
 
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -92,6 +96,10 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx co
 
 type schedulerGroupAwareOpenAIAccountRepo struct {
 	schedulerTestOpenAIAccountRepo
+}
+
+func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
 }
 
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {

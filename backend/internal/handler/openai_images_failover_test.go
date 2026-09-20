@@ -38,6 +38,10 @@ func (r openAIImagesFailoverAccountRepo) GetByID(_ context.Context, id int64) (*
 	return nil, service.ErrNoAvailableAccounts
 }
 
+func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
 func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, _ int64, platforms []string) ([]service.Account, error) {
 	return r.schedulingCandidates(platforms), nil
 }

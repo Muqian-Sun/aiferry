@@ -53,6 +53,10 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidates(_ context.Context, 
 	return out, nil
 }
 
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
 func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]service.Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }

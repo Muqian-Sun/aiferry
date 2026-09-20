@@ -69,6 +69,10 @@ type geminiAllowlistAccountRepoStub struct {
 	gatewayModelsAccountRepoStub
 }
 
+func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
 func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	allowed := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {

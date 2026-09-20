@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
+	dbmodelcatalogbinding "github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -2047,6 +2049,58 @@ func (r *accountRepository) ListSchedulingCandidates(ctx context.Context, platfo
 	return r.accountsToService(ctx, accounts)
 }
 
+// ListSchedulingCandidatesByCatalogEntry 返回绑定到目录条目且可调度的账号，绑定优先级覆盖账号优先级。
+// 谓词是 ListSchedulingCandidates 的原样拷贝，去掉了 schedulingCandidatePredicate(platforms)：
+// 能否承接由条目网关族与账号自身决定，不看平台标签。
+func (r *accountRepository) ListSchedulingCandidatesByCatalogEntry(ctx context.Context, entryID int64) ([]service.Account, error) {
+	now := time.Now()
+	rows, err := r.client.ModelCatalogBinding.Query().
+		Where(dbmodelcatalogbinding.EntryIDEQ(entryID)).
+		WithAccount(func(q *dbent.AccountQuery) {
+			q.Where(
+				dbaccount.StatusEQ(service.StatusActive),
+				dbaccount.SchedulableEQ(true),
+				tempUnschedulablePredicate(),
+				notExpiredPredicate(now),
+				dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
+				dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			)
+		}).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bindings := make([]*dbent.ModelCatalogBinding, 0, len(rows))
+	dbAccounts := make([]*dbent.Account, 0, len(rows))
+	for _, row := range rows {
+		if row.Edges.Account == nil {
+			// 账号被谓词过滤掉（不活跃 / 不可调度 / 过期 / 限流中）。
+			continue
+		}
+		bindings = append(bindings, row)
+		dbAccounts = append(dbAccounts, row.Edges.Account)
+	}
+	accounts, err := r.accountsToService(ctx, dbAccounts)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) != len(bindings) {
+		return nil, errors.New("scheduling candidates by catalog entry: account conversion dropped rows")
+	}
+	for i := range accounts {
+		if p := bindings[i].Priority; p != nil {
+			accounts[i].Priority = *p
+		}
+	}
+	sort.SliceStable(accounts, func(i, j int) bool {
+		if accounts[i].Priority != accounts[j].Priority {
+			return accounts[i].Priority < accounts[j].Priority
+		}
+		return accounts[i].ID < accounts[j].ID
+	})
+	return accounts, nil
+}
+
 func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
 	now := time.Now()
 	accounts, err := r.client.Account.Query().
@@ -3190,6 +3244,10 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	if err != nil {
 		return nil, err
 	}
+	catalogEntryIDsByAccount, err := r.loadCatalogEntryIDs(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outAccounts := make([]service.Account, 0, len(accounts))
 	for _, acc := range accounts {
@@ -3218,10 +3276,36 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 		if ags, ok := accountGroupsByAccount[acc.ID]; ok {
 			out.AccountGroups = ags
 		}
+		if entryIDs, ok := catalogEntryIDsByAccount[acc.ID]; ok {
+			out.CatalogEntryIDs = entryIDs
+		}
 		outAccounts = append(outAccounts, *out)
 	}
 
 	return outAccounts, nil
+}
+
+// loadCatalogEntryIDs 批量装载账号被哪些目录条目绑定。
+func (r *accountRepository) loadCatalogEntryIDs(ctx context.Context, accountIDs []int64) (map[int64][]int64, error) {
+	byAccount := make(map[int64][]int64)
+	accountIDs = uniquePositiveInt64s(accountIDs)
+	for start := 0; start < len(accountIDs); start += postgresParameterBatchSize {
+		end := start + postgresParameterBatchSize
+		if end > len(accountIDs) {
+			end = len(accountIDs)
+		}
+		rows, err := r.client.ModelCatalogBinding.Query().
+			Where(dbmodelcatalogbinding.AccountIDIn(accountIDs[start:end]...)).
+			Order(dbmodelcatalogbinding.ByAccountID(), dbmodelcatalogbinding.ByEntryID()).
+			All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			byAccount[row.AccountID] = append(byAccount[row.AccountID], row.EntryID)
+		}
+	}
+	return byAccount, nil
 }
 
 func tempUnschedulablePredicate() dbpredicate.Account {

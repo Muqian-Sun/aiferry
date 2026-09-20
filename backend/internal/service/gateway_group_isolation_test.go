@@ -141,6 +141,10 @@ func (m *groupAwareMockAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx cont
 	return result, nil
 }
 
+func (m *groupAwareMockAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 // ListSchedulableByGroupIDAndPlatforms 返回属于指定分组的账号（多平台版本）
 func (m *groupAwareMockAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	platformSet := make(map[string]bool, len(platforms))

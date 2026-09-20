@@ -67,6 +67,8 @@ type Account struct {
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
 	Groups        []*Group
+	// CatalogEntryIDs 账号被哪些目录条目绑定为资源（调度按条目建桶，账号变更时按它找桶）。
+	CatalogEntryIDs []int64
 
 	// model_mapping 热路径缓存（非持久化字段）
 	modelMappingCache               map[string]string

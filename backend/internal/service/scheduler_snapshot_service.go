@@ -480,11 +480,64 @@ func (s *SchedulerSnapshotService) handleOutboxEvent(ctx context.Context, event 
 		return s.handleAccountEvent(ctx, event.AccountID, event.Payload, seen)
 	case SchedulerOutboxEventGroupChanged:
 		return s.handleGroupEvent(ctx, event.GroupID, seen)
+	case SchedulerOutboxEventCatalogBindingsChanged:
+		return s.handleCatalogBindingsEvent(ctx, event.Payload)
 	case SchedulerOutboxEventFullRebuild:
 		return s.triggerFullRebuild("outbox")
 	default:
 		return nil
 	}
+}
+
+// handleCatalogBindingsEvent 处理目录条目的绑定变更：重建 payload 里每个条目已注册的目录桶。
+// 绑定清空或条目已删时重建出的是空快照，而不是退役：退役后只能在分组生命周期租约下
+// 重开，目录没有这套生命周期，空快照让请求得到「无可用账号」即可。没注册过的条目
+// 什么也不做，首个请求会注册。
+func (s *SchedulerSnapshotService) handleCatalogBindingsEvent(ctx context.Context, payload map[string]any) error {
+	if s.cache == nil || payload == nil {
+		return nil
+	}
+	entryIDs := parseInt64Slice(payload["entry_ids"])
+	if len(entryIDs) == 0 {
+		return nil
+	}
+	buckets, err := s.registeredCatalogBuckets(ctx, entryIDs)
+	if err != nil {
+		return err
+	}
+	return s.rebuildBuckets(ctx, buckets, "catalog_bindings_changed")
+}
+
+// registeredCatalogBuckets 返回已注册的目录桶里条目 ID 命中 entryIDs 的那些；
+// entryIDs 为 nil 时返回全部目录桶。
+func (s *SchedulerSnapshotService) registeredCatalogBuckets(ctx context.Context, entryIDs []int64) ([]SchedulerBucket, error) {
+	if s.cache == nil {
+		return nil, nil
+	}
+	registered, err := s.cache.ListBuckets(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var wanted map[int64]struct{}
+	if entryIDs != nil {
+		wanted = make(map[int64]struct{}, len(entryIDs))
+		for _, id := range entryIDs {
+			wanted[id] = struct{}{}
+		}
+	}
+	buckets := make([]SchedulerBucket, 0)
+	for _, bucket := range dedupeBuckets(registered) {
+		if bucket.Mode != SchedulerModeCatalog {
+			continue
+		}
+		if wanted != nil {
+			if _, ok := wanted[bucket.GroupID]; !ok {
+				continue
+			}
+		}
+		buckets = append(buckets, bucket)
+	}
+	return buckets, nil
 }
 
 func (s *SchedulerSnapshotService) handleLastUsedEvent(ctx context.Context, payload map[string]any) error {
@@ -681,6 +734,14 @@ func (s *SchedulerSnapshotService) handleAccountEvent(ctx context.Context, accou
 					return err
 				}
 			}
+			// 账号没了就不知道它绑过哪些条目，全部目录桶都重建一遍（每桶一条查询，数量等于有绑定的条目数）。
+			catalogBuckets, err := s.registeredCatalogBuckets(ctx, nil)
+			if err != nil {
+				return err
+			}
+			if err := s.rebuildBuckets(ctx, catalogBuckets, "account_miss"); err != nil {
+				return err
+			}
 			return s.rebuildByGroupIDs(ctx, groupIDs, "account_miss", seen)
 		}
 		return err
@@ -692,6 +753,15 @@ func (s *SchedulerSnapshotService) handleAccountEvent(ctx context.Context, accou
 	}
 	if len(groupIDs) == 0 {
 		groupIDs = account.GroupIDs
+	}
+	catalogBuckets, err := s.registeredCatalogBuckets(ctx, account.CatalogEntryIDs)
+	if err != nil {
+		return err
+	}
+	if len(catalogBuckets) > 0 {
+		if err := s.rebuildBuckets(ctx, catalogBuckets, "account_change"); err != nil {
+			return err
+		}
 	}
 	return s.rebuildByAccount(ctx, account, groupIDs, "account_change", seen)
 }
@@ -1069,6 +1139,9 @@ func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reas
 		return err
 	}
 	registered = dedupeBuckets(registered)
+	// 目录桶与分组桶共用数字 ID 空间：先分出来，原地重建、不参与分组生命周期，
+	// 否则删掉分组 7 会把条目 7 的目录桶一起退役。
+	catalogBuckets, registered := splitCatalogBuckets(registered)
 
 	if s.isRunModeSimple() {
 		canonical := schedulerCanonicalBuckets(0)
@@ -1077,6 +1150,7 @@ func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reas
 			return err
 		}
 		ordinary := appendBucketsExcept(nil, registered, canonical)
+		ordinary = append(ordinary, catalogBuckets...)
 		return s.prepareAndRebuildFullSnapshot(ctx, captured, nil, ordinary, reason)
 	}
 
@@ -1105,6 +1179,7 @@ func (s *SchedulerSnapshotService) rebuildFullSnapshot(ctx context.Context, reas
 			ordinaryBuckets = append(ordinaryBuckets, buckets...)
 		}
 	}
+	ordinaryBuckets = append(ordinaryBuckets, catalogBuckets...)
 
 	reopenedTasks := make([]schedulerBucketWriteTask, 0)
 	for _, groupID := range activeGroupIDs {
@@ -1253,6 +1328,20 @@ func (s *SchedulerSnapshotService) captureFullRebuildCanonicalTasks(ctx context.
 		tasks = append(tasks, schedulerBucketWriteTask{bucket: bucket, token: token})
 	}
 	return tasks, nil
+}
+
+// splitCatalogBuckets 把目录桶从注册表里分出来，返回 (目录桶, 其余桶)。
+func splitCatalogBuckets(in []SchedulerBucket) ([]SchedulerBucket, []SchedulerBucket) {
+	catalog := make([]SchedulerBucket, 0)
+	rest := make([]SchedulerBucket, 0, len(in))
+	for _, bucket := range in {
+		if bucket.Mode == SchedulerModeCatalog {
+			catalog = append(catalog, bucket)
+			continue
+		}
+		rest = append(rest, bucket)
+	}
+	return catalog, rest
 }
 
 func appendBucketsExcept(dst, buckets, excluded []SchedulerBucket) []SchedulerBucket {
@@ -1484,6 +1573,10 @@ func (s *SchedulerSnapshotService) shouldLogOutboxLagWarning(active bool) bool {
 func (s *SchedulerSnapshotService) loadAccountsFromDB(ctx context.Context, bucket SchedulerBucket, useMixed bool) ([]Account, error) {
 	if s.accountRepo == nil {
 		return nil, ErrSchedulerCacheNotReady
+	}
+	if bucket.Mode == SchedulerModeCatalog {
+		// 目录桶的 GroupID 是条目 ID，不受 simple 模式归零影响。
+		return s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, bucket.GroupID)
 	}
 	groupID := bucket.GroupID
 	if s.isRunModeSimple() {

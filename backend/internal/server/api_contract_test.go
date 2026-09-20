@@ -1962,6 +1962,10 @@ func (s *stubAccountRepo) ListSchedulingCandidates(ctx context.Context, platform
 	return nil, errors.New("not implemented")
 }
 
+func (s *stubAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
 func (s *stubAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }

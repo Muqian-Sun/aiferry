@@ -890,6 +890,10 @@ func (r *publicBatchImageAccountRepo) ListSchedulingCandidates(_ context.Context
 	return out, nil
 }
 
+func (r *publicBatchImageAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *publicBatchImageAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }

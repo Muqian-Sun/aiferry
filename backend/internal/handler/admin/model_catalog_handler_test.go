@@ -20,10 +20,11 @@ import (
 
 // catalogRepoStub 是管理端测试用的内存仓储，复刻服务层依赖的接口。
 type catalogRepoStub struct {
-	mu      sync.Mutex
-	entries []service.ModelCatalogEntry
-	seed    service.ModelCatalogSeedResult
-	seedErr error
+	mu       sync.Mutex
+	entries  []service.ModelCatalogEntry
+	seed     service.ModelCatalogSeedResult
+	seedErr  error
+	bindings map[int64][]service.ModelCatalogBinding
 }
 
 func (r *catalogRepoStub) ListEntries(context.Context) ([]service.ModelCatalogEntry, error) {
@@ -151,6 +152,26 @@ func (r *catalogRepoStub) InsertOrRefreshSeedEntries(context.Context, []service.
 		return service.ModelCatalogSeedResult{}, r.seedErr
 	}
 	return r.seed, nil
+}
+
+func (r *catalogRepoStub) ListBindingsByEntry(_ context.Context, entryID int64) ([]service.ModelCatalogBinding, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]service.ModelCatalogBinding(nil), r.bindings[entryID]...), nil
+}
+
+func (r *catalogRepoStub) ReplaceBindings(_ context.Context, entryID int64, bindings []service.ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bindings == nil {
+		r.bindings = make(map[int64][]service.ModelCatalogBinding)
+	}
+	r.bindings[entryID] = append([]service.ModelCatalogBinding(nil), bindings...)
+	return nil
+}
+
+func (r *catalogRepoStub) ListEntryIDsByAccount(context.Context, int64) ([]int64, error) {
+	return nil, nil
 }
 
 func newCatalogHandler(repo *catalogRepoStub) *ModelCatalogHandler {
