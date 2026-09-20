@@ -216,7 +216,13 @@ func normalizeMonitorPrimaryModel(provider, checkMode, model string) string {
 //   - openai：OAuth（API-Key 型无 usage 通道）
 //   - gemini/grok/antigravity：本地统计/值通道降级，不会永久 error，放行
 func monitorAccountQuotaCapability(account *Account) error {
-	switch account.Platform {
+	// 按厂商判，不看平台标签：额度 / 用量端点都是厂商的，指向中转的 key 不属于任何厂商，
+	// 没有可用的数据源。
+	vendor := account.Vendor()
+	if account.IsThirdPartyKey() && vendor == "" {
+		return ErrChannelMonitorAccountNotSupportable
+	}
+	switch vendor {
 	case PlatformOpenCodeGo:
 		return nil
 	case PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax:
@@ -226,7 +232,7 @@ func monitorAccountQuotaCapability(account *Account) error {
 			}
 			return nil
 		}
-		if account.Platform == PlatformZhipu || account.Platform == PlatformMiniMax {
+		if vendor == PlatformZhipu || vendor == PlatformMiniMax {
 			return ErrChannelMonitorAccountNotSupportable
 		}
 		return nil

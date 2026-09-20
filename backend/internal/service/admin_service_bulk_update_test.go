@@ -346,11 +346,16 @@ func TestAdminServiceBulkUpdateAccounts_NormalizesOpenAISettings(t *testing.T) {
 }
 
 func TestAdminServiceBulkUpdateAccounts_AcceptsLongContextAccountTypes(t *testing.T) {
+	// 成品号看平台；第三方 key 看是否配了 OpenAI 协议地址（标签随意，这里故意用 kimi）。
+	accounts := map[string]*Account{
+		AccountTypeOAuth:      {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
+		AccountTypeSetupToken: {ID: 1, Platform: PlatformOpenAI, Type: AccountTypeSetupToken},
+		AccountTypeAPIKey: {ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey,
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"}},
+	}
 	for _, accountType := range []string{AccountTypeOAuth, AccountTypeSetupToken, AccountTypeAPIKey} {
 		t.Run(accountType, func(t *testing.T) {
-			repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{{
-				ID: 1, Platform: PlatformOpenAI, Type: accountType,
-			}}}
+			repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{accounts[accountType]}}
 			svc := &adminServiceImpl{accountRepo: repo}
 
 			result, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
@@ -363,6 +368,23 @@ func TestAdminServiceBulkUpdateAccounts_AcceptsLongContextAccountTypes(t *testin
 			require.Equal(t, 1, repo.bulkUpdateCalls)
 		})
 	}
+}
+
+// 只配了 Anthropic 地址的 key 没有 OpenAI 协议可走，长上下文计费对它无意义，批量写入要拒绝。
+func TestAdminServiceBulkUpdateAccounts_RejectsLongContextForKeyWithoutOpenAIEndpoint(t *testing.T) {
+	repo := &accountRepoStubForBulkUpdate{getByIDsAccounts: []*Account{{
+		ID: 1, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://relay.example/anthropic"},
+	}}}
+	svc := &adminServiceImpl{accountRepo: repo}
+
+	_, err := svc.BulkUpdateAccounts(context.Background(), &BulkUpdateAccountsInput{
+		AccountIDs: []int64{1},
+		Extra:      map[string]any{openAILongContextBillingEnabledKey: true},
+	})
+
+	require.Error(t, err)
+	require.Zero(t, repo.bulkUpdateCalls)
 }
 
 func TestAdminServiceBulkUpdateAccounts_RejectsInvalidOpenAISettingValuesBeforeWrite(t *testing.T) {

@@ -278,6 +278,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
 		ProtocolEndpoints:       a.ProtocolEndpoints,
+		Vendor:                  a.Vendor(),
 	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）

@@ -769,6 +769,27 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(true)
   })
 
+  // 长上下文计费开关按协议地址露出：kimi 标签但配了 Chat Completions 地址的 key 也能开，
+  // 只配 Anthropic 地址的 key 看不到开关、也不写这个键。
+  it('offers the long-context toggle to any key with an OpenAI-protocol endpoint', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Kimi')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi long context')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
+    await wrapper.get('[data-testid="openai-long-context-billing-toggle"]').trigger('click')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBe(true)
+  })
+
+  it('does not write the long-context flag for a key without an OpenAI-protocol endpoint', async () => {
+    const wrapper = await submitApiKeyAccount('anthropic')
+    expect(wrapper.find('[data-testid="openai-long-context-billing-toggle"]').exists()).toBe(false)
+    expect(createAccountMock.mock.calls[0]?.[0]?.extra?.openai_long_context_billing_enabled).toBeUndefined()
+  })
+
   it('omits the OpenAI setting for non-OpenAI account creation', async () => {
     await submitApiKeyAccount('anthropic')
 
@@ -782,6 +803,31 @@ describe('CreateAccountModal OpenAI long-context billing', () => {
     await submitApiKeyAccount('anthropic', false, true)
 
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
+  })
+
+  it('antigravity 第三方 key 不带成品号的混合调度 / 超量键', async () => {
+    const wrapper = mountModal()
+    await selectButtonByText(wrapper, 'Antigravity')
+    // 先在成品号（OAuth）形态下勾上两项，再切到第三方 key：残留的勾选不能写进 key 的 extra。
+    const checkboxes = wrapper.findAll('form#create-account-form input[type="checkbox"]')
+    for (const checkbox of checkboxes) {
+      await checkbox.setValue(true)
+    }
+    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    expect(wrapper.text()).not.toContain('admin.accounts.mixedScheduling')
+    expect(wrapper.text()).not.toContain('admin.accounts.allowOverages')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
+    await flushPromises()
+    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(createAccountMock).toHaveBeenCalledTimes(1)
+    const extra = createAccountMock.mock.calls[0]?.[0]?.extra ?? {}
+    expect(extra).not.toHaveProperty('mixed_scheduling')
+    expect(extra).not.toHaveProperty('allow_overages')
   })
 
   it('antigravity upstream 创建默认携带上游倍率探测开关', async () => {

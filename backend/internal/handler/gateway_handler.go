@@ -1002,9 +1002,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 							h.handleStreamingAwareError(c, status, code, message, streamStarted)
 							return
 						}
-						// 兜底重试按"直接请求兜底分组"处理：清除强制平台，允许按分组平台调度
+						// 兜底重试按"直接请求兜底分组"处理：清除强制平台，允许按分组平台调度。
+						// request.Context 与 gin store 两处都清，读 gin store 的路径（内容审核、
+						// 模型列表）不会还看到旧的强制平台。
 						ctx := context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, "")
 						c.Request = c.Request.WithContext(ctx)
+						c.Set(string(middleware2.ContextKeyForcePlatform), "")
 						currentAPIKey = fallbackAPIKey
 						currentSubscription = nil
 						fallbackUsed = true

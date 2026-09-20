@@ -2043,7 +2043,7 @@
 
       <!-- OpenAI API 长上下文计费开关 -->
       <div
-        v-if="account?.platform === 'openai' && !isSparkShadow && !hideAccountLongContextBilling && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
+        v-if="openAILongContextBillingVisible"
         class="border-t border-gray-200 pt-4 dark:border-dark-600"
       >
         <div class="flex items-center justify-between gap-4">
@@ -2743,8 +2743,8 @@
           <Select v-model="form.status" :options="statusOptions" />
         </div>
 
-        <!-- Mixed Scheduling (only for antigravity accounts, read-only in edit mode) -->
-        <div v-if="account?.platform === 'antigravity'" class="flex items-center gap-2">
+        <!-- 混合调度 / 超量：Antigravity 成品号（OAuth）专属，编辑态只读；第三方 key 按协议调度，没有这两项 -->
+        <div v-if="account?.platform === 'antigravity' && account?.type === 'oauth'" class="flex items-center gap-2">
           <label class="flex cursor-not-allowed items-center gap-2 opacity-60">
             <input
               type="checkbox"
@@ -2773,7 +2773,7 @@
             </div>
           </div>
         </div>
-        <div v-if="account?.platform === 'antigravity'" class="mt-3 flex items-center gap-2">
+        <div v-if="account?.platform === 'antigravity' && account?.type === 'oauth'" class="mt-3 flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input
               type="checkbox"
@@ -3357,6 +3357,12 @@ const openAIResponsesSettingsVisible = computed(() => {
   return account.platform === 'openai' && (account.type === 'oauth' || account.type === 'setup-token')
 })
 
+// 长上下文计费开关：OpenAI 成品号，或配了 OpenAI 协议地址的第三方 key（不看标签）。
+// 区块隐藏时保存不改写已存值。
+const openAILongContextBillingVisible = computed(
+  () => openAIResponsesSettingsVisible.value && !isSparkShadow.value && !hideAccountLongContextBilling.value
+)
+
 // 端点能力与生图结果转 base64 是第三方 key 专属设置：后端对任意标签的 key 都生效，
 // 按编辑中的协议地址展示，不看平台标签。
 const openAIKeySettingsVisible = computed(
@@ -3807,12 +3813,12 @@ const syncFormFromAccount = (newAccount: Account | null) => {
       newAccount.credentials as Record<string, unknown> | undefined
     )
   }
-  // OpenAI 平台专属设置（后端仍按平台读取）
+  // 长上下文计费开关对任意标签的 key 都生效，按已存值回填；区块可见性另算。
+  openAILongContextBillingEnabled.value = extra?.openai_long_context_billing_enabled === true
+  // OpenAI 平台专属设置（成品号语义；openai 标签的 key 仍沿用，待协议化）
   if (newAccount.platform === 'openai' && (newAccount.type === 'oauth' || newAccount.type === 'setup-token' || newAccount.type === 'apikey')) {
     openaiFlattenNamespacesEnabled.value =
       newAccount.type === 'oauth' && extra?.openai_responses_flatten_namespaces === true
-    const longContextBillingValue = extra?.openai_long_context_billing_enabled
-    openAILongContextBillingEnabled.value = longContextBillingValue === true
     // plan_type 手动覆盖仅 OAuth 有实际调度语义(IsOpenAIChatGPTSubscription 要求 oauth),故只对 oauth 回填
     editPlanType.value = newAccount.type === 'oauth'
       ? readPlanType(newAccount.credentials as Record<string, unknown> | undefined)
@@ -4679,11 +4685,6 @@ const handleSubmit = async () => {
 
       // Always update credentials for apikey type to handle model mapping changes
       const newCredentials: Record<string, unknown> = { ...currentCredentials }
-      // 第三方 key 的地址与转发协议只由协议映射决定；清掉凭据里不再被读取的旧字段。
-      delete newCredentials.base_url
-      delete newCredentials.api_base_urls
-      delete newCredentials.api_protocol
-
       // 国产供应商：模式写入凭据（决定额度/余额探测）。
       if (isCNApiKeyAccount.value) {
         newCredentials.account_mode = currentOpenCodeOrCNMode()
@@ -4991,8 +4992,8 @@ const handleSubmit = async () => {
       updatePayload.credentials = newCredentials
     }
 
-    // For antigravity accounts, handle mixed_scheduling and allow_overages in extra
-    if (props.account.platform === 'antigravity') {
+    // 混合调度 / 超量只属于 Antigravity 成品号；第三方 key 不写这两个键
+    if (props.account.platform === 'antigravity' && props.account.type === 'oauth') {
       const currentExtra = (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
       if (mixedScheduling.value) {
@@ -5160,7 +5161,18 @@ const handleSubmit = async () => {
       updatePayload.extra = newExtra
     }
 
-    // OpenAI 平台专属设置（成品号与 openai 标签的 key；后端仍按平台读取）
+    // 长上下文计费开关：区块露出时按界面值写，隐藏时保留已存值（影子账号不落此键）。
+    if (openAILongContextBillingVisible.value) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
+      updatePayload.extra = { ...currentExtra, openai_long_context_billing_enabled: openAILongContextBillingEnabled.value }
+    } else if (isSparkShadow.value && props.account.extra && 'openai_long_context_billing_enabled' in (props.account.extra as Record<string, unknown>)) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
+      delete newExtra.openai_long_context_billing_enabled
+      updatePayload.extra = newExtra
+    }
+
+    // OpenAI 平台专属设置（成品号语义；openai 标签的 key 仍沿用，待协议化）
     if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'setup-token' || props.account.type === 'apikey')) {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
@@ -5170,11 +5182,6 @@ const handleSubmit = async () => {
         newExtra.openai_responses_flatten_namespaces = true
       } else {
         delete newExtra.openai_responses_flatten_namespaces
-      }
-      if (isSparkShadow.value) {
-        delete newExtra.openai_long_context_billing_enabled
-      } else {
-        newExtra.openai_long_context_billing_enabled = openAILongContextBillingEnabled.value
       }
 		if (autoPause5hThreshold.value != null && autoPause5hThreshold.value > 0) {
 			newExtra.auto_pause_5h_threshold = autoPause5hThreshold.value / 100

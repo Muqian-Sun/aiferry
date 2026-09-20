@@ -295,8 +295,12 @@ export function platformGradientSubtextClass(p: string): string {
   return isPlatform(p) ? GRADIENT_SUBTEXT[p] : GRADIENT_SUBTEXT_DEFAULT
 }
 
+/** 第三方 key 没识别出官方厂商时在徽章上占的位：中转 / 聚合平台。不是账号平台值。 */
+export const RELAY_PLATFORM = 'relay' as const
+
 export function platformLabel(p: string): string {
   switch (p) {
+    case RELAY_PLATFORM: return 'Relay'
     case 'anthropic': return 'Anthropic'
     case 'openai': return 'OpenAI'
     case 'antigravity': return 'Antigravity'

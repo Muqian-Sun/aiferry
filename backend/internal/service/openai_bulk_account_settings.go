@@ -109,8 +109,8 @@ func validateBulkOpenAISettingsTargets(
 		}
 
 		if settings.longContextBilling {
-			if account.Platform != PlatformOpenAI || !supportsOpenAILongContextBilling(account.Type) {
-				return 0, invalidBulkOpenAITarget(accountID, "long-context billing requires an OpenAI OAuth, setup-token, or API-key account")
+			if !supportsOpenAILongContextBilling(account) {
+				return 0, invalidBulkOpenAITarget(accountID, "long-context billing requires an OpenAI OAuth / setup-token account or a key with an OpenAI-protocol endpoint")
 			}
 			if account.IsShadow() {
 				inheritedCount++
@@ -118,8 +118,8 @@ func validateBulkOpenAISettingsTargets(
 		}
 
 		if settings.endpointCapabilities {
-			if account.Platform != PlatformOpenAI || account.Type != AccountTypeAPIKey {
-				return 0, invalidBulkOpenAITarget(accountID, "endpoint capabilities require an OpenAI API-key account")
+			if !account.IsThirdPartyKey() || !account.HasOpenAIProtocolEndpoint() {
+				return 0, invalidBulkOpenAITarget(accountID, "endpoint capabilities require a key with an OpenAI-protocol endpoint")
 			}
 		}
 	}
@@ -133,13 +133,13 @@ func validateBulkOpenAISettingsTargets(
 	return inheritedCount, nil
 }
 
-func supportsOpenAILongContextBilling(accountType string) bool {
-	switch accountType {
-	case AccountTypeOAuth, AccountTypeSetupToken, AccountTypeAPIKey:
-		return true
-	default:
-		return false
+// supportsOpenAILongContextBilling 与账号弹窗的区块可见性同口径：OpenAI 成品号（OAuth /
+// setup-token），或配了 OpenAI 协议地址的第三方 key（不看平台标签）。
+func supportsOpenAILongContextBilling(account *Account) bool {
+	if account.IsThirdPartyKey() {
+		return account.HasOpenAIProtocolEndpoint()
 	}
+	return account.Platform == PlatformOpenAI && (account.Type == AccountTypeOAuth || account.Type == AccountTypeSetupToken)
 }
 
 func invalidBulkOpenAITarget(accountID int64, message string) error {

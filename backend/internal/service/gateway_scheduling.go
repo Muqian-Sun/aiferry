@@ -1968,10 +1968,10 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			if !s.isGatewayAccountProfitEligible(ctx, acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
+			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
+			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2082,10 +2082,10 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if !s.isGatewayAccountProfitEligible(ctx, acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
+		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
+		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
@@ -2230,10 +2230,10 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			if !s.isGatewayAccountProfitEligible(ctx, acc) {
 				continue
 			}
-			// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
+			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
+			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-				_ = s.accountRepo.SetError(ctx, acc.ID,
-					fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 				continue
 			}
 			// 过滤：原生平台成品号直接通过，antigravity 成品号需要启用混合调度，第三方 key 看协议地址
@@ -2345,10 +2345,10 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if !s.isGatewayAccountProfitEligible(ctx, acc) {
 			continue
 		}
-		// require_privacy_set: 跳过 privacy 未设置的账号并标记异常
+		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
+		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
+		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			_ = s.accountRepo.SetError(ctx, acc.ID,
-				fmt.Sprintf("Privacy not set, required by group [%s]", schedGroup.Name))
 			continue
 		}
 		// 过滤：原生平台成品号直接通过，antigravity 成品号需要启用混合调度，第三方 key 看协议地址

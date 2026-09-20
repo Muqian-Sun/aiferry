@@ -164,3 +164,12 @@ func TestLegacyPrintfRoutesLevels(t *testing.T) {
 		t.Fatalf("stderr missing component field: %s", stderrText)
 	}
 }
+
+// 启动播种的汇总行是正常日志：字段名不能含独立的 " failed" / "error" 子串，否则按关键词
+// 定级会把它记成 ERROR（main.go 里的字段名与此同步）。
+func TestInferStdLogLevel_SeedSummaryStaysInfo(t *testing.T) {
+	msg := "Model catalog seeded: inserted=269 refreshed=0 skipped_admin=0 skipped_invalid=0 write_failed=0 candidates=269"
+	if got := inferStdLogLevel(msg); got != LevelInfo {
+		t.Fatalf("seed summary classified as %v, want info", got)
+	}
+}

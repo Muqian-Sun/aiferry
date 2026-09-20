@@ -344,13 +344,13 @@ func openAICompactSupportTier(account *Account) int {
 		if account.ProtocolEndpoint(APIProtocolResponses) == "" {
 			return 0
 		}
-		switch account.Vendor() {
-		case PlatformGrok:
+		vendor := account.Vendor()
+		if vendor == PlatformGrok {
 			// xAI 官方原生支持（与 Grok 成品号一致）。
 			return 2
-		case PlatformOpenAI, "":
-			// 官方 OpenAI 与通用中转：按手动开关 / 探测结果分级，未知时保留为候选。
-		default:
+		}
+		// 官方 OpenAI 与通用中转：按手动开关 / 探测结果分级，未知时保留为候选；其余厂商不支持。
+		if !openAIProtocolFeaturesApplyToVendor(vendor, true) {
 			return 0
 		}
 	} else {

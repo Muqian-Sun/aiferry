@@ -1475,18 +1475,12 @@ const targetSelectedTypes = computed(() => props.target?.selectedTypes ?? props.
 const targetSelectedKeyEndpoints = computed(() => props.target?.selectedKeyEndpoints ?? props.selectedKeyEndpoints)
 const isMixedPlatform = computed(() => targetSelectedPlatforms.value.length > 1)
 
-// OpenAI 平台账号（成品号与 openai 标签的 key）：只用于后端仍按平台读取的设置（长上下文计费）
-const allOpenAIAccounts = computed(() => {
-  return (
-    targetSelectedPlatforms.value.length === 1 &&
-    targetSelectedPlatforms.value[0] === 'openai' &&
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'oauth' || t === 'setup-token' || t === 'apikey')
-  )
-})
-
 // 所选第三方 key 都配了 responses / chat_completions 地址
 const allKeysHaveOpenAIEndpoint = computed(() => targetSelectedKeyEndpoints.value.every(hasOpenAIEndpoint))
+
+// 长上下文计费：与 OpenAI Responses 协议设置同口径——成品号只认 OpenAI 的 OAuth / Setup Token，
+// 第三方 key 看协议地址，不看平台标签（后端 supportsOpenAILongContextBilling 同规则）。
+const allOpenAIAccounts = computed(() => allOpenAIResponsesSettingsCapable.value)
 
 // OpenAI Responses 协议设置（自动透传、Compact）：成品号仍只认 OpenAI 的 OAuth / Setup Token；
 // 第三方 key 看协议地址，不看平台标签。只有平台 / 类型两个集合时无法逐个配对成品号与 key，
@@ -1531,14 +1525,9 @@ const allOpenAIOAuthOnly = computed(() => {
   )
 })
 
-const allOpenAIAPIKey = computed(() => {
-  return (
-    targetSelectedPlatforms.value.length === 1 &&
-    targetSelectedPlatforms.value[0] === 'openai' &&
-    targetSelectedTypes.value.length > 0 &&
-    targetSelectedTypes.value.every(t => t === 'apikey')
-  )
-})
+// 端点能力是第三方 key 专属设置：全部是 key，且每个都配了 OpenAI 系协议地址，不看平台标签
+// （后端批量校验同规则）。
+const allOpenAIAPIKey = computed(() => allKeysOpenAIResponsesSettingsCapable.value)
 
 // 上游倍率自动探测已放宽到全部 API-key 平台：只要求所选类型全为 apikey，
 // 平台不限（sub2api 上游即可应答 /v1/sub2api/billing）。

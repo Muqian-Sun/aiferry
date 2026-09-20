@@ -3720,3 +3720,65 @@ func TestFetchCodexModelsManifestOAuthSharedAcrossGroupsWithIndependentFiltering
 	require.Equal(t, []string{"model-b"}, got[92])
 	require.EqualValues(t, 1, calls.Load(), "同一账号两个分组同时请求时只发一次上游请求")
 }
+
+// 第三方 key 的平台标签只是展示：标签是 kimi、配了 Chat Completions 地址的 key
+// 在 OpenAI 网关被选中后，清单要照常走 /models?client_version=…，而不是按标签
+// 报「账号类型不支持」的不可重试 502（那会让 Codex 的 /models 整个换不了号）。
+func TestFetchCodexModelsManifestKeyIgnoresPlatformLabel(t *testing.T) {
+	manifestBody := `{"object":"list","data":[{"id":"kimi-k2.5","object":"model"}]}`
+	var gotURL string
+	upstream := &codexModelsHTTPUpstreamStub{do: func(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+		gotURL = req.URL.String()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(manifestBody)),
+		}, nil
+	}}
+	account := newCodexModelsAPIKeyTestAccount("https://api.kimi.com/coding/v1")
+	account.Platform = PlatformKimi
+
+	manifest, err := newCodexModelsAPIKeyTestService(upstream).FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
+
+	require.NoError(t, err)
+	require.Equal(t, "https://api.kimi.com/coding/v1/models?client_version=0.144.0", gotURL)
+	models := decodeCodexManifestModels(t, manifest.Body)
+	require.Len(t, models, 1)
+	require.Equal(t, "kimi-k2.5", models[0]["slug"])
+
+	// 成品号形态的其它类型仍然不支持。
+	setupToken := &Account{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeSetupToken, Credentials: map[string]any{"access_token": "t"}}
+	_, err = newCodexModelsAPIKeyTestService(upstream).FetchCodexModelsManifest(context.Background(), setupToken, "0.144.0", "")
+	require.Error(t, err)
+	require.Equal(t, "OPENAI_CODEX_MODELS_ACCOUNT_TYPE_UNSUPPORTED", infraerrors.Reason(err))
+}
+
+// isOfficialOpenAICodexAccount 对第三方 key 按协议地址判官方，不看标签。
+func TestIsOfficialOpenAICodexAccount_KeysByAddress(t *testing.T) {
+	official := map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}
+	relay := map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}
+	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: official}), "kimi-labelled key on api.openai.com is official")
+	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: relay}), "openai-labelled key on a relay is not")
+	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
+	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}))
+}
+
+// 第三方 key 的图片输入能力不看平台标签：官方 xAI 地址按 Grok 规则，其余按 OpenAI 兼容清单。
+// （组合分组的目标平台仍按标签选号，那是第四步的事；这里只固定能力判定本身。）
+func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
+	kimiLabelled := &Account{ID: 30, Platform: PlatformKimi, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1"}}
+	require.True(t, accountCodexModelSupportsImageInput(kimiLabelled, "gpt-5.6-sol"), "GPT image-input fallback applies to any OpenAI-compatible key")
+	require.False(t, accountCodexModelSupportsImageInput(kimiLabelled, "company-coding-model"))
+
+	openaiLabelledOnXAI := &Account{ID: 31, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
+	require.True(t, accountCodexModelSupportsImageInput(openaiLabelledOnXAI, "grok-4.5"), "official xAI address follows the Grok rule regardless of label")
+
+	grokLabelledRelay := &Account{ID: 32, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}}
+	require.False(t, accountCodexModelSupportsImageInput(grokLabelledRelay, "grok-4.5"), "a relay is not xAI, and grok-4.5 is not a GPT image model")
+
+	setupToken := &Account{ID: 33, Platform: PlatformOpenAI, Type: AccountTypeSetupToken}
+	require.False(t, accountCodexModelSupportsImageInput(setupToken, "gpt-5.6-sol"))
+}

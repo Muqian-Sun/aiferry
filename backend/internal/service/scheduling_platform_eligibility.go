@@ -111,12 +111,3 @@ func schedulingCandidatePlatforms(platform string, useMixed bool) []string {
 	}
 	return []string{platform}
 }
-
-// AccountKeepsHTTPPreviousResponseID 报告账号能否在 OpenAI 网关的 HTTP Responses 请求里
-// 承接 previous_response_id（续链状态）。
-//
-// 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
-// 第三方 key 见 keyKeepsHTTPPreviousResponseID。
-func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
-	return account != nil && keyKeepsHTTPPreviousResponseID(account)
-}

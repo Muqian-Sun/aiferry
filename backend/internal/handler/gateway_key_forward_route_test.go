@@ -84,8 +84,7 @@ func keyRouteGroup(id int64, platform string) *service.Group {
 	return &service.Group{ID: id, Hydrated: true, Platform: platform, Status: service.StatusActive}
 }
 
-// keyRouteAccount 构造一个第三方 key。mixed_scheduling 只为让本分支（调度尚未改成按协议
-// 放行）的选号把 antigravity 标签的 key 放进 gemini 分组；转发分流不读它。
+// keyRouteAccount 构造一个第三方 key：选号与转发都按协议地址放行，标签只是展示。
 func keyRouteAccount(id, groupID int64, label string, endpoints map[string]string, model string) *service.Account {
 	return &service.Account{
 		ID:       id,
@@ -97,7 +96,6 @@ func keyRouteAccount(id, groupID int64, label string, endpoints map[string]strin
 			"model_mapping": map[string]any{model: model},
 		},
 		ProtocolEndpoints: endpoints,
-		Extra:             map[string]any{"mixed_scheduling": true},
 		Concurrency:       1,
 		Priority:          1,
 		Status:            service.StatusActive,
@@ -342,4 +340,21 @@ func TestGatewayHandlerResponses_GeminiGroupKeyIsSkippedInsteadOfSentAsAnthropic
 	require.NotEqual(t, http.StatusOK, rec.Code, rec.Body.String())
 	require.Empty(t, hs.geminiUpstream.recorded())
 	require.Empty(t, hs.antigravityUpsteam.recorded())
+}
+
+// 网关平台只有 request.Context 一个来源：/antigravity 路由的强制平台在兜底分组重试时被清空后，
+// handler 侧的判定要跟着回到分组平台，不能再从 gin store 读到旧值。
+func TestMessagesGatewayPlatform_FollowsRequestContextNotGinStore(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	c, _ := gin.CreateTestContext(httptest.NewRecorder())
+	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
+	apiKey := &service.APIKey{Group: &service.Group{Platform: service.PlatformGemini}}
+
+	c.Set(string(middleware.ContextKeyForcePlatform), service.PlatformAntigravity)
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, service.PlatformAntigravity))
+	require.Equal(t, service.PlatformAntigravity, messagesGatewayPlatform(c, apiKey))
+
+	// 兜底：只清 request.Context，gin store 里的旧值不得再被读到。
+	c.Request = c.Request.WithContext(context.WithValue(c.Request.Context(), ctxkey.ForcePlatform, ""))
+	require.Equal(t, service.PlatformGemini, messagesGatewayPlatform(c, apiKey))
 }

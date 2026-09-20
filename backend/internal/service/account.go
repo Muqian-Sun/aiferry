@@ -76,6 +76,9 @@ type Account struct {
 	modelMappingCacheRawLen         int
 	modelMappingCacheRawSig         uint64
 	modelMappingCacheRuntimeVersion uint64
+	// modelMappingCacheVendor 记录解析时的厂商：厂商默认映射按 Vendor 启用，而 Vendor
+	// 由协议地址决定，地址变了（管理端改号后复用同一对象）缓存必须失效。
+	modelMappingCacheVendor string
 
 	// header_overrides 热路径缓存（非持久化字段，同 model_mapping 缓存先例）
 	headerOverrideCache               map[string]string
@@ -598,6 +601,7 @@ func stringMappingFromRaw(raw any) map[string]string {
 
 func (a *Account) GetModelMapping() map[string]string {
 	runtimeVersion := xai.RuntimeModelMappingVersion()
+	vendor := a.Vendor()
 	credentialsPtr := mapPtr(a.Credentials)
 	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
 	rawPtr := mapPtr(rawMapping)
@@ -609,7 +613,8 @@ func (a *Account) GetModelMapping() map[string]string {
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
 		a.modelMappingCacheRawPtr == rawPtr &&
 		a.modelMappingCacheRawLen == rawLen &&
-		a.modelMappingCacheRuntimeVersion == runtimeVersion {
+		a.modelMappingCacheRuntimeVersion == runtimeVersion &&
+		a.modelMappingCacheVendor == vendor {
 		rawSig = modelMappingSignature(rawMapping)
 		rawSigReady = true
 		if a.modelMappingCacheRawSig == rawSig {
@@ -629,6 +634,7 @@ func (a *Account) GetModelMapping() map[string]string {
 	a.modelMappingCacheRawLen = rawLen
 	a.modelMappingCacheRawSig = rawSig
 	a.modelMappingCacheRuntimeVersion = runtimeVersion
+	a.modelMappingCacheVendor = vendor
 	return mapping
 }
 
@@ -1319,8 +1325,10 @@ func (a *Account) IsOpenAI() bool {
 	return a.Platform == PlatformOpenAI
 }
 
+// IsOpenAILongContextBillingEnabled 报告账号是否显式开启了长上下文计费；这是管理员写入的
+// 显式开关，对任意标签的第三方 key 都生效，不看平台标签（网关侧 openai_gateway_usage 同口径）。
 func (a *Account) IsOpenAILongContextBillingEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
+	if a == nil || a.Extra == nil {
 		return false
 	}
 	enabled, ok := a.Extra[openAILongContextBillingEnabledKey].(bool)
@@ -1722,7 +1730,9 @@ func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCa
 // remains eligible for backwards compatibility. An explicit operator
 // override takes precedence over probe data.
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
-	if a == nil || !a.IsGrok() {
+	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
+	// 否则会出现调度放行、转发拒绝的错位。
+	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
 	}
 	if override, ok := grokMediaEligibilityOverride(a.Extra); ok {

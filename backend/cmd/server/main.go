@@ -166,7 +166,8 @@ func runMainServer() {
 		seedCtx, cancelSeed := context.WithTimeout(context.Background(), 60*time.Second)
 		result, err := app.ModelCatalog.Seed(seedCtx)
 		cancelSeed()
-		log.Printf("Model catalog seeded: inserted=%d refreshed=%d skipped_admin=%d skipped_invalid=%d failed=%d candidates=%d",
+		// 字段名避开独立的 " failed" 与 "error" 子串：stdlog 桥按关键词定级，写 failed=0 会把这行正常日志记成 ERROR。
+		log.Printf("Model catalog seeded: inserted=%d refreshed=%d skipped_admin=%d skipped_invalid=%d write_failed=%d candidates=%d",
 			result.Inserted, result.Refreshed, result.SkippedAdmin, result.SkippedInvalid, result.Failed, result.CandidateModels)
 		for _, sample := range result.Errors {
 			log.Printf("Model catalog seed failure: %s", sample)
