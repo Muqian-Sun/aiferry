@@ -97,7 +97,7 @@ import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
 import { platformLabel } from '@/utils/platformColors'
-import { buildCatalog, catalogPlatforms, filterCatalog } from './catalog'
+import { buildCatalog, catalogPlatforms, filterCatalog, formatCatalogPrice as formatPrice } from './catalog'
 
 const props = defineProps<{
   response: ModelPlazaResponse | null
@@ -134,13 +134,6 @@ const filtered = computed(() => filterCatalog(catalog.value, searchQuery.value, 
 watch(platforms, (list) => {
   if (selectedPlatform.value !== 'all' && !list.includes(selectedPlatform.value)) selectedPlatform.value = 'all'
 })
-
-function formatPrice(value: number | null | undefined): string {
-  if (value == null) return '—'
-  if (value >= 100) return `$${value.toFixed(0)}`
-  if (value >= 1) return `$${value.toFixed(2)}`
-  return `$${Number(value.toFixed(4))}`
-}
 
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
 async function copyId(id: string) {

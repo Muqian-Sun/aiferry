@@ -31,16 +31,35 @@ export default {
       accountMenu: 'Account menu'
     },
     home: {
-      heroTitle: 'One API key for every major model.',
-      heroDescription: 'Requests are forwarded to Anthropic, OpenAI, Gemini and other upstreams over their official protocols. Every call is logged, so usage and cost live in one ledger.',
+      heroTitle: 'One API key\nfor every major model.',
+      heroDescription: 'Requests pass through unchanged over the official Anthropic, OpenAI and Gemini protocols. Keep your SDK, change one base_url. Every call is logged, so usage and cost live in one ledger.',
       getStarted: 'Get started',
       goToConsole: 'Open console',
       viewPricing: 'Models & pricing',
+      codeSample: {
+        label: 'Integration examples',
+        comment: 'Only these two lines change',
+        copy: 'Copy',
+        copied: 'Copied',
+        tabs: { python: 'Python', curl: 'curl', node: 'Node', claudeCode: 'Claude Code' }
+      },
+      stats: {
+        models: 'Models',
+        vendors: 'Vendors',
+        protocols: 'Official protocols, passed through',
+        ledgerLabel: 'Requests logged, exportable',
+        ledgerValue: 'Every one'
+      },
+      catalog: {
+        title: 'Models and official reference prices',
+        description: 'USD per million tokens, same source as the models page.',
+        viewAll: 'See all {count} models'
+      },
+      protocols: {
+        title: 'Four official protocols, passed through unchanged',
+        description: 'No private format conversion: request and response bodies travel exactly as the vendor protocol defines them, so SDKs, streaming and tool calls behave as they do direct.'
+      },
       routeMap: {
-        label: 'Diagram: requests pass through AiFerry to four official protocols',
-        source: 'Your app',
-        sourceHint: 'one API key',
-        hub: 'relay',
         routes: {
           messages: 'Anthropic Messages',
           responses: 'OpenAI Responses',

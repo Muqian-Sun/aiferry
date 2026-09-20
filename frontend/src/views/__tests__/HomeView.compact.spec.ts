@@ -1,7 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { mount, RouterLinkStub } from '@vue/test-utils'
+import { flushPromises, mount, RouterLinkStub } from '@vue/test-utils'
 
 import HomeView from '../HomeView.vue'
+
+const { getModelPlaza } = vi.hoisted(() => ({ getModelPlaza: vi.fn() }))
+vi.mock('@/api/modelPlaza', () => ({ getModelPlaza }))
 
 const { appStore, authStore } = vi.hoisted(() => ({
   appStore: {
@@ -86,6 +89,7 @@ describe('HomeView compact mode', () => {
     authStore.user = null
     authStore.checkAuth.mockClear()
     appStore.fetchPublicSettings.mockClear()
+    getModelPlaza.mockReset().mockRejectedValue(new Error('plaza disabled'))
     localStorage.clear()
     vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
   })
@@ -187,5 +191,48 @@ describe('HomeView compact mode', () => {
     })
 
     expect(modelPlazaDestination(wrapper)).toBeUndefined()
+  })
+
+  it('renders the stats band and the price preview only when the model catalog loads', async () => {
+    getModelPlaza.mockResolvedValue({
+      description: '',
+      groups: [
+        {
+          id: 1, name: 'default', description: '', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1,
+          peak_rate_enabled: false, peak_start: '', peak_end: '', peak_rate_multiplier: 1, is_exclusive: false,
+          image_rate_independent: false, image_rate_multiplier: 1, long_context_pricing_enabled: false,
+          models: [
+            { name: 'gpt-5.5', platform: 'openai', pricing: null, official_pricing: { input_price: 0.00001, output_price: 0.00003, cache_read_price: null } },
+            { name: 'claude-opus-5', platform: 'anthropic', pricing: null, official_pricing: null }
+          ]
+        }
+      ]
+    })
+    const wrapper = mountHome({ model_plaza_enabled: true, model_plaza_require_auth: false })
+    await flushPromises()
+
+    // 数字带从目录算：2 个模型、2 个厂商；价目预览只列有官方价的模型
+    expect(wrapper.get('[data-testid="home-stats"]').text()).toContain('2')
+    expect(wrapper.findAll('[data-testid="home-catalog-row"]')).toHaveLength(1)
+    expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('gpt-5.5')
+    expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('$10.00')
+  })
+
+  it('hides the stats band and the price preview when the catalog is unavailable, and never asks when the feature is off', async () => {
+    const wrapper = mountHome({ model_plaza_enabled: true, model_plaza_require_auth: false })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="home-catalog"]').exists()).toBe(false)
+
+    getModelPlaza.mockClear()
+    mountHome({ model_plaza_enabled: false })
+    await flushPromises()
+    expect(getModelPlaza).not.toHaveBeenCalled()
+  })
+
+  it('renders the code sample with the site API base URL', async () => {
+    const wrapper = mountHome({ api_base_url: 'https://api.example.test/' })
+    await flushPromises()
+    expect(wrapper.get('[data-testid="code-sample"]').text()).toContain('base_url="https://api.example.test"')
   })
 })

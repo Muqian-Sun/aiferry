@@ -18,48 +18,102 @@
     </div>
   </SiteShell>
 
-  <!-- 默认首页：首屏（文案 + 航线图）→ 接入三步 → 可核对的事 -->
+  <!--
+    默认首页：一个产品页该有的顺序——先看到产品（首屏代码块），再看到规模（数字带）、看到货（模型与官方价）、
+    看到契约（四条协议）、看到路径（三步），最后是可核对的事。模型相关两节由 /model-plaza 数据驱动，拿不到就不出现。
+  -->
   <SiteShell v-else variant="public">
     <div data-testid="default-home">
-      <section class="grid gap-12 py-12 lg:grid-cols-12 lg:items-center lg:gap-10 lg:py-20">
-        <div class="min-w-0 lg:col-span-5">
-          <h1 class="text-28 font-semibold text-af-ink sm:text-4xl sm:leading-[1.15]">
+      <section class="grid gap-10 py-14 lg:grid-cols-12 lg:items-center lg:gap-12 lg:py-20">
+        <div class="min-w-0 lg:col-span-6">
+          <h1 class="whitespace-pre-line text-28 font-semibold text-af-ink sm:text-4xl lg:text-44">
             {{ t('userUi.home.heroTitle') }}
           </h1>
-          <p class="mt-5 max-w-lg text-base leading-7 text-af-ink-2">{{ t('userUi.home.heroDescription') }}</p>
-          <div class="mt-8 flex flex-wrap items-center gap-x-6 gap-y-3">
-            <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary" data-testid="home-primary-cta">
+          <p class="mt-5 max-w-xl text-base leading-7 text-af-ink-2">{{ t('userUi.home.heroDescription') }}</p>
+          <div class="mt-8 flex flex-wrap items-center gap-3">
+            <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-lg" data-testid="home-primary-cta">
               {{ isAuthenticated ? t('userUi.home.goToConsole') : t('userUi.home.getStarted') }}
             </RouterLink>
-            <RouterLink v-if="showModelPlazaEntry" to="/model-plaza" class="text-sm font-medium text-af-ink-2 hover:text-af-ink">
+            <RouterLink v-if="showModelPlazaEntry" to="/model-plaza" class="btn btn-secondary btn-lg">
               {{ t('userUi.home.viewPricing') }}
             </RouterLink>
           </div>
         </div>
-        <div class="min-w-0 lg:col-span-7">
-          <RouteMap :site-name="siteName" :logo="siteLogo || '/logo.svg'" />
+        <div class="min-w-0 lg:col-span-6">
+          <CodeSample :base-url="apiBaseUrl" />
         </div>
       </section>
 
-      <section class="border-t border-af-hairline py-12">
-        <h2 class="text-base font-semibold text-af-ink">{{ t('userUi.home.steps.title') }}</h2>
-        <ol class="mt-6 grid gap-8 sm:grid-cols-3">
-          <li v-for="(step, index) in steps" :key="step" class="flex gap-3">
-            <span class="w-4 shrink-0 text-sm tabular-nums text-af-ink-4">{{ index + 1 }}.</span>
-            <div>
-              <h3 class="text-sm font-medium text-af-ink">{{ t(`userUi.home.steps.${step}.title`) }}</h3>
-              <p class="mt-1 text-13 leading-5 text-af-ink-3">{{ t(`userUi.home.steps.${step}.body`) }}</p>
+      <!-- 数字带：只在拿到模型目录时出现，数字都从目录算 -->
+      <dl v-if="catalog.length" class="grid grid-cols-2 border-y border-af-hairline lg:grid-cols-4 lg:divide-x lg:divide-af-hairline" data-testid="home-stats">
+        <div class="py-6 pr-6 lg:px-6 lg:first:pl-0">
+          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.models') }}</dt>
+          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ catalog.length }}</dd>
+        </div>
+        <div class="py-6 pl-6 lg:px-6">
+          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.vendors') }}</dt>
+          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ vendorCount }}</dd>
+        </div>
+        <div class="border-t border-af-hairline py-6 pr-6 lg:border-t-0 lg:px-6">
+          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.protocols') }}</dt>
+          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ PROTOCOL_ROUTES.length }}</dd>
+        </div>
+        <div class="border-t border-af-hairline py-6 pl-6 lg:border-t-0 lg:px-6 lg:last:pr-0">
+          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.ledgerLabel') }}</dt>
+          <dd class="mt-1 text-2xl font-semibold text-af-ink">{{ t('userUi.home.stats.ledgerValue') }}</dd>
+        </div>
+      </dl>
+
+      <!-- 模型与官方参考价：模型页同一张表的前几行 -->
+      <section v-if="catalogPreview.length" class="py-16">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.catalog.title') }}</h2>
+            <p class="mt-1 text-sm text-af-ink-3">{{ t('userUi.home.catalog.description') }}</p>
+          </div>
+          <RouterLink to="/model-plaza" class="text-sm font-medium text-af-brand hover:text-af-brand-hover">
+            {{ t('userUi.home.catalog.viewAll', { count: catalog.length }) }}
+          </RouterLink>
+        </div>
+        <div class="mt-6">
+          <HomeCatalog :entries="catalogPreview" />
+        </div>
+      </section>
+
+      <!-- 四条官方协议 -->
+      <section class="border-t border-af-hairline py-16">
+        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.protocols.title') }}</h2>
+        <p class="mt-1 max-w-2xl text-sm text-af-ink-3">{{ t('userUi.home.protocols.description') }}</p>
+        <ul class="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+          <li v-for="route in PROTOCOL_ROUTES" :key="route.key" class="min-w-0">
+            <h3 class="text-lg font-semibold text-af-ink">{{ t(`userUi.home.routeMap.routes.${route.key}`) }}</h3>
+            <code class="mt-2 block break-all font-mono text-xs text-af-ink-3">{{ route.method }} {{ route.path }}</code>
+            <p class="mt-2 text-sm text-af-ink-2">{{ t(`userUi.home.routeMap.vendors.${route.key}`) }}</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- 接入三步 -->
+      <section class="border-t border-af-hairline py-16">
+        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.steps.title') }}</h2>
+        <ol class="mt-8 grid gap-8 sm:grid-cols-3">
+          <li v-for="(step, index) in steps" :key="step" class="flex gap-4">
+            <span class="w-5 shrink-0 text-base tabular-nums text-af-ink-4">{{ index + 1 }}.</span>
+            <div class="min-w-0">
+              <h3 class="text-base font-semibold text-af-ink">{{ t(`userUi.home.steps.${step}.title`) }}</h3>
+              <p class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.steps.${step}.body`) }}</p>
             </div>
           </li>
         </ol>
       </section>
 
-      <section class="border-t border-af-hairline py-12">
-        <h2 class="text-base font-semibold text-af-ink">{{ t('userUi.home.facts.title') }}</h2>
-        <dl class="mt-6 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
+      <!-- 可核对的事 -->
+      <section class="border-t border-af-hairline py-16">
+        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.facts.title') }}</h2>
+        <dl class="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
           <div v-for="fact in facts" :key="fact">
-            <dt class="text-sm font-medium text-af-ink">{{ t(`userUi.home.facts.${fact}.title`) }}</dt>
-            <dd class="mt-1 text-13 leading-5 text-af-ink-3">{{ t(`userUi.home.facts.${fact}.body`) }}</dd>
+            <dt class="text-base font-semibold text-af-ink">{{ t(`userUi.home.facts.${fact}.title`) }}</dt>
+            <dd class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.facts.${fact}.body`) }}</dd>
           </div>
         </dl>
       </section>
@@ -68,12 +122,16 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import RouteMap from '@/components/user/home/RouteMap.vue'
+import CodeSample from '@/components/user/home/CodeSample.vue'
+import HomeCatalog from '@/components/user/home/HomeCatalog.vue'
+import { PROTOCOL_ROUTES } from '@/components/user/home/protocols'
 import { CONSOLE_HOME_PATH } from '@/components/user/shell/navItems'
+import { getModelPlaza } from '@/api/modelPlaza'
+import { buildCatalog, catalogPlatforms, type CatalogModel } from '@/components/modelPlaza/catalog'
 import { sanitizeUrl } from '@/utils/url'
 import { DEFAULT_SITE_NAME, DEFAULT_SITE_SUBTITLE } from '@/utils/branding'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
@@ -104,14 +162,35 @@ const showModelPlazaEntry = computed(
   () => isFeatureFlagEnabled(FeatureFlags.modelPlaza) && (isAuthenticated.value || !modelPlazaRequiresAuth.value)
 )
 
+const apiBaseUrl = computed(() => appStore.cachedPublicSettings?.api_base_url || appStore.apiBaseUrl || '')
+
 const steps = ['create', 'baseUrl', 'watch'] as const
 const facts = ['protocol', 'pricing', 'ledger', 'balance'] as const
 
-onMounted(() => {
+// 模型目录：与模型页同一个接口；拿不到（开关关着 / 要求登录 / 网络）就不渲染数字带与价目预览，不放假数字
+const HOME_CATALOG_ROWS = 8
+const catalog = ref<CatalogModel[]>([])
+const vendorCount = computed(() => catalogPlatforms(catalog.value).length)
+const catalogPreview = computed(() => catalog.value.filter((entry) => entry.official).slice(0, HOME_CATALOG_ROWS))
+
+async function loadCatalog() {
+  if (!showModelPlazaEntry.value) return
+  try {
+    const response = await getModelPlaza()
+    catalog.value = buildCatalog(response.groups ?? [])
+  } catch {
+    catalog.value = []
+  }
+}
+
+onMounted(async () => {
   authStore.checkAuth()
   // 注入配置缺失时（纯静态部署）再拉一次公开设置
   if (!appStore.publicSettingsLoaded) {
-    appStore.fetchPublicSettings()
+    await appStore.fetchPublicSettings().catch(() => undefined)
+  }
+  if (!hasHomeContent.value && !compactHomeEnabled.value) {
+    void loadCatalog()
   }
 })
 </script>

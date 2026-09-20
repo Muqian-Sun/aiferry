@@ -70,3 +70,11 @@ export function filterCatalog(entries: CatalogModel[], search: string, platform:
 export function catalogPlatforms(entries: CatalogModel[]): string[] {
   return [...new Set(entries.flatMap((entry) => entry.platforms))].sort()
 }
+
+/** 官方参考价的展示格式：≥100 取整、≥1 两位小数、更小的保留到 4 位并去掉尾零；null 显示破折号 */
+export function formatCatalogPrice(value: number | null | undefined): string {
+  if (value == null) return '—'
+  if (value >= 100) return `$${value.toFixed(0)}`
+  if (value >= 1) return `$${value.toFixed(2)}`
+  return `$${Number(value.toFixed(4))}`
+}
