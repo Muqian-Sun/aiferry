@@ -253,32 +253,6 @@ func (a *Account) IsOpenCodeGo() bool {
 	return a != nil && a.Platform == PlatformOpenCodeGo
 }
 
-// GetOpenCodeAccountMode 返回 OpenCode 账号类型。未设置时按 Go 处理，兼容已有账号。
-func (a *Account) GetOpenCodeAccountMode() string {
-	if a == nil || !a.IsOpenCodeGo() {
-		return ""
-	}
-	if strings.TrimSpace(a.GetCredential("account_mode")) == AccountModeZen {
-		return AccountModeZen
-	}
-	return AccountModeGo
-}
-
-func (a *Account) IsOpenCodeZen() bool {
-	return a.GetOpenCodeAccountMode() == AccountModeZen
-}
-
-func (a *Account) IsOpenCodeGoPlan() bool {
-	return a.GetOpenCodeAccountMode() == AccountModeGo
-}
-
-func (a *Account) openCodeDefaultChatBaseURL() string {
-	if a.IsOpenCodeZen() {
-		return DefaultOpenCodeZenBaseURL
-	}
-	return DefaultOpenCodeGoBaseURL
-}
-
 // openCodeGoNativeProtocol 返回 OpenCode 官方网关上该模型的原生上游协议。
 // 规则未命中、空值或未知协议一律兜底 Chat Completions，避免落入 Responses 转换链。
 func openCodeGoNativeProtocol(account *Account, model string) string {
