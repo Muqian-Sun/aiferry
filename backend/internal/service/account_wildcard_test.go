@@ -752,3 +752,27 @@ func TestAccountGetModelMapping_CacheInvalidatesOnInPlaceValueChange(t *testing.
 		t.Fatalf("expected cache invalidated after in-place value change, got: %v", second)
 	}
 }
+
+// 模型映射缓存键含厂商：同一对象改了协议地址（管理端改号后复用），厂商默认映射要跟着变，
+// 不能沿用上一次按旧厂商解析出的结果。
+func TestAccountGetModelMapping_CacheInvalidatesWhenVendorChanges(t *testing.T) {
+	t.Parallel()
+
+	account := &Account{
+		Platform: PlatformGrok, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"},
+		Credentials:       map[string]any{},
+	}
+	if relayMapping := account.GetModelMapping(); len(relayMapping) != 0 {
+		t.Fatalf("a relay key with an empty mapping allows everything, got %v", relayMapping)
+	}
+
+	// 地址换成官方 xAI：按厂商启用 xAI 模型目录默认映射。
+	account.ProtocolEndpoints = PlatformProtocolDefaults(PlatformGrok, "")
+	if account.Vendor() != PlatformGrok {
+		t.Fatalf("fixture: expected grok vendor, got %q", account.Vendor())
+	}
+	if officialMapping := account.GetModelMapping(); len(officialMapping) == 0 {
+		t.Fatal("expected the cache to be rebuilt for the new vendor with the xAI default mapping")
+	}
+}
