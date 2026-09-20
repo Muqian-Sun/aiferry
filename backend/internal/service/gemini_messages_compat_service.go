@@ -164,6 +164,10 @@ func (s *GeminiMessagesCompatService) resolvePlatformAndSchedulingMode(ctx conte
 	if hasForcePlatform && forcePlatform != "" {
 		return forcePlatform, false, true, nil
 	}
+	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
+		// 目录路由（或已解析的合成目标）决定网关族。
+		return platform, false, false, nil
+	}
 
 	if groupID != nil {
 		// 根据分组 platform 决定查询哪种账号
@@ -440,7 +444,9 @@ func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Co
 
 	var accounts []Account
 	var err error
-	if groupID != nil {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
+	} else if groupID != nil {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, queryPlatforms)
 	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, queryPlatforms)

@@ -200,6 +200,12 @@ func resolveOpenAIMessagesDispatchMappedModel(c *gin.Context, apiKey *service.AP
 	if apiKey == nil || apiKey.Group == nil {
 		return ""
 	}
+	if c != nil && c.Request != nil {
+		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
+			// 目录模型按请求名转发（账号级 model_mapping 仍生效），分组级 dispatch 映射不再改写。
+			return ""
+		}
+	}
 	// composite 解析到 grok/CN/OpenCode 目标时调度级映射不适用（Group 级映射的
 	// gpt-5.x 默认值是 openai 专属,发给这些上游必错）,模型改写交给账号级 model_mapping。
 	if apiKey.Group.Platform == service.PlatformComposite && c != nil && c.Request != nil {
@@ -288,6 +294,12 @@ func openAIResponsesRequiredCapabilityForRequest(imageIntent bool, needsResponse
 func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKey) bool {
 	if apiKey == nil || apiKey.Group == nil {
 		return true
+	}
+	if c != nil && c.Request != nil {
+		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
+			// 目录路由：上架条目走哪个网关族由条目决定，分组的 allow_messages_dispatch 开关不再拦。
+			return true
+		}
 	}
 	if apiKey.Group.Platform == service.PlatformGrok {
 		return true

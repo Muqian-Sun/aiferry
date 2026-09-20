@@ -48,7 +48,10 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		groupID = resolvedGroupID
 		ctx = s.withGroupContext(ctx, group)
 		platform = group.Platform
-		if group.Platform == PlatformComposite {
+		if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
+			// 目录路由（或已解析的合成目标）决定网关族，分组平台不再参与。
+			platform = resolved
+		} else if group.Platform == PlatformComposite {
 			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
 			if err != nil {
 				return nil, err
@@ -60,6 +63,8 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 			requestedModel = decision.UpstreamModel
 			ctx = WithCompositeRouteDecision(ctx, decision)
 		}
+	} else if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
+		platform = resolved
 	} else {
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
@@ -250,9 +255,11 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		return needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, account, requestedModel)
 	}
 
-	// 获取模型路由配置（anthropic / openai 目标平台；composite 分组按目标平台判断）
+	// 获取模型路由配置（anthropic / openai 目标平台；composite 分组按目标平台判断）。
+	// 目录路由下池由条目绑定决定，分组的主备路由规则不适用（优先级在绑定上）。
+	_, catalogRouted := CatalogRouteFromContext(ctx)
 	var routingAccountIDs []int64
-	if group != nil && requestedModel != "" &&
+	if !catalogRouted && group != nil && requestedModel != "" &&
 		modelRoutingAppliesToPlatform(platform, group.Platform) {
 		routingAccountIDs = group.GetRoutingAccountIDs(requestedModel)
 		if s.debugModelRoutingEnabled() {
@@ -896,6 +903,10 @@ func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupI
 	if groupID == nil || requestedModel == "" || !modelRoutingAppliesToTargetPlatform(platform) {
 		return nil
 	}
+	if _, routed := CatalogRouteFromContext(ctx); routed {
+		// 目录路由下池由条目绑定决定，分组的主备路由规则不适用。
+		return nil
+	}
 	group, err := s.resolveGroupByID(ctx, *groupID)
 	if err != nil || group == nil {
 		if s.debugModelRoutingEnabled() {
@@ -1040,6 +1051,19 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 	}
 	useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
 	platforms := schedulingCandidatePlatforms(platform, useMixed)
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		// 目录路由：池 = 条目绑定的账号，再按生效平台与入站协议过滤。
+		accounts, err := s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
+		if err != nil {
+			return nil, useMixed, err
+		}
+		accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform, useMixed)
+		accounts = s.filterAccountsBySchedulingThreshold(ctx, accounts)
+		if platform == PlatformGrok {
+			accounts = s.filterGrokFreeQuotaAccountsForGateway(ctx, accounts)
+		}
+		return accounts, useMixed, nil
+	}
 	if useMixed {
 		var accounts []Account
 		var err error

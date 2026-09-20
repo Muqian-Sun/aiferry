@@ -82,8 +82,18 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Con
 	return result, nil
 }
 
-func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
-	return nil, nil
+// ListSchedulingCandidatesByCatalogEntry 返回 CatalogEntryIDs 含该条目的账号（不看平台与分组）。
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]Account, error) {
+	var out []Account
+	for _, account := range r.accounts {
+		for _, id := range account.CatalogEntryIDs {
+			if id == entryID {
+				out = append(out, account)
+				break
+			}
+		}
+	}
+	return out, nil
 }
 
 func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
@@ -96,10 +106,6 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx co
 
 type schedulerGroupAwareOpenAIAccountRepo struct {
 	schedulerTestOpenAIAccountRepo
-}
-
-func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
-	return nil, nil
 }
 
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {

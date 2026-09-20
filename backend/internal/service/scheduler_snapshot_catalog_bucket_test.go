@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -180,4 +181,84 @@ func TestHandleAccountEventRebuildsCatalogBuckets(t *testing.T) {
 		_, published := cache.counts(catalogBucket(8, PlatformOpenAI))
 		require.Equal(t, 1, published)
 	})
+}
+
+// catalogListCache 只实现 ListSchedulableAccounts 用到的读写：快照永远未命中，记录写入的桶。
+type catalogListCache struct {
+	SchedulerCache
+
+	mu     sync.Mutex
+	epoch  int64
+	writes map[SchedulerBucket][]Account
+}
+
+func newCatalogListCache() *catalogListCache {
+	return &catalogListCache{writes: make(map[SchedulerBucket][]Account)}
+}
+
+func (c *catalogListCache) GetSnapshot(context.Context, SchedulerBucket) ([]*Account, bool, error) {
+	return nil, false, nil
+}
+
+func (c *catalogListCache) CaptureBucketWriteToken(_ context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.epoch++
+	return SchedulerBucketWriteToken{Bucket: bucket, Epoch: c.epoch}, nil
+}
+
+func (c *catalogListCache) SetSnapshot(_ context.Context, bucket SchedulerBucket, _ SchedulerBucketWriteToken, accounts []Account) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.writes[bucket] = append([]Account(nil), accounts...)
+	return nil
+}
+
+func (c *catalogListCache) written() []SchedulerBucket {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	out := make([]SchedulerBucket, 0, len(c.writes))
+	for bucket := range c.writes {
+		out = append(out, bucket)
+	}
+	return out
+}
+
+// 带 CatalogRoute 的请求读写目录桶（条目 ID + 条目网关族），候选来自绑定；
+// 同一服务无 route 时仍走分组桶与分组查询。
+func TestListSchedulableAccounts_CatalogRouteUsesCatalogBucket(t *testing.T) {
+	groupID := int64(3)
+	cache := newCatalogListCache()
+	accounts := &catalogBucketAccountRepo{byEntry: map[int64][]Account{
+		7: {
+			{ID: 1, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, CatalogEntryIDs: []int64{7}},
+			{ID: 2, Platform: PlatformGemini, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, CatalogEntryIDs: []int64{7}},
+		},
+	}}
+	groups := &fullRebuildLifecycleGroupRepo{fresh: make(map[int64]*Group), freshErr: make(map[int64]error)}
+	cfg := &config.Config{RunMode: config.RunModeStandard}
+	cfg.Gateway.Scheduling.DbFallbackEnabled = true
+	svc := NewSchedulerSnapshotService(cache, nil, accounts, groups, cfg)
+
+	routed := catalogRouteCtx(7, PlatformAnthropic, APIProtocolAnthropic)
+	got, useMixed, err := svc.ListSchedulableAccounts(routed, &groupID, PlatformAnthropic, false)
+	require.NoError(t, err)
+	require.False(t, useMixed, "catalog buckets never mix")
+	require.Len(t, got, 1, "the gemini oauth cannot serve the anthropic family and is filtered out")
+	require.Equal(t, int64(1), got[0].ID)
+	require.Equal(t, []int64{7}, accounts.catalogCalls())
+	require.Equal(t, []SchedulerBucket{catalogBucket(7, PlatformAnthropic)}, cache.written())
+
+	// 强制 antigravity（/antigravity 路由）：桶仍是目录桶，但过滤按 antigravity 只留 antigravity 成品号。
+	forced := context.WithValue(routed, ctxkey.ForcePlatform, PlatformAntigravity)
+	got, _, err = svc.ListSchedulableAccounts(forced, &groupID, PlatformAntigravity, true)
+	require.NoError(t, err)
+	require.Empty(t, got)
+
+	unrouted := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
+	_, useMixed, err = svc.ListSchedulableAccounts(unrouted, &groupID, PlatformAnthropic, false)
+	require.NoError(t, err)
+	require.True(t, useMixed)
+	require.Equal(t, 1, accounts.groupCallCount(groupID), "without a route the group query runs")
+	require.Contains(t, cache.written(), SchedulerBucket{GroupID: groupID, Platform: PlatformAnthropic, Mode: SchedulerModeMixed})
 }

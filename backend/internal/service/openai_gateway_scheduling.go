@@ -1506,7 +1506,9 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 	var accounts []Account
 	var err error
 	platforms := schedulingCandidatePlatforms(platform, false)
-	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		accounts, err = s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
+	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
 		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 	} else if groupID != nil {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)

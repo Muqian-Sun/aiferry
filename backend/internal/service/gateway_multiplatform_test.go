@@ -143,8 +143,19 @@ func (m *mockAccountRepoForPlatform) ListSchedulingCandidates(ctx context.Contex
 	}
 	return result, nil
 }
-func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
-	return nil, nil
+
+// ListSchedulingCandidatesByCatalogEntry 返回 CatalogEntryIDs 含该条目的账号（不看平台）。
+func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]Account, error) {
+	var out []Account
+	for _, account := range m.accounts {
+		for _, id := range account.CatalogEntryIDs {
+			if id == entryID {
+				out = append(out, account)
+				break
+			}
+		}
+	}
+	return out, nil
 }
 
 func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
