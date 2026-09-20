@@ -1722,7 +1722,9 @@ func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCa
 // remains eligible for backwards compatibility. An explicit operator
 // override takes precedence over probe data.
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
-	if a == nil || !a.IsGrok() {
+	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
+	// 否则会出现调度放行、转发拒绝的错位。
+	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
 	}
 	if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
