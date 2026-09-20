@@ -111,4 +111,3 @@ func schedulingCandidatePlatforms(platform string, useMixed bool) []string {
 	}
 	return []string{platform}
 }
-
