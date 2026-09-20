@@ -32,10 +32,12 @@ type ModelCatalogEntry struct {
 	Protocols []string `json:"protocols,omitempty"`
 	// token / per_request / image / video.
 	BillingMode string `json:"billing_mode,omitempty"`
-	// listed = 上架; unlisted = 下架（本阶段仅记录，不参与准入）。
+	// listed = 上架（用户可见且可调用）; unlisted = 下架。
 	Status string `json:"status,omitempty"`
 	// seed = 播种器维护，可被重新播种刷新; admin = 管理员维护，播种器不再覆盖。
 	ManagedBy string `json:"managed_by,omitempty"`
+	// 条目走哪条网关族（anthropic/openai/gemini/...）；空表示按 vendor 推导。
+	RoutePlatform string `json:"route_platform,omitempty"`
 	// InputPrice holds the value of the "input_price" field.
 	InputPrice *float64 `json:"input_price,omitempty"`
 	// OutputPrice holds the value of the "output_price" field.
@@ -77,8 +79,40 @@ type ModelCatalogEntry struct {
 	// MaxReasoningEffortMultiplier holds the value of the "max_reasoning_effort_multiplier" field.
 	MaxReasoningEffortMultiplier *float64 `json:"max_reasoning_effort_multiplier,omitempty"`
 	// Notes holds the value of the "notes" field.
-	Notes        *string `json:"notes,omitempty"`
+	Notes *string `json:"notes,omitempty"`
+	// Edges holds the relations/edges for other nodes in the graph.
+	// The values are being populated by the ModelCatalogEntryQuery when eager-loading is set.
+	Edges        ModelCatalogEntryEdges `json:"edges"`
 	selectValues sql.SelectValues
+}
+
+// ModelCatalogEntryEdges holds the relations/edges for other nodes in the graph.
+type ModelCatalogEntryEdges struct {
+	// Accounts holds the value of the accounts edge.
+	Accounts []*Account `json:"accounts,omitempty"`
+	// Bindings holds the value of the bindings edge.
+	Bindings []*ModelCatalogBinding `json:"bindings,omitempty"`
+	// loadedTypes holds the information for reporting if a
+	// type was loaded (or requested) in eager-loading or not.
+	loadedTypes [2]bool
+}
+
+// AccountsOrErr returns the Accounts value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelCatalogEntryEdges) AccountsOrErr() ([]*Account, error) {
+	if e.loadedTypes[0] {
+		return e.Accounts, nil
+	}
+	return nil, &NotLoadedError{edge: "accounts"}
+}
+
+// BindingsOrErr returns the Bindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelCatalogEntryEdges) BindingsOrErr() ([]*ModelCatalogBinding, error) {
+	if e.loadedTypes[1] {
+		return e.Bindings, nil
+	}
+	return nil, &NotLoadedError{edge: "bindings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -94,7 +128,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID, modelcatalogentry.FieldLongContextInputThreshold:
 			values[i] = new(sql.NullInt64)
-		case modelcatalogentry.FieldModelID, modelcatalogentry.FieldDisplayName, modelcatalogentry.FieldVendor, modelcatalogentry.FieldBillingMode, modelcatalogentry.FieldStatus, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldNotes:
+		case modelcatalogentry.FieldModelID, modelcatalogentry.FieldDisplayName, modelcatalogentry.FieldVendor, modelcatalogentry.FieldBillingMode, modelcatalogentry.FieldStatus, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldRoutePlatform, modelcatalogentry.FieldNotes:
 			values[i] = new(sql.NullString)
 		case modelcatalogentry.FieldCreatedAt, modelcatalogentry.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -174,6 +208,12 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				return fmt.Errorf("unexpected type %T for field managed_by", values[i])
 			} else if value.Valid {
 				_m.ManagedBy = value.String
+			}
+		case modelcatalogentry.FieldRoutePlatform:
+			if value, ok := values[i].(*sql.NullString); !ok {
+				return fmt.Errorf("unexpected type %T for field route_platform", values[i])
+			} else if value.Valid {
+				_m.RoutePlatform = value.String
 			}
 		case modelcatalogentry.FieldInputPrice:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -334,6 +374,16 @@ func (_m *ModelCatalogEntry) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
+// QueryAccounts queries the "accounts" edge of the ModelCatalogEntry entity.
+func (_m *ModelCatalogEntry) QueryAccounts() *AccountQuery {
+	return NewModelCatalogEntryClient(_m.config).QueryAccounts(_m)
+}
+
+// QueryBindings queries the "bindings" edge of the ModelCatalogEntry entity.
+func (_m *ModelCatalogEntry) QueryBindings() *ModelCatalogBindingQuery {
+	return NewModelCatalogEntryClient(_m.config).QueryBindings(_m)
+}
+
 // Update returns a builder for updating this ModelCatalogEntry.
 // Note that you need to call ModelCatalogEntry.Unwrap() before calling this method if this ModelCatalogEntry
 // was returned from a transaction, and the transaction was committed or rolled back.
@@ -383,6 +433,9 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("managed_by=")
 	builder.WriteString(_m.ManagedBy)
+	builder.WriteString(", ")
+	builder.WriteString("route_platform=")
+	builder.WriteString(_m.RoutePlatform)
 	builder.WriteString(", ")
 	if v := _m.InputPrice; v != nil {
 		builder.WriteString("input_price=")

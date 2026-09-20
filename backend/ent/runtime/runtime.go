@@ -25,6 +25,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
@@ -1331,6 +1332,12 @@ func init() {
 	modelcatalogalias.DefaultSource = modelcatalogaliasDescSource.Default.(string)
 	// modelcatalogalias.SourceValidator is a validator for the "source" field. It is called by the builders before save.
 	modelcatalogalias.SourceValidator = modelcatalogaliasDescSource.Validators[0].(func(string) error)
+	modelcatalogbindingFields := schema.ModelCatalogBinding{}.Fields()
+	_ = modelcatalogbindingFields
+	// modelcatalogbindingDescCreatedAt is the schema descriptor for created_at field.
+	modelcatalogbindingDescCreatedAt := modelcatalogbindingFields[3].Descriptor()
+	// modelcatalogbinding.DefaultCreatedAt holds the default value on creation for the created_at field.
+	modelcatalogbinding.DefaultCreatedAt = modelcatalogbindingDescCreatedAt.Default.(func() time.Time)
 	modelcatalogentryMixin := schema.ModelCatalogEntry{}.Mixin()
 	modelcatalogentryMixinFields0 := modelcatalogentryMixin[0].Fields()
 	_ = modelcatalogentryMixinFields0
@@ -1394,8 +1401,14 @@ func init() {
 	modelcatalogentry.DefaultManagedBy = modelcatalogentryDescManagedBy.Default.(string)
 	// modelcatalogentry.ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
 	modelcatalogentry.ManagedByValidator = modelcatalogentryDescManagedBy.Validators[0].(func(string) error)
+	// modelcatalogentryDescRoutePlatform is the schema descriptor for route_platform field.
+	modelcatalogentryDescRoutePlatform := modelcatalogentryFields[7].Descriptor()
+	// modelcatalogentry.DefaultRoutePlatform holds the default value on creation for the route_platform field.
+	modelcatalogentry.DefaultRoutePlatform = modelcatalogentryDescRoutePlatform.Default.(string)
+	// modelcatalogentry.RoutePlatformValidator is a validator for the "route_platform" field. It is called by the builders before save.
+	modelcatalogentry.RoutePlatformValidator = modelcatalogentryDescRoutePlatform.Validators[0].(func(string) error)
 	// modelcatalogentryDescLongContextThresholdInclusive is the schema descriptor for long_context_threshold_inclusive field.
-	modelcatalogentryDescLongContextThresholdInclusive := modelcatalogentryFields[21].Descriptor()
+	modelcatalogentryDescLongContextThresholdInclusive := modelcatalogentryFields[22].Descriptor()
 	// modelcatalogentry.DefaultLongContextThresholdInclusive holds the default value on creation for the long_context_threshold_inclusive field.
 	modelcatalogentry.DefaultLongContextThresholdInclusive = modelcatalogentryDescLongContextThresholdInclusive.Default.(bool)
 	modelcatalogpriceintervalMixin := schema.ModelCatalogPriceInterval{}.Mixin()

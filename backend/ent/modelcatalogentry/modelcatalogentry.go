@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 )
 
 const (
@@ -31,6 +32,8 @@ const (
 	FieldStatus = "status"
 	// FieldManagedBy holds the string denoting the managed_by field in the database.
 	FieldManagedBy = "managed_by"
+	// FieldRoutePlatform holds the string denoting the route_platform field in the database.
+	FieldRoutePlatform = "route_platform"
 	// FieldInputPrice holds the string denoting the input_price field in the database.
 	FieldInputPrice = "input_price"
 	// FieldOutputPrice holds the string denoting the output_price field in the database.
@@ -73,8 +76,24 @@ const (
 	FieldMaxReasoningEffortMultiplier = "max_reasoning_effort_multiplier"
 	// FieldNotes holds the string denoting the notes field in the database.
 	FieldNotes = "notes"
+	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
+	EdgeAccounts = "accounts"
+	// EdgeBindings holds the string denoting the bindings edge name in mutations.
+	EdgeBindings = "bindings"
 	// Table holds the table name of the modelcatalogentry in the database.
 	Table = "model_catalog_entries"
+	// AccountsTable is the table that holds the accounts relation/edge. The primary key declared below.
+	AccountsTable = "model_catalog_bindings"
+	// AccountsInverseTable is the table name for the Account entity.
+	// It exists in this package in order to avoid circular dependency with the "account" package.
+	AccountsInverseTable = "accounts"
+	// BindingsTable is the table that holds the bindings relation/edge.
+	BindingsTable = "model_catalog_bindings"
+	// BindingsInverseTable is the table name for the ModelCatalogBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "modelcatalogbinding" package.
+	BindingsInverseTable = "model_catalog_bindings"
+	// BindingsColumn is the table column denoting the bindings relation/edge.
+	BindingsColumn = "entry_id"
 )
 
 // Columns holds all SQL columns for modelcatalogentry fields.
@@ -89,6 +108,7 @@ var Columns = []string{
 	FieldBillingMode,
 	FieldStatus,
 	FieldManagedBy,
+	FieldRoutePlatform,
 	FieldInputPrice,
 	FieldOutputPrice,
 	FieldCacheWritePrice,
@@ -111,6 +131,12 @@ var Columns = []string{
 	FieldMaxReasoningEffortMultiplier,
 	FieldNotes,
 }
+
+var (
+	// AccountsPrimaryKey and AccountsColumn2 are the table columns denoting the
+	// primary key for the accounts relation (M2M).
+	AccountsPrimaryKey = []string{"entry_id", "account_id"}
+)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -151,6 +177,10 @@ var (
 	DefaultManagedBy string
 	// ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
 	ManagedByValidator func(string) error
+	// DefaultRoutePlatform holds the default value on creation for the "route_platform" field.
+	DefaultRoutePlatform string
+	// RoutePlatformValidator is a validator for the "route_platform" field. It is called by the builders before save.
+	RoutePlatformValidator func(string) error
 	// DefaultLongContextThresholdInclusive holds the default value on creation for the "long_context_threshold_inclusive" field.
 	DefaultLongContextThresholdInclusive bool
 )
@@ -201,6 +231,11 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByManagedBy orders the results by the managed_by field.
 func ByManagedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldManagedBy, opts...).ToFunc()
+}
+
+// ByRoutePlatform orders the results by the route_platform field.
+func ByRoutePlatform(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldRoutePlatform, opts...).ToFunc()
 }
 
 // ByInputPrice orders the results by the input_price field.
@@ -306,4 +341,46 @@ func ByMaxReasoningEffortMultiplier(opts ...sql.OrderTermOption) OrderOption {
 // ByNotes orders the results by the notes field.
 func ByNotes(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldNotes, opts...).ToFunc()
+}
+
+// ByAccountsCount orders the results by accounts count.
+func ByAccountsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newAccountsStep(), opts...)
+	}
+}
+
+// ByAccounts orders the results by accounts terms.
+func ByAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newAccountsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByBindingsCount orders the results by bindings count.
+func ByBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newBindingsStep(), opts...)
+	}
+}
+
+// ByBindings orders the results by bindings terms.
+func ByBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+func newAccountsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(AccountsInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, false, AccountsTable, AccountsPrimaryKey...),
+	)
+}
+func newBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(BindingsInverseTable, BindingsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, BindingsTable, BindingsColumn),
+	)
 }

@@ -11,6 +11,7 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 )
 
@@ -128,6 +129,20 @@ func (_c *ModelCatalogEntryCreate) SetManagedBy(v string) *ModelCatalogEntryCrea
 func (_c *ModelCatalogEntryCreate) SetNillableManagedBy(v *string) *ModelCatalogEntryCreate {
 	if v != nil {
 		_c.SetManagedBy(*v)
+	}
+	return _c
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (_c *ModelCatalogEntryCreate) SetRoutePlatform(v string) *ModelCatalogEntryCreate {
+	_c.mutation.SetRoutePlatform(v)
+	return _c
+}
+
+// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableRoutePlatform(v *string) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetRoutePlatform(*v)
 	}
 	return _c
 }
@@ -426,6 +441,21 @@ func (_c *ModelCatalogEntryCreate) SetNillableNotes(v *string) *ModelCatalogEntr
 	return _c
 }
 
+// AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
+func (_c *ModelCatalogEntryCreate) AddAccountIDs(ids ...int64) *ModelCatalogEntryCreate {
+	_c.mutation.AddAccountIDs(ids...)
+	return _c
+}
+
+// AddAccounts adds the "accounts" edges to the Account entity.
+func (_c *ModelCatalogEntryCreate) AddAccounts(v ...*Account) *ModelCatalogEntryCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddAccountIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_c *ModelCatalogEntryCreate) Mutation() *ModelCatalogEntryMutation {
 	return _c.mutation
@@ -489,6 +519,10 @@ func (_c *ModelCatalogEntryCreate) defaults() {
 		v := modelcatalogentry.DefaultManagedBy
 		_c.mutation.SetManagedBy(v)
 	}
+	if _, ok := _c.mutation.RoutePlatform(); !ok {
+		v := modelcatalogentry.DefaultRoutePlatform
+		_c.mutation.SetRoutePlatform(v)
+	}
 	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
 		v := modelcatalogentry.DefaultLongContextThresholdInclusive
 		_c.mutation.SetLongContextThresholdInclusive(v)
@@ -549,6 +583,14 @@ func (_c *ModelCatalogEntryCreate) check() error {
 	if v, ok := _c.mutation.ManagedBy(); ok {
 		if err := modelcatalogentry.ManagedByValidator(v); err != nil {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
+		}
+	}
+	if _, ok := _c.mutation.RoutePlatform(); !ok {
+		return &ValidationError{Name: "route_platform", err: errors.New(`ent: missing required field "ModelCatalogEntry.route_platform"`)}
+	}
+	if v, ok := _c.mutation.RoutePlatform(); ok {
+		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
+			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
@@ -616,6 +658,10 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
 		_node.ManagedBy = value
+	}
+	if value, ok := _c.mutation.RoutePlatform(); ok {
+		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
+		_node.RoutePlatform = value
 	}
 	if value, ok := _c.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)
@@ -700,6 +746,26 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.Notes(); ok {
 		_spec.SetField(modelcatalogentry.FieldNotes, field.TypeString, value)
 		_node.Notes = &value
+	}
+	if nodes := _c.mutation.AccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _c.config, mutation: newModelCatalogBindingMutation(_c.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec
 }
@@ -852,6 +918,18 @@ func (u *ModelCatalogEntryUpsert) SetManagedBy(v string) *ModelCatalogEntryUpser
 // UpdateManagedBy sets the "managed_by" field to the value that was provided on create.
 func (u *ModelCatalogEntryUpsert) UpdateManagedBy() *ModelCatalogEntryUpsert {
 	u.SetExcluded(modelcatalogentry.FieldManagedBy)
+	return u
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (u *ModelCatalogEntryUpsert) SetRoutePlatform(v string) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldRoutePlatform, v)
+	return u
+}
+
+// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateRoutePlatform() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldRoutePlatform)
 	return u
 }
 
@@ -1502,6 +1580,20 @@ func (u *ModelCatalogEntryUpsertOne) SetManagedBy(v string) *ModelCatalogEntryUp
 func (u *ModelCatalogEntryUpsertOne) UpdateManagedBy() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.UpdateManagedBy()
+	})
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (u *ModelCatalogEntryUpsertOne) SetRoutePlatform(v string) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetRoutePlatform(v)
+	})
+}
+
+// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateRoutePlatform() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateRoutePlatform()
 	})
 }
 
@@ -2399,6 +2491,20 @@ func (u *ModelCatalogEntryUpsertBulk) SetManagedBy(v string) *ModelCatalogEntryU
 func (u *ModelCatalogEntryUpsertBulk) UpdateManagedBy() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.UpdateManagedBy()
+	})
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (u *ModelCatalogEntryUpsertBulk) SetRoutePlatform(v string) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetRoutePlatform(v)
+	})
+}
+
+// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateRoutePlatform() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateRoutePlatform()
 	})
 }
 

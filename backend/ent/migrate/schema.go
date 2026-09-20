@@ -1126,6 +1126,40 @@ var (
 			},
 		},
 	}
+	// ModelCatalogBindingsColumns holds the columns for the "model_catalog_bindings" table.
+	ModelCatalogBindingsColumns = []*schema.Column{
+		{Name: "priority", Type: field.TypeInt, Nullable: true},
+		{Name: "created_at", Type: field.TypeTime, SchemaType: map[string]string{"postgres": "timestamptz"}},
+		{Name: "entry_id", Type: field.TypeInt64},
+		{Name: "account_id", Type: field.TypeInt64},
+	}
+	// ModelCatalogBindingsTable holds the schema information for the "model_catalog_bindings" table.
+	ModelCatalogBindingsTable = &schema.Table{
+		Name:       "model_catalog_bindings",
+		Columns:    ModelCatalogBindingsColumns,
+		PrimaryKey: []*schema.Column{ModelCatalogBindingsColumns[2], ModelCatalogBindingsColumns[3]},
+		ForeignKeys: []*schema.ForeignKey{
+			{
+				Symbol:     "model_catalog_bindings_model_catalog_entries_entry",
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[2]},
+				RefColumns: []*schema.Column{ModelCatalogEntriesColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+			{
+				Symbol:     "model_catalog_bindings_accounts_account",
+				Columns:    []*schema.Column{ModelCatalogBindingsColumns[3]},
+				RefColumns: []*schema.Column{AccountsColumns[0]},
+				OnDelete:   schema.NoAction,
+			},
+		},
+		Indexes: []*schema.Index{
+			{
+				Name:    "modelcatalogbinding_account_id",
+				Unique:  false,
+				Columns: []*schema.Column{ModelCatalogBindingsColumns[3]},
+			},
+		},
+	}
 	// ModelCatalogEntriesColumns holds the columns for the "model_catalog_entries" table.
 	ModelCatalogEntriesColumns = []*schema.Column{
 		{Name: "id", Type: field.TypeInt64, Increment: true},
@@ -1138,6 +1172,7 @@ var (
 		{Name: "billing_mode", Type: field.TypeString, Size: 20, Default: "token"},
 		{Name: "status", Type: field.TypeString, Size: 20, Default: "listed"},
 		{Name: "managed_by", Type: field.TypeString, Size: 20, Default: "seed"},
+		{Name: "route_platform", Type: field.TypeString, Size: 20, Default: ""},
 		{Name: "input_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "output_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "cache_write_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
@@ -2204,6 +2239,7 @@ var (
 		IdempotencyRecordsTable,
 		IdentityAdoptionDecisionsTable,
 		ModelCatalogAliasesTable,
+		ModelCatalogBindingsTable,
 		ModelCatalogEntriesTable,
 		ModelCatalogPriceIntervalsTable,
 		ModelCatalogTimePricingTable,
@@ -2305,6 +2341,11 @@ func init() {
 	}
 	ModelCatalogAliasesTable.Annotation = &entsql.Annotation{
 		Table: "model_catalog_aliases",
+	}
+	ModelCatalogBindingsTable.ForeignKeys[0].RefTable = ModelCatalogEntriesTable
+	ModelCatalogBindingsTable.ForeignKeys[1].RefTable = AccountsTable
+	ModelCatalogBindingsTable.Annotation = &entsql.Annotation{
+		Table: "model_catalog_bindings",
 	}
 	ModelCatalogEntriesTable.Annotation = &entsql.Annotation{
 		Table: "model_catalog_entries",

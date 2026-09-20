@@ -10,11 +10,26 @@ import (
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
-// 目录条目的上架状态。本阶段只记录，不参与准入与列表过滤。
+// 目录条目的上架状态：listed 的条目用户可见且可调用（准入只放行 listed），
+// unlisted 的条目对用户不存在。播种出来的条目默认 unlisted，由管理员绑定资源后上架。
 const (
 	ModelCatalogStatusListed   = "listed"
 	ModelCatalogStatusUnlisted = "unlisted"
 )
+
+// catalogRoutePlatforms 是条目 route_platform 的合法取值：只能是一条真实的网关族，
+// antigravity / composite 不是网关族（前者由 /antigravity 路由强制，后者已无意义）。
+var catalogRoutePlatforms = map[string]struct{}{
+	PlatformAnthropic:  {},
+	PlatformOpenAI:     {},
+	PlatformGemini:     {},
+	PlatformGrok:       {},
+	PlatformKimi:       {},
+	PlatformZhipu:      {},
+	PlatformDeepseek:   {},
+	PlatformMiniMax:    {},
+	PlatformOpenCodeGo: {},
+}
 
 // 目录条目 / 别名的维护方。
 //   - seed：由播种器从价格文件 + 硬编码兜底价生成，重复播种会刷新；
@@ -76,6 +91,8 @@ type ModelCatalogEntry struct {
 	BillingMode BillingMode `json:"billing_mode"`
 	Status      string      `json:"status"`
 	ManagedBy   string      `json:"managed_by"`
+	// RoutePlatform 条目走哪条网关族；空串表示按 Vendor 推导（见 CatalogRoutePlatform）。
+	RoutePlatform string `json:"route_platform"`
 
 	InputPrice          *float64 `json:"input_price"`
 	OutputPrice         *float64 `json:"output_price"`
@@ -104,12 +121,21 @@ type ModelCatalogEntry struct {
 
 	Notes *string `json:"notes,omitempty"`
 
-	Intervals   []PricingInterval   `json:"intervals"`
-	TimePricing *ChannelTimePricing `json:"time_pricing,omitempty"`
-	Aliases     []ModelCatalogAlias `json:"aliases"`
+	Intervals   []PricingInterval     `json:"intervals"`
+	TimePricing *ChannelTimePricing   `json:"time_pricing,omitempty"`
+	Aliases     []ModelCatalogAlias   `json:"aliases"`
+	Bindings    []ModelCatalogBinding `json:"bindings"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+// ModelCatalogBinding 把一个资源（账号）绑到目录条目上：条目上架后由这些账号承接请求。
+type ModelCatalogBinding struct {
+	EntryID   int64     `json:"entry_id"`
+	AccountID int64     `json:"account_id"`
+	Priority  *int      `json:"priority,omitempty"` // nil = 用 accounts.priority
+	CreatedAt time.Time `json:"created_at"`
 }
 
 // NormalizeModelCatalogKey 返回查表用的规范化模型名。
@@ -133,6 +159,9 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 	}
 	if e.Aliases != nil {
 		cp.Aliases = append([]ModelCatalogAlias(nil), e.Aliases...)
+	}
+	if e.Bindings != nil {
+		cp.Bindings = append([]ModelCatalogBinding(nil), e.Bindings...)
 	}
 	if e.TimePricing != nil {
 		tp := ChannelTimePricing{
@@ -188,6 +217,21 @@ func (e *ModelCatalogEntry) PricingCard() *ChannelModelPricing {
 		card.Intervals = append([]PricingInterval(nil), e.Intervals...)
 	}
 	return card
+}
+
+// HasPrice 报告条目能否独立定出价：token 模式要有任一 token 价；按次 / 图片 / 视频
+// 模式要有按次价或有效分档。上架条目必须满足它——上架即可调用，无价的条目调用
+// 后计费会走 ErrModelPricingUnavailable，用户看到的是能选却用不了的模型。
+func (e *ModelCatalogEntry) HasPrice() bool {
+	if e == nil {
+		return false
+	}
+	switch e.EffectiveBillingMode() {
+	case BillingModePerRequest, BillingModeImage, BillingModeVideo:
+		return e.PerRequestPrice != nil || len(filterValidIntervals(e.Intervals)) > 0
+	default:
+		return e.HasAnyTokenPrice()
+	}
 }
 
 // HasAnyTokenPrice 报告条目是否配置了任何一项 token 价格（含区间）。
@@ -300,11 +344,12 @@ func (e *ModelCatalogEntry) Normalize() {
 	e.ModelID = strings.TrimSpace(e.ModelID)
 	e.DisplayName = strings.TrimSpace(e.DisplayName)
 	e.Vendor = strings.ToLower(strings.TrimSpace(e.Vendor))
+	e.RoutePlatform = strings.ToLower(strings.TrimSpace(e.RoutePlatform))
 	if e.BillingMode == "" {
 		e.BillingMode = BillingModeToken
 	}
 	if e.Status == "" {
-		e.Status = ModelCatalogStatusListed
+		e.Status = ModelCatalogStatusUnlisted
 	}
 	if e.ManagedBy == "" {
 		e.ManagedBy = ModelCatalogManagedBySeed
@@ -360,6 +405,14 @@ func (e *ModelCatalogEntry) Validate() error {
 	case ModelCatalogStatusListed, ModelCatalogStatusUnlisted:
 	default:
 		return catalogValidationError(fmt.Sprintf("invalid status: %s", e.Status))
+	}
+	if e.RoutePlatform != "" {
+		if _, ok := catalogRoutePlatforms[e.RoutePlatform]; !ok {
+			return catalogValidationError(fmt.Sprintf("invalid route_platform: %s", e.RoutePlatform))
+		}
+	}
+	if e.Status == ModelCatalogStatusListed && !e.HasPrice() {
+		return catalogValidationError("a listed entry must have a price")
 	}
 	switch e.ManagedBy {
 	case ModelCatalogManagedBySeed, ModelCatalogManagedByAdmin:

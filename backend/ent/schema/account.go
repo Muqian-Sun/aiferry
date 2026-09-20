@@ -234,6 +234,10 @@ func (Account) Edges() []ent.Edge {
 			Unique(),
 		// usage_logs: 该账户的使用日志
 		edge.To("usage_logs", UsageLog.Type),
+		// catalog_entries: 账号被哪些目录条目绑定为资源，经 model_catalog_bindings 中间表
+		edge.From("catalog_entries", ModelCatalogEntry.Type).
+			Ref("accounts").
+			Through("catalog_bindings", ModelCatalogBinding.Type),
 	}
 }
 

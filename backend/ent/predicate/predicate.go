@@ -66,6 +66,9 @@ type IdentityAdoptionDecision func(*sql.Selector)
 // ModelCatalogAlias is the predicate function for modelcatalogalias builders.
 type ModelCatalogAlias func(*sql.Selector)
 
+// ModelCatalogBinding is the predicate function for modelcatalogbinding builders.
+type ModelCatalogBinding func(*sql.Selector)
+
 // ModelCatalogEntry is the predicate function for modelcatalogentry builders.
 type ModelCatalogEntry func(*sql.Selector)
 

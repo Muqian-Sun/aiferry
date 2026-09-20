@@ -54,6 +54,8 @@ type Tx struct {
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
 	// ModelCatalogAlias is the client for interacting with the ModelCatalogAlias builders.
 	ModelCatalogAlias *ModelCatalogAliasClient
+	// ModelCatalogBinding is the client for interacting with the ModelCatalogBinding builders.
+	ModelCatalogBinding *ModelCatalogBindingClient
 	// ModelCatalogEntry is the client for interacting with the ModelCatalogEntry builders.
 	ModelCatalogEntry *ModelCatalogEntryClient
 	// ModelCatalogPriceInterval is the client for interacting with the ModelCatalogPriceInterval builders.
@@ -249,6 +251,7 @@ func (tx *Tx) init() {
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
 	tx.ModelCatalogAlias = NewModelCatalogAliasClient(tx.config)
+	tx.ModelCatalogBinding = NewModelCatalogBindingClient(tx.config)
 	tx.ModelCatalogEntry = NewModelCatalogEntryClient(tx.config)
 	tx.ModelCatalogPriceInterval = NewModelCatalogPriceIntervalClient(tx.config)
 	tx.ModelCatalogTimePricing = NewModelCatalogTimePricingClient(tx.config)

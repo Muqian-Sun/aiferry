@@ -35,6 +35,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
@@ -106,6 +107,8 @@ type Client struct {
 	IdentityAdoptionDecision *IdentityAdoptionDecisionClient
 	// ModelCatalogAlias is the client for interacting with the ModelCatalogAlias builders.
 	ModelCatalogAlias *ModelCatalogAliasClient
+	// ModelCatalogBinding is the client for interacting with the ModelCatalogBinding builders.
+	ModelCatalogBinding *ModelCatalogBindingClient
 	// ModelCatalogEntry is the client for interacting with the ModelCatalogEntry builders.
 	ModelCatalogEntry *ModelCatalogEntryClient
 	// ModelCatalogPriceInterval is the client for interacting with the ModelCatalogPriceInterval builders.
@@ -181,6 +184,7 @@ func (c *Client) init() {
 	c.IdempotencyRecord = NewIdempotencyRecordClient(c.config)
 	c.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(c.config)
 	c.ModelCatalogAlias = NewModelCatalogAliasClient(c.config)
+	c.ModelCatalogBinding = NewModelCatalogBindingClient(c.config)
 	c.ModelCatalogEntry = NewModelCatalogEntryClient(c.config)
 	c.ModelCatalogPriceInterval = NewModelCatalogPriceIntervalClient(c.config)
 	c.ModelCatalogTimePricing = NewModelCatalogTimePricingClient(c.config)
@@ -315,6 +319,7 @@ func (c *Client) Tx(ctx context.Context) (*Tx, error) {
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		ModelCatalogAlias:             NewModelCatalogAliasClient(cfg),
+		ModelCatalogBinding:           NewModelCatalogBindingClient(cfg),
 		ModelCatalogEntry:             NewModelCatalogEntryClient(cfg),
 		ModelCatalogPriceInterval:     NewModelCatalogPriceIntervalClient(cfg),
 		ModelCatalogTimePricing:       NewModelCatalogTimePricingClient(cfg),
@@ -376,6 +381,7 @@ func (c *Client) BeginTx(ctx context.Context, opts *sql.TxOptions) (*Tx, error) 
 		IdempotencyRecord:             NewIdempotencyRecordClient(cfg),
 		IdentityAdoptionDecision:      NewIdentityAdoptionDecisionClient(cfg),
 		ModelCatalogAlias:             NewModelCatalogAliasClient(cfg),
+		ModelCatalogBinding:           NewModelCatalogBindingClient(cfg),
 		ModelCatalogEntry:             NewModelCatalogEntryClient(cfg),
 		ModelCatalogPriceInterval:     NewModelCatalogPriceIntervalClient(cfg),
 		ModelCatalogTimePricing:       NewModelCatalogTimePricingClient(cfg),
@@ -432,13 +438,13 @@ func (c *Client) Use(hooks ...Hook) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogEntry,
-		c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserSubscription,
+		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogBinding,
+		c.ModelCatalogEntry, c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserSubscription,
 	} {
 		n.Use(hooks...)
 	}
@@ -453,13 +459,13 @@ func (c *Client) Intercept(interceptors ...Interceptor) {
 		c.BatchImageJob, c.ChannelMonitor, c.ChannelMonitorDailyRollup,
 		c.ChannelMonitorHistory, c.ChannelMonitorRequestTemplate,
 		c.CompositeModelRoute, c.ErrorPassthroughRule, c.Group, c.IdempotencyRecord,
-		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogEntry,
-		c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing, c.PaymentAuditLog,
-		c.PaymentOrder, c.PaymentProviderInstance, c.PendingAuthSession, c.PromoCode,
-		c.PromoCodeUsage, c.Proxy, c.RedeemCode, c.SecuritySecret, c.Setting,
-		c.SubscriptionPlan, c.TLSFingerprintProfile, c.UsageCleanupTask, c.UsageLog,
-		c.User, c.UserAllowedGroup, c.UserAttributeDefinition, c.UserAttributeValue,
-		c.UserSubscription,
+		c.IdentityAdoptionDecision, c.ModelCatalogAlias, c.ModelCatalogBinding,
+		c.ModelCatalogEntry, c.ModelCatalogPriceInterval, c.ModelCatalogTimePricing,
+		c.PaymentAuditLog, c.PaymentOrder, c.PaymentProviderInstance,
+		c.PendingAuthSession, c.PromoCode, c.PromoCodeUsage, c.Proxy, c.RedeemCode,
+		c.SecuritySecret, c.Setting, c.SubscriptionPlan, c.TLSFingerprintProfile,
+		c.UsageCleanupTask, c.UsageLog, c.User, c.UserAllowedGroup,
+		c.UserAttributeDefinition, c.UserAttributeValue, c.UserSubscription,
 	} {
 		n.Intercept(interceptors...)
 	}
@@ -508,6 +514,8 @@ func (c *Client) Mutate(ctx context.Context, m Mutation) (Value, error) {
 		return c.IdentityAdoptionDecision.mutate(ctx, m)
 	case *ModelCatalogAliasMutation:
 		return c.ModelCatalogAlias.mutate(ctx, m)
+	case *ModelCatalogBindingMutation:
+		return c.ModelCatalogBinding.mutate(ctx, m)
 	case *ModelCatalogEntryMutation:
 		return c.ModelCatalogEntry.mutate(ctx, m)
 	case *ModelCatalogPriceIntervalMutation:
@@ -928,6 +936,22 @@ func (c *AccountClient) QueryUsageLogs(_m *Account) *UsageLogQuery {
 	return query
 }
 
+// QueryCatalogEntries queries the catalog_entries edge of a Account.
+func (c *AccountClient) QueryCatalogEntries(_m *Account) *ModelCatalogEntryQuery {
+	query := (&ModelCatalogEntryClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(modelcatalogentry.Table, modelcatalogentry.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, account.CatalogEntriesTable, account.CatalogEntriesPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
 // QueryAccountGroups queries the account_groups edge of a Account.
 func (c *AccountClient) QueryAccountGroups(_m *Account) *AccountGroupQuery {
 	query := (&AccountGroupClient{config: c.config}).Query()
@@ -937,6 +961,22 @@ func (c *AccountClient) QueryAccountGroups(_m *Account) *AccountGroupQuery {
 			sqlgraph.From(account.Table, account.FieldID, id),
 			sqlgraph.To(accountgroup.Table, accountgroup.AccountColumn),
 			sqlgraph.Edge(sqlgraph.O2M, true, account.AccountGroupsTable, account.AccountGroupsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryCatalogBindings queries the catalog_bindings edge of a Account.
+func (c *AccountClient) QueryCatalogBindings(_m *Account) *ModelCatalogBindingQuery {
+	query := (&ModelCatalogBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(account.Table, account.FieldID, id),
+			sqlgraph.To(modelcatalogbinding.Table, modelcatalogbinding.AccountColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, account.CatalogBindingsTable, account.CatalogBindingsColumn),
 		)
 		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
 		return fromV, nil
@@ -3736,6 +3776,122 @@ func (c *ModelCatalogAliasClient) mutate(ctx context.Context, m *ModelCatalogAli
 	}
 }
 
+// ModelCatalogBindingClient is a client for the ModelCatalogBinding schema.
+type ModelCatalogBindingClient struct {
+	config
+}
+
+// NewModelCatalogBindingClient returns a client for the ModelCatalogBinding from the given config.
+func NewModelCatalogBindingClient(c config) *ModelCatalogBindingClient {
+	return &ModelCatalogBindingClient{config: c}
+}
+
+// Use adds a list of mutation hooks to the hooks stack.
+// A call to `Use(f, g, h)` equals to `modelcatalogbinding.Hooks(f(g(h())))`.
+func (c *ModelCatalogBindingClient) Use(hooks ...Hook) {
+	c.hooks.ModelCatalogBinding = append(c.hooks.ModelCatalogBinding, hooks...)
+}
+
+// Intercept adds a list of query interceptors to the interceptors stack.
+// A call to `Intercept(f, g, h)` equals to `modelcatalogbinding.Intercept(f(g(h())))`.
+func (c *ModelCatalogBindingClient) Intercept(interceptors ...Interceptor) {
+	c.inters.ModelCatalogBinding = append(c.inters.ModelCatalogBinding, interceptors...)
+}
+
+// Create returns a builder for creating a ModelCatalogBinding entity.
+func (c *ModelCatalogBindingClient) Create() *ModelCatalogBindingCreate {
+	mutation := newModelCatalogBindingMutation(c.config, OpCreate)
+	return &ModelCatalogBindingCreate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// CreateBulk returns a builder for creating a bulk of ModelCatalogBinding entities.
+func (c *ModelCatalogBindingClient) CreateBulk(builders ...*ModelCatalogBindingCreate) *ModelCatalogBindingCreateBulk {
+	return &ModelCatalogBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// MapCreateBulk creates a bulk creation builder from the given slice. For each item in the slice, the function creates
+// a builder and applies setFunc on it.
+func (c *ModelCatalogBindingClient) MapCreateBulk(slice any, setFunc func(*ModelCatalogBindingCreate, int)) *ModelCatalogBindingCreateBulk {
+	rv := reflect.ValueOf(slice)
+	if rv.Kind() != reflect.Slice {
+		return &ModelCatalogBindingCreateBulk{err: fmt.Errorf("calling to ModelCatalogBindingClient.MapCreateBulk with wrong type %T, need slice", slice)}
+	}
+	builders := make([]*ModelCatalogBindingCreate, rv.Len())
+	for i := 0; i < rv.Len(); i++ {
+		builders[i] = c.Create()
+		setFunc(builders[i], i)
+	}
+	return &ModelCatalogBindingCreateBulk{config: c.config, builders: builders}
+}
+
+// Update returns an update builder for ModelCatalogBinding.
+func (c *ModelCatalogBindingClient) Update() *ModelCatalogBindingUpdate {
+	mutation := newModelCatalogBindingMutation(c.config, OpUpdate)
+	return &ModelCatalogBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// UpdateOne returns an update builder for the given entity.
+func (c *ModelCatalogBindingClient) UpdateOne(_m *ModelCatalogBinding) *ModelCatalogBindingUpdateOne {
+	mutation := newModelCatalogBindingMutation(c.config, OpUpdateOne)
+	mutation.entry = &_m.EntryID
+	mutation.account = &_m.AccountID
+	return &ModelCatalogBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Delete returns a delete builder for ModelCatalogBinding.
+func (c *ModelCatalogBindingClient) Delete() *ModelCatalogBindingDelete {
+	mutation := newModelCatalogBindingMutation(c.config, OpDelete)
+	return &ModelCatalogBindingDelete{config: c.config, hooks: c.Hooks(), mutation: mutation}
+}
+
+// Query returns a query builder for ModelCatalogBinding.
+func (c *ModelCatalogBindingClient) Query() *ModelCatalogBindingQuery {
+	return &ModelCatalogBindingQuery{
+		config: c.config,
+		ctx:    &QueryContext{Type: TypeModelCatalogBinding},
+		inters: c.Interceptors(),
+	}
+}
+
+// QueryEntry queries the entry edge of a ModelCatalogBinding.
+func (c *ModelCatalogBindingClient) QueryEntry(_m *ModelCatalogBinding) *ModelCatalogEntryQuery {
+	return c.Query().
+		Where(modelcatalogbinding.EntryID(_m.EntryID), modelcatalogbinding.AccountID(_m.AccountID)).
+		QueryEntry()
+}
+
+// QueryAccount queries the account edge of a ModelCatalogBinding.
+func (c *ModelCatalogBindingClient) QueryAccount(_m *ModelCatalogBinding) *AccountQuery {
+	return c.Query().
+		Where(modelcatalogbinding.EntryID(_m.EntryID), modelcatalogbinding.AccountID(_m.AccountID)).
+		QueryAccount()
+}
+
+// Hooks returns the client hooks.
+func (c *ModelCatalogBindingClient) Hooks() []Hook {
+	return c.hooks.ModelCatalogBinding
+}
+
+// Interceptors returns the client interceptors.
+func (c *ModelCatalogBindingClient) Interceptors() []Interceptor {
+	return c.inters.ModelCatalogBinding
+}
+
+func (c *ModelCatalogBindingClient) mutate(ctx context.Context, m *ModelCatalogBindingMutation) (Value, error) {
+	switch m.Op() {
+	case OpCreate:
+		return (&ModelCatalogBindingCreate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdate:
+		return (&ModelCatalogBindingUpdate{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpUpdateOne:
+		return (&ModelCatalogBindingUpdateOne{config: c.config, hooks: c.Hooks(), mutation: m}).Save(ctx)
+	case OpDelete, OpDeleteOne:
+		return (&ModelCatalogBindingDelete{config: c.config, hooks: c.Hooks(), mutation: m}).Exec(ctx)
+	default:
+		return nil, fmt.Errorf("ent: unknown ModelCatalogBinding mutation op: %q", m.Op())
+	}
+}
+
 // ModelCatalogEntryClient is a client for the ModelCatalogEntry schema.
 type ModelCatalogEntryClient struct {
 	config
@@ -3842,6 +3998,38 @@ func (c *ModelCatalogEntryClient) GetX(ctx context.Context, id int64) *ModelCata
 		panic(err)
 	}
 	return obj
+}
+
+// QueryAccounts queries the accounts edge of a ModelCatalogEntry.
+func (c *ModelCatalogEntryClient) QueryAccounts(_m *ModelCatalogEntry) *AccountQuery {
+	query := (&AccountClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(modelcatalogentry.Table, modelcatalogentry.FieldID, id),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, modelcatalogentry.AccountsTable, modelcatalogentry.AccountsPrimaryKey...),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
+}
+
+// QueryBindings queries the bindings edge of a ModelCatalogEntry.
+func (c *ModelCatalogEntryClient) QueryBindings(_m *ModelCatalogEntry) *ModelCatalogBindingQuery {
+	query := (&ModelCatalogBindingClient{config: c.config}).Query()
+	query.path = func(context.Context) (fromV *sql.Selector, _ error) {
+		id := _m.ID
+		step := sqlgraph.NewStep(
+			sqlgraph.From(modelcatalogentry.Table, modelcatalogentry.FieldID, id),
+			sqlgraph.To(modelcatalogbinding.Table, modelcatalogbinding.EntryColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, modelcatalogentry.BindingsTable, modelcatalogentry.BindingsColumn),
+		)
+		fromV = sqlgraph.Neighbors(_m.driver.Dialect(), step)
+		return fromV, nil
+	}
+	return query
 }
 
 // Hooks returns the client hooks.
@@ -7237,12 +7425,12 @@ type (
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
 		Group, IdempotencyRecord, IdentityAdoptionDecision, ModelCatalogAlias,
-		ModelCatalogEntry, ModelCatalogPriceInterval, ModelCatalogTimePricing,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserSubscription []ent.Hook
+		ModelCatalogBinding, ModelCatalogEntry, ModelCatalogPriceInterval,
+		ModelCatalogTimePricing, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserSubscription []ent.Hook
 	}
 	inters struct {
 		APIKey, Account, AccountGroup, Announcement, AnnouncementRead, AuthIdentity,
@@ -7250,12 +7438,12 @@ type (
 		ChannelMonitor, ChannelMonitorDailyRollup, ChannelMonitorHistory,
 		ChannelMonitorRequestTemplate, CompositeModelRoute, ErrorPassthroughRule,
 		Group, IdempotencyRecord, IdentityAdoptionDecision, ModelCatalogAlias,
-		ModelCatalogEntry, ModelCatalogPriceInterval, ModelCatalogTimePricing,
-		PaymentAuditLog, PaymentOrder, PaymentProviderInstance, PendingAuthSession,
-		PromoCode, PromoCodeUsage, Proxy, RedeemCode, SecuritySecret, Setting,
-		SubscriptionPlan, TLSFingerprintProfile, UsageCleanupTask, UsageLog, User,
-		UserAllowedGroup, UserAttributeDefinition, UserAttributeValue,
-		UserSubscription []ent.Interceptor
+		ModelCatalogBinding, ModelCatalogEntry, ModelCatalogPriceInterval,
+		ModelCatalogTimePricing, PaymentAuditLog, PaymentOrder,
+		PaymentProviderInstance, PendingAuthSession, PromoCode, PromoCodeUsage, Proxy,
+		RedeemCode, SecuritySecret, Setting, SubscriptionPlan, TLSFingerprintProfile,
+		UsageCleanupTask, UsageLog, User, UserAllowedGroup, UserAttributeDefinition,
+		UserAttributeValue, UserSubscription []ent.Interceptor
 	}
 )
 
