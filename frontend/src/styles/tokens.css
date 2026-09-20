@@ -1,0 +1,85 @@
+/*
+ * 设计 token（AiFerry 视觉系统）。
+ *
+ * 颜色以空格分隔的 RGB 通道存放，供 Tailwind 的 `rgb(var(--af-x) / <alpha-value>)` 使用，
+ * 这样 `bg-af-brand/10`、`ring-af-brand/40` 这类透明度修饰符才能工作；纯 CSS 里用 `rgb(var(--af-x))`。
+ * 明暗只在这里切换（`html.dark`），模板里不写 `dark:` 变体。
+ * 消费方式：Tailwind `*-af-*` 工具类，或 style.css 里的一层组件类（.btn / .input / .modal-*）。
+ */
+:root {
+  /* 面 */
+  --af-sheet: 255 255 255;            /* #FFFFFF 页面底色，整页一张面 */
+  --af-sunken: 243 244 246;           /* #F3F4F6 代码块、key 展示、表格 hover、粘性表头 */
+  --af-hairline: 227 230 234;         /* #E3E6EA 分隔线 */
+  --af-hairline-strong: 205 210 216;  /* #CDD2D8 输入框、次按钮描边 */
+
+  /* 文字 */
+  --af-ink: 15 27 34;                 /* #0F1B22 正文 */
+  --af-ink-2: 61 74 82;               /* #3D4A52 次级 */
+  --af-ink-3: 106 118 126;            /* #6A767E 说明（白底 4.6:1） */
+  --af-ink-4: 152 162 169;            /* #98A2A9 占位、禁用 */
+
+  /* 品牌（取自 logo 的深青） */
+  --af-brand: 15 106 120;             /* #0F6A78 */
+  --af-brand-hover: 12 88 100;        /* #0C5864 */
+  --af-brand-tint: 232 242 243;       /* #E8F2F3 选中态底 */
+  --af-on-brand: 255 255 255;
+
+  /* 语义 */
+  --af-success: 22 128 82;            /* #168052 */
+  --af-success-tint: 232 246 239;
+  --af-warning: 154 91 5;             /* #9A5B05（白底 5.2:1） */
+  --af-warning-tint: 251 243 229;
+  --af-danger: 186 44 44;             /* #BA2C2C */
+  --af-danger-tint: 251 234 234;
+
+  /*
+   * 图表分类色，固定顺序、按实体分配、不循环。
+   * 已用 dataviz 校验脚本通过（明底 #FCFCFB / 暗底 #14181C）：亮度带、色度下限、色觉缺陷相邻可分、正常视觉下限、对比度。
+   * 6↔7 相邻落在 6–8 提示带，图表始终带图例（次级编码），合规。
+   */
+  --af-chart-1: 10 143 163;   /* #0A8FA3 青 */
+  --af-chart-2: 208 85 61;    /* #D0553D 砖红 */
+  --af-chart-3: 79 111 216;   /* #4F6FD8 靛 */
+  --af-chart-4: 201 122 24;   /* #C97A18 琥珀 */
+  --af-chart-5: 138 98 208;   /* #8A62D0 紫 */
+  --af-chart-6: 47 154 90;    /* #2F9A5A 绿 */
+  --af-chart-7: 179 74 128;   /* #B34A80 梅 */
+  --af-chart-8: 156 122 32;   /* #9C7A20 橄榄 */
+
+  /* 版式尺寸 */
+  --af-topbar-h: 56px;
+}
+
+.dark {
+  --af-sheet: 20 24 28;               /* #14181C */
+  --af-sunken: 26 31 36;              /* #1A1F24 */
+  --af-hairline: 38 44 51;            /* #262C33 */
+  --af-hairline-strong: 52 60 69;     /* #343C45 */
+
+  --af-ink: 231 234 237;              /* #E7EAED */
+  --af-ink-2: 190 197 203;            /* #BEC5CB */
+  --af-ink-3: 140 150 158;            /* #8C969E（深底 5.6:1） */
+  --af-ink-4: 96 106 114;             /* #606A72 */
+
+  --af-brand: 61 158 170;             /* #3D9EAA */
+  --af-brand-hover: 90 176 186;       /* #5AB0BA */
+  --af-brand-tint: 20 46 52;          /* #142E34 */
+  --af-on-brand: 10 20 24;            /* #0A1418 */
+
+  --af-success: 76 175 122;
+  --af-success-tint: 18 42 30;
+  --af-warning: 212 167 44;
+  --af-warning-tint: 46 36 14;
+  --af-danger: 240 104 92;
+  --af-danger-tint: 52 22 20;
+
+  --af-chart-1: 27 150 172;   /* #1B96AC */
+  --af-chart-2: 207 97 73;    /* #CF6149 */
+  --af-chart-3: 101 124 218;  /* #657CDA */
+  --af-chart-4: 194 133 44;   /* #C2852C */
+  --af-chart-5: 146 115 210;  /* #9273D2 */
+  --af-chart-6: 63 160 98;    /* #3FA062 */
+  --af-chart-7: 194 90 146;   /* #C25A92 */
+  --af-chart-8: 168 134 47;   /* #A8862F */
+}
