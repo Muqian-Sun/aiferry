@@ -6,6 +6,7 @@ import (
 	"slices"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -297,4 +298,35 @@ func accountInSchedulingScope(ctx context.Context, account *Account, groupID *in
 		}
 	}
 	return false
+}
+
+// SchedulingBlockedReason 返回账号此刻不可调度的第一个原因（与 IsSchedulable 同一套判定），
+// 可调度时返回空串。诊断接口用它解释「绑了却选不到」。
+func SchedulingBlockedReason(account *Account) string {
+	if account == nil {
+		return "missing"
+	}
+	if !account.IsActive() {
+		return "disabled"
+	}
+	if !account.Schedulable {
+		return "unschedulable"
+	}
+	now := time.Now()
+	if account.AutoPauseOnExpired && account.ExpiresAt != nil && !now.Before(*account.ExpiresAt) {
+		return "expired"
+	}
+	if account.OverloadUntil != nil && now.Before(*account.OverloadUntil) {
+		return "overloaded"
+	}
+	if account.RateLimitResetAt != nil && now.Before(*account.RateLimitResetAt) {
+		return "rate_limited"
+	}
+	if account.TempUnschedulableUntil != nil && now.Before(*account.TempUnschedulableUntil) {
+		return "temp_unschedulable"
+	}
+	if account.IsAPIKeyOrBedrock() && account.IsQuotaExceeded() {
+		return "quota_exceeded"
+	}
+	return ""
 }
