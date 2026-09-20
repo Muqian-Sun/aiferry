@@ -48,7 +48,7 @@
           </template>
           <template #cell-actions="{ row }">
             <div class="flex justify-end gap-2">
-              <button type="button" class="btn btn-secondary btn-sm" @click="openEdit(row)">
+              <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-actions-edit" @click="openEdit(row)">
                 {{ t('common.edit') }}
               </button>
               <button type="button" class="btn btn-danger btn-sm" @click="askDelete(row)">
@@ -80,7 +80,11 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label class="input-label">{{ t('admin.modelCatalog.fields.billingMode') }}</label>
-            <input v-model="form.billing_mode" class="input" />
+            <select v-model="form.billing_mode" class="input" data-testid="model-catalog-billing-mode">
+              <option v-for="mode in billingModes" :key="mode" :value="mode">
+                {{ t(`admin.modelCatalog.billingModes.${mode}`) }}
+              </option>
+            </select>
           </div>
           <div>
             <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
@@ -93,11 +97,11 @@
         <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
           <div>
             <label class="input-label">{{ t('admin.modelCatalog.fields.inputPrice') }}</label>
-            <input v-model.number="form.input_price" type="number" step="any" class="input" />
+            <input v-model.number="form.input_price" type="number" step="any" class="input" data-testid="model-catalog-input-price" />
           </div>
           <div>
             <label class="input-label">{{ t('admin.modelCatalog.fields.outputPrice') }}</label>
-            <input v-model.number="form.output_price" type="number" step="any" class="input" />
+            <input v-model.number="form.output_price" type="number" step="any" class="input" data-testid="model-catalog-output-price" />
           </div>
         </div>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
@@ -130,6 +134,7 @@ import { computed, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
+import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -167,6 +172,41 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
 
 const form = reactive<ModelCatalogEntryRequest>(emptyForm())
 
+// 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
+const billingModes = ['token', 'per_request', 'image', 'video'] as const
+
+// 数字输入清空后 v-model.number 得到 ''，后端按 *float64 解析会报 400：清空即「未配置」，发 null。
+const numericFields = [
+  'input_price',
+  'output_price',
+  'cache_write_price',
+  'cache_write_1h_price',
+  'cache_read_price',
+  'image_input_price',
+  'image_output_price',
+  'image_cache_read_price',
+  'input_price_priority',
+  'output_price_priority',
+  'cache_write_price_priority',
+  'cache_read_price_priority',
+  'per_request_price',
+  'long_context_input_threshold',
+  'long_context_input_multiplier',
+  'long_context_output_multiplier',
+  'fast_multiplier',
+  'flex_multiplier',
+  'max_reasoning_effort_multiplier'
+] as const satisfies readonly (keyof ModelCatalogEntryRequest)[]
+
+function numberOrNull(value: unknown): number | null {
+  if (value === '' || value === null || value === undefined) return null
+  return typeof value === 'number' && Number.isFinite(value) ? value : null
+}
+
+function showApiError(error: unknown) {
+  appStore.showError(extractApiErrorMessage(error, t('common.unknownError')))
+}
+
 const columns = computed<Column[]>(() => [
   { key: 'model_id', label: t('admin.modelCatalog.fields.modelId') },
   { key: 'vendor', label: t('admin.modelCatalog.fields.vendor') },
@@ -192,7 +232,7 @@ async function loadEntries() {
   try {
     entries.value = await adminAPI.modelCatalog.listEntries()
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.unknownError'))
+    showApiError(error)
   } finally {
     loading.value = false
   }
@@ -251,11 +291,15 @@ function closeEditor() {
 }
 
 function payload(): ModelCatalogEntryRequest {
-  return {
+  const body: ModelCatalogEntryRequest = {
     ...form,
     intervals: loadedEntry.value?.intervals ?? form.intervals ?? [],
     time_pricing: loadedEntry.value?.time_pricing ?? form.time_pricing ?? null
   }
+  for (const field of numericFields) {
+    body[field] = numberOrNull(form[field])
+  }
+  return body
 }
 
 async function saveEntry() {
@@ -269,7 +313,7 @@ async function saveEntry() {
     showEditor.value = false
     await loadEntries()
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.unknownError'))
+    showApiError(error)
   } finally {
     saving.value = false
   }
@@ -288,7 +332,7 @@ async function confirmDelete() {
     await adminAPI.modelCatalog.deleteEntry(entry.id)
     await loadEntries()
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.unknownError'))
+    showApiError(error)
   }
 }
 
@@ -296,16 +340,26 @@ async function runSeed() {
   seeding.value = true
   try {
     const result = await adminAPI.modelCatalog.seed()
-    appStore.showSuccess(
-      t('admin.modelCatalog.seedDone', {
-        inserted: result.inserted,
-        refreshed: result.refreshed,
-        skipped: result.skipped_admin
-      })
-    )
+    const summary = t('admin.modelCatalog.seedDone', {
+      inserted: result.inserted,
+      refreshed: result.refreshed,
+      skipped: result.skipped_admin
+    })
+    if (result.failed > 0) {
+      // 单条写库失败不拖垮整批，但不能静默：把失败数和前几条原因摆出来。
+      appStore.showError(
+        t('admin.modelCatalog.seedPartial', {
+          summary,
+          failed: result.failed,
+          errors: (result.errors ?? []).join('；')
+        })
+      )
+    } else {
+      appStore.showSuccess(summary)
+    }
     await loadEntries()
   } catch (error) {
-    appStore.showError((error as { message?: string }).message || t('common.unknownError'))
+    showApiError(error)
   } finally {
     seeding.value = false
   }

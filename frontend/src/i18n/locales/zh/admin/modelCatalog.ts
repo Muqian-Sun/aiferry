@@ -9,6 +9,7 @@ export default {
     seed: '从价格文件播种',
     seeding: '播种中…',
     seedDone: '播种完成：新增 {inserted}，刷新 {refreshed}，跳过管理员改过的 {skipped}',
+    seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
     fullReplaceHint: '保存是整条覆盖。分档和分时定价按原值写回，本页暂不编辑。',
@@ -25,6 +26,12 @@ export default {
     status: {
       listed: '上架',
       unlisted: '下架'
+    },
+    billingModes: {
+      token: '按 Token',
+      per_request: '按次',
+      image: '按图片',
+      video: '按视频'
     },
     managedBy: {
       seed: '播种',

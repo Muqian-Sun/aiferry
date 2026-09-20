@@ -92,6 +92,9 @@ export interface ModelCatalogSeedResult {
   refreshed: number
   skipped_admin: number
   skipped_invalid: number
+  /** 写库失败的条目数；单条失败不拖垮整批，前几条原因在 errors 里。 */
+  failed: number
+  errors?: string[]
 }
 
 export interface ModelCatalogAliasRequest {
