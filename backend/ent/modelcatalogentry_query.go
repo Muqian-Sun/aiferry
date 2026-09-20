@@ -4,6 +4,7 @@ package ent
 
 import (
 	"context"
+	"database/sql/driver"
 	"fmt"
 	"math"
 
@@ -12,6 +13,8 @@ import (
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
@@ -19,11 +22,13 @@ import (
 // ModelCatalogEntryQuery is the builder for querying ModelCatalogEntry entities.
 type ModelCatalogEntryQuery struct {
 	config
-	ctx        *QueryContext
-	order      []modelcatalogentry.OrderOption
-	inters     []Interceptor
-	predicates []predicate.ModelCatalogEntry
-	modifiers  []func(*sql.Selector)
+	ctx          *QueryContext
+	order        []modelcatalogentry.OrderOption
+	inters       []Interceptor
+	predicates   []predicate.ModelCatalogEntry
+	withAccounts *AccountQuery
+	withBindings *ModelCatalogBindingQuery
+	modifiers    []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
@@ -58,6 +63,50 @@ func (_q *ModelCatalogEntryQuery) Unique(unique bool) *ModelCatalogEntryQuery {
 func (_q *ModelCatalogEntryQuery) Order(o ...modelcatalogentry.OrderOption) *ModelCatalogEntryQuery {
 	_q.order = append(_q.order, o...)
 	return _q
+}
+
+// QueryAccounts chains the current query on the "accounts" edge.
+func (_q *ModelCatalogEntryQuery) QueryAccounts() *AccountQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(modelcatalogentry.Table, modelcatalogentry.FieldID, selector),
+			sqlgraph.To(account.Table, account.FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, modelcatalogentry.AccountsTable, modelcatalogentry.AccountsPrimaryKey...),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// QueryBindings chains the current query on the "bindings" edge.
+func (_q *ModelCatalogEntryQuery) QueryBindings() *ModelCatalogBindingQuery {
+	query := (&ModelCatalogBindingClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(modelcatalogentry.Table, modelcatalogentry.FieldID, selector),
+			sqlgraph.To(modelcatalogbinding.Table, modelcatalogbinding.EntryColumn),
+			sqlgraph.Edge(sqlgraph.O2M, true, modelcatalogentry.BindingsTable, modelcatalogentry.BindingsColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
 }
 
 // First returns the first ModelCatalogEntry entity from the query.
@@ -247,15 +296,39 @@ func (_q *ModelCatalogEntryQuery) Clone() *ModelCatalogEntryQuery {
 		return nil
 	}
 	return &ModelCatalogEntryQuery{
-		config:     _q.config,
-		ctx:        _q.ctx.Clone(),
-		order:      append([]modelcatalogentry.OrderOption{}, _q.order...),
-		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.ModelCatalogEntry{}, _q.predicates...),
+		config:       _q.config,
+		ctx:          _q.ctx.Clone(),
+		order:        append([]modelcatalogentry.OrderOption{}, _q.order...),
+		inters:       append([]Interceptor{}, _q.inters...),
+		predicates:   append([]predicate.ModelCatalogEntry{}, _q.predicates...),
+		withAccounts: _q.withAccounts.Clone(),
+		withBindings: _q.withBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
+}
+
+// WithAccounts tells the query-builder to eager-load the nodes that are connected to
+// the "accounts" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ModelCatalogEntryQuery) WithAccounts(opts ...func(*AccountQuery)) *ModelCatalogEntryQuery {
+	query := (&AccountClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withAccounts = query
+	return _q
+}
+
+// WithBindings tells the query-builder to eager-load the nodes that are connected to
+// the "bindings" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *ModelCatalogEntryQuery) WithBindings(opts ...func(*ModelCatalogBindingQuery)) *ModelCatalogEntryQuery {
+	query := (&ModelCatalogBindingClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withBindings = query
+	return _q
 }
 
 // GroupBy is used to group vertices by one or more fields/columns.
@@ -334,8 +407,12 @@ func (_q *ModelCatalogEntryQuery) prepareQuery(ctx context.Context) error {
 
 func (_q *ModelCatalogEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*ModelCatalogEntry, error) {
 	var (
-		nodes = []*ModelCatalogEntry{}
-		_spec = _q.querySpec()
+		nodes       = []*ModelCatalogEntry{}
+		_spec       = _q.querySpec()
+		loadedTypes = [2]bool{
+			_q.withAccounts != nil,
+			_q.withBindings != nil,
+		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
 		return (*ModelCatalogEntry).scanValues(nil, columns)
@@ -343,6 +420,7 @@ func (_q *ModelCatalogEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook
 	_spec.Assign = func(columns []string, values []any) error {
 		node := &ModelCatalogEntry{config: _q.config}
 		nodes = append(nodes, node)
+		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
 	}
 	if len(_q.modifiers) > 0 {
@@ -357,7 +435,113 @@ func (_q *ModelCatalogEntryQuery) sqlAll(ctx context.Context, hooks ...queryHook
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
+	if query := _q.withAccounts; query != nil {
+		if err := _q.loadAccounts(ctx, query, nodes,
+			func(n *ModelCatalogEntry) { n.Edges.Accounts = []*Account{} },
+			func(n *ModelCatalogEntry, e *Account) { n.Edges.Accounts = append(n.Edges.Accounts, e) }); err != nil {
+			return nil, err
+		}
+	}
+	if query := _q.withBindings; query != nil {
+		if err := _q.loadBindings(ctx, query, nodes,
+			func(n *ModelCatalogEntry) { n.Edges.Bindings = []*ModelCatalogBinding{} },
+			func(n *ModelCatalogEntry, e *ModelCatalogBinding) { n.Edges.Bindings = append(n.Edges.Bindings, e) }); err != nil {
+			return nil, err
+		}
+	}
 	return nodes, nil
+}
+
+func (_q *ModelCatalogEntryQuery) loadAccounts(ctx context.Context, query *AccountQuery, nodes []*ModelCatalogEntry, init func(*ModelCatalogEntry), assign func(*ModelCatalogEntry, *Account)) error {
+	edgeIDs := make([]driver.Value, len(nodes))
+	byID := make(map[int64]*ModelCatalogEntry)
+	nids := make(map[int64]map[*ModelCatalogEntry]struct{})
+	for i, node := range nodes {
+		edgeIDs[i] = node.ID
+		byID[node.ID] = node
+		if init != nil {
+			init(node)
+		}
+	}
+	query.Where(func(s *sql.Selector) {
+		joinT := sql.Table(modelcatalogentry.AccountsTable)
+		s.Join(joinT).On(s.C(account.FieldID), joinT.C(modelcatalogentry.AccountsPrimaryKey[1]))
+		s.Where(sql.InValues(joinT.C(modelcatalogentry.AccountsPrimaryKey[0]), edgeIDs...))
+		columns := s.SelectedColumns()
+		s.Select(joinT.C(modelcatalogentry.AccountsPrimaryKey[0]))
+		s.AppendSelect(columns...)
+		s.SetDistinct(false)
+	})
+	if err := query.prepareQuery(ctx); err != nil {
+		return err
+	}
+	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
+		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
+			assign := spec.Assign
+			values := spec.ScanValues
+			spec.ScanValues = func(columns []string) ([]any, error) {
+				values, err := values(columns[1:])
+				if err != nil {
+					return nil, err
+				}
+				return append([]any{new(sql.NullInt64)}, values...), nil
+			}
+			spec.Assign = func(columns []string, values []any) error {
+				outValue := values[0].(*sql.NullInt64).Int64
+				inValue := values[1].(*sql.NullInt64).Int64
+				if nids[inValue] == nil {
+					nids[inValue] = map[*ModelCatalogEntry]struct{}{byID[outValue]: {}}
+					return assign(columns[1:], values[1:])
+				}
+				nids[inValue][byID[outValue]] = struct{}{}
+				return nil
+			}
+		})
+	})
+	neighbors, err := withInterceptors[[]*Account](ctx, query, qr, query.inters)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected "accounts" node returned %v`, n.ID)
+		}
+		for kn := range nodes {
+			assign(kn, n)
+		}
+	}
+	return nil
+}
+func (_q *ModelCatalogEntryQuery) loadBindings(ctx context.Context, query *ModelCatalogBindingQuery, nodes []*ModelCatalogEntry, init func(*ModelCatalogEntry), assign func(*ModelCatalogEntry, *ModelCatalogBinding)) error {
+	fks := make([]driver.Value, 0, len(nodes))
+	nodeids := make(map[int64]*ModelCatalogEntry)
+	for i := range nodes {
+		fks = append(fks, nodes[i].ID)
+		nodeids[nodes[i].ID] = nodes[i]
+		if init != nil {
+			init(nodes[i])
+		}
+	}
+	if len(query.ctx.Fields) > 0 {
+		query.ctx.AppendFieldOnce(modelcatalogbinding.FieldEntryID)
+	}
+	query.Where(predicate.ModelCatalogBinding(func(s *sql.Selector) {
+		s.Where(sql.InValues(s.C(modelcatalogentry.BindingsColumn), fks...))
+	}))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		fk := n.EntryID
+		node, ok := nodeids[fk]
+		if !ok {
+			return fmt.Errorf(`unexpected referenced foreign-key "entry_id" returned %v for node %v`, fk, n)
+		}
+		assign(node, n)
+	}
+	return nil
 }
 
 func (_q *ModelCatalogEntryQuery) sqlCount(ctx context.Context) (int, error) {

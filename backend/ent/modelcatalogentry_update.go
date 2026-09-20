@@ -12,6 +12,7 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/dialect/sql/sqljson"
 	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
@@ -133,6 +134,20 @@ func (_u *ModelCatalogEntryUpdate) SetManagedBy(v string) *ModelCatalogEntryUpda
 func (_u *ModelCatalogEntryUpdate) SetNillableManagedBy(v *string) *ModelCatalogEntryUpdate {
 	if v != nil {
 		_u.SetManagedBy(*v)
+	}
+	return _u
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (_u *ModelCatalogEntryUpdate) SetRoutePlatform(v string) *ModelCatalogEntryUpdate {
+	_u.mutation.SetRoutePlatform(v)
+	return _u
+}
+
+// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableRoutePlatform(v *string) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetRoutePlatform(*v)
 	}
 	return _u
 }
@@ -684,9 +699,45 @@ func (_u *ModelCatalogEntryUpdate) ClearNotes() *ModelCatalogEntryUpdate {
 	return _u
 }
 
+// AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
+func (_u *ModelCatalogEntryUpdate) AddAccountIDs(ids ...int64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddAccountIDs(ids...)
+	return _u
+}
+
+// AddAccounts adds the "accounts" edges to the Account entity.
+func (_u *ModelCatalogEntryUpdate) AddAccounts(v ...*Account) *ModelCatalogEntryUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_u *ModelCatalogEntryUpdate) Mutation() *ModelCatalogEntryMutation {
 	return _u.mutation
+}
+
+// ClearAccounts clears all "accounts" edges to the Account entity.
+func (_u *ModelCatalogEntryUpdate) ClearAccounts() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearAccounts()
+	return _u
+}
+
+// RemoveAccountIDs removes the "accounts" edge to Account entities by IDs.
+func (_u *ModelCatalogEntryUpdate) RemoveAccountIDs(ids ...int64) *ModelCatalogEntryUpdate {
+	_u.mutation.RemoveAccountIDs(ids...)
+	return _u
+}
+
+// RemoveAccounts removes "accounts" edges to Account entities.
+func (_u *ModelCatalogEntryUpdate) RemoveAccounts(v ...*Account) *ModelCatalogEntryUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -757,6 +808,11 @@ func (_u *ModelCatalogEntryUpdate) check() error {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RoutePlatform(); ok {
+		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
+			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -803,6 +859,9 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if value, ok := _u.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoutePlatform(); ok {
+		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)
@@ -984,6 +1043,63 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(modelcatalogentry.FieldNotes, field.TypeString)
 	}
+	if _u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountsIDs(); len(nodes) > 0 && !_u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{modelcatalogentry.Label}
@@ -1108,6 +1224,20 @@ func (_u *ModelCatalogEntryUpdateOne) SetManagedBy(v string) *ModelCatalogEntryU
 func (_u *ModelCatalogEntryUpdateOne) SetNillableManagedBy(v *string) *ModelCatalogEntryUpdateOne {
 	if v != nil {
 		_u.SetManagedBy(*v)
+	}
+	return _u
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (_u *ModelCatalogEntryUpdateOne) SetRoutePlatform(v string) *ModelCatalogEntryUpdateOne {
+	_u.mutation.SetRoutePlatform(v)
+	return _u
+}
+
+// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableRoutePlatform(v *string) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetRoutePlatform(*v)
 	}
 	return _u
 }
@@ -1659,9 +1789,45 @@ func (_u *ModelCatalogEntryUpdateOne) ClearNotes() *ModelCatalogEntryUpdateOne {
 	return _u
 }
 
+// AddAccountIDs adds the "accounts" edge to the Account entity by IDs.
+func (_u *ModelCatalogEntryUpdateOne) AddAccountIDs(ids ...int64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddAccountIDs(ids...)
+	return _u
+}
+
+// AddAccounts adds the "accounts" edges to the Account entity.
+func (_u *ModelCatalogEntryUpdateOne) AddAccounts(v ...*Account) *ModelCatalogEntryUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddAccountIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_u *ModelCatalogEntryUpdateOne) Mutation() *ModelCatalogEntryMutation {
 	return _u.mutation
+}
+
+// ClearAccounts clears all "accounts" edges to the Account entity.
+func (_u *ModelCatalogEntryUpdateOne) ClearAccounts() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearAccounts()
+	return _u
+}
+
+// RemoveAccountIDs removes the "accounts" edge to Account entities by IDs.
+func (_u *ModelCatalogEntryUpdateOne) RemoveAccountIDs(ids ...int64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.RemoveAccountIDs(ids...)
+	return _u
+}
+
+// RemoveAccounts removes "accounts" edges to Account entities.
+func (_u *ModelCatalogEntryUpdateOne) RemoveAccounts(v ...*Account) *ModelCatalogEntryUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveAccountIDs(ids...)
 }
 
 // Where appends a list predicates to the ModelCatalogEntryUpdate builder.
@@ -1745,6 +1911,11 @@ func (_u *ModelCatalogEntryUpdateOne) check() error {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
 		}
 	}
+	if v, ok := _u.mutation.RoutePlatform(); ok {
+		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
+			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
+		}
+	}
 	return nil
 }
 
@@ -1808,6 +1979,9 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if value, ok := _u.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
+	}
+	if value, ok := _u.mutation.RoutePlatform(); ok {
+		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)
@@ -1988,6 +2162,63 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.NotesCleared() {
 		_spec.ClearField(modelcatalogentry.FieldNotes, field.TypeString)
+	}
+	if _u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedAccountsIDs(); len(nodes) > 0 && !_u.mutation.AccountsCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.AccountsIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: false,
+			Table:   modelcatalogentry.AccountsTable,
+			Columns: modelcatalogentry.AccountsPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(account.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &ModelCatalogEntry{config: _u.config}
 	_spec.Assign = _node.assignValues

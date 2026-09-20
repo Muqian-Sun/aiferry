@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 )
@@ -60,11 +61,15 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		field.String("status").
 			MaxLen(20).
 			Default("listed").
-			Comment("listed = 上架; unlisted = 下架（本阶段仅记录，不参与准入）。"),
+			Comment("listed = 上架（用户可见且可调用）; unlisted = 下架。"),
 		field.String("managed_by").
 			MaxLen(20).
 			Default("seed").
 			Comment("seed = 播种器维护，可被重新播种刷新; admin = 管理员维护，播种器不再覆盖。"),
+		field.String("route_platform").
+			MaxLen(20).
+			Default("").
+			Comment("条目走哪条网关族（anthropic/openai/gemini/...）；空表示按 vendor 推导。"),
 
 		// 基准价（USD per token），nil 表示未配置。
 		modelCatalogPriceField("input_price"),
@@ -102,6 +107,14 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		field.Text("notes").
 			Optional().
 			Nillable(),
+	}
+}
+
+// Edges 声明条目绑定的资源（账号），经 model_catalog_bindings 中间表。
+func (ModelCatalogEntry) Edges() []ent.Edge {
+	return []ent.Edge{
+		edge.To("accounts", Account.Type).
+			Through("bindings", ModelCatalogBinding.Type),
 	}
 }
 

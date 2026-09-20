@@ -143,6 +143,10 @@ func (m *mockAccountRepoForPlatform) ListSchedulingCandidates(ctx context.Contex
 	}
 	return result, nil
 }
+func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return m.ListSchedulingCandidates(ctx, platforms)
 }

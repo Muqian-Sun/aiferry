@@ -118,3 +118,70 @@ func (s *SchedulingCandidatesSuite) TestAllAccountsIncludesKeysAcrossGroups() {
 		s.Require().NotContains(ids, id)
 	}
 }
+
+// 按目录条目取候选：只有绑定的账号进入，绑定优先级覆盖账号优先级，不活跃 / 不可调度的
+// 账号排除，且不看平台标签；账号上装载 CatalogEntryIDs。
+func (s *SchedulingCandidatesSuite) TestListSchedulingCandidatesByCatalogEntry() {
+	t := s.T()
+	entry, err := s.client.ModelCatalogEntry.Create().
+		SetModelID("candidates-catalog-entry").
+		SetStatus(service.ModelCatalogStatusListed).
+		SetManagedBy(service.ModelCatalogManagedByAdmin).
+		SetInputPrice(1e-6).
+		Save(s.ctx)
+	s.Require().NoError(err)
+	otherEntry, err := s.client.ModelCatalogEntry.Create().
+		SetModelID("candidates-catalog-other").
+		SetStatus(service.ModelCatalogStatusUnlisted).
+		SetManagedBy(service.ModelCatalogManagedByAdmin).
+		Save(s.ctx)
+	s.Require().NoError(err)
+
+	bound := func(name, platform, accountType string, accountPriority int, bindingPriority *int, entryID int64) int64 {
+		account := mustCreateAccount(t, s.client, &service.Account{Name: name, Platform: platform, Type: accountType, Priority: accountPriority})
+		create := s.client.ModelCatalogBinding.Create().SetEntryID(entryID).SetAccountID(account.ID)
+		if bindingPriority != nil {
+			create.SetPriority(*bindingPriority)
+		}
+		_, err := create.Save(s.ctx)
+		s.Require().NoError(err)
+		return account.ID
+	}
+	one := 1
+	// 账号优先级 90，但绑定优先级 1，应排到最前。
+	keyLowAccountHighBinding := bound("key-binding-priority", service.PlatformOpenAI, service.AccountTypeAPIKey, 90, &one, entry.ID)
+	subAnthropic := bound("sub-anthropic-bound", service.PlatformAnthropic, service.AccountTypeOAuth, 10, nil, entry.ID)
+	keyGemini := bound("key-gemini-bound", service.PlatformGemini, service.AccountTypeAPIKey, 20, nil, entry.ID)
+	inactive := mustCreateAccount(t, s.client, &service.Account{Name: "inactive-bound", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth, Status: service.StatusDisabled})
+	_, err = s.client.ModelCatalogBinding.Create().SetEntryID(entry.ID).SetAccountID(inactive.ID).Save(s.ctx)
+	s.Require().NoError(err)
+	unschedulable := mustCreateAccount(t, s.client, &service.Account{Name: "unschedulable-bound", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth})
+	_, err = s.client.Account.UpdateOneID(unschedulable.ID).SetSchedulable(false).Save(s.ctx)
+	s.Require().NoError(err)
+	_, err = s.client.ModelCatalogBinding.Create().SetEntryID(entry.ID).SetAccountID(unschedulable.ID).Save(s.ctx)
+	s.Require().NoError(err)
+	unbound := mustCreateAccount(t, s.client, &service.Account{Name: "unbound", Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth})
+	_ = bound("bound-elsewhere", service.PlatformAnthropic, service.AccountTypeOAuth, 5, nil, otherEntry.ID)
+
+	accounts, err := s.accountRepo.ListSchedulingCandidatesByCatalogEntry(s.ctx, entry.ID)
+	s.Require().NoError(err)
+	ids := make([]int64, 0, len(accounts))
+	for _, account := range accounts {
+		ids = append(ids, account.ID)
+	}
+	s.Require().Equal([]int64{keyLowAccountHighBinding, subAnthropic, keyGemini}, ids,
+		"binding priority overrides account priority; inactive / unschedulable / unbound / other-entry accounts are absent")
+	s.Require().Equal(1, accounts[0].Priority, "effective priority is written back")
+	s.Require().Equal(10, accounts[1].Priority)
+	for _, account := range accounts {
+		s.Require().Equal([]int64{entry.ID}, account.CatalogEntryIDs)
+	}
+
+	fresh, err := s.accountRepo.GetByID(s.ctx, unbound.ID)
+	s.Require().NoError(err)
+	s.Require().Empty(fresh.CatalogEntryIDs)
+
+	empty, err := s.accountRepo.ListSchedulingCandidatesByCatalogEntry(s.ctx, otherEntry.ID+1000)
+	s.Require().NoError(err)
+	s.Require().Empty(empty)
+}

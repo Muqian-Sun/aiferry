@@ -2,24 +2,30 @@ package repository
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"log/slog"
+	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 )
 
 type modelCatalogRepository struct {
 	client *dbent.Client
+	// sql 用于向 scheduler_outbox 投递「绑定变了」事件，调度快照据此重建目录桶。
+	sql *sql.DB
 }
 
 // NewModelCatalogRepository 创建模型目录仓储。
-func NewModelCatalogRepository(client *dbent.Client) service.ModelCatalogRepository {
-	return &modelCatalogRepository{client: client}
+func NewModelCatalogRepository(client *dbent.Client, sqlDB *sql.DB) service.ModelCatalogRepository {
+	return &modelCatalogRepository{client: client, sql: sqlDB}
 }
 
 // ListEntries 读取全量目录条目，并把别名、分档、分时一次性挂上去。
@@ -79,6 +85,21 @@ func (r *modelCatalogRepository) ListEntries(ctx context.Context) ([]service.Mod
 	for _, row := range timePricings {
 		if entry, ok := byID[row.EntryID]; ok {
 			entry.TimePricing = modelCatalogTimePricingToService(row)
+		}
+	}
+
+	bindings, err := client.ModelCatalogBinding.Query().
+		Order(
+			dbent.Asc(modelcatalogbinding.FieldEntryID),
+			dbent.Asc(modelcatalogbinding.FieldAccountID),
+		).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	for _, row := range bindings {
+		if entry, ok := byID[row.EntryID]; ok {
+			entry.Bindings = append(entry.Bindings, modelCatalogBindingToService(row))
 		}
 	}
 
@@ -142,7 +163,89 @@ func (r *modelCatalogRepository) hydrateEntry(ctx context.Context, entry *servic
 	if timePricing != nil {
 		entry.TimePricing = modelCatalogTimePricingToService(timePricing)
 	}
+
+	bindings, err := r.ListBindingsByEntry(ctx, entry.ID)
+	if err != nil {
+		return nil, err
+	}
+	entry.Bindings = bindings
 	return entry, nil
+}
+
+// ListBindingsByEntry 返回条目的绑定（按账号 ID 排序）。
+func (r *modelCatalogRepository) ListBindingsByEntry(ctx context.Context, entryID int64) ([]service.ModelCatalogBinding, error) {
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.ModelCatalogBinding.Query().
+		Where(modelcatalogbinding.EntryIDEQ(entryID)).
+		Order(dbent.Asc(modelcatalogbinding.FieldAccountID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bindings := make([]service.ModelCatalogBinding, 0, len(rows))
+	for _, row := range rows {
+		bindings = append(bindings, modelCatalogBindingToService(row))
+	}
+	return bindings, nil
+}
+
+// ReplaceBindings 用整份列表覆盖条目的绑定，提交后向调度 outbox 投递事件。
+func (r *modelCatalogRepository) ReplaceBindings(ctx context.Context, entryID int64, bindings []service.ModelCatalogBinding) error {
+	err := r.withTx(ctx, func(tx *dbent.Tx) error {
+		if _, err := tx.ModelCatalogBinding.Delete().
+			Where(modelcatalogbinding.EntryIDEQ(entryID)).Exec(ctx); err != nil {
+			return err
+		}
+		for _, binding := range bindings {
+			if _, err := tx.ModelCatalogBinding.Create().
+				SetEntryID(entryID).
+				SetAccountID(binding.AccountID).
+				SetNillablePriority(binding.Priority).
+				Save(ctx); err != nil {
+				return translateCatalogBindingError(err)
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return err
+	}
+	return r.enqueueCatalogBindingsChanged(ctx, entryID)
+}
+
+// ListEntryIDsByAccount 返回账号被哪些条目绑定。
+func (r *modelCatalogRepository) ListEntryIDsByAccount(ctx context.Context, accountID int64) ([]int64, error) {
+	client := clientFromContext(ctx, r.client)
+	rows, err := client.ModelCatalogBinding.Query().
+		Where(modelcatalogbinding.AccountIDEQ(accountID)).
+		Order(dbent.Asc(modelcatalogbinding.FieldEntryID)).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	ids := make([]int64, 0, len(rows))
+	for _, row := range rows {
+		ids = append(ids, row.EntryID)
+	}
+	return ids, nil
+}
+
+// translateCatalogBindingError 把绑定写入的外键冲突翻译成业务错误：
+// 账号外键冲突是「账号不存在」，条目外键冲突是「条目不存在」。
+func translateCatalogBindingError(err error) error {
+	if !isForeignKeyViolation(err) {
+		return err
+	}
+	var pgErr *pq.Error
+	if errors.As(err, &pgErr) && strings.Contains(pgErr.Constraint, "account") {
+		return service.ErrModelCatalogBindingAccountNotFound.WithCause(err)
+	}
+	return service.ErrModelCatalogEntryNotFound.WithCause(err)
+}
+
+func (r *modelCatalogRepository) enqueueCatalogBindingsChanged(ctx context.Context, entryID int64) error {
+	payload := map[string]any{"entry_ids": []int64{entryID}}
+	return enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventCatalogBindingsChanged, nil, nil, payload)
 }
 
 func (r *modelCatalogRepository) CreateEntry(ctx context.Context, entry *service.ModelCatalogEntry) error {
@@ -176,12 +279,13 @@ func (r *modelCatalogRepository) UpdateEntry(ctx context.Context, entry *service
 	})
 }
 
+// DeleteEntry 删除条目；绑定由外键级联删除，所以同样要通知调度退役该条目的桶。
 func (r *modelCatalogRepository) DeleteEntry(ctx context.Context, id int64) error {
 	client := clientFromContext(ctx, r.client)
 	if err := client.ModelCatalogEntry.DeleteOneID(id).Exec(ctx); err != nil {
 		return translatePersistenceError(err, service.ErrModelCatalogEntryNotFound, nil)
 	}
-	return nil
+	return r.enqueueCatalogBindingsChanged(ctx, id)
 }
 
 func (r *modelCatalogRepository) CreateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
@@ -400,6 +504,7 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
+		SetRoutePlatform(entry.RoutePlatform).
 		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetNillableInputPrice(entry.InputPrice).
 		SetNillableOutputPrice(entry.OutputPrice).
@@ -438,6 +543,7 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
+		SetRoutePlatform(entry.RoutePlatform).
 		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetProtocols(entry.Protocols)
 
@@ -490,14 +596,15 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		return nil
 	}
 	return &service.ModelCatalogEntry{
-		ID:          row.ID,
-		ModelID:     row.ModelID,
-		DisplayName: row.DisplayName,
-		Vendor:      row.Vendor,
-		Protocols:   row.Protocols,
-		BillingMode: service.BillingMode(row.BillingMode),
-		Status:      row.Status,
-		ManagedBy:   row.ManagedBy,
+		ID:            row.ID,
+		ModelID:       row.ModelID,
+		DisplayName:   row.DisplayName,
+		Vendor:        row.Vendor,
+		Protocols:     row.Protocols,
+		BillingMode:   service.BillingMode(row.BillingMode),
+		Status:        row.Status,
+		ManagedBy:     row.ManagedBy,
+		RoutePlatform: row.RoutePlatform,
 
 		InputPrice:          row.InputPrice,
 		OutputPrice:         row.OutputPrice,
@@ -527,6 +634,15 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		Notes:     row.Notes,
 		CreatedAt: row.CreatedAt,
 		UpdatedAt: row.UpdatedAt,
+	}
+}
+
+func modelCatalogBindingToService(row *dbent.ModelCatalogBinding) service.ModelCatalogBinding {
+	return service.ModelCatalogBinding{
+		EntryID:   row.EntryID,
+		AccountID: row.AccountID,
+		Priority:  row.Priority,
+		CreatedAt: row.CreatedAt,
 	}
 }
 

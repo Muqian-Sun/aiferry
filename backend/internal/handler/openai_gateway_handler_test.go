@@ -1956,6 +1956,10 @@ func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidates(ctx conte
 	return []service.Account{s.account}, nil
 }
 
+func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
+}
+
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	return s.ListSchedulingCandidates(ctx, platforms)
 }
@@ -2070,6 +2074,10 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidates(ctx co
 		}
 	}
 	return out, nil
+}
+
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
+	return nil, nil
 }
 
 func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
@@ -2242,6 +2250,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 		nil,
 		nil,
 		cfg,
+		nil,
 	)
 
 	rec := httptest.NewRecorder()
@@ -2344,6 +2353,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 				nil,
 				nil,
 				cfg,
+				nil,
 			)
 
 			rec := httptest.NewRecorder()
@@ -2426,6 +2436,7 @@ func TestOpenAIResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t 
 		nil,
 		nil,
 		cfg,
+		nil,
 	)
 
 	rec := httptest.NewRecorder()

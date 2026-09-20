@@ -32,6 +32,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
@@ -87,6 +88,7 @@ const (
 	TypeIdempotencyRecord             = "IdempotencyRecord"
 	TypeIdentityAdoptionDecision      = "IdentityAdoptionDecision"
 	TypeModelCatalogAlias             = "ModelCatalogAlias"
+	TypeModelCatalogBinding           = "ModelCatalogBinding"
 	TypeModelCatalogEntry             = "ModelCatalogEntry"
 	TypeModelCatalogPriceInterval     = "ModelCatalogPriceInterval"
 	TypeModelCatalogTimePricing       = "ModelCatalogTimePricing"
@@ -2340,6 +2342,9 @@ type AccountMutation struct {
 	usage_logs                  map[int64]struct{}
 	removedusage_logs           map[int64]struct{}
 	clearedusage_logs           bool
+	catalog_entries             map[int64]struct{}
+	removedcatalog_entries      map[int64]struct{}
+	clearedcatalog_entries      bool
 	done                        bool
 	oldValue                    func(context.Context) (*Account, error)
 	predicates                  []predicate.Account
@@ -4147,6 +4152,60 @@ func (m *AccountMutation) ResetUsageLogs() {
 	m.removedusage_logs = nil
 }
 
+// AddCatalogEntryIDs adds the "catalog_entries" edge to the ModelCatalogEntry entity by ids.
+func (m *AccountMutation) AddCatalogEntryIDs(ids ...int64) {
+	if m.catalog_entries == nil {
+		m.catalog_entries = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.catalog_entries[ids[i]] = struct{}{}
+	}
+}
+
+// ClearCatalogEntries clears the "catalog_entries" edge to the ModelCatalogEntry entity.
+func (m *AccountMutation) ClearCatalogEntries() {
+	m.clearedcatalog_entries = true
+}
+
+// CatalogEntriesCleared reports if the "catalog_entries" edge to the ModelCatalogEntry entity was cleared.
+func (m *AccountMutation) CatalogEntriesCleared() bool {
+	return m.clearedcatalog_entries
+}
+
+// RemoveCatalogEntryIDs removes the "catalog_entries" edge to the ModelCatalogEntry entity by IDs.
+func (m *AccountMutation) RemoveCatalogEntryIDs(ids ...int64) {
+	if m.removedcatalog_entries == nil {
+		m.removedcatalog_entries = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.catalog_entries, ids[i])
+		m.removedcatalog_entries[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedCatalogEntries returns the removed IDs of the "catalog_entries" edge to the ModelCatalogEntry entity.
+func (m *AccountMutation) RemovedCatalogEntriesIDs() (ids []int64) {
+	for id := range m.removedcatalog_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// CatalogEntriesIDs returns the "catalog_entries" edge IDs in the mutation.
+func (m *AccountMutation) CatalogEntriesIDs() (ids []int64) {
+	for id := range m.catalog_entries {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetCatalogEntries resets all changes to the "catalog_entries" edge.
+func (m *AccountMutation) ResetCatalogEntries() {
+	m.catalog_entries = nil
+	m.clearedcatalog_entries = false
+	m.removedcatalog_entries = nil
+}
+
 // Where appends a list predicates to the AccountMutation builder.
 func (m *AccountMutation) Where(ps ...predicate.Account) {
 	m.predicates = append(m.predicates, ps...)
@@ -4975,7 +5034,7 @@ func (m *AccountMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *AccountMutation) AddedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.groups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -4990,6 +5049,9 @@ func (m *AccountMutation) AddedEdges() []string {
 	}
 	if m.usage_logs != nil {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.catalog_entries != nil {
+		edges = append(edges, account.EdgeCatalogEntries)
 	}
 	return edges
 }
@@ -5024,13 +5086,19 @@ func (m *AccountMutation) AddedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCatalogEntries:
+		ids := make([]ent.Value, 0, len(m.catalog_entries))
+		for id := range m.catalog_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *AccountMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.removedgroups != nil {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5039,6 +5107,9 @@ func (m *AccountMutation) RemovedEdges() []string {
 	}
 	if m.removedusage_logs != nil {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.removedcatalog_entries != nil {
+		edges = append(edges, account.EdgeCatalogEntries)
 	}
 	return edges
 }
@@ -5065,13 +5136,19 @@ func (m *AccountMutation) RemovedIDs(name string) []ent.Value {
 			ids = append(ids, id)
 		}
 		return ids
+	case account.EdgeCatalogEntries:
+		ids := make([]ent.Value, 0, len(m.removedcatalog_entries))
+		for id := range m.removedcatalog_entries {
+			ids = append(ids, id)
+		}
+		return ids
 	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *AccountMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 5)
+	edges := make([]string, 0, 6)
 	if m.clearedgroups {
 		edges = append(edges, account.EdgeGroups)
 	}
@@ -5086,6 +5163,9 @@ func (m *AccountMutation) ClearedEdges() []string {
 	}
 	if m.clearedusage_logs {
 		edges = append(edges, account.EdgeUsageLogs)
+	}
+	if m.clearedcatalog_entries {
+		edges = append(edges, account.EdgeCatalogEntries)
 	}
 	return edges
 }
@@ -5104,6 +5184,8 @@ func (m *AccountMutation) EdgeCleared(name string) bool {
 		return m.clearedchildren
 	case account.EdgeUsageLogs:
 		return m.clearedusage_logs
+	case account.EdgeCatalogEntries:
+		return m.clearedcatalog_entries
 	}
 	return false
 }
@@ -5140,6 +5222,9 @@ func (m *AccountMutation) ResetEdge(name string) error {
 		return nil
 	case account.EdgeUsageLogs:
 		m.ResetUsageLogs()
+		return nil
+	case account.EdgeCatalogEntries:
+		m.ResetCatalogEntries()
 		return nil
 	}
 	return fmt.Errorf("unknown Account edge %s", name)
@@ -30270,6 +30355,514 @@ func (m *ModelCatalogAliasMutation) ResetEdge(name string) error {
 	return fmt.Errorf("unknown ModelCatalogAlias edge %s", name)
 }
 
+// ModelCatalogBindingMutation represents an operation that mutates the ModelCatalogBinding nodes in the graph.
+type ModelCatalogBindingMutation struct {
+	config
+	op             Op
+	typ            string
+	priority       *int
+	addpriority    *int
+	created_at     *time.Time
+	clearedFields  map[string]struct{}
+	entry          *int64
+	clearedentry   bool
+	account        *int64
+	clearedaccount bool
+	done           bool
+	oldValue       func(context.Context) (*ModelCatalogBinding, error)
+	predicates     []predicate.ModelCatalogBinding
+}
+
+var _ ent.Mutation = (*ModelCatalogBindingMutation)(nil)
+
+// modelcatalogbindingOption allows management of the mutation configuration using functional options.
+type modelcatalogbindingOption func(*ModelCatalogBindingMutation)
+
+// newModelCatalogBindingMutation creates new mutation for the ModelCatalogBinding entity.
+func newModelCatalogBindingMutation(c config, op Op, opts ...modelcatalogbindingOption) *ModelCatalogBindingMutation {
+	m := &ModelCatalogBindingMutation{
+		config:        c,
+		op:            op,
+		typ:           TypeModelCatalogBinding,
+		clearedFields: make(map[string]struct{}),
+	}
+	for _, opt := range opts {
+		opt(m)
+	}
+	return m
+}
+
+// Client returns a new `ent.Client` from the mutation. If the mutation was
+// executed in a transaction (ent.Tx), a transactional client is returned.
+func (m ModelCatalogBindingMutation) Client() *Client {
+	client := &Client{config: m.config}
+	client.init()
+	return client
+}
+
+// Tx returns an `ent.Tx` for mutations that were executed in transactions;
+// it returns an error otherwise.
+func (m ModelCatalogBindingMutation) Tx() (*Tx, error) {
+	if _, ok := m.driver.(*txDriver); !ok {
+		return nil, errors.New("ent: mutation is not running in a transaction")
+	}
+	tx := &Tx{config: m.config}
+	tx.init()
+	return tx, nil
+}
+
+// SetEntryID sets the "entry_id" field.
+func (m *ModelCatalogBindingMutation) SetEntryID(i int64) {
+	m.entry = &i
+}
+
+// EntryID returns the value of the "entry_id" field in the mutation.
+func (m *ModelCatalogBindingMutation) EntryID() (r int64, exists bool) {
+	v := m.entry
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetEntryID resets all changes to the "entry_id" field.
+func (m *ModelCatalogBindingMutation) ResetEntryID() {
+	m.entry = nil
+}
+
+// SetAccountID sets the "account_id" field.
+func (m *ModelCatalogBindingMutation) SetAccountID(i int64) {
+	m.account = &i
+}
+
+// AccountID returns the value of the "account_id" field in the mutation.
+func (m *ModelCatalogBindingMutation) AccountID() (r int64, exists bool) {
+	v := m.account
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetAccountID resets all changes to the "account_id" field.
+func (m *ModelCatalogBindingMutation) ResetAccountID() {
+	m.account = nil
+}
+
+// SetPriority sets the "priority" field.
+func (m *ModelCatalogBindingMutation) SetPriority(i int) {
+	m.priority = &i
+	m.addpriority = nil
+}
+
+// Priority returns the value of the "priority" field in the mutation.
+func (m *ModelCatalogBindingMutation) Priority() (r int, exists bool) {
+	v := m.priority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// AddPriority adds i to the "priority" field.
+func (m *ModelCatalogBindingMutation) AddPriority(i int) {
+	if m.addpriority != nil {
+		*m.addpriority += i
+	} else {
+		m.addpriority = &i
+	}
+}
+
+// AddedPriority returns the value that was added to the "priority" field in this mutation.
+func (m *ModelCatalogBindingMutation) AddedPriority() (r int, exists bool) {
+	v := m.addpriority
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearPriority clears the value of the "priority" field.
+func (m *ModelCatalogBindingMutation) ClearPriority() {
+	m.priority = nil
+	m.addpriority = nil
+	m.clearedFields[modelcatalogbinding.FieldPriority] = struct{}{}
+}
+
+// PriorityCleared returns if the "priority" field was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) PriorityCleared() bool {
+	_, ok := m.clearedFields[modelcatalogbinding.FieldPriority]
+	return ok
+}
+
+// ResetPriority resets all changes to the "priority" field.
+func (m *ModelCatalogBindingMutation) ResetPriority() {
+	m.priority = nil
+	m.addpriority = nil
+	delete(m.clearedFields, modelcatalogbinding.FieldPriority)
+}
+
+// SetCreatedAt sets the "created_at" field.
+func (m *ModelCatalogBindingMutation) SetCreatedAt(t time.Time) {
+	m.created_at = &t
+}
+
+// CreatedAt returns the value of the "created_at" field in the mutation.
+func (m *ModelCatalogBindingMutation) CreatedAt() (r time.Time, exists bool) {
+	v := m.created_at
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ResetCreatedAt resets all changes to the "created_at" field.
+func (m *ModelCatalogBindingMutation) ResetCreatedAt() {
+	m.created_at = nil
+}
+
+// ClearEntry clears the "entry" edge to the ModelCatalogEntry entity.
+func (m *ModelCatalogBindingMutation) ClearEntry() {
+	m.clearedentry = true
+	m.clearedFields[modelcatalogbinding.FieldEntryID] = struct{}{}
+}
+
+// EntryCleared reports if the "entry" edge to the ModelCatalogEntry entity was cleared.
+func (m *ModelCatalogBindingMutation) EntryCleared() bool {
+	return m.clearedentry
+}
+
+// EntryIDs returns the "entry" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// EntryID instead. It exists only for internal usage by the builders.
+func (m *ModelCatalogBindingMutation) EntryIDs() (ids []int64) {
+	if id := m.entry; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetEntry resets all changes to the "entry" edge.
+func (m *ModelCatalogBindingMutation) ResetEntry() {
+	m.entry = nil
+	m.clearedentry = false
+}
+
+// ClearAccount clears the "account" edge to the Account entity.
+func (m *ModelCatalogBindingMutation) ClearAccount() {
+	m.clearedaccount = true
+	m.clearedFields[modelcatalogbinding.FieldAccountID] = struct{}{}
+}
+
+// AccountCleared reports if the "account" edge to the Account entity was cleared.
+func (m *ModelCatalogBindingMutation) AccountCleared() bool {
+	return m.clearedaccount
+}
+
+// AccountIDs returns the "account" edge IDs in the mutation.
+// Note that IDs always returns len(IDs) <= 1 for unique edges, and you should use
+// AccountID instead. It exists only for internal usage by the builders.
+func (m *ModelCatalogBindingMutation) AccountIDs() (ids []int64) {
+	if id := m.account; id != nil {
+		ids = append(ids, *id)
+	}
+	return
+}
+
+// ResetAccount resets all changes to the "account" edge.
+func (m *ModelCatalogBindingMutation) ResetAccount() {
+	m.account = nil
+	m.clearedaccount = false
+}
+
+// Where appends a list predicates to the ModelCatalogBindingMutation builder.
+func (m *ModelCatalogBindingMutation) Where(ps ...predicate.ModelCatalogBinding) {
+	m.predicates = append(m.predicates, ps...)
+}
+
+// WhereP appends storage-level predicates to the ModelCatalogBindingMutation builder. Using this method,
+// users can use type-assertion to append predicates that do not depend on any generated package.
+func (m *ModelCatalogBindingMutation) WhereP(ps ...func(*sql.Selector)) {
+	p := make([]predicate.ModelCatalogBinding, len(ps))
+	for i := range ps {
+		p[i] = ps[i]
+	}
+	m.Where(p...)
+}
+
+// Op returns the operation name.
+func (m *ModelCatalogBindingMutation) Op() Op {
+	return m.op
+}
+
+// SetOp allows setting the mutation operation.
+func (m *ModelCatalogBindingMutation) SetOp(op Op) {
+	m.op = op
+}
+
+// Type returns the node type of this mutation (ModelCatalogBinding).
+func (m *ModelCatalogBindingMutation) Type() string {
+	return m.typ
+}
+
+// Fields returns all fields that were changed during this mutation. Note that in
+// order to get all numeric fields that were incremented/decremented, call
+// AddedFields().
+func (m *ModelCatalogBindingMutation) Fields() []string {
+	fields := make([]string, 0, 4)
+	if m.entry != nil {
+		fields = append(fields, modelcatalogbinding.FieldEntryID)
+	}
+	if m.account != nil {
+		fields = append(fields, modelcatalogbinding.FieldAccountID)
+	}
+	if m.priority != nil {
+		fields = append(fields, modelcatalogbinding.FieldPriority)
+	}
+	if m.created_at != nil {
+		fields = append(fields, modelcatalogbinding.FieldCreatedAt)
+	}
+	return fields
+}
+
+// Field returns the value of a field with the given name. The second boolean
+// return value indicates that this field was not set, or was not defined in the
+// schema.
+func (m *ModelCatalogBindingMutation) Field(name string) (ent.Value, bool) {
+	switch name {
+	case modelcatalogbinding.FieldEntryID:
+		return m.EntryID()
+	case modelcatalogbinding.FieldAccountID:
+		return m.AccountID()
+	case modelcatalogbinding.FieldPriority:
+		return m.Priority()
+	case modelcatalogbinding.FieldCreatedAt:
+		return m.CreatedAt()
+	}
+	return nil, false
+}
+
+// OldField returns the old value of the field from the database. An error is
+// returned if the mutation operation is not UpdateOne, or the query to the
+// database failed.
+func (m *ModelCatalogBindingMutation) OldField(ctx context.Context, name string) (ent.Value, error) {
+	return nil, errors.New("edge schema ModelCatalogBinding does not support getting old values")
+}
+
+// SetField sets the value of a field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ModelCatalogBindingMutation) SetField(name string, value ent.Value) error {
+	switch name {
+	case modelcatalogbinding.FieldEntryID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetEntryID(v)
+		return nil
+	case modelcatalogbinding.FieldAccountID:
+		v, ok := value.(int64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAccountID(v)
+		return nil
+	case modelcatalogbinding.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetPriority(v)
+		return nil
+	case modelcatalogbinding.FieldCreatedAt:
+		v, ok := value.(time.Time)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetCreatedAt(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding field %s", name)
+}
+
+// AddedFields returns all numeric fields that were incremented/decremented during
+// this mutation.
+func (m *ModelCatalogBindingMutation) AddedFields() []string {
+	var fields []string
+	if m.addpriority != nil {
+		fields = append(fields, modelcatalogbinding.FieldPriority)
+	}
+	return fields
+}
+
+// AddedField returns the numeric value that was incremented/decremented on a field
+// with the given name. The second boolean return value indicates that this field
+// was not set, or was not defined in the schema.
+func (m *ModelCatalogBindingMutation) AddedField(name string) (ent.Value, bool) {
+	switch name {
+	case modelcatalogbinding.FieldPriority:
+		return m.AddedPriority()
+	}
+	return nil, false
+}
+
+// AddField adds the value to the field with the given name. It returns an error if
+// the field is not defined in the schema, or if the type mismatched the field
+// type.
+func (m *ModelCatalogBindingMutation) AddField(name string, value ent.Value) error {
+	switch name {
+	case modelcatalogbinding.FieldPriority:
+		v, ok := value.(int)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddPriority(v)
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding numeric field %s", name)
+}
+
+// ClearedFields returns all nullable fields that were cleared during this
+// mutation.
+func (m *ModelCatalogBindingMutation) ClearedFields() []string {
+	var fields []string
+	if m.FieldCleared(modelcatalogbinding.FieldPriority) {
+		fields = append(fields, modelcatalogbinding.FieldPriority)
+	}
+	return fields
+}
+
+// FieldCleared returns a boolean indicating if a field with the given name was
+// cleared in this mutation.
+func (m *ModelCatalogBindingMutation) FieldCleared(name string) bool {
+	_, ok := m.clearedFields[name]
+	return ok
+}
+
+// ClearField clears the value of the field with the given name. It returns an
+// error if the field is not defined in the schema.
+func (m *ModelCatalogBindingMutation) ClearField(name string) error {
+	switch name {
+	case modelcatalogbinding.FieldPriority:
+		m.ClearPriority()
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding nullable field %s", name)
+}
+
+// ResetField resets all changes in the mutation for the field with the given name.
+// It returns an error if the field is not defined in the schema.
+func (m *ModelCatalogBindingMutation) ResetField(name string) error {
+	switch name {
+	case modelcatalogbinding.FieldEntryID:
+		m.ResetEntryID()
+		return nil
+	case modelcatalogbinding.FieldAccountID:
+		m.ResetAccountID()
+		return nil
+	case modelcatalogbinding.FieldPriority:
+		m.ResetPriority()
+		return nil
+	case modelcatalogbinding.FieldCreatedAt:
+		m.ResetCreatedAt()
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding field %s", name)
+}
+
+// AddedEdges returns all edge names that were set/added in this mutation.
+func (m *ModelCatalogBindingMutation) AddedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.entry != nil {
+		edges = append(edges, modelcatalogbinding.EdgeEntry)
+	}
+	if m.account != nil {
+		edges = append(edges, modelcatalogbinding.EdgeAccount)
+	}
+	return edges
+}
+
+// AddedIDs returns all IDs (to other nodes) that were added for the given edge
+// name in this mutation.
+func (m *ModelCatalogBindingMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case modelcatalogbinding.EdgeEntry:
+		if id := m.entry; id != nil {
+			return []ent.Value{*id}
+		}
+	case modelcatalogbinding.EdgeAccount:
+		if id := m.account; id != nil {
+			return []ent.Value{*id}
+		}
+	}
+	return nil
+}
+
+// RemovedEdges returns all edge names that were removed in this mutation.
+func (m *ModelCatalogBindingMutation) RemovedEdges() []string {
+	edges := make([]string, 0, 2)
+	return edges
+}
+
+// RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
+// the given name in this mutation.
+func (m *ModelCatalogBindingMutation) RemovedIDs(name string) []ent.Value {
+	return nil
+}
+
+// ClearedEdges returns all edge names that were cleared in this mutation.
+func (m *ModelCatalogBindingMutation) ClearedEdges() []string {
+	edges := make([]string, 0, 2)
+	if m.clearedentry {
+		edges = append(edges, modelcatalogbinding.EdgeEntry)
+	}
+	if m.clearedaccount {
+		edges = append(edges, modelcatalogbinding.EdgeAccount)
+	}
+	return edges
+}
+
+// EdgeCleared returns a boolean which indicates if the edge with the given name
+// was cleared in this mutation.
+func (m *ModelCatalogBindingMutation) EdgeCleared(name string) bool {
+	switch name {
+	case modelcatalogbinding.EdgeEntry:
+		return m.clearedentry
+	case modelcatalogbinding.EdgeAccount:
+		return m.clearedaccount
+	}
+	return false
+}
+
+// ClearEdge clears the value of the edge with the given name. It returns an error
+// if that edge is not defined in the schema.
+func (m *ModelCatalogBindingMutation) ClearEdge(name string) error {
+	switch name {
+	case modelcatalogbinding.EdgeEntry:
+		m.ClearEntry()
+		return nil
+	case modelcatalogbinding.EdgeAccount:
+		m.ClearAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding unique edge %s", name)
+}
+
+// ResetEdge resets all changes to the edge with the given name in this mutation.
+// It returns an error if the edge is not defined in the schema.
+func (m *ModelCatalogBindingMutation) ResetEdge(name string) error {
+	switch name {
+	case modelcatalogbinding.EdgeEntry:
+		m.ResetEntry()
+		return nil
+	case modelcatalogbinding.EdgeAccount:
+		m.ResetAccount()
+		return nil
+	}
+	return fmt.Errorf("unknown ModelCatalogBinding edge %s", name)
+}
+
 // ModelCatalogEntryMutation represents an operation that mutates the ModelCatalogEntry nodes in the graph.
 type ModelCatalogEntryMutation struct {
 	config
@@ -30286,6 +30879,7 @@ type ModelCatalogEntryMutation struct {
 	billing_mode                       *string
 	status                             *string
 	managed_by                         *string
+	route_platform                     *string
 	input_price                        *float64
 	addinput_price                     *float64
 	output_price                       *float64
@@ -30327,6 +30921,9 @@ type ModelCatalogEntryMutation struct {
 	addmax_reasoning_effort_multiplier *float64
 	notes                              *string
 	clearedFields                      map[string]struct{}
+	accounts                           map[int64]struct{}
+	removedaccounts                    map[int64]struct{}
+	clearedaccounts                    bool
 	done                               bool
 	oldValue                           func(context.Context) (*ModelCatalogEntry, error)
 	predicates                         []predicate.ModelCatalogEntry
@@ -30781,6 +31378,42 @@ func (m *ModelCatalogEntryMutation) OldManagedBy(ctx context.Context) (v string,
 // ResetManagedBy resets all changes to the "managed_by" field.
 func (m *ModelCatalogEntryMutation) ResetManagedBy() {
 	m.managed_by = nil
+}
+
+// SetRoutePlatform sets the "route_platform" field.
+func (m *ModelCatalogEntryMutation) SetRoutePlatform(s string) {
+	m.route_platform = &s
+}
+
+// RoutePlatform returns the value of the "route_platform" field in the mutation.
+func (m *ModelCatalogEntryMutation) RoutePlatform() (r string, exists bool) {
+	v := m.route_platform
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldRoutePlatform returns the old "route_platform" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldRoutePlatform(ctx context.Context) (v string, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldRoutePlatform is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldRoutePlatform requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldRoutePlatform: %w", err)
+	}
+	return oldValue.RoutePlatform, nil
+}
+
+// ResetRoutePlatform resets all changes to the "route_platform" field.
+func (m *ModelCatalogEntryMutation) ResetRoutePlatform() {
+	m.route_platform = nil
 }
 
 // SetInputPrice sets the "input_price" field.
@@ -32198,6 +32831,60 @@ func (m *ModelCatalogEntryMutation) ResetNotes() {
 	delete(m.clearedFields, modelcatalogentry.FieldNotes)
 }
 
+// AddAccountIDs adds the "accounts" edge to the Account entity by ids.
+func (m *ModelCatalogEntryMutation) AddAccountIDs(ids ...int64) {
+	if m.accounts == nil {
+		m.accounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		m.accounts[ids[i]] = struct{}{}
+	}
+}
+
+// ClearAccounts clears the "accounts" edge to the Account entity.
+func (m *ModelCatalogEntryMutation) ClearAccounts() {
+	m.clearedaccounts = true
+}
+
+// AccountsCleared reports if the "accounts" edge to the Account entity was cleared.
+func (m *ModelCatalogEntryMutation) AccountsCleared() bool {
+	return m.clearedaccounts
+}
+
+// RemoveAccountIDs removes the "accounts" edge to the Account entity by IDs.
+func (m *ModelCatalogEntryMutation) RemoveAccountIDs(ids ...int64) {
+	if m.removedaccounts == nil {
+		m.removedaccounts = make(map[int64]struct{})
+	}
+	for i := range ids {
+		delete(m.accounts, ids[i])
+		m.removedaccounts[ids[i]] = struct{}{}
+	}
+}
+
+// RemovedAccounts returns the removed IDs of the "accounts" edge to the Account entity.
+func (m *ModelCatalogEntryMutation) RemovedAccountsIDs() (ids []int64) {
+	for id := range m.removedaccounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// AccountsIDs returns the "accounts" edge IDs in the mutation.
+func (m *ModelCatalogEntryMutation) AccountsIDs() (ids []int64) {
+	for id := range m.accounts {
+		ids = append(ids, id)
+	}
+	return
+}
+
+// ResetAccounts resets all changes to the "accounts" edge.
+func (m *ModelCatalogEntryMutation) ResetAccounts() {
+	m.accounts = nil
+	m.clearedaccounts = false
+	m.removedaccounts = nil
+}
+
 // Where appends a list predicates to the ModelCatalogEntryMutation builder.
 func (m *ModelCatalogEntryMutation) Where(ps ...predicate.ModelCatalogEntry) {
 	m.predicates = append(m.predicates, ps...)
@@ -32232,7 +32919,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 30)
+	fields := make([]string, 0, 31)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -32259,6 +32946,9 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	}
 	if m.managed_by != nil {
 		fields = append(fields, modelcatalogentry.FieldManagedBy)
+	}
+	if m.route_platform != nil {
+		fields = append(fields, modelcatalogentry.FieldRoutePlatform)
 	}
 	if m.input_price != nil {
 		fields = append(fields, modelcatalogentry.FieldInputPrice)
@@ -32349,6 +33039,8 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case modelcatalogentry.FieldManagedBy:
 		return m.ManagedBy()
+	case modelcatalogentry.FieldRoutePlatform:
+		return m.RoutePlatform()
 	case modelcatalogentry.FieldInputPrice:
 		return m.InputPrice()
 	case modelcatalogentry.FieldOutputPrice:
@@ -32418,6 +33110,8 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldStatus(ctx)
 	case modelcatalogentry.FieldManagedBy:
 		return m.OldManagedBy(ctx)
+	case modelcatalogentry.FieldRoutePlatform:
+		return m.OldRoutePlatform(ctx)
 	case modelcatalogentry.FieldInputPrice:
 		return m.OldInputPrice(ctx)
 	case modelcatalogentry.FieldOutputPrice:
@@ -32531,6 +33225,13 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetManagedBy(v)
+		return nil
+	case modelcatalogentry.FieldRoutePlatform:
+		v, ok := value.(string)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetRoutePlatform(v)
 		return nil
 	case modelcatalogentry.FieldInputPrice:
 		v, ok := value.(float64)
@@ -33115,6 +33816,9 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 	case modelcatalogentry.FieldManagedBy:
 		m.ResetManagedBy()
 		return nil
+	case modelcatalogentry.FieldRoutePlatform:
+		m.ResetRoutePlatform()
+		return nil
 	case modelcatalogentry.FieldInputPrice:
 		m.ResetInputPrice()
 		return nil
@@ -33184,49 +33888,85 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 
 // AddedEdges returns all edge names that were set/added in this mutation.
 func (m *ModelCatalogEntryMutation) AddedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.accounts != nil {
+		edges = append(edges, modelcatalogentry.EdgeAccounts)
+	}
 	return edges
 }
 
 // AddedIDs returns all IDs (to other nodes) that were added for the given edge
 // name in this mutation.
 func (m *ModelCatalogEntryMutation) AddedIDs(name string) []ent.Value {
+	switch name {
+	case modelcatalogentry.EdgeAccounts:
+		ids := make([]ent.Value, 0, len(m.accounts))
+		for id := range m.accounts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // RemovedEdges returns all edge names that were removed in this mutation.
 func (m *ModelCatalogEntryMutation) RemovedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.removedaccounts != nil {
+		edges = append(edges, modelcatalogentry.EdgeAccounts)
+	}
 	return edges
 }
 
 // RemovedIDs returns all IDs (to other nodes) that were removed for the edge with
 // the given name in this mutation.
 func (m *ModelCatalogEntryMutation) RemovedIDs(name string) []ent.Value {
+	switch name {
+	case modelcatalogentry.EdgeAccounts:
+		ids := make([]ent.Value, 0, len(m.removedaccounts))
+		for id := range m.removedaccounts {
+			ids = append(ids, id)
+		}
+		return ids
+	}
 	return nil
 }
 
 // ClearedEdges returns all edge names that were cleared in this mutation.
 func (m *ModelCatalogEntryMutation) ClearedEdges() []string {
-	edges := make([]string, 0, 0)
+	edges := make([]string, 0, 1)
+	if m.clearedaccounts {
+		edges = append(edges, modelcatalogentry.EdgeAccounts)
+	}
 	return edges
 }
 
 // EdgeCleared returns a boolean which indicates if the edge with the given name
 // was cleared in this mutation.
 func (m *ModelCatalogEntryMutation) EdgeCleared(name string) bool {
+	switch name {
+	case modelcatalogentry.EdgeAccounts:
+		return m.clearedaccounts
+	}
 	return false
 }
 
 // ClearEdge clears the value of the edge with the given name. It returns an error
 // if that edge is not defined in the schema.
 func (m *ModelCatalogEntryMutation) ClearEdge(name string) error {
+	switch name {
+	}
 	return fmt.Errorf("unknown ModelCatalogEntry unique edge %s", name)
 }
 
 // ResetEdge resets all changes to the edge with the given name in this mutation.
 // It returns an error if the edge is not defined in the schema.
 func (m *ModelCatalogEntryMutation) ResetEdge(name string) error {
+	switch name {
+	case modelcatalogentry.EdgeAccounts:
+		m.ResetAccounts()
+		return nil
+	}
 	return fmt.Errorf("unknown ModelCatalogEntry edge %s", name)
 }
 

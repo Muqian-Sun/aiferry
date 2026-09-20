@@ -1720,6 +1720,29 @@ func HasUsageLogsWith(preds ...predicate.UsageLog) predicate.Account {
 	})
 }
 
+// HasCatalogEntries applies the HasEdge predicate on the "catalog_entries" edge.
+func HasCatalogEntries() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, CatalogEntriesTable, CatalogEntriesPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCatalogEntriesWith applies the HasEdge predicate on the "catalog_entries" edge with a given conditions (other predicates).
+func HasCatalogEntriesWith(preds ...predicate.ModelCatalogEntry) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCatalogEntriesStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasAccountGroups applies the HasEdge predicate on the "account_groups" edge.
 func HasAccountGroups() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
@@ -1735,6 +1758,29 @@ func HasAccountGroups() predicate.Account {
 func HasAccountGroupsWith(preds ...predicate.AccountGroup) predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
 		step := newAccountGroupsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasCatalogBindings applies the HasEdge predicate on the "catalog_bindings" edge.
+func HasCatalogBindings() predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, CatalogBindingsTable, CatalogBindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasCatalogBindingsWith applies the HasEdge predicate on the "catalog_bindings" edge with a given conditions (other predicates).
+func HasCatalogBindingsWith(preds ...predicate.ModelCatalogBinding) predicate.Account {
+	return predicate.Account(func(s *sql.Selector) {
+		step := newCatalogBindingsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

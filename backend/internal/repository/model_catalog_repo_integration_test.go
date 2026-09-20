@@ -10,6 +10,7 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 )
 
@@ -18,7 +19,7 @@ import (
 func newModelCatalogRepoForTest(t *testing.T, prefix string) (service.ModelCatalogRepository, func(name string) string) {
 	t.Helper()
 	client := testEntClient(t)
-	repo := NewModelCatalogRepository(client)
+	repo := NewModelCatalogRepository(client, integrationDB)
 	unique := func(name string) string { return fmt.Sprintf("%s-%s", prefix, name) }
 	t.Cleanup(func() {
 		_, _ = client.ModelCatalogEntry.Delete().
@@ -362,4 +363,95 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 	require.Len(t, found.Intervals, 1)
 	require.NotNil(t, found.TimePricing)
 	require.InDelta(t, 3, found.TimePricing.Periods[0].Multiplier, 1e-9)
+}
+
+// 绑定：整份覆盖、按账号 ID 排序、随账号删除级联消失、引用不存在的账号报专用错误，
+// 每次写入都向 scheduler_outbox 投递 catalog_bindings_changed。
+func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-bind")
+	client := testEntClient(t)
+
+	entry := &service.ModelCatalogEntry{
+		ModelID: unique("sonnet"), Vendor: "anthropic", BillingMode: service.BillingModeToken,
+		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
+		RoutePlatform: service.PlatformOpenAI, InputPrice: float64Value(1e-6),
+	}
+	require.NoError(t, repo.CreateEntry(ctx, entry))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(),
+			"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID))
+	})
+
+	accountA := mustCreateAccount(t, client, &service.Account{Name: unique("a"), Priority: 10})
+	accountB := mustCreateAccount(t, client, &service.Account{Name: unique("b"), Priority: 20})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{accountA.ID, accountB.ID}))
+	})
+
+	outboxCount := func() int {
+		var n int
+		require.NoError(t, integrationDB.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entry.ID)).Scan(&n))
+		return n
+	}
+	require.Equal(t, 0, outboxCount())
+
+	priority := 5
+	require.NoError(t, repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{
+		{AccountID: accountB.ID},
+		{AccountID: accountA.ID, Priority: &priority},
+	}))
+	require.Equal(t, 1, outboxCount(), "replace enqueues one outbox event")
+
+	got, err := repo.GetEntryByID(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Equal(t, service.PlatformOpenAI, got.RoutePlatform, "route_platform round-trips")
+	require.Len(t, got.Bindings, 2)
+	require.Equal(t, accountA.ID, got.Bindings[0].AccountID, "sorted by account id")
+	require.NotNil(t, got.Bindings[0].Priority)
+	require.Equal(t, 5, *got.Bindings[0].Priority)
+	require.Nil(t, got.Bindings[1].Priority)
+
+	all, err := repo.ListEntries(ctx)
+	require.NoError(t, err)
+	var listed *service.ModelCatalogEntry
+	for i := range all {
+		if all[i].ID == entry.ID {
+			listed = &all[i]
+		}
+	}
+	require.NotNil(t, listed)
+	require.Len(t, listed.Bindings, 2, "ListEntries hydrates bindings")
+
+	ids, err := repo.ListEntryIDsByAccount(ctx, accountA.ID)
+	require.NoError(t, err)
+	require.Equal(t, []int64{entry.ID}, ids)
+
+	require.NoError(t, repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{{AccountID: accountB.ID}}))
+	bindings, err := repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Len(t, bindings, 1)
+	require.Equal(t, accountB.ID, bindings[0].AccountID)
+
+	// ent 的 Account.Delete 是软删除（只写 deleted_at），级联要看真正的行删除。
+	_, err = integrationDB.ExecContext(ctx, "DELETE FROM accounts WHERE id = $1", accountB.ID)
+	require.NoError(t, err)
+	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Empty(t, bindings, "deleting the account cascades the binding")
+
+	err = repo.ReplaceBindings(ctx, entry.ID, []service.ModelCatalogBinding{{AccountID: accountA.ID}, {AccountID: -1}})
+	require.ErrorIs(t, err, service.ErrModelCatalogBindingAccountNotFound)
+	bindings, err = repo.ListBindingsByEntry(ctx, entry.ID)
+	require.NoError(t, err)
+	require.Empty(t, bindings, "a failed replace rolls back the whole batch")
+
+	require.ErrorIs(t, repo.ReplaceBindings(ctx, -1, []service.ModelCatalogBinding{{AccountID: accountA.ID}}), service.ErrModelCatalogEntryNotFound)
+
+	before := outboxCount()
+	require.NoError(t, repo.DeleteEntry(ctx, entry.ID))
+	require.Equal(t, before+1, outboxCount(), "deleting the entry also enqueues the event")
 }

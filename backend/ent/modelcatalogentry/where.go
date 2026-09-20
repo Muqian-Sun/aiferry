@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"entgo.io/ent/dialect/sql"
+	"entgo.io/ent/dialect/sql/sqlgraph"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 )
 
@@ -92,6 +93,11 @@ func Status(v string) predicate.ModelCatalogEntry {
 // ManagedBy applies equality check predicate on the "managed_by" field. It's identical to ManagedByEQ.
 func ManagedBy(v string) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldManagedBy, v))
+}
+
+// RoutePlatform applies equality check predicate on the "route_platform" field. It's identical to RoutePlatformEQ.
+func RoutePlatform(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldRoutePlatform, v))
 }
 
 // InputPrice applies equality check predicate on the "input_price" field. It's identical to InputPriceEQ.
@@ -677,6 +683,71 @@ func ManagedByEqualFold(v string) predicate.ModelCatalogEntry {
 // ManagedByContainsFold applies the ContainsFold predicate on the "managed_by" field.
 func ManagedByContainsFold(v string) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldContainsFold(FieldManagedBy, v))
+}
+
+// RoutePlatformEQ applies the EQ predicate on the "route_platform" field.
+func RoutePlatformEQ(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldRoutePlatform, v))
+}
+
+// RoutePlatformNEQ applies the NEQ predicate on the "route_platform" field.
+func RoutePlatformNEQ(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldRoutePlatform, v))
+}
+
+// RoutePlatformIn applies the In predicate on the "route_platform" field.
+func RoutePlatformIn(vs ...string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldRoutePlatform, vs...))
+}
+
+// RoutePlatformNotIn applies the NotIn predicate on the "route_platform" field.
+func RoutePlatformNotIn(vs ...string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldRoutePlatform, vs...))
+}
+
+// RoutePlatformGT applies the GT predicate on the "route_platform" field.
+func RoutePlatformGT(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldRoutePlatform, v))
+}
+
+// RoutePlatformGTE applies the GTE predicate on the "route_platform" field.
+func RoutePlatformGTE(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldRoutePlatform, v))
+}
+
+// RoutePlatformLT applies the LT predicate on the "route_platform" field.
+func RoutePlatformLT(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldRoutePlatform, v))
+}
+
+// RoutePlatformLTE applies the LTE predicate on the "route_platform" field.
+func RoutePlatformLTE(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldRoutePlatform, v))
+}
+
+// RoutePlatformContains applies the Contains predicate on the "route_platform" field.
+func RoutePlatformContains(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldContains(FieldRoutePlatform, v))
+}
+
+// RoutePlatformHasPrefix applies the HasPrefix predicate on the "route_platform" field.
+func RoutePlatformHasPrefix(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldHasPrefix(FieldRoutePlatform, v))
+}
+
+// RoutePlatformHasSuffix applies the HasSuffix predicate on the "route_platform" field.
+func RoutePlatformHasSuffix(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldHasSuffix(FieldRoutePlatform, v))
+}
+
+// RoutePlatformEqualFold applies the EqualFold predicate on the "route_platform" field.
+func RoutePlatformEqualFold(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEqualFold(FieldRoutePlatform, v))
+}
+
+// RoutePlatformContainsFold applies the ContainsFold predicate on the "route_platform" field.
+func RoutePlatformContainsFold(v string) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldContainsFold(FieldRoutePlatform, v))
 }
 
 // InputPriceEQ applies the EQ predicate on the "input_price" field.
@@ -1712,6 +1783,52 @@ func NotesEqualFold(v string) predicate.ModelCatalogEntry {
 // NotesContainsFold applies the ContainsFold predicate on the "notes" field.
 func NotesContainsFold(v string) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldContainsFold(FieldNotes, v))
+}
+
+// HasAccounts applies the HasEdge predicate on the "accounts" edge.
+func HasAccounts() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, false, AccountsTable, AccountsPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasAccountsWith applies the HasEdge predicate on the "accounts" edge with a given conditions (other predicates).
+func HasAccountsWith(preds ...predicate.Account) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := newAccountsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasBindings applies the HasEdge predicate on the "bindings" edge.
+func HasBindings() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, BindingsTable, BindingsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasBindingsWith applies the HasEdge predicate on the "bindings" edge with a given conditions (other predicates).
+func HasBindingsWith(preds ...predicate.ModelCatalogBinding) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := newBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
 }
 
 // And groups predicates with the AND operator between them.

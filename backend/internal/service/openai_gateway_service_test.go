@@ -238,6 +238,10 @@ func (r stubOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Context, pla
 	return result, nil
 }
 
+func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -248,6 +252,10 @@ func (r stubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Con
 
 type groupAwareStubOpenAIAccountRepo struct {
 	stubOpenAIAccountRepo
+}
+
+func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
 }
 
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {

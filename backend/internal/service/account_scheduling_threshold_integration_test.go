@@ -26,6 +26,10 @@ func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidates(_ context.C
 	return filtered, nil
 }
 
+func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }

@@ -25,6 +25,7 @@ func (h *GatewayHandler) pinnedOpenAIModels(c *gin.Context, group *service.Group
 	}
 	response, account, err := h.openAIGatewayService.FetchPinnedOpenAIModelsList(
 		c.Request.Context(), group, h.maxAccountSwitches, etag,
+		func(modelID string) bool { return service.IsListedModel(c.Request.Context(), h.modelCatalog, modelID) },
 	)
 	if c.Request.Context().Err() != nil {
 		return

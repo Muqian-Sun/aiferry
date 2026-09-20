@@ -13,6 +13,10 @@ const (
 	SchedulerModeSingle = "single"
 	SchedulerModeMixed  = "mixed"
 	SchedulerModeForced = "forced"
+	// SchedulerModeCatalog 目录桶：GroupID 字段存的是目录条目 ID，Platform 是条目的
+	// 网关族，候选来自 model_catalog_bindings。与分组桶同一 ID 空间但互不相干，
+	// 分组生命周期（退役 / 重开）只认自己的模式。
+	SchedulerModeCatalog = "catalog"
 )
 
 var (

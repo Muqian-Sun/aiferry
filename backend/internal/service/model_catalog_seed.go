@@ -148,8 +148,9 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		// 图片 / 视频计费走的是另一条读 PricingService 的路径。播成 image/video
 		// 会让 CalculateCostUnified 改走按次分支，属于行为改动。
 		BillingMode: BillingModeToken,
-		Status:      ModelCatalogStatusListed,
-		ManagedBy:   ModelCatalogManagedBySeed,
+		// 播种条目没有绑定资源，默认下架；管理员绑好资源再上架。
+		Status:    ModelCatalogStatusUnlisted,
+		ManagedBy: ModelCatalogManagedBySeed,
 
 		InputPrice:          positivePrice(pricing.InputCostPerToken),
 		OutputPrice:         positivePrice(pricing.OutputCostPerToken),
@@ -187,7 +188,7 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 	entry := ModelCatalogEntry{
 		ModelID:     name,
 		BillingMode: BillingModeToken,
-		Status:      ModelCatalogStatusListed,
+		Status:      ModelCatalogStatusUnlisted,
 		ManagedBy:   ModelCatalogManagedBySeed,
 
 		InputPrice:          positivePrice(pricing.InputPricePerToken),

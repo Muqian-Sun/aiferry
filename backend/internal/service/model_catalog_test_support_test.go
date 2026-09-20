@@ -17,6 +17,9 @@ type stubModelCatalogRepo struct {
 	listGate chan struct{}
 	// seedAbortAfter > 0 时，播种写入这么多条后返回 ctx 到期错误，模拟中途中止。
 	seedAbortAfter int
+	// bindings 按条目 ID 存绑定；replaceCalls 记 ReplaceBindings 被调了几次。
+	bindings     map[int64][]ModelCatalogBinding
+	replaceCalls int
 }
 
 // ListEntries 像真实驱动一样尊重 ctx：已取消的 ctx 直接报错。
@@ -42,7 +45,42 @@ func (r *stubModelCatalogRepo) ListEntries(ctx context.Context) ([]ModelCatalogE
 	}
 	out := make([]ModelCatalogEntry, len(r.entries))
 	copy(out, r.entries)
+	for i := range out {
+		out[i].Bindings = append([]ModelCatalogBinding(nil), r.bindings[out[i].ID]...)
+	}
 	return out, nil
+}
+
+func (r *stubModelCatalogRepo) ListBindingsByEntry(_ context.Context, entryID int64) ([]ModelCatalogBinding, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return append([]ModelCatalogBinding(nil), r.bindings[entryID]...), nil
+}
+
+func (r *stubModelCatalogRepo) ReplaceBindings(_ context.Context, entryID int64, bindings []ModelCatalogBinding) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.replaceCalls++
+	if r.bindings == nil {
+		r.bindings = make(map[int64][]ModelCatalogBinding)
+	}
+	r.bindings[entryID] = append([]ModelCatalogBinding(nil), bindings...)
+	return nil
+}
+
+func (r *stubModelCatalogRepo) ListEntryIDsByAccount(_ context.Context, accountID int64) ([]int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var ids []int64
+	for entryID, bindings := range r.bindings {
+		for _, binding := range bindings {
+			if binding.AccountID == accountID {
+				ids = append(ids, entryID)
+				break
+			}
+		}
+	}
+	return ids, nil
 }
 
 func (r *stubModelCatalogRepo) GetEntryByID(_ context.Context, id int64) (*ModelCatalogEntry, error) {

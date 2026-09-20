@@ -191,6 +191,53 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 		require.Error(t, entry.Validate())
 	})
 
+	// 上架即可调用，所以上架条目必须能独立定价；下架条目可以先建骨架再补价。
+	t.Run("listed without price", func(t *testing.T) {
+		entry := valid()
+		entry.Status = ModelCatalogStatusListed
+		entry.InputPrice = nil
+		require.Error(t, entry.Validate())
+	})
+
+	t.Run("unlisted without price", func(t *testing.T) {
+		entry := valid()
+		entry.Status = ModelCatalogStatusUnlisted
+		entry.InputPrice = nil
+		require.NoError(t, entry.Validate())
+	})
+
+	t.Run("per_request listed with per_request_price", func(t *testing.T) {
+		entry := valid()
+		entry.Status = ModelCatalogStatusListed
+		entry.BillingMode = BillingModePerRequest
+		entry.InputPrice = nil
+		entry.PerRequestPrice = testPtrFloat64(0.01)
+		require.NoError(t, entry.Validate())
+	})
+
+	t.Run("per_request listed without any price", func(t *testing.T) {
+		entry := valid()
+		entry.Status = ModelCatalogStatusListed
+		entry.BillingMode = BillingModePerRequest
+		entry.InputPrice = nil
+		require.Error(t, entry.Validate())
+	})
+
+	t.Run("route_platform must be a gateway family", func(t *testing.T) {
+		entry := valid()
+		entry.RoutePlatform = PlatformAntigravity
+		require.Error(t, entry.Validate())
+		entry.RoutePlatform = PlatformOpenAI
+		require.NoError(t, entry.Validate())
+	})
+
+	t.Run("normalize lowercases route_platform and defaults status to unlisted", func(t *testing.T) {
+		entry := &ModelCatalogEntry{ModelID: "m", RoutePlatform: " OpenAI "}
+		entry.Normalize()
+		require.Equal(t, PlatformOpenAI, entry.RoutePlatform)
+		require.Equal(t, ModelCatalogStatusUnlisted, entry.Status)
+	})
+
 	t.Run("overlapping intervals", func(t *testing.T) {
 		entry := valid()
 		entry.Intervals = []PricingInterval{

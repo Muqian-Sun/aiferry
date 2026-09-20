@@ -128,6 +128,10 @@ func (m *mockAccountRepoForGemini) ListSchedulingCandidates(ctx context.Context,
 	}
 	return result, nil
 }
+func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	if m.listByGroupFunc != nil {
 		return m.listByGroupFunc(ctx, groupID, platforms)

@@ -775,8 +775,8 @@ func registerChannelRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	}
 }
 
-// registerModelCatalogRoutes 注册模型目录的管理端 CRUD。
-// 目录是「有哪些模型 + 基准价」的权威表；本阶段只有后端接口，前端页面留到后面的阶段。
+// registerModelCatalogRoutes 注册模型目录的管理端 CRUD 与资源绑定。
+// 目录是「有哪些模型 + 基准价 + 绑定的资源」的权威表。
 func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	catalog := admin.Group("/model-catalog")
 	{
@@ -785,6 +785,8 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.POST("/entries", h.Admin.ModelCatalog.CreateEntry)
 		catalog.PUT("/entries/:id", h.Admin.ModelCatalog.UpdateEntry)
 		catalog.DELETE("/entries/:id", h.Admin.ModelCatalog.DeleteEntry)
+		catalog.GET("/entries/:id/bindings", h.Admin.ModelCatalog.ListBindings)
+		catalog.PUT("/entries/:id/bindings", h.Admin.ModelCatalog.ReplaceBindings)
 
 		catalog.POST("/aliases", h.Admin.ModelCatalog.CreateAlias)
 		catalog.PUT("/aliases/:id", h.Admin.ModelCatalog.UpdateAlias)

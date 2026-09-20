@@ -37,6 +37,10 @@ func (r *keyBucketAccountRepo) GetByIDs(ctx context.Context, ids []int64) ([]*Ac
 	return out, nil
 }
 
+func (r *keyBucketAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *keyBucketAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var out []Account
 	for _, account := range r.accounts {
