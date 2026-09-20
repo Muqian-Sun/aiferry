@@ -67,10 +67,10 @@ type ModelCatalogEntryRequest struct {
 
 func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 	return &service.ModelCatalogEntry{
-		ModelID:     r.ModelID,
-		DisplayName: r.DisplayName,
-		Vendor:      r.Vendor,
-		Protocols:   r.Protocols,
+		ModelID:       r.ModelID,
+		DisplayName:   r.DisplayName,
+		Vendor:        r.Vendor,
+		Protocols:     r.Protocols,
 		BillingMode:   service.BillingMode(r.BillingMode),
 		Status:        r.Status,
 		RoutePlatform: r.RoutePlatform,
