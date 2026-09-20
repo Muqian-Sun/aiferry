@@ -1213,8 +1213,17 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	if account == nil {
 		return false
 	}
-	switch account.Platform {
-	case PlatformOpenAI, PlatformDeepseek:
+	// 成品号按平台；第三方 key 不看标签：官方 xAI 地址的 key 走 Grok 规则，
+	// 其余一律按 OpenAI 兼容清单处理。
+	platform := account.Platform
+	if account.IsThirdPartyKey() {
+		platform = PlatformOpenAI
+		if account.Vendor() == PlatformGrok {
+			platform = PlatformGrok
+		}
+	}
+	switch platform {
+	case PlatformOpenAI:
 		if metadata, ok := account.GetUpstreamModelMetadata(upstreamModel); ok {
 			if modalities := normalizeCodexInputModalities(metadata.InputModalities); len(modalities) > 0 {
 				// Official GPT-6 Astra metadata briefly shipped with a stale
@@ -1228,20 +1237,14 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(upstreamModel), "deepseek-v4-flash-vision-exp") {
-			return account.Type == AccountTypeAPIKey
+			return account.IsThirdPartyKey()
 		}
-		if account.Platform != PlatformOpenAI || !isOpenAICodexImageInputModel(upstreamModel) {
-			return false
-		}
-		if account.IsOpenAIOAuth() {
-			return true
-		}
-		if !account.IsOpenAIApiKey() {
+		if !isOpenAICodexImageInputModel(upstreamModel) {
 			return false
 		}
 		// Compatible model lists often omit modalities. Preserve the known GPT
 		// fallback unless a synced snapshot above explicitly narrows it.
-		return true
+		return account.IsOpenAIOAuth() || account.IsThirdPartyKey()
 	case PlatformGrok:
 		if !isOfficialGrokCodexBaseURL(account.GetGrokBaseURL()) {
 			return false
@@ -1253,14 +1256,16 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	}
 }
 
+// isOfficialOpenAICodexAccount 报告账号是否直连 OpenAI 官方：OpenAI 成品号，或协议地址
+// 全是 OpenAI 官方域的第三方 key（不看平台标签）。
 func isOfficialOpenAICodexAccount(account *Account) bool {
-	if account == nil || account.Platform != PlatformOpenAI {
+	if account == nil {
 		return false
 	}
-	if account.IsOpenAIOAuth() {
-		return true
+	if account.IsThirdPartyKey() {
+		return account.Vendor() == PlatformOpenAI
 	}
-	return account.IsOpenAIApiKey() && isOfficialOpenAIModelsBaseURL(account.GetOpenAIBaseURL())
+	return account.IsOpenAIOAuth()
 }
 
 func isGrokCodexImageInputModel(model string) bool {
@@ -1647,8 +1652,10 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		if authToken == "" && !credAccount.IsOpenAIAgentIdentity() {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_TOKEN_MISSING", "account has no Codex backend access token")
 		}
-	case credAccount.IsOpenAIApiKey():
-		baseURL := strings.TrimSpace(credAccount.GetOpenAIBaseURL())
+	case credAccount.IsThirdPartyKey():
+		// 第三方 key 不看平台标签：/models 清单挂在 OpenAI API 根地址（chat_completions）下，
+		// 与选号口径（KeyUpstreamProtocolFor(openai, "")）一致，选中的 key 必有该地址。
+		baseURL := credAccount.ProtocolEndpoint(APIProtocolChatCompletions)
 		authToken = strings.TrimSpace(credAccount.GetOpenAIProtocolAPIKey())
 		if authToken == "" {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_API_KEY_MISSING", "account has no API key for the Codex models upstream")
@@ -2157,7 +2164,7 @@ func convertOpenAIModelListToCodexManifestForAccount(body []byte, account *Accou
 // contract immediately before a group-specific API key manifest is returned.
 // The shared upstream cache remains independent from local group policy.
 func (s *OpenAIGatewayService) CompleteAPIKeyCodexModelsManifestForClient(manifest *OpenAIModelsResponse, account *Account) error {
-	if manifest == nil || account == nil || !account.IsOpenAIApiKey() || manifest.NotModified || len(manifest.Body) == 0 {
+	if manifest == nil || account == nil || !account.IsThirdPartyKey() || manifest.NotModified || len(manifest.Body) == 0 {
 		return nil
 	}
 	body := manifest.Body
