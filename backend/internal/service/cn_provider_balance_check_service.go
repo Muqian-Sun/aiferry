@@ -107,49 +107,33 @@ func (s *CNProviderBalanceCheckService) runOnce() {
 	}
 	var quotaTargets []quotaTarget
 	var paygTargets []*Account
-	collect := func(platform string, accounts []Account) {
-		for i := range accounts {
-			account := &accounts[i]
-			if !account.IsActive() {
-				continue
-			}
-			// 挂在国产平台下、base_url 指向官方 ollama.com 的账号由 Ollama Cloud
-			// 用量窗口负责：CN 探测端点由 base_url 衍生，ollama.com 会被出站
-			// URL 白名单拒绝（CN_BALANCE_URL_REJECTED），不跳过则每个周期都
-			// 白跑并产生告警噪声。
-			if IsOllamaCloudUsageAccount(account) {
-				continue
-			}
-			// coding 账号：探测滚动窗口并落快照（不要求 Schedulable——已被
-			// 阈值停调的账号也需要新鲜快照决定是否续停）。
-			if account.IsCodingPlan() {
-				quotaTargets = append(quotaTargets, quotaTarget{id: account.ID, platform: account.Platform})
-				continue
-			}
-			// payg 余额探测仅 kimi/deepseek（智谱 / MiniMax 无公开余额端点，
-			// payg 账号依赖响应式 402/429 处理）。
-			if platform != PlatformZhipu && platform != PlatformMiniMax && account.Schedulable {
-				paygTargets = append(paygTargets, account)
-			}
-		}
+	// 国产供应商按协议地址识别（Vendor），不看平台标签：标签只是展示，
+	// 挂在 kimi 标签下的中转 key 不探，挂在 openai 标签下的官方 deepseek key 要探。
+	// 官方 ollama.com 之类的非国产地址 Vendor 为空，自然不进队列。
+	accounts, err := s.accountRepo.ListActive(context.Background())
+	if err != nil {
+		log.Printf("[CNBalance] list active accounts failed: %v", err)
+		return
 	}
-	for _, platform := range s.platforms() {
-		accounts, err := s.accountRepo.ListByPlatform(context.Background(), platform)
-		if err != nil {
-			log.Printf("[CNBalance] list %s accounts failed: %v", platform, err)
+	for i := range accounts {
+		account := &accounts[i]
+		if !account.IsThirdPartyKey() {
 			continue
 		}
-		collect(platform, accounts)
-	}
-	// 智谱 / MiniMax 无余额端点，仅进额度探测。
-	if s.quotaService != nil {
-		for _, platform := range []string{PlatformZhipu, PlatformMiniMax} {
-			accounts, err := s.accountRepo.ListByPlatform(context.Background(), platform)
-			if err != nil {
-				log.Printf("[CNBalance] list %s accounts failed: %v", platform, err)
-				continue
-			}
-			collect(platform, accounts)
+		vendor := account.Vendor()
+		if !IsCNProvider(vendor) {
+			continue
+		}
+		// coding 账号：探测滚动窗口并落快照（不要求 Schedulable——已被
+		// 阈值停调的账号也需要新鲜快照决定是否续停）。
+		if account.IsCodingPlan() {
+			quotaTargets = append(quotaTargets, quotaTarget{id: account.ID, platform: vendor})
+			continue
+		}
+		// payg 余额探测仅 kimi/deepseek（智谱 / MiniMax 无公开余额端点，
+		// payg 账号依赖响应式 402/429 处理）。
+		if (vendor == PlatformKimi || vendor == PlatformDeepseek) && account.Schedulable {
+			paygTargets = append(paygTargets, account)
 		}
 	}
 
@@ -252,10 +236,6 @@ func (s *CNProviderBalanceCheckService) checkOne(ctx context.Context, account *A
 		return cnBalanceCleared
 	}
 	return cnBalanceNoChange
-}
-
-func (s *CNProviderBalanceCheckService) platforms() []string {
-	return []string{PlatformKimi, PlatformDeepseek}
 }
 
 // allCNBalancesBelowThreshold 判断全部币种余额是否均低于阈值。
