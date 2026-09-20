@@ -139,7 +139,7 @@ const createApiKey = (): ApiKey => ({
   reset_7d_at: null,
 })
 
-const AppLayoutStub = {
+const SiteShellStub = {
   template: '<div><slot /></div>',
 }
 
@@ -223,7 +223,7 @@ const mountView = async () => {
   const wrapper = mount(KeysView, {
     global: {
       stubs: {
-        AppLayout: AppLayoutStub,
+        SiteShell: SiteShellStub,
         TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,

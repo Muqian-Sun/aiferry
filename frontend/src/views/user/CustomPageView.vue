@@ -1,5 +1,5 @@
 <template>
-  <AppLayout>
+  <SiteShell>
     <div class="custom-page-layout">
       <div class="card flex-1 min-h-0 overflow-hidden">
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
@@ -122,7 +122,7 @@
         </div>
       </div>
     </div>
-  </AppLayout>
+  </SiteShell>
 </template>
 
 <script setup lang="ts">
@@ -134,7 +134,7 @@ import { useAppStore } from '@/stores'
 import { useAuthStore } from '@/stores/auth'
 import { getSiteContext } from '@/app/siteContext'
 import { useTheme } from '@/composables/useTheme'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import SiteShell from '@/components/user/shell/SiteShell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { buildApiUrl } from '@/api/client'
 import { buildEmbeddedUrl } from '@/utils/embedded-url'
