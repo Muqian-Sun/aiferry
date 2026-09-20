@@ -208,14 +208,13 @@ describe('ProfileAvatarCard', () => {
     expect(showErrorMock).not.toHaveBeenCalled()
   })
 
-  it('shows a preview after selecting an avatar in embedded mode', async () => {
+  it('shows a preview after selecting an avatar', async () => {
     installAvatarCompressionMocks()
     authStoreState.user = createUser()
 
     const wrapper = mount(ProfileAvatarCard, {
       props: {
-        user: authStoreState.user,
-        embedded: true
+        user: authStoreState.user
       },
       global: {
         stubs: {

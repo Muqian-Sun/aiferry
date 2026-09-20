@@ -3,27 +3,37 @@
   <SiteShell>
     <div data-testid="profile-shell" class="max-w-form space-y-8">
       <SheetSection :title="t('userUi.account.sections.profile')">
-        <ProfileInfoCard
-          :user="user"
-          :linuxdo-enabled="linuxdoOAuthEnabled"
-          :dingtalk-enabled="dingtalkOAuthEnabled"
-          :oidc-enabled="oidcOAuthEnabled"
-          :oidc-provider-name="oidcOAuthProviderName"
-          :wechat-enabled="wechatOAuthEnabled"
-          :wechat-open-enabled="wechatOAuthOpenEnabled"
-          :wechat-mp-enabled="wechatOAuthMPEnabled"
-        />
-        <p v-if="contactInfo" class="mt-4 text-13 text-af-ink-3">
+        <ProfileInfoCard :user="user" :oidc-provider-name="oidcOAuthProviderName" />
+        <p v-if="contactInfo" class="mt-6 text-13 text-af-ink-3">
           {{ t('common.contactSupport') }}:
           <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
         </p>
       </SheetSection>
 
       <SheetSection :title="t('userUi.account.sections.security')">
-        <div class="space-y-6">
-          <ProfilePasswordForm />
-          <ProfileTotpCard />
-          <ProfilePasskeyCard :enabled="passkeyEnabled" />
+        <div class="divide-y divide-af-hairline">
+          <div data-testid="profile-auth-bindings-panel" class="pb-6">
+            <ProfileIdentityBindingsSection
+              :user="user"
+              :linuxdo-enabled="linuxdoOAuthEnabled"
+              :dingtalk-enabled="dingtalkOAuthEnabled"
+              :oidc-enabled="oidcOAuthEnabled"
+              :oidc-provider-name="oidcOAuthProviderName"
+              :wechat-enabled="wechatOAuthEnabled"
+              :wechat-open-enabled="wechatOAuthOpenEnabled"
+              :wechat-mp-enabled="wechatOAuthMPEnabled"
+              compact
+            />
+          </div>
+          <div class="py-6">
+            <ProfilePasswordForm />
+          </div>
+          <div class="py-6">
+            <ProfileTotpCard />
+          </div>
+          <div class="pt-6">
+            <ProfilePasskeyCard :enabled="passkeyEnabled" />
+          </div>
         </div>
       </SheetSection>
 
@@ -47,6 +57,7 @@ import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
 import ProfileInfoCard from '@/components/user/profile/ProfileInfoCard.vue'
+import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
 import ProfilePasswordForm from '@/components/user/profile/ProfilePasswordForm.vue'
 import ProfileTotpCard from '@/components/user/profile/ProfileTotpCard.vue'
 import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue'

@@ -86,7 +86,6 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).toContain('alice')
     expect(wrapper.text()).toContain('User')
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
   })
 
   it('renders third-party source hints from profile sources', () => {
@@ -172,7 +171,7 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.text()).not.toContain('legacy-user@wechat-connect.invalid')
   })
 
-  it('renders the approved overview hero and two-column content shell', () => {
+  it('renders the single-column overview: identity row, three metrics, avatar and username blocks', () => {
     const wrapper = mount(ProfileInfoCard, {
       props: {
         user: createUser()
@@ -188,10 +187,11 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-overview-metric-balance"]').text()).toContain('Account Balance')
     expect(wrapper.get('[data-testid="profile-overview-metric-concurrency"]').text()).toContain('Concurrency Limit')
     expect(wrapper.get('[data-testid="profile-overview-metric-member-since"]').text()).toContain('Member Since')
-    expect(wrapper.find('[data-testid="profile-info-summary-grid"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="profile-main-column"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-side-column"]').exists()).toBe(true)
+    // 登录方式绑定已移到 ProfileView 的「安全」节；两列壳不再存在
+    expect(wrapper.find('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="profile-side-column"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-basics-panel"]').find('[data-testid="profile-avatar-file-input"]').exists()).toBe(true)
+    expect(wrapper.get('[data-testid="profile-basics-panel"]').find('input#username').exists()).toBe(true)
   })
 })

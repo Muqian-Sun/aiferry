@@ -1,9 +1,10 @@
 <template>
   <AppLayout>
+    <!-- 三个安全组件本身是平铺区块（与用户站共用），管理端在这里套卡片 -->
     <div data-testid="account-security-shell" class="mx-auto max-w-[950px] space-y-6">
-      <ProfilePasswordForm />
-      <ProfileTotpCard />
-      <ProfilePasskeyCard :enabled="passkeyEnabled" />
+      <div class="card p-6"><ProfilePasswordForm /></div>
+      <div class="card p-6"><ProfileTotpCard /></div>
+      <div class="card p-6"><ProfilePasskeyCard :enabled="passkeyEnabled" /></div>
     </div>
   </AppLayout>
 </template>
