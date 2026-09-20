@@ -27,6 +27,8 @@ export interface ModelCatalogEntry {
   billing_mode: string
   status: 'listed' | 'unlisted' | string
   managed_by: 'seed' | 'admin' | string
+  /** 条目走哪条网关族；空串表示按 vendor 推导。 */
+  route_platform: string
   input_price: number | null
   output_price: number | null
   cache_write_price: number | null
@@ -51,8 +53,32 @@ export interface ModelCatalogEntry {
   intervals: PricingInterval[]
   time_pricing?: ChannelTimePricing | null
   aliases: ModelCatalogAlias[]
+  /** 绑定的资源（账号）；上架条目由这些账号承接请求。 */
+  bindings: ModelCatalogBinding[]
   created_at: string
   updated_at: string
+}
+
+export interface ModelCatalogBinding {
+  entry_id: number
+  account_id: number
+  /** 绑定优先级；null 表示跟随账号自身的优先级。 */
+  priority: number | null
+  account?: ModelCatalogBindingAccount
+}
+
+export interface ModelCatalogBindingAccount {
+  id: number
+  name: string
+  platform: string
+  type: string
+  vendor: string
+  status: string
+}
+
+export interface ModelCatalogBindingRequestItem {
+  account_id: number
+  priority: number | null
 }
 
 export interface ModelCatalogEntryRequest {
@@ -62,6 +88,7 @@ export interface ModelCatalogEntryRequest {
   protocols?: string[]
   billing_mode?: string
   status?: string
+  route_platform?: string
   input_price?: number | null
   output_price?: number | null
   cache_write_price?: number | null
@@ -122,6 +149,14 @@ const modelCatalogAPI = {
   },
   deleteEntry: async (id: number): Promise<void> => {
     await apiClient.delete(`/admin/model-catalog/entries/${id}`)
+  },
+  getBindings: async (id: number): Promise<ModelCatalogBinding[]> => {
+    const { data } = await apiClient.get<ModelCatalogBinding[]>(`/admin/model-catalog/entries/${id}/bindings`)
+    return data ?? []
+  },
+  updateBindings: async (id: number, bindings: ModelCatalogBindingRequestItem[]): Promise<ModelCatalogBinding[]> => {
+    const { data } = await apiClient.put<ModelCatalogBinding[]>(`/admin/model-catalog/entries/${id}/bindings`, { bindings })
+    return data ?? []
   },
   createAlias: async (body: ModelCatalogAliasRequest): Promise<ModelCatalogAlias> => {
     const { data } = await apiClient.post<ModelCatalogAlias>('/admin/model-catalog/aliases', body)

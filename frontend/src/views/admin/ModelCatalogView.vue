@@ -43,6 +43,16 @@
               {{ t(`admin.modelCatalog.status.${value}`) }}
             </span>
           </template>
+          <template #cell-resources="{ row }">
+            <span
+              v-if="row.status === 'listed' && bindingCount(row) === 0"
+              class="badge badge-warning"
+              data-testid="model-catalog-no-resources"
+            >
+              {{ t('admin.modelCatalog.noResources') }}
+            </span>
+            <span v-else data-testid="model-catalog-resource-count">{{ bindingCount(row) }}</span>
+          </template>
           <template #cell-managed_by="{ value }">
             {{ t(`admin.modelCatalog.managedBy.${value}`) }}
           </template>
@@ -88,7 +98,7 @@
           </div>
           <div>
             <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
-            <select v-model="form.status" class="input">
+            <select v-model="form.status" class="input" data-testid="model-catalog-status">
               <option value="listed">{{ t('admin.modelCatalog.status.listed') }}</option>
               <option value="unlisted">{{ t('admin.modelCatalog.status.unlisted') }}</option>
             </select>
@@ -104,7 +114,95 @@
             <input v-model.number="form.output_price" type="number" step="any" class="input" data-testid="model-catalog-output-price" />
           </div>
         </div>
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.routePlatform') }}</label>
+          <select v-model="form.route_platform" class="input" data-testid="model-catalog-route-platform">
+            <option value="">{{ t('admin.modelCatalog.routePlatform.auto') }}</option>
+            <option v-for="platform in routePlatforms" :key="platform" :value="platform">{{ platform }}</option>
+          </select>
+        </div>
+        <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.listedRequiresPrice') }}</p>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
+
+        <div class="space-y-3 border-t border-gray-200 pt-4 dark:border-dark-600">
+          <div>
+            <div class="font-medium text-gray-900 dark:text-white">{{ t('admin.modelCatalog.bindings.title') }}</div>
+            <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.bindings.hint') }}</p>
+          </div>
+          <div>
+            <input
+              v-model="resourceQuery"
+              type="text"
+              class="input"
+              :placeholder="t('admin.modelCatalog.bindings.search')"
+              data-testid="model-catalog-resource-search"
+              @input="scheduleResourceSearch"
+            />
+            <ul
+              v-if="resourceResults.length > 0"
+              class="mt-2 max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-md border border-gray-200 dark:divide-dark-700 dark:border-dark-600"
+              data-testid="model-catalog-resource-results"
+            >
+              <li
+                v-for="account in resourceResults"
+                :key="account.id"
+                class="flex items-center justify-between gap-3 px-3 py-2 text-sm"
+              >
+                <span class="flex min-w-0 items-center gap-2">
+                  <PlatformTypeBadge :platform="account.platform" :type="account.type" :vendor="account.vendor" />
+                  <span class="truncate">{{ account.name }}</span>
+                </span>
+                <button
+                  type="button"
+                  class="btn btn-secondary btn-sm"
+                  :disabled="isBound(account.id)"
+                  data-testid="model-catalog-resource-add"
+                  @click="addBinding(account)"
+                >
+                  {{ t('admin.modelCatalog.bindings.add') }}
+                </button>
+              </li>
+            </ul>
+            <p v-else-if="resourceSearched" class="mt-2 text-xs text-gray-500 dark:text-dark-400">
+              {{ t('admin.modelCatalog.bindings.noResults') }}
+            </p>
+          </div>
+          <ul v-if="bindings.length > 0" class="space-y-2" data-testid="model-catalog-bindings">
+            <li
+              v-for="binding in bindings"
+              :key="binding.account_id"
+              class="flex flex-wrap items-center gap-3 rounded-md border border-gray-200 px-3 py-2 dark:border-dark-600"
+            >
+              <span class="flex min-w-0 flex-1 items-center gap-2 text-sm">
+                <PlatformTypeBadge
+                  v-if="binding.account"
+                  :platform="badgePlatform(binding.account.platform)"
+                  :type="badgeType(binding.account.type)"
+                  :vendor="binding.account.vendor"
+                />
+                <span class="truncate">{{ binding.account?.name ?? `#${binding.account_id}` }}</span>
+              </span>
+              <label class="flex items-center gap-2 text-xs text-gray-500 dark:text-dark-400">
+                {{ t('admin.modelCatalog.bindings.priority') }}
+                <input
+                  v-model.number="binding.priority"
+                  type="number"
+                  class="input w-24"
+                  data-testid="model-catalog-binding-priority"
+                />
+              </label>
+              <button
+                type="button"
+                class="btn btn-danger btn-sm"
+                data-testid="model-catalog-binding-remove"
+                @click="removeBinding(binding.account_id)"
+              >
+                {{ t('admin.modelCatalog.bindings.remove') }}
+              </button>
+            </li>
+          </ul>
+          <p v-else class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.bindings.empty') }}</p>
+        </div>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -130,12 +228,18 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import type { ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
+import type {
+  ModelCatalogBinding,
+  ModelCatalogBindingAccount,
+  ModelCatalogEntry,
+  ModelCatalogEntryRequest
+} from '@/api/admin/modelCatalog'
+import type { AccountListItem, AccountPlatform, AccountType } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -143,6 +247,7 @@ import DataTable from '@/components/common/DataTable.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
@@ -159,6 +264,13 @@ const editingId = ref<number | null>(null)
 const pendingDelete = ref<ModelCatalogEntry | null>(null)
 const loadedEntry = ref<ModelCatalogEntry | null>(null)
 
+// 绑定资源：编辑器里的工作副本，保存时整份覆盖。
+const bindings = ref<ModelCatalogBinding[]>([])
+const resourceQuery = ref('')
+const resourceResults = ref<AccountListItem[]>([])
+const resourceSearched = ref(false)
+let resourceSearchTimer: ReturnType<typeof setTimeout> | null = null
+
 const emptyForm = (): ModelCatalogEntryRequest => ({
   model_id: '',
   display_name: '',
@@ -166,6 +278,7 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
   protocols: [],
   billing_mode: 'token',
   status: 'listed',
+  route_platform: '',
   input_price: null,
   output_price: null
 })
@@ -174,6 +287,9 @@ const form = reactive<ModelCatalogEntryRequest>(emptyForm())
 
 // 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
 const billingModes = ['token', 'per_request', 'image', 'video'] as const
+
+// 与后端 catalogRoutePlatforms 一致：只能是一条真实的网关族。
+const routePlatforms = ['anthropic', 'openai', 'gemini', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'] as const
 
 // 数字输入清空后 v-model.number 得到 ''，后端按 *float64 解析会报 400：清空即「未配置」，发 null。
 const numericFields = [
@@ -207,10 +323,24 @@ function showApiError(error: unknown) {
   appStore.showError(extractApiErrorMessage(error, t('common.unknownError')))
 }
 
+function bindingCount(entry: ModelCatalogEntry): number {
+  return entry.bindings?.length ?? 0
+}
+
+// 绑定摘要里的 platform / type 是后端字符串，徽章按前端联合类型接收。
+function badgePlatform(platform: string): AccountPlatform {
+  return platform as AccountPlatform
+}
+
+function badgeType(type: string): AccountType {
+  return type as AccountType
+}
+
 const columns = computed<Column[]>(() => [
   { key: 'model_id', label: t('admin.modelCatalog.fields.modelId') },
   { key: 'vendor', label: t('admin.modelCatalog.fields.vendor') },
   { key: 'status', label: t('admin.modelCatalog.fields.status') },
+  { key: 'resources', label: t('admin.modelCatalog.fields.resources') },
   { key: 'managed_by', label: t('admin.modelCatalog.fields.managedBy') },
   { key: 'actions', label: t('common.actions') }
 ])
@@ -242,14 +372,22 @@ function assignForm(entry: Partial<ModelCatalogEntryRequest>) {
   Object.assign(form, emptyForm(), entry)
 }
 
+function resetBindingsEditor() {
+  bindings.value = []
+  resourceQuery.value = ''
+  resourceResults.value = []
+  resourceSearched.value = false
+}
+
 function openCreate() {
   editingId.value = null
   loadedEntry.value = null
   assignForm({})
+  resetBindingsEditor()
   showEditor.value = true
 }
 
-function openEdit(entry: ModelCatalogEntry) {
+async function openEdit(entry: ModelCatalogEntry) {
   editingId.value = entry.id
   loadedEntry.value = entry
   assignForm({
@@ -259,6 +397,7 @@ function openEdit(entry: ModelCatalogEntry) {
     protocols: entry.protocols,
     billing_mode: entry.billing_mode,
     status: entry.status,
+    route_platform: entry.route_platform ?? '',
     input_price: entry.input_price,
     output_price: entry.output_price,
     cache_write_price: entry.cache_write_price,
@@ -283,11 +422,68 @@ function openEdit(entry: ModelCatalogEntry) {
     intervals: entry.intervals,
     time_pricing: entry.time_pricing
   })
+  resetBindingsEditor()
   showEditor.value = true
+  try {
+    bindings.value = await adminAPI.modelCatalog.getBindings(entry.id)
+  } catch (error) {
+    showApiError(error)
+  }
 }
 
 function closeEditor() {
   showEditor.value = false
+}
+
+function isBound(accountId: number): boolean {
+  return bindings.value.some((binding) => binding.account_id === accountId)
+}
+
+function toBindingAccount(account: AccountListItem): ModelCatalogBindingAccount {
+  return {
+    id: account.id,
+    name: account.name,
+    platform: account.platform,
+    type: account.type,
+    vendor: account.vendor ?? '',
+    status: account.status
+  }
+}
+
+function addBinding(account: AccountListItem) {
+  if (isBound(account.id)) return
+  bindings.value = [
+    ...bindings.value,
+    { entry_id: editingId.value ?? 0, account_id: account.id, priority: null, account: toBindingAccount(account) }
+  ]
+}
+
+function removeBinding(accountId: number) {
+  bindings.value = bindings.value.filter((binding) => binding.account_id !== accountId)
+}
+
+function scheduleResourceSearch() {
+  if (resourceSearchTimer) clearTimeout(resourceSearchTimer)
+  resourceSearchTimer = setTimeout(() => {
+    resourceSearchTimer = null
+    void searchResources()
+  }, 300)
+}
+
+async function searchResources() {
+  const query = resourceQuery.value.trim()
+  if (!query) {
+    resourceResults.value = []
+    resourceSearched.value = false
+    return
+  }
+  try {
+    const result = await adminAPI.accounts.list(1, 20, { search: query, lite: 'true' })
+    resourceResults.value = result.items ?? []
+    resourceSearched.value = true
+  } catch (error) {
+    showApiError(error)
+  }
 }
 
 function payload(): ModelCatalogEntryRequest {
@@ -302,14 +498,27 @@ function payload(): ModelCatalogEntryRequest {
   return body
 }
 
+function bindingsPayload() {
+  return bindings.value.map((binding) => ({
+    account_id: binding.account_id,
+    priority: numberOrNull(binding.priority)
+  }))
+}
+
+// 保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定。绑定被拒（资源承接不了该网关族）
+// 时条目已保存，弹出后端给的原因，编辑器保持打开让用户改绑定。
 async function saveEntry() {
   saving.value = true
   try {
-    if (editingId.value) {
-      await adminAPI.modelCatalog.updateEntry(editingId.value, payload())
+    let entryId = editingId.value
+    if (entryId) {
+      await adminAPI.modelCatalog.updateEntry(entryId, payload())
     } else {
-      await adminAPI.modelCatalog.createEntry(payload())
+      const created = await adminAPI.modelCatalog.createEntry(payload())
+      entryId = created.id
+      editingId.value = created.id
     }
+    await adminAPI.modelCatalog.updateBindings(entryId, bindingsPayload())
     showEditor.value = false
     await loadEntries()
   } catch (error) {
@@ -366,4 +575,7 @@ async function runSeed() {
 }
 
 onMounted(loadEntries)
+onBeforeUnmount(() => {
+  if (resourceSearchTimer) clearTimeout(resourceSearchTimer)
+})
 </script>

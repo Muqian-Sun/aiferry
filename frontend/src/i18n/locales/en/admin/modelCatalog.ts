@@ -13,15 +13,32 @@ export default {
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
     fullReplaceHint: 'Save replaces the whole entry. Intervals and time pricing are written back unchanged; this page does not edit them yet.',
+    listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
+    noResources: 'No resources',
     fields: {
       modelId: 'Model id',
       displayName: 'Display name',
       vendor: 'Vendor',
       billingMode: 'Billing mode',
-      status: 'Listing',
+      status: 'Listing status',
       managedBy: 'Managed by',
+      routePlatform: 'Gateway family',
+      resources: 'Resources',
       inputPrice: 'Input price ($/token)',
       outputPrice: 'Output price ($/token)'
+    },
+    routePlatform: {
+      auto: 'Auto by vendor'
+    },
+    bindings: {
+      title: 'Bound resources',
+      hint: 'Requests for a listed model are served by these resources; leave priority empty to follow the resource.',
+      search: 'Search resources by name',
+      noResults: 'No matching resources',
+      add: 'Add',
+      priority: 'Priority',
+      remove: 'Remove',
+      empty: 'No resources bound yet'
     },
     status: {
       listed: 'Listed',
