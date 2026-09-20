@@ -71,26 +71,6 @@ func IsUpstreamProtocol(p string) bool {
 	}
 }
 
-// Account source kind constants
-// 账号来源维度，与 type 正交：type 描述凭证形态，source_kind 描述这份资源从哪来。
-// 成品号需要厂商特有的令牌刷新、客户端伪装与额度窗口解析；第三方 key 不需要。
-const (
-	AccountSourceSubscription = "subscription" // 成品号：oauth / setup-token / bedrock / service_account
-	AccountSourceAPIKey       = "api_key"      // 第三方 key：apikey
-)
-
-// DeriveAccountSourceKind 由账号类型推导来源维度。
-// 迁移 239 的回填口径与此一致（239 里的历史类型 upstream 已由 242 并入 apikey），
-// 新建账号也走这里，保证两条路径不会分叉。
-func DeriveAccountSourceKind(accountType string) string {
-	switch accountType {
-	case AccountTypeAPIKey:
-		return AccountSourceAPIKey
-	default:
-		return AccountSourceSubscription
-	}
-}
-
 // Redeem type constants
 const (
 	RedeemTypeBalance      = "balance"

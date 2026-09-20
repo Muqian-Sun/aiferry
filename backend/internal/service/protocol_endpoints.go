@@ -114,14 +114,10 @@ func (a *Account) UpstreamProtocolsOf() map[string]struct{} {
 }
 
 // IsThirdPartyKey 报告账号是否为第三方 key（与成品号相对）。
+// 来源只由类型决定：apikey 是第三方 key，oauth / setup-token / bedrock / service_account 是成品号。
+// 成品号需要厂商特有的令牌刷新、客户端伪装与额度窗口解析；第三方 key 不需要。
 func (a *Account) IsThirdPartyKey() bool {
-	if a == nil {
-		return false
-	}
-	if kind := strings.TrimSpace(a.SourceKind); kind != "" {
-		return kind == AccountSourceAPIKey
-	}
-	return DeriveAccountSourceKind(a.Type) == AccountSourceAPIKey
+	return a != nil && a.Type == AccountTypeAPIKey
 }
 
 // SpeaksUpstreamProtocol 报告账号是否能直接对话该协议（不经协议转换）。

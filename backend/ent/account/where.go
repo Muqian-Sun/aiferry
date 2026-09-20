@@ -90,11 +90,6 @@ func Type(v string) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldType, v))
 }
 
-// SourceKind applies equality check predicate on the "source_kind" field. It's identical to SourceKindEQ.
-func SourceKind(v string) predicate.Account {
-	return predicate.Account(sql.FieldEQ(FieldSourceKind, v))
-}
-
 // ProxyID applies equality check predicate on the "proxy_id" field. It's identical to ProxyIDEQ.
 func ProxyID(v int64) predicate.Account {
 	return predicate.Account(sql.FieldEQ(FieldProxyID, v))
@@ -598,81 +593,6 @@ func TypeEqualFold(v string) predicate.Account {
 // TypeContainsFold applies the ContainsFold predicate on the "type" field.
 func TypeContainsFold(v string) predicate.Account {
 	return predicate.Account(sql.FieldContainsFold(FieldType, v))
-}
-
-// SourceKindEQ applies the EQ predicate on the "source_kind" field.
-func SourceKindEQ(v string) predicate.Account {
-	return predicate.Account(sql.FieldEQ(FieldSourceKind, v))
-}
-
-// SourceKindNEQ applies the NEQ predicate on the "source_kind" field.
-func SourceKindNEQ(v string) predicate.Account {
-	return predicate.Account(sql.FieldNEQ(FieldSourceKind, v))
-}
-
-// SourceKindIn applies the In predicate on the "source_kind" field.
-func SourceKindIn(vs ...string) predicate.Account {
-	return predicate.Account(sql.FieldIn(FieldSourceKind, vs...))
-}
-
-// SourceKindNotIn applies the NotIn predicate on the "source_kind" field.
-func SourceKindNotIn(vs ...string) predicate.Account {
-	return predicate.Account(sql.FieldNotIn(FieldSourceKind, vs...))
-}
-
-// SourceKindGT applies the GT predicate on the "source_kind" field.
-func SourceKindGT(v string) predicate.Account {
-	return predicate.Account(sql.FieldGT(FieldSourceKind, v))
-}
-
-// SourceKindGTE applies the GTE predicate on the "source_kind" field.
-func SourceKindGTE(v string) predicate.Account {
-	return predicate.Account(sql.FieldGTE(FieldSourceKind, v))
-}
-
-// SourceKindLT applies the LT predicate on the "source_kind" field.
-func SourceKindLT(v string) predicate.Account {
-	return predicate.Account(sql.FieldLT(FieldSourceKind, v))
-}
-
-// SourceKindLTE applies the LTE predicate on the "source_kind" field.
-func SourceKindLTE(v string) predicate.Account {
-	return predicate.Account(sql.FieldLTE(FieldSourceKind, v))
-}
-
-// SourceKindContains applies the Contains predicate on the "source_kind" field.
-func SourceKindContains(v string) predicate.Account {
-	return predicate.Account(sql.FieldContains(FieldSourceKind, v))
-}
-
-// SourceKindHasPrefix applies the HasPrefix predicate on the "source_kind" field.
-func SourceKindHasPrefix(v string) predicate.Account {
-	return predicate.Account(sql.FieldHasPrefix(FieldSourceKind, v))
-}
-
-// SourceKindHasSuffix applies the HasSuffix predicate on the "source_kind" field.
-func SourceKindHasSuffix(v string) predicate.Account {
-	return predicate.Account(sql.FieldHasSuffix(FieldSourceKind, v))
-}
-
-// SourceKindIsNil applies the IsNil predicate on the "source_kind" field.
-func SourceKindIsNil() predicate.Account {
-	return predicate.Account(sql.FieldIsNull(FieldSourceKind))
-}
-
-// SourceKindNotNil applies the NotNil predicate on the "source_kind" field.
-func SourceKindNotNil() predicate.Account {
-	return predicate.Account(sql.FieldNotNull(FieldSourceKind))
-}
-
-// SourceKindEqualFold applies the EqualFold predicate on the "source_kind" field.
-func SourceKindEqualFold(v string) predicate.Account {
-	return predicate.Account(sql.FieldEqualFold(FieldSourceKind, v))
-}
-
-// SourceKindContainsFold applies the ContainsFold predicate on the "source_kind" field.
-func SourceKindContainsFold(v string) predicate.Account {
-	return predicate.Account(sql.FieldContainsFold(FieldSourceKind, v))
 }
 
 // ProxyIDEQ applies the EQ predicate on the "proxy_id" field.

@@ -451,9 +451,6 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 		Status:            StatusActive,
 		Schedulable:       true,
 		ProtocolEndpoints: protocolEndpoints,
-		// 来源维度在仓储层写库时也会推导一次，这里显式带上是为了让创建响应
-		// 直接带回该字段；否则调用方拿到的对象里它是空的，看起来像「未分类」。
-		SourceKind: DeriveAccountSourceKind(input.Type),
 	}
 	if input.ProbeEnabled != nil && *input.ProbeEnabled {
 		if !isUpstreamBillingProbeAccount(account) {
@@ -662,8 +659,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.Type != "" {
 		account.Type = input.Type
-		// 类型变了，来源维度必须跟着变，内存对象与库内保持一致。
-		account.SourceKind = DeriveAccountSourceKind(account.Type)
 	}
 	if input.Notes != nil {
 		account.Notes = normalizeAccountNotes(input.Notes)

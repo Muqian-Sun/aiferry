@@ -277,7 +277,6 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		GroupIDs:                a.GroupIDs,
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
-		SourceKind:              a.SourceKind,
 		ProtocolEndpoints:       a.ProtocolEndpoints,
 	}
 
