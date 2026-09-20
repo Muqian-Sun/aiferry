@@ -1,6 +1,7 @@
 <template>
-  <div class="card p-4">
-    <h3 class="mb-4 text-sm font-semibold text-gray-900 dark:text-white">
+  <!-- bare：不带卡片外框与标题，由调用方（用户站区块）提供标题 -->
+  <div :class="bare ? '' : 'card p-4'">
+    <h3 v-if="!bare" class="mb-4 text-sm font-semibold text-af-ink">
       {{ t('admin.dashboard.tokenUsageTrend') }}
     </h3>
     <div v-if="loading" class="flex h-48 items-center justify-center">
@@ -11,7 +12,7 @@
     </div>
     <div
       v-else
-      class="flex h-48 items-center justify-center text-sm text-gray-500 dark:text-gray-400"
+      class="flex h-48 items-center justify-center text-sm text-af-ink-3"
     >
       {{ t('admin.dashboard.noDataAvailable') }}
     </div>
@@ -34,6 +35,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import { useChartTheme } from '@/composables/useChartTheme'
 import type { TrendDataPoint } from '@/types'
 
 ChartJS.register(
@@ -52,20 +54,20 @@ const { t } = useI18n()
 const props = defineProps<{
   trendData: TrendDataPoint[]
   loading?: boolean
+  bare?: boolean
 }>()
 
-const isDarkMode = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
+const theme = useChartTheme()
 
+// 系列按固定槽位取色：input=1 output=2 cacheCreation=3 cacheRead=4 cacheHitRate=5
 const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb',
-  input: '#3b82f6',
-  output: '#10b981',
-  cacheCreation: '#f59e0b',
-  cacheRead: '#06b6d4',
-  cacheHitRate: '#8b5cf6'
+  text: theme.value.text,
+  grid: theme.value.grid,
+  input: theme.value.color(0),
+  output: theme.value.color(1),
+  cacheCreation: theme.value.color(2),
+  cacheRead: theme.value.color(3),
+  cacheHitRate: theme.value.color(4)
 }))
 
 const chartData = computed(() => {
@@ -78,32 +80,44 @@ const chartData = computed(() => {
         label: 'Input',
         data: props.trendData.map((d) => d.input_tokens),
         borderColor: chartColors.value.input,
-        backgroundColor: `${chartColors.value.input}20`,
-        fill: true,
+        backgroundColor: chartColors.value.input,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        fill: false,
         tension: 0.3
       },
       {
         label: 'Output',
         data: props.trendData.map((d) => d.output_tokens),
         borderColor: chartColors.value.output,
-        backgroundColor: `${chartColors.value.output}20`,
-        fill: true,
+        backgroundColor: chartColors.value.output,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        fill: false,
         tension: 0.3
       },
       {
         label: 'Cache Creation',
         data: props.trendData.map((d) => d.cache_creation_tokens),
         borderColor: chartColors.value.cacheCreation,
-        backgroundColor: `${chartColors.value.cacheCreation}20`,
-        fill: true,
+        backgroundColor: chartColors.value.cacheCreation,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        fill: false,
         tension: 0.3
       },
       {
         label: 'Cache Read',
         data: props.trendData.map((d) => d.cache_read_tokens),
         borderColor: chartColors.value.cacheRead,
-        backgroundColor: `${chartColors.value.cacheRead}20`,
-        fill: true,
+        backgroundColor: chartColors.value.cacheRead,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 8,
+        fill: false,
         tension: 0.3
       },
       {
@@ -113,7 +127,10 @@ const chartData = computed(() => {
           return totalPromptTokens > 0 ? (d.cache_read_tokens / totalPromptTokens) * 100 : 0
         }),
         borderColor: chartColors.value.cacheHitRate,
-        backgroundColor: `${chartColors.value.cacheHitRate}20`,
+        backgroundColor: chartColors.value.cacheHitRate,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHitRadius: 8,
         borderDash: [5, 5],
         fill: false,
         tension: 0.3,

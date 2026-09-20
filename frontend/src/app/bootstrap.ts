@@ -4,7 +4,8 @@ import type { Component } from 'vue'
 import type { Router } from 'vue-router'
 import i18n, { initI18n } from '@/i18n'
 import { useAppStore } from '@/stores/app'
-import { updateFavicon } from '@/utils/branding'
+import { initTheme } from '@/composables/useTheme'
+import { DEFAULT_SITE_NAME, DEFAULT_SITE_SUBTITLE, updateFavicon } from '@/utils/branding'
 import { isIOSDevice } from '@/utils/device'
 import '@/style.css'
 
@@ -22,21 +23,13 @@ function initIOSViewportZoomFix() {
   viewport.setAttribute('content', `${content}, maximum-scale=1.0`)
 }
 
-function initThemeClass() {
-  const savedTheme = localStorage.getItem('theme')
-  const shouldUseDark =
-    savedTheme === 'dark' ||
-    (!savedTheme && window.matchMedia('(prefers-color-scheme: dark)').matches)
-  document.documentElement.classList.toggle('dark', shouldUseDark)
-}
-
 /**
  * 两个站点共用的启动流程：主题、站点配置、i18n、路由就绪后挂载。
  * 根组件与路由由各自入口传入，本模块不引用任何站点专属代码。
  */
 export async function bootstrapApp(App: Component, router: Router): Promise<void> {
   // Apply theme class globally before app mount to keep all routes consistent.
-  initThemeClass()
+  initTheme()
   initIOSViewportZoomFix()
 
   const app = createApp(App)
@@ -49,8 +42,8 @@ export async function bootstrapApp(App: Component, router: Router): Promise<void
   appStore.initFromInjectedConfig()
 
   // Set document title immediately after config is loaded
-  if (appStore.siteName && appStore.siteName !== 'Sub2API') {
-    document.title = `${appStore.siteName} - AI API Gateway`
+  if (appStore.siteName && appStore.siteName !== DEFAULT_SITE_NAME) {
+    document.title = `${appStore.siteName} - ${DEFAULT_SITE_SUBTITLE}`
   }
   updateFavicon(appStore.siteLogo)
 
