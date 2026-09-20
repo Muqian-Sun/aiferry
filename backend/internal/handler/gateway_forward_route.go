@@ -16,7 +16,7 @@ func usesAntigravityV1Internal(account *service.Account) bool {
 }
 
 // compatForwardTarget 是 Anthropic 网关（anthropic / gemini / antigravity 分组）上
-// Chat Completions 与 Responses 入站请求的转发实现。
+// Messages / Chat Completions / Responses 入站请求的转发实现。
 type compatForwardTarget int
 
 const (
@@ -30,37 +30,43 @@ const (
 	compatForwardAntigravity
 )
 
-// chatCompletionsForwardTarget 决定 /v1/chat/completions 在 Anthropic 网关上交给谁转发。
+// compatForwardTargetFor 决定 Anthropic 网关上一次请求交给谁转发，按选中的账号而不是网关平台：
+//   - 第三方 key：看它在该网关上承接 inboundProtocol 实际用的协议（anthropic → 标准转发，gemini → Gemini 兼容转发）；
+//   - Antigravity 成品号：v1internal 的 Claude 形态（内部 Claude→Gemini 转换，任何模型都走它，包括 gemini 族条目）；
+//   - Gemini 成品号：Gemini 兼容转发；该入站没有 Gemini 实现（responses）时承接不了；
+//   - 其余成品号（anthropic）：标准转发。
 //
-// 第三方 key 看它在该网关上实际使用的上游协议；成品号按厂商分流，保持原有规则。
-func chatCompletionsForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
+// Skip 在调度矩阵（accountServesCatalogRoute / 分组协议过滤）正确时走不到；留着是两套口径的对账点，
+// 调用方打 warn 日志并排除该账号，不静默换号。
+func compatForwardTargetFor(gatewayPlatform, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
 	if account.IsThirdPartyKey() {
-		return keyCompatForwardTarget(gatewayPlatform, service.APIProtocolChatCompletions, account, true)
+		return keyCompatForwardTarget(gatewayPlatform, inboundProtocol, account, geminiSupported)
 	}
-	if gatewayPlatform == service.PlatformGemini && account.Platform != service.PlatformGemini {
-		return compatForwardSkip
-	}
-	if account.Platform == service.PlatformGemini {
-		return compatForwardGemini
-	}
-	if shouldUseAntigravityCompat(account) {
+	if usesAntigravityV1Internal(account) {
 		return compatForwardAntigravity
+	}
+	if account.IsGemini() {
+		if geminiSupported {
+			return compatForwardGemini
+		}
+		return compatForwardSkip
 	}
 	return compatForwardAnthropic
 }
 
-// responsesForwardTarget 决定 /v1/responses 在 Anthropic 网关上交给谁转发。
-//
-// 这里没有 Responses → Gemini 的转换实现：第三方 key 在该网关上的协议是 gemini 时
-// 承接不了，只能换号。成品号保持原有规则。
+// messagesForwardTarget 决定 /v1/messages 交给谁转发。
+func messagesForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
+	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolAnthropic, account, true)
+}
+
+// chatCompletionsForwardTarget 决定 /v1/chat/completions 交给谁转发。
+func chatCompletionsForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
+	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolChatCompletions, account, true)
+}
+
+// responsesForwardTarget 决定 /v1/responses 交给谁转发；没有 Responses → Gemini 的实现。
 func responsesForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
-	if account.IsThirdPartyKey() {
-		return keyCompatForwardTarget(gatewayPlatform, service.APIProtocolResponses, account, false)
-	}
-	if shouldUseAntigravityCompat(account) {
-		return compatForwardAntigravity
-	}
-	return compatForwardAnthropic
+	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolResponses, account, false)
 }
 
 func keyCompatForwardTarget(gatewayPlatform, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
