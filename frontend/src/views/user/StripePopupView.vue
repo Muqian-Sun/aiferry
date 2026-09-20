@@ -1,26 +1,21 @@
 <template>
-  <div class="flex min-h-screen items-center justify-center bg-slate-50 p-4 dark:bg-slate-950">
+  <div class="flex min-h-screen items-center justify-center bg-af-sunken p-4">
     <div
-      class="w-full max-w-md space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+      class="w-full max-w-md space-y-4 rounded-lg border border-af-hairline bg-af-sheet p-6"
     >
       <!-- Amount + Order ID -->
       <div v-if="amount" class="text-center">
-        <p class="text-3xl font-bold" :style="{ color: methodColor }">¥{{ amount }}</p>
-        <p v-if="orderId" class="mt-1 text-sm text-gray-500 dark:text-slate-400">
+        <p class="text-2xl font-semibold tabular-nums text-af-ink">¥{{ amount }}</p>
+        <p v-if="orderId" class="mt-1 text-sm text-af-ink-3">
           {{ t('payment.orders.orderId') }}: {{ orderId }}
         </p>
       </div>
 
       <!-- Error -->
       <div v-if="error" class="space-y-3">
-        <div
-          class="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-600 dark:border-red-700 dark:bg-red-900/30 dark:text-red-400"
-        >
-          {{ error }}
-        </div>
+        <p class="text-sm text-af-danger" role="alert">{{ error }}</p>
         <button
-          class="w-full text-sm underline dark:text-blue-400 dark:hover:text-blue-300"
-          :style="{ color: methodColor }"
+          class="btn btn-secondary btn-md w-full"
           @click="closeWindow"
         >
           {{ t('common.close') }}
@@ -29,11 +24,9 @@
 
       <!-- Success -->
       <div v-else-if="success" class="space-y-3 py-4 text-center">
-        <div class="text-5xl text-green-600 dark:text-green-400">✓</div>
-        <p class="text-sm text-gray-500 dark:text-slate-400">{{ t('payment.result.success') }}</p>
+        <p class="text-lg font-semibold text-af-success">{{ t('payment.result.success') }}</p>
         <button
-          class="text-sm underline dark:text-blue-400 dark:hover:text-blue-300"
-          :style="{ color: methodColor }"
+          class="btn btn-secondary btn-md"
           @click="closeWindow"
         >
           {{ t('common.close') }}
@@ -46,7 +39,7 @@
           class="h-8 w-8 animate-spin rounded-full border-2 border-t-transparent"
           :style="{ borderColor: methodColor, borderTopColor: 'transparent' }"
         />
-        <span class="ml-3 text-sm text-gray-500 dark:text-slate-400">{{ hint }}</span>
+        <span class="ml-3 text-sm text-af-ink-3">{{ hint }}</span>
       </div>
     </div>
   </div>

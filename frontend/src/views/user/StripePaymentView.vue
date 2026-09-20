@@ -1,32 +1,31 @@
 <template>
-  <component :is="isPopup ? 'div' : SiteShell" :class="isPopup ? 'min-h-screen bg-gray-50 dark:bg-dark-900' : ''">
-    <div class="mx-auto max-w-lg space-y-6 py-8" :class="isPopup ? 'px-4' : ''">
+  <!-- 站内：控制台壳 + 单列 512；弹窗（isPopup）：sunken 底上一张 sheet 面板 -->
+  <component :is="isPopup ? 'div' : SiteShell" :class="isPopup ? 'min-h-screen bg-af-sunken px-4 py-8' : ''">
+    <div class="mx-auto max-w-lg space-y-6" :class="isPopup ? 'rounded-lg border border-af-hairline bg-af-sheet p-6' : ''">
       <div v-if="loading" class="flex items-center justify-center py-20">
-        <div class="h-8 w-8 animate-spin rounded-full border-4 border-primary-500 border-t-transparent"></div>
+        <div class="h-8 w-8 animate-spin rounded-full border-4 border-af-brand border-t-transparent"></div>
       </div>
-      <div v-else-if="initError" class="card p-8 text-center">
-        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-red-100 dark:bg-red-900/30">
-          <Icon name="exclamationCircle" size="xl" class="text-red-500" />
+      <div v-else-if="initError" class="py-8 text-center">
+        <div class="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-af-danger-tint">
+          <Icon name="exclamationCircle" size="xl" class="text-af-danger" />
         </div>
-        <h3 class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.stripeLoadFailed') }}</h3>
-        <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">{{ initError }}</p>
-        <button class="btn btn-primary mt-6" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
+        <h3 class="text-lg font-semibold text-af-ink">{{ t('payment.stripeLoadFailed') }}</h3>
+        <p class="mt-2 text-sm text-af-ink-3">{{ initError }}</p>
+        <button class="btn btn-primary mt-6" @click="router.push('/billing/recharge')">{{ t('payment.result.backToRecharge') }}</button>
       </div>
       <template v-else>
-        <!-- 金额头部 -->
-        <div v-if="order" class="card overflow-hidden">
-          <div class="bg-gradient-to-br from-[#635bff] to-[#4f46e5] px-6 py-6 text-center">
-            <p class="text-sm font-medium text-indigo-200">{{ t('payment.actualPay') }}</p>
-            <p class="mt-1 text-3xl font-bold text-white">{{ formatGatewayAmount(order.pay_amount) }}</p>
-          </div>
+        <!-- 金额：一行数字，不做色块 -->
+        <div v-if="order" class="flex items-baseline justify-between border-b border-af-hairline pb-4">
+          <p class="text-sm text-af-ink-3">{{ t('payment.actualPay') }}</p>
+          <p class="text-2xl font-semibold tabular-nums text-af-ink">{{ formatGatewayAmount(order.pay_amount) }}</p>
         </div>
 
         <!-- 微信二维码展示 -->
         <template v-if="wechatQrUrl">
-          <div class="card p-6">
+          <div class="py-2">
             <div class="flex flex-col items-center space-y-4">
-              <p class="text-lg font-semibold text-gray-900 dark:text-white">{{ t('payment.qr.scanWxpay') }}</p>
-              <div class="relative rounded-lg border-2 border-[#2BB741] bg-green-50 p-4 dark:border-[#2BB741]/70 dark:bg-green-950/20">
+              <p class="text-lg font-semibold text-af-ink">{{ t('payment.qr.scanWxpay') }}</p>
+              <div class="relative rounded-lg border-2 border-[#2BB741] bg-af-sheet p-4">
                 <img :src="wechatQrUrl" alt="WeChat Pay QR" class="h-56 w-56 rounded" />
                 <div class="pointer-events-none absolute inset-0 flex items-center justify-center">
                   <span class="rounded-full bg-[#2BB741] p-2 shadow ring-2 ring-white">
@@ -34,42 +33,40 @@
                   </span>
                 </div>
               </div>
-              <p class="text-center text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.scanWxpayHint') }}</p>
+              <p class="text-center text-sm text-af-ink-3">{{ t('payment.qr.scanWxpayHint') }}</p>
             </div>
           </div>
-          <div class="card p-4 text-center">
-            <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.waitingPayment') }}</p>
-          </div>
+          <p class="text-center text-sm text-af-ink-3">{{ t('payment.qr.waitingPayment') }}</p>
         </template>
 
         <!-- 支付宝跳转状态 -->
         <template v-else-if="redirecting">
-          <div class="card p-6">
+          <div class="py-6">
             <div class="flex flex-col items-center space-y-4 py-4">
               <div class="h-10 w-10 animate-spin rounded-full border-4 border-[#00AEEF] border-t-transparent"></div>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.qr.payInNewWindowHint') }}</p>
+              <p class="text-sm text-af-ink-3">{{ t('payment.qr.payInNewWindowHint') }}</p>
             </div>
           </div>
         </template>
 
         <!-- 成功状态 -->
         <template v-else-if="stripeSuccess">
-          <div class="card p-6 text-center">
+          <div class="py-6 text-center">
             <div class="flex flex-col items-center gap-3 py-4">
-              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-green-100 dark:bg-green-900/30">
-                <Icon name="check" size="lg" class="text-green-500" />
+              <div class="flex h-16 w-16 items-center justify-center rounded-full bg-af-success-tint">
+                <Icon name="check" size="lg" class="text-af-success" />
               </div>
-              <p class="text-lg font-bold text-gray-900 dark:text-white">{{ t('payment.result.success') }}</p>
-              <p class="text-sm text-gray-500 dark:text-gray-400">{{ t('payment.stripeSuccessProcessing') }}</p>
+              <p class="text-lg font-bold text-af-ink">{{ t('payment.result.success') }}</p>
+              <p class="text-sm text-af-ink-3">{{ t('payment.stripeSuccessProcessing') }}</p>
             </div>
           </div>
         </template>
 
         <!-- 无指定方式或未知方式时展示完整 Payment Element -->
         <template v-else-if="showPaymentElement">
-          <div class="card p-6">
+          <div class="py-2">
             <div id="stripe-payment-element" class="min-h-[200px]"></div>
-            <p v-if="stripeError" class="mt-4 text-sm text-red-600 dark:text-red-400">{{ stripeError }}</p>
+            <p v-if="stripeError" class="mt-4 text-sm text-af-danger">{{ stripeError }}</p>
             <button class="btn btn-stripe mt-6 w-full py-3 text-base" :disabled="stripeSubmitting || !stripeReady" @click="handleGenericPay">
               <span v-if="stripeSubmitting" class="flex items-center justify-center gap-2">
                 <span class="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></span>
@@ -79,14 +76,14 @@
             </button>
           </div>
           <div class="text-center">
-            <button class="btn btn-secondary" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
+            <button class="btn btn-secondary" @click="router.push('/billing/recharge')">{{ t('payment.result.backToRecharge') }}</button>
           </div>
         </template>
 
         <!-- 错误状态 -->
-        <div v-if="stripeError && !showPaymentElement" class="card p-4">
-          <p class="text-sm text-red-600 dark:text-red-400">{{ stripeError }}</p>
-          <button class="btn btn-secondary mt-3 w-full" @click="router.push('/purchase')">{{ t('payment.result.backToRecharge') }}</button>
+        <div v-if="stripeError && !showPaymentElement" class="border-t border-af-hairline pt-4">
+          <p class="text-sm text-af-danger">{{ stripeError }}</p>
+          <button class="btn btn-secondary mt-3 w-full" @click="router.push('/billing/recharge')">{{ t('payment.result.backToRecharge') }}</button>
         </div>
       </template>
     </div>
