@@ -451,8 +451,10 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
-			name:    "kimi coding default endpoint ok",
-			account: &Account{ID: 3, Platform: domain.PlatformKimi, Credentials: map[string]any{"account_mode": AccountModeCoding}},
+			// Kimi 的 Coding Plan 只在 api.kimi.com：要配官方 coding 地址才识别成 Coding Plan 供应商。
+			name: "kimi coding official endpoint ok",
+			account: &Account{ID: 3, Platform: domain.PlatformKimi, Type: AccountTypeAPIKey,
+				Credentials: map[string]any{"account_mode": AccountModeCoding}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiCodingBaseURL}},
 		},
 		{
 			name:    "zhipu coding default endpoint ok",
