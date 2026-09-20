@@ -73,15 +73,16 @@
   /* 四种语义、一处定义：primary 实心品牌色（一页一个）、secondary 细描边、ghost 纯文字、danger 实心红（仅确认弹层）。 */
   .btn {
     @apply inline-flex items-center justify-center gap-2;
-    @apply rounded-md px-4 py-2.5 text-sm font-medium;
+    @apply rounded-lg px-4 py-2.5 text-sm font-medium;
     @apply transition-colors duration-150 ease-out;
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand/40 focus-visible:ring-offset-2 focus-visible:ring-offset-af-sheet;
-    @apply disabled:cursor-not-allowed disabled:opacity-50;
+    @apply disabled:cursor-not-allowed disabled:opacity-35;
   }
 
+  /* 主按钮是墨色实心（暗色下自动变成浅色实心）；品牌青只留给链接 / 激活页签 / 焦点环 */
   .btn-primary {
-    @apply bg-af-brand text-af-on-brand;
-    @apply hover:bg-af-brand-hover;
+    @apply bg-af-ink text-af-sheet;
+    @apply hover:bg-af-ink-2;
   }
 
   .btn-secondary {
@@ -144,15 +145,15 @@
 
   /* 控制台标准按钮高度 36px */
   .btn-md {
-    @apply rounded-md px-4 py-2 text-sm;
+    @apply rounded-lg px-4 py-2 text-sm;
   }
 
   .btn-lg {
-    @apply rounded-md px-6 py-3 text-base;
+    @apply rounded-lg px-5 py-3 text-base;
   }
 
   .btn-icon {
-    @apply rounded-md p-2.5;
+    @apply rounded-lg p-2.5;
   }
 
   /* ============ 输入框样式 ============ */

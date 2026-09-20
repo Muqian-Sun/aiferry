@@ -49,7 +49,7 @@
       </div>
       <button
         type="button"
-        class="flex-shrink-0 rounded-md bg-af-brand px-3 py-1.5 text-xs font-medium text-white transition hover:bg-af-brand-hover"
+        class="btn btn-primary btn-sm flex-shrink-0"
         @click="emit('open')"
       >
         {{ t('legal.loginAgreementPrompt.viewTerms') }}
@@ -129,7 +129,7 @@
               </button>
               <button
                 type="button"
-                class="rounded-md bg-af-brand px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-primary-600/20 transition hover:bg-af-brand-hover"
+                class="btn btn-primary btn-lg"
                 @click="emit('accept')"
               >
                 {{ t('legal.loginAgreementPrompt.accept') }}

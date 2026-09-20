@@ -44,7 +44,7 @@
           <button
             @click="queryKey"
             :disabled="isQuerying"
-            class="h-12 px-7 rounded-md bg-af-brand hover:bg-af-brand text-white font-medium text-sm transition-all active:scale-[0.97] flex items-center gap-2 whitespace-nowrap disabled:opacity-60"
+            class="btn btn-primary h-12 whitespace-nowrap px-7"
           >
             <svg v-if="isQuerying" class="w-4 h-4 animate-spin" viewBox="0 0 24 24" fill="none">
               <circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/>
@@ -70,8 +70,8 @@
               @click="setDateRange(range.key)"
               class="text-xs px-3 py-1.5 rounded-lg border transition-all"
               :class="currentRange === range.key
-                ? 'bg-af-brand text-white border-af-brand'
-                : 'border-af-hairline bg-af-sheet text-af-ink-2 hover:border-af-brand/40'"
+                ? 'border-af-brand/40 bg-af-brand-tint text-af-brand'
+                : 'border-af-hairline bg-af-sheet text-af-ink-2 hover:border-af-hairline-strong'"
             >{{ range.label }}</button>
             <div v-if="currentRange === 'custom'" class="flex items-center gap-2 ml-1">
               <input
@@ -87,7 +87,7 @@
               />
               <button
                 @click="queryKey"
-                class="text-xs px-3 py-1.5 rounded-lg bg-af-brand text-white hover:bg-af-brand"
+                class="btn btn-primary btn-sm"
               >{{ t('keyUsage.apply') }}</button>
             </div>
           </div>
@@ -261,7 +261,7 @@
                   @click="setDailyUsageDays(option.value)"
                   class="min-w-12 rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
                   :class="dailyUsageDays === option.value
-                    ? 'bg-af-brand text-white'
+                    ? 'bg-af-brand-tint text-af-brand'
                     : 'text-af-ink-2 hover:bg-af-sunken'"
                 >
                   {{ option.label }}
