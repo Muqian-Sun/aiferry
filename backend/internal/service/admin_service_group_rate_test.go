@@ -20,21 +20,9 @@ type userGroupRateRepoStubForGroupRate struct {
 	deletedGroupIDs  []int64
 	deleteByGroupErr error
 
-	syncedGroupID int64
-	syncedEntries []GroupRateMultiplierInput
-	syncGroupErr  error
-
 	rpmSyncedGroupID int64
 	rpmSyncedEntries []GroupRPMOverrideInput
 	rpmSyncErr       error
-}
-
-func (s *userGroupRateRepoStubForGroupRate) GetByUserID(_ context.Context, _ int64) (map[int64]float64, error) {
-	panic("unexpected GetByUserID call")
-}
-
-func (s *userGroupRateRepoStubForGroupRate) GetByUserAndGroup(_ context.Context, _, _ int64) (*float64, error) {
-	panic("unexpected GetByUserAndGroup call")
 }
 
 func (s *userGroupRateRepoStubForGroupRate) GetRPMOverrideByUserAndGroup(_ context.Context, _, _ int64) (*int, error) {
@@ -46,16 +34,6 @@ func (s *userGroupRateRepoStubForGroupRate) GetByGroupID(_ context.Context, grou
 		return nil, s.getByGroupIDErr
 	}
 	return s.getByGroupIDData[groupID], nil
-}
-
-func (s *userGroupRateRepoStubForGroupRate) SyncUserGroupRates(_ context.Context, _ int64, _ map[int64]*float64) error {
-	panic("unexpected SyncUserGroupRates call")
-}
-
-func (s *userGroupRateRepoStubForGroupRate) SyncGroupRateMultipliers(_ context.Context, groupID int64, entries []GroupRateMultiplierInput) error {
-	s.syncedGroupID = groupID
-	s.syncedEntries = entries
-	return s.syncGroupErr
 }
 
 func (s *userGroupRateRepoStubForGroupRate) SyncGroupRPMOverrides(_ context.Context, groupID int64, entries []GroupRPMOverrideInput) error {
@@ -77,45 +55,31 @@ func (s *userGroupRateRepoStubForGroupRate) DeleteByUserID(_ context.Context, _ 
 	panic("unexpected DeleteByUserID call")
 }
 
-func TestAdminService_GetGroupRateMultipliers(t *testing.T) {
+func TestAdminService_GetGroupRPMOverrides(t *testing.T) {
 	t.Run("returns entries for group", func(t *testing.T) {
+		rpm := 30
 		repo := &userGroupRateRepoStubForGroupRate{
 			getByGroupIDData: map[int64][]UserGroupRateEntry{
 				10: {
-					{UserID: 1, UserName: "alice", UserEmail: "alice@test.com", RateMultiplier: ptrFloat(1.5)},
-					{UserID: 2, UserName: "bob", UserEmail: "bob@test.com", RateMultiplier: ptrFloat(0.8)},
+					{UserID: 1, UserName: "alice", UserEmail: "alice@test.com", RPMOverride: &rpm},
 				},
 			},
 		}
 		svc := &adminServiceImpl{userGroupRateRepo: repo}
 
-		entries, err := svc.GetGroupRateMultipliers(context.Background(), 10)
+		entries, err := svc.GetGroupRPMOverrides(context.Background(), 10)
 		require.NoError(t, err)
-		require.Len(t, entries, 2)
+		require.Len(t, entries, 1)
 		require.Equal(t, int64(1), entries[0].UserID)
 		require.Equal(t, "alice", entries[0].UserName)
-		require.NotNil(t, entries[0].RateMultiplier)
-		require.Equal(t, 1.5, *entries[0].RateMultiplier)
-		require.Equal(t, int64(2), entries[1].UserID)
-		require.NotNil(t, entries[1].RateMultiplier)
-		require.Equal(t, 0.8, *entries[1].RateMultiplier)
+		require.NotNil(t, entries[0].RPMOverride)
+		require.Equal(t, 30, *entries[0].RPMOverride)
 	})
 
 	t.Run("returns nil when repo is nil", func(t *testing.T) {
 		svc := &adminServiceImpl{userGroupRateRepo: nil}
 
-		entries, err := svc.GetGroupRateMultipliers(context.Background(), 10)
-		require.NoError(t, err)
-		require.Nil(t, entries)
-	})
-
-	t.Run("returns empty slice for group with no entries", func(t *testing.T) {
-		repo := &userGroupRateRepoStubForGroupRate{
-			getByGroupIDData: map[int64][]UserGroupRateEntry{},
-		}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
-
-		entries, err := svc.GetGroupRateMultipliers(context.Background(), 99)
+		entries, err := svc.GetGroupRPMOverrides(context.Background(), 10)
 		require.NoError(t, err)
 		require.Nil(t, entries)
 	})
@@ -126,74 +90,9 @@ func TestAdminService_GetGroupRateMultipliers(t *testing.T) {
 		}
 		svc := &adminServiceImpl{userGroupRateRepo: repo}
 
-		_, err := svc.GetGroupRateMultipliers(context.Background(), 10)
+		_, err := svc.GetGroupRPMOverrides(context.Background(), 10)
 		require.Error(t, err)
 		require.Contains(t, err.Error(), "db error")
-	})
-}
-
-func TestAdminService_ClearGroupRateMultipliers(t *testing.T) {
-	t.Run("deletes by group ID", func(t *testing.T) {
-		repo := &userGroupRateRepoStubForGroupRate{}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
-
-		err := svc.ClearGroupRateMultipliers(context.Background(), 42)
-		require.NoError(t, err)
-		require.Equal(t, []int64{42}, repo.deletedGroupIDs)
-	})
-
-	t.Run("returns nil when repo is nil", func(t *testing.T) {
-		svc := &adminServiceImpl{userGroupRateRepo: nil}
-
-		err := svc.ClearGroupRateMultipliers(context.Background(), 42)
-		require.NoError(t, err)
-	})
-
-	t.Run("propagates repo error", func(t *testing.T) {
-		repo := &userGroupRateRepoStubForGroupRate{
-			deleteByGroupErr: errors.New("delete failed"),
-		}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
-
-		err := svc.ClearGroupRateMultipliers(context.Background(), 42)
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "delete failed")
-	})
-}
-
-func TestAdminService_BatchSetGroupRateMultipliers(t *testing.T) {
-	t.Run("syncs entries to repo", func(t *testing.T) {
-		repo := &userGroupRateRepoStubForGroupRate{}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
-
-		entries := []GroupRateMultiplierInput{
-			{UserID: 1, RateMultiplier: 1.5},
-			{UserID: 2, RateMultiplier: 0.8},
-		}
-		err := svc.BatchSetGroupRateMultipliers(context.Background(), 10, entries)
-		require.NoError(t, err)
-		require.Equal(t, int64(10), repo.syncedGroupID)
-		require.Equal(t, entries, repo.syncedEntries)
-	})
-
-	t.Run("returns nil when repo is nil", func(t *testing.T) {
-		svc := &adminServiceImpl{userGroupRateRepo: nil}
-
-		err := svc.BatchSetGroupRateMultipliers(context.Background(), 10, nil)
-		require.NoError(t, err)
-	})
-
-	t.Run("propagates repo error", func(t *testing.T) {
-		repo := &userGroupRateRepoStubForGroupRate{
-			syncGroupErr: errors.New("sync failed"),
-		}
-		svc := &adminServiceImpl{userGroupRateRepo: repo}
-
-		err := svc.BatchSetGroupRateMultipliers(context.Background(), 10, []GroupRateMultiplierInput{
-			{UserID: 1, RateMultiplier: 1.0},
-		})
-		require.Error(t, err)
-		require.Contains(t, err.Error(), "sync failed")
 	})
 }
 
