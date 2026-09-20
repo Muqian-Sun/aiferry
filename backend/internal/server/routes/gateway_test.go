@@ -51,7 +51,6 @@ func newGatewayRoutesTestRouterWithConfig(cfg *config.Config, platform ...string
 		nil,
 		nil,
 		nil,
-		nil,
 		admitAllCatalog{},
 		cfg,
 	)
@@ -253,26 +252,31 @@ func TestGrokCustomVoiceEndpointUsesRouteTemplateNotRawPath(t *testing.T) {
 	}
 }
 
-func TestGatewayRoutesCompositeVideoLookupsUseGrokHandler(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+// 视频状态 / 内容查询不带模型：无论分组平台都交给 Grok handler（由它按 request_id 找账号）。
+func TestGatewayRoutesVideoLookupsDispatchRegardlessOfGroupPlatform(t *testing.T) {
+	for _, platform := range []string{service.PlatformAnthropic, service.PlatformOpenAI, service.PlatformGrok} {
+		router := newGatewayRoutesTestRouter(platform)
+		for _, path := range []string{
+			"/v1/videos/request-123",
+			"/videos/request-123",
+			"/v1/videos/generations/request-123",
+			"/v1/videos/request-123/content",
+			"/videos/request-123/content",
+			"/v1/videos/edits/request-123/content",
+		} {
+			req := httptest.NewRequest(http.MethodGet, path, nil)
+			w := httptest.NewRecorder()
 
-	for _, path := range []string{
-		"/v1/videos/request-123",
-		"/videos/request-123",
-		"/v1/videos/request-123/content",
-		"/videos/request-123/content",
-	} {
-		req := httptest.NewRequest(http.MethodGet, path, nil)
-		w := httptest.NewRecorder()
-
-		router.ServeHTTP(w, req)
-		require.NotEqual(t, http.StatusNotFound, w.Code, "path=%s should hit Grok video lookup handler", path)
-		require.NotContains(t, w.Body.String(), "not supported for this platform")
+			router.ServeHTTP(w, req)
+			require.NotEqual(t, http.StatusNotFound, w.Code, "platform=%s path=%s should hit Grok video lookup handler", platform, path)
+			require.NotContains(t, w.Body.String(), "not supported for this platform")
+		}
 	}
 }
 
-func TestGatewayRoutesCompositeMessagesWithGrokModelUsesOpenAIGateway(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+// 带模型的请求按条目网关族分发：anthropic 分组的 key 调 grok 模型也走 OpenAI 族 handler。
+func TestGatewayRoutesMessagesWithGrokModelUsesOpenAIGateway(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformAnthropic)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -286,8 +290,8 @@ func TestGatewayRoutesCompositeMessagesWithGrokModelUsesOpenAIGateway(t *testing
 	require.NotContains(t, w.Body.String(), "composite groups")
 }
 
-func TestGatewayRoutesCompositeChatCompletionsWithGrokModelUsesOpenAIGateway(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+func TestGatewayRoutesChatCompletionsWithGrokModelUsesOpenAIGateway(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformAnthropic)
 
 	for _, path := range []string{"/v1/chat/completions", "/chat/completions"} {
 		req := httptest.NewRequest(http.MethodPost, path, strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
@@ -303,38 +307,23 @@ func TestGatewayRoutesCompositeChatCompletionsWithGrokModelUsesOpenAIGateway(t *
 	}
 }
 
-func TestGatewayRoutesNonGrokVideosAreRejectedAtPlatformGate(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformOpenAI)
+// 视频生成 / 编辑 / 扩展带模型：模型不是 grok 族时在平台门 404，与分组平台无关。
+func TestGatewayRoutesNonGrokVideoModelsAreRejectedAtPlatformGate(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformGrok)
 
 	for _, tc := range []struct {
 		method string
 		path   string
 		body   string
 	}{
-		{http.MethodPost, "/v1/videos/generations", `{"model":"grok-imagine-video-1.5","prompt":"waves"}`},
-		{http.MethodPost, "/v1/videos", `{"model":"grok-imagine-video-1.5","prompt":"waves"}`},
-		{http.MethodPost, "/videos", `{"model":"grok-imagine-video-1.5","prompt":"waves"}`},
-		{http.MethodPost, "/videos/generations", `{"model":"grok-imagine-video-1.5","prompt":"waves"}`},
-		{http.MethodPost, "/v1/videos/edits", `{"model":"grok-imagine-video","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
-		{http.MethodPost, "/videos/edits", `{"model":"grok-imagine-video","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
-		{http.MethodPost, "/v1/videos/extensions", `{"model":"grok-imagine-video","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
-		{http.MethodPost, "/videos/extensions", `{"model":"grok-imagine-video","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
-		{http.MethodGet, "/v1/videos/request-123", ""},
-		{http.MethodGet, "/videos/request-123", ""},
-		{http.MethodGet, "/v1/videos/generations/request-123", ""},
-		{http.MethodGet, "/videos/generations/request-123", ""},
-		{http.MethodGet, "/v1/videos/edits/request-123", ""},
-		{http.MethodGet, "/videos/edits/request-123", ""},
-		{http.MethodGet, "/v1/videos/extensions/request-123", ""},
-		{http.MethodGet, "/videos/extensions/request-123", ""},
-		{http.MethodGet, "/v1/videos/request-123/content", ""},
-		{http.MethodGet, "/videos/request-123/content", ""},
-		{http.MethodGet, "/v1/videos/generations/request-123/content", ""},
-		{http.MethodGet, "/videos/generations/request-123/content", ""},
-		{http.MethodGet, "/v1/videos/edits/request-123/content", ""},
-		{http.MethodGet, "/videos/edits/request-123/content", ""},
-		{http.MethodGet, "/v1/videos/extensions/request-123/content", ""},
-		{http.MethodGet, "/videos/extensions/request-123/content", ""},
+		{http.MethodPost, "/v1/videos/generations", `{"model":"sora-2","prompt":"waves"}`},
+		{http.MethodPost, "/v1/videos", `{"model":"sora-2","prompt":"waves"}`},
+		{http.MethodPost, "/videos", `{"model":"sora-2","prompt":"waves"}`},
+		{http.MethodPost, "/videos/generations", `{"model":"sora-2","prompt":"waves"}`},
+		{http.MethodPost, "/v1/videos/edits", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
+		{http.MethodPost, "/videos/edits", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
+		{http.MethodPost, "/v1/videos/extensions", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
+		{http.MethodPost, "/videos/extensions", `{"model":"sora-2","prompt":"waves","video":{"url":"https://example.com/in.mp4"}}`},
 	} {
 		req := httptest.NewRequest(tc.method, tc.path, strings.NewReader(tc.body))
 		req.Header.Set("Content-Type", "application/json")
@@ -346,8 +335,9 @@ func TestGatewayRoutesNonGrokVideosAreRejectedAtPlatformGate(t *testing.T) {
 	}
 }
 
-func TestGatewayRoutesCompositeVideoGenerationAllowed(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+// grok 族模型的视频生成在任何分组平台上都放行到 Grok handler。
+func TestGatewayRoutesGrokVideoModelAllowedOnAnyGroupPlatform(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformOpenAI)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/videos/generations", strings.NewReader(`{"model":"grok-imagine-video-1.5","prompt":"waves"}`))
 	req.Header.Set("Content-Type", "application/json")
@@ -358,8 +348,9 @@ func TestGatewayRoutesCompositeVideoGenerationAllowed(t *testing.T) {
 	require.NotContains(t, w.Body.String(), "not supported")
 }
 
-func TestGatewayRoutesCompositeOpenAIOnlyEndpointsRequireOpenAITarget(t *testing.T) {
-	router := newGatewayRoutesTestRouter(service.PlatformComposite)
+// OpenAI 专属端点按条目网关族放行：gemini 族模型 404，openai 族放行。
+func TestGatewayRoutesOpenAIOnlyEndpointsRequireOpenAIFamilyModel(t *testing.T) {
+	router := newGatewayRoutesTestRouter(service.PlatformOpenAI)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/embeddings", strings.NewReader(`{"model":"gemini-2.5-pro","input":"hello"}`))
 	req.Header.Set("Content-Type", "application/json")
