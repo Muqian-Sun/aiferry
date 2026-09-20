@@ -6,12 +6,12 @@
   -->
   <div class="flex min-h-screen flex-col bg-af-sheet text-af-ink">
     <SiteNav :variant="variant" />
-    <main class="mx-auto w-full max-w-site flex-1 px-6" :class="flush ? 'py-0' : 'py-8'">
+    <main class="mx-auto flex w-full flex-1 flex-col" :class="flush ? 'max-w-none' : 'max-w-site px-6 py-8'">
       <PageHeader v-if="variant === 'console' && !hideHeader" :title="title ?? routeTitle" :description="description ?? routeDescription">
         <template v-if="$slots.actions" #actions><slot name="actions" /></template>
         <template v-if="$slots.tabs" #tabs><slot name="tabs" /></template>
       </PageHeader>
-      <div :class="variant === 'console' && !hideHeader ? 'pt-6' : ''">
+      <div :class="[variant === 'console' && !hideHeader ? 'pt-6' : '', flush ? 'flex min-h-0 flex-1 flex-col' : '']">
         <slot />
       </div>
     </main>
@@ -46,7 +46,7 @@ const props = withDefaults(
     description?: string
     /** 页面自带标题区（如自定义页 iframe）时隐藏页头 */
     hideHeader?: boolean
-    /** 去掉主区域上下内边距（iframe 出血） */
+    /** 满宽出血且纵向填满视口（自定义页 iframe / Markdown）：无最大宽、无内边距 */
     flush?: boolean
     hideFooter?: boolean
   }>(),
