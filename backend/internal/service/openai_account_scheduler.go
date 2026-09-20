@@ -411,6 +411,10 @@ func (s *defaultOpenAIAccountScheduler) Select(
 		if selection != nil && selection.Account != nil {
 			compatible, _ := s.isAccountRequestCompatibleReason(ctx, selection.Account, req)
 			groupCompatible := s.service.openAIAccountMatchesSchedulingScope(ctx, selection.Account, req.GroupID)
+			if _, routed := CatalogRouteFromContext(ctx); !routed && len(selection.Account.GroupIDs) == 0 && len(selection.Account.AccountGroups) == 0 {
+				// 分组路由下没有分组元数据的账号沿用旧语义：续链命中不按分组否决。
+				groupCompatible = true
+			}
 			if !groupCompatible ||
 				!compatible || !s.isAccountTransportCompatible(selection.Account, req.RequiredTransport) {
 				if selection.ReleaseFunc != nil {
