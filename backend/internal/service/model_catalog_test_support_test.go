@@ -45,18 +45,6 @@ func (r *stubModelCatalogRepo) ListEntries(ctx context.Context) ([]ModelCatalogE
 	return out, nil
 }
 
-func (r *stubModelCatalogRepo) calls() int {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	return r.listCalls
-}
-
-func (r *stubModelCatalogRepo) appendEntry(entry ModelCatalogEntry) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	r.entries = append(r.entries, entry)
-}
-
 func (r *stubModelCatalogRepo) GetEntryByID(_ context.Context, id int64) (*ModelCatalogEntry, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

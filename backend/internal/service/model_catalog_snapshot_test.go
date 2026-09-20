@@ -12,6 +12,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// 这两个访问器只有本文件（unit 标签）用；放在无标签的 support 文件里会被默认标签下的 lint 判成未使用。
+func (r *stubModelCatalogRepo) calls() int {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return r.listCalls
+}
+
+func (r *stubModelCatalogRepo) appendEntry(entry ModelCatalogEntry) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.entries = append(r.entries, entry)
+}
+
 func catalogSnapshotEntry(id int64, modelID string) ModelCatalogEntry {
 	entry := catalogEntryFromCard(modelID, ModelCatalogManagedBySeed, ChannelModelPricing{InputPrice: float64Ptr(1e-6)})
 	entry.ID = id
