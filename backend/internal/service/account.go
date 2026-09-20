@@ -1384,36 +1384,17 @@ func (a *Account) IsOpenAIApiKey() bool {
 // GetOpenAIBaseURL 解析 Chat Completions 协议的上游 base_url。
 //
 // 第三方 key 只认 chat_completions 协议地址，与平台标签无关，没有默认端点兜底。
-// 成品号走厂商官方端点：openai、国产供应商与 OpenCode Go 之外（grok 走
-// GetGrokBaseURL）返回空串。
+// 成品号只有 OpenAI 走官方端点；grok 走 GetGrokBaseURL，其余返回空串。
 func (a *Account) GetOpenAIBaseURL() string {
 	if a.IsThirdPartyKey() {
 		return a.ProtocolEndpoint(APIProtocolChatCompletions)
 	}
-	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
+	// 成品号只有 OpenAI 有 Chat Completions 官方端点；国产供应商与 OpenCode 没有成品号形态，
+	// 一律是第三方 key，已在上面按协议地址返回。
+	if !a.IsOpenAI() {
 		return ""
 	}
-	// 成品号：走厂商官方端点。
-	switch a.Platform {
-	case PlatformKimi:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultKimiCodingBaseURL
-		}
-		return DefaultKimiPayGBaseURL
-	case PlatformZhipu:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultZhipuCodingBaseURL
-		}
-		return DefaultZhipuPayGBaseURL
-	case PlatformDeepseek:
-		return DefaultDeepseekBaseURL
-	case PlatformMiniMax:
-		return DefaultMiniMaxBaseURL
-	case PlatformOpenCodeGo:
-		return a.openCodeDefaultChatBaseURL()
-	default:
-		return "https://api.openai.com"
-	}
+	return "https://api.openai.com"
 }
 
 // GetAccountMode 返回国产供应商账号的接入模式（payg / coding）；非国产供应商或未设置时
@@ -1434,29 +1415,29 @@ func (a *Account) IsCodingPlan() bool {
 	return a.GetAccountMode() == AccountModeCoding
 }
 
-// GetCodingPlanProvider 根据 base_url 识别 Coding Plan 供应商（kimi / zhipu / minimax），
+// GetCodingPlanProvider 识别 Coding Plan 供应商（kimi / zhipu / minimax / opencode go），
 // 用于路由到对应的额度查询端点。非 coding 模式或无法识别时返回空串。
-// 只认官方域名：自定义中转不得把第三方 Key 发往厂商官方额度端点。
+//
+// 按 Vendor 只认官方域名（完整域名，不做子串匹配）：中转不得把第三方 Key 发往厂商官方
+// 额度端点。Kimi 的 Coding Plan 只在 api.kimi.com，按量在 api.moonshot.cn，同一厂商要再看主机。
 func (a *Account) GetCodingPlanProvider() string {
 	if a == nil {
 		return ""
 	}
-	if a.IsOpenCodeGoPlan() {
+	if a.Vendor() == PlatformOpenCodeGo && a.openCodeEndpointMode() == AccountModeGo {
 		return PlatformOpenCodeGo
 	}
 	if a.GetAccountMode() != AccountModeCoding {
 		return ""
 	}
-	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
-	switch {
-	case strings.Contains(baseURL, "api.kimi.com/coding"):
-		return PlatformKimi
-	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
-		return PlatformZhipu
-	case strings.Contains(baseURL, "minimax.io"),
-		strings.Contains(baseURL, "minimaxi.com"),
-		strings.Contains(baseURL, "minimax.com"):
-		return PlatformMiniMax
+	switch vendor := a.Vendor(); vendor {
+	case PlatformKimi:
+		if upstreamHostOf(a.GetOpenAIBaseURL()) == "api.kimi.com" {
+			return PlatformKimi
+		}
+		return ""
+	case PlatformZhipu, PlatformMiniMax:
+		return vendor
 	default:
 		return ""
 	}

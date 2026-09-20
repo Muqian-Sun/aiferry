@@ -55,6 +55,9 @@ func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 		require.Zero(t, repo.setErrorCalls)
 		require.Equal(t, 1, repo.tempCalls)
 		require.True(t, strings.HasPrefix(repo.lastTempReason, cnBalanceLowReasonPrefix), repo.lastTempReason)
+		// balance_low 标记的键前缀按厂商写：余额探测按同一前缀清除，按标签写会永远清不掉。
+		require.Equal(t, map[string]any{cnExtraKey(PlatformKimi, cnBalanceExtraSuffixLow): true}, repo.lastExtraUpdates)
+		require.NotContains(t, repo.lastExtraUpdates, cnExtraKey(PlatformOpenAI, cnBalanceExtraSuffixLow))
 	})
 
 	// OpenCode：Zen 按量有余额概念（可恢复暂停），Go 订阅没有（永久停用）；两者按地址区分，
