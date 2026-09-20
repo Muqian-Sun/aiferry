@@ -273,27 +273,31 @@ func TestCompatForwardTargets_KeysFollowGatewayProtocolNotLabel(t *testing.T) {
 		return &service.Account{Platform: label, Type: service.AccountTypeAPIKey, ProtocolEndpoints: endpoints}
 	}
 
+	// 三个入站共用一份「成品号按厂商分流」规则：antigravity 成品号任何网关平台都走 v1internal，
+	// gemini 成品号只在有 Gemini 实现的入站上承接（responses 没有）。
 	tests := []struct {
 		name          string
 		group         string
 		account       *service.Account
+		wantMessages  compatForwardTarget
 		wantCC        compatForwardTarget
 		wantResponses compatForwardTarget
 	}{
-		{"anthropic-labelled key with gemini endpoint in gemini group", service.PlatformGemini, key(service.PlatformAnthropic, geminiOnly), compatForwardGemini, compatForwardSkip},
-		{"antigravity-labelled key with both endpoints in gemini group", service.PlatformGemini, key(service.PlatformAntigravity, both), compatForwardGemini, compatForwardSkip},
-		{"gemini-labelled key with anthropic endpoint in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic},
-		{"gemini-labelled key with both endpoints in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, both), compatForwardAnthropic, compatForwardAnthropic},
-		{"antigravity-labelled key in antigravity group", service.PlatformAntigravity, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic},
-		{"openai-labelled key without group protocol", service.PlatformGemini, key(service.PlatformOpenAI, anthropicOnly), compatForwardSkip, compatForwardSkip},
-		{"ungrouped key uses anthropic gateway", "", key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic},
-		{"gemini subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth}, compatForwardGemini, compatForwardAnthropic},
-		{"antigravity subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardSkip, compatForwardAntigravity},
-		{"antigravity subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity},
-		{"anthropic subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth}, compatForwardAnthropic, compatForwardAnthropic},
+		{"anthropic-labelled key with gemini endpoint in gemini group", service.PlatformGemini, key(service.PlatformAnthropic, geminiOnly), compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"antigravity-labelled key with both endpoints in gemini group", service.PlatformGemini, key(service.PlatformAntigravity, both), compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"gemini-labelled key with anthropic endpoint in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"gemini-labelled key with both endpoints in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"antigravity-labelled key in antigravity group", service.PlatformAntigravity, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"openai-labelled key without group protocol", service.PlatformGemini, key(service.PlatformOpenAI, anthropicOnly), compatForwardSkip, compatForwardSkip, compatForwardSkip},
+		{"ungrouped key uses anthropic gateway", "", key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"gemini subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth}, compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"antigravity subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
+		{"antigravity subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
+		{"anthropic subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth}, compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			require.Equal(t, tt.wantMessages, messagesForwardTarget(tt.group, tt.account), "messages")
 			require.Equal(t, tt.wantCC, chatCompletionsForwardTarget(tt.group, tt.account), "chat completions")
 			require.Equal(t, tt.wantResponses, responsesForwardTarget(tt.group, tt.account), "responses")
 		})
