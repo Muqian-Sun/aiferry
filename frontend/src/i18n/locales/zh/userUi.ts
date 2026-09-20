@@ -110,6 +110,29 @@ export default {
         notifications: '通知'
       }
     },
+    models: {
+      title: '模型',
+      description: '每个模型的官方参考价，按 Token 计费',
+      allVendors: '全部厂商',
+      count: '{count} 个模型',
+      columns: {
+        model: '模型',
+        vendor: '厂商',
+        billing: '计费',
+        input: '输入',
+        output: '输出',
+        cacheRead: '缓存读取'
+      },
+      perMillion: '美元 / 百万 Token',
+      officialPrice: '官方参考价',
+      priceNote: '价格为各厂商公布的官方参考价（美元 / 每百万 Token），未列出的项目表示官方目录未覆盖。实际扣费以用量页的逐条记录为准；本站折扣价随统一计价上线后在此显示。',
+      copyId: '复制模型 ID',
+      copied: '已复制',
+      empty: '暂无可用模型',
+      noSearchResult: '没有匹配的模型',
+      loadFailed: '模型目录没有加载出来',
+      anonymousHint: '登录后可看到你能用的模型范围'
+    },
     notFound: {
       title: '页面不存在',
       description: '你要找的页面不存在，或者已经被移动。',
