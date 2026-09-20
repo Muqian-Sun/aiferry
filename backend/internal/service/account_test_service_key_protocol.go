@@ -31,14 +31,15 @@ func (s *AccountTestService) testKeyProtocolEndpointConnection(c *gin.Context, a
 	if geminiEndpoint != "" && strings.HasPrefix(strings.TrimSpace(modelID), "gemini-") {
 		return s.testGeminiAccountConnection(c, account, modelID, prompt)
 	}
-	switch {
-	case account.ProtocolEndpoint(APIProtocolChatCompletions) != "":
+	// 主地址协议与 PrimaryUpstreamBaseURL 同一取址顺序，不另抄一份。
+	switch account.PrimaryUpstreamProtocol() {
+	case APIProtocolChatCompletions:
 		return s.testKeyOpenAIFamilyConnection(c, account, modelID, prompt, mode)
-	case account.ProtocolEndpoint(APIProtocolResponses) != "":
+	case APIProtocolResponses:
 		return s.testOpenAIAccountConnection(c, account, modelID, prompt, normalizeAccountTestMode(mode))
-	case account.ProtocolEndpoint(APIProtocolAnthropic) != "":
+	case APIProtocolAnthropic:
 		return s.testKeyAnthropicConnection(c, account, modelID)
-	case geminiEndpoint != "":
+	case APIProtocolGemini:
 		return s.testGeminiAccountConnection(c, account, modelID, prompt)
 	default:
 		return s.sendErrorAndEnd(c, MissingProtocolEndpointError(account, strings.Join(UpstreamProtocols(), " / ")).Error())

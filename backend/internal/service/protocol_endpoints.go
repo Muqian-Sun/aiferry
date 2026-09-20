@@ -76,57 +76,11 @@ func (a *Account) ProtocolEndpoint(protocol string) string {
 	return strings.TrimSpace(a.ProtocolEndpoints[protocol])
 }
 
-// UpstreamProtocolsOf 返回账号能直接对话的上游协议集合。
-//
-// 第三方 key：完全由 protocol_endpoints 的键决定，不做任何平台推导。地址与协议
-// 都是管理员显式声明的，推导只会带来「猜错把请求推给不会说该协议的上游」。
-//
-// 成品号：按厂商推导。成品号本身就是厂商绑定的——OAuth 刷新、客户端伪装、额度
-// 窗口解析都依赖厂商，协议同样由厂商决定，没有配置空间。
-func (a *Account) UpstreamProtocolsOf() map[string]struct{} {
-	out := make(map[string]struct{}, 4)
-	if a == nil {
-		return out
-	}
-	if a.IsThirdPartyKey() {
-		for key := range a.ProtocolEndpoints {
-			if IsUpstreamProtocol(key) {
-				out[key] = struct{}{}
-			}
-		}
-		return out
-	}
-
-	switch {
-	case a.IsAnthropic():
-		out[APIProtocolAnthropic] = struct{}{}
-	case a.IsGemini():
-		out[APIProtocolGemini] = struct{}{}
-	case a.IsAntigravity():
-		// Antigravity 同时暴露 Claude 与 Gemini 两种入站形态。
-		out[APIProtocolAnthropic] = struct{}{}
-		out[APIProtocolGemini] = struct{}{}
-	case a.IsOpenAI(), a.IsGrok():
-		out[APIProtocolResponses] = struct{}{}
-		out[APIProtocolChatCompletions] = struct{}{}
-	}
-	return out
-}
-
 // IsThirdPartyKey 报告账号是否为第三方 key（与成品号相对）。
 // 来源只由类型决定：apikey 是第三方 key，oauth / setup-token / bedrock / service_account 是成品号。
 // 成品号需要厂商特有的令牌刷新、客户端伪装与额度窗口解析；第三方 key 不需要。
 func (a *Account) IsThirdPartyKey() bool {
 	return a != nil && a.Type == AccountTypeAPIKey
-}
-
-// SpeaksUpstreamProtocol 报告账号是否能直接对话该协议（不经协议转换）。
-func (a *Account) SpeaksUpstreamProtocol(protocol string) bool {
-	if protocol == "" {
-		return false
-	}
-	_, ok := a.UpstreamProtocolsOf()[protocol]
-	return ok
 }
 
 // WithInboundProtocol 把本次请求的入站协议放进 context，供调度做协议偏好。

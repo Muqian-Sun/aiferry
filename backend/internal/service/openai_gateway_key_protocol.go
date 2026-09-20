@@ -101,11 +101,14 @@ func keyUsesOpenAIProtocolFeatures(account *Account) bool {
 	return account.IsThirdPartyKey() && openAIProtocolFeaturesApply(account)
 }
 
-// keyKeepsHTTPPreviousResponseID 报告第三方 key 的 HTTP Responses 请求能否承接
-// previous_response_id：请求确实以 responses 协议转发（没被转换成别的协议，否则续链
-// 状态会被静默丢弃），且厂商是官方 OpenAI 或通用中转。
-func keyKeepsHTTPPreviousResponseID(account *Account) bool {
-	return keyUsesOpenAIProtocolFeatures(account) &&
+// AccountKeepsHTTPPreviousResponseID 报告账号能否在 OpenAI 网关的 HTTP Responses 请求里
+// 承接 previous_response_id（续链状态）。
+//
+// 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
+// 第三方 key 要求请求确实以 responses 协议转发（没被转换成别的协议，否则续链状态会被
+// 静默丢弃），且厂商是官方 OpenAI 或通用中转。
+func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
+	return account != nil && keyUsesOpenAIProtocolFeatures(account) &&
 		openAIGatewayKeyProtocol(account, APIProtocolResponses) == APIProtocolResponses
 }
 

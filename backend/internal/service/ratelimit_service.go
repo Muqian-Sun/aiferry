@@ -1028,14 +1028,11 @@ func usesEscalating403Policy(account *Account) bool {
 		return false
 	}
 	vendor := account.Vendor()
-	switch {
-	case vendor == PlatformOpenAI, IsCNProvider(vendor), vendor == PlatformOpenCodeGo:
+	if IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
 		return true
-	case vendor == "":
-		return account.IsThirdPartyKey()
-	default:
-		return false
 	}
+	// 官方 OpenAI 或通用中转（同 OpenAI 协议特性的判定口径）。
+	return openAIProtocolFeaturesApplyToVendor(vendor, account.IsThirdPartyKey())
 }
 
 func (s *RateLimitService) handleOpenAI403(ctx context.Context, account *Account, upstreamMsg string, responseBody []byte) (shouldDisable bool) {
