@@ -152,7 +152,7 @@ func TestGatewayHandlerMessages_GeminiGroupKeyLabelledAntigravityUsesGeminiEndpo
 	require.Empty(t, hs.antigravityUpsteam.recorded(), "key must never reach the Antigravity v1internal upstream")
 }
 
-func TestGatewayHandlerMessages_GeminiGroupAntigravitySubscriptionStillUsesV1Internal(t *testing.T) {
+func TestGatewayHandlerMessages_GeminiGroupAntigravitySubscriptionUsesClaudeShapedV1Internal(t *testing.T) {
 	group := keyRouteGroup(2102, service.PlatformGemini)
 	subscription := &service.Account{
 		ID:            1102,
@@ -178,6 +178,74 @@ func TestGatewayHandlerMessages_GeminiGroupAntigravitySubscriptionStillUsesV1Int
 	// 以此确认成品号仍交给 AntigravityGatewayService，而不是 Gemini 兼容转发。
 	require.Contains(t, rec.Body.String(), "Antigravity token provider not configured")
 	require.Empty(t, hs.geminiUpstream.recorded())
+	// /v1/messages 的 body 是 Claude 形状，必须走 Claude 形态的 Forward（writeClaudeError），
+	// 不能把它当 Gemini 请求交给 ForwardGemini（writeGoogleError 带 "status"）。
+	require.Contains(t, rec.Body.String(), `"type":"error"`)
+	require.NotContains(t, rec.Body.String(), `"status":`)
+}
+
+// 目录路由下 Messages 不看分组平台：池里是什么账号就用什么转发实现。
+func TestGatewayHandlerMessages_CatalogRouteDispatchesByAccount(t *testing.T) {
+	const entryID = 7
+	withRoute := func(c *gin.Context) {
+		entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "gemini-2.5-flash", Status: service.ModelCatalogStatusListed}
+		route := service.CatalogRoute{EntryID: entryID, CanonicalModel: "gemini-2.5-flash", RequestedModel: "gemini-2.5-flash", Platform: service.PlatformGemini, Entry: entry}
+		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
+	}
+	body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
+
+	t.Run("gemini-address key goes through gemini compat", func(t *testing.T) {
+		group := keyRouteGroup(2103, service.PlatformAnthropic)
+		key := keyRouteAccount(1103, group.ID, service.PlatformOpenAI,
+			map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}, "gemini-2.5-flash")
+		key.CatalogEntryIDs = []int64{entryID}
+		hs := newKeyRouteHarness(t, group, []*service.Account{key})
+
+		c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, group, service.APIProtocolAnthropic, "")
+		withRoute(c)
+
+		hs.handler.Messages(c)
+
+		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
+		got := hs.geminiUpstream.recorded()
+		require.Len(t, got, 1)
+		require.Equal(t, "https://gemini-relay.example.com/v1beta/models/gemini-2.5-flash:generateContent", got[0].url)
+		require.Empty(t, hs.antigravityUpsteam.recorded())
+	})
+
+	t.Run("antigravity subscription goes through claude-shaped v1internal", func(t *testing.T) {
+		group := keyRouteGroup(2104, service.PlatformAnthropic)
+		subscription := &service.Account{
+			ID:              1104,
+			Name:            "ag-oauth",
+			Platform:        service.PlatformAntigravity,
+			Type:            service.AccountTypeOAuth,
+			Credentials:     map[string]any{"access_token": "tok", "model_mapping": map[string]any{"gemini-2.5-flash": "gemini-2.5-flash"}},
+			Concurrency:     1,
+			Priority:        1,
+			Status:          service.StatusActive,
+			Schedulable:     true,
+			CatalogEntryIDs: []int64{entryID},
+		}
+		hs := newKeyRouteHarness(t, group, []*service.Account{subscription})
+
+		c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, group, service.APIProtocolAnthropic, "")
+		withRoute(c)
+
+		hs.handler.Messages(c)
+
+		require.Contains(t, rec.Body.String(), "Antigravity token provider not configured")
+		require.Contains(t, rec.Body.String(), `"type":"error"`)
+		require.Empty(t, hs.geminiUpstream.recorded())
+	})
+}
+
+func TestGatewayHandler_MessagesMaxAccountSwitches(t *testing.T) {
+	h := &GatewayHandler{maxAccountSwitches: 10, maxAccountSwitchesGemini: 3}
+	require.Equal(t, 3, h.messagesMaxAccountSwitches(service.PlatformGemini))
+	require.Equal(t, 10, h.messagesMaxAccountSwitches(service.PlatformAnthropic))
+	require.Equal(t, 10, h.messagesMaxAccountSwitches(service.PlatformAntigravity))
+	require.Equal(t, 10, h.messagesMaxAccountSwitches(""))
 }
 
 func TestGeminiV1BetaModels_AntigravityRouteKeyLabelledAntigravityForwardsNatively(t *testing.T) {
