@@ -22,7 +22,7 @@ func TestDeriveAccountSourceKind(t *testing.T) {
 		{AccountTypeBedrock, AccountSourceSubscription},
 		{AccountTypeServiceAccount, AccountSourceSubscription},
 		{AccountTypeAPIKey, AccountSourceAPIKey},
-		// 历史类型 upstream 已由迁移 242 并入 apikey，不再被认作第三方 key。
+		// 历史类型 upstream 已删除，不再被认作第三方 key。
 		{"upstream", AccountSourceSubscription},
 		{"", AccountSourceSubscription},
 		{"future-unknown-type", AccountSourceSubscription},
