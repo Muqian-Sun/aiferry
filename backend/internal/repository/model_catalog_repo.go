@@ -197,10 +197,19 @@ func (r *modelCatalogRepository) CreateAlias(ctx context.Context, alias *service
 	}
 	created, err := builder.Save(ctx)
 	if err != nil {
-		return translatePersistenceError(err, nil, service.ErrModelCatalogAliasExists)
+		return translateModelCatalogAliasError(err)
 	}
 	*alias = *modelCatalogAliasToService(created)
 	return nil
+}
+
+// translateModelCatalogAliasError 把别名写入的库错误映射成业务错误：
+// 别名重名 → 409；entry_id 指向不存在的条目（外键冲突）→ 404，而不是 500。
+func translateModelCatalogAliasError(err error) error {
+	if isForeignKeyViolation(err) {
+		return service.ErrModelCatalogEntryNotFound.WithCause(err)
+	}
+	return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, service.ErrModelCatalogAliasExists)
 }
 
 func (r *modelCatalogRepository) UpdateAlias(ctx context.Context, alias *service.ModelCatalogAlias) error {
@@ -219,7 +228,7 @@ func (r *modelCatalogRepository) UpdateAlias(ctx context.Context, alias *service
 	}
 	updated, err := builder.Save(ctx)
 	if err != nil {
-		return translatePersistenceError(err, service.ErrModelCatalogAliasNotFound, service.ErrModelCatalogAliasExists)
+		return translateModelCatalogAliasError(err)
 	}
 	*alias = *modelCatalogAliasToService(updated)
 	return nil

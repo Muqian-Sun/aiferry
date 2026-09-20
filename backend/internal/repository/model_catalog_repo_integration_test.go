@@ -141,6 +141,14 @@ func TestModelCatalogRepository_AliasCRUDAndUniqueness(t *testing.T) {
 	}
 	require.ErrorIs(t, repo.CreateAlias(ctx, dup), service.ErrModelCatalogAliasExists)
 
+	// entry_id 指向不存在的条目：外键冲突要映射成 404，不能漏成 500。
+	orphan := &service.ModelCatalogAlias{
+		Alias: unique("orphan"), EntryID: second.ID + 1_000_000, Source: service.ModelCatalogAliasSourceManual,
+	}
+	require.ErrorIs(t, repo.CreateAlias(ctx, orphan), service.ErrModelCatalogEntryNotFound)
+	alias.EntryID = second.ID + 1_000_000
+	require.ErrorIs(t, repo.UpdateAlias(ctx, alias), service.ErrModelCatalogEntryNotFound)
+
 	alias.EntryID = second.ID
 	require.NoError(t, repo.UpdateAlias(ctx, alias))
 
