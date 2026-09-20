@@ -27,28 +27,6 @@ func TestGroupBillsOpenAIFastAtStandard_FollowsOpenAIOrRelayVendor(t *testing.T)
 	require.False(t, groupBillsOpenAIFastAtStandard(apiKey, moonshot, "priority"))
 }
 
-func TestOpenAILongContextBillingGate_KeysFollowStoredFlagNotLabel(t *testing.T) {
-	t.Run("key of any label with the flag stored is gated by it", func(t *testing.T) {
-		key := vendorTestKey(PlatformKimi, vendorTestRelayChat)
-		key.Extra = map[string]any{openAILongContextBillingEnabledKey: true}
-		gate := openAILongContextBillingGate(key)
-		require.NotNil(t, gate)
-		require.True(t, *gate)
-	})
-
-	t.Run("key without the flag has no per-account gate even on api.openai.com", func(t *testing.T) {
-		key := vendorTestKey(PlatformOpenAI, vendorTestOpenAI)
-		require.Equal(t, PlatformOpenAI, key.Vendor())
-		require.Nil(t, openAILongContextBillingGate(key))
-	})
-
-	t.Run("openai subscription keeps the default-off gate", func(t *testing.T) {
-		gate := openAILongContextBillingGate(&Account{ID: 9401, Platform: PlatformOpenAI, Type: AccountTypeOAuth})
-		require.NotNil(t, gate)
-		require.False(t, *gate)
-	})
-}
-
 func TestFilterCNProviderBillingModelCandidates_FollowsVendor(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}

@@ -595,15 +595,14 @@ func TestOpenAIGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingA
 				cache.loadedAt = time.Now()
 				svc.channelService = &ChannelService{}
 				svc.channelService.cache.Store(cache)
-				svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 				alias := "customer-chat"
 				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
-				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8,
-					ModelPricing: []ChannelModelPricing{{
-						Models: []string{alias}, BillingMode: BillingModeToken,
-						InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
-					}},
-				}
+				// 运营者价来自管理员写的目录条目（别名即条目 model_id）
+				svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+					Models: []string{alias}, BillingMode: BillingModeToken,
+					InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
+				})
+				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8}
 				err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 					Result: &OpenAIForwardResult{
 						RequestID: "openai_deepseek_account_stats_" + model.name + "_" + slot.name,
@@ -1359,109 +1358,27 @@ func TestOpenAIGatewayServiceRecordUsage_GroupOrAccountLongContextAllows(t *test
 // openai_long_context_billing_enabled is an OpenAI-only account setting, so it
 // must not veto the official Grok >=200k ladder: a Grok account has no way to
 // ever set that flag, which would make the group toggle unreachable.
-func TestOpenAIGatewayServiceRecordUsage_GrokLongContextFollowsGroupToggleOnly(t *testing.T) {
+// 长上下文阶梯没有分组开关：grok-4.5 官方 200k 起输入 / 输出 ×2 总是应用。
+func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *testing.T) {
 	baseInput := 250000 * 2e-6
 	baseOutput := 1000 * 6e-6
-
-	grokAccount := func(id int64) *Account {
-		return &Account{ID: id, Platform: PlatformGrok, Type: AccountTypeOAuth}
-	}
-
-	t.Run("group on applies the official ladder", func(t *testing.T) {
-		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-			Result: &OpenAIForwardResult{
-				RequestID: "resp_grok_longctx_on",
-				Usage:     OpenAIUsage{InputTokens: 250000, OutputTokens: 1000},
-				Model:     "grok-4.5",
-				Duration:  time.Second,
-			},
-			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1030, true),
-			User:    &User{ID: 2030},
-			Account: grokAccount(3030),
-		})
-		require.NoError(t, err)
-		require.True(t, usageRepo.lastLog.LongContextBillingApplied)
-		require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
-		require.InDelta(t, baseOutput*2, usageRepo.lastLog.OutputCost, 1e-10)
+	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
+		Result: &OpenAIForwardResult{
+			RequestID: "resp_grok_longctx",
+			Usage:     OpenAIUsage{InputTokens: 250000, OutputTokens: 1000},
+			Model:     "grok-4.5",
+			Duration:  time.Second,
+		},
+		APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1031, false),
+		User:    &User{ID: 2031},
+		Account: &Account{ID: 3031, Platform: PlatformGrok, Type: AccountTypeOAuth},
 	})
-
-	t.Run("group off keeps the base card", func(t *testing.T) {
-		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-			Result: &OpenAIForwardResult{
-				RequestID: "resp_grok_longctx_off",
-				Usage:     OpenAIUsage{InputTokens: 250000, OutputTokens: 1000},
-				Model:     "grok-4.5",
-				Duration:  time.Second,
-			},
-			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1031, false),
-			User:    &User{ID: 2031},
-			Account: grokAccount(3031),
-		})
-		require.NoError(t, err)
-		require.False(t, usageRepo.lastLog.LongContextBillingApplied)
-		require.InDelta(t, baseInput, usageRepo.lastLog.InputCost, 1e-10)
-		require.InDelta(t, baseOutput, usageRepo.lastLog.OutputCost, 1e-10)
-	})
-}
-
-func TestOpenAIGatewayServiceRecordUsage_SparkShadowUsesCurrentParentBillingSetting(t *testing.T) {
-	tests := []struct {
-		name          string
-		parentEnabled bool
-	}{
-		{name: "parent opt out overrides stale enabled shadow", parentEnabled: false},
-		{name: "parent opt in overrides stale disabled shadow", parentEnabled: true},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-			accountRepo := &openAIRecordUsageAccountRepoStub{account: &Account{
-				ID:       4016,
-				Platform: PlatformOpenAI,
-				Type:     AccountTypeOAuth,
-				Extra:    map[string]any{openAILongContextBillingEnabledKey: tt.parentEnabled},
-			}}
-			svc := newOpenAIRecordUsageServiceForTest(
-				usageRepo,
-				&openAIRecordUsageUserRepoStub{},
-				&openAIRecordUsageSubRepoStub{},
-				nil,
-			)
-			swapInOpenAILadderCatalog(t, svc)
-			svc.accountRepo = accountRepo
-			parentID := int64(4016)
-
-			err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-				Result: &OpenAIForwardResult{
-					RequestID: "resp_gpt54_shadow_parent_setting",
-					Usage:     OpenAIUsage{InputTokens: 300000, OutputTokens: 2000},
-					Model:     "gpt-5.4-2026-03-05",
-					Duration:  time.Second,
-				},
-				APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1016, false),
-				User:   &User{ID: 2016},
-				Account: &Account{
-					ID:              3016,
-					Platform:        PlatformOpenAI,
-					Type:            AccountTypeOAuth,
-					ParentAccountID: &parentID,
-					QuotaDimension:  QuotaDimensionSpark,
-					Extra: map[string]any{
-						openAILongContextBillingEnabledKey: !tt.parentEnabled,
-					},
-				},
-			})
-
-			require.NoError(t, err)
-			require.Equal(t, 1, accountRepo.calls)
-			require.Equal(t, tt.parentEnabled, usageRepo.lastLog.LongContextBillingApplied)
-		})
-	}
+	require.NoError(t, err)
+	require.True(t, usageRepo.lastLog.LongContextBillingApplied)
+	require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
+	require.InDelta(t, baseOutput*2, usageRepo.lastLog.OutputCost, 1e-10)
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *testing.T) {
@@ -3143,26 +3060,25 @@ func TestOpenAIGatewayServiceRecordUsage_FreeOpenAIFastChargesStandard(t *testin
 		&openAIRecordUsageSubRepoStub{},
 		nil,
 	)
-	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 	groupID := int64(77)
 	serviceTier := "priority"
 	tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
 	inputPrice := 0.001
 	outputPrice := 0.002
 	fastMultiplier := 3.0
+	svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+		Models:         []string{"gpt-5.6-sol"},
+		BillingMode:    BillingModeToken,
+		InputPrice:     &inputPrice,
+		OutputPrice:    &outputPrice,
+		FastMultiplier: &fastMultiplier,
+	})
 	apiKey := &APIKey{
 		ID:      1020,
 		GroupID: &groupID,
 		Group: &Group{
 			ID: groupID, Platform: PlatformOpenAI, Status: StatusActive,
 			Hydrated: true, RateMultiplier: 0.5, FreeOpenAIFast: true,
-			ModelPricing: []ChannelModelPricing{{
-				Models:         []string{"gpt-5.6-sol"},
-				BillingMode:    BillingModeToken,
-				InputPrice:     &inputPrice,
-				OutputPrice:    &outputPrice,
-				FastMultiplier: &fastMultiplier,
-			}},
 		},
 	}
 

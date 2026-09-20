@@ -57,13 +57,12 @@ func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *tes
 		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
 	}}, geminiLadderCatalogStub(t))
-	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gemini-2.5-pro", Group: group, Tokens: tokens, RateMultiplier: 1,
+		Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
 		Resolver: resolver, Resolved: resolved,
 	})
 	require.NoError(t, err)
@@ -78,14 +77,13 @@ func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *t
 		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
 	}}, geminiLadderCatalogStub(t))
-	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 	require.NotEmpty(t, resolved.Intervals)
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gemini-2.5-pro", Group: group, Tokens: tokens, RateMultiplier: 1,
+		Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
 		Resolver: resolver, Resolved: resolved,
 	})
 	require.NoError(t, err)
@@ -94,43 +92,34 @@ func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *t
 	require.False(t, got.LongContextBillingApplied)
 }
 
-// 目录阶梯跟随分组长上下文开关；开启时为整单换档（输入 ×2、输出 ×1.5）。
-func TestCalculateTokenCostForRequest_CatalogLadderFollowsGroupToggle(t *testing.T) {
+// 目录阶梯没有开关：价卡带阈值就整单换档（输入 ×2、输出 ×1.5）。
+func TestCalculateTokenCostForRequest_CatalogLadderAlwaysApplies(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiLadderCatalogStub(t))
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 
-	for _, enabled := range []bool{true, false} {
-		group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: enabled}
-		resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
-		require.Equal(t, PricingSourceLiteLLM, resolved.Source)
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
+	require.Equal(t, PricingSourceLiteLLM, resolved.Source)
 
-		got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-			Ctx: context.Background(), Model: "gemini-2.5-pro", Group: group, Tokens: tokens, RateMultiplier: 1,
-			Resolver: resolver, Resolved: resolved,
-		})
-		require.NoError(t, err)
-		if enabled {
-			// 300K × 1.25e-6 × 2 = 0.75；1000 × 10e-6 × 1.5 = 0.015
-			require.InDelta(t, 0.765, got.ActualCost, 1e-9)
-			require.True(t, got.LongContextBillingApplied)
-		} else {
-			require.InDelta(t, 0.385, got.ActualCost, 1e-9)
-			require.False(t, got.LongContextBillingApplied)
-		}
-	}
+	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
+		Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
+		Resolver: resolver, Resolved: resolved,
+	})
+	require.NoError(t, err)
+	// 300K × 1.25e-6 × 2 = 0.75；1000 × 10e-6 × 1.5 = 0.015
+	require.InDelta(t, 0.765, got.ActualCost, 1e-9)
+	require.True(t, got.LongContextBillingApplied)
 }
 
 // 目录阶梯对缓存分项同样生效：cache_read / cache_creation 随输入倍率整单换档，
 // 阈值判定计入全部输入侧 token（input + cache_creation + cache_read）。
 func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiLadderCatalogStub(t))
-	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 	require.Equal(t, PricingSourceLiteLLM, resolved.Source)
 
 	calc := func(tokens UsageTokens) *CostBreakdown {
 		got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-			Ctx: context.Background(), Model: "gemini-2.5-pro", Group: group, Tokens: tokens, RateMultiplier: 1,
+			Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
 			Resolver: resolver, Resolved: resolved,
 		})
 		require.NoError(t, err)
@@ -157,12 +146,11 @@ func TestCalculateTokenCostForRequest_GeminiLadderAppliesToCacheItems(t *testing
 // 目录条目没有阶梯字段时，开关开启也不产生阶梯。
 func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, nil, geminiCatalogStub())
-	group := &Group{ID: 100, Platform: PlatformGemini, LongContextPricingEnabled: true}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
 
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gemini-2.5-pro", Group: group, Tokens: tokens, RateMultiplier: 1,
+		Ctx: context.Background(), Model: "gemini-2.5-pro", Tokens: tokens, RateMultiplier: 1,
 		Resolver: resolver, Resolved: resolved,
 	})
 	require.NoError(t, err)
@@ -172,17 +160,16 @@ func TestCalculateTokenCostForRequest_NoLadderFieldsMeansNoLadder(t *testing.T) 
 
 func TestCalculateTokenCostForRequest_BuiltInPricingUsesUnifiedPath(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformOpenAI, nil, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
-	group := &Group{ID: 100, Platform: PlatformOpenAI, LongContextPricingEnabled: true}
 	tokens := UsageTokens{InputTokens: 300000, OutputTokens: 1000}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gpt-5.4", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gpt-5.4"})
 
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "gpt-5.4", Group: group, Tokens: tokens, RateMultiplier: 1,
+		Ctx: context.Background(), Model: "gpt-5.4", Tokens: tokens, RateMultiplier: 1,
 		Resolver: resolver, Resolved: resolved,
 	})
 	require.NoError(t, err)
 	want, err := bs.CalculateCostUnified(CostInput{
-		Ctx: context.Background(), Model: "gpt-5.4", Group: group, Tokens: tokens,
+		Ctx: context.Background(), Model: "gpt-5.4", Tokens: tokens,
 		RequestCount: 1, RateMultiplier: 1, Resolver: resolver,
 	})
 	require.NoError(t, err)
@@ -226,11 +213,10 @@ func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
 		MaxReasoningEffortMultiplier: &configured,
 	}}, nil)
-	group := &Group{ID: 100, Platform: PlatformAnthropic}
-	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-fable-5-1", Group: group})
+	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "claude-fable-5-1"})
 
 	got, err := bs.CalculateTokenCostForRequest(TokenCostRequest{
-		Ctx: context.Background(), Model: "claude-fable-5-1", Group: group,
+		Ctx: context.Background(), Model: "claude-fable-5-1",
 		Tokens: UsageTokens{InputTokens: 1000}, RateMultiplier: 1, ReasoningEffort: "max",
 		Resolver: resolver, Resolved: resolved,
 	})

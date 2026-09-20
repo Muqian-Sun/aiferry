@@ -57,6 +57,7 @@ func TestAPIContracts(t *testing.T) {
 						"frozen_balance": 0,
 						"concurrency": 5,
 					"rpm_limit": 0,
+					"rate_multiplier": 0,
 					"status": "active",
 					"allowed_groups": null,
 					"created_at": "2025-01-02T03:04:05Z",

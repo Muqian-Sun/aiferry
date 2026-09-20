@@ -9,7 +9,6 @@ import (
 type TokenCostRequest struct {
 	Ctx             context.Context
 	Model           string
-	Group           *Group
 	Tokens          UsageTokens
 	RateMultiplier  float64
 	PricingAt       time.Time
@@ -37,7 +36,6 @@ func (s *BillingService) tokenCostInput(req TokenCostRequest, resolved *Resolved
 	input := CostInput{
 		Ctx:             req.Ctx,
 		Model:           req.Model,
-		Group:           req.Group,
 		Tokens:          req.Tokens,
 		RequestCount:    1,
 		RateMultiplier:  req.RateMultiplier,

@@ -224,10 +224,10 @@ func TestChannelMultipliersMustBePositive(t *testing.T) {
 	}}, BillingModeToken))
 }
 
-func TestCalculateTokenCostContextTierEnablement(t *testing.T) {
-	base := &ModelPricing{InputPricePerToken: 1e-6}
+// 区间定价按总上下文选档，没有分组 / 账号开关。
+func TestCalculateTokenCostIntervalsSelectedByTotalContext(t *testing.T) {
 	resolved := &ResolvedPricing{
-		BasePricing: base,
+		BasePricing: &ModelPricing{InputPricePerToken: 1e-6},
 		Intervals: []PricingInterval{{
 			MinTokens:       100,
 			InputMultiplier: pricingMultiplier(2),
@@ -235,38 +235,18 @@ func TestCalculateTokenCostContextTierEnablement(t *testing.T) {
 	}
 	resolver := &ModelPricingResolver{}
 	service := &BillingService{}
-	tokens := UsageTokens{InputTokens: 200}
 
-	t.Run("group disabled uses base tier", func(t *testing.T) {
-		resolved.longContextPricingEnabled = false
-		cost, err := service.calculateTokenCost(resolved, CostInput{
-			Model: "custom", Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-		})
-		require.NoError(t, err)
-		require.InDelta(t, 200e-6, cost.TotalCost, 1e-12)
+	below, err := service.calculateTokenCost(resolved, CostInput{
+		Model: "custom", Tokens: UsageTokens{InputTokens: 50}, RateMultiplier: 1, Resolver: resolver,
 	})
+	require.NoError(t, err)
+	require.InDelta(t, 50e-6, below.TotalCost, 1e-12)
 
-	t.Run("group enabled uses interval", func(t *testing.T) {
-		resolved.longContextPricingEnabled = true
-		accountDisabled := false
-		cost, err := service.calculateTokenCost(resolved, CostInput{
-			Model: "custom", Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-			LongContextBillingEnabled: &accountDisabled,
-		})
-		require.NoError(t, err)
-		require.InDelta(t, 400e-6, cost.TotalCost, 1e-12)
+	above, err := service.calculateTokenCost(resolved, CostInput{
+		Model: "custom", Tokens: UsageTokens{InputTokens: 200}, RateMultiplier: 1, Resolver: resolver,
 	})
-
-	t.Run("account enabled overrides disabled group", func(t *testing.T) {
-		resolved.longContextPricingEnabled = false
-		accountEnabled := true
-		cost, err := service.calculateTokenCost(resolved, CostInput{
-			Model: "custom", Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-			LongContextBillingEnabled: &accountEnabled,
-		})
-		require.NoError(t, err)
-		require.InDelta(t, 400e-6, cost.TotalCost, 1e-12)
-	})
+	require.NoError(t, err)
+	require.InDelta(t, 400e-6, above.TotalCost, 1e-12)
 }
 
 func TestCalculateTokenCostCombinesIntervalAndFastMultiplier(t *testing.T) {
@@ -279,7 +259,6 @@ func TestCalculateTokenCostCombinesIntervalAndFastMultiplier(t *testing.T) {
 			MinTokens:       100,
 			InputMultiplier: pricingMultiplier(2),
 		}},
-		longContextPricingEnabled: true,
 	}
 	cost, err := (&BillingService{}).calculateTokenCost(resolved, CostInput{
 		Model: "custom", Tokens: UsageTokens{InputTokens: 200}, RateMultiplier: 1,

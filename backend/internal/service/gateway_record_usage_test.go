@@ -481,15 +481,14 @@ func TestGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUp
 				svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
 				groupID := int64(905)
 				svc.channelService = newTestChannelServiceForStats(t, &Channel{ID: 1, Status: StatusActive}, groupID, PlatformDeepseek)
-				svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 				alias := "customer-chat"
 				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
-				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8,
-					ModelPricing: []ChannelModelPricing{{
-						Models: []string{alias}, BillingMode: BillingModeToken,
-						InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
-					}},
-				}
+				// 运营者价来自管理员写的目录条目（别名即条目 model_id）
+				svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+					Models: []string{alias}, BillingMode: BillingModeToken,
+					InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
+				})
+				group := &Group{ID: groupID, Platform: PlatformDeepseek, RateMultiplier: 0.8}
 				err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 					Result: &ForwardResult{
 						RequestID: "gateway_deepseek_account_stats_" + model.name + "_" + slot.name,
