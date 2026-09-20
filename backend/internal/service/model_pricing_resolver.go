@@ -35,6 +35,11 @@ type ResolvedPricing struct {
 	// 来源标识
 	Source string // "group", "catalog", "litellm", "fallback"
 
+	// CanonicalModel 是厂商价格政策（DeepSeek 官方价、GPT-5.6 缓存写价、Fast 档比例、
+	// max 推理倍率）所依据的模型标识：目录命中时是条目的 model_id（请求可能用的是
+	// 别名），否则就是请求的计费模型。
+	CanonicalModel string
+
 	// 是否支持缓存细分
 	SupportsCacheBreakdown bool
 
@@ -75,11 +80,13 @@ type PricingInput struct {
 }
 
 // Resolve 解析模型定价。
-//  1. 分组价卡（groups.model_pricing）命中即返回，仍是运营者的分组级覆盖层；
+//  1. 分组价卡（groups.model_pricing）命中即返回，是运营者的分组级覆盖层，
+//     未显式配置的项叠在目录基准价上（目录未命中时叠在价格文件上）；
 //  2. 模型目录命中则作为基准价卡（叠加在价格文件之上，只写显式配置的项）；
 //  3. 都没有则回到价格文件 / 硬编码兜底价。
 func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) *ResolvedPricing {
 	longContextPricingEnabled := input.Group == nil || input.Group.LongContextPricingEnabled
+	entry := r.lookupCatalogEntry(ctx, input.Model)
 	if groupPricing := matchGroupModelPricing(input.Group, input.Model); groupPricing != nil {
 		// Group token cards only override the first-tier / flat rates.
 		// Long-context ladders come from official presets, gated by the checkbox.
@@ -88,14 +95,14 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 			stripped.Intervals = nil
 			groupPricing = &stripped
 		}
-		resolved := r.resolveConfiguredPricing(groupPricing, input.Model, PricingSourceGroup)
+		resolved := r.resolveConfiguredPricing(groupPricing, entry, input.Model, PricingSourceGroup)
 		resolved.operatorPricing = true
 		resolved.longContextPricingEnabled = longContextPricingEnabled
 		return resolved
 	}
 
-	if entry := r.lookupCatalogEntry(ctx, input.Model); entry != nil {
-		resolved := r.resolveCatalogPricing(entry, input.Model)
+	if entry != nil {
+		resolved := r.resolveCatalogPricing(entry)
 		resolved.longContextPricingEnabled = longContextPricingEnabled
 		return resolved
 	}
@@ -105,10 +112,20 @@ func (r *ModelPricingResolver) Resolve(ctx context.Context, input PricingInput) 
 		Mode:                   BillingModeToken,
 		BasePricing:            basePricing,
 		Source:                 source,
+		CanonicalModel:         input.Model,
 		SupportsCacheBreakdown: basePricing != nil && basePricing.SupportsCacheBreakdown,
 	}
 	resolved.longContextPricingEnabled = longContextPricingEnabled
 	return resolved
+}
+
+// hasUsablePricing 判断解析结果能否用来计费：按次/图片/视频模式由价卡自带层级价，
+// token 模式则必须解析出基准价。
+func (p *ResolvedPricing) hasUsablePricing() bool {
+	if p == nil {
+		return false
+	}
+	return p.Mode != BillingModeToken || p.BasePricing != nil
 }
 
 func (r *ModelPricingResolver) lookupCatalogEntry(ctx context.Context, model string) *ModelCatalogEntry {
@@ -123,11 +140,12 @@ func (r *ModelPricingResolver) lookupCatalogEntry(ctx context.Context, model str
 // 与分组/渠道价卡的关键差别：目录是**基准价**，只写条目里显式配置的项，不做
 // 「未配置即归零」。否则没配图片输出价的条目会把图片 token 静默算成免费，
 // 而今天它会回退到文本输出价。
-func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry, model string) *ResolvedPricing {
+func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry) *ResolvedPricing {
 	card := entry.PricingCard()
 	resolved := &ResolvedPricing{
 		Mode:              entry.EffectiveBillingMode(),
 		Source:            PricingSourceCatalog,
+		CanonicalModel:    entry.ModelID,
 		configuredPricing: card,
 		operatorPricing:   entry.IsOperatorAuthored(),
 	}
@@ -138,18 +156,12 @@ func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry, m
 		return resolved
 	}
 
-	base, _ := r.resolveBasePricing(model)
-	if base == nil && !entry.HasAnyTokenPrice() {
+	merged := r.catalogTokenBasePricing(entry)
+	if merged == nil {
 		// 目录条目没有任何 token 价，底下的价格文件也定不到价：保持「无价」，
 		// 让计费链路走既有的 ErrModelPricingUnavailable 路径，而不是悄悄变成全 0 价卡。
 		return resolved
 	}
-	merged := &ModelPricing{}
-	if base != nil {
-		merged = &ModelPricing{}
-		*merged = *base
-	}
-	entry.ApplyToModelPricing(merged)
 	resolved.BasePricing = merged
 	resolved.SupportsCacheBreakdown = merged.SupportsCacheBreakdown
 	resolved.Intervals = filterValidIntervals(card.Intervals)
@@ -165,17 +177,42 @@ func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry, m
 	return resolved
 }
 
-func (r *ModelPricingResolver) resolveConfiguredPricing(config *ChannelModelPricing, model, source string) *ResolvedPricing {
+// catalogTokenBasePricing 把目录条目叠在价格文件的基准价上，得到 token 模式的基准价卡。
+// 基准价按条目的 model_id 查（请求名可能是别名，价格文件按别名查不到）。
+// 条目没有任何 token 价、价格文件也定不到价时返回 nil。
+func (r *ModelPricingResolver) catalogTokenBasePricing(entry *ModelCatalogEntry) *ModelPricing {
+	base, _ := r.resolveBasePricing(entry.ModelID)
+	if base == nil && !entry.HasAnyTokenPrice() {
+		return nil
+	}
+	merged := &ModelPricing{}
+	if base != nil {
+		*merged = *base
+	}
+	entry.ApplyToModelPricing(merged)
+	return merged
+}
+
+// resolveConfiguredPricing 用运营者价卡构造解析结果。token 模式的基准价取目录条目
+// （命中时）或价格文件，价卡里显式配置的项再覆盖上去。
+func (r *ModelPricingResolver) resolveConfiguredPricing(config *ChannelModelPricing, entry *ModelCatalogEntry, model, source string) *ResolvedPricing {
 	mode := config.BillingMode
 	if mode == "" {
 		mode = BillingModeToken
 	}
-	resolved := &ResolvedPricing{Mode: mode, Source: source, configuredPricing: config}
+	resolved := &ResolvedPricing{Mode: mode, Source: source, CanonicalModel: model, configuredPricing: config}
+	if entry != nil {
+		resolved.CanonicalModel = entry.ModelID
+	}
 	if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
 		r.applyRequestTierOverrides(config, resolved)
 		return resolved
 	}
-	resolved.BasePricing, _ = r.resolveBasePricing(model)
+	if entry != nil {
+		resolved.BasePricing = r.catalogTokenBasePricing(entry)
+	} else {
+		resolved.BasePricing, _ = r.resolveBasePricing(model)
+	}
 	resolved.SupportsCacheBreakdown = resolved.BasePricing != nil && resolved.BasePricing.SupportsCacheBreakdown
 	r.applyTokenOverrides(config, resolved)
 	return resolved

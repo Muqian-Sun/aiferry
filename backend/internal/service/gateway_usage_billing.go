@@ -861,13 +861,14 @@ func (s *GatewayService) billableModelWithFallback(ctx context.Context, apiKey *
 	return billingModel
 }
 
-// hasResolvableTokenPricing 判断模型是否能在渠道定价或全局价格表中解析出 token 价格。
+// hasResolvableTokenPricing 判断模型能否沿定价解析链（分组价卡 → 模型目录 → 价格表）
+// 解析出可计费的价格。
 func (s *GatewayService) hasResolvableTokenPricing(ctx context.Context, model string, apiKey *APIKey) bool {
 	if strings.TrimSpace(model) == "" {
 		return false
 	}
-	if s.resolveChannelPricing(ctx, model, apiKey) != nil {
-		return true
+	if s.resolver != nil {
+		return s.resolver.Resolve(ctx, PricingInput{Model: model, Group: apiKeyGroup(apiKey)}).hasUsablePricing()
 	}
 	if s.billingService == nil {
 		return false
@@ -877,17 +878,23 @@ func (s *GatewayService) hasResolvableTokenPricing(ctx context.Context, model st
 }
 
 // hasIdentifiedResponseModelPricing 判断上游自报的响应模型是否可以作为计费基准，
-// 并回传它是否解析到了渠道级定价（供 responseModelBillingAdoptable 的跨定价源守卫使用，
+// 并回传它是否解析到了运营者定价（供 responseModelBillingAdoptable 的跨定价源守卫使用，
 // 避免为此再解析一次）。
-// 与 hasResolvableTokenPricing 的区别是刻意更严：只接受管理员为该模型显式配置的
-// 渠道定价，或价格表中能被确定性识别的条目；不接受按子串猜出来的系列兜底价。
-// 详见 responseModelBillingDeclaration 的说明。
+// 与 hasResolvableTokenPricing 的区别是刻意更严：只接受运营者显式配置的定价、
+// 目录里精确命中的条目，或价格表中能被确定性识别的条目；不接受按子串猜出来的
+// 系列兜底价。详见 responseModelBillingDeclaration 的说明。
 func (s *GatewayService) hasIdentifiedResponseModelPricing(ctx context.Context, model string, apiKey *APIKey) (identified bool, channelPriced bool) {
 	if strings.TrimSpace(model) == "" {
 		return false, false
 	}
-	if s.resolveChannelPricing(ctx, model, apiKey) != nil {
-		return true, true
+	if s.resolver != nil {
+		resolved := s.resolver.Resolve(ctx, PricingInput{Model: model, Group: apiKeyGroup(apiKey)})
+		if resolved.operatorPricing {
+			return true, true
+		}
+		if resolved.Source == PricingSourceCatalog && resolved.hasUsablePricing() {
+			return true, false
+		}
 	}
 	return s.billingService.HasIdentifiedTokenPricing(model), false
 }

@@ -1453,13 +1453,14 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 	// 运营者定价（分组价卡、被管理员改过的目录条目）保留运营者配置，不强制覆盖官方价。
 	// 播种出来的目录条目与价格文件同源，仍属平台默认价卡，所以按 operatorPricing 判定
 	// 而不是按 Source——否则播种一上线，官方价政策就会整体失效。
-	pricing = s.applyModelSpecificPricingPolicyEx(input.Model, pricing, !resolved.operatorPricing, pricingAt)
+	// 厂商政策按 CanonicalModel 判定：请求名可能是目录别名，政策要看它指向的条目。
+	pricing = s.applyModelSpecificPricingPolicyEx(resolved.CanonicalModel, pricing, !resolved.operatorPricing, pricingAt)
 
 	// DeepSeek 模型默认价卡按官方峰谷口径调整：高峰时段（01:00–04:00 与
 	// 06:00–10:00 UTC，仅工作日；北京时间周末全天低谷）按 2× 低谷价计费。
 	// 仅作用于平台默认价卡——运营者定价保持运营者语义，不叠加。
 	// 先克隆再乘，避免污染共享 fallbackPrices 指针。
-	if !resolved.operatorPricing && isDeepSeekModel(input.Model) {
+	if !resolved.operatorPricing && isDeepSeekModel(resolved.CanonicalModel) {
 		if mult := deepseekPeakMultiplierAt(pricingAt); mult > 1 {
 			cloned := *pricing
 			cloned.InputPricePerToken *= mult
@@ -1474,7 +1475,7 @@ func (s *BillingService) calculateTokenCost(resolved *ResolvedPricing, input Cos
 
 	breakdown := s.computeTokenBreakdown(pricing, input.Tokens, input.RateMultiplier, input.ServiceTier, applyLongCtx)
 	applyCostBreakdownMultiplier(breakdown, resolvedTimePricingMultiplier(resolved, input.PricingAt))
-	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(input.Model, input.ReasoningEffort, pricing))
+	applyCostBreakdownMultiplier(breakdown, maxReasoningEffortBillingMultiplier(resolved.CanonicalModel, input.ReasoningEffort, pricing))
 	return breakdown, nil
 }
 

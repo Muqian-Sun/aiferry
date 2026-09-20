@@ -530,8 +530,14 @@ func (s *OpenAIGatewayService) hasIdentifiedOpenAIResponsePricing(ctx context.Co
 	if model == "" {
 		return false, false
 	}
-	if s.resolveOpenAIChannelPricing(ctx, model, apiKey) != nil {
-		return true, true
+	if s.resolver != nil {
+		resolved := s.resolver.Resolve(ctx, PricingInput{Model: model, Group: apiKeyGroup(apiKey)})
+		if resolved.operatorPricing {
+			return true, true
+		}
+		if resolved.Source == PricingSourceCatalog && resolved.hasUsablePricing() {
+			return true, false
+		}
 	}
 	return s.billingService.HasIdentifiedTokenPricing(model), false
 }
