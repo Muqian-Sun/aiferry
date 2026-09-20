@@ -1161,9 +1161,6 @@ export type UpstreamProtocol = 'anthropic' | 'chat_completions' | 'responses' | 
 /** 协议 → 上游地址。第三方 key 只按这里的地址转发，没有任何隐式默认地址。 */
 export type ProtocolEndpoints = Partial<Record<UpstreamProtocol, string>>
 
-/** 账号来源：subscription=成品号（OAuth / Setup Token / Bedrock / Vertex），api_key=第三方 key。 */
-export type AccountSourceKind = 'subscription' | 'api_key'
-
 export interface Account {
   id: number
   name: string
@@ -1176,7 +1173,6 @@ export interface Account {
   // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
   credentials_status?: Record<string, boolean>
-  source_kind?: AccountSourceKind
   protocol_endpoints?: ProtocolEndpoints
   ollama_cloud_usage?: OllamaCloudUsageState
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.

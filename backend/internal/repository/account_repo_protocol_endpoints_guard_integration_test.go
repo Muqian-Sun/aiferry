@@ -56,9 +56,7 @@ func TestAccountUpdatePathsRejectThirdPartyKeyWithoutEndpoints(t *testing.T) {
 			})
 			loaded, err := repo.GetByID(ctx, created.ID)
 			require.NoError(t, err)
-			// 与管理端改类型时一致：来源维度随类型重新推导。
 			loaded.Type = service.AccountTypeAPIKey
-			loaded.SourceKind = service.DeriveAccountSourceKind(service.AccountTypeAPIKey)
 			loaded.Credentials = map[string]any{"api_key": "sk-guard"}
 
 			err = path.update(loaded)

@@ -191,7 +191,6 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
-	builder.SetSourceKind(accountSourceKind(account))
 	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	if account.ParentAccountID != nil {
 		builder.SetParentAccountID(*account.ParentAccountID)
@@ -557,7 +556,6 @@ func (r *accountRepository) updateLockedAccount(
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
 	// type 可以被改（见上方 SetType），来源维度必须跟着一起改，否则会出现
 	// 「类型是 apikey、来源却是 subscription」这种只在数据里看得出来的错配。
-	builder.SetSourceKind(accountSourceKind(account))
 	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	builder.SetNillableParentAccountID(account.ParentAccountID)
 
@@ -2016,17 +2014,10 @@ func (r *accountRepository) ListSchedulableByGroupIDAndPlatform(ctx context.Cont
 	})
 }
 
-// thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：source_kind 显式
-// 为 api_key，或尚未分类（NULL）时按类型推导（apikey）。两边口径必须一致，
-// 否则装桶与选号对同一个账号的归类会分叉。
+// thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：type = apikey。
+// 两边口径必须一致，否则装桶与选号对同一个账号的归类会分叉。
 func thirdPartyKeyPredicate() dbpredicate.Account {
-	return dbaccount.Or(
-		dbaccount.SourceKindEQ(service.AccountSourceAPIKey),
-		dbaccount.And(
-			dbaccount.SourceKindIsNil(),
-			dbaccount.TypeEQ(service.AccountTypeAPIKey),
-		),
-	)
+	return dbaccount.TypeEQ(service.AccountTypeAPIKey)
 }
 
 // schedulingCandidatePredicate 选出平台属于 platforms 的账号，加上任意平台标签的第三方 key。
@@ -3461,7 +3452,6 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
-		SourceKind:              derefString(m.SourceKind),
 		ProtocolEndpoints:       m.ProtocolEndpoints,
 	}
 }
@@ -3476,15 +3466,6 @@ func guardProtocolEndpoints(account *service.Account) error {
 		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
 	}
 	return nil
-}
-
-// accountSourceKind 取账号来源维度：调用方显式指定时以其为准，否则按类型推导，
-// 与 migrations/239 的回填口径同源。
-func accountSourceKind(account *service.Account) string {
-	if kind := strings.TrimSpace(account.SourceKind); kind != "" {
-		return kind
-	}
-	return service.DeriveAccountSourceKind(account.Type)
 }
 
 // normalizeProtocolEndpoints 保证写入的是非 nil map，与列上的 NOT NULL DEFAULT '{}' 一致。

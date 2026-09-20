@@ -131,26 +131,6 @@ func (_u *AccountUpdate) SetExtra(v map[string]interface{}) *AccountUpdate {
 	return _u
 }
 
-// SetSourceKind sets the "source_kind" field.
-func (_u *AccountUpdate) SetSourceKind(v string) *AccountUpdate {
-	_u.mutation.SetSourceKind(v)
-	return _u
-}
-
-// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
-func (_u *AccountUpdate) SetNillableSourceKind(v *string) *AccountUpdate {
-	if v != nil {
-		_u.SetSourceKind(*v)
-	}
-	return _u
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (_u *AccountUpdate) ClearSourceKind() *AccountUpdate {
-	_u.mutation.ClearSourceKind()
-	return _u
-}
-
 // SetProtocolEndpoints sets the "protocol_endpoints" field.
 func (_u *AccountUpdate) SetProtocolEndpoints(v map[string]string) *AccountUpdate {
 	_u.mutation.SetProtocolEndpoints(v)
@@ -798,11 +778,6 @@ func (_u *AccountUpdate) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SourceKind(); ok {
-		if err := account.SourceKindValidator(v); err != nil {
-			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -862,12 +837,6 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.SourceKind(); ok {
-		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
-	}
-	if _u.mutation.SourceKindCleared() {
-		_spec.ClearField(account.FieldSourceKind, field.TypeString)
 	}
 	if value, ok := _u.mutation.ProtocolEndpoints(); ok {
 		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)
@@ -1308,26 +1277,6 @@ func (_u *AccountUpdateOne) SetCredentials(v map[string]interface{}) *AccountUpd
 // SetExtra sets the "extra" field.
 func (_u *AccountUpdateOne) SetExtra(v map[string]interface{}) *AccountUpdateOne {
 	_u.mutation.SetExtra(v)
-	return _u
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (_u *AccountUpdateOne) SetSourceKind(v string) *AccountUpdateOne {
-	_u.mutation.SetSourceKind(v)
-	return _u
-}
-
-// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
-func (_u *AccountUpdateOne) SetNillableSourceKind(v *string) *AccountUpdateOne {
-	if v != nil {
-		_u.SetSourceKind(*v)
-	}
-	return _u
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (_u *AccountUpdateOne) ClearSourceKind() *AccountUpdateOne {
-	_u.mutation.ClearSourceKind()
 	return _u
 }
 
@@ -1991,11 +1940,6 @@ func (_u *AccountUpdateOne) check() error {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.SourceKind(); ok {
-		if err := account.SourceKindValidator(v); err != nil {
-			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
-		}
-	}
 	if v, ok := _u.mutation.Status(); ok {
 		if err := account.StatusValidator(v); err != nil {
 			return &ValidationError{Name: "status", err: fmt.Errorf(`ent: validator failed for field "Account.status": %w`, err)}
@@ -2072,12 +2016,6 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.SourceKind(); ok {
-		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
-	}
-	if _u.mutation.SourceKindCleared() {
-		_spec.ClearField(account.FieldSourceKind, field.TypeString)
 	}
 	if value, ok := _u.mutation.ProtocolEndpoints(); ok {
 		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)

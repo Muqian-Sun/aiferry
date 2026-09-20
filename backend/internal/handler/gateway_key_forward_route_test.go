@@ -254,7 +254,6 @@ func TestUsesAntigravityV1Internal(t *testing.T) {
 	}{
 		{"antigravity oauth subscription", &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, true},
 		{"key labelled antigravity", &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeAPIKey}, false},
-		{"key labelled antigravity with api_key source", &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth, SourceKind: service.AccountSourceAPIKey}, false},
 		{"gemini oauth subscription", &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth}, false},
 		{"nil", nil, false},
 	}

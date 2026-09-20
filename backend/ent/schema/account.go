@@ -86,15 +86,6 @@ func (Account) Fields() []ent.Field {
 			Default(func() map[string]any { return map[string]any{} }).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}),
 
-		// source_kind: 账号来源。subscription=成品号（oauth / setup-token /
-		// bedrock / service_account），api_key=第三方 key。
-		// 可空表示尚未分类，见 migrations/239。
-		field.String("source_kind").
-			MaxLen(20).
-			Optional().
-			Nillable().
-			Comment("Account source: subscription | api_key; NULL means not yet classified"),
-
 		// protocol_endpoints: 协议到上游地址的映射，
 		// 形如 {"anthropic_messages": "https://relay.example.com"}。
 		field.JSON("protocol_endpoints", map[string]string{}).
