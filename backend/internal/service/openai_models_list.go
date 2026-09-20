@@ -286,7 +286,6 @@ func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, 
 	if err != nil {
 		return nil, nil, err
 	}
-	models := make([]json.RawMessage, 0)
 	modelIDs := make([]string, 0)
 	byID := make(map[string]json.RawMessage)
 	for _, result := range results {
@@ -304,7 +303,6 @@ func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, 
 			if _, exists := byID[model.ID]; !exists {
 				byID[model.ID] = raw
 				modelIDs = append(modelIDs, model.ID)
-				models = append(models, raw)
 			}
 		}
 	}
@@ -318,7 +316,7 @@ func (s *OpenAIGatewayService) FetchPinnedOpenAIModelsList(ctx context.Context, 
 			visible = append(visible, id)
 		}
 	}
-	models = selectModelCatalogEntries(byID, visible)
+	models := selectModelCatalogEntries(byID, visible)
 	body, err := json.Marshal(struct {
 		Object string            `json:"object"`
 		Data   []json.RawMessage `json:"data"`
