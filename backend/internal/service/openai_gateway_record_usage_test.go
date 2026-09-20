@@ -2367,16 +2367,6 @@ func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, _ int64, mod
 	return newOpenAITokenImageCatalogResolverWithTime(t, model, nil)
 }
 
-func newOpenAITokenImageChannelPricingResolverWithTimeForTest(
-	t *testing.T,
-	_ int64,
-	model string,
-	timePricing *ChannelTimePricing,
-) *ModelPricingResolver {
-	t.Helper()
-	return newOpenAITokenImageCatalogResolverWithTime(t, model, timePricing)
-}
-
 func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, timePricing *ChannelTimePricing) *ModelPricingResolver {
 	t.Helper()
 	inputPrice := 3e-6

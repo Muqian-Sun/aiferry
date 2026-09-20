@@ -723,3 +723,14 @@ func TestGatewayServiceRecordUsage_FastSpeedHonouredKeepsPremium(t *testing.T) {
 	require.NoError(t, err)
 	require.InDelta(t, fastCost.TotalCost, usageRepo.lastLog.TotalCost, 1e-10)
 }
+
+// 只有本文件（unit tag）用；放在无 tag 的文件里默认构建会被 lint 判未使用。
+func newOpenAITokenImageChannelPricingResolverWithTimeForTest(
+	t *testing.T,
+	_ int64,
+	model string,
+	timePricing *ChannelTimePricing,
+) *ModelPricingResolver {
+	t.Helper()
+	return newOpenAITokenImageCatalogResolverWithTime(t, model, timePricing)
+}

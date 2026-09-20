@@ -28,14 +28,6 @@ func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context, group
 	}
 
 	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
-	billingGroup := gatewayTokenRequestBillingGroupFromContext(ctx)
-	if billingGroup == nil {
-		if ctxGroup, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(ctxGroup) {
-			billingGroup = ctxGroup
-		} else {
-			billingGroup = group
-		}
-	}
 
 	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源。
 	downstream := UserRateMultiplierFromContext(ctx)
