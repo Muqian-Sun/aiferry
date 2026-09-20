@@ -1122,3 +1122,51 @@ func TestBuildSchedulerMetadataAccount_KeepsOpenAIPassthroughForModelGate(t *tes
 		})
 	}
 }
+
+// 目录桶的绑定优先级：账号元数据全局共享（装的是账号自身优先级），目录桶用 ZSET score 存
+// 绑定生效的优先级，命中缓存时写回 Priority；分组桶不受影响。
+func TestSchedulerCacheCatalogBucketKeepsBindingPriority(t *testing.T) {
+	ctx := context.Background()
+	cache := newSchedulerCacheUnit(t)
+	key := func(id int64, priority int) service.Account {
+		return service.Account{
+			ID: id, Name: fmt.Sprintf("key-%d", id), Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+			Status: service.StatusActive, Schedulable: true, Priority: priority,
+			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.openai.com"},
+		}
+	}
+
+	catalog := service.SchedulerBucket{GroupID: 7, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeCatalog}
+	token, err := cache.CaptureBucketWriteToken(ctx, catalog)
+	require.NoError(t, err)
+	// 绑定生效优先级 9 / 1，账号自身都是 50（元数据里就是 50）。
+	require.NoError(t, cache.SetSnapshot(ctx, catalog, token, []service.Account{key(901, 9), key(902, 1)}))
+
+	got, hit, err := cache.GetSnapshot(ctx, catalog)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Len(t, got, 2)
+	require.Equal(t, int64(902), got[0].ID, "lower score first")
+	require.Equal(t, 1, got[0].Priority)
+	require.Equal(t, int64(901), got[1].ID)
+	require.Equal(t, 9, got[1].Priority)
+
+	// 同两个账号写进分组桶，账号自身优先级 50 才是元数据里的值。
+	single := service.SchedulerBucket{GroupID: 7, Platform: service.PlatformOpenAI, Mode: service.SchedulerModeSingle}
+	token, err = cache.CaptureBucketWriteToken(ctx, single)
+	require.NoError(t, err)
+	require.NoError(t, cache.SetSnapshot(ctx, single, token, []service.Account{key(901, 50), key(902, 50)}))
+
+	got, hit, err = cache.GetSnapshot(ctx, single)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Equal(t, []int64{901, 902}, []int64{got[0].ID, got[1].ID}, "group buckets keep insertion order")
+	require.Equal(t, 50, got[0].Priority)
+	require.Equal(t, 50, got[1].Priority)
+
+	got, hit, err = cache.GetSnapshot(ctx, catalog)
+	require.NoError(t, err)
+	require.True(t, hit)
+	require.Equal(t, 1, got[0].Priority, "the catalog bucket's priority survives the shared metadata rewrite")
+	require.Equal(t, 9, got[1].Priority)
+}
