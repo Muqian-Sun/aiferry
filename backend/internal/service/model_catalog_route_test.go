@@ -143,3 +143,71 @@ func TestAccountServesCatalogEntry(t *testing.T) {
 	require.Error(t, AccountServesCatalogEntry(nil, chatOnlyKey))
 	require.Error(t, AccountServesCatalogEntry(anthropicEntry, nil))
 }
+
+type stubCatalogBindingAccounts map[int64]*Account
+
+func (m stubCatalogBindingAccounts) GetAccount(_ context.Context, id int64) (*Account, error) {
+	if account, ok := m[id]; ok {
+		return account, nil
+	}
+	return nil, ErrAccountNotFound
+}
+
+func TestModelCatalogService_ReplaceBindings(t *testing.T) {
+	newService := func() (*ModelCatalogService, *stubModelCatalogRepo) {
+		repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
+			{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed, InputPrice: testPtrFloat64(1e-6)},
+		}}
+		return NewModelCatalogService(repo, nil, ModelCatalogSeedInput{}), repo
+	}
+	accounts := stubCatalogBindingAccounts{
+		1: {ID: 1, Type: AccountTypeAPIKey, Platform: PlatformOpenAI, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://cc.example.com"}},
+		2: {ID: 2, Type: AccountTypeOAuth, Platform: PlatformAnthropic},
+		3: {ID: 3, Type: AccountTypeAPIKey, Platform: PlatformAnthropic, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://relay.example.com"}},
+	}
+	ctx := context.Background()
+
+	t.Run("rejects an account that cannot serve the entry", func(t *testing.T) {
+		svc, repo := newService()
+		err := svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 2}, {AccountID: 1}}, accounts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "CATALOG_BINDING_UNSERVABLE")
+		require.Equal(t, 0, repo.replaceCalls, "nothing is written when one account fails")
+	})
+
+	t.Run("rejects duplicate accounts", func(t *testing.T) {
+		svc, repo := newService()
+		err := svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 2}, {AccountID: 2}}, accounts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "duplicate account")
+		require.Equal(t, 0, repo.replaceCalls)
+	})
+
+	t.Run("rejects unknown account and entry", func(t *testing.T) {
+		svc, repo := newService()
+		require.ErrorIs(t, svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 99}}, accounts), ErrAccountNotFound)
+		require.ErrorIs(t, svc.ReplaceBindings(ctx, 42, []ModelCatalogBinding{{AccountID: 2}}, accounts), ErrModelCatalogEntryNotFound)
+		require.Equal(t, 0, repo.replaceCalls)
+	})
+
+	t.Run("writes and invalidates the snapshot", func(t *testing.T) {
+		svc, repo := newService()
+		listed := svc.ListListedEntries(ctx)
+		require.Len(t, listed, 1)
+		require.Empty(t, listed[0].Bindings)
+
+		priority := 7
+		require.NoError(t, svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 3, Priority: &priority}, {AccountID: 2}}, accounts))
+		require.Equal(t, 1, repo.replaceCalls)
+
+		bindings, err := svc.ListBindings(ctx, 1)
+		require.NoError(t, err)
+		require.Len(t, bindings, 2)
+		require.Equal(t, int64(1), bindings[0].EntryID)
+		require.Equal(t, 7, *bindings[0].Priority)
+
+		listed = svc.ListListedEntries(ctx)
+		require.Len(t, listed, 1)
+		require.Len(t, listed[0].Bindings, 2, "snapshot is reloaded after the write")
+	})
+}

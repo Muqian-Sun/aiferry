@@ -196,3 +196,52 @@ func subscriptionServesRoutePlatform(vendor, routePlatform string) bool {
 		return IsOpenAIGatewayPlatform(routePlatform) && NormalizeOpenAICompatiblePlatform(routePlatform) == vendor
 	}
 }
+
+// CatalogBindingAccountSource 绑定校验时按 ID 取账号；AdminService 满足它。
+type CatalogBindingAccountSource interface {
+	GetAccount(ctx context.Context, id int64) (*Account, error)
+}
+
+// ListBindings 返回条目的资源绑定。
+func (s *ModelCatalogService) ListBindings(ctx context.Context, entryID int64) ([]ModelCatalogBinding, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrModelCatalogEntryNotFound
+	}
+	if _, err := s.repo.GetEntryByID(ctx, entryID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListBindingsByEntry(ctx, entryID)
+}
+
+// ReplaceBindings 用整份列表覆盖条目的资源绑定：先确认条目存在，再逐个取账号并检查
+// 它能承接条目（AccountServesCatalogEntry），全部通过才写库，然后失效快照。
+func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64, bindings []ModelCatalogBinding, accounts CatalogBindingAccountSource) error {
+	if s == nil || s.repo == nil {
+		return ErrModelCatalogEntryNotFound
+	}
+	entry, err := s.repo.GetEntryByID(ctx, entryID)
+	if err != nil {
+		return err
+	}
+	seen := make(map[int64]struct{}, len(bindings))
+	normalized := make([]ModelCatalogBinding, 0, len(bindings))
+	for _, binding := range bindings {
+		if _, dup := seen[binding.AccountID]; dup {
+			return catalogValidationError(fmt.Sprintf("duplicate account %d in bindings", binding.AccountID))
+		}
+		seen[binding.AccountID] = struct{}{}
+		account, err := accounts.GetAccount(ctx, binding.AccountID)
+		if err != nil {
+			return err
+		}
+		if err := AccountServesCatalogEntry(entry, account); err != nil {
+			return err
+		}
+		normalized = append(normalized, ModelCatalogBinding{EntryID: entryID, AccountID: binding.AccountID, Priority: binding.Priority})
+	}
+	if err := s.repo.ReplaceBindings(ctx, entryID, normalized); err != nil {
+		return err
+	}
+	s.invalidate(ctx)
+	return nil
+}
