@@ -8735,8 +8735,8 @@ import {
   type SiteBillingMode,
 } from "@/utils/siteBillingMode";
 import ConfirmDialog from "@/components/common/ConfirmDialog.vue";
-import PaymentProviderList from "@/components/payment/PaymentProviderList.vue";
-import PaymentProviderDialog from "@/components/payment/PaymentProviderDialog.vue";
+import PaymentProviderList from "@/components/admin/payment/providers/PaymentProviderList.vue";
+import PaymentProviderDialog from "@/components/admin/payment/providers/PaymentProviderDialog.vue";
 import GroupBadge from "@/components/common/GroupBadge.vue";
 import GroupOptionItem from "@/components/common/GroupOptionItem.vue";
 import Toggle from "@/components/common/Toggle.vue";

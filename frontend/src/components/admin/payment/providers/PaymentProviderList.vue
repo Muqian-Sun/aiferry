@@ -98,8 +98,8 @@ import { VueDraggable } from 'vue-draggable-plus'
 import Icon from '@/components/icons/Icon.vue'
 import ProviderCard from './ProviderCard.vue'
 import type { ProviderInstance } from '@/types/payment'
-import type { TypeOption } from './providerConfig'
-import { getAvailableTypes } from './providerConfig'
+import type { TypeOption } from '@/components/payment/providerConfig'
+import { getAvailableTypes } from '@/components/payment/providerConfig'
 
 const props = defineProps<{
   providers: ProviderInstance[]
