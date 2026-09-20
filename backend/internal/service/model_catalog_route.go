@@ -113,6 +113,30 @@ func (s *ModelCatalogService) ResolveRoute(ctx context.Context, model string) (C
 	}, true
 }
 
+// CatalogRouteResolver 只需要 ResolveRoute；ModelCatalogService 满足它。
+type CatalogRouteResolver interface {
+	ResolveRoute(ctx context.Context, model string) (CatalogRoute, bool)
+}
+
+// ResolveCatalogRouteForCandidates 把一次请求里所有可能被下游绑定到的模型名（重复键、大小写变体、
+// session.model）逐一解析：任一解析不到上架条目、或解析到不同条目，都返回 false 与第一个
+// 出问题的候选名。HTTP 准入中间件与 Responses WS 逐帧准入共用这条规则。
+func ResolveCatalogRouteForCandidates(ctx context.Context, resolver CatalogRouteResolver, candidates []string) (CatalogRoute, string, bool) {
+	var route CatalogRoute
+	resolved := false
+	for _, candidate := range candidates {
+		candidateRoute, ok := resolver.ResolveRoute(ctx, candidate)
+		if !ok || (resolved && candidateRoute.EntryID != route.EntryID) {
+			return CatalogRoute{}, candidate, false
+		}
+		route, resolved = candidateRoute, true
+	}
+	if !resolved {
+		return CatalogRoute{}, "", false
+	}
+	return route, "", true
+}
+
 // ListListedEntries 返回用户可见 / 可调用的条目（快照副本，按模型标识排序）。
 func (s *ModelCatalogService) ListListedEntries(ctx context.Context) []ModelCatalogEntry {
 	if s == nil {

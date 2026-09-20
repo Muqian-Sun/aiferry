@@ -617,6 +617,7 @@ func TestOpenAIMissingResponsesDependencies(t *testing.T) {
 			concurrencyHelper: &ConcurrencyHelper{
 				concurrencyService: &service.ConcurrencyService{},
 			},
+			modelCatalog: listAllCatalogStub{},
 		}
 		require.Empty(t, h.missingResponsesDependencies())
 	})
@@ -671,6 +672,7 @@ func TestOpenAIEnsureResponsesDependencies(t *testing.T) {
 			concurrencyHelper: &ConcurrencyHelper{
 				concurrencyService: &service.ConcurrencyService{},
 			},
+			modelCatalog: listAllCatalogStub{},
 		}
 		ok := h.ensureResponsesDependencies(c, nil)
 
@@ -1407,6 +1409,7 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		apiKeyService:            &service.APIKeyService{},
 		contentModerationService: moderationSvc,
 		concurrencyHelper:        NewConcurrencyHelper(service.NewConcurrencyService(&concurrencyCacheMock{}), SSEPingFormatNone, time.Second),
+		modelCatalog:             listAllCatalogStub{},
 	}
 	wsServer := newOpenAIWSHandlerTestServer(t, h, middleware.AuthSubject{UserID: 1, Concurrency: 1})
 	defer wsServer.Close()
@@ -1900,6 +1903,10 @@ func newOpenAIHandlerForPreviousResponseIDValidation(t *testing.T, cache *concur
 
 func newOpenAIWSHandlerTestServer(t *testing.T, h *OpenAIGatewayHandler, subject middleware.AuthSubject) *httptest.Server {
 	t.Helper()
+	if h.modelCatalog == nil {
+		// WS 入口自己做目录准入；没显式给目录的用例把所有模型当作上架（openai 族）。
+		h.modelCatalog = listAllCatalogStub{}
+	}
 	groupID := int64(2)
 	apiKey := &service.APIKey{
 		ID:      101,
@@ -1934,6 +1941,17 @@ type openAIResponsesWSUsageLogCase struct {
 	firstFrameCloseExpected bool
 	// secondTurnCloseExpected：第二个 turn 被拒（连接被 1008 关闭）。
 	secondTurnCloseExpected bool
+	// catalog 覆盖 handler 的目录来源（目录准入测试用）；nil 时所有模型都算上架。
+	catalog service.CatalogListingSource
+	// closeReasonContains 覆盖被拒时的关闭原因子串；空串 = 分组白名单的 "not available for this group"。
+	closeReasonContains string
+}
+
+func (tc openAIResponsesWSUsageLogCase) expectedCloseReason() string {
+	if tc.closeReasonContains != "" {
+		return tc.closeReasonContains
+	}
+	return "not available for this group"
 }
 
 type openAIResponsesWSUsageLogResult struct {
@@ -1956,8 +1974,9 @@ func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidates(ctx conte
 	return []service.Account{s.account}, nil
 }
 
-func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
+// ListSchedulingCandidatesByCatalogEntry 把唯一的账号当作绑定到条目的资源（不看平台）。
+func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	return []service.Account{boundToCatalogEntry(s.account, entryID)}, nil
 }
 
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
@@ -1968,7 +1987,7 @@ func (s *openAIWSUsageHandlerAccountRepoStub) GetByID(ctx context.Context, id in
 	if s.account.ID != id {
 		return nil, nil
 	}
-	account := s.account
+	account := boundToCatalogEntry(s.account, listAllCatalogEntryID)
 	return &account, nil
 }
 
@@ -2076,8 +2095,9 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidates(ctx co
 	return out, nil
 }
 
-func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
+// ListSchedulingCandidatesByCatalogEntry 把全部账号当作绑定到条目的资源（不看平台）。
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	return allBoundToCatalogEntry(s.accounts, entryID), nil
 }
 
 func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
@@ -2091,7 +2111,7 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesUngroup
 func (s *openAIWSFailoverHandlerAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
 	for _, account := range s.accounts {
 		if account.ID == id {
-			acc := account
+			acc := boundToCatalogEntry(account, listAllCatalogEntryID)
 			return &acc, nil
 		}
 	}
@@ -2609,6 +2629,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
 		maxAccountSwitches:  3,
+		modelCatalog:        listAllCatalogStub{},
 	}
 
 	apiKey := &service.APIKey{
@@ -2803,6 +2824,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
 		maxAccountSwitches:  3,
+		modelCatalog:        listAllCatalogStub{},
 	}
 
 	apiKey := &service.APIKey{
@@ -3035,6 +3057,10 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		billingCacheService: billingCacheSvc,
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
+		modelCatalog:        listAllCatalogStub{},
+	}
+	if tc.catalog != nil {
+		h.modelCatalog = tc.catalog
 	}
 
 	apiKey := &service.APIKey{
@@ -3084,7 +3110,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		var closeErr coderws.CloseError
 		require.ErrorAs(t, readErr, &closeErr)
 		require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
-		require.Contains(t, closeErr.Reason, "not available for this group")
+		require.Contains(t, closeErr.Reason, tc.expectedCloseReason())
 		_ = clientConn.CloseNow()
 		return openAIResponsesWSUsageLogResult{}
 	}
@@ -3119,7 +3145,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 			var closeErr coderws.CloseError
 			require.ErrorAs(t, readErr, &closeErr)
 			require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
-			require.Contains(t, closeErr.Reason, "not available for this group")
+			require.Contains(t, closeErr.Reason, tc.expectedCloseReason())
 			_ = clientConn.CloseNow()
 			return openAIResponsesWSUsageLogResult{}
 		}

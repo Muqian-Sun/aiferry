@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 
@@ -11,9 +10,7 @@ import (
 )
 
 // CatalogAdmissionSource 是目录准入需要的最小接口；ModelCatalogService 满足它。
-type CatalogAdmissionSource interface {
-	ResolveRoute(ctx context.Context, model string) (service.CatalogRoute, bool)
-}
+type CatalogAdmissionSource = service.CatalogRouteResolver
 
 // CatalogAdmission 是目录准入中间件：客户端写的模型名必须解析到一条上架（listed）
 // 的目录条目，否则按入口协议格式返回 404。命中后把 CatalogRoute 挂到 request.Context
@@ -50,15 +47,10 @@ func CatalogAdmission(catalog CatalogAdmissionSource, requirePlatforms ...string
 			return
 		}
 
-		var route service.CatalogRoute
-		resolved := false
-		for _, candidate := range models {
-			candidateRoute, ok := catalog.ResolveRoute(c.Request.Context(), candidate)
-			if !ok || (resolved && candidateRoute.EntryID != route.EntryID) {
-				rejectCatalogAdmission(c, fmt.Sprintf("Model %q is not available", candidate))
-				return
-			}
-			route, resolved = candidateRoute, true
+		route, blocked, ok := service.ResolveCatalogRouteForCandidates(c.Request.Context(), catalog, models)
+		if !ok {
+			rejectCatalogAdmission(c, fmt.Sprintf("Model %q is not available", blocked))
+			return
 		}
 		if len(required) > 0 {
 			if _, ok := required[route.Platform]; !ok {

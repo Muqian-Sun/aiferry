@@ -237,3 +237,31 @@ func TestAccountInSchedulingScope(t *testing.T) {
 	require.False(t, accountInSchedulingScope(context.Background(), bound, nil), "grouped accounts are not in the ungrouped pool")
 	require.False(t, accountInSchedulingScope(routed, nil, &groupID))
 }
+
+func TestResolveCatalogRouteForCandidates(t *testing.T) {
+	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: ModelCatalogStatusListed,
+			Aliases: []ModelCatalogAlias{{ID: 10, EntryID: 1, Alias: "sonnet-latest"}}},
+		{ID: 2, ModelID: "gpt-5.6", Vendor: "openai", Status: ModelCatalogStatusListed},
+		{ID: 3, ModelID: "hidden", Vendor: "openai", Status: ModelCatalogStatusUnlisted},
+	}}
+	svc := NewModelCatalogService(repo, nil, ModelCatalogSeedInput{})
+	ctx := context.Background()
+
+	route, blocked, ok := ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "sonnet-latest"})
+	require.True(t, ok, "alias and canonical name resolve to the same entry")
+	require.Empty(t, blocked)
+	require.Equal(t, int64(1), route.EntryID)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"claude-sonnet-4", "gpt-5.6"})
+	require.False(t, ok, "candidates resolving to different entries are rejected")
+	require.Equal(t, "gpt-5.6", blocked)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, []string{"gpt-5.6", "hidden"})
+	require.False(t, ok)
+	require.Equal(t, "hidden", blocked)
+
+	_, blocked, ok = ResolveCatalogRouteForCandidates(ctx, svc, nil)
+	require.False(t, ok, "no candidates means no route")
+	require.Empty(t, blocked)
+}

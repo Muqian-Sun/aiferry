@@ -85,7 +85,7 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 		RequestID: contentModerationRequestID(c.Request.Context()),
 		UserID:    subject.UserID,
 		Endpoint:  GetInboundEndpoint(c),
-		Provider:  contentModerationProvider(apiKey),
+		Provider:  contentModerationProvider(c, apiKey),
 		Model:     clientRequestedModel(c, model),
 		Protocol:  protocol,
 		Body:      body,
@@ -116,11 +116,8 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 	return input
 }
 
-func contentModerationProvider(apiKey *service.APIKey) string {
-	if apiKey == nil || apiKey.Group == nil {
-		return ""
-	}
-	return strings.TrimSpace(apiKey.Group.Platform)
+func contentModerationProvider(c *gin.Context, apiKey *service.APIKey) string {
+	return strings.TrimSpace(effectiveAPIKeyPlatform(c, apiKey))
 }
 
 func contentModerationRequestID(ctx context.Context) string {
