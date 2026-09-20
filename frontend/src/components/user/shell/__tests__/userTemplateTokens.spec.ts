@@ -28,11 +28,6 @@ const SCAN_DIRS = [
   'components/auth'
 ]
 const SCAN_FILES = [
-  'views/HomeView.vue',
-  'views/KeyUsageView.vue',
-  'views/NotFoundView.vue',
-  'views/ModelPlazaView.vue',
-  'components/layout/AuthLayout.vue',
   'components/common/Select.vue',
   'components/common/BaseDialog.vue',
   'components/common/ConfirmDialog.vue',
@@ -69,23 +64,6 @@ const FORBIDDEN: Array<{ name: string; re: RegExp }> = [
  */
 const ALLOWLIST = new Set<string>([
   // views
-  'views/HomeView.vue',
-  'views/KeyUsageView.vue',
-  'views/ModelPlazaView.vue',
-  'views/NotFoundView.vue',
-  'views/auth/DingTalkCallbackView.vue',
-  'views/auth/DingTalkEmailCompletionView.vue',
-  'views/auth/EmailVerifyView.vue',
-  'views/auth/ForgotPasswordView.vue',
-  'views/auth/LinuxDoCallbackView.vue',
-  'views/auth/LoginView.vue',
-  'views/auth/OAuthCallbackView.vue',
-  'views/auth/OidcCallbackView.vue',
-  'views/auth/RegisterView.vue',
-  'views/auth/ResetPasswordView.vue',
-  'views/auth/WechatCallbackView.vue',
-  'views/auth/WechatPaymentCallbackView.vue',
-  'views/public/LegalDocumentView.vue',
   'views/user/AffiliateView.vue',
   'views/user/AirwallexPaymentView.vue',
   'views/user/BatchImageGuideView.vue',
@@ -100,17 +78,7 @@ const ALLOWLIST = new Set<string>([
   'views/user/SubscriptionsView.vue',
   'views/user/UserOrdersView.vue',
   // layout
-  'components/layout/AuthLayout.vue',
   // components
-  'components/auth/DingTalkOAuthSection.vue',
-  'components/auth/EmailOAuthButtons.vue',
-  'components/auth/LinuxDoOAuthSection.vue',
-  'components/auth/LoginAgreementPrompt.vue',
-  'components/auth/OidcOAuthSection.vue',
-  'components/auth/PendingOAuthCreateAccountForm.vue',
-  'components/auth/TotpLoginModal.vue',
-  'components/auth/TotpStepUpDialog.vue',
-  'components/auth/WechatOAuthSection.vue',
   'components/keys/BulkEditKeysModal.vue',
   'components/keys/EndpointPopover.vue',
   'components/keys/UseKeyModal.vue',
@@ -118,7 +86,6 @@ const ALLOWLIST = new Set<string>([
   'components/modelPlaza/PlazaFilterBar.vue',
   'components/modelPlaza/PlazaGroupSection.vue',
   'components/modelPlaza/PlazaModelPricingTable.vue',
-  'components/modelPlaza/PlazaNavBar.vue',
   'components/payment/AmountInput.vue',
   'components/payment/OrderTable.vue',
   'components/payment/PaymentMethodSelector.vue',
