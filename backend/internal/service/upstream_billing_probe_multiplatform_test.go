@@ -11,21 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 探测资格：/v1/sub2api/billing 是 key 级端点，全部
-// 受支持平台（含国产供应商）的 API-key 账号都可开启探测；OAuth/Bedrock 无静态 Key 仍不合格。
+// 探测资格：/v1/sub2api/billing 是 key 级端点，任何第三方 key 都可开启探测，
+// 平台标签不参与；OAuth/Bedrock 无静态 Key 仍不合格。
 func TestUpstreamBillingProbeIdentityCoversAllAPIKeyPlatforms(t *testing.T) {
+	require.True(t, IsUpstreamBillingProbeIdentity(AccountTypeAPIKey))
 	for _, platform := range []string{
 		PlatformOpenAI, PlatformGrok, PlatformAnthropic, PlatformGemini, PlatformAntigravity,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo,
+		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo, "future-platform",
 	} {
-		require.True(t, IsUpstreamBillingProbeIdentity(platform, AccountTypeAPIKey), platform)
 		require.True(t, isUpstreamBillingProbeAccount(&Account{Platform: platform, Type: AccountTypeAPIKey}), platform)
 	}
-	require.False(t, IsUpstreamBillingProbeIdentity(PlatformOpenAI, AccountTypeOAuth))
-	require.False(t, IsUpstreamBillingProbeIdentity(PlatformGrok, AccountTypeOAuth))
-	require.False(t, IsUpstreamBillingProbeIdentity(PlatformAnthropic, AccountTypeBedrock))
-	require.False(t, IsUpstreamBillingProbeIdentity("", AccountTypeAPIKey))
-	require.False(t, IsUpstreamBillingProbeIdentity("future-platform", AccountTypeAPIKey))
+	require.False(t, IsUpstreamBillingProbeIdentity(AccountTypeOAuth))
+	require.False(t, IsUpstreamBillingProbeIdentity(AccountTypeBedrock))
+	require.False(t, isUpstreamBillingProbeAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
 	require.False(t, isUpstreamBillingProbeAccount(nil))
 }
 
@@ -206,7 +204,6 @@ func TestUpstreamBillingProbeOfficialAPIHostMatchingIsNormalized(t *testing.T) {
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://us-west-2.api.x.ai/v1"))
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://generativelanguage.googleapis.com."))
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://x.ai"))
-	// openai 官方域在全集内；openai 平台账号不经过本判定（行为级测试钉死照探）。
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://api.openai.com"))
 	// Ollama Cloud 官方域及其子域（Ollama Cloud 账号的 base_url 允许带 www.）。
 	require.True(t, upstreamBillingProbeTargetIsOfficialAPI("https://ollama.com/v1"))
@@ -235,17 +232,20 @@ func TestUpstreamBillingProbeOfficialAPIHostMatchingIsNormalized(t *testing.T) {
 	require.False(t, upstreamBillingProbeTargetIsOfficialAPI("https://deepseek.example.com"))
 }
 
-// OpenAI 语义保持不变：无自定义 base 时仍探官方域，且沿用 openai 传输画像。
-func TestUpstreamBillingProbeOpenAIDefaultBaseURLPreserved(t *testing.T) {
-	account := &Account{
-		ID:                17,
-		Platform:          PlatformOpenAI,
-		Type:              AccountTypeAPIKey,
-		Status:            StatusActive,
+// 官方 OpenAI 地址与其它官方域同规则：必无 /v1/sub2api/billing，不发请求直接 unsupported；
+// 标签是 openai 不再是例外。中转地址照探，且用默认传输画像。
+func TestUpstreamBillingProbeOfficialOpenAIIsUnsupportedAndRelayUsesDefaultProfile(t *testing.T) {
+	official := &Account{
+		ID: 17, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
 		Credentials:       map[string]any{"api_key": "sk-openai"},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
-	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{account.ID: account}}
+	relay := &Account{
+		ID: 18, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+		Credentials:       map[string]any{"api_key": "sk-relay"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"},
+	}
+	repo := &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{official.ID: official, relay.ID: relay}}
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
 		Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -253,10 +253,15 @@ func TestUpstreamBillingProbeOpenAIDefaultBaseURLPreserved(t *testing.T) {
 	}}
 	svc := newUpstreamBillingProbeTestService(repo, upstream, &upstreamBillingProbeSettingRepo{})
 
-	_, err := svc.ProbeAccount(context.Background(), account.ID)
+	snapshot, err := svc.ProbeAccount(context.Background(), official.ID)
 	require.NoError(t, err)
-	require.Equal(t, "https://api.openai.com/v1/sub2api/billing", upstream.lastReq.URL.String())
-	require.Equal(t, HTTPUpstreamProfileOpenAI, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
+	require.Equal(t, UpstreamBillingProbeStatusUnsupported, snapshot.Status)
+	require.Nil(t, upstream.lastReq, "official OpenAI must not be probed")
+
+	_, err = svc.ProbeAccount(context.Background(), relay.ID)
+	require.NoError(t, err)
+	require.Equal(t, "https://relay.example/v1/sub2api/billing", upstream.lastReq.URL.String())
+	require.Equal(t, HTTPUpstreamProfileDefault, HTTPUpstreamProfileFromContext(upstream.lastReq.Context()))
 }
 
 func TestUpstreamBillingProbeSetAccountEnabledAcceptsGrokAPIKey(t *testing.T) {

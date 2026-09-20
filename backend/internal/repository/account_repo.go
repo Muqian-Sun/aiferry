@@ -660,7 +660,7 @@ func lockAndMergeAccountProbeExtra(
 	} {
 		delete(extra, key)
 	}
-	probeAccount := service.IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
+	probeAccount := service.IsUpstreamBillingProbeIdentity(account.Type)
 	probeEnabled := false
 	probeEnabledPresent := false
 	if probeAccount {
