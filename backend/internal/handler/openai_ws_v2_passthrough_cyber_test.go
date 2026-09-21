@@ -79,7 +79,7 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 		accountRepo, usageRepo, nil, nil, nil, gatewayCache, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCacheSvc, nil, &service.DeferredService{},
 		nil, nil, nil, nil, nil, settingSvc,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	concurrencyCache := &concurrencyCacheMock{
 		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },

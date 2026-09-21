@@ -2072,7 +2072,7 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 		nil,
 		nil,
 		nil,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2165,7 +2165,7 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 				nil,
 				nil,
 				nil,
-				nil,
+				newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 			)
 			h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2238,7 +2238,7 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 		nil,
 		nil,
 		nil,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2396,7 +2396,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		nil,
 		nil,
 		nil,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 
 	cache := &concurrencyCacheMock{
@@ -2595,7 +2595,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), rateLimitSvc, billingCacheSvc,
 		nil, &service.DeferredService{}, nil, nil, nil, nil, nil, nil,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	cache := &concurrencyCacheMock{
 		acquireUserSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
@@ -2827,7 +2827,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		channelSvc,
 		nil,
 		nil,
-		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), channelSvc),
 	)
 
 	cache := &concurrencyCacheMock{
