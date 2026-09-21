@@ -346,9 +346,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		sessionHash = h.gatewayService.GenerateSessionHash(parsedReq)
 	}
 	sessionKey := sessionHash
-	if sessionHash != "" {
-		sessionKey = "gemini:" + sessionHash
-	}
 
 	// 查询粘性会话绑定的账号 ID（用于检测账号切换）
 	var sessionBoundAccountID int64
@@ -431,7 +428,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	hasBoundSession := sessionKey != "" && sessionBoundAccountID > 0
 	cleanedForUnknownBinding := false
 
-	fs := NewFailoverState(h.maxAccountSwitchesGemini, hasBoundSession)
+	fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
 
 	// 单资源池提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 	// 避免单资源池收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。

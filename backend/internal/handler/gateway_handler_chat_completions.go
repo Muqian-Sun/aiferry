@@ -174,14 +174,8 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	promptCacheKey := h.openAIGatewayService.ExtractSessionID(c, body)
 	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
 	selectionSessionHash := sessionHash
-	if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
-		selectionSessionHash = "gemini:" + selectionSessionHash
-	}
 	// 3. Account selection + failover loop
 	fs := NewFailoverState(h.maxAccountSwitches, false)
-	if groupPlatform == service.PlatformGemini {
-		fs = NewFailoverState(h.maxAccountSwitchesGemini, false)
-	}
 
 	for {
 		if c.Request.Context().Err() != nil {
