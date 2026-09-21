@@ -286,12 +286,12 @@ func TestGatewayHandlerChatCompletions_GeminiGroupCrossLabelKeyUsesGeminiCompat(
 	require.Empty(t, hs.antigravityUpsteam.recorded())
 }
 
-func TestGatewayHandlerCountTokens_KeyWithoutAnthropicProtocolOnGatewayGets404(t *testing.T) {
+// count_tokens 没有转换：key 没有 anthropic 地址就承接不了（有 anthropic 地址的 key 不再被分组平台挡住）。
+func TestGatewayHandlerCountTokens_KeyWithoutAnthropicProtocolGets404(t *testing.T) {
 	group := keyRouteGroup(2105, service.PlatformGemini)
 	key := keyRouteAccount(1105, group.ID, service.PlatformAntigravity,
 		map[string]string{
-			service.APIProtocolGemini:    "https://gemini-relay.example.com",
-			service.APIProtocolAnthropic: "https://anthropic-relay.example.com",
+			service.APIProtocolGemini: "https://gemini-relay.example.com",
 		}, "gemini-2.5-flash")
 	hs := newKeyRouteHarness(t, group, []*service.Account{key})
 
@@ -341,7 +341,8 @@ func TestCompatForwardTargets_KeysFollowGatewayProtocolNotLabel(t *testing.T) {
 		return &service.Account{Platform: label, Type: service.AccountTypeAPIKey, ProtocolEndpoints: endpoints}
 	}
 
-	// 三个入站共用一份「成品号按厂商分流」规则：antigravity 成品号任何网关平台都走 v1internal，
+	// 三个入站共用一份「按资源分流」规则：第三方 key 按协议转换注册表选上游协议（同协议直连优先，
+	// 与分组 / 条目的「族」无关）；antigravity 成品号任何网关平台都走 v1internal；
 	// gemini 成品号只在有 Gemini 实现的入站上承接（responses 没有）。
 	tests := []struct {
 		name          string
@@ -352,11 +353,12 @@ func TestCompatForwardTargets_KeysFollowGatewayProtocolNotLabel(t *testing.T) {
 		wantResponses compatForwardTarget
 	}{
 		{"anthropic-labelled key with gemini endpoint in gemini group", service.PlatformGemini, key(service.PlatformAnthropic, geminiOnly), compatForwardGemini, compatForwardGemini, compatForwardSkip},
-		{"antigravity-labelled key with both endpoints in gemini group", service.PlatformGemini, key(service.PlatformAntigravity, both), compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"antigravity-labelled key with both endpoints in gemini group prefers anthropic direct", service.PlatformGemini, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
 		{"gemini-labelled key with anthropic endpoint in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
 		{"gemini-labelled key with both endpoints in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
 		{"antigravity-labelled key in antigravity group", service.PlatformAntigravity, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"openai-labelled key without group protocol", service.PlatformGemini, key(service.PlatformOpenAI, anthropicOnly), compatForwardSkip, compatForwardSkip, compatForwardSkip},
+		{"openai-labelled key with anthropic endpoint in gemini group is not family-gated", service.PlatformGemini, key(service.PlatformOpenAI, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"responses-only key skipped until the OpenAI target lands (3b-3)", service.PlatformAnthropic, key(service.PlatformOpenAI, map[string]string{service.APIProtocolResponses: "https://relay.example.com"}), compatForwardSkip, compatForwardSkip, compatForwardSkip},
 		{"ungrouped key uses anthropic gateway", "", key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
 		{"gemini subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth}, compatForwardGemini, compatForwardGemini, compatForwardSkip},
 		{"antigravity subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
@@ -381,18 +383,18 @@ func TestKeyServesAnthropicCountTokens(t *testing.T) {
 	require.True(t, keyServesAnthropicCountTokens(service.PlatformAnthropic, key))
 	require.True(t, keyServesAnthropicCountTokens(service.PlatformAntigravity, key))
 	require.True(t, keyServesAnthropicCountTokens("", key))
-	require.False(t, keyServesAnthropicCountTokens(service.PlatformGemini, key))
+	require.True(t, keyServesAnthropicCountTokens(service.PlatformGemini, key), "有 anthropic 地址就能直连，不看网关平台")
 
 	geminiOnly := &service.Account{Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey, ProtocolEndpoints: map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}}
 	require.False(t, keyServesAnthropicCountTokens(service.PlatformAnthropic, geminiOnly))
 }
 
-func TestGatewayHandlerResponses_GeminiGroupKeyIsSkippedInsteadOfSentAsAnthropic(t *testing.T) {
+// 没有 Responses → Gemini 的转换：只配 gemini 地址的 key 在 /v1/responses 上被跳过，不会被当成别的协议发出去。
+func TestGatewayHandlerResponses_GeminiOnlyKeyIsSkippedInsteadOfSentAsAnthropic(t *testing.T) {
 	group := keyRouteGroup(2106, service.PlatformGemini)
 	key := keyRouteAccount(1106, group.ID, service.PlatformAntigravity,
 		map[string]string{
-			service.APIProtocolGemini:    "https://gemini-relay.example.com",
-			service.APIProtocolAnthropic: "https://anthropic-relay.example.com",
+			service.APIProtocolGemini: "https://gemini-relay.example.com",
 		}, "gemini-2.5-flash")
 	hs := newKeyRouteHarness(t, group, []*service.Account{key})
 

@@ -1700,7 +1700,7 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		}
 	case credAccount.IsThirdPartyKey():
 		// 第三方 key 不看平台标签：/models 清单挂在 OpenAI API 根地址（chat_completions）下，
-		// 与选号口径（KeyUpstreamProtocolFor(openai, "")）一致，选中的 key 必有该地址。
+		// 与选号口径（UpstreamProtocolFor("") 只认 chat_completions 地址）一致，选中的 key 必有该地址。
 		baseURL := credAccount.ProtocolEndpoint(APIProtocolChatCompletions)
 		authToken = strings.TrimSpace(credAccount.GetOpenAIProtocolAPIKey())
 		if authToken == "" {

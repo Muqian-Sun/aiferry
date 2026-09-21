@@ -6,7 +6,7 @@ import (
 
 // OpenAI 网关上第三方 key 的上游协议与协议特性判定。
 //
-// 第三方 key 选的平台只是展示标签：上游协议由协议地址决定（KeyUpstreamProtocolFor），
+// 第三方 key 选的平台只是展示标签：上游协议由协议地址与转换注册表决定（UpstreamProtocolFor），
 // 厂商特化由地址识别出的厂商决定（Vendor），这里不读 Platform。成品号（OpenAI OAuth /
 // Codex、Grok OAuth）的协议由厂商决定，不经过这些函数。
 
@@ -29,16 +29,13 @@ func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string, u
 	if protocol := openAIGatewayKeyProtocol(account, inboundProtocol); protocol != "" {
 		return protocol, nil
 	}
-	return "", MissingProtocolEndpointError(account, strings.Join(KeyUpstreamProtocols(PlatformOpenAI, inboundProtocol, account.Vendor()), " / "))
+	return "", MissingProtocolEndpointError(account, strings.Join(UpstreamProtocolPreference(inboundProtocol, account.Vendor()), " / "))
 }
 
-// openAIGatewayKeyProtocol 返回第三方 key 在 OpenAI 网关上处理该入站协议的首选上游协议，
-// 不能承接时返回空串。
-//
-// OpenAI 网关上各分组平台（openai / grok / 国产供应商 / OpenCode）的协议候选相同，
-// 转发层拿不到分组平台，用 PlatformOpenAI 代表这个网关。
+// openAIGatewayKeyProtocol 返回第三方 key 处理该入站协议的上游协议（协议转换注册表：
+// 同协议直连优先，官方 OpenAI 先转 Responses），不能承接时返回空串。
 func openAIGatewayKeyProtocol(account *Account, inboundProtocol string) string {
-	return account.KeyUpstreamProtocolFor(PlatformOpenAI, inboundProtocol)
+	return account.UpstreamProtocolFor(inboundProtocol)
 }
 
 // openAIGatewayKeyExtensionBaseURL 返回第三方 key 承接图片、向量、搜索等 OpenAI 扩展
