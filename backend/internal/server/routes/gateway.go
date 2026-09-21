@@ -153,14 +153,8 @@ func RegisterGatewayRoutes(
 	gateway.Use(groupModelAllowlist)
 	gateway.Use(requireGroupAnthropic)
 	{
-		// /v1/messages: auto-route based on the entry's gateway family
-		gateway.POST("/messages", func(c *gin.Context) {
-			if isOpenAIResponsesCompatibleGatewayPlatform(c) {
-				h.OpenAIGateway.Messages(c)
-				return
-			}
-			h.Gateway.Messages(c)
-		})
+		// /v1/messages: 一条循环承接全部资源，转发实现按资源的上游协议定（compatForwardTargetFor）
+		gateway.POST("/messages", h.Gateway.Messages)
 		// /v1/messages/count_tokens: OpenAI bridges upstream, Grok estimates
 		// locally, and Anthropic-compatible platforms retain their existing path.
 		gateway.POST("/messages/count_tokens", countTokensHandler)

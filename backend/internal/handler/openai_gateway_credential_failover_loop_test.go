@@ -516,7 +516,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 			body   string
 		}{
 			{name: "responses", method: http.MethodPost, path: "/openai/v1/responses", body: `{"model":"grok","input":"hello","stream":false}`},
-			{name: "messages", method: http.MethodPost, path: "/openai/v1/messages", body: `{"model":"grok","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`},
 			{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
 			{name: "grok media", method: http.MethodGet, path: "/openai/v1/videos/request-1"},
 		}
@@ -719,7 +718,6 @@ func TestGrokOAuthCredentialFailoverAcrossHTTPHandlers(t *testing.T) {
 		path   string
 		body   string
 	}{
-		{name: "messages", method: http.MethodPost, path: "/openai/v1/messages", body: `{"model":"grok","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`},
 		{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
 		{name: "chat completions raw fallback", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stop":["END"],"stream":false}`},
 		{name: "grok media", method: http.MethodPost, path: "/openai/v1/videos/generations", body: `{"model":"grok-imagine-video","prompt":"waves"}`},
@@ -964,7 +962,6 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 	})
 	router.POST("/openai/v1/responses", h.Responses)
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	router.POST("/openai/v1/messages", h.Messages)
 	router.POST("/openai/v1/chat/completions", h.ChatCompletions)
 	router.POST("/openai/v1/videos/generations", h.GrokVideoGeneration)
 	router.GET("/openai/v1/videos/:request_id", h.GrokVideoStatus)
