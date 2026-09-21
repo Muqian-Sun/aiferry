@@ -624,7 +624,7 @@ func (r *userRepository) ListWithFilters(ctx context.Context, params pagination.
 				usersubscription.UserIDIn(userIDs...),
 				usersubscription.StatusEQ(service.SubscriptionStatusActive),
 			).
-			WithGroup().
+			WithPlan().
 			All(ctx)
 		if err != nil {
 			return nil, nil, err
