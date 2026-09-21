@@ -420,6 +420,10 @@ func (s *UserSubscriptionRepoSuite) TestList_IncludesRevokedWhenStatusEmpty() {
 	})
 	revoked := s.mustCreateSubscription(user3.ID, plan3.ID, nil)
 	s.Require().NoError(s.repo.Delete(s.ctx, revoked.ID))
+	// 订阅 key：撤销后仍在，列表两条路径（预载 / 软删补关系）都要带上
+	revokedKey, err := s.client.APIKey.Create().SetUserID(user3.ID).SetKey("sk-list-revoked").SetName("p-allstatus-3").
+		SetStatus(service.StatusActive).SetSubscriptionID(revoked.ID).Save(s.ctx)
+	s.Require().NoError(err)
 
 	subs, pag, err := s.repo.List(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, nil, nil, "", "", "")
 	s.Require().NoError(err)
@@ -438,6 +442,24 @@ func (s *UserSubscriptionRepoSuite) TestList_IncludesRevokedWhenStatusEmpty() {
 	s.Require().NotNil(gotRevoked.DeletedAt)
 	s.Require().NotNil(gotRevoked.User)
 	s.Require().NotNil(gotRevoked.Plan)
+	s.Require().NotNil(gotRevoked.APIKey, "软删路径也要带订阅 key")
+	s.Require().Equal(revokedKey.ID, gotRevoked.APIKey.ID)
+}
+
+// 未软删路径（status 过滤）：List 预载订阅 key
+func (s *UserSubscriptionRepoSuite) TestList_ActiveCarriesSubscriptionKey() {
+	user := s.mustCreateUser("listkey@test.com", service.RoleUser)
+	plan := s.mustCreatePlan("p-listkey")
+	sub := s.mustCreateSubscription(user.ID, plan.ID, nil)
+	key, err := s.client.APIKey.Create().SetUserID(user.ID).SetKey("sk-list-active").SetName("p-listkey").
+		SetStatus(service.StatusActive).SetSubscriptionID(sub.ID).Save(s.ctx)
+	s.Require().NoError(err)
+
+	subs, _, err := s.repo.List(s.ctx, pagination.PaginationParams{Page: 1, PageSize: 10}, &user.ID, nil, service.SubscriptionStatusActive, "", "")
+	s.Require().NoError(err)
+	s.Require().Len(subs, 1)
+	s.Require().NotNil(subs[0].APIKey)
+	s.Require().Equal(key.ID, subs[0].APIKey.ID)
 }
 
 func (s *UserSubscriptionRepoSuite) TestList_FilterByRevokedStatus() {
