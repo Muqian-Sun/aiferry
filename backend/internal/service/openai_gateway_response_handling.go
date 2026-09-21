@@ -1452,6 +1452,29 @@ func (s *OpenAIGatewayService) BindOpenAIHTTPResponseOwner(
 	)
 }
 
+// openAIHTTPResponseScopeID HTTP 续链绑定的作用域：目录路由下是条目 ID，否则分组 ID（0 = 未分组）。
+func openAIHTTPResponseScopeID(ctx context.Context, c *gin.Context) int64 {
+	groupID := getOpenAIGroupIDFromContext(c)
+	return SchedulingScopeID(ctx, &groupID)
+}
+
+// BindOpenAIHTTPResponseAccount 记录 response id → 承接它的账号，供 HTTP 续链选号预取。
+func (s *OpenAIGatewayService) BindOpenAIHTTPResponseAccount(ctx context.Context, scopeID int64, responseID string, accountID int64) bool {
+	if s == nil || accountID <= 0 {
+		return false
+	}
+	responseID = strings.TrimSpace(responseID)
+	if responseID == "" {
+		return false
+	}
+	store := s.getOpenAIWSStateStore()
+	if store == nil {
+		return false
+	}
+	logOpenAIWSBindResponseAccountWarn(scopeID, accountID, responseID, store.BindResponseAccount(ctx, scopeID, responseID, accountID, s.openAIWSResponseStickyTTL()))
+	return true
+}
+
 func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *gin.Context, account *Account, responseID string) {
 	if s == nil || account == nil || account.ID <= 0 {
 		return
@@ -1460,16 +1483,16 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 	if responseID == "" {
 		return
 	}
-	store := s.getOpenAIWSStateStore()
-	if store == nil {
+	// 作用域与读方（ResolveAccountIDByPreviousResponseIDForScheduler / ValidateOpenAIHTTPResponseOwner）
+	// 一致：目录路由下是条目 ID，否则分组 ID。
+	groupID := getOpenAIGroupIDFromContext(c)
+	scopeID := openAIHTTPResponseScopeID(ctx, c)
+	if !s.BindOpenAIHTTPResponseAccount(ctx, scopeID, responseID, account.ID) {
 		return
 	}
-	groupID := getOpenAIGroupIDFromContext(c)
-	ttl := s.openAIWSResponseStickyTTL()
-	logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, store.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
 	if rawOwner, ok := c.Get(openAIHTTPResponseOwnerContextKey); ok {
 		if owner, ok := rawOwner.(openAIHTTPResponseOwner); ok && owner.userID > 0 && owner.apiKeyID > 0 {
-			if err := s.BindOpenAIHTTPResponseOwner(ctx, groupID, responseID, owner.userID, owner.apiKeyID); err != nil {
+			if err := s.BindOpenAIHTTPResponseOwner(ctx, scopeID, responseID, owner.userID, owner.apiKeyID); err != nil {
 				logger.L().Warn(
 					"openai.http_bind_response_owner_failed",
 					zap.Int64("group_id", groupID),

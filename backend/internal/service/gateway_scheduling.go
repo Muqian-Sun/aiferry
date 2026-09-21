@@ -422,7 +422,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 								stickyCacheMissReason, stickyAccountID, shortSessionHash(sessionHash), currentRPM, baseRPM)
 						}
 					} else {
-						_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+						s.deleteStickySession(ctx, groupID, sessionHash)
 						logger.LegacyPrintf("service.gateway", "[StickyCacheMiss] reason=account_cleared account_id=%d session=%s current_rpm=0 base_rpm=0",
 							stickyAccountID, shortSessionHash(sessionHash))
 					}
@@ -530,7 +530,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 						"reason", "should_clear_sticky_session",
 						"session", shortSessionHash(sessionHash),
 					)
-					_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+					s.deleteStickySession(ctx, groupID, sessionHash)
 				}
 
 				// 注意：不再检查 isAccountInGroup，因为 accountByID 已经从按分组过滤的
@@ -774,6 +774,30 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		})
 	}
 	return nil, ErrNoAvailableAccounts
+}
+
+// stickyAccountIDForSelection 本次请求的粘性账号：handler 预取的（续链 / 守护父线程亲和 / Messages 提前查的）优先，
+// 其次缓存里的会话绑定；没有返回 0。
+func (s *GatewayService) stickyAccountIDForSelection(ctx context.Context, groupID *int64, sessionHash string) int64 {
+	if prefetch := prefetchedStickyAccountIDFromContext(ctx, groupID); prefetch > 0 {
+		return prefetch
+	}
+	if sessionHash == "" || s.cache == nil {
+		return 0
+	}
+	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+	if err != nil {
+		return 0
+	}
+	return accountID
+}
+
+// deleteStickySession 清缓存里的会话绑定（缓存未配置时 no-op）。
+func (s *GatewayService) deleteStickySession(ctx context.Context, groupID *int64, sessionHash string) {
+	if s.cache == nil || sessionHash == "" {
+		return
+	}
+	_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 }
 
 func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, inbound string) (*AccountSelectionResult, bool, error) {
@@ -1695,16 +1719,15 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				derefGroupID(groupID), requestedModel, platform, shortSessionHash(sessionHash), routingAccountIDs)
 		}
 		// 1) Sticky session only applies if the bound account is within the routing set.
-		if sessionHash != "" && s.cache != nil {
-			accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
-			if err == nil && accountID > 0 && containsInt64(routingAccountIDs, accountID) {
+		if accountID := s.stickyAccountIDForSelection(ctx, groupID, sessionHash); accountID > 0 {
+			if containsInt64(routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 					if err == nil {
 						clearSticky := shouldClearStickySession(account, requestedModel)
 						if clearSticky {
-							_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+							s.deleteStickySession(ctx, groupID, sessionHash)
 						}
 						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
@@ -1785,16 +1808,15 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	}
 
 	// 1. 查询粘性会话
-	if sessionHash != "" && s.cache != nil {
-		accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
-		if err == nil && accountID > 0 {
+	if accountID := s.stickyAccountIDForSelection(ctx, groupID, sessionHash); accountID > 0 {
+		{
 			if _, excluded := excludedIDs[accountID]; !excluded {
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和平台匹配（确保粘性会话不会跨分组或跨平台）
 				if err == nil {
 					clearSticky := shouldClearStickySession(account, requestedModel)
 					if clearSticky {
-						_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+						s.deleteStickySession(ctx, groupID, sessionHash)
 					}
 					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
@@ -1825,6 +1847,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	// 因为粘性会话优先保持连接一致性，且 upstream 计费基准极少使用。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var selected *Account
+	compactRejected := 0
 	for i := range accounts {
 		acc := &accounts[i]
 		if _, excluded := excludedIDs[acc.ID]; excluded {
@@ -1840,7 +1863,10 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			continue
 		}
 		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
-		if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
+		if ok, reason := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
+			if reason == admitReasonCompactUnsupported {
+				compactRejected++
+			}
 			continue
 		}
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -1856,6 +1882,9 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	}
 
 	if selected == nil {
+		if compactRejected > 0 {
+			return nil, ErrNoAvailableCompactAccounts
+		}
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, platform, accounts, excludedIDs, false)
 		if requestedModel != "" {
 			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))
@@ -1895,16 +1924,15 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				derefGroupID(groupID), requestedModel, nativePlatform, shortSessionHash(sessionHash), routingAccountIDs)
 		}
 		// 1) Sticky session only applies if the bound account is within the routing set.
-		if sessionHash != "" && s.cache != nil {
-			accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
-			if err == nil && accountID > 0 && containsInt64(routingAccountIDs, accountID) {
+		if accountID := s.stickyAccountIDForSelection(ctx, groupID, sessionHash); accountID > 0 {
+			if containsInt64(routingAccountIDs, accountID) {
 				if _, excluded := excludedIDs[accountID]; !excluded {
 					account, err := s.getSchedulableAccount(ctx, accountID)
 					// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 					if err == nil {
 						clearSticky := shouldClearStickySession(account, requestedModel)
 						if clearSticky {
-							_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+							s.deleteStickySession(ctx, groupID, sessionHash)
 						}
 						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if isAccountSchedulableOnPlatform(ctx, account, nativePlatform, true) {
@@ -1987,16 +2015,15 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	}
 
 	// 1. 查询粘性会话
-	if sessionHash != "" && s.cache != nil {
-		accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
-		if err == nil && accountID > 0 {
+	if accountID := s.stickyAccountIDForSelection(ctx, groupID, sessionHash); accountID > 0 {
+		{
 			if _, excluded := excludedIDs[accountID]; !excluded {
 				account, err := s.getSchedulableAccount(ctx, accountID)
 				// 检查账号分组归属和有效性：原生平台直接匹配，antigravity 需要启用混合调度
 				if err == nil {
 					clearSticky := shouldClearStickySession(account, requestedModel)
 					if clearSticky {
-						_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+						s.deleteStickySession(ctx, groupID, sessionHash)
 					}
 					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if isAccountSchedulableOnPlatform(ctx, account, nativePlatform, true) {
@@ -2024,6 +2051,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查。
 	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var selected *Account
+	compactRejected := 0
 	for i := range accounts {
 		acc := &accounts[i]
 		if _, excluded := excludedIDs[acc.ID]; excluded {
@@ -2043,7 +2071,10 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			continue
 		}
 		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
-		if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
+		if ok, reason := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
+			if reason == admitReasonCompactUnsupported {
+				compactRejected++
+			}
 			continue
 		}
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -2059,6 +2090,9 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	}
 
 	if selected == nil {
+		if compactRejected > 0 {
+			return nil, ErrNoAvailableCompactAccounts
+		}
 		stats := s.logDetailedSelectionFailure(ctx, groupID, sessionHash, requestedModel, nativePlatform, accounts, excludedIDs, true)
 		if requestedModel != "" {
 			return nil, fmt.Errorf("%w supporting model: %s (%s)", ErrNoAvailableAccounts, requestedModel, summarizeSelectionFailureStats(stats))

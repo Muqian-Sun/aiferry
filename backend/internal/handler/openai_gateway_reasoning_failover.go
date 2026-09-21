@@ -23,7 +23,7 @@ type openAIPassthroughFailoverState struct {
 //
 // This method is invoked exactly once per forward attempt, immediately before the
 // Forward call, and advances the failover state as a side effect.
-func (h *OpenAIGatewayHandler) deriveOpenAIForwardAttemptBody(
+func deriveOpenAIForwardAttemptBody(
 	reqLog *zap.Logger,
 	canonicalBody []byte,
 	account *service.Account,
