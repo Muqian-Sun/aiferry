@@ -1,11 +1,11 @@
 <template>
   <div v-if="hasProviders" class="space-y-4">
     <div v-if="showDivider" class="flex items-center gap-3">
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
-      <span class="text-xs text-gray-500 dark:text-dark-400">
+      <div class="h-px flex-1 bg-af-hairline"></div>
+      <span class="text-xs text-af-ink-3">
         {{ t('auth.oauthOrContinue') }}
       </span>
-      <div class="h-px flex-1 bg-gray-200 dark:bg-dark-700"></div>
+      <div class="h-px flex-1 bg-af-hairline"></div>
     </div>
 
     <div :class="providerGridClass">
@@ -17,7 +17,7 @@
         class="btn btn-secondary h-12 w-full justify-center gap-2"
         @click="startLogin(provider)"
       >
-        <GitHubMark v-if="provider === 'github'" class="h-5 w-5 text-gray-800 dark:text-gray-100" />
+        <GitHubMark v-if="provider === 'github'" class="h-5 w-5 text-af-ink" />
         <GoogleMark v-else class="h-5 w-5" />
         <span class="font-medium">{{ providerLabel(provider) }}</span>
       </button>
@@ -31,6 +31,11 @@ import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import GitHubMark from './GitHubMark.vue'
 import GoogleMark from './GoogleMark.vue'
+import { APP_SITE } from '@/app/site'
+import { defaultAuthedPath } from '@/router/defaultAuthedPath'
+
+// 登录后默认落点按站点区分：用户站是用量页，管理后台是仪表盘
+const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 import type { OAuthLoginStart } from '@/api/auth'
 import { resolveAffiliateReferralCode, storeOAuthAffiliateCode } from '@/utils/oauthAffiliate'
 
@@ -76,7 +81,7 @@ function providerLabel(provider: EmailOAuthProvider): string {
 }
 
 function startLogin(provider: EmailOAuthProvider): void {
-  const redirectTo = (route.query.redirect as string) || '/dashboard'
+  const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
   const affiliateCode = resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code)
   storeOAuthAffiliateCode(affiliateCode)
   window.sessionStorage.setItem(EMAIL_OAUTH_PENDING_PROVIDER_KEY, provider)

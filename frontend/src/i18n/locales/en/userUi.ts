@@ -30,6 +30,44 @@ export default {
       switchToDark: 'Switch to dark',
       accountMenu: 'Account menu'
     },
+    home: {
+      heroTitle: 'One API key for every major model.',
+      heroDescription: 'Requests are forwarded to Anthropic, OpenAI, Gemini and other upstreams over their official protocols. Every call is logged, so usage and cost live in one ledger.',
+      getStarted: 'Get started',
+      goToConsole: 'Open console',
+      viewPricing: 'Models & pricing',
+      routeMap: {
+        label: 'Diagram: requests pass through AiFerry to four official protocols',
+        source: 'Your app',
+        sourceHint: 'one API key',
+        hub: 'relay',
+        routes: {
+          messages: 'Anthropic Messages',
+          responses: 'OpenAI Responses',
+          chat: 'Chat Completions',
+          gemini: 'Gemini Generate'
+        },
+        vendors: {
+          messages: 'Claude',
+          responses: 'GPT',
+          chat: 'GPT, DeepSeek, Qwen, Grok',
+          gemini: 'Gemini'
+        }
+      },
+      steps: {
+        title: 'Three steps to integrate',
+        create: { title: 'Create a key', body: 'Generate an API key in the console; scope it by group and quota.' },
+        baseUrl: { title: 'Change one base_url', body: 'Keep your SDK and request format; point the upstream at this site.' },
+        watch: { title: 'Send requests, review usage', body: 'Tokens, latency and cost are recorded per request and exportable any time.' }
+      },
+      facts: {
+        title: 'What you can verify',
+        protocol: { title: 'Official protocols', body: 'No proprietary translation: request and response bodies pass through as each vendor defines them.' },
+        pricing: { title: 'Public pricing', body: 'The models page lists each model\'s official reference price, billed per token.' },
+        ledger: { title: 'Line-by-line records', body: 'The usage page lists model, tokens, latency and cost per request, with filters and CSV export.' },
+        balance: { title: 'Transparent balance', body: 'Available and frozen balance are shown separately; every charge traces back to a request.' }
+      }
+    },
     billing: {
       title: 'Billing',
       description: 'Top up, subscriptions, orders and referrals',
@@ -71,6 +109,12 @@ export default {
         security: 'Security',
         notifications: 'Notifications'
       }
+    },
+    notFound: {
+      title: 'Page not found',
+      description: 'The page you are looking for does not exist or has been moved.',
+      back: 'Go back',
+      home: 'Back to home'
     },
     status: {
       loading: 'Loading'

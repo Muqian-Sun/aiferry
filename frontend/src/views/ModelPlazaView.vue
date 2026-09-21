@@ -1,41 +1,32 @@
 <template>
-  <!-- 后台内嵌形态:?embedded=1 且已登录,套完整后台布局 -->
-  <SiteShell v-if="isEmbedded">
-    <ModelPlazaContent :response="data" :loading="loading" :error="loadFailed" embedded />
+  <!--
+    模型页：已登录走控制台壳（页头由壳提供，内容不再画自己的标题），未登录走公开壳。
+    旧的 ?embedded=1 参数不再需要——已登录即控制台形态；未登录带该参数时自然降级为公开形态。
+  -->
+  <SiteShell :variant="isAuthenticated ? 'console' : 'public'">
+    <ModelPlazaContent :response="data" :loading="loading" :error="loadFailed" :embedded="isAuthenticated" />
   </SiteShell>
-
-  <!-- 独立形态:自带导航条(logo/站名 + 登录/回后台) -->
-  <div v-else class="min-h-screen bg-gray-50 dark:bg-dark-950">
-    <PlazaNavBar />
-    <main class="mx-auto max-w-7xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
-      <ModelPlazaContent :response="data" :loading="loading" :error="loadFailed" />
-    </main>
-  </div>
 </template>
 
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import PlazaNavBar from '@/components/modelPlaza/PlazaNavBar.vue'
 import ModelPlazaContent from '@/components/modelPlaza/ModelPlazaContent.vue'
 import { getModelPlaza, type ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 
-const route = useRoute()
 const appStore = useAppStore()
 const authStore = useAuthStore()
 
-// embedded=1 但未登录(如转发的链接)自动降级为独立形态。
-const isEmbedded = computed(() => route.query.embedded === '1' && authStore.isAuthenticated)
+const isAuthenticated = computed(() => authStore.isAuthenticated)
 
 const data = ref<ModelPlazaResponse | null>(null)
 const loading = ref(true)
 const loadFailed = ref(false)
 
 onMounted(async () => {
-  // 独立形态导航条需要站点名/Logo;有 __APP_CONFIG__ 注入时同步命中缓存。
+  // 顶栏需要站点名 / Logo；有 __APP_CONFIG__ 注入时同步命中缓存
   void appStore.fetchPublicSettings()
   try {
     data.value = await getModelPlaza()
