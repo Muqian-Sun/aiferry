@@ -15,7 +15,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
@@ -255,7 +254,7 @@ func (s *OpenAIGatewayService) SelectAccountForModel(ctx context.Context, groupI
 // SelectAccountForModelWithExclusions selects an account supporting the requested model while excluding specified accounts.
 // SelectAccountForModelWithExclusions 选择支持指定模型的账号，同时排除指定的账号。
 func (s *OpenAIGatewayService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
-	return s.selectAccountForModelWithExclusions(s.withOpenAIQuotaAutoPauseContext(ctx), groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, 0, "", false)
+	return s.selectAccountForModelWithExclusions(ctx, groupID, PlatformOpenAI, sessionHash, requestedModel, excludedIDs, false, 0, "", false)
 }
 
 // SelectAccountForTokenCount selects an account for a non-billable token-count
@@ -270,7 +269,6 @@ func (s *OpenAIGatewayService) SelectAccountForTokenCount(
 	platform string,
 ) (*Account, error) {
 	ctx = WithOpenAIProfitControlSuppressed(ctx)
-	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	return s.selectAccountForModelWithExclusions(
 		ctx,
 		groupID,
@@ -417,34 +415,6 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 		}
 		return "not_schedulable"
 	}
-	if paused, reason := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
-		// Debug level: this fires per-candidate on the scheduling hot path, so Info
-		// would amplify into log spam once several accounts cross the threshold.
-		slog.Debug("account_auto_paused_by_quota",
-			"account_id", account.ID,
-			"window", reason.window,
-			"threshold", reason.threshold,
-			"utilization", reason.utilization,
-		)
-		if reason.window != "" {
-			return "quota_auto_pause_" + reason.window
-		}
-		return "quota_auto_pause"
-	}
-	if account.IsGrok() {
-		if paused, reason := shouldAutoPauseGrokAccountByQuota(account); paused {
-			slog.Debug("grok_account_auto_paused_by_quota",
-				"account_id", account.ID,
-				"window", reason.window,
-				"threshold", reason.threshold,
-				"utilization", reason.utilization,
-			)
-			if reason.window != "" {
-				return "quota_auto_pause_" + reason.window
-			}
-			return "quota_auto_pause"
-		}
-	}
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
 		return "model_not_supported"
 	}
@@ -459,190 +429,6 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 		return "compact_unsupported"
 	}
 	return ""
-}
-
-type openAIQuotaAutoPauseDecision struct {
-	window      string
-	threshold   float64
-	utilization float64
-	reason      string
-}
-
-func shouldAutoPauseGrokAccountByQuota(account *Account) (bool, openAIQuotaAutoPauseDecision) {
-	if account == nil || !account.IsGrok() || account.Type != AccountTypeOAuth {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	snapshot, err := grokQuotaSnapshotFromExtra(account.Extra)
-	if err != nil || snapshot == nil {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	now := time.Now()
-	if grokQuotaSnapshotStaleForPause(snapshot, now) {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	if grokQuotaRetryAfterActive(snapshot, now) {
-		return true, openAIQuotaAutoPauseDecision{window: "retry_after", threshold: 1, utilization: 1}
-	}
-	if paused, decision := shouldAutoPauseGrokQuotaWindow("requests", snapshot.Requests, now); paused {
-		return true, decision
-	}
-	if paused, decision := shouldAutoPauseGrokQuotaWindow("tokens", snapshot.Tokens, now); paused {
-		return true, decision
-	}
-	return false, openAIQuotaAutoPauseDecision{}
-}
-
-func grokQuotaRetryAfterActive(snapshot *xai.QuotaSnapshot, now time.Time) bool {
-	if snapshot == nil || snapshot.RetryAfterSeconds == nil || *snapshot.RetryAfterSeconds <= 0 {
-		return false
-	}
-	if strings.TrimSpace(snapshot.UpdatedAt) == "" {
-		return true
-	}
-	updatedAt, err := parseTime(snapshot.UpdatedAt)
-	if err != nil {
-		return true
-	}
-	retryAfterUntil := updatedAt.Add(time.Duration(*snapshot.RetryAfterSeconds) * time.Second)
-	return now.Before(retryAfterUntil)
-}
-
-func shouldAutoPauseGrokQuotaWindow(name string, window *xai.QuotaWindow, now time.Time) (bool, openAIQuotaAutoPauseDecision) {
-	if window == nil || window.Limit == nil || window.Remaining == nil || *window.Limit <= 0 {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	if window.ResetUnix != nil && *window.ResetUnix > 0 && !now.Before(time.Unix(*window.ResetUnix, 0)) {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	utilization := float64(*window.Limit-*window.Remaining) / float64(*window.Limit)
-	if *window.Remaining <= 0 || utilization >= 1 {
-		return true, openAIQuotaAutoPauseDecision{window: name, threshold: 1, utilization: utilization}
-	}
-	return false, openAIQuotaAutoPauseDecision{}
-}
-
-func grokQuotaSnapshotStaleForPause(snapshot *xai.QuotaSnapshot, now time.Time) bool {
-	if snapshot == nil || strings.TrimSpace(snapshot.UpdatedAt) == "" {
-		return false
-	}
-	updatedAt, err := parseTime(snapshot.UpdatedAt)
-	if err != nil {
-		return false
-	}
-	return now.Sub(updatedAt) >= openAICodexAutoPauseStaleAfter
-}
-
-// shouldAutoPauseOpenAIAccountByQuota 按 Codex 用量快照（codex_5h/7d_*）判断账号是否自动暂停调度。
-//
-// 适用 OpenAI 成品号，以及任意平台标签的第三方 key：key 的快照只可能来自上游回传的
-// x-codex-* 响应头（透传中转），有快照就按阈值暂停，与它选的平台标签无关。
-func shouldAutoPauseOpenAIAccountByQuota(ctx context.Context, account *Account) (bool, openAIQuotaAutoPauseDecision) {
-	if account == nil || (!account.IsThirdPartyKey() && !account.IsOpenAI()) {
-		return false, openAIQuotaAutoPauseDecision{}
-	}
-	// 自动用卡有独立阈值：达到消费阈值时必须先退出调度；仅达到普通暂停阈值时，
-	// 只有新鲜状态明确存在可用卡才继续放行到消费阈值。
-	if config := ResolveOpenAIAutoResetCreditConfig(account); config.Enabled {
-		now := time.Now()
-		utilization5h, has5h := resolveOpenAIQuotaUtilization(account.Extra, "5h", now)
-		utilization7d, has7d := resolveOpenAIQuotaUtilization(account.Extra, "7d", now)
-		if has5h && utilization5h >= config.Threshold5h {
-			notifyOpenAIAutoReset(account.ID)
-			return true, openAIQuotaAutoPauseDecision{window: "5h", threshold: config.Threshold5h, utilization: utilization5h, reason: "quota_auto_reset_pending_5h"}
-		}
-		if has7d && utilization7d >= config.Threshold7d {
-			notifyOpenAIAutoReset(account.ID)
-			return true, openAIQuotaAutoPauseDecision{window: "7d", threshold: config.Threshold7d, utilization: utilization7d, reason: "quota_auto_reset_pending_7d"}
-		}
-
-		disabled5h := resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled")
-		disabled7d := resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled")
-		pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(ctx, account)
-		pauseReached5h := !disabled5h && pause5h > 0 && has5h && utilization5h >= pause5h
-		pauseReached7d := !disabled7d && pause7d > 0 && has7d && utilization7d >= pause7d
-		if pauseReached5h || pauseReached7d {
-			state := openAIAutoResetStateFromExtra(account.Extra)
-			if state != nil && state.Status == OpenAIAutoResetStatusAvailable && state.AvailableCount > 0 && !openAIAutoResetStateStale(state, now) {
-				return false, openAIQuotaAutoPauseDecision{}
-			}
-			notifyOpenAIAutoReset(account.ID)
-			if pauseReached5h {
-				return true, openAIQuotaAutoPauseDecision{window: "5h", threshold: pause5h, utilization: utilization5h, reason: "quota_auto_reset_credit_check_5h"}
-			}
-			return true, openAIQuotaAutoPauseDecision{window: "7d", threshold: pause7d, utilization: utilization7d, reason: "quota_auto_reset_credit_check_7d"}
-		}
-	}
-	// Per-account explicit-disable flags must take precedence over the global default.
-	// Without these, leaving the account threshold blank means "use global default",
-	// so an admin has no way to exempt a single account from auto-pause once a global
-	// default exists. The disable flag is per-window so an account can opt out of
-	// only 5h or only 7d auto-pause.
-	disabled5h := resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled")
-	disabled7d := resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled")
-	threshold5h, threshold7d := resolveOpenAIQuotaAutoPauseThresholds(ctx, account)
-	now := time.Now()
-	if !disabled5h && threshold5h > 0 {
-		if utilization, ok := resolveOpenAIQuotaUtilization(account.Extra, "5h", now); ok && utilization >= threshold5h {
-			return true, openAIQuotaAutoPauseDecision{window: "5h", threshold: threshold5h, utilization: utilization}
-		}
-	}
-	if !disabled7d && threshold7d > 0 {
-		if utilization, ok := resolveOpenAIQuotaUtilization(account.Extra, "7d", now); ok && utilization >= threshold7d {
-			return true, openAIQuotaAutoPauseDecision{window: "7d", threshold: threshold7d, utilization: utilization}
-		}
-	}
-	return false, openAIQuotaAutoPauseDecision{}
-}
-
-// resolveAccountExtraBool reads a bool-like value from account extra, tolerating
-// the few shapes JSON unmarshalling may produce (real bool, "true"/"false"
-// strings, 0/1 numbers).
-func resolveAccountExtraBool(extra map[string]any, key string) bool {
-	if len(extra) == 0 {
-		return false
-	}
-	value, ok := extra[key]
-	if !ok || value == nil {
-		return false
-	}
-	switch v := value.(type) {
-	case bool:
-		return v
-	case string:
-		parsed, err := strconv.ParseBool(strings.TrimSpace(v))
-		return err == nil && parsed
-	case float64:
-		return v != 0
-	case float32:
-		return v != 0
-	case int:
-		return v != 0
-	case int64:
-		return v != 0
-	case json.Number:
-		if i, err := v.Int64(); err == nil {
-			return i != 0
-		}
-	}
-	return false
-}
-
-func resolveOpenAIQuotaAutoPauseThresholds(ctx context.Context, account *Account) (float64, float64) {
-	threshold5h, _ := resolveAccountExtraNumber(account.Extra, "auto_pause_5h_threshold")
-	threshold7d, _ := resolveAccountExtraNumber(account.Extra, "auto_pause_7d_threshold")
-	threshold5h = clamp01(threshold5h)
-	threshold7d = clamp01(threshold7d)
-	if threshold5h > 0 && threshold7d > 0 {
-		return threshold5h, threshold7d
-	}
-	settings := openAIQuotaAutoPauseSettingsFromContext(ctx)
-	if threshold5h <= 0 {
-		threshold5h = clamp01(settings.DefaultThreshold5h)
-	}
-	if threshold7d <= 0 {
-		threshold7d = clamp01(settings.DefaultThreshold7d)
-	}
-	return threshold5h, threshold7d
 }
 
 func resolveAccountExtraNumber(extra map[string]any, keys ...string) (float64, bool) {
@@ -761,30 +547,6 @@ func readOpenAIQuotaUsedPercent(extra map[string]any, window string) float64 {
 		return value
 	}
 	return 0
-}
-
-type openAIQuotaAutoPauseCtxKey struct{}
-
-func withOpenAIQuotaAutoPauseSettings(ctx context.Context, settings OpsOpenAIAccountQuotaAutoPauseSettings) context.Context {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	return context.WithValue(ctx, openAIQuotaAutoPauseCtxKey{}, settings)
-}
-
-func openAIQuotaAutoPauseSettingsFromContext(ctx context.Context) OpsOpenAIAccountQuotaAutoPauseSettings {
-	if ctx == nil {
-		return OpsOpenAIAccountQuotaAutoPauseSettings{}
-	}
-	settings, _ := ctx.Value(openAIQuotaAutoPauseCtxKey{}).(OpsOpenAIAccountQuotaAutoPauseSettings)
-	return settings
-}
-
-func (s *OpenAIGatewayService) withOpenAIQuotaAutoPauseContext(ctx context.Context) context.Context {
-	if s == nil || s.settingService == nil {
-		return ctx
-	}
-	return withOpenAIQuotaAutoPauseSettings(ctx, s.settingService.GetOpenAIQuotaAutoPauseSettings(ctx))
 }
 
 // prioritizeOpenAICompactAccounts re-orders a slice so that accounts with known
@@ -1124,7 +886,6 @@ func (s *OpenAIGatewayService) isBetterAccount(candidate, current *Account) bool
 
 // SelectAccountWithLoadAwareness selects an account with load-awareness and wait plan.
 func (s *OpenAIGatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
-	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	ctx = s.withOpenAIGroupPrivacyRequirement(ctx, groupID)
 	// 分组利润控制：legacy 公共入口同样装门，保证不经
 	// selectAccountWithScheduler 的调用方也无法绕过利润准入。

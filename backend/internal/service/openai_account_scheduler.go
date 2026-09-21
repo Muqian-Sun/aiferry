@@ -1765,20 +1765,6 @@ func (s *defaultOpenAIAccountScheduler) isAccountRequestCompatibleReason(ctx con
 	if s != nil && s.service != nil && s.service.isOpenAIProxyStreamQuarantined(ctx, account) {
 		return false, "proxy_stream_quarantined"
 	}
-	// Quota auto-pause must be evaluated during the initial filter too. Without it the
-	// TopK candidate pool can be filled with paused accounts and the later fresh/DB
-	// rechecks won't reach healthy accounts that fell outside TopK — manifesting as
-	// "no available accounts" even though healthy ones exist.
-	if paused, decision := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
-		if decision.reason != "" {
-			return false, decision.reason
-		}
-		reason := "quota_auto_pause"
-		if decision.window != "" {
-			reason += "_" + decision.window
-		}
-		return false, reason
-	}
 	// 母账号健康联动：影子账号的凭据来自母账号，母账号不可调度时影子也不应被选中。
 	// Parent-health gate: shadow borrows the parent's credentials; an unschedulable
 	// parent must block the shadow across all scheduler paths.
@@ -2216,7 +2202,6 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	previousResponseCanMove bool,
 	useUpstreamTokenCost bool,
 ) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	ctx = s.withOpenAIQuotaAutoPauseContext(ctx)
 	ctx = s.withOpenAIGroupPrivacyRequirement(ctx, groupID)
 	// 分组利润控制：唯一文本调度入口的防御性装门。handler 文本
 	// 入口已在请求开始经 WithOpenAIRequestPricingContext 装门并固定 pricingAt，

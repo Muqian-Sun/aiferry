@@ -45,7 +45,7 @@ func TestNormalizeOpenAIAutoResetCreditExtra(t *testing.T) {
 	})
 }
 
-func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T) {
+func TestOpenAIQuotaPauseDecision_AutoResetCreditStates(t *testing.T) {
 	now := time.Now().UTC()
 	baseExtra := map[string]any{
 		OpenAIAutoResetCreditEnabledExtraKey:     true,
@@ -60,9 +60,10 @@ func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T)
 
 	t.Run("卡状态未知时暂停并触发异步查询", func(t *testing.T) {
 		account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: cloneOpenAIAutoResetExtra(baseExtra)}
-		paused, decision := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
+		until, reason, paused := openAIQuotaPauseDecision(account, OpsOpenAIAccountQuotaAutoPauseSettings{}, now)
 		require.True(t, paused)
-		require.Equal(t, "quota_auto_reset_credit_check_5h", decision.reason)
+		require.Contains(t, reason, "quota_auto_reset_credit_check_5h")
+		require.WithinDuration(t, now.Add(time.Hour), until, time.Second, "停到 5h 窗口重置")
 	})
 
 	t.Run("明确有卡时允许继续到用卡阈值", func(t *testing.T) {
@@ -71,7 +72,7 @@ func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T)
 			Status: OpenAIAutoResetStatusAvailable, AvailableCount: 1, CheckedAt: now.Format(time.RFC3339),
 		}
 		account := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: extra}
-		paused, _ := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
+		_, _, paused := openAIQuotaPauseDecision(account, OpsOpenAIAccountQuotaAutoPauseSettings{}, now)
 		require.False(t, paused)
 	})
 
@@ -82,9 +83,9 @@ func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T)
 			Status: OpenAIAutoResetStatusAvailable, AvailableCount: 1, CheckedAt: now.Format(time.RFC3339),
 		}
 		account := &Account{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: extra}
-		paused, decision := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
+		_, reason, paused := openAIQuotaPauseDecision(account, OpsOpenAIAccountQuotaAutoPauseSettings{}, now)
 		require.True(t, paused)
-		require.Equal(t, "quota_auto_reset_pending_5h", decision.reason)
+		require.Contains(t, reason, "quota_auto_reset_pending_5h")
 	})
 
 	t.Run("自然窗口重置后清除动态阻塞", func(t *testing.T) {
@@ -95,7 +96,7 @@ func TestShouldAutoPauseOpenAIAccountByQuota_AutoResetCreditStates(t *testing.T)
 			Status: OpenAIAutoResetStatusFailed, TriggerWindow: "5h", ErrorCode: "RESET_FAILED",
 		}
 		account := &Account{ID: 4, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Extra: extra}
-		paused, _ := shouldAutoPauseOpenAIAccountByQuota(context.Background(), account)
+		_, _, paused := openAIQuotaPauseDecision(account, OpsOpenAIAccountQuotaAutoPauseSettings{}, now)
 		require.False(t, paused)
 	})
 }
