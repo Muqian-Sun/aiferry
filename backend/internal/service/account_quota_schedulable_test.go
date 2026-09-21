@@ -9,13 +9,15 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
+// 配额计数不再在 IsSchedulable 里算（状态服务在用量入账时写成 temp_unschedulable）；
+// 表格改为：IsSchedulable 对所有计数都为真，quotaCounterPauseDecision 对超限的（任何类型）为停。
+func TestAccountIsSchedulable_IgnoresQuotaCounters(t *testing.T) {
 	now := time.Now()
 
 	tests := []struct {
-		name    string
-		account *Account
-		want    bool
+		name      string
+		account   *Account
+		wantPause bool
 	}{
 		{
 			name: "apikey daily quota exceeded",
@@ -29,7 +31,7 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_daily_start": now.Add(-1 * time.Hour).Format(time.RFC3339),
 				},
 			},
-			want: false,
+			wantPause: true,
 		},
 		{
 			name: "apikey weekly quota exceeded",
@@ -43,7 +45,7 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_weekly_start": now.Add(-2 * 24 * time.Hour).Format(time.RFC3339),
 				},
 			},
-			want: false,
+			wantPause: true,
 		},
 		{
 			name: "apikey total quota exceeded",
@@ -56,7 +58,7 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_used":  100.0,
 				},
 			},
-			want: false,
+			wantPause: true,
 		},
 		{
 			name: "apikey quota not exceeded",
@@ -70,7 +72,7 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_daily_start": now.Add(-1 * time.Hour).Format(time.RFC3339),
 				},
 			},
-			want: true,
+			wantPause: false,
 		},
 		{
 			name: "apikey expired daily period restores schedulable",
@@ -84,10 +86,10 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_daily_start": now.Add(-25 * time.Hour).Format(time.RFC3339),
 				},
 			},
-			want: true,
+			wantPause: false,
 		},
 		{
-			name: "oauth ignores quota exceeded",
+			name: "oauth quota exceeded pauses too (any account with a limit)",
 			account: &Account{
 				Status:      StatusActive,
 				Schedulable: true,
@@ -98,7 +100,7 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_daily_start": now.Add(-1 * time.Hour).Format(time.RFC3339),
 				},
 			},
-			want: true,
+			wantPause: true,
 		},
 		{
 			name: "bedrock quota exceeded",
@@ -111,13 +113,15 @@ func TestAccountIsSchedulable_QuotaExceeded(t *testing.T) {
 					"quota_used":  200.0,
 				},
 			},
-			want: false,
+			wantPause: true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, tt.account.IsSchedulable())
+			require.True(t, tt.account.IsSchedulable(), "计数不在调度状态里")
+			_, _, paused := quotaCounterPauseDecision(tt.account, now)
+			require.Equal(t, tt.wantPause, paused)
 		})
 	}
 }

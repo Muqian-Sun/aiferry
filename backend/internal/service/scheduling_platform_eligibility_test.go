@@ -441,7 +441,7 @@ func TestOpenAICompactSupportTier_KeysByProtocolAndVendor(t *testing.T) {
 	require.Equal(t, 0, openAICompactSupportTier(&Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
 }
 
-func TestShouldAutoPauseOpenAIAccountByQuota_KeysIgnoreLabel(t *testing.T) {
+func TestOpenAIQuotaPauseDecision_KeysIgnoreLabel(t *testing.T) {
 	codexExtra := func() map[string]any {
 		return map[string]any{
 			"codex_5h_used_percent":   96.0,
@@ -451,11 +451,11 @@ func TestShouldAutoPauseOpenAIAccountByQuota_KeysIgnoreLabel(t *testing.T) {
 	}
 	anthropicLabelledKey := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
 	anthropicLabelledKey.Extra = codexExtra()
-	paused, _ := shouldAutoPauseOpenAIAccountByQuota(context.Background(), &anthropicLabelledKey)
+	_, _, paused := openAIQuotaPauseDecision(&anthropicLabelledKey, OpsOpenAIAccountQuotaAutoPauseSettings{}, time.Now())
 	require.True(t, paused)
 
 	anthropicOAuth := Account{ID: 2, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Extra: codexExtra()}
-	paused, _ = shouldAutoPauseOpenAIAccountByQuota(context.Background(), &anthropicOAuth)
+	_, _, paused = openAIQuotaPauseDecision(&anthropicOAuth, OpsOpenAIAccountQuotaAutoPauseSettings{}, time.Now())
 	require.False(t, paused)
 }
 

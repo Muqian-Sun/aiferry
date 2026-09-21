@@ -1578,7 +1578,20 @@ func (s *adminServiceImpl) ResetAccountQuota(ctx context.Context, id int64) erro
 		return infraerrors.New(http.StatusBadRequest, "SPARK_SHADOW_NO_QUOTA_RESET",
 			"cannot reset quota for a spark shadow account; manage it on the parent account")
 	}
-	return s.accountRepo.ResetQuotaUsedAndClearRateLimitCooldown(ctx, id)
+	if err := s.accountRepo.ResetQuotaUsedAndClearRateLimitCooldown(ctx, id); err != nil {
+		return err
+	}
+	// 配额计数超限是状态服务写的 temp_unschedulable（总额度停到管理员重置）：计数清零后一并解除；
+	// 别的原因写的停调不动。
+	if payload, ok := parseTempUnschedReasonPayload(account.TempUnschedulableReason); ok && payload.Source == quotaCounterSource {
+		if err := s.accountRepo.ClearTempUnschedulable(ctx, id); err != nil {
+			return err
+		}
+		if s.runtimeBlocker != nil {
+			s.runtimeBlocker.ClearAccountSchedulingBlock(id)
+		}
+	}
+	return nil
 }
 
 // EnsureOpenAIPrivacy 检查 OpenAI OAuth 账号是否已设置 privacy_mode，

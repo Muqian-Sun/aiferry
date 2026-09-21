@@ -715,6 +715,7 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
 		logger.LegacyPrintf("service.gateway", "[SIMPLE MODE] Usage recorded (not billed): user=%d, tokens=%d", usageLog.UserID, usageLog.TotalTokens())
 		s.deferredService.ScheduleLastUsedUpdate(account.ID)
+		s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
 		return nil
 	}
 
@@ -737,6 +738,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		return billingErr
 	}
 	writeUsageLogBestEffort(ctx, s.usageLogRepo, usageLog, "service.gateway")
+	// 用量入账是「由我们自己的用量驱动」的额度（窗口费用 / 配额计数 / 免费档 / Gemini 本地配额）的状态写入点。
+	s.rateLimitService.ApplyAccountUsageState(ctx, account, usageLog.Model, cost.TotalCost)
 
 	return nil
 }

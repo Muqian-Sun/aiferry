@@ -297,35 +297,6 @@ func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, 
 	return r.stats, nil
 }
 
-// Google 官方档位的本地配额预检只对 Vendor 为 gemini 的账号生效：用量远超 AI Studio
-// 免费档日配额时，官方地址的 key 被跳过，中转 key 不受影响。
-func TestGeminiPreCheckUsage_FollowsVendor(t *testing.T) {
-	usage := &geminiPrecheckUsageRepoStub{stats: []usagestats.ModelStat{{Model: "gemini-2.5-pro", Requests: 1000}}}
-	quotaSvc := NewGeminiQuotaService(&config.Config{}, nil)
-	newSvc := func() *RateLimitService {
-		return NewRateLimitService(&rateLimitAccountRepoStub{}, usage, &config.Config{}, quotaSvc, nil)
-	}
-
-	relay := vendorTestKey(PlatformGemini, vendorTestRelayGemini)
-	relay.ID = 9701
-	require.Empty(t, relay.Vendor())
-	official := vendorTestKey(PlatformOpenAI, vendorTestGemini)
-	official.ID = 9702
-	require.Equal(t, PlatformGemini, official.Vendor())
-
-	ok, err := newSvc().PreCheckUsage(context.Background(), relay, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.True(t, ok)
-	ok, err = newSvc().PreCheckUsage(context.Background(), official, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.False(t, ok)
-
-	batch, err := newSvc().PreCheckUsageBatch(context.Background(), []*Account{relay, official}, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.True(t, batch[relay.ID])
-	require.False(t, batch[official.ID])
-}
-
 func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {
 	const structured403 = `{"error":{"type":"permission_error","message":"forbidden"}}`
 

@@ -66,11 +66,20 @@ type CNProviderQuotaProbeResult struct {
 
 // CNProviderQuotaService 探测 Kimi / Zhipu Coding Plan 的滚动窗口用量。
 type CNProviderQuotaService struct {
-	accountRepo  AccountRepository
-	proxyRepo    ProxyRepository
-	httpUpstream HTTPUpstream
-	cfg          *config.Config
-	flight       singleflight.Group
+	accountRepo      AccountRepository
+	proxyRepo        ProxyRepository
+	httpUpstream     HTTPUpstream
+	cfg              *config.Config
+	rateLimitService *RateLimitService
+	flight           singleflight.Group
+}
+
+// SetRateLimitService 注入状态服务：额度快照落库后由它评估要不要停调。
+func (s *CNProviderQuotaService) SetRateLimitService(rateLimitService *RateLimitService) {
+	if s == nil {
+		return
+	}
+	s.rateLimitService = rateLimitService
 }
 
 // NewCNProviderQuotaService 构造 Coding Plan 额度探测服务。
@@ -270,6 +279,7 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 		slog.Warn("cn_quota_persist_failed", "account_id", account.ID, "provider", provider, "error", err)
 	} else {
 		result.Persisted = true
+		s.rateLimitService.ApplyAccountQuotaStateAfterExtraUpdate(ctx, account, updates)
 	}
 	return result, nil
 }

@@ -49,9 +49,11 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Hit(t *testing.T
 	}
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedMiss(t *testing.T) {
+// 额度超限由状态服务写成 temp_unschedulable；previous_response_id 粘连和其他停调一样按状态判、清绑定。
+func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaPausedMiss(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
+	pausedUntil := time.Now().Add(time.Hour)
 	account := Account{
 		ID:          77,
 		Platform:    PlatformOpenAI,
@@ -61,10 +63,10 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedM
 		Concurrency: 2,
 		Extra: map[string]any{
 			"openai_apikey_responses_websockets_v2_enabled": true,
-			"codex_5h_used_percent":                         96.0,
-			"auto_pause_5h_threshold":                       0.95,
 		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+		TempUnschedulableUntil:  &pausedUntil,
+		TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 5h window 96.0% used"),
+		ProtocolEndpoints:       map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
@@ -81,13 +83,10 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaAutoPausedM
 
 	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_quota", "gpt-5.1", nil, false)
 	require.NoError(t, err)
-	require.Nil(t, selection, "超过 5h 配额阈值的账号不应继续命中 previous_response_id 粘连")
-
-	// Auto-pause is transient, so the binding is preserved: the chain can resume on the
-	// same account once the quota window resets.
+	require.Nil(t, selection, "被状态服务停调的账号不应继续命中 previous_response_id 粘连")
 	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_quota")
 	require.NoError(t, getErr)
-	require.Equal(t, account.ID, boundAccountID)
+	require.Zero(t, boundAccountID, "与限流等停调同处理：清绑定")
 }
 
 func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RateLimitedMiss(t *testing.T) {

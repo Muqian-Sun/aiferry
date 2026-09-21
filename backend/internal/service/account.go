@@ -182,27 +182,11 @@ func (a *Account) EffectiveLoadFactor() int {
 	return 1
 }
 
+// IsSchedulable 报告账号整体此刻可否调度（SchedulingState 的薄封装，给管理端 / 监控等非调度读者用；
+// 调度器直接读 SchedulingState / SchedulingAllows）。
+// 账号自己的配额计数（quota_used ≥ quota_limit）不在这里算：超限由状态服务在用量入账时写成 temp_unschedulable。
 func (a *Account) IsSchedulable() bool {
-	if !a.IsActive() || !a.Schedulable {
-		return false
-	}
-	now := time.Now()
-	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
-		return false
-	}
-	if a.OverloadUntil != nil && now.Before(*a.OverloadUntil) {
-		return false
-	}
-	if a.RateLimitResetAt != nil && now.Before(*a.RateLimitResetAt) {
-		return false
-	}
-	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) {
-		return false
-	}
-	if a.IsAPIKeyOrBedrock() && a.IsQuotaExceeded() {
-		return false
-	}
-	return true
+	return a.SchedulingState(time.Now()).Allows(time.Now())
 }
 
 // IsCredentialUsableForShadow 报告本账号(作为某 spark 影子的母账号)的凭据/传输是否可被影子透传使用。
@@ -2780,41 +2764,6 @@ func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
 		return a.isFixedWeeklyPeriodExpired(start)
 	}
 	return isPeriodExpired(start, 7*24*time.Hour)
-}
-
-// IsQuotaExceeded 检查 API Key 账号配额是否已超限（任一维度超限即返回 true）
-func (a *Account) IsQuotaExceeded() bool {
-	// 总额度
-	if limit := a.GetQuotaLimit(); limit > 0 && a.GetQuotaUsed() >= limit {
-		return true
-	}
-	// 日额度（周期过期视为未超限，下次 increment 会重置）
-	if limit := a.GetQuotaDailyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_daily_start")
-		var expired bool
-		if a.GetQuotaDailyResetMode() == "fixed" {
-			expired = a.isFixedDailyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 24*time.Hour)
-		}
-		if !expired && a.GetQuotaDailyUsed() >= limit {
-			return true
-		}
-	}
-	// 周额度
-	if limit := a.GetQuotaWeeklyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_weekly_start")
-		var expired bool
-		if a.GetQuotaWeeklyResetMode() == "fixed" {
-			expired = a.isFixedWeeklyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 7*24*time.Hour)
-		}
-		if !expired && a.GetQuotaWeeklyUsed() >= limit {
-			return true
-		}
-	}
-	return false
 }
 
 // GetWindowCostLimit 获取 5h 窗口费用阈值（美元）

@@ -563,7 +563,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 	if !AccountKeepsHTTPPreviousResponseID(account) && s.getOpenAIWSProtocolResolver().Resolve(account).Transport != OpenAIUpstreamTransportResponsesWebsocketV2 {
 		return 0, nil, "", nil
 	}
-	if shouldClearStickySession(account, requestedModel) || !openAIProtocolFeaturesApply(account) || !account.IsSchedulable() {
+	if shouldClearStickySession(account, requestedModel) || !openAIProtocolFeaturesApply(account) || !account.SchedulingState(time.Now()).Allows(time.Now()) {
 		_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 		return 0, nil, "", nil
 	}
@@ -575,13 +575,6 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		return 0, nil, "", nil
 	}
 	if !account.SupportsOpenAIEndpointCapability(requiredCapability) {
-		return 0, nil, "", nil
-	}
-	// Quota auto-pause must also gate the previous_response_id sticky path; otherwise an
-	// account over its 5h/7d threshold keeps serving the same response chain even though
-	// normal scheduling skips it. Pause is transient, so fall through to normal scheduling
-	// without deleting the binding (the window may reset before the next turn).
-	if paused, _ := shouldAutoPauseOpenAIAccountByQuota(ctx, account); paused {
 		return 0, nil, "", nil
 	}
 	// 分组利润控制：与 quota auto-pause 同语义——利润不合格是暂时
@@ -596,7 +589,7 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
-		if shouldClearStickySession(latest, requestedModel) || !openAIProtocolFeaturesApply(latest) || !latest.IsSchedulable() {
+		if shouldClearStickySession(latest, requestedModel) || !openAIProtocolFeaturesApply(latest) || !latest.SchedulingState(time.Now()).Allows(time.Now()) {
 			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
@@ -614,9 +607,6 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 			return 0, nil, "", nil
 		}
 		if !latest.SupportsOpenAIEndpointCapability(requiredCapability) {
-			return 0, nil, "", nil
-		}
-		if paused, _ := shouldAutoPauseOpenAIAccountByQuota(ctx, latest); paused {
 			return 0, nil, "", nil
 		}
 		// 利润门对最新账号状态复检一次，语义同上：跳过复用、不删绑定。

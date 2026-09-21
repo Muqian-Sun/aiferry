@@ -447,7 +447,9 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaAutoPauseFields(t *testing.T) {
 	require.Equal(t, false, got.Extra["auto_pause_7d_disabled"])
 }
 
-func TestBuildSchedulerMetadataAccount_KeepsQuotaStateForCachedAccounts(t *testing.T) {
+// 配额计数不再由调度器评估（状态服务在用量入账时写成 temp_unschedulable），
+// 命中缓存的账号只要状态字段没停就可调度；计数键仍进投影供展示 / 诊断。
+func TestBuildSchedulerMetadataAccount_QuotaCountersDoNotBlockCachedAccounts(t *testing.T) {
 	now := time.Now().UTC()
 	activeStart := now.Add(-time.Hour).Format(time.RFC3339)
 	expiredDailyStart := now.Add(-25 * time.Hour).Format(time.RFC3339)
@@ -521,8 +523,7 @@ func TestBuildSchedulerMetadataAccount_KeepsQuotaStateForCachedAccounts(t *testi
 			cached := snapshot[0]
 			require.Equal(t, tc.extra, cached.Extra)
 			require.NotContains(t, cached.Extra, "unrelated")
-			require.Equal(t, tc.quotaExceeded, cached.IsQuotaExceeded())
-			require.Equal(t, !tc.quotaExceeded, cached.IsSchedulable())
+			require.True(t, cached.IsSchedulable(), "quota_exceeded=%v 也不在调度器里判", tc.quotaExceeded)
 		})
 	}
 }
