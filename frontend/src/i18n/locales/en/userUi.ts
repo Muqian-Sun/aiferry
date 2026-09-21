@@ -110,6 +110,29 @@ export default {
         notifications: 'Notifications'
       }
     },
+    models: {
+      title: 'Models',
+      description: 'Official reference price per model, billed per token',
+      allVendors: 'All vendors',
+      count: '{count} models',
+      columns: {
+        model: 'Model',
+        vendor: 'Vendor',
+        billing: 'Billing',
+        input: 'Input',
+        output: 'Output',
+        cacheRead: 'Cache read'
+      },
+      perMillion: 'USD per 1M tokens',
+      officialPrice: 'Official price',
+      priceNote: 'Prices are the vendors\' published reference prices (USD per million tokens); blank cells mean the official catalog does not cover that item. Actual charges follow the per-request records on the usage page; this site\'s discounted price will appear here once unified pricing ships.',
+      copyId: 'Copy model ID',
+      copied: 'Copied',
+      empty: 'No models available',
+      noSearchResult: 'No models match',
+      loadFailed: 'The model catalog did not load',
+      anonymousHint: 'Sign in to see the models available to your account'
+    },
     notFound: {
       title: 'Page not found',
       description: 'The page you are looking for does not exist or has been moved.',

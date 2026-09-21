@@ -68,7 +68,6 @@ const ALLOWLIST = new Set<string>([
   'views/user/AirwallexPaymentView.vue',
   'views/user/BatchImageGuideView.vue',
   'views/user/CustomPageView.vue',
-  'views/user/KeysView.vue',
   'views/user/PaymentQRCodeView.vue',
   'views/user/PaymentResultView.vue',
   'views/user/PaymentView.vue',
@@ -79,13 +78,6 @@ const ALLOWLIST = new Set<string>([
   'views/user/UserOrdersView.vue',
   // layout
   // components
-  'components/keys/BulkEditKeysModal.vue',
-  'components/keys/EndpointPopover.vue',
-  'components/keys/UseKeyModal.vue',
-  'components/modelPlaza/ModelPlazaContent.vue',
-  'components/modelPlaza/PlazaFilterBar.vue',
-  'components/modelPlaza/PlazaGroupSection.vue',
-  'components/modelPlaza/PlazaModelPricingTable.vue',
   'components/payment/AmountInput.vue',
   'components/payment/OrderTable.vue',
   'components/payment/PaymentMethodSelector.vue',

@@ -140,18 +140,7 @@ const createApiKey = (): ApiKey => ({
 })
 
 const SiteShellStub = {
-  template: '<div><slot /></div>',
-}
-
-const TablePageLayoutStub = {
-  template: `
-    <div>
-      <slot name="filters" />
-      <slot name="actions" />
-      <slot name="table" />
-      <slot name="pagination" />
-    </div>
-  `,
+  template: '<div><slot name="actions" /><slot /></div>',
 }
 
 const DataTableStub = {
@@ -224,7 +213,6 @@ const mountView = async () => {
     global: {
       stubs: {
         SiteShell: SiteShellStub,
-        TablePageLayout: TablePageLayoutStub,
         DataTable: DataTableStub,
         Pagination: PaginationStub,
         BaseDialog: {
@@ -233,7 +221,7 @@ const mountView = async () => {
           template: '<div v-if="show" role="dialog"><button data-test="close-dialog" @click="$emit(\'close\')">Close</button><slot /><slot name="footer" /></div>',
         },
         ConfirmDialog: true,
-        EmptyState: true,
+        StatusState: true,
         Select: SelectStub,
         SearchInput: SearchInputStub,
         Icon: IconStub,
