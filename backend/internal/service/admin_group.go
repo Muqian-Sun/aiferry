@@ -622,14 +622,6 @@ func normalizeLimit(limit *float64) *float64 {
 	return limit
 }
 
-// normalizePrice 将负数转换为 nil（表示使用默认价格），0 保留（表示免费）
-func normalizePrice(price *float64) *float64 {
-	if price == nil || *price < 0 {
-		return nil
-	}
-	return price
-}
-
 // validateFallbackGroup 校验降级分组的有效性
 // currentGroupID: 当前分组 ID（新建时为 0）
 // fallbackGroupID: 降级分组 ID

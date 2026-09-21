@@ -2134,19 +2134,6 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 	})
 }
 
-type openAIMediaPriceGroupRepoStub struct {
-	GroupRepository
-	group *Group
-	err   error
-}
-
-func (s *openAIMediaPriceGroupRepoStub) GetByIDLite(context.Context, int64) (*Group, error) {
-	if s.err != nil {
-		return nil, s.err
-	}
-	return s.group, nil
-}
-
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCount(t *testing.T) {
 	groupID := int64(126)
 	billingService := NewBillingService(&config.Config{}, nil)
