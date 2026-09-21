@@ -282,39 +282,6 @@ func TestOpenAIGatewayServiceForward_AccountPolicyStripsImageNamespaceTools(t *t
 	}
 }
 
-func TestOpenAIGatewayServiceForward_ChannelBridgeOverrideEnablesCodexInjection(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	upstream := &httpUpstreamRecorder{
-		resp: &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     http.Header{"Content-Type": []string{"application/json"}},
-			Body:       io.NopCloser(strings.NewReader(`{"id":"resp_channel_bridge","model":"gpt-5.4","usage":{"input_tokens":1,"output_tokens":1}}`)),
-		},
-	}
-	svc := newOpenAIImageGenerationControlTestService(upstream)
-	groupID := int64(4242)
-	svc.channelService = newOpenAIImageGenerationControlChannelService(groupID, &Channel{
-		ID:     9001,
-		Status: StatusActive,
-		FeaturesConfig: map[string]any{
-			featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
-		},
-	})
-	c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.98.0")
-	account := newOpenAIImageGenerationControlTestAccount()
-
-	result, err := svc.Forward(context.Background(), c, account, []byte(`{"model":"gpt-5.4","input":"write code","stream":false}`))
-
-	require.NoError(t, err)
-	require.NotNil(t, result)
-	require.NotNil(t, upstream.lastReq)
-	require.True(t, gjson.GetBytes(upstream.lastBody, `tools.#(type=="image_generation")`).Exists())
-	require.Equal(t, "auto", gjson.GetBytes(upstream.lastBody, "tool_choice").String())
-	instructions := gjson.GetBytes(upstream.lastBody, "instructions").String()
-	require.Contains(t, instructions, "image_generation")
-}
-
 func TestOpenAIGatewayServiceForward_CodexBridgeDoesNotInjectHostedToolAlongsideImageGenNamespace(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -459,7 +426,6 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 	tests := []struct {
 		name    string
 		global  bool
-		channel *Channel
 		account *Account
 		want    bool
 	}{
@@ -472,29 +438,8 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 			want: true,
 		},
 		{
-			name:   "channel true overrides disabled global",
-			global: false,
-			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
-				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
-			}},
-			account: &Account{Platform: PlatformOpenAI},
-			want:    true,
-		},
-		{
-			name:   "channel false overrides enabled global",
+			name:   "account false overrides global true",
 			global: true,
-			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
-				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: false},
-			}},
-			account: &Account{Platform: PlatformOpenAI},
-			want:    false,
-		},
-		{
-			name:   "account false overrides channel and global true",
-			global: true,
-			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
-				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: true},
-			}},
 			account: &Account{
 				Platform: PlatformOpenAI,
 				Extra:    map[string]any{featureKeyCodexImageGenerationBridge: false},
@@ -502,11 +447,8 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 			want: false,
 		},
 		{
-			name:   "nested account true overrides channel false",
+			name:   "nested account true overrides disabled global",
 			global: false,
-			channel: &Channel{ID: 1, Status: StatusActive, FeaturesConfig: map[string]any{
-				featureKeyCodexImageGenerationBridge: map[string]any{PlatformOpenAI: false},
-			}},
 			account: &Account{
 				Platform: PlatformOpenAI,
 				Extra: map[string]any{
@@ -553,9 +495,6 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newOpenAIImageGenerationControlTestService(&httpUpstreamRecorder{})
 			svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = tt.global
-			if tt.channel != nil {
-				svc.channelService = newOpenAIImageGenerationControlChannelService(groupID, tt.channel)
-			}
 			apiKey := &APIKey{GroupID: &groupID}
 
 			got := svc.isCodexImageGenerationBridgeEnabled(context.Background(), tt.account, apiKey)
@@ -727,18 +666,6 @@ func newOpenAIImageGenerationControlTestService(upstream *httpUpstreamRecorder) 
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
 	}
-}
-
-func newOpenAIImageGenerationControlChannelService(groupID int64, ch *Channel) *ChannelService {
-	svc := &ChannelService{}
-	cache := newEmptyChannelCache()
-	if ch != nil {
-		cache.channelByGroupID[groupID] = ch
-		cache.byID[ch.ID] = ch
-	}
-	cache.loadedAt = time.Now()
-	svc.cache.Store(cache)
-	return svc
 }
 
 func newOpenAIImageGenerationControlTestContext(allowImages bool, userAgent string) (*gin.Context, *httptest.ResponseRecorder) {

@@ -9,8 +9,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/websearch"
 	"github.com/stretchr/testify/require"
 )
 
@@ -97,60 +95,20 @@ func TestGatewayServiceForward_RelayKeyFastTierFollowsUpstreamSpeed(t *testing.T
 	}
 }
 
-func TestGetWebSearchEmulationMode_KeysOfAnyLabelSubscriptionsFollowChannel(t *testing.T) {
+// 开关只对第三方 key 生效，与展示标签无关；成品号恒关。
+func TestWebSearchEmulationEnabled_KeysOfAnyLabelSubscriptionsAlwaysOff(t *testing.T) {
 	key := &Account{
 		Platform:          PlatformOpenAI,
 		Type:              AccountTypeAPIKey,
-		Extra:             map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
+		Extra:             map[string]any{featureKeyWebSearchEmulation: true},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
 	}
-	require.Equal(t, WebSearchModeEnabled, key.GetWebSearchEmulationMode())
+	require.True(t, key.WebSearchEmulationEnabled())
 
 	subscription := &Account{
 		Platform: PlatformAnthropic,
 		Type:     AccountTypeOAuth,
-		Extra:    map[string]any{featureKeyWebSearchEmulation: WebSearchModeEnabled},
+		Extra:    map[string]any{featureKeyWebSearchEmulation: true},
 	}
-	require.Equal(t, WebSearchModeDefault, subscription.GetWebSearchEmulationMode())
-}
-
-func TestShouldEmulateWebSearch_ChannelSwitchFollowsGatewayPlatformNotLabel(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	channel := &Channel{
-		ID:     11,
-		Status: StatusActive,
-		FeaturesConfig: map[string]any{
-			featureKeyWebSearchEmulation: map[string]any{PlatformAnthropic: true},
-		},
-	}
-	key := func(label string) *Account {
-		return &Account{
-			Platform:          label,
-			Type:              AccountTypeAPIKey,
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://anthropic-relay.example.com"},
-		}
-	}
-	newSvc := func(groupPlatform string) *GatewayService {
-		channelSvc := newChannelServiceWithCache(43, channel)
-		channelSvc.cache.Load().(*channelCache).groupPlatform[43] = groupPlatform
-		return &GatewayService{settingService: newSettingServiceForWebSearchTest(true), channelService: channelSvc}
-	}
-	groupID := int64(43)
-
-	require.True(t, newSvc(PlatformAnthropic).shouldEmulateWebSearch(context.Background(), key(PlatformOpenAI), &groupID, webSearchToolBody),
-		"openai-labelled key in an anthropic group follows the anthropic switch")
-	require.False(t, newSvc(PlatformAntigravity).shouldEmulateWebSearch(context.Background(), key(PlatformAnthropic), &groupID, webSearchToolBody),
-		"anthropic label does not borrow the anthropic switch in an antigravity group")
-
-	forced := context.WithValue(context.Background(), ctxkey.ForcePlatform, PlatformAntigravity)
-	require.False(t, newSvc(PlatformAnthropic).shouldEmulateWebSearch(forced, key(PlatformAnthropic), &groupID, webSearchToolBody),
-		"forced antigravity route looks up the antigravity switch")
+	require.False(t, subscription.WebSearchEmulationEnabled())
 }

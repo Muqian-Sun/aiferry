@@ -186,7 +186,6 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 		nil, // digestStore
 		nil, // settingService
 		nil, // tlsFPProfileService
-		nil, // channelService
 		nil, // resolver
 		nil, // compositeResolver
 		nil,

@@ -264,8 +264,5 @@ func TestClientRequestedModelUsesCompositePublicModel(t *testing.T) {
 	require.Equal(t, "public-alias", input.Model)
 	require.Equal(t, service.PlatformOpenAI, input.Provider)
 
-	fields := clientRequestedUsageFields(c, service.ChannelMappingResult{MappedModel: "gpt-5"}, "gpt-5", "gpt-5")
-	require.Equal(t, "public-alias", fields.OriginalModel)
-	require.Equal(t, "public-alias", fields.ChannelMappedModel)
-	require.Equal(t, "public-alias\u2192gpt-5", fields.ModelMappingChain)
+	require.Equal(t, "public-alias", clientRequestedModel(c, "gpt-5"), "usage_logs.requested_model must keep the public alias")
 }

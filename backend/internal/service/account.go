@@ -2122,40 +2122,30 @@ func (a *Account) IsAnthropicAPIKeyPassthroughEnabled() bool {
 }
 
 // WebSearch 模拟三态常量
-const (
-	WebSearchModeDefault  = "default"  // 跟随渠道配置
-	WebSearchModeEnabled  = "enabled"  // 强制开启
-	WebSearchModeDisabled = "disabled" // 强制关闭
-)
-
-// GetWebSearchEmulationMode 返回账号的 WebSearch 模拟模式。
-// 三态：default（跟随渠道）/ enabled（强制开启）/ disabled（强制关闭）。
-// 兼容旧 bool 值：true→enabled, false→default（并记录 debug 日志）。
+// WebSearchEmulationEnabled 返回第三方 key 是否开启 web_search 模拟（accounts.extra.web_search_emulation）。
+// 只有第三方 key 有这个开关：模拟只在 Anthropic Messages 转发路径上判定，账号走到那里用的就是
+// Anthropic 协议；成品号恒 false。渠道级开关已删，账号是唯一来源。
 //
-// 只有第三方 key 有账号级模式，不论展示标签：模拟只在 Anthropic Messages 转发路径上
-// 判定，账号走到那里用的就是 Anthropic 协议。成品号一律跟随渠道。
-func (a *Account) GetWebSearchEmulationMode() string {
+// 读法 fail-closed：bool 原样；历史字符串 "enabled" 算开；其余字符串（"default" / "disabled"）
+// 与其它类型一律关，非 bool 值打 warn 提醒改成开关。
+func (a *Account) WebSearchEmulationEnabled() bool {
 	if a == nil || !a.IsThirdPartyKey() || a.Extra == nil {
-		return WebSearchModeDefault
+		return false
 	}
-	raw := a.Extra[featureKeyWebSearchEmulation]
-	// Tolerant: legacy bool values (pre-migration or stale writes)
-	if b, ok := raw.(bool); ok {
-		slog.Debug("legacy bool web_search_emulation value", "account_id", a.ID, "value", b)
-		if b {
-			return WebSearchModeEnabled
-		}
-		return WebSearchModeDefault
+	raw, present := a.Extra[featureKeyWebSearchEmulation]
+	if !present || raw == nil {
+		return false
 	}
-	mode, ok := raw.(string)
-	if !ok {
-		return WebSearchModeDefault
-	}
-	switch mode {
-	case WebSearchModeEnabled, WebSearchModeDisabled:
-		return mode
+	switch v := raw.(type) {
+	case bool:
+		return v
+	case string:
+		enabled := v == "enabled"
+		slog.Warn("web_search_emulation: legacy string value, treat as bool", "account_id", a.ID, "value", v, "enabled", enabled)
+		return enabled
 	default:
-		return WebSearchModeDefault
+		slog.Warn("web_search_emulation: non-bool value treated as off", "account_id", a.ID, "value", raw)
+		return false
 	}
 }
 

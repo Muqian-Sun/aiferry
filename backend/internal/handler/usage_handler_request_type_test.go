@@ -203,10 +203,7 @@ func TestUserUsageListAllowsVideoBillingMode(t *testing.T) {
 func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) {
 	ipAddress := "203.0.113.10"
 	upstreamModel := "upstream-private-model"
-	billingTier := "internal-tier"
-	channelID := int64(99)
 	accountRateMultiplier := 1.7
-	accountStatsCost := 0.12
 	repo := &userUsageRepoCapture{
 		listRows: []service.UsageLog{{
 			ID:                    1,
@@ -225,10 +222,7 @@ func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) 
 			RateMultiplier:        0.8,
 			IPAddress:             &ipAddress,
 			UpstreamModel:         &upstreamModel,
-			BillingTier:           &billingTier,
-			ChannelID:             &channelID,
 			AccountRateMultiplier: &accountRateMultiplier,
-			AccountStatsCost:      &accountStatsCost,
 		}},
 	}
 	router := newUserUsageRequestTypeTestRouter(repo)
@@ -250,12 +244,9 @@ func TestUserUsageListKeepsUserBillingAndIPWithoutAdminCostFields(t *testing.T) 
 	require.Contains(t, body, `"ip_address":"203.0.113.10"`)
 	require.NotContains(t, body, "upstream_endpoint")
 	require.NotContains(t, body, "account_rate_multiplier")
-	require.NotContains(t, body, "account_stats_cost")
 	require.NotContains(t, body, "upstream_model")
 	require.NotContains(t, body, "upstream_response_model")
 	require.NotContains(t, body, "upstream_model_mismatch")
-	require.NotContains(t, body, "billing_tier")
-	require.NotContains(t, body, "channel_id")
 	require.NotContains(t, body, `"account":`)
 }
 

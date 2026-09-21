@@ -54,7 +54,7 @@ func geminiLadderCatalogStub(t *testing.T) *PricingService {
 // 超阈值整单按渠道价 × 目录倍率。
 func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
-		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
+		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
 	}}, geminiLadderCatalogStub(t))
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
@@ -74,7 +74,7 @@ func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *tes
 // 渠道配置了定价区间时以渠道区间为准：目录阶梯（倍率）不再叠加。
 func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *testing.T) {
 	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
-		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
+		Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
 	}}, geminiLadderCatalogStub(t))
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "gemini-2.5-pro"})
@@ -209,7 +209,7 @@ func TestCalculateTokenCostForRequest_Fable51MaxEffortUsesDefaultMultiplier(t *t
 func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier(t *testing.T) {
 	configured := 1.5
 	bs, resolver := newTokenCostTestEnv(t, PlatformAnthropic, []PricingCard{{
-		Platform: PlatformAnthropic, Models: []string{"claude-fable-5-1"}, BillingMode: BillingModeToken,
+		Models: []string{"claude-fable-5-1"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
 		MaxReasoningEffortMultiplier: &configured,
 	}}, nil)

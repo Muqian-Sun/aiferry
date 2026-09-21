@@ -155,13 +155,13 @@ var webSearchToolBody = []byte(`{"tools":[{"type":"web_search"}],"messages":[{"r
 // nonWebSearchToolBody is a request body without web_search tool.
 var nonWebSearchToolBody = []byte(`{"tools":[{"type":"text_editor"}],"messages":[{"role":"user","content":"test"}]}`)
 
-// newAnthropicAPIKeyAccount creates a test Account with the given web search emulation mode.
-func newAnthropicAPIKeyAccount(mode string) *Account {
+// newAnthropicAPIKeyAccount creates a test Account with the given web search emulation switch.
+func newAnthropicAPIKeyAccount(enabled bool) *Account {
 	return &Account{
 		ID:                1,
 		Platform:          PlatformAnthropic,
 		Type:              AccountTypeAPIKey,
-		Extra:             map[string]any{featureKeyWebSearchEmulation: mode},
+		Extra:             map[string]any{featureKeyWebSearchEmulation: enabled},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 }
@@ -191,19 +191,6 @@ func newSettingServiceForWebSearchTest(enabled bool) *SettingService {
 	return NewSettingService(repo, &config.Config{})
 }
 
-// newChannelServiceWithCache creates a ChannelService with a pre-built cache containing the channel.
-func newChannelServiceWithCache(groupID int64, ch *Channel) *ChannelService {
-	svc := &ChannelService{}
-	cache := &channelCache{
-		channelByGroupID: map[int64]*Channel{groupID: ch},
-		byID:             map[int64]*Channel{ch.ID: ch},
-		groupPlatform:    map[int64]string{},
-		loadedAt:         time.Now(),
-	}
-	svc.cache.Store(cache)
-	return svc
-}
-
 func TestShouldEmulateWebSearch_NilManager(t *testing.T) {
 	SetWebSearchManager(nil)
 	defer SetWebSearchManager(nil)
@@ -216,8 +203,8 @@ func TestShouldEmulateWebSearch_NilManager(t *testing.T) {
 	defer clearGlobalWebSearchConfig()
 
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeEnabled)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
+	account := newAnthropicAPIKeyAccount(true)
+	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
 func TestShouldEmulateWebSearch_NotOnlyWebSearchTool(t *testing.T) {
@@ -233,8 +220,8 @@ func TestShouldEmulateWebSearch_NotOnlyWebSearchTool(t *testing.T) {
 	defer clearGlobalWebSearchConfig()
 
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeEnabled)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, nonWebSearchToolBody))
+	account := newAnthropicAPIKeyAccount(true)
+	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nonWebSearchToolBody))
 }
 
 func TestShouldEmulateWebSearch_GlobalDisabled(t *testing.T) {
@@ -251,8 +238,8 @@ func TestShouldEmulateWebSearch_GlobalDisabled(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(false)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeEnabled)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
+	account := newAnthropicAPIKeyAccount(true)
+	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
 func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
@@ -268,8 +255,8 @@ func TestShouldEmulateWebSearch_AccountDisabled(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeDisabled)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
+	account := newAnthropicAPIKeyAccount(false)
+	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
 func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
@@ -285,67 +272,12 @@ func TestShouldEmulateWebSearch_AccountEnabled(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeEnabled)
-	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
+	account := newAnthropicAPIKeyAccount(true)
+	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }
 
-func TestShouldEmulateWebSearch_DefaultMode_ChannelEnabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	settingSvc := newSettingServiceForWebSearchTest(true)
-	ch := &Channel{
-		ID:     10,
-		Status: StatusActive,
-		FeaturesConfig: map[string]any{
-			featureKeyWebSearchEmulation: map[string]any{PlatformAnthropic: true},
-		},
-	}
-	channelSvc := newChannelServiceWithCache(42, ch)
-	channelSvc.cache.Load().(*channelCache).groupPlatform[42] = PlatformAnthropic
-	svc := &GatewayService{settingService: settingSvc, channelService: channelSvc}
-
-	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)
-	groupID := int64(42)
-	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, &groupID, webSearchToolBody))
-}
-
-func TestShouldEmulateWebSearch_DefaultMode_ChannelDisabled(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	settingSvc := newSettingServiceForWebSearchTest(true)
-	ch := &Channel{
-		ID:     10,
-		Status: StatusActive,
-		FeaturesConfig: map[string]any{
-			featureKeyWebSearchEmulation: map[string]any{PlatformAnthropic: false},
-		},
-	}
-	channelSvc := newChannelServiceWithCache(42, ch)
-	channelSvc.cache.Load().(*channelCache).groupPlatform[42] = PlatformAnthropic
-	svc := &GatewayService{settingService: settingSvc, channelService: channelSvc}
-
-	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)
-	groupID := int64(42)
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, &groupID, webSearchToolBody))
-}
-
-func TestShouldEmulateWebSearch_DefaultMode_NilGroupID(t *testing.T) {
+// 历史字符串 "enabled" 在网关判定里仍算开（账号读法兼容，见 account_websearch_test.go）。
+func TestShouldEmulateWebSearch_LegacyEnabledString(t *testing.T) {
 	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
 	SetWebSearchManager(mgr)
 	defer SetWebSearchManager(nil)
@@ -358,26 +290,7 @@ func TestShouldEmulateWebSearch_DefaultMode_NilGroupID(t *testing.T) {
 
 	settingSvc := newSettingServiceForWebSearchTest(true)
 	svc := &GatewayService{settingService: settingSvc}
-	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)
-	// nil groupID + default mode → falls through to channel check → returns false
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, nil, webSearchToolBody))
-}
-
-func TestShouldEmulateWebSearch_DefaultMode_NilChannelService(t *testing.T) {
-	mgr := websearch.NewManager([]websearch.ProviderConfig{{Type: "brave", APIKey: "k"}}, nil)
-	SetWebSearchManager(mgr)
-	defer SetWebSearchManager(nil)
-
-	setGlobalWebSearchConfig(&WebSearchEmulationConfig{
-		Enabled:   true,
-		Providers: []WebSearchProviderConfig{{Type: "brave", APIKey: "k"}},
-	})
-	defer clearGlobalWebSearchConfig()
-
-	settingSvc := newSettingServiceForWebSearchTest(true)
-	svc := &GatewayService{settingService: settingSvc, channelService: nil}
-	account := newAnthropicAPIKeyAccount(WebSearchModeDefault)
-	groupID := int64(42)
-	// nil channelService + default mode → returns false
-	require.False(t, svc.shouldEmulateWebSearch(context.Background(), account, &groupID, webSearchToolBody))
+	account := newAnthropicAPIKeyAccount(true)
+	account.Extra[featureKeyWebSearchEmulation] = "enabled"
+	require.True(t, svc.shouldEmulateWebSearch(context.Background(), account, webSearchToolBody))
 }

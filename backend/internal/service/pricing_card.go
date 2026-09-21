@@ -42,11 +42,9 @@ func (m BillingMode) IsValidUsageFilter() bool {
 }
 
 // PricingCard 一张价卡：一组模型（Models）的计费模式与各项单价。目录条目经 PricingCard()
-// 投影成它，分组价卡直接存它。ChannelID / Platform 只有渠道实体在用，PR-5b 随渠道删。
+// 投影成它，分组价卡直接存它。
 type PricingCard struct {
 	ID                           int64             `json:"id,omitempty"`
-	ChannelID                    int64             `json:"channel_id,omitempty"`
-	Platform                     string            `json:"platform"` // 所属平台（anthropic/openai/gemini/...）
 	Models                       []string          `json:"models"`
 	BillingMode                  BillingMode       `json:"billing_mode"`
 	InputPrice                   *float64          `json:"input_price"`
@@ -334,7 +332,7 @@ func normalizePricingModelName(model string) string {
 }
 
 // validatePricingEntries 校验定价条目（冲突检测 + 区间校验 + 计费模式校验），
-// 分组价卡（normalizeGroupModelPricing）与渠道定价共用。
+// 分组价卡（normalizeGroupModelPricing）用。
 func validatePricingEntries(pricing []PricingCard) error {
 	if err := validateNoConflictingModels(pricing); err != nil {
 		return err
@@ -364,7 +362,7 @@ func validatePricingTimePricing(pricing []PricingCard) error {
 		}
 		if err := validateTimePricing(config); err != nil {
 			return infraerrors.BadRequest("INVALID_TIME_PRICING", fmt.Sprintf(
-				"invalid time pricing for platform '%s' models %v: %v", pricing[i].Platform, pricing[i].Models, err))
+				"invalid time pricing for models %v: %v", pricing[i].Models, err))
 		}
 	}
 	return nil
@@ -492,21 +490,16 @@ func toPricingModelEntry(pattern string) modelEntry {
 	}
 }
 
-// validateNoConflictingModels 检查定价列表中是否有冲突模型模式（同一平台下）。
+// validateNoConflictingModels 检查定价列表中是否有冲突模型模式。
 // 冲突包括：精确重复、通配符之间的前缀包含、通配符与精确名的前缀匹配。
 func validateNoConflictingModels(pricingList []PricingCard) error {
-	byPlatform := make(map[string][]modelEntry)
+	entries := make([]modelEntry, 0)
 	for _, p := range pricingList {
 		for _, model := range p.Models {
-			byPlatform[p.Platform] = append(byPlatform[p.Platform], toPricingModelEntry(model))
+			entries = append(entries, toPricingModelEntry(model))
 		}
 	}
-	for platform, entries := range byPlatform {
-		if err := detectConflicts(entries, platform, "MODEL_PATTERN_CONFLICT", "model patterns"); err != nil {
-			return err
-		}
-	}
-	return nil
+	return detectConflicts(entries, "MODEL_PATTERN_CONFLICT", "model patterns")
 }
 
 func validatePricingIntervals(pricingList []PricingCard) error {
@@ -514,8 +507,7 @@ func validatePricingIntervals(pricingList []PricingCard) error {
 		if err := ValidateIntervals(pricing.Intervals, pricing.BillingMode); err != nil {
 			return infraerrors.BadRequest(
 				"INVALID_PRICING_INTERVALS",
-				fmt.Sprintf("invalid pricing intervals for platform '%s' models %v: %v",
-					pricing.Platform, pricing.Models, err),
+				fmt.Sprintf("invalid pricing intervals for models %v: %v", pricing.Models, err),
 			)
 		}
 	}
@@ -523,14 +515,14 @@ func validatePricingIntervals(pricingList []PricingCard) error {
 }
 
 // detectConflicts 在一组 modelEntry 中检测冲突，返回带有 errCode 和 label 的错误
-func detectConflicts(entries []modelEntry, platform, errCode, label string) error {
+func detectConflicts(entries []modelEntry, errCode, label string) error {
 	for i := 0; i < len(entries); i++ {
 		for j := i + 1; j < len(entries); j++ {
 			if conflictsBetween(entries[i], entries[j]) {
 				return infraerrors.BadRequest(errCode,
-					fmt.Sprintf("%s '%s' and '%s' conflict in platform '%s': overlapping match range "+
+					fmt.Sprintf("%s '%s' and '%s' conflict: overlapping match range "+
 						"(model names are matched case-insensitively, so an existing entry already covers all case variants)",
-						label, entries[i].pattern, entries[j].pattern, platform))
+						label, entries[i].pattern, entries[j].pattern))
 			}
 		}
 	}

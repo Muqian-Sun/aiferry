@@ -166,7 +166,6 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 
 	ipAddress := "203.0.113.10"
 	accountRateMultiplier := 1.5
-	accountStatsCost := 0.21
 	log := &service.UsageLog{
 		RequestID:             "req_user_visible_billing",
 		Model:                 "gpt-5.4",
@@ -179,7 +178,6 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 		RateMultiplier:        0.8,
 		IPAddress:             &ipAddress,
 		AccountRateMultiplier: &accountRateMultiplier,
-		AccountStatsCost:      &accountStatsCost,
 	}
 
 	userDTO := UsageLogFromService(log)
@@ -196,7 +194,6 @@ func TestUsageLogFromService_KeepsUserBillingAndIPWithoutAdminCostFields(t *test
 	userJSON, err := json.Marshal(userDTO)
 	require.NoError(t, err)
 	require.NotContains(t, string(userJSON), "account_rate_multiplier")
-	require.NotContains(t, string(userJSON), "account_stats_cost")
 	require.NotContains(t, string(userJSON), "account_cost")
 }
 
