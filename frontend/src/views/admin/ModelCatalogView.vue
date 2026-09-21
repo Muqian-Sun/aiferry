@@ -114,6 +114,54 @@
             <input v-model.number="form.output_price" type="number" step="any" class="input" data-testid="model-catalog-output-price" />
           </div>
         </div>
+        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+          <div v-if="isMediaMode || form.billing_mode === 'per_request'">
+            <label class="input-label">{{ t(`admin.modelCatalog.fields.${perRequestPriceLabelKey}`) }}</label>
+            <input v-model.number="form.per_request_price" type="number" step="any" class="input" data-testid="model-catalog-per-request-price" />
+          </div>
+          <div v-else>
+            <label class="input-label">{{ t('admin.modelCatalog.fields.searchPricePerCall') }}</label>
+            <input v-model.number="form.search_price_per_call" type="number" step="any" class="input" data-testid="model-catalog-search-price-per-call" />
+          </div>
+        </div>
+        <div v-if="isMediaMode" class="space-y-2" data-testid="model-catalog-media-tiers">
+          <div class="flex items-center justify-between">
+            <div>
+              <div class="text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.modelCatalog.tiers.title') }}</div>
+              <p class="mt-1 text-xs text-gray-500 dark:text-dark-400">{{ t(`admin.modelCatalog.tiers.hint.${form.billing_mode}`) }}</p>
+            </div>
+            <button
+              type="button"
+              class="btn btn-secondary btn-sm"
+              :disabled="availableTierLabels.length === 0"
+              data-testid="model-catalog-media-tier-add"
+              @click="addMediaTier"
+            >
+              {{ t('admin.modelCatalog.tiers.add') }}
+            </button>
+          </div>
+          <p v-if="mediaTiers.length === 0" class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.tiers.empty') }}</p>
+          <div
+            v-for="(tier, index) in mediaTiers"
+            :key="index"
+            class="grid grid-cols-[1fr_1fr_auto] items-end gap-3"
+            data-testid="model-catalog-media-tier-row"
+          >
+            <div>
+              <label class="input-label">{{ t('admin.modelCatalog.tiers.tier') }}</label>
+              <select v-model="tier.tier_label" class="input" data-testid="model-catalog-media-tier-label">
+                <option v-for="label in mediaTierLabels" :key="label" :value="label">{{ label }}</option>
+              </select>
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.modelCatalog.tiers.price') }}</label>
+              <input v-model.number="tier.per_request_price" type="number" step="any" class="input" data-testid="model-catalog-media-tier-price" />
+            </div>
+            <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-media-tier-remove" @click="removeMediaTier(index)">
+              {{ t('admin.modelCatalog.tiers.remove') }}
+            </button>
+          </div>
+        </div>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.listedRequiresPrice') }}</p>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
 
@@ -230,7 +278,8 @@ import type {
   ModelCatalogBinding,
   ModelCatalogBindingAccount,
   ModelCatalogEntry,
-  ModelCatalogEntryRequest
+  ModelCatalogEntryRequest,
+  PricingInterval
 } from '@/api/admin/modelCatalog'
 import type { AccountListItem, AccountPlatform, AccountType } from '@/types'
 import type { Column } from '@/components/common/types'
@@ -272,13 +321,69 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
   billing_mode: 'token',
   status: 'listed',
   input_price: null,
-  output_price: null
+  output_price: null,
+  per_request_price: null,
+  search_price_per_call: null
 })
 
 const form = reactive<ModelCatalogEntryRequest>(emptyForm())
 
 // 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
 const billingModes = ['token', 'per_request', 'image', 'video'] as const
+
+// 图片 / 视频分档：档位只能是后端认的这几个（计费查档区分大小写），每档一个按次价。
+const imageTierLabels = ['1K', '2K', '4K'] as const
+const videoTierLabels = ['480p', '720p', '1080p'] as const
+
+interface MediaTierForm {
+  tier_label: string
+  per_request_price: number | null
+}
+
+const mediaTiers = ref<MediaTierForm[]>([])
+const isMediaMode = computed(() => form.billing_mode === 'image' || form.billing_mode === 'video')
+const mediaTierLabels = computed<readonly string[]>(() => (form.billing_mode === 'video' ? videoTierLabels : imageTierLabels))
+const availableTierLabels = computed(() => mediaTierLabels.value.filter((label) => !mediaTiers.value.some((tier) => tier.tier_label === label)))
+const perRequestPriceLabelKey = computed(() => {
+  if (form.billing_mode === 'image') return 'perImagePrice'
+  if (form.billing_mode === 'video') return 'perSecondPrice'
+  return 'perRequestPrice'
+})
+
+function addMediaTier() {
+  const label = availableTierLabels.value[0]
+  if (!label) return
+  mediaTiers.value.push({ tier_label: label, per_request_price: null })
+}
+
+function removeMediaTier(index: number) {
+  mediaTiers.value.splice(index, 1)
+}
+
+// 编辑器里的分档从条目 intervals 投影；只认带 tier_label 的（token 区间分档不进这张表）。
+function mediaTiersFromIntervals(intervals: PricingInterval[] | undefined): MediaTierForm[] {
+  return (intervals ?? [])
+    .filter((iv) => iv.tier_label)
+    .map((iv) => ({ tier_label: iv.tier_label, per_request_price: iv.per_request_price }))
+}
+
+function mediaTiersToIntervals(tiers: MediaTierForm[]): PricingInterval[] {
+  return tiers.map((tier, index) => ({
+    min_tokens: 0,
+    max_tokens: null,
+    tier_label: tier.tier_label,
+    input_price: null,
+    output_price: null,
+    cache_write_price: null,
+    cache_read_price: null,
+    input_multiplier: null,
+    output_multiplier: null,
+    cache_write_multiplier: null,
+    cache_read_multiplier: null,
+    per_request_price: numberOrNull(tier.per_request_price),
+    sort_order: index
+  }))
+}
 
 // 数字输入清空后 v-model.number 得到 ''，后端按 *float64 解析会报 400：清空即「未配置」，发 null。
 const numericFields = [
@@ -295,6 +400,7 @@ const numericFields = [
   'cache_write_price_priority',
   'cache_read_price_priority',
   'per_request_price',
+  'search_price_per_call',
   'long_context_input_threshold',
   'long_context_input_multiplier',
   'long_context_output_multiplier',
@@ -359,6 +465,7 @@ async function loadEntries() {
 
 function assignForm(entry: Partial<ModelCatalogEntryRequest>) {
   Object.assign(form, emptyForm(), entry)
+  mediaTiers.value = mediaTiersFromIntervals(entry.intervals)
 }
 
 function resetBindingsEditor() {
@@ -399,6 +506,7 @@ async function openEdit(entry: ModelCatalogEntry) {
     cache_write_price_priority: entry.cache_write_price_priority,
     cache_read_price_priority: entry.cache_read_price_priority,
     per_request_price: entry.per_request_price,
+    search_price_per_call: entry.search_price_per_call,
     long_context_input_threshold: entry.long_context_input_threshold,
     long_context_threshold_inclusive: entry.long_context_threshold_inclusive,
     long_context_input_multiplier: entry.long_context_input_multiplier,
@@ -477,7 +585,8 @@ async function searchResources() {
 function payload(): ModelCatalogEntryRequest {
   const body: ModelCatalogEntryRequest = {
     ...form,
-    intervals: loadedEntry.value?.intervals ?? form.intervals ?? [],
+    // 图片 / 视频模式的分档由本页编辑；其余模式的区间分档按原值写回。
+    intervals: isMediaMode.value ? mediaTiersToIntervals(mediaTiers.value) : (loadedEntry.value?.intervals ?? form.intervals ?? []),
     time_pricing: loadedEntry.value?.time_pricing ?? form.time_pricing ?? null
   }
   for (const field of numericFields) {

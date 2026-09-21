@@ -40,6 +40,7 @@ export interface ModelCatalogEntry {
   cache_write_price_priority: number | null
   cache_read_price_priority: number | null
   per_request_price: number | null
+  search_price_per_call: number | null
   long_context_input_threshold: number | null
   long_context_threshold_inclusive: boolean
   long_context_input_multiplier: number | null
@@ -99,6 +100,7 @@ export interface ModelCatalogEntryRequest {
   cache_write_price_priority?: number | null
   cache_read_price_priority?: number | null
   per_request_price?: number | null
+  search_price_per_call?: number | null
   long_context_input_threshold?: number | null
   long_context_threshold_inclusive?: boolean
   long_context_input_multiplier?: number | null

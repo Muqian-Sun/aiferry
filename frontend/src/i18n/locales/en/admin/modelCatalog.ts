@@ -12,7 +12,7 @@ export default {
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Intervals and time pricing are written back unchanged; this page does not edit them yet.',
+    fullReplaceHint: 'Save replaces the whole entry. Token context intervals and time pricing are written back unchanged; image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
     noResources: 'No resources',
     fields: {
@@ -24,7 +24,23 @@ export default {
       managedBy: 'Managed by',
       resources: 'Resources',
       inputPrice: 'Input price ($/token)',
-      outputPrice: 'Output price ($/token)'
+      outputPrice: 'Output price ($/token)',
+      perRequestPrice: 'Default price per request ($)',
+      perImagePrice: 'Default price per image ($, used when no tier matches)',
+      perSecondPrice: 'Default price per second ($, used when no tier matches)',
+      searchPricePerCall: 'Built-in search price per call ($, empty = built-in 0.01)'
+    },
+    tiers: {
+      title: 'Tier prices',
+      hint: {
+        image: 'Per image by output size; a listed entry must have the default price.',
+        video: 'Per second by resolution; a listed entry must have the default price.'
+      },
+      tier: 'Tier',
+      price: 'Price ($)',
+      add: 'Add tier',
+      remove: 'Remove',
+      empty: 'No tiers; the default price applies.'
     },
     bindings: {
       title: 'Bound resources',
