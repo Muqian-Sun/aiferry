@@ -65,7 +65,7 @@ describe('AffiliateView', () => {
     const wrapper = mount(AffiliateView, {
       global: {
         stubs: {
-          AppLayout: { template: '<main><slot /></main>' },
+          SiteShell: { template: '<main><slot /></main>' },
           Icon: true,
         },
       },

@@ -8,6 +8,7 @@ const dir = dirname(fileURLToPath(import.meta.url))
 const headerSource = readFileSync(resolve(dir, '../AppHeader.vue'), 'utf8')
 const homeViewSource = readFileSync(resolve(dir, '../../../views/HomeView.vue'), 'utf8')
 const keyUsageViewSource = readFileSync(resolve(dir, '../../../views/KeyUsageView.vue'), 'utf8')
+const siteNavSource = readFileSync(resolve(dir, '../../user/shell/SiteNav.vue'), 'utf8')
 
 describe('doc_url sanitization', () => {
   it('AppHeader imports sanitizeUrl', () => {
@@ -32,5 +33,10 @@ describe('doc_url sanitization', () => {
 
   it('KeyUsageView applies sanitizeUrl to docUrl', () => {
     expect(keyUsageViewSource).toContain('sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl')
+  })
+
+  it('SiteNav imports sanitizeUrl and applies it to docUrl', () => {
+    expect(siteNavSource).toContain("import { sanitizeUrl } from '@/utils/url'")
+    expect(siteNavSource).toContain('sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl')
   })
 })

@@ -1,17 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, provide, watch } from 'vue'
+import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/app/AppShell.vue'
-import { SITE_LAYOUT } from '@/app/siteLayout'
 import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
-import UserSidebar from '@/components/layout/UserSidebar.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAnnouncementStore } from '@/stores/announcements'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
-provide(SITE_LAYOUT, { sidebar: UserSidebar, onboardingStorageKey: 'user_guide' })
-
+// 用户站的壳是 components/user/shell/SiteShell（顶部导航，无侧栏）；SITE_LAYOUT 注入只剩管理后台在用。
 const router = useRouter()
 const authStore = useAuthStore()
 const subscriptionStore = useSubscriptionStore()

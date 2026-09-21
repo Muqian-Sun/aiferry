@@ -1,5 +1,5 @@
 <template>
-  <AppLayout>
+  <SiteShell>
     <TablePageLayout>
       <template #filters>
         <div class="flex flex-col gap-3">
@@ -748,13 +748,13 @@
         </div>
       </template>
     </BaseDialog>
-  </AppLayout>
+  </SiteShell>
 </template>
 
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import AppLayout from '@/components/layout/AppLayout.vue'
+import SiteShell from '@/components/user/shell/SiteShell.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'

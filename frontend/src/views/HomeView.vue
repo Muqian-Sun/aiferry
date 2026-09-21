@@ -538,7 +538,7 @@ const modelPlazaRequiresAuth = computed(
 const showModelPlazaEntry = computed(
   () => modelPlazaEnabled.value && (isAuthenticated.value || !modelPlazaRequiresAuth.value),
 )
-const dashboardPath = computed(() => '/dashboard')
+const dashboardPath = computed(() => '/usage')
 const userInitial = computed(() => {
   const user = authStore.user
   if (!user || !user.email) return ''

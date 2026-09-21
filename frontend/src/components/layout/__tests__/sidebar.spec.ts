@@ -7,7 +7,8 @@ import { describe, expect, it } from 'vitest'
 const here = dirname(fileURLToPath(import.meta.url))
 const read = (path: string) => readFileSync(resolve(here, path), 'utf8')
 const frameSource = read('../sidebar/SidebarFrame.vue')
-const userSidebarSource = read('../UserSidebar.vue')
+// 用户站导航已改为顶部页签（components/user/shell），其行为测试见 user/shell/__tests__/navItems.spec.ts 与 SiteNav.spec.ts
+const siteNavSource = read('../../user/shell/SiteNav.vue')
 const adminSidebarSource = read('../../admin/layout/AdminSidebar.vue')
 const styleSource = read('../../../style.css')
 
@@ -66,26 +67,14 @@ describe('SidebarFrame header styles', () => {
 })
 
 describe('sidebar subscription feature flag', () => {
-  it('gates the My Subscriptions entry behind the subscription public-settings flag', () => {
-    expect(userSidebarSource).toContain('const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)')
-    expect(userSidebarSource).toMatch(/path: '\/subscriptions'[^\n]*featureFlag: flagSubscription/)
-  })
-
   it('also hides the admin Subscription Management entry on recharge-only sites', () => {
     expect(adminSidebarSource).toContain('const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)')
     expect(adminSidebarSource).toMatch(/path: '\/subscriptions'[^\n]*featureFlag: flagSubscription/)
   })
-
-  it('derives the purchase entry label from the site billing mode', () => {
-    expect(userSidebarSource).toContain("import { resolveSiteBillingMode } from '@/utils/siteBillingMode'")
-    expect(userSidebarSource).toMatch(/case 'recharge_only':\s*return t\('nav\.recharge'\)/)
-    expect(userSidebarSource).toMatch(/case 'subscription_only':\s*return t\('nav\.subscribe'\)/)
-    expect(userSidebarSource).toMatch(/path: '\/purchase'[^\n]*label: purchaseNavLabel\.value/)
-  })
 })
 
 describe('site sidebars stay separated', () => {
-  it('user sidebar imports nothing from the admin console', () => {
-    expect(userSidebarSource).not.toMatch(/from '@\/(stores\/admin|api\/admin|components\/admin)/)
+  it('user-site top navigation imports nothing from the admin console', () => {
+    expect(siteNavSource).not.toMatch(/from '@\/(stores\/admin|api\/admin|components\/admin)/)
   })
 })

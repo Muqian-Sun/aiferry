@@ -29,12 +29,12 @@ const PREFETCH_ADJACENCY_BY_SITE: Record<AppSite, Record<string, string[]>> = {
     '/groups': ['/subscriptions', '/users'],
     '/subscriptions': ['/groups', '/redeem']
   },
+  // 用户站五个页签：用量（落地页）· 密钥 · 模型 · 账务 · 账户
   user: {
-    '/dashboard': ['/keys', '/usage'],
-    '/keys': ['/dashboard', '/usage'],
-    '/usage': ['/keys', '/redeem'],
-    '/redeem': ['/usage', '/profile'],
-    '/profile': ['/dashboard', '/keys']
+    '/usage': ['/keys', '/billing/recharge'],
+    '/keys': ['/usage', '/billing/recharge'],
+    '/billing/recharge': ['/usage', '/keys'],
+    '/profile': ['/usage', '/keys']
   }
 }
 

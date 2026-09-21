@@ -5,6 +5,7 @@ import UsageView from '../UsageView.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageTable from '@/components/usage/UsageTable.vue'
+import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
 
 const {
   query,
@@ -95,6 +96,14 @@ const appStoreState = vi.hoisted(() => ({
   cachedPublicSettings: { allow_user_view_error_requests: true } as Record<string, unknown>,
 }))
 
+vi.mock('@/stores/auth', () => ({
+  useAuthStore: () => ({
+    user: null,
+    isSimpleMode: false,
+    refreshUser: vi.fn().mockResolvedValue(null),
+  }),
+}))
+
 vi.mock('@/stores/app', () => ({
   useAppStore: () => ({
     showError, showWarning, showSuccess, showInfo,
@@ -114,7 +123,7 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
-const simpleStub = { template: '<div><slot /></div>' }
+const simpleStub = { template: '<div><slot name="actions" /><slot name="tabs" /><slot /></div>' }
 const chartStub = { template: '<div />' }
 
 const usageLog = {
@@ -153,17 +162,14 @@ function mountUsageView() {
   return mount(UsageView, {
     global: {
       stubs: {
-        AppLayout: simpleStub,
+        SiteShell: simpleStub,
         Pagination: true,
         Select: true,
         DateRangePicker: true,
         Icon: true,
-        UsageStatsCards: chartStub,
         UsageTable: chartStub,
         UserErrorRequestsTable: chartStub,
-        ModelDistributionChart: chartStub,
-        GroupDistributionChart: chartStub,
-        EndpointDistributionChart: chartStub,
+        ModelUsageTable: chartStub,
         TokenUsageTrend: chartStub,
       },
     },
@@ -226,7 +232,7 @@ describe('user UsageView', () => {
     expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
       include_trend: true,
       include_model_stats: false,
-      include_group_stats: true,
+      include_group_stats: false,
     }))
     expect(list).toHaveBeenCalledTimes(1)
     expect(list).toHaveBeenCalledWith(1, 100)
@@ -528,6 +534,25 @@ describe('user UsageView', () => {
     window.URL.revokeObjectURL = originalRevokeObjectURL
     vi.unstubAllGlobals()
     clickSpy.mockRestore()
+  })
+
+  it('a failing stats endpoint shows a retry in its own section without hiding the model table', async () => {
+    getStats.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="stat-row"]').exists()).toBe(false)
+    expect(wrapper.findComponent(ModelUsageTable).exists()).toBe(true)
+
+    getStats.mockClear()
+    await wrapper.find('[data-testid="status-error"] button').trigger('click')
+    await flushPromises()
+
+    expect(getStats).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="stat-row"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(false)
+    wrapper.unmount()
   })
 })
 
