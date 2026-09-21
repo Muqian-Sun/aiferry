@@ -1036,6 +1036,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
+		nil,
 	)
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,

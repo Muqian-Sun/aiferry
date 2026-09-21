@@ -421,7 +421,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 					return
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
-					h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, nil), false, nil, err)
+					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, nil), false, err)
 				}
 				switchCountBefore := fs.SwitchCount
 				action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
@@ -442,7 +442,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				}
 			}
 			if forwardTarget == compatForwardOpenAI {
-				h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), false, nil, err)
+				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), false, err)
 			}
 			var upstreamErrorAlreadyCommunicated bool
 			if forwardTarget == compatForwardOpenAI {
@@ -472,7 +472,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 		if oaResult != nil {
 			// key 健康熔断 / 调度统计的成功观测
-			h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), true, oaResult.FirstTokenMs)
+			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), true)
 		}
 		// 6. Record usage
 		submitAttemptUsage()

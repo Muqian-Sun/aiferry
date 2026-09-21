@@ -243,7 +243,7 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 		nil,
 		nil,
 		nil,
-		nil)
+		nil, nil)
 
 	return svc
 }
