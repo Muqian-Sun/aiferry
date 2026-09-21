@@ -2199,7 +2199,7 @@ func (s *OpenAIGatewayService) selectAccountWithSchedulerOnce(
 	preserveGuardianParentBinding := preserveOpenAIGuardianParentBinding(ctx, sessionHash)
 	guardianParentAccountID := int64(0)
 	if strings.TrimSpace(previousResponseID) == "" {
-		guardianParentAccountID = s.resolveOpenAIGuardianParentAccountID(ctx, groupID)
+		guardianParentAccountID = s.ResolveOpenAIGuardianParentAccountID(ctx, groupID)
 	}
 	scheduler := s.getOpenAIAccountScheduler(ctx)
 	if scheduler == nil {

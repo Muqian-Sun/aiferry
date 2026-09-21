@@ -422,12 +422,12 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("revoked account selects healthy account", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "revoked")
+		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "revoked")
 		defer cleanup()
 		_ = h
 
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 		router.ServeHTTP(recorder, req)
 
@@ -441,11 +441,11 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("provider configuration stops before healthy account", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "provider")
+		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "provider")
 		defer cleanup()
 
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 		router.ServeHTTP(recorder, req)
 
@@ -454,16 +454,16 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		require.Empty(t, repo.errorIDs())
 		require.Empty(t, upstream.accountHits())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.gatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount,
+		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount,
 			"provider-scoped auth failure must not penalize the selected account")
 	})
 
 	t.Run("parent cancellation stops before healthy account", func(t *testing.T) {
-		_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "cancel")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "cancel")
 		defer cleanup()
 
 		ctx, cancel := context.WithCancel(context.Background())
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`)).WithContext(ctx)
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`)).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 		recorder := httptest.NewRecorder()
 		done := make(chan struct{})
@@ -489,7 +489,7 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("post-mapping cancellation stops before scheduler mutation or reselection", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "postmap_cancel")
+		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "postmap_cancel")
 		defer cleanup()
 		ctx, cancel := context.WithCancel(context.Background())
 		upstream.mu.Lock()
@@ -498,14 +498,14 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		upstream.mu.Unlock()
 
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`)).WithContext(ctx)
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`)).WithContext(ctx)
 		req.Header.Set("Content-Type", "application/json")
 		router.ServeHTTP(recorder, req)
 
 		require.Equal(t, []int64{801}, upstream.accountHits())
 		require.Empty(t, repo.errorIDs())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.gatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount)
+		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount)
 	})
 
 	t.Run("pre-cancelled request never invokes an account selector", func(t *testing.T) {
@@ -514,14 +514,26 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 			method string
 			path   string
 			body   string
+			// gateway 为真走 Gateway handler（responses / chat），否则走 OpenAI handler（媒体）。
+			gateway bool
 		}{
-			{name: "responses", method: http.MethodPost, path: "/openai/v1/responses", body: `{"model":"grok","input":"hello","stream":false}`},
-			{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
+			{name: "responses", method: http.MethodPost, path: "/v1/responses", body: `{"model":"grok","input":"hello","stream":false}`, gateway: true},
+			{name: "chat completions", method: http.MethodPost, path: "/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`, gateway: true},
 			{name: "grok media", method: http.MethodGet, path: "/openai/v1/videos/request-1"},
 		}
 		for _, tt := range tests {
 			t.Run(tt.name, func(t *testing.T) {
-				_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "revoked")
+				var (
+					repo     *grokCredentialHandlerRepo
+					upstream *grokCredentialHandlerUpstream
+					router   *gin.Engine
+					cleanup  func()
+				)
+				if tt.gateway {
+					_, repo, upstream, router, cleanup = newGrokCredentialFailoverGatewayHandler(t, "revoked")
+				} else {
+					_, repo, upstream, router, cleanup = newGrokCredentialFailoverGatewayHandler(t, "revoked")
+				}
 				defer cleanup()
 				ctx, cancel := context.WithCancel(context.Background())
 				cancel()
@@ -540,11 +552,11 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	t.Run("credential state mutation failures stop before reselection", func(t *testing.T) {
 		for _, mode := range []string{"mutation_set_error", "mutation_temp", "mutation_cache"} {
 			t.Run(mode, func(t *testing.T) {
-				_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, mode)
+				_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, mode)
 				defer cleanup()
 
 				recorder := httptest.NewRecorder()
-				req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+				req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 				req.Header.Set("Content-Type", "application/json")
 				router.ServeHTTP(recorder, req)
 
@@ -557,10 +569,10 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("missing credential provider stops before upstream or reselection", func(t *testing.T) {
-		_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "nil_provider")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "nil_provider")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -577,10 +589,10 @@ func TestResponsesGrok429FailoverIsBounded(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("first rate limited account selects healthy account", func(t *testing.T) {
-		_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "first_429")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "first_429")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -592,10 +604,10 @@ func TestResponsesGrok429FailoverIsBounded(t *testing.T) {
 	})
 
 	t.Run("two rate limited accounts stop without sweeping the pool", func(t *testing.T) {
-		_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "all_429")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "all_429")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -611,11 +623,11 @@ func TestResponsesGrok429FailoverIsBounded(t *testing.T) {
 
 func TestResponsesGrok402FailoverCooldown(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "first_402")
+	_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "first_402")
 	defer cleanup()
 
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 	req.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(recorder, req)
 
@@ -626,7 +638,7 @@ func TestResponsesGrok402FailoverCooldown(t *testing.T) {
 	before := repo.selectorCalls()
 
 	second := httptest.NewRecorder()
-	secondReq := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"again","stream":false}`))
+	secondReq := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"again","stream":false}`))
 	secondReq.Header.Set("Content-Type", "application/json")
 	router.ServeHTTP(second, secondReq)
 
@@ -639,10 +651,10 @@ func TestResponsesGrok429FailoverHandlesMixedStatuses(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	t.Run("429 then 500 stops after the bounded followup", func(t *testing.T) {
-		_, _, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "mixed_429_500")
+		_, _, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "mixed_429_500")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -653,10 +665,10 @@ func TestResponsesGrok429FailoverHandlesMixedStatuses(t *testing.T) {
 	})
 
 	t.Run("500 then 429 permits one healthy followup", func(t *testing.T) {
-		_, _, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "mixed_500_429")
+		_, _, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "mixed_500_429")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -666,10 +678,10 @@ func TestResponsesGrok429FailoverHandlesMixedStatuses(t *testing.T) {
 	})
 
 	t.Run("OAuth 429 then API-key failure cannot bypass the bound", func(t *testing.T) {
-		_, _, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "oauth_429_apikey_500")
+		_, _, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "oauth_429_apikey_500")
 		defer cleanup()
 		recorder := httptest.NewRecorder()
-		req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 		req.Header.Set("Content-Type", "application/json")
 
 		router.ServeHTTP(recorder, req)
@@ -717,15 +729,25 @@ func TestGrokOAuthCredentialFailoverAcrossHTTPHandlers(t *testing.T) {
 		method string
 		path   string
 		body   string
+		// gateway 为真走 Gateway handler（chat），否则走 OpenAI handler（媒体）。
+		gateway bool
 	}{
-		{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
-		{name: "chat completions raw fallback", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stop":["END"],"stream":false}`},
+		{name: "chat completions", method: http.MethodPost, path: "/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`, gateway: true},
+		{name: "chat completions raw fallback", method: http.MethodPost, path: "/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stop":["END"],"stream":false}`, gateway: true},
 		{name: "grok media", method: http.MethodPost, path: "/openai/v1/videos/generations", body: `{"model":"grok-imagine-video","prompt":"waves"}`},
+	}
+	newHarness := func(t *testing.T, gateway bool, mode string) (*grokCredentialHandlerRepo, *grokCredentialHandlerUpstream, *gin.Engine, func()) {
+		if gateway {
+			_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, mode)
+			return repo, upstream, router, cleanup
+		}
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, mode)
+		return repo, upstream, router, cleanup
 	}
 
 	for _, endpoint := range endpoints {
 		t.Run(endpoint.name+" revoked selects healthy", func(t *testing.T) {
-			_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "revoked")
+			repo, upstream, router, cleanup := newHarness(t, endpoint.gateway, "revoked")
 			defer cleanup()
 			recorder := httptest.NewRecorder()
 			req := httptest.NewRequest(endpoint.method, endpoint.path, bytes.NewBufferString(endpoint.body))
@@ -739,7 +761,7 @@ func TestGrokOAuthCredentialFailoverAcrossHTTPHandlers(t *testing.T) {
 		})
 
 		t.Run(endpoint.name+" all accounts exhausted safely", func(t *testing.T) {
-			_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "all_revoked")
+			repo, upstream, router, cleanup := newHarness(t, endpoint.gateway, "all_revoked")
 			defer cleanup()
 			recorder := httptest.NewRecorder()
 			req := httptest.NewRequest(endpoint.method, endpoint.path, bytes.NewBufferString(endpoint.body))
@@ -759,10 +781,10 @@ func TestGrokOAuthCredentialFailoverAcrossHTTPHandlers(t *testing.T) {
 
 func TestGrokOAuthMissingSelectedRowRetriesHealthyAccountWithoutMutation(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	_, repo, upstream, router, cleanup := newGrokCredentialFailoverHandler(t, "missing_row")
+	_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "missing_row")
 	defer cleanup()
 	recorder := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodPost, "/openai/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
+	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewBufferString(`{"model":"grok","input":"hello","stream":false}`))
 	req.Header.Set("Content-Type", "application/json")
 
 	router.ServeHTTP(recorder, req)
@@ -853,7 +875,78 @@ func findHandlerRefresherStarted(router *gin.Engine) <-chan struct{} {
 	return value.(chan struct{})
 }
 
+// grokCredentialFailoverFixture 是一组 grok OAuth 账号 + 会按 mode 失败的凭据刷新器 + 记录命中的上游，
+// 两个 handler（OpenAI：WS / 媒体；Gateway：responses / chat）共用同一套 OpenAI 服务。
+type grokCredentialFailoverFixture struct {
+	repo         *grokCredentialHandlerRepo
+	upstream     *grokCredentialHandlerUpstream
+	gateway      *service.OpenAIGatewayService
+	billingCache *service.BillingCacheService
+	cfg          *config.Config
+	refresher    *grokCredentialHandlerRefresher
+	apiKey       *service.APIKey
+}
+
+func (fx *grokCredentialFailoverFixture) newRouter() (*gin.Engine, func()) {
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		c.Set(string(middleware.ContextKeyAPIKey), fx.apiKey)
+		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: fx.apiKey.User.ID, Concurrency: 1})
+		c.Next()
+	})
+	handlerRefresherStarted.Store(router, fx.refresher.started)
+	cleanup := func() {
+		handlerRefresherStarted.Delete(router)
+		fx.billingCache.Stop()
+	}
+	return router, cleanup
+}
+
+func newGrokCredentialFailoverConcurrencyService() *service.ConcurrencyService {
+	return service.NewConcurrencyService(&concurrencyCacheMock{
+		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
+		acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
+	})
+}
+
+// newGrokCredentialFailoverHandler 把夹具挂到 OpenAI handler：WS 与 grok 媒体端点。
 func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGatewayHandler, *grokCredentialHandlerRepo, *grokCredentialHandlerUpstream, *gin.Engine, func()) {
+	t.Helper()
+	fx := newGrokCredentialFailoverFixture(t, mode)
+	h := NewOpenAIGatewayHandler(fx.gateway, newGrokCredentialFailoverConcurrencyService(), fx.billingCache, &service.APIKeyService{}, nil, nil, nil, nil, fx.cfg, listAllCatalogStub{})
+	router, cleanup := fx.newRouter()
+	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
+	router.POST("/openai/v1/videos/generations", h.GrokVideoGeneration)
+	router.GET("/openai/v1/videos/:request_id", h.GrokVideoStatus)
+	return h, fx.repo, fx.upstream, router, cleanup
+}
+
+// newGrokCredentialFailoverGatewayHandler 把同一夹具挂到 Gateway handler：/v1/responses 与 /v1/chat/completions
+// 现在恒定由它承接，选号走 GatewayService（无快照 → 直接列 repo，选号次数照旧计入 repo）。
+func newGrokCredentialFailoverGatewayHandler(t *testing.T, mode string) (*GatewayHandler, *grokCredentialHandlerRepo, *grokCredentialHandlerUpstream, *gin.Engine, func()) {
+	t.Helper()
+	fx := newGrokCredentialFailoverFixture(t, mode)
+	gwSvc := service.NewGatewayService(
+		fx.repo, &fakeGroupRepo{group: fx.apiKey.Group}, nil, nil, nil, nil, nil, fx.cfg,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
+	h := &GatewayHandler{
+		gatewayService:       gwSvc,
+		openAIGatewayService: fx.gateway,
+		billingCacheService:  fx.billingCache,
+		apiKeyService:        &service.APIKeyService{},
+		concurrencyHelper:    NewConcurrencyHelper(newGrokCredentialFailoverConcurrencyService(), SSEPingFormatClaude, 0),
+		cfg:                  fx.cfg,
+		modelCatalog:         listAllCatalogStub{},
+		maxAccountSwitches:   fx.cfg.Gateway.MaxAccountSwitches,
+	}
+	router, cleanup := fx.newRouter()
+	router.POST("/v1/responses", h.Responses)
+	router.POST("/v1/chat/completions", h.ChatCompletions)
+	return h, fx.repo, fx.upstream, router, cleanup
+}
+
+func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredentialFailoverFixture {
 	t.Helper()
 	groupID := int64(901)
 	accounts := []service.Account{
@@ -944,31 +1037,10 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
 	)
-	cache := &concurrencyCacheMock{
-		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
-		acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
-	}
-	h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, listAllCatalogStub{})
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,
 		User:  &service.User{ID: 903, Status: service.StatusActive},
-		Group: &service.Group{ID: groupID, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true},
+		Group: &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true},
 	}
-	router := gin.New()
-	router.Use(func(c *gin.Context) {
-		c.Set(string(middleware.ContextKeyAPIKey), apiKey)
-		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: apiKey.User.ID, Concurrency: 1})
-		c.Next()
-	})
-	router.POST("/openai/v1/responses", h.Responses)
-	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	router.POST("/openai/v1/chat/completions", h.ChatCompletions)
-	router.POST("/openai/v1/videos/generations", h.GrokVideoGeneration)
-	router.GET("/openai/v1/videos/:request_id", h.GrokVideoStatus)
-	handlerRefresherStarted.Store(router, refresher.started)
-	cleanup := func() {
-		handlerRefresherStarted.Delete(router)
-		billingCache.Stop()
-	}
-	return h, repo, upstream, router, cleanup
+	return &grokCredentialFailoverFixture{repo: repo, upstream: upstream, gateway: gateway, billingCache: billingCache, cfg: cfg, refresher: refresher, apiKey: apiKey}
 }

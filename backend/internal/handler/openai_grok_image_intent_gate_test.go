@@ -1,3 +1,5 @@
+//go:build unit
+
 package handler
 
 import (
@@ -13,23 +15,23 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpenAIGatewayHandlerResponses_GrokPassiveImageToolDeclarationBypassesPermissionGate(t *testing.T) {
+func TestGatewayHandlerResponses_GrokPassiveImageToolDeclarationBypassesPermissionGate(t *testing.T) {
 	body := `{"model":"grok-4.5","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]}],"tool_choice":"auto","input":"write code"}`
-	rec := runOpenAIResponsesImagePermissionGateTest(t, service.PlatformGrok, body)
+	rec := runGatewayResponsesImagePermissionGateTest(t, service.PlatformGrok, body)
 
 	require.NotEqual(t, http.StatusForbidden, rec.Code)
 	require.NotContains(t, rec.Body.String(), service.ImageGenerationPermissionMessage())
 }
 
-func TestOpenAIGatewayHandlerResponses_GrokResponsesLiteImageToolDeclarationBypassesPermissionGate(t *testing.T) {
+func TestGatewayHandlerResponses_GrokResponsesLiteImageToolDeclarationBypassesPermissionGate(t *testing.T) {
 	body := `{"model":"grok-4.5","tool_choice":"auto","input":[{"type":"additional_tools","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]}]},{"type":"message","role":"user","content":"write code"}]}`
-	rec := runOpenAIResponsesImagePermissionGateTest(t, service.PlatformGrok, body)
+	rec := runGatewayResponsesImagePermissionGateTest(t, service.PlatformGrok, body)
 
 	require.NotEqual(t, http.StatusForbidden, rec.Code)
 	require.NotContains(t, rec.Body.String(), service.ImageGenerationPermissionMessage())
 }
 
-func TestOpenAIGatewayHandlerResponses_ImagePermissionHardSignalsStillRejected(t *testing.T) {
+func TestGatewayHandlerResponses_ImagePermissionHardSignalsStillRejected(t *testing.T) {
 	tests := []struct {
 		name     string
 		platform string
@@ -59,7 +61,7 @@ func TestOpenAIGatewayHandlerResponses_ImagePermissionHardSignalsStillRejected(t
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			rec := runOpenAIResponsesImagePermissionGateTest(t, tt.platform, tt.body)
+			rec := runGatewayResponsesImagePermissionGateTest(t, tt.platform, tt.body)
 
 			require.Equal(t, http.StatusForbidden, rec.Code)
 			require.Contains(t, rec.Body.String(), service.ImageGenerationPermissionMessage())
@@ -67,15 +69,15 @@ func TestOpenAIGatewayHandlerResponses_ImagePermissionHardSignalsStillRejected(t
 	}
 }
 
-func TestOpenAIGatewayHandlerResponses_PassiveNamespaceDoesNotTrigger403(t *testing.T) {
+func TestGatewayHandlerResponses_PassiveNamespaceDoesNotTrigger403(t *testing.T) {
 	passiveNamespace := `{"model":"gpt-5.5","tools":[{"type":"namespace","name":"image_gen","tools":[{"type":"function","name":"imagegen"}]}],"tool_choice":"auto","input":"write code"}`
-	rec := runOpenAIResponsesImagePermissionGateTest(t, service.PlatformOpenAI, passiveNamespace)
+	rec := runGatewayResponsesImagePermissionGateTest(t, service.PlatformOpenAI, passiveNamespace)
 
 	require.NotEqual(t, http.StatusForbidden, rec.Code,
 		"passive image_gen namespace with tool_choice=auto should not trigger 403 (#4447)")
 }
 
-func runOpenAIResponsesImagePermissionGateTest(t *testing.T, platform string, body string) *httptest.ResponseRecorder {
+func runGatewayResponsesImagePermissionGateTest(t *testing.T, platform string, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -97,17 +99,14 @@ func runOpenAIResponsesImagePermissionGateTest(t *testing.T, platform string, bo
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID, Concurrency: 1})
 
-	h := &OpenAIGatewayHandler{
-		gatewayService:      &service.OpenAIGatewayService{},
-		billingCacheService: service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
-		apiKeyService:       &service.APIKeyService{},
-		concurrencyHelper: &ConcurrencyHelper{concurrencyService: service.NewConcurrencyService(
-			&helperConcurrencyCacheStub{userSeq: []bool{true}},
-		)},
-		cfg:          &config.Config{},
-		imageLimiter: &imageConcurrencyLimiter{},
-		modelCatalog: listAllCatalogStub{},
-	}
+	// /v1/responses 由 Gateway handler 承接；生图权限门在选号之前，池留空即可（放行的用例走到选号得 503，不是 403）。
+	cfg := &config.Config{RunMode: config.RunModeSimple}
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	t.Cleanup(billingCache.Stop)
+	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, apiKey.Group, &service.OpenAIGatewayService{}, billingCache,
+		service.NewConcurrencyService(&helperConcurrencyCacheStub{userSeq: []bool{true}}))
+	h.imageLimiter = &ImageConcurrencyLimiter{}
 
 	h.Responses(c)
 	return rec

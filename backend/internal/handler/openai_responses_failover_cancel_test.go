@@ -49,7 +49,8 @@ func (u *openAIResponsesFailoverCancelUpstream) calls() []int64 {
 	return append([]int64(nil), u.accountIDs...)
 }
 
-func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUpstream) *OpenAIGatewayHandler {
+// newGatewayResponsesFailoverTestHandler：两个 OpenAI OAuth 账号的池挂到 Gateway handler（/v1/responses 现在由它承接）。
+func newGatewayResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUpstream) *GatewayHandler {
 	t.Helper()
 	accounts := []service.Account{
 		{
@@ -102,19 +103,7 @@ func newOpenAIResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPUp
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
-	concurrencyService := service.NewConcurrencyService(nil)
-	handler := NewOpenAIGatewayHandler(
-		gatewayService,
-		concurrencyService,
-		billingService,
-		service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
-		nil,
-		nil,
-		nil,
-		nil,
-		cfg,
-		nil,
-	)
+	handler := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: 3131, Platform: service.PlatformOpenAI}, gatewayService, billingService, service.NewConcurrencyService(nil))
 	handler.maxAccountSwitches = 10
 	return handler
 }
@@ -144,17 +133,17 @@ func newOpenAIResponsesFailoverTestContext(t *testing.T, ctx context.Context) (*
 	return c, rec
 }
 
-// TestOpenAIGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected 复现
+// TestGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected 复现
 // #4257：客户端在上游请求在途期间断开，上游随后返回可 failover 的 520。
 // 期望：不再用已取消的 context 重新选号（不触达账号 2）、不把取消误报成
 // 502 账号耗尽、请求按 499 归类。
-func TestOpenAIGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected(t *testing.T) {
+func TestGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	upstream := &openAIResponsesFailoverCancelUpstream{onFirstDo: cancel}
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newOpenAIResponsesFailoverTestContext(t, ctx)
 
 	handler.Responses(c)
@@ -176,14 +165,14 @@ func TestOpenAIGatewayHandlerResponses_FailoverAbortsWhenClientDisconnected(t *t
 	require.Equal(t, 520, events[0].UpstreamStatusCode)
 }
 
-// TestOpenAIGatewayHandlerResponses_FailoverContinuesForConnectedClient 回归
+// TestGatewayHandlerResponses_FailoverContinuesForConnectedClient 回归
 // 守卫：客户端在线时 failover 行为不变——切换到账号 2，两个账号都 520 后按
 // 耗尽返回 502。
-func TestOpenAIGatewayHandlerResponses_FailoverContinuesForConnectedClient(t *testing.T) {
+func TestGatewayHandlerResponses_FailoverContinuesForConnectedClient(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := &openAIResponsesFailoverCancelUpstream{}
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newOpenAIResponsesFailoverTestContext(t, nil)
 
 	handler.Responses(c)

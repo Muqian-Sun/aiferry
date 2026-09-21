@@ -48,13 +48,15 @@ type GatewayHandler struct {
 	errorPassthroughService   *service.ErrorPassthroughService
 	contentModerationService  *service.ContentModerationService
 	opsService                *service.OpsService
-	securityAuditCoordinator  *securityaudit.Coordinator
-	concurrencyHelper         *ConcurrencyHelper
-	userMsgQueueHelper        *UserMsgQueueHelper
-	maxAccountSwitches        int
-	maxAccountSwitchesGemini  int
-	cfg                       *config.Config
-	settingService            *service.SettingService
+	// imageLimiter 进程级生图并发（/v1/responses 的生图意图），与 OpenAI handler 共用同一实例。
+	imageLimiter             *ImageConcurrencyLimiter
+	securityAuditCoordinator *securityaudit.Coordinator
+	concurrencyHelper        *ConcurrencyHelper
+	userMsgQueueHelper       *UserMsgQueueHelper
+	maxAccountSwitches       int
+	maxAccountSwitchesGemini int
+	cfg                      *config.Config
+	settingService           *service.SettingService
 	// modelCatalog 用户可见模型列表的来源：只列上架条目。
 	modelCatalog service.CatalogListingSource
 }
@@ -1409,61 +1411,16 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 // handleFailoverExhausted 写换号耗尽的错误响应。platform 是匹配错误透传规则的平台，
 // 调用方按 service.ErrorPassthroughRulePlatform 取值（第三方 key 不看平台标签）。
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
-	copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
-	// 凭据失败（Stage=account_auth）按凭据失败映射，不透传上游原文；与 chat / responses 入站一致。
-	if failoverErr.IsCredentialFailure() {
-		status, message := credentialFailoverClientResponse(failoverErr)
-		h.handleStreamingAwareError(c, status, "api_error", message, streamStarted)
+	resp := classifyFailoverExhausted(c, failoverErr, exhaustedClassifyOptions{
+		Platform:      platform,
+		Passthrough:   h.errorPassthroughService,
+		MapUpstream:   h.mapUpstreamError,
+		StreamStarted: streamStarted,
+	})
+	if resp.Written {
 		return
 	}
-	// OpenAI 上游容量降载：带明确的客户端文案与状态码
-	if failoverErr.IsOpenAICapacityShed() && strings.TrimSpace(failoverErr.ClientMessage) != "" {
-		status := failoverErr.ClientStatusCode
-		if status <= 0 {
-			status = http.StatusServiceUnavailable
-		}
-		h.handleStreamingAwareError(c, status, "api_error", failoverErr.ClientMessage, streamStarted)
-		return
-	}
-	statusCode := failoverErr.StatusCode
-	responseBody := failoverErr.ResponseBody
-	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
-		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
-		h.handleStreamingAwareError(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage(), streamStarted)
-		return
-	}
-
-	// 先检查透传规则
-	if h.errorPassthroughService != nil && len(responseBody) > 0 {
-		if rule := h.errorPassthroughService.MatchRule(platform, statusCode, responseBody); rule != nil {
-			// 确定响应状态码
-			respCode := statusCode
-			if !rule.PassthroughCode && rule.ResponseCode != nil {
-				respCode = *rule.ResponseCode
-			}
-
-			// 确定响应消息
-			msg := service.ExtractUpstreamErrorMessage(responseBody)
-			if !rule.PassthroughBody && rule.CustomMessage != nil {
-				msg = *rule.CustomMessage
-			}
-
-			if rule.SkipMonitoring {
-				c.Set(service.OpsSkipPassthroughKey, true)
-			}
-
-			h.handleStreamingAwareError(c, respCode, "upstream_error", msg, streamStarted)
-			return
-		}
-	}
-
-	// 记录原始上游状态码，以便 ops 错误日志捕获真实的上游错误
-	upstreamMsg := service.ExtractUpstreamErrorMessage(responseBody)
-	service.SetOpsUpstreamError(c, statusCode, upstreamMsg, "")
-
-	// 使用默认的错误映射
-	status, errType, errMsg := h.mapUpstreamError(statusCode)
-	h.handleStreamingAwareError(c, status, errType, errMsg, streamStarted)
+	h.handleStreamingAwareError(c, resp.Status, resp.anthropicErrType(), resp.Message, streamStarted)
 }
 
 // handleFailoverExhaustedSimple 简化版本，用于没有响应体的情况

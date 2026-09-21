@@ -28,10 +28,11 @@ func TestEveryGatewayPOSTRouteIsClassifiedForPromptAuditCoverage(t *testing.T) {
 	}
 
 	audited := map[string][]string{
-		"/messages":                 {"gateway_handler.go", "openai_gateway_handler.go"},
-		"/responses":                {"gateway_handler_responses.go", "openai_gateway_handler.go"},
-		"/responses/*subpath":       {"gateway_handler_responses.go", "openai_gateway_handler.go"},
-		"/chat/completions":         {"gateway_handler_chat_completions.go", "openai_chat_completions.go"},
+		// 四个聊天入站恒定由 Gateway handler 承接（OpenAI handler 只剩 WS 与扩展端点）
+		"/messages":                 {"gateway_handler.go"},
+		"/responses":                {"gateway_handler_responses.go"},
+		"/responses/*subpath":       {"gateway_handler_responses.go"},
+		"/chat/completions":         {"gateway_handler_chat_completions.go"},
 		"/embeddings":               {"openai_embeddings.go"},
 		"/alpha/search":             {"openai_alpha_search.go"},
 		"/live":                     {"openai_live.go"},

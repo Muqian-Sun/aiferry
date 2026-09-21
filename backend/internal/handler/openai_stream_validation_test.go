@@ -54,22 +54,6 @@ func TestOpenAICompatibleHandlersRejectInvalidStreamFieldType(t *testing.T) {
 				(&GatewayHandler{}).ChatCompletions(c)
 			},
 		},
-		{
-			name: "openai_chat_completions_string_stream",
-			path: "/openai/v1/chat/completions",
-			body: `{"model":"gpt-5","stream":"true","messages":[{"role":"user","content":"hello"}]}`,
-			run: func(c *gin.Context) {
-				newOpenAIHandlerForPreviousResponseIDValidation(t, nil).ChatCompletions(c)
-			},
-		},
-		{
-			name: "openai_chat_completions_number_stream",
-			path: "/openai/v1/chat/completions",
-			body: `{"model":"gpt-5","stream":1,"messages":[{"role":"user","content":"hello"}]}`,
-			run: func(c *gin.Context) {
-				newOpenAIHandlerForPreviousResponseIDValidation(t, nil).ChatCompletions(c)
-			},
-		},
 	}
 
 	for _, tt := range tests {

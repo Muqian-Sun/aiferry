@@ -139,11 +139,11 @@ func assertAstraProAccountSwitch(t *testing.T, accountIDs []int64) {
 
 // 403 then a second OAuth account succeeding: wire bodies keep pro+max/model and the
 // winning account's structured reasoning.mode=pro reaches the client unchanged.
-func TestOpenAIGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing.T) {
+func TestGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := newAstraProCapturedUpstream(astra403(), astra200())
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newAstraProFailoverContext(t, astraProRequestBody)
 
 	handler.Responses(c)
@@ -159,11 +159,11 @@ func TestOpenAIGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing
 
 // both OAuth accounts 403: exhausted keeps every wire body pro+max/model, is not 200,
 // and surfaces the existing-policy 502 upstream_error (unchanged 403-masking policy).
-func TestOpenAIGatewayHandlerResponses_AstraProBoth403NoDowngrade(t *testing.T) {
+func TestGatewayHandlerResponses_AstraProBoth403NoDowngrade(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := newAstraProCapturedUpstream(astra403(), astra403())
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newAstraProFailoverContext(t, astraProRequestBody)
 
 	handler.Responses(c)
@@ -179,7 +179,6 @@ func TestOpenAIGatewayHandlerResponses_AstraProBoth403NoDowngrade(t *testing.T) 
 // passthrough -> non-passthrough drops only the encrypted *input* reasoning item;
 // the official top-level reasoning.mode/effort survive verbatim.
 func TestDeriveOpenAIForwardAttemptBody_AstraCrossModeKeepsTopLevelReasoningMode(t *testing.T) {
-	h := &OpenAIGatewayHandler{}
 	canonical := []byte(`{"model":"gpt-6-astra","stream":false,"reasoning":{"mode":"pro","effort":"max"},"input":[` +
 		`{"type":"message","role":"user","content":"hello"},` +
 		`{"type":"reasoning","id":"rs_kiro_abc","encrypted_content":"ENC_BLOB","summary":[{"type":"summary_text","text":"thinking"}]}` +
@@ -190,12 +189,12 @@ func TestDeriveOpenAIForwardAttemptBody_AstraCrossModeKeepsTopLevelReasoningMode
 	kiro := newOpenAIPassthroughAccount(1, true)     // passthrough first
 	bedrock := newOpenAIPassthroughAccount(2, false) // non-passthrough after
 
-	firstBody := h.deriveOpenAIForwardAttemptBody(nil, canonical, kiro, state)
+	firstBody := deriveOpenAIForwardAttemptBody(nil, canonical, kiro, state)
 	require.Equal(t, 1, reasoningItemCount(t, firstBody), "first passthrough attempt keeps the encrypted input reasoning item")
 	require.Equal(t, "pro", gjson.GetBytes(firstBody, "reasoning.mode").String())
 	require.Equal(t, "max", gjson.GetBytes(firstBody, "reasoning.effort").String())
 
-	secondBody := h.deriveOpenAIForwardAttemptBody(nil, canonical, bedrock, state)
+	secondBody := deriveOpenAIForwardAttemptBody(nil, canonical, bedrock, state)
 	require.Equal(t, 0, reasoningItemCount(t, secondBody), "cross-mode attempt drops the encrypted input reasoning item")
 	require.Equal(t, "pro", gjson.GetBytes(secondBody, "reasoning.mode").String(), "mode=pro must survive cross-mode sanitization")
 	require.Equal(t, "max", gjson.GetBytes(secondBody, "reasoning.effort").String(), "effort=max must survive cross-mode sanitization")

@@ -116,7 +116,8 @@ func preserveOpenAIGuardianParentBinding(ctx context.Context, sessionHash string
 	return sessionHash != "" && (sessionHash == affinity.currentSessionHash || sessionHash == affinity.legacySessionHash)
 }
 
-func (s *OpenAIGatewayService) resolveOpenAIGuardianParentAccountID(ctx context.Context, groupID *int64) int64 {
+// ResolveOpenAIGuardianParentAccountID Codex 自动审查请求按父线程的粘性绑定选号（守护父线程亲和）；无亲和或未绑定返回 0。
+func (s *OpenAIGatewayService) ResolveOpenAIGuardianParentAccountID(ctx context.Context, groupID *int64) int64 {
 	if s == nil || s.cache == nil {
 		return 0
 	}

@@ -113,12 +113,20 @@ func ProvideGatewayHandler(
 	settingService *service.SettingService,
 	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
+	imageLimiter *ImageConcurrencyLimiter,
 ) *GatewayHandler {
 	h := NewGatewayHandler(gatewayService, openAIGatewayService, geminiCompatService, antigravityGatewayService,
 		userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
 		errorPassthroughService, contentModerationService, opsService, userMsgQueueService, cfg, settingService, modelCatalog)
 	h.securityAuditCoordinator = coordinator
+	h.imageLimiter = imageLimiter
 	return h
+}
+
+// ProvideImageConcurrencyLimiter 进程级生图并发限制器：/v1/responses（Gateway handler）与 /v1/images
+// （OpenAI handler）共用一个，各建一个会把上限翻倍。
+func ProvideImageConcurrencyLimiter() *ImageConcurrencyLimiter {
+	return &ImageConcurrencyLimiter{}
 }
 
 func ProvideOpenAIGatewayHandler(
@@ -135,12 +143,14 @@ func ProvideOpenAIGatewayHandler(
 	cfg *config.Config,
 	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
+	imageLimiter *ImageConcurrencyLimiter,
 ) *OpenAIGatewayHandler {
 	gatewayService.SetPluginManager(pluginManager)
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
 		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg, modelCatalog)
 	h.securityAuditCoordinator = coordinator
 	h.grokMediaEligibilityProber = grokQuotaService
+	h.imageLimiter = imageLimiter
 	return h
 }
 
@@ -240,6 +250,7 @@ var ProviderSet = wire.NewSet(
 	NewAnnouncementHandler,
 	NewChannelMonitorUserHandler,
 	NewChannelMonitorV2Handler,
+	ProvideImageConcurrencyLimiter,
 	ProvideGatewayHandler,
 	ProvideOpenAIGatewayHandler,
 	NewTotpHandler,

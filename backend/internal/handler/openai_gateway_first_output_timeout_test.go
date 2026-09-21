@@ -1,7 +1,6 @@
 package handler
 
 import (
-	"context"
 	"fmt"
 	"net/http/httptest"
 	"testing"
@@ -35,17 +34,4 @@ func TestOpenAIFirstOutputFailoverStopsAfterOneAccountSwitch(t *testing.T) {
 	require.Equal(t, 1, count)
 	require.True(t, openAIFirstOutputFailoverExhausted(failoverErr, &count))
 	require.Equal(t, 1, count)
-}
-
-func TestOpenAIRequestAllowsFailoverReplayStopsCanceledClient(t *testing.T) {
-	require.False(t, openAIRequestAllowsFailoverReplay(nil))
-
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	requestCtx, cancel := context.WithCancel(context.Background())
-	c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(requestCtx)
-
-	require.True(t, openAIRequestAllowsFailoverReplay(c))
-	cancel()
-	require.False(t, openAIRequestAllowsFailoverReplay(c))
 }

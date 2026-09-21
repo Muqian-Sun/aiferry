@@ -144,10 +144,10 @@ func TestLogOpenAIRemoteCompactOutcome_Succeeded(t *testing.T) {
 	c.Header("x-request-id", "rid-compact-ok")
 	c.Status(http.StatusOK)
 
-	h := &OpenAIGatewayHandler{}
-	h.logOpenAIRemoteCompactOutcome(c, time.Now().Add(-8*time.Millisecond))
+	logOpenAIRemoteCompactOutcome(c, nil, time.Now().Add(-8*time.Millisecond))
 
 	require.True(t, logSink.ContainsMessageAtLevel("codex.remote_compact.succeeded", "info"))
+	require.True(t, logSink.ContainsFieldValue("component", "handler.gateway.responses"))
 	require.True(t, logSink.ContainsFieldValue("compact_outcome", "succeeded"))
 	require.True(t, logSink.ContainsFieldValue("status_code", "200"))
 	require.True(t, logSink.ContainsFieldValue("path", "/v1/responses/compact"))
@@ -167,8 +167,7 @@ func TestLogOpenAIRemoteCompactOutcome_Failed(t *testing.T) {
 	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.125.0")
 	c.Status(http.StatusBadGateway)
 
-	h := &OpenAIGatewayHandler{}
-	h.logOpenAIRemoteCompactOutcome(c, time.Now())
+	logOpenAIRemoteCompactOutcome(c, nil, time.Now())
 
 	require.True(t, logSink.ContainsMessageAtLevel("codex.remote_compact.failed", "warn"))
 	require.True(t, logSink.ContainsFieldValue("compact_outcome", "failed"))
@@ -186,14 +185,13 @@ func TestLogOpenAIRemoteCompactOutcome_NonCompactSkips(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	c.Status(http.StatusOK)
 
-	h := &OpenAIGatewayHandler{}
-	h.logOpenAIRemoteCompactOutcome(c, time.Now())
+	logOpenAIRemoteCompactOutcome(c, nil, time.Now())
 
 	require.False(t, logSink.ContainsMessageAtLevel("codex.remote_compact.succeeded", "info"))
 	require.False(t, logSink.ContainsMessageAtLevel("codex.remote_compact.failed", "warn"))
 }
 
-func TestOpenAIResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
+func TestGatewayResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logSink, restore := captureHandlerStructuredLog(t)
 	defer restore()
@@ -204,8 +202,7 @@ func TestOpenAIResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.125.0")
 
-	h := &OpenAIGatewayHandler{}
-	h.Responses(c)
+	(&GatewayHandler{}).Responses(c)
 
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 	require.True(t, logSink.ContainsMessageAtLevel("codex.remote_compact.failed", "warn"))

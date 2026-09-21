@@ -302,7 +302,7 @@ func TestGatewayRoutesMessagesWithGrokModelUsesGatewayMessages(t *testing.T) {
 	require.NotContains(t, w.Body.String(), "composite groups")
 }
 
-func TestGatewayRoutesChatCompletionsWithGrokModelUsesOpenAIGateway(t *testing.T) {
+func TestGatewayRoutesChatCompletionsWithGrokModelIsServed(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformAnthropic)
 
 	for _, path := range []string{"/v1/chat/completions", "/chat/completions"} {
