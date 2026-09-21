@@ -251,7 +251,11 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
-		forwardTarget := chatCompletionsForwardTarget(groupPlatform, account)
+		forwardTarget := chatCompletionsForwardTarget(account)
+		if forwardTarget == compatForwardOpenAI {
+			// OpenAI 目标 3b-4 接进来；今天走不到——OpenAI 族条目的 completion 入站在 routes 层分给 OpenAI handler。
+			forwardTarget = compatForwardSkip
+		}
 		if forwardTarget == compatForwardSkip {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()

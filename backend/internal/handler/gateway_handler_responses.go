@@ -255,7 +255,11 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		}
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
-		forwardTarget := responsesForwardTarget(effectiveAPIKeyPlatform(c, apiKey), account)
+		forwardTarget := responsesForwardTarget(account)
+		if forwardTarget == compatForwardOpenAI {
+			// OpenAI 目标 3b-4 接进来；今天走不到——OpenAI 族条目的 response 入站在 routes 层分给 OpenAI handler。
+			forwardTarget = compatForwardSkip
+		}
 		if forwardTarget == compatForwardSkip {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()

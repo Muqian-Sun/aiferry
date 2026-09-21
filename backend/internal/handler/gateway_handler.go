@@ -514,7 +514,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
 			// 转发实现按账号定；网关平台每次尝试重读 request.Context（兜底分组重试会清掉强制平台）。
-			forwardTarget := messagesForwardTarget(messagesGatewayPlatform(c, currentAPIKey), account)
+			forwardTarget := messagesForwardTarget(account)
 			if forwardTarget == compatForwardSkip {
 				if accountReleaseFunc != nil {
 					accountReleaseFunc()

@@ -330,9 +330,11 @@ func TestUsesAntigravityV1Internal(t *testing.T) {
 	}
 }
 
-func TestCompatForwardTargets_KeysFollowGatewayProtocolNotLabel(t *testing.T) {
+func TestCompatForwardTargets_FollowUpstreamProtocol(t *testing.T) {
 	geminiOnly := map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}
 	anthropicOnly := map[string]string{service.APIProtocolAnthropic: "https://anthropic-relay.example.com"}
+	responsesOnly := map[string]string{service.APIProtocolResponses: "https://relay.example.com"}
+	chatOnly := map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com"}
 	both := map[string]string{
 		service.APIProtocolGemini:    "https://gemini-relay.example.com",
 		service.APIProtocolAnthropic: "https://anthropic-relay.example.com",
@@ -340,36 +342,37 @@ func TestCompatForwardTargets_KeysFollowGatewayProtocolNotLabel(t *testing.T) {
 	key := func(label string, endpoints map[string]string) *service.Account {
 		return &service.Account{Platform: label, Type: service.AccountTypeAPIKey, ProtocolEndpoints: endpoints}
 	}
+	subscription := func(vendor string) *service.Account {
+		return &service.Account{Platform: vendor, Type: service.AccountTypeOAuth}
+	}
 
-	// 三个入站共用一份「按资源分流」规则：第三方 key 按协议转换注册表选上游协议（同协议直连优先，
-	// 与分组 / 条目的「族」无关）；antigravity 成品号任何网关平台都走 v1internal；
-	// gemini 成品号只在有 Gemini 实现的入站上承接（responses 没有）。
+	// 三个入站共用一份规则：只看资源承接该入站实际用的上游协议（协议转换注册表），
+	// 不看资源种类、标签或分组 / 条目的「族」。responses / chat_completions 上游经 OpenAI 服务转发。
 	tests := []struct {
 		name          string
-		group         string
 		account       *service.Account
 		wantMessages  compatForwardTarget
 		wantCC        compatForwardTarget
 		wantResponses compatForwardTarget
 	}{
-		{"anthropic-labelled key with gemini endpoint in gemini group", service.PlatformGemini, key(service.PlatformAnthropic, geminiOnly), compatForwardGemini, compatForwardGemini, compatForwardSkip},
-		{"antigravity-labelled key with both endpoints in gemini group prefers anthropic direct", service.PlatformGemini, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"gemini-labelled key with anthropic endpoint in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"gemini-labelled key with both endpoints in anthropic group", service.PlatformAnthropic, key(service.PlatformGemini, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"antigravity-labelled key in antigravity group", service.PlatformAntigravity, key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"openai-labelled key with anthropic endpoint in gemini group is not family-gated", service.PlatformGemini, key(service.PlatformOpenAI, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"responses-only key skipped until the OpenAI target lands (3b-3)", service.PlatformAnthropic, key(service.PlatformOpenAI, map[string]string{service.APIProtocolResponses: "https://relay.example.com"}), compatForwardSkip, compatForwardSkip, compatForwardSkip},
-		{"ungrouped key uses anthropic gateway", "", key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
-		{"gemini subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformGemini, Type: service.AccountTypeOAuth}, compatForwardGemini, compatForwardGemini, compatForwardSkip},
-		{"antigravity subscription in gemini group", service.PlatformGemini, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
-		{"antigravity subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAntigravity, Type: service.AccountTypeOAuth}, compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
-		{"anthropic subscription in anthropic group", service.PlatformAnthropic, &service.Account{Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth}, compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"anthropic-labelled key with gemini endpoint", key(service.PlatformAnthropic, geminiOnly), compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"antigravity-labelled key with both endpoints prefers anthropic direct", key(service.PlatformAntigravity, both), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"gemini-labelled key with anthropic endpoint", key(service.PlatformGemini, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"openai-labelled key with anthropic endpoint is not label-gated", key(service.PlatformOpenAI, anthropicOnly), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"responses-only key goes through the OpenAI service", key(service.PlatformOpenAI, responsesOnly), compatForwardOpenAI, compatForwardOpenAI, compatForwardOpenAI},
+		{"chat-only key goes through the OpenAI service", key(service.PlatformAnthropic, chatOnly), compatForwardOpenAI, compatForwardOpenAI, compatForwardOpenAI},
+		{"key without any endpoint is skipped", key(service.PlatformOpenAI, nil), compatForwardSkip, compatForwardSkip, compatForwardSkip},
+		{"gemini subscription has no responses conversion", subscription(service.PlatformGemini), compatForwardGemini, compatForwardGemini, compatForwardSkip},
+		{"antigravity subscription", subscription(service.PlatformAntigravity), compatForwardAntigravity, compatForwardAntigravity, compatForwardAntigravity},
+		{"anthropic subscription", subscription(service.PlatformAnthropic), compatForwardAnthropic, compatForwardAnthropic, compatForwardAnthropic},
+		{"openai subscription goes through the OpenAI service", subscription(service.PlatformOpenAI), compatForwardOpenAI, compatForwardOpenAI, compatForwardOpenAI},
+		{"grok subscription goes through the OpenAI service", subscription(service.PlatformGrok), compatForwardOpenAI, compatForwardOpenAI, compatForwardOpenAI},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.wantMessages, messagesForwardTarget(tt.group, tt.account), "messages")
-			require.Equal(t, tt.wantCC, chatCompletionsForwardTarget(tt.group, tt.account), "chat completions")
-			require.Equal(t, tt.wantResponses, responsesForwardTarget(tt.group, tt.account), "responses")
+			require.Equal(t, tt.wantMessages, messagesForwardTarget(tt.account), "messages")
+			require.Equal(t, tt.wantCC, chatCompletionsForwardTarget(tt.account), "chat completions")
+			require.Equal(t, tt.wantResponses, responsesForwardTarget(tt.account), "responses")
 		})
 	}
 }

@@ -15,12 +15,11 @@ func usesAntigravityV1Internal(account *service.Account) bool {
 	return account != nil && !account.IsThirdPartyKey() && account.IsAntigravity()
 }
 
-// compatForwardTarget 是 Anthropic 网关（anthropic / gemini / antigravity 分组）上
-// Messages / Chat Completions / Responses 入站请求的转发实现。
+// compatForwardTarget 是 Anthropic 网关上 Messages / Chat Completions / Responses 入站请求的转发实现。
 type compatForwardTarget int
 
 const (
-	// compatForwardSkip 表示该账号在本网关上承接不了这次请求，调用方换号。
+	// compatForwardSkip 表示该账号承接不了这次请求，调用方换号。
 	compatForwardSkip compatForwardTarget = iota
 	// compatForwardAnthropic 转成 Anthropic Messages，经 GatewayService 转发。
 	compatForwardAnthropic
@@ -28,62 +27,45 @@ const (
 	compatForwardGemini
 	// compatForwardAntigravity 经 AntigravityGatewayService 兼容层转发（仅 Antigravity 成品号）。
 	compatForwardAntigravity
+	// compatForwardOpenAI 转成 OpenAI Responses / Chat Completions，经 OpenAIGatewayService 转发；
+	// 对应资源的上游协议是 responses 或 chat_completions。
+	compatForwardOpenAI
 )
 
-// compatForwardTargetFor 决定 Anthropic 网关上一次请求交给谁转发，按选中的账号而不是网关平台：
-//   - 第三方 key：看它在该网关上承接 inboundProtocol 实际用的协议（anthropic → 标准转发，gemini → Gemini 兼容转发）；
-//   - Antigravity 成品号：v1internal 的 Claude 形态（内部 Claude→Gemini 转换，任何模型都走它，包括 gemini 族条目）；
-//   - Gemini 成品号：Gemini 兼容转发；该入站没有 Gemini 实现（responses）时承接不了；
-//   - 其余成品号（anthropic）：标准转发。
+// compatForwardTargetFor 决定一次请求交给谁转发：只看资源承接该入站协议实际用的上游协议
+// （协议转换注册表），不看资源种类、不看网关族。
 //
-// Skip 在调度矩阵（accountServesCatalogRoute / 分组协议过滤）正确时走不到；留着是两套口径的对账点，
+// Skip 在调度矩阵（accountServesCatalogRoute）正确时走不到；留着是两套口径的对账点，
 // 调用方打 warn 日志并排除该账号，不静默换号。
-func compatForwardTargetFor(gatewayPlatform, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
-	if account.IsThirdPartyKey() {
-		return keyCompatForwardTarget(gatewayPlatform, inboundProtocol, account, geminiSupported)
-	}
-	if usesAntigravityV1Internal(account) {
-		return compatForwardAntigravity
-	}
-	if account.IsGemini() {
-		if geminiSupported {
-			return compatForwardGemini
-		}
-		return compatForwardSkip
-	}
-	return compatForwardAnthropic
-}
-
-// messagesForwardTarget 决定 /v1/messages 交给谁转发。
-func messagesForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
-	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolAnthropic, account, true)
-}
-
-// chatCompletionsForwardTarget 决定 /v1/chat/completions 交给谁转发。
-func chatCompletionsForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
-	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolChatCompletions, account, true)
-}
-
-// responsesForwardTarget 决定 /v1/responses 交给谁转发；没有 Responses → Gemini 的实现。
-func responsesForwardTarget(gatewayPlatform string, account *service.Account) compatForwardTarget {
-	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolResponses, account, false)
-}
-
-// keyCompatForwardTarget 第三方 key 按协议转换注册表选上游协议（同协议直连优先）：
-// anthropic 地址走标准转发，gemini 地址走 Gemini 兼容转发；responses / chat_completions 地址的
-// 转换实现在 OpenAI 网关服务里，本 handler 还接不进来（3b-3 接），先 Skip。
-func keyCompatForwardTarget(_ string, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
+func compatForwardTargetFor(inboundProtocol string, account *service.Account) compatForwardTarget {
 	switch account.UpstreamProtocolFor(inboundProtocol) {
 	case service.APIProtocolAnthropic:
 		return compatForwardAnthropic
 	case service.APIProtocolGemini:
-		if geminiSupported {
-			return compatForwardGemini
-		}
-		return compatForwardSkip
+		return compatForwardGemini
+	case service.UpstreamProtocolAntigravity:
+		return compatForwardAntigravity
+	case service.APIProtocolResponses, service.APIProtocolChatCompletions:
+		return compatForwardOpenAI
 	default:
 		return compatForwardSkip
 	}
+}
+
+// messagesForwardTarget 决定 /v1/messages 交给谁转发。
+func messagesForwardTarget(account *service.Account) compatForwardTarget {
+	return compatForwardTargetFor(service.APIProtocolAnthropic, account)
+}
+
+// chatCompletionsForwardTarget 决定 /v1/chat/completions 交给谁转发。
+func chatCompletionsForwardTarget(account *service.Account) compatForwardTarget {
+	return compatForwardTargetFor(service.APIProtocolChatCompletions, account)
+}
+
+// responsesForwardTarget 决定 /v1/responses 交给谁转发；Responses → Gemini 没有转换，
+// 注册表对 gemini 资源返回空上游协议，落到 Skip。
+func responsesForwardTarget(account *service.Account) compatForwardTarget {
+	return compatForwardTargetFor(service.APIProtocolResponses, account)
 }
 
 // messagesGatewayPlatform 返回 /v1/messages 系请求所在网关的平台，与 service 层
