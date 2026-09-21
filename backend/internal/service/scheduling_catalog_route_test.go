@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -174,55 +173,4 @@ func TestRoutingAccountIDsSkippedUnderCatalogRoute(t *testing.T) {
 
 	require.Equal(t, []int64{1, 2}, svc.routingAccountIDsForRequest(context.Background(), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
 	require.Nil(t, svc.routingAccountIDsForRequest(catalogRouteCtx(5, PlatformAnthropic, APIProtocolAnthropic), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
-}
-
-// OpenAI 网关：目录路由下池 = 条目绑定（不看分组），grok 条目只能选到 grok 成品号 / 能承接的 key。
-func TestOpenAISchedulers_CatalogRoutePoolFromBindings(t *testing.T) {
-	groupID := int64(30301)
-	const entryID = int64(88)
-	grokOAuth := Account{
-		ID: 30302, Name: "grok-oauth", Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive,
-		Schedulable: true, Concurrency: 5, Priority: 1, CatalogEntryIDs: []int64{entryID},
-	}
-	openAIOAuthInGroup := Account{
-		ID: 30303, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive,
-		Schedulable: true, Concurrency: 5, Priority: 1, GroupIDs: []int64{groupID},
-	}
-	for _, loadBatch := range []bool{true, false} {
-		name := "load batch"
-		if !loadBatch {
-			name = "legacy"
-		}
-		t.Run(name, func(t *testing.T) {
-			resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			cfg := &config.Config{}
-			cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
-			svc := &OpenAIGatewayService{
-				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: []Account{grokOAuth, openAIOAuthInGroup}}},
-				cache:              &schedulerTestGatewayCache{},
-				cfg:                cfg,
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
-			}
-
-			routed := catalogRouteCtx(entryID, PlatformGrok, APIProtocolChatCompletions)
-			selection, _, err := svc.SelectAccountWithSchedulerForCapability(
-				routed, &groupID, "", "", "grok-4.6", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformGrok,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, grokOAuth.ID, selection.Account.ID, "bound grok account is chosen although it is not in the key's group")
-
-			unrouted := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
-			selection, _, err = svc.SelectAccountWithSchedulerForCapability(
-				unrouted, &groupID, "", "", "gpt-5.1", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformOpenAI,
-			)
-			require.NoError(t, err)
-			require.Equal(t, openAIOAuthInGroup.ID, selection.Account.ID, "without a route the group pool still applies")
-		})
-	}
 }

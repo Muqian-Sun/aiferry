@@ -873,8 +873,12 @@ func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 }
 
 // BindStickySession sets session -> account binding with standard TTL.
+// Codex 自动审查子请求与父线程同 session hash 时不写绑定：父线程的绑定属于父线程（守护父线程亲和）。
 func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
+		return nil
+	}
+	if preserveOpenAIGuardianParentBinding(ctx, sessionHash) {
 		return nil
 	}
 	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash, accountID, stickySessionTTL)

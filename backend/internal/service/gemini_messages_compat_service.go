@@ -20,7 +20,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/geminicli"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
@@ -30,8 +29,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 )
-
-const geminiStickySessionTTL = time.Hour
 
 const (
 	geminiMaxRetries     = 5
@@ -99,251 +96,9 @@ func (s *GeminiMessagesCompatService) GetTokenProvider() *GeminiTokenProvider {
 	return s.tokenProvider
 }
 
-func (s *GeminiMessagesCompatService) SelectAccountForModel(ctx context.Context, groupID *int64, sessionHash string, requestedModel string) (*Account, error) {
-	return s.SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, requestedModel, nil)
-}
-
-func (s *GeminiMessagesCompatService) SelectAccountForModelWithExclusions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*Account, error) {
-	// 1. 确定目标平台和调度模式
-	// Determine target platform and scheduling mode
-	platform, useMixedScheduling, hasForcePlatform, err := s.resolvePlatformAndSchedulingMode(ctx, groupID)
-	if err != nil {
-		return nil, err
-	}
-
-	cacheKey := "gemini:" + sessionHash
-
-	// 2. 尝试粘性会话命中
-	// Try sticky session hit
-	if account := s.tryStickySessionHit(ctx, groupID, sessionHash, cacheKey, requestedModel, excludedIDs, platform, useMixedScheduling); account != nil {
-		return account, nil
-	}
-
-	// 3. 查询可调度账户（强制平台模式：优先按分组查找，找不到再查全部）
-	// Query schedulable accounts (force platform mode: try group first, fallback to all)
-	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, platform, hasForcePlatform)
-	if err != nil {
-		return nil, fmt.Errorf("query accounts failed: %w", err)
-	}
-	// 强制平台模式下，分组中找不到账户时回退查询全部
-	if len(accounts) == 0 && groupID != nil && hasForcePlatform {
-		accounts, err = s.listSchedulableAccountsOnce(ctx, nil, platform, hasForcePlatform)
-		if err != nil {
-			return nil, fmt.Errorf("query accounts failed: %w", err)
-		}
-	}
-
-	// 4. 按优先级 + LRU 选择最佳账号
-	// Select best account by priority + LRU
-	selected := s.selectBestGeminiAccount(ctx, accounts, requestedModel, excludedIDs, platform, useMixedScheduling)
-
-	if selected == nil {
-		if requestedModel != "" {
-			return nil, fmt.Errorf("no available Gemini accounts supporting model: %s", requestedModel)
-		}
-		return nil, errors.New("no available Gemini accounts")
-	}
-
-	// 5. 设置粘性会话绑定
-	// Set sticky session binding
-	if sessionHash != "" {
-		_ = s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey, selected.ID, geminiStickySessionTTL)
-	}
-
-	return s.hydrateSelectedAccount(ctx, selected)
-}
-
-// resolvePlatformAndSchedulingMode 解析目标平台和调度模式。
-// 返回：平台名称、是否使用混合调度、是否强制平台、错误。
-//
-// resolvePlatformAndSchedulingMode resolves target platform and scheduling mode.
-// Returns: platform name, whether to use mixed scheduling, whether force platform, error.
-func (s *GeminiMessagesCompatService) resolvePlatformAndSchedulingMode(ctx context.Context, groupID *int64) (platform string, useMixedScheduling bool, hasForcePlatform bool, err error) {
-	// 优先检查 context 中的强制平台（/antigravity 路由）
-	forcePlatform, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string)
-	if hasForcePlatform && forcePlatform != "" {
-		return forcePlatform, false, true, nil
-	}
-	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-		// 目录路由（或已解析的合成目标）决定网关族。
-		return platform, false, false, nil
-	}
-
-	if groupID != nil {
-		// 根据分组 platform 决定查询哪种账号
-		var group *Group
-		if ctxGroup, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(ctxGroup) && ctxGroup.ID == *groupID {
-			group = ctxGroup
-		} else {
-			group, err = s.groupRepo.GetByIDLite(ctx, *groupID)
-			if err != nil {
-				return "", false, false, fmt.Errorf("get group failed: %w", err)
-			}
-		}
-		// gemini 分组支持混合调度（包含启用了 mixed_scheduling 的 antigravity 账户）
-		return group.Platform, group.Platform == PlatformGemini, false, nil
-	}
-
-	// 无分组时只使用原生 gemini 平台
-	return PlatformGemini, true, false, nil
-}
-
-// tryStickySessionHit 尝试从粘性会话获取账号。
-// 如果命中且账号可用则返回账号；如果账号不可用则清理会话并返回 nil。
-//
-// tryStickySessionHit attempts to get account from sticky session.
-// Returns account if hit and usable; clears session and returns nil if account unavailable.
-func (s *GeminiMessagesCompatService) tryStickySessionHit(
-	ctx context.Context,
-	groupID *int64,
-	sessionHash, cacheKey, requestedModel string,
-	excludedIDs map[int64]struct{},
-	platform string,
-	useMixedScheduling bool,
-) *Account {
-	if sessionHash == "" {
-		return nil
-	}
-
-	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey)
-	if err != nil || accountID <= 0 {
-		return nil
-	}
-
-	if _, excluded := excludedIDs[accountID]; excluded {
-		return nil
-	}
-
-	account, err := s.getSchedulableAccount(ctx, accountID)
-	if err != nil {
-		return nil
-	}
-
-	// 检查账号是否需要清理粘性会话
-	// Check if sticky session should be cleared
-	if shouldClearStickySession(account, requestedModel) {
-		_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey)
-		return nil
-	}
-
-	// 验证账号是否可用于当前请求
-	// Verify account is usable for current request
-	if !s.isAccountUsableForRequest(ctx, account, requestedModel, platform, useMixedScheduling) {
-		return nil
-	}
-
-	// 刷新会话 TTL 并返回账号
-	// Refresh session TTL and return account
-	_ = s.cache.RefreshSessionTTL(ctx, SchedulingScopeID(ctx, groupID), cacheKey, geminiStickySessionTTL)
-	return account
-}
-
-// isAccountUsableForRequest 检查账号是否可用于当前请求：调度状态（含模型级限流）、模型支持、平台匹配。
-// 本地配额（Gemini RPD/RPM）已由状态服务在用量入账时写成模型级限流，这里只读状态。
-func (s *GeminiMessagesCompatService) isAccountUsableForRequest(
-	ctx context.Context,
-	account *Account,
-	requestedModel, platform string,
-	useMixedScheduling bool,
-) bool {
-	if !account.SchedulingAllows(ctx, requestedModel, time.Now()) {
-		return false
-	}
-	if requestedModel != "" && !s.isModelSupportedByAccount(account, requestedModel) {
-		return false
-	}
-	return isAccountSchedulableOnPlatform(ctx, account, platform, useMixedScheduling)
-}
-
-// selectBestGeminiAccount 从候选账号中选择最佳账号（优先级 + LRU，成品号与 key 平等）。
-// 返回 nil 表示无可用账号。
-//
-// selectBestGeminiAccount selects best account from candidates (priority + LRU).
-// Returns nil if no available account.
-func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
-	ctx context.Context,
-	accounts []Account,
-	requestedModel string,
-	excludedIDs map[int64]struct{},
-	platform string,
-	useMixedScheduling bool,
-) *Account {
-	var selected *Account
-
-	for i := range accounts {
-		acc := &accounts[i]
-
-		// 跳过被排除的账号
-		if _, excluded := excludedIDs[acc.ID]; excluded {
-			continue
-		}
-
-		// 检查账号是否可用于当前请求
-		if !s.isAccountUsableForRequest(ctx, acc, requestedModel, platform, useMixedScheduling) {
-			continue
-		}
-
-		// 选择最佳账号
-		if selected == nil {
-			selected = acc
-			continue
-		}
-
-		if s.isBetterGeminiAccount(acc, selected) {
-			selected = acc
-		}
-	}
-
-	return selected
-}
-
-// isBetterGeminiAccount 判断 candidate 是否比 current 更优。
-// 规则：优先级更高（数值更小）优先；同优先级时，未使用过的优先（OAuth > 非 OAuth），其次是最久未使用的。
-//
-// isBetterGeminiAccount checks if candidate is better than current.
-// Rules: higher priority (lower value) wins; same priority: never used (OAuth > non-OAuth) > least recently used.
-func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *Account) bool {
-	// 与 Gateway 调度器同一套键（协议直连 → 优先级 → 从未用过 → 更久未用）；这里只给 AI Studio
-	// 扩展端点选号（入站为空），实际只剩优先级与 LRU，成品号没有平局偏好。
-	return candidatePrecedes(candidate, current, "")
-}
-
-// isModelSupportedByAccount 根据账户厂商检查模型支持：antigravity 模型映射只属于 antigravity 成品号，
-// 第三方 key 的厂商不可能是 antigravity，不会因为平台标签套上它。
-func (s *GeminiMessagesCompatService) isModelSupportedByAccount(account *Account, requestedModel string) bool {
-	if account.Vendor() == PlatformAntigravity {
-		if strings.TrimSpace(requestedModel) == "" {
-			return true
-		}
-		return mapAntigravityModel(account, requestedModel) != ""
-	}
-	return account.IsModelSupported(requestedModel)
-}
-
 // GetAntigravityGatewayService 返回 AntigravityGatewayService
 func (s *GeminiMessagesCompatService) GetAntigravityGatewayService() *AntigravityGatewayService {
 	return s.antigravityGatewayService
-}
-
-func (s *GeminiMessagesCompatService) getSchedulableAccount(ctx context.Context, accountID int64) (*Account, error) {
-	if s.schedulerSnapshot != nil {
-		return s.schedulerSnapshot.GetAccount(ctx, accountID)
-	}
-	return s.accountRepo.GetByID(ctx, accountID)
-}
-
-func (s *GeminiMessagesCompatService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
-	if account == nil || s.schedulerSnapshot == nil {
-		return account, nil
-	}
-	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
-	if err != nil {
-		return nil, err
-	}
-	if hydrated == nil {
-		return nil, fmt.Errorf("selected gemini account %d not found during hydration", account.ID)
-	}
-	return hydrated, nil
 }
 
 func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, error) {
@@ -486,6 +241,21 @@ func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx cont
 		return nil, errors.New("no available Gemini accounts")
 	}
 	return s.hydrateSelectedAccount(ctx, selected)
+}
+
+// hydrateSelectedAccount 快照列出的账号不带完整凭据，转发前按 ID 取全量。
+func (s *GeminiMessagesCompatService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
+	if account == nil || s.schedulerSnapshot == nil {
+		return account, nil
+	}
+	hydrated, err := s.schedulerSnapshot.GetAccount(ctx, account.ID)
+	if err != nil {
+		return nil, err
+	}
+	if hydrated == nil {
+		return nil, fmt.Errorf("selected gemini account %d not found during hydration", account.ID)
+	}
+	return hydrated, nil
 }
 
 func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Context, account *Account, body []byte) (*ForwardResult, error) {

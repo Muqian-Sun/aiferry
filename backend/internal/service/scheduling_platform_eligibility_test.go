@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -84,117 +83,6 @@ func TestSchedulingBucketAdmitsKeysOfAnyLabel(t *testing.T) {
 	antigravityNotMixed := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
 	require.False(t, schedulingBucketAdmits(&antigravityNotMixed, PlatformAnthropic, true))
 	require.True(t, schedulingBucketAdmits(&antigravityNotMixed, PlatformAntigravity, false))
-}
-
-func TestOpenAISchedulers_SelectCrossLabelKeyByInboundProtocol(t *testing.T) {
-	groupID := int64(20901)
-	key := schedulingTestKey(20911, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
-
-	newService := func(t *testing.T, scoring, loadBatch bool) *OpenAIGatewayService {
-		cfg := &config.Config{}
-		cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
-		svc := &OpenAIGatewayService{
-			accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: []Account{key}}},
-			cache:              &schedulerTestGatewayCache{},
-			cfg:                cfg,
-			concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
-		}
-		if scoring {
-			svc.rateLimitService = newOpenAIAdvancedSchedulerRateLimitService("true")
-		}
-		require.Equal(t, scoring, svc.isOpenAIAdvancedSchedulerEnabled(context.Background()))
-		return svc
-	}
-
-	cases := []struct {
-		name      string
-		scoring   bool
-		loadBatch bool
-	}{
-		{name: "legacy load batch", loadBatch: true},
-		{name: "legacy without load batch"},
-		{name: "scoring", scoring: true, loadBatch: true},
-	}
-	for _, tc := range cases {
-		t.Run(tc.name, func(t *testing.T) {
-			resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			svc := newService(t, tc.scoring, tc.loadBatch)
-
-			chatCtx := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
-			selection, _, err := svc.SelectAccountWithSchedulerForCapability(
-				chatCtx, &groupID, "", "", "gpt-5.1", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformOpenAI,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.NotNil(t, selection.Account)
-			require.Equal(t, key.ID, selection.Account.ID)
-
-			geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
-			selection, _, err = svc.SelectAccountWithSchedulerForCapability(
-				geminiCtx, &groupID, "", "", "gpt-5.1", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformOpenAI,
-			)
-			require.ErrorIs(t, err, ErrNoAvailableAccounts)
-			require.Nil(t, selection)
-		})
-	}
-}
-
-// 粘性会话路径同样按协议判断：会话绑定到跨标签 key 时继续命中它，而不是改选优先级更高的账号。
-func TestOpenAISchedulers_StickySessionKeepsCrossLabelKey(t *testing.T) {
-	groupID := int64(20902)
-	sticky := schedulingTestKey(20912, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
-	sticky.Priority = 5
-	preferred := schedulingTestKey(20913, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
-	preferred.Priority = 0
-	const sessionHash = "cross-label-sticky"
-
-	for _, scoring := range []bool{false, true} {
-		name := "legacy"
-		if scoring {
-			name = "scoring"
-		}
-		t.Run(name, func(t *testing.T) {
-			resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
-			cfg := newSchedulerTestSubscriptionPriorityConfig() // Top-1 按优先级打分，结果确定
-			cfg.Gateway.Scheduling.LoadBatchEnabled = true
-			svc := &OpenAIGatewayService{
-				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: []Account{preferred, sticky}}},
-				cache:              &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + sessionHash: sticky.ID}},
-				cfg:                cfg,
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
-			}
-			if scoring {
-				svc.rateLimitService = newOpenAIAdvancedSchedulerRateLimitService("true")
-			}
-			require.Equal(t, scoring, svc.isOpenAIAdvancedSchedulerEnabled(context.Background()))
-
-			ctx := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
-			selection, _, err := svc.SelectAccountWithSchedulerForCapability(
-				ctx, &groupID, "", "", "gpt-5.1", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformOpenAI,
-			)
-			require.NoError(t, err)
-			require.Equal(t, preferred.ID, selection.Account.ID, "without a session the higher-priority key wins")
-			if selection.ReleaseFunc != nil {
-				selection.ReleaseFunc()
-			}
-
-			selection, _, err = svc.SelectAccountWithSchedulerForCapability(
-				ctx, &groupID, "", sessionHash, "gpt-5.1", nil,
-				OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions,
-				false, false, false, PlatformOpenAI,
-			)
-			require.NoError(t, err)
-			require.Equal(t, sticky.ID, selection.Account.ID)
-		})
-	}
 }
 
 // 粘性会话路径（负载感知 Layer 1.5、传统单平台与混合调度）同样按协议判断跨标签 key。

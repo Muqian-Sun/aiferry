@@ -17,6 +17,8 @@ type SelectOptions struct {
 	RequireCompact bool
 	// Transport 需要的上游传输（WS v2 / HTTP SSE / any），按 cfg 与账号解析（openAIAccountTransportCompatible）
 	Transport OpenAIUpstreamTransport
+	// OnlyAccountID 只认这一个账号（grok 视频状态轮询只能落回任务归属账号）；它不能承接就是无候选，不逃逸到别的账号。
+	OnlyAccountID int64
 }
 
 type selectOptionsCtxKey struct{}
@@ -36,6 +38,9 @@ func selectOptionsFromContext(ctx context.Context) SelectOptions {
 
 // admits 报告账号能否承接这些要求；reason 是第一条不满足的门名。
 func (o SelectOptions) admits(cfg *config.Config, resolver OpenAIWSProtocolResolver, account *Account) (bool, string) {
+	if o.OnlyAccountID > 0 && account.ID != o.OnlyAccountID {
+		return false, "not_owner"
+	}
 	if !account.SupportsOpenAIEndpointCapability(o.Capability) {
 		return false, "capability_mismatch"
 	}
@@ -49,15 +54,6 @@ func (o SelectOptions) admits(cfg *config.Config, resolver OpenAIWSProtocolResol
 		return false, "transport_mismatch"
 	}
 	return true, ""
-}
-
-// accountSupportsOpenAICapabilities 端点能力 + 图片能力两项一起判（扩展端点选号用）。
-func accountSupportsOpenAICapabilities(account *Account, requiredCapability OpenAIEndpointCapability, requiredImageCapability OpenAIImagesCapability) bool {
-	if account == nil {
-		return false
-	}
-	return account.SupportsOpenAIEndpointCapability(requiredCapability) &&
-		account.SupportsOpenAIImageCapability(requiredImageCapability)
 }
 
 // openAIAccountTransportCompatible 报告账号能否以 required 传输承接：HTTP / any 恒可；

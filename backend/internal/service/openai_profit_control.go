@@ -55,7 +55,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"log/slog"
 	"math"
@@ -320,44 +319,6 @@ func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, sele
 		return selected, false, ""
 	}
 	return profitControlVetoLatest(ctx, selected, s.schedulerSnapshot)
-}
-
-// bindOpenAIStickySessionDuringSelection preserves the official eager binding
-// behavior for requests without a profit gate. Profit-controlled requests bind
-// only after the terminal post-slot check, so an account rejected after a rate
-// refresh cannot become the new sticky target.
-func (s *OpenAIGatewayService) bindOpenAIStickySessionDuringSelection(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
-	if gatewayProfitControlGateActive(ctx) || preserveOpenAIGuardianParentBinding(ctx, sessionHash) {
-		return nil
-	}
-	return s.BindStickySession(ctx, groupID, sessionHash, accountID)
-}
-
-// BindStickySessionAfterProfitAdmission records the terminally admitted
-// account. Without a profit gate it preserves the pre-existing eager binding
-// behavior at the handler bind points. With a gate it never overwrites a
-// different binding that already exists, so a temporarily ineligible account
-// remains sticky and becomes eligible again automatically after its rate
-// recovers.
-func (s *OpenAIGatewayService) BindStickySessionAfterProfitAdmission(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
-	if sessionHash == "" || accountID <= 0 {
-		return nil
-	}
-	if preserveOpenAIGuardianParentBinding(ctx, sessionHash) {
-		return nil
-	}
-	if !gatewayProfitControlGateActive(ctx) {
-		return s.BindStickySession(ctx, groupID, sessionHash, accountID)
-	}
-	existingAccountID, err := s.getStickySessionAccountID(ctx, groupID, sessionHash)
-	if err != nil && !errors.Is(err, ErrStickySessionNotFound) {
-		slog.Warn("profit_control_sticky_binding_read_failed", "group_id", derefGroupID(groupID), "account_id", accountID, "error", err)
-		return nil
-	}
-	if existingAccountID > 0 && existingAccountID != accountID {
-		return nil
-	}
-	return s.BindStickySession(ctx, groupID, sessionHash, accountID)
 }
 
 // ---- 可观测性：按分组累计计数 + 采样日志（无逐请求输出） ----

@@ -59,6 +59,7 @@ func TestGatewayHandlerResponses_PreviousResponseIDPrefetchesSticky(t *testing.T
 		repo, hs.usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, &service.BillingCacheService{}, hs.openAIUpstream,
 		&service.DeferredService{}, nil, nil, nil, nil, nil, nil,
+		nil,
 	)
 	ctx := context.Background()
 	require.True(t, hs.handler.openAIGatewayService.BindOpenAIHTTPResponseAccount(ctx, entryID, "resp_prev_1", keyB.ID))

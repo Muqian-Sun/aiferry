@@ -38,11 +38,11 @@ func TestGrokTeamModelRateLimit_MarksAndFiltersSiblings(t *testing.T) {
 	require.False(t, isGrokTeamModelRateLimited(other, "grok-4.5", now))
 	require.False(t, isGrokTeamModelRateLimited(noTeam, "grok-4.5", now))
 
-	filtered := filterGrokTeamModelRateLimitedAccounts([]Account{*a1, *a2, *other, *noTeam}, "grok-4.5", now)
-	require.Len(t, filtered, 2)
-	ids := []int64{filtered[0].ID, filtered[1].ID}
-	require.Contains(t, ids, int64(103))
-	require.Contains(t, ids, int64(104))
+	// 唯一调度器的候选门：同 team 的兄弟一起冷却，其他 team / 无 team 的照常
+	require.True(t, grokModelRuntimeBlocked(a1, "grok-4.5", now))
+	require.True(t, grokModelRuntimeBlocked(a2, "grok-4.5", now))
+	require.False(t, grokModelRuntimeBlocked(other, "grok-4.5", now))
+	require.False(t, grokModelRuntimeBlocked(noTeam, "grok-4.5", now))
 }
 
 func TestGrokTeamModelRateLimit_Expires(t *testing.T) {
@@ -71,5 +71,5 @@ func TestGrokTeamModelRateLimitFilterUsesMappedUpstreamModel(t *testing.T) {
 	}
 	markGrokTeamModelRateLimit(account, "grok-4.5", now.Add(time.Hour))
 
-	require.Empty(t, filterGrokTeamModelRateLimitedAccounts([]Account{*account}, "gpt-5", now))
+	require.True(t, grokModelRuntimeBlocked(account, "gpt-5", now), "the gate must look at the mapped upstream model")
 }

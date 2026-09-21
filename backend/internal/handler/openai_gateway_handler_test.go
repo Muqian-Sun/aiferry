@@ -1282,6 +1282,27 @@ func TestOpenAIResponsesWebSocket_PassthroughUsageLogLeavesUserAgentNilWhenMissi
 	require.Equal(t, "medium", *got.log.ReasoningEffort)
 }
 
+// WS 首包的 previous_response_id：续链绑定的账号就是本次选中的账号时保留；没有绑定（跨账号 / 跨分组）时剥掉，
+// 由首包 input 重建上下文（默认配置下原 OpenAI 调度器从不报告命中，总是剥）。
+func TestOpenAIResponsesWebSocket_PreviousResponseIDKeptWhenStickyHit(t *testing.T) {
+	got := runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
+		firstPayload:            `{"type":"response.create","model":"gpt-5.1","stream":false,"input":"hello","previous_response_id":"resp_ws_prev"}`,
+		bindPreviousResponse:    "resp_ws_prev",
+		bindPreviousToAccountID: 9901,
+		withHigherPriorityDecoy: true,
+	})
+	require.Equal(t, "resp_ws_prev", gjson.GetBytes(got.upstreamFirstPayload, "previous_response_id").String(), "the bound account was selected: keep the continuation")
+	require.NotNil(t, got.log)
+	require.Equal(t, int64(9901), got.log.AccountID, "the continuation must land on the bound account, not the higher-priority decoy")
+}
+
+func TestOpenAIResponsesWebSocket_PreviousResponseIDStrippedWithoutStickyHit(t *testing.T) {
+	got := runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
+		firstPayload: `{"type":"response.create","model":"gpt-5.1","stream":false,"input":"hello","previous_response_id":"resp_ws_prev"}`,
+	})
+	require.False(t, gjson.GetBytes(got.upstreamFirstPayload, "previous_response_id").Exists(), "no binding: the continuation cannot be honored on a different account")
+}
+
 func TestOpenAIResponsesWebSocket_PassthroughTracksModelPerTurn(t *testing.T) {
 	got := runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
 		firstPayload:  `{"type":"response.create","model":"sol","stream":false}`,
@@ -1751,6 +1772,11 @@ type openAIResponsesWSUsageLogCase struct {
 	catalog service.CatalogListingSource
 	// closeReasonContains 覆盖被拒时的关闭原因子串；空串 = 分组白名单的 "not available for this group"。
 	closeReasonContains string
+	// bindPreviousResponse 建连前把 previous_response_id 绑到该账号（0 = 不绑），验证首包续链的保留 / 剥离。
+	bindPreviousResponse    string
+	bindPreviousToAccountID int64
+	// withHigherPriorityDecoy 池里再放一个优先级更高的账号：没有预取粘性时它会被选中。
+	withHigherPriorityDecoy bool
 }
 
 func (tc openAIResponsesWSUsageLogCase) expectedCloseReason() string {
@@ -1771,18 +1797,35 @@ type openAIResponsesWSUsageLogResult struct {
 type openAIWSUsageHandlerAccountRepoStub struct {
 	service.AccountRepository
 	account service.Account
+	// decoy 一个优先级更高的同池账号（可选）：没有预取粘性时调度器会选它，用来证明续链确实落回绑定账号。
+	decoy *service.Account
+}
+
+func (s *openAIWSUsageHandlerAccountRepoStub) pool() []service.Account {
+	out := []service.Account{s.account}
+	if s.decoy != nil {
+		out = append(out, *s.decoy)
+	}
+	return out
 }
 
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
-	if !s.account.IsThirdPartyKey() && !slices.Contains(platforms, s.account.Platform) {
-		return nil, nil
+	var out []service.Account
+	for _, account := range s.pool() {
+		if account.IsThirdPartyKey() || slices.Contains(platforms, account.Platform) {
+			out = append(out, account)
+		}
 	}
-	return []service.Account{s.account}, nil
+	return out, nil
 }
 
-// ListSchedulingCandidatesByCatalogEntry 把唯一的账号当作绑定到条目的资源（不看平台）。
+// ListSchedulingCandidatesByCatalogEntry 把池里的账号当作绑定到条目的资源（不看平台）。
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
-	return []service.Account{boundToCatalogEntry(s.account, entryID)}, nil
+	var out []service.Account
+	for _, account := range s.pool() {
+		out = append(out, boundToCatalogEntry(account, entryID))
+	}
+	return out, nil
 }
 
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
@@ -1790,11 +1833,13 @@ func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(
 }
 
 func (s *openAIWSUsageHandlerAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
-	if s.account.ID != id {
-		return nil, nil
+	for _, account := range s.pool() {
+		if account.ID == id {
+			bound := boundToCatalogEntry(account, listAllCatalogEntryID)
+			return &bound, nil
+		}
 	}
-	account := boundToCatalogEntry(s.account, listAllCatalogEntryID)
-	return &account, nil
+	return nil, nil
 }
 
 type openAIWSFailoverHandlerAccountRepoStub struct {
@@ -2072,6 +2117,7 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 		nil,
 		nil,
 		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2164,6 +2210,7 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 				nil,
 				nil,
 				nil,
+				newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 			)
 			h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2236,6 +2283,7 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 		nil,
 		nil,
 		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
@@ -2393,6 +2441,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		nil,
 		nil,
 		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 
 	cache := &concurrencyCacheMock{
@@ -2591,6 +2640,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), rateLimitSvc, billingCacheSvc,
 		nil, &service.DeferredService{}, nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
 	)
 	cache := &concurrencyCacheMock{
 		acquireUserSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
@@ -2783,6 +2833,14 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	cfg.Gateway.OpenAIWS.WriteTimeoutSeconds = 3
 
 	accountRepo := &openAIWSUsageHandlerAccountRepoStub{account: account}
+	if tc.withHigherPriorityDecoy {
+		decoy := account
+		decoy.ID = account.ID + 1
+		decoy.Name = account.Name + "-decoy"
+		decoy.Priority = account.Priority - 1
+		decoy.Credentials = map[string]any{"api_key": "sk-decoy", "base_url": upstreamServer.URL, "model_mapping": tc.accountModelMapping}
+		accountRepo.decoy = &decoy
+	}
 	usageRepo := &openAIWSUsageHandlerUsageLogRepoStub{created: make(chan *service.UsageLog, turnCount)}
 
 	if len(tc.channelMapping) > 0 {
@@ -2822,6 +2880,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		channelSvc,
 		nil,
 		nil,
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), channelSvc),
 	)
 
 	cache := &concurrencyCacheMock{
@@ -2841,6 +2900,14 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	}
 	if tc.catalog != nil {
 		h.modelCatalog = tc.catalog
+	}
+	if tc.bindPreviousResponse != "" && tc.bindPreviousToAccountID > 0 {
+		// 绑定的作用域 = 调度作用域：WS 入口自己做目录准入，ctx 里带条目路由，作用域是条目 ID（listAllCatalogStub 恒为 1）。
+		scopeID := groupID
+		if tc.catalog == nil {
+			scopeID = listAllCatalogEntryID
+		}
+		require.True(t, gatewaySvc.BindOpenAIHTTPResponseAccount(context.Background(), scopeID, tc.bindPreviousResponse, tc.bindPreviousToAccountID))
 	}
 
 	apiKey := &service.APIKey{

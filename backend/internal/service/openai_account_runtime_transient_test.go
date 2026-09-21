@@ -88,7 +88,7 @@ func TestHandleOpenAITransientError_CanonicalModelIsNotMappedTwice(t *testing.T)
 	}
 
 	require.True(t, svc.isOpenAIAccountModelRuntimeBlocked(account, "public-alias"))
-	svc.ReportOpenAIAccountScheduleResult(account, canonicalModel, true, nil)
+	svc.ObserveOpenAIAccountResult(account, canonicalModel, true)
 	require.False(t, svc.isOpenAIAccountModelRuntimeBlocked(account, "public-alias"))
 }
 

@@ -441,7 +441,7 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("provider configuration stops before healthy account", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "provider")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "provider")
 		defer cleanup()
 
 		recorder := httptest.NewRecorder()
@@ -454,8 +454,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		require.Empty(t, repo.errorIDs())
 		require.Empty(t, upstream.accountHits())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount,
-			"provider-scoped auth failure must not penalize the selected account")
 	})
 
 	t.Run("parent cancellation stops before healthy account", func(t *testing.T) {
@@ -489,7 +487,7 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("post-mapping cancellation stops before scheduler mutation or reselection", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "postmap_cancel")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "postmap_cancel")
 		defer cleanup()
 		ctx, cancel := context.WithCancel(context.Background())
 		upstream.mu.Lock()
@@ -505,7 +503,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		require.Equal(t, []int64{801}, upstream.accountHits())
 		require.Empty(t, repo.errorIDs())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount)
 	})
 
 	t.Run("pre-cancelled request never invokes an account selector", func(t *testing.T) {
@@ -926,12 +923,8 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 func newGrokCredentialFailoverGatewayHandler(t *testing.T, mode string) (*GatewayHandler, *grokCredentialHandlerRepo, *grokCredentialHandlerUpstream, *gin.Engine, func()) {
 	t.Helper()
 	fx := newGrokCredentialFailoverFixture(t, mode)
-	gwSvc := service.NewGatewayService(
-		fx.repo, &fakeGroupRepo{group: fx.apiKey.Group}, nil, nil, nil, nil, nil, fx.cfg,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-	)
 	h := &GatewayHandler{
-		gatewayService:       gwSvc,
+		gatewayService:       fx.gateway.Scheduler(),
 		openAIGatewayService: fx.gateway,
 		billingCacheService:  fx.billingCache,
 		apiKeyService:        &service.APIKeyService{},
@@ -1032,15 +1025,17 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	group := &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(cfg, repo, group, nil),
 	)
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,
 		User:  &service.User{ID: 903, Status: service.StatusActive},
-		Group: &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true},
+		Group: group,
 	}
 	return &grokCredentialFailoverFixture{repo: repo, upstream: upstream, gateway: gateway, billingCache: billingCache, cfg: cfg, refresher: refresher, apiKey: apiKey}
 }

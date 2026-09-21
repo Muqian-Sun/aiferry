@@ -9,6 +9,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// grok 视频状态轮询只认任务归属账号：归属账号可用就选中它（抢槽 / 等待计划），
+// 不可用（停调 / 不在分组 / 不存在 / 无效 id）就是无候选——绝不落到别的账号，也不刷新归属键。
 func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 	for _, state := range []string{"available", "full", "unavailable", "wrong group", "missing", "invalid id"} {
 		t.Run(state, func(t *testing.T) {
@@ -35,27 +37,31 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			var acquired, released []int64
 			cache := &schedulerTestGatewayCache{}
 			cfg := &config.Config{}
-			cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
 			cfg.Gateway.Scheduling.StickySessionWaitTimeout = time.Second
 			cfg.Gateway.Scheduling.StickySessionMaxWaiting = 3
-			svc := &OpenAIGatewayService{
-				accountRepo: schedulerTestOpenAIAccountRepo{accounts: accounts}, cache: cache, cfg: cfg,
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{
-					acquireResults: map[int64]bool{1: state != "full", 2: true},
-					acquiredIDs:    &acquired, releasedIDs: &released,
-				}),
+			repo := schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}
+			concurrency := NewConcurrencyService(schedulerTestConcurrencyCache{
+				acquireResults: map[int64]bool{1: state != "full", 2: true},
+				acquiredIDs:    &acquired, releasedIDs: &released,
+			})
+			scheduler := &GatewayService{
+				accountRepo:        repo,
+				groupRepo:          schedulerTestGroupRepo{group: &Group{ID: groupID, Platform: PlatformGrok, Status: StatusActive, Hydrated: true}},
+				cache:              cache,
+				cfg:                cfg,
+				concurrencyService: concurrency,
 			}
+			svc := &OpenAIGatewayService{accountRepo: repo, cache: cache, cfg: cfg, concurrencyService: concurrency, scheduler: scheduler}
 			ctx := context.Background()
 			require.NoError(t, svc.BindGrokMediaVideoRequestAccount(ctx, &groupID, "task", 10, 20, 1))
 			sessionHash := GrokMediaVideoRequestSessionHash("task", 10, 20)
 			for range 20 {
-				selection, decision, err := svc.SelectGrokMediaVideoRequestAccount(ctx, &groupID, sessionHash, ownerID, "")
+				selection, err := svc.SelectGrokMediaVideoRequestAccount(ctx, &groupID, sessionHash, ownerID, "")
 				switch state {
 				case "available":
 					require.NoError(t, err)
 					require.Equal(t, int64(1), selection.Account.ID)
 					require.True(t, selection.Acquired)
-					require.True(t, decision.StickySessionHit)
 					selection.ReleaseFunc()
 				case "full":
 					require.NoError(t, err)
@@ -71,7 +77,7 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 				require.NoError(t, err)
 				require.Equal(t, int64(1), bound)
 			}
-			require.NotContains(t, acquired, int64(2))
+			require.NotContains(t, acquired, int64(2), "the pool must never touch a non-owner account")
 			require.Empty(t, cache.deletedSessions)
 			if state == "available" {
 				require.Len(t, released, 20)
@@ -80,31 +86,4 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			}
 		})
 	}
-}
-
-func TestGrokVideoStickySelectionIgnoresHealthEscape(t *testing.T) {
-	groupID := int64(24)
-	account := Account{ID: 1, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-		Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
-	svc := &OpenAIGatewayService{
-		accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{account}},
-		cache:       &schedulerTestGatewayCache{},
-	}
-	stats := newOpenAIAccountRuntimeStats()
-	for range 20 {
-		stats.report(1, false, nil)
-	}
-	scheduler := &defaultOpenAIAccountScheduler{service: svc, stats: stats}
-	req := OpenAIAccountScheduleRequest{GroupID: &groupID, Platform: PlatformGrok,
-		SessionHash: "task", StickyAccountID: 1, PreserveStickyBinding: true}
-	selection, escaped, err := scheduler.selectBySessionHash(context.Background(), req)
-	require.NoError(t, err)
-	require.Nil(t, selection)
-	require.True(t, escaped)
-	req.DisableStickyEscape = true
-	selection, escaped, err = scheduler.selectBySessionHash(context.Background(), req)
-	require.NoError(t, err)
-	require.False(t, escaped)
-	require.True(t, selection.Acquired)
-	selection.ReleaseFunc()
 }

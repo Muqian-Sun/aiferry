@@ -9,7 +9,7 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Hit(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_Hit(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	account := Account{
@@ -38,19 +38,12 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Hit(t *testing.T
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_1", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_1", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.NotNil(t, selection)
-	require.NotNil(t, selection.Account)
-	require.Equal(t, account.ID, selection.Account.ID)
-	require.True(t, selection.Acquired)
-	if selection.ReleaseFunc != nil {
-		selection.ReleaseFunc()
-	}
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_1", "gpt-5.1", nil, "", false)
+	require.Equal(t, account.ID, accountID)
 }
 
 // 额度超限由状态服务写成 temp_unschedulable；previous_response_id 粘连和其他停调一样按状态判、清绑定。
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaPausedMiss(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_QuotaPausedMiss(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	pausedUntil := time.Now().Add(time.Hour)
@@ -81,15 +74,14 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_QuotaPausedMiss(
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_quota", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_quota", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.Nil(t, selection, "被状态服务停调的账号不应继续命中 previous_response_id 粘连")
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_quota", "gpt-5.1", nil, "", false)
+	require.Zero(t, accountID, "被状态服务停调的账号不应继续命中 previous_response_id 粘连")
 	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_quota")
 	require.NoError(t, getErr)
 	require.Zero(t, boundAccountID, "与限流等停调同处理：清绑定")
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RateLimitedMiss(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_RateLimitedMiss(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	rateLimitedUntil := time.Now().Add(30 * time.Minute)
@@ -119,15 +111,14 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_RateLimitedMiss(
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_rl", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_rl", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.Nil(t, selection, "限额中的账号不应继续命中 previous_response_id 粘连")
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_rl", "gpt-5.1", nil, "", false)
+	require.Zero(t, accountID, "限额中的账号不应继续命中 previous_response_id 粘连")
 	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_rl")
 	require.NoError(t, getErr)
 	require.Zero(t, boundAccountID)
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheckRateLimitedMiss(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_DBRuntimeRecheckRateLimitedMiss(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(24)
 	rateLimitedUntil := time.Now().Add(30 * time.Minute)
@@ -173,15 +164,14 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_DBRuntimeRecheck
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_db_rl", dbAccount.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_db_rl", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.Nil(t, selection, "DB 中已限流的账号不应继续命中 previous_response_id 粘连")
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_db_rl", "gpt-5.1", nil, "", false)
+	require.Zero(t, accountID, "DB 中已限流的账号不应继续命中 previous_response_id 粘连")
 	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_db_rl")
 	require.NoError(t, getErr)
 	require.Zero(t, boundAccountID)
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Excluded(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_Excluded(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	account := Account{
@@ -209,12 +199,11 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_Excluded(t *test
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_2", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_2", "gpt-5.1", map[int64]struct{}{account.ID: {}}, false)
-	require.NoError(t, err)
-	require.Nil(t, selection)
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_2", "gpt-5.1", map[int64]struct{}{account.ID: {}}, "", false)
+	require.Zero(t, accountID)
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_APIKeyForceHTTPHit(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_APIKeyForceHTTPHit(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	account := Account{
@@ -243,17 +232,11 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_APIKeyForceHTTPH
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_force_http", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_force_http", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.NotNil(t, selection, "API-key HTTP continuation must retain the key/project that created the response")
-	require.NotNil(t, selection.Account)
-	require.Equal(t, account.ID, selection.Account.ID)
-	if selection.ReleaseFunc != nil {
-		selection.ReleaseFunc()
-	}
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_force_http", "gpt-5.1", nil, "", false)
+	require.Equal(t, account.ID, accountID, "API-key HTTP continuation must retain the key/project that created the response")
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_OAuthForceHTTPIgnored(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_OAuthForceHTTPIgnored(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	account := Account{
@@ -280,12 +263,11 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_OAuthForceHTTPIg
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_oauth_force_http", account.ID, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_oauth_force_http", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.Nil(t, selection, "OAuth HTTP fallback cannot preserve WSv2 continuation state")
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_oauth_force_http", "gpt-5.1", nil, "", false)
+	require.Zero(t, accountID, "OAuth HTTP fallback cannot preserve WSv2 continuation state")
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyKeepsSticky(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_BusyKeepsSticky(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(23)
 	accounts := []Account{
@@ -343,17 +325,11 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_BusyKeepsSticky(
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_busy", 21, time.Hour))
 
-	selection, err := svc.SelectAccountByPreviousResponseID(ctx, &groupID, "resp_prev_busy", "gpt-5.1", nil, false)
-	require.NoError(t, err)
-	require.NotNil(t, selection)
-	require.NotNil(t, selection.Account)
-	require.Equal(t, int64(21), selection.Account.ID, "busy previous_response sticky account should remain selected")
-	require.False(t, selection.Acquired)
-	require.NotNil(t, selection.WaitPlan)
-	require.Equal(t, int64(21), selection.WaitPlan.AccountID)
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_busy", "gpt-5.1", nil, "", false)
+	require.Equal(t, int64(21), accountID, "busy previous_response sticky account should remain resolved; the scheduler queues on it")
 }
 
-func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismatchKeepsSticky(t *testing.T) {
+func TestOpenAIGatewayService_ResolvePreviousResponseAccount_CapabilityMismatchKeepsSticky(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(25)
 	account := Account{
@@ -384,17 +360,8 @@ func TestOpenAIGatewayService_SelectAccountByPreviousResponseID_CapabilityMismat
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_prev_capability", account.ID, time.Hour))
 
-	selection, err := svc.selectAccountByPreviousResponseIDForCapability(
-		ctx,
-		&groupID,
-		"resp_prev_capability",
-		"text-embedding-3-small",
-		nil,
-		OpenAIEndpointCapabilityEmbeddings,
-		false,
-	)
-	require.NoError(t, err)
-	require.Nil(t, selection)
+	accountID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, &groupID, "resp_prev_capability", "text-embedding-3-small", nil, OpenAIEndpointCapabilityEmbeddings, false)
+	require.Zero(t, accountID)
 	boundAccountID, getErr := store.GetResponseAccount(ctx, groupID, "resp_prev_capability")
 	require.NoError(t, getErr)
 	require.Equal(t, account.ID, boundAccountID)

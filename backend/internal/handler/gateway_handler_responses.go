@@ -538,7 +538,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					streamStarted = true
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
-					h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, nil), false, nil, err)
+					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, nil), false, err)
 				}
 				if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputSwitches) {
 					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
@@ -563,7 +563,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				}
 			}
 			if forwardTarget == compatForwardOpenAI {
-				h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), false, nil, err)
+				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), false, err)
 			}
 			var upstreamErrorAlreadyCommunicated bool
 			if forwardTarget == compatForwardOpenAI {
@@ -597,7 +597,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.openAIGatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, oaResult.ResponseHeaders)
 			}
 			// key 健康熔断 / 调度统计的成功观测
-			h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), openAIForwardSucceededForScheduling(oaResult), oaResult.FirstTokenMs)
+			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), openAIForwardSucceededForScheduling(oaResult))
 		}
 		// 6. Record usage
 		submitAttemptUsage()

@@ -157,16 +157,40 @@ func (s *grokMediaSlotBindings) ClaimGrokVideoBilled(_ context.Context, key stri
 	return true, nil
 }
 
+// grokMediaSlotRepo ownerMissing 模拟任务归属账号（ID 1）已不在池里：按 ID 取不到、列表里也没有。
 type grokMediaSlotRepo struct {
 	openAIImagesFailoverAccountRepo
-	mismatch bool
+	ownerMissing bool
 }
 
 func (r grokMediaSlotRepo) GetByID(ctx context.Context, id int64) (*service.Account, error) {
-	if r.mismatch {
-		return r.openAIImagesFailoverAccountRepo.GetByID(ctx, 2)
+	if r.ownerMissing && id == 1 {
+		return nil, nil
 	}
 	return r.openAIImagesFailoverAccountRepo.GetByID(ctx, id)
+}
+
+func (r grokMediaSlotRepo) withoutOwner(accounts []service.Account) []service.Account {
+	if !r.ownerMissing {
+		return accounts
+	}
+	out := accounts[:0:0]
+	for _, account := range accounts {
+		if account.ID != 1 {
+			out = append(out, account)
+		}
+	}
+	return out
+}
+
+func (r grokMediaSlotRepo) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
+	accounts, err := r.openAIImagesFailoverAccountRepo.ListSchedulingCandidates(ctx, platforms)
+	return r.withoutOwner(accounts), err
+}
+
+func (r grokMediaSlotRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
+	accounts, err := r.openAIImagesFailoverAccountRepo.ListSchedulingCandidatesByGroupID(ctx, groupID, platforms)
+	return r.withoutOwner(accounts), err
 }
 
 type grokMediaSlotUpstream struct {
@@ -186,7 +210,7 @@ func (p grokMediaSlotProber) ProbeMediaEligibility(ctx context.Context, id int64
 	return p(ctx, id)
 }
 
-func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGatewayHandler, *grokMediaSlotsCache, *grokMediaSlotBindings, *grokMediaSlotUpstream) {
+func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGatewayHandler, *grokMediaSlotsCache, *grokMediaSlotBindings, *grokMediaSlotUpstream) {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	accounts := make([]service.Account, 3)
@@ -211,14 +235,18 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, mismatch bool) (*OpenAIGateway
 	cfg.Gateway.Scheduling.StickySessionWaitTimeout = 20 * time.Millisecond
 	cfg.Gateway.Scheduling.StickySessionMaxWaiting = 3
 	cfg.Gateway.OpenAIScheduler.StickyEscapeEnabled = true
-	repo := grokMediaSlotRepo{openAIImagesFailoverAccountRepo: openAIImagesFailoverAccountRepo{accounts: accounts}, mismatch: mismatch}
+	repo := grokMediaSlotRepo{openAIImagesFailoverAccountRepo: openAIImagesFailoverAccountRepo{accounts: accounts}, ownerMissing: ownerMissing}
 	provider := service.NewGrokTokenProvider(repo, nil)
 	if oauth {
 		_, err := provider.GetAccessToken(context.Background(), &accounts[1])
 		require.NoError(t, err)
 	}
-	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, nil)
 	groupID := int64(24)
+	scheduler := service.NewGatewayService(
+		repo, gatewayHarnessGroupRepo{group: &service.Group{ID: groupID, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}},
+		nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	)
+	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, nil, scheduler)
 	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), &groupID, "task", 10, 20, 1))
 	bindings.writes = 0
 	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
@@ -249,12 +277,12 @@ func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *
 }
 
 func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
-	for _, scenario := range []string{"normal", "mismatch acquired", "mismatch wait", "full", "queue full", "cancel while waiting", "wait then acquired", "upstream error", "cancel", "panic"} {
+	for _, scenario := range []string{"normal", "owner missing", "full", "queue full", "cancel while waiting", "wait then acquired", "upstream error", "cancel", "panic"} {
 		t.Run(scenario, func(t *testing.T) {
-			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, strings.HasPrefix(scenario, "mismatch"))
+			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, scenario == "owner missing")
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
-			if scenario == "full" || scenario == "mismatch wait" || scenario == "queue full" || scenario == "cancel while waiting" {
+			if scenario == "full" || scenario == "queue full" || scenario == "cancel while waiting" {
 				slots.full = true
 			}
 			if scenario == "queue full" {
@@ -284,7 +312,8 @@ func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
 				c, w := grokMediaSlotContext(ctx, false)
 				h.GrokVideoStatus(c)
 				slots.assertReleased(t)
-				if strings.HasPrefix(scenario, "mismatch") {
+				if scenario == "owner missing" {
+					// 池里只认归属账号：它不在了就是 404，绝不落到别的账号
 					require.Equal(t, 404, w.Code)
 				}
 				if scenario == "normal" || scenario == "wait then acquired" {
@@ -295,14 +324,14 @@ func TestGrokMediaLookupSlotLifecycle(t *testing.T) {
 				}
 			}
 			require.Zero(t, bindings.writes, "lookups must preserve owner and TTL")
-			if scenario == "mismatch acquired" {
-				require.Equal(t, 20, slots.released)
+			if scenario == "owner missing" {
+				require.Zero(t, slots.released, "no slot may be acquired on a non-owner account")
 			}
 			if slots.full {
 				require.Zero(t, slots.released)
 				require.Zero(t, upstream.calls)
 			}
-			if scenario == "full" || strings.HasPrefix(scenario, "mismatch") {
+			if scenario == "full" || scenario == "owner missing" {
 				require.Zero(t, upstream.calls)
 			}
 			switch scenario {

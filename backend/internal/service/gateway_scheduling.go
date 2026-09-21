@@ -1162,6 +1162,9 @@ func (s *GatewayService) candidateAdmits(ctx context.Context, groupID *int64, ac
 	if s.rateLimitService.ModelTransientBlocked(account, requestedModel, now) {
 		return false, "model_transient_blocked"
 	}
+	if grokModelRuntimeBlocked(account, requestedModel, now) {
+		return false, "grok_model_blocked"
+	}
 	if s.rateLimitService.ProxyStreamQuarantined(ctx, account) {
 		return false, "proxy_quarantined"
 	}

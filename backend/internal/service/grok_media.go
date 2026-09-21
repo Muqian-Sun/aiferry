@@ -335,31 +335,24 @@ func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 // SelectGrokMediaVideoRequestAccount only admits the already authenticated
 // task owner. Generic sticky fallback can query another account and overwrite
 // the ownership key; video lookups must neither escape nor refresh that key.
+// 归属账号做成预取粘性 + OnlyAccountID 交给唯一调度器：池里只剩它，不能承接就是无候选（不碰别的账号）；
+// sessionHash 传空（预取不看它，空键也不会写任何绑定，归属键不刷新）。
 func (s *OpenAIGatewayService) SelectGrokMediaVideoRequestAccount(
 	ctx context.Context, groupID *int64, sessionHash string, accountID int64, requestedModel string,
-) (*AccountSelectionResult, OpenAIAccountScheduleDecision, error) {
-	decision := OpenAIAccountScheduleDecision{Layer: openAIAccountScheduleLayerSessionSticky}
-	if accountID <= 0 || strings.TrimSpace(sessionHash) == "" {
-		return nil, decision, ErrNoAvailableAccounts
+) (*AccountSelectionResult, error) {
+	if accountID <= 0 || strings.TrimSpace(sessionHash) == "" || s == nil || s.scheduler == nil {
+		return nil, ErrNoAvailableAccounts
 	}
-	ctx = s.withOpenAIGroupPrivacyRequirement(WithOpenAIProfitControlSuppressed(ctx), groupID)
-	scheduler := &defaultOpenAIAccountScheduler{service: s}
-	selection, _, err := scheduler.selectBySessionHash(ctx, OpenAIAccountScheduleRequest{
-		GroupID: groupID, Platform: PlatformGrok, SessionHash: sessionHash,
-		StickyAccountID: accountID, PreserveStickyBinding: true, DisableStickyEscape: true,
-		RequestedModel: requestedModel, RequiredTransport: OpenAIUpstreamTransportHTTPSSE,
-		RequirePrivacySet: s.openAIGroupRequiresPrivacySet(ctx, groupID),
-	})
+	ctx = WithPrefetchedStickySession(WithOpenAIProfitControlSuppressed(ctx), accountID, SchedulingScopeID(ctx, groupID), false)
+	selection, err := s.scheduler.SelectAccountWithOptions(ctx, groupID, "", requestedModel, nil,
+		SelectOptions{Transport: OpenAIUpstreamTransportHTTPSSE, OnlyAccountID: accountID})
 	if err != nil {
-		return nil, decision, err
+		return nil, err
 	}
 	if selection == nil || selection.Account == nil {
-		return nil, decision, ErrNoAvailableAccounts
+		return nil, ErrNoAvailableAccounts
 	}
-	decision.StickySessionHit = true
-	decision.SelectedAccountID = selection.Account.ID
-	decision.SelectedAccountType = selection.Account.Type
-	return selection, decision, nil
+	return selection, nil
 }
 
 // GrokVideoPendingBilling is the create-time snapshot used when status polling
