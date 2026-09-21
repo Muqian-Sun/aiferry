@@ -36,6 +36,8 @@ type UserSubscription struct {
 	User           *User
 	Plan           *SubscriptionPlan
 	AssignedByUser *User
+	// APIKey 订阅 key（随订阅生成；管理端删过则为 nil）。仓储按需预载，只给列表 / 详情展示
+	APIKey *APIKey
 }
 
 func (s *UserSubscription) IsActive() bool {

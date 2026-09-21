@@ -58,10 +58,13 @@ type APIKey struct {
 	Key         string     `json:"key"`
 	Name        string     `json:"name"`
 	GroupID     *int64     `json:"group_id"`
-	Status      string     `json:"status"`
-	IPWhitelist []string   `json:"ip_whitelist"`
-	IPBlacklist []string   `json:"ip_blacklist"`
-	LastUsedAt  *time.Time `json:"last_used_at"`
+	// SubscriptionID 订阅 key 绑定的订阅；余额 key 为 null。SubscriptionPlanName 给列表显示「订阅 · 套餐名」
+	SubscriptionID       *int64     `json:"subscription_id"`
+	SubscriptionPlanName string     `json:"subscription_plan_name,omitempty"`
+	Status               string     `json:"status"`
+	IPWhitelist          []string   `json:"ip_whitelist"`
+	IPBlacklist          []string   `json:"ip_blacklist"`
+	LastUsedAt           *time.Time `json:"last_used_at"`
 	LastUsedIP  *string    `json:"last_used_ip"`
 	Quota       float64    `json:"quota"`      // Quota limit in USD (0 = unlimited)
 	QuotaUsed   float64    `json:"quota_used"` // Used quota amount in USD
@@ -98,11 +101,7 @@ type Group struct {
 	IsExclusive    bool    `json:"is_exclusive"`
 	Status         string  `json:"status"`
 
-	SubscriptionType          string   `json:"subscription_type"`
-	DailyLimitUSD             *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD            *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD           *float64 `json:"monthly_limit_usd"`
-	LongContextPricingEnabled bool     `json:"long_context_pricing_enabled"`
+	LongContextPricingEnabled bool `json:"long_context_pricing_enabled"`
 
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration         bool    `json:"allow_image_generation"`
@@ -489,15 +488,45 @@ type RedeemCode struct {
 	CreatedAt time.Time  `json:"created_at"`
 	ExpiresAt *time.Time `json:"expires_at,omitempty"`
 
-	GroupID      *int64 `json:"group_id"`
+	// PlanID 订阅类兑换码对应的套餐
+	PlanID       *int64 `json:"plan_id"`
 	ValidityDays int    `json:"validity_days"`
 
 	// Notes is only populated for admin_balance/admin_concurrency types
 	// so users can see why they were charged or credited
 	Notes *string `json:"notes,omitempty"`
 
-	User  *User  `json:"user,omitempty"`
-	Group *Group `json:"group,omitempty"`
+	User *User                `json:"user,omitempty"`
+	Plan *SubscriptionPlanRef `json:"plan,omitempty"`
+}
+
+// SubscriptionPlanRef 套餐引用（兑换码、订阅 key 列表用）
+type SubscriptionPlanRef struct {
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+}
+
+// SubscriptionPlanModel 套餐模型集里的一个目录条目
+type SubscriptionPlanModel struct {
+	EntryID     int64  `json:"entry_id"`
+	ModelID     string `json:"model_id"`
+	DisplayName string `json:"display_name"`
+}
+
+// SubscriptionPlan 订阅上挂的套餐：名字、三档限额、模型集
+type SubscriptionPlan struct {
+	SubscriptionPlanRef
+	DailyLimitUSD   *float64                `json:"daily_limit_usd"`
+	WeeklyLimitUSD  *float64                `json:"weekly_limit_usd"`
+	MonthlyLimitUSD *float64                `json:"monthly_limit_usd"`
+	Models          []SubscriptionPlanModel `json:"models"`
+}
+
+// SubscriptionAPIKeyRef 订阅绑定的 key（脱敏）
+type SubscriptionAPIKeyRef struct {
+	ID        int64  `json:"id"`
+	Name      string `json:"name"`
+	KeyMasked string `json:"key_masked"`
 }
 
 // AdminRedeemCode 是管理员接口使用的 redeem code DTO（包含 notes 等字段）。
@@ -550,7 +579,7 @@ type BatchUpdateRedeemCodeFields struct {
 	Status    *string            `json:"status,omitempty"`
 	ExpiresAt NullableTimeField  `json:"expires_at,omitempty"`
 	Notes     *string            `json:"notes,omitempty"`
-	GroupID   NullableInt64Field `json:"group_id,omitempty"`
+	PlanID    NullableInt64Field `json:"plan_id,omitempty"`
 
 	Type  *string  `json:"type,omitempty"`
 	Value *float64 `json:"value,omitempty"`
@@ -724,9 +753,9 @@ type Setting struct {
 }
 
 type UserSubscription struct {
-	ID      int64 `json:"id"`
-	UserID  int64 `json:"user_id"`
-	GroupID int64 `json:"group_id"`
+	ID     int64 `json:"id"`
+	UserID int64 `json:"user_id"`
+	PlanID int64 `json:"plan_id"`
 
 	StartsAt  time.Time `json:"starts_at"`
 	ExpiresAt time.Time `json:"expires_at"`
@@ -744,8 +773,10 @@ type UserSubscription struct {
 	UpdatedAt time.Time  `json:"updated_at"`
 	RevokedAt *time.Time `json:"revoked_at,omitempty"`
 
-	User  *User  `json:"user,omitempty"`
-	Group *Group `json:"group,omitempty"`
+	User *User             `json:"user,omitempty"`
+	Plan *SubscriptionPlan `json:"plan,omitempty"`
+	// APIKey 订阅 key（随订阅生成；管理端删过则为 null）
+	APIKey *SubscriptionAPIKeyRef `json:"api_key,omitempty"`
 }
 
 // AdminUserSubscription 是管理员接口使用的订阅 DTO（包含分配信息/备注等字段）。

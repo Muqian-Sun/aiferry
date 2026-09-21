@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/schema/mixins"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/ent/user"
@@ -68,6 +69,7 @@ func (r *userSubscriptionRepository) GetByID(ctx context.Context, id int64) (*se
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		WithAssignedByUser().
 		Only(ctx)
 	if err != nil {
@@ -97,6 +99,7 @@ func (r *userSubscriptionRepository) GetByIDIncludeDeleted(ctx context.Context, 
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		WithAssignedByUser().
 		Only(queryCtx)
 	if err != nil {
@@ -112,6 +115,7 @@ func (r *userSubscriptionRepository) GetByUserIDAndPlanID(ctx context.Context, u
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
@@ -131,6 +135,7 @@ func (r *userSubscriptionRepository) GetActiveByUserIDAndPlanID(ctx context.Cont
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		Only(ctx)
 	if err != nil {
 		return nil, translatePersistenceError(err, service.ErrSubscriptionNotFound, nil)
@@ -212,6 +217,7 @@ func (r *userSubscriptionRepository) ListByUserID(ctx context.Context, userID in
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		Order(dbent.Desc(usersubscription.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -231,6 +237,7 @@ func (r *userSubscriptionRepository) ListActiveByUserID(ctx context.Context, use
 		WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
 		}).
+		WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) }).
 		Order(dbent.Desc(usersubscription.FieldCreatedAt)).
 		All(ctx)
 	if err != nil {
@@ -636,6 +643,9 @@ func userSubscriptionEntityToServiceWithStatusMapping(m *dbent.UserSubscription,
 	}
 	if m.Edges.Plan != nil {
 		out.Plan = subscriptionPlanEntityToService(m.Edges.Plan)
+	}
+	if len(m.Edges.APIKeys) > 0 && m.Edges.APIKeys[0] != nil {
+		out.APIKey = apiKeyEntityToService(m.Edges.APIKeys[0])
 	}
 	if m.Edges.AssignedByUser != nil {
 		out.AssignedByUser = userEntityToService(m.Edges.AssignedByUser)
