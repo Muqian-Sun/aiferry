@@ -10,30 +10,52 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCatalogRoutePlatform(t *testing.T) {
+func TestCatalogVendorPlatform(t *testing.T) {
 	cases := []struct {
 		name  string
 		entry ModelCatalogEntry
 		want  string
 	}{
-		{"explicit route_platform wins over vendor", ModelCatalogEntry{ModelID: "claude-x", Vendor: "anthropic", RoutePlatform: PlatformOpenAI}, PlatformOpenAI},
-		{"vendor map", ModelCatalogEntry{ModelID: "whatever", Vendor: "xai"}, PlatformGrok},
+		{"vendor map anthropic", ModelCatalogEntry{ModelID: "claude-x", Vendor: "anthropic"}, PlatformAnthropic},
+		{"vendor map bedrock", ModelCatalogEntry{ModelID: "claude-x", Vendor: "bedrock"}, PlatformAnthropic},
+		{"vendor map openai", ModelCatalogEntry{ModelID: "whatever", Vendor: "openai"}, PlatformOpenAI},
+		{"vendor map xai", ModelCatalogEntry{ModelID: "whatever", Vendor: "xai"}, PlatformGrok},
+		{"vendor map moonshot", ModelCatalogEntry{ModelID: "whatever", Vendor: "moonshot"}, PlatformKimi},
 		{"vendor prefix vertex_ai", ModelCatalogEntry{ModelID: "whatever", Vendor: "vertex_ai-language-models"}, PlatformGemini},
+		{"vendor prefix azure", ModelCatalogEntry{ModelID: "whatever", Vendor: "azure_ai"}, PlatformOpenAI},
 		{"vendor text-completion-openai", ModelCatalogEntry{ModelID: "whatever", Vendor: "text-completion-openai"}, PlatformOpenAI},
-		{"unknown vendor falls back to model detection", ModelCatalogEntry{ModelID: "claude-sonnet-4", Vendor: "volcengine"}, PlatformAnthropic},
-		{"empty vendor falls back to model detection", ModelCatalogEntry{ModelID: "gemini-2.5-pro"}, PlatformGemini},
-		{"protocols: anthropic wins", ModelCatalogEntry{ModelID: "team/best", Protocols: []string{ModelCatalogProtocolChatCompletions, ModelCatalogProtocolAnthropic}}, PlatformAnthropic},
-		{"protocols: gemini only", ModelCatalogEntry{ModelID: "team/best", Protocols: []string{ModelCatalogProtocolGemini}}, PlatformGemini},
-		{"protocols: gemini plus chat goes openai", ModelCatalogEntry{ModelID: "team/best", Protocols: []string{ModelCatalogProtocolGemini, ModelCatalogProtocolChatCompletions}}, PlatformOpenAI},
-		{"nothing known defaults to openai", ModelCatalogEntry{ModelID: "team/best"}, PlatformOpenAI},
+		{"case and whitespace are normalized", ModelCatalogEntry{ModelID: "whatever", Vendor: " XAI "}, PlatformGrok},
+		{"unknown vendor is not guessed from the model name", ModelCatalogEntry{ModelID: "claude-sonnet-4", Vendor: "volcengine"}, ""},
+		{"empty vendor is not guessed from the model name", ModelCatalogEntry{ModelID: "gemini-2.5-pro"}, ""},
+		{"protocols do not imply a vendor", ModelCatalogEntry{ModelID: "team/best", Protocols: []string{ModelCatalogProtocolAnthropic}}, ""},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
 			entry := tc.entry
-			require.Equal(t, tc.want, CatalogRoutePlatform(&entry))
+			require.Equal(t, tc.want, CatalogVendorPlatform(&entry))
 		})
 	}
-	require.Equal(t, PlatformOpenAI, CatalogRoutePlatform(nil))
+	require.Equal(t, "", CatalogVendorPlatform(nil))
+}
+
+func TestRequestVendorPlatform(t *testing.T) {
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 1, Entry: &ModelCatalogEntry{ID: 1, ModelID: "grok-4", Vendor: "xai"}})
+	platform, ok := RequestVendorPlatform(routed)
+	require.True(t, ok)
+	require.Equal(t, PlatformGrok, platform, "a catalog route answers with the entry's vendor")
+
+	unknownVendor := WithCatalogRoute(WithResolvedTargetPlatform(context.Background(), PlatformOpenAI),
+		CatalogRoute{EntryID: 2, Entry: &ModelCatalogEntry{ID: 2, ModelID: "team/best", Vendor: "custom"}})
+	_, ok = RequestVendorPlatform(unknownVendor)
+	require.False(t, ok, "a routed request with an unknown vendor has no vendor platform, even if a composite target was resolved")
+
+	composite := WithResolvedTargetPlatform(context.Background(), PlatformGemini)
+	platform, ok = RequestVendorPlatform(composite)
+	require.True(t, ok)
+	require.Equal(t, PlatformGemini, platform, "without a route the composite group's resolved target is used")
+
+	_, ok = RequestVendorPlatform(context.Background())
+	require.False(t, ok)
 }
 
 func TestModelCatalogService_ResolveRoute(t *testing.T) {
@@ -50,8 +72,8 @@ func TestModelCatalogService_ResolveRoute(t *testing.T) {
 	require.Equal(t, int64(1), route.EntryID)
 	require.Equal(t, "claude-sonnet-4", route.CanonicalModel)
 	require.Equal(t, "claude-sonnet-4", route.RequestedModel)
-	require.Equal(t, PlatformAnthropic, route.Platform)
 	require.NotNil(t, route.Entry)
+	require.Equal(t, "anthropic", route.Entry.Vendor)
 
 	route, ok = svc.ResolveRoute(ctx, "sonnet-latest")
 	require.True(t, ok, "alias resolves to the entry")
@@ -75,72 +97,82 @@ func TestModelCatalogService_ResolveRoute(t *testing.T) {
 }
 
 func TestWithCatalogRoute(t *testing.T) {
-	route := CatalogRoute{EntryID: 7, CanonicalModel: "gpt-5.6", RequestedModel: "gpt-5.6-sol", Platform: PlatformOpenAI}
+	route := CatalogRoute{EntryID: 7, CanonicalModel: "gpt-5.6", RequestedModel: "gpt-5.6-sol", Entry: &ModelCatalogEntry{ID: 7, ModelID: "gpt-5.6", Vendor: "openai"}}
 	ctx := WithCatalogRoute(context.Background(), route)
 
 	got, ok := CatalogRouteFromContext(ctx)
 	require.True(t, ok)
 	require.Equal(t, route, got)
 
-	platform, ok := ResolvedTargetPlatformFromContext(ctx)
-	require.True(t, ok, "the entry's gateway family becomes the request's target platform")
-	require.Equal(t, PlatformOpenAI, platform)
+	_, ok = ResolvedTargetPlatformFromContext(ctx)
+	require.False(t, ok, "a catalog route does not resolve a target platform: scheduling is by protocol, not by gateway family")
 	require.Equal(t, "gpt-5.6-sol", ctx.Value(ctxkey.RequestedPublicModel))
 
 	_, ok = CatalogRouteFromContext(context.Background())
 	require.False(t, ok)
 }
 
-func TestAccountServesCatalogEntry(t *testing.T) {
+func TestCatalogBindingServes(t *testing.T) {
 	chatOnlyKey := &Account{ID: 1, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://cc.example.com"}}
-	anthropicKey := &Account{ID: 2, Type: AccountTypeAPIKey, Platform: PlatformAnthropic,
+	responsesOnlyKey := &Account{ID: 2, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://r.example.com"}}
+	anthropicKey := &Account{ID: 3, Type: AccountTypeAPIKey, Platform: PlatformAnthropic,
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://relay.example.com"}}
-	anthropicOAuth := &Account{ID: 3, Type: AccountTypeOAuth, Platform: PlatformAnthropic}
-	antigravity := &Account{ID: 4, Type: AccountTypeOAuth, Platform: PlatformAntigravity}
-	geminiOAuth := &Account{ID: 5, Type: AccountTypeOAuth, Platform: PlatformGemini}
-	grokOAuth := &Account{ID: 6, Type: AccountTypeOAuth, Platform: PlatformGrok}
-	openAIOAuth := &Account{ID: 7, Type: AccountTypeOAuth, Platform: PlatformOpenAI}
+	geminiKey := &Account{ID: 4, Type: AccountTypeAPIKey, Platform: PlatformGemini,
+		ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://g.example.com"}}
+	noAddressKey := &Account{ID: 5, Type: AccountTypeAPIKey, Platform: PlatformOpenAI}
+	anthropicOAuth := &Account{ID: 6, Type: AccountTypeOAuth, Platform: PlatformAnthropic}
+	antigravity := &Account{ID: 7, Type: AccountTypeOAuth, Platform: PlatformAntigravity}
+	geminiOAuth := &Account{ID: 8, Type: AccountTypeOAuth, Platform: PlatformGemini}
+	openAIOAuth := &Account{ID: 9, Type: AccountTypeOAuth, Platform: PlatformOpenAI}
 
-	anthropicEntry := &ModelCatalogEntry{ModelID: "claude-sonnet-4", Vendor: "anthropic"}
-	openAIEntry := &ModelCatalogEntry{ModelID: "claude-sonnet-4", Vendor: "anthropic", RoutePlatform: PlatformOpenAI}
-	geminiEntry := &ModelCatalogEntry{ModelID: "gemini-2.5-pro", Vendor: "gemini"}
-	grokEntry := &ModelCatalogEntry{ModelID: "grok-4", Vendor: "xai"}
-
+	serves := func(anthropic, chat, responses, gemini bool) map[string]bool {
+		return map[string]bool{
+			APIProtocolAnthropic: anthropic, APIProtocolChatCompletions: chat,
+			APIProtocolResponses: responses, APIProtocolGemini: gemini,
+		}
+	}
 	cases := []struct {
 		name    string
-		entry   *ModelCatalogEntry
 		account *Account
-		ok      bool
+		want    map[string]bool
 	}{
-		{"chat-only key cannot serve anthropic family", anthropicEntry, chatOnlyKey, false},
-		{"same key serves the entry once routed to the openai family", openAIEntry, chatOnlyKey, true},
-		{"anthropic-address key serves anthropic family", anthropicEntry, anthropicKey, true},
-		{"anthropic-address key also serves openai family via anthropic protocol", openAIEntry, anthropicKey, true},
-		{"anthropic oauth serves anthropic family", anthropicEntry, anthropicOAuth, true},
-		{"anthropic oauth cannot serve gemini family", geminiEntry, anthropicOAuth, false},
-		{"antigravity serves anthropic family", anthropicEntry, antigravity, true},
-		{"antigravity serves gemini family", geminiEntry, antigravity, true},
-		{"antigravity cannot serve openai family", openAIEntry, antigravity, false},
-		{"gemini oauth serves gemini family", geminiEntry, geminiOAuth, true},
-		{"gemini oauth cannot serve anthropic family", anthropicEntry, geminiOAuth, false},
-		{"grok oauth serves grok family", grokEntry, grokOAuth, true},
-		{"grok oauth cannot serve openai family", openAIEntry, grokOAuth, false},
-		{"openai oauth serves openai family", openAIEntry, openAIOAuth, true},
-		{"openai oauth cannot serve grok family", grokEntry, openAIOAuth, false},
+		{"chat-only key converts message / response, never gemini", chatOnlyKey, serves(true, true, true, false)},
+		{"responses-only key converts message / completion, never gemini", responsesOnlyKey, serves(true, true, true, false)},
+		{"anthropic key converts completion / response, never gemini", anthropicKey, serves(true, true, true, false)},
+		{"gemini key serves message / completion / generate, never response", geminiKey, serves(true, true, false, true)},
+		{"key without any address serves nothing", noAddressKey, serves(false, false, false, false)},
+		{"anthropic subscription", anthropicOAuth, serves(true, true, true, false)},
+		{"antigravity subscription serves all four", antigravity, serves(true, true, true, true)},
+		{"gemini subscription never serves response", geminiOAuth, serves(true, true, false, true)},
+		{"openai subscription never serves gemini", openAIOAuth, serves(true, true, true, false)},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := AccountServesCatalogEntry(tc.entry, tc.account)
-			if tc.ok {
-				require.NoError(t, err)
-				return
-			}
-			require.Error(t, err)
-			require.Contains(t, err.Error(), "CATALOG_BINDING_UNSERVABLE")
+			require.Equal(t, tc.want, CatalogBindingServes(tc.account))
 		})
 	}
-	require.Error(t, AccountServesCatalogEntry(nil, chatOnlyKey))
+}
+
+// 绑定资格只看协议转换注册表，与条目厂商无关：responses-only key 能绑 anthropic 厂商的条目。
+func TestAccountServesCatalogEntry(t *testing.T) {
+	responsesOnlyKey := &Account{ID: 2, Type: AccountTypeAPIKey, Platform: PlatformOpenAI,
+		ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://r.example.com"}}
+	geminiOAuth := &Account{ID: 8, Type: AccountTypeOAuth, Platform: PlatformGemini}
+	noAddressKey := &Account{ID: 5, Type: AccountTypeAPIKey, Platform: PlatformOpenAI}
+	anthropicEntry := &ModelCatalogEntry{ModelID: "claude-sonnet-4", Vendor: "anthropic"}
+	grokEntry := &ModelCatalogEntry{ModelID: "grok-4", Vendor: "xai"}
+
+	require.NoError(t, AccountServesCatalogEntry(anthropicEntry, responsesOnlyKey))
+	require.NoError(t, AccountServesCatalogEntry(grokEntry, geminiOAuth))
+
+	err := AccountServesCatalogEntry(anthropicEntry, noAddressKey)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "CATALOG_BINDING_UNSERVABLE")
+	require.Contains(t, err.Error(), "claude-sonnet-4")
+
+	require.Error(t, AccountServesCatalogEntry(nil, responsesOnlyKey))
 	require.Error(t, AccountServesCatalogEntry(anthropicEntry, nil))
 }
 
@@ -161,7 +193,7 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 		return NewModelCatalogService(repo, nil, ModelCatalogSeedInput{}), repo
 	}
 	accounts := stubCatalogBindingAccounts{
-		1: {ID: 1, Type: AccountTypeAPIKey, Platform: PlatformOpenAI, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://cc.example.com"}},
+		1: {ID: 1, Type: AccountTypeAPIKey, Platform: PlatformOpenAI},
 		2: {ID: 2, Type: AccountTypeOAuth, Platform: PlatformAnthropic},
 		3: {ID: 3, Type: AccountTypeAPIKey, Platform: PlatformAnthropic, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://relay.example.com"}},
 	}
@@ -214,7 +246,7 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 
 func TestSchedulingScopeID(t *testing.T) {
 	groupID := int64(3)
-	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
 	require.Equal(t, int64(7), SchedulingScopeID(routed, &groupID), "catalog route scopes by entry")
 	require.Equal(t, int64(3), SchedulingScopeID(context.Background(), &groupID), "no route scopes by group")
 	require.Equal(t, int64(0), SchedulingScopeID(context.Background(), nil))
@@ -225,7 +257,7 @@ func TestAccountInSchedulingScope(t *testing.T) {
 	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}, GroupIDs: []int64{3}}
 	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}, GroupIDs: []int64{3}}
 	ungrouped := &Account{ID: 3}
-	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7, Platform: PlatformOpenAI})
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
 
 	require.True(t, accountInSchedulingScope(routed, bound, &groupID))
 	require.False(t, accountInSchedulingScope(routed, unbound, &groupID), "group membership does not matter under a catalog route")

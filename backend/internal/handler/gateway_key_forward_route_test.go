@@ -261,8 +261,8 @@ func TestGatewayHandlerMessages_GeminiGroupAntigravitySubscriptionUsesClaudeShap
 func TestGatewayHandlerMessages_CatalogRouteDispatchesByAccount(t *testing.T) {
 	const entryID = 7
 	withRoute := func(c *gin.Context) {
-		entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "gemini-2.5-flash", Status: service.ModelCatalogStatusListed}
-		route := service.CatalogRoute{EntryID: entryID, CanonicalModel: "gemini-2.5-flash", RequestedModel: "gemini-2.5-flash", Platform: service.PlatformGemini, Entry: entry}
+		entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "gemini-2.5-flash", Vendor: "gemini", Status: service.ModelCatalogStatusListed}
+		route := service.CatalogRoute{EntryID: entryID, CanonicalModel: "gemini-2.5-flash", RequestedModel: "gemini-2.5-flash", Entry: entry}
 		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
 	}
 	body := []byte(`{"model":"gemini-2.5-flash","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
@@ -313,14 +313,6 @@ func TestGatewayHandlerMessages_CatalogRouteDispatchesByAccount(t *testing.T) {
 	})
 }
 
-func TestGatewayHandler_MessagesMaxAccountSwitches(t *testing.T) {
-	h := &GatewayHandler{maxAccountSwitches: 10, maxAccountSwitchesGemini: 3}
-	require.Equal(t, 3, h.messagesMaxAccountSwitches(service.PlatformGemini))
-	require.Equal(t, 10, h.messagesMaxAccountSwitches(service.PlatformAnthropic))
-	require.Equal(t, 10, h.messagesMaxAccountSwitches(service.PlatformAntigravity))
-	require.Equal(t, 10, h.messagesMaxAccountSwitches(""))
-}
-
 func TestGeminiV1BetaModels_AntigravityRouteKeyLabelledAntigravityForwardsNatively(t *testing.T) {
 	group := keyRouteGroup(2103, service.PlatformAntigravity)
 	key := keyRouteAccount(1103, group.ID, service.PlatformAntigravity,
@@ -339,6 +331,32 @@ func TestGeminiV1BetaModels_AntigravityRouteKeyLabelledAntigravityForwardsNative
 	require.Equal(t, "https://gemini-relay.example.com/v1beta/models/gemini-2.5-flash:generateContent", got[0].url)
 	require.Equal(t, "relay-key", got[0].header.Get("x-goog-api-key"))
 	require.Empty(t, hs.antigravityUpsteam.recorded(), "key must never reach the Antigravity v1internal upstream")
+}
+
+// /v1beta 不按分组 / 条目厂商拦：anthropic 厂商的条目在 anthropic 分组的 key 上也进选号，
+// 池里没有能承接 gemini 入站的资源时是 503（不是主线的 404 / 分组平台 400）。
+func TestGeminiV1BetaModels_AnthropicVendorEntryIsSchedulingsCall(t *testing.T) {
+	const entryID = 8
+	group := keyRouteGroup(2106, service.PlatformAnthropic)
+	key := keyRouteAccount(1106, group.ID, service.PlatformAnthropic,
+		map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}, "claude-sonnet-4")
+	key.CatalogEntryIDs = []int64{entryID}
+	hs := newKeyRouteHarness(t, group, []*service.Account{key})
+
+	body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1beta/models/claude-sonnet-4:generateContent", body, group, service.APIProtocolGemini, "")
+	c.Params = gin.Params{{Key: "modelAction", Value: "/claude-sonnet-4:generateContent"}}
+	entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed}
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(),
+		service.CatalogRoute{EntryID: entryID, CanonicalModel: "claude-sonnet-4", RequestedModel: "claude-sonnet-4", Entry: entry}))
+
+	hs.handler.GeminiV1BetaModels(c)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "platform is not gemini")
+	require.Contains(t, rec.Body.String(), "No available Gemini accounts")
+	require.Empty(t, hs.geminiUpstream.recorded())
+	require.Empty(t, hs.antigravityUpsteam.recorded())
 }
 
 func TestGatewayHandlerChatCompletions_GeminiGroupCrossLabelKeyUsesGeminiCompat(t *testing.T) {
@@ -512,8 +530,8 @@ func TestMessagesGatewayPlatform_FollowsRequestContextNotGinStore(t *testing.T) 
 // 3b-3：/v1/messages 承接 responses / chat_completions 上游资源，经 OpenAI 网关服务转换。
 
 func openAIRouteEntry(c *gin.Context, entryID int64, model string) {
-	entry := &service.ModelCatalogEntry{ID: entryID, ModelID: model, Status: service.ModelCatalogStatusListed}
-	route := service.CatalogRoute{EntryID: entryID, CanonicalModel: model, RequestedModel: model, Platform: service.PlatformOpenAI, Entry: entry}
+	entry := &service.ModelCatalogEntry{ID: entryID, ModelID: model, Vendor: "openai", Status: service.ModelCatalogStatusListed}
+	route := service.CatalogRoute{EntryID: entryID, CanonicalModel: model, RequestedModel: model, Entry: entry}
 	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
 }
 

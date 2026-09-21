@@ -276,7 +276,6 @@ interface Props {
   apiKey: string
   baseUrl: string
   platform: GroupPlatform | null
-  allowMessagesDispatch?: boolean
   /** 生成配置里的显示名（provider name / 注释）用站名，不写死品牌 */
   siteName?: string
 }
@@ -442,15 +441,13 @@ const clientTabs = computed((): TabConfig[] => {
   if (!props.platform) return []
   switch (props.platform) {
     case 'openai': {
-      const tabs: TabConfig[] = [
+      // 任何 key 都能调 /v1/messages（目录路由按协议承接），Claude Code 标签页恒显示。
+      return [
         { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
         { id: 'codex-ws', label: t('keys.useKeyModal.cliTabs.codexCliWs'), icon: TerminalIcon },
+        { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
+        { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
       ]
-      if (props.allowMessagesDispatch) {
-        tabs.push({ id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon })
-      }
-      tabs.push({ id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon })
-      return tabs
     }
     case 'gemini':
       return [

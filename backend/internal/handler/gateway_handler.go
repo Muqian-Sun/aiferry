@@ -54,7 +54,6 @@ type GatewayHandler struct {
 	concurrencyHelper        *ConcurrencyHelper
 	userMsgQueueHelper       *UserMsgQueueHelper
 	maxAccountSwitches       int
-	maxAccountSwitchesGemini int
 	cfg                      *config.Config
 	settingService           *service.SettingService
 	// modelCatalog 用户可见模型列表的来源：只列上架条目。
@@ -83,14 +82,10 @@ func NewGatewayHandler(
 ) *GatewayHandler {
 	pingInterval := time.Duration(0)
 	maxAccountSwitches := 10
-	maxAccountSwitchesGemini := 3
 	if cfg != nil {
 		pingInterval = time.Duration(cfg.Concurrency.PingInterval) * time.Second
 		if cfg.Gateway.MaxAccountSwitches > 0 {
 			maxAccountSwitches = cfg.Gateway.MaxAccountSwitches
-		}
-		if cfg.Gateway.MaxAccountSwitchesGemini > 0 {
-			maxAccountSwitchesGemini = cfg.Gateway.MaxAccountSwitchesGemini
 		}
 	}
 
@@ -116,7 +111,6 @@ func NewGatewayHandler(
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 		userMsgQueueHelper:        umqHelper,
 		maxAccountSwitches:        maxAccountSwitches,
-		maxAccountSwitchesGemini:  maxAccountSwitchesGemini,
 		cfg:                       cfg,
 		settingService:            settingService,
 		modelCatalog:              modelCatalog,
@@ -292,12 +286,9 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		return
 	}
 
-	// 获取平台：优先使用强制平台（/antigravity 路由），其次使用 composite 解析出的目标平台，否则使用分组平台
+	// 厂商平台只给错误分类 / 错误透传规则 / 日志用（强制平台 > 条目厂商 > 分组平台），不进调度。
 	platform := messagesGatewayPlatform(c, apiKey)
 	sessionKey := sessionHash
-	if platform == service.PlatformGemini && sessionHash != "" {
-		sessionKey = "gemini:" + sessionHash
-	}
 
 	// 查询粘性会话绑定的账号 ID
 	var sessionBoundAccountID int64
@@ -343,7 +334,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		}
 	}()
 
-	fs := NewFailoverState(h.messagesMaxAccountSwitches(platform), hasBoundSession)
+	fs := NewFailoverState(h.maxAccountSwitches, hasBoundSession)
 	for {
 		attemptParsedReq, err := parsedReq.CloneForBody(body)
 		if err != nil {
@@ -2047,15 +2038,6 @@ func (h *GatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, 
 // cyberPolicyDeps cyber 风控记录 / 会话拦截要用的服务（与 OpenAI 网关 handler 共用同一套实现）。
 func (h *GatewayHandler) cyberPolicyDeps() cyberPolicyDeps {
 	return cyberPolicyDeps{contentModeration: h.contentModerationService, openAIGateway: h.openAIGatewayService, ops: h.opsService, apiKeys: h.apiKeyService}
-}
-
-// messagesMaxAccountSwitches /v1/messages 的换号上限：gemini 族池用 max_account_switches_gemini，其余用 max_account_switches。
-// fs 在选号前创建，只能按网关平台定，不能按账号。
-func (h *GatewayHandler) messagesMaxAccountSwitches(platform string) int {
-	if platform == service.PlatformGemini {
-		return h.maxAccountSwitchesGemini
-	}
-	return h.maxAccountSwitches
 }
 
 func (h *GatewayHandler) getUserMsgQueueMode(account *service.Account, parsed *service.ParsedRequest) string {

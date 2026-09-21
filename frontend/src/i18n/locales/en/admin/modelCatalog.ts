@@ -22,13 +22,9 @@ export default {
       billingMode: 'Billing mode',
       status: 'Listing status',
       managedBy: 'Managed by',
-      routePlatform: 'Gateway family',
       resources: 'Resources',
       inputPrice: 'Input price ($/token)',
       outputPrice: 'Output price ($/token)'
-    },
-    routePlatform: {
-      auto: 'Auto by vendor'
     },
     bindings: {
       title: 'Bound resources',

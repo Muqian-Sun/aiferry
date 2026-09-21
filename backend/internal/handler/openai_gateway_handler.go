@@ -196,27 +196,6 @@ func openAIAccountScheduleModel(c *gin.Context, account *service.Account, forwar
 	return service.ResolveOpenAIAccountUpstreamModelForRequest(account, forwardModel, requireCompact)
 }
 
-func resolveOpenAIMessagesDispatchMappedModel(c *gin.Context, apiKey *service.APIKey, requestedModel string) string {
-	if apiKey == nil || apiKey.Group == nil {
-		return ""
-	}
-	if c != nil && c.Request != nil {
-		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
-			// 目录模型按请求名转发（账号级 model_mapping 仍生效），分组级 dispatch 映射不再改写。
-			return ""
-		}
-	}
-	// composite 解析到 grok/CN/OpenCode 目标时调度级映射不适用（Group 级映射的
-	// gpt-5.x 默认值是 openai 专属,发给这些上游必错）,模型改写交给账号级 model_mapping。
-	if apiKey.Group.Platform == service.PlatformComposite && c != nil && c.Request != nil {
-		if platform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok &&
-			(platform == service.PlatformGrok || service.IsMultiProtocolAPIKeyProvider(platform)) {
-			return ""
-		}
-	}
-	return strings.TrimSpace(apiKey.Group.ResolveMessagesDispatchModel(requestedModel))
-}
-
 type openAIModelBodyReplaceFunc func([]byte, string) []byte
 
 func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
@@ -289,37 +268,6 @@ func openAIResponsesRequiredCapabilityForRequest(imageIntent bool, needsResponse
 		return service.OpenAIEndpointCapabilityResponses
 	}
 	return openAIResponsesRequiredCapability(imageIntent, platform)
-}
-
-func allowOpenAICompatibleMessagesDispatch(c *gin.Context, apiKey *service.APIKey) bool {
-	if apiKey == nil || apiKey.Group == nil {
-		return true
-	}
-	if c != nil && c.Request != nil {
-		if _, routed := service.CatalogRouteFromContext(c.Request.Context()); routed {
-			// 目录路由：上架条目走哪个网关族由条目决定，分组的 allow_messages_dispatch 开关不再拦。
-			return true
-		}
-	}
-	if apiKey.Group.Platform == service.PlatformGrok {
-		return true
-	}
-	// 国产供应商分组与 grok 同语义:/v1/messages 就是其主要服务形态(anthropic
-	// 协议账号原生直通 Claude Code),无需 allow_messages_dispatch 开关授权——
-	// 该开关对非 openai/composite 平台恒被 sanitizeGroupMessagesDispatchFields 置 false,
-	// 若不豁免,CN 分组将永远 403。
-	if service.IsMultiProtocolAPIKeyProvider(apiKey.Group.Platform) {
-		return true
-	}
-	// composite 分组解析到 grok/CN/OpenCode Go 目标时与对应独立分组同语义豁免；
-	// 解析到 openai 目标则受 composite 分组自身的可配置开关控制。
-	if apiKey.Group.Platform == service.PlatformComposite && c != nil && c.Request != nil {
-		if platform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok &&
-			(platform == service.PlatformGrok || service.IsMultiProtocolAPIKeyProvider(platform)) {
-			return true
-		}
-	}
-	return apiKey.Group.AllowMessagesDispatch
 }
 
 func openAICompatibleTextTargetAllowed(c *gin.Context, apiKey *service.APIKey, model string) bool {
@@ -1167,12 +1115,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, "model is required in first response.create payload")
 		return
 	}
-	// 目录准入：首帧的模型必须解析到上架条目且落在 OpenAI 族，命中后把条目路由挂到 ctx
+	// 目录准入：首帧的模型必须解析到上架条目，命中后把条目路由挂到 ctx
 	// （WS 入口没有经过 HTTP 准入中间件）。与 HTTP 准入一致：帧内重复 model 键 / 大小写
 	// 变体可能被上游按末值绑定，全部候选值逐一校验，任一未命中即拒绝。
 	firstCandidates := requestmodel.FromBodyCandidates("", "application/json", firstMessage)
 	route, blockedCandidate, routed := service.ResolveCatalogRouteForCandidates(c.Request.Context(), h.modelCatalog, firstCandidates)
-	if !routed || !service.IsOpenAIGatewayPlatform(route.Platform) {
+	if !routed {
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
 		middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotListed)
 		if blockedCandidate == "" {

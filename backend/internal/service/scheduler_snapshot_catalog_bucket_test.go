@@ -59,15 +59,15 @@ func (r *catalogBucketAccountRepo) catalogCalls() []int64 {
 	return append([]int64(nil), r.entryCalls...)
 }
 
-func catalogBucket(entryID int64, platform string) SchedulerBucket {
-	return SchedulerBucket{GroupID: entryID, Platform: platform, Mode: SchedulerModeCatalog}
+func catalogBucket(entryID int64) SchedulerBucket {
+	return SchedulerBucket{GroupID: entryID, Platform: "", Mode: SchedulerModeCatalog}
 }
 
 // 目录桶与分组桶共用数字 ID：分组 7 被删掉时它的桶退役，条目 7 的目录桶必须原地重建。
 func TestSchedulerFullRebuildKeepsCatalogBucketWhenSameIDGroupIsRetired(t *testing.T) {
 	const id int64 = 7
 	groupBucket := SchedulerBucket{GroupID: id, Platform: PlatformAnthropic, Mode: SchedulerModeSingle}
-	entryBucket := catalogBucket(id, PlatformAnthropic)
+	entryBucket := catalogBucket(id)
 	cache := newCatalogBucketCache(groupBucket, entryBucket)
 	groups := &fullRebuildLifecycleGroupRepo{fresh: make(map[int64]*Group), freshErr: make(map[int64]error)}
 	accounts := &catalogBucketAccountRepo{byEntry: map[int64][]Account{
@@ -88,7 +88,7 @@ func TestSchedulerFullRebuildKeepsCatalogBucketWhenSameIDGroupIsRetired(t *testi
 
 // simple 模式把分组 ID 归零，但目录桶的 ID 是条目 ID，不能被归零。
 func TestSchedulerFullRebuildSimpleModeLoadsCatalogBucketByEntryID(t *testing.T) {
-	entryBucket := catalogBucket(42, PlatformOpenAI)
+	entryBucket := catalogBucket(42)
 	cache := newCatalogBucketCache(entryBucket)
 	groups := &fullRebuildLifecycleGroupRepo{
 		activeIDsErr: errors.New("simple mode must not query groups"),
@@ -109,7 +109,7 @@ func TestSchedulerFullRebuildSimpleModeLoadsCatalogBucketByEntryID(t *testing.T)
 
 func TestHandleCatalogBindingsEvent(t *testing.T) {
 	newFixture := func(byEntry map[int64][]Account) (*SchedulerSnapshotService, *catalogBucketCache, *catalogBucketAccountRepo) {
-		cache := newCatalogBucketCache(catalogBucket(7, PlatformAnthropic), catalogBucket(8, PlatformOpenAI))
+		cache := newCatalogBucketCache(catalogBucket(7), catalogBucket(8))
 		accounts := &catalogBucketAccountRepo{byEntry: byEntry}
 		groups := &fullRebuildLifecycleGroupRepo{fresh: make(map[int64]*Group), freshErr: make(map[int64]error)}
 		return newFullRebuildLifecycleService(cache, nil, accounts, groups, config.RunModeStandard), cache, accounts
@@ -121,7 +121,7 @@ func TestHandleCatalogBindingsEvent(t *testing.T) {
 			7: {{ID: 1, Platform: PlatformAnthropic, Status: StatusActive, Schedulable: true}},
 		})
 		require.NoError(t, svc.handleCatalogBindingsEvent(context.Background(), payload))
-		_, published := cache.counts(catalogBucket(7, PlatformAnthropic))
+		_, published := cache.counts(catalogBucket(7))
 		require.Equal(t, 1, published)
 		require.Empty(t, cache.retiredBuckets())
 		require.NotContains(t, accounts.catalogCalls(), int64(8), "entries outside the payload are untouched")
@@ -132,7 +132,7 @@ func TestHandleCatalogBindingsEvent(t *testing.T) {
 		svc, cache, accounts := newFixture(map[int64][]Account{})
 		require.NoError(t, svc.handleCatalogBindingsEvent(context.Background(), payload))
 		require.Empty(t, cache.retiredBuckets())
-		_, published := cache.counts(catalogBucket(7, PlatformAnthropic))
+		_, published := cache.counts(catalogBucket(7))
 		require.Equal(t, 1, published)
 		require.Equal(t, []int64{7}, accounts.catalogCalls())
 	})
@@ -148,7 +148,7 @@ func TestHandleCatalogBindingsEvent(t *testing.T) {
 // 账号变更只重建它绑定的条目的目录桶；账号消失则全部目录桶重建。
 func TestHandleAccountEventRebuildsCatalogBuckets(t *testing.T) {
 	newFixture := func(accountsByID map[int64]*Account) (*SchedulerSnapshotService, *catalogBucketCache, *catalogBucketAccountRepo) {
-		cache := newCatalogBucketCache(catalogBucket(7, PlatformAnthropic), catalogBucket(8, PlatformOpenAI))
+		cache := newCatalogBucketCache(catalogBucket(7), catalogBucket(8))
 		accounts := &catalogBucketAccountRepo{
 			accounts: accountsByID,
 			byEntry: map[int64][]Account{
@@ -167,9 +167,9 @@ func TestHandleAccountEventRebuildsCatalogBuckets(t *testing.T) {
 		accountID := int64(1)
 		require.NoError(t, svc.handleAccountEvent(context.Background(), &accountID, nil, map[batchSeenKey]struct{}{}))
 		require.Equal(t, []int64{7}, accounts.catalogCalls())
-		_, published := cache.counts(catalogBucket(7, PlatformAnthropic))
+		_, published := cache.counts(catalogBucket(7))
 		require.Equal(t, 1, published)
-		_, published = cache.counts(catalogBucket(8, PlatformOpenAI))
+		_, published = cache.counts(catalogBucket(8))
 		require.Zero(t, published)
 	})
 
@@ -178,7 +178,7 @@ func TestHandleAccountEventRebuildsCatalogBuckets(t *testing.T) {
 		accountID := int64(1)
 		require.NoError(t, svc.handleAccountEvent(context.Background(), &accountID, nil, map[batchSeenKey]struct{}{}))
 		require.ElementsMatch(t, []int64{7, 8}, accounts.catalogCalls())
-		_, published := cache.counts(catalogBucket(8, PlatformOpenAI))
+		_, published := cache.counts(catalogBucket(8))
 		require.Equal(t, 1, published)
 	})
 }
@@ -240,15 +240,15 @@ func TestListSchedulableAccounts_CatalogRouteUsesCatalogBucket(t *testing.T) {
 	cfg.Gateway.Scheduling.DbFallbackEnabled = true
 	svc := NewSchedulerSnapshotService(cache, nil, accounts, groups, cfg)
 
-	routed := catalogRouteCtx(7, PlatformAnthropic, APIProtocolAnthropic)
+	routed := catalogRouteCtx(7, APIProtocolAnthropic)
 	got, useMixed, err := svc.ListSchedulableAccounts(routed, &groupID, PlatformAnthropic, false)
 	require.NoError(t, err)
 	require.False(t, useMixed, "catalog buckets never mix")
 	require.Len(t, got, 2, "message converts to gemini: both subscriptions serve it (no family gate)")
 	require.Equal(t, []int64{7}, accounts.catalogCalls())
-	require.Equal(t, []SchedulerBucket{catalogBucket(7, PlatformAnthropic)}, cache.written())
+	require.Equal(t, []SchedulerBucket{catalogBucket(7)}, cache.written())
 
-	got, _, err = svc.ListSchedulableAccounts(catalogRouteCtx(7, PlatformAnthropic, APIProtocolResponses), &groupID, PlatformAnthropic, false)
+	got, _, err = svc.ListSchedulableAccounts(catalogRouteCtx(7, APIProtocolResponses), &groupID, PlatformAnthropic, false)
 	require.NoError(t, err)
 	require.Len(t, got, 1, "no responses → gemini conversion: the gemini oauth is filtered out")
 	require.Equal(t, int64(1), got[0].ID)

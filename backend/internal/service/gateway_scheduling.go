@@ -49,7 +49,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		ctx = s.withGroupContext(ctx, group)
 		platform = group.Platform
 		if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-			// 目录路由（或已解析的合成目标）决定网关族，分组平台不再参与。
+			// 合成分组解析出的目标平台（目录路由不写它：目录下的资格只看协议，平台参数无关紧要）。
 			platform = resolved
 		} else if group.Platform == PlatformComposite {
 			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
@@ -1134,8 +1134,8 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 // Handler 层在首次请求时据此提前设置 SingleAccountRetry context，避免单资源池收到 503 时
 // 错误地设置模型限流标记导致后续请求连续快速失败。
 func (s *GatewayService) IsSinglePool(ctx context.Context, groupID *int64) bool {
-	if route, ok := CatalogRouteFromContext(ctx); ok {
-		accounts, _, err := s.listSchedulableAccounts(ctx, groupID, route.Platform, false)
+	if _, ok := CatalogRouteFromContext(ctx); ok {
+		accounts, _, err := s.listSchedulableAccounts(ctx, groupID, "", false)
 		if err != nil {
 			return false
 		}

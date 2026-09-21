@@ -22301,14 +22301,11 @@ type GroupMutation struct {
 	appendsupported_model_scopes            []string
 	sort_order                              *int
 	addsort_order                           *int
-	allow_messages_dispatch                 *bool
 	allow_live                              *bool
 	force_openai_fast                       *bool
 	free_openai_fast                        *bool
 	require_oauth_only                      *bool
 	require_privacy_set                     *bool
-	default_mapped_model                    *string
-	messages_dispatch_model_config          *domain.OpenAIMessagesDispatchModelConfig
 	model_allowlist                         *domain.GroupModelAllowlist
 	codex_models_manifest_config            *domain.GroupCodexModelsManifestConfig
 	rpm_limit                               *int
@@ -25021,42 +25018,6 @@ func (m *GroupMutation) ResetSortOrder() {
 	m.addsort_order = nil
 }
 
-// SetAllowMessagesDispatch sets the "allow_messages_dispatch" field.
-func (m *GroupMutation) SetAllowMessagesDispatch(b bool) {
-	m.allow_messages_dispatch = &b
-}
-
-// AllowMessagesDispatch returns the value of the "allow_messages_dispatch" field in the mutation.
-func (m *GroupMutation) AllowMessagesDispatch() (r bool, exists bool) {
-	v := m.allow_messages_dispatch
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldAllowMessagesDispatch returns the old "allow_messages_dispatch" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldAllowMessagesDispatch(ctx context.Context) (v bool, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldAllowMessagesDispatch is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldAllowMessagesDispatch requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldAllowMessagesDispatch: %w", err)
-	}
-	return oldValue.AllowMessagesDispatch, nil
-}
-
-// ResetAllowMessagesDispatch resets all changes to the "allow_messages_dispatch" field.
-func (m *GroupMutation) ResetAllowMessagesDispatch() {
-	m.allow_messages_dispatch = nil
-}
-
 // SetAllowLive sets the "allow_live" field.
 func (m *GroupMutation) SetAllowLive(b bool) {
 	m.allow_live = &b
@@ -25235,78 +25196,6 @@ func (m *GroupMutation) OldRequirePrivacySet(ctx context.Context) (v bool, err e
 // ResetRequirePrivacySet resets all changes to the "require_privacy_set" field.
 func (m *GroupMutation) ResetRequirePrivacySet() {
 	m.require_privacy_set = nil
-}
-
-// SetDefaultMappedModel sets the "default_mapped_model" field.
-func (m *GroupMutation) SetDefaultMappedModel(s string) {
-	m.default_mapped_model = &s
-}
-
-// DefaultMappedModel returns the value of the "default_mapped_model" field in the mutation.
-func (m *GroupMutation) DefaultMappedModel() (r string, exists bool) {
-	v := m.default_mapped_model
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldDefaultMappedModel returns the old "default_mapped_model" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldDefaultMappedModel(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldDefaultMappedModel is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldDefaultMappedModel requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldDefaultMappedModel: %w", err)
-	}
-	return oldValue.DefaultMappedModel, nil
-}
-
-// ResetDefaultMappedModel resets all changes to the "default_mapped_model" field.
-func (m *GroupMutation) ResetDefaultMappedModel() {
-	m.default_mapped_model = nil
-}
-
-// SetMessagesDispatchModelConfig sets the "messages_dispatch_model_config" field.
-func (m *GroupMutation) SetMessagesDispatchModelConfig(damdmc domain.OpenAIMessagesDispatchModelConfig) {
-	m.messages_dispatch_model_config = &damdmc
-}
-
-// MessagesDispatchModelConfig returns the value of the "messages_dispatch_model_config" field in the mutation.
-func (m *GroupMutation) MessagesDispatchModelConfig() (r domain.OpenAIMessagesDispatchModelConfig, exists bool) {
-	v := m.messages_dispatch_model_config
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldMessagesDispatchModelConfig returns the old "messages_dispatch_model_config" field's value of the Group entity.
-// If the Group object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *GroupMutation) OldMessagesDispatchModelConfig(ctx context.Context) (v domain.OpenAIMessagesDispatchModelConfig, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldMessagesDispatchModelConfig is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldMessagesDispatchModelConfig requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldMessagesDispatchModelConfig: %w", err)
-	}
-	return oldValue.MessagesDispatchModelConfig, nil
-}
-
-// ResetMessagesDispatchModelConfig resets all changes to the "messages_dispatch_model_config" field.
-func (m *GroupMutation) ResetMessagesDispatchModelConfig() {
-	m.messages_dispatch_model_config = nil
 }
 
 // SetModelAllowlist sets the "model_allowlist" field.
@@ -26066,7 +25955,7 @@ func (m *GroupMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *GroupMutation) Fields() []string {
-	fields := make([]string, 0, 66)
+	fields := make([]string, 0, 63)
 	if m.created_at != nil {
 		fields = append(fields, group.FieldCreatedAt)
 	}
@@ -26214,9 +26103,6 @@ func (m *GroupMutation) Fields() []string {
 	if m.sort_order != nil {
 		fields = append(fields, group.FieldSortOrder)
 	}
-	if m.allow_messages_dispatch != nil {
-		fields = append(fields, group.FieldAllowMessagesDispatch)
-	}
 	if m.allow_live != nil {
 		fields = append(fields, group.FieldAllowLive)
 	}
@@ -26231,12 +26117,6 @@ func (m *GroupMutation) Fields() []string {
 	}
 	if m.require_privacy_set != nil {
 		fields = append(fields, group.FieldRequirePrivacySet)
-	}
-	if m.default_mapped_model != nil {
-		fields = append(fields, group.FieldDefaultMappedModel)
-	}
-	if m.messages_dispatch_model_config != nil {
-		fields = append(fields, group.FieldMessagesDispatchModelConfig)
 	}
 	if m.model_allowlist != nil {
 		fields = append(fields, group.FieldModelAllowlist)
@@ -26371,8 +26251,6 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.SupportedModelScopes()
 	case group.FieldSortOrder:
 		return m.SortOrder()
-	case group.FieldAllowMessagesDispatch:
-		return m.AllowMessagesDispatch()
 	case group.FieldAllowLive:
 		return m.AllowLive()
 	case group.FieldForceOpenaiFast:
@@ -26383,10 +26261,6 @@ func (m *GroupMutation) Field(name string) (ent.Value, bool) {
 		return m.RequireOauthOnly()
 	case group.FieldRequirePrivacySet:
 		return m.RequirePrivacySet()
-	case group.FieldDefaultMappedModel:
-		return m.DefaultMappedModel()
-	case group.FieldMessagesDispatchModelConfig:
-		return m.MessagesDispatchModelConfig()
 	case group.FieldModelAllowlist:
 		return m.ModelAllowlist()
 	case group.FieldCodexModelsManifestConfig:
@@ -26512,8 +26386,6 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldSupportedModelScopes(ctx)
 	case group.FieldSortOrder:
 		return m.OldSortOrder(ctx)
-	case group.FieldAllowMessagesDispatch:
-		return m.OldAllowMessagesDispatch(ctx)
 	case group.FieldAllowLive:
 		return m.OldAllowLive(ctx)
 	case group.FieldForceOpenaiFast:
@@ -26524,10 +26396,6 @@ func (m *GroupMutation) OldField(ctx context.Context, name string) (ent.Value, e
 		return m.OldRequireOauthOnly(ctx)
 	case group.FieldRequirePrivacySet:
 		return m.OldRequirePrivacySet(ctx)
-	case group.FieldDefaultMappedModel:
-		return m.OldDefaultMappedModel(ctx)
-	case group.FieldMessagesDispatchModelConfig:
-		return m.OldMessagesDispatchModelConfig(ctx)
 	case group.FieldModelAllowlist:
 		return m.OldModelAllowlist(ctx)
 	case group.FieldCodexModelsManifestConfig:
@@ -26898,13 +26766,6 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 		}
 		m.SetSortOrder(v)
 		return nil
-	case group.FieldAllowMessagesDispatch:
-		v, ok := value.(bool)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetAllowMessagesDispatch(v)
-		return nil
 	case group.FieldAllowLive:
 		v, ok := value.(bool)
 		if !ok {
@@ -26939,20 +26800,6 @@ func (m *GroupMutation) SetField(name string, value ent.Value) error {
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetRequirePrivacySet(v)
-		return nil
-	case group.FieldDefaultMappedModel:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetDefaultMappedModel(v)
-		return nil
-	case group.FieldMessagesDispatchModelConfig:
-		v, ok := value.(domain.OpenAIMessagesDispatchModelConfig)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetMessagesDispatchModelConfig(v)
 		return nil
 	case group.FieldModelAllowlist:
 		v, ok := value.(domain.GroupModelAllowlist)
@@ -27675,9 +27522,6 @@ func (m *GroupMutation) ResetField(name string) error {
 	case group.FieldSortOrder:
 		m.ResetSortOrder()
 		return nil
-	case group.FieldAllowMessagesDispatch:
-		m.ResetAllowMessagesDispatch()
-		return nil
 	case group.FieldAllowLive:
 		m.ResetAllowLive()
 		return nil
@@ -27692,12 +27536,6 @@ func (m *GroupMutation) ResetField(name string) error {
 		return nil
 	case group.FieldRequirePrivacySet:
 		m.ResetRequirePrivacySet()
-		return nil
-	case group.FieldDefaultMappedModel:
-		m.ResetDefaultMappedModel()
-		return nil
-	case group.FieldMessagesDispatchModelConfig:
-		m.ResetMessagesDispatchModelConfig()
 		return nil
 	case group.FieldModelAllowlist:
 		m.ResetModelAllowlist()
@@ -30879,7 +30717,6 @@ type ModelCatalogEntryMutation struct {
 	billing_mode                       *string
 	status                             *string
 	managed_by                         *string
-	route_platform                     *string
 	input_price                        *float64
 	addinput_price                     *float64
 	output_price                       *float64
@@ -31378,42 +31215,6 @@ func (m *ModelCatalogEntryMutation) OldManagedBy(ctx context.Context) (v string,
 // ResetManagedBy resets all changes to the "managed_by" field.
 func (m *ModelCatalogEntryMutation) ResetManagedBy() {
 	m.managed_by = nil
-}
-
-// SetRoutePlatform sets the "route_platform" field.
-func (m *ModelCatalogEntryMutation) SetRoutePlatform(s string) {
-	m.route_platform = &s
-}
-
-// RoutePlatform returns the value of the "route_platform" field in the mutation.
-func (m *ModelCatalogEntryMutation) RoutePlatform() (r string, exists bool) {
-	v := m.route_platform
-	if v == nil {
-		return
-	}
-	return *v, true
-}
-
-// OldRoutePlatform returns the old "route_platform" field's value of the ModelCatalogEntry entity.
-// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
-// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
-func (m *ModelCatalogEntryMutation) OldRoutePlatform(ctx context.Context) (v string, err error) {
-	if !m.op.Is(OpUpdateOne) {
-		return v, errors.New("OldRoutePlatform is only allowed on UpdateOne operations")
-	}
-	if m.id == nil || m.oldValue == nil {
-		return v, errors.New("OldRoutePlatform requires an ID field in the mutation")
-	}
-	oldValue, err := m.oldValue(ctx)
-	if err != nil {
-		return v, fmt.Errorf("querying old value for OldRoutePlatform: %w", err)
-	}
-	return oldValue.RoutePlatform, nil
-}
-
-// ResetRoutePlatform resets all changes to the "route_platform" field.
-func (m *ModelCatalogEntryMutation) ResetRoutePlatform() {
-	m.route_platform = nil
 }
 
 // SetInputPrice sets the "input_price" field.
@@ -32919,7 +32720,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 30)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -32946,9 +32747,6 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	}
 	if m.managed_by != nil {
 		fields = append(fields, modelcatalogentry.FieldManagedBy)
-	}
-	if m.route_platform != nil {
-		fields = append(fields, modelcatalogentry.FieldRoutePlatform)
 	}
 	if m.input_price != nil {
 		fields = append(fields, modelcatalogentry.FieldInputPrice)
@@ -33039,8 +32837,6 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.Status()
 	case modelcatalogentry.FieldManagedBy:
 		return m.ManagedBy()
-	case modelcatalogentry.FieldRoutePlatform:
-		return m.RoutePlatform()
 	case modelcatalogentry.FieldInputPrice:
 		return m.InputPrice()
 	case modelcatalogentry.FieldOutputPrice:
@@ -33110,8 +32906,6 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldStatus(ctx)
 	case modelcatalogentry.FieldManagedBy:
 		return m.OldManagedBy(ctx)
-	case modelcatalogentry.FieldRoutePlatform:
-		return m.OldRoutePlatform(ctx)
 	case modelcatalogentry.FieldInputPrice:
 		return m.OldInputPrice(ctx)
 	case modelcatalogentry.FieldOutputPrice:
@@ -33225,13 +33019,6 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.SetManagedBy(v)
-		return nil
-	case modelcatalogentry.FieldRoutePlatform:
-		v, ok := value.(string)
-		if !ok {
-			return fmt.Errorf("unexpected type %T for field %s", value, name)
-		}
-		m.SetRoutePlatform(v)
 		return nil
 	case modelcatalogentry.FieldInputPrice:
 		v, ok := value.(float64)
@@ -33815,9 +33602,6 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogentry.FieldManagedBy:
 		m.ResetManagedBy()
-		return nil
-	case modelcatalogentry.FieldRoutePlatform:
-		m.ResetRoutePlatform()
 		return nil
 	case modelcatalogentry.FieldInputPrice:
 		m.ResetInputPrice()

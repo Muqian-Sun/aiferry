@@ -20,11 +20,11 @@ func ErrorPassthroughRulePlatform(account *Account, gatewayPlatform string) stri
 	return gatewayPlatform
 }
 
-// OpenAICompatibleRequestPlatform 返回 OpenAI 网关上本次请求的调度平台：合成分组解析出的
-// 目标平台优先，其次分组平台，未分组为 openai。grok 与国产供应商保留原值，其他归一为 openai
-// （与调度器精确匹配语义一致）。
+// OpenAICompatibleRequestPlatform 返回 OpenAI 系入口上本次请求的厂商平台：目录路由按条目厂商，
+// 其次合成分组解析出的目标平台，再次分组平台，未分组为 openai。grok 与国产供应商保留原值，
+// 其他归一为 openai。只给厂商特有处理（grok 传输 / 生图能力 / 续链检查 / 错误文案）用，不是调度平台。
 func OpenAICompatibleRequestPlatform(ctx context.Context, apiKey *APIKey) string {
-	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
+	if platform, ok := RequestVendorPlatform(ctx); ok {
 		return NormalizeOpenAICompatiblePlatform(platform)
 	}
 	if apiKey != nil && apiKey.Group != nil {
@@ -33,15 +33,15 @@ func OpenAICompatibleRequestPlatform(ctx context.Context, apiKey *APIKey) string
 	return PlatformOpenAI
 }
 
-// AnthropicGatewayRequestPlatform 返回 Anthropic 网关（/v1/messages 系）上本次请求的平台：
-// 强制平台（/antigravity 路由）优先，其次合成分组解析出的目标平台，再次分组平台；未分组
-// 请求按 anthropic 调度（与 GatewayService.resolvePlatform 一致）。
+// AnthropicGatewayRequestPlatform 返回 /v1/messages 系入口上本次请求的厂商平台：
+// 强制平台（/antigravity 路由）优先，其次目录路由的条目厂商 / 合成分组解析出的目标平台，
+// 再次分组平台；未分组按 anthropic。只给错误透传规则平台与错误文案用，不是调度平台。
 func AnthropicGatewayRequestPlatform(ctx context.Context, apiKey *APIKey) string {
 	if ctx != nil {
 		if forcePlatform, ok := ctx.Value(ctxkey.ForcePlatform).(string); ok && strings.TrimSpace(forcePlatform) != "" {
 			return strings.TrimSpace(forcePlatform)
 		}
-		if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
+		if platform, ok := RequestVendorPlatform(ctx); ok {
 			return platform
 		}
 	}

@@ -51,7 +51,6 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     billing_mode: 'token',
     status: 'listed',
     managed_by: 'seed',
-    route_platform: '',
     input_price: 15,
     output_price: 75,
     cache_write_price: null,
@@ -132,19 +131,9 @@ describe('ModelCatalogView', () => {
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
     expect(createEntry).toHaveBeenCalledTimes(1)
-    expect(createEntry.mock.calls[0][0]).toMatchObject({ model_id: 'gpt-5', billing_mode: 'token', status: 'listed', route_platform: '' })
+    expect(createEntry.mock.calls[0][0]).toMatchObject({ model_id: 'gpt-5', billing_mode: 'token', status: 'listed' })
     // 新建成功后用返回的 ID 写绑定（空列表也要写，保证条目与绑定同一份来源）。
     expect(updateBindings).toHaveBeenCalledWith(entry().id, [])
-  })
-
-  it('offers the gateway families plus auto for route_platform', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
-    const options = wrapper.get('[data-testid="model-catalog-route-platform"]').findAll('option')
-    expect(options.map((o) => o.attributes('value'))).toEqual([
-      '', 'anthropic', 'openai', 'gemini', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'
-    ])
   })
 
   it('shows the resource count and flags listed entries without resources', async () => {

@@ -133,20 +133,6 @@ func (_c *ModelCatalogEntryCreate) SetNillableManagedBy(v *string) *ModelCatalog
 	return _c
 }
 
-// SetRoutePlatform sets the "route_platform" field.
-func (_c *ModelCatalogEntryCreate) SetRoutePlatform(v string) *ModelCatalogEntryCreate {
-	_c.mutation.SetRoutePlatform(v)
-	return _c
-}
-
-// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
-func (_c *ModelCatalogEntryCreate) SetNillableRoutePlatform(v *string) *ModelCatalogEntryCreate {
-	if v != nil {
-		_c.SetRoutePlatform(*v)
-	}
-	return _c
-}
-
 // SetInputPrice sets the "input_price" field.
 func (_c *ModelCatalogEntryCreate) SetInputPrice(v float64) *ModelCatalogEntryCreate {
 	_c.mutation.SetInputPrice(v)
@@ -519,10 +505,6 @@ func (_c *ModelCatalogEntryCreate) defaults() {
 		v := modelcatalogentry.DefaultManagedBy
 		_c.mutation.SetManagedBy(v)
 	}
-	if _, ok := _c.mutation.RoutePlatform(); !ok {
-		v := modelcatalogentry.DefaultRoutePlatform
-		_c.mutation.SetRoutePlatform(v)
-	}
 	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
 		v := modelcatalogentry.DefaultLongContextThresholdInclusive
 		_c.mutation.SetLongContextThresholdInclusive(v)
@@ -583,14 +565,6 @@ func (_c *ModelCatalogEntryCreate) check() error {
 	if v, ok := _c.mutation.ManagedBy(); ok {
 		if err := modelcatalogentry.ManagedByValidator(v); err != nil {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
-		}
-	}
-	if _, ok := _c.mutation.RoutePlatform(); !ok {
-		return &ValidationError{Name: "route_platform", err: errors.New(`ent: missing required field "ModelCatalogEntry.route_platform"`)}
-	}
-	if v, ok := _c.mutation.RoutePlatform(); ok {
-		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
-			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
 		}
 	}
 	if _, ok := _c.mutation.LongContextThresholdInclusive(); !ok {
@@ -658,10 +632,6 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
 		_node.ManagedBy = value
-	}
-	if value, ok := _c.mutation.RoutePlatform(); ok {
-		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
-		_node.RoutePlatform = value
 	}
 	if value, ok := _c.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)
@@ -918,18 +888,6 @@ func (u *ModelCatalogEntryUpsert) SetManagedBy(v string) *ModelCatalogEntryUpser
 // UpdateManagedBy sets the "managed_by" field to the value that was provided on create.
 func (u *ModelCatalogEntryUpsert) UpdateManagedBy() *ModelCatalogEntryUpsert {
 	u.SetExcluded(modelcatalogentry.FieldManagedBy)
-	return u
-}
-
-// SetRoutePlatform sets the "route_platform" field.
-func (u *ModelCatalogEntryUpsert) SetRoutePlatform(v string) *ModelCatalogEntryUpsert {
-	u.Set(modelcatalogentry.FieldRoutePlatform, v)
-	return u
-}
-
-// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsert) UpdateRoutePlatform() *ModelCatalogEntryUpsert {
-	u.SetExcluded(modelcatalogentry.FieldRoutePlatform)
 	return u
 }
 
@@ -1580,20 +1538,6 @@ func (u *ModelCatalogEntryUpsertOne) SetManagedBy(v string) *ModelCatalogEntryUp
 func (u *ModelCatalogEntryUpsertOne) UpdateManagedBy() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.UpdateManagedBy()
-	})
-}
-
-// SetRoutePlatform sets the "route_platform" field.
-func (u *ModelCatalogEntryUpsertOne) SetRoutePlatform(v string) *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetRoutePlatform(v)
-	})
-}
-
-// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertOne) UpdateRoutePlatform() *ModelCatalogEntryUpsertOne {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateRoutePlatform()
 	})
 }
 
@@ -2491,20 +2435,6 @@ func (u *ModelCatalogEntryUpsertBulk) SetManagedBy(v string) *ModelCatalogEntryU
 func (u *ModelCatalogEntryUpsertBulk) UpdateManagedBy() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.UpdateManagedBy()
-	})
-}
-
-// SetRoutePlatform sets the "route_platform" field.
-func (u *ModelCatalogEntryUpsertBulk) SetRoutePlatform(v string) *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.SetRoutePlatform(v)
-	})
-}
-
-// UpdateRoutePlatform sets the "route_platform" field to the value that was provided on create.
-func (u *ModelCatalogEntryUpsertBulk) UpdateRoutePlatform() *ModelCatalogEntryUpsertBulk {
-	return u.Update(func(s *ModelCatalogEntryUpsert) {
-		s.UpdateRoutePlatform()
 	})
 }
 

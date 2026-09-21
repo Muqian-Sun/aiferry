@@ -223,18 +223,10 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 		require.Error(t, entry.Validate())
 	})
 
-	t.Run("route_platform must be a gateway family", func(t *testing.T) {
-		entry := valid()
-		entry.RoutePlatform = PlatformAntigravity
-		require.Error(t, entry.Validate())
-		entry.RoutePlatform = PlatformOpenAI
-		require.NoError(t, entry.Validate())
-	})
-
-	t.Run("normalize lowercases route_platform and defaults status to unlisted", func(t *testing.T) {
-		entry := &ModelCatalogEntry{ModelID: "m", RoutePlatform: " OpenAI "}
+	t.Run("normalize lowercases vendor and defaults status to unlisted", func(t *testing.T) {
+		entry := &ModelCatalogEntry{ModelID: "m", Vendor: " OpenAI "}
 		entry.Normalize()
-		require.Equal(t, PlatformOpenAI, entry.RoutePlatform)
+		require.Equal(t, "openai", entry.Vendor)
 		require.Equal(t, ModelCatalogStatusUnlisted, entry.Status)
 	})
 

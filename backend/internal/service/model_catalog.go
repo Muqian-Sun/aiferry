@@ -17,20 +17,6 @@ const (
 	ModelCatalogStatusUnlisted = "unlisted"
 )
 
-// catalogRoutePlatforms 是条目 route_platform 的合法取值：只能是一条真实的网关族，
-// antigravity / composite 不是网关族（前者由 /antigravity 路由强制，后者已无意义）。
-var catalogRoutePlatforms = map[string]struct{}{
-	PlatformAnthropic:  {},
-	PlatformOpenAI:     {},
-	PlatformGemini:     {},
-	PlatformGrok:       {},
-	PlatformKimi:       {},
-	PlatformZhipu:      {},
-	PlatformDeepseek:   {},
-	PlatformMiniMax:    {},
-	PlatformOpenCodeGo: {},
-}
-
 // 目录条目 / 别名的维护方。
 //   - seed：由播种器从价格文件 + 硬编码兜底价生成，重复播种会刷新；
 //   - admin：管理员改过，播种器永不覆盖。
@@ -93,8 +79,6 @@ type ModelCatalogEntry struct {
 	BillingMode BillingMode `json:"billing_mode"`
 	Status      string      `json:"status"`
 	ManagedBy   string      `json:"managed_by"`
-	// RoutePlatform 条目走哪条网关族；空串表示按 Vendor 推导（见 CatalogRoutePlatform）。
-	RoutePlatform string `json:"route_platform"`
 
 	InputPrice          *float64 `json:"input_price"`
 	OutputPrice         *float64 `json:"output_price"`
@@ -346,7 +330,6 @@ func (e *ModelCatalogEntry) Normalize() {
 	e.ModelID = strings.TrimSpace(e.ModelID)
 	e.DisplayName = strings.TrimSpace(e.DisplayName)
 	e.Vendor = strings.ToLower(strings.TrimSpace(e.Vendor))
-	e.RoutePlatform = strings.ToLower(strings.TrimSpace(e.RoutePlatform))
 	if e.BillingMode == "" {
 		e.BillingMode = BillingModeToken
 	}
@@ -407,11 +390,6 @@ func (e *ModelCatalogEntry) Validate() error {
 	case ModelCatalogStatusListed, ModelCatalogStatusUnlisted:
 	default:
 		return catalogValidationError(fmt.Sprintf("invalid status: %s", e.Status))
-	}
-	if e.RoutePlatform != "" {
-		if _, ok := catalogRoutePlatforms[e.RoutePlatform]; !ok {
-			return catalogValidationError(fmt.Sprintf("invalid route_platform: %s", e.RoutePlatform))
-		}
 	}
 	if e.Status == ModelCatalogStatusListed && !e.HasPrice() {
 		return catalogValidationError("a listed entry must have a price")

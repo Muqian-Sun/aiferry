@@ -31,8 +31,6 @@ type ModelCatalogEntryRequest struct {
 	Protocols   []string `json:"protocols"`
 	BillingMode string   `json:"billing_mode"`
 	Status      string   `json:"status"`
-	// RoutePlatform 条目走哪条网关族；空表示按 vendor 推导。
-	RoutePlatform string `json:"route_platform"`
 
 	InputPrice          *float64 `json:"input_price"`
 	OutputPrice         *float64 `json:"output_price"`
@@ -67,13 +65,12 @@ type ModelCatalogEntryRequest struct {
 
 func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 	return &service.ModelCatalogEntry{
-		ModelID:       r.ModelID,
-		DisplayName:   r.DisplayName,
-		Vendor:        r.Vendor,
-		Protocols:     r.Protocols,
-		BillingMode:   service.BillingMode(r.BillingMode),
-		Status:        r.Status,
-		RoutePlatform: r.RoutePlatform,
+		ModelID:     r.ModelID,
+		DisplayName: r.DisplayName,
+		Vendor:      r.Vendor,
+		Protocols:   r.Protocols,
+		BillingMode: service.BillingMode(r.BillingMode),
+		Status:      r.Status,
 
 		InputPrice:          r.InputPrice,
 		OutputPrice:         r.OutputPrice,
@@ -149,9 +146,8 @@ type ModelCatalogDiagnosisItem struct {
 
 // ModelCatalogDiagnosisResponse 条目的资源诊断。
 type ModelCatalogDiagnosisResponse struct {
-	EntryID       int64                       `json:"entry_id"`
-	RoutePlatform string                      `json:"route_platform"`
-	Accounts      []ModelCatalogDiagnosisItem `json:"accounts"`
+	EntryID  int64                       `json:"entry_id"`
+	Accounts []ModelCatalogDiagnosisItem `json:"accounts"`
 }
 
 // ModelCatalogAliasRequest 是别名的创建 / 更新请求体。
@@ -318,13 +314,12 @@ func (h *ModelCatalogHandler) Diagnose(c *gin.Context) {
 			Priority:      binding.Priority,
 			Schedulable:   reason == "",
 			BlockedReason: reason,
-			Serves:        service.CatalogRouteServes(entry, account),
+			Serves:        service.CatalogBindingServes(account),
 		})
 	}
 	response.Success(c, ModelCatalogDiagnosisResponse{
-		EntryID:       entry.ID,
-		RoutePlatform: service.CatalogRoutePlatform(entry),
-		Accounts:      items,
+		EntryID:  entry.ID,
+		Accounts: items,
 	})
 }
 

@@ -90,7 +90,7 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 		Protocol:  protocol,
 		Body:      body,
 	}
-	if resolvedPlatform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok {
+	if resolvedPlatform, ok := service.RequestVendorPlatform(c.Request.Context()); ok {
 		input.Provider = resolvedPlatform
 	}
 	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok {

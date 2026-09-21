@@ -235,10 +235,6 @@ func (Group) Fields() []ent.Field {
 			Default(0).
 			Comment("分组显示排序，数值越小越靠前"),
 
-		// OpenAI Messages 调度配置 (added by migration 069)
-		field.Bool("allow_messages_dispatch").
-			Default(false).
-			Comment("是否允许 /v1/messages 调度到此 OpenAI 分组"),
 		field.Bool("allow_live").
 			Default(false).
 			Comment("是否允许此 OpenAI 分组访问 Live 接口"),
@@ -254,14 +250,6 @@ func (Group) Fields() []ent.Field {
 		field.Bool("require_privacy_set").
 			Default(false).
 			Comment("调度时仅允许 privacy 已成功设置的账号"),
-		field.String("default_mapped_model").
-			MaxLen(100).
-			Default("").
-			Comment("默认映射模型 ID，当账号级映射找不到时使用此值"),
-		field.JSON("messages_dispatch_model_config", domain.OpenAIMessagesDispatchModelConfig{}).
-			Default(domain.OpenAIMessagesDispatchModelConfig{}).
-			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
-			Comment("OpenAI Messages 调度模型配置：按 Claude 系列/精确模型映射到目标 GPT 模型"),
 		field.JSON("model_allowlist", domain.GroupModelAllowlist{}).
 			Default(domain.GroupModelAllowlist{}).
 			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).

@@ -13,8 +13,8 @@ const (
 	SchedulerModeSingle = "single"
 	SchedulerModeMixed  = "mixed"
 	SchedulerModeForced = "forced"
-	// SchedulerModeCatalog 目录桶：GroupID 字段存的是目录条目 ID，Platform 是条目的
-	// 网关族，候选来自 model_catalog_bindings。与分组桶同一 ID 空间但互不相干，
+	// SchedulerModeCatalog 目录桶：GroupID 字段存的是目录条目 ID，Platform 恒空
+	// （条目没有网关族），候选来自 model_catalog_bindings。与分组桶同一 ID 空间但互不相干，
 	// 分组生命周期（退役 / 重开）只认自己的模式。
 	SchedulerModeCatalog = "catalog"
 )
@@ -67,7 +67,8 @@ func ParseSchedulerBucket(raw string) (SchedulerBucket, bool) {
 	if err != nil {
 		return SchedulerBucket{}, false
 	}
-	if parts[1] == "" || parts[2] == "" {
+	// 只有目录桶的 Platform 允许为空（"27::catalog"）。
+	if parts[2] == "" || (parts[1] == "" && parts[2] != SchedulerModeCatalog) {
 		return SchedulerBucket{}, false
 	}
 	return SchedulerBucket{

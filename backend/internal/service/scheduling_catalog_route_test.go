@@ -9,10 +9,10 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 目录路由下成品号的资格矩阵：厂商 × 生效平台 × 入站协议。
+// 目录路由下的资格：协议转换注册表 × 入站协议（条目没有网关族）。
 
-func catalogRouteCtx(entryID int64, platform, inbound string) context.Context {
-	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: entryID, CanonicalModel: "m", RequestedModel: "m", Platform: platform})
+func catalogRouteCtx(entryID int64, inbound string) context.Context {
+	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: entryID, CanonicalModel: "m", RequestedModel: "m"})
 	if inbound != "" {
 		ctx = WithInboundProtocol(ctx, inbound)
 	}
@@ -78,35 +78,19 @@ func TestAccountServesCatalogRoute_KeysFollowUpstreamAddresses(t *testing.T) {
 	require.False(t, accountServesCatalogRoute(nil, PlatformOpenAI, APIProtocolChatCompletions))
 }
 
-// 绑定校验仍按网关族矩阵（3b-5 删 route_platform 时换成注册表）：运行时放宽了，绑定没放宽。
-func TestBindingAdmitsFamily_KeepsFamilyMatrix(t *testing.T) {
-	oauth := func(platform string) *Account {
-		return &Account{ID: 1, Type: AccountTypeOAuth, Platform: platform, Status: StatusActive, Schedulable: true}
-	}
-	require.True(t, bindingAdmitsFamily(oauth(PlatformAnthropic), PlatformAnthropic, APIProtocolAnthropic))
-	require.False(t, bindingAdmitsFamily(oauth(PlatformAnthropic), PlatformGemini, APIProtocolAnthropic), "anthropic subscription cannot be bound to a gemini-family entry")
-	require.False(t, bindingAdmitsFamily(oauth(PlatformGrok), PlatformOpenAI, APIProtocolResponses), "openai family requires the exact platform")
-	require.True(t, bindingAdmitsFamily(oauth(PlatformAntigravity), PlatformGemini, APIProtocolGemini))
-	require.False(t, bindingAdmitsFamily(oauth(PlatformGemini), PlatformGemini, APIProtocolResponses))
-	chatOnly := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
-	require.False(t, bindingAdmitsFamily(&chatOnly, PlatformAnthropic, APIProtocolAnthropic), "anthropic family needs an anthropic address")
-	require.True(t, bindingAdmitsFamily(&chatOnly, PlatformOpenAI, APIProtocolAnthropic))
-	require.False(t, bindingAdmitsFamily(&chatOnly, PlatformOpenAI, APIProtocolGemini), "gemini inbound never reaches the openai family")
-}
-
 // 目录路由下 antigravity 成品号不再看 mixed_scheduling 开关；同一账号无 route 时按分组规则被排除。
 func TestIsAccountSchedulableOnPlatform_CatalogRouteIgnoresMixedFlag(t *testing.T) {
 	antigravity := &Account{ID: 9, Type: AccountTypeOAuth, Platform: PlatformAntigravity, Status: StatusActive, Schedulable: true}
 	require.False(t, antigravity.IsMixedSchedulingEnabled())
 
-	routed := catalogRouteCtx(7, PlatformAnthropic, APIProtocolAnthropic)
+	routed := catalogRouteCtx(7, APIProtocolAnthropic)
 	require.True(t, isAccountSchedulableOnPlatform(routed, antigravity, PlatformAnthropic, true))
 
 	unrouted := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
 	require.False(t, isAccountSchedulableOnPlatform(unrouted, antigravity, PlatformAnthropic, true))
 
 	geminiOAuth := &Account{ID: 10, Type: AccountTypeOAuth, Platform: PlatformGemini, Status: StatusActive, Schedulable: true}
-	filtered := filterAccountsSchedulableOnPlatform(catalogRouteCtx(7, PlatformGemini, APIProtocolResponses), []Account{*antigravity, *geminiOAuth}, PlatformGemini, false)
+	filtered := filterAccountsSchedulableOnPlatform(catalogRouteCtx(7, APIProtocolResponses), []Account{*antigravity, *geminiOAuth}, PlatformGemini, false)
 	require.Len(t, filtered, 1, "gemini oauth cannot serve responses; antigravity can")
 	require.Equal(t, int64(9), filtered[0].ID)
 }
@@ -148,7 +132,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOverridesGrou
 				concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 			}
 
-			routed := catalogRouteCtx(entryID, PlatformOpenAI, APIProtocolAnthropic)
+			routed := catalogRouteCtx(entryID, APIProtocolAnthropic)
 			result, err := svc.SelectAccountWithLoadAwareness(routed, &groupID, "", "gpt-5.6", nil)
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -172,5 +156,5 @@ func TestRoutingAccountIDsSkippedUnderCatalogRoute(t *testing.T) {
 	svc := &GatewayService{groupRepo: groupRepo, cfg: testConfig()}
 
 	require.Equal(t, []int64{1, 2}, svc.routingAccountIDsForRequest(context.Background(), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
-	require.Nil(t, svc.routingAccountIDsForRequest(catalogRouteCtx(5, PlatformAnthropic, APIProtocolAnthropic), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
+	require.Nil(t, svc.routingAccountIDsForRequest(catalogRouteCtx(5, APIProtocolAnthropic), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
 }

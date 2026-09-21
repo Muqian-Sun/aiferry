@@ -436,8 +436,8 @@ func TestModelCatalogHandler_Bindings(t *testing.T) {
 		1: {ID: 1, Name: "oauth-a", Type: service.AccountTypeOAuth, Platform: service.PlatformAnthropic, Status: service.StatusActive},
 		2: {ID: 2, Name: "relay-key", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive,
 			ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}},
-		3: {ID: 3, Name: "chat-only", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive,
-			ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://cc.example.com"}},
+		// 没配任何上游地址的 key：注册表里没有它能承接的入站协议。
+		3: {ID: 3, Name: "no-address", Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI, Status: service.StatusActive},
 	}
 	router := newCatalogRouter(newCatalogHandlerWithAccounts(repo, accounts))
 
@@ -501,22 +501,12 @@ func TestModelCatalogHandler_Bindings(t *testing.T) {
 		require.Equal(t, http.StatusBadRequest, rec.Code, "account_id is required")
 	})
 
-	t.Run("route_platform round-trips through update", func(t *testing.T) {
-		body := `{"model_id":"claude-sonnet-4","status":"listed","input_price":0.000003,"route_platform":"openai"}`
-		rec := httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(body)))
-		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-		require.Equal(t, service.PlatformOpenAI, repo.entries[0].RoutePlatform)
-		rec = httptest.NewRecorder()
-		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(`{"model_id":"claude-sonnet-4","input_price":0.000003,"route_platform":"antigravity"}`)))
-		require.Equal(t, http.StatusBadRequest, rec.Code)
-	})
 }
 
 func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	price := 3e-6
 	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{{
-		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic", RoutePlatform: service.PlatformOpenAI,
+		ID: 3, ModelID: "claude-sonnet-4", Vendor: "anthropic",
 		BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed,
 		ManagedBy: service.ModelCatalogManagedByAdmin, InputPrice: &price,
 	}}}
@@ -541,7 +531,6 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	var got ModelCatalogDiagnosisResponse
 	require.NoError(t, json.Unmarshal(raw, &got))
 	require.Equal(t, int64(3), got.EntryID)
-	require.Equal(t, service.PlatformOpenAI, got.RoutePlatform)
 	require.Len(t, got.Accounts, 2)
 
 	require.Equal(t, "chat-only", got.Accounts[0].Name)
@@ -551,7 +540,7 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	require.Equal(t, map[string]bool{
 		service.APIProtocolAnthropic: true, service.APIProtocolChatCompletions: true,
 		service.APIProtocolResponses: true, service.APIProtocolGemini: false,
-	}, got.Accounts[0].Serves, "openai family converts messages / responses to the chat address")
+	}, got.Accounts[0].Serves, "messages / responses convert to the chat address; nothing converts to gemini")
 
 	require.Equal(t, "openai-oauth-disabled", got.Accounts[1].Name)
 	require.False(t, got.Accounts[1].Schedulable)

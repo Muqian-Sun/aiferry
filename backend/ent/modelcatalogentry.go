@@ -36,8 +36,6 @@ type ModelCatalogEntry struct {
 	Status string `json:"status,omitempty"`
 	// seed = 播种器维护，可被重新播种刷新; admin = 管理员维护，播种器不再覆盖。
 	ManagedBy string `json:"managed_by,omitempty"`
-	// 条目走哪条网关族（anthropic/openai/gemini/...）；空表示按 vendor 推导。
-	RoutePlatform string `json:"route_platform,omitempty"`
 	// InputPrice holds the value of the "input_price" field.
 	InputPrice *float64 `json:"input_price,omitempty"`
 	// OutputPrice holds the value of the "output_price" field.
@@ -128,7 +126,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID, modelcatalogentry.FieldLongContextInputThreshold:
 			values[i] = new(sql.NullInt64)
-		case modelcatalogentry.FieldModelID, modelcatalogentry.FieldDisplayName, modelcatalogentry.FieldVendor, modelcatalogentry.FieldBillingMode, modelcatalogentry.FieldStatus, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldRoutePlatform, modelcatalogentry.FieldNotes:
+		case modelcatalogentry.FieldModelID, modelcatalogentry.FieldDisplayName, modelcatalogentry.FieldVendor, modelcatalogentry.FieldBillingMode, modelcatalogentry.FieldStatus, modelcatalogentry.FieldManagedBy, modelcatalogentry.FieldNotes:
 			values[i] = new(sql.NullString)
 		case modelcatalogentry.FieldCreatedAt, modelcatalogentry.FieldUpdatedAt:
 			values[i] = new(sql.NullTime)
@@ -208,12 +206,6 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 				return fmt.Errorf("unexpected type %T for field managed_by", values[i])
 			} else if value.Valid {
 				_m.ManagedBy = value.String
-			}
-		case modelcatalogentry.FieldRoutePlatform:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field route_platform", values[i])
-			} else if value.Valid {
-				_m.RoutePlatform = value.String
 			}
 		case modelcatalogentry.FieldInputPrice:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -433,9 +425,6 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("managed_by=")
 	builder.WriteString(_m.ManagedBy)
-	builder.WriteString(", ")
-	builder.WriteString("route_platform=")
-	builder.WriteString(_m.RoutePlatform)
 	builder.WriteString(", ")
 	if v := _m.InputPrice; v != nil {
 		builder.WriteString("input_price=")

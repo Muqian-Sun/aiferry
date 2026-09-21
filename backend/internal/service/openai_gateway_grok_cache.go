@@ -141,7 +141,7 @@ func isGrokRequestContext(c *gin.Context) bool {
 		return false
 	}
 	if c.Request != nil {
-		if platform, ok := ResolvedTargetPlatformFromContext(c.Request.Context()); ok {
+		if platform, ok := RequestVendorPlatform(c.Request.Context()); ok {
 			return platform == PlatformGrok
 		}
 	}

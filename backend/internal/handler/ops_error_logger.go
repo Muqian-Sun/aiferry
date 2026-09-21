@@ -2095,7 +2095,7 @@ func getOpsAPIKey(c *gin.Context) *service.APIKey {
 }
 
 func resolveOpsPlatform(ctx context.Context, apiKey *service.APIKey, fallback string) string {
-	if platform, ok := service.ResolvedTargetPlatformFromContext(ctx); ok {
+	if platform, ok := service.RequestVendorPlatform(ctx); ok {
 		return platform
 	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != "" {

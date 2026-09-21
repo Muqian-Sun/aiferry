@@ -96,12 +96,13 @@ func TestLiveEnabledForAPIKey(t *testing.T) {
 	require.True(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
 	}))
-	// 目录路由：条目网关族决定平台，分组平台是什么不再重要；allow_live 仍要开。
-	openAIRoute := &service.CatalogRoute{EntryID: 1, Platform: service.PlatformOpenAI}
+	// 目录路由：条目厂商决定平台，分组平台是什么不再重要；allow_live 仍要开。
+	openAIRoute := &service.CatalogRoute{EntryID: 1, Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-realtime", Vendor: "openai"}}
 	require.True(t, liveEnabledForAPIKey(newCtx(openAIRoute), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
 	}))
-	require.False(t, liveEnabledForAPIKey(newCtx(&service.CatalogRoute{EntryID: 2, Platform: service.PlatformGrok}), &service.APIKey{
+	grokRoute := &service.CatalogRoute{EntryID: 2, Entry: &service.ModelCatalogEntry{ID: 2, ModelID: "grok-4", Vendor: "xai"}}
+	require.False(t, liveEnabledForAPIKey(newCtx(grokRoute), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
 	}))
 }

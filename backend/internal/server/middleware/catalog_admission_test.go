@@ -29,9 +29,9 @@ func (s catalogStub) ResolveRoute(_ context.Context, model string) (service.Cata
 }
 
 func newCatalogStub() catalogStub {
-	sonnet := service.CatalogRoute{EntryID: 1, CanonicalModel: "claude-sonnet-4", Platform: service.PlatformAnthropic}
-	gpt := service.CatalogRoute{EntryID: 2, CanonicalModel: "gpt-5.6", Platform: service.PlatformOpenAI}
-	gemini := service.CatalogRoute{EntryID: 3, CanonicalModel: "gemini-2.5-pro", Platform: service.PlatformGemini}
+	sonnet := service.CatalogRoute{EntryID: 1, CanonicalModel: "claude-sonnet-4", Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic"}}
+	gpt := service.CatalogRoute{EntryID: 2, CanonicalModel: "gpt-5.6", Entry: &service.ModelCatalogEntry{ID: 2, ModelID: "gpt-5.6", Vendor: "openai"}}
+	gemini := service.CatalogRoute{EntryID: 3, CanonicalModel: "gemini-2.5-pro", Entry: &service.ModelCatalogEntry{ID: 3, ModelID: "gemini-2.5-pro", Vendor: "gemini"}}
 	return catalogStub{routes: map[string]service.CatalogRoute{
 		"claude-sonnet-4": sonnet,
 		"sonnet-latest":   sonnet,
@@ -46,11 +46,11 @@ type catalogAdmissionSeen struct {
 	calls int
 }
 
-func newCatalogAdmissionTestRouter(pathPrefix string, requirePlatforms ...string) (*gin.Engine, *catalogAdmissionSeen) {
+func newCatalogAdmissionTestRouter(pathPrefix string) (*gin.Engine, *catalogAdmissionSeen) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 	seen := &catalogAdmissionSeen{}
-	router.Use(CatalogAdmission(newCatalogStub(), requirePlatforms...))
+	router.Use(CatalogAdmission(newCatalogStub()))
 	register := func(method, path string) {
 		router.Handle(method, path, func(c *gin.Context) {
 			seen.calls++
@@ -77,7 +77,7 @@ func TestCatalogAdmission_ListedModelPassesWithRoute(t *testing.T) {
 	require.Equal(t, int64(1), seen.route.EntryID)
 	require.Equal(t, "claude-sonnet-4", seen.route.CanonicalModel, "alias resolves to the canonical model")
 	require.Equal(t, "sonnet-latest", seen.route.RequestedModel)
-	require.Equal(t, service.PlatformAnthropic, seen.route.Platform)
+	require.Equal(t, "anthropic", seen.route.Entry.Vendor)
 }
 
 func TestCatalogAdmission_UnlistedModelIsRejectedPerProtocol(t *testing.T) {
@@ -111,7 +111,7 @@ func TestCatalogAdmission_UnlistedModelIsRejectedPerProtocol(t *testing.T) {
 	}
 
 	t.Run("google format from path param", func(t *testing.T) {
-		router, seen := newCatalogAdmissionTestRouter("/v1beta", service.PlatformGemini)
+		router, seen := newCatalogAdmissionTestRouter("/v1beta")
 		w := doJSON(t, router, http.MethodPost, "/v1beta/models/gemini-unknown:generateContent", `{}`)
 		require.Equal(t, http.StatusNotFound, w.Code)
 		require.Contains(t, w.Body.String(), `"status":"NOT_FOUND"`)
@@ -120,7 +120,7 @@ func TestCatalogAdmission_UnlistedModelIsRejectedPerProtocol(t *testing.T) {
 }
 
 func TestCatalogAdmission_PathParamAndQueryExtraction(t *testing.T) {
-	router, seen := newCatalogAdmissionTestRouter("/v1beta", service.PlatformGemini)
+	router, seen := newCatalogAdmissionTestRouter("/v1beta")
 	w := doJSON(t, router, http.MethodPost, "/v1beta/models/gemini-2.5-pro:generateContent", `{}`)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
 	require.Equal(t, int64(3), seen.route.EntryID)
@@ -164,19 +164,25 @@ func TestCatalogAdmission_SkipsResponsesWebSocketUpgrade(t *testing.T) {
 	require.False(t, seen.ok)
 }
 
-func TestCatalogAdmission_RequirePlatforms(t *testing.T) {
-	router, seen := newCatalogAdmissionTestRouter("/v1beta", service.PlatformGemini)
+// 准入不分入口：/v1beta 与 /antigravity 上任何上架条目都放行，谁能承接由调度按协议定（池里没有 → 503，不是 404）。
+func TestCatalogAdmission_AnyListedEntryOnEveryEntrypoint(t *testing.T) {
+	router, seen := newCatalogAdmissionTestRouter("/v1beta")
 	w := doJSON(t, router, http.MethodPost, "/v1beta/models/gpt-5.6:generateContent", `{}`)
-	require.Equal(t, http.StatusNotFound, w.Code)
-	require.Contains(t, w.Body.String(), "not available on this endpoint")
-	require.Zero(t, seen.calls)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.Equal(t, int64(2), seen.route.EntryID)
+	w = doJSON(t, router, http.MethodPost, "/v1beta/models/claude-sonnet-4:generateContent", `{}`)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.Equal(t, int64(1), seen.route.EntryID)
 
-	router, seen = newCatalogAdmissionTestRouter("/antigravity/v1", service.PlatformAnthropic, service.PlatformGemini)
+	router, seen = newCatalogAdmissionTestRouter("/antigravity/v1")
 	w = doJSON(t, router, http.MethodPost, "/antigravity/v1/messages", `{"model":"claude-sonnet-4"}`)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, int64(1), seen.route.EntryID)
 	w = doJSON(t, router, http.MethodPost, "/antigravity/v1/messages", `{"model":"gpt-5.6"}`)
-	require.Equal(t, http.StatusNotFound, w.Code)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.Equal(t, int64(2), seen.route.EntryID)
+	w = doJSON(t, router, http.MethodPost, "/antigravity/v1/messages", `{"model":"unlisted"}`)
+	require.Equal(t, http.StatusNotFound, w.Code, "only listing gates admission")
 }
 
 func TestCatalogAdmission_ConflictingCandidatesAreRejected(t *testing.T) {

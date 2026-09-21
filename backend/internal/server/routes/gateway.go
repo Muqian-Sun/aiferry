@@ -35,10 +35,9 @@ func RegisterGatewayRoutes(
 	requireGroupGoogle := middleware.RequireGroupAssignment(settingService, middleware.GoogleErrorWriter)
 
 	// 目录准入：客户端写的模型名必须解析到上架条目。在 apiKeyAuth 之后、其余准入之前，
-	// 只看客户端书写的模型名；命中后把条目路由挂到 ctx，下游据此选网关族。
+	// 只看客户端书写的模型名；命中后把条目路由挂到 ctx，下游据此定资源池。四条链共用一个，
+	// 条目不分入口（/v1beta、/antigravity 的资格由协议转换注册表与强制平台决定）。
 	catalogAdmission := middleware.CatalogAdmission(modelCatalog)
-	catalogAdmissionGemini := middleware.CatalogAdmission(modelCatalog, service.PlatformGemini)
-	catalogAdmissionAntigravity := middleware.CatalogAdmission(modelCatalog, service.PlatformAnthropic, service.PlatformGemini)
 
 	// 分组级模型白名单准入：在目录准入之后，只看客户端书写的模型名。
 	groupModelAllowlist := middleware.GroupModelAllowlist()
@@ -280,7 +279,7 @@ func RegisterGatewayRoutes(
 	gemini.Use(opsErrorLogger)
 	gemini.Use(endpointNorm)
 	gemini.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
-	gemini.Use(catalogAdmissionGemini)
+	gemini.Use(catalogAdmission)
 	gemini.Use(groupModelAllowlist)
 	gemini.Use(requireGroupGoogle)
 	{
@@ -414,7 +413,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(endpointNorm)
 	antigravityV1.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
-	antigravityV1.Use(catalogAdmissionAntigravity)
+	antigravityV1.Use(catalogAdmission)
 	antigravityV1.Use(groupModelAllowlist)
 	antigravityV1.Use(requireGroupAnthropic)
 	{
@@ -431,7 +430,7 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(endpointNorm)
 	antigravityV1Beta.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1Beta.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
-	antigravityV1Beta.Use(catalogAdmissionAntigravity)
+	antigravityV1Beta.Use(catalogAdmission)
 	antigravityV1Beta.Use(groupModelAllowlist)
 	antigravityV1Beta.Use(requireGroupGoogle)
 	{
@@ -450,9 +449,10 @@ func dispatchCodexModelsGateway(c *gin.Context, openAIHandler, generatedHandler 
 	generatedHandler(c)
 }
 
-// routePlatform 本次请求的网关族：目录准入解析出的条目网关族优先，没有（无模型端点）按分组平台。
+// routePlatform 扩展端点分发用的厂商平台：目录路由按条目厂商（RequestVendorPlatform），
+// 没有（无模型端点、厂商未知）按分组平台（PR-7 再定）。
 func routePlatform(c *gin.Context) string {
-	if platform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok {
+	if platform, ok := service.RequestVendorPlatform(c.Request.Context()); ok {
 		return platform
 	}
 	apiKey, ok := middleware.GetAPIKeyFromContext(c)

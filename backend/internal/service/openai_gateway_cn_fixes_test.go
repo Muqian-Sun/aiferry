@@ -3,11 +3,9 @@
 package service
 
 // 国产供应商功能修复回归测试：
-//  1. CN 分组不适用 /v1/messages 调度级模型映射（openai 的 gpt-5.x 默认值发给
-//     CN 上游必错）；
-//  2. 计费候选链对 CN 账号过滤 claude-* 兜底候选（防按 Claude 原价误计 CN 流量）；
-//  3. 空候选按 ErrModelPricingUnavailable 处理（零成本落账而非丢弃 usage 记录）；
-//  4. Responses×anthropic 流式转换器客户端断开后继续排水、usage 汇总完整。
+//  1. 计费候选链对 CN 账号过滤 claude-* 兜底候选（防按 Claude 原价误计 CN 流量）；
+//  2. 空候选按 ErrModelPricingUnavailable 处理（零成本落账而非丢弃 usage 记录）；
+//  3. Responses×anthropic 流式转换器客户端断开后继续排水、usage 汇总完整。
 
 import (
 	"context"
@@ -22,19 +20,6 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func TestResolveMessagesDispatchModel_CNProvidersNoDispatchMapping(t *testing.T) {
-	for _, platform := range []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo} {
-		g := &Group{Platform: platform}
-		require.Empty(t, g.ResolveMessagesDispatchModel("claude-sonnet-4-5"),
-			"CN 分组(%s)不得返回调度级映射模型（openai 默认值会发给 CN 上游）", platform)
-		require.Empty(t, g.ResolveMessagesDispatchModel("claude-opus-4-1"), platform)
-	}
-	// 非回归：openai 分组保持原有默认映射行为。
-	openaiGroup := &Group{Platform: PlatformOpenAI}
-	require.NotEmpty(t, openaiGroup.ResolveMessagesDispatchModel("claude-sonnet-4-5"),
-		"openai 分组的调度默认映射不应受 CN 修复影响")
-}
 
 func TestFilterCNProviderBillingModelCandidates(t *testing.T) {
 	svc := &OpenAIGatewayService{} // resolver 为 nil → 无显式分组/渠道定价
