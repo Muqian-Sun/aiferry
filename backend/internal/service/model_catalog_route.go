@@ -17,16 +17,13 @@ type CatalogRoute struct {
 	EntryID        int64
 	CanonicalModel string             // entry.ModelID，计费与用量记录用
 	RequestedModel string             // 客户端写的名字，调度与上游转发继续用它
-	Platform       string             // CatalogRoutePlatform(entry)
 	Entry          *ModelCatalogEntry // 快照指针，只读
 }
 
-// WithCatalogRoute 把目录路由与客户端原始模型名挂到 ctx 上，并把条目的网关族写成本次请求的
-// 目标平台：handler 族分发（routes）、选号（resolvePlatform）、错误透传平台都先读这把钥匙，
-// 带模型的请求从此按条目路由，不看分组平台。
+// WithCatalogRoute 把目录路由与客户端原始模型名挂到 ctx 上。条目没有「网关族」：调度按协议
+// （accountServesCatalogRoute），扩展端点分发与厂商特有处理读 RequestVendorPlatform。
 func WithCatalogRoute(ctx context.Context, route CatalogRoute) context.Context {
 	ctx = context.WithValue(ctx, ctxkey.CatalogRoute, route)
-	ctx = WithResolvedTargetPlatform(ctx, route.Platform)
 	return context.WithValue(ctx, ctxkey.RequestedPublicModel, route.RequestedModel)
 }
 
@@ -39,9 +36,9 @@ func CatalogRouteFromContext(ctx context.Context) (CatalogRoute, bool) {
 	return route, ok
 }
 
-// catalogVendorPlatforms 把目录 vendor（LiteLLM 的 provider 串）映射到网关族。
+// catalogVendorPlatforms 把目录 vendor（LiteLLM 的 provider 串）映射到平台常量。
 // 表里的键来自当前播种结果（openai / anthropic / gemini / xai / deepseek / moonshot /
-// zhipu / minimax / bedrock / text-completion-openai），vertex_ai-* 与 azure* 按前缀归族。
+// zhipu / minimax / bedrock / text-completion-openai），vertex_ai-* 与 azure* 按前缀归类。
 var catalogVendorPlatforms = map[string]string{
 	"anthropic":              PlatformAnthropic,
 	"bedrock":                PlatformAnthropic,
@@ -60,15 +57,12 @@ var catalogVendorPlatforms = map[string]string{
 	"opencode_go":            PlatformOpenCodeGo,
 }
 
-// CatalogRoutePlatform 返回条目走哪条网关族：显式 RoutePlatform > Vendor 映射 >
-// DetectModelPlatform(ModelID) > Protocols（含 anthropic 归 anthropic，只含 gemini 归
-// gemini，其余归 openai）。返回值绝不为空。
-func CatalogRoutePlatform(entry *ModelCatalogEntry) string {
+// CatalogVendorPlatform 返回条目厂商对应的平台常量：catalogVendorPlatforms 精确表 >
+// vertex_ai* 归 gemini、azure* 归 openai；其余（含空厂商）返回空串——目录不猜模型名，
+// 没有厂商就没有厂商特有处理。
+func CatalogVendorPlatform(entry *ModelCatalogEntry) string {
 	if entry == nil {
-		return PlatformOpenAI
-	}
-	if rp := strings.ToLower(strings.TrimSpace(entry.RoutePlatform)); rp != "" {
-		return rp
+		return ""
 	}
 	vendor := strings.ToLower(strings.TrimSpace(entry.Vendor))
 	if platform, ok := catalogVendorPlatforms[vendor]; ok {
@@ -80,22 +74,21 @@ func CatalogRoutePlatform(entry *ModelCatalogEntry) string {
 	case strings.HasPrefix(vendor, "azure"):
 		return PlatformOpenAI
 	}
-	if platform, ok := DetectModelPlatform(entry.ModelID); ok {
-		return platform
-	}
-	hasGemini := false
-	for _, protocol := range entry.Protocols {
-		switch protocol {
-		case ModelCatalogProtocolAnthropic:
-			return PlatformAnthropic
-		case ModelCatalogProtocolGemini:
-			hasGemini = true
+	return ""
+}
+
+// RequestVendorPlatform 本次请求的厂商平台：目录路由按条目厂商（CatalogVendorPlatform），
+// 否则是合成分组解析出的目标平台（ResolvedTargetPlatform，PR-7 随分组删）。
+// 只给扩展端点分发（routes）与厂商特有处理（grok 传输 / 缓存身份、错误透传规则平台、
+// 运维日志平台）读；调度与准入不看它。
+func RequestVendorPlatform(ctx context.Context) (string, bool) {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		if platform := CatalogVendorPlatform(route.Entry); platform != "" {
+			return platform, true
 		}
+		return "", false
 	}
-	if hasGemini && len(entry.Protocols) == 1 {
-		return PlatformGemini
-	}
-	return PlatformOpenAI
+	return ResolvedTargetPlatformFromContext(ctx)
 }
 
 // ResolveRoute 准入用：模型名（精确 / 别名 / 通配别名 / Codex 归一化）命中 listed 条目
@@ -109,7 +102,6 @@ func (s *ModelCatalogService) ResolveRoute(ctx context.Context, model string) (C
 		EntryID:        entry.ID,
 		CanonicalModel: entry.ModelID,
 		RequestedModel: strings.TrimSpace(model),
-		Platform:       CatalogRoutePlatform(entry),
 		Entry:          entry,
 	}, true
 }
@@ -185,68 +177,28 @@ var catalogBindingInboundProtocols = []string{
 	APIProtocolAnthropic, APIProtocolChatCompletions, APIProtocolResponses, APIProtocolGemini,
 }
 
-// CatalogRouteServes 报告账号在该条目上能承接哪些入站协议：条目网关族的准入（bindingAdmitsFamily，
-// 3b-5 删 route_platform 时去掉）与协议转换注册表（选号用的 accountServesCatalogRoute）都要过。
-// 绑定校验与诊断接口都读它。
-func CatalogRouteServes(entry *ModelCatalogEntry, account *Account) map[string]bool {
-	rp := CatalogRoutePlatform(entry)
+// CatalogBindingServes 报告资源在四个入站协议上能否承接：只看协议转换注册表
+// （ServesInbound），key 与成品号同一条规则。绑定校验与诊断接口都读它。
+func CatalogBindingServes(account *Account) map[string]bool {
 	serves := make(map[string]bool, len(catalogBindingInboundProtocols))
 	for _, inbound := range catalogBindingInboundProtocols {
-		serves[inbound] = bindingAdmitsFamily(account, rp, inbound) && accountServesCatalogRoute(account, rp, inbound)
+		serves[inbound] = account.ServesInbound(inbound)
 	}
 	return serves
 }
 
-// bindingAdmitsFamily 绑定校验用的网关族矩阵：条目还带 route_platform 时，绑定只能挂到该族 handler
-// 能转发的资源上（3b-3 / 3b-4 逐条入站统一 handler，3b-5 删 route_platform 后整个函数删掉）。
-// 第三方 key 按网关族与入站协议能否选出已配地址的上游协议；成品号按厂商 × 网关族 × 入站协议：
-//
-//	厂商 \ 入站                          anthropic  chat_completions  responses  gemini
-//	anthropic（族 anthropic）               ✓          ✓                ✓          ✗
-//	antigravity（族 anthropic / gemini）    ✓          ✓                ✓          ✓
-//	gemini（族 gemini）                     ✓          ✓                ✗          ✓
-//	openai 族（族 == 账号平台）             ✓          ✓                ✓          ✗
-func bindingAdmitsFamily(account *Account, platform, inboundProtocol string) bool {
-	if account == nil {
-		return false
-	}
-	if inboundProtocol == APIProtocolGemini && platform != PlatformGemini && platform != PlatformAntigravity {
-		// Gemini 原生入口只放行 gemini 族条目；其余网关族收不到 gemini 入站。
-		return false
-	}
-	if account.IsThirdPartyKey() {
-		return account.KeyUpstreamProtocolFor(platform, inboundProtocol) != ""
-	}
-	switch account.Vendor() {
-	case PlatformAntigravity:
-		return platform == PlatformAnthropic || platform == PlatformGemini || platform == PlatformAntigravity
-	case PlatformAnthropic:
-		return platform == PlatformAnthropic && inboundProtocol != APIProtocolGemini
-	case PlatformGemini:
-		return platform == PlatformGemini && inboundProtocol != APIProtocolResponses
-	default:
-		return IsOpenAIGatewayPlatform(platform) && NormalizeOpenAICompatiblePlatform(platform) == account.Platform && inboundProtocol != APIProtocolGemini
-	}
-}
-
-// AccountServesCatalogEntry 绑定前检查资源能否承接该条目至少一种入站协议：
-// 第三方 key 看它在条目网关族上有没有可用的上游地址；成品号看厂商 × 网关族的矩阵。
+// AccountServesCatalogEntry 绑定前检查资源能否承接该条目至少一种入站协议。
 func AccountServesCatalogEntry(entry *ModelCatalogEntry, account *Account) error {
 	if entry == nil || account == nil {
 		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE", "entry and account are required")
 	}
-	for _, ok := range CatalogRouteServes(entry, account) {
+	for _, ok := range CatalogBindingServes(account) {
 		if ok {
 			return nil
 		}
 	}
-	rp := CatalogRoutePlatform(entry)
-	if account.IsThirdPartyKey() {
-		return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
-			fmt.Sprintf("account %d has no upstream address usable on the %s gateway", account.ID, rp))
-	}
 	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
-		fmt.Sprintf("account %d (%s) cannot serve models on the %s gateway", account.ID, account.Vendor(), rp))
+		fmt.Sprintf("account %d has no upstream protocol that can serve %s", account.ID, entry.ModelID))
 }
 
 // CatalogBindingAccountSource 绑定校验时按 ID 取账号；AdminService 满足它。

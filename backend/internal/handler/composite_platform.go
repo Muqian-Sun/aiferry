@@ -48,9 +48,11 @@ func compositeTargetPlatformResolved(c *gin.Context, apiKey *service.APIKey, mod
 	return ok
 }
 
+// effectiveAPIKeyPlatform 厂商特有处理与端点门用的平台：目录路由按条目厂商，合成分组按解析出的
+// 目标平台，否则分组平台。不是调度用的平台。
 func effectiveAPIKeyPlatform(c *gin.Context, apiKey *service.APIKey) string {
 	if c != nil && c.Request != nil {
-		if platform, ok := service.ResolvedTargetPlatformFromContext(c.Request.Context()); ok {
+		if platform, ok := service.RequestVendorPlatform(c.Request.Context()); ok {
 			return platform
 		}
 	}

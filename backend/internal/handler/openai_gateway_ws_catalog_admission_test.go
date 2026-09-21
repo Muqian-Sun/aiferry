@@ -1,13 +1,9 @@
 package handler
 
 import (
-	"net/http"
-	"net/http/httptest"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/gin-gonic/gin"
-	"github.com/stretchr/testify/require"
 )
 
 // Responses WS 没有经过 HTTP 准入中间件，首帧与后续 turn 在 handler 里做目录准入。
@@ -27,14 +23,15 @@ func TestResponsesWebSocket_RejectsUnlistedFirstFrame(t *testing.T) {
 	}
 }
 
-// 首帧模型上架但不是 OpenAI 族（claude 条目走 Anthropic 族）：Responses WS 承接不了，关闭。
-func TestResponsesWebSocket_RejectsNonOpenAIFamilyRoute(t *testing.T) {
-	runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
-		firstPayload:            `{"type":"response.create","model":"claude-sonnet-4","stream":false}`,
-		catalog:                 listedCatalogStub{ids: []string{"claude-sonnet-4"}},
-		firstFrameCloseExpected: true,
-		closeReasonContains:     `Model "claude-sonnet-4" is not available`,
+// 首帧模型上架、条目厂商是 anthropic：准入只看上架，不看厂商（谁能承接由调度按协议定）。
+func TestResponsesWebSocket_ListedAnthropicVendorRouteProceeds(t *testing.T) {
+	got := runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
+		firstPayload: `{"type":"response.create","model":"claude-sonnet-4","stream":false}`,
+		catalog:      listedCatalogStub{ids: []string{"claude-sonnet-4"}},
 	})
+	if len(got.clientEvents) != 1 {
+		t.Fatalf("expected one completed event, got %d", len(got.clientEvents))
+	}
 }
 
 // 首帧上架且是 OpenAI 族：正常建立连接。
@@ -68,21 +65,4 @@ func TestResponsesWebSocket_SubsequentTurnSwitchRequiresBinding(t *testing.T) {
 			closeReasonContains:     `Model "gpt-4.1" is not available`,
 		})
 	})
-}
-
-// 目录路由下 /v1/messages 走 OpenAI 网关不受分组 allow_messages_dispatch 开关与 dispatch 映射约束。
-func TestAllowOpenAICompatibleMessagesDispatch_CatalogRoute(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	apiKey := &service.APIKey{Group: &service.Group{ID: 9, Platform: service.PlatformOpenAI, AllowMessagesDispatch: false,
-		MessagesDispatchModelConfig: service.OpenAIMessagesDispatchModelConfig{ExactModelMappings: map[string]string{"gpt-5.6": "gpt-5.4"}}}}
-
-	c, _ := gin.CreateTestContext(httptest.NewRecorder())
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	require.False(t, allowOpenAICompatibleMessagesDispatch(c, apiKey), "group policy still applies without a route")
-	require.Equal(t, "gpt-5.4", resolveOpenAIMessagesDispatchMappedModel(c, apiKey, "gpt-5.6"))
-
-	routed := service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{EntryID: 1, Platform: service.PlatformOpenAI})
-	c.Request = c.Request.WithContext(routed)
-	require.True(t, allowOpenAICompatibleMessagesDispatch(c, apiKey))
-	require.Equal(t, "", resolveOpenAIMessagesDispatchMappedModel(c, apiKey, "gpt-5.6"), "no group-level dispatch rewrite under a catalog route")
 }

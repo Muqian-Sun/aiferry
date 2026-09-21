@@ -66,10 +66,6 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 			MaxLen(20).
 			Default("seed").
 			Comment("seed = 播种器维护，可被重新播种刷新; admin = 管理员维护，播种器不再覆盖。"),
-		field.String("route_platform").
-			MaxLen(20).
-			Default("").
-			Comment("条目走哪条网关族（anthropic/openai/gemini/...）；空表示按 vendor 推导。"),
 
 		// 基准价（USD per token），nil 表示未配置。
 		modelCatalogPriceField("input_price"),

@@ -41,7 +41,7 @@ func accountServesSchedulingPlatform(account *Account, platform, inboundProtocol
 // accountServesCatalogRoute 目录路由下资源能否承接本次入站协议：拥有的上游协议里有一个存在从
 // inboundProtocol 出发的转换实现（protocol_conversion.go 的注册表），key 与成品号同一条规则。
 // platform 只剩 /antigravity 强制路由这一个用途：强制 antigravity 时只放行 antigravity 成品号
-// （该入口的语义就是「走 antigravity」）。绑定校验仍按网关族矩阵（bindingAdmitsFamily，3b-5 删）。
+// （该入口的语义就是「走 antigravity」）。绑定校验走同一张注册表（CatalogBindingServes）。
 func accountServesCatalogRoute(account *Account, platform, inboundProtocol string) bool {
 	if account == nil {
 		return false

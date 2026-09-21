@@ -82,9 +82,9 @@ func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T
 		next      string
 	}{
 		{group: "gateway", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "gateway.Use(catalogAdmission)", marker: "gateway.Use(groupModelAllowlist)", next: "gateway.Use(requireGroupAnthropic)"},
-		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmissionGemini)", marker: "gemini.Use(groupModelAllowlist)", next: "gemini.Use(requireGroupGoogle)"},
-		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmissionAntigravity)", marker: "antigravityV1.Use(groupModelAllowlist)", next: "antigravityV1.Use(requireGroupAnthropic)"},
-		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmissionAntigravity)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", next: "antigravityV1Beta.Use(requireGroupGoogle)"},
+		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmission)", marker: "gemini.Use(groupModelAllowlist)", next: "gemini.Use(requireGroupGoogle)"},
+		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmission)", marker: "antigravityV1.Use(groupModelAllowlist)", next: "antigravityV1.Use(requireGroupAnthropic)"},
+		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmission)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", next: "antigravityV1Beta.Use(requireGroupGoogle)"},
 	}
 	for _, chain := range chains {
 		re := regexp.MustCompile(

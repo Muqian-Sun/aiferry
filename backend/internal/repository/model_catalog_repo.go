@@ -504,7 +504,6 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
-		SetRoutePlatform(entry.RoutePlatform).
 		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetNillableInputPrice(entry.InputPrice).
 		SetNillableOutputPrice(entry.OutputPrice).
@@ -543,7 +542,6 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 		SetBillingMode(string(entry.EffectiveBillingMode())).
 		SetStatus(entry.Status).
 		SetManagedBy(entry.ManagedBy).
-		SetRoutePlatform(entry.RoutePlatform).
 		SetLongContextThresholdInclusive(entry.LongContextThresholdInclusive).
 		SetProtocols(entry.Protocols)
 
@@ -596,15 +594,14 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		return nil
 	}
 	return &service.ModelCatalogEntry{
-		ID:            row.ID,
-		ModelID:       row.ModelID,
-		DisplayName:   row.DisplayName,
-		Vendor:        row.Vendor,
-		Protocols:     row.Protocols,
-		BillingMode:   service.BillingMode(row.BillingMode),
-		Status:        row.Status,
-		ManagedBy:     row.ManagedBy,
-		RoutePlatform: row.RoutePlatform,
+		ID:          row.ID,
+		ModelID:     row.ModelID,
+		DisplayName: row.DisplayName,
+		Vendor:      row.Vendor,
+		Protocols:   row.Protocols,
+		BillingMode: service.BillingMode(row.BillingMode),
+		Status:      row.Status,
+		ManagedBy:   row.ManagedBy,
 
 		InputPrice:          row.InputPrice,
 		OutputPrice:         row.OutputPrice,

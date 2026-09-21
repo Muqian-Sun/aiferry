@@ -138,20 +138,6 @@ func (_u *ModelCatalogEntryUpdate) SetNillableManagedBy(v *string) *ModelCatalog
 	return _u
 }
 
-// SetRoutePlatform sets the "route_platform" field.
-func (_u *ModelCatalogEntryUpdate) SetRoutePlatform(v string) *ModelCatalogEntryUpdate {
-	_u.mutation.SetRoutePlatform(v)
-	return _u
-}
-
-// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdate) SetNillableRoutePlatform(v *string) *ModelCatalogEntryUpdate {
-	if v != nil {
-		_u.SetRoutePlatform(*v)
-	}
-	return _u
-}
-
 // SetInputPrice sets the "input_price" field.
 func (_u *ModelCatalogEntryUpdate) SetInputPrice(v float64) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetInputPrice()
@@ -808,11 +794,6 @@ func (_u *ModelCatalogEntryUpdate) check() error {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.RoutePlatform(); ok {
-		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
-			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -859,9 +840,6 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if value, ok := _u.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.RoutePlatform(); ok {
-		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)
@@ -1224,20 +1202,6 @@ func (_u *ModelCatalogEntryUpdateOne) SetManagedBy(v string) *ModelCatalogEntryU
 func (_u *ModelCatalogEntryUpdateOne) SetNillableManagedBy(v *string) *ModelCatalogEntryUpdateOne {
 	if v != nil {
 		_u.SetManagedBy(*v)
-	}
-	return _u
-}
-
-// SetRoutePlatform sets the "route_platform" field.
-func (_u *ModelCatalogEntryUpdateOne) SetRoutePlatform(v string) *ModelCatalogEntryUpdateOne {
-	_u.mutation.SetRoutePlatform(v)
-	return _u
-}
-
-// SetNillableRoutePlatform sets the "route_platform" field if the given value is not nil.
-func (_u *ModelCatalogEntryUpdateOne) SetNillableRoutePlatform(v *string) *ModelCatalogEntryUpdateOne {
-	if v != nil {
-		_u.SetRoutePlatform(*v)
 	}
 	return _u
 }
@@ -1911,11 +1875,6 @@ func (_u *ModelCatalogEntryUpdateOne) check() error {
 			return &ValidationError{Name: "managed_by", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.managed_by": %w`, err)}
 		}
 	}
-	if v, ok := _u.mutation.RoutePlatform(); ok {
-		if err := modelcatalogentry.RoutePlatformValidator(v); err != nil {
-			return &ValidationError{Name: "route_platform", err: fmt.Errorf(`ent: validator failed for field "ModelCatalogEntry.route_platform": %w`, err)}
-		}
-	}
 	return nil
 }
 
@@ -1979,9 +1938,6 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if value, ok := _u.mutation.ManagedBy(); ok {
 		_spec.SetField(modelcatalogentry.FieldManagedBy, field.TypeString, value)
-	}
-	if value, ok := _u.mutation.RoutePlatform(); ok {
-		_spec.SetField(modelcatalogentry.FieldRoutePlatform, field.TypeString, value)
 	}
 	if value, ok := _u.mutation.InputPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPrice, field.TypeFloat64, value)

@@ -1625,12 +1625,12 @@ func (s *SchedulerSnapshotService) loadAccountsForRebuild(
 	return accounts, nil
 }
 
-// bucketForRequest 目录路由用目录桶（条目 ID + 条目网关族，不混合）；否则按分组 / 平台 / 模式。
+// bucketForRequest 目录路由用目录桶（条目 ID，Platform 恒空，不混合）；否则按分组 / 平台 / 模式。
 // platform 参数仍是本次生效平台（强制 antigravity 时是 antigravity），只用于分组桶；
 // 目录桶的候选之后由 filterAccountsSchedulableOnPlatform 按生效平台与入站协议过滤。
 func (s *SchedulerSnapshotService) bucketForRequest(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) (SchedulerBucket, bool) {
 	if route, ok := CatalogRouteFromContext(ctx); ok {
-		return SchedulerBucket{GroupID: route.EntryID, Platform: route.Platform, Mode: SchedulerModeCatalog}, false
+		return SchedulerBucket{GroupID: route.EntryID, Platform: "", Mode: SchedulerModeCatalog}, false
 	}
 	useMixed := (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform
 	return s.bucketFor(groupID, platform, s.resolveMode(platform, hasForcePlatform)), useMixed

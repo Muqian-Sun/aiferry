@@ -13,7 +13,7 @@ import (
 const selectOptionsEntryID int64 = 8101
 
 func selectOptionsCtx(inbound string) context.Context {
-	return catalogRouteCtx(selectOptionsEntryID, PlatformOpenAI, inbound)
+	return catalogRouteCtx(selectOptionsEntryID, inbound)
 }
 
 // openAIOAuthSub 官方 OpenAI 成品号（上游 responses）。

@@ -18,7 +18,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	pkghttputil "github.com/Wei-Shaw/sub2api/internal/pkg/httputil"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	coderws "github.com/coder/websocket"
@@ -615,60 +614,6 @@ func TestOpenAIEnsureResponsesDependencies(t *testing.T) {
 		require.True(t, ok)
 		require.False(t, c.Writer.Written())
 		assert.Equal(t, "", w.Body.String())
-	})
-}
-
-func TestResolveOpenAIMessagesDispatchMappedModel(t *testing.T) {
-	t.Run("exact_claude_model_override_wins", func(t *testing.T) {
-		apiKey := &service.APIKey{
-			Group: &service.Group{
-				MessagesDispatchModelConfig: service.OpenAIMessagesDispatchModelConfig{
-					SonnetMappedModel: "gpt-5.2",
-					ExactModelMappings: map[string]string{
-						"claude-sonnet-4-5-20250929": "gpt-5.4-mini-high",
-						"claude-fable-5":             "gpt-5.6-sol",
-					},
-				},
-			},
-		}
-		require.Equal(t, "gpt-5.4-mini", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5-20250929"))
-		require.Equal(t, "gpt-5.6-sol", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-fable-5"))
-	})
-
-	t.Run("uses_family_default_when_no_override", func(t *testing.T) {
-		apiKey := &service.APIKey{Group: &service.Group{}}
-		require.Equal(t, "gpt-5.4", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-opus-4-6"))
-		require.Equal(t, "gpt-5.3-codex", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5-20250929"))
-		require.Equal(t, "gpt-5.4-mini", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-haiku-4-5-20251001"))
-	})
-
-	t.Run("returns_empty_for_non_claude_or_missing_group", func(t *testing.T) {
-		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, nil, "claude-sonnet-4-5-20250929"))
-		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, &service.APIKey{}, "claude-sonnet-4-5-20250929"))
-		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, &service.APIKey{Group: &service.Group{}}, "gpt-5.4"))
-	})
-
-	t.Run("grok_group_maps_claude_cli_model_to_grok_default", func(t *testing.T) {
-		original := xai.RuntimeModelMappingOptions()
-		t.Cleanup(func() { xai.SetRuntimeModelMappingOptions(original) })
-		xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{EnableCrossClientMap: true})
-		apiKey := &service.APIKey{
-			Group: &service.Group{
-				Platform: service.PlatformGrok,
-			},
-		}
-		require.Equal(t, "grok-4.6", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5"))
-		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "grok"))
-	})
-
-	t.Run("does_not_fall_back_to_group_default_mapped_model", func(t *testing.T) {
-		apiKey := &service.APIKey{
-			Group: &service.Group{
-				DefaultMappedModel: "gpt-5.4",
-			},
-		}
-		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "gpt-5.4"))
-		require.Equal(t, "gpt-5.3-codex", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5-20250929"))
 	})
 }
 

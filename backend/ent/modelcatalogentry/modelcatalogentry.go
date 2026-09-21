@@ -32,8 +32,6 @@ const (
 	FieldStatus = "status"
 	// FieldManagedBy holds the string denoting the managed_by field in the database.
 	FieldManagedBy = "managed_by"
-	// FieldRoutePlatform holds the string denoting the route_platform field in the database.
-	FieldRoutePlatform = "route_platform"
 	// FieldInputPrice holds the string denoting the input_price field in the database.
 	FieldInputPrice = "input_price"
 	// FieldOutputPrice holds the string denoting the output_price field in the database.
@@ -108,7 +106,6 @@ var Columns = []string{
 	FieldBillingMode,
 	FieldStatus,
 	FieldManagedBy,
-	FieldRoutePlatform,
 	FieldInputPrice,
 	FieldOutputPrice,
 	FieldCacheWritePrice,
@@ -177,10 +174,6 @@ var (
 	DefaultManagedBy string
 	// ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
 	ManagedByValidator func(string) error
-	// DefaultRoutePlatform holds the default value on creation for the "route_platform" field.
-	DefaultRoutePlatform string
-	// RoutePlatformValidator is a validator for the "route_platform" field. It is called by the builders before save.
-	RoutePlatformValidator func(string) error
 	// DefaultLongContextThresholdInclusive holds the default value on creation for the "long_context_threshold_inclusive" field.
 	DefaultLongContextThresholdInclusive bool
 )
@@ -231,11 +224,6 @@ func ByStatus(opts ...sql.OrderTermOption) OrderOption {
 // ByManagedBy orders the results by the managed_by field.
 func ByManagedBy(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldManagedBy, opts...).ToFunc()
-}
-
-// ByRoutePlatform orders the results by the route_platform field.
-func ByRoutePlatform(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRoutePlatform, opts...).ToFunc()
 }
 
 // ByInputPrice orders the results by the input_price field.

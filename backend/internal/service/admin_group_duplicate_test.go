@@ -60,7 +60,6 @@ func cloneGroupForDuplicateTest(group *Group) *Group {
 	cloned.FallbackGroupIDOnInvalidRequest = cloneGroupValuePointer(group.FallbackGroupIDOnInvalidRequest)
 	cloned.ModelRouting = cloneGroupModelRouting(group.ModelRouting)
 	cloned.SupportedModelScopes = append([]string(nil), group.SupportedModelScopes...)
-	cloned.MessagesDispatchModelConfig = cloneGroupMessagesDispatchModelConfig(group.MessagesDispatchModelConfig)
 	cloned.ModelAllowlist.Models = append([]string(nil), group.ModelAllowlist.Models...)
 	cloned.AccountGroups = append([]AccountGroup(nil), group.AccountGroups...)
 	return &cloned
@@ -164,31 +163,23 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		MCPXMLInject:                    true,
 		SupportedModelScopes:            []string{"claude", "gemini_text"},
 		SortOrder:                       9,
-		AllowMessagesDispatch:           true,
 		AllowLive:                       true,
 		ForceOpenAIFast:                 true,
 		FreeOpenAIFast:                  true,
 		RequireOAuthOnly:                true,
 		RequirePrivacySet:               true,
-		DefaultMappedModel:              "gpt-5.4",
-		MessagesDispatchModelConfig: OpenAIMessagesDispatchModelConfig{
-			OpusMappedModel:    "gpt-5.4",
-			SonnetMappedModel:  "gpt-5.3",
-			HaikuMappedModel:   "gpt-5-mini",
-			ExactModelMappings: map[string]string{"claude-special": "gpt-special"},
-		},
-		ModelAllowlist:              GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.4", "gpt-5-mini"}},
-		RPMLimit:                    99,
-		MaxReasoningEffort:          "medium",
-		MaxReasoningEffortOverLimit: ReasoningEffortOverLimitDeny,
-		ReasoningEffortMappings:     []ReasoningEffortMapping{{From: "max", To: "xhigh"}},
-		CreatedAt:                   createdAt,
-		UpdatedAt:                   createdAt,
-		AccountCount:                12,
-		ActiveAccountCount:          8,
-		RateLimitedAccountCount:     2,
-		DuplicateOperationID:        "old-operation-must-not-copy",
-		AccountGroups:               []AccountGroup{{AccountID: 13, GroupID: 41, Priority: 37}},
+		ModelAllowlist:                  GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.4", "gpt-5-mini"}},
+		RPMLimit:                        99,
+		MaxReasoningEffort:              "medium",
+		MaxReasoningEffortOverLimit:     ReasoningEffortOverLimitDeny,
+		ReasoningEffortMappings:         []ReasoningEffortMapping{{From: "max", To: "xhigh"}},
+		CreatedAt:                       createdAt,
+		UpdatedAt:                       createdAt,
+		AccountCount:                    12,
+		ActiveAccountCount:              8,
+		RateLimitedAccountCount:         2,
+		DuplicateOperationID:            "old-operation-must-not-copy",
+		AccountGroups:                   []AccountGroup{{AccountID: 13, GroupID: 41, Priority: 37}},
 	}
 	repo := newDuplicateGroupRepoStub(source)
 	repo.sourceBindings[source.ID] = []AccountGroup{
@@ -214,7 +205,6 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.WebSearchPricePerCall, duplicate.WebSearchPricePerCall)
 	require.Equal(t, source.FallbackGroupID, duplicate.FallbackGroupID)
 	require.Equal(t, source.ModelRouting, duplicate.ModelRouting)
-	require.Equal(t, source.MessagesDispatchModelConfig, duplicate.MessagesDispatchModelConfig)
 	require.Equal(t, source.ForceOpenAIFast, duplicate.ForceOpenAIFast)
 	require.Equal(t, source.FreeOpenAIFast, duplicate.FreeOpenAIFast)
 	require.Equal(t, source.ModelAllowlist, duplicate.ModelAllowlist)
@@ -234,14 +224,12 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	duplicate.ModelRouting["gpt-*"][0] = 999
 	duplicate.VideoModelPrices[VideoPriceFamilyGrokImagineVideo15][VideoBillingResolution720P] = 999
 	duplicate.SupportedModelScopes[0] = "changed"
-	duplicate.MessagesDispatchModelConfig.ExactModelMappings["claude-special"] = "changed"
 	duplicate.ModelAllowlist.Models[0] = "changed"
 	duplicate.ReasoningEffortMappings[0].To = "changed"
 	*duplicate.DailyLimitUSD = 999
 	require.Equal(t, int64(13), source.ModelRouting["gpt-*"][0])
 	require.Equal(t, 0.14, source.VideoModelPrices[VideoPriceFamilyGrokImagineVideo15][VideoBillingResolution720P])
 	require.Equal(t, "claude", source.SupportedModelScopes[0])
-	require.Equal(t, "gpt-special", source.MessagesDispatchModelConfig.ExactModelMappings["claude-special"])
 	require.Equal(t, "gpt-5.4", source.ModelAllowlist.Models[0])
 	require.Equal(t, "xhigh", source.ReasoningEffortMappings[0].To)
 	require.Equal(t, 11.0, *source.DailyLimitUSD)

@@ -375,7 +375,7 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 	entry := &service.ModelCatalogEntry{
 		ModelID: unique("sonnet"), Vendor: "anthropic", BillingMode: service.BillingModeToken,
 		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
-		RoutePlatform: service.PlatformOpenAI, InputPrice: float64Value(1e-6),
+		InputPrice: float64Value(1e-6),
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
 	t.Cleanup(func() {
@@ -408,7 +408,6 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 
 	got, err := repo.GetEntryByID(ctx, entry.ID)
 	require.NoError(t, err)
-	require.Equal(t, service.PlatformOpenAI, got.RoutePlatform, "route_platform round-trips")
 	require.Len(t, got.Bindings, 2)
 	require.Equal(t, accountA.ID, got.Bindings[0].AccountID, "sorted by account id")
 	require.NotNil(t, got.Bindings[0].Priority)
