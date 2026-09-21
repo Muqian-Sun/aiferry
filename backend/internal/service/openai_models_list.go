@@ -378,7 +378,10 @@ func (s *OpenAIGatewayService) fetchScheduledOpenAIModels(ctx context.Context, g
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		account, err := s.SelectAccountForModelWithExclusions(ctx, &group.ID, "", "", excluded)
+		if s.scheduler == nil {
+			return nil, ErrNoPinnedCodexModelsAccounts
+		}
+		account, err := s.scheduler.SelectAccountForModelWithExclusions(ctx, &group.ID, "", "", excluded)
 		if err != nil {
 			if lastErr != nil {
 				return nil, lastErr

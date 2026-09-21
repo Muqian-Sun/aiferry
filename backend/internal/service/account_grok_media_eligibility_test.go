@@ -3,7 +3,6 @@
 package service
 
 import (
-	"context"
 	"net/http"
 	"testing"
 
@@ -103,10 +102,9 @@ func TestGrokMediaCapabilityFiltersOnlyGeneration(t *testing.T) {
 
 	require.True(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityChatCompletions))
 	require.False(t, account.SupportsOpenAIEndpointCapability(OpenAIEndpointCapabilityGrokMediaGeneration))
-	require.False(t, isOpenAICompatibleAccountEligibleForRequest(
-		context.Background(), account, PlatformGrok, "grok-imagine-video", false,
-		OpenAIEndpointCapabilityGrokMediaGeneration,
-	))
+	ok, reason := SelectOptions{Capability: OpenAIEndpointCapabilityGrokMediaGeneration}.admits(nil, nil, account)
+	require.False(t, ok)
+	require.Equal(t, "capability_mismatch", reason)
 }
 
 func TestNormalizeGrokMediaEligibilityExtra(t *testing.T) {

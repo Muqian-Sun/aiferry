@@ -6,8 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"math"
-	"strconv"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -397,159 +395,21 @@ func TestSettingService_UpdateSettings_TablePreferences(t *testing.T) {
 	require.Equal(t, "[20,100]", repo.updates[SettingKeyTablePageSizeOptions])
 }
 
-func TestSettingService_UpdateSettings_PaymentVisibleMethodsAndAdvancedScheduler(t *testing.T) {
-	resetOpenAIAdvancedSchedulerSettingCacheForTest()
-	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
-
+func TestSettingService_UpdateSettings_PaymentVisibleMethods(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	svc := NewSettingService(repo, &config.Config{})
 
 	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		PaymentVisibleMethodAlipaySource:                   "alipay",
-		PaymentVisibleMethodWxpaySource:                    "easypay",
-		PaymentVisibleMethodAlipayEnabled:                  true,
-		PaymentVisibleMethodWxpayEnabled:                   false,
-		OpenAILowUpstreamRatePriorityEnabled:               true,
-		OpenAIOAuthSchedulingRateMultiplier:                0.05,
-		OpenAIAdvancedSchedulerEnabled:                     true,
-		OpenAIAdvancedSchedulerStickyWeightedEnabled:       true,
-		OpenAIAdvancedSchedulerSubscriptionPriorityEnabled: true,
-		OpenAIAdvancedSchedulerLBTopK:                      " 3 ",
-		OpenAIAdvancedSchedulerWeightPriority:              "2.50",
-		OpenAIAdvancedSchedulerWeightLoad:                  "0",
-		OpenAIAdvancedSchedulerWeightQueue:                 "0.75",
-		OpenAIAdvancedSchedulerWeightErrorRate:             "1.25",
-		OpenAIAdvancedSchedulerWeightTTFT:                  "0.5",
-		OpenAIAdvancedSchedulerWeightReset:                 "",
-		OpenAIAdvancedSchedulerWeightQuotaHeadroom:         "0.2",
-		OpenAIAdvancedSchedulerWeightUpstreamCost:          "1.5",
-		OpenAIAdvancedSchedulerWeightPreviousResponse:      "8",
-		OpenAIAdvancedSchedulerWeightSessionSticky:         "4",
+		PaymentVisibleMethodAlipaySource:  "alipay",
+		PaymentVisibleMethodWxpaySource:   "easypay",
+		PaymentVisibleMethodAlipayEnabled: true,
+		PaymentVisibleMethodWxpayEnabled:  false,
 	})
 	require.NoError(t, err)
 	require.Equal(t, VisibleMethodSourceOfficialAlipay, repo.updates[SettingPaymentVisibleMethodAlipaySource])
 	require.Equal(t, VisibleMethodSourceEasyPayWechat, repo.updates[SettingPaymentVisibleMethodWxpaySource])
 	require.Equal(t, "true", repo.updates[SettingPaymentVisibleMethodAlipayEnabled])
 	require.Equal(t, "false", repo.updates[SettingPaymentVisibleMethodWxpayEnabled])
-	require.Equal(t, "true", repo.updates[SettingKeyOpenAILowUpstreamRatePriorityEnabled])
-	require.Equal(t, "0.05", repo.updates[SettingKeyOpenAIOAuthSchedulingRateMultiplier])
-	require.Equal(t, "true", repo.updates[openAIAdvancedSchedulerSettingKey])
-	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerStickyWeightedEnabled])
-	require.Equal(t, "true", repo.updates[SettingKeyOpenAIAdvancedSchedulerSubscriptionPriorityEnabled])
-	require.Equal(t, "3", repo.updates[SettingKeyOpenAIAdvancedSchedulerLBTopK])
-	require.Equal(t, "2.5", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightPriority])
-	require.Equal(t, "0", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightLoad])
-	require.Equal(t, "0.75", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightQueue])
-	require.Equal(t, "1.25", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightErrorRate])
-	require.Equal(t, "0.5", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightTTFT])
-	require.Equal(t, "", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightReset])
-	require.Equal(t, "0.2", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightQuotaHeadroom])
-	require.Equal(t, "1.5", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightUpstreamCost])
-	require.Equal(t, "8", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightPreviousResponse])
-	require.Equal(t, "4", repo.updates[SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky])
-}
-
-func TestSettingService_UpdateSettingsRejectsInvalidOpenAIOAuthSchedulingRateMultiplier(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	for _, rate := range []float64{-0.01, math.NaN(), math.Inf(1)} {
-		err := svc.UpdateSettings(context.Background(), &SystemSettings{OpenAIOAuthSchedulingRateMultiplier: rate})
-		require.Error(t, err)
-	}
-}
-
-func TestSettingService_UpdateSettings_OpenAIAdvancedSchedulerWeightSums(t *testing.T) {
-	maxFloat := strconv.FormatFloat(math.MaxFloat64, 'g', -1, 64)
-	tests := []struct {
-		name    string
-		weights SystemSettings
-		wantErr bool
-	}{
-		{
-			name: "reset only base is valid",
-			weights: SystemSettings{
-				OpenAIAdvancedSchedulerWeightPriority:         "0",
-				OpenAIAdvancedSchedulerWeightLoad:             "0",
-				OpenAIAdvancedSchedulerWeightQueue:            "0",
-				OpenAIAdvancedSchedulerWeightErrorRate:        "0",
-				OpenAIAdvancedSchedulerWeightTTFT:             "0",
-				OpenAIAdvancedSchedulerWeightReset:            "1",
-				OpenAIAdvancedSchedulerWeightQuotaHeadroom:    "0",
-				OpenAIAdvancedSchedulerWeightUpstreamCost:     "0",
-				OpenAIAdvancedSchedulerWeightPreviousResponse: "0",
-				OpenAIAdvancedSchedulerWeightSessionSticky:    "0",
-			},
-		},
-		{
-			name: "base sum overflow is rejected",
-			weights: SystemSettings{
-				OpenAIAdvancedSchedulerWeightPriority: maxFloat,
-				OpenAIAdvancedSchedulerWeightLoad:     maxFloat,
-			},
-			wantErr: true,
-		},
-		{
-			name: "sticky total sum overflow is rejected",
-			weights: SystemSettings{
-				OpenAIAdvancedSchedulerWeightPriority:         maxFloat,
-				OpenAIAdvancedSchedulerWeightPreviousResponse: maxFloat,
-			},
-			wantErr: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			svc := NewSettingService(&settingUpdateRepoStub{}, &config.Config{})
-			err := svc.UpdateSettings(context.Background(), &tt.weights)
-			if tt.wantErr {
-				require.Error(t, err)
-				return
-			}
-			require.NoError(t, err)
-		})
-	}
-}
-
-func TestSettingService_ParseSettingsDefaultsOpenAIOAuthSchedulingRateMultiplier(t *testing.T) {
-	svc := NewSettingService(&settingUpdateRepoStub{}, &config.Config{})
-
-	require.Equal(t, 1.0, svc.parseSettings(map[string]string{}).OpenAIOAuthSchedulingRateMultiplier)
-	require.Equal(t, 0.05, svc.parseSettings(map[string]string{SettingKeyOpenAIOAuthSchedulingRateMultiplier: "0.05"}).OpenAIOAuthSchedulingRateMultiplier)
-}
-
-func TestSettingService_GetAllSettings_OpenAIAdvancedSchedulerEffectiveValuesUseConfig(t *testing.T) {
-	cfg := &config.Config{}
-	cfg.Gateway.OpenAIWS.LBTopK = 13
-	cfg.Gateway.OpenAIWS.SchedulerScoreWeights = config.GatewayOpenAIWSSchedulerScoreWeights{
-		Priority:         2,
-		Load:             3,
-		Queue:            4,
-		ErrorRate:        5,
-		TTFT:             6,
-		Reset:            7,
-		QuotaHeadroom:    8,
-		UpstreamCost:     9,
-		PreviousResponse: 10,
-		SessionSticky:    11,
-	}
-	svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{
-		SettingKeyOpenAIAdvancedSchedulerLBTopK:              "3",
-		SettingKeyOpenAIAdvancedSchedulerWeightPriority:      "99",
-		SettingKeyOpenAIAdvancedSchedulerWeightSessionSticky: "88",
-	}}, cfg)
-
-	settings, err := svc.GetAllSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, "3", settings.OpenAIAdvancedSchedulerLBTopK)
-	require.Equal(t, "99", settings.OpenAIAdvancedSchedulerWeightPriority)
-	require.Equal(t, "88", settings.OpenAIAdvancedSchedulerWeightSessionSticky)
-	require.Equal(t, "13", settings.OpenAIAdvancedSchedulerEffectiveLBTopK)
-	require.Equal(t, "2", settings.OpenAIAdvancedSchedulerEffectiveWeightPriority)
-	require.Equal(t, "3", settings.OpenAIAdvancedSchedulerEffectiveWeightLoad)
-	require.Equal(t, "9", settings.OpenAIAdvancedSchedulerEffectiveWeightUpstreamCost)
-	require.Equal(t, "11", settings.OpenAIAdvancedSchedulerEffectiveWeightSessionSticky)
 }
 
 func TestSettingService_UpdateSettings_AntigravityUserAgentVersion(t *testing.T) {

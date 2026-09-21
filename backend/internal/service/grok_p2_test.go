@@ -17,13 +17,9 @@ func TestGrokModelQuotaBlock_FiltersOnlyNamedModel(t *testing.T) {
 	require.True(t, isGrokModelQuotaBlocked(id, "grok-4.5", now))
 	require.False(t, isGrokModelQuotaBlocked(id, "grok-4.3", now))
 
-	accounts := []Account{
-		{ID: id, Platform: PlatformGrok, Type: AccountTypeOAuth},
-		{ID: id + 1, Platform: PlatformGrok, Type: AccountTypeOAuth},
-	}
-	filtered := filterGrokModelQuotaBlockedAccounts(accounts, "grok-4.5", now)
-	require.Len(t, filtered, 1)
-	require.Equal(t, id+1, filtered[0].ID)
+	// 唯一调度器的候选门读同一个状态：被封的账号×模型不进候选，其他账号照常
+	require.True(t, grokModelRuntimeBlocked(&Account{ID: id, Platform: PlatformGrok, Type: AccountTypeOAuth}, "grok-4.5", now))
+	require.False(t, grokModelRuntimeBlocked(&Account{ID: id + 1, Platform: PlatformGrok, Type: AccountTypeOAuth}, "grok-4.5", now))
 }
 
 func TestGrokModelQuotaBlockFiltersMappedUpstreamModel(t *testing.T) {
@@ -38,7 +34,7 @@ func TestGrokModelQuotaBlockFiltersMappedUpstreamModel(t *testing.T) {
 		},
 	}
 
-	require.Empty(t, filterGrokModelQuotaBlockedAccounts([]Account{account}, "gpt-5", time.Now()))
+	require.True(t, grokModelRuntimeBlocked(&account, "gpt-5", time.Now()), "the gate must look at the mapped upstream model")
 }
 
 func TestIsGrokModelSpecificFreeUsage(t *testing.T) {

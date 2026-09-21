@@ -93,7 +93,7 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 
 // 阈值评估不在选号路径上：候选装载不评估阈值、不写状态（tempCalls 为 0）；
 // 已被状态服务停调的账号由选号循环按 SchedulingState 跳过（见 *_LoadBalanceTopKExcludesTempUnschedulable）。
-func TestOpenAIGatewayService_ListSchedulableAccounts_ReadsStateNotThresholds(t *testing.T) {
+func TestGatewayService_ListSchedulableAccounts_OpenAIPool_ReadsStateNotThresholds(t *testing.T) {
 	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
 	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
 
@@ -135,13 +135,13 @@ func TestOpenAIGatewayService_ListSchedulableAccounts_ReadsStateNotThresholds(t 
 
 	rateLimitService := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
 	rateLimitService.SetSettingService(NewSettingService(settingsRepo, &config.Config{}))
-	svc := &OpenAIGatewayService{
+	svc := &GatewayService{
 		accountRepo:      accountRepo,
 		cfg:              &config.Config{},
 		rateLimitService: rateLimitService,
 	}
 
-	accounts, err := svc.listSchedulableAccounts(context.Background(), nil, PlatformOpenAI)
+	accounts, _, err := svc.listSchedulableAccounts(context.Background(), nil, PlatformOpenAI, false)
 
 	require.NoError(t, err)
 	require.Len(t, accounts, 3, "装载不按阈值过滤")

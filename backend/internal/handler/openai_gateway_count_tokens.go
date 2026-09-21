@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -96,14 +97,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	requestStart := time.Now()
-	account, err := h.gatewayService.SelectAccountForTokenCount(
-		c.Request.Context(),
-		apiKey.GroupID,
-		sessionHash,
-		routingModel,
-		service.OpenAIEndpointCapabilityChatCompletions,
-		requestPlatform,
-	)
+	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, routingModel)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
 		reqLog.Warn("openai_input_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
@@ -268,14 +262,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	if preferredMappedModel != "" {
 		currentRoutingModel = preferredMappedModel
 	}
-	account, err := h.gatewayService.SelectAccountForTokenCount(
-		c.Request.Context(),
-		apiKey.GroupID,
-		sessionHash,
-		currentRoutingModel,
-		service.OpenAIEndpointCapabilityChatCompletions,
-		service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey),
-	)
+	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, currentRoutingModel)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
 		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
@@ -303,4 +290,10 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	if err := h.gatewayService.ForwardCountTokensAsAnthropic(c.Request.Context(), c, account, forwardBody, defaultMappedModel); err != nil {
 		reqLog.Error("openai_count_tokens.forward_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 	}
+}
+
+// selectTokenCountAccount 计 token 是非计费请求：不抢槽、利润门抑制，其余门（平台 / 模型 / 能力 / 状态）与正常选号一致。
+func (h *OpenAIGatewayHandler) selectTokenCountAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string) (*service.Account, error) {
+	ctx = service.WithSelectOptions(service.WithOpenAIProfitControlSuppressed(ctx), service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
+	return h.gatewayService.Scheduler().SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, routingModel, nil)
 }

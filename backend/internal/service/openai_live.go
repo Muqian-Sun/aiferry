@@ -148,20 +148,12 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 	// 防御性装门按文本 D 过滤 Live 账号池且门与计费时刻不同源。
 	ctx = WithOpenAIProfitControlSuppressed(ctx)
 	var lastErr error
+	if s.scheduler == nil {
+		return nil, ErrNoAvailableAccounts
+	}
 	for attempt := 0; attempt <= 3; attempt++ {
-		selection, _, selectErr := s.SelectAccountWithSchedulerForCapability(
-			ctx,
-			identity.GroupID,
-			"",
-			uuid.NewString(),
-			"",
-			excluded,
-			OpenAIUpstreamTransportHTTPSSE,
-			OpenAIEndpointCapabilityLive,
-			false,
-			false,
-			false,
-		)
+		selection, selectErr := s.scheduler.SelectAccountWithOptions(ctx, identity.GroupID, uuid.NewString(), "", excluded,
+			SelectOptions{Capability: OpenAIEndpointCapabilityLive, Transport: OpenAIUpstreamTransportHTTPSSE})
 		if selectErr != nil {
 			if lastErr != nil {
 				return nil, lastErr

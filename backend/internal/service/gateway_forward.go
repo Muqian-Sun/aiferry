@@ -1003,19 +1003,43 @@ func (s *GatewayService) isUpstreamModelRestrictedByChannel(ctx context.Context,
 	if s.channelService == nil {
 		return false
 	}
-	upstreamModel := resolveAccountUpstreamModel(account, requestedModel)
+	upstreamModel := resolveAccountUpstreamModel(ctx, account, requestedModel)
 	if upstreamModel == "" {
 		return false
 	}
 	return s.channelService.IsModelRestricted(ctx, groupID, upstreamModel)
 }
 
-// resolveAccountUpstreamModel 确定账号将请求模型映射为什么上游模型。
-func resolveAccountUpstreamModel(account *Account, requestedModel string) string {
+// resolveAccountUpstreamModel 确定账号将请求模型映射为什么上游模型，与各转发实现的口径一致：
+// antigravity 按其映射表；说 OpenAI 协议的资源按 OpenAI 转发的规则（透传只换鉴权、compact 走
+// compact_model_mapping、raw chat 回退按普通映射），其中 compact 的转发模型来自 ctx（WithOpenAIForwardModel）；
+// 其余按账号 model_mapping。
+func resolveAccountUpstreamModel(ctx context.Context, account *Account, requestedModel string) string {
 	if account.Vendor() == PlatformAntigravity {
 		return mapAntigravityModel(account, requestedModel)
 	}
+	if accountSpeaksOpenAIProtocol(account) {
+		requireCompact := false
+		if compactForwardModel, ok := openAIForwardModelFromContext(ctx); ok {
+			requestedModel = compactForwardModel.model
+			requireCompact = compactForwardModel.useCompactModelMapping
+		}
+		return resolveOpenAIAccountUpstreamModelForRequest(account, requestedModel, requireCompact)
+	}
 	return account.GetMappedModel(requestedModel)
+}
+
+// accountSpeaksOpenAIProtocol 资源的上游协议里有 responses / chat_completions（OpenAI 转发实现承接）。
+func accountSpeaksOpenAIProtocol(account *Account) bool {
+	if account == nil {
+		return false
+	}
+	for _, protocol := range account.UpstreamProtocols() {
+		if protocol == APIProtocolResponses || protocol == APIProtocolChatCompletions {
+			return true
+		}
+	}
+	return false
 }
 
 // needsUpstreamChannelRestrictionCheck 判断是否需要在调度循环中逐账号检查上游模型的渠道限制。

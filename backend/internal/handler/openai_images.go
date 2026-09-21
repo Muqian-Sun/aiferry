@@ -159,14 +159,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, scheduleDecision, err := h.gatewayService.SelectAccountWithSchedulerForImages(
-			requestCtx,
-			apiKey.GroupID,
-			sessionHash,
-			routingModel,
-			failedAccountIDs,
-			parsed.RequiredCapability,
-		)
+		selection, err := h.selectImagesAccount(requestCtx, apiKey.GroupID, sessionHash, routingModel, failedAccountIDs, parsed.RequiredCapability)
 		if err != nil {
 			if failoverClientGone(c) {
 				reqLog.Info("openai.images.account_select_aborted_client_disconnected", zap.Error(err))
@@ -207,15 +200,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			h.handleStreamingAwareError(c, cls.Status, cls.ErrType, message, streamStarted)
 			return
 		}
-
-		reqLog.Debug("openai.images.account_schedule_decision",
-			zap.String("layer", scheduleDecision.Layer),
-			zap.Bool("sticky_session_hit", scheduleDecision.StickySessionHit),
-			zap.Int("candidate_count", scheduleDecision.CandidateCount),
-			zap.Int("top_k", scheduleDecision.TopK),
-			zap.Int64("latency_ms", scheduleDecision.LatencyMs),
-			zap.Float64("load_skew", scheduleDecision.LoadSkew),
-		)
 
 		account := selection.Account
 		sessionHash = ensureOpenAIPoolModeSessionHash(sessionHash, account)
@@ -327,7 +311,6 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 							continue
 						}
 					}
-					h.gatewayService.RecordOpenAIAccountSwitch()
 					failedAccountIDs[account.ID] = struct{}{}
 					lastFailoverErr = failoverErr
 					if switchCount >= maxAccountSwitches {
@@ -435,4 +418,19 @@ func (h *OpenAIGatewayHandler) openAIImagesJSONKeepaliveInterval() time.Duration
 
 func isMultipartImagesContentType(contentType string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "multipart/form-data")
+}
+
+// selectImagesAccount 按图片能力档选号：要求 native（API key 官方地址）而无候选时回退到 basic（成品号）。
+func (h *OpenAIGatewayHandler) selectImagesAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string, excluded map[int64]struct{}, capability service.OpenAIImagesCapability) (*service.AccountSelectionResult, error) {
+	sched := h.gatewayService.Scheduler()
+	selection, err := sched.SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
+		service.SelectOptions{ImageCapability: capability, Transport: service.OpenAIUpstreamTransportHTTPSSE})
+	if err == nil && selection != nil && selection.Account != nil {
+		return selection, nil
+	}
+	if capability != service.OpenAIImagesCapabilityNative || !errors.Is(err, service.ErrNoAvailableAccounts) {
+		return selection, err
+	}
+	return sched.SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
+		service.SelectOptions{ImageCapability: service.OpenAIImagesCapabilityBasic, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 }

@@ -9,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
@@ -444,69 +445,6 @@ func getOpenAIGroupIDFromContext(c *gin.Context) int64 {
 	return *apiKey.GroupID
 }
 
-// SelectAccountByPreviousResponseID 按 previous_response_id 命中账号粘连。
-// 未命中或账号不可用时返回 (nil, nil)，由调用方继续走常规调度。
-func (s *OpenAIGatewayService) SelectAccountByPreviousResponseID(
-	ctx context.Context,
-	groupID *int64,
-	previousResponseID string,
-	requestedModel string,
-	excludedIDs map[int64]struct{},
-	requireCompact bool,
-) (*AccountSelectionResult, error) {
-	// 分组利润控制：公共入口装门，保证不经 selectAccountWithScheduler
-	// 的调用方也无法绕过利润准入（scheduler 内部路径已在唯一调度入口装门）。
-	ctx = s.withOpenAIProfitControlGate(ctx, groupID)
-	return s.selectAccountByPreviousResponseIDForCapability(ctx, groupID, previousResponseID, requestedModel, excludedIDs, "", requireCompact)
-}
-
-func (s *OpenAIGatewayService) selectAccountByPreviousResponseIDForCapability(
-	ctx context.Context,
-	groupID *int64,
-	previousResponseID string,
-	requestedModel string,
-	excludedIDs map[int64]struct{},
-	requiredCapability OpenAIEndpointCapability,
-	requireCompact bool,
-) (*AccountSelectionResult, error) {
-	if s == nil {
-		return nil, nil
-	}
-	accountID, account, responseID, store := s.resolveAccountByPreviousResponseIDForCapability(ctx, groupID, previousResponseID, requestedModel, excludedIDs, requiredCapability, requireCompact)
-	if accountID <= 0 || account == nil || store == nil {
-		return nil, nil
-	}
-
-	result, acquireErr := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
-	if acquireErr == nil && result.Acquired {
-		logOpenAIWSBindResponseAccountWarn(
-			derefGroupID(groupID),
-			accountID,
-			responseID,
-			store.BindResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID, accountID, s.openAIWSResponseStickyTTL()),
-		)
-		return attachSelectionProfitGate(ctx, &AccountSelectionResult{
-			Account:     account,
-			Acquired:    true,
-			ReleaseFunc: result.ReleaseFunc,
-		}), nil
-	}
-
-	cfg := s.schedulingConfig()
-	if s.concurrencyService != nil {
-		return attachSelectionProfitGate(ctx, &AccountSelectionResult{
-			Account: account,
-			WaitPlan: &AccountWaitPlan{
-				AccountID:      accountID,
-				MaxConcurrency: account.Concurrency,
-				Timeout:        cfg.StickySessionWaitTimeout,
-				MaxWaiting:     cfg.StickySessionMaxWaiting,
-			},
-		}), nil
-	}
-	return nil, nil
-}
-
 func (s *OpenAIGatewayService) ResolveAccountIDByPreviousResponseIDForScheduler(
 	ctx context.Context,
 	groupID *int64,
@@ -593,7 +531,8 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
 		}
-		if !s.openAIAccountMatchesSchedulingScope(ctx, latest, groupID) {
+		simpleMode := s != nil && s.cfg != nil && s.cfg.RunMode == config.RunModeSimple
+		if !simpleMode && !accountInSchedulingScope(ctx, latest, groupID) {
 			return 0, nil, "", nil
 		}
 		if s.openAIGroupRequiresPrivacySet(ctx, groupID) && !latest.IsPrivacySet() {
@@ -852,4 +791,30 @@ func (s *OpenAIGatewayService) clearOpenAIWSFallbackCooling(accountID int64) {
 		return
 	}
 	s.openaiWSFallbackUntil.Delete(accountID)
+}
+
+// 分组隐私要求：previous_response_id 解析与 grok 媒体的复检读它（调度门在 candidateAdmits 里另有一份）。
+type openAIGroupPrivacyRequirementContextKey struct{}
+
+type openAIGroupPrivacyRequirement struct {
+	groupID  int64
+	required bool
+}
+
+func (s *OpenAIGatewayService) openAIGroupRequiresPrivacySet(ctx context.Context, groupID *int64) bool {
+	if cached, ok := ctx.Value(openAIGroupPrivacyRequirementContextKey{}).(openAIGroupPrivacyRequirement); ok && cached.groupID == derefGroupID(groupID) {
+		return cached.required
+	}
+	return s.loadOpenAIGroupRequiresPrivacySet(ctx, groupID)
+}
+
+func (s *OpenAIGatewayService) loadOpenAIGroupRequiresPrivacySet(ctx context.Context, groupID *int64) bool {
+	if s == nil || groupID == nil || s.schedulerSnapshot == nil {
+		return false
+	}
+	group, err := s.schedulerSnapshot.GetGroupByID(ctx, *groupID)
+	if err != nil {
+		return true
+	}
+	return group != nil && group.RequirePrivacySet
 }

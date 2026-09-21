@@ -9,7 +9,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 	"github.com/stretchr/testify/require"
 )
@@ -101,31 +100,6 @@ func TestProfitControl_UsesAccountRateInsteadOfProbeSnapshot(t *testing.T) {
 	require.Equal(t, openAIProfitFilterReasonThreshold, reason)
 }
 
-// Responses 是端点能力，不代表媒体请求；原生远程压缩同样要求该能力，
-// 因此唯一文本调度入口必须照常安装利润门。
-func TestProfitControl_ResponsesCapabilityUsesTextGateAtScheduler(t *testing.T) {
-	now := time.Now()
-	expensive := upstreamCostTestAccount(51, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute)
-	expensive.Status = StatusActive
-	expensive.Schedulable = true
-	expensive.Concurrency = 2
-	svc := &OpenAIGatewayService{
-		accountRepo:        stubOpenAIAccountRepo{accounts: []Account{*expensive}},
-		cfg:                &config.Config{},
-		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
-		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
-	}
-	groupID := int64(77)
-	ctx := profitControlTestCtx(profitControlTestGroup(groupID, 0.5, 0))
-
-	_, _, err := svc.SelectAccountWithSchedulerForCapability(ctx, &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityChatCompletions, false, false, true)
-	require.ErrorIs(t, err, ErrNoAvailableAccounts, "文本能力必须过利润门")
-
-	selection, _, err := svc.SelectAccountWithSchedulerForCapability(ctx, &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityResponses, false, false, true)
-	require.ErrorIs(t, err, ErrNoAvailableAccounts, "Responses 文本能力不得绕过利润门")
-	require.Nil(t, selection)
-}
-
 // 账号倍率缺失一律视为非法保守拒绝；手工或同步维护了倍率的任意账号类型都按
 // 同一阈值判断（OAuth 与 API Key 无差别）。
 func TestProfitControl_AccountRateSemantics(t *testing.T) {
@@ -160,33 +134,6 @@ func TestOpenAIUsagePricingAt(t *testing.T) {
 	fallback := openAIUsagePricingAt(&OpenAIRecordUsageInput{})
 	require.WithinDuration(t, timezone.Now(), fallback, 5*time.Second)
 	require.WithinDuration(t, timezone.Now(), openAIUsagePricingAt(nil), 5*time.Second)
-}
-
-func TestOpenAIProfitControlStickyBindingOccursOnlyAfterTerminalAdmission(t *testing.T) {
-	groupID := int64(81)
-	expensiveID := int64(901)
-	cheapID := int64(902)
-	const sessionHash = "profit-sticky"
-	const cacheKey = "openai:" + sessionHash
-	cache := &schedulerTestGatewayCache{
-		sessionBindings: map[string]int64{cacheKey: expensiveID},
-	}
-	svc := &OpenAIGatewayService{cache: cache}
-	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
-		groupID:   groupID,
-		platform:  PlatformOpenAI,
-		threshold: 0.5,
-	})
-
-	require.NoError(t, svc.bindOpenAIStickySessionDuringSelection(ctx, &groupID, sessionHash, cheapID))
-	require.Equal(t, expensiveID, cache.sessionBindings[cacheKey], "选号阶段不得覆盖原粘性绑定")
-
-	require.NoError(t, svc.BindStickySessionAfterProfitAdmission(ctx, &groupID, sessionHash, cheapID))
-	require.Equal(t, expensiveID, cache.sessionBindings[cacheKey], "终检通过的 fallback 账号不得覆盖原粘性绑定")
-
-	cache.sessionBindings[cacheKey] = 0
-	require.NoError(t, svc.BindStickySessionAfterProfitAdmission(ctx, &groupID, sessionHash, cheapID))
-	require.Equal(t, cheapID, cache.sessionBindings[cacheKey], "无既有绑定时应在终检通过后建立粘性")
 }
 
 // WithOpenAITurnPricingContext：长连接 turn 边界重新冻结 pricingAt 并按当前
@@ -242,21 +189,4 @@ func TestProfitControl_TurnPricingContext(t *testing.T) {
 		vetoed, _ := OpenAIProfitControlVeto(turnCtx, expensive)
 		require.False(t, vetoed, "关门后 turn 级复核应放行")
 	})
-}
-
-// 无门时准入后绑定回退官方 eager 语义：等待/抢槽路径不得因利润控制关闭而
-// 失去粘性绑定（评审 M-Bind 回归锚点）。
-func TestOpenAIProfitControlAfterAdmissionBindEagerWithoutGate(t *testing.T) {
-	groupID := int64(82)
-	expensiveID := int64(903)
-	cheapID := int64(904)
-	const sessionHash = "no-gate-sticky"
-	const cacheKey = "openai:" + sessionHash
-	cache := &schedulerTestGatewayCache{
-		sessionBindings: map[string]int64{cacheKey: expensiveID},
-	}
-	svc := &OpenAIGatewayService{cache: cache}
-
-	require.NoError(t, svc.BindStickySessionAfterProfitAdmission(context.Background(), &groupID, sessionHash, cheapID))
-	require.Equal(t, cheapID, cache.sessionBindings[cacheKey], "无门时保持既有 eager 绑定行为")
 }

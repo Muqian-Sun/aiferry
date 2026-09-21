@@ -104,61 +104,64 @@ func TestWithOpenAIGuardianParentAffinity_RequiresUnambiguousReviewLineage(t *te
 	}
 }
 
-func TestOpenAIGatewayService_GuardianParentAffinitySelectsParentAccountAcrossSchedulers(t *testing.T) {
+// guardianTestGroup 一个合法的 openai 分组（Gateway 调度器从 groupRepo 取分组并挂到 ctx；隐私门读 ctx 里的分组）。
+func guardianTestGroup(groupID int64, requirePrivacy bool) *Group {
+	return &Group{ID: groupID, Name: "guardian", Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, RequirePrivacySet: requirePrivacy}
+}
+
+// newGuardianScheduler 把唯一调度器装在与 OpenAI 服务相同的 repo / cache / 并发上。
+func newGuardianScheduler(svc *OpenAIGatewayService, group *Group, groupErr error) *GatewayService {
+	return &GatewayService{
+		accountRepo:        svc.accountRepo,
+		groupRepo:          guardianAffinityGroupRepo{group: group, err: groupErr},
+		cache:              svc.cache,
+		cfg:                svc.cfg,
+		concurrencyService: svc.concurrencyService,
+	}
+}
+
+// selectWithGuardianAffinity 照 handler 的做法：守护父线程的绑定账号做成预取粘性，再交给唯一调度器。
+func selectWithGuardianAffinity(ctx context.Context, svc *OpenAIGatewayService, gw *GatewayService, groupID *int64, sessionHash string, excluded map[int64]struct{}) (*AccountSelectionResult, int64, error) {
+	stickyID := svc.ResolveOpenAIGuardianParentAccountID(ctx, groupID)
+	if stickyID > 0 {
+		ctx = WithPrefetchedStickySession(ctx, stickyID, SchedulingScopeID(ctx, groupID), false)
+	}
+	selection, err := gw.SelectAccountWithOptions(ctx, groupID, sessionHash, codexAutoReviewModel, excluded, SelectOptions{})
+	return selection, stickyID, err
+}
+
+// 审查子请求命中父线程的绑定账号（哪怕它优先级更低），父线程的绑定不被删。
+func TestOpenAIGatewayService_GuardianParentAffinitySelectsParentAccount(t *testing.T) {
 	parentID := "22222222-2222-4222-8222-222222222222"
 	parentHash := DeriveSessionHashFromSeed(parentID)
 	groupID := int64(102001)
 
-	for _, mode := range []struct {
-		name           string
-		advanced       string
-		stickyWeighted string
-	}{
-		{name: "legacy", advanced: "false"},
-		{name: "advanced", advanced: "true"},
-		{name: "advanced sticky weighted", advanced: "true", stickyWeighted: "true"},
-	} {
-		t.Run(mode.name, func(t *testing.T) {
-			accounts := []Account{
-				{
-					ID: 39001, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-					Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
-					GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"},
-				},
-				{
-					ID: 39002, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
-					Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0,
-					GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"},
-				},
-			}
-			cfg := &config.Config{}
-			cfg.Gateway.OpenAIWS.LBTopK = 2
-			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + parentHash: 39001}}
-			svc := &OpenAIGatewayService{
-				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
-				cache:              cache,
-				cfg:                cfg,
-				rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService(mode.advanced, mode.stickyWeighted),
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39001: true, 39002: true}}),
-			}
+	accounts := []Account{
+		{ID: 39001, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
+		{ID: 39002, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
+	}
+	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39001}}
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
+		cache:              cache,
+		cfg:                &config.Config{},
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39001: true, 39002: true}}),
+	}
+	gw := newGuardianScheduler(svc, guardianTestGroup(groupID, false), nil)
 
-			ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
-			selection, decision, err := svc.SelectAccountWithScheduler(
-				ctx, &groupID, "", "guardian-child-session", codexAutoReviewModel,
-				nil, OpenAIUpstreamTransportAny, false,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, int64(39001), selection.Account.ID)
-			require.Equal(t, openAIAccountScheduleLayerGuardianParent, decision.Layer)
-			require.Zero(t, cache.deletedSessions["openai:"+parentHash])
-			if selection.ReleaseFunc != nil {
-				selection.ReleaseFunc()
-			}
-		})
+	ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
+	selection, stickyID, err := selectWithGuardianAffinity(ctx, svc, gw, &groupID, "guardian-child-session", nil)
+	require.NoError(t, err)
+	require.Equal(t, int64(39001), stickyID)
+	require.NotNil(t, selection)
+	require.Equal(t, int64(39001), selection.Account.ID)
+	require.Zero(t, cache.deletedSessions[parentHash])
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
 	}
 }
 
+// 父线程账号不在本分组 / 已因上游失败被排除：回落到正常选号，且绝不删父线程的绑定。
 func TestOpenAIGatewayService_GuardianParentAffinityFallsBackWithoutCrossGroupOrFailoverBypass(t *testing.T) {
 	parentID := "33333333-3333-4333-8333-333333333333"
 	parentHash := DeriveSessionHashFromSeed(parentID)
@@ -178,24 +181,21 @@ func TestOpenAIGatewayService_GuardianParentAffinityFallsBackWithoutCrossGroupOr
 				{ID: 39011, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: parentGroups, Credentials: map[string]any{"plan_type": "team"}},
 				{ID: 39012, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
 			}
-			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + parentHash: 39011}}
+			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39011}}
 			svc := &OpenAIGatewayService{
 				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
 				cache:              cache,
 				cfg:                &config.Config{},
-				rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
 				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39011: true, 39012: true}}),
 			}
+			gw := newGuardianScheduler(svc, guardianTestGroup(groupID, false), nil)
 
 			ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
-			selection, _, err := svc.SelectAccountWithScheduler(
-				ctx, &groupID, "", "guardian-fallback-child", codexAutoReviewModel,
-				excluded, OpenAIUpstreamTransportAny, false,
-			)
+			selection, _, err := selectWithGuardianAffinity(ctx, svc, gw, &groupID, "guardian-fallback-child", excluded)
 			require.NoError(t, err)
 			require.NotNil(t, selection)
 			require.Equal(t, int64(39012), selection.Account.ID)
-			require.Zero(t, cache.deletedSessions["openai:"+parentHash], "a child request must never delete its parent's binding")
+			require.Zero(t, cache.deletedSessions[parentHash], "a child request must never delete its parent's binding")
 			if selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()
 			}
@@ -203,87 +203,72 @@ func TestOpenAIGatewayService_GuardianParentAffinityFallsBackWithoutCrossGroupOr
 	}
 }
 
+// 子请求的 session hash 与父线程相同（hash 碰撞）时，准入后绑定不得覆写父线程的绑定。
 func TestOpenAIGatewayService_GuardianParentHashCollisionPreservesParentBinding(t *testing.T) {
 	parentID := "44444444-4444-4444-8444-444444444444"
 	parentHash := DeriveSessionHashFromSeed(parentID)
 	groupID := int64(102021)
 	otherGroupID := int64(102022)
 
-	for _, advanced := range []string{"false", "true"} {
-		t.Run(map[string]string{"false": "legacy", "true": "advanced"}[advanced], func(t *testing.T) {
-			accounts := []Account{
-				{ID: 39021, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{otherGroupID}, Credentials: map[string]any{"plan_type": "team"}},
-				{ID: 39022, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
-			}
-			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + parentHash: 39021}}
-			svc := &OpenAIGatewayService{
-				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
-				cache:              cache,
-				cfg:                &config.Config{},
-				rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService(advanced),
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39021: true, 39022: true}}),
-			}
+	accounts := []Account{
+		{ID: 39021, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{otherGroupID}, Credentials: map[string]any{"plan_type": "team"}},
+		{ID: 39022, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
+	}
+	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39021}}
+	svc := &OpenAIGatewayService{
+		accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
+		cache:              cache,
+		cfg:                &config.Config{},
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39021: true, 39022: true}}),
+	}
+	gw := newGuardianScheduler(svc, guardianTestGroup(groupID, false), nil)
 
-			ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
-			selection, _, err := svc.SelectAccountWithScheduler(
-				ctx, &groupID, "", parentHash, codexAutoReviewModel,
-				nil, OpenAIUpstreamTransportAny, false,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, int64(39022), selection.Account.ID)
-			require.NoError(t, svc.BindStickySessionAfterProfitAdmission(ctx, &groupID, parentHash, selection.Account.ID))
-			require.Equal(t, int64(39021), cache.sessionBindings["openai:"+parentHash])
-			require.Zero(t, cache.deletedSessions["openai:"+parentHash])
-			if selection.ReleaseFunc != nil {
-				selection.ReleaseFunc()
-			}
-		})
+	ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
+	selection, _, err := selectWithGuardianAffinity(ctx, svc, gw, &groupID, parentHash, nil)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.Equal(t, int64(39022), selection.Account.ID)
+	require.NoError(t, gw.BindStickySessionAfterProfitAdmission(ctx, &groupID, parentHash, selection.Account.ID))
+	require.Equal(t, int64(39021), cache.sessionBindings[parentHash], "the parent binding must survive the child's admission")
+	require.Zero(t, cache.deletedSessions[parentHash])
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
 	}
 }
 
+// 分组要求隐私已设时，父线程账号未设隐私 → 回落到已设隐私的账号；不写全局错误、不封禁。
 func TestOpenAIGatewayService_GuardianParentAffinityHonorsRequiredPrivacy(t *testing.T) {
 	parentID := "55555555-5555-4555-8555-555555555555"
 	parentHash := DeriveSessionHashFromSeed(parentID)
 	groupID := int64(102031)
 
-	for _, advanced := range []string{"false", "true"} {
-		t.Run(map[string]string{"false": "legacy", "true": "advanced"}[advanced], func(t *testing.T) {
-			accounts := []Account{
-				{ID: 39031, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
-				{ID: 39032, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}, Extra: map[string]any{"privacy_mode": PrivacyModeTrainingOff}},
-			}
-			repo := &guardianAffinityAccountRepo{schedulerGroupAwareOpenAIAccountRepo: schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}}
-			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{"openai:" + parentHash: 39031}}
-			svc := &OpenAIGatewayService{
-				accountRepo:        repo,
-				cache:              cache,
-				cfg:                &config.Config{},
-				rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService(advanced),
-				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39031: true, 39032: true}}),
-				schedulerSnapshot: &SchedulerSnapshotService{
-					accountRepo: repo,
-					groupRepo:   guardianAffinityGroupRepo{group: &Group{ID: groupID, Name: "privacy", RequirePrivacySet: true}},
-				},
-			}
+	accounts := []Account{
+		{ID: 39031, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}},
+		{ID: 39032, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, GroupIDs: []int64{groupID}, Credentials: map[string]any{"plan_type": "team"}, Extra: map[string]any{"privacy_mode": PrivacyModeTrainingOff}},
+	}
+	repo := &guardianAffinityAccountRepo{schedulerGroupAwareOpenAIAccountRepo: schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}}
+	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39031}}
+	svc := &OpenAIGatewayService{
+		accountRepo:        repo,
+		cache:              cache,
+		cfg:                &config.Config{},
+		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39031: true, 39032: true}}),
+	}
+	gw := newGuardianScheduler(svc, guardianTestGroup(groupID, true), nil)
 
-			ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
-			selection, _, err := svc.SelectAccountWithScheduler(
-				ctx, &groupID, "", "guardian-privacy-child", codexAutoReviewModel,
-				nil, OpenAIUpstreamTransportAny, false,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, int64(39032), selection.Account.ID)
-			require.Zero(t, repo.setErrorCalls, "a group-scoped privacy gate must not globally error a shared account")
-			require.False(t, svc.isOpenAIAccountRequestRuntimeBlocked(&accounts[0], codexAutoReviewModel))
-			if selection.ReleaseFunc != nil {
-				selection.ReleaseFunc()
-			}
-		})
+	ctx := guardianAffinityTestContext(t, codexAutoReviewModel, "guardian", parentID, "")
+	selection, _, err := selectWithGuardianAffinity(ctx, svc, gw, &groupID, "guardian-privacy-child", nil)
+	require.NoError(t, err)
+	require.NotNil(t, selection)
+	require.Equal(t, int64(39032), selection.Account.ID)
+	require.Zero(t, repo.setErrorCalls, "a group-scoped privacy gate must not globally error a shared account")
+	require.False(t, svc.isOpenAIAccountRequestRuntimeBlocked(&accounts[0], codexAutoReviewModel))
+	if selection.ReleaseFunc != nil {
+		selection.ReleaseFunc()
 	}
 }
 
+// previous_response_id 的绑定账号只有仍在本分组、且满足分组隐私要求时才作为预取粘性；否则回落到正常选号，且绑定不删。
 func TestOpenAIGatewayService_PreviousResponseHonorsGroupAndRequiredPrivacy(t *testing.T) {
 	groupID := int64(3904)
 
@@ -343,48 +328,38 @@ func TestOpenAIGatewayService_PreviousResponseHonorsGroupAndRequiredPrivacy(t *t
 			repo := &guardianAffinityAccountRepo{schedulerGroupAwareOpenAIAccountRepo: schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}}
 			cache := &schedulerTestGatewayCache{}
 			store := NewOpenAIWSStateStore(cache)
-			groupRepo := guardianAffinityGroupRepo{
-				group: &Group{
-					ID: groupID, Name: "privacy-required", Platform: PlatformOpenAI,
-					Status: StatusActive, RequirePrivacySet: true,
-				},
-				err: tc.groupErr,
-			}
+			group := guardianTestGroup(groupID, true)
 			svc := &OpenAIGatewayService{
 				accountRepo:        repo,
 				cache:              cache,
 				cfg:                &config.Config{},
-				rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
 				concurrencyService: NewConcurrencyService(&schedulerTestConcurrencyCache{}),
 				openaiWSStateStore: store,
 				schedulerSnapshot: &SchedulerSnapshotService{
 					accountRepo: repo,
-					groupRepo:   groupRepo,
+					groupRepo:   guardianAffinityGroupRepo{group: group, err: tc.groupErr},
 				},
 			}
 			responseID := "resp_privacy_guard"
 			require.NoError(t, store.BindResponseAccount(context.Background(), groupID, responseID, tc.boundAccount.ID, time.Hour))
 
-			directSelection, directErr := svc.SelectAccountByPreviousResponseID(
-				context.Background(), &groupID, responseID, codexAutoReviewModel, nil, false,
-			)
-			require.NoError(t, directErr)
-			require.Nil(t, directSelection, "the previous-response helper must enforce fresh group/privacy state")
-
-			selection, decision, err := svc.SelectAccountWithSchedulerForCapability(
-				context.Background(), &groupID, responseID, "", codexAutoReviewModel,
-				nil, OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityResponses,
-				false, false, true,
-			)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, fallback.ID, selection.Account.ID)
-			require.NotEqual(t, openAIAccountScheduleLayerPreviousResponse, decision.Layer)
-			require.Zero(t, repo.setErrorCalls)
-			require.False(t, svc.isOpenAIAccountRequestRuntimeBlocked(&accounts[0], codexAutoReviewModel))
+			stickyID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(context.Background(), &groupID, responseID, codexAutoReviewModel, nil, OpenAIEndpointCapabilityResponses, false)
+			require.Zero(t, stickyID, "the previous-response helper must enforce fresh group/privacy state")
 			boundAccountID, getErr := store.GetResponseAccount(context.Background(), groupID, responseID)
 			require.NoError(t, getErr)
 			require.Equal(t, tc.boundAccount.ID, boundAccountID, "transient policy misses must preserve the response binding")
+			require.Zero(t, repo.setErrorCalls)
+			require.False(t, svc.isOpenAIAccountRequestRuntimeBlocked(&accounts[0], codexAutoReviewModel))
+			if tc.groupErr != nil {
+				// 分组读不到时唯一调度器整体报错（fail-closed），不再另验回落。
+				return
+			}
+
+			gw := newGuardianScheduler(svc, group, nil)
+			selection, err := gw.SelectAccountWithOptions(context.Background(), &groupID, "", codexAutoReviewModel, nil, SelectOptions{Capability: OpenAIEndpointCapabilityResponses})
+			require.NoError(t, err)
+			require.NotNil(t, selection)
+			require.Equal(t, fallback.ID, selection.Account.ID)
 			if selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()
 			}
@@ -392,6 +367,7 @@ func TestOpenAIGatewayService_PreviousResponseHonorsGroupAndRequiredPrivacy(t *t
 	}
 }
 
+// 简单模式没有分组隔离：续链绑定的账号即使标了别的分组也命中，并作为预取粘性被选中。
 func TestOpenAIGatewayService_PreviousResponseSimpleModeIgnoresGroupMembership(t *testing.T) {
 	groupID := int64(3905)
 	bound := Account{
@@ -413,42 +389,30 @@ func TestOpenAIGatewayService_PreviousResponseSimpleModeIgnoresGroupMembership(t
 	cache := &schedulerTestGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
 	cfg := &config.Config{RunMode: config.RunModeSimple}
+	group := guardianTestGroup(groupID, false)
 	svc := &OpenAIGatewayService{
 		accountRepo:        repo,
 		cache:              cache,
 		cfg:                cfg,
-		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
 		concurrencyService: NewConcurrencyService(&schedulerTestConcurrencyCache{}),
 		openaiWSStateStore: store,
 		schedulerSnapshot: &SchedulerSnapshotService{
 			accountRepo: repo,
-			groupRepo: guardianAffinityGroupRepo{group: &Group{
-				ID: groupID, Name: "simple-mode", Platform: PlatformOpenAI, Status: StatusActive,
-			}},
+			groupRepo:   guardianAffinityGroupRepo{group: group},
 		},
 	}
 	responseID := "resp_simple_mode_cross_group"
 	require.NoError(t, store.BindResponseAccount(context.Background(), groupID, responseID, bound.ID, time.Hour))
 
-	directSelection, err := svc.SelectAccountByPreviousResponseID(
-		context.Background(), &groupID, responseID, codexAutoReviewModel, nil, false,
-	)
-	require.NoError(t, err)
-	require.NotNil(t, directSelection)
-	require.Equal(t, bound.ID, directSelection.Account.ID)
-	if directSelection.ReleaseFunc != nil {
-		directSelection.ReleaseFunc()
-	}
+	stickyID := svc.ResolveAccountIDByPreviousResponseIDForScheduler(context.Background(), &groupID, responseID, codexAutoReviewModel, nil, OpenAIEndpointCapabilityResponses, false)
+	require.Equal(t, bound.ID, stickyID)
 
-	selection, decision, err := svc.SelectAccountWithSchedulerForCapability(
-		context.Background(), &groupID, responseID, "", codexAutoReviewModel,
-		nil, OpenAIUpstreamTransportAny, OpenAIEndpointCapabilityResponses,
-		false, false, true,
-	)
+	gw := newGuardianScheduler(svc, group, nil)
+	ctx := WithPrefetchedStickySession(context.Background(), stickyID, SchedulingScopeID(context.Background(), &groupID), false)
+	selection, err := gw.SelectAccountWithOptions(ctx, &groupID, "", codexAutoReviewModel, nil, SelectOptions{Capability: OpenAIEndpointCapabilityResponses})
 	require.NoError(t, err)
 	require.NotNil(t, selection)
 	require.Equal(t, bound.ID, selection.Account.ID)
-	require.Equal(t, openAIAccountScheduleLayerPreviousResponse, decision.Layer)
 	if selection.ReleaseFunc != nil {
 		selection.ReleaseFunc()
 	}

@@ -8,17 +8,21 @@ import (
 )
 
 // gatewayHarnessGroupRepo 只回答分组查询：Gateway 调度器按 apiKey.GroupID 取分组平台。
+// group 为 nil 时按请求的 ID 合成一个 openai 平台的活跃分组（夹具里分组 ID 各不相同时用）。
 type gatewayHarnessGroupRepo struct {
 	service.GroupRepository
 	group *service.Group
 }
 
-func (r gatewayHarnessGroupRepo) GetByID(context.Context, int64) (*service.Group, error) {
-	return r.group, nil
+func (r gatewayHarnessGroupRepo) GetByID(ctx context.Context, id int64) (*service.Group, error) {
+	return r.GetByIDLite(ctx, id)
 }
 
-func (r gatewayHarnessGroupRepo) GetByIDLite(context.Context, int64) (*service.Group, error) {
-	return r.group, nil
+func (r gatewayHarnessGroupRepo) GetByIDLite(_ context.Context, id int64) (*service.Group, error) {
+	if r.group != nil {
+		return r.group, nil
+	}
+	return testOpenAIGroup(id), nil
 }
 
 // newGatewayHandlerOverOpenAIService 把一个已装配的 OpenAI 服务挂到 Gateway handler 上：

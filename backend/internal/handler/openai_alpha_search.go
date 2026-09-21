@@ -125,20 +125,8 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	c.Request = c.Request.WithContext(asPricingCtx)
 
 	for {
-		selection, _, err := h.gatewayService.SelectAccountWithSchedulerForCapability(
-			c.Request.Context(),
-			apiKey.GroupID,
-			"",
-			sessionHash,
-			requestedModel,
-			failedAccountIDs,
-			service.OpenAIUpstreamTransportHTTPSSE,
-			service.OpenAIEndpointCapabilityAlphaSearch,
-			false,
-			false,
-			false,
-			service.PlatformOpenAI,
-		)
+		selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, sessionHash, requestedModel, failedAccountIDs,
+			service.SelectOptions{Capability: service.OpenAIEndpointCapabilityAlphaSearch, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 		if err != nil || selection == nil || selection.Account == nil {
 			if failoverClientGone(c) {
 				reqLog.Info("openai_alpha_search.account_select_aborted_client_disconnected", zap.Error(err))
@@ -236,7 +224,6 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 				continue
 			}
 		}
-		h.gatewayService.RecordOpenAIAccountSwitch()
 		failedAccountIDs[account.ID] = struct{}{}
 		lastFailoverErr = failoverErr
 		if switchCount >= h.maxAccountSwitches {

@@ -124,3 +124,31 @@ func TestCandidateAdmits_ProxyQuarantined(t *testing.T) {
 	ok, _ = svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
 	require.True(t, ok)
 }
+
+// grok 的两个进程内模型级状态（账号×模型免费额度耗尽、team×模型限流冷却）由唯一调度器的候选门读。
+func TestCandidateAdmits_GrokModelRuntimeBlocked(t *testing.T) {
+	quota := Account{ID: 82041, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 1,
+		Credentials: map[string]any{"access_token": "tok", "model_mapping": map[string]any{"grok-4.5": "grok-4.5", "grok-4.3": "grok-4.3"}}}
+	team := Account{ID: 82042, Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 2,
+		Credentials: map[string]any{"access_token": "tok", "team_id": "team-82042", "model_mapping": map[string]any{"grok-4.5": "grok-4.5", "grok-4.3": "grok-4.3"}}}
+	svc := newProtocolMatchService(t, true, nil, quota, team)
+	ctx := selectOptionsCtx(APIProtocolResponses)
+	now := time.Now()
+
+	ok, _ := svc.candidateAdmits(ctx, nil, &quota, "grok-4.5")
+	require.True(t, ok)
+	ok, _ = svc.candidateAdmits(ctx, nil, &team, "grok-4.5")
+	require.True(t, ok)
+
+	markGrokModelQuotaBlock(quota.ID, "grok-4.5", now.Add(time.Hour))
+	ok, reason := svc.candidateAdmits(ctx, nil, &quota, "grok-4.5")
+	require.False(t, ok)
+	require.Equal(t, "grok_model_blocked", reason)
+	ok, _ = svc.candidateAdmits(ctx, nil, &quota, "grok-4.3")
+	require.True(t, ok, "免费额度耗尽按账号×模型，别的模型不受影响")
+
+	markGrokTeamModelRateLimit(&team, "grok-4.5", now.Add(time.Hour))
+	ok, reason = svc.candidateAdmits(ctx, nil, &team, "grok-4.5")
+	require.False(t, ok)
+	require.Equal(t, "grok_model_blocked", reason)
+}

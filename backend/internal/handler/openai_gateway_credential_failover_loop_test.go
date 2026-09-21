@@ -441,7 +441,7 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("provider configuration stops before healthy account", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "provider")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "provider")
 		defer cleanup()
 
 		recorder := httptest.NewRecorder()
@@ -454,8 +454,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		require.Empty(t, repo.errorIDs())
 		require.Empty(t, upstream.accountHits())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount,
-			"provider-scoped auth failure must not penalize the selected account")
 	})
 
 	t.Run("parent cancellation stops before healthy account", func(t *testing.T) {
@@ -489,7 +487,7 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 	})
 
 	t.Run("post-mapping cancellation stops before scheduler mutation or reselection", func(t *testing.T) {
-		h, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "postmap_cancel")
+		_, repo, upstream, router, cleanup := newGrokCredentialFailoverGatewayHandler(t, "postmap_cancel")
 		defer cleanup()
 		ctx, cancel := context.WithCancel(context.Background())
 		upstream.mu.Lock()
@@ -505,7 +503,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 		require.Equal(t, []int64{801}, upstream.accountHits())
 		require.Empty(t, repo.errorIDs())
 		require.Equal(t, 1, repo.selectorCalls())
-		require.Zero(t, h.openAIGatewayService.SnapshotOpenAIAccountSchedulerMetrics().RuntimeStatsAccountCount)
 	})
 
 	t.Run("pre-cancelled request never invokes an account selector", func(t *testing.T) {

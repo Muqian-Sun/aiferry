@@ -107,19 +107,14 @@ func isGrokModelQuotaBlocked(accountID int64, model string, now time.Time) bool 
 	return true
 }
 
-func filterGrokModelQuotaBlockedAccounts(accounts []Account, model string, now time.Time) []Account {
-	if len(accounts) == 0 || strings.TrimSpace(model) == "" {
-		return accounts
+// grokModelRuntimeBlocked 是唯一调度器候选门读的两个 grok 进程内状态：账号×模型的免费额度耗尽、
+// team×模型的限流冷却；都按账号实际上游模型判。
+func grokModelRuntimeBlocked(account *Account, requestedModel string, now time.Time) bool {
+	if account == nil || strings.TrimSpace(requestedModel) == "" {
+		return false
 	}
-	out := make([]Account, 0, len(accounts))
-	for i := range accounts {
-		upstreamModel := canonicalOpenAIAccountSchedulingModel(&accounts[i], model)
-		if isGrokModelQuotaBlocked(accounts[i].ID, upstreamModel, now) {
-			continue
-		}
-		out = append(out, accounts[i])
-	}
-	return out
+	upstreamModel := canonicalOpenAIAccountSchedulingModel(account, requestedModel)
+	return isGrokModelQuotaBlocked(account.ID, upstreamModel, now) || isGrokTeamModelRateLimited(account, upstreamModel, now)
 }
 
 // isGrokModelSpecificFreeUsage is true when free-usage exhaustion is scoped to

@@ -2,13 +2,11 @@ package service
 
 import (
 	"context"
-	"errors"
 	"math"
 
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
@@ -172,86 +170,6 @@ func TestOpenAIProfitControlVetoReason(t *testing.T) {
 			vetoed, reason := openAIProfitControlVetoReason(gateCtx(0.7), account)
 			require.True(t, vetoed)
 			require.Equal(t, openAIProfitFilterReasonInvalidAccountRate, reason)
-		}
-	})
-}
-
-func TestProfitControlSchedulerFiltersCandidates(t *testing.T) {
-	resetOpenAIAdvancedSchedulerSettingCacheForTest()
-	defer resetOpenAIAdvancedSchedulerSettingCacheForTest()
-
-	now := time.Now()
-	cheap := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.3, now.Add(-time.Minute), 30*time.Minute)
-	expensive := upstreamCostTestAccount(2, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute)
-	oauth := upstreamCostTestOAuthAccount(3)
-	profitControlTestAccountWithRate(cheap, 0.3)
-	profitControlTestAccountWithRate(expensive, 0.8)
-	for _, account := range []*Account{cheap, expensive, oauth} {
-		account.Status = StatusActive
-		account.Schedulable = true
-		account.Concurrency = 5
-	}
-	cache := &upstreamCostTrackingConcurrencyCache{loadMap: map[int64]*AccountLoadInfo{
-		cheap.ID:     {AccountID: cheap.ID},
-		expensive.ID: {AccountID: expensive.ID},
-		oauth.ID:     {AccountID: oauth.ID},
-	}}
-	cfg := &config.Config{}
-	svc := &OpenAIGatewayService{
-		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: []Account{*cheap, *expensive, *oauth}},
-		cfg:                cfg,
-		rateLimitService:   newOpenAIAdvancedSchedulerRateLimitService("true"),
-		concurrencyService: NewConcurrencyService(cache),
-	}
-	groupID := int64(7)
-
-	t.Run("unprofitable and invalid-rate accounts never win", func(t *testing.T) {
-		// margin 0.5 → 阈值 0.5：expensive(0.8) 超阈值、oauth 倍率缺失，仅 cheap 可选。
-		ctx := profitControlTestCtx(profitControlTestGroup(groupID, 0.5, 0))
-		for i := 0; i < 5; i++ {
-			selection, _, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, false)
-			require.NoError(t, err)
-			require.NotNil(t, selection)
-			require.Equal(t, cheap.ID, selection.Account.ID)
-			if selection.ReleaseFunc != nil {
-				selection.ReleaseFunc()
-			}
-		}
-	})
-
-	t.Run("all excluded surfaces standard no-available error with profit reasons", func(t *testing.T) {
-		// margin+buffer 0.8 → 阈值 0.2：cheap/expensive 超阈值，oauth 倍率非法。
-		ctx := profitControlTestCtx(profitControlTestGroup(groupID, 0.7, 0.1))
-		selection, _, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, false)
-		require.Nil(t, selection)
-		require.Error(t, err)
-		require.True(t, errors.Is(err, ErrNoAvailableAccounts))
-		require.Contains(t, err.Error(), openAIProfitFilterReasonThreshold+"=2")
-		require.Contains(t, err.Error(), openAIProfitFilterReasonInvalidAccountRate+"=1")
-	})
-
-	t.Run("manually rated oauth account is admitted", func(t *testing.T) {
-		// 阈值 0.2 排除两个 API Key；OAuth 手工倍率 0.1 可参与调度。
-		profitControlTestAccountWithRate(oauth, 0.1)
-		svc.accountRepo = schedulerTestOpenAIAccountRepo{accounts: []Account{*cheap, *expensive, *oauth}}
-		ctx := profitControlTestCtx(profitControlTestGroup(groupID, 0.7, 0.1))
-		selection, _, err := svc.SelectAccountWithScheduler(ctx, &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, false)
-		require.NoError(t, err)
-		require.NotNil(t, selection)
-		require.Equal(t, oauth.ID, selection.Account.ID)
-		if selection.ReleaseFunc != nil {
-			selection.ReleaseFunc()
-		}
-	})
-
-	t.Run("gate disabled keeps official behavior", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.7, 0.1)
-		group.ProfitControlEnabled = false
-		selection, _, err := svc.SelectAccountWithScheduler(profitControlTestCtx(group), &groupID, "", "", "gpt-test", nil, OpenAIUpstreamTransportAny, false)
-		require.NoError(t, err)
-		require.NotNil(t, selection)
-		if selection.ReleaseFunc != nil {
-			selection.ReleaseFunc()
 		}
 	})
 }

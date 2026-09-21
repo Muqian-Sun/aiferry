@@ -939,7 +939,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	ctx := service.ContextWithSelectionProfitGate(c.Request.Context(), selection)
 	account := selection.Account
 	if selection.Acquired {
-		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
+		latest, vetoed, reason := h.gatewayService.Scheduler().GatewayProfitControlVetoLatest(ctx, account)
 		if vetoed {
 			if selection.ReleaseFunc != nil {
 				selection.ReleaseFunc()
@@ -952,7 +952,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		// 调度器已抢槽路径无门时由选号内部完成 eager 绑定；门下选号内部
 		// 推迟绑定，这里在终检通过后补准入后绑定。
 		if selection.ProfitGateActive() {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+			if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
 				reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
@@ -978,7 +978,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	if fastAcquired {
 		// 分组利润控制：快速抢槽成功后终检。选号与抢槽之间账号
 		// 倍率可能刷新，越线则释放槽位交由调用方排除重选，不绑定粘连。
-		latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
+		latest, vetoed, reason := h.gatewayService.Scheduler().GatewayProfitControlVetoLatest(ctx, account)
 		if vetoed {
 			if fastReleaseFunc != nil {
 				fastReleaseFunc()
@@ -988,7 +988,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		}
 		account = latest
 		selection.Account = latest
-		if err := h.gatewayService.BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+		if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
 			reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 		}
 		return wrapReleaseOnDone(ctx, fastReleaseFunc), openAISlotAcquireOK
@@ -1034,7 +1034,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	releaseWait()
 	// 分组利润控制：WaitPlan 排队成功后终检。排队期间账号倍率
 	// 可能上调，越线则释放槽位交由调用方排除重选，不绑定粘连。
-	latest, vetoed, reason := h.gatewayService.ProfitControlVetoLatest(ctx, account)
+	latest, vetoed, reason := h.gatewayService.Scheduler().GatewayProfitControlVetoLatest(ctx, account)
 	if vetoed {
 		if accountReleaseFunc != nil {
 			accountReleaseFunc()
@@ -1044,7 +1044,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	}
 	account = latest
 	selection.Account = latest
-	if err := h.gatewayService.BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+	if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
 		reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 	}
 	return wrapReleaseOnDone(ctx, accountReleaseFunc), openAISlotAcquireOK
