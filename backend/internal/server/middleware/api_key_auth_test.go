@@ -29,7 +29,7 @@ func TestAPIKeyAuthRejectsOversizedCredentialsBeforeLookup(t *testing.T) {
 		return nil, service.ErrAPIKeyNotFound
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
 
 	for _, headers := range []map[string]string{
 		{"x-api-key": strings.Repeat("x", service.MaxAPIKeyCredentialBytes+1)},
@@ -54,14 +54,9 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	limit := 1.0
-	group := &service.Group{
-		ID:               42,
-		Name:             "sub",
-		Status:           service.StatusActive,
-		Hydrated:         true,
-		SubscriptionType: service.SubscriptionTypeSubscription,
-		DailyLimitUSD:    &limit,
-	}
+	subscriptionID := int64(55)
+	plan := &service.SubscriptionPlan{ID: 42, Name: "sub", DailyLimitUSD: &limit}
+	planRepo := &stubPlanRepo{plan: plan}
 	user := &service.User{
 		ID:          7,
 		Role:        service.RoleUser,
@@ -69,15 +64,15 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		Balance:     10,
 		Concurrency: 3,
 	}
+	// 订阅 key：无分组，绑定订阅 55
 	apiKey := &service.APIKey{
-		ID:     100,
-		UserID: user.ID,
-		Key:    "test-key",
-		Status: service.StatusActive,
-		User:   user,
-		Group:  group,
+		ID:             100,
+		UserID:         user.ID,
+		Key:            "test-key",
+		Status:         service.StatusActive,
+		User:           user,
+		SubscriptionID: &subscriptionID,
 	}
-	apiKey.GroupID = &group.ID
 
 	apiKeyRepo := &stubApiKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
@@ -94,13 +89,13 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		cfg.SubscriptionMaintenance.WorkerCount = 1
 		cfg.SubscriptionMaintenance.QueueSize = 1
 
-		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 
 		past := time.Now().Add(-48 * time.Hour)
 		sub := &service.UserSubscription{
 			ID:                 55,
 			UserID:             user.ID,
-			GroupID:            group.ID,
+			PlanID:             plan.ID,
 			Status:             service.SubscriptionStatusActive,
 			ExpiresAt:          time.Now().Add(24 * time.Hour),
 			DailyWindowStart:   &past,
@@ -114,7 +109,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 				clone := *sub
 				return &clone, nil
 			},
-			getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+			getActiveByID: func(ctx context.Context, id int64) (*service.UserSubscription, error) {
 				clone := *sub
 				return &clone, nil
 			},
@@ -135,7 +130,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 				return nil
 			},
 		}
-		subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+		subscriptionService := service.NewSubscriptionService(planRepo, subscriptionRepo, nil, nil, nil, cfg)
 		t.Cleanup(subscriptionService.Stop)
 
 		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
@@ -156,14 +151,14 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 
 	t.Run("standard_mode_revalidates_cas_loser_from_database", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeStandard}
-		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 
 		past := time.Now().Add(-48 * time.Hour)
 		current := time.Now()
 		stale := &service.UserSubscription{
 			ID:                 56,
 			UserID:             user.ID,
-			GroupID:            group.ID,
+			PlanID:             plan.ID,
 			Status:             service.SubscriptionStatusActive,
 			ExpiresAt:          current.Add(24 * time.Hour),
 			DailyWindowStart:   &past,
@@ -178,7 +173,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 		fresh.DailyUsageUSD = 2
 
 		subscriptionRepo := &stubUserSubscriptionRepo{
-			getActive: func(context.Context, int64, int64) (*service.UserSubscription, error) {
+			getActiveByID: func(context.Context, int64) (*service.UserSubscription, error) {
 				clone := *stale
 				return &clone, nil
 			},
@@ -190,7 +185,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 			resetWeekly:  func(context.Context, int64, time.Time) error { return nil },
 			resetMonthly: func(context.Context, int64, time.Time) error { return nil },
 		}
-		subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+		subscriptionService := service.NewSubscriptionService(planRepo, subscriptionRepo, nil, nil, nil, cfg)
 		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
 
 		w := httptest.NewRecorder()
@@ -203,8 +198,8 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 
 	t.Run("simple_mode_bypasses_quota_check", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeSimple}
-		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
-		subscriptionService := service.NewSubscriptionService(nil, &stubUserSubscriptionRepo{}, nil, nil, cfg)
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
+		subscriptionService := service.NewSubscriptionService(planRepo, &stubUserSubscriptionRepo{}, nil, nil, nil, cfg)
 		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
 
 		w := httptest.NewRecorder()
@@ -217,8 +212,8 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 
 	t.Run("simple_mode_accepts_lowercase_bearer", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeSimple}
-		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
-		subscriptionService := service.NewSubscriptionService(nil, &stubUserSubscriptionRepo{}, nil, nil, cfg)
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
+		subscriptionService := service.NewSubscriptionService(planRepo, &stubUserSubscriptionRepo{}, nil, nil, nil, cfg)
 		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
 
 		w := httptest.NewRecorder()
@@ -231,21 +226,21 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 
 	t.Run("standard_mode_enforces_quota_check", func(t *testing.T) {
 		cfg := &config.Config{RunMode: config.RunModeStandard}
-		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+		apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 
 		now := time.Now()
 		sub := &service.UserSubscription{
 			ID:               55,
 			UserID:           user.ID,
-			GroupID:          group.ID,
+			PlanID:           plan.ID,
 			Status:           service.SubscriptionStatusActive,
 			ExpiresAt:        now.Add(24 * time.Hour),
 			DailyWindowStart: &now,
 			DailyUsageUSD:    10,
 		}
 		subscriptionRepo := &stubUserSubscriptionRepo{
-			getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-				if userID != sub.UserID || groupID != sub.GroupID {
+			getActiveByID: func(ctx context.Context, id int64) (*service.UserSubscription, error) {
+				if id != sub.ID {
 					return nil, service.ErrSubscriptionNotFound
 				}
 				clone := *sub
@@ -257,7 +252,7 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 			resetWeekly:    func(ctx context.Context, id int64, start time.Time) error { return nil },
 			resetMonthly:   func(ctx context.Context, id int64, start time.Time) error { return nil },
 		}
-		subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+		subscriptionService := service.NewSubscriptionService(planRepo, subscriptionRepo, nil, nil, nil, cfg)
 		router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
 
 		w := httptest.NewRecorder()
@@ -308,7 +303,7 @@ func TestAPIKeyAuthSetsGroupContext(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 	router.GET("/t", func(c *gin.Context) {
@@ -372,7 +367,7 @@ func TestAPIKeyAuthRejectsExclusiveGroupWhenUserNoLongerAllowed(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -422,7 +417,7 @@ func TestAPIKeyAuthOverwritesInvalidContextGroup(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 
@@ -539,7 +534,7 @@ func TestAPIKeyAuthRejectsUnavailableGroup(t *testing.T) {
 				},
 			}
 			cfg := &config.Config{RunMode: config.RunModeStandard}
-			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 			router := gin.New()
 			var markedBusinessLimited bool
 			var businessLimitedReason string
@@ -654,7 +649,7 @@ func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 				return nil, tt.repoErr
 			}}
 			cfg := &config.Config{RunMode: config.RunModeSimple}
-			apiKeyService := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+			apiKeyService := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
 			router := gin.New()
 			var reason IngressRejectReason
 			var rejected bool
@@ -719,7 +714,7 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 
 	router := gin.New()
 	var fallback *service.APIKey
@@ -788,7 +783,7 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 
 	router := gin.New()
 	var fallback *service.APIKey
@@ -894,7 +889,7 @@ func TestAPIKeyAuthIPRestrictionUsesTrustedPathWhenSwitchDisabled(t *testing.T) 
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.SetTrustForwardedIPForAPIKeyACL(false)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	require.NoError(t, router.SetTrustedProxies(nil))
 	var markedBusinessLimited bool
@@ -956,7 +951,7 @@ func TestAPIKeyAuthIPRestrictionIncludesClientIPForBlacklistDenial(t *testing.T)
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	require.NoError(t, router.SetTrustedProxies(nil))
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
@@ -1005,7 +1000,7 @@ func TestAPIKeyAuthIPRestrictionUsesConfiguredTrustedProxy(t *testing.T) {
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.SetTrustForwardedIPForAPIKeyACL(false)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	require.NoError(t, router.SetTrustedProxies([]string{"9.9.9.9"}))
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
@@ -1056,7 +1051,7 @@ func TestAPIKeyAuthIPRestrictionUsesForwardedClientIPInDenialWhenTrusted(t *test
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.SetTrustForwardedIPForAPIKeyACL(false)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := gin.New()
 	require.NoError(t, router.SetTrustedProxies([]string{"9.9.9.9"}))
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
@@ -1113,7 +1108,7 @@ func TestAPIKeyAuthTouchesLastUsedOnSuccess(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1160,7 +1155,7 @@ func TestAPIKeyAuthTouchLastUsedFailureDoesNotBlock(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1206,7 +1201,7 @@ func TestAPIKeyAuthTouchesLastUsedInStandardMode(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1222,11 +1217,10 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	group := &service.Group{
-		ID:               42,
-		Name:             "subscription",
-		Status:           service.StatusActive,
-		Hydrated:         true,
-		SubscriptionType: service.SubscriptionTypeSubscription,
+		ID:       42,
+		Name:     "subscription",
+		Status:   service.StatusActive,
+		Hydrated: true,
 	}
 	user := &service.User{
 		ID:          7,
@@ -1236,17 +1230,19 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 		Concurrency: 3,
 	}
 	expiredAt := time.Now().Add(-time.Hour)
+	subscriptionID := int64(9)
 	apiKey := &service.APIKey{
-		ID:        100,
-		UserID:    user.ID,
-		Key:       "billing-info-auth-only",
-		Status:    service.StatusAPIKeyQuotaExhausted,
-		User:      user,
-		GroupID:   &group.ID,
-		Group:     group,
-		Quota:     1,
-		QuotaUsed: 1,
-		ExpiresAt: &expiredAt,
+		ID:             100,
+		UserID:         user.ID,
+		Key:            "billing-info-auth-only",
+		Status:         service.StatusAPIKeyQuotaExhausted,
+		User:           user,
+		GroupID:        &group.ID,
+		Group:          group,
+		SubscriptionID: &subscriptionID,
+		Quota:          1,
+		QuotaUsed:      1,
+		ExpiresAt:      &expiredAt,
 	}
 
 	touchCalls := 0
@@ -1268,8 +1264,8 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
-	subscriptionService := service.NewSubscriptionService(nil, subscriptionRepo, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
+	subscriptionService := service.NewSubscriptionService(&stubPlanRepo{}, subscriptionRepo, nil, nil, nil, cfg)
 	t.Cleanup(subscriptionService.Stop)
 	router := newAuthTestRouter(apiKeyService, subscriptionService, cfg)
 
@@ -1300,7 +1296,7 @@ func TestAPIKeyAuthBillingInfoSkipsLastUsedInSimpleMode(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1329,7 +1325,7 @@ func TestAPIKeyAuthUsageStillTouchesLastUsed(t *testing.T) {
 		},
 	}
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1372,7 +1368,7 @@ func TestAPIKeyAuthAllowsBalanceBelowMinimumReserve(t *testing.T) {
 
 	cfg := &config.Config{RunMode: config.RunModeStandard}
 	cfg.Billing.MinimumBalanceReserve = 0.01
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1415,7 +1411,7 @@ func TestAPIKeyAuthRejectsExhaustedBalance(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
 	router := newAuthTestRouter(apiKeyService, nil, cfg)
 
 	w := httptest.NewRecorder()
@@ -1447,7 +1443,7 @@ func TestAPIKeyAuthOpenAIQuotaErrorFormat(t *testing.T) {
 	}}
 
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg)
+	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg), nil, cfg)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	req.Header.Set("x-api-key", apiKey.Key)
@@ -1489,7 +1485,7 @@ func TestAPIKeyAuthQuotaErrorKeepsLegacyFormatOutsideResponses(t *testing.T) {
 	}}
 
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, nil, cfg), nil, cfg)
+	router := newAuthTestRouter(service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg), nil, cfg)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
 	req.Header.Set("x-api-key", apiKey.Key)
@@ -1629,7 +1625,8 @@ func (r *stubApiKeyRepo) GetRateLimitData(ctx context.Context, id int64) (*servi
 
 type stubUserSubscriptionRepo struct {
 	getByID        func(ctx context.Context, id int64) (*service.UserSubscription, error)
-	getActive      func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
+	getActiveByID  func(ctx context.Context, id int64) (*service.UserSubscription, error)
+	getActive      func(ctx context.Context, userID, planID int64) (*service.UserSubscription, error)
 	updateStatus   func(ctx context.Context, subscriptionID int64, status string) error
 	activateWindow func(ctx context.Context, id int64, dailyStart, periodicStart time.Time) error
 	resetDaily     func(ctx context.Context, id int64, start time.Time) error
@@ -1691,11 +1688,11 @@ func (r *stubUserSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (r *stubUserSubscriptionRepo) GetByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	if r.getActive != nil {
 		return r.getActive(ctx, userID, groupID)
 	}
@@ -1722,19 +1719,11 @@ func (r *stubUserSubscriptionRepo) ListActiveByUserID(ctx context.Context, userI
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (r *stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, planID *int64, status, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
-func (r *stubUserSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
-}
-
-func (r *stubUserSubscriptionRepo) ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
+func (r *stubUserSubscriptionRepo) ExistsByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (bool, error) {
 	return false, errors.New("not implemented")
 }
 
@@ -1792,3 +1781,37 @@ func (r *stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64,
 func (r *stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }
+
+func (*stubApiKeyRepo) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
+}
+
+func (r *stubUserSubscriptionRepo) GetActiveByID(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	if r.getActiveByID != nil {
+		return r.getActiveByID(ctx, id)
+	}
+	return nil, service.ErrSubscriptionNotFound
+}
+
+// stubPlanRepo 固定套餐；plan 为 nil → ErrPlanNotFound
+type stubPlanRepo struct {
+	plan *service.SubscriptionPlan
+}
+
+func (r *stubPlanRepo) GetByID(context.Context, int64) (*service.SubscriptionPlan, error) {
+	if r == nil || r.plan == nil {
+		return nil, service.ErrPlanNotFound
+	}
+	cp := *r.plan
+	return &cp, nil
+}
+func (*stubPlanRepo) List(context.Context, bool) ([]service.SubscriptionPlan, error) {
+	return nil, errors.New("not implemented")
+}
+func (*stubPlanRepo) Create(context.Context, *service.SubscriptionPlan) error {
+	return errors.New("not implemented")
+}
+func (*stubPlanRepo) Update(context.Context, *service.SubscriptionPlan) error {
+	return errors.New("not implemented")
+}
+func (*stubPlanRepo) Delete(context.Context, int64) error { return errors.New("not implemented") }

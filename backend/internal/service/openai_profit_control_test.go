@@ -18,7 +18,6 @@ func profitControlTestGroup(id int64, margin, buffer float64) *Group {
 		Status:               StatusActive,
 		Hydrated:             true,
 		RateMultiplier:       1.0,
-		SubscriptionType:     SubscriptionTypeStandard,
 		ProfitControlEnabled: true,
 		ProfitMinMargin:      margin,
 		ProfitSafetyBuffer:   buffer,

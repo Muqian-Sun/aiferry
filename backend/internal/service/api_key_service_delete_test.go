@@ -499,3 +499,7 @@ func TestApiKeyService_Delete_DeleteFails(t *testing.T) {
 	require.Empty(t, cache.invalidated)           // 验证删除失败时缓存未被清除（新顺序：先删后清）
 	require.Empty(t, cache.deleteAuthKeys)        // 验证删除失败时 auth 缓存未被清除
 }
+
+func (*apiKeyRepoStub) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
+}

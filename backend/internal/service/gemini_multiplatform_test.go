@@ -227,8 +227,8 @@ func (m *mockGroupRepoForGemini) GetByIDLite(ctx context.Context, id int64) (*Gr
 func (m *mockGroupRepoForGemini) Create(ctx context.Context, group *Group) error { return nil }
 func (m *mockGroupRepoForGemini) Update(ctx context.Context, group *Group) error { return nil }
 func (m *mockGroupRepoForGemini) Delete(ctx context.Context, id int64) error     { return nil }
-func (m *mockGroupRepoForGemini) DeleteCascade(ctx context.Context, id int64) ([]int64, error) {
-	return nil, nil
+func (m *mockGroupRepoForGemini) DeleteCascade(ctx context.Context, id int64) error {
+	return nil
 }
 func (m *mockGroupRepoForGemini) List(ctx context.Context, params pagination.PaginationParams) ([]Group, *pagination.PaginationResult, error) {
 	return nil, nil, nil

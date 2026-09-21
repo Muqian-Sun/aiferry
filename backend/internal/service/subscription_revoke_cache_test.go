@@ -35,9 +35,9 @@ func (r *revokeCacheUserSubRepoStub) Delete(_ context.Context, id int64) error {
 	return nil
 }
 
-func (r *revokeCacheUserSubRepoStub) GetActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (*UserSubscription, error) {
+func (r *revokeCacheUserSubRepoStub) GetActiveByID(_ context.Context, id int64) (*UserSubscription, error) {
 	r.getActiveCalls++
-	if r.deleted || r.sub == nil || r.sub.UserID != userID || r.sub.GroupID != groupID {
+	if r.deleted || r.sub == nil || r.sub.ID != id {
 		return nil, ErrSubscriptionNotFound
 	}
 	cp := *r.sub
@@ -49,12 +49,12 @@ func TestRevokeSubscription_InvalidatesL1CacheSynchronously(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusActive,
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
 	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, &config.Config{
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 20, Name: "plan"}}, repo, nil, nil, nil, &config.Config{
 		SubscriptionCache: config.SubscriptionCacheConfig{
 			L1Size:       16,
 			L1TTLSeconds: 60,
@@ -62,7 +62,7 @@ func TestRevokeSubscription_InvalidatesL1CacheSynchronously(t *testing.T) {
 	})
 	t.Cleanup(svc.Stop)
 
-	_, err := svc.GetActiveSubscription(context.Background(), 10, 20)
+	_, err := svc.GetActiveSubscription(context.Background(), 1)
 	require.NoError(t, err)
 	svc.subCacheL1.Wait()
 	require.Equal(t, 1, repo.getActiveCalls)
@@ -70,7 +70,7 @@ func TestRevokeSubscription_InvalidatesL1CacheSynchronously(t *testing.T) {
 	err = svc.RevokeSubscription(context.Background(), 1)
 	require.NoError(t, err)
 
-	_, err = svc.GetActiveSubscription(context.Background(), 10, 20)
+	_, err = svc.GetActiveSubscription(context.Background(), 1)
 	require.ErrorIs(t, err, ErrSubscriptionNotFound)
 	require.Equal(t, 2, repo.getActiveCalls, "撤销后应回源确认订阅已不存在，不能命中旧 L1")
 }
@@ -115,13 +115,13 @@ func TestRestoreSubscription_ExpiredActiveRestoresAsExpired(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusActive,
 			ExpiresAt: time.Now().Add(-time.Minute),
 			DeletedAt: &deletedAt,
 		},
 	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	restored, err := svc.RestoreSubscription(context.Background(), 1)
@@ -137,12 +137,12 @@ func TestRestoreSubscription_NotRevokedReturnsConflict(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusActive,
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
 	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	_, err := svc.RestoreSubscription(context.Background(), 1)
@@ -157,13 +157,13 @@ func TestRestoreSubscription_LiveSubscriptionConflict(t *testing.T) {
 		sub: &UserSubscription{
 			ID:        1,
 			UserID:    10,
-			GroupID:   20,
+			PlanID:    20,
 			Status:    SubscriptionStatusExpired,
 			ExpiresAt: time.Now().Add(-time.Hour),
 			DeletedAt: &deletedAt,
 		},
 	}
-	svc := NewSubscriptionService(groupRepoNoop{}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	_, err := svc.RestoreSubscription(context.Background(), 1)

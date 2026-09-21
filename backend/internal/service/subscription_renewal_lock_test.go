@@ -17,13 +17,20 @@ type lockingRenewalRepo struct {
 	lockReads int
 }
 
-func (r *lockingRenewalRepo) ExistsByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
+func (r *lockingRenewalRepo) ExistsByUserIDAndPlanID(context.Context, int64, int64) (bool, error) {
 	return true, nil
 }
 
-func (r *lockingRenewalRepo) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
+func (r *lockingRenewalRepo) GetByUserIDAndPlanID(context.Context, int64, int64) (*UserSubscription, error) {
 	copy := r.stale
 	return &copy, nil
+}
+
+// ListActiveByUserID 单订阅判定读它：只有同套餐的当前行，不会拦
+func (r *lockingRenewalRepo) ListActiveByUserID(context.Context, int64) ([]UserSubscription, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	return []UserSubscription{r.current}, nil
 }
 
 func (r *lockingRenewalRepo) GetByID(_ context.Context, _ int64) (*UserSubscription, error) {
@@ -74,17 +81,17 @@ func TestAssignOrExtendSubscriptionUsesLockedCurrentRow(t *testing.T) {
 	lockedExpiry := now.AddDate(0, 0, 20)
 	windowStart := now.Add(-24 * time.Hour)
 	repo := &lockingRenewalRepo{
-		stale: UserSubscription{ID: 7, UserID: 11, GroupID: 13, ExpiresAt: now.Add(-time.Hour), Status: SubscriptionStatusExpired, Notes: "stale"},
+		stale: UserSubscription{ID: 7, UserID: 11, PlanID: 13, ExpiresAt: now.Add(-time.Hour), Status: SubscriptionStatusExpired, Notes: "stale"},
 		current: UserSubscription{
-			ID: 7, UserID: 11, GroupID: 13, StartsAt: now.AddDate(0, 0, -10), ExpiresAt: lockedExpiry,
+			ID: 7, UserID: 11, PlanID: 13, StartsAt: now.AddDate(0, 0, -10), ExpiresAt: lockedExpiry,
 			Status: SubscriptionStatusSuspended, Notes: "current", DailyWindowStart: &windowStart, DailyUsageUSD: 4,
 		},
 	}
-	svc := NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 13, SubscriptionType: SubscriptionTypeSubscription}}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 13, Name: "plan"}}, repo, nil, nil, nil, nil)
 	svc.now = func() time.Time { return now }
 
 	sub, extended, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
-		UserID: 11, GroupID: 13, ValidityDays: 5, Notes: "renewed",
+		UserID: 11, PlanID: 13, ValidityDays: 5, Notes: "renewed",
 	})
 
 	require.NoError(t, err)
@@ -100,11 +107,11 @@ func TestAssignOrExtendSubscriptionUsesLockedCurrentRow(t *testing.T) {
 func TestAssignOrExtendSubscriptionSerializedRenewalsAccumulateDays(t *testing.T) {
 	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
 	initialExpiry := now.AddDate(0, 0, 10)
-	stale := UserSubscription{ID: 17, UserID: 21, GroupID: 23, StartsAt: now, ExpiresAt: initialExpiry, Status: SubscriptionStatusActive}
+	stale := UserSubscription{ID: 17, UserID: 21, PlanID: 23, StartsAt: now, ExpiresAt: initialExpiry, Status: SubscriptionStatusActive}
 	repo := &lockingRenewalRepo{stale: stale, current: stale}
-	svc := NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 23, SubscriptionType: SubscriptionTypeSubscription}}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 23, Name: "plan"}}, repo, nil, nil, nil, nil)
 	svc.now = func() time.Time { return now }
-	input := &AssignSubscriptionInput{UserID: 21, GroupID: 23, ValidityDays: 7}
+	input := &AssignSubscriptionInput{UserID: 21, PlanID: 23, ValidityDays: 7}
 
 	_, _, err := svc.AssignOrExtendSubscription(context.Background(), input)
 	require.NoError(t, err)
@@ -119,9 +126,9 @@ func TestExtendSubscriptionUsesLockedCurrentRow(t *testing.T) {
 	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
 	initialExpiry := now.AddDate(0, 0, 10)
 	repo := &lockingRenewalRepo{current: UserSubscription{
-		ID: 37, UserID: 41, GroupID: 43, ExpiresAt: initialExpiry, Status: SubscriptionStatusActive,
+		ID: 37, UserID: 41, PlanID: 43, ExpiresAt: initialExpiry, Status: SubscriptionStatusActive,
 	}}
-	svc := NewSubscriptionService(nil, repo, nil, nil, nil)
+	svc := NewSubscriptionService(nil, repo, nil, nil, nil, nil)
 	svc.now = func() time.Time { return now }
 
 	updated, err := svc.ExtendSubscription(context.Background(), 7, 5)
@@ -135,18 +142,18 @@ func TestAssignSubscriptionDoesNotReactivateRowSuspendedAfterStaleRead(t *testin
 	now := time.Date(2026, 8, 2, 12, 0, 0, 0, time.UTC)
 	windowStart := now.Add(-24 * time.Hour)
 	current := UserSubscription{
-		ID: 27, UserID: 31, GroupID: 33, StartsAt: now.AddDate(0, 0, -10), ExpiresAt: now.Add(-time.Hour),
+		ID: 27, UserID: 31, PlanID: 33, StartsAt: now.AddDate(0, 0, -10), ExpiresAt: now.Add(-time.Hour),
 		Status: SubscriptionStatusSuspended, Notes: "suspended", DailyWindowStart: &windowStart, DailyUsageUSD: 4,
 	}
 	repo := &lockingRenewalRepo{
-		stale:   UserSubscription{ID: 27, UserID: 31, GroupID: 33, ExpiresAt: now.Add(-time.Hour), Status: SubscriptionStatusExpired},
+		stale:   UserSubscription{ID: 27, UserID: 31, PlanID: 33, ExpiresAt: now.Add(-time.Hour), Status: SubscriptionStatusExpired},
 		current: current,
 	}
-	svc := NewSubscriptionService(&subscriptionGroupRepoStub{group: &Group{ID: 33, SubscriptionType: SubscriptionTypeSubscription}}, repo, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 33, Name: "plan"}}, repo, nil, nil, nil, nil)
 	svc.now = func() time.Time { return now }
 
 	sub, reused, err := svc.assignSubscriptionWithReuse(context.Background(), &AssignSubscriptionInput{
-		UserID: 31, GroupID: 33, ValidityDays: 5, Notes: "renewed",
+		UserID: 31, PlanID: 33, ValidityDays: 5, Notes: "renewed",
 	})
 
 	require.NoError(t, err)

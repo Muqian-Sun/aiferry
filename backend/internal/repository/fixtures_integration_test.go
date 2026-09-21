@@ -79,15 +79,10 @@ func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *serv
 	if g.Status == "" {
 		g.Status = service.StatusActive
 	}
-	if g.SubscriptionType == "" {
-		g.SubscriptionType = service.SubscriptionTypeStandard
-	}
-
 	create := client.Group.Create().
 		SetName(g.Name).
 		SetPlatform(g.Platform).
 		SetStatus(g.Status).
-		SetSubscriptionType(g.SubscriptionType).
 		SetRateMultiplier(g.RateMultiplier).
 		SetIsExclusive(g.IsExclusive).
 		SetForceOpenaiFast(g.ForceOpenAIFast).
@@ -99,15 +94,6 @@ func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *serv
 		SetProfitSafetyBuffer(g.ProfitSafetyBuffer)
 	if g.Description != "" {
 		create.SetDescription(g.Description)
-	}
-	if g.DailyLimitUSD != nil {
-		create.SetDailyLimitUsd(*g.DailyLimitUSD)
-	}
-	if g.WeeklyLimitUSD != nil {
-		create.SetWeeklyLimitUsd(*g.WeeklyLimitUSD)
-	}
-	if g.MonthlyLimitUSD != nil {
-		create.SetMonthlyLimitUsd(*g.MonthlyLimitUSD)
 	}
 	if !g.CreatedAt.IsZero() {
 		create.SetCreatedAt(g.CreatedAt)
@@ -361,8 +347,8 @@ func mustCreateRedeemCode(t *testing.T, client *dbent.Client, c *service.RedeemC
 	if c.UsedAt != nil {
 		create.SetUsedAt(*c.UsedAt)
 	}
-	if c.GroupID != nil {
-		create.SetGroupID(*c.GroupID)
+	if c.PlanID != nil {
+		create.SetPlanID(*c.PlanID)
 	}
 	if !c.CreatedAt.IsZero() {
 		create.SetCreatedAt(c.CreatedAt)
@@ -374,6 +360,49 @@ func mustCreateRedeemCode(t *testing.T, client *dbent.Client, c *service.RedeemC
 	c.ID = created.ID
 	c.CreatedAt = created.CreatedAt
 	return c
+}
+
+// mustCreatePlan 建套餐（主表 + 模型集）。Models 只用 EntryID。
+func mustCreatePlan(t *testing.T, client *dbent.Client, p *service.SubscriptionPlan) *service.SubscriptionPlan {
+	t.Helper()
+	ctx := context.Background()
+	if p.Name == "" {
+		p.Name = "plan-" + time.Now().Format(time.RFC3339Nano)
+	}
+	if p.Price == 0 {
+		p.Price = 9.9
+	}
+	if p.ValidityDays == 0 {
+		p.ValidityDays = 30
+	}
+	if p.ValidityUnit == "" {
+		p.ValidityUnit = "day"
+	}
+	create := client.SubscriptionPlan.Create().
+		SetName(p.Name).
+		SetDescription(p.Description).
+		SetPrice(p.Price).
+		SetNillableOriginalPrice(p.OriginalPrice).
+		SetCurrency(p.Currency).
+		SetValidityDays(p.ValidityDays).
+		SetValidityUnit(p.ValidityUnit).
+		SetFeatures(p.Features).
+		SetProductName(p.ProductName).
+		SetForSale(p.ForSale).
+		SetSortOrder(p.SortOrder).
+		SetNillableDailyLimitUsd(p.DailyLimitUSD).
+		SetNillableWeeklyLimitUsd(p.WeeklyLimitUSD).
+		SetNillableMonthlyLimitUsd(p.MonthlyLimitUSD)
+	created, err := create.Save(ctx)
+	require.NoError(t, err, "create subscription plan")
+	p.ID = created.ID
+	p.CreatedAt = created.CreatedAt
+	p.UpdatedAt = created.UpdatedAt
+	for _, m := range p.Models {
+		_, err := client.SubscriptionPlanModel.Create().SetPlanID(p.ID).SetEntryID(m.EntryID).Save(ctx)
+		require.NoError(t, err, "create subscription plan model")
+	}
+	return p
 }
 
 func mustCreateSubscription(t *testing.T, client *dbent.Client, s *service.UserSubscription) *service.UserSubscription {
@@ -402,7 +431,7 @@ func mustCreateSubscription(t *testing.T, client *dbent.Client, s *service.UserS
 
 	create := client.UserSubscription.Create().
 		SetUserID(s.UserID).
-		SetGroupID(s.GroupID).
+		SetPlanID(s.PlanID).
 		SetStartsAt(s.StartsAt).
 		SetExpiresAt(s.ExpiresAt).
 		SetStatus(s.Status).

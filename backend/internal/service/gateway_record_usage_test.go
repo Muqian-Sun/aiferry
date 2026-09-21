@@ -354,7 +354,7 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 			Usage:     ClaudeUsage{InputTokens: 1000, OutputTokens: 500},
 		},
 		APIKey: &APIKey{ID: 804, GroupID: i64p(groupID), Group: &Group{
-			ID: groupID, RateMultiplier: 0.8, SubscriptionType: SubscriptionTypeSubscription,
+			ID: groupID, RateMultiplier: 0.8,
 		}},
 		User:      &User{ID: 604, RateMultiplier: 0.8},
 		Account:   &Account{ID: 704},

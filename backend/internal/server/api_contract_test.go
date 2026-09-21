@@ -231,6 +231,7 @@ func TestAPIContracts(t *testing.T) {
 					"key": "sk_custom_1234567890",
 					"name": "Key One",
 					"group_id": null,
+					"subscription_id": null,
 					"status": "active",
 					"ip_whitelist": null,
 					"ip_blacklist": null,
@@ -282,6 +283,7 @@ func TestAPIContracts(t *testing.T) {
 							"key": "sk_custom_1234567890",
 							"name": "Key One",
 							"group_id": null,
+							"subscription_id": null,
 							"status": "active",
 							"ip_whitelist": null,
 							"ip_blacklist": null,
@@ -327,7 +329,6 @@ func TestAPIContracts(t *testing.T) {
 						PeakRateMultiplier:   1.0,
 						IsExclusive:          false,
 						Status:               service.StatusActive,
-						SubscriptionType:     service.SubscriptionTypeStandard,
 						ProfitControlEnabled: true,
 						ProfitMinMargin:      0.3,
 						ProfitSafetyBuffer:   0.05,
@@ -361,10 +362,6 @@ func TestAPIContracts(t *testing.T) {
 						"peak_rate_multiplier": 1,
 						"is_exclusive": false,
 						"status": "active",
-						"subscription_type": "standard",
-						"daily_limit_usd": null,
-						"weekly_limit_usd": null,
-						"monthly_limit_usd": null,
 						"long_context_pricing_enabled": false,
 						"allow_image_generation": false,
 						"allow_batch_image_generation": false,
@@ -395,7 +392,7 @@ func TestAPIContracts(t *testing.T) {
 					{
 						ID:              501,
 						UserID:          1,
-						GroupID:         10,
+						PlanID:          10,
 						StartsAt:        deps.now,
 						ExpiresAt:       time.Date(2099, 1, 2, 3, 4, 5, 0, time.UTC), // 使用未来日期避免 normalizeSubscriptionStatus 标记为过期
 						Status:          service.SubscriptionStatusActive,
@@ -420,7 +417,7 @@ func TestAPIContracts(t *testing.T) {
 					{
 						"id": 501,
 						"user_id": 1,
-						"group_id": 10,
+						"plan_id": 10,
 						"starts_at": "2025-01-02T03:04:05Z",
 						"expires_at": "2099-01-02T03:04:05Z",
 						"status": "active",
@@ -471,7 +468,7 @@ func TestAPIContracts(t *testing.T) {
 						"used_by": 1,
 						"used_at": "2025-01-02T03:04:05Z",
 						"created_at": "2025-01-02T03:04:05Z",
-						"group_id": null,
+						"plan_id": null,
 						"validity_days": 0
 					}
 				]
@@ -1376,12 +1373,12 @@ func newContractDeps(t *testing.T) *contractDeps {
 	}
 
 	userService := service.NewUserService(userRepo, nil, nil, nil)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userSubRepo, nil, apiKeyCache, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, nil, apiKeyCache, cfg)
 
 	usageRepo := newStubUsageLogRepo()
 	usageService := service.NewUsageService(usageRepo, userRepo, nil, nil)
 
-	subscriptionService := service.NewSubscriptionService(groupRepo, userSubRepo, nil, nil, cfg)
+	subscriptionService := service.NewSubscriptionService(nil, userSubRepo, apiKeyRepo, nil, nil, cfg)
 	subscriptionHandler := handler.NewSubscriptionHandler(subscriptionService)
 
 	redeemService := service.NewRedeemService(redeemRepo, userRepo, subscriptionService, nil, nil, nil, nil, nil)
@@ -1699,12 +1696,12 @@ func (stubGroupRepo) Delete(ctx context.Context, id int64) error {
 	return errors.New("not implemented")
 }
 
-func (stubGroupRepo) DeleteCascade(ctx context.Context, id int64) ([]int64, error) {
-	return nil, errors.New("not implemented")
+func (stubGroupRepo) DeleteCascade(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
 }
 
-func (stubGroupRepo) DeleteCascadeIfEmpty(ctx context.Context, id int64) ([]int64, error) {
-	return nil, errors.New("not implemented")
+func (stubGroupRepo) DeleteCascadeIfEmpty(ctx context.Context, id int64) error {
+	return errors.New("not implemented")
 }
 
 func (stubGroupRepo) List(ctx context.Context, params pagination.PaginationParams) ([]service.Group, *pagination.PaginationResult, error) {
@@ -2140,10 +2137,10 @@ func (stubUserSubscriptionRepo) GetByIDForUpdate(ctx context.Context, id int64) 
 func (stubUserSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (stubUserSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (stubUserSubscriptionRepo) GetByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (stubUserSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (stubUserSubscriptionRepo) GetActiveByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
 func (stubUserSubscriptionRepo) Update(ctx context.Context, sub *service.UserSubscription) error {
@@ -2167,16 +2164,10 @@ func (r *stubUserSubscriptionRepo) ListActiveByUserID(ctx context.Context, userI
 	}
 	return append([]service.UserSubscription(nil), r.activeByUser[userID]...), nil
 }
-func (stubUserSubscriptionRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, planID *int64, status, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
-func (stubUserSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-func (stubUserSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
-}
-func (stubUserSubscriptionRepo) ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
+func (stubUserSubscriptionRepo) ExistsByUserIDAndPlanID(ctx context.Context, userID, planID int64) (bool, error) {
 	return false, errors.New("not implemented")
 }
 func (stubUserSubscriptionRepo) ExtendExpiry(ctx context.Context, subscriptionID int64, newExpiresAt time.Time) error {
@@ -2206,6 +2197,10 @@ func (stubUserSubscriptionRepo) ResetMonthlyUsage(ctx context.Context, id int64,
 func (stubUserSubscriptionRepo) IncrementUsage(ctx context.Context, id int64, costUSD float64) error {
 	return errors.New("not implemented")
 }
+func (stubUserSubscriptionRepo) GetActiveByID(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	return nil, service.ErrSubscriptionNotFound
+}
+
 func (stubUserSubscriptionRepo) BatchUpdateExpiredStatus(ctx context.Context) (int64, error) {
 	return 0, errors.New("not implemented")
 }
@@ -2265,12 +2260,8 @@ func (r *stubApiKeyRepo) GetByID(ctx context.Context, id int64) (*service.APIKey
 	return &clone, nil
 }
 
-func (r *stubApiKeyRepo) GetKeyAndOwnerID(ctx context.Context, id int64) (string, int64, error) {
-	key, ok := r.byID[id]
-	if !ok {
-		return "", 0, service.ErrAPIKeyNotFound
-	}
-	return key.Key, key.UserID, nil
+func (r *stubApiKeyRepo) ExistsBySubscriptionID(ctx context.Context, subscriptionID int64) (bool, error) {
+	return false, nil
 }
 
 func (r *stubApiKeyRepo) GetByKey(ctx context.Context, key string) (*service.APIKey, error) {

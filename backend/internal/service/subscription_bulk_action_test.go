@@ -79,7 +79,7 @@ func (r *bulkActionSubscriptionRepo) Delete(_ context.Context, id int64) error {
 
 func (r *bulkActionSubscriptionRepo) ExistsActiveByUserIDAndGroupID(_ context.Context, userID, groupID int64) (bool, error) {
 	for _, sub := range r.subscriptions {
-		if sub.UserID == userID && sub.GroupID == groupID && sub.DeletedAt == nil {
+		if sub.UserID == userID && sub.PlanID == groupID && sub.DeletedAt == nil {
 			return true, nil
 		}
 	}
@@ -100,14 +100,14 @@ func TestBulkSubscriptionAction_PartialSuccessAndDeduplication(t *testing.T) {
 			expiresAt := time.Now().AddDate(0, 0, 30)
 			repo := &bulkActionSubscriptionRepo{subscriptions: map[int64]*UserSubscription{}}
 			for _, id := range []int64{1, 2} {
-				sub := &UserSubscription{ID: id, UserID: id, GroupID: 10, Status: SubscriptionStatusActive, ExpiresAt: expiresAt, DailyUsageUSD: 2, WeeklyUsageUSD: 5, MonthlyUsageUSD: 8}
+				sub := &UserSubscription{ID: id, UserID: id, PlanID: 10, Status: SubscriptionStatusActive, ExpiresAt: expiresAt, DailyUsageUSD: 2, WeeklyUsageUSD: 5, MonthlyUsageUSD: 8}
 				if action == "restore" {
 					deletedAt := time.Now().Add(-time.Hour)
 					sub.DeletedAt = &deletedAt
 				}
 				repo.subscriptions[id] = sub
 			}
-			svc := NewSubscriptionService(nil, repo, nil, nil, nil)
+			svc := NewSubscriptionService(nil, repo, nil, nil, nil, nil)
 			t.Cleanup(svc.Stop)
 
 			result, err := svc.BulkSubscriptionAction(context.Background(), &BulkSubscriptionActionInput{
@@ -178,10 +178,10 @@ func TestBulkSubscriptionAction_CancellationPreservesCompletedResults(t *testing
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	repo := &bulkActionSubscriptionRepo{
-		subscriptions: map[int64]*UserSubscription{1: {ID: 1, UserID: 1, GroupID: 10}},
+		subscriptions: map[int64]*UserSubscription{1: {ID: 1, UserID: 1, PlanID: 10}},
 		afterMutation: cancel,
 	}
-	svc := NewSubscriptionService(nil, repo, nil, nil, nil)
+	svc := NewSubscriptionService(nil, repo, nil, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 	result, err := svc.BulkSubscriptionAction(ctx, &BulkSubscriptionActionInput{SubscriptionIDs: []int64{1, 2, 3}, Action: "revoke"})
 	require.NoError(t, err)
@@ -219,7 +219,7 @@ func TestBulkSubscriptionAction_DoesNotExposeInternalErrors(t *testing.T) {
 				bulkActionSubscriptionRepo: &bulkActionSubscriptionRepo{subscriptions: map[int64]*UserSubscription{1: {ID: 1}}},
 				err:                        tc.err,
 			}
-			svc := NewSubscriptionService(nil, repo, nil, nil, nil)
+			svc := NewSubscriptionService(nil, repo, nil, nil, nil, nil)
 			t.Cleanup(svc.Stop)
 			result, err := svc.BulkSubscriptionAction(context.Background(), &BulkSubscriptionActionInput{SubscriptionIDs: []int64{1}, Action: "revoke"})
 			require.NoError(t, err)

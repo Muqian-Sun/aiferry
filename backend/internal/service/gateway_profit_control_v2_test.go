@@ -20,7 +20,6 @@ func gatewayProfitTestGroup(id int64, platform string) *Group {
 		Status:               StatusActive,
 		Hydrated:             true,
 		RateMultiplier:       0.5,
-		SubscriptionType:     SubscriptionTypeStandard,
 		ProfitControlEnabled: true,
 		ProfitMinMargin:      0,
 		ProfitSafetyBuffer:   0,
@@ -89,12 +88,11 @@ func TestGatewayProfitControlInstallsForFivePlatformsOnlyOnTokenRequests(t *test
 
 func TestGatewayProfitControlCompositeBillingUsesScheduledMemberConfig(t *testing.T) {
 	billingGroup := &Group{
-		ID:               201,
-		Platform:         PlatformComposite,
-		Status:           StatusActive,
-		Hydrated:         true,
-		RateMultiplier:   0.4,
-		SubscriptionType: SubscriptionTypeStandard,
+		ID:             201,
+		Platform:       PlatformComposite,
+		Status:         StatusActive,
+		Hydrated:       true,
+		RateMultiplier: 0.4,
 	}
 	memberGroup := gatewayProfitTestGroup(202, PlatformAnthropic)
 	memberGroup.RateMultiplier = 99
@@ -123,12 +121,11 @@ func TestGatewayProfitControlCompositeBillingUsesScheduledMemberConfig(t *testin
 
 func TestGatewayProfitControlGroupLoadFailureClearsForeignGate(t *testing.T) {
 	billingGroup := &Group{
-		ID:               211,
-		Platform:         PlatformComposite,
-		Status:           StatusActive,
-		Hydrated:         true,
-		RateMultiplier:   0.4,
-		SubscriptionType: SubscriptionTypeStandard,
+		ID:             211,
+		Platform:       PlatformComposite,
+		Status:         StatusActive,
+		Hydrated:       true,
+		RateMultiplier: 0.4,
 	}
 	targetGroupID := int64(212)
 	ctx := gatewayProfitTestContext(billingGroup)

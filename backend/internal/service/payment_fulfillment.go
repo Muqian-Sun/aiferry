@@ -475,10 +475,10 @@ func (s *PaymentService) sendBalanceRechargeSuccessNotification(ctx context.Cont
 
 func (s *PaymentService) sendSubscriptionPurchaseSuccessNotification(ctx context.Context, o *dbent.PaymentOrder) error {
 	variables := map[string]string{
-		"subscription_plan":  "Subscription",
-		"subscription_days":  "",
-		"expiry_time":        "",
-		"order_id":           strconv.FormatInt(o.ID, 10),
+		"subscription_plan": "Subscription",
+		"subscription_days": "",
+		"expiry_time":       "",
+		"order_id":          strconv.FormatInt(o.ID, 10),
 	}
 	if o.SubscriptionDays != nil {
 		variables["subscription_days"] = strconv.Itoa(*o.SubscriptionDays)
@@ -540,9 +540,7 @@ func (s *PaymentService) ExecuteSubscriptionFulfillment(ctx context.Context, oid
 func (s *PaymentService) doSub(ctx context.Context, o *dbent.PaymentOrder, lease *paymentFulfillmentLease) error {
 	planID := *o.PlanID
 	days := *o.SubscriptionDays
-	if _, err := s.configService.GetPlan(ctx, planID); err != nil {
-		return fmt.Errorf("plan %d no longer exists: %w", planID, err)
-	}
+	// 套餐是否还在由 assignOrExtendSubscription 查（ErrPlanNotFound），这里不重复查
 	if err := s.ensurePaymentSubscriptionAssigned(ctx, o, planID, days); err != nil {
 		return err
 	}
@@ -627,9 +625,13 @@ func (s *PaymentService) ensurePaymentSubscriptionAssigned(ctx context.Context, 
 }
 
 // invalidateFulfilledSubscriptionCaches 提交后按 (user, plan) 回读已提交的订阅行再失效其缓存。
+// 行不在（审计说已分配但订阅后来被撤销 / 删除）就没有可失效的缓存，不算履约失败。
 func (s *PaymentService) invalidateFulfilledSubscriptionCaches(ctx context.Context, userID, planID int64) error {
 	sub, err := s.subscriptionSvc.userSubRepo.GetByUserIDAndPlanID(ctx, userID, planID)
 	if err != nil {
+		if errors.Is(err, ErrSubscriptionNotFound) {
+			return nil
+		}
 		return fmt.Errorf("load fulfilled subscription: %w", err)
 	}
 	return s.subscriptionSvc.invalidateSubscriptionCaches(sub)
