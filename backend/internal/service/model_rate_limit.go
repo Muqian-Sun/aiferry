@@ -93,6 +93,9 @@ func (a *Account) modelRateLimitKeysForRequest(ctx context.Context, requestedMod
 		if isAnthropicFableModel(modelKey) && modelKey != anthropicFableRateLimitKey {
 			keys = append(keys, anthropicFableRateLimitKey)
 		}
+	case vendor == PlatformGemini:
+		// Gemini 本地 RPD/RPM 按模型档写（applyGeminiLocalQuota），请求按同一个档读。
+		keys = append(keys, geminiLocalQuotaScope(geminiModelClassFromName(requestedModel)))
 	}
 	return keys
 }
