@@ -15,6 +15,7 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 )
 
 // ModelCatalogEntryUpdate is the builder for updating ModelCatalogEntry entities.
@@ -727,6 +728,21 @@ func (_u *ModelCatalogEntryUpdate) AddAccounts(v ...*Account) *ModelCatalogEntry
 	return _u.AddAccountIDs(ids...)
 }
 
+// AddSubscriptionPlanIDs adds the "subscription_plans" edge to the SubscriptionPlan entity by IDs.
+func (_u *ModelCatalogEntryUpdate) AddSubscriptionPlanIDs(ids ...int64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddSubscriptionPlanIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionPlans adds the "subscription_plans" edges to the SubscriptionPlan entity.
+func (_u *ModelCatalogEntryUpdate) AddSubscriptionPlans(v ...*SubscriptionPlan) *ModelCatalogEntryUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionPlanIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_u *ModelCatalogEntryUpdate) Mutation() *ModelCatalogEntryMutation {
 	return _u.mutation
@@ -751,6 +767,27 @@ func (_u *ModelCatalogEntryUpdate) RemoveAccounts(v ...*Account) *ModelCatalogEn
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAccountIDs(ids...)
+}
+
+// ClearSubscriptionPlans clears all "subscription_plans" edges to the SubscriptionPlan entity.
+func (_u *ModelCatalogEntryUpdate) ClearSubscriptionPlans() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearSubscriptionPlans()
+	return _u
+}
+
+// RemoveSubscriptionPlanIDs removes the "subscription_plans" edge to SubscriptionPlan entities by IDs.
+func (_u *ModelCatalogEntryUpdate) RemoveSubscriptionPlanIDs(ids ...int64) *ModelCatalogEntryUpdate {
+	_u.mutation.RemoveSubscriptionPlanIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionPlans removes "subscription_plans" edges to SubscriptionPlan entities.
+func (_u *ModelCatalogEntryUpdate) RemoveSubscriptionPlans(v ...*SubscriptionPlan) *ModelCatalogEntryUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionPlanIDs(ids...)
 }
 
 // Save executes the query and returns the number of nodes affected by the update operation.
@@ -1112,6 +1149,51 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionPlansIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionPlansIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
@@ -1831,6 +1913,21 @@ func (_u *ModelCatalogEntryUpdateOne) AddAccounts(v ...*Account) *ModelCatalogEn
 	return _u.AddAccountIDs(ids...)
 }
 
+// AddSubscriptionPlanIDs adds the "subscription_plans" edge to the SubscriptionPlan entity by IDs.
+func (_u *ModelCatalogEntryUpdateOne) AddSubscriptionPlanIDs(ids ...int64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddSubscriptionPlanIDs(ids...)
+	return _u
+}
+
+// AddSubscriptionPlans adds the "subscription_plans" edges to the SubscriptionPlan entity.
+func (_u *ModelCatalogEntryUpdateOne) AddSubscriptionPlans(v ...*SubscriptionPlan) *ModelCatalogEntryUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddSubscriptionPlanIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_u *ModelCatalogEntryUpdateOne) Mutation() *ModelCatalogEntryMutation {
 	return _u.mutation
@@ -1855,6 +1952,27 @@ func (_u *ModelCatalogEntryUpdateOne) RemoveAccounts(v ...*Account) *ModelCatalo
 		ids[i] = v[i].ID
 	}
 	return _u.RemoveAccountIDs(ids...)
+}
+
+// ClearSubscriptionPlans clears all "subscription_plans" edges to the SubscriptionPlan entity.
+func (_u *ModelCatalogEntryUpdateOne) ClearSubscriptionPlans() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearSubscriptionPlans()
+	return _u
+}
+
+// RemoveSubscriptionPlanIDs removes the "subscription_plans" edge to SubscriptionPlan entities by IDs.
+func (_u *ModelCatalogEntryUpdateOne) RemoveSubscriptionPlanIDs(ids ...int64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.RemoveSubscriptionPlanIDs(ids...)
+	return _u
+}
+
+// RemoveSubscriptionPlans removes "subscription_plans" edges to SubscriptionPlan entities.
+func (_u *ModelCatalogEntryUpdateOne) RemoveSubscriptionPlans(v ...*SubscriptionPlan) *ModelCatalogEntryUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveSubscriptionPlanIDs(ids...)
 }
 
 // Where appends a list predicates to the ModelCatalogEntryUpdate builder.
@@ -2246,6 +2364,51 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.SubscriptionPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedSubscriptionPlansIDs(); len(nodes) > 0 && !_u.mutation.SubscriptionPlansCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.SubscriptionPlansIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &ModelCatalogEntry{config: _u.config}

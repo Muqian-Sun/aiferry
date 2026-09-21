@@ -11,83 +11,60 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/sql"
 	"entgo.io/ent/dialect/sql/sqlgraph"
-	"entgo.io/ent/schema/field"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
-	"github.com/Wei-Shaw/sub2api/ent/user"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplanmodel"
 )
 
-// RedeemCodeQuery is the builder for querying RedeemCode entities.
-type RedeemCodeQuery struct {
+// SubscriptionPlanModelQuery is the builder for querying SubscriptionPlanModel entities.
+type SubscriptionPlanModelQuery struct {
 	config
 	ctx        *QueryContext
-	order      []redeemcode.OrderOption
+	order      []subscriptionplanmodel.OrderOption
 	inters     []Interceptor
-	predicates []predicate.RedeemCode
-	withUser   *UserQuery
+	predicates []predicate.SubscriptionPlanModel
 	withPlan   *SubscriptionPlanQuery
+	withEntry  *ModelCatalogEntryQuery
 	modifiers  []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
 	sql  *sql.Selector
 	path func(context.Context) (*sql.Selector, error)
 }
 
-// Where adds a new predicate for the RedeemCodeQuery builder.
-func (_q *RedeemCodeQuery) Where(ps ...predicate.RedeemCode) *RedeemCodeQuery {
+// Where adds a new predicate for the SubscriptionPlanModelQuery builder.
+func (_q *SubscriptionPlanModelQuery) Where(ps ...predicate.SubscriptionPlanModel) *SubscriptionPlanModelQuery {
 	_q.predicates = append(_q.predicates, ps...)
 	return _q
 }
 
 // Limit the number of records to be returned by this query.
-func (_q *RedeemCodeQuery) Limit(limit int) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) Limit(limit int) *SubscriptionPlanModelQuery {
 	_q.ctx.Limit = &limit
 	return _q
 }
 
 // Offset to start from.
-func (_q *RedeemCodeQuery) Offset(offset int) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) Offset(offset int) *SubscriptionPlanModelQuery {
 	_q.ctx.Offset = &offset
 	return _q
 }
 
 // Unique configures the query builder to filter duplicate records on query.
 // By default, unique is set to true, and can be disabled using this method.
-func (_q *RedeemCodeQuery) Unique(unique bool) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) Unique(unique bool) *SubscriptionPlanModelQuery {
 	_q.ctx.Unique = &unique
 	return _q
 }
 
 // Order specifies how the records should be ordered.
-func (_q *RedeemCodeQuery) Order(o ...redeemcode.OrderOption) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) Order(o ...subscriptionplanmodel.OrderOption) *SubscriptionPlanModelQuery {
 	_q.order = append(_q.order, o...)
 	return _q
 }
 
-// QueryUser chains the current query on the "user" edge.
-func (_q *RedeemCodeQuery) QueryUser() *UserQuery {
-	query := (&UserClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(redeemcode.Table, redeemcode.FieldID, selector),
-			sqlgraph.To(user.Table, user.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, redeemcode.UserTable, redeemcode.UserColumn),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
 // QueryPlan chains the current query on the "plan" edge.
-func (_q *RedeemCodeQuery) QueryPlan() *SubscriptionPlanQuery {
+func (_q *SubscriptionPlanModelQuery) QueryPlan() *SubscriptionPlanQuery {
 	query := (&SubscriptionPlanClient{config: _q.config}).Query()
 	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
 		if err := _q.prepareQuery(ctx); err != nil {
@@ -98,9 +75,9 @@ func (_q *RedeemCodeQuery) QueryPlan() *SubscriptionPlanQuery {
 			return nil, err
 		}
 		step := sqlgraph.NewStep(
-			sqlgraph.From(redeemcode.Table, redeemcode.FieldID, selector),
+			sqlgraph.From(subscriptionplanmodel.Table, subscriptionplanmodel.PlanColumn, selector),
 			sqlgraph.To(subscriptionplan.Table, subscriptionplan.FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, redeemcode.PlanTable, redeemcode.PlanColumn),
+			sqlgraph.Edge(sqlgraph.M2O, false, subscriptionplanmodel.PlanTable, subscriptionplanmodel.PlanColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -108,21 +85,43 @@ func (_q *RedeemCodeQuery) QueryPlan() *SubscriptionPlanQuery {
 	return query
 }
 
-// First returns the first RedeemCode entity from the query.
-// Returns a *NotFoundError when no RedeemCode was found.
-func (_q *RedeemCodeQuery) First(ctx context.Context) (*RedeemCode, error) {
+// QueryEntry chains the current query on the "entry" edge.
+func (_q *SubscriptionPlanModelQuery) QueryEntry() *ModelCatalogEntryQuery {
+	query := (&ModelCatalogEntryClient{config: _q.config}).Query()
+	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
+		if err := _q.prepareQuery(ctx); err != nil {
+			return nil, err
+		}
+		selector := _q.sqlQuery(ctx)
+		if err := selector.Err(); err != nil {
+			return nil, err
+		}
+		step := sqlgraph.NewStep(
+			sqlgraph.From(subscriptionplanmodel.Table, subscriptionplanmodel.EntryColumn, selector),
+			sqlgraph.To(modelcatalogentry.Table, modelcatalogentry.FieldID),
+			sqlgraph.Edge(sqlgraph.M2O, false, subscriptionplanmodel.EntryTable, subscriptionplanmodel.EntryColumn),
+		)
+		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
+		return fromU, nil
+	}
+	return query
+}
+
+// First returns the first SubscriptionPlanModel entity from the query.
+// Returns a *NotFoundError when no SubscriptionPlanModel was found.
+func (_q *SubscriptionPlanModelQuery) First(ctx context.Context) (*SubscriptionPlanModel, error) {
 	nodes, err := _q.Limit(1).All(setContextOp(ctx, _q.ctx, ent.OpQueryFirst))
 	if err != nil {
 		return nil, err
 	}
 	if len(nodes) == 0 {
-		return nil, &NotFoundError{redeemcode.Label}
+		return nil, &NotFoundError{subscriptionplanmodel.Label}
 	}
 	return nodes[0], nil
 }
 
 // FirstX is like First, but panics if an error occurs.
-func (_q *RedeemCodeQuery) FirstX(ctx context.Context) *RedeemCode {
+func (_q *SubscriptionPlanModelQuery) FirstX(ctx context.Context) *SubscriptionPlanModel {
 	node, err := _q.First(ctx)
 	if err != nil && !IsNotFound(err) {
 		panic(err)
@@ -130,33 +129,10 @@ func (_q *RedeemCodeQuery) FirstX(ctx context.Context) *RedeemCode {
 	return node
 }
 
-// FirstID returns the first RedeemCode ID from the query.
-// Returns a *NotFoundError when no RedeemCode ID was found.
-func (_q *RedeemCodeQuery) FirstID(ctx context.Context) (id int64, err error) {
-	var ids []int64
-	if ids, err = _q.Limit(1).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryFirstID)); err != nil {
-		return
-	}
-	if len(ids) == 0 {
-		err = &NotFoundError{redeemcode.Label}
-		return
-	}
-	return ids[0], nil
-}
-
-// FirstIDX is like FirstID, but panics if an error occurs.
-func (_q *RedeemCodeQuery) FirstIDX(ctx context.Context) int64 {
-	id, err := _q.FirstID(ctx)
-	if err != nil && !IsNotFound(err) {
-		panic(err)
-	}
-	return id
-}
-
-// Only returns a single RedeemCode entity found by the query, ensuring it only returns one.
-// Returns a *NotSingularError when more than one RedeemCode entity is found.
-// Returns a *NotFoundError when no RedeemCode entities are found.
-func (_q *RedeemCodeQuery) Only(ctx context.Context) (*RedeemCode, error) {
+// Only returns a single SubscriptionPlanModel entity found by the query, ensuring it only returns one.
+// Returns a *NotSingularError when more than one SubscriptionPlanModel entity is found.
+// Returns a *NotFoundError when no SubscriptionPlanModel entities are found.
+func (_q *SubscriptionPlanModelQuery) Only(ctx context.Context) (*SubscriptionPlanModel, error) {
 	nodes, err := _q.Limit(2).All(setContextOp(ctx, _q.ctx, ent.OpQueryOnly))
 	if err != nil {
 		return nil, err
@@ -165,14 +141,14 @@ func (_q *RedeemCodeQuery) Only(ctx context.Context) (*RedeemCode, error) {
 	case 1:
 		return nodes[0], nil
 	case 0:
-		return nil, &NotFoundError{redeemcode.Label}
+		return nil, &NotFoundError{subscriptionplanmodel.Label}
 	default:
-		return nil, &NotSingularError{redeemcode.Label}
+		return nil, &NotSingularError{subscriptionplanmodel.Label}
 	}
 }
 
 // OnlyX is like Only, but panics if an error occurs.
-func (_q *RedeemCodeQuery) OnlyX(ctx context.Context) *RedeemCode {
+func (_q *SubscriptionPlanModelQuery) OnlyX(ctx context.Context) *SubscriptionPlanModel {
 	node, err := _q.Only(ctx)
 	if err != nil {
 		panic(err)
@@ -180,46 +156,18 @@ func (_q *RedeemCodeQuery) OnlyX(ctx context.Context) *RedeemCode {
 	return node
 }
 
-// OnlyID is like Only, but returns the only RedeemCode ID in the query.
-// Returns a *NotSingularError when more than one RedeemCode ID is found.
-// Returns a *NotFoundError when no entities are found.
-func (_q *RedeemCodeQuery) OnlyID(ctx context.Context) (id int64, err error) {
-	var ids []int64
-	if ids, err = _q.Limit(2).IDs(setContextOp(ctx, _q.ctx, ent.OpQueryOnlyID)); err != nil {
-		return
-	}
-	switch len(ids) {
-	case 1:
-		id = ids[0]
-	case 0:
-		err = &NotFoundError{redeemcode.Label}
-	default:
-		err = &NotSingularError{redeemcode.Label}
-	}
-	return
-}
-
-// OnlyIDX is like OnlyID, but panics if an error occurs.
-func (_q *RedeemCodeQuery) OnlyIDX(ctx context.Context) int64 {
-	id, err := _q.OnlyID(ctx)
-	if err != nil {
-		panic(err)
-	}
-	return id
-}
-
-// All executes the query and returns a list of RedeemCodes.
-func (_q *RedeemCodeQuery) All(ctx context.Context) ([]*RedeemCode, error) {
+// All executes the query and returns a list of SubscriptionPlanModels.
+func (_q *SubscriptionPlanModelQuery) All(ctx context.Context) ([]*SubscriptionPlanModel, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryAll)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return nil, err
 	}
-	qr := querierAll[[]*RedeemCode, *RedeemCodeQuery]()
-	return withInterceptors[[]*RedeemCode](ctx, _q, qr, _q.inters)
+	qr := querierAll[[]*SubscriptionPlanModel, *SubscriptionPlanModelQuery]()
+	return withInterceptors[[]*SubscriptionPlanModel](ctx, _q, qr, _q.inters)
 }
 
 // AllX is like All, but panics if an error occurs.
-func (_q *RedeemCodeQuery) AllX(ctx context.Context) []*RedeemCode {
+func (_q *SubscriptionPlanModelQuery) AllX(ctx context.Context) []*SubscriptionPlanModel {
 	nodes, err := _q.All(ctx)
 	if err != nil {
 		panic(err)
@@ -227,38 +175,17 @@ func (_q *RedeemCodeQuery) AllX(ctx context.Context) []*RedeemCode {
 	return nodes
 }
 
-// IDs executes the query and returns a list of RedeemCode IDs.
-func (_q *RedeemCodeQuery) IDs(ctx context.Context) (ids []int64, err error) {
-	if _q.ctx.Unique == nil && _q.path != nil {
-		_q.Unique(true)
-	}
-	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryIDs)
-	if err = _q.Select(redeemcode.FieldID).Scan(ctx, &ids); err != nil {
-		return nil, err
-	}
-	return ids, nil
-}
-
-// IDsX is like IDs, but panics if an error occurs.
-func (_q *RedeemCodeQuery) IDsX(ctx context.Context) []int64 {
-	ids, err := _q.IDs(ctx)
-	if err != nil {
-		panic(err)
-	}
-	return ids
-}
-
 // Count returns the count of the given query.
-func (_q *RedeemCodeQuery) Count(ctx context.Context) (int, error) {
+func (_q *SubscriptionPlanModelQuery) Count(ctx context.Context) (int, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryCount)
 	if err := _q.prepareQuery(ctx); err != nil {
 		return 0, err
 	}
-	return withInterceptors[int](ctx, _q, querierCount[*RedeemCodeQuery](), _q.inters)
+	return withInterceptors[int](ctx, _q, querierCount[*SubscriptionPlanModelQuery](), _q.inters)
 }
 
 // CountX is like Count, but panics if an error occurs.
-func (_q *RedeemCodeQuery) CountX(ctx context.Context) int {
+func (_q *SubscriptionPlanModelQuery) CountX(ctx context.Context) int {
 	count, err := _q.Count(ctx)
 	if err != nil {
 		panic(err)
@@ -267,9 +194,9 @@ func (_q *RedeemCodeQuery) CountX(ctx context.Context) int {
 }
 
 // Exist returns true if the query has elements in the graph.
-func (_q *RedeemCodeQuery) Exist(ctx context.Context) (bool, error) {
+func (_q *SubscriptionPlanModelQuery) Exist(ctx context.Context) (bool, error) {
 	ctx = setContextOp(ctx, _q.ctx, ent.OpQueryExist)
-	switch _, err := _q.FirstID(ctx); {
+	switch _, err := _q.First(ctx); {
 	case IsNotFound(err):
 		return false, nil
 	case err != nil:
@@ -280,7 +207,7 @@ func (_q *RedeemCodeQuery) Exist(ctx context.Context) (bool, error) {
 }
 
 // ExistX is like Exist, but panics if an error occurs.
-func (_q *RedeemCodeQuery) ExistX(ctx context.Context) bool {
+func (_q *SubscriptionPlanModelQuery) ExistX(ctx context.Context) bool {
 	exist, err := _q.Exist(ctx)
 	if err != nil {
 		panic(err)
@@ -288,45 +215,45 @@ func (_q *RedeemCodeQuery) ExistX(ctx context.Context) bool {
 	return exist
 }
 
-// Clone returns a duplicate of the RedeemCodeQuery builder, including all associated steps. It can be
+// Clone returns a duplicate of the SubscriptionPlanModelQuery builder, including all associated steps. It can be
 // used to prepare common query builders and use them differently after the clone is made.
-func (_q *RedeemCodeQuery) Clone() *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) Clone() *SubscriptionPlanModelQuery {
 	if _q == nil {
 		return nil
 	}
-	return &RedeemCodeQuery{
+	return &SubscriptionPlanModelQuery{
 		config:     _q.config,
 		ctx:        _q.ctx.Clone(),
-		order:      append([]redeemcode.OrderOption{}, _q.order...),
+		order:      append([]subscriptionplanmodel.OrderOption{}, _q.order...),
 		inters:     append([]Interceptor{}, _q.inters...),
-		predicates: append([]predicate.RedeemCode{}, _q.predicates...),
-		withUser:   _q.withUser.Clone(),
+		predicates: append([]predicate.SubscriptionPlanModel{}, _q.predicates...),
 		withPlan:   _q.withPlan.Clone(),
+		withEntry:  _q.withEntry.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
 }
 
-// WithUser tells the query-builder to eager-load the nodes that are connected to
-// the "user" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *RedeemCodeQuery) WithUser(opts ...func(*UserQuery)) *RedeemCodeQuery {
-	query := (&UserClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withUser = query
-	return _q
-}
-
 // WithPlan tells the query-builder to eager-load the nodes that are connected to
 // the "plan" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *RedeemCodeQuery) WithPlan(opts ...func(*SubscriptionPlanQuery)) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) WithPlan(opts ...func(*SubscriptionPlanQuery)) *SubscriptionPlanModelQuery {
 	query := (&SubscriptionPlanClient{config: _q.config}).Query()
 	for _, opt := range opts {
 		opt(query)
 	}
 	_q.withPlan = query
+	return _q
+}
+
+// WithEntry tells the query-builder to eager-load the nodes that are connected to
+// the "entry" edge. The optional arguments are used to configure the query builder of the edge.
+func (_q *SubscriptionPlanModelQuery) WithEntry(opts ...func(*ModelCatalogEntryQuery)) *SubscriptionPlanModelQuery {
+	query := (&ModelCatalogEntryClient{config: _q.config}).Query()
+	for _, opt := range opts {
+		opt(query)
+	}
+	_q.withEntry = query
 	return _q
 }
 
@@ -336,19 +263,19 @@ func (_q *RedeemCodeQuery) WithPlan(opts ...func(*SubscriptionPlanQuery)) *Redee
 // Example:
 //
 //	var v []struct {
-//		Code string `json:"code,omitempty"`
+//		PlanID int64 `json:"plan_id,omitempty"`
 //		Count int `json:"count,omitempty"`
 //	}
 //
-//	client.RedeemCode.Query().
-//		GroupBy(redeemcode.FieldCode).
+//	client.SubscriptionPlanModel.Query().
+//		GroupBy(subscriptionplanmodel.FieldPlanID).
 //		Aggregate(ent.Count()).
 //		Scan(ctx, &v)
-func (_q *RedeemCodeQuery) GroupBy(field string, fields ...string) *RedeemCodeGroupBy {
+func (_q *SubscriptionPlanModelQuery) GroupBy(field string, fields ...string) *SubscriptionPlanModelGroupBy {
 	_q.ctx.Fields = append([]string{field}, fields...)
-	grbuild := &RedeemCodeGroupBy{build: _q}
+	grbuild := &SubscriptionPlanModelGroupBy{build: _q}
 	grbuild.flds = &_q.ctx.Fields
-	grbuild.label = redeemcode.Label
+	grbuild.label = subscriptionplanmodel.Label
 	grbuild.scan = grbuild.Scan
 	return grbuild
 }
@@ -359,26 +286,26 @@ func (_q *RedeemCodeQuery) GroupBy(field string, fields ...string) *RedeemCodeGr
 // Example:
 //
 //	var v []struct {
-//		Code string `json:"code,omitempty"`
+//		PlanID int64 `json:"plan_id,omitempty"`
 //	}
 //
-//	client.RedeemCode.Query().
-//		Select(redeemcode.FieldCode).
+//	client.SubscriptionPlanModel.Query().
+//		Select(subscriptionplanmodel.FieldPlanID).
 //		Scan(ctx, &v)
-func (_q *RedeemCodeQuery) Select(fields ...string) *RedeemCodeSelect {
+func (_q *SubscriptionPlanModelQuery) Select(fields ...string) *SubscriptionPlanModelSelect {
 	_q.ctx.Fields = append(_q.ctx.Fields, fields...)
-	sbuild := &RedeemCodeSelect{RedeemCodeQuery: _q}
-	sbuild.label = redeemcode.Label
+	sbuild := &SubscriptionPlanModelSelect{SubscriptionPlanModelQuery: _q}
+	sbuild.label = subscriptionplanmodel.Label
 	sbuild.flds, sbuild.scan = &_q.ctx.Fields, sbuild.Scan
 	return sbuild
 }
 
-// Aggregate returns a RedeemCodeSelect configured with the given aggregations.
-func (_q *RedeemCodeQuery) Aggregate(fns ...AggregateFunc) *RedeemCodeSelect {
+// Aggregate returns a SubscriptionPlanModelSelect configured with the given aggregations.
+func (_q *SubscriptionPlanModelQuery) Aggregate(fns ...AggregateFunc) *SubscriptionPlanModelSelect {
 	return _q.Select().Aggregate(fns...)
 }
 
-func (_q *RedeemCodeQuery) prepareQuery(ctx context.Context) error {
+func (_q *SubscriptionPlanModelQuery) prepareQuery(ctx context.Context) error {
 	for _, inter := range _q.inters {
 		if inter == nil {
 			return fmt.Errorf("ent: uninitialized interceptor (forgotten import ent/runtime?)")
@@ -390,7 +317,7 @@ func (_q *RedeemCodeQuery) prepareQuery(ctx context.Context) error {
 		}
 	}
 	for _, f := range _q.ctx.Fields {
-		if !redeemcode.ValidColumn(f) {
+		if !subscriptionplanmodel.ValidColumn(f) {
 			return &ValidationError{Name: f, err: fmt.Errorf("ent: invalid field %q for query", f)}
 		}
 	}
@@ -404,20 +331,20 @@ func (_q *RedeemCodeQuery) prepareQuery(ctx context.Context) error {
 	return nil
 }
 
-func (_q *RedeemCodeQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*RedeemCode, error) {
+func (_q *SubscriptionPlanModelQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*SubscriptionPlanModel, error) {
 	var (
-		nodes       = []*RedeemCode{}
+		nodes       = []*SubscriptionPlanModel{}
 		_spec       = _q.querySpec()
 		loadedTypes = [2]bool{
-			_q.withUser != nil,
 			_q.withPlan != nil,
+			_q.withEntry != nil,
 		}
 	)
 	_spec.ScanValues = func(columns []string) ([]any, error) {
-		return (*RedeemCode).scanValues(nil, columns)
+		return (*SubscriptionPlanModel).scanValues(nil, columns)
 	}
 	_spec.Assign = func(columns []string, values []any) error {
-		node := &RedeemCode{config: _q.config}
+		node := &SubscriptionPlanModel{config: _q.config}
 		nodes = append(nodes, node)
 		node.Edges.loadedTypes = loadedTypes
 		return node.assignValues(columns, values)
@@ -434,61 +361,26 @@ func (_q *RedeemCodeQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*R
 	if len(nodes) == 0 {
 		return nodes, nil
 	}
-	if query := _q.withUser; query != nil {
-		if err := _q.loadUser(ctx, query, nodes, nil,
-			func(n *RedeemCode, e *User) { n.Edges.User = e }); err != nil {
+	if query := _q.withPlan; query != nil {
+		if err := _q.loadPlan(ctx, query, nodes, nil,
+			func(n *SubscriptionPlanModel, e *SubscriptionPlan) { n.Edges.Plan = e }); err != nil {
 			return nil, err
 		}
 	}
-	if query := _q.withPlan; query != nil {
-		if err := _q.loadPlan(ctx, query, nodes, nil,
-			func(n *RedeemCode, e *SubscriptionPlan) { n.Edges.Plan = e }); err != nil {
+	if query := _q.withEntry; query != nil {
+		if err := _q.loadEntry(ctx, query, nodes, nil,
+			func(n *SubscriptionPlanModel, e *ModelCatalogEntry) { n.Edges.Entry = e }); err != nil {
 			return nil, err
 		}
 	}
 	return nodes, nil
 }
 
-func (_q *RedeemCodeQuery) loadUser(ctx context.Context, query *UserQuery, nodes []*RedeemCode, init func(*RedeemCode), assign func(*RedeemCode, *User)) error {
+func (_q *SubscriptionPlanModelQuery) loadPlan(ctx context.Context, query *SubscriptionPlanQuery, nodes []*SubscriptionPlanModel, init func(*SubscriptionPlanModel), assign func(*SubscriptionPlanModel, *SubscriptionPlan)) error {
 	ids := make([]int64, 0, len(nodes))
-	nodeids := make(map[int64][]*RedeemCode)
+	nodeids := make(map[int64][]*SubscriptionPlanModel)
 	for i := range nodes {
-		if nodes[i].UsedBy == nil {
-			continue
-		}
-		fk := *nodes[i].UsedBy
-		if _, ok := nodeids[fk]; !ok {
-			ids = append(ids, fk)
-		}
-		nodeids[fk] = append(nodeids[fk], nodes[i])
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	query.Where(user.IDIn(ids...))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nodeids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected foreign-key "used_by" returned %v`, n.ID)
-		}
-		for i := range nodes {
-			assign(nodes[i], n)
-		}
-	}
-	return nil
-}
-func (_q *RedeemCodeQuery) loadPlan(ctx context.Context, query *SubscriptionPlanQuery, nodes []*RedeemCode, init func(*RedeemCode), assign func(*RedeemCode, *SubscriptionPlan)) error {
-	ids := make([]int64, 0, len(nodes))
-	nodeids := make(map[int64][]*RedeemCode)
-	for i := range nodes {
-		if nodes[i].PlanID == nil {
-			continue
-		}
-		fk := *nodes[i].PlanID
+		fk := nodes[i].PlanID
 		if _, ok := nodeids[fk]; !ok {
 			ids = append(ids, fk)
 		}
@@ -513,21 +405,48 @@ func (_q *RedeemCodeQuery) loadPlan(ctx context.Context, query *SubscriptionPlan
 	}
 	return nil
 }
+func (_q *SubscriptionPlanModelQuery) loadEntry(ctx context.Context, query *ModelCatalogEntryQuery, nodes []*SubscriptionPlanModel, init func(*SubscriptionPlanModel), assign func(*SubscriptionPlanModel, *ModelCatalogEntry)) error {
+	ids := make([]int64, 0, len(nodes))
+	nodeids := make(map[int64][]*SubscriptionPlanModel)
+	for i := range nodes {
+		fk := nodes[i].EntryID
+		if _, ok := nodeids[fk]; !ok {
+			ids = append(ids, fk)
+		}
+		nodeids[fk] = append(nodeids[fk], nodes[i])
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	query.Where(modelcatalogentry.IDIn(ids...))
+	neighbors, err := query.All(ctx)
+	if err != nil {
+		return err
+	}
+	for _, n := range neighbors {
+		nodes, ok := nodeids[n.ID]
+		if !ok {
+			return fmt.Errorf(`unexpected foreign-key "entry_id" returned %v`, n.ID)
+		}
+		for i := range nodes {
+			assign(nodes[i], n)
+		}
+	}
+	return nil
+}
 
-func (_q *RedeemCodeQuery) sqlCount(ctx context.Context) (int, error) {
+func (_q *SubscriptionPlanModelQuery) sqlCount(ctx context.Context) (int, error) {
 	_spec := _q.querySpec()
 	if len(_q.modifiers) > 0 {
 		_spec.Modifiers = _q.modifiers
 	}
-	_spec.Node.Columns = _q.ctx.Fields
-	if len(_q.ctx.Fields) > 0 {
-		_spec.Unique = _q.ctx.Unique != nil && *_q.ctx.Unique
-	}
+	_spec.Unique = false
+	_spec.Node.Columns = nil
 	return sqlgraph.CountNodes(ctx, _q.driver, _spec)
 }
 
-func (_q *RedeemCodeQuery) querySpec() *sqlgraph.QuerySpec {
-	_spec := sqlgraph.NewQuerySpec(redeemcode.Table, redeemcode.Columns, sqlgraph.NewFieldSpec(redeemcode.FieldID, field.TypeInt64))
+func (_q *SubscriptionPlanModelQuery) querySpec() *sqlgraph.QuerySpec {
+	_spec := sqlgraph.NewQuerySpec(subscriptionplanmodel.Table, subscriptionplanmodel.Columns, nil)
 	_spec.From = _q.sql
 	if unique := _q.ctx.Unique; unique != nil {
 		_spec.Unique = *unique
@@ -536,17 +455,14 @@ func (_q *RedeemCodeQuery) querySpec() *sqlgraph.QuerySpec {
 	}
 	if fields := _q.ctx.Fields; len(fields) > 0 {
 		_spec.Node.Columns = make([]string, 0, len(fields))
-		_spec.Node.Columns = append(_spec.Node.Columns, redeemcode.FieldID)
 		for i := range fields {
-			if fields[i] != redeemcode.FieldID {
-				_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
-			}
-		}
-		if _q.withUser != nil {
-			_spec.Node.AddColumnOnce(redeemcode.FieldUsedBy)
+			_spec.Node.Columns = append(_spec.Node.Columns, fields[i])
 		}
 		if _q.withPlan != nil {
-			_spec.Node.AddColumnOnce(redeemcode.FieldPlanID)
+			_spec.Node.AddColumnOnce(subscriptionplanmodel.FieldPlanID)
+		}
+		if _q.withEntry != nil {
+			_spec.Node.AddColumnOnce(subscriptionplanmodel.FieldEntryID)
 		}
 	}
 	if ps := _q.predicates; len(ps) > 0 {
@@ -572,12 +488,12 @@ func (_q *RedeemCodeQuery) querySpec() *sqlgraph.QuerySpec {
 	return _spec
 }
 
-func (_q *RedeemCodeQuery) sqlQuery(ctx context.Context) *sql.Selector {
+func (_q *SubscriptionPlanModelQuery) sqlQuery(ctx context.Context) *sql.Selector {
 	builder := sql.Dialect(_q.driver.Dialect())
-	t1 := builder.Table(redeemcode.Table)
+	t1 := builder.Table(subscriptionplanmodel.Table)
 	columns := _q.ctx.Fields
 	if len(columns) == 0 {
-		columns = redeemcode.Columns
+		columns = subscriptionplanmodel.Columns
 	}
 	selector := builder.Select(t1.Columns(columns...)...).From(t1)
 	if _q.sql != nil {
@@ -610,7 +526,7 @@ func (_q *RedeemCodeQuery) sqlQuery(ctx context.Context) *sql.Selector {
 // ForUpdate locks the selected rows against concurrent updates, and prevent them from being
 // updated, deleted or "selected ... for update" by other sessions, until the transaction is
 // either committed or rolled-back.
-func (_q *RedeemCodeQuery) ForUpdate(opts ...sql.LockOption) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) ForUpdate(opts ...sql.LockOption) *SubscriptionPlanModelQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -623,7 +539,7 @@ func (_q *RedeemCodeQuery) ForUpdate(opts ...sql.LockOption) *RedeemCodeQuery {
 // ForShare behaves similarly to ForUpdate, except that it acquires a shared mode lock
 // on any rows that are read. Other sessions can read the rows, but cannot modify them
 // until your transaction commits.
-func (_q *RedeemCodeQuery) ForShare(opts ...sql.LockOption) *RedeemCodeQuery {
+func (_q *SubscriptionPlanModelQuery) ForShare(opts ...sql.LockOption) *SubscriptionPlanModelQuery {
 	if _q.driver.Dialect() == dialect.Postgres {
 		_q.Unique(false)
 	}
@@ -633,28 +549,28 @@ func (_q *RedeemCodeQuery) ForShare(opts ...sql.LockOption) *RedeemCodeQuery {
 	return _q
 }
 
-// RedeemCodeGroupBy is the group-by builder for RedeemCode entities.
-type RedeemCodeGroupBy struct {
+// SubscriptionPlanModelGroupBy is the group-by builder for SubscriptionPlanModel entities.
+type SubscriptionPlanModelGroupBy struct {
 	selector
-	build *RedeemCodeQuery
+	build *SubscriptionPlanModelQuery
 }
 
 // Aggregate adds the given aggregation functions to the group-by query.
-func (_g *RedeemCodeGroupBy) Aggregate(fns ...AggregateFunc) *RedeemCodeGroupBy {
+func (_g *SubscriptionPlanModelGroupBy) Aggregate(fns ...AggregateFunc) *SubscriptionPlanModelGroupBy {
 	_g.fns = append(_g.fns, fns...)
 	return _g
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_g *RedeemCodeGroupBy) Scan(ctx context.Context, v any) error {
+func (_g *SubscriptionPlanModelGroupBy) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _g.build.ctx, ent.OpQueryGroupBy)
 	if err := _g.build.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*RedeemCodeQuery, *RedeemCodeGroupBy](ctx, _g.build, _g, _g.build.inters, v)
+	return scanWithInterceptors[*SubscriptionPlanModelQuery, *SubscriptionPlanModelGroupBy](ctx, _g.build, _g, _g.build.inters, v)
 }
 
-func (_g *RedeemCodeGroupBy) sqlScan(ctx context.Context, root *RedeemCodeQuery, v any) error {
+func (_g *SubscriptionPlanModelGroupBy) sqlScan(ctx context.Context, root *SubscriptionPlanModelQuery, v any) error {
 	selector := root.sqlQuery(ctx).Select()
 	aggregation := make([]string, 0, len(_g.fns))
 	for _, fn := range _g.fns {
@@ -681,28 +597,28 @@ func (_g *RedeemCodeGroupBy) sqlScan(ctx context.Context, root *RedeemCodeQuery,
 	return sql.ScanSlice(rows, v)
 }
 
-// RedeemCodeSelect is the builder for selecting fields of RedeemCode entities.
-type RedeemCodeSelect struct {
-	*RedeemCodeQuery
+// SubscriptionPlanModelSelect is the builder for selecting fields of SubscriptionPlanModel entities.
+type SubscriptionPlanModelSelect struct {
+	*SubscriptionPlanModelQuery
 	selector
 }
 
 // Aggregate adds the given aggregation functions to the selector query.
-func (_s *RedeemCodeSelect) Aggregate(fns ...AggregateFunc) *RedeemCodeSelect {
+func (_s *SubscriptionPlanModelSelect) Aggregate(fns ...AggregateFunc) *SubscriptionPlanModelSelect {
 	_s.fns = append(_s.fns, fns...)
 	return _s
 }
 
 // Scan applies the selector query and scans the result into the given value.
-func (_s *RedeemCodeSelect) Scan(ctx context.Context, v any) error {
+func (_s *SubscriptionPlanModelSelect) Scan(ctx context.Context, v any) error {
 	ctx = setContextOp(ctx, _s.ctx, ent.OpQuerySelect)
 	if err := _s.prepareQuery(ctx); err != nil {
 		return err
 	}
-	return scanWithInterceptors[*RedeemCodeQuery, *RedeemCodeSelect](ctx, _s.RedeemCodeQuery, _s, _s.inters, v)
+	return scanWithInterceptors[*SubscriptionPlanModelQuery, *SubscriptionPlanModelSelect](ctx, _s.SubscriptionPlanModelQuery, _s, _s.inters, v)
 }
 
-func (_s *RedeemCodeSelect) sqlScan(ctx context.Context, root *RedeemCodeQuery, v any) error {
+func (_s *SubscriptionPlanModelSelect) sqlScan(ctx context.Context, root *SubscriptionPlanModelQuery, v any) error {
 	selector := root.sqlQuery(ctx)
 	aggregation := make([]string, 0, len(_s.fns))
 	for _, fn := range _s.fns {

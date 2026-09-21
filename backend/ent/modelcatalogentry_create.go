@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 )
 
 // ModelCatalogEntryCreate is the builder for creating a ModelCatalogEntry entity.
@@ -456,6 +457,21 @@ func (_c *ModelCatalogEntryCreate) AddAccounts(v ...*Account) *ModelCatalogEntry
 	return _c.AddAccountIDs(ids...)
 }
 
+// AddSubscriptionPlanIDs adds the "subscription_plans" edge to the SubscriptionPlan entity by IDs.
+func (_c *ModelCatalogEntryCreate) AddSubscriptionPlanIDs(ids ...int64) *ModelCatalogEntryCreate {
+	_c.mutation.AddSubscriptionPlanIDs(ids...)
+	return _c
+}
+
+// AddSubscriptionPlans adds the "subscription_plans" edges to the SubscriptionPlan entity.
+func (_c *ModelCatalogEntryCreate) AddSubscriptionPlans(v ...*SubscriptionPlan) *ModelCatalogEntryCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddSubscriptionPlanIDs(ids...)
+}
+
 // Mutation returns the ModelCatalogEntryMutation object of the builder.
 func (_c *ModelCatalogEntryCreate) Mutation() *ModelCatalogEntryMutation {
 	return _c.mutation
@@ -753,6 +769,22 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 		createE.defaults()
 		_, specE := createE.createSpec()
 		edge.Target.Fields = specE.Fields
+		_spec.Edges = append(_spec.Edges, edge)
+	}
+	if nodes := _c.mutation.SubscriptionPlansIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   modelcatalogentry.SubscriptionPlansTable,
+			Columns: modelcatalogentry.SubscriptionPlansPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(subscriptionplan.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	return _node, _spec

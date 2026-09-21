@@ -7,6 +7,7 @@ import (
 	"entgo.io/ent/dialect"
 	"entgo.io/ent/dialect/entsql"
 	"entgo.io/ent/schema"
+	"entgo.io/ent/schema/edge"
 	"entgo.io/ent/schema/field"
 	"entgo.io/ent/schema/index"
 )
@@ -17,7 +18,7 @@ import (
 // SubscriptionPlan 使用硬删除而非软删除，原因如下：
 //   - 套餐为管理员维护的商品配置，删除即表示下架移除
 //   - 通过 for_sale 字段控制是否在售，删除仅用于彻底移除
-//   - 已购买的订阅记录保存在 UserSubscription 中，不受套餐删除影响
+//   - 仍有订阅行（含软删）引用的套餐由 user_subscriptions.plan_id 的 RESTRICT 外键拦住（PLAN_IN_USE）
 type SubscriptionPlan struct {
 	ent.Schema
 }
@@ -30,7 +31,6 @@ func (SubscriptionPlan) Annotations() []schema.Annotation {
 
 func (SubscriptionPlan) Fields() []ent.Field {
 	return []ent.Field{
-		field.Int64("group_id"),
 		field.String("name").
 			MaxLen(100).
 			NotEmpty(),
@@ -61,6 +61,19 @@ func (SubscriptionPlan) Fields() []ent.Field {
 			Default(true),
 		field.Int("sort_order").
 			Default(0),
+		// 套餐自带的日 / 周 / 月限额（USD）；nil 或 <= 0 = 不限
+		field.Float("daily_limit_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Optional().
+			Nillable(),
+		field.Float("weekly_limit_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Optional().
+			Nillable(),
+		field.Float("monthly_limit_usd").
+			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
+			Optional().
+			Nillable(),
 		field.Time("created_at").
 			Immutable().
 			Default(time.Now).
@@ -72,9 +85,18 @@ func (SubscriptionPlan) Fields() []ent.Field {
 	}
 }
 
+func (SubscriptionPlan) Edges() []ent.Edge {
+	return []ent.Edge{
+		// 套餐模型集：经 subscription_plan_models(plan_id, entry_id) 中间表
+		edge.To("catalog_entries", ModelCatalogEntry.Type).
+			Through("models", SubscriptionPlanModel.Type),
+		edge.To("subscriptions", UserSubscription.Type),
+		edge.To("redeem_codes", RedeemCode.Type),
+	}
+}
+
 func (SubscriptionPlan) Indexes() []ent.Index {
 	return []ent.Index{
-		index.Fields("group_id"),
 		index.Fields("for_sale"),
 	}
 }

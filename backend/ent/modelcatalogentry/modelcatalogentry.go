@@ -78,8 +78,12 @@ const (
 	FieldNotes = "notes"
 	// EdgeAccounts holds the string denoting the accounts edge name in mutations.
 	EdgeAccounts = "accounts"
+	// EdgeSubscriptionPlans holds the string denoting the subscription_plans edge name in mutations.
+	EdgeSubscriptionPlans = "subscription_plans"
 	// EdgeBindings holds the string denoting the bindings edge name in mutations.
 	EdgeBindings = "bindings"
+	// EdgePlanModels holds the string denoting the plan_models edge name in mutations.
+	EdgePlanModels = "plan_models"
 	// Table holds the table name of the modelcatalogentry in the database.
 	Table = "model_catalog_entries"
 	// AccountsTable is the table that holds the accounts relation/edge. The primary key declared below.
@@ -87,6 +91,11 @@ const (
 	// AccountsInverseTable is the table name for the Account entity.
 	// It exists in this package in order to avoid circular dependency with the "account" package.
 	AccountsInverseTable = "accounts"
+	// SubscriptionPlansTable is the table that holds the subscription_plans relation/edge. The primary key declared below.
+	SubscriptionPlansTable = "subscription_plan_models"
+	// SubscriptionPlansInverseTable is the table name for the SubscriptionPlan entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplan" package.
+	SubscriptionPlansInverseTable = "subscription_plans"
 	// BindingsTable is the table that holds the bindings relation/edge.
 	BindingsTable = "model_catalog_bindings"
 	// BindingsInverseTable is the table name for the ModelCatalogBinding entity.
@@ -94,6 +103,13 @@ const (
 	BindingsInverseTable = "model_catalog_bindings"
 	// BindingsColumn is the table column denoting the bindings relation/edge.
 	BindingsColumn = "entry_id"
+	// PlanModelsTable is the table that holds the plan_models relation/edge.
+	PlanModelsTable = "subscription_plan_models"
+	// PlanModelsInverseTable is the table name for the SubscriptionPlanModel entity.
+	// It exists in this package in order to avoid circular dependency with the "subscriptionplanmodel" package.
+	PlanModelsInverseTable = "subscription_plan_models"
+	// PlanModelsColumn is the table column denoting the plan_models relation/edge.
+	PlanModelsColumn = "entry_id"
 )
 
 // Columns holds all SQL columns for modelcatalogentry fields.
@@ -136,6 +152,9 @@ var (
 	// AccountsPrimaryKey and AccountsColumn2 are the table columns denoting the
 	// primary key for the accounts relation (M2M).
 	AccountsPrimaryKey = []string{"entry_id", "account_id"}
+	// SubscriptionPlansPrimaryKey and SubscriptionPlansColumn2 are the table columns denoting the
+	// primary key for the subscription_plans relation (M2M).
+	SubscriptionPlansPrimaryKey = []string{"plan_id", "entry_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -353,6 +372,20 @@ func ByAccounts(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// BySubscriptionPlansCount orders the results by subscription_plans count.
+func BySubscriptionPlansCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newSubscriptionPlansStep(), opts...)
+	}
+}
+
+// BySubscriptionPlans orders the results by subscription_plans terms.
+func BySubscriptionPlans(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newSubscriptionPlansStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByBindingsCount orders the results by bindings count.
 func ByBindingsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -366,6 +399,20 @@ func ByBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 		sqlgraph.OrderByNeighborTerms(s, newBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
+
+// ByPlanModelsCount orders the results by plan_models count.
+func ByPlanModelsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newPlanModelsStep(), opts...)
+	}
+}
+
+// ByPlanModels orders the results by plan_models terms.
+func ByPlanModels(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newPlanModelsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
 func newAccountsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -373,10 +420,24 @@ func newAccountsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.M2M, false, AccountsTable, AccountsPrimaryKey...),
 	)
 }
+func newSubscriptionPlansStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(SubscriptionPlansInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, SubscriptionPlansTable, SubscriptionPlansPrimaryKey...),
+	)
+}
 func newBindingsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(BindingsInverseTable, BindingsColumn),
 		sqlgraph.Edge(sqlgraph.O2M, true, BindingsTable, BindingsColumn),
+	)
+}
+func newPlanModelsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(PlanModelsInverseTable, PlanModelsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, PlanModelsTable, PlanModelsColumn),
 	)
 }

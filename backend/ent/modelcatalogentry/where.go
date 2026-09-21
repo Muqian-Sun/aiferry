@@ -1793,6 +1793,29 @@ func HasAccountsWith(preds ...predicate.Account) predicate.ModelCatalogEntry {
 	})
 }
 
+// HasSubscriptionPlans applies the HasEdge predicate on the "subscription_plans" edge.
+func HasSubscriptionPlans() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.M2M, true, SubscriptionPlansTable, SubscriptionPlansPrimaryKey...),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasSubscriptionPlansWith applies the HasEdge predicate on the "subscription_plans" edge with a given conditions (other predicates).
+func HasSubscriptionPlansWith(preds ...predicate.SubscriptionPlan) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := newSubscriptionPlansStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
 // HasBindings applies the HasEdge predicate on the "bindings" edge.
 func HasBindings() predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
@@ -1808,6 +1831,29 @@ func HasBindings() predicate.ModelCatalogEntry {
 func HasBindingsWith(preds ...predicate.ModelCatalogBinding) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
 		step := newBindingsStep()
+		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
+			for _, p := range preds {
+				p(s)
+			}
+		})
+	})
+}
+
+// HasPlanModels applies the HasEdge predicate on the "plan_models" edge.
+func HasPlanModels() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := sqlgraph.NewStep(
+			sqlgraph.From(Table, FieldID),
+			sqlgraph.Edge(sqlgraph.O2M, true, PlanModelsTable, PlanModelsColumn),
+		)
+		sqlgraph.HasNeighbors(s, step)
+	})
+}
+
+// HasPlanModelsWith applies the HasEdge predicate on the "plan_models" edge with a given conditions (other predicates).
+func HasPlanModelsWith(preds ...predicate.SubscriptionPlanModel) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(func(s *sql.Selector) {
+		step := newPlanModelsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

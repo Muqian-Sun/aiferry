@@ -113,6 +113,10 @@ func (ModelCatalogEntry) Edges() []ent.Edge {
 	return []ent.Edge{
 		edge.To("accounts", Account.Type).
 			Through("bindings", ModelCatalogBinding.Type),
+		// subscription_plans: 条目进了哪些套餐的模型集，经 subscription_plan_models 中间表
+		edge.From("subscription_plans", SubscriptionPlan.Type).
+			Ref("catalog_entries").
+			Through("plan_models", SubscriptionPlanModel.Type),
 	}
 }
 
