@@ -48,12 +48,13 @@ func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 2, result.Inserted)
+	// 2 条来自价格文件 / 兜底表 + 5 条 xAI Imagine 媒体种子
+	require.Equal(t, 2+len(xaiImagineSeeds()), result.Inserted)
 	require.Zero(t, result.Refreshed)
 	require.Zero(t, result.SkippedAdmin)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 2)
+	require.Len(t, entries, 2+len(xaiImagineSeeds()))
 
 	sonnet := entries["claude-sonnet-4"]
 	require.Equal(t, ModelCatalogManagedBySeed, sonnet.ManagedBy)
@@ -83,7 +84,7 @@ func TestSeed_PricingFileWinsOverFallbackTableForSameModel(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 1)
+	require.Len(t, entries, 1+len(xaiImagineSeeds()))
 	require.InDelta(t, 3e-6, *entries["claude-sonnet-4"].InputPrice, 1e-12)
 }
 
@@ -151,7 +152,7 @@ func TestSeed_RefreshesSeedEntriesAndNeverOverwritesAdminEdits(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Zero(t, result.Inserted)
+	require.Equal(t, len(xaiImagineSeeds()), result.Inserted, "只有 Imagine 媒体种子是新插入的")
 	require.Equal(t, 1, result.Refreshed)
 	require.Equal(t, 1, result.SkippedAdmin)
 

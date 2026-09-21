@@ -204,6 +204,7 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 		pos, ok := index[key]
 		if !ok {
 			entry.ID = int64(len(r.entries) + 1)
+			entry.Aliases = r.seedAliases(entry.ID, nil, entry.SeedAliases)
 			r.entries = append(r.entries, entry)
 			index[key] = len(r.entries) - 1
 			result.Inserted++
@@ -214,14 +215,38 @@ func (r *stubModelCatalogRepo) InsertOrRefreshSeedEntries(
 			continue
 		}
 		entry.ID = r.entries[pos].ID
-		// 播种不动别名 / 分档 / 分时。
-		entry.Aliases = r.entries[pos].Aliases
-		entry.Intervals = r.entries[pos].Intervals
+		// 与真仓储同口径：种子带分档时整份覆盖，否则保留；别名只补不删；分时不动。
+		entry.Aliases = r.seedAliases(entry.ID, r.entries[pos].Aliases, entry.SeedAliases)
+		if len(entry.Intervals) == 0 {
+			entry.Intervals = r.entries[pos].Intervals
+		}
 		entry.TimePricing = r.entries[pos].TimePricing
 		r.entries[pos] = entry
 		result.Refreshed++
 	}
 	return result, nil
+}
+
+// seedAliases 模拟仓储写种子别名：全局（跨条目）已被占用的别名跳过。
+func (r *stubModelCatalogRepo) seedAliases(entryID int64, existing []ModelCatalogAlias, seeds []string) []ModelCatalogAlias {
+	out := append([]ModelCatalogAlias(nil), existing...)
+	taken := make(map[string]bool)
+	for i := range r.entries {
+		for _, alias := range r.entries[i].Aliases {
+			taken[strings.ToLower(alias.Alias)] = true
+		}
+	}
+	for _, alias := range existing {
+		taken[strings.ToLower(alias.Alias)] = true
+	}
+	for _, alias := range seeds {
+		if taken[strings.ToLower(alias)] {
+			continue
+		}
+		taken[strings.ToLower(alias)] = true
+		out = append(out, ModelCatalogAlias{EntryID: entryID, Alias: alias, Source: ModelCatalogAliasSourceSeed})
+	}
+	return out
 }
 
 // newTestModelCatalogService 用给定条目构造一个不接 Redis 的目录服务。
@@ -246,6 +271,7 @@ func catalogEntryFromCard(modelID, managedBy string, card PricingCard) ModelCata
 		ImageInputPrice:              card.ImageInputPrice,
 		ImageOutputPrice:             card.ImageOutputPrice,
 		PerRequestPrice:              card.PerRequestPrice,
+		SearchPricePerCall:           card.SearchPricePerCall,
 		FastMultiplier:               card.FastMultiplier,
 		FlexMultiplier:               card.FlexMultiplier,
 		MaxReasoningEffortMultiplier: card.MaxReasoningEffortMultiplier,

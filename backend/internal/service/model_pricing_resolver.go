@@ -30,6 +30,9 @@ type ResolvedPricing struct {
 	// 按次/图片模式：默认价格（未命中层级时使用）
 	DefaultPerRequestPrice float64
 
+	// SearchPricePerCall 模型内置搜索每次调用价（目录条目配置）；nil 表示用内置单价。
+	SearchPricePerCall *float64
+
 	// 来源标识
 	Source string // "catalog", "litellm", "fallback"
 
@@ -112,11 +115,12 @@ func (r *ModelPricingResolver) lookupCatalogEntry(ctx context.Context, model str
 func (r *ModelPricingResolver) resolveCatalogPricing(entry *ModelCatalogEntry) *ResolvedPricing {
 	card := entry.PricingCard()
 	resolved := &ResolvedPricing{
-		Mode:              entry.EffectiveBillingMode(),
-		Source:            PricingSourceCatalog,
-		CanonicalModel:    entry.ModelID,
-		configuredPricing: card,
-		operatorPricing:   entry.IsOperatorAuthored(),
+		Mode:               entry.EffectiveBillingMode(),
+		Source:             PricingSourceCatalog,
+		CanonicalModel:     entry.ModelID,
+		configuredPricing:  card,
+		operatorPricing:    entry.IsOperatorAuthored(),
+		SearchPricePerCall: card.SearchPricePerCall,
 	}
 
 	switch resolved.Mode {

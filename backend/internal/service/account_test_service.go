@@ -110,8 +110,8 @@ func isOpenAIImageModel(model string) bool {
 }
 
 func isGrokVideoGenerationModel(model string) bool {
-	return isGrokVideoBillingModel(model) ||
-		strings.HasPrefix(strings.ToLower(strings.TrimSpace(model)), "grok-video")
+	lower := strings.ToLower(strings.TrimSpace(model))
+	return strings.HasPrefix(lower, "grok-imagine-video") || strings.HasPrefix(lower, "grok-video")
 }
 
 func normalizeGrokAccountTestMode(mode string) string {

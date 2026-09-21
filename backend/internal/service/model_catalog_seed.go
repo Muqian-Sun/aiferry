@@ -23,8 +23,8 @@ type ModelCatalogSeedInput struct {
 //   - 已存在且 managed_by = seed → 用当前价格文件刷新，保证价格文件更新后目录不会冻在播种时刻；
 //   - 已存在且 managed_by = admin → 整条跳过，管理员改动永不被覆盖。
 //
-// 播种只写「条目本身」：别名、分档、分时没有默认数据来源，不会被播种写入，
-// 也不会被播种刷新掉。
+// 播种写条目本身；种子自带的分档（Intervals）与别名（SeedAliases）也随之写入 / 刷新
+// （目前只有 xAI Imagine 种子带），分时没有默认数据来源。
 func (s *ModelCatalogService) Seed(ctx context.Context) (ModelCatalogSeedResult, error) {
 	if s == nil || s.repo == nil {
 		return ModelCatalogSeedResult{}, nil
@@ -89,12 +89,13 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 			if pricing == nil {
 				continue
 			}
-			// 仅有图片价、没有 token 价的条目今天会被 getModelPricingAt 明确拒绝
-			// （否则 token 流量按 $0 计费）。播种它们等于把这条拒绝绕过去。
-			if pricing.TokenPricingAbsent {
+			entry := seedEntryFromLiteLLM(name, pricing)
+			// token 模式却没有 token 价（理论不可达：解析期已丢掉无价条目）——播进去会让
+			// token 流量按 $0 计费，跳过并打出来。
+			if entry.BillingMode == BillingModeToken && pricing.TokenPricingAbsent {
+				slog.Warn("skipping catalog seed without token or per-image price", "model", name, "mode", pricing.Mode)
 				continue
 			}
-			entry := seedEntryFromLiteLLM(name, pricing)
 			byKey[NormalizeModelCatalogKey(entry.ModelID)] = entry
 		}
 	}
@@ -115,6 +116,18 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 			}
 			byKey[key] = seedEntryFromFallback(name, pricing)
 		}
+	}
+
+	// xAI Imagine 官方媒体价：价格文件没有这些模型时才播（同硬编码兜底价的优先级）。
+	for _, entry := range xaiImagineSeeds() {
+		key := NormalizeModelCatalogKey(entry.ModelID)
+		if _, exists := byKey[key]; exists {
+			continue
+		}
+		if input.PricingService != nil && input.PricingService.GetModelPricing(entry.ModelID) != nil {
+			continue
+		}
+		byKey[key] = entry
 	}
 
 	keys := make([]string, 0, len(byKey))
@@ -144,9 +157,7 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 	entry := ModelCatalogEntry{
 		ModelID: name,
 		Vendor:  strings.ToLower(strings.TrimSpace(pricing.LiteLLMProvider)),
-		// 播种一律记 token：今天没有渠道/分组价卡的模型在解析器里就是 token 模式，
-		// 图片 / 视频计费走的是另一条读 PricingService 的路径。播成 image/video
-		// 会让 CalculateCostUnified 改走按次分支，属于行为改动。
+		// 默认 token；按张计价的生图模型下面改成 image。
 		BillingMode: BillingModeToken,
 		// 播种条目没有绑定资源，默认下架；管理员绑好资源再上架。
 		Status:    ModelCatalogStatusUnlisted,
@@ -181,8 +192,20 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		threshold := pricing.LongContextInputTokenThreshold
 		entry.LongContextInputThreshold = &threshold
 	}
+	if pricing.Mode == liteLLMModeImageGeneration && pricing.OutputCostPerImage > 0 {
+		// 按张计价的生图模型：默认价 = 每张价。token 价照抄——同一模型经对话入口调用、
+		// 没有图片输出时（ImageCount == 0）仍按 token 算。
+		entry.BillingMode = BillingModeImage
+		entry.PerRequestPrice = positivePrice(pricing.OutputCostPerImage)
+	}
+	// 模型内置搜索价只存 medium 档（拍的：OpenAI 按请求的 search_context_size 三档计，
+	// 我们只存一档；对账发现偏差再决定是否三档都存）。
+	entry.SearchPricePerCall = positivePrice(pricing.SearchContextCostPerQuery["search_context_size_medium"])
 	return entry
 }
+
+// liteLLMModeImageGeneration 是价格文件里生图模型的 mode 值。
+const liteLLMModeImageGeneration = "image_generation"
 
 func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry {
 	entry := ModelCatalogEntry{

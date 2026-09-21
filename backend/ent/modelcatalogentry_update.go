@@ -489,6 +489,33 @@ func (_u *ModelCatalogEntryUpdate) ClearPerRequestPrice() *ModelCatalogEntryUpda
 	return _u
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdate) SetSearchPricePerCall(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.ResetSearchPricePerCall()
+	_u.mutation.SetSearchPricePerCall(v)
+	return _u
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableSearchPricePerCall(v *float64) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetSearchPricePerCall(*v)
+	}
+	return _u
+}
+
+// AddSearchPricePerCall adds value to the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdate) AddSearchPricePerCall(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddSearchPricePerCall(v)
+	return _u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdate) ClearSearchPricePerCall() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearSearchPricePerCall()
+	return _u
+}
+
 // SetLongContextInputThreshold sets the "long_context_input_threshold" field.
 func (_u *ModelCatalogEntryUpdate) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetLongContextInputThreshold()
@@ -957,6 +984,15 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	}
 	if _u.mutation.PerRequestPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedSearchPricePerCall(); ok {
+		_spec.AddField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if _u.mutation.SearchPricePerCallCleared() {
+		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.LongContextInputThreshold(); ok {
 		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
@@ -1557,6 +1593,33 @@ func (_u *ModelCatalogEntryUpdateOne) ClearPerRequestPrice() *ModelCatalogEntryU
 	return _u
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdateOne) SetSearchPricePerCall(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.ResetSearchPricePerCall()
+	_u.mutation.SetSearchPricePerCall(v)
+	return _u
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableSearchPricePerCall(v *float64) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetSearchPricePerCall(*v)
+	}
+	return _u
+}
+
+// AddSearchPricePerCall adds value to the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdateOne) AddSearchPricePerCall(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddSearchPricePerCall(v)
+	return _u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearSearchPricePerCall() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearSearchPricePerCall()
+	return _u
+}
+
 // SetLongContextInputThreshold sets the "long_context_input_threshold" field.
 func (_u *ModelCatalogEntryUpdateOne) SetLongContextInputThreshold(v int) *ModelCatalogEntryUpdateOne {
 	_u.mutation.ResetLongContextInputThreshold()
@@ -2055,6 +2118,15 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.PerRequestPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedSearchPricePerCall(); ok {
+		_spec.AddField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
+	}
+	if _u.mutation.SearchPricePerCallCleared() {
+		_spec.ClearField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.LongContextInputThreshold(); ok {
 		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)

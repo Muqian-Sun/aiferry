@@ -160,6 +160,11 @@ func PerRequestPrice(v float64) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldPerRequestPrice, v))
 }
 
+// SearchPricePerCall applies equality check predicate on the "search_price_per_call" field. It's identical to SearchPricePerCallEQ.
+func SearchPricePerCall(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldSearchPricePerCall, v))
+}
+
 // LongContextInputThreshold applies equality check predicate on the "long_context_input_threshold" field. It's identical to LongContextInputThresholdEQ.
 func LongContextInputThreshold(v int) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldLongContextInputThreshold, v))
@@ -1328,6 +1333,56 @@ func PerRequestPriceIsNil() predicate.ModelCatalogEntry {
 // PerRequestPriceNotNil applies the NotNil predicate on the "per_request_price" field.
 func PerRequestPriceNotNil() predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldPerRequestPrice))
+}
+
+// SearchPricePerCallEQ applies the EQ predicate on the "search_price_per_call" field.
+func SearchPricePerCallEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallNEQ applies the NEQ predicate on the "search_price_per_call" field.
+func SearchPricePerCallNEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallIn applies the In predicate on the "search_price_per_call" field.
+func SearchPricePerCallIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldSearchPricePerCall, vs...))
+}
+
+// SearchPricePerCallNotIn applies the NotIn predicate on the "search_price_per_call" field.
+func SearchPricePerCallNotIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldSearchPricePerCall, vs...))
+}
+
+// SearchPricePerCallGT applies the GT predicate on the "search_price_per_call" field.
+func SearchPricePerCallGT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallGTE applies the GTE predicate on the "search_price_per_call" field.
+func SearchPricePerCallGTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallLT applies the LT predicate on the "search_price_per_call" field.
+func SearchPricePerCallLT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallLTE applies the LTE predicate on the "search_price_per_call" field.
+func SearchPricePerCallLTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldSearchPricePerCall, v))
+}
+
+// SearchPricePerCallIsNil applies the IsNil predicate on the "search_price_per_call" field.
+func SearchPricePerCallIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldSearchPricePerCall))
+}
+
+// SearchPricePerCallNotNil applies the NotNil predicate on the "search_price_per_call" field.
+func SearchPricePerCallNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldSearchPricePerCall))
 }
 
 // LongContextInputThresholdEQ applies the EQ predicate on the "long_context_input_threshold" field.

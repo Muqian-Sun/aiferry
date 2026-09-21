@@ -60,6 +60,7 @@ type PricingCard struct {
 	ImageInputPrice              *float64          `json:"image_input_price"`
 	ImageOutputPrice             *float64          `json:"image_output_price"`
 	PerRequestPrice              *float64          `json:"per_request_price"`
+	SearchPricePerCall           *float64          `json:"search_price_per_call,omitempty"`
 	Intervals                    []PricingInterval `json:"intervals"`
 	TimePricing                  *TimePricing      `json:"time_pricing,omitempty"`
 	CreatedAt                    time.Time         `json:"created_at,omitempty"`
@@ -159,9 +160,10 @@ func (p PricingCard) Clone() PricingCard {
 // mode 决定区间语义：
 //   - BillingModeToken（含空值）：区间是上下文 token 数分段 (min, max]，
 //     按 MinTokens 排序后无重叠，无界区间（MaxTokens=nil）必须是最后一个。
-//   - BillingModePerRequest / BillingModeImage：区间是按 tier_label
-//     (1K/2K/4K 等) 分层，匹配走 label 不依赖 min/max，因此跳过区间重叠
-//     与 last-unlimited 校验，仅做单条字段自洽（min/max/价格非负）检查。
+//   - BillingModeImage / BillingModeVideo：区间是按 tier_label 分档（图片按输出尺寸
+//     1K/2K/4K，视频按分辨率 480p/720p/1080p），每档必须带 tier_label 与 per_request_price，
+//     tier_label 同条目内唯一且只接受上述取值（计费查档区分大小写）。
+//   - BillingModePerRequest：按 tier_label 分档，标签自由；跳过区间重叠与 last-unlimited 校验。
 //
 // 通用规则：MinTokens >= 0；MaxTokens 若非 nil 则 > 0 且 > MinTokens；
 // 所有价格字段 >= 0。
@@ -181,11 +183,46 @@ func ValidateIntervals(intervals []PricingInterval, mode BillingMode) error {
 		}
 	}
 
-	// per_request / image 模式按 tier_label 匹配，不做 token 区间重叠校验
-	if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
+	switch mode {
+	case BillingModeImage:
+		return validateMediaTiers(intervals, mediaTierLabels(ImageBillingSize1K, ImageBillingSize2K, ImageBillingSize4K), "image")
+	case BillingModeVideo:
+		return validateMediaTiers(intervals, mediaTierLabels(VideoBillingResolution480P, VideoBillingResolution720P, VideoBillingResolution1080P), "video")
+	case BillingModePerRequest:
+		// 按 tier_label 匹配，不做 token 区间重叠校验
 		return nil
 	}
 	return validateIntervalOverlap(sorted)
+}
+
+func mediaTierLabels(labels ...string) map[string]bool {
+	out := make(map[string]bool, len(labels))
+	for _, label := range labels {
+		out[label] = true
+	}
+	return out
+}
+
+// validateMediaTiers 校验图片 / 视频分档：每档带合法 tier_label 与 per_request_price，标签不重复。
+func validateMediaTiers(intervals []PricingInterval, allowed map[string]bool, mode string) error {
+	seen := make(map[string]bool, len(intervals))
+	for i := range intervals {
+		label := intervals[i].TierLabel
+		if label == "" {
+			return fmt.Errorf("interval #%d: %s tier requires a tier_label", i+1, mode)
+		}
+		if !allowed[label] {
+			return fmt.Errorf("interval #%d: unknown %s tier_label %q", i+1, mode, label)
+		}
+		if seen[label] {
+			return fmt.Errorf("interval #%d: duplicate %s tier_label %q", i+1, mode, label)
+		}
+		seen[label] = true
+		if intervals[i].PerRequestPrice == nil {
+			return fmt.Errorf("interval #%d: %s tier %q requires a per_request_price", i+1, mode, label)
+		}
+	}
+	return nil
 }
 
 // validateSingleInterval 校验单个区间的字段合法性

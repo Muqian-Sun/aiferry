@@ -516,7 +516,7 @@ func TestGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurchargedReques
 	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, anthropicCheapFixtureModel, anthropicPriceyFixtureModel)
 
 	const searchCalls = 2
-	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
+	searchCost := svc.billingService.CalculateSearchCost(searchCalls, 1.1)
 	require.NotNil(t, searchCost)
 	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
 
@@ -555,7 +555,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponseModelSkippedForSearchSurcharged
 	cheaper, pricier, _, pricierCost := orderedResponseBillingModels(t, svc.billingService, tokens, openAICheapFixtureModel, openAIPriceyFixtureModel)
 
 	const searchCalls = 3
-	searchCost := svc.billingService.CalculateSearchCost(searchCalls, nil, 1.1)
+	searchCost := svc.billingService.CalculateSearchCost(searchCalls, 1.1)
 	require.NotNil(t, searchCost)
 	require.Greater(t, searchCost.ActualCost, 0.0, "夹具附加费必须非零，否则断言分不出两条分支")
 

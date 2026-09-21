@@ -85,6 +85,8 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 
 		// 按次 / 图片 / 视频计费的默认单价。
 		modelCatalogPriceField("per_request_price"),
+		// 模型内置搜索每次调用价（alpha search 用；未配则用内置单价）。
+		modelCatalogPriceField("search_price_per_call"),
 
 		field.Int("long_context_input_threshold").
 			Optional().

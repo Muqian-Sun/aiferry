@@ -127,8 +127,6 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 				RateMultiplier:               2.0,
 				AllowImageGeneration:         true,
 				AllowBatchImageGeneration:    true,
-				ImageRateIndependent:         true,
-				ImageRateMultiplier:          9,
 				BatchImageDiscountMultiplier: 0.8,
 				BatchImageHoldMultiplier:     0.6,
 			},
@@ -149,34 +147,6 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.InDelta(t, 0.125, job.BillableUnitPrice, 1e-12)
 		require.InDelta(t, 0.125, job.HoldUnitPrice, 1e-12)
 		require.InDelta(t, 0.25, *job.HoldAmount, 1e-12)
-	})
-
-	t.Run("uses configured group 1k image price for batch image base price", func(t *testing.T) {
-		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
-		groupID := int64(7)
-		imagePrice := 0.134
-		svc.GroupRepo = &publicBatchImageGroupRepo{groups: map[int64]*Group{
-			groupID: {
-				ID:                           groupID,
-				Platform:                     PlatformGemini,
-				RateMultiplier:               1.0,
-				AllowImageGeneration:         true,
-				AllowBatchImageGeneration:    true,
-				ImagePrice1K:                 &imagePrice,
-				BatchImageDiscountMultiplier: 0.5,
-				BatchImageHoldMultiplier:     0.6,
-			},
-		}}
-
-		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1}, validBatchImageSubmitRequest(), "")
-		require.NoError(t, err)
-		require.InDelta(t, 0.134, got.EstimatedCost, 1e-12)
-
-		job := repo.jobs[got.ID]
-		require.InDelta(t, 0.134, job.BaseUnitPrice, 1e-12)
-		require.InDelta(t, 0.067, job.BillableUnitPrice, 1e-12)
-		require.InDelta(t, 0.0804, job.HoldUnitPrice, 1e-12)
-		require.InDelta(t, 0.1608, *job.HoldAmount, 1e-12)
 	})
 
 	t.Run("pricing missing rejects before provider submit", func(t *testing.T) {

@@ -18,14 +18,13 @@ func TestUserRateMultiplier(t *testing.T) {
 	require.Equal(t, 0.5, UserRateMultiplierFromContext(WithUserRateMultiplier(context.Background(), &User{RateMultiplier: 0.5})))
 }
 
-// 用户价 = 目录价 × users.rate_multiplier：分组上的倍率 / 峰值 / 图片独立倍率 / config 默认倍率都不参与。
+// 用户价 = 目录价 × users.rate_multiplier：分组上的倍率 / 峰值 / config 默认倍率都不参与。
 func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 	inputPrice, outputPrice := 1e-6, 2e-6
 	groupID := int64(77)
 	group := &Group{
 		ID: groupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true,
 		RateMultiplier: 9, PeakRateEnabled: true, PeakStart: "00:00", PeakEnd: "23:59", PeakRateMultiplier: 9,
-		ImageRateIndependent: true, ImageRateMultiplier: 9,
 	}
 	tokens := ClaudeUsage{InputTokens: 100, OutputTokens: 50}
 	expected := (100*inputPrice + 50*outputPrice) * 2 // 4e-4

@@ -62,6 +62,8 @@ type ModelCatalogEntry struct {
 	CacheReadPricePriority *float64 `json:"cache_read_price_priority,omitempty"`
 	// PerRequestPrice holds the value of the "per_request_price" field.
 	PerRequestPrice *float64 `json:"per_request_price,omitempty"`
+	// SearchPricePerCall holds the value of the "search_price_per_call" field.
+	SearchPricePerCall *float64 `json:"search_price_per_call,omitempty"`
 	// 超过该 context token 数后整次会话换用长上下文价；nil 表示无长上下文阶梯。
 	LongContextInputThreshold *int `json:"long_context_input_threshold,omitempty"`
 	// true = 达到阈值即生效（xAI 口径）；false = 严格大于。
@@ -122,7 +124,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case modelcatalogentry.FieldLongContextThresholdInclusive:
 			values[i] = new(sql.NullBool)
-		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldLongContextInputMultiplier, modelcatalogentry.FieldLongContextOutputMultiplier, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldLongContextInputMultiplier, modelcatalogentry.FieldLongContextOutputMultiplier, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID, modelcatalogentry.FieldLongContextInputThreshold:
 			values[i] = new(sql.NullInt64)
@@ -297,6 +299,13 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 			} else if value.Valid {
 				_m.PerRequestPrice = new(float64)
 				*_m.PerRequestPrice = value.Float64
+			}
+		case modelcatalogentry.FieldSearchPricePerCall:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field search_price_per_call", values[i])
+			} else if value.Valid {
+				_m.SearchPricePerCall = new(float64)
+				*_m.SearchPricePerCall = value.Float64
 			}
 		case modelcatalogentry.FieldLongContextInputThreshold:
 			if value, ok := values[i].(*sql.NullInt64); !ok {
@@ -488,6 +497,11 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	if v := _m.PerRequestPrice; v != nil {
 		builder.WriteString("per_request_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.SearchPricePerCall; v != nil {
+		builder.WriteString("search_price_per_call=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

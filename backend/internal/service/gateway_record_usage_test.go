@@ -288,10 +288,20 @@ func TestGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstreamModel
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
-	imagePrice2K := 0.19
 	groupID := int64(901)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	// 图片单价来自目录条目（image 模式，2K 档 0.19）
+	price1K, price2K := 0.10, 0.19
+	svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
+		Models:          []string{"gemini-image"},
+		BillingMode:     BillingModeImage,
+		PerRequestPrice: &price1K,
+		Intervals: []PricingInterval{
+			{TierLabel: ImageBillingSize1K, PerRequestPrice: &price1K},
+			{TierLabel: ImageBillingSize2K, PerRequestPrice: &price2K},
+		},
+	})
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 		Result: &ForwardResult{
@@ -307,7 +317,6 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			Group: &Group{
 				ID:             groupID,
 				RateMultiplier: 1.0,
-				ImagePrice2K:   &imagePrice2K,
 			},
 		},
 		User:    &User{ID: 601, RateMultiplier: 1},
