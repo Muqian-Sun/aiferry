@@ -85,7 +85,7 @@ func TestCalculateCostUnified_TokenModeAppliesRateMultiplierToImageTokens(t *tes
 func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 	// 按次价卡已从渠道搬到模型目录。
 	bs := newTestBillingService()
-	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	resolver := newResolverWithCatalogCards(bs, PricingCard{
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModePerRequest,
 		PerRequestPrice: testPtrFloat64(0.05),
@@ -115,7 +115,7 @@ func TestCalculateCostUnified_ImageMode(t *testing.T) {
 		cfg:            &config.Config{},
 		fallbackPrices: map[string]*ModelPricing{},
 	}
-	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	resolver := newResolverWithCatalogCards(bs, PricingCard{
 		Models:          []string{"gemini-image"},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: testPtrFloat64(0.10),
@@ -145,11 +145,11 @@ func channelTimeResolvedForTest(base *ModelPricing, intervals []PricingInterval)
 		BasePricing: base,
 		Intervals:   intervals,
 		Source:      PricingSourceCatalog,
-		configuredPricing: &ChannelModelPricing{
+		configuredPricing: &PricingCard{
 			BillingMode: BillingModeToken,
-			TimePricing: &ChannelTimePricing{
+			TimePricing: &TimePricing{
 				Timezone: "Asia/Shanghai",
-				Periods: []ChannelTimePricingPeriod{{
+				Periods: []TimePricingPeriod{{
 					StartTime:  "09:00",
 					EndTime:    "12:00",
 					Multiplier: 2,

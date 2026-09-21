@@ -680,16 +680,16 @@ func modelCatalogIntervalToService(row *dbent.ModelCatalogPriceInterval) service
 	}
 }
 
-func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *service.ChannelTimePricing {
+func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *service.TimePricing {
 	if row == nil {
 		return nil
 	}
-	cfg := &service.ChannelTimePricing{
+	cfg := &service.TimePricing{
 		Timezone:     row.Timezone,
 		WeekdaysOnly: row.WeekdaysOnly,
 	}
 	for _, raw := range row.Periods {
-		period := service.ChannelTimePricingPeriod{}
+		period := service.TimePricingPeriod{}
 		if value, ok := raw["start_time"].(string); ok {
 			period.StartTime = value
 		}

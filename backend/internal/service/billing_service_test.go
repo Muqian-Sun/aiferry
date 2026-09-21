@@ -1705,7 +1705,7 @@ func TestGetModelPricingWithChannel_NilChannelPricing_ReturnsOriginal(t *testing
 func TestGetModelPricingWithChannel_OverrideInputPriceOnly(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice: testPtrFloat64(99e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1723,7 +1723,7 @@ func TestGetModelPricingWithChannel_OverrideInputPriceOnly(t *testing.T) {
 func TestGetModelPricingWithChannel_OverrideOutputPriceOnly(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		OutputPrice: testPtrFloat64(88e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1740,7 +1740,7 @@ func TestGetModelPricingWithChannel_OverrideOutputPriceOnly(t *testing.T) {
 func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice:       testPtrFloat64(10e-6),
 		OutputPrice:      testPtrFloat64(20e-6),
 		CacheWritePrice:  testPtrFloat64(5e-6),
@@ -1768,7 +1768,7 @@ func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		CacheWritePrice: testPtrFloat64(7e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1783,7 +1783,7 @@ func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) 
 func TestGetModelPricingWithChannel_CacheWriteTTLPricesCanDiffer(t *testing.T) {
 	svc := newTestBillingService()
 
-	pricing, err := svc.GetModelPricingWithChannel("claude-fable-5-1", &ChannelModelPricing{
+	pricing, err := svc.GetModelPricingWithChannel("claude-fable-5-1", &PricingCard{
 		CacheWritePrice:   testPtrFloat64(13e-6),
 		CacheWrite1hPrice: testPtrFloat64(21e-6),
 	})
@@ -1811,7 +1811,7 @@ func TestGetModelPricing_Fable51FallbackPricing(t *testing.T) {
 func TestGetModelPricingWithChannel_CacheReadPriceAffectsPriority(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		CacheReadPrice: testPtrFloat64(2e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1828,7 +1828,7 @@ func TestGetModelPricingWithChannel_PreservesCatalogPriorityRatio(t *testing.T) 
 	svc := newTestBillingService()
 
 	// gpt-5.4 目录价：input 2.5/5（2x），output 15/30（2x）。
-	pricing, err := svc.GetModelPricingWithChannel("gpt-5.4", &ChannelModelPricing{
+	pricing, err := svc.GetModelPricingWithChannel("gpt-5.4", &PricingCard{
 		InputPrice:  testPtrFloat64(4e-6),
 		OutputPrice: testPtrFloat64(30e-6),
 	})
@@ -1843,7 +1843,7 @@ func TestGetModelPricingWithChannel_PreservesCatalogPriorityRatio(t *testing.T) 
 func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice: testPtrFloat64(1e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("totally-unknown-model", chPricing)
@@ -1855,7 +1855,7 @@ func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 func TestGetModelPricingWithChannel_NilImageOutputPriceZerosAndMarksExplicit(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice:  testPtrFloat64(10e-6),
 		OutputPrice: testPtrFloat64(20e-6),
 		// ImageOutputPrice intentionally nil

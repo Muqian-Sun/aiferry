@@ -179,18 +179,18 @@ func TestListAvailable_DefaultsEmptyBillingModelSource(t *testing.T) {
 func TestPricingNeedsFallback(t *testing.T) {
 	tests := []struct {
 		name string
-		in   *ChannelModelPricing
+		in   *PricingCard
 		want bool
 	}{
 		{"nil", nil, true},
-		{"empty struct", &ChannelModelPricing{BillingMode: BillingModeToken}, true},
-		{"all-empty intervals", &ChannelModelPricing{
+		{"empty struct", &PricingCard{BillingMode: BillingModeToken}, true},
+		{"all-empty intervals", &PricingCard{
 			BillingMode: BillingModeImage,
 			Intervals:   []PricingInterval{{TierLabel: "1K"}, {TierLabel: "2K"}},
 		}, true},
-		{"flat input set", &ChannelModelPricing{InputPrice: testPtrFloat64(3e-6)}, false},
-		{"flat per_request set", &ChannelModelPricing{PerRequestPrice: testPtrFloat64(0.04)}, false},
-		{"interval with price", &ChannelModelPricing{
+		{"flat input set", &PricingCard{InputPrice: testPtrFloat64(3e-6)}, false},
+		{"flat per_request set", &PricingCard{PerRequestPrice: testPtrFloat64(0.04)}, false},
+		{"interval with price", &PricingCard{
 			Intervals: []PricingInterval{{TierLabel: "1K", PerRequestPrice: testPtrFloat64(0.04)}},
 		}, false},
 	}
@@ -238,7 +238,7 @@ func TestSynthesizePricingFromLiteLLM_RespectsExistingChannelMode(t *testing.T) 
 		InputCostPerToken:  5e-6,
 		OutputCostPerImage: 0.04,
 	}
-	existing := &ChannelModelPricing{BillingMode: BillingModePerRequest}
+	existing := &PricingCard{BillingMode: BillingModePerRequest}
 	got := synthesizePricingFromLiteLLM(lp, existing)
 	require.NotNil(t, got)
 	require.Equal(t, BillingModePerRequest, got.BillingMode)
@@ -275,7 +275,7 @@ func TestFillGlobalPricingFallback_EmptyPricingFillsFromLiteLLM(t *testing.T) {
 		{
 			Name:     "gpt-image-1",
 			Platform: "openai",
-			Pricing: &ChannelModelPricing{
+			Pricing: &PricingCard{
 				BillingMode: BillingModeImage,
 				Intervals:   []PricingInterval{{TierLabel: "1K"}, {TierLabel: "2K"}},
 			},
@@ -295,7 +295,7 @@ func TestFillGlobalPricingFallback_KeepsExistingPrice(t *testing.T) {
 	})
 	svc := &ChannelService{pricingService: pricingSvc}
 
-	existing := &ChannelModelPricing{
+	existing := &PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(9e-9),
 	}

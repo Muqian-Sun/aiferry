@@ -614,7 +614,7 @@ export interface Group {
 export interface AdminGroup extends Group {
   force_openai_fast: boolean
   free_openai_fast: boolean
-  model_pricing: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing: import('@/api/admin/pricing').PricingCard[]
   // 分组利润控制（openai/anthropic/gemini/grok/antigravity 分组可启用；margin/buffer 为小数存储）。
   // 仅管理员可见：与 rate_multiplier 相乘即可反推上游成本上限，不得下放到 Group。
   profit_control_enabled: boolean
@@ -786,7 +786,7 @@ export interface CreateGroupRequest {
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing?: import('@/api/admin/pricing').PricingCard[]
   allow_image_generation?: boolean
   allow_batch_image_generation?: boolean
   image_rate_independent?: boolean
@@ -849,7 +849,7 @@ export interface UpdateGroupRequest {
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing?: import('@/api/admin/pricing').PricingCard[]
   allow_image_generation?: boolean
   allow_batch_image_generation?: boolean
   image_rate_independent?: boolean

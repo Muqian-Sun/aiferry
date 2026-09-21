@@ -1,39 +1,10 @@
 package service
 
 import (
-	"fmt"
 	"sort"
 	"strings"
 	"time"
 )
-
-// BillingMode 计费模式
-type BillingMode string
-
-const (
-	BillingModeToken      BillingMode = "token"       // 按 token 区间计费
-	BillingModePerRequest BillingMode = "per_request" // 按次计费（支持上下文窗口分层）
-	BillingModeImage      BillingMode = "image"       // 图片计费（当前按次，预留 token 计费）
-	BillingModeVideo      BillingMode = "video"       // 视频生成计费（按视频生成次数）
-)
-
-// IsValid 检查 BillingMode 是否为合法值
-func (m BillingMode) IsValid() bool {
-	switch m {
-	case BillingModeToken, BillingModePerRequest, BillingModeImage, BillingModeVideo, "":
-		return true
-	}
-	return false
-}
-
-// IsValidUsageFilter 检查 BillingMode 是否可用于使用记录筛选。
-func (m BillingMode) IsValidUsageFilter() bool {
-	switch m {
-	case BillingModeToken, BillingModePerRequest, BillingModeImage, BillingModeVideo, "":
-		return true
-	}
-	return false
-}
 
 const (
 	BillingModelSourceRequested     = "requested"
@@ -61,7 +32,7 @@ type Channel struct {
 	// 关联的分组 ID 列表
 	GroupIDs []int64
 	// 模型定价列表（每条含 Platform 字段）
-	ModelPricing []ChannelModelPricing
+	ModelPricing []PricingCard
 	// 渠道级模型映射（按平台分组：platform → {src→dst}）
 	ModelMapping map[string]map[string]string
 
@@ -80,69 +51,9 @@ type AccountStatsPricingRule struct {
 	GroupIDs   []int64
 	AccountIDs []int64
 	SortOrder  int
-	Pricing    []ChannelModelPricing // 规则内的模型定价（复用现有定价结构）
+	Pricing    []PricingCard // 规则内的模型定价（复用现有定价结构）
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
-}
-
-// ChannelModelPricing 渠道模型定价条目
-type ChannelModelPricing struct {
-	ID                           int64               `json:"id,omitempty"`
-	ChannelID                    int64               `json:"channel_id,omitempty"`
-	Platform                     string              `json:"platform"` // 所属平台（anthropic/openai/gemini/...）
-	Models                       []string            `json:"models"`
-	BillingMode                  BillingMode         `json:"billing_mode"`
-	InputPrice                   *float64            `json:"input_price"`
-	OutputPrice                  *float64            `json:"output_price"`
-	CacheWritePrice              *float64            `json:"cache_write_price"`
-	CacheWrite1hPrice            *float64            `json:"cache_write_1h_price"`
-	CacheReadPrice               *float64            `json:"cache_read_price"`
-	FastMultiplier               *float64            `json:"fast_multiplier"`
-	FlexMultiplier               *float64            `json:"flex_multiplier"`
-	MaxReasoningEffortMultiplier *float64            `json:"max_reasoning_effort_multiplier"`
-	ImageInputPrice              *float64            `json:"image_input_price"`
-	ImageOutputPrice             *float64            `json:"image_output_price"`
-	PerRequestPrice              *float64            `json:"per_request_price"`
-	Intervals                    []PricingInterval   `json:"intervals"`
-	TimePricing                  *ChannelTimePricing `json:"time_pricing,omitempty"`
-	CreatedAt                    time.Time           `json:"created_at,omitempty"`
-	UpdatedAt                    time.Time           `json:"updated_at,omitempty"`
-}
-
-// ChannelTimePricing 渠道模型定价的分时倍率配置。
-type ChannelTimePricing struct {
-	Timezone     string                     `json:"timezone"`
-	WeekdaysOnly bool                       `json:"weekdays_only,omitempty"`
-	Periods      []ChannelTimePricingPeriod `json:"periods"`
-}
-
-// ChannelTimePricingPeriod 是秒级的左闭右开分时倍率区间，并兼容历史 HH:mm 数据。
-type ChannelTimePricingPeriod struct {
-	StartTime  string  `json:"start_time"`
-	EndTime    string  `json:"end_time"`
-	Multiplier float64 `json:"multiplier"`
-}
-
-// PricingInterval 定价区间（token 区间 / 按次分层 / 图片分辨率分层）
-type PricingInterval struct {
-	ID                   int64     `json:"id,omitempty"`
-	PricingID            int64     `json:"pricing_id,omitempty"`
-	MinTokens            int       `json:"min_tokens"`
-	MaxTokens            *int      `json:"max_tokens"`
-	TierLabel            string    `json:"tier_label"`
-	InputPrice           *float64  `json:"input_price"`
-	OutputPrice          *float64  `json:"output_price"`
-	CacheWritePrice      *float64  `json:"cache_write_price"`
-	CacheWrite1hPrice    *float64  `json:"cache_write_1h_price"`
-	CacheReadPrice       *float64  `json:"cache_read_price"`
-	InputMultiplier      *float64  `json:"input_multiplier"`
-	OutputMultiplier     *float64  `json:"output_multiplier"`
-	CacheWriteMultiplier *float64  `json:"cache_write_multiplier"`
-	CacheReadMultiplier  *float64  `json:"cache_read_multiplier"`
-	PerRequestPrice      *float64  `json:"per_request_price"`
-	SortOrder            int       `json:"sort_order"`
-	CreatedAt            time.Time `json:"created_at,omitempty"`
-	UpdatedAt            time.Time `json:"updated_at,omitempty"`
 }
 
 // IsActive 判断渠道是否启用
@@ -164,7 +75,7 @@ func (c *Channel) normalizeBillingModelSource() {
 
 // GetModelPricing 根据模型名查找渠道定价，未找到返回 nil。
 // 精确匹配，大小写不敏感。返回值拷贝，不污染缓存。
-func (c *Channel) GetModelPricing(model string) *ChannelModelPricing {
+func (c *Channel) GetModelPricing(model string) *PricingCard {
 	modelLower := strings.ToLower(model)
 
 	for i := range c.ModelPricing {
@@ -179,58 +90,6 @@ func (c *Channel) GetModelPricing(model string) *ChannelModelPricing {
 	return nil
 }
 
-// FindMatchingInterval 在区间列表中查找匹配 totalTokens 的区间。
-// 区间为左开右闭 (min, max]：min 不含，max 包含。
-// 第一个区间 min=0 时，0 token 不匹配任何区间（回退到默认价格）。
-func FindMatchingInterval(intervals []PricingInterval, totalTokens int) *PricingInterval {
-	for i := range intervals {
-		iv := &intervals[i]
-		if totalTokens > iv.MinTokens && (iv.MaxTokens == nil || totalTokens <= *iv.MaxTokens) {
-			return iv
-		}
-	}
-	return nil
-}
-
-// GetIntervalForContext 根据总 context token 数查找匹配的区间。
-func (p *ChannelModelPricing) GetIntervalForContext(totalTokens int) *PricingInterval {
-	return FindMatchingInterval(p.Intervals, totalTokens)
-}
-
-// GetTierByLabel 根据标签查找层级（用于 per_request / image 模式）
-func (p *ChannelModelPricing) GetTierByLabel(label string) *PricingInterval {
-	labelLower := strings.ToLower(label)
-	for i := range p.Intervals {
-		if strings.ToLower(p.Intervals[i].TierLabel) == labelLower {
-			return &p.Intervals[i]
-		}
-	}
-	return nil
-}
-
-// Clone 返回 ChannelModelPricing 的拷贝（切片独立，指针字段共享，调用方只读安全）
-func (p ChannelModelPricing) Clone() ChannelModelPricing {
-	cp := p
-	if p.Models != nil {
-		cp.Models = make([]string, len(p.Models))
-		copy(cp.Models, p.Models)
-	}
-	if p.Intervals != nil {
-		cp.Intervals = make([]PricingInterval, len(p.Intervals))
-		copy(cp.Intervals, p.Intervals)
-	}
-	if p.TimePricing != nil {
-		cp.TimePricing = &ChannelTimePricing{
-			Timezone:     p.TimePricing.Timezone,
-			WeekdaysOnly: p.TimePricing.WeekdaysOnly,
-		}
-		if p.TimePricing.Periods != nil {
-			cp.TimePricing.Periods = append([]ChannelTimePricingPeriod(nil), p.TimePricing.Periods...)
-		}
-	}
-	return cp
-}
-
 // Clone 返回 Channel 的深拷贝
 func (c *Channel) Clone() *Channel {
 	if c == nil {
@@ -242,7 +101,7 @@ func (c *Channel) Clone() *Channel {
 		copy(cp.GroupIDs, c.GroupIDs)
 	}
 	if c.ModelPricing != nil {
-		cp.ModelPricing = make([]ChannelModelPricing, len(c.ModelPricing))
+		cp.ModelPricing = make([]PricingCard, len(c.ModelPricing))
 		for i := range c.ModelPricing {
 			cp.ModelPricing[i] = c.ModelPricing[i].Clone()
 		}
@@ -273,7 +132,7 @@ func (c *Channel) Clone() *Channel {
 				copy(cp.AccountStatsPricingRules[i].AccountIDs, rule.AccountIDs)
 			}
 			if rule.Pricing != nil {
-				cp.AccountStatsPricingRules[i].Pricing = make([]ChannelModelPricing, len(rule.Pricing))
+				cp.AccountStatsPricingRules[i].Pricing = make([]PricingCard, len(rule.Pricing))
 				for j := range rule.Pricing {
 					cp.AccountStatsPricingRules[i].Pricing[j] = rule.Pricing[j].Clone()
 				}
@@ -320,121 +179,6 @@ func deepCopyFeaturesConfig(src map[string]any) map[string]any {
 	return dst
 }
 
-// ValidateIntervals 校验区间列表的合法性。
-//
-// mode 决定区间语义：
-//   - BillingModeToken（含空值）：区间是上下文 token 数分段 (min, max]，
-//     按 MinTokens 排序后无重叠，无界区间（MaxTokens=nil）必须是最后一个。
-//   - BillingModePerRequest / BillingModeImage：区间是按 tier_label
-//     (1K/2K/4K 等) 分层，匹配走 label 不依赖 min/max，因此跳过区间重叠
-//     与 last-unlimited 校验，仅做单条字段自洽（min/max/价格非负）检查。
-//
-// 通用规则：MinTokens >= 0；MaxTokens 若非 nil 则 > 0 且 > MinTokens；
-// 所有价格字段 >= 0。
-func ValidateIntervals(intervals []PricingInterval, mode BillingMode) error {
-	if len(intervals) == 0 {
-		return nil
-	}
-	sorted := make([]PricingInterval, len(intervals))
-	copy(sorted, intervals)
-	sort.Slice(sorted, func(i, j int) bool {
-		return sorted[i].MinTokens < sorted[j].MinTokens
-	})
-
-	for i := range sorted {
-		if err := validateSingleInterval(&sorted[i], i); err != nil {
-			return err
-		}
-	}
-
-	// per_request / image 模式按 tier_label 匹配，不做 token 区间重叠校验
-	if mode == BillingModePerRequest || mode == BillingModeImage || mode == BillingModeVideo {
-		return nil
-	}
-	return validateIntervalOverlap(sorted)
-}
-
-// validateSingleInterval 校验单个区间的字段合法性
-func validateSingleInterval(iv *PricingInterval, idx int) error {
-	if iv.MinTokens < 0 {
-		return fmt.Errorf("interval #%d: min_tokens (%d) must be >= 0", idx+1, iv.MinTokens)
-	}
-	if iv.MaxTokens != nil {
-		if *iv.MaxTokens <= 0 {
-			return fmt.Errorf("interval #%d: max_tokens (%d) must be > 0", idx+1, *iv.MaxTokens)
-		}
-		if *iv.MaxTokens <= iv.MinTokens {
-			return fmt.Errorf("interval #%d: max_tokens (%d) must be > min_tokens (%d)",
-				idx+1, *iv.MaxTokens, iv.MinTokens)
-		}
-	}
-	return validateIntervalPrices(iv, idx)
-}
-
-// validateIntervalPrices 校验区间价格 >= 0、倍率 > 0。
-func validateIntervalPrices(iv *PricingInterval, idx int) error {
-	prices := []struct {
-		name string
-		val  *float64
-	}{
-		{"input_price", iv.InputPrice},
-		{"output_price", iv.OutputPrice},
-		{"cache_write_price", iv.CacheWritePrice},
-		{"cache_write_1h_price", iv.CacheWrite1hPrice},
-		{"cache_read_price", iv.CacheReadPrice},
-		{"per_request_price", iv.PerRequestPrice},
-	}
-	for _, p := range prices {
-		if p.val != nil && *p.val < 0 {
-			return fmt.Errorf("interval #%d: %s must be >= 0", idx+1, p.name)
-		}
-	}
-	multipliers := []struct {
-		name string
-		val  *float64
-	}{
-		{"input_multiplier", iv.InputMultiplier},
-		{"output_multiplier", iv.OutputMultiplier},
-		{"cache_write_multiplier", iv.CacheWriteMultiplier},
-		{"cache_read_multiplier", iv.CacheReadMultiplier},
-	}
-	for _, multiplier := range multipliers {
-		if multiplier.val != nil && *multiplier.val <= 0 {
-			return fmt.Errorf("interval #%d: %s must be > 0", idx+1, multiplier.name)
-		}
-	}
-	return nil
-}
-
-// validateIntervalOverlap 校验排序后的区间列表无重叠，且无界区间在最后
-func validateIntervalOverlap(sorted []PricingInterval) error {
-	for i, iv := range sorted {
-		// 无界区间必须是最后一个
-		if iv.MaxTokens == nil && i < len(sorted)-1 {
-			return fmt.Errorf("interval #%d: unbounded interval (max_tokens=null) must be the last one",
-				i+1)
-		}
-		if i == 0 {
-			continue
-		}
-		prev := sorted[i-1]
-		// 检查重叠：前一个区间的上界 > 当前区间的下界则重叠
-		// (min, max] 语义：prev 覆盖 (prev.Min, prev.Max]，cur 覆盖 (cur.Min, cur.Max]
-		if prev.MaxTokens == nil || *prev.MaxTokens > iv.MinTokens {
-			return fmt.Errorf("interval #%d and #%d overlap: prev max=%s > cur min=%d",
-				i, i+1, formatMaxTokensLabel(prev.MaxTokens), iv.MinTokens)
-		}
-	}
-	return nil
-}
-
-func formatMaxTokensLabel(max *int) string {
-	if max == nil {
-		return "∞"
-	}
-	return fmt.Sprintf("%d", *max)
-}
-
 // ChannelUsageFields 渠道相关的使用记录字段（嵌入到各平台的 RecordUsageInput 中）
 type ChannelUsageFields struct {
 	ChannelID          int64  // 渠道 ID（0 = 无渠道）
@@ -446,31 +190,14 @@ type ChannelUsageFields struct {
 
 // SupportedModel 渠道的一个支持模型条目（无通配符、可直接展示给用户）
 type SupportedModel struct {
-	Name     string               // 用户侧模型名
-	Platform string               // 所属平台
-	Pricing  *ChannelModelPricing // 定价详情（nil 表示未配置定价）
-}
-
-// wildcardSuffix 是模型模式中的通配符后缀标记（仅支持尾部匹配）。
-const wildcardSuffix = "*"
-
-// splitWildcardSuffix 将模型模式拆分为 (prefix, isWildcard)。
-//
-//	"claude-opus-*"  → ("claude-opus-", true)
-//	"claude-opus-4"  → ("claude-opus-4", false)
-//	"*"              → ("", true)
-//
-// 注意：返回的 prefix 保持原始大小写，由调用方按需 ToLower。
-func splitWildcardSuffix(pattern string) (prefix string, isWildcard bool) {
-	if strings.HasSuffix(pattern, wildcardSuffix) {
-		return strings.TrimSuffix(pattern, wildcardSuffix), true
-	}
-	return pattern, false
+	Name     string       // 用户侧模型名
+	Platform string       // 所属平台
+	Pricing  *PricingCard // 定价详情（nil 表示未配置定价）
 }
 
 // GetModelPricingByPlatform 在指定平台下查找精确模型的定价，未找到返回 nil。
 // 与 GetModelPricing 的区别：按 Platform 隔离，避免跨平台同名模型误匹配。
-func (c *Channel) GetModelPricingByPlatform(platform, model string) *ChannelModelPricing {
+func (c *Channel) GetModelPricingByPlatform(platform, model string) *PricingCard {
 	if c == nil {
 		return nil
 	}
@@ -496,23 +223,23 @@ func (c *Channel) GetModelPricingByPlatform(platform, model string) *ChannelMode
 // byLower 与 names/originalCase 共享同一套去重规则：以 lower-case 模型名为 key，
 // 首个命中保留其原始大小写。names 维持按定价行扫描顺序的稳定迭代。
 type platformPricingIndex struct {
-	byLower      map[string]*ChannelModelPricing // lowercased model name → pricing (Clone'd)
-	originalCase map[string]string               // lowercased model name → original-case model name
-	names        []string                        // priced model names in their ORIGINAL case, insertion-ordered, deduped case-insensitively (first wins)
+	byLower      map[string]*PricingCard // lowercased model name → pricing (Clone'd)
+	originalCase map[string]string       // lowercased model name → original-case model name
+	names        []string                // priced model names in their ORIGINAL case, insertion-ordered, deduped case-insensitively (first wins)
 }
 
 // buildPricingIndex 对渠道的定价列表做一次扫描，按 platform 聚合为查找索引。
 // 索引值是定价条目的 Clone 指针，调用方可安全按需返回副本而不污染缓存。
 // 通配符后缀条目（如 "claude-*"）不被索引（它们是模式，不是具体模型名）。
 // 同一平台中以大小写不敏感方式去重，先出现者保留原始大小写。
-func buildPricingIndex(pricings []ChannelModelPricing) map[string]*platformPricingIndex {
+func buildPricingIndex(pricings []PricingCard) map[string]*platformPricingIndex {
 	idx := make(map[string]*platformPricingIndex)
 	for i := range pricings {
 		p := pricings[i]
 		pidx, ok := idx[p.Platform]
 		if !ok {
 			pidx = &platformPricingIndex{
-				byLower:      make(map[string]*ChannelModelPricing),
+				byLower:      make(map[string]*PricingCard),
 				originalCase: make(map[string]string),
 				names:        make([]string, 0),
 			}
@@ -573,7 +300,7 @@ func (c *Channel) SupportedModels() []SupportedModel {
 	result := make([]SupportedModel, 0)
 
 	// lookup 在 platform pricing index 中按精确名查定价，命中时返回定价大小写。
-	lookup := func(pidx *platformPricingIndex, name string) (display string, pricing *ChannelModelPricing) {
+	lookup := func(pidx *platformPricingIndex, name string) (display string, pricing *PricingCard) {
 		if pidx == nil || name == "" {
 			return name, nil
 		}
@@ -584,7 +311,7 @@ func (c *Channel) SupportedModels() []SupportedModel {
 		return name, nil
 	}
 
-	add := func(platform, displayName string, pricing *ChannelModelPricing) {
+	add := func(platform, displayName string, pricing *PricingCard) {
 		key := dedupKey{platform: platform, name: strings.ToLower(displayName)}
 		if _, ok := seen[key]; ok {
 			return

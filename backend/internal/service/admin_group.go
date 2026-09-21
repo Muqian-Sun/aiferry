@@ -1121,8 +1121,8 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	return group, nil
 }
 
-func normalizeGroupModelPricing(platform string, pricing []ChannelModelPricing) ([]ChannelModelPricing, error) {
-	out := make([]ChannelModelPricing, len(pricing))
+func normalizeGroupModelPricing(platform string, pricing []PricingCard) ([]PricingCard, error) {
+	out := make([]PricingCard, len(pricing))
 	for i := range pricing {
 		out[i] = pricing[i].Clone()
 		out[i].ID = 0

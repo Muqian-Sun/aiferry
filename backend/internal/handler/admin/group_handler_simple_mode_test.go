@@ -148,7 +148,7 @@ func TestGroupHandlerSimpleModeResponseUsesFieldAllowlist(t *testing.T) {
 		AccountCount: 3, ActiveAccountCount: 2, RateLimitedAccountCount: 1,
 		Status: service.StatusActive, RateMultiplier: 9, RPMLimit: 42,
 		LongContextPricingEnabled: true,
-		ModelPricing:              []service.ChannelModelPricing{{Models: []string{"claude"}}},
+		ModelPricing:              []service.PricingCard{{Models: []string{"claude"}}},
 		AllowBatchImageGeneration: true, VideoPrice720P: float64PtrForSimpleModeTest(2),
 		WebSearchPricePerCall: float64PtrForSimpleModeTest(3), AudioRealtimePricePerMin: float64PtrForSimpleModeTest(4),
 		ModelRouting: map[string][]int64{"claude": {2}},
@@ -212,7 +212,7 @@ func TestGroupHandlerSimpleModeAllReadAndWriteResponsesUseFieldAllowlist(t *test
 		ID: 1, Name: "basic", Description: "allowed", Platform: service.PlatformAnthropic, AccountCount: 3,
 		Status: service.StatusActive, RateMultiplier: 9, RPMLimit: 42,
 		LongContextPricingEnabled: true,
-		ModelPricing:              []service.ChannelModelPricing{{Models: []string{"claude"}}},
+		ModelPricing:              []service.PricingCard{{Models: []string{"claude"}}},
 	}}
 	r := newSimpleModeGroupRouter(svc)
 

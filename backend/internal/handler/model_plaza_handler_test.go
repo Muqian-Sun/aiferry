@@ -41,7 +41,7 @@ func (s plazaCatalogStub) ListListedEntries(context.Context) []service.ModelCata
 		{ID: 1, ModelID: "claude-sonnet-4", DisplayName: "Sonnet 4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed, InputPrice: &price},
 		{ID: 2, ModelID: "gpt-5.6", DisplayName: "GPT-5.6", Vendor: "openai", Status: service.ModelCatalogStatusListed, InputPrice: &price,
 			Aliases:     []service.ModelCatalogAlias{{ID: 10, EntryID: 2, Alias: "gpt-5.6-sol"}},
-			TimePricing: &service.ChannelTimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
+			TimePricing: &service.TimePricing{Timezone: "Asia/Shanghai", WeekdaysOnly: true, Periods: []service.TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
 	}
 }
 

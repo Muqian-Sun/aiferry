@@ -108,7 +108,7 @@ type ModelCatalogEntry struct {
 	Notes *string `json:"notes,omitempty"`
 
 	Intervals   []PricingInterval     `json:"intervals"`
-	TimePricing *ChannelTimePricing   `json:"time_pricing,omitempty"`
+	TimePricing *TimePricing          `json:"time_pricing,omitempty"`
 	Aliases     []ModelCatalogAlias   `json:"aliases"`
 	Bindings    []ModelCatalogBinding `json:"bindings"`
 
@@ -128,7 +128,7 @@ type ModelCatalogBinding struct {
 // 与渠道定价查表同口径（小写 + claude-* 的 "." → "-"），保证从渠道价卡迁到
 // 目录之后 "claude-opus-4.5" 与 "claude-opus-4-5" 仍然命中同一条。
 func NormalizeModelCatalogKey(model string) string {
-	return normalizeChannelPricingModelName(model)
+	return normalizePricingModelName(model)
 }
 
 // Clone 返回深拷贝，调用方改动不会污染服务内的缓存快照。
@@ -150,12 +150,12 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 		cp.Bindings = append([]ModelCatalogBinding(nil), e.Bindings...)
 	}
 	if e.TimePricing != nil {
-		tp := ChannelTimePricing{
+		tp := TimePricing{
 			Timezone:     e.TimePricing.Timezone,
 			WeekdaysOnly: e.TimePricing.WeekdaysOnly,
 		}
 		if e.TimePricing.Periods != nil {
-			tp.Periods = append([]ChannelTimePricingPeriod(nil), e.TimePricing.Periods...)
+			tp.Periods = append([]TimePricingPeriod(nil), e.TimePricing.Periods...)
 		}
 		cp.TimePricing = &tp
 	}
@@ -177,13 +177,13 @@ func (e *ModelCatalogEntry) IsOperatorAuthored() bool {
 }
 
 // PricingCard 把目录条目投影成共享的价卡结构，供区间匹配、显式字段判定与分时
-// 倍率复用同一套代码。只投影 ChannelModelPricing 已有的字段；目录独有的字段
+// 倍率复用同一套代码。只投影 PricingCard 已有的字段；目录独有的字段
 // （priority 价、长上下文、图片缓存读价）由 ApplyToModelPricing 直接写进 ModelPricing。
-func (e *ModelCatalogEntry) PricingCard() *ChannelModelPricing {
+func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 	if e == nil {
 		return nil
 	}
-	card := &ChannelModelPricing{
+	card := &PricingCard{
 		Models:                       []string{e.ModelID},
 		BillingMode:                  e.EffectiveBillingMode(),
 		InputPrice:                   e.InputPrice,
@@ -447,7 +447,7 @@ func (e *ModelCatalogEntry) Validate() error {
 	}
 	// 分时倍率复用渠道那一套校验（时区、HH:mm(:ss) 解析、倍率精度、时段不重叠），
 	// 保证目录与渠道的分时语义一致。
-	if err := validateChannelTimePricing(e.TimePricing); err != nil {
+	if err := validateTimePricing(e.TimePricing); err != nil {
 		return catalogValidationError(fmt.Sprintf("time_pricing: %s", err.Error()))
 	}
 	return nil

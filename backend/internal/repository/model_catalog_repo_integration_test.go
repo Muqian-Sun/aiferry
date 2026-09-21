@@ -54,10 +54,10 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 			{MinTokens: 0, MaxTokens: func() *int { v := 100000; return &v }(), InputPrice: float64Value(1e-6), SortOrder: 0},
 			{MinTokens: 100000, InputPrice: float64Value(2e-6), SortOrder: 1},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone:     "Asia/Shanghai",
 			WeekdaysOnly: true,
-			Periods: []service.ChannelTimePricingPeriod{
+			Periods: []service.TimePricingPeriod{
 				{StartTime: "09:00", EndTime: "12:00", Multiplier: 1.5},
 			},
 		},
@@ -299,9 +299,9 @@ func TestModelCatalogRepository_SeedRefreshKeepsChildren(t *testing.T) {
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, InputPrice: float64Value(2e-6)},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone: "UTC",
-			Periods:  []service.ChannelTimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
+			Periods:  []service.TimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
@@ -338,9 +338,9 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, InputPrice: float64Value(2e-6)},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone: "UTC",
-			Periods:  []service.ChannelTimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
+			Periods:  []service.TimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))

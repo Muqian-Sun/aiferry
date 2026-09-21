@@ -623,9 +623,10 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { adminAPI } from '@/api/admin'
-import type { Channel, ChannelModelPricing, CreateChannelRequest, UpdateChannelRequest, AccountStatsPricingRule } from '@/api/admin/channels'
-import type { PricingFormEntry } from '@/components/admin/channel/types'
-import { apiIntervalsToForm, apiTimePricingToForm, createDefaultTimePricingForm, findModelConflict, formIntervalsToAPI, formTimePricingToAPI, isValidPositiveMultiplier, mTokToPerToken, perTokenToMTok, validateIntervals, validateTimePricing } from '@/components/admin/channel/types'
+import type { Channel, CreateChannelRequest, UpdateChannelRequest, AccountStatsPricingRule } from '@/api/admin/channels'
+import type { PricingCard } from '@/api/admin/pricing'
+import type { PricingFormEntry } from '@/components/admin/pricing/types'
+import { apiIntervalsToForm, apiTimePricingToForm, createDefaultTimePricingForm, findModelConflict, formIntervalsToAPI, formTimePricingToAPI, isValidPositiveMultiplier, mTokToPerToken, perTokenToMTok, validateIntervals, validateTimePricing } from '@/components/admin/pricing/types'
 import type { AdminGroup, GroupPlatform } from '@/types'
 import type { Column } from '@/components/common/types'
 import { platformTextClass, platformBadgeLightClass } from '@/utils/platformColors'
@@ -640,7 +641,7 @@ import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Toggle from '@/components/common/Toggle.vue'
-import PricingEntryCard from '@/components/admin/channel/PricingEntryCard.vue'
+import PricingEntryCard from '@/components/admin/pricing/PricingEntryCard.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useKeyedDebouncedSearch } from '@/composables/useKeyedDebouncedSearch'
 
@@ -1020,9 +1021,9 @@ function accountStatsRulesToAPI(): AccountStatsPricingRule[] {
 }
 
 // ── Form ↔ API conversion ──
-function formToAPI(): { group_ids: number[], model_pricing: ChannelModelPricing[], model_mapping: Record<string, Record<string, string>>, features_config: Record<string, unknown> } {
+function formToAPI(): { group_ids: number[], model_pricing: PricingCard[], model_mapping: Record<string, Record<string, string>>, features_config: Record<string, unknown> } {
   const group_ids: number[] = []
-  const model_pricing: ChannelModelPricing[] = []
+  const model_pricing: PricingCard[] = []
   const model_mapping: Record<string, Record<string, string>> = {}
   // Preserve existing features_config fields not managed by the form
   const featuresConfig: Record<string, unknown> = editingChannel.value?.features_config

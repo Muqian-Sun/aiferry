@@ -1273,7 +1273,7 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 
 // GetModelPricingWithChannel 获取模型定价，渠道配置的价格覆盖默认值
 // 渠道存在时，未配置的图片输出价格归零（不回退到 LiteLLM）
-func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing *ChannelModelPricing) (*ModelPricing, error) {
+func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing *PricingCard) (*ModelPricing, error) {
 	pricing, err := s.GetModelPricing(model)
 	if err != nil {
 		return nil, err
@@ -1302,7 +1302,7 @@ func (s *BillingService) GetModelPricingWithChannel(model string, channelPricing
 
 // applyConfiguredImageInputPrice 应用渠道价卡的图片输入价：显式配置则用配置值；
 // 未配置时归零，使 computeTokenBreakdown 回退到文本输入价。
-func applyConfiguredImageInputPrice(chPricing *ChannelModelPricing, pricing *ModelPricing) {
+func applyConfiguredImageInputPrice(chPricing *PricingCard, pricing *ModelPricing) {
 	if chPricing != nil && chPricing.ImageInputPrice != nil {
 		pricing.ImageInputPricePerToken = *chPricing.ImageInputPrice
 	} else {
@@ -1320,7 +1320,7 @@ func channelTierOverridePrice(baseStandard, baseTier, channelStandard float64) f
 	return 0
 }
 
-func applyChannelTokenPriceOverrides(pricing *ModelPricing, channelPricing *ChannelModelPricing) {
+func applyChannelTokenPriceOverrides(pricing *ModelPricing, channelPricing *PricingCard) {
 	if pricing == nil || channelPricing == nil {
 		return
 	}
@@ -1682,7 +1682,7 @@ func (s *BillingService) calculateCostWithServiceTierPolicy(
 	return s.calculateCostInternalWithPolicy(model, tokens, rateMultiplier, serviceTier, nil, longContextBillingEnabled)
 }
 
-func (s *BillingService) calculateCostInternal(model string, tokens UsageTokens, rateMultiplier float64, serviceTier string, channelPricing *ChannelModelPricing) (*CostBreakdown, error) {
+func (s *BillingService) calculateCostInternal(model string, tokens UsageTokens, rateMultiplier float64, serviceTier string, channelPricing *PricingCard) (*CostBreakdown, error) {
 	return s.calculateCostInternalWithPolicy(model, tokens, rateMultiplier, serviceTier, channelPricing, true)
 }
 
@@ -1691,7 +1691,7 @@ func (s *BillingService) calculateCostInternalWithPolicy(
 	tokens UsageTokens,
 	rateMultiplier float64,
 	serviceTier string,
-	channelPricing *ChannelModelPricing,
+	channelPricing *PricingCard,
 	longContextBillingEnabled bool,
 ) (*CostBreakdown, error) {
 	var pricing *ModelPricing

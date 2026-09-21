@@ -14,7 +14,7 @@ func TestModelPlazaService_ListModelsProjectsListedEntries(t *testing.T) {
 		{ID: 1, ModelID: "gpt-5.6", DisplayName: "GPT-5.6", Vendor: "openai", Status: ModelCatalogStatusListed,
 			InputPrice: testPtrFloat64(1e-6), OutputPrice: testPtrFloat64(2e-6),
 			Aliases:     []ModelCatalogAlias{{ID: 10, EntryID: 1, Alias: "gpt-5.6-sol"}},
-			TimePricing: &ChannelTimePricing{Timezone: "Asia/Shanghai", Periods: []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
+			TimePricing: &TimePricing{Timezone: "Asia/Shanghai", Periods: []TimePricingPeriod{{StartTime: "09:00", EndTime: "18:00", Multiplier: 1.5}}}},
 		{ID: 2, ModelID: "claude-fable-5-1", Vendor: "anthropic", Status: ModelCatalogStatusListed, InputPrice: testPtrFloat64(3e-6)},
 		{ID: 3, ModelID: "hidden", Vendor: "openai", Status: ModelCatalogStatusUnlisted, InputPrice: testPtrFloat64(1e-6)},
 	}}
@@ -34,7 +34,7 @@ func TestModelPlazaService_ListModelsProjectsListedEntries(t *testing.T) {
 }
 
 func TestWithDefaultMaxReasoningEffortMultiplier_Fable51(t *testing.T) {
-	base := &ChannelModelPricing{BillingMode: BillingModeToken}
+	base := &PricingCard{BillingMode: BillingModeToken}
 	got := withDefaultMaxReasoningEffortMultiplier(base, "claude-fable-5-1")
 	require.NotSame(t, base, got)
 	require.NotNil(t, got.MaxReasoningEffortMultiplier)
@@ -42,6 +42,6 @@ func TestWithDefaultMaxReasoningEffortMultiplier_Fable51(t *testing.T) {
 	require.Nil(t, base.MaxReasoningEffortMultiplier)
 
 	configured := 1.25
-	custom := &ChannelModelPricing{MaxReasoningEffortMultiplier: &configured}
+	custom := &PricingCard{MaxReasoningEffortMultiplier: &configured}
 	require.Same(t, custom, withDefaultMaxReasoningEffortMultiplier(custom, "claude-fable-5-1"))
 }

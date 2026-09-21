@@ -3860,8 +3860,8 @@ import GroupRPMOverridesModal from "@/components/admin/group/GroupRPMOverridesMo
 import GroupCapacityBadge from "@/components/common/GroupCapacityBadge.vue";
 import ReasoningEffortPolicyFields from "@/components/admin/group/ReasoningEffortPolicyFields.vue";
 import CodexManifestAccountsField from "@/components/admin/group/CodexManifestAccountsField.vue";
-import PricingEntryCard from "@/components/admin/channel/PricingEntryCard.vue";
-import type { PricingFormEntry } from "@/components/admin/channel/types";
+import PricingEntryCard from "@/components/admin/pricing/PricingEntryCard.vue";
+import type { PricingFormEntry } from "@/components/admin/pricing/types";
 import {
   apiIntervalsToForm,
   createDefaultTimePricingForm,
@@ -3869,8 +3869,8 @@ import {
   mTokToPerToken,
   perTokenToMTok,
   toNullableNumber,
-} from "@/components/admin/channel/types";
-import type { ChannelModelPricing } from "@/api/admin/channels";
+} from "@/components/admin/pricing/types";
+import type { PricingCard } from "@/api/admin/pricing";
 import { VueDraggable } from "vue-draggable-plus";
 import { createStableObjectKeyResolver } from "@/utils/stableObjectKey";
 import { extractApiErrorMessage } from "@/utils/apiError";
@@ -3946,7 +3946,7 @@ const addGroupPricing = (entries: PricingFormEntry[]) =>
   entries.push(emptyGroupPricing());
 
 const groupPricingFromAPI = (
-  pricing: ChannelModelPricing[] | undefined,
+  pricing: PricingCard[] | undefined,
 ): PricingFormEntry[] =>
   (pricing || []).map((entry) => ({
     models: entry.models || [],
@@ -3966,7 +3966,7 @@ const groupPricingFromAPI = (
 const groupPricingToAPI = (
   pricing: PricingFormEntry[],
   platform: string,
-): ChannelModelPricing[] =>
+): PricingCard[] =>
   pricing
     .filter((entry) => entry.models.length > 0)
     .map((entry) => ({

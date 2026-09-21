@@ -33,11 +33,11 @@ type mockChannelRepository struct {
 	setGroupIDsFn              func(ctx context.Context, channelID int64, groupIDs []int64) error
 	getChannelIDByGroupIDFn    func(ctx context.Context, groupID int64) (int64, error)
 	getGroupsInOtherChannelsFn func(ctx context.Context, channelID int64, groupIDs []int64) ([]int64, error)
-	listModelPricingFn         func(ctx context.Context, channelID int64) ([]ChannelModelPricing, error)
-	createModelPricingFn       func(ctx context.Context, pricing *ChannelModelPricing) error
-	updateModelPricingFn       func(ctx context.Context, pricing *ChannelModelPricing) error
+	listModelPricingFn         func(ctx context.Context, channelID int64) ([]PricingCard, error)
+	createModelPricingFn       func(ctx context.Context, pricing *PricingCard) error
+	updateModelPricingFn       func(ctx context.Context, pricing *PricingCard) error
 	deleteModelPricingFn       func(ctx context.Context, id int64) error
-	replaceModelPricingFn      func(ctx context.Context, channelID int64, pricingList []ChannelModelPricing) error
+	replaceModelPricingFn      func(ctx context.Context, channelID int64, pricingList []PricingCard) error
 }
 
 func (m *mockChannelRepository) Create(ctx context.Context, channel *Channel) error {
@@ -131,21 +131,21 @@ func (m *mockChannelRepository) GetGroupPlatforms(ctx context.Context, groupIDs 
 	return nil, nil
 }
 
-func (m *mockChannelRepository) ListModelPricing(ctx context.Context, channelID int64) ([]ChannelModelPricing, error) {
+func (m *mockChannelRepository) ListModelPricing(ctx context.Context, channelID int64) ([]PricingCard, error) {
 	if m.listModelPricingFn != nil {
 		return m.listModelPricingFn(ctx, channelID)
 	}
 	return nil, nil
 }
 
-func (m *mockChannelRepository) CreateModelPricing(ctx context.Context, pricing *ChannelModelPricing) error {
+func (m *mockChannelRepository) CreateModelPricing(ctx context.Context, pricing *PricingCard) error {
 	if m.createModelPricingFn != nil {
 		return m.createModelPricingFn(ctx, pricing)
 	}
 	return nil
 }
 
-func (m *mockChannelRepository) UpdateModelPricing(ctx context.Context, pricing *ChannelModelPricing) error {
+func (m *mockChannelRepository) UpdateModelPricing(ctx context.Context, pricing *PricingCard) error {
 	if m.updateModelPricingFn != nil {
 		return m.updateModelPricingFn(ctx, pricing)
 	}
@@ -159,7 +159,7 @@ func (m *mockChannelRepository) DeleteModelPricing(ctx context.Context, id int64
 	return nil
 }
 
-func (m *mockChannelRepository) ReplaceModelPricing(ctx context.Context, channelID int64, pricingList []ChannelModelPricing) error {
+func (m *mockChannelRepository) ReplaceModelPricing(ctx context.Context, channelID int64, pricingList []PricingCard) error {
 	if m.replaceModelPricingFn != nil {
 		return m.replaceModelPricingFn(ctx, channelID, pricingList)
 	}
@@ -353,13 +353,13 @@ func TestReplaceModelInBody(t *testing.T) {
 func TestValidateNoConflictingModels(t *testing.T) {
 	tests := []struct {
 		name        string
-		pricingList []ChannelModelPricing
+		pricingList []PricingCard
 		wantErr     bool
 		errContains string
 	}{
 		{
 			name: "no duplicates",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4", "claude-opus-4"}},
 				{Platform: "openai", Models: []string{"gpt-5.1"}},
 			},
@@ -367,7 +367,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "same platform duplicate",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4"}},
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4"}},
 			},
@@ -376,7 +376,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "same model different platform",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"model-a"}},
 				{Platform: "openai", Models: []string{"model-a"}},
 			},
@@ -384,7 +384,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "case insensitive",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"Claude"}},
 				{Platform: "anthropic", Models: []string{"claude"}},
 			},
@@ -397,7 +397,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "wildcard_vs_wildcard_conflict",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-*"}},
 				{Platform: "anthropic", Models: []string{"claude-opus-*"}},
 			},
@@ -406,7 +406,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "wildcard_vs_exact_conflict",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-*"}},
 				{Platform: "anthropic", Models: []string{"claude-opus-4-6"}},
 			},
@@ -415,7 +415,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "no_conflict_different_platform",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-opus-*"}},
 				{Platform: "openai", Models: []string{"claude-*"}},
 			},
@@ -423,7 +423,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "no_conflict_same_platform_different_prefix",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-opus-*"}},
 				{Platform: "anthropic", Models: []string{"gpt-*"}},
 			},
@@ -431,18 +431,18 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "catch_all_wildcard_conflicts_with_everything",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "openai", Models: []string{"*"}},
 				{Platform: "openai", Models: []string{"gpt-5"}},
 			},
 			wantErr:     true,
 			errContains: "conflict",
 		},
-		// 以下三例：冲突检测必须与 normalizeChannelPricingModelName 用同一套归一化，
+		// 以下三例：冲突检测必须与 normalizePricingModelName 用同一套归一化，
 		// 否则校验放行、写进缓存后键相同，后写的定价会静默覆盖前一条。
 		{
 			name: "claude_dot_and_hyphen_spelling_conflict",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4.5"}},
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4-5"}},
 			},
@@ -451,7 +451,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "claude_dot_and_hyphen_spelling_conflict_wildcard",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4.5*"}},
 				{Platform: "anthropic", Models: []string{"claude-sonnet-4-5-x"}},
 			},
@@ -460,7 +460,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		},
 		{
 			name: "surrounding_whitespace_conflict",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "openai", Models: []string{"gpt-5.6"}},
 				{Platform: "openai", Models: []string{" gpt-5.6 "}},
 			},
@@ -470,7 +470,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 		{
 			// 只有 claude-* 前缀才做 "." → "-"，别把其它平台也一起归一化了
 			name: "non_claude_dot_spelling_is_not_normalized",
-			pricingList: []ChannelModelPricing{
+			pricingList: []PricingCard{
 				{Platform: "openai", Models: []string{"gpt-5.6"}},
 				{Platform: "openai", Models: []string{"gpt-5-6"}},
 			},
@@ -494,7 +494,7 @@ func TestValidateNoConflictingModels(t *testing.T) {
 
 	// Additional sub-case: explicit empty slice
 	t.Run("empty list (empty slice)", func(t *testing.T) {
-		err := validateNoConflictingModels([]ChannelModelPricing{})
+		err := validateNoConflictingModels([]PricingCard{})
 		require.NoError(t, err)
 	})
 }
@@ -717,7 +717,7 @@ func TestGetChannelModelPricing_ExactMatch(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -735,7 +735,7 @@ func TestGetChannelModelPricing_CaseInsensitive(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -752,7 +752,7 @@ func TestGetChannelModelPricing_NormalizesDotsAndHyphens(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4.8"}, BillingMode: BillingModePerRequest, PerRequestPrice: testPtrFloat64(0.007)},
 		},
 	}
@@ -771,7 +771,7 @@ func TestGetChannelModelPricing_WildcardMatch(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 200, Platform: "anthropic", Models: []string{"claude-*"}, InputPrice: testPtrFloat64(10e-6)},
 		},
 	}
@@ -788,7 +788,7 @@ func TestGetChannelModelPricing_WildcardFirstMatch(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 200, Platform: "anthropic", Models: []string{"claude-*"}, InputPrice: testPtrFloat64(10e-6)},
 			{ID: 300, Platform: "anthropic", Models: []string{"claude-sonnet-*"}, InputPrice: testPtrFloat64(5e-6)},
 		},
@@ -808,7 +808,7 @@ func TestGetChannelModelPricing_NoMatch(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -824,7 +824,7 @@ func TestGetChannelModelPricing_InactiveChannel(t *testing.T) {
 		ID:       1,
 		Status:   StatusDisabled,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -840,7 +840,7 @@ func TestGetChannelModelPricing_PlatformFiltering(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10, 20},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "openai", Models: []string{"gpt-5.1"}, InputPrice: testPtrFloat64(5e-6)},
 			{ID: 200, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
@@ -872,7 +872,7 @@ func TestGetChannelModelPricing_ReturnsCopy(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -1065,7 +1065,7 @@ func TestIsModelRestricted_RestrictDisabled(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: false,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1097,7 +1097,7 @@ func TestIsModelRestricted_ModelInPricing(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-opus-4", "claude-sonnet-4"}},
 		},
 	}
@@ -1114,7 +1114,7 @@ func TestIsModelRestricted_ModelInWildcard(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-*"}},
 		},
 	}
@@ -1131,7 +1131,7 @@ func TestIsModelRestricted_ModelNotFound(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1148,7 +1148,7 @@ func TestIsModelRestricted_CaseInsensitive(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1183,7 +1183,7 @@ func TestResolveChannelMappingAndRestrict_WithMapping(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-sonnet-4"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -1208,7 +1208,7 @@ func TestResolveChannelMappingAndRestrict_NoMapping(t *testing.T) {
 		Status:         StatusActive,
 		GroupIDs:       []int64{10},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-sonnet-4"}},
 		},
 	}
@@ -1260,7 +1260,7 @@ func TestBuildCache_GroupPlatformError(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1290,7 +1290,7 @@ func TestBuildCache_MultipleGroupsSameChannel(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10, 20, 30},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -1313,7 +1313,7 @@ func TestBuildCache_PlatformFiltering(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10, 20},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
 			{ID: 200, Platform: "openai", Models: []string{"gpt-5.1"}},
 		},
@@ -1338,7 +1338,7 @@ func TestBuildCache_WildcardPreservesConfigOrder(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			// Configuration order: shortest prefix first
 			{ID: 100, Platform: "anthropic", Models: []string{"c-*"}, InputPrice: testPtrFloat64(1e-6)},
 			{ID: 200, Platform: "anthropic", Models: []string{"c-son-*"}, InputPrice: testPtrFloat64(2e-6)},
@@ -1372,7 +1372,7 @@ func TestInvalidateCache(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1420,7 +1420,7 @@ func TestInvalidateCachePublishesToOtherInstances(t *testing.T) {
 				ID:       1,
 				Status:   StatusActive,
 				GroupIDs: []int64{10},
-				ModelPricing: []ChannelModelPricing{{
+				ModelPricing: []PricingCard{{
 					ID:       100,
 					Platform: PlatformAnthropic,
 					Models:   []string{model},
@@ -1523,7 +1523,7 @@ func TestCreate_DuplicateModel(t *testing.T) {
 
 	_, err := svc.Create(context.Background(), &CreateChannelInput{
 		Name: "new-channel",
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 			{Platform: "anthropic", Models: []string{"claude-opus-4"}}, // duplicate
 		},
@@ -1542,7 +1542,7 @@ func TestCreate_InvalidPricingIntervals(t *testing.T) {
 
 	_, err := svc.Create(context.Background(), &CreateChannelInput{
 		Name: "new-channel",
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{
 				Platform: "anthropic",
 				Models:   []string{"claude-opus-4"},
@@ -1593,7 +1593,7 @@ func TestCreate_InvalidatesCache(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		},
 	}
@@ -1738,7 +1738,7 @@ func TestUpdate_DuplicateModel(t *testing.T) {
 	}
 	svc := newTestChannelService(repo)
 
-	dupPricing := []ChannelModelPricing{
+	dupPricing := []PricingCard{
 		{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 		{Platform: "anthropic", Models: []string{"claude-opus-4"}},
 	}
@@ -1762,7 +1762,7 @@ func TestUpdate_InvalidPricingIntervals(t *testing.T) {
 	}
 	svc := newTestChannelService(repo)
 
-	invalidPricing := []ChannelModelPricing{
+	invalidPricing := []PricingCard{
 		{
 			Platform: "anthropic",
 			Models:   []string{"claude-opus-4"},
@@ -2143,7 +2143,7 @@ func TestCompositeChannelLookupUsesResolvedTargetPlatform(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{99},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: PlatformOpenAI, Models: []string{"gpt-*"}},
 			{Platform: PlatformAnthropic, Models: []string{"claude-*"}},
 		},
@@ -2186,7 +2186,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeCrossPlatformPricing(t *tes
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: PlatformAnthropic, Models: []string{"claude-opus-4-6"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -2204,7 +2204,7 @@ func TestGetChannelModelPricing_AnthropicCannotSeeAntigravityPricing(t *testing.
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: PlatformAntigravity, Models: []string{"claude-opus-4-6"}, InputPrice: testPtrFloat64(15e-6)},
 		},
 	}
@@ -2251,7 +2251,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeSameModelFromOtherPlatforms
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 200, Platform: PlatformAnthropic, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(10e-6)},
 			{ID: 201, Platform: PlatformGemini, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(5e-6)},
 		},
@@ -2270,7 +2270,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeGeminiOnlyPricing(t *testin
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 300, Platform: PlatformGemini, Models: []string{"gemini-model"}, InputPrice: testPtrFloat64(2e-6)},
 		},
 	}
@@ -2288,7 +2288,7 @@ func TestGetChannelModelPricing_AntigravityDoesNotSeeWildcardFromOtherPlatforms(
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 400, Platform: PlatformAnthropic, Models: []string{"shared-*"}, InputPrice: testPtrFloat64(10e-6)},
 			{ID: 401, Platform: PlatformGemini, Models: []string{"shared-*"}, InputPrice: testPtrFloat64(5e-6)},
 		},
@@ -2328,7 +2328,7 @@ func TestCheckRestricted_AntigravityDoesNotSeeModelsFromOtherPlatforms(t *testin
 		Status:         StatusActive,
 		RestrictModels: true,
 		GroupIDs:       []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 500, Platform: PlatformAnthropic, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(10e-6)},
 			{ID: 501, Platform: PlatformGemini, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(5e-6)},
 		},
@@ -2349,7 +2349,7 @@ func TestGetChannelModelPricing_AntigravityOwnPricingWorks(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 600, Platform: PlatformAntigravity, Models: []string{"claude-*"}, InputPrice: testPtrFloat64(15e-6)},
 			{ID: 601, Platform: PlatformAntigravity, Models: []string{"gemini-*"}, InputPrice: testPtrFloat64(2e-6)},
 		},
@@ -2377,7 +2377,7 @@ func TestGetChannelModelPricing_NonAntigravityUnaffected(t *testing.T) {
 		ID:       1,
 		Status:   StatusActive,
 		GroupIDs: []int64{10, 20},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 600, Platform: PlatformAnthropic, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(10e-6)},
 			{ID: 601, Platform: PlatformGemini, Models: []string{"shared-model"}, InputPrice: testPtrFloat64(5e-6)},
 		},
@@ -2451,47 +2451,47 @@ func TestToUsageFields_WithUpstreamDifference(t *testing.T) {
 func TestValidatePricingBillingMode(t *testing.T) {
 	tests := []struct {
 		name    string
-		pricing []ChannelModelPricing
+		pricing []PricingCard
 		wantErr bool
 		errMsg  string
 	}{
 		{
 			name:    "token mode - valid",
-			pricing: []ChannelModelPricing{{BillingMode: BillingModeToken}},
+			pricing: []PricingCard{{BillingMode: BillingModeToken}},
 		},
 		{
 			name: "per_request with price - valid",
-			pricing: []ChannelModelPricing{{
+			pricing: []PricingCard{{
 				BillingMode:     BillingModePerRequest,
 				PerRequestPrice: testPtrFloat64(0.5),
 			}},
 		},
 		{
 			name: "per_request with intervals - valid",
-			pricing: []ChannelModelPricing{{
+			pricing: []PricingCard{{
 				BillingMode: BillingModePerRequest,
 				Intervals:   []PricingInterval{{MinTokens: 0, MaxTokens: testPtrInt(1000), PerRequestPrice: testPtrFloat64(0.1)}},
 			}},
 		},
 		{
 			name:    "per_request no price no intervals - invalid",
-			pricing: []ChannelModelPricing{{BillingMode: BillingModePerRequest}},
+			pricing: []PricingCard{{BillingMode: BillingModePerRequest}},
 			wantErr: true,
 			errMsg:  "per-request price or intervals required",
 		},
 		{
 			name:    "image no price no intervals - invalid",
-			pricing: []ChannelModelPricing{{BillingMode: BillingModeImage}},
+			pricing: []PricingCard{{BillingMode: BillingModeImage}},
 			wantErr: true,
 			errMsg:  "per-request price or intervals required",
 		},
 		{
 			name:    "empty list - valid",
-			pricing: []ChannelModelPricing{},
+			pricing: []PricingCard{},
 		},
 		{
 			name: "negative input_price - invalid",
-			pricing: []ChannelModelPricing{{
+			pricing: []PricingCard{{
 				BillingMode: BillingModeToken,
 				InputPrice:  testPtrFloat64(-0.01),
 			}},
@@ -2500,7 +2500,7 @@ func TestValidatePricingBillingMode(t *testing.T) {
 		},
 		{
 			name: "interval with no price fields - invalid",
-			pricing: []ChannelModelPricing{{
+			pricing: []PricingCard{{
 				BillingMode:     BillingModePerRequest,
 				PerRequestPrice: testPtrFloat64(0.5),
 				Intervals:       []PricingInterval{{MinTokens: 0, MaxTokens: testPtrInt(1000)}},
@@ -2523,29 +2523,29 @@ func TestValidatePricingBillingMode(t *testing.T) {
 	}
 }
 
-func validTimePricingForTest() *ChannelTimePricing {
-	return &ChannelTimePricing{Timezone: "Asia/Shanghai", Periods: []ChannelTimePricingPeriod{
+func validTimePricingForTest() *TimePricing {
+	return &TimePricing{Timezone: "Asia/Shanghai", Periods: []TimePricingPeriod{
 		{StartTime: "09:00", EndTime: "12:00", Multiplier: 2},
 	}}
 }
 
 func TestValidatePricingTimePricing(t *testing.T) {
-	token := []ChannelModelPricing{{BillingMode: BillingModeToken, TimePricing: validTimePricingForTest()}}
+	token := []PricingCard{{BillingMode: BillingModeToken, TimePricing: validTimePricingForTest()}}
 	require.NoError(t, validatePricingTimePricing(token))
 
-	implicitToken := []ChannelModelPricing{{TimePricing: validTimePricingForTest()}}
+	implicitToken := []PricingCard{{TimePricing: validTimePricingForTest()}}
 	require.NoError(t, validatePricingTimePricing(implicitToken))
 
-	image := []ChannelModelPricing{{BillingMode: BillingModeImage, TimePricing: validTimePricingForTest()}}
+	image := []PricingCard{{BillingMode: BillingModeImage, TimePricing: validTimePricingForTest()}}
 	modeErr := infraerrors.FromError(validatePricingTimePricing(image))
 	require.Equal(t, int32(http.StatusBadRequest), modeErr.Code)
 	require.Equal(t, "TIME_PRICING_UNSUPPORTED_MODE", modeErr.Reason)
 
-	invalid := []ChannelModelPricing{{
+	invalid := []PricingCard{{
 		Platform:    PlatformOpenAI,
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
-		TimePricing: &ChannelTimePricing{Timezone: "UTC+8", Periods: validTimePricingForTest().Periods},
+		TimePricing: &TimePricing{Timezone: "UTC+8", Periods: validTimePricingForTest().Periods},
 	}}
 	invalidErr := infraerrors.FromError(validatePricingTimePricing(invalid))
 	require.Equal(t, int32(http.StatusBadRequest), invalidErr.Code)
@@ -2553,11 +2553,11 @@ func TestValidatePricingTimePricing(t *testing.T) {
 	require.Contains(t, invalidErr.Message, "platform 'openai'")
 	require.Contains(t, invalidErr.Message, "models [gpt-5]")
 
-	invalidMultiplier := []ChannelModelPricing{{
+	invalidMultiplier := []PricingCard{{
 		Platform:    PlatformOpenAI,
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
-		TimePricing: &ChannelTimePricing{Timezone: "Asia/Shanghai", Periods: []ChannelTimePricingPeriod{{
+		TimePricing: &TimePricing{Timezone: "Asia/Shanghai", Periods: []TimePricingPeriod{{
 			StartTime: "09:00", EndTime: "12:00", Multiplier: 1e-12,
 		}}},
 	}}
@@ -2567,13 +2567,13 @@ func TestValidatePricingTimePricing(t *testing.T) {
 	require.Equal(t, int32(http.StatusBadRequest), invalidMultiplierErr.Code)
 	require.Equal(t, "INVALID_TIME_PRICING", invalidMultiplierErr.Reason)
 
-	empty := []ChannelModelPricing{{BillingMode: BillingModeToken, TimePricing: &ChannelTimePricing{Timezone: "Asia/Shanghai"}}}
+	empty := []PricingCard{{BillingMode: BillingModeToken, TimePricing: &TimePricing{Timezone: "Asia/Shanghai"}}}
 	require.NoError(t, validatePricingTimePricing(empty))
 	require.Nil(t, empty[0].TimePricing)
 }
 
 func TestValidateAccountStatsPricingRulesRejectsTimePricing(t *testing.T) {
-	rules := []AccountStatsPricingRule{{Pricing: []ChannelModelPricing{{
+	rules := []AccountStatsPricingRule{{Pricing: []PricingCard{{
 		BillingMode: BillingModeToken,
 		TimePricing: validTimePricingForTest(),
 	}}}}

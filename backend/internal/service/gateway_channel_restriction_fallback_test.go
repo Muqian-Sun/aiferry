@@ -20,7 +20,7 @@ func TestSelectAccountForModelWithExclusions_UsesFallbackGroupForChannelRestrict
 		Status:         StatusActive,
 		GroupIDs:       []int64{fallbackID},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: PlatformAnthropic, Models: []string{"claude-sonnet-4-6"}},
 		},
 	}
@@ -79,7 +79,7 @@ func TestSelectAccountWithLoadAwareness_UsesFallbackGroupForChannelRestriction(t
 		Status:         StatusActive,
 		GroupIDs:       []int64{fallbackID},
 		RestrictModels: true,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: PlatformAnthropic, Models: []string{"claude-sonnet-4-6"}},
 		},
 	}

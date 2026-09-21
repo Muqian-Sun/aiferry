@@ -11,8 +11,8 @@ type PlazaCatalogModel struct {
 	Vendor      string
 	BillingMode BillingMode
 	// Pricing 目录基准价卡（分档在 Intervals 里）；分时倍率单独给出。
-	Pricing     *ChannelModelPricing
-	TimePricing *ChannelTimePricing
+	Pricing     *PricingCard
+	TimePricing *TimePricing
 	Aliases     []string
 }
 
@@ -50,7 +50,7 @@ func (s *ModelPlazaService) ListModels(ctx context.Context) []PlazaCatalogModel 
 	return models
 }
 
-func withDefaultMaxReasoningEffortMultiplier(pricing *ChannelModelPricing, model string) *ChannelModelPricing {
+func withDefaultMaxReasoningEffortMultiplier(pricing *PricingCard, model string) *PricingCard {
 	if pricing == nil || pricing.MaxReasoningEffortMultiplier != nil {
 		return pricing
 	}

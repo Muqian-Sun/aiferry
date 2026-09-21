@@ -4,7 +4,7 @@
  */
 
 import { apiClient } from './client'
-import type { BillingMode } from '@/constants/channel'
+import type { BillingMode } from '@/constants/pricing'
 
 export interface UserAvailableGroup {
   id: number

@@ -90,14 +90,14 @@ func TestChannelModelPricingTimePricingListNullAndMalformed(t *testing.T) {
 }
 
 func TestChannelModelPricingTimePricingCreateAndUpdateRoundTrip(t *testing.T) {
-	pricing := &service.ChannelModelPricing{
+	pricing := &service.PricingCard{
 		ID:        11,
 		ChannelID: 7,
 		Platform:  "openai",
 		Models:    []string{"gpt-5"},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone: "Asia/Shanghai",
-			Periods: []service.ChannelTimePricingPeriod{{
+			Periods: []service.TimePricingPeriod{{
 				StartTime: "09:00", EndTime: "12:00", Multiplier: 2,
 			}},
 		},
@@ -133,16 +133,16 @@ func TestChannelModelPricingTimePricingCreateAndUpdateRoundTrip(t *testing.T) {
 func TestChannelModelPricingTimePricingCreateAndUpdateWriteNullWhenDisabled(t *testing.T) {
 	tests := []struct {
 		name        string
-		timePricing *service.ChannelTimePricing
+		timePricing *service.TimePricing
 	}{
 		{name: "nil", timePricing: nil},
-		{name: "empty periods", timePricing: &service.ChannelTimePricing{Timezone: "Asia/Shanghai"}},
+		{name: "empty periods", timePricing: &service.TimePricing{Timezone: "Asia/Shanghai"}},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			newPricing := func() *service.ChannelModelPricing {
-				return &service.ChannelModelPricing{
+			newPricing := func() *service.PricingCard {
+				return &service.PricingCard{
 					ID:          11,
 					ChannelID:   7,
 					Platform:    "openai",

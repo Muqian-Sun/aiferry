@@ -232,7 +232,7 @@ func newTestModelCatalogService(entries ...ModelCatalogEntry) (*ModelCatalogServ
 
 // catalogEntryFromCard 把一份价卡 fixture 投影成目录条目，便于把原来按渠道价卡
 // 写的用例平移到目录上。managedBy 决定它算不算运营者定价。
-func catalogEntryFromCard(modelID, managedBy string, card ChannelModelPricing) ModelCatalogEntry {
+func catalogEntryFromCard(modelID, managedBy string, card PricingCard) ModelCatalogEntry {
 	entry := ModelCatalogEntry{
 		ModelID:                      modelID,
 		BillingMode:                  card.BillingMode,
@@ -258,7 +258,7 @@ func catalogEntryFromCard(modelID, managedBy string, card ChannelModelPricing) M
 
 // newResolverWithCatalogCards 用一组价卡 fixture 搭一个目录驱动的解析器。
 // 条目按 admin 维护记账：它们代表「运营者显式配了价」，与原先的渠道价卡等价。
-func newResolverWithCatalogCards(bs *BillingService, cards ...ChannelModelPricing) *ModelPricingResolver {
+func newResolverWithCatalogCards(bs *BillingService, cards ...PricingCard) *ModelPricingResolver {
 	entries := make([]ModelCatalogEntry, 0, len(cards))
 	for _, card := range cards {
 		if len(card.Models) == 0 {

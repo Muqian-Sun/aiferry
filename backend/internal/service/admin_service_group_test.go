@@ -216,7 +216,7 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedCreateFieldsDirectly(t *t
 		Name: "simple", Description: "allowed", Platform: PlatformAnthropic,
 		RateMultiplier: 9, IsExclusive: true, SubscriptionType: SubscriptionTypeSubscription,
 		DailyLimitUSD: &one, LongContextPricingEnabled: true,
-		ModelPricing:    []ChannelModelPricing{{Models: []string{"claude"}}},
+		ModelPricing:    []PricingCard{{Models: []string{"claude"}}},
 		PeakRateEnabled: true, PeakStart: "00:00", PeakEnd: "01:00", PeakRateMultiplier: &one,
 		ImageRateIndependent: true, ImageRateMultiplier: &one, VideoRateIndependent: true, VideoRateMultiplier: &one,
 		ImagePrice1K: &one, VideoPrice720P: &one, WebSearchPricePerCall: &one, SearchPricePer1k: &one,
@@ -250,7 +250,7 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedUpdateFieldsDirectly(t *t
 	status := "inactive"
 	description := "allowed"
 	fallbackID := int64(44)
-	pricing := []ChannelModelPricing{{Models: []string{"claude"}}}
+	pricing := []PricingCard{{Models: []string{"claude"}}}
 	input := &UpdateGroupInput{
 		Name: "renamed", Description: &description, Platform: PlatformOpenAI, Status: status,
 		RateMultiplier: &one, IsExclusive: &truth, SubscriptionType: SubscriptionTypeSubscription,
@@ -341,7 +341,7 @@ func TestAdminService_CreateGroup_RejectsTimePricing(t *testing.T) {
 		Name:           "time-pricing-group",
 		Platform:       PlatformOpenAI,
 		RateMultiplier: 1,
-		ModelPricing: []ChannelModelPricing{{
+		ModelPricing: []PricingCard{{
 			Platform:    PlatformOpenAI,
 			Models:      []string{"gpt-5"},
 			BillingMode: BillingModeToken,
@@ -360,7 +360,7 @@ func TestAdminService_UpdateGroup_RejectsTimePricing(t *testing.T) {
 	existing := &Group{ID: 1, Name: "existing", Platform: PlatformOpenAI, Status: StatusActive}
 	repo := &groupRepoStubForAdmin{getByID: existing}
 	svc := &adminServiceImpl{groupRepo: repo}
-	pricing := []ChannelModelPricing{{
+	pricing := []PricingCard{{
 		Platform:    PlatformOpenAI,
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
@@ -377,10 +377,10 @@ func TestAdminService_UpdateGroup_RejectsTimePricing(t *testing.T) {
 }
 
 func TestNormalizeGroupModelPricing_NormalizesEmptyTimePricing(t *testing.T) {
-	pricing, err := normalizeGroupModelPricing(PlatformOpenAI, []ChannelModelPricing{{
+	pricing, err := normalizeGroupModelPricing(PlatformOpenAI, []PricingCard{{
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
-		TimePricing: &ChannelTimePricing{Timezone: "Asia/Shanghai"},
+		TimePricing: &TimePricing{Timezone: "Asia/Shanghai"},
 	}})
 
 	require.NoError(t, err)

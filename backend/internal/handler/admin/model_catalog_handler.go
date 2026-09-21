@@ -59,8 +59,8 @@ type ModelCatalogEntryRequest struct {
 
 	Notes *string `json:"notes"`
 
-	Intervals   []service.PricingInterval   `json:"intervals"`
-	TimePricing *service.ChannelTimePricing `json:"time_pricing"`
+	Intervals   []service.PricingInterval `json:"intervals"`
+	TimePricing *service.TimePricing      `json:"time_pricing"`
 }
 
 func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {

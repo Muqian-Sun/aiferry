@@ -318,7 +318,7 @@ func toUserPricingIntervals(src []service.PricingInterval) []userPricingInterval
 }
 
 // toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
-func toUserPricing(p *service.ChannelModelPricing) *userSupportedModelPricing {
+func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	if p == nil {
 		return nil
 	}

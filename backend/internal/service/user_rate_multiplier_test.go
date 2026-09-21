@@ -34,7 +34,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 		userRepo := &openAIRecordUsageUserRepoStub{}
 		svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-		svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+		svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 			Models: []string{"claude-sonnet-4-5"}, BillingMode: BillingModeToken,
 			InputPrice: &inputPrice, OutputPrice: &outputPrice,
 		})
@@ -54,7 +54,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 		userRepo := &openAIRecordUsageUserRepoStub{}
 		svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
-		svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+		svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 			Models: []string{"gpt-5.6"}, BillingMode: BillingModeToken,
 			InputPrice: &inputPrice, OutputPrice: &outputPrice,
 		})
@@ -76,7 +76,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 		userRepo := &openAIRecordUsageUserRepoStub{}
 		svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-		svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+		svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 			Models: []string{"claude-sonnet-4-5"}, BillingMode: BillingModeToken,
 			InputPrice: &inputPrice, OutputPrice: &outputPrice,
 		})

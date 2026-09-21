@@ -41,7 +41,7 @@ func TestChannelToResponse_FullChannel(t *testing.T) {
 		CreatedAt:          now,
 		UpdatedAt:          now.Add(time.Hour),
 		GroupIDs:           []int64{1, 2, 3},
-		ModelPricing: []service.ChannelModelPricing{
+		ModelPricing: []service.PricingCard{
 			{
 				ID:              10,
 				Platform:        "openai",
@@ -100,7 +100,7 @@ func TestChannelToResponse_EmptyDefaults(t *testing.T) {
 		UpdatedAt:          now,
 		GroupIDs:           nil,
 		ModelMapping:       nil,
-		ModelPricing: []service.ChannelModelPricing{
+		ModelPricing: []service.PricingCard{
 			{
 				Platform:    "",
 				BillingMode: "",
@@ -144,7 +144,7 @@ func TestChannelToResponse_NilModels(t *testing.T) {
 		Name:      "ch",
 		CreatedAt: now,
 		UpdatedAt: now,
-		ModelPricing: []service.ChannelModelPricing{
+		ModelPricing: []service.PricingCard{
 			{
 				Models: nil,
 			},
@@ -164,7 +164,7 @@ func TestChannelToResponse_WithIntervals(t *testing.T) {
 		Name:      "ch",
 		CreatedAt: now,
 		UpdatedAt: now,
-		ModelPricing: []service.ChannelModelPricing{
+		ModelPricing: []service.PricingCard{
 			{
 				Models:      []string{"m1"},
 				BillingMode: service.BillingModePerRequest,
@@ -225,7 +225,7 @@ func TestChannelToResponse_MultipleEntries(t *testing.T) {
 		Name:      "multi",
 		CreatedAt: now,
 		UpdatedAt: now,
-		ModelPricing: []service.ChannelModelPricing{
+		ModelPricing: []service.PricingCard{
 			{
 				ID:          1,
 				Platform:    "anthropic",
@@ -489,12 +489,12 @@ func TestPricingRequestToService_MultipliersGatedByFlag(t *testing.T) {
 }
 
 func TestPricingToResponse_TimePricing(t *testing.T) {
-	got := pricingToResponse(&service.ChannelModelPricing{
+	got := pricingToResponse(&service.PricingCard{
 		BillingMode: service.BillingModeToken,
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone:     "Asia/Shanghai",
 			WeekdaysOnly: true,
-			Periods: []service.ChannelTimePricingPeriod{{
+			Periods: []service.TimePricingPeriod{{
 				StartTime: "14:00", EndTime: "18:00", Multiplier: 1.25,
 			}},
 		},
@@ -507,7 +507,7 @@ func TestPricingToResponse_TimePricing(t *testing.T) {
 }
 
 func TestPricingToResponse_TimePricingNil(t *testing.T) {
-	got := pricingToResponse(&service.ChannelModelPricing{})
+	got := pricingToResponse(&service.PricingCard{})
 	require.Nil(t, got.TimePricing)
 }
 

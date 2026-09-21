@@ -43,7 +43,7 @@ type ResolvedPricing struct {
 
 	// configuredPricing 是命中的目录条目投影，用于区间模式取图片价、判定哪些字段
 	// 被显式配置、以及分时倍率。
-	configuredPricing *ChannelModelPricing
+	configuredPricing *PricingCard
 
 	// operatorPricing 表示胜出的价格是运营者写的（被管理员改过的目录条目），而不是
 	// 平台默认价卡（播种出来的目录条目 / 价格文件 / 硬编码兜底价）。运营者定价保留
@@ -174,7 +174,7 @@ func (r *ModelPricingResolver) resolveBasePricing(model string) (*ModelPricing, 
 }
 
 // applyRequestTierOverrides 应用按次/图片模式的价卡覆盖
-func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *ChannelModelPricing, resolved *ResolvedPricing) {
+func (r *ModelPricingResolver) applyRequestTierOverrides(chPricing *PricingCard, resolved *ResolvedPricing) {
 	resolved.RequestTiers = filterValidIntervals(chPricing.Intervals)
 	if chPricing.PerRequestPrice != nil {
 		resolved.DefaultPerRequestPrice = *chPricing.PerRequestPrice
@@ -220,7 +220,7 @@ func (r *ModelPricingResolver) GetIntervalPricing(resolved *ResolvedPricing, tot
 
 // intervalToModelPricing 将区间定价转换为 ModelPricing。
 // overrideImagePrices 为 true 时按运营者价卡语义处理图片价（未配置即归零）。
-func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *ChannelModelPricing, overrideImagePrices bool) *ModelPricing {
+func intervalToModelPricing(iv *PricingInterval, base *ModelPricing, chPricing *PricingCard, overrideImagePrices bool) *ModelPricing {
 	pricing := &ModelPricing{}
 	if base != nil {
 		*pricing = *base

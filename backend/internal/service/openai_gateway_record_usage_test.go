@@ -2355,7 +2355,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 // groupID 只保留签名兼容：目录是全局的，不按分组隔离。
 func newOpenAIImageChannelPricingResolverForTest(t *testing.T, _ int64, model string, price float64) *ModelPricingResolver {
 	t.Helper()
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), PricingCard{
 		Models:          []string{model},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: &price,
@@ -2367,12 +2367,12 @@ func newOpenAITokenImageChannelPricingResolverForTest(t *testing.T, _ int64, mod
 	return newOpenAITokenImageCatalogResolverWithTime(t, model, nil)
 }
 
-func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, timePricing *ChannelTimePricing) *ModelPricingResolver {
+func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, timePricing *TimePricing) *ModelPricingResolver {
 	t.Helper()
 	inputPrice := 3e-6
 	outputPrice := 15e-6
 	imageOutputPrice := 15e-6
-	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), ChannelModelPricing{
+	return newResolverWithCatalogCards(NewBillingService(&config.Config{}, nil), PricingCard{
 		Models:           []string{model},
 		BillingMode:      BillingModeToken,
 		InputPrice:       &inputPrice,
@@ -2426,7 +2426,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
 		billingService: billingService,
-		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+		resolver: newResolverWithCatalogCards(billingService, PricingCard{
 			Models:          []string{"gemini-image"},
 			BillingMode:     BillingModeImage,
 			PerRequestPrice: &defaultPrice,
@@ -2542,7 +2542,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMis
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
 		billingService: billingService,
-		resolver: newResolverWithCatalogCards(billingService, ChannelModelPricing{
+		resolver: newResolverWithCatalogCards(billingService, PricingCard{
 			Models:          []string{"gemini-image"},
 			BillingMode:     BillingModeImage,
 			PerRequestPrice: &defaultPrice,
@@ -2699,7 +2699,7 @@ func TestOpenAIGatewayServiceRecordUsage_FreeOpenAIFastChargesStandard(t *testin
 	inputPrice := 0.001
 	outputPrice := 0.002
 	fastMultiplier := 3.0
-	svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+	svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 		Models:         []string{"gpt-5.6-sol"},
 		BillingMode:    BillingModeToken,
 		InputPrice:     &inputPrice,

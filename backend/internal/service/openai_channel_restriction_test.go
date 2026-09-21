@@ -47,7 +47,7 @@ func TestIsUpstreamModelRestrictedByChannel_CompactMappingMatchesForwardPath(t *
 				GroupIDs:           []int64{10},
 				RestrictModels:     true,
 				BillingModelSource: BillingModelSourceUpstream,
-				ModelPricing: []ChannelModelPricing{
+				ModelPricing: []PricingCard{
 					{Platform: PlatformOpenAI, Models: []string{tt.allowedUpstreamModel}},
 				},
 				ModelMapping: map[string]map[string]string{
@@ -117,7 +117,7 @@ func TestIsUpstreamModelRestrictedByChannel_PassthroughMatchesForwardPath(t *tes
 				GroupIDs:           []int64{10},
 				RestrictModels:     true,
 				BillingModelSource: BillingModelSourceUpstream,
-				ModelPricing: []ChannelModelPricing{
+				ModelPricing: []PricingCard{
 					{Platform: PlatformOpenAI, Models: []string{tt.allowedUpstreamModel}},
 				},
 				ModelMapping: map[string]map[string]string{
@@ -174,7 +174,7 @@ func TestIsUpstreamModelRestrictedByChannel_PassthroughFlagWithRawChatFallbackMa
 				GroupIDs:           []int64{10},
 				RestrictModels:     true,
 				BillingModelSource: BillingModelSourceUpstream,
-				ModelPricing: []ChannelModelPricing{
+				ModelPricing: []PricingCard{
 					{Platform: PlatformOpenAI, Models: []string{"gpt-5.4-account"}},
 				},
 				ModelMapping: map[string]map[string]string{
@@ -215,7 +215,7 @@ func TestIsUpstreamModelRestrictedByChannel_ForwardModelContextMatchesNormalForw
 		GroupIDs:           []int64{10},
 		RestrictModels:     true,
 		BillingModelSource: BillingModelSourceUpstream,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: PlatformOpenAI, Models: []string{"gpt-5.4-account"}},
 		},
 		ModelMapping: map[string]map[string]string{

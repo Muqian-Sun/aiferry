@@ -13,7 +13,7 @@ import (
 // newTokenCostTestEnv 构造带渠道定价的计费环境：group 100 挂一个渠道，定价由 pricing 指定。
 // newTokenCostTestEnv 搭一个「运营者显式配了价」的环境。价卡从渠道搬到了模型目录，
 // groupPlatform 只保留签名兼容（目录是全局的，不按平台隔离）。
-func newTokenCostTestEnv(t *testing.T, _ string, pricing []ChannelModelPricing, catalog *PricingService) (*BillingService, *ModelPricingResolver) {
+func newTokenCostTestEnv(t *testing.T, _ string, pricing []PricingCard, catalog *PricingService) (*BillingService, *ModelPricingResolver) {
 	t.Helper()
 	bs := NewBillingService(&config.Config{}, catalog)
 	return bs, newResolverWithCatalogCards(bs, pricing...)
@@ -53,7 +53,7 @@ func geminiLadderCatalogStub(t *testing.T) *PricingService {
 // 渠道平价之上叠加目录阶梯：与分组价卡/OpenAI 渠道价的既有语义一致，
 // 超阈值整单按渠道价 × 目录倍率。
 func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []ChannelModelPricing{{
+	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
 		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6),
 	}}, geminiLadderCatalogStub(t))
@@ -73,7 +73,7 @@ func TestCalculateTokenCostForRequest_ChannelFlatPriceStacksCatalogLadder(t *tes
 
 // 渠道配置了定价区间时以渠道区间为准：目录阶梯（倍率）不再叠加。
 func TestCalculateTokenCostForRequest_ChannelIntervalsOverrideCatalogLadder(t *testing.T) {
-	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []ChannelModelPricing{{
+	bs, resolver := newTokenCostTestEnv(t, PlatformGemini, []PricingCard{{
 		Platform: PlatformGemini, Models: []string{"gemini-2.5-pro"}, BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(40e-6)}},
 	}}, geminiLadderCatalogStub(t))
@@ -208,7 +208,7 @@ func TestCalculateTokenCostForRequest_Fable51MaxEffortUsesDefaultMultiplier(t *t
 
 func TestCalculateTokenCostForRequest_ChannelOverridesFable51MaxEffortMultiplier(t *testing.T) {
 	configured := 1.5
-	bs, resolver := newTokenCostTestEnv(t, PlatformAnthropic, []ChannelModelPricing{{
+	bs, resolver := newTokenCostTestEnv(t, PlatformAnthropic, []PricingCard{{
 		Platform: PlatformAnthropic, Models: []string{"claude-fable-5-1"}, BillingMode: BillingModeToken,
 		InputPrice: testPtrFloat64(10e-6), OutputPrice: testPtrFloat64(50e-6),
 		MaxReasoningEffortMultiplier: &configured,
