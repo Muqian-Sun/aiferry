@@ -36,7 +36,7 @@ func newGatewayHandlerOverOpenAIService(
 	billingCache *service.BillingCacheService,
 	concurrency *service.ConcurrencyService,
 ) *GatewayHandler {
-	gwSvc := newTestSchedulerOverRepo(cfg, accountRepo, group, nil)
+	gwSvc := newTestSchedulerOverRepo(cfg, accountRepo, group)
 	return &GatewayHandler{
 		gatewayService:       gwSvc,
 		openAIGatewayService: openAISvc,
@@ -51,10 +51,10 @@ func newGatewayHandlerOverOpenAIService(
 
 // newTestSchedulerOverRepo 装一个无快照的 GatewayService 当唯一调度器：候选直接列自 accountRepo，
 // 分组由 group 回答；OpenAI 服务 / handler 的 WS 与扩展端点夹具都用它。
-func newTestSchedulerOverRepo(cfg *config.Config, accountRepo service.AccountRepository, group *service.Group, channelSvc *service.ChannelService) *service.GatewayService {
+func newTestSchedulerOverRepo(cfg *config.Config, accountRepo service.AccountRepository, group *service.Group) *service.GatewayService {
 	return service.NewGatewayService(
 		accountRepo, gatewayHarnessGroupRepo{group: group}, nil, nil, nil, nil, nil, cfg,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, channelSvc, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 }
 

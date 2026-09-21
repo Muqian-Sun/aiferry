@@ -498,11 +498,6 @@ const (
 	// all Grok OAuth accounts (accounts have no per-account address override).
 	SettingKeyGrokDefaultBaseURLMode = "grok_default_base_url_mode"
 
-	// SettingKeyAvailableChannelsEnabled is a DB-backed soft switch for the "Available Channels"
-	// user-facing aggregate view. When false: user endpoint returns an empty list and the
-	// sidebar entry is hidden. Defaults to false (opt-in feature).
-	SettingKeyAvailableChannelsEnabled = "available_channels_enabled"
-
 	// SettingKeySubscriptionEnabled is a DB-backed soft switch for the user-facing
 	// subscription surface: sidebar entries, purchase-page subscription tab, header
 	// progress badge, usage billing-type filter and the /subscriptions route. When

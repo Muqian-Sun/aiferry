@@ -147,7 +147,7 @@ func newKeyRouteHarness(t *testing.T, group *service.Group, accounts []*service.
 	h.openAIGatewayService = service.NewOpenAIGatewayService(
 		nil, usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, &service.BillingCacheService{}, openAIUpstream,
-		&service.DeferredService{}, nil, nil, nil, nil, nil, nil,
+		&service.DeferredService{}, nil, nil, nil, nil, nil,
 		nil,
 	)
 	return &keyRouteHarness{handler: h, geminiUpstream: geminiUpstream, antigravityUpsteam: antigravityUpstream, openAIUpstream: openAIUpstream, usageLogs: usageLogs}
@@ -688,7 +688,7 @@ func TestGatewayHandlerMessages_OAuth429StormStopsAfterSwitches(t *testing.T) {
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	hs.handler.openAIGatewayService = service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil, service.NewBillingService(cfg, nil), nil,
-		&service.BillingCacheService{}, upstream, &service.DeferredService{}, nil, provider, nil, nil, nil, nil,
+		&service.BillingCacheService{}, upstream, &service.DeferredService{}, nil, provider, nil, nil, nil,
 		nil,
 	)
 	hs.handler.maxAccountSwitches = 10

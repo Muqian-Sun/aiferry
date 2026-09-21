@@ -1631,13 +1631,15 @@ describe('EditAccountModal third-party key settings do not follow the platform l
 
     await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="edit-anthropic-auth-scheme"]').setValue('authorization_bearer')
-    await wrapper.get('[data-testid="edit-web-search-emulation"] select').setValue('enabled')
+    await wrapper.get('[data-testid="edit-web-search-emulation-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="edit-bedrock-cc-compat-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
     expect(payload?.extra).toMatchObject({
       anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer',
-      web_search_emulation: 'enabled'
+      web_search_emulation: true,
+      bedrock_cc_compat: true
     })
   })
 
@@ -1656,6 +1658,33 @@ describe('EditAccountModal third-party key settings do not follow the platform l
       anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer'
     })
+  })
+
+  it('loads a legacy string web_search_emulation as on and saves it back as a bool', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal(buildKey(
+      'anthropic',
+      { anthropic: 'https://relay.example.com/anthropic' },
+      { web_search_emulation: 'enabled', bedrock_cc_compat: true }
+    ))
+    await flushPromises()
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra).toMatchObject({ web_search_emulation: true, bedrock_cc_compat: true })
+  })
+
+  it('drops web_search_emulation and bedrock_cc_compat from extra when both toggles are off', async () => {
+    vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
+    const wrapper = mountModal(buildKey(
+      'anthropic',
+      { anthropic: 'https://relay.example.com/anthropic' },
+      { web_search_emulation: 'default', bedrock_cc_compat: false }
+    ))
+    await flushPromises()
+
+    const payload = await submitPayload(wrapper)
+    expect(payload?.extra ?? {}).not.toHaveProperty('web_search_emulation')
+    expect(payload?.extra ?? {}).not.toHaveProperty('bedrock_cc_compat')
   })
 
   it('hides Anthropic protocol settings for an Anthropic-labelled key without an anthropic endpoint', async () => {

@@ -586,46 +586,6 @@ export default {
     }
   },
 
-  // Available Channels (user-facing)
-  availableChannels: {
-    title: 'Available Channels',
-    description: 'Channels you can access, along with their supported models and pricing',
-    searchPlaceholder: 'Search channels or models...',
-    empty: 'No available channels',
-    noModels: 'No models configured',
-    noPricing: 'Pricing not configured',
-    exclusive: 'Exclusive',
-    public: 'Public',
-    exclusiveTooltip: 'Exclusive groups granted to you by an admin',
-    publicTooltip: 'Groups open to all users',
-    columns: {
-      name: 'Channel',
-      description: 'Description',
-      platform: 'Platform',
-      groups: 'Your Accessible Groups',
-      supportedModels: 'Supported Models'
-    },
-    pricing: {
-      billingMode: 'Billing Mode',
-      billingModeToken: 'Per Token',
-      billingModePerRequest: 'Per Request',
-      billingModeImage: 'Per Image',
-      billingModeVideo: 'Per Video',
-      inputPrice: 'Input',
-      outputPrice: 'Output',
-      cacheWritePrice: 'Cache Write',
-      cacheWrite5mPrice: 'Cache Write (5m)',
-      cacheWrite1hPrice: 'Cache Write (1h)',
-      cacheReadPrice: 'Cache Read',
-      imageInputPrice: 'Image Input',
-      imageOutputPrice: 'Image Output',
-      perRequestPrice: 'Per Request',
-      intervals: 'Tiered Pricing',
-      unitPerMillion: '/ 1M tokens',
-      unitPerRequest: '/ request'
-    }
-  },
-
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
     title: 'Model Plaza',

@@ -1029,8 +1029,8 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
-		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, repo, group, nil),
+		&service.DeferredService{}, nil, provider, nil, nil, nil,
+		newTestSchedulerOverRepo(cfg, repo, group),
 	)
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,

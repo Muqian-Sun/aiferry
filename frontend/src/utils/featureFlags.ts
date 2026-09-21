@@ -99,11 +99,6 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Channel Monitor',
   }),
-  availableChannels: defineFlag({
-    key: 'available_channels_enabled',
-    mode: 'opt-in',
-    label: 'Available Channels',
-  }),
   subscription: defineFlag({
     key: 'subscription_enabled',
     mode: 'opt-out',

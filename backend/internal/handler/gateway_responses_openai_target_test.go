@@ -58,7 +58,7 @@ func TestGatewayHandlerResponses_PreviousResponseIDPrefetchesSticky(t *testing.T
 	hs.handler.openAIGatewayService = service.NewOpenAIGatewayService(
 		repo, hs.usageLogs, nil, handlerUserRepoStub{}, handlerSubRepoStub{}, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, &service.BillingCacheService{}, hs.openAIUpstream,
-		&service.DeferredService{}, nil, nil, nil, nil, nil, nil,
+		&service.DeferredService{}, nil, nil, nil, nil, nil,
 		nil,
 	)
 	ctx := context.Background()

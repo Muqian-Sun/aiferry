@@ -218,7 +218,6 @@ func newResolverWithCatalog(t *testing.T, pricing []PricingCard) *ModelPricingRe
 
 func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(10e-6),
@@ -242,7 +241,6 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	// Channel only sets InputPrice; OutputPrice should remain from the base (LiteLLM/fallback).
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(20e-6),
@@ -264,7 +262,6 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{
@@ -294,7 +291,6 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 	// Base pricing is nil (unknown model), channel has flat prices → creates new BasePricing.
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"unknown-model-xyz"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(7e-6),
@@ -319,7 +315,6 @@ func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 
 func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModePerRequest,
 		PerRequestPrice: testPtrFloat64(0.05),
@@ -347,7 +342,6 @@ func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
 func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 	// PerRequestPrice nil → DefaultPerRequestPrice stays 0.
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModePerRequest,
 		// PerRequestPrice intentionally nil
@@ -372,7 +366,6 @@ func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 
 func TestResolve_WithChannelOverride_Image(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: testPtrFloat64(0.08),
@@ -396,7 +389,6 @@ func TestResolve_WithChannelOverride_Image(t *testing.T) {
 
 func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeImage,
 		Intervals: []PricingInterval{
@@ -422,7 +414,6 @@ func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
 
 func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(1e-6),
@@ -438,7 +429,6 @@ func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
 func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 	// Channel pricing with empty BillingMode → defaults to BillingModeToken.
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: "", // intentionally empty
 		InputPrice:  testPtrFloat64(5e-6),
@@ -461,7 +451,6 @@ func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 	// Channel provides intervals that override the base pricing path.
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{
@@ -490,7 +479,6 @@ func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 	// Channel intervals don't match token count → falls back to BasePricing.
 	r := newResolverWithCatalog(t, []PricingCard{{
-		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(4e-6),

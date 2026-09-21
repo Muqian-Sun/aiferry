@@ -49,9 +49,8 @@ func getWebSearchManager() *websearch.Manager {
 
 // shouldEmulateWebSearch checks whether a request should be intercepted.
 //
-// Judgment chain: manager exists → only web_search tool → global enabled → account/channel enabled.
-// Account-level mode: "enabled" (force on), "disabled" (force off), "default" (follow channel).
-func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, groupID *int64, body []byte) bool {
+// Judgment chain: manager exists → only web_search tool → global enabled → account enabled.
+func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Account, body []byte) bool {
 	if getWebSearchManager() == nil {
 		return false
 	}
@@ -61,25 +60,7 @@ func (s *GatewayService) shouldEmulateWebSearch(ctx context.Context, account *Ac
 	if !s.settingService.IsWebSearchEmulationEnabled(ctx) {
 		return false
 	}
-
-	mode := account.GetWebSearchEmulationMode()
-	switch mode {
-	case WebSearchModeEnabled:
-		return true
-	case WebSearchModeDisabled:
-		return false
-	default: // "default" → follow channel config
-		if groupID == nil || s.channelService == nil {
-			return false
-		}
-		ch, err := s.channelService.GetChannelForGroup(ctx, *groupID)
-		if err != nil || ch == nil {
-			return false
-		}
-		// 渠道开关按本次请求所在网关的平台查（强制平台 → 合成分组目标平台 → 分组平台），
-		// 与渠道定价查找同一口径，不看账号标签。
-		return ch.IsWebSearchEmulationEnabled(channelLookupPlatform(ctx, s.channelService.GetGroupPlatform(ctx, *groupID)))
-	}
+	return account.WebSearchEmulationEnabled()
 }
 
 // isOnlyWebSearchToolInBody checks if the body contains exactly one web_search tool.

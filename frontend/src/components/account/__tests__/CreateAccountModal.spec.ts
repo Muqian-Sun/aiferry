@@ -865,14 +865,16 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
     await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
-    await wrapper.get('[data-testid="create-web-search-emulation"] select').setValue('enabled')
+    await wrapper.get('[data-testid="create-web-search-emulation-toggle"]').trigger('click')
+    await wrapper.get('[data-testid="create-bedrock-cc-compat-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
     expect(payload?.platform).toBe('kimi')
     expect(payload?.extra).toMatchObject({
       anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer',
-      web_search_emulation: 'enabled'
+      web_search_emulation: true,
+      bedrock_cc_compat: true
     })
   })
 

@@ -55,15 +55,7 @@
 
         <template #cell-model="{ row }">
           <div class="space-y-0.5 text-xs">
-            <div v-if="row.model_mapping_chain && row.model_mapping_chain.includes('→')" class="space-y-0.5">
-              <div v-for="(step, i) in row.model_mapping_chain.split('→')" :key="i"
-                   class="break-all"
-                   :class="i === 0 ? 'font-medium text-af-ink' : 'text-af-ink-3'"
-                   :style="i > 0 ? `padding-left: ${i * 0.75}rem` : ''">
-                <span v-if="i > 0" class="mr-0.5">↳</span>{{ step }}
-              </div>
-            </div>
-            <div v-else-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5">
+            <div v-if="row.upstream_model && row.upstream_model !== row.model" class="space-y-0.5">
               <div class="break-all font-medium text-af-ink">
                 {{ row.model }}
               </div>
@@ -516,7 +508,6 @@
               <span class="font-semibold text-af-success">
                 ${{ accountBilled({
                   total_cost: tooltipData?.total_cost,
-                  account_stats_cost: tooltipData?.account_stats_cost,
                   account_rate_multiplier: tooltipData?.account_rate_multiplier,
                 }).toFixed(8) }}
               </span>
@@ -566,10 +557,9 @@ import {
   hasImageInputCost,
 } from '@/utils/imageUsage'
 
-/** Compute the account-billed cost for display: (account_stats_cost ?? total_cost) * rate_multiplier */
-function accountBilled(row: { total_cost?: number | null; account_stats_cost?: number | null; account_rate_multiplier?: number | null }): number {
-  const base = row.account_stats_cost != null ? row.account_stats_cost : (row.total_cost ?? 0)
-  const result = base * (row.account_rate_multiplier ?? 1)
+/** 账号成本 = total_cost × 账号倍率（渠道统计价卡已删，没有别的基数）。 */
+function accountBilled(row: { total_cost?: number | null; account_rate_multiplier?: number | null }): number {
+  const result = (row.total_cost ?? 0) * (row.account_rate_multiplier ?? 1)
   return Number.isNaN(result) ? 0 : result
 }
 

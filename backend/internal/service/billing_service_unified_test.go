@@ -354,13 +354,3 @@ func TestCalculateCostUnified_UsesPreResolvedPricing(t *testing.T) {
 // ---------------------------------------------------------------------------
 // helpers
 // ---------------------------------------------------------------------------
-
-// newTestChannelServiceWithCache creates a ChannelService with a pre-populated
-// cache snapshot, bypassing the repository layer entirely.
-func newTestChannelServiceWithCache(t *testing.T, cache *channelCache) *ChannelService {
-	t.Helper()
-	cs := &ChannelService{}
-	cache.loadedAt = time.Now()
-	cs.cache.Store(cache)
-	return cs
-}

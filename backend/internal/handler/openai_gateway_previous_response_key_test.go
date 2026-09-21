@@ -74,7 +74,7 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 			gateway := service.NewOpenAIGatewayService(
 				repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 				service.NewBillingService(cfg, nil), nil, billingCache, upstream,
-				&service.DeferredService{}, nil, nil, nil, nil, nil, nil,
+				&service.DeferredService{}, nil, nil, nil, nil, nil,
 				nil,
 			)
 			cache := &concurrencyCacheMock{

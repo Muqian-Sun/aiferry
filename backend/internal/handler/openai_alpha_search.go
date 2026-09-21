@@ -87,8 +87,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		return
 	}
 
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, requestedModel)
-	forwardBody := openAIModelMappedBody(body, channelMapping.Mapped, channelMapping.MappedModel, h.gatewayService.ReplaceModelInBody)
+	forwardBody := body
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 
@@ -177,7 +176,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		if err == nil {
 			h.gatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, requestedModel, false, result), true)
 			if result != nil {
-				h.recordAlphaSearchUsage(c, apiKey, account, subscription, channelMapping, requestedModel, body, result, subject.UserID)
+				h.recordAlphaSearchUsage(c, apiKey, account, subscription, requestedModel, body, result, subject.UserID)
 			}
 			return
 		}
@@ -251,7 +250,6 @@ func (h *OpenAIGatewayHandler) recordAlphaSearchUsage(
 	apiKey *service.APIKey,
 	account *service.Account,
 	subscription *service.UserSubscription,
-	channelMapping service.ChannelMappingResult,
 	requestedModel string,
 	body []byte,
 	result *service.OpenAIForwardResult,
@@ -278,7 +276,7 @@ func (h *OpenAIGatewayHandler) recordAlphaSearchUsage(
 			RequestPayloadHash: requestPayloadHash,
 			APIKeyService:      h.apiKeyService,
 			SessionID:          sessionID,
-			ChannelUsageFields: channelMapping.ToUsageFields(requestedModel, result.UpstreamModel),
+			RequestedModel:     clientRequestedModel(c, requestedModel),
 			PricingAt:          service.OpenAIPricingAtFromContext(c.Request.Context()),
 		}); err != nil {
 			logger.L().With(

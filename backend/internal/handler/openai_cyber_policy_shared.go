@@ -107,7 +107,7 @@ func enqueueCyberSessionBlockedOpsEntry(c *gin.Context, opsService *service.OpsS
 // 并在 forward 返回错误时写一条 tokens=0 用量行。标记由 gateway 服务层在透传 cyber 后设置；
 // 当前请求已发给用户，本方法只做事后记录，不影响响应。forwardErrored 为 true 时才写用量行，
 // 避免与正常 RecordUsage(forward 成功路径)重复。每请求至多记录一次。
-func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, channelFields service.ChannelUsageFields, requestPayloadHash string) {
+func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, requestedModel, requestPayloadHash string) {
 	mark := service.GetOpsCyberPolicy(c)
 	if mark == nil {
 		return
@@ -237,7 +237,7 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 				RequestPayloadHash: requestPayloadHash,
 				APIKeyService:      apiKeySvc,
 				NativeCompactionV2: nativeCompactionV2,
-				ChannelUsageFields: channelFields,
+				RequestedModel:     requestedModel,
 			})
 		}
 		if opsSvc != nil {

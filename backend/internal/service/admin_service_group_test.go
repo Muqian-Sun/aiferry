@@ -334,7 +334,6 @@ func TestAdminService_CreateGroup_RejectsTimePricing(t *testing.T) {
 		Platform:       PlatformOpenAI,
 		RateMultiplier: 1,
 		ModelPricing: []PricingCard{{
-			Platform:    PlatformOpenAI,
 			Models:      []string{"gpt-5"},
 			BillingMode: BillingModeToken,
 			TimePricing: validTimePricingForTest(),
@@ -353,7 +352,6 @@ func TestAdminService_UpdateGroup_RejectsTimePricing(t *testing.T) {
 	repo := &groupRepoStubForAdmin{getByID: existing}
 	svc := &adminServiceImpl{groupRepo: repo}
 	pricing := []PricingCard{{
-		Platform:    PlatformOpenAI,
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
 		TimePricing: validTimePricingForTest(),
@@ -369,7 +367,7 @@ func TestAdminService_UpdateGroup_RejectsTimePricing(t *testing.T) {
 }
 
 func TestNormalizeGroupModelPricing_NormalizesEmptyTimePricing(t *testing.T) {
-	pricing, err := normalizeGroupModelPricing(PlatformOpenAI, []PricingCard{{
+	pricing, err := normalizeGroupModelPricing([]PricingCard{{
 		Models:      []string{"gpt-5"},
 		BillingMode: BillingModeToken,
 		TimePricing: &TimePricing{Timezone: "Asia/Shanghai"},

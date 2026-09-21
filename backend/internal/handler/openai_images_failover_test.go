@@ -144,8 +144,7 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 		nil,
 		nil,
 		nil,
-		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID), nil),
+		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
