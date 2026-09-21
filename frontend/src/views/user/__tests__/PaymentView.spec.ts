@@ -241,6 +241,7 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
 
   const wrapper = shallowMount(PaymentView, {
+    props: { mode: 'subscription' },
     global: {
       stubs: {
         SiteShell: {
@@ -281,6 +282,7 @@ async function mountSubscriptionPlanList(planCount: number) {
   ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
 
   const wrapper = shallowMount(PaymentView, {
+    props: { mode: 'subscription' },
     global: {
       stubs: {
         SiteShell: {
@@ -308,6 +310,7 @@ describe('PaymentView help text', () => {
   async function mountHelp(help_text: string, help_image_url = '') {
     getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({ help_text, help_image_url }))
     const wrapper = shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           SiteShell: { template: '<div><slot /></div>' },
@@ -359,18 +362,15 @@ describe('PaymentView help text', () => {
   })
 })
 
-describe('PaymentView subscription plan grid', () => {
-  it.each([3, 4, 6])('keeps %i plans on the existing mobile/tablet/desktop grid', async (planCount) => {
+describe('PaymentView subscription plan list', () => {
+  it.each([3, 4, 6])('lists %i plans as hairline-separated rows, one per plan', async (planCount) => {
     const wrapper = await mountSubscriptionPlanList(planCount)
-    const cards = wrapper.findAllComponents(SubscriptionPlanCard)
+    const rows = wrapper.findAllComponents(SubscriptionPlanCard)
 
-    expect(cards).toHaveLength(planCount)
-    expect([...(cards[0].element.parentElement?.classList ?? [])]).toEqual(expect.arrayContaining([
-      'grid',
-      'grid-cols-1',
-      'sm:grid-cols-2',
-      'lg:grid-cols-3',
-    ]))
+    expect(rows).toHaveLength(planCount)
+    const list = wrapper.get('[data-testid="plan-list"]')
+    expect(list.classes()).toContain('divide-y')
+    expect(list.findAllComponents(SubscriptionPlanCard)).toHaveLength(planCount)
   })
 })
 
@@ -390,6 +390,7 @@ describe('PaymentView recharge rate preview', () => {
     }))
 
     const wrapper = shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           SiteShell: { template: '<div><slot /></div>' },
@@ -557,6 +558,7 @@ describe('PaymentView payment recovery', () => {
     }))
 
     const wrapper = shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           SiteShell: {
@@ -614,6 +616,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     })
 
     shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -643,6 +646,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     })
 
     shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -664,6 +668,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     ;(window as Window & { WeixinJSBridge?: { invoke: typeof bridgeInvoke } }).WeixinJSBridge = undefined
 
     const wrapper = shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -708,6 +713,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     }))
 
     shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -746,6 +752,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
     })
 
     shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -794,6 +801,7 @@ describe('PaymentView WeChat JSAPI flow', () => {
       })
 
     shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
       global: {
         stubs: {
           Teleport: true,
@@ -820,69 +828,71 @@ describe('PaymentView WeChat JSAPI flow', () => {
   })
 })
 
-describe('PaymentView subscription feature flag', () => {
+describe('PaymentView mode availability (mode comes from the route, no in-page switcher)', () => {
   afterEach(() => {
     appStoreState.setPublicSettings(undefined)
   })
 
-  function tabLabels(wrapper: Awaited<ReturnType<typeof mountSubscriptionPlanList>>) {
+  function switcherLabels(wrapper: Awaited<ReturnType<typeof mountSubscriptionPlanList>>) {
     return wrapper
       .findAll('button')
       .map((button) => button.text())
       .filter((text) => text === 'payment.tabTopUp' || text === 'payment.tabSubscribe')
   }
 
-  it('keeps the top-up / subscribe switcher when subscription_enabled is absent (opt-out default)', async () => {
+  it('renders the plan list in subscription mode when subscription_enabled is absent (opt-out default)', async () => {
     const wrapper = await mountSubscriptionPlanList(2)
 
-    expect(tabLabels(wrapper)).toEqual(['payment.tabTopUp', 'payment.tabSubscribe'])
+    expect(switcherLabels(wrapper)).toEqual([])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(2)
-  })
-
-  it('drops the subscribe tab, hides the switcher and ignores ?tab=subscription when subscriptions are disabled', async () => {
-    appStoreState.setPublicSettings({ subscription_enabled: false })
-    const wrapper = await mountSubscriptionPlanList(2)
-
-    expect(tabLabels(wrapper)).toEqual([])
-    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
-    expect(wrapper.text()).toContain('payment.rechargeAccount')
-  })
-
-  it('shows an unavailable notice instead of a doomed top-up form when balance recharge is disabled too', async () => {
-    appStoreState.setPublicSettings({ subscription_enabled: false })
-    const wrapper = await mountSubscriptionConfirm({ checkout: { balance_disabled: true } })
-
-    expect(tabLabels(wrapper)).toEqual([])
-    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
-    expect(wrapper.text()).not.toContain('payment.confirmSubscription')
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
-    expect(wrapper.text()).toContain('payment.billingUnavailable')
+  })
+
+  it('shows the no-plans notice and ignores ?group= when subscriptions are disabled', async () => {
+    appStoreState.setPublicSettings({ subscription_enabled: false })
+    const wrapper = await mountSubscriptionConfirm()
+
+    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
+    expect(wrapper.text()).toContain('payment.noPlans')
+    expect(wrapper.text()).not.toContain('payment.createOrder')
     wrapper.unmount()
   })
 
-  it('falls back from the subscribe tab to top-up when the flag flips off after mount', async () => {
+  it('shows an unavailable notice instead of a doomed top-up form when balance recharge is disabled', async () => {
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({ balance_disabled: true }))
+    const wrapper = shallowMount(PaymentView, {
+      props: { mode: 'recharge' },
+      global: { stubs: { SiteShell: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
+    })
+    await flushPromises()
+    await flushPromises()
+
+    expect(wrapper.text()).toContain('payment.notAvailable')
+    expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+    wrapper.unmount()
+  })
+
+  it('drops the plan list when the subscription flag flips off after mount', async () => {
     const wrapper = await mountSubscriptionPlanList(2)
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(2)
 
     appStoreState.setPublicSettings({ subscription_enabled: false })
     await flushPromises()
 
-    expect(tabLabels(wrapper)).toEqual([])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
-    expect(wrapper.text()).toContain('payment.rechargeAccount')
+    expect(wrapper.text()).toContain('payment.noPlans')
     wrapper.unmount()
   })
 
-  it('enters the subscribe tab when a subscription-only site turns subscriptions back on', async () => {
+  it('shows the plans again when a subscription-only site turns subscriptions back on', async () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     const wrapper = await mountSubscriptionConfirm({ checkout: { balance_disabled: true } })
-    expect(wrapper.text()).toContain('payment.billingUnavailable')
+    expect(wrapper.text()).toContain('payment.noPlans')
 
     appStoreState.setPublicSettings({ subscription_enabled: true })
     await flushPromises()
 
-    expect(wrapper.text()).not.toContain('payment.billingUnavailable')
-    expect(wrapper.text()).not.toContain('payment.rechargeAccount')
+    expect(wrapper.text()).not.toContain('payment.noPlans')
     expect(wrapper.findAllComponents(SubscriptionPlanCard).length).toBeGreaterThan(0)
     wrapper.unmount()
   })

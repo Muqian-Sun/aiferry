@@ -74,7 +74,7 @@ describe('RedeemView refresh after redemption', () => {
       expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe('')
       expect((wrapper.get('input#code').element as HTMLInputElement).disabled).toBe(false)
       expect(getHistory).toHaveBeenCalledTimes(2)
-      expect(wrapper.text()).toContain('REDEEM-C...')
+      expect(wrapper.text()).toContain('REDEEM-C…')
       if (type === 'subscription') {
         expect(fetchActiveSubscriptions).toHaveBeenCalledWith(true)
       } else {

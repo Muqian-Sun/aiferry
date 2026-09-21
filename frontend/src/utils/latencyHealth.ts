@@ -38,32 +38,19 @@ export const durationSeverity = (ms: number): LatencySeverity =>
   classify(ms, DURATION_THRESHOLDS_MS)
 
 export const LATENCY_TEXT_CLASSES: Record<LatencySeverity, string> = {
-  good: 'text-emerald-600 dark:text-emerald-400',
-  warn: 'text-amber-600 dark:text-amber-400',
-  slow: 'text-orange-600 dark:text-orange-400',
-  critical: 'text-red-600 dark:text-red-400',
+  good: 'text-af-success',
+  warn: 'text-af-warning',
+  slow: 'text-af-danger/80',
+  critical: 'text-af-danger',
 }
 
-/** 无首字数据时的纯色色条（仅按总耗时档着色）。 */
+/**
+ * 健康度色条：无首字数据时整条按总耗时档着色；有首字数据时上半按首字档、下半按总耗时档各取一色（两段硬切，不做渐变）。
+ * 四档只用三种语义色：slow 是 danger 的 60% 不透明度，与 critical 保持同一色相、不同强度。
+ */
 export const LATENCY_BAR_CLASSES: Record<LatencySeverity, string> = {
-  good: 'bg-emerald-500',
-  warn: 'bg-amber-400',
-  slow: 'bg-orange-500',
-  critical: 'bg-red-500',
-}
-
-/** 渐变色条上端（首字档）；与 LATENCY_BAR_TO_CLASSES 组合成上下渐变，避免两段硬切割裂感。 */
-export const LATENCY_BAR_FROM_CLASSES: Record<LatencySeverity, string> = {
-  good: 'from-emerald-500',
-  warn: 'from-amber-400',
-  slow: 'from-orange-500',
-  critical: 'from-red-500',
-}
-
-/** 渐变色条下端（总耗时档）。 */
-export const LATENCY_BAR_TO_CLASSES: Record<LatencySeverity, string> = {
-  good: 'to-emerald-500',
-  warn: 'to-amber-400',
-  slow: 'to-orange-500',
-  critical: 'to-red-500',
+  good: 'bg-af-success',
+  warn: 'bg-af-warning',
+  slow: 'bg-af-danger/60',
+  critical: 'bg-af-danger',
 }

@@ -31,16 +31,35 @@ export default {
       accountMenu: '账户菜单'
     },
     home: {
-      heroTitle: '一把 API Key，接入所有主流模型。',
-      heroDescription: '按官方协议原样转发到 Anthropic、OpenAI、Gemini 等上游；每次请求逐条记账，用量与费用同一本账。',
+      heroTitle: '一把 API Key，\n接入所有主流模型。',
+      heroDescription: '按 Anthropic、OpenAI、Gemini 的官方协议原样转发，SDK 不用换，只改一行 base_url。每次请求逐条记账，用量与费用同一本账。',
       getStarted: '开始使用',
       goToConsole: '进入控制台',
       viewPricing: '查看模型与价格',
+      codeSample: {
+        label: '接入示例',
+        comment: '只改这两行',
+        copy: '复制',
+        copied: '已复制',
+        tabs: { python: 'Python', curl: 'curl', node: 'Node', claudeCode: 'Claude Code' }
+      },
+      stats: {
+        models: '模型',
+        vendors: '厂商',
+        protocols: '官方协议，原样透传',
+        ledgerLabel: '请求记账，可导出',
+        ledgerValue: '逐条'
+      },
+      catalog: {
+        title: '模型与官方参考价',
+        description: 'USD / 百万 Token，与模型页同源。',
+        viewAll: '查看全部 {count} 个模型'
+      },
+      protocols: {
+        title: '四条官方协议，原样透传',
+        description: '不做私有格式转换：请求体与响应按各家官方协议原样经过，SDK、流式、工具调用都和直连一样。'
+      },
       routeMap: {
-        label: '请求经由 AiFerry 转发到四类官方协议的示意图',
-        source: '你的应用',
-        sourceHint: '一把 API Key',
-        hub: '转发',
         routes: {
           messages: 'Anthropic Messages',
           responses: 'OpenAI Responses',

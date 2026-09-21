@@ -1,6 +1,6 @@
 <template>
   <div>
-    <label class="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+    <label class="mb-2 block text-sm font-medium text-af-ink-2">
       {{ t('payment.paymentMethod') }}
     </label>
     <div
@@ -16,10 +16,10 @@
         :class="[
           'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
           !method.available
-            ? 'cursor-not-allowed border-gray-200 bg-gray-50 opacity-50 dark:border-dark-700 dark:bg-dark-800/50'
+            ? 'cursor-not-allowed border-af-hairline bg-af-sunken opacity-50'
             : selected === method.type
               ? methodSelectedClass(method.type)
-              : 'border-gray-300 bg-white text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:bg-dark-800 dark:text-gray-200 dark:hover:border-dark-500',
+              : 'border-af-hairline-strong bg-af-sheet text-af-ink-2 hover:border-af-hairline-strong',
         ]"
         @click="method.available && emit('select', method.type)"
       >
@@ -31,7 +31,7 @@
             </span>
             <span
               v-if="method.fee_rate > 0"
-              class="text-[10px] tracking-wide text-gray-500 dark:text-dark-400"
+              class="text-[10px] text-af-ink-3"
             >
               {{ t('payment.fee') }} {{ method.fee_rate }}%
             </span>

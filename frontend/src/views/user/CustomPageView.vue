@@ -1,10 +1,11 @@
 <template>
-  <SiteShell>
+  <!-- 自定义页：管理员配置的 iframe / Markdown。壳去页头、满宽出血，内容区填满顶栏以下的视口 -->
+  <SiteShell hide-header flush>
     <div class="custom-page-layout">
-      <div class="card flex-1 min-h-0 overflow-hidden">
+      <div class="relative min-h-0 flex-1 overflow-hidden">
         <div v-if="loading" class="flex h-full items-center justify-center py-12">
           <div
-            class="h-8 w-8 animate-spin rounded-full border-2 border-primary-500 border-t-transparent"
+            class="h-8 w-8 animate-spin rounded-full border-2 border-af-brand border-t-transparent"
           ></div>
         </div>
 
@@ -14,14 +15,14 @@
         >
           <div class="max-w-md">
             <div
-              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
+              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-gray-400" />
+              <Icon name="link" size="lg" class="text-af-ink-4" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notFoundTitle') }}
             </h3>
-            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+            <p class="mt-2 text-sm text-af-ink-3">
               {{ t('customPage.notFoundDesc') }}
             </p>
           </div>
@@ -80,14 +81,14 @@
         <div v-else-if="!isValidUrl" class="flex h-full items-center justify-center p-10 text-center">
           <div class="max-w-md">
             <div
-              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-dark-700"
+              class="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-af-sunken"
             >
-              <Icon name="link" size="lg" class="text-gray-400" />
+              <Icon name="link" size="lg" class="text-af-ink-4" />
             </div>
-            <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+            <h3 class="text-lg font-semibold text-af-ink">
               {{ t('customPage.notConfiguredTitle') }}
             </h3>
-            <p class="mt-2 text-sm text-gray-500 dark:text-dark-400">
+            <p class="mt-2 text-sm text-af-ink-3">
               {{ t('customPage.notConfiguredDesc') }}
             </p>
           </div>
@@ -421,12 +422,13 @@ onMounted(async () => {
 
 <style scoped>
 .custom-page-layout {
-  @apply flex flex-col;
-  height: calc(100vh - 64px - 4rem);
+  @apply flex min-h-0 flex-1 flex-col;
+  /* 顶栏以下填满视口：SiteShell 根是 min-h-screen 的 flex 列，这里只需要撑开 */
+  min-height: calc(100vh - var(--af-topbar-h));
 }
 
 .toc-sidebar {
-  @apply flex flex-col h-full border-r border-gray-200 dark:border-dark-600 bg-gray-50 dark:bg-dark-800;
+  @apply flex h-full flex-col border-r border-af-hairline bg-af-sunken;
   width: min(240px, 30%);
   min-width: 160px;
   max-width: 280px;
@@ -447,28 +449,27 @@ onMounted(async () => {
 }
 
 .toc-header {
-  @apply flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-dark-600;
+  @apply flex items-center justify-between border-b border-af-hairline px-4 py-3;
 }
 
 .toc-title {
-  @apply text-sm font-semibold text-gray-700 dark:text-dark-200;
+  @apply text-sm font-semibold text-af-ink-2;
 }
 
 .toc-close-btn {
-  @apply p-1 rounded text-gray-400 hover:text-gray-600 dark:hover:text-dark-200 hover:bg-gray-200 dark:hover:bg-dark-600 transition-colors;
+  @apply rounded p-1 text-af-ink-4 transition-colors hover:bg-af-hairline hover:text-af-ink-2;
 }
 
 .toc-nav {
-  @apply flex-1 overflow-y-auto py-2 px-2;
+  @apply flex-1 overflow-y-auto px-2 py-2;
 }
 
 .toc-item {
-  @apply block px-2 py-1.5 text-sm rounded transition-colors truncate;
-  @apply text-gray-600 dark:text-dark-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200 dark:hover:bg-dark-600;
+  @apply block truncate rounded px-2 py-1.5 text-sm text-af-ink-3 transition-colors hover:bg-af-hairline hover:text-af-ink;
 }
 
 .toc-item.toc-active {
-  @apply text-primary-600 dark:text-primary-400 bg-primary-50 dark:bg-primary-900/20 font-medium;
+  @apply bg-af-brand-tint font-medium text-af-brand;
 }
 
 .toc-level-1 { padding-left: 8px; }
@@ -477,22 +478,15 @@ onMounted(async () => {
 .toc-level-4 { padding-left: 44px; }
 
 .toc-toggle-btn {
-  @apply absolute left-2 top-2 z-10 flex items-center px-2 py-1.5 rounded-md text-sm;
-  @apply bg-white dark:bg-dark-700 border border-gray-200 dark:border-dark-500;
-  @apply text-gray-600 dark:text-dark-300 hover:bg-gray-100 dark:hover:bg-dark-600;
-  @apply shadow-sm transition-colors cursor-pointer;
+  @apply absolute left-2 top-2 z-10 flex cursor-pointer items-center rounded-md border border-af-hairline-strong bg-af-sheet px-2 py-1.5 text-sm text-af-ink-2 transition-colors hover:bg-af-sunken;
 }
 
 .custom-embed-shell {
-  @apply relative;
-  @apply h-full w-full overflow-hidden rounded-2xl;
-  @apply bg-gradient-to-b from-gray-50 to-white dark:from-dark-900 dark:to-dark-950;
-  @apply p-0;
+  @apply relative h-full w-full overflow-hidden bg-af-sheet p-0;
 }
 
 .custom-open-fab {
-  @apply absolute right-3 top-3 z-10 w-max max-w-full touch-none select-none transition-colors;
-  @apply shadow-sm backdrop-blur supports-[backdrop-filter]:bg-white/80 dark:supports-[backdrop-filter]:bg-dark-800/80;
+  @apply absolute right-3 top-3 z-10 w-max max-w-full touch-none select-none;
 }
 
 .custom-embed-frame {
@@ -509,27 +503,29 @@ onMounted(async () => {
 
 <style>
 .markdown-page-content {
+  @apply text-af-ink;
   line-height: 1.7;
-  color: inherit;
 }
-.markdown-page-content h1 { @apply text-3xl font-bold mt-8 mb-4 pb-2 border-b border-gray-200 dark:border-dark-600; }
-.markdown-page-content h2 { @apply text-2xl font-bold mt-6 mb-3; }
-.markdown-page-content h3 { @apply text-xl font-semibold mt-5 mb-2; }
-.markdown-page-content h4 { @apply text-lg font-semibold mt-4 mb-2; }
+/* 滚动容器满宽，正文限宽居中（行长 < 80 字符） */
+.markdown-page-content > * { @apply mx-auto max-w-3xl; }
+.markdown-page-content h1 { @apply mb-4 mt-8 border-b border-af-hairline pb-2 text-28 font-semibold; }
+.markdown-page-content h2 { @apply mb-3 mt-6 text-xl font-semibold; }
+.markdown-page-content h3 { @apply mb-2 mt-5 text-base font-semibold; }
+.markdown-page-content h4 { @apply mb-2 mt-4 text-sm font-semibold; }
 .markdown-page-content p { @apply mb-4; }
-.markdown-page-content ul { @apply list-disc pl-6 mb-4; }
-.markdown-page-content ol { @apply list-decimal pl-6 mb-4; }
+.markdown-page-content ul { @apply mb-4 list-disc pl-6; }
+.markdown-page-content ol { @apply mb-4 list-decimal pl-6; }
 .markdown-page-content li { @apply mb-1; }
-.markdown-page-content a { @apply text-primary-500 hover:text-primary-600 underline; }
-.markdown-page-content blockquote { @apply border-l-4 border-gray-300 dark:border-dark-500 pl-4 italic text-gray-600 dark:text-dark-300 my-4; }
-.markdown-page-content img { @apply max-w-full h-auto rounded-lg my-4; }
-.markdown-page-content table { @apply w-full border-collapse my-4; }
-.markdown-page-content th { @apply border border-gray-300 dark:border-dark-500 px-3 py-2 bg-gray-50 dark:bg-dark-700 font-semibold text-left; }
-.markdown-page-content td { @apply border border-gray-300 dark:border-dark-500 px-3 py-2; }
-.markdown-page-content code { @apply bg-gray-100 dark:bg-dark-700 px-1.5 py-0.5 rounded text-sm font-mono; }
-.markdown-page-content pre { @apply bg-gray-900 dark:bg-dark-900 text-gray-100 p-4 rounded-lg overflow-x-auto my-4 relative; }
+.markdown-page-content a { @apply text-af-brand underline underline-offset-2 hover:text-af-brand-hover; }
+.markdown-page-content blockquote { @apply my-4 border-l-2 border-af-hairline-strong pl-4 text-af-ink-3; }
+.markdown-page-content img { @apply my-4 h-auto max-w-full rounded-md; }
+.markdown-page-content table { @apply my-4 w-full border-collapse text-sm; }
+.markdown-page-content th { @apply border border-af-hairline bg-af-sunken px-3 py-2 text-left font-medium text-af-ink-2; }
+.markdown-page-content td { @apply border border-af-hairline px-3 py-2; }
+.markdown-page-content code { @apply rounded bg-af-sunken px-1.5 py-0.5 font-mono text-sm; }
+.markdown-page-content pre { @apply relative my-4 overflow-x-auto rounded-md border border-af-hairline bg-af-sunken p-4; }
 .markdown-page-content pre code { @apply bg-transparent p-0 text-inherit; }
-.markdown-page-content hr { @apply my-6 border-gray-200 dark:border-dark-600; }
+.markdown-page-content hr { @apply my-6 border-af-hairline; }
 
 .copy-btn {
   position: absolute;
@@ -538,14 +534,14 @@ onMounted(async () => {
   padding: 4px 10px;
   font-size: 12px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.15);
-  color: #e2e8f0;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgb(var(--af-sheet));
+  color: rgb(var(--af-ink-2));
+  border: 1px solid rgb(var(--af-hairline-strong));
   cursor: pointer;
   opacity: 0;
   transition: opacity 0.2s, background 0.2s;
   font-family: inherit;
 }
-.copy-btn:hover { background: rgba(255, 255, 255, 0.25); }
+.copy-btn:hover { background: rgb(var(--af-brand-tint)); color: rgb(var(--af-brand)); }
 pre:hover .copy-btn { opacity: 1; }
 </style>

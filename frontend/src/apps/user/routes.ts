@@ -234,6 +234,7 @@ export const userRoutes: RouteRecordRaw[] = [
         path: 'recharge',
         name: 'PurchaseSubscription',
         component: () => import('@/views/user/PaymentView.vue'),
+        props: { mode: 'recharge' },
         meta: {
           requiresAuth: true,
           requiresAdmin: false,
@@ -289,14 +290,23 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAdmin: false,
           title: 'Affiliate',
           titleKey: 'affiliate.title',
-          descriptionKey: 'affiliate.description'
+          descriptionKey: 'affiliate.description',
+          requiresAffiliate: true
         }
       }
     ]
   },
   // 旧账务路径 → 新页签（保留 query，支付回跳 / 订阅购买入口都带参数）
-  // /purchase?tab=subscription 仍由充值页签内的 PaymentView 处理（套餐购买并入订阅页签是 S5 的事）
-  { path: '/purchase', redirect: (to) => ({ path: '/billing/recharge', query: to.query }) },
+  // /purchase 按意图分流：?tab=subscription（续费入口）或 order_type=subscription（微信授权回跳）去订阅页签，
+  // 其余去充值页签。后端微信支付授权的 redirect 仍写死 /purchase，所以这条 redirect 长期保留。
+  {
+    path: '/purchase',
+    redirect: (to) => {
+      const subscription = to.query.tab === 'subscription' || to.query.order_type === 'subscription'
+      const { tab: _tab, ...query } = to.query
+      return { path: subscription ? '/billing/subscriptions' : '/billing/recharge', query }
+    }
+  },
   { path: '/subscriptions', redirect: (to) => ({ path: '/billing/subscriptions', query: to.query }) },
   { path: '/orders', redirect: (to) => ({ path: '/billing/orders', query: to.query }) },
   { path: '/redeem', redirect: (to) => ({ path: '/billing/redeem', query: to.query }) },

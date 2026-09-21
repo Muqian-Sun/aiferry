@@ -60,54 +60,11 @@ const FORBIDDEN: Array<{ name: string; re: RegExp }> = [
 
 /**
  * 棘轮白名单：尚未重写的旧文件。每个 PR 只允许删条目，不允许加。
- * S1 时点：所有旧用户页与用户组件；已 token 化的共享控件不在名单里。
+ * S5 时点：只剩 BatchImageGuideView。
  */
 const ALLOWLIST = new Set<string>([
-  // views
-  'views/user/AffiliateView.vue',
-  'views/user/AirwallexPaymentView.vue',
-  'views/user/BatchImageGuideView.vue',
-  'views/user/CustomPageView.vue',
-  'views/user/PaymentQRCodeView.vue',
-  'views/user/PaymentResultView.vue',
-  'views/user/PaymentView.vue',
-  'views/user/RedeemView.vue',
-  'views/user/StripePaymentView.vue',
-  'views/user/StripePopupView.vue',
-  'views/user/SubscriptionsView.vue',
-  'views/user/UserOrdersView.vue',
-  // layout
-  // components
-  'components/payment/AmountInput.vue',
-  'components/payment/OrderTable.vue',
-  'components/payment/PaymentMethodSelector.vue',
-  'components/payment/PaymentProviderDialog.vue',
-  'components/payment/PaymentProviderList.vue',
-  'components/payment/PaymentQRDialog.vue',
-  'components/payment/PaymentStatusPanel.vue',
-  'components/payment/ProviderCard.vue',
-  'components/payment/StripePaymentInline.vue',
-  'components/payment/SubscriptionPlanCard.vue',
-  'components/payment/ToggleSwitch.vue',
-  'components/usage/UsageStatsCards.vue',
-  'components/usage/UsageTable.vue',
-  'components/user/PlatformCostCell.vue',
-  'components/user/PlatformUsageBreakdown.vue',
-  'components/user/UserAttributeForm.vue',
-  'components/user/UserAttributesConfigModal.vue',
-  'components/user/UserConcurrencyCell.vue',
-  'components/user/UserErrorDetailModal.vue',
-  'components/user/UserErrorRequestsTable.vue',
-  'components/user/profile/ProfileAvatarCard.vue',
-  'components/user/profile/ProfileBalanceNotifyCard.vue',
-  'components/user/profile/ProfileEditForm.vue',
-  'components/user/profile/ProfileIdentityBindingsSection.vue',
-  'components/user/profile/ProfileInfoCard.vue',
-  'components/user/profile/ProfilePasskeyCard.vue',
-  'components/user/profile/ProfilePasswordForm.vue',
-  'components/user/profile/ProfileTotpCard.vue',
-  'components/user/profile/TotpDisableDialog.vue',
-  'components/user/profile/TotpSetupModal.vue'
+  // 批量生图指南：2.7k 行的富文本教程页，内容不在本轮重构范围，只换了壳（长期唯一例外）
+  'views/user/BatchImageGuideView.vue'
 ])
 
 function walk(dir: string, out: string[]): void {

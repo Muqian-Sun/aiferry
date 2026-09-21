@@ -83,6 +83,8 @@ describe('ProfileView', () => {
           ProfileBalanceNotifyCard: { template: '<div data-testid="profile-balance-notify-card" />' },
           ProfilePasswordForm: { template: '<div data-testid="profile-password-form" />' },
           ProfileTotpCard: { template: '<div data-testid="profile-totp-card" />' },
+          ProfilePasskeyCard: { template: '<div data-testid="profile-passkey-card" />' },
+          ProfileIdentityBindingsSection: { template: '<div data-testid="profile-identity-bindings" />' },
           Icon: true
         }
       }
@@ -95,5 +97,8 @@ describe('ProfileView', () => {
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
     expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
+    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-passkey-card')
+    // 登录方式绑定属于「安全」节，与密码 / 双因素 / Passkey 同列
+    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').html()).toContain('profile-identity-bindings')
   })
 })

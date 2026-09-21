@@ -1,18 +1,19 @@
 <template>
-  <div class="card">
-    <div class="flex items-start justify-between border-b border-gray-100 px-6 py-4 dark:border-dark-700">
+  <!-- 平铺区块：小标题 + 列表；外层容器由调用方决定 -->
+  <div class="space-y-4">
+    <div class="flex items-start justify-between gap-4">
       <div>
-        <h2 class="text-lg font-medium text-gray-900 dark:text-white">
+        <h3 class="text-sm font-semibold text-af-ink">
           {{ t('profile.passkey.title') }}
-        </h2>
-        <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+        </h3>
+        <p class="mt-1 text-13 text-af-ink-3">
           {{ t('profile.passkey.description') }}
         </p>
       </div>
       <button
         v-if="enabled && supported && !showAddForm"
         type="button"
-        class="btn btn-primary"
+        class="btn btn-secondary btn-sm shrink-0"
         :disabled="busy"
         @click="showAddForm = true"
       >
@@ -20,17 +21,17 @@
       </button>
     </div>
 
-    <div class="px-6 py-6">
-      <div v-if="!enabled" class="mb-5 text-sm text-gray-500 dark:text-gray-400">
+    <div>
+      <div v-if="!enabled" class="mb-5 text-sm text-af-ink-3">
         {{ t('profile.passkey.featureDisabled') }}
       </div>
-      <div v-if="enabled && !supported" class="mb-5 text-sm text-amber-600 dark:text-amber-400">
+      <div v-if="enabled && !supported" class="mb-5 text-sm text-af-warning">
         {{ t('profile.passkey.unsupported') }}
       </div>
       <div>
         <form
           v-if="enabled && supported && showAddForm"
-          class="mb-5 flex flex-col gap-3 rounded-lg border border-gray-200 p-4 dark:border-dark-700"
+          class="mb-5 flex flex-col gap-3 rounded-lg border border-af-hairline p-4"
           @submit.prevent="addPasskey"
         >
           <div class="grid gap-3 sm:grid-cols-2">
@@ -60,27 +61,24 @@
             </div>
           </div>
           <div class="flex justify-end gap-2">
-            <button type="button" class="btn btn-secondary" :disabled="busy" @click="cancelAdd">
+            <button type="button" class="btn btn-secondary btn-sm" :disabled="busy" @click="cancelAdd">
               {{ t('common.cancel') }}
             </button>
-            <button type="submit" class="btn btn-primary" :disabled="busy || newPassword.length === 0">
+            <button type="submit" class="btn btn-primary btn-sm" :disabled="busy || newPassword.length === 0">
               {{ busy ? t('common.processing') : t('profile.passkey.continue') }}
             </button>
           </div>
         </form>
 
         <div v-if="loading" class="flex justify-center py-6">
-          <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-primary-500"></div>
+          <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
         </div>
 
-        <div
-          v-else-if="credentials.length === 0"
-          class="rounded-lg border border-dashed border-gray-200 px-4 py-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400"
-        >
+        <p v-else-if="credentials.length === 0 && enabled" class="text-13 text-af-ink-3">
           {{ t('profile.passkey.empty') }}
-        </div>
+        </p>
 
-        <div v-else class="divide-y divide-gray-100 dark:divide-dark-700">
+        <div v-else class="divide-y divide-af-hairline">
           <div
             v-for="credential in credentials"
             :key="credential.id"
@@ -88,18 +86,18 @@
           >
             <div class="min-w-0">
               <div class="flex items-center gap-2">
-                <Icon name="key" size="md" class="shrink-0 text-primary-500" />
-                <p class="truncate font-medium text-gray-900 dark:text-white">
+                <Icon name="key" size="md" class="shrink-0 text-af-brand" />
+                <p class="truncate font-medium text-af-ink">
                   {{ credential.name }}
                 </p>
                 <span
                   v-if="credential.backup"
-                  class="rounded-full bg-green-50 px-2 py-0.5 text-xs text-green-700 dark:bg-green-900/30 dark:text-green-300"
+                  class="rounded-full bg-af-success-tint px-2 py-0.5 text-xs text-af-success"
                 >
                   {{ t('profile.passkey.synced') }}
                 </span>
               </div>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('profile.passkey.createdAt', { date: formatDate(credential.created_at) }) }}
                 <template v-if="credential.last_used_at">
                   · {{ t('profile.passkey.lastUsed', { date: formatDate(credential.last_used_at) }) }}
@@ -117,7 +115,7 @@
               </button>
               <button
                 type="button"
-                class="btn btn-ghost btn-sm text-red-600 hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30"
+                class="btn btn-ghost btn-sm text-af-danger hover:bg-af-danger-tint"
                 :disabled="busy"
                 @click="deletePasskey(credential)"
               >
@@ -134,12 +132,12 @@
       <div class="flex min-h-full items-center justify-center p-4">
         <div class="fixed inset-0 bg-black/50 transition-opacity" @click="closeDeleteDialog"></div>
         <div
-          class="relative w-full max-w-md transform rounded-xl bg-white p-6 shadow-xl transition-all dark:bg-dark-800"
+          class="relative w-full max-w-md transform rounded-md bg-af-sheet p-6 shadow-xl transition-all"
         >
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-white">
+          <h3 class="text-lg font-semibold text-af-ink">
             {{ t('profile.passkey.deleteTitle') }}
           </h3>
-          <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+          <p class="mt-2 text-sm text-af-ink-3">
             {{ t('profile.passkey.deleteConfirm', { name: deleteTarget.name }) }}
           </p>
           <form class="mt-4 space-y-4" @submit.prevent="confirmDelete">

@@ -65,6 +65,15 @@ export default {
             6: af('chart-6'),
             7: af('chart-7'),
             8: af('chart-8')
+          },
+          code: {
+            sheet: af('code-sheet'),
+            hairline: af('code-hairline'),
+            ink: af('code-ink'),
+            'ink-3': af('code-ink-3'),
+            string: af('code-string'),
+            key: af('code-key'),
+            accent: af('code-accent')
           }
         },
         // 深色模式背景
@@ -104,7 +113,9 @@ export default {
       fontSize: {
         // 字阶补两档：13（表格与控制台正文）、28（公开页展示标题）
         13: ['0.8125rem', { lineHeight: '1.25rem' }],
-        28: ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.01em' }]
+        28: ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.01em' }],
+        // 首页首屏标题
+        44: ['2.75rem', { lineHeight: '3.125rem', letterSpacing: '-0.02em' }]
       },
       maxWidth: {
         site: '1200px',

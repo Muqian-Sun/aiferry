@@ -1,22 +1,13 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
-    <div
-      v-if="!props.embedded"
-      class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-    >
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">
-        {{ t('profile.avatar.title') }}
-      </h2>
-      <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-        {{ t('profile.avatar.description') }}
-      </p>
-    </div>
+  <!-- 平铺区块：头像 + 上传操作，无卡片、无渐变 -->
+  <div class="space-y-4">
+    <h3 class="text-sm font-semibold text-af-ink">
+      {{ t('profile.avatar.title') }}
+    </h3>
 
-    <div :class="props.embedded ? 'space-y-3' : 'flex flex-col gap-5 px-6 py-6 sm:flex-row sm:items-start'">
+    <div class="flex items-start gap-4">
       <div
-        :class="props.embedded
-          ? 'flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-xl font-bold text-white shadow-lg shadow-primary-500/20'
-          : 'flex h-24 w-24 shrink-0 items-center justify-center overflow-hidden rounded-2xl bg-gradient-to-br from-primary-500 to-primary-600 text-3xl font-bold text-white shadow-lg shadow-primary-500/20'"
+        class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-af-brand-tint text-xl font-semibold text-af-brand"
       >
         <img
           v-if="avatarPreviewUrl"
@@ -28,18 +19,10 @@
         <span v-else>{{ avatarInitial }}</span>
       </div>
 
-      <div :class="props.embedded ? 'space-y-3' : 'min-w-0 flex-1 space-y-4'">
-        <div class="space-y-1">
-          <p v-if="props.embedded" class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.avatar.title') }}
-          </p>
-          <p v-else class="text-sm font-medium text-gray-900 dark:text-white">
-            {{ displayName }}
-          </p>
-          <p class="text-sm text-gray-500 dark:text-gray-400">
-            {{ t('profile.avatar.uploadHint') }}
-          </p>
-        </div>
+      <div class="min-w-0 flex-1 space-y-3">
+        <p class="text-13 text-af-ink-3">
+          {{ t('profile.avatar.uploadHint') }}
+        </p>
 
         <div class="flex flex-wrap items-center gap-3">
           <label class="btn btn-secondary btn-sm cursor-pointer">
@@ -87,12 +70,9 @@ import { useAuthStore } from '@/stores/auth'
 import type { User } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
 
-const props = withDefaults(defineProps<{
+const props = defineProps<{
   user: User | null
-  embedded?: boolean
-}>(), {
-  embedded: false,
-})
+}>()
 
 const { t } = useI18n()
 const authStore = useAuthStore()

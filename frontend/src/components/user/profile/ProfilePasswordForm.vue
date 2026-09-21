@@ -1,20 +1,11 @@
 <template>
-  <div :class="props.embedded ? 'space-y-4' : 'card'">
-    <div
-      v-if="!props.embedded"
-      class="border-b border-gray-100 px-6 py-4 dark:border-dark-700"
-    >
-      <h2 class="text-lg font-medium text-gray-900 dark:text-white">
-        {{ t('profile.changePassword') }}
-      </h2>
-    </div>
-    <div :class="props.embedded ? '' : 'px-6 py-6'">
+  <!-- 平铺区块：小标题 + 表单；外层容器（用户站 SheetSection / 管理端 card）由调用方决定 -->
+  <div class="space-y-4">
+    <h3 class="text-sm font-semibold text-af-ink">
+      {{ t('profile.changePassword') }}
+    </h3>
+    <div>
       <form @submit.prevent="handleChangePassword" class="space-y-4">
-        <div v-if="props.embedded">
-          <p class="text-sm font-semibold text-gray-900 dark:text-white">
-            {{ t('profile.changePassword') }}
-          </p>
-        </div>
         <div>
           <label for="old_password" class="input-label">
             {{ t('profile.currentPassword') }}
@@ -60,8 +51,8 @@
           />
         </div>
 
-        <div class="flex justify-end pt-4">
-          <button type="submit" :disabled="loading" class="btn btn-primary">
+        <div class="flex justify-end pt-2">
+          <button type="submit" :disabled="loading" class="btn btn-primary btn-sm">
             {{ loading ? t('profile.changingPassword') : t('profile.changePasswordButton') }}
           </button>
         </div>
@@ -79,12 +70,6 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const props = withDefaults(defineProps<{
-  embedded?: boolean
-}>(), {
-  embedded: false,
-})
-
 const loading = ref(false)
 const form = ref({
   old_password: '',
