@@ -156,24 +156,6 @@ func (s *RateLimitService) applyGeminiLocalQuota(ctx context.Context, account *A
 	now := time.Now()
 	modelClass := geminiModelClassFromName(model)
 
-	limitFor := func(shared, pro, flash int64) (int64, bool) {
-		if shared > 0 {
-			return shared, true
-		}
-		if modelClass == geminiModelFlash {
-			return flash, false
-		}
-		return pro, false
-	}
-	usedFor := func(totals GeminiUsageTotals, shared bool) int64 {
-		if shared {
-			return totals.ProRequests + totals.FlashRequests
-		}
-		if modelClass == geminiModelFlash {
-			return totals.FlashRequests
-		}
-		return totals.ProRequests
-	}
 	block := func(resetAt time.Time, shared bool, window string, used, limit int64) {
 		scopes := []string{geminiLocalQuotaScope(modelClass)}
 		if shared {
@@ -191,7 +173,7 @@ func (s *RateLimitService) applyGeminiLocalQuota(ctx context.Context, account *A
 		}
 	}
 
-	if limit, shared := limitFor(quota.SharedRPD, quota.ProRPD, quota.FlashRPD); limit > 0 {
+	if limit := geminiDailyLimit(quota, modelClass); limit > 0 {
 		start := geminiDailyWindowStart(now)
 		totals, cached := s.getGeminiUsageTotals(account.ID, start, now)
 		if !cached {
@@ -202,17 +184,16 @@ func (s *RateLimitService) applyGeminiLocalQuota(ctx context.Context, account *A
 				cached = true
 			}
 		}
-		if cached && usedFor(totals, shared) >= limit {
-			block(geminiDailyResetTime(now), shared, "daily", usedFor(totals, shared), limit)
+		if used := geminiUsedRequests(quota, modelClass, totals, true); cached && used >= limit {
+			block(geminiDailyResetTime(now), quota.SharedRPD > 0, "daily", used, limit)
 		}
 	}
-	if limit, shared := limitFor(quota.SharedRPM, quota.ProRPM, quota.FlashRPM); limit > 0 {
+	if limit := geminiMinuteLimit(quota, modelClass); limit > 0 {
 		start := now.Truncate(time.Minute)
 		stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil, nil, nil)
 		if err == nil {
-			totals := geminiAggregateUsage(stats)
-			if used := usedFor(totals, shared); used >= limit {
-				block(start.Add(time.Minute), shared, "minute", used, limit)
+			if used := geminiUsedRequests(quota, modelClass, geminiAggregateUsage(stats), false); used >= limit {
+				block(start.Add(time.Minute), quota.SharedRPM > 0, "minute", used, limit)
 			}
 		}
 	}

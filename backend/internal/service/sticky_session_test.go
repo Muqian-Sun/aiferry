@@ -102,7 +102,7 @@ func TestShouldClearStickySession(t *testing.T) {
 				},
 			},
 			requestedModel: "",
-			want:           true,
+			want:           false, // 配额计数由状态服务写成 temp_unschedulable 后才清粘性，计数本身不清
 		},
 		{
 			name: "oauth quota exceeded not cleared",

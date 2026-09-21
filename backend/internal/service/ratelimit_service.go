@@ -67,10 +67,6 @@ type geminiUsageCacheEntry struct {
 	totals      GeminiUsageTotals
 }
 
-type geminiUsageTotalsBatchProvider interface {
-	GetGeminiUsageTotalsBatch(ctx context.Context, accountIDs []int64, startTime, endTime time.Time) (map[int64]GeminiUsageTotals, error)
-}
-
 const geminiPrecheckCacheTTL = time.Minute
 
 const (

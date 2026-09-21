@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 )
@@ -29,6 +30,11 @@ func (r *resetAccountQuotaRepoStub) ResetQuotaUsedAndClearRateLimitCooldown(cont
 	r.resetCalls++
 	r.callOrder = append(r.callOrder, "reset_quota_and_clear_rate_limit_cooldown")
 	return r.resetErr
+}
+
+func (r *resetAccountQuotaRepoStub) ClearTempUnschedulable(context.Context, int64) error {
+	r.callOrder = append(r.callOrder, "clear_temp_unschedulable")
+	return nil
 }
 
 func (r *resetAccountQuotaRepoStub) ClearRateLimit(context.Context, int64) error {
@@ -92,4 +98,23 @@ func TestResetAccountQuota_PropagatesAtomicRepositoryFailure(t *testing.T) {
 	require.ErrorIs(t, err, resetErr)
 	require.Equal(t, 1, repo.resetCalls)
 	require.Zero(t, repo.clearRateLimitCalls)
+}
+
+// 总额度超限由状态服务写成 temp_unschedulable（停到管理员重置）：重置配额要一并解除；别的原因写的停调不动。
+func TestResetAccountQuota_ClearsQuotaCounterPauseOnly(t *testing.T) {
+	future := time.Now().Add(time.Hour)
+	t.Run("quota counter pause cleared", func(t *testing.T) {
+		repo := &resetAccountQuotaRepoStub{account: &Account{ID: 42, TempUnschedulableUntil: &future,
+			TempUnschedulableReason: BuildTempUnschedReasonPayload(quotaCounterSource, "total quota 10 used >= 10")}}
+		svc := &adminServiceImpl{accountRepo: repo}
+		require.NoError(t, svc.ResetAccountQuota(context.Background(), 42))
+		require.Equal(t, []string{"reset_quota_and_clear_rate_limit_cooldown", "clear_temp_unschedulable"}, repo.callOrder)
+	})
+	t.Run("other pause preserved", func(t *testing.T) {
+		repo := &resetAccountQuotaRepoStub{account: &Account{ID: 42, TempUnschedulableUntil: &future,
+			TempUnschedulableReason: BuildTempUnschedReasonPayload(windowCostSource, "window cost 2 >= 1")}}
+		svc := &adminServiceImpl{accountRepo: repo}
+		require.NoError(t, svc.ResetAccountQuota(context.Background(), 42))
+		require.Equal(t, []string{"reset_quota_and_clear_rate_limit_cooldown"}, repo.callOrder)
+	})
 }
