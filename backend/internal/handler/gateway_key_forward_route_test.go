@@ -333,6 +333,32 @@ func TestGeminiV1BetaModels_AntigravityRouteKeyLabelledAntigravityForwardsNative
 	require.Empty(t, hs.antigravityUpsteam.recorded(), "key must never reach the Antigravity v1internal upstream")
 }
 
+// /v1beta 不按分组 / 条目厂商拦：anthropic 厂商的条目在 anthropic 分组的 key 上也进选号，
+// 池里没有能承接 gemini 入站的资源时是 503（不是主线的 404 / 分组平台 400）。
+func TestGeminiV1BetaModels_AnthropicVendorEntryIsSchedulingsCall(t *testing.T) {
+	const entryID = 8
+	group := keyRouteGroup(2106, service.PlatformAnthropic)
+	key := keyRouteAccount(1106, group.ID, service.PlatformAnthropic,
+		map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}, "claude-sonnet-4")
+	key.CatalogEntryIDs = []int64{entryID}
+	hs := newKeyRouteHarness(t, group, []*service.Account{key})
+
+	body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1beta/models/claude-sonnet-4:generateContent", body, group, service.APIProtocolGemini, "")
+	c.Params = gin.Params{{Key: "modelAction", Value: "/claude-sonnet-4:generateContent"}}
+	entry := &service.ModelCatalogEntry{ID: entryID, ModelID: "claude-sonnet-4", Vendor: "anthropic", Status: service.ModelCatalogStatusListed}
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(),
+		service.CatalogRoute{EntryID: entryID, CanonicalModel: "claude-sonnet-4", RequestedModel: "claude-sonnet-4", Entry: entry}))
+
+	hs.handler.GeminiV1BetaModels(c)
+
+	require.Equal(t, http.StatusServiceUnavailable, rec.Code, rec.Body.String())
+	require.NotContains(t, rec.Body.String(), "platform is not gemini")
+	require.Contains(t, rec.Body.String(), "No available Gemini accounts")
+	require.Empty(t, hs.geminiUpstream.recorded())
+	require.Empty(t, hs.antigravityUpsteam.recorded())
+}
+
 func TestGatewayHandlerChatCompletions_GeminiGroupCrossLabelKeyUsesGeminiCompat(t *testing.T) {
 	group := keyRouteGroup(2104, service.PlatformGemini)
 	key := keyRouteAccount(1104, group.ID, service.PlatformAntigravity,
