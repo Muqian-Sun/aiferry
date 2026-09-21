@@ -225,8 +225,7 @@ describe('admin AccountsView select all filtered results', () => {
     expect(wrapper.get('[data-test="total-results"]').text()).toBe('45')
     expect(wrapper.get('[data-test="all-results-selected"]').text()).toBe('true')
     expect(listAccounts).toHaveBeenCalledWith(1, 1000, expect.objectContaining({
-      lite: '1',
-      include_scheduler_score: '0'
+      lite: '1'
     }))
 
     await wrapper.get('[data-test="change-filter"]').trigger('click')
