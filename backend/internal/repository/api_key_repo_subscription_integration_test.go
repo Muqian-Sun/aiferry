@@ -92,3 +92,31 @@ func (s *APIKeyRepoSuite) TestExistsBySubscriptionID_IgnoresSoftDeleted() {
 	s.Require().NoError(err)
 	s.Require().False(exists, "软删的 key 不算")
 }
+
+// 鉴权投影必须带 subscription_id：漏了它，订阅 key 在中间件里就是「无分组的余额 key」→ 403 未分组。
+func TestGetByKeyForAuthCarriesSubscriptionID(t *testing.T) {
+	ctx := context.Background()
+	suffix := time.Now().UnixNano()
+	client := testEntClient(t)
+	user := mustCreateUser(t, client, &service.User{Email: fmt.Sprintf("sub-proj-%d@example.com", suffix), Concurrency: 5})
+	plan := mustCreatePlan(t, client, &service.SubscriptionPlan{Name: fmt.Sprintf("sub-proj-%d", suffix)})
+	sub := mustCreateSubscription(t, client, &service.UserSubscription{UserID: user.ID, PlanID: plan.ID})
+	keyValue := fmt.Sprintf("sk-sub-proj-%d", suffix)
+	repo := NewAPIKeyRepository(client, integrationDB)
+	key := &service.APIKey{UserID: user.ID, Key: keyValue, Name: plan.Name, Status: service.StatusActive, SubscriptionID: &sub.ID}
+	require.NoError(t, repo.Create(ctx, key))
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM auth_cache_invalidation_outbox WHERE cache_key = encode(sha256(convert_to($1, 'UTF8')), 'hex')", keyValue)
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM api_keys WHERE id = $1", key.ID)
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM user_subscriptions WHERE id = $1", sub.ID)
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM subscription_plans WHERE id = $1", plan.ID)
+		_, _ = integrationDB.ExecContext(ctx, "DELETE FROM users WHERE id = $1", user.ID)
+	})
+
+	got, err := repo.GetByKeyForAuth(ctx, keyValue)
+	require.NoError(t, err)
+	require.NotNil(t, got.SubscriptionID, "鉴权投影要带 subscription_id")
+	require.Equal(t, sub.ID, *got.SubscriptionID)
+	require.Nil(t, got.GroupID)
+	require.True(t, got.IsSubscriptionKey())
+}
