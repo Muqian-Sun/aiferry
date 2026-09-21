@@ -26,7 +26,7 @@ func (r *stubModelCatalogRepo) appendEntry(entry ModelCatalogEntry) {
 }
 
 func catalogSnapshotEntry(id int64, modelID string) ModelCatalogEntry {
-	entry := catalogEntryFromCard(modelID, ModelCatalogManagedBySeed, ChannelModelPricing{InputPrice: float64Ptr(1e-6)})
+	entry := catalogEntryFromCard(modelID, ModelCatalogManagedBySeed, PricingCard{InputPrice: float64Ptr(1e-6)})
 	entry.ID = id
 	return entry
 }

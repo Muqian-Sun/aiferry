@@ -241,9 +241,9 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 
 	t.Run("invalid time pricing", func(t *testing.T) {
 		entry := valid()
-		entry.TimePricing = &ChannelTimePricing{
+		entry.TimePricing = &TimePricing{
 			Timezone: "Not/AZone",
-			Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "10:00", Multiplier: 2}},
+			Periods:  []TimePricingPeriod{{StartTime: "09:00", EndTime: "10:00", Multiplier: 2}},
 		}
 		require.Error(t, entry.Validate())
 	})
@@ -264,9 +264,9 @@ func TestModelCatalogEntry_Validate(t *testing.T) {
 				e.Intervals = []PricingInterval{{MinTokens: 0, InputPrice: testPtrFloat64(1e-6), TierLabel: strings.Repeat("t", 51)}}
 			},
 			"timezone": func(e *ModelCatalogEntry) {
-				e.TimePricing = &ChannelTimePricing{
+				e.TimePricing = &TimePricing{
 					Timezone: strings.Repeat("Z", 65),
-					Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "10:00", Multiplier: 2}},
+					Periods:  []TimePricingPeriod{{StartTime: "09:00", EndTime: "10:00", Multiplier: 2}},
 				}
 			},
 		} {

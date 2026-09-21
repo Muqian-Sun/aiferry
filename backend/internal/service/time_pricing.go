@@ -17,8 +17,8 @@ type parsedChannelTimePeriod struct {
 	multiplier float64
 }
 
-// validateChannelTimePricing 校验分时倍率配置。nil 或空 periods 表示未启用。
-func validateChannelTimePricing(config *ChannelTimePricing) error {
+// validateTimePricing 校验分时倍率配置。nil 或空 periods 表示未启用。
+func validateTimePricing(config *TimePricing) error {
 	if config == nil || len(config.Periods) == 0 {
 		return nil
 	}
@@ -30,11 +30,11 @@ func validateChannelTimePricing(config *ChannelTimePricing) error {
 }
 
 // MultiplierAt 返回 at 对应的分时倍率。无配置或脏配置均安全降级为 1。
-func (config *ChannelTimePricing) MultiplierAt(at time.Time) float64 {
+func (config *TimePricing) MultiplierAt(at time.Time) float64 {
 	if config == nil || len(config.Periods) == 0 || at.IsZero() {
 		return 1.0
 	}
-	if err := validateChannelTimePricing(config); err != nil {
+	if err := validateTimePricing(config); err != nil {
 		return 1.0
 	}
 	location, err := loadChannelTimePricingLocation(config.Timezone)
@@ -100,7 +100,7 @@ func parseChannelTime(value string, end bool) (int, error) {
 	return parsed.Hour()*60*60 + parsed.Minute()*60 + parsed.Second(), nil
 }
 
-func parseChannelTimePeriods(periods []ChannelTimePricingPeriod) ([]parsedChannelTimePeriod, error) {
+func parseChannelTimePeriods(periods []TimePricingPeriod) ([]parsedChannelTimePeriod, error) {
 	parsed := make([]parsedChannelTimePeriod, 0, len(periods))
 	for _, period := range periods {
 		if math.IsNaN(period.Multiplier) || math.IsInf(period.Multiplier, 0) || period.Multiplier <= 0 {

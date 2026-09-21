@@ -56,7 +56,7 @@ func TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable(t *t
 
 	_, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), nil, apiKey, nil,
-		1.0, 1.0, 1.0, 1.0, UsageTokens{InputTokens: 100}, "", time.Time{},
+		1.0, UsageTokens{InputTokens: 100}, "", time.Time{},
 	)
 	require.Error(t, err)
 	require.True(t, isUsagePricingUnavailableError(err),

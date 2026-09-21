@@ -31,7 +31,7 @@ func newLoadAwareRestrictionFixture(t *testing.T, restrict bool, sessionBindings
 		GroupIDs:           []int64{groupID},
 		RestrictModels:     restrict,
 		BillingModelSource: BillingModelSourceUpstream,
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{Platform: PlatformAnthropic, Models: []string{"claude-sonnet-4-6"}},
 		},
 	}

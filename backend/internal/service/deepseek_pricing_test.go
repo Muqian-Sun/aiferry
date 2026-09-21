@@ -158,7 +158,7 @@ func TestCalculateCostUnified_DeepseekOperatorPricingNotScaledByPeak(t *testing.
 	inputPrice := 1e-6
 	outputPrice := 2e-6
 	// 管理员改过的目录条目 = 运营者定价，不叠加官方峰谷。
-	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	resolver := newResolverWithCatalogCards(bs, PricingCard{
 		Models: []string{"deepseek-v4-flash"}, BillingMode: BillingModeToken,
 		InputPrice: &inputPrice, OutputPrice: &outputPrice,
 	})

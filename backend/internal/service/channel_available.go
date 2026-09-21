@@ -130,9 +130,9 @@ func fillGlobalPricingFallback(pricingService *PricingService, models []Supporte
 	}
 }
 
-// pricingNeedsFallback 判定一个 ChannelModelPricing 是否需要走全局回落。
+// pricingNeedsFallback 判定一个 PricingCard 是否需要走全局回落。
 // 价格全部缺失（无 flat 字段且无任何带价 interval）即视为未配置。
-func pricingNeedsFallback(p *ChannelModelPricing) bool {
+func pricingNeedsFallback(p *PricingCard) bool {
 	if p == nil {
 		return true
 	}
@@ -151,7 +151,7 @@ func pricingNeedsFallback(p *ChannelModelPricing) bool {
 	return true
 }
 
-// synthesizePricingFromLiteLLM 把 LiteLLM 的定价数据转成 ChannelModelPricing 形态，
+// synthesizePricingFromLiteLLM 把 LiteLLM 的定价数据转成 PricingCard 形态，
 // 仅用于展示。
 //
 // 计费模式优先级：
@@ -161,7 +161,7 @@ func pricingNeedsFallback(p *ChannelModelPricing) bool {
 //  3. 默认 token
 //
 // LiteLLM 中字段 0 视为未配置，不带入展示。
-func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *ChannelModelPricing) *ChannelModelPricing {
+func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *PricingCard) *PricingCard {
 	if lp == nil {
 		return existing
 	}
@@ -175,7 +175,7 @@ func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *ChannelMode
 	}
 
 	if mode == BillingModeImage || mode == BillingModePerRequest {
-		return &ChannelModelPricing{
+		return &PricingCard{
 			BillingMode:                  mode,
 			PerRequestPrice:              nonZeroPtr(lp.OutputCostPerImage),
 			ImageOutputPrice:             nonZeroPtr(lp.OutputCostPerImageToken),
@@ -184,7 +184,7 @@ func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *ChannelMode
 			MaxReasoningEffortMultiplier: maxReasoningEffortMultiplierFromPricing(existing),
 		}
 	}
-	return &ChannelModelPricing{
+	return &PricingCard{
 		BillingMode:                  mode,
 		InputPrice:                   nonZeroPtr(lp.InputCostPerToken),
 		OutputPrice:                  nonZeroPtr(lp.OutputCostPerToken),
@@ -196,7 +196,7 @@ func synthesizePricingFromLiteLLM(lp *LiteLLMModelPricing, existing *ChannelMode
 	}
 }
 
-func maxReasoningEffortMultiplierFromPricing(pricing *ChannelModelPricing) *float64 {
+func maxReasoningEffortMultiplierFromPricing(pricing *PricingCard) *float64 {
 	if pricing == nil {
 		return nil
 	}

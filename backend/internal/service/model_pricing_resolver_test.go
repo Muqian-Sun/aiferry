@@ -119,7 +119,7 @@ func TestGPT56ExplicitZeroCacheWritePriceIsPreserved(t *testing.T) {
 
 	t.Run("flat catalog price", func(t *testing.T) {
 		pricing := &ModelPricing{InputPricePerToken: 5e-6, OutputPricePerToken: 30e-6}
-		applyChannelTokenPriceOverrides(pricing, &ChannelModelPricing{CacheWritePrice: &zero})
+		applyChannelTokenPriceOverrides(pricing, &PricingCard{CacheWritePrice: &zero})
 		resolved := &ResolvedPricing{Mode: BillingModeToken, BasePricing: pricing}
 
 		require.True(t, resolved.BasePricing.CacheCreationPriceExplicit)
@@ -206,7 +206,7 @@ func TestGetRequestTierPrice_NilPerRequestPrice(t *testing.T) {
 
 // newResolverWithCatalog 用目录条目搭解析器：价卡能力已从渠道搬到 model_catalog，
 // 这些用例跟着搬，语义保持「运营者显式配了价」（managed_by = admin）。
-func newResolverWithCatalog(t *testing.T, pricing []ChannelModelPricing) *ModelPricingResolver {
+func newResolverWithCatalog(t *testing.T, pricing []PricingCard) *ModelPricingResolver {
 	t.Helper()
 	bs := newTestBillingServiceForResolver()
 	return newResolverWithCatalogCards(bs, pricing...)
@@ -217,7 +217,7 @@ func newResolverWithCatalog(t *testing.T, pricing []ChannelModelPricing) *ModelP
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -241,7 +241,7 @@ func TestResolve_WithChannelOverride_TokenFlat(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 	// Channel only sets InputPrice; OutputPrice should remain from the base (LiteLLM/fallback).
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -263,7 +263,7 @@ func TestResolve_WithChannelOverride_TokenPartialOverride(t *testing.T) {
 }
 
 func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -293,7 +293,7 @@ func TestResolve_WithChannelOverride_TokenWithIntervals(t *testing.T) {
 
 func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 	// Base pricing is nil (unknown model), channel has flat prices → creates new BasePricing.
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"unknown-model-xyz"},
 		BillingMode: BillingModeToken,
@@ -318,7 +318,7 @@ func TestResolve_WithChannelOverride_TokenNilBasePricing(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModePerRequest,
@@ -346,7 +346,7 @@ func TestResolve_WithChannelOverride_PerRequest(t *testing.T) {
 
 func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 	// PerRequestPrice nil → DefaultPerRequestPrice stays 0.
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModePerRequest,
@@ -371,7 +371,7 @@ func TestResolve_WithChannelOverride_PerRequestNilPrice(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_Image(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:        "anthropic",
 		Models:          []string{"claude-sonnet-4"},
 		BillingMode:     BillingModeImage,
@@ -395,7 +395,7 @@ func TestResolve_WithChannelOverride_Image(t *testing.T) {
 }
 
 func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeImage,
@@ -421,7 +421,7 @@ func TestResolve_WithChannelOverride_ImageTierLabels(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -437,7 +437,7 @@ func TestResolve_WithChannelOverride_SourceIsChannel(t *testing.T) {
 
 func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 	// Channel pricing with empty BillingMode → defaults to BillingModeToken.
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: "", // intentionally empty
@@ -460,7 +460,7 @@ func TestResolve_WithChannelOverride_DefaultMode(t *testing.T) {
 
 func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 	// Channel provides intervals that override the base pricing path.
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -489,7 +489,7 @@ func TestGetIntervalPricing_WithChannelIntervals(t *testing.T) {
 
 func TestGetIntervalPricing_ChannelIntervalsNoMatch(t *testing.T) {
 	// Channel intervals don't match token count → falls back to BasePricing.
-	r := newResolverWithCatalog(t, []ChannelModelPricing{{
+	r := newResolverWithCatalog(t, []PricingCard{{
 		Platform:    "anthropic",
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
@@ -683,7 +683,7 @@ func newBillingServiceWithImageOutputPrice() *BillingService {
 // 静默按 $0 计费（今天是回退到文本输出价）。
 func TestCatalogTokenCard_KeepsBaseImageOutputPrice(t *testing.T) {
 	bs := newBillingServiceWithImageOutputPrice()
-	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(3e-6),
@@ -702,7 +702,7 @@ func TestCatalogTokenCard_KeepsBaseImageOutputPrice(t *testing.T) {
 // 生效并置 Explicit（显式 0 也按 0 收）。
 func TestCatalogTokenCard_ImageOutputPriceSetsExplicit(t *testing.T) {
 	bs := newBillingServiceWithImageOutputPrice()
-	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:           []string{"claude-sonnet-4"},
 		BillingMode:      BillingModeToken,
 		InputPrice:       testPtrFloat64(3e-6),
@@ -719,7 +719,7 @@ func TestCatalogTokenCard_ImageOutputPriceSetsExplicit(t *testing.T) {
 // TestCatalogIntervalCard_KeepsBaseImageOutputPrice：命中分档时同样不得归零。
 func TestCatalogIntervalCard_KeepsBaseImageOutputPrice(t *testing.T) {
 	bs := newBillingServiceWithImageOutputPrice()
-	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		Intervals: []PricingInterval{
@@ -743,7 +743,7 @@ func TestCatalogIntervalCard_KeepsBaseImageOutputPrice(t *testing.T) {
 // BasePricing，否则会写穿共享的 fallbackPrices 条目。
 func TestCatalogFlatCard_DoesNotPolluteFallbackPrices(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
-	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models:      []string{"claude-sonnet-4"},
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(10e-6), // base is 3e-6
@@ -765,7 +765,7 @@ func TestCatalogFlatCard_DoesNotPolluteFallbackPrices(t *testing.T) {
 func TestCalculateCostUnified_UsesContinuousMediaUnits(t *testing.T) {
 	bs := newTestBillingServiceForResolver()
 	price := 0.08
-	r := newResolverWithCatalogCards(bs, ChannelModelPricing{
+	r := newResolverWithCatalogCards(bs, PricingCard{
 		Models: []string{"grok-voice-think-fast-2.0"}, BillingMode: BillingModePerRequest,
 		PerRequestPrice: &price,
 	})

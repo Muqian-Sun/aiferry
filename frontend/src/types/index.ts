@@ -539,8 +539,6 @@ export interface PaginationConfig {
 
 export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'composite'
 
-export type VideoModelPrices = Record<string, Record<string, number>>
-
 export type SubscriptionType = 'standard' | 'subscription'
 
 export type ReasoningEffortMatchType = 'exact' | 'prefix' | 'suffix'
@@ -572,27 +570,11 @@ export interface Group {
   // 图片生成计费配置
   allow_image_generation: boolean
   allow_batch_image_generation: boolean
-  image_rate_independent: boolean
-  image_rate_multiplier: number
   batch_image_discount_multiplier: number
   batch_image_hold_multiplier: number
-  image_price_1k: number | null
-  image_price_2k: number | null
-  image_price_4k: number | null
-  video_rate_independent: boolean
-  video_rate_multiplier: number
-  video_price_480p: number | null
-  video_price_720p: number | null
-  video_price_1080p: number | null
   // Optional model-family x resolution overrides for Grok video pricing.
-  video_model_prices?: VideoModelPrices
   // Codex 网页搜索单次价格（USD/次）；null 表示使用默认价 0.01
-  web_search_price_per_call: number | null
   // Grok Voice 显式定价（分组级）
-  search_price_per_1k: number | null
-  audio_realtime_price_per_min: number | null
-  audio_tts_price_per_million_chars: number | null
-  audio_stt_price_per_hour: number | null
   // 高峰时段倍率配置
   peak_rate_enabled: boolean
   peak_start: string
@@ -614,7 +596,7 @@ export interface Group {
 export interface AdminGroup extends Group {
   force_openai_fast: boolean
   free_openai_fast: boolean
-  model_pricing: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing: import('@/api/admin/pricing').PricingCard[]
   // 分组利润控制（openai/anthropic/gemini/grok/antigravity 分组可启用；margin/buffer 为小数存储）。
   // 仅管理员可见：与 rate_multiplier 相乘即可反推上游成本上限，不得下放到 Group。
   profit_control_enabled: boolean
@@ -786,27 +768,11 @@ export interface CreateGroupRequest {
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing?: import('@/api/admin/pricing').PricingCard[]
   allow_image_generation?: boolean
   allow_batch_image_generation?: boolean
-  image_rate_independent?: boolean
-  image_rate_multiplier?: number
   batch_image_discount_multiplier?: number
   batch_image_hold_multiplier?: number
-  image_price_1k?: number | null
-  image_price_2k?: number | null
-  image_price_4k?: number | null
-  video_rate_independent?: boolean
-  video_rate_multiplier?: number
-  video_price_480p?: number | null
-  video_price_720p?: number | null
-  video_price_1080p?: number | null
-  video_model_prices?: VideoModelPrices
-  web_search_price_per_call?: number | null
-  search_price_per_1k?: number | null
-  audio_realtime_price_per_min?: number | null
-  audio_tts_price_per_million_chars?: number | null
-  audio_stt_price_per_hour?: number | null
   peak_rate_enabled?: boolean
   peak_start?: string
   peak_end?: string
@@ -849,27 +815,11 @@ export interface UpdateGroupRequest {
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/channels').ChannelModelPricing[]
+  model_pricing?: import('@/api/admin/pricing').PricingCard[]
   allow_image_generation?: boolean
   allow_batch_image_generation?: boolean
-  image_rate_independent?: boolean
-  image_rate_multiplier?: number
   batch_image_discount_multiplier?: number
   batch_image_hold_multiplier?: number
-  image_price_1k?: number | null
-  image_price_2k?: number | null
-  image_price_4k?: number | null
-  video_rate_independent?: boolean
-  video_rate_multiplier?: number
-  video_price_480p?: number | null
-  video_price_720p?: number | null
-  video_price_1080p?: number | null
-  video_model_prices?: VideoModelPrices
-  web_search_price_per_call?: number | null
-  search_price_per_1k?: number | null
-  audio_realtime_price_per_min?: number | null
-  audio_tts_price_per_million_chars?: number | null
-  audio_stt_price_per_hour?: number | null
   peak_rate_enabled?: boolean
   peak_start?: string
   peak_end?: string

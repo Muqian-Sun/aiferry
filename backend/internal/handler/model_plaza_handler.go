@@ -108,7 +108,7 @@ func toModelPlazaModelDTO(m *service.PlazaCatalogModel) modelPlazaModel {
 }
 
 // toModelPlazaTimePricing 转换分时倍率配置；nil 或无时段透传 nil（JSON 省略）。
-func toModelPlazaTimePricing(p *service.ChannelTimePricing) *modelPlazaTimePricing {
+func toModelPlazaTimePricing(p *service.TimePricing) *modelPlazaTimePricing {
 	if p == nil || len(p.Periods) == 0 {
 		return nil
 	}

@@ -954,39 +954,15 @@ export default {
         noLimit: '无限制'
       },
       imagePricing: {
-        title: '图片生成计费',
-        description: '配置图片生成能力和图片基础单价，留空则使用默认价格',
+        title: '图片生成',
+        description: '是否允许当前分组生图；单价在模型目录条目上配置',
         allowImageGeneration: '允许当前分组生图',
         allowBatchImageGeneration: '允许当前分组批量生图',
-        independentMultiplier: '生图倍率独立',
-        imageMultiplier: '生图独立倍率',
         batchDiscountMultiplier: '批量生图折扣倍率',
         batchHoldMultiplier: '批量冻结价格比例',
         batchSectionHint: '批量生图仅影响批量任务：结算价格会叠加批量折扣倍率，提交时冻结金额按普通生图原价 × 批量冻结价格比例计算。参考图也会产生上游输入 token 消耗，建议批量生图折扣倍率设置大于 0.5。',
         batchDisabledHint: '请先开启当前分组生图，才能开启批量生图。',
         batchGeminiOnlyHint: '批量生图当前仅支持 Gemini 分组。',
-        modeHint: '默认关闭独立倍率时，图片费用 = 图片价格 × 当前分组有效倍率；开启独立倍率后，图片费用 = 图片价格 × 生图独立倍率。',
-        finalPricePreview: '最终单张价格预览',
-        notConfigured: '未配置'
-      },
-      videoPricing: {
-        title: '视频生成计费',
-        description:
-          '配置 Grok 视频生成的每秒单价（USD/秒），留空则使用默认每秒价（grok-imagine-video：480p $0.05/s、720p $0.07/s；video-1.5：480p $0.08/s、720p $0.14/s、1080p $0.25/s）',
-        modelOverridesTitle: '按模型覆盖视频价格',
-        modelOverridesDescription: '已填写的单元格会覆盖该模型族的平面分辨率价格。video-1.5 的 preview 与 legacy 别名共用同一模型族；留空则回退到平面分辨率价格。',
-        independentMultiplier: '视频倍率独立',
-        videoMultiplier: '视频独立倍率',
-        modeHint:
-          '视频按秒计费：费用 = 每秒价格 × 时长（1-15 秒，未指定默认 8 秒）。默认叠加当前分组有效倍率；开启独立倍率后改用视频独立倍率。',
-        finalPricePreview: '最终每秒价格预览',
-        notConfigured: '未配置'
-      },
-      explicitPricing: {
-        title: 'Grok 搜索与 Voice 定价',
-        description: '分组级 web_search（每千次）与 Voice realtime / TTS / STT 单价（USD）。留空表示未配置。',
-        searchPricePer1k: '搜索每千次价格（USD）',
-        pricePlaceholder: '可选'
       },
       modelPricing: {
         title: '分组逐模型定价',
@@ -994,21 +970,6 @@ export default {
         longContext: '启用长上下文阶梯定价',
         longContextHint: '勾选后按渠道区间或官方预设阶梯计费；关闭后默认按第一档，账号显式开启时除外。',
         add: '添加模型价格'
-      },
-      voicePricing: {
-        title: 'Grok Voice 定价',
-        description: '分组级 Voice realtime / TTS / STT 单价（USD）。留空表示未配置。',
-        audioRealtimePerMin: 'Realtime 每分钟价格（USD）',
-        audioTtsPerMillionChars: 'TTS 每百万字符价格（USD）',
-        audioSttPerHour: 'STT 每小时价格（USD）',
-        pricePlaceholder: '可选'
-      },
-      webSearchPricing: {
-        title: 'Codex 网页搜索计费',
-        pricePerCall: '搜索单次价格（USD/次）',
-        pricePerCallHint:
-          '留空使用默认价 $0.01/次（官方定价 $10/1000 次）；填 0 表示免费。实际扣费会叠加分组费率倍数。',
-        finalPricePreview: '应用当前倍率后的单次价格：{price}'
       },
       peakRate: {
         enable: '启用高峰倍率',

@@ -64,6 +64,7 @@ function entry(overrides: Partial<ModelCatalogEntry> = {}): ModelCatalogEntry {
     cache_write_price_priority: null,
     cache_read_price_priority: null,
     per_request_price: null,
+    search_price_per_call: null,
     long_context_input_threshold: null,
     long_context_threshold_inclusive: false,
     long_context_input_multiplier: null,
@@ -292,6 +293,61 @@ describe('ModelCatalogView', () => {
     expect(updateEntry).toHaveBeenCalledTimes(1)
     expect(updateEntry.mock.calls[0][1].input_price).toBeNull()
     expect(updateEntry.mock.calls[0][1].output_price).toBe(75)
+  })
+
+  // 图片 / 视频条目的分档在本页编辑：档位下拉只给后端认的标签，保存时按行序写成 intervals。
+  it('edits image tiers and sends them as intervals with the default per-image price', async () => {
+    const existing = entry({
+      model_id: 'grok-imagine-image-quality',
+      billing_mode: 'image',
+      input_price: null,
+      output_price: null,
+      per_request_price: 0.05,
+      intervals: [
+        { min_tokens: 0, max_tokens: null, tier_label: '1K', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, input_multiplier: null, output_multiplier: null, cache_write_multiplier: null, cache_read_multiplier: null, per_request_price: 0.05, sort_order: 0 }
+      ]
+    })
+    listEntries.mockResolvedValue([existing])
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    expect(wrapper.findAll('[data-testid="model-catalog-media-tier-row"]')).toHaveLength(1)
+    expect(wrapper.find('[data-testid="model-catalog-search-price-per-call"]').exists()).toBe(false)
+
+    await wrapper.get('[data-testid="model-catalog-per-request-price"]').setValue('0.06')
+    await wrapper.get('[data-testid="model-catalog-media-tier-add"]').trigger('click')
+    const rows = wrapper.findAll('[data-testid="model-catalog-media-tier-row"]')
+    expect(rows).toHaveLength(2)
+    const labels = rows[1].get('[data-testid="model-catalog-media-tier-label"]').findAll('option').map((o) => o.attributes('value'))
+    expect(labels).toEqual(['1K', '2K', '4K'])
+    await rows[1].get('[data-testid="model-catalog-media-tier-label"]').setValue('2K')
+    await rows[1].get('[data-testid="model-catalog-media-tier-price"]').setValue('0.07')
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateEntry).toHaveBeenCalledTimes(1)
+    const sent = updateEntry.mock.calls[0][1]
+    expect(sent.per_request_price).toBe(0.06)
+    expect(sent.intervals).toEqual([
+      expect.objectContaining({ tier_label: '1K', per_request_price: 0.05, sort_order: 0 }),
+      expect.objectContaining({ tier_label: '2K', per_request_price: 0.07, sort_order: 1 })
+    ])
+  })
+
+  it('shows search price per call only for token entries and sends it', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    expect(wrapper.find('[data-testid="model-catalog-media-tiers"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="model-catalog-search-price-per-call"]').setValue('0.02')
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(updateEntry).toHaveBeenCalledTimes(1)
+    expect(updateEntry.mock.calls[0][1].search_price_per_call).toBe(0.02)
+    // token 条目的区间分档按原值写回
+    expect(updateEntry.mock.calls[0][1].intervals).toEqual([])
   })
 
   it('offers only the four billing modes', async () => {

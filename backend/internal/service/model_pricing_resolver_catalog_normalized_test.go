@@ -28,8 +28,8 @@ const (
 )
 
 // tokenPricingForModels 构造 token 计费模式的价卡；inputPerMillion 单位为 USD/1M token。
-func tokenPricingForModels(models []string, inputPerMillion float64) ChannelModelPricing {
-	return ChannelModelPricing{
+func tokenPricingForModels(models []string, inputPerMillion float64) PricingCard {
+	return PricingCard{
 		Platform:        PlatformOpenAI,
 		Models:          models,
 		BillingMode:     BillingModeToken,
@@ -41,7 +41,7 @@ func tokenPricingForModels(models []string, inputPerMillion float64) ChannelMode
 }
 
 // recordUsageWithCatalogPricing 用给定的目录价卡跑一次 RecordUsage，返回落库的 UsageLog。
-func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscriptionGroup bool, pricings []ChannelModelPricing) *UsageLog {
+func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscriptionGroup bool, pricings []PricingCard) *UsageLog {
 	t.Helper()
 	const groupID = int64(777)
 
@@ -88,7 +88,7 @@ func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscrip
 
 // 基线：请求模型与目录定价 key 完全一致 → 按目录价计。
 func TestCatalogPricing_ExactModelMatch(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna", false, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.6-luna"}, catalogPricingExpectedCatalogCost),
 	})
 	require.InDelta(t, catalogPricingExpectedCatalogCost, log.InputCost, 1e-9)
@@ -97,7 +97,7 @@ func TestCatalogPricing_ExactModelMatch(t *testing.T) {
 // issue #5256 主回归：请求模型带 effort 后缀、目录只配基名（无通配符）→ 仍应按目录价计。
 // 修复前此处得到 0.2（官方兜底价）。
 func TestCatalogPricing_SuffixedModelUsesNormalizedCatalogPricing(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.6-luna"}, catalogPricingExpectedCatalogCost),
 	})
 	require.InDelta(t, catalogPricingExpectedCatalogCost, log.InputCost, 1e-9,
@@ -108,7 +108,7 @@ func TestCatalogPricing_SuffixedModelUsesNormalizedCatalogPricing(t *testing.T) 
 // 同一根因的另一种变体名：上游返回带日期后缀的模型名
 // （isCodexDateSuffix，如 gpt-5.6-luna-2026-08-01），目录只配基名 → 仍应按目录价计。
 func TestCatalogPricing_DateSuffixedModelUsesNormalizedCatalogPricing(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-2026-08-01", false, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-2026-08-01", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.6-luna"}, catalogPricingExpectedCatalogCost),
 	})
 	require.InDelta(t, catalogPricingExpectedCatalogCost, log.InputCost, 1e-9,
@@ -118,7 +118,7 @@ func TestCatalogPricing_DateSuffixedModelUsesNormalizedCatalogPricing(t *testing
 // 精确匹配优先：同时配了变体名与基名时，请求变体名必须命中变体的显式配价，
 // 不能被归一化后的基名覆盖。
 func TestCatalogPricing_ExactVariantWinsOverNormalizedBaseName(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.6-luna-high"}, catalogPricingUnrelatedCost),
 		tokenPricingForModels([]string{"gpt-5.6-luna"}, catalogPricingExpectedCatalogCost),
 	})
@@ -128,7 +128,7 @@ func TestCatalogPricing_ExactVariantWinsOverNormalizedBaseName(t *testing.T) {
 
 // 订阅型分组走同一条目录定价解析路径。
 func TestCatalogPricing_SuffixedModelSubscriptionGroup(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", true, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", true, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.6-luna"}, catalogPricingExpectedCatalogCost),
 	})
 	require.InDelta(t, catalogPricingExpectedCatalogCost, log.InputCost, 1e-9)
@@ -137,7 +137,7 @@ func TestCatalogPricing_SuffixedModelSubscriptionGroup(t *testing.T) {
 // 反向保护：目录只配了不相关的模型时，归一化查找不得误命中该配置，
 // 应落回官方兜底价。
 func TestCatalogPricing_UnrelatedCatalogModelNotMatched(t *testing.T) {
-	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []ChannelModelPricing{
+	log := recordUsageWithCatalogPricing(t, "gpt-5.6-luna-high", false, []PricingCard{
 		tokenPricingForModels([]string{"gpt-5.4"}, catalogPricingUnrelatedCost),
 	})
 	require.InDelta(t, catalogPricingExpectedOfficialCost, log.InputCost, 1e-9,

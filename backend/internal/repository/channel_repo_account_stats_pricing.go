@@ -60,9 +60,9 @@ func (r *channelRepository) batchLoadAccountStatsPricingRules(ctx context.Contex
 }
 
 // batchLoadAccountStatsModelPricing 批量加载规则的模型定价
-func (r *channelRepository) batchLoadAccountStatsModelPricing(ctx context.Context, ruleIDs []int64) (map[int64][]service.ChannelModelPricing, error) {
+func (r *channelRepository) batchLoadAccountStatsModelPricing(ctx context.Context, ruleIDs []int64) (map[int64][]service.PricingCard, error) {
 	if len(ruleIDs) == 0 {
-		return make(map[int64][]service.ChannelModelPricing), nil
+		return make(map[int64][]service.PricingCard), nil
 	}
 
 	rows, err := r.db.QueryContext(ctx,
@@ -76,9 +76,9 @@ func (r *channelRepository) batchLoadAccountStatsModelPricing(ctx context.Contex
 	}
 	defer func() { _ = rows.Close() }()
 
-	pricingMap := make(map[int64][]service.ChannelModelPricing, len(ruleIDs))
+	pricingMap := make(map[int64][]service.PricingCard, len(ruleIDs))
 	for rows.Next() {
-		var p service.ChannelModelPricing
+		var p service.PricingCard
 		var ruleID int64
 		var modelsJSON []byte
 		if err := rows.Scan(
@@ -167,7 +167,7 @@ func createAccountStatsPricingRuleTx(ctx context.Context, tx *sql.Tx, rule *serv
 }
 
 // createAccountStatsModelPricingTx 在事务中创建单条账号统计模型定价
-func createAccountStatsModelPricingTx(ctx context.Context, tx *sql.Tx, ruleID int64, pricing *service.ChannelModelPricing) error {
+func createAccountStatsModelPricingTx(ctx context.Context, tx *sql.Tx, ruleID int64, pricing *service.PricingCard) error {
 	modelsJSON, err := json.Marshal(pricing.Models)
 	if err != nil {
 		return fmt.Errorf("marshal models: %w", err)

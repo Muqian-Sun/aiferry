@@ -68,7 +68,7 @@ func TestChannelOverridePreservesCatalogFastRatioByDefault(t *testing.T) {
 		OutputPricePerToken:         6,
 		OutputPricePerTokenPriority: 12,
 	}
-	applyChannelTokenPriceOverrides(pricing, &ChannelModelPricing{
+	applyChannelTokenPriceOverrides(pricing, &PricingCard{
 		InputPrice:  pricingMultiplier(3),
 		OutputPrice: pricingMultiplier(9),
 	})
@@ -205,7 +205,7 @@ func TestMultiplierOnlyIntervalIsValid(t *testing.T) {
 		MinTokens:       199999,
 		InputMultiplier: pricingMultiplier(2),
 	}}, BillingModeToken))
-	require.NoError(t, checkIntervalsHavePrices(ChannelModelPricing{
+	require.NoError(t, checkIntervalsHavePrices(PricingCard{
 		Models: []string{"grok-4.6"},
 		Intervals: []PricingInterval{{
 			MinTokens:       199999,
@@ -216,8 +216,8 @@ func TestMultiplierOnlyIntervalIsValid(t *testing.T) {
 
 func TestChannelMultipliersMustBePositive(t *testing.T) {
 	zero := 0.0
-	require.Error(t, checkPricesNotNegative(ChannelModelPricing{FastMultiplier: &zero}))
-	require.Error(t, checkPricesNotNegative(ChannelModelPricing{FlexMultiplier: &zero}))
+	require.Error(t, checkPricesNotNegative(PricingCard{FastMultiplier: &zero}))
+	require.Error(t, checkPricesNotNegative(PricingCard{FlexMultiplier: &zero}))
 	require.Error(t, ValidateIntervals([]PricingInterval{{
 		MinTokens:       100,
 		InputMultiplier: &zero,

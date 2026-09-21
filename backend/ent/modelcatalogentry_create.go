@@ -315,6 +315,20 @@ func (_c *ModelCatalogEntryCreate) SetNillablePerRequestPrice(v *float64) *Model
 	return _c
 }
 
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (_c *ModelCatalogEntryCreate) SetSearchPricePerCall(v float64) *ModelCatalogEntryCreate {
+	_c.mutation.SetSearchPricePerCall(v)
+	return _c
+}
+
+// SetNillableSearchPricePerCall sets the "search_price_per_call" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableSearchPricePerCall(v *float64) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetSearchPricePerCall(*v)
+	}
+	return _c
+}
+
 // SetLongContextInputThreshold sets the "long_context_input_threshold" field.
 func (_c *ModelCatalogEntryCreate) SetLongContextInputThreshold(v int) *ModelCatalogEntryCreate {
 	_c.mutation.SetLongContextInputThreshold(v)
@@ -684,6 +698,10 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 	if value, ok := _c.mutation.PerRequestPrice(); ok {
 		_spec.SetField(modelcatalogentry.FieldPerRequestPrice, field.TypeFloat64, value)
 		_node.PerRequestPrice = &value
+	}
+	if value, ok := _c.mutation.SearchPricePerCall(); ok {
+		_spec.SetField(modelcatalogentry.FieldSearchPricePerCall, field.TypeFloat64, value)
+		_node.SearchPricePerCall = &value
 	}
 	if value, ok := _c.mutation.LongContextInputThreshold(); ok {
 		_spec.SetField(modelcatalogentry.FieldLongContextInputThreshold, field.TypeInt, value)
@@ -1200,6 +1218,30 @@ func (u *ModelCatalogEntryUpsert) AddPerRequestPrice(v float64) *ModelCatalogEnt
 // ClearPerRequestPrice clears the value of the "per_request_price" field.
 func (u *ModelCatalogEntryUpsert) ClearPerRequestPrice() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldPerRequestPrice)
+	return u
+}
+
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsert) SetSearchPricePerCall(v float64) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldSearchPricePerCall, v)
+	return u
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateSearchPricePerCall() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldSearchPricePerCall)
+	return u
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsert) AddSearchPricePerCall(v float64) *ModelCatalogEntryUpsert {
+	u.Add(modelcatalogentry.FieldSearchPricePerCall, v)
+	return u
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsert) ClearSearchPricePerCall() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldSearchPricePerCall)
 	return u
 }
 
@@ -1902,6 +1944,34 @@ func (u *ModelCatalogEntryUpsertOne) UpdatePerRequestPrice() *ModelCatalogEntryU
 func (u *ModelCatalogEntryUpsertOne) ClearPerRequestPrice() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearPerRequestPrice()
+	})
+}
+
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertOne) SetSearchPricePerCall(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetSearchPricePerCall(v)
+	})
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertOne) AddSearchPricePerCall(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddSearchPricePerCall(v)
+	})
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateSearchPricePerCall() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateSearchPricePerCall()
+	})
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertOne) ClearSearchPricePerCall() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearSearchPricePerCall()
 	})
 }
 
@@ -2799,6 +2869,34 @@ func (u *ModelCatalogEntryUpsertBulk) UpdatePerRequestPrice() *ModelCatalogEntry
 func (u *ModelCatalogEntryUpsertBulk) ClearPerRequestPrice() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearPerRequestPrice()
+	})
+}
+
+// SetSearchPricePerCall sets the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertBulk) SetSearchPricePerCall(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetSearchPricePerCall(v)
+	})
+}
+
+// AddSearchPricePerCall adds v to the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertBulk) AddSearchPricePerCall(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddSearchPricePerCall(v)
+	})
+}
+
+// UpdateSearchPricePerCall sets the "search_price_per_call" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateSearchPricePerCall() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateSearchPricePerCall()
+	})
+}
+
+// ClearSearchPricePerCall clears the value of the "search_price_per_call" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearSearchPricePerCall() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearSearchPricePerCall()
 	})
 }
 

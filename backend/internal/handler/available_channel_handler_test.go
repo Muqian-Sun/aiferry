@@ -117,7 +117,7 @@ func TestUserAvailableChannel_FieldWhitelist(t *testing.T) {
 	outputMultiplier := 1.5
 	cacheWriteMultiplier := 2.0
 	cacheReadMultiplier := 2.0
-	pricing := toUserPricing(&service.ChannelModelPricing{
+	pricing := toUserPricing(&service.PricingCard{
 		BillingMode: service.BillingModeToken,
 		Intervals: []service.PricingInterval{
 			{
@@ -181,12 +181,12 @@ func TestBuildPlatformSections_CompositeGroupExpandsAcrossConfiguredModelPlatfor
 			{
 				Name:     "claude-sonnet-4-6",
 				Platform: service.PlatformAnthropic,
-				Pricing:  &service.ChannelModelPricing{InputPrice: &anthropicPrice},
+				Pricing:  &service.PricingCard{InputPrice: &anthropicPrice},
 			},
 			{
 				Name:     "gpt-5",
 				Platform: service.PlatformOpenAI,
-				Pricing:  &service.ChannelModelPricing{InputPrice: &openAIPrice},
+				Pricing:  &service.PricingCard{InputPrice: &openAIPrice},
 			},
 		},
 	}

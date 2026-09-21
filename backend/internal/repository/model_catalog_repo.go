@@ -349,7 +349,9 @@ func (r *modelCatalogRepository) DeleteAlias(ctx context.Context, id int64) erro
 
 // InsertOrRefreshSeedEntries 按「不存在则插入 / seed 则刷新 / admin 则跳过」写入播种条目。
 //
-// 播种只写条目本身：别名、分档、分时没有默认数据来源，播种既不写也不清空它们。
+// 种子自带分档（Intervals）时随条目一起整份覆盖（seed 条目的分档跟着种子走）；
+// 种子自带别名（SeedAliases）时逐个补齐，已被占用的别名跳过并打 warn。
+// 其它条目（价格文件 / 兜底表）不带这两样，播种既不写也不清空它们。
 func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 	ctx context.Context,
 	entries []service.ModelCatalogEntry,
@@ -382,7 +384,7 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 		key := service.NormalizeModelCatalogKey(entry.ModelID)
 		current, ok := byKey[key]
 		if !ok {
-			_, createErr := applyCatalogEntryCreate(client.ModelCatalogEntry.Create(), &entry).Save(ctx)
+			created, createErr := applyCatalogEntryCreate(client.ModelCatalogEntry.Create(), &entry).Save(ctx)
 			if createErr != nil {
 				// 并发播种（多实例同时启动）会撞唯一索引。此时另一边已经写进去了，
 				// 记为跳过而不是失败。
@@ -394,6 +396,9 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 					return result, abort
 				}
 				continue
+			}
+			if abort := r.writeSeedChildren(ctx, &result, created.ID, &entry); abort != nil {
+				return result, abort
 			}
 			result.Inserted++
 			continue
@@ -408,9 +413,54 @@ func (r *modelCatalogRepository) InsertOrRefreshSeedEntries(
 			}
 			continue
 		}
+		if abort := r.writeSeedChildren(ctx, &result, current.id, &entry); abort != nil {
+			return result, abort
+		}
 		result.Refreshed++
 	}
 	return result, nil
+}
+
+// writeSeedChildren 写种子条目自带的分档与别名；失败按单条播种失败处理（ctx 到期才整体中止）。
+func (r *modelCatalogRepository) writeSeedChildren(ctx context.Context, result *service.ModelCatalogSeedResult, entryID int64, entry *service.ModelCatalogEntry) error {
+	if len(entry.Intervals) > 0 {
+		entry.ID = entryID
+		err := r.withTx(ctx, func(tx *dbent.Tx) error {
+			return replaceCatalogChildren(ctx, tx, entry)
+		})
+		if err != nil {
+			if abort := seedRowFailed(ctx, result, "intervals", entry.ModelID, err); abort != nil {
+				return abort
+			}
+		}
+	}
+	for _, alias := range entry.SeedAliases {
+		record := &service.ModelCatalogAlias{EntryID: entryID, Alias: alias, Source: service.ModelCatalogAliasSourceSeed}
+		err := r.CreateAlias(ctx, record)
+		if err == nil {
+			continue
+		}
+		if errors.Is(err, service.ErrModelCatalogAliasExists) {
+			// 管理员已手建同名别名（可能指向别的条目）：不覆盖，但要有声音。
+			existing, lookupErr := r.client.ModelCatalogAlias.Query().
+				Where(modelcatalogalias.AliasEqualFold(alias)).
+				Only(ctx)
+			existingEntryID := int64(0)
+			if lookupErr == nil && existing != nil {
+				existingEntryID = existing.EntryID
+			}
+			if existingEntryID == entryID {
+				continue // 上次播种已写过，同一条目
+			}
+			slog.Warn("model catalog seed: alias already taken, skipped",
+				"alias", alias, "wanted_entry_id", entryID, "existing_entry_id", existingEntryID, "model_id", entry.ModelID)
+			continue
+		}
+		if abort := seedRowFailed(ctx, result, "alias", entry.ModelID, err); abort != nil {
+			return abort
+		}
+	}
+	return nil
 }
 
 // seedRowFailed 处理一条播种写入失败：ctx 已到期说明失败不是这条数据的问题
@@ -518,6 +568,7 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetNillableCacheWritePricePriority(entry.CacheWritePricePriority).
 		SetNillableCacheReadPricePriority(entry.CacheReadPricePriority).
 		SetNillablePerRequestPrice(entry.PerRequestPrice).
+		SetNillableSearchPricePerCall(entry.SearchPricePerCall).
 		SetNillableLongContextInputThreshold(entry.LongContextInputThreshold).
 		SetNillableLongContextInputMultiplier(entry.LongContextInputMultiplier).
 		SetNillableLongContextOutputMultiplier(entry.LongContextOutputMultiplier).
@@ -570,6 +621,7 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 	setPrice(builder.SetCacheWritePricePriority, builder.ClearCacheWritePricePriority, entry.CacheWritePricePriority)
 	setPrice(builder.SetCacheReadPricePriority, builder.ClearCacheReadPricePriority, entry.CacheReadPricePriority)
 	setPrice(builder.SetPerRequestPrice, builder.ClearPerRequestPrice, entry.PerRequestPrice)
+	setPrice(builder.SetSearchPricePerCall, builder.ClearSearchPricePerCall, entry.SearchPricePerCall)
 	setPrice(builder.SetLongContextInputMultiplier, builder.ClearLongContextInputMultiplier, entry.LongContextInputMultiplier)
 	setPrice(builder.SetLongContextOutputMultiplier, builder.ClearLongContextOutputMultiplier, entry.LongContextOutputMultiplier)
 	setPrice(builder.SetFastMultiplier, builder.ClearFastMultiplier, entry.FastMultiplier)
@@ -617,7 +669,8 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		CacheWritePricePriority: row.CacheWritePricePriority,
 		CacheReadPricePriority:  row.CacheReadPricePriority,
 
-		PerRequestPrice: row.PerRequestPrice,
+		PerRequestPrice:    row.PerRequestPrice,
+		SearchPricePerCall: row.SearchPricePerCall,
 
 		LongContextInputThreshold:     row.LongContextInputThreshold,
 		LongContextThresholdInclusive: row.LongContextThresholdInclusive,
@@ -680,16 +733,16 @@ func modelCatalogIntervalToService(row *dbent.ModelCatalogPriceInterval) service
 	}
 }
 
-func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *service.ChannelTimePricing {
+func modelCatalogTimePricingToService(row *dbent.ModelCatalogTimePricing) *service.TimePricing {
 	if row == nil {
 		return nil
 	}
-	cfg := &service.ChannelTimePricing{
+	cfg := &service.TimePricing{
 		Timezone:     row.Timezone,
 		WeekdaysOnly: row.WeekdaysOnly,
 	}
 	for _, raw := range row.Periods {
-		period := service.ChannelTimePricingPeriod{}
+		period := service.TimePricingPeriod{}
 		if value, ok := raw["start_time"].(string); ok {
 			period.StartTime = value
 		}

@@ -21,8 +21,9 @@ type CatalogAdmissionSource = service.CatalogRouteResolver
 //
 // 行为：
 //   - Responses WebSocket 入口跳过（模型在升级后的帧里，由 handler 逐帧校验）。
-//   - 提取不到模型名的请求放行：无模型的端点按端点路由，handler 自己决定是否报
-//     「model is required」。
+//   - 提取不到模型名的请求：路由在 catalogAdmissionRouteDefaults 里的（/v1/images/*）按
+//     该端点的默认模型准入——handler 反正会用同一个默认值转发，不能让它绕过准入；
+//     其余无模型端点按端点路由放行，handler 自己决定是否报「model is required」。
 //   - 请求体里多个候选（重复键、大小写变体）必须解析到同一条目，否则拒绝。
 //   - 拒绝时标记运维业务限流原因 local_model_configuration 与 ingress 拒绝原因
 //     model_not_listed。
@@ -37,8 +38,12 @@ func CatalogAdmission(catalog CatalogAdmissionSource) gin.HandlerFunc {
 			return
 		}
 		if len(models) == 0 {
-			c.Next()
-			return
+			if fallback := catalogAdmissionRouteDefaults[c.FullPath()]; fallback != "" {
+				models = []string{fallback}
+			} else {
+				c.Next()
+				return
+			}
 		}
 
 		route, blocked, ok := service.ResolveCatalogRouteForCandidates(c.Request.Context(), catalog, models)
@@ -50,6 +55,18 @@ func CatalogAdmission(catalog CatalogAdmissionSource) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// catalogAdmissionRouteDefaults 是「请求不带 model 时 handler 会用的默认模型」，按路由模板
+// （c.FullPath()）查；只有 images 端点有默认值（service.DefaultImageGenerationModel）。
+var catalogAdmissionRouteDefaults = func() map[string]string {
+	out := make(map[string]string)
+	for _, prefix := range []string{"/v1", ""} {
+		for _, path := range []string{"/images/generations", "/images/edits", "/images/generations/async", "/images/edits/async"} {
+			out[prefix+path] = service.DefaultImageGenerationModel
+		}
+	}
+	return out
+}()
 
 func rejectCatalogAdmission(c *gin.Context, message string) {
 	service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)

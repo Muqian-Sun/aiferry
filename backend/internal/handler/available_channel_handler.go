@@ -76,6 +76,7 @@ type userSupportedModelPricing struct {
 	ImageInputPrice              *float64                 `json:"image_input_price"`
 	ImageOutputPrice             *float64                 `json:"image_output_price"`
 	PerRequestPrice              *float64                 `json:"per_request_price"`
+	SearchPricePerCall           *float64                 `json:"search_price_per_call,omitempty"`
 	Intervals                    []userPricingIntervalDTO `json:"intervals"`
 }
 
@@ -318,7 +319,7 @@ func toUserPricingIntervals(src []service.PricingInterval) []userPricingInterval
 }
 
 // toUserPricing 将 service 层定价转换为用户 DTO；入参为 nil 时返回 nil。
-func toUserPricing(p *service.ChannelModelPricing) *userSupportedModelPricing {
+func toUserPricing(p *service.PricingCard) *userSupportedModelPricing {
 	if p == nil {
 		return nil
 	}
@@ -342,6 +343,7 @@ func toUserPricing(p *service.ChannelModelPricing) *userSupportedModelPricing {
 		ImageInputPrice:              p.ImageInputPrice,
 		ImageOutputPrice:             p.ImageOutputPrice,
 		PerRequestPrice:              p.PerRequestPrice,
+		SearchPricePerCall:           p.SearchPricePerCall,
 		Intervals:                    intervals,
 	}
 }

@@ -46,7 +46,7 @@ func TestGroupHandlerSimpleModeSanitizesCommercialFields(t *testing.T) {
 	svc := newStubAdminService()
 	r := newSimpleModeGroupRouter(svc)
 
-	create := `{"name":"simple","description":"basic grouping","platform":"anthropic","rate_multiplier":7,"is_exclusive":true,"subscription_type":"subscription","daily_limit_usd":10,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"video_price_720p":2,"web_search_price_per_call":3,"audio_realtime_price_per_min":4,"rpm_limit":99}`
+	create := `{"name":"simple","description":"basic grouping","platform":"anthropic","rate_multiplier":7,"is_exclusive":true,"subscription_type":"subscription","daily_limit_usd":10,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"rpm_limit":99}`
 	req := httptest.NewRequest(http.MethodPost, "/groups", bytes.NewBufferString(create))
 	req.Header.Set("Content-Type", "application/json")
 	res := httptest.NewRecorder()
@@ -63,12 +63,9 @@ func TestGroupHandlerSimpleModeSanitizesCommercialFields(t *testing.T) {
 	require.False(t, created.LongContextPricingEnabled)
 	require.Empty(t, created.ModelPricing)
 	require.False(t, created.AllowBatchImageGeneration)
-	require.Nil(t, created.VideoPrice720P)
-	require.Nil(t, created.WebSearchPricePerCall)
-	require.Nil(t, created.AudioRealtimePricePerMin)
 	require.Zero(t, created.RPMLimit)
 
-	update := `{"name":"renamed","description":"still basic","rate_multiplier":9,"is_exclusive":true,"subscription_type":"subscription","daily_limit_usd":12,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"video_price_720p":2,"web_search_price_per_call":3,"audio_realtime_price_per_min":4,"status":"inactive","rpm_limit":123}`
+	update := `{"name":"renamed","description":"still basic","rate_multiplier":9,"is_exclusive":true,"subscription_type":"subscription","daily_limit_usd":12,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"status":"inactive","rpm_limit":123}`
 	req = httptest.NewRequest(http.MethodPut, "/groups/2", bytes.NewBufferString(update))
 	req.Header.Set("Content-Type", "application/json")
 	res = httptest.NewRecorder()
@@ -86,9 +83,6 @@ func TestGroupHandlerSimpleModeSanitizesCommercialFields(t *testing.T) {
 	require.Nil(t, updated.LongContextPricingEnabled)
 	require.Nil(t, updated.ModelPricing)
 	require.Nil(t, updated.AllowBatchImageGeneration)
-	require.Nil(t, updated.VideoPrice720P)
-	require.Nil(t, updated.WebSearchPricePerCall)
-	require.Nil(t, updated.AudioRealtimePricePerMin)
 	require.Empty(t, updated.Status)
 	require.Nil(t, updated.RPMLimit)
 }
@@ -138,8 +132,6 @@ func TestGroupHandlerSimpleModeIgnoresExclusiveFilter(t *testing.T) {
 	require.Nil(t, svc.lastListGroupsIsExclusive)
 }
 
-func float64PtrForSimpleModeTest(value float64) *float64 { return &value }
-
 func TestGroupHandlerSimpleModeResponseUsesFieldAllowlist(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	svc := newStubAdminService()
@@ -148,10 +140,9 @@ func TestGroupHandlerSimpleModeResponseUsesFieldAllowlist(t *testing.T) {
 		AccountCount: 3, ActiveAccountCount: 2, RateLimitedAccountCount: 1,
 		Status: service.StatusActive, RateMultiplier: 9, RPMLimit: 42,
 		LongContextPricingEnabled: true,
-		ModelPricing:              []service.ChannelModelPricing{{Models: []string{"claude"}}},
-		AllowBatchImageGeneration: true, VideoPrice720P: float64PtrForSimpleModeTest(2),
-		WebSearchPricePerCall: float64PtrForSimpleModeTest(3), AudioRealtimePricePerMin: float64PtrForSimpleModeTest(4),
-		ModelRouting: map[string][]int64{"claude": {2}},
+		ModelPricing:              []service.PricingCard{{Models: []string{"claude"}}},
+		AllowBatchImageGeneration: true,
+		ModelRouting:              map[string][]int64{"claude": {2}},
 	}}
 	r := newSimpleModeGroupRouter(svc)
 	res := httptest.NewRecorder()
@@ -176,8 +167,7 @@ func TestGroupHandlerSimpleModeResponseUsesFieldAllowlist(t *testing.T) {
 	}, mapKeys(item))
 	for _, forbidden := range []string{
 		"rate_multiplier", "rpm_limit", "long_context_pricing_enabled", "model_pricing",
-		"allow_batch_image_generation", "video_price_720p", "web_search_price_per_call",
-		"audio_realtime_price_per_min", "model_routing",
+		"allow_batch_image_generation", "model_routing",
 	} {
 		_, exposed := item[forbidden]
 		require.Falsef(t, exposed, "simple mode exposed %s", forbidden)
@@ -212,7 +202,7 @@ func TestGroupHandlerSimpleModeAllReadAndWriteResponsesUseFieldAllowlist(t *test
 		ID: 1, Name: "basic", Description: "allowed", Platform: service.PlatformAnthropic, AccountCount: 3,
 		Status: service.StatusActive, RateMultiplier: 9, RPMLimit: 42,
 		LongContextPricingEnabled: true,
-		ModelPricing:              []service.ChannelModelPricing{{Models: []string{"claude"}}},
+		ModelPricing:              []service.PricingCard{{Models: []string{"claude"}}},
 	}}
 	r := newSimpleModeGroupRouter(svc)
 
@@ -220,8 +210,7 @@ func TestGroupHandlerSimpleModeAllReadAndWriteResponsesUseFieldAllowlist(t *test
 		t.Helper()
 		for _, forbidden := range []string{
 			"rate_multiplier", "rpm_limit", "long_context_pricing_enabled", "model_pricing",
-			"allow_batch_image_generation", "video_price_720p", "web_search_price_per_call",
-			"audio_realtime_price_per_min", "model_routing",
+			"allow_batch_image_generation", "model_routing",
 		} {
 			_, exposed := item[forbidden]
 			require.Falsef(t, exposed, "simple mode exposed %s", forbidden)

@@ -14,7 +14,7 @@ import (
 // ModelCatalogTimePricing 是目录条目的分时倍率配置，每个条目至多一行。
 //
 // periods 保存为 JSONB 数组（[{start_time,end_time,multiplier}]）而不是一档一行：
-// timezone + weekdays_only + 有序时段是一个整体，service.ChannelTimePricing.MultiplierAt
+// timezone + weekdays_only + 有序时段是一个整体，service.TimePricing.MultiplierAt
 // 对它们做整体判定，拆成行只会在每次读取时再拼回来，而且没有任何查询按单个时段过滤。
 type ModelCatalogTimePricing struct {
 	ent.Schema

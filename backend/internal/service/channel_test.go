@@ -10,7 +10,7 @@ import (
 
 func TestGetModelPricing(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Models: []string{"claude-sonnet-4"}, BillingMode: BillingModeToken, InputPrice: testPtrFloat64(3e-6)},
 			{ID: 3, Models: []string{"gpt-5.1"}, BillingMode: BillingModePerRequest},
 		},
@@ -44,7 +44,7 @@ func TestGetModelPricing(t *testing.T) {
 
 func TestGetModelPricing_ReturnsCopy(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Models: []string{"claude-sonnet-4"}, InputPrice: testPtrFloat64(3e-6)},
 		},
 	}
@@ -63,12 +63,12 @@ func TestGetModelPricing_EmptyPricing(t *testing.T) {
 	ch := &Channel{ModelPricing: nil}
 	require.Nil(t, ch.GetModelPricing("any-model"))
 
-	ch2 := &Channel{ModelPricing: []ChannelModelPricing{}}
+	ch2 := &Channel{ModelPricing: []PricingCard{}}
 	require.Nil(t, ch2.GetModelPricing("any-model"))
 }
 
 func TestGetIntervalForContext(t *testing.T) {
-	p := &ChannelModelPricing{
+	p := &PricingCard{
 		Intervals: []PricingInterval{
 			{MinTokens: 0, MaxTokens: testPtrInt(128000), InputPrice: testPtrFloat64(1e-6)},
 			{MinTokens: 128000, MaxTokens: nil, InputPrice: testPtrFloat64(2e-6)},
@@ -105,7 +105,7 @@ func TestGetIntervalForContext(t *testing.T) {
 }
 
 func TestGetIntervalForContext_NoMatch(t *testing.T) {
-	p := &ChannelModelPricing{
+	p := &PricingCard{
 		Intervals: []PricingInterval{
 			{MinTokens: 10000, MaxTokens: testPtrInt(50000)},
 		},
@@ -117,12 +117,12 @@ func TestGetIntervalForContext_NoMatch(t *testing.T) {
 }
 
 func TestGetIntervalForContext_Empty(t *testing.T) {
-	p := &ChannelModelPricing{Intervals: nil}
+	p := &PricingCard{Intervals: nil}
 	require.Nil(t, p.GetIntervalForContext(1000))
 }
 
 func TestGetTierByLabel(t *testing.T) {
-	p := &ChannelModelPricing{
+	p := &PricingCard{
 		Intervals: []PricingInterval{
 			{TierLabel: "1K", PerRequestPrice: testPtrFloat64(0.04)},
 			{TierLabel: "2K", PerRequestPrice: testPtrFloat64(0.08)},
@@ -155,7 +155,7 @@ func TestGetTierByLabel(t *testing.T) {
 }
 
 func TestGetTierByLabel_Empty(t *testing.T) {
-	p := &ChannelModelPricing{Intervals: nil}
+	p := &PricingCard{Intervals: nil}
 	require.Nil(t, p.GetTierByLabel("1K"))
 }
 
@@ -164,7 +164,7 @@ func TestChannelClone(t *testing.T) {
 		ID:       1,
 		Name:     "test",
 		GroupIDs: []int64{10, 20},
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{
 				ID:         100,
 				Models:     []string{"model-a"},
@@ -192,15 +192,15 @@ func TestChannelClone_Nil(t *testing.T) {
 }
 
 func TestChannelModelPricingClone(t *testing.T) {
-	original := ChannelModelPricing{
+	original := PricingCard{
 		Models: []string{"a", "b"},
 		Intervals: []PricingInterval{
 			{MinTokens: 0, TierLabel: "tier1"},
 		},
-		TimePricing: &ChannelTimePricing{
+		TimePricing: &TimePricing{
 			Timezone:     "Asia/Shanghai",
 			WeekdaysOnly: true,
-			Periods: []ChannelTimePricingPeriod{{
+			Periods: []TimePricingPeriod{{
 				StartTime:  "09:00",
 				EndTime:    "12:00",
 				Multiplier: 2,
@@ -271,23 +271,23 @@ func TestChannelIsActive(t *testing.T) {
 	}
 }
 
-// --- ChannelModelPricing.Clone edge cases ---
+// --- PricingCard.Clone edge cases ---
 
 func TestChannelModelPricingClone_EdgeCases(t *testing.T) {
 	t.Run("nil models", func(t *testing.T) {
-		original := ChannelModelPricing{Models: nil}
+		original := PricingCard{Models: nil}
 		cloned := original.Clone()
 		require.Nil(t, cloned.Models)
 	})
 
 	t.Run("nil intervals", func(t *testing.T) {
-		original := ChannelModelPricing{Intervals: nil}
+		original := PricingCard{Intervals: nil}
 		cloned := original.Clone()
 		require.Nil(t, cloned.Intervals)
 	})
 
 	t.Run("empty models", func(t *testing.T) {
-		original := ChannelModelPricing{Models: []string{}}
+		original := PricingCard{Models: []string{}}
 		cloned := original.Clone()
 		require.NotNil(t, cloned.Models)
 		require.Empty(t, cloned.Models)
@@ -485,7 +485,7 @@ func TestValidateIntervals_ImageModeStillRejectsBadMaxTokens(t *testing.T) {
 
 func TestSupportedModels_ExactKeysAndPricing(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 10, Platform: "anthropic", Models: []string{"claude-sonnet-4-6"}, InputPrice: testPtrFloat64(3e-6)},
 			{ID: 11, Platform: "anthropic", Models: []string{"claude-opus-4-6"}, InputPrice: testPtrFloat64(1.5e-5)},
 		},
@@ -509,7 +509,7 @@ func TestSupportedModels_ExactKeysAndPricing(t *testing.T) {
 
 func TestSupportedModels_WildcardExpandedFromPricing(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-sonnet-4-6", "claude-sonnet-4-5"}},
 			{ID: 2, Platform: "anthropic", Models: []string{"claude-opus-4-6"}},
 		},
@@ -546,7 +546,7 @@ func TestSupportedModels_MissingPricingKeepsNilPricing(t *testing.T) {
 
 func TestSupportedModels_DedupAndSort(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-sonnet-4-6", "claude-sonnet-4-5"}},
 			{ID: 2, Platform: "openai", Models: []string{"gpt-4o"}},
 		},
@@ -579,7 +579,7 @@ func TestSupportedModels_NilChannelAndEmpty(t *testing.T) {
 
 func TestGetModelPricingByPlatform(t *testing.T) {
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-sonnet-4-6"}, InputPrice: testPtrFloat64(3e-6)},
 			{ID: 2, Platform: "openai", Models: []string{"claude-sonnet-4-6"}, InputPrice: testPtrFloat64(1e-6)},
 		},
@@ -599,7 +599,7 @@ func TestGetModelPricingByPlatform(t *testing.T) {
 func TestSupportedModels_WildcardOnlyPricingRowsSkipped(t *testing.T) {
 	// 定价中含通配符条目（pattern），不应被当作具体模型名展开。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-sonnet-*", "claude-sonnet-4-6"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -618,7 +618,7 @@ func TestSupportedModels_WildcardPrefixMatchesNothing(t *testing.T) {
 	// 通配符模式无任何对应定价模型时，该平台 mapping 路不产出；
 	// 但其他平台的 pricing-only 模型仍会通过 Pass B 出现。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "openai", Models: []string{"gpt-4o"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -635,7 +635,7 @@ func TestSupportedModels_CrossPlatformPricingDoesNotBleed(t *testing.T) {
 	// anthropic 的通配符不应把 openai 定价行拉到 anthropic 平台下；
 	// openai 的 pricing-only 模型则正常通过 Pass B 暴露在 openai 平台下。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "openai", Models: []string{"claude-sonnet-4-6"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -651,7 +651,7 @@ func TestSupportedModels_CrossPlatformPricingDoesNotBleed(t *testing.T) {
 func TestSupportedModels_CaseInsensitiveDedup(t *testing.T) {
 	// 两行定价用不同大小写定义了同一模型，结果应去重为 1 条；首次出现的原始大小写保留。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "openai", Models: []string{"GPT-4o"}},
 			{ID: 2, Platform: "openai", Models: []string{"gpt-4o"}},
 		},
@@ -668,7 +668,7 @@ func TestSupportedModels_EmptyPlatformMapping(t *testing.T) {
 	// ModelMapping 平台 key 存在但 value 为空 map：mapping 路跳过该平台，
 	// 但 pricing 路仍会把该平台的定价模型补齐（关键修复：azcc 这种"只配定价不配映射"渠道）。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-sonnet-4-6"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -685,7 +685,7 @@ func TestSupportedModels_EmptyPlatformMapping(t *testing.T) {
 func TestSupportedModels_ExactKeyUsesPricedCaseWhenAvailable(t *testing.T) {
 	// mapping key uses uppercase, pricing uses lowercase — pricing's case should win.
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "openai", Models: []string{"gpt-4o"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -700,7 +700,7 @@ func TestSupportedModels_ExactKeyUsesPricedCaseWhenAvailable(t *testing.T) {
 func TestSupportedModels_AsteriskOnlyMappingExpandsAllPriced(t *testing.T) {
 	// 映射 key 为单独的 "*"：前缀为空 → 命中该平台所有定价模型（透传场景）。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "openai", Models: []string{"gpt-4o", "gpt-4o-mini"}},
 		},
 		ModelMapping: map[string]map[string]string{
@@ -717,7 +717,7 @@ func TestSupportedModels_PricingOnlyNoMapping(t *testing.T) {
 	// 渠道完全没配 mapping，只配了定价 —— 应该把所有定价模型作为支持模型返回。
 	// 这是修复前的核心 bug 场景（前端显示"未配置模型"）。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"claude-opus-4-6"}, InputPrice: testPtrFloat64(1.5e-5)},
 			{ID: 2, Platform: "anthropic", Models: []string{"claude-haiku-4-5"}, InputPrice: testPtrFloat64(3e-7)},
 		},
@@ -735,7 +735,7 @@ func TestSupportedModels_ExactMappingUsesTargetPricing(t *testing.T) {
 	// 精确 mapping `src → target`：定价应按 target 查（实际计费的是 target），
 	// 而不是按 src 自查。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 100, Platform: "anthropic", Models: []string{"req-model"}, InputPrice: testPtrFloat64(3e-6)},
 			{ID: 200, Platform: "anthropic", Models: []string{"served-model"}, InputPrice: testPtrFloat64(1.5e-5)},
 		},
@@ -758,7 +758,7 @@ func TestSupportedModels_ExactMappingTargetMissingFromPricing(t *testing.T) {
 	// `src → target` 但 target 不在渠道定价里 —— 结果中 src 的 Pricing 为 nil
 	// （等待 ListAvailable 阶段的全局 LiteLLM 回落填充）。
 	ch := &Channel{
-		ModelPricing: []ChannelModelPricing{
+		ModelPricing: []PricingCard{
 			{ID: 1, Platform: "anthropic", Models: []string{"some-priced-model"}, InputPrice: testPtrFloat64(1.5e-5)},
 		},
 		ModelMapping: map[string]map[string]string{

@@ -59,27 +59,27 @@ func TestMatchAccountStatsRule_BothConfigured_NeitherMatch(t *testing.T) {
 // ---------------------------------------------------------------------------
 
 func TestFindPricingForModel(t *testing.T) {
-	exactPricing := ChannelModelPricing{
+	exactPricing := PricingCard{
 		ID:     1,
 		Models: []string{"claude-opus-4"},
 	}
-	wildcardPricing := ChannelModelPricing{
+	wildcardPricing := PricingCard{
 		ID:     2,
 		Models: []string{"claude-*"},
 	}
-	platformPricing := ChannelModelPricing{
+	platformPricing := PricingCard{
 		ID:       3,
 		Platform: "openai",
 		Models:   []string{"gpt-4o"},
 	}
-	emptyPlatformPricing := ChannelModelPricing{
+	emptyPlatformPricing := PricingCard{
 		ID:     4,
 		Models: []string{"gemini-2.5-pro"},
 	}
 
 	tests := []struct {
 		name     string
-		list     []ChannelModelPricing
+		list     []PricingCard
 		platform string
 		model    string
 		wantID   int64
@@ -87,56 +87,56 @@ func TestFindPricingForModel(t *testing.T) {
 	}{
 		{
 			name:     "exact match",
-			list:     []ChannelModelPricing{exactPricing},
+			list:     []PricingCard{exactPricing},
 			platform: "anthropic",
 			model:    "claude-opus-4",
 			wantID:   1,
 		},
 		{
 			name:     "exact match case insensitive",
-			list:     []ChannelModelPricing{{ID: 5, Models: []string{"Claude-Opus-4"}}},
+			list:     []PricingCard{{ID: 5, Models: []string{"Claude-Opus-4"}}},
 			platform: "",
 			model:    "claude-opus-4",
 			wantID:   5,
 		},
 		{
 			name:     "wildcard match",
-			list:     []ChannelModelPricing{wildcardPricing},
+			list:     []PricingCard{wildcardPricing},
 			platform: "anthropic",
 			model:    "claude-opus-4",
 			wantID:   2,
 		},
 		{
 			name:     "exact match takes priority over wildcard",
-			list:     []ChannelModelPricing{wildcardPricing, exactPricing},
+			list:     []PricingCard{wildcardPricing, exactPricing},
 			platform: "anthropic",
 			model:    "claude-opus-4",
 			wantID:   1,
 		},
 		{
 			name:     "platform mismatch skipped",
-			list:     []ChannelModelPricing{platformPricing},
+			list:     []PricingCard{platformPricing},
 			platform: "anthropic",
 			model:    "gpt-4o",
 			wantNil:  true,
 		},
 		{
 			name:     "empty platform in pricing matches any",
-			list:     []ChannelModelPricing{emptyPlatformPricing},
+			list:     []PricingCard{emptyPlatformPricing},
 			platform: "gemini",
 			model:    "gemini-2.5-pro",
 			wantID:   4,
 		},
 		{
 			name:     "empty platform in query matches any pricing platform",
-			list:     []ChannelModelPricing{platformPricing},
+			list:     []PricingCard{platformPricing},
 			platform: "",
 			model:    "gpt-4o",
 			wantID:   3,
 		},
 		{
 			name:     "no match at all",
-			list:     []ChannelModelPricing{exactPricing, wildcardPricing},
+			list:     []PricingCard{exactPricing, wildcardPricing},
 			platform: "anthropic",
 			model:    "gpt-4o",
 			wantNil:  true,
@@ -149,7 +149,7 @@ func TestFindPricingForModel(t *testing.T) {
 		},
 		{
 			name: "wildcard matches by config order (first match wins)",
-			list: []ChannelModelPricing{
+			list: []PricingCard{
 				{ID: 10, Models: []string{"claude-*"}},
 				{ID: 11, Models: []string{"claude-opus-*"}},
 			},
@@ -159,7 +159,7 @@ func TestFindPricingForModel(t *testing.T) {
 		},
 		{
 			name: "shorter wildcard used when longer does not match",
-			list: []ChannelModelPricing{
+			list: []PricingCard{
 				{ID: 10, Models: []string{"claude-*"}},
 				{ID: 11, Models: []string{"claude-opus-*"}},
 			},
@@ -192,7 +192,7 @@ func TestCalculateStatsCost_NilPricing(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(0.001),
 		OutputPrice: testPtrFloat64(0.002),
@@ -208,7 +208,7 @@ func TestCalculateStatsCost_TokenBilling(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling_WithCache(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:     BillingModeToken,
 		InputPrice:      testPtrFloat64(0.001),
 		OutputPrice:     testPtrFloat64(0.002),
@@ -229,7 +229,7 @@ func TestCalculateStatsCost_TokenBilling_WithCache(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling_WithCacheTTLPrices(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:       BillingModeToken,
 		CacheWritePrice:   testPtrFloat64(0.003),
 		CacheWrite1hPrice: testPtrFloat64(0.005),
@@ -247,7 +247,7 @@ func TestCalculateStatsCost_TokenBilling_WithCacheTTLPrices(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling_WithImageOutput(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:      BillingModeToken,
 		InputPrice:       testPtrFloat64(0.001),
 		OutputPrice:      testPtrFloat64(0.002),
@@ -265,7 +265,7 @@ func TestCalculateStatsCost_TokenBilling_WithImageOutput(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling_PartialPricesNil(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(0.001),
 		// OutputPrice, CacheWritePrice, etc. are all nil → treated as 0
@@ -282,7 +282,7 @@ func TestCalculateStatsCost_TokenBilling_PartialPricesNil(t *testing.T) {
 }
 
 func TestCalculateStatsCost_TokenBilling_AllTokensZero(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode: BillingModeToken,
 		InputPrice:  testPtrFloat64(0.001),
 		OutputPrice: testPtrFloat64(0.002),
@@ -294,7 +294,7 @@ func TestCalculateStatsCost_TokenBilling_AllTokensZero(t *testing.T) {
 }
 
 func TestCalculateStatsCost_PerRequestBilling(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:     BillingModePerRequest,
 		PerRequestPrice: testPtrFloat64(0.05),
 	}
@@ -306,7 +306,7 @@ func TestCalculateStatsCost_PerRequestBilling(t *testing.T) {
 }
 
 func TestCalculateStatsCost_PerRequestBilling_PriceNil(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode: BillingModePerRequest,
 		// PerRequestPrice is nil
 	}
@@ -315,7 +315,7 @@ func TestCalculateStatsCost_PerRequestBilling_PriceNil(t *testing.T) {
 }
 
 func TestCalculateStatsCost_PerRequestBilling_PriceZero(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:     BillingModePerRequest,
 		PerRequestPrice: testPtrFloat64(0),
 	}
@@ -325,7 +325,7 @@ func TestCalculateStatsCost_PerRequestBilling_PriceZero(t *testing.T) {
 }
 
 func TestCalculateStatsCost_ImageBilling(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode:     BillingModeImage,
 		PerRequestPrice: testPtrFloat64(0.10),
 	}
@@ -336,7 +336,7 @@ func TestCalculateStatsCost_ImageBilling(t *testing.T) {
 }
 
 func TestCalculateStatsCost_ImageBilling_PriceNil(t *testing.T) {
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		BillingMode: BillingModeImage,
 		// PerRequestPrice is nil
 	}
@@ -346,7 +346,7 @@ func TestCalculateStatsCost_ImageBilling_PriceNil(t *testing.T) {
 
 func TestCalculateStatsCost_DefaultBillingMode_FallsToToken(t *testing.T) {
 	// BillingMode is empty string (default) → falls into token billing
-	pricing := &ChannelModelPricing{
+	pricing := &PricingCard{
 		InputPrice:  testPtrFloat64(0.001),
 		OutputPrice: testPtrFloat64(0.002),
 	}
@@ -368,13 +368,13 @@ func TestTryCustomRules_FirstMatchWins(t *testing.T) {
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				GroupIDs: []int64{1},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 100, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.01), OutputPrice: testPtrFloat64(0.02)},
 				},
 			},
 			{
 				GroupIDs: []int64{1},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 200, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.99), OutputPrice: testPtrFloat64(0.99)},
 				},
 			},
@@ -392,13 +392,13 @@ func TestTryCustomRules_SkipsNonMatchingRules(t *testing.T) {
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				AccountIDs: []int64{888}, // 不匹配
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 100, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.99)},
 				},
 			},
 			{
 				GroupIDs: []int64{1}, // 匹配
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 200, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.05)},
 				},
 			},
@@ -416,7 +416,7 @@ func TestTryCustomRules_NoMatch_ReturnsNil(t *testing.T) {
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				AccountIDs: []int64{888},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 100, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.01)},
 				},
 			},
@@ -432,13 +432,13 @@ func TestTryCustomRules_RuleMatchesButModelNot_ContinuesToNext(t *testing.T) {
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				GroupIDs: []int64{1},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 100, Models: []string{"gpt-4o"}, InputPrice: testPtrFloat64(0.01)}, // 模型不匹配
 				},
 			},
 			{
 				GroupIDs: []int64{1},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{ID: 200, Models: []string{"claude-opus-4"}, InputPrice: testPtrFloat64(0.05)}, // 模型匹配
 				},
 			},
@@ -720,14 +720,14 @@ func TestResolveAccountStatsCost_DeepSeekPricingPriority(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			channel := &Channel{
 				ID: 1, Status: StatusActive, ApplyPricingToAccountStats: tt.applyPricing,
-				ModelPricing: []ChannelModelPricing{{
+				ModelPricing: []PricingCard{{
 					Models: []string{"deepseek-v4-flash"}, InputPrice: testPtrFloat64(0.02),
 				}},
 			}
 			if tt.customRule {
 				channel.AccountStatsPricingRules = []AccountStatsPricingRule{{
 					AccountIDs: []int64{1},
-					Pricing: []ChannelModelPricing{{
+					Pricing: []PricingCard{{
 						Models: []string{"deepseek-v4-flash"}, InputPrice: testPtrFloat64(0.001),
 					}},
 				}}
@@ -804,7 +804,7 @@ func TestResolveAccountStatsCost_HitsCustomRule(t *testing.T) {
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				GroupIDs: []int64{10},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{
 						ID:          100,
 						Models:      []string{"claude-sonnet-4"},
@@ -986,7 +986,7 @@ func TestResolveAccountStatsCost_CustomRulePriorityOverApplyPricing(t *testing.T
 		AccountStatsPricingRules: []AccountStatsPricingRule{
 			{
 				GroupIDs: []int64{10},
-				Pricing: []ChannelModelPricing{
+				Pricing: []PricingCard{
 					{
 						ID:         100,
 						Models:     []string{"claude-sonnet-4"},

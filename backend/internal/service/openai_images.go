@@ -449,6 +449,10 @@ func parseOpenAIImageDimensions(_ textproto.MIMEHeader) (int, int) {
 	return 0, 0
 }
 
+// DefaultImageGenerationModel 是 /v1/images/* 请求不带 model 时的默认模型；
+// 目录准入中间件按路由用同一个默认值，让无 model 的生图请求也过准入。
+const DefaultImageGenerationModel = "gpt-image-2"
+
 func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
 	if req == nil {
 		return
@@ -460,7 +464,7 @@ func applyOpenAIImagesDefaults(req *OpenAIImagesRequest) {
 		req.Model = strings.TrimSpace(req.Model)
 		return
 	}
-	req.Model = "gpt-image-2"
+	req.Model = DefaultImageGenerationModel
 }
 
 func isOpenAIImageGenerationModel(model string) bool {

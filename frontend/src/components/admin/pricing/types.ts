@@ -1,4 +1,4 @@
-import type { BillingMode, ChannelTimePricing, PricingInterval } from '@/api/admin/channels'
+import type { BillingMode, TimePricing, PricingInterval } from '@/api/admin/pricing'
 
 type TranslateFn = (key: string, params?: Record<string, unknown>) => string
 
@@ -73,7 +73,7 @@ export function createDefaultTimePricingForm(): TimePricingFormEntry {
   return { timezone: DEFAULT_TIME_PRICING_TIMEZONE, weekdays_only: false, periods: [] }
 }
 
-export function apiTimePricingToForm(value: ChannelTimePricing | null | undefined): TimePricingFormEntry {
+export function apiTimePricingToForm(value: TimePricing | null | undefined): TimePricingFormEntry {
   if (!value) return createDefaultTimePricingForm()
   return {
     timezone: value.timezone || DEFAULT_TIME_PRICING_TIMEZONE,
@@ -86,7 +86,7 @@ export function apiTimePricingToForm(value: ChannelTimePricing | null | undefine
   }
 }
 
-export function formTimePricingToAPI(value: TimePricingFormEntry | null | undefined): ChannelTimePricing | null {
+export function formTimePricingToAPI(value: TimePricingFormEntry | null | undefined): TimePricing | null {
   if (!value?.periods?.length) return null
   const timezone = typeof value.timezone === 'string' ? value.timezone.trim() : ''
   return {

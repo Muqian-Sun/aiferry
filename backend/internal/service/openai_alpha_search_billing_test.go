@@ -15,18 +15,18 @@ func TestCalculateWebSearchCostDefaultAndOverride(t *testing.T) {
 	t.Parallel()
 	s := &BillingService{}
 
-	// 默认价：官方 $10/1000 次 = 0.01/次
+	// 内置单价：官方 $10/1000 次 = 0.01/次
 	cost := s.CalculateWebSearchCost(1, nil, 1.0)
 	require.InDelta(t, 0.01, cost.TotalCost, 1e-12)
 	require.InDelta(t, 0.01, cost.ActualCost, 1e-12)
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 
-	// 分组覆盖价 + 倍率
+	// 条目 search_price_per_call 覆盖 + 倍率
 	cost = s.CalculateWebSearchCost(1, float64Ptr(0.02), 2.5)
 	require.InDelta(t, 0.02, cost.TotalCost, 1e-12)
 	require.InDelta(t, 0.05, cost.ActualCost, 1e-12)
 
-	// 0 = 免费（区别于 nil = 默认价）
+	// 0 = 免费（区别于 nil = 内置单价）
 	cost = s.CalculateWebSearchCost(1, float64Ptr(0), 3.0)
 	require.Zero(t, cost.TotalCost)
 	require.Zero(t, cost.ActualCost)
@@ -44,59 +44,37 @@ func TestCalculateWebSearchCostDefaultAndOverride(t *testing.T) {
 
 func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
 	t.Parallel()
-	svc := &OpenAIGatewayService{billingService: &BillingService{}}
+	bs := NewBillingService(&config.Config{}, nil)
+	svc := &OpenAIGatewayService{billingService: bs}
 	groupID := int64(11)
 
-	// 分组未配置单价：默认 0.01。按次搜索使用不含高峰因子的基础倍率（第 4 个倍率参数 2.0），
-	// 即使 token 倍率（含高峰，3.0）更高也不采用。
+	// 目录没有该条目：alpha search 按内置单价 0.01 × 用户倍率。
 	apiKey := &APIKey{ID: 1, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI}}
 	result := &OpenAIForwardResult{Model: "gpt-5.6-sol", UpstreamModel: "gpt-5.6-sol", WebSearchCalls: 1}
-	cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 3.0, 1.0, 1.0, 2.0, UsageTokens{}, "", time.Time{})
+	cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 2.0, UsageTokens{}, "", time.Time{})
 	require.NoError(t, err)
 	require.Equal(t, string(BillingModePerRequest), cost.BillingMode)
 	require.InDelta(t, 0.01, cost.TotalCost, 1e-12)
 	require.InDelta(t, 0.02, cost.ActualCost, 1e-12)
 
-	// 分组配置单价 0.005
-	apiKey.Group.WebSearchPricePerCall = float64Ptr(0.005)
-	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{}, "", time.Time{})
+	// 目录条目配了 search_price_per_call 0.005 → 覆盖内置单价
+	searchPrice := 0.005
+	inputPrice := 1e-6
+	svc.resolver = newResolverWithCatalogCards(bs, PricingCard{
+		Models:             []string{"gpt-5.6-sol"},
+		BillingMode:        BillingModeToken,
+		InputPrice:         &inputPrice,
+		SearchPricePerCall: &searchPrice,
+	})
+	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{}, "", time.Time{})
 	require.NoError(t, err)
 	require.InDelta(t, 0.005, cost.TotalCost, 1e-12)
 	require.InDelta(t, 0.005, cost.ActualCost, 1e-12)
 
-	// WebSearchCalls = 0 时不得走按次分支（无定价数据会返回 pricing 错误，
-	// 证明回落到了 token 路径而不是被按次分支吞掉）。
+	// WebSearchCalls = 0 时不得走按次分支：回落到 token 路径按条目 token 价计。
 	result.WebSearchCalls = 0
-	_, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, 1.0, 1.0, 1.0, UsageTokens{InputTokens: 10}, "", time.Time{})
-	require.Error(t, err)
-}
-
-func TestAPIKeyService_SnapshotRoundTrip_PreservesWebSearchPricePerCall(t *testing.T) {
-	svc := NewAPIKeyService(nil, nil, nil, nil, nil, nil, &config.Config{})
-	groupID := int64(9)
-	apiKey := &APIKey{
-		ID:      1,
-		UserID:  2,
-		GroupID: &groupID,
-		Key:     "k-websearch",
-		Status:  StatusActive,
-		User:    &User{ID: 2, Status: StatusActive, Role: RoleUser},
-		Group: &Group{
-			ID:                    groupID,
-			Name:                  "openai",
-			Platform:              PlatformOpenAI,
-			Status:                StatusActive,
-			SubscriptionType:      SubscriptionTypeStandard,
-			RateMultiplier:        1,
-			WebSearchPricePerCall: float64Ptr(0.008),
-		},
-	}
-
-	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
-	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
-
-	require.NotNil(t, roundTrip)
-	require.NotNil(t, roundTrip.Group)
-	require.NotNil(t, roundTrip.Group.WebSearchPricePerCall)
-	require.InDelta(t, 0.008, *roundTrip.Group.WebSearchPricePerCall, 1e-12)
+	cost, err = svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 1.0, UsageTokens{InputTokens: 10}, "", time.Time{})
+	require.NoError(t, err)
+	require.Equal(t, string(BillingModeToken), cost.BillingMode)
+	require.InDelta(t, 10*inputPrice, cost.TotalCost, 1e-12)
 }

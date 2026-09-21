@@ -104,25 +104,6 @@ func (Group) Fields() []ent.Field {
 		field.Bool("allow_batch_image_generation").
 			Default(false).
 			Comment("是否允许该分组使用批量图片生成能力"),
-		field.Bool("image_rate_independent").
-			Default(false).
-			Comment("图片生成是否使用独立倍率；false 表示共享分组有效倍率"),
-		field.Float("image_rate_multiplier").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
-			Default(1.0).
-			Comment("图片生成独立倍率，仅 image_rate_independent=true 时生效"),
-		field.Float("image_price_1k").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
-		field.Float("image_price_2k").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
-		field.Float("image_price_4k").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
 		field.Float("batch_image_discount_multiplier").
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0.5).
@@ -131,62 +112,6 @@ func (Group) Fields() []ent.Field {
 			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
 			Default(0.6).
 			Comment("批量图片生成冻结价格比例，按普通生图原价乘以该比例冻结，结算后释放差额"),
-		field.Bool("video_rate_independent").
-			Default(false).
-			Comment("视频生成是否使用独立倍率；false 表示共享分组有效倍率"),
-		field.Float("video_rate_multiplier").
-			SchemaType(map[string]string{dialect.Postgres: "decimal(10,4)"}).
-			Default(1.0).
-			Comment("视频生成独立倍率，仅 video_rate_independent=true 时生效"),
-		field.Float("video_price_480p").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
-		field.Float("video_price_720p").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
-		field.Float("video_price_1080p").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}),
-		field.JSON("video_model_prices", map[string]map[string]float64{}).
-			Optional().
-			SchemaType(map[string]string{dialect.Postgres: "jsonb"}).
-			Comment("按模型族和分辨率覆盖视频每秒价格"),
-		field.Float("web_search_price_per_call").
-			Optional().
-			Nillable().
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
-			Comment("Codex alpha/search 网页搜索单次价格（USD/次）；nil 表示使用默认价 0.01（官方 $10/1000 次）"),
-
-		// 搜索/工具调用显式定价（per 1k calls），用于 Grok web_search 等。
-		field.Float("search_price_per_1k").
-			Optional().
-			Nillable().
-			Min(0).
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
-			Comment("搜索工具价格 per 1000 calls（web_search 等）"),
-
-		// Grok Voice 显式定价（realtime / TTS / STT），不按文本 RateMultiplier。
-		field.Float("audio_realtime_price_per_min").
-			Optional().
-			Nillable().
-			Min(0).
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
-			Comment("Voice realtime 每分钟价格（USD）"),
-		field.Float("audio_tts_price_per_million_chars").
-			Optional().
-			Nillable().
-			Min(0).
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
-			Comment("TTS 每百万字符价格（USD）"),
-		field.Float("audio_stt_price_per_hour").
-			Optional().
-			Nillable().
-			Min(0).
-			SchemaType(map[string]string{dialect.Postgres: "decimal(20,8)"}).
-			Comment("STT 每小时价格（USD）"),
 		field.Bool("long_context_pricing_enabled").
 			Default(true).
 			Comment("是否按上下文长度应用模型阶梯价格；默认开启以保持官方/渠道长上下文价"),

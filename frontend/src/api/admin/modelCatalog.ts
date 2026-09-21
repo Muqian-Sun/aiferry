@@ -4,9 +4,9 @@
  */
 
 import { apiClient } from '../client'
-import type { ChannelTimePricing, PricingInterval } from './channels'
+import type { TimePricing, PricingInterval } from './pricing'
 
-export type { ChannelTimePricing, PricingInterval }
+export type { TimePricing, PricingInterval }
 
 export interface ModelCatalogAlias {
   id: number
@@ -40,6 +40,7 @@ export interface ModelCatalogEntry {
   cache_write_price_priority: number | null
   cache_read_price_priority: number | null
   per_request_price: number | null
+  search_price_per_call: number | null
   long_context_input_threshold: number | null
   long_context_threshold_inclusive: boolean
   long_context_input_multiplier: number | null
@@ -49,7 +50,7 @@ export interface ModelCatalogEntry {
   max_reasoning_effort_multiplier: number | null
   notes?: string
   intervals: PricingInterval[]
-  time_pricing?: ChannelTimePricing | null
+  time_pricing?: TimePricing | null
   aliases: ModelCatalogAlias[]
   /** 绑定的资源（账号）；上架条目由这些账号承接请求。 */
   bindings: ModelCatalogBinding[]
@@ -99,6 +100,7 @@ export interface ModelCatalogEntryRequest {
   cache_write_price_priority?: number | null
   cache_read_price_priority?: number | null
   per_request_price?: number | null
+  search_price_per_call?: number | null
   long_context_input_threshold?: number | null
   long_context_threshold_inclusive?: boolean
   long_context_input_multiplier?: number | null
@@ -108,7 +110,7 @@ export interface ModelCatalogEntryRequest {
   max_reasoning_effort_multiplier?: number | null
   notes?: string | null
   intervals?: PricingInterval[]
-  time_pricing?: ChannelTimePricing | null
+  time_pricing?: TimePricing | null
 }
 
 export interface ModelCatalogSeedResult {

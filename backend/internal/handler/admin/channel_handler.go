@@ -242,7 +242,7 @@ func channelToResponse(ch *service.Channel) *channelResponse {
 	return resp
 }
 
-func pricingToResponse(p *service.ChannelModelPricing) channelModelPricingResponse {
+func pricingToResponse(p *service.PricingCard) channelModelPricingResponse {
 	models := p.Models
 	if models == nil {
 		models = []string{}
@@ -280,7 +280,7 @@ func pricingToResponse(p *service.ChannelModelPricing) channelModelPricingRespon
 	}
 }
 
-func timePricingToResponse(value *service.ChannelTimePricing) *channelTimePricingResponse {
+func timePricingToResponse(value *service.TimePricing) *channelTimePricingResponse {
 	if value == nil {
 		return nil
 	}
@@ -319,8 +319,8 @@ func intervalToResponse(iv service.PricingInterval) pricingIntervalResponse {
 	}
 }
 
-func pricingRequestToService(reqs []channelModelPricingRequest, allowChannelMultipliers bool) []service.ChannelModelPricing {
-	result := make([]service.ChannelModelPricing, 0, len(reqs))
+func pricingRequestToService(reqs []channelModelPricingRequest, allowChannelMultipliers bool) []service.PricingCard {
+	result := make([]service.PricingCard, 0, len(reqs))
 	for _, r := range reqs {
 		billingMode := service.BillingMode(r.BillingMode)
 		if billingMode == "" {
@@ -359,7 +359,7 @@ func pricingRequestToService(reqs []channelModelPricingRequest, allowChannelMult
 			flexMultiplier = r.FlexMultiplier
 			maxReasoningEffortMultiplier = r.MaxReasoningEffortMultiplier
 		}
-		result = append(result, service.ChannelModelPricing{
+		result = append(result, service.PricingCard{
 			Platform:                     platform,
 			Models:                       r.Models,
 			BillingMode:                  billingMode,
@@ -381,19 +381,19 @@ func pricingRequestToService(reqs []channelModelPricingRequest, allowChannelMult
 	return result
 }
 
-func timePricingRequestToService(value *channelTimePricingRequest) *service.ChannelTimePricing {
+func timePricingRequestToService(value *channelTimePricingRequest) *service.TimePricing {
 	if value == nil {
 		return nil
 	}
-	periods := make([]service.ChannelTimePricingPeriod, 0, len(value.Periods))
+	periods := make([]service.TimePricingPeriod, 0, len(value.Periods))
 	for _, period := range value.Periods {
-		periods = append(periods, service.ChannelTimePricingPeriod{
+		periods = append(periods, service.TimePricingPeriod{
 			StartTime:  period.StartTime,
 			EndTime:    period.EndTime,
 			Multiplier: period.Multiplier,
 		})
 	}
-	return &service.ChannelTimePricing{
+	return &service.TimePricing{
 		Timezone:     value.Timezone,
 		WeekdaysOnly: value.WeekdaysOnly,
 		Periods:      periods,

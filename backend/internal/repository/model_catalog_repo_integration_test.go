@@ -54,10 +54,10 @@ func TestModelCatalogRepository_CreateReadUpdateDelete(t *testing.T) {
 			{MinTokens: 0, MaxTokens: func() *int { v := 100000; return &v }(), InputPrice: float64Value(1e-6), SortOrder: 0},
 			{MinTokens: 100000, InputPrice: float64Value(2e-6), SortOrder: 1},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone:     "Asia/Shanghai",
 			WeekdaysOnly: true,
-			Periods: []service.ChannelTimePricingPeriod{
+			Periods: []service.TimePricingPeriod{
 				{StartTime: "09:00", EndTime: "12:00", Multiplier: 1.5},
 			},
 		},
@@ -299,9 +299,9 @@ func TestModelCatalogRepository_SeedRefreshKeepsChildren(t *testing.T) {
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, InputPrice: float64Value(2e-6)},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone: "UTC",
-			Periods:  []service.ChannelTimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
+			Periods:  []service.TimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
@@ -338,9 +338,9 @@ func TestModelCatalogRepository_ListEntriesHydratesChildren(t *testing.T) {
 		Intervals: []service.PricingInterval{
 			{MinTokens: 0, InputPrice: float64Value(2e-6)},
 		},
-		TimePricing: &service.ChannelTimePricing{
+		TimePricing: &service.TimePricing{
 			Timezone: "UTC",
-			Periods:  []service.ChannelTimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
+			Periods:  []service.TimePricingPeriod{{StartTime: "01:00", EndTime: "02:00", Multiplier: 3}},
 		},
 	}
 	require.NoError(t, repo.CreateEntry(ctx, entry))
@@ -453,4 +453,66 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 	before := outboxCount()
 	require.NoError(t, repo.DeleteEntry(ctx, entry.ID))
 	require.Equal(t, before+1, outboxCount(), "deleting the entry also enqueues the event")
+}
+
+// 种子自带分档与别名时随条目落库：插入写、刷新整份覆盖分档、别名只补不删；
+// 别名已被管理员占用（指向别的条目）时跳过且不报错。
+func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-seed-children")
+
+	other := &service.ModelCatalogEntry{
+		ModelID: unique("other"), BillingMode: service.BillingModeImage,
+		Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
+		PerRequestPrice: float64Value(0.5),
+	}
+	require.NoError(t, repo.CreateEntry(ctx, other))
+	require.NoError(t, repo.CreateAlias(ctx, &service.ModelCatalogAlias{
+		EntryID: other.ID, Alias: unique("taken-alias"), Source: service.ModelCatalogAliasSourceManual,
+	}))
+
+	seed := service.ModelCatalogEntry{
+		ModelID: unique("imagine"), Vendor: "xai", BillingMode: service.BillingModeImage,
+		Status: service.ModelCatalogStatusUnlisted, ManagedBy: service.ModelCatalogManagedBySeed,
+		PerRequestPrice: float64Value(0.05),
+		Intervals: []service.PricingInterval{
+			{TierLabel: service.ImageBillingSize1K, PerRequestPrice: float64Value(0.05), SortOrder: 0},
+			{TierLabel: service.ImageBillingSize2K, PerRequestPrice: float64Value(0.07), SortOrder: 1},
+		},
+		SeedAliases: []string{unique("free-alias"), unique("taken-alias")},
+	}
+
+	first, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seed})
+	require.NoError(t, err)
+	require.Equal(t, 1, first.Inserted)
+	require.Zero(t, first.Failed)
+
+	got, err := repo.GetEntryByModelID(ctx, unique("imagine"))
+	require.NoError(t, err)
+	require.Len(t, got.Intervals, 2)
+	require.Equal(t, service.ImageBillingSize1K, got.Intervals[0].TierLabel)
+	require.InDelta(t, 0.07, *got.Intervals[1].PerRequestPrice, 1e-12)
+	aliases := make([]string, 0, len(got.Aliases))
+	for _, alias := range got.Aliases {
+		require.Equal(t, service.ModelCatalogAliasSourceSeed, alias.Source)
+		aliases = append(aliases, alias.Alias)
+	}
+	require.Equal(t, []string{unique("free-alias")}, aliases, "被占用的别名跳过")
+
+	otherGot, err := repo.GetEntryByModelID(ctx, unique("other"))
+	require.NoError(t, err)
+	require.Len(t, otherGot.Aliases, 1)
+	require.Equal(t, unique("taken-alias"), otherGot.Aliases[0].Alias, "管理员别名不动")
+
+	// 重播：分档随种子整份覆盖（改成三档），别名不重复写
+	seed.Intervals = append(seed.Intervals, service.PricingInterval{TierLabel: service.ImageBillingSize4K, PerRequestPrice: float64Value(0.10), SortOrder: 2})
+	second, err := repo.InsertOrRefreshSeedEntries(ctx, []service.ModelCatalogEntry{seed})
+	require.NoError(t, err)
+	require.Equal(t, 1, second.Refreshed)
+	require.Zero(t, second.Failed)
+
+	again, err := repo.GetEntryByModelID(ctx, unique("imagine"))
+	require.NoError(t, err)
+	require.Len(t, again.Intervals, 3)
+	require.Len(t, again.Aliases, 1)
 }

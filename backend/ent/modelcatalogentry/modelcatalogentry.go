@@ -58,6 +58,8 @@ const (
 	FieldCacheReadPricePriority = "cache_read_price_priority"
 	// FieldPerRequestPrice holds the string denoting the per_request_price field in the database.
 	FieldPerRequestPrice = "per_request_price"
+	// FieldSearchPricePerCall holds the string denoting the search_price_per_call field in the database.
+	FieldSearchPricePerCall = "search_price_per_call"
 	// FieldLongContextInputThreshold holds the string denoting the long_context_input_threshold field in the database.
 	FieldLongContextInputThreshold = "long_context_input_threshold"
 	// FieldLongContextThresholdInclusive holds the string denoting the long_context_threshold_inclusive field in the database.
@@ -119,6 +121,7 @@ var Columns = []string{
 	FieldCacheWritePricePriority,
 	FieldCacheReadPricePriority,
 	FieldPerRequestPrice,
+	FieldSearchPricePerCall,
 	FieldLongContextInputThreshold,
 	FieldLongContextThresholdInclusive,
 	FieldLongContextInputMultiplier,
@@ -289,6 +292,11 @@ func ByCacheReadPricePriority(opts ...sql.OrderTermOption) OrderOption {
 // ByPerRequestPrice orders the results by the per_request_price field.
 func ByPerRequestPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldPerRequestPrice, opts...).ToFunc()
+}
+
+// BySearchPricePerCall orders the results by the search_price_per_call field.
+func BySearchPricePerCall(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldSearchPricePerCall, opts...).ToFunc()
 }
 
 // ByLongContextInputThreshold orders the results by the long_context_input_threshold field.

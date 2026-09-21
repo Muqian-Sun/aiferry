@@ -95,6 +95,8 @@ type ModelCatalogEntry struct {
 	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
 
 	PerRequestPrice *float64 `json:"per_request_price"`
+	// SearchPricePerCall 模型内置搜索每次调用价（alpha search 用）；nil 表示用内置单价。
+	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
 	LongContextInputThreshold     *int     `json:"long_context_input_threshold"`
 	LongContextThresholdInclusive bool     `json:"long_context_threshold_inclusive"`
@@ -108,9 +110,11 @@ type ModelCatalogEntry struct {
 	Notes *string `json:"notes,omitempty"`
 
 	Intervals   []PricingInterval     `json:"intervals"`
-	TimePricing *ChannelTimePricing   `json:"time_pricing,omitempty"`
+	TimePricing *TimePricing          `json:"time_pricing,omitempty"`
 	Aliases     []ModelCatalogAlias   `json:"aliases"`
 	Bindings    []ModelCatalogBinding `json:"bindings"`
+	// SeedAliases 只有播种用：种子条目要一并写入的别名（价格文件 / 管理员条目不带）。
+	SeedAliases []string `json:"-"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -128,7 +132,7 @@ type ModelCatalogBinding struct {
 // 与渠道定价查表同口径（小写 + claude-* 的 "." → "-"），保证从渠道价卡迁到
 // 目录之后 "claude-opus-4.5" 与 "claude-opus-4-5" 仍然命中同一条。
 func NormalizeModelCatalogKey(model string) string {
-	return normalizeChannelPricingModelName(model)
+	return normalizePricingModelName(model)
 }
 
 // Clone 返回深拷贝，调用方改动不会污染服务内的缓存快照。
@@ -146,16 +150,19 @@ func (e *ModelCatalogEntry) Clone() *ModelCatalogEntry {
 	if e.Aliases != nil {
 		cp.Aliases = append([]ModelCatalogAlias(nil), e.Aliases...)
 	}
+	if e.SeedAliases != nil {
+		cp.SeedAliases = append([]string(nil), e.SeedAliases...)
+	}
 	if e.Bindings != nil {
 		cp.Bindings = append([]ModelCatalogBinding(nil), e.Bindings...)
 	}
 	if e.TimePricing != nil {
-		tp := ChannelTimePricing{
+		tp := TimePricing{
 			Timezone:     e.TimePricing.Timezone,
 			WeekdaysOnly: e.TimePricing.WeekdaysOnly,
 		}
 		if e.TimePricing.Periods != nil {
-			tp.Periods = append([]ChannelTimePricingPeriod(nil), e.TimePricing.Periods...)
+			tp.Periods = append([]TimePricingPeriod(nil), e.TimePricing.Periods...)
 		}
 		cp.TimePricing = &tp
 	}
@@ -177,13 +184,13 @@ func (e *ModelCatalogEntry) IsOperatorAuthored() bool {
 }
 
 // PricingCard 把目录条目投影成共享的价卡结构，供区间匹配、显式字段判定与分时
-// 倍率复用同一套代码。只投影 ChannelModelPricing 已有的字段；目录独有的字段
+// 倍率复用同一套代码。只投影 PricingCard 已有的字段；目录独有的字段
 // （priority 价、长上下文、图片缓存读价）由 ApplyToModelPricing 直接写进 ModelPricing。
-func (e *ModelCatalogEntry) PricingCard() *ChannelModelPricing {
+func (e *ModelCatalogEntry) PricingCard() *PricingCard {
 	if e == nil {
 		return nil
 	}
-	card := &ChannelModelPricing{
+	card := &PricingCard{
 		Models:                       []string{e.ModelID},
 		BillingMode:                  e.EffectiveBillingMode(),
 		InputPrice:                   e.InputPrice,
@@ -197,6 +204,7 @@ func (e *ModelCatalogEntry) PricingCard() *ChannelModelPricing {
 		ImageInputPrice:              e.ImageInputPrice,
 		ImageOutputPrice:             e.ImageOutputPrice,
 		PerRequestPrice:              e.PerRequestPrice,
+		SearchPricePerCall:           e.SearchPricePerCall,
 		TimePricing:                  e.TimePricing,
 	}
 	if e.Intervals != nil {
@@ -394,6 +402,14 @@ func (e *ModelCatalogEntry) Validate() error {
 	if e.Status == ModelCatalogStatusListed && !e.HasPrice() {
 		return catalogValidationError("a listed entry must have a price")
 	}
+	// 图片 / 视频条目上架必须有默认按次价：计费路径没有「分档不命中就退默认价、默认价也没有」
+	// 的兜底，缺了会把媒体用量按 token 价静默算。
+	if e.Status == ModelCatalogStatusListed && e.PerRequestPrice == nil {
+		switch e.EffectiveBillingMode() {
+		case BillingModeImage, BillingModeVideo:
+			return catalogValidationError("a listed image/video entry must have a per_request_price")
+		}
+	}
 	switch e.ManagedBy {
 	case ModelCatalogManagedBySeed, ModelCatalogManagedByAdmin:
 	default:
@@ -421,6 +437,7 @@ func (e *ModelCatalogEntry) Validate() error {
 		"cache_write_price_priority": e.CacheWritePricePriority,
 		"cache_read_price_priority":  e.CacheReadPricePriority,
 		"per_request_price":          e.PerRequestPrice,
+		"search_price_per_call":      e.SearchPricePerCall,
 	}
 	for _, name := range sortedPriceFieldNames(prices) {
 		if value := prices[name]; value != nil && *value < 0 {
@@ -447,7 +464,7 @@ func (e *ModelCatalogEntry) Validate() error {
 	}
 	// 分时倍率复用渠道那一套校验（时区、HH:mm(:ss) 解析、倍率精度、时段不重叠），
 	// 保证目录与渠道的分时语义一致。
-	if err := validateChannelTimePricing(e.TimePricing); err != nil {
+	if err := validateTimePricing(e.TimePricing); err != nil {
 		return catalogValidationError(fmt.Sprintf("time_pricing: %s", err.Error()))
 	}
 	return nil

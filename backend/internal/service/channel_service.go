@@ -46,11 +46,11 @@ type ChannelRepository interface {
 	GetGroupPlatforms(ctx context.Context, groupIDs []int64) (map[int64]string, error)
 
 	// 模型定价
-	ListModelPricing(ctx context.Context, channelID int64) ([]ChannelModelPricing, error)
-	CreateModelPricing(ctx context.Context, pricing *ChannelModelPricing) error
-	UpdateModelPricing(ctx context.Context, pricing *ChannelModelPricing) error
+	ListModelPricing(ctx context.Context, channelID int64) ([]PricingCard, error)
+	CreateModelPricing(ctx context.Context, pricing *PricingCard) error
+	UpdateModelPricing(ctx context.Context, pricing *PricingCard) error
 	DeleteModelPricing(ctx context.Context, id int64) error
-	ReplaceModelPricing(ctx context.Context, channelID int64, pricingList []ChannelModelPricing) error
+	ReplaceModelPricing(ctx context.Context, channelID int64, pricingList []PricingCard) error
 }
 
 // channelModelKey 渠道缓存复合键（显式包含 platform 防止跨平台同名模型冲突）
@@ -58,16 +58,6 @@ type channelModelKey struct {
 	groupID  int64
 	platform string // 平台标识
 	model    string // lowercase
-}
-
-// normalizeChannelPricingModelName makes Anthropic's dot and hyphen spelling
-// differences equivalent in channel pricing cache keys.
-func normalizeChannelPricingModelName(model string) string {
-	model = strings.ToLower(strings.TrimSpace(model))
-	if strings.HasPrefix(model, "claude-") {
-		model = strings.ReplaceAll(model, ".", "-")
-	}
-	return model
 }
 
 // channelGroupPlatformKey 通配符定价缓存键
@@ -79,7 +69,7 @@ type channelGroupPlatformKey struct {
 // wildcardPricingEntry 通配符定价条目
 type wildcardPricingEntry struct {
 	prefix  string
-	pricing *ChannelModelPricing
+	pricing *PricingCard
 }
 
 // wildcardMappingEntry 通配符映射条目
@@ -91,7 +81,7 @@ type wildcardMappingEntry struct {
 // channelCache 渠道缓存快照（扁平化哈希结构，热路径 O(1) 查找）
 type channelCache struct {
 	// 热路径查找
-	pricingByGroupModel     map[channelModelKey]*ChannelModelPricing            // (groupID, platform, model) → 定价
+	pricingByGroupModel     map[channelModelKey]*PricingCard                    // (groupID, platform, model) → 定价
 	wildcardByGroupPlatform map[channelGroupPlatformKey][]*wildcardPricingEntry // (groupID, platform) → 通配符定价（按配置顺序，先匹配先使用）
 	mappingByGroupModel     map[channelModelKey]string                          // (groupID, platform, model) → 映射目标
 	wildcardMappingByGP     map[channelGroupPlatformKey][]*wildcardMappingEntry // (groupID, platform) → 通配符映射（按配置顺序，先匹配先使用）
@@ -213,7 +203,7 @@ func (s *ChannelService) loadCache(ctx context.Context) (*channelCache, error) {
 // newEmptyChannelCache 创建空的渠道缓存（所有 map 已初始化）
 func newEmptyChannelCache() *channelCache {
 	return &channelCache{
-		pricingByGroupModel:     make(map[channelModelKey]*ChannelModelPricing),
+		pricingByGroupModel:     make(map[channelModelKey]*PricingCard),
 		wildcardByGroupPlatform: make(map[channelGroupPlatformKey][]*wildcardPricingEntry),
 		mappingByGroupModel:     make(map[channelModelKey]string),
 		wildcardMappingByGP:     make(map[channelGroupPlatformKey][]*wildcardMappingEntry),
@@ -237,13 +227,13 @@ func expandPricingToCache(cache *channelCache, ch *Channel, gid int64, platform 
 		gpKey := channelGroupPlatformKey{groupID: gid, platform: pricingPlatform}
 		for _, model := range pricing.Models {
 			if strings.HasSuffix(model, "*") {
-				prefix := normalizeChannelPricingModelName(strings.TrimSuffix(model, "*"))
+				prefix := normalizePricingModelName(strings.TrimSuffix(model, "*"))
 				cache.wildcardByGroupPlatform[gpKey] = append(cache.wildcardByGroupPlatform[gpKey], &wildcardPricingEntry{
 					prefix:  prefix,
 					pricing: pricing,
 				})
 			} else {
-				key := channelModelKey{groupID: gid, platform: pricingPlatform, model: normalizeChannelPricingModelName(model)}
+				key := channelModelKey{groupID: gid, platform: pricingPlatform, model: normalizePricingModelName(model)}
 				cache.pricingByGroupModel[key] = pricing
 			}
 		}
@@ -431,7 +421,7 @@ func (s *ChannelService) subscribeCacheUpdates(ctx context.Context) {
 }
 
 // matchWildcard 在通配符定价中查找匹配项（最先匹配到优先）
-func (c *channelCache) matchWildcard(groupID int64, platform, modelLower string) *ChannelModelPricing {
+func (c *channelCache) matchWildcard(groupID int64, platform, modelLower string) *PricingCard {
 	gpKey := channelGroupPlatformKey{groupID: groupID, platform: platform}
 	wildcards := c.wildcardByGroupPlatform[gpKey]
 	for _, wc := range wildcards {
@@ -456,8 +446,8 @@ func (c *channelCache) matchWildcardMapping(groupID int64, platform, modelLower 
 
 // lookupPricingAcrossPlatforms 在分组平台内查找模型定价。
 // 各平台严格独立，只在本平台内查找（先精确匹配，再通配符）。
-func lookupPricingAcrossPlatforms(cache *channelCache, groupID int64, groupPlatform, modelLower string) *ChannelModelPricing {
-	modelLower = normalizeChannelPricingModelName(modelLower)
+func lookupPricingAcrossPlatforms(cache *channelCache, groupID int64, groupPlatform, modelLower string) *PricingCard {
+	modelLower = normalizePricingModelName(modelLower)
 	for _, p := range matchingPlatforms(groupPlatform) {
 		key := channelModelKey{groupID: groupID, platform: p, model: modelLower}
 		if pricing, ok := cache.pricingByGroupModel[key]; ok {
@@ -541,7 +531,7 @@ func (s *ChannelService) lookupGroupChannel(ctx context.Context, groupID int64) 
 
 // GetChannelModelPricing 获取指定分组+模型的渠道定价（热路径 O(1)）。
 // 各平台严格独立，只在本平台内查找定价。
-func (s *ChannelService) GetChannelModelPricing(ctx context.Context, groupID int64, model string) *ChannelModelPricing {
+func (s *ChannelService) GetChannelModelPricing(ctx context.Context, groupID int64, model string) *PricingCard {
 	lk, err := s.lookupGroupChannel(ctx, groupID)
 	if err != nil {
 		slog.Warn("failed to load channel cache", "group_id", groupID, "error", err)
@@ -668,48 +658,11 @@ func RemovePreviousResponseIDFromBody(body []byte) []byte {
 
 // validateChannelConfig 校验渠道的定价和映射配置（冲突检测 + 区间校验 + 计费模式校验）。
 // Create 和 Update 共用此函数，避免重复。
-func validateChannelConfig(pricing []ChannelModelPricing, mapping map[string]map[string]string) error {
+func validateChannelConfig(pricing []PricingCard, mapping map[string]map[string]string) error {
 	if err := validatePricingEntries(pricing); err != nil {
 		return err
 	}
 	return validateNoConflictingMappings(mapping)
-}
-
-// validatePricingEntries 校验定价条目（冲突检测 + 区间校验 + 计费模式校验），
-// 同时用于主渠道定价和 account_stats_pricing_rules 的内部定价。
-func validatePricingEntries(pricing []ChannelModelPricing) error {
-	if err := validateNoConflictingModels(pricing); err != nil {
-		return err
-	}
-	if err := validatePricingIntervals(pricing); err != nil {
-		return err
-	}
-	if err := validatePricingBillingMode(pricing); err != nil {
-		return err
-	}
-	return validatePricingTimePricing(pricing)
-}
-
-func validatePricingTimePricing(pricing []ChannelModelPricing) error {
-	for i := range pricing {
-		config := pricing[i].TimePricing
-		if config == nil {
-			continue
-		}
-		if len(config.Periods) == 0 {
-			pricing[i].TimePricing = nil
-			continue
-		}
-		mode := pricing[i].BillingMode
-		if mode != "" && mode != BillingModeToken {
-			return infraerrors.BadRequest("TIME_PRICING_UNSUPPORTED_MODE", "time pricing only supports token billing mode")
-		}
-		if err := validateChannelTimePricing(config); err != nil {
-			return infraerrors.BadRequest("INVALID_TIME_PRICING", fmt.Sprintf(
-				"invalid time pricing for platform '%s' models %v: %v", pricing[i].Platform, pricing[i].Models, err))
-		}
-	}
-	return nil
 }
 
 func validateAccountStatsPricingRules(rules []AccountStatsPricingRule) error {
@@ -725,91 +678,6 @@ func validateAccountStatsPricingRules(rules []AccountStatsPricingRule) error {
 		}
 	}
 	return nil
-}
-
-// validatePricingBillingMode 校验计费模式配置：按次/图片模式必须配价格或区间，所有价格字段不能为负，区间至少有一个价格字段。
-func validatePricingBillingMode(pricing []ChannelModelPricing) error {
-	for _, p := range pricing {
-		if err := checkBillingModeRequirements(p); err != nil {
-			return err
-		}
-		if err := checkPricesNotNegative(p); err != nil {
-			return err
-		}
-		if err := checkIntervalsHavePrices(p); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func checkBillingModeRequirements(p ChannelModelPricing) error {
-	if p.BillingMode == BillingModePerRequest || p.BillingMode == BillingModeImage || p.BillingMode == BillingModeVideo {
-		if p.PerRequestPrice == nil && len(p.Intervals) == 0 {
-			return infraerrors.BadRequest(
-				"BILLING_MODE_MISSING_PRICE",
-				"per-request price or intervals required for per_request/image billing mode",
-			)
-		}
-	}
-	return nil
-}
-
-func checkPricesNotNegative(p ChannelModelPricing) error {
-	checks := []struct {
-		field string
-		val   *float64
-	}{
-		{"input_price", p.InputPrice},
-		{"output_price", p.OutputPrice},
-		{"cache_write_price", p.CacheWritePrice},
-		{"cache_write_1h_price", p.CacheWrite1hPrice},
-		{"cache_read_price", p.CacheReadPrice},
-		{"image_input_price", p.ImageInputPrice},
-		{"image_output_price", p.ImageOutputPrice},
-		{"per_request_price", p.PerRequestPrice},
-	}
-	for _, c := range checks {
-		if c.val != nil && *c.val < 0 {
-			return infraerrors.BadRequest("NEGATIVE_PRICE", fmt.Sprintf("%s must be >= 0", c.field))
-		}
-	}
-	for _, c := range []struct {
-		field string
-		val   *float64
-	}{
-		{"fast_multiplier", p.FastMultiplier},
-		{"flex_multiplier", p.FlexMultiplier},
-	} {
-		if c.val != nil && *c.val <= 0 {
-			return infraerrors.BadRequest("INVALID_MULTIPLIER", fmt.Sprintf("%s must be > 0", c.field))
-		}
-	}
-	return nil
-}
-
-func checkIntervalsHavePrices(p ChannelModelPricing) error {
-	for _, iv := range p.Intervals {
-		if iv.InputPrice == nil && iv.OutputPrice == nil &&
-			iv.CacheWritePrice == nil && iv.CacheWrite1hPrice == nil && iv.CacheReadPrice == nil &&
-			iv.PerRequestPrice == nil && iv.InputMultiplier == nil &&
-			iv.OutputMultiplier == nil && iv.CacheWriteMultiplier == nil &&
-			iv.CacheReadMultiplier == nil {
-			return infraerrors.BadRequest(
-				"INTERVAL_MISSING_PRICE",
-				fmt.Sprintf("interval [%d, %s] has no price fields set for model %v",
-					iv.MinTokens, formatMaxTokens(iv.MaxTokens), p.Models),
-			)
-		}
-	}
-	return nil
-}
-
-func formatMaxTokens(max *int) string {
-	if max == nil {
-		return "∞"
-	}
-	return fmt.Sprintf("%d", *max)
 }
 
 // --- CRUD ---
@@ -1035,65 +903,11 @@ func (s *ChannelService) List(ctx context.Context, params pagination.PaginationP
 	return channels, res, nil
 }
 
-// modelEntry 表示一个模型模式条目（用于冲突检测）
-type modelEntry struct {
-	pattern  string // 原始模式（如 "claude-*" 或 "claude-opus-4"）
-	prefix   string // lowercase 前缀（通配符去掉 *，精确名保持原样）
-	wildcard bool
-}
-
-// conflictsBetween 检查两个模型模式是否冲突
-func conflictsBetween(a, b modelEntry) bool {
-	switch {
-	case !a.wildcard && !b.wildcard:
-		return a.prefix == b.prefix
-	case a.wildcard && !b.wildcard:
-		return strings.HasPrefix(b.prefix, a.prefix)
-	case !a.wildcard && b.wildcard:
-		return strings.HasPrefix(a.prefix, b.prefix)
-	default:
-		return strings.HasPrefix(a.prefix, b.prefix) ||
-			strings.HasPrefix(b.prefix, a.prefix)
-	}
-}
-
 // toModelEntry 将模型名转换为 modelEntry（用于模型映射的冲突检测）。
 // 归一化必须与 expandMappingToCache 写缓存键的方式一致：映射缓存只做 strings.ToLower。
 func toModelEntry(pattern string) modelEntry {
 	prefix, isWild := splitWildcardSuffix(strings.ToLower(pattern))
 	return modelEntry{pattern: pattern, prefix: prefix, wildcard: isWild}
-}
-
-// toPricingModelEntry 将模型名转换为 modelEntry（用于模型定价的冲突检测）。
-//
-// 与 toModelEntry 的区别：定价缓存的键走 normalizeChannelPricingModelName
-// （额外做 TrimSpace，并把 claude-* 的 "." 换成 "-"），冲突检测必须用同一套归一化，
-// 否则两个校验时看着不同、写进缓存后键相同的定价会互相静默覆盖。
-func toPricingModelEntry(pattern string) modelEntry {
-	// 先剥通配符再归一化，与 expandPricingToCache 的处理顺序保持一致
-	prefix, isWild := splitWildcardSuffix(pattern)
-	return modelEntry{
-		pattern:  pattern,
-		prefix:   normalizeChannelPricingModelName(prefix),
-		wildcard: isWild,
-	}
-}
-
-// validateNoConflictingModels 检查定价列表中是否有冲突模型模式（同一平台下）。
-// 冲突包括：精确重复、通配符之间的前缀包含、通配符与精确名的前缀匹配。
-func validateNoConflictingModels(pricingList []ChannelModelPricing) error {
-	byPlatform := make(map[string][]modelEntry)
-	for _, p := range pricingList {
-		for _, model := range p.Models {
-			byPlatform[p.Platform] = append(byPlatform[p.Platform], toPricingModelEntry(model))
-		}
-	}
-	for platform, entries := range byPlatform {
-		if err := detectConflicts(entries, platform, "MODEL_PATTERN_CONFLICT", "model patterns"); err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 // validateNoConflictingMappings 检查模型映射中是否有冲突的源模式
@@ -1110,34 +924,6 @@ func validateNoConflictingMappings(mapping map[string]map[string]string) error {
 	return nil
 }
 
-func validatePricingIntervals(pricingList []ChannelModelPricing) error {
-	for _, pricing := range pricingList {
-		if err := ValidateIntervals(pricing.Intervals, pricing.BillingMode); err != nil {
-			return infraerrors.BadRequest(
-				"INVALID_PRICING_INTERVALS",
-				fmt.Sprintf("invalid pricing intervals for platform '%s' models %v: %v",
-					pricing.Platform, pricing.Models, err),
-			)
-		}
-	}
-	return nil
-}
-
-// detectConflicts 在一组 modelEntry 中检测冲突，返回带有 errCode 和 label 的错误
-func detectConflicts(entries []modelEntry, platform, errCode, label string) error {
-	for i := 0; i < len(entries); i++ {
-		for j := i + 1; j < len(entries); j++ {
-			if conflictsBetween(entries[i], entries[j]) {
-				return infraerrors.BadRequest(errCode,
-					fmt.Sprintf("%s '%s' and '%s' conflict in platform '%s': overlapping match range "+
-						"(model names are matched case-insensitively, so an existing entry already covers all case variants)",
-						label, entries[i].pattern, entries[j].pattern, platform))
-			}
-		}
-	}
-	return nil
-}
-
 // --- Input types ---
 
 // CreateChannelInput 创建渠道输入
@@ -1145,7 +931,7 @@ type CreateChannelInput struct {
 	Name                       string
 	Description                string
 	GroupIDs                   []int64
-	ModelPricing               []ChannelModelPricing
+	ModelPricing               []PricingCard
 	ModelMapping               map[string]map[string]string // platform → {src→dst}
 	BillingModelSource         string
 	RestrictModels             bool
@@ -1161,7 +947,7 @@ type UpdateChannelInput struct {
 	Description                *string
 	Status                     string
 	GroupIDs                   *[]int64
-	ModelPricing               *[]ChannelModelPricing
+	ModelPricing               *[]PricingCard
 	ModelMapping               map[string]map[string]string // platform → {src→dst}
 	BillingModelSource         string
 	RestrictModels             *bool

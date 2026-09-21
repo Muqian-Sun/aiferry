@@ -422,25 +422,6 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	weeklyLimit := normalizeLimit(input.WeeklyLimitUSD)
 	monthlyLimit := normalizeLimit(input.MonthlyLimitUSD)
 
-	// 图片价格：负数表示清除（使用默认价格），0 保留（表示免费）
-	imagePrice1K := normalizePrice(input.ImagePrice1K)
-	imagePrice2K := normalizePrice(input.ImagePrice2K)
-	imagePrice4K := normalizePrice(input.ImagePrice4K)
-	videoPrice480P := normalizePrice(input.VideoPrice480P)
-	videoPrice720P := normalizePrice(input.VideoPrice720P)
-	videoPrice1080P := normalizePrice(input.VideoPrice1080P)
-	webSearchPricePerCall := normalizePrice(input.WebSearchPricePerCall)
-	searchPricePer1k := normalizePrice(input.SearchPricePer1k)
-	audioRealtimePricePerMin := normalizePrice(input.AudioRealtimePricePerMin)
-	audioTTSPricePerMillionChars := normalizePrice(input.AudioTTSPricePerMillionChars)
-	audioSTTPricePerHour := normalizePrice(input.AudioSTTPricePerHour)
-	imageRateMultiplier := 1.0
-	if input.ImageRateMultiplier != nil {
-		if *input.ImageRateMultiplier < 0 {
-			return nil, errors.New("image_rate_multiplier must be >= 0")
-		}
-		imageRateMultiplier = *input.ImageRateMultiplier
-	}
 	batchImageDiscountMultiplier := defaultBatchImageDiscountMultiplier
 	if input.BatchImageDiscountMultiplier != nil {
 		if *input.BatchImageDiscountMultiplier < 0 {
@@ -460,14 +441,6 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if batchImageHoldMultiplier < batchImageDiscountMultiplier {
 		return nil, errors.New("batch_image_hold_multiplier must be >= batch_image_discount_multiplier")
 	}
-	videoRateMultiplier := 1.0
-	if input.VideoRateMultiplier != nil {
-		if *input.VideoRateMultiplier < 0 {
-			return nil, errors.New("video_rate_multiplier must be >= 0")
-		}
-		videoRateMultiplier = *input.VideoRateMultiplier
-	}
-
 	peakRateMultiplier := 1.0
 	if input.PeakRateMultiplier != nil {
 		peakRateMultiplier = *input.PeakRateMultiplier
@@ -571,12 +544,8 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ModelPricing:                    modelPricing,
 		AllowImageGeneration:            allowImageGeneration,
 		AllowBatchImageGeneration:       allowBatchImageGeneration,
-		ImageRateIndependent:            input.ImageRateIndependent,
-		ImageRateMultiplier:             imageRateMultiplier,
 		BatchImageDiscountMultiplier:    batchImageDiscountMultiplier,
 		BatchImageHoldMultiplier:        batchImageHoldMultiplier,
-		VideoRateIndependent:            input.VideoRateIndependent,
-		VideoRateMultiplier:             videoRateMultiplier,
 		PeakRateEnabled:                 peakRateEnabled,
 		PeakStart:                       peakStart,
 		PeakEnd:                         peakEnd,
@@ -584,18 +553,6 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		ProfitControlEnabled:            profitControlEnabled,
 		ProfitMinMargin:                 profitMinMargin,
 		ProfitSafetyBuffer:              profitSafetyBuffer,
-		ImagePrice1K:                    imagePrice1K,
-		ImagePrice2K:                    imagePrice2K,
-		ImagePrice4K:                    imagePrice4K,
-		VideoPrice480P:                  videoPrice480P,
-		VideoPrice720P:                  videoPrice720P,
-		VideoPrice1080P:                 videoPrice1080P,
-		VideoModelPrices:                NormalizeVideoModelPrices(input.VideoModelPrices),
-		WebSearchPricePerCall:           webSearchPricePerCall,
-		SearchPricePer1k:                searchPricePer1k,
-		AudioRealtimePricePerMin:        audioRealtimePricePerMin,
-		AudioTTSPricePerMillionChars:    audioTTSPricePerMillionChars,
-		AudioSTTPricePerHour:            audioSTTPricePerHour,
 		ClaudeCodeOnly:                  input.ClaudeCodeOnly,
 		FallbackGroupID:                 input.FallbackGroupID,
 		FallbackGroupIDOnInvalidRequest: fallbackOnInvalidRequest,
@@ -663,14 +620,6 @@ func normalizeLimit(limit *float64) *float64 {
 		return nil
 	}
 	return limit
-}
-
-// normalizePrice 将负数转换为 nil（表示使用默认价格），0 保留（表示免费）
-func normalizePrice(price *float64) *float64 {
-	if price == nil || *price < 0 {
-		return nil
-	}
-	return price
 }
 
 // validateFallbackGroup 校验降级分组的有效性
@@ -816,15 +765,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if !group.AllowImageGeneration || group.Platform != PlatformGemini {
 		group.AllowBatchImageGeneration = false
 	}
-	if input.ImageRateIndependent != nil {
-		group.ImageRateIndependent = *input.ImageRateIndependent
-	}
-	if input.ImageRateMultiplier != nil {
-		if *input.ImageRateMultiplier < 0 {
-			return nil, errors.New("image_rate_multiplier must be >= 0")
-		}
-		group.ImageRateMultiplier = *input.ImageRateMultiplier
-	}
 	if input.BatchImageDiscountMultiplier != nil {
 		if *input.BatchImageDiscountMultiplier < 0 {
 			return nil, errors.New("batch_image_discount_multiplier must be >= 0")
@@ -842,15 +782,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if (input.BatchImageDiscountMultiplier != nil || input.BatchImageHoldMultiplier != nil) &&
 		group.BatchImageHoldMultiplier < group.BatchImageDiscountMultiplier {
 		return nil, errors.New("batch_image_hold_multiplier must be >= batch_image_discount_multiplier")
-	}
-	if input.VideoRateIndependent != nil {
-		group.VideoRateIndependent = *input.VideoRateIndependent
-	}
-	if input.VideoRateMultiplier != nil {
-		if *input.VideoRateMultiplier < 0 {
-			return nil, errors.New("video_rate_multiplier must be >= 0")
-		}
-		group.VideoRateMultiplier = *input.VideoRateMultiplier
 	}
 	if input.PeakRateEnabled != nil {
 		group.PeakRateEnabled = *input.PeakRateEnabled
@@ -886,43 +817,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	if err := ValidateProfitControlConfig(group.Platform, group.ProfitControlEnabled, group.ProfitMinMargin, group.ProfitSafetyBuffer); err != nil {
 		return nil, err
 	}
-	if input.ImagePrice1K != nil {
-		group.ImagePrice1K = normalizePrice(input.ImagePrice1K)
-	}
-	if input.ImagePrice2K != nil {
-		group.ImagePrice2K = normalizePrice(input.ImagePrice2K)
-	}
-	if input.ImagePrice4K != nil {
-		group.ImagePrice4K = normalizePrice(input.ImagePrice4K)
-	}
-	if input.VideoPrice480P != nil {
-		group.VideoPrice480P = normalizePrice(input.VideoPrice480P)
-	}
-	if input.VideoPrice720P != nil {
-		group.VideoPrice720P = normalizePrice(input.VideoPrice720P)
-	}
-	if input.VideoPrice1080P != nil {
-		group.VideoPrice1080P = normalizePrice(input.VideoPrice1080P)
-	}
 	// nil = leave unchanged; empty map = clear per-model prices.
-	if input.VideoModelPrices != nil {
-		group.VideoModelPrices = NormalizeVideoModelPrices(input.VideoModelPrices)
-	}
-	if input.WebSearchPricePerCall != nil {
-		group.WebSearchPricePerCall = normalizePrice(input.WebSearchPricePerCall)
-	}
-	if input.SearchPricePer1k != nil {
-		group.SearchPricePer1k = normalizePrice(input.SearchPricePer1k)
-	}
-	if input.AudioRealtimePricePerMin != nil {
-		group.AudioRealtimePricePerMin = normalizePrice(input.AudioRealtimePricePerMin)
-	}
-	if input.AudioTTSPricePerMillionChars != nil {
-		group.AudioTTSPricePerMillionChars = normalizePrice(input.AudioTTSPricePerMillionChars)
-	}
-	if input.AudioSTTPricePerHour != nil {
-		group.AudioSTTPricePerHour = normalizePrice(input.AudioSTTPricePerHour)
-	}
 
 	// Claude Code 客户端限制
 	if input.ClaudeCodeOnly != nil {
@@ -1121,8 +1016,8 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	return group, nil
 }
 
-func normalizeGroupModelPricing(platform string, pricing []ChannelModelPricing) ([]ChannelModelPricing, error) {
-	out := make([]ChannelModelPricing, len(pricing))
+func normalizeGroupModelPricing(platform string, pricing []PricingCard) ([]PricingCard, error) {
+	out := make([]PricingCard, len(pricing))
 	for i := range pricing {
 		out[i] = pricing[i].Clone()
 		out[i].ID = 0

@@ -957,39 +957,15 @@ export default {
         noLimit: 'No limit'
       },
       imagePricing: {
-        title: 'Image Generation Pricing',
-        description: 'Configure image generation access and base image prices. Leave empty to use default prices.',
+        title: 'Image generation',
+        description: 'Whether this group may generate images; unit prices live on the model catalog entry',
         allowImageGeneration: 'Allow image generation for this group',
         allowBatchImageGeneration: 'Allow batch image generation for this group',
-        independentMultiplier: 'Use independent image multiplier',
-        imageMultiplier: 'Image multiplier',
         batchDiscountMultiplier: 'Batch image discount',
         batchHoldMultiplier: 'Batch hold price ratio',
         batchSectionHint: 'Batch image settings only apply to batch jobs: settlement applies the batch discount, and the upfront hold is normal image price × batch hold price ratio. Reference images also create upstream input-token usage, so a batch image discount above 0.5 is recommended.',
         batchDisabledHint: 'Enable image generation for this group before enabling batch image generation.',
         batchGeminiOnlyHint: 'Batch image generation is currently available only for Gemini groups.',
-        modeHint: 'By default, image billing uses image price × current effective group multiplier. Independent mode uses image price × image multiplier.',
-        finalPricePreview: 'Final per-image price preview',
-        notConfigured: 'Not configured'
-      },
-      videoPricing: {
-        title: 'Video Generation Pricing',
-        description:
-          'Configure Grok video generation prices in USD per second of output video. Leave empty to use the default per-second rates (grok-imagine-video: $0.05/s 480p, $0.07/s 720p; video-1.5: $0.08/s 480p, $0.14/s 720p, $0.25/s 1080p).',
-        modelOverridesTitle: 'Per-model video price overrides',
-        modelOverridesDescription: 'Each populated cell overrides the flat resolution price for that model family. Preview and legacy aliases for video-1.5 use the same family; empty cells fall back to the flat resolution price.',
-        independentMultiplier: 'Use independent video multiplier',
-        videoMultiplier: 'Video multiplier',
-        modeHint:
-          'Videos are billed per second: per-second price × duration (1-15s, default 8s). By default the current effective group multiplier applies; independent mode uses the video multiplier instead.',
-        finalPricePreview: 'Final per-second price preview',
-        notConfigured: 'Not configured'
-      },
-      explicitPricing: {
-        title: 'Grok Search & Voice Pricing',
-        description: 'Optional per-group prices for web_search (per 1k calls) and Voice realtime / TTS / STT (USD). Leave empty if unused.',
-        searchPricePer1k: 'Search price per 1k calls (USD)',
-        pricePlaceholder: 'optional'
       },
       modelPricing: {
         title: 'Per-model group pricing',
@@ -997,21 +973,6 @@ export default {
         longContext: 'Enable long-context tier pricing',
         longContextHint: 'When checked, channel intervals or official preset tiers apply. Otherwise the first tier is used unless the account explicitly enables long-context billing.',
         add: 'Add model price'
-      },
-      voicePricing: {
-        title: 'Grok Voice Pricing',
-        description: 'Optional per-group prices for Voice realtime / TTS / STT (USD). Leave empty to leave unpriced.',
-        audioRealtimePerMin: 'Realtime price per minute (USD)',
-        audioTtsPerMillionChars: 'TTS price per million chars (USD)',
-        audioSttPerHour: 'STT price per hour (USD)',
-        pricePlaceholder: 'optional'
-      },
-      webSearchPricing: {
-        title: 'Codex Web Search Pricing',
-        pricePerCall: 'Price per search call (USD)',
-        pricePerCallHint:
-          'Leave empty to use the default $0.01 per call (official pricing: $10 per 1,000 calls); 0 means free. The group rate multiplier is applied on top.',
-        finalPricePreview: 'Per-call price after current multiplier: {price}'
       },
       peakRate: {
         enable: 'Enable peak rate multiplier',

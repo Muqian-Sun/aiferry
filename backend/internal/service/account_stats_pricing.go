@@ -145,7 +145,7 @@ func matchAccountStatsRule(rule *AccountStatsPricingRule, accountID, groupID int
 
 // findPricingForModel 在定价列表中查找匹配的模型定价。
 // 先精确匹配，再通配符匹配（按配置顺序，先匹配先使用）。
-func findPricingForModel(pricingList []ChannelModelPricing, platform, modelLower string) *ChannelModelPricing {
+func findPricingForModel(pricingList []PricingCard, platform, modelLower string) *PricingCard {
 	// 精确匹配优先
 	for i := range pricingList {
 		p := &pricingList[i]
@@ -187,7 +187,7 @@ func isPlatformMatch(queryPlatform, pricingPlatform string) bool {
 }
 
 // calculateStatsCost 使用给定的定价计算费用（不含任何倍率，原始费用）。
-func calculateStatsCost(pricing *ChannelModelPricing, tokens UsageTokens, requestCount int) *float64 {
+func calculateStatsCost(pricing *PricingCard, tokens UsageTokens, requestCount int) *float64 {
 	if pricing == nil {
 		return nil
 	}
@@ -200,7 +200,7 @@ func calculateStatsCost(pricing *ChannelModelPricing, tokens UsageTokens, reques
 }
 
 // calculatePerRequestStatsCost 按次/图片计费。
-func calculatePerRequestStatsCost(pricing *ChannelModelPricing, requestCount int) *float64 {
+func calculatePerRequestStatsCost(pricing *PricingCard, requestCount int) *float64 {
 	if pricing.PerRequestPrice == nil || *pricing.PerRequestPrice <= 0 {
 		return nil
 	}
@@ -211,12 +211,12 @@ func calculatePerRequestStatsCost(pricing *ChannelModelPricing, requestCount int
 // calculateTokenStatsCost Token 计费。
 // If the pricing has intervals, find the matching interval by total token count
 // and use its prices instead of the flat pricing fields.
-func calculateTokenStatsCost(pricing *ChannelModelPricing, tokens UsageTokens) *float64 {
+func calculateTokenStatsCost(pricing *PricingCard, tokens UsageTokens) *float64 {
 	p := pricing
 	if len(pricing.Intervals) > 0 {
 		totalTokens := tokens.InputTokens + tokens.OutputTokens + tokens.CacheCreationTokens + tokens.CacheReadTokens
 		if iv := FindMatchingInterval(pricing.Intervals, totalTokens); iv != nil {
-			p = &ChannelModelPricing{
+			p = &PricingCard{
 				InputPrice:        iv.InputPrice,
 				OutputPrice:       iv.OutputPrice,
 				CacheWritePrice:   iv.CacheWritePrice,

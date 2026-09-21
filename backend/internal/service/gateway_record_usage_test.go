@@ -288,10 +288,20 @@ func TestGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstreamModel
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
-	imagePrice2K := 0.19
 	groupID := int64(901)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	// 图片单价来自目录条目（image 模式，2K 档 0.19）
+	price1K, price2K := 0.10, 0.19
+	svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
+		Models:          []string{"gemini-image"},
+		BillingMode:     BillingModeImage,
+		PerRequestPrice: &price1K,
+		Intervals: []PricingInterval{
+			{TierLabel: ImageBillingSize1K, PerRequestPrice: &price1K},
+			{TierLabel: ImageBillingSize2K, PerRequestPrice: &price2K},
+		},
+	})
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 		Result: &ForwardResult{
@@ -307,7 +317,6 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			Group: &Group{
 				ID:             groupID,
 				RateMultiplier: 1.0,
-				ImagePrice2K:   &imagePrice2K,
 			},
 		},
 		User:    &User{ID: 601, RateMultiplier: 1},
@@ -333,9 +342,9 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, groupID, "gpt-5.1", &ChannelTimePricing{
+	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, groupID, "gpt-5.1", &TimePricing{
 		Timezone: "Asia/Shanghai",
-		Periods:  []ChannelTimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}},
+		Periods:  []TimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}},
 	})
 
 	err := svc.RecordUsage(context.Background(), &RecordUsageInput{
@@ -384,7 +393,7 @@ func TestGatewayServiceRecordUsage_DeepSeekAccountStatsUsesRequestPricingAtAndUp
 				alias := "customer-chat"
 				inputPrice, outputPrice, cachePrice := 1e-6, 2e-6, 1e-7
 				// 运营者价来自管理员写的目录条目（别名即条目 model_id）
-				svc.resolver = newResolverWithCatalogCards(svc.billingService, ChannelModelPricing{
+				svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 					Models: []string{alias}, BillingMode: BillingModeToken,
 					InputPrice: &inputPrice, OutputPrice: &outputPrice, CacheReadPrice: &cachePrice,
 				})
@@ -729,7 +738,7 @@ func newOpenAITokenImageChannelPricingResolverWithTimeForTest(
 	t *testing.T,
 	_ int64,
 	model string,
-	timePricing *ChannelTimePricing,
+	timePricing *TimePricing,
 ) *ModelPricingResolver {
 	t.Helper()
 	return newOpenAITokenImageCatalogResolverWithTime(t, model, timePricing)

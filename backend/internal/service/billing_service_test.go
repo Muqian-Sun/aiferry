@@ -974,76 +974,6 @@ func TestComputeTokenBreakdown_GptImage2ImageEditIssue4386(t *testing.T) {
 	require.InDelta(t, wantImageOutput, cost.ImageOutputCost, 1e-15)
 	require.InDelta(t, 0.016081, cost.TotalCost, 1e-9, "总额应为 $0.016081（修复前为 $0.015025）")
 }
-func TestCalculateImageCost(t *testing.T) {
-	svc := newTestBillingService()
-
-	price := 0.134
-	cfg := &ImagePriceConfig{Price1K: &price}
-	cost := svc.CalculateImageCost("gpt-image-1", "1K", 3, cfg, 1.0)
-
-	require.InDelta(t, 0.134*3, cost.TotalCost, 1e-10)
-	require.InDelta(t, 0.134*3, cost.ActualCost, 1e-10)
-}
-
-func TestCalculateVideoCostUsesSeparateConfig(t *testing.T) {
-	svc := newTestBillingService()
-
-	imagePrice := 0.4
-	videoPrice := 0.08
-	imageCost := svc.CalculateImageCost("grok-imagine-video", "2K", 1, &ImagePriceConfig{Price2K: &imagePrice}, 1.0)
-	videoCost := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 10, &VideoPriceConfig{Price480P: &videoPrice}, 0.5)
-
-	require.InDelta(t, 0.4, imageCost.TotalCost, 1e-10)
-	require.InDelta(t, 0.8, videoCost.TotalCost, 1e-10)
-	require.InDelta(t, 0.4, videoCost.ActualCost, 1e-10)
-	require.Equal(t, string(BillingModeVideo), videoCost.BillingMode)
-}
-
-func TestCalculateVideoCostBillsPerSecond(t *testing.T) {
-	svc := newTestBillingService()
-
-	oneSecond := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
-	fifteenSeconds := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 15, nil, 1.0)
-	// duration <=0 时按上游默认 8 秒计费，超出上限按 15 秒收敛。
-	defaultDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 0, nil, 1.0)
-	clampedDuration := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 999, nil, 1.0)
-
-	require.InDelta(t, 0.07, oneSecond.TotalCost, 1e-10)
-	require.InDelta(t, 0.07*15, fifteenSeconds.TotalCost, 1e-10)
-	require.InDelta(t, 0.07*8, defaultDuration.TotalCost, 1e-10)
-	require.InDelta(t, 0.07*15, clampedDuration.TotalCost, 1e-10)
-}
-
-func TestCalculateGrokImagineImageCostUsesDefaultRateCard(t *testing.T) {
-	svc := newTestBillingService()
-
-	standard1K := svc.CalculateImageCost("grok-imagine-image", "1K", 1, nil, 1.0)
-	standard2K := svc.CalculateImageCost("grok-imagine-image", "2K", 1, nil, 1.0)
-	quality1K := svc.CalculateImageCost("grok-imagine-image-quality", "1K", 1, nil, 1.0)
-	quality2K := svc.CalculateImageCost("grok-imagine-image-quality", "2K", 1, nil, 1.0)
-
-	require.InDelta(t, 0.02, standard1K.TotalCost, 1e-10)
-	require.InDelta(t, 0.02, standard2K.TotalCost, 1e-10)
-	require.InDelta(t, 0.05, quality1K.TotalCost, 1e-10)
-	require.InDelta(t, 0.07, quality2K.TotalCost, 1e-10)
-}
-
-func TestCalculateGrokImagineVideoCostUsesDefaultRateCard(t *testing.T) {
-	svc := newTestBillingService()
-
-	// 默认价目为 xAI 官方每秒价格，按 1 秒时长验证每秒单价。
-	standard480P := svc.CalculateVideoCost("grok-imagine-video", "480p", 1, 1, nil, 1.0)
-	standard720P := svc.CalculateVideoCost("grok-imagine-video", "720p", 1, 1, nil, 1.0)
-	video15_480P := svc.CalculateVideoCost("grok-imagine-video-1.5", "480p", 1, 1, nil, 1.0)
-	video15_720P := svc.CalculateVideoCost("grok-imagine-video-1.5", "720p", 1, 1, nil, 1.0)
-	video15_1080P := svc.CalculateVideoCost("grok-imagine-video-1.5", "1080p", 1, 1, nil, 1.0)
-
-	require.InDelta(t, 0.05, standard480P.TotalCost, 1e-10)
-	require.InDelta(t, 0.07, standard720P.TotalCost, 1e-10)
-	require.InDelta(t, 0.08, video15_480P.TotalCost, 1e-10)
-	require.InDelta(t, 0.14, video15_720P.TotalCost, 1e-10)
-	require.InDelta(t, 0.25, video15_1080P.TotalCost, 1e-10)
-}
 
 func TestIsModelSupported(t *testing.T) {
 	svc := newTestBillingService()
@@ -1705,7 +1635,7 @@ func TestGetModelPricingWithChannel_NilChannelPricing_ReturnsOriginal(t *testing
 func TestGetModelPricingWithChannel_OverrideInputPriceOnly(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice: testPtrFloat64(99e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1723,7 +1653,7 @@ func TestGetModelPricingWithChannel_OverrideInputPriceOnly(t *testing.T) {
 func TestGetModelPricingWithChannel_OverrideOutputPriceOnly(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		OutputPrice: testPtrFloat64(88e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1740,7 +1670,7 @@ func TestGetModelPricingWithChannel_OverrideOutputPriceOnly(t *testing.T) {
 func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice:       testPtrFloat64(10e-6),
 		OutputPrice:      testPtrFloat64(20e-6),
 		CacheWritePrice:  testPtrFloat64(5e-6),
@@ -1768,7 +1698,7 @@ func TestGetModelPricingWithChannel_OverrideAllFields(t *testing.T) {
 func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		CacheWritePrice: testPtrFloat64(7e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1783,7 +1713,7 @@ func TestGetModelPricingWithChannel_CacheWritePriceAffects5mAnd1h(t *testing.T) 
 func TestGetModelPricingWithChannel_CacheWriteTTLPricesCanDiffer(t *testing.T) {
 	svc := newTestBillingService()
 
-	pricing, err := svc.GetModelPricingWithChannel("claude-fable-5-1", &ChannelModelPricing{
+	pricing, err := svc.GetModelPricingWithChannel("claude-fable-5-1", &PricingCard{
 		CacheWritePrice:   testPtrFloat64(13e-6),
 		CacheWrite1hPrice: testPtrFloat64(21e-6),
 	})
@@ -1811,7 +1741,7 @@ func TestGetModelPricing_Fable51FallbackPricing(t *testing.T) {
 func TestGetModelPricingWithChannel_CacheReadPriceAffectsPriority(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		CacheReadPrice: testPtrFloat64(2e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("claude-sonnet-4", chPricing)
@@ -1828,7 +1758,7 @@ func TestGetModelPricingWithChannel_PreservesCatalogPriorityRatio(t *testing.T) 
 	svc := newTestBillingService()
 
 	// gpt-5.4 目录价：input 2.5/5（2x），output 15/30（2x）。
-	pricing, err := svc.GetModelPricingWithChannel("gpt-5.4", &ChannelModelPricing{
+	pricing, err := svc.GetModelPricingWithChannel("gpt-5.4", &PricingCard{
 		InputPrice:  testPtrFloat64(4e-6),
 		OutputPrice: testPtrFloat64(30e-6),
 	})
@@ -1843,7 +1773,7 @@ func TestGetModelPricingWithChannel_PreservesCatalogPriorityRatio(t *testing.T) 
 func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice: testPtrFloat64(1e-6),
 	}
 	pricing, err := svc.GetModelPricingWithChannel("totally-unknown-model", chPricing)
@@ -1855,7 +1785,7 @@ func TestGetModelPricingWithChannel_UnknownModelReturnsError(t *testing.T) {
 func TestGetModelPricingWithChannel_NilImageOutputPriceZerosAndMarksExplicit(t *testing.T) {
 	svc := newTestBillingService()
 
-	chPricing := &ChannelModelPricing{
+	chPricing := &PricingCard{
 		InputPrice:  testPtrFloat64(10e-6),
 		OutputPrice: testPtrFloat64(20e-6),
 		// ImageOutputPrice intentionally nil

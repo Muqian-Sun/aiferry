@@ -46,7 +46,8 @@ type ModelCatalogEntryRequest struct {
 	CacheWritePricePriority *float64 `json:"cache_write_price_priority"`
 	CacheReadPricePriority  *float64 `json:"cache_read_price_priority"`
 
-	PerRequestPrice *float64 `json:"per_request_price"`
+	PerRequestPrice    *float64 `json:"per_request_price"`
+	SearchPricePerCall *float64 `json:"search_price_per_call"`
 
 	LongContextInputThreshold     *int     `json:"long_context_input_threshold"`
 	LongContextThresholdInclusive bool     `json:"long_context_threshold_inclusive"`
@@ -59,8 +60,8 @@ type ModelCatalogEntryRequest struct {
 
 	Notes *string `json:"notes"`
 
-	Intervals   []service.PricingInterval   `json:"intervals"`
-	TimePricing *service.ChannelTimePricing `json:"time_pricing"`
+	Intervals   []service.PricingInterval `json:"intervals"`
+	TimePricing *service.TimePricing      `json:"time_pricing"`
 }
 
 func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
@@ -86,7 +87,8 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 		CacheWritePricePriority: r.CacheWritePricePriority,
 		CacheReadPricePriority:  r.CacheReadPricePriority,
 
-		PerRequestPrice: r.PerRequestPrice,
+		PerRequestPrice:    r.PerRequestPrice,
+		SearchPricePerCall: r.SearchPricePerCall,
 
 		LongContextInputThreshold:     r.LongContextInputThreshold,
 		LongContextThresholdInclusive: r.LongContextThresholdInclusive,

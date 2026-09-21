@@ -997,7 +997,7 @@ func (s *BatchImagePublicService) ensureGroupAllowsBatchImage(ctx context.Contex
 
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
 	unit := -1.0
-	// 用户价 = 目录价 × 用户倍率；分组的图片单价 / 批量折扣留到 PR-5 挪进目录。
+	// 用户价 = 目录价 × 用户倍率；图片单价来自目录条目（BatchImageUnitPrice），批量折扣仍在分组上。
 	groupMultiplier := owner.RateMultiplier
 	if groupMultiplier < 0 {
 		groupMultiplier = 0
@@ -1021,9 +1021,6 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 		}
 		if group.BatchImageHoldMultiplier >= 0 {
 			holdMultiplier = group.BatchImageHoldMultiplier
-		}
-		if configuredUnit := group.GetImagePrice(req.ImageSize); configuredUnit != nil && *configuredUnit >= 0 {
-			unit = *configuredUnit
 		}
 	}
 	if unit < 0 {

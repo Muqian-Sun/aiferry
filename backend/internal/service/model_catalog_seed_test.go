@@ -48,12 +48,13 @@ func TestSeed_InsertsFromPricingFileAndFallbackTable(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, 2, result.Inserted)
+	// 2 条来自价格文件 / 兜底表 + 5 条 xAI Imagine 媒体种子
+	require.Equal(t, 2+len(xaiImagineSeeds()), result.Inserted)
 	require.Zero(t, result.Refreshed)
 	require.Zero(t, result.SkippedAdmin)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 2)
+	require.Len(t, entries, 2+len(xaiImagineSeeds()))
 
 	sonnet := entries["claude-sonnet-4"]
 	require.Equal(t, ModelCatalogManagedBySeed, sonnet.ManagedBy)
@@ -83,7 +84,7 @@ func TestSeed_PricingFileWinsOverFallbackTableForSameModel(t *testing.T) {
 	require.NoError(t, err)
 
 	entries := seedEntriesByModelID(repo.entries)
-	require.Len(t, entries, 1)
+	require.Len(t, entries, 1+len(xaiImagineSeeds()))
 	require.InDelta(t, 3e-6, *entries["claude-sonnet-4"].InputPrice, 1e-12)
 }
 
@@ -151,7 +152,7 @@ func TestSeed_RefreshesSeedEntriesAndNeverOverwritesAdminEdits(t *testing.T) {
 
 	result, err := svc.Seed(context.Background())
 	require.NoError(t, err)
-	require.Zero(t, result.Inserted)
+	require.Equal(t, len(xaiImagineSeeds()), result.Inserted, "只有 Imagine 媒体种子是新插入的")
 	require.Equal(t, 1, result.Refreshed)
 	require.Equal(t, 1, result.SkippedAdmin)
 
@@ -334,4 +335,213 @@ func TestAdminEditedCatalogEntryIsOperatorPricing(t *testing.T) {
 	resolved := resolver.Resolve(context.Background(), PricingInput{Model: "m"})
 	require.Equal(t, PricingSourceCatalog, resolved.Source)
 	require.True(t, resolved.operatorPricing)
+}
+
+// 价格文件里 mode=image_generation 且带每张价（output_cost_per_image）的条目播成 image 模式，
+// 默认按次价 = 每张价；token 价照抄，同一模型经对话入口没有图片输出时仍按 token 算。
+func TestSeed_ImageGenerationWithPerImagePriceSeedsImageMode(t *testing.T) {
+	repo := &stubModelCatalogRepo{}
+	svc := NewModelCatalogService(repo, nil, seedInputForTest(
+		map[string]*LiteLLMModelPricing{
+			"gemini-2.5-flash-image": {
+				LiteLLMProvider: "gemini", Mode: "image_generation",
+				InputCostPerToken: 3e-7, OutputCostPerToken: 2.5e-6,
+				OutputCostPerImage: 0.039, OutputCostPerImageToken: 3e-5,
+			},
+			// gpt-image 系只有 token 价：仍是 token 模式
+			"gpt-image-2": {
+				LiteLLMProvider: "openai", Mode: "image_generation",
+				InputCostPerToken: 5e-6, OutputCostPerImageToken: 4e-5,
+			},
+			// chat 模型即使带 output_cost_per_image 也不按张（mode 不是 image_generation）
+			"chatty": {LiteLLMProvider: "openai", Mode: "chat", InputCostPerToken: 1e-6, OutputCostPerImage: 0.5},
+		},
+		nil,
+	))
+
+	_, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+
+	entries := seedEntriesByModelID(repo.entries)
+	flashImage := entries["gemini-2.5-flash-image"]
+	require.Equal(t, BillingModeImage, flashImage.BillingMode)
+	require.NotNil(t, flashImage.PerRequestPrice)
+	require.InDelta(t, 0.039, *flashImage.PerRequestPrice, 1e-12)
+	require.NotNil(t, flashImage.OutputPrice)
+	require.InDelta(t, 2.5e-6, *flashImage.OutputPrice, 1e-15)
+	require.Equal(t, BillingModeToken, entries["gpt-image-2"].BillingMode)
+	require.Nil(t, entries["gpt-image-2"].PerRequestPrice)
+	require.Equal(t, BillingModeToken, entries["chatty"].BillingMode)
+	require.Nil(t, entries["chatty"].PerRequestPrice)
+}
+
+// 模型内置搜索价只存 medium 档（拍的）；没有 search_context_cost_per_query 的条目留空。
+func TestSeed_SearchContextCostSeedsSearchPricePerCall(t *testing.T) {
+	repo := &stubModelCatalogRepo{}
+	svc := NewModelCatalogService(repo, nil, seedInputForTest(
+		map[string]*LiteLLMModelPricing{
+			"gpt-5.6": {
+				LiteLLMProvider: "openai", InputCostPerToken: 1e-6,
+				SearchContextCostPerQuery: map[string]float64{
+					"search_context_size_low": 0.008, "search_context_size_medium": 0.01, "search_context_size_high": 0.012,
+				},
+			},
+			"plain": {LiteLLMProvider: "openai", InputCostPerToken: 1e-6},
+		},
+		nil,
+	))
+
+	_, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+
+	entries := seedEntriesByModelID(repo.entries)
+	require.NotNil(t, entries["gpt-5.6"].SearchPricePerCall)
+	require.InDelta(t, 0.01, *entries["gpt-5.6"].SearchPricePerCall, 1e-12)
+	require.Nil(t, entries["plain"].SearchPricePerCall)
+}
+
+// xAI Imagine 种子与硬编码兜底价同一优先级：价格文件已有该模型时不播。
+func TestSeed_ImagineSeedsSkippedWhenPricingFileHasModel(t *testing.T) {
+	repo := &stubModelCatalogRepo{}
+	svc := NewModelCatalogService(repo, nil, seedInputForTest(
+		map[string]*LiteLLMModelPricing{
+			"grok-imagine-image-quality": {LiteLLMProvider: "xai", Mode: "image_generation", OutputCostPerImage: 0.09, InputCostPerToken: 1e-6},
+		},
+		nil,
+	))
+
+	_, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+
+	entries := seedEntriesByModelID(repo.entries)
+	quality := entries["grok-imagine-image-quality"]
+	require.InDelta(t, 0.09, *quality.PerRequestPrice, 1e-12, "价格文件的价赢过种子")
+	require.Empty(t, quality.Intervals, "价格文件条目不带种子的分档")
+	// 其余四条 Imagine 种子照常播入
+	require.Contains(t, entries, "grok-imagine-video-1.5")
+	require.Len(t, entries, len(xaiImagineSeeds()))
+}
+
+// Imagine 种子带分档与别名一起落库；再次播种时分档随种子刷新、别名只补不删。
+func TestSeed_ImagineSeedsCarryIntervalsAndAliases(t *testing.T) {
+	repo := &stubModelCatalogRepo{}
+	svc := NewModelCatalogService(repo, nil, seedInputForTest(map[string]*LiteLLMModelPricing{
+		"claude-sonnet-4": {LiteLLMProvider: "anthropic", InputCostPerToken: 3e-6},
+	}, nil))
+
+	_, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+
+	entries := seedEntriesByModelID(repo.entries)
+	quality := entries["grok-imagine-image-quality"]
+	require.Equal(t, BillingModeImage, quality.BillingMode)
+	require.InDelta(t, 0.05, *quality.PerRequestPrice, 1e-12)
+	require.Len(t, quality.Intervals, 2)
+	require.Equal(t, ImageBillingSize1K, quality.Intervals[0].TierLabel)
+	require.InDelta(t, 0.05, *quality.Intervals[0].PerRequestPrice, 1e-12)
+	require.Equal(t, ImageBillingSize2K, quality.Intervals[1].TierLabel)
+	require.InDelta(t, 0.07, *quality.Intervals[1].PerRequestPrice, 1e-12)
+	aliases := make([]string, 0, len(quality.Aliases))
+	for _, alias := range quality.Aliases {
+		require.Equal(t, ModelCatalogAliasSourceSeed, alias.Source)
+		aliases = append(aliases, alias.Alias)
+	}
+	require.ElementsMatch(t, []string{"grok-imagine", "grok-imagine-1", "grok-imagine-edit"}, aliases)
+
+	video15 := entries["grok-imagine-video-1.5"]
+	require.Equal(t, BillingModeVideo, video15.BillingMode)
+	require.Len(t, video15.Intervals, 3)
+	require.Equal(t, VideoBillingResolution1080P, video15.Intervals[2].TierLabel)
+	require.InDelta(t, 0.25, *video15.Intervals[2].PerRequestPrice, 1e-12)
+
+	// 别名解析：经目录快照 grok-imagine → quality 条目
+	catalog, _ := newTestModelCatalogService(repo.entries...)
+	resolved := catalog.LookupPricingEntry(context.Background(), "grok-imagine")
+	require.NotNil(t, resolved)
+	require.Equal(t, "grok-imagine-image-quality", resolved.ModelID)
+
+	// 重播：条目刷新而不是重复插入，分档与别名保持
+	second, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+	require.Zero(t, second.Inserted)
+	requality := seedEntriesByModelID(repo.entries)["grok-imagine-image-quality"]
+	require.Len(t, requality.Intervals, 2)
+	require.Len(t, requality.Aliases, 3)
+}
+
+// 管理员已手建同名别名指向别的条目时，种子别名跳过、不覆盖。
+func TestSeed_AliasConflictKeepsAdminAlias(t *testing.T) {
+	repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
+		{ID: 1, ModelID: "my-image", BillingMode: BillingModeImage, Status: ModelCatalogStatusListed,
+			ManagedBy: ModelCatalogManagedByAdmin, PerRequestPrice: testPtrFloat64(0.5),
+			Aliases: []ModelCatalogAlias{{EntryID: 1, Alias: "grok-imagine", Source: ModelCatalogAliasSourceManual}}},
+	}}
+	svc := NewModelCatalogService(repo, nil, seedInputForTest(nil, nil))
+
+	_, err := svc.Seed(context.Background())
+	require.NoError(t, err)
+
+	entries := seedEntriesByModelID(repo.entries)
+	quality := entries["grok-imagine-image-quality"]
+	aliases := make([]string, 0, len(quality.Aliases))
+	for _, alias := range quality.Aliases {
+		aliases = append(aliases, alias.Alias)
+	}
+	require.ElementsMatch(t, []string{"grok-imagine-1", "grok-imagine-edit"}, aliases, "被占用的 grok-imagine 不写")
+	require.Equal(t, "grok-imagine", entries["my-image"].Aliases[0].Alias, "管理员别名不动")
+}
+
+func TestValidateIntervals_ImageVideoTiersRequireLabelAndPrice(t *testing.T) {
+	price := 0.1
+	cases := []struct {
+		name      string
+		mode      BillingMode
+		intervals []PricingInterval
+		wantErr   string
+	}{
+		{"image ok", BillingModeImage, []PricingInterval{{TierLabel: "1K", PerRequestPrice: &price}, {TierLabel: "2K", PerRequestPrice: &price}}, ""},
+		{"image missing label", BillingModeImage, []PricingInterval{{PerRequestPrice: &price}}, "requires a tier_label"},
+		{"image unknown label", BillingModeImage, []PricingInterval{{TierLabel: "1k", PerRequestPrice: &price}}, "unknown image tier_label"},
+		{"image duplicate label", BillingModeImage, []PricingInterval{{TierLabel: "1K", PerRequestPrice: &price}, {TierLabel: "1K", PerRequestPrice: &price}}, "duplicate image tier_label"},
+		{"image missing price", BillingModeImage, []PricingInterval{{TierLabel: "1K"}}, "requires a per_request_price"},
+		{"video ok", BillingModeVideo, []PricingInterval{{TierLabel: "480p", PerRequestPrice: &price}, {TierLabel: "1080p", PerRequestPrice: &price}}, ""},
+		{"video unknown label", BillingModeVideo, []PricingInterval{{TierLabel: "4K", PerRequestPrice: &price}}, "unknown video tier_label"},
+		{"per_request free label", BillingModePerRequest, []PricingInterval{{TierLabel: "tts", PerRequestPrice: &price}}, ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := ValidateIntervals(tc.intervals, tc.mode)
+			if tc.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.ErrorContains(t, err, tc.wantErr)
+		})
+	}
+}
+
+// 图片 / 视频条目上架必须带默认按次价（计费路径没有默认价可退）；unlisted 与 token 模式不受影响。
+func TestModelCatalogEntry_Validate_ListedImageVideoRequiresPerRequestPrice(t *testing.T) {
+	price := 0.05
+	base := func(mode BillingMode, status string, perRequest *float64) ModelCatalogEntry {
+		entry := ModelCatalogEntry{ModelID: "m", BillingMode: mode, Status: status, ManagedBy: ModelCatalogManagedByAdmin,
+			PerRequestPrice: perRequest, InputPrice: &price,
+			Intervals: []PricingInterval{{TierLabel: "1K", PerRequestPrice: &price}}}
+		if mode == BillingModeVideo {
+			entry.Intervals[0].TierLabel = "480p"
+		}
+		entry.Normalize()
+		return entry
+	}
+	for _, mode := range []BillingMode{BillingModeImage, BillingModeVideo} {
+		listed := base(mode, ModelCatalogStatusListed, nil)
+		require.ErrorContains(t, listed.Validate(), "must have a per_request_price", string(mode))
+		withPrice := base(mode, ModelCatalogStatusListed, &price)
+		require.NoError(t, withPrice.Validate())
+		unlisted := base(mode, ModelCatalogStatusUnlisted, nil)
+		require.NoError(t, unlisted.Validate())
+	}
+	token := ModelCatalogEntry{ModelID: "t", BillingMode: BillingModeToken, Status: ModelCatalogStatusListed, ManagedBy: ModelCatalogManagedByAdmin, InputPrice: &price}
+	token.Normalize()
+	require.NoError(t, token.Validate())
 }
