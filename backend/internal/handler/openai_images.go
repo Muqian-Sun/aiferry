@@ -420,17 +420,9 @@ func isMultipartImagesContentType(contentType string) bool {
 	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(contentType)), "multipart/form-data")
 }
 
-// selectImagesAccount 按图片能力档选号：要求 native（API key 官方地址）而无候选时回退到 basic（成品号）。
+// selectImagesAccount 按图片能力档选号。原 OpenAI 调度器的「native 无候选回退 basic」两次调用没有保留：
+// SupportsOpenAIImageCapability 对 native / basic 的判定完全相同，第二次调用不可能多出候选。
 func (h *OpenAIGatewayHandler) selectImagesAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string, excluded map[int64]struct{}, capability service.OpenAIImagesCapability) (*service.AccountSelectionResult, error) {
-	sched := h.gatewayService.Scheduler()
-	selection, err := sched.SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
+	return h.gatewayService.Scheduler().SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
 		service.SelectOptions{ImageCapability: capability, Transport: service.OpenAIUpstreamTransportHTTPSSE})
-	if err == nil && selection != nil && selection.Account != nil {
-		return selection, nil
-	}
-	if capability != service.OpenAIImagesCapabilityNative || !errors.Is(err, service.ErrNoAvailableAccounts) {
-		return selection, err
-	}
-	return sched.SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
-		service.SelectOptions{ImageCapability: service.OpenAIImagesCapabilityBasic, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 }
