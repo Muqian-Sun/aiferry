@@ -185,15 +185,48 @@ var catalogBindingInboundProtocols = []string{
 	APIProtocolAnthropic, APIProtocolChatCompletions, APIProtocolResponses, APIProtocolGemini,
 }
 
-// CatalogRouteServes 报告账号在条目网关族上能承接哪些入站协议（选号用同一张矩阵，
-// 见 accountServesCatalogRoute）。绑定校验与诊断接口都读它。
+// CatalogRouteServes 报告账号在该条目上能承接哪些入站协议：条目网关族的准入（bindingAdmitsFamily，
+// 3b-5 删 route_platform 时去掉）与协议转换注册表（选号用的 accountServesCatalogRoute）都要过。
+// 绑定校验与诊断接口都读它。
 func CatalogRouteServes(entry *ModelCatalogEntry, account *Account) map[string]bool {
 	rp := CatalogRoutePlatform(entry)
 	serves := make(map[string]bool, len(catalogBindingInboundProtocols))
 	for _, inbound := range catalogBindingInboundProtocols {
-		serves[inbound] = accountServesCatalogRoute(account, rp, inbound)
+		serves[inbound] = bindingAdmitsFamily(account, rp, inbound) && accountServesCatalogRoute(account, rp, inbound)
 	}
 	return serves
+}
+
+// bindingAdmitsFamily 绑定校验用的网关族矩阵：条目还带 route_platform 时，绑定只能挂到该族 handler
+// 能转发的资源上（3b-3 / 3b-4 逐条入站统一 handler，3b-5 删 route_platform 后整个函数删掉）。
+// 第三方 key 按网关族与入站协议能否选出已配地址的上游协议；成品号按厂商 × 网关族 × 入站协议：
+//
+//	厂商 \ 入站                          anthropic  chat_completions  responses  gemini
+//	anthropic（族 anthropic）               ✓          ✓                ✓          ✗
+//	antigravity（族 anthropic / gemini）    ✓          ✓                ✓          ✓
+//	gemini（族 gemini）                     ✓          ✓                ✗          ✓
+//	openai 族（族 == 账号平台）             ✓          ✓                ✓          ✗
+func bindingAdmitsFamily(account *Account, platform, inboundProtocol string) bool {
+	if account == nil {
+		return false
+	}
+	if inboundProtocol == APIProtocolGemini && platform != PlatformGemini && platform != PlatformAntigravity {
+		// Gemini 原生入口只放行 gemini 族条目；其余网关族收不到 gemini 入站。
+		return false
+	}
+	if account.IsThirdPartyKey() {
+		return account.KeyUpstreamProtocolFor(platform, inboundProtocol) != ""
+	}
+	switch account.Vendor() {
+	case PlatformAntigravity:
+		return platform == PlatformAnthropic || platform == PlatformGemini || platform == PlatformAntigravity
+	case PlatformAnthropic:
+		return platform == PlatformAnthropic && inboundProtocol != APIProtocolGemini
+	case PlatformGemini:
+		return platform == PlatformGemini && inboundProtocol != APIProtocolResponses
+	default:
+		return IsOpenAIGatewayPlatform(platform) && NormalizeOpenAICompatiblePlatform(platform) == account.Platform && inboundProtocol != APIProtocolGemini
+	}
 }
 
 // AccountServesCatalogEntry 绑定前检查资源能否承接该条目至少一种入站协议：
