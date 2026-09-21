@@ -66,6 +66,10 @@ func newCatalogAdmissionTestRouter(pathPrefix string) (*gin.Engine, *catalogAdmi
 	register(http.MethodGet, pathPrefix+"/models/:model")
 	register(http.MethodPost, pathPrefix+"/models/*modelAction")
 	register(http.MethodGet, pathPrefix+"/realtime")
+	register(http.MethodPost, pathPrefix+"/images/generations")
+	register(http.MethodPost, pathPrefix+"/images/edits")
+	register(http.MethodPost, pathPrefix+"/images/generations/async")
+	register(http.MethodPost, pathPrefix+"/images/edits/async")
 	return router, seen
 }
 
@@ -150,6 +154,60 @@ func TestCatalogAdmission_ModelFreeRequestsPass(t *testing.T) {
 	w = doJSON(t, router, http.MethodPost, "/v1/messages", `{"messages":[]}`)
 	require.Equal(t, http.StatusOK, w.Code)
 	require.False(t, seen.ok)
+}
+
+// /v1/images/* 不带 model 时 handler 会按 gpt-image-2 转发，准入也按它判：上架则带路由进 handler，
+// 未上架 404，不能因为 body 没写 model 就绕过目录。其余无模型端点仍放行。
+func TestCatalogAdmission_ImagesRouteDefaultsToGPTImage2(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	imageRoute := service.CatalogRoute{EntryID: 9, CanonicalModel: service.DefaultImageGenerationModel, Entry: &service.ModelCatalogEntry{ID: 9, ModelID: service.DefaultImageGenerationModel, Vendor: "openai"}}
+	for _, prefix := range []string{"/v1", ""} {
+		for _, path := range []string{"/images/generations", "/images/edits", "/images/generations/async", "/images/edits/async"} {
+			t.Run(prefix+path, func(t *testing.T) {
+				stub := newCatalogStub()
+				stub.routes[service.DefaultImageGenerationModel] = imageRoute
+				router, seen := newCatalogAdmissionTestRouterWith(stub, prefix)
+
+				// 上架：无 model 的请求按默认模型准入，ctx 带路由
+				w := doJSON(t, router, http.MethodPost, prefix+path, `{"prompt":"a cat"}`)
+				require.Equal(t, http.StatusOK, w.Code)
+				require.True(t, seen.ok, "route expected for defaulted image model")
+				require.Equal(t, int64(9), seen.route.EntryID)
+				require.Equal(t, service.DefaultImageGenerationModel, seen.route.RequestedModel)
+
+				// 显式 model 仍按显式值判
+				w = doJSON(t, router, http.MethodPost, prefix+path, `{"prompt":"a cat","model":"nope"}`)
+				require.Equal(t, http.StatusNotFound, w.Code)
+
+				// 未上架：默认模型不在目录 → 404，而不是放行
+				delete(stub.routes, service.DefaultImageGenerationModel)
+				router, seen = newCatalogAdmissionTestRouterWith(stub, prefix)
+				w = doJSON(t, router, http.MethodPost, prefix+path, `{"prompt":"a cat"}`)
+				require.Equal(t, http.StatusNotFound, w.Code)
+				require.Zero(t, seen.calls)
+			})
+		}
+	}
+	// 非 images 端点无 model 仍放行（默认表不外溢）
+	router, seen := newCatalogAdmissionTestRouter("/v1")
+	w := doJSON(t, router, http.MethodPost, "/v1/chat/completions", `{"messages":[]}`)
+	require.Equal(t, http.StatusOK, w.Code)
+	require.False(t, seen.ok)
+}
+
+func newCatalogAdmissionTestRouterWith(stub catalogStub, pathPrefix string) (*gin.Engine, *catalogAdmissionSeen) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	seen := &catalogAdmissionSeen{}
+	router.Use(CatalogAdmission(stub))
+	for _, path := range []string{"/chat/completions", "/images/generations", "/images/edits", "/images/generations/async", "/images/edits/async"} {
+		router.Handle(http.MethodPost, pathPrefix+path, func(c *gin.Context) {
+			seen.calls++
+			seen.route, seen.ok = service.CatalogRouteFromContext(c.Request.Context())
+			c.Status(http.StatusOK)
+		})
+	}
+	return router, seen
 }
 
 func TestCatalogAdmission_SkipsResponsesWebSocketUpgrade(t *testing.T) {
