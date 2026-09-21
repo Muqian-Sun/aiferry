@@ -2766,41 +2766,6 @@ func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
 	return isPeriodExpired(start, 7*24*time.Hour)
 }
 
-// IsQuotaExceeded 检查 API Key 账号配额是否已超限（任一维度超限即返回 true）
-func (a *Account) IsQuotaExceeded() bool {
-	// 总额度
-	if limit := a.GetQuotaLimit(); limit > 0 && a.GetQuotaUsed() >= limit {
-		return true
-	}
-	// 日额度（周期过期视为未超限，下次 increment 会重置）
-	if limit := a.GetQuotaDailyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_daily_start")
-		var expired bool
-		if a.GetQuotaDailyResetMode() == "fixed" {
-			expired = a.isFixedDailyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 24*time.Hour)
-		}
-		if !expired && a.GetQuotaDailyUsed() >= limit {
-			return true
-		}
-	}
-	// 周额度
-	if limit := a.GetQuotaWeeklyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_weekly_start")
-		var expired bool
-		if a.GetQuotaWeeklyResetMode() == "fixed" {
-			expired = a.isFixedWeeklyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 7*24*time.Hour)
-		}
-		if !expired && a.GetQuotaWeeklyUsed() >= limit {
-			return true
-		}
-	}
-	return false
-}
-
 // GetWindowCostLimit 获取 5h 窗口费用阈值（美元）
 // 返回 0 表示未启用
 func (a *Account) GetWindowCostLimit() float64 {

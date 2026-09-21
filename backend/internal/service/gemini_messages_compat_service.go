@@ -238,70 +238,21 @@ func (s *GeminiMessagesCompatService) tryStickySessionHit(
 	return account
 }
 
-// isAccountUsableForRequest 检查账号是否可用于当前请求。
-// 验证：模型调度、模型支持、平台匹配、速率限制预检。
-//
-// isAccountUsableForRequest checks if account is usable for current request.
-// Validates: model scheduling, model support, platform matching, rate limit precheck.
+// isAccountUsableForRequest 检查账号是否可用于当前请求：调度状态（含模型级限流）、模型支持、平台匹配。
+// 本地配额（Gemini RPD/RPM）已由状态服务在用量入账时写成模型级限流，这里只读状态。
 func (s *GeminiMessagesCompatService) isAccountUsableForRequest(
 	ctx context.Context,
 	account *Account,
 	requestedModel, platform string,
 	useMixedScheduling bool,
 ) bool {
-	return s.isAccountUsableForRequestWithPrecheck(ctx, account, requestedModel, platform, useMixedScheduling, nil)
-}
-
-func (s *GeminiMessagesCompatService) isAccountUsableForRequestWithPrecheck(
-	ctx context.Context,
-	account *Account,
-	requestedModel, platform string,
-	useMixedScheduling bool,
-	precheckResult map[int64]bool,
-) bool {
-	// 检查模型调度能力
-	// Check model scheduling capability
-	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
+	if !account.SchedulingAllows(ctx, requestedModel, time.Now()) {
 		return false
 	}
-
-	// 检查模型支持
-	// Check model support
 	if requestedModel != "" && !s.isModelSupportedByAccount(account, requestedModel) {
 		return false
 	}
-
-	// 检查平台匹配
-	// Check platform matching
-	if !isAccountSchedulableOnPlatform(ctx, account, platform, useMixedScheduling) {
-		return false
-	}
-
-	// 速率限制预检
-	// Rate limit precheck
-	if !s.passesRateLimitPreCheckWithCache(ctx, account, requestedModel, precheckResult) {
-		return false
-	}
-
-	return true
-}
-
-func (s *GeminiMessagesCompatService) passesRateLimitPreCheckWithCache(ctx context.Context, account *Account, requestedModel string, precheckResult map[int64]bool) bool {
-	if s.rateLimitService == nil || requestedModel == "" {
-		return true
-	}
-
-	if precheckResult != nil {
-		if ok, exists := precheckResult[account.ID]; exists {
-			return ok
-		}
-	}
-
-	ok, err := s.rateLimitService.PreCheckUsage(ctx, account, requestedModel)
-	if err != nil {
-		logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini PreCheck] Account %d precheck error: %v", account.ID, err)
-	}
-	return ok
+	return isAccountSchedulableOnPlatform(ctx, account, platform, useMixedScheduling)
 }
 
 // selectBestGeminiAccount 从候选账号中选择最佳账号（优先级 + LRU + OAuth 优先）。
@@ -318,7 +269,6 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 	useMixedScheduling bool,
 ) *Account {
 	var selected *Account
-	precheckResult := s.buildPreCheckUsageResultMap(ctx, accounts, requestedModel)
 
 	for i := range accounts {
 		acc := &accounts[i]
@@ -329,7 +279,7 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 		}
 
 		// 检查账号是否可用于当前请求
-		if !s.isAccountUsableForRequestWithPrecheck(ctx, acc, requestedModel, platform, useMixedScheduling, precheckResult) {
+		if !s.isAccountUsableForRequest(ctx, acc, requestedModel, platform, useMixedScheduling) {
 			continue
 		}
 
@@ -345,23 +295,6 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 	}
 
 	return selected
-}
-
-func (s *GeminiMessagesCompatService) buildPreCheckUsageResultMap(ctx context.Context, accounts []Account, requestedModel string) map[int64]bool {
-	if s.rateLimitService == nil || requestedModel == "" || len(accounts) == 0 {
-		return nil
-	}
-
-	candidates := make([]*Account, 0, len(accounts))
-	for i := range accounts {
-		candidates = append(candidates, &accounts[i])
-	}
-
-	result, err := s.rateLimitService.PreCheckUsageBatch(ctx, candidates, requestedModel)
-	if err != nil {
-		logger.LegacyPrintf("service.gemini_messages_compat", "[Gemini PreCheckBatch] failed: %v", err)
-	}
-	return result
 }
 
 // isBetterGeminiAccount 判断 candidate 是否比 current 更优。

@@ -296,10 +296,9 @@ func (s *openAIAccountRuntimeStats) size() int {
 }
 
 type defaultOpenAIAccountScheduler struct {
-	service                *OpenAIGatewayService
-	metrics                openAIAccountSchedulerMetrics
-	stats                  *openAIAccountRuntimeStats
-	grokFreeQuotaGateCache sync.Map // key: int64(accountID), value: grokFreeQuotaGateCacheEntry
+	service *OpenAIGatewayService
+	metrics openAIAccountSchedulerMetrics
+	stats   *openAIAccountRuntimeStats
 }
 
 type openAISelectionProbeBudget struct {
@@ -528,7 +527,7 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 		clearBinding()
 		return nil, false, nil
 	}
-	if shouldClearStickySession(account, req.RequestedModel) || !isAccountSchedulableOnPlatform(ctx, account, NormalizeOpenAICompatiblePlatform(req.Platform), false) || !account.IsSchedulable() {
+	if shouldClearStickySession(account, req.RequestedModel) || !isAccountSchedulableOnPlatform(ctx, account, NormalizeOpenAICompatiblePlatform(req.Platform), false) || !account.SchedulingState(time.Now()).Allows(time.Now()) {
 		clearBinding()
 		return nil, false, nil
 	}
@@ -541,12 +540,6 @@ func (s *defaultOpenAIAccountScheduler) selectBySessionHash(
 	}
 	account = s.service.recheckSelectedOpenAIAccountFromDB(ctx, account, req.GroupID, req.Platform, req.RequestedModel, req.RequireCompact, req.RequiredCapability)
 	if account == nil || !s.service.openAIAccountMatchesSchedulingScope(ctx, account, req.GroupID) || !s.isAccountRequestCompatible(ctx, account, req) || !s.isAccountTransportCompatible(account, req.RequiredTransport) {
-		clearBinding()
-		return nil, false, nil
-	}
-	// Free-tier soft gate: sticky session must not pin an over-quota free OAuth account.
-	// Admin QueryQuota / import probes do not use this path.
-	if account != nil && len(s.filterGrokFreeQuotaAccounts(ctx, []Account{*account})) == 0 {
 		clearBinding()
 		return nil, false, nil
 	}
@@ -1288,12 +1281,6 @@ func (s *defaultOpenAIAccountScheduler) tryFallbackToWeightedSticky(
 		if req.RequireCompact && openAICompactSupportTier(account) == 0 {
 			continue
 		}
-		// Keep weighted sticky fallback subject to the same free-tier gate as the
-		// normal and sticky selection paths. Otherwise an over-quota free account
-		// could be reintroduced after the primary candidate pass.
-		if len(s.filterGrokFreeQuotaAccounts(ctx, []Account{*account})) == 0 {
-			continue
-		}
 		upstreamModel := canonicalOpenAIAccountSchedulingModel(account, req.RequestedModel)
 		now := time.Now()
 		if isGrokTeamModelRateLimited(account, upstreamModel, now) ||
@@ -1389,11 +1376,6 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 	if len(accounts) == 0 {
 		return nil, 0, 0, 0, noAvailableOpenAISelectionError(req.RequestedModel, false, openAISelectionFilterStats{}.summary(""))
 	}
-	// Local free-tier soft gate on the Grok scheduling path only (not admin probe).
-	accounts = s.filterGrokFreeQuotaAccounts(ctx, accounts)
-	if len(accounts) == 0 {
-		return nil, 0, 0, 0, noAvailableOpenAISelectionError(req.RequestedModel, false, openAISelectionFilterStats{}.summary("grok_free_quota_soft_gate"))
-	}
 	// Team+model rate-limit cool: siblings of a 429'd team skip the hot model.
 	if req.Platform == PlatformGrok {
 		now := time.Now()
@@ -1429,7 +1411,7 @@ func (s *defaultOpenAIAccountScheduler) selectByLoadBalance(
 				continue
 			}
 		}
-		if !account.IsSchedulable() {
+		if !account.SchedulingState(time.Now()).Allows(time.Now()) {
 			filterStats.exclude("not_schedulable")
 			continue
 		}

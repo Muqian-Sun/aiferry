@@ -409,11 +409,12 @@ func openAICompatibleAccountEligibilityFailureReasonBeforeProfit(ctx context.Con
 	if !isAccountSchedulableOnPlatform(ctx, account, platform, false) {
 		return "platform_mismatch"
 	}
-	if !account.IsSchedulableForModelWithContext(ctx, requestedModel) {
-		if account.IsSchedulable() {
-			return "model_rate_limited"
-		}
+	// 调度状态只读 SchedulingState：整体停调与模型级限流分开报原因，额度评估不在这里。
+	now := time.Now()
+	if state := account.SchedulingState(now); state.Blocked {
 		return "not_schedulable"
+	} else if !state.Allows(now, account.modelRateLimitKeysForRequest(ctx, requestedModel)...) {
+		return "model_rate_limited"
 	}
 	if requestedModel != "" && !account.IsModelSupported(requestedModel) {
 		return "model_not_supported"
@@ -1258,10 +1259,6 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 		if err != nil {
 			return accounts, err
 		}
-		accounts = s.filterOpenAIAccountsBySchedulingThreshold(ctx, accounts)
-		if platform == PlatformGrok {
-			accounts = s.filterGrokFreeQuotaAccountsForOpenAI(ctx, accounts)
-		}
 		return accounts, nil
 	}
 	var accounts []Account
@@ -1280,10 +1277,6 @@ func (s *OpenAIGatewayService) listSchedulableAccounts(ctx context.Context, grou
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}
 	accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false)
-	accounts = s.filterOpenAIAccountsBySchedulingThreshold(ctx, accounts)
-	if platform == PlatformGrok {
-		accounts = s.filterGrokFreeQuotaAccountsForOpenAI(ctx, accounts)
-	}
 	return accounts, nil
 }
 
@@ -1329,9 +1322,6 @@ func (s *OpenAIGatewayService) resolveFreshSchedulableOpenAIAccountBeforeProfit(
 	if s.isOpenAIAccountRequestRuntimeBlocked(fresh, requestedModel) {
 		return nil
 	}
-	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, fresh) {
-		return nil
-	}
 	if s.isOpenAIProxyStreamQuarantined(ctx, fresh) {
 		return nil
 	}
@@ -1375,9 +1365,6 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ct
 		if !isOpenAICompatibleAccountEligibleForRequestBeforeProfit(ctx, account, platform, requestedModel, requireCompact, requiredCapability) {
 			return nil
 		}
-		if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, account) {
-			return nil
-		}
 		if !parentHealthyForShadow(account, s.parentAccountLookup(ctx)) {
 			return nil
 		}
@@ -1404,9 +1391,6 @@ func (s *OpenAIGatewayService) recheckSelectedOpenAIAccountFromDBBeforeProfit(ct
 		return nil
 	}
 	if s.isOpenAIAccountRequestRuntimeBlocked(latest, requestedModel) {
-		return nil
-	}
-	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, latest) {
 		return nil
 	}
 	if s.isOpenAIProxyStreamQuarantined(ctx, latest) {
@@ -1437,47 +1421,7 @@ func (s *OpenAIGatewayService) getSchedulableAccount(ctx context.Context, accoun
 	if err != nil || account == nil {
 		return account, err
 	}
-	if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, account) {
-		return nil, nil
-	}
-	// Legacy sticky (advanced scheduler off) must still free-gate Grok OAuth.
-	if account.IsGrok() {
-		if gated := s.filterGrokFreeQuotaAccountsForOpenAI(ctx, []Account{*account}); len(gated) == 0 {
-			return nil, nil
-		}
-	}
 	return account, nil
-}
-
-// filterGrokFreeQuotaAccountsForOpenAI applies the same local free soft-gate as
-// GatewayService / advanced scheduler, for OpenAI-compatible legacy selection.
-func (s *OpenAIGatewayService) filterGrokFreeQuotaAccountsForOpenAI(ctx context.Context, accounts []Account) []Account {
-	if s == nil {
-		return accounts
-	}
-	return filterGrokFreeQuotaAccountsCore(ctx, s.cfg, s.usageLogRepo, &openaiGrokFreeQuotaGateCache, accounts)
-}
-
-func (s *OpenAIGatewayService) filterOpenAIAccountsBySchedulingThreshold(ctx context.Context, accounts []Account) []Account {
-	if len(accounts) == 0 {
-		return accounts
-	}
-
-	filtered := make([]Account, 0, len(accounts))
-	for i := range accounts {
-		if s.isOpenAIAccountBlockedBySchedulingThreshold(ctx, &accounts[i]) {
-			continue
-		}
-		filtered = append(filtered, accounts[i])
-	}
-	return filtered
-}
-
-func (s *OpenAIGatewayService) isOpenAIAccountBlockedBySchedulingThreshold(ctx context.Context, account *Account) bool {
-	if s == nil || s.rateLimitService == nil || account == nil {
-		return false
-	}
-	return s.rateLimitService.ApplyAccountSchedulingThreshold(ctx, account)
 }
 
 func (s *OpenAIGatewayService) hydrateSelectedAccount(ctx context.Context, account *Account) (*Account, error) {
