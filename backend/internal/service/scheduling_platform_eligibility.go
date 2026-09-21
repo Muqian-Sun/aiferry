@@ -2,15 +2,14 @@ package service
 
 import "context"
 
-// 本文件是调度候选「平台准入」的唯一定义处。Gateway 与 OpenAI 两套调度器、
+// 本文件是调度候选「准入」的唯一定义处。Gateway 与 OpenAI 两套调度器、
 // 调度快照装桶、候选装载与模型可用性诊断都走这里，规则不会在各路径间分叉。
 //
-// 成品号是厂商绑定的：按平台精确匹配；anthropic / gemini 分组的混合调度另外放行
-// 启用了 mixed_scheduling 的 antigravity 成品号。
+// 目录路由（有 CatalogRoute）：资格 = 协议转换注册表（accountServesCatalogRoute），不分成品号 / key。
 //
-// 第三方 key 选的平台只是展示标签：它进入所属分组每个网关平台的调度桶，能否被选中
-// 只看协议地址——按网关平台与本次入站协议能选出一个已配地址的上游协议
-// （KeyUpstreamProtocolFor）才可调度。
+// 分组路径（无模型端点，PR-7 随分组删）：成品号按平台精确匹配，anthropic / gemini 分组的混合调度
+// 另外放行启用了 mixed_scheduling 的 antigravity 成品号；第三方 key 进入所属分组每个网关平台的
+// 调度桶，按网关平台与本次入站协议能选出一个已配地址的上游协议（KeyUpstreamProtocolFor）才可调度。
 
 // schedulingBucketAdmits 报告账号是否属于 platform 网关平台的调度桶。
 //
@@ -39,46 +38,18 @@ func accountServesSchedulingPlatform(account *Account, platform, inboundProtocol
 	return subscriptionServesSchedulingPlatform(account, platform, useMixed)
 }
 
-// accountServesCatalogRoute 目录路由下账号能否在 platform 网关族上承接 inboundProtocol 的请求。
-// platform 是本次生效的平台：条目网关族，或 /antigravity 路由强制的 antigravity。
-// 第三方 key 与分组路由同一规则（按地址选协议）；成品号按厂商 × 网关族 × 入站协议的矩阵。
+// accountServesCatalogRoute 目录路由下资源能否承接本次入站协议：拥有的上游协议里有一个存在从
+// inboundProtocol 出发的转换实现（protocol_conversion.go 的注册表），key 与成品号同一条规则。
+// platform 只剩 /antigravity 强制路由这一个用途：强制 antigravity 时只放行 antigravity 成品号
+// （该入口的语义就是「走 antigravity」）。绑定校验仍按网关族矩阵（bindingAdmitsFamily，3b-5 删）。
 func accountServesCatalogRoute(account *Account, platform, inboundProtocol string) bool {
 	if account == nil {
 		return false
 	}
-	if inboundProtocol == APIProtocolGemini && platform != PlatformGemini && platform != PlatformAntigravity {
-		// Gemini 原生入口只放行 gemini 族条目（/antigravity 路由强制 antigravity）；其余网关族收不到 gemini 入站。
+	if platform == PlatformAntigravity && account.Vendor() != PlatformAntigravity {
 		return false
 	}
-	if account.IsThirdPartyKey() {
-		return account.KeyUpstreamProtocolFor(platform, inboundProtocol) != ""
-	}
-	return subscriptionServesCatalogRoute(account, platform, inboundProtocol)
-}
-
-// subscriptionServesCatalogRoute 成品号矩阵（inboundProtocol 为空 = OpenAI 扩展端点，按 chat_completions 看）：
-//
-//	厂商 \ 入站                          anthropic  chat_completions  responses  gemini
-//	anthropic（族 anthropic）               ✓          ✓                ✓          ✗
-//	antigravity（族 anthropic / gemini / 强制 antigravity）  ✓  ✓        ✓          ✓
-//	gemini（族 gemini）                     ✓          ✓                ✗          ✓
-//	openai 族（族 == 账号平台）             ✓          ✓                ✓          ✗
-//
-// 绑定时管理员已经把资源显式挂到条目上，antigravity 成品号不再看 mixed_scheduling 开关。
-func subscriptionServesCatalogRoute(account *Account, platform, inboundProtocol string) bool {
-	if inboundProtocol == "" {
-		inboundProtocol = APIProtocolChatCompletions
-	}
-	switch account.Vendor() {
-	case PlatformAntigravity:
-		return platform == PlatformAnthropic || platform == PlatformGemini || platform == PlatformAntigravity
-	case PlatformAnthropic:
-		return platform == PlatformAnthropic && inboundProtocol != APIProtocolGemini
-	case PlatformGemini:
-		return platform == PlatformGemini && inboundProtocol != APIProtocolResponses
-	default:
-		return IsOpenAIGatewayPlatform(platform) && NormalizeOpenAICompatiblePlatform(platform) == account.Platform && inboundProtocol != APIProtocolGemini
-	}
+	return account.ServesInbound(inboundProtocol)
 }
 
 // AccountServesPlatformForAnyInbound 报告账号能否在 platform 网关平台上承接至少一种入站

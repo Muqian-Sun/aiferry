@@ -219,7 +219,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if err != nil {
 		return nil, err
 	}
-	preferOAuth := platform == PlatformGemini
+	inbound := InboundProtocolFromContext(ctx)
 	if s.debugModelRoutingEnabled() && requestedModel != "" && modelRoutingAppliesToTargetPlatform(platform) {
 		logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] load-aware enabled: group_id=%v model=%s session=%s platform=%s", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), platform)
 	}
@@ -697,7 +697,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 
 	loadMap, err := s.concurrencyService.GetAccountsLoadBatch(ctx, accountLoads)
 	if err != nil {
-		if result, ok, legacyErr := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, preferOAuth); legacyErr != nil {
+		if result, ok, legacyErr := s.tryAcquireByLegacyOrder(ctx, candidates, groupID, sessionHash, inbound); legacyErr != nil {
 			return nil, legacyErr
 		} else if ok {
 			return result, nil
@@ -717,10 +717,12 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			}
 		}
 
-		// 分层过滤选择：优先级 →（可选）最早重置 → 负载率 → LRU
+		// 分层过滤选择：协议直连 → 优先级 →（可选）最早重置 → 负载率 → LRU
 		for len(available) > 0 {
+			// 0. 有能以入站协议直连的就只在它们里挑（协议匹配优先，系统特色之一）
+			candidates := filterByProtocolMatch(available, inbound)
 			// 1. 取优先级最小的集合
-			candidates := filterByMinPriority(available)
+			candidates = filterByMinPriority(candidates)
 			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
 			if cfg.PreferSoonestReset {
 				candidates = filterBySoonestReset(candidates)
@@ -728,7 +730,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 			// 3. 取负载率最低的集合
 			candidates = filterByMinLoadRate(candidates)
 			// 4. LRU 选择最久未用的账号
-			selected := selectByLRU(candidates, preferOAuth)
+			selected := selectByLRU(candidates)
 			if selected == nil {
 				break
 			}
@@ -759,7 +761,7 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	// ============ Layer 3: 兜底排队 ============
-	s.sortCandidatesForFallback(candidates, preferOAuth, cfg.FallbackSelectionMode)
+	s.sortCandidatesForFallback(candidates, inbound, cfg.FallbackSelectionMode)
 	for _, acc := range candidates {
 		// 会话数量限制检查（等待计划也需要占用会话配额）
 		if !s.checkAndRegisterSession(ctx, acc, sessionHash) {
@@ -775,9 +777,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	return nil, ErrNoAvailableAccounts
 }
 
-func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, preferOAuth bool) (*AccountSelectionResult, bool, error) {
+func (s *GatewayService) tryAcquireByLegacyOrder(ctx context.Context, candidates []*Account, groupID *int64, sessionHash string, inbound string) (*AccountSelectionResult, bool, error) {
 	ordered := append([]*Account(nil), candidates...)
-	sortAccountsByPriorityAndLastUsed(ordered, preferOAuth)
+	sortAccountsByPriorityAndLastUsed(ordered, inbound)
 
 	for _, acc := range ordered {
 		result, err := s.tryAcquireAccountSlot(ctx, acc.ID, acc.Concurrency)
@@ -1104,10 +1106,18 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 	return accounts, useMixed, nil
 }
 
-// IsSingleAntigravityAccountGroup 检查指定分组是否只有一个 antigravity 平台的可调度账号。
-// 用于 Handler 层在首次请求时提前设置 SingleAccountRetry context，
-// 避免单账号分组收到 503 时错误地设置模型限流标记导致后续请求连续快速失败。
-func (s *GatewayService) IsSingleAntigravityAccountGroup(ctx context.Context, groupID *int64) bool {
+// IsSinglePool 检查本次请求的调度池是否只有一个可调度资源：目录路由下按条目绑定数（不看平台），
+// 分组路径下沿用「只有一个 antigravity 成品号」的旧语义（PR-7 随分组删）。
+// Handler 层在首次请求时据此提前设置 SingleAccountRetry context，避免单资源池收到 503 时
+// 错误地设置模型限流标记导致后续请求连续快速失败。
+func (s *GatewayService) IsSinglePool(ctx context.Context, groupID *int64) bool {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		accounts, _, err := s.listSchedulableAccounts(ctx, groupID, route.Platform, false)
+		if err != nil {
+			return false
+		}
+		return len(accounts) == 1
+	}
 	accounts, _, err := s.listSchedulableAccounts(ctx, groupID, PlatformAntigravity, true)
 	if err != nil {
 		return false
@@ -1154,7 +1164,7 @@ func (s *GatewayService) withRPMPrefetch(ctx context.Context, accounts []Account
 
 	var ids []int64
 	for i := range accounts {
-		if accounts[i].IsAnthropicOAuthOrSetupToken() && accounts[i].GetBaseRPM() > 0 {
+		if accounts[i].GetBaseRPM() > 0 {
 			ids = append(ids, accounts[i].ID)
 		}
 	}
@@ -1169,12 +1179,8 @@ func (s *GatewayService) withRPMPrefetch(ctx context.Context, accounts []Account
 	return context.WithValue(ctx, rpmPrefetchContextKey, counts)
 }
 
-// isAccountSchedulableForRPM 检查账号是否可根据 RPM 进行调度
-// 仅适用于 Anthropic OAuth/SetupToken 账号
+// isAccountSchedulableForRPM 检查账号是否可根据 RPM 进行调度：任何设了 base_rpm 的资源都算，不问类型。
 func (s *GatewayService) isAccountSchedulableForRPM(ctx context.Context, account *Account, isSticky bool) bool {
-	if !account.IsAnthropicOAuthOrSetupToken() {
-		return true
-	}
 	baseRPM := account.GetBaseRPM()
 	if baseRPM <= 0 {
 		return true
@@ -1215,16 +1221,10 @@ func (s *GatewayService) IncrementAccountRPM(ctx context.Context, accountID int6
 	return err
 }
 
-// checkAndRegisterSession 检查并注册会话，用于会话数量限制
-// 仅适用于 Anthropic OAuth/SetupToken 账号
+// checkAndRegisterSession 检查并注册会话，用于会话数量限制：任何设了 max_sessions 的资源都算，不问类型。
 // sessionID: 会话标识符（使用粘性会话的 hash）
 // 返回 true 表示允许（在限制内或会话已存在），false 表示拒绝（超出限制且是新会话）
 func (s *GatewayService) checkAndRegisterSession(ctx context.Context, account *Account, sessionID string) bool {
-	// 只检查 Anthropic OAuth/SetupToken 账号
-	if !account.IsAnthropicOAuthOrSetupToken() {
-		return true
-	}
-
 	maxSessions := account.GetMaxSessions()
 	if maxSessions <= 0 || sessionID == "" {
 		return true // 未启用会话限制或无会话ID
@@ -1251,9 +1251,6 @@ func (s *GatewayService) checkAndRegisterSession(ctx context.Context, account *A
 // 适用条件与 checkAndRegisterSession 对齐；不适用账号为 no-op，幂等可安全重复调用。
 func (s *GatewayService) ReleaseAccountSession(ctx context.Context, account *Account, sessionID string) {
 	if s == nil || s.sessionLimitCache == nil || account == nil || sessionID == "" {
-		return
-	}
-	if !account.IsAnthropicOAuthOrSetupToken() {
 		return
 	}
 	if account.GetMaxSessions() <= 0 {
@@ -1384,7 +1381,7 @@ func filterBySoonestReset(accounts []accountWithLoad) []accountWithLoad {
 
 // selectByLRU 从集合中选择最久未用的账号
 // 如果有多个账号具有相同的最小 LastUsedAt，则随机选择一个
-func selectByLRU(accounts []accountWithLoad, preferOAuth bool) *accountWithLoad {
+func selectByLRU(accounts []accountWithLoad) *accountWithLoad {
 	if len(accounts) == 0 {
 		return nil
 	}
@@ -1424,27 +1421,17 @@ func selectByLRU(accounts []accountWithLoad, preferOAuth bool) *accountWithLoad 
 		return &accounts[candidateIdxs[0]]
 	}
 
-	// 4. 如果有多个候选且 preferOAuth，优先选择 OAuth 类型
-	if preferOAuth {
-		var oauthIdxs []int
-		for _, idx := range candidateIdxs {
-			if accounts[idx].account.Type == AccountTypeOAuth {
-				oauthIdxs = append(oauthIdxs, idx)
-			}
-		}
-		if len(oauthIdxs) > 0 {
-			candidateIdxs = oauthIdxs
-		}
-	}
-
-	// 5. 随机选择一个
+	// 4. 随机选择一个
 	selectedIdx := candidateIdxs[mathrand.Intn(len(candidateIdxs))]
 	return &accounts[selectedIdx]
 }
 
-func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
+func sortAccountsByPriorityAndLastUsed(accounts []*Account, inbound string) {
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
+		if ra, rb := protocolRank(a, inbound), protocolRank(b, inbound); ra != rb {
+			return ra < rb
+		}
 		if a.Priority != b.Priority {
 			return a.Priority < b.Priority
 		}
@@ -1454,15 +1441,12 @@ func sortAccountsByPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
 		case a.LastUsedAt != nil && b.LastUsedAt == nil:
 			return false
 		case a.LastUsedAt == nil && b.LastUsedAt == nil:
-			if preferOAuth && a.Type != b.Type {
-				return a.Type == AccountTypeOAuth
-			}
 			return false
 		default:
 			return a.LastUsedAt.Before(*b.LastUsedAt)
 		}
 	})
-	shuffleWithinPriorityAndLastUsed(accounts, preferOAuth)
+	shuffleWithinPriorityAndLastUsed(accounts, inbound)
 }
 
 // shuffleWithinSortGroups 对排序后的 accountWithLoad 切片，按 (Priority, LoadRate, LastUsedAt) 分组后组内随机打乱。
@@ -1497,57 +1481,81 @@ func sameAccountWithLoadGroup(a, b accountWithLoad) bool {
 	return sameLastUsedAt(a.account.LastUsedAt, b.account.LastUsedAt)
 }
 
-// shuffleWithinPriorityAndLastUsed 对排序后的 []*Account 切片，按 (Priority, LastUsedAt) 分组后组内随机打乱。
-//
-// 注意：当 preferOAuth=true 时，需要保证 OAuth 账号在同组内仍然优先，否则会把排序时的偏好打散掉。
-// 因此这里采用"组内分区 + 分区内 shuffle"的方式：
-// - 先把同组账号按 (OAuth / 非 OAuth) 拆成两段，保持 OAuth 段在前；
-// - 再分别在各段内随机打散，避免热点。
-func shuffleWithinPriorityAndLastUsed(accounts []*Account, preferOAuth bool) {
+// shuffleWithinPriorityAndLastUsed 对排序后的 []*Account 切片，按 (协议直连, Priority, LastUsedAt) 分组后
+// 组内随机打乱，避免并发请求读同一快照时全部命中同一个账号。
+func shuffleWithinPriorityAndLastUsed(accounts []*Account, inbound string) {
 	if len(accounts) <= 1 {
 		return
 	}
 	i := 0
 	for i < len(accounts) {
 		j := i + 1
-		for j < len(accounts) && sameAccountGroup(accounts[i], accounts[j]) {
+		for j < len(accounts) && sameAccountGroup(accounts[i], accounts[j], inbound) {
 			j++
 		}
 		if j-i > 1 {
-			if preferOAuth {
-				oauth := make([]*Account, 0, j-i)
-				others := make([]*Account, 0, j-i)
-				for _, acc := range accounts[i:j] {
-					if acc.Type == AccountTypeOAuth {
-						oauth = append(oauth, acc)
-					} else {
-						others = append(others, acc)
-					}
-				}
-				if len(oauth) > 1 {
-					mathrand.Shuffle(len(oauth), func(a, b int) { oauth[a], oauth[b] = oauth[b], oauth[a] })
-				}
-				if len(others) > 1 {
-					mathrand.Shuffle(len(others), func(a, b int) { others[a], others[b] = others[b], others[a] })
-				}
-				copy(accounts[i:], oauth)
-				copy(accounts[i+len(oauth):], others)
-			} else {
-				mathrand.Shuffle(j-i, func(a, b int) {
-					accounts[i+a], accounts[i+b] = accounts[i+b], accounts[i+a]
-				})
-			}
+			mathrand.Shuffle(j-i, func(a, b int) {
+				accounts[i+a], accounts[i+b] = accounts[i+b], accounts[i+a]
+			})
 		}
 		i = j
 	}
 }
 
-// sameAccountGroup 判断两个 Account 是否属于同一排序组（Priority + LastUsedAt）
-func sameAccountGroup(a, b *Account) bool {
+// sameAccountGroup 判断两个 Account 是否属于同一排序组（协议直连 + Priority + LastUsedAt）
+func sameAccountGroup(a, b *Account, inbound string) bool {
+	if protocolRank(a, inbound) != protocolRank(b, inbound) {
+		return false
+	}
 	if a.Priority != b.Priority {
 		return false
 	}
 	return sameLastUsedAt(a.LastUsedAt, b.LastUsedAt)
+}
+
+// protocolRank 选号排序第一键：能以入站协议直连的资源排前（0），需要转换的排后（1）。
+// 协议匹配优先是系统特色之一，排在配置的优先级之前。
+func protocolRank(account *Account, inbound string) int {
+	if account.ProtocolMatches(inbound) {
+		return 0
+	}
+	return 1
+}
+
+// filterByProtocolMatch 有能以入站协议直连的候选就只留它们，否则原样返回（全部要转换时按优先级挑）。
+func filterByProtocolMatch(accounts []accountWithLoad, inbound string) []accountWithLoad {
+	if inbound == "" || len(accounts) == 0 {
+		return accounts
+	}
+	var matched []accountWithLoad
+	for _, acc := range accounts {
+		if acc.account.ProtocolMatches(inbound) {
+			matched = append(matched, acc)
+		}
+	}
+	if len(matched) == 0 {
+		return accounts
+	}
+	return matched
+}
+
+// candidatePrecedes 报告 candidate 应排在 current 前：协议直连 → 优先级 → 从未用过 → 更久未用。
+// 非负载感知路径（legacy / 单平台 / 混合）逐个比较时用它，与排序函数同一套键。
+func candidatePrecedes(candidate, current *Account, inbound string) bool {
+	if rc, ru := protocolRank(candidate, inbound), protocolRank(current, inbound); rc != ru {
+		return rc < ru
+	}
+	if candidate.Priority != current.Priority {
+		return candidate.Priority < current.Priority
+	}
+	switch {
+	case candidate.LastUsedAt == nil && current.LastUsedAt != nil:
+		return true
+	case candidate.LastUsedAt == nil || current.LastUsedAt == nil:
+		return false
+	default:
+		return candidate.LastUsedAt.Before(*current.LastUsedAt)
+	}
 }
 
 // sameLastUsedAt 判断两个 LastUsedAt 是否相同（精度到秒）
@@ -1562,48 +1570,32 @@ func sameLastUsedAt(a, b *time.Time) bool {
 	}
 }
 
-// preferGeminiOAuthInMixedScheduling 报告混合调度下（同优先级且都未使用过）是否用 candidate 替换 current：
-// Gemini OAuth 成品号优先于 Gemini 侧的其他账号——非 OAuth 的 Gemini 成品号与第三方 key，
-// 但不与混合调度进来的 antigravity 成品号比较。第三方 key 的平台只是展示标签，不参与判断。
-func preferGeminiOAuthInMixedScheduling(candidate, current *Account) bool {
-	if candidate.IsThirdPartyKey() || candidate.Platform != PlatformGemini || candidate.Type != AccountTypeOAuth {
-		return false
-	}
-	if current.Type == AccountTypeOAuth {
-		return false
-	}
-	return current.IsThirdPartyKey() || current.Platform == PlatformGemini
-}
-
 // sortCandidatesForFallback 根据配置选择排序策略
 // mode: "last_used"(按最后使用时间) 或 "random"(随机)
-func (s *GatewayService) sortCandidatesForFallback(accounts []*Account, preferOAuth bool, mode string) {
+func (s *GatewayService) sortCandidatesForFallback(accounts []*Account, inbound string, mode string) {
 	if mode == "random" {
-		// 先按优先级排序，然后在同优先级内随机打乱
-		sortAccountsByPriorityOnly(accounts, preferOAuth)
-		shuffleWithinPriority(accounts)
+		// 先按协议直连 + 优先级排序，然后在同组内随机打乱
+		sortAccountsByPriorityOnly(accounts, inbound)
+		shuffleWithinPriority(accounts, inbound)
 	} else {
 		// 默认按最后使用时间排序
-		sortAccountsByPriorityAndLastUsed(accounts, preferOAuth)
+		sortAccountsByPriorityAndLastUsed(accounts, inbound)
 	}
 }
 
-// sortAccountsByPriorityOnly 仅按优先级排序
-func sortAccountsByPriorityOnly(accounts []*Account, preferOAuth bool) {
+// sortAccountsByPriorityOnly 按协议直连 + 优先级排序
+func sortAccountsByPriorityOnly(accounts []*Account, inbound string) {
 	sort.SliceStable(accounts, func(i, j int) bool {
 		a, b := accounts[i], accounts[j]
-		if a.Priority != b.Priority {
-			return a.Priority < b.Priority
+		if ra, rb := protocolRank(a, inbound), protocolRank(b, inbound); ra != rb {
+			return ra < rb
 		}
-		if preferOAuth && a.Type != b.Type {
-			return a.Type == AccountTypeOAuth
-		}
-		return false
+		return a.Priority < b.Priority
 	})
 }
 
-// shuffleWithinPriority 在同优先级内随机打乱顺序
-func shuffleWithinPriority(accounts []*Account) {
+// shuffleWithinPriority 在同（协议直连, 优先级）组内随机打乱顺序
+func shuffleWithinPriority(accounts []*Account, inbound string) {
 	if len(accounts) <= 1 {
 		return
 	}
@@ -1611,8 +1603,9 @@ func shuffleWithinPriority(accounts []*Account) {
 	start := 0
 	for start < len(accounts) {
 		priority := accounts[start].Priority
+		rank := protocolRank(accounts[start], inbound)
 		end := start + 1
-		for end < len(accounts) && accounts[end].Priority == priority {
+		for end < len(accounts) && accounts[end].Priority == priority && protocolRank(accounts[end], inbound) == rank {
 			end++
 		}
 		// 对 [start, end) 范围内的账户随机打乱
@@ -1627,7 +1620,7 @@ func shuffleWithinPriority(accounts []*Account) {
 
 // selectAccountForModelWithPlatform 选择单平台账户（完全隔离）
 func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, platform string) (*Account, error) {
-	preferOAuth := platform == PlatformGemini
+	inbound := InboundProtocolFromContext(ctx)
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
 
 	// require_privacy_set: 获取分组信息
@@ -1728,23 +1721,8 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				selected = acc
 				continue
 			}
-			if acc.Priority < selected.Priority {
+			if candidatePrecedes(acc, selected, inbound) {
 				selected = acc
-			} else if acc.Priority == selected.Priority {
-				switch {
-				case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-					selected = acc
-				case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-					// keep selected (never used is preferred)
-				case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-					if preferOAuth && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-						selected = acc
-					}
-				default:
-					if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-						selected = acc
-					}
-				}
 			}
 		}
 
@@ -1838,23 +1816,8 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			selected = acc
 			continue
 		}
-		if acc.Priority < selected.Priority {
+		if candidatePrecedes(acc, selected, inbound) {
 			selected = acc
-		} else if acc.Priority == selected.Priority {
-			switch {
-			case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-				selected = acc
-			case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-				// keep selected (never used is preferred)
-			case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-				if preferOAuth && acc.Type != selected.Type && acc.Type == AccountTypeOAuth {
-					selected = acc
-				}
-			default:
-				if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-					selected = acc
-				}
-			}
 		}
 	}
 
@@ -1879,7 +1842,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 // selectAccountWithMixedScheduling 选择账户（支持混合调度）
 // 查询原生平台账户 + 启用 mixed_scheduling 的 antigravity 账户
 func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, nativePlatform string) (*Account, error) {
-	preferOAuth := nativePlatform == PlatformGemini
+	inbound := InboundProtocolFromContext(ctx)
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, nativePlatform)
 
 	// require_privacy_set: 获取分组信息
@@ -1980,23 +1943,8 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				selected = acc
 				continue
 			}
-			if acc.Priority < selected.Priority {
+			if candidatePrecedes(acc, selected, inbound) {
 				selected = acc
-			} else if acc.Priority == selected.Priority {
-				switch {
-				case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-					selected = acc
-				case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-					// keep selected (never used is preferred)
-				case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-					if preferOAuth && preferGeminiOAuthInMixedScheduling(acc, selected) {
-						selected = acc
-					}
-				default:
-					if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-						selected = acc
-					}
-				}
 			}
 		}
 
@@ -2091,23 +2039,8 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			selected = acc
 			continue
 		}
-		if acc.Priority < selected.Priority {
+		if candidatePrecedes(acc, selected, inbound) {
 			selected = acc
-		} else if acc.Priority == selected.Priority {
-			switch {
-			case acc.LastUsedAt == nil && selected.LastUsedAt != nil:
-				selected = acc
-			case acc.LastUsedAt != nil && selected.LastUsedAt == nil:
-				// keep selected (never used is preferred)
-			case acc.LastUsedAt == nil && selected.LastUsedAt == nil:
-				if preferOAuth && preferGeminiOAuthInMixedScheduling(acc, selected) {
-					selected = acc
-				}
-			default:
-				if acc.LastUsedAt.Before(*selected.LastUsedAt) {
-					selected = acc
-				}
-			}
 		}
 	}
 

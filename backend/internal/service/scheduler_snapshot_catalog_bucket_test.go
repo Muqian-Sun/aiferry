@@ -244,10 +244,14 @@ func TestListSchedulableAccounts_CatalogRouteUsesCatalogBucket(t *testing.T) {
 	got, useMixed, err := svc.ListSchedulableAccounts(routed, &groupID, PlatformAnthropic, false)
 	require.NoError(t, err)
 	require.False(t, useMixed, "catalog buckets never mix")
-	require.Len(t, got, 1, "the gemini oauth cannot serve the anthropic family and is filtered out")
-	require.Equal(t, int64(1), got[0].ID)
+	require.Len(t, got, 2, "message converts to gemini: both subscriptions serve it (no family gate)")
 	require.Equal(t, []int64{7}, accounts.catalogCalls())
 	require.Equal(t, []SchedulerBucket{catalogBucket(7, PlatformAnthropic)}, cache.written())
+
+	got, _, err = svc.ListSchedulableAccounts(catalogRouteCtx(7, PlatformAnthropic, APIProtocolResponses), &groupID, PlatformAnthropic, false)
+	require.NoError(t, err)
+	require.Len(t, got, 1, "no responses → gemini conversion: the gemini oauth is filtered out")
+	require.Equal(t, int64(1), got[0].ID)
 
 	// 强制 antigravity（/antigravity 路由）：桶仍是目录桶，但过滤按 antigravity 只留 antigravity 成品号。
 	forced := context.WithValue(routed, ctxkey.ForcePlatform, PlatformAntigravity)

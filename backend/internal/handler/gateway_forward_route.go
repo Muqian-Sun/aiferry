@@ -69,8 +69,11 @@ func responsesForwardTarget(gatewayPlatform string, account *service.Account) co
 	return compatForwardTargetFor(gatewayPlatform, service.APIProtocolResponses, account, false)
 }
 
-func keyCompatForwardTarget(gatewayPlatform, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
-	switch account.KeyUpstreamProtocolFor(anthropicGatewayPlatform(gatewayPlatform), inboundProtocol) {
+// keyCompatForwardTarget 第三方 key 按协议转换注册表选上游协议（同协议直连优先）：
+// anthropic 地址走标准转发，gemini 地址走 Gemini 兼容转发；responses / chat_completions 地址的
+// 转换实现在 OpenAI 网关服务里，本 handler 还接不进来（3b-3 接），先 Skip。
+func keyCompatForwardTarget(_ string, inboundProtocol string, account *service.Account, geminiSupported bool) compatForwardTarget {
+	switch account.UpstreamProtocolFor(inboundProtocol) {
 	case service.APIProtocolAnthropic:
 		return compatForwardAnthropic
 	case service.APIProtocolGemini:
@@ -83,17 +86,6 @@ func keyCompatForwardTarget(gatewayPlatform, inboundProtocol string, account *se
 	}
 }
 
-// anthropicGatewayPlatform 返回 Anthropic 网关 handler 用来选协议的平台。
-//
-// 未分组 key（放行未分组调度时）没有分组平台，调度按 anthropic 选号
-// （GatewayService.resolvePlatform），这里取同一个值，两边才不会对不上。
-func anthropicGatewayPlatform(platform string) string {
-	if platform == "" {
-		return service.PlatformAnthropic
-	}
-	return platform
-}
-
 // messagesGatewayPlatform 返回 /v1/messages 系请求所在网关的平台，与 service 层
 // （错误透传、调度）读同一份 request.Context：强制平台（/antigravity 路由）优先，其次是
 // 合成分组解析出的目标平台，最后是分组平台；都没有时为 anthropic。
@@ -102,10 +94,9 @@ func messagesGatewayPlatform(c *gin.Context, apiKey *service.APIKey) string {
 	return service.AnthropicGatewayRequestPlatform(c.Request.Context(), apiKey)
 }
 
-// keyServesAnthropicCountTokens 报告第三方 key 能否在当前网关上承接 count_tokens。
+// keyServesAnthropicCountTokens 报告第三方 key 能否承接 count_tokens。
 //
-// count_tokens 只存在于 Anthropic 协议。key 在该网关上走的不是 anthropic 协议时
-// （例如 gemini 分组），不能把 Anthropic 请求发到它别的协议地址上。
-func keyServesAnthropicCountTokens(gatewayPlatform string, account *service.Account) bool {
-	return account.KeyUpstreamProtocolFor(anthropicGatewayPlatform(gatewayPlatform), service.APIProtocolAnthropic) == service.APIProtocolAnthropic
+// count_tokens 只存在于 Anthropic 协议，没有转换：key 必须以 anthropic 协议直连。
+func keyServesAnthropicCountTokens(_ string, account *service.Account) bool {
+	return account.ProtocolMatches(service.APIProtocolAnthropic)
 }

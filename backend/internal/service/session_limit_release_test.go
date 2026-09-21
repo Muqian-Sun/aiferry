@@ -57,7 +57,8 @@ func TestReleaseAccountSession_ReleasesRegisteredSlot(t *testing.T) {
 // - 非 Anthropic OAuth/SetupToken 账号
 // - 未启用 max_sessions 的账号
 // - 空 sessionID
-// 以上场景均为 no-op，不得触发 UnregisterSession。
+// 以上场景均为 no-op，不得触发 UnregisterSession。设了 max_sessions 的第三方 key 与成品号一样要释放
+// （会话数按属性算，不问类型）。
 func TestReleaseAccountSession_NoOpForInapplicableAccounts(t *testing.T) {
 	apiKeyAcc := &Account{
 		ID:                43,
@@ -66,6 +67,12 @@ func TestReleaseAccountSession_NoOpForInapplicableAccounts(t *testing.T) {
 		Extra:             map[string]any{"max_sessions": 1},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
+	t.Run("api_key_with_max_sessions_releases", func(t *testing.T) {
+		cache := newSessionLimitReleaseCacheStub()
+		svc := &GatewayService{sessionLimitCache: cache}
+		svc.ReleaseAccountSession(context.Background(), apiKeyAcc, "session-hash")
+		require.Len(t, cache.unregistered, 1)
+	})
 	noLimitAcc := &Account{
 		ID:       44,
 		Platform: PlatformAnthropic,
@@ -78,7 +85,6 @@ func TestReleaseAccountSession_NoOpForInapplicableAccounts(t *testing.T) {
 		account   *Account
 		sessionID string
 	}{
-		{"api_key_account", apiKeyAcc, "session-hash"},
 		{"max_sessions_disabled", noLimitAcc, "session-hash"},
 		{"empty_session_id", enabledAcc, ""},
 		{"nil_account", nil, "session-hash"},
