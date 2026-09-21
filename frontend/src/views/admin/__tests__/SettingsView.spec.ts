@@ -81,6 +81,13 @@ const {
 
 const localeRef = vi.hoisted(() => ({ value: "zh-CN" }));
 
+const getPlans = vi.fn();
+vi.mock("@/api/admin/payment", () => ({
+  adminPaymentAPI: {
+    getPlans: () => getPlans(),
+  },
+}));
+
 vi.mock("@/api/admin", () => ({
   adminAPI: {
     settings: {
@@ -674,6 +681,36 @@ describe("admin SettingsView payment visible method controls", () => {
       ],
     }));
     wrapper.unmount();
+  });
+
+  it("allows at most one default subscription per list and submits plan_id", async () => {
+    getPlans.mockResolvedValue({
+      data: [
+        { id: 1, name: "Pro", models: [], daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null },
+        { id: 2, name: "Max", models: [], daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null },
+      ],
+    });
+    const wrapper = mountView();
+    await flushPromises();
+
+    const addButton = () =>
+      wrapper
+        .findAll("button")
+        .find((node) => node.text().includes("admin.settings.defaults.addDefaultSubscription"));
+    expect(addButton()).toBeDefined();
+    expect((addButton()!.element as HTMLButtonElement).disabled).toBe(false);
+
+    await addButton()!.trigger("click");
+    await flushPromises();
+    expect((addButton()!.element as HTMLButtonElement).disabled).toBe(true);
+
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        default_subscriptions: [{ plan_id: 1, validity_days: 30 }],
+      }),
+    );
   });
 
   it("submits the compact home page toggle", async () => {

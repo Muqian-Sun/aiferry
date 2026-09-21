@@ -102,11 +102,29 @@
               </div>
 
               <div v-if="cond.type === 'subscription'" class="flex-1">
-                <label class="input-label">{{ t('admin.announcements.form.selectPackages') }}</label>
-                <GroupSelector
-                  v-model="subscriptionSelections[groupIndex][condIndex]"
-                  :groups="groups"
-                />
+                <label class="input-label">
+                  {{ t('admin.announcements.form.selectPackages') }}
+                  <span class="font-normal text-gray-400">{{ t('common.selectedCount', { count: (subscriptionSelections[groupIndex]?.[condIndex] ?? []).length }) }}</span>
+                </label>
+                <div class="grid max-h-32 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-800">
+                  <label
+                    v-for="plan in plans"
+                    :key="plan.id"
+                    class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-white dark:hover:bg-dark-700"
+                  >
+                    <input
+                      type="checkbox"
+                      :value="plan.id"
+                      :checked="(subscriptionSelections[groupIndex]?.[condIndex] ?? []).includes(plan.id)"
+                      class="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
+                      @change="togglePlan(groupIndex, condIndex, plan.id, ($event.target as HTMLInputElement).checked)"
+                    />
+                    <span class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white">{{ plan.name }}</span>
+                  </label>
+                  <div v-if="plans.length === 0" class="col-span-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                    {{ t('admin.announcements.form.noPlans') }}
+                  </div>
+                </div>
               </div>
 
               <div v-else class="flex flex-1 flex-col gap-3 sm:flex-row">
@@ -168,7 +186,6 @@
 import { computed, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type {
-  AdminGroup,
   AnnouncementTargeting,
   AnnouncementCondition,
   AnnouncementConditionGroup,
@@ -176,15 +193,15 @@ import type {
   AnnouncementOperator
 } from '@/types'
 
+import type { SubscriptionPlan } from '@/types/payment'
 import Select from '@/components/common/Select.vue'
-import GroupSelector from '@/components/common/GroupSelector.vue'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   modelValue: AnnouncementTargeting
-  groups: AdminGroup[]
+  plans: SubscriptionPlan[]
 }>()
 
 const emit = defineEmits<{
@@ -223,7 +240,7 @@ function defaultSubscriptionCondition(): AnnouncementCondition {
   return {
     type: 'subscription' as AnnouncementConditionType,
     operator: 'in' as AnnouncementOperator,
-    group_ids: []
+    plan_ids: []
   }
 }
 
@@ -314,13 +331,20 @@ function setBalanceValue(groupIndex: number, condIndex: number, raw: string) {
   })
 }
 
-// We keep group_ids selection in a parallel reactive map because GroupSelector is numeric list.
-// Then we mirror it back to targeting.group_ids via a watcher.
+// plan_ids 选择放在一个平行的 reactive map 里（按 OR 组 / AND 条件下标），再由 watcher 镜像回 targeting.plan_ids。
 const subscriptionSelections = reactive<Record<number, Record<number, number[]>>>({})
 
 function ensureSelectionPath(groupIndex: number, condIndex: number) {
   if (!subscriptionSelections[groupIndex]) subscriptionSelections[groupIndex] = {}
   if (!subscriptionSelections[groupIndex][condIndex]) subscriptionSelections[groupIndex][condIndex] = []
+}
+
+function togglePlan(groupIndex: number, condIndex: number, planID: number, checked: boolean) {
+  ensureSelectionPath(groupIndex, condIndex)
+  const current = subscriptionSelections[groupIndex][condIndex]
+  const idx = current.indexOf(planID)
+  if (checked && idx < 0) current.push(planID)
+  if (!checked && idx >= 0) current.splice(idx, 1)
 }
 
 // Sync from modelValue to subscriptionSelections (one-way: model -> local state)
@@ -335,7 +359,7 @@ watch(
         if (c?.type === 'subscription') {
           ensureSelectionPath(gi, ci)
           // Only update if different to avoid triggering unnecessary updates
-          const newIds = (c.group_ids ?? []).slice()
+          const newIds = (c.plan_ids ?? []).slice()
           const currentIds = subscriptionSelections[gi]?.[ci] ?? []
           if (JSON.stringify(newIds.sort()) !== JSON.stringify(currentIds.sort())) {
             subscriptionSelections[gi][ci] = newIds
@@ -369,7 +393,7 @@ watch(
           if (c?.type === 'subscription') {
             ensureSelectionPath(gi, ci)
             c.operator = 'in' as AnnouncementOperator
-            c.group_ids = (subscriptionSelections[gi]?.[ci] ?? []).slice()
+            c.plan_ids = (subscriptionSelections[gi]?.[ci] ?? []).slice()
           }
         }
       }
@@ -398,7 +422,7 @@ const validationError = computed(() => {
 
     for (const c of allOf) {
       if (c.type === 'subscription') {
-        if (!c.group_ids || c.group_ids.length === 0) return t('admin.announcements.form.selectPackages')
+        if (!c.plan_ids || c.plan_ids.length === 0) return t('admin.announcements.form.selectPackages')
       }
     }
   }

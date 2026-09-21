@@ -4,10 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 import AdminPaymentPlansView from '../AdminPaymentPlansView.vue'
 
-const { getPlans, getConfig, getGroups } = vi.hoisted(() => ({
+const { getPlans, getConfig } = vi.hoisted(() => ({
   getPlans: vi.fn(),
   getConfig: vi.fn(),
-  getGroups: vi.fn(),
 }))
 
 vi.mock('@/api/admin/payment', () => ({
@@ -17,12 +16,10 @@ vi.mock('@/api/admin/payment', () => ({
   },
 }))
 
+// 真实的 @/api/admin 索引会把 payment 模块的 default 也拉进来；这里整份桩掉
 vi.mock('@/api/admin', () => ({
-  default: {
-    groups: {
-      getAll: getGroups,
-    },
-  },
+  default: {},
+  adminAPI: { modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) } },
 }))
 
 vi.mock('vue-i18n', async (importOriginal) => {
@@ -48,14 +45,17 @@ const DataTableStub = {
 
 describe('AdminPaymentPlansView', () => {
   beforeEach(() => {
-    getGroups.mockResolvedValue([])
     getConfig.mockResolvedValue({ data: {} })
     getPlans.mockResolvedValue({
       data: [
         {
           id: 1,
           name: 'CNY plan',
-          group_id: 1,
+          daily_limit_usd: 1,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+          entry_ids: [199],
+          models: [{ entry_id: 199, model_id: 'gpt-5.6', display_name: 'GPT 5.6' }],
           price: 499,
           original_price: 599,
           currency: 'CNY',
@@ -68,7 +68,11 @@ describe('AdminPaymentPlansView', () => {
         {
           id: 2,
           name: 'Legacy plan',
-          group_id: 1,
+          daily_limit_usd: null,
+          weekly_limit_usd: null,
+          monthly_limit_usd: null,
+          entry_ids: [27],
+          models: [{ entry_id: 27, model_id: 'claude-sonnet-4-5', display_name: '' }],
           price: 10,
           original_price: 0,
           currency: '',
@@ -90,7 +94,6 @@ describe('AdminPaymentPlansView', () => {
           AppLayout: { template: '<div><slot /></div>' },
           DataTable: DataTableStub,
           ConfirmDialog: true,
-          GroupBadge: true,
           Icon: true,
           PlanEditDialog: true,
         },

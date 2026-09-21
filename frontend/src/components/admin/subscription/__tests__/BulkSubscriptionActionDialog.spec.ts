@@ -16,10 +16,10 @@ function subscription(id: number): UserSubscription {
   return {
     id,
     user_id: id,
-    group_id: 8,
+    plan_id: 8,
     status: 'active',
     user: { email: `user${id}@example.com` },
-    group: { name: 'Subscription group' }
+    plan: { id: 8, name: 'Subscription plan' }
   } as UserSubscription
 }
 
@@ -68,7 +68,7 @@ describe('BulkSubscriptionActionDialog', () => {
   it.each([30, -7, 36500, -36500])('submits whole-day adjustments of %s and shows target identities', async days => {
     const wrapper = mountDialog()
     expect(wrapper.text()).toContain('user1@example.com')
-    expect(wrapper.text()).toContain('Subscription group')
+    expect(wrapper.text()).toContain('Subscription plan')
     await wrapper.get('input[type="number"]').setValue(days)
     await wrapper.get('form').trigger('submit')
     await flushPromises()

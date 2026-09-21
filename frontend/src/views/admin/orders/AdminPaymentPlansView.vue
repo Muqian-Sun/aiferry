@@ -11,21 +11,16 @@
 
       <!-- Plans Table -->
       <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
-        <template #cell-name="{ value, row }">
-          <span class="text-sm font-medium" :class="getPlanNameClass(row.group_id)">{{ value }}</span>
+        <template #cell-name="{ value }">
+          <span class="text-sm font-medium text-gray-900 dark:text-white">{{ value }}</span>
         </template>
-        <template #cell-group_id="{ value }">
-          <span v-if="isGroupMissing(value)" class="text-sm">
-            <span class="text-gray-400">#{{ value }}</span>
-            <span class="ml-1 badge badge-danger">{{ t('payment.admin.groupMissing') }}</span>
+        <template #cell-limits="{ row }">
+          <span class="text-sm text-gray-700 dark:text-gray-300">{{ formatPlanLimits(row) }}</span>
+        </template>
+        <template #cell-models="{ row }">
+          <span class="text-sm text-gray-700 dark:text-gray-300" :title="(row.models || []).map(modelLabel).join(' / ')">
+            {{ (row.models || []).map(modelLabel).join(' / ') || '-' }}
           </span>
-          <GroupBadge
-            v-else-if="getGroup(value)"
-            :name="getGroup(value)!.name"
-            :platform="getGroup(value)!.platform"
-            :rate-multiplier="getGroup(value)!.rate_multiplier"
-          />
-          <span v-else class="text-sm text-gray-400">-</span>
         </template>
         <template #cell-price="{ value, row }">
           <div class="text-sm">
@@ -68,7 +63,7 @@
     </div>
 
     <!-- Plan Edit Dialog -->
-    <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :groups="groups" :payment-config="paymentConfig" @close="showPlanDialog = false" @saved="loadPlans" />
+    <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :payment-config="paymentConfig" @close="showPlanDialog = false" @saved="loadPlans" />
 
     <ConfirmDialog :show="showDeletePlanDialog" :title="t('payment.admin.deletePlan')" :message="t('payment.admin.deletePlanConfirm')" :confirm-text="t('common.delete')" danger @confirm="handleDeletePlan" @cancel="showDeletePlanDialog = false" />
   </AppLayout>
@@ -81,18 +76,14 @@ import { useAppStore } from '@/stores/app'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import type { AdminPaymentConfig } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
-import adminAPI from '@/api/admin'
 import type { SubscriptionPlan } from '@/types/payment'
-import type { AdminGroup } from '@/types'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
 import PlanEditDialog from './PlanEditDialog.vue'
 import { currencySymbol } from '@/components/payment/currency'
-import { platformTextClass } from '@/utils/platformColors'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -101,16 +92,7 @@ function planCurrencySymbol(currency?: string): string {
   return currencySymbol(currency || 'USD')
 }
 
-// ==================== Groups ====================
-
-const groups = ref<AdminGroup[]>([])
 const paymentConfig = ref<AdminPaymentConfig | null>(null)
-
-async function loadGroups() {
-  try {
-    groups.value = await adminAPI.groups.getAll()
-  } catch { /* ignore */ }
-}
 
 async function loadPaymentConfig() {
   try {
@@ -119,17 +101,18 @@ async function loadPaymentConfig() {
   } catch { /* preview only */ }
 }
 
-function getGroup(id: number): AdminGroup | undefined {
-  return groups.value.find(g => g.id === id)
+/** 三档限额拼串：日 / 周 / 月，null = 不限 */
+function formatPlanLimits(plan: SubscriptionPlan): string {
+  const fmt = (v: number | null | undefined) => (v == null ? t('payment.admin.unlimited') : `$${v}`)
+  return [
+    `${t('payment.admin.dailyLimitShort')} ${fmt(plan.daily_limit_usd)}`,
+    `${t('payment.admin.weeklyLimitShort')} ${fmt(plan.weekly_limit_usd)}`,
+    `${t('payment.admin.monthlyLimitShort')} ${fmt(plan.monthly_limit_usd)}`,
+  ].join(' · ')
 }
 
-function isGroupMissing(id: number): boolean {
-  return id > 0 && !groups.value.find(g => g.id === id)
-}
-
-function getPlanNameClass(groupId: number): string {
-  const group = getGroup(groupId)
-  return group ? platformTextClass(group.platform) : 'text-gray-900 dark:text-white'
+function modelLabel(m: { model_id: string; display_name: string }): string {
+  return m.display_name || m.model_id
 }
 
 
@@ -145,7 +128,8 @@ const deletingPlanId = ref<number | null>(null)
 const planColumns = computed((): Column[] => [
   { key: 'id', label: 'ID' },
   { key: 'name', label: t('payment.admin.planName') },
-  { key: 'group_id', label: t('payment.admin.group') },
+  { key: 'limits', label: t('payment.admin.limits') },
+  { key: 'models', label: t('payment.admin.models') },
   { key: 'price', label: t('payment.admin.price') },
   { key: 'validity_days', label: t('payment.admin.validity') },
   { key: 'for_sale', label: t('payment.admin.forSale') },
@@ -195,7 +179,6 @@ async function handleDeletePlan() {
 // ==================== Lifecycle ====================
 
 onMounted(() => {
-  loadGroups()
   loadPaymentConfig()
   loadPlans()
 })

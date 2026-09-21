@@ -164,7 +164,6 @@
                 v-if="row.group"
                 :name="row.group.name"
                 :platform="row.group.platform"
-                :subscription-type="row.group.subscription_type"
                 :rate-multiplier="row.group.rate_multiplier"
                 :peak-rate-enabled="row.group.peak_rate_enabled"
                 :peak-start="row.group.peak_start"
@@ -547,7 +546,6 @@
                 v-if="option"
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
@@ -560,7 +558,6 @@
               <GroupOptionItem
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
@@ -1166,7 +1163,6 @@
             <GroupOptionItem
               :name="option.label"
               :platform="option.platform"
-              :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :peak-rate-enabled="option.peakRateEnabled"
               :peak-start="option.peakStart"
