@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
@@ -195,7 +194,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				return
 			default:
 				if fs.LastFailoverErr != nil {
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
 				} else {
 					h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
 				}
@@ -311,7 +310,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
 				if c.Writer.Size() != writerSizeBeforeForward {
-					h.handleCCFailoverExhausted(c, failoverErr, true)
+					h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), true)
 					return
 				}
 				action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
@@ -319,7 +318,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				case FailoverContinue:
 					continue
 				case FailoverExhausted:
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)
@@ -386,35 +385,17 @@ func (h *GatewayHandler) chatCompletionsErrorResponse(c *gin.Context, status int
 	})
 }
 
-// handleCCFailoverExhausted writes a failover-exhausted error in CC format.
-func (h *GatewayHandler) handleCCFailoverExhausted(c *gin.Context, lastErr *service.UpstreamFailoverError, streamStarted bool) {
-	if streamStarted {
+// handleCCFailoverExhausted 换号耗尽：分类同三个入站，按 Chat Completions 形状写；流已开始时写 SSE 错误帧。
+func (h *GatewayHandler) handleCCFailoverExhausted(c *gin.Context, lastErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
+	resp := classifyFailoverExhausted(c, lastErr, exhaustedClassifyOptions{
+		Platform:       platform,
+		Passthrough:    h.errorPassthroughService,
+		MapUpstream:    openAIMapUpstreamError,
+		StreamStarted:  streamStarted,
+		RawUpstream400: true,
+	})
+	if resp.Written {
 		return
 	}
-	if lastErr != nil {
-		copyFailoverRetryAfter(c, lastErr.ResponseHeaders)
-	}
-	if lastErr != nil && lastErr.IsCredentialFailure() {
-		status, message := credentialFailoverClientResponse(lastErr)
-		h.chatCompletionsErrorResponse(c, status, "server_error", message)
-		return
-	}
-	if lastErr != nil && lastErr.IsOpenAICapacityShed() && strings.TrimSpace(lastErr.ClientMessage) != "" {
-		status := lastErr.ClientStatusCode
-		if status <= 0 {
-			status = http.StatusServiceUnavailable
-		}
-		h.chatCompletionsErrorResponse(c, status, "server_error", lastErr.ClientMessage)
-		return
-	}
-	statusCode := http.StatusBadGateway
-	if lastErr != nil && lastErr.StatusCode > 0 {
-		statusCode = lastErr.StatusCode
-	}
-	if lastErr != nil && service.IsOpenAISilentRefusalErrorBody(lastErr.ResponseBody) {
-		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
-		h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage())
-		return
-	}
-	h.chatCompletionsErrorResponse(c, statusCode, "server_error", "All available accounts exhausted")
+	h.handleStreamingAwareError(c, resp.Status, resp.ErrType, resp.Message, streamStarted)
 }

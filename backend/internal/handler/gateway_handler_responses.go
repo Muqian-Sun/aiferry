@@ -5,7 +5,6 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
@@ -197,7 +196,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				return
 			default:
 				if fs.LastFailoverErr != nil {
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
 				} else {
 					h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
 				}
@@ -303,7 +302,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			if errors.As(err, &failoverErr) {
 				// Can't failover if streaming content already sent
 				if c.Writer.Size() != writerSizeBeforeForward {
-					h.handleResponsesFailoverExhausted(c, failoverErr, true)
+					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), true)
 					return
 				}
 				action := fs.HandleFailoverError(requestCtx, h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
@@ -311,7 +310,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				case FailoverContinue:
 					continue
 				case FailoverExhausted:
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, streamStarted)
+					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)
@@ -378,40 +377,28 @@ func (h *GatewayHandler) responsesErrorResponse(c *gin.Context, status int, code
 	})
 }
 
-// handleResponsesFailoverExhausted writes a failover-exhausted error in Responses format.
-func (h *GatewayHandler) handleResponsesFailoverExhausted(c *gin.Context, lastErr *service.UpstreamFailoverError, streamStarted bool) {
-	if lastErr != nil {
-		copyFailoverRetryAfter(c, lastErr.ResponseHeaders)
-	}
-	statusCode := http.StatusBadGateway
-	if lastErr != nil && lastErr.StatusCode > 0 {
-		statusCode = lastErr.StatusCode
-	}
-	status, code, message := statusCode, "server_error", "All available accounts exhausted"
-	if lastErr != nil && lastErr.IsCredentialFailure() {
-		status, message = credentialFailoverClientResponse(lastErr)
-	} else if lastErr != nil && lastErr.IsOpenAICapacityShed() && strings.TrimSpace(lastErr.ClientMessage) != "" {
-		status = lastErr.ClientStatusCode
-		if status <= 0 {
-			status = http.StatusServiceUnavailable
-		}
-		message = lastErr.ClientMessage
-	} else if lastErr != nil && service.IsOpenAISilentRefusalErrorBody(lastErr.ResponseBody) {
-		service.SetOpsUpstreamError(c, statusCode, service.OpenAISilentRefusalClientMessage(), "")
-		status, code, message = http.StatusBadGateway, "upstream_error", service.OpenAISilentRefusalClientMessage()
-	} else if lastErr != nil && statusCode == http.StatusTooManyRequests {
-		status, code, message = http.StatusTooManyRequests, "rate_limit_error", "All available accounts are currently rate-limited. Please retry later."
+// handleResponsesFailoverExhausted 换号耗尽：分类同三个入站，按 Responses 形状写；流已开始时补 response.failed。
+func (h *GatewayHandler) handleResponsesFailoverExhausted(c *gin.Context, lastErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
+	resp := classifyFailoverExhausted(c, lastErr, exhaustedClassifyOptions{
+		Platform:       platform,
+		Passthrough:    h.errorPassthroughService,
+		MapUpstream:    openAIMapUpstreamError,
+		StreamStarted:  streamStarted,
+		RawUpstream400: true,
+	})
+	if resp.Written {
+		return
 	}
 	if streamStarted {
 		// A slot-wait heartbeat commits HTTP 200 before any upstream response.
 		// In that case a terminal frame is still required; once any semantic or
 		// official terminal bytes exist, preserve them without appending a second
 		// generic response.failed.
-		service.MarkOpsStreamError(c, code, message, status)
+		service.MarkOpsStreamError(c, resp.ErrType, resp.Message, resp.Status)
 		if c != nil && c.Writer != nil && (c.Writer.Size() <= 0 || gatewayStreamHasOnlyHeartbeats(c)) {
-			writeResponsesFailedSSE(c, code, "", message)
+			writeResponsesFailedSSE(c, resp.ErrType, "", resp.Message)
 		}
 		return
 	}
-	h.responsesErrorResponse(c, status, code, message)
+	h.responsesErrorResponse(c, resp.Status, resp.ErrType, resp.Message)
 }

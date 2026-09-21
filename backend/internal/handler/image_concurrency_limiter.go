@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-type imageConcurrencyLimiter struct {
+type ImageConcurrencyLimiter struct {
 	mu      sync.Mutex
 	notify  chan struct{}
 	limit   int
@@ -15,15 +15,15 @@ type imageConcurrencyLimiter struct {
 	enabled bool
 }
 
-func (l *imageConcurrencyLimiter) TryAcquire(enabled bool, limit int) (func(), bool) {
+func (l *ImageConcurrencyLimiter) TryAcquire(enabled bool, limit int) (func(), bool) {
 	return l.acquire(context.Background(), enabled, limit, false, 0, 0)
 }
 
-func (l *imageConcurrencyLimiter) Acquire(ctx context.Context, enabled bool, limit int, wait bool, timeout time.Duration, maxWaiting int) (func(), bool) {
+func (l *ImageConcurrencyLimiter) Acquire(ctx context.Context, enabled bool, limit int, wait bool, timeout time.Duration, maxWaiting int) (func(), bool) {
 	return l.acquire(ctx, enabled, limit, wait, timeout, maxWaiting)
 }
 
-func (l *imageConcurrencyLimiter) acquire(ctx context.Context, enabled bool, limit int, wait bool, timeout time.Duration, maxWaiting int) (func(), bool) {
+func (l *ImageConcurrencyLimiter) acquire(ctx context.Context, enabled bool, limit int, wait bool, timeout time.Duration, maxWaiting int) (func(), bool) {
 	if !enabled || limit <= 0 {
 		return nil, true
 	}
@@ -61,7 +61,7 @@ func (l *imageConcurrencyLimiter) acquire(ctx context.Context, enabled bool, lim
 	}
 }
 
-func (l *imageConcurrencyLimiter) tryAcquireLocked(enabled bool, limit int, wait bool, maxWaiting int) (func(), bool, func(), <-chan struct{}) {
+func (l *ImageConcurrencyLimiter) tryAcquireLocked(enabled bool, limit int, wait bool, maxWaiting int) (func(), bool, func(), <-chan struct{}) {
 	l.mu.Lock()
 	defer l.mu.Unlock()
 
@@ -86,7 +86,7 @@ func (l *imageConcurrencyLimiter) tryAcquireLocked(enabled bool, limit int, wait
 	return nil, false, l.waiterReleaseFunc(), l.notify
 }
 
-func (l *imageConcurrencyLimiter) waitForSlot(ctx context.Context, notify <-chan struct{}) bool {
+func (l *ImageConcurrencyLimiter) waitForSlot(ctx context.Context, notify <-chan struct{}) bool {
 	select {
 	case <-notify:
 		return true
@@ -95,7 +95,7 @@ func (l *imageConcurrencyLimiter) waitForSlot(ctx context.Context, notify <-chan
 	}
 }
 
-func (l *imageConcurrencyLimiter) releaseFunc() func() {
+func (l *ImageConcurrencyLimiter) releaseFunc() func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {
@@ -112,7 +112,7 @@ func (l *imageConcurrencyLimiter) releaseFunc() func() {
 	}
 }
 
-func (l *imageConcurrencyLimiter) waiterReleaseFunc() func() {
+func (l *ImageConcurrencyLimiter) waiterReleaseFunc() func() {
 	var once sync.Once
 	return func() {
 		once.Do(func() {

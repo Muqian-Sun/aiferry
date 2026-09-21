@@ -17,7 +17,7 @@ import (
 )
 
 func TestImageConcurrencyLimiter_DefaultDisabledAllowsRequests(t *testing.T) {
-	limiter := &imageConcurrencyLimiter{}
+	limiter := &ImageConcurrencyLimiter{}
 
 	release, acquired := limiter.TryAcquire(false, 1)
 
@@ -26,7 +26,7 @@ func TestImageConcurrencyLimiter_DefaultDisabledAllowsRequests(t *testing.T) {
 }
 
 func TestImageConcurrencyLimiter_RejectsWhenLimitReachedAndAllowsAfterRelease(t *testing.T) {
-	limiter := &imageConcurrencyLimiter{}
+	limiter := &ImageConcurrencyLimiter{}
 
 	release, acquired := limiter.TryAcquire(true, 1)
 	require.True(t, acquired)
@@ -44,7 +44,7 @@ func TestImageConcurrencyLimiter_RejectsWhenLimitReachedAndAllowsAfterRelease(t 
 }
 
 func TestImageConcurrencyLimiter_WaitsUntilSlotReleased(t *testing.T) {
-	limiter := &imageConcurrencyLimiter{}
+	limiter := &ImageConcurrencyLimiter{}
 	release, acquired := limiter.Acquire(context.Background(), true, 1, true, time.Second, 1)
 	require.True(t, acquired)
 	require.NotNil(t, release)
@@ -69,7 +69,7 @@ func TestImageConcurrencyLimiter_WaitsUntilSlotReleased(t *testing.T) {
 }
 
 func TestImageConcurrencyLimiter_WaitTimesOut(t *testing.T) {
-	limiter := &imageConcurrencyLimiter{}
+	limiter := &ImageConcurrencyLimiter{}
 	release, acquired := limiter.Acquire(context.Background(), true, 1, true, time.Second, 1)
 	require.True(t, acquired)
 	require.NotNil(t, release)
@@ -82,7 +82,7 @@ func TestImageConcurrencyLimiter_WaitTimesOut(t *testing.T) {
 }
 
 func TestImageConcurrencyLimiter_MaxWaitingRequestsRejectsOverflow(t *testing.T) {
-	limiter := &imageConcurrencyLimiter{}
+	limiter := &ImageConcurrencyLimiter{}
 	release, acquired := limiter.Acquire(context.Background(), true, 1, true, time.Second, 1)
 	require.True(t, acquired)
 	require.NotNil(t, release)
@@ -125,7 +125,7 @@ func TestOpenAIGatewayHandlerAcquireImageGenerationSlot_Returns429WhenFull(t *te
 				},
 			},
 		},
-		imageLimiter: &imageConcurrencyLimiter{},
+		imageLimiter: &ImageConcurrencyLimiter{},
 	}
 	release, acquired := h.acquireImageGenerationSlot(c, false)
 	require.True(t, acquired)
@@ -170,7 +170,7 @@ func TestOpenAIGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *
 			MaxConcurrentRequests: 1,
 			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
 		}}},
-		imageLimiter: &imageConcurrencyLimiter{},
+		imageLimiter: &ImageConcurrencyLimiter{},
 		modelCatalog: listAllCatalogStub{},
 	}
 	release, acquired := h.acquireImageGenerationSlot(c, false)
@@ -215,7 +215,7 @@ func TestOpenAIGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *
 			MaxConcurrentRequests: 1,
 			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
 		}}},
-		imageLimiter: &imageConcurrencyLimiter{},
+		imageLimiter: &ImageConcurrencyLimiter{},
 		modelCatalog: listAllCatalogStub{},
 	}
 	release, acquired := h.acquireImageGenerationSlot(c, false)

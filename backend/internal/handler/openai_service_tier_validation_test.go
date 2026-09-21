@@ -31,7 +31,7 @@ func newServiceTierHandlerTest(t *testing.T) *OpenAIGatewayHandler {
 			&helperConcurrencyCacheStub{userSeq: []bool{true}},
 		)},
 		cfg:          &config.Config{},
-		imageLimiter: &imageConcurrencyLimiter{},
+		imageLimiter: &ImageConcurrencyLimiter{},
 	}
 }
 

@@ -35,7 +35,7 @@ func TestGatewayChatCredentialStopDoesNotSelectAnotherAccountAndReturnsSafe503(t
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	(&GatewayHandler{}).handleCCFailoverExhausted(c, state.LastFailoverErr, false)
+	(&GatewayHandler{}).handleCCFailoverExhausted(c, state.LastFailoverErr, "", false)
 
 	require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
 	require.Contains(t, recorder.Body.String(), service.GrokCredentialUnavailableClientMessage)
@@ -57,7 +57,7 @@ func TestGatewayChatAntigravityCredentialFailureReturnsActionableMessage(t *test
 		ClientStatusCode:  http.StatusBadGateway,
 		ClientMessage:     service.AntigravityCredentialRejectedClientMessage,
 		ResponseBody:      []byte(`{"error":{"message":"Invalid bearer token","refresh_token":"must-not-leak"}}`),
-	}, false)
+	}, "", false)
 
 	require.Equal(t, http.StatusBadGateway, recorder.Code)
 	require.Contains(t, recorder.Body.String(), service.AntigravityCredentialRejectedClientMessage)
@@ -112,7 +112,7 @@ func TestOpenAICapacityFailoverExhaustionPreservesMessageAsServerError(t *testin
 	t.Run("responses_compat", func(t *testing.T) {
 		recorder := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(recorder)
-		(&GatewayHandler{}).handleResponsesFailoverExhausted(c, failoverErr, false)
+		(&GatewayHandler{}).handleResponsesFailoverExhausted(c, failoverErr, "", false)
 		require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
 		require.Equal(t, "server_error", gjson.Get(recorder.Body.String(), "error.code").String())
 		require.Equal(t, message, gjson.Get(recorder.Body.String(), "error.message").String())
@@ -178,7 +178,7 @@ func TestResponsesFailoverExhaustedAfterForwardedTerminalMarksOpsWithoutDuplicat
 	(&GatewayHandler{}).handleResponsesFailoverExhausted(c, &service.UpstreamFailoverError{
 		StatusCode:   http.StatusBadGateway,
 		ResponseBody: []byte(`{"error":{"message":"fallback failure"}}`),
-	}, true)
+	}, "", true)
 
 	require.Equal(t, official, recorder.Body.String())
 	streamErr, ok := service.GetOpsStreamError(c)
@@ -189,7 +189,7 @@ func TestResponsesFailoverExhaustedAfterForwardedTerminalMarksOpsWithoutDuplicat
 	markerContext, _ := gin.CreateTestContext(markerRecorder)
 	(&GatewayHandler{}).handleResponsesFailoverExhausted(markerContext, &service.UpstreamFailoverError{
 		StatusCode: http.StatusTooManyRequests,
-	}, true)
+	}, "", true)
 	require.Contains(t, markerRecorder.Body.String(), "event: response.failed")
 	require.Equal(t, 1, strings.Count(markerRecorder.Body.String(), "event: response.failed"))
 	streamErr, ok = service.GetOpsStreamError(markerContext)
@@ -205,7 +205,7 @@ func TestResponsesFailoverExhaustedAfterForwardedTerminalMarksOpsWithoutDuplicat
 	recordGatewayStreamHeartbeat(heartbeatContext, written)
 	(&GatewayHandler{}).handleResponsesFailoverExhausted(heartbeatContext, &service.UpstreamFailoverError{
 		StatusCode: http.StatusBadGateway,
-	}, true)
+	}, "", true)
 	require.True(t, strings.HasPrefix(heartbeatRecorder.Body.String(), heartbeat))
 	require.Equal(t, 1, strings.Count(heartbeatRecorder.Body.String(), "event: response.failed"))
 }
@@ -218,7 +218,7 @@ func TestGatewayChatInferenceExhaustionRestoresRetryAfter(t *testing.T) {
 	(&GatewayHandler{}).handleCCFailoverExhausted(c, &service.UpstreamFailoverError{
 		StatusCode:      http.StatusTooManyRequests,
 		ResponseHeaders: http.Header{"Retry-After": []string{"45"}},
-	}, false)
+	}, "", false)
 
 	require.Equal(t, http.StatusTooManyRequests, recorder.Code)
 	require.Equal(t, "45", recorder.Header().Get("Retry-After"))
