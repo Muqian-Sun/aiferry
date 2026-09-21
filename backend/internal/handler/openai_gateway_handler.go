@@ -1129,6 +1129,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available", blockedCandidate))
 		return
 	}
+	// 订阅模型集：订阅 key 只能调套餐里的条目（HTTP 由 SubscriptionModelAdmission 中间件判，WS 在这里判同一条规则）。
+	wsSubscription, _ := middleware2.GetSubscriptionFromContext(c)
+	if !service.SubscriptionCoversRoute(wsSubscription, route) {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+		middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotInPlan)
+		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not included in your subscription plan", route.RequestedModel))
+		return
+	}
 	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
 	// 分组级模型白名单：首帧校验客户端模型，不通过则关闭连接并标记运维原因。
 	if blocked := blockedModelAllowlistCandidate(apiKey.Group, firstCandidates); blocked != "" {
@@ -1570,6 +1578,12 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
 					middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotListed)
 					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not available", blockedCandidate), nil)
+				}
+				// 换模型也要在套餐模型集里
+				if !service.SubscriptionCoversRoute(wsSubscription, turnRoute) {
+					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
+					middleware2.MarkIngressRejected(c, middleware2.IngressRejectModelNotInPlan)
+					return service.NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, fmt.Sprintf("Model %q is not included in your subscription plan", turnRoute.RequestedModel), nil)
 				}
 				if turnRoute.EntryID != route.EntryID && !slices.Contains(account.CatalogEntryIDs, turnRoute.EntryID) {
 					return newOpenAIWSUnsupportedModelSwitchError(model)

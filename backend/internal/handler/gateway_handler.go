@@ -58,6 +58,8 @@ type GatewayHandler struct {
 	settingService           *service.SettingService
 	// modelCatalog 用户可见模型列表的来源：只列上架条目。
 	modelCatalog service.CatalogListingSource
+	// subscriptionService /v1/usage 对订阅已失效的订阅 key 取套餐名用（鉴权 ctx 里没订阅）。
+	subscriptionService *service.SubscriptionService
 }
 
 // NewGatewayHandler creates a new GatewayHandler
@@ -888,11 +890,15 @@ func (h *GatewayHandler) Models(c *gin.Context) {
 	writeModelsList(c, platform, h.listedModelIDs(c, apiKey))
 }
 
-// listedModelIDs 返回用户可见的模型：目录里上架的条目，再按分组白名单（若开启）过滤。
+// listedModelIDs 返回用户可见的模型：目录里上架的条目，订阅 key 只留套餐模型集里的，再按分组白名单（若开启）过滤。
 func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) []string {
 	entries := h.modelCatalog.ListListedEntries(c.Request.Context())
+	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	ids := make([]string, 0, len(entries))
 	for i := range entries {
+		if subscription != nil && !subscription.Plan.Covers(entries[i].ID) {
+			continue
+		}
 		ids = append(ids, entries[i].ModelID)
 	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
@@ -1046,6 +1052,7 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 // 分组级模型白名单开启时再按白名单过滤。
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	allowlistOn := apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	defaults := antigravity.DefaultModels()
 	models := make([]antigravity.ClaudeModel, 0, len(defaults))
@@ -1053,7 +1060,7 @@ func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
 		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(model.ID) {
 			continue
 		}
-		if !service.IsListedModel(c.Request.Context(), h.modelCatalog, model.ID) {
+		if !service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, model.ID) {
 			continue
 		}
 		models = append(models, model)
@@ -1278,29 +1285,39 @@ func (h *GatewayHandler) usageQuotaLimited(c *gin.Context, ctx context.Context, 
 
 // usageUnrestricted 处理 unrestricted 模式的响应（向后兼容）
 func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, apiKey *service.APIKey, subject middleware2.AuthSubject, usageData gin.H, dailyUsage any, modelStats any) {
-	// 订阅模式
-	if apiKey.Group != nil && apiKey.Group.IsSubscriptionType() {
+	// 订阅 key：套餐名与限额来自套餐
+	if apiKey.IsSubscriptionKey() {
 		resp := gin.H{
-			"mode":     "unrestricted",
-			"isValid":  true,
-			"planName": apiKey.Group.Name,
-			"unit":     "USD",
+			"mode":    "unrestricted",
+			"isValid": true,
+			"unit":    "USD",
 		}
 
-		// 订阅信息可能不在 context 中（/v1/usage 路径跳过了中间件的计费检查）
+		// 订阅有效时中间件已挂到 ctx；过期 / 撤销时 ctx 里没有（/v1/usage 跳过计费拦截），按 ID 回读拿套餐名并标 isValid:false
 		subscription, ok := middleware2.GetSubscriptionFromContext(c)
-		if ok {
-			remaining := h.calculateSubscriptionRemaining(apiKey.Group, subscription)
-			resp["remaining"] = remaining
+		if ok && subscription != nil && subscription.Plan != nil {
+			plan := subscription.Plan
+			resp["planName"] = plan.Name
+			resp["remaining"] = h.calculateSubscriptionRemaining(plan, subscription)
 			resp["subscription"] = gin.H{
 				"daily_usage_usd":     subscription.DailyUsageUSD,
 				"weekly_usage_usd":    subscription.WeeklyUsageUSD,
 				"monthly_usage_usd":   subscription.MonthlyUsageUSD,
-				"daily_limit_usd":     apiKey.Group.DailyLimitUSD,
-				"weekly_limit_usd":    apiKey.Group.WeeklyLimitUSD,
-				"monthly_limit_usd":   apiKey.Group.MonthlyLimitUSD,
+				"daily_limit_usd":     plan.DailyLimitUSD,
+				"weekly_limit_usd":    plan.WeeklyLimitUSD,
+				"monthly_limit_usd":   plan.MonthlyLimitUSD,
 				"weekly_window_start": subscription.WeeklyWindowStart,
 				"expires_at":          subscription.ExpiresAt,
+			}
+		} else {
+			resp["isValid"] = false
+			resp["planName"] = ""
+			resp["remaining"] = 0
+			if h.subscriptionService != nil {
+				if inactive, err := h.subscriptionService.GetByID(ctx, *apiKey.SubscriptionID); err == nil && inactive != nil && inactive.Plan != nil {
+					resp["planName"] = inactive.Plan.Name
+					resp["subscription"] = gin.H{"expires_at": inactive.ExpiresAt, "status": inactive.Status}
+				}
 			}
 		}
 
@@ -1344,16 +1361,16 @@ func (h *GatewayHandler) usageUnrestricted(c *gin.Context, ctx context.Context, 
 	c.JSON(http.StatusOK, resp)
 }
 
-// calculateSubscriptionRemaining 计算订阅剩余可用额度
+// calculateSubscriptionRemaining 计算订阅剩余可用额度（套餐限额）
 // 逻辑：
 // 1. 如果日/周/月任一限额达到100%，返回0
 // 2. 否则返回所有已配置周期中剩余额度的最小值
-func (h *GatewayHandler) calculateSubscriptionRemaining(group *service.Group, sub *service.UserSubscription) float64 {
+func (h *GatewayHandler) calculateSubscriptionRemaining(plan *service.SubscriptionPlan, sub *service.UserSubscription) float64 {
 	var remainingValues []float64
 
 	// 检查日限额
-	if group.HasDailyLimit() {
-		remaining := *group.DailyLimitUSD - sub.DailyUsageUSD
+	if plan.HasDailyLimit() {
+		remaining := *plan.DailyLimitUSD - sub.DailyUsageUSD
 		if remaining <= 0 {
 			return 0
 		}
@@ -1361,8 +1378,8 @@ func (h *GatewayHandler) calculateSubscriptionRemaining(group *service.Group, su
 	}
 
 	// 检查周限额
-	if group.HasWeeklyLimit() {
-		remaining := *group.WeeklyLimitUSD - sub.WeeklyUsageUSD
+	if plan.HasWeeklyLimit() {
+		remaining := *plan.WeeklyLimitUSD - sub.WeeklyUsageUSD
 		if remaining <= 0 {
 			return 0
 		}
@@ -1370,8 +1387,8 @@ func (h *GatewayHandler) calculateSubscriptionRemaining(group *service.Group, su
 	}
 
 	// 检查月限额
-	if group.HasMonthlyLimit() {
-		remaining := *group.MonthlyLimitUSD - sub.MonthlyUsageUSD
+	if plan.HasMonthlyLimit() {
+		remaining := *plan.MonthlyLimitUSD - sub.MonthlyUsageUSD
 		if remaining <= 0 {
 			return 0
 		}

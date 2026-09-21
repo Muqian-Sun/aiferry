@@ -39,6 +39,9 @@ func RegisterGatewayRoutes(
 	// 条目不分入口（/v1beta、/antigravity 的资格由协议转换注册表与强制平台决定）。
 	catalogAdmission := middleware.CatalogAdmission(modelCatalog)
 
+	// 订阅模型集准入：订阅 key 只能调套餐里的条目，紧跟目录准入（要读 ctx 里的 CatalogRoute）。
+	subscriptionModelAdmission := middleware.SubscriptionModelAdmission()
+
 	// 分组级模型白名单准入：在目录准入之后，只看客户端书写的模型名。
 	groupModelAllowlist := middleware.GroupModelAllowlist()
 
@@ -149,6 +152,7 @@ func RegisterGatewayRoutes(
 	gateway.Use(gin.HandlerFunc(apiKeyAuth))
 	gateway.GET("/sub2api/billing", h.Gateway.KeyBillingInfo)
 	gateway.Use(catalogAdmission)
+	gateway.Use(subscriptionModelAdmission)
 	gateway.Use(groupModelAllowlist)
 	gateway.Use(requireGroupAnthropic)
 	{
@@ -280,6 +284,7 @@ func RegisterGatewayRoutes(
 	gemini.Use(endpointNorm)
 	gemini.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
 	gemini.Use(catalogAdmission)
+	gemini.Use(subscriptionModelAdmission)
 	gemini.Use(groupModelAllowlist)
 	gemini.Use(requireGroupGoogle)
 	{
@@ -294,7 +299,7 @@ func RegisterGatewayRoutes(
 	// 根路径别名共用中间件链：目录准入与白名单在 apiKeyAuth 之后，
 	// 避免逐条路由手工维护链导致漏挂。
 	rootRoute := func(method, path string, limit gin.HandlerFunc, handler gin.HandlerFunc) {
-		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic, handler)
+		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic, handler)
 	}
 	rootRoute(http.MethodPost, "/responses", bodyLimit, responsesHandler)
 	rootRoute(http.MethodPost, "/responses/*subpath", bodyLimit, guardResponsesSubpath(responsesHandler))
@@ -306,7 +311,7 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/models/:model", bodyLimit, h.Gateway.Models)
 	rootRoute(http.MethodPost, "/messages/count_tokens", bodyLimit, countTokensHandler)
 	codexDirect := r.Group("/backend-api/codex")
-	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic)
+	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic)
 	{
 		codexDirect.POST("/realtime/calls", h.OpenAIGateway.Live)
 		codexDirect.GET("/:call_id", h.OpenAIGateway.LiveSideband)
@@ -414,6 +419,7 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1.Use(gin.HandlerFunc(apiKeyAuth))
 	antigravityV1.Use(catalogAdmission)
+	antigravityV1.Use(subscriptionModelAdmission)
 	antigravityV1.Use(groupModelAllowlist)
 	antigravityV1.Use(requireGroupAnthropic)
 	{
@@ -431,6 +437,7 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(middleware.ForcePlatform(service.PlatformAntigravity))
 	antigravityV1Beta.Use(middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg))
 	antigravityV1Beta.Use(catalogAdmission)
+	antigravityV1Beta.Use(subscriptionModelAdmission)
 	antigravityV1Beta.Use(groupModelAllowlist)
 	antigravityV1Beta.Use(requireGroupGoogle)
 	{

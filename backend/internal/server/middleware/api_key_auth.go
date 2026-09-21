@@ -10,7 +10,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 )
@@ -189,26 +191,26 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 			return
 		}
 
-		// ── 5. 按端点需要加载订阅 ───────────────────────────────────
+		// ── 5. 订阅 key：按绑定的订阅 ID 加载订阅（含套餐限额与模型集） ─────
 
 		var subscription *service.UserSubscription
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
 
 		// 倍率自省不需要订阅数据；/v1/usage 仍保留原有订阅读取行为。
-		if isSubscriptionType && subscriptionService != nil && !billingInfoRequest {
-			sub, subErr := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
-			)
-			if subErr != nil {
-				if !skipBilling {
-					AbortWithError(c, 403, "SUBSCRIPTION_NOT_FOUND", "No active subscription found for this group")
-					return
-				}
-				// skipBilling: 订阅不存在也放行，handler 会返回可用的数据
-			} else {
+		if apiKey.SubscriptionID != nil && subscriptionService != nil && !billingInfoRequest {
+			sub, subErr := subscriptionService.GetActiveSubscription(c.Request.Context(), *apiKey.SubscriptionID)
+			switch {
+			case subErr == nil:
 				subscription = sub
+			case skipBilling:
+				// /v1/usage 等：订阅不在也放行，handler 自己展示 isValid:false
+			case service.IsSubscriptionInactiveError(subErr):
+				AbortWithError(c, http.StatusForbidden, "SUBSCRIPTION_INVALID", "Subscription is not active")
+				return
+			default:
+				// Redis / DB 不通不是「你的订阅无效」
+				logger.L().Error("subscription lookup failed", zap.Int64("subscription_id", *apiKey.SubscriptionID), zap.Error(subErr))
+				AbortWithError(c, http.StatusServiceUnavailable, "BILLING_SERVICE_UNAVAILABLE", "Subscription service unavailable")
+				return
 			}
 		}
 
@@ -235,9 +237,9 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 				return
 			}
 
-			// 订阅模式：验证订阅限额
+			// 订阅模式：验证订阅限额（套餐限额）
 			if subscription != nil {
-				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				needsMaintenance, validateErr := subscriptionService.ValidateAndCheckLimits(subscription)
 				if needsMaintenance {
 					refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
 					if maintenanceErr != nil {
@@ -245,7 +247,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 						return
 					}
 					subscription = refreshed
-					_, validateErr = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+					_, validateErr = subscriptionService.ValidateAndCheckLimits(subscription)
 				}
 				if validateErr != nil {
 					code := "SUBSCRIPTION_INVALID"
@@ -260,7 +262,7 @@ func apiKeyAuthWithSubscription(apiKeyService *service.APIKeyService, subscripti
 					return
 				}
 			} else {
-				// 非订阅模式 或 订阅模式但 subscriptionService 未注入：回退到余额检查
+				// 余额 key（或订阅服务未注入）：余额阈值检查，完全不碰订阅
 				if apiKeyBalanceBelowAuthThreshold(apiKey.User.Balance, cfg) {
 					AbortWithError(c, 403, "INSUFFICIENT_BALANCE", "Insufficient account balance")
 					return
@@ -429,9 +431,6 @@ func validateAPIKeyGroupAllowed(apiKey *service.APIKey) bool {
 		return true
 	}
 	group := apiKey.Group
-	if group.IsSubscriptionType() {
-		return true
-	}
 	return apiKey.User.CanBindGroup(group.ID, group.IsExclusive)
 }
 
