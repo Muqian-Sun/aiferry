@@ -114,13 +114,6 @@
             <input v-model.number="form.output_price" type="number" step="any" class="input" data-testid="model-catalog-output-price" />
           </div>
         </div>
-        <div>
-          <label class="input-label">{{ t('admin.modelCatalog.fields.routePlatform') }}</label>
-          <select v-model="form.route_platform" class="input" data-testid="model-catalog-route-platform">
-            <option value="">{{ t('admin.modelCatalog.routePlatform.auto') }}</option>
-            <option v-for="platform in routePlatforms" :key="platform" :value="platform">{{ platform }}</option>
-          </select>
-        </div>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.listedRequiresPrice') }}</p>
         <p class="text-xs text-gray-500 dark:text-dark-400">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
 
@@ -278,7 +271,6 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
   protocols: [],
   billing_mode: 'token',
   status: 'listed',
-  route_platform: '',
   input_price: null,
   output_price: null
 })
@@ -287,9 +279,6 @@ const form = reactive<ModelCatalogEntryRequest>(emptyForm())
 
 // 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
 const billingModes = ['token', 'per_request', 'image', 'video'] as const
-
-// 与后端 catalogRoutePlatforms 一致：只能是一条真实的网关族。
-const routePlatforms = ['anthropic', 'openai', 'gemini', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'] as const
 
 // 数字输入清空后 v-model.number 得到 ''，后端按 *float64 解析会报 400：清空即「未配置」，发 null。
 const numericFields = [
@@ -397,7 +386,6 @@ async function openEdit(entry: ModelCatalogEntry) {
     protocols: entry.protocols,
     billing_mode: entry.billing_mode,
     status: entry.status,
-    route_platform: entry.route_platform ?? '',
     input_price: entry.input_price,
     output_price: entry.output_price,
     cache_write_price: entry.cache_write_price,

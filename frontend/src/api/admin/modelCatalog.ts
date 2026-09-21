@@ -27,8 +27,6 @@ export interface ModelCatalogEntry {
   billing_mode: string
   status: 'listed' | 'unlisted' | string
   managed_by: 'seed' | 'admin' | string
-  /** 条目走哪条网关族；空串表示按 vendor 推导。 */
-  route_platform: string
   input_price: number | null
   output_price: number | null
   cache_write_price: number | null
@@ -88,7 +86,6 @@ export interface ModelCatalogEntryRequest {
   protocols?: string[]
   billing_mode?: string
   status?: string
-  route_platform?: string
   input_price?: number | null
   output_price?: number | null
   cache_write_price?: number | null

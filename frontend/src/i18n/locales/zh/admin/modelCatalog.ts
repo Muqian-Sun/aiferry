@@ -22,13 +22,9 @@ export default {
       billingMode: '计费模式',
       status: '上架状态',
       managedBy: '维护方',
-      routePlatform: '网关族',
       resources: '资源',
       inputPrice: '输入价（$/token）',
       outputPrice: '输出价（$/token）'
-    },
-    routePlatform: {
-      auto: '按厂商自动'
     },
     bindings: {
       title: '绑定资源',
