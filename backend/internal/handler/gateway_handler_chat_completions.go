@@ -75,15 +75,25 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 	reqModel := modelResult.String()
-	bindRequestedReasoningEffort(c, body, reqModel)
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
 	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
+	// 分组推理强度策略（内部先把请求的 effort 挂到 ctx）
+	if cappedBody, changed, err := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
+		respondOpenAIReasoningEffortPolicyError(c, err, h.chatCompletionsErrorResponse)
+		return
+	} else if changed {
+		body = cappedBody
+	}
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
+		return
+	}
+	if _, err := service.ValidateOpenAIServiceTierField(body); err != nil {
+		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
 	if service.IsGPTImageGenerationModel(reqModel) {
@@ -109,6 +119,9 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 
 	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIChat, reqModel, body); decision != nil && !decision.AllowNextStage {
 		h.openAISecurityAuditError(c, decision)
+		return
+	}
+	if rejectIfCyberSessionBlocked(c, h.cyberPolicyDeps(), apiKey, body, reqModel, cyberBlockFormatChat) {
 		return
 	}
 
@@ -154,7 +167,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		UserAgent: c.GetHeader("User-Agent"),
 		APIKeyID:  apiKey.ID,
 	}
-	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
+	// 粘性键按 OpenAI 协议派生：会话头 / prompt_cache_key / 稳定的内容摘要（对 anthropic 池同样生效）。
+	sessionHash := h.openAIGatewayService.GenerateSessionHash(c, body)
+	// OpenAI 上游的 prompt cache 键（Responses prompt_cache_key）
+	promptCacheKey := h.openAIGatewayService.ExtractSessionID(c, body)
 	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
 	selectionSessionHash := sessionHash
 	if groupPlatform == service.PlatformGemini && selectionSessionHash != "" {
@@ -170,7 +186,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs)
+		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, groupPlatform)
@@ -251,10 +267,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		accountReleaseFunc = wrapReleaseOnDone(c.Request.Context(), accountReleaseFunc)
 
 		forwardTarget := chatCompletionsForwardTarget(account)
-		if forwardTarget == compatForwardOpenAI {
-			// OpenAI 目标 3b-4 接进来；今天走不到——OpenAI 族条目的 completion 入站在 routes 层分给 OpenAI handler。
-			forwardTarget = compatForwardSkip
-		}
 		if forwardTarget == compatForwardSkip {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()
@@ -277,8 +289,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
 		}
 		var result *service.ForwardResult
+		var oaResult *service.OpenAIForwardResult
 		setActualUpstreamEndpoint(c, "")
 		switch forwardTarget {
+		case compatForwardOpenAI:
+			// responses / chat_completions 上游：OpenAI 网关服务转换（目录模型按请求名转发）
+			oaResult, err = h.openAIGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, promptCacheKey, "")
 		case compatForwardGemini:
 			if h.geminiCompatService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Gemini compatibility service is not configured")
@@ -306,29 +322,141 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 			accountReleaseFunc()
 		}
 
+		// OpenAI 上游透传 cyber_policy 后的风控记录（未标记时 no-op）
+		var cyberBlockBody []byte
+		if service.GetOpsCyberPolicy(c) != nil {
+			cyberBlockBody = body
+		}
+		recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), apiKey, account, subscription, reqModel, err != nil, cyberBlockBody, clientRequestedUsageFields(c, channelMapping, reqModel, ""), service.HashUsageRequestPayload(body))
+
+		// 入账：两个网关服务的结果类型不同，按转发实现二选一。
+		submitForwardUsage := func(result *service.ForwardResult) {
+			userAgent := c.GetHeader("User-Agent")
+			clientIP := ip.GetClientIP(c)
+			requestPayloadHash := service.HashUsageRequestPayload(body)
+			inboundEndpoint := GetInboundEndpoint(c)
+			upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
+			sessionID := service.ExtractClientSessionID(c)
+			stampForwardRequestedReasoningEffort(result, service.RequestedReasoningEffortFromContext(c.Request.Context()))
+			h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
+				if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
+					Result:             result,
+					APIKey:             apiKey,
+					User:               apiKey.User,
+					Account:            account,
+					Subscription:       subscription,
+					PricingAt:          pricingAt,
+					InboundEndpoint:    inboundEndpoint,
+					UpstreamEndpoint:   upstreamEndpoint,
+					UserAgent:          userAgent,
+					IPAddress:          clientIP,
+					RequestPayloadHash: requestPayloadHash,
+					APIKeyService:      h.apiKeyService,
+					SessionID:          sessionID,
+					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+				}); err != nil {
+					reqLog.Error("gateway.cc.record_usage_failed",
+						zap.Int64("account_id", account.ID),
+						zap.Error(err),
+					)
+				}
+			})
+		}
+		submitOpenAIForwardUsage := func(res *service.OpenAIForwardResult) {
+			stampOpenAIRequestedReasoningEffort(res, c)
+			userAgent := c.GetHeader("User-Agent")
+			clientIP := ip.GetClientIP(c)
+			requestPayloadHash := service.HashUsageRequestPayload(body)
+			inboundEndpoint := GetInboundEndpoint(c)
+			upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, res)
+			sessionID := service.ExtractClientSessionID(c)
+			cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+			task := func(ctx context.Context) {
+				if err := h.openAIGatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
+					Result:             res,
+					APIKey:             apiKey,
+					User:               apiKey.User,
+					Account:            account,
+					Subscription:       subscription,
+					InboundEndpoint:    inboundEndpoint,
+					UpstreamEndpoint:   upstreamEndpoint,
+					UserAgent:          userAgent,
+					IPAddress:          clientIP,
+					RequestPayloadHash: requestPayloadHash,
+					APIKeyService:      h.apiKeyService,
+					SessionID:          sessionID,
+					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+					PricingAt:          pricingAt,
+					CyberBlocked:       cyberBlocked,
+				}); err != nil {
+					reqLog.Error("gateway.cc.record_openai_usage_failed", zap.Int64("account_id", account.ID), zap.Error(err))
+				}
+			}
+			// 媒体 / 搜索 / 语音结果不能因池溢出丢单
+			if res.ImageCount > 0 || res.VideoCount > 0 || res.SearchCount > 0 || res.WebSearchCalls > 0 || res.AudioUsage != nil {
+				h.submitMandatoryUsageRecordTask(c.Request.Context(), task)
+			} else {
+				h.submitUsageRecordTask(c.Request.Context(), task)
+			}
+		}
+		submitAttemptUsage := func() {
+			if oaResult != nil {
+				submitOpenAIForwardUsage(oaResult)
+				return
+			}
+			if result != nil {
+				submitForwardUsage(result)
+			}
+		}
+
 		if err != nil {
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
 				if c.Writer.Size() != writerSizeBeforeForward {
+					if forwardTarget == compatForwardOpenAI {
+						h.openAIGatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
+					}
 					h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), true)
 					return
 				}
+				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
+					h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, nil), false, nil, err)
+				}
+				switchCountBefore := fs.SwitchCount
 				action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
 				switch action {
 				case FailoverContinue:
+					// OAuth 429 风暴刹车：只在真正换号（不是同账号重试）后判断
+					if fs.SwitchCount > switchCountBefore && h.openAIGatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, fs.SwitchCount, &fs.OAuth429) {
+						h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+						return
+					}
 					continue
 				case FailoverExhausted:
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
+					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)
 					return
 				}
 			}
-			upstreamErrorAlreadyCommunicated := gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+			if forwardTarget == compatForwardOpenAI {
+				h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), false, nil, err)
+			}
+			var upstreamErrorAlreadyCommunicated bool
+			if forwardTarget == compatForwardOpenAI {
+				upstreamErrorAlreadyCommunicated = openAIForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+			} else {
+				upstreamErrorAlreadyCommunicated = gatewayForwardErrorAlreadyCommunicated(c, writerSizeBeforeForward, err)
+			}
 			wroteFallback := false
 			if !upstreamErrorAlreadyCommunicated {
-				wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+				if forwardTarget == compatForwardOpenAI {
+					wroteFallback = ensureOpenAIStreamReadErrorResponse(c, err, streamStarted)
+				}
+				if !wroteFallback {
+					wroteFallback = h.ensureForwardErrorResponse(c, streamStarted)
+				}
 			}
 			reqLog.Error("gateway.cc.forward_failed",
 				zap.Int64("account_id", account.ID),
@@ -336,41 +464,17 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				zap.Bool("upstream_error_response_already_written", upstreamErrorAlreadyCommunicated),
 				zap.Error(err),
 			)
+			// 错误返回携带的部分结果（流中断前上游已计量的 usage）照常入账；failover 错误恒定无结果。
+			submitAttemptUsage()
 			return
 		}
 
+		if oaResult != nil {
+			// key 健康熔断 / 调度统计的成功观测
+			h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), true, oaResult.FirstTokenMs)
+		}
 		// 6. Record usage
-		userAgent := c.GetHeader("User-Agent")
-		clientIP := ip.GetClientIP(c)
-		requestPayloadHash := service.HashUsageRequestPayload(body)
-		inboundEndpoint := GetInboundEndpoint(c)
-		upstreamEndpoint := GetUpstreamEndpoint(c, account.Platform)
-
-		sessionID := service.ExtractClientSessionID(c)
-		stampForwardRequestedReasoningEffort(result, service.RequestedReasoningEffortFromContext(c.Request.Context()))
-		h.submitUsageRecordTask(c.Request.Context(), func(ctx context.Context) {
-			if err := h.gatewayService.RecordUsage(ctx, &service.RecordUsageInput{
-				Result:             result,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				PricingAt:          pricingAt,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				RequestPayloadHash: requestPayloadHash,
-				APIKeyService:      h.apiKeyService,
-				SessionID:          sessionID,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
-			}); err != nil {
-				reqLog.Error("gateway.cc.record_usage_failed",
-					zap.Int64("account_id", account.ID),
-					zap.Error(err),
-				)
-			}
-		})
+		submitAttemptUsage()
 		return
 	}
 }
