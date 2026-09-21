@@ -72,7 +72,7 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 			billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 			t.Cleanup(billingCache.Stop)
 			gateway := service.NewOpenAIGatewayService(
-				repo, nil, nil, nil, nil, nil, nil, cfg, nil, nil,
+				repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 				service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 				&service.DeferredService{}, nil, nil, nil, nil, nil, nil,
 			)
@@ -80,7 +80,7 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 				acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
 				acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 			}
-			h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg)
+			h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, listAllCatalogStub{})
 			apiKey := &service.APIKey{
 				ID: 3201, UserID: 3301, GroupID: &groupID,
 				User:  &service.User{ID: 3301, Status: service.StatusActive},

@@ -27,8 +27,11 @@ func gatewayProfitTestGroup(id int64, platform string) *Group {
 	}
 }
 
+// gatewayProfitTestContext 模拟认证后的请求上下文：D 取用户倍率（这里用夹具分组的数当用户倍率，
+// 分组倍率本身不再参与）。
 func gatewayProfitTestContext(group *Group) context.Context {
 	ctx := context.WithValue(context.Background(), ctxkey.Group, group)
+	ctx = WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: group.RateMultiplier})
 	ctx, _ = WithGatewayTokenRequestPricing(ctx)
 	return ctx
 }
@@ -98,6 +101,7 @@ func TestGatewayProfitControlCompositeBillingUsesScheduledMemberConfig(t *testin
 	memberGroup.ProfitMinMargin = 0.25
 
 	ctx := context.WithValue(context.Background(), ctxkey.Group, billingGroup)
+	ctx = WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: 0.4})
 	ctx, pricingAt := WithGatewayTokenRequestPricing(ctx)
 	svc := &GatewayService{
 		schedulerSnapshot: NewSchedulerSnapshotService(
@@ -114,7 +118,7 @@ func TestGatewayProfitControlCompositeBillingUsesScheduledMemberConfig(t *testin
 	require.Equal(t, memberGroup.ID, gate.groupID)
 	require.Equal(t, PlatformAnthropic, gate.platform)
 	require.Equal(t, pricingAt, gate.pricingAt)
-	require.InDelta(t, 0.4*(1-0.25), gate.threshold, 1e-12, "D 必须取 composite 计费父分组，margin 取被调度成员分组")
+	require.InDelta(t, 0.4*(1-0.25), gate.threshold, 1e-12, "D = 用户倍率 0.4，margin 取被调度成员分组")
 }
 
 func TestGatewayProfitControlGroupLoadFailureClearsForeignGate(t *testing.T) {

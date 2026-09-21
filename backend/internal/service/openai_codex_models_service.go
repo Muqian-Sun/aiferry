@@ -124,6 +124,7 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 	ctx context.Context,
 	group *Group,
 	ifNoneMatch string,
+	listed func(modelID string) bool,
 ) (*OpenAIModelsResponse, bool, error) {
 	if s == nil || s.accountRepo == nil || group == nil || group.Platform != PlatformOpenAI {
 		return nil, false, nil
@@ -158,6 +159,10 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 	if err != nil {
 		return nil, false, fmt.Errorf("build group configured Codex models: %w", err)
 	}
+	body, _, err = filterCodexModelsManifestBySlug(body, listed)
+	if err != nil {
+		return nil, false, fmt.Errorf("filter group configured Codex models: %w", err)
+	}
 	manifest := &OpenAIModelsResponse{
 		Body: body,
 		ETag: codexModelsManifestBodyETag(body),
@@ -172,12 +177,14 @@ func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
 // MergeGroupConfiguredCodexModels adds account model aliases that are visible
 // to the authenticated OpenAI group without discarding metadata from upstream
 // Codex model entries. A group's custom models list also filters the picker,
-// matching the standard /v1/models display policy.
+// matching the standard /v1/models display policy. listed 最后再过滤一遍：只有
+// 目录上架的 slug 对用户可见；ETag 按最终响应体计算。
 func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 	ctx context.Context,
 	group *Group,
 	manifest *OpenAIModelsResponse,
 	ifNoneMatch string,
+	listed func(modelID string) bool,
 ) error {
 	if s == nil || s.accountRepo == nil || group == nil || manifest == nil || manifest.NotModified {
 		return nil
@@ -210,6 +217,11 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		}
 		changed = true
 	}
+	body, filtered, err := filterCodexModelsManifestBySlug(body, listed)
+	if err != nil {
+		return fmt.Errorf("filter Codex models by catalog: %w", err)
+	}
+	changed = changed || filtered
 	if changed {
 		manifest.Body = body
 		manifest.ETag = codexModelsManifestBodyETag(body)
@@ -219,6 +231,40 @@ func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
 		manifest.NotModified = true
 	}
 	return nil
+}
+
+// filterCodexModelsManifestBySlug 只保留 models[].slug 满足 listed 的条目；没有条目被移除时
+// 原样返回 body（changed=false）。
+func filterCodexModelsManifestBySlug(body []byte, listed func(modelID string) bool) ([]byte, bool, error) {
+	envelope, entries, err := modelCatalogEntries(body, "models")
+	if err != nil {
+		return nil, false, err
+	}
+	kept := make([]json.RawMessage, 0, len(entries))
+	for _, raw := range entries {
+		var model struct {
+			Slug string `json:"slug"`
+		}
+		if err := json.Unmarshal(raw, &model); err != nil {
+			return nil, false, err
+		}
+		if listed(model.Slug) {
+			kept = append(kept, raw)
+		}
+	}
+	if len(kept) == len(entries) {
+		return body, false, nil
+	}
+	mergedModels, err := json.Marshal(kept)
+	if err != nil {
+		return nil, false, err
+	}
+	envelope["models"] = mergedModels
+	merged, err := json.Marshal(envelope)
+	if err != nil {
+		return nil, false, err
+	}
+	return merged, true, nil
 }
 
 func (s *OpenAIGatewayService) groupConfiguredCodexModelIDs(ctx context.Context, group *Group) ([]string, error) {
@@ -1213,8 +1259,17 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	if account == nil {
 		return false
 	}
-	switch account.Platform {
-	case PlatformOpenAI, PlatformDeepseek:
+	// 成品号按平台；第三方 key 不看标签：官方 xAI 地址的 key 走 Grok 规则，
+	// 其余一律按 OpenAI 兼容清单处理。
+	platform := account.Platform
+	if account.IsThirdPartyKey() {
+		platform = PlatformOpenAI
+		if account.Vendor() == PlatformGrok {
+			platform = PlatformGrok
+		}
+	}
+	switch platform {
+	case PlatformOpenAI:
 		if metadata, ok := account.GetUpstreamModelMetadata(upstreamModel); ok {
 			if modalities := normalizeCodexInputModalities(metadata.InputModalities); len(modalities) > 0 {
 				// Official GPT-6 Astra metadata briefly shipped with a stale
@@ -1228,20 +1283,14 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 			}
 		}
 		if strings.EqualFold(strings.TrimSpace(upstreamModel), "deepseek-v4-flash-vision-exp") {
-			return account.Type == AccountTypeAPIKey
+			return account.IsThirdPartyKey()
 		}
-		if account.Platform != PlatformOpenAI || !isOpenAICodexImageInputModel(upstreamModel) {
-			return false
-		}
-		if account.IsOpenAIOAuth() {
-			return true
-		}
-		if !account.IsOpenAIApiKey() {
+		if !isOpenAICodexImageInputModel(upstreamModel) {
 			return false
 		}
 		// Compatible model lists often omit modalities. Preserve the known GPT
 		// fallback unless a synced snapshot above explicitly narrows it.
-		return true
+		return account.IsOpenAIOAuth() || account.IsThirdPartyKey()
 	case PlatformGrok:
 		if !isOfficialGrokCodexBaseURL(account.GetGrokBaseURL()) {
 			return false
@@ -1253,14 +1302,16 @@ func accountCodexModelSupportsImageInput(account *Account, upstreamModel string)
 	}
 }
 
+// isOfficialOpenAICodexAccount 报告账号是否直连 OpenAI 官方：OpenAI 成品号，或协议地址
+// 全是 OpenAI 官方域的第三方 key（不看平台标签）。
 func isOfficialOpenAICodexAccount(account *Account) bool {
-	if account == nil || account.Platform != PlatformOpenAI {
+	if account == nil {
 		return false
 	}
-	if account.IsOpenAIOAuth() {
-		return true
+	if account.IsThirdPartyKey() {
+		return account.Vendor() == PlatformOpenAI
 	}
-	return account.IsOpenAIApiKey() && isOfficialOpenAIModelsBaseURL(account.GetOpenAIBaseURL())
+	return account.IsOpenAIOAuth()
 }
 
 func isGrokCodexImageInputModel(model string) bool {
@@ -1647,8 +1698,10 @@ func (s *OpenAIGatewayService) FetchCodexModelsManifest(ctx context.Context, acc
 		if authToken == "" && !credAccount.IsOpenAIAgentIdentity() {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_TOKEN_MISSING", "account has no Codex backend access token")
 		}
-	case credAccount.IsOpenAIApiKey():
-		baseURL := strings.TrimSpace(credAccount.GetOpenAIBaseURL())
+	case credAccount.IsThirdPartyKey():
+		// 第三方 key 不看平台标签：/models 清单挂在 OpenAI API 根地址（chat_completions）下，
+		// 与选号口径（UpstreamProtocolFor("") 只认 chat_completions 地址）一致，选中的 key 必有该地址。
+		baseURL := credAccount.ProtocolEndpoint(APIProtocolChatCompletions)
 		authToken = strings.TrimSpace(credAccount.GetOpenAIProtocolAPIKey())
 		if authToken == "" {
 			return nil, infraerrors.New(http.StatusBadGateway, "OPENAI_CODEX_MODELS_API_KEY_MISSING", "account has no API key for the Codex models upstream")
@@ -2157,7 +2210,7 @@ func convertOpenAIModelListToCodexManifestForAccount(body []byte, account *Accou
 // contract immediately before a group-specific API key manifest is returned.
 // The shared upstream cache remains independent from local group policy.
 func (s *OpenAIGatewayService) CompleteAPIKeyCodexModelsManifestForClient(manifest *OpenAIModelsResponse, account *Account) error {
-	if manifest == nil || account == nil || !account.IsOpenAIApiKey() || manifest.NotModified || len(manifest.Body) == 0 {
+	if manifest == nil || account == nil || !account.IsThirdPartyKey() || manifest.NotModified || len(manifest.Body) == 0 {
 		return nil
 	}
 	body := manifest.Body

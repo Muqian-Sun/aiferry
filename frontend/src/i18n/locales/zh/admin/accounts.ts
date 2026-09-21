@@ -63,10 +63,17 @@ export default {
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
       groupCountTotal: '共 {count} 个分组',
+      // 第三方 key 列表里协议地址的短标签，悬停显示主机。
+      protocolShort: {
+        anthropic: 'Messages',
+        chat_completions: 'Chat',
+        responses: 'Responses',
+        gemini: 'Gemini'
+      },
       columns: {
         name: '名称',
         id: '账号ID',
-        platformType: '平台/类型',
+        platformType: '厂商/类型',
         platform: '平台',
         type: '类型',
         capacity: '容量',
@@ -545,16 +552,12 @@ export default {
         submit: '批量更新',
         updating: '更新中...',
         success: '成功更新 {count} 个账号',
-        successWithInherited: '成功更新 {count} 个账号；其中 {inherited} 个影子账号仍跟随母账号。',
         partialSuccess: '部分更新成功：成功 {success} 个，失败 {failed} 个',
-        partialSuccessWithInherited: '部分更新成功：成功 {success} 个，失败 {failed} 个；其中 {inherited} 个影子账号仍跟随母账号。',
         failed: '批量更新失败',
         noSelection: '请选择要编辑的账号',
         noFieldsSelected: '请至少选择一个要更新的字段',
         rateSyncWarning: '已开启上游倍率同步的账号不能批量手工修改倍率，请先在账号编辑页关闭同步。',
         rateSyncConflict: '无法修改账号倍率：{count} 个目标账号已开启上游倍率同步。',
-        longContextShadowHint: '长上下文计费归母账号所有。选中的影子账号仍跟随母账号，筛选全量目标时同样如此。',
-        longContextParentRequired: '选中的账号全部是影子账号，请选择母账号修改长上下文计费。',
         mixedPlatformWarning: '所选账号跨越多个平台（{platforms}）。显示的模型映射预设为合并结果——请确保映射对每个平台都适用。'
       },
       bulkDeleteTitle: '批量删除账号',
@@ -659,8 +662,6 @@ export default {
         flattenNamespaces: '摊平 Codex namespace 工具（兼容）',
         flattenNamespacesDesc:
           '默认关闭：/responses 上的 namespace 工具声明原样转发，这正是 ChatGPT Codex 后端期望的形态。仅当该 OAuth 账号指向不认识 namespace 的兼容上游时才开启——摊平会把工具改名为 namespace__tool，使按 functions.<命名空间>.<工具> 寻址的模型（如 gpt-5.6 多智能体）无法调用。压缩（compact）请求不受该开关影响，始终摊平。',
-        longContextBilling: 'API 长上下文计费',
-        longContextBillingDesc: '默认关闭。仅当该账号的上游会按模型阈值收取 OpenAI API 长上下文费率时开启。',
         responsesWebsocketsV2: 'Responses WebSocket v2',
         responsesWebsocketsV2Desc:
           '默认关闭。开启后可启用 responses_websockets_v2 协议能力（受网关全局开关与账号类型开关约束）。',

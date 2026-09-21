@@ -82,6 +82,20 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Con
 	return result, nil
 }
 
+// ListSchedulingCandidatesByCatalogEntry 返回 CatalogEntryIDs 含该条目的账号（不看平台与分组）。
+func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]Account, error) {
+	var out []Account
+	for _, account := range r.accounts {
+		for _, id := range account.CatalogEntryIDs {
+			if id == entryID {
+				out = append(out, account)
+				break
+			}
+		}
+	}
+	return out, nil
+}
+
 func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -97,7 +111,7 @@ type schedulerGroupAwareOpenAIAccountRepo struct {
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -107,7 +121,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}
@@ -117,7 +131,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -127,7 +141,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatfor
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}
@@ -527,7 +541,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabledUsesLega
 func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_LoadBatchReportsFilterReasons(t *testing.T) {
 	resetOpenAIAdvancedSchedulerSettingCacheForTest()
 
-	ctx := withOpenAIQuotaAutoPauseSettings(context.Background(), OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold7d: 0.9})
+	ctx := context.Background()
 	groupID := int64(10107)
 	quotaPaused := Account{
 		ID:          36003,
@@ -536,11 +550,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_LoadBat
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
-		Extra: map[string]any{
-			"codex_7d_used_percent":  95.0,
-			"codex_7d_reset_at":      time.Now().Add(24 * time.Hour).Format(time.RFC3339),
-			"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
-		},
+		// 额度超限由状态服务写成 temp_unschedulable（ApplyAccountQuotaState），调度器只读状态。
+		TempUnschedulableUntil:  ptrTime(time.Now().Add(24 * time.Hour)),
+		TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 7d window 95.0% used"),
 	}
 	mappingMiss := Account{
 		ID:          36004,
@@ -588,7 +600,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_LoadBat
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
 	require.Nil(t, selection)
 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
-	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=3, filtered: excluded=1 model_not_supported=1 quota_auto_pause_7d=1)")
+	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=3, filtered: excluded=1 model_not_supported=1 not_schedulable=1)")
 }
 
 func TestOpenAIGatewayService_SelectAccountWithScheduler_DefaultDisabled_RequiredWSV2_SkipsHTTPOnlyAccount(t *testing.T) {
@@ -1041,10 +1053,10 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_GrokMediaCapabilityFilt
 // carry per-reason exclusion counts. Previously all filter branches were silent
 // (debug logs at best), so a 503 with excluded_account_count=0 could not be
 // diagnosed from the error alone.
-func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReportsQuotaAutoPauseExclusion(t *testing.T) {
+func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReportsTempUnschedulableExclusion(t *testing.T) {
 	resetOpenAIAdvancedSchedulerSettingCacheForTest()
 
-	ctx := withOpenAIQuotaAutoPauseSettings(context.Background(), OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold7d: 0.9})
+	ctx := context.Background()
 	groupID := int64(101201)
 	accounts := []Account{
 		{
@@ -1054,11 +1066,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReports
 			Status:      StatusActive,
 			Schedulable: true,
 			Concurrency: 1,
-			Extra: map[string]any{
-				"codex_7d_used_percent":  95.0,
-				"codex_7d_reset_at":      time.Now().Add(24 * time.Hour).Format(time.RFC3339),
-				"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
-			},
+			// 额度超限由状态服务写成 temp_unschedulable（ApplyAccountQuotaState），调度器只读状态。
+			TempUnschedulableUntil:  ptrTime(time.Now().Add(24 * time.Hour)),
+			TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 7d window 95.0% used"),
 		},
 	}
 	cfg := &config.Config{}
@@ -1077,7 +1087,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReports
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
 	require.Nil(t, selection)
 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
-	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=1, filtered: quota_auto_pause_7d=1)")
+	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=1, filtered: not_schedulable=1)")
 }
 
 func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReportsModelNotSupported(t *testing.T) {
@@ -1117,7 +1127,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReports
 func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorAggregatesReasonsDeterministically(t *testing.T) {
 	resetOpenAIAdvancedSchedulerSettingCacheForTest()
 
-	ctx := withOpenAIQuotaAutoPauseSettings(context.Background(), OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold7d: 0.9})
+	ctx := context.Background()
 	groupID := int64(101203)
 	quotaPaused := Account{
 		ID:          38121,
@@ -1126,11 +1136,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorAggrega
 		Status:      StatusActive,
 		Schedulable: true,
 		Concurrency: 1,
-		Extra: map[string]any{
-			"codex_7d_used_percent":  95.0,
-			"codex_7d_reset_at":      time.Now().Add(24 * time.Hour).Format(time.RFC3339),
-			"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
-		},
+		// 额度超限由状态服务写成 temp_unschedulable（ApplyAccountQuotaState），调度器只读状态。
+		TempUnschedulableUntil:  ptrTime(time.Now().Add(24 * time.Hour)),
+		TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 7d window 95.0% used"),
 	}
 	mappingMiss := Account{
 		ID:          38122,
@@ -1168,7 +1176,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorAggrega
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
 	require.Nil(t, selection)
 	// Reasons are sorted lexicographically, so the message is deterministic.
-	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=3, filtered: excluded=1 model_not_supported=1 quota_auto_pause_7d=1)")
+	require.EqualError(t, err, "no available OpenAI accounts supporting model: gpt-5.4-mini (pool=3, filtered: excluded=1 model_not_supported=1 not_schedulable=1)")
 }
 
 func TestOpenAIGatewayService_SelectAccountWithScheduler_NoAvailableErrorReportsEmptyPool(t *testing.T) {
@@ -1763,297 +1771,6 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SessionStickyRateLimite
 	require.NotNil(t, selection.Account)
 	require.Equal(t, int64(31002), selection.Account.ID)
 	require.Equal(t, openAIAccountScheduleLayerLoadBalance, decision.Layer)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AutoPauseBy5hThreshold(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35001,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   95.0,
-			"auto_pause_5h_threshold": 0.95,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35002, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35002), account.ID)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AllowsBelow5hThreshold(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35101,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   80.0,
-			"auto_pause_5h_threshold": 0.95,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35102, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35101), account.ID)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_AutoPauseBy7dThreshold(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35201,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_7d_used_percent":   95.0,
-			"auto_pause_7d_threshold": 0.95,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35202, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35202), account.ID)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_UnconfiguredThresholdKeepsLegacyBehavior(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{ID: 35301, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 0, Extra: map[string]any{"codex_5h_used_percent": 99.0, "codex_7d_used_percent": 99.0}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	secondary := Account{ID: 35302, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35301), account.ID)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_UsesGlobalDefaultThreshold(t *testing.T) {
-	ctx := withOpenAIQuotaAutoPauseSettings(context.Background(), OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
-	primary := Account{
-		ID:          35401,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent": 95.0,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35402, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35402), account.ID)
-}
-
-// Regression: a per-account explicit-disable flag exempts the account from auto-pause
-// even when a global default threshold is set. Without this, "leave threshold blank"
-// silently falls back to global default and admins have no way to whitelist a single
-// account.
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_PerAccountDisableOverridesGlobalDefault(t *testing.T) {
-	ctx := withOpenAIQuotaAutoPauseSettings(context.Background(), OpsOpenAIAccountQuotaAutoPauseSettings{DefaultThreshold5h: 0.95})
-	// Account has high usage AND no per-account threshold (would normally fall back to
-	// the global default and get paused), but the explicit disable flag is set.
-	primary := Account{
-		ID:          35701,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":  99.0,
-			"auto_pause_5h_disabled": true,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35701), account.ID)
-}
-
-// Disable is per-window: disabling only 5h must still allow 7d auto-pause to fire.
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_PerWindowDisableScoped(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35801,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"codex_7d_used_percent":   99.0,
-			"auto_pause_5h_disabled":  true,
-			"auto_pause_7d_threshold": 0.95,
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35802), account.ID, "7d auto-pause must still fire even though 5h is disabled")
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageWindowResetSkipsPause(t *testing.T) {
-	ctx := context.Background()
-	// Usage is over threshold but the window's reset time has already passed, so the
-	// cached percentage is stale (the real window rolled over) and the account must NOT
-	// stay paused — otherwise it could be skipped forever with no traffic to refresh it.
-	primary := Account{
-		ID:          35501,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"auto_pause_5h_threshold": 0.95,
-			"codex_5h_reset_at":       time.Now().Add(-time.Minute).Format(time.RFC3339),
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35502, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35501), account.ID)
-}
-
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshUsageWindowStillPauses(t *testing.T) {
-	ctx := context.Background()
-	// Same as above but the window has not reset yet, so the account stays paused.
-	primary := Account{
-		ID:          35601,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"auto_pause_5h_threshold": 0.95,
-			"codex_5h_reset_at":       time.Now().Add(time.Hour).Format(time.RFC3339),
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35602, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35602), account.ID)
-}
-
-// Issue #2994: an account poisoned with an inflated used% (e.g. from the reverted #2918
-// inversion) gets excluded from scheduling, and a paused account never receives traffic to
-// refresh its snapshot. When the snapshot is stale (codex_usage_updated_at older than the
-// staleness bound) the account must be allowed a request so it can self-heal from the real
-// response headers — independent of the window's reset time.
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_StaleUsageSnapshotSkipsPause_Issue2994(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35701,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"auto_pause_5h_threshold": 0.95,
-			// Window has NOT reset yet, so the reset guard stays inactive.
-			"codex_5h_reset_at": time.Now().Add(time.Hour).Format(time.RFC3339),
-			// Snapshot is stale: older than openAICodexAutoPauseStaleAfter (2h).
-			"codex_usage_updated_at": time.Now().Add(-3 * time.Hour).Format(time.RFC3339),
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35702, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35701), account.ID)
-}
-
-// Issue #2994 guardrail: a genuinely-exhausted account whose snapshot was refreshed recently
-// (codex_usage_updated_at fresh) must STILL be auto-paused. The stale self-heal must not let a
-// real 99%-used account escape pause.
-func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_FreshExhaustedSnapshotStillPauses_Issue2994(t *testing.T) {
-	ctx := context.Background()
-	primary := Account{
-		ID:          35801,
-		Platform:    PlatformOpenAI,
-		Type:        AccountTypeAPIKey,
-		Status:      StatusActive,
-		Schedulable: true,
-		Concurrency: 1,
-		Priority:    0,
-		Extra: map[string]any{
-			"codex_5h_used_percent":   99.0,
-			"auto_pause_5h_threshold": 0.95,
-			"codex_5h_reset_at":       time.Now().Add(time.Hour).Format(time.RFC3339),
-			// Snapshot refreshed 1 minute ago: not stale, so the account stays paused.
-			"codex_usage_updated_at": time.Now().Add(-time.Minute).Format(time.RFC3339),
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	secondary := Account{ID: 35802, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 5, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{accountRepo: schedulerTestOpenAIAccountRepo{accounts: []Account{primary, secondary}}, cfg: &config.Config{}}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gpt-5.1", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, int64(35802), account.ID)
 }
 
 func TestOpenAIGatewayService_SelectAccountForModelWithExclusions_SkipsFreshlyRateLimitedSnapshotCandidate(t *testing.T) {
@@ -3275,7 +2992,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKFallback
 // the candidate pool is filled with paused accounts, healthy accounts fall outside
 // TopK, and the scheduler returns "no available accounts" even though healthy ones
 // exist.
-func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKExcludesQuotaPaused(t *testing.T) {
+func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKExcludesTempUnschedulable(t *testing.T) {
 	ctx := context.Background()
 	groupID := int64(110)
 	accounts := []Account{
@@ -3287,11 +3004,10 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_LoadBalanceTopKExcludes
 			Schedulable: true,
 			Concurrency: 1,
 			Priority:    0,
-			Extra: map[string]any{
-				"codex_5h_used_percent":   96.0,
-				"auto_pause_5h_threshold": 0.95,
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			// 额度超限由状态服务写成 temp_unschedulable，TopK 候选池只读状态。
+			TempUnschedulableUntil:  ptrTime(time.Now().Add(time.Hour)),
+			TempUnschedulableReason: BuildTempUnschedReasonPayload(openAIQuotaAutoPauseSource, "codex 5h window 96.0% used"),
+			ProtocolEndpoints:       map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 		},
 		{
 			ID:                37002,

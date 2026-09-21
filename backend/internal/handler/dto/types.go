@@ -33,6 +33,8 @@ type User struct {
 
 	// RPMLimit 用户级每分钟请求数上限（0 = 不限制），仅在所用分组未设置 rpm_limit 时作为兜底生效。
 	RPMLimit int `json:"rpm_limit"`
+	// RateMultiplier 用户级计费倍率：用户价 = 目录价 × RateMultiplier；0 = 免费。
+	RateMultiplier float64 `json:"rate_multiplier"`
 
 	APIKeys       []APIKey           `json:"api_keys,omitempty"`
 	Subscriptions []UserSubscription `json:"subscriptions,omitempty"`
@@ -45,9 +47,6 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
-	// GroupRates 用户专属分组倍率配置
-	// map[groupID]rateMultiplier
-	GroupRates map[int64]float64 `json:"group_rates,omitempty"`
 	// RestrictPublicGroups 为 true 时，该用户仅可使用 allowed_groups 中列出的
 	// 公开分组。这是管理侧的权限开关，不下发给用户自身的接口。
 	RestrictPublicGroups bool `json:"restrict_public_groups"`
@@ -307,10 +306,11 @@ type Account struct {
 	// 影子账号关系（spark 维度影子）
 	ParentAccountID *int64 `json:"parent_account_id,omitempty"`
 	QuotaDimension  string `json:"quota_dimension,omitempty"`
-	// SourceKind 账号来源：subscription / api_key；空表示历史数据尚未分类。
-	SourceKind string `json:"source_kind,omitempty"`
 	// ProtocolEndpoints 协议 → 上游地址映射。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints,omitempty"`
+	// Vendor 按上游地址识别出的官方厂商：成品号等于 platform；第三方 key 只有全部协议地址
+	// 都是某厂商官方域时才有值，中转 / 聚合平台为空。厂商特化按它启用，platform 对 key 只是展示标签。
+	Vendor string `json:"vendor,omitempty"`
 
 	// 影子账号回填的母账号信息（仅影子非空，源自母账号 Credentials/Extra）
 	ParentEmail                 string `json:"parent_email,omitempty"`

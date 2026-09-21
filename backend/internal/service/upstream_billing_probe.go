@@ -630,11 +630,10 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 		// 第三方 key 没配地址是配置错误，不再替它去探官方域。
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "missing_protocol_endpoint", 0)
 	}
-	if account.Platform != PlatformOpenAI && upstreamBillingProbeTargetIsOfficialAPI(baseURL) {
-		// 其他平台指向官方 API 根域（前端创建时预填官方默认域，且提供
-		// us-east-1.api.x.ai 等官方区域预设）⇒
-		// 必无 /v1/sub2api/billing；不发请求，直接记 unsupported，避免
-		// 拿账号 Key 周期性请求官方域的不存在路径。
+	if upstreamBillingProbeTargetIsOfficialAPI(baseURL) {
+		// 指向官方 API 根域（前端创建时预填官方默认域，且提供 us-east-1.api.x.ai 等
+		// 官方区域预设）⇒ 必无 /v1/sub2api/billing；不发请求，直接记 unsupported，
+		// 避免拿账号 Key 周期性请求官方域的不存在路径。平台标签不参与判定。
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "unsupported", 0)
 	}
 	normalizedBaseURL, err := s.accountTestService.validateUpstreamBaseURL(baseURL)
@@ -658,12 +657,8 @@ func (s *UpstreamBillingProbeService) probeLoadedAccount(ctx context.Context, ac
 	if err != nil {
 		return s.persistProbeFailure(ctx, account, intervalMinutes, now, 0, "request_build_failed", 0)
 	}
-	// OpenAI 账号保持官方 openai 传输画像；其他平台探测走默认画像。
-	profile := HTTPUpstreamProfileDefault
-	if account.Platform == PlatformOpenAI {
-		profile = HTTPUpstreamProfileOpenAI
-	}
-	reqCtx := WithHTTPUpstreamProfile(req.Context(), profile)
+	// 能走到这里的只有中转地址（官方域已在上面短路），一律用默认传输画像。
+	reqCtx := WithHTTPUpstreamProfile(req.Context(), HTTPUpstreamProfileDefault)
 	req = req.WithContext(WithHTTPUpstreamRedirectsDisabled(reqCtx))
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
@@ -993,27 +988,16 @@ func decodeUpstreamBillingProbeSnapshot(extra map[string]any) *UpstreamBillingPr
 
 // IsUpstreamBillingProbeIdentity reports whether an account identity may opt
 // in to the upstream billing probe. `/v1/sub2api/billing` is a key-scoped
-// sub2api convention shared by the supported API-key platforms (including the
-// CN providers, whose official-domain accounts are short-circuited to
-// "unsupported" by upstreamBillingProbeTargetIsOfficialAPI).
-// Non-sub2api upstreams return 404 and the snapshot records "unsupported".
-// Only AccountTypeAPIKey is in scope. OAuth/Bedrock hold no static API key to
-// present at all. Antigravity relay accounts are ordinary type=apikey accounts.
-func IsUpstreamBillingProbeIdentity(platform, accountType string) bool {
-	if accountType != AccountTypeAPIKey {
-		return false
-	}
-	switch platform {
-	case PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformAntigravity, PlatformGrok,
-		PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
-		return true
-	default:
-		return false
-	}
+// sub2api convention: every third-party key may opt in, whatever its display
+// label (official-domain targets are short-circuited to "unsupported" by
+// upstreamBillingProbeTargetIsOfficialAPI, non-sub2api relays return 404 and
+// record "unsupported"). OAuth/Bedrock hold no static API key to present at all.
+func IsUpstreamBillingProbeIdentity(accountType string) bool {
+	return accountType == AccountTypeAPIKey
 }
 
 func isUpstreamBillingProbeAccount(account *Account) bool {
-	return account != nil && IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
+	return account != nil && account.IsThirdPartyKey()
 }
 
 // upstreamBillingProbeOfficialAPIDomains lists the root domains of official

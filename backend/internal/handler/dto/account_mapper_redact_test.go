@@ -104,3 +104,22 @@ func TestAccountFromServiceShallow_NilCredentialsOmitsStatus(t *testing.T) {
 	require.Nil(t, got.Credentials)
 	require.Nil(t, got.CredentialsStatus)
 }
+
+// vendor 按上游地址识别：第三方 key 的 platform 只是展示标签，前端要靠 vendor 知道
+// 这把 key 实际直连的是哪家官方，中转 / 聚合平台为空。
+func TestAccountFromServiceShallow_ExposesVendorByAddress(t *testing.T) {
+	official := AccountFromServiceShallow(&service.Account{
+		ID: 1, Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.deepseek.com"},
+	})
+	require.Equal(t, service.PlatformDeepseek, official.Vendor, "an openai-labelled key on api.deepseek.com is a DeepSeek key")
+
+	relay := AccountFromServiceShallow(&service.Account{
+		ID: 2, Platform: service.PlatformKimi, Type: service.AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://relay.example/v1"},
+	})
+	require.Empty(t, relay.Vendor, "a relay is no vendor, whatever the label")
+
+	subscription := AccountFromServiceShallow(&service.Account{ID: 3, Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth})
+	require.Equal(t, service.PlatformAnthropic, subscription.Vendor)
+}

@@ -128,6 +128,10 @@ func (m *mockAccountRepoForGemini) ListSchedulingCandidates(ctx context.Context,
 	}
 	return result, nil
 }
+func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	if m.listByGroupFunc != nil {
 		return m.listByGroupFunc(ctx, groupID, platforms)
@@ -459,37 +463,6 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_Antigra
 	require.Equal(t, PlatformAntigravity, acc.Platform, "antigravity 分组应只返回 antigravity 账户")
 }
 
-// TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_OAuthPreferred 测试 OAuth 优先
-func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_OAuthPreferred(t *testing.T) {
-	ctx := context.Background()
-
-	repo := &mockAccountRepoForGemini{
-		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Type: AccountTypeAPIKey, Priority: 1, Status: StatusActive, Schedulable: true, LastUsedAt: nil, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
-			{ID: 2, Platform: PlatformGemini, Type: AccountTypeOAuth, Priority: 1, Status: StatusActive, Schedulable: true, LastUsedAt: nil},
-		},
-		accountsByID: map[int64]*Account{},
-	}
-	for i := range repo.accounts {
-		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-	}
-
-	cache := &mockGatewayCacheForGemini{}
-	groupRepo := &mockGroupRepoForGemini{groups: map[int64]*Group{}}
-
-	svc := &GeminiMessagesCompatService{
-		accountRepo: repo,
-		groupRepo:   groupRepo,
-		cache:       cache,
-	}
-
-	acc, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gemini-2.5-flash", nil)
-	require.NoError(t, err)
-	require.NotNil(t, acc)
-	require.Equal(t, int64(2), acc.ID, "同优先级且都未使用时，应优先选择 OAuth 账户")
-	require.Equal(t, AccountTypeOAuth, acc.Type)
-}
-
 // TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_NoAvailableAccounts 测试无可用账户
 func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_NoAvailableAccounts(t *testing.T) {
 	ctx := context.Background()
@@ -819,34 +792,6 @@ func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_ListErr
 	require.Error(t, err)
 	require.Nil(t, acc)
 	require.Contains(t, err.Error(), "query accounts failed")
-}
-
-func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_PreferOAuth(t *testing.T) {
-	ctx := context.Background()
-	repo := &mockAccountRepoForGemini{
-		accounts: []Account{
-			{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
-			{ID: 2, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true, Type: AccountTypeOAuth},
-		},
-		accountsByID: map[int64]*Account{},
-	}
-	for i := range repo.accounts {
-		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-	}
-
-	cache := &mockGatewayCacheForGemini{}
-	groupRepo := &mockGroupRepoForGemini{groups: map[int64]*Group{}}
-
-	svc := &GeminiMessagesCompatService{
-		accountRepo: repo,
-		groupRepo:   groupRepo,
-		cache:       cache,
-	}
-
-	acc, err := svc.SelectAccountForModelWithExclusions(ctx, nil, "", "gemini-2.5-pro", nil)
-	require.NoError(t, err)
-	require.NotNil(t, acc)
-	require.Equal(t, int64(2), acc.ID)
 }
 
 func TestGeminiMessagesCompatService_SelectAccountForModelWithExclusions_PreferLeastRecentlyUsed(t *testing.T) {

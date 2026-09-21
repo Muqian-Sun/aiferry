@@ -2482,11 +2482,8 @@ func (s *AccountTestService) buildGeminiOAuthRequest(ctx context.Context, accoun
 	projectID := strings.TrimSpace(account.GetCredential("project_id"))
 	if projectID == "" {
 		// AI Studio OAuth mode (no project_id): call generativelanguage API directly with Bearer token.
-		baseURL := account.GetCredential("base_url")
-		if strings.TrimSpace(baseURL) == "" {
-			baseURL = geminicli.AIStudioBaseURL
-		}
-		normalizedBaseURL, err := s.validateUpstreamBaseURL(baseURL)
+		// 成品号只走官方地址，没有账号级 base_url。
+		normalizedBaseURL, err := s.validateUpstreamBaseURL(geminicli.AIStudioBaseURL)
 		if err != nil {
 			return nil, err
 		}

@@ -30,11 +30,11 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
 		return
 	}
-	if apiKey.Group == nil || (apiKey.Group.Platform != service.PlatformOpenAI && apiKey.Group.Platform != service.PlatformComposite) {
+	if apiKey.Group == nil || effectiveAPIKeyPlatform(c, apiKey) != service.PlatformOpenAI {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Live is not supported for this platform")
 		return
 	}
-	if !liveEnabledForAPIKey(apiKey) {
+	if !liveEnabledForAPIKey(c, apiKey) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
 		return
 	}
@@ -208,7 +208,7 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "User context not found")
 		return
 	}
-	if !liveEnabledForAPIKey(apiKey) {
+	if !liveEnabledForAPIKey(c, apiKey) {
 		h.errorResponse(c, http.StatusForbidden, "permission_error", "Live is not enabled for this group")
 		return
 	}
@@ -240,9 +240,11 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 	_ = downstream.Close(coderws.StatusNormalClosure, "")
 }
 
-func liveEnabledForAPIKey(apiKey *service.APIKey) bool {
+// liveEnabledForAPIKey Live 只在 OpenAI 族（目录路由的条目网关族，或无模型时的分组平台）上可用，
+// 且仍受分组 allow_live 开关约束。
+func liveEnabledForAPIKey(c *gin.Context, apiKey *service.APIKey) bool {
 	return apiKey != nil &&
 		apiKey.Group != nil &&
-		(apiKey.Group.Platform == service.PlatformOpenAI || apiKey.Group.Platform == service.PlatformComposite) &&
+		effectiveAPIKeyPlatform(c, apiKey) == service.PlatformOpenAI &&
 		apiKey.Group.AllowLive
 }

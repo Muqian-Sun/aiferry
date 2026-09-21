@@ -74,7 +74,8 @@ import { computed } from 'vue'
 import type { GroupPlatform } from '@/types'
 
 interface Props {
-  platform?: GroupPlatform
+  /** 账号 / 分组平台，或第三方 key 未识别厂商时的 'relay' 占位（走通用图标）。 */
+  platform?: GroupPlatform | 'relay'
   size?: 'xs' | 'sm' | 'md' | 'lg'
 }
 

@@ -139,6 +139,10 @@ func (s *accountRepoStub) ListSchedulingCandidates(ctx context.Context, platform
 	panic("unexpected ListSchedulingCandidates call")
 }
 
+func (s *accountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (s *accountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	panic("unexpected ListSchedulingCandidatesByGroupID call")
 }

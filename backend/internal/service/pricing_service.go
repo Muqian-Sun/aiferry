@@ -204,10 +204,45 @@ type PricingService struct {
 	// fallback/override 文件在最近一次成功重建时的内容指纹，定时器据此判断是否
 	// 需要从本地目录缓存重建叠加层。
 	customFilesHash string
+	// dataVersion 每次替换 pricingData 时 +1；一轮更新前后比对它，判断有没有真的换过数据。
+	dataVersion uint64
+	// onUpdated 在一轮更新真的换过数据后依次调用（在调度器 goroutine 里）。
+	onUpdated []func()
 
 	// 停止信号
 	stopCh chan struct{}
 	wg     sync.WaitGroup
+}
+
+// OnPricingUpdated 注册价格数据更新后的回调：定时同步或手动强制更新换过数据才触发，
+// 哈希一致 / 文件未变的空轮不触发。启动时的首次加载也不触发（启动流程自己调播种）。
+func (s *PricingService) OnPricingUpdated(fn func()) {
+	if s == nil || fn == nil {
+		return
+	}
+	s.mu.Lock()
+	s.onUpdated = append(s.onUpdated, fn)
+	s.mu.Unlock()
+}
+
+func (s *PricingService) currentDataVersion() uint64 {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.dataVersion
+}
+
+// notifyIfUpdatedSince 数据版本相对 before 变过就跑一遍回调。
+func (s *PricingService) notifyIfUpdatedSince(before uint64) {
+	s.mu.RLock()
+	changed := s.dataVersion != before
+	hooks := append([]func(){}, s.onUpdated...)
+	s.mu.RUnlock()
+	if !changed {
+		return
+	}
+	for _, fn := range hooks {
+		fn()
+	}
 }
 
 // NewPricingService 创建价格服务
@@ -279,14 +314,7 @@ func (s *PricingService) startUpdateScheduler() {
 		for {
 			select {
 			case <-ticker.C:
-				if remoteEnabled {
-					if err := s.syncWithRemote(); err != nil {
-						logger.LegacyPrintf("service.pricing", "[Pricing] Sync failed: %v", err)
-					}
-				}
-				if watchCustom {
-					s.reloadIfCustomFilesChanged()
-				}
+				s.runScheduledUpdate(remoteEnabled, watchCustom)
 			case <-s.stopCh:
 				return
 			}
@@ -294,6 +322,20 @@ func (s *PricingService) startUpdateScheduler() {
 	}()
 
 	logger.LegacyPrintf("service.pricing", "[Pricing] Update scheduler started (check every %v, remote sync=%t, custom file watch=%t)", hashInterval, remoteEnabled, watchCustom)
+}
+
+// runScheduledUpdate 跑一轮定时更新：远程同步 + 本地叠加层文件比对；真的换过数据才通知回调。
+func (s *PricingService) runScheduledUpdate(remoteEnabled, watchCustom bool) {
+	before := s.currentDataVersion()
+	if remoteEnabled {
+		if err := s.syncWithRemote(); err != nil {
+			logger.LegacyPrintf("service.pricing", "[Pricing] Sync failed: %v", err)
+		}
+	}
+	if watchCustom {
+		s.reloadIfCustomFilesChanged()
+	}
+	s.notifyIfUpdatedSince(before)
 }
 
 // checkAndUpdatePricing 检查并更新价格数据
@@ -499,6 +541,7 @@ func (s *PricingService) reloadCustomPricingLayers() error {
 	s.mu.Lock()
 	warnDroppedLongContextLadders(s.pricingData, data)
 	s.pricingData = data
+	s.dataVersion++
 	s.customFilesHash = fingerprint
 	s.mu.Unlock()
 
@@ -566,6 +609,7 @@ func (s *PricingService) downloadPricingData() error {
 	s.mu.Lock()
 	warnDroppedLongContextLadders(s.pricingData, data)
 	s.pricingData = data
+	s.dataVersion++
 	s.lastUpdated = time.Now()
 	s.localHash = syncHash
 	s.customFilesHash = customFilesHash
@@ -990,6 +1034,7 @@ func (s *PricingService) loadPricingData(filePath string) error {
 	s.mu.Lock()
 	warnDroppedLongContextLadders(s.pricingData, pricingData)
 	s.pricingData = pricingData
+	s.dataVersion++
 	s.localHash = hashStr
 	s.customFilesHash = customFilesHash
 
@@ -1595,9 +1640,12 @@ func (s *PricingService) GetStatus() map[string]any {
 	}
 }
 
-// ForceUpdate 强制更新
+// ForceUpdate 强制更新；下载成功换了数据就触发更新回调。
 func (s *PricingService) ForceUpdate() error {
-	return s.downloadPricingData()
+	before := s.currentDataVersion()
+	err := s.downloadPricingData()
+	s.notifyIfUpdatedSince(before)
+	return err
 }
 
 // getPricingFilePath 获取价格文件路径
@@ -1626,6 +1674,26 @@ func (s *PricingService) ListModelNamesByProvider(provider string) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+// SnapshotModelPricing 返回价格表的浅拷贝（键 → 条目副本），供模型目录播种使用。
+// 返回的每个条目都是值拷贝，调用方改动不会污染服务内部的价格表。
+func (s *PricingService) SnapshotModelPricing() map[string]*LiteLLMModelPricing {
+	if s == nil {
+		return nil
+	}
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	out := make(map[string]*LiteLLMModelPricing, len(s.pricingData))
+	for name, pricing := range s.pricingData {
+		if pricing == nil {
+			continue
+		}
+		cloned := *pricing
+		out[name] = &cloned
+	}
+	return out
 }
 
 // isNumeric 检查字符串是否为纯数字

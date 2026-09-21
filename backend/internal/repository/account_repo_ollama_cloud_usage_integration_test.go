@@ -395,10 +395,10 @@ func accountIDs(accounts []service.Account) []int64 {
 	return ids
 }
 
-// 平台白名单放开后，官方 ollama.com key 挂在国产 OpenAI 兼容平台下同样进用量
-// 窗口：组写入跨 kimi/zhipu/deepseek 共享，白名单外平台（gemini）不得被卷入；
-// 组身份守卫（lockAndMerge）与 due 列表也必须识别 CN 平台的行。
-func TestOllamaCloudUsageEligibilityExtendsToCNOpenAICompatPlatforms(t *testing.T) {
+// Ollama Cloud 只按地址识别：同一把官方 ollama.com key 不论挂在哪个平台标签下都在同一个
+// 用量组里（组写入跨 kimi/zhipu/deepseek/gemini 共享）；组身份守卫（lockAndMerge）与 due
+// 列表也必须识别这些行。
+func TestOllamaCloudUsageGroupSharesAcrossPlatformLabels(t *testing.T) {
 	ctx := context.Background()
 	tx := testEntTx(t)
 	repo := newAccountRepositoryWithSQL(tx.Client(), tx, nil)
@@ -419,16 +419,12 @@ func TestOllamaCloudUsageEligibilityExtendsToCNOpenAICompatPlatforms(t *testing.
 	gemini := create("ollama-cn-gemini", service.PlatformGemini, service.APIProtocolGemini, "https://ollama.com")
 
 	require.NoError(t, repo.SaveOllamaCloudUsageSession(ctx, kimi, "cipher:cn-shared", true))
-	for _, id := range []int64{kimi.ID, zhipu.ID, deepseek.ID} {
+	for _, id := range []int64{kimi.ID, zhipu.ID, deepseek.ID, gemini.ID} {
 		account, err := repo.GetByID(ctx, id)
 		require.NoError(t, err)
 		require.Equal(t, "cipher:cn-shared", account.Extra[service.OllamaCloudUsageSessionExtraKey], account.Name)
 		require.Equal(t, true, account.Extra[service.OllamaCloudUsageAutoRefreshExtraKey], account.Name)
 	}
-	geminiLoaded, err := repo.GetByID(ctx, gemini.ID)
-	require.NoError(t, err)
-	require.NotContains(t, geminiLoaded.Extra, service.OllamaCloudUsageSessionExtraKey,
-		"用量窗口不随上游地址放开到白名单外平台")
 
 	// lockAndMerge 组身份守卫：CN 行凭证未变时必须保留 ollama 托管键。
 	kimiLoaded, err := repo.GetByID(ctx, kimi.ID)
@@ -453,8 +449,8 @@ func TestOllamaCloudUsageEligibilityExtendsToCNOpenAICompatPlatforms(t *testing.
 
 	require.NoError(t, err)
 	require.Len(t, due, 1, "同 key 跨 CN 平台组按组去重后只应有一行 due")
-	require.Contains(t, []int64{kimi.ID, zhipu.ID, deepseek.ID}, due[0].ID,
-		"due 行必须来自 CN 平台的 ollama 组员")
+	require.Contains(t, []int64{kimi.ID, zhipu.ID, deepseek.ID, gemini.ID}, due[0].ID,
+		"due 行必须来自同一 ollama 组")
 	require.NotNil(t, due[0].LastUsedAt)
 }
 

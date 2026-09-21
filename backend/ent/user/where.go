@@ -180,6 +180,11 @@ func RpmLimit(v int) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldRpmLimit, v))
 }
 
+// RateMultiplier applies equality check predicate on the "rate_multiplier" field. It's identical to RateMultiplierEQ.
+func RateMultiplier(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateMultiplier, v))
+}
+
 // CreatedAtEQ applies the EQ predicate on the "created_at" field.
 func CreatedAtEQ(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldCreatedAt, v))
@@ -1398,6 +1403,46 @@ func RpmLimitLT(v int) predicate.User {
 // RpmLimitLTE applies the LTE predicate on the "rpm_limit" field.
 func RpmLimitLTE(v int) predicate.User {
 	return predicate.User(sql.FieldLTE(FieldRpmLimit, v))
+}
+
+// RateMultiplierEQ applies the EQ predicate on the "rate_multiplier" field.
+func RateMultiplierEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldEQ(FieldRateMultiplier, v))
+}
+
+// RateMultiplierNEQ applies the NEQ predicate on the "rate_multiplier" field.
+func RateMultiplierNEQ(v float64) predicate.User {
+	return predicate.User(sql.FieldNEQ(FieldRateMultiplier, v))
+}
+
+// RateMultiplierIn applies the In predicate on the "rate_multiplier" field.
+func RateMultiplierIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldIn(FieldRateMultiplier, vs...))
+}
+
+// RateMultiplierNotIn applies the NotIn predicate on the "rate_multiplier" field.
+func RateMultiplierNotIn(vs ...float64) predicate.User {
+	return predicate.User(sql.FieldNotIn(FieldRateMultiplier, vs...))
+}
+
+// RateMultiplierGT applies the GT predicate on the "rate_multiplier" field.
+func RateMultiplierGT(v float64) predicate.User {
+	return predicate.User(sql.FieldGT(FieldRateMultiplier, v))
+}
+
+// RateMultiplierGTE applies the GTE predicate on the "rate_multiplier" field.
+func RateMultiplierGTE(v float64) predicate.User {
+	return predicate.User(sql.FieldGTE(FieldRateMultiplier, v))
+}
+
+// RateMultiplierLT applies the LT predicate on the "rate_multiplier" field.
+func RateMultiplierLT(v float64) predicate.User {
+	return predicate.User(sql.FieldLT(FieldRateMultiplier, v))
+}
+
+// RateMultiplierLTE applies the LTE predicate on the "rate_multiplier" field.
+func RateMultiplierLTE(v float64) predicate.User {
+	return predicate.User(sql.FieldLTE(FieldRateMultiplier, v))
 }
 
 // HasAPIKeys applies the HasEdge predicate on the "api_keys" edge.

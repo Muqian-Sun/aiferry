@@ -2,15 +2,14 @@ package service
 
 import "context"
 
-// 本文件是调度候选「平台准入」的唯一定义处。Gateway 与 OpenAI 两套调度器、
+// 本文件是调度候选「准入」的唯一定义处。Gateway 与 OpenAI 两套调度器、
 // 调度快照装桶、候选装载与模型可用性诊断都走这里，规则不会在各路径间分叉。
 //
-// 成品号是厂商绑定的：按平台精确匹配；anthropic / gemini 分组的混合调度另外放行
-// 启用了 mixed_scheduling 的 antigravity 成品号。
+// 目录路由（有 CatalogRoute）：资格 = 协议转换注册表（accountServesCatalogRoute），不分成品号 / key。
 //
-// 第三方 key 选的平台只是展示标签：它进入所属分组每个网关平台的调度桶，能否被选中
-// 只看协议地址——按网关平台与本次入站协议能选出一个已配地址的上游协议
-// （KeyUpstreamProtocolFor）才可调度。
+// 分组路径（无模型端点，PR-7 随分组删）：成品号按平台精确匹配，anthropic / gemini 分组的混合调度
+// 另外放行启用了 mixed_scheduling 的 antigravity 成品号；第三方 key 进入所属分组每个网关平台的
+// 调度桶，按网关平台与本次入站协议能选出一个已配地址的上游协议（KeyUpstreamProtocolFor）才可调度。
 
 // schedulingBucketAdmits 报告账号是否属于 platform 网关平台的调度桶。
 //
@@ -37,6 +36,20 @@ func accountServesSchedulingPlatform(account *Account, platform, inboundProtocol
 		return account.KeyUpstreamProtocolFor(platform, inboundProtocol) != ""
 	}
 	return subscriptionServesSchedulingPlatform(account, platform, useMixed)
+}
+
+// accountServesCatalogRoute 目录路由下资源能否承接本次入站协议：拥有的上游协议里有一个存在从
+// inboundProtocol 出发的转换实现（protocol_conversion.go 的注册表），key 与成品号同一条规则。
+// platform 只剩 /antigravity 强制路由这一个用途：强制 antigravity 时只放行 antigravity 成品号
+// （该入口的语义就是「走 antigravity」）。绑定校验仍按网关族矩阵（bindingAdmitsFamily，3b-5 删）。
+func accountServesCatalogRoute(account *Account, platform, inboundProtocol string) bool {
+	if account == nil {
+		return false
+	}
+	if platform == PlatformAntigravity && account.Vendor() != PlatformAntigravity {
+		return false
+	}
+	return account.ServesInbound(inboundProtocol)
 }
 
 // AccountServesPlatformForAnyInbound 报告账号能否在 platform 网关平台上承接至少一种入站
@@ -67,23 +80,37 @@ func subscriptionServesSchedulingPlatform(account *Account, platform string, use
 	return useMixed && account.IsAntigravity() && account.IsMixedSchedulingEnabled()
 }
 
-// isAccountSchedulableOnPlatform 是选号路径的平台准入判定，入站协议取自请求 context。
+// requestPlatformPredicate 返回本次请求的平台准入判定：目录路由下按条目矩阵，否则按分组规则。
+// 入站协议取自请求 context。
+func requestPlatformPredicate(ctx context.Context, platform string, useMixed bool) func(*Account) bool {
+	inboundProtocol := InboundProtocolFromContext(ctx)
+	if _, routed := CatalogRouteFromContext(ctx); routed {
+		return func(account *Account) bool {
+			return accountServesCatalogRoute(account, platform, inboundProtocol)
+		}
+	}
+	return func(account *Account) bool {
+		return accountServesSchedulingPlatform(account, platform, inboundProtocol, useMixed)
+	}
+}
+
+// isAccountSchedulableOnPlatform 是选号路径的平台准入判定。
 func isAccountSchedulableOnPlatform(ctx context.Context, account *Account, platform string, useMixed bool) bool {
-	return accountServesSchedulingPlatform(account, platform, InboundProtocolFromContext(ctx), useMixed)
+	return requestPlatformPredicate(ctx, platform, useMixed)(account)
 }
 
 // filterAccountsSchedulableOnPlatform 按 isAccountSchedulableOnPlatform 过滤候选列表，保持原有顺序。
 // 全部通过时原样返回，不复制切片。
 func filterAccountsSchedulableOnPlatform(ctx context.Context, accounts []Account, platform string, useMixed bool) []Account {
-	inboundProtocol := InboundProtocolFromContext(ctx)
+	serves := requestPlatformPredicate(ctx, platform, useMixed)
 	for i := range accounts {
-		if accountServesSchedulingPlatform(&accounts[i], platform, inboundProtocol, useMixed) {
+		if serves(&accounts[i]) {
 			continue
 		}
 		filtered := make([]Account, 0, len(accounts)-1)
 		filtered = append(filtered, accounts[:i]...)
 		for j := i + 1; j < len(accounts); j++ {
-			if accountServesSchedulingPlatform(&accounts[j], platform, inboundProtocol, useMixed) {
+			if serves(&accounts[j]) {
 				filtered = append(filtered, accounts[j])
 			}
 		}
@@ -110,13 +137,4 @@ func schedulingCandidatePlatforms(platform string, useMixed bool) []string {
 		return []string{platform, PlatformAntigravity}
 	}
 	return []string{platform}
-}
-
-// AccountKeepsHTTPPreviousResponseID 报告账号能否在 OpenAI 网关的 HTTP Responses 请求里
-// 承接 previous_response_id（续链状态）。
-//
-// 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
-// 第三方 key 见 keyKeepsHTTPPreviousResponseID。
-func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
-	return account != nil && keyKeepsHTTPPreviousResponseID(account)
 }

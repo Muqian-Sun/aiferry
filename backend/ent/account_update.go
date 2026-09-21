@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
@@ -128,26 +129,6 @@ func (_u *AccountUpdate) SetCredentials(v map[string]interface{}) *AccountUpdate
 // SetExtra sets the "extra" field.
 func (_u *AccountUpdate) SetExtra(v map[string]interface{}) *AccountUpdate {
 	_u.mutation.SetExtra(v)
-	return _u
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (_u *AccountUpdate) SetSourceKind(v string) *AccountUpdate {
-	_u.mutation.SetSourceKind(v)
-	return _u
-}
-
-// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
-func (_u *AccountUpdate) SetNillableSourceKind(v *string) *AccountUpdate {
-	if v != nil {
-		_u.SetSourceKind(*v)
-	}
-	return _u
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (_u *AccountUpdate) ClearSourceKind() *AccountUpdate {
-	_u.mutation.ClearSourceKind()
 	return _u
 }
 
@@ -659,6 +640,21 @@ func (_u *AccountUpdate) AddUsageLogs(v ...*UsageLog) *AccountUpdate {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddCatalogEntryIDs adds the "catalog_entries" edge to the ModelCatalogEntry entity by IDs.
+func (_u *AccountUpdate) AddCatalogEntryIDs(ids ...int64) *AccountUpdate {
+	_u.mutation.AddCatalogEntryIDs(ids...)
+	return _u
+}
+
+// AddCatalogEntries adds the "catalog_entries" edges to the ModelCatalogEntry entity.
+func (_u *AccountUpdate) AddCatalogEntries(v ...*ModelCatalogEntry) *AccountUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCatalogEntryIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdate) Mutation() *AccountMutation {
 	return _u.mutation
@@ -739,6 +735,27 @@ func (_u *AccountUpdate) RemoveUsageLogs(v ...*UsageLog) *AccountUpdate {
 	return _u.RemoveUsageLogIDs(ids...)
 }
 
+// ClearCatalogEntries clears all "catalog_entries" edges to the ModelCatalogEntry entity.
+func (_u *AccountUpdate) ClearCatalogEntries() *AccountUpdate {
+	_u.mutation.ClearCatalogEntries()
+	return _u
+}
+
+// RemoveCatalogEntryIDs removes the "catalog_entries" edge to ModelCatalogEntry entities by IDs.
+func (_u *AccountUpdate) RemoveCatalogEntryIDs(ids ...int64) *AccountUpdate {
+	_u.mutation.RemoveCatalogEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCatalogEntries removes "catalog_entries" edges to ModelCatalogEntry entities.
+func (_u *AccountUpdate) RemoveCatalogEntries(v ...*ModelCatalogEntry) *AccountUpdate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCatalogEntryIDs(ids...)
+}
+
 // Save executes the query and returns the number of nodes affected by the update operation.
 func (_u *AccountUpdate) Save(ctx context.Context) (int, error) {
 	if err := _u.defaults(); err != nil {
@@ -796,11 +813,6 @@ func (_u *AccountUpdate) check() error {
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := account.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.SourceKind(); ok {
-		if err := account.SourceKindValidator(v); err != nil {
-			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
@@ -862,12 +874,6 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.SourceKind(); ok {
-		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
-	}
-	if _u.mutation.SourceKindCleared() {
-		_spec.ClearField(account.FieldSourceKind, field.TypeString)
 	}
 	if value, ok := _u.mutation.ProtocolEndpoints(); ok {
 		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)
@@ -1191,6 +1197,63 @@ func (_u *AccountUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 		}
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
+	if _u.mutation.CatalogEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCatalogEntriesIDs(); len(nodes) > 0 && !_u.mutation.CatalogEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CatalogEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
 	if _node, err = sqlgraph.UpdateNodes(ctx, _u.driver, _spec); err != nil {
 		if _, ok := err.(*sqlgraph.NotFoundError); ok {
 			err = &NotFoundError{account.Label}
@@ -1308,26 +1371,6 @@ func (_u *AccountUpdateOne) SetCredentials(v map[string]interface{}) *AccountUpd
 // SetExtra sets the "extra" field.
 func (_u *AccountUpdateOne) SetExtra(v map[string]interface{}) *AccountUpdateOne {
 	_u.mutation.SetExtra(v)
-	return _u
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (_u *AccountUpdateOne) SetSourceKind(v string) *AccountUpdateOne {
-	_u.mutation.SetSourceKind(v)
-	return _u
-}
-
-// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
-func (_u *AccountUpdateOne) SetNillableSourceKind(v *string) *AccountUpdateOne {
-	if v != nil {
-		_u.SetSourceKind(*v)
-	}
-	return _u
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (_u *AccountUpdateOne) ClearSourceKind() *AccountUpdateOne {
-	_u.mutation.ClearSourceKind()
 	return _u
 }
 
@@ -1839,6 +1882,21 @@ func (_u *AccountUpdateOne) AddUsageLogs(v ...*UsageLog) *AccountUpdateOne {
 	return _u.AddUsageLogIDs(ids...)
 }
 
+// AddCatalogEntryIDs adds the "catalog_entries" edge to the ModelCatalogEntry entity by IDs.
+func (_u *AccountUpdateOne) AddCatalogEntryIDs(ids ...int64) *AccountUpdateOne {
+	_u.mutation.AddCatalogEntryIDs(ids...)
+	return _u
+}
+
+// AddCatalogEntries adds the "catalog_entries" edges to the ModelCatalogEntry entity.
+func (_u *AccountUpdateOne) AddCatalogEntries(v ...*ModelCatalogEntry) *AccountUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.AddCatalogEntryIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_u *AccountUpdateOne) Mutation() *AccountMutation {
 	return _u.mutation
@@ -1919,6 +1977,27 @@ func (_u *AccountUpdateOne) RemoveUsageLogs(v ...*UsageLog) *AccountUpdateOne {
 	return _u.RemoveUsageLogIDs(ids...)
 }
 
+// ClearCatalogEntries clears all "catalog_entries" edges to the ModelCatalogEntry entity.
+func (_u *AccountUpdateOne) ClearCatalogEntries() *AccountUpdateOne {
+	_u.mutation.ClearCatalogEntries()
+	return _u
+}
+
+// RemoveCatalogEntryIDs removes the "catalog_entries" edge to ModelCatalogEntry entities by IDs.
+func (_u *AccountUpdateOne) RemoveCatalogEntryIDs(ids ...int64) *AccountUpdateOne {
+	_u.mutation.RemoveCatalogEntryIDs(ids...)
+	return _u
+}
+
+// RemoveCatalogEntries removes "catalog_entries" edges to ModelCatalogEntry entities.
+func (_u *AccountUpdateOne) RemoveCatalogEntries(v ...*ModelCatalogEntry) *AccountUpdateOne {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _u.RemoveCatalogEntryIDs(ids...)
+}
+
 // Where appends a list predicates to the AccountUpdate builder.
 func (_u *AccountUpdateOne) Where(ps ...predicate.Account) *AccountUpdateOne {
 	_u.mutation.Where(ps...)
@@ -1989,11 +2068,6 @@ func (_u *AccountUpdateOne) check() error {
 	if v, ok := _u.mutation.GetType(); ok {
 		if err := account.TypeValidator(v); err != nil {
 			return &ValidationError{Name: "type", err: fmt.Errorf(`ent: validator failed for field "Account.type": %w`, err)}
-		}
-	}
-	if v, ok := _u.mutation.SourceKind(); ok {
-		if err := account.SourceKindValidator(v); err != nil {
-			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
 		}
 	}
 	if v, ok := _u.mutation.Status(); ok {
@@ -2072,12 +2146,6 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 	}
 	if value, ok := _u.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
-	}
-	if value, ok := _u.mutation.SourceKind(); ok {
-		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
-	}
-	if _u.mutation.SourceKindCleared() {
-		_spec.ClearField(account.FieldSourceKind, field.TypeString)
 	}
 	if value, ok := _u.mutation.ProtocolEndpoints(); ok {
 		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)
@@ -2399,6 +2467,63 @@ func (_u *AccountUpdateOne) sqlSave(ctx context.Context) (_node *Account, err er
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
+		_spec.Edges.Add = append(_spec.Edges.Add, edge)
+	}
+	if _u.mutation.CatalogEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.RemovedCatalogEntriesIDs(); len(nodes) > 0 && !_u.mutation.CatalogEntriesCleared() {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges.Clear = append(_spec.Edges.Clear, edge)
+	}
+	if nodes := _u.mutation.CatalogEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _u.config, mutation: newModelCatalogBindingMutation(_u.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
 		_spec.Edges.Add = append(_spec.Edges.Add, edge)
 	}
 	_node = &Account{config: _u.config}

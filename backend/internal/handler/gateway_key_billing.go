@@ -42,67 +42,26 @@ func (h *GatewayHandler) KeyBillingInfo(c *gin.Context) {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Billing information is not supported in simple mode")
 		return
 	}
-	if apiKey.GroupID == nil {
-		h.errorResponse(c, http.StatusForbidden, "permission_error", "API key is not assigned to a group")
-		return
-	}
-	if apiKey.Group == nil {
+	if apiKey.User == nil {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "Billing information is unavailable")
 		return
 	}
-
-	resolvedRate, ok := h.resolveKeyBillingRate(c, apiKey)
-	if !ok {
-		h.errorResponse(c, http.StatusInternalServerError, "api_error", "Billing information is unavailable")
-		return
-	}
-
 	c.Header("Cache-Control", "no-store")
-	c.JSON(http.StatusOK, buildKeyBillingInfo(apiKey, resolvedRate, timezone.Now()))
+	c.JSON(http.StatusOK, buildKeyBillingInfo(service.UserRateMultiplier(apiKey.User), timezone.Now()))
 }
 
-func (h *GatewayHandler) resolveKeyBillingRate(c *gin.Context, apiKey *service.APIKey) (float64, bool) {
-	groupRate := apiKey.Group.RateMultiplier
-	switch apiKey.Group.Platform {
-	case service.PlatformOpenAI, service.PlatformGrok:
-		if h.openAIGatewayService == nil {
-			return 0, false
-		}
-		return h.openAIGatewayService.ResolveUserGroupRateMultiplier(c.Request.Context(), apiKey.UserID, *apiKey.GroupID, groupRate), true
-	default:
-		if h.gatewayService == nil {
-			return 0, false
-		}
-		return h.gatewayService.ResolveUserGroupRateMultiplier(c.Request.Context(), apiKey.UserID, *apiKey.GroupID, groupRate), true
-	}
-}
-
-func buildKeyBillingInfo(apiKey *service.APIKey, resolvedRate float64, now time.Time) keyBillingInfoResponse {
-	groupRate := apiKey.Group.RateMultiplier
-	var userRate *float64
-	if resolvedRate != groupRate {
-		userRate = &resolvedRate
-	}
-	appliedPeak := apiKey.Group.PeakMultiplierAt(now)
-
-	response := keyBillingInfoResponse{
+// buildKeyBillingInfo 线上形状沿用 schema 1（对端是原版 sub2api 的 upstream_billing_probe，
+// 要求 group / resolved / peak / effective 四个字段齐全）：分组 / 用户 / 峰值三个来源已经合并成
+// 用户倍率，三个倍率字段同值，峰值恒关，user_rate_multiplier 省略。
+func buildKeyBillingInfo(rate float64, now time.Time) keyBillingInfoResponse {
+	return keyBillingInfoResponse{
 		Object:                  "sub2api.key_billing",
 		SchemaVersion:           keyBillingInfoSchemaVersion,
 		BillingScope:            "token",
-		GroupRateMultiplier:     groupRate,
-		UserRateMultiplier:      userRate,
-		ResolvedRateMultiplier:  resolvedRate,
-		PeakRateEnabled:         apiKey.Group.PeakRateEnabled,
-		EffectiveRateMultiplier: resolvedRate * appliedPeak,
+		GroupRateMultiplier:     rate,
+		ResolvedRateMultiplier:  rate,
+		PeakRateEnabled:         false,
+		EffectiveRateMultiplier: rate,
 		ObservedAt:              now.UTC(),
 	}
-	if apiKey.Group.PeakRateEnabled {
-		response.PeakStart = &apiKey.Group.PeakStart
-		response.PeakEnd = &apiKey.Group.PeakEnd
-		response.PeakRateMultiplier = &apiKey.Group.PeakRateMultiplier
-		response.AppliedPeakMultiplier = &appliedPeak
-		tz := timezone.Location().String()
-		response.Timezone = &tz
-	}
-	return response
 }

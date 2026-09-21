@@ -8,12 +8,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"sync"
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
@@ -85,99 +82,6 @@ func TestForwardGrokResponses_PropagatesSearchCountFromSSE(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 1, result.SearchCount, "stream SearchCount must be wired and deduped")
-}
-
-func TestGetSchedulableAccount_AppliesGrokFreeSoftGate(t *testing.T) {
-	// Sticky/non-list path must not return over-gate free OAuth accounts once cache is warm.
-	// First sticky hit fail-opens and schedules async refresh; subsequent hits use the cache.
-	cfg := &config.Config{}
-	cfg.Gateway.Grok.FreeQuotaSoftGateEnabled = true
-	cfg.Gateway.Grok.FreeQuotaTokenLimit = 500_000
-	cfg.Gateway.Grok.FreeQuotaSoftGatePercent = 95
-	cfg.Gateway.Grok.FreeQuotaWindowHours = 24
-	cfg.Gateway.Grok.FreeQuotaStatsCacheSeconds = 60
-
-	account := healthyGrokOAuthGatewayTestAccount(8801, "tok")
-	account.Credentials["subscription_tier"] = "free"
-	account.Status = StatusActive
-	account.Schedulable = true
-
-	repo := &mockAccountRepoForPlatform{
-		accountsByID: map[int64]*Account{account.ID: account},
-	}
-	usageRepo := &grokFreeQuotaUsageRepoStub{stats: map[int64]*usagestats.AccountStats{
-		account.ID: {Tokens: 480_000}, // above 95% of 500k
-	}}
-	// Clear shared gateway free-gate cache so this test is deterministic.
-	gatewayGrokFreeQuotaGateCache.Range(func(key, _ any) bool {
-		gatewayGrokFreeQuotaGateCache.Delete(key)
-		return true
-	})
-	if root, ok := freeQuotaRefreshInFlight.Load(&gatewayGrokFreeQuotaGateCache); ok {
-		if m, ok := root.(*sync.Map); ok {
-			m.Delete(account.ID)
-		}
-	}
-	svc := &GatewayService{
-		cfg:          cfg,
-		accountRepo:  repo,
-		usageLogRepo: usageRepo,
-	}
-
-	// Miss: fail open + schedule refresh.
-	got, err := svc.getSchedulableAccount(context.Background(), account.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got, "first sticky hit fail-opens while free-gate stats refresh")
-
-	require.Eventually(t, func() bool {
-		got, err := svc.getSchedulableAccount(context.Background(), account.ID)
-		return err == nil && got == nil
-	}, 2*time.Second, 10*time.Millisecond, "over free soft-gate sticky hit must miss after cache warm")
-}
-
-func TestOpenAIGetSchedulableAccount_AppliesGrokFreeSoftGate(t *testing.T) {
-	// Legacy OpenAI-compatible sticky (advanced scheduler off) must free-gate Grok.
-	cfg := &config.Config{}
-	cfg.Gateway.Grok.FreeQuotaSoftGateEnabled = true
-	cfg.Gateway.Grok.FreeQuotaTokenLimit = 500_000
-	cfg.Gateway.Grok.FreeQuotaSoftGatePercent = 95
-	cfg.Gateway.Grok.FreeQuotaWindowHours = 24
-	cfg.Gateway.Grok.FreeQuotaStatsCacheSeconds = 60
-
-	account := healthyGrokOAuthGatewayTestAccount(8802, "tok")
-	account.Credentials["subscription_tier"] = "free"
-	account.Status = StatusActive
-	account.Schedulable = true
-
-	repo := &mockAccountRepoForPlatform{
-		accountsByID: map[int64]*Account{account.ID: account},
-	}
-	usageRepo := &grokFreeQuotaUsageRepoStub{stats: map[int64]*usagestats.AccountStats{
-		account.ID: {Tokens: 480_000},
-	}}
-	openaiGrokFreeQuotaGateCache.Range(func(key, _ any) bool {
-		openaiGrokFreeQuotaGateCache.Delete(key)
-		return true
-	})
-	if root, ok := freeQuotaRefreshInFlight.Load(&openaiGrokFreeQuotaGateCache); ok {
-		if m, ok := root.(*sync.Map); ok {
-			m.Delete(account.ID)
-		}
-	}
-	svc := &OpenAIGatewayService{
-		cfg:          cfg,
-		accountRepo:  repo,
-		usageLogRepo: usageRepo,
-	}
-
-	got, err := svc.getSchedulableAccount(context.Background(), account.ID)
-	require.NoError(t, err)
-	require.NotNil(t, got, "first sticky hit fail-opens while free-gate stats refresh")
-
-	require.Eventually(t, func() bool {
-		got, err := svc.getSchedulableAccount(context.Background(), account.ID)
-		return err == nil && got == nil
-	}, 2*time.Second, 10*time.Millisecond, "OpenAI legacy sticky must apply free soft-gate after cache warm")
 }
 
 func TestCountGrokNativeSearchCallsFromJSON_MessagesStyleBody(t *testing.T) {

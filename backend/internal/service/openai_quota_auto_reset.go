@@ -524,13 +524,11 @@ func (s *OpenAIQuotaAutoResetService) buildAssessment(account *Account, config O
 	assessment.resetReached = reset5h || reset7d
 	assessment.triggerWindow = joinOpenAIAutoResetWindows(reset5h, reset7d)
 
-	pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(context.Background(), account)
+	var autoPauseSettings OpsOpenAIAccountQuotaAutoPauseSettings
 	if s.settings != nil {
-		pause5h, pause7d = resolveOpenAIQuotaAutoPauseThresholds(
-			withOpenAIQuotaAutoPauseSettings(context.Background(), s.settings.GetOpenAIQuotaAutoPauseSettings(context.Background())),
-			account,
-		)
+		autoPauseSettings = s.settings.GetOpenAIQuotaAutoPauseSettings(context.Background())
 	}
+	pause5h, pause7d := resolveOpenAIQuotaAutoPauseThresholds(account, autoPauseSettings)
 	pauseReached5h := !resolveAccountExtraBool(account.Extra, "auto_pause_5h_disabled") && pause5h > 0 && utilization5h >= pause5h
 	pauseReached7d := !resolveAccountExtraBool(account.Extra, "auto_pause_7d_disabled") && pause7d > 0 && utilization7d >= pause7d
 	assessment.pauseReached = pauseReached5h || pauseReached7d || assessment.resetReached

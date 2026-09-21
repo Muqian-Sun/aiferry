@@ -102,6 +102,25 @@ describe('BulkEditUserModal', () => {
     expect(wrapper.emitted('success')).toEqual([[2]])
   })
 
+  it('submits the rate multiplier when enabled', async () => {
+    const confirm = vi.spyOn(window, 'confirm').mockReturnValue(true)
+    const wrapper = mountModal()
+
+    await wrapper.get('[data-test="enable-rate-multiplier"]').trigger('click')
+    await wrapper.get('[data-test="rate-multiplier-input"]').setValue('0.5')
+    await wrapper.get('form').trigger('submit')
+    await flushPromises()
+
+    expect(batchUpdateLimits).toHaveBeenCalledWith({
+      user_ids: [4, 7],
+      all: false,
+      rate_multiplier: 0.5
+    })
+    expect(confirm).toHaveBeenCalledWith(
+      expect.stringContaining('admin.users.bulkLimits.rateMultiplierValue')
+    )
+  })
+
   it('omits disabled fields from the request', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountModal()

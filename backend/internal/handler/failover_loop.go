@@ -129,7 +129,9 @@ type FailoverState struct {
 	SameAccountRetryCount map[int64]int
 	LastFailoverErr       *service.UpstreamFailoverError
 	ForceCacheBilling     bool
-	hasBoundSession       bool
+	// OAuth429 是 OpenAI / Grok OAuth 成品号 429 风暴刹车的请求级状态（ShouldStopOpenAIOAuth429Failover）。
+	OAuth429        service.OpenAIOAuth429FailoverState
+	hasBoundSession bool
 
 	// profitVetoedAccountIDs 记录被分组利润门终检否决的账号，是 FailedAccountIDs
 	// 的子集。之所以单独维护：HandleSelectionExhausted 的 503 退避分支会清空

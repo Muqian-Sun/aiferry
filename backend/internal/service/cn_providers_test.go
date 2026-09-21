@@ -347,17 +347,69 @@ func TestGetCodingPlanProvider_MiniMax(t *testing.T) {
 	}).GetCodingPlanProvider())
 }
 
+// GetCodingPlanProvider 只认官方完整域名：路径里夹着官方域名的中转、非官方域名、
+// 以及 Kimi 按量站配成 coding 模式，都不能被识别成 Coding Plan 供应商。
+func TestGetCodingPlanProvider_ExactOfficialHostOnly(t *testing.T) {
+	t.Parallel()
+	coding := func(platform, chat string) *Account {
+		return &Account{Platform: platform, Type: AccountTypeAPIKey,
+			Credentials:       map[string]any{"account_mode": AccountModeCoding},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: chat}}
+	}
+	require.Equal(t, PlatformKimi, coding(PlatformOpenAI, DefaultKimiCodingBaseURL).GetCodingPlanProvider())
+	require.Equal(t, PlatformZhipu, coding(PlatformAnthropic, DefaultZhipuCodingBaseURL).GetCodingPlanProvider())
+	require.Equal(t, PlatformMiniMax, coding(PlatformOpenAI, "https://api.minimax.io/v1").GetCodingPlanProvider())
+
+	// 路径里夹着官方域名的中转
+	require.Empty(t, coding(PlatformZhipu, "https://relay.example/bigmodel.cn/v4").GetCodingPlanProvider())
+	require.Empty(t, coding(PlatformKimi, "https://relay.attacker.example/api.kimi.com/coding").GetCodingPlanProvider())
+	// 官方表里没有的域名
+	require.Empty(t, coding(PlatformMiniMax, "https://api.minimax.com/v1").GetCodingPlanProvider())
+	// Kimi 按量站 + coding 模式：不是 Coding Plan
+	require.Empty(t, coding(PlatformKimi, DefaultKimiPayGBaseURL).GetCodingPlanProvider())
+}
+
+func TestGetCodingPlanProvider_OpenCodeFollowsAddressNotLabel(t *testing.T) {
+	t.Parallel()
+	goPlan := &Account{
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL},
+	}
+	require.Equal(t, PlatformOpenCodeGo, goPlan.GetCodingPlanProvider())
+
+	zenOnGoLabel := &Account{
+		Platform:          PlatformOpenCodeGo,
+		Type:              AccountTypeAPIKey,
+		Credentials:       map[string]any{"account_mode": AccountModeGo},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultOpenCodeZenBaseURL},
+	}
+	require.Empty(t, zenOnGoLabel.GetCodingPlanProvider())
+}
+
 // TestCNBalanceURL Kimi 固定端点；DeepSeek 基于 base_url 拼接。
 func TestCNBalanceURL(t *testing.T) {
 	t.Parallel()
-	kimi := &Account{Platform: PlatformKimi}
+	kimi := &Account{
+		Platform:          PlatformAnthropic,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiPayGBaseURL},
+	}
 	require.Equal(t, "https://api.moonshot.cn/v1/users/me/balance", cnBalanceURL(kimi))
 
 	deepseek := &Account{
-		Platform:    PlatformDeepseek,
-		Credentials: map[string]any{"base_url": "https://api.deepseek.com"},
+		Platform:          PlatformOpenAI,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL},
 	}
 	require.Equal(t, "https://api.deepseek.com/user/balance", cnBalanceURL(deepseek))
+
+	relay := &Account{
+		Platform:          PlatformKimi,
+		Type:              AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.com/v1"},
+	}
+	require.Empty(t, cnBalanceURL(relay))
 }
 
 // TestCNProviderThresholdCandidates 从 Extra 快照读取 5h / weekly 候选。

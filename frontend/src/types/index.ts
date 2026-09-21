@@ -89,6 +89,7 @@ export interface User {
   frozen_balance?: number // Balance currently held by async batch jobs
   concurrency: number // Allowed concurrent requests
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
+  rate_multiplier: number // 用户价 = 目录价 × rate_multiplier；0 = 免费
   status: 'active' | 'disabled' // Account status
   allowed_groups: number[] | null // Allowed group IDs (null = all non-exclusive groups)
   balance_notify_enabled: boolean
@@ -105,8 +106,6 @@ export interface AdminUser extends User {
   // 管理员备注（普通用户接口不返回）
   notes: string
   last_used_at?: string | null
-  // 用户专属分组倍率配置 (group_id -> rate_multiplier)
-  group_rates?: Record<number, number>
   // 为 true 时该用户仅可使用 allowed_groups 中列出的公开分组。
   // 管理侧权限开关，普通用户接口不返回。
   restrict_public_groups?: boolean
@@ -1161,9 +1160,6 @@ export type UpstreamProtocol = 'anthropic' | 'chat_completions' | 'responses' | 
 /** 协议 → 上游地址。第三方 key 只按这里的地址转发，没有任何隐式默认地址。 */
 export type ProtocolEndpoints = Partial<Record<UpstreamProtocol, string>>
 
-/** 账号来源：subscription=成品号（OAuth / Setup Token / Bedrock / Vertex），api_key=第三方 key。 */
-export type AccountSourceKind = 'subscription' | 'api_key'
-
 export interface Account {
   id: number
   name: string
@@ -1176,8 +1172,12 @@ export interface Account {
   // 改为通过 credentials_status.has_<key> 暴露存在性。
   credentials?: Record<string, unknown>
   credentials_status?: Record<string, boolean>
-  source_kind?: AccountSourceKind
   protocol_endpoints?: ProtocolEndpoints
+  /**
+   * 按上游地址识别出的官方厂商：成品号等于 platform；第三方 key 只有全部协议地址都是
+   * 某厂商官方域时才有值，中转 / 聚合平台为空。厂商特化按它启用，platform 对 key 只是展示标签。
+   */
+  vendor?: string
   ollama_cloud_usage?: OllamaCloudUsageState
   // Extra fields including Codex usage, OpenAI compact capability, and model-level rate limits.
   extra?: (CodexUsageSnapshot & OpenAICompactState & {
@@ -2037,12 +2037,10 @@ export interface UpdateUserRequest {
   balance?: number
   concurrency?: number
   rpm_limit?: number
+  rate_multiplier?: number
   status?: 'active' | 'disabled'
   allowed_groups?: number[] | null
   restrict_public_groups?: boolean
-  // 用户专属分组倍率配置 (group_id -> rate_multiplier | null)
-  // null 表示删除该分组的专属倍率
-  group_rates?: Record<number, number | null>
 }
 
 export interface ChangePasswordRequest {

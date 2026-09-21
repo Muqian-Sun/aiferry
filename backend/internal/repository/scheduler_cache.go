@@ -266,14 +266,22 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 	}
 
 	snapshotKey := schedulerSnapshotKey(bucket, activeVal)
-	ids, err := c.rdb.ZRange(ctx, snapshotKey, 0, -1).Result()
+	members, err := c.rdb.ZRangeWithScores(ctx, snapshotKey, 0, -1).Result()
 	if err != nil {
 		return nil, false, err
 	}
-	if len(ids) == 0 {
+	if len(members) == 0 {
 		// 空快照视为缓存未命中，触发数据库回退查询
 		// 这解决了新分组创建后立即绑定账号时的竞态条件问题
 		return nil, false, nil
+	}
+	ids := make([]string, 0, len(members))
+	for _, member := range members {
+		id, ok := member.Member.(string)
+		if !ok {
+			return nil, false, fmt.Errorf("scheduler snapshot member is %T, want string", member.Member)
+		}
+		ids = append(ids, id)
 	}
 
 	keys := make([]string, 0, len(ids))
@@ -302,6 +310,10 @@ func (c *schedulerCache) GetSnapshot(ctx context.Context, bucket service.Schedul
 		}
 		if err := applySchedulerLastUsed(account, lastUsedValues[i]); err != nil {
 			return nil, false, err
+		}
+		if bucket.Mode == service.SchedulerModeCatalog {
+			// 目录桶的 score 是绑定生效的优先级（账号元数据全局共享，装的是账号自身的优先级）。
+			account.Priority = int(members[i].Score)
 		}
 		accounts = append(accounts, account)
 	}
@@ -484,10 +496,38 @@ func (c *schedulerCache) writeSnapshotVersionAndReturnAccountIDs(ctx context.Con
 	if err != nil {
 		return nil, err
 	}
+	if bucket.Mode == service.SchedulerModeCatalog {
+		// 目录桶用 score 存绑定生效的优先级；账号元数据全局共享，装不下按桶不同的优先级。
+		if err := c.writeSnapshotMembers(ctx, bucket, version, schedulerSnapshotMembersByPriority(accounts, accountIDs)); err != nil {
+			return nil, err
+		}
+		return accountIDs, nil
+	}
 	if err := c.writeSnapshotAccountIDs(ctx, bucket, version, accountIDs); err != nil {
 		return nil, err
 	}
 	return accountIDs, nil
+}
+
+// schedulerSnapshotMembersByPriority 按 accountIDs（实际编码成功的账号）构造成员，score 取
+// accounts 里同 ID 账号的 Priority。同优先级成员由 Redis 按 member 字典序排，选号在同优先级
+// 内按 LRU 排，顺序无影响。
+func schedulerSnapshotMembersByPriority(accounts []service.Account, accountIDs []int64) []redis.Z {
+	if len(accountIDs) == 0 {
+		return nil
+	}
+	priorities := make(map[int64]int, len(accounts))
+	for _, account := range accounts {
+		priorities[account.ID] = account.Priority
+	}
+	members := make([]redis.Z, 0, len(accountIDs))
+	for _, accountID := range accountIDs {
+		members = append(members, redis.Z{
+			Score:  float64(priorities[accountID]),
+			Member: strconv.FormatInt(accountID, 10),
+		})
+	}
+	return members
 }
 
 func (c *schedulerCache) writeSnapshotAccountIDs(ctx context.Context, bucket service.SchedulerBucket, version string, accountIDs []int64) error {
@@ -863,7 +903,7 @@ func (c *schedulerCache) mgetChunked(ctx context.Context, keys []string) ([]any,
 }
 
 // buildSchedulerMetadataAccount 构造调度快照里的精简账号。候选过滤读的是这份投影：
-// 第三方 key 能否承接请求、厂商特化是否启用都由来源（SourceKind）与协议地址（ProtocolEndpoints）
+// 第三方 key 能否承接请求、厂商特化是否启用都由类型（Type）与协议地址（ProtocolEndpoints）
 // 决定，裁掉它们会让缓存命中路径上的 key 全部被判为没有可用协议。
 func buildSchedulerMetadataAccount(account service.Account) service.Account {
 	return service.Account{
@@ -890,10 +930,10 @@ func buildSchedulerMetadataAccount(account service.Account) service.Account {
 		SessionWindowStatus:     account.SessionWindowStatus,
 		ParentAccountID:         account.ParentAccountID,
 		QuotaDimension:          account.QuotaDimension,
-		SourceKind:              account.SourceKind,
 		ProtocolEndpoints:       account.ProtocolEndpoints,
 		AccountGroups:           filterSchedulerAccountGroups(account.AccountGroups),
 		GroupIDs:                filterSchedulerGroupIDs(account.GroupIDs, account.AccountGroups),
+		CatalogEntryIDs:         account.CatalogEntryIDs,
 		Credentials:             filterSchedulerCredentials(account.Credentials),
 		Extra:                   filterSchedulerExtra(account.Extra),
 	}
@@ -1033,6 +1073,8 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"auto_pause_5h_disabled",
 		"auto_pause_7d_disabled",
 		"model_rate_limits",
+		// SchedulingState 的模型级限流放行（Antigravity overages 有积分）要从快照还原，开关必须进投影。
+		"allow_overages",
 		service.UpstreamBillingProbeExtraKey,
 		service.GrokMediaEligibleExtraKey,
 		"grok_billing_snapshot",

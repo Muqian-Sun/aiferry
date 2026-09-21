@@ -27,6 +27,11 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/idempotencyrecord"
 	"github.com/Wei-Shaw/sub2api/ent/identityadoptiondecision"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogalias"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogpriceinterval"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogtimepricing"
 	"github.com/Wei-Shaw/sub2api/ent/paymentauditlog"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/paymentproviderinstance"
@@ -618,6 +623,141 @@ func (f TraverseIdentityAdoptionDecision) Traverse(ctx context.Context, q ent.Qu
 	return fmt.Errorf("unexpected query type %T. expect *ent.IdentityAdoptionDecisionQuery", q)
 }
 
+// The ModelCatalogAliasFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ModelCatalogAliasFunc func(context.Context, *ent.ModelCatalogAliasQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ModelCatalogAliasFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ModelCatalogAliasQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogAliasQuery", q)
+}
+
+// The TraverseModelCatalogAlias type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseModelCatalogAlias func(context.Context, *ent.ModelCatalogAliasQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseModelCatalogAlias) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseModelCatalogAlias) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ModelCatalogAliasQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogAliasQuery", q)
+}
+
+// The ModelCatalogBindingFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ModelCatalogBindingFunc func(context.Context, *ent.ModelCatalogBindingQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ModelCatalogBindingFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ModelCatalogBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogBindingQuery", q)
+}
+
+// The TraverseModelCatalogBinding type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseModelCatalogBinding func(context.Context, *ent.ModelCatalogBindingQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseModelCatalogBinding) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseModelCatalogBinding) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ModelCatalogBindingQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogBindingQuery", q)
+}
+
+// The ModelCatalogEntryFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ModelCatalogEntryFunc func(context.Context, *ent.ModelCatalogEntryQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ModelCatalogEntryFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ModelCatalogEntryQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogEntryQuery", q)
+}
+
+// The TraverseModelCatalogEntry type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseModelCatalogEntry func(context.Context, *ent.ModelCatalogEntryQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseModelCatalogEntry) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseModelCatalogEntry) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ModelCatalogEntryQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogEntryQuery", q)
+}
+
+// The ModelCatalogPriceIntervalFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ModelCatalogPriceIntervalFunc func(context.Context, *ent.ModelCatalogPriceIntervalQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ModelCatalogPriceIntervalFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ModelCatalogPriceIntervalQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogPriceIntervalQuery", q)
+}
+
+// The TraverseModelCatalogPriceInterval type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseModelCatalogPriceInterval func(context.Context, *ent.ModelCatalogPriceIntervalQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseModelCatalogPriceInterval) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseModelCatalogPriceInterval) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ModelCatalogPriceIntervalQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogPriceIntervalQuery", q)
+}
+
+// The ModelCatalogTimePricingFunc type is an adapter to allow the use of ordinary function as a Querier.
+type ModelCatalogTimePricingFunc func(context.Context, *ent.ModelCatalogTimePricingQuery) (ent.Value, error)
+
+// Query calls f(ctx, q).
+func (f ModelCatalogTimePricingFunc) Query(ctx context.Context, q ent.Query) (ent.Value, error) {
+	if q, ok := q.(*ent.ModelCatalogTimePricingQuery); ok {
+		return f(ctx, q)
+	}
+	return nil, fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogTimePricingQuery", q)
+}
+
+// The TraverseModelCatalogTimePricing type is an adapter to allow the use of ordinary function as Traverser.
+type TraverseModelCatalogTimePricing func(context.Context, *ent.ModelCatalogTimePricingQuery) error
+
+// Intercept is a dummy implementation of Intercept that returns the next Querier in the pipeline.
+func (f TraverseModelCatalogTimePricing) Intercept(next ent.Querier) ent.Querier {
+	return next
+}
+
+// Traverse calls f(ctx, q).
+func (f TraverseModelCatalogTimePricing) Traverse(ctx context.Context, q ent.Query) error {
+	if q, ok := q.(*ent.ModelCatalogTimePricingQuery); ok {
+		return f(ctx, q)
+	}
+	return fmt.Errorf("unexpected query type %T. expect *ent.ModelCatalogTimePricingQuery", q)
+}
+
 // The PaymentAuditLogFunc type is an adapter to allow the use of ordinary function as a Querier.
 type PaymentAuditLogFunc func(context.Context, *ent.PaymentAuditLogQuery) (ent.Value, error)
 
@@ -1172,6 +1312,16 @@ func NewQuery(q ent.Query) (Query, error) {
 		return &query[*ent.IdempotencyRecordQuery, predicate.IdempotencyRecord, idempotencyrecord.OrderOption]{typ: ent.TypeIdempotencyRecord, tq: q}, nil
 	case *ent.IdentityAdoptionDecisionQuery:
 		return &query[*ent.IdentityAdoptionDecisionQuery, predicate.IdentityAdoptionDecision, identityadoptiondecision.OrderOption]{typ: ent.TypeIdentityAdoptionDecision, tq: q}, nil
+	case *ent.ModelCatalogAliasQuery:
+		return &query[*ent.ModelCatalogAliasQuery, predicate.ModelCatalogAlias, modelcatalogalias.OrderOption]{typ: ent.TypeModelCatalogAlias, tq: q}, nil
+	case *ent.ModelCatalogBindingQuery:
+		return &query[*ent.ModelCatalogBindingQuery, predicate.ModelCatalogBinding, modelcatalogbinding.OrderOption]{typ: ent.TypeModelCatalogBinding, tq: q}, nil
+	case *ent.ModelCatalogEntryQuery:
+		return &query[*ent.ModelCatalogEntryQuery, predicate.ModelCatalogEntry, modelcatalogentry.OrderOption]{typ: ent.TypeModelCatalogEntry, tq: q}, nil
+	case *ent.ModelCatalogPriceIntervalQuery:
+		return &query[*ent.ModelCatalogPriceIntervalQuery, predicate.ModelCatalogPriceInterval, modelcatalogpriceinterval.OrderOption]{typ: ent.TypeModelCatalogPriceInterval, tq: q}, nil
+	case *ent.ModelCatalogTimePricingQuery:
+		return &query[*ent.ModelCatalogTimePricingQuery, predicate.ModelCatalogTimePricing, modelcatalogtimepricing.OrderOption]{typ: ent.TypeModelCatalogTimePricing, tq: q}, nil
 	case *ent.PaymentAuditLogQuery:
 		return &query[*ent.PaymentAuditLogQuery, predicate.PaymentAuditLog, paymentauditlog.OrderOption]{typ: ent.TypePaymentAuditLog, tq: q}, nil
 	case *ent.PaymentOrderQuery:

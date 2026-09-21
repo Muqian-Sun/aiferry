@@ -140,15 +140,6 @@ const (
 	AccountTypeServiceAccount = domain.AccountTypeServiceAccount // Google Service Account 类型账号（用于 Vertex AI）
 )
 
-// Account source kind constants：账号来源维度，见 domain.DeriveAccountSourceKind。
-const (
-	AccountSourceSubscription = domain.AccountSourceSubscription // 成品号
-	AccountSourceAPIKey       = domain.AccountSourceAPIKey       // 第三方 key
-)
-
-// DeriveAccountSourceKind 由账号类型推导来源维度。
-var DeriveAccountSourceKind = domain.DeriveAccountSourceKind
-
 // Redeem type constants
 const (
 	RedeemTypeBalance          = domain.RedeemTypeBalance

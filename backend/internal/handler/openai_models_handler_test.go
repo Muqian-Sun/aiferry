@@ -15,7 +15,7 @@ import (
 
 func performOrdinaryPinnedModelsRequest(t *testing.T, codex *OpenAIGatewayHandler, group *service.Group, path, etag string) *httptest.ResponseRecorder {
 	t.Helper()
-	h := &GatewayHandler{openAIGatewayService: codex.gatewayService, maxAccountSwitches: 3}
+	h := &GatewayHandler{openAIGatewayService: codex.gatewayService, maxAccountSwitches: 3, modelCatalog: listAllCatalogStub{}}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodGet, path, nil)

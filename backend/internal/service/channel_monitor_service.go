@@ -420,7 +420,8 @@ func (s *ChannelMonitorService) validateLinkedAccount(ctx context.Context, provi
 	if err != nil || account == nil {
 		return ErrChannelMonitorAccountRequired
 	}
-	if account.Platform != provider {
+	// 供应商按厂商判：成品号即平台，第三方 key 按协议地址识别（中转 key 不属于任何供应商）。
+	if account.Vendor() != provider {
 		return ErrChannelMonitorProviderIncompatible
 	}
 	return monitorAccountQuotaCapability(account)
@@ -527,7 +528,7 @@ func (s *ChannelMonitorService) revalidateLinkedAccount(ctx context.Context, m *
 		m.AccountID = nil
 		return nil
 	}
-	if account.Platform != m.Provider {
+	if account.Vendor() != m.Provider {
 		if usesQuota {
 			return ErrChannelMonitorProviderIncompatible
 		}

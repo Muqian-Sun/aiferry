@@ -37,8 +37,6 @@ type Account struct {
 	Credentials map[string]interface{} `json:"credentials,omitempty"`
 	// Extra holds the value of the "extra" field.
 	Extra map[string]interface{} `json:"extra,omitempty"`
-	// Account source: subscription | api_key; NULL means not yet classified
-	SourceKind *string `json:"source_kind,omitempty"`
 	// Upstream base URL per protocol
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints,omitempty"`
 	// ProxyID holds the value of the "proxy_id" field.
@@ -103,11 +101,15 @@ type AccountEdges struct {
 	Children []*Account `json:"children,omitempty"`
 	// UsageLogs holds the value of the usage_logs edge.
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
+	// CatalogEntries holds the value of the catalog_entries edge.
+	CatalogEntries []*ModelCatalogEntry `json:"catalog_entries,omitempty"`
 	// AccountGroups holds the value of the account_groups edge.
 	AccountGroups []*AccountGroup `json:"account_groups,omitempty"`
+	// CatalogBindings holds the value of the catalog_bindings edge.
+	CatalogBindings []*ModelCatalogBinding `json:"catalog_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [6]bool
+	loadedTypes [8]bool
 }
 
 // GroupsOrErr returns the Groups value or an error if the edge
@@ -159,13 +161,31 @@ func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 	return nil, &NotLoadedError{edge: "usage_logs"}
 }
 
+// CatalogEntriesOrErr returns the CatalogEntries value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CatalogEntriesOrErr() ([]*ModelCatalogEntry, error) {
+	if e.loadedTypes[5] {
+		return e.CatalogEntries, nil
+	}
+	return nil, &NotLoadedError{edge: "catalog_entries"}
+}
+
 // AccountGroupsOrErr returns the AccountGroups value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[6] {
 		return e.AccountGroups, nil
 	}
 	return nil, &NotLoadedError{edge: "account_groups"}
+}
+
+// CatalogBindingsOrErr returns the CatalogBindings value or an error if the edge
+// was not loaded in eager-loading.
+func (e AccountEdges) CatalogBindingsOrErr() ([]*ModelCatalogBinding, error) {
+	if e.loadedTypes[7] {
+		return e.CatalogBindings, nil
+	}
+	return nil, &NotLoadedError{edge: "catalog_bindings"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -181,7 +201,7 @@ func (*Account) scanValues(columns []string) ([]any, error) {
 			values[i] = new(sql.NullFloat64)
 		case account.FieldID, account.FieldProxyID, account.FieldProxyFallbackOriginID, account.FieldConcurrency, account.FieldLoadFactor, account.FieldPriority, account.FieldParentAccountID:
 			values[i] = new(sql.NullInt64)
-		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldSourceKind, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
+		case account.FieldName, account.FieldNotes, account.FieldPlatform, account.FieldType, account.FieldStatus, account.FieldErrorMessage, account.FieldTempUnschedulableReason, account.FieldSessionWindowStatus, account.FieldQuotaDimension:
 			values[i] = new(sql.NullString)
 		case account.FieldCreatedAt, account.FieldUpdatedAt, account.FieldDeletedAt, account.FieldLastUsedAt, account.FieldExpiresAt, account.FieldRateLimitedAt, account.FieldRateLimitResetAt, account.FieldOverloadUntil, account.FieldTempUnschedulableUntil, account.FieldSessionWindowStart, account.FieldSessionWindowEnd:
 			values[i] = new(sql.NullTime)
@@ -265,13 +285,6 @@ func (_m *Account) assignValues(columns []string, values []any) error {
 				if err := json.Unmarshal(*value, &_m.Extra); err != nil {
 					return fmt.Errorf("unmarshal field extra: %w", err)
 				}
-			}
-		case account.FieldSourceKind:
-			if value, ok := values[i].(*sql.NullString); !ok {
-				return fmt.Errorf("unexpected type %T for field source_kind", values[i])
-			} else if value.Valid {
-				_m.SourceKind = new(string)
-				*_m.SourceKind = value.String
 			}
 		case account.FieldProtocolEndpoints:
 			if value, ok := values[i].(*[]byte); !ok {
@@ -466,9 +479,19 @@ func (_m *Account) QueryUsageLogs() *UsageLogQuery {
 	return NewAccountClient(_m.config).QueryUsageLogs(_m)
 }
 
+// QueryCatalogEntries queries the "catalog_entries" edge of the Account entity.
+func (_m *Account) QueryCatalogEntries() *ModelCatalogEntryQuery {
+	return NewAccountClient(_m.config).QueryCatalogEntries(_m)
+}
+
 // QueryAccountGroups queries the "account_groups" edge of the Account entity.
 func (_m *Account) QueryAccountGroups() *AccountGroupQuery {
 	return NewAccountClient(_m.config).QueryAccountGroups(_m)
+}
+
+// QueryCatalogBindings queries the "catalog_bindings" edge of the Account entity.
+func (_m *Account) QueryCatalogBindings() *ModelCatalogBindingQuery {
+	return NewAccountClient(_m.config).QueryCatalogBindings(_m)
 }
 
 // Update returns a builder for updating this Account.
@@ -524,11 +547,6 @@ func (_m *Account) String() string {
 	builder.WriteString(", ")
 	builder.WriteString("extra=")
 	builder.WriteString(fmt.Sprintf("%v", _m.Extra))
-	builder.WriteString(", ")
-	if v := _m.SourceKind; v != nil {
-		builder.WriteString("source_kind=")
-		builder.WriteString(*v)
-	}
 	builder.WriteString(", ")
 	builder.WriteString("protocol_endpoints=")
 	builder.WriteString(fmt.Sprintf("%v", _m.ProtocolEndpoints))

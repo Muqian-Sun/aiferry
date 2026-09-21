@@ -11,6 +11,9 @@ const (
 	// ResolvedTargetPlatform 是 composite 分组按请求模型解析出的真实目标平台。
 	ResolvedTargetPlatform Key = "ctx_resolved_target_platform"
 
+	// CatalogRoute 是目录准入后挂上的 service.CatalogRoute：本次请求命中了哪个目录条目。
+	CatalogRoute Key = "ctx_catalog_route"
+
 	// ResolvedUpstreamModel 是 composite 分组将公开模型名解析到的上游模型名。
 	ResolvedUpstreamModel Key = "ctx_resolved_upstream_model"
 
@@ -69,6 +72,10 @@ const (
 	// UserID 认证后的 Sub2API 用户 ID，由 API Key 认证中间件设置。
 	// 供 service 层执行用户级策略，不能使用客户端请求体中的 user 标识替代。
 	UserID Key = "ctx_user_id"
+
+	// UserRateMultiplier 认证后用户的计费倍率（float64），由 API Key 认证中间件设置；
+	// 利润门等拿不到 *User 的服务层从这里读。
+	UserRateMultiplier Key = "ctx_user_rate_multiplier"
 
 	// IsMaxTokensOneHaikuRequest 标识当前请求是否为 max_tokens=1 + haiku 模型的探测请求
 	// 用于 ClaudeCodeOnly 验证绕过（绕过 system prompt 检查，但仍需验证 User-Agent）

@@ -34,22 +34,9 @@ func (a *Account) IsSchedulableForModel(requestedModel string) bool {
 	return a.IsSchedulableForModelWithContext(context.Background(), requestedModel)
 }
 
+// IsSchedulableForModelWithContext 是 SchedulingAllows 的薄封装（非调度读者用）。
 func (a *Account) IsSchedulableForModelWithContext(ctx context.Context, requestedModel string) bool {
-	if a == nil {
-		return false
-	}
-	if !a.IsSchedulable() {
-		return false
-	}
-	if a.isModelRateLimitedWithContext(ctx, requestedModel) {
-		// Antigravity + overages 启用 + 积分未耗尽 → 放行（有积分可用）
-		// 积分是 Antigravity 成品号的厂商能力，按 Vendor 判定，标签为 antigravity 的 key 不享有。
-		if a.Vendor() == PlatformAntigravity && a.IsOveragesEnabled() && !a.isCreditsExhausted() {
-			return true
-		}
-		return false
-	}
-	return true
+	return a.SchedulingAllows(ctx, requestedModel, time.Now())
 }
 
 // GetRateLimitRemainingTime 获取限流剩余时间（模型级限流）

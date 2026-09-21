@@ -28,45 +28,29 @@ func requestModelForTest(h *GatewayHandler, group *service.Group, modelID, etag 
 func TestRetrieveModelMatchesVisibleCatalogue(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	for _, platform := range []string{service.PlatformOpenAI, service.PlatformAnthropic, service.PlatformGemini, service.PlatformGrok, service.PlatformComposite} {
-		for _, mapped := range []bool{false, true} {
-			name := platform + "/fallback"
-			if mapped {
-				name = platform + "/mapped"
+		t.Run(platform, func(t *testing.T) {
+			group := &service.Group{ID: 71, Platform: platform}
+			h := newGatewayModelsHandlerForTest("custom-model", "second-model")
+			list := requestModelForTest(h, group, "", "")
+			require.Equal(t, http.StatusOK, list.Code, list.Body.String())
+			var catalog struct {
+				Data []json.RawMessage `json:"data"`
 			}
-			t.Run(name, func(t *testing.T) {
-				accountPlatform := platform
-				if platform == service.PlatformComposite {
-					accountPlatform = service.PlatformOpenAI
-				}
-				credentials := map[string]any{}
-				if mapped {
-					credentials["model_mapping"] = map[string]any{"custom-model": "upstream-only-model"}
-				}
-				group := &service.Group{ID: 71, Platform: platform}
-				h := newGatewayModelsHandlerForTest(&gatewayModelsAccountRepoStub{byGroup: map[int64][]service.Account{
-					group.ID: {{ID: 1, Platform: accountPlatform, Type: service.AccountTypeAPIKey, Status: service.StatusActive, Schedulable: true, Credentials: credentials}},
-				}})
-				list := requestModelForTest(h, group, "", "")
-				require.Equal(t, http.StatusOK, list.Code, list.Body.String())
-				var catalog struct {
-					Data []json.RawMessage `json:"data"`
-				}
-				require.NoError(t, json.Unmarshal(list.Body.Bytes(), &catalog))
-				require.NotEmpty(t, catalog.Data)
-				var model struct {
-					ID string `json:"id"`
-				}
-				require.NoError(t, json.Unmarshal(catalog.Data[0], &model))
-				retrieved := requestModelForTest(h, group, model.ID, "")
-				require.Equal(t, http.StatusOK, retrieved.Code, retrieved.Body.String())
-				require.JSONEq(t, string(catalog.Data[0]), retrieved.Body.String())
-				require.Equal(t, http.StatusNotFound, requestModelForTest(h, group, "unknown-model", "").Code)
-				group.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"absent-from-source"}}
-				hidden := requestModelForTest(h, group, model.ID, "")
-				require.Equal(t, http.StatusNotFound, hidden.Code, hidden.Body.String())
-				require.Contains(t, hidden.Body.String(), `"code":"model_not_found"`)
-			})
-		}
+			require.NoError(t, json.Unmarshal(list.Body.Bytes(), &catalog))
+			require.Len(t, catalog.Data, 2)
+			var model struct {
+				ID string `json:"id"`
+			}
+			require.NoError(t, json.Unmarshal(catalog.Data[0], &model))
+			retrieved := requestModelForTest(h, group, model.ID, "")
+			require.Equal(t, http.StatusOK, retrieved.Code, retrieved.Body.String())
+			require.JSONEq(t, string(catalog.Data[0]), retrieved.Body.String())
+			require.Equal(t, http.StatusNotFound, requestModelForTest(h, group, "unknown-model", "").Code)
+			group.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"absent-from-source"}}
+			hidden := requestModelForTest(h, group, model.ID, "")
+			require.Equal(t, http.StatusNotFound, hidden.Code, hidden.Body.String())
+			require.Contains(t, hidden.Body.String(), `"code":"model_not_found"`)
+		})
 	}
 }
 
@@ -89,7 +73,7 @@ func TestRetrievePinnedModelPreservesMetadataFilteringAndErrors(t *testing.T) {
 				upstream.statuses[2] = tc.status
 			}
 			codex := newPinnedCodexTestHandler([]service.Account{newPinnedCodexAccount(2, service.StatusActive, true, false)}, upstream, 3)
-			h := &GatewayHandler{openAIGatewayService: codex.gatewayService, maxAccountSwitches: 3}
+			h := &GatewayHandler{openAIGatewayService: codex.gatewayService, maxAccountSwitches: 3, modelCatalog: listedCatalogStub{ids: []string{"special-model", "other-model"}}}
 			group := &service.Group{ID: 72, Platform: service.PlatformOpenAI,
 				ModelAllowlist:            service.GroupModelAllowlist{Enabled: len(tc.selected) > 0, Models: tc.selected},
 				CodexModelsManifestConfig: service.GroupCodexModelsManifestConfig{Enabled: true, AccountIDs: []int64{2}}}
@@ -111,4 +95,22 @@ func TestRetrievePinnedModelPreservesMetadataFilteringAndErrors(t *testing.T) {
 			}
 		})
 	}
+}
+
+// 固定账号清单也只露出目录上架的模型：未上架的模型列表里没有、单取 404。
+func TestPinnedModelsHideUnlistedCatalogModels(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	upstream := &codexModelsPinnedHTTPUpstream{bodies: map[int64]string{
+		2: `{"data":[{"id":"special-model"},{"id":"hidden-model"}]}`,
+	}, statuses: map[int64]int{}}
+	codex := newPinnedCodexTestHandler([]service.Account{newPinnedCodexAccount(2, service.StatusActive, true, false)}, upstream, 3)
+	h := &GatewayHandler{openAIGatewayService: codex.gatewayService, maxAccountSwitches: 3, modelCatalog: listedCatalogStub{ids: []string{"special-model"}}}
+	group := &service.Group{ID: 73, Platform: service.PlatformOpenAI,
+		CodexModelsManifestConfig: service.GroupCodexModelsManifestConfig{Enabled: true, AccountIDs: []int64{2}}}
+
+	list := requestModelForTest(h, group, "", "")
+	require.Equal(t, http.StatusOK, list.Code, list.Body.String())
+	require.Contains(t, list.Body.String(), "special-model")
+	require.NotContains(t, list.Body.String(), "hidden-model")
+	require.Equal(t, http.StatusNotFound, requestModelForTest(h, group, "hidden-model", "").Code)
 }

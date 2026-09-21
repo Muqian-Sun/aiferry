@@ -202,6 +202,10 @@ func (r *fullRebuildAccountRepo) ListSchedulableByGroupIDAndPlatform(_ context.C
 	return r.record(groupID, platform)
 }
 
+func (r *fullRebuildAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *fullRebuildAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.record(groupID, firstPlatform(platforms))
 }

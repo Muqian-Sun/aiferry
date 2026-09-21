@@ -23,10 +23,11 @@ func profitAuthTestAPIKey() *APIKey {
 		Name:    "profit-auth-roundtrip",
 		Status:  StatusActive,
 		User: &User{
-			ID:          40,
-			Email:       "profit@test.local",
-			Status:      StatusActive,
-			Concurrency: 5,
+			ID:             40,
+			Email:          "profit@test.local",
+			Status:         StatusActive,
+			Concurrency:    5,
+			RateMultiplier: 0.06,
 		},
 		Group: &Group{
 			ID:                   groupID,
@@ -34,7 +35,6 @@ func profitAuthTestAPIKey() *APIKey {
 			Platform:             PlatformOpenAI,
 			Status:               StatusActive,
 			Hydrated:             true,
-			RateMultiplier:       0.06,
 			SubscriptionType:     SubscriptionTypeStandard,
 			PeakRateEnabled:      false,
 			ProfitControlEnabled: true,
@@ -44,8 +44,8 @@ func profitAuthTestAPIKey() *APIKey {
 	}
 }
 
-// 快照构建 → L2 JSON 往返 → 还原 → 装门：利润字段必须全程保真，阈值与
-// 计费同源（0.06 × (1−0.25) = 0.045）。
+// 快照构建 → L2 JSON 往返 → 还原 → 装门：利润字段与用户倍率必须全程保真，阈值与
+// 计费同源（用户倍率 0.06 × (1−0.25) = 0.045）。
 func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
 	svc := &APIKeyService{}
 	apiKey := profitAuthTestAPIKey()
@@ -69,10 +69,11 @@ func TestAPIKeyAuthSnapshotProfitControlRoundtrip(t *testing.T) {
 	require.True(t, materialized.Group.ProfitControlEnabled)
 	require.InDelta(t, 0.2, materialized.Group.ProfitMinMargin, 1e-12)
 	require.InDelta(t, 0.05, materialized.Group.ProfitSafetyBuffer, 1e-12)
-	require.InDelta(t, 0.06, materialized.Group.RateMultiplier, 1e-12)
+	require.InDelta(t, 0.06, materialized.User.RateMultiplier, 1e-12)
 
-	// 中间件语义：materialized.Group 进请求 ctx → 门必须按快照配置装上。
+	// 中间件语义：materialized.Group 与用户倍率进请求 ctx → 门必须按快照配置装上。
 	ctx := context.WithValue(context.Background(), ctxkey.Group, materialized.Group)
+	ctx = WithUserRateMultiplier(ctx, materialized.User)
 	gwSvc := &OpenAIGatewayService{}
 	gate := gwSvc.resolveOpenAIProfitControlGate(ctx, materialized.GroupID)
 	require.NotNil(t, gate, "还原后的认证分组必须能装门（投影漏列时本断言最先失败）")

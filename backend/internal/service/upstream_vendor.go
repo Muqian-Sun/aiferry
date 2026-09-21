@@ -107,3 +107,27 @@ func (a *Account) Vendor() string {
 	}
 	return vendor
 }
+
+// AccountModelFamily 返回账号默认模型表所属的厂商族：成品号即平台；第三方 key 不看标签，
+// 按地址识别出官方厂商就是该厂商，指向中转的按主协议归族——Anthropic 地址归 anthropic，
+// Gemini 地址归 gemini，其余（Chat Completions / Responses）归 openai 兼容族。
+// 管理端「可用模型」列表、测试连接的默认模型都按它选表。
+func AccountModelFamily(a *Account) string {
+	if a == nil {
+		return ""
+	}
+	if !a.IsThirdPartyKey() {
+		return a.Platform
+	}
+	if vendor := a.Vendor(); vendor != "" {
+		return vendor
+	}
+	switch a.PrimaryUpstreamProtocol() {
+	case APIProtocolAnthropic:
+		return PlatformAnthropic
+	case APIProtocolGemini:
+		return PlatformGemini
+	default:
+		return PlatformOpenAI
+	}
+}

@@ -13,6 +13,7 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/group"
+	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/proxy"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 )
@@ -108,20 +109,6 @@ func (_c *AccountCreate) SetCredentials(v map[string]interface{}) *AccountCreate
 // SetExtra sets the "extra" field.
 func (_c *AccountCreate) SetExtra(v map[string]interface{}) *AccountCreate {
 	_c.mutation.SetExtra(v)
-	return _c
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (_c *AccountCreate) SetSourceKind(v string) *AccountCreate {
-	_c.mutation.SetSourceKind(v)
-	return _c
-}
-
-// SetNillableSourceKind sets the "source_kind" field if the given value is not nil.
-func (_c *AccountCreate) SetNillableSourceKind(v *string) *AccountCreate {
-	if v != nil {
-		_c.SetSourceKind(*v)
-	}
 	return _c
 }
 
@@ -508,6 +495,21 @@ func (_c *AccountCreate) AddUsageLogs(v ...*UsageLog) *AccountCreate {
 	return _c.AddUsageLogIDs(ids...)
 }
 
+// AddCatalogEntryIDs adds the "catalog_entries" edge to the ModelCatalogEntry entity by IDs.
+func (_c *AccountCreate) AddCatalogEntryIDs(ids ...int64) *AccountCreate {
+	_c.mutation.AddCatalogEntryIDs(ids...)
+	return _c
+}
+
+// AddCatalogEntries adds the "catalog_entries" edges to the ModelCatalogEntry entity.
+func (_c *AccountCreate) AddCatalogEntries(v ...*ModelCatalogEntry) *AccountCreate {
+	ids := make([]int64, len(v))
+	for i := range v {
+		ids[i] = v[i].ID
+	}
+	return _c.AddCatalogEntryIDs(ids...)
+}
+
 // Mutation returns the AccountMutation object of the builder.
 func (_c *AccountCreate) Mutation() *AccountMutation {
 	return _c.mutation
@@ -649,11 +651,6 @@ func (_c *AccountCreate) check() error {
 	if _, ok := _c.mutation.Extra(); !ok {
 		return &ValidationError{Name: "extra", err: errors.New(`ent: missing required field "Account.extra"`)}
 	}
-	if v, ok := _c.mutation.SourceKind(); ok {
-		if err := account.SourceKindValidator(v); err != nil {
-			return &ValidationError{Name: "source_kind", err: fmt.Errorf(`ent: validator failed for field "Account.source_kind": %w`, err)}
-		}
-	}
 	if _, ok := _c.mutation.ProtocolEndpoints(); !ok {
 		return &ValidationError{Name: "protocol_endpoints", err: errors.New(`ent: missing required field "Account.protocol_endpoints"`)}
 	}
@@ -755,10 +752,6 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.Extra(); ok {
 		_spec.SetField(account.FieldExtra, field.TypeJSON, value)
 		_node.Extra = value
-	}
-	if value, ok := _c.mutation.SourceKind(); ok {
-		_spec.SetField(account.FieldSourceKind, field.TypeString, value)
-		_node.SourceKind = &value
 	}
 	if value, ok := _c.mutation.ProtocolEndpoints(); ok {
 		_spec.SetField(account.FieldProtocolEndpoints, field.TypeJSON, value)
@@ -930,6 +923,26 @@ func (_c *AccountCreate) createSpec() (*Account, *sqlgraph.CreateSpec) {
 		}
 		_spec.Edges = append(_spec.Edges, edge)
 	}
+	if nodes := _c.mutation.CatalogEntriesIDs(); len(nodes) > 0 {
+		edge := &sqlgraph.EdgeSpec{
+			Rel:     sqlgraph.M2M,
+			Inverse: true,
+			Table:   account.CatalogEntriesTable,
+			Columns: account.CatalogEntriesPrimaryKey,
+			Bidi:    false,
+			Target: &sqlgraph.EdgeTarget{
+				IDSpec: sqlgraph.NewFieldSpec(modelcatalogentry.FieldID, field.TypeInt64),
+			},
+		}
+		for _, k := range nodes {
+			edge.Target.Nodes = append(edge.Target.Nodes, k)
+		}
+		createE := &ModelCatalogBindingCreate{config: _c.config, mutation: newModelCatalogBindingMutation(_c.config, OpCreate)}
+		createE.defaults()
+		_, specE := createE.createSpec()
+		edge.Target.Fields = specE.Fields
+		_spec.Edges = append(_spec.Edges, edge)
+	}
 	return _node, _spec
 }
 
@@ -1087,24 +1100,6 @@ func (u *AccountUpsert) SetExtra(v map[string]interface{}) *AccountUpsert {
 // UpdateExtra sets the "extra" field to the value that was provided on create.
 func (u *AccountUpsert) UpdateExtra() *AccountUpsert {
 	u.SetExcluded(account.FieldExtra)
-	return u
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (u *AccountUpsert) SetSourceKind(v string) *AccountUpsert {
-	u.Set(account.FieldSourceKind, v)
-	return u
-}
-
-// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
-func (u *AccountUpsert) UpdateSourceKind() *AccountUpsert {
-	u.SetExcluded(account.FieldSourceKind)
-	return u
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (u *AccountUpsert) ClearSourceKind() *AccountUpsert {
-	u.SetNull(account.FieldSourceKind)
 	return u
 }
 
@@ -1672,27 +1667,6 @@ func (u *AccountUpsertOne) SetExtra(v map[string]interface{}) *AccountUpsertOne 
 func (u *AccountUpsertOne) UpdateExtra() *AccountUpsertOne {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateExtra()
-	})
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (u *AccountUpsertOne) SetSourceKind(v string) *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetSourceKind(v)
-	})
-}
-
-// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
-func (u *AccountUpsertOne) UpdateSourceKind() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateSourceKind()
-	})
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (u *AccountUpsertOne) ClearSourceKind() *AccountUpsertOne {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearSourceKind()
 	})
 }
 
@@ -2492,27 +2466,6 @@ func (u *AccountUpsertBulk) SetExtra(v map[string]interface{}) *AccountUpsertBul
 func (u *AccountUpsertBulk) UpdateExtra() *AccountUpsertBulk {
 	return u.Update(func(s *AccountUpsert) {
 		s.UpdateExtra()
-	})
-}
-
-// SetSourceKind sets the "source_kind" field.
-func (u *AccountUpsertBulk) SetSourceKind(v string) *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.SetSourceKind(v)
-	})
-}
-
-// UpdateSourceKind sets the "source_kind" field to the value that was provided on create.
-func (u *AccountUpsertBulk) UpdateSourceKind() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.UpdateSourceKind()
-	})
-}
-
-// ClearSourceKind clears the value of the "source_kind" field.
-func (u *AccountUpsertBulk) ClearSourceKind() *AccountUpsertBulk {
-	return u.Update(func(s *AccountUpsert) {
-		s.ClearSourceKind()
 	})
 }
 

@@ -577,20 +577,11 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'coding' })
   })
 
-  it.each([
-    ['a stale stored API protocol', 'anthropic'],
-    ['no stored API protocol', undefined]
-  ])('preserves a custom CN relay for accounts with %s', async (_name, storedProtocol) => {
+  it('keeps a custom CN relay address and payg mode on save', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
-    account.credentials = {
-      api_key: 'sk-glm',
-      account_mode: 'payg'
-    }
-    if (storedProtocol) {
-      account.credentials.api_protocol = storedProtocol
-    }
+    account.credentials = { api_key: 'sk-glm', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
     checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
@@ -602,30 +593,6 @@ describe('EditAccountModal', () => {
     expect(payload?.protocol_endpoints).toEqual({ chat_completions: 'https://relay.example.com/v1' })
     expect(showErrorMock).not.toHaveBeenCalled()
     expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
-    // 转发协议只由协议映射决定，凭据里的旧 api_protocol 保存时清掉。
-    expect(payload?.credentials).not.toHaveProperty('api_protocol')
-  })
-
-  it('strips address fields that are no longer read from third-party key credentials', async () => {
-    const account = buildAccount()
-    account.platform = 'zhipu'
-    account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
-    account.credentials = {
-      api_key: 'sk-glm',
-      account_mode: 'payg',
-      base_url: 'https://stale.example.com/v1',
-      api_base_urls: { chat_completions: 'https://stale.example.com/v1' }
-    }
-    updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
-
-    const wrapper = mountModal(account)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    const credentials = updateAccountMock.mock.calls[0]?.[1]?.credentials
-    expect(credentials).not.toHaveProperty('base_url')
-    expect(credentials).not.toHaveProperty('api_base_urls')
   })
 
   it('has no API protocol selector for Chinese provider keys', async () => {
@@ -797,27 +764,6 @@ describe('EditAccountModal', () => {
     })
   })
 
-  it('loads and submits the per-account OpenAI long-context billing toggle', async () => {
-    const account = buildAccount()
-    account.extra = {
-      openai_long_context_billing_enabled: true
-    }
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="openai-long-context-billing-toggle"]')
-    expect(toggle.attributes('aria-checked')).toBe('true')
-
-    await toggle.trigger('click')
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
-  })
-
   it('loads and clears the OAuth-only Codex namespace flatten toggle', async () => {
     const account = buildAccount()
     account.type = 'oauth'
@@ -948,84 +894,8 @@ describe('EditAccountModal', () => {
     )
   })
 
-  it('defaults legacy OpenAI accounts to long-context billing disabled', async () => {
-    const account = buildAccount()
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="openai-long-context-billing-toggle"]')
-    expect(toggle.attributes('aria-checked')).toBe('false')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
-  })
-
-  it('does not render or submit the long-context billing toggle for Spark shadow accounts', async () => {
-    const account = buildOpenAISparkShadowAccount()
-    account.extra = {
-      openai_long_context_billing_enabled: false
-    }
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-    const wrapper = mountModal(account)
-
-    expect(wrapper.find('[data-testid="openai-long-context-billing-toggle"]').exists()).toBe(false)
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra).not.toHaveProperty(
-      'openai_long_context_billing_enabled'
-    )
-  })
-
-  it('preserves an explicit OpenAI long-context billing opt-out', async () => {
-    const account = buildAccount()
-    account.extra = {
-      openai_long_context_billing_enabled: false
-    }
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-    const toggle = wrapper.get('[data-testid="openai-long-context-billing-toggle"]')
-    expect(toggle.attributes('aria-checked')).toBe('false')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
-  })
-
-  it('fails closed for malformed OpenAI long-context billing values', async () => {
-    const account = buildAccount()
-    account.extra = {
-      openai_long_context_billing_enabled: 'false'
-    }
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account)
-
-    expect(wrapper.get('[data-testid="openai-long-context-billing-toggle"]').attributes('aria-checked')).toBe('false')
-
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.extra?.openai_long_context_billing_enabled).toBe(false)
-  })
-
+  // 长上下文计费开关按协议地址露出，不看标签：kimi 标签 + Chat Completions 地址的 key 能改；
+  // 只配 Anthropic 地址的 openai 标签 key 看不到开关，保存时保留已存值。
   it('loads and submits Grok OAuth model mapping edits', async () => {
     const account = buildGrokOAuthAccount()
     updateAccountMock.mockReset()

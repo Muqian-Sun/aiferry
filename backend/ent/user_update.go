@@ -445,6 +445,27 @@ func (_u *UserUpdate) AddRpmLimit(v int) *UserUpdate {
 	return _u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_u *UserUpdate) SetRateMultiplier(v float64) *UserUpdate {
+	_u.mutation.ResetRateMultiplier()
+	_u.mutation.SetRateMultiplier(v)
+	return _u
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_u *UserUpdate) SetNillableRateMultiplier(v *float64) *UserUpdate {
+	if v != nil {
+		_u.SetRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddRateMultiplier adds value to the "rate_multiplier" field.
+func (_u *UserUpdate) AddRateMultiplier(v float64) *UserUpdate {
+	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdate) AddAPIKeyIDs(ids ...int64) *UserUpdate {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -1078,6 +1099,12 @@ func (_u *UserUpdate) sqlSave(ctx context.Context) (_node int, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateMultiplier(); ok {
+		_spec.SetField(user.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
+		_spec.AddField(user.FieldRateMultiplier, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{
@@ -2057,6 +2084,27 @@ func (_u *UserUpdateOne) AddRpmLimit(v int) *UserUpdateOne {
 	return _u
 }
 
+// SetRateMultiplier sets the "rate_multiplier" field.
+func (_u *UserUpdateOne) SetRateMultiplier(v float64) *UserUpdateOne {
+	_u.mutation.ResetRateMultiplier()
+	_u.mutation.SetRateMultiplier(v)
+	return _u
+}
+
+// SetNillableRateMultiplier sets the "rate_multiplier" field if the given value is not nil.
+func (_u *UserUpdateOne) SetNillableRateMultiplier(v *float64) *UserUpdateOne {
+	if v != nil {
+		_u.SetRateMultiplier(*v)
+	}
+	return _u
+}
+
+// AddRateMultiplier adds value to the "rate_multiplier" field.
+func (_u *UserUpdateOne) AddRateMultiplier(v float64) *UserUpdateOne {
+	_u.mutation.AddRateMultiplier(v)
+	return _u
+}
+
 // AddAPIKeyIDs adds the "api_keys" edge to the APIKey entity by IDs.
 func (_u *UserUpdateOne) AddAPIKeyIDs(ids ...int64) *UserUpdateOne {
 	_u.mutation.AddAPIKeyIDs(ids...)
@@ -2720,6 +2768,12 @@ func (_u *UserUpdateOne) sqlSave(ctx context.Context) (_node *User, err error) {
 	}
 	if value, ok := _u.mutation.AddedRpmLimit(); ok {
 		_spec.AddField(user.FieldRpmLimit, field.TypeInt, value)
+	}
+	if value, ok := _u.mutation.RateMultiplier(); ok {
+		_spec.SetField(user.FieldRateMultiplier, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedRateMultiplier(); ok {
+		_spec.AddField(user.FieldRateMultiplier, field.TypeFloat64, value)
 	}
 	if _u.mutation.APIKeysCleared() {
 		edge := &sqlgraph.EdgeSpec{

@@ -1209,6 +1209,7 @@ func TestMergeGroupConfiguredCodexModelsInjectsCurrentGroupAliases(t *testing.T)
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	models := decodeCodexManifestModels(t, manifest.Body)
@@ -1266,7 +1267,7 @@ func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t
 	}}
 	group := &Group{ID: groupID, Platform: PlatformOpenAI}
 
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "")
+	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
 	require.NoError(t, err)
 	require.True(t, configured)
 	models := decodeCodexManifestModels(t, manifest.Body)
@@ -1285,6 +1286,7 @@ func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t
 		context.Background(),
 		group,
 		"W/"+manifest.ETag,
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1319,7 +1321,7 @@ func TestBuildGroupConfiguredCodexModelsManifestExpandsSelectedModelCoveredByWil
 		},
 	}
 
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "")
+	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
 	require.NoError(t, err)
 	require.True(t, configured)
 	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
@@ -1361,6 +1363,7 @@ func TestBuildGroupConfiguredCodexModelsManifestIntersectsTransientlyUnschedulab
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1408,6 +1411,7 @@ func TestBuildGroupConfiguredCodexModelsManifestIgnoresPersistentlyDisabledMappe
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.True(t, configured)
@@ -1434,6 +1438,7 @@ func TestBuildGroupConfiguredCodexModelsManifestFallsThroughWithoutConfiguration
 		context.Background(),
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		"",
+		codexListAllForTest,
 	)
 	require.NoError(t, err)
 	require.False(t, configured)
@@ -1454,6 +1459,7 @@ func TestMergeGroupConfiguredCodexModelsFiltersAutoReviewByDefault(t *testing.T)
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	))
 	models := decodeCodexManifestModels(t, manifest.Body)
 	require.Len(t, models, 1)
@@ -1489,6 +1495,7 @@ func TestMergeGroupConfiguredCodexModelsFiltersAccountMappedAutoReviewByDefault(
 		&Group{ID: groupID, Platform: PlatformOpenAI},
 		manifest,
 		"",
+		codexListAllForTest,
 	))
 	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
 }
@@ -1511,7 +1518,7 @@ func TestMergeGroupConfiguredCodexModelsKeepsExplicitAutoReviewSelection(t *test
 		},
 	}
 
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
 	require.Equal(t, []string{"codex-auto-review"}, codexManifestModelSlugs(t, manifest.Body))
 }
 
@@ -1545,14 +1552,14 @@ func TestMergeGroupConfiguredCodexModelsHonorsCustomListAndFinalETag(t *testing.
 	upstreamBody := []byte(`{"models":[{"slug":"gpt-5.6","display_name":"GPT-5.6"}]}`)
 	manifest := &OpenAIModelsResponse{Body: upstreamBody}
 
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
 	models := decodeCodexManifestModels(t, manifest.Body)
 	require.Len(t, models, 1)
 	requireCompleteConfiguredCodexModel(t, models[0], "deepseek-4-pro")
 
 	finalETag := manifest.ETag
 	second := &OpenAIModelsResponse{Body: upstreamBody}
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, finalETag))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, finalETag, codexListAllForTest))
 	require.True(t, second.NotModified)
 	require.Empty(t, second.Body)
 	require.Equal(t, finalETag, second.ETag)
@@ -2075,14 +2082,14 @@ func TestFetchCodexModelsManifestAPIKeyCompleteBodyWithoutUpstreamETagUsesFinalB
 	first, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
 	require.NoError(t, err)
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(first, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, first, ""))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, first, "", codexListAllForTest))
 	require.Equal(t, codexModelsManifestBodyETag(first.Body), first.ETag)
 	require.NotEmpty(t, first.ETag)
 
 	second, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
 	require.NoError(t, err)
 	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(second, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, first.ETag))
+	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, first.ETag, codexListAllForTest))
 	require.True(t, second.NotModified)
 	require.Empty(t, second.Body)
 	require.Equal(t, int32(1), calls.Load())
@@ -2814,6 +2821,7 @@ func TestFetchCodexModelsManifestAPIKeyCacheSurvivesClientMutation(t *testing.T)
 		},
 		first,
 		"",
+		codexListAllForTest,
 	))
 	require.Equal(t, []string{"model-a"}, codexManifestModelSlugs(t, first.Body))
 
@@ -2841,6 +2849,7 @@ func TestFetchCodexModelsManifestAPIKeyCacheSurvivesClientMutation(t *testing.T)
 				},
 				manifest,
 				"",
+				codexListAllForTest,
 			))
 			require.Equal(t, []string{"model-b"}, codexManifestModelSlugs(t, manifest.Body))
 		}()
@@ -3687,7 +3696,7 @@ func TestFetchCodexModelsManifestOAuthSharedAcrossGroupsWithIndependentFiltering
 			<-begin
 			manifest, err := s.FetchCodexModelsManifest(context.Background(), account, "0.137.0", "")
 			if err == nil {
-				err = s.MergeGroupConfiguredCodexModels(context.Background(), g, manifest, "")
+				err = s.MergeGroupConfiguredCodexModels(context.Background(), g, manifest, "", codexListAllForTest)
 			}
 			slugs := []string{}
 			if err == nil {
@@ -3720,3 +3729,68 @@ func TestFetchCodexModelsManifestOAuthSharedAcrossGroupsWithIndependentFiltering
 	require.Equal(t, []string{"model-b"}, got[92])
 	require.EqualValues(t, 1, calls.Load(), "同一账号两个分组同时请求时只发一次上游请求")
 }
+
+// 第三方 key 的平台标签只是展示：标签是 kimi、配了 Chat Completions 地址的 key
+// 在 OpenAI 网关被选中后，清单要照常走 /models?client_version=…，而不是按标签
+// 报「账号类型不支持」的不可重试 502（那会让 Codex 的 /models 整个换不了号）。
+func TestFetchCodexModelsManifestKeyIgnoresPlatformLabel(t *testing.T) {
+	manifestBody := `{"object":"list","data":[{"id":"kimi-k2.5","object":"model"}]}`
+	var gotURL string
+	upstream := &codexModelsHTTPUpstreamStub{do: func(req *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
+		gotURL = req.URL.String()
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"application/json"}},
+			Body:       io.NopCloser(strings.NewReader(manifestBody)),
+		}, nil
+	}}
+	account := newCodexModelsAPIKeyTestAccount("https://api.kimi.com/coding/v1")
+	account.Platform = PlatformKimi
+
+	manifest, err := newCodexModelsAPIKeyTestService(upstream).FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
+
+	require.NoError(t, err)
+	require.Equal(t, "https://api.kimi.com/coding/v1/models?client_version=0.144.0", gotURL)
+	models := decodeCodexManifestModels(t, manifest.Body)
+	require.Len(t, models, 1)
+	require.Equal(t, "kimi-k2.5", models[0]["slug"])
+
+	// 成品号形态的其它类型仍然不支持。
+	setupToken := &Account{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeSetupToken, Credentials: map[string]any{"access_token": "t"}}
+	_, err = newCodexModelsAPIKeyTestService(upstream).FetchCodexModelsManifest(context.Background(), setupToken, "0.144.0", "")
+	require.Error(t, err)
+	require.Equal(t, "OPENAI_CODEX_MODELS_ACCOUNT_TYPE_UNSUPPORTED", infraerrors.Reason(err))
+}
+
+// isOfficialOpenAICodexAccount 对第三方 key 按协议地址判官方，不看标签。
+func TestIsOfficialOpenAICodexAccount_KeysByAddress(t *testing.T) {
+	official := map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"}
+	relay := map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}
+	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformKimi, Type: AccountTypeAPIKey, ProtocolEndpoints: official}), "kimi-labelled key on api.openai.com is official")
+	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: relay}), "openai-labelled key on a relay is not")
+	require.True(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
+	require.False(t, isOfficialOpenAICodexAccount(&Account{Platform: PlatformOpenAI, Type: AccountTypeSetupToken}))
+}
+
+// 第三方 key 的图片输入能力不看平台标签：官方 xAI 地址按 Grok 规则，其余按 OpenAI 兼容清单。
+// （组合分组的目标平台仍按标签选号，那是第四步的事；这里只固定能力判定本身。）
+func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
+	kimiLabelled := &Account{ID: 30, Platform: PlatformKimi, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1"}}
+	require.True(t, accountCodexModelSupportsImageInput(kimiLabelled, "gpt-5.6-sol"), "GPT image-input fallback applies to any OpenAI-compatible key")
+	require.False(t, accountCodexModelSupportsImageInput(kimiLabelled, "company-coding-model"))
+
+	openaiLabelledOnXAI := &Account{ID: 31, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
+	require.True(t, accountCodexModelSupportsImageInput(openaiLabelledOnXAI, "grok-4.5"), "official xAI address follows the Grok rule regardless of label")
+
+	grokLabelledRelay := &Account{ID: 32, Platform: PlatformGrok, Type: AccountTypeAPIKey,
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1"}}
+	require.False(t, accountCodexModelSupportsImageInput(grokLabelledRelay, "grok-4.5"), "a relay is not xAI, and grok-4.5 is not a GPT image model")
+
+	setupToken := &Account{ID: 33, Platform: PlatformOpenAI, Type: AccountTypeSetupToken}
+	require.False(t, accountCodexModelSupportsImageInput(setupToken, "gpt-5.6-sol"))
+}
+
+// codexListAllForTest 让目录过滤放行所有 slug。
+func codexListAllForTest(string) bool { return true }

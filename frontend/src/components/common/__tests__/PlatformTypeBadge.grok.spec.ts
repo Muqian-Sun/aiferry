@@ -116,11 +116,13 @@ describe('PlatformTypeBadge OpenAI authentication modes', () => {
 })
 
 describe('PlatformTypeBadge MiniMax', () => {
-  it('labels MiniMax API keys as MiniMax, not Gemini', () => {
+  it('labels official MiniMax API keys as MiniMax, not Gemini', () => {
     const wrapper = mount(PlatformTypeBadge, {
       props: {
         platform: 'minimax',
         type: 'apikey',
+        // 第三方 key 按后端识别出的厂商显示；这里模拟官方 MiniMax 地址的 key。
+        vendor: 'minimax',
       },
     })
 

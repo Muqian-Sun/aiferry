@@ -75,11 +75,11 @@ func TestOpenAIProtocolFeaturesApply(t *testing.T) {
 }
 
 func TestKeyKeepsHTTPPreviousResponseID(t *testing.T) {
-	require.True(t, keyKeepsHTTPPreviousResponseID(featureRelayKey(featureRelayEndpoints())))
-	require.False(t, keyKeepsHTTPPreviousResponseID(featureRelayKey(map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})),
+	require.True(t, AccountKeepsHTTPPreviousResponseID(featureRelayKey(featureRelayEndpoints())))
+	require.False(t, AccountKeepsHTTPPreviousResponseID(featureRelayKey(map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})),
 		"a key whose Responses traffic is converted to chat completions cannot continue a response chain")
-	require.False(t, keyKeepsHTTPPreviousResponseID(featureZhipuKey(featureZhipuEndpoints())))
-	require.False(t, keyKeepsHTTPPreviousResponseID(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
+	require.False(t, AccountKeepsHTTPPreviousResponseID(featureZhipuKey(featureZhipuEndpoints())))
+	require.False(t, AccountKeepsHTTPPreviousResponseID(&Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
 }
 
 func TestOpenAIToolSchemaPlatform(t *testing.T) {

@@ -39,6 +39,7 @@ func ProvideAdminHandlers(
 	apiKeyHandler *admin.AdminAPIKeyHandler,
 	scheduledTestHandler *admin.ScheduledTestHandler,
 	channelHandler *admin.ChannelHandler,
+	modelCatalogHandler *admin.ModelCatalogHandler,
 	channelMonitorHandler *admin.ChannelMonitorHandler,
 	channelMonitorTemplateHandler *admin.ChannelMonitorRequestTemplateHandler,
 	contentModerationHandler *admin.ContentModerationHandler,
@@ -81,6 +82,7 @@ func ProvideAdminHandlers(
 		APIKey:                 apiKeyHandler,
 		ScheduledTest:          scheduledTestHandler,
 		Channel:                channelHandler,
+		ModelCatalog:           modelCatalogHandler,
 		ChannelMonitor:         channelMonitorHandler,
 		ChannelMonitorTemplate: channelMonitorTemplateHandler,
 		ContentModeration:      contentModerationHandler,
@@ -105,14 +107,16 @@ func ProvideGatewayHandler(
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
+	opsService *service.OpsService,
 	userMsgQueueService *service.UserMessageQueueService,
 	cfg *config.Config,
 	settingService *service.SettingService,
+	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
 ) *GatewayHandler {
 	h := NewGatewayHandler(gatewayService, openAIGatewayService, geminiCompatService, antigravityGatewayService,
 		userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
-		errorPassthroughService, contentModerationService, userMsgQueueService, cfg, settingService)
+		errorPassthroughService, contentModerationService, opsService, userMsgQueueService, cfg, settingService, modelCatalog)
 	h.securityAuditCoordinator = coordinator
 	return h
 }
@@ -129,11 +133,12 @@ func ProvideOpenAIGatewayHandler(
 	opsService *service.OpsService,
 	grokQuotaService *service.GrokQuotaService,
 	cfg *config.Config,
+	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
 ) *OpenAIGatewayHandler {
 	gatewayService.SetPluginManager(pluginManager)
 	h := NewOpenAIGatewayHandler(gatewayService, concurrencyService, billingCacheService, apiKeyService,
-		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg)
+		usageRecordWorkerPool, errorPassthroughService, contentModerationService, opsService, cfg, modelCatalog)
 	h.securityAuditCoordinator = coordinator
 	h.grokMediaEligibilityProber = grokQuotaService
 	return h
@@ -271,6 +276,7 @@ var ProviderSet = wire.NewSet(
 	admin.NewUsageHandler,
 	admin.NewUserAttributeHandler,
 	admin.NewErrorPassthroughHandler,
+	admin.NewModelCatalogHandler,
 	admin.NewTLSFingerprintProfileHandler,
 	admin.NewPluginHandler,
 	admin.NewAdminAPIKeyHandler,

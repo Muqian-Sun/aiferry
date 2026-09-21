@@ -160,11 +160,11 @@ func TestCodexModelsAppliesLocalFiltersBeforeClientETag(t *testing.T) {
 	}
 	gatewayService := service.NewOpenAIGatewayService(
 		repo,
-		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
+	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	group := &service.Group{
 		ID:       groupID,
 		Platform: service.PlatformOpenAI,
@@ -233,11 +233,11 @@ func TestCodexModelsAPIKeyCacheDoesNotLeakGroupFilters(t *testing.T) {
 	}
 	gatewayService := service.NewOpenAIGatewayService(
 		repo,
-		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
+	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	groupA := &service.Group{
 		ID:       91,
 		Platform: service.PlatformOpenAI,
@@ -343,11 +343,11 @@ func TestCodexModelsSupplementsConfiguredModelsWithUnmappedAccountDefaults(t *te
 	upstream := &codexModelsFailoverHTTPUpstream{firstStatus: http.StatusNotFound}
 	gatewayService := service.NewOpenAIGatewayService(
 		repo,
-		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
+	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 
 	recorder := performCodexModelsRequestForGroup(t, handler, &service.Group{
 		ID:       groupID,
@@ -392,11 +392,11 @@ func TestCodexModelsUnmappedParentAndSparkShadowHonorCustomListAndETag(t *testin
 	upstream := &codexModelsFailoverHTTPUpstream{firstStatus: http.StatusNotFound}
 	gatewayService := service.NewOpenAIGatewayService(
 		repo,
-		nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	handler := &OpenAIGatewayHandler{gatewayService: gatewayService}
+	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	group := &service.Group{ID: 45, Platform: service.PlatformOpenAI}
 	first := performCodexModelsRequestForGroup(t, handler, group, "")
 	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
@@ -614,11 +614,11 @@ func newCodexModelsFailoverTestHandlerWithAccountCount(firstStatus, accountCount
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	gatewayService := service.NewOpenAIGatewayService(
 		codexModelsFailoverAccountRepo{accounts: accounts},
-		nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches}, upstream, groupID
+	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches, modelCatalog: listAllCatalogStub{}}, upstream, groupID
 }
 
 func performCodexModelsRequest(t *testing.T, handler *OpenAIGatewayHandler, groupID int64) *httptest.ResponseRecorder {
@@ -782,11 +782,11 @@ func newPinnedCodexTestHandler(accounts []service.Account, upstream *codexModels
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	gatewayService := service.NewOpenAIGatewayService(
 		codexModelsFailoverAccountRepo{accounts: accounts},
-		nil, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
 		nil, nil, nil, nil, nil, nil, nil,
 	)
-	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches}
+	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches, modelCatalog: listAllCatalogStub{}}
 }
 
 func performPinnedCodexModelsRequest(t *testing.T, handler *OpenAIGatewayHandler, group *service.Group, etag string) *httptest.ResponseRecorder {
@@ -1023,4 +1023,45 @@ func TestCodexModelsPinnedAccountsETagMatchReturns304(t *testing.T) {
 	second := performPinnedCodexModelsRequest(t, handler, group, etag)
 	require.Equal(t, http.StatusNotModified, second.Code, second.Body.String())
 	require.Empty(t, second.Body.Bytes())
+}
+
+// 目录过滤在白名单之后：清单只露出上架的 slug，且 ETag 按过滤后的响应体计算。
+func TestCodexModelsHidesUnlistedCatalogSlugs(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	repo := &codexModelsFailoverAccountRepo{accounts: []service.Account{
+		{
+			ProtocolEndpoints: map[string]string{
+				service.APIProtocolChatCompletions: "https://upstream.example/v1",
+				service.APIProtocolResponses:       "https://upstream.example/v1",
+			},
+			ID: 1, Name: "custom-openai", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
+			Status: service.StatusActive, Schedulable: true, Concurrency: 1,
+			Credentials: map[string]any{"api_key": "sk-test", "base_url": "https://upstream.example/v1"},
+		},
+	}}
+	upstream := &codexModelsFailoverHTTPUpstream{
+		firstBody: `{"object":"list","data":[{"id":"gpt-5.5"},{"id":"gpt-5.6"}]}`,
+	}
+	gatewayService := service.NewOpenAIGatewayService(
+		repo,
+		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
+		upstream,
+		nil, nil, nil, nil, nil, nil, nil,
+	)
+	group := &service.Group{ID: 44, Platform: service.PlatformOpenAI}
+
+	all := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
+	unfiltered := performCodexModelsRequestForGroup(t, all, group, "")
+	require.Equal(t, http.StatusOK, unfiltered.Code, unfiltered.Body.String())
+	require.Contains(t, unfiltered.Body.String(), `"slug":"gpt-5.5"`)
+
+	only := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listedCatalogStub{ids: []string{"gpt-5.6"}}}
+	filtered := performCodexModelsRequestForGroup(t, only, group, "")
+	require.Equal(t, http.StatusOK, filtered.Code, filtered.Body.String())
+	require.NotContains(t, filtered.Body.String(), `"slug":"gpt-5.5"`, "unlisted slug is hidden")
+	require.Contains(t, filtered.Body.String(), `"slug":"gpt-5.6"`)
+	require.NotEqual(t, unfiltered.Header().Get("ETag"), filtered.Header().Get("ETag"), "ETag follows the filtered body")
+
+	notModified := performCodexModelsRequestForGroup(t, only, group, filtered.Header().Get("ETag"))
+	require.Equal(t, http.StatusNotModified, notModified.Code)
 }

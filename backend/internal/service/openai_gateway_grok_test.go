@@ -3547,10 +3547,10 @@ func TestUpdateGrokUsageSnapshotExhaustedSuccessWithoutResetUsesFallback(t *test
 	stored, ok := repo.updates[account.ID][grokQuotaSnapshotExtraKey].(*xai.QuotaSnapshot)
 	require.True(t, ok)
 	require.NotNil(t, stored.Tokens.ResetUnix)
-	paused, _ := shouldAutoPauseGrokQuotaWindow("tokens", stored.Tokens, before.Add(time.Second))
-	require.True(t, paused)
-	paused, _ = shouldAutoPauseGrokQuotaWindow("tokens", stored.Tokens, repo.lastRateLimitResetAt.Add(time.Second))
-	require.False(t, paused)
+	_, exhausted := grokQuotaWindowExhaustedUntil(stored.Tokens, before.Add(time.Second))
+	require.True(t, exhausted)
+	_, exhausted = grokQuotaWindowExhaustedUntil(stored.Tokens, repo.lastRateLimitResetAt.Add(time.Second))
+	require.False(t, exhausted)
 }
 
 func TestOpenAIWSHTTPBridgeGrok429PersistsRateLimit(t *testing.T) {

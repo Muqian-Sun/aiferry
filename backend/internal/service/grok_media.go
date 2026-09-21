@@ -313,7 +313,7 @@ func (s *OpenAIGatewayService) BindGrokMediaVideoRequestAccount(
 			ttl = sticky
 		}
 	}
-	return s.cache.SetSessionAccountID(ctx, derefGroupID(groupID), cacheKey, accountID, ttl)
+	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey, accountID, ttl)
 }
 
 func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
@@ -329,7 +329,7 @@ func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 	if cacheKey == "" {
 		return 0, fmt.Errorf("grok video request binding is invalid")
 	}
-	return s.cache.GetSessionAccountID(ctx, derefGroupID(groupID), cacheKey)
+	return s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey)
 }
 
 // SelectGrokMediaVideoRequestAccount only admits the already authenticated

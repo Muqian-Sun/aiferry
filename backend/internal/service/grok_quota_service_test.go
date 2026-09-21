@@ -1222,7 +1222,7 @@ func TestGrokQuotaServiceResetQuotaUnsupported(t *testing.T) {
 	require.Equal(t, "GROK_QUOTA_RESET_UNSUPPORTED", infraerrors.Reason(err))
 }
 
-func TestShouldAutoPauseGrokAccountByQuota(t *testing.T) {
+func TestGrokQuotaPauseDecision(t *testing.T) {
 	t.Parallel()
 
 	zero := int64(0)
@@ -1279,7 +1279,7 @@ func TestShouldAutoPauseGrokAccountByQuota(t *testing.T) {
 					grokQuotaSnapshotExtraKey: tt.snapshot,
 				},
 			}
-			got, _ := shouldAutoPauseGrokAccountByQuota(account)
+			_, _, got := grokQuotaPauseDecision(account, time.Now())
 			require.Equal(t, tt.want, got)
 		})
 	}

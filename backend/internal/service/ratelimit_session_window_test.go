@@ -128,6 +128,10 @@ func (m *sessionWindowMockRepo) ListSchedulableByGroupIDAndPlatform(context.Cont
 func (m *sessionWindowMockRepo) ListSchedulingCandidates(context.Context, []string) ([]Account, error) {
 	panic("unexpected")
 }
+func (m *sessionWindowMockRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (m *sessionWindowMockRepo) ListSchedulingCandidatesByGroupID(context.Context, int64, []string) ([]Account, error) {
 	panic("unexpected")
 }

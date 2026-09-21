@@ -34,8 +34,6 @@ const (
 	FieldCredentials = "credentials"
 	// FieldExtra holds the string denoting the extra field in the database.
 	FieldExtra = "extra"
-	// FieldSourceKind holds the string denoting the source_kind field in the database.
-	FieldSourceKind = "source_kind"
 	// FieldProtocolEndpoints holds the string denoting the protocol_endpoints field in the database.
 	FieldProtocolEndpoints = "protocol_endpoints"
 	// FieldProxyID holds the string denoting the proxy_id field in the database.
@@ -92,8 +90,12 @@ const (
 	EdgeChildren = "children"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
+	// EdgeCatalogEntries holds the string denoting the catalog_entries edge name in mutations.
+	EdgeCatalogEntries = "catalog_entries"
 	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
 	EdgeAccountGroups = "account_groups"
+	// EdgeCatalogBindings holds the string denoting the catalog_bindings edge name in mutations.
+	EdgeCatalogBindings = "catalog_bindings"
 	// Table holds the table name of the account in the database.
 	Table = "accounts"
 	// GroupsTable is the table that holds the groups relation/edge. The primary key declared below.
@@ -123,6 +125,11 @@ const (
 	UsageLogsInverseTable = "usage_logs"
 	// UsageLogsColumn is the table column denoting the usage_logs relation/edge.
 	UsageLogsColumn = "account_id"
+	// CatalogEntriesTable is the table that holds the catalog_entries relation/edge. The primary key declared below.
+	CatalogEntriesTable = "model_catalog_bindings"
+	// CatalogEntriesInverseTable is the table name for the ModelCatalogEntry entity.
+	// It exists in this package in order to avoid circular dependency with the "modelcatalogentry" package.
+	CatalogEntriesInverseTable = "model_catalog_entries"
 	// AccountGroupsTable is the table that holds the account_groups relation/edge.
 	AccountGroupsTable = "account_groups"
 	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
@@ -130,6 +137,13 @@ const (
 	AccountGroupsInverseTable = "account_groups"
 	// AccountGroupsColumn is the table column denoting the account_groups relation/edge.
 	AccountGroupsColumn = "account_id"
+	// CatalogBindingsTable is the table that holds the catalog_bindings relation/edge.
+	CatalogBindingsTable = "model_catalog_bindings"
+	// CatalogBindingsInverseTable is the table name for the ModelCatalogBinding entity.
+	// It exists in this package in order to avoid circular dependency with the "modelcatalogbinding" package.
+	CatalogBindingsInverseTable = "model_catalog_bindings"
+	// CatalogBindingsColumn is the table column denoting the catalog_bindings relation/edge.
+	CatalogBindingsColumn = "account_id"
 )
 
 // Columns holds all SQL columns for account fields.
@@ -144,7 +158,6 @@ var Columns = []string{
 	FieldType,
 	FieldCredentials,
 	FieldExtra,
-	FieldSourceKind,
 	FieldProtocolEndpoints,
 	FieldProxyID,
 	FieldProxyFallbackOriginID,
@@ -174,6 +187,9 @@ var (
 	// GroupsPrimaryKey and GroupsColumn2 are the table columns denoting the
 	// primary key for the groups relation (M2M).
 	GroupsPrimaryKey = []string{"account_id", "group_id"}
+	// CatalogEntriesPrimaryKey and CatalogEntriesColumn2 are the table columns denoting the
+	// primary key for the catalog_entries relation (M2M).
+	CatalogEntriesPrimaryKey = []string{"entry_id", "account_id"}
 )
 
 // ValidColumn reports if the column name is valid (part of the table columns).
@@ -210,8 +226,6 @@ var (
 	DefaultCredentials func() map[string]interface{}
 	// DefaultExtra holds the default value on creation for the "extra" field.
 	DefaultExtra func() map[string]interface{}
-	// SourceKindValidator is a validator for the "source_kind" field. It is called by the builders before save.
-	SourceKindValidator func(string) error
 	// DefaultProtocolEndpoints holds the default value on creation for the "protocol_endpoints" field.
 	DefaultProtocolEndpoints func() map[string]string
 	// DefaultConcurrency holds the default value on creation for the "concurrency" field.
@@ -299,11 +313,6 @@ func ByPlatform(opts ...sql.OrderTermOption) OrderOption {
 // ByType orders the results by the type field.
 func ByType(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldType, opts...).ToFunc()
-}
-
-// BySourceKind orders the results by the source_kind field.
-func BySourceKind(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldSourceKind, opts...).ToFunc()
 }
 
 // ByProxyID orders the results by the proxy_id field.
@@ -472,6 +481,20 @@ func ByUsageLogs(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
+// ByCatalogEntriesCount orders the results by catalog_entries count.
+func ByCatalogEntriesCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCatalogEntriesStep(), opts...)
+	}
+}
+
+// ByCatalogEntries orders the results by catalog_entries terms.
+func ByCatalogEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCatalogEntriesStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
 // ByAccountGroupsCount orders the results by account_groups count.
 func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -483,6 +506,20 @@ func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
 func ByAccountGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newAccountGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
+	}
+}
+
+// ByCatalogBindingsCount orders the results by catalog_bindings count.
+func ByCatalogBindingsCount(opts ...sql.OrderTermOption) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborsCount(s, newCatalogBindingsStep(), opts...)
+	}
+}
+
+// ByCatalogBindings orders the results by catalog_bindings terms.
+func ByCatalogBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
+	return func(s *sql.Selector) {
+		sqlgraph.OrderByNeighborTerms(s, newCatalogBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
 func newGroupsStep() *sqlgraph.Step {
@@ -520,10 +557,24 @@ func newUsageLogsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, false, UsageLogsTable, UsageLogsColumn),
 	)
 }
+func newCatalogEntriesStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CatalogEntriesInverseTable, FieldID),
+		sqlgraph.Edge(sqlgraph.M2M, true, CatalogEntriesTable, CatalogEntriesPrimaryKey...),
+	)
+}
 func newAccountGroupsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(AccountGroupsInverseTable, AccountGroupsColumn),
 		sqlgraph.Edge(sqlgraph.O2M, true, AccountGroupsTable, AccountGroupsColumn),
+	)
+}
+func newCatalogBindingsStep() *sqlgraph.Step {
+	return sqlgraph.NewStep(
+		sqlgraph.From(Table, FieldID),
+		sqlgraph.To(CatalogBindingsInverseTable, CatalogBindingsColumn),
+		sqlgraph.Edge(sqlgraph.O2M, true, CatalogBindingsTable, CatalogBindingsColumn),
 	)
 }

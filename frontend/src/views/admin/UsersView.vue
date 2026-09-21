@@ -418,7 +418,6 @@
                 :name="sub.group?.name || ''"
                 :platform="sub.group?.platform"
                 :subscription-type="sub.group?.subscription_type"
-                :rate-multiplier="sub.group?.rate_multiplier"
                 :days-remaining="sub.expires_at ? getDaysRemaining(sub.expires_at) : null"
                 :title="sub.expires_at ? formatDateTime(sub.expires_at) : ''"
               />
@@ -567,6 +566,10 @@
               :current="row.current_concurrency ?? 0"
               :max="row.concurrency"
             />
+          </template>
+
+          <template #cell-rate_multiplier="{ row }">
+            <span class="font-mono text-sm text-gray-700 dark:text-gray-300">{{ row.rate_multiplier }}x</span>
           </template>
 
           <template #cell-status="{ value }">
@@ -868,6 +871,7 @@ const allColumns = computed<Column[]>(() => [
   { key: 'usage_gemini', label: t('admin.users.columns.usageGemini'), sortable: false },
   { key: 'usage_antigravity', label: t('admin.users.columns.usageAntigravity'), sortable: false },
   { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
+  { key: 'rate_multiplier', label: t('admin.users.columns.rateMultiplier'), sortable: true },
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
   { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
   { key: 'last_used_at', label: t('admin.users.columns.lastUsed'), sortable: true },

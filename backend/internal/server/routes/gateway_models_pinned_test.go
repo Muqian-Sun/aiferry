@@ -57,11 +57,11 @@ func TestGatewayRoutesPinnedModelsDispatchesOrdinaryAndCodexRequests(t *testing.
 	}}
 	upstream := &pinnedModelsRoutesUpstream{}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	s := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, nil, cfg,
+	s := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, cfg,
 		nil, nil, nil, nil, nil, upstream, nil, nil, nil, nil, nil, nil, nil)
 	h := &handler.Handlers{
-		Gateway:       handler.NewGatewayHandler(nil, s, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, cfg, nil),
-		OpenAIGateway: handler.NewOpenAIGatewayHandler(s, nil, nil, nil, nil, nil, nil, nil, cfg),
+		Gateway:       handler.NewGatewayHandler(nil, s, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, cfg, nil, admitAllCatalog{}),
+		OpenAIGateway: handler.NewOpenAIGatewayHandler(s, nil, nil, nil, nil, nil, nil, nil, cfg, admitAllCatalog{}),
 		AsyncImage:    handler.NewAsyncImageHandler(nil, nil),
 	}
 	group := &service.Group{ID: 1, Platform: service.PlatformOpenAI,
@@ -70,7 +70,7 @@ func TestGatewayRoutesPinnedModelsDispatchesOrdinaryAndCodexRequests(t *testing.
 	RegisterGatewayRoutes(router, h, servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
 		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{GroupID: &group.ID, Group: group})
 		c.Next()
-	}), nil, nil, nil, nil, nil, cfg)
+	}), nil, nil, nil, nil, admitAllCatalog{}, cfg)
 	for _, path := range []string{"/v1/models", "/models", "/v1/models?client_version=", "/models?client_version="} {
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, path, nil))
@@ -110,11 +110,11 @@ func TestGatewayRoutesRetrievePinnedModel(t *testing.T) {
 	}}
 	upstream := &pinnedModelsRoutesUpstream{}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	s := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, nil, cfg,
+	s := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, nil, cfg,
 		nil, nil, nil, nil, nil, upstream, nil, nil, nil, nil, nil, nil, nil)
 	h := &handler.Handlers{
-		Gateway:       handler.NewGatewayHandler(nil, s, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, cfg, nil),
-		OpenAIGateway: handler.NewOpenAIGatewayHandler(s, nil, nil, nil, nil, nil, nil, nil, cfg),
+		Gateway:       handler.NewGatewayHandler(nil, s, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, cfg, nil, admitAllCatalog{}),
+		OpenAIGateway: handler.NewOpenAIGatewayHandler(s, nil, nil, nil, nil, nil, nil, nil, cfg, admitAllCatalog{}),
 		AsyncImage:    handler.NewAsyncImageHandler(nil, nil),
 	}
 	group := &service.Group{ID: 1, Platform: service.PlatformOpenAI,
@@ -127,7 +127,7 @@ func TestGatewayRoutesRetrievePinnedModel(t *testing.T) {
 		}
 		c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{GroupID: &group.ID, Group: group})
 		c.Next()
-	}), nil, nil, nil, nil, nil, cfg)
+	}), nil, nil, nil, nil, admitAllCatalog{}, cfg)
 	request := func(path, key, etag string) *httptest.ResponseRecorder {
 		w := httptest.NewRecorder()
 		req := httptest.NewRequest(http.MethodGet, path, nil)

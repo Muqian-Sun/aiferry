@@ -6,7 +6,7 @@ import (
 
 // OpenAI 网关上第三方 key 的上游协议与协议特性判定。
 //
-// 第三方 key 选的平台只是展示标签：上游协议由协议地址决定（KeyUpstreamProtocolFor），
+// 第三方 key 选的平台只是展示标签：上游协议由协议地址与转换注册表决定（UpstreamProtocolFor），
 // 厂商特化由地址识别出的厂商决定（Vendor），这里不读 Platform。成品号（OpenAI OAuth /
 // Codex、Grok OAuth）的协议由厂商决定，不经过这些函数。
 
@@ -29,16 +29,13 @@ func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string, u
 	if protocol := openAIGatewayKeyProtocol(account, inboundProtocol); protocol != "" {
 		return protocol, nil
 	}
-	return "", MissingProtocolEndpointError(account, strings.Join(KeyUpstreamProtocols(PlatformOpenAI, inboundProtocol, account.Vendor()), " / "))
+	return "", MissingProtocolEndpointError(account, strings.Join(UpstreamProtocolPreference(inboundProtocol, account.Vendor()), " / "))
 }
 
-// openAIGatewayKeyProtocol 返回第三方 key 在 OpenAI 网关上处理该入站协议的首选上游协议，
-// 不能承接时返回空串。
-//
-// OpenAI 网关上各分组平台（openai / grok / 国产供应商 / OpenCode）的协议候选相同，
-// 转发层拿不到分组平台，用 PlatformOpenAI 代表这个网关。
+// openAIGatewayKeyProtocol 返回第三方 key 处理该入站协议的上游协议（协议转换注册表：
+// 同协议直连优先，官方 OpenAI 先转 Responses），不能承接时返回空串。
 func openAIGatewayKeyProtocol(account *Account, inboundProtocol string) string {
-	return account.KeyUpstreamProtocolFor(PlatformOpenAI, inboundProtocol)
+	return account.UpstreamProtocolFor(inboundProtocol)
 }
 
 // openAIGatewayKeyExtensionBaseURL 返回第三方 key 承接图片、向量、搜索等 OpenAI 扩展
@@ -101,11 +98,14 @@ func keyUsesOpenAIProtocolFeatures(account *Account) bool {
 	return account.IsThirdPartyKey() && openAIProtocolFeaturesApply(account)
 }
 
-// keyKeepsHTTPPreviousResponseID 报告第三方 key 的 HTTP Responses 请求能否承接
-// previous_response_id：请求确实以 responses 协议转发（没被转换成别的协议，否则续链
-// 状态会被静默丢弃），且厂商是官方 OpenAI 或通用中转。
-func keyKeepsHTTPPreviousResponseID(account *Account) bool {
-	return keyUsesOpenAIProtocolFeatures(account) &&
+// AccountKeepsHTTPPreviousResponseID 报告账号能否在 OpenAI 网关的 HTTP Responses 请求里
+// 承接 previous_response_id（续链状态）。
+//
+// 成品号（OAuth / SetupToken）的续链状态挂在 WSv2 会话上，HTTP 请求一律不承接。
+// 第三方 key 要求请求确实以 responses 协议转发（没被转换成别的协议，否则续链状态会被
+// 静默丢弃），且厂商是官方 OpenAI 或通用中转。
+func AccountKeepsHTTPPreviousResponseID(account *Account) bool {
+	return account != nil && keyUsesOpenAIProtocolFeatures(account) &&
 		openAIGatewayKeyProtocol(account, APIProtocolResponses) == APIProtocolResponses
 }
 

@@ -72,8 +72,7 @@ func (r *fakeCNProbeAccountRepo) GetByID(ctx context.Context, id int64) (*Accoun
 	return r.account, nil
 }
 
-// kimi coding 账号的 base_url 指向中转（含 api.kimi.com/coding 路径段即可被识别
-// 为 kimi coding plan）→ 衍生额度端点落在中转主机上，白名单未列名必须拒绝。
+// 中转地址（即便路径里夹着官方域名）按 Vendor 不是官方厂商，校验阶段就拒绝，不会发到上游。
 func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
 	repo := &fakeCNProbeAccountRepo{account: &Account{
 		ID: 1, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
@@ -91,11 +90,11 @@ func TestCNProviderQuotaService_RejectsURLBlockedByPolicy(t *testing.T) {
 
 	_, err := svc.QueryUsage(context.Background(), 1)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "CN_QUOTA_URL_REJECTED")
+	require.Contains(t, err.Error(), "CN_PROBE_ADDRESS_NOT_OFFICIAL")
 	require.Zero(t, upstream.calls, "probe must not issue any upstream request when URL policy rejects the target")
 }
 
-// deepseek payg 账号自定义 base_url → 余额端点落在中转主机上，必须先过策略。
+// 中转地址的 DeepSeek 标签 key 按 Vendor 不是官方厂商，校验阶段就拒绝。
 func TestCNProviderBalanceService_RejectsURLBlockedByPolicy(t *testing.T) {
 	repo := &fakeCNProbeAccountRepo{account: &Account{
 		ID: 2, Platform: PlatformDeepseek, Type: AccountTypeAPIKey, Status: StatusActive,
@@ -113,7 +112,7 @@ func TestCNProviderBalanceService_RejectsURLBlockedByPolicy(t *testing.T) {
 
 	_, err := svc.QueryBalance(context.Background(), 2)
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "CN_BALANCE_URL_REJECTED")
+	require.Contains(t, err.Error(), "CN_PROBE_ADDRESS_NOT_OFFICIAL")
 	require.Zero(t, upstream.calls, "probe must not issue any upstream request when URL policy rejects the target")
 }
 

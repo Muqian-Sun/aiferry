@@ -75,26 +75,18 @@ func TestProfitControl_GateReuseKeepsThresholdAcrossFailover(t *testing.T) {
 	require.False(t, vetoed)
 }
 
-// D 固定在 pricingAt：高峰因子按请求开始时刻计算，与"当前时刻"无关。
-func TestProfitControl_PricingAtFixesDownstreamPeakFactor(t *testing.T) {
+// D 固定在 pricingAt：门记录请求开始时刻，一个请求不会中途变价。
+func TestProfitControl_GateKeepsPricingAt(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	groupID := int64(64)
 	group := profitControlTestGroup(groupID, 0, 0)
-	group.SubscriptionType = SubscriptionTypeSubscription
-	group.PeakRateEnabled = true
-	group.PeakRateMultiplier = 3.0
 
 	pricingAt := time.Date(2026, time.January, 15, 8, 30, 0, 0, timezone.Location())
-	outsideWindow := time.Date(2026, time.January, 15, 10, 30, 0, 0, timezone.Location())
-	group.PeakStart = "08:00"
-	group.PeakEnd = "09:00"
-	require.Equal(t, 1.0, group.PeakMultiplierAt(outsideWindow), "构造前提：对照时刻不在窗口内")
-	require.Equal(t, 3.0, group.PeakMultiplierAt(pricingAt), "构造前提：pricingAt 在窗口内")
-
 	ctx := context.WithValue(profitControlTestCtx(group), openAIPricingAtCtxKey{}, pricingAt)
+	ctx = WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: 3.0})
 	gate := svc.resolveOpenAIProfitControlGate(ctx, &groupID)
 	require.NotNil(t, gate)
-	require.InDelta(t, 3.0, gate.threshold, 1e-9, "阈值必须用 pricingAt 时刻的高峰因子（1.0×3.0×(1-0)）")
+	require.InDelta(t, 3.0, gate.threshold, 1e-9, "阈值 = 用户倍率 3.0 × (1-0)")
 	require.Equal(t, pricingAt, gate.pricingAt)
 }
 

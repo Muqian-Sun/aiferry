@@ -14,7 +14,9 @@ import (
 //   - kimi coding 账号（含已被阈值停调的）→ 额度探测被调用；
 //   - 智谱 coding 账号 → 额度探测被调用（智谱不进 kimi/deepseek 余额循环）；
 //   - payg 账号不经过额度探测（走余额路径，本测试不放 payg 账号避免真实网络）；
-//   - 非激活账号完全跳过。
+//   - 非激活账号完全跳过；
+//   - 供应商按协议地址识别，平台标签不参与：kimi 标签的中转 key 不探，
+//     openai 标签的官方智谱 key 要探。
 
 // fakeCNQuotaProber 需要并发安全：runOnce 以 cnQuotaProbeConcurrency 并发调用 QueryUsage。
 type fakeCNQuotaProber struct {
@@ -31,11 +33,18 @@ func (f *fakeCNQuotaProber) QueryUsage(ctx context.Context, accountID int64) (*C
 
 type fakeCNCheckRepo struct {
 	AccountRepository
-	byPlatform map[string][]Account
+	active []Account
 }
 
-func (r *fakeCNCheckRepo) ListByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return r.byPlatform[platform], nil
+// ListActive 只返回 active 的账号，与真实仓储口径一致。
+func (r *fakeCNCheckRepo) ListActive(context.Context) ([]Account, error) {
+	var out []Account
+	for _, account := range r.active {
+		if account.IsActive() {
+			out = append(out, account)
+		}
+	}
+	return out, nil
 }
 
 func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
@@ -52,10 +61,18 @@ func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
 	minimaxCoding := Account{ID: 5, Platform: PlatformMiniMax, Type: AccountTypeAPIKey, Status: StatusActive,
 		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.minimaxi.com/anthropic", APIProtocolChatCompletions: "https://api.minimaxi.com/v1", APIProtocolResponses: "https://api.minimaxi.com/v1"}}
 
-	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{
-		PlatformKimi:    {kimiActive, kimiPaused, kimiInactive},
-		PlatformZhipu:   {zhipuCoding},
-		PlatformMiniMax: {minimaxCoding},
+	// 标签 kimi 但地址是中转：不是国产供应商，不探。
+	kimiLabelledRelay := Account{ID: 6, Platform: PlatformKimi, Type: AccountTypeAPIKey, Status: StatusActive,
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"}}
+	// 标签 openai 但地址是官方智谱：按厂商探。
+	openaiLabelledZhipu := Account{ID: 7, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+		Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}}
+	// 成品号不参与。
+	kimiOAuth := Account{ID: 8, Platform: PlatformKimi, Type: AccountTypeOAuth, Status: StatusActive,
+		Credentials: map[string]any{"account_mode": "coding"}}
+
+	repo := &fakeCNCheckRepo{active: []Account{
+		kimiActive, kimiPaused, kimiInactive, zhipuCoding, minimaxCoding, kimiLabelledRelay, openaiLabelledZhipu, kimiOAuth,
 	}}
 	prober := &fakeCNQuotaProber{}
 	svc := &CNProviderBalanceCheckService{
@@ -66,14 +83,14 @@ func TestCNProviderBalanceCheckRunOnceProbesCodingPlanQuota(t *testing.T) {
 
 	svc.runOnce()
 
-	require.ElementsMatch(t, []int64{1, 2, 4, 5}, prober.probed)
+	require.ElementsMatch(t, []int64{1, 2, 4, 5, 7}, prober.probed)
 }
 
 // runOnceZhipuQuota 在 quotaService 缺失时安全跳过（Start 门控不启动的老部署路径）。
 func TestCNProviderBalanceCheckRunOnceWithoutQuotaService(t *testing.T) {
-	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{
-		PlatformZhipu: {{ID: 4, Platform: PlatformZhipu, Type: AccountTypeAPIKey, Status: StatusActive,
-			Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}}},
+	repo := &fakeCNCheckRepo{active: []Account{
+		{ID: 4, Platform: PlatformZhipu, Type: AccountTypeAPIKey, Status: StatusActive,
+			Credentials: map[string]any{"account_mode": "coding"}, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://open.bigmodel.cn/api/anthropic", APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}},
 	}}
 	svc := &CNProviderBalanceCheckService{accountRepo: repo, cfg: &config.Config{}}
 	require.NotPanics(t, func() { svc.runOnce() })
@@ -110,9 +127,7 @@ func TestCNProviderBalanceCheckRunOnceSkipsOllamaCloudUsageAccounts(t *testing.T
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://ollama.com"}}
 
 	loadRepo := &recordingCNBalanceLoadRepo{}
-	repo := &fakeCNCheckRepo{byPlatform: map[string][]Account{
-		PlatformKimi: {kimiCoding, ollamaKimiCoding, ollamaKimiPayg},
-	}}
+	repo := &fakeCNCheckRepo{active: []Account{kimiCoding, ollamaKimiCoding, ollamaKimiPayg}}
 	prober := &fakeCNQuotaProber{}
 	svc := &CNProviderBalanceCheckService{
 		accountRepo:    repo,

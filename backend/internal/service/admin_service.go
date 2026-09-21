@@ -21,7 +21,7 @@ type AdminService interface {
 	DeleteUser(ctx context.Context, id int64) error
 	UpdateUserBalance(ctx context.Context, userID int64, balance float64, operation string, notes string) (*User, error)
 	BatchUpdateConcurrency(ctx context.Context, userIDs []int64, value int, mode string) (int, error)
-	BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error)
+	BatchUpdateLimits(ctx context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error)
 	GetUserAPIKeys(ctx context.Context, userID int64, page, pageSize int, sortBy, sortOrder string) ([]APIKey, int64, error)
 	GetUserUsageStats(ctx context.Context, userID int64, period string) (any, error)
 	GetUserRPMStatus(ctx context.Context, userID int64) (*UserRPMStatus, error)
@@ -56,9 +56,7 @@ type AdminService interface {
 	DeleteCompositeRoute(ctx context.Context, groupID, routeID int64) error
 	PreviewCompositeRoute(ctx context.Context, groupID int64, input CompositeRoutePreviewRequest) (*CompositeRouteDecision, error)
 	GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error)
-	GetGroupRateMultipliers(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
-	ClearGroupRateMultipliers(ctx context.Context, groupID int64) error
-	BatchSetGroupRateMultipliers(ctx context.Context, groupID int64, entries []GroupRateMultiplierInput) error
+	GetGroupRPMOverrides(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
 	ClearGroupRPMOverrides(ctx context.Context, groupID int64) error
 	BatchSetGroupRPMOverrides(ctx context.Context, groupID int64, entries []GroupRPMOverrideInput) error
 	UpdateGroupSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error
@@ -146,7 +144,6 @@ const (
 	AdminGroupOperationBasic          AdminGroupOperation = "basic"
 	AdminGroupOperationDuplicate      AdminGroupOperation = "duplicate"
 	AdminGroupOperationCompositeRoute AdminGroupOperation = "composite_route"
-	AdminGroupOperationMultiplier     AdminGroupOperation = "multiplier"
 	AdminGroupOperationRPMOverride    AdminGroupOperation = "rpm_override"
 	AdminGroupOperationSort           AdminGroupOperation = "sort"
 )
@@ -160,14 +157,16 @@ func ValidateSimpleModeGroupOperation(cfg *config.Config, operation AdminGroupOp
 
 // CreateUserInput represents input for creating a new user via admin operations.
 type CreateUserInput struct {
-	Email                string
-	Password             string
-	Username             string
-	Notes                string
-	Role                 string // 空字符串表示使用默认角色(user);合法值 admin/user
-	Balance              *float64
-	Concurrency          int
-	RPMLimit             int
+	Email       string
+	Password    string
+	Username    string
+	Notes       string
+	Role        string // 空字符串表示使用默认角色(user);合法值 admin/user
+	Balance     *float64
+	Concurrency int
+	RPMLimit    int
+	// RateMultiplier 用户级计费倍率；nil 表示默认 1。
+	RateMultiplier       *float64
 	AllowedGroups        []int64
 	RestrictPublicGroups bool
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
@@ -187,9 +186,8 @@ type UpdateUserInput struct {
 	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
 	// RestrictPublicGroups 指针区分"未提供"和"显式开关"。
 	RestrictPublicGroups *bool
-	// GroupRates 用户专属分组倍率配置
-	// map[groupID]*rate，nil 表示删除该分组的专属倍率
-	GroupRates map[int64]*float64
+	// RateMultiplier 用户级计费倍率（>= 0，0 = 免费）；指针区分"未提供"和"设置为0"。
+	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
 }
@@ -517,12 +515,11 @@ type UserGroupRPMStatus struct {
 
 // BulkUpdateAccountsResult is the aggregated response for bulk updates.
 type BulkUpdateAccountsResult struct {
-	Success                   int                       `json:"success"`
-	Failed                    int                       `json:"failed"`
-	SuccessIDs                []int64                   `json:"success_ids"`
-	FailedIDs                 []int64                   `json:"failed_ids"`
-	Results                   []BulkUpdateAccountResult `json:"results"`
-	LongContextInheritedCount int                       `json:"long_context_inherited_count,omitempty"`
+	Success    int                       `json:"success"`
+	Failed     int                       `json:"failed"`
+	SuccessIDs []int64                   `json:"success_ids"`
+	FailedIDs  []int64                   `json:"failed_ids"`
+	Results    []BulkUpdateAccountResult `json:"results"`
 }
 
 type CreateProxyInput struct {
@@ -725,10 +722,6 @@ type ChannelCacheInvalidator interface {
 
 type adminRechargeAffiliateAccruer interface {
 	AccrueInviteRebate(ctx context.Context, inviteeUserID int64, baseRechargeAmount float64) (float64, error)
-}
-
-type userGroupRateBatchReader interface {
-	GetByUserIDs(ctx context.Context, userIDs []int64) (map[int64]map[int64]float64, error)
 }
 
 // NewAdminService creates a new AdminService

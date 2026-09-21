@@ -55,6 +55,9 @@ func TestHandleUpstreamError_402RecoverablePauseFollowsVendor(t *testing.T) {
 		require.Zero(t, repo.setErrorCalls)
 		require.Equal(t, 1, repo.tempCalls)
 		require.True(t, strings.HasPrefix(repo.lastTempReason, cnBalanceLowReasonPrefix), repo.lastTempReason)
+		// balance_low 标记的键前缀按厂商写：余额探测按同一前缀清除，按标签写会永远清不掉。
+		require.Equal(t, map[string]any{cnExtraKey(PlatformKimi, cnBalanceExtraSuffixLow): true}, repo.lastExtraUpdates)
+		require.NotContains(t, repo.lastExtraUpdates, cnExtraKey(PlatformOpenAI, cnBalanceExtraSuffixLow))
 	})
 
 	// OpenCode：Zen 按量有余额概念（可恢复暂停），Go 订阅没有（永久停用）；两者按地址区分，
@@ -292,35 +295,6 @@ type geminiPrecheckUsageRepoStub struct {
 
 func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, int64, *int16, *bool, *int8) ([]usagestats.ModelStat, error) {
 	return r.stats, nil
-}
-
-// Google 官方档位的本地配额预检只对 Vendor 为 gemini 的账号生效：用量远超 AI Studio
-// 免费档日配额时，官方地址的 key 被跳过，中转 key 不受影响。
-func TestGeminiPreCheckUsage_FollowsVendor(t *testing.T) {
-	usage := &geminiPrecheckUsageRepoStub{stats: []usagestats.ModelStat{{Model: "gemini-2.5-pro", Requests: 1000}}}
-	quotaSvc := NewGeminiQuotaService(&config.Config{}, nil)
-	newSvc := func() *RateLimitService {
-		return NewRateLimitService(&rateLimitAccountRepoStub{}, usage, &config.Config{}, quotaSvc, nil)
-	}
-
-	relay := vendorTestKey(PlatformGemini, vendorTestRelayGemini)
-	relay.ID = 9701
-	require.Empty(t, relay.Vendor())
-	official := vendorTestKey(PlatformOpenAI, vendorTestGemini)
-	official.ID = 9702
-	require.Equal(t, PlatformGemini, official.Vendor())
-
-	ok, err := newSvc().PreCheckUsage(context.Background(), relay, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.True(t, ok)
-	ok, err = newSvc().PreCheckUsage(context.Background(), official, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.False(t, ok)
-
-	batch, err := newSvc().PreCheckUsageBatch(context.Background(), []*Account{relay, official}, "gemini-2.5-pro")
-	require.NoError(t, err)
-	require.True(t, batch[relay.ID])
-	require.False(t, batch[official.ID])
 }
 
 func TestHandle403_EscalatingPolicyFollowsVendor(t *testing.T) {

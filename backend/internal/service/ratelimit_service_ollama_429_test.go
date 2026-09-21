@@ -32,7 +32,7 @@ func ollama429Account(id int64, platform string) *Account {
 			"api_key":  "ollama429-key",
 		},
 		ProtocolEndpoints: map[string]string{
-			DefaultProtocolForPlatform(platform): "https://www.ollama.com",
+			APIProtocolChatCompletions: "https://www.ollama.com",
 		},
 	}
 }
@@ -267,12 +267,12 @@ func TestHandle429_OllamaEarlyBranchAcrossPlatforms(t *testing.T) {
 	}
 }
 
-// 429 分支按地址识别 Ollama Cloud，不看平台标签：白名单外标签的 key 也拿到永不缩短的冷却，
-// 但异步用量 probe 属后台探测，仍受 IsOllamaCloudUsageAccount 的平台白名单约束。
+// 429 分支按地址识别 Ollama Cloud，不看平台标签：任何标签的 key 都拿到永不缩短的冷却，
+// 用量 probe 同样只看地址，一并排期。
 func TestHandle429_OllamaBranchByAddressNotLabel(t *testing.T) {
 	acct := ollama429Account(102, PlatformGrok)
 	acct.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://www.ollama.com"}
-	require.False(t, IsOllamaCloudUsageAccount(acct))
+	require.True(t, IsOllamaCloudUsageAccount(acct))
 	repo := newOllama429Repo(acct)
 	scheduler := newOllama429SchedulerStub(true)
 	svc, _ := ollama429Fixture(t, repo, scheduler)
@@ -280,7 +280,7 @@ func TestHandle429_OllamaBranchByAddressNotLabel(t *testing.T) {
 	svc.handle429(context.Background(), acct, http.Header{"Retry-After": []string{"120"}}, nil)
 
 	require.Len(t, repo.ifLaterWrites, 1, "Ollama Cloud key of any label must get the never-shrink cooldown")
-	require.Zero(t, scheduler.count(), "usage probe stays gated by the usage-account platform allowlist")
+	require.Equal(t, 1, scheduler.count(), "usage probe follows the address, not the label")
 }
 
 func TestHandle429_NonOllamaUnchanged(t *testing.T) {

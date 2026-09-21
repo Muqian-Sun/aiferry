@@ -28,7 +28,7 @@ func (c recordingValueConverter) ConvertValue(v any) (driver.Value, error) {
 }
 
 // 调度候选查询的平台过滤只约束成品号：WHERE 里平台条件必须与「第三方 key」条件
-// （source_kind = api_key，或 source_kind 为 NULL 时类型为 apikey）取 OR。
+// （type = apikey）取 OR。
 // 真实数据库行为见 account_repo_scheduling_candidates_integration_test.go。
 func TestListSchedulingCandidates_PlatformFilterOnlyConstrainsSubscriptions(t *testing.T) {
 	queries := map[string]func(*accountRepository) error{
@@ -67,9 +67,8 @@ func TestListSchedulingCandidates_PlatformFilterOnlyConstrainsSubscriptions(t *t
 			require.Contains(t, normalized, `"platform" IN (`)
 			platformAt := strings.Index(normalized, `"platform" IN (`)
 			keyClause := normalized[platformAt:]
-			require.Regexp(t, `^"platform" IN \(\$\d+\) OR \("accounts"\."source_kind" = \$\d+ OR \("accounts"\."source_kind" IS NULL AND "accounts"\."type" = \$\d+\)\)`, keyClause)
+			require.Regexp(t, `^"platform" IN \(\$\d+\) OR "accounts"\."type" = \$\d+`, keyClause)
 			require.Contains(t, args, driver.Value(service.PlatformAnthropic))
-			require.Contains(t, args, driver.Value(service.AccountSourceAPIKey))
 			require.Contains(t, args, driver.Value(service.AccountTypeAPIKey))
 		})
 	}
