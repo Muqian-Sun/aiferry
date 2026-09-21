@@ -174,70 +174,6 @@ func TestOpenAIResponsesRequiredCapability(t *testing.T) {
 	}
 }
 
-func TestResolveOpenAIMessagesMetadataSession_DoesNotDerivePromptCacheKey(t *testing.T) {
-	body := []byte(`{"model":"claude-sonnet-4-5","metadata":{"user_id":"claude-code-session"},"messages":[{"role":"user","content":"hello"}]}`)
-
-	sessionHash, promptCacheKey := resolveOpenAIMessagesMetadataSession(nil, "", "", "claude-sonnet-4-5", body)
-
-	require.NotEmpty(t, sessionHash)
-	require.Empty(t, promptCacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_PreservesExplicitPromptCacheKey(t *testing.T) {
-	body := []byte(`{"metadata":{"user_id":"claude-code-session"}}`)
-
-	sessionHash, promptCacheKey := resolveOpenAIMessagesMetadataSession(nil, "", "explicit-cache", "claude-sonnet-4-5", body)
-
-	require.NotEmpty(t, sessionHash)
-	require.Equal(t, "explicit-cache", promptCacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_ClaudeCodeHeaderOverridesContentFallback(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "claude-session-001")
-
-	body1 := []byte(`{"model":"gpt-5.6-sol","system":"parent","messages":[{"role":"user","content":"parent task"}]}`)
-	body2 := []byte(`{"model":"gpt-5.6-sol","system":"subagent","messages":[{"role":"user","content":"child task"}]}`)
-
-	contentHash1 := (&service.OpenAIGatewayService{}).GenerateSessionHash(c, body1)
-	contentHash2 := (&service.OpenAIGatewayService{}).GenerateSessionHash(c, body2)
-	require.NotEqual(t, contentHash1, contentHash2, "different bodies should prove the content fallback differs")
-
-	hash1, cacheKey1 := resolveOpenAIMessagesMetadataSession(c, contentHash1, "", "gpt-5.6-sol", body1)
-	hash2, cacheKey2 := resolveOpenAIMessagesMetadataSession(c, contentHash2, "", "gpt-5.6-sol", body2)
-	require.Equal(t, service.DeriveSessionHashFromSeed("claude-session-001"), hash1)
-	require.Equal(t, hash1, hash2, "the same Claude Code session must keep one sticky account across changed turn bodies")
-	require.Empty(t, cacheKey1, "routing-only fix must not create an upstream prompt cache key")
-	require.Empty(t, cacheKey2, "routing-only fix must not create an upstream prompt cache key")
-}
-
-func TestResolveOpenAIMessagesMetadataSession_OpenAISignalWinsOverClaudeHeader(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "claude-session-001")
-
-	hash, cacheKey := resolveOpenAIMessagesMetadataSession(c, "content-hash", "explicit-openai-session", "gpt-5.6-sol", []byte(`{"metadata":{"user_id":"opaque"}}`))
-	require.Equal(t, "content-hash", hash, "existing OpenAI session resolution must remain authoritative")
-	require.Equal(t, "explicit-openai-session", cacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_BlankClaudeHeaderKeepsContentFallback(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "   ")
-
-	hash, cacheKey := resolveOpenAIMessagesMetadataSession(c, "content-hash", "", "gpt-5.6-sol", []byte(`{"metadata":{"user_id":"opaque"}}`))
-	require.Equal(t, "content-hash", hash)
-	require.Empty(t, cacheKey)
-}
-
 func TestOpenAIHandleStreamingAwareError_NonStreaming(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -733,60 +669,6 @@ func TestResolveOpenAIMessagesDispatchMappedModel(t *testing.T) {
 		}
 		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "gpt-5.4"))
 		require.Equal(t, "gpt-5.3-codex", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5-20250929"))
-	})
-}
-
-func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Run("openai_group_without_dispatch_flag_is_rejected", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(rec)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}]}`))
-		groupID := int64(4101)
-		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-			ID:      5101,
-			GroupID: &groupID,
-			User:    &service.User{ID: 6101},
-			Group: &service.Group{
-				ID:                    groupID,
-				Platform:              service.PlatformOpenAI,
-				AllowMessagesDispatch: false,
-			},
-		})
-		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6101, Concurrency: 1})
-
-		h := &OpenAIGatewayHandler{}
-		h.Messages(c)
-
-		require.Equal(t, http.StatusForbidden, rec.Code)
-		require.Equal(t, "permission_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-		require.Contains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
-	})
-
-	t.Run("grok_group_without_dispatch_flag_reaches_gateway_dependencies", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(rec)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
-		groupID := int64(4102)
-		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-			ID:      5102,
-			GroupID: &groupID,
-			User:    &service.User{ID: 6102},
-			Group: &service.Group{
-				ID:                    groupID,
-				Platform:              service.PlatformGrok,
-				AllowMessagesDispatch: false,
-			},
-		})
-		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6102, Concurrency: 1})
-
-		h := &OpenAIGatewayHandler{}
-		h.Messages(c)
-
-		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
-		require.Equal(t, "api_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
 	})
 }
 

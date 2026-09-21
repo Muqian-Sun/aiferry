@@ -286,8 +286,8 @@ func TestGatewayRoutesVideoLookupsDispatchRegardlessOfGroupPlatform(t *testing.T
 	}
 }
 
-// 带模型的请求按条目网关族分发：anthropic 分组的 key 调 grok 模型也走 OpenAI 族 handler。
-func TestGatewayRoutesMessagesWithGrokModelUsesOpenAIGateway(t *testing.T) {
+// /v1/messages 不按族分发：anthropic 分组的 key 调 grok 模型也进 Gateway.Messages（一条循环承接全部资源）。
+func TestGatewayRoutesMessagesWithGrokModelUsesGatewayMessages(t *testing.T) {
 	router := newGatewayRoutesTestRouter(service.PlatformAnthropic)
 
 	req := httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
