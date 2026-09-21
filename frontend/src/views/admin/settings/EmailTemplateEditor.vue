@@ -250,7 +250,7 @@ const fallbackPlaceholders = [
   "{{verification_code}}",
   "{{expires_in_minutes}}",
   "{{reset_url}}",
-  "{{subscription_group}}",
+  "{{subscription_plan}}",
   "{{subscription_days}}",
   "{{expiry_time}}",
   "{{days_remaining}}",

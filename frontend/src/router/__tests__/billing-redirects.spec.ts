@@ -31,10 +31,10 @@ describe('legacy billing redirects', () => {
     })
   })
 
-  it('sends the renewal entry ?tab=subscription&group= to the subscriptions tab and drops the tab param', () => {
-    expect(redirectOf('/purchase')(to('/purchase', { tab: 'subscription', group: '3' }))).toEqual({
+  it('sends ?tab=subscription to the subscriptions tab, keeps other params and drops the tab param', () => {
+    expect(redirectOf('/purchase')(to('/purchase', { tab: 'subscription', plan_id: '3' }))).toEqual({
       path: '/billing/subscriptions',
-      query: { group: '3' }
+      query: { plan_id: '3' }
     })
   })
 

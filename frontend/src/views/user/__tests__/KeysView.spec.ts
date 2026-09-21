@@ -114,6 +114,7 @@ const createApiKey = (): ApiKey => ({
   key: 'sk-test-key',
   name: 'test-key',
   group_id: null,
+  subscription_id: null,
   status: 'active',
   ip_whitelist: [],
   ip_blacklist: [],
@@ -318,6 +319,24 @@ describe('user KeysView column settings', () => {
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
     expect(updateKey).toHaveBeenNthCalledWith(2, key.id, expect.objectContaining({ name: 'Unsaved name', status: formStatus }))
+    wrapper.unmount()
+  })
+
+  // 订阅 key 随订阅生成：列表里带「订阅 · 套餐」标签且没有删除按钮；余额 key 有删除按钮
+  it('marks subscription keys and hides their delete action', async () => {
+    listKeys.mockResolvedValue({
+      items: [
+        { ...createApiKey(), id: 11, name: 'E2E Pro', subscription_id: 5, subscription_plan_name: 'E2E Pro' },
+        { ...createApiKey(), id: 12, name: 'balance-key' },
+      ],
+      total: 2, page: 1, page_size: 20, pages: 1,
+    })
+    const wrapper = await mountView()
+
+    const badges = wrapper.findAll('[data-testid="subscription-key-badge"]')
+    expect(badges).toHaveLength(1)
+    expect(badges[0].text()).toContain('keys.subscriptionKey')
+    expect(wrapper.findAll('[data-testid="delete-key"]')).toHaveLength(1)
     wrapper.unmount()
   })
 

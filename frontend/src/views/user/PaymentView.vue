@@ -111,7 +111,6 @@
             <section>
               <div class="flex flex-wrap items-center gap-2">
                 <h2 class="text-base font-semibold text-af-ink">{{ selectedPlan.name }}</h2>
-                <span class="badge badge-gray">{{ platformLabel(selectedPlan.group_platform || '') }}</span>
               </div>
               <div class="mt-2 flex items-baseline gap-2">
                 <span class="text-2xl font-semibold tabular-nums text-af-ink">{{ formatSelectedSubscriptionPaymentAmount(selectedPlan.price) }}</span>
@@ -122,13 +121,9 @@
               </div>
               <p v-if="selectedPlan.description" class="mt-2 text-13 leading-5 text-af-ink-3">{{ selectedPlan.description }}</p>
               <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-13 sm:grid-cols-3">
-                <div>
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.rate') }}</dt>
-                  <dd class="font-medium tabular-nums text-af-ink-2">×{{ selectedPlan.rate_multiplier ?? 1 }}</dd>
-                </div>
-                <div v-if="planHasPeakRate(selectedPlan)">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.peakRate') }}</dt>
-                  <dd class="font-medium text-af-warning">{{ planPeakRateLabel(selectedPlan) }}</dd>
+                <div class="col-span-2 sm:col-span-3" data-testid="checkout-plan-models">
+                  <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
+                  <dd class="font-medium text-af-ink-2">{{ (selectedPlan.models || []).map(m => m.display_name || m.model_id).join(' / ') || '-' }}</dd>
                 </div>
                 <div v-if="selectedPlan.daily_limit_usd != null">
                   <dt class="text-af-ink-4">{{ t('payment.planCard.dailyLimit') }}</dt>
@@ -205,22 +200,6 @@
       </template>
     </div>
 
-    <!-- 续费：同一分组多个套餐时弹出选择 -->
-    <Teleport to="body">
-      <Transition name="modal">
-        <div v-if="showRenewalModal" class="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" @click.self="closeRenewalModal">
-          <div class="relative flex max-h-full w-full max-w-2xl flex-col rounded-lg border border-af-hairline bg-af-sheet p-6 shadow-2xl">
-            <button class="absolute right-4 top-4 rounded-md p-1 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2" :aria-label="t('common.close')" @click="closeRenewalModal">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-            <h3 class="mb-2 shrink-0 text-lg font-semibold text-af-ink">{{ t('payment.selectPlan') }}</h3>
-            <div class="min-h-0 divide-y divide-af-hairline overflow-y-auto">
-              <SubscriptionPlanCard v-for="plan in renewalPlans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlanFromModal" />
-            </div>
-          </div>
-        </div>
-      </Transition>
-    </Teleport>
     <!-- 说明图预览 -->
     <Teleport to="body">
       <Transition name="modal">
@@ -247,7 +226,6 @@ import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
-import { hasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -263,7 +241,6 @@ import {
   type PaymentRecoverySnapshot,
   writePaymentRecoverySnapshot,
 } from '@/components/payment/paymentFlow'
-import { platformLabel } from '@/utils/platformColors'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
 import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
@@ -683,53 +660,23 @@ const paymentButtonClass = computed(() => {
   return 'btn-primary'
 })
 
-// Renewal modal state
-const showRenewalModal = ref(false)
-const renewGroupId = ref<number | null>(null)
-const renewalPlans = computed(() => {
-  if (renewGroupId.value == null) return []
-  return checkout.value.plans.filter(p => p.group_id === renewGroupId.value)
-})
-
 const planValiditySuffix = computed(() => {
   if (!selectedPlan.value) return ''
   return validitySuffixOf(selectedPlan.value, t)
 })
-
-function planHasPeakRate(plan: SubscriptionPlan): boolean {
-  return hasPeakRate(plan)
-}
-
-function planPeakRateLabel(plan: SubscriptionPlan): string {
-  return formatPeakRateWindow(plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
-}
 
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   errorMessage.value = ''
 }
 
-function selectPlanFromModal(plan: SubscriptionPlan) {
-  showRenewalModal.value = false
-  renewGroupId.value = null
-  selectedPlan.value = plan
-  errorMessage.value = ''
-}
-
-function closeRenewalModal() {
-  showRenewalModal.value = false
-  renewGroupId.value = null
-}
-
-/** 续费某个分组：只有一个套餐直接进确认，多个则弹出选择。SubscriptionsView 的「续费」按钮调用。 */
-function startRenewal(groupId: number) {
+/** 续费某个套餐：直接进该套餐的确认购买。SubscriptionsView 的「续费」按钮调用。 */
+function startRenewal(planId: number) {
   if (props.mode !== 'subscription' || !subscriptionEnabled.value) return
-  const groupPlans = checkout.value.plans.filter(p => p.group_id === groupId)
-  if (groupPlans.length === 1) {
-    selectedPlan.value = groupPlans[0]
-  } else if (groupPlans.length > 1) {
-    renewGroupId.value = groupId
-    showRenewalModal.value = true
+  const plan = checkout.value.plans.find(p => p.id === planId)
+  if (plan) {
+    selectedPlan.value = plan
+    errorMessage.value = ''
   }
 }
 
@@ -1116,10 +1063,6 @@ onMounted(async () => {
       }
     }
     await resumeWechatPaymentFromQuery()
-    // 续费入口：/billing/subscriptions?group=123（旧 /purchase?tab=subscription&group= 由路由 redirect 到这里）
-    if (route.query.group) {
-      startRenewal(Number(route.query.group))
-    }
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
   finally { loading.value = false }
   // Fetch active subscriptions (uses cache, non-blocking); skipped when the subscription feature is off

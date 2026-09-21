@@ -1,7 +1,7 @@
 <template>
   <!--
     可购套餐一行：左侧名称 / 说明 / 额度事实，右侧价格与操作。
-    行间由父级 divide-y 分隔，不做卡片、不按平台上色（平台只以文字标出）。
+    行间由父级 divide-y 分隔，不做卡片。套餐自带限额与模型集，不再挂分组。
   -->
   <div class="flex flex-col gap-4 py-5 sm:flex-row sm:items-start sm:justify-between" data-testid="plan-row">
     <div class="min-w-0 flex-1">
@@ -17,14 +17,6 @@
 
       <!-- 额度事实 -->
       <dl class="mt-3 grid grid-cols-2 gap-x-6 gap-y-1 text-13 sm:grid-cols-3">
-        <div class="flex items-baseline justify-between gap-2 sm:block">
-          <dt class="text-af-ink-4">{{ t('payment.planCard.rate') }}</dt>
-          <dd class="font-medium tabular-nums text-af-ink-2">{{ rateDisplay }}</dd>
-        </div>
-        <div v-if="hasPeakRate" class="col-span-2 flex items-baseline justify-between gap-2 sm:col-span-1 sm:block">
-          <dt class="text-af-ink-4">{{ t('payment.planCard.peakRate') }}</dt>
-          <dd class="font-medium text-af-warning">{{ peakRateDisplay }}</dd>
-        </div>
         <div v-if="plan.daily_limit_usd != null" class="flex items-baseline justify-between gap-2 sm:block">
           <dt class="text-af-ink-4">{{ t('payment.planCard.dailyLimit') }}</dt>
           <dd class="font-medium tabular-nums text-af-ink-2">${{ plan.daily_limit_usd }}</dd>
@@ -44,9 +36,9 @@
           <dt class="text-af-ink-4">{{ t('payment.planCard.quota') }}</dt>
           <dd class="font-medium text-af-ink-2">{{ t('payment.planCard.unlimited') }}</dd>
         </div>
-        <div v-if="modelScopeLabels.length > 0" class="col-span-2 flex items-baseline justify-between gap-2 sm:col-span-3 sm:block">
+        <div class="col-span-2 flex items-baseline justify-between gap-2 sm:col-span-3 sm:block" data-testid="plan-models">
           <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
-          <dd class="font-medium text-af-ink-2">{{ modelScopeLabels.join(' / ') }}</dd>
+          <dd class="font-medium text-af-ink-2">{{ modelLabels.join(' / ') || '-' }}</dd>
         </div>
       </dl>
 
@@ -67,7 +59,6 @@
         <span v-if="plan.currency" class="text-xs font-medium text-af-ink-4">{{ plan.currency }}</span>
       </div>
       <div class="flex items-center justify-end gap-1">
-        <span class="badge badge-gray shrink-0">{{ pLabel }}</span>
         <span class="text-xs text-af-ink-4">/ {{ validitySuffix }}</span>
       </div>
       <div v-if="plan.original_price" class="mt-0.5 flex items-center justify-end gap-1.5">
@@ -75,9 +66,16 @@
         <span class="text-xs font-medium text-af-success">{{ discountText }}</span>
       </div>
 
-      <button type="button" class="btn btn-secondary btn-sm mt-3 w-full sm:w-auto" @click="emit('select', plan)">
+      <button
+        type="button"
+        class="btn btn-secondary btn-sm mt-3 w-full sm:w-auto"
+        :disabled="blocked"
+        data-testid="plan-select"
+        @click="emit('select', plan)"
+      >
         {{ isRenewal ? t('payment.renewNow') : t('payment.subscribeNow') }}
       </button>
+      <p v-if="blocked" class="mt-1.5 text-xs text-af-ink-4" data-testid="plan-blocked">{{ t('payment.planCard.blockedByActive') }}</p>
     </div>
   </div>
 </template>
@@ -87,21 +85,20 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
-import { useAppStore } from '@/stores/app'
-import { hasPeakRate as groupHasPeakRate, formatPeakRateWindow, serverTimezoneLabel } from '@/utils/peak-rate'
 import { planValiditySuffix } from './validity'
 import { currencySymbol } from '@/components/payment/currency'
-import { platformLabel } from '@/utils/platformColors'
 
 const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[] }>()
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
 const { t } = useI18n()
 
-const platform = computed(() => props.plan.group_platform || '')
+// 同套餐已有有效订阅 → 续费；别的套餐有效 → 后端会 409 SUBSCRIPTION_ALREADY_ACTIVE，按钮直接禁用
 const isRenewal = computed(() =>
-  props.activeSubscriptions?.some(s => s.group_id === props.plan.group_id && s.status === 'active') ?? false
+  props.activeSubscriptions?.some(s => s.plan_id === props.plan.id && s.status === 'active') ?? false
 )
-const pLabel = computed(() => platformLabel(platform.value))
+const blocked = computed(() =>
+  props.activeSubscriptions?.some(s => s.status === 'active' && s.plan_id !== props.plan.id) ?? false
+)
 
 const discountText = computed(() => {
   if (!props.plan.original_price || props.plan.original_price <= 0) return ''
@@ -109,32 +106,10 @@ const discountText = computed(() => {
   return pct > 0 ? `-${pct}%` : ''
 })
 
-const rateDisplay = computed(() => {
-  const rate = props.plan.rate_multiplier ?? 1
-  return `×${Number(rate.toPrecision(10))}`
-})
-
-const appStore = useAppStore()
 const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
 
-const hasPeakRate = computed(() => groupHasPeakRate(props.plan))
-
-const peakRateDisplay = computed(() => {
-  return formatPeakRateWindow(props.plan, serverTimezoneLabel(appStore.cachedPublicSettings?.server_utc_offset))
-})
-
-const MODEL_SCOPE_LABELS: Record<string, string> = {
-  claude: 'Claude',
-  gemini_text: 'Gemini',
-  gemini_image: 'Imagen',
-}
-
-const modelScopeLabels = computed(() => {
-  if (platform.value !== 'antigravity') return []
-  const scopes = props.plan.supported_model_scopes
-  if (!scopes || scopes.length === 0) return []
-  return scopes.map(s => MODEL_SCOPE_LABELS[s] || s)
-})
+/** 套餐模型集：显示名优先，没有就 model_id */
+const modelLabels = computed(() => (props.plan.models ?? []).map(m => m.display_name || m.model_id))
 
 const validitySuffix = computed(() => planValiditySuffix(props.plan, t))
 </script>
