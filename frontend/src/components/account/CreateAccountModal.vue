@@ -3042,11 +3042,54 @@
               {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
             </p>
           </div>
-          <select v-model="webSearchEmulationMode" class="input w-24 text-sm">
-            <option value="default">{{ t('admin.accounts.anthropic.webSearchDefault') }}</option>
-            <option value="enabled">{{ t('admin.accounts.anthropic.webSearchEnabled') }}</option>
-            <option value="disabled">{{ t('admin.accounts.anthropic.webSearchDisabled') }}</option>
-          </select>
+          <button
+            type="button"
+            data-testid="create-web-search-emulation-toggle"
+            @click="webSearchEmulationEnabled = !webSearchEmulationEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              webSearchEmulationEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                webSearchEmulationEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
+      <!-- Bedrock CC 兼容（Anthropic 协议上的 key 设置）：清理 Claude Code 专有字段并过滤 anthropic-beta，账号是唯一开关 -->
+      <div
+        v-if="anthropicKeySettingsVisible"
+        data-testid="create-bedrock-cc-compat"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.anthropic.bedrockCCCompatDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="create-bedrock-cc-compat-toggle"
+            @click="bedrockCCCompatEnabled = !bedrockCCCompatEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              bedrockCCCompatEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                bedrockCCCompatEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
         </div>
       </div>
 
@@ -4147,7 +4190,8 @@ const codexFingerprintModeOptions = computed(() => [
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
-const webSearchEmulationMode = ref('default')
+const webSearchEmulationEnabled = ref(false)
+const bedrockCCCompatEnabled = ref(false)
 const webSearchGlobalEnabled = ref(false)
 
 const {
@@ -4612,7 +4656,8 @@ watch(
     openAICompactModelMappings.value = []
     anthropicPassthroughEnabled.value = false
     anthropicAPIKeyAuthScheme.value = 'x_api_key'
-    webSearchEmulationMode.value = 'default'
+    webSearchEmulationEnabled.value = false
+    bedrockCCCompatEnabled.value = false
     // 请求头覆写为平台相关配置（常用头集合不同），切换平台时清空，
     // 避免上一平台的配置行被提交到新平台账号
     headerOverrideEnabled.value = false
@@ -5052,7 +5097,8 @@ const resetForm = () => {
   codexFingerprintMode.value = 'off'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
-  webSearchEmulationMode.value = 'default'
+  webSearchEmulationEnabled.value = false
+  bedrockCCCompatEnabled.value = false
   // Reset quota control state
   windowCostEnabled.value = false
   windowCostLimit.value = null
@@ -5203,10 +5249,15 @@ const buildAnthropicExtra = (base?: Record<string, unknown>): Record<string, unk
   } else {
     delete extra.anthropic_apikey_auth_scheme
   }
-  if (webSearchEmulationMode.value === 'default') {
-    delete extra.web_search_emulation
+  if (webSearchEmulationEnabled.value) {
+    extra.web_search_emulation = true
   } else {
-    extra.web_search_emulation = webSearchEmulationMode.value
+    delete extra.web_search_emulation
+  }
+  if (bedrockCCCompatEnabled.value) {
+    extra.bedrock_cc_compat = true
+  } else {
+    delete extra.bedrock_cc_compat
   }
 
   return Object.keys(extra).length > 0 ? extra : undefined

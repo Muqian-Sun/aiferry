@@ -712,10 +712,10 @@ export default {
         apiKeyAuthSchemeBearer: 'Authorization: Bearer',
         webSearchEmulation: 'Web Search Emulation',
         webSearchEmulationDesc:
-          'Enable web search emulation for this API Key account. When a pure web_search request is detected, the gateway calls a third-party search API and constructs the response locally. Default follows channel config.',
-        webSearchDefault: 'Default',
-        webSearchEnabled: 'Enabled',
-        webSearchDisabled: 'Disabled',
+          'Enable web search emulation for this API Key account. When a pure web_search request is detected, the gateway calls a third-party search API and constructs the response locally.',
+        bedrockCCCompat: 'Bedrock CC compatibility',
+        bedrockCCCompatDesc:
+          'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
       },
       modelRestriction: 'Model Restriction (Optional)',
       modelWhitelist: 'Model Whitelist',

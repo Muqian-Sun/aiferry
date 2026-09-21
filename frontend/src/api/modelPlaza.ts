@@ -5,7 +5,39 @@
  */
 
 import { apiClient } from './client'
-import type { UserPricingInterval, UserSupportedModelPricing } from './channels'
+import type { BillingMode } from '@/constants/pricing'
+
+/** 阶梯 / 分档：token 模式按 context 区间，按次模式按 tier_label；单价可给绝对值或相对基础价倍率。 */
+export interface UserPricingInterval {
+  min_tokens: number
+  max_tokens: number | null
+  tier_label?: string
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_write_1h_price?: number | null
+  cache_read_price: number | null
+  input_multiplier?: number | null
+  output_multiplier?: number | null
+  cache_write_multiplier?: number | null
+  cache_read_multiplier?: number | null
+  per_request_price: number | null
+}
+
+/** 用户侧最小形态的模型定价（/model-plaza 的 pricing）。 */
+export interface UserSupportedModelPricing {
+  billing_mode: BillingMode
+  input_price: number | null
+  output_price: number | null
+  cache_write_price: number | null
+  cache_write_1h_price?: number | null
+  cache_read_price: number | null
+  max_reasoning_effort_multiplier?: number | null
+  image_input_price: number | null
+  image_output_price: number | null
+  per_request_price: number | null
+  intervals: UserPricingInterval[]
+}
 
 /** 官方参考价（USD per token，与计费目录同源；字段缺失 = 目录未覆盖）。 */
 export interface PlazaOfficialPricing {

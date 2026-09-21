@@ -23,7 +23,7 @@ export function formatScaled(value: number | null, scale: number, minFractionDig
   return `$${s}`
 }
 
-import type { UserPricingInterval } from '@/api/channels'
+import type { UserPricingInterval } from '@/api/modelPlaza'
 
 type TokenPrices = Pick<UserPricingInterval, 'input_price' | 'output_price' | 'cache_write_price' | 'cache_write_1h_price' | 'cache_read_price'>
 
