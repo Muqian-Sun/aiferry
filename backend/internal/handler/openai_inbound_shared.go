@@ -170,7 +170,7 @@ func logOpenAIRemoteCompactOutcome(c *gin.Context, cfg *config.Config, startedAt
 	}
 
 	fields := []zap.Field{
-		zap.String("component", "handler.openai_gateway.responses"),
+		zap.String("component", "handler.gateway.responses"),
 		zap.Bool("remote_compact", true),
 		zap.String("compact_outcome", outcome),
 		zap.Int("status_code", status),

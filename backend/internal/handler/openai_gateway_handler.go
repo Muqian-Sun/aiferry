@@ -407,10 +407,6 @@ func (h *OpenAIGatewayHandler) normalizeOpenAIResponsesCompactRequest(c *gin.Con
 	return normalizeOpenAIResponsesCompactRequest(c, reqLog, body)
 }
 
-func (h *OpenAIGatewayHandler) logOpenAIRemoteCompactOutcome(c *gin.Context, startedAt time.Time) {
-	logOpenAIRemoteCompactOutcome(c, h.cfg, startedAt)
-}
-
 // anthropicErrorResponse writes an error in Anthropic Messages API format.
 func (h *OpenAIGatewayHandler) anthropicErrorResponse(c *gin.Context, status int, errType, message string) {
 	c.JSON(status, gin.H{
