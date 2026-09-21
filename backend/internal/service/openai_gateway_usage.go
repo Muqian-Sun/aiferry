@@ -1073,6 +1073,7 @@ func (s *OpenAIGatewayService) updateCodexUsageSnapshot(ctx context.Context, acc
 		defer cancel()
 		if err := s.accountRepo.UpdateExtra(updateCtx, accountID, updates); err == nil {
 			notifyOpenAIAutoReset(accountID)
+			s.rateLimitService.ApplyAccountQuotaStateByID(updateCtx, accountID)
 		}
 	}()
 }

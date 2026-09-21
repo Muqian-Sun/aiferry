@@ -56,6 +56,35 @@ func (s *RateLimitService) ApplyAccountQuotaState(ctx context.Context, account *
 	return false
 }
 
+// ApplyAccountQuotaStateAfterExtraUpdate 是快照写入点的钩子：把刚落库的 Extra 更新合并到内存对象后评估。
+// 调用方持有的 account 往往还是写入前的样子，不合并就会按旧快照评估。
+func (s *RateLimitService) ApplyAccountQuotaStateAfterExtraUpdate(ctx context.Context, account *Account, updates map[string]any) bool {
+	if account == nil {
+		return false
+	}
+	if len(updates) > 0 {
+		if account.Extra == nil {
+			account.Extra = make(map[string]any, len(updates))
+		}
+		for key, value := range updates {
+			account.Extra[key] = value
+		}
+	}
+	return s.ApplyAccountQuotaState(ctx, account)
+}
+
+// ApplyAccountQuotaStateByID 是只持有账号 ID 的写入点的钩子：重新读一遍账号再评估。
+func (s *RateLimitService) ApplyAccountQuotaStateByID(ctx context.Context, accountID int64) bool {
+	if s == nil || s.accountRepo == nil || accountID <= 0 {
+		return false
+	}
+	account, err := s.accountRepo.GetByID(ctx, accountID)
+	if err != nil || account == nil {
+		return false
+	}
+	return s.ApplyAccountQuotaState(ctx, account)
+}
+
 func (s *RateLimitService) openAIQuotaAutoPauseSettings(ctx context.Context) OpsOpenAIAccountQuotaAutoPauseSettings {
 	if s == nil || s.settingService == nil {
 		return OpsOpenAIAccountQuotaAutoPauseSettings{}

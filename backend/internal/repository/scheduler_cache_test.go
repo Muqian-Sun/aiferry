@@ -120,7 +120,7 @@ func TestSchedulerMetadataAccountKeepsCatalogEntryIDs(t *testing.T) {
 }
 
 // 调度器只读 SchedulingState：快照投影必须让命中缓存的账号还原出与 DB 账号相同的状态
-//（整体停调字段 + 模型级限流 + overages 放行开关）。
+// （整体停调字段 + 模型级限流 + overages 放行开关）。
 func TestSchedulerMetadataAccountReproducesSchedulingState(t *testing.T) {
 	now := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
 	until := now.Add(30 * time.Minute)

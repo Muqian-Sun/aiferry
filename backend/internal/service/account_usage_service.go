@@ -301,6 +301,7 @@ type AccountUsageService struct {
 	cache                   *UsageCache
 	identityCache           IdentityCache
 	tlsFPProfileService     *TLSFingerprintProfileService
+	rateLimitService        *RateLimitService
 	agentIdentityTaskMu     sync.Mutex
 	agentIdentityWS         agentIdentityWSConnectionInvalidator
 }
@@ -318,6 +319,7 @@ func NewAccountUsageService(
 	cache *UsageCache,
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
+	rateLimitService *RateLimitService,
 ) *AccountUsageService {
 	return &AccountUsageService{
 		accountRepo:             accountRepo,
@@ -331,6 +333,7 @@ func NewAccountUsageService(
 		cache:                   cache,
 		identityCache:           identityCache,
 		tlsFPProfileService:     tlsFPProfileService,
+		rateLimitService:        rateLimitService,
 	}
 }
 
@@ -696,6 +699,8 @@ func (s *AccountUsageService) syncActiveToPassive(ctx context.Context, accountID
 		extraUpdates["passive_usage_sampled_at"] = time.Now().UTC().Format(time.RFC3339)
 		if err := s.accountRepo.UpdateExtra(ctx, accountID, extraUpdates); err != nil {
 			slog.Warn("sync_active_to_passive_failed", "account_id", accountID, "error", err)
+		} else {
+			s.rateLimitService.ApplyAccountQuotaStateByID(ctx, accountID)
 		}
 	}
 
@@ -926,6 +931,7 @@ func (s *AccountUsageService) persistOpenAICodexProbeSnapshot(accountID int64, u
 		defer updateCancel()
 		if err := s.accountRepo.UpdateExtra(updateCtx, accountID, updates); err == nil {
 			notifyOpenAIAutoReset(accountID)
+			s.rateLimitService.ApplyAccountQuotaStateByID(updateCtx, accountID)
 		}
 	}()
 }

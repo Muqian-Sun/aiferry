@@ -242,6 +242,7 @@ func ProvideAccountUsageService(
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
 	openAIGatewayService *OpenAIGatewayService,
+	rateLimitService *RateLimitService,
 ) *AccountUsageService {
 	service := NewAccountUsageService(
 		accountRepo,
@@ -255,6 +256,7 @@ func ProvideAccountUsageService(
 		cache,
 		identityCache,
 		tlsFPProfileService,
+		rateLimitService,
 	)
 	service.agentIdentityWS = openAIGatewayService
 	return service
@@ -298,9 +300,11 @@ func ProvideGrokQuotaService(
 	cfg *config.Config,
 	usageLogRepo UsageLogRepository,
 	settingService *SettingService,
+	rateLimitService *RateLimitService,
 ) *GrokQuotaService {
 	service := NewGrokQuotaService(accountRepo, proxyRepo, tokenProvider, httpUpstream, cfg, usageLogRepo)
 	service.SetSettingService(settingService)
+	service.SetRateLimitService(rateLimitService)
 	return service
 }
 
@@ -310,8 +314,11 @@ func ProvideCNProviderQuotaService(
 	proxyRepo ProxyRepository,
 	httpUpstream HTTPUpstream,
 	cfg *config.Config,
+	rateLimitService *RateLimitService,
 ) *CNProviderQuotaService {
-	return NewCNProviderQuotaService(accountRepo, proxyRepo, httpUpstream, cfg)
+	service := NewCNProviderQuotaService(accountRepo, proxyRepo, httpUpstream, cfg)
+	service.SetRateLimitService(rateLimitService)
+	return service
 }
 
 // ProvideCNProviderBalanceService 构造国产供应商余额探测服务。

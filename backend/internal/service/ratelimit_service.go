@@ -1728,6 +1728,7 @@ func (s *RateLimitService) persistOpenAICodexSnapshot(ctx context.Context, accou
 		return
 	}
 	notifyOpenAIAutoReset(account.ID)
+	s.ApplyAccountQuotaStateAfterExtraUpdate(ctx, account, updates)
 }
 
 // parseOpenAIRateLimitResetTime 解析 OpenAI 兼容格式的 429 响应，返回重置时间的 Unix 时间戳
@@ -2066,7 +2067,9 @@ func (s *RateLimitService) samplePassiveUsageFromHeaders(ctx context.Context, ac
 		extraUpdates["passive_usage_sampled_at"] = time.Now().UTC().Format(time.RFC3339)
 		if err := s.accountRepo.UpdateExtra(ctx, account.ID, extraUpdates); err != nil {
 			slog.Warn("passive_usage_update_failed", "account_id", account.ID, "error", err)
+			return
 		}
+		s.ApplyAccountQuotaStateAfterExtraUpdate(ctx, account, extraUpdates)
 	}
 }
 

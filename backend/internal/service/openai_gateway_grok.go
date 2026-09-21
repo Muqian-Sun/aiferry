@@ -1660,8 +1660,9 @@ func (s *OpenAIGatewayService) updateGrokUsageSnapshotWithRateLimit(ctx context.
 		account.Extra = map[string]any{}
 	}
 	account.Extra[grokQuotaSnapshotExtraKey] = snapshot
+	persisted := false
 	if s.accountRepo != nil {
-		_ = s.accountRepo.UpdateExtra(stateCtx, accountID, updates)
+		persisted = s.accountRepo.UpdateExtra(stateCtx, accountID, updates) == nil
 	}
 	// Error responses are reconciled by handleGrokAccountUpstreamError. Pool-mode
 	// API keys retain the snapshot for observability but leave account health to
@@ -1671,6 +1672,10 @@ func (s *OpenAIGatewayService) updateGrokUsageSnapshotWithRateLimit(ctx context.
 		s.rateLimitGrok(stateCtx, account, resetAt)
 	} else if recovery {
 		clearGrokRateLimitAfterRecovery(stateCtx, s.accountRepo, account)
+	}
+	// 限流状态装完再评额度：已被 rateLimitGrok 停掉的账号不会再写一份 temp_unschedulable。
+	if persisted {
+		s.rateLimitService.ApplyAccountQuotaStateAfterExtraUpdate(stateCtx, account, updates)
 	}
 }
 
@@ -1864,6 +1869,12 @@ func persistGrokRateLimit(ctx context.Context, repo AccountRepository, account *
 	}
 	if err != nil {
 		slog.Warn("persist_grok_rate_limit_failed", "account_id", account.ID, "reset_at", resetAt.UTC(), "error", err)
+		return
+	}
+	// 内存对象同步成 DB 的样子：紧接着的额度状态评估（ApplyAccountQuotaState）读 SchedulingState，
+	// 看到已限流就不会再写一份 temp_unschedulable。
+	if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
+		account.RateLimitResetAt = cloneTimePtr(&resetAt)
 	}
 }
 
