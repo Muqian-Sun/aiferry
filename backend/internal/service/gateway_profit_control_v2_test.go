@@ -241,7 +241,7 @@ func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
 	}
 
 	result, err := svc.SelectAccountWithLoadAwareness(
-		gatewayProfitTestContext(group), &group.ID, "", "", nil, "", 0,
+		gatewayProfitTestContext(group), &group.ID, "", "", nil,
 	)
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -256,8 +256,6 @@ func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
 		"",
 		"",
 		map[int64]struct{}{cheap.ID: {}},
-		"",
-		0,
 	)
 	require.Nil(t, result)
 	require.Error(t, err)

@@ -227,7 +227,7 @@ func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 				}
 				ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
 
-				result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", nil, "", 0)
+				result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", nil)
 				require.NoError(t, err)
 				// 协议直连第一键：anthropic 组里成品号与 key 都直连 → 优先级小的成品号赢；
 				// antigravity 组里成品号要转换（v1internal），配了 anthropic 地址的 key 直连 → key 赢。
@@ -237,7 +237,7 @@ func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 				}
 				require.Equal(t, wantWithoutSession, result.Account.ID, "without a session: protocol match first, then priority")
 
-				result, err = svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-sonnet-4-5", nil, "", 0)
+				result, err = svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-sonnet-4-5", nil)
 				require.NoError(t, err)
 				require.Equal(t, sticky.ID, result.Account.ID)
 			})
@@ -275,13 +275,13 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CrossLabelKeyByGroupProto
 			}
 
 			ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(ctx, &anthropicGroupID, "", "claude-sonnet-4-5", nil, "", 0)
+			result, err := svc.SelectAccountWithLoadAwareness(ctx, &anthropicGroupID, "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.NotNil(t, result.Account)
 			require.Equal(t, key.ID, result.Account.ID)
 
-			result, err = svc.SelectAccountWithLoadAwareness(ctx, &geminiGroupID, "", "gemini-2.5-pro", nil, "", 0)
+			result, err = svc.SelectAccountWithLoadAwareness(ctx, &geminiGroupID, "", "gemini-2.5-pro", nil)
 			require.ErrorIs(t, err, ErrNoAvailableAccounts)
 			require.Nil(t, result)
 		})
@@ -312,12 +312,12 @@ func TestGatewayService_AntigravityGroupKeyNeedsInboundProtocolEndpoint(t *testi
 			}
 
 			anthropicCtx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(anthropicCtx, &groupID, "", "", nil, "", 0)
+			result, err := svc.SelectAccountWithLoadAwareness(anthropicCtx, &groupID, "", "", nil)
 			require.ErrorIs(t, err, ErrNoAvailableAccounts)
 			require.Nil(t, result)
 
 			geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
-			result, err = svc.SelectAccountWithLoadAwareness(geminiCtx, &groupID, "", "", nil, "", 0)
+			result, err = svc.SelectAccountWithLoadAwareness(geminiCtx, &groupID, "", "", nil)
 			require.NoError(t, err)
 			require.Equal(t, key.ID, result.Account.ID)
 		})
@@ -354,7 +354,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness_SubscriptionMixedScheduli
 		excluded := map[int64]struct{}{}
 		var picked []int64
 		for {
-			result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", excluded, "", 0)
+			result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", excluded)
 			if err != nil {
 				require.ErrorIs(t, err, ErrNoAvailableAccounts)
 				break

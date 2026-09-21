@@ -2,12 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"sync"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
-	"go.uber.org/zap"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 const (
@@ -52,7 +50,7 @@ type openAIProxyStreamCircuit struct {
 	entries  map[int64]openAIProxyStreamCircuitEntry
 }
 
-func resolveOpenAIProxyStreamCircuitSettings(s *OpenAIGatewayService) openAIProxyStreamCircuitSettings {
+func resolveOpenAIProxyStreamCircuitSettings(cfg *config.Config) openAIProxyStreamCircuitSettings {
 	settings := openAIProxyStreamCircuitSettings{
 		failureThreshold: defaultOpenAIProxyStreamFailureThreshold,
 		failureWindow:    defaultOpenAIProxyStreamFailureWindow,
@@ -60,19 +58,19 @@ func resolveOpenAIProxyStreamCircuitSettings(s *OpenAIGatewayService) openAIProx
 		collapseInterval: defaultOpenAIProxyStreamFailureCollapse,
 		maxEntries:       defaultOpenAIProxyStreamCircuitMaxEntries,
 	}
-	if s == nil || s.cfg == nil {
+	if cfg == nil {
 		return settings
 	}
-	cfg := s.cfg.Gateway.OpenAIProxyStreamCircuit
-	settings.disabled = cfg.Disabled
-	if cfg.FailureThreshold > 0 {
-		settings.failureThreshold = cfg.FailureThreshold
+	circuit := cfg.Gateway.OpenAIProxyStreamCircuit
+	settings.disabled = circuit.Disabled
+	if circuit.FailureThreshold > 0 {
+		settings.failureThreshold = circuit.FailureThreshold
 	}
-	if cfg.WindowSeconds > 0 {
-		settings.failureWindow = time.Duration(cfg.WindowSeconds) * time.Second
+	if circuit.WindowSeconds > 0 {
+		settings.failureWindow = time.Duration(circuit.WindowSeconds) * time.Second
 	}
-	if cfg.TTLSeconds > 0 {
-		settings.quarantineTTL = time.Duration(cfg.TTLSeconds) * time.Second
+	if circuit.TTLSeconds > 0 {
+		settings.quarantineTTL = time.Duration(circuit.TTLSeconds) * time.Second
 	}
 	return settings
 }
@@ -97,18 +95,6 @@ func newOpenAIProxyStreamCircuit(settings openAIProxyStreamCircuitSettings) *ope
 		settings: settings,
 		entries:  make(map[int64]openAIProxyStreamCircuitEntry),
 	}
-}
-
-func (s *OpenAIGatewayService) getOpenAIProxyStreamCircuit() *openAIProxyStreamCircuit {
-	if s == nil {
-		return nil
-	}
-	s.openaiProxyStreamCircuitOnce.Do(func() {
-		if s.openaiProxyStreamCircuit == nil {
-			s.openaiProxyStreamCircuit = newOpenAIProxyStreamCircuit(resolveOpenAIProxyStreamCircuitSettings(s))
-		}
-	})
-	return s.openaiProxyStreamCircuit
 }
 
 func (c *openAIProxyStreamCircuit) recordFailure(proxyID int64, now time.Time) (bool, time.Time) {
@@ -239,36 +225,6 @@ func openAIProxyStreamCircuitProxyID(account *Account) (int64, bool) {
 	return *account.ProxyID, true
 }
 
-func (s *OpenAIGatewayService) recordOpenAIProxyStreamDisconnect(account *Account, streamErr error, upstreamRequestID string) {
-	proxyID, ok := openAIProxyStreamCircuitProxyID(account)
-	if !ok || streamErr == nil || errors.Is(streamErr, context.Canceled) || errors.Is(streamErr, context.DeadlineExceeded) {
-		return
-	}
-	circuit := s.getOpenAIProxyStreamCircuit()
-	tripped, until := circuit.recordFailure(proxyID, time.Now())
-	if !tripped {
-		return
-	}
-	logger.L().With(zap.String("component", "service.openai_gateway")).Warn(
-		"openai.proxy_quarantined_stream_disconnect",
-		zap.Int64("proxy_id", proxyID),
-		zap.Int64("account_id", account.ID),
-		zap.Time("until", until),
-		zap.String("upstream_request_id", upstreamRequestID),
-		zap.String("error", sanitizeUpstreamErrorMessage(streamErr.Error())),
-	)
-}
-
-func (s *OpenAIGatewayService) clearOpenAIProxyStreamDisconnect(account *Account) {
-	proxyID, ok := openAIProxyStreamCircuitProxyID(account)
-	if !ok {
-		return
-	}
-	if circuit := s.getOpenAIProxyStreamCircuit(); circuit != nil {
-		circuit.recordSuccess(proxyID)
-	}
-}
-
 // openAIProxyStreamQuarantineBypassKey marks a selection pass that must ignore
 // proxy quarantine. It is set for the second, fail-open selection attempt when
 // the first pass found no available account while the circuit was withholding
@@ -287,30 +243,23 @@ func openAIProxyStreamQuarantineBypassed(ctx context.Context) bool {
 	return bypassed
 }
 
-func (s *OpenAIGatewayService) isOpenAIProxyStreamQuarantined(ctx context.Context, account *Account) bool {
-	proxyID, ok := openAIProxyStreamCircuitProxyID(account)
-	if !ok {
-		return false
-	}
-	if openAIProxyStreamQuarantineBypassed(ctx) {
-		return false
-	}
-	circuit := s.getOpenAIProxyStreamCircuit()
-	return circuit != nil && circuit.isBlocked(proxyID, time.Now())
-}
-
-// logOpenAIProxyStreamQuarantineFailOpen emits a rate-limited warning when a
-// selection pass had to re-admit quarantined proxies to serve at all.
-func (s *OpenAIGatewayService) logOpenAIProxyStreamQuarantineFailOpen(requestedModel string, blockedProxies int) {
-	now := time.Now().UnixNano()
-	last := s.openaiProxyStreamFailOpenLogAt.Load()
-	if now-last < int64(openAIProxyStreamFailOpenLogInterval) ||
-		!s.openaiProxyStreamFailOpenLogAt.CompareAndSwap(last, now) {
+func (s *OpenAIGatewayService) recordOpenAIProxyStreamDisconnect(account *Account, streamErr error, upstreamRequestID string) {
+	if s == nil {
 		return
 	}
-	logger.L().With(zap.String("component", "service.openai_gateway")).Warn(
-		"openai.proxy_stream_quarantine_fail_open",
-		zap.Int("blocked_proxies", blockedProxies),
-		zap.String("model", requestedModel),
-	)
+	s.rateLimitService.RecordProxyStreamDisconnect(account, streamErr, upstreamRequestID)
+}
+
+func (s *OpenAIGatewayService) clearOpenAIProxyStreamDisconnect(account *Account) {
+	if s == nil {
+		return
+	}
+	s.rateLimitService.ClearProxyStreamDisconnect(account)
+}
+
+func (s *OpenAIGatewayService) isOpenAIProxyStreamQuarantined(ctx context.Context, account *Account) bool {
+	if s == nil {
+		return false
+	}
+	return s.rateLimitService.ProxyStreamQuarantined(ctx, account)
 }

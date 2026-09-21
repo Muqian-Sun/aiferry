@@ -1697,7 +1697,8 @@ func TestOpenAIStreamingPostOutputDisconnectQuarantinesSharedProxyWithoutSameStr
 	}}}
 	// collapseInterval 0: the two loop iterations below record within the
 	// production collapse window and must count as distinct failure events here.
-	svc.openaiProxyStreamCircuit = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
+	svc.rateLimitService = &RateLimitService{}
+	svc.rateLimitService.proxyStream = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
 		failureThreshold: 2,
 		failureWindow:    time.Minute,
 		quarantineTTL:    10 * time.Minute,
@@ -2491,7 +2492,8 @@ func TestOpenAIStreamingPassthroughPostOutputDisconnectQuarantinesSharedProxy(t 
 	svc := &OpenAIGatewayService{cfg: &config.Config{Gateway: config.GatewayConfig{MaxLineSize: defaultMaxLineSize}}}
 	// collapseInterval 0: the loop below records within the production collapse
 	// window and must count as distinct failure events here.
-	svc.openaiProxyStreamCircuit = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
+	svc.rateLimitService = &RateLimitService{}
+	svc.rateLimitService.proxyStream = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
 		failureThreshold: 2,
 		failureWindow:    time.Minute,
 		quarantineTTL:    10 * time.Minute,

@@ -150,13 +150,13 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOverridesGrou
 			}
 
 			routed := catalogRouteCtx(entryID, PlatformOpenAI, APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(routed, &groupID, "", "gpt-5.6", nil, "", 0)
+			result, err := svc.SelectAccountWithLoadAwareness(routed, &groupID, "", "gpt-5.6", nil)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, openAIOAuth.ID, result.Account.ID, "the bound openai account is chosen although the group is anthropic")
 
 			unrouted := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err = svc.SelectAccountWithLoadAwareness(unrouted, &groupID, "", "claude-sonnet-4-5", nil, "", 0)
+			result, err = svc.SelectAccountWithLoadAwareness(unrouted, &groupID, "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.Equal(t, anthropicInGroup.ID, result.Account.ID, "without a route the group pool still applies")
 		})

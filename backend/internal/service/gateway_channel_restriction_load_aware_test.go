@@ -95,7 +95,7 @@ func TestSelectAccountWithLoadAwareness_UpstreamRestrictionSkipsDisallowedAccoun
 	t.Parallel()
 
 	f := newLoadAwareRestrictionFixture(t, true, nil, nil)
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Account)
@@ -112,7 +112,7 @@ func TestSelectAccountWithLoadAwareness_UpstreamRestrictionRejectsWhenAllAccount
 		"model_mapping": map[string]any{"claude-fable-5-1": "claude-fable-5-1"},
 	}
 
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil)
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
 	require.ErrorContains(t, err, "channel pricing restriction")
 	require.Nil(t, result)
@@ -123,7 +123,7 @@ func TestSelectAccountWithLoadAwareness_UpstreamRestrictionIgnoresStickyAccount(
 	t.Parallel()
 
 	f := newLoadAwareRestrictionFixture(t, true, map[string]int64{"sticky": 1}, nil)
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "sticky", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "sticky", "claude-fable-5-1", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Account)
@@ -135,7 +135,7 @@ func TestSelectAccountWithLoadAwareness_UpstreamRestrictionFiltersRoutedAccounts
 	t.Parallel()
 
 	f := newLoadAwareRestrictionFixture(t, true, nil, map[string][]int64{"claude-fable-5-1": {1}})
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Account)
@@ -146,7 +146,7 @@ func TestSelectAccountWithLoadAwareness_UpstreamRestrictionRoutedStickyAccountNo
 	t.Parallel()
 
 	f := newLoadAwareRestrictionFixture(t, true, map[string]int64{"sticky": 1}, map[string][]int64{"claude-fable-5-1": {1, 2}})
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "sticky", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "sticky", "claude-fable-5-1", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Account)
@@ -157,7 +157,7 @@ func TestSelectAccountWithLoadAwareness_RestrictModelsDisabledKeepsPriorityOrder
 	t.Parallel()
 
 	f := newLoadAwareRestrictionFixture(t, false, nil, nil)
-	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil, "", 0)
+	result, err := f.svc.SelectAccountWithLoadAwareness(f.ctx, &f.groupID, "", "claude-fable-5-1", nil)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, result.Account)

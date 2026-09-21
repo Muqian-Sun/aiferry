@@ -6,6 +6,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	mathrand "math/rand"
@@ -98,10 +99,28 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 	return s.hydrateSelectedAccount(ctx, account)
 }
 
-// SelectAccountWithLoadAwareness selects account with load-awareness and wait plan.
-// metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
-// sub2apiUserID: 系统用户 ID，用于二维亲和调度
-func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+// SelectAccountWithOptions 唯一的选号入口：负载感知 + 等待计划，opts 是本次请求对资源的额外要求。
+// 全池只剩被隔离代理后面的账号时，隔离降级成偏好：宁可用坏代理也不回 502。
+func (s *GatewayService) SelectAccountWithOptions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, opts SelectOptions) (*AccountSelectionResult, error) {
+	ctx = WithSelectOptions(ctx, opts)
+	result, err := s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, excludedIDs)
+	if err == nil || openAIProxyStreamQuarantineBypassed(ctx) || !errors.Is(err, ErrNoAvailableAccounts) {
+		return result, err
+	}
+	blocked := s.rateLimitService.ActiveProxyQuarantines(time.Now())
+	if blocked == 0 {
+		return result, err
+	}
+	s.rateLimitService.logProxyStreamQuarantineFailOpen(requestedModel, blocked)
+	return s.selectAccountWithLoadAwareness(withOpenAIProxyStreamQuarantineBypass(ctx), groupID, sessionHash, requestedModel, excludedIDs)
+}
+
+// SelectAccountWithLoadAwareness 零要求的选号（/v1/messages、Gemini 入站）。
+func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+	return s.SelectAccountWithOptions(ctx, groupID, sessionHash, requestedModel, excludedIDs, SelectOptions{})
+}
+
+func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
