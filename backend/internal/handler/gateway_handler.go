@@ -285,6 +285,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		zap.String("metadata_user_id_raw", parsedReq.MetadataUserID),
 	)
 
+	// OpenAI 上游的 prompt cache 键（Responses prompt_cache_key）；本地粘性键仍是上面的 sessionHash。
+	promptCacheKey := h.openAIGatewayService.ExtractSessionID(c, body)
+	if rejectIfCyberSessionBlocked(c, h.cyberPolicyDeps(), apiKey, body, reqModel, cyberBlockFormatAnthropic) {
+		return
+	}
+
 	// 获取平台：优先使用强制平台（/antigravity 路由），其次使用 composite 解析出的目标平台，否则使用分组平台
 	platform := messagesGatewayPlatform(c, apiKey)
 	sessionKey := sessionHash
@@ -604,6 +610,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			// 转发请求 - 根据账号平台分流
 			c.Set("parsed_request", attemptParsedReq)
 			var result *service.ForwardResult
+			var oaResult *service.OpenAIForwardResult
 			requestCtx := c.Request.Context()
 			if fs.SwitchCount > 0 {
 				requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
@@ -613,13 +620,17 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			}
 			// 记录 Forward 前已写入字节数，Forward 后若增加则说明 SSE 内容已发，禁止 failover
 			writerSizeBeforeForward := c.Writer.Size()
-			// 按账号分发（规则见 compatForwardTargetFor）：Gemini 兼容层吃 Claude 形状的 body 自己转 Gemini；
-			// Antigravity 成品号一律走 Claude 形态的 v1internal 转发（内部转 Gemini），不看条目是哪个族。
+			// 按资源的上游协议分发（规则见 compatForwardTargetFor）：Gemini 兼容层吃 Claude 形状的 body 自己转 Gemini；
+			// Antigravity 成品号一律走 Claude 形态的 v1internal 转发（内部转 Gemini）；responses / chat_completions
+			// 上游经 OpenAI 网关服务转换。
 			switch forwardTarget {
 			case compatForwardGemini:
 				result, err = h.geminiCompatService.Forward(requestCtx, c, account, attemptBody)
 			case compatForwardAntigravity:
 				result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
+			case compatForwardOpenAI:
+				// 目录模型按请求名转发（defaultMappedModel 为空）；账号 credentials.model_mapping 在服务层里生效。
+				oaResult, err = h.openAIGatewayService.ForwardAsAnthropic(requestCtx, c, account, attemptBody, promptCacheKey, "")
 			default:
 				result, err = h.gatewayService.Forward(requestCtx, c, account, attemptParsedReq)
 			}
@@ -634,6 +645,13 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			if accountReleaseFunc != nil {
 				accountReleaseFunc()
 			}
+
+			// OpenAI 上游透传 cyber_policy 后的风控记录（未标记时 no-op）。
+			var cyberBlockBody []byte
+			if service.GetOpsCyberPolicy(c) != nil {
+				cyberBlockBody = body
+			}
+			recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), currentAPIKey, account, currentSubscription, reqModel, err != nil, cyberBlockBody, clientRequestedUsageFields(c, channelMapping, reqModel, ""), service.HashUsageRequestPayload(body))
 
 			// 提交 usage 记录。成功路径与"流中断但 Forward 已观测到 usage 的部分结果"
 			// 错误路径共用：后者若不入账，上游已计量的请求会完全漏记漏计费（#5148）。
@@ -691,6 +709,59 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						).Error("gateway.record_usage_failed", zap.Error(err))
 					}
 				})
+			}
+			// OpenAI 上游（responses / chat_completions）的入账走 OpenAI 网关服务的 RecordUsage。
+			submitOpenAIForwardUsage := func(res *service.OpenAIForwardResult) {
+				stampOpenAIRequestedReasoningEffort(res, c)
+				userAgent := c.GetHeader("User-Agent")
+				clientIP := ip.GetClientIP(c)
+				requestPayloadHash := service.HashUsageRequestPayload(attemptBody)
+				inboundEndpoint := GetInboundEndpoint(c)
+				upstreamEndpoint := resolveOpenAIUpstreamEndpoint(c, account, res)
+				sessionID := service.ExtractClientSessionID(c)
+				cyberBlocked := service.GetOpsCyberPolicy(c) != nil
+				task := func(ctx context.Context) {
+					if err := h.openAIGatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
+						Result:             res,
+						APIKey:             currentAPIKey,
+						User:               currentAPIKey.User,
+						Account:            account,
+						Subscription:       currentSubscription,
+						InboundEndpoint:    inboundEndpoint,
+						UpstreamEndpoint:   upstreamEndpoint,
+						UserAgent:          userAgent,
+						IPAddress:          clientIP,
+						RequestPayloadHash: requestPayloadHash,
+						APIKeyService:      h.apiKeyService,
+						SessionID:          sessionID,
+						ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+						PricingAt:          pricingAt,
+						CyberBlocked:       cyberBlocked,
+					}); err != nil {
+						logger.L().With(
+							zap.String("component", "handler.gateway.messages"),
+							zap.Int64("user_id", subject.UserID),
+							zap.Int64("api_key_id", currentAPIKey.ID),
+							zap.Any("group_id", currentAPIKey.GroupID),
+							zap.String("model", reqModel),
+							zap.Int64("account_id", account.ID),
+						).Error("gateway.record_openai_usage_failed", zap.Error(err))
+					}
+				}
+				// 媒体 / 搜索 / 语音结果不能因池溢出丢单（与 OpenAI handler 的 submitOpenAIUsageRecordTask 同规则）
+				if res.ImageCount > 0 || res.VideoCount > 0 || res.SearchCount > 0 || res.WebSearchCalls > 0 || res.AudioUsage != nil {
+					h.submitMandatoryUsageRecordTask(c.Request.Context(), task)
+				} else {
+					h.submitUsageRecordTask(c.Request.Context(), task)
+				}
+			}
+			// 本次尝试的结果按转发实现入账（两个网关服务的结果类型不同）。
+			submitAttemptUsage := func() {
+				if oaResult != nil {
+					submitOpenAIForwardUsage(oaResult)
+					return
+				}
+				submitForwardUsage(result)
 			}
 
 			if err != nil {
@@ -760,15 +831,28 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				if errors.As(err, &failoverErr) {
 					// 流式内容已写入客户端，无法撤销，禁止 failover 以防止流拼接腐化
 					if c.Writer.Size() != writerSizeBeforeForward {
+						if forwardTarget == compatForwardOpenAI {
+							// 已写出的失败到不了调度结果上报，单独喂 key 健康熔断
+							h.openAIGatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
+						}
 						h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), currentAPIKey)), true)
 						return
 					}
+					if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
+						h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, nil), false, nil, err)
+					}
+					switchCountBefore := fs.SwitchCount
 					action := fs.HandleFailoverError(c.Request.Context(), h.gatewayService, account, account.GetPoolModeRetryCount(), failoverErr)
 					switch action {
 					case FailoverContinue:
 						// 本次尝试已确定性失败，立即释放该账号的会话注册
 						h.gatewayService.ReleaseAccountSession(context.Background(), account, sessionKey)
 						delete(sessionSlotAccounts, account.ID)
+						// OAuth 429 风暴刹车：只在真正换号（不是同账号重试）后判断
+						if fs.SwitchCount > switchCountBefore && h.openAIGatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, fs.SwitchCount, &fs.OAuth429) {
+							h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), currentAPIKey)), streamStarted)
+							return
+						}
 						continue
 					case FailoverExhausted:
 						h.handleFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), currentAPIKey)), streamStarted)
@@ -802,11 +886,14 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					forwardFailedFields = append(forwardFailedFields, zap.Int64p("proxy_id", account.ProxyID))
 				}
 				reqLog.Error("gateway.forward_failed", forwardFailedFields...)
+				if forwardTarget == compatForwardOpenAI {
+					h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), false, nil, err)
+				}
 				// Forward 与错误一起返回的部分结果：流中断前上游已计量的 usage 照常入账，
 				// 避免上游已产生消耗的请求完全漏记（#5148）。failover 错误恒定 result=nil，
 				// 不会走到这里重复计费。
-				if result != nil {
-					submitForwardUsage(result)
+				if result != nil || oaResult != nil {
+					submitAttemptUsage()
 					// 上游已接受并计量本次会话（流中断），会话槽保持既有语义
 					upstreamServedSession = true
 				}
@@ -833,7 +920,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 			}
 
-			submitForwardUsage(result)
+			if oaResult != nil {
+				// key 健康熔断 / 调度统计的成功观测
+				h.openAIGatewayService.ReportOpenAIAccountScheduleResult(account, openAIAccountScheduleModel(c, account, reqModel, false, oaResult), true, oaResult.FirstTokenMs)
+			}
+			submitAttemptUsage()
 			// 转发成功，会话槽保持既有空闲超时语义
 			upstreamServedSession = true
 			return
@@ -1394,6 +1485,22 @@ func (h *GatewayHandler) handleConcurrencyError(c *gin.Context, err error, slotT
 // handleFailoverExhausted 写换号耗尽的错误响应。platform 是匹配错误透传规则的平台，
 // 调用方按 service.ErrorPassthroughRulePlatform 取值（第三方 key 不看平台标签）。
 func (h *GatewayHandler) handleFailoverExhausted(c *gin.Context, failoverErr *service.UpstreamFailoverError, platform string, streamStarted bool) {
+	copyFailoverRetryAfter(c, failoverErr.ResponseHeaders)
+	// 凭据失败（Stage=account_auth）按凭据失败映射，不透传上游原文；与 chat / responses 入站一致。
+	if failoverErr.IsCredentialFailure() {
+		status, message := credentialFailoverClientResponse(failoverErr)
+		h.handleStreamingAwareError(c, status, "api_error", message, streamStarted)
+		return
+	}
+	// OpenAI 上游容量降载：带明确的客户端文案与状态码
+	if failoverErr.IsOpenAICapacityShed() && strings.TrimSpace(failoverErr.ClientMessage) != "" {
+		status := failoverErr.ClientStatusCode
+		if status <= 0 {
+			status = http.StatusServiceUnavailable
+		}
+		h.handleStreamingAwareError(c, status, "api_error", failoverErr.ClientMessage, streamStarted)
+		return
+	}
 	statusCode := failoverErr.StatusCode
 	responseBody := failoverErr.ResponseBody
 	if service.IsOpenAISilentRefusalErrorBody(responseBody) {
@@ -2056,6 +2163,11 @@ func (h *GatewayHandler) submitMandatoryUsageRecordTask(parent context.Context, 
 
 // getUserMsgQueueMode 获取当前请求的 UMQ 模式
 // 返回 "serialize" | "throttle" | ""
+// cyberPolicyDeps cyber 风控记录 / 会话拦截要用的服务（与 OpenAI 网关 handler 共用同一套实现）。
+func (h *GatewayHandler) cyberPolicyDeps() cyberPolicyDeps {
+	return cyberPolicyDeps{contentModeration: h.contentModerationService, openAIGateway: h.openAIGatewayService, ops: h.opsService, apiKeys: h.apiKeyService}
+}
+
 // messagesMaxAccountSwitches /v1/messages 的换号上限：gemini 族池用 max_account_switches_gemini，其余用 max_account_switches。
 // fs 在选号前创建，只能按网关平台定，不能按账号。
 func (h *GatewayHandler) messagesMaxAccountSwitches(platform string) int {
