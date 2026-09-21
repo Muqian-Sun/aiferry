@@ -1689,14 +1689,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_SkipsQuarantinedSharedP
 		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
 		cfg:                cfg,
 		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
-		openaiProxyStreamCircuit: newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
+		rateLimitService: &RateLimitService{runtimeSchedulingState: runtimeSchedulingState{proxyStream: newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
 			failureThreshold: 1,
 			failureWindow:    time.Minute,
 			quarantineTTL:    10 * time.Minute,
 			maxEntries:       16,
-		}),
+		})}},
 	}
-	svc.openaiProxyStreamCircuit.recordFailure(proxyA, time.Now())
+	svc.rateLimitService.getProxyStreamCircuit().recordFailure(proxyA, time.Now())
 
 	selection, _, err := svc.SelectAccountWithScheduler(
 		context.Background(), nil, "", "", "gpt-5.6-sol", nil, OpenAIUpstreamTransportAny, false,
@@ -1723,14 +1723,14 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_FailsOpenWhenAllProxies
 		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
 		cfg:                cfg,
 		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{}),
-		openaiProxyStreamCircuit: newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
+		rateLimitService: &RateLimitService{runtimeSchedulingState: runtimeSchedulingState{proxyStream: newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
 			failureThreshold: 1,
 			failureWindow:    time.Minute,
 			quarantineTTL:    10 * time.Minute,
 			maxEntries:       16,
-		}),
+		})}},
 	}
-	tripped, _ := svc.openaiProxyStreamCircuit.recordFailure(proxyA, time.Now())
+	tripped, _ := svc.rateLimitService.getProxyStreamCircuit().recordFailure(proxyA, time.Now())
 	require.True(t, tripped)
 
 	selection, _, err := svc.SelectAccountWithScheduler(
@@ -1741,7 +1741,7 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_FailsOpenWhenAllProxies
 	require.NotNil(t, selection.Account)
 	require.NotNil(t, selection.Account.ProxyID)
 	require.Equal(t, proxyA, *selection.Account.ProxyID)
-	require.True(t, svc.openaiProxyStreamCircuit.isBlocked(proxyA, time.Now()),
+	require.True(t, svc.rateLimitService.getProxyStreamCircuit().isBlocked(proxyA, time.Now()),
 		"fail-open must not clear the quarantine; only a completed stream or TTL expiry does")
 }
 
@@ -2612,9 +2612,9 @@ func TestOpenAIGatewayService_SelectAccountWithScheduler_UsesAccountPriorityWith
 func TestOpenAIAccountScheduler_SkipsAccountBlockedForRequestedModel(t *testing.T) {
 	now := time.Now()
 	account := &Account{ID: 21633, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc := &OpenAIGatewayService{openaiModelTransient: newOpenAIAccountModelTransientState(128)}
-	svc.openaiModelTransient.recordFailure(account.ID, "gpt-5.5", now)
-	svc.openaiModelTransient.recordFailure(account.ID, "gpt-5.5", now.Add(time.Millisecond))
+	svc := &OpenAIGatewayService{rateLimitService: &RateLimitService{runtimeSchedulingState: runtimeSchedulingState{modelTransient: newOpenAIAccountModelTransientState(128)}}}
+	svc.rateLimitService.getModelTransientState().recordFailure(account.ID, "gpt-5.5", now)
+	svc.rateLimitService.getModelTransientState().recordFailure(account.ID, "gpt-5.5", now.Add(time.Millisecond))
 	scheduler := &defaultOpenAIAccountScheduler{service: svc}
 
 	require.False(t, scheduler.isAccountRequestCompatible(context.Background(), account, OpenAIAccountScheduleRequest{RequestedModel: "gpt-5.5"}))
@@ -2622,15 +2622,15 @@ func TestOpenAIAccountScheduler_SkipsAccountBlockedForRequestedModel(t *testing.
 }
 
 func TestReportOpenAIAccountScheduleResult_SuccessClearsModelTransientState(t *testing.T) {
-	svc := &OpenAIGatewayService{openaiModelTransient: newOpenAIAccountModelTransientState(128)}
+	svc := &OpenAIGatewayService{rateLimitService: &RateLimitService{runtimeSchedulingState: runtimeSchedulingState{modelTransient: newOpenAIAccountModelTransientState(128)}}}
 	now := time.Now()
-	svc.openaiModelTransient.recordFailure(21636, "gpt-5.5", now)
-	svc.openaiModelTransient.recordFailure(21636, "gpt-5.5", now.Add(time.Millisecond))
-	require.True(t, svc.openaiModelTransient.isBlocked(21636, "gpt-5.5", now.Add(2*time.Millisecond)))
+	svc.rateLimitService.getModelTransientState().recordFailure(21636, "gpt-5.5", now)
+	svc.rateLimitService.getModelTransientState().recordFailure(21636, "gpt-5.5", now.Add(time.Millisecond))
+	require.True(t, svc.rateLimitService.getModelTransientState().isBlocked(21636, "gpt-5.5", now.Add(2*time.Millisecond)))
 
 	svc.ReportOpenAIAccountScheduleResult(&Account{ID: 21636}, "gpt-5.5", true, nil)
 
-	require.False(t, svc.openaiModelTransient.isBlocked(21636, "gpt-5.5", now.Add(2*time.Millisecond)))
+	require.False(t, svc.rateLimitService.getModelTransientState().isBlocked(21636, "gpt-5.5", now.Add(2*time.Millisecond)))
 }
 
 func TestDefaultOpenAIAccountScheduler_ShouldEscapeStickyAccount_ThresholdBoundary(t *testing.T) {

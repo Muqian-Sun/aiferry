@@ -15,6 +15,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 	"unsafe"
@@ -694,6 +695,9 @@ func (s *GatewayService) TempUnscheduleRetryableError(ctx context.Context, accou
 
 // GatewayService handles API gateway operations
 type GatewayService struct {
+	// openaiWSResolver 选号的传输门用（SelectOptions.Transport）；懒建，测试可直接赋值。
+	openaiWSResolver     OpenAIWSProtocolResolver
+	openaiWSResolverOnce sync.Once
 	accountRepo          AccountRepository
 	groupRepo            GroupRepository
 	usageLogRepo         UsageLogRepository

@@ -6,6 +6,7 @@ package service
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	mathrand "math/rand"
@@ -98,10 +99,28 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 	return s.hydrateSelectedAccount(ctx, account)
 }
 
-// SelectAccountWithLoadAwareness selects account with load-awareness and wait plan.
-// metadataUserID: 用于客户端亲和调度，从中提取客户端 ID
-// sub2apiUserID: 系统用户 ID，用于二维亲和调度
-func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, metadataUserID string, sub2apiUserID int64) (*AccountSelectionResult, error) {
+// SelectAccountWithOptions 唯一的选号入口：负载感知 + 等待计划，opts 是本次请求对资源的额外要求。
+// 全池只剩被隔离代理后面的账号时，隔离降级成偏好：宁可用坏代理也不回 502。
+func (s *GatewayService) SelectAccountWithOptions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, opts SelectOptions) (*AccountSelectionResult, error) {
+	ctx = WithSelectOptions(ctx, opts)
+	result, err := s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, excludedIDs)
+	if err == nil || openAIProxyStreamQuarantineBypassed(ctx) || (!errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrNoAvailableCompactAccounts)) {
+		return result, err
+	}
+	blocked := s.rateLimitService.ActiveProxyQuarantines(time.Now())
+	if blocked == 0 {
+		return result, err
+	}
+	s.rateLimitService.logProxyStreamQuarantineFailOpen(requestedModel, blocked)
+	return s.selectAccountWithLoadAwareness(withOpenAIProxyStreamQuarantineBypass(ctx), groupID, sessionHash, requestedModel, excludedIDs)
+}
+
+// SelectAccountWithLoadAwareness 零要求的选号（/v1/messages、Gemini 入站）。
+func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
+	return s.SelectAccountWithOptions(ctx, groupID, sessionHash, requestedModel, excludedIDs, SelectOptions{})
+}
+
+func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}) (*AccountSelectionResult, error) {
 	// 调试日志：记录调度入口参数
 	excludedIDsList := make([]int64, 0, len(excludedIDs))
 	for id := range excludedIDs {
@@ -282,40 +301,29 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	if len(routingAccountIDs) > 0 && s.concurrencyService != nil {
 		// 1. 过滤出路由列表中可调度的账号
 		var routingCandidates []*Account
-		var filteredExcluded, filteredMissing, filteredUnsched, filteredPlatform, filteredModelScope, filteredModelMapping, filteredChannelRestricted int
-		var modelScopeSkippedIDs []int64 // 记录因模型限流被跳过的账号 ID
+		var filteredExcluded, filteredMissing, filteredAdmit, filteredPlatform, filteredChannelRestricted int
+		admitReasons := map[string]int{}
 		for _, routingAccountID := range routingAccountIDs {
 			if isExcluded(routingAccountID) {
 				filteredExcluded++
 				continue
 			}
 			account, ok := accountByID[routingAccountID]
-			if !ok || !s.isAccountSchedulableForSelection(account) {
-				if !ok {
-					filteredMissing++
-				} else {
-					filteredUnsched++
-				}
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, account) {
+			if !ok {
+				filteredMissing++
 				continue
 			}
 			if !isAccountSchedulableOnPlatform(ctx, account, platform, useMixed) {
 				filteredPlatform++
 				continue
 			}
-			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, account, requestedModel) {
-				filteredModelMapping++
-				continue
-			}
 			if isChannelRestricted(account) {
 				filteredChannelRestricted++
 				continue
 			}
-			if !s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) {
-				filteredModelScope++
-				modelScopeSkippedIDs = append(modelScopeSkippedIDs, account.ID)
+			if ok, reason := s.candidateAdmits(ctx, groupID, account, requestedModel); !ok {
+				filteredAdmit++
+				admitReasons[reason]++
 				continue
 			}
 			// RPM 检查（非粘性会话路径）
@@ -326,13 +334,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		}
 
 		if s.debugModelRoutingEnabled() {
-			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed candidates: group_id=%v model=%s routed=%d candidates=%d filtered(excluded=%d missing=%d unsched=%d platform=%d model_scope=%d model_mapping=%d channel_restricted=%d)",
+			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed candidates: group_id=%v model=%s routed=%d candidates=%d filtered(excluded=%d missing=%d platform=%d channel_restricted=%d admit=%d admit_reasons=%v)",
 				derefGroupID(groupID), requestedModel, len(routingAccountIDs), len(routingCandidates),
-				filteredExcluded, filteredMissing, filteredUnsched, filteredPlatform, filteredModelScope, filteredModelMapping, filteredChannelRestricted)
-			if len(modelScopeSkippedIDs) > 0 {
-				logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] model_rate_limited accounts skipped: group_id=%v model=%s account_ids=%v",
-					derefGroupID(groupID), requestedModel, modelScopeSkippedIDs)
-			}
+				filteredExcluded, filteredMissing, filteredPlatform, filteredChannelRestricted, filteredAdmit, admitReasons)
 		}
 
 		if len(routingCandidates) > 0 {
@@ -350,12 +354,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 					if stickyAccount, ok := accountByID[stickyAccountID]; ok {
 						var stickyCacheMissReason string
 
-						gatePass := s.isAccountSchedulableForSelection(stickyAccount) &&
-							s.isGatewayAccountProfitEligible(ctx, stickyAccount) &&
+						admitOK, _ := s.candidateAdmits(ctx, groupID, stickyAccount, requestedModel)
+						gatePass := admitOK &&
 							isAccountSchedulableOnPlatform(ctx, stickyAccount, platform, useMixed) &&
-							(requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, stickyAccount, requestedModel)) &&
-							!isChannelRestricted(stickyAccount) &&
-							s.isAccountSchedulableForModelSelection(ctx, stickyAccount, requestedModel)
+							!isChannelRestricted(stickyAccount)
 
 						rpmPass := gatePass && s.isAccountSchedulableForRPM(ctx, stickyAccount, true)
 
@@ -535,27 +537,22 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				// accounts 列表构建，账号一定在分组内。而 scheduler snapshot 缓存
 				// 反序列化后 AccountGroups 字段为空，导致 isAccountInGroup 永远返回 false。
 				platformOK := isAccountSchedulableOnPlatform(ctx, account, platform, useMixed)
-				profitOK := s.isGatewayAccountProfitEligible(ctx, account)
-				modelSupported := requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)
+				admitOK, admitReason := s.candidateAdmits(ctx, groupID, account, requestedModel)
 				channelOK := !isChannelRestricted(account)
-				modelSchedulable := s.isAccountSchedulableForModelSelection(ctx, account, requestedModel)
 				rpmOK := s.isAccountSchedulableForRPM(ctx, account, true)
-				schedulable := s.isAccountSchedulableForSelection(account)
 
 				slog.Debug("sticky.layer1_5_no_routing_checks",
 					"account_id", accountID,
 					"session", shortSessionHash(sessionHash),
 					"clear_sticky", clearSticky,
-					"schedulable", schedulable,
 					"platform_ok", platformOK,
-					"profit_ok", profitOK,
-					"model_supported", modelSupported,
+					"admit_ok", admitOK,
+					"admit_reason", admitReason,
 					"channel_ok", channelOK,
-					"model_schedulable", modelSchedulable,
 					"rpm_ok", rpmOK,
 				)
 
-				if !clearSticky && platformOK && profitOK && modelSupported && channelOK && modelSchedulable && rpmOK && schedulable {
+				if !clearSticky && platformOK && admitOK && channelOK && rpmOK {
 					result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
@@ -641,31 +638,26 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 	)
 	candidates := make([]*Account, 0, len(accounts))
 	channelRestrictedCount := 0
+	compactRejected := 0
 	for i := range accounts {
 		acc := &accounts[i]
 		if isExcluded(acc.ID) {
 			continue
 		}
-		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
-		// re-check schedulability here so recently rate-limited/overloaded accounts
-		// are not selected again before the bucket is rebuilt.
-		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
-			continue
-		}
 		if !isAccountSchedulableOnPlatform(ctx, acc, platform, useMixed) {
-			continue
-		}
-		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
 			continue
 		}
 		if isChannelRestricted(acc) {
 			channelRestrictedCount++
 			continue
 		}
-		if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
+		// candidateAdmits re-checks schedulability so recently rate-limited/overloaded
+		// accounts are not selected again before the bucket is rebuilt.
+		if ok, reason := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
+			if reason == admitReasonCompactUnsupported {
+				compactRejected++
+			}
 			continue
 		}
 		// RPM 检查（非粘性会话路径）
@@ -683,6 +675,9 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 				"restricted_accounts", channelRestrictedCount,
 				"total_accounts", len(accounts))
 			return nil, fmt.Errorf("%w supporting model: %s (channel pricing restriction)", ErrNoAvailableAccounts, requestedModel)
+		}
+		if compactRejected > 0 {
+			return nil, ErrNoAvailableCompactAccounts
 		}
 		return nil, ErrNoAvailableAccounts
 	}
@@ -721,6 +716,10 @@ func (s *GatewayService) SelectAccountWithLoadAwareness(ctx context.Context, gro
 		for len(available) > 0 {
 			// 0. 有能以入站协议直连的就只在它们里挑（协议匹配优先，系统特色之一）
 			candidates := filterByProtocolMatch(available, inbound)
+			// 0.5 /responses/compact：明确支持 compact 的先于「未探测」的（tier 2 > tier 1）
+			if selectOptionsFromContext(ctx).RequireCompact {
+				candidates = filterByMaxCompactTier(candidates)
+			}
 			// 1. 取优先级最小的集合
 			candidates = filterByMinPriority(candidates)
 			// 2. （可选）use-it-or-lose-it：优先选用会话窗口最早重置的账号
@@ -1126,14 +1125,55 @@ func (s *GatewayService) IsSinglePool(ctx context.Context, groupID *int64) bool 
 }
 
 // isAccountSchedulableForSelection 选号准入：只读资源的调度状态（整体），额度评估不在这里。
-func (s *GatewayService) isAccountSchedulableForSelection(account *Account) bool {
+const admitReasonCompactUnsupported = "compact_unsupported"
+
+// candidateAdmits 是所有层共用的候选准入：状态 → 进程内熔断 → 利润 → 模型 → 分组隐私要求 →
+// 请求要求（SelectOptions）→ 影子母账号。平台 / 池成员 / 渠道限制 / RPM / 会话数仍在各层自己判
+// （它们按层不同：粘性层 RPM 用 isSticky=true，混合调度的平台判定带 useMixed）。reason 只给诊断用。
+func (s *GatewayService) candidateAdmits(ctx context.Context, groupID *int64, account *Account, requestedModel string) (bool, string) {
 	now := time.Now()
-	return account.SchedulingState(now).Allows(now)
+	if !account.SchedulingAllows(ctx, requestedModel, now) {
+		return false, "not_schedulable"
+	}
+	if s.rateLimitService.ModelTransientBlocked(account, requestedModel, now) {
+		return false, "model_transient_blocked"
+	}
+	if s.rateLimitService.ProxyStreamQuarantined(ctx, account) {
+		return false, "proxy_quarantined"
+	}
+	if !s.isGatewayAccountProfitEligible(ctx, account) {
+		return false, "profit_threshold"
+	}
+	if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, account, requestedModel) {
+		return false, "model_not_supported"
+	}
+	if group := s.groupFromContext(ctx, derefGroupID(groupID)); group != nil && group.RequirePrivacySet && !account.IsPrivacySet() {
+		return false, "privacy_not_set"
+	}
+	if ok, reason := selectOptionsFromContext(ctx).admits(s.cfg, s.wsProtocolResolver(), account); !ok {
+		return false, reason
+	}
+	if !parentHealthyForShadow(account, s.shadowParentLookup(ctx)) {
+		return false, "shadow_parent_unhealthy"
+	}
+	return true, ""
 }
 
-// isAccountSchedulableForModelSelection 选号准入：调度状态 + 本次请求命中的模型级限流。
-func (s *GatewayService) isAccountSchedulableForModelSelection(ctx context.Context, account *Account, requestedModel string) bool {
-	return account.SchedulingAllows(ctx, requestedModel, time.Now())
+// admits 是 candidateAdmits 的布尔版（粘性层的长条件链用）。
+func (s *GatewayService) admits(ctx context.Context, groupID *int64, account *Account, requestedModel string) bool {
+	ok, _ := s.candidateAdmits(ctx, groupID, account, requestedModel)
+	return ok
+}
+
+// shadowParentLookup 影子账号的母账号解析：快照优先（与选中后的 hydrate 同源）。
+func (s *GatewayService) shadowParentLookup(ctx context.Context) func(int64) *Account {
+	return func(id int64) *Account {
+		account, err := s.getSchedulableAccount(ctx, id)
+		if err != nil {
+			return nil
+		}
+		return account
+	}
 }
 
 func (s *GatewayService) tryAcquireAccountSlot(ctx context.Context, accountID int64, maxConcurrency int) (*AcquireResult, error) {
@@ -1304,6 +1344,20 @@ func (s *GatewayService) newSelectionResult(ctx context.Context, account *Accoun
 		ReleaseFunc: release,
 		WaitPlan:    waitPlan,
 	}), nil
+}
+
+// filterByMaxCompactTier 有明确支持 compact（tier 2）的就只留它们，否则原样（未探测的 tier 1 仍是候选）。
+func filterByMaxCompactTier(accounts []accountWithLoad) []accountWithLoad {
+	var known []accountWithLoad
+	for _, acc := range accounts {
+		if openAICompactSupportTier(acc.account) == 2 {
+			known = append(known, acc)
+		}
+	}
+	if len(known) == 0 {
+		return accounts
+	}
+	return known
 }
 
 // filterByMinPriority 过滤出优先级最小的账号集合
@@ -1652,7 +1706,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 						}
-						if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -1694,24 +1748,14 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 			if _, excluded := excludedIDs[acc.ID]; excluded {
 				continue
 			}
-			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
-			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, acc) {
-				continue
-			}
 			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
 			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
 			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
 				continue
 			}
-			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
-				continue
-			}
-			if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+			// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
+			if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
 				continue
 			}
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -1752,7 +1796,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 					}
-					if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForRPM(ctx, account, true) {
+					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						return account, nil
 					}
 				}
@@ -1786,27 +1830,17 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if _, excluded := excludedIDs[acc.ID]; excluded {
 			continue
 		}
-		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
-		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
-			continue
-		}
 		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
 		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
 		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
 			continue
 		}
-		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
-			continue
-		}
 		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel) {
 			continue
 		}
-		if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
+		if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
 			continue
 		}
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -1872,7 +1906,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 						if clearSticky {
 							_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 						}
-						if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && accountInSchedulingScope(ctx, account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForRPM(ctx, account, true) {
+						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if isAccountSchedulableOnPlatform(ctx, account, nativePlatform, true) {
 								if s.debugModelRoutingEnabled() {
 									logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy mixed routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
@@ -1912,14 +1946,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			if _, excluded := excludedIDs[acc.ID]; excluded {
 				continue
 			}
-			// Scheduler snapshots can be temporarily stale; re-check schedulability here to
-			// avoid selecting accounts that were recently rate-limited/overloaded.
-			if !s.isAccountSchedulableForSelection(acc) {
-				continue
-			}
-			if !s.isGatewayAccountProfitEligible(ctx, acc) {
-				continue
-			}
 			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
 			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
 			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
@@ -1930,10 +1956,8 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 			if !isAccountSchedulableOnPlatform(ctx, acc, nativePlatform, true) {
 				continue
 			}
-			if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
-				continue
-			}
-			if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+			// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
+			if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
 				continue
 			}
 			if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -1974,7 +1998,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					if clearSticky {
 						_ = s.cache.DeleteSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
 					}
-					if !clearSticky && s.isGatewayAccountProfitEligible(ctx, account) && accountInSchedulingScope(ctx, account, groupID) && (requestedModel == "" || s.isModelSupportedByAccountWithContext(ctx, account, requestedModel)) && s.isAccountSchedulableForModelSelection(ctx, account, requestedModel) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
 						if isAccountSchedulableOnPlatform(ctx, account, nativePlatform, true) {
 							return account, nil
 						}
@@ -2005,14 +2029,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if _, excluded := excludedIDs[acc.ID]; excluded {
 			continue
 		}
-		// Scheduler snapshots can be temporarily stale; re-check schedulability here to
-		// avoid selecting accounts that were recently rate-limited/overloaded.
-		if !s.isAccountSchedulableForSelection(acc) {
-			continue
-		}
-		if !s.isGatewayAccountProfitEligible(ctx, acc) {
-			continue
-		}
 		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
 		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
 		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
@@ -2023,13 +2039,11 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		if !isAccountSchedulableOnPlatform(ctx, acc, nativePlatform, true) {
 			continue
 		}
-		if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, acc, requestedModel) {
-			continue
-		}
 		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel) {
 			continue
 		}
-		if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
+		if ok, _ := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
 			continue
 		}
 		if !s.isAccountSchedulableForRPM(ctx, acc, false) {
@@ -2172,7 +2186,8 @@ func (s *GatewayService) diagnoseSelectionFailure(
 	if _, excluded := excludedIDs[acc.ID]; excluded {
 		return selectionFailureDiagnosis{Category: "excluded"}
 	}
-	if !s.isAccountSchedulableForSelection(acc) {
+	now := time.Now()
+	if !acc.SchedulingState(now).Allows(now) {
 		return selectionFailureDiagnosis{Category: "unschedulable", Detail: "generic_unschedulable"}
 	}
 	if isPlatformFilteredForSelection(ctx, acc, platform, allowMixedScheduling) {
@@ -2187,7 +2202,7 @@ func (s *GatewayService) diagnoseSelectionFailure(
 			Detail:   fmt.Sprintf("model=%s", requestedModel),
 		}
 	}
-	if !s.isAccountSchedulableForModelSelection(ctx, acc, requestedModel) {
+	if !acc.SchedulingAllows(ctx, requestedModel, now) {
 		remaining := acc.GetRateLimitRemainingTimeWithContext(ctx, requestedModel).Truncate(time.Second)
 		return selectionFailureDiagnosis{
 			Category: "model_rate_limited",
@@ -2195,6 +2210,10 @@ func (s *GatewayService) diagnoseSelectionFailure(
 		}
 	}
 	if vetoed, reason := openAIProfitControlVetoReason(ctx, acc); vetoed {
+		return selectionFailureDiagnosis{Category: reason}
+	}
+	// 其余门（进程内熔断 / 隐私 / 请求要求 / 影子母账号）统一由 candidateAdmits 给出原因。
+	if ok, reason := s.candidateAdmits(ctx, nil, acc, requestedModel); !ok {
 		return selectionFailureDiagnosis{Category: reason}
 	}
 	return selectionFailureDiagnosis{Category: "eligible"}

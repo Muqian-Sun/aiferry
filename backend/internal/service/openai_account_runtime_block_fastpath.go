@@ -434,18 +434,6 @@ func (s *OpenAIGatewayService) isOpenAIAccountRuntimeBlocked(account *Account) b
 	return false
 }
 
-func (s *OpenAIGatewayService) getOpenAIAccountModelTransientState() *openAIAccountModelTransientState {
-	if s == nil {
-		return nil
-	}
-	s.openaiModelTransientOnce.Do(func() {
-		if s.openaiModelTransient == nil {
-			s.openaiModelTransient = newOpenAIAccountModelTransientState(openAIModelTransientDefaultMax)
-		}
-	})
-	return s.openaiModelTransient
-}
-
 func canonicalOpenAIAccountSchedulingModel(account *Account, requestedModel string) string {
 	model := strings.TrimSpace(requestedModel)
 	if account == nil || model == "" {
@@ -467,34 +455,24 @@ func openAIAccountModelTransientModel(canonicalModel string) string {
 }
 
 func (s *OpenAIGatewayService) recordOpenAIAccountModelTransientFailure(account *Account, canonicalModel string, now time.Time) openAIAccountModelTransientDecision {
-	if s == nil || account == nil {
+	if s == nil {
 		return openAIAccountModelTransientDecision{}
 	}
-	state := s.getOpenAIAccountModelTransientState()
-	if state == nil {
-		return openAIAccountModelTransientDecision{}
-	}
-	return state.recordFailure(account.ID, openAIAccountModelTransientModel(canonicalModel), now)
+	return s.rateLimitService.RecordModelTransientFailure(account, canonicalModel, now)
 }
 
 func (s *OpenAIGatewayService) clearOpenAIAccountModelTransientState(accountID int64, model string) {
-	state := s.getOpenAIAccountModelTransientState()
-	if state == nil {
+	if s == nil {
 		return
 	}
-	state.recordSuccess(accountID, model)
+	s.rateLimitService.ClearModelTransient(accountID, model)
 }
 
 func (s *OpenAIGatewayService) isOpenAIAccountModelRuntimeBlocked(account *Account, requestedModel string) bool {
-	if s == nil || account == nil {
+	if s == nil {
 		return false
 	}
-	state := s.getOpenAIAccountModelTransientState()
-	if state == nil {
-		return false
-	}
-	canonicalModel := canonicalOpenAIAccountSchedulingModel(account, requestedModel)
-	return state.isBlocked(account.ID, openAIAccountModelTransientModel(canonicalModel), time.Now())
+	return s.rateLimitService.ModelTransientBlocked(account, requestedModel, time.Now())
 }
 
 func accountPersistedSchedulingCooldownActive(account *Account) bool {

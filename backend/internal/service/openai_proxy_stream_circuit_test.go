@@ -99,13 +99,14 @@ func TestOpenAIProxyStreamQuarantineBypassContext(t *testing.T) {
 	proxyID := int64(7)
 	account := &Account{ID: 1, Platform: PlatformOpenAI, ProxyID: &proxyID}
 	svc := &OpenAIGatewayService{}
-	svc.openaiProxyStreamCircuit = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
+	svc.rateLimitService = &RateLimitService{}
+	svc.rateLimitService.proxyStream = newOpenAIProxyStreamCircuit(openAIProxyStreamCircuitSettings{
 		failureThreshold: 1,
 		failureWindow:    time.Minute,
 		quarantineTTL:    10 * time.Minute,
 		maxEntries:       16,
 	})
-	svc.openaiProxyStreamCircuit.recordFailure(proxyID, time.Now())
+	svc.rateLimitService.getProxyStreamCircuit().recordFailure(proxyID, time.Now())
 
 	ctx := context.Background()
 	require.True(t, svc.isOpenAIProxyStreamQuarantined(ctx, account))
