@@ -1664,13 +1664,13 @@ func (a *Account) keySupportsOpenAIEndpointCapability(capability OpenAIEndpointC
 		capability = OpenAIEndpointCapabilityChatCompletions
 	case OpenAIEndpointCapabilityAlphaSearch:
 		// alpha/search 是 OpenAI 的端点（API key 走 {base_url}/v1/alpha/search）：官方 OpenAI 与
-		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点。
-		if a.Type != AccountTypeAPIKey || !keyUsesOpenAIProtocolFeatures(a) {
+		// 通用中转承接，其他已知厂商（如 xAI）没有这个端点；base_url 是扩展端点根地址。
+		if a.Type != AccountTypeAPIKey || !keyUsesOpenAIProtocolFeatures(a) || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
 	case OpenAIEndpointCapabilityEmbeddings:
 		// API key 走 {base_url}/v1/embeddings；上游不支持时由转发层 failover 兜底。
-		if a.Type != AccountTypeAPIKey {
+		if a.Type != AccountTypeAPIKey || openAIGatewayKeyExtensionBaseURL(a) == "" {
 			return false
 		}
 	case OpenAIEndpointCapabilityGrokMediaGeneration:
@@ -1821,6 +1821,10 @@ func (a *Account) SupportsOpenAIImageCapability(capability OpenAIImagesCapabilit
 	// /v1/images 是 OpenAI 协议的扩展端点：成品号只有 OpenAI；第三方 key 看厂商，官方
 	// OpenAI 与通用中转承接，其他已知厂商没有这个端点。
 	if !openAIProtocolFeaturesApply(a) {
+		return false
+	}
+	// 第三方 key 走扩展端点根地址（入站为空的候选协议地址），没配就承接不了。
+	if a.IsThirdPartyKey() && openAIGatewayKeyExtensionBaseURL(a) == "" {
 		return false
 	}
 	switch capability {

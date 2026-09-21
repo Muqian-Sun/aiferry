@@ -104,7 +104,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 func (s *GatewayService) SelectAccountWithOptions(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, opts SelectOptions) (*AccountSelectionResult, error) {
 	ctx = WithSelectOptions(ctx, opts)
 	result, err := s.selectAccountWithLoadAwareness(ctx, groupID, sessionHash, requestedModel, excludedIDs)
-	if err == nil || openAIProxyStreamQuarantineBypassed(ctx) || !errors.Is(err, ErrNoAvailableAccounts) {
+	if err == nil || openAIProxyStreamQuarantineBypassed(ctx) || (!errors.Is(err, ErrNoAvailableAccounts) && !errors.Is(err, ErrNoAvailableCompactAccounts)) {
 		return result, err
 	}
 	blocked := s.rateLimitService.ActiveProxyQuarantines(time.Now())

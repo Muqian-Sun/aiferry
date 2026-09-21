@@ -25,6 +25,7 @@ type mockAccountRepoForPlatform struct {
 	accountsByID     map[int64]*Account
 	listPlatformFunc func(ctx context.Context, platform string) ([]Account, error)
 	getByIDCalls     int
+	listCatalogCalls int
 }
 
 func (m *mockAccountRepoForPlatform) GetByID(ctx context.Context, id int64) (*Account, error) {
@@ -146,6 +147,7 @@ func (m *mockAccountRepoForPlatform) ListSchedulingCandidates(ctx context.Contex
 
 // ListSchedulingCandidatesByCatalogEntry 返回 CatalogEntryIDs 含该条目的账号（不看平台）。
 func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]Account, error) {
+	m.listCatalogCalls++
 	var out []Account
 	for _, account := range m.accounts {
 		for _, id := range account.CatalogEntryIDs {
