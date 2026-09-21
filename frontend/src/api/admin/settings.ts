@@ -12,7 +12,7 @@ import type {
 } from "@/types";
 
 export interface DefaultSubscriptionSetting {
-  group_id: number;
+  plan_id: number;
   validity_days: number;
 }
 
@@ -197,9 +197,9 @@ export function normalizeDefaultSubscriptionSettings(
   if (!Array.isArray(subscriptions)) return [];
 
   return subscriptions
-    .filter((item) => item.group_id > 0 && item.validity_days > 0)
+    .filter((item) => item.plan_id > 0 && item.validity_days > 0)
     .map((item) => ({
-      group_id: Math.floor(item.group_id),
+      plan_id: Math.floor(item.plan_id),
       validity_days: Math.min(
         36500,
         Math.max(1, Math.floor(item.validity_days)),
