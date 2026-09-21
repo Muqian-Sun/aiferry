@@ -229,7 +229,13 @@ func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 
 				result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", nil, "", 0)
 				require.NoError(t, err)
-				require.Equal(t, preferred.ID, result.Account.ID, "without a session the higher-priority account wins")
+				// 协议直连第一键：anthropic 组里成品号与 key 都直连 → 优先级小的成品号赢；
+				// antigravity 组里成品号要转换（v1internal），配了 anthropic 地址的 key 直连 → key 赢。
+				wantWithoutSession := preferred.ID
+				if groupPlatform == PlatformAntigravity {
+					wantWithoutSession = sticky.ID
+				}
+				require.Equal(t, wantWithoutSession, result.Account.ID, "without a session: protocol match first, then priority")
 
 				result, err = svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-sonnet-4-5", nil, "", 0)
 				require.NoError(t, err)
@@ -356,21 +362,10 @@ func TestGatewayService_SelectAccountWithLoadAwareness_SubscriptionMixedScheduli
 			picked = append(picked, result.Account.ID)
 			excluded[result.Account.ID] = struct{}{}
 		}
-		require.Equal(t, []int64{20983, 20984}, picked, "load batch=%v", loadBatch)
+		// 协议直连第一键：anthropic 成品号直连 message，排在要转换（v1internal）的 antigravity 成品号前，
+		// 虽然后者优先级数值更小。
+		require.Equal(t, []int64{20984, 20983}, picked, "load batch=%v", loadBatch)
 	}
-}
-
-func TestPreferGeminiOAuthInMixedScheduling(t *testing.T) {
-	geminiOAuth := &Account{Platform: PlatformGemini, Type: AccountTypeOAuth}
-	geminiServiceAccount := &Account{Platform: PlatformGemini, Type: AccountTypeServiceAccount}
-	antigravityOAuth := &Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth, Extra: map[string]any{"mixed_scheduling": true}}
-	anthropicLabelledKey := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey}
-
-	require.True(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, geminiServiceAccount))
-	require.True(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, anthropicLabelledKey))
-	require.False(t, preferGeminiOAuthInMixedScheduling(geminiOAuth, antigravityOAuth))
-	require.False(t, preferGeminiOAuthInMixedScheduling(geminiServiceAccount, anthropicLabelledKey))
-	require.False(t, preferGeminiOAuthInMixedScheduling(anthropicLabelledKey, geminiServiceAccount))
 }
 
 func TestAccountKeepsHTTPPreviousResponseID(t *testing.T) {
