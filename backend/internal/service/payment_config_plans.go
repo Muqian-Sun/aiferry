@@ -5,9 +5,6 @@ import (
 	"fmt"
 	"strings"
 
-	dbent "github.com/Wei-Shaw/sub2api/ent"
-	"github.com/Wei-Shaw/sub2api/ent/group"
-	"github.com/Wei-Shaw/sub2api/ent/subscriptionplan"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
@@ -26,12 +23,9 @@ func normalizePlanCurrency(raw string) (string, error) {
 }
 
 // validatePlanRequired checks that all required fields for a plan are provided.
-func validatePlanRequired(name string, groupID int64, price float64, validityDays int, validityUnit string, originalPrice *float64) error {
+func validatePlanRequired(name string, price float64, validityDays int, validityUnit string, originalPrice *float64, entryIDs []int64) error {
 	if strings.TrimSpace(name) == "" {
 		return infraerrors.BadRequest("PLAN_NAME_REQUIRED", "plan name is required")
-	}
-	if groupID <= 0 {
-		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "group is required")
 	}
 	if price <= 0 {
 		return infraerrors.BadRequest("PLAN_PRICE_INVALID", "price must be > 0")
@@ -45,6 +39,9 @@ func validatePlanRequired(name string, groupID int64, price float64, validityDay
 	if originalPrice != nil && *originalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
 	}
+	if len(entryIDs) == 0 {
+		return ErrPlanModelsRequired
+	}
 	return nil
 }
 
@@ -52,9 +49,6 @@ func validatePlanRequired(name string, groupID int64, price float64, validityDay
 func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.Name != nil && strings.TrimSpace(*req.Name) == "" {
 		return infraerrors.BadRequest("PLAN_NAME_REQUIRED", "plan name is required")
-	}
-	if req.GroupID != nil && *req.GroupID <= 0 {
-		return infraerrors.BadRequest("PLAN_GROUP_REQUIRED", "group is required")
 	}
 	if req.Price != nil && *req.Price <= 0 {
 		return infraerrors.BadRequest("PLAN_PRICE_INVALID", "price must be > 0")
@@ -68,138 +62,154 @@ func validatePlanPatch(req UpdatePlanRequest) error {
 	if req.OriginalPrice != nil && *req.OriginalPrice < 0 {
 		return infraerrors.BadRequest("PLAN_ORIGINAL_PRICE_INVALID", "original price must be >= 0")
 	}
+	// nil = 不改；空切片 = 想清空模型集，不允许
+	if req.EntryIDs != nil && len(req.EntryIDs) == 0 {
+		return ErrPlanModelsRequired
+	}
 	return nil
+}
+
+// normalizePlanLimit 限额输入：nil 或 <= 0 → 不限（nil）
+func normalizePlanLimit(v *float64) *float64 {
+	if v == nil || *v <= 0 {
+		return nil
+	}
+	return v
+}
+
+// planModelsFromEntryIDs 去重保序，只填 EntryID；名字由仓储回读时补上
+func planModelsFromEntryIDs(entryIDs []int64) []SubscriptionPlanModel {
+	seen := make(map[int64]struct{}, len(entryIDs))
+	models := make([]SubscriptionPlanModel, 0, len(entryIDs))
+	for _, id := range entryIDs {
+		if id <= 0 {
+			continue
+		}
+		if _, ok := seen[id]; ok {
+			continue
+		}
+		seen[id] = struct{}{}
+		models = append(models, SubscriptionPlanModel{EntryID: id})
+	}
+	return models
 }
 
 // --- Plan CRUD ---
 
-// PlanGroupInfo holds the group details needed for subscription plan display.
-type PlanGroupInfo struct {
-	Platform           string   `json:"platform"`
-	Name               string   `json:"name"`
-	RateMultiplier     float64  `json:"rate_multiplier"`
-	PeakRateEnabled    bool     `json:"peak_rate_enabled"`
-	PeakStart          string   `json:"peak_start"`
-	PeakEnd            string   `json:"peak_end"`
-	PeakRateMultiplier float64  `json:"peak_rate_multiplier"`
-	DailyLimitUSD      *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD     *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD    *float64 `json:"monthly_limit_usd"`
-	ModelScopes        []string `json:"supported_model_scopes"`
+func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]SubscriptionPlan, error) {
+	return s.planRepo.List(ctx, false)
 }
 
-// GetGroupInfoMap returns a map of group_id → PlanGroupInfo for the given plans.
-func (s *PaymentConfigService) GetGroupInfoMap(ctx context.Context, plans []*dbent.SubscriptionPlan) map[int64]PlanGroupInfo {
-	ids := make([]int64, 0, len(plans))
-	seen := make(map[int64]bool)
-	for _, p := range plans {
-		if !seen[p.GroupID] {
-			seen[p.GroupID] = true
-			ids = append(ids, p.GroupID)
-		}
-	}
-	if len(ids) == 0 {
-		return nil
-	}
-	groups, err := s.entClient.Group.Query().Where(group.IDIn(ids...)).All(ctx)
-	if err != nil {
-		return nil
-	}
-	m := make(map[int64]PlanGroupInfo, len(groups))
-	for _, g := range groups {
-		m[int64(g.ID)] = PlanGroupInfo{
-			Platform:           g.Platform,
-			Name:               g.Name,
-			RateMultiplier:     g.RateMultiplier,
-			PeakRateEnabled:    g.PeakRateEnabled,
-			PeakStart:          g.PeakStart,
-			PeakEnd:            g.PeakEnd,
-			PeakRateMultiplier: g.PeakRateMultiplier,
-			DailyLimitUSD:      g.DailyLimitUsd,
-			WeeklyLimitUSD:     g.WeeklyLimitUsd,
-			MonthlyLimitUSD:    g.MonthlyLimitUsd,
-			ModelScopes:        g.SupportedModelScopes,
-		}
-	}
-	return m
+func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]SubscriptionPlan, error) {
+	return s.planRepo.List(ctx, true)
 }
 
-func (s *PaymentConfigService) ListPlans(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Order(subscriptionplan.BySortOrder()).All(ctx)
-}
-
-func (s *PaymentConfigService) ListPlansForSale(ctx context.Context) ([]*dbent.SubscriptionPlan, error) {
-	return s.entClient.SubscriptionPlan.Query().Where(subscriptionplan.ForSaleEQ(true)).Order(subscriptionplan.BySortOrder()).All(ctx)
-}
-
-func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*dbent.SubscriptionPlan, error) {
-	if err := validatePlanRequired(req.Name, req.GroupID, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice); err != nil {
+func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanRequest) (*SubscriptionPlan, error) {
+	if err := validatePlanRequired(req.Name, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice, req.EntryIDs); err != nil {
 		return nil, err
 	}
 	currency, err := normalizePlanCurrency(req.Currency)
 	if err != nil {
 		return nil, err
 	}
-	b := s.entClient.SubscriptionPlan.Create().
-		SetGroupID(req.GroupID).SetName(req.Name).SetDescription(req.Description).
-		SetPrice(req.Price).SetCurrency(currency).SetValidityDays(req.ValidityDays).SetValidityUnit(req.ValidityUnit).
-		SetFeatures(req.Features).SetProductName(req.ProductName).
-		SetForSale(req.ForSale).SetSortOrder(req.SortOrder)
-	if req.OriginalPrice != nil {
-		b.SetOriginalPrice(*req.OriginalPrice)
+	models := planModelsFromEntryIDs(req.EntryIDs)
+	if len(models) == 0 {
+		return nil, ErrPlanModelsRequired
 	}
-	return b.Save(ctx)
+	plan := &SubscriptionPlan{
+		Name:            req.Name,
+		Description:     req.Description,
+		Price:           req.Price,
+		OriginalPrice:   req.OriginalPrice,
+		Currency:        currency,
+		ValidityDays:    req.ValidityDays,
+		ValidityUnit:    req.ValidityUnit,
+		Features:        req.Features,
+		ProductName:     req.ProductName,
+		ForSale:         req.ForSale,
+		SortOrder:       req.SortOrder,
+		DailyLimitUSD:   normalizePlanLimit(req.DailyLimitUSD),
+		WeeklyLimitUSD:  normalizePlanLimit(req.WeeklyLimitUSD),
+		MonthlyLimitUSD: normalizePlanLimit(req.MonthlyLimitUSD),
+		Models:          models,
+	}
+	if err := s.planRepo.Create(ctx, plan); err != nil {
+		return nil, err
+	}
+	// 回读拿模型名
+	return s.planRepo.GetByID(ctx, plan.ID)
 }
 
 // UpdatePlan updates a subscription plan by ID (patch semantics).
-// NOTE: This function exceeds 30 lines due to per-field nil-check patch update boilerplate
-// plus a validation guard for non-nil fields.
-func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req UpdatePlanRequest) (*dbent.SubscriptionPlan, error) {
+// 限额：nil = 不改，<= 0 = 清成不限。EntryIDs：nil = 不改，非空 = 覆盖模型集。
+func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req UpdatePlanRequest) (*SubscriptionPlan, error) {
 	if err := validatePlanPatch(req); err != nil {
 		return nil, err
 	}
-	u := s.entClient.SubscriptionPlan.UpdateOneID(id)
-	if req.GroupID != nil {
-		u.SetGroupID(*req.GroupID)
+	plan, err := s.planRepo.GetByID(ctx, id)
+	if err != nil {
+		return nil, err
 	}
 	if req.Name != nil {
-		u.SetName(*req.Name)
+		plan.Name = *req.Name
 	}
 	if req.Description != nil {
-		u.SetDescription(*req.Description)
+		plan.Description = *req.Description
 	}
 	if req.Price != nil {
-		u.SetPrice(*req.Price)
+		plan.Price = *req.Price
 	}
 	if req.OriginalPrice != nil {
-		u.SetOriginalPrice(*req.OriginalPrice)
+		plan.OriginalPrice = req.OriginalPrice
 	}
 	if req.Currency != nil {
 		currency, err := normalizePlanCurrency(*req.Currency)
 		if err != nil {
 			return nil, err
 		}
-		u.SetCurrency(currency)
+		plan.Currency = currency
 	}
 	if req.ValidityDays != nil {
-		u.SetValidityDays(*req.ValidityDays)
+		plan.ValidityDays = *req.ValidityDays
 	}
 	if req.ValidityUnit != nil {
-		u.SetValidityUnit(*req.ValidityUnit)
+		plan.ValidityUnit = *req.ValidityUnit
 	}
 	if req.Features != nil {
-		u.SetFeatures(*req.Features)
+		plan.Features = *req.Features
 	}
 	if req.ProductName != nil {
-		u.SetProductName(*req.ProductName)
+		plan.ProductName = *req.ProductName
 	}
 	if req.ForSale != nil {
-		u.SetForSale(*req.ForSale)
+		plan.ForSale = *req.ForSale
 	}
 	if req.SortOrder != nil {
-		u.SetSortOrder(*req.SortOrder)
+		plan.SortOrder = *req.SortOrder
 	}
-	return u.Save(ctx)
+	if req.DailyLimitUSD != nil {
+		plan.DailyLimitUSD = normalizePlanLimit(req.DailyLimitUSD)
+	}
+	if req.WeeklyLimitUSD != nil {
+		plan.WeeklyLimitUSD = normalizePlanLimit(req.WeeklyLimitUSD)
+	}
+	if req.MonthlyLimitUSD != nil {
+		plan.MonthlyLimitUSD = normalizePlanLimit(req.MonthlyLimitUSD)
+	}
+	if req.EntryIDs != nil {
+		models := planModelsFromEntryIDs(req.EntryIDs)
+		if len(models) == 0 {
+			return nil, ErrPlanModelsRequired
+		}
+		plan.Models = models
+	}
+	if err := s.planRepo.Update(ctx, plan); err != nil {
+		return nil, err
+	}
+	if err := s.invalidatePlanCache(ctx, id); err != nil {
+		return nil, err
+	}
+	return s.planRepo.GetByID(ctx, id)
 }
 
 func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
@@ -211,14 +221,17 @@ func (s *PaymentConfigService) DeletePlan(ctx context.Context, id int64) error {
 		return infraerrors.Conflict("PENDING_ORDERS",
 			fmt.Sprintf("this plan has %d in-progress orders and cannot be deleted — wait for orders to complete first", count))
 	}
-	return s.entClient.SubscriptionPlan.DeleteOneID(id).Exec(ctx)
+	if err := s.planRepo.Delete(ctx, id); err != nil {
+		return err
+	}
+	return s.invalidatePlanCache(ctx, id)
 }
 
-// GetPlan returns a subscription plan by ID.
-func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*dbent.SubscriptionPlan, error) {
-	plan, err := s.entClient.SubscriptionPlan.Get(ctx, id)
-	if err != nil {
-		return nil, infraerrors.NotFound("PLAN_NOT_FOUND", "subscription plan not found")
-	}
-	return plan, nil
+// GetPlan returns a subscription plan by ID（带模型集）.
+func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*SubscriptionPlan, error) {
+	return s.planRepo.GetByID(ctx, id)
+}
+
+func (s *PaymentConfigService) invalidatePlanCache(ctx context.Context, id int64) error {
+	return s.planCache.InvalidatePlanCache(ctx, id)
 }

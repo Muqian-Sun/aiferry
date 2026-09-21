@@ -8,7 +8,9 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ip"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/service"
+	"go.uber.org/zap"
 
 	"github.com/gin-gonic/gin"
 )
@@ -165,19 +167,19 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 			return
 		}
 
-		isSubscriptionType := apiKey.Group != nil && apiKey.Group.IsSubscriptionType()
-		if isSubscriptionType && subscriptionService != nil {
-			subscription, err := subscriptionService.GetActiveSubscription(
-				c.Request.Context(),
-				apiKey.User.ID,
-				apiKey.Group.ID,
-			)
+		if apiKey.SubscriptionID != nil && subscriptionService != nil {
+			subscription, err := subscriptionService.GetActiveSubscription(c.Request.Context(), *apiKey.SubscriptionID)
 			if err != nil {
-				abortWithGoogleError(c, 403, "No active subscription found for this group")
+				if service.IsSubscriptionInactiveError(err) {
+					abortWithGoogleError(c, 403, "Subscription is not active")
+					return
+				}
+				logger.L().Error("subscription lookup failed", zap.Int64("subscription_id", *apiKey.SubscriptionID), zap.Error(err))
+				abortWithGoogleError(c, 503, "Subscription service unavailable")
 				return
 			}
 
-			needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+			needsMaintenance, err := subscriptionService.ValidateAndCheckLimits(subscription)
 			if needsMaintenance {
 				refreshed, maintenanceErr := subscriptionService.EnsureWindowMaintenance(c.Request.Context(), subscription)
 				if maintenanceErr != nil {
@@ -185,7 +187,7 @@ func APIKeyAuthWithSubscriptionGoogle(apiKeyService *service.APIKeyService, subs
 					return
 				}
 				subscription = refreshed
-				_, err = subscriptionService.ValidateAndCheckLimits(subscription, apiKey.Group)
+				_, err = subscriptionService.ValidateAndCheckLimits(subscription)
 			}
 			if err != nil {
 				status := 403

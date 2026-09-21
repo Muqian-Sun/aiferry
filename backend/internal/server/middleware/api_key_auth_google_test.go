@@ -28,7 +28,7 @@ func TestGoogleAPIKeyAuthRejectsOversizedCredentialsBeforeLookup(t *testing.T) {
 		return nil, service.ErrAPIKeyNotFound
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -54,7 +54,7 @@ func TestGoogleAPIKeyAuthMarksLookupBulkheadRejection(t *testing.T) {
 		return nil, service.ErrAPIKeyAuthOverloaded
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -80,7 +80,8 @@ type fakeAPIKeyRepo struct {
 
 type fakeGoogleSubscriptionRepo struct {
 	getByID        func(ctx context.Context, id int64) (*service.UserSubscription, error)
-	getActive      func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error)
+	getActiveByID  func(ctx context.Context, id int64) (*service.UserSubscription, error)
+	getActive      func(ctx context.Context, userID, planID int64) (*service.UserSubscription, error)
 	updateStatus   func(ctx context.Context, subscriptionID int64, status string) error
 	activateWindow func(ctx context.Context, id int64, dailyStart, periodicStart time.Time) error
 	resetDaily     func(ctx context.Context, id int64, start time.Time) error
@@ -183,10 +184,10 @@ func (f fakeGoogleSubscriptionRepo) GetByIDForUpdate(ctx context.Context, id int
 func (f fakeGoogleSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (f fakeGoogleSubscriptionRepo) GetByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (f fakeGoogleSubscriptionRepo) GetByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (f fakeGoogleSubscriptionRepo) GetActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (f fakeGoogleSubscriptionRepo) GetActiveByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
 	if f.getActive != nil {
 		return f.getActive(ctx, userID, groupID)
 	}
@@ -207,16 +208,10 @@ func (f fakeGoogleSubscriptionRepo) ListByUserID(ctx context.Context, userID int
 func (f fakeGoogleSubscriptionRepo) ListActiveByUserID(ctx context.Context, userID int64) ([]service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
-func (f fakeGoogleSubscriptionRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.UserSubscription, *pagination.PaginationResult, error) {
+func (f fakeGoogleSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, planID *int64, status, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
 }
-func (f fakeGoogleSubscriptionRepo) List(ctx context.Context, params pagination.PaginationParams, userID, groupID *int64, status, platform, sortBy, sortOrder string) ([]service.UserSubscription, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-func (f fakeGoogleSubscriptionRepo) ExistsByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
-	return false, errors.New("not implemented")
-}
-func (f fakeGoogleSubscriptionRepo) ExistsActiveByUserIDAndGroupID(ctx context.Context, userID, groupID int64) (bool, error) {
+func (f fakeGoogleSubscriptionRepo) ExistsByUserIDAndPlanID(ctx context.Context, userID, planID int64) (bool, error) {
 	return false, errors.New("not implemented")
 }
 func (f fakeGoogleSubscriptionRepo) ExtendExpiry(ctx context.Context, subscriptionID int64, newExpiresAt time.Time) error {
@@ -278,7 +273,6 @@ func newTestAPIKeyService(repo service.APIKeyRepository) *service.APIKeyService 
 		repo,
 		nil, // userRepo (unused in GetByKey)
 		nil, // groupRepo
-		nil, // userSubRepo
 		nil, // userGroupRateRepo
 		nil, // cache
 		&config.Config{},
@@ -370,7 +364,6 @@ func TestApiKeyAuthWithSubscriptionGoogleSetsGroupContext(t *testing.T) {
 				return &clone, nil
 			},
 		},
-		nil,
 		nil,
 		nil,
 		nil,
@@ -832,14 +825,13 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 
 	limit := 1.0
 	group := &service.Group{
-		ID:               77,
-		Name:             "gemini-sub",
-		Status:           service.StatusActive,
-		Platform:         service.PlatformGemini,
-		Hydrated:         true,
-		SubscriptionType: service.SubscriptionTypeSubscription,
-		DailyLimitUSD:    &limit,
+		ID:       77,
+		Name:     "gemini-sub",
+		Status:   service.StatusActive,
+		Platform: service.PlatformGemini,
+		Hydrated: true,
 	}
+	plan := &service.SubscriptionPlan{ID: 7, Name: "gemini plan", DailyLimitUSD: &limit}
 	user := &service.User{
 		ID:          999,
 		Role:        service.RoleUser,
@@ -847,13 +839,15 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 		Balance:     10,
 		Concurrency: 3,
 	}
+	subscriptionID := int64(601)
 	apiKey := &service.APIKey{
-		ID:     501,
-		UserID: user.ID,
-		Key:    "google-sub-limit",
-		Status: service.StatusActive,
-		User:   user,
-		Group:  group,
+		ID:             501,
+		UserID:         user.ID,
+		Key:            "google-sub-limit",
+		Status:         service.StatusActive,
+		User:           user,
+		Group:          group,
+		SubscriptionID: &subscriptionID,
 	}
 	apiKey.GroupID = &group.ID
 
@@ -871,15 +865,15 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	sub := &service.UserSubscription{
 		ID:               601,
 		UserID:           user.ID,
-		GroupID:          group.ID,
+		PlanID:           plan.ID,
 		Status:           service.SubscriptionStatusActive,
 		ExpiresAt:        now.Add(24 * time.Hour),
 		DailyWindowStart: &now,
 		DailyUsageUSD:    10,
 	}
-	subscriptionService := service.NewSubscriptionService(nil, fakeGoogleSubscriptionRepo{
-		getActive: func(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
-			if userID != user.ID || groupID != group.ID {
+	subscriptionService := service.NewSubscriptionService(&stubPlanRepo{plan: plan}, fakeGoogleSubscriptionRepo{
+		getActiveByID: func(ctx context.Context, id int64) (*service.UserSubscription, error) {
+			if id != subscriptionID {
 				return nil, service.ErrSubscriptionNotFound
 			}
 			clone := *sub
@@ -890,7 +884,7 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 		resetDaily:     func(ctx context.Context, id int64, start time.Time) error { return nil },
 		resetWeekly:    func(ctx context.Context, id int64, start time.Time) error { return nil },
 		resetMonthly:   func(ctx context.Context, id int64, start time.Time) error { return nil },
-	}, nil, nil, &config.Config{RunMode: config.RunModeStandard})
+	}, nil, nil, nil, &config.Config{RunMode: config.RunModeStandard})
 
 	r := gin.New()
 	r.Use(APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, &config.Config{RunMode: config.RunModeStandard}))
@@ -907,4 +901,13 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	require.Equal(t, http.StatusTooManyRequests, resp.Error.Code)
 	require.Equal(t, "RESOURCE_EXHAUSTED", resp.Error.Status)
 	require.Contains(t, resp.Error.Message, "daily usage limit exceeded")
+}
+
+func (fakeAPIKeyRepo) ExistsBySubscriptionID(context.Context, int64) (bool, error) { return false, nil }
+
+func (f fakeGoogleSubscriptionRepo) GetActiveByID(ctx context.Context, id int64) (*service.UserSubscription, error) {
+	if f.getActiveByID != nil {
+		return f.getActiveByID(ctx, id)
+	}
+	return nil, service.ErrSubscriptionNotFound
 }

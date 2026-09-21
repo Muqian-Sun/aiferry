@@ -28,14 +28,16 @@ func IsWindowExpired(windowStart *time.Time, duration time.Duration) bool {
 }
 
 type APIKey struct {
-	ID          int64
-	UserID      int64
-	Key         string
-	Name        string
-	GroupID     *int64
-	Status      string
-	IPWhitelist []string
-	IPBlacklist []string
+	ID      int64
+	UserID  int64
+	Key     string
+	Name    string
+	GroupID *int64
+	// SubscriptionID 订阅 key：随订阅生成并绑定；用户自建的 key 恒为 nil（余额计费）
+	SubscriptionID *int64
+	Status         string
+	IPWhitelist    []string
+	IPBlacklist    []string
 	// 预编译的 IP 规则，用于认证热路径避免重复 ParseIP/ParseCIDR。
 	CompiledIPWhitelist *ip.CompiledIPRules `json:"-"`
 	CompiledIPBlacklist *ip.CompiledIPRules `json:"-"`
@@ -45,6 +47,7 @@ type APIKey struct {
 	UpdatedAt           time.Time
 	User                *User
 	Group               *Group
+	Subscription        *UserSubscription // 订阅 key 的订阅（列表展示用，仓储按需预载）
 	CurrentConcurrency  int
 
 	// Quota fields
@@ -62,6 +65,11 @@ type APIKey struct {
 	Window5hStart *time.Time // Start of current 5h window
 	Window1dStart *time.Time // Start of current 1d window
 	Window7dStart *time.Time // Start of current 7d window
+}
+
+// IsSubscriptionKey 订阅 key：随订阅生成，计费走订阅额度，不绑分组
+func (k *APIKey) IsSubscriptionKey() bool {
+	return k.SubscriptionID != nil
 }
 
 func (k *APIKey) IsActive() bool {

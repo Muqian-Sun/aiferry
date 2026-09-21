@@ -87,6 +87,7 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Key:                k.Key,
 		Name:               k.Name,
 		GroupID:            k.GroupID,
+		SubscriptionID:     k.SubscriptionID,
 		Status:             k.Status,
 		IPWhitelist:        k.IPWhitelist,
 		IPBlacklist:        k.IPBlacklist,
@@ -109,6 +110,9 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Window7dStart:      k.Window7dStart,
 		User:               UserFromServiceShallow(k.User),
 		Group:              GroupFromServiceShallow(k.Group),
+	}
+	if k.Subscription != nil && k.Subscription.Plan != nil {
+		out.SubscriptionPlanName = k.Subscription.Plan.Name
 	}
 	if k.Window5hStart != nil && !service.IsWindowExpired(k.Window5hStart, service.RateLimitWindow5h) {
 		t := k.Window5hStart.Add(service.RateLimitWindow5h)
@@ -184,10 +188,6 @@ func groupFromServiceBase(g *service.Group) Group {
 		RateMultiplier:                  g.RateMultiplier,
 		IsExclusive:                     g.IsExclusive,
 		Status:                          g.Status,
-		SubscriptionType:                g.SubscriptionType,
-		DailyLimitUSD:                   g.DailyLimitUSD,
-		WeeklyLimitUSD:                  g.WeeklyLimitUSD,
-		MonthlyLimitUSD:                 g.MonthlyLimitUSD,
 		LongContextPricingEnabled:       g.LongContextPricingEnabled,
 		AllowImageGeneration:            g.AllowImageGeneration,
 		AllowBatchImageGeneration:       g.AllowBatchImageGeneration,
@@ -618,10 +618,10 @@ func redeemCodeFromServiceBase(rc *service.RedeemCode) RedeemCode {
 		UsedAt:       rc.UsedAt,
 		CreatedAt:    rc.CreatedAt,
 		ExpiresAt:    rc.ExpiresAt,
-		GroupID:      rc.GroupID,
+		PlanID:       rc.PlanID,
 		ValidityDays: rc.ValidityDays,
 		User:         UserFromServiceShallow(rc.User),
-		Group:        GroupFromServiceShallow(rc.Group),
+		Plan:         SubscriptionPlanRefFromService(rc.Plan),
 	}
 	if rc.IsExpired() {
 		out.Status = service.StatusExpired
@@ -850,11 +850,53 @@ func UserSubscriptionFromServiceAdmin(sub *service.UserSubscription) *AdminUserS
 	}
 }
 
+// SubscriptionPlanRefFromService 套餐引用；nil 安全
+func SubscriptionPlanRefFromService(p *service.SubscriptionPlan) *SubscriptionPlanRef {
+	if p == nil {
+		return nil
+	}
+	return &SubscriptionPlanRef{ID: p.ID, Name: p.Name}
+}
+
+// SubscriptionPlanFromService 订阅上挂的套餐（限额 + 模型集）；nil 安全
+func SubscriptionPlanFromService(p *service.SubscriptionPlan) *SubscriptionPlan {
+	if p == nil {
+		return nil
+	}
+	out := &SubscriptionPlan{
+		SubscriptionPlanRef: SubscriptionPlanRef{ID: p.ID, Name: p.Name},
+		DailyLimitUSD:       p.DailyLimitUSD,
+		WeeklyLimitUSD:      p.WeeklyLimitUSD,
+		MonthlyLimitUSD:     p.MonthlyLimitUSD,
+		Models:              make([]SubscriptionPlanModel, 0, len(p.Models)),
+	}
+	for _, m := range p.Models {
+		out.Models = append(out.Models, SubscriptionPlanModel{EntryID: m.EntryID, ModelID: m.ModelID, DisplayName: m.DisplayName})
+	}
+	return out
+}
+
+// MaskAPIKey 脱敏：前 6 后 4，中间 ****；短 key 全遮
+func MaskAPIKey(plain string) string {
+	if len(plain) <= 10 {
+		return "****"
+	}
+	return plain[:6] + "****" + plain[len(plain)-4:]
+}
+
+// SubscriptionAPIKeyRefFromService 订阅 key 引用；nil 安全
+func SubscriptionAPIKeyRefFromService(k *service.APIKey) *SubscriptionAPIKeyRef {
+	if k == nil {
+		return nil
+	}
+	return &SubscriptionAPIKeyRef{ID: k.ID, Name: k.Name, KeyMasked: MaskAPIKey(k.Key)}
+}
+
 func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscription {
 	return UserSubscription{
 		ID:                 sub.ID,
 		UserID:             sub.UserID,
-		GroupID:            sub.GroupID,
+		PlanID:             sub.PlanID,
 		StartsAt:           sub.StartsAt,
 		ExpiresAt:          sub.ExpiresAt,
 		Status:             sub.Status,
@@ -868,7 +910,8 @@ func userSubscriptionFromServiceBase(sub *service.UserSubscription) UserSubscrip
 		UpdatedAt:          sub.UpdatedAt,
 		RevokedAt:          sub.DeletedAt,
 		User:               UserFromServiceShallow(sub.User),
-		Group:              GroupFromServiceShallow(sub.Group),
+		Plan:               SubscriptionPlanFromService(sub.Plan),
+		APIKey:             SubscriptionAPIKeyRefFromService(sub.APIKey),
 	}
 }
 

@@ -41,7 +41,7 @@ func newGatewayHandlerOverOpenAIService(
 		gatewayService:       gwSvc,
 		openAIGatewayService: openAISvc,
 		billingCacheService:  billingCache,
-		apiKeyService:        service.NewAPIKeyService(nil, nil, nil, nil, nil, nil, cfg),
+		apiKeyService:        service.NewAPIKeyService(nil, nil, nil, nil, nil, cfg),
 		concurrencyHelper:    NewConcurrencyHelper(concurrency, SSEPingFormatClaude, 0),
 		cfg:                  cfg,
 		modelCatalog:         listAllCatalogStub{},

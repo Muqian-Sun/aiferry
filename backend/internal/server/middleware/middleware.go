@@ -143,7 +143,8 @@ func OpenAIErrorWriter(c *gin.Context, status int, message string) {
 func RequireGroupAssignment(settingService *service.SettingService, writeError GatewayErrorWriter) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiKey, ok := GetAPIKeyFromContext(c)
-		if !ok || apiKey.GroupID != nil {
+		// 订阅 key 无分组：资源池由目录路由（条目绑定）定，不需要分组
+		if !ok || apiKey.GroupID != nil || apiKey.SubscriptionID != nil {
 			c.Next()
 			return
 		}

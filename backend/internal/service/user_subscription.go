@@ -9,9 +9,9 @@ import (
 const subscriptionDayDuration = 24 * time.Hour
 
 type UserSubscription struct {
-	ID      int64
-	UserID  int64
-	GroupID int64
+	ID     int64
+	UserID int64
+	PlanID int64
 
 	StartsAt  time.Time
 	ExpiresAt time.Time
@@ -34,8 +34,10 @@ type UserSubscription struct {
 	DeletedAt *time.Time
 
 	User           *User
-	Group          *Group
+	Plan           *SubscriptionPlan
 	AssignedByUser *User
+	// APIKey 订阅 key（随订阅生成；管理端删过则为 nil）。仓储按需预载，只给列表 / 详情展示
+	APIKey *APIKey
 }
 
 func (s *UserSubscription) IsActive() bool {
@@ -204,30 +206,23 @@ func (s *UserSubscription) MonthlyResetTime() *time.Time {
 	return &t
 }
 
-func (s *UserSubscription) CheckDailyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasDailyLimit() {
+func (s *UserSubscription) CheckDailyLimit(plan *SubscriptionPlan, additionalCost float64) bool {
+	if !plan.HasDailyLimit() {
 		return true
 	}
-	return s.DailyUsageUSD+additionalCost <= *group.DailyLimitUSD
+	return s.DailyUsageUSD+additionalCost <= *plan.DailyLimitUSD
 }
 
-func (s *UserSubscription) CheckWeeklyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasWeeklyLimit() {
+func (s *UserSubscription) CheckWeeklyLimit(plan *SubscriptionPlan, additionalCost float64) bool {
+	if !plan.HasWeeklyLimit() {
 		return true
 	}
-	return s.WeeklyUsageUSD+additionalCost <= *group.WeeklyLimitUSD
+	return s.WeeklyUsageUSD+additionalCost <= *plan.WeeklyLimitUSD
 }
 
-func (s *UserSubscription) CheckMonthlyLimit(group *Group, additionalCost float64) bool {
-	if !group.HasMonthlyLimit() {
+func (s *UserSubscription) CheckMonthlyLimit(plan *SubscriptionPlan, additionalCost float64) bool {
+	if !plan.HasMonthlyLimit() {
 		return true
 	}
-	return s.MonthlyUsageUSD+additionalCost <= *group.MonthlyLimitUSD
-}
-
-func (s *UserSubscription) CheckAllLimits(group *Group, additionalCost float64) (daily, weekly, monthly bool) {
-	daily = s.CheckDailyLimit(group, additionalCost)
-	weekly = s.CheckWeeklyLimit(group, additionalCost)
-	monthly = s.CheckMonthlyLimit(group, additionalCost)
-	return
+	return s.MonthlyUsageUSD+additionalCost <= *plan.MonthlyLimitUSD
 }

@@ -81,7 +81,6 @@ func TestAuthCacheInvalidationTrigger_ProfitControlColumns(t *testing.T) {
 
 	for name, update := range map[string]string{
 		"platform":             "platform = 'anthropic'",
-		"subscription_type":    "subscription_type = 'subscription'",
 		"rate_multiplier":      "rate_multiplier = 0.9",
 		"peak_rate_enabled":    "peak_rate_enabled = true",
 		"peak_start":           "peak_start = '08:00'",

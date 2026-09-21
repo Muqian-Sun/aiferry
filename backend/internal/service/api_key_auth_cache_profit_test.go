@@ -35,7 +35,6 @@ func profitAuthTestAPIKey() *APIKey {
 			Platform:             PlatformOpenAI,
 			Status:               StatusActive,
 			Hydrated:             true,
-			SubscriptionType:     SubscriptionTypeStandard,
 			PeakRateEnabled:      false,
 			ProfitControlEnabled: true,
 			ProfitMinMargin:      0.2,

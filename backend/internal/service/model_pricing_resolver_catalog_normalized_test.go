@@ -54,7 +54,6 @@ func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscrip
 		RateMultiplier: 1,
 	}
 	if subscriptionGroup {
-		group.SubscriptionType = SubscriptionTypeSubscription
 	}
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{

@@ -48,55 +48,50 @@ func TestSanitizeAdminPaymentOrderForResponseAddsCurrency(t *testing.T) {
 	}
 }
 
-func TestAdminSubscriptionPlansForResponseIncludesCompositeGroupInfo(t *testing.T) {
+func TestAdminSubscriptionPlansForResponseIncludesLimitsAndModels(t *testing.T) {
 	weekly := 25.0
 	now := time.Now()
-	plans := []*dbent.SubscriptionPlan{
+	plans := []service.SubscriptionPlan{
 		{
-			ID:           11,
-			GroupID:      7,
-			Name:         "All models",
-			Description:  "Composite access",
-			Price:        19.99,
-			Currency:     "CNY",
-			ValidityDays: 30,
-			ValidityUnit: "days",
-			Features:     "OpenAI\nClaude\nGemini\nGrok",
-			ProductName:  "Sub2API",
-			ForSale:      true,
-			SortOrder:    1,
-			CreatedAt:    now,
-			UpdatedAt:    now,
-		},
-	}
-	groupInfo := map[int64]service.PlanGroupInfo{
-		7: {
-			Platform:       service.PlatformComposite,
-			Name:           "Bucket 2 composite",
-			RateMultiplier: 1.5,
+			ID:             11,
+			Name:           "All models",
+			Description:    "Composite access",
+			Price:          19.99,
+			Currency:       "CNY",
+			ValidityDays:   30,
+			ValidityUnit:   "days",
+			Features:       "OpenAI\nClaude\nGemini\nGrok",
+			ProductName:    "Sub2API",
+			ForSale:        true,
+			SortOrder:      1,
 			WeeklyLimitUSD: &weekly,
-			ModelScopes:    []string{"openai", "claude", "gemini", "grok"},
+			Models: []service.SubscriptionPlanModel{
+				{EntryID: 199, ModelID: "gpt-5.6", DisplayName: "GPT-5.6"},
+				{EntryID: 27, ModelID: "claude-sonnet-4-5", DisplayName: "Claude Sonnet 4.5"},
+			},
+			CreatedAt: now,
+			UpdatedAt: now,
 		},
 	}
 
-	got := adminSubscriptionPlansForResponse(plans, groupInfo)
+	got := adminSubscriptionPlansForResponse(plans)
 
 	if len(got) != 1 {
 		t.Fatalf("expected one plan, got %d", len(got))
 	}
-	if got[0].GroupPlatform != service.PlatformComposite {
-		t.Fatalf("expected composite group platform, got %q", got[0].GroupPlatform)
-	}
-	if got[0].GroupName != "Bucket 2 composite" {
-		t.Fatalf("expected group name to be included, got %q", got[0].GroupName)
-	}
 	if got[0].WeeklyLimitUSD == nil || *got[0].WeeklyLimitUSD != weekly {
 		t.Fatalf("expected weekly limit to be included, got %#v", got[0].WeeklyLimitUSD)
 	}
-	if strings.Join(got[0].ModelScopes, ",") != "openai,claude,gemini,grok" {
-		t.Fatalf("expected model scopes to be preserved, got %#v", got[0].ModelScopes)
+	if got[0].DailyLimitUSD != nil || got[0].MonthlyLimitUSD != nil {
+		t.Fatalf("unset limits must stay null, got %#v / %#v", got[0].DailyLimitUSD, got[0].MonthlyLimitUSD)
 	}
-	// 投影必须保留 ent 原始响应的全部套餐字段：currency 丢失曾导致编辑保存时
+	if len(got[0].EntryIDs) != 2 || got[0].EntryIDs[0] != 199 || got[0].EntryIDs[1] != 27 {
+		t.Fatalf("expected entry ids in plan order, got %#v", got[0].EntryIDs)
+	}
+	if len(got[0].Models) != 2 || got[0].Models[1].DisplayName != "Claude Sonnet 4.5" {
+		t.Fatalf("expected model names to be included, got %#v", got[0].Models)
+	}
+	// 投影必须保留套餐的全部售卖字段：currency 丢失曾导致编辑保存时
 	// 静默清空套餐货币（PlanEditDialog 回传空串 → SetCurrency("")）。
 	if got[0].Currency != "CNY" {
 		t.Fatalf("expected currency to be preserved, got %q", got[0].Currency)

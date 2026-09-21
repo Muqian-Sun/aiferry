@@ -172,6 +172,16 @@ func IsListedModel(ctx context.Context, src CatalogListingSource, model string) 
 	return ok
 }
 
+// IsVisibleModel 报告模型对这把 key 可见：上架，且（订阅 key 时）在套餐模型集里。
+// 余额 key 传 nil 订阅，退化成 IsListedModel。
+func IsVisibleModel(ctx context.Context, src CatalogListingSource, sub *UserSubscription, model string) bool {
+	route, ok := src.ResolveRoute(ctx, model)
+	if !ok {
+		return false
+	}
+	return SubscriptionCoversRoute(sub, route)
+}
+
 // catalogBindingInboundProtocols 是绑定校验时逐个试的入站协议。
 var catalogBindingInboundProtocols = []string{
 	APIProtocolAnthropic, APIProtocolChatCompletions, APIProtocolResponses, APIProtocolGemini,

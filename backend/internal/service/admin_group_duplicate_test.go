@@ -46,9 +46,6 @@ func cloneGroupForDuplicateTest(group *Group) *Group {
 		return nil
 	}
 	cloned := *group
-	cloned.DailyLimitUSD = cloneGroupValuePointer(group.DailyLimitUSD)
-	cloned.WeeklyLimitUSD = cloneGroupValuePointer(group.WeeklyLimitUSD)
-	cloned.MonthlyLimitUSD = cloneGroupValuePointer(group.MonthlyLimitUSD)
 	cloned.FallbackGroupID = cloneGroupValuePointer(group.FallbackGroupID)
 	cloned.FallbackGroupIDOnInvalidRequest = cloneGroupValuePointer(group.FallbackGroupIDOnInvalidRequest)
 	cloned.ModelRouting = cloneGroupModelRouting(group.ModelRouting)
@@ -125,11 +122,6 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 		IsExclusive:                     true,
 		Status:                          StatusActive,
 		Hydrated:                        true,
-		SubscriptionType:                SubscriptionTypeSubscription,
-		DailyLimitUSD:                   groupDuplicateTestPointer(11.0),
-		WeeklyLimitUSD:                  groupDuplicateTestPointer(22.0),
-		MonthlyLimitUSD:                 groupDuplicateTestPointer(33.0),
-		DefaultValidityDays:             91,
 		AllowImageGeneration:            true,
 		AllowBatchImageGeneration:       true,
 		BatchImageDiscountMultiplier:    0.4,
@@ -178,7 +170,6 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	require.Equal(t, source.Platform, duplicate.Platform)
 	require.Equal(t, source.RateMultiplier, duplicate.RateMultiplier)
 	require.Equal(t, source.PeakRateMultiplier, duplicate.PeakRateMultiplier)
-	require.Equal(t, source.DefaultValidityDays, duplicate.DefaultValidityDays)
 	require.Equal(t, source.FallbackGroupID, duplicate.FallbackGroupID)
 	require.Equal(t, source.ModelRouting, duplicate.ModelRouting)
 	require.Equal(t, source.ForceOpenAIFast, duplicate.ForceOpenAIFast)
@@ -201,12 +192,10 @@ func TestDuplicateGroupCopiesConfigurationDeeplyAndResetsRuntimeState(t *testing
 	duplicate.SupportedModelScopes[0] = "changed"
 	duplicate.ModelAllowlist.Models[0] = "changed"
 	duplicate.ReasoningEffortMappings[0].To = "changed"
-	*duplicate.DailyLimitUSD = 999
 	require.Equal(t, int64(13), source.ModelRouting["gpt-*"][0])
 	require.Equal(t, "claude", source.SupportedModelScopes[0])
 	require.Equal(t, "gpt-5.4", source.ModelAllowlist.Models[0])
 	require.Equal(t, "xhigh", source.ReasoningEffortMappings[0].To)
-	require.Equal(t, 11.0, *source.DailyLimitUSD)
 }
 
 func TestDuplicateGroupRecoversSameOperationAndScopesByAdmin(t *testing.T) {

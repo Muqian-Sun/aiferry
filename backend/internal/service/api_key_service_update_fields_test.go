@@ -131,3 +131,7 @@ func TestUpdateQuotaUsed_ExhaustedMarkOnlyDeclaresStatus(t *testing.T) {
 	require.NoError(t, svc.UpdateQuotaUsed(context.Background(), 1, 5))
 	require.Equal(t, []APIKeyUpdateFields{{Status: true}}, repo.updateFields)
 }
+
+func (*updateFieldsAPIKeyRepoStub) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
+}

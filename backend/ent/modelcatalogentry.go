@@ -90,11 +90,15 @@ type ModelCatalogEntry struct {
 type ModelCatalogEntryEdges struct {
 	// Accounts holds the value of the accounts edge.
 	Accounts []*Account `json:"accounts,omitempty"`
+	// SubscriptionPlans holds the value of the subscription_plans edge.
+	SubscriptionPlans []*SubscriptionPlan `json:"subscription_plans,omitempty"`
 	// Bindings holds the value of the bindings edge.
 	Bindings []*ModelCatalogBinding `json:"bindings,omitempty"`
+	// PlanModels holds the value of the plan_models edge.
+	PlanModels []*SubscriptionPlanModel `json:"plan_models,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [2]bool
+	loadedTypes [4]bool
 }
 
 // AccountsOrErr returns the Accounts value or an error if the edge
@@ -106,13 +110,31 @@ func (e ModelCatalogEntryEdges) AccountsOrErr() ([]*Account, error) {
 	return nil, &NotLoadedError{edge: "accounts"}
 }
 
+// SubscriptionPlansOrErr returns the SubscriptionPlans value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelCatalogEntryEdges) SubscriptionPlansOrErr() ([]*SubscriptionPlan, error) {
+	if e.loadedTypes[1] {
+		return e.SubscriptionPlans, nil
+	}
+	return nil, &NotLoadedError{edge: "subscription_plans"}
+}
+
 // BindingsOrErr returns the Bindings value or an error if the edge
 // was not loaded in eager-loading.
 func (e ModelCatalogEntryEdges) BindingsOrErr() ([]*ModelCatalogBinding, error) {
-	if e.loadedTypes[1] {
+	if e.loadedTypes[2] {
 		return e.Bindings, nil
 	}
 	return nil, &NotLoadedError{edge: "bindings"}
+}
+
+// PlanModelsOrErr returns the PlanModels value or an error if the edge
+// was not loaded in eager-loading.
+func (e ModelCatalogEntryEdges) PlanModelsOrErr() ([]*SubscriptionPlanModel, error) {
+	if e.loadedTypes[3] {
+		return e.PlanModels, nil
+	}
+	return nil, &NotLoadedError{edge: "plan_models"}
 }
 
 // scanValues returns the types for scanning values from sql.Rows.
@@ -380,9 +402,19 @@ func (_m *ModelCatalogEntry) QueryAccounts() *AccountQuery {
 	return NewModelCatalogEntryClient(_m.config).QueryAccounts(_m)
 }
 
+// QuerySubscriptionPlans queries the "subscription_plans" edge of the ModelCatalogEntry entity.
+func (_m *ModelCatalogEntry) QuerySubscriptionPlans() *SubscriptionPlanQuery {
+	return NewModelCatalogEntryClient(_m.config).QuerySubscriptionPlans(_m)
+}
+
 // QueryBindings queries the "bindings" edge of the ModelCatalogEntry entity.
 func (_m *ModelCatalogEntry) QueryBindings() *ModelCatalogBindingQuery {
 	return NewModelCatalogEntryClient(_m.config).QueryBindings(_m)
+}
+
+// QueryPlanModels queries the "plan_models" edge of the ModelCatalogEntry entity.
+func (_m *ModelCatalogEntry) QueryPlanModels() *SubscriptionPlanModelQuery {
+	return NewModelCatalogEntryClient(_m.config).QueryPlanModels(_m)
 }
 
 // Update returns a builder for updating this ModelCatalogEntry.

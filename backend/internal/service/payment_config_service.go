@@ -163,7 +163,6 @@ type UpdateProviderInstanceRequest struct {
 	AllowUserRefund *bool             `json:"allow_user_refund"`
 }
 type CreatePlanRequest struct {
-	GroupID       int64    `json:"group_id"`
 	Name          string   `json:"name"`
 	Description   string   `json:"description"`
 	Price         float64  `json:"price"`
@@ -175,10 +174,15 @@ type CreatePlanRequest struct {
 	ProductName   string   `json:"product_name"`
 	ForSale       bool     `json:"for_sale"`
 	SortOrder     int      `json:"sort_order"`
+	// 套餐限额（USD）：nil 或 <= 0 = 不限
+	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
+	// 模型集（目录条目 ID），至少一个
+	EntryIDs []int64 `json:"entry_ids"`
 }
 
 type UpdatePlanRequest struct {
-	GroupID       *int64   `json:"group_id"`
 	Name          *string  `json:"name"`
 	Description   *string  `json:"description"`
 	Price         *float64 `json:"price"`
@@ -190,6 +194,17 @@ type UpdatePlanRequest struct {
 	ProductName   *string  `json:"product_name"`
 	ForSale       *bool    `json:"for_sale"`
 	SortOrder     *int     `json:"sort_order"`
+	// 限额：nil = 不改；<= 0 = 清成不限
+	DailyLimitUSD   *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD  *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD *float64 `json:"monthly_limit_usd"`
+	// 模型集：nil = 不改；非空 = 覆盖；空切片 → PLAN_MODELS_REQUIRED
+	EntryIDs []int64 `json:"entry_ids"`
+}
+
+// PlanCacheInvalidator 套餐改动后失效订阅服务里的套餐缓存（由 SubscriptionService 实现）
+type PlanCacheInvalidator interface {
+	InvalidatePlanCache(ctx context.Context, planID int64) error
 }
 
 // PaymentConfigService manages payment configuration and CRUD for
@@ -198,11 +213,13 @@ type PaymentConfigService struct {
 	entClient     *dbent.Client
 	settingRepo   SettingRepository
 	encryptionKey []byte
+	planRepo      SubscriptionPlanRepository
+	planCache     PlanCacheInvalidator
 }
 
 // NewPaymentConfigService creates a new PaymentConfigService.
-func NewPaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, encryptionKey []byte) *PaymentConfigService {
-	return &PaymentConfigService{entClient: entClient, settingRepo: settingRepo, encryptionKey: encryptionKey}
+func NewPaymentConfigService(entClient *dbent.Client, settingRepo SettingRepository, encryptionKey []byte, planRepo SubscriptionPlanRepository, planCache PlanCacheInvalidator) *PaymentConfigService {
+	return &PaymentConfigService{entClient: entClient, settingRepo: settingRepo, encryptionKey: encryptionKey, planRepo: planRepo, planCache: planCache}
 }
 
 // IsPaymentEnabled returns whether the payment system is enabled.

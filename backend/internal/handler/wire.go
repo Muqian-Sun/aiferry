@@ -112,12 +112,14 @@ func ProvideGatewayHandler(
 	modelCatalog *service.ModelCatalogService,
 	coordinator *securityaudit.Coordinator,
 	imageLimiter *ImageConcurrencyLimiter,
+	subscriptionService *service.SubscriptionService,
 ) *GatewayHandler {
 	h := NewGatewayHandler(gatewayService, openAIGatewayService, geminiCompatService, antigravityGatewayService,
 		userService, concurrencyService, billingCacheService, usageService, apiKeyService, usageRecordWorkerPool,
 		errorPassthroughService, contentModerationService, opsService, userMsgQueueService, cfg, settingService, modelCatalog)
 	h.securityAuditCoordinator = coordinator
 	h.imageLimiter = imageLimiter
+	h.subscriptionService = subscriptionService
 	return h
 }
 

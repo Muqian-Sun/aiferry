@@ -244,10 +244,9 @@ func (s *userRepoStub) GetByIDIncludeDeleted(ctx context.Context, id int64) (*Us
 }
 
 type groupRepoStub struct {
-	affectedUserIDs []int64
-	deleteErr       error
-	deleteCalls     []int64
-	guardedCalls    []int64
+	deleteErr    error
+	deleteCalls  []int64
+	guardedCalls []int64
 }
 
 func (s *groupRepoStub) Create(ctx context.Context, group *Group) error {
@@ -270,14 +269,14 @@ func (s *groupRepoStub) Delete(ctx context.Context, id int64) error {
 	panic("unexpected Delete call")
 }
 
-func (s *groupRepoStub) DeleteCascade(ctx context.Context, id int64) ([]int64, error) {
+func (s *groupRepoStub) DeleteCascade(ctx context.Context, id int64) error {
 	s.deleteCalls = append(s.deleteCalls, id)
-	return s.affectedUserIDs, s.deleteErr
+	return s.deleteErr
 }
 
-func (s *groupRepoStub) DeleteCascadeIfEmpty(ctx context.Context, id int64) ([]int64, error) {
+func (s *groupRepoStub) DeleteCascadeIfEmpty(ctx context.Context, id int64) error {
 	s.guardedCalls = append(s.guardedCalls, id)
-	return s.affectedUserIDs, s.deleteErr
+	return s.deleteErr
 }
 
 func (s *groupRepoStub) List(ctx context.Context, params pagination.PaginationParams) ([]Group, *pagination.PaginationResult, error) {
@@ -628,9 +627,10 @@ func TestAdminService_DeleteUser_DeleteError(t *testing.T) {
 	require.Equal(t, []int64{9}, repo.deletedIDs)
 }
 
-func TestAdminService_DeleteGroup_Success_WithCacheInvalidation(t *testing.T) {
+// 订阅已脱离分组：删分组只删分组，不碰任何订阅缓存。
+func TestAdminService_DeleteGroup_Success_NoSubscriptionCacheInvalidation(t *testing.T) {
 	cache := newBillingCacheStub(2)
-	repo := &groupRepoStub{affectedUserIDs: []int64{11, 12}}
+	repo := &groupRepoStub{}
 	svc := &adminServiceImpl{
 		groupRepo:           repo,
 		billingCacheService: &BillingCacheService{cache: cache},
@@ -639,12 +639,11 @@ func TestAdminService_DeleteGroup_Success_WithCacheInvalidation(t *testing.T) {
 	err := svc.DeleteGroup(context.Background(), 5)
 	require.NoError(t, err)
 	require.Equal(t, []int64{5}, repo.deleteCalls)
-
-	calls := waitForInvalidations(t, cache.invalidations, 2)
-	require.ElementsMatch(t, []subscriptionInvalidateCall{
-		{userID: 11, groupID: 5},
-		{userID: 12, groupID: 5},
-	}, calls)
+	select {
+	case call := <-cache.invalidations:
+		t.Fatalf("unexpected subscription cache invalidation: %+v", call)
+	case <-time.After(50 * time.Millisecond):
+	}
 }
 
 func TestAdminService_DeleteGroup_InvalidatesAuthCacheForBoundKeys(t *testing.T) {
@@ -783,4 +782,8 @@ func TestAdminService_BatchDeleteRedeemCodes_PartialFailures(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), deleted)
 	require.Equal(t, []int64{1, 2, 3}, repo.deletedIDs)
+}
+
+func (*deleteGroupAPIKeyRepoStub) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
 }

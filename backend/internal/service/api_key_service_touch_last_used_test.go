@@ -158,3 +158,7 @@ func TestAPIKeyService_TouchLastUsed_ConcurrentFirstTouchDeduplicated(t *testing
 	defer repo.mu.Unlock()
 	require.Equal(t, 1, repo.calls, "并发首次 touch 只应写库一次")
 }
+
+func (*touchSingleflightRepo) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
+}

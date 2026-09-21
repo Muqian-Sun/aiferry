@@ -57,15 +57,13 @@ func TestGroupHandlerSimpleModeSanitizesCommercialFields(t *testing.T) {
 	require.Equal(t, "basic grouping", created.Description)
 	require.Equal(t, 1.0, created.RateMultiplier)
 	require.False(t, created.IsExclusive)
-	require.Equal(t, service.SubscriptionTypeStandard, created.SubscriptionType)
-	require.Nil(t, created.DailyLimitUSD)
 	require.False(t, created.AllowImageGeneration)
 	require.False(t, created.LongContextPricingEnabled)
 	require.Empty(t, created.ModelPricing)
 	require.False(t, created.AllowBatchImageGeneration)
 	require.Zero(t, created.RPMLimit)
 
-	update := `{"name":"renamed","description":"still basic","rate_multiplier":9,"is_exclusive":true,"subscription_type":"subscription","daily_limit_usd":12,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"status":"inactive","rpm_limit":123}`
+	update := `{"name":"renamed","description":"still basic","rate_multiplier":9,"is_exclusive":true,"long_context_pricing_enabled":true,"model_pricing":[{"model":"claude","input_price":1}],"allow_image_generation":true,"allow_batch_image_generation":true,"status":"inactive","rpm_limit":123}`
 	req = httptest.NewRequest(http.MethodPut, "/groups/2", bytes.NewBufferString(update))
 	req.Header.Set("Content-Type", "application/json")
 	res = httptest.NewRecorder()
@@ -77,8 +75,6 @@ func TestGroupHandlerSimpleModeSanitizesCommercialFields(t *testing.T) {
 	require.Equal(t, "still basic", *updated.Description)
 	require.Nil(t, updated.RateMultiplier)
 	require.Nil(t, updated.IsExclusive)
-	require.Empty(t, updated.SubscriptionType)
-	require.Nil(t, updated.DailyLimitUSD)
 	require.Nil(t, updated.AllowImageGeneration)
 	require.Nil(t, updated.LongContextPricingEnabled)
 	require.Nil(t, updated.ModelPricing)

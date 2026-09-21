@@ -198,3 +198,7 @@ func TestAPIKeyService_Update_ReactivatesQuotaExhaustedWhenQuotaUnlimited(t *tes
 	require.Equal(t, StatusActive, repo.updatedKeys[0].Status)
 	require.Equal(t, 0.0, repo.updatedKeys[0].Quota)
 }
+
+func (*quotaStateRepoStub) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
+	return false, nil
+}

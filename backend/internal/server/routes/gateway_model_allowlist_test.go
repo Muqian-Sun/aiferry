@@ -69,36 +69,38 @@ func TestGatewayRoutesGroupModelAllowlistMountedOnEveryGatewayRoute(t *testing.T
 	source := string(routeSource)
 
 	// rootRoute helper：apiKeyAuth 之后。
-	rootHelper := regexp.MustCompile(regexp.QuoteMeta(`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic, handler)`))
+	rootHelper := regexp.MustCompile(regexp.QuoteMeta(`r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic, handler)`))
 	require.Regexp(t, rootHelper, source,
-		"root alias helper must place catalog admission and the allowlist right after apiKeyAuth")
+		"root alias helper must place catalog admission, subscription model admission and the allowlist right after apiKeyAuth")
 
-	// 每条链：auth → 目录准入 → 分组白名单 → 合成路由 / 分组门禁。
+	// 每条链：auth → 目录准入 → 订阅模型集准入 → 分组白名单 → 合成路由 / 分组门禁。
 	chains := []struct {
-		group     string
-		auth      string
-		admission string
-		marker    string
-		next      string
+		group         string
+		auth          string
+		admission     string
+		planAdmission string
+		marker        string
+		next          string
 	}{
-		{group: "gateway", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "gateway.Use(catalogAdmission)", marker: "gateway.Use(groupModelAllowlist)", next: "gateway.Use(requireGroupAnthropic)"},
-		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmission)", marker: "gemini.Use(groupModelAllowlist)", next: "gemini.Use(requireGroupGoogle)"},
-		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmission)", marker: "antigravityV1.Use(groupModelAllowlist)", next: "antigravityV1.Use(requireGroupAnthropic)"},
-		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmission)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", next: "antigravityV1Beta.Use(requireGroupGoogle)"},
+		{group: "gateway", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "gateway.Use(catalogAdmission)", planAdmission: "gateway.Use(subscriptionModelAdmission)", marker: "gateway.Use(groupModelAllowlist)", next: "gateway.Use(requireGroupAnthropic)"},
+		{group: "gemini", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "gemini.Use(catalogAdmission)", planAdmission: "gemini.Use(subscriptionModelAdmission)", marker: "gemini.Use(groupModelAllowlist)", next: "gemini.Use(requireGroupGoogle)"},
+		{group: "antigravityV1", auth: "gin.HandlerFunc(apiKeyAuth)", admission: "antigravityV1.Use(catalogAdmission)", planAdmission: "antigravityV1.Use(subscriptionModelAdmission)", marker: "antigravityV1.Use(groupModelAllowlist)", next: "antigravityV1.Use(requireGroupAnthropic)"},
+		{group: "antigravityV1Beta", auth: "middleware.APIKeyAuthWithSubscriptionGoogle(apiKeyService, subscriptionService, cfg)", admission: "antigravityV1Beta.Use(catalogAdmission)", planAdmission: "antigravityV1Beta.Use(subscriptionModelAdmission)", marker: "antigravityV1Beta.Use(groupModelAllowlist)", next: "antigravityV1Beta.Use(requireGroupGoogle)"},
 	}
 	for _, chain := range chains {
 		re := regexp.MustCompile(
 			regexp.QuoteMeta(chain.group+".Use("+chain.auth) +
 				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.admission) +
+				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.planAdmission) +
 				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.marker) +
 				`[\s\S]{0,400}?` + regexp.QuoteMeta(chain.next))
 		require.Regexp(t, re, source,
-			"%s chain must mount catalog admission then groupModelAllowlist after auth and before %s", chain.group, chain.next)
+			"%s chain must mount catalog admission, subscription model admission, then groupModelAllowlist after auth and before %s", chain.group, chain.next)
 	}
 
 	// codexDirect 链是一条 Use 调用，直接断言顺序。
-	codexDirect := regexp.MustCompile(regexp.QuoteMeta(`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, groupModelAllowlist, requireGroupAnthropic)`))
-	require.Regexp(t, codexDirect, source, "codexDirect chain must mount catalog admission and the allowlist after auth")
+	codexDirect := regexp.MustCompile(regexp.QuoteMeta(`codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic)`))
+	require.Regexp(t, codexDirect, source, "codexDirect chain must mount catalog admission, subscription model admission and the allowlist after auth")
 
 	// 所有带 apiKeyAuth 的根路径路由必须收敛到 rootRoute，避免漏挂。
 	stray := regexp.MustCompile(`\br\.(GET|POST|PUT|PATCH|DELETE)\("[^"]+",[^(]*apiKeyAuth`)

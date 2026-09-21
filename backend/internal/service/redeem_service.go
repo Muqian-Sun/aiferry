@@ -103,7 +103,7 @@ type RedeemCodeBatchUpdateFields struct {
 	Status    *string
 	ExpiresAt NullableTimeUpdate
 	Notes     *string
-	GroupID   NullableInt64Update
+	PlanID    NullableInt64Update
 
 	// Core fields are intentionally modeled only so service validation can
 	// reject payloads that try to mutate redemption value semantics in bulk.
@@ -115,7 +115,7 @@ func (f RedeemCodeBatchUpdateFields) HasChanges() bool {
 	return f.Status != nil ||
 		f.ExpiresAt.Set ||
 		f.Notes != nil ||
-		f.GroupID.Set ||
+		f.PlanID.Set ||
 		f.Type != nil ||
 		f.Value != nil
 }
@@ -125,7 +125,7 @@ func (f RedeemCodeBatchUpdateFields) HasCoreFieldChanges() bool {
 }
 
 func (f RedeemCodeBatchUpdateFields) TouchesUsedSensitiveFields() bool {
-	return f.Status != nil || f.ExpiresAt.Set || f.GroupID.Set
+	return f.Status != nil || f.ExpiresAt.Set || f.PlanID.Set
 }
 
 type RedeemCodeBatchUpdateInput struct {
@@ -320,8 +320,8 @@ func (s *RedeemService) BatchUpdate(ctx context.Context, input *RedeemCodeBatchU
 		}
 		input.Fields.ExpiresAt.Value = &expiresAt
 	}
-	if input.Fields.GroupID.Set && input.Fields.GroupID.Value != nil && *input.Fields.GroupID.Value <= 0 {
-		return nil, infraerrors.BadRequest("REDEEM_CODE_GROUP_ID_INVALID", "group_id must be positive")
+	if input.Fields.PlanID.Set && input.Fields.PlanID.Value != nil && *input.Fields.PlanID.Value <= 0 {
+		return nil, infraerrors.BadRequest("REDEEM_CODE_PLAN_ID_INVALID", "plan_id must be positive")
 	}
 
 	updated, err := s.redeemRepo.BatchUpdate(ctx, ids, input.Fields)
@@ -454,8 +454,8 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 	switch redeemCode.Type {
 	case RedeemTypeBalance, RedeemTypeConcurrency:
 	case RedeemTypeSubscription:
-		if redeemCode.GroupID == nil {
-			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing group_id")
+		if redeemCode.PlanID == nil {
+			return nil, infraerrors.BadRequest("REDEEM_CODE_INVALID", "invalid subscription redeem code: missing plan_id")
 		}
 	default:
 		return nil, unsupportedRedeemTypeError(redeemCode.Type)
@@ -518,7 +518,7 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 		validityDays := redeemCode.ValidityDays
 		if validityDays < 0 {
 			// 负数天数：缩短订阅，减到 0 则取消订阅
-			if err := s.reduceOrCancelSubscription(txCtx, userID, *redeemCode.GroupID, -validityDays, redeemCode.Code); err != nil {
+			if err := s.reduceOrCancelSubscription(txCtx, userID, *redeemCode.PlanID, -validityDays, redeemCode.Code); err != nil {
 				return nil, fmt.Errorf("reduce or cancel subscription: %w", err)
 			}
 		} else {
@@ -527,7 +527,7 @@ func (s *RedeemService) redeem(ctx context.Context, userID int64, code string, r
 			}
 			_, _, err := s.subscriptionService.AssignOrExtendSubscription(txCtx, &AssignSubscriptionInput{
 				UserID:       userID,
-				GroupID:      *redeemCode.GroupID,
+				PlanID:       *redeemCode.PlanID,
 				ValidityDays: validityDays,
 				AssignedBy:   0, // 系统分配
 				Notes:        fmt.Sprintf("通过兑换码 %s 兑换", redeemCode.Code),
@@ -592,12 +592,12 @@ func (s *RedeemService) invalidateRedeemCaches(ctx context.Context, userID int64
 		if s.billingCacheService == nil {
 			return
 		}
-		if redeemCode.GroupID != nil {
-			groupID := *redeemCode.GroupID
+		if redeemCode.PlanID != nil {
+			planID := *redeemCode.PlanID
 			go func() {
 				cacheCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				defer cancel()
-				_ = s.billingCacheService.InvalidateSubscription(cacheCtx, userID, groupID)
+				_ = s.billingCacheService.InvalidateSubscription(cacheCtx, userID, planID)
 			}()
 		}
 	}
@@ -696,8 +696,8 @@ func (s *RedeemService) GetUserHistory(ctx context.Context, userID int64, limit 
 }
 
 // reduceOrCancelSubscription 缩短订阅天数，剩余天数 <= 0 时取消订阅
-func (s *RedeemService) reduceOrCancelSubscription(ctx context.Context, userID, groupID int64, reduceDays int, code string) error {
-	sub, err := s.subscriptionService.userSubRepo.GetByUserIDAndGroupID(ctx, userID, groupID)
+func (s *RedeemService) reduceOrCancelSubscription(ctx context.Context, userID, planID int64, reduceDays int, code string) error {
+	sub, err := s.subscriptionService.userSubRepo.GetByUserIDAndPlanID(ctx, userID, planID)
 	if err != nil {
 		return ErrSubscriptionNotFound
 	}
@@ -738,7 +738,7 @@ func (s *RedeemService) reduceOrCancelSubscription(ctx context.Context, userID, 
 	}
 
 	// 失效缓存
-	s.subscriptionService.InvalidateSubCache(userID, groupID)
+	s.subscriptionService.InvalidateSubCache(sub.ID)
 
 	return nil
 }

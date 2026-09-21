@@ -63,7 +63,7 @@ func TestCreateAndRedeem_TypeDefaultsToBalance(t *testing.T) {
 		"omitting type should default to balance and pass validation")
 }
 
-func TestCreateAndRedeem_SubscriptionRequiresGroupID(t *testing.T) {
+func TestCreateAndRedeem_SubscriptionRequiresPlanID(t *testing.T) {
 	h := newCreateAndRedeemHandler()
 	code := postCreateAndRedeemValidation(t, h, map[string]any{
 		"code":          "test-sub-no-group",
@@ -71,14 +71,14 @@ func TestCreateAndRedeem_SubscriptionRequiresGroupID(t *testing.T) {
 		"value":         29.9,
 		"user_id":       1,
 		"validity_days": 30,
-		// group_id 缺失
+		// plan_id 缺失
 	})
 
 	assert.Equal(t, http.StatusBadRequest, code)
 }
 
 func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
-	groupID := int64(5)
+	planID := int64(5)
 	h := newCreateAndRedeemHandler()
 
 	// zero should be rejected
@@ -88,7 +88,7 @@ func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
 			"type":          "subscription",
 			"value":         29.9,
 			"user_id":       1,
-			"group_id":      groupID,
+			"plan_id":       planID,
 			"validity_days": 0,
 		})
 
@@ -102,7 +102,7 @@ func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
 			"type":          "subscription",
 			"value":         29.9,
 			"user_id":       1,
-			"group_id":      groupID,
+			"plan_id":       planID,
 			"validity_days": -7,
 		})
 
@@ -112,14 +112,14 @@ func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
 }
 
 func TestCreateAndRedeem_SubscriptionValidParamsPassValidation(t *testing.T) {
-	groupID := int64(5)
+	planID := int64(5)
 	h := newCreateAndRedeemHandler()
 	code := postCreateAndRedeemValidation(t, h, map[string]any{
 		"code":          "test-sub-valid",
 		"type":          "subscription",
 		"value":         29.9,
 		"user_id":       1,
-		"group_id":      groupID,
+		"plan_id":       planID,
 		"validity_days": 31,
 	})
 
@@ -129,7 +129,7 @@ func TestCreateAndRedeem_SubscriptionValidParamsPassValidation(t *testing.T) {
 
 func TestCreateAndRedeem_BalanceIgnoresSubscriptionFields(t *testing.T) {
 	h := newCreateAndRedeemHandler()
-	// balance 类型不传 group_id 和 validity_days，不应报 400
+	// balance 类型不传 plan_id 和 validity_days，不应报 400
 	code := postCreateAndRedeemValidation(t, h, map[string]any{
 		"code":    "test-balance-no-extras",
 		"type":    "balance",
@@ -138,7 +138,7 @@ func TestCreateAndRedeem_BalanceIgnoresSubscriptionFields(t *testing.T) {
 	})
 
 	assert.NotEqual(t, http.StatusBadRequest, code,
-		"balance type should not require group_id or validity_days")
+		"balance type should not require plan_id or validity_days")
 }
 
 func TestResolveRedeemCodeExpiresAt_FromDays(t *testing.T) {

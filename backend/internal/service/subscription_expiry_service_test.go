@@ -32,11 +32,11 @@ func (r *subscriptionExpiryRepoStub) GetByIDIncludeDeleted(context.Context, int6
 	return nil, ErrSubscriptionNotFound
 }
 
-func (r *subscriptionExpiryRepoStub) GetByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
+func (r *subscriptionExpiryRepoStub) GetByUserIDAndPlanID(context.Context, int64, int64) (*UserSubscription, error) {
 	return nil, ErrSubscriptionNotFound
 }
 
-func (r *subscriptionExpiryRepoStub) GetActiveByUserIDAndGroupID(context.Context, int64, int64) (*UserSubscription, error) {
+func (r *subscriptionExpiryRepoStub) GetActiveByUserIDAndPlanID(context.Context, int64, int64) (*UserSubscription, error) {
 	return nil, ErrSubscriptionNotFound
 }
 
@@ -60,20 +60,12 @@ func (r *subscriptionExpiryRepoStub) ListActiveByUserID(context.Context, int64) 
 	return nil, nil
 }
 
-func (r *subscriptionExpiryRepoStub) ListByGroupID(context.Context, int64, pagination.PaginationParams) ([]UserSubscription, *pagination.PaginationResult, error) {
-	return nil, nil, nil
-}
-
-func (r *subscriptionExpiryRepoStub) List(context.Context, pagination.PaginationParams, *int64, *int64, string, string, string, string) ([]UserSubscription, *pagination.PaginationResult, error) {
+func (r *subscriptionExpiryRepoStub) List(context.Context, pagination.PaginationParams, *int64, *int64, string, string, string) ([]UserSubscription, *pagination.PaginationResult, error) {
 	r.listCalls++
 	return nil, &pagination.PaginationResult{Page: 1, Pages: 1}, nil
 }
 
-func (r *subscriptionExpiryRepoStub) ExistsByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
-	return false, nil
-}
-
-func (r *subscriptionExpiryRepoStub) ExistsActiveByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
+func (r *subscriptionExpiryRepoStub) ExistsByUserIDAndPlanID(context.Context, int64, int64) (bool, error) {
 	return false, nil
 }
 
@@ -234,4 +226,8 @@ func TestSubscriptionExpiryService_SMTPConfigReadErrorSkipsReminderScan(t *testi
 	svc.sendExpiryReminders(context.Background())
 
 	require.Zero(t, repo.listCalls)
+}
+
+func (*subscriptionExpiryRepoStub) GetActiveByID(context.Context, int64) (*UserSubscription, error) {
+	return nil, ErrSubscriptionNotFound
 }

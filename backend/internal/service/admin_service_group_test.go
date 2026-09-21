@@ -86,11 +86,11 @@ func (s *groupRepoStubForAdmin) Delete(_ context.Context, _ int64) error {
 	panic("unexpected Delete call")
 }
 
-func (s *groupRepoStubForAdmin) DeleteCascade(_ context.Context, _ int64) ([]int64, error) {
+func (s *groupRepoStubForAdmin) DeleteCascade(_ context.Context, _ int64) error {
 	panic("unexpected DeleteCascade call")
 }
 
-func (s *groupRepoStubForAdmin) DeleteCascadeIfEmpty(_ context.Context, _ int64) ([]int64, error) {
+func (s *groupRepoStubForAdmin) DeleteCascadeIfEmpty(_ context.Context, _ int64) error {
 	panic("unexpected DeleteCascadeIfEmpty call")
 }
 
@@ -214,8 +214,7 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedCreateFieldsDirectly(t *t
 	fallbackID := int64(44)
 	input := &CreateGroupInput{
 		Name: "simple", Description: "allowed", Platform: PlatformAnthropic,
-		RateMultiplier: 9, IsExclusive: true, SubscriptionType: SubscriptionTypeSubscription,
-		DailyLimitUSD: &one, LongContextPricingEnabled: true,
+		RateMultiplier: 9, IsExclusive: true,
 		ModelPricing:    []PricingCard{{Models: []string{"claude"}}},
 		PeakRateEnabled: true, PeakStart: "00:00", PeakEnd: "01:00", PeakRateMultiplier: &one,
 		ClaudeCodeOnly: true, FallbackGroupID: &fallbackID,
@@ -232,10 +231,9 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedCreateFieldsDirectly(t *t
 	require.Same(t, repo.created, created)
 	require.Equal(t, CreateGroupInput{
 		Name: "simple", Description: "allowed", Platform: PlatformAnthropic,
-		RateMultiplier: 1, SubscriptionType: SubscriptionTypeStandard,
+		RateMultiplier: 1,
 	}, *input)
 	require.Equal(t, 1.0, created.RateMultiplier)
-	require.Equal(t, SubscriptionTypeStandard, created.SubscriptionType)
 	require.False(t, created.IsExclusive)
 	require.Nil(t, created.FallbackGroupID)
 	require.Empty(t, created.ModelPricing)
@@ -248,11 +246,9 @@ func TestAdminServiceSimpleModeNormalizesAllUnsupportedUpdateFieldsDirectly(t *t
 	status := "inactive"
 	description := "allowed"
 	fallbackID := int64(44)
-	pricing := []PricingCard{{Models: []string{"claude"}}}
 	input := &UpdateGroupInput{
 		Name: "renamed", Description: &description, Platform: PlatformOpenAI, Status: status,
-		RateMultiplier: &one, IsExclusive: &truth, SubscriptionType: SubscriptionTypeSubscription,
-		DailyLimitUSD: &one, LongContextPricingEnabled: &truth, ModelPricing: &pricing,
+		RateMultiplier: &one, IsExclusive: &truth,
 		PeakRateEnabled: &truth, PeakRateMultiplier: &one,
 		ClaudeCodeOnly: &truth, FallbackGroupID: &fallbackID,
 		ModelRouting: map[string][]int64{"claude": {1}}, ModelRoutingEnabled: &truth,
@@ -570,42 +566,6 @@ func TestAdminService_UpdateGroup_PreservesImageGenerationControlsWhenOmitted(t 
 	require.True(t, repo.updated.AllowImageGeneration)
 }
 
-func TestAdminService_UpdateGroup_LimitFieldsPartialUpdate(t *testing.T) {
-	daily, weekly, monthly := 10.0, 20.0, 30.0
-	existingGroup := &Group{
-		ID:              1,
-		Name:            "existing-group",
-		Platform:        PlatformOpenAI,
-		Status:          StatusActive,
-		DailyLimitUSD:   &daily,
-		WeeklyLimitUSD:  &weekly,
-		MonthlyLimitUSD: &monthly,
-	}
-	repo := &groupRepoStubForAdmin{getByID: existingGroup}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	t.Run("non-quota update preserves all limits", func(t *testing.T) {
-		description := "updated"
-		group, err := svc.UpdateGroup(context.Background(), existingGroup.ID, &UpdateGroupInput{Description: &description})
-		require.NoError(t, err)
-		require.Equal(t, 10.0, *group.DailyLimitUSD)
-		require.Equal(t, 20.0, *group.WeeklyLimitUSD)
-		require.Equal(t, 30.0, *group.MonthlyLimitUSD)
-	})
-
-	t.Run("explicit changes and unlimited clear only touched limits", func(t *testing.T) {
-		newDaily, unlimited := 15.0, -1.0
-		group, err := svc.UpdateGroup(context.Background(), existingGroup.ID, &UpdateGroupInput{
-			DailyLimitUSD:  &newDaily,
-			WeeklyLimitUSD: &unlimited,
-		})
-		require.NoError(t, err)
-		require.Equal(t, 15.0, *group.DailyLimitUSD)
-		require.Nil(t, group.WeeklyLimitUSD)
-		require.Equal(t, 30.0, *group.MonthlyLimitUSD)
-	})
-}
-
 func TestAdminService_UpdateGroup_DisablesBatchImageWhenImageGenerationDisabled(t *testing.T) {
 	existingGroup := &Group{
 		ID:                        1,
@@ -853,12 +813,11 @@ func TestAdminService_UpdateGroup_ReasoningEffortMappingsTriState(t *testing.T) 
 
 func TestAdminService_UpdateGroup_RejectsInvalidReasoningEffortMappings(t *testing.T) {
 	existing := &Group{
-		ID:               1,
-		Name:             "openai",
-		Platform:         PlatformOpenAI,
-		SubscriptionType: SubscriptionTypeStandard,
-		RateMultiplier:   1,
-		Status:           StatusActive,
+		ID:             1,
+		Name:           "openai",
+		Platform:       PlatformOpenAI,
+		RateMultiplier: 1,
+		Status:         StatusActive,
 	}
 	repo := &groupRepoStubForInvalidRequestFallback{groups: map[int64]*Group{existing.ID: existing}}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -902,13 +861,12 @@ func TestAdminService_CreateGroup_InvalidPeakRateReturnsBadRequest(t *testing.T)
 	svc := &adminServiceImpl{groupRepo: repo}
 
 	_, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
-		Name:             "subscription-group",
-		RateMultiplier:   1,
-		Platform:         PlatformOpenAI,
-		SubscriptionType: SubscriptionTypeSubscription,
-		PeakRateEnabled:  true,
-		PeakStart:        "20:00",
-		PeakEnd:          "08:30",
+		Name:            "subscription-group",
+		RateMultiplier:  1,
+		Platform:        PlatformOpenAI,
+		PeakRateEnabled: true,
+		PeakStart:       "20:00",
+		PeakEnd:         "08:30",
 	})
 
 	require.ErrorContains(t, err, "peak_end")
@@ -934,7 +892,6 @@ func TestAdminService_UpdateGroup_PeakRateValidation(t *testing.T) {
 				Name:               "subscription-group",
 				Platform:           PlatformOpenAI,
 				Status:             StatusActive,
-				SubscriptionType:   SubscriptionTypeSubscription,
 				PeakRateEnabled:    true,
 				PeakStart:          "14:00",
 				PeakEnd:            "18:00",
@@ -958,13 +915,12 @@ func TestAdminService_UpdateGroup_PeakRateValidation(t *testing.T) {
 	}
 }
 
-func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testing.T) {
+func TestAdminService_UpdateGroup_KeepsPeakRateWhenUntouched(t *testing.T) {
 	existingGroup := &Group{
 		ID:                 1,
 		Name:               "existing-group",
 		Platform:           PlatformOpenAI,
 		Status:             StatusActive,
-		SubscriptionType:   SubscriptionTypeSubscription,
 		PeakRateEnabled:    true,
 		PeakStart:          "14:00",
 		PeakEnd:            "18:00",
@@ -973,17 +929,14 @@ func TestAdminService_UpdateGroup_ClearsPeakRateWhenChangingToStandard(t *testin
 	repo := &groupRepoStubForAdmin{getByID: existingGroup}
 	svc := &adminServiceImpl{groupRepo: repo}
 
-	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{
-		SubscriptionType: SubscriptionTypeStandard,
-	})
+	group, err := svc.UpdateGroup(context.Background(), 1, &UpdateGroupInput{})
 	require.NoError(t, err)
 	require.NotNil(t, group)
 	require.NotNil(t, repo.updated)
-	require.Equal(t, SubscriptionTypeStandard, repo.updated.SubscriptionType)
-	require.False(t, repo.updated.PeakRateEnabled)
-	require.Equal(t, "", repo.updated.PeakStart)
-	require.Equal(t, "", repo.updated.PeakEnd)
-	require.Equal(t, 1.0, repo.updated.PeakRateMultiplier)
+	require.True(t, repo.updated.PeakRateEnabled)
+	require.Equal(t, "14:00", repo.updated.PeakStart)
+	require.Equal(t, "18:00", repo.updated.PeakEnd)
+	require.Equal(t, 3.0, repo.updated.PeakRateMultiplier)
 }
 
 func TestAdminService_CreateGroup_ClearsLiveForNonOpenAIPlatform(t *testing.T) {
@@ -1240,7 +1193,7 @@ func (s *groupRepoStubForFallbackCycle) Delete(_ context.Context, _ int64) error
 	panic("unexpected Delete call")
 }
 
-func (s *groupRepoStubForFallbackCycle) DeleteCascade(_ context.Context, _ int64) ([]int64, error) {
+func (s *groupRepoStubForFallbackCycle) DeleteCascade(_ context.Context, _ int64) error {
 	panic("unexpected DeleteCascade call")
 }
 
@@ -1315,7 +1268,7 @@ func (s *groupRepoStubForInvalidRequestFallback) Delete(_ context.Context, _ int
 	panic("unexpected Delete call")
 }
 
-func (s *groupRepoStubForInvalidRequestFallback) DeleteCascade(_ context.Context, _ int64) ([]int64, error) {
+func (s *groupRepoStubForInvalidRequestFallback) DeleteCascade(_ context.Context, _ int64) error {
 	panic("unexpected DeleteCascade call")
 }
 
@@ -1363,7 +1316,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsUnsupportedPlatfo
 	fallbackID := int64(10)
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
-			fallbackID: {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID: {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1372,32 +1325,10 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsUnsupportedPlatfo
 		Name:                            "g1",
 		Platform:                        PlatformOpenAI,
 		RateMultiplier:                  1.0,
-		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "invalid request fallback only supported for anthropic or antigravity groups")
-	require.Nil(t, repo.created)
-}
-
-func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsSubscription(t *testing.T) {
-	fallbackID := int64(10)
-	repo := &groupRepoStubForInvalidRequestFallback{
-		groups: map[int64]*Group{
-			fallbackID: {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
-		},
-	}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	_, err := svc.CreateGroup(context.Background(), &CreateGroupInput{
-		Name:                            "g1",
-		Platform:                        PlatformAnthropic,
-		RateMultiplier:                  1.0,
-		SubscriptionType:                SubscriptionTypeSubscription,
-		FallbackGroupIDOnInvalidRequest: &fallbackID,
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "subscription groups cannot set invalid request fallback")
 	require.Nil(t, repo.created)
 }
 
@@ -1409,25 +1340,19 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 	}{
 		{
 			name:        "openai_target",
-			fallback:    &Group{ID: 10, Platform: PlatformOpenAI, SubscriptionType: SubscriptionTypeStandard},
+			fallback:    &Group{ID: 10, Platform: PlatformOpenAI},
 			wantMessage: "fallback group must be anthropic platform",
 		},
 		{
 			name:        "antigravity_target",
-			fallback:    &Group{ID: 10, Platform: PlatformAntigravity, SubscriptionType: SubscriptionTypeStandard},
+			fallback:    &Group{ID: 10, Platform: PlatformAntigravity},
 			wantMessage: "fallback group must be anthropic platform",
-		},
-		{
-			name:        "subscription_group",
-			fallback:    &Group{ID: 10, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeSubscription},
-			wantMessage: "fallback group cannot be subscription type",
 		},
 		{
 			name: "nested_fallback",
 			fallback: &Group{
 				ID:                              10,
 				Platform:                        PlatformAnthropic,
-				SubscriptionType:                SubscriptionTypeStandard,
 				FallbackGroupIDOnInvalidRequest: func() *int64 { v := int64(99); return &v }(),
 			},
 			wantMessage: "fallback group cannot have invalid request fallback configured",
@@ -1448,7 +1373,6 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 				Name:                            "g1",
 				Platform:                        PlatformAnthropic,
 				RateMultiplier:                  1.0,
-				SubscriptionType:                SubscriptionTypeStandard,
 				FallbackGroupIDOnInvalidRequest: &fallbackID,
 			})
 			require.Error(t, err)
@@ -1467,7 +1391,6 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackNotFound(t *testing.T) {
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
 		RateMultiplier:                  1.0,
-		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
 	require.Error(t, err)
@@ -1479,7 +1402,7 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackAllowsAntigravity(t *tes
 	fallbackID := int64(10)
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
-			fallbackID: {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID: {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1488,7 +1411,6 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackAllowsAntigravity(t *tes
 		Name:                            "g1",
 		Platform:                        PlatformAntigravity,
 		RateMultiplier:                  1.0,
-		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
 	require.NoError(t, err)
@@ -1506,7 +1428,6 @@ func TestAdminService_CreateGroup_InvalidRequestFallbackClearsOnZero(t *testing.
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
 		RateMultiplier:                  1.0,
-		SubscriptionType:                SubscriptionTypeStandard,
 		FallbackGroupIDOnInvalidRequest: &zero,
 	})
 	require.NoError(t, err)
@@ -1521,14 +1442,13 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackPlatformMismatch(t *test
 		ID:                              1,
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
-		SubscriptionType:                SubscriptionTypeStandard,
 		Status:                          StatusActive,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	}
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
 			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1541,46 +1461,19 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackPlatformMismatch(t *test
 	require.Nil(t, repo.updated)
 }
 
-func TestAdminService_UpdateGroup_InvalidRequestFallbackSubscriptionMismatch(t *testing.T) {
-	fallbackID := int64(10)
-	existing := &Group{
-		ID:                              1,
-		Name:                            "g1",
-		Platform:                        PlatformAnthropic,
-		SubscriptionType:                SubscriptionTypeStandard,
-		Status:                          StatusActive,
-		FallbackGroupIDOnInvalidRequest: &fallbackID,
-	}
-	repo := &groupRepoStubForInvalidRequestFallback{
-		groups: map[int64]*Group{
-			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
-		},
-	}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	_, err := svc.UpdateGroup(context.Background(), existing.ID, &UpdateGroupInput{
-		SubscriptionType: SubscriptionTypeSubscription,
-	})
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "subscription groups cannot set invalid request fallback")
-	require.Nil(t, repo.updated)
-}
-
 func TestAdminService_UpdateGroup_InvalidRequestFallbackClearsOnZero(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
 		ID:                              1,
 		Name:                            "g1",
 		Platform:                        PlatformAnthropic,
-		SubscriptionType:                SubscriptionTypeStandard,
 		Status:                          StatusActive,
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	}
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
 			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1599,16 +1492,16 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackClearsOnZero(t *testing.
 func TestAdminService_UpdateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
-		ID:               1,
-		Name:             "g1",
-		Platform:         PlatformAnthropic,
-		SubscriptionType: SubscriptionTypeStandard,
-		Status:           StatusActive,
+		ID:       1,
+		Name:     "g1",
+		Platform: PlatformAnthropic,
+		Status:   StatusActive,
 	}
+	nested := int64(99)
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
 			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeSubscription},
+			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, FallbackGroupIDOnInvalidRequest: &nested},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1617,23 +1510,22 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackRejectsFallbackGroup(t *
 		FallbackGroupIDOnInvalidRequest: &fallbackID,
 	})
 	require.Error(t, err)
-	require.Contains(t, err.Error(), "fallback group cannot be subscription type")
+	require.Contains(t, err.Error(), "fallback group cannot have invalid request fallback configured")
 	require.Nil(t, repo.updated)
 }
 
 func TestAdminService_UpdateGroup_InvalidRequestFallbackSetSuccess(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
-		ID:               1,
-		Name:             "g1",
-		Platform:         PlatformAnthropic,
-		SubscriptionType: SubscriptionTypeStandard,
-		Status:           StatusActive,
+		ID:       1,
+		Name:     "g1",
+		Platform: PlatformAnthropic,
+		Status:   StatusActive,
 	}
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
 			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}
@@ -1650,16 +1542,15 @@ func TestAdminService_UpdateGroup_InvalidRequestFallbackSetSuccess(t *testing.T)
 func TestAdminService_UpdateGroup_InvalidRequestFallbackAllowsAntigravity(t *testing.T) {
 	fallbackID := int64(10)
 	existing := &Group{
-		ID:               1,
-		Name:             "g1",
-		Platform:         PlatformAntigravity,
-		SubscriptionType: SubscriptionTypeStandard,
-		Status:           StatusActive,
+		ID:       1,
+		Name:     "g1",
+		Platform: PlatformAntigravity,
+		Status:   StatusActive,
 	}
 	repo := &groupRepoStubForInvalidRequestFallback{
 		groups: map[int64]*Group{
 			existing.ID: existing,
-			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic, SubscriptionType: SubscriptionTypeStandard},
+			fallbackID:  {ID: fallbackID, Platform: PlatformAnthropic},
 		},
 	}
 	svc := &adminServiceImpl{groupRepo: repo}

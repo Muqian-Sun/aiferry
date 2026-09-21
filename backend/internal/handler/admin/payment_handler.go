@@ -5,6 +5,7 @@ import (
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
+	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
@@ -135,7 +136,6 @@ type AdminPaymentOrderResult struct {
 	QRCodeImg           *string    `json:"qr_code_img,omitempty"`
 	OrderType           string     `json:"order_type"`
 	PlanID              *int64     `json:"plan_id,omitempty"`
-	SubscriptionGroupID *int64     `json:"subscription_group_id,omitempty"`
 	SubscriptionDays    *int       `json:"subscription_days,omitempty"`
 	ProviderInstanceID  *string    `json:"provider_instance_id,omitempty"`
 	ProviderKey         *string    `json:"provider_key,omitempty"`
@@ -192,7 +192,6 @@ func sanitizeAdminPaymentOrderForResponse(order *dbent.PaymentOrder) *AdminPayme
 		QRCodeImg:           order.QrCodeImg,
 		OrderType:           order.OrderType,
 		PlanID:              order.PlanID,
-		SubscriptionGroupID: order.SubscriptionGroupID,
 		SubscriptionDays:    order.SubscriptionDays,
 		ProviderInstanceID:  order.ProviderInstanceID,
 		ProviderKey:         order.ProviderKey,
@@ -283,68 +282,63 @@ func (h *PaymentHandler) ListPlans(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	groupInfo := h.configService.GetGroupInfoMap(c.Request.Context(), plans)
-	response.Success(c, adminSubscriptionPlansForResponse(plans, groupInfo))
+	response.Success(c, adminSubscriptionPlansForResponse(plans))
 }
 
+// AdminSubscriptionPlanResult 管理端套餐：售卖字段 + 套餐自带的三档限额 + 模型集。
 type AdminSubscriptionPlanResult struct {
-	ID              int64     `json:"id"`
-	GroupID         int64     `json:"group_id"`
-	GroupPlatform   string    `json:"group_platform,omitempty"`
-	GroupName       string    `json:"group_name,omitempty"`
-	RateMultiplier  float64   `json:"rate_multiplier,omitempty"`
-	DailyLimitUSD   *float64  `json:"daily_limit_usd,omitempty"`
-	WeeklyLimitUSD  *float64  `json:"weekly_limit_usd,omitempty"`
-	MonthlyLimitUSD *float64  `json:"monthly_limit_usd,omitempty"`
-	ModelScopes     []string  `json:"supported_model_scopes,omitempty"`
-	Name            string    `json:"name"`
-	Description     string    `json:"description"`
-	Price           float64   `json:"price"`
-	OriginalPrice   *float64  `json:"original_price,omitempty"`
-	Currency        string    `json:"currency,omitempty"`
-	ValidityDays    int       `json:"validity_days"`
-	ValidityUnit    string    `json:"validity_unit"`
-	Features        string    `json:"features"`
-	ProductName     string    `json:"product_name"`
-	ForSale         bool      `json:"for_sale"`
-	SortOrder       int       `json:"sort_order"`
-	CreatedAt       time.Time `json:"created_at,omitempty"`
-	UpdatedAt       time.Time `json:"updated_at,omitempty"`
+	ID              int64                       `json:"id"`
+	DailyLimitUSD   *float64                    `json:"daily_limit_usd"`
+	WeeklyLimitUSD  *float64                    `json:"weekly_limit_usd"`
+	MonthlyLimitUSD *float64                    `json:"monthly_limit_usd"`
+	EntryIDs        []int64                     `json:"entry_ids"`
+	Models          []dto.SubscriptionPlanModel `json:"models"`
+	Name            string                      `json:"name"`
+	Description     string                      `json:"description"`
+	Price           float64                     `json:"price"`
+	OriginalPrice   *float64                    `json:"original_price,omitempty"`
+	Currency        string                      `json:"currency,omitempty"`
+	ValidityDays    int                         `json:"validity_days"`
+	ValidityUnit    string                      `json:"validity_unit"`
+	Features        string                      `json:"features"`
+	ProductName     string                      `json:"product_name"`
+	ForSale         bool                        `json:"for_sale"`
+	SortOrder       int                         `json:"sort_order"`
+	CreatedAt       time.Time                   `json:"created_at,omitempty"`
+	UpdatedAt       time.Time                   `json:"updated_at,omitempty"`
 }
 
-func adminSubscriptionPlansForResponse(plans []*dbent.SubscriptionPlan, groupInfo map[int64]service.PlanGroupInfo) []AdminSubscriptionPlanResult {
+func adminSubscriptionPlansForResponse(plans []service.SubscriptionPlan) []AdminSubscriptionPlanResult {
 	result := make([]AdminSubscriptionPlanResult, 0, len(plans))
-	for _, p := range plans {
-		if p == nil {
-			continue
-		}
-		gi := groupInfo[p.GroupID]
-		result = append(result, AdminSubscriptionPlanResult{
-			ID:              int64(p.ID),
-			GroupID:         p.GroupID,
-			GroupPlatform:   gi.Platform,
-			GroupName:       gi.Name,
-			RateMultiplier:  gi.RateMultiplier,
-			DailyLimitUSD:   gi.DailyLimitUSD,
-			WeeklyLimitUSD:  gi.WeeklyLimitUSD,
-			MonthlyLimitUSD: gi.MonthlyLimitUSD,
-			ModelScopes:     gi.ModelScopes,
-			Name:            p.Name,
-			Description:     p.Description,
-			Price:           p.Price,
-			OriginalPrice:   p.OriginalPrice,
-			Currency:        p.Currency,
-			ValidityDays:    p.ValidityDays,
-			ValidityUnit:    p.ValidityUnit,
-			Features:        p.Features,
-			ProductName:     p.ProductName,
-			ForSale:         p.ForSale,
-			SortOrder:       p.SortOrder,
-			CreatedAt:       p.CreatedAt,
-			UpdatedAt:       p.UpdatedAt,
-		})
+	for i := range plans {
+		result = append(result, adminSubscriptionPlanForResponse(&plans[i]))
 	}
 	return result
+}
+
+func adminSubscriptionPlanForResponse(p *service.SubscriptionPlan) AdminSubscriptionPlanResult {
+	planDTO := dto.SubscriptionPlanFromService(p)
+	return AdminSubscriptionPlanResult{
+		ID:              p.ID,
+		DailyLimitUSD:   p.DailyLimitUSD,
+		WeeklyLimitUSD:  p.WeeklyLimitUSD,
+		MonthlyLimitUSD: p.MonthlyLimitUSD,
+		EntryIDs:        p.EntryIDs(),
+		Models:          planDTO.Models,
+		Name:            p.Name,
+		Description:     p.Description,
+		Price:           p.Price,
+		OriginalPrice:   p.OriginalPrice,
+		Currency:        p.Currency,
+		ValidityDays:    p.ValidityDays,
+		ValidityUnit:    p.ValidityUnit,
+		Features:        p.Features,
+		ProductName:     p.ProductName,
+		ForSale:         p.ForSale,
+		SortOrder:       p.SortOrder,
+		CreatedAt:       p.CreatedAt,
+		UpdatedAt:       p.UpdatedAt,
+	}
 }
 
 // CreatePlan creates a new subscription plan.
@@ -360,7 +354,7 @@ func (h *PaymentHandler) CreatePlan(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Created(c, plan)
+	response.Created(c, adminSubscriptionPlanForResponse(plan))
 }
 
 // UpdatePlan updates an existing subscription plan.
@@ -380,7 +374,7 @@ func (h *PaymentHandler) UpdatePlan(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, plan)
+	response.Success(c, adminSubscriptionPlanForResponse(plan))
 }
 
 // DeletePlan deletes a subscription plan.

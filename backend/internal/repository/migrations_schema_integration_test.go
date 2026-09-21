@@ -63,9 +63,23 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// api_keys: key length should be 128
 	requireColumn(t, tx, "api_keys", "key", "character varying", 128, false)
 
-	// redeem_codes: subscription fields
-	requireColumn(t, tx, "redeem_codes", "group_id", "bigint", 0, true)
+	// redeem_codes: subscription fields（248：group_id → plan_id）
+	requireColumn(t, tx, "redeem_codes", "plan_id", "bigint", 0, true)
 	requireColumn(t, tx, "redeem_codes", "validity_days", "integer", 0, false)
+
+	// 248 订阅脱离分组：套餐带三档限额与模型集，订阅按套餐，订阅 key 绑订阅行，分组无订阅列
+	requireColumn(t, tx, "subscription_plans", "daily_limit_usd", "numeric", 0, true)
+	requireColumn(t, tx, "subscription_plans", "weekly_limit_usd", "numeric", 0, true)
+	requireColumn(t, tx, "subscription_plans", "monthly_limit_usd", "numeric", 0, true)
+	requireColumn(t, tx, "subscription_plan_models", "plan_id", "bigint", 0, false)
+	requireColumn(t, tx, "subscription_plan_models", "entry_id", "bigint", 0, false)
+	requireIndex(t, tx, "subscription_plan_models", "idx_subscription_plan_models_entry")
+	requireColumn(t, tx, "user_subscriptions", "plan_id", "bigint", 0, false)
+	requireIndex(t, tx, "user_subscriptions", "user_subscriptions_user_plan_unique_active")
+	requireIndexAbsent(t, tx, "user_subscriptions", "user_subscriptions_user_group_unique_active")
+	requireColumn(t, tx, "api_keys", "subscription_id", "bigint", 0, true)
+	requireIndex(t, tx, "api_keys", "idx_api_keys_subscription_id")
+	requireIndexAbsent(t, tx, "groups", "idx_groups_subscription_type")
 
 	// usage_logs: billing_type used by filters/stats
 	requireColumn(t, tx, "usage_logs", "billing_type", "smallint", 0, false)

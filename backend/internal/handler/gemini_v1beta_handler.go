@@ -46,13 +46,14 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
-	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀），分组白名单开启时再按白名单过滤。
+	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里，分组白名单开启时再按白名单过滤。
+	subscription, _ := middleware.GetSubscriptionFromContext(c)
 	allowlistOn := apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	visible := func(name string) bool {
 		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(name) {
 			return false
 		}
-		return service.IsListedModel(c.Request.Context(), h.modelCatalog, strings.TrimPrefix(name, "models/"))
+		return service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, strings.TrimPrefix(name, "models/"))
 	}
 	filterGeminiModels := func(models []gemini.Model) []gemini.Model {
 		filtered := make([]gemini.Model, 0, len(models))
