@@ -48,6 +48,7 @@ type GatewayHandler struct {
 	usageRecordWorkerPool     *service.UsageRecordWorkerPool
 	errorPassthroughService   *service.ErrorPassthroughService
 	contentModerationService  *service.ContentModerationService
+	opsService                *service.OpsService
 	securityAuditCoordinator  *securityaudit.Coordinator
 	concurrencyHelper         *ConcurrencyHelper
 	userMsgQueueHelper        *UserMsgQueueHelper
@@ -73,6 +74,7 @@ func NewGatewayHandler(
 	usageRecordWorkerPool *service.UsageRecordWorkerPool,
 	errorPassthroughService *service.ErrorPassthroughService,
 	contentModerationService *service.ContentModerationService,
+	opsService *service.OpsService,
 	userMsgQueueService *service.UserMessageQueueService,
 	cfg *config.Config,
 	settingService *service.SettingService,
@@ -109,6 +111,7 @@ func NewGatewayHandler(
 		usageRecordWorkerPool:     usageRecordWorkerPool,
 		errorPassthroughService:   errorPassthroughService,
 		contentModerationService:  contentModerationService,
+		opsService:                opsService,
 		concurrencyHelper:         NewConcurrencyHelper(concurrencyService, SSEPingFormatClaude, pingInterval),
 		userMsgQueueHelper:        umqHelper,
 		maxAccountSwitches:        maxAccountSwitches,
