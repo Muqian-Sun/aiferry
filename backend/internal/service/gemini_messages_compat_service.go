@@ -255,10 +255,10 @@ func (s *GeminiMessagesCompatService) isAccountUsableForRequest(
 	return isAccountSchedulableOnPlatform(ctx, account, platform, useMixedScheduling)
 }
 
-// selectBestGeminiAccount 从候选账号中选择最佳账号（优先级 + LRU + OAuth 优先）。
+// selectBestGeminiAccount 从候选账号中选择最佳账号（优先级 + LRU，成品号与 key 平等）。
 // 返回 nil 表示无可用账号。
 //
-// selectBestGeminiAccount selects best account from candidates (priority + LRU + OAuth preferred).
+// selectBestGeminiAccount selects best account from candidates (priority + LRU).
 // Returns nil if no available account.
 func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 	ctx context.Context,
@@ -303,29 +303,9 @@ func (s *GeminiMessagesCompatService) selectBestGeminiAccount(
 // isBetterGeminiAccount checks if candidate is better than current.
 // Rules: higher priority (lower value) wins; same priority: never used (OAuth > non-OAuth) > least recently used.
 func (s *GeminiMessagesCompatService) isBetterGeminiAccount(candidate, current *Account) bool {
-	// 优先级更高（数值更小）
-	if candidate.Priority < current.Priority {
-		return true
-	}
-	if candidate.Priority > current.Priority {
-		return false
-	}
-
-	// 同优先级，比较最后使用时间
-	switch {
-	case candidate.LastUsedAt == nil && current.LastUsedAt != nil:
-		// candidate 从未使用，优先
-		return true
-	case candidate.LastUsedAt != nil && current.LastUsedAt == nil:
-		// current 从未使用，保持
-		return false
-	case candidate.LastUsedAt == nil && current.LastUsedAt == nil:
-		// 都未使用，优先选择 OAuth 账号（更兼容 Code Assist 流程）
-		return candidate.Type == AccountTypeOAuth && current.Type != AccountTypeOAuth
-	default:
-		// 都使用过，选择最久未使用的
-		return candidate.LastUsedAt.Before(*current.LastUsedAt)
-	}
+	// 与 Gateway 调度器同一套键（协议直连 → 优先级 → 从未用过 → 更久未用）；这里只给 AI Studio
+	// 扩展端点选号（入站为空），实际只剩优先级与 LRU，成品号没有平局偏好。
+	return candidatePrecedes(candidate, current, "")
 }
 
 // isModelSupportedByAccount 根据账户厂商检查模型支持：antigravity 模型映射只属于 antigravity 成品号，
