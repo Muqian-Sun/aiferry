@@ -139,11 +139,11 @@ func assertAstraProAccountSwitch(t *testing.T, accountIDs []int64) {
 
 // 403 then a second OAuth account succeeding: wire bodies keep pro+max/model and the
 // winning account's structured reasoning.mode=pro reaches the client unchanged.
-func TestOpenAIGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing.T) {
+func TestGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := newAstraProCapturedUpstream(astra403(), astra200())
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newAstraProFailoverContext(t, astraProRequestBody)
 
 	handler.Responses(c)
@@ -159,11 +159,11 @@ func TestOpenAIGatewayHandlerResponses_AstraProFirst403SecondSucceeds(t *testing
 
 // both OAuth accounts 403: exhausted keeps every wire body pro+max/model, is not 200,
 // and surfaces the existing-policy 502 upstream_error (unchanged 403-masking policy).
-func TestOpenAIGatewayHandlerResponses_AstraProBoth403NoDowngrade(t *testing.T) {
+func TestGatewayHandlerResponses_AstraProBoth403NoDowngrade(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	upstream := newAstraProCapturedUpstream(astra403(), astra403())
-	handler := newOpenAIResponsesFailoverTestHandler(t, upstream)
+	handler := newGatewayResponsesFailoverTestHandler(t, upstream)
 	c, rec := newAstraProFailoverContext(t, astraProRequestBody)
 
 	handler.Responses(c)

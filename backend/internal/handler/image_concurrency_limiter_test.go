@@ -1,3 +1,5 @@
+//go:build unit
+
 package handler
 
 import (
@@ -141,7 +143,7 @@ func TestOpenAIGatewayHandlerAcquireImageGenerationSlot_Returns429WhenFull(t *te
 	require.Contains(t, rec.Body.String(), "Image generation concurrency limit exceeded")
 }
 
-func TestOpenAIGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *testing.T) {
+func TestGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := `{"model":"gpt-5.4","input":"draw","tools":[{"type":"image_generation"}]}`
 	rec := httptest.NewRecorder()
@@ -159,21 +161,8 @@ func TestOpenAIGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 20, Concurrency: 1})
 
-	h := &OpenAIGatewayHandler{
-		gatewayService:          &service.OpenAIGatewayService{},
-		billingCacheService:     &service.BillingCacheService{},
-		apiKeyService:           &service.APIKeyService{},
-		concurrencyHelper:       &ConcurrencyHelper{concurrencyService: service.NewConcurrencyService(&helperConcurrencyCacheStub{userSeq: []bool{true}})},
-		errorPassthroughService: nil,
-		cfg: &config.Config{Gateway: config.GatewayConfig{ImageConcurrency: config.ImageConcurrencyConfig{
-			Enabled:               true,
-			MaxConcurrentRequests: 1,
-			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
-		}}},
-		imageLimiter: &ImageConcurrencyLimiter{},
-		modelCatalog: listAllCatalogStub{},
-	}
-	release, acquired := h.acquireImageGenerationSlot(c, false)
+	h := newGatewayResponsesImageConcurrencyHandler(t, c)
+	release, acquired := acquireImageGenerationSlot(c, h.cfg, h.imageLimiter, false)
 	require.True(t, acquired)
 	require.NotNil(t, release)
 	defer release()
@@ -187,7 +176,7 @@ func TestOpenAIGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *
 	require.Contains(t, rec.Body.String(), "Image generation concurrency limit exceeded")
 }
 
-func TestOpenAIGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *testing.T) {
+func TestGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := `{"model":"gpt-5.4","input":"write code"}`
 	rec := httptest.NewRecorder()
@@ -205,20 +194,8 @@ func TestOpenAIGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 20, Concurrency: 1})
 
-	h := &OpenAIGatewayHandler{
-		gatewayService:      &service.OpenAIGatewayService{},
-		billingCacheService: service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
-		apiKeyService:       &service.APIKeyService{},
-		concurrencyHelper:   &ConcurrencyHelper{concurrencyService: service.NewConcurrencyService(&helperConcurrencyCacheStub{userSeq: []bool{true}})},
-		cfg: &config.Config{Gateway: config.GatewayConfig{ImageConcurrency: config.ImageConcurrencyConfig{
-			Enabled:               true,
-			MaxConcurrentRequests: 1,
-			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
-		}}},
-		imageLimiter: &ImageConcurrencyLimiter{},
-		modelCatalog: listAllCatalogStub{},
-	}
-	release, acquired := h.acquireImageGenerationSlot(c, false)
+	h := newGatewayResponsesImageConcurrencyHandler(t, c)
+	release, acquired := acquireImageGenerationSlot(c, h.cfg, h.imageLimiter, false)
 	require.True(t, acquired)
 	require.NotNil(t, release)
 	defer release()
@@ -229,4 +206,22 @@ func TestOpenAIGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *
 
 	require.NotEqual(t, http.StatusTooManyRequests, rec.Code)
 	require.NotContains(t, rec.Body.String(), "Image generation concurrency limit exceeded")
+}
+
+// newGatewayResponsesImageConcurrencyHandler 装一个开着生图并发限制（上限 1、超限拒绝）的 Gateway handler；
+// 池留空：放行的用例走到选号得 503，不是 429。
+func newGatewayResponsesImageConcurrencyHandler(t *testing.T, c *gin.Context) *GatewayHandler {
+	t.Helper()
+	cfg := &config.Config{RunMode: config.RunModeSimple, Gateway: config.GatewayConfig{ImageConcurrency: config.ImageConcurrencyConfig{
+		Enabled:               true,
+		MaxConcurrentRequests: 1,
+		OverflowMode:          config.ImageConcurrencyOverflowModeReject,
+	}}}
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	t.Cleanup(billingCache.Stop)
+	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
+	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, apiKey.Group, &service.OpenAIGatewayService{}, billingCache,
+		service.NewConcurrencyService(&helperConcurrencyCacheStub{userSeq: []bool{true}}))
+	h.imageLimiter = &ImageConcurrencyLimiter{}
+	return h
 }

@@ -176,5 +176,8 @@ func TestGatewayHandlerResponses_FunctionCallOutputWithoutContextRejected(t *tes
 
 	require.Equal(t, http.StatusBadRequest, rec.Code, rec.Body.String())
 	require.Contains(t, rec.Body.String(), "item_reference")
+	// HTTP 入口的提示只指向 WS v2，不建议复用 previous_response_id
+	require.Contains(t, rec.Body.String(), "Responses WebSocket v2")
+	require.NotContains(t, rec.Body.String(), "reuse previous_response_id")
 	require.Empty(t, hs.openAIUpstream.recorded())
 }

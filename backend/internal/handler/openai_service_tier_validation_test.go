@@ -15,18 +15,20 @@ import (
 
 // 非法 service_tier 必须在两个 OpenAI 端点（/v1/responses、/v1/chat/completions）
 // 上以 OpenAI 兼容错误结构返回 HTTP 400。这些用例在 handler 的 service_tier
-// 校验处短路，不会进入账号选择/重试。
+// 校验处短路，不会进入账号选择/重试。两个端点现在都由 Gateway handler 承接。
 //
 // 合法值（fast/priority/flex/auto/default/scale/ultrafast）与省略/null 的接受语义由
 // service 层纯校验函数 TestValidateOpenAIServiceTierField 覆盖，避免 handler
 // 测试走入真实账号选择/重试路径。
 
-func newServiceTierHandlerTest(t *testing.T) *OpenAIGatewayHandler {
+// newServiceTierHandlerTest 只装到 service_tier 校验为止所需的依赖：校验在选号之前短路，零值服务不会被调用。
+func newServiceTierHandlerTest(t *testing.T) *GatewayHandler {
 	t.Helper()
-	return &OpenAIGatewayHandler{
-		gatewayService:      &service.OpenAIGatewayService{},
-		billingCacheService: service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
-		apiKeyService:       &service.APIKeyService{},
+	return &GatewayHandler{
+		gatewayService:       &service.GatewayService{},
+		openAIGatewayService: &service.OpenAIGatewayService{},
+		billingCacheService:  service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
+		apiKeyService:        &service.APIKeyService{},
 		concurrencyHelper: &ConcurrencyHelper{concurrencyService: service.NewConcurrencyService(
 			&helperConcurrencyCacheStub{userSeq: []bool{true}},
 		)},
@@ -35,7 +37,7 @@ func newServiceTierHandlerTest(t *testing.T) *OpenAIGatewayHandler {
 	}
 }
 
-func runOpenAIHandlerServiceTierTest(t *testing.T, path, body string, handler func(h *OpenAIGatewayHandler, c *gin.Context)) *httptest.ResponseRecorder {
+func runGatewayHandlerServiceTierTest(t *testing.T, path, body string, handler func(h *GatewayHandler, c *gin.Context)) *httptest.ResponseRecorder {
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
@@ -60,7 +62,7 @@ func runOpenAIHandlerServiceTierTest(t *testing.T, path, body string, handler fu
 	return rec
 }
 
-func TestOpenAIGatewayHandlerResponses_InvalidServiceTierRejected400(t *testing.T) {
+func TestGatewayHandlerResponses_InvalidServiceTierRejected400(t *testing.T) {
 	for _, body := range []string{
 		`{"model":"gpt-5.5","input":"hi","service_tier":"turbo"}`,
 		`{"model":"gpt-5.5","input":"hi","service_tier":"SPEED"}`,
@@ -68,7 +70,7 @@ func TestOpenAIGatewayHandlerResponses_InvalidServiceTierRejected400(t *testing.
 		`{"model":"gpt-5.5","input":"hi","service_tier":123}`,
 		`{"model":"gpt-5.5","input":"hi","service_tier":{}}`,
 	} {
-		rec := runOpenAIHandlerServiceTierTest(t, "/v1/responses", body, func(h *OpenAIGatewayHandler, c *gin.Context) {
+		rec := runGatewayHandlerServiceTierTest(t, "/v1/responses", body, func(h *GatewayHandler, c *gin.Context) {
 			h.Responses(c)
 		})
 		require.Equal(t, http.StatusBadRequest, rec.Code, "body=%s", body)
@@ -77,14 +79,14 @@ func TestOpenAIGatewayHandlerResponses_InvalidServiceTierRejected400(t *testing.
 	}
 }
 
-func TestOpenAIGatewayHandlerChatCompletions_InvalidServiceTierRejected400(t *testing.T) {
+func TestGatewayHandlerChatCompletions_InvalidServiceTierRejected400(t *testing.T) {
 	for _, body := range []string{
 		`{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}],"service_tier":"turbo"}`,
 		`{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}],"service_tier":"ultra"}`,
 		`{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}],"service_tier":""}`,
 		`{"model":"gpt-5.5","messages":[{"role":"user","content":"hi"}],"service_tier":["priority"]}`,
 	} {
-		rec := runOpenAIHandlerServiceTierTest(t, "/v1/chat/completions", body, func(h *OpenAIGatewayHandler, c *gin.Context) {
+		rec := runGatewayHandlerServiceTierTest(t, "/v1/chat/completions", body, func(h *GatewayHandler, c *gin.Context) {
 			h.ChatCompletions(c)
 		})
 		require.Equal(t, http.StatusBadRequest, rec.Code, "body=%s", body)

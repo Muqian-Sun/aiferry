@@ -45,7 +45,7 @@ func (u *previousResponseKeyUpstream) DoWithTLS(req *http.Request, proxyURL stri
 
 // HTTP 请求携带 previous_response_id 时，第三方 key 只有以 responses 协议转发到官方 OpenAI
 // 或通用中转才承接续链；按协议 / 厂商排除，不看平台标签。
-func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *testing.T) {
+func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *testing.T) {
 	cases := map[string]map[string]string{
 		// openai 标签，但只有 chat_completions 地址：续链状态会在转换里丢失。
 		"converted to chat completions": {service.APIProtocolChatCompletions: "https://relay.example.com/v1"},
@@ -80,17 +80,17 @@ func TestOpenAIResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *test
 				acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
 				acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 			}
-			h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, listAllCatalogStub{})
 			apiKey := &service.APIKey{
 				ID: 3201, UserID: 3301, GroupID: &groupID,
 				User:  &service.User{ID: 3301, Status: service.StatusActive},
 				Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
 			}
+			h := newGatewayHandlerOverOpenAIService(cfg, repo, apiKey.Group, gateway, billingCache, service.NewConcurrencyService(cache))
 			require.NoError(t, gateway.BindOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_key_continuation", apiKey.UserID, apiKey.ID))
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
-			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", strings.NewReader(
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(
 				`{"model":"deepseek-flash","stream":false,"previous_response_id":"resp_key_continuation","input":"hello"}`,
 			))
 			c.Request.Header.Set("Content-Type", "application/json")

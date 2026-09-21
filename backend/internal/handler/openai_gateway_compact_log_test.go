@@ -193,7 +193,7 @@ func TestLogOpenAIRemoteCompactOutcome_NonCompactSkips(t *testing.T) {
 	require.False(t, logSink.ContainsMessageAtLevel("codex.remote_compact.failed", "warn"))
 }
 
-func TestOpenAIResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
+func TestGatewayResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	logSink, restore := captureHandlerStructuredLog(t)
 	defer restore()
@@ -204,8 +204,7 @@ func TestOpenAIResponses_CompactUnauthorizedLogsFailed(t *testing.T) {
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.125.0")
 
-	h := &OpenAIGatewayHandler{}
-	h.Responses(c)
+	(&GatewayHandler{}).Responses(c)
 
 	require.Equal(t, http.StatusUnauthorized, rec.Code)
 	require.True(t, logSink.ContainsMessageAtLevel("codex.remote_compact.failed", "warn"))

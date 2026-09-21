@@ -114,7 +114,7 @@ func TestOpenAICapacityFailoverExhaustionPreservesMessageAsServerError(t *testin
 		c, _ := gin.CreateTestContext(recorder)
 		(&GatewayHandler{}).handleResponsesFailoverExhausted(c, failoverErr, "", false)
 		require.Equal(t, http.StatusServiceUnavailable, recorder.Code)
-		require.Equal(t, "server_error", gjson.Get(recorder.Body.String(), "error.code").String())
+		require.Equal(t, "server_error", gjson.Get(recorder.Body.String(), "error.type").String())
 		require.Equal(t, message, gjson.Get(recorder.Body.String(), "error.message").String())
 	})
 

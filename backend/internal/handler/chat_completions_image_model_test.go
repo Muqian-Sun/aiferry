@@ -20,39 +20,25 @@ func TestChatCompletionsRejectsGPTImageModelsBeforeScheduling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	for _, model := range []string{"gpt-image-1", "gpt-image-1.5", "gpt-image-2"} {
-		for _, tc := range []struct {
-			name string
-			call func(*gin.Context)
-		}{
-			{
-				name: "gateway",
-				call: (&GatewayHandler{}).ChatCompletions,
-			},
-			{
-				name: "openai_gateway",
-				call: newOpenAIImageChatRejectionHandler(t).ChatCompletions,
-			},
-		} {
-			t.Run(tc.name+"/"+model, func(t *testing.T) {
-				recorder := httptest.NewRecorder()
-				c, _ := gin.CreateTestContext(recorder)
-				body := []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"draw"}]}`)
-				c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
-				setImageChatTestAuth(c)
+		t.Run(model, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			c, _ := gin.CreateTestContext(recorder)
+			body := []byte(`{"model":"` + model + `","messages":[{"role":"user","content":"draw"}]}`)
+			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
+			setImageChatTestAuth(c)
 
-				tc.call(c)
+			(&GatewayHandler{}).ChatCompletions(c)
 
-				require.Equal(t, http.StatusBadRequest, recorder.Code)
-				require.Equal(t, "invalid_request_error", gjson.Get(recorder.Body.String(), "error.type").String())
-				require.Contains(t, gjson.Get(recorder.Body.String(), "error.message").String(), "Chat Completions")
-				_, selected := c.Get(opsAccountIDKey)
-				require.False(t, selected, "rejection must happen before account selection")
-			})
-		}
+			require.Equal(t, http.StatusBadRequest, recorder.Code)
+			require.Equal(t, "invalid_request_error", gjson.Get(recorder.Body.String(), "error.type").String())
+			require.Contains(t, gjson.Get(recorder.Body.String(), "error.message").String(), "Chat Completions")
+			_, selected := c.Get(opsAccountIDKey)
+			require.False(t, selected, "rejection must happen before account selection")
+		})
 	}
 }
 
-func TestOpenAIChatCompletionsImageModelRejectionDoesNotAcquireConcurrency(t *testing.T) {
+func TestChatCompletionsImageModelRejectionDoesNotAcquireConcurrency(t *testing.T) {
 	var acquireCalls atomic.Int64
 	cache := &concurrencyCacheMock{
 		acquireUserSlotFn: func(context.Context, int64, int, string) (bool, error) {
@@ -60,7 +46,12 @@ func TestOpenAIChatCompletionsImageModelRejectionDoesNotAcquireConcurrency(t *te
 			return true, nil
 		},
 	}
-	h := newOpenAIImageChatRejectionHandlerWithCache(t, cache)
+	h := &GatewayHandler{
+		gatewayService:      &service.GatewayService{},
+		billingCacheService: &service.BillingCacheService{},
+		apiKeyService:       &service.APIKeyService{},
+		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
+	}
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewBufferString(
@@ -72,21 +63,6 @@ func TestOpenAIChatCompletionsImageModelRejectionDoesNotAcquireConcurrency(t *te
 
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
 	require.Zero(t, acquireCalls.Load(), "rejection must happen before user/account concurrency and scheduling")
-}
-
-func newOpenAIImageChatRejectionHandler(t *testing.T) *OpenAIGatewayHandler {
-	t.Helper()
-	return newOpenAIImageChatRejectionHandlerWithCache(t, &concurrencyCacheMock{})
-}
-
-func newOpenAIImageChatRejectionHandlerWithCache(t *testing.T, cache *concurrencyCacheMock) *OpenAIGatewayHandler {
-	t.Helper()
-	return &OpenAIGatewayHandler{
-		gatewayService:      &service.OpenAIGatewayService{},
-		billingCacheService: &service.BillingCacheService{},
-		apiKeyService:       &service.APIKeyService{},
-		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
-	}
 }
 
 func setImageChatTestAuth(c *gin.Context) {

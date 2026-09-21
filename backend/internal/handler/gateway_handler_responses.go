@@ -55,6 +55,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			h.responsesErrorResponse(c, http.StatusRequestEntityTooLarge, "invalid_request_error", buildBodyTooLargeMessage(maxErr.Limit))
 			return
 		}
+		logRequestBodyReadFailure(reqLog, c.Request, err)
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to read request body")
 		return
 	}
@@ -604,11 +605,19 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 }
 
-// responsesErrorResponse writes an error in OpenAI Responses API format.
-func (h *GatewayHandler) responsesErrorResponse(c *gin.Context, status int, code, message string) {
+// responsesErrorResponse 按 OpenAI Responses 形状写错误（error.type + error.message）。
+// body-signal compact 心跳可能已把响应头提交为 200：JSON 错误体会与已提交的 SSE 流交错，
+// 必须降级为 response.failed 终止事件（#3887）。
+func (h *GatewayHandler) responsesErrorResponse(c *gin.Context, status int, errType, message string) {
+	if service.StopOpenAICompactSSEKeepaliveCommitted(c) {
+		service.MarkOpsStreamError(c, errType, message, status)
+		if writeResponsesFailedSSE(c, errType, "", message) {
+			return
+		}
+	}
 	c.JSON(status, gin.H{
 		"error": gin.H{
-			"code":    code,
+			"type":    errType,
 			"message": message,
 		},
 	})
