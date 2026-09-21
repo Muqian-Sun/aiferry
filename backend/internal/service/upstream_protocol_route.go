@@ -14,6 +14,9 @@ func IsOpenAIGatewayPlatform(platform string) bool {
 // KeyUpstreamProtocols 返回第三方 key 在某分组平台的网关上处理某入站协议时，
 // 可以使用的上游协议，按偏好排序。
 //
+// 这是「网关族」口径，只剩两处在用：分组路径的调度资格（PR-7 随分组删）与目录绑定校验
+// （3b-5 换成注册表）。转发与目录路由下的资格都走 protocol_conversion.go 的注册表。
+//
 // 分组平台决定网关，网关决定能做哪些协议转换：
 //   - anthropic 分组（Anthropic 网关）只以 anthropic 协议转发；
 //   - gemini 分组（Gemini 网关）只以 gemini 协议转发；

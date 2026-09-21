@@ -238,6 +238,10 @@ func (r stubOpenAIAccountRepo) ListSchedulingCandidates(ctx context.Context, pla
 	return result, nil
 }
 
+func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -250,10 +254,14 @@ type groupAwareStubOpenAIAccountRepo struct {
 	stubOpenAIAccountRepo
 }
 
+func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -263,7 +271,7 @@ func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx c
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}
@@ -273,7 +281,7 @@ func (r groupAwareStubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx c
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, &groupID) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, &groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -283,7 +291,7 @@ func (r groupAwareStubOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx
 func (r groupAwareStubOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && openAIStickyAccountMatchesGroup(&acc, nil) {
+		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}

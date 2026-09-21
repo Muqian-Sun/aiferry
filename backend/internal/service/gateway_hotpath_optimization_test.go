@@ -3,108 +3,15 @@ package service
 import (
 	"context"
 	"errors"
-	"sync"
 	"sync/atomic"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/usagestats"
 	gocache "github.com/patrickmn/go-cache"
 	"github.com/stretchr/testify/require"
 )
-
-type userGroupRateRepoHotpathStub struct {
-	UserGroupRateRepository
-
-	rate  *float64
-	err   error
-	wait  <-chan struct{}
-	calls atomic.Int64
-}
-
-func (s *userGroupRateRepoHotpathStub) GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error) {
-	s.calls.Add(1)
-	if s.wait != nil {
-		<-s.wait
-	}
-	if s.err != nil {
-		return nil, s.err
-	}
-	return s.rate, nil
-}
-
-type usageLogWindowBatchRepoStub struct {
-	UsageLogRepository
-
-	batchResult map[int64]*usagestats.AccountStats
-	batchErr    error
-	batchCalls  atomic.Int64
-
-	singleResult map[int64]*usagestats.AccountStats
-	singleErr    error
-	singleCalls  atomic.Int64
-}
-
-func (s *usageLogWindowBatchRepoStub) GetAccountWindowStatsBatch(ctx context.Context, accountIDs []int64, startTime time.Time) (map[int64]*usagestats.AccountStats, error) {
-	s.batchCalls.Add(1)
-	if s.batchErr != nil {
-		return nil, s.batchErr
-	}
-	out := make(map[int64]*usagestats.AccountStats, len(accountIDs))
-	for _, id := range accountIDs {
-		if stats, ok := s.batchResult[id]; ok {
-			out[id] = stats
-		}
-	}
-	return out, nil
-}
-
-func (s *usageLogWindowBatchRepoStub) GetAccountWindowStats(ctx context.Context, accountID int64, startTime time.Time) (*usagestats.AccountStats, error) {
-	s.singleCalls.Add(1)
-	if s.singleErr != nil {
-		return nil, s.singleErr
-	}
-	if stats, ok := s.singleResult[accountID]; ok {
-		return stats, nil
-	}
-	return &usagestats.AccountStats{}, nil
-}
-
-type sessionLimitCacheHotpathStub struct {
-	SessionLimitCache
-
-	batchData map[int64]float64
-	batchErr  error
-
-	setData map[int64]float64
-	setErr  error
-}
-
-func (s *sessionLimitCacheHotpathStub) GetWindowCostBatch(ctx context.Context, accountIDs []int64) (map[int64]float64, error) {
-	if s.batchErr != nil {
-		return nil, s.batchErr
-	}
-	out := make(map[int64]float64, len(accountIDs))
-	for _, id := range accountIDs {
-		if v, ok := s.batchData[id]; ok {
-			out[id] = v
-		}
-	}
-	return out, nil
-}
-
-func (s *sessionLimitCacheHotpathStub) SetWindowCost(ctx context.Context, accountID int64, cost float64) error {
-	if s.setErr != nil {
-		return s.setErr
-	}
-	if s.setData == nil {
-		s.setData = make(map[int64]float64)
-	}
-	s.setData[accountID] = cost
-	return nil
-}
 
 type modelsListAccountRepoStub struct {
 	AccountRepository
@@ -196,301 +103,9 @@ func resetGatewayHotpathStatsForTest() {
 	windowCostPrefetchFallbackTotal.Store(0)
 	windowCostPrefetchErrorTotal.Store(0)
 
-	userGroupRateCacheHitTotal.Store(0)
-	userGroupRateCacheMissTotal.Store(0)
-	userGroupRateCacheLoadTotal.Store(0)
-	userGroupRateCacheSFSharedTotal.Store(0)
-	userGroupRateCacheFallbackTotal.Store(0)
-
 	modelsListCacheHitTotal.Store(0)
 	modelsListCacheMissTotal.Store(0)
 	modelsListCacheStoreTotal.Store(0)
-}
-
-func TestGetUserGroupRateMultiplier_UsesCacheAndSingleflight(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	rate := 1.7
-	unblock := make(chan struct{})
-	repo := &userGroupRateRepoHotpathStub{
-		rate: &rate,
-		wait: unblock,
-	}
-	svc := &GatewayService{
-		userGroupRateRepo:  repo,
-		userGroupRateCache: gocache.New(time.Minute, time.Minute),
-		cfg: &config.Config{
-			Gateway: config.GatewayConfig{
-				UserGroupRateCacheTTLSeconds: 30,
-			},
-		},
-	}
-
-	const concurrent = 12
-	results := make([]float64, concurrent)
-	start := make(chan struct{})
-	var wg sync.WaitGroup
-	wg.Add(concurrent)
-	for i := 0; i < concurrent; i++ {
-		go func(idx int) {
-			defer wg.Done()
-			<-start
-			results[idx] = svc.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.2)
-		}(i)
-	}
-
-	close(start)
-	// Wait for every caller to have recorded its cache miss before releasing the
-	// loader. A fixed sleep raced here: a goroutine that reached the cache after
-	// the singleflight load had already finished got a hit instead of a miss, and
-	// the miss assertion below saw 11 of 12. The miss counter is the observable
-	// that says "all callers are now inside the singleflight group".
-	require.Eventually(t, func() bool {
-		_, miss, _, _, _ := GatewayUserGroupRateCacheStats()
-		return miss == int64(concurrent)
-	}, 5*time.Second, time.Millisecond, "all callers must miss the cache before the loader is released")
-	close(unblock)
-	wg.Wait()
-
-	for _, got := range results {
-		require.Equal(t, rate, got)
-	}
-	require.Equal(t, int64(1), repo.calls.Load())
-
-	// 再次读取应命中缓存，不再回源。
-	got := svc.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.2)
-	require.Equal(t, rate, got)
-	require.Equal(t, int64(1), repo.calls.Load())
-
-	hit, miss, load, sfShared, fallback := GatewayUserGroupRateCacheStats()
-	require.GreaterOrEqual(t, hit, int64(1))
-	require.Equal(t, int64(12), miss)
-	require.Equal(t, int64(1), load)
-	require.GreaterOrEqual(t, sfShared, int64(1))
-	require.Equal(t, int64(0), fallback)
-}
-
-func TestGetUserGroupRateMultiplier_FallbackOnRepoError(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	repo := &userGroupRateRepoHotpathStub{
-		err: errors.New("db down"),
-	}
-	svc := &GatewayService{
-		userGroupRateRepo:  repo,
-		userGroupRateCache: gocache.New(time.Minute, time.Minute),
-		cfg: &config.Config{
-			Gateway: config.GatewayConfig{
-				UserGroupRateCacheTTLSeconds: 30,
-			},
-		},
-	}
-
-	got := svc.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.25)
-	require.Equal(t, 1.25, got)
-	require.Equal(t, int64(1), repo.calls.Load())
-
-	_, _, _, _, fallback := GatewayUserGroupRateCacheStats()
-	require.Equal(t, int64(1), fallback)
-}
-
-func TestGetUserGroupRateMultiplier_CacheHitAndNilRepo(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	repo := &userGroupRateRepoHotpathStub{
-		err: errors.New("should not be called"),
-	}
-	svc := &GatewayService{
-		userGroupRateRepo:  repo,
-		userGroupRateCache: gocache.New(time.Minute, time.Minute),
-	}
-	key := "101:202"
-	svc.userGroupRateCache.Set(key, 2.3, time.Minute)
-
-	got := svc.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.1)
-	require.Equal(t, 2.3, got)
-
-	hit, miss, load, _, fallback := GatewayUserGroupRateCacheStats()
-	require.Equal(t, int64(1), hit)
-	require.Equal(t, int64(0), miss)
-	require.Equal(t, int64(0), load)
-	require.Equal(t, int64(0), fallback)
-	require.Equal(t, int64(0), repo.calls.Load())
-
-	// 无 repo 时直接返回分组默认倍率
-	svc2 := &GatewayService{
-		userGroupRateCache: gocache.New(time.Minute, time.Minute),
-	}
-	svc2.userGroupRateCache.Set(key, 1.9, time.Minute)
-	require.Equal(t, 1.9, svc2.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.4))
-	require.Equal(t, 1.4, svc2.getUserGroupRateMultiplier(context.Background(), 0, 202, 1.4))
-	svc2.userGroupRateCache.Delete(key)
-	require.Equal(t, 1.4, svc2.getUserGroupRateMultiplier(context.Background(), 101, 202, 1.4))
-}
-
-func TestWithWindowCostPrefetch_BatchReadAndContextReuse(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	windowStart := time.Now().Add(-30 * time.Minute).Truncate(time.Hour)
-	windowEnd := windowStart.Add(5 * time.Hour)
-	accounts := []Account{
-		{
-			ID:                 1,
-			Platform:           PlatformAnthropic,
-			Type:               AccountTypeOAuth,
-			Extra:              map[string]any{"window_cost_limit": 100.0},
-			SessionWindowStart: &windowStart,
-			SessionWindowEnd:   &windowEnd,
-		},
-		{
-			ID:                 2,
-			Platform:           PlatformAnthropic,
-			Type:               AccountTypeSetupToken,
-			Extra:              map[string]any{"window_cost_limit": 100.0},
-			SessionWindowStart: &windowStart,
-			SessionWindowEnd:   &windowEnd,
-		},
-		{
-			ID:                3,
-			Platform:          PlatformAnthropic,
-			Type:              AccountTypeAPIKey,
-			Extra:             map[string]any{"window_cost_limit": 100.0},
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-		},
-	}
-
-	cache := &sessionLimitCacheHotpathStub{
-		batchData: map[int64]float64{
-			1: 11.0,
-		},
-	}
-	repo := &usageLogWindowBatchRepoStub{
-		batchResult: map[int64]*usagestats.AccountStats{
-			2: {StandardCost: 22.0},
-		},
-	}
-	svc := &GatewayService{
-		sessionLimitCache: cache,
-		usageLogRepo:      repo,
-	}
-
-	outCtx := svc.withWindowCostPrefetch(context.Background(), accounts)
-	require.NotNil(t, outCtx)
-
-	cost1, ok1 := windowCostFromPrefetchContext(outCtx, 1)
-	require.True(t, ok1)
-	require.Equal(t, 11.0, cost1)
-
-	cost2, ok2 := windowCostFromPrefetchContext(outCtx, 2)
-	require.True(t, ok2)
-	require.Equal(t, 22.0, cost2)
-
-	_, ok3 := windowCostFromPrefetchContext(outCtx, 3)
-	require.False(t, ok3)
-
-	require.Equal(t, int64(1), repo.batchCalls.Load())
-	require.Equal(t, 22.0, cache.setData[2])
-
-	hit, miss, batchSQL, fallback, errCount := GatewayWindowCostPrefetchStats()
-	require.Equal(t, int64(1), hit)
-	require.Equal(t, int64(1), miss)
-	require.Equal(t, int64(1), batchSQL)
-	require.Equal(t, int64(0), fallback)
-	require.Equal(t, int64(0), errCount)
-}
-
-func TestWithWindowCostPrefetch_AllHitNoSQL(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	windowStart := time.Now().Add(-30 * time.Minute).Truncate(time.Hour)
-	windowEnd := windowStart.Add(5 * time.Hour)
-	accounts := []Account{
-		{
-			ID:                 1,
-			Platform:           PlatformAnthropic,
-			Type:               AccountTypeOAuth,
-			Extra:              map[string]any{"window_cost_limit": 100.0},
-			SessionWindowStart: &windowStart,
-			SessionWindowEnd:   &windowEnd,
-		},
-		{
-			ID:                 2,
-			Platform:           PlatformAnthropic,
-			Type:               AccountTypeSetupToken,
-			Extra:              map[string]any{"window_cost_limit": 100.0},
-			SessionWindowStart: &windowStart,
-			SessionWindowEnd:   &windowEnd,
-		},
-	}
-
-	cache := &sessionLimitCacheHotpathStub{
-		batchData: map[int64]float64{
-			1: 11.0,
-			2: 22.0,
-		},
-	}
-	repo := &usageLogWindowBatchRepoStub{}
-	svc := &GatewayService{
-		sessionLimitCache: cache,
-		usageLogRepo:      repo,
-	}
-
-	outCtx := svc.withWindowCostPrefetch(context.Background(), accounts)
-	cost1, ok1 := windowCostFromPrefetchContext(outCtx, 1)
-	cost2, ok2 := windowCostFromPrefetchContext(outCtx, 2)
-	require.True(t, ok1)
-	require.True(t, ok2)
-	require.Equal(t, 11.0, cost1)
-	require.Equal(t, 22.0, cost2)
-	require.Equal(t, int64(0), repo.batchCalls.Load())
-	require.Equal(t, int64(0), repo.singleCalls.Load())
-
-	hit, miss, batchSQL, fallback, errCount := GatewayWindowCostPrefetchStats()
-	require.Equal(t, int64(2), hit)
-	require.Equal(t, int64(0), miss)
-	require.Equal(t, int64(0), batchSQL)
-	require.Equal(t, int64(0), fallback)
-	require.Equal(t, int64(0), errCount)
-}
-
-func TestWithWindowCostPrefetch_BatchErrorFallbackSingleQuery(t *testing.T) {
-	resetGatewayHotpathStatsForTest()
-
-	windowStart := time.Now().Add(-30 * time.Minute).Truncate(time.Hour)
-	windowEnd := windowStart.Add(5 * time.Hour)
-	accounts := []Account{
-		{
-			ID:                 2,
-			Platform:           PlatformAnthropic,
-			Type:               AccountTypeSetupToken,
-			Extra:              map[string]any{"window_cost_limit": 100.0},
-			SessionWindowStart: &windowStart,
-			SessionWindowEnd:   &windowEnd,
-		},
-	}
-
-	cache := &sessionLimitCacheHotpathStub{}
-	repo := &usageLogWindowBatchRepoStub{
-		batchErr: errors.New("batch failed"),
-		singleResult: map[int64]*usagestats.AccountStats{
-			2: {StandardCost: 33.0},
-		},
-	}
-	svc := &GatewayService{
-		sessionLimitCache: cache,
-		usageLogRepo:      repo,
-	}
-
-	outCtx := svc.withWindowCostPrefetch(context.Background(), accounts)
-	cost, ok := windowCostFromPrefetchContext(outCtx, 2)
-	require.True(t, ok)
-	require.Equal(t, 33.0, cost)
-	require.Equal(t, int64(1), repo.batchCalls.Load())
-	require.Equal(t, int64(1), repo.singleCalls.Load())
-
-	_, _, _, fallback, errCount := GatewayWindowCostPrefetchStats()
-	require.Equal(t, int64(1), fallback)
-	require.Equal(t, int64(1), errCount)
 }
 
 func TestGetAvailableModels_UsesShortCacheAndSupportsInvalidation(t *testing.T) {
@@ -742,17 +357,6 @@ func TestGetAvailableModels_GlobalListPreservesMappedModelsWithOpenAIPassthrough
 }
 
 func TestGatewayHotpathHelpers_CacheTTLAndStickyContext(t *testing.T) {
-	t.Run("resolve_user_group_rate_cache_ttl", func(t *testing.T) {
-		require.Equal(t, defaultUserGroupRateCacheTTL, resolveUserGroupRateCacheTTL(nil))
-
-		cfg := &config.Config{
-			Gateway: config.GatewayConfig{
-				UserGroupRateCacheTTLSeconds: 45,
-			},
-		}
-		require.Equal(t, 45*time.Second, resolveUserGroupRateCacheTTL(cfg))
-	})
-
 	t.Run("resolve_models_list_cache_ttl", func(t *testing.T) {
 		require.Equal(t, defaultModelsListCacheTTL, resolveModelsListCacheTTL(nil))
 
@@ -784,24 +388,6 @@ func TestGatewayHotpathHelpers_CacheTTLAndStickyContext(t *testing.T) {
 		ctx4 := context.WithValue(context.Background(), ctxkey.PrefetchedStickyAccountID, int64(789))
 		ctx4 = context.WithValue(ctx4, ctxkey.PrefetchedStickyGroupID, int64(10))
 		require.Equal(t, int64(0), prefetchedStickyAccountIDFromContext(ctx4, &groupID))
-	})
-
-	t.Run("window_cost_from_prefetch_context", func(t *testing.T) {
-		require.Equal(t, false, func() bool {
-			_, ok := windowCostFromPrefetchContext(context.TODO(), 0)
-			return ok
-		}())
-		require.Equal(t, false, func() bool {
-			_, ok := windowCostFromPrefetchContext(context.Background(), 1)
-			return ok
-		}())
-
-		ctx := context.WithValue(context.Background(), windowCostPrefetchContextKey, map[int64]float64{
-			9: 12.34,
-		})
-		cost, ok := windowCostFromPrefetchContext(ctx, 9)
-		require.True(t, ok)
-		require.Equal(t, 12.34, cost)
 	})
 }
 
@@ -889,7 +475,6 @@ func TestSelectAccountWithLoadAwareness_StickyReadReuse(t *testing.T) {
 			cache:              cache,
 			cfg:                cfg,
 			concurrencyService: concurrency,
-			userGroupRateCache: gocache.New(time.Minute, time.Minute),
 			modelsListCache:    gocache.New(time.Minute, time.Minute),
 			modelsListCacheTTL: time.Minute,
 		}
@@ -909,7 +494,6 @@ func TestSelectAccountWithLoadAwareness_StickyReadReuse(t *testing.T) {
 			cache:              cache,
 			cfg:                cfg,
 			concurrencyService: concurrency,
-			userGroupRateCache: gocache.New(time.Minute, time.Minute),
 			modelsListCache:    gocache.New(time.Minute, time.Minute),
 			modelsListCacheTTL: time.Minute,
 		}
@@ -931,7 +515,6 @@ func TestSelectAccountWithLoadAwareness_StickyReadReuse(t *testing.T) {
 			cache:              cache,
 			cfg:                cfg,
 			concurrencyService: concurrency,
-			userGroupRateCache: gocache.New(time.Minute, time.Minute),
 			modelsListCache:    gocache.New(time.Minute, time.Minute),
 			modelsListCacheTTL: time.Minute,
 		}

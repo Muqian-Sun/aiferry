@@ -53,6 +53,21 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidates(_ context.Context, 
 	return out, nil
 }
 
+// ListSchedulingCandidatesByCatalogEntry 把全部可调度账号当作绑定到条目的资源（不看平台），
+// 与 ListSchedulingCandidates 一样计入选号次数。
+func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	r.selectionCalls++
+	out := make([]service.Account, 0, len(r.accounts))
+	for _, account := range r.accounts {
+		if account.IsSchedulable() {
+			out = append(out, boundToCatalogEntry(account, entryID))
+		}
+	}
+	return out, nil
+}
+
 func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]service.Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -69,7 +84,7 @@ func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*servi
 	}
 	for _, account := range r.accounts {
 		if account.ID == id {
-			copy := account
+			copy := boundToCatalogEntry(account, listAllCatalogEntryID)
 			copy.Credentials = cloneCredentialMap(account.Credentials)
 			return &copy, nil
 		}
@@ -501,7 +516,6 @@ func TestResponsesCredentialFailoverLoop(t *testing.T) {
 			body   string
 		}{
 			{name: "responses", method: http.MethodPost, path: "/openai/v1/responses", body: `{"model":"grok","input":"hello","stream":false}`},
-			{name: "messages", method: http.MethodPost, path: "/openai/v1/messages", body: `{"model":"grok","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`},
 			{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
 			{name: "grok media", method: http.MethodGet, path: "/openai/v1/videos/request-1"},
 		}
@@ -704,7 +718,6 @@ func TestGrokOAuthCredentialFailoverAcrossHTTPHandlers(t *testing.T) {
 		path   string
 		body   string
 	}{
-		{name: "messages", method: http.MethodPost, path: "/openai/v1/messages", body: `{"model":"grok","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`},
 		{name: "chat completions", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stream":false}`},
 		{name: "chat completions raw fallback", method: http.MethodPost, path: "/openai/v1/chat/completions", body: `{"model":"grok","messages":[{"role":"user","content":"hello"}],"stop":["END"],"stream":false}`},
 		{name: "grok media", method: http.MethodPost, path: "/openai/v1/videos/generations", body: `{"model":"grok-imagine-video","prompt":"waves"}`},
@@ -927,7 +940,7 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 	cfg.Gateway.MaxAccountSwitches = 3
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	gateway := service.NewOpenAIGatewayService(
-		repo, nil, nil, nil, nil, nil, nil, cfg, nil, nil,
+		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil, nil,
 	)
@@ -935,7 +948,7 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
 		acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 	}
-	h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg)
+	h := NewOpenAIGatewayHandler(gateway, service.NewConcurrencyService(cache), billingCache, &service.APIKeyService{}, nil, nil, nil, nil, cfg, listAllCatalogStub{})
 	apiKey := &service.APIKey{
 		ID: 902, GroupID: &groupID,
 		User:  &service.User{ID: 903, Status: service.StatusActive},
@@ -949,7 +962,6 @@ func newGrokCredentialFailoverHandler(t *testing.T, mode string) (*OpenAIGateway
 	})
 	router.POST("/openai/v1/responses", h.Responses)
 	router.GET("/openai/v1/responses", h.ResponsesWebSocket)
-	router.POST("/openai/v1/messages", h.Messages)
 	router.POST("/openai/v1/chat/completions", h.ChatCompletions)
 	router.POST("/openai/v1/videos/generations", h.GrokVideoGeneration)
 	router.GET("/openai/v1/videos/:request_id", h.GrokVideoStatus)

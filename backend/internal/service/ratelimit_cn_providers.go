@@ -85,8 +85,10 @@ func (s *RateLimitService) handleCNProviderInsufficientBalance(
 ) {
 	msg := cnBalanceLowReason(upstreamMsg)
 
+	// 键前缀用 Vendor：余额探测任务按同一口径清除（cn_provider_balance_service 用 cnBalanceProvider），
+	// 标签≠厂商的 key 若按标签写会永远清不掉。
 	if err := s.accountRepo.UpdateExtra(ctx, account.ID, map[string]any{
-		cnExtraKey(account.Platform, cnBalanceExtraSuffixLow): true,
+		cnExtraKey(account.Vendor(), cnBalanceExtraSuffixLow): true,
 	}); err != nil {
 		slog.Warn("cn_balance_low_mark_failed", "account_id", account.ID, "error", err)
 	}

@@ -50,14 +50,23 @@ type GrokQuotaResetResult struct {
 }
 
 type GrokQuotaService struct {
-	accountRepo    AccountRepository
-	proxyRepo      ProxyRepository
-	tokenProvider  *GrokTokenProvider
-	httpUpstream   HTTPUpstream
-	usageLogRepo   UsageLogRepository
-	settingService *SettingService
-	cfg            *config.Config
-	probeFlight    singleflight.Group
+	accountRepo      AccountRepository
+	proxyRepo        ProxyRepository
+	tokenProvider    *GrokTokenProvider
+	httpUpstream     HTTPUpstream
+	usageLogRepo     UsageLogRepository
+	settingService   *SettingService
+	rateLimitService *RateLimitService
+	cfg              *config.Config
+	probeFlight      singleflight.Group
+}
+
+// SetRateLimitService 注入状态服务：配额快照落库后由它评估要不要停调。
+func (s *GrokQuotaService) SetRateLimitService(rateLimitService *RateLimitService) {
+	if s == nil {
+		return
+	}
+	s.rateLimitService = rateLimitService
 }
 
 func NewGrokQuotaService(
@@ -205,6 +214,10 @@ func (s *GrokQuotaService) probeUsage(ctx context.Context, accountID int64) (*Gr
 		persistGrokRateLimit(ctx, s.accountRepo, account, resetAt)
 	} else if isSuccessfulGrokRateLimitRecovery(account, snapshot) {
 		clearGrokRateLimitAfterRecovery(ctx, s.accountRepo, account)
+	}
+	// 限流状态装完再评额度（同 updateGrokUsageSnapshotWithRateLimit）。
+	if persisted {
+		s.rateLimitService.ApplyAccountQuotaStateAfterExtraUpdate(ctx, account, map[string]any{grokQuotaSnapshotExtraKey: snapshot})
 	}
 
 	result := &GrokQuotaProbeResult{

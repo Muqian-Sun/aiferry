@@ -113,12 +113,13 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		require.Equal(t, "batch-session-123", batchImageDerefString(job.SessionID))
 	})
 
-	t.Run("combines user group image rate account rate discount and hold margin", func(t *testing.T) {
+	t.Run("combines user rate account rate discount and hold margin", func(t *testing.T) {
 		svc, repo, _, _, _ := newTestBatchImagePublicService(true)
 		groupID := int64(7)
 		accountMultiplier := 1.25
 		accountRepo := svc.AccountRepo.(*publicBatchImageAccountRepo)
 		accountRepo.accounts[0].RateMultiplier = &accountMultiplier
+		// 分组倍率 / 图片独立倍率不再参与：用户价 = 单价 × 用户倍率
 		svc.GroupRepo = &publicBatchImageGroupRepo{groups: map[int64]*Group{
 			groupID: {
 				ID:                           groupID,
@@ -126,15 +127,14 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 				RateMultiplier:               2.0,
 				AllowImageGeneration:         true,
 				AllowBatchImageGeneration:    true,
-				ImageRateIndependent:         false,
+				ImageRateIndependent:         true,
+				ImageRateMultiplier:          9,
 				BatchImageDiscountMultiplier: 0.8,
 				BatchImageHoldMultiplier:     0.6,
 			},
 		}}
-		userRate := 0.5
-		svc.UserGroupRateRepo = &publicBatchImageUserGroupRateRepo{rates: map[int64]*float64{groupID: &userRate}}
 
-		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID}, validBatchImageSubmitRequest(), "")
+		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 0.5}, validBatchImageSubmitRequest(), "")
 		require.NoError(t, err)
 		require.InDelta(t, 0.25, got.EstimatedCost, 1e-12)
 
@@ -168,7 +168,7 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 			},
 		}}
 
-		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID}, validBatchImageSubmitRequest(), "")
+		got, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1}, validBatchImageSubmitRequest(), "")
 		require.NoError(t, err)
 		require.InDelta(t, 0.134, got.EstimatedCost, 1e-12)
 
@@ -204,7 +204,7 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 			},
 		}}
 
-		_, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID}, validBatchImageSubmitRequest(), "")
+		_, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1}, validBatchImageSubmitRequest(), "")
 		require.ErrorIs(t, err, ErrBatchImageGroupDisabled)
 		require.Empty(t, repo.jobs)
 		require.Empty(t, queue.enqueued)
@@ -215,7 +215,7 @@ func TestBatchImagePublicService_Submit(t *testing.T) {
 		svc, repo, queue, gemini, _ := newTestBatchImagePublicService(true)
 		groupID := int64(404)
 
-		_, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID}, validBatchImageSubmitRequest(), "")
+		_, err := svc.Submit(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1}, validBatchImageSubmitRequest(), "")
 		require.ErrorIs(t, err, ErrBatchImageSettlementPricingMissing)
 		require.Empty(t, repo.jobs)
 		require.Empty(t, queue.enqueued)
@@ -545,7 +545,7 @@ func TestBatchImagePublicService_ListModels(t *testing.T) {
 			"gemini-2.5-flash-image": "gemini-2.5-flash-image",
 		})}
 
-		got, err := svc.ListModels(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID})
+		got, err := svc.ListModels(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1})
 		require.NoError(t, err)
 		require.Equal(t, []BatchImagePublicModel{{
 			ID:       "gemini-2.5-flash-image",
@@ -606,7 +606,7 @@ func TestBatchImagePublicService_ListModels(t *testing.T) {
 			groupID: {ID: groupID, AllowBatchImageGeneration: false},
 		}}
 
-		_, err := svc.ListModels(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID})
+		_, err := svc.ListModels(ctx, BatchImageOwner{UserID: 11, APIKeyID: 22, GroupID: &groupID, RateMultiplier: 1})
 		require.ErrorIs(t, err, ErrBatchImageGroupDisabled)
 	})
 }
@@ -790,7 +790,7 @@ func newTestBatchImagePublicService(enabled bool) (*BatchImagePublicService, *fa
 }
 
 func testBatchImageOwner() BatchImageOwner {
-	return BatchImageOwner{UserID: 11, APIKeyID: 22}
+	return BatchImageOwner{UserID: 11, APIKeyID: 22, RateMultiplier: 1}
 }
 
 type fakeBatchImageAuthCacheInvalidator struct {
@@ -888,6 +888,10 @@ func (r *publicBatchImageAccountRepo) ListSchedulingCandidates(_ context.Context
 		}
 	}
 	return out, nil
+}
+
+func (r *publicBatchImageAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
 }
 
 func (r *publicBatchImageAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
@@ -1002,16 +1006,4 @@ func (r *publicBatchImageGroupRepo) GetByIDLite(_ context.Context, id int64) (*G
 	return nil, ErrGroupNotFound
 }
 
-type publicBatchImageUserGroupRateRepo struct {
-	rates map[int64]*float64
-}
-
-func (r *publicBatchImageUserGroupRateRepo) GetByUserAndGroup(_ context.Context, _ int64, groupID int64) (*float64, error) {
-	if r != nil && r.rates != nil {
-		return r.rates[groupID], nil
-	}
-	return nil, nil
-}
-
 var _ BatchImageGroupPricingRepository = (*publicBatchImageGroupRepo)(nil)
-var _ BatchImageUserGroupRateRepository = (*publicBatchImageUserGroupRateRepo)(nil)

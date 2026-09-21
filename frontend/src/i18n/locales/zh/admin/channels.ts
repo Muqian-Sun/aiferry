@@ -168,7 +168,8 @@ export default {
         videoTiers: '视频分辨率层级（按秒）',
         addTier: '添加层级',
         noTiersYet: '暂无层级，点击添加配置按次计费价格',
-        noPricingRules: '暂无定价规则，点击"添加"创建',
+        noPricingRules: '暂无定价规则',
+        modelPricingRetiredHint: '渠道定价已不参与计费：价格统一从「模型目录」取。这里只保留只读展示，渠道下线时一并删除。',
         perRequestPrice: '单次价格',
         perRequestPriceRequired: '按次/图片计费模式必须设置默认价格或至少一个计费层级',
         tierLabel: '层级',
@@ -218,12 +219,7 @@ export default {
         ruleAccountsHint: '留空表示匹配所有账号',
         ruleModelPricing: '模型定价',
         noGroupsInChannel: '上方平台标签页中未选择分组',
-        unnamed: '未命名',
-        syncLatestModels: '同步最新模型',
-        syncingModels: '同步中...',
-        syncModelsSuccess: '已同步 {count} 个新模型',
-        syncModelsAlreadyUpToDate: '模型列表已是最新',
-        syncModelsError: '同步模型失败'
+        unnamed: '未命名'
       }
     },
 

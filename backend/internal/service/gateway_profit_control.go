@@ -28,20 +28,9 @@ func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context, group
 	}
 
 	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
-	billingGroup := gatewayTokenRequestBillingGroupFromContext(ctx)
-	if billingGroup == nil {
-		if ctxGroup, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(ctxGroup) {
-			billingGroup = ctxGroup
-		} else {
-			billingGroup = group
-		}
-	}
 
-	downstream := billingGroup.RateMultiplier
-	if userID, _ := ctx.Value(ctxkey.UserID).(int64); userID > 0 {
-		downstream = s.ResolveUserGroupRateMultiplier(ctx, userID, billingGroup.ID, billingGroup.RateMultiplier)
-	}
-	downstream *= billingGroup.PeakMultiplierAt(pricingAt)
+	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源。
+	downstream := UserRateMultiplierFromContext(ctx)
 	threshold := clampProfitControlThreshold(downstream * (1 - group.ProfitMinMargin - group.ProfitSafetyBuffer))
 
 	gate := &openAIProfitControlGate{

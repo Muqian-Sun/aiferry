@@ -72,9 +72,6 @@ func TestPlatformProtocolDefaultsCoverRoutedProtocols(t *testing.T) {
 			defaults := PlatformProtocolDefaults(platform, mode)
 			require.NotEmptyf(t, defaults, "%s/%s 应有官方预填", platform, mode)
 
-			// 平台默认协议是 PrimaryUpstreamBaseURL 等主地址判断的首选键。
-			require.Containsf(t, defaults, DefaultProtocolForPlatform(platform), "%s/%s 缺默认协议", platform, mode)
-
 			// 官方提供 Responses 端点的厂商必须预填 responses 地址，否则 Responses 入站只能转换。
 			if hasStatelessVendorResponses(platform) {
 				require.Containsf(t, defaults, APIProtocolResponses, "%s/%s 支持原生 Responses 却未预填", platform, mode)

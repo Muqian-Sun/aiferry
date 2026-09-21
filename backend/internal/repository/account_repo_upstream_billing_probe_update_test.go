@@ -485,8 +485,8 @@ func updatedAccountRows(id int64, extra string) *sqlmock.Rows {
 	return sqlmock.NewRows(dbaccount.Columns).AddRow(
 		id, now, now, nil, "test", nil, service.PlatformOpenAI, service.AccountTypeAPIKey,
 		[]byte(`{"api_key":"sk-test"}`), []byte(extra),
-		// source_kind / protocol_endpoints：ent 列序里紧跟 extra 之后
-		nil, []byte(`{}`),
+		// protocol_endpoints：ent 列序里紧跟 extra 之后
+		[]byte(`{}`),
 		nil, nil, 1, nil, 1, 1.0,
 		service.StatusActive, nil, nil, nil, false, true, nil, nil, nil, nil, nil, nil,
 		nil, nil, nil, service.QuotaDimensionGlobal,

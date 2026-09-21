@@ -32,7 +32,7 @@ func cloneIntPointer(value *int) *int {
 	return &cloned
 }
 
-func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int) (int, error) {
+func (s *batchLimitsAdminServiceStub) BatchUpdateLimits(_ context.Context, userIDs []int64, concurrency, rpmLimit *int, rateMultiplier *float64) (int, error) {
 	s.calls = append(s.calls, batchLimitsAdminServiceCall{
 		userIDs:     append([]int64(nil), userIDs...),
 		concurrency: cloneIntPointer(concurrency),

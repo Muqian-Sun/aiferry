@@ -42,6 +42,25 @@ func ProvidePricingService(cfg *config.Config, remoteClient PricingRemoteClient)
 	return svc, nil
 }
 
+// ProvideModelCatalogService 组装模型目录服务。
+// 播种不在这里跑：构造期写库会与迁移、其它服务的初始化次序纠缠在一起，
+// 播种由 main 在应用装配完成后显式调用（见 cmd/server/main.go）。
+func ProvideModelCatalogService(
+	repo ModelCatalogRepository,
+	cachePub ModelCatalogCachePubSub,
+	pricingService *PricingService,
+	billingService *BillingService,
+) *ModelCatalogService {
+	svc := NewModelCatalogService(repo, cachePub, ModelCatalogSeedInput{
+		PricingService: pricingService,
+		BillingService: billingService,
+	})
+	// 价格文件每 ~10 分钟同步一次，目录只在启动 / 手动播种时刷新：不挂回调的话
+	// 播种条目会冻在启动时刻的价格。
+	pricingService.OnPricingUpdated(svc.ReseedAfterPricingUpdate)
+	return svc
+}
+
 // ProvideUpdateService creates UpdateService with BuildInfo
 func ProvideUpdateService(cache UpdateCache, githubClient GitHubReleaseClient, buildInfo BuildInfo) *UpdateService {
 	return NewUpdateService(cache, githubClient, buildInfo.Version, buildInfo.BuildType)
@@ -223,6 +242,7 @@ func ProvideAccountUsageService(
 	identityCache IdentityCache,
 	tlsFPProfileService *TLSFingerprintProfileService,
 	openAIGatewayService *OpenAIGatewayService,
+	rateLimitService *RateLimitService,
 ) *AccountUsageService {
 	service := NewAccountUsageService(
 		accountRepo,
@@ -236,6 +256,7 @@ func ProvideAccountUsageService(
 		cache,
 		identityCache,
 		tlsFPProfileService,
+		rateLimitService,
 	)
 	service.agentIdentityWS = openAIGatewayService
 	return service
@@ -279,9 +300,11 @@ func ProvideGrokQuotaService(
 	cfg *config.Config,
 	usageLogRepo UsageLogRepository,
 	settingService *SettingService,
+	rateLimitService *RateLimitService,
 ) *GrokQuotaService {
 	service := NewGrokQuotaService(accountRepo, proxyRepo, tokenProvider, httpUpstream, cfg, usageLogRepo)
 	service.SetSettingService(settingService)
+	service.SetRateLimitService(rateLimitService)
 	return service
 }
 
@@ -291,8 +314,11 @@ func ProvideCNProviderQuotaService(
 	proxyRepo ProxyRepository,
 	httpUpstream HTTPUpstream,
 	cfg *config.Config,
+	rateLimitService *RateLimitService,
 ) *CNProviderQuotaService {
-	return NewCNProviderQuotaService(accountRepo, proxyRepo, httpUpstream, cfg)
+	service := NewCNProviderQuotaService(accountRepo, proxyRepo, httpUpstream, cfg)
+	service.SetRateLimitService(rateLimitService)
+	return service
 }
 
 // ProvideCNProviderBalanceService 构造国产供应商余额探测服务。
@@ -485,8 +511,10 @@ func ProvideRateLimitService(
 	settingService *SettingService,
 	tokenCacheInvalidator TokenCacheInvalidator,
 	ollamaCloudUsage *OllamaCloudUsageService,
+	sessionLimitCache SessionLimitCache,
 ) *RateLimitService {
 	svc := NewRateLimitService(accountRepo, usageRepo, cfg, geminiQuotaService, tempUnschedCache)
+	svc.SetSessionLimitCache(sessionLimitCache)
 	if healthCache, ok := tempUnschedCache.(OpenAIAPIKeyHealthCache); ok {
 		svc.SetOpenAIAPIKeyHealthCache(healthCache)
 	}
@@ -930,6 +958,8 @@ var ProviderSet = wire.NewSet(
 	NewGroupCapacityService,
 	NewChannelService,
 	wire.Bind(new(ChannelCacheInvalidator), new(*ChannelService)),
+	ProvideModelCatalogService,
+	wire.Bind(new(ModelCatalogPricingSource), new(*ModelCatalogService)),
 	NewModelPricingResolver,
 	NewModelPlazaService,
 	NewContentModerationService,

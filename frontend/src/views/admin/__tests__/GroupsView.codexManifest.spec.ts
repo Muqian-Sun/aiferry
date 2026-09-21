@@ -48,6 +48,11 @@ vi.mock("@/stores/app", () => ({
   }),
 }));
 
+// GroupsView 读 authStore.isSimpleMode 决定简化模式隐藏项；不 mock 会在 mount 时找不到 Pinia。
+vi.mock("@/stores/auth", () => ({
+  useAuthStore: () => ({ isSimpleMode: false }),
+}));
+
 vi.mock("@/stores/onboarding", () => ({
   useOnboardingStore: () => ({
     isCurrentStep: vi.fn(() => false),
@@ -216,7 +221,6 @@ const mountView = () =>
         PlatformIcon: true,
         Icon: true,
         GroupCapacityBadge: true,
-        GroupRateMultipliersModal: true,
         GroupRPMOverridesModal: true,
         ReasoningEffortPolicyFields: true,
         CodexManifestAccountsField: CodexManifestAccountsFieldStub,

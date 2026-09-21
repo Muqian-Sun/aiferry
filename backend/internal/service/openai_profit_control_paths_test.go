@@ -10,11 +10,11 @@ package service
 import (
 	"context"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -229,36 +229,22 @@ func TestProfitControl_RateRecoveryReadmitsAccount(t *testing.T) {
 	}
 }
 
-type profitControlUserRateRepo struct {
-	UserGroupRateRepository
-	rate *float64
-}
-
-func (r profitControlUserRateRepo) GetByUserAndGroup(context.Context, int64, int64) (*float64, error) {
-	return r.rate, nil
-}
-
-// D 必须取请求用户的真实倍率：有用户覆盖时用覆盖值，绝不退回分组默认。
-func TestProfitControl_GateUsesUserOverrideRate(t *testing.T) {
-	override := 0.5
-	svc := &OpenAIGatewayService{
-		userGroupRateResolver: newUserGroupRateResolver(
-			profitControlUserRateRepo{rate: &override}, nil, time.Minute, nil, "test.profit",
-		),
-	}
+// D 取认证用户的倍率（ctx 里由认证中间件放入），分组倍率不参与；无用户身份（内部调用）按 1。
+func TestProfitControl_GateUsesUserRateMultiplier(t *testing.T) {
+	svc := &OpenAIGatewayService{}
 	groupID := int64(7)
 	group := profitControlTestGroup(groupID, 0, 0)
 	group.RateMultiplier = 2.0
 
-	ctx := context.WithValue(profitControlTestCtx(group), ctxkey.UserID, int64(42))
+	ctx := WithUserRateMultiplier(profitControlTestCtx(group), &User{ID: 42, RateMultiplier: 0.5})
 	gate := svc.resolveOpenAIProfitControlGate(ctx, &groupID)
 	require.NotNil(t, gate)
-	require.InDelta(t, 0.5, gate.threshold, 1e-12, "阈值必须基于用户覆盖倍率 0.5，而不是分组默认 2.0")
+	require.InDelta(t, 0.5, gate.threshold, 1e-12, "阈值必须基于用户倍率 0.5，而不是分组 2.0")
 
-	// 无用户身份（内部调用）时按分组默认倍率计算。
-	gate = svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID)
+	// 无用户身份（内部调用）按 1。
+	gate = svc.resolveOpenAIProfitControlGate(context.WithValue(context.Background(), ctxkey.Group, group), &groupID)
 	require.NotNil(t, gate)
-	require.InDelta(t, 2.0, gate.threshold, 1e-12)
+	require.InDelta(t, 1.0, gate.threshold, 1e-12)
 }
 
 type profitControlGroupRepo struct {
@@ -277,11 +263,11 @@ func (r profitControlGroupRepo) GetByID(context.Context, int64) (*Group, error) 
 	panic("profit control gate must read groups via GetByIDLite (no account-count aggregation)")
 }
 
-// composite 路由：门配置取被调度成员分组，D 取请求真实计费分组（ctx 认证分组）。
-func TestProfitControl_CompositeUsesBillingGroupRate(t *testing.T) {
+// composite 路由：门配置（margin）取被调度成员分组，D 仍是用户倍率。
+func TestProfitControl_CompositeUsesMemberGroupMarginAndUserRate(t *testing.T) {
 	memberGroupID := int64(7)
 	memberGroup := profitControlTestGroup(memberGroupID, 0.5, 0)
-	memberGroup.RateMultiplier = 99 // 若 D 误取成员分组倍率，阈值会是 49.5
+	memberGroup.RateMultiplier = 99 // 分组倍率已无效
 
 	billingGroup := &Group{
 		ID:             1001,
@@ -294,10 +280,10 @@ func TestProfitControl_CompositeUsesBillingGroupRate(t *testing.T) {
 		schedulerSnapshot: &SchedulerSnapshotService{groupRepo: profitControlGroupRepo{group: memberGroup}},
 	}
 
-	ctx := profitControlTestCtx(billingGroup)
+	ctx := WithUserRateMultiplier(profitControlTestCtx(billingGroup), &User{ID: 1, RateMultiplier: 1.0})
 	gate := svc.resolveOpenAIProfitControlGate(ctx, &memberGroupID)
 	require.NotNil(t, gate)
-	require.InDelta(t, 0.5, gate.threshold, 1e-12, "D 必须来自计费分组（composite 父分组）倍率 1.0")
+	require.InDelta(t, 0.5, gate.threshold, 1e-12, "D = 用户倍率 1.0，margin 取成员分组 0.5")
 }
 
 // legacy 引擎与 DB recheck 共用的资格判定直接覆盖利润门。

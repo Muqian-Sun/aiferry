@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"maps"
 	"net/http"
 	"reflect"
 	"strconv"
@@ -330,10 +329,7 @@ func (s *adminServiceImpl) DuplicateAccount(ctx context.Context, id int64, actor
 		SkipDefaultGroupBind:  true,
 		SkipMixedChannelCheck: true,
 	}
-	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
-	if err != nil {
-		return nil, fmt.Errorf("normalize duplicate account extra: %w", err)
-	}
+	accountExtra := input.Extra
 	if err := NormalizeHeaderOverrideCredentials(input.Credentials); err != nil {
 		return nil, err
 	}
@@ -369,59 +365,6 @@ func normalizeAccountConcurrency(platform, accountType string, concurrency int) 
 	return concurrency
 }
 
-// ValidateOpenAILongContextBillingExtra validates the OpenAI account billing flag when present.
-func ValidateOpenAILongContextBillingExtra(platform string, extra map[string]any) error {
-	if platform != PlatformOpenAI {
-		return nil
-	}
-	raw, exists := extra[openAILongContextBillingEnabledKey]
-	if !exists {
-		return nil
-	}
-	if _, ok := raw.(bool); !ok {
-		return infraerrors.BadRequest(
-			"OPENAI_LONG_CONTEXT_BILLING_INVALID",
-			"openai_long_context_billing_enabled must be a boolean",
-		)
-	}
-	return nil
-}
-
-func normalizeOpenAILongContextBillingExtra(platform string, extra map[string]any) (map[string]any, error) {
-	if platform != PlatformOpenAI {
-		return extra, nil
-	}
-	if err := ValidateOpenAILongContextBillingExtra(platform, extra); err != nil {
-		return nil, err
-	}
-
-	normalized := maps.Clone(extra)
-	if normalized == nil {
-		normalized = make(map[string]any, 1)
-	}
-	_, exists := normalized[openAILongContextBillingEnabledKey]
-	if !exists {
-		normalized[openAILongContextBillingEnabledKey] = false
-	}
-	return normalized, nil
-}
-
-func normalizeOpenAILongContextBillingUpdateExtra(account *Account, input *UpdateAccountInput) (map[string]any, error) {
-	normalized, err := normalizeOpenAILongContextBillingExtra(account.Platform, input.Extra)
-	if err != nil || account.Platform != PlatformOpenAI {
-		return normalized, err
-	}
-
-	_, provided := input.Extra[openAILongContextBillingEnabledKey]
-	current, hasCurrent := account.Extra[openAILongContextBillingEnabledKey].(bool)
-	if !provided {
-		if hasCurrent {
-			normalized[openAILongContextBillingEnabledKey] = current
-		}
-	}
-	return normalized, nil
-}
-
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
@@ -451,9 +394,6 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 		Status:            StatusActive,
 		Schedulable:       true,
 		ProtocolEndpoints: protocolEndpoints,
-		// 来源维度在仓储层写库时也会推导一次，这里显式带上是为了让创建响应
-		// 直接带回该字段；否则调用方拿到的对象里它是空的，看起来像「未分类」。
-		SourceKind: DeriveAccountSourceKind(input.Type),
 	}
 	if input.ProbeEnabled != nil && *input.ProbeEnabled {
 		if !isUpstreamBillingProbeAccount(account) {
@@ -497,11 +437,7 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
-	accountExtra, err := normalizeOpenAILongContextBillingExtra(input.Platform, input.Extra)
-	if err != nil {
-		return nil, err
-	}
-	accountExtra, err = normalizeGrokMediaEligibilityExtra(input.Platform, accountExtra)
+	accountExtra, err := normalizeGrokMediaEligibilityExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err
 	}
@@ -599,11 +535,7 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	var normalizedExtra map[string]any
 	if input.Extra != nil {
-		normalizedExtra, err = normalizeOpenAILongContextBillingUpdateExtra(account, input)
-		if err != nil {
-			return nil, err
-		}
-		normalizedExtra, err = normalizeGrokMediaEligibilityUpdateExtra(account, input, normalizedExtra)
+		normalizedExtra, err = normalizeGrokMediaEligibilityUpdateExtra(account, input, input.Extra)
 		if err != nil {
 			return nil, err
 		}
@@ -662,8 +594,6 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	}
 	if input.Type != "" {
 		account.Type = input.Type
-		// 类型变了，来源维度必须跟着变，内存对象与库内保持一致。
-		account.SourceKind = DeriveAccountSourceKind(account.Type)
 	}
 	if input.Notes != nil {
 		account.Notes = normalizeAccountNotes(input.Notes)
@@ -942,15 +872,6 @@ func (s *adminServiceImpl) UpdateAccountExtra(ctx context.Context, id int64, upd
 	delete(updates, OllamaCloudUsageSessionExtraKey)
 	delete(updates, OllamaCloudUsageAutoRefreshExtraKey)
 	delete(updates, OllamaCloudUsageSnapshotExtraKey)
-	if _, exists := updates[openAILongContextBillingEnabledKey]; exists {
-		account, err := s.accountRepo.GetByID(ctx, id)
-		if err != nil {
-			return err
-		}
-		if err := ValidateOpenAILongContextBillingExtra(account.Platform, updates); err != nil {
-			return err
-		}
-	}
 	if len(updates) == 0 {
 		return nil
 	}
@@ -1018,11 +939,9 @@ func (s *adminServiceImpl) BulkUpdateAccounts(ctx context.Context, input *BulkUp
 		}
 	}
 	if openAISettings.any() {
-		inheritedCount, err := validateBulkOpenAISettingsTargets(input, openAISettings, targetsByID)
-		if err != nil {
+		if err := validateBulkOpenAISettingsTargets(input, openAISettings, targetsByID); err != nil {
 			return nil, err
 		}
-		result.LongContextInheritedCount = inheritedCount
 	}
 	if input.ProbeEnabled != nil {
 		for _, accountID := range input.AccountIDs {
@@ -1457,9 +1376,6 @@ func (s *adminServiceImpl) CreateShadow(ctx context.Context, parentID int64, opt
 		Priority:        priority,
 		Concurrency:     concurrency,
 		Schedulable:     true,
-		Extra: map[string]any{
-			openAILongContextBillingEnabledKey: parent.IsOpenAILongContextBillingEnabled(),
-		},
 	}
 
 	// 5. 持久化（Create 填充 shadow.ID）。并发竞态:预查(步骤2)放行后另一请求抢先建成,本次会撞
@@ -1662,7 +1578,20 @@ func (s *adminServiceImpl) ResetAccountQuota(ctx context.Context, id int64) erro
 		return infraerrors.New(http.StatusBadRequest, "SPARK_SHADOW_NO_QUOTA_RESET",
 			"cannot reset quota for a spark shadow account; manage it on the parent account")
 	}
-	return s.accountRepo.ResetQuotaUsedAndClearRateLimitCooldown(ctx, id)
+	if err := s.accountRepo.ResetQuotaUsedAndClearRateLimitCooldown(ctx, id); err != nil {
+		return err
+	}
+	// 配额计数超限是状态服务写的 temp_unschedulable（总额度停到管理员重置）：计数清零后一并解除；
+	// 别的原因写的停调不动。
+	if payload, ok := parseTempUnschedReasonPayload(account.TempUnschedulableReason); ok && payload.Source == quotaCounterSource {
+		if err := s.accountRepo.ClearTempUnschedulable(ctx, id); err != nil {
+			return err
+		}
+		if s.runtimeBlocker != nil {
+			s.runtimeBlocker.ClearAccountSchedulingBlock(id)
+		}
+	}
+	return nil
 }
 
 // EnsureOpenAIPrivacy 检查 OpenAI OAuth 账号是否已设置 privacy_mode，

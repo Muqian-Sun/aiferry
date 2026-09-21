@@ -289,12 +289,11 @@ func TestOpsErrorLoggerMiddleware_DedicatedCyberSessionBlockRecordsExactlyOnce(t
 	setupOpsErrorLogTestQueue(t, 3)
 	gin.SetMode(gin.TestMode)
 	ops := service.NewOpsService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
-	h := &OpenAIGatewayHandler{opsService: ops}
 	apiKey := &service.APIKey{ID: 41, Key: "sk-dedicated-test"}
 	router := gin.New()
 	router.Use(OpsErrorLoggerMiddleware(ops))
 	router.POST("/v1/responses", func(c *gin.Context) {
-		h.enqueueCyberSessionBlockedOpsEntry(c, apiKey, "gpt-test", "session-block-hash")
+		enqueueCyberSessionBlockedOpsEntry(c, ops, apiKey, "gpt-test", "session-block-hash")
 		c.JSON(http.StatusForbidden, gin.H{"error": gin.H{
 			"type": "permission_error", "code": "session_blocked_by_cyber_policy", "message": "blocked",
 		}})

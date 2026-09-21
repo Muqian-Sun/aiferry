@@ -76,19 +76,33 @@ func TestLiveSidebandLocationMatchesCreateRoute(t *testing.T) {
 }
 
 func TestLiveEnabledForAPIKey(t *testing.T) {
-	require.False(t, liveEnabledForAPIKey(nil))
-	require.False(t, liveEnabledForAPIKey(&service.APIKey{}))
-	require.False(t, liveEnabledForAPIKey(&service.APIKey{
+	gin.SetMode(gin.TestMode)
+	newCtx := func(route *service.CatalogRoute) *gin.Context {
+		c, _ := gin.CreateTestContext(httptest.NewRecorder())
+		c.Request = httptest.NewRequest(http.MethodPost, "/v1/live", nil)
+		if route != nil {
+			c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), *route))
+		}
+		return c
+	}
+	require.False(t, liveEnabledForAPIKey(newCtx(nil), nil))
+	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{}))
+	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformOpenAI},
 	}))
-	require.False(t, liveEnabledForAPIKey(&service.APIKey{
+	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
 	}))
-	require.True(t, liveEnabledForAPIKey(&service.APIKey{
+	require.True(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
 		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
 	}))
-	require.True(t, liveEnabledForAPIKey(&service.APIKey{
-		Group: &service.Group{Platform: service.PlatformComposite, AllowLive: true},
+	// 目录路由：条目网关族决定平台，分组平台是什么不再重要；allow_live 仍要开。
+	openAIRoute := &service.CatalogRoute{EntryID: 1, Platform: service.PlatformOpenAI}
+	require.True(t, liveEnabledForAPIKey(newCtx(openAIRoute), &service.APIKey{
+		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
+	}))
+	require.False(t, liveEnabledForAPIKey(newCtx(&service.CatalogRoute{EntryID: 2, Platform: service.PlatformGrok}), &service.APIKey{
+		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
 	}))
 }
 

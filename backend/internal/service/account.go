@@ -59,9 +59,6 @@ type Account struct {
 	ParentAccountID *int64 // non-nil → 影子账号（不持凭据，透传母账号凭据）
 	QuotaDimension  string // 用量维度："" / "global" / "spark"
 
-	// SourceKind 账号来源："" / "subscription" / "api_key"。
-	// 空值表示历史数据尚未分类，见 migrations/239。
-	SourceKind string
 	// ProtocolEndpoints 协议 → 上游地址。第三方 key 用它取代按平台推导地址，
 	// 现阶段只做读写打通，尚未参与地址解析。
 	ProtocolEndpoints map[string]string
@@ -70,6 +67,8 @@ type Account struct {
 	AccountGroups []AccountGroup
 	GroupIDs      []int64
 	Groups        []*Group
+	// CatalogEntryIDs 账号被哪些目录条目绑定为资源（调度按条目建桶，账号变更时按它找桶）。
+	CatalogEntryIDs []int64
 
 	// model_mapping 热路径缓存（非持久化字段）
 	modelMappingCache               map[string]string
@@ -79,6 +78,9 @@ type Account struct {
 	modelMappingCacheRawLen         int
 	modelMappingCacheRawSig         uint64
 	modelMappingCacheRuntimeVersion uint64
+	// modelMappingCacheVendor 记录解析时的厂商：厂商默认映射按 Vendor 启用，而 Vendor
+	// 由协议地址决定，地址变了（管理端改号后复用同一对象）缓存必须失效。
+	modelMappingCacheVendor string
 
 	// header_overrides 热路径缓存（非持久化字段，同 model_mapping 缓存先例）
 	headerOverrideCache               map[string]string
@@ -90,8 +92,6 @@ type Account struct {
 }
 
 type OpenAIEndpointCapability string
-
-const openAILongContextBillingEnabledKey = "openai_long_context_billing_enabled"
 
 const (
 	OpenAIEndpointCapabilityChatCompletions OpenAIEndpointCapability = "chat_completions"
@@ -182,27 +182,11 @@ func (a *Account) EffectiveLoadFactor() int {
 	return 1
 }
 
+// IsSchedulable 报告账号整体此刻可否调度（SchedulingState 的薄封装，给管理端 / 监控等非调度读者用；
+// 调度器直接读 SchedulingState / SchedulingAllows）。
+// 账号自己的配额计数（quota_used ≥ quota_limit）不在这里算：超限由状态服务在用量入账时写成 temp_unschedulable。
 func (a *Account) IsSchedulable() bool {
-	if !a.IsActive() || !a.Schedulable {
-		return false
-	}
-	now := time.Now()
-	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
-		return false
-	}
-	if a.OverloadUntil != nil && now.Before(*a.OverloadUntil) {
-		return false
-	}
-	if a.RateLimitResetAt != nil && now.Before(*a.RateLimitResetAt) {
-		return false
-	}
-	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) {
-		return false
-	}
-	if a.IsAPIKeyOrBedrock() && a.IsQuotaExceeded() {
-		return false
-	}
-	return true
+	return a.SchedulingState(time.Now()).Allows(time.Now())
 }
 
 // IsCredentialUsableForShadow 报告本账号(作为某 spark 影子的母账号)的凭据/传输是否可被影子透传使用。
@@ -601,6 +585,7 @@ func stringMappingFromRaw(raw any) map[string]string {
 
 func (a *Account) GetModelMapping() map[string]string {
 	runtimeVersion := xai.RuntimeModelMappingVersion()
+	vendor := a.Vendor()
 	credentialsPtr := mapPtr(a.Credentials)
 	rawMapping, _ := a.Credentials["model_mapping"].(map[string]any)
 	rawPtr := mapPtr(rawMapping)
@@ -612,7 +597,8 @@ func (a *Account) GetModelMapping() map[string]string {
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
 		a.modelMappingCacheRawPtr == rawPtr &&
 		a.modelMappingCacheRawLen == rawLen &&
-		a.modelMappingCacheRuntimeVersion == runtimeVersion {
+		a.modelMappingCacheRuntimeVersion == runtimeVersion &&
+		a.modelMappingCacheVendor == vendor {
 		rawSig = modelMappingSignature(rawMapping)
 		rawSigReady = true
 		if a.modelMappingCacheRawSig == rawSig {
@@ -632,6 +618,7 @@ func (a *Account) GetModelMapping() map[string]string {
 	a.modelMappingCacheRawLen = rawLen
 	a.modelMappingCacheRawSig = rawSig
 	a.modelMappingCacheRuntimeVersion = runtimeVersion
+	a.modelMappingCacheVendor = vendor
 	return mapping
 }
 
@@ -1322,14 +1309,6 @@ func (a *Account) IsOpenAI() bool {
 	return a.Platform == PlatformOpenAI
 }
 
-func (a *Account) IsOpenAILongContextBillingEnabled() bool {
-	if a == nil || !a.IsOpenAI() || a.Extra == nil {
-		return false
-	}
-	enabled, ok := a.Extra[openAILongContextBillingEnabledKey].(bool)
-	return ok && enabled
-}
-
 func (a *Account) IsAnthropic() bool {
 	return a.Platform == PlatformAnthropic
 }
@@ -1384,36 +1363,17 @@ func (a *Account) IsOpenAIApiKey() bool {
 // GetOpenAIBaseURL 解析 Chat Completions 协议的上游 base_url。
 //
 // 第三方 key 只认 chat_completions 协议地址，与平台标签无关，没有默认端点兜底。
-// 成品号走厂商官方端点：openai、国产供应商与 OpenCode Go 之外（grok 走
-// GetGrokBaseURL）返回空串。
+// 成品号只有 OpenAI 走官方端点；grok 走 GetGrokBaseURL，其余返回空串。
 func (a *Account) GetOpenAIBaseURL() string {
 	if a.IsThirdPartyKey() {
 		return a.ProtocolEndpoint(APIProtocolChatCompletions)
 	}
-	if !a.IsOpenAI() && !a.IsCNProvider() && !a.IsOpenCodeGo() {
+	// 成品号只有 OpenAI 有 Chat Completions 官方端点；国产供应商与 OpenCode 没有成品号形态，
+	// 一律是第三方 key，已在上面按协议地址返回。
+	if !a.IsOpenAI() {
 		return ""
 	}
-	// 成品号：走厂商官方端点。
-	switch a.Platform {
-	case PlatformKimi:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultKimiCodingBaseURL
-		}
-		return DefaultKimiPayGBaseURL
-	case PlatformZhipu:
-		if a.GetAccountMode() == AccountModeCoding {
-			return DefaultZhipuCodingBaseURL
-		}
-		return DefaultZhipuPayGBaseURL
-	case PlatformDeepseek:
-		return DefaultDeepseekBaseURL
-	case PlatformMiniMax:
-		return DefaultMiniMaxBaseURL
-	case PlatformOpenCodeGo:
-		return a.openCodeDefaultChatBaseURL()
-	default:
-		return "https://api.openai.com"
-	}
+	return "https://api.openai.com"
 }
 
 // GetAccountMode 返回国产供应商账号的接入模式（payg / coding）；非国产供应商或未设置时
@@ -1434,29 +1394,29 @@ func (a *Account) IsCodingPlan() bool {
 	return a.GetAccountMode() == AccountModeCoding
 }
 
-// GetCodingPlanProvider 根据 base_url 识别 Coding Plan 供应商（kimi / zhipu / minimax），
+// GetCodingPlanProvider 识别 Coding Plan 供应商（kimi / zhipu / minimax / opencode go），
 // 用于路由到对应的额度查询端点。非 coding 模式或无法识别时返回空串。
-// 只认官方域名：自定义中转不得把第三方 Key 发往厂商官方额度端点。
+//
+// 按 Vendor 只认官方域名（完整域名，不做子串匹配）：中转不得把第三方 Key 发往厂商官方
+// 额度端点。Kimi 的 Coding Plan 只在 api.kimi.com，按量在 api.moonshot.cn，同一厂商要再看主机。
 func (a *Account) GetCodingPlanProvider() string {
 	if a == nil {
 		return ""
 	}
-	if a.IsOpenCodeGoPlan() {
+	if a.Vendor() == PlatformOpenCodeGo && a.openCodeEndpointMode() == AccountModeGo {
 		return PlatformOpenCodeGo
 	}
 	if a.GetAccountMode() != AccountModeCoding {
 		return ""
 	}
-	baseURL := strings.ToLower(a.GetOpenAIBaseURL())
-	switch {
-	case strings.Contains(baseURL, "api.kimi.com/coding"):
-		return PlatformKimi
-	case strings.Contains(baseURL, "bigmodel.cn"), strings.Contains(baseURL, "api.z.ai"):
-		return PlatformZhipu
-	case strings.Contains(baseURL, "minimax.io"),
-		strings.Contains(baseURL, "minimaxi.com"),
-		strings.Contains(baseURL, "minimax.com"):
-		return PlatformMiniMax
+	switch vendor := a.Vendor(); vendor {
+	case PlatformKimi:
+		if upstreamHostOf(a.GetOpenAIBaseURL()) == "api.kimi.com" {
+			return PlatformKimi
+		}
+		return ""
+	case PlatformZhipu, PlatformMiniMax:
+		return vendor
 	default:
 		return ""
 	}
@@ -1744,7 +1704,9 @@ func (a *Account) openAIEndpointCapabilityConfigured(capability OpenAIEndpointCa
 // remains eligible for backwards compatibility. An explicit operator
 // override takes precedence over probe data.
 func (a *Account) GrokMediaGenerationEligibility() (bool, string) {
-	if a == nil || !a.IsGrok() {
+	// 按厂商判：成品号看平台，第三方 key 看协议地址是不是官方 xAI——与调度侧口径一致，
+	// 否则会出现调度放行、转发拒绝的错位。
+	if a == nil || a.Vendor() != PlatformGrok {
 		return false, "not_grok"
 	}
 	if override, ok := grokMediaEligibilityOverride(a.Extra); ok {
@@ -2802,41 +2764,6 @@ func (a *Account) IsWeeklyQuotaPeriodExpired() bool {
 		return a.isFixedWeeklyPeriodExpired(start)
 	}
 	return isPeriodExpired(start, 7*24*time.Hour)
-}
-
-// IsQuotaExceeded 检查 API Key 账号配额是否已超限（任一维度超限即返回 true）
-func (a *Account) IsQuotaExceeded() bool {
-	// 总额度
-	if limit := a.GetQuotaLimit(); limit > 0 && a.GetQuotaUsed() >= limit {
-		return true
-	}
-	// 日额度（周期过期视为未超限，下次 increment 会重置）
-	if limit := a.GetQuotaDailyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_daily_start")
-		var expired bool
-		if a.GetQuotaDailyResetMode() == "fixed" {
-			expired = a.isFixedDailyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 24*time.Hour)
-		}
-		if !expired && a.GetQuotaDailyUsed() >= limit {
-			return true
-		}
-	}
-	// 周额度
-	if limit := a.GetQuotaWeeklyLimit(); limit > 0 {
-		start := a.getExtraTime("quota_weekly_start")
-		var expired bool
-		if a.GetQuotaWeeklyResetMode() == "fixed" {
-			expired = a.isFixedWeeklyPeriodExpired(start)
-		} else {
-			expired = isPeriodExpired(start, 7*24*time.Hour)
-		}
-		if !expired && a.GetQuotaWeeklyUsed() >= limit {
-			return true
-		}
-	}
-	return false
 }
 
 // GetWindowCostLimit 获取 5h 窗口费用阈值（美元）

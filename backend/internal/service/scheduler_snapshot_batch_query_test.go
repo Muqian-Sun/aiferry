@@ -44,6 +44,10 @@ func (r *batchAccountQueryRepo) ListSchedulableByGroupIDAndPlatform(_ context.Co
 	return r.run(batchAccountQueryKey{groupID: groupID, platform: platform})
 }
 
+func (r *batchAccountQueryRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *batchAccountQueryRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return r.run(batchAccountQueryKey{groupID: groupID, platform: platforms[0], mixed: len(platforms) > 1})
 }

@@ -66,11 +66,20 @@ type CNProviderQuotaProbeResult struct {
 
 // CNProviderQuotaService 探测 Kimi / Zhipu Coding Plan 的滚动窗口用量。
 type CNProviderQuotaService struct {
-	accountRepo  AccountRepository
-	proxyRepo    ProxyRepository
-	httpUpstream HTTPUpstream
-	cfg          *config.Config
-	flight       singleflight.Group
+	accountRepo      AccountRepository
+	proxyRepo        ProxyRepository
+	httpUpstream     HTTPUpstream
+	cfg              *config.Config
+	rateLimitService *RateLimitService
+	flight           singleflight.Group
+}
+
+// SetRateLimitService 注入状态服务：额度快照落库后由它评估要不要停调。
+func (s *CNProviderQuotaService) SetRateLimitService(rateLimitService *RateLimitService) {
+	if s == nil {
+		return
+	}
+	s.rateLimitService = rateLimitService
 }
 
 // NewCNProviderQuotaService 构造 Coding Plan 额度探测服务。
@@ -270,6 +279,7 @@ func (s *CNProviderQuotaService) queryUsageForAccount(ctx context.Context, accou
 		slog.Warn("cn_quota_persist_failed", "account_id", account.ID, "provider", provider, "error", err)
 	} else {
 		result.Persisted = true
+		s.rateLimitService.ApplyAccountQuotaStateAfterExtraUpdate(ctx, account, updates)
 	}
 	return result, nil
 }
@@ -291,14 +301,17 @@ func validateCodingPlanAccount(account *Account) error {
 	if account == nil {
 		return infraerrors.New(http.StatusNotFound, "CN_QUOTA_ACCOUNT_NOT_FOUND", "account not found")
 	}
-	if account.IsOpenCodeGoPlan() {
-		return nil
-	}
-	if account.IsOpenCodeGo() {
+	// OpenCode Go 的额度窗口按官方地址识别（/zen/go），不看平台标签和 account_mode。
+	if account.Vendor() == PlatformOpenCodeGo {
+		if account.openCodeEndpointMode() == AccountModeGo {
+			return nil
+		}
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "opencode zen accounts have no subscription quota window")
 	}
-	if !account.IsCNProvider() {
-		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_INVALID_PLATFORM", "account is not a CN provider account")
+	// 国产 Coding Plan 额度端点只在官方域名上：Vendor 识别厂商，account_mode 区分
+	// payg / coding。中转 key（Vendor 为空）没有可核实的官方额度接口。
+	if !IsCNProvider(account.Vendor()) {
+		return errCNProbeAddressNotOfficial
 	}
 	if !account.IsCodingPlan() {
 		return infraerrors.New(http.StatusBadRequest, "CN_QUOTA_NOT_CODING_PLAN", "account is not a coding plan account")

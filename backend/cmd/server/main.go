@@ -159,6 +159,23 @@ func runMainServer() {
 			log.Printf("Plugin manager started in degraded state: %v", err)
 		}
 	}
+	if app.ModelCatalog != nil {
+		// 播种在迁移之后、服务开始接流量之前跑一次：新部署起来就有一份可用的模型目录。
+		// 失败不拦启动——目录查不到时计费会退回价格文件 / 硬编码兜底价，与播种前一致。
+		// 带超时：几百条 upsert 本地是亚秒级，60s 只防库挂死把启动一起挂住（拍的）。
+		seedCtx, cancelSeed := context.WithTimeout(context.Background(), 60*time.Second)
+		result, err := app.ModelCatalog.Seed(seedCtx)
+		cancelSeed()
+		// 字段名避开独立的 " failed" 与 "error" 子串：stdlog 桥按关键词定级，写 failed=0 会把这行正常日志记成 ERROR。
+		log.Printf("Model catalog seeded: inserted=%d refreshed=%d skipped_admin=%d skipped_invalid=%d write_failed=%d candidates=%d",
+			result.Inserted, result.Refreshed, result.SkippedAdmin, result.SkippedInvalid, result.Failed, result.CandidateModels)
+		for _, sample := range result.Errors {
+			log.Printf("Model catalog seed failure: %s", sample)
+		}
+		if err != nil {
+			log.Printf("Model catalog seeding aborted (falling back to the pricing file for the rest): %v", err)
+		}
+	}
 	if app.PromptAudit != nil {
 		if err := app.PromptAudit.Start(context.Background()); err != nil {
 			// Startup continues so unrelated APIs stay up. Fail-closed (unavailable)

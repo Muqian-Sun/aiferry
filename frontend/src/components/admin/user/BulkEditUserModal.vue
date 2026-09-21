@@ -62,8 +62,36 @@
         </div>
       </div>
 
+      <div class="space-y-3 py-4">
+        <div class="flex items-center justify-between gap-4">
+          <label for="bulk-rate-multiplier" class="input-label mb-0">
+            {{ t('admin.users.form.rateMultiplier') }}
+          </label>
+          <Toggle
+            v-model="enableRateMultiplier"
+            :aria-label="t('admin.users.bulkLimits.enableRateMultiplier')"
+            data-test="enable-rate-multiplier"
+          />
+        </div>
+        <div v-if="enableRateMultiplier">
+          <input
+            id="bulk-rate-multiplier"
+            v-model="rateMultiplierValue"
+            type="number"
+            min="0"
+            step="0.01"
+            class="input"
+            data-test="rate-multiplier-input"
+          />
+          <p class="input-hint">{{ t('admin.users.form.rateMultiplierHint') }}</p>
+        </div>
+      </div>
+
       <p v-if="hasInvalidValue" class="text-sm text-red-600 dark:text-red-400">
         {{ t('admin.users.bulkLimits.nonNegativeInteger') }}
+      </p>
+      <p v-if="hasInvalidMultiplier" class="text-sm text-red-600 dark:text-red-400">
+        {{ t('admin.users.bulkLimits.nonNegativeNumber') }}
       </p>
       <p v-if="selectionTooLarge" class="text-sm text-red-600 dark:text-red-400">
         {{ t('admin.users.bulkLimits.selectionLimit', { max: MAX_BATCH_USER_IDS }) }}
@@ -112,8 +140,10 @@ const { t } = useI18n()
 const appStore = useAppStore()
 const enableConcurrency = ref(false)
 const enableRPMLimit = ref(false)
+const enableRateMultiplier = ref(false)
 const concurrencyValue = ref<string | number>('')
 const rpmLimitValue = ref<string | number>('')
+const rateMultiplierValue = ref<string | number>('')
 const submitting = ref(false)
 const MAX_BATCH_USER_IDS = 500
 
@@ -131,12 +161,25 @@ const parsedConcurrency = computed(() =>
 const parsedRPMLimit = computed(() =>
   enableRPMLimit.value ? parseLimit(rpmLimitValue.value) : undefined
 )
+// 倍率允许小数：空 = 未填，负数 / 非数字 = 非法
+const parseMultiplier = (value: string | number): number | null | undefined => {
+  const trimmed = String(value).trim()
+  if (!trimmed) return undefined
+  const parsed = Number(trimmed)
+  if (!Number.isFinite(parsed) || parsed < 0) return null
+  return parsed
+}
+const parsedRateMultiplier = computed(() =>
+  enableRateMultiplier.value ? parseMultiplier(rateMultiplierValue.value) : undefined
+)
 const hasInvalidValue = computed(() =>
   parsedConcurrency.value === null || parsedRPMLimit.value === null
 )
+const hasInvalidMultiplier = computed(() => parsedRateMultiplier.value === null)
 const hasUpdate = computed(() =>
   (parsedConcurrency.value !== undefined && parsedConcurrency.value !== null)
   || (parsedRPMLimit.value !== undefined && parsedRPMLimit.value !== null)
+  || (parsedRateMultiplier.value !== undefined && parsedRateMultiplier.value !== null)
 )
 const selectionTooLarge = computed(() => props.selectedIds.length > MAX_BATCH_USER_IDS)
 const canSubmit = computed(() =>
@@ -144,14 +187,17 @@ const canSubmit = computed(() =>
   && !selectionTooLarge.value
   && hasUpdate.value
   && !hasInvalidValue.value
+  && !hasInvalidMultiplier.value
   && !submitting.value
 )
 
 const reset = () => {
   enableConcurrency.value = false
   enableRPMLimit.value = false
+  enableRateMultiplier.value = false
   concurrencyValue.value = ''
   rpmLimitValue.value = ''
+  rateMultiplierValue.value = ''
   submitting.value = false
 }
 
@@ -183,6 +229,10 @@ const handleSubmit = async () => {
         ? t('admin.users.bulkLimits.rpmUnlimitedValue')
         : t('admin.users.bulkLimits.rpmValue', { value: parsedRPMLimit.value })
     )
+  }
+  if (parsedRateMultiplier.value !== undefined && parsedRateMultiplier.value !== null) {
+    request.rate_multiplier = parsedRateMultiplier.value
+    fields.push(t('admin.users.bulkLimits.rateMultiplierValue', { value: parsedRateMultiplier.value }))
   }
 
   const confirmed = window.confirm(

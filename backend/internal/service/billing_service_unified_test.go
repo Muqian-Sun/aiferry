@@ -83,32 +83,17 @@ func TestCalculateCostUnified_TokenModeAppliesRateMultiplierToImageTokens(t *tes
 }
 
 func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
-	// Set up a ChannelService with a per-request pricing channel
-	cs := newTestChannelServiceWithCache(t, &channelCache{
-		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{
-			{groupID: 1, model: "claude-sonnet-4"}: {
-				BillingMode:     BillingModePerRequest,
-				PerRequestPrice: testPtrFloat64(0.05),
-			},
-		},
-		channelByGroupID: map[int64]*Channel{
-			1: {ID: 1, Status: StatusActive},
-		},
-		groupPlatform:           map[int64]string{1: ""},
-		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
-		mappingByGroupModel:     map[channelModelKey]string{},
-		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
-		byID:                    map[int64]*Channel{},
-	})
-
+	// 按次价卡已从渠道搬到模型目录。
 	bs := newTestBillingService()
-	resolver := NewModelPricingResolver(cs, bs)
-	groupID := int64(1)
+	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+		Models:          []string{"claude-sonnet-4"},
+		BillingMode:     BillingModePerRequest,
+		PerRequestPrice: testPtrFloat64(0.05),
+	})
 
 	input := CostInput{
 		Ctx:            context.Background(),
 		Model:          "claude-sonnet-4",
-		GroupID:        &groupID,
 		Tokens:         UsageTokens{InputTokens: 100, OutputTokens: 50},
 		RequestCount:   3,
 		RateMultiplier: 2.0,
@@ -126,34 +111,19 @@ func TestCalculateCostUnified_PerRequestMode(t *testing.T) {
 }
 
 func TestCalculateCostUnified_ImageMode(t *testing.T) {
-	cs := newTestChannelServiceWithCache(t, &channelCache{
-		pricingByGroupModel: map[channelModelKey]*ChannelModelPricing{
-			{groupID: 2, model: "gemini-image"}: {
-				BillingMode:     BillingModeImage,
-				PerRequestPrice: testPtrFloat64(0.10),
-			},
-		},
-		channelByGroupID: map[int64]*Channel{
-			2: {ID: 2, Status: StatusActive},
-		},
-		groupPlatform:           map[int64]string{2: ""},
-		wildcardByGroupPlatform: map[channelGroupPlatformKey][]*wildcardPricingEntry{},
-		mappingByGroupModel:     map[channelModelKey]string{},
-		wildcardMappingByGP:     map[channelGroupPlatformKey][]*wildcardMappingEntry{},
-		byID:                    map[int64]*Channel{},
-	})
-
 	bs := &BillingService{
 		cfg:            &config.Config{},
 		fallbackPrices: map[string]*ModelPricing{},
 	}
-	resolver := NewModelPricingResolver(cs, bs)
-	groupID := int64(2)
+	resolver := newResolverWithCatalogCards(bs, ChannelModelPricing{
+		Models:          []string{"gemini-image"},
+		BillingMode:     BillingModeImage,
+		PerRequestPrice: testPtrFloat64(0.10),
+	})
 
 	input := CostInput{
 		Ctx:            context.Background(),
 		Model:          "gemini-image",
-		GroupID:        &groupID,
 		Tokens:         UsageTokens{},
 		RequestCount:   2,
 		RateMultiplier: 1.0,
@@ -174,8 +144,8 @@ func channelTimeResolvedForTest(base *ModelPricing, intervals []PricingInterval)
 		Mode:        BillingModeToken,
 		BasePricing: base,
 		Intervals:   intervals,
-		Source:      PricingSourceChannel,
-		channelPricing: &ChannelModelPricing{
+		Source:      PricingSourceCatalog,
+		configuredPricing: &ChannelModelPricing{
 			BillingMode: BillingModeToken,
 			TimePricing: &ChannelTimePricing{
 				Timezone: "Asia/Shanghai",
@@ -186,7 +156,6 @@ func channelTimeResolvedForTest(base *ModelPricing, intervals []PricingInterval)
 				}},
 			},
 		},
-		longContextPricingEnabled: true,
 	}
 }
 
@@ -249,23 +218,6 @@ func TestCalculateCostUnified_ChannelTimePricingScalesBaseOnUnmatchedInterval(t 
 	require.NoError(t, err)
 	require.InDelta(t, 2.0, cost.InputCost, 1e-12)
 	require.InDelta(t, 2.0, cost.TotalCost, 1e-12)
-}
-
-func TestCalculateCostUnified_ChannelTimePricingDoesNotApplyToGroupPricing(t *testing.T) {
-	resolved := channelTimeResolvedForTest(&ModelPricing{InputPricePerToken: 0.001}, nil)
-	resolved.Source = PricingSourceGroup
-	billing := NewBillingService(&config.Config{}, nil)
-
-	cost, err := billing.CalculateCostUnified(CostInput{
-		Ctx:       context.Background(),
-		Model:     "model",
-		Tokens:    UsageTokens{InputTokens: 1000},
-		Resolver:  &ModelPricingResolver{},
-		Resolved:  resolved,
-		PricingAt: time.Date(2026, 8, 17, 1, 0, 0, 0, time.UTC),
-	})
-	require.NoError(t, err)
-	require.InDelta(t, 1.0, cost.TotalCost, 1e-12)
 }
 
 func TestCalculateCostUnified_ChannelTimePricingDoesNotApplyOutsideMatchingTime(t *testing.T) {

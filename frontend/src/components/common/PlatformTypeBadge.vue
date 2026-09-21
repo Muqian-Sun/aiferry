@@ -2,8 +2,8 @@
   <div class="inline-flex flex-col gap-0.5 text-xs font-medium">
     <!-- Row 1: Platform + Type -->
     <div class="inline-flex items-center overflow-hidden rounded-md">
-      <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]">
-        <PlatformIcon :platform="platform" size="xs" />
+      <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]" :title="platformTitle" data-testid="platform-badge">
+        <PlatformIcon :platform="displayPlatform" size="xs" />
         <span>{{ platformLabel }}</span>
       </span>
       <span :class="['inline-flex items-center gap-1 px-1.5 py-1', typeClass]">
@@ -68,7 +68,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { AccountPlatform, AccountType } from '@/types'
-import { platformLabel as sharedPlatformLabel } from '@/utils/platformColors'
+import { RELAY_PLATFORM, platformLabel as sharedPlatformLabel } from '@/utils/platformColors'
 import { normalizePlanType, openAIPlanTypeLabel } from '@/utils/planType'
 import GrokFreeIcon from './GrokFreeIcon.vue'
 import PlatformIcon from './PlatformIcon.vue'
@@ -79,6 +79,11 @@ const { t } = useI18n()
 interface Props {
   platform: AccountPlatform
   type: AccountType
+  /**
+   * 按上游地址识别出的官方厂商（后端 vendor 字段）。第三方 key 的 platform 只是展示标签，
+   * 徽章按 vendor 显示；没识别出厂商的 key 显示为「中转」。成品号忽略此项。
+   */
+  vendor?: string | null
   authMode?: string
   planType?: string
   privacyMode?: string
@@ -87,7 +92,23 @@ interface Props {
 
 const props = defineProps<Props>()
 
-const platformLabel = computed(() => sharedPlatformLabel(props.platform))
+const isThirdPartyKey = computed(() => props.type === 'apikey')
+
+// 徽章展示的平台：成品号看 platform；第三方 key 看按地址识别的厂商，未识别即中转。
+const displayPlatform = computed<AccountPlatform | typeof RELAY_PLATFORM>(() => {
+  if (!isThirdPartyKey.value) return props.platform
+  return (props.vendor as AccountPlatform | undefined) || RELAY_PLATFORM
+})
+
+const platformLabel = computed(() => sharedPlatformLabel(displayPlatform.value))
+
+const platformTitle = computed(() => {
+  if (!isThirdPartyKey.value) return undefined
+  const label = sharedPlatformLabel(props.platform)
+  return props.vendor
+    ? `${sharedPlatformLabel(props.vendor)} (official) · label: ${label}`
+    : `Relay / aggregator (no official vendor identified) · label: ${label}`
+})
 
 const normalizedAuthMode = computed(() =>
   (props.authMode || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
@@ -176,56 +197,56 @@ const planIconName = computed<'bolt' | null>(() => {
 })
 
 const platformClass = computed(() => {
-  if (props.platform === 'anthropic') {
+  if (displayPlatform.value === 'anthropic') {
     return 'bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400'
   }
-  if (props.platform === 'openai') {
+  if (displayPlatform.value === 'openai') {
     return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400'
   }
-  if (props.platform === 'antigravity') {
+  if (displayPlatform.value === 'antigravity') {
     return 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
   }
-  if (props.platform === 'grok') {
+  if (displayPlatform.value === 'grok') {
     return 'bg-zinc-100 text-zinc-700 dark:bg-zinc-800 dark:text-zinc-300'
   }
-  if (props.platform === 'kimi') {
+  if (displayPlatform.value === 'kimi') {
     return 'bg-pink-100 text-pink-700 dark:bg-pink-900/30 dark:text-pink-400'
   }
-  if (props.platform === 'zhipu') {
+  if (displayPlatform.value === 'zhipu') {
     return 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400'
   }
-  if (props.platform === 'deepseek') {
+  if (displayPlatform.value === 'deepseek') {
     return 'bg-teal-100 text-teal-700 dark:bg-teal-900/30 dark:text-teal-400'
   }
-  if (props.platform === 'minimax') {
+  if (displayPlatform.value === 'minimax') {
     return 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400'
   }
   return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
 })
 
 const typeClass = computed(() => {
-  if (props.platform === 'anthropic') {
+  if (displayPlatform.value === 'anthropic') {
     return 'bg-orange-100 text-orange-600 dark:bg-orange-900/30 dark:text-orange-400'
   }
-  if (props.platform === 'openai') {
+  if (displayPlatform.value === 'openai') {
     return 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30 dark:text-emerald-400'
   }
-  if (props.platform === 'antigravity') {
+  if (displayPlatform.value === 'antigravity') {
     return 'bg-purple-100 text-purple-600 dark:bg-purple-900/30 dark:text-purple-400'
   }
-  if (props.platform === 'grok') {
+  if (displayPlatform.value === 'grok') {
     return 'bg-zinc-100 text-zinc-600 dark:bg-zinc-800 dark:text-zinc-300'
   }
-  if (props.platform === 'kimi') {
+  if (displayPlatform.value === 'kimi') {
     return 'bg-pink-100 text-pink-600 dark:bg-pink-900/30 dark:text-pink-400'
   }
-  if (props.platform === 'zhipu') {
+  if (displayPlatform.value === 'zhipu') {
     return 'bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400'
   }
-  if (props.platform === 'deepseek') {
+  if (displayPlatform.value === 'deepseek') {
     return 'bg-teal-100 text-teal-600 dark:bg-teal-900/30 dark:text-teal-400'
   }
-  if (props.platform === 'minimax') {
+  if (displayPlatform.value === 'minimax') {
     return 'bg-rose-100 text-rose-600 dark:bg-rose-900/30 dark:text-rose-400'
   }
   return 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'

@@ -1188,27 +1188,24 @@ func TestGetModelPricing_GrokOfficialFamilyCards(t *testing.T) {
 	}
 }
 
-func TestCalculateCostUnified_GroupLongContextToggleUsesPresetLadder(t *testing.T) {
+// 长上下文阶梯不再有分组开关：价卡带阈值就应用（grok-4.5 预设 200k 起输入 / 输出 ×2）。
+func TestCalculateCostUnified_LongContextLadderAlwaysApplies(t *testing.T) {
 	svc := newTestBillingService()
 	resolver := NewModelPricingResolver(nil, svc)
-	tokens := UsageTokens{InputTokens: 250000, OutputTokens: 1000}
 
-	off := &Group{LongContextPricingEnabled: false}
-	disabled, err := svc.CalculateCostUnified(CostInput{
-		Model: "grok-4.5", Group: off, Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
+	below, err := svc.CalculateCostUnified(CostInput{
+		Model: "grok-4.5", Tokens: UsageTokens{InputTokens: 100000, OutputTokens: 1000}, RateMultiplier: 1, Resolver: resolver,
+	})
+	require.NoError(t, err)
+	above, err := svc.CalculateCostUnified(CostInput{
+		Model: "grok-4.5", Tokens: UsageTokens{InputTokens: 250000, OutputTokens: 1000}, RateMultiplier: 1, Resolver: resolver,
 	})
 	require.NoError(t, err)
 
-	on := &Group{LongContextPricingEnabled: true}
-	enabled, err := svc.CalculateCostUnified(CostInput{
-		Model: "grok-4.5", Group: on, Tokens: tokens, RateMultiplier: 1, Resolver: resolver,
-	})
-	require.NoError(t, err)
-
-	require.False(t, disabled.LongContextBillingApplied)
-	require.True(t, enabled.LongContextBillingApplied)
-	require.InDelta(t, disabled.InputCost*2, enabled.InputCost, 1e-12)
-	require.InDelta(t, disabled.OutputCost*2, enabled.OutputCost, 1e-12)
+	require.False(t, below.LongContextBillingApplied)
+	require.True(t, above.LongContextBillingApplied)
+	require.InDelta(t, below.InputCost/100000*2, above.InputCost/250000, 1e-15)
+	require.InDelta(t, below.OutputCost*2, above.OutputCost, 1e-12)
 }
 
 func TestGetModelPricing_UnknownGrokTextFallsBackToGrok46(t *testing.T) {

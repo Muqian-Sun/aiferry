@@ -451,8 +451,10 @@ func TestMonitorAccountQuotaCapability_Matrix(t *testing.T) {
 			wantErr: ErrChannelMonitorAccountNotSupportable,
 		},
 		{
-			name:    "kimi coding default endpoint ok",
-			account: &Account{ID: 3, Platform: domain.PlatformKimi, Credentials: map[string]any{"account_mode": AccountModeCoding}},
+			// Kimi 的 Coding Plan 只在 api.kimi.com：要配官方 coding 地址才识别成 Coding Plan 供应商。
+			name: "kimi coding official endpoint ok",
+			account: &Account{ID: 3, Platform: domain.PlatformKimi, Type: AccountTypeAPIKey,
+				Credentials: map[string]any{"account_mode": AccountModeCoding}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiCodingBaseURL}},
 		},
 		{
 			name:    "zhipu coding default endpoint ok",
@@ -542,6 +544,24 @@ func TestValidateLinkedAccount_CapabilityRejected(t *testing.T) {
 
 	err := svc.validateLinkedAccount(context.Background(), MonitorProviderDeepseek, int64Ptr(1))
 	require.ErrorIs(t, err, ErrChannelMonitorAccountNotSupportable)
+}
+
+// 监控的供应商与账号按厂商匹配，不看平台标签：openai 标签但官方 Kimi 地址的 coding key
+// 能绑到 Kimi 监控；kimi 标签但指向中转的 key 不属于任何供应商，绑不上。
+func TestValidateLinkedAccount_MatchesProviderByVendorNotLabel(t *testing.T) {
+	svc := NewChannelMonitorService(nil, nil)
+	svc.SetQuotaFetcher(newQuotaModeFetcher(map[int64]*Account{
+		1: {ID: 1, Platform: domain.PlatformOpenAI, Type: AccountTypeAPIKey,
+			Credentials:       map[string]any{"account_mode": AccountModeCoding},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: DefaultKimiCodingBaseURL}},
+		2: {ID: 2, Platform: domain.PlatformKimi, Type: AccountTypeAPIKey,
+			Credentials:       map[string]any{"account_mode": AccountModeCoding},
+			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1"}},
+	}, nil))
+
+	require.NoError(t, svc.validateLinkedAccount(context.Background(), MonitorProviderKimi, int64Ptr(1)))
+	require.ErrorIs(t, svc.validateLinkedAccount(context.Background(), MonitorProviderOpenAI, int64Ptr(1)), ErrChannelMonitorProviderIncompatible)
+	require.ErrorIs(t, svc.validateLinkedAccount(context.Background(), MonitorProviderKimi, int64Ptr(2)), ErrChannelMonitorProviderIncompatible)
 }
 
 func TestRevalidateLinkedAccount_Capability(t *testing.T) {

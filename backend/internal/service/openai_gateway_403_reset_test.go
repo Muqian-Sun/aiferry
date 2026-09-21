@@ -38,7 +38,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResetsOpenAI403CounterForZeroUsage(t *t
 			Model:     "gpt-5.1",
 		},
 		APIKey:  &APIKey{ID: 1001, Group: &Group{RateMultiplier: 1}},
-		User:    &User{ID: 2001},
+		User:    &User{ID: 2001, RateMultiplier: 1},
 		Account: &Account{ID: 777, Platform: PlatformOpenAI},
 	})
 

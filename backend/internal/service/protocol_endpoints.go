@@ -76,61 +76,11 @@ func (a *Account) ProtocolEndpoint(protocol string) string {
 	return strings.TrimSpace(a.ProtocolEndpoints[protocol])
 }
 
-// UpstreamProtocolsOf 返回账号能直接对话的上游协议集合。
-//
-// 第三方 key：完全由 protocol_endpoints 的键决定，不做任何平台推导。地址与协议
-// 都是管理员显式声明的，推导只会带来「猜错把请求推给不会说该协议的上游」。
-//
-// 成品号：按厂商推导。成品号本身就是厂商绑定的——OAuth 刷新、客户端伪装、额度
-// 窗口解析都依赖厂商，协议同样由厂商决定，没有配置空间。
-func (a *Account) UpstreamProtocolsOf() map[string]struct{} {
-	out := make(map[string]struct{}, 4)
-	if a == nil {
-		return out
-	}
-	if a.IsThirdPartyKey() {
-		for key := range a.ProtocolEndpoints {
-			if IsUpstreamProtocol(key) {
-				out[key] = struct{}{}
-			}
-		}
-		return out
-	}
-
-	switch {
-	case a.IsAnthropic():
-		out[APIProtocolAnthropic] = struct{}{}
-	case a.IsGemini():
-		out[APIProtocolGemini] = struct{}{}
-	case a.IsAntigravity():
-		// Antigravity 同时暴露 Claude 与 Gemini 两种入站形态。
-		out[APIProtocolAnthropic] = struct{}{}
-		out[APIProtocolGemini] = struct{}{}
-	case a.IsOpenAI(), a.IsGrok():
-		out[APIProtocolResponses] = struct{}{}
-		out[APIProtocolChatCompletions] = struct{}{}
-	}
-	return out
-}
-
 // IsThirdPartyKey 报告账号是否为第三方 key（与成品号相对）。
+// 来源只由类型决定：apikey 是第三方 key，oauth / setup-token / bedrock / service_account 是成品号。
+// 成品号需要厂商特有的令牌刷新、客户端伪装与额度窗口解析；第三方 key 不需要。
 func (a *Account) IsThirdPartyKey() bool {
-	if a == nil {
-		return false
-	}
-	if kind := strings.TrimSpace(a.SourceKind); kind != "" {
-		return kind == AccountSourceAPIKey
-	}
-	return DeriveAccountSourceKind(a.Type) == AccountSourceAPIKey
-}
-
-// SpeaksUpstreamProtocol 报告账号是否能直接对话该协议（不经协议转换）。
-func (a *Account) SpeaksUpstreamProtocol(protocol string) bool {
-	if protocol == "" {
-		return false
-	}
-	_, ok := a.UpstreamProtocolsOf()[protocol]
-	return ok
+	return a != nil && a.Type == AccountTypeAPIKey
 }
 
 // WithInboundProtocol 把本次请求的入站协议放进 context，供调度做协议偏好。
@@ -148,21 +98,6 @@ func InboundProtocolFromContext(ctx context.Context) string {
 	}
 	protocol, _ := ctx.Value(ctxkey.InboundProtocol).(string)
 	return protocol
-}
-
-// DefaultProtocolForPlatform 返回该平台第三方 key 的默认协议标识。
-// 用于把「平台 + base_url」这种旧形态的账号数据转换成协议映射。
-func DefaultProtocolForPlatform(platform string) string {
-	switch platform {
-	case PlatformAnthropic, PlatformAntigravity:
-		return APIProtocolAnthropic
-	case PlatformGemini:
-		return APIProtocolGemini
-	case PlatformOpenAI, PlatformGrok, PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo:
-		return APIProtocolChatCompletions
-	default:
-		return ""
-	}
 }
 
 // ValidateProtocolEndpoints 校验账号的协议映射是否满足其来源维度的要求。
@@ -281,6 +216,12 @@ func ResolveUpstreamBaseURL(account *Account, resolved string, protocol string, 
 	return officialDefault, nil
 }
 
+// HasOpenAIProtocolEndpoint 报告第三方 key 是否配了 OpenAI 协议族（Chat Completions 或
+// Responses）的地址：OpenAI 协议层面的账号设置（长上下文计费、端点能力）按它露出，不看标签。
+func (a *Account) HasOpenAIProtocolEndpoint() bool {
+	return a.ProtocolEndpoint(APIProtocolChatCompletions) != "" || a.ProtocolEndpoint(APIProtocolResponses) != ""
+}
+
 // PrimaryUpstreamBaseURL 返回账号的主上游地址。
 //
 // 用于那些「只需要知道这个账号大致指向哪」的判断：Ollama Cloud 识别、模型同步、
@@ -318,6 +259,12 @@ var primaryUpstreamProtocolOrder = []string{
 	APIProtocolResponses,
 	APIProtocolAnthropic,
 	APIProtocolGemini,
+}
+
+// PrimaryUpstreamProtocolOrder 把 PrimaryUpstreamBaseURL 的取址顺序暴露给需要在 SQL 里
+// 镜像同一判断的仓储层（Ollama Cloud 识别），两边共用一个真相源。
+func PrimaryUpstreamProtocolOrder() []string {
+	return append([]string(nil), primaryUpstreamProtocolOrder...)
 }
 
 // MissingProtocolEndpointError 是第三方 key 缺少某协议上游地址时的统一错误。

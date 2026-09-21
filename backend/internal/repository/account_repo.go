@@ -15,6 +15,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -23,6 +24,7 @@ import (
 	dbaccount "github.com/Wei-Shaw/sub2api/ent/account"
 	dbaccountgroup "github.com/Wei-Shaw/sub2api/ent/accountgroup"
 	dbgroup "github.com/Wei-Shaw/sub2api/ent/group"
+	dbmodelcatalogbinding "github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	dbpredicate "github.com/Wei-Shaw/sub2api/ent/predicate"
 	dbproxy "github.com/Wei-Shaw/sub2api/ent/proxy"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
@@ -191,7 +193,6 @@ func createAccountRecord(ctx context.Context, client *dbent.Client, account *ser
 	}
 
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
-	builder.SetSourceKind(accountSourceKind(account))
 	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	if account.ParentAccountID != nil {
 		builder.SetParentAccountID(*account.ParentAccountID)
@@ -557,7 +558,6 @@ func (r *accountRepository) updateLockedAccount(
 	builder.SetQuotaDimension(dbaccount.QuotaDimension(account.QuotaDimensionOrDefault()))
 	// type 可以被改（见上方 SetType），来源维度必须跟着一起改，否则会出现
 	// 「类型是 apikey、来源却是 subscription」这种只在数据里看得出来的错配。
-	builder.SetSourceKind(accountSourceKind(account))
 	builder.SetProtocolEndpoints(normalizeProtocolEndpoints(account.ProtocolEndpoints))
 	builder.SetNillableParentAccountID(account.ParentAccountID)
 
@@ -592,13 +592,11 @@ func lockAndMergeAccountProbeExtra(
 			AND protocol_endpoints = $6::jsonb
 			AND proxy_id IS NOT DISTINCT FROM $5,
 			COALESCE(
-				platform IN (`+ollamaCloudUsagePlatformsSQL+`)
-				AND $2 IN (`+ollamaCloudUsagePlatformsSQL+`)
-				AND type = 'apikey'
+				`+ollamaCloudUsageKeySQL+`
 				AND $3 = 'apikey'
 				AND credentials -> 'api_key' IS NOT DISTINCT FROM $4::jsonb -> 'api_key'
-				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
-				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb", "$2::text"))+`,
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints"))+`
+				AND `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("$6::jsonb"))+`,
 				false
 			),
 			proxy_id IS NOT DISTINCT FROM $5,
@@ -662,7 +660,7 @@ func lockAndMergeAccountProbeExtra(
 	} {
 		delete(extra, key)
 	}
-	probeAccount := service.IsUpstreamBillingProbeIdentity(account.Platform, account.Type)
+	probeAccount := service.IsUpstreamBillingProbeIdentity(account.Type)
 	probeEnabled := false
 	probeEnabledPresent := false
 	if probeAccount {
@@ -780,13 +778,12 @@ func (r *accountRepository) UpdateCredentials(ctx context.Context, id int64, cre
 			extra = CASE
 				-- 凭证整体未变化 ⇒ Ollama 组身份必然未变化；顶层 DISTINCT 守卫防止
 				-- 非 Ollama 账号的无变化持久化误清探测快照或重写 NULL extra。
-				WHEN platform IN (`+ollamaCloudUsagePlatformsSQL+`)
-					AND type = 'apikey'
+				WHEN `+ollamaCloudUsageKeySQL+`
 					AND credentials IS DISTINCT FROM $1::jsonb
 					AND (
 						credentials -> 'api_key' IS DISTINCT FROM $1::jsonb -> 'api_key'
 						-- 本语句不改 protocol_endpoints，上游地址前后相同，只需看本行是否仍是 Ollama。
-						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform"))+`
+						OR NOT `+ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints"))+`
 					)
 				THEN COALESCE(extra, '{}'::jsonb)
 					- 'upstream_billing_probe'
@@ -2016,17 +2013,10 @@ func (r *accountRepository) ListSchedulableByGroupIDAndPlatform(ctx context.Cont
 	})
 }
 
-// thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：source_kind 显式
-// 为 api_key，或尚未分类（NULL）时按类型推导（apikey）。两边口径必须一致，
-// 否则装桶与选号对同一个账号的归类会分叉。
+// thirdPartyKeyPredicate 是 service.Account.IsThirdPartyKey 的 SQL 形式：type = apikey。
+// 两边口径必须一致，否则装桶与选号对同一个账号的归类会分叉。
 func thirdPartyKeyPredicate() dbpredicate.Account {
-	return dbaccount.Or(
-		dbaccount.SourceKindEQ(service.AccountSourceAPIKey),
-		dbaccount.And(
-			dbaccount.SourceKindIsNil(),
-			dbaccount.TypeEQ(service.AccountTypeAPIKey),
-		),
-	)
+	return dbaccount.TypeEQ(service.AccountTypeAPIKey)
 }
 
 // schedulingCandidatePredicate 选出平台属于 platforms 的账号，加上任意平台标签的第三方 key。
@@ -2057,6 +2047,58 @@ func (r *accountRepository) ListSchedulingCandidates(ctx context.Context, platfo
 		return nil, err
 	}
 	return r.accountsToService(ctx, accounts)
+}
+
+// ListSchedulingCandidatesByCatalogEntry 返回绑定到目录条目且可调度的账号，绑定优先级覆盖账号优先级。
+// 谓词是 ListSchedulingCandidates 的原样拷贝，去掉了 schedulingCandidatePredicate(platforms)：
+// 能否承接由条目网关族与账号自身决定，不看平台标签。
+func (r *accountRepository) ListSchedulingCandidatesByCatalogEntry(ctx context.Context, entryID int64) ([]service.Account, error) {
+	now := time.Now()
+	rows, err := r.client.ModelCatalogBinding.Query().
+		Where(dbmodelcatalogbinding.EntryIDEQ(entryID)).
+		WithAccount(func(q *dbent.AccountQuery) {
+			q.Where(
+				dbaccount.StatusEQ(service.StatusActive),
+				dbaccount.SchedulableEQ(true),
+				tempUnschedulablePredicate(),
+				notExpiredPredicate(now),
+				dbaccount.Or(dbaccount.OverloadUntilIsNil(), dbaccount.OverloadUntilLTE(now)),
+				dbaccount.Or(dbaccount.RateLimitResetAtIsNil(), dbaccount.RateLimitResetAtLTE(now)),
+			)
+		}).
+		All(ctx)
+	if err != nil {
+		return nil, err
+	}
+	bindings := make([]*dbent.ModelCatalogBinding, 0, len(rows))
+	dbAccounts := make([]*dbent.Account, 0, len(rows))
+	for _, row := range rows {
+		if row.Edges.Account == nil {
+			// 账号被谓词过滤掉（不活跃 / 不可调度 / 过期 / 限流中）。
+			continue
+		}
+		bindings = append(bindings, row)
+		dbAccounts = append(dbAccounts, row.Edges.Account)
+	}
+	accounts, err := r.accountsToService(ctx, dbAccounts)
+	if err != nil {
+		return nil, err
+	}
+	if len(accounts) != len(bindings) {
+		return nil, errors.New("scheduling candidates by catalog entry: account conversion dropped rows")
+	}
+	for i := range accounts {
+		if p := bindings[i].Priority; p != nil {
+			accounts[i].Priority = *p
+		}
+	}
+	sort.SliceStable(accounts, func(i, j int) bool {
+		if accounts[i].Priority != accounts[j].Priority {
+			return accounts[i].Priority < accounts[j].Priority
+		}
+		return accounts[i].ID < accounts[j].ID
+	})
+	return accounts, nil
 }
 
 func (r *accountRepository) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
@@ -2990,7 +3032,7 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 				extraExpression = "(" + extraExpression + ") - 'ollama_cloud_usage_snapshot'"
 			}
 		}
-		eligibleAccount := "platform IN (" + ollamaCloudUsagePlatformsSQL + ") AND type = 'apikey'"
+		eligibleAccount := ollamaCloudUsageKeySQL
 		groupIdentityChanged := ""
 		if len(ollamaGroupIdentityChanges) > 0 {
 			groupIdentityChanged = "(" + eligibleAccount + " AND (" + joinClauses(ollamaGroupIdentityChanges, " OR ") + "))"
@@ -3202,6 +3244,10 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	if err != nil {
 		return nil, err
 	}
+	catalogEntryIDsByAccount, err := r.loadCatalogEntryIDs(ctx, accountIDs)
+	if err != nil {
+		return nil, err
+	}
 
 	outAccounts := make([]service.Account, 0, len(accounts))
 	for _, acc := range accounts {
@@ -3230,10 +3276,36 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 		if ags, ok := accountGroupsByAccount[acc.ID]; ok {
 			out.AccountGroups = ags
 		}
+		if entryIDs, ok := catalogEntryIDsByAccount[acc.ID]; ok {
+			out.CatalogEntryIDs = entryIDs
+		}
 		outAccounts = append(outAccounts, *out)
 	}
 
 	return outAccounts, nil
+}
+
+// loadCatalogEntryIDs 批量装载账号被哪些目录条目绑定。
+func (r *accountRepository) loadCatalogEntryIDs(ctx context.Context, accountIDs []int64) (map[int64][]int64, error) {
+	byAccount := make(map[int64][]int64)
+	accountIDs = uniquePositiveInt64s(accountIDs)
+	for start := 0; start < len(accountIDs); start += postgresParameterBatchSize {
+		end := start + postgresParameterBatchSize
+		if end > len(accountIDs) {
+			end = len(accountIDs)
+		}
+		rows, err := r.client.ModelCatalogBinding.Query().
+			Where(dbmodelcatalogbinding.AccountIDIn(accountIDs[start:end]...)).
+			Order(dbmodelcatalogbinding.ByAccountID(), dbmodelcatalogbinding.ByEntryID()).
+			All(ctx)
+		if err != nil {
+			return nil, err
+		}
+		for _, row := range rows {
+			byAccount[row.AccountID] = append(byAccount[row.AccountID], row.EntryID)
+		}
+	}
+	return byAccount, nil
 }
 
 func tempUnschedulablePredicate() dbpredicate.Account {
@@ -3461,7 +3533,6 @@ func accountEntityToService(m *dbent.Account) *service.Account {
 		SessionWindowStatus:     derefString(m.SessionWindowStatus),
 		ParentAccountID:         m.ParentAccountID,
 		QuotaDimension:          string(m.QuotaDimension),
-		SourceKind:              derefString(m.SourceKind),
 		ProtocolEndpoints:       m.ProtocolEndpoints,
 	}
 }
@@ -3476,15 +3547,6 @@ func guardProtocolEndpoints(account *service.Account) error {
 		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
 	}
 	return nil
-}
-
-// accountSourceKind 取账号来源维度：调用方显式指定时以其为准，否则按类型推导，
-// 与 migrations/239 的回填口径同源。
-func accountSourceKind(account *service.Account) string {
-	if kind := strings.TrimSpace(account.SourceKind); kind != "" {
-		return kind
-	}
-	return service.DeriveAccountSourceKind(account.Type)
 }
 
 // normalizeProtocolEndpoints 保证写入的是非 nil map，与列上的 NOT NULL DEFAULT '{}' 一致。

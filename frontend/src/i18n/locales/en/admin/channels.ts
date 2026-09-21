@@ -168,7 +168,8 @@ export default {
         videoTiers: 'Video Resolution Tiers (Per Second)',
         addTier: 'Add Tier',
         noTiersYet: 'No tiers yet. Click add to configure per-request pricing.',
-        noPricingRules: 'No pricing rules yet. Click "Add" to create one.',
+        noPricingRules: 'No pricing rules.',
+        modelPricingRetiredHint: 'Channel pricing no longer affects billing: prices come from the model catalog. Shown read-only here until channels are removed.',
         perRequestPrice: 'Price per Request',
         perRequestPriceRequired: 'Per-request price or billing tiers required for per-request/image billing mode',
         tierLabel: 'Tier',
@@ -218,12 +219,7 @@ export default {
         ruleAccountsHint: 'Leave empty to match all accounts',
         ruleModelPricing: 'Model Pricing',
          noGroupsInChannel: 'No groups selected in platform tabs above',
-         unnamed: 'Unnamed',
-         syncLatestModels: 'Sync Latest Models',
-         syncingModels: 'Syncing...',
-         syncModelsSuccess: 'Synced {count} new model(s)',
-         syncModelsAlreadyUpToDate: 'Models already up to date',
-         syncModelsError: 'Failed to sync models'
+         unnamed: 'Unnamed'
        }
      },
 

@@ -17,6 +17,10 @@ type schedulerScorePoolRepoStub struct {
 	queryPlatforms [][]string
 }
 
+func (s *schedulerScorePoolRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (s *schedulerScorePoolRepoStub) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	s.groupedCalls = append(s.groupedCalls, groupID)
 	s.queryPlatforms = append(s.queryPlatforms, platforms)

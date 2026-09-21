@@ -114,6 +114,7 @@ func RegisterAdminRoutes(
 
 		// 渠道管理
 		registerChannelRoutes(admin, h)
+		registerModelCatalogRoutes(admin, h)
 
 		// 渠道监控
 		registerChannelMonitorRoutes(admin, h, settingService)
@@ -342,9 +343,7 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		groups.PUT("/:id", h.Admin.Group.Update)
 		groups.DELETE("/:id", h.Admin.Group.Delete)
 		groups.GET("/:id/stats", h.Admin.Group.GetStats)
-		groups.GET("/:id/rate-multipliers", h.Admin.Group.GetGroupRateMultipliers)
-		groups.PUT("/:id/rate-multipliers", h.Admin.Group.BatchSetGroupRateMultipliers)
-		groups.DELETE("/:id/rate-multipliers", h.Admin.Group.ClearGroupRateMultipliers)
+		groups.GET("/:id/rpm-overrides", h.Admin.Group.GetGroupRPMOverrides)
 		groups.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
 		groups.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
 		groups.GET("/:id/api-keys", h.Admin.Group.GetGroupAPIKeys)
@@ -771,6 +770,28 @@ func registerChannelRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		channels.POST("", h.Admin.Channel.Create)
 		channels.PUT("/:id", h.Admin.Channel.Update)
 		channels.DELETE("/:id", h.Admin.Channel.Delete)
+	}
+}
+
+// registerModelCatalogRoutes 注册模型目录的管理端 CRUD 与资源绑定。
+// 目录是「有哪些模型 + 基准价 + 绑定的资源」的权威表。
+func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
+	catalog := admin.Group("/model-catalog")
+	{
+		catalog.GET("/entries", h.Admin.ModelCatalog.ListEntries)
+		catalog.GET("/entries/:id", h.Admin.ModelCatalog.GetEntry)
+		catalog.POST("/entries", h.Admin.ModelCatalog.CreateEntry)
+		catalog.PUT("/entries/:id", h.Admin.ModelCatalog.UpdateEntry)
+		catalog.DELETE("/entries/:id", h.Admin.ModelCatalog.DeleteEntry)
+		catalog.GET("/entries/:id/bindings", h.Admin.ModelCatalog.ListBindings)
+		catalog.PUT("/entries/:id/bindings", h.Admin.ModelCatalog.ReplaceBindings)
+		catalog.GET("/entries/:id/diagnosis", h.Admin.ModelCatalog.Diagnose)
+
+		catalog.POST("/aliases", h.Admin.ModelCatalog.CreateAlias)
+		catalog.PUT("/aliases/:id", h.Admin.ModelCatalog.UpdateAlias)
+		catalog.DELETE("/aliases/:id", h.Admin.ModelCatalog.DeleteAlias)
+
+		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
 	}
 }
 

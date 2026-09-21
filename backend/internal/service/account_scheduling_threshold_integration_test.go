@@ -26,6 +26,10 @@ func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidates(_ context.C
 	return filtered, nil
 }
 
+func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
+}
+
 func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, _ int64, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
@@ -87,7 +91,9 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 	require.Equal(t, 0, accountRepo.tempCalls)
 }
 
-func TestOpenAIGatewayService_ListSchedulableAccounts_FiltersThresholdBlockedAccounts(t *testing.T) {
+// 阈值评估不在选号路径上：候选装载不评估阈值、不写状态（tempCalls 为 0）；
+// 已被状态服务停调的账号由选号循环按 SchedulingState 跳过（见 *_LoadBalanceTopKExcludesTempUnschedulable）。
+func TestOpenAIGatewayService_ListSchedulableAccounts_ReadsStateNotThresholds(t *testing.T) {
 	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
 	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
 
@@ -105,6 +111,14 @@ func TestOpenAIGatewayService_ListSchedulableAccounts_FiltersThresholdBlockedAcc
 					"codex_7d_used_percent": 91.0,
 					"codex_7d_reset_at":     time.Now().UTC().Add(12 * time.Hour).Format(time.RFC3339),
 				},
+			},
+			{
+				ID:                      4103,
+				Platform:                PlatformOpenAI,
+				Status:                  StatusActive,
+				Schedulable:             true,
+				TempUnschedulableUntil:  ptrTime(time.Now().Add(12 * time.Hour)),
+				TempUnschedulableReason: BuildTempUnschedReasonPayload(AccountSchedulingThresholdReasonSource, "paused by state service"),
 			},
 			{
 				ID:          4102,
@@ -130,7 +144,6 @@ func TestOpenAIGatewayService_ListSchedulableAccounts_FiltersThresholdBlockedAcc
 	accounts, err := svc.listSchedulableAccounts(context.Background(), nil, PlatformOpenAI)
 
 	require.NoError(t, err)
-	require.Len(t, accounts, 1)
-	require.Equal(t, int64(4102), accounts[0].ID)
-	require.Equal(t, 1, accountRepo.tempCalls)
+	require.Len(t, accounts, 3, "装载不按阈值过滤")
+	require.Equal(t, 0, accountRepo.tempCalls, "选号路径不写状态")
 }

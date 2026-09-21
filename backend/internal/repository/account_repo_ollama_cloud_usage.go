@@ -17,41 +17,28 @@ const (
 	ollamaCloudBaseURLRegexSQL       = `^[hH][tT][tT][pP][sS]://([wW][wW][wW]\.)?[oO][lL][lL][aA][mM][aA]\.[cC][oO][mM](:443)?(/v1)?$`
 	ollamaCloudBaseURLMatchSQLPrefix = "btrim("
 	ollamaCloudBaseURLMatchSQLSuffix = ") ~ '" + ollamaCloudBaseURLRegexSQL + "'"
-	// ollamaCloudUsagePlatformsSQL 是 service.isOllamaCloudUsagePlatform 的 SQL
-	// 镜像：Ollama Cloud key 允许挂在 openai/anthropic 与国产 OpenAI 兼容平台
-	// 下复用。所有平台白名单 SQL 只允许引用本常量，不得各处重写字面量，防止漂移。
-	ollamaCloudUsagePlatformsSQL = "'openai', 'anthropic', 'kimi', 'zhipu', 'deepseek', 'minimax'"
+	// ollamaCloudUsageKeySQL 是 service.IsOllamaCloudUsageAccount 前半段的 SQL 镜像：
+	// Ollama Cloud 只按地址识别第三方 key，平台标签不参与。
+	ollamaCloudUsageKeySQL = "type = 'apikey'"
 )
 
 var ollamaCloudUsageEligibleSQL = `
-	platform IN (` + ollamaCloudUsagePlatformsSQL + `)
-	AND type = 'apikey'
-	AND ` + ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints", "platform")) + `
+	` + ollamaCloudUsageKeySQL + `
+	AND ` + ollamaCloudBaseURLMatchesSQL(ollamaCloudPrimaryEndpointSQL("protocol_endpoints")) + `
 	AND jsonb_typeof(credentials -> 'api_key') = 'string'
 `
 
 // ollamaCloudPrimaryEndpointSQL 是 service.Account.PrimaryUpstreamBaseURL 对第三方 key
-// 的 SQL 镜像：先取平台默认协议的地址，再按 service.UpstreamProtocols() 的顺序取任一
-// 已配置协议。
+// 的 SQL 镜像：按 service.PrimaryUpstreamProtocolOrder() 取第一个已配置协议的地址。
 //
-// 协议名与平台默认协议都由 Go 侧真相源生成，不手写，两边不会漂移。只覆盖有默认协议
-// 的平台（PlatformsWithProtocolDefaults），足以涵盖 ollamaCloudUsagePlatformsSQL。
-// endpoints / platform 是 SQL 表达式，只接受本包内的常量或占位符，不接受外部输入。
-func ollamaCloudPrimaryEndpointSQL(endpoints, platform string) string {
-	var b strings.Builder
-	_, _ = b.WriteString("COALESCE(CASE ")
-	_, _ = b.WriteString(platform)
-	for _, p := range service.PlatformsWithProtocolDefaults() {
-		if protocol := service.DefaultProtocolForPlatform(p); protocol != "" {
-			fmt.Fprintf(&b, " WHEN '%s' THEN %s ->> '%s'", p, endpoints, protocol)
-		}
+// 协议顺序由 Go 侧真相源生成，不手写，两边不会漂移。
+// endpoints 是 SQL 表达式，只接受本包内的常量或占位符，不接受外部输入。
+func ollamaCloudPrimaryEndpointSQL(endpoints string) string {
+	parts := make([]string, 0, 4)
+	for _, protocol := range service.PrimaryUpstreamProtocolOrder() {
+		parts = append(parts, fmt.Sprintf("%s ->> '%s'", endpoints, protocol))
 	}
-	_, _ = b.WriteString(" END")
-	for _, protocol := range service.UpstreamProtocols() {
-		fmt.Fprintf(&b, ", %s ->> '%s'", endpoints, protocol)
-	}
-	_, _ = b.WriteString(")")
-	return b.String()
+	return "COALESCE(" + strings.Join(parts, ", ") + ")"
 }
 
 func ollamaCloudBaseURLMatchesSQL(expression string) string {

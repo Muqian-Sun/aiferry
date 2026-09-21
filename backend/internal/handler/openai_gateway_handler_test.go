@@ -174,70 +174,6 @@ func TestOpenAIResponsesRequiredCapability(t *testing.T) {
 	}
 }
 
-func TestResolveOpenAIMessagesMetadataSession_DoesNotDerivePromptCacheKey(t *testing.T) {
-	body := []byte(`{"model":"claude-sonnet-4-5","metadata":{"user_id":"claude-code-session"},"messages":[{"role":"user","content":"hello"}]}`)
-
-	sessionHash, promptCacheKey := resolveOpenAIMessagesMetadataSession(nil, "", "", "claude-sonnet-4-5", body)
-
-	require.NotEmpty(t, sessionHash)
-	require.Empty(t, promptCacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_PreservesExplicitPromptCacheKey(t *testing.T) {
-	body := []byte(`{"metadata":{"user_id":"claude-code-session"}}`)
-
-	sessionHash, promptCacheKey := resolveOpenAIMessagesMetadataSession(nil, "", "explicit-cache", "claude-sonnet-4-5", body)
-
-	require.NotEmpty(t, sessionHash)
-	require.Equal(t, "explicit-cache", promptCacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_ClaudeCodeHeaderOverridesContentFallback(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "claude-session-001")
-
-	body1 := []byte(`{"model":"gpt-5.6-sol","system":"parent","messages":[{"role":"user","content":"parent task"}]}`)
-	body2 := []byte(`{"model":"gpt-5.6-sol","system":"subagent","messages":[{"role":"user","content":"child task"}]}`)
-
-	contentHash1 := (&service.OpenAIGatewayService{}).GenerateSessionHash(c, body1)
-	contentHash2 := (&service.OpenAIGatewayService{}).GenerateSessionHash(c, body2)
-	require.NotEqual(t, contentHash1, contentHash2, "different bodies should prove the content fallback differs")
-
-	hash1, cacheKey1 := resolveOpenAIMessagesMetadataSession(c, contentHash1, "", "gpt-5.6-sol", body1)
-	hash2, cacheKey2 := resolveOpenAIMessagesMetadataSession(c, contentHash2, "", "gpt-5.6-sol", body2)
-	require.Equal(t, service.DeriveSessionHashFromSeed("claude-session-001"), hash1)
-	require.Equal(t, hash1, hash2, "the same Claude Code session must keep one sticky account across changed turn bodies")
-	require.Empty(t, cacheKey1, "routing-only fix must not create an upstream prompt cache key")
-	require.Empty(t, cacheKey2, "routing-only fix must not create an upstream prompt cache key")
-}
-
-func TestResolveOpenAIMessagesMetadataSession_OpenAISignalWinsOverClaudeHeader(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "claude-session-001")
-
-	hash, cacheKey := resolveOpenAIMessagesMetadataSession(c, "content-hash", "explicit-openai-session", "gpt-5.6-sol", []byte(`{"metadata":{"user_id":"opaque"}}`))
-	require.Equal(t, "content-hash", hash, "existing OpenAI session resolution must remain authoritative")
-	require.Equal(t, "explicit-openai-session", cacheKey)
-}
-
-func TestResolveOpenAIMessagesMetadataSession_BlankClaudeHeaderKeepsContentFallback(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", nil)
-	c.Request.Header.Set("X-Claude-Code-Session-Id", "   ")
-
-	hash, cacheKey := resolveOpenAIMessagesMetadataSession(c, "content-hash", "", "gpt-5.6-sol", []byte(`{"metadata":{"user_id":"opaque"}}`))
-	require.Equal(t, "content-hash", hash)
-	require.Empty(t, cacheKey)
-}
-
 func TestOpenAIHandleStreamingAwareError_NonStreaming(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	w := httptest.NewRecorder()
@@ -617,6 +553,7 @@ func TestOpenAIMissingResponsesDependencies(t *testing.T) {
 			concurrencyHelper: &ConcurrencyHelper{
 				concurrencyService: &service.ConcurrencyService{},
 			},
+			modelCatalog: listAllCatalogStub{},
 		}
 		require.Empty(t, h.missingResponsesDependencies())
 	})
@@ -671,6 +608,7 @@ func TestOpenAIEnsureResponsesDependencies(t *testing.T) {
 			concurrencyHelper: &ConcurrencyHelper{
 				concurrencyService: &service.ConcurrencyService{},
 			},
+			modelCatalog: listAllCatalogStub{},
 		}
 		ok := h.ensureResponsesDependencies(c, nil)
 
@@ -731,60 +669,6 @@ func TestResolveOpenAIMessagesDispatchMappedModel(t *testing.T) {
 		}
 		require.Empty(t, resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "gpt-5.4"))
 		require.Equal(t, "gpt-5.3-codex", resolveOpenAIMessagesDispatchMappedModel(nil, apiKey, "claude-sonnet-4-5-20250929"))
-	})
-}
-
-func TestOpenAIGatewayMessagesDispatchGateAllowsGrokGroups(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	t.Run("openai_group_without_dispatch_flag_is_rejected", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(rec)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hi"}]}`))
-		groupID := int64(4101)
-		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-			ID:      5101,
-			GroupID: &groupID,
-			User:    &service.User{ID: 6101},
-			Group: &service.Group{
-				ID:                    groupID,
-				Platform:              service.PlatformOpenAI,
-				AllowMessagesDispatch: false,
-			},
-		})
-		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6101, Concurrency: 1})
-
-		h := &OpenAIGatewayHandler{}
-		h.Messages(c)
-
-		require.Equal(t, http.StatusForbidden, rec.Code)
-		require.Equal(t, "permission_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-		require.Contains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
-	})
-
-	t.Run("grok_group_without_dispatch_flag_reaches_gateway_dependencies", func(t *testing.T) {
-		rec := httptest.NewRecorder()
-		c, _ := gin.CreateTestContext(rec)
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", strings.NewReader(`{"model":"grok-4.3","messages":[{"role":"user","content":"hi"}]}`))
-		groupID := int64(4102)
-		c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-			ID:      5102,
-			GroupID: &groupID,
-			User:    &service.User{ID: 6102},
-			Group: &service.Group{
-				ID:                    groupID,
-				Platform:              service.PlatformGrok,
-				AllowMessagesDispatch: false,
-			},
-		})
-		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 6102, Concurrency: 1})
-
-		h := &OpenAIGatewayHandler{}
-		h.Messages(c)
-
-		require.Equal(t, http.StatusServiceUnavailable, rec.Code)
-		require.Equal(t, "api_error", gjson.GetBytes(rec.Body.Bytes(), "error.type").String())
-		require.NotContains(t, rec.Body.String(), "This group does not allow /v1/messages dispatch")
 	})
 }
 
@@ -1407,6 +1291,7 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		apiKeyService:            &service.APIKeyService{},
 		contentModerationService: moderationSvc,
 		concurrencyHelper:        NewConcurrencyHelper(service.NewConcurrencyService(&concurrencyCacheMock{}), SSEPingFormatNone, time.Second),
+		modelCatalog:             listAllCatalogStub{},
 	}
 	wsServer := newOpenAIWSHandlerTestServer(t, h, middleware.AuthSubject{UserID: 1, Concurrency: 1})
 	defer wsServer.Close()
@@ -1900,6 +1785,10 @@ func newOpenAIHandlerForPreviousResponseIDValidation(t *testing.T, cache *concur
 
 func newOpenAIWSHandlerTestServer(t *testing.T, h *OpenAIGatewayHandler, subject middleware.AuthSubject) *httptest.Server {
 	t.Helper()
+	if h.modelCatalog == nil {
+		// WS 入口自己做目录准入；没显式给目录的用例把所有模型当作上架（openai 族）。
+		h.modelCatalog = listAllCatalogStub{}
+	}
 	groupID := int64(2)
 	apiKey := &service.APIKey{
 		ID:      101,
@@ -1934,6 +1823,17 @@ type openAIResponsesWSUsageLogCase struct {
 	firstFrameCloseExpected bool
 	// secondTurnCloseExpected：第二个 turn 被拒（连接被 1008 关闭）。
 	secondTurnCloseExpected bool
+	// catalog 覆盖 handler 的目录来源（目录准入测试用）；nil 时所有模型都算上架。
+	catalog service.CatalogListingSource
+	// closeReasonContains 覆盖被拒时的关闭原因子串；空串 = 分组白名单的 "not available for this group"。
+	closeReasonContains string
+}
+
+func (tc openAIResponsesWSUsageLogCase) expectedCloseReason() string {
+	if tc.closeReasonContains != "" {
+		return tc.closeReasonContains
+	}
+	return "not available for this group"
 }
 
 type openAIResponsesWSUsageLogResult struct {
@@ -1956,6 +1856,11 @@ func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidates(ctx conte
 	return []service.Account{s.account}, nil
 }
 
+// ListSchedulingCandidatesByCatalogEntry 把唯一的账号当作绑定到条目的资源（不看平台）。
+func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	return []service.Account{boundToCatalogEntry(s.account, entryID)}, nil
+}
+
 func (s *openAIWSUsageHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	return s.ListSchedulingCandidates(ctx, platforms)
 }
@@ -1964,7 +1869,7 @@ func (s *openAIWSUsageHandlerAccountRepoStub) GetByID(ctx context.Context, id in
 	if s.account.ID != id {
 		return nil, nil
 	}
-	account := s.account
+	account := boundToCatalogEntry(s.account, listAllCatalogEntryID)
 	return &account, nil
 }
 
@@ -2072,6 +1977,11 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidates(ctx co
 	return out, nil
 }
 
+// ListSchedulingCandidatesByCatalogEntry 把全部账号当作绑定到条目的资源（不看平台）。
+func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	return allBoundToCatalogEntry(s.accounts, entryID), nil
+}
+
 func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
 	return s.ListSchedulingCandidates(ctx, platforms)
 }
@@ -2083,7 +1993,7 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesUngroup
 func (s *openAIWSFailoverHandlerAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
 	for _, account := range s.accounts {
 		if account.ID == id {
-			acc := account
+			acc := boundToCatalogEntry(account, listAllCatalogEntryID)
 			return &acc, nil
 		}
 	}
@@ -2215,7 +2125,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 		nil,
 		nil,
 		nil,
-		nil,
+
 		nil,
 		cfg,
 		nil,
@@ -2242,6 +2152,7 @@ func TestOpenAIResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(
 		nil,
 		nil,
 		cfg,
+		nil,
 	)
 
 	rec := httptest.NewRecorder()
@@ -2317,7 +2228,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 				nil,
 				nil,
 				nil,
-				nil,
+
 				nil,
 				cfg,
 				nil,
@@ -2344,6 +2255,7 @@ func TestOpenAIResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToHe
 				nil,
 				nil,
 				cfg,
+				nil,
 			)
 
 			rec := httptest.NewRecorder()
@@ -2399,7 +2311,7 @@ func TestOpenAIResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t 
 		nil,
 		nil,
 		nil,
-		nil,
+
 		nil,
 		cfg,
 		nil,
@@ -2426,6 +2338,7 @@ func TestOpenAIResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t 
 		nil,
 		nil,
 		cfg,
+		nil,
 	)
 
 	rec := httptest.NewRecorder()
@@ -2566,7 +2479,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		nil,
 		nil,
 		nil,
-		nil,
+
 		nil,
 		cfg,
 		nil,
@@ -2598,6 +2511,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
 		maxAccountSwitches:  3,
+		modelCatalog:        listAllCatalogStub{},
 	}
 
 	apiKey := &service.APIKey{
@@ -2776,7 +2690,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	rateLimitSvc := service.NewRateLimitService(accountRepo, nil, cfg, nil, nil)
 	billingCacheSvc := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	gatewaySvc := service.NewOpenAIGatewayService(
-		accountRepo, nil, nil, nil, nil, nil, nil, cfg, nil, nil,
+		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), rateLimitSvc, billingCacheSvc,
 		nil, &service.DeferredService{}, nil, nil, nil, nil, nil, nil,
 	)
@@ -2792,6 +2706,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
 		maxAccountSwitches:  3,
+		modelCatalog:        listAllCatalogStub{},
 	}
 
 	apiKey := &service.APIKey{
@@ -2993,7 +2908,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		nil,
 		nil,
 		nil,
-		nil,
+
 		nil,
 		cfg,
 		nil,
@@ -3024,6 +2939,10 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		billingCacheService: billingCacheSvc,
 		apiKeyService:       &service.APIKeyService{},
 		concurrencyHelper:   NewConcurrencyHelper(service.NewConcurrencyService(cache), SSEPingFormatNone, time.Second),
+		modelCatalog:        listAllCatalogStub{},
+	}
+	if tc.catalog != nil {
+		h.modelCatalog = tc.catalog
 	}
 
 	apiKey := &service.APIKey{
@@ -3073,7 +2992,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		var closeErr coderws.CloseError
 		require.ErrorAs(t, readErr, &closeErr)
 		require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
-		require.Contains(t, closeErr.Reason, "not available for this group")
+		require.Contains(t, closeErr.Reason, tc.expectedCloseReason())
 		_ = clientConn.CloseNow()
 		return openAIResponsesWSUsageLogResult{}
 	}
@@ -3108,7 +3027,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 			var closeErr coderws.CloseError
 			require.ErrorAs(t, readErr, &closeErr)
 			require.Equal(t, coderws.StatusPolicyViolation, closeErr.Code)
-			require.Contains(t, closeErr.Reason, "not available for this group")
+			require.Contains(t, closeErr.Reason, tc.expectedCloseReason())
 			_ = clientConn.CloseNow()
 			return openAIResponsesWSUsageLogResult{}
 		}
