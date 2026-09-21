@@ -113,48 +113,6 @@ func (_c *UsageLogCreate) SetNillableUpstreamModelMismatch(v *bool) *UsageLogCre
 	return _c
 }
 
-// SetChannelID sets the "channel_id" field.
-func (_c *UsageLogCreate) SetChannelID(v int64) *UsageLogCreate {
-	_c.mutation.SetChannelID(v)
-	return _c
-}
-
-// SetNillableChannelID sets the "channel_id" field if the given value is not nil.
-func (_c *UsageLogCreate) SetNillableChannelID(v *int64) *UsageLogCreate {
-	if v != nil {
-		_c.SetChannelID(*v)
-	}
-	return _c
-}
-
-// SetModelMappingChain sets the "model_mapping_chain" field.
-func (_c *UsageLogCreate) SetModelMappingChain(v string) *UsageLogCreate {
-	_c.mutation.SetModelMappingChain(v)
-	return _c
-}
-
-// SetNillableModelMappingChain sets the "model_mapping_chain" field if the given value is not nil.
-func (_c *UsageLogCreate) SetNillableModelMappingChain(v *string) *UsageLogCreate {
-	if v != nil {
-		_c.SetModelMappingChain(*v)
-	}
-	return _c
-}
-
-// SetBillingTier sets the "billing_tier" field.
-func (_c *UsageLogCreate) SetBillingTier(v string) *UsageLogCreate {
-	_c.mutation.SetBillingTier(v)
-	return _c
-}
-
-// SetNillableBillingTier sets the "billing_tier" field if the given value is not nil.
-func (_c *UsageLogCreate) SetNillableBillingTier(v *string) *UsageLogCreate {
-	if v != nil {
-		_c.SetBillingTier(*v)
-	}
-	return _c
-}
-
 // SetBillingMode sets the "billing_mode" field.
 func (_c *UsageLogCreate) SetBillingMode(v string) *UsageLogCreate {
 	_c.mutation.SetBillingMode(v)
@@ -821,16 +779,6 @@ func (_c *UsageLogCreate) check() error {
 			return &ValidationError{Name: "upstream_response_model", err: fmt.Errorf(`ent: validator failed for field "UsageLog.upstream_response_model": %w`, err)}
 		}
 	}
-	if v, ok := _c.mutation.ModelMappingChain(); ok {
-		if err := usagelog.ModelMappingChainValidator(v); err != nil {
-			return &ValidationError{Name: "model_mapping_chain", err: fmt.Errorf(`ent: validator failed for field "UsageLog.model_mapping_chain": %w`, err)}
-		}
-	}
-	if v, ok := _c.mutation.BillingTier(); ok {
-		if err := usagelog.BillingTierValidator(v); err != nil {
-			return &ValidationError{Name: "billing_tier", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_tier": %w`, err)}
-		}
-	}
 	if v, ok := _c.mutation.BillingMode(); ok {
 		if err := usagelog.BillingModeValidator(v); err != nil {
 			return &ValidationError{Name: "billing_mode", err: fmt.Errorf(`ent: validator failed for field "UsageLog.billing_mode": %w`, err)}
@@ -990,18 +938,6 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 	if value, ok := _c.mutation.UpstreamModelMismatch(); ok {
 		_spec.SetField(usagelog.FieldUpstreamModelMismatch, field.TypeBool, value)
 		_node.UpstreamModelMismatch = &value
-	}
-	if value, ok := _c.mutation.ChannelID(); ok {
-		_spec.SetField(usagelog.FieldChannelID, field.TypeInt64, value)
-		_node.ChannelID = &value
-	}
-	if value, ok := _c.mutation.ModelMappingChain(); ok {
-		_spec.SetField(usagelog.FieldModelMappingChain, field.TypeString, value)
-		_node.ModelMappingChain = &value
-	}
-	if value, ok := _c.mutation.BillingTier(); ok {
-		_spec.SetField(usagelog.FieldBillingTier, field.TypeString, value)
-		_node.BillingTier = &value
 	}
 	if value, ok := _c.mutation.BillingMode(); ok {
 		_spec.SetField(usagelog.FieldBillingMode, field.TypeString, value)
@@ -1401,66 +1337,6 @@ func (u *UsageLogUpsert) UpdateUpstreamModelMismatch() *UsageLogUpsert {
 // ClearUpstreamModelMismatch clears the value of the "upstream_model_mismatch" field.
 func (u *UsageLogUpsert) ClearUpstreamModelMismatch() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldUpstreamModelMismatch)
-	return u
-}
-
-// SetChannelID sets the "channel_id" field.
-func (u *UsageLogUpsert) SetChannelID(v int64) *UsageLogUpsert {
-	u.Set(usagelog.FieldChannelID, v)
-	return u
-}
-
-// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
-func (u *UsageLogUpsert) UpdateChannelID() *UsageLogUpsert {
-	u.SetExcluded(usagelog.FieldChannelID)
-	return u
-}
-
-// AddChannelID adds v to the "channel_id" field.
-func (u *UsageLogUpsert) AddChannelID(v int64) *UsageLogUpsert {
-	u.Add(usagelog.FieldChannelID, v)
-	return u
-}
-
-// ClearChannelID clears the value of the "channel_id" field.
-func (u *UsageLogUpsert) ClearChannelID() *UsageLogUpsert {
-	u.SetNull(usagelog.FieldChannelID)
-	return u
-}
-
-// SetModelMappingChain sets the "model_mapping_chain" field.
-func (u *UsageLogUpsert) SetModelMappingChain(v string) *UsageLogUpsert {
-	u.Set(usagelog.FieldModelMappingChain, v)
-	return u
-}
-
-// UpdateModelMappingChain sets the "model_mapping_chain" field to the value that was provided on create.
-func (u *UsageLogUpsert) UpdateModelMappingChain() *UsageLogUpsert {
-	u.SetExcluded(usagelog.FieldModelMappingChain)
-	return u
-}
-
-// ClearModelMappingChain clears the value of the "model_mapping_chain" field.
-func (u *UsageLogUpsert) ClearModelMappingChain() *UsageLogUpsert {
-	u.SetNull(usagelog.FieldModelMappingChain)
-	return u
-}
-
-// SetBillingTier sets the "billing_tier" field.
-func (u *UsageLogUpsert) SetBillingTier(v string) *UsageLogUpsert {
-	u.Set(usagelog.FieldBillingTier, v)
-	return u
-}
-
-// UpdateBillingTier sets the "billing_tier" field to the value that was provided on create.
-func (u *UsageLogUpsert) UpdateBillingTier() *UsageLogUpsert {
-	u.SetExcluded(usagelog.FieldBillingTier)
-	return u
-}
-
-// ClearBillingTier clears the value of the "billing_tier" field.
-func (u *UsageLogUpsert) ClearBillingTier() *UsageLogUpsert {
-	u.SetNull(usagelog.FieldBillingTier)
 	return u
 }
 
@@ -2278,76 +2154,6 @@ func (u *UsageLogUpsertOne) UpdateUpstreamModelMismatch() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearUpstreamModelMismatch() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearUpstreamModelMismatch()
-	})
-}
-
-// SetChannelID sets the "channel_id" field.
-func (u *UsageLogUpsertOne) SetChannelID(v int64) *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetChannelID(v)
-	})
-}
-
-// AddChannelID adds v to the "channel_id" field.
-func (u *UsageLogUpsertOne) AddChannelID(v int64) *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.AddChannelID(v)
-	})
-}
-
-// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
-func (u *UsageLogUpsertOne) UpdateChannelID() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateChannelID()
-	})
-}
-
-// ClearChannelID clears the value of the "channel_id" field.
-func (u *UsageLogUpsertOne) ClearChannelID() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearChannelID()
-	})
-}
-
-// SetModelMappingChain sets the "model_mapping_chain" field.
-func (u *UsageLogUpsertOne) SetModelMappingChain(v string) *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetModelMappingChain(v)
-	})
-}
-
-// UpdateModelMappingChain sets the "model_mapping_chain" field to the value that was provided on create.
-func (u *UsageLogUpsertOne) UpdateModelMappingChain() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateModelMappingChain()
-	})
-}
-
-// ClearModelMappingChain clears the value of the "model_mapping_chain" field.
-func (u *UsageLogUpsertOne) ClearModelMappingChain() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearModelMappingChain()
-	})
-}
-
-// SetBillingTier sets the "billing_tier" field.
-func (u *UsageLogUpsertOne) SetBillingTier(v string) *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetBillingTier(v)
-	})
-}
-
-// UpdateBillingTier sets the "billing_tier" field to the value that was provided on create.
-func (u *UsageLogUpsertOne) UpdateBillingTier() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateBillingTier()
-	})
-}
-
-// ClearBillingTier clears the value of the "billing_tier" field.
-func (u *UsageLogUpsertOne) ClearBillingTier() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearBillingTier()
 	})
 }
 
@@ -3434,76 +3240,6 @@ func (u *UsageLogUpsertBulk) UpdateUpstreamModelMismatch() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearUpstreamModelMismatch() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearUpstreamModelMismatch()
-	})
-}
-
-// SetChannelID sets the "channel_id" field.
-func (u *UsageLogUpsertBulk) SetChannelID(v int64) *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetChannelID(v)
-	})
-}
-
-// AddChannelID adds v to the "channel_id" field.
-func (u *UsageLogUpsertBulk) AddChannelID(v int64) *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.AddChannelID(v)
-	})
-}
-
-// UpdateChannelID sets the "channel_id" field to the value that was provided on create.
-func (u *UsageLogUpsertBulk) UpdateChannelID() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateChannelID()
-	})
-}
-
-// ClearChannelID clears the value of the "channel_id" field.
-func (u *UsageLogUpsertBulk) ClearChannelID() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearChannelID()
-	})
-}
-
-// SetModelMappingChain sets the "model_mapping_chain" field.
-func (u *UsageLogUpsertBulk) SetModelMappingChain(v string) *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetModelMappingChain(v)
-	})
-}
-
-// UpdateModelMappingChain sets the "model_mapping_chain" field to the value that was provided on create.
-func (u *UsageLogUpsertBulk) UpdateModelMappingChain() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateModelMappingChain()
-	})
-}
-
-// ClearModelMappingChain clears the value of the "model_mapping_chain" field.
-func (u *UsageLogUpsertBulk) ClearModelMappingChain() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearModelMappingChain()
-	})
-}
-
-// SetBillingTier sets the "billing_tier" field.
-func (u *UsageLogUpsertBulk) SetBillingTier(v string) *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetBillingTier(v)
-	})
-}
-
-// UpdateBillingTier sets the "billing_tier" field to the value that was provided on create.
-func (u *UsageLogUpsertBulk) UpdateBillingTier() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateBillingTier()
-	})
-}
-
-// ClearBillingTier clears the value of the "billing_tier" field.
-func (u *UsageLogUpsertBulk) ClearBillingTier() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearBillingTier()
 	})
 }
 

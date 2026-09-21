@@ -17,8 +17,17 @@ import (
 
 const defaultBedrockRegion = "us-east-1"
 
-// featureKeyBedrockCCCompat is the key used in Channel.FeaturesConfig for Bedrock CC compatibility.
+// featureKeyBedrockCCCompat 是 accounts.extra 里 Bedrock CC 兼容开关的键。
 const featureKeyBedrockCCCompat = "bedrock_cc_compat"
+
+// BedrockCCCompatEnabled 返回账号是否开启 Bedrock CC 兼容转换（accounts.extra.bedrock_cc_compat）。
+// 渠道级开关已删，账号是唯一来源。
+func (a *Account) BedrockCCCompatEnabled() bool {
+	if a == nil {
+		return false
+	}
+	return a.getExtraBool(featureKeyBedrockCCCompat)
+}
 
 var bedrockCrossRegionPrefixes = []string{"us.", "eu.", "apac.", "jp.", "au.", "us-gov.", "global."}
 

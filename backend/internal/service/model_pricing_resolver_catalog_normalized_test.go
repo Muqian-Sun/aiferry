@@ -30,7 +30,6 @@ const (
 // tokenPricingForModels 构造 token 计费模式的价卡；inputPerMillion 单位为 USD/1M token。
 func tokenPricingForModels(models []string, inputPerMillion float64) PricingCard {
 	return PricingCard{
-		Platform:        PlatformOpenAI,
 		Models:          models,
 		BillingMode:     BillingModeToken,
 		InputPrice:      float64Ptr(inputPerMillion / 1e6),
@@ -69,10 +68,7 @@ func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscrip
 			},
 			Duration: time.Second,
 		},
-		ChannelUsageFields: ChannelUsageFields{
-			OriginalModel:      requestedModel,
-			ChannelMappedModel: requestedModel,
-		},
+		RequestedModel: requestedModel,
 		APIKey: &APIKey{
 			ID:      1,
 			GroupID: i64p(groupID),

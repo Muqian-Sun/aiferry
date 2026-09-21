@@ -7,7 +7,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math/rand"
 	"net/http"
 	"strings"
@@ -462,7 +461,6 @@ type OpenAIGatewayService struct {
 	toolCorrector        *CodexToolCorrector
 	openaiWSResolver     OpenAIWSProtocolResolver
 	resolver             *ModelPricingResolver
-	channelService       *ChannelService
 	balanceNotifyService *BalanceNotifyService
 	settingService       *SettingService
 	// scheduler 唯一的调度器：OpenAI 协议专有的端点（WS / live / 扩展端点 / 模型清单）也在它上面选号。
@@ -520,7 +518,6 @@ func NewOpenAIGatewayService(
 	openAITokenProvider *OpenAITokenProvider,
 	grokTokenProvider *GrokTokenProvider,
 	resolver *ModelPricingResolver,
-	channelService *ChannelService,
 	balanceNotifyService *BalanceNotifyService,
 	settingService *SettingService,
 	scheduler *GatewayService,
@@ -551,7 +548,6 @@ func NewOpenAIGatewayService(
 		toolCorrector:         NewCodexToolCorrector(),
 		openaiWSResolver:      NewOpenAIWSProtocolResolver(cfg),
 		resolver:              resolver,
-		channelService:        channelService,
 		balanceNotifyService:  balanceNotifyService,
 		settingService:        settingService,
 		scheduler:             scheduler,
@@ -578,42 +574,9 @@ func (s *OpenAIGatewayService) Scheduler() *GatewayService {
 	return s.scheduler
 }
 
-// ResolveChannelMapping 解析渠道级模型映射（代理到 ChannelService）
-func (s *OpenAIGatewayService) ResolveChannelMapping(ctx context.Context, groupID int64, model string) ChannelMappingResult {
-	if s.channelService == nil {
-		return ChannelMappingResult{MappedModel: model}
-	}
-	return s.channelService.ResolveChannelMapping(ctx, groupID, model)
-}
-
-// IsModelRestricted 检查模型是否被渠道限制（代理到 ChannelService）
-func (s *OpenAIGatewayService) IsModelRestricted(ctx context.Context, groupID int64, model string) bool {
-	if s.channelService == nil {
-		return false
-	}
-	return s.channelService.IsModelRestricted(ctx, groupID, model)
-}
-
-// ResolveChannelMappingAndRestrict 解析渠道映射。
-// 模型限制检查已移至调度阶段，restricted 始终返回 false。
-func (s *OpenAIGatewayService) ResolveChannelMappingAndRestrict(ctx context.Context, groupID *int64, model string) (ChannelMappingResult, bool) {
-	if s.channelService == nil {
-		return ChannelMappingResult{MappedModel: model}, false
-	}
-	return s.channelService.ResolveChannelMappingAndRestrict(ctx, groupID, model)
-}
-
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
 		return *override
-	}
-	if s != nil && s.channelService != nil && apiKey != nil && apiKey.GroupID != nil {
-		ch, err := s.channelService.GetChannelForGroup(ctx, *apiKey.GroupID)
-		if err != nil {
-			slog.Warn("failed to resolve codex image generation bridge channel override", "group_id", *apiKey.GroupID, "error", err)
-		} else if override := ch.CodexImageGenerationBridgeOverride(PlatformOpenAI); override != nil {
-			return *override
-		}
 	}
 	return s != nil && s.cfg != nil && s.cfg.Gateway.CodexImageGenerationBridgeEnabled
 }

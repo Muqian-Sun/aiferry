@@ -116,12 +116,6 @@ func RegisterUserRoutes(
 			groups.GET("/available", h.APIKey.GetAvailableGroups)
 		}
 
-		// 用户可用渠道（非管理员接口）
-		channels := authenticated.Group("/channels")
-		{
-			channels.GET("/available", h.AvailableChannel.List)
-		}
-
 		// 使用记录（聚合统计属重查询，叠加更严格的按用户限流）
 		usage := authenticated.Group("/usage")
 		usage.Use(panelRateLimiter.Heavy())

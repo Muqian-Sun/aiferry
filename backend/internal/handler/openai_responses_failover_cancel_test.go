@@ -100,7 +100,6 @@ func newGatewayResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPU
 		nil,
 		nil,
 		nil,
-		nil,
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)

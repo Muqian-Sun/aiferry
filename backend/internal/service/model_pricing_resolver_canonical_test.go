@@ -75,15 +75,6 @@ func TestHasResolvableTokenPricing_CatalogOnlyModel(t *testing.T) {
 	require.True(t, svc.hasResolvableTokenPricing(ctx, "team/only", &APIKey{}))
 	require.False(t, svc.hasResolvableTokenPricing(ctx, "team/none", &APIKey{}))
 	require.Equal(t, "team/only", svc.billableModelWithFallback(ctx, &APIKey{}, "team/only", "claude-sonnet-4"))
-
-	identified, channelPriced := svc.hasIdentifiedResponseModelPricing(ctx, "team/only", &APIKey{})
-	require.True(t, identified)
-	require.False(t, channelPriced, "a seeded catalog entry is platform pricing, not operator pricing")
-
-	openai := &OpenAIGatewayService{billingService: bs, resolver: svc.resolver}
-	identified, channelPriced = openai.hasIdentifiedOpenAIResponsePricing(ctx, "team/only", &APIKey{})
-	require.True(t, identified)
-	require.False(t, channelPriced)
 }
 
 // 没有分组、也没有推理等级时，只要有解析器就必须走目录，不能退回价格文件直查。

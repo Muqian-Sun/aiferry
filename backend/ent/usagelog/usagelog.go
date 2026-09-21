@@ -32,12 +32,6 @@ const (
 	FieldUpstreamResponseModel = "upstream_response_model"
 	// FieldUpstreamModelMismatch holds the string denoting the upstream_model_mismatch field in the database.
 	FieldUpstreamModelMismatch = "upstream_model_mismatch"
-	// FieldChannelID holds the string denoting the channel_id field in the database.
-	FieldChannelID = "channel_id"
-	// FieldModelMappingChain holds the string denoting the model_mapping_chain field in the database.
-	FieldModelMappingChain = "model_mapping_chain"
-	// FieldBillingTier holds the string denoting the billing_tier field in the database.
-	FieldBillingTier = "billing_tier"
 	// FieldBillingMode holds the string denoting the billing_mode field in the database.
 	FieldBillingMode = "billing_mode"
 	// FieldGroupID holds the string denoting the group_id field in the database.
@@ -169,9 +163,6 @@ var Columns = []string{
 	FieldUpstreamModel,
 	FieldUpstreamResponseModel,
 	FieldUpstreamModelMismatch,
-	FieldChannelID,
-	FieldModelMappingChain,
-	FieldBillingTier,
 	FieldBillingMode,
 	FieldGroupID,
 	FieldSubscriptionID,
@@ -230,10 +221,6 @@ var (
 	UpstreamModelValidator func(string) error
 	// UpstreamResponseModelValidator is a validator for the "upstream_response_model" field. It is called by the builders before save.
 	UpstreamResponseModelValidator func(string) error
-	// ModelMappingChainValidator is a validator for the "model_mapping_chain" field. It is called by the builders before save.
-	ModelMappingChainValidator func(string) error
-	// BillingTierValidator is a validator for the "billing_tier" field. It is called by the builders before save.
-	BillingTierValidator func(string) error
 	// BillingModeValidator is a validator for the "billing_mode" field. It is called by the builders before save.
 	BillingModeValidator func(string) error
 	// DefaultInputTokens holds the default value on creation for the "input_tokens" field.
@@ -343,21 +330,6 @@ func ByUpstreamResponseModel(opts ...sql.OrderTermOption) OrderOption {
 // ByUpstreamModelMismatch orders the results by the upstream_model_mismatch field.
 func ByUpstreamModelMismatch(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldUpstreamModelMismatch, opts...).ToFunc()
-}
-
-// ByChannelID orders the results by the channel_id field.
-func ByChannelID(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldChannelID, opts...).ToFunc()
-}
-
-// ByModelMappingChain orders the results by the model_mapping_chain field.
-func ByModelMappingChain(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldModelMappingChain, opts...).ToFunc()
-}
-
-// ByBillingTier orders the results by the billing_tier field.
-func ByBillingTier(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldBillingTier, opts...).ToFunc()
 }
 
 // ByBillingMode orders the results by the billing_mode field.

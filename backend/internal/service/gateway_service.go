@@ -724,7 +724,6 @@ type GatewayService struct {
 	responseHeaderFilter *responseheaders.CompiledHeaderFilter
 	debugModelRouting    atomic.Bool
 	debugClaudeMimic     atomic.Bool
-	channelService       *ChannelService
 	resolver             *ModelPricingResolver
 	compositeResolver    *CompositeRouteResolver
 	debugGatewayBodyFile atomic.Pointer[os.File] // non-nil when SUB2API_DEBUG_GATEWAY_BODY is set
@@ -756,7 +755,6 @@ func NewGatewayService(
 	digestStore *DigestSessionStore,
 	settingService *SettingService,
 	tlsFPProfileService *TLSFingerprintProfileService,
-	channelService *ChannelService,
 	resolver *ModelPricingResolver,
 	compositeResolver *CompositeRouteResolver,
 	balanceNotifyService *BalanceNotifyService,
@@ -789,7 +787,6 @@ func NewGatewayService(
 		modelsListCacheTTL:   modelsListTTL,
 		responseHeaderFilter: compileResponseHeaderFilter(cfg),
 		tlsFPProfileService:  tlsFPProfileService,
-		channelService:       channelService,
 		resolver:             resolver,
 		compositeResolver:    compositeResolver,
 		balanceNotifyService: balanceNotifyService,

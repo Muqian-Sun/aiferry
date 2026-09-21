@@ -58,7 +58,7 @@ func newGatewayModelsHandlerForTest(listed ...string) *GatewayHandler {
 		gatewayService: service.NewGatewayService(
 			nil,
 			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		),
 	}
 }

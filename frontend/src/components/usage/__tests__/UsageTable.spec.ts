@@ -288,7 +288,6 @@ describe('admin UsageTable tooltip', () => {
       cache_read_cost: 0.00000006,
       total_cost: 0.00000022,
       actual_cost: 0.00000042,
-      account_stats_cost: 0.00000012,
       account_rate_multiplier: 1.5,
     }
     const wrapper = mount(UsageTable, {
@@ -300,7 +299,7 @@ describe('admin UsageTable tooltip', () => {
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text())
     expect(amounts).toEqual(expect.arrayContaining([
       '$0.00000001', '$0.00000002', '$0.00000003', '$0.00000004',
-      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042', '$0.00000018',
+      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042', '$0.00000033',
     ]))
     if (billingMode === 'image') expect(amounts).toContain('$0.00000011')
     wrapper.unmount()
@@ -458,7 +457,6 @@ describe('admin UsageTable tooltip', () => {
 					request_id: `req-${responseModel}`,
 					model: 'gpt-5.6-sol',
 					upstream_model: 'gpt-5.5',
-					model_mapping_chain: 'gpt-5.6-sol→gpt-5.5',
 					upstream_response_model: responseModel,
 					upstream_model_mismatch: true,
 				}],

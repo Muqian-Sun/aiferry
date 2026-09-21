@@ -1930,11 +1930,54 @@
               {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
             </p>
           </div>
-          <select v-model="webSearchEmulationMode" class="input w-24 text-sm">
-            <option value="default">{{ t('admin.accounts.anthropic.webSearchDefault') }}</option>
-            <option value="enabled">{{ t('admin.accounts.anthropic.webSearchEnabled') }}</option>
-            <option value="disabled">{{ t('admin.accounts.anthropic.webSearchDisabled') }}</option>
-          </select>
+          <button
+            type="button"
+            data-testid="edit-web-search-emulation-toggle"
+            @click="webSearchEmulationEnabled = !webSearchEmulationEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              webSearchEmulationEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                webSearchEmulationEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
+        </div>
+      </div>
+
+      <!-- Bedrock CC 兼容（Anthropic 协议上的 key 设置）：清理 Claude Code 专有字段并过滤 anthropic-beta，账号是唯一开关 -->
+      <div
+        v-if="anthropicKeySettingsVisible"
+        data-testid="edit-bedrock-cc-compat"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="flex items-center justify-between">
+          <div>
+            <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
+            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {{ t('admin.accounts.anthropic.bedrockCCCompatDesc') }}
+            </p>
+          </div>
+          <button
+            type="button"
+            data-testid="edit-bedrock-cc-compat-toggle"
+            @click="bedrockCCCompatEnabled = !bedrockCCCompatEnabled"
+            :class="[
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
+              bedrockCCCompatEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            ]"
+          >
+            <span
+              :class="[
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                bedrockCCCompatEnabled ? 'translate-x-5' : 'translate-x-0'
+              ]"
+            />
+          </button>
         </div>
       </div>
 
@@ -3303,7 +3346,8 @@ const codexImageToolMode = ref<CodexImageToolMode>('inherit')
 type AnthropicAPIKeyAuthScheme = 'x_api_key' | 'authorization_bearer'
 const anthropicPassthroughEnabled = ref(false)
 const anthropicAPIKeyAuthScheme = ref<AnthropicAPIKeyAuthScheme>('x_api_key')
-const webSearchEmulationMode = ref('default')
+const webSearchEmulationEnabled = ref(false)
+const bedrockCCCompatEnabled = ref(false)
 const webSearchGlobalEnabled = ref(false)
 // Anthropic 协议上的 key 设置按编辑中的协议地址展示，不看平台标签。
 const anthropicKeySettingsVisible = computed(
@@ -3734,7 +3778,8 @@ const syncFormFromAccount = (newAccount: Account | null) => {
   codexImageToolMode.value = 'inherit'
   anthropicPassthroughEnabled.value = false
   anthropicAPIKeyAuthScheme.value = 'x_api_key'
-  webSearchEmulationMode.value = 'default'
+  webSearchEmulationEnabled.value = false
+  bedrockCCCompatEnabled.value = false
   // OpenAI Responses 协议设置（自动透传 / WS mode / Compact）：OpenAI 成品号与所有第三方 key 都回填，
   // key 的区块随协议地址行显隐
   if (
@@ -3805,15 +3850,10 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     anthropicAPIKeyAuthScheme.value = extra?.anthropic_apikey_auth_scheme === 'authorization_bearer'
       ? 'authorization_bearer'
       : 'x_api_key'
-    // 三态：string "default"/"enabled"/"disabled"，向后兼容旧 bool
+    // 开关写 bool；历史字符串只有 "enabled" 算开（与后端读法一致），保存后落成 bool
     const wsVal = extra?.web_search_emulation
-    if (wsVal === 'enabled' || wsVal === 'disabled') {
-      webSearchEmulationMode.value = wsVal
-    } else if (wsVal === true) {
-      webSearchEmulationMode.value = 'enabled'
-    } else {
-      webSearchEmulationMode.value = 'default'
-    }
+    webSearchEmulationEnabled.value = wsVal === true || wsVal === 'enabled'
+    bedrockCCCompatEnabled.value = extra?.bedrock_cc_compat === true
   }
 
   // Load quota limit for apikey/bedrock accounts (bedrock quota is also loaded in its own branch above)
@@ -5058,10 +5098,15 @@ const handleSubmit = async () => {
       } else {
         delete newExtra.anthropic_apikey_auth_scheme
       }
-      if (webSearchEmulationMode.value === 'default') {
-        delete newExtra.web_search_emulation
+      if (webSearchEmulationEnabled.value) {
+        newExtra.web_search_emulation = true
       } else {
-        newExtra.web_search_emulation = webSearchEmulationMode.value
+        delete newExtra.web_search_emulation
+      }
+      if (bedrockCCCompatEnabled.value) {
+        newExtra.bedrock_cc_compat = true
+      } else {
+        delete newExtra.bedrock_cc_compat
       }
       updatePayload.extra = newExtra
     }

@@ -51,9 +51,10 @@ type OpenAIGatewayHandler struct {
 	modelCatalog service.CatalogListingSource
 }
 
-type openAIWSTurnChannelMappingSnapshot struct {
-	turn    int
-	mapping service.ChannelMappingResult
+// openAIWSTurnModelSnapshot 记住上一 turn 的请求模型：换模型时要求连接账号也承接新模型。
+type openAIWSTurnModelSnapshot struct {
+	turn  int
+	model string
 }
 
 func advanceOpenAIWSCyberBlockState(blocked, pending, marked bool, turnErr error) (bool, bool) {
@@ -131,7 +132,7 @@ func openAIWSIngressEndedByClient(err error) bool {
 	return errors.Is(err, context.Canceled)
 }
 
-func openAIWSTurnBillingModel(result *service.OpenAIForwardResult, mapping service.ChannelMappingResult, requestedModel, upstreamModel string) string {
+func openAIWSTurnBillingModel(result *service.OpenAIForwardResult, requestedModel, upstreamModel string) string {
 	billingModel := ""
 	if result != nil {
 		billingModel = strings.TrimSpace(result.BillingModel)
@@ -142,32 +143,7 @@ func openAIWSTurnBillingModel(result *service.OpenAIForwardResult, mapping servi
 	if billingModel == "" {
 		billingModel = strings.TrimSpace(requestedModel)
 	}
-
-	requestedModel = strings.TrimSpace(requestedModel)
-	switch mapping.BillingModelSource {
-	case service.BillingModelSourceRequested:
-		if requestedModel != "" {
-			billingModel = requestedModel
-		}
-	case service.BillingModelSourceChannelMapped:
-		mappedModel := strings.TrimSpace(mapping.MappedModel)
-		if mappedModel != "" && mappedModel != requestedModel {
-			billingModel = mappedModel
-		}
-	}
 	return billingModel
-}
-
-// openAIChannelForwardModel returns the model used for upstream capability
-// routing. The client-requested model remains separate for logs, billing, and
-// responses.
-func openAIChannelForwardModel(mapping service.ChannelMappingResult, requestedModel string) string {
-	if mapping.Mapped {
-		if mappedModel := strings.TrimSpace(mapping.MappedModel); mappedModel != "" {
-			return mappedModel
-		}
-	}
-	return requestedModel
 }
 
 type grokMediaEligibilityProber interface {
@@ -194,38 +170,6 @@ func openAIAccountScheduleModel(c *gin.Context, account *service.Account, forwar
 		}
 	}
 	return service.ResolveOpenAIAccountUpstreamModelForRequest(account, forwardModel, requireCompact)
-}
-
-type openAIModelBodyReplaceFunc func([]byte, string) []byte
-
-func openAIModelMappedBody(body []byte, mapped bool, mappedModel string, replace openAIModelBodyReplaceFunc) []byte {
-	if !mapped || replace == nil {
-		return body
-	}
-	return replace(body, mappedModel)
-}
-
-func seedOpenAIForwardImageIntentHint(c *gin.Context, channelMapped bool, imageIntent bool) {
-	if channelMapped {
-		// 渠道映射改变了规范请求，保持 unknown，由 Forward 按映射后的 model/body 初始化。
-		return
-	}
-	service.SetOpenAIImageIntentHint(c, imageIntent)
-}
-
-func newOpenAIModelMappedBodyCache(body []byte, replace openAIModelBodyReplaceFunc) func(bool, string) []byte {
-	replacedBodies := make(map[string][]byte)
-	return func(mapped bool, mappedModel string) []byte {
-		if !mapped {
-			return body
-		}
-		if cachedBody, ok := replacedBodies[mappedModel]; ok {
-			return cachedBody
-		}
-		replacedBody := openAIModelMappedBody(body, true, mappedModel, replace)
-		replacedBodies[mappedModel] = replacedBody
-		return replacedBody
-	}
 }
 
 func usageRecordContext(parent context.Context, base context.Context) context.Context {
@@ -1200,9 +1144,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		return body
 	}
 
-	// 解析渠道级模型映射
-	channelMappingWS, _ := h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, reqModel)
-	wsForwardModel := openAIChannelForwardModel(channelMappingWS, reqModel)
+	wsForwardModel := reqModel
 
 	var currentUserRelease func()
 	var currentAccountRelease func()
@@ -1516,8 +1458,8 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		}
 		// Passthrough rejects overlapping response.create frames, so one immutable
 		// turn-tagged slot preserves the exact mapping used for the in-flight request.
-		var turnChannelMapping atomic.Pointer[openAIWSTurnChannelMappingSnapshot]
-		turnChannelMapping.Store(&openAIWSTurnChannelMappingSnapshot{turn: 1, mapping: channelMappingWS})
+		var turnModel atomic.Pointer[openAIWSTurnModelSnapshot]
+		turnModel.Store(&openAIWSTurnModelSnapshot{turn: 1, model: reqModel})
 		// turn 级定价：首轮回退到 TurnStarted 的所属 turn 时刻；后续 turn 由
 		// BeforeTurn 重新冻结 pricingAt 并按最新门复核当前账号。
 		var turnPricing openAIWSTurnPricing
@@ -1586,16 +1528,15 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 					model = reqModel
 				}
 				setOpsRequestContext(c, model, true)
-				mapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, model)
-				mappedModelUnchanged := false
-				if previous := turnChannelMapping.Load(); previous != nil && previous.turn < turn {
-					mappedModelUnchanged = strings.TrimSpace(previous.mapping.MappedModel) == strings.TrimSpace(mapping.MappedModel)
+				modelUnchanged := false
+				if previous := turnModel.Load(); previous != nil && previous.turn < turn {
+					modelUnchanged = previous.model == model
 				}
-				if turn > 1 && !mappedModelUnchanged && !account.IsModelSupported(model) && !account.IsModelSupported(mapping.MappedModel) {
-					return "", newOpenAIWSUnsupportedModelSwitchError(mapping.MappedModel)
+				if turn > 1 && !modelUnchanged && !account.IsModelSupported(model) {
+					return "", newOpenAIWSUnsupportedModelSwitchError(model)
 				}
-				turnChannelMapping.Store(&openAIWSTurnChannelMappingSnapshot{turn: turn, mapping: mapping})
-				return mapping.MappedModel, nil
+				turnModel.Store(&openAIWSTurnModelSnapshot{turn: turn, model: model})
+				return model, nil
 			},
 			BeforeTurn: func(turn int) error {
 				// turn==1 的会话屏蔽已由握手层检查覆盖；连接内 flag 只拦截后续 turn。
@@ -1664,18 +1605,11 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if result != nil {
 					turnUpstreamModel = strings.TrimSpace(result.UpstreamModel)
 				}
-				var turnMapping service.ChannelMappingResult
-				if snapshot := turnChannelMapping.Load(); snapshot != nil && snapshot.turn == turn {
-					turnMapping = snapshot.mapping
-				} else {
-					turnMapping, _ = h.gatewayService.ResolveChannelMappingAndRestrict(ctx, apiKey.GroupID, turnRequestedModel)
-				}
 				if turnUpstreamModel == "" {
 					turnUpstreamModel = turnRequestedModel
 				}
-				turnUsageFields := turnMapping.ToUsageFields(turnRequestedModel, turnUpstreamModel)
 				cyberMarked := service.GetOpsCyberPolicy(c) != nil
-				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockBody, turnUsageFields, requestPayloadHash)
+				h.recordCyberPolicyIfMarked(c, apiKey, account, subscription, turnRequestedModel, turnErr != nil, cyberBlockBody, turnRequestedModel, requestPayloadHash)
 				cyberBlockedThisConn, cyberBlockPendingAfterFailover = advanceOpenAIWSCyberBlockState(
 					cyberBlockedThisConn,
 					cyberBlockPendingAfterFailover,
@@ -1700,7 +1634,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 				if result == nil {
 					return
 				}
-				result.BillingModel = openAIWSTurnBillingModel(result, turnMapping, turnRequestedModel, turnUpstreamModel)
+				result.BillingModel = openAIWSTurnBillingModel(result, turnRequestedModel, turnUpstreamModel)
 				reqLog.Debug("openai.websocket_turn_billing",
 					zap.Int("turn", turn),
 					zap.String("turn_requested_model", turnRequestedModel),
@@ -1735,7 +1669,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 						RequestPayloadHash: requestPayloadHash,
 						APIKeyService:      h.apiKeyService,
 						SessionID:          sessionID,
-						ChannelUsageFields: turnUsageFields,
+						RequestedModel:     turnRequestedModel,
 						PricingAt:          turnRecordPricingAt,
 						CyberBlocked:       cyberBlocked,
 					}); err != nil {
@@ -2665,8 +2599,8 @@ func (h *OpenAIGatewayHandler) rejectIfCyberSessionBlocked(c *gin.Context, apiKe
 	return rejectIfCyberSessionBlocked(c, h.cyberPolicyDeps(), apiKey, body, model, format)
 }
 
-func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, channelFields service.ChannelUsageFields, requestPayloadHash string) {
-	recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), apiKey, account, subscription, model, forwardErrored, cyberBlockBody, channelFields, requestPayloadHash)
+func (h *OpenAIGatewayHandler) recordCyberPolicyIfMarked(c *gin.Context, apiKey *service.APIKey, account *service.Account, subscription *service.UserSubscription, model string, forwardErrored bool, cyberBlockBody []byte, requestedModel, requestPayloadHash string) {
+	recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), apiKey, account, subscription, model, forwardErrored, cyberBlockBody, requestedModel, requestPayloadHash)
 }
 
 // clearCyberPolicyTurnState resets the cyber mark and recorded guard after a

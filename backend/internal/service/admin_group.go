@@ -395,7 +395,7 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 	if normalizeCodexModelsManifestConfig(platform, input.CodexModelsManifestConfig).Enabled {
 		return nil, infraerrors.New(http.StatusBadRequest, "INVALID_CODEX_MODELS_MANIFEST_CONFIG", "codex models manifest config cannot be enabled at group creation; configure it after creation in the group editor")
 	}
-	modelPricing, err := normalizeGroupModelPricing(platform, input.ModelPricing)
+	modelPricing, err := normalizeGroupModelPricing(input.ModelPricing)
 	if err != nil {
 		return nil, err
 	}
@@ -706,9 +706,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		normalizeUpdateGroupInputForSimpleMode(input)
 	}
 
-	// 渠道缓存里存了 groupID → platform 的映射，改了平台要让它失效（见函数末尾）
-	previousPlatform := group.Platform
-
 	if input.Name != "" {
 		group.Name = input.Name
 	}
@@ -734,7 +731,7 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		group.LongContextPricingEnabled = *input.LongContextPricingEnabled
 	}
 	if input.ModelPricing != nil {
-		modelPricing, normalizeErr := normalizeGroupModelPricing(group.Platform, *input.ModelPricing)
+		modelPricing, normalizeErr := normalizeGroupModelPricing(*input.ModelPricing)
 		if normalizeErr != nil {
 			return nil, normalizeErr
 		}
@@ -938,13 +935,6 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, id)
 	}
 
-	// 平台变了就失效渠道缓存：该缓存持有 groupID → platform，而渠道定价 / 模型映射 /
-	// 模型白名单都按平台严格隔离。不失效的话，缓存最长 10 分钟仍按旧平台匹配，
-	// 期间定价查不到会静默回落到 LiteLLM 价格表、映射与白名单也不生效。
-	if group.Platform != previousPlatform && s.channelCacheInvalidator != nil {
-		s.channelCacheInvalidator.InvalidateCache()
-	}
-
 	// 如果指定了复制账号的源分组，同步绑定（替换当前分组的账号）
 	if len(input.CopyAccountsFromGroupIDs) > 0 {
 		// 去重源分组 IDs
@@ -1016,20 +1006,16 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	return group, nil
 }
 
-func normalizeGroupModelPricing(platform string, pricing []PricingCard) ([]PricingCard, error) {
+func normalizeGroupModelPricing(pricing []PricingCard) ([]PricingCard, error) {
 	out := make([]PricingCard, len(pricing))
 	for i := range pricing {
 		out[i] = pricing[i].Clone()
 		out[i].ID = 0
-		out[i].ChannelID = 0
 		if out[i].TimePricing != nil && len(out[i].TimePricing.Periods) > 0 {
 			return nil, infraerrors.BadRequest(
 				"GROUP_MODEL_TIME_PRICING_UNSUPPORTED",
 				"group model pricing does not support time pricing",
 			)
-		}
-		if strings.TrimSpace(out[i].Platform) == "" {
-			out[i].Platform = platform
 		}
 		for j := range out[i].Models {
 			out[i].Models[j] = strings.TrimSpace(out[i].Models[j])

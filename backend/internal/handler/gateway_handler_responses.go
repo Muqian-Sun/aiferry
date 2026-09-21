@@ -167,11 +167,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 
-	// 解析渠道级模型映射
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(requestCtx, apiKey.GroupID, reqModel)
-	seedOpenAIForwardImageIntentHint(c, channelMapping.Mapped, imageIntent)
-	forwardModel := openAIChannelForwardModel(channelMapping, reqModel)
-	c.Request = c.Request.WithContext(service.WithOpenAIForwardModel(c.Request.Context(), forwardModel, legacyCompact))
+	service.SetOpenAIImageIntentHint(c, imageIntent)
 	// 提前校验 function_call_output 是否具备可关联上下文，避免上游 400
 	if !validateFunctionCallOutputRequest(c, body, reqLog) {
 		return
@@ -258,7 +254,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 续链与守护父线程亲和都是「已绑定的资源」：做成预取粘性，选号时优先于缓存里的会话绑定。
 	stickyID := int64(0)
 	if previousResponseID != "" {
-		stickyID = h.openAIGatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(c.Request.Context(), apiKey.GroupID, previousResponseID, forwardModel, nil, capability, requireCompact)
+		stickyID = h.openAIGatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(c.Request.Context(), apiKey.GroupID, previousResponseID, reqModel, nil, capability, requireCompact)
 	}
 	if stickyID == 0 {
 		stickyID = h.openAIGatewayService.ResolveOpenAIGuardianParentAccountID(c.Request.Context(), apiKey.GroupID)
@@ -277,7 +273,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if requestCtx.Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithOptions(requestCtx, apiKey.GroupID, sessionHash, forwardModel, fs.FailedAccountIDs, service.SelectOptions{Capability: capability, RequireCompact: requireCompact})
+		selection, err := h.gatewayService.SelectAccountWithOptions(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: capability, RequireCompact: requireCompact})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				if legacyCompact && errors.Is(err, service.ErrNoAvailableCompactAccounts) {
@@ -399,9 +395,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		// 扣除非语义心跳字节的口径快照：心跳注释不构成语义响应，不能因心跳字节变化而放弃 failover 换号
 		writerSizeBeforeForward := service.OpenAICompactKeepaliveAdjustedWrittenSize(c)
 		forwardBody := body
-		if channelMapping.Mapped {
-			forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
-		}
 		var result *service.ForwardResult
 		var oaResult *service.OpenAIForwardResult
 		setActualUpstreamEndpoint(c, "")
@@ -433,7 +426,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if service.GetOpsCyberPolicy(c) != nil {
 			cyberBlockBody = sessionHashBody
 		}
-		recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), apiKey, account, subscription, reqModel, err != nil, cyberBlockBody, clientRequestedUsageFields(c, channelMapping, reqModel, ""), service.HashUsageRequestPayload(body))
+		recordCyberPolicyIfMarked(c, h.cyberPolicyDeps(), apiKey, account, subscription, reqModel, err != nil, cyberBlockBody, clientRequestedModel(c, reqModel), service.HashUsageRequestPayload(body))
 
 		// 入账：两个网关服务的结果类型不同，按转发实现二选一。
 		submitForwardUsage := func(result *service.ForwardResult) {
@@ -459,7 +452,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					RequestPayloadHash: requestPayloadHash,
 					APIKeyService:      h.apiKeyService,
 					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
+					RequestedModel:     clientRequestedModel(c, reqModel),
 				}); err != nil {
 					reqLog.Error("gateway.responses.record_usage_failed",
 						zap.Int64("account_id", account.ID),
@@ -491,7 +484,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					RequestPayloadHash: requestPayloadHash,
 					APIKeyService:      h.apiKeyService,
 					SessionID:          sessionID,
-					ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, res.UpstreamModel),
+					RequestedModel:     clientRequestedModel(c, reqModel),
 					PricingAt:          pricingAt,
 					CyberBlocked:       cyberBlocked,
 					NativeCompactionV2: nativeV2,
@@ -538,7 +531,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					streamStarted = true
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
-					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, nil), false, err)
+					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, nil), false, err)
 				}
 				if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputSwitches) {
 					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
@@ -563,7 +556,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				}
 			}
 			if forwardTarget == compatForwardOpenAI {
-				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), false, err)
+				h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, oaResult), false, err)
 			}
 			var upstreamErrorAlreadyCommunicated bool
 			if forwardTarget == compatForwardOpenAI {
@@ -597,7 +590,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				h.openAIGatewayService.UpdateCodexUsageSnapshotFromHeaders(c.Request.Context(), account.ID, oaResult.ResponseHeaders)
 			}
 			// key 健康熔断 / 调度统计的成功观测
-			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, forwardModel, requireCompact, oaResult), openAIForwardSucceededForScheduling(oaResult))
+			h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, oaResult), openAIForwardSucceededForScheduling(oaResult))
 		}
 		// 6. Record usage
 		submitAttemptUsage()

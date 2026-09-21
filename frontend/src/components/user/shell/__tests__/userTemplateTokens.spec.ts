@@ -41,8 +41,7 @@ const SCAN_FILES = [
 const EXCLUDE_PREFIXES = [
   'components/user/monitor/',
   'components/user/MonitorDetailDialog.vue',
-  'views/user/ChannelStatus',
-  'views/user/AvailableChannelsView.vue'
+  'views/user/ChannelStatus'
 ]
 
 /** 禁用模式与含义（只扫 class 属性、:class 表达式与 <style> 里的 @apply）。 */

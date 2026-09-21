@@ -82,7 +82,7 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 				service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil),
 				nil, nil, nil, nil, nil,
 				fixedStatusHTTPUpstream{status: http.StatusInternalServerError, body: `{"error":{"message":"` + keyword + `"}}`},
-				nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+				nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 			)
 			h.maxAccountSwitches = 0
 			code := http.StatusTeapot

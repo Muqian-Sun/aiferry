@@ -84,8 +84,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		return
 	}
 
-	channelMapping, _ := h.gatewayService.ResolveChannelMappingAndRestrict(c.Request.Context(), apiKey.GroupID, reqModel)
-	forwardModel := openAIChannelForwardModel(channelMapping, reqModel)
+	forwardModel := reqModel
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
@@ -177,9 +176,6 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		forwardStart := time.Now()
 
 		forwardBody := body
-		if channelMapping.Mapped {
-			forwardBody = h.gatewayService.ReplaceModelInBody(body, channelMapping.MappedModel)
-		}
 		writerSizeBeforeForward := c.Writer.Size()
 		result, err := func() (*service.OpenAIForwardResult, error) {
 			defer func() {
@@ -248,19 +244,19 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 
 		h.submitOpenAIUsageRecordTask(c.Request.Context(), result, func(ctx context.Context) {
 			if err := h.gatewayService.RecordUsage(ctx, &service.OpenAIRecordUsageInput{
-				Result:             result,
-				APIKey:             apiKey,
-				User:               apiKey.User,
-				Account:            account,
-				Subscription:       subscription,
-				InboundEndpoint:    inboundEndpoint,
-				UpstreamEndpoint:   upstreamEndpoint,
-				UserAgent:          userAgent,
-				IPAddress:          clientIP,
-				APIKeyService:      h.apiKeyService,
-				SessionID:          sessionID,
-				ChannelUsageFields: clientRequestedUsageFields(c, channelMapping, reqModel, result.UpstreamModel),
-				PricingAt:          pricingAt,
+				Result:           result,
+				APIKey:           apiKey,
+				User:             apiKey.User,
+				Account:          account,
+				Subscription:     subscription,
+				InboundEndpoint:  inboundEndpoint,
+				UpstreamEndpoint: upstreamEndpoint,
+				UserAgent:        userAgent,
+				IPAddress:        clientIP,
+				APIKeyService:    h.apiKeyService,
+				SessionID:        sessionID,
+				RequestedModel:   clientRequestedModel(c, reqModel),
+				PricingAt:        pricingAt,
 			}); err != nil {
 				logger.L().With(
 					zap.String("component", "handler.openai_gateway.embeddings"),

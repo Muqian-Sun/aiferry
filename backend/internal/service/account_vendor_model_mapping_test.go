@@ -119,9 +119,8 @@ func TestAntigravityModelMapping_NeverAppliesToKeys(t *testing.T) {
 			// 调度路径（唯一调度器）
 			require.True(t, svc.isModelSupportedByAccount(account, outsideDefault))
 			require.True(t, svc.isModelSupportedByAccountWithContext(thinkingCtx, account, outsideDefault))
-			// 转发路径：GatewayService.Forward 对 key 用 GetMappedModel，渠道限制检查用 resolveAccountUpstreamModel
+			// 转发路径：GatewayService.Forward 对 key 用 GetMappedModel
 			require.Equal(t, outsideDefault, account.GetMappedModel(outsideDefault))
-			require.Equal(t, outsideDefault, resolveAccountUpstreamModel(context.Background(), account, outsideDefault))
 		})
 	}
 
@@ -144,7 +143,7 @@ func TestAntigravityModelMapping_NeverAppliesToKeys(t *testing.T) {
 		require.NotContains(t, keyMapping, "gemini-3-flash")
 		require.NotContains(t, keyMapping, "gemini-3.1-pro")
 		require.True(t, svc.isModelSupportedByAccountWithContext(thinkingCtx, key, "claude-sonnet-4-5"))
-		require.Equal(t, "claude-sonnet-4-5", resolveAccountUpstreamModel(context.Background(), key, "claude-sonnet-4-5"))
+		require.Equal(t, "claude-sonnet-4-5", key.GetMappedModel("claude-sonnet-4-5"))
 	})
 }
 

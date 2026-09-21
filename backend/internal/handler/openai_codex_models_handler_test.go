@@ -162,8 +162,8 @@ func TestCodexModelsAppliesLocalFiltersBeforeClientETag(t *testing.T) {
 		repo,
 		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil),
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	group := &service.Group{
@@ -236,8 +236,8 @@ func TestCodexModelsAPIKeyCacheDoesNotLeakGroupFilters(t *testing.T) {
 		repo,
 		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil),
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	groupA := &service.Group{
@@ -347,8 +347,8 @@ func TestCodexModelsSupplementsConfiguredModelsWithUnmappedAccountDefaults(t *te
 		repo,
 		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil),
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 
@@ -397,8 +397,8 @@ func TestCodexModelsUnmappedParentAndSparkShadowHonorCustomListAndETag(t *testin
 		repo,
 		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil),
 	)
 	handler := &OpenAIGatewayHandler{gatewayService: gatewayService, modelCatalog: listAllCatalogStub{}}
 	group := &service.Group{ID: 45, Platform: service.PlatformOpenAI}
@@ -620,8 +620,8 @@ func newCodexModelsFailoverTestHandlerWithAccountCount(firstStatus, accountCount
 		codexModelsFailoverAccountRepo{accounts: accounts},
 		nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, codexModelsFailoverAccountRepo{accounts: accounts}, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(cfg, codexModelsFailoverAccountRepo{accounts: accounts}, nil),
 	)
 	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches, modelCatalog: listAllCatalogStub{}}, upstream, groupID
 }
@@ -789,8 +789,8 @@ func newPinnedCodexTestHandler(accounts []service.Account, upstream *codexModels
 		codexModelsFailoverAccountRepo{accounts: accounts},
 		nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, codexModelsFailoverAccountRepo{accounts: accounts}, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(cfg, codexModelsFailoverAccountRepo{accounts: accounts}, nil),
 	)
 	return &OpenAIGatewayHandler{gatewayService: gatewayService, maxAccountSwitches: maxSwitches, modelCatalog: listAllCatalogStub{}}
 }
@@ -1052,8 +1052,8 @@ func TestCodexModelsHidesUnlistedCatalogSlugs(t *testing.T) {
 		repo,
 		nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}, nil, nil, nil, nil, nil,
 		upstream,
-		nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil, nil),
+		nil, nil, nil, nil, nil, nil,
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, repo, nil),
 	)
 	group := &service.Group{ID: 44, Platform: service.PlatformOpenAI}
 

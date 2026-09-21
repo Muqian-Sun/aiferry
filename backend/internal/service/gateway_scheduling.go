@@ -71,15 +71,6 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 	}
 	ctx = s.withGatewayProfitControlGate(ctx, groupID)
 
-	// Claude Code 限制可能已将 groupID 解析为 fallback group，
-	// 渠道限制预检查必须使用解析后的分组。
-	if s.checkChannelPricingRestriction(ctx, groupID, requestedModel) {
-		slog.Warn("channel pricing restriction blocked request",
-			"group_id", derefGroupID(groupID),
-			"model", requestedModel)
-		return nil, fmt.Errorf("%w supporting model: %s (channel pricing restriction)", ErrNoAvailableAccounts, requestedModel)
-	}
-
 	// anthropic/gemini 分组支持混合调度（包含启用了 mixed_scheduling 的 antigravity 账户）
 	// 注意：强制平台模式不走混合调度
 	if (platform == PlatformAnthropic || platform == PlatformGemini) && !hasForcePlatform {
@@ -141,15 +132,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 	ctx = s.withGroupContext(ctx, group)
 	ctx = s.withGatewayProfitControlGate(ctx, groupID)
-
-	// Claude Code 限制可能已将 groupID 解析为 fallback group，
-	// 渠道限制预检查必须使用解析后的分组。
-	if s.checkChannelPricingRestriction(ctx, groupID, requestedModel) {
-		slog.Warn("channel pricing restriction blocked request",
-			"group_id", derefGroupID(groupID),
-			"model", requestedModel)
-		return nil, fmt.Errorf("%w supporting model: %s (channel pricing restriction)", ErrNoAvailableAccounts, requestedModel)
-	}
 
 	var stickyAccountID int64
 	var stickySource string
@@ -265,13 +247,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		return excluded
 	}
 
-	// upstream 计费基准的渠道模型限制以账号映射后的上游模型为准，只能逐账号判定；
-	// 负载感知各层的候选过滤与粘性 gate 共用这一判定。
-	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
-	isChannelRestricted := func(account *Account) bool {
-		return needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, account, requestedModel)
-	}
-
 	// 获取模型路由配置（anthropic / openai 目标平台；composite 分组按目标平台判断）。
 	// 目录路由下池由条目绑定决定，分组的主备路由规则不适用（优先级在绑定上）。
 	_, catalogRouted := CatalogRouteFromContext(ctx)
@@ -301,7 +276,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 	if len(routingAccountIDs) > 0 && s.concurrencyService != nil {
 		// 1. 过滤出路由列表中可调度的账号
 		var routingCandidates []*Account
-		var filteredExcluded, filteredMissing, filteredAdmit, filteredPlatform, filteredChannelRestricted int
+		var filteredExcluded, filteredMissing, filteredAdmit, filteredPlatform int
 		admitReasons := map[string]int{}
 		for _, routingAccountID := range routingAccountIDs {
 			if isExcluded(routingAccountID) {
@@ -317,10 +292,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 				filteredPlatform++
 				continue
 			}
-			if isChannelRestricted(account) {
-				filteredChannelRestricted++
-				continue
-			}
 			if ok, reason := s.candidateAdmits(ctx, groupID, account, requestedModel); !ok {
 				filteredAdmit++
 				admitReasons[reason]++
@@ -334,9 +305,9 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		}
 
 		if s.debugModelRoutingEnabled() {
-			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed candidates: group_id=%v model=%s routed=%d candidates=%d filtered(excluded=%d missing=%d platform=%d channel_restricted=%d admit=%d admit_reasons=%v)",
+			logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] routed candidates: group_id=%v model=%s routed=%d candidates=%d filtered(excluded=%d missing=%d platform=%d admit=%d admit_reasons=%v)",
 				derefGroupID(groupID), requestedModel, len(routingAccountIDs), len(routingCandidates),
-				filteredExcluded, filteredMissing, filteredPlatform, filteredChannelRestricted, filteredAdmit, admitReasons)
+				filteredExcluded, filteredMissing, filteredPlatform, filteredAdmit, admitReasons)
 		}
 
 		if len(routingCandidates) > 0 {
@@ -356,8 +327,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 
 						admitOK, _ := s.candidateAdmits(ctx, groupID, stickyAccount, requestedModel)
 						gatePass := admitOK &&
-							isAccountSchedulableOnPlatform(ctx, stickyAccount, platform, useMixed) &&
-							!isChannelRestricted(stickyAccount)
+							isAccountSchedulableOnPlatform(ctx, stickyAccount, platform, useMixed)
 
 						rpmPass := gatePass && s.isAccountSchedulableForRPM(ctx, stickyAccount, true)
 
@@ -538,7 +508,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 				// 反序列化后 AccountGroups 字段为空，导致 isAccountInGroup 永远返回 false。
 				platformOK := isAccountSchedulableOnPlatform(ctx, account, platform, useMixed)
 				admitOK, admitReason := s.candidateAdmits(ctx, groupID, account, requestedModel)
-				channelOK := !isChannelRestricted(account)
 				rpmOK := s.isAccountSchedulableForRPM(ctx, account, true)
 
 				slog.Debug("sticky.layer1_5_no_routing_checks",
@@ -548,11 +517,10 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 					"platform_ok", platformOK,
 					"admit_ok", admitOK,
 					"admit_reason", admitReason,
-					"channel_ok", channelOK,
 					"rpm_ok", rpmOK,
 				)
 
-				if !clearSticky && platformOK && admitOK && channelOK && rpmOK {
+				if !clearSticky && platformOK && admitOK && rpmOK {
 					result, err := s.tryAcquireAccountSlot(ctx, accountID, account.Concurrency)
 					if err == nil && result.Acquired {
 						// 会话数量限制检查
@@ -637,7 +605,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		"total_accounts", len(accounts),
 	)
 	candidates := make([]*Account, 0, len(accounts))
-	channelRestrictedCount := 0
 	compactRejected := 0
 	for i := range accounts {
 		acc := &accounts[i]
@@ -645,10 +612,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 			continue
 		}
 		if !isAccountSchedulableOnPlatform(ctx, acc, platform, useMixed) {
-			continue
-		}
-		if isChannelRestricted(acc) {
-			channelRestrictedCount++
 			continue
 		}
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
@@ -668,14 +631,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 	}
 
 	if len(candidates) == 0 {
-		if channelRestrictedCount > 0 {
-			slog.Warn("channel pricing restriction blocked request",
-				"group_id", derefGroupID(groupID),
-				"model", requestedModel,
-				"restricted_accounts", channelRestrictedCount,
-				"total_accounts", len(accounts))
-			return nil, fmt.Errorf("%w supporting model: %s (channel pricing restriction)", ErrNoAvailableAccounts, requestedModel)
-		}
 		if compactRejected > 0 {
 			return nil, ErrNoAvailableCompactAccounts
 		}
@@ -1732,7 +1687,7 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 						if clearSticky {
 							s.deleteStickySession(ctx, groupID, sessionHash)
 						}
-						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+						if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && isAccountSchedulableOnPlatform(ctx, account, platform, false) && s.isAccountSchedulableForRPM(ctx, account, true) {
 							if s.debugModelRoutingEnabled() {
 								logger.LegacyPrintf("service.gateway", "[ModelRoutingDebug] legacy routed sticky hit: group_id=%v model=%s session=%s account=%d", derefGroupID(groupID), requestedModel, shortSessionHash(sessionHash), accountID)
 							}
@@ -1846,9 +1801,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	ctx = s.withRPMPrefetch(ctx, accounts)
 
 	// 3. 按优先级+最久未用选择（考虑模型支持）
-	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查，
-	// 因为粘性会话优先保持连接一致性，且 upstream 计费基准极少使用。
-	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var selected *Account
 	compactRejected := 0
 	for i := range accounts {
@@ -1860,9 +1812,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
 		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
 		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			continue
-		}
-		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel) {
 			continue
 		}
 		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
@@ -2028,7 +1977,7 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 					if clearSticky {
 						s.deleteStickySession(ctx, groupID, sessionHash)
 					}
-					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) && !s.isStickyAccountUpstreamRestricted(ctx, groupID, account, requestedModel) {
+					if !clearSticky && s.admits(ctx, groupID, account, requestedModel) && accountInSchedulingScope(ctx, account, groupID) && s.isAccountSchedulableForRPM(ctx, account, true) {
 						if isAccountSchedulableOnPlatform(ctx, account, nativePlatform, true) {
 							return account, nil
 						}
@@ -2051,8 +2000,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	ctx = s.withRPMPrefetch(ctx, accounts)
 
 	// 3. 按优先级+最久未用选择（考虑模型支持和混合调度）
-	// needsUpstreamCheck 仅在主选择循环中使用；粘性会话命中时跳过此检查。
-	needsUpstreamCheck := s.needsUpstreamChannelRestrictionCheck(ctx, groupID)
 	var selected *Account
 	compactRejected := 0
 	for i := range accounts {
@@ -2068,9 +2015,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 		}
 		// 过滤：原生平台成品号直接通过，antigravity 成品号需要启用混合调度，第三方 key 看协议地址
 		if !isAccountSchedulableOnPlatform(ctx, acc, nativePlatform, true) {
-			continue
-		}
-		if needsUpstreamCheck && s.isUpstreamModelRestrictedByChannel(ctx, *groupID, acc, requestedModel) {
 			continue
 		}
 		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
