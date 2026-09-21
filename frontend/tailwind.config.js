@@ -1,3 +1,6 @@
+/** 设计 token → Tailwind 颜色：值来自 src/styles/tokens.css 的 RGB 通道变量，保留透明度修饰符。 */
+const af = (name) => `rgb(var(--af-${name}) / <alpha-value>)`
+
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{vue,js,ts,jsx,tsx}'],
@@ -33,6 +36,37 @@ export default {
           900: '#0f172a',
           950: '#020617'
         },
+        // AiFerry 设计 token（用户站与新控件使用；明暗由 html.dark 切换变量）
+        af: {
+          sheet: af('sheet'),
+          sunken: af('sunken'),
+          hairline: af('hairline'),
+          'hairline-strong': af('hairline-strong'),
+          ink: af('ink'),
+          'ink-2': af('ink-2'),
+          'ink-3': af('ink-3'),
+          'ink-4': af('ink-4'),
+          brand: af('brand'),
+          'brand-hover': af('brand-hover'),
+          'brand-tint': af('brand-tint'),
+          'on-brand': af('on-brand'),
+          success: af('success'),
+          'success-tint': af('success-tint'),
+          warning: af('warning'),
+          'warning-tint': af('warning-tint'),
+          danger: af('danger'),
+          'danger-tint': af('danger-tint'),
+          chart: {
+            1: af('chart-1'),
+            2: af('chart-2'),
+            3: af('chart-3'),
+            4: af('chart-4'),
+            5: af('chart-5'),
+            6: af('chart-6'),
+            7: af('chart-7'),
+            8: af('chart-8')
+          }
+        },
         // 深色模式背景
         dark: {
           50: '#f8fafc',
@@ -63,6 +97,18 @@ export default {
           'sans-serif'
         ],
         mono: ['ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace']
+      },
+      spacing: {
+        topbar: 'var(--af-topbar-h)'
+      },
+      fontSize: {
+        // 字阶补两档：13（表格与控制台正文）、28（公开页展示标题）
+        13: ['0.8125rem', { lineHeight: '1.25rem' }],
+        28: ['1.75rem', { lineHeight: '2.125rem', letterSpacing: '-0.01em' }]
+      },
+      maxWidth: {
+        site: '1200px',
+        form: '640px'
       },
       boxShadow: {
         glass: '0 8px 32px rgba(0, 0, 0, 0.08)',

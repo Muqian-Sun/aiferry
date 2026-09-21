@@ -72,15 +72,15 @@ describe('DataTable', () => {
     expect(nameHeader.find('[data-test="custom-name-header"]').exists()).toBe(true)
     expect(nameHeader.attributes('aria-sort')).toBe('ascending')
     expect(nameHeader.findAll('svg')).toHaveLength(2)
-    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-primary-600')
-    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-gray-300')
+    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-af-brand')
+    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-af-ink-4')
 
     await nameHeader.trigger('click')
     await wrapper.vm.$nextTick()
 
     expect(nameHeader.attributes('aria-sort')).toBe('descending')
-    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-gray-300')
-    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-primary-600')
+    expect(nameHeader.findAll('svg')[0].classes()).toContain('text-af-ink-4')
+    expect(nameHeader.findAll('svg')[1].classes()).toContain('text-af-brand')
   })
 
   it('renders every row with no virtual padding spacer for small datasets (virtualization off)', async () => {
