@@ -722,7 +722,7 @@ func TestAlreadyProcessedRecoversStaleRechargingLease(t *testing.T) {
 	subRepo.seed(&UserSubscription{ID: 1, UserID: order.UserID, PlanID: 100, Status: SubscriptionStatusActive, ExpiresAt: time.Now().Add(24 * time.Hour)})
 	svc := &PaymentService{
 		entClient:       client,
-		subscriptionSvc: NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil),
+		subscriptionSvc: NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil),
 	}
 
 	require.NoError(t, svc.alreadyProcessed(ctx, order))
@@ -1015,7 +1015,7 @@ func TestExecuteSubscriptionFulfillmentRecoversCommittedAssignmentWithoutExtendi
 	planRepo := &subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 100, Name: "plan"}}
 	svc := &PaymentService{
 		entClient:       client,
-		subscriptionSvc: NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil),
+		subscriptionSvc: NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil),
 	}
 
 	require.NoError(t, svc.ExecuteSubscriptionFulfillment(ctx, order.ID))
@@ -1158,7 +1158,7 @@ func TestExecuteSubscriptionFulfillmentAppliesAffiliateRebate(t *testing.T) {
 		SettingKeyAffiliateRebateFreezeHours: "0",
 	}}, nil)
 	subRepo := newSubscriptionUserSubRepoStub()
-	subscriptionSvc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 100, Name: "plan"}}, subRepo, nil, nil, nil, nil)
+	subscriptionSvc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 100, Name: "plan"}}, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	svc := &PaymentService{
 		entClient:        client,
 		subscriptionSvc:  subscriptionSvc,
@@ -1253,7 +1253,7 @@ func TestExecuteSubscriptionFulfillmentDoesNotDuplicateWorkAfterLegacySuccessAud
 		SettingKeyAffiliateRebateRate: "20",
 	}}, nil)
 	subRepo := newSubscriptionUserSubRepoStub()
-	subscriptionSvc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 100, Name: "plan"}}, subRepo, nil, nil, nil, nil)
+	subscriptionSvc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 100, Name: "plan"}}, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	svc := &PaymentService{
 		entClient:        client,
 		subscriptionSvc:  subscriptionSvc,

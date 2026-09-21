@@ -68,11 +68,13 @@ func translatePersistenceError(err error, notFound, conflict *infraerrors.Applic
 	return err
 }
 
-// isForeignKeyViolation 判断错误是否为外键约束冲突（PostgreSQL 23503）。
+// isForeignKeyViolation 判断错误是否为外键约束冲突：
+// 23503 foreign_key_violation（插入 / 更新引用不存在的行，或 NO ACTION 删除被引用行），
+// 23001 restrict_violation（ON DELETE / UPDATE RESTRICT 的被引用行被删改，Postgres 单独给了码）。
 // 只认错误码：外键冲突的消息文本各驱动差异大，按关键词猜会把别的约束错误误判进来。
 func isForeignKeyViolation(err error) bool {
 	var pgErr *pq.Error
-	return errors.As(err, &pgErr) && pgErr.Code == "23503"
+	return errors.As(err, &pgErr) && (pgErr.Code == "23503" || pgErr.Code == "23001")
 }
 
 // isUniqueConstraintViolation 判断错误是否为唯一约束冲突。

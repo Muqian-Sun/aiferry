@@ -191,6 +191,62 @@ type subscriptionUserSubRepoStub struct {
 	byID        map[int64]*UserSubscription
 	byUserPlan  map[string]*UserSubscription
 	createCalls int
+	// deleted 一条软删行（RestoreSubscription 用例）；restored 记录是否真的恢复过
+	deleted  *UserSubscription
+	restored bool
+}
+
+func (s *subscriptionUserSubRepoStub) ExtendExpiry(_ context.Context, id int64, expiresAt time.Time) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.ExpiresAt = expiresAt
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) UpdateStatus(_ context.Context, id int64, status string) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.Status = status
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) UpdateNotes(_ context.Context, id int64, notes string) error {
+	sub := s.byID[id]
+	if sub == nil {
+		return ErrSubscriptionNotFound
+	}
+	sub.Notes = notes
+	return nil
+}
+
+func (s *subscriptionUserSubRepoStub) GetByIDIncludeDeleted(_ context.Context, id int64) (*UserSubscription, error) {
+	if s.deleted != nil && s.deleted.ID == id {
+		cp := *s.deleted
+		return &cp, nil
+	}
+	if sub := s.byID[id]; sub != nil {
+		cp := *sub
+		return &cp, nil
+	}
+	return nil, ErrSubscriptionNotFound
+}
+
+func (s *subscriptionUserSubRepoStub) Restore(_ context.Context, id int64, restoredStatus string) (*UserSubscription, error) {
+	if s.deleted == nil || s.deleted.ID != id {
+		return nil, ErrSubscriptionNotFound
+	}
+	s.restored = true
+	cp := *s.deleted
+	cp.DeletedAt = nil
+	cp.Status = restoredStatus
+	s.byID[cp.ID] = &cp
+	s.byUserPlan[s.key(cp.UserID, cp.PlanID)] = &cp
+	s.deleted = nil
+	return &cp, nil
 }
 
 func newSubscriptionUserSubRepoStub() *subscriptionUserSubRepoStub {
@@ -305,7 +361,7 @@ func TestAssignSubscriptionReuseWhenSemanticsMatch(t *testing.T) {
 		Notes:     "init",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1001,
 		PlanID:       1,
@@ -333,7 +389,7 @@ func TestAssignSubscriptionDoesNotReactivateFutureSuspendedSubscription(t *testi
 		Notes:     "assignment",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1003,
 		PlanID:       1,
@@ -372,7 +428,7 @@ func TestAssignSubscriptionDoesNotReactivatePastExpirySuspendedSubscription(t *t
 		Notes:              "suspended assignment",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1005,
 		PlanID:       1,
@@ -416,7 +472,7 @@ func TestAssignSubscriptionRenewsExpiredSemanticMatch(t *testing.T) {
 		Notes:              " assignment ",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	before := time.Now()
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1002,
@@ -456,7 +512,7 @@ func TestAssignSubscriptionRenewsExpiredAndAppendsDifferentNotes(t *testing.T) {
 		Notes:     "old assignment",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1004,
 		PlanID:       1,
@@ -482,7 +538,7 @@ func TestAssignSubscriptionConflictWhenSemanticsMismatch(t *testing.T) {
 		Notes:     "old-note",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	_, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       2001,
 		PlanID:       1,
@@ -519,7 +575,7 @@ func TestBulkAssignSubscriptionCreatedReusedAndConflict(t *testing.T) {
 		Notes:     "same-note",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
 		UserIDs:      []int64{1, 2, 3},
 		PlanID:       1,
@@ -555,7 +611,7 @@ func TestBulkAssignSubscriptionRenewsExpiredSemanticMatch(t *testing.T) {
 		Notes:           "bulk",
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	before := time.Now()
 	result, err := svc.BulkAssignSubscription(context.Background(), &BulkAssignSubscriptionInput{
 		UserIDs:      []int64{4},
@@ -590,7 +646,7 @@ func TestAssignSubscriptionKeepsWorkingWhenIdempotencyStoreUnavailable(t *testin
 		SetDefaultIdempotencyCoordinator(nil)
 	})
 
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	sub, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       9001,
 		PlanID:       1,
@@ -650,7 +706,7 @@ func TestDetectAssignSemanticConflictCases(t *testing.T) {
 func TestAssignSubscriptionPlanNotFound(t *testing.T) {
 	planRepo := &subscriptionPlanRepoStub{plan: nil}
 	subRepo := newSubscriptionUserSubRepoStub()
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 
 	_, err := svc.AssignSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       1,

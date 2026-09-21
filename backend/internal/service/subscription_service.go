@@ -318,13 +318,13 @@ func (s *SubscriptionService) assignOrExtendSubscription(ctx context.Context, in
 // rejectOtherActivePlan 同一用户同一时间只允许一条有效订阅：已有别的套餐有效 → ErrSubscriptionAlreadyActive。
 // 同套餐走续期。有效 = status active 且未过期（status 由过期批处理延迟翻转，所以看 expires_at）。
 func (s *SubscriptionService) rejectOtherActivePlan(ctx context.Context, userID, planID int64) error {
+	// ListActiveByUserID 只回 status=active 且未过期的行（含过期批处理还没翻状态的不算）
 	active, err := s.userSubRepo.ListActiveByUserID(ctx, userID)
 	if err != nil {
 		return err
 	}
-	now := s.now()
 	for i := range active {
-		if active[i].PlanID != planID && active[i].Status == SubscriptionStatusActive && active[i].ExpiresAt.After(now) {
+		if active[i].PlanID != planID {
 			return ErrSubscriptionAlreadyActive
 		}
 	}
@@ -344,9 +344,6 @@ func (s *SubscriptionService) maybeInvalidateAssignmentCaches(sub *UserSubscript
 // ensureSubscriptionKey 同一订阅行至多一把未删除的订阅 key；新建 / 续期 / 恢复时补齐（管理端删过就再生成）。
 // 必须在持有订阅行锁的事务里调用（updateExistingSubscriptionTerm / createSubscription 的 tx），并发靠行锁串行。
 func (s *SubscriptionService) ensureSubscriptionKey(ctx context.Context, sub *UserSubscription, planName string) error {
-	if s.apiKeyRepo == nil {
-		return nil
-	}
 	exists, err := s.apiKeyRepo.ExistsBySubscriptionID(ctx, sub.ID)
 	if err != nil {
 		return fmt.Errorf("check subscription key: %w", err)

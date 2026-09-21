@@ -56,7 +56,7 @@ func TestRevokeSubscription_InvalidatesL1CacheSynchronously(t *testing.T) {
 	}
 	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{ID: 20, Name: "plan"}}, repo, nil, nil, nil, &config.Config{
 		SubscriptionCache: config.SubscriptionCacheConfig{
-			L1Size:       16,
+			L1Size:       1024,
 			L1TTLSeconds: 60,
 		},
 	})
@@ -92,8 +92,13 @@ func (r *restoreUserSubRepoStub) GetByIDIncludeDeleted(_ context.Context, id int
 	return &cp, nil
 }
 
-func (r *restoreUserSubRepoStub) ExistsActiveByUserIDAndGroupID(context.Context, int64, int64) (bool, error) {
+// 同套餐已有未删行（existsActive）→ Restore 撞部分唯一索引；别的套餐有效由 ListActiveByUserID 表达，这里恒空
+func (r *restoreUserSubRepoStub) ExistsByUserIDAndPlanID(context.Context, int64, int64) (bool, error) {
 	return r.existsActive, nil
+}
+
+func (r *restoreUserSubRepoStub) ListActiveByUserID(context.Context, int64) ([]UserSubscription, error) {
+	return nil, nil
 }
 
 func (r *restoreUserSubRepoStub) Restore(_ context.Context, id int64, restoredStatus string) (*UserSubscription, error) {
@@ -121,7 +126,7 @@ func TestRestoreSubscription_ExpiredActiveRestoresAsExpired(t *testing.T) {
 			DeletedAt: &deletedAt,
 		},
 	}
-	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{Name: "plan"}}, repo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	restored, err := svc.RestoreSubscription(context.Background(), 1)
@@ -142,7 +147,7 @@ func TestRestoreSubscription_NotRevokedReturnsConflict(t *testing.T) {
 			ExpiresAt: time.Now().Add(time.Hour),
 		},
 	}
-	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{Name: "plan"}}, repo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	_, err := svc.RestoreSubscription(context.Background(), 1)
@@ -163,7 +168,7 @@ func TestRestoreSubscription_LiveSubscriptionConflict(t *testing.T) {
 			DeletedAt: &deletedAt,
 		},
 	}
-	svc := NewSubscriptionService(planRepoNoop{}, repo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(&subscriptionPlanRepoStub{plan: &SubscriptionPlan{Name: "plan"}}, repo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 	t.Cleanup(svc.Stop)
 
 	_, err := svc.RestoreSubscription(context.Background(), 1)

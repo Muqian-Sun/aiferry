@@ -140,10 +140,8 @@ func (s *PaymentService) validateSubOrder(ctx context.Context, req CreateOrderRe
 		return nil, infraerrors.NotFound("PLAN_NOT_AVAILABLE", "plan not found or not for sale")
 	}
 	// 同一时间只允许一条有效订阅：已持有别的套餐 → 409（续费同套餐放行）
-	if s.subscriptionSvc != nil {
-		if err := s.subscriptionSvc.rejectOtherActivePlan(ctx, req.UserID, plan.ID); err != nil {
-			return nil, err
-		}
+	if err := s.subscriptionSvc.rejectOtherActivePlan(ctx, req.UserID, plan.ID); err != nil {
+		return nil, err
 	}
 	return plan, nil
 }

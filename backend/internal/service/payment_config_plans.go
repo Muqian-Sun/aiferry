@@ -233,8 +233,5 @@ func (s *PaymentConfigService) GetPlan(ctx context.Context, id int64) (*Subscrip
 }
 
 func (s *PaymentConfigService) invalidatePlanCache(ctx context.Context, id int64) error {
-	if s.planCache == nil {
-		return nil
-	}
 	return s.planCache.InvalidatePlanCache(ctx, id)
 }

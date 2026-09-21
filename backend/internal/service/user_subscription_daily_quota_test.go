@@ -41,7 +41,7 @@ func TestAssignOrExtendSubscription_ExpiredDailyCardStartsNewOneTimeQuota(t *tes
 		MonthlyUsageUSD:    30,
 		Notes:              "old",
 	})
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 
 	renewed, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       200,
@@ -77,7 +77,7 @@ func TestAssignOrExtendSubscription_ExpiredSubscriptionAppendsMatchingNotes(t *t
 		Status:    SubscriptionStatusExpired,
 		Notes:     "same",
 	})
-	svc := NewSubscriptionService(planRepo, subRepo, nil, nil, nil, nil)
+	svc := NewSubscriptionService(planRepo, subRepo, &subscriptionKeyRepoStub{}, nil, nil, nil)
 
 	renewed, reused, err := svc.AssignOrExtendSubscription(context.Background(), &AssignSubscriptionInput{
 		UserID:       201,

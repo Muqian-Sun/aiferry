@@ -88,7 +88,7 @@ func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
 			"type":          "subscription",
 			"value":         29.9,
 			"user_id":       1,
-			"plan_id":      planID,
+			"plan_id":       planID,
 			"validity_days": 0,
 		})
 
@@ -102,7 +102,7 @@ func TestCreateAndRedeem_SubscriptionRequiresNonZeroValidityDays(t *testing.T) {
 			"type":          "subscription",
 			"value":         29.9,
 			"user_id":       1,
-			"plan_id":      planID,
+			"plan_id":       planID,
 			"validity_days": -7,
 		})
 
@@ -119,7 +119,7 @@ func TestCreateAndRedeem_SubscriptionValidParamsPassValidation(t *testing.T) {
 		"type":          "subscription",
 		"value":         29.9,
 		"user_id":       1,
-		"plan_id":      planID,
+		"plan_id":       planID,
 		"validity_days": 31,
 	})
 

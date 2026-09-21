@@ -239,6 +239,62 @@ func (s *UserSubscriptionRepoSuite) TestGetActiveByUserIDAndPlanID_ExpiredIgnore
 	s.Require().Error(err, "expected error for expired subscription")
 }
 
+// GetActiveByID 是订阅 key 鉴权热路径的回源：只回 status=active 且未过期的行。
+func (s *UserSubscriptionRepoSuite) TestGetActiveByID() {
+	user := s.mustCreateUser("activebyid@test.com", service.RoleUser)
+	plan := s.mustCreatePlan("p-activebyid")
+	active := s.mustCreateSubscription(user.ID, plan.ID, nil)
+
+	got, err := s.repo.GetActiveByID(s.ctx, active.ID)
+	s.Require().NoError(err)
+	s.Require().Equal(active.ID, got.ID)
+	s.Require().Equal(plan.ID, got.PlanID)
+	s.Require().Nil(got.Plan, "热路径不带边（套餐另走 plan 缓存）")
+
+	_, err = s.repo.GetActiveByID(s.ctx, active.ID+100000)
+	s.Require().ErrorIs(err, service.ErrSubscriptionNotFound)
+}
+
+func (s *UserSubscriptionRepoSuite) TestGetActiveByID_ExpiredIgnored() {
+	user := s.mustCreateUser("activebyid-exp@test.com", service.RoleUser)
+	// 一个用户同一套餐只能一行：三种「不算有效」各用一个套餐
+	expired := s.mustCreateSubscription(user.ID, s.mustCreatePlan("p-abi-expired").ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetExpiresAt(time.Now().Add(-time.Minute)) // status 仍 active，过期批处理没跑
+	})
+	suspended := s.mustCreateSubscription(user.ID, s.mustCreatePlan("p-abi-susp").ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetStatus(service.SubscriptionStatusSuspended)
+	})
+	revoked := s.mustCreateSubscription(user.ID, s.mustCreatePlan("p-abi-revoked").ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetDeletedAt(time.Now())
+	})
+
+	for name, id := range map[string]int64{"expired": expired.ID, "suspended": suspended.ID, "revoked": revoked.ID} {
+		_, err := s.repo.GetActiveByID(s.ctx, id)
+		s.Require().ErrorIs(err, service.ErrSubscriptionNotFound, name)
+	}
+}
+
+// 部分唯一索引 (user_id, plan_id) WHERE deleted_at IS NULL：同套餐第二行 → SUBSCRIPTION_ALREADY_EXISTS；软删后可再建。
+func (s *UserSubscriptionRepoSuite) TestCreate_UniquePerUserPlanActive() {
+	user := s.mustCreateUser("unique@test.com", service.RoleUser)
+	plan := s.mustCreatePlan("p-unique")
+	first := s.mustCreateSubscription(user.ID, plan.ID, nil)
+
+	dup := &service.UserSubscription{UserID: user.ID, PlanID: plan.ID, Status: service.SubscriptionStatusActive, ExpiresAt: time.Now().Add(24 * time.Hour)}
+	err := s.repo.Create(s.ctx, dup)
+	s.Require().ErrorIs(err, service.ErrSubscriptionAlreadyExists)
+	s.Require().Zero(dup.ID)
+
+	// 唯一冲突把事务打成 aborted：后面的语句要在新事务里跑
+	s.SetupTest()
+	user = s.mustCreateUser("unique2@test.com", service.RoleUser)
+	plan = s.mustCreatePlan("p-unique2")
+	first = s.mustCreateSubscription(user.ID, plan.ID, func(c *dbent.UserSubscriptionCreate) { c.SetDeletedAt(time.Now()) })
+	again := &service.UserSubscription{UserID: user.ID, PlanID: plan.ID, Status: service.SubscriptionStatusActive, ExpiresAt: time.Now().Add(24 * time.Hour)}
+	s.Require().NoError(s.repo.Create(s.ctx, again), "软删行不占唯一索引")
+	s.Require().NotEqual(first.ID, again.ID)
+}
+
 // --- ListByUserID / ListActiveByUserID ---
 
 func (s *UserSubscriptionRepoSuite) TestListByUserID() {
@@ -272,10 +328,16 @@ func (s *UserSubscriptionRepoSuite) TestListActiveByUserID() {
 		c.SetStatus(service.SubscriptionStatusExpired)
 		c.SetExpiresAt(time.Now().Add(-24 * time.Hour))
 	})
+	// status 仍 active 但已过期（过期批处理没跑）：单订阅判定靠这里把它排除
+	p3 := s.mustCreatePlan("p-act3")
+	s.mustCreateSubscription(user.ID, p3.ID, func(c *dbent.UserSubscriptionCreate) {
+		c.SetExpiresAt(time.Now().Add(-time.Minute))
+	})
 
 	subs, err := s.repo.ListActiveByUserID(s.ctx, user.ID)
 	s.Require().NoError(err, "ListActiveByUserID")
 	s.Require().Len(subs, 1)
+	s.Require().Equal(p1.ID, subs[0].PlanID)
 	s.Require().Equal(service.SubscriptionStatusActive, subs[0].Status)
 }
 
@@ -742,6 +804,19 @@ func (s *UserSubscriptionRepoSuite) TestIncrementUsage_NotFound() {
 	err := s.repo.IncrementUsage(s.ctx, 999999, 1.0)
 	s.Require().Error(err, "should fail for non-existent subscription")
 	s.Require().ErrorIs(err, service.ErrSubscriptionNotFound)
+}
+
+// 软删（撤销）的订阅不再计用量：SQL 里的 deleted_at IS NULL 守着
+func (s *UserSubscriptionRepoSuite) TestIncrementUsage_SoftDeletedSubscriptionNotFound() {
+	user := s.mustCreateUser("inc-revoked@test.com", service.RoleUser)
+	plan := s.mustCreatePlan("p-inc-revoked")
+	sub := s.mustCreateSubscription(user.ID, plan.ID, func(c *dbent.UserSubscriptionCreate) { c.SetDeletedAt(time.Now()) })
+
+	err := s.repo.IncrementUsage(s.ctx, sub.ID, 1.0)
+	s.Require().ErrorIs(err, service.ErrSubscriptionNotFound)
+	got, err := s.repo.GetByIDIncludeDeleted(s.ctx, sub.ID)
+	s.Require().NoError(err)
+	s.Require().Zero(got.DailyUsageUSD, "软删行用量不变")
 }
 
 // --- nil 入参测试 ---
