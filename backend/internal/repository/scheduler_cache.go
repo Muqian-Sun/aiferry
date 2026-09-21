@@ -1073,6 +1073,8 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"auto_pause_5h_disabled",
 		"auto_pause_7d_disabled",
 		"model_rate_limits",
+		// SchedulingState 的模型级限流放行（Antigravity overages 有积分）要从快照还原，开关必须进投影。
+		"allow_overages",
 		service.UpstreamBillingProbeExtraKey,
 		service.GrokMediaEligibleExtraKey,
 		"grok_billing_snapshot",

@@ -182,27 +182,11 @@ func (a *Account) EffectiveLoadFactor() int {
 	return 1
 }
 
+// IsSchedulable 报告账号整体此刻可否调度（SchedulingState 的薄封装，给管理端 / 监控等非调度读者用；
+// 调度器直接读 SchedulingState / SchedulingAllows）。
+// 账号自己的配额计数（quota_used ≥ quota_limit）不在这里算：超限由状态服务在用量入账时写成 temp_unschedulable。
 func (a *Account) IsSchedulable() bool {
-	if !a.IsActive() || !a.Schedulable {
-		return false
-	}
-	now := time.Now()
-	if a.AutoPauseOnExpired && a.ExpiresAt != nil && !now.Before(*a.ExpiresAt) {
-		return false
-	}
-	if a.OverloadUntil != nil && now.Before(*a.OverloadUntil) {
-		return false
-	}
-	if a.RateLimitResetAt != nil && now.Before(*a.RateLimitResetAt) {
-		return false
-	}
-	if a.TempUnschedulableUntil != nil && now.Before(*a.TempUnschedulableUntil) {
-		return false
-	}
-	if a.IsAPIKeyOrBedrock() && a.IsQuotaExceeded() {
-		return false
-	}
-	return true
+	return a.SchedulingState(time.Now()).Allows(time.Now())
 }
 
 // IsCredentialUsableForShadow 报告本账号(作为某 spark 影子的母账号)的凭据/传输是否可被影子透传使用。
