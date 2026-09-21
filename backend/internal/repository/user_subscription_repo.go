@@ -300,7 +300,8 @@ func (r *userSubscriptionRepository) List(ctx context.Context, params pagination
 	if !includeSoftDeleted {
 		q = q.WithUser().WithPlan(func(q *dbent.SubscriptionPlanQuery) {
 			q.WithModels(func(mq *dbent.SubscriptionPlanModelQuery) { mq.WithEntry() })
-		}).WithAssignedByUser()
+		}).WithAssignedByUser().
+			WithAPIKeys(func(kq *dbent.APIKeyQuery) { kq.Where(apikey.DeletedAtIsNil()).Order(dbent.Asc(apikey.FieldID)) })
 	}
 
 	// Determine sort field
@@ -579,9 +580,32 @@ func (r *userSubscriptionRepository) attachUserSubscriptionRelations(ctx context
 		}
 	}
 
+	// 订阅 key：撤销的订阅 key 仍在（用户不能删），列表照样显示
+	subIDs := make([]int64, 0, len(subs))
+	for i := range subs {
+		subIDs = append(subIDs, subs[i].ID)
+	}
+	keys, err := client.APIKey.Query().
+		Where(apikey.DeletedAtIsNil(), apikey.SubscriptionIDIn(subIDs...)).
+		Order(dbent.Asc(apikey.FieldID)).
+		All(ctx)
+	if err != nil {
+		return err
+	}
+	keyBySubID := make(map[int64]*service.APIKey, len(keys))
+	for _, k := range keys {
+		if k.SubscriptionID == nil {
+			continue
+		}
+		if _, exists := keyBySubID[*k.SubscriptionID]; !exists {
+			keyBySubID[*k.SubscriptionID] = apiKeyEntityToService(k)
+		}
+	}
+
 	for i := range subs {
 		subs[i].User = userByID[subs[i].UserID]
 		subs[i].Plan = planByID[subs[i].PlanID]
+		subs[i].APIKey = keyBySubID[subs[i].ID]
 		if subs[i].AssignedBy != nil {
 			subs[i].AssignedByUser = assignedByID[*subs[i].AssignedBy]
 		}

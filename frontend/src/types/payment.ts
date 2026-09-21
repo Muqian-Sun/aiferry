@@ -108,20 +108,23 @@ export interface PaymentOrder {
 
 // ==================== Plans & Channels ====================
 
+/** 套餐模型集里的一条目录条目（后端 dto.SubscriptionPlanModel） */
+export interface SubscriptionPlanModel {
+  entry_id: number
+  model_id: string
+  display_name: string
+}
+
 export interface SubscriptionPlan {
   id: number
-  group_id: number
-  group_platform?: string
-  group_name?: string
-  rate_multiplier?: number
-  peak_rate_enabled?: boolean
-  peak_start?: string
-  peak_end?: string
-  peak_rate_multiplier?: number
-  daily_limit_usd?: number | null
-  weekly_limit_usd?: number | null
-  monthly_limit_usd?: number | null
-  supported_model_scopes?: string[]
+  /** 套餐自带的三档限额；null = 不限 */
+  daily_limit_usd: number | null
+  weekly_limit_usd: number | null
+  monthly_limit_usd: number | null
+  /** 管理端返回；用户站 /payment/plans 不带 */
+  entry_ids?: number[]
+  /** 套餐模型集（≥1） */
+  models: SubscriptionPlanModel[]
   name: string
   description: string
   price: number

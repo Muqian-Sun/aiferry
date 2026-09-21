@@ -142,6 +142,14 @@
         <template #cell-name="{ value, row }">
           <div class="flex items-center gap-1.5">
             <span class="font-medium text-af-ink">{{ value }}</span>
+            <span
+              v-if="row.subscription_id"
+              class="badge badge-gray"
+              data-testid="subscription-key-badge"
+              :title="t('keys.subscriptionKeyProtected')"
+            >
+              {{ t('keys.subscriptionKey', { plan: row.subscription_plan_name || '' }) }}
+            </span>
             <Icon
               v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
               name="shield"
@@ -153,7 +161,8 @@
         </template>
 
         <template #cell-group="{ row }">
-          <div class="group/dropdown relative">
+          <span v-if="row.subscription_id" class="text-sm text-af-ink-4" data-testid="subscription-key-no-group">—</span>
+          <div v-else class="group/dropdown relative">
             <button
               :ref="(el) => setGroupButtonRef(row.id, el)"
               @click="openGroupSelector(row)"
@@ -164,7 +173,6 @@
                 v-if="row.group"
                 :name="row.group.name"
                 :platform="row.group.platform"
-                :subscription-type="row.group.subscription_type"
                 :rate-multiplier="row.group.rate_multiplier"
                 :peak-rate-enabled="row.group.peak_rate_enabled"
                 :peak-start="row.group.peak_start"
@@ -428,8 +436,10 @@
               <Icon name="edit" size="sm" />
               <span class="text-xs">{{ t('common.edit') }}</span>
             </button>
-            <!-- Delete Button -->
+            <!-- Delete Button（订阅 key 是订阅的访问凭证，不能删） -->
             <button
+              v-if="!row.subscription_id"
+              data-testid="delete-key"
               @click="confirmDelete(row)"
               class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
             >
@@ -535,6 +545,7 @@
             id="key-form-group"
             :aria-label="t('keys.groupLabel')"
             v-model="formData.group_id"
+            :disabled="showEditModal && !!selectedKey?.subscription_id"
             :options="formGroupOptions"
             :placeholder="t('keys.selectGroup')"
             :empty-text="t('common.noGroupsAvailable')"
@@ -547,7 +558,6 @@
                 v-if="option"
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
@@ -560,7 +570,6 @@
               <GroupOptionItem
                 :name="(option as unknown as GroupOption).label"
                 :platform="(option as unknown as GroupOption).platform"
-                :subscription-type="(option as unknown as GroupOption).subscriptionType"
                 :rate-multiplier="(option as unknown as GroupOption).rate"
                 :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
                 :peak-start="(option as unknown as GroupOption).peakStart"
@@ -1166,7 +1175,6 @@
             <GroupOptionItem
               :name="option.label"
               :platform="option.platform"
-              :subscription-type="option.subscriptionType"
               :rate-multiplier="option.rate"
               :peak-rate-enabled="option.peakRateEnabled"
               :peak-start="option.peakStart"
@@ -1214,7 +1222,7 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 	import GroupBadge from '@/components/common/GroupBadge.vue'
 	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, SubscriptionType, GroupPlatform, UpdateApiKeyRequest } from '@/types'
+	import type { ApiKey, Group, PublicSettings, GroupPlatform, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
@@ -1243,7 +1251,6 @@ interface GroupOption {
   peakStart: string
   peakEnd: string
   peakRateMultiplier: number
-  subscriptionType: SubscriptionType
   platform: GroupPlatform
 }
 
@@ -1498,7 +1505,7 @@ const onStatusFilterChange = (value: string | number | boolean | null) => {
   onFilterChange()
 }
 
-// Convert groups to Select options format with rate multiplier and subscription type
+// Convert groups to Select options format with rate multiplier
 const groupOptions = computed(() =>
   groups.value.map((group) => ({
     value: group.id,
@@ -1509,7 +1516,6 @@ const groupOptions = computed(() =>
     peakStart: group.peak_start,
     peakEnd: group.peak_end,
     peakRateMultiplier: group.peak_rate_multiplier,
-    subscriptionType: group.subscription_type,
     platform: group.platform
   }))
 )

@@ -1,9 +1,9 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it, vi, beforeEach } from 'vitest'
 import { defineComponent } from 'vue'
-import { mount } from '@vue/test-utils'
+import { mount, flushPromises } from '@vue/test-utils'
 
 import PlanEditDialog from '../PlanEditDialog.vue'
-import type { AdminGroup } from '@/types'
+import type { SubscriptionPlan } from '@/types/payment'
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -15,139 +15,73 @@ vi.mock('vue-i18n', () => ({
   }),
 }))
 
+const showError = vi.fn()
+const showSuccess = vi.fn()
 vi.mock('@/stores/app', () => ({
-  useAppStore: () => ({
-    showError: vi.fn(),
-    showSuccess: vi.fn(),
-  }),
+  useAppStore: () => ({ showError, showSuccess }),
 }))
 
+const createPlan = vi.fn()
+const updatePlan = vi.fn()
 vi.mock('@/api/admin/payment', () => ({
   adminPaymentAPI: {
-    createPlan: vi.fn(),
-    updatePlan: vi.fn(),
+    createPlan: (...args: unknown[]) => createPlan(...args),
+    updatePlan: (...args: unknown[]) => updatePlan(...args),
+  },
+}))
+
+// 目录条目：只有 listed 的会进套餐模型集候选
+const listEntries = vi.fn()
+vi.mock('@/api/admin', () => ({
+  adminAPI: {
+    modelCatalog: { listEntries: () => listEntries() },
   },
 }))
 
 const BaseDialogStub = defineComponent({
   name: 'BaseDialog',
-  props: {
-    show: Boolean,
-    title: String,
-    width: String,
-  },
+  props: { show: Boolean, title: String, width: String },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>',
 })
 
-const SelectStub = defineComponent({
-  name: 'SelectStub',
-  props: {
-    modelValue: [String, Number],
-    options: {
-      type: Array,
-      default: () => [],
-    },
-    placeholder: String,
-  },
-  emits: ['update:modelValue'],
-  setup(_props, { emit }) {
-    const onChange = (event: Event) => {
-      const value = (event.target as HTMLSelectElement).value
-      emit('update:modelValue', value === '' ? null : Number(value))
-    }
-    return { onChange }
-  },
-  template: `
-    <select
-      :value="modelValue ?? ''"
-      @change="onChange"
-    >
-      <option value="">{{ placeholder }}</option>
-      <option
-        v-for="option in options"
-        :key="option.value"
-        :value="option.value"
-        :data-platform="option.platform"
-      >
-        {{ option.label }}
-      </option>
-    </select>
-  `,
-})
-
-const groupFixture = (overrides: Partial<AdminGroup>): AdminGroup => ({
-  id: 1,
-  name: 'OpenAI',
-  description: null,
-  platform: 'openai',
-  rate_multiplier: 1,
-  rpm_limit: 0,
-  is_exclusive: false,
-  status: 'active',
-  subscription_type: 'subscription',
-  daily_limit_usd: null,
-  weekly_limit_usd: null,
-  monthly_limit_usd: null,
-  allow_image_generation: false,
-  image_rate_independent: false,
-  image_rate_multiplier: 1,
-  image_price_1k: null,
-  image_price_2k: null,
-  image_price_4k: null,
-  peak_rate_enabled: false,
-  peak_start: '',
-  peak_end: '',
-  peak_rate_multiplier: 1,
-  claude_code_only: false,
-  fallback_group_id: null,
-  fallback_group_id_on_invalid_request: null,
-  require_oauth_only: false,
-  require_privacy_set: false,
-  created_at: '2026-07-01T00:00:00Z',
-  updated_at: '2026-07-01T00:00:00Z',
-  model_routing: null,
-  model_routing_enabled: false,
-  mcp_xml_inject: false,
-  sort_order: 0,
-  ...overrides,
-})
-
 function mountDialog({
-  groups = [],
+  plan = null,
   paymentConfig = null,
 }: {
-  groups?: AdminGroup[]
+  plan?: SubscriptionPlan | null
   paymentConfig?: Record<string, unknown> | null
 } = {}) {
   return mount(PlanEditDialog, {
-    props: {
-      show: true,
-      plan: null,
-      groups,
-      paymentConfig,
-    },
+    props: { show: true, plan, paymentConfig },
     global: {
-      stubs: {
-        BaseDialog: BaseDialogStub,
-        Select: SelectStub,
-        Icon: true,
-        GroupBadge: true,
-      },
+      stubs: { BaseDialog: BaseDialogStub, Select: true, Icon: true },
     },
   })
 }
 
+async function fillRequired(wrapper: ReturnType<typeof mountDialog>) {
+  await wrapper.find('input[type="text"]').setValue('Pro')
+  await wrapper.find('textarea').setValue('desc')
+  await wrapper.find('input[type="number"]').setValue('9.99')
+}
+
 describe('PlanEditDialog', () => {
+  beforeEach(() => {
+    showError.mockReset()
+    createPlan.mockReset().mockResolvedValue({})
+    updatePlan.mockReset().mockResolvedValue({})
+    listEntries.mockReset().mockResolvedValue([
+      { id: 199, model_id: 'gpt-5.6', display_name: 'GPT 5.6', status: 'listed' },
+      { id: 27, model_id: 'claude-sonnet-4-5', display_name: '', status: 'listed' },
+      { id: 300, model_id: 'hidden-model', display_name: 'Hidden', status: 'unlisted' },
+    ])
+  })
+
   it('shows CNY channel charge using the configured subscription rate and fee', async () => {
     const wrapper = mountDialog({
-      paymentConfig: {
-        subscription_usd_to_cny_rate: 7.15,
-        recharge_fee_rate: 2.5,
-      },
+      paymentConfig: { subscription_usd_to_cny_rate: 7.15, recharge_fee_rate: 2.5 },
     })
-
     await wrapper.find('input[type="number"]').setValue('9.99')
-
     expect(wrapper.text()).toContain('preview')
     expect(wrapper.text()).toContain('¥71.43')
     expect(wrapper.text()).toContain('fee 2.5')
@@ -156,40 +90,68 @@ describe('PlanEditDialog', () => {
 
   it('hides the preview when the subscription rate is not configured', async () => {
     const wrapper = mountDialog({
-      paymentConfig: {
-        subscription_usd_to_cny_rate: 0,
-        recharge_fee_rate: 2.5,
-      },
+      paymentConfig: { subscription_usd_to_cny_rate: 0, recharge_fee_rate: 2.5 },
     })
-
     await wrapper.find('input[type="number"]').setValue('9.99')
-
     expect(wrapper.text()).not.toContain('preview')
     expect(wrapper.text()).not.toContain('¥71.43')
   })
 
-  it('allows composite subscription groups for payment plans', () => {
-    const wrapper = mountDialog({
-      groups: [
-        groupFixture({
-          id: 10,
-          name: 'OpenAI + Claude + Gemini + Grok',
-          platform: 'composite',
-          rate_multiplier: 1.2,
-          subscription_type: 'subscription',
-        }),
-        groupFixture({
-          id: 11,
-          name: 'Standard OpenAI',
-          platform: 'openai',
-          subscription_type: 'standard',
-        }),
-      ],
-    })
+  it('lists only listed catalog entries as plan model candidates', async () => {
+    const wrapper = mountDialog()
+    await flushPromises()
+    await wrapper.find('[data-testid="plan-models-toggle"]').trigger('click')
+    const labels = wrapper.findAll('[data-testid="plan-model-option"]').map(o => o.text())
+    expect(labels).toEqual(['GPT 5.6 (gpt-5.6)', 'claude-sonnet-4-5'])
+    expect(labels.join(' ')).not.toContain('hidden-model')
+  })
 
-    const options = wrapper.findAll('option').map(option => option.text())
+  it('refuses to save without at least one model and does not call the API', async () => {
+    const wrapper = mountDialog()
+    await flushPromises()
+    await fillRequired(wrapper)
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(showError).toHaveBeenCalledWith('payment.admin.modelsRequired')
+    expect(createPlan).not.toHaveBeenCalled()
+  })
 
-    expect(options).toContain('OpenAI + Claude + Gemini + Grok — composite (1.2x)')
-    expect(options).not.toContain('Standard OpenAI — openai (1x)')
+  it('sends entry_ids and limits (empty limit → -1) in the create payload', async () => {
+    const wrapper = mountDialog()
+    await flushPromises()
+    await fillRequired(wrapper)
+    await wrapper.find('[data-testid="plan-models-toggle"]').trigger('click')
+    await wrapper.findAll('[data-testid="plan-model-option"]')[0].trigger('click')
+    // number 输入顺序：price, original_price, validity_days, daily, weekly, monthly, sort_order
+    await wrapper.findAll('input[type="number"]')[3].setValue('1.5')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+
+    expect(showError).not.toHaveBeenCalled()
+    expect(createPlan).toHaveBeenCalledTimes(1)
+    const payload = createPlan.mock.calls[0][0] as Record<string, unknown>
+    expect(payload.entry_ids).toEqual([199])
+    expect(payload.daily_limit_usd).toBe(1.5)
+    expect(payload.weekly_limit_usd).toBe(-1)
+    expect(payload.monthly_limit_usd).toBe(-1)
+    expect(payload).not.toHaveProperty('group_id')
+  })
+
+  it('prefills models and limits from an existing plan and sends updatePlan', async () => {
+    const plan: SubscriptionPlan = {
+      id: 7, name: 'Pro', description: 'd', price: 9.9, validity_days: 30, validity_unit: 'days', features: [],
+      for_sale: true, sort_order: 0, daily_limit_usd: 2, weekly_limit_usd: null, monthly_limit_usd: null,
+      entry_ids: [27], models: [{ entry_id: 27, model_id: 'claude-sonnet-4-5', display_name: '' }],
+    }
+    const wrapper = mountDialog({ plan })
+    await flushPromises()
+    expect(wrapper.find('[data-testid="plan-models-toggle"]').text()).toContain('claude-sonnet-4-5')
+    await wrapper.find('form').trigger('submit')
+    await flushPromises()
+    expect(updatePlan).toHaveBeenCalledTimes(1)
+    const [id, payload] = updatePlan.mock.calls[0] as [number, Record<string, unknown>]
+    expect(id).toBe(7)
+    expect(payload.entry_ids).toEqual([27])
+    expect(payload.daily_limit_usd).toBe(2)
   })
 })

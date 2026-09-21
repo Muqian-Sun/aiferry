@@ -410,9 +410,8 @@ export default {
         defaultSubscriptionsHint: 'Auto-assign these subscriptions when a new user is created or registered',
         addDefaultSubscription: 'Add Default Subscription',
         defaultSubscriptionsEmpty: 'No default subscriptions configured.',
-        defaultSubscriptionsDuplicate:
-          'Duplicate subscription group: {groupId}. Each group can only appear once.',
-        subscriptionGroup: 'Subscription Group',
+        defaultSubscriptionsLimit: 'At most one item per list: a user can hold only one active subscription at a time.',
+        subscriptionPlan: 'Plan',
         subscriptionValidityDays: 'Validity (days)',
       },
       claudeCode: {

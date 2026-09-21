@@ -342,7 +342,7 @@ export type AnnouncementOperator = 'in' | 'gt' | 'gte' | 'lt' | 'lte' | 'eq'
 export interface AnnouncementCondition {
   type: AnnouncementConditionType
   operator: AnnouncementOperator
-  group_ids?: number[]
+  plan_ids?: number[]
   value?: number
 }
 
@@ -538,7 +538,6 @@ export interface PaginationConfig {
 
 export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'composite'
 
-export type SubscriptionType = 'standard' | 'subscription'
 
 export type ReasoningEffortMatchType = 'exact' | 'prefix' | 'suffix'
 
@@ -561,10 +560,6 @@ export interface Group {
   reasoning_effort_mappings?: ReasoningEffortMapping[]
   is_exclusive: boolean
   status: 'active' | 'inactive'
-  subscription_type: SubscriptionType
-  daily_limit_usd: number | null
-  weekly_limit_usd: number | null
-  monthly_limit_usd: number | null
   long_context_pricing_enabled: boolean
   // 图片生成计费配置
   allow_image_generation: boolean
@@ -712,6 +707,9 @@ export interface ApiKey {
   updated_at: string
   current_concurrency: number
   group?: Group
+  /** 订阅 key：绑定的订阅；余额 key 为 null。订阅 key 不能删、不能改分组 */
+  subscription_id: number | null
+  subscription_plan_name?: string
   rate_limit_5h: number
   rate_limit_1d: number
   rate_limit_7d: number
@@ -760,10 +758,6 @@ export interface CreateGroupRequest {
   platform?: GroupPlatform
   rate_multiplier?: number
   is_exclusive?: boolean
-  subscription_type?: SubscriptionType
-  daily_limit_usd?: number | null
-  weekly_limit_usd?: number | null
-  monthly_limit_usd?: number | null
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
@@ -807,10 +801,6 @@ export interface UpdateGroupRequest {
   rate_multiplier?: number
   is_exclusive?: boolean
   status?: 'active' | 'inactive'
-  subscription_type?: SubscriptionType
-  daily_limit_usd?: number | null
-  weekly_limit_usd?: number | null
-  monthly_limit_usd?: number | null
   long_context_pricing_enabled?: boolean
   force_openai_fast?: boolean
   free_openai_fast?: boolean
@@ -1735,17 +1725,23 @@ export interface RedeemCode {
   expires_at?: string | null
   updated_at?: string
   notes?: string
-  group_id?: number | null // 订阅类型专用
+  plan_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
   user?: User
-  group?: Group // 关联的分组
+  plan?: SubscriptionPlanRef // 关联的套餐
+}
+
+/** 兑换码 / 订阅上挂的套餐引用（后端 dto.SubscriptionPlanRef） */
+export interface SubscriptionPlanRef {
+  id: number
+  name: string
 }
 
 export interface GenerateRedeemCodesRequest {
   count: number
   type: RedeemCodeType
   value: number
-  group_id?: number | null // 订阅类型专用
+  plan_id?: number | null // 订阅类型专用
   validity_days?: number // 订阅类型专用
   expires_at?: string | null
   expires_in_days?: number
@@ -1755,7 +1751,7 @@ export interface BatchUpdateRedeemCodeFields {
   status?: 'unused' | 'disabled'
   expires_at?: string | null
   notes?: string
-  group_id?: number | null
+  plan_id?: number | null
 }
 
 export interface BatchUpdateRedeemCodesRequest {
@@ -1957,10 +1953,27 @@ export interface ChangePasswordRequest {
 
 // ==================== User Subscription Types ====================
 
+/** 订阅上挂的套餐（后端 dto.SubscriptionPlan：限额 + 模型集） */
+export interface UserSubscriptionPlan {
+  id: number
+  name: string
+  daily_limit_usd: number | null
+  weekly_limit_usd: number | null
+  monthly_limit_usd: number | null
+  models: { entry_id: number; model_id: string; display_name: string }[]
+}
+
+/** 随订阅生成的订阅 key（管理端删过则无） */
+export interface SubscriptionApiKeyRef {
+  id: number
+  name: string
+  key_masked: string
+}
+
 export interface UserSubscription {
   id: number
   user_id: number
-  group_id: number
+  plan_id: number
   status: 'active' | 'expired' | 'revoked' | 'suspended'
   starts_at: string
   daily_usage_usd: number
@@ -1974,7 +1987,8 @@ export interface UserSubscription {
   revoked_at?: string | null
   expires_at: string | null
   user?: User
-  group?: Group
+  plan?: UserSubscriptionPlan
+  api_key?: SubscriptionApiKeyRef | null
 }
 
 export interface SubscriptionProgress {
@@ -2003,13 +2017,13 @@ export interface SubscriptionProgress {
 
 export interface AssignSubscriptionRequest {
   user_id: number
-  group_id: number
+  plan_id: number
   validity_days?: number
 }
 
 export interface BulkAssignSubscriptionRequest {
   user_ids: number[]
-  group_id: number
+  plan_id: number
   validity_days?: number
 }
 

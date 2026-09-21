@@ -65,7 +65,7 @@ describe('admin subscription users', () => {
       items: [{
         id: 9,
         user_id: 42,
-        group_id: 3,
+        plan_id: 3,
         status: 'active',
         starts_at: '2026-01-01T00:00:00Z',
         expires_at: null,
@@ -182,7 +182,7 @@ describe('admin subscription users', () => {
 
       expect(assignSubscription).toHaveBeenCalledTimes(1)
       expect(assignSubscription).toHaveBeenCalledWith({
-        user_id: 84, group_id: 3, validity_days: 30
+        user_id: 84, plan_id: 3, validity_days: 30
       })
     } finally {
       wrapper.unmount()
@@ -231,7 +231,7 @@ describe('admin subscription users', () => {
       items: [{
         id: 9,
         user_id: 42,
-        group_id: 3,
+        plan_id: 3,
         status: 'active',
         starts_at: '2026-01-01T00:00:00Z',
         expires_at: null,

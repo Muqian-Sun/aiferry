@@ -540,7 +540,7 @@ export default {
         selectionLimit: 'You can process up to 100 subscriptions at a time',
         selectionRequired: 'Select at least one subscription',
         confirmTargets: 'This action will process the following {count} subscriptions',
-        groupFallback: 'Group #{id}',
+        planFallback: 'Plan #{id}',
         extendHint: 'Enter a positive whole number to extend or a negative one to shorten, up to 36500 days. Expired subscriptions are extended from now and cannot be shortened. The new expiration must be in the future.',
         invalidDays: 'Enter a nonzero whole number of days between -36500 and 36500',
         resetWindows: 'Select quota windows to reset',
@@ -562,8 +562,7 @@ export default {
       revokeSubscription: 'Revoke Subscription',
       restoreSubscription: 'Restore Subscription',
       allStatus: 'All Status',
-      allGroups: 'All Groups',
-      allPlatforms: 'All Platforms',
+      allPlans: 'All Plans',
       daily: 'Daily',
       weekly: 'Weekly',
       monthly: 'Monthly',
@@ -590,7 +589,8 @@ export default {
       },
       columns: {
         user: 'User',
-        group: 'Group',
+        plan: 'Plan',
+        apiKey: 'Subscription Key',
         usage: 'Usage',
         expires: 'Expires',
         status: 'Status',
@@ -598,13 +598,13 @@ export default {
       },
       form: {
         user: 'User',
-        group: 'Subscription Group',
+        plan: 'Plan',
         validityDays: 'Validity (Days)',
         adjustDays: 'Adjust by (Days)'
       },
       selectUser: 'Select a user',
-      selectGroup: 'Select a subscription group',
-      groupHint: 'Only groups with subscription billing type are shown',
+      selectPlan: 'Select a plan',
+      planHint: 'A plan carries its own daily/weekly/monthly limits and model set; assigning generates a subscription key for the user',
       validityHint: 'Number of days the subscription will be valid',
       adjustingFor: 'Adjusting subscription for',
       currentExpiration: 'Current expiration',
@@ -635,7 +635,7 @@ export default {
       adjustWouldExpire: 'Remaining days after adjustment must be greater than 0',
       adjustOutOfRange: 'Adjustment days must be between -36500 and 36500',
       pleaseSelectUser: 'Please select a user',
-      pleaseSelectGroup: 'Please select a group',
+      pleaseSelectPlan: 'Please select a plan',
       validityDaysRequired: 'Please enter a valid number of days (at least 1)',
       revokeConfirm:
         "Are you sure you want to revoke the subscription for '{user}'? You can restore it later from the revoked list.",
@@ -646,17 +646,17 @@ export default {
         subtitle: 'Subscription mode lets you assign time-based usage quotas to users, with daily/weekly/monthly limits. Follow these steps to get started.',
         showGuide: 'Usage Guide',
         step1: {
-          title: 'Create a Subscription Group',
-          line1: 'Go to "Group Management" page, click "Create Group"',
-          line2: 'Set billing type to "Subscription", configure daily/weekly/monthly quota limits',
-          line3: 'Save the group and ensure its status is "Active"',
-          link: 'Go to Group Management'
+          title: 'Create a Plan',
+          line1: 'Go to "Subscription Plans" page, click "Create Plan"',
+          line2: 'Pick the models the plan can call, configure daily/weekly/monthly quota limits',
+          line3: 'Save the plan',
+          link: 'Go to Subscription Plans'
         },
         step2: {
           title: 'Assign Subscription to User',
           line1: 'Click the "Assign Subscription" button in the top right',
           line2: 'Search for a user by email and select them',
-          line3: 'Choose a subscription group, set validity days, then click "Assign"'
+          line3: 'Choose a plan, set validity days, then click "Assign"; a key bound to the subscription is generated for the user'
         },
         step3: {
           title: 'Manage Existing Subscriptions'
@@ -669,7 +669,7 @@ export default {
           revoke: 'Revoke',
           revokeDesc: 'Immediately terminate the subscription (restorable from the revoked list)'
         },
-        tip: 'Tip: Only groups with billing type "Subscription" and status "Active" appear in the group dropdown. If no options are available, create one in Group Management first.'
+        tip: 'Tip: a user can hold only one active subscription at a time; assigning the same plan again renews it, assigning a different plan is rejected.'
       }
     },
 

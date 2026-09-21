@@ -145,22 +145,19 @@ function checkoutInfoWithPlansFixture(options: {
   const base = checkoutInfoFixture(options.checkout).data
   const plan: SubscriptionPlan = {
     id: 7,
-    group_id: 3,
     name: 'Starter',
     description: '',
     price: 128,
     original_price: 0,
     validity_days: 30,
     validity_unit: 'day',
-    rate_multiplier: 1,
     daily_limit_usd: null,
     weekly_limit_usd: null,
     monthly_limit_usd: null,
     features: [],
-    group_platform: 'openai',
+    models: [{ entry_id: 199, model_id: 'gpt-5.6', display_name: 'GPT 5.6' }],
     sort_order: 1,
     for_sale: true,
-    group_name: 'OpenAI',
     ...options.plan,
   }
 
@@ -224,7 +221,6 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   routeState.path = '/purchase'
   routeState.query = {
     tab: 'subscription',
-    group: '3',
   }
   routerReplace.mockReset().mockResolvedValue(undefined)
   routerPush.mockReset().mockResolvedValue(undefined)
@@ -254,6 +250,12 @@ async function mountSubscriptionConfirm(options: Parameters<typeof checkoutInfoW
   })
   await flushPromises()
   await flushPromises()
+  // 进入确认购买：套餐卡（shallow 桩）发出 select
+  const card = wrapper.findComponent(SubscriptionPlanCard)
+  if (card.exists()) {
+    card.vm.$emit('select', (card.props() as { plan: SubscriptionPlan }).plan)
+    await flushPromises()
+  }
   return wrapper
 }
 
@@ -848,7 +850,7 @@ describe('PaymentView mode availability (mode comes from the route, no in-page s
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
   })
 
-  it('shows the no-plans notice and ignores ?group= when subscriptions are disabled', async () => {
+  it('shows the no-plans notice when subscriptions are disabled', async () => {
     appStoreState.setPublicSettings({ subscription_enabled: false })
     const wrapper = await mountSubscriptionConfirm()
 

@@ -136,6 +136,8 @@ export default {
     failedToDelete: '删除 API 密钥失败',
     failedToUpdateStatus: '更新 API 密钥状态失败',
     clickToChangeGroup: '点击更换分组',
+    subscriptionKey: '订阅 · {plan}',
+    subscriptionKeyProtected: '订阅密钥随订阅生成，不能删除或更换分组',
     groupChangedSuccess: '分组更换成功',
     failedToChangeGroup: '更换分组失败',
     groupRequired: '请选择分组',

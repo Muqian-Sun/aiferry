@@ -18,7 +18,7 @@
               {{ subscription.email || `#${subscription.id}` }}
             </div>
             <div class="break-words text-xs text-gray-500 dark:text-gray-400">
-              {{ subscription.group || t('admin.subscriptions.bulk.groupFallback', { id: subscription.groupId }) }}
+              {{ subscription.plan || t('admin.subscriptions.bulk.planFallback', { id: subscription.planId }) }}
               <span v-if="subscription.email" class="ml-2">#{{ subscription.id }}</span>
             </div>
           </li>
@@ -142,7 +142,7 @@ const submitting = ref(false)
 const requestError = ref('')
 const result = shallowRef<SubscriptionBulkActionResult | null>(null)
 const pendingOperation = shallowRef<BulkSubscriptionOperation | null>(null)
-const targets = ref<{ id: number; email?: string; group?: string; groupId: number }[]>([])
+const targets = ref<{ id: number; email?: string; plan?: string; planId: number }[]>([])
 const submittedAction = ref<SubscriptionBulkAction | null>(null)
 
 const currentAction = computed(() => submittedAction.value ?? props.action)
@@ -169,8 +169,8 @@ watch(() => props.subscriptions, subscriptions => {
   targets.value = subscriptions.map(subscription => ({
     id: subscription.id,
     email: subscription.user?.email,
-    group: subscription.group?.name,
-    groupId: subscription.group_id
+    plan: subscription.plan?.name,
+    planId: subscription.plan_id
   }))
 }, { immediate: true })
 

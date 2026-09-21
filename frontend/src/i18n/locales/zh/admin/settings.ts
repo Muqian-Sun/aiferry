@@ -406,8 +406,8 @@ export default {
         defaultSubscriptionsHint: '新用户创建或注册时自动分配这些订阅',
         addDefaultSubscription: '添加默认订阅',
         defaultSubscriptionsEmpty: '未配置默认订阅。新用户不会自动获得订阅套餐。',
-        defaultSubscriptionsDuplicate: '默认订阅存在重复分组：{groupId}。每个分组只能出现一次。',
-        subscriptionGroup: '订阅分组',
+        defaultSubscriptionsLimit: '每个列表最多一项：同一用户同一时间只能持有一条有效订阅。',
+        subscriptionPlan: '套餐',
         subscriptionValidityDays: '有效期（天）',
       },
       claudeCode: {

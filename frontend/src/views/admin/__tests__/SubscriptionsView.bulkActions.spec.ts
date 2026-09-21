@@ -20,9 +20,9 @@ vi.mock('vue-i18n', async () => ({
 }))
 
 const rows = [
-  { id: 1, user_id: 11, group_id: 1, status: 'active', user: { email: 'active@example.com' } },
-  { id: 2, user_id: 22, group_id: 1, status: 'expired', user: { email: 'expired@example.com' } },
-  { id: 3, user_id: 33, group_id: 1, status: 'revoked', user: { email: 'revoked@example.com' } }
+  { id: 1, user_id: 11, plan_id: 1, status: 'active', user: { email: 'active@example.com' } },
+  { id: 2, user_id: 22, plan_id: 1, status: 'expired', user: { email: 'expired@example.com' } },
+  { id: 3, user_id: 33, plan_id: 1, status: 'revoked', user: { email: 'revoked@example.com' } }
 ]
 
 function mountView() {
@@ -128,7 +128,7 @@ describe('subscription bulk operations', () => {
     await form.trigger('submit')
     await form.trigger('submit')
     expect(bulkAssign).toHaveBeenCalledTimes(1)
-    expect(bulkAssign).toHaveBeenCalledWith({ user_ids: [11, 22], group_id: 7, validity_days: 30 })
+    expect(bulkAssign).toHaveBeenCalledWith({ user_ids: [11, 22], plan_id: 7, validity_days: 30 })
     resolveAssign({ success_count: 1, failed_count: 1, subscriptions: [{ user_id: 11 }], errors: ['User 22: conflict'] })
     await flushPromises()
     expect(form.get('[data-test="assign-users"]').text()).not.toContain('user11@example.com')
@@ -137,7 +137,7 @@ describe('subscription bulk operations', () => {
     bulkAssign.mockResolvedValueOnce({ success_count: 1, failed_count: 0, subscriptions: [{ user_id: 22 }], errors: [] })
     await form.trigger('submit')
     await flushPromises()
-    expect(bulkAssign).toHaveBeenLastCalledWith({ user_ids: [22], group_id: 7, validity_days: 30 })
+    expect(bulkAssign).toHaveBeenLastCalledWith({ user_ids: [22], plan_id: 7, validity_days: 30 })
     expect(form.find('[data-test="assign-users"]').exists()).toBe(false)
   })
 })

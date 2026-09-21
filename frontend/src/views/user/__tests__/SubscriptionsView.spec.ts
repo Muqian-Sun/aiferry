@@ -41,7 +41,7 @@ function subscription(overrides: Partial<UserSubscription> = {}): UserSubscripti
   return {
     id: 1,
     user_id: 5,
-    group_id: 42,
+    plan_id: 42,
     status: 'active',
     starts_at: '2026-09-01T00:00:00Z',
     daily_usage_usd: 3,
@@ -53,7 +53,8 @@ function subscription(overrides: Partial<UserSubscription> = {}): UserSubscripti
     created_at: '2026-09-01T00:00:00Z',
     updated_at: '2026-09-01T00:00:00Z',
     expires_at: '2099-01-01T00:00:00Z',
-    group: { id: 42, name: 'Pro', platform: 'openai', rate_multiplier: 1, daily_limit_usd: 10 } as UserSubscription['group'],
+    plan: { id: 42, name: 'Pro', daily_limit_usd: 10, weekly_limit_usd: null, monthly_limit_usd: null, models: [{ entry_id: 199, model_id: 'gpt-5.6', display_name: 'GPT 5.6' }, { entry_id: 27, model_id: 'claude-sonnet-4-5', display_name: '' }] },
+    api_key: { id: 7, name: 'Pro', key_masked: 'sk-abc****wxyz' },
     ...overrides
   }
 }
@@ -82,9 +83,11 @@ describe('SubscriptionsView', () => {
     const meter = rows[0].get('[role="meter"]')
     expect(meter.attributes('aria-valuemax')).toBe('10')
     expect(meter.attributes('aria-valuenow')).toBe('3')
+    expect(wrapper.get('[data-testid="subscription-models"]').text()).toContain('GPT 5.6 / claude-sonnet-4-5')
+    expect(wrapper.get('[data-testid="subscription-key"]').text()).toContain('sk-abc****wxyz')
   })
 
-  it('hands the renewal off to the embedded payment engine with the subscription group', async () => {
+  it('hands the renewal off to the embedded payment engine with the subscription plan id', async () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(true)
     await wrapper.get('[data-testid="subscription-row"] button').trigger('click')

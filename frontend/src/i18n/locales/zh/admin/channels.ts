@@ -540,7 +540,7 @@ export default {
         selectionLimit: '每次最多操作 100 条订阅',
         selectionRequired: '请至少选择一条订阅',
         confirmTargets: '本次将处理以下 {count} 条订阅',
-        groupFallback: '分组 #{id}',
+        planFallback: '套餐 #{id}',
         extendHint: '正整数延长，负整数缩短，最多调整 36500 天。已过期订阅从当前时间起延长，不能缩短；缩短后的到期时间必须在未来。',
         invalidDays: '请输入 -36500 到 36500 之间的非零整数天数',
         resetWindows: '选择要重置的配额窗口',
@@ -562,8 +562,7 @@ export default {
       revokeSubscription: '撤销订阅',
       restoreSubscription: '恢复订阅',
       allStatus: '全部状态',
-      allGroups: '全部分组',
-      allPlatforms: '全部平台',
+      allPlans: '全部套餐',
       daily: '每日',
       weekly: '每周',
       monthly: '每月',
@@ -590,7 +589,8 @@ export default {
       },
       columns: {
         user: '用户',
-        group: '分组',
+        plan: '套餐',
+        apiKey: '订阅密钥',
         usage: '用量',
         expires: '到期时间',
         status: '状态',
@@ -598,13 +598,13 @@ export default {
       },
       form: {
         user: '用户',
-        group: '订阅分组',
+        plan: '套餐',
         validityDays: '有效期（天）',
         adjustDays: '调整天数'
       },
       selectUser: '选择用户',
-      selectGroup: '选择订阅分组',
-      groupHint: '仅显示订阅计费类型的分组',
+      selectPlan: '选择套餐',
+      planHint: '套餐自带日/周/月限额与可调用的模型集；分配时会自动生成一把订阅密钥',
       validityHint: '订阅的有效天数',
       adjustingFor: '为以下用户调整订阅',
       currentExpiration: '当前到期时间',
@@ -635,7 +635,7 @@ export default {
       adjustWouldExpire: '调整后剩余天数必须大于0',
       adjustOutOfRange: '调整天数必须在 -36500 到 36500 之间',
       pleaseSelectUser: '请选择用户',
-      pleaseSelectGroup: '请选择分组',
+      pleaseSelectPlan: '请选择套餐',
       validityDaysRequired: '请输入有效的天数（至少1天）',
       revokeConfirm: "确定要撤销 '{user}' 的订阅吗？可稍后在已撤销列表中恢复。",
       restoreConfirm: "确定要恢复 '{user}' 的订阅吗？如果原订阅已过期，恢复后将显示为已过期。",
@@ -644,17 +644,17 @@ export default {
         subtitle: '订阅模式允许你按时间周期为用户分配使用额度，支持日/周/月配额限制。按照以下步骤即可完成配置。',
         showGuide: '使用指南',
         step1: {
-          title: '创建订阅分组',
-          line1: '前往「分组管理」页面，点击「创建分组」',
-          line2: '将计费类型设为「订阅」，配置日/周/月额度限制',
-          line3: '保存分组，确保状态为「正常」',
-          link: '前往分组管理'
+          title: '创建套餐',
+          line1: '前往「订阅套餐」页面，点击「创建套餐」',
+          line2: '勾选套餐可调用的模型，配置日/周/月额度限制',
+          line3: '保存套餐',
+          link: '前往订阅套餐'
         },
         step2: {
           title: '分配订阅给用户',
           line1: '点击本页右上角「分配订阅」按钮',
           line2: '在弹窗中搜索用户邮箱并选择目标用户',
-          line3: '选择订阅分组、设置有效期天数，点击「分配」'
+          line3: '选择套餐、设置有效期天数，点击「分配」；系统会为用户生成一把绑定该订阅的密钥'
         },
         step3: {
           title: '管理已有订阅'
@@ -667,7 +667,7 @@ export default {
           revoke: '撤销',
           revokeDesc: '立即终止该用户的订阅，可在已撤销列表中恢复'
         },
-        tip: '提示：订阅分组下拉列表中只会显示计费类型为「订阅」且状态为「正常」的分组。如果没有可选项，请先到分组管理中创建。'
+        tip: '提示：同一用户同一时间只能持有一条有效订阅；再分配同一套餐会续期，分配别的套餐会被拒绝。'
       }
     },
 

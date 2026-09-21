@@ -44,7 +44,7 @@ async function submitCode() {
 describe('RedeemView refresh after redemption', () => {
   beforeEach(() => {
     vi.clearAllMocks()
-    redeem.mockResolvedValue({ type: 'balance', value: 20, message: 'Code applied' })
+    redeem.mockResolvedValue({ id: 9, code: 'REDEEM-CODE', type: 'balance', value: 20, status: 'used', used_at: '2026-03-08T00:00:00Z', created_at: '2026-03-01T00:00:00Z' })
     getHistory.mockResolvedValue([])
     refreshUser.mockResolvedValue({ balance: 30, concurrency: 2 })
     fetchActiveSubscriptions.mockResolvedValue([])
@@ -57,7 +57,7 @@ describe('RedeemView refresh after redemption', () => {
 
   it.each(['balance', 'concurrency', 'subscription'])(
     'keeps a successful %s redemption when profile refresh fails', async (type) => {
-      redeem.mockResolvedValue({ type, value: 20, message: 'Code applied' })
+      redeem.mockResolvedValue({ id: 9, code: 'REDEEM-CODE', type, value: 20, status: 'used', used_at: '2026-03-08T00:00:00Z', created_at: '2026-03-01T00:00:00Z', validity_days: type === 'subscription' ? 10 : undefined, plan: type === 'subscription' ? { id: 3, name: 'E2E Pro' } : undefined })
       refreshUser.mockRejectedValue({ status: 503, message: 'Service unavailable' })
       getHistory.mockResolvedValueOnce([]).mockResolvedValueOnce([{
         id: 1, code: 'REDEEM-CODE', type, value: 20, used_at: '2026-03-08T00:00:00Z',
@@ -69,7 +69,10 @@ describe('RedeemView refresh after redemption', () => {
       expect(showError).not.toHaveBeenCalled()
       expect(showWarning).toHaveBeenCalledWith('redeem.userRefreshFailed')
       expect(showSuccess).toHaveBeenCalledWith('redeem.codeRedeemSuccess')
-      expect(wrapper.text()).toContain('Code applied')
+      expect(wrapper.text()).toContain('redeem.redeemSuccess')
+      if (type === 'subscription') {
+        expect(wrapper.get('[data-testid="redeem-plan-name"]').text()).toContain('E2E Pro')
+      }
       expect(wrapper.text()).not.toContain('redeem.failedToRedeem')
       expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe('')
       expect((wrapper.get('input#code').element as HTMLInputElement).disabled).toBe(false)
@@ -96,7 +99,7 @@ describe('RedeemView refresh after redemption', () => {
   })
 
   it('preserves the existing subscription refresh warning after successful redemption', async () => {
-    redeem.mockResolvedValue({ type: 'subscription', value: 20, message: 'Code applied' })
+    redeem.mockResolvedValue({ id: 9, code: 'REDEEM-CODE', type: 'subscription', value: 20, status: 'used', used_at: '2026-03-08T00:00:00Z', created_at: '2026-03-01T00:00:00Z', plan_id: 3, validity_days: 10 })
     fetchActiveSubscriptions.mockRejectedValue(new Error('Network Error'))
     const wrapper = await submitCode()
 
@@ -113,7 +116,7 @@ describe('RedeemView refresh after redemption', () => {
 
     expect(showError).toHaveBeenCalledWith('redeem.redeemFailed')
     expect(wrapper.text()).toContain('Invalid code')
-    expect(wrapper.text()).not.toContain('Code applied')
+    expect(wrapper.text()).not.toContain('redeem.redeemSuccess')
     expect((wrapper.get('input#code').element as HTMLInputElement).value).toBe(' REDEEM-CODE ')
     expect(refreshUser).not.toHaveBeenCalled()
     expect(fetchActiveSubscriptions).not.toHaveBeenCalled()

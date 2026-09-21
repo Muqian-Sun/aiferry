@@ -39,7 +39,6 @@
 
       <div v-if="redeemResult" role="status" class="mt-4 border-l-2 border-af-success pl-3 text-13 text-af-ink-2">
         <p class="font-medium text-af-success">{{ t('redeem.redeemSuccess') }}</p>
-        <p class="mt-1">{{ redeemResult.message }}</p>
         <p v-if="redeemResult.type === 'balance'" class="mt-1 tabular-nums">
           {{ t('redeem.added') }}: ${{ redeemResult.value.toFixed(2) }}
         </p>
@@ -48,14 +47,8 @@
         </p>
         <p v-else-if="redeemResult.type === 'subscription'" class="mt-1">
           {{ t('redeem.subscriptionAssigned') }}
-          <span v-if="redeemResult.group_name"> - {{ redeemResult.group_name }}</span>
+          <span v-if="redeemResult.plan?.name" data-testid="redeem-plan-name"> - {{ redeemResult.plan.name }}</span>
           <span v-if="redeemResult.validity_days"> ({{ t('redeem.subscriptionDays', { days: redeemResult.validity_days }) }})</span>
-        </p>
-        <p v-if="redeemResult.new_balance !== undefined" class="mt-1 tabular-nums">
-          {{ t('redeem.newBalance') }}: <span class="font-medium text-af-ink">${{ redeemResult.new_balance.toFixed(2) }}</span>
-        </p>
-        <p v-if="redeemResult.new_concurrency !== undefined" class="mt-1 tabular-nums">
-          {{ t('redeem.newConcurrency') }}: <span class="font-medium text-af-ink">{{ redeemResult.new_concurrency }} {{ t('redeem.requests') }}</span>
         </p>
       </div>
 
@@ -125,15 +118,7 @@ const user = computed(() => authStore.user)
 
 const redeemCode = ref('')
 const submitting = ref(false)
-const redeemResult = ref<{
-  message: string
-  type: string
-  value: number
-  new_balance?: number
-  new_concurrency?: number
-  group_name?: string
-  validity_days?: number
-} | null>(null)
+const redeemResult = ref<RedeemHistoryItem | null>(null)
 const errorMessage = ref('')
 
 // History data
@@ -174,10 +159,10 @@ const formatHistoryValue = (item: RedeemHistoryItem) => {
     const sign = item.value >= 0 ? '+' : ''
     return `${sign}$${item.value.toFixed(2)}`
   } else if (isSubscriptionType(item.type)) {
-    // 订阅类型显示有效天数和分组名称
+    // 订阅类型显示有效天数和套餐名称
     const days = item.validity_days || Math.round(item.value)
-    const groupName = item.group?.name || ''
-    return groupName ? `${days}${t('redeem.days')} - ${groupName}` : `${days}${t('redeem.days')}`
+    const planName = item.plan?.name || ''
+    return planName ? `${days}${t('redeem.days')} - ${planName}` : `${days}${t('redeem.days')}`
   } else {
     const sign = item.value >= 0 ? '+' : ''
     return `${sign}${item.value} ${t('redeem.requests')}`

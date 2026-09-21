@@ -136,6 +136,8 @@ export default {
     failedToDelete: 'Failed to delete API key',
     failedToUpdateStatus: 'Failed to update API key status',
     clickToChangeGroup: 'Click to change group',
+    subscriptionKey: 'Subscription · {plan}',
+    subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group',
     groupChangedSuccess: 'Group changed successfully',
     failedToChangeGroup: 'Failed to change group',
     groupRequired: 'Please select a group',
