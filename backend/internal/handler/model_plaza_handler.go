@@ -2,7 +2,6 @@ package handler
 
 import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
@@ -63,29 +62,15 @@ type modelPlazaResponse struct {
 // Get 返回模型广场数据。
 // GET /api/v1/model-plaza
 func (h *ModelPlazaHandler) Get(c *gin.Context) {
-	if h.settingService == nil {
-		response.NotFound(c, "Model plaza is not enabled")
-		return
-	}
-	rt := h.settingService.GetModelPlazaRuntime(c.Request.Context())
-	if !rt.Enabled {
-		response.NotFound(c, "Model plaza is not enabled")
-		return
-	}
-
-	_, authed := middleware.GetAuthSubjectFromContext(c)
-	if rt.RequireAuth && !authed {
-		response.Unauthorized(c, "Authentication required")
-		return
-	}
-
+	// 模型广场对所有人开放（含未登录）：目录只列上架模型与标价，没有开关。
+	description := h.settingService.GetModelPlazaDescription(c.Request.Context())
 	models := h.plazaService.ListModels(c.Request.Context())
 	out := make([]modelPlazaModel, 0, len(models))
 	for i := range models {
 		out = append(out, toModelPlazaModelDTO(&models[i]))
 	}
 	response.Success(c, modelPlazaResponse{
-		Description: rt.Description,
+		Description: description,
 		Models:      out,
 	})
 }

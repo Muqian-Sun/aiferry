@@ -507,18 +507,9 @@ const (
 	// admin "site billing mode" selector. Defaults to true (opt-out feature).
 	SettingKeySubscriptionEnabled = "subscription_enabled"
 
-	// SettingKeyModelPlazaEnabled is a DB-backed soft switch for the Model Plaza page
-	// (public group/model pricing showcase). When false: the plaza endpoint returns 404
-	// and the header entry is hidden. Defaults to false (opt-in feature).
-	SettingKeyModelPlazaEnabled = "model_plaza_enabled"
-
-	// SettingKeyModelPlazaRequireAuth controls whether the Model Plaza page requires a
-	// logged-in user. When false the page is public and anonymous visitors see only
-	// non-exclusive groups.
-	SettingKeyModelPlazaRequireAuth = "model_plaza_require_auth"
-
 	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).
+	// 模型广场本身没有开关：上架模型的目录对所有人（含未登录）可见。
 	SettingKeyModelPlazaDescription = "model_plaza_description"
 
 	// SettingKeyPluginManagementEnabled controls sidebar visibility only; it does
