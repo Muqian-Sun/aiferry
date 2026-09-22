@@ -91,18 +91,10 @@ export interface OpsThroughputPlatformBreakdownItem {
   token_consumed: number
 }
 
-export interface OpsThroughputGroupBreakdownItem {
-  group_id: number
-  group_name: string
-  request_count: number
-  token_consumed: number
-}
-
 export interface OpsThroughputTrendResponse {
   bucket: string
   points: OpsThroughputTrendPoint[]
   by_platform?: OpsThroughputPlatformBreakdownItem[]
-  top_groups?: OpsThroughputGroupBreakdownItem[]
 }
 
 export type OpsRequestKind = 'success' | 'error'
@@ -128,7 +120,6 @@ export interface OpsRequestDetail {
   user_id?: number | null
   api_key_id?: number | null
   account_id?: number | null
-  group_id?: number | null
 
   stream?: boolean
 }
@@ -141,7 +132,6 @@ export interface OpsRequestDetailsParams {
   kind?: OpsRequestDetailsKind
 
   platform?: string
-  group_id?: number | null
 
   user_id?: number
   api_key_id?: number
@@ -239,7 +229,6 @@ export interface OpsOpenAITokenStatsResponse {
 export interface OpsOpenAITokenStatsParams {
   time_range?: OpsOpenAITokenStatsTimeRange
   platform?: string
-  group_id?: number | null
   page?: number
   page_size?: number
   top_n?: number
@@ -339,13 +328,10 @@ export interface OpsUserConcurrencyStatsResponse {
   timestamp?: string
 }
 
-export async function getConcurrencyStats(platform?: string, groupId?: number | null): Promise<OpsConcurrencyStatsResponse> {
+export async function getConcurrencyStats(platform?: string): Promise<OpsConcurrencyStatsResponse> {
   const params: Record<string, any> = {}
   if (platform) {
     params.platform = platform
-  }
-  if (typeof groupId === 'number' && groupId > 0) {
-    params.group_id = groupId
   }
 
   const { data } = await apiClient.get<OpsConcurrencyStatsResponse>('/admin/ops/concurrency', { params })
@@ -401,13 +387,10 @@ export interface OpsAccountAvailabilityStatsResponse {
   timestamp?: string
 }
 
-export async function getAccountAvailabilityStats(platform?: string, groupId?: number | null): Promise<OpsAccountAvailabilityStatsResponse> {
+export async function getAccountAvailabilityStats(platform?: string): Promise<OpsAccountAvailabilityStatsResponse> {
   const params: Record<string, any> = {}
   if (platform) {
     params.platform = platform
-  }
-  if (typeof groupId === 'number' && groupId > 0) {
-    params.group_id = groupId
   }
   const { data } = await apiClient.get<OpsAccountAvailabilityStatsResponse>('/admin/ops/account-availability', { params })
   return data
@@ -437,15 +420,11 @@ export interface OpsRealtimeTrafficSummaryResponse {
 
 export async function getRealtimeTrafficSummary(
   window: string,
-  platform?: string,
-  groupId?: number | null
+  platform?: string
 ): Promise<OpsRealtimeTrafficSummaryResponse> {
   const params: Record<string, any> = { window }
   if (platform) {
     params.platform = platform
-  }
-  if (typeof groupId === 'number' && groupId > 0) {
-    params.group_id = groupId
   }
 
   const { data } = await apiClient.get<OpsRealtimeTrafficSummaryResponse>('/admin/ops/realtime-traffic', { params })
@@ -968,7 +947,6 @@ export async function getDashboardOverview(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -986,7 +964,6 @@ export async function getDashboardSnapshotV2(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -1004,7 +981,6 @@ export async function getThroughputTrend(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -1022,7 +998,6 @@ export async function getLatencyHistogram(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -1040,7 +1015,6 @@ export async function getErrorTrend(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -1058,7 +1032,6 @@ export async function getErrorDistribution(
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   mode?: OpsQueryMode
   },
   options: OpsRequestOptions = {}
@@ -1090,7 +1063,6 @@ export type OpsErrorListQueryParams = {
   start_time?: string
   end_time?: string
   platform?: string
-  group_id?: number | null
   account_id?: number | null
   user_id?: number
   api_key_id?: number
@@ -1205,7 +1177,6 @@ export interface AlertEventsQuery {
   before_fired_at?: string
   before_id?: number
   platform?: string
-  group_id?: number
 }
 
 export async function listAlertEvents(params: AlertEventsQuery = {}): Promise<AlertEvent[]> {

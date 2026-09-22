@@ -100,8 +100,7 @@ function mountModal(account: any) {
     props: {
       show: true,
       account,
-      proxies: [],
-      groups: []
+      proxies: []
     },
     global: {
       stubs: {
@@ -109,7 +108,6 @@ function mountModal(account: any) {
         Select: true,
         Icon: true,
         ProxySelector: true,
-        GroupSelector: true,
         ModelWhitelistSelector: true
       }
     }

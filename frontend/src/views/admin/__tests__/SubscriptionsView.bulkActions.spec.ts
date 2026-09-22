@@ -9,7 +9,6 @@ const { list, bulkAction, bulkAssign, listUsers, showError } = vi.hoisted(() => 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     subscriptions: { list, bulkAction, bulkAssign },
-    groups: { getAll: vi.fn().mockResolvedValue([]) },
     users: { list: listUsers }
   }
 }))

@@ -7,12 +7,6 @@ function readSource(path: string): string {
 }
 
 describe('admin platform filters', () => {
-  it('uses the shared catalogs on the groups page', () => {
-    const source = readSource('src/views/admin/GroupsView.vue')
-    expect(source).toContain('...GROUP_PLATFORM_OPTIONS')
-    expect(source).toContain('...CONCRETE_PLATFORM_OPTIONS')
-  })
-
   it('uses the concrete platform catalog wherever concrete platforms are selected', () => {
     for (const path of [
       'src/components/admin/account/AccountTableFilters.vue',

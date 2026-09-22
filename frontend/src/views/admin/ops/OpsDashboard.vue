@@ -14,7 +14,6 @@
         v-else-if="opsEnabled"
         :overview="overview"
         :platform="platform"
-        :group-id="groupId"
         :time-range="timeRange"
         :query-mode="queryMode"
         :loading="loading"
@@ -27,7 +26,6 @@
         :custom-end-time="customEndTime"
         @update:time-range="onTimeRangeChange"
         @update:platform="onPlatformChange"
-        @update:group="onGroupChange"
         @update:query-mode="onQueryModeChange"
         @update:custom-time-range="onCustomTimeRangeChange"
         @refresh="fetchData"
@@ -42,7 +40,7 @@
       <!-- Row: Concurrency + Throughput -->
       <div v-if="opsEnabled && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6 lg:grid-cols-4">
         <div class="lg:col-span-1 min-h-[360px]">
-          <OpsConcurrencyCard :platform-filter="platform" :group-id-filter="groupId" :refresh-token="dashboardRefreshToken" />
+          <OpsConcurrencyCard :platform-filter="platform" :refresh-token="dashboardRefreshToken" />
         </div>
         <div class="lg:col-span-1 h-[360px]">
           <OpsSwitchRateTrendChart
@@ -56,12 +54,10 @@
           <OpsThroughputTrendChart
             :points="throughputTrend?.points ?? []"
             :by-platform="throughputTrend?.by_platform ?? []"
-            :top-groups="throughputTrend?.top_groups ?? []"
             :loading="loadingTrend"
             :time-range="timeRange"
             :fullscreen="isFullscreen"
             @select-platform="handleThroughputSelectPlatform"
-            @select-group="handleThroughputSelectGroup"
             @open-details="handleOpenRequestDetails"
           />
         </div>
@@ -88,7 +84,6 @@
       <div v-if="opsEnabled && showOpenAITokenStats && !(loading && !hasLoadedOnce)" class="grid grid-cols-1 gap-6">
         <OpsOpenAITokenStatsCard
           :platform-filter="platform"
-          :group-id-filter="groupId"
           :refresh-token="dashboardRefreshToken"
         />
       </div>
@@ -117,7 +112,6 @@
           :custom-start-time="customStartTime"
           :custom-end-time="customEndTime"
           :platform="platform"
-          :group-id="groupId"
           :error-type="errorDetailsType"
           :resume-state="resumeListState"
           @update:show="showErrorDetails = $event"
@@ -131,7 +125,6 @@
           :time-range="timeRange"
           :preset="requestDetailsPreset"
           :platform="platform"
-          :group-id="groupId"
           :resume-state="resumeListState"
           @openErrorDetail="openError"
         />
@@ -196,7 +189,6 @@ const lastUpdated = ref<Date | null>(new Date())
 
 const timeRange = ref<TimeRange>('1h')
 const platform = ref<string>('')
-const groupId = ref<number | null>(null)
 const queryMode = ref<QueryMode>('auto')
 const customStartTime = ref<string | null>(null)
 const customEndTime = ref<string | null>(null)
@@ -207,7 +199,6 @@ const switchTrendWindowMs = switchTrendWindowHours * 60 * 60 * 1000
 const QUERY_KEYS = {
   timeRange: 'tr',
   platform: 'platform',
-  groupId: 'group_id',
   queryMode: 'mode',
   fullscreen: 'fullscreen',
 
@@ -285,9 +276,6 @@ const applyRouteQueryToState = () => {
 
   platform.value = readQueryString(QUERY_KEYS.platform) || ''
 
-  const groupIdRaw = readQueryNumber(QUERY_KEYS.groupId)
-  groupId.value = typeof groupIdRaw === 'number' && groupIdRaw > 0 ? groupIdRaw : null
-
   const nextMode = readQueryString(QUERY_KEYS.queryMode)
   if (nextMode && allowedQueryModes.has(nextMode as QueryMode)) {
     queryMode.value = nextMode as QueryMode
@@ -324,7 +312,6 @@ const buildQueryFromState = () => {
 
   if (timeRange.value !== '1h') next[QUERY_KEYS.timeRange] = timeRange.value
   if (platform.value) next[QUERY_KEYS.platform] = platform.value
-  if (typeof groupId.value === 'number' && groupId.value > 0) next[QUERY_KEYS.groupId] = String(groupId.value)
   if (queryMode.value !== 'auto') next[QUERY_KEYS.queryMode] = queryMode.value
 
   return next
@@ -443,12 +430,6 @@ async function loadDashboardAdvancedSettings() {
 
 function handleThroughputSelectPlatform(nextPlatform: string) {
   platform.value = nextPlatform || ''
-  groupId.value = null
-}
-
-function handleThroughputSelectGroup(nextGroupId: number) {
-  const id = Number.isFinite(nextGroupId) && nextGroupId > 0 ? nextGroupId : null
-  groupId.value = id
 }
 
 function handleOpenRequestDetails(preset?: OpsRequestDetailsPreset) {
@@ -495,21 +476,6 @@ function onPlatformChange(v: string | number | boolean | null) {
   platform.value = typeof v === 'string' ? v : ''
 }
 
-function onGroupChange(v: string | number | boolean | null) {
-  if (v === null) {
-    groupId.value = null
-    return
-  }
-  if (typeof v === 'number') {
-    groupId.value = v > 0 ? v : null
-    return
-  }
-  if (typeof v === 'string') {
-    const n = Number.parseInt(v, 10)
-    groupId.value = Number.isFinite(n) && n > 0 ? n : null
-  }
-}
-
 function onQueryModeChange(v: string | number | boolean | null) {
   if (typeof v !== 'string') return
   if (!allowedQueryModes.has(v as QueryMode)) return
@@ -549,7 +515,6 @@ function handleBackToList() {
 function buildApiParams() {
   const params: any = {
     platform: platform.value || undefined,
-    group_id: groupId.value ?? undefined,
     mode: queryMode.value
   }
 
@@ -571,7 +536,6 @@ function buildApiParams() {
 function buildSwitchTrendParams() {
   const params: any = {
     platform: platform.value || undefined,
-    group_id: groupId.value ?? undefined,
     mode: queryMode.value
   }
   const endTime = new Date()
@@ -771,7 +735,7 @@ async function fetchData() {
 }
 
 watch(
-  () => [timeRange.value, platform.value, groupId.value, queryMode.value] as const,
+  () => [timeRange.value, platform.value, queryMode.value] as const,
   () => {
     if (isApplyingRouteQuery.value) return
     if (opsEnabled.value) {
@@ -788,14 +752,13 @@ watch(
 
     const prevTimeRange = timeRange.value
     const prevPlatform = platform.value
-    const prevGroupId = groupId.value
 
     isApplyingRouteQuery.value = true
     applyRouteQueryToState()
     isApplyingRouteQuery.value = false
 
     const changed =
-      prevTimeRange !== timeRange.value || prevPlatform !== platform.value || prevGroupId !== groupId.value
+      prevTimeRange !== timeRange.value || prevPlatform !== platform.value
     if (changed) {
       if (opsEnabled.value) {
         fetchData()

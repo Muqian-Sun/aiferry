@@ -53,8 +53,6 @@ export default {
       allPlatforms: '全部平台',
       allTypes: '全部类型',
       allStatus: '全部状态',
-      allGroups: '全部分组',
-      ungroupedGroup: '未分配分组',
       oauthType: 'OAuth',
       // Schedulable toggle
       schedulable: '参与调度',
@@ -62,7 +60,6 @@ export default {
       schedulableEnabled: '调度已开启',
       schedulableDisabled: '调度已关闭',
       failedToToggleSchedulable: '切换调度状态失败',
-      groupCountTotal: '共 {count} 个分组',
       // 第三方 key 列表里协议地址的短标签，悬停显示主机。
       protocolShort: {
         anthropic: 'Messages',
@@ -88,7 +85,6 @@ export default {
         status: '状态',
         schedulable: '调度',
         todayStats: '今日统计',
-        groups: '分组',
         usageWindows: '用量窗口',
         proxy: '代理',
         lastUsed: '最近使用',

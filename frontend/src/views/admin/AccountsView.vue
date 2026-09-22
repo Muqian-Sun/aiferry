@@ -6,7 +6,6 @@
           <AccountTableFilters
             v-model:searchQuery="params.search"
             :filters="params"
-            :groups="groups"
             @update:filters="(newFilters) => Object.assign(params, newFilters)"
             @change="debouncedReload"
             @update:searchQuery="debouncedReload"
@@ -312,9 +311,6 @@
           <template #cell-catalog="{ row }">
             <AccountCatalogCell :entries="catalogEntriesForAccount(row.id)" :max-display="4" @diagnose="openCatalogDiagnosis" />
           </template>
-          <template #cell-groups="{ row }">
-            <AccountGroupsCell :groups="accountGroupsForRow(row)" :max-display="4" />
-          </template>
           <template #header-usage="{ column }">
             <div class="flex items-center">
               <span>{{ column.label }}</span>
@@ -436,8 +432,8 @@
       </template>
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
-    <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
-    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" :catalog-entries="edAcc ? catalogEntriesForAccount(edAcc.id) : []" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <CreateAccountModal :show="showCreate" :proxies="proxies" @close="showCreate = false" @created="reload" />
+    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :catalog-entries="edAcc ? catalogEntriesForAccount(edAcc.id) : []" @close="showEdit = false" @updated="handleAccountUpdated" />
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"
       :entry-id="diagnosisEntry?.id ?? null"
@@ -458,7 +454,6 @@
       :selected-key-endpoints="selKeyEndpoints"
       :target="bulkEditTarget ?? undefined"
       :proxies="proxies"
-      :groups="groups"
       @close="showBulkEdit = false"
       @updated="handleBulkUpdated"
     />
@@ -482,7 +477,6 @@ import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'v
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { useAuthStore } from '@/stores/auth'
 import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
 import { useSwipeSelect, type SwipeSelectVirtualContext } from '@/composables/useSwipeSelect'
@@ -509,7 +503,6 @@ import type { SelectOption } from '@/components/common/Select.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
-import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
 import AccountCatalogCell from '@/components/account/AccountCatalogCell.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
@@ -528,14 +521,12 @@ import { sanitizeUrl } from '@/utils/url'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import { getFloatingPanelPosition } from '@/utils/floatingPanel'
 import { formatMultiplier } from '@/utils/formatters'
-import type { Account, AccountListItem, AccountPlatform, AccountType, AccountUsageInfo, Proxy as AccountProxy, AdminGroup, WindowStats, ClaudeModel, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AccountListItem, AccountPlatform, AccountType, AccountUsageInfo, Proxy as AccountProxy, WindowStats, ClaudeModel, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const authStore = useAuthStore()
 
 const proxies = ref<AccountProxy[]>([])
-const groups = ref<AdminGroup[]>([])
 // 已上架模型：目录条目自带 bindings[]，按 account_id 反查，不需要后端新接口。
 const catalogEntries = ref<ModelCatalogEntry[]>([])
 const catalogEntriesByAccountID = computed(() => {
@@ -554,12 +545,6 @@ const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
 const openCatalogDiagnosis = (entry: ModelCatalogEntry) => {
   diagnosisEntry.value = entry
 }
-const groupsByID = computed(() => new Map(groups.value.map(group => [group.id, group])))
-const accountGroupsForRow = (account: Pick<AccountListItem, 'group_ids'>): AdminGroup[] => {
-  const groupIDs = account.group_ids ?? []
-  if (groupIDs.length === 0) return []
-  return groupIDs.map(id => groupsByID.value.get(id)).filter((group): group is AdminGroup => Boolean(group))
-}
 const accountTableRef = ref<HTMLElement | null>(null)
 const dataTableRef = ref<InstanceType<typeof DataTable> | null>(null)
 type AccountBulkEditTarget =
@@ -576,7 +561,6 @@ type AccountBulkEditTarget =
         platform?: string
         type?: string
         status?: string
-        group?: string
         search?: string
         privacy_mode?: string
         sort_by?: string
@@ -1051,7 +1035,6 @@ const {
     type: '',
     status: '',
     privacy_mode: '',
-    group: '',
     search: '',
     lite: '1',
     sort_by: sortState.sort_by,
@@ -1144,7 +1127,6 @@ const buildUpstreamBillingRateFilters = () => {
     platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
-    group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
     sort_by: sortState.sort_by,
@@ -1407,7 +1389,6 @@ const refreshAccountsIncrementally = async () => {
         type?: string
         status?: string
         privacy_mode?: string
-        group?: string
         search?: string
         sort_by?: string
         sort_order?: AccountSortOrder
@@ -1761,9 +1742,6 @@ const allColumns = computed(() => {
     { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false },
     { key: 'catalog', label: t('admin.accounts.columns.catalog'), sortable: false }
   ]
-  if (!authStore.isSimpleMode) {
-    c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
-  }
   c.push({ key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false })
   c.push(
     { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
@@ -2021,7 +1999,6 @@ const buildBulkEditFilterSnapshot = () => {
     platform: typeof rawParams.platform === 'string' ? rawParams.platform : '',
     type: typeof rawParams.type === 'string' ? rawParams.type : '',
     status: typeof rawParams.status === 'string' ? rawParams.status : '',
-    group: typeof rawParams.group === 'string' ? rawParams.group : '',
     search: typeof rawParams.search === 'string' ? rawParams.search : '',
     privacy_mode: typeof rawParams.privacy_mode === 'string' ? rawParams.privacy_mode : '',
     sort_by: typeof rawParams.sort_by === 'string' ? rawParams.sort_by : '',
@@ -2094,13 +2071,11 @@ const handleBulkUpdated = () => {
   reload()
 }
 const handleDataImported = () => { showImportData.value = false; reload() }
-const ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE = 'ungrouped'
 const ACCOUNT_PRIVACY_MODE_UNSET_QUERY_VALUE = '__unset__'
 const buildAccountQueryFilters = () => ({
   platform: params.platform || '',
   type: params.type || '',
   status: params.status || '',
-  group: params.group || '',
   privacy_mode: params.privacy_mode || '',
   search: params.search || '',
   sort_by: sortState.sort_by,
@@ -2126,14 +2101,6 @@ const accountMatchesCurrentFilters = (account: Account) => {
     } else if (filters.status === 'unschedulable') {
       if (account.status !== 'active' || account.schedulable || isRateLimited || isTempUnschedulable) return false
     } else if (account.status !== filters.status) {
-      return false
-    }
-  }
-  if (filters.group) {
-    const groupIds = account.group_ids ?? account.groups?.map((group) => group.id) ?? []
-    if (filters.group === ACCOUNT_UNGROUPED_GROUP_QUERY_VALUE) {
-      if (groupIds.length > 0) return false
-    } else if (!groupIds.includes(Number(filters.group))) {
       return false
     }
   }
@@ -2506,20 +2473,14 @@ onMounted(async () => {
 
   load()
   loadUpstreamBillingProbeGlobalState()
-  const [proxiesResult, groupsResult, catalogResult] = await Promise.allSettled([
+  const [proxiesResult, catalogResult] = await Promise.allSettled([
     adminAPI.proxies.getAll(),
-    adminAPI.groups.getAll(),
     adminAPI.modelCatalog.listEntries()
   ])
   if (proxiesResult.status === 'fulfilled') {
     proxies.value = proxiesResult.value
   } else {
     console.error('Failed to load proxies:', proxiesResult.reason)
-  }
-  if (groupsResult.status === 'fulfilled') {
-    groups.value = groupsResult.value
-  } else {
-    console.error('Failed to load groups:', groupsResult.reason)
   }
   if (catalogResult.status === 'fulfilled') {
     catalogEntries.value = catalogResult.value

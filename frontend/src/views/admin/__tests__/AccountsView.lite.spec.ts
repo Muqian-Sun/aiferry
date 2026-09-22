@@ -12,7 +12,6 @@ const {
   getBatchTodayStats,
   getUpstreamBillingProbeSettings,
   getAllProxies,
-  getAllGroups,
   listCatalogEntries,
   refreshCredentials,
   showError,
@@ -24,7 +23,6 @@ const {
   getBatchTodayStats: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn(),
   listCatalogEntries: vi.fn(),
   refreshCredentials: vi.fn(),
   showError: vi.fn(),
@@ -46,7 +44,6 @@ vi.mock('@/api/admin', () => ({
       refreshCredentials
     },
     proxies: { getAll: getAllProxies },
-    groups: { getAll: getAllGroups },
     modelCatalog: { listEntries: listCatalogEntries }
   }
 }))
@@ -69,16 +66,10 @@ const DataTableStub = defineComponent({
   template: `
     <div>
       <div v-for="row in data" :key="row.id" :data-account-name="row.name">
-        <slot name="cell-groups" :row="row" />
         <slot name="cell-actions" :row="row" />
       </div>
     </div>
   `
-})
-
-const AccountGroupsCellStub = defineComponent({
-  props: { groups: { type: Array, default: () => [] } },
-  template: '<span data-test="account-groups">{{ groups.map(group => group.name).join(",") }}</span>'
 })
 
 const EditAccountModalStub = defineComponent({
@@ -125,7 +116,6 @@ function mountView(stubActionMenu = true) {
         AccountCapacityCell: true,
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
-        AccountGroupsCell: AccountGroupsCellStub,
         AccountUsageCell: true,
         UpstreamBillingRateCell: true,
         HelpTooltip: true,
@@ -145,15 +135,12 @@ const listRow = {
   schedulable: true,
   concurrency: 2,
   priority: 1,
-  group_ids: [7],
   extra: {},
   credentials: {}
 }
 
 const fullAccount = {
   ...listRow,
-  groups: [{ id: 7, name: 'codex', platform: 'openai' }],
-  account_groups: [{ account_id: 42, group_id: 7 }],
   credentials: { api_key: 'redacted' },
   extra: { detail_only: true }
 }
@@ -167,7 +154,6 @@ describe('admin AccountsView lite account list', () => {
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: true })
     getAllProxies.mockReset().mockResolvedValue([])
-    getAllGroups.mockReset().mockResolvedValue([{ id: 7, name: 'codex', platform: 'openai' }])
     listCatalogEntries.mockReset().mockResolvedValue([])
     refreshCredentials.mockReset()
     showError.mockReset()
@@ -189,14 +175,6 @@ describe('admin AccountsView lite account list', () => {
       expect.objectContaining({ lite: '1' }),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
-    wrapper.unmount()
-  })
-
-  it('maps group_ids through the group catalog for the table cell', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.get('[data-test="account-groups"]').text()).toBe('codex')
     wrapper.unmount()
   })
 

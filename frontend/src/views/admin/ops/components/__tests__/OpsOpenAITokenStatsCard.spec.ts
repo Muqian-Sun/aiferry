@@ -52,7 +52,6 @@ const sampleResponse = {
   start_time: '2026-01-01T00:00:00Z',
   end_time: '2026-01-31T00:00:00Z',
   platform: 'openai',
-  group_id: 7,
   items: [
     {
       model: 'gpt-4o-mini',
@@ -80,7 +79,6 @@ describe('OpsOpenAITokenStatsCard', () => {
     mockGetOpenAITokenStats.mockResolvedValue({
       ...sampleResponse,
       platform: '',
-      group_id: null,
       items: models.map(model => ({ ...sampleResponse.items[0], model })),
       total: models.length,
     })
@@ -100,7 +98,6 @@ describe('OpsOpenAITokenStatsCard', () => {
     expect(mockGetOpenAITokenStats).toHaveBeenCalledWith({
       time_range: '30d',
       platform: undefined,
-      group_id: undefined,
       top_n: 20,
     })
     for (const model of models) {
@@ -123,7 +120,7 @@ describe('OpsOpenAITokenStatsCard', () => {
     }))
 
     const wrapper = mount(OpsOpenAITokenStatsCard, {
-      props: { platformFilter: 'openai', groupIdFilter: 7, refreshToken: 0 },
+      props: { platformFilter: 'openai', refreshToken: 0 },
       global: {
         stubs: {
           Select: SelectStub,
@@ -146,7 +143,6 @@ describe('OpsOpenAITokenStatsCard', () => {
     expect(mockGetOpenAITokenStats).toHaveBeenCalledWith({
       time_range: '30d',
       platform,
-      group_id: 7,
       page: 1,
       page_size: 20,
     })
@@ -154,13 +150,12 @@ describe('OpsOpenAITokenStatsCard', () => {
     expect(wrapper.text()).not.toContain('gpt-4o-mini')
   })
 
-  it('默认加载并透传 platform/group 过滤，支持时间窗口切换', async () => {
+  it('默认加载并透传 platform 过滤，支持时间窗口切换', async () => {
     mockGetOpenAITokenStats.mockResolvedValue(sampleResponse)
 
     const wrapper = mount(OpsOpenAITokenStatsCard, {
       props: {
         platformFilter: 'openai',
-        groupIdFilter: 7,
         refreshToken: 0,
       },
       global: {
@@ -176,7 +171,6 @@ describe('OpsOpenAITokenStatsCard', () => {
       expect.objectContaining({
         time_range: '30d',
         platform: 'openai',
-        group_id: 7,
         top_n: 20,
       })
     )
@@ -189,7 +183,6 @@ describe('OpsOpenAITokenStatsCard', () => {
       expect.objectContaining({
         time_range: '1h',
         platform: 'openai',
-        group_id: 7,
       })
     )
   })

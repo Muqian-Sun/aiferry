@@ -116,48 +116,6 @@
       </div>
 
       <div class="card overflow-hidden !rounded-3xl !border-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
-        <div class="card-header flex flex-wrap items-center justify-between gap-2 !py-3">
-          <div>
-            <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('channelMonitorV2.settings.groupsTitle') }}</h3>
-            <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
-              {{
-                draft.group_ids.length
-                  ? t('channelMonitorV2.settings.groupsSelected', { count: draft.group_ids.length })
-                  : t('channelMonitorV2.settings.groupsAll')
-              }}
-            </p>
-          </div>
-          <button
-            v-if="draft.group_ids.length"
-            type="button"
-            class="btn btn-ghost btn-sm"
-            @click="draft.group_ids = []"
-          >
-            {{ t('channelMonitorV2.settings.groupsAll') }}
-          </button>
-        </div>
-        <div class="max-h-[min(40vh,280px)] overflow-y-auto px-3 py-2 sm:px-4">
-          <div class="grid grid-cols-1 gap-1 sm:grid-cols-2">
-            <label
-              v-for="group in groups"
-              :key="group.id"
-              class="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition hover:bg-gray-50 dark:hover:bg-dark-800/60"
-            >
-              <input
-                type="checkbox"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500/40"
-                :checked="draft.group_ids.includes(group.id)"
-                @change="toggleGroup(group.id)"
-              />
-              <span class="min-w-0 flex-1 truncate font-medium text-gray-800 dark:text-gray-100">{{ group.name }}</span>
-              <small class="shrink-0 text-xs text-gray-400">{{ platformLabel(group.platform) }} · #{{ group.id }}</small>
-            </label>
-          </div>
-          <p v-if="groups.length === 0" class="empty-state py-8 text-sm text-gray-400">{{ t('channelMonitorV2.settings.groupsEmpty') }}</p>
-        </div>
-      </div>
-
-      <div class="card overflow-hidden !rounded-3xl !border-0 shadow-sm ring-1 ring-gray-900/5 dark:!bg-dark-800 dark:ring-dark-700">
         <div class="card-header !py-3">
           <h3 class="text-sm font-semibold text-gray-900 dark:text-white">{{ t('channelMonitorV2.settings.errorsTitle') }}</h3>
           <p class="mt-0.5 text-xs text-gray-500 dark:text-dark-400">
@@ -274,8 +232,6 @@ import {
   MONITOR_ERROR_CATEGORIES,
   type MonitorConfig,
 } from '@/api/channelMonitorV2'
-import { adminAPI } from '@/api/admin'
-import type { AdminGroup } from '@/types'
 
 const { t, te } = useI18n()
 const appStore = useAppStore()
@@ -283,7 +239,6 @@ const loading = ref(true)
 const saving = ref(false)
 const draft = ref<MonitorConfig | null>(null)
 const original = ref('')
-const groups = ref<AdminGroup[]>([])
 
 const dirty = computed(() => (draft.value ? JSON.stringify(draft.value) !== original.value : false))
 const namedModelCount = computed(
@@ -354,13 +309,6 @@ function setModels(platform: MonitorConfig['platforms'][number], event: Event) {
   ].sort()
 }
 
-function toggleGroup(id: number) {
-  if (!draft.value) return
-  draft.value.group_ids = draft.value.group_ids.includes(id)
-    ? draft.value.group_ids.filter((value) => value !== id)
-    : [...draft.value.group_ids, id].sort((a, b) => a - b)
-}
-
 function isCategoryIgnored(category: string): boolean {
   return Boolean(draft.value?.ignored_error_categories?.includes(category))
 }
@@ -400,6 +348,8 @@ function normalizeConfig(value: MonitorConfig): MonitorConfig {
   const ignored = value.ignored_error_categories
   return {
     ...value,
+    // 分组随目录下线：监控覆盖全部渠道；字段本身 PR-7 随后端一起删
+    group_ids: [],
     health_thresholds: { ...defaultThresholds, ...(value.health_thresholds || {}) },
     // Preserve explicit empty arrays from the server (operator cleared all).
     ignored_error_categories: [
@@ -411,10 +361,9 @@ function normalizeConfig(value: MonitorConfig): MonitorConfig {
 async function load() {
   loading.value = true
   try {
-    const [value, groupRows] = await Promise.all([getConfig(), adminAPI.groups.getAllIncludingInactive()])
+    const value = await getConfig()
     const normalized = normalizeConfig(value)
     draft.value = structuredClone(normalized)
-    groups.value = groupRows
     original.value = JSON.stringify(normalized)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.settings.loadFailed')))

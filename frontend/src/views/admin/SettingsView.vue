@@ -4672,21 +4672,7 @@
               </p>
             </div>
             <div class="space-y-5 p-6">
-              <div class="flex items-center justify-between">
-                <div>
-                  <label
-                    class="text-sm font-medium text-gray-700 dark:text-gray-300"
-                  >
-                    {{ t("admin.settings.scheduling.allowUngroupedKey") }}
-                  </label>
-                  <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.scheduling.allowUngroupedKeyHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.allow_ungrouped_key_scheduling" />
-              </div>
-
-              <div class="border-t border-gray-100 pt-4 dark:border-dark-700">
+              <div>
                 <div class="mb-3">
                   <label class="font-medium text-gray-900 dark:text-white">
                     {{
@@ -9067,6 +9053,7 @@ type SettingsForm = Omit<
   | "wechat_connect_open_enabled"
   | "wechat_connect_mp_enabled"
   | "wechat_connect_mobile_enabled"
+  | "allow_ungrouped_key_scheduling"
 > & {
   /** Form always binds a concrete boolean (SystemSettings marks this optional). */
   channel_monitor_hide_throughput: boolean;
@@ -9313,8 +9300,6 @@ const form = reactive<SettingsForm>({
   // Claude Code version check
   min_claude_code_version: "",
   max_claude_code_version: "",
-  // 分组隔离
-  allow_ungrouped_key_scheduling: false,
   // Gateway forwarding behavior
   openai_ttft_mode: "semantic",
   enable_fingerprint_unification: true,
@@ -10750,7 +10735,6 @@ async function saveSettings() {
       identity_patch_prompt: form.identity_patch_prompt,
       min_claude_code_version: form.min_claude_code_version,
       max_claude_code_version: form.max_claude_code_version,
-      allow_ungrouped_key_scheduling: form.allow_ungrouped_key_scheduling,
       openai_ttft_mode:
         form.openai_ttft_mode === "visible" ? "visible" : "semantic",
       enable_fingerprint_unification: form.enable_fingerprint_unification,

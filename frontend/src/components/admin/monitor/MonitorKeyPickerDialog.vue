@@ -34,7 +34,6 @@
             <tr class="text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">
               <th class="px-3 py-2">{{ t('common.name') }}</th>
               <th class="px-3 py-2">{{ t('keys.apiKey') }}</th>
-              <th class="px-3 py-2">{{ t('keys.group') }}</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-200 dark:divide-dark-700">
@@ -46,14 +45,6 @@
             >
               <td class="px-3 py-2 font-medium text-gray-900 dark:text-white">{{ k.name }}</td>
               <td class="px-3 py-2 font-mono text-xs text-gray-500 dark:text-gray-400">{{ maskApiKey(k.key) }}</td>
-              <td class="px-3 py-2">
-                <GroupBadge
-                  v-if="k.group"
-                  :name="k.group.name"
-                  :platform="k.group.platform"
-                />
-                <span v-else class="text-xs text-gray-400">—</span>
-              </td>
             </tr>
           </tbody>
         </table>
@@ -73,16 +64,13 @@
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { ApiKey } from '@/types'
-import type { Provider } from '@/api/admin/channelMonitor'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import GroupBadge from '@/components/common/GroupBadge.vue'
 import { maskApiKey } from '@/utils/maskApiKey'
 
 const props = withDefaults(defineProps<{
   show: boolean
   loading: boolean
   keys: ApiKey[]
-  provider: Provider
 }>(), {})
 
 defineEmits<{
@@ -101,13 +89,8 @@ watch(() => props.show, (shown) => {
 const filteredKeys = computed<ApiKey[]>(() => {
   const q = search.value.trim().toLowerCase()
   return props.keys.filter((k) => {
-    if (k.group?.platform !== props.provider) return false
     if (!q) return true
-    return (
-      k.name.toLowerCase().includes(q) ||
-      k.key.toLowerCase().includes(q) ||
-      (k.group?.name || '').toLowerCase().includes(q)
-    )
+    return k.name.toLowerCase().includes(q) || k.key.toLowerCase().includes(q)
   })
 })
 </script>

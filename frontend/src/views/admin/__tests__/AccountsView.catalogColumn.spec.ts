@@ -4,7 +4,7 @@ import { defineComponent } from 'vue'
 
 import AccountsView from '../AccountsView.vue'
 
-const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, listCatalogEntries } =
+const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, listCatalogEntries } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listWithEtag: vi.fn(),
@@ -12,7 +12,6 @@ const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBill
     getBatchTodayStats: vi.fn(),
     getUpstreamBillingProbeSettings: vi.fn(),
     getAllProxies: vi.fn(),
-    getAllGroups: vi.fn(),
     listCatalogEntries: vi.fn()
   }))
 
@@ -31,7 +30,6 @@ vi.mock('@/api/admin', () => ({
       refreshCredentials: vi.fn()
     },
     proxies: { getAll: getAllProxies },
-    groups: { getAll: getAllGroups },
     modelCatalog: { listEntries: listCatalogEntries }
   }
 }))
@@ -133,7 +131,6 @@ describe('AccountsView listed-models column', () => {
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: false })
     getAllProxies.mockReset().mockResolvedValue([])
-    getAllGroups.mockReset().mockResolvedValue([])
     listCatalogEntries.mockReset().mockResolvedValue([
       entry(199, 'gpt-5.6', 'listed', [1]),
       entry(217, 'gpt-5.6-mini', 'unlisted', [1]),
@@ -163,5 +160,12 @@ describe('AccountsView listed-models column', () => {
     expect(modal.attributes('data-show')).toBe('true')
     expect(modal.attributes('data-entry-id')).toBe('199')
     expect(modal.attributes('data-model-id')).toBe('gpt-5.6')
+  })
+
+  // 分组随目录下线：渠道页不再有「分组」列，目录列是唯一的归属信息
+  it('has no groups column any more', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    expect(wrapper.find('[data-column="groups"]').exists()).toBe(false)
   })
 })

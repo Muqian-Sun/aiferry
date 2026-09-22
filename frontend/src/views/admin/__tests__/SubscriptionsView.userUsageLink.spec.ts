@@ -4,11 +4,10 @@ import { defineComponent } from 'vue'
 
 import SubscriptionsView from '../SubscriptionsView.vue'
 
-const { listSubscriptions, assignSubscription, getAllGroups, listUsers, searchUsageUsers, showError } = vi.hoisted(() => ({
+const { listSubscriptions, assignSubscription, listUsers, searchUsageUsers, showError } = vi.hoisted(() => ({
   listSubscriptions: vi.fn(),
   assignSubscription: vi.fn(),
   showError: vi.fn(),
-  getAllGroups: vi.fn(),
   listUsers: vi.fn(),
   searchUsageUsers: vi.fn()
 }))
@@ -16,7 +15,6 @@ const { listSubscriptions, assignSubscription, getAllGroups, listUsers, searchUs
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     subscriptions: { list: listSubscriptions, assign: assignSubscription },
-    groups: { getAll: getAllGroups },
     users: { list: listUsers },
     usage: { searchUsers: searchUsageUsers }
   }
@@ -83,7 +81,6 @@ describe('admin subscription users', () => {
       pages: 1
     })
     assignSubscription.mockResolvedValue({})
-    getAllGroups.mockResolvedValue([])
     listUsers.mockResolvedValue({
       items: [{ id: 42, email: 'reader@example.com' }],
       total: 1,

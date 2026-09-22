@@ -153,16 +153,6 @@ const ModelDistributionChartStub = {
     </div>
   `,
 }
-const GroupDistributionChartStub = {
-  props: ['metric'],
-  emits: ['update:metric'],
-  template: `
-    <div data-test="group-chart">
-      <span class="metric">{{ metric }}</span>
-      <button class="switch-metric" @click="$emit('update:metric', 'actual_cost')">switch</button>
-    </div>
-  `,
-}
 
 const mountRouteFilteredUsageView = () => mount(UsageView, {
   global: { stubs: {
@@ -170,7 +160,7 @@ const mountRouteFilteredUsageView = () => mount(UsageView, {
     UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
     UserBalanceHistoryModal: true, Pagination: true, Select: true,
     DateRangePicker: true, Icon: true, TokenUsageTrend: true,
-    ModelDistributionChart: true, GroupDistributionChart: true,
+    ModelDistributionChart: true,
     EndpointDistributionChart: true, UserTokenRanking: true,
   } },
 })
@@ -190,7 +180,7 @@ describe('admin UsageView route filters', () => {
       total_actual_cost: 0,
       average_duration_ms: 0,
     })
-    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [] })
     getModelStats.mockReset().mockResolvedValue({ models: [] })
     getById.mockReset()
   })
@@ -286,7 +276,7 @@ describe('admin UsageView native compaction filter', () => {
       total_actual_cost: 0,
       average_duration_ms: 0,
     })
-    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [] })
     getModelStats.mockReset().mockResolvedValue({ models: [] })
   })
 
@@ -364,7 +354,6 @@ describe('admin UsageView distribution metric toggles', () => {
     getSnapshotV2.mockResolvedValue({
       trend: [],
       models: [],
-      groups: [],
     })
     getModelStats.mockResolvedValue({ models: [] })
   })
@@ -383,7 +372,7 @@ describe('admin UsageView distribution metric toggles', () => {
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
         DateRangePicker: true, Icon: true, TokenUsageTrend: true,
-        ModelDistributionChart: ModelDistributionChartStub, GroupDistributionChart: GroupDistributionChartStub,
+        ModelDistributionChart: ModelDistributionChartStub,
         EndpointDistributionChart: true, UserTokenRanking: true,
       } },
     })
@@ -404,7 +393,7 @@ describe('admin UsageView distribution metric toggles', () => {
     expect((wrapper.vm as any).requestedModelStats).toEqual([{ model: 'B', total_tokens: 20 }])
   })
 
-  it('keeps model and group metric toggles independent without refetching chart data', async () => {
+  it('switches the model metric without refetching chart data', async () => {
     const wrapper = mount(UsageView, {
       global: {
         stubs: {
@@ -421,7 +410,6 @@ describe('admin UsageView distribution metric toggles', () => {
           Icon: true,
           TokenUsageTrend: true,
           ModelDistributionChart: ModelDistributionChartStub,
-          GroupDistributionChart: GroupDistributionChartStub,
           UserTokenRanking: true,
         },
       },
@@ -440,23 +428,12 @@ describe('admin UsageView distribution metric toggles', () => {
     }))
 
     const modelChart = wrapper.find('[data-test="model-chart"]')
-    const groupChart = wrapper.find('[data-test="group-chart"]')
-
     expect(modelChart.find('.metric').text()).toBe('tokens')
-    expect(groupChart.find('.metric').text()).toBe('tokens')
 
     await modelChart.find('.switch-metric').trigger('click')
     await flushPromises()
 
     expect(modelChart.find('.metric').text()).toBe('actual_cost')
-    expect(groupChart.find('.metric').text()).toBe('tokens')
-    expect(getSnapshotV2).toHaveBeenCalledTimes(1)
-
-    await groupChart.find('.switch-metric').trigger('click')
-    await flushPromises()
-
-    expect(modelChart.find('.metric').text()).toBe('actual_cost')
-    expect(groupChart.find('.metric').text()).toBe('actual_cost')
     expect(getSnapshotV2).toHaveBeenCalledTimes(1)
   })
 })
@@ -471,7 +448,7 @@ describe('admin UsageView request ID column visibility', () => {
       total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
       total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
     })
-    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [] })
     getModelStats.mockReset().mockResolvedValue({ models: [] })
   })
 
@@ -497,7 +474,7 @@ describe('admin UsageView request ID column visibility', () => {
           Icon: true,
           TokenUsageTrend: true,
           ModelDistributionChart: true,
-          GroupDistributionChart: true,
+         
           EndpointDistributionChart: true,
           UserTokenRanking: true,
         },
@@ -542,7 +519,7 @@ describe('admin UsageView request ID column visibility', () => {
           Icon: true,
           TokenUsageTrend: true,
           ModelDistributionChart: true,
-          GroupDistributionChart: true,
+         
           EndpointDistributionChart: true,
           UserTokenRanking: true,
         },
@@ -579,7 +556,7 @@ describe('admin UsageView handleUserClick', () => {
       total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
       total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
     })
-    getSnapshotV2.mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockResolvedValue({ trend: [], models: [] })
   })
 
   afterEach(() => {
@@ -606,7 +583,7 @@ describe('admin UsageView handleUserClick', () => {
           Icon: true,
           TokenUsageTrend: true,
           ModelDistributionChart: true,
-          GroupDistributionChart: true,
+         
           EndpointDistributionChart: true,
           UserTokenRanking: true,
         },
@@ -637,7 +614,7 @@ describe('admin UsageView errors tab filter forwarding', () => {
       total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
       total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
     })
-    getSnapshotV2.mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockResolvedValue({ trend: [], models: [] })
     getModelStats.mockResolvedValue({ models: [] })
     listErrorLogs.mockResolvedValue({ items: [], total: 0, pages: 0 })
   })
@@ -646,25 +623,24 @@ describe('admin UsageView errors tab filter forwarding', () => {
     vi.useRealTimers()
   })
 
-  it('forwards model/account_id/group_id to listErrorLogs on the errors tab', async () => {
+  it('forwards model/account_id to listErrorLogs on the errors tab', async () => {
     const wrapper = mount(UsageView, {
       global: { stubs: {
         AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
         DateRangePicker: true, Icon: true, TokenUsageTrend: true,
-        ModelDistributionChart: true, GroupDistributionChart: true, EndpointDistributionChart: true,
+        ModelDistributionChart: true, EndpointDistributionChart: true,
         UserTokenRanking: true, OpsErrorLogTable: true, OpsErrorDetailModal: true,
       } },
     })
     vi.advanceTimersByTime(120)
     await flushPromises()
 
-    // 模拟用户在过滤器里选择了模型/账户/分组
+    // 模拟用户在过滤器里选择了模型/账户
     const vm = wrapper.vm as any
     vm.filters.model = 'gpt-5.3-codex'
     vm.filters.account_id = 7
-    vm.filters.group_id = 3
     await flushPromises()
 
     // 切换到「错误请求」标签（第二个 tab 按钮）触发 loadAdminErrors
@@ -676,8 +652,9 @@ describe('admin UsageView errors tab filter forwarding', () => {
       view: 'all',
       model: 'gpt-5.3-codex',
       account_id: 7,
-      group_id: 3,
     }))
+    // 分组筛选已删：错误日志查询不再带 group_id
+    expect(listErrorLogs.mock.calls[0]?.[0]).not.toHaveProperty('group_id')
   })
 })
 
@@ -694,7 +671,7 @@ describe('admin UsageView ranking tab', () => {
       total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
       total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
     })
-    getSnapshotV2.mockResolvedValue({ trend: [], models: [], groups: [] })
+    getSnapshotV2.mockResolvedValue({ trend: [], models: [] })
     getModelStats.mockResolvedValue({ models: [] })
   })
 
@@ -709,7 +686,7 @@ describe('admin UsageView ranking tab', () => {
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, Pagination: true, Select: true,
         DateRangePicker: true, Icon: true, TokenUsageTrend: true,
-        ModelDistributionChart: true, GroupDistributionChart: true, EndpointDistributionChart: true,
+        ModelDistributionChart: true, EndpointDistributionChart: true,
         UserTokenRanking: UserTokenRankingStub, OpsErrorLogTable: true, OpsErrorDetailModal: true,
       } },
     })
@@ -762,7 +739,7 @@ describe('admin UsageView model audit export', () => {
 			total_requests: 0, total_input_tokens: 0, total_output_tokens: 0,
 			total_cache_tokens: 0, total_tokens: 0, total_cost: 0, total_actual_cost: 0, average_duration_ms: 0,
 		})
-		getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [], groups: [] })
+		getSnapshotV2.mockReset().mockResolvedValue({ trend: [], models: [] })
 		getModelStats.mockReset().mockResolvedValue({ models: [] })
 		aoaToSheet.mockClear()
 		sheetAddAoa.mockClear()

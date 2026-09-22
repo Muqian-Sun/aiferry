@@ -79,7 +79,7 @@ export default {
     settings: {
       title: 'V2 data monitor config',
       description:
-        'Configure passive usage aggregation dimensions (platform / model / group) and refresh cadence. Health colors and details on the user /monitor page show rates, RPM, and TPM — not absolute request volume.',
+        'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user /monitor page show rates, RPM, and TPM — not absolute request volume.',
       save: 'Save',
       loading: 'Loading…',
       loadFailed: 'Failed to load V2 config',
@@ -102,10 +102,6 @@ export default {
       modelsPlaceholder: 'Empty = all real models; or list popular models (rest → Other)',
       badgeAllModels: 'All models',
       badgeOther: '+ Other',
-      groupsTitle: 'Monitored groups',
-      groupsSelected: '{count} groups selected',
-      groupsAll: 'All groups',
-      groupsEmpty: 'No groups available',
       errorsTitle: 'Error categories and ignores',
       errorsHint:
         'Checked “ignore” categories are excluded from error rate and health score, but still appear greyed in the error breakdown. Unmatched errors roll into “Other”.',

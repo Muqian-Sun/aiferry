@@ -661,7 +661,6 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
       include_stats: includeStats,
       include_trend: true,
       include_model_stats: true,
-      include_group_stats: false,
       include_users_trend: false
     })
     if (currentSeq !== chartLoadSeq) return

@@ -149,26 +149,6 @@ const OAuthAuthorizationFlowStub = defineComponent({
   `,
 })
 
-const GroupSelectorStub = defineComponent({
-  name: 'GroupSelector',
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => [],
-    },
-  },
-  emits: ['update:modelValue'],
-  template: `
-    <button
-      type="button"
-      data-testid="select-pricing-groups"
-      @click="$emit('update:modelValue', [1, 2])"
-    >
-      groups
-    </button>
-  `,
-})
-
 const ModelWhitelistSelectorStub = defineComponent({
   name: 'ModelWhitelistSelector',
   props: {
@@ -187,9 +167,9 @@ const ModelWhitelistSelectorStub = defineComponent({
   >models</button>`,
 })
 
-function mountModal(groups: any[] = []) {
+function mountModal() {
   return mount(CreateAccountModal, {
-    props: { show: true, proxies: [], groups },
+    props: { show: true, proxies: [] },
     global: {
       stubs: {
         BaseDialog: BaseDialogStub,
@@ -200,7 +180,6 @@ function mountModal(groups: any[] = []) {
         PlatformIcon: true,
         ProxySelector: true,
         ProxyAdBanner: true,
-        GroupSelector: GroupSelectorStub,
         ModelWhitelistSelector: ModelWhitelistSelectorStub,
         QuotaLimitCard: true,
       },

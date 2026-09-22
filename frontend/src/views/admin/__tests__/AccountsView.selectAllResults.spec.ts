@@ -10,7 +10,6 @@ const {
   getBatchTodayStats,
   getUpstreamBillingProbeSettings,
   getAllProxies,
-  getAllGroups,
   showError
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
@@ -19,7 +18,6 @@ const {
   getBatchTodayStats: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn(),
   showError: vi.fn()
 }))
 
@@ -37,9 +35,6 @@ vi.mock('@/api/admin', () => ({
     },
     proxies: {
       getAll: getAllProxies
-    },
-    groups: {
-      getAll: getAllGroups
     },
     modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
   }
@@ -149,7 +144,6 @@ describe('admin AccountsView select all filtered results', () => {
     getBatchTodayStats.mockReset()
     getUpstreamBillingProbeSettings.mockReset()
     getAllProxies.mockReset()
-    getAllGroups.mockReset()
     showError.mockReset()
 
     listWithEtag.mockResolvedValue({
@@ -160,7 +154,6 @@ describe('admin AccountsView select all filtered results', () => {
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockResolvedValue([])
-    getAllGroups.mockResolvedValue([])
   })
 
   afterEach(() => {

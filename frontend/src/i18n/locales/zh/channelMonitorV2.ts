@@ -79,7 +79,7 @@ export default {
     settings: {
       title: 'V2 数据监控配置',
       description:
-        '配置被动用量汇总维度（平台 / 模型 / 分组）与刷新频率。健康色与明细在用户端 /monitor 以比例、RPM/TPM 展示，不暴露绝对请求量。',
+        '配置被动用量汇总维度（平台 / 模型）与刷新频率。健康色与明细在用户端 /monitor 以比例、RPM/TPM 展示，不暴露绝对请求量。',
       save: '保存',
       loading: '加载中...',
       loadFailed: 'V2 配置加载失败',
@@ -100,10 +100,6 @@ export default {
       modelsPlaceholder: '留空=全部真实模型；或填写主流模型名单（其余归其他）',
       badgeAllModels: '全部模型',
       badgeOther: '+ 其他',
-      groupsTitle: '监控分组',
-      groupsSelected: '已选择 {count} 个分组',
-      groupsAll: '全部分组',
-      groupsEmpty: '没有可选择的分组',
       errorsTitle: '错误分类与忽略',
       errorsHint:
         '勾选「忽略」的类别不计入错误率与健康分，仍在错误原因列表中以灰色显示并标记忽略。未匹配的错误归入「其他」。',

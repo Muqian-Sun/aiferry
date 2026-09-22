@@ -1,4 +1,4 @@
-import type { AccountPlatform, GroupPlatform } from '@/types'
+import type { AccountPlatform } from '@/types'
 
 export interface PlatformOption<T extends string = string> {
   value: T
@@ -22,9 +22,3 @@ export const CONCRETE_PLATFORM_OPTIONS = [
   { value: 'minimax', label: 'MiniMax' },
   { value: 'opencode_go', label: 'OpenCode' }
 ] as const satisfies readonly PlatformOption<AccountPlatform>[]
-
-/** Platforms that can own a group. */
-export const GROUP_PLATFORM_OPTIONS = [
-  ...CONCRETE_PLATFORM_OPTIONS,
-  { value: 'composite', label: 'Composite' }
-] as const satisfies readonly PlatformOption<GroupPlatform>[]

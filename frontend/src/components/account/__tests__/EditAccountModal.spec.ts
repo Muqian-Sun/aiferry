@@ -3,9 +3,8 @@ import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
-const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode, getProtocolDefaultsMock, showErrorMock } = vi.hoisted(() => ({
+const { updateAccountMock, authIsSimpleMode, getProtocolDefaultsMock, showErrorMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
-  checkMixedChannelRiskMock: vi.fn(),
   authIsSimpleMode: { value: true },
   getProtocolDefaultsMock: vi.fn(),
   showErrorMock: vi.fn()
@@ -30,8 +29,7 @@ vi.mock('@/stores/auth', () => ({
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
-      update: updateAccountMock,
-      checkMixedChannelRisk: checkMixedChannelRiskMock
+      update: updateAccountMock
     },
     settings: {
       getWebSearchEmulationConfig: vi.fn().mockResolvedValue({ enabled: false, providers: [] }),
@@ -150,28 +148,6 @@ const SelectStub = defineComponent({
   `
 })
 
-const GroupSelectorStub = defineComponent({
-  name: 'GroupSelector',
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => []
-    }
-  },
-  emits: ['update:modelValue'],
-  template: `
-    <div data-testid="group-selector">
-      <button
-        type="button"
-        data-testid="set-shadow-group"
-        @click="$emit('update:modelValue', [7])"
-      >
-        group
-      </button>
-    </div>
-  `
-})
-
 function buildAccount() {
   return {
     id: 1,
@@ -192,7 +168,6 @@ function buildAccount() {
     priority: 1,
     rate_multiplier: 1,
     status: 'active',
-    group_ids: [],
     expires_at: null,
     auto_pause_on_expired: false
   } as any
@@ -218,7 +193,6 @@ function buildOpenAISparkShadowAccount() {
         'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark-compact'
       }
     },
-    group_ids: []
   } as any
 }
 
@@ -242,7 +216,6 @@ function buildVertexAccount() {
     priority: 1,
     rate_multiplier: 1,
     status: 'active',
-    group_ids: [],
     expires_at: null,
     auto_pause_on_expired: false
   } as any
@@ -267,7 +240,6 @@ function buildAntigravityAccount(projectId = 'configured-project') {
     priority: 1,
     rate_multiplier: 1,
     status: 'active',
-    group_ids: [],
     expires_at: null,
     auto_pause_on_expired: false
   } as any
@@ -293,7 +265,6 @@ function buildGrokOAuthAccount() {
     priority: 1,
     rate_multiplier: 1,
     status: 'active',
-    group_ids: [],
     expires_at: null,
     auto_pause_on_expired: false
   } as any
@@ -335,13 +306,12 @@ function buildOpenAIOAuthParentAccount() {
   } as any
 }
 
-function mountModal(account = buildAccount(), renderGroupSelector = false, catalogEntries?: ModelCatalogEntry[]) {
+function mountModal(account = buildAccount(), catalogEntries?: ModelCatalogEntry[]) {
   return mount(EditAccountModal, {
     props: {
       show: true,
       account,
       proxies: [],
-      groups: [],
       catalogEntries
     },
     global: {
@@ -350,7 +320,6 @@ function mountModal(account = buildAccount(), renderGroupSelector = false, catal
         Select: SelectStub,
         Icon: true,
         ProxySelector: true,
-        GroupSelector: renderGroupSelector ? false : GroupSelectorStub,
         ModelWhitelistSelector: ModelWhitelistSelectorStub
       }
     }
@@ -370,7 +339,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.expires_at = new Date('2030-06-15T09:00:00').getTime() / 1000
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
     const wrapper = mountModal(account)
     const input = wrapper.get<HTMLInputElement>('input[type="datetime-local"]')
 
@@ -393,7 +361,6 @@ describe('EditAccountModal', () => {
   it('can clear a selected expiry preset before saving the account', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
     const wrapper = mountModal(account)
     const button = wrapper.findAll('button').find((candidate) => candidate.text() === 'payment.oneYear')!
     await button.trigger('click')
@@ -406,57 +373,9 @@ describe('EditAccountModal', () => {
     wrapper.unmount()
   })
 
-  it('allows removing assigned inactive groups and undoing the selection before saving', async () => {
-    authIsSimpleMode.value = false
-    const account = buildAccount()
-    const activeGroup = {
-      id: 1,
-      name: 'Active group',
-      platform: 'openai',
-      status: 'active',
-      subscription_type: 'standard',
-      rate_multiplier: 1
-    }
-    const inactiveGroup = { ...activeGroup, id: 2, name: 'Paused group', status: 'inactive' }
-    account.group_ids = [1, 2]
-    account.groups = [
-      { ...activeGroup, name: 'Outdated name' },
-      inactiveGroup,
-      inactiveGroup,
-      { ...inactiveGroup, id: 3, name: 'Unassigned paused group' }
-    ]
-    updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
-    updateAccountMock.mockResolvedValue(account)
-
-    const wrapper = mountModal(account, true)
-    await wrapper.setProps({ groups: [activeGroup] as any })
-    const selector = wrapper.get('[data-tour="account-form-groups"]')
-    expect(selector.findAll('input[type="checkbox"]').map(input => input.attributes('value')))
-      .toEqual(['1', '2'])
-    expect(selector.text()).toContain('Active group')
-    expect(selector.text()).not.toContain('Outdated name')
-    const pausedCheckbox = selector.get<HTMLInputElement>('input[value="2"]')
-    expect(pausedCheckbox.element.checked).toBe(true)
-
-    await pausedCheckbox.setValue(false)
-    expect(selector.get<HTMLInputElement>('input[value="2"]').element.checked).toBe(false)
-    await pausedCheckbox.setValue(true)
-    expect(pausedCheckbox.element.checked).toBe(true)
-    await pausedCheckbox.setValue(false)
-    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
-
-    expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.group_ids).toEqual([1])
-    expect(account.group_ids).toEqual([1, 2])
-  })
-
   it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -499,7 +418,6 @@ describe('EditAccountModal', () => {
       ]
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
@@ -526,7 +444,6 @@ describe('EditAccountModal', () => {
       api_key: 'sk-opencode'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
@@ -544,7 +461,6 @@ describe('EditAccountModal', () => {
       account_mode: 'payg'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
@@ -566,7 +482,6 @@ describe('EditAccountModal', () => {
       account_mode: 'coding'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
@@ -585,7 +500,6 @@ describe('EditAccountModal', () => {
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
     account.credentials = { api_key: 'sk-glm', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
@@ -616,7 +530,6 @@ describe('EditAccountModal', () => {
     account.protocol_endpoints = { chat_completions: 'https://relay.example.com/v1' }
     account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await flushPromises()
@@ -640,7 +553,6 @@ describe('EditAccountModal', () => {
     second.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
     second.credentials = { api_key: 'sk-kimi-2', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(second)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(first)
     await flushPromises()
@@ -658,7 +570,6 @@ describe('EditAccountModal', () => {
     account.protocol_endpoints = { chat_completions: 'https://api.minimaxi.com/v1' }
     account.credentials = { api_key: 'sk-minimax', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     const preset = wrapper
@@ -679,7 +590,6 @@ describe('EditAccountModal', () => {
   it('applies a Grok preset to the configured Grok endpoints', async () => {
     const account = buildGrokAPIKeyAccount()
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     const preset = wrapper.findAll('[data-testid="grok-base-url-preset"]').find(button => button.text().includes('eu-west-1'))
@@ -699,7 +609,6 @@ describe('EditAccountModal', () => {
     account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
     account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
     await flushPromises()
@@ -721,8 +630,6 @@ describe('EditAccountModal', () => {
       'gpt-latest': 'gpt-5.2'
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -751,8 +658,6 @@ describe('EditAccountModal', () => {
       }
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -773,8 +678,6 @@ describe('EditAccountModal', () => {
       openai_responses_flatten_namespaces: true
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -794,8 +697,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.type = 'oauth'
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -812,8 +713,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.extra = { openai_compact_mode: 'force_on' }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const untouched = mountModal(account)
@@ -837,8 +736,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.extra = { upstream_request_id_header: 'X-Request-ID' }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -854,8 +751,6 @@ describe('EditAccountModal', () => {
   it('writes images_url_to_b64_json into extra when toggled on', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -872,8 +767,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.extra = { images_url_to_b64_json: true }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -901,8 +794,6 @@ describe('EditAccountModal', () => {
   it('loads and submits Grok OAuth model mapping edits', async () => {
     const account = buildGrokOAuthAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -930,8 +821,6 @@ describe('EditAccountModal', () => {
   it('saves a Grok API-key account with its stored endpoints and no base_url fallback', async () => {
     const account = buildGrokAPIKeyAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -954,18 +843,16 @@ describe('EditAccountModal', () => {
     authIsSimpleMode.value = false
     const account = buildOpenAISparkShadowAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
 
-    await wrapper.get('[data-testid="set-shadow-group"]').trigger('click')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     const payload = updateAccountMock.mock.calls[0]?.[1]
-    expect(payload?.group_ids).toEqual([7])
+    // 分组绑定段已删：编辑弹窗不再碰 group_ids
+    expect(payload).not.toHaveProperty('group_ids')
     expect(payload?.credentials).toEqual({
       model_mapping: {
         'gpt-5.3-codex-spark': 'gpt-5.3-codex-spark'
@@ -983,8 +870,6 @@ describe('EditAccountModal', () => {
       openai_responses_supported: false
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1001,8 +886,6 @@ describe('EditAccountModal', () => {
   it('submits the account upstream billing auto-probe setting', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1027,8 +910,6 @@ describe('EditAccountModal', () => {
     account.credentials = { api_key: 'sk-grok' }
     account.protocol_endpoints = { chat_completions: 'https://relay.example/v1' }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1045,8 +926,6 @@ describe('EditAccountModal', () => {
   it('enabling rate sync also enables probing and stops submitting a manual rate', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1080,8 +959,6 @@ describe('EditAccountModal', () => {
       upstream_billing_rate_sync_enabled: true
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1110,8 +987,6 @@ describe('EditAccountModal', () => {
       upstream_billing_rate_sync_enabled: true
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1131,8 +1006,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.credentials.openai_capabilities = ['chat_completions']
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1154,8 +1027,6 @@ describe('EditAccountModal', () => {
 		auto_pause_7d_threshold: 0.8
 	  }
 	  updateAccountMock.mockReset()
-	  checkMixedChannelRiskMock.mockReset()
-	  checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
 	  updateAccountMock.mockResolvedValue(account)
 
 	  const wrapper = mountModal(account)
@@ -1176,8 +1047,6 @@ describe('EditAccountModal', () => {
 	  // fall back to the global default).
 	  const account = buildAccount()
 	  updateAccountMock.mockReset()
-	  checkMixedChannelRiskMock.mockReset()
-	  checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
 	  updateAccountMock.mockResolvedValue(account)
 
 	  const wrapper = mountModal(account)
@@ -1193,8 +1062,6 @@ describe('EditAccountModal', () => {
   it('keeps at least one OpenAI APIKey endpoint capability selected', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1231,8 +1098,6 @@ describe('EditAccountModal', () => {
     const account = buildAccount()
     account.credentials.openai_capabilities = ['embeddings']
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1253,8 +1118,6 @@ describe('EditAccountModal', () => {
       codex_image_generation_bridge_enabled: true
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1275,8 +1138,6 @@ describe('EditAccountModal', () => {
   it('submits Codex image tool no-injection mode without strip policy', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1295,8 +1156,6 @@ describe('EditAccountModal', () => {
       codex_image_generation_bridge: true
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1318,8 +1177,6 @@ describe('EditAccountModal', () => {
       codex_image_generation_explicit_tool_policy: 'strip'
     }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1335,8 +1192,6 @@ describe('EditAccountModal', () => {
   it('setup-token account can select and submit OAuth WS mode', async () => {
     const account = buildOpenAISetupTokenAccount()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1358,8 +1213,6 @@ describe('EditAccountModal', () => {
     }
     account.credentials_status = { has_api_key: true }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1377,8 +1230,6 @@ describe('EditAccountModal', () => {
     // 显式确保没有 credentials_status
     expect(account.credentials_status).toBeUndefined()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1397,8 +1248,6 @@ describe('EditAccountModal', () => {
     }
     // 既没有 credentials_status 也没有旧的 api_key
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
 
@@ -1418,8 +1267,6 @@ describe('EditAccountModal', () => {
     }
     account.credentials_status = { has_service_account_json: true }
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1436,8 +1283,6 @@ describe('EditAccountModal', () => {
     expect(account.credentials_status).toBeUndefined()
     expect(account.credentials.service_account_json).toBeTruthy()
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1457,8 +1302,6 @@ describe('EditAccountModal', () => {
     }
     // 既没有 credentials_status 也没有旧的 service_account_json
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
 
     const wrapper = mountModal(account)
 
@@ -1470,8 +1313,6 @@ describe('EditAccountModal', () => {
   it('loads and submits Antigravity configured project fallback', async () => {
     const account = buildAntigravityAccount('configured-project')
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1490,8 +1331,6 @@ describe('EditAccountModal', () => {
   it('clears Antigravity configured project fallback when input is empty', async () => {
     const account = buildAntigravityAccount('configured-project')
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset()
-    checkMixedChannelRiskMock.mockResolvedValue({ has_risk: false })
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
@@ -1511,7 +1350,6 @@ describe('EditAccountModal OpenAI 自动使用重置卡', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
   })
 
   it('仅对 OpenAI OAuth 母账号显示，默认关闭且阈值为 100/100', () => {
@@ -1571,7 +1409,6 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   beforeEach(() => {
     authIsSimpleMode.value = true
     updateAccountMock.mockReset()
-    checkMixedChannelRiskMock.mockReset().mockResolvedValue({ has_risk: false })
   })
 
   function buildKey(platform: string, protocolEndpoints: Record<string, string>, extra: Record<string, unknown> = {}) {
@@ -1942,7 +1779,7 @@ describe('EditAccountModal third-party key settings do not follow the platform l
   it('shows the bound catalog entries read-only and marks unlisted ones', async () => {
     const entry = (id: number, model_id: string, status: string) =>
       ({ id, model_id, status, bindings: [] } as unknown as ModelCatalogEntry)
-    const wrapper = mountModal(buildAccount(), false, [entry(199, 'gpt-5.6', 'listed'), entry(217, 'gpt-5.6-mini', 'unlisted')])
+    const wrapper = mountModal(buildAccount(), [entry(199, 'gpt-5.6', 'listed'), entry(217, 'gpt-5.6-mini', 'unlisted')])
     await flushPromises()
     const section = wrapper.get('[data-testid="edit-account-catalog"]')
     const chips = section.findAll('span').filter((span) => span.text() === 'gpt-5.6' || span.text() === 'gpt-5.6-mini')
@@ -1950,12 +1787,26 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     expect(chips[1].classes()).toContain('line-through')
     expect(section.text()).not.toContain('admin.accounts.catalogNone')
 
-    const empty = mountModal(buildAccount(), false, [])
+    const empty = mountModal(buildAccount(), [])
     await flushPromises()
     expect(empty.get('[data-testid="edit-account-catalog"]').text()).toContain('admin.accounts.catalogNone')
 
-    const hidden = mountModal(buildAccount(), false, undefined)
+    const hidden = mountModal(buildAccount(), undefined)
     await flushPromises()
     expect(hidden.find('[data-testid="edit-account-catalog"]').exists()).toBe(false)
+  })
+
+  // 分组绑定段已删：弹窗里没有分组选择器，保存也不带 group_ids
+  it('has no group binding section and never submits group_ids', async () => {
+    const account = buildAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
+    const wrapper = mountModal(account)
+    await flushPromises()
+    expect(wrapper.find('[data-tour="account-form-groups"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('admin.accounts.mixedScheduling')
+
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    expect(updateAccountMock).toHaveBeenCalledTimes(1)
+    expect(updateAccountMock.mock.calls[0]?.[1]).not.toHaveProperty('group_ids')
   })
 })
