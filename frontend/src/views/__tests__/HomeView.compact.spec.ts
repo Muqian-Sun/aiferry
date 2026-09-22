@@ -174,6 +174,53 @@ describe('HomeView compact mode', () => {
     expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('$10.00')
   })
 
+  it('lists catalog vendors under the hero: icon for known vendors, text only for the rest', async () => {
+    getModelPlaza.mockResolvedValue({
+      description: '',
+      models: [
+        { model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
+        { model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] },
+        { model_id: 'claude-sonnet-4-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }
+      ]
+    })
+    const wrapper = mountHome({})
+    await flushPromises()
+
+    const items = wrapper.get('[data-testid="vendor-strip"]').findAll('li')
+    expect(items.map((item) => item.text())).toEqual(['Anthropic', 'some-new-provider'])
+    expect(items[0].find('svg').exists()).toBe(true)
+    expect(items[1].find('svg').exists()).toBe(false)
+  })
+
+  it('never renders the vendor strip without a catalog', async () => {
+    const wrapper = mountHome({})
+    await flushPromises()
+    expect(wrapper.find('[data-testid="vendor-strip"]').exists()).toBe(false)
+  })
+
+  it('lists the clients that have config snippets in the use-key modal, one entry per client', async () => {
+    const wrapper = mountHome({})
+    await flushPromises()
+    const clients = wrapper.findAll('[data-testid="home-client"]')
+    expect(clients.map((c) => c.find('h3').text())).toEqual([
+      'keys.useKeyModal.cliTabs.claudeCode',
+      'keys.useKeyModal.cliTabs.codexCli',
+      'keys.useKeyModal.cliTabs.geminiCli',
+      'keys.useKeyModal.cliTabs.grokCli',
+      'keys.useKeyModal.cliTabs.opencode'
+    ])
+    // Codex 的 WebSocket 传输只是同一个客户端的另一种配置，首页不单列
+    expect(wrapper.get('[data-testid="home-clients"]').text()).not.toContain('codexCliWs')
+  })
+
+  it('sends the clients call-to-action to the keys page, via login when anonymous', async () => {
+    const ctaOf = (wrapper: ReturnType<typeof mountHome>) =>
+      wrapper.get('[data-testid="home-clients"]').findComponent(RouterLinkStub).props('to')
+    expect(ctaOf(mountHome({}))).toEqual({ path: '/login', query: { redirect: '/keys' } })
+    authStore.isAuthenticated = true
+    expect(ctaOf(mountHome({}))).toBe('/keys')
+  })
+
   it('hides the stats band and the price preview when the catalog is unavailable', async () => {
     const wrapper = mountHome({})
     await flushPromises()

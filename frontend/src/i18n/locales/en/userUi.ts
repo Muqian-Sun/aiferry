@@ -19,6 +19,13 @@ export default {
       openMenu: 'Open navigation',
       primaryNav: 'Primary'
     },
+    footer: {
+      home: 'Home',
+      product: 'Product',
+      help: 'Docs & help',
+      legal: 'Legal',
+      register: 'Sign up'
+    },
     topbar: {
       balance: 'Balance',
       available: 'Available',
@@ -36,6 +43,19 @@ export default {
       getStarted: 'Get started',
       goToConsole: 'Open console',
       viewPricing: 'Models & pricing',
+      vendorsLabel: 'Vendors with listed models',
+      clients: {
+        title: 'Clients that work out of the box',
+        description: 'Point these tools at this base_url with your key and they just work; each one has a copyable config snippet under Keys → Use key.',
+        cta: 'Get the config on the keys page',
+        items: {
+          claude: 'Environment variables pointed at this site; Anthropic Messages passes through untouched.',
+          codex: 'OpenAI Responses protocol, with configs for both HTTP and WebSocket transport.',
+          gemini: 'Gemini generateContent protocol; an API key is all it needs.',
+          grok: 'OpenAI Chat compatible protocol pointed at /v1 on this site.',
+          opencode: 'One provider config; pick model names from the models page.'
+        }
+      },
       codeSample: {
         label: 'Integration examples',
         comment: 'Only these two lines change',
@@ -82,7 +102,7 @@ export default {
       facts: {
         title: 'What you can verify',
         protocol: { title: 'Official protocols', body: 'No proprietary translation: request and response bodies pass through as each vendor defines them.' },
-        pricing: { title: 'Public pricing', body: 'The models page lists each model\'s official reference price, billed per token.' },
+        pricing: { title: 'Public pricing', body: 'The models page lists every listed model\'s list price; you pay list price × your account multiplier.' },
         ledger: { title: 'Line-by-line records', body: 'The usage page lists model, tokens, latency and cost per request, with filters and CSV export.' },
         balance: { title: 'Transparent balance', body: 'Available and frozen balance are shown separately; every charge traces back to a request.' }
       }

@@ -38,6 +38,11 @@
               {{ t('userUi.home.viewPricing') }}
             </RouterLink>
           </div>
+          <!-- 厂商行：目录里真有的厂商，拿不到目录就不出现 -->
+          <div v-if="vendors.length" class="mt-10">
+            <p class="text-13 text-af-ink-4">{{ t('userUi.home.vendorsLabel') }}</p>
+            <VendorStrip class="mt-3" :vendors="vendors" />
+          </div>
         </div>
         <div class="min-w-0 lg:col-span-6">
           <CodeSample :base-url="apiBaseUrl" />
@@ -107,6 +112,25 @@
         </ol>
       </section>
 
+      <!-- 开箱即用的客户端：与「使用密钥」弹窗同一份清单，每项都有配置片段 -->
+      <section class="border-t border-af-hairline py-16" data-testid="home-clients">
+        <div class="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.clients.title') }}</h2>
+            <p class="mt-1 max-w-2xl text-sm text-af-ink-3">{{ t('userUi.home.clients.description') }}</p>
+          </div>
+          <RouterLink :to="isAuthenticated ? '/keys' : { path: '/login', query: { redirect: '/keys' } }" class="text-sm font-medium text-af-brand hover:text-af-brand-hover">
+            {{ t('userUi.home.clients.cta') }}
+          </RouterLink>
+        </div>
+        <ul class="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-5">
+          <li v-for="client in HOME_CLIENTS" :key="client.id" class="min-w-0" data-testid="home-client">
+            <h3 class="text-base font-semibold text-af-ink">{{ t(client.labelKey) }}</h3>
+            <p class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(client.homeKey) }}</p>
+          </li>
+        </ul>
+      </section>
+
       <!-- 可核对的事 -->
       <section class="border-t border-af-hairline py-16">
         <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.facts.title') }}</h2>
@@ -128,6 +152,8 @@ import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import CodeSample from '@/components/user/home/CodeSample.vue'
 import HomeCatalog from '@/components/user/home/HomeCatalog.vue'
+import VendorStrip from '@/components/user/home/VendorStrip.vue'
+import { HOME_CLIENTS } from '@/components/user/clients'
 import { PROTOCOL_ROUTES } from '@/components/user/home/protocols'
 import { CONSOLE_HOME_PATH } from '@/components/user/shell/navItems'
 import { getModelPlaza } from '@/api/modelPlaza'
@@ -164,7 +190,8 @@ const facts = ['protocol', 'pricing', 'ledger', 'balance'] as const
 // 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字带与价目预览，不放假数字
 const HOME_CATALOG_ROWS = 8
 const catalog = ref<CatalogModel[]>([])
-const vendorCount = computed(() => catalogVendors(catalog.value).length)
+const vendors = computed(() => catalogVendors(catalog.value))
+const vendorCount = computed(() => vendors.value.length)
 const catalogPreview = computed(() => catalog.value.filter((entry) => entry.price).slice(0, HOME_CATALOG_ROWS))
 
 async function loadCatalog() {

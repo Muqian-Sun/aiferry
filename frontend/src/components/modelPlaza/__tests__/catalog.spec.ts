@@ -78,7 +78,8 @@ describe('vendorLabel / formatCatalogPrice', () => {
   it('maps known vendors to brand spelling, passes unknown through, dashes the blank', () => {
     expect(vendorLabel('openai')).toBe('OpenAI')
     expect(vendorLabel('xai')).toBe('xAI')
-    expect(vendorLabel('vertex_ai-language-models')).toBe('vertex_ai-language-models')
+    expect(vendorLabel('vertex_ai-language-models')).toBe('Google')
+    expect(vendorLabel('some-new-provider')).toBe('some-new-provider')
     expect(vendorLabel('')).toBe('—')
   })
 
