@@ -53,8 +53,9 @@ export default {
     title: 'API Keys',
     description: 'Manage your API keys and access tokens',
     searchPlaceholder: 'Search name or key...',
+    moreActions: 'More actions',
     endpoints: {
-      title: 'API Endpoints',
+      baseUrl: 'Base URL',
       default: 'Default',
       copied: 'Copied',
       copiedHint: 'Copied to clipboard',
