@@ -21,9 +21,6 @@ export default {
     },
     footer: {
       home: 'Home',
-      product: 'Product',
-      help: 'Docs & help',
-      legal: 'Legal',
       register: 'Sign up'
     },
     topbar: {
@@ -39,82 +36,41 @@ export default {
     },
     home: {
       hero: {
-        eyebrow: '{models} models · 4 official protocols · per-request ledger',
-        title: 'One API key,',
+        eyebrow: '{models} models · 4 official protocols · never logged, never sold',
+        title: 'One key,',
         titleAccent: 'every major model.',
-        description: 'Requests pass through on the official Anthropic, OpenAI and Gemini protocols — keep your SDK, change one base_url. Every request is billed and recorded line by line.',
-        getStarted: 'Get started',
+        description: 'Official protocols relayed as-is: keep your SDK, change one base_url. We switch channels but never your model, keep caches hitting, never store your prompts — and never sell them.',
+        getStarted: 'Start free',
         goToConsole: 'Open console',
         viewPricing: 'Models & pricing',
-        vendorsLabel: 'Vendors with listed models'
+        vendorsLabel: 'Vendors connected'
       },
       features: {
-        eyebrow: 'Why here',
-        title: 'We take the complexity, you keep the interface',
-        description: 'Behind one endpoint sits unified scheduling, pricing and a ledger; all you change is base_url.',
+        eyebrow: 'How we work',
+        title: 'One job — relaying — done properly',
+        description: 'The less a middle layer does, the better: we do not rewrite your request, swap your model, or keep your data.',
         items: {
-          protocol: { title: 'Official protocols, untouched', body: 'Same-protocol resources come first and nothing is rewritten into a private format; SDKs, streaming and tool calls behave exactly as direct.' },
-          noFallback: { title: 'Never swaps your model', body: 'The model you ask for is the model you get. The only fallback is another channel for the same model — never a silent downgrade.' },
-          pricing: { title: 'Listed means priced', body: 'Every listed model shows its list price; you pay list price × your account multiplier, visible before you call.' },
-          sticky: { title: 'One conversation, one upstream', body: 'A session stays on the same upstream so cache hits keep landing — long conversations get cheaper and steadier.' },
-          ledger: { title: 'Line-by-line records', body: 'The usage page lists model, tokens, latency and cost per request, with filters and CSV export.' },
-          balance: { title: 'Transparent balance', body: 'Available and frozen balance are shown separately; every charge traces back to a request.' }
+          passthrough: { title: 'Pass through as-is', body: 'Four official protocols relayed untouched — no private format, no rewriting. SDKs, streaming, tool calls and multimodal behave exactly as direct.' },
+          failover: { title: 'No cross-model fallback', body: 'The model you name is the model that runs. On a timeout or error we only move between channels serving that same model — never a quiet downgrade to something cheaper.' },
+          cache: { title: 'Cache to the limit', body: 'A session stays pinned to one upstream so prompt caches keep hitting. Long conversations get faster as they go, and cheaper with them.' },
+          privacy: { title: 'Never logged', body: 'Request bodies and model replies are never written to disk. Each call leaves one ledger line — model, tokens, latency, cost — for you to reconcile.' },
+          noSale: { title: 'Never sold', body: 'Not sold, not shared, not used for training. Your requests and bills never reach advertisers, brokers or any third party.' }
+        },
+        figure: {
+          passthrough: { endpoint: 'One base_url', note: 'same protocol, passed through' },
+          failover: { channelA: 'Channel A', channelB: 'Channel B', timeout: 'timeout', switched: 'same model, next channel' },
+          cache: { session: 'session', pinned: 'pinned upstream', request: 'request', hit: 'cache hit' },
+          privacy: { request: 'Request body', notStored: 'not stored', kept: 'only this line' },
+          noSale: { yourData: 'your data', barrier: 'not sold · not shared · not trained on', thirdParty: 'third parties', ads: 'ads', brokers: 'brokers' }
         }
-      },
-      quickstart: {
-        eyebrow: 'Quick start',
-        title: 'A few lines of code, every model',
-        description: 'Four official protocols supported as-is: swap the API key and base_url and call.',
-        steps: {
-          create: { title: 'Create a key', body: 'Generate an API key under Keys in the console, with optional quota and rate limits.' },
-          baseUrl: { title: 'Replace base_url', body: 'Keep your SDK and request format; only point the upstream at this site.' },
-          call: { title: 'Call, then check the ledger', body: 'Tokens, latency and cost are recorded per request and exportable any time.' }
-        },
-        links: {
-          docs: { title: 'Integration docs', body: 'Calling from IDEs and agents' },
-          clients: { title: 'Client configs', body: 'Using desktop and CLI clients' }
-        },
-        sample: {
-          request: 'REQUEST',
-          response: 'RESPONSE',
-          copy: 'Copy request',
-          copied: 'Copied',
-          tabs: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
-        }
-      },
-      catalog: {
-        eyebrow: 'Public pricing',
-        title: 'Models and list prices',
-        description: 'List prices are this site\'s catalog prices (USD per 1M tokens), same source as the models page; you pay list price × your account multiplier.',
-        viewAll: 'See all {count} models'
-      },
-      clients: {
-        eyebrow: 'Integrations',
-        title: 'Use it from the clients you already have',
-        description: 'Point these tools at this base_url with your key and they just work; each one has a copyable config snippet under Keys → Use key.',
-        cta: 'Get the config on the keys page',
-        items: {
-          claude: 'Environment variables pointed at this site; Anthropic Messages passes through untouched.',
-          codex: 'OpenAI Responses protocol, with configs for both HTTP and WebSocket transport.',
-          gemini: 'Gemini generateContent protocol; an API key is all it needs.',
-          grok: 'OpenAI Chat compatible protocol pointed at /v1 on this site.',
-          opencode: 'One provider config; pick model names from the models page.'
-        },
-        sdk: { title: 'Any OpenAI / Anthropic SDK', body: 'Official SDKs and every compatible library work directly: change base_url, leave the rest.' }
       },
       stats: {
-        models: 'Listed models',
+        models: 'Models connected',
         vendors: 'Vendors',
-        protocols: 'Official protocols, untouched',
-        ledgerLabel: 'Requests recorded, exportable',
-        ledgerValue: 'Every one'
+        protocols: 'Official protocols',
+        clients: 'Client configs'
       },
-      cta: {
-        eyebrow: 'Official protocols · listed means priced · per-request ledger',
-        title: 'Ready to start?',
-        getStarted: 'Start for free',
-        goToConsole: 'Open console'
-      }
+      protocols: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
     },
     billing: {
       title: 'Billing',

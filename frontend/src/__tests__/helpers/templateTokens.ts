@@ -18,15 +18,15 @@ export const FORBIDDEN: ForbiddenRule[] = [
   { name: 'dark: variant (tokens switch themselves)', re: /(?:^|[\s"'`(:])dark:[a-z]/ },
   // 唯一获准的渐变是 style.css 的 .text-flow（首屏标题流动渐变，muqian 2026-09-22），模板里不写渐变工具类
   { name: 'gradient', re: /\b(?:bg-gradient-to-\w+|bg-mesh-gradient|text-gradient|gradient-primary|gradient-dark)\b/ },
+  // muqian 2026-09-23「不要用卡片」：内容不装进卡片，改用细线分隔 + 留白
+  { name: 'card class', re: /(?:^|[\s"'`])card(?:-glass|-hover|-header|-body|-footer)?(?=$|[\s"'`])/ },
+  { name: 'hover lift', re: /hover:-translate-y/ },
   { name: 'glass / glow shadows', re: /\b(?:glass(?:-card)?|shadow-glow(?:-lg)?|shadow-glass(?:-sm)?|shadow-card(?:-hover)?)\b/ },
   { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ }
 ]
 
-/**
- * 2026-09-22 muqian 定「学参考站的效果，允许用卡片」：card / rounded-2xl / hover 上浮不再禁，
- * 两站规则现在相同；保留两个名字给各自的 spec 用。
- */
-export const FORBIDDEN_ADMIN: ForbiddenRule[] = FORBIDDEN
+/** 管理站允许 card 当分区容器（style.css 里已 token 化），其余规则与用户站相同。 */
+export const FORBIDDEN_ADMIN: ForbiddenRule[] = FORBIDDEN.filter((rule) => rule.name !== 'card class')
 
 function walk(dir: string, out: string[]): void {
   for (const name of readdirSync(dir)) {

@@ -1,16 +1,18 @@
 import { describe, expect, it } from 'vitest'
 import { mount } from '@vue/test-utils'
 import VendorStrip from '../VendorStrip.vue'
-import { modelIconKey, vendorIconKey } from '@/components/common/modelIconData'
+import { iconData, modelIconKey, vendorIconKey } from '@/components/common/modelIconData'
 import { HOME_CLIENTS, USE_KEY_CLIENTS } from '@/components/user/clients'
 
 describe('VendorStrip', () => {
-  it('renders a mono icon for vendors that have one and plain text for the rest', () => {
+  it('renders a brand-coloured icon for vendors that have one and plain text for the rest', () => {
     const wrapper = mount(VendorStrip, { props: { vendors: ['openai', 'anthropic', 'volcengine', ''] } })
     const items = wrapper.findAll('li')
     expect(items.map((item) => item.text())).toEqual(['OpenAI', 'Anthropic', 'Volcengine', '—'])
     expect(items.map((item) => item.find('svg').exists())).toEqual([true, true, false, false])
-    expect(items[0].find('svg').attributes('fill')).toBe('currentColor')
+    // muqian 2026-09-23「这些图像加上颜色」：图标用厂商品牌色，不再是 currentColor
+    expect(items[0].find('svg').attributes('fill')).toBe(iconData.openai.color)
+    expect(items[1].find('svg').attributes('fill')).toBe(iconData.claude.color)
   })
 })
 

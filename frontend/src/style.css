@@ -5,6 +5,13 @@
 @tailwind components;
 @tailwind utilities;
 
+/* 给 .count-up 用的可过渡整数属性（@property 只能写在顶层） */
+@property --count {
+  syntax: '<integer>';
+  initial-value: 0;
+  inherits: false;
+}
+
 @layer base {
   /* 裸 border/divide 工具类的默认颜色统一走 hairline token（明暗随 html.dark 切换） */
   * {
@@ -203,15 +210,6 @@
   }
 
   /* ============ 用户站落地页原语（2026-09-22 muqian：学参考站的效果，允许卡片） ============ */
-  /* 内容卡：16px 圆角、hairline 边、一层很轻的投影；hover 只加深边线 */
-  .sheet-card {
-    @apply rounded-2xl border border-af-hairline bg-af-sheet;
-    box-shadow:
-      0 1px 2px rgb(var(--af-ink) / 0.04),
-      0 12px 32px -20px rgb(var(--af-ink) / 0.18);
-    @apply transition-colors duration-200 hover:border-af-hairline-strong;
-  }
-
   /* 段落眉题：小胶囊 + 品牌色圆点 */
   .section-eyebrow {
     @apply inline-flex items-center gap-2 rounded-full border border-af-hairline bg-af-sheet px-3 py-1 text-xs font-medium text-af-ink-2;
@@ -226,6 +224,7 @@
     @apply mt-5 text-3xl font-semibold tracking-tight text-af-ink sm:text-4xl;
   }
 
+  /* 段落副标题：默认居中（左对齐的段落自己加 mx-0 覆盖） */
   .section-lead {
     @apply mx-auto mt-4 max-w-2xl text-base text-af-ink-3 sm:text-lg;
   }
@@ -233,11 +232,6 @@
   /* 胶囊主按钮（首屏 / CTA 用） */
   .btn-pill {
     @apply rounded-full px-6 py-3 text-base;
-  }
-
-  /* 卡片左上角的圆形图标位 */
-  .icon-tile {
-    @apply flex h-11 w-11 items-center justify-center rounded-full bg-af-sunken text-af-ink-2;
   }
 
   /*
@@ -281,6 +275,70 @@
   @media (prefers-reduced-motion: reduce) {
     .text-flow {
       animation: none;
+    }
+  }
+
+  /* ============ 动效原语（muqian 2026-09-22「页面往下滚时各分区淡入上浮」，学 12ai） ============ */
+  /*
+   * v-reveal（src/directives/reveal.ts）：进入视口前透明 + 下移 24px，进入后 0.7s 淡入上浮（ease-out-quint）。
+   * 状态是 data 属性（data-reveal / data-revealed），不是 class——见指令注释。
+   * data-reveal="stagger" 的子元素按 --reveal-i 每个错开 80ms；--reveal-delay 是整体延时（指令的值）。
+   * 延时只挂在 opacity / transform 上，border / background / color 保留自己的短过渡，
+   * 否则会把 .sheet-card 的 hover 过渡也一起延后。
+   * 参数是拍的：24px / 0.7s / 80ms，看着不拖沓也不闪；要调就改这三处。
+   */
+  [data-reveal='single'],
+  [data-reveal='stagger'] > * {
+    --reveal-d: var(--reveal-delay, 0ms);
+    opacity: 0;
+    transform: translateY(24px);
+    transition:
+      opacity 0.7s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-d),
+      transform 0.7s cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-d),
+      border-color 0.2s,
+      background-color 0.2s,
+      color 0.2s;
+  }
+
+  [data-reveal='stagger'] > * {
+    --reveal-d: calc(var(--reveal-delay, 0ms) + var(--reveal-i, 0) * 80ms);
+  }
+
+  [data-reveal='single'][data-revealed],
+  [data-reveal='stagger'][data-revealed] > * {
+    opacity: 1;
+    transform: none;
+  }
+
+  /*
+   * 数字跳到位：--count 注册成整数属性后可以过渡，counter-reset 拿它当计数器值、::before 把计数器画出来。
+   * 使用处把目标写进 --count-to，再由祖先的 data-revealed（v-reveal）触发从 0 到目标的 1.2s 过渡。
+   * 真实数字另放一个 sr-only 的 span 给读屏与测试；不支持 @property 的浏览器直接显示目标值（不插值）。
+   */
+  .count-up {
+    --count: 0;
+    counter-reset: count var(--count);
+    transition: --count 1.2s cubic-bezier(0.22, 1, 0.36, 1) 0.15s;
+  }
+
+  .count-up::before {
+    content: counter(count);
+  }
+
+  [data-revealed] .count-up {
+    --count: var(--count-to, 0);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-reveal='single'],
+    [data-reveal='stagger'] > * {
+      opacity: 1;
+      transform: none;
+      transition: none;
+    }
+
+    .count-up {
+      transition: none;
     }
   }
 

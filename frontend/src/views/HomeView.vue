@@ -19,185 +19,87 @@
   </SiteShell>
 
   <!--
-    默认首页（2026-09-22 按 gpt.ge / new.12ai.org 的结构重排）：
-    居中首屏 → 六张卖点卡 → 三步 + 协议代码窗口 → 模型与标价卡 → 客户端卡片 → 数字卡 → 墨色 CTA 带 → 页脚。
-    每段「眉题 / 大标题 / 副标题」居中；内容用 sheet-card；数据段拿不到就不出现，不放假数字。
+    默认首页（muqian 2026-09-22 定「正文三块」，9-23 定去底纹 / 不用卡片 / 位置重排）：
+    ① 首屏（左文右厂商图标云，图标自己飘、不跟鼠标）→ ② 数字（一条横排，上下细线分隔）
+    → ③ 五条特色（整幅左右交错，图一侧、字一侧，行间细线）→ 页脚。
+    数据段拿不到就不出现，不放假数字。动效：各段 v-reveal 进视口淡入上浮；标题第二行流动渐变；数字进视口从 0 跳到位；示意图各自循环演示。
   -->
   <SiteShell v-else variant="public" flush>
     <div data-testid="default-home">
-      <!-- 首屏：居中，背景一层淡网格向四周渐隐 -->
-      <section class="home-hero relative overflow-hidden">
-        <div class="relative mx-auto max-w-site px-6 pb-20 pt-20 text-center sm:pb-24 sm:pt-28">
-          <p v-if="catalog.length" class="section-eyebrow" data-testid="hero-eyebrow">
-            {{ t('userUi.home.hero.eyebrow', { models: catalog.length }) }}
-          </p>
-          <h1 class="mx-auto mt-6 max-w-4xl text-4xl font-semibold leading-[1.15] tracking-tight text-af-ink sm:text-5xl lg:text-6xl">
-            {{ t('userUi.home.hero.title') }}<br />
-            <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
-          </h1>
-          <p class="mx-auto mt-6 max-w-2xl text-base leading-7 text-af-ink-2 sm:text-lg sm:leading-8">{{ t('userUi.home.hero.description') }}</p>
-          <div class="mt-10 flex flex-wrap items-center justify-center gap-3">
-            <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-pill" data-testid="home-primary-cta">
-              {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.home.hero.getStarted') }}
-              <Icon name="arrowRight" size="sm" />
-            </RouterLink>
-            <RouterLink to="/model-plaza" class="btn btn-secondary btn-pill">
-              {{ t('userUi.home.hero.viewPricing') }}
-            </RouterLink>
-          </div>
-          <!-- 厂商行：目录里真有的厂商，拿不到目录就不出现 -->
-          <div v-if="vendors.length" class="mt-14">
-            <p class="text-13 text-af-ink-4">{{ t('userUi.home.hero.vendorsLabel') }}</p>
-            <VendorStrip class="mt-4 justify-center" :vendors="vendors" />
-          </div>
-        </div>
-      </section>
-
-      <!-- 卖点：六张卡 -->
-      <section class="bg-af-sunken py-20 sm:py-24" data-testid="home-features">
-        <div class="mx-auto max-w-site px-6">
-          <div class="text-center">
-            <p class="section-eyebrow">{{ t('userUi.home.features.eyebrow') }}</p>
-            <h2 class="section-title">{{ t('userUi.home.features.title') }}</h2>
-            <p class="section-lead">{{ t('userUi.home.features.description') }}</p>
-          </div>
-          <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <li v-for="feature in FEATURES" :key="feature.key" class="sheet-card p-6" data-testid="home-feature">
-              <span class="icon-tile"><Icon :name="feature.icon" size="md" /></span>
-              <h3 class="mt-5 text-base font-semibold text-af-ink">{{ t(`userUi.home.features.items.${feature.key}.title`) }}</h3>
-              <p class="mt-2 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.features.items.${feature.key}.body`) }}</p>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <!-- 快速接入：左三步 + 两个入口卡，右协议代码窗口 -->
-      <section class="py-20 sm:py-24" data-testid="home-quickstart">
-        <div class="mx-auto max-w-site px-6">
-          <div class="text-center">
-            <p class="section-eyebrow">{{ t('userUi.home.quickstart.eyebrow') }}</p>
-            <h2 class="section-title">{{ t('userUi.home.quickstart.title') }}</h2>
-            <p class="section-lead">{{ t('userUi.home.quickstart.description') }}</p>
-          </div>
-          <div class="mt-12 grid gap-6 lg:grid-cols-12">
-            <div class="space-y-4 lg:col-span-5">
-              <ol class="space-y-3">
-                <li v-for="(step, index) in STEPS" :key="step" class="sheet-card flex gap-4 p-5" data-testid="home-step">
-                  <span class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-af-ink text-sm font-semibold text-af-sheet">{{ index + 1 }}</span>
-                  <div class="min-w-0">
-                    <h3 class="text-base font-semibold text-af-ink">{{ t(`userUi.home.quickstart.steps.${step}.title`) }}</h3>
-                    <p class="mt-1 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.quickstart.steps.${step}.body`) }}</p>
-                  </div>
-                </li>
-              </ol>
-              <div class="grid gap-3 sm:grid-cols-2">
-                <a v-if="docUrl" :href="docUrl" target="_blank" rel="noopener noreferrer" class="sheet-card group flex items-start justify-between gap-3 p-5" data-testid="home-link-docs">
-                  <span>
-                    <Icon name="book" size="md" class="text-af-ink-3" />
-                    <span class="mt-3 block text-sm font-semibold text-af-ink">{{ t('userUi.home.quickstart.links.docs.title') }}</span>
-                    <span class="mt-0.5 block text-xs text-af-ink-3">{{ t('userUi.home.quickstart.links.docs.body') }}</span>
-                  </span>
-                  <Icon name="arrowRight" size="sm" class="mt-1 shrink-0 text-af-ink-4 transition-colors group-hover:text-af-ink" />
-                </a>
-                <RouterLink :to="keysDestination" class="sheet-card group flex items-start justify-between gap-3 p-5" data-testid="home-link-clients">
-                  <span>
-                    <Icon name="terminal" size="md" class="text-af-ink-3" />
-                    <span class="mt-3 block text-sm font-semibold text-af-ink">{{ t('userUi.home.quickstart.links.clients.title') }}</span>
-                    <span class="mt-0.5 block text-xs text-af-ink-3">{{ t('userUi.home.quickstart.links.clients.body') }}</span>
-                  </span>
-                  <Icon name="arrowRight" size="sm" class="mt-1 shrink-0 text-af-ink-4 transition-colors group-hover:text-af-ink" />
-                </RouterLink>
-              </div>
-            </div>
-            <div class="min-w-0 lg:col-span-7">
-              <ProtocolSample :base-url="apiBaseUrl" />
-            </div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 模型与标价：只在拿到目录时出现 -->
-      <section v-if="catalogPreview.length" class="bg-af-sunken py-20 sm:py-24" data-testid="home-catalog-section">
-        <div class="mx-auto max-w-site px-6">
-          <div class="text-center">
-            <p class="section-eyebrow">{{ t('userUi.home.catalog.eyebrow') }}</p>
-            <h2 class="section-title">{{ t('userUi.home.catalog.title') }}</h2>
-            <p class="section-lead">{{ t('userUi.home.catalog.description') }}</p>
-          </div>
-          <div class="sheet-card mt-12 overflow-hidden">
-            <HomeCatalog :entries="catalogPreview" />
-            <div class="flex justify-center border-t border-af-hairline px-6 py-4">
-              <RouterLink to="/model-plaza" class="btn btn-secondary btn-sm">
-                {{ t('userUi.home.catalog.viewAll', { count: catalog.length }) }}
-                <Icon name="arrowRight" size="xs" />
+      <!-- ① 首屏：有带图标的厂商时 lg 起左文右图标云，否则整段居中 -->
+      <section class="home-hero relative">
+        <div :class="['mx-auto max-w-site px-6 pb-16 pt-16 sm:pb-20 sm:pt-24', hasCloud ? 'lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16' : '']">
+          <div v-reveal.stagger :class="hasCloud ? 'text-center lg:text-left' : 'text-center'" data-testid="hero-copy">
+            <p v-if="catalog.length" class="section-eyebrow" data-testid="hero-eyebrow">
+              {{ t('userUi.home.hero.eyebrow', { models: catalog.length }) }}
+            </p>
+            <h1 :class="['mt-6 text-4xl font-semibold leading-[1.12] tracking-tight text-af-ink sm:text-5xl lg:text-6xl', hasCloud ? '' : 'mx-auto max-w-4xl']">
+              {{ t('userUi.home.hero.title') }}<br />
+              <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
+            </h1>
+            <p :class="['mt-6 text-base leading-7 text-af-ink-2 sm:text-lg sm:leading-8', hasCloud ? 'max-w-xl' : 'mx-auto max-w-2xl']">{{ t('userUi.home.hero.description') }}</p>
+            <div :class="['mt-9 flex flex-wrap items-center gap-3', hasCloud ? 'justify-center lg:justify-start' : 'justify-center']">
+              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-pill" data-testid="home-primary-cta">
+                {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.home.hero.getStarted') }}
+                <Icon name="arrowRight" size="sm" />
+              </RouterLink>
+              <RouterLink to="/model-plaza" class="btn btn-secondary btn-pill">
+                {{ t('userUi.home.hero.viewPricing') }}
               </RouterLink>
             </div>
+            <!-- 厂商行：拿不到目录就不出现；lg 起由右侧图标云代替 -->
+            <div v-if="vendors.length" :class="['mt-12', hasCloud ? 'lg:hidden' : '']">
+              <p class="text-13 text-af-ink-4">{{ t('userUi.home.hero.vendorsLabel') }}</p>
+              <VendorStrip class="mt-4 justify-center" :vendors="vendors" />
+            </div>
           </div>
+          <VendorCloud v-if="hasCloud" v-reveal="200" :vendors="cloudVendors" class="mx-auto mt-14 hidden lg:mt-0 lg:block" />
         </div>
       </section>
 
-      <!-- 客户端：与「使用密钥」弹窗同一份清单 + 一张「任何 SDK」卡 -->
-      <section class="py-20 sm:py-24" data-testid="home-clients">
+      <!-- ② 数字：一条横排，上下细线；进视口时从 0 跳到位（.count-up 纯 CSS 计数，跟 v-reveal 联动） -->
+      <section v-if="catalog.length" data-testid="home-stats-section">
         <div class="mx-auto max-w-site px-6">
-          <div class="text-center">
-            <p class="section-eyebrow">{{ t('userUi.home.clients.eyebrow') }}</p>
-            <h2 class="section-title">{{ t('userUi.home.clients.title') }}</h2>
-            <p class="section-lead">{{ t('userUi.home.clients.description') }}</p>
-          </div>
-          <ul class="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            <li v-for="client in HOME_CLIENTS" :key="client.id" class="sheet-card p-6" data-testid="home-client">
-              <span class="icon-tile"><Icon :name="client.id === 'gemini' ? 'sparkles' : 'terminal'" size="md" /></span>
-              <h3 class="mt-5 text-base font-semibold text-af-ink">{{ t(client.labelKey) }}</h3>
-              <p class="mt-2 text-sm leading-6 text-af-ink-3">{{ t(client.homeKey) }}</p>
-            </li>
-            <li class="sheet-card p-6" data-testid="home-client-sdk">
-              <span class="icon-tile"><Icon name="cube" size="md" /></span>
-              <h3 class="mt-5 text-base font-semibold text-af-ink">{{ t('userUi.home.clients.sdk.title') }}</h3>
-              <p class="mt-2 text-sm leading-6 text-af-ink-3">{{ t('userUi.home.clients.sdk.body') }}</p>
-            </li>
-          </ul>
-          <div class="mt-8 text-center">
-            <RouterLink :to="keysDestination" class="btn btn-secondary" data-testid="home-clients-cta">
-              {{ t('userUi.home.clients.cta') }}
-              <Icon name="arrowRight" size="xs" />
-            </RouterLink>
-          </div>
-        </div>
-      </section>
-
-      <!-- 数字卡：数字都从目录算，拿不到不出现 -->
-      <section v-if="catalog.length" class="pb-20 sm:pb-24">
-        <div class="mx-auto max-w-site px-6">
-          <dl class="sheet-card grid grid-cols-2 divide-y divide-af-hairline sm:grid-cols-4 sm:divide-x sm:divide-y-0" data-testid="home-stats">
-            <div class="px-6 py-8 text-center">
-              <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.models') }}</dt>
-              <dd class="mt-2 text-3xl font-semibold tabular-nums text-af-ink">{{ catalog.length }}</dd>
-            </div>
-            <div class="px-6 py-8 text-center">
-              <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.vendors') }}</dt>
-              <dd class="mt-2 text-3xl font-semibold tabular-nums text-af-ink">{{ vendors.length }}</dd>
-            </div>
-            <div class="px-6 py-8 text-center">
-              <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.protocols') }}</dt>
-              <dd class="mt-2 text-3xl font-semibold tabular-nums text-af-ink">{{ PROTOCOL_ROUTES.length }}</dd>
-            </div>
-            <div class="px-6 py-8 text-center">
-              <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.ledgerLabel') }}</dt>
-              <dd class="mt-2 text-3xl font-semibold text-af-ink">{{ t('userUi.home.stats.ledgerValue') }}</dd>
+          <dl
+            v-reveal
+            class="grid grid-cols-2 gap-y-8 border-y border-af-hairline py-10 sm:grid-cols-4 sm:gap-y-0 sm:divide-x sm:divide-af-hairline"
+            data-testid="home-stats"
+          >
+            <div v-for="stat in stats" :key="stat.key" class="px-4 text-center">
+              <dd class="text-4xl font-semibold tabular-nums text-af-ink sm:text-5xl">
+                <span class="count-up" :style="{ '--count-to': stat.value }" aria-hidden="true" />
+                <span class="sr-only" data-testid="home-stat-value">{{ stat.value }}</span>
+              </dd>
+              <dt class="mt-2 text-13 text-af-ink-3">{{ t(`userUi.home.stats.${stat.key}`) }}</dt>
             </div>
           </dl>
         </div>
       </section>
 
-      <!-- CTA 带：墨色底，暗色模式下随 token 反转 -->
-      <section class="bg-af-ink py-20 text-af-sheet sm:py-24" data-testid="home-cta">
-        <div class="mx-auto max-w-site px-6 text-center">
-          <p class="text-13 text-af-ink-4">{{ t('userUi.home.cta.eyebrow') }}</p>
-          <h2 class="mt-4 text-3xl font-semibold tracking-tight sm:text-4xl">{{ t('userUi.home.cta.title') }}</h2>
-          <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-pill mt-8 bg-af-sheet text-af-ink hover:bg-af-sunken" data-testid="home-cta-button">
-            {{ isAuthenticated ? t('userUi.home.cta.goToConsole') : t('userUi.home.cta.getStarted') }}
-            <Icon name="arrowRight" size="sm" />
-          </RouterLink>
+      <!-- ③ 特色：五条整幅左右交错——图一侧、字一侧，行与行之间一条细线 -->
+      <section class="py-20 sm:py-24" data-testid="home-features">
+        <div class="mx-auto max-w-site px-6">
+          <div v-reveal class="max-w-2xl">
+            <p class="section-eyebrow">{{ t('userUi.home.features.eyebrow') }}</p>
+            <h2 class="section-title">{{ t('userUi.home.features.title') }}</h2>
+            <p class="section-lead mx-0">{{ t('userUi.home.features.description') }}</p>
+          </div>
+          <ul class="mt-12 divide-y divide-af-hairline border-t border-af-hairline">
+            <li
+              v-for="(feature, index) in FEATURES"
+              :key="feature"
+              v-reveal
+              class="grid items-center gap-8 py-12 lg:grid-cols-2 lg:gap-16"
+              data-testid="home-feature"
+            >
+              <div :class="['min-w-0', index % 2 ? 'lg:order-2' : '']">
+                <p class="font-mono text-13 text-af-ink-4">{{ String(index + 1).padStart(2, '0') }}</p>
+                <h3 class="mt-3 text-2xl font-semibold tracking-tight text-af-ink">{{ t(`userUi.home.features.items.${feature}.title`) }}</h3>
+                <p class="mt-3 max-w-lg text-base leading-7 text-af-ink-2">{{ t(`userUi.home.features.items.${feature}.body`) }}</p>
+              </div>
+              <HomeFigure :kind="feature" :class="index % 2 ? 'lg:order-1' : ''" />
+            </li>
+          </ul>
         </div>
       </section>
     </div>
@@ -209,10 +111,12 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import HomeCatalog from '@/components/user/home/HomeCatalog.vue'
-import ProtocolSample from '@/components/user/home/ProtocolSample.vue'
 import VendorStrip from '@/components/user/home/VendorStrip.vue'
+import VendorCloud from '@/components/user/home/VendorCloud.vue'
+import HomeFigure, { type FigureKind } from '@/components/user/home/HomeFigure.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { vReveal } from '@/directives/reveal'
+import { vendorIconKey } from '@/components/common/modelIconData'
 import { PROTOCOL_ROUTES } from '@/components/user/home/protocols'
 import { HOME_CLIENTS } from '@/components/user/clients'
 import { CONSOLE_HOME_PATH } from '@/components/user/shell/navItems'
@@ -232,7 +136,6 @@ const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle
 const homeContent = computed(() => appStore.cachedPublicSettings?.home_content || '')
 const hasHomeContent = computed(() => homeContent.value.trim().length > 0)
 const compactHomeEnabled = computed(() => appStore.cachedPublicSettings?.compact_home_enabled === true)
-const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl || ''))
 
 // 自定义首页内容是 URL 时用 iframe 展示
 const isHomeContentUrl = computed(() => {
@@ -242,25 +145,23 @@ const isHomeContentUrl = computed(() => {
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const consolePath = CONSOLE_HOME_PATH
-const keysDestination = computed(() => (isAuthenticated.value ? '/keys' : { path: '/login', query: { redirect: '/keys' } }))
-const apiBaseUrl = computed(() => appStore.cachedPublicSettings?.api_base_url || appStore.apiBaseUrl || '')
 
-/** 六张卖点卡：四条核心主张（同协议直连 / 不换模型 / 上架即标价 / 同会话固定上游）+ 逐条记账 + 余额透明 */
-const FEATURES = [
-  { key: 'protocol', icon: 'swap' },
-  { key: 'noFallback', icon: 'shield' },
-  { key: 'pricing', icon: 'dollar' },
-  { key: 'sticky', icon: 'link' },
-  { key: 'ledger', icon: 'document' },
-  { key: 'balance', icon: 'creditCard' }
-] as const
-const STEPS = ['create', 'baseUrl', 'call'] as const
+/** 五张插画卡 = 五条特色（muqian 2026-09-22 定）：尽量透传 / 不做不同模型兜底 / 最大程度缓存 / 不记录用户数据 / 不出售用户数据 */
+const FEATURES: readonly FigureKind[] = ['passthrough', 'failover', 'cache', 'privacy', 'noSale']
 
-// 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字卡与价目预览，不放假数字
-const HOME_CATALOG_ROWS = 8
+// 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字段，不放假数字
 const catalog = ref<CatalogModel[]>([])
 const vendors = computed(() => catalogVendors(catalog.value))
-const catalogPreview = computed(() => catalog.value.filter((entry) => entry.price).slice(0, HOME_CATALOG_ROWS))
+// 图标云只放有图标的厂商；一个都没有就不出云，首屏回到居中版
+const cloudVendors = computed(() => vendors.value.filter((vendor) => vendorIconKey(vendor)))
+const hasCloud = computed(() => cloudVendors.value.length > 0)
+/** 数字段：前两个从目录算，后两个是产品事实（四条协议 / 「使用密钥」弹窗里有配置片段的客户端数） */
+const stats = computed(() => [
+  { key: 'models', value: catalog.value.length },
+  { key: 'vendors', value: vendors.value.length },
+  { key: 'protocols', value: PROTOCOL_ROUTES.length },
+  { key: 'clients', value: HOME_CLIENTS.length }
+])
 
 async function loadCatalog() {
   try {
@@ -282,19 +183,3 @@ onMounted(async () => {
   }
 })
 </script>
-
-<style scoped>
-/* 首屏底纹：淡网格，中心清晰、四周渐隐（学 gpt.ge），颜色走 hairline token，暗色自动跟随 */
-.home-hero::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background-image:
-    linear-gradient(rgb(var(--af-hairline)) 1px, transparent 1px),
-    linear-gradient(90deg, rgb(var(--af-hairline)) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 30%, transparent 75%);
-  -webkit-mask-image: radial-gradient(ellipse 70% 70% at 50% 40%, black 30%, transparent 75%);
-}
-</style>

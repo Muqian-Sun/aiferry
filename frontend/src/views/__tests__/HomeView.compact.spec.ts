@@ -150,7 +150,7 @@ describe('HomeView compact mode', () => {
     expect(modelPlazaDestination(mountHome({ compact_home_enabled: true }))).toBe('/model-plaza')
   })
 
-  it('renders the stats band and the price preview only when the model catalog loads', async () => {
+  it('renders the stats band from the catalog, each number as a CSS count-up plus an sr-only value', async () => {
     getModelPlaza.mockResolvedValue({
       description: '',
       models: [
@@ -167,11 +167,16 @@ describe('HomeView compact mode', () => {
     const wrapper = mountHome({})
     await flushPromises()
 
-    // 数字带从目录算：2 个模型、2 个厂商；价目预览只列有标价的模型
-    expect(wrapper.get('[data-testid="home-stats"]').text()).toContain('2')
-    expect(wrapper.findAll('[data-testid="home-catalog-row"]')).toHaveLength(1)
-    expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('gpt-5.5')
-    expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('$10.00')
+    // 模型 2 / 厂商 2 从目录算；协议 4 / 客户端 5 是产品事实；数字段整体 v-reveal，跳数由 .count-up 的 --count-to 驱动
+    const stats = wrapper.get('[data-testid="home-stats"]')
+    expect(stats.attributes('data-reveal')).toBe('single')
+    // 数字在上、名目在下，且不装进卡片
+    expect(stats.classes()).not.toContain('sheet-card')
+    expect(stats.get('div').element.firstElementChild?.tagName).toBe('DD')
+    expect(stats.findAll('[data-testid="home-stat-value"]').map((v) => v.text())).toEqual(['2', '2', '4', '5'])
+    const counters = stats.findAll('.count-up')
+    expect(counters.map((c) => (c.element as HTMLElement).style.getPropertyValue('--count-to'))).toEqual(['2', '2', '4', '5'])
+    expect(counters.every((c) => c.attributes('aria-hidden') === 'true')).toBe(true)
   })
 
   it('lists catalog vendors under the hero: icon for known vendors, text only for the rest', async () => {
@@ -198,68 +203,99 @@ describe('HomeView compact mode', () => {
     expect(wrapper.find('[data-testid="vendor-strip"]').exists()).toBe(false)
   })
 
-  it('lists the clients that have config snippets in the use-key modal, one entry per client', async () => {
-    const wrapper = mountHome({})
+  it('splits the hero into copy + icon cloud only when the catalog has vendors with icons', async () => {
+    // 有图标的厂商（anthropic）→ 出云，文字列 lg 起左对齐，厂商行只留给小屏
+    getModelPlaza.mockResolvedValue({
+      description: '',
+      models: [
+        { model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
+        { model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] }
+      ]
+    })
+    const withCloud = mountHome({})
     await flushPromises()
-    const clients = wrapper.findAll('[data-testid="home-client"]')
-    expect(clients.map((c) => c.find('h3').text())).toEqual([
-      'keys.useKeyModal.cliTabs.claudeCode',
-      'keys.useKeyModal.cliTabs.codexCli',
-      'keys.useKeyModal.cliTabs.geminiCli',
-      'keys.useKeyModal.cliTabs.grokCli',
-      'keys.useKeyModal.cliTabs.opencode'
-    ])
-    // Codex 的 WebSocket 传输只是同一个客户端的另一种配置，首页不单列
-    expect(wrapper.get('[data-testid="home-clients"]').text()).not.toContain('codexCliWs')
+    const cloud = withCloud.get('[data-testid="vendor-cloud"]')
+    // 云里只放有图标的厂商：每块瓷砖都有 svg
+    const tiles = cloud.findAll('[data-testid="vendor-cloud-tile"]')
+    expect(tiles.length).toBeGreaterThanOrEqual(6)
+    expect(tiles.every((tile) => tile.find('svg').exists())).toBe(true)
+    // 图标用厂商品牌色，不是 currentColor
+    expect(tiles.every((tile) => /^#/.test(tile.get('svg').attributes('fill') ?? ''))).toBe(true)
+    // 各自飘：每块自带周期与相位，且不预设 transform（没有鼠标视差）
+    expect(tiles.every((tile) => {
+      const style = (tile.element as HTMLElement).style
+      return style.getPropertyValue('--drift-dur') !== '' && style.transform === ''
+    })).toBe(true)
+    expect(withCloud.get('[data-testid="hero-copy"]').classes()).toContain('lg:text-left')
+    expect(withCloud.get('[data-testid="vendor-strip"]').element.parentElement?.classList.contains('lg:hidden')).toBe(true)
+
+    // 只有没图标的厂商 → 不出云，首屏居中
+    getModelPlaza.mockResolvedValue({
+      description: '',
+      models: [{ model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] }]
+    })
+    const centred = mountHome({})
+    await flushPromises()
+    expect(centred.find('[data-testid="vendor-cloud"]').exists()).toBe(false)
+    expect(centred.get('[data-testid="hero-copy"]').classes()).not.toContain('lg:text-left')
+    expect(centred.get('[data-testid="vendor-strip"]').element.parentElement?.classList.contains('lg:hidden')).toBe(false)
   })
 
-  it('sends the clients call-to-action to the keys page, via login when anonymous', async () => {
-    const ctaOf = (wrapper: ReturnType<typeof mountHome>) =>
-      wrapper.get('[data-testid="home-clients"]').findComponent(RouterLinkStub).props('to')
-    expect(ctaOf(mountHome({}))).toEqual({ path: '/login', query: { redirect: '/keys' } })
-    authStore.isAuthenticated = true
-    expect(ctaOf(mountHome({}))).toBe('/keys')
-  })
-
-  it('hides the stats band and the price preview when the catalog is unavailable', async () => {
+  it('hides the stats band when the catalog is unavailable, leaving hero + features', async () => {
     const wrapper = mountHome({})
     await flushPromises()
     expect(getModelPlaza).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="home-catalog"]').exists()).toBe(false)
+    const blocks = Array.from(wrapper.get('[data-testid="default-home"]').element.children)
+    expect(blocks.map((b) => b.getAttribute('data-testid') || b.className.split(' ')[0])).toEqual(['home-hero', 'home-features'])
   })
 
-  it('renders the protocol sample with the site API base URL and switches protocols', async () => {
-    const wrapper = mountHome({ api_base_url: 'https://api.example.test/' })
+  it('marks every section for scroll reveal: headers reveal as a unit, grids stagger their children', async () => {
+    const wrapper = mountHome({})
     await flushPromises()
-    const sample = wrapper.get('[data-testid="protocol-sample"]')
-    expect(sample.text()).toContain('https://api.example.test/v1/messages')
-    expect(sample.text()).toContain('userUi.home.quickstart.sample.request')
-    expect(sample.text()).toContain('userUi.home.quickstart.sample.response')
-    await sample.get('[data-testid="protocol-tab-gemini"]').trigger('click')
-    expect(sample.text()).toContain('https://api.example.test/v1beta/models/gemini-3-pro:generateContent')
-    expect(sample.text()).toContain('usageMetadata')
+    // 首屏文字列与特色网格是 stagger 容器，子元素编号从 0 起；特色段标题整块渐现
+    const heroCopy = wrapper.get('[data-testid="hero-copy"]').element as HTMLElement
+    expect(heroCopy.getAttribute('data-reveal')).toBe('stagger')
+    expect((heroCopy.children[0] as HTMLElement).style.getPropertyValue('--reveal-i')).toBe('0')
+    // 特色是整幅一行一行地渐现：每行自己一个 single，外层 ul 不再是 stagger 容器（两者并存会叠两次动画）
+    const rows = wrapper.findAll('[data-testid="home-feature"]')
+    expect(rows.every((row) => row.attributes('data-reveal') === 'single')).toBe(true)
+    expect((rows[0].element.parentElement as HTMLElement).hasAttribute('data-reveal')).toBe(false)
+    expect(wrapper.get('[data-testid="home-features"]').element.querySelector('[data-reveal="single"] .section-title')).not.toBeNull()
   })
 
-  it('lays the landing page out as centred sections: hero, features, quickstart, clients, CTA', async () => {
+  it('keeps the body to three blocks: animated hero, numbers, five feature rows', async () => {
     const wrapper = mountHome({})
     await flushPromises()
     // 标题第二行走流动渐变原语（12ai 式），第一行留纯色
     const accent = wrapper.get('[data-testid="hero-title-accent"]')
     expect(accent.classes()).toContain('text-flow')
     expect(accent.text()).toBe('userUi.home.hero.titleAccent')
-    expect(wrapper.findAll('[data-testid="home-feature"]')).toHaveLength(6)
-    expect(wrapper.findAll('[data-testid="home-step"]')).toHaveLength(3)
-    expect(wrapper.find('[data-testid="home-quickstart"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="home-client-sdk"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="home-cta"]').exists()).toBe(true)
-    // 文档链接卡只在配置了 doc_url 时出现；密钥入口卡恒在
-    expect(wrapper.find('[data-testid="home-link-docs"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="home-link-clients"]').exists()).toBe(true)
-    expect(mountHome({ doc_url: 'https://docs.example' }).find('[data-testid="home-link-docs"]').exists()).toBe(true)
-    // 拿不到目录：眉题、模型段、数字卡都不出现
+    // 五条特色各一幅示意图：透传 / 不换模型 / 缓存 / 不记录 / 不出售；整幅一行，图文左右交错，不用卡片
+    const features = wrapper.findAll('[data-testid="home-feature"]')
+    expect(features).toHaveLength(5)
+    for (const kind of ['passthrough', 'failover', 'cache', 'privacy', 'noSale']) {
+      expect(wrapper.find(`[data-testid="home-figure-${kind}"]`).exists()).toBe(true)
+    }
+    expect(features.every((row) => !row.classes().includes('sheet-card'))).toBe(true)
+    // 奇数行把文字挪到右边（图在左），偶数行相反
+    const copyOrder = features.map((row) => row.get('div').classes().includes('lg:order-2'))
+    expect(copyOrder).toEqual([false, true, false, true, false])
+    // 拿不到目录：眉题与数字段不出现
     expect(wrapper.find('[data-testid="hero-eyebrow"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="home-catalog-section"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
+
+    // 有目录：正文恰好三块，顺序 首屏 → 数字 → 特色
+    getModelPlaza.mockResolvedValue({
+      description: '',
+      models: [{ model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }]
+    })
+    const full = mountHome({})
+    await flushPromises()
+    const blocks = Array.from(full.get('[data-testid="default-home"]').element.children)
+    expect(blocks).toHaveLength(3)
+    expect(blocks[0].classList.contains('home-hero')).toBe(true)
+    expect(blocks[1].getAttribute('data-testid')).toBe('home-stats-section')
+    expect(blocks[2].getAttribute('data-testid')).toBe('home-features')
   })
 })
