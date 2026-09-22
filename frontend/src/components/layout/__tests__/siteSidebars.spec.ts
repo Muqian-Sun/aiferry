@@ -93,15 +93,34 @@ describe('AdminSidebar', () => {
     expect(adminSettingsStore.fetch).toHaveBeenCalled()
   })
 
-  // 信息架构（PR-6a）：分组不再是导航概念；渠道页挂在「渠道管理」下；套餐属于「订阅」而不是「订单」。
-  it('groups channels under channel management and plans under subscription, without a groups entry', () => {
+  // 信息架构：分组不再是导航概念；侧栏按「概览 / 渠道 / 用户与计费 / 运营 / 系统」分组（A0）；
+  // 渠道 / 模型目录 / 渠道监控 / IP 管理是「渠道」组的平级项；套餐属于「订阅」而不是「订单」。
+  it('groups the navigation into five titled sections, without a groups entry', () => {
     const wrapper = mount(AdminSidebar, mountOptions)
+    const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
+    expect(sections.map((section) => section.key)).toEqual(['overview', 'channels', 'billing', 'operations', 'system'])
+    expect(sections.every((section) => section.title)).toBe(true)
+    const byKey = Object.fromEntries(sections.map((section) => [section.key, section.items.map((item) => item.path)]))
+    expect(byKey.overview).toEqual(['/dashboard', '/ops'])
+    expect(byKey.channels).toEqual(['/accounts', '/model-catalog', '/channels/monitor', '/proxies'])
+    expect(byKey.billing).toEqual(['/users', '/subscriptions', '/orders', '/redeem'])
+    // 风控开关在这个夹具里关着，安全审计组不出现
+    expect(byKey.operations).toEqual(['/usage', '/announcements'])
+    expect(byKey.system).toEqual(['/settings', '/audit-logs', '/profile'])
+
     const items = navItems(wrapper)
     expect(allPaths(items)).not.toContain('/groups')
-    expect(childPaths(items, '/channels')).toEqual(['/accounts', '/model-catalog', '/channels/monitor'])
     expect(childPaths(items, '/subscriptions')).toEqual(['/subscriptions', '/orders/plans'])
     expect(childPaths(items, '/orders')).not.toContain('/orders/plans')
-    expect(items.some((item) => item.path === '/accounts')).toBe(false)
+  })
+
+  it('drops a whole section when every item in it is hidden', () => {
+    authStore.isSimpleMode = true
+    const wrapper = mount(AdminSidebar, mountOptions)
+    const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
+    // 仅充值模式：用户 / 订阅 / 订单 / 兑换码全部收起 → 「用户与计费」整组消失
+    expect(sections.map((section) => section.key)).not.toContain('billing')
+    expect(sections.find((section) => section.key === 'system')?.items.map((item) => item.path)).toEqual(['/settings', '/profile'])
   })
 
   it('does not offer API keys to administrators in simple mode', () => {

@@ -160,6 +160,13 @@ export default {
 
   // Navigation
   nav: {
+    sections: {
+      overview: 'Overview',
+      channels: 'Channels',
+      billing: 'Users & billing',
+      operations: 'Operations',
+      system: 'System'
+    },
     dashboard: 'Dashboard',
     announcements: 'Announcements',
     apiKeys: 'API Keys',

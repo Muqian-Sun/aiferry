@@ -1,8 +1,9 @@
 <template>
+  <!-- 管理站侧栏：品牌 / 分组导航 / 主题与折叠。一张面 + hairline，激活项左侧一道品牌色。 -->
   <aside
     class="sidebar"
     :class="[
-      sidebarCollapsed ? 'w-[72px]' : 'w-64',
+      sidebarCollapsed ? 'w-16' : 'w-60',
       { '-translate-x-full lg:translate-x-0': !mobileOpen }
     ]"
   >
@@ -11,7 +12,7 @@
       <!-- Custom Logo or Default Logo -->
       <router-link
         :to="homePath"
-        class="sidebar-logo flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow transition-opacity hover:opacity-80"
+        class="sidebar-logo flex h-7 w-7 items-center justify-center overflow-hidden rounded-md transition-opacity hover:opacity-80"
         @click="handleMenuItemClick"
       >
         <img v-if="settingsLoaded" :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
@@ -19,7 +20,7 @@
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <router-link
           :to="homePath"
-          class="sidebar-brand-title text-lg font-bold text-gray-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
+          class="sidebar-brand-title text-base font-semibold text-af-ink transition-colors hover:text-af-brand"
           @click="handleMenuItemClick"
         >
           {{ siteName }}
@@ -55,7 +56,7 @@
               :title="sidebarCollapsed ? item.label : undefined"
               @click="handleGroupClick(item)"
             >
-              <component :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+              <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
               <span
                 class="sidebar-label sidebar-label-flex"
                 :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
@@ -63,22 +64,21 @@
               >
                 <span class="min-w-0 truncate">{{ item.label }}</span>
                 <ChevronDownIcon
-                  class="h-4 w-4 flex-shrink-0 transition-transform duration-200"
+                  class="h-3.5 w-3.5 flex-shrink-0 text-af-ink-4 transition-transform duration-200"
                   :class="isGroupExpanded(item) ? 'rotate-180' : ''"
                 />
               </span>
             </button>
-            <!-- Children -->
-            <div v-if="!sidebarCollapsed && isGroupExpanded(item)" class="mb-1 ml-4 border-l border-gray-200 pl-2 dark:border-dark-600">
+            <!-- Children：缩进一层，靠左侧 hairline 表明归属 -->
+            <div v-if="!sidebarCollapsed && isGroupExpanded(item)" class="mb-1 ml-[1.375rem] border-l border-af-hairline pl-1.5">
               <router-link
                 v-for="child in item.children"
                 :key="child.path"
                 :to="child.path"
-                class="sidebar-link mb-0.5 py-1.5 text-sm"
+                class="sidebar-link mb-0.5 py-1.5 text-13"
                 :class="{ 'sidebar-link-active': route.path === child.path }"
                 @click="handleMenuItemClick"
               >
-                <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
                 <span>{{ child.label }}</span>
               </router-link>
             </div>
@@ -92,8 +92,8 @@
             :title="sidebarCollapsed ? item.label : undefined"
             @click="handleMenuItemClick"
           >
-            <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
-            <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
+            <span v-if="item.iconSvg" class="h-[18px] w-[18px] flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
+            <component v-else :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
             <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ item.label }}</span>
           </router-link>
         </template>
@@ -101,16 +101,16 @@
     </nav>
 
     <!-- Bottom Section -->
-    <div class="mt-auto border-t border-gray-100 p-3 dark:border-dark-800">
+    <div class="mt-auto border-t border-af-hairline p-2">
       <!-- Theme Toggle -->
       <button
         @click="toggleTheme"
-        class="sidebar-link mb-2 w-full"
+        class="sidebar-link mb-1 w-full"
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? (isDark ? t('nav.lightMode') : t('nav.darkMode')) : undefined"
       >
-        <SunIcon v-if="isDark" class="h-5 w-5 flex-shrink-0 text-amber-500" />
-        <MoonIcon v-else class="h-5 w-5 flex-shrink-0" />
+        <SunIcon v-if="isDark" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
+        <MoonIcon v-else class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{
           isDark ? t('nav.lightMode') : t('nav.darkMode')
         }}</span>
@@ -123,8 +123,8 @@
         :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
         :title="sidebarCollapsed ? t('nav.expand') : t('nav.collapse')"
       >
-        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-5 w-5 flex-shrink-0" />
-        <ChevronDoubleRightIcon v-else class="h-5 w-5 flex-shrink-0" />
+        <ChevronDoubleLeftIcon v-if="!sidebarCollapsed" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
+        <ChevronDoubleRightIcon v-else class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
         <span class="sidebar-label" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">{{ t('nav.collapse') }}</span>
       </button>
     </div>
@@ -134,7 +134,7 @@
   <transition name="fade">
     <div
       v-if="mobileOpen"
-      class="fixed inset-0 z-30 bg-black/50 lg:hidden"
+      class="fixed inset-0 z-30 bg-black/40 lg:hidden"
       @click="closeMobile"
     ></div>
   </transition>
@@ -259,8 +259,8 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .sidebar-logo {
-  flex: 0 0 2.25rem;
-  min-width: 2.25rem;
+  flex: 0 0 1.75rem;
+  min-width: 1.75rem;
 }
 
 .sidebar-header-collapsed {
@@ -297,8 +297,8 @@ onBeforeUnmount(() => {
 
 .sidebar-link-collapsed {
   gap: 0;
-  padding-left: 0.875rem;
-  padding-right: 0.875rem;
+  padding-left: 0.8125rem;
+  padding-right: 0.8125rem;
 }
 
 .sidebar-section-title {
@@ -327,14 +327,10 @@ onBeforeUnmount(() => {
   right: 0.75rem;
   top: 50%;
   height: 1px;
-  background: rgb(229 231 235);
+  background: rgb(var(--af-hairline));
   opacity: 0;
   transform: translateY(-50%);
   transition: opacity 0.18s ease;
-}
-
-.dark .sidebar-section-title::after {
-  background: rgb(55 65 81);
 }
 
 .sidebar-section-title-text-collapsed {

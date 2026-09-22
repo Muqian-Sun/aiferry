@@ -160,6 +160,13 @@ export default {
 
   // Navigation
   nav: {
+    sections: {
+      overview: '概览',
+      channels: '渠道',
+      billing: '用户与计费',
+      operations: '运营',
+      system: '系统'
+    },
     dashboard: '仪表盘',
     announcements: '公告',
     apiKeys: 'API 密钥',
