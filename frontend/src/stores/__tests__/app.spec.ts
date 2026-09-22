@@ -56,7 +56,6 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     channel_monitor_default_interval_seconds: 60,
     subscription_enabled: true,
     payment_balance_disabled: false,
-    plugin_management_enabled: false,
     service_quota_enabled: false,
     affiliate_enabled: false,
     ...overrides,

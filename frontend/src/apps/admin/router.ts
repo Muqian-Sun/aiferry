@@ -1,16 +1,11 @@
 import type { RouteLocationNormalized } from 'vue-router'
 import { createSiteRouter } from '@/router/createSiteRouter'
-import { useAppStore } from '@/stores/app'
-import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { useAdminComplianceStore } from '@/stores/adminCompliance'
 import { adminRoutes } from './routes'
 
-/** 管理后台展示公开自定义菜单项与仅管理员可见的菜单项。 */
+/** 管理站只做管理，不挂自定义页（muqian 2026-09-22 定）；标题解析不需要菜单项。 */
 export function adminCustomMenuItems() {
-  return [
-    ...(useAppStore().cachedPublicSettings?.custom_menu_items ?? []),
-    ...useAdminSettingsStore().customMenuItems,
-  ]
+  return []
 }
 
 async function ensureAdminCompliance(_to: RouteLocationNormalized): Promise<void> {

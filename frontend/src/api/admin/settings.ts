@@ -651,7 +651,6 @@ export interface SystemSettings {
 
   // Model Plaza feature switches + description
   model_plaza_description: string;
-  plugin_management_enabled: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: boolean;
@@ -932,7 +931,6 @@ export interface UpdateSettingsRequest {
 
   // Model Plaza feature switches + description
   model_plaza_description?: string;
-  plugin_management_enabled?: boolean;
 
   // Affiliate (邀请返利) feature switch
   affiliate_enabled?: boolean;

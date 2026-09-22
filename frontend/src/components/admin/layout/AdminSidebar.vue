@@ -25,10 +25,8 @@ import {
   CogIcon,
   CreditCardIcon,
   DashboardIcon,
-  GiftIcon,
   GlobeIcon,
   OrderIcon,
-  PluginIcon,
   PriceTagIcon,
   ServerIcon,
   ShieldIcon,
@@ -48,18 +46,10 @@ const siteVersion = computed(() => appStore.siteVersion)
 
 const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
 const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)
-const flagAffiliate = makeSidebarFlag(FeatureFlags.affiliate)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
-const flagPluginManagement = makeSidebarFlag(FeatureFlags.pluginManagement)
 // Admin-only flags (not in public settings)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
-
-const customMenuItems = computed(() => {
-  return adminSettingsStore.customMenuItems
-    .filter((item) => item.visibility === 'admin')
-    .sort((a, b) => a.sort_order - b.sort_order)
-})
 
 const navItems = computed((): NavItem[] => {
   const baseItems: NavItem[] = [
@@ -91,7 +81,6 @@ const navItems = computed((): NavItem[] => {
         { path: '/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon },
       ],
     },
-    { path: '/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
     { path: '/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
     {
@@ -106,20 +95,6 @@ const navItems = computed((): NavItem[] => {
       ],
     },
     { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
-    { path: '/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
-    {
-      path: '/affiliates',
-      label: t('nav.affiliateManagement'),
-      icon: UsersIcon,
-      hideInSimpleMode: true,
-      expandOnly: true,
-      featureFlag: flagAffiliate,
-      children: [
-        { path: '/affiliates/invites', label: t('nav.affiliateInviteRecords'), icon: UsersIcon },
-        { path: '/affiliates/rebates', label: t('nav.affiliateRebateRecords'), icon: OrderIcon },
-        { path: '/affiliates/transfers', label: t('nav.affiliateTransferRecords'), icon: CreditCardIcon },
-      ],
-    },
     {
       path: '/orders',
       label: t('nav.orderManagement'),
@@ -143,9 +118,6 @@ const navItems = computed((): NavItem[] => {
     // 管理员自己的账号安全（密码、双因素、Passkey）
     { path: '/profile', label: t('nav.accountSecurity'), icon: UserIcon },
   )
-  for (const cm of customMenuItems.value) {
-    items.push({ path: `/custom/${cm.id}`, label: cm.label, icon: null, iconSvg: cm.icon_svg })
-  }
   return items
 })
 

@@ -6332,21 +6332,14 @@
                     />
                   </div>
 
-                  <!-- Visibility -->
-                  <div>
-                    <label
-                      class="mb-1 block text-xs font-medium text-gray-600 dark:text-gray-400"
-                    >
-                      {{ t("admin.settings.customMenu.visibility") }}
-                    </label>
-                    <select v-model="item.visibility" class="input text-sm">
-                      <option value="user">
+                  <!-- 自定义页只挂在用户站；旧数据里「仅管理端」的条目已无处展示，提示管理员删掉或改回 -->
+                  <div v-if="item.visibility === 'admin'" class="flex items-end">
+                    <p class="text-xs text-af-warning">
+                      {{ t("admin.settings.customMenu.adminVisibilityGone") }}
+                      <button type="button" class="ml-1 underline" @click="item.visibility = 'user'">
                         {{ t("admin.settings.customMenu.visibilityUser") }}
-                      </option>
-                      <option value="admin">
-                        {{ t("admin.settings.customMenu.visibilityAdmin") }}
-                      </option>
-                    </select>
+                      </button>
+                    </p>
                   </div>
 
                   <!-- URL (full width) -->
@@ -6810,30 +6803,6 @@
                   @update:modelValue="siteBillingMode = $event as SiteBillingMode"
                 />
               </div>
-            </div>
-          </div>
-        </div>
-
-        <div class="card">
-          <div class="border-b border-gray-100 px-6 py-4 dark:border-dark-700">
-            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-              {{ t('admin.settings.features.pluginManagement.title') }}
-            </h2>
-            <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              {{ t('admin.settings.features.pluginManagement.description') }}
-            </p>
-          </div>
-          <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between gap-4">
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.settings.features.pluginManagement.enabled') }}
-                </label>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.settings.features.pluginManagement.enabledHint') }}
-                </p>
-              </div>
-              <Toggle v-model="form.plugin_management_enabled" />
             </div>
           </div>
         </div>
@@ -8284,13 +8253,8 @@
         </div>
         <!-- /Tab: Email -->
 
-        <!-- Tab: Backup -->
-        <div v-show="activeTab === 'backup'">
-          <BackupSettings />
-        </div>
-
         <!-- Save Button -->
-        <div v-show="activeTab !== 'backup'" class="flex justify-end">
+        <div class="flex justify-end">
           <button
             type="submit"
             :disabled="saving || loadFailed"
@@ -8411,7 +8375,6 @@ import PaymentProviderDialog from "@/components/admin/payment/providers/PaymentP
 import Toggle from "@/components/common/Toggle.vue";
 import ProxySelector from "@/components/common/ProxySelector.vue";
 import ImageUpload from "@/components/common/ImageUpload.vue";
-import BackupSettings from "@/views/admin/BackupView.vue";
 import EmailTemplateEditor from "@/views/admin/settings/EmailTemplateEditor.vue";
 import OpenAIFastPolicyUserSelector from "@/views/admin/settings/OpenAIFastPolicyUserSelector.vue";
 import { useClipboard } from "@/composables/useClipboard";
@@ -8471,8 +8434,7 @@ type SettingsTab =
   | "users"
   | "gateway"
   | "payment"
-  | "email"
-  | "backup";
+  | "email";
 const activeTab = ref<SettingsTab>("general");
 const settingsTabs = [
   { key: "general" as SettingsTab, icon: "home" as const },
@@ -8483,7 +8445,6 @@ const settingsTabs = [
   { key: "gateway" as SettingsTab, icon: "server" as const },
   { key: "payment" as SettingsTab, icon: "creditCard" as const },
   { key: "email" as SettingsTab, icon: "mail" as const },
-  { key: "backup" as SettingsTab, icon: "database" as const },
 ];
 
 const settingsTabKeyboardActions = {
@@ -9365,8 +9326,6 @@ const form = reactive<SettingsForm>({
   subscription_enabled: true,
   // Model Plaza feature switches + description
   model_plaza_description: '',
-  // Plugin management menu visibility; plugin runtime is unaffected.
-  plugin_management_enabled: false,
   // Affiliate (邀请返利) feature switch
   affiliate_enabled: false,
   // Allow user view error requests
@@ -10856,7 +10815,6 @@ async function saveSettings() {
       subscription_enabled: form.subscription_enabled,
       // Model Plaza feature switches + description
       model_plaza_description: form.model_plaza_description,
-      plugin_management_enabled: form.plugin_management_enabled,
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
