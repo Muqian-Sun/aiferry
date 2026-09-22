@@ -5,6 +5,8 @@ export interface StatItem {
   value: string
   /** 数值旁的小字说明，如「标准价 $12.00」 */
   hint?: string
+  /** 数值旁的动作链接，如「前往充值」 */
+  link?: { to: string; label: string }
 }
 
 /** 页内页签（账务四页签、记录 / 错误页签）。 */

@@ -126,12 +126,30 @@ export default {
         cost: 'Cost',
         standardCost: 'List price',
         balance: 'Available balance',
+        recharge: 'Top up',
+        totalCost: 'Total spent',
+        totalRequests: 'Total requests',
+        rate: 'Current rate (last 5 min)',
+        todayCost: 'Today cost',
+        todayRequests: 'Today requests',
+        todayTokens: 'Today tokens',
         avgLatency: 'Avg latency'
       },
       sections: {
+        announcements: 'Announcements',
         trend: 'Usage trend',
         models: 'Usage by model',
         records: 'Request details'
+      },
+      announcements: {
+        unread: '{count} unread'
+      },
+      trend: {
+        tokens: 'Tokens',
+        requests: 'Requests',
+        cost: 'Cost',
+        rangeSummary: '{requests} requests · {tokens} tokens · {cost} in this range',
+        empty: 'No data in this period'
       },
       share: 'Share',
       retry: 'Retry',

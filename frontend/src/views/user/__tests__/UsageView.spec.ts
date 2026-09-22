@@ -10,6 +10,7 @@ import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
 const {
   query,
   getStats,
+  getDashboardStats,
   getDashboardModels,
   getDashboardSnapshotV2,
   listMyErrorRequests,
@@ -21,6 +22,7 @@ const {
 } = vi.hoisted(() => ({
   query: vi.fn(),
   getStats: vi.fn(),
+  getDashboardStats: vi.fn(),
   getDashboardModels: vi.fn(),
   getDashboardSnapshotV2: vi.fn(),
   listMyErrorRequests: vi.fn(),
@@ -76,6 +78,7 @@ vi.mock('@/api', () => ({
   usageAPI: {
     query,
     getStats,
+    getDashboardStats,
     getDashboardModels,
     getDashboardSnapshotV2,
     listMyErrorRequests,
@@ -89,11 +92,42 @@ const appStoreState = vi.hoisted(() => ({
   cachedPublicSettings: { allow_user_view_error_requests: true } as Record<string, unknown>,
 }))
 
+const authStoreState = vi.hoisted(() => ({
+  user: null as { balance?: number } | null,
+  isSimpleMode: false,
+}))
+
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({
-    user: null,
-    isSimpleMode: false,
+    get user() {
+      return authStoreState.user
+    },
+    get isSimpleMode() {
+      return authStoreState.isSimpleMode
+    },
     refreshUser: vi.fn().mockResolvedValue(null),
+  }),
+}))
+
+const announcementState = vi.hoisted(() => ({
+  announcements: [] as Array<{ id: number; title: string; content: string; created_at: string; read_at?: string }>,
+  currentPopup: null as unknown,
+}))
+
+vi.mock('@/stores/announcements', () => ({
+  useAnnouncementStore: () => ({
+    get announcements() {
+      return announcementState.announcements
+    },
+    get unreadCount() {
+      return announcementState.announcements.filter((a) => !a.read_at).length
+    },
+    get currentPopup() {
+      return announcementState.currentPopup
+    },
+    set currentPopup(value: unknown) {
+      announcementState.currentPopup = value
+    },
   }),
 }))
 
@@ -164,6 +198,8 @@ function mountUsageView() {
         UserErrorRequestsTable: chartStub,
         ModelUsageTable: chartStub,
         TokenUsageTrend: chartStub,
+        UsageMetricTrend: { template: '<div data-testid="metric-trend" :data-metric="metric" />', props: ['metric', 'trendData', 'loading'] },
+        RouterLink: { template: '<a :href="to"><slot /></a>', props: ['to'] },
       },
     },
   })
@@ -173,6 +209,7 @@ describe('user UsageView', () => {
   beforeEach(() => {
     query.mockReset()
     getStats.mockReset()
+    getDashboardStats.mockReset()
     getDashboardModels.mockReset()
     getDashboardSnapshotV2.mockReset()
     listMyErrorRequests.mockReset()
@@ -182,7 +219,36 @@ describe('user UsageView', () => {
     showSuccess.mockReset()
     showInfo.mockReset()
 
+    authStoreState.user = { balance: 99.95 }
+    authStoreState.isSimpleMode = false
+    announcementState.announcements = []
+    announcementState.currentPopup = null
+    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true }
+
     query.mockResolvedValue({ items: [usageLog], total: 1, pages: 1 })
+    getDashboardStats.mockResolvedValue({
+      total_api_keys: 4,
+      active_api_keys: 4,
+      total_requests: 131,
+      total_input_tokens: 665,
+      total_output_tokens: 2507,
+      total_cache_creation_tokens: 0,
+      total_cache_read_tokens: 0,
+      total_tokens: 3172,
+      total_cost: 10,
+      total_actual_cost: 12.5,
+      today_requests: 30,
+      today_input_tokens: 150,
+      today_output_tokens: 90,
+      today_cache_creation_tokens: 0,
+      today_cache_read_tokens: 0,
+      today_tokens: 240,
+      today_cost: 2.5,
+      today_actual_cost: 1.25,
+      average_duration_ms: 4.6,
+      rpm: 3,
+      tpm: 1200,
+    })
     getStats.mockResolvedValue({
       total_requests: 1,
       total_input_tokens: 10,
@@ -218,6 +284,7 @@ describe('user UsageView', () => {
 
     expect(query).toHaveBeenCalled()
     expect(getStats).toHaveBeenCalled()
+    expect(getDashboardStats).toHaveBeenCalledTimes(1)
     expect(getDashboardModels).toHaveBeenCalled()
     expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
       include_trend: true,
@@ -523,22 +590,108 @@ describe('user UsageView', () => {
     clickSpy.mockRestore()
   })
 
-  it('a failing stats endpoint shows a retry in its own section without hiding the model table', async () => {
-    getStats.mockRejectedValueOnce(new Error('boom'))
+  it('a failing dashboard endpoint shows a retry in its own section without hiding the model table', async () => {
+    getDashboardStats.mockRejectedValueOnce(new Error('boom'))
     const wrapper = mountUsageView()
     await flushPromises()
 
     expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="stat-row"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(false)
     expect(wrapper.findComponent(ModelUsageTable).exists()).toBe(true)
 
-    getStats.mockClear()
+    getDashboardStats.mockClear()
     await wrapper.find('[data-testid="status-error"] button').trigger('click')
     await flushPromises()
 
-    expect(getStats).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('[data-testid="stat-row"]').exists()).toBe(true)
+    expect(getDashboardStats).toHaveBeenCalledTimes(1)
+    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('a failing range-stats endpoint only blanks the trend summary line', async () => {
+    getStats.mockRejectedValueOnce(new Error('boom'))
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain('userUi.usage.trend.rangeSummary')
+    wrapper.unmount()
+  })
+
+  it('renders the account band (balance → top up, totals, current rate) and the today band from dashboard stats', async () => {
+    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true, payment_enabled: true }
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    const account = wrapper.get('[data-testid="account-band"]')
+    expect(account.get('[data-testid="stat-balance"]').text()).toContain('99.95')
+    expect(account.get('[data-testid="stat-balance"] a').attributes('href')).toBe('/billing/recharge')
+    expect(account.get('[data-testid="stat-total-cost"]').text()).toContain('12.50')
+    expect(account.get('[data-testid="stat-total-requests"]').text()).toContain('131')
+    expect(account.get('[data-testid="stat-rate"]').text()).toContain('3 RPM')
+    expect(account.get('[data-testid="stat-rate"]').text()).toContain('TPM')
+
+    const today = wrapper.get('[data-testid="today-band"]')
+    expect(today.get('[data-testid="stat-today-cost"]').text()).toContain('1.25')
+    expect(today.get('[data-testid="stat-today-cost"]').text()).toContain('userUi.usage.stats.standardCost')
+    expect(today.get('[data-testid="stat-today-requests"]').text()).toContain('30')
+    expect(today.get('[data-testid="stat-today-tokens"]').text()).toContain('240')
+    // 区间合计写在趋势标题下
+    expect(wrapper.text()).toContain('userUi.usage.trend.rangeSummary')
+    wrapper.unmount()
+  })
+
+  it('drops the top-up link when payment is off and swaps balance for latency in simple mode', async () => {
+    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true, payment_enabled: false }
+    let wrapper = mountUsageView()
+    await flushPromises()
+    expect(wrapper.get('[data-testid="stat-balance"]').find('a').exists()).toBe(false)
+    wrapper.unmount()
+
+    authStoreState.isSimpleMode = true
+    wrapper = mountUsageView()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="stat-balance"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="stat-latency"]').text()).toContain('5 ms')
+    wrapper.unmount()
+  })
+
+  it('switches the trend between tokens, requests and cost', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="metric-trend"]').exists()).toBe(false)
+    await wrapper.get('[data-testid="section-tab-cost"]').trigger('click')
+    expect(wrapper.get('[data-testid="metric-trend"]').attributes('data-metric')).toBe('cost')
+    await wrapper.get('[data-testid="section-tab-requests"]').trigger('click')
+    expect(wrapper.get('[data-testid="metric-trend"]').attributes('data-metric')).toBe('requests')
+    wrapper.unmount()
+  })
+
+  it('lists the three newest announcements with an unread count and opens one in the site popup', async () => {
+    announcementState.announcements = [
+      { id: 1, title: 'Old', content: '', created_at: '2026-09-01T00:00:00Z', read_at: '2026-09-02T00:00:00Z' },
+      { id: 2, title: 'Newest', content: '', created_at: '2026-09-20T00:00:00Z' },
+      { id: 3, title: 'Middle', content: '', created_at: '2026-09-10T00:00:00Z' },
+      { id: 4, title: 'Oldest', content: '', created_at: '2026-08-01T00:00:00Z' },
+    ]
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    const items = wrapper.findAll('[data-testid="announcement-list"] li')
+    expect(items.map((item) => item.find('span.truncate').text())).toEqual(['Newest', 'Middle', 'Old'])
+    expect(wrapper.text()).toContain('userUi.usage.announcements.unread')
+    await items[0].find('button').trigger('click')
+    expect((announcementState.currentPopup as { id: number }).id).toBe(2)
+    wrapper.unmount()
+  })
+
+  it('omits the announcements section entirely when there are none', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+    expect(wrapper.find('[data-testid="announcement-list"]').exists()).toBe(false)
+    expect(wrapper.text()).not.toContain('userUi.usage.sections.announcements')
     wrapper.unmount()
   })
 })

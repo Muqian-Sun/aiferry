@@ -80,6 +80,7 @@ vi.mock('@/api', () => ({
   usageAPI: {
     query: userQuery,
     getStats: userGetStats,
+    getDashboardStats: vi.fn().mockResolvedValue(null),
     getDashboardModels: userGetDashboardModels,
     getDashboardSnapshotV2: userGetDashboardSnapshotV2,
   },
@@ -125,6 +126,10 @@ vi.mock('@/stores/app', () => ({
 
 vi.mock('@/stores/auth', () => ({
   useAuthStore: () => ({ user: null, isSimpleMode: false, refreshUser: vi.fn().mockResolvedValue(null) }),
+}))
+
+vi.mock('@/stores/announcements', () => ({
+  useAnnouncementStore: () => ({ announcements: [], unreadCount: 0, currentPopup: null }),
 }))
 
 vi.mock('vue-i18n', async () => {
