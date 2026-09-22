@@ -85,7 +85,11 @@ const VENDOR_LABELS: Record<string, string> = {
   minimax: 'MiniMax',
   zhipu: 'Zhipu GLM',
   volcengine: 'Volcengine',
-  bedrock: 'Bedrock'
+  bedrock: 'Bedrock',
+  // 目录播种带进来的 litellm 供应商名：展示按品牌，归一化留给播种
+  'vertex_ai-language-models': 'Google',
+  'vertex_ai-embedding-models': 'Google',
+  'text-completion-openai': 'OpenAI'
 }
 
 /** 厂商标签的展示名：已知的按品牌写法，未知的原样，空的显示破折号 */

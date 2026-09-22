@@ -15,14 +15,22 @@
         <slot />
       </div>
     </main>
-    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline">
-      <div class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-3 px-6 py-6 text-xs text-af-ink-3">
-        <span>© {{ currentYear }} {{ siteName }}</span>
-        <div v-if="legalLinks.length" class="flex gap-4">
-          <RouterLink v-for="doc in legalLinks" :key="doc.id" :to="`/legal/${doc.id}`" class="hover:text-af-ink">
-            {{ doc.title }}
-          </RouterLink>
+    <!-- 公开站页脚：三栏链接全部来自公开设置（文档地址 / 联系方式 / 协议文档），没有的栏不出现 -->
+    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline" data-testid="site-footer">
+      <div class="mx-auto max-w-site px-6 py-10">
+        <div class="grid gap-8 sm:grid-cols-3">
+          <div v-for="column in footerColumns" :key="column.key" class="min-w-0">
+            <h2 class="text-13 font-medium text-af-ink">{{ column.title }}</h2>
+            <ul class="mt-3 space-y-2 text-13 text-af-ink-3">
+              <li v-for="link in column.links" :key="link.key">
+                <a v-if="link.external" :href="link.to" target="_blank" rel="noopener noreferrer" class="hover:text-af-ink">{{ link.label }}</a>
+                <RouterLink v-else-if="link.to" :to="link.to" class="hover:text-af-ink">{{ link.label }}</RouterLink>
+                <span v-else class="text-af-ink-2">{{ link.label }}</span>
+              </li>
+            </ul>
+          </div>
         </div>
+        <p class="mt-10 text-xs text-af-ink-4">© {{ currentYear }} {{ siteName }}</p>
       </div>
     </footer>
   </div>
@@ -31,7 +39,11 @@
 <script setup lang="ts">
 import '@/styles/onboarding.css'
 import { computed, onMounted } from 'vue'
+import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useAuthStore } from '@/stores/auth'
+import { sanitizeUrl } from '@/utils/url'
+import { CONSOLE_HOME_PATH } from './navItems'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { usePageTitle } from '@/composables/usePageTitle'
@@ -53,13 +65,55 @@ const props = withDefaults(
   { variant: 'console', hideHeader: false, flush: false, hideFooter: false }
 )
 
+const { t } = useI18n()
 const appStore = useAppStore()
+const authStore = useAuthStore()
 const { title: routeTitle, description: routeDescription } = usePageTitle()
 const siteName = computed(() => appStore.siteName)
 const currentYear = new Date().getFullYear()
-const legalLinks = computed(() =>
-  props.variant === 'public' ? appStore.cachedPublicSettings?.login_agreement_documents ?? [] : []
-)
+
+interface FooterLink {
+  key: string
+  label: string
+  /** 站内路径或外链；空 = 纯文字（联系方式） */
+  to?: string
+  external?: boolean
+}
+interface FooterColumn {
+  key: string
+  title: string
+  links: FooterLink[]
+}
+
+const footerColumns = computed<FooterColumn[]>(() => {
+  if (props.variant !== 'public') return []
+  const settings = appStore.cachedPublicSettings
+  const product: FooterLink[] = [
+    { key: 'home', label: t('userUi.footer.home'), to: '/home' },
+    { key: 'pricing', label: t('userUi.nav.pricing'), to: '/model-plaza' },
+    authStore.isAuthenticated
+      ? { key: 'console', label: t('userUi.nav.console'), to: CONSOLE_HOME_PATH }
+      : { key: 'login', label: t('userUi.nav.login'), to: '/login' }
+  ]
+  if (!authStore.isAuthenticated && settings?.registration_enabled) {
+    product.push({ key: 'register', label: t('userUi.footer.register'), to: '/register' })
+  }
+  const help: FooterLink[] = []
+  const docUrl = sanitizeUrl(settings?.doc_url || appStore.docUrl)
+  if (docUrl) help.push({ key: 'docs', label: t('userUi.nav.docs'), to: docUrl, external: true })
+  const contact = (settings?.contact_info || appStore.contactInfo || '').trim()
+  if (contact) help.push({ key: 'contact', label: contact })
+  const legal: FooterLink[] = (settings?.login_agreement_documents ?? []).map((doc) => ({
+    key: `legal-${doc.id}`,
+    label: doc.title,
+    to: `/legal/${doc.id}`
+  }))
+  return [
+    { key: 'product', title: t('userUi.footer.product'), links: product },
+    { key: 'help', title: t('userUi.footer.help'), links: help },
+    { key: 'legal', title: t('userUi.footer.legal'), links: legal }
+  ].filter((column) => column.links.length > 0)
+})
 
 // 新手引导挂在控制台壳上（原 AppLayout 的职责）；storageKey 与旧实现一致，用户不会重新看到已看过的引导
 if (props.variant === 'console') {

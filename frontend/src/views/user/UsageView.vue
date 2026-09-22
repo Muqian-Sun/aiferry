@@ -1,7 +1,7 @@
 <template>
   <!--
-    用量（登录落地页）：一条时间范围驱动全部区块。
-    指标行 → 趋势 → 模型用量 → 请求明细（记录 / 错误）。每个区块独立加载与重试，任一接口失败不把别的区块显示成零。
+    用量（登录落地页）：账户带 / 今日带不看时间范围；趋势、模型用量、请求明细由头部的时间范围驱动。
+    每个区块独立加载与重试，任一接口失败不把别的区块显示成零。
   -->
   <SiteShell>
     <template #actions>
@@ -12,22 +12,42 @@
     </template>
 
     <div class="space-y-8">
-      <!-- 指标行 -->
-      <section :aria-busy="statsLoading ? 'true' : undefined">
+      <!-- 账户带 + 今日带：来自 /usage/dashboard/stats，不随时间范围变 -->
+      <section :aria-busy="dashboardLoading ? 'true' : undefined" class="space-y-6">
         <StatusState
-          v-if="statsError"
+          v-if="dashboardError"
           kind="error"
           :title="t('userUi.usage.loadFailed')"
           :description="t('userUi.usage.loadFailedHint')"
           :action-label="t('userUi.usage.retry')"
-          @action="loadStats"
+          @action="loadDashboardStats"
         />
-        <StatRow v-else :items="statItems" />
+        <template v-else>
+          <StatRow :items="accountItems" data-testid="account-band" />
+          <StatRow :items="todayItems" class="border-t border-af-hairline pt-6" data-testid="today-band" />
+        </template>
       </section>
 
-      <!-- 趋势 -->
-      <SheetSection :title="t('userUi.usage.sections.trend')">
+      <!-- 公告：最近三条，点开走全站同一个弹窗；没有公告整段不出现 -->
+      <SheetSection v-if="recentAnnouncements.length" :title="t('userUi.usage.sections.announcements')">
+        <template v-if="unreadAnnouncements > 0" #actions>
+          <span class="text-13 text-af-ink-3">{{ t('userUi.usage.announcements.unread', { count: unreadAnnouncements }) }}</span>
+        </template>
+        <ul class="divide-y divide-af-hairline" data-testid="announcement-list">
+          <li v-for="item in recentAnnouncements" :key="item.id">
+            <button type="button" class="flex w-full items-baseline gap-3 py-3 text-left hover:bg-af-sunken" @click="openAnnouncement(item)">
+              <span class="h-1.5 w-1.5 shrink-0 self-center rounded-full" :class="item.read_at ? 'bg-transparent' : 'bg-af-brand'" aria-hidden="true" />
+              <span class="min-w-0 flex-1 truncate text-sm font-medium text-af-ink">{{ item.title }}</span>
+              <time class="shrink-0 text-xs tabular-nums text-af-ink-4" :datetime="item.created_at">{{ formatDateOnly(item.created_at) }}</time>
+            </button>
+          </li>
+        </ul>
+      </SheetSection>
+
+      <!-- 趋势：区间合计写在标题下；页签切 Token / 请求 / 费用 -->
+      <SheetSection :title="t('userUi.usage.sections.trend')" :description="rangeSummary">
         <template #actions>
+          <SectionTabs v-model="trendMetric" :tabs="trendMetricTabs" />
           <div class="w-28">
             <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
           </div>
@@ -40,7 +60,8 @@
           :action-label="t('userUi.usage.retry')"
           @action="loadChartData"
         />
-        <TokenUsageTrend v-else :trend-data="trendData" :loading="chartsLoading" bare />
+        <TokenUsageTrend v-else-if="trendMetric === 'tokens'" :trend-data="trendData" :loading="chartsLoading" bare />
+        <UsageMetricTrend v-else :trend-data="trendData" :metric="trendMetric" :loading="chartsLoading" />
       </SheetSection>
 
       <!-- 模型用量 -->
@@ -215,6 +236,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+import { useAnnouncementStore } from '@/stores/announcements'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { keysAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
@@ -229,10 +251,11 @@ import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageTable from '@/components/usage/UsageTable.vue'
 import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
 import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
+import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import Icon from '@/components/icons/Icon.vue'
 import UserErrorRequestsTable from '@/components/user/UserErrorRequestsTable.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
-import { formatCurrency, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
+import { formatCurrency, formatDateOnly, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
 import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode } from '@/utils/billingMode'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import type {
@@ -242,16 +265,20 @@ import type {
   UsageLog,
   UsageQueryParams,
   UsageStatsResponse,
+  UserAnnouncement,
   UserErrorRequest,
 } from '@/types'
+import type { UserDashboardStats } from '@/api/usage'
 import type { Column } from '@/components/common/types'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
+const announcementStore = useAnnouncementStore()
 
 const usageStats = ref<UsageStatsResponse | null>(null)
+const dashboardStats = ref<UserDashboardStats | null>(null)
 const usageLogs = ref<UsageLog[]>([])
 const trendData = ref<TrendDataPoint[]>([])
 const requestedModelStats = ref<ModelStat[]>([])
@@ -263,26 +290,17 @@ const modelStatsLoading = ref(false)
 const exporting = ref(false)
 // 每个区块独立的失败标记：任一接口失败只在自己的区块显示重试，不把别的区块显示成零用量
 const statsError = ref(false)
+const dashboardLoading = ref(false)
+const dashboardError = ref(false)
 const chartsError = ref(false)
 const modelStatsError = ref(false)
 const logsError = ref(false)
 
-// 指标行：由当前时间范围驱动（与趋势 / 模型 / 记录同一范围）；余额来自当前用户，simple mode 不显示
-const statItems = computed<StatItem[]>(() => {
-  const stats = usageStats.value
-  const items: StatItem[] = [
-    { key: 'requests', label: t('userUi.usage.stats.requests'), value: formatNumber(stats?.total_requests ?? 0) },
-    { key: 'tokens', label: t('userUi.usage.stats.tokens'), value: formatTokensK(stats?.total_tokens ?? 0) },
-    {
-      key: 'cost',
-      label: t('userUi.usage.stats.cost'),
-      value: formatCurrency(stats?.total_actual_cost ?? 0),
-      hint:
-        stats && stats.total_cost > stats.total_actual_cost
-          ? `${t('userUi.usage.stats.standardCost')} ${formatCurrency(stats.total_cost)}`
-          : undefined
-    }
-  ]
+// 账户带：余额来自当前用户（simple mode 换成平均耗时），累计与当前速率来自 dashboard/stats
+const paymentEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.payment))
+const accountItems = computed<StatItem[]>(() => {
+  const stats = dashboardStats.value
+  const items: StatItem[] = []
   if (authStore.isSimpleMode) {
     items.push({
       key: 'latency',
@@ -293,11 +311,70 @@ const statItems = computed<StatItem[]>(() => {
     items.push({
       key: 'balance',
       label: t('userUi.usage.stats.balance'),
-      value: formatCurrency(Number(authStore.user?.balance ?? 0))
+      value: formatCurrency(Number(authStore.user?.balance ?? 0)),
+      link: paymentEnabled.value ? { to: '/billing/recharge', label: t('userUi.usage.stats.recharge') } : undefined
     })
   }
+  items.push(
+    { key: 'total-cost', label: t('userUi.usage.stats.totalCost'), value: formatCurrency(stats?.total_actual_cost ?? 0) },
+    { key: 'total-requests', label: t('userUi.usage.stats.totalRequests'), value: formatNumber(stats?.total_requests ?? 0) },
+    {
+      key: 'rate',
+      label: t('userUi.usage.stats.rate'),
+      value: `${formatNumber(stats?.rpm ?? 0)} RPM`,
+      hint: `${formatTokensK(stats?.tpm ?? 0)} TPM`
+    }
+  )
   return items
 })
+
+// 今日带
+const todayItems = computed<StatItem[]>(() => {
+  const stats = dashboardStats.value
+  return [
+    {
+      key: 'today-cost',
+      label: t('userUi.usage.stats.todayCost'),
+      value: formatCurrency(stats?.today_actual_cost ?? 0),
+      hint:
+        stats && stats.today_cost > stats.today_actual_cost
+          ? `${t('userUi.usage.stats.standardCost')} ${formatCurrency(stats.today_cost)}`
+          : undefined
+    },
+    { key: 'today-requests', label: t('userUi.usage.stats.todayRequests'), value: formatNumber(stats?.today_requests ?? 0) },
+    { key: 'today-tokens', label: t('userUi.usage.stats.todayTokens'), value: formatTokensK(stats?.today_tokens ?? 0) }
+  ]
+})
+
+// 区间合计：由当前时间范围驱动，写在趋势区块的标题下（统计接口失败时留空，不显示零）
+const rangeSummary = computed(() => {
+  const stats = usageStats.value
+  if (statsError.value || !stats) return ''
+  return t('userUi.usage.trend.rangeSummary', {
+    requests: formatNumber(stats.total_requests),
+    tokens: formatTokensK(stats.total_tokens),
+    cost: formatCurrency(stats.total_actual_cost)
+  })
+})
+
+const trendMetric = ref<'tokens' | UsageTrendMetric>('tokens')
+const trendMetricTabs = computed<SectionTab[]>(() => [
+  { key: 'tokens', label: t('userUi.usage.trend.tokens') },
+  { key: 'requests', label: t('userUi.usage.trend.requests') },
+  { key: 'cost', label: t('userUi.usage.trend.cost') }
+])
+
+// 公告：最近三条（App 壳登录后已拉取，这里只读），点开复用全站的公告弹窗
+const RECENT_ANNOUNCEMENTS = 3
+const recentAnnouncements = computed(() =>
+  [...announcementStore.announcements]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+    .slice(0, RECENT_ANNOUNCEMENTS)
+)
+const unreadAnnouncements = computed(() => announcementStore.unreadCount)
+function openAnnouncement(item: UserAnnouncement) {
+  announcementStore.currentPopup = item
+}
 
 const recordTabs = computed<SectionTab[]>(() => [
   { key: 'usage', label: t('usage.tabs.usage') },
@@ -357,6 +434,7 @@ const applyErrorFilters = () => {
 let abortController: AbortController | null = null
 let chartReqSeq = 0
 let statsReqSeq = 0
+let dashboardReqSeq = 0
 let modelStatsReqSeq = 0
 
 const formatLocalDate = (date: Date): string =>
@@ -486,6 +564,23 @@ const loadLogs = async () => {
   }
 }
 
+const loadDashboardStats = async () => {
+  const seq = ++dashboardReqSeq
+  dashboardLoading.value = true
+  dashboardError.value = false
+  try {
+    const stats = await usageAPI.getDashboardStats()
+    if (seq !== dashboardReqSeq) return
+    dashboardStats.value = stats
+  } catch (error) {
+    if (seq !== dashboardReqSeq) return
+    console.error('Failed to load dashboard stats:', error)
+    dashboardError.value = true
+  } finally {
+    if (seq === dashboardReqSeq) dashboardLoading.value = false
+  }
+}
+
 const loadStats = async () => {
   const seq = ++statsReqSeq
   statsLoading.value = true
@@ -566,6 +661,7 @@ const applyFilters = () => {
 }
 
 const refreshData = () => {
+  void loadDashboardStats()
   void loadLogs()
   void loadStats()
   void loadModelStats()

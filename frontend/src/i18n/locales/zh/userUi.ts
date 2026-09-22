@@ -19,6 +19,13 @@ export default {
       openMenu: '打开导航',
       primaryNav: '主导航'
     },
+    footer: {
+      home: '首页',
+      product: '产品',
+      help: '文档与帮助',
+      legal: '协议',
+      register: '注册'
+    },
     topbar: {
       balance: '余额',
       available: '可用',
@@ -36,6 +43,19 @@ export default {
       getStarted: '开始使用',
       goToConsole: '进入控制台',
       viewPricing: '查看模型与价格',
+      vendorsLabel: '目录里已上架的厂商',
+      clients: {
+        title: '开箱即用的客户端',
+        description: '这些工具只要改 base_url 和 key 就能接上；每一个在「密钥 → 使用密钥」里都有可复制的配置片段。',
+        cta: '去密钥页取配置',
+        items: {
+          claude: '环境变量指到本站，Anthropic Messages 协议原样走。',
+          codex: 'OpenAI Responses 协议；HTTP 与 WebSocket 两种传输都有配置。',
+          gemini: 'Gemini generateContent 协议，配 API key 即可。',
+          grok: 'OpenAI Chat 兼容协议，指向本站的 /v1。',
+          opencode: '写一份 provider 配置，模型名从模型页里挑。'
+        }
+      },
       codeSample: {
         label: '接入示例',
         comment: '只改这两行',
@@ -82,7 +102,7 @@ export default {
       facts: {
         title: '你能核对的事',
         protocol: { title: '官方协议直连', body: '不做私有格式转换，请求体与响应按各家官方协议原样透传。' },
-        pricing: { title: '价格公开', body: '模型页列出每个模型的官方参考价，按 Token 计费，先看价再用。' },
+        pricing: { title: '价格公开', body: '模型页列出每个上架模型的标价，实付 = 标价 × 账户倍率，先看价再用。' },
         ledger: { title: '逐条可查', body: '用量页按请求列出模型、Token、耗时与费用，支持筛选与 CSV 导出。' },
         balance: { title: '余额透明', body: '可用余额与冻结金额分开显示，每一笔扣费都能追溯到具体请求。' }
       }
@@ -106,12 +126,30 @@ export default {
         cost: '费用',
         standardCost: '标准价',
         balance: '可用余额',
+        recharge: '前往充值',
+        totalCost: '累计消耗',
+        totalRequests: '累计请求',
+        rate: '当前速率（近 5 分钟）',
+        todayCost: '今日费用',
+        todayRequests: '今日请求',
+        todayTokens: '今日 Token',
         avgLatency: '平均耗时'
       },
       sections: {
+        announcements: '公告',
         trend: '用量趋势',
         models: '模型用量',
         records: '请求明细'
+      },
+      announcements: {
+        unread: '{count} 条未读'
+      },
+      trend: {
+        tokens: 'Token',
+        requests: '请求',
+        cost: '费用',
+        rangeSummary: '区间内 {requests} 次请求 · {tokens} Token · 费用 {cost}',
+        empty: '这段时间没有数据'
       },
       share: '占比',
       retry: '重试',

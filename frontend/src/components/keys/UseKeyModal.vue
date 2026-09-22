@@ -252,6 +252,7 @@ import {
   selectCodexConfigReasoningEffort
 } from '@/utils/codexCatalogConfig'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
+import { USE_KEY_CLIENTS } from '@/components/user/clients'
 
 interface Props {
   show: boolean
@@ -396,15 +397,14 @@ const SparkleIcon = {
   }
 }
 
-// 客户端标签页固定：没有分组就没有「分组平台」，任何 key 都能走四种入站协议。
-const clientTabs = computed((): TabConfig[] => [
-  { id: 'claude', label: t('keys.useKeyModal.cliTabs.claudeCode'), icon: TerminalIcon },
-  { id: 'codex', label: t('keys.useKeyModal.cliTabs.codexCli'), icon: TerminalIcon },
-  { id: 'codex-ws', label: t('keys.useKeyModal.cliTabs.codexCliWs'), icon: TerminalIcon },
-  { id: 'gemini', label: t('keys.useKeyModal.cliTabs.geminiCli'), icon: SparkleIcon },
-  { id: 'grok', label: t('keys.useKeyModal.cliTabs.grokCli'), icon: TerminalIcon },
-  { id: 'opencode', label: t('keys.useKeyModal.cliTabs.opencode'), icon: TerminalIcon }
-])
+// 客户端标签页固定（清单与首页共用 USE_KEY_CLIENTS）：没有分组就没有「分组平台」，任何 key 都能走四种入站协议。
+const clientTabs = computed((): TabConfig[] =>
+  USE_KEY_CLIENTS.map((client) => ({
+    id: client.id,
+    label: t(client.labelKey),
+    icon: client.id === 'gemini' ? SparkleIcon : TerminalIcon
+  }))
+)
 
 // Shell tabs (3 types for environment variable based configs)
 const shellTabs: TabConfig[] = [
