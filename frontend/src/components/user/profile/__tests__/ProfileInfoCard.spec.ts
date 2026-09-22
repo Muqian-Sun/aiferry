@@ -31,6 +31,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
         if (key === 'profile.accountBalance') return 'Account Balance'
         if (key === 'profile.concurrencyLimit') return 'Concurrency Limit'
         if (key === 'profile.memberSince') return 'Member Since'
+        if (key === 'profile.rateMultiplier') return 'Price multiplier'
         if (key === 'profile.administrator') return 'Administrator'
         if (key === 'profile.user') return 'User'
         if (key === 'profile.authBindings.providers.email') return 'Email'
@@ -193,5 +194,17 @@ describe('ProfileInfoCard', () => {
     expect(wrapper.get('[data-testid="profile-basics-panel"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-basics-panel"]').find('[data-testid="profile-avatar-file-input"]').exists()).toBe(true)
     expect(wrapper.get('[data-testid="profile-basics-panel"]').find('input#username').exists()).toBe(true)
+  })
+
+  it('shows the price multiplier next to balance, defaulting a missing one to 1 and keeping 0 (free)', () => {
+    const metric = (user: User) =>
+      mount(ProfileInfoCard, { props: { user }, global: { stubs: { Icon: true } } })
+        .get('[data-testid="profile-overview-metric-multiplier"]')
+        .text()
+    expect(metric(createUser({ rate_multiplier: 2 }))).toContain('Price multiplier')
+    expect(metric(createUser({ rate_multiplier: 2 }))).toContain('× 2')
+    expect(metric(createUser({ rate_multiplier: 0.5 }))).toContain('× 0.5')
+    expect(metric(createUser({ rate_multiplier: 0 }))).toContain('× 0')
+    expect(metric(createUser())).toContain('× 1')
   })
 })

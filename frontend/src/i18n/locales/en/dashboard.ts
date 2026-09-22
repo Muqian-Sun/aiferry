@@ -676,6 +676,7 @@ export default {
     description: 'Manage your account information and settings',
     accountBalance: 'Account Balance',
     concurrencyLimit: 'Concurrency Limit',
+    rateMultiplier: 'Price multiplier',
     rpmLimit: 'RPM Limit',
     rpmUnlimited: 'Unlimited',
     memberSince: 'Member Since',

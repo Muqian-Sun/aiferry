@@ -38,16 +38,21 @@
       </div>
     </section>
 
-    <dl class="grid grid-cols-3 divide-x divide-af-hairline border-y border-af-hairline py-4">
+    <!-- 余额 / 计价倍率 / 并发 / 注册时间：倍率决定实付 = 标价 × 倍率，用户该看得到 -->
+    <dl class="grid grid-cols-2 gap-y-4 border-y border-af-hairline py-4 sm:grid-cols-4 sm:divide-x sm:divide-af-hairline">
       <div data-testid="profile-overview-metric-balance" class="min-w-0 pr-4">
         <dt class="truncate text-13 text-af-ink-3">{{ t('profile.accountBalance') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ formatCurrency(user?.balance || 0) }}</dd>
       </div>
-      <div data-testid="profile-overview-metric-concurrency" class="min-w-0 px-4">
+      <div data-testid="profile-overview-metric-multiplier" class="min-w-0 sm:px-4">
+        <dt class="truncate text-13 text-af-ink-3">{{ t('profile.rateMultiplier') }}</dt>
+        <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">× {{ rateMultiplierLabel }}</dd>
+      </div>
+      <div data-testid="profile-overview-metric-concurrency" class="min-w-0 pr-4 sm:px-4">
         <dt class="truncate text-13 text-af-ink-3">{{ t('profile.concurrencyLimit') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ user?.concurrency || 0 }}</dd>
       </div>
-      <div data-testid="profile-overview-metric-member-since" class="min-w-0 pl-4">
+      <div data-testid="profile-overview-metric-member-since" class="min-w-0 sm:pl-4">
         <dt class="truncate text-13 text-af-ink-3">{{ t('profile.memberSince') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ memberSinceLabel }}</dd>
       </div>
@@ -117,6 +122,12 @@ const primaryEmailDisplay = computed(() => {
   return email
 })
 const avatarInitial = computed(() => displayName.value.charAt(0).toUpperCase() || 'U')
+// 倍率缺省按 1（接口没给时不显示 0——0 是「免费」的意思）
+const rateMultiplierLabel = computed(() => {
+  const value = props.user?.rate_multiplier
+  return Number(value ?? 1).toString()
+})
+
 const memberSinceLabel = computed(() => {
   const raw = props.user?.created_at?.trim()
   if (!raw) {
