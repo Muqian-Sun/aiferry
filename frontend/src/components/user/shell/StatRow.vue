@@ -15,6 +15,9 @@
       <dd class="mt-1 flex items-baseline gap-2">
         <span class="text-xl font-semibold tabular-nums text-af-ink">{{ item.value }}</span>
         <span v-if="item.hint" class="truncate text-xs text-af-ink-3">{{ item.hint }}</span>
+        <RouterLink v-if="item.link" :to="item.link.to" class="text-xs font-medium text-af-brand hover:text-af-brand-hover">
+          {{ item.link.label }}
+        </RouterLink>
       </dd>
     </div>
   </dl>

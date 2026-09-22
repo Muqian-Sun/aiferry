@@ -126,12 +126,30 @@ export default {
         cost: '费用',
         standardCost: '标准价',
         balance: '可用余额',
+        recharge: '前往充值',
+        totalCost: '累计消耗',
+        totalRequests: '累计请求',
+        rate: '当前速率（近 5 分钟）',
+        todayCost: '今日费用',
+        todayRequests: '今日请求',
+        todayTokens: '今日 Token',
         avgLatency: '平均耗时'
       },
       sections: {
+        announcements: '公告',
         trend: '用量趋势',
         models: '模型用量',
         records: '请求明细'
+      },
+      announcements: {
+        unread: '{count} 条未读'
+      },
+      trend: {
+        tokens: 'Token',
+        requests: '请求',
+        cost: '费用',
+        rangeSummary: '区间内 {requests} 次请求 · {tokens} Token · 费用 {cost}',
+        empty: '这段时间没有数据'
       },
       share: '占比',
       retry: '重试',
