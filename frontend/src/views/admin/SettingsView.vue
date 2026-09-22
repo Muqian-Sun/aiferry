@@ -4755,14 +4755,10 @@
                       {{ t("admin.settings.profitControl.description") }}
                     </p>
                   </div>
-                  <label class="toggle">
-                    <input
-                      v-model="form.profit_control_enabled"
-                      type="checkbox"
-                      data-testid="profit-control-enabled"
-                    />
-                    <span class="toggle-slider"></span>
-                  </label>
+                  <Toggle
+                    v-model="form.profit_control_enabled"
+                    data-testid="profit-control-enabled"
+                  />
                 </div>
                 <div v-if="form.profit_control_enabled" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>

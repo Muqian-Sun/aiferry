@@ -516,7 +516,7 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
 
 	if settings.ProfitMinMargin < 0 || settings.ProfitSafetyBuffer < 0 || settings.ProfitMinMargin+settings.ProfitSafetyBuffer > ProfitControlRatioMax {
-		return nil, fmt.Errorf("profit control: min_margin + safety_buffer must be within [0, %g]", ProfitControlRatioMax)
+		return nil, infraerrors.BadRequest("INVALID_PROFIT_CONTROL", fmt.Sprintf("profit control: min_margin + safety_buffer must be within [0, %g]", ProfitControlRatioMax))
 	}
 	updates[SettingKeyProfitControlEnabled] = strconv.FormatBool(settings.ProfitControlEnabled)
 	updates[SettingKeyProfitMinMargin] = strconv.FormatFloat(settings.ProfitMinMargin, 'f', 8, 64)
