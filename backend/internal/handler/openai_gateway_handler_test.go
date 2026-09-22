@@ -1726,10 +1726,6 @@ func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesByGroup
 	return s.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (s *openAIWSFailoverHandlerAccountRepoStub) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
-	return s.ListSchedulingCandidates(ctx, platforms)
-}
-
 func (s *openAIWSFailoverHandlerAccountRepoStub) GetByID(ctx context.Context, id int64) (*service.Account, error) {
 	for _, account := range s.accounts {
 		if account.ID == id {

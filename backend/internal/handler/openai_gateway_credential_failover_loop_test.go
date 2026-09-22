@@ -72,10 +72,6 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx contex
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
-	return r.ListSchedulingCandidates(ctx, platforms)
-}
-
 func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*service.Account, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

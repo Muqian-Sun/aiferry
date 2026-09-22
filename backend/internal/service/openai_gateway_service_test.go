@@ -111,10 +111,6 @@ func (r stubOpenAIAccountRepo) ListSchedulableByPlatform(ctx context.Context, pl
 	return result, nil
 }
 
-func (r stubOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
-}
-
 func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScopedFailoverWithoutCommit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -243,10 +239,6 @@ func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Co
 }
 
 func (r stubOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
-	return r.ListSchedulingCandidates(ctx, platforms)
-}
-
-func (r stubOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 

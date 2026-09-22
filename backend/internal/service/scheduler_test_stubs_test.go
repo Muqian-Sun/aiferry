@@ -42,10 +42,6 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulableByPlatform(ctx context.Co
 	return result, nil
 }
 
-func (r schedulerTestOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return r.ListSchedulableByPlatform(ctx, platform)
-}
-
 // schedulingCandidateMatchesForTest 是 AccountRepository.ListSchedulingCandidates* 的内存版口径：
 // 平台属于 platforms 的成品号，加上任意平台标签的第三方 key。
 func schedulingCandidateMatchesForTest(acc Account, platforms []string) bool {
@@ -88,10 +84,6 @@ func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx co
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r schedulerTestOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	return r.ListSchedulingCandidates(ctx, platforms)
-}
-
 type schedulerGroupAwareOpenAIAccountRepo struct {
 	schedulerTestOpenAIAccountRepo
 }
@@ -106,30 +98,10 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(
 	return result, nil
 }
 
-func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	var result []Account
-	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, nil) {
-			result = append(result, acc)
-		}
-	}
-	return result, nil
-}
-
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
 		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, &groupID) {
-			result = append(result, acc)
-		}
-	}
-	return result, nil
-}
-
-func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	var result []Account
-	for _, acc := range r.accounts {
-		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, nil) {
 			result = append(result, acc)
 		}
 	}

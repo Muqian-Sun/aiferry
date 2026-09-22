@@ -210,14 +210,6 @@ func (r *fullRebuildAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Con
 	return r.record(groupID, firstPlatform(platforms))
 }
 
-func (r *fullRebuildAccountRepo) ListSchedulableUngroupedByPlatform(_ context.Context, platform string) ([]Account, error) {
-	return r.record(0, platform)
-}
-
-func (r *fullRebuildAccountRepo) ListSchedulingCandidatesUngrouped(_ context.Context, platforms []string) ([]Account, error) {
-	return r.record(0, firstPlatform(platforms))
-}
-
 func (r *fullRebuildAccountRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {
 	panic("unexpected ListModelAvailabilityCandidates call")
 }

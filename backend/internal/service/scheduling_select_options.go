@@ -19,6 +19,9 @@ type SelectOptions struct {
 	Transport OpenAIUpstreamTransport
 	// OnlyAccountID 只认这一个账号（grok 视频状态轮询只能落回任务归属账号）；它不能承接就是无候选，不逃逸到别的账号。
 	OnlyAccountID int64
+	// Platform 端点要求的厂商平台（无模型端点用：live / realtime → openai，web_search / tts → grok…）。
+	// 它只决定池按哪个平台装载，不是 ForcePlatform——不跳过任何门。空 = 由路由 / 分组决定。
+	Platform string
 }
 
 type selectOptionsCtxKey struct{}

@@ -116,10 +116,8 @@ func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Co
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
 	} else if groupID != nil {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, queryPlatforms)
-	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, queryPlatforms)
 	} else {
-		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, queryPlatforms)
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, queryPlatforms)
 	}
 	if err != nil {
 		return nil, err

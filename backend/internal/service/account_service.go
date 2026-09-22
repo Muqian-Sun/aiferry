@@ -81,16 +81,14 @@ type AccountRepository interface {
 	ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error)
 	ListSchedulableByPlatform(ctx context.Context, platform string) ([]Account, error)
 	ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error)
-	ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error)
 	// ListSchedulingCandidates* 装载调度候选：平台属于 platforms 的成品号，加上任意平台
 	// 标签的第三方 key（key 的平台只是展示标签，能否承接请求在选号时按协议地址判断）。
-	// 三个方法只差账号范围：全部账号（simple 模式）/ 绑定到分组的账号 / 未分组账号。
+	// 两个方法只差账号范围：全部账号（无分组 / simple 模式）/ 绑定到分组的账号。
 	ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error)
 	ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error)
 	// ListSchedulingCandidatesByCatalogEntry 返回绑定到目录条目且可调度的账号，
 	// 绑定优先级覆盖账号优先级；不带平台谓词——能否承接由条目网关族与账号自身决定。
 	ListSchedulingCandidatesByCatalogEntry(ctx context.Context, entryID int64) ([]Account, error)
-	ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error)
 	// ListModelAvailabilityCandidates returns accounts that are enabled by
 	// persistent configuration (active + schedulable) for model-support
 	// diagnosis. It deliberately does not filter transient runtime state such

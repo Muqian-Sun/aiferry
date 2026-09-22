@@ -137,12 +137,6 @@ func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByGroupID(ctx context
 	}
 	return m.ListSchedulingCandidates(ctx, platforms)
 }
-func (m *mockAccountRepoForGemini) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return m.ListSchedulableByPlatform(ctx, platform)
-}
-func (m *mockAccountRepoForGemini) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	return m.ListSchedulingCandidates(ctx, platforms)
-}
 func (m *mockAccountRepoForGemini) ListModelAvailabilityCandidates(ctx context.Context, _ *int64, platforms []string, _ bool) ([]Account, error) {
 	return m.ListSchedulingCandidates(ctx, platforms)
 }

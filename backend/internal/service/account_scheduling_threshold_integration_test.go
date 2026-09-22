@@ -34,10 +34,6 @@ func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByGroupID(ct
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	return r.ListSchedulingCandidates(ctx, platforms)
-}
-
 func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThresholdPlatforms(t *testing.T) {
 	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
 	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})

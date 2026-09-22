@@ -163,12 +163,6 @@ func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(_ co
 func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	return m.ListSchedulingCandidates(ctx, platforms)
 }
-func (m *mockAccountRepoForPlatform) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	return m.ListSchedulableByPlatform(ctx, platform)
-}
-func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	return m.ListSchedulingCandidates(ctx, platforms)
-}
 func (m *mockAccountRepoForPlatform) ListModelAvailabilityCandidates(_ context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error) {
 	platformSet := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {

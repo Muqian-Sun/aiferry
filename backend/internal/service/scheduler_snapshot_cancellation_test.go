@@ -36,11 +36,6 @@ type schedulerCancellationAccountRepo struct {
 	getByIDCalls int
 }
 
-func (r *schedulerCancellationAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, _ string) ([]Account, error) {
-	r.listCalls++
-	return nil, ctx.Err()
-}
-
 func (r *schedulerCancellationAccountRepo) GetByID(ctx context.Context, _ int64) (*Account, error) {
 	r.getByIDCalls++
 	return nil, ctx.Err()

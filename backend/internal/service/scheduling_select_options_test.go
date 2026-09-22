@@ -125,3 +125,24 @@ func TestSelectAccountWithOptions_Transport(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, oauth.ID, result.Account.ID)
 }
+
+// 无模型端点：没有目录路由、没有分组，池按 SelectOptions.Platform 装载（成品号按平台过滤；
+// 第三方 key 任意平台标签都进池，由能力门决定）。
+func TestSelectAccountWithOptions_PlatformFiltersPool(t *testing.T) {
+	grokOAuth := Account{
+		ID: 81041, Name: "grok-oauth", Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive,
+		Schedulable: true, Concurrency: 5, Priority: 5, Credentials: map[string]any{"access_token": "tok"},
+	}
+	openAIOAuth := openAIOAuthSub(81042, 1)
+	openAIOAuth.CatalogEntryIDs = nil
+	svc := newProtocolMatchService(t, true, nil, grokOAuth, openAIOAuth)
+	ctx := context.Background()
+
+	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	require.NoError(t, err)
+	require.Equal(t, grokOAuth.ID, result.Account.ID, "端点声明 grok：优先级更高的 openai 成品号不在池里")
+
+	result, err = svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformOpenAI})
+	require.NoError(t, err)
+	require.Equal(t, openAIOAuth.ID, result.Account.ID)
+}
