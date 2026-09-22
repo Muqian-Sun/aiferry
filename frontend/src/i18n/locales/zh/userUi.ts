@@ -51,8 +51,8 @@ export default {
         ledgerValue: '逐条'
       },
       catalog: {
-        title: '模型与官方参考价',
-        description: 'USD / 百万 Token，与模型页同源。',
+        title: '模型与标价',
+        description: '标价，USD / 百万 Token，与模型页同源；实付 = 标价 × 账户倍率。',
         viewAll: '查看全部 {count} 个模型'
       },
       protocols: {
@@ -131,7 +131,7 @@ export default {
     },
     models: {
       title: '模型',
-      description: '每个模型的官方参考价，按 Token 计费',
+      description: '已上架的模型与标价，按 Token 或按次计费',
       allVendors: '全部厂商',
       count: '{count} 个模型',
       columns: {
@@ -143,14 +143,13 @@ export default {
         cacheRead: '缓存读取'
       },
       perMillion: '美元 / 百万 Token',
-      officialPrice: '官方参考价',
-      priceNote: '价格为各厂商公布的官方参考价（美元 / 每百万 Token），未列出的项目表示官方目录未覆盖。实际扣费以用量页的逐条记录为准；本站折扣价随统一计价上线后在此显示。',
+      listPrice: '标价',
+      priceNote: '标价为本站目录价（美元 / 每百万 Token），按次计费的模型不列 Token 单价。你的实付 = 标价 × 账户倍率，逐条记录在用量页。',
       copyId: '复制模型 ID',
       copied: '已复制',
       empty: '暂无可用模型',
       noSearchResult: '没有匹配的模型',
-      loadFailed: '模型目录没有加载出来',
-      anonymousHint: '登录后可看到你能用的模型范围'
+      loadFailed: '模型目录没有加载出来'
     },
     notFound: {
       title: '页面不存在',

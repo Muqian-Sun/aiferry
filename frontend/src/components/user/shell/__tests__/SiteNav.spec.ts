@@ -77,7 +77,6 @@ describe('SiteNav console', () => {
   })
 
   it('renders the five primary tabs (desktop + mobile rows) with the keys tour anchor and no version text', () => {
-    appStore.cachedPublicSettings = { model_plaza_enabled: true }
     const wrapper = mountNav('console')
     const paths = new Set(linkPaths(wrapper))
     expect([...paths]).toEqual(expect.arrayContaining(['/usage', '/keys', '/model-plaza', '/billing', '/profile']))
@@ -90,7 +89,6 @@ describe('SiteNav console', () => {
   })
 
   it('simple mode drops billing and models and hides the balance', () => {
-    appStore.cachedPublicSettings = { model_plaza_enabled: true }
     authStore.isSimpleMode = true
     const wrapper = mountNav('console')
     const paths = new Set(linkPaths(wrapper))
@@ -127,10 +125,8 @@ describe('SiteNav public', () => {
     expect(wrapper.findComponent('[data-testid="nav-console"]').props('to')).toBe('/usage')
   })
 
-  it('hides the pricing tab when the plaza requires auth and the visitor is anonymous', () => {
-    appStore.cachedPublicSettings = { model_plaza_enabled: true, model_plaza_require_auth: true }
-    expect(linkPaths(mountNav('public'))).not.toContain('/model-plaza')
-    appStore.cachedPublicSettings = { model_plaza_enabled: true, model_plaza_require_auth: false }
+  it('always shows the pricing tab to anonymous visitors (the plaza has no switch)', () => {
+    appStore.cachedPublicSettings = {}
     expect(linkPaths(mountNav('public'))).toContain('/model-plaza')
   })
 

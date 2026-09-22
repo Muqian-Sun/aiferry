@@ -78,7 +78,6 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useTheme } from '@/composables/useTheme'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
-import { FeatureFlags, isFeatureFlagEnabled, makeSidebarFlag } from '@/utils/featureFlags'
 import { sanitizeUrl } from '@/utils/url'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
@@ -112,13 +111,6 @@ const logoSrc = computed(
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl))
 const brandPath = computed(() => (props.variant === 'console' ? CONSOLE_HOME_PATH : '/home'))
 
-// 模型页：控制台按开关的宽容语义；公开站还要看 require_auth
-const modelPlazaFlag = makeSidebarFlag(FeatureFlags.modelPlaza)
-const modelPlazaRequiresAuth = computed(() => appStore.cachedPublicSettings?.model_plaza_require_auth === true)
-const modelPlazaVisible = computed(
-  () => isFeatureFlagEnabled(FeatureFlags.modelPlaza) && (authenticated.value || !modelPlazaRequiresAuth.value)
-)
-
 const customItems = computed(() => appStore.cachedPublicSettings?.custom_menu_items ?? [])
 
 const consoleNav = computed(() =>
@@ -126,7 +118,6 @@ const consoleNav = computed(() =>
     t,
     simpleMode: isSimpleMode.value,
     backendMode: appStore.backendModeEnabled,
-    modelPlazaEnabled: modelPlazaFlag(),
     batchImageEnabled: canUseBatchImage.value,
     customItems: customItems.value
   })
@@ -135,7 +126,7 @@ const consoleNav = computed(() =>
 const tabs = computed(() =>
   props.variant === 'console'
     ? consoleNav.value.tabs
-    : buildPublicNav({ t, adminSite, modelPlazaVisible: modelPlazaVisible.value, docUrl: docUrl.value })
+    : buildPublicNav({ t, adminSite, docUrl: docUrl.value })
 )
 const more = computed(() => (props.variant === 'console' ? consoleNav.value.more : []))
 </script>

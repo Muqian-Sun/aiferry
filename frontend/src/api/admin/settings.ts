@@ -650,8 +650,6 @@ export interface SystemSettings {
   subscription_enabled: boolean;
 
   // Model Plaza feature switches + description
-  model_plaza_enabled: boolean;
-  model_plaza_require_auth: boolean;
   model_plaza_description: string;
   plugin_management_enabled: boolean;
 
@@ -933,8 +931,6 @@ export interface UpdateSettingsRequest {
   subscription_enabled?: boolean;
 
   // Model Plaza feature switches + description
-  model_plaza_enabled?: boolean;
-  model_plaza_require_auth?: boolean;
   model_plaza_description?: string;
   plugin_management_enabled?: boolean;
 

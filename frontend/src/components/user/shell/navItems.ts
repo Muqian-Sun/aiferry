@@ -28,8 +28,6 @@ export interface ConsoleNavContext {
   t: (key: string) => string
   simpleMode: boolean
   backendMode: boolean
-  /** FeatureFlags.modelPlaza 的宽容语义：undefined（设置未加载）视为显示。 */
-  modelPlazaEnabled: boolean | undefined
   batchImageEnabled: boolean
   customItems: CustomMenuItem[]
 }
@@ -43,10 +41,9 @@ export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNav {
     { path: '/usage', label: ctx.t('userUi.nav.usage') },
     { path: '/keys', label: ctx.t('userUi.nav.keys'), dataTour: 'sidebar-my-keys' }
   ]
-  if (!ctx.simpleMode && ctx.modelPlazaEnabled !== false) {
-    tabs.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models') })
-  }
+  // 模型广场没有开关，对所有人开放；「仅充值」模式下控制台只留用量 / 密钥 / 账户
   if (!ctx.simpleMode) {
+    tabs.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models') })
     tabs.push({ path: '/billing', label: ctx.t('userUi.nav.billing') })
   }
   tabs.push({ path: '/profile', label: ctx.t('userUi.nav.account') })
@@ -67,14 +64,13 @@ export interface PublicNavContext {
   t: (key: string) => string
   /** 管理站也会渲染公开壳（法律文档、404），那里没有产品页签。 */
   adminSite: boolean
-  modelPlazaVisible: boolean
   docUrl: string
 }
 
 export function buildPublicNav(ctx: PublicNavContext): NavTab[] {
   if (ctx.adminSite) return []
   const tabs: NavTab[] = [{ path: '/home', label: ctx.t('userUi.nav.product') }]
-  if (ctx.modelPlazaVisible) tabs.push({ path: '/model-plaza', label: ctx.t('userUi.nav.pricing') })
+  tabs.push({ path: '/model-plaza', label: ctx.t('userUi.nav.pricing') })
   if (ctx.docUrl) tabs.push({ path: ctx.docUrl, label: ctx.t('userUi.nav.docs'), external: true })
   return tabs
 }

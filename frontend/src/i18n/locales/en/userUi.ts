@@ -51,8 +51,8 @@ export default {
         ledgerValue: 'Every one'
       },
       catalog: {
-        title: 'Models and official reference prices',
-        description: 'USD per million tokens, same source as the models page.',
+        title: 'Models and list prices',
+        description: 'List prices in USD per million tokens, same source as the models page; you pay list price × your account multiplier.',
         viewAll: 'See all {count} models'
       },
       protocols: {
@@ -131,7 +131,7 @@ export default {
     },
     models: {
       title: 'Models',
-      description: 'Official reference price per model, billed per token',
+      description: 'Listed models and their list prices, billed per token or per request',
       allVendors: 'All vendors',
       count: '{count} models',
       columns: {
@@ -143,14 +143,13 @@ export default {
         cacheRead: 'Cache read'
       },
       perMillion: 'USD per 1M tokens',
-      officialPrice: 'Official price',
-      priceNote: 'Prices are the vendors\' published reference prices (USD per million tokens); blank cells mean the official catalog does not cover that item. Actual charges follow the per-request records on the usage page; this site\'s discounted price will appear here once unified pricing ships.',
+      listPrice: 'List price',
+      priceNote: 'List prices are this site\'s catalog prices (USD per million tokens); per-request models show no token rates. You pay list price × your account multiplier, recorded per request on the usage page.',
       copyId: 'Copy model ID',
       copied: 'Copied',
       empty: 'No models available',
       noSearchResult: 'No models match',
-      loadFailed: 'The model catalog did not load',
-      anonymousHint: 'Sign in to see the models available to your account'
+      loadFailed: 'The model catalog did not load'
     },
     notFound: {
       title: 'Page not found',

@@ -1,7 +1,6 @@
 <template>
   <!--
-    模型页「班次表」：每个精确模型 ID 一行，官方参考价按百万 Token 列出；搜索 + 厂商筛选。
-    不按分组分节、不显示分组倍率（用户已定：不用分组倍率当价格）；本站价列等统一计价接口。
+    模型页「班次表」：每个上架条目一行，标价按百万 Token 列出；搜索 + 厂商筛选。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画标题。
   -->
   <div class="space-y-6">
@@ -20,7 +19,7 @@
       <!-- 工具行：搜索 / 厂商 / 计数 -->
       <div class="flex flex-wrap items-center gap-3">
         <SearchInput v-model="searchQuery" :placeholder="t('modelPlaza.filters.searchPlaceholder')" class="w-full sm:w-72" />
-        <Select v-model="selectedPlatform" :options="platformOptions" class="w-44" />
+        <Select v-model="selectedVendor" :options="vendorOptions" class="w-44" />
         <span class="ml-auto text-13 tabular-nums text-af-ink-3" data-testid="catalog-count">
           {{ t('userUi.models.count', { count: filtered.length }) }}
         </span>
@@ -40,7 +39,7 @@
               <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.vendor') }}</th>
               <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.billing') }}</th>
               <th class="py-2 pr-4 text-right font-medium" colspan="3">
-                {{ t('userUi.models.officialPrice') }}
+                {{ t('userUi.models.listPrice') }}
                 <span class="ml-1 font-normal text-af-ink-4">{{ t('userUi.models.perMillion') }}</span>
               </th>
             </tr>
@@ -67,18 +66,17 @@
                   </button>
                 </div>
               </td>
-              <td class="pr-4 text-af-ink-2">{{ entry.platforms.map(platformLabel).join(' / ') }}</td>
+              <td class="pr-4 text-af-ink-2">{{ vendorLabel(entry.vendor) }}</td>
               <td class="pr-4 text-af-ink-3">{{ getBillingModeLabel(entry.billingMode, t) }}</td>
-              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.official?.input) }}</td>
-              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.official?.output) }}</td>
-              <td class="pr-6 text-right tabular-nums text-af-ink-2">{{ formatPrice(entry.official?.cacheRead) }}</td>
+              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.input) }}</td>
+              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.output) }}</td>
+              <td class="pr-6 text-right tabular-nums text-af-ink-2">{{ formatPrice(entry.price?.cacheRead) }}</td>
             </tr>
           </tbody>
         </table>
       </div>
 
       <p class="max-w-3xl text-xs leading-5 text-af-ink-3">{{ t('userUi.models.priceNote') }}</p>
-      <p v-if="!isAuthenticated" class="text-xs text-af-ink-4">{{ t('userUi.models.anonymousHint') }}</p>
     </template>
   </div>
 </template>
@@ -93,11 +91,9 @@ import SearchInput from '@/components/common/SearchInput.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
-import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { getBillingModeLabel } from '@/utils/billingMode'
-import { platformLabel } from '@/utils/platformColors'
-import { buildCatalog, catalogPlatforms, filterCatalog, formatCatalogPrice as formatPrice } from './catalog'
+import { buildCatalog, catalogVendors, filterCatalog, formatCatalogPrice as formatPrice, vendorLabel } from './catalog'
 
 const props = defineProps<{
   response: ModelPlazaResponse | null
@@ -107,12 +103,10 @@ const props = defineProps<{
 }>()
 
 const { t } = useI18n()
-const authStore = useAuthStore()
 const { copyToClipboard } = useClipboard()
 
-const isAuthenticated = computed(() => authStore.isAuthenticated)
 const searchQuery = ref('')
-const selectedPlatform = ref('all')
+const selectedVendor = ref('all')
 const copiedId = ref<string | null>(null)
 
 const descriptionHtml = computed(() => {
@@ -121,18 +115,18 @@ const descriptionHtml = computed(() => {
   return DOMPurify.sanitize(marked.parse(md) as string)
 })
 
-const catalog = computed(() => buildCatalog(props.response?.groups ?? []))
-const platforms = computed(() => catalogPlatforms(catalog.value))
-const platformOptions = computed<SelectOption[]>(() => [
+const catalog = computed(() => buildCatalog(props.response?.models ?? []))
+const vendors = computed(() => catalogVendors(catalog.value))
+const vendorOptions = computed<SelectOption[]>(() => [
   { value: 'all', label: t('userUi.models.allVendors') },
-  ...platforms.value.map((p) => ({ value: p, label: platformLabel(p) }))
+  ...vendors.value.map((v) => ({ value: v, label: vendorLabel(v) }))
 ])
 const searchActive = computed(() => searchQuery.value.trim() !== '')
-const filtered = computed(() => filterCatalog(catalog.value, searchQuery.value, selectedPlatform.value))
+const filtered = computed(() => filterCatalog(catalog.value, searchQuery.value, selectedVendor.value))
 
 // 数据刷新后失效的厂商筛选回到全部
-watch(platforms, (list) => {
-  if (selectedPlatform.value !== 'all' && !list.includes(selectedPlatform.value)) selectedPlatform.value = 'all'
+watch(vendors, (list) => {
+  if (selectedVendor.value !== 'all' && !list.includes(selectedVendor.value)) selectedVendor.value = 'all'
 })
 
 let copiedTimer: ReturnType<typeof setTimeout> | null = null

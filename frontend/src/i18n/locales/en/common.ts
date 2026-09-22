@@ -176,7 +176,6 @@ export default {
     accountSecurity: 'Account Security',
     users: 'Users',
     channels: 'Channels',
-    modelPlaza: 'Model Plaza',
     subscriptions: 'Subscription',
     subscriptionRecords: 'Subscriptions',
     accounts: 'Channels',

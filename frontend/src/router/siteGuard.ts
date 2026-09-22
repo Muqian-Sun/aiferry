@@ -100,29 +100,10 @@ export function createSiteGuard(options: SiteGuardOptions) {
         next(homePath)
         return
       }
-      // Model Plaza:公开路由但受「启用开关 + 可选强制登录」双重控制(后端同口径 fail-closed)
-      if (to.path === '/model-plaza') {
-        if (!appStore.publicSettingsLoaded) {
-          try {
-            await appStore.fetchPublicSettings()
-          } catch (error) {
-            console.warn('Failed to load public settings in route guard', error)
-          }
-        }
-        const plazaSettings = appStore.cachedPublicSettings
-        // 仅在设置成功加载且明确为 false 时拦截(瞬时加载失败视为未知,由后端 404 兜底)
-        if (appStore.publicSettingsLoaded && plazaSettings?.model_plaza_enabled === false) {
-          next(authStore.isAuthenticated ? homePath : '/home')
-          return
-        }
-        if (plazaSettings?.model_plaza_require_auth === true && !authStore.isAuthenticated) {
-          next({ path: '/login', query: { redirect: to.fullPath } })
-          return
-        }
-        if (backendModeBlocksUsers && authStore.isAuthenticated) {
-          next('/login')
-          return
-        }
+      // 模型广场对所有人开放；Backend mode 下用户站的普通用户照旧被挡回登录页
+      if (to.path === '/model-plaza' && backendModeBlocksUsers && authStore.isAuthenticated) {
+        next('/login')
+        return
       }
       // Backend mode: block public pages for unauthenticated users (except login, key-usage, callbacks)
       if (backendModeBlocksUsers && !authStore.isAuthenticated) {
