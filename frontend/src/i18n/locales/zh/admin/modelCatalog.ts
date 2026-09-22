@@ -2,10 +2,49 @@ export default {
   modelCatalog: {
     title: '模型目录',
     description: '平台模型的基准价与别名，计价从这里取。',
-    search: '搜索模型标识、展示名或厂商',
+    search: '搜索模型标识、展示名、厂商或别名',
     create: '新建模型',
     edit: '编辑模型',
     empty: '目录还是空的，先播种或手动新建。',
+    noMatch: '没有匹配的条目',
+    summary: '共 {total} 个模型 · 上架 {listed} · 上架但无资源 {noResources}',
+    filtered: '筛选后 {count} 个',
+    aliasCount: '{count} 别名',
+    filters: {
+      allStatus: '全部状态',
+      allVendors: '全部厂商',
+      noVendor: '（无厂商）',
+      allBilling: '全部计费',
+      allResources: '全部资源',
+      withResources: '有资源',
+      withoutResources: '无资源'
+    },
+    columns: {
+      price: '标价',
+      perMillion: '$ / 百万 Token',
+      perUnit: {
+        per_request: '每次',
+        image: '每张',
+        video: '每秒'
+      },
+      tiers: '{count} 档'
+    },
+    bulk: {
+      selected: '已选 {count} 个',
+      list: '批量上架',
+      unlist: '批量下架',
+      clear: '取消选择',
+      nothingToDo: '选中的条目已经是目标状态',
+      listedDone: '已上架 {count} 个模型',
+      unlistedDone: '已下架 {count} 个模型',
+      partial: '成功 {done} 个，失败 {failed} 个（失败的仍留在选中集里）：{errors}'
+    },
+    editor: {
+      basics: '基本信息',
+      pricing: '计费与标价',
+      vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
+      perMillion: '= ${price} / 百万 Token'
+    },
     diagnose: '诊断',
     diagnosis: {
       title: '资源诊断 · {model}',

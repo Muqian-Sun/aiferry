@@ -2,8 +2,47 @@ export default {
   modelCatalog: {
     title: 'Model catalog',
     description: 'Canonical model prices and aliases. Billing reads from here.',
-    search: 'Search by model id, display name, or vendor',
+    search: 'Search by model id, display name, vendor or alias',
     create: 'New model',
+    noMatch: 'No entries match',
+    summary: '{total} models · {listed} listed · {noResources} listed without resources',
+    filtered: '{count} after filters',
+    aliasCount: '{count} aliases',
+    filters: {
+      allStatus: 'All statuses',
+      allVendors: 'All vendors',
+      noVendor: '(no vendor)',
+      allBilling: 'All billing',
+      allResources: 'All resources',
+      withResources: 'With resources',
+      withoutResources: 'Without resources'
+    },
+    columns: {
+      price: 'List price',
+      perMillion: '$ / 1M tokens',
+      perUnit: {
+        per_request: 'per request',
+        image: 'per image',
+        video: 'per second'
+      },
+      tiers: '{count} tiers'
+    },
+    bulk: {
+      selected: '{count} selected',
+      list: 'List selected',
+      unlist: 'Unlist selected',
+      clear: 'Clear selection',
+      nothingToDo: 'The selected entries already have that status',
+      listedDone: 'Listed {count} models',
+      unlistedDone: 'Unlisted {count} models',
+      partial: '{done} succeeded, {failed} failed (failures stay selected): {errors}'
+    },
+    editor: {
+      basics: 'Basics',
+      pricing: 'Billing & list price',
+      vendorHint: 'Use the lowercase vendor tag (anthropic / openai / gemini / xai…); the user site matches vendor tabs and icons on it.',
+      perMillion: '= ${price} per 1M tokens'
+    },
     edit: 'Edit model',
     empty: 'The catalog is empty. Seed it or create an entry.',
     diagnose: 'Diagnose',

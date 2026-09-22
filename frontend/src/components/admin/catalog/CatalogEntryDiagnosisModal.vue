@@ -1,18 +1,18 @@
 <template>
   <BaseDialog :show="show" :title="dialogTitle" width="wide" @close="emit('close')">
-    <div v-if="loading" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400" data-testid="model-catalog-diagnosis-loading">
+    <div v-if="loading" class="py-8 text-center text-sm text-af-ink-3" data-testid="model-catalog-diagnosis-loading">
       {{ t('common.loading') }}
     </div>
-    <div v-else-if="error" class="py-6 text-center text-sm text-red-600 dark:text-red-400" data-testid="model-catalog-diagnosis-error">
+    <div v-else-if="error" class="py-6 text-center text-sm text-af-danger" data-testid="model-catalog-diagnosis-error">
       {{ error }}
     </div>
-    <div v-else-if="accounts.length === 0" class="py-8 text-center text-sm text-gray-500 dark:text-gray-400" data-testid="model-catalog-diagnosis-empty">
+    <div v-else-if="accounts.length === 0" class="py-8 text-center text-sm text-af-ink-3" data-testid="model-catalog-diagnosis-empty">
       {{ t('admin.modelCatalog.diagnosis.empty') }}
     </div>
     <div v-else class="overflow-x-auto">
       <table class="min-w-full text-sm">
         <thead>
-          <tr class="text-left text-xs uppercase tracking-wide text-gray-500 dark:text-gray-400">
+          <tr class="text-left text-xs text-af-ink-3">
             <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.account') }}</th>
             <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.priority') }}</th>
             <th class="px-3 py-2">{{ t('admin.modelCatalog.diagnosis.columns.schedulable') }}</th>
@@ -25,22 +25,22 @@
           <tr
             v-for="account in accounts"
             :key="account.id"
-            class="border-t border-gray-100 dark:border-dark-700"
+            class="border-t border-af-hairline"
             data-testid="model-catalog-diagnosis-row"
           >
             <td class="px-3 py-2">
-              <div class="font-medium text-gray-900 dark:text-white">{{ account.name }}</div>
-              <div class="text-xs text-gray-500 dark:text-gray-400">
+              <div class="font-medium text-af-ink">{{ account.name }}</div>
+              <div class="text-xs text-af-ink-3">
                 #{{ account.id }} · {{ account.platform }} / {{ account.type }}
-                <span v-if="account.vendor" class="ml-1 rounded bg-gray-100 px-1.5 py-0.5 text-[11px] dark:bg-dark-600">{{ account.vendor }}</span>
+                <span v-if="account.vendor" class="ml-1 rounded bg-af-sunken px-1.5 py-0.5 text-[11px]">{{ account.vendor }}</span>
               </div>
             </td>
-            <td class="px-3 py-2 text-gray-700 dark:text-gray-300">
+            <td class="px-3 py-2 text-af-ink-2">
               {{ account.priority === null ? t('admin.modelCatalog.diagnosis.followAccount') : account.priority }}
             </td>
             <td class="px-3 py-2">
-              <span v-if="account.schedulable" class="text-emerald-600 dark:text-emerald-400" data-testid="model-catalog-diagnosis-schedulable">✓</span>
-              <span v-else class="text-red-600 dark:text-red-400" data-testid="model-catalog-diagnosis-blocked">
+              <span v-if="account.schedulable" class="text-af-success" data-testid="model-catalog-diagnosis-schedulable">✓</span>
+              <span v-else class="text-af-danger" data-testid="model-catalog-diagnosis-blocked">
                 ✗ {{ blockedReasonLabel(account.blocked_reason) }}
               </span>
             </td>
@@ -51,8 +51,8 @@
               :data-testid="`model-catalog-diagnosis-serves-${inbound}`"
               :data-serves="account.serves?.[inbound] ? 'true' : 'false'"
             >
-              <span v-if="account.serves?.[inbound]" class="text-emerald-600 dark:text-emerald-400">✓</span>
-              <span v-else class="text-gray-400 dark:text-gray-500">✗</span>
+              <span v-if="account.serves?.[inbound]" class="text-af-success">✓</span>
+              <span v-else class="text-af-ink-4">✗</span>
             </td>
           </tr>
         </tbody>
