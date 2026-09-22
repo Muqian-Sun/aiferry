@@ -99,18 +99,6 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/groups',
-    name: 'AdminGroups',
-    component: () => import('@/views/admin/GroupsView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Group Management',
-      titleKey: 'admin.groups.title',
-      descriptionKey: 'admin.groups.description'
-    }
-  },
-  {
     path: '/channels',
     redirect: '/model-catalog'
   },

@@ -538,7 +538,6 @@ export interface PaginationConfig {
 
 export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'composite'
 
-
 export type ReasoningEffortMatchType = 'exact' | 'prefix' | 'suffix'
 
 export interface ReasoningEffortMapping {
@@ -585,39 +584,6 @@ export interface Group {
   require_privacy_set: boolean
   created_at: string
   updated_at: string
-}
-
-export interface AdminGroup extends Group {
-  force_openai_fast: boolean
-  free_openai_fast: boolean
-  model_pricing: import('@/api/admin/pricing').PricingCard[]
-  // 分组利润控制（openai/anthropic/gemini/grok/antigravity 分组可启用；margin/buffer 为小数存储）。
-  // 仅管理员可见：与 rate_multiplier 相乘即可反推上游成本上限，不得下放到 Group。
-  profit_control_enabled: boolean
-  profit_min_margin: number
-  profit_safety_buffer: number
-
-  // 模型路由配置（仅管理员可见，内部信息）
-  model_routing: Record<string, number[]> | null
-  model_routing_enabled: boolean
-
-  // MCP XML 协议注入（仅 antigravity 平台使用）
-  mcp_xml_inject: boolean
-
-  // 支持的模型系列（仅 antigravity 平台使用）
-  supported_model_scopes?: string[]
-
-  // 分组下账号数量（仅管理员可见）
-  account_count?: number
-  active_account_count?: number
-  rate_limited_account_count?: number
-
-  // OpenAI Messages 调度配置（仅 openai 平台使用）
-  model_allowlist?: ModelAllowlist
-  codex_models_manifest_config?: CodexModelsManifestConfig
-
-  // 分组排序
-  sort_order: number
 }
 
 export interface ModelAllowlist {
@@ -750,90 +716,6 @@ export interface UpdateApiKeyRequest {
   rate_limit_1d?: number
   rate_limit_7d?: number
   reset_rate_limit_usage?: boolean
-}
-
-export interface CreateGroupRequest {
-  name: string
-  description?: string | null
-  platform?: GroupPlatform
-  rate_multiplier?: number
-  is_exclusive?: boolean
-  long_context_pricing_enabled?: boolean
-  force_openai_fast?: boolean
-  free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/pricing').PricingCard[]
-  allow_image_generation?: boolean
-  allow_batch_image_generation?: boolean
-  batch_image_discount_multiplier?: number
-  batch_image_hold_multiplier?: number
-  peak_rate_enabled?: boolean
-  peak_start?: string
-  peak_end?: string
-  peak_rate_multiplier?: number
-  // 分组利润控制（五个 token 平台；margin/buffer 为小数）
-  profit_control_enabled?: boolean
-  profit_min_margin?: number
-  profit_safety_buffer?: number
-  claude_code_only?: boolean
-  fallback_group_id?: number | null
-  fallback_group_id_on_invalid_request?: number | null
-  mcp_xml_inject?: boolean
-  supported_model_scopes?: string[]
-  model_allowlist?: ModelAllowlist
-  codex_models_manifest_config?: CodexModelsManifestConfig
-  allow_live?: boolean
-  model_routing?: Record<string, number[]> | null
-  model_routing_enabled?: boolean
-  rpm_limit?: number
-  max_reasoning_effort?: string
-  max_reasoning_effort_over_limit?: string
-  reasoning_effort_mappings?: ReasoningEffortMapping[]
-  require_oauth_only?: boolean
-  require_privacy_set?: boolean
-  // 从指定分组复制账号
-  copy_accounts_from_group_ids?: number[]
-}
-
-export interface UpdateGroupRequest {
-  name?: string
-  description?: string | null
-  platform?: GroupPlatform
-  rate_multiplier?: number
-  is_exclusive?: boolean
-  status?: 'active' | 'inactive'
-  long_context_pricing_enabled?: boolean
-  force_openai_fast?: boolean
-  free_openai_fast?: boolean
-  model_pricing?: import('@/api/admin/pricing').PricingCard[]
-  allow_image_generation?: boolean
-  allow_batch_image_generation?: boolean
-  batch_image_discount_multiplier?: number
-  batch_image_hold_multiplier?: number
-  peak_rate_enabled?: boolean
-  peak_start?: string
-  peak_end?: string
-  peak_rate_multiplier?: number
-  // 分组利润控制（五个 token 平台；margin/buffer 为小数）
-  profit_control_enabled?: boolean
-  profit_min_margin?: number
-  profit_safety_buffer?: number
-  claude_code_only?: boolean
-  fallback_group_id?: number | null
-  fallback_group_id_on_invalid_request?: number | null
-  mcp_xml_inject?: boolean
-  supported_model_scopes?: string[]
-  model_allowlist?: ModelAllowlist
-  codex_models_manifest_config?: CodexModelsManifestConfig
-  allow_live?: boolean
-  model_routing?: Record<string, number[]> | null
-  model_routing_enabled?: boolean
-  rpm_limit?: number
-  max_reasoning_effort?: string
-  max_reasoning_effort_over_limit?: string
-  reasoning_effort_mappings?: ReasoningEffortMapping[]
-  require_oauth_only?: boolean
-  require_privacy_set?: boolean
-  copy_accounts_from_group_ids?: number[]
 }
 
 // ==================== Account & Proxy Types ====================
@@ -1426,26 +1308,6 @@ export interface GrokMediaEligibilityState {
   mode: GrokMediaEligibilityMode
   eligible: boolean
   reason: string
-}
-
-export interface CheckMixedChannelRequest {
-  platform: AccountPlatform
-  group_ids: number[]
-  account_id?: number
-}
-
-export interface MixedChannelWarningDetails {
-  group_id: number
-  group_name: string
-  current_platform: string
-  other_platform: string
-}
-
-export interface CheckMixedChannelResponse {
-  has_risk: boolean
-  error?: string
-  message?: string
-  details?: MixedChannelWarningDetails
 }
 
 export interface CreateProxyRequest {

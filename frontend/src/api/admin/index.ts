@@ -5,7 +5,6 @@
 
 import dashboardAPI from './dashboard'
 import usersAPI from './users'
-import groupsAPI from './groups'
 import accountsAPI from './accounts'
 import proxiesAPI from './proxies'
 import redeemAPI from './redeem'
@@ -23,7 +22,6 @@ import userAttributesAPI from './userAttributes'
 import opsAPI from './ops'
 import errorPassthroughAPI from './errorPassthrough'
 import dataManagementAPI from './dataManagement'
-import apiKeysAPI from './apiKeys'
 import scheduledTestsAPI from './scheduledTests'
 import backupAPI from './backup'
 import tlsFingerprintProfileAPI from './tlsFingerprintProfile'
@@ -43,7 +41,6 @@ import pluginsAPI from './plugins'
 export const adminAPI = {
   dashboard: dashboardAPI,
   users: usersAPI,
-  groups: groupsAPI,
   accounts: accountsAPI,
   proxies: proxiesAPI,
   redeem: redeemAPI,
@@ -61,7 +58,6 @@ export const adminAPI = {
   ops: opsAPI,
   errorPassthrough: errorPassthroughAPI,
   dataManagement: dataManagementAPI,
-  apiKeys: apiKeysAPI,
   scheduledTests: scheduledTestsAPI,
   backup: backupAPI,
   tlsFingerprintProfiles: tlsFingerprintProfileAPI,
@@ -79,7 +75,6 @@ export const adminAPI = {
 export {
   dashboardAPI,
   usersAPI,
-  groupsAPI,
   accountsAPI,
   proxiesAPI,
   redeemAPI,
@@ -97,7 +92,6 @@ export {
   opsAPI,
   errorPassthroughAPI,
   dataManagementAPI,
-  apiKeysAPI,
   scheduledTestsAPI,
   backupAPI,
   tlsFingerprintProfileAPI,

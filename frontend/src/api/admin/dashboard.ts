@@ -8,7 +8,6 @@ import type {
   DashboardStats,
   TrendDataPoint,
   ModelStat,
-  GroupStat,
   ApiKeyUsageTrendPoint,
   UserUsageTrendPoint,
   UserSpendingRankingResponse,
@@ -52,7 +51,6 @@ export interface TrendParams {
   api_key_id?: number
   model?: string
   account_id?: number
-  group_id?: number
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null
@@ -85,7 +83,6 @@ export interface ModelStatsParams {
   model?: string
   model_source?: 'requested' | 'upstream' | 'mapping'
   account_id?: number
-  group_id?: number
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null
@@ -109,31 +106,10 @@ export async function getModelStats(params?: ModelStatsParams): Promise<ModelSta
   return data
 }
 
-export interface GroupStatsParams {
-  start_date?: string
-  end_date?: string
-  user_id?: number
-  api_key_id?: number
-  account_id?: number
-  group_id?: number
-  request_type?: UsageRequestType
-  stream?: boolean
-  native_compaction_v2?: boolean | null
-  billing_type?: number | null
-	upstream_model_mismatch?: boolean
-}
-
-export interface GroupStatsResponse {
-  groups: GroupStat[]
-  start_date: string
-  end_date: string
-}
-
 export interface DashboardSnapshotV2Params extends TrendParams {
   include_stats?: boolean
   include_trend?: boolean
   include_model_stats?: boolean
-  include_group_stats?: boolean
   include_users_trend?: boolean
   users_trend_limit?: number
 }
@@ -150,24 +126,12 @@ export interface DashboardSnapshotV2Response {
   stats?: DashboardSnapshotV2Stats
   trend?: TrendDataPoint[]
   models?: ModelStat[]
-  groups?: GroupStat[]
   users_trend?: UserUsageTrendPoint[]
-}
-
-/**
- * Get group usage statistics
- * @param params - Query parameters for filtering
- * @returns Group usage statistics
- */
-export async function getGroupStats(params?: GroupStatsParams): Promise<GroupStatsResponse> {
-  const { data } = await apiClient.get<GroupStatsResponse>('/admin/dashboard/groups', { params })
-  return data
 }
 
 export interface UserBreakdownParams {
   start_date?: string
   end_date?: string
-  group_id?: number
   model?: string
   model_source?: 'requested' | 'upstream' | 'mapping'
   endpoint?: string
@@ -336,7 +300,6 @@ export const dashboardAPI = {
   getRealtimeMetrics,
   getUsageTrend,
   getModelStats,
-  getGroupStats,
   getSnapshotV2,
   getApiKeyUsageTrend,
   getUserUsageTrend,
