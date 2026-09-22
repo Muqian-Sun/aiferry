@@ -85,18 +85,20 @@ func TestSchedulingBucketAdmitsKeysOfAnyLabel(t *testing.T) {
 	require.True(t, schedulingBucketAdmits(&antigravityNotMixed, PlatformAntigravity, false))
 }
 
-// 粘性会话路径（负载感知 Layer 1.5、传统单平台与混合调度）同样按协议判断跨标签 key。
+// 粘性会话路径（负载感知 Layer 1.5 与无负载图的回退顺序）同样按协议判断跨标签 key。
+// 跨标签 key 只在目录路由下有意义（池 = 条目绑定、资格 = 协议转换注册表）；平台池要求账号平台相等。
 func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 	const sessionHash = "gateway-cross-label-sticky"
-	groups := map[string]int64{PlatformAnthropic: 20951, PlatformAntigravity: 20952}
-	for groupPlatform, groupID := range groups {
+	const entryID = int64(20950)
+	for _, subscriptionPlatform := range []string{PlatformAnthropic, PlatformAntigravity} {
 		for _, loadBatch := range []bool{true, false} {
-			t.Run(fmt.Sprintf("%s load batch=%v", groupPlatform, loadBatch), func(t *testing.T) {
-				sticky := schedulingTestKey(20961, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
+			t.Run(fmt.Sprintf("%s load batch=%v", subscriptionPlatform, loadBatch), func(t *testing.T) {
+				sticky := schedulingTestKey(20961, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
 				sticky.Priority = 5
+				sticky.CatalogEntryIDs = []int64{entryID}
 				preferred := Account{
-					ID: 20962, Platform: groupPlatform, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
-					Concurrency: 5, Priority: 0, GroupIDs: []int64{groupID}, AccountGroups: []AccountGroup{{AccountID: 20962, GroupID: groupID}},
+					ID: 20962, Platform: subscriptionPlatform, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
+					Concurrency: 5, Priority: 0, CatalogEntryIDs: []int64{entryID},
 				}
 				repo := &mockAccountRepoForPlatform{accounts: []Account{preferred, sticky}, accountsByID: map[int64]*Account{}}
 				for i := range repo.accounts {
@@ -105,27 +107,24 @@ func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 				cfg := testConfig()
 				cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
 				svc := &GatewayService{
-					accountRepo: repo,
-					groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-						groupID: {ID: groupID, Platform: groupPlatform, Status: StatusActive, Hydrated: true},
-					}},
+					accountRepo:        repo,
 					cache:              &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{sessionHash: sticky.ID}},
 					cfg:                cfg,
 					concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 				}
-				ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
+				ctx := catalogRouteCtx(entryID, APIProtocolAnthropic)
 
-				result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", nil)
+				result, err := svc.SelectAccountWithLoadAwareness(ctx, "", "claude-sonnet-4-5", nil)
 				require.NoError(t, err)
-				// 协议直连第一键：anthropic 组里成品号与 key 都直连 → 优先级小的成品号赢；
-				// antigravity 组里成品号要转换（v1internal），配了 anthropic 地址的 key 直连 → key 赢。
+				// 协议直连第一键：anthropic 成品号与 key 都直连 → 优先级小的成品号赢；
+				// antigravity 成品号要转换（v1internal），配了 anthropic 地址的 key 直连 → key 赢。
 				wantWithoutSession := preferred.ID
-				if groupPlatform == PlatformAntigravity {
+				if subscriptionPlatform == PlatformAntigravity {
 					wantWithoutSession = sticky.ID
 				}
 				require.Equal(t, wantWithoutSession, result.Account.ID, "without a session: protocol match first, then priority")
 
-				result, err = svc.SelectAccountWithLoadAwareness(ctx, &groupID, sessionHash, "claude-sonnet-4-5", nil)
+				result, err = svc.SelectAccountWithLoadAwareness(ctx, sessionHash, "claude-sonnet-4-5", nil)
 				require.NoError(t, err)
 				require.Equal(t, sticky.ID, result.Account.ID)
 			})
@@ -133,10 +132,11 @@ func TestGatewayService_StickySessionKeepsCrossLabelKey(t *testing.T) {
 	}
 }
 
-func TestGatewayService_SelectAccountWithLoadAwareness_CrossLabelKeyByGroupProtocol(t *testing.T) {
-	anthropicGroupID := int64(20931)
-	geminiGroupID := int64(20932)
-	key := schedulingTestKey(20941, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, anthropicGroupID, geminiGroupID)
+// 目录路由下第三方 key 按入站协议承接：只有 anthropic 地址的 openai 标签 key 承接 message 入站，不承接 gemini 入站。
+func TestGatewayService_SelectAccountWithLoadAwareness_CrossLabelKeyByInboundProtocol(t *testing.T) {
+	const entryID = int64(20940)
+	key := schedulingTestKey(20941, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
+	key.CatalogEntryIDs = []int64{entryID}
 
 	for _, loadBatch := range []bool{true, false} {
 		name := "load aware"
@@ -148,111 +148,26 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CrossLabelKeyByGroupProto
 			for i := range repo.accounts {
 				repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
 			}
-			groupRepo := &mockGroupRepoForGateway{groups: map[int64]*Group{
-				anthropicGroupID: {ID: anthropicGroupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true},
-				geminiGroupID:    {ID: geminiGroupID, Platform: PlatformGemini, Status: StatusActive, Hydrated: true},
-			}}
 			cfg := testConfig()
 			cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
 			svc := &GatewayService{
 				accountRepo:        repo,
-				groupRepo:          groupRepo,
 				cache:              &mockGatewayCacheForPlatform{},
 				cfg:                cfg,
 				concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 			}
 
-			ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(ctx, &anthropicGroupID, "", "claude-sonnet-4-5", nil)
+			result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(entryID, APIProtocolAnthropic), "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.NotNil(t, result.Account)
-			require.Equal(t, key.ID, result.Account.ID)
+			require.Equal(t, key.ID, result.Account.ID, "message 入站：只配 anthropic 地址的 openai 标签 key 直连")
 
-			result, err = svc.SelectAccountWithLoadAwareness(ctx, &geminiGroupID, "", "gemini-2.5-pro", nil)
+			// gemini 入站：这把 key 没有 gemini 地址，承接不了
+			result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(entryID, APIProtocolGemini), "", "gemini-2.5-pro", nil)
 			require.ErrorIs(t, err, ErrNoAvailableAccounts)
 			require.Nil(t, result)
 		})
-	}
-}
-
-// antigravity 分组按入站协议只走一种上游协议：只有 gemini 地址的 key 不承接 /v1/messages，
-// 但承接 Gemini 原生请求。传统单平台选号循环依赖候选列表已按协议过滤。
-func TestGatewayService_AntigravityGroupKeyNeedsInboundProtocolEndpoint(t *testing.T) {
-	groupID := int64(20991)
-	key := schedulingTestKey(20992, PlatformAntigravity, map[string]string{APIProtocolGemini: schedulingTestRelayURL}, groupID)
-	for _, loadBatch := range []bool{true, false} {
-		t.Run(fmt.Sprintf("load batch=%v", loadBatch), func(t *testing.T) {
-			repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
-			for i := range repo.accounts {
-				repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-			}
-			cfg := testConfig()
-			cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
-			svc := &GatewayService{
-				accountRepo: repo,
-				groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-					groupID: {ID: groupID, Platform: PlatformAntigravity, Status: StatusActive, Hydrated: true},
-				}},
-				cache:              &mockGatewayCacheForPlatform{},
-				cfg:                cfg,
-				concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
-			}
-
-			anthropicCtx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(anthropicCtx, &groupID, "", "", nil)
-			require.ErrorIs(t, err, ErrNoAvailableAccounts)
-			require.Nil(t, result)
-
-			geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
-			result, err = svc.SelectAccountWithLoadAwareness(geminiCtx, &groupID, "", "", nil)
-			require.NoError(t, err)
-			require.Equal(t, key.ID, result.Account.ID)
-		})
-	}
-}
-
-// 成品号的混合调度与平台匹配不受第三方 key 规则影响：anthropic 分组照旧选中启用了
-// mixed_scheduling 的 antigravity 成品号，跳过未启用的 antigravity 成品号与其他平台成品号。
-func TestGatewayService_SelectAccountWithLoadAwareness_SubscriptionMixedSchedulingUnchanged(t *testing.T) {
-	groupID := int64(20971)
-	accounts := []Account{
-		{ID: 20981, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5},
-		{ID: 20982, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Priority: 0, Status: StatusActive, Schedulable: true, Concurrency: 5},
-		{ID: 20983, Platform: PlatformAntigravity, Type: AccountTypeOAuth, Priority: 1, Status: StatusActive, Schedulable: true, Concurrency: 5, Extra: map[string]any{"mixed_scheduling": true}},
-		{ID: 20984, Platform: PlatformAnthropic, Type: AccountTypeOAuth, Priority: 2, Status: StatusActive, Schedulable: true, Concurrency: 5},
-	}
-	for _, loadBatch := range []bool{true, false} {
-		repo := &mockAccountRepoForPlatform{accounts: accounts, accountsByID: map[int64]*Account{}}
-		for i := range repo.accounts {
-			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-		}
-		cfg := testConfig()
-		cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
-		svc := &GatewayService{
-			accountRepo: repo,
-			groupRepo: &mockGroupRepoForGateway{groups: map[int64]*Group{
-				groupID: {ID: groupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true},
-			}},
-			cache:              &mockGatewayCacheForPlatform{},
-			cfg:                cfg,
-			concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
-		}
-		ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-		excluded := map[int64]struct{}{}
-		var picked []int64
-		for {
-			result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-sonnet-4-5", excluded)
-			if err != nil {
-				require.ErrorIs(t, err, ErrNoAvailableAccounts)
-				break
-			}
-			picked = append(picked, result.Account.ID)
-			excluded[result.Account.ID] = struct{}{}
-		}
-		// 协议直连第一键：anthropic 成品号直连 message，排在要转换（v1internal）的 antigravity 成品号前，
-		// 虽然后者优先级数值更小。
-		require.Equal(t, []int64{20984, 20983}, picked, "load batch=%v", loadBatch)
 	}
 }
 
@@ -362,11 +277,11 @@ func TestGeminiSelectAccountForAIStudioEndpoints_KeysByGeminiEndpoint(t *testing
 	}
 	svc := &GeminiMessagesCompatService{accountRepo: repo, groupRepo: &mockGroupRepoForGemini{groups: map[int64]*Group{}}}
 
-	selected, err := svc.SelectAccountForAIStudioEndpoints(context.Background(), &groupID)
+	selected, err := svc.SelectAccountForAIStudioEndpoints(context.Background())
 	require.NoError(t, err)
 	require.Equal(t, geminiEndpointAnthropicLabel.ID, selected.ID)
 
 	repo.accounts = []Account{anthropicEndpointGeminiLabel}
-	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background(), &groupID)
+	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background())
 	require.Error(t, err)
 }

@@ -164,7 +164,6 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 
 	gwSvc := service.NewGatewayService(
 		nil, // accountRepo (not used: scheduler snapshot hit)
-		&fakeGroupRepo{group: group},
 		nil, // usageLogRepo
 		nil, // usageBillingRepo
 		nil, // userRepo
@@ -211,7 +210,7 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 	return h, cleanup
 }
 
-func TestGatewayHandlerMessages_InterceptWarmup_AntigravityAccount_MixedSchedulingV1(t *testing.T) {
+func TestGatewayHandlerMessages_InterceptWarmup_AntigravityAccountV1(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	groupID := int64(2001)
@@ -234,7 +233,7 @@ func TestGatewayHandlerMessages_InterceptWarmup_AntigravityAccount_MixedScheduli
 			"intercept_warmup_requests": true,
 		},
 		Extra: map[string]any{
-			"mixed_scheduling": true, // 关键：允许被 anthropic 分组混合调度选中
+			"mixed_scheduling": true, // 目录路由下不看这个标记：绑到条目的 antigravity 成品号按协议转换注册表承接 message 入站
 		},
 		Concurrency:   1,
 		Priority:      1,
@@ -256,7 +255,7 @@ func TestGatewayHandlerMessages_InterceptWarmup_AntigravityAccount_MixedScheduli
 	}`)
 	req := httptest.NewRequest("POST", "/v1/messages", bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	req = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, group))
+	req = req.WithContext(service.WithInboundProtocol(withTestCatalogRoute(req.Context(), groupID, group.Platform, "claude-sonnet-4-5"), service.APIProtocolAnthropic))
 	c.Request = req
 
 	apiKey := &service.APIKey{

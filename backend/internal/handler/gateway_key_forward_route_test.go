@@ -184,7 +184,8 @@ func newKeyRouteContext(t *testing.T, method, path string, body []byte, group *s
 	c, _ := gin.CreateTestContext(rec)
 	req := httptest.NewRequest(method, path, bytes.NewReader(body))
 	req.Header.Set("Content-Type", "application/json")
-	ctx := context.WithValue(req.Context(), ctxkey.Group, group)
+	// 分组只剩「平台」这一个夹具用途：做成目录路由的条目厂商（池由 fakeSchedulerCache 给全部账号）。
+	ctx := withTestCatalogRoute(req.Context(), group.ID, group.Platform, "m")
 	ctx = service.WithInboundProtocol(ctx, inboundProtocol)
 	if forcePlatform != "" {
 		ctx = context.WithValue(ctx, ctxkey.ForcePlatform, forcePlatform)
@@ -311,26 +312,6 @@ func TestGatewayHandlerMessages_CatalogRouteDispatchesByAccount(t *testing.T) {
 		require.Contains(t, rec.Body.String(), `"type":"error"`)
 		require.Empty(t, hs.geminiUpstream.recorded())
 	})
-}
-
-func TestGeminiV1BetaModels_AntigravityRouteKeyLabelledAntigravityForwardsNatively(t *testing.T) {
-	group := keyRouteGroup(2103, service.PlatformAntigravity)
-	key := keyRouteAccount(1103, group.ID, service.PlatformAntigravity,
-		map[string]string{service.APIProtocolGemini: "https://gemini-relay.example.com"}, "gemini-2.5-flash")
-	hs := newKeyRouteHarness(t, group, []*service.Account{key})
-
-	body := []byte(`{"contents":[{"role":"user","parts":[{"text":"hello"}]}]}`)
-	c, rec := newKeyRouteContext(t, http.MethodPost, "/antigravity/v1beta/models/gemini-2.5-flash:generateContent", body, group, service.APIProtocolGemini, service.PlatformAntigravity)
-	c.Params = gin.Params{{Key: "modelAction", Value: "/gemini-2.5-flash:generateContent"}}
-
-	hs.handler.GeminiV1BetaModels(c)
-
-	require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
-	got := hs.geminiUpstream.recorded()
-	require.Len(t, got, 1)
-	require.Equal(t, "https://gemini-relay.example.com/v1beta/models/gemini-2.5-flash:generateContent", got[0].url)
-	require.Equal(t, "relay-key", got[0].header.Get("x-goog-api-key"))
-	require.Empty(t, hs.antigravityUpsteam.recorded(), "key must never reach the Antigravity v1internal upstream")
 }
 
 // /v1beta 不按分组 / 条目厂商拦：anthropic 厂商的条目在 anthropic 分组的 key 上也进选号，

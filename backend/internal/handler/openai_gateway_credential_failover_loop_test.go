@@ -72,6 +72,19 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx contex
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
+// ListModelAvailabilityCandidates 无可用账号时的诊断查询：不计入选号次数。
+func (r *grokCredentialHandlerRepo) ListModelAvailabilityCandidates(_ context.Context, platforms []string) ([]service.Account, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	out := make([]service.Account, 0, len(r.accounts))
+	for _, account := range r.accounts {
+		if slices.Contains(platforms, account.Platform) {
+			out = append(out, account)
+		}
+	}
+	return out, nil
+}
+
 func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*service.Account, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -885,6 +898,10 @@ func (fx *grokCredentialFailoverFixture) newRouter() (*gin.Engine, func()) {
 	router.Use(func(c *gin.Context) {
 		c.Set(string(middleware.ContextKeyAPIKey), fx.apiKey)
 		c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: fx.apiKey.User.ID, Concurrency: 1})
+		// 带模型的请求在生产里必有目录路由（条目厂商 xai）；无模型的视频状态查询 / WS 升级没有
+		if c.Request.Method == http.MethodPost {
+			c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformGrok, "grok"))
+		}
 		c.Next()
 	})
 	handlerRefresherStarted.Store(router, fx.refresher.started)

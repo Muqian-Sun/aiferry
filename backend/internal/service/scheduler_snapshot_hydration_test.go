@@ -120,9 +120,9 @@ func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedu
 		cfg:               testConfig(),
 	}
 
-	result, err := svc.SelectAccountWithLoadAwareness(context.Background(), nil, "", "claude-3-5-sonnet-20241022", nil)
+	result, err := svc.SelectAccountWithOptions(context.Background(), "", "claude-3-5-sonnet-20241022", nil, SelectOptions{Platform: PlatformAnthropic})
 	if err != nil {
-		t.Fatalf("SelectAccountWithLoadAwareness error: %v", err)
+		t.Fatalf("SelectAccountWithOptions error: %v", err)
 	}
 	if result == nil || result.Account == nil {
 		t.Fatalf("expected selected account")
@@ -179,19 +179,8 @@ func TestGatewaySelectAccountWithLoadAwareness_SkipsAntigravityGeminiFamilyRateL
 			2: {ID: 2, Platform: PlatformAntigravity, Type: AccountTypeOAuth},
 		},
 	}
-	groupID := int64(22)
 	svc := &GatewayService{
-		schedulerSnapshot: NewSchedulerSnapshotService(cache, nil, nil, nil, nil),
-		groupRepo: &mockGroupRepoForGateway{
-			groups: map[int64]*Group{
-				groupID: {
-					ID:       groupID,
-					Platform: PlatformGemini,
-					Status:   StatusActive,
-					Hydrated: true,
-				},
-			},
-		},
+		schedulerSnapshot:  NewSchedulerSnapshotService(cache, nil, nil, nil, nil),
 		concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 		cfg: &config.Config{
 			Gateway: config.GatewayConfig{
@@ -206,9 +195,10 @@ func TestGatewaySelectAccountWithLoadAwareness_SkipsAntigravityGeminiFamilyRateL
 		},
 	}
 
-	result, err := svc.SelectAccountWithLoadAwareness(context.Background(), &groupID, "", "gemini-3-flash-preview", nil)
+	ctx := WithInboundProtocol(context.Background(), APIProtocolGemini)
+	result, err := svc.SelectAccountWithOptions(ctx, "", "gemini-3-flash-preview", nil, SelectOptions{Platform: PlatformAntigravity})
 	if err != nil {
-		t.Fatalf("SelectAccountWithLoadAwareness error: %v", err)
+		t.Fatalf("SelectAccountWithOptions error: %v", err)
 	}
 	if result == nil || result.Account == nil {
 		t.Fatalf("expected selected account")

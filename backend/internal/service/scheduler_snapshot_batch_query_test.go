@@ -52,7 +52,7 @@ func (r *batchAccountQueryRepo) ListSchedulingCandidatesByGroupID(_ context.Cont
 	return r.run(batchAccountQueryKey{groupID: groupID, platform: platforms[0], mixed: len(platforms) > 1})
 }
 
-func (r *batchAccountQueryRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {
+func (r *batchAccountQueryRepo) ListModelAvailabilityCandidates(context.Context, []string) ([]Account, error) {
 	panic("unexpected ListModelAvailabilityCandidates call")
 }
 

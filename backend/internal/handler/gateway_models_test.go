@@ -57,7 +57,7 @@ func newGatewayModelsHandlerForTest(listed ...string) *GatewayHandler {
 		modelCatalog: listedCatalogStub{ids: listed},
 		gatewayService: service.NewGatewayService(
 			nil,
-			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		),
 	}

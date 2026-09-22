@@ -87,7 +87,8 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 				Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
 			}
 			h := newGatewayHandlerOverOpenAIService(cfg, repo, apiKey.Group, gateway, billingCache, service.NewConcurrencyService(cache))
-			require.NoError(t, gateway.BindOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_key_continuation", apiKey.UserID, apiKey.ID))
+			// 续链归属的作用域 = 请求的目录条目 ID（下面挂的路由条目 1）
+			require.NoError(t, gateway.BindOpenAIHTTPResponseOwner(context.Background(), 1, "resp_key_continuation", apiKey.UserID, apiKey.ID))
 
 			w := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(w)
@@ -96,7 +97,7 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 			))
 			c.Request.Header.Set("Content-Type", "application/json")
 			// 入站协议由 InboundEndpointMiddleware 写入请求 context，这里直接构造 handler，手动补上。
-			c.Request = c.Request.WithContext(service.WithInboundProtocol(c.Request.Context(), service.APIProtocolResponses))
+			c.Request = c.Request.WithContext(service.WithInboundProtocol(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "deepseek-flash"), service.APIProtocolResponses))
 			c.Set(string(middleware.ContextKeyAPIKey), apiKey)
 			c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: apiKey.UserID, Concurrency: 1})
 

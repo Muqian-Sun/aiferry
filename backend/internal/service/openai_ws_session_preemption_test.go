@@ -113,8 +113,8 @@ func TestOpenAIWSIngressSessionPreemptionCancelsAfterCloseGrace(t *testing.T) {
 
 func TestOpenAIWSSessionPreemptRegistryCancelsSameScopedSessionOnly(t *testing.T) {
 	var registry openAIWSSessionPreemptRegistry
-	key := openAIWSSessionPreemptKey{groupID: 7, apiKeyID: 11, sessionHash: "sess"}
-	other := openAIWSSessionPreemptKey{groupID: 7, apiKeyID: 12, sessionHash: "sess"}
+	key := openAIWSSessionPreemptKey{apiKeyID: 11, sessionHash: "sess"}
+	other := openAIWSSessionPreemptKey{apiKeyID: 12, sessionHash: "sess"}
 	firstCtx, firstCancel := context.WithCancel(context.Background())
 	firstCleanup, replaced := registry.Begin(key, firstCancel)
 	require.False(t, replaced)
@@ -181,28 +181,28 @@ func TestOpenAIWSSessionPreemptContextEligibilityAndLocalCancellation(t *testing
 	apiKey := &Account{ID: 2, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	grok := &Account{ID: 3, Platform: PlatformGrok, Type: AccountTypeOAuth}
 
-	_, cleanup, armed, _ := svc.beginOpenAIWSSessionPreemptContext(context.Background(), apiKey, 7, 11, "sess", false, nil)
+	_, cleanup, armed, _ := svc.beginOpenAIWSSessionPreemptContext(context.Background(), apiKey, 11, "sess", false, nil)
 	cleanup()
 	require.False(t, armed)
-	_, cleanup, armed, _ = svc.beginOpenAIWSSessionPreemptContext(context.Background(), grok, 7, 11, "sess", false, nil)
+	_, cleanup, armed, _ = svc.beginOpenAIWSSessionPreemptContext(context.Background(), grok, 11, "sess", false, nil)
 	cleanup()
 	require.False(t, armed)
-	_, cleanup, armed, _ = svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 7, 11, "sess", true, nil)
+	_, cleanup, armed, _ = svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 11, "sess", true, nil)
 	cleanup()
 	require.False(t, armed, "HTTP-ingress one-shot must not participate")
 
-	firstCtx, firstCleanup, armed, replaced := svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 7, 11, "sess", false, nil)
+	firstCtx, firstCleanup, armed, replaced := svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 11, "sess", false, nil)
 	require.True(t, armed)
 	require.False(t, replaced)
-	stateStore.BindSessionTurnState(7, "sess", "turn-state", time.Hour)
-	stateStore.BindSessionConn(7, "sess", "conn-1", time.Hour)
-	_, secondCleanup, armed, replaced := svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 7, 11, "sess", false, nil)
+	stateStore.BindSessionTurnState("sess", "turn-state", time.Hour)
+	stateStore.BindSessionConn("sess", "conn-1", time.Hour)
+	_, secondCleanup, armed, replaced := svc.beginOpenAIWSSessionPreemptContext(context.Background(), oauth, 11, "sess", false, nil)
 	require.True(t, armed)
 	require.True(t, replaced)
 	require.True(t, isOpenAIWSSessionPreempted(firstCtx))
 	require.True(t, IsOpenAIWSSessionPreemptedError(context.Cause(firstCtx)))
-	_, turnStateExists := stateStore.GetSessionTurnState(7, "sess")
-	_, sessionConnExists := stateStore.GetSessionConn(7, "sess")
+	_, turnStateExists := stateStore.GetSessionTurnState("sess")
+	_, sessionConnExists := stateStore.GetSessionConn("sess")
 	require.False(t, turnStateExists)
 	require.False(t, sessionConnExists)
 	firstCleanup()
@@ -303,7 +303,7 @@ func TestOpenAIWSIngressSessionPreemptionRespectsResolvedMode(t *testing.T) {
 func TestOpenAIWSSessionPreemptRemoteClaimAndStaleReleaseAreAtomic(t *testing.T) {
 	cache := &openAIWSSessionPreemptCacheStub{}
 	svc := &OpenAIGatewayService{cache: cache}
-	key := openAIWSSessionPreemptKey{groupID: 7, apiKeyID: 11, sessionHash: "sess"}
+	key := openAIWSSessionPreemptKey{apiKeyID: 11, sessionHash: "sess"}
 
 	previous, ok := svc.claimOpenAIWSSessionPreemptOwner(context.Background(), key, "owner-a")
 	require.True(t, ok)
@@ -314,7 +314,7 @@ func TestOpenAIWSSessionPreemptRemoteClaimAndStaleReleaseAreAtomic(t *testing.T)
 	svc.releaseOpenAIWSSessionPreemptOwner(context.Background(), key, "owner-a")
 
 	cache.mu.Lock()
-	current := string(cache.owners[cache.key(key.groupID, openAIWSSessionPreemptCacheHash(key.apiKeyID, key.sessionHash))])
+	current := string(cache.owners[cache.key(openAIWSSessionPreemptScope, openAIWSSessionPreemptCacheHash(key.apiKeyID, key.sessionHash))])
 	cache.mu.Unlock()
 	require.Equal(t, "owner-b", current, "stale cleanup must preserve the replacement owner")
 }
@@ -372,14 +372,13 @@ func TestOpenAIWSHTTPBridgeSessionPreemptionEligibility(t *testing.T) {
 	}
 }
 
+// 抢占键 = (key ID, 会话 hash)：无分组 key 同样有抢占（原来 groupID <= 0 直接不注册）。
 func TestNewOpenAIWSSessionPreemptKeyRequiresFullIsolationScope(t *testing.T) {
-	_, ok := newOpenAIWSSessionPreemptKey(0, 11, "sess")
+	_, ok := newOpenAIWSSessionPreemptKey(0, "sess")
 	require.False(t, ok)
-	_, ok = newOpenAIWSSessionPreemptKey(7, 0, "sess")
+	_, ok = newOpenAIWSSessionPreemptKey(11, " ")
 	require.False(t, ok)
-	_, ok = newOpenAIWSSessionPreemptKey(7, 11, " ")
-	require.False(t, ok)
-	key, ok := newOpenAIWSSessionPreemptKey(7, 11, " sess ")
+	key, ok := newOpenAIWSSessionPreemptKey(11, " sess ")
 	require.True(t, ok)
 	require.Equal(t, "sess", key.sessionHash)
 }
@@ -529,8 +528,8 @@ func TestOpenAIWSIngressSessionPreemptionClaimsRemoteOwnerByExecutionScope(t *te
 
 	stub.mu.Lock()
 	defer stub.mu.Unlock()
-	_, scoped := stub.owners[stub.key(7, openAIWSSessionPreemptCacheHash(11, scope))]
-	_, legacyKeyed := stub.owners[stub.key(7, openAIWSSessionPreemptCacheHash(11, legacy))]
+	_, scoped := stub.owners[stub.key(openAIWSSessionPreemptScope, openAIWSSessionPreemptCacheHash(11, scope))]
+	_, legacyKeyed := stub.owners[stub.key(openAIWSSessionPreemptScope, openAIWSSessionPreemptCacheHash(11, legacy))]
 	require.True(t, scoped, "remote owner must be claimed under the execution scope")
 	require.False(t, legacyKeyed, "remote owner must not be claimed under the legacy session hash")
 }

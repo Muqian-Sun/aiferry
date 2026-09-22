@@ -1826,6 +1826,7 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.2","input":"hello","stream":false}`))
 	c.Request.Header.Set("Content-Type", "application/json")
+	c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
 		ID: 1803, GroupID: &groupID,
 		User:  &service.User{ID: 1703, Status: service.StatusActive},
@@ -1917,6 +1918,7 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.2","input":"hello","stream":false}`))
+			c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 			c.Request.Header.Set("Content-Type", "application/json")
 			c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
 				ID: 1803, GroupID: &groupID,
@@ -1989,6 +1991,7 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(`{"model":"gpt-5.6-sol","input":"hello","stream":true}`))
+	c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
 		ID: 1804, GroupID: &groupID,

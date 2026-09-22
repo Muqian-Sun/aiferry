@@ -77,10 +77,9 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 		rateLimitService: rateLimitService,
 	}
 
-	accounts, useMixed, err := svc.listSchedulableAccounts(context.Background(), nil, PlatformKiro, false)
+	accounts, err := svc.listSchedulableAccounts(context.Background(), PlatformKiro, false)
 
 	require.NoError(t, err)
-	require.False(t, useMixed)
 	require.Len(t, accounts, 2)
 	require.Equal(t, int64(3101), accounts[0].ID)
 	require.Equal(t, int64(3102), accounts[1].ID)
@@ -137,7 +136,7 @@ func TestGatewayService_ListSchedulableAccounts_OpenAIPool_ReadsStateNotThreshol
 		rateLimitService: rateLimitService,
 	}
 
-	accounts, _, err := svc.listSchedulableAccounts(context.Background(), nil, PlatformOpenAI, false)
+	accounts, err := svc.listSchedulableAccounts(context.Background(), PlatformOpenAI, false)
 
 	require.NoError(t, err)
 	require.Len(t, accounts, 3, "装载不按阈值过滤")

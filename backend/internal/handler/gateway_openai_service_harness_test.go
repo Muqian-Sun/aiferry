@@ -53,7 +53,7 @@ func newGatewayHandlerOverOpenAIService(
 // 分组由 group 回答；OpenAI 服务 / handler 的 WS 与扩展端点夹具都用它。
 func newTestSchedulerOverRepo(cfg *config.Config, accountRepo service.AccountRepository, group *service.Group) *service.GatewayService {
 	return service.NewGatewayService(
-		accountRepo, gatewayHarnessGroupRepo{group: group}, nil, nil, nil, nil, nil, cfg,
+		accountRepo, nil, nil, nil, nil, nil, cfg,
 		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 }

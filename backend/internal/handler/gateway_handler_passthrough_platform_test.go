@@ -77,7 +77,7 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 
 			schedulerCache := &fakeSchedulerCache{accounts: []*service.Account{key}}
 			h.gatewayService = service.NewGatewayService(
-				nil, &fakeGroupRepo{group: group}, nil, nil, nil, nil, nil,
+				nil, nil, nil, nil, nil, nil,
 				&config.Config{RunMode: config.RunModeSimple},
 				service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil),
 				nil, nil, nil, nil, nil,

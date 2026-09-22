@@ -135,7 +135,7 @@ func (m *sessionWindowMockRepo) ListSchedulingCandidatesByCatalogEntry(context.C
 func (m *sessionWindowMockRepo) ListSchedulingCandidatesByGroupID(context.Context, int64, []string) ([]Account, error) {
 	panic("unexpected")
 }
-func (m *sessionWindowMockRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {
+func (m *sessionWindowMockRepo) ListModelAvailabilityCandidates(context.Context, []string) ([]Account, error) {
 	panic("unexpected")
 }
 func (m *sessionWindowMockRepo) SetRateLimited(context.Context, int64, time.Time) error {

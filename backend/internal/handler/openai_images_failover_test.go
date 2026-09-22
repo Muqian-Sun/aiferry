@@ -38,8 +38,13 @@ func (r openAIImagesFailoverAccountRepo) GetByID(_ context.Context, id int64) (*
 	return nil, service.ErrNoAvailableAccounts
 }
 
-func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
+// ListSchedulingCandidatesByCatalogEntry 把全部账号当作绑定到条目的资源（不看平台）。
+func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByCatalogEntry(_ context.Context, entryID int64) ([]service.Account, error) {
+	out := make([]service.Account, 0, len(r.accounts))
+	for _, account := range r.accounts {
+		out = append(out, boundToCatalogEntry(account, entryID))
+	}
+	return out, nil
 }
 
 func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, _ int64, platforms []string) ([]service.Account, error) {
@@ -162,7 +167,7 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 	body := []byte(`{"model":"gpt-image-1","prompt":"draw a cat","quality":"high","size":"1536x1024"}`)
 	core, observedLogs := observer.New(zap.DebugLevel)
 	requestCtx := logger.IntoContext(context.Background(), zap.New(core))
-	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body)).WithContext(requestCtx)
+	req := httptest.NewRequest(http.MethodPost, "/v1/images/generations", bytes.NewReader(body)).WithContext(withTestCatalogRoute(requestCtx, 1, service.PlatformOpenAI, "gpt-image-1"))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

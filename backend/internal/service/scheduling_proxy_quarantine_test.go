@@ -24,7 +24,7 @@ func TestSelectAccountWithOptions_ProxyQuarantineFailOpen(t *testing.T) {
 	svc.rateLimitService.RecordProxyStreamDisconnect(&key, errors.New("stream ended before terminal event"), "rid")
 	require.Equal(t, 1, svc.rateLimitService.ActiveProxyQuarantines(time.Now()))
 
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{})
 	require.NoError(t, err, "隔离降级成偏好：宁可用坏代理也不回无可用账号")
 	require.Equal(t, key.ID, result.Account.ID)
 	require.Equal(t, 1, svc.rateLimitService.ActiveProxyQuarantines(time.Now()), "二次放行不清隔离")
@@ -35,7 +35,7 @@ func TestSelectAccountWithOptions_ProxyQuarantineFailOpen(t *testing.T) {
 	svc.rateLimitService = &RateLimitService{cfg: svc.cfg}
 	repo := svc.accountRepo.(*mockAccountRepoForPlatform)
 	before := repo.listCatalogCalls
-	_, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
+	_, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
 	require.ErrorIs(t, err, ErrNoAvailableCompactAccounts)
 	require.Equal(t, before+1, repo.listCatalogCalls, "没有隔离中的代理时只选一遍")
 }

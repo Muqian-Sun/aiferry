@@ -116,6 +116,7 @@ func newOpenAIResponsesFailoverTestContext(t *testing.T, ctx context.Context) (*
 	if ctx != nil {
 		req = req.WithContext(ctx)
 	}
+	req = req.WithContext(withTestCatalogRoute(req.Context(), 1, service.PlatformOpenAI, "gpt-5.1"))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

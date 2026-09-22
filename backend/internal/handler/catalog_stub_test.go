@@ -86,3 +86,28 @@ func allBoundToCatalogEntry(accounts []service.Account, entryID int64) []service
 	}
 	return out
 }
+
+// testCatalogVendorForPlatform 测试夹具用：平台常量反查成目录 vendor 串；antigravity 没有厂商（空串）。
+func testCatalogVendorForPlatform(platform string) string {
+	switch platform {
+	case service.PlatformGrok:
+		return "xai"
+	case service.PlatformKimi:
+		return "moonshot"
+	case service.PlatformOpenCodeGo:
+		return "opencode"
+	case service.PlatformAntigravity, "":
+		return ""
+	default:
+		return platform
+	}
+}
+
+// withTestCatalogRoute 给请求挂一条目录路由：条目厂商按 platform 反查，池由绑定 / 夹具仓储决定。
+// 分组没了之后，带模型的请求在生产里一定有路由；夹具原来靠分组平台定池的，改挂这条。
+func withTestCatalogRoute(ctx context.Context, entryID int64, platform, model string) context.Context {
+	return service.WithCatalogRoute(ctx, service.CatalogRoute{
+		EntryID: entryID, CanonicalModel: model, RequestedModel: model,
+		Entry: &service.ModelCatalogEntry{ID: entryID, ModelID: model, Vendor: testCatalogVendorForPlatform(platform), Status: service.ModelCatalogStatusListed},
+	})
+}
