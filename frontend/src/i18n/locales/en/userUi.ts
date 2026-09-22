@@ -170,8 +170,17 @@ export default {
     models: {
       title: 'Models',
       description: 'Listed models and their list prices, billed per token or per request',
-      allVendors: 'All vendors',
+      allVendors: 'All',
+      allBilling: 'All billing',
+      searchHint: 'Search models or aliases (press / to focus)',
       count: '{count} models',
+      view: { label: 'View', table: 'Table', grid: 'Grid' },
+      yourPrice: 'Your price',
+      yourPriceHint: '= list × {multiplier}',
+      multiplierNote: 'Your account multiplier is {multiplier}.',
+      perMillionShort: '$ / 1M tokens',
+      timePricing: 'Time-based',
+      weekdaysOnly: 'weekdays only',
       columns: {
         model: 'Model',
         vendor: 'Vendor',

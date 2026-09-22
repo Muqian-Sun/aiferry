@@ -1,9 +1,20 @@
-import { describe, expect, it, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount } from '@vue/test-utils'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
 
 const copyToClipboard = vi.fn().mockResolvedValue(true)
 vi.mock('@/composables/useClipboard', () => ({ useClipboard: () => ({ copied: { value: false }, copyToClipboard }) }))
+
+const { authState, routeState, replace } = vi.hoisted(() => ({
+  authState: { isAuthenticated: false, user: null as { rate_multiplier?: number } | null },
+  routeState: { query: {} as Record<string, string> },
+  replace: vi.fn()
+}))
+vi.mock('@/stores/auth', () => ({ useAuthStore: () => authState }))
+vi.mock('vue-router', () => ({
+  useRoute: () => routeState,
+  useRouter: () => ({ replace })
+}))
 vi.mock('vue-i18n', async (importOriginal) => {
   const actual = await importOriginal<typeof import('vue-i18n')>()
   return { ...actual, useI18n: () => ({ t: (key: string, params?: Record<string, unknown>) => (params ? `${key}:${JSON.stringify(params)}` : key) }) }
@@ -11,17 +22,28 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
 import ModelPlazaContent from '../ModelPlazaContent.vue'
 
+const tokenPricing = (input: number, output: number, cacheRead: number | null = null) => ({
+  billing_mode: 'token' as const,
+  input_price: input,
+  output_price: output,
+  cache_write_price: null,
+  cache_read_price: cacheRead,
+  image_input_price: null,
+  image_output_price: null,
+  per_request_price: null,
+  intervals: []
+})
+
 const response: ModelPlazaResponse = {
   description: '**Prices** update weekly',
   models: [
     {
       model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', aliases: ['gpt-5.5-sol'],
-      pricing: {
-        billing_mode: 'token', input_price: 0.00001, output_price: 0.00003, cache_write_price: null, cache_read_price: 0.0000025,
-        image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
-      }
+      pricing: tokenPricing(0.00001, 0.00003, 0.0000025),
+      time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: true, periods: [{ start_time: '09:00', end_time: '18:00', multiplier: 1.5 }] }
     },
-    { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }
+    { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
+    { model_id: 'gpt-image-2', display_name: '', vendor: 'openai', billing_mode: 'image', pricing: null, aliases: [] }
   ]
 }
 
@@ -32,20 +54,87 @@ function mountContent(props: Partial<{ response: ModelPlazaResponse | null; load
   })
 }
 
-describe('ModelPlazaContent (model-first catalog)', () => {
+const rowIds = (wrapper: ReturnType<typeof mountContent>) =>
+  wrapper.findAll('[data-testid="catalog-row"]').map((row) => row.find('.font-mono').text())
+
+describe('ModelPlazaContent', () => {
+  beforeEach(() => {
+    authState.isAuthenticated = false
+    authState.user = null
+    routeState.query = {}
+    replace.mockClear()
+    copyToClipboard.mockClear()
+  })
+
   it('renders one row per listed entry (vendor, then id) with list prices per 1M tokens', () => {
     const wrapper = mountContent()
-    const rows = wrapper.findAll('[data-testid="catalog-row"]')
-    expect(rows).toHaveLength(2)
-    expect(rows[0].text()).toContain('claude-opus-5')
-    expect(rows[0].text()).toContain('Anthropic')
-    expect(rows[1].text()).toContain('gpt-5.5')
-    expect(rows[1].text()).toContain('OpenAI')
-    expect(rows[1].text()).toContain('$10.00')
-    expect(rows[1].text()).toContain('$30.00')
-    expect(rows[1].text()).toContain('$2.5')
-    expect(wrapper.find('[data-testid="catalog-count"]').text()).toContain('"count":2')
+    expect(rowIds(wrapper)).toEqual(['claude-opus-5', 'gpt-5.5', 'gpt-image-2'])
+    const gpt = wrapper.findAll('[data-testid="catalog-row"]')[1]
+    expect(gpt.text()).toContain('OpenAI')
+    expect(gpt.text()).toContain('$10.00')
+    expect(gpt.text()).toContain('$30.00')
+    expect(gpt.text()).toContain('$2.5')
+    expect(gpt.text()).toContain('gpt-5.5-sol')
+    expect(wrapper.find('[data-testid="catalog-count"]').text()).toContain('"count":3')
     expect(wrapper.text()).toContain('userUi.models.listPrice')
+    expect(wrapper.find('[data-testid="user-price-header"]').exists()).toBe(false)
+  })
+
+  it('shows vendor tabs with counts and filters by the selected vendor, writing it to the URL', async () => {
+    const wrapper = mountContent()
+    const tabs = wrapper.findAll('[data-testid="vendor-tabs"] [role="tab"]')
+    expect(tabs.map((tab) => tab.text().replace(/\s+/g, ' '))).toEqual(['userUi.models.allVendors 3', 'Anthropic 1', 'OpenAI 2'])
+
+    await wrapper.get('[data-testid="vendor-tab-openai"]').trigger('click')
+    expect(rowIds(wrapper)).toEqual(['gpt-5.5', 'gpt-image-2'])
+    expect(replace).toHaveBeenCalledWith({ query: { vendor: 'openai' } })
+
+    await wrapper.get('[data-testid="vendor-tab-all"]').trigger('click')
+    expect(rowIds(wrapper)).toHaveLength(3)
+    expect(replace).toHaveBeenLastCalledWith({ query: {} })
+  })
+
+  it('reads vendor and view from the URL', () => {
+    routeState.query = { vendor: 'anthropic', view: 'grid' }
+    const wrapper = mountContent()
+    expect(wrapper.find('[data-testid="catalog-table"]').exists()).toBe(false)
+    const cells = wrapper.findAll('[data-testid="catalog-cell"]')
+    expect(cells).toHaveLength(1)
+    expect(cells[0].text()).toContain('claude-opus-5')
+  })
+
+  it('switches to the grid view and back, keeping the URL in sync', async () => {
+    const wrapper = mountContent()
+    await wrapper.get('[data-testid="view-grid"]').trigger('click')
+    expect(wrapper.find('[data-testid="catalog-grid"]').exists()).toBe(true)
+    expect(wrapper.findAll('[data-testid="catalog-cell"]')).toHaveLength(3)
+    expect(replace).toHaveBeenLastCalledWith({ query: { view: 'grid' } })
+    // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格
+    expect(wrapper.get('[data-testid="catalog-cell"]').classes().join(' ')).not.toMatch(/rounded|shadow/)
+
+    await wrapper.get('[data-testid="view-table"]').trigger('click')
+    expect(wrapper.find('[data-testid="catalog-table"]').exists()).toBe(true)
+    expect(replace).toHaveBeenLastCalledWith({ query: {} })
+  })
+
+  it('adds "your price" columns only when signed in with a multiplier other than 1', () => {
+    authState.isAuthenticated = true
+    authState.user = { rate_multiplier: 1 }
+    expect(mountContent().find('[data-testid="user-price-header"]').exists()).toBe(false)
+
+    authState.user = { rate_multiplier: 2 }
+    const wrapper = mountContent()
+    expect(wrapper.get('[data-testid="user-price-header"]').text()).toContain('"multiplier":2')
+    const gpt = wrapper.findAll('[data-testid="catalog-row"]')[1]
+    expect(gpt.get('[data-testid="user-price-input"]').text()).toBe('$20.00')
+    expect(wrapper.text()).toContain('userUi.models.multiplierNote')
+  })
+
+  it('marks time-priced models with a badge that spells out the periods', () => {
+    const wrapper = mountContent()
+    const badge = wrapper.get('[data-testid="time-pricing-badge"]')
+    expect(badge.attributes('title')).toBe('09:00–18:00 ×1.5 (Asia/Shanghai, userUi.models.weekdaysOnly)')
+    expect(wrapper.findAll('[data-testid="time-pricing-badge"]')).toHaveLength(1)
   })
 
   it('shows a dash for entries without token prices', () => {
@@ -54,8 +143,7 @@ describe('ModelPlazaContent (model-first catalog)', () => {
   })
 
   it('renders the admin markdown note sanitized', () => {
-    const wrapper = mountContent()
-    expect(wrapper.find('.plaza-description').html()).toContain('<strong>Prices</strong>')
+    expect(mountContent().find('.plaza-description').html()).toContain('<strong>Prices</strong>')
   })
 
   it('copies a model id from the row button', async () => {
