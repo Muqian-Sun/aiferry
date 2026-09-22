@@ -42,22 +42,22 @@ func TestCheckBillingEligibility_SubscriptionUsesPlanLimits(t *testing.T) {
 	t.Cleanup(svc.Stop)
 
 	sub := &UserSubscription{UserID: 1, PlanID: 20, Plan: &SubscriptionPlan{ID: 20, DailyLimitUSD: &limit}}
-	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, sub)
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, sub)
 	require.ErrorIs(t, err, ErrDailyLimitExceeded)
 	require.EqualValues(t, 1, cache.subCalls.Load())
 	require.Zero(t, cache.balanceCalls.Load(), "订阅 key 不查余额")
 
 	// 套餐无限额 → 放行
 	sub.Plan = &SubscriptionPlan{ID: 20}
-	require.NoError(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, sub))
+	require.NoError(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, sub))
 
 	// 周 / 月限额同样从套餐取
 	cache.sub.WeeklyUsage = 5
 	sub.Plan = &SubscriptionPlan{ID: 20, WeeklyLimitUSD: &limit}
-	require.ErrorIs(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, sub), ErrWeeklyLimitExceeded)
+	require.ErrorIs(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, sub), ErrWeeklyLimitExceeded)
 	cache.sub.MonthlyUsage = 5
 	sub.Plan = &SubscriptionPlan{ID: 20, MonthlyLimitUSD: &limit}
-	require.ErrorIs(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, nil, sub), ErrMonthlyLimitExceeded)
+	require.ErrorIs(t, svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, nil, sub), ErrMonthlyLimitExceeded)
 }
 
 // 余额 key（ctx 无订阅）：走余额，订阅缓存零调用
@@ -68,7 +68,7 @@ func TestCheckBillingEligibility_BalanceKeyIgnoresSubscription(t *testing.T) {
 	svc := NewBillingCacheService(cache, nil, nil, nil, nil, cfg)
 	t.Cleanup(svc.Stop)
 
-	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, &APIKey{ID: 5}, nil, nil)
+	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, &APIKey{ID: 5}, nil)
 	require.ErrorIs(t, err, ErrInsufficientBalance)
 	require.EqualValues(t, 1, cache.balanceCalls.Load())
 	require.Zero(t, cache.subCalls.Load())

@@ -559,12 +559,8 @@ func (s *GatewayService) recordUsageCore(ctx context.Context, input *recordUsage
 		pricingAt = timezone.Now()
 	}
 
-	// 确定计费模型：请求模型（目录别名归一由 resolver 完成）；composite 分组按实际转发的具体模型。
-	concreteBillingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
-	billingModel := concreteBillingModel
-	if apiKey.Group != nil && apiKey.Group.Platform == PlatformComposite {
-		billingModel = s.compositeBillableModel(ctx, apiKey, billingModel, concreteBillingModel)
-	}
+	// 确定计费模型：请求模型（目录别名归一由 resolver 完成）。
+	billingModel := forwardResultBillingModel(result.Model, result.UpstreamModel)
 	// 选定模型查不到任何价格时回退到实际转发的具体模型（账号级 model_mapping 的上游名）。
 	billingModel = s.billableModelWithFallback(ctx, apiKey, billingModel, result.UpstreamModel, result.Model)
 
@@ -653,17 +649,6 @@ func (s *GatewayService) calculateRecordUsageCost(
 		}
 	}
 	return tokenCost
-}
-
-func (s *GatewayService) compositeBillableModel(ctx context.Context, apiKey *APIKey, billingModel, concreteBillingModel string) string {
-	if concreteBillingModel == "" || billingModel == concreteBillingModel {
-		return billingModel
-	}
-	if s.resolveOperatorPricing(ctx, billingModel) != nil {
-		return billingModel
-	}
-	logger.LegacyPrintf("service.gateway", "[Billing] composite billing model %q has no explicit channel pricing, billing by concrete model %q", billingModel, concreteBillingModel)
-	return concreteBillingModel
 }
 
 // billableModelWithFallback 在选定计费模型（可能是 composite 公开别名或未定价的映射名）

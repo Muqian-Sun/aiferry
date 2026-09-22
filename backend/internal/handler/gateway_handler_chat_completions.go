@@ -76,11 +76,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		return
 	}
 	reqModel := modelResult.String()
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
-		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
-		return
-	}
 	bindRequestedReasoningEffort(c, body, reqModel)
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {
@@ -133,7 +128,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	}
 
 	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("gateway.cc.billing_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -158,7 +153,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	sessionHash := h.openAIGatewayService.GenerateSessionHash(c, body)
 	// OpenAI 上游的 prompt cache 键（Responses prompt_cache_key）
 	promptCacheKey := h.openAIGatewayService.ExtractSessionID(c, body)
-	groupPlatform := effectiveAPIKeyPlatform(c, apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
 	selectionSessionHash := sessionHash
 	// 3. Account selection + failover loop
 	fs := NewFailoverState(h.maxAccountSwitches, false)
@@ -170,7 +165,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, groupPlatform)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -191,7 +186,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				return
 			default:
 				if fs.LastFailoverErr != nil {
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
+					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
 				} else {
 					h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
 				}
@@ -256,7 +251,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				// 调度按协议地址放行 key，这里仍对不上说明两边口径不一致，留日志而不是静默换号。
 				reqLog.Warn("gateway.cc.key_protocol_unavailable",
 					zap.Int64("account_id", account.ID),
-					zap.String("group_platform", groupPlatform),
+					zap.String("request_platform", requestPlatform),
 				)
 			}
 			fs.FailedAccountIDs[account.ID] = struct{}{}
@@ -394,7 +389,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 					if forwardTarget == compatForwardOpenAI {
 						h.openAIGatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 					}
-					h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), true)
+					h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), true)
 					return
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
@@ -406,12 +401,12 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 				case FailoverContinue:
 					// OAuth 429 风暴刹车：只在真正换号（不是同账号重试）后判断
 					if fs.SwitchCount > switchCountBefore && h.openAIGatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, fs.SwitchCount, &fs.OAuth429) {
-						h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+						h.handleCCFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
 						return
 					}
 					continue
 				case FailoverExhausted:
-					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+					h.handleCCFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)

@@ -62,8 +62,11 @@ func TestAsyncImageHandlerSubmitAndPoll(t *testing.T) {
 			ID:      9,
 			UserID:  7,
 			GroupID: &groupID,
-			Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, AllowImageGeneration: true},
 		})
+		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
+			EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",
+			Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-image-1", Vendor: "openai", Status: service.ModelCatalogStatusListed},
+		}))
 		c.Next()
 	})
 	router.POST("/v1/images/generations/async", h.Submit)
@@ -121,8 +124,11 @@ func TestAsyncImageHandlerDisabledReturns404(t *testing.T) {
 			ID:      9,
 			UserID:  7,
 			GroupID: &groupID,
-			Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, AllowImageGeneration: true},
 		})
+		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
+			EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",
+			Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-image-1", Vendor: "openai", Status: service.ModelCatalogStatusListed},
+		}))
 		c.Next()
 	})
 	router.POST("/v1/images/generations/async", h.Submit)

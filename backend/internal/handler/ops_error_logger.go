@@ -1169,7 +1169,7 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 		}
 
 		fallbackPlatform := guessPlatformFromPath(c.Request.URL.Path)
-		platform := resolveOpsPlatform(c.Request.Context(), apiKey, fallbackPlatform)
+		platform := resolveOpsPlatform(c.Request.Context(), fallbackPlatform)
 
 		requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
 		requestID = strings.TrimSpace(requestID)
@@ -1260,10 +1260,6 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			}
 			if apiKey.GroupID != nil {
 				entry.GroupID = apiKey.GroupID
-			}
-			// Prefer group platform if present (more stable than inferring from path).
-			if apiKey.Group != nil && apiKey.Group.Platform != "" {
-				entry.Platform = apiKey.Group.Platform
 			}
 		}
 
@@ -1370,7 +1366,7 @@ func logOpsRecoveredUpstream(c *gin.Context, ops *service.OpsService, finalStatu
 	if c.Request != nil {
 		requestContext = c.Request.Context()
 	}
-	entry.Platform = resolveOpsPlatform(requestContext, apiKey, fallbackPlatform)
+	entry.Platform = resolveOpsPlatform(requestContext, fallbackPlatform)
 	entry.UpstreamEndpoint = GetUpstreamEndpoint(c, entry.Platform)
 	if apiKey != nil {
 		entry.APIKeyID = &apiKey.ID
@@ -1380,9 +1376,6 @@ func logOpsRecoveredUpstream(c *gin.Context, ops *service.OpsService, finalStatu
 		}
 		if apiKey.GroupID != nil {
 			entry.GroupID = apiKey.GroupID
-		}
-		if apiKey.Group != nil && apiKey.Group.Platform != "" {
-			entry.Platform = apiKey.Group.Platform
 		}
 	}
 	if clientIP := strings.TrimSpace(ip.GetClientIP(c)); clientIP != "" {
@@ -1487,7 +1480,7 @@ func logOpsStreamErrorValue(c *gin.Context, ops *service.OpsService, wireStatus 
 	}
 
 	fallbackPlatform := guessPlatformFromPath(c.Request.URL.Path)
-	platform := resolveOpsPlatform(c.Request.Context(), apiKey, fallbackPlatform)
+	platform := resolveOpsPlatform(c.Request.Context(), fallbackPlatform)
 
 	requestID, _ := c.Request.Context().Value(ctxkey.RequestID).(string)
 	requestID = strings.TrimSpace(requestID)
@@ -1568,9 +1561,6 @@ func logOpsStreamErrorValue(c *gin.Context, ops *service.OpsService, wireStatus 
 		}
 		if apiKey.GroupID != nil {
 			entry.GroupID = apiKey.GroupID
-		}
-		if apiKey.Group != nil && apiKey.Group.Platform != "" {
-			entry.Platform = apiKey.Group.Platform
 		}
 	}
 
@@ -2094,12 +2084,9 @@ func getOpsAPIKey(c *gin.Context) *service.APIKey {
 	return nil
 }
 
-func resolveOpsPlatform(ctx context.Context, apiKey *service.APIKey, fallback string) string {
+func resolveOpsPlatform(ctx context.Context, fallback string) string {
 	if platform, ok := service.RequestVendorPlatform(ctx); ok {
 		return platform
-	}
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != "" {
-		return apiKey.Group.Platform
 	}
 	return fallback
 }

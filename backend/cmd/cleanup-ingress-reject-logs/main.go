@@ -156,12 +156,6 @@ func historicalIngressRejectReason(item candidate) (string, bool) {
 		return "key_disabled", true
 	case "USER_INACTIVE":
 		return "user_inactive", true
-	case "GROUP_DELETED":
-		return "group_deleted", true
-	case "GROUP_DISABLED":
-		return "group_disabled", true
-	case "GROUP_NOT_ALLOWED":
-		return "group_forbidden", true
 	case "ACCESS_DENIED":
 		return "ip_acl_denied", true
 	case "api_key_in_query_deprecated":
@@ -178,12 +172,6 @@ func historicalIngressRejectReason(item candidate) (string, bool) {
 		return "key_disabled", true
 	case normalized == "User account is not active":
 		return "user_inactive", true
-	case normalized == "API Key 所属分组已删除":
-		return "group_deleted", true
-	case normalized == "API Key 所属分组已停用":
-		return "group_disabled", true
-	case normalized == "API Key 所属专属分组不再允许当前用户使用":
-		return "group_forbidden", true
 	case strings.HasPrefix(normalized, "Access denied. Your IP is "):
 		return "ip_acl_denied", true
 	case normalized == "Query parameter api_key is deprecated. Use Authorization header or key instead.":

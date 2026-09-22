@@ -21,22 +21,19 @@ func ErrorPassthroughRulePlatform(account *Account, gatewayPlatform string) stri
 }
 
 // OpenAICompatibleRequestPlatform 返回 OpenAI 系入口上本次请求的厂商平台：目录路由按条目厂商，
-// 其次合成分组解析出的目标平台，再次分组平台，未分组为 openai。grok 与国产供应商保留原值，
-// 其他归一为 openai。只给厂商特有处理（grok 传输 / 生图能力 / 续链检查 / 错误文案）用，不是调度平台。
-func OpenAICompatibleRequestPlatform(ctx context.Context, apiKey *APIKey) string {
+// 无路由为 openai。grok 与国产供应商保留原值，其他归一为 openai。
+// 只给厂商特有处理（grok 传输 / 生图能力 / 续链检查 / 错误文案）用，不是调度平台。
+func OpenAICompatibleRequestPlatform(ctx context.Context) string {
 	if platform, ok := RequestVendorPlatform(ctx); ok {
 		return NormalizeOpenAICompatiblePlatform(platform)
-	}
-	if apiKey != nil && apiKey.Group != nil {
-		return NormalizeOpenAICompatiblePlatform(apiKey.Group.Platform)
 	}
 	return PlatformOpenAI
 }
 
 // AnthropicGatewayRequestPlatform 返回 /v1/messages 系入口上本次请求的厂商平台：
-// 强制平台（/antigravity 路由）优先，其次目录路由的条目厂商 / 合成分组解析出的目标平台，
-// 再次分组平台；未分组按 anthropic。只给错误透传规则平台与错误文案用，不是调度平台。
-func AnthropicGatewayRequestPlatform(ctx context.Context, apiKey *APIKey) string {
+// 强制平台（/antigravity 路由）优先，其次目录路由的条目厂商；无路由按 anthropic。
+// 只给错误透传规则平台与错误文案用，不是调度平台。
+func AnthropicGatewayRequestPlatform(ctx context.Context) string {
 	if ctx != nil {
 		if forcePlatform, ok := ctx.Value(ctxkey.ForcePlatform).(string); ok && strings.TrimSpace(forcePlatform) != "" {
 			return strings.TrimSpace(forcePlatform)
@@ -45,32 +42,23 @@ func AnthropicGatewayRequestPlatform(ctx context.Context, apiKey *APIKey) string
 			return platform
 		}
 	}
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform != "" {
-		return apiKey.Group.Platform
-	}
 	return PlatformAnthropic
 }
 
 // openAIGatewayErrorPassthroughPlatform 是 OpenAI 网关转发路径上匹配错误透传规则的平台。
 func openAIGatewayErrorPassthroughPlatform(c *gin.Context, account *Account) string {
-	ctx, apiKey := errorPassthroughRequestScope(c)
-	return ErrorPassthroughRulePlatform(account, OpenAICompatibleRequestPlatform(ctx, apiKey))
+	return ErrorPassthroughRulePlatform(account, OpenAICompatibleRequestPlatform(errorPassthroughRequestContext(c)))
 }
 
 // anthropicGatewayErrorPassthroughPlatform 是 Anthropic 网关转发路径（GatewayService）上
 // 匹配错误透传规则的平台。
 func anthropicGatewayErrorPassthroughPlatform(c *gin.Context, account *Account) string {
-	ctx, apiKey := errorPassthroughRequestScope(c)
-	return ErrorPassthroughRulePlatform(account, AnthropicGatewayRequestPlatform(ctx, apiKey))
+	return ErrorPassthroughRulePlatform(account, AnthropicGatewayRequestPlatform(errorPassthroughRequestContext(c)))
 }
 
-func errorPassthroughRequestScope(c *gin.Context) (context.Context, *APIKey) {
-	if c == nil {
-		return nil, nil
+func errorPassthroughRequestContext(c *gin.Context) context.Context {
+	if c == nil || c.Request == nil {
+		return nil
 	}
-	var ctx context.Context
-	if c.Request != nil {
-		ctx = c.Request.Context()
-	}
-	return ctx, getAPIKeyFromContext(c)
+	return c.Request.Context()
 }

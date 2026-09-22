@@ -48,23 +48,6 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		groupID = resolvedGroupID
 		ctx = s.withGroupContext(ctx, group)
 		platform = group.Platform
-		if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-			// 合成分组解析出的目标平台（目录路由不写它：目录下的资格只看协议，平台参数无关紧要）。
-			platform = resolved
-		} else if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				return nil, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			platform = decision.TargetPlatform
-			requestedModel = decision.UpstreamModel
-			ctx = WithCompositeRouteDecision(ctx, decision)
-		}
-	} else if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-		platform = resolved
 	} else {
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
@@ -840,7 +823,7 @@ func modelRoutingAppliesToPlatform(targetPlatform, groupPlatform string) bool {
 	if !modelRoutingAppliesToTargetPlatform(targetPlatform) {
 		return false
 	}
-	return groupPlatform == targetPlatform || groupPlatform == PlatformComposite
+	return groupPlatform == targetPlatform
 }
 
 // modelRoutingAppliesToTargetPlatform 是放行平台集合的唯一定义处：新增平台只改这里。
@@ -914,40 +897,17 @@ func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, gr
 	if hasForcePlatform && forcePlatform != "" {
 		return forcePlatform, true, nil
 	}
-	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-		return platform, false, nil
-	}
 	// 无模型端点：平台由端点自己声明（SelectOptions.Platform），不看分组
 	if opts := selectOptionsFromContext(ctx); opts.Platform != "" {
 		return opts.Platform, false, nil
 	}
 	if group != nil {
-		if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return "", false, err
-			}
-			if !ok {
-				return "", false, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			return decision.TargetPlatform, false, nil
-		}
 		return group.Platform, false, nil
 	}
 	if groupID != nil {
 		group, err := s.resolveGroupByID(ctx, *groupID)
 		if err != nil {
 			return "", false, err
-		}
-		if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return "", false, err
-			}
-			if !ok {
-				return "", false, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			return decision.TargetPlatform, false, nil
 		}
 		return group.Platform, false, nil
 	}
@@ -2182,11 +2142,6 @@ func summarizeSelectionFailureStats(stats selectionFailureStats) string {
 // Antigravity 只有成品号（第三方 key 的 Vendor 不会是 antigravity），标签为
 // antigravity 的 key 按普通账号的映射判定。
 func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Context, account *Account, requestedModel string) bool {
-	if source, ok := CompositeRouteSourceFromContext(ctx); ok && source == CompositeRouteSourceAccount {
-		if publicModel, modelOK := RequestedPublicModelFromContext(ctx); modelOK && !explicitModelMappingClaims(*account, publicModel) {
-			return false
-		}
-	}
 	if account.Vendor() == PlatformAntigravity {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true

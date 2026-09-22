@@ -96,11 +96,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		return
 	}
 	reqModel := modelResult.String()
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
-		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
-		return
-	}
 	bindRequestedReasoningEffort(c, body, reqModel)
 	if normalizedBody, changed := normalizeCodexAutomationBootstrap(body); changed {
 		body = normalizedBody
@@ -202,7 +197,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	}
 
 	// 2. Re-check billing
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("gateway.responses.billing_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -226,7 +221,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 粘性键按 OpenAI 协议派生：会话头 / prompt_cache_key / 稳定的内容摘要（对 anthropic 池同样生效）。
 	sessionHash := h.openAIGatewayService.GenerateSessionHash(c, sessionHashBody)
 	requireCompact := legacyCompact
-	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
 	// 生图 / compact / 原生 v2 压缩必须调度到确实提供 Responses 的资源
 	capability := openAIResponsesRequiredCapabilityForRequest(imageIntent, nativeV2 || legacyCompact, requestPlatform)
 	// 续链与守护父线程亲和都是「已绑定的资源」：做成预取粘性，选号时优先于缓存里的会话绑定。
@@ -259,7 +254,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					h.responsesErrorResponse(c, http.StatusServiceUnavailable, "compact_not_supported", "No available accounts support /responses/compact")
 					return
 				}
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, effectiveAPIKeyPlatform(c, apiKey))
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -280,7 +275,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				return
 			default:
 				if fs.LastFailoverErr != nil {
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, effectiveAPIKeyPlatform(c, apiKey), streamStarted)
+					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, requestPlatform, streamStarted)
 				} else {
 					h.responsesErrorResponse(c, http.StatusBadGateway, "server_error", "All available accounts exhausted")
 				}
@@ -363,7 +358,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			}
 			reqLog.Warn("gateway.responses.key_protocol_unavailable",
 				zap.Int64("account_id", account.ID),
-				zap.String("group_platform", effectiveAPIKeyPlatform(c, apiKey)),
+				zap.String("request_platform", requestPlatform),
 			)
 			fs.FailedAccountIDs[account.ID] = struct{}{}
 			continue
@@ -501,7 +496,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					if forwardTarget == compatForwardOpenAI {
 						h.openAIGatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 					}
-					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), true)
+					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), true)
 					return
 				}
 				// 写出的字节不含语义输出，但重试耗尽时仍须按已提交的 SSE 响应返回流内错误
@@ -512,7 +507,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					h.openAIGatewayService.ObserveOpenAIAccountResult(account, openAIAccountScheduleModel(c, account, reqModel, requireCompact, nil), false, err)
 				}
 				if openAIFirstOutputFailoverExhausted(failoverErr, &firstOutputSwitches) {
-					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+					h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
 					return
 				}
 				switchCountBefore := fs.SwitchCount
@@ -521,12 +516,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				case FailoverContinue:
 					// OAuth 429 风暴刹车：只在真正换号（不是同账号重试）后判断
 					if fs.SwitchCount > switchCountBefore && h.openAIGatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, fs.SwitchCount, &fs.OAuth429) {
-						h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+						h.handleResponsesFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
 						return
 					}
 					continue
 				case FailoverExhausted:
-					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, effectiveAPIKeyPlatform(c, apiKey)), streamStarted)
+					h.handleResponsesFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, requestPlatform), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)

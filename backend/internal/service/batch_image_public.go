@@ -958,24 +958,21 @@ func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context, pla
 }
 
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
-	unit := -1.0
-	// 用户价 = 目录价 × 用户倍率；图片单价来自目录条目（BatchImageUnitPrice），不再有分组折扣 / 预扣倍率。
-	groupMultiplier := owner.RateMultiplier
-	if groupMultiplier < 0 {
-		groupMultiplier = 0
+	// 用户价 = 目录价 × 用户倍率 × 账号倍率；图片单价来自目录条目（BatchImageUnitPrice）。
+	// 折扣 / 预扣倍率是常量 1.0（D5a：按目录价、预扣全额），快照里照记以便结算侧读法不变。
+	if s.Pricing == nil {
+		return nil, ErrBatchImageSettlementPricingMissing
+	}
+	unit, err := s.Pricing.BatchImageUnitPrice(ctx, &BatchImageJob{Provider: provider, Model: req.Model})
+	if err != nil || unit < 0 {
+		return nil, ErrBatchImageSettlementPricingMissing
+	}
+	userMultiplier := owner.RateMultiplier
+	if userMultiplier < 0 {
+		userMultiplier = 0
 	}
 	discountMultiplier := defaultBatchImageDiscountMultiplier
 	holdMultiplier := defaultBatchImageHoldMultiplier
-	if unit < 0 {
-		if s.Pricing == nil {
-			return nil, ErrBatchImageSettlementPricingMissing
-		}
-		resolvedUnit, err := s.Pricing.BatchImageUnitPrice(ctx, &BatchImageJob{Provider: provider, Model: req.Model})
-		if err != nil || resolvedUnit < 0 {
-			return nil, ErrBatchImageSettlementPricingMissing
-		}
-		unit = resolvedUnit
-	}
 	accountMultiplier := 1.0
 	if account != nil {
 		accountMultiplier = account.BillingRateMultiplier()
@@ -983,12 +980,12 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 	if accountMultiplier < 0 {
 		accountMultiplier = 0
 	}
-	standardUnitPrice := unit * groupMultiplier * accountMultiplier
+	standardUnitPrice := unit * userMultiplier * accountMultiplier
 	billableUnitPrice := standardUnitPrice * discountMultiplier
 	holdUnitPrice := standardUnitPrice * holdMultiplier
 	return &BatchImagePricingSnapshot{
 		BaseUnitPrice:           unit,
-		GroupRateMultiplier:     groupMultiplier,
+		GroupRateMultiplier:     userMultiplier,
 		AccountRateMultiplier:   accountMultiplier,
 		BatchDiscountMultiplier: discountMultiplier,
 		HoldMultiplier:          holdMultiplier,

@@ -362,17 +362,11 @@ func RegisterGatewayRoutes(
 
 }
 
-// routePlatform 扩展端点分发用的厂商平台：目录路由按条目厂商（RequestVendorPlatform），
-// 没有（无模型端点、厂商未知）按分组平台（PR-7 再定）。
+// routePlatform 扩展端点分发用的厂商平台：目录路由按条目厂商（RequestVendorPlatform）；
+// 无路由（无模型端点、厂商未知）为空，由各端点按自己的默认分发。
 func routePlatform(c *gin.Context) string {
-	if platform, ok := service.RequestVendorPlatform(c.Request.Context()); ok {
-		return platform
-	}
-	apiKey, ok := middleware.GetAPIKeyFromContext(c)
-	if !ok || apiKey.Group == nil {
-		return ""
-	}
-	return apiKey.Group.Platform
+	platform, _ := service.RequestVendorPlatform(c.Request.Context())
+	return platform
 }
 
 // grokCustomVoiceEndpoint derives the upstream Voice endpoint for the

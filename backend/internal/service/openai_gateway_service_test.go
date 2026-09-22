@@ -379,7 +379,8 @@ func TestOpenAIGatewayService_ClientSessionHeaderPriority(t *testing.T) {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
-	c.Set("api_key", &APIKey{ID: 901, Group: &Group{Platform: PlatformGrok}})
+	c.Set("api_key", &APIKey{ID: 901})
+	withVendorRoute(c, "xai")
 
 	headers := []struct {
 		name  string

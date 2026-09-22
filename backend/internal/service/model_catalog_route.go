@@ -27,6 +27,19 @@ func WithCatalogRoute(ctx context.Context, route CatalogRoute) context.Context {
 	return context.WithValue(ctx, ctxkey.RequestedPublicModel, route.RequestedModel)
 }
 
+// RequestedPublicModelFromContext 客户端原始请求的公开模型名（准入时随目录路由挂上，可能是条目别名）。
+func RequestedPublicModelFromContext(ctx context.Context) (string, bool) {
+	if ctx == nil {
+		return "", false
+	}
+	model, ok := ctx.Value(ctxkey.RequestedPublicModel).(string)
+	model = strings.TrimSpace(model)
+	if !ok || model == "" {
+		return "", false
+	}
+	return model, true
+}
+
 // CatalogRouteFromContext 取出准入挂上的目录路由。
 func CatalogRouteFromContext(ctx context.Context) (CatalogRoute, bool) {
 	if ctx == nil {
@@ -77,18 +90,18 @@ func CatalogVendorPlatform(entry *ModelCatalogEntry) string {
 	return ""
 }
 
-// RequestVendorPlatform 本次请求的厂商平台：目录路由按条目厂商（CatalogVendorPlatform），
-// 否则是合成分组解析出的目标平台（ResolvedTargetPlatform，PR-7 随分组删）。
-// 只给扩展端点分发（routes）与厂商特有处理（grok 传输 / 缓存身份、错误透传规则平台、
-// 运维日志平台）读；调度与准入不看它。
+// RequestVendorPlatform 本次请求的厂商平台：目录路由按条目厂商（CatalogVendorPlatform）；
+// 无路由（无模型端点）没有厂商。只给扩展端点分发（routes）与厂商特有处理（grok 传输 / 缓存身份、
+// 错误透传规则平台、运维日志平台）读；调度与准入不看它。
 func RequestVendorPlatform(ctx context.Context) (string, bool) {
-	if route, ok := CatalogRouteFromContext(ctx); ok {
-		if platform := CatalogVendorPlatform(route.Entry); platform != "" {
-			return platform, true
-		}
+	route, ok := CatalogRouteFromContext(ctx)
+	if !ok {
 		return "", false
 	}
-	return ResolvedTargetPlatformFromContext(ctx)
+	if platform := CatalogVendorPlatform(route.Entry); platform != "" {
+		return platform, true
+	}
+	return "", false
 }
 
 // ResolveRoute 准入用：模型名（精确 / 别名 / 通配别名 / Codex 归一化）命中 listed 条目

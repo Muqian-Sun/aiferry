@@ -70,9 +70,8 @@ const (
 )
 
 const (
-	cacheTTLTarget5m                   = "5m"
-	cacheTTLTarget1h                   = "1h"
-	compositeModelOwnershipCachePrefix = "composite-owner|"
+	cacheTTLTarget5m = "5m"
+	cacheTTLTarget1h = "1h"
 )
 
 // ForceCacheBillingContextKey 强制缓存计费上下文键
@@ -461,10 +460,6 @@ func modelsListCacheKey(groupID *int64, platform string) string {
 	return fmt.Sprintf("%d|%s", derefGroupID(groupID), strings.TrimSpace(platform))
 }
 
-func compositeModelOwnershipCacheKey(groupID int64, model string) string {
-	return fmt.Sprintf("%s%d|%s", compositeModelOwnershipCachePrefix, groupID, strings.TrimSpace(model))
-}
-
 func prefetchedStickyGroupIDFromContext(ctx context.Context) (int64, bool) {
 	return PrefetchedStickyGroupIDFromContext(ctx)
 }
@@ -722,7 +717,6 @@ type GatewayService struct {
 	debugModelRouting    atomic.Bool
 	debugClaudeMimic     atomic.Bool
 	resolver             *ModelPricingResolver
-	compositeResolver    *CompositeRouteResolver
 	debugGatewayBodyFile atomic.Pointer[os.File] // non-nil when SUB2API_DEBUG_GATEWAY_BODY is set
 	tlsFPProfileService  *TLSFingerprintProfileService
 	balanceNotifyService *BalanceNotifyService
@@ -753,7 +747,6 @@ func NewGatewayService(
 	settingService *SettingService,
 	tlsFPProfileService *TLSFingerprintProfileService,
 	resolver *ModelPricingResolver,
-	compositeResolver *CompositeRouteResolver,
 	balanceNotifyService *BalanceNotifyService,
 ) *GatewayService {
 	modelsListTTL := resolveModelsListCacheTTL(cfg)
@@ -785,11 +778,7 @@ func NewGatewayService(
 		responseHeaderFilter: compileResponseHeaderFilter(cfg),
 		tlsFPProfileService:  tlsFPProfileService,
 		resolver:             resolver,
-		compositeResolver:    compositeResolver,
 		balanceNotifyService: balanceNotifyService,
-	}
-	if compositeResolver != nil {
-		compositeResolver.SetModelOwnershipResolver(svc.resolveCompositeModelOwnership)
 	}
 	svc.debugModelRouting.Store(parseDebugEnvBool(os.Getenv("SUB2API_DEBUG_MODEL_ROUTING")))
 	svc.debugClaudeMimic.Store(parseDebugEnvBool(os.Getenv("SUB2API_DEBUG_CLAUDE_MIMIC")))
@@ -1382,53 +1371,6 @@ func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64,
 	return cloneStringSlice(models)
 }
 
-func (s *GatewayService) resolveCompositeModelOwnership(ctx context.Context, groupID int64, model string) (CompositeModelOwnership, error) {
-	model = strings.TrimSpace(model)
-	if s == nil || s.accountRepo == nil || groupID <= 0 || model == "" {
-		return CompositeModelOwnership{}, nil
-	}
-
-	cacheKey := compositeModelOwnershipCacheKey(groupID, model)
-	if s.modelsListCache != nil {
-		if cached, found := s.modelsListCache.Get(cacheKey); found {
-			if ownership, ok := cached.(CompositeModelOwnership); ok {
-				return ownership, nil
-			}
-		}
-	}
-
-	accounts, err := s.accountRepo.ListSchedulableByGroupID(ctx, groupID)
-	if err != nil {
-		return CompositeModelOwnership{}, err
-	}
-
-	// composite 分组按「哪个账号的映射认领了该模型」取目标平台，这里读的仍是账号的平台标签
-	// （第三方 key 也一样）。完全按模型路由留到下一步；目标平台确定之后，选号按协议地址判断 key。
-	platforms := make(map[string]struct{})
-	for _, account := range accounts {
-		platform := strings.TrimSpace(account.Platform)
-		if !isConcreteRequestPlatform(platform) || !explicitModelMappingClaims(account, model) {
-			continue
-		}
-		platforms[platform] = struct{}{}
-	}
-
-	ownership := CompositeModelOwnership{}
-	if len(platforms) == 1 {
-		for platform := range platforms {
-			ownership.TargetPlatform = platform
-		}
-		ownership.Matched = true
-	} else if len(platforms) > 1 {
-		ownership.Ambiguous = true
-	}
-
-	if s.modelsListCache != nil {
-		s.modelsListCache.Set(cacheKey, ownership, s.modelsListCacheTTL)
-	}
-	return ownership, nil
-}
-
 func explicitModelMappingClaims(account Account, model string) bool {
 	if account.Credentials == nil || model == "" {
 		return false
@@ -1437,42 +1379,10 @@ func explicitModelMappingClaims(account Account, model string) bool {
 	return ok && strings.TrimSpace(mapped) != ""
 }
 
-// GetSchedulablePlatforms returns the concrete platforms that currently have
-// schedulable accounts in the target group.
-//
-// 只用于 composite 分组的模型列表，与 resolveCompositeModelOwnership 一样按账号平台标签
-// 统计（第三方 key 也一样），完全按模型路由留到下一步。
-func (s *GatewayService) GetSchedulablePlatforms(ctx context.Context, groupID *int64) map[string]struct{} {
-	platforms := make(map[string]struct{})
-	if s == nil || s.accountRepo == nil {
-		return platforms
-	}
-
-	var accounts []Account
-	var err error
-	if groupID != nil {
-		accounts, err = s.accountRepo.ListSchedulableByGroupID(ctx, *groupID)
-	} else {
-		accounts, err = s.accountRepo.ListSchedulable(ctx)
-	}
-	if err != nil {
-		return platforms
-	}
-
-	for _, acc := range accounts {
-		platform := strings.TrimSpace(acc.Platform)
-		if platform != "" {
-			platforms[platform] = struct{}{}
-		}
-	}
-	return platforms
-}
-
 func (s *GatewayService) InvalidateAvailableModelsCache(groupID *int64, platform string) {
 	if s == nil || s.modelsListCache == nil {
 		return
 	}
-	s.invalidateCompositeModelOwnershipCache(groupID)
 
 	normalizedPlatform := strings.TrimSpace(platform)
 	// 完整匹配时精准失效；否则按维度批量失效。
@@ -1498,26 +1408,6 @@ func (s *GatewayService) InvalidateAvailableModelsCache(groupID *int64, platform
 			continue
 		}
 		s.modelsListCache.Delete(key)
-	}
-}
-
-func (s *GatewayService) invalidateCompositeModelOwnershipCache(groupID *int64) {
-	for key := range s.modelsListCache.Items() {
-		if !strings.HasPrefix(key, compositeModelOwnershipCachePrefix) {
-			continue
-		}
-		if groupID == nil {
-			s.modelsListCache.Delete(key)
-			continue
-		}
-		parts := strings.SplitN(strings.TrimPrefix(key, compositeModelOwnershipCachePrefix), "|", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		cachedGroupID, err := strconv.ParseInt(parts[0], 10, 64)
-		if err == nil && cachedGroupID == *groupID {
-			s.modelsListCache.Delete(key)
-		}
 	}
 }
 
