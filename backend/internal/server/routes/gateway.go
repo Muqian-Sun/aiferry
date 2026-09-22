@@ -214,58 +214,23 @@ func RegisterGatewayRoutes(
 		gateway.GET("/videos/:request_id", videoStatusHandler)
 		gateway.GET("/videos/:request_id/content", videoContentHandler)
 
-		// xAI Voice APIs (Grok platform only): HTTP TTS/STT + Realtime WS.
+		// xAI Voice APIs：端点本身就是 grok 的，池由 handler 按 grok 平台装载；不再按分组平台 404。
 		// Not part of the creation-center product surface — gateway relay only.
 		voiceHandler := func(endpoint string) gin.HandlerFunc {
-			return func(c *gin.Context) {
-				if routePlatform(c) != service.PlatformGrok {
-					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-					c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-					return
-				}
-				h.OpenAIGateway.GrokVoice(c, endpoint)
-			}
+			return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
 		}
 		gateway.POST("/tts", voiceHandler("tts"))
 		gateway.POST("/stt", voiceHandler("stt"))
 		gateway.POST("/custom-voices", voiceHandler("custom-voices"))
-		customVoicePathHandler := func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c))
-		}
+		customVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
 		gateway.GET("/custom-voices", voiceHandler("custom-voices"))
 		gateway.GET("/custom-voices/:voice_id/audio", customVoicePathHandler)
 		gateway.GET("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.PATCH("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.DELETE("/custom-voices/:voice_id", customVoicePathHandler)
-		gateway.GET("/realtime", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Realtime API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokRealtime(c)
-		})
-		gateway.POST("/web_search", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Web Search API is not supported for this platform"}})
-				return
-			}
-			h.Gateway.WebSearch(c)
-		})
-		gateway.POST("/x_search", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "X Search API is not supported for this platform"}})
-				return
-			}
-			h.Gateway.XSearch(c)
-		})
+		gateway.GET("/realtime", h.OpenAIGateway.GrokRealtime)
+		gateway.POST("/web_search", h.Gateway.WebSearch)
+		gateway.POST("/x_search", h.Gateway.XSearch)
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -348,55 +313,20 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/videos/:request_id/content", bodyLimit, videoContentHandler)
 
 	rootVoiceHandler := func(endpoint string) gin.HandlerFunc {
-		return func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokVoice(c, endpoint)
-		}
+		return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
 	}
 	rootRoute(http.MethodPost, "/tts", bodyLimit, rootVoiceHandler("tts"))
 	rootRoute(http.MethodPost, "/stt", bodyLimit, rootVoiceHandler("stt"))
 	rootRoute(http.MethodPost, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
-	rootCustomVoicePathHandler := func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-			return
-		}
-		h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c))
-	}
+	rootCustomVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
 	rootRoute(http.MethodGet, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
 	rootRoute(http.MethodGet, "/custom-voices/:voice_id/audio", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodGet, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodPatch, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodDelete, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodGet, "/realtime", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Realtime API is not supported for this platform"}})
-			return
-		}
-		h.OpenAIGateway.GrokRealtime(c)
-	})
-	rootRoute(http.MethodPost, "/web_search", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Web Search API is not supported for this platform"}})
-			return
-		}
-		h.Gateway.WebSearch(c)
-	})
-	rootRoute(http.MethodPost, "/x_search", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "X Search API is not supported for this platform"}})
-			return
-		}
-		h.Gateway.XSearch(c)
-	})
+	rootRoute(http.MethodGet, "/realtime", bodyLimit, h.OpenAIGateway.GrokRealtime)
+	rootRoute(http.MethodPost, "/web_search", bodyLimit, h.Gateway.WebSearch)
+	rootRoute(http.MethodPost, "/x_search", bodyLimit, h.Gateway.XSearch)
 
 	// Antigravity 模型列表
 	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), h.Gateway.AntigravityModels)

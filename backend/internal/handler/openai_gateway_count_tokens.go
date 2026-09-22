@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -96,6 +97,11 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
 		reqLog.Warn("openai_input_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
+		if errors.Is(err, service.ErrNoAvailableAccounts) {
+			// 计数只有 /v1/responses/input_tokens 一条桥：没有能承接 Responses 的资源就 404，让客户端本地估算（§6-8）
+			h.errorResponse(c, http.StatusNotFound, "not_found_error", "input_tokens endpoint is not supported for this model")
+			return
+		}
 		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -248,6 +254,11 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	if err != nil {
 		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
 		reqLog.Warn("openai_count_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
+		if errors.Is(err, service.ErrNoAvailableAccounts) {
+			// 与 Gateway 侧 / Antigravity 一致：没有能计数的资源回 404，客户端回退本地估算（§6-8，原来是 500）
+			h.anthropicErrorResponse(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this model")
+			return
+		}
 		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -271,7 +282,8 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 }
 
 // selectTokenCountAccount 计 token 是非计费请求：不抢槽、利润门抑制，其余门（平台 / 模型 / 能力 / 状态）与正常选号一致。
+// 计数没有协议转换，只有 /v1/responses/input_tokens 一条桥：只认能承接 Responses 的资源（只配 chat 地址的 key 不行）。
 func (h *OpenAIGatewayHandler) selectTokenCountAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string) (*service.Account, error) {
-	ctx = service.WithSelectOptions(service.WithOpenAIProfitControlSuppressed(ctx), service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
+	ctx = service.WithSelectOptions(service.WithOpenAIProfitControlSuppressed(ctx), service.SelectOptions{Capability: service.OpenAIEndpointCapabilityResponses})
 	return h.gatewayService.Scheduler().SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, routingModel, nil)
 }

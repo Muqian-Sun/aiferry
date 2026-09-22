@@ -26,11 +26,12 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	requestStart := time.Now()
 
 	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
-	if !ok || apiKey.Group == nil {
+	if !ok || apiKey == nil {
 		h.errorResponse(c, http.StatusUnauthorized, "authentication_error", "Invalid API key")
 		return
 	}
-	if effectiveAPIKeyPlatform(c, apiKey) != service.PlatformOpenAI {
+	// 模型必带 → 目录路由已挂：只认 OpenAI 厂商条目
+	if platform, ok := service.RequestVendorPlatform(c.Request.Context()); !ok || platform != service.PlatformOpenAI {
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "Codex alpha search is only available for OpenAI models")
 		return
 	}

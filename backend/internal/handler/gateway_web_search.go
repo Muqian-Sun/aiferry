@@ -69,14 +69,6 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 		return
 	}
 
-	if apiKey.Group == nil || apiKey.Group.Platform != "grok" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
-			"type":    "invalid_request_error",
-			"message": searchLabel + " is only supported for grok groups",
-		}})
-		return
-	}
-
 	// Billing eligibility (same as other requests)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
 	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
@@ -113,15 +105,8 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 		return
 	}
 
-	// Use exactly the same scheduling as other requests (SelectAccountWithLoadAwareness handles load, rate limit, sticky, etc.)
-	groupID := apiKey.GroupID
-	if groupID == nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": gin.H{
-			"type":    "invalid_request_error",
-			"message": "group required",
-		}})
-		return
-	}
+	// 无模型端点：池 = 全部 grok 资源（不看分组）；其余门（负载 / 限流 / 粘性）与别的请求一样
+	searchOptions := service.SelectOptions{Platform: service.PlatformGrok, Transport: service.OpenAIUpstreamTransportHTTPSSE}
 
 	failedAccounts := make(map[int64]struct{})
 	var account *service.Account
@@ -139,8 +124,8 @@ func (h *GatewayHandler) WebSearch(c *gin.Context) {
 
 	// First attempt + up to 3 failover accounts (max 4 total).
 	for attempt := 0; attempt < 4; attempt++ {
-		selected, selectErr := h.gatewayService.SelectAccountWithLoadAwareness(
-			c.Request.Context(), groupID, "", searchModel, failedAccounts,
+		selected, selectErr := h.gatewayService.SelectAccountWithOptions(
+			c.Request.Context(), nil, "", searchModel, failedAccounts, searchOptions,
 		)
 		if selectErr != nil {
 			if attempt == 0 {
