@@ -11,7 +11,6 @@ import type {
   PaginatedResponse,
   TrendDataPoint,
   ModelStat,
-  GroupStat,
   UsageRequestType,
   UserErrorRequest,
   UserErrorRequestDetail,
@@ -61,7 +60,6 @@ export interface TrendParams {
   granularity?: 'day' | 'hour'
   api_key_id?: number
   model?: string
-  group_id?: number
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null
@@ -105,7 +103,6 @@ export interface ApiKeyDailyUsageResponse {
 export interface UsageDashboardSnapshotV2Params extends TrendParams {
   include_trend?: boolean
   include_model_stats?: boolean
-  include_group_stats?: boolean
 }
 
 export interface UsageDashboardSnapshotV2Response {
@@ -115,7 +112,6 @@ export interface UsageDashboardSnapshotV2Response {
   granularity: string
   trend?: TrendDataPoint[]
   models?: ModelStat[]
-  groups?: GroupStat[]
 }
 
 /**
@@ -283,7 +279,6 @@ export async function getDashboardModels(params?: {
   api_key_id?: number
   model?: string
   model_source?: 'requested'
-  group_id?: number
   request_type?: UsageRequestType
   stream?: boolean
   native_compaction_v2?: boolean | null

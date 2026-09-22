@@ -33,7 +33,7 @@ function mountView() {
         DataTable: { name: 'DataTable', props: ['data', 'selectedKeys'], emits: ['update:selectedKeys', 'sort'], template: '<div />' },
         BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
         Pagination: true, Select: true, ConfirmDialog: true, Icon: true,
-        GroupBadge: true, GroupOptionItem: true, EmptyState: true, Teleport: true, RouterLink: true
+        EmptyState: true, Teleport: true, RouterLink: true
       }
     }
   })

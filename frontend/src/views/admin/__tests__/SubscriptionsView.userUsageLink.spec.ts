@@ -106,8 +106,6 @@ describe('admin subscription users', () => {
         ConfirmDialog: true,
         EmptyState: true,
         Select: true,
-        GroupBadge: true,
-        GroupOptionItem: true,
         Icon: true,
         Teleport: true
       }

@@ -12,7 +12,7 @@
       <router-link
         :to="homePath"
         class="sidebar-logo flex h-9 w-9 items-center justify-center overflow-hidden rounded-xl shadow-glow transition-opacity hover:opacity-80"
-        @click="handleMenuItemClick()"
+        @click="handleMenuItemClick"
       >
         <img v-if="settingsLoaded" :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
       </router-link>
@@ -20,7 +20,7 @@
         <router-link
           :to="homePath"
           class="sidebar-brand-title text-lg font-bold text-gray-900 transition-colors hover:text-primary-600 dark:text-white dark:hover:text-primary-400"
-          @click="handleMenuItemClick()"
+          @click="handleMenuItemClick"
         >
           {{ siteName }}
         </router-link>
@@ -76,7 +76,7 @@
                 :to="child.path"
                 class="sidebar-link mb-0.5 py-1.5 text-sm"
                 :class="{ 'sidebar-link-active': route.path === child.path }"
-                @click="handleMenuItemClick(child)"
+                @click="handleMenuItemClick"
               >
                 <component :is="child.icon" class="h-4 w-4 flex-shrink-0" />
                 <span>{{ child.label }}</span>
@@ -90,9 +90,7 @@
             class="sidebar-link mb-1"
             :class="{ 'sidebar-link-active': isActive(item.path), 'sidebar-link-collapsed': sidebarCollapsed }"
             :title="sidebarCollapsed ? item.label : undefined"
-            :id="item.elementId"
-            :data-tour="item.dataTour"
-            @click="handleMenuItemClick(item)"
+            @click="handleMenuItemClick"
           >
             <span v-if="item.iconSvg" class="h-5 w-5 flex-shrink-0 sidebar-svg-icon" v-html="sanitizeSvg(item.iconSvg)"></span>
             <component v-else :is="item.icon" class="h-5 w-5 flex-shrink-0" />
@@ -151,11 +149,10 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { useOnboardingStore } from '@/stores/onboarding'
 import { useTheme } from '@/composables/useTheme'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
-import { tourSelectorOf, type NavItem, type NavSection } from './navTypes'
+import type { NavItem, NavSection } from './navTypes'
 import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
@@ -173,7 +170,6 @@ const { t } = useI18n()
 const route = useRoute()
 const router = useRouter()
 const appStore = useAppStore()
-const onboardingStore = useOnboardingStore()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
@@ -198,16 +194,11 @@ function closeMobile() {
   appStore.setMobileOpen(false)
 }
 
-function handleMenuItemClick(item?: NavItem) {
+function handleMenuItemClick() {
   if (mobileOpen.value) {
     setTimeout(() => {
       appStore.setMobileOpen(false)
     }, 150)
-  }
-
-  const selector = item ? tourSelectorOf(item) : undefined
-  if (selector && onboardingStore.isCurrentStep(selector)) {
-    onboardingStore.nextStep(500)
   }
 }
 

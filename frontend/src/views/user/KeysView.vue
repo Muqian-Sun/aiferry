@@ -59,12 +59,6 @@
             @search="onFilterChange"
           />
           <Select
-            :model-value="filterGroupId"
-            class="w-40"
-            :options="groupFilterOptions"
-            @update:model-value="onGroupFilterChange"
-          />
-          <Select
             :model-value="filterStatus"
             class="w-40"
             :options="statusFilterOptions"
@@ -157,46 +151,6 @@
               class="text-af-brand"
               :title="t('keys.ipRestrictionEnabled')"
             />
-          </div>
-        </template>
-
-        <template #cell-group="{ row }">
-          <span v-if="row.subscription_id" class="text-sm text-af-ink-4" data-testid="subscription-key-no-group">—</span>
-          <div v-else class="group/dropdown relative">
-            <button
-              :ref="(el) => setGroupButtonRef(row.id, el)"
-              @click="openGroupSelector(row)"
-              class="-mx-2 -my-1 flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 transition-all duration-200 hover:bg-af-sunken"
-              :title="t('keys.clickToChangeGroup')"
-            >
-              <GroupBadge
-                v-if="row.group"
-                :name="row.group.name"
-                :platform="row.group.platform"
-                :rate-multiplier="row.group.rate_multiplier"
-                :peak-rate-enabled="row.group.peak_rate_enabled"
-                :peak-start="row.group.peak_start"
-                :peak-end="row.group.peak_end"
-                :peak-rate-multiplier="row.group.peak_rate_multiplier"
-              />
-              <span v-else class="text-sm text-af-ink-4">{{
-                t('keys.noGroup')
-              }}</span>
-              <span class="text-xs text-af-ink-3">{{ t('keys.selectGroup') }}</span>
-              <svg
-                class="h-3.5 w-3.5 text-af-ink-4 opacity-60 transition-opacity group-hover/dropdown:opacity-100"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                stroke-width="2"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M8.25 15L12 18.75 15.75 15m-7.5-6L12 5.25 15.75 9"
-                />
-              </svg>
-            </button>
           </div>
         </template>
 
@@ -488,98 +442,6 @@
             :placeholder="t('keys.namePlaceholder')"
             data-tour="key-form-name"
           />
-        </div>
-
-        <fieldset v-if="!showEditModal" data-tour="key-form-provider">
-          <legend class="input-label">{{ t('keys.providerLabel') }}</legend>
-          <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
-            <label
-              v-for="provider in createProviderOptions"
-              :key="provider.value"
-              class="relative min-w-0"
-              :class="provider.count === 0 ? 'cursor-not-allowed' : 'cursor-pointer'"
-            >
-              <input
-                type="radio"
-                name="key-provider"
-                :value="provider.value"
-                :checked="createProvider === provider.value"
-                :disabled="provider.count === 0"
-                class="peer sr-only"
-                @change="selectCreateProvider(provider.value)"
-              />
-              <span
-                class="flex h-full flex-col items-center gap-2 rounded-md border border-af-hairline bg-af-sheet px-2 py-3 text-center transition-colors peer-checked:border-af-brand peer-checked:bg-af-brand-tint/60 peer-checked:ring-1 peer-checked:ring-af-brand peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-af-brand peer-disabled:opacity-40"
-                :class="provider.count > 0 && 'hover:border-af-brand/40'"
-              >
-                <span class="flex h-8 items-center justify-center gap-1.5" aria-hidden="true">
-                  <span
-                    v-for="platform in KEY_GROUP_PROVIDER_ICONS[provider.value]"
-                    :key="platform"
-                    class="flex h-8 w-8 items-center justify-center rounded-lg"
-                    :class="platformBadgeLightClass(platform)"
-                  >
-                    <PlatformIcon :platform="platform" size="lg" />
-                  </span>
-                </span>
-                <span class="text-sm font-semibold text-af-ink">{{ provider.label }}</span>
-              </span>
-              <span
-                v-if="createProvider === provider.value"
-                class="absolute right-1.5 top-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-af-brand text-white"
-                aria-hidden="true"
-              >
-                <Icon name="check" size="xs" :stroke-width="3" />
-              </span>
-            </label>
-          </div>
-          <p class="mt-2 text-xs leading-5 text-af-ink-3" aria-live="polite">
-            {{ groups.length === 0 ? t('common.noGroupsAvailable') : t(`keys.providerHints.${createProvider}`) }}
-          </p>
-        </fieldset>
-
-        <div>
-          <label class="input-label" for="key-form-group">{{ t('keys.groupLabel') }}</label>
-          <Select
-            :key="showEditModal ? 'edit' : createProvider"
-            id="key-form-group"
-            :aria-label="t('keys.groupLabel')"
-            v-model="formData.group_id"
-            :disabled="showEditModal && !!selectedKey?.subscription_id"
-            :options="formGroupOptions"
-            :placeholder="t('keys.selectGroup')"
-            :empty-text="t('common.noGroupsAvailable')"
-            :searchable="true"
-            :search-placeholder="t('keys.searchGroup')"
-            data-tour="key-form-group"
-          >
-            <template #selected="{ option }">
-              <GroupBadge
-                v-if="option"
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-              />
-              <span v-else class="text-af-ink-4">{{ t('keys.selectGroup') }}</span>
-            </template>
-            <template #option="{ option, selected }">
-              <GroupOptionItem
-                :name="(option as unknown as GroupOption).label"
-                :platform="(option as unknown as GroupOption).platform"
-                :rate-multiplier="(option as unknown as GroupOption).rate"
-                :peak-rate-enabled="(option as unknown as GroupOption).peakRateEnabled"
-                :peak-start="(option as unknown as GroupOption).peakStart"
-                :peak-end="(option as unknown as GroupOption).peakEnd"
-                :peak-rate-multiplier="(option as unknown as GroupOption).peakRateMultiplier"
-                :description="(option as unknown as GroupOption).description"
-                :selected="selected"
-              />
-            </template>
-          </Select>
         </div>
 
         <!-- Custom Key Section (only for create) -->
@@ -1030,7 +892,6 @@
     <BulkEditKeysModal
       :show="showBulkEditModal"
       :selected-keys="selectedApiKeys"
-      :groups="groups"
       @close="showBulkEditModal = false"
       @updated="handleBulkUpdated"
     />
@@ -1076,12 +937,11 @@
       :show="showUseKeyModal"
       :api-key="selectedKey?.key || ''"
       :base-url="publicSettings?.api_base_url || ''"
-      :platform="selectedKey?.group?.platform || null"
       :site-name="publicSettings?.site_name || ''"
       @close="closeUseKeyModal"
     />
 
-    <!-- CCS Client Selection Dialog for Antigravity -->
+    <!-- CCS Client Selection Dialog：导入哪个客户端由用户选 -->
     <BaseDialog
       :show="showCcsClientSelect"
       :title="t('keys.ccsClientSelect.title')"
@@ -1094,28 +954,16 @@
 	        </p>
 	        <div class="grid grid-cols-2 gap-3">
 	          <button
-	            @click="handleCcsClientSelect('claude')"
+	            v-for="client in ccsClients"
+	            :key="client.type"
+	            type="button"
+	            :data-testid="`ccs-client-${client.type}`"
+	            @click="handleCcsClientSelect(client.type)"
 	            class="flex flex-col items-center gap-2 p-4 rounded-md border-2 border-af-hairline hover:border-af-brand hover:bg-af-brand-tint transition-all"
 	          >
-	            <Icon name="terminal" size="xl" class="text-af-ink-2" />
-	            <span class="font-medium text-af-ink">{{
-	              t('keys.ccsClientSelect.claudeCode')
-	            }}</span>
-	            <span class="text-xs text-af-ink-3">{{
-	              t('keys.ccsClientSelect.claudeCodeDesc')
-	            }}</span>
-	          </button>
-	          <button
-	            @click="handleCcsClientSelect('gemini')"
-	            class="flex flex-col items-center gap-2 p-4 rounded-md border-2 border-af-hairline hover:border-af-brand hover:bg-af-brand-tint transition-all"
-	          >
-	            <Icon name="sparkles" size="xl" class="text-af-ink-2" />
-	            <span class="font-medium text-af-ink">{{
-	              t('keys.ccsClientSelect.geminiCli')
-	            }}</span>
-	            <span class="text-xs text-af-ink-3">{{
-	              t('keys.ccsClientSelect.geminiCliDesc')
-	            }}</span>
+	            <Icon :name="client.icon" size="xl" class="text-af-ink-2" />
+	            <span class="font-medium text-af-ink">{{ t(`keys.ccsClientSelect.${client.type}`) }}</span>
+	            <span class="text-xs text-af-ink-3">{{ t(`keys.ccsClientSelect.${client.type}Desc`) }}</span>
 	          </button>
 	        </div>
 	      </div>
@@ -1128,77 +976,11 @@
       </template>
     </BaseDialog>
 
-    <!-- Group Selector Dropdown (Teleported to body to avoid overflow clipping) -->
-    <Teleport to="body">
-      <div
-        v-if="groupSelectorKeyId !== null && dropdownPosition"
-        ref="dropdownRef"
-        class="animate-in fade-in slide-in-from-top-2 fixed z-[100000020] w-max max-w-[calc(100vw-16px)] overflow-hidden rounded-md bg-af-sheet shadow-lg ring-1 ring-black/5 duration-200 sm:min-w-[380px]"
-        style="pointer-events: auto !important;"
-        :style="{
-          top: dropdownPosition.top !== undefined ? dropdownPosition.top + 'px' : undefined,
-          bottom: dropdownPosition.bottom !== undefined ? dropdownPosition.bottom + 'px' : undefined,
-          left: dropdownPosition.left + 'px'
-        }"
-      >
-        <!-- Search box -->
-        <div class="border-b border-af-hairline p-2">
-          <div class="relative">
-            <svg class="absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-af-ink-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-            </svg>
-            <input
-              v-model="groupSearchQuery"
-              type="text"
-              class="w-full rounded-lg border border-af-hairline bg-af-sunken py-1.5 pl-8 pr-3 text-sm text-af-ink placeholder:text-af-ink-4 outline-none focus:border-af-brand focus:ring-1 focus:ring-af-brand/30"
-              :placeholder="t('keys.searchGroup')"
-              @click.stop
-            />
-          </div>
-        </div>
-        <!-- Group list -->
-        <div class="max-h-80 overflow-y-auto p-1.5">
-          <button
-            v-for="option in filteredGroupOptions"
-            :key="option.value ?? 'null'"
-            @click="changeGroup(selectedKeyForGroup!, option.value)"
-            :class="[
-              'flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-sm transition-colors',
-              'border-b border-af-hairline last:border-0',
-              selectedKeyForGroup?.group_id === option.value ||
-              (!selectedKeyForGroup?.group_id && option.value === null)
-                ? 'bg-af-brand-tint'
-                : 'hover:bg-af-sunken'
-            ]"
-            :title="option.description || undefined"
-          >
-            <GroupOptionItem
-              :name="option.label"
-              :platform="option.platform"
-              :rate-multiplier="option.rate"
-              :peak-rate-enabled="option.peakRateEnabled"
-              :peak-start="option.peakStart"
-              :peak-end="option.peakEnd"
-              :peak-rate-multiplier="option.peakRateMultiplier"
-              :description="option.description"
-              :selected="
-                selectedKeyForGroup?.group_id === option.value ||
-                (!selectedKeyForGroup?.group_id && option.value === null)
-              "
-            />
-          </button>
-          <!-- Empty state when search has no results -->
-          <div v-if="filteredGroupOptions.length === 0" class="py-4 text-center text-sm text-af-ink-4">
-            {{ t('keys.noGroupFound') }}
-          </div>
-        </div>
-      </div>
-    </Teleport>
   </SiteShell>
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, watch, onMounted, onUnmounted, type ComponentPublicInstance } from 'vue'
+	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -1207,7 +989,7 @@ import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
-import { keysAPI, authAPI, usageAPI, userGroupsAPI } from '@/api'
+import { keysAPI, authAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import DataTable from '@/components/common/DataTable.vue'
@@ -1220,16 +1002,11 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import Icon from '@/components/icons/Icon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
-	import GroupBadge from '@/components/common/GroupBadge.vue'
-	import GroupOptionItem from '@/components/common/GroupOptionItem.vue'
-	import type { ApiKey, Group, PublicSettings, GroupPlatform, UpdateApiKeyRequest } from '@/types'
+	import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
 import { formatDateTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
-import { platformBadgeLightClass } from '@/utils/platformColors'
-import { KEY_GROUP_PROVIDERS, KEY_GROUP_PROVIDER_ICONS, getKeyGroupProvider, type KeyGroupProvider } from '@/utils/keyGroupProviders'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
@@ -1242,17 +1019,6 @@ const formatDateTimeLocal = (isoDate: string): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-interface GroupOption {
-  value: number
-  label: string
-  description: string | null
-  rate: number
-  peakRateEnabled: boolean
-  peakStart: string
-  peakEnd: string
-  peakRateMultiplier: number
-  platform: GroupPlatform
-}
 
 const appStore = useAppStore()
 const onboardingStore = useOnboardingStore()
@@ -1262,7 +1028,6 @@ const allColumns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
   { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
-  { key: 'group', label: t('keys.group'), sortable: false },
   { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
   { key: 'usage', label: t('keys.usage'), sortable: false },
   { key: 'rate_limit', label: t('keys.rateLimitColumn'), sortable: false },
@@ -1368,7 +1133,6 @@ const handleBulkUpdated = (succeededIds: number[]) => {
   loadApiKeys()
 }
 
-const groups = ref<Group[]>([])
 const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
@@ -1389,7 +1153,6 @@ const sortState = ref({
 // Filter state
 const filterSearch = ref('')
 const filterStatus = ref('')
-const filterGroupId = ref<string | number>('')
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
@@ -1400,33 +1163,20 @@ const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
 const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
+const ccsClients = [
+  { type: 'claude', icon: 'terminal' },
+  { type: 'codex', icon: 'terminal' },
+  { type: 'gemini', icon: 'sparkles' },
+  { type: 'grokbuild', icon: 'terminal' }
+] as const satisfies ReadonlyArray<{ type: CcSwitchClientType; icon: 'terminal' | 'sparkles' }>
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
-const groupSelectorKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
-const dropdownRef = ref<HTMLElement | null>(null)
 const columnDropdownRef = ref<HTMLElement | null>(null)
-const dropdownPosition = ref<{ top?: number; bottom?: number; left: number } | null>(null)
-const groupButtonRefs = ref<Map<number, HTMLElement>>(new Map())
 let abortController: AbortController | null = null
-
-// Get the currently selected key for group change
-const selectedKeyForGroup = computed(() => {
-  if (groupSelectorKeyId.value === null) return null
-  return apiKeys.value.find((k) => k.id === groupSelectorKeyId.value) || null
-})
-
-const setGroupButtonRef = (keyId: number, el: Element | ComponentPublicInstance | null) => {
-  if (el instanceof HTMLElement) {
-    groupButtonRefs.value.set(keyId, el)
-  } else {
-    groupButtonRefs.value.delete(keyId)
-  }
-}
 
 const formData = ref({
   name: '',
-  group_id: null as number | null,
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
   custom_key: '',
@@ -1475,11 +1225,6 @@ const shouldSubmitEditStatus = (key: ApiKey, status: 'active' | 'inactive') => {
 }
 
 // Filter dropdown options
-const groupFilterOptions = computed(() => [
-  { value: '', label: t('keys.allGroups') },
-  { value: 0, label: t('keys.noGroup') },
-  ...groups.value.map((g) => ({ value: g.id, label: g.name }))
-])
 
 const statusFilterOptions = computed(() => [
   { value: '', label: t('keys.allStatus') },
@@ -1495,70 +1240,11 @@ const onFilterChange = () => {
   loadApiKeys()
 }
 
-const onGroupFilterChange = (value: string | number | boolean | null) => {
-  filterGroupId.value = value as string | number
-  onFilterChange()
-}
 
 const onStatusFilterChange = (value: string | number | boolean | null) => {
   filterStatus.value = value as string
   onFilterChange()
 }
-
-// Convert groups to Select options format with rate multiplier
-const groupOptions = computed(() =>
-  groups.value.map((group) => ({
-    value: group.id,
-    label: group.name,
-    description: group.description,
-    rate: group.rate_multiplier,
-    peakRateEnabled: group.peak_rate_enabled,
-    peakStart: group.peak_start,
-    peakEnd: group.peak_end,
-    peakRateMultiplier: group.peak_rate_multiplier,
-    platform: group.platform
-  }))
-)
-
-const createProvider = ref<KeyGroupProvider>('anthropic')
-const createProviderOptions = computed(() => KEY_GROUP_PROVIDERS.map((value) => ({
-  value,
-  label: t(`keys.providers.${value}`),
-  count: groups.value.filter((group) => getKeyGroupProvider(group.platform) === value).length
-})))
-
-const formGroupOptions = computed(() => showEditModal.value
-  ? groupOptions.value
-  : groupOptions.value.filter((group) => getKeyGroupProvider(group.platform) === createProvider.value)
-)
-
-const selectCreateProvider = (provider: KeyGroupProvider) => {
-  if (createProvider.value === provider) return
-  createProvider.value = provider
-  formData.value.group_id = null
-}
-
-// Also handles groups arriving after the create dialog has already opened.
-watch([showCreateModal, createProviderOptions], ([isOpen, providers], [wasOpen]) => {
-  if (!isOpen) return
-  if (!wasOpen || !providers.some((provider) => provider.value === createProvider.value && provider.count > 0)) {
-    selectCreateProvider(providers.find((provider) => provider.count > 0)?.value ?? 'anthropic')
-  }
-  if (!formGroupOptions.value.some((group) => group.value === formData.value.group_id)) {
-    formData.value.group_id = null
-  }
-})
-
-// Group dropdown search
-const groupSearchQuery = ref('')
-const filteredGroupOptions = computed(() => {
-  const query = groupSearchQuery.value.trim().toLowerCase()
-  if (!query) return groupOptions.value
-  return groupOptions.value.filter((opt) => {
-    return opt.label.toLowerCase().includes(query) ||
-      (opt.description && opt.description.toLowerCase().includes(query))
-  })
-})
 
 const copyToClipboard = async (text: string, keyId: number) => {
   const success = await clipboardCopy(text, t('keys.copied'))
@@ -1587,13 +1273,11 @@ const loadApiKeys = async () => {
     const filters: {
       search?: string
       status?: string
-      group_id?: number | string
       sort_by?: string
       sort_order?: 'asc' | 'desc'
     } = {}
     if (filterSearch.value) filters.search = filterSearch.value
     if (filterStatus.value) filters.status = filterStatus.value
-    if (filterGroupId.value !== '') filters.group_id = filterGroupId.value
     filters.sort_by = sortState.value.sort_by
     filters.sort_order = sortState.value.sort_order
 
@@ -1631,13 +1315,6 @@ const loadApiKeys = async () => {
   }
 }
 
-const loadGroups = async () => {
-  try {
-    groups.value = await userGroupsAPI.getAvailable()
-  } catch (error) {
-    console.error('Failed to load groups:', error)
-  }
-}
 
 const loadPublicSettings = async () => {
   try {
@@ -1684,7 +1361,6 @@ const editKey = (key: ApiKey) => {
   const hasExpiration = !!key.expires_at
   formData.value = {
     name: key.name,
-    group_id: key.group_id,
     status: key.status === 'quota_exhausted' || key.status === 'expired' ? 'inactive' : key.status,
     use_custom_key: false,
     custom_key: '',
@@ -1717,78 +1393,12 @@ const toggleKeyStatus = async (key: ApiKey) => {
   }
 }
 
-const openGroupSelector = (key: ApiKey) => {
-  if (groupSelectorKeyId.value === key.id) {
-    groupSelectorKeyId.value = null
-    dropdownPosition.value = null
-  } else {
-    const buttonEl = groupButtonRefs.value.get(key.id)
-    if (buttonEl) {
-      const rect = buttonEl.getBoundingClientRect()
-      const dropdownEstHeight = 400 // estimated max dropdown height
-      const dropdownEstWidth = Math.min(380, window.innerWidth - 16)
-      const spaceBelow = window.innerHeight - rect.bottom
-      const spaceAbove = rect.top
-      // 夹取 left，避免窄屏下浮层超出视口右缘
-      const left = Math.max(8, Math.min(rect.left, window.innerWidth - dropdownEstWidth - 8))
-
-      if (spaceBelow < dropdownEstHeight && spaceAbove > spaceBelow) {
-        // Not enough space below, pop upward
-        dropdownPosition.value = {
-          bottom: window.innerHeight - rect.top + 4,
-          left
-        }
-      } else {
-        // Default: pop downward
-        dropdownPosition.value = {
-          top: rect.bottom + 4,
-          left
-        }
-      }
-    }
-    groupSelectorKeyId.value = key.id
-    groupSearchQuery.value = ''
-  }
-}
-
-const changeGroup = async (key: ApiKey, newGroupId: number | null) => {
-  groupSelectorKeyId.value = null
-  dropdownPosition.value = null
-  if (key.group_id === newGroupId) return
-
-  try {
-    await keysAPI.update(key.id, { group_id: newGroupId })
-    appStore.showSuccess(t('keys.groupChangedSuccess'))
-    loadApiKeys()
-  } catch (error) {
-    appStore.showError(t('keys.failedToChangeGroup'))
-  }
-}
-
-const closeGroupSelector = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  // Check if click is inside the dropdown or the trigger button
-  if (!target.closest('.group\\/dropdown') && !dropdownRef.value?.contains(target)) {
-    groupSelectorKeyId.value = null
-    dropdownPosition.value = null
-  }
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false
-  }
-}
-
 const confirmDelete = (key: ApiKey) => {
   selectedKey.value = key
   showDeleteDialog.value = true
 }
 
 const handleSubmit = async () => {
-  // Validate group_id is required
-  if (formData.value.group_id === null) {
-    appStore.showError(t('keys.groupRequired'))
-    return
-  }
-
   // Validate custom key if enabled
   if (!showEditModal.value && formData.value.use_custom_key) {
     if (!formData.value.custom_key) {
@@ -1841,7 +1451,6 @@ const handleSubmit = async () => {
     if (showEditModal.value && selectedKey.value) {
       const updates: UpdateApiKeyRequest = {
         name: formData.value.name,
-        group_id: formData.value.group_id,
         ip_whitelist: ipWhitelist,
         ip_blacklist: ipBlacklist,
         quota: quota,
@@ -1859,7 +1468,6 @@ const handleSubmit = async () => {
       const customKey = formData.value.use_custom_key ? formData.value.custom_key : undefined
       await keysAPI.create(
         formData.value.name,
-        formData.value.group_id,
         customKey,
         ipWhitelist,
         ipBlacklist,
@@ -1910,7 +1518,6 @@ const closeModals = () => {
   selectedKey.value = null
   formData.value = {
     name: '',
-    group_id: null,
     status: 'active',
     use_custom_key: false,
     custom_key: '',
@@ -1994,23 +1601,14 @@ const resetRateLimitUsage = async () => {
   }
 }
 
+// 没有分组就没有「分组平台」：导入 CC-Switch 时由用户选客户端（Claude Code / Codex / Gemini CLI / Grok Build）。
 const importToCcswitch = (row: ApiKey) => {
-  const platform = row.group?.platform || 'anthropic'
-
-  // For antigravity platform, show client selection dialog
-  if (platform === 'antigravity') {
-    pendingCcsRow.value = row
-    showCcsClientSelect.value = true
-    return
-  }
-
-  // For other platforms, execute directly
-  executeCcsImport(row, platform === 'gemini' ? 'gemini' : 'claude')
+  pendingCcsRow.value = row
+  showCcsClientSelect.value = true
 }
 
 const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const baseUrl = publicSettings.value?.api_base_url || window.location.origin
-  const platform = row.group?.platform || 'anthropic'
 
   const usageScript = `({
     request: {
@@ -2031,7 +1629,6 @@ const executeCcsImport = (row: ApiKey, clientType: CcSwitchClientType) => {
   const providerName = (publicSettings.value?.site_name || DEFAULT_SITE_NAME).trim() || DEFAULT_SITE_NAME
   const deeplink = buildCcSwitchImportDeeplink({
     baseUrl,
-    platform,
     clientType,
     providerName,
     apiKey: row.key,
@@ -2081,14 +1678,11 @@ function formatResetTime(resetAt: string | null): string {
 onMounted(() => {
   loadSavedColumns()
   loadApiKeys()
-  loadGroups()
   loadPublicSettings()
-  document.addEventListener('click', closeGroupSelector)
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeGroupSelector)
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>

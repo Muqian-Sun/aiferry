@@ -23,11 +23,8 @@
 </template>
 
 <script setup lang="ts">
-import '@/styles/onboarding.css'
-import { computed, inject, onMounted } from 'vue'
+import { computed, inject } from 'vue'
 import { useAppStore } from '@/stores/app'
-import { useOnboardingTour } from '@/composables/useOnboardingTour'
-import { useOnboardingStore } from '@/stores/onboarding'
 import { SITE_LAYOUT } from '@/app/siteLayout'
 import AppHeader from './AppHeader.vue'
 
@@ -38,17 +35,4 @@ if (!siteLayout) {
 
 const appStore = useAppStore()
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
-
-const { replayTour } = useOnboardingTour({
-  storageKey: siteLayout.onboardingStorageKey,
-  autoStart: true
-})
-
-const onboardingStore = useOnboardingStore()
-
-onMounted(() => {
-  onboardingStore.setReplayCallback(replayTour)
-})
-
-defineExpose({ replayTour })
 </script>

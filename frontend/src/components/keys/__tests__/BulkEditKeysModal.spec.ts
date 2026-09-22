@@ -1,7 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 import BulkEditKeysModal from '../BulkEditKeysModal.vue'
-import type { Group } from '@/types'
 
 const { bulkUpdate, showSuccess, showError } = vi.hoisted(() => ({
   bulkUpdate: vi.fn(), showSuccess: vi.fn(), showError: vi.fn()
@@ -15,8 +14,7 @@ vi.mock('vue-i18n', () => ({
 const mountModal = () => mount(BulkEditKeysModal, {
   props: {
     show: true,
-    selectedKeys: [{ id: 1, name: 'First' }, { id: 2, name: 'Second' }],
-    groups: [{ id: 7, name: 'Available group' }] as Group[]
+    selectedKeys: [{ id: 1, name: 'First' }, { id: 2, name: 'Second' }]
   },
   global: {
     stubs: {
@@ -75,16 +73,6 @@ describe('BulkEditKeysModal', () => {
     await wrapper.get('form').trigger('submit')
     expect(bulkUpdate).not.toHaveBeenCalled()
     expect(wrapper.get('[data-test="submit"]').attributes('disabled')).toBeDefined()
-  })
-
-  it('requires an available group when changing group', async () => {
-    const wrapper = mountModal()
-    await wrapper.get('[data-test="enable-group"]').setValue(true)
-    await wrapper.get('form').trigger('submit')
-    expect(bulkUpdate).not.toHaveBeenCalled()
-    await wrapper.get('[data-test="group-input"]').setValue('7')
-    await wrapper.get('form').trigger('submit')
-    expect(bulkUpdate).toHaveBeenCalledWith([1, 2], { group_id: 7 })
   })
 
   it('clears only an explicitly selected IP list and expiration', async () => {

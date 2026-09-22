@@ -13,7 +13,7 @@
     >
       <div>
         <label class="input-label">{{ t('common.name') }}</label>
-        <input v-model="form.name" type="text" required class="input" data-tour="edit-account-form-name" />
+        <input v-model="form.name" type="text" required class="input" />
       </div>
       <!-- 已上架模型（只读）：绑定在模型目录里改，这里只展示这个资源承接哪些模型 -->
       <div v-if="catalogEntries" data-testid="edit-account-catalog">
@@ -1588,7 +1588,6 @@
             type="number"
             min="1"
             class="input"
-            data-tour="account-form-priority"
           />
           <p class="input-hint">{{ t('admin.accounts.priorityHint') }}</p>
         </div>
@@ -2815,7 +2814,6 @@
           form="edit-account-form"
           :disabled="submitting"
           class="btn btn-primary"
-          data-tour="account-form-submit"
         >
           <svg
             v-if="submitting"

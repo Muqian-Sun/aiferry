@@ -6,7 +6,6 @@ import type { Component, InjectionKey } from 'vue'
  */
 export interface SiteLayout {
   sidebar: Component
-  onboardingStorageKey: string
 }
 
 export const SITE_LAYOUT: InjectionKey<SiteLayout> = Symbol('site-layout')

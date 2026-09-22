@@ -139,10 +139,6 @@
             <Select v-model="filters.model" :options="modelOptions" searchable @change="applyFilters" />
           </div>
           <div>
-            <label class="input-label">{{ t('admin.usage.group') }}</label>
-            <Select v-model="filters.group_id" :options="groupOptions" searchable @change="applyFilters" />
-          </div>
-          <div>
             <label class="input-label">{{ t('usage.type') }}</label>
             <Select v-model="filters.request_type" :options="requestTypeOptions" @change="applyFilters" />
           </div>
@@ -220,7 +216,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
-import { keysAPI, usageAPI, userGroupsAPI } from '@/api'
+import { keysAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
@@ -241,7 +237,6 @@ import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import type {
   ApiKey,
-  Group,
   ModelStat,
   TrendDataPoint,
   UsageLog,
@@ -437,16 +432,11 @@ const billingModeOptions = computed<SelectOption[]>(() => [
 ])
 
 const apiKeys = ref<ApiKey[]>([])
-const groups = ref<Group[]>([])
 const modelOptionValues = ref<string[]>([])
 
 const apiKeyOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('usage.allApiKeys') },
   ...apiKeys.value.map((key) => ({ value: key.id, label: key.name })),
-])
-const groupOptions = computed<SelectOption[]>(() => [
-  { value: null, label: t('admin.usage.allGroups') },
-  ...groups.value.map((group) => ({ value: group.id, label: group.name })),
 ])
 const modelOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allModels') },
@@ -544,7 +534,6 @@ const loadChartData = async () => {
       granularity: granularity.value,
       include_trend: true,
       include_model_stats: false,
-      include_group_stats: false,
     })
     if (seq !== chartReqSeq) return
     trendData.value = snapshot.trend || []
@@ -746,7 +735,6 @@ const allColumns = computed<Column[]>(() => [
   { key: 'reasoning_effort', label: t('usage.reasoningEffort'), sortable: false },
   { key: 'endpoint', label: t('usage.endpoint'), sortable: false },
   { key: 'ip_address', label: 'IP', sortable: false },
-  { key: 'group', label: t('admin.usage.group'), sortable: false },
   { key: 'stream', label: t('usage.type'), sortable: false },
   { key: 'billing_mode', label: t('admin.usage.billingMode'), sortable: false },
   { key: 'tokens', label: t('usage.tokens'), sortable: false },
@@ -788,7 +776,6 @@ const errAllColumns = computed<Column[]>(() => [
   { key: 'model', label: t('usage.errors.model') },
   { key: 'endpoint', label: t('usage.errors.endpoint') },
   { key: 'client_ip', label: 'IP' },
-  { key: 'group', label: t('admin.usage.group') },
   { key: 'type', label: t('usage.type') },
   { key: 'platform', label: t('usage.errors.platform') },
   { key: 'category', label: t('usage.errors.category') },
@@ -855,12 +842,7 @@ const loadApiKeys = async () => {
 
 const loadFilterOptions = async () => {
   try {
-    const [keys, availableGroups] = await Promise.all([
-      loadApiKeys(),
-      userGroupsAPI.getAvailable(),
-    ])
-    apiKeys.value = keys
-    groups.value = availableGroups
+    apiKeys.value = await loadApiKeys()
   } catch (error) {
     console.error('Failed to load usage filter options:', error)
   }
