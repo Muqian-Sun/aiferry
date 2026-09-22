@@ -73,6 +73,8 @@ export default {
       configureAiAccounts: 'Configure AI platform accounts',
       batchImage: 'Batch Image',
       batchImageDesc: 'Submit jobs and copy agent instructions',
+      modelCatalog: 'Model catalog',
+      modelCatalogDesc: 'List models, set prices, bind channels',
       systemSettings: 'System Settings',
       configureSystem: 'Configure system settings',
       failedToLoad: 'Failed to load dashboard statistics'

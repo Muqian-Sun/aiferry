@@ -27,9 +27,11 @@ vi.mock('@/stores/app', () => ({
   })
 }))
 
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
 vi.mock('vue-router', () => ({
   useRouter: () => ({
-    push: vi.fn()
+    push: routerPush
   })
 }))
 
@@ -93,6 +95,7 @@ describe('admin DashboardView', () => {
     getSnapshotV2.mockReset()
     getUserUsageTrend.mockReset()
     getUserSpendingRanking.mockReset()
+    routerPush.mockReset()
 
     getSnapshotV2.mockResolvedValue({
       stats: createDashboardStats(),
@@ -115,7 +118,7 @@ describe('admin DashboardView', () => {
     })
   })
 
-  it('uses last 24 hours as default dashboard range', async () => {
+  const mountView = () =>
     mount(DashboardView, {
       global: {
         stubs: {
@@ -131,6 +134,9 @@ describe('admin DashboardView', () => {
       }
     })
 
+  it('uses last 24 hours as default dashboard range', async () => {
+    mountView()
+
     await flushPromises()
 
     const now = new Date()
@@ -142,5 +148,16 @@ describe('admin DashboardView', () => {
       end_date: formatLocalDate(now),
       granularity: 'hour'
     }))
+  })
+
+  // 分组入口卡片随分组一起下线；快捷入口里换成模型目录。
+  it('quick actions link to the model catalog instead of groups', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+
+    await wrapper.get('[data-testid="dashboard-model-catalog"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/model-catalog')
+    expect(routerPush).not.toHaveBeenCalledWith('/groups')
+    expect(wrapper.html()).not.toContain('/groups')
   })
 })

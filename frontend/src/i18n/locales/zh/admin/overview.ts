@@ -73,6 +73,8 @@ export default {
       configureAiAccounts: '配置 AI 平台账号',
       batchImage: '批量生图',
       batchImageDesc: '提交任务、复制 Agent 调用说明',
+      modelCatalog: '模型目录',
+      modelCatalogDesc: '上架模型、配定价、绑定渠道',
       systemSettings: '系统设置',
       configureSystem: '配置系统设置',
       failedToLoad: '加载仪表盘数据失败'
