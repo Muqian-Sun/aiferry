@@ -61,7 +61,6 @@ export default {
       clickToCopy: 'Click to copy this endpoint',
       speedTest: 'Speed Test',
     },
-    allGroups: 'All Groups',
     allStatus: 'All Status',
     columnSettings: 'Column Settings',
     columnAlwaysVisible: 'This column is always visible',
@@ -86,11 +85,7 @@ export default {
     deleteConfirmMessage: "Are you sure you want to delete '{name}'? This action cannot be undone.",
     id: 'ID',
     apiKey: 'API Key',
-    group: 'Group',
     currentConcurrency: 'Current Concurrency',
-    noGroup: 'No group',
-    searchGroup: 'Search groups...',
-    noGroupFound: 'No groups found',
     created: 'Created',
     copyToClipboard: 'Copy to clipboard',
     copied: 'Copied!',
@@ -99,21 +94,6 @@ export default {
     disable: 'Disable',
     nameLabel: 'Name',
     namePlaceholder: 'My API Key',
-    groupLabel: 'Group',
-    providerLabel: 'Provider',
-    providers: {
-      anthropic: 'Anthropic',
-      openai: 'OpenAI',
-      domestic: 'Chinese AI',
-      other: 'Other'
-    },
-    providerHints: {
-      anthropic: 'Choose an available Anthropic / Claude group',
-      openai: 'Choose an available OpenAI / GPT group',
-      domestic: 'Includes DeepSeek, Kimi, Zhipu GLM and MiniMax',
-      other: 'Includes Gemini, Grok, Antigravity, OpenCode and mixed groups'
-    },
-    selectGroup: 'Select a group',
     statusLabel: 'Status',
     selectStatus: 'Select status',
     saving: 'Saving...',
@@ -128,12 +108,8 @@ export default {
     failedToSave: 'Failed to save API key',
     failedToDelete: 'Failed to delete API key',
     failedToUpdateStatus: 'Failed to update API key status',
-    clickToChangeGroup: 'Click to change group',
     subscriptionKey: 'Subscription · {plan}',
     subscriptionKeyProtected: 'Subscription keys are generated with the subscription and cannot be deleted or rebound to a group',
-    groupChangedSuccess: 'Group changed successfully',
-    failedToChangeGroup: 'Failed to change group',
-    groupRequired: 'Please select a group',
     usage: 'Usage',
     today: 'Today',
     total: 'Last 30d',
@@ -149,8 +125,6 @@ export default {
       copied: 'Copied',
       note: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
       claudeSettingsHint: 'User-level persistent configuration. Do not commit this file containing your API key to a project repository.',
-      noGroupTitle: 'Please assign a group first',
-      noGroupDescription: 'This API key has not been assigned to a group. Please click the group column in the key list to assign one before viewing the configuration.',
       openai: {
         description: 'Add the following configuration files to your Codex CLI config directory.',
         authModeTitle: 'Codex authentication mode',
@@ -170,13 +144,6 @@ export default {
         grokCli: 'Grok CLI',
         opencode: 'OpenCode',
       },
-      antigravity: {
-        description: 'Configure API access for Antigravity group. Select the configuration method based on your client.',
-        claudeCode: 'Claude Code',
-        geminiCli: 'Gemini CLI',
-        claudeNote: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
-        geminiNote: 'These environment variables will be active in the current terminal session. For permanent configuration, add them to ~/.bashrc, ~/.zshrc, or the appropriate configuration file.',
-      },
       gemini: {
         description: 'Add the following environment variables to your terminal profile or run directly in terminal to configure Gemini CLI access.',
         modelComment: 'If you have Gemini 3 access, you can use: gemini-3-pro-preview',
@@ -185,45 +152,12 @@ export default {
       grok: {
         description:
           'Configure Grok CLI, Claude Code, Codex, or OpenCode to send requests through your Grok group. Text models use Responses; image/video use Imagine model IDs on media endpoints.',
-        claudeDescription: 'Configure Claude Code to send Messages API traffic through your Grok group.',
-        codexDescription: 'Configure Codex to send Responses API traffic through your Grok group.',
         configTomlHint:
           'Official path: ~/.grok/config.toml (or $GROK_HOME). Fill [endpoints] (models_base_url / models_list_url / xai_api_base_url / cli_chat_proxy_base_url), [auth] preferred_method=api_key, [models], [session], and [features] image/video overrides. Prefer env_key over api_key; every text model needs api_backend=responses. Back up before merge, then run grok inspect.',
-        codexConfigTomlHint:
-          'Official Codex: wire_api = "responses" only; prefer env_key over experimental_bearer_token; supports_websockets = false for non-OpenAI gateways (Sub2API can still accept client WS and bridge to HTTP/SSE). Back up ~/.codex/config.toml before merge.',
         note:
           'Export GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml (endpoints/auth/models/session/features) as ~/.grok/config.toml, run grok inspect, then /model grok-4.5 (or grok-build-0.1 for coding).',
         noteWindows:
           'Set GROK_MODELS_BASE_URL and XAI_API_KEY, save the full config.toml as %USERPROFILE%\\.grok\\config.toml, run grok inspect, then /model grok-4.5 (or grok-build-0.1 for coding).',
-        claudeNote:
-          'Choose one method: terminal env for this session, or ~/.claude/settings.json for persistence. Do not commit files that contain your API key.',
-        codexNote:
-          'Export SUB2API_API_KEY, save config.toml under ~/.codex (mkdir -p ~/.codex). Prefer env_key auth; do not commit secrets.',
-        codexNoteWindows:
-          'Set $env:SUB2API_API_KEY, save config.toml under %USERPROFILE%\\.codex. Prefer env_key auth; do not commit secrets.',
-      },
-      deepseek: {
-        description: 'Configure Claude Code, Codex, or OpenCode through the current DeepSeek group.',
-        codexDescription: 'Configure Codex with API key authentication through the current DeepSeek group.',
-        codexConfigTomlHint: 'Download the model catalog below, save both files under the Codex config directory, and restart Codex.',
-        codexNote: 'Export SUB2API_API_KEY before starting Codex. The downloaded catalog contains model metadata only, not your API key.',
-      },
-      minimax: {
-        description: 'Configure Claude Code, Codex, or OpenCode through the current MiniMax group.',
-        codexDescription: 'Configure Codex with API key authentication through the current MiniMax group.',
-        codexConfigTomlHint: 'Download the model catalog below, save both files under the Codex config directory, and restart Codex.',
-        codexNote: 'Export SUB2API_API_KEY before starting Codex. The downloaded catalog contains model metadata only, not your API key.',
-      },
-      composite: {
-        description: 'Configure supported clients through the current Composite routing group.',
-        codexDescription: 'Configure Codex with API key authentication and the complete model catalog for this Composite group.',
-        codexConfigTomlHint: 'Download the model catalog below, save both files under the Codex config directory, and restart Codex.',
-        codexNote: 'Export SUB2API_API_KEY before starting Codex. Model requests are routed by the selected catalog slug.',
-      },
-      routedCodex: {
-        description: 'Configure Codex with the complete model catalog for the current routed group.',
-        configTomlHint: 'Download the model catalog below, save both files under the Codex config directory, and restart Codex.',
-        note: 'Export SUB2API_API_KEY before starting Codex. The downloaded catalog contains model metadata only, not your API key.',
       },
       codexModelCatalog: {
         title: 'Codex model catalog',
@@ -235,8 +169,6 @@ export default {
         errorDescription: 'The catalog could not be fetched with this API key.',
       },
       opencode: {
-        title: 'OpenCode Example',
-        subtitle: 'opencode.json',
         hint: 'Config path: ~/.config/opencode/opencode.json (or opencode.jsonc), create if not exists. Use default providers (openai/anthropic/google) or custom provider_id. API Key can be configured directly or via /connect command. This is an example, adjust models and options as needed.',
       },
     },
@@ -258,10 +190,14 @@ export default {
     ccsClientSelect: {
       title: 'Select Client',
       description: 'Please select the client type to import to CC-Switch:',
-      claudeCode: 'Claude Code',
-      claudeCodeDesc: 'Import as Claude Code configuration',
-      geminiCli: 'Gemini CLI',
-      geminiCliDesc: 'Import as Gemini CLI configuration',
+      claude: 'Claude Code',
+      claudeDesc: 'Import as Claude Code configuration',
+      codex: 'Codex',
+      codexDesc: 'Import as Codex configuration',
+      gemini: 'Gemini CLI',
+      geminiDesc: 'Import as Gemini CLI configuration',
+      grokbuild: 'Grok Build',
+      grokbuildDesc: 'Import as Grok Build configuration',
     },
     // Quota and expiration
     quotaLimit: 'Quota Limit',

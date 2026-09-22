@@ -528,7 +528,6 @@ export default {
       upstreamRequestIdCopied: 'Upstream ID copied',
       allModels: 'All Models',
       allAccounts: 'All Accounts',
-      allGroups: 'All Groups',
       allTypes: 'All Types',
       inputCost: 'Input Cost',
       outputCost: 'Output Cost',

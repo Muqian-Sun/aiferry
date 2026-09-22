@@ -8,15 +8,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestBillingErrorDetails_MapsGroupRPMExceededToTooManyRequests(t *testing.T) {
-	status, code, msg, retryAfter := billingErrorDetails(service.ErrGroupRPMExceeded)
-	require.Equal(t, http.StatusTooManyRequests, status)
-	require.Equal(t, "rate_limit_exceeded", code)
-	require.NotEmpty(t, msg)
-	require.Greater(t, retryAfter, 0, "RPM exceeded should return positive Retry-After")
-	require.LessOrEqual(t, retryAfter, 60)
-}
-
 func TestBillingErrorDetails_MapsUserRPMExceededToTooManyRequests(t *testing.T) {
 	status, code, msg, retryAfter := billingErrorDetails(service.ErrUserRPMExceeded)
 	require.Equal(t, http.StatusTooManyRequests, status)

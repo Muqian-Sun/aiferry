@@ -50,3 +50,30 @@ func TestModels_SubscriptionKeyListsOnlyPlanEntries(t *testing.T) {
 	require.NoError(t, json.Unmarshal(all.Body.Bytes(), &got))
 	require.Len(t, got.Data, 3)
 }
+
+// 订阅 key 的 Codex 清单同样按套餐过滤，且不再因为没有分组而 401（§6-9）。
+func TestCodexModels_SubscriptionKeyFilteredByPlanNot401(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	h := newGatewayModelsHandlerForTest("gpt-5.6", "gpt-5.6-mini", "claude-sonnet-4")
+	codexRequest := func(sub *service.UserSubscription) *httptest.ResponseRecorder {
+		rec := httptest.NewRecorder()
+		c, _ := gin.CreateTestContext(rec)
+		c.Request = httptest.NewRequest(http.MethodGet, "/backend-api/codex/models", nil)
+		subID := sub.ID
+		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 5, SubscriptionID: &subID})
+		c.Set(string(middleware2.ContextKeySubscription), sub)
+		h.CodexModels(c)
+		return rec
+	}
+
+	inPlan := codexRequest(&service.UserSubscription{ID: 9, PlanID: 3, Plan: &service.SubscriptionPlan{ID: 3, Models: []service.SubscriptionPlanModel{{EntryID: 2, ModelID: "gpt-5.6-mini"}}}})
+	require.Equal(t, http.StatusOK, inPlan.Code, inPlan.Body.String())
+	var manifest codexModelsResponseForTest
+	require.NoError(t, json.Unmarshal(inPlan.Body.Bytes(), &manifest))
+	require.Equal(t, []string{"gpt-5.6-mini"}, codexModelSlugsForTest(manifest.Models))
+
+	empty := codexRequest(&service.UserSubscription{ID: 10, PlanID: 4, Plan: &service.SubscriptionPlan{ID: 4, Models: []service.SubscriptionPlanModel{{EntryID: 3, ModelID: "claude-sonnet-4"}}}})
+	require.Equal(t, http.StatusOK, empty.Code, "套餐里没有 OpenAI 条目 → 空清单，不是 401")
+	require.NoError(t, json.Unmarshal(empty.Body.Bytes(), &manifest))
+	require.Empty(t, manifest.Models)
+}

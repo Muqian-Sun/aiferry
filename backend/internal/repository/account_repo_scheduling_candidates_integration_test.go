@@ -90,20 +90,6 @@ func (s *SchedulingCandidatesSuite) TestByGroupIDIncludesKeysOfAnyLabel() {
 	}
 }
 
-func (s *SchedulingCandidatesSuite) TestUngroupedIncludesUngroupedKeysOnly() {
-	f := s.createFixture()
-
-	accounts, err := s.accountRepo.ListSchedulingCandidatesUngrouped(s.ctx, []string{service.PlatformAnthropic})
-	s.Require().NoError(err)
-
-	ids := candidateIDs(accounts)
-	s.Require().Contains(ids, f.keyUngrouped)
-	s.Require().Contains(ids, f.subAnthropicUngrouped)
-	for _, id := range []int64{f.subAnthropicInGroup, f.keyOpenAIInGroup, f.keyInOtherGroup} {
-		s.Require().NotContains(ids, id)
-	}
-}
-
 func (s *SchedulingCandidatesSuite) TestAllAccountsIncludesKeysAcrossGroups() {
 	f := s.createFixture()
 

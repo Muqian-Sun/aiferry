@@ -703,10 +703,6 @@ export default {
       },
     },
 
-    // Groups
-    groups: {
-      rateLabel: 'rate',
-    },
 
     // Available Channels (aggregated read-only view)
 }

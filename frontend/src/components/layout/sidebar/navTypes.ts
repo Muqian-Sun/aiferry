@@ -17,10 +17,6 @@ export interface NavItem {
    * 开关切换时菜单自动更新。
    */
   featureFlag?: () => boolean | undefined
-  /** 元素 id，供新手引导定位（如 #sidebar-channel-manage）。 */
-  elementId?: string
-  /** data-tour 属性，供新手引导定位。 */
-  dataTour?: string
 }
 
 export interface NavSection {
@@ -43,11 +39,4 @@ export function applyFeatureFlags(items: NavItem[]): NavItem[] {
     }
   }
   return out
-}
-
-/** 新手引导选择器：点击对应菜单项时推进引导步骤。 */
-export function tourSelectorOf(item: Pick<NavItem, 'elementId' | 'dataTour'>): string | undefined {
-  if (item.elementId) return `#${item.elementId}`
-  if (item.dataTour) return `[data-tour="${item.dataTour}"]`
-  return undefined
 }

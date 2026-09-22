@@ -158,8 +158,6 @@ describe('admin RedeemView batch update', () => {
           Pagination: true,
           ConfirmDialog: true,
           Select: SelectStub,
-          GroupBadge: true,
-          GroupOptionItem: true,
           Icon: true,
           Teleport: true
         }

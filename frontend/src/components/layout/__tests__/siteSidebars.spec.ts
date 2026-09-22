@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { mount, RouterLinkStub } from '@vue/test-utils'
 import { defineComponent, h } from 'vue'
 
-const { appStore, authStore, adminSettingsStore, onboardingStore } = vi.hoisted(() => ({
+const { appStore, authStore, adminSettingsStore } = vi.hoisted(() => ({
   appStore: {
     siteName: 'Site',
     siteLogo: '',
@@ -26,13 +26,11 @@ const { appStore, authStore, adminSettingsStore, onboardingStore } = vi.hoisted(
     paymentEnabled: true,
     fetch: vi.fn(),
   },
-  onboardingStore: { isCurrentStep: vi.fn(() => false), nextStep: vi.fn(), setReplayCallback: vi.fn() },
 }))
 
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
 vi.mock('@/stores/adminSettings', () => ({ useAdminSettingsStore: () => adminSettingsStore }))
-vi.mock('@/stores/onboarding', () => ({ useOnboardingStore: () => onboardingStore }))
 vi.mock('@/stores/adminVersion', () => ({
   useAdminVersionStore: () => ({ fetchVersion: vi.fn(), clearVersionCache: vi.fn(), currentVersion: '', hasUpdate: false }),
 }))
@@ -104,8 +102,6 @@ describe('AdminSidebar', () => {
     expect(childPaths(items, '/subscriptions')).toEqual(['/subscriptions', '/orders/plans'])
     expect(childPaths(items, '/orders')).not.toContain('/orders/plans')
     expect(items.some((item) => item.path === '/accounts')).toBe(false)
-    const channels = items.find((item) => item.path === '/channels')
-    expect(channels?.children?.[0]?.elementId).toBe('sidebar-channel-manage')
   })
 
   it('does not offer API keys to administrators in simple mode', () => {

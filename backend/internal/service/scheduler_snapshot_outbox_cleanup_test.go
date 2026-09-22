@@ -108,10 +108,6 @@ type outboxCleanupAccountRepo struct {
 	AccountRepository
 }
 
-func (r *outboxCleanupAccountRepo) ListSchedulableUngroupedByPlatform(context.Context, string) ([]Account, error) {
-	return nil, nil
-}
-
 type blockingOutboxCleanupCache struct {
 	*outboxCleanupCache
 	mu      sync.Mutex

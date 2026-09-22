@@ -944,6 +944,10 @@ func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, gr
 	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
 		return platform, false, nil
 	}
+	// 无模型端点：平台由端点自己声明（SelectOptions.Platform），不看分组
+	if opts := selectOptionsFromContext(ctx); opts.Platform != "" {
+		return opts.Platform, false, nil
+	}
 	if group != nil {
 		if group.Platform == PlatformComposite {
 			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
@@ -1016,10 +1020,9 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 		var err error
 		if groupID != nil {
 			accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)
-		} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-			accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 		} else {
-			accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
+			// 无分组 = 全部资源（无模型端点的池；分组本身随 PR-7b 删）
+			accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 		}
 		if err != nil {
 			slog.Debug("account_scheduling_list_failed",
@@ -1050,13 +1053,12 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 
 	var accounts []Account
 	var err error
-	if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
-	} else if groupID != nil {
+	if groupID != nil && (s.cfg == nil || s.cfg.RunMode != config.RunModeSimple) {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)
 		// 分组内无账号则返回空列表，由上层处理错误，不再回退到全平台查询
 	} else {
-		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
+		// 无分组 = 全部资源（无模型端点的池；分组本身随 PR-7b 删）
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 	}
 	if err != nil {
 		slog.Debug("account_scheduling_list_failed",

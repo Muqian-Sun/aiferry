@@ -9,7 +9,7 @@ import { getSetupStatus } from '@/api/setup'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminComplianceStore } from '@/stores/adminCompliance'
 
-provide(SITE_LAYOUT, { sidebar: AdminSidebar, onboardingStorageKey: 'admin_guide' })
+provide(SITE_LAYOUT, { sidebar: AdminSidebar })
 
 const router = useRouter()
 const route = useRoute()

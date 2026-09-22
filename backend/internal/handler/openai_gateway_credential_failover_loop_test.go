@@ -72,10 +72,6 @@ func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesByGroupID(ctx contex
 	return r.ListSchedulingCandidates(ctx, platforms)
 }
 
-func (r *grokCredentialHandlerRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]service.Account, error) {
-	return r.ListSchedulingCandidates(ctx, platforms)
-}
-
 func (r *grokCredentialHandlerRepo) GetByID(_ context.Context, id int64) (*service.Account, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -1024,7 +1020,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3
-	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	group := &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,

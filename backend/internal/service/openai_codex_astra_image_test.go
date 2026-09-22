@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -28,12 +27,7 @@ func TestBuildCodexModelsManifestForGroupCorrectsOfficialAstraStaleModalities(t 
 		byGroup: map[int64][]Account{groupID: {account}},
 	}}
 
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		"",
-		[]string{"gpt-6-astra"},
-	)
+	body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-6-astra")
 	require.NoError(t, err)
 	models := decodeCodexManifestModels(t, body)
 	require.Len(t, models, 1)
@@ -63,12 +57,7 @@ func TestBuildCodexModelsManifestForGroupPreservesCompatibleAstraTextOnlyMetadat
 		byGroup: map[int64][]Account{groupID: {account}},
 	}}
 
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		"",
-		[]string{"gpt-6-astra"},
-	)
+	body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-6-astra")
 	require.NoError(t, err)
 	models := decodeCodexManifestModels(t, body)
 	require.Len(t, models, 1)

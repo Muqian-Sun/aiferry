@@ -152,8 +152,9 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 		return nil, ErrNoAvailableAccounts
 	}
 	for attempt := 0; attempt <= 3; attempt++ {
-		selection, selectErr := s.scheduler.SelectAccountWithOptions(ctx, identity.GroupID, uuid.NewString(), "", excluded,
-			SelectOptions{Capability: OpenAIEndpointCapabilityLive, Transport: OpenAIUpstreamTransportHTTPSSE})
+		// 无模型端点：池 = 全部 OpenAI 资源里有 live 能力的（不看分组）
+		selection, selectErr := s.scheduler.SelectAccountWithOptions(ctx, nil, uuid.NewString(), "", excluded,
+			SelectOptions{Capability: OpenAIEndpointCapabilityLive, Transport: OpenAIUpstreamTransportHTTPSSE, Platform: PlatformOpenAI})
 		if selectErr != nil {
 			if lastErr != nil {
 				return nil, lastErr

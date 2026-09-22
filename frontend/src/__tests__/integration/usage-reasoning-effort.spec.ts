@@ -11,7 +11,6 @@ const {
   userGetDashboardModels,
   userGetDashboardSnapshotV2,
   userKeysList,
-  userGroupsGetAvailable,
   adminList,
   adminGetStats,
   adminGetSnapshotV2,
@@ -24,7 +23,6 @@ const {
   userGetDashboardModels: vi.fn(),
   userGetDashboardSnapshotV2: vi.fn(),
   userKeysList: vi.fn(),
-  userGroupsGetAvailable: vi.fn(),
   adminList: vi.fn(),
   adminGetStats: vi.fn(),
   adminGetSnapshotV2: vi.fn(),
@@ -87,9 +85,6 @@ vi.mock('@/api', () => ({
   },
   keysAPI: {
     list: userKeysList,
-  },
-  userGroupsAPI: {
-    getAvailable: userGroupsGetAvailable,
   },
 }))
 
@@ -237,7 +232,6 @@ describe('usage reasoning effort page display', () => {
       groups: [],
     })
     userKeysList.mockReset().mockResolvedValue({ items: [{ id: 1, name: 'user-key' }] })
-    userGroupsGetAvailable.mockReset().mockResolvedValue([{ id: 1, name: 'default' }])
 
     adminList.mockReset().mockResolvedValue({ items: [adminMappedLog], total: 1, pages: 1 })
     adminGetStats.mockReset().mockResolvedValue(emptyStats)

@@ -103,32 +103,6 @@ type groupAwareMockAccountRepo struct {
 	allAccounts []Account
 }
 
-// ListSchedulableUngroupedByPlatform 仅返回未分组账号（AccountGroups 为空）
-func (m *groupAwareMockAccountRepo) ListSchedulableUngroupedByPlatform(ctx context.Context, platform string) ([]Account, error) {
-	var result []Account
-	for _, acc := range m.allAccounts {
-		if acc.Platform == platform && acc.IsSchedulable() && len(acc.AccountGroups) == 0 {
-			result = append(result, acc)
-		}
-	}
-	return result, nil
-}
-
-// ListSchedulableUngroupedByPlatforms 仅返回未分组账号（多平台版本）
-func (m *groupAwareMockAccountRepo) ListSchedulingCandidatesUngrouped(ctx context.Context, platforms []string) ([]Account, error) {
-	platformSet := make(map[string]bool, len(platforms))
-	for _, p := range platforms {
-		platformSet[p] = true
-	}
-	var result []Account
-	for _, acc := range m.allAccounts {
-		if (platformSet[acc.Platform] || acc.IsThirdPartyKey()) && acc.IsSchedulable() && len(acc.AccountGroups) == 0 {
-			result = append(result, acc)
-		}
-	}
-	return result, nil
-}
-
 // ListSchedulableByGroupIDAndPlatform 返回属于指定分组的账号
 func (m *groupAwareMockAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
@@ -187,8 +161,9 @@ func newGroupAwareMockRepo(accounts []Account) *groupAwareMockAccountRepo {
 	}
 }
 
-func TestGroupIsolation_UngroupedKey_ShouldNotScheduleGroupedAccounts(t *testing.T) {
-	// 场景：无分组 API Key（groupID=nil），池中只有已分组账号 → 应返回错误
+// 无分组 key 的池 = 全部资源（分组随 PR-7 下线，绑没绑分组不再影响它能不能被无分组 key 调到）。
+func TestUngroupedKey_SchedulesGroupedAccountsToo(t *testing.T) {
+	// 场景：无分组 API Key（groupID=nil），池中只有已分组账号 → 按优先级选中
 	ctx := context.Background()
 
 	accounts := []Account{
@@ -207,8 +182,9 @@ func TestGroupIsolation_UngroupedKey_ShouldNotScheduleGroupedAccounts(t *testing
 	}
 
 	acc, err := svc.selectAccountForModelWithPlatform(ctx, nil, "", "", nil, PlatformOpenAI)
-	require.Error(t, err, "无分组 Key 不应调度到已分组账号")
-	require.Nil(t, acc)
+	require.NoError(t, err, "无分组 Key 的池是全部资源")
+	require.NotNil(t, acc)
+	require.Equal(t, int64(1), acc.ID)
 }
 
 func TestGroupIsolation_GroupedKey_ShouldNotScheduleUngroupedAccounts(t *testing.T) {
@@ -236,17 +212,17 @@ func TestGroupIsolation_GroupedKey_ShouldNotScheduleUngroupedAccounts(t *testing
 	require.Nil(t, acc)
 }
 
-func TestGroupIsolation_UngroupedKey_ShouldOnlyScheduleUngroupedAccounts(t *testing.T) {
-	// 场景：无分组 API Key（groupID=nil），池中有未分组和已分组账号 → 应只选中未分组的
+func TestUngroupedKey_PicksByPriorityAcrossGroupedAndUngrouped(t *testing.T) {
+	// 场景：无分组 API Key（groupID=nil），池中有未分组和已分组账号 → 只按优先级
 	ctx := context.Background()
 
 	accounts := []Account{
 		{ID: 1, Platform: PlatformOpenAI, Priority: 1, Status: StatusActive, Schedulable: true,
-			AccountGroups: []AccountGroup{{GroupID: 100}}}, // 已分组，不应被选中
+			AccountGroups: []AccountGroup{{GroupID: 100}}}, // 已分组，优先级最高，应被选中
 		{ID: 2, Platform: PlatformOpenAI, Priority: 2, Status: StatusActive, Schedulable: true,
-			AccountGroups: nil}, // 未分组，应被选中
+			AccountGroups: nil},
 		{ID: 3, Platform: PlatformOpenAI, Priority: 3, Status: StatusActive, Schedulable: true,
-			AccountGroups: []AccountGroup{{GroupID: 200}}}, // 已分组，不应被选中
+			AccountGroups: []AccountGroup{{GroupID: 200}}},
 	}
 	repo := newGroupAwareMockRepo(accounts)
 	cache := &mockGatewayCacheForPlatform{}
@@ -258,9 +234,9 @@ func TestGroupIsolation_UngroupedKey_ShouldOnlyScheduleUngroupedAccounts(t *test
 	}
 
 	acc, err := svc.selectAccountForModelWithPlatform(ctx, nil, "", "", nil, PlatformOpenAI)
-	require.NoError(t, err, "应成功调度未分组账号")
+	require.NoError(t, err)
 	require.NotNil(t, acc)
-	require.Equal(t, int64(2), acc.ID, "应选中未分组的账号 ID=2")
+	require.Equal(t, int64(1), acc.ID, "绑了分组的账号同样在无分组 key 的池里，按优先级选中")
 }
 
 func TestGroupIsolation_GroupedKey_ShouldOnlyScheduleMatchingGroupAccounts(t *testing.T) {

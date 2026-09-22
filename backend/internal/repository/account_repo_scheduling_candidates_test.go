@@ -40,10 +40,6 @@ func TestListSchedulingCandidates_PlatformFilterOnlyConstrainsSubscriptions(t *t
 			_, err := repo.ListSchedulingCandidatesByGroupID(context.Background(), 42, []string{service.PlatformAnthropic})
 			return err
 		},
-		"ungrouped": func(repo *accountRepository) error {
-			_, err := repo.ListSchedulingCandidatesUngrouped(context.Background(), []string{service.PlatformAnthropic})
-			return err
-		},
 	}
 	for name, query := range queries {
 		t.Run(name, func(t *testing.T) {

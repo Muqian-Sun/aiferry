@@ -157,20 +157,3 @@ func TestSupplementUnmappedOpenAIModels_ByVendorNotLabel(t *testing.T) {
 		})
 	}
 }
-
-func TestOpenAIConfiguredCodexModelIDs_CountsKeysByProtocolNotLabel(t *testing.T) {
-	responsesKey := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
-	responsesKey.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-relay-responses": "gpt-5.1"}}
-	geminiKey := schedulingTestKey(2, PlatformOpenAI, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
-	geminiKey.Credentials = map[string]any{"model_mapping": map[string]any{"gemini-relay-only": "gemini-2.5-pro"}}
-
-	require.Equal(t, []string{"gpt-relay-responses"}, openAIConfiguredCodexModelIDs([]Account{responsesKey, geminiKey}))
-
-	// 分组白名单里的通配映射模型同样按 OpenAI 网关能否承接统计 key。
-	wildcardKey := schedulingTestKey(3, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL})
-	wildcardKey.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-wild-*": "gpt-5.1"}}
-	geminiWildcardKey := schedulingTestKey(4, PlatformOpenAI, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
-	geminiWildcardKey.Credentials = map[string]any{"model_mapping": map[string]any{"gemini-wild-*": "gemini-2.5-pro"}}
-	group := &Group{ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"gpt-wild-one", "gemini-wild-one"}}}
-	require.Equal(t, []string{"gpt-wild-one"}, openAIConfiguredCodexModelIDsForGroup([]Account{wildcardKey, geminiWildcardKey}, group))
-}

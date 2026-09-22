@@ -249,7 +249,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, scheduler)
 	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), &groupID, "task", 10, 20, 1))
 	bindings.writes = 0
-	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billing.Stop)
 	handler := NewOpenAIGatewayHandler(gateway, concurrency, billing, service.NewAPIKeyService(nil, nil, nil, nil, nil, cfg), nil, nil, nil, nil, cfg, listAllCatalogStub{})
 	return handler, slots, bindings, upstream

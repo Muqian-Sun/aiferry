@@ -50,10 +50,6 @@ func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidates(_ context.Cont
 	return r.schedulingCandidates(platforms), nil
 }
 
-func (r openAIImagesFailoverAccountRepo) ListSchedulingCandidatesUngrouped(_ context.Context, platforms []string) ([]service.Account, error) {
-	return r.schedulingCandidates(platforms), nil
-}
-
 // schedulingCandidates 与 ListSchedulingCandidates* 的口径一致：平台匹配的成品号，加上任意标签的第三方 key。
 func (r openAIImagesFailoverAccountRepo) schedulingCandidates(platforms []string) []service.Account {
 	out := make([]service.Account, 0, len(r.accounts))
@@ -146,7 +142,7 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 		nil,
 		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
 	)
-	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
 	concurrencyService := service.NewConcurrencyService(nil)
 	handler := NewOpenAIGatewayHandler(

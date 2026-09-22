@@ -525,7 +525,6 @@ export default {
       upstreamRequestIdCopied: '上游ID已复制',
       allModels: '全部模型',
       allAccounts: '全部账户',
-      allGroups: '全部分组',
       allTypes: '全部类型',
       inputCost: '输入费用',
       outputCost: '输出费用',

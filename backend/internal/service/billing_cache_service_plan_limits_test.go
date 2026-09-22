@@ -38,7 +38,7 @@ func TestCheckBillingEligibility_SubscriptionUsesPlanLimits(t *testing.T) {
 	cache := &planLimitCacheStub{sub: &SubscriptionCacheData{
 		Status: SubscriptionStatusActive, ExpiresAt: time.Now().Add(time.Hour), DailyUsage: 1.0,
 	}}
-	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, &config.Config{})
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, &config.Config{})
 	t.Cleanup(svc.Stop)
 
 	sub := &UserSubscription{UserID: 1, PlanID: 20, Plan: &SubscriptionPlan{ID: 20, DailyLimitUSD: &limit}}
@@ -65,7 +65,7 @@ func TestCheckBillingEligibility_BalanceKeyIgnoresSubscription(t *testing.T) {
 	cache := &planLimitCacheStub{balance: 0}
 	cfg := &config.Config{}
 	cfg.Billing.MinimumBalanceReserve = 0.01
-	svc := NewBillingCacheService(cache, nil, nil, nil, nil, nil, cfg)
+	svc := NewBillingCacheService(cache, nil, nil, nil, nil, cfg)
 	t.Cleanup(svc.Stop)
 
 	err := svc.CheckBillingEligibility(context.Background(), &User{ID: 1}, &APIKey{ID: 5}, nil, nil)

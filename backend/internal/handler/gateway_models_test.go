@@ -63,10 +63,13 @@ func newGatewayModelsHandlerForTest(listed ...string) *GatewayHandler {
 	}
 }
 
-func requestModelsForTest(h *GatewayHandler, group *service.Group, path string) *httptest.ResponseRecorder {
+func requestModelsForTest(h *GatewayHandler, group *service.Group, path string, headers ...string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, path, nil)
+	for i := 0; i+1 < len(headers); i += 2 {
+		c.Request.Header.Set(headers[i], headers[i+1])
+	}
 	if group != nil {
 		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{GroupID: &group.ID, Group: group})
 	}
@@ -74,13 +77,13 @@ func requestModelsForTest(h *GatewayHandler, group *service.Group, path string) 
 	return rec
 }
 
-// 列表内容 = 目录上架条目（与分组平台无关）；分组平台只决定响应形状。
+// 列表内容 = 目录上架条目；响应形状只看客户端：带 anthropic-version 头 → Claude 形状，否则 OpenAI 形状。
 func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := newGatewayModelsHandlerForTest("claude-sonnet-4", "gpt-5.6", "grok-4.5")
 
-	t.Run("anthropic group uses claude shape", func(t *testing.T) {
-		rec := requestModelsForTest(h, &service.Group{ID: 1, Platform: service.PlatformAnthropic}, "/v1/models")
+	t.Run("anthropic-version header uses claude shape", func(t *testing.T) {
+		rec := requestModelsForTest(h, nil, "/v1/models", "anthropic-version", "2023-06-01")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
@@ -88,26 +91,28 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 		require.Equal(t, "2024-01-01T00:00:00Z", got.Data[0].CreatedAt)
 	})
 
-	t.Run("openai group uses openai shape", func(t *testing.T) {
-		rec := requestModelsForTest(h, &service.Group{ID: 2, Platform: service.PlatformOpenAI}, "/v1/models")
+	t.Run("no header uses openai shape even for an anthropic group", func(t *testing.T) {
+		rec := requestModelsForTest(h, &service.Group{ID: 1, Platform: service.PlatformAnthropic}, "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Equal(t, []string{"claude-sonnet-4", "gpt-5.6", "grok-4.5"}, modelIDsForTest(got.Data))
 		require.Equal(t, "model", got.Data[0].Object)
 		require.NotZero(t, got.Data[0].Created)
+		require.Empty(t, got.Data[0].CreatedAt)
 	})
 
-	t.Run("no group still lists the catalog", func(t *testing.T) {
-		rec := requestModelsForTest(h, nil, "/v1/models")
+	t.Run("grok group gets the openai shape too", func(t *testing.T) {
+		rec := requestModelsForTest(h, &service.Group{ID: 4, Platform: service.PlatformGrok}, "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-		require.Len(t, got.Data, 3)
+		require.Equal(t, "model", got.Data[0].Object)
+		require.False(t, got.Data[2].SupportsReasoningEffort, "Grok 专有形状已并入 OpenAI 形状")
 	})
 
 	t.Run("empty catalog lists nothing", func(t *testing.T) {
-		rec := requestModelsForTest(newGatewayModelsHandlerForTest(), &service.Group{ID: 3, Platform: service.PlatformOpenAI}, "/v1/models")
+		rec := requestModelsForTest(newGatewayModelsHandlerForTest(), nil, "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code)
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
@@ -130,56 +135,23 @@ func TestGatewayModels_AllowlistFiltersListedCatalog(t *testing.T) {
 		"allowlist order is kept and entries absent from the catalog are not invented")
 }
 
-func TestGatewayModels_GrokShapeAdvertisesReasoningEffort(t *testing.T) {
-	cases := []struct {
-		model string
-		want  []gatewayReasoningEffortOptionForTest
-	}{
-		{"grok-4.5", []gatewayReasoningEffortOptionForTest{
-			{Value: "low", Label: "Low"}, {Value: "medium", Label: "Medium"}, {Value: "high", Label: "High", Default: true},
-		}},
-		{"grok-4.6", []gatewayReasoningEffortOptionForTest{
-			{Value: "low", Label: "Low"}, {Value: "medium", Label: "Medium"}, {Value: "high", Label: "High", Default: true}, {Value: "xhigh", Label: "xHigh"},
-		}},
-		{"grok-4.6-latest", []gatewayReasoningEffortOptionForTest{
-			{Value: "low", Label: "Low"}, {Value: "medium", Label: "Medium"}, {Value: "high", Label: "High", Default: true}, {Value: "xhigh", Label: "xHigh"},
-		}},
-	}
-	for _, tc := range cases {
-		t.Run(tc.model, func(t *testing.T) {
-			gin.SetMode(gin.TestMode)
-			h := newGatewayModelsHandlerForTest(tc.model)
-			rec := requestModelsForTest(h, &service.Group{ID: 4409, Platform: service.PlatformGrok}, "/v1/models")
-			require.Equal(t, http.StatusOK, rec.Code)
-			var got gatewayModelsResponseForTest
-			require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-			require.Len(t, got.Data, 1)
-			model := got.Data[0]
-			require.Equal(t, tc.model, model.ID)
-			require.True(t, model.SupportsReasoningEffort)
-			require.Equal(t, "high", model.ReasoningEffort)
-			require.Equal(t, tc.want, model.ReasoningEfforts)
-		})
-	}
-}
-
-// Codex 清单（生成版）只含目录上架的模型；ETag 按最终响应体计算并支持 304。
+// Codex 清单由目录生成：只含上架的 OpenAI 厂商条目（生图专用模型被 Codex 过滤掉），无分组也能拿；
+// ETag 按最终响应体计算并支持 304。
 func TestGatewayCodexModels_UsesListedCatalogAndFinalBodyETag(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := newGatewayModelsHandlerForTest("deepseek-v4-pro", "gpt-image-2")
-	group := &service.Group{ID: 122, Platform: service.PlatformDeepseek}
+	h := newGatewayModelsHandlerForTest("gpt-5.6", "gpt-image-2", "claude-sonnet-4", "deepseek-v4-pro")
 
 	first := httptest.NewRecorder()
 	firstContext, _ := gin.CreateTestContext(first)
 	firstContext.Request = httptest.NewRequest(http.MethodGet, "/models?client_version=0.147.0", nil)
-	firstContext.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{Group: group})
+	firstContext.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{})
 	h.CodexModels(firstContext)
 
 	require.Equal(t, http.StatusOK, first.Code, first.Body.String())
 	var manifest codexModelsResponseForTest
 	require.NoError(t, json.Unmarshal(first.Body.Bytes(), &manifest))
-	require.Equal(t, []string{"deepseek-v4-pro"}, codexModelSlugsForTest(manifest.Models),
-		"dedicated image models are dropped by the Codex filter; the rest comes from the catalog")
+	require.Equal(t, []string{"gpt-5.6"}, codexModelSlugsForTest(manifest.Models),
+		"only listed OpenAI-vendor entries appear; image models are dropped by the Codex filter, other vendors are not Codex models")
 	etag := first.Header().Get("ETag")
 	require.NotEmpty(t, etag)
 	require.Equal(t, service.CodexModelsManifestETag(first.Body.Bytes()), etag)
@@ -188,7 +160,7 @@ func TestGatewayCodexModels_UsesListedCatalogAndFinalBodyETag(t *testing.T) {
 	secondContext, _ := gin.CreateTestContext(second)
 	secondContext.Request = httptest.NewRequest(http.MethodGet, "/models?client_version=0.147.0", nil)
 	secondContext.Request.Header.Set("If-None-Match", "W/"+etag)
-	secondContext.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{Group: group})
+	secondContext.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{})
 	h.CodexModels(secondContext)
 
 	require.Equal(t, http.StatusNotModified, second.Code)

@@ -73,7 +73,7 @@ const navItems = computed((): NavItem[] => {
       icon: ChannelIcon,
       expandOnly: true,
       children: [
-        { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon, elementId: 'sidebar-channel-manage' },
+        { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
         { path: '/model-catalog', label: t('nav.modelCatalog'), icon: PriceTagIcon },
         { path: '/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
@@ -105,7 +105,7 @@ const navItems = computed((): NavItem[] => {
         { path: '/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon },
       ],
     },
-    { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true, elementId: 'sidebar-wallet' },
+    { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
     { path: '/promo-codes', label: t('nav.promoCodes'), icon: GiftIcon, hideInSimpleMode: true },
     {
       path: '/affiliates',

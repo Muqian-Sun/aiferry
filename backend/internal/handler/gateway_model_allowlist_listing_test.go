@@ -32,8 +32,8 @@ func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(
 	return nil, nil
 }
 
-func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidatesByGroupID(context.Context, int64, []string) ([]service.Account, error) {
-	// 只有一个 antigravity 成品号：Gemini 选号失败后回落静态模型列表。
+// 无模型端点的池 = 全部资源（PR-7a）：只有一个 antigravity 成品号，Gemini 选号失败后回落静态模型列表。
+func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidates(context.Context, []string) ([]service.Account, error) {
 	return []service.Account{{ID: 2, Platform: service.PlatformAntigravity, Status: service.StatusActive, Schedulable: true}}, nil
 }
 

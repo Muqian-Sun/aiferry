@@ -286,7 +286,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		OpsMetricsIntervalSeconds:              settings.OpsMetricsIntervalSeconds,
 		MinClaudeCodeVersion:                   settings.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                   settings.MaxClaudeCodeVersion,
-		AllowUngroupedKeyScheduling:            settings.AllowUngroupedKeyScheduling,
 		BackendModeEnabled:                     settings.BackendModeEnabled,
 		OpenAITTFTMode:                         settings.OpenAITTFTMode,
 		EnableFingerprintUnification:           settings.EnableFingerprintUnification,

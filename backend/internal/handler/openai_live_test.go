@@ -75,38 +75,6 @@ func TestLiveSidebandLocationMatchesCreateRoute(t *testing.T) {
 	)
 }
 
-func TestLiveEnabledForAPIKey(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	newCtx := func(route *service.CatalogRoute) *gin.Context {
-		c, _ := gin.CreateTestContext(httptest.NewRecorder())
-		c.Request = httptest.NewRequest(http.MethodPost, "/v1/live", nil)
-		if route != nil {
-			c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), *route))
-		}
-		return c
-	}
-	require.False(t, liveEnabledForAPIKey(newCtx(nil), nil))
-	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{}))
-	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
-		Group: &service.Group{Platform: service.PlatformOpenAI},
-	}))
-	require.False(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
-		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
-	}))
-	require.True(t, liveEnabledForAPIKey(newCtx(nil), &service.APIKey{
-		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
-	}))
-	// 目录路由：条目厂商决定平台，分组平台是什么不再重要；allow_live 仍要开。
-	openAIRoute := &service.CatalogRoute{EntryID: 1, Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-realtime", Vendor: "openai"}}
-	require.True(t, liveEnabledForAPIKey(newCtx(openAIRoute), &service.APIKey{
-		Group: &service.Group{Platform: service.PlatformAnthropic, AllowLive: true},
-	}))
-	grokRoute := &service.CatalogRoute{EntryID: 2, Entry: &service.ModelCatalogEntry{ID: 2, ModelID: "grok-4", Vendor: "xai"}}
-	require.False(t, liveEnabledForAPIKey(newCtx(grokRoute), &service.APIKey{
-		Group: &service.Group{Platform: service.PlatformOpenAI, AllowLive: true},
-	}))
-}
-
 func TestLiveAttestationErrorIsExplicit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	recorder := httptest.NewRecorder()

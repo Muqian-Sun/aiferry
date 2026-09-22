@@ -99,7 +99,6 @@ func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, *keyBillingRoute
 		apiKeyService,
 		nil,
 		nil,
-		nil,
 		admitAllCatalog{},
 		cfg,
 	)

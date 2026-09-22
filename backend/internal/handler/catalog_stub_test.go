@@ -39,7 +39,7 @@ func testCatalogEntry(id int64, model string) *service.ModelCatalogEntry {
 func (s listedCatalogStub) ListListedEntries(context.Context) []service.ModelCatalogEntry {
 	entries := make([]service.ModelCatalogEntry, 0, len(s.ids))
 	for i, id := range s.ids {
-		entries = append(entries, service.ModelCatalogEntry{ID: int64(i + 1), ModelID: id, Status: service.ModelCatalogStatusListed})
+		entries = append(entries, service.ModelCatalogEntry{ID: int64(i + 1), ModelID: id, Vendor: testCatalogVendorForModel(id), Status: service.ModelCatalogStatusListed})
 	}
 	return entries
 }

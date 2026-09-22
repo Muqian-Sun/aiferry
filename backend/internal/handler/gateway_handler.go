@@ -21,7 +21,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/securityaudit"
 	middleware2 "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -861,33 +860,46 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 func (h *GatewayHandler) Models(c *gin.Context) {
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 
-	// platform 只决定输出格式（OpenAI / Grok / Claude 形状），列表内容来自目录。
-	var platform string
-	if apiKey != nil && apiKey.Group != nil {
-		platform = apiKey.Group.Platform
-	}
+	// 形状只看客户端：Anthropic SDK 带 anthropic-version 头 → Claude 形状，其余 OpenAI 形状
+	//（Grok 形状并入 OpenAI）；强制平台路由（/antigravity）仍按自己的平台。列表内容来自目录。
+	platform := modelsListShape(c)
 	if forcedPlatform, ok := middleware2.GetForcePlatformFromContext(c); ok && strings.TrimSpace(forcedPlatform) != "" {
 		platform = forcedPlatform
-	}
-
-	if platform == service.PlatformOpenAI && apiKey != nil && apiKey.Group != nil &&
-		apiKey.Group.Platform == service.PlatformOpenAI && apiKey.Group.CodexModelsManifestConfig.Enabled {
-		h.pinnedOpenAIModels(c, apiKey.Group)
-		return
 	}
 
 	writeModelsList(c, platform, h.listedModelIDs(c, apiKey))
 }
 
-// listedModelIDs 返回用户可见的模型：目录里上架的条目，订阅 key 只留套餐模型集里的，再按分组白名单（若开启）过滤。
-func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) []string {
+// modelsListShape 决定 /v1/models 的响应形状：带 anthropic-version 头的是 Anthropic 客户端。
+func modelsListShape(c *gin.Context) string {
+	if strings.TrimSpace(c.GetHeader("anthropic-version")) != "" {
+		return service.PlatformAnthropic
+	}
+	return service.PlatformOpenAI
+}
+
+// listedEntries 返回用户可见的目录条目：上架的条目，订阅 key 只留套餐模型集里的。
+func (h *GatewayHandler) listedEntries(c *gin.Context) []service.ModelCatalogEntry {
 	entries := h.modelCatalog.ListListedEntries(c.Request.Context())
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
+	if subscription == nil {
+		return entries
+	}
+	kept := entries[:0]
+	for i := range entries {
+		if subscription.Plan.Covers(entries[i].ID) {
+			kept = append(kept, entries[i])
+		}
+	}
+	return kept
+}
+
+// listedModelIDs 返回用户可见的模型标识（listedEntries 的模型标识），再按分组白名单（若开启）过滤——
+// 白名单是分组策略，随 PR-7b 一起删。
+func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) []string {
+	entries := h.listedEntries(c)
 	ids := make([]string, 0, len(entries))
 	for i := range entries {
-		if subscription != nil && !subscription.Plan.Covers(entries[i].ID) {
-			continue
-		}
 		ids = append(ids, entries[i].ModelID)
 	}
 	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
@@ -896,27 +908,21 @@ func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) 
 	return ids
 }
 
-// CodexModels returns the effective group model list using the manifest shape
-// expected by Codex custom providers. Official OpenAI groups continue to use
-// OpenAIGatewayHandler.CodexModels so their live upstream metadata is preserved.
+// CodexModels 返回 Codex 自定义 provider 期望的清单：目录里上架的 OpenAI 厂商条目（订阅 key 按套餐过滤），
+// 能力从绑定账号推断；不再拉上游、不再看分组。
 func (h *GatewayHandler) CodexModels(c *gin.Context) {
-	apiKey, ok := middleware2.GetAPIKeyFromContext(c)
-	if !ok || apiKey == nil || apiKey.Group == nil {
-		h.errorResponse(c, http.StatusUnauthorized, "invalid_request_error", "API key group is required")
-		return
+	entries := h.listedEntries(c)
+	openAIEntries := make([]service.ModelCatalogEntry, 0, len(entries))
+	for i := range entries {
+		if service.CatalogVendorPlatform(&entries[i]) != service.PlatformOpenAI {
+			continue
+		}
+		if len(service.FilterCodexModelIDs([]string{entries[i].ModelID})) == 0 {
+			continue
+		}
+		openAIEntries = append(openAIEntries, entries[i])
 	}
-
-	forcedPlatform := ""
-	if value, exists := middleware2.GetForcePlatformFromContext(c); exists {
-		forcedPlatform = strings.TrimSpace(value)
-	}
-	modelIDs := service.FilterCodexModelIDsForGroup(h.listedModelIDs(c, apiKey), apiKey.Group)
-	body, err := h.gatewayService.BuildCodexModelsManifestForGroup(
-		c.Request.Context(),
-		apiKey.Group,
-		forcedPlatform,
-		modelIDs,
-	)
+	body, err := h.gatewayService.BuildCodexModelsManifestFromCatalog(c.Request.Context(), openAIEntries)
 	if err != nil {
 		h.errorResponse(c, http.StatusInternalServerError, "api_error", "Failed to build Codex models manifest")
 		return
@@ -936,10 +942,6 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 		writeOpenAIModelsList(c, modelIDs)
 		return
 	}
-	if platform == service.PlatformGrok {
-		writeGrokModelsList(c, modelIDs)
-		return
-	}
 	models := make([]claude.Model, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
 		models = append(models, claude.Model{
@@ -950,66 +952,6 @@ func writeModelsList(c *gin.Context, platform string, modelIDs []string) {
 		})
 	}
 	writeModelsListResponse(c, models)
-}
-
-type grokReasoningEffortOption struct {
-	Value   string `json:"value"`
-	Label   string `json:"label"`
-	Default bool   `json:"default,omitempty"`
-}
-
-type grokModelListItem struct {
-	xai.Model
-	SupportsReasoningEffort bool                        `json:"supportsReasoningEffort,omitempty"`
-	ReasoningEffort         string                      `json:"reasoningEffort,omitempty"`
-	ReasoningEfforts        []grokReasoningEffortOption `json:"reasoningEfforts,omitempty"`
-}
-
-func writeGrokModelsList(c *gin.Context, modelIDs []string) {
-	defaults := xai.DefaultModels()
-	defaultsByID := make(map[string]xai.Model, len(defaults))
-	for _, model := range defaults {
-		defaultsByID[model.ID] = model
-	}
-
-	models := make([]grokModelListItem, 0, len(modelIDs))
-	for _, modelID := range modelIDs {
-		model, ok := defaultsByID[modelID]
-		if !ok {
-			model = xai.Model{
-				ID:          modelID,
-				Object:      "model",
-				OwnedBy:     "xai",
-				DisplayName: modelID,
-			}
-		}
-		item := grokModelListItem{Model: model}
-		if grokModelSupportsConfigurableReasoning(modelID) {
-			item.SupportsReasoningEffort = true
-			item.ReasoningEffort = "high"
-			efforts := []grokReasoningEffortOption{
-				{Value: "low", Label: "Low"},
-				{Value: "medium", Label: "Medium"},
-				{Value: "high", Label: "High", Default: true},
-			}
-			if service.GrokSupportsXHighReasoningEffort(modelID) {
-				efforts = append(efforts, grokReasoningEffortOption{Value: "xhigh", Label: "xHigh"})
-			}
-			item.ReasoningEfforts = efforts
-		}
-		models = append(models, item)
-	}
-
-	writeModelsListResponse(c, models)
-}
-
-func grokModelSupportsConfigurableReasoning(modelID string) bool {
-	switch strings.ToLower(strings.TrimSpace(modelID)) {
-	case "grok-4.6", "grok-4.6-latest", "grok-4.5", "grok-4.5-latest", "grok", "grok-latest", "grok-build", "grok-build-latest", "grok-build-0.1":
-		return true
-	default:
-		return false
-	}
 }
 
 func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
@@ -1941,9 +1883,9 @@ func billingErrorDetails(err error) (status int, code, message string, retryAfte
 		msg := pkgerrors.Message(err)
 		return http.StatusTooManyRequests, "rate_limit_exceeded", msg, 0
 	}
-	// 用户/分组 RPM 超限统一映射为 HTTP 429；保留与其它 rate_limit 一致的错误码便于客户端分类。
+	// 用户 RPM 超限映射为 HTTP 429；保留与其它 rate_limit 一致的错误码便于客户端分类。
 	// 返回 Retry-After 秒数（当前分钟剩余秒数），让 SDK 自动退避。
-	if errors.Is(err, service.ErrGroupRPMExceeded) || errors.Is(err, service.ErrUserRPMExceeded) {
+	if errors.Is(err, service.ErrUserRPMExceeded) {
 		msg := pkgerrors.Message(err)
 		retrySeconds := 60 - int(time.Now().Unix()%60)
 		return http.StatusTooManyRequests, "rate_limit_exceeded", msg, retrySeconds

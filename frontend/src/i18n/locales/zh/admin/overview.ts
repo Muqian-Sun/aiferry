@@ -701,10 +701,6 @@ export default {
       },
     },
 
-    // Groups Management
-    groups: {
-      rateLabel: '倍率',
-    },
 
     // Available Channels (aggregated read-only view)
 }

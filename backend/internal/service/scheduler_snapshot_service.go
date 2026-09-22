@@ -1586,10 +1586,9 @@ func (s *SchedulerSnapshotService) loadAccountsFromDB(ctx context.Context, bucke
 	var err error
 	if groupID > 0 {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, groupID, platforms)
-	} else if s.isRunModeSimple() {
-		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 	} else {
-		accounts, err = s.accountRepo.ListSchedulingCandidatesUngrouped(ctx, platforms)
+		// GroupID 0 的桶 = 全部资源（无模型端点的池）
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, platforms)
 	}
 	if err != nil {
 		return nil, err

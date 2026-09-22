@@ -20,7 +20,6 @@ func RegisterGatewayRoutes(
 	apiKeyService *service.APIKeyService,
 	subscriptionService *service.SubscriptionService,
 	opsService *service.OpsService,
-	settingService *service.SettingService,
 	modelCatalog middleware.CatalogAdmissionSource,
 	cfg *config.Config,
 ) {
@@ -29,10 +28,6 @@ func RegisterGatewayRoutes(
 	clientRequestID := middleware.ClientRequestID()
 	opsErrorLogger := handler.OpsErrorLoggerMiddleware(opsService)
 	endpointNorm := handler.InboundEndpointMiddleware()
-
-	// 未分组 Key 拦截中间件（按协议格式区分错误响应）
-	requireGroupAnthropic := middleware.RequireGroupAssignment(settingService, middleware.AnthropicErrorWriter)
-	requireGroupGoogle := middleware.RequireGroupAssignment(settingService, middleware.GoogleErrorWriter)
 
 	// 目录准入：客户端写的模型名必须解析到上架条目。在 apiKeyAuth 之后、其余准入之前，
 	// 只看客户端书写的模型名；命中后把条目路由挂到 ctx，下游据此定资源池。四条链共用一个，
@@ -58,9 +53,7 @@ func RegisterGatewayRoutes(
 			h.Gateway.CountTokens(c)
 		}
 	}
-	codexModelsHandler := func(c *gin.Context) {
-		dispatchCodexModelsGateway(c, h.OpenAIGateway.CodexModels, h.Gateway.CodexModels)
-	}
+	codexModelsHandler := h.Gateway.CodexModels
 	modelsHandler := func(c *gin.Context) {
 		if c.Query("client_version") != "" {
 			codexModelsHandler(c)
@@ -154,7 +147,6 @@ func RegisterGatewayRoutes(
 	gateway.Use(catalogAdmission)
 	gateway.Use(subscriptionModelAdmission)
 	gateway.Use(groupModelAllowlist)
-	gateway.Use(requireGroupAnthropic)
 	{
 		// /v1/messages: 一条循环承接全部资源，转发实现按资源的上游协议定（compatForwardTargetFor）
 		gateway.POST("/messages", h.Gateway.Messages)
@@ -222,58 +214,23 @@ func RegisterGatewayRoutes(
 		gateway.GET("/videos/:request_id", videoStatusHandler)
 		gateway.GET("/videos/:request_id/content", videoContentHandler)
 
-		// xAI Voice APIs (Grok platform only): HTTP TTS/STT + Realtime WS.
+		// xAI Voice APIs：端点本身就是 grok 的，池由 handler 按 grok 平台装载；不再按分组平台 404。
 		// Not part of the creation-center product surface — gateway relay only.
 		voiceHandler := func(endpoint string) gin.HandlerFunc {
-			return func(c *gin.Context) {
-				if routePlatform(c) != service.PlatformGrok {
-					service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-					c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-					return
-				}
-				h.OpenAIGateway.GrokVoice(c, endpoint)
-			}
+			return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
 		}
 		gateway.POST("/tts", voiceHandler("tts"))
 		gateway.POST("/stt", voiceHandler("stt"))
 		gateway.POST("/custom-voices", voiceHandler("custom-voices"))
-		customVoicePathHandler := func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c))
-		}
+		customVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
 		gateway.GET("/custom-voices", voiceHandler("custom-voices"))
 		gateway.GET("/custom-voices/:voice_id/audio", customVoicePathHandler)
 		gateway.GET("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.PATCH("/custom-voices/:voice_id", customVoicePathHandler)
 		gateway.DELETE("/custom-voices/:voice_id", customVoicePathHandler)
-		gateway.GET("/realtime", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Realtime API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokRealtime(c)
-		})
-		gateway.POST("/web_search", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Web Search API is not supported for this platform"}})
-				return
-			}
-			h.Gateway.WebSearch(c)
-		})
-		gateway.POST("/x_search", func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "X Search API is not supported for this platform"}})
-				return
-			}
-			h.Gateway.XSearch(c)
-		})
+		gateway.GET("/realtime", h.OpenAIGateway.GrokRealtime)
+		gateway.POST("/web_search", h.Gateway.WebSearch)
+		gateway.POST("/x_search", h.Gateway.XSearch)
 	}
 
 	// Gemini 原生 API 兼容层（Gemini SDK/CLI 直连）
@@ -286,7 +243,6 @@ func RegisterGatewayRoutes(
 	gemini.Use(catalogAdmission)
 	gemini.Use(subscriptionModelAdmission)
 	gemini.Use(groupModelAllowlist)
-	gemini.Use(requireGroupGoogle)
 	{
 		gemini.GET("/models", h.Gateway.GeminiV1BetaListModels)
 		gemini.GET("/models/:model", h.Gateway.GeminiV1BetaGetModel)
@@ -299,7 +255,7 @@ func RegisterGatewayRoutes(
 	// 根路径别名共用中间件链：目录准入与白名单在 apiKeyAuth 之后，
 	// 避免逐条路由手工维护链导致漏挂。
 	rootRoute := func(method, path string, limit gin.HandlerFunc, handler gin.HandlerFunc) {
-		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic, handler)
+		r.Handle(method, path, limit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, handler)
 	}
 	rootRoute(http.MethodPost, "/responses", bodyLimit, responsesHandler)
 	rootRoute(http.MethodPost, "/responses/*subpath", bodyLimit, guardResponsesSubpath(responsesHandler))
@@ -311,7 +267,7 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/models/:model", bodyLimit, h.Gateway.Models)
 	rootRoute(http.MethodPost, "/messages/count_tokens", bodyLimit, countTokensHandler)
 	codexDirect := r.Group("/backend-api/codex")
-	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist, requireGroupAnthropic)
+	codexDirect.Use(bodyLimit, clientRequestID, opsErrorLogger, endpointNorm, gin.HandlerFunc(apiKeyAuth), catalogAdmission, subscriptionModelAdmission, groupModelAllowlist)
 	{
 		codexDirect.POST("/realtime/calls", h.OpenAIGateway.Live)
 		codexDirect.GET("/:call_id", h.OpenAIGateway.LiveSideband)
@@ -357,58 +313,23 @@ func RegisterGatewayRoutes(
 	rootRoute(http.MethodGet, "/videos/:request_id/content", bodyLimit, videoContentHandler)
 
 	rootVoiceHandler := func(endpoint string) gin.HandlerFunc {
-		return func(c *gin.Context) {
-			if routePlatform(c) != service.PlatformGrok {
-				service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-				c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-				return
-			}
-			h.OpenAIGateway.GrokVoice(c, endpoint)
-		}
+		return func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, endpoint) }
 	}
 	rootRoute(http.MethodPost, "/tts", bodyLimit, rootVoiceHandler("tts"))
 	rootRoute(http.MethodPost, "/stt", bodyLimit, rootVoiceHandler("stt"))
 	rootRoute(http.MethodPost, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
-	rootCustomVoicePathHandler := func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Voice API is not supported for this platform"}})
-			return
-		}
-		h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c))
-	}
+	rootCustomVoicePathHandler := func(c *gin.Context) { h.OpenAIGateway.GrokVoice(c, grokCustomVoiceEndpoint(c)) }
 	rootRoute(http.MethodGet, "/custom-voices", bodyLimit, rootVoiceHandler("custom-voices"))
 	rootRoute(http.MethodGet, "/custom-voices/:voice_id/audio", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodGet, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodPatch, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
 	rootRoute(http.MethodDelete, "/custom-voices/:voice_id", bodyLimit, rootCustomVoicePathHandler)
-	rootRoute(http.MethodGet, "/realtime", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Realtime API is not supported for this platform"}})
-			return
-		}
-		h.OpenAIGateway.GrokRealtime(c)
-	})
-	rootRoute(http.MethodPost, "/web_search", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "Web Search API is not supported for this platform"}})
-			return
-		}
-		h.Gateway.WebSearch(c)
-	})
-	rootRoute(http.MethodPost, "/x_search", bodyLimit, func(c *gin.Context) {
-		if routePlatform(c) != service.PlatformGrok {
-			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
-			c.JSON(http.StatusNotFound, gin.H{"error": gin.H{"type": "not_found_error", "message": "X Search API is not supported for this platform"}})
-			return
-		}
-		h.Gateway.XSearch(c)
-	})
+	rootRoute(http.MethodGet, "/realtime", bodyLimit, h.OpenAIGateway.GrokRealtime)
+	rootRoute(http.MethodPost, "/web_search", bodyLimit, h.Gateway.WebSearch)
+	rootRoute(http.MethodPost, "/x_search", bodyLimit, h.Gateway.XSearch)
 
 	// Antigravity 模型列表
-	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), requireGroupAnthropic, h.Gateway.AntigravityModels)
+	r.GET("/antigravity/models", gin.HandlerFunc(apiKeyAuth), h.Gateway.AntigravityModels)
 
 	// Antigravity 专用路由（仅使用 antigravity 账户，不混合调度）
 	antigravityV1 := r.Group("/antigravity/v1")
@@ -421,7 +342,6 @@ func RegisterGatewayRoutes(
 	antigravityV1.Use(catalogAdmission)
 	antigravityV1.Use(subscriptionModelAdmission)
 	antigravityV1.Use(groupModelAllowlist)
-	antigravityV1.Use(requireGroupAnthropic)
 	{
 		antigravityV1.POST("/messages", h.Gateway.Messages)
 		antigravityV1.POST("/messages/count_tokens", h.Gateway.CountTokens)
@@ -439,21 +359,12 @@ func RegisterGatewayRoutes(
 	antigravityV1Beta.Use(catalogAdmission)
 	antigravityV1Beta.Use(subscriptionModelAdmission)
 	antigravityV1Beta.Use(groupModelAllowlist)
-	antigravityV1Beta.Use(requireGroupGoogle)
 	{
 		antigravityV1Beta.GET("/models", h.Gateway.GeminiV1BetaListModels)
 		antigravityV1Beta.GET("/models/:model", h.Gateway.GeminiV1BetaGetModel)
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
-}
-
-func dispatchCodexModelsGateway(c *gin.Context, openAIHandler, generatedHandler gin.HandlerFunc) {
-	if routePlatform(c) == service.PlatformOpenAI {
-		openAIHandler(c)
-		return
-	}
-	generatedHandler(c)
 }
 
 // routePlatform 扩展端点分发用的厂商平台：目录路由按条目厂商（RequestVendorPlatform），

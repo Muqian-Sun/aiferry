@@ -266,7 +266,7 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	}
 
 	if s.authCacheInvalidator != nil {
-		// RPMLimit 直接参与 billing_cache_service.checkRPM 的三级级联，
+		// RPMLimit 是 billing_cache_service.checkRPM 唯一的一道 RPM 门（用户级），
 		// allowed_groups 参与 API Key 专属分组授权判断，RateMultiplier 是计费倍率（认证快照里带着）；
 		// 不失效缓存会让修改在一个 L2 TTL 内失去效果。
 		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.RateMultiplier != oldRateMultiplier || user.RestrictPublicGroups != oldRestrictPublicGroups || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {

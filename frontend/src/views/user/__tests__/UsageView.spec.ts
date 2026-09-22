@@ -14,7 +14,6 @@ const {
   getDashboardSnapshotV2,
   listMyErrorRequests,
   list,
-  getAvailable,
   showError,
   showWarning,
   showSuccess,
@@ -26,7 +25,6 @@ const {
   getDashboardSnapshotV2: vi.fn(),
   listMyErrorRequests: vi.fn(),
   list: vi.fn(),
-  getAvailable: vi.fn(),
   showError: vi.fn(),
   showWarning: vi.fn(),
   showSuccess: vi.fn(),
@@ -39,7 +37,6 @@ const messages: Record<string, string> = {
   'admin.dashboard.day': 'Day',
   'admin.dashboard.hour': 'Hour',
   'admin.users.columnSettings': 'Columns',
-  'admin.usage.group': 'Group',
   'admin.usage.billingType': 'Billing type',
   'admin.usage.billingMode': 'Billing mode',
   'admin.usage.allTypes': 'All types',
@@ -50,7 +47,6 @@ const messages: Record<string, string> = {
   'admin.usage.billingModeToken': 'Token',
   'admin.usage.billingModePerRequest': 'Per request',
   'admin.usage.billingModeImage': 'Image',
-  'admin.usage.allGroups': 'All groups',
   'admin.usage.allModels': 'All models',
   'usage.allApiKeys': 'All API Keys',
   'usage.errors.allKeys': 'All API Keys',
@@ -86,9 +82,6 @@ vi.mock('@/api', () => ({
   },
   keysAPI: {
     list,
-  },
-  userGroupsAPI: {
-    getAvailable,
   },
 }))
 
@@ -184,7 +177,6 @@ describe('user UsageView', () => {
     getDashboardSnapshotV2.mockReset()
     listMyErrorRequests.mockReset()
     list.mockReset()
-    getAvailable.mockReset()
     showError.mockReset()
     showWarning.mockReset()
     showSuccess.mockReset()
@@ -215,11 +207,9 @@ describe('user UsageView', () => {
       end_date: '2026-03-08',
       granularity: 'hour',
       trend: [],
-      groups: [],
     })
     listMyErrorRequests.mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
     list.mockResolvedValue({ items: [{ id: 1, name: 'demo-key' }], total: 1, page: 1, page_size: 100, pages: 1 })
-    getAvailable.mockResolvedValue([{ id: 1, name: 'default' }])
   })
 
   it('loads logs, stats, model stats, and snapshot on first render', async () => {
@@ -232,11 +222,9 @@ describe('user UsageView', () => {
     expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
       include_trend: true,
       include_model_stats: false,
-      include_group_stats: false,
     }))
     expect(list).toHaveBeenCalledTimes(1)
     expect(list).toHaveBeenCalledWith(1, 100)
-    expect(getAvailable).toHaveBeenCalled()
   })
 
   it('includes API keys after the first page in both record filters and queries by the selected key', async () => {
@@ -301,7 +289,6 @@ describe('user UsageView', () => {
       select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
     )!
     expect(keySelect.props('options')).toEqual([{ value: null, label: 'All API Keys' }])
-    expect(getAvailable).toHaveBeenCalled()
     wrapper.unmount()
   })
 

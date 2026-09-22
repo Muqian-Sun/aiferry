@@ -61,7 +61,6 @@ export default {
       clickToCopy: '点击可复制此端点',
       speedTest: '测速',
     },
-    allGroups: '全部分组',
     allStatus: '全部状态',
     columnSettings: '列设置',
     columnAlwaysVisible: '该列固定显示，不可隐藏',
@@ -86,11 +85,7 @@ export default {
     deleteConfirmMessage: "确定要删除 '{name}' 吗？此操作无法撤销。",
     id: 'ID',
     apiKey: 'API 密钥',
-    group: '分组',
     currentConcurrency: '当前并发',
-    noGroup: '无分组',
-    searchGroup: '搜索分组...',
-    noGroupFound: '未找到匹配的分组',
     created: '创建时间',
     copyToClipboard: '复制到剪贴板',
     copied: '已复制！',
@@ -99,21 +94,6 @@ export default {
     disable: '禁用',
     nameLabel: '名称',
     namePlaceholder: '我的 API 密钥',
-    groupLabel: '分组',
-    providerLabel: '厂商',
-    providers: {
-      anthropic: 'Anthropic',
-      openai: 'OpenAI',
-      domestic: '国产模型',
-      other: '其他'
-    },
-    providerHints: {
-      anthropic: '选择 Anthropic / Claude 的可用分组',
-      openai: '选择 OpenAI / GPT 的可用分组',
-      domestic: '包含 DeepSeek、Kimi、智谱 GLM、MiniMax',
-      other: '包含 Gemini、Grok、Antigravity、OpenCode 和混合分组'
-    },
-    selectGroup: '选择分组',
     statusLabel: '状态',
     selectStatus: '选择状态',
     saving: '保存中...',
@@ -128,12 +108,8 @@ export default {
     failedToSave: '保存 API 密钥失败',
     failedToDelete: '删除 API 密钥失败',
     failedToUpdateStatus: '更新 API 密钥状态失败',
-    clickToChangeGroup: '点击更换分组',
     subscriptionKey: '订阅 · {plan}',
     subscriptionKeyProtected: '订阅密钥随订阅生成，不能删除或更换分组',
-    groupChangedSuccess: '分组更换成功',
-    failedToChangeGroup: '更换分组失败',
-    groupRequired: '请选择分组',
     usage: '用量',
     today: '今日',
     total: '近30天',
@@ -148,9 +124,6 @@ export default {
       copied: '已复制',
       note: '这些环境变量将在当前终端会话中生效。如需永久配置，请将其添加到 ~/.bashrc、~/.zshrc 或相应的配置文件中。',
       claudeSettingsHint: '用户级持久配置。此文件包含 API 密钥，请勿提交到项目仓库。',
-      noGroupTitle: '请先分配分组',
-      noGroupDescription:
-        '此 API 密钥尚未分配分组，请先在密钥列表中点击分组列进行分配，然后才能查看使用配置。',
       openai: {
         description: '将以下配置文件添加到 Codex CLI 配置目录中。',
         authModeTitle: 'Codex 认证模式',
@@ -171,15 +144,6 @@ export default {
         grokCli: 'Grok CLI',
         opencode: 'OpenCode'
       },
-      antigravity: {
-        description: '为 Antigravity 分组配置 API 访问。请根据您使用的客户端选择对应的配置方式。',
-        claudeCode: 'Claude Code',
-        geminiCli: 'Gemini CLI',
-        claudeNote:
-          '这些环境变量将在当前终端会话中生效。如需永久配置，请将其添加到 ~/.bashrc、~/.zshrc 或相应的配置文件中。',
-        geminiNote:
-          '这些环境变量将在当前终端会话中生效。如需永久配置，请将其添加到 ~/.bashrc、~/.zshrc 或相应的配置文件中。'
-      },
       gemini: {
         description:
           '将以下环境变量添加到您的终端配置文件或直接在终端中运行，以配置 Gemini CLI 访问。',
@@ -189,45 +153,12 @@ export default {
       grok: {
         description:
           '配置 Grok CLI、Claude Code、Codex 或 OpenCode，让请求通过当前 Grok 分组发送。文本模型走 Responses；图片/视频使用 Imagine 模型 ID 与媒体端点。',
-        claudeDescription: '配置 Claude Code，让 Messages API 请求通过当前 Grok 分组发送。',
-        codexDescription: '配置 Codex，让 Responses API 请求通过当前 Grok 分组发送。',
         configTomlHint:
           '官方路径：~/.grok/config.toml（或 $GROK_HOME）。请填写 [endpoints]（models_base_url / models_list_url / xai_api_base_url / cli_chat_proxy_base_url）、[auth] preferred_method=api_key、[models]、[session]、[features] 图片/视频覆盖。优先 env_key，勿硬编码 api_key；文本模型必须 api_backend=responses。合并前备份，保存后运行 grok inspect。',
-        codexConfigTomlHint:
-          'Codex 官方：wire_api 仅支持 "responses"；优先 env_key，勿与 experimental_bearer_token 混用；非 OpenAI 网关默认 supports_websockets = false（Sub2API 仍可接客户端 WS 并桥接到 HTTP/SSE）。合并前备份 ~/.codex/config.toml。',
         note:
           '导出 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml（endpoints/auth/models/session/features）保存为 ~/.grok/config.toml，运行 grok inspect，再用 /model 选择 grok-4.5（编程场景可用 grok-build-0.1）。',
         noteWindows:
           '设置 GROK_MODELS_BASE_URL 与 XAI_API_KEY，将完整 config.toml 保存为 %USERPROFILE%\\.grok\\config.toml，运行 grok inspect，再用 /model 选择 grok-4.5（编程场景可用 grok-build-0.1）。',
-        claudeNote:
-          '二选一：终端环境变量仅当前会话；~/.claude/settings.json 可持久化。请勿把含 API Key 的文件提交到仓库。',
-        codexNote:
-          '导出 SUB2API_API_KEY，将 config.toml 保存到 ~/.codex（可用 mkdir -p ~/.codex）。优先 env_key，勿提交密钥。',
-        codexNoteWindows:
-          '设置 $env:SUB2API_API_KEY，将 config.toml 保存到 %USERPROFILE%\\.codex。优先 env_key，勿提交密钥。'
-      },
-      deepseek: {
-        description: '通过当前 DeepSeek 分组配置 Claude Code、Codex 或 OpenCode。',
-        codexDescription: '使用 API Key 配置 Codex，并通过当前 DeepSeek 分组发送请求。',
-        codexConfigTomlHint: '下载下方模型目录，将两个文件保存到 Codex 配置目录后重启 Codex。',
-        codexNote: '启动 Codex 前先导出 SUB2API_API_KEY。下载的目录只包含模型元数据，不包含 API Key。'
-      },
-      minimax: {
-        description: '通过当前 MiniMax 分组配置 Claude Code、Codex 或 OpenCode。',
-        codexDescription: '使用 API Key 配置 Codex，并通过当前 MiniMax 分组发送请求。',
-        codexConfigTomlHint: '下载下方模型目录，将两个文件保存到 Codex 配置目录后重启 Codex。',
-        codexNote: '启动 Codex 前先导出 SUB2API_API_KEY。下载的目录只包含模型元数据，不包含 API Key。'
-      },
-      composite: {
-        description: '通过当前 Composite 路由分组配置受支持的客户端。',
-        codexDescription: '使用 API Key 和当前 Composite 分组的完整模型目录配置 Codex。',
-        codexConfigTomlHint: '下载下方模型目录，将两个文件保存到 Codex 配置目录后重启 Codex。',
-        codexNote: '启动 Codex 前先导出 SUB2API_API_KEY；分组会根据目录中选中的模型路由请求。'
-      },
-      routedCodex: {
-        description: '使用当前路由分组的完整模型目录配置 Codex。',
-        configTomlHint: '下载下方模型目录，将两个文件保存到 Codex 配置目录后重启 Codex。',
-        note: '启动 Codex 前先导出 SUB2API_API_KEY。下载的目录只包含模型元数据，不包含 API Key。'
       },
       codexModelCatalog: {
         title: 'Codex 模型目录',
@@ -239,8 +170,6 @@ export default {
         errorDescription: '无法使用当前 API Key 获取模型目录。'
       },
       opencode: {
-        title: 'OpenCode 配置示例',
-        subtitle: 'opencode.json',
         hint: '配置文件路径：~/.config/opencode/opencode.json（或 opencode.jsonc），不存在需手动创建。可使用默认 provider（openai/anthropic/google）或自定义 provider_id。API Key 支持直接配置或通过客户端 /connect 命令配置。示例仅供参考，模型与选项可按需调整。'
       }
     },
@@ -263,10 +192,14 @@ export default {
     ccsClientSelect: {
       title: '选择客户端',
       description: '请选择您要导入到 CC-Switch 的客户端类型：',
-      claudeCode: 'Claude Code',
-      claudeCodeDesc: '导入为 Claude Code 配置',
-      geminiCli: 'Gemini CLI',
-      geminiCliDesc: '导入为 Gemini CLI 配置'
+      claude: 'Claude Code',
+      claudeDesc: '导入为 Claude Code 配置',
+      codex: 'Codex',
+      codexDesc: '导入为 Codex 配置',
+      gemini: 'Gemini CLI',
+      geminiDesc: '导入为 Gemini CLI 配置',
+      grokbuild: 'Grok Build',
+      grokbuildDesc: '导入为 Grok Build 配置'
     },
     // 配额和有效期
     quotaLimit: '额度限制',

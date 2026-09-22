@@ -47,36 +47,76 @@ func (r codexModelsVisibilityAccountRepo) ListModelAvailabilityCandidates(_ cont
 	return append([]Account(nil), accounts...), nil
 }
 
-type countingCodexModelsAccountRepo struct {
-	AccountRepository
-	accounts        []Account
-	err             error
-	availabilityErr error
-	groupID         *int64
-	platforms       []string
-	includeGrouped  bool
-	calls           atomic.Int32
+// codexManifestAccountSource 是分组入口删掉后测试夹具的替身：目录条目绑定 mock 里的全部账号。
+type codexManifestAccountSource interface{ allAccounts() []Account }
+
+func (r codexModelsVisibilityAccountRepo) allAccounts() []Account {
+	var out []Account
+	for _, accounts := range r.byGroup {
+		out = append(out, accounts...)
+	}
+	return out
 }
 
-func (r *countingCodexModelsAccountRepo) ListSchedulableByGroupID(_ context.Context, _ int64) ([]Account, error) {
-	r.calls.Add(1)
-	if r.err != nil {
-		return nil, r.err
-	}
-	return append([]Account(nil), r.accounts...), nil
+func (r codexModelsVisibilityAccountRepo) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
+	return pickAccountsByIDForTest(r.allAccounts(), ids), nil
 }
 
-func (r *countingCodexModelsAccountRepo) ListModelAvailabilityCandidates(_ context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error) {
-	if groupID != nil {
-		value := *groupID
-		r.groupID = &value
+// buildCodexManifestFromCatalogForTest 把 modelIDs 变成绑定了 mock 全部账号的目录条目，走生产入口生成清单。
+func buildCodexManifestFromCatalogForTest(svc *GatewayService, modelIDs ...string) ([]byte, error) {
+	var accounts []Account
+	if src, ok := svc.accountRepo.(codexManifestAccountSource); ok {
+		accounts = src.allAccounts()
 	}
-	r.platforms = append([]string(nil), platforms...)
-	r.includeGrouped = includeGrouped
-	if r.availabilityErr != nil {
-		return nil, r.availabilityErr
+	entries := make([]ModelCatalogEntry, 0, len(modelIDs))
+	for i, modelID := range modelIDs {
+		entry := ModelCatalogEntry{ID: int64(i + 1), ModelID: modelID, Vendor: "openai", Status: ModelCatalogStatusListed}
+		for j := range accounts {
+			entry.Bindings = append(entry.Bindings, ModelCatalogBinding{EntryID: entry.ID, AccountID: accounts[j].ID})
+		}
+		entries = append(entries, entry)
 	}
-	return append([]Account(nil), r.accounts...), nil
+	return svc.BuildCodexModelsManifestFromCatalog(context.Background(), entries)
+}
+
+// persistentlyEnabledForTest 夹具里没写状态的账号按「持久启用」算（生产按 active + schedulable 过滤绑定账号）。
+func persistentlyEnabledForTest(accounts []Account) []*Account {
+	out := make([]*Account, 0, len(accounts))
+	for i := range accounts {
+		account := accounts[i]
+		if account.Status == "" {
+			account.Status = StatusActive
+			account.Schedulable = true
+		}
+		out = append(out, &account)
+	}
+	return out
+}
+
+func (r splitCodexModelsAccountRepo) allAccounts() []Account {
+	var out []Account
+	for _, accounts := range r.catalog {
+		out = append(out, accounts...)
+	}
+	return out
+}
+
+func (r splitCodexModelsAccountRepo) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
+	return pickAccountsByIDForTest(r.allAccounts(), ids), nil
+}
+
+func pickAccountsByIDForTest(accounts []Account, ids []int64) []*Account {
+	want := make(map[int64]struct{}, len(ids))
+	for _, id := range ids {
+		want[id] = struct{}{}
+	}
+	var picked []Account
+	for i := range accounts {
+		if _, ok := want[accounts[i].ID]; ok {
+			picked = append(picked, accounts[i])
+		}
+	}
+	return persistentlyEnabledForTest(picked)
 }
 
 type splitCodexModelsAccountRepo struct {
@@ -162,16 +202,6 @@ func newCodexCatalogMappedAccount(
 	}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: models})
 	return account
-}
-
-func TestFilterCodexModelIDsForGroupOmitsWildcardKeys(t *testing.T) {
-	t.Parallel()
-
-	got := FilterCodexModelIDsForGroup(
-		[]string{"deepseek-v4-pro", "foo-*", "  bar-*  ", "gpt-5.5"},
-		&Group{Platform: PlatformDeepseek},
-	)
-	require.Equal(t, []string{"deepseek-v4-pro", "gpt-5.5"}, got)
 }
 
 func decodeCodexManifestModels(t *testing.T, body []byte) []map[string]any {
@@ -584,293 +614,6 @@ func TestBuildCodexModelsManifestOmitsDedicatedImageModels(t *testing.T) {
 	require.Equal(t, []string{"grok-4.6", "grok-4.5"}, slugs)
 }
 
-func TestBuildCodexModelsManifestForGroupAdvertisesOfficialGrokResponsesImageInput(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 701
-	svc := &GatewayService{
-		accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-			groupID: {{
-				ID:       1,
-				Platform: PlatformGrok,
-				Type:     AccountTypeOAuth,
-				Credentials: map[string]any{
-					"access_token": "token",
-				},
-			}},
-		}},
-	}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"grok-4.5"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
-	require.Equal(t, "Grok 4.5", models[0]["display_name"])
-	require.Equal(t, []string{"low", "medium", "high"}, effortsFromManifestModel(t, models[0]))
-}
-
-func TestBuildCodexModelsManifestForGroupAdvertisesOfficialOpenAIResponsesImageInput(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 702
-	svc := &GatewayService{
-		accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-			groupID: {{
-				ID:       2,
-				Platform: PlatformOpenAI,
-				Type:     AccountTypeOAuth,
-			}},
-		}},
-	}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"gpt-5.6-sol"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
-}
-
-func TestBuildCodexModelsManifestForGroupUsesProviderImageCapabilities(t *testing.T) {
-	t.Parallel()
-
-	tests := []struct {
-		name       string
-		model      string
-		accounts   []Account
-		modalities []any
-	}{
-		{
-			name:  "official Grok 4.6",
-			model: "grok-4.6",
-			accounts: []Account{{
-				ID: 10, Platform: PlatformGrok, Type: AccountTypeOAuth,
-			}},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name:  "official Grok Build vision host",
-			model: "grok-build-0.1",
-			accounts: []Account{{
-				ID: 11, Platform: PlatformGrok, Type: AccountTypeOAuth,
-			}},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name:  "official Grok 4.20 vision model",
-			model: "grok-4.20-0309-reasoning",
-			accounts: []Account{{
-				ID: 23, Platform: PlatformGrok, Type: AccountTypeOAuth,
-			}},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name:  "Grok 3 Mini is text only",
-			model: "grok-3-mini",
-			accounts: []Account{{
-				ID: 24, Platform: PlatformGrok, Type: AccountTypeOAuth,
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "Grok Composer has only Chat image bridge",
-			model: "grok-composer-2.5-fast",
-			accounts: []Account{{
-				ID: 12, Platform: PlatformGrok, Type: AccountTypeOAuth,
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "custom Grok host",
-			model: "grok-4.5",
-			accounts: []Account{{
-				ID: 13, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Credentials:       map[string]any{"base_url": "https://relay.example.test/v1"},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1", APIProtocolResponses: "https://relay.example.test/v1"},
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "malformed Grok host",
-			model: "grok-4.5",
-			accounts: []Account{{
-				ID: 19, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Credentials:       map[string]any{"base_url": "::invalid::url"},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "::invalid::url", APIProtocolResponses: "::invalid::url"},
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "mixed official and custom Grok candidates",
-			model: "grok-4.5",
-			accounts: []Account{
-				{ID: 14, Platform: PlatformGrok, Type: AccountTypeOAuth},
-				{
-					ID: 15, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-					Credentials:       map[string]any{"base_url": "https://relay.example.test/v1"},
-					ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example.test/v1", APIProtocolResponses: "https://relay.example.test/v1"},
-				},
-			},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "DeepSeek V4",
-			model: "deepseek-v4-pro",
-			accounts: []Account{{
-				ID: 16, Platform: PlatformDeepseek, Type: AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.deepseek.com/anthropic", APIProtocolChatCompletions: "https://api.deepseek.com", APIProtocolResponses: "https://api.deepseek.com"},
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "official OpenAI API key",
-			model: "gpt-5.6-sol",
-			accounts: []Account{{
-				ID: 17, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			}},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name:  "official OpenAI legacy text model",
-			model: "gpt-3.5-turbo",
-			accounts: []Account{{
-				ID: 20, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			}},
-			modalities: []any{"text"},
-		},
-		{
-			name:  "custom OpenAI-compatible host",
-			model: "gpt-5.6-sol",
-			accounts: []Account{{
-				ID: 18, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				Credentials:       map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1", APIProtocolResponses: "https://openai-compatible.example.test/v1"},
-			}},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name:  "custom OpenAI-compatible host with unknown model",
-			model: "company-coding-model",
-			accounts: []Account{{
-				ID: 29, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
-				Credentials:       map[string]any{"base_url": "https://openai-compatible.example.test/v1"},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://openai-compatible.example.test/v1", APIProtocolResponses: "https://openai-compatible.example.test/v1"},
-			}},
-			modalities: []any{"text"},
-		},
-	}
-
-	for i, tt := range tests {
-		tt := tt
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			groupID := int64(710 + i)
-			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-				groupID: tt.accounts,
-			}}}
-			body, err := svc.BuildCodexModelsManifestForGroup(
-				context.Background(),
-				&Group{ID: groupID, Platform: PlatformComposite},
-				"",
-				[]string{tt.model},
-			)
-			require.NoError(t, err)
-			models := decodeCodexManifestModels(t, body)
-			require.Len(t, models, 1)
-			require.Equal(t, tt.modalities, models[0]["input_modalities"])
-		})
-	}
-}
-
-func TestBuildCodexModelsManifestForGroupUsesDeepSeekVisionCapabilities(t *testing.T) {
-	t.Parallel()
-
-	const visionModel = "deepseek-v4-flash-vision-exp"
-	newAccount := func(id int64, platform, model string, modalities []string) Account {
-		account := Account{
-			ID: id, Platform: platform, Type: AccountTypeAPIKey,
-			Credentials: map[string]any{"model_mapping": map[string]any{"vision-alias": model}},
-		}
-		if modalities != nil {
-			account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
-				model: {ID: model, InputModalities: modalities},
-			}})
-		}
-		return account
-	}
-
-	tests := []struct {
-		name       string
-		platform   string
-		accounts   []Account
-		modalities []any
-	}{
-		{
-			name: "native DeepSeek", platform: PlatformDeepseek,
-			accounts:   []Account{newAccount(1, PlatformDeepseek, visionModel, nil)},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name: "OpenAI-compatible DeepSeek", platform: PlatformOpenAI,
-			accounts:   []Account{newAccount(1, PlatformOpenAI, visionModel, nil)},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name: "Composite DeepSeek alias", platform: PlatformComposite,
-			accounts:   []Account{newAccount(1, PlatformDeepseek, visionModel, nil)},
-			modalities: []any{"text", "image"},
-		},
-		{
-			name: "text-only DeepSeek Flash", platform: PlatformDeepseek,
-			accounts:   []Account{newAccount(1, PlatformDeepseek, "deepseek-v4-flash", nil)},
-			modalities: []any{"text"},
-		},
-		{
-			name: "explicit text-only metadata", platform: PlatformDeepseek,
-			accounts:   []Account{newAccount(1, PlatformDeepseek, visionModel, []string{"text"})},
-			modalities: []any{"text"},
-		},
-		{
-			name: "mixed vision and text-only alias", platform: PlatformDeepseek,
-			accounts: []Account{
-				newAccount(1, PlatformDeepseek, visionModel, nil),
-				newAccount(2, PlatformDeepseek, "deepseek-v4-flash", nil),
-			},
-			modalities: []any{"text"},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			t.Parallel()
-			const groupID int64 = 790
-			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-				groupID: tt.accounts,
-			}}}
-			body, err := svc.BuildCodexModelsManifestForGroup(context.Background(),
-				&Group{ID: groupID, Platform: tt.platform}, "", []string{"vision-alias"})
-			require.NoError(t, err)
-			models := decodeCodexManifestModels(t, body)
-			require.Len(t, models, 1)
-			require.Equal(t, tt.modalities, models[0]["input_modalities"])
-		})
-	}
-}
-
 func TestBuildCodexModelsManifestForGroupPrefersSyncedOpenAIImageCapabilities(t *testing.T) {
 	t.Parallel()
 
@@ -921,648 +664,13 @@ func TestBuildCodexModelsManifestForGroupPrefersSyncedOpenAIImageCapabilities(t 
 			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
 				groupID: tt.accounts,
 			}}}
-			body, err := svc.BuildCodexModelsManifestForGroup(
-				context.Background(),
-				&Group{ID: groupID, Platform: PlatformOpenAI},
-				"",
-				[]string{"gpt-5.6-sol"},
-			)
+			body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-5.6-sol")
 			require.NoError(t, err)
 			models := decodeCodexManifestModels(t, body)
 			require.Len(t, models, 1)
 			require.Equal(t, tt.modalities, models[0]["input_modalities"])
 		})
 	}
-}
-
-func TestBuildCodexModelsManifestForGroupUsesExplicitCompositeResponsesRouteModel(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 730
-	routeRepo := compositeRouteRepoStub{routes: []CompositeModelRoute{{
-		ID:             1,
-		GroupID:        groupID,
-		PublicModel:    "vision-alias",
-		MatchType:      CompositeRouteMatchExact,
-		TargetPlatform: PlatformGrok,
-		UpstreamModel:  "grok-4.5",
-		Endpoint:       CompositeRouteEndpointResponses,
-		Enabled:        true,
-	}}}
-	svc := &GatewayService{
-		accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-			groupID: {{ID: 20, Platform: PlatformGrok, Type: AccountTypeOAuth}},
-		}},
-		compositeResolver: NewCompositeRouteResolver(routeRepo),
-	}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"vision-alias"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
-}
-
-func TestBuildCodexModelsManifestForGroupUsesAccountMappingOwnershipAndMappedModel(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 731
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-		groupID: {{
-			ID:       21,
-			Platform: PlatformGrok,
-			Type:     AccountTypeOAuth,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{"vision-alias": "grok-4.5"},
-			},
-		}},
-	}}}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"vision-alias"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
-}
-
-// Scenario: a Composite exact alias inherits metadata from its unique mapped target model.
-func TestBuildCodexModelsManifestForGroupUsesMappedTargetMetadataForCompositeAlias(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 733
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-		groupID: {{
-			ID:       23,
-			Platform: PlatformAnthropic,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{"reasoning-alias": "claude-opus-4-8"},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-		}},
-	}}}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"reasoning-alias"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, "reasoning-alias", models[0]["slug"])
-	require.Equal(t, "reasoning-alias", models[0]["display_name"])
-	require.Equal(t, "Custom model routed through Sub2API.", models[0]["description"])
-	require.Equal(t, []string{"low", "medium", "high", "xhigh", "max"}, effortsFromManifestModel(t, models[0]))
-}
-
-// Scenario: conflicting targets on the same platform keep the public alias but do not guess capabilities.
-func TestBuildCodexModelsManifestForGroupUsesSafeFallbackForConflictingAliasTargets(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 734
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-		groupID: {
-			{
-				ID:       24,
-				Platform: PlatformAnthropic,
-				Type:     AccountTypeAPIKey,
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{"shared-alias": "claude-opus-4-8"},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-			},
-			{
-				ID:       25,
-				Platform: PlatformAnthropic,
-				Type:     AccountTypeAPIKey,
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{"shared-alias": "claude-haiku-4-5-20251001"},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-			},
-		},
-	}}}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"shared-alias"},
-	)
-	require.NoError(t, err)
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, "shared-alias", models[0]["slug"])
-	require.Equal(t, "shared-alias", models[0]["display_name"])
-	require.Equal(t, "Custom model routed through Sub2API.", models[0]["description"])
-	require.Empty(t, effortsFromManifestModel(t, models[0]))
-}
-
-// Scenario: a media-only target remains hidden even when exposed through an ordinary alias.
-func TestBuildCodexModelsManifestForGroupOmitsDedicatedMediaTargetAlias(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 735
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-		groupID: {{
-			ID:       26,
-			Platform: PlatformOpenAI,
-			Type:     AccountTypeAPIKey,
-			Credentials: map[string]any{
-				"model_mapping": map[string]any{"creative-alias": "gpt-image-2"},
-			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-		}},
-	}}}
-
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"creative-alias"},
-	)
-	require.NoError(t, err)
-	require.Empty(t, decodeCodexManifestModels(t, body))
-}
-
-func TestBuildCodexModelsManifestForGroupLoadsAccountsOnce(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 732
-	repo := &countingCodexModelsAccountRepo{accounts: []Account{{
-		ID:       22,
-		Platform: PlatformGrok,
-		Type:     AccountTypeOAuth,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"vision-alias-a": "grok-4.5",
-				"vision-alias-b": "grok-4.6",
-			},
-		},
-	}}}
-	svc := &GatewayService{accountRepo: repo}
-	_, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformComposite},
-		"",
-		[]string{"vision-alias-a", "vision-alias-b", "deepseek-v4-pro"},
-	)
-	require.NoError(t, err)
-	require.Equal(t, int32(1), repo.calls.Load())
-	require.NotNil(t, repo.groupID)
-	require.Equal(t, groupID, *repo.groupID)
-	require.False(t, repo.includeGrouped)
-	require.Contains(t, repo.platforms, PlatformOpenAI)
-	require.Contains(t, repo.platforms, PlatformGrok)
-	require.Contains(t, repo.platforms, PlatformDeepseek)
-	require.Contains(t, repo.platforms, PlatformMiniMax)
-	require.NotContains(t, repo.platforms, PlatformComposite)
-}
-
-func TestBuildCodexModelsManifestForGroupUsesFallbackWhenTextOnlyPlatformHasNoSnapshot(t *testing.T) {
-	t.Parallel()
-
-	repo := &countingCodexModelsAccountRepo{}
-	svc := &GatewayService{accountRepo: repo}
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: 733, Platform: PlatformDeepseek},
-		"",
-		[]string{"deepseek-v4-pro"},
-	)
-	require.NoError(t, err)
-	require.Equal(t, int32(1), repo.calls.Load())
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 1)
-	require.Equal(t, []any{"text"}, models[0]["input_modalities"])
-}
-
-func TestBuildCodexModelsManifestForGroupFallsBackWhenCapabilityLookupFails(t *testing.T) {
-	t.Parallel()
-
-	repo := &countingCodexModelsAccountRepo{err: errors.New("account repository unavailable")}
-	svc := &GatewayService{accountRepo: repo}
-	body, err := svc.BuildCodexModelsManifestForGroup(
-		context.Background(),
-		&Group{ID: 734, Platform: PlatformComposite},
-		"",
-		[]string{"gpt-5.6-sol", "grok-4.5"},
-	)
-	require.NoError(t, err)
-	require.Equal(t, int32(1), repo.calls.Load())
-
-	models := decodeCodexManifestModels(t, body)
-	require.Len(t, models, 2)
-	require.Equal(t, []any{"text"}, models[0]["input_modalities"])
-	require.Equal(t, []any{"text"}, models[1]["input_modalities"])
-}
-
-func TestMergeGroupConfiguredCodexModelsInjectsCurrentGroupAliases(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 71
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {
-				{
-					Platform: PlatformOpenAI,
-					Credentials: map[string]any{
-						"model_mapping": map[string]any{
-							"deepseek-4-pro": "deepseek-v4-pro",
-						},
-					},
-				},
-			},
-			72: {
-				{
-					Platform: PlatformOpenAI,
-					Credentials: map[string]any{
-						"model_mapping": map[string]any{"other-group-model": "upstream-model"},
-					},
-				},
-			},
-		},
-	}}
-	manifest := &OpenAIModelsResponse{
-		Body: []byte(`{"models":[{"slug":"gpt-5.6","display_name":"GPT-5.6","unknown":{"kept":true}}],"metadata":{"version":1}}`),
-	}
-
-	err := svc.MergeGroupConfiguredCodexModels(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		manifest,
-		"",
-		codexListAllForTest,
-	)
-	require.NoError(t, err)
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Len(t, models, 2)
-	require.Equal(t, "gpt-5.6", models[0]["slug"])
-	require.Equal(t, map[string]any{"kept": true}, models[0]["unknown"])
-	requireCompleteConfiguredCodexModel(t, models[1], "deepseek-4-pro")
-	require.EqualValues(t, 1_000_000, models[1]["context_window"])
-	require.EqualValues(t, 1_000_000, models[1]["max_context_window"])
-	require.Equal(t, "high", models[1]["default_reasoning_level"])
-	require.Len(t, models[1]["supported_reasoning_levels"], 3)
-	require.NotContains(t, string(manifest.Body), "other-group-model")
-	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
-}
-
-// Mixed groups retain configured metadata alongside defaults for unmapped accounts.
-func TestBuildGroupConfiguredCodexModelsManifestUsesAdministratorConfiguration(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 77
-	reasoning := true
-	arkAccount := Account{
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
-		Credentials: map[string]any{
-			"model_mapping": map[string]any{
-				"glm-5.3":     "glm-5.3",
-				"gpt-image-2": "gpt-image-2",
-			},
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-	arkAccount.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
-		"glm-5.3": {
-			ID:                       "glm-5.3",
-			DisplayName:              "GLM 5.3",
-			Description:              "Ark coding model",
-			Reasoning:                &reasoning,
-			DefaultReasoningLevel:    "medium",
-			SupportedReasoningLevels: []string{"low", "medium", "high"},
-			InputModalities:          []string{"text"},
-			ContextWindow:            1_000_000,
-		},
-	}})
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {
-				{
-					Platform: PlatformOpenAI,
-					Type:     AccountTypeOAuth,
-				},
-				arkAccount,
-			},
-		},
-	}}
-	group := &Group{ID: groupID, Platform: PlatformOpenAI}
-
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
-	require.NoError(t, err)
-	require.True(t, configured)
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Equal(t, "glm-5.3", models[0]["slug"])
-	require.Contains(t, codexManifestModelSlugs(t, manifest.Body), "gpt-5.6-sol")
-	require.NotContains(t, codexManifestModelSlugs(t, manifest.Body), "gpt-image-2")
-	require.NotContains(t, codexManifestModelSlugs(t, manifest.Body), "codex-auto-review")
-	require.Equal(t, "GLM 5.3", models[0]["display_name"])
-	require.Equal(t, []string{"low", "medium", "high"}, effortsFromManifestModel(t, models[0]))
-	require.Equal(t, "medium", models[0]["default_reasoning_level"])
-	require.Equal(t, []any{"text"}, models[0]["input_modalities"])
-	require.EqualValues(t, 1_000_000, models[0]["context_window"])
-	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
-
-	notModified, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(
-		context.Background(),
-		group,
-		"W/"+manifest.ETag,
-		codexListAllForTest,
-	)
-	require.NoError(t, err)
-	require.True(t, configured)
-	require.True(t, notModified.NotModified)
-	require.Empty(t, notModified.Body)
-	require.Equal(t, manifest.ETag, notModified.ETag)
-}
-
-// Scenario: OpenAI 通配映射展开组内精确选择，但不发布通配符 slug。
-func TestBuildGroupConfiguredCodexModelsManifestExpandsSelectedModelCoveredByWildcardMapping(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 80
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {{
-				Platform: PlatformOpenAI,
-				Type:     AccountTypeAPIKey,
-				Credentials: map[string]any{
-					"model_mapping": map[string]any{"gpt-*": "gpt-5.6-sol"},
-				},
-				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-			}},
-		},
-	}}
-	group := &Group{
-		ID:       groupID,
-		Platform: PlatformOpenAI,
-		ModelAllowlist: GroupModelAllowlist{
-			Enabled: true,
-			Models:  []string{"gpt-5.6"},
-		},
-	}
-
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(context.Background(), group, "", codexListAllForTest)
-	require.NoError(t, err)
-	require.True(t, configured)
-	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
-	require.NotContains(t, string(manifest.Body), "gpt-*")
-}
-
-// Scenario: OpenAI 配置目录对仅因瞬态状态退出当前调度池的账号取能力交集，
-// 且不发布其独有模型。持久 schedulable 仍为 true。
-func TestBuildGroupConfiguredCodexModelsManifestIntersectsTransientlyUnschedulableMappedAccounts(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 79
-	schedulable := newCodexCatalogMappedAccount(
-		41,
-		"gpt-5.6-sol",
-		"GPT-5.6 Sol",
-		[]string{"low", "medium", "high", "xhigh"},
-		[]string{"text", "image"},
-		1_000_000,
-		true,
-		nil,
-	)
-	transientlyUnschedulable := newCodexCatalogMappedAccount(
-		42,
-		"glm-5.3",
-		"GLM 5.3",
-		[]string{"low", "medium", "high"},
-		[]string{"text"},
-		272_000,
-		true,
-		map[string]any{"exclusive-model": "exclusive-upstream"},
-	)
-	svc := &OpenAIGatewayService{accountRepo: splitCodexModelsAccountRepo{
-		schedulable: map[int64][]Account{groupID: {schedulable}},
-		catalog:     map[int64][]Account{groupID: {schedulable, transientlyUnschedulable}},
-	}}
-
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		"",
-		codexListAllForTest,
-	)
-	require.NoError(t, err)
-	require.True(t, configured)
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Len(t, models, 1)
-	require.Equal(t, "my-coder", models[0]["slug"])
-	require.Equal(t, "my-coder", models[0]["display_name"])
-	require.Equal(t, []string{"low", "medium", "high"}, effortsFromManifestModel(t, models[0]))
-	require.Equal(t, []any{"text"}, models[0]["input_modalities"])
-	require.EqualValues(t, 272_000, models[0]["context_window"])
-}
-
-// Scenario: 管理员持久禁用的账号不能继续收窄 Codex 能力目录。
-func TestBuildGroupConfiguredCodexModelsManifestIgnoresPersistentlyDisabledMappedAccounts(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 80
-	enabled := newCodexCatalogMappedAccount(
-		51,
-		"gpt-5.6-sol",
-		"GPT-5.6 Sol",
-		[]string{"low", "medium", "high", "xhigh"},
-		[]string{"text", "image"},
-		1_000_000,
-		true,
-		nil,
-	)
-	disabled := newCodexCatalogMappedAccount(
-		52,
-		"glm-5.3",
-		"GLM 5.3",
-		[]string{"low", "medium", "high"},
-		[]string{"text"},
-		272_000,
-		false,
-		nil,
-	)
-	svc := &OpenAIGatewayService{accountRepo: splitCodexModelsAccountRepo{
-		schedulable: map[int64][]Account{groupID: {enabled}},
-		catalog:     map[int64][]Account{groupID: {enabled}},
-		all:         map[int64][]Account{groupID: {enabled, disabled}},
-	}}
-
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		"",
-		codexListAllForTest,
-	)
-	require.NoError(t, err)
-	require.True(t, configured)
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Len(t, models, 1)
-	require.Equal(t, "my-coder", models[0]["slug"])
-	require.Equal(t, []string{"low", "medium", "high", "xhigh"}, effortsFromManifestModel(t, models[0]))
-	require.Equal(t, []any{"text", "image"}, models[0]["input_modalities"])
-	require.EqualValues(t, 1_000_000, models[0]["context_window"])
-}
-
-// Scenario: 没有管理员模型配置时保留现有上游发现路径。
-func TestBuildGroupConfiguredCodexModelsManifestFallsThroughWithoutConfiguration(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 78
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}},
-		},
-	}}
-
-	manifest, configured, err := svc.BuildGroupConfiguredCodexModelsManifest(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		"",
-		codexListAllForTest,
-	)
-	require.NoError(t, err)
-	require.False(t, configured)
-	require.Nil(t, manifest)
-}
-
-func TestMergeGroupConfiguredCodexModelsFiltersAutoReviewByDefault(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 74
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{}}
-	manifest := &OpenAIModelsResponse{
-		Body: []byte(`{"models":[{"slug":"codex-auto-review","visibility":"list"},{"slug":"codex-auto-future","visibility":"list"},{"slug":"gpt-image-2","visibility":"list"},{"slug":"gpt-5.6","visibility":"list"}]}`),
-	}
-
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		manifest,
-		"",
-		codexListAllForTest,
-	))
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Len(t, models, 1)
-	require.Equal(t, "gpt-5.6", models[0]["slug"])
-	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
-}
-
-// Scenario: OpenAI 账号映射不启用 Auto Review。
-func TestMergeGroupConfiguredCodexModelsFiltersAccountMappedAutoReviewByDefault(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 75
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {
-				{
-					Platform: PlatformOpenAI,
-					Credentials: map[string]any{
-						"model_mapping": map[string]any{
-							openai.CodexUsageProbeModel: openai.CodexUsageProbeModel,
-						},
-					},
-				},
-			},
-		},
-	}}
-	manifest := &OpenAIModelsResponse{
-		Body: []byte(`{"models":[{"slug":"codex-auto-review","visibility":"hide","model_messages":{"auto_review":{"enabled":true}}},{"slug":"gpt-5.6","visibility":"list"}]}`),
-	}
-
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(
-		context.Background(),
-		&Group{ID: groupID, Platform: PlatformOpenAI},
-		manifest,
-		"",
-		codexListAllForTest,
-	))
-	require.Equal(t, []string{"gpt-5.6"}, codexManifestModelSlugs(t, manifest.Body))
-}
-
-// Scenario: 启用的分组自定义列表允许 Auto Review。
-func TestMergeGroupConfiguredCodexModelsKeepsExplicitAutoReviewSelection(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 76
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{}}
-	manifest := &OpenAIModelsResponse{
-		Body: []byte(`{"models":[{"slug":"codex-auto-review","visibility":"list"},{"slug":"gpt-5.6","visibility":"list"}]}`),
-	}
-	group := &Group{
-		ID:       groupID,
-		Platform: PlatformOpenAI,
-		ModelAllowlist: GroupModelAllowlist{
-			Enabled: true,
-			Models:  []string{openai.CodexUsageProbeModel},
-		},
-	}
-
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
-	require.Equal(t, []string{"codex-auto-review"}, codexManifestModelSlugs(t, manifest.Body))
-}
-
-func TestMergeGroupConfiguredCodexModelsHonorsCustomListAndFinalETag(t *testing.T) {
-	t.Parallel()
-
-	const groupID int64 = 73
-	svc := &OpenAIGatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{
-			groupID: {
-				{
-					Platform: PlatformOpenAI,
-					Credentials: map[string]any{
-						"model_mapping": map[string]any{
-							"deepseek-4-pro": "deepseek-v4-pro",
-							"hidden-alias":   "hidden-upstream",
-						},
-					},
-				},
-			},
-		},
-	}}
-	group := &Group{
-		ID:       groupID,
-		Platform: PlatformOpenAI,
-		ModelAllowlist: GroupModelAllowlist{
-			Enabled: true,
-			Models:  []string{"deepseek-4-pro"},
-		},
-	}
-	upstreamBody := []byte(`{"models":[{"slug":"gpt-5.6","display_name":"GPT-5.6"}]}`)
-	manifest := &OpenAIModelsResponse{Body: upstreamBody}
-
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, manifest, "", codexListAllForTest))
-	models := decodeCodexManifestModels(t, manifest.Body)
-	require.Len(t, models, 1)
-	requireCompleteConfiguredCodexModel(t, models[0], "deepseek-4-pro")
-
-	finalETag := manifest.ETag
-	second := &OpenAIModelsResponse{Body: upstreamBody}
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, finalETag, codexListAllForTest))
-	require.True(t, second.NotModified)
-	require.Empty(t, second.Body)
-	require.Equal(t, finalETag, second.ETag)
 }
 
 type codexModelsBlockingBody struct {
@@ -2058,41 +1166,6 @@ func TestFetchCodexModelsManifestAPIKeyCustomUpstream(t *testing.T) {
 	require.EqualValues(t, 1_000_000, models[0]["context_window"])
 	require.Equal(t, codexModelsManifestBodyETag(manifest.Body), manifest.ETag)
 	require.Equal(t, `W/"api-key-manifest"`, manifest.upstreamETag)
-}
-
-// Scenario: 完整上游清单没有 ETag 时，最终正文仍生成强 ETag 并支持 304。
-func TestFetchCodexModelsManifestAPIKeyCompleteBodyWithoutUpstreamETagUsesFinalBodyETag(t *testing.T) {
-	completeBody, err := BuildCodexModelsManifest([]string{"custom-complete-model"})
-	require.NoError(t, err)
-
-	var calls atomic.Int32
-	upstream := &codexModelsHTTPUpstreamStub{do: func(_ *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
-		calls.Add(1)
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     make(http.Header),
-			Body:       io.NopCloser(bytes.NewReader(completeBody)),
-		}, nil
-	}}
-	svc := newCodexModelsAPIKeyTestService(upstream)
-	svc.accountRepo = codexModelsVisibilityAccountRepo{}
-	account := newCodexModelsAPIKeyTestAccount("https://upstream.example/v1")
-	group := &Group{ID: 82, Platform: PlatformOpenAI}
-
-	first, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
-	require.NoError(t, err)
-	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(first, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, first, "", codexListAllForTest))
-	require.Equal(t, codexModelsManifestBodyETag(first.Body), first.ETag)
-	require.NotEmpty(t, first.ETag)
-
-	second, err := svc.FetchCodexModelsManifest(context.Background(), account, "0.150.0", "")
-	require.NoError(t, err)
-	require.NoError(t, svc.CompleteAPIKeyCodexModelsManifestForClient(second, account))
-	require.NoError(t, svc.MergeGroupConfiguredCodexModels(context.Background(), group, second, first.ETag, codexListAllForTest))
-	require.True(t, second.NotModified)
-	require.Empty(t, second.Body)
-	require.Equal(t, int32(1), calls.Load())
 }
 
 func TestFetchCodexModelsManifestAPIKeyConvertsStandardOpenAIModelList(t *testing.T) {
@@ -2787,79 +1860,6 @@ func TestFetchCodexModelsManifestAPIKeyFreshCacheHandlesETagLocally(t *testing.T
 	if got := calls.Load(); got != 1 {
 		t.Errorf("upstream calls: got %d, want 1", got)
 	}
-}
-
-func TestFetchCodexModelsManifestAPIKeyCacheSurvivesClientMutation(t *testing.T) {
-	var calls atomic.Int32
-	upstream := &codexModelsHTTPUpstreamStub{do: func(_ *http.Request, _ string, _ int64, _ int) (*http.Response, error) {
-		calls.Add(1)
-		return &http.Response{
-			StatusCode: http.StatusOK,
-			Header:     make(http.Header),
-			Body:       io.NopCloser(strings.NewReader(`{"object":"list","data":[{"id":"model-a"},{"id":"model-b"}]}`)),
-		}, nil
-	}}
-	s := newCodexModelsAPIKeyTestService(upstream)
-	s.accountRepo = codexModelsVisibilityAccountRepo{}
-	account := newCodexModelsAPIKeyTestAccount("https://upstream.example")
-
-	first, err := s.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
-	require.NoError(t, err)
-	require.Contains(t, string(first.Body), "model-a")
-	require.Contains(t, string(first.Body), "model-b")
-
-	require.NoError(t, s.CompleteAPIKeyCodexModelsManifestForClient(first, account))
-	require.NoError(t, s.MergeGroupConfiguredCodexModels(
-		context.Background(),
-		&Group{
-			ID:       81,
-			Platform: PlatformOpenAI,
-			ModelAllowlist: GroupModelAllowlist{
-				Enabled: true,
-				Models:  []string{"model-a"},
-			},
-		},
-		first,
-		"",
-		codexListAllForTest,
-	))
-	require.Equal(t, []string{"model-a"}, codexManifestModelSlugs(t, first.Body))
-
-	second, err := s.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
-	require.NoError(t, err)
-	require.Equal(t, []string{"model-a", "model-b"}, codexManifestModelSlugs(t, second.Body))
-	require.Equal(t, int32(1), calls.Load())
-
-	var wg sync.WaitGroup
-	for i := 0; i < 8; i++ {
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			manifest, fetchErr := s.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
-			require.NoError(t, fetchErr)
-			require.NoError(t, s.MergeGroupConfiguredCodexModels(
-				context.Background(),
-				&Group{
-					ID:       82,
-					Platform: PlatformOpenAI,
-					ModelAllowlist: GroupModelAllowlist{
-						Enabled: true,
-						Models:  []string{"model-b"},
-					},
-				},
-				manifest,
-				"",
-				codexListAllForTest,
-			))
-			require.Equal(t, []string{"model-b"}, codexManifestModelSlugs(t, manifest.Body))
-		}()
-	}
-	wg.Wait()
-
-	third, err := s.FetchCodexModelsManifest(context.Background(), account, "0.144.0", "")
-	require.NoError(t, err)
-	require.Equal(t, []string{"model-a", "model-b"}, codexManifestModelSlugs(t, third.Body))
-	require.Equal(t, int32(1), calls.Load())
 }
 
 func TestFetchCodexModelsManifestAPIKeyCacheKeyIsolatesRequestIdentity(t *testing.T) {
@@ -3656,80 +2656,6 @@ func TestFetchCodexModelsManifestOAuthTokenChangeCacheMiss(t *testing.T) {
 	require.EqualValues(t, 2, calls.Load())
 }
 
-func TestFetchCodexModelsManifestOAuthSharedAcrossGroupsWithIndependentFiltering(t *testing.T) {
-	started := make(chan struct{})
-	var startedOnce sync.Once
-	release := make(chan struct{})
-	calls := &atomic.Int32{}
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
-		calls.Add(1)
-		startedOnce.Do(func() { close(started) })
-		<-release
-		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte(`{"models":[{"slug":"model-a"},{"slug":"model-b"}]}`))
-	}))
-	t.Cleanup(server.Close)
-	original := chatgptCodexModelsURL
-	chatgptCodexModelsURL = server.URL
-	t.Cleanup(func() { chatgptCodexModelsURL = original })
-
-	s := &OpenAIGatewayService{
-		accountRepo: codexModelsVisibilityAccountRepo{
-			byGroup: map[int64][]Account{
-				91: {},
-				92: {},
-			},
-		},
-	}
-	account := newCodexModelsTestAccount()
-	groupA := &Group{ID: 91, Platform: PlatformOpenAI, ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"model-a"}}}
-	groupB := &Group{ID: 92, Platform: PlatformOpenAI, ModelAllowlist: GroupModelAllowlist{Enabled: true, Models: []string{"model-b"}}}
-
-	begin := make(chan struct{})
-	type result struct {
-		slugs []string
-		err   error
-	}
-	results := make(chan result, 2)
-	for _, group := range []*Group{groupA, groupB} {
-		go func(g *Group) {
-			<-begin
-			manifest, err := s.FetchCodexModelsManifest(context.Background(), account, "0.137.0", "")
-			if err == nil {
-				err = s.MergeGroupConfiguredCodexModels(context.Background(), g, manifest, "", codexListAllForTest)
-			}
-			slugs := []string{}
-			if err == nil {
-				slugs = codexManifestModelSlugs(t, manifest.Body)
-			}
-			results <- result{slugs: slugs, err: err}
-		}(group)
-	}
-	close(begin)
-	select {
-	case <-started:
-	case <-time.After(time.Second):
-		t.Fatal("upstream request did not start")
-	}
-	close(release)
-
-	got := map[int64][]string{91: nil, 92: nil}
-	for i := 0; i < 2; i++ {
-		r := <-results
-		require.NoError(t, r.err)
-		if len(r.slugs) == 1 && r.slugs[0] == "model-a" {
-			got[91] = r.slugs
-		} else if len(r.slugs) == 1 && r.slugs[0] == "model-b" {
-			got[92] = r.slugs
-		} else {
-			t.Fatalf("unexpected filtered slugs: %v", r.slugs)
-		}
-	}
-	require.Equal(t, []string{"model-a"}, got[91])
-	require.Equal(t, []string{"model-b"}, got[92])
-	require.EqualValues(t, 1, calls.Load(), "同一账号两个分组同时请求时只发一次上游请求")
-}
-
 // 第三方 key 的平台标签只是展示：标签是 kimi、配了 Chat Completions 地址的 key
 // 在 OpenAI 网关被选中后，清单要照常走 /models?client_version=…，而不是按标签
 // 报「账号类型不支持」的不可重试 502（那会让 Codex 的 /models 整个换不了号）。
@@ -3791,6 +2717,3 @@ func TestAccountCodexModelSupportsImageInput_KeysIgnoreLabel(t *testing.T) {
 	setupToken := &Account{ID: 33, Platform: PlatformOpenAI, Type: AccountTypeSetupToken}
 	require.False(t, accountCodexModelSupportsImageInput(setupToken, "gpt-5.6-sol"))
 }
-
-// codexListAllForTest 让目录过滤放行所有 slug。
-func codexListAllForTest(string) bool { return true }

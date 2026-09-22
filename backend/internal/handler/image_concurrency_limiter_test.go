@@ -217,7 +217,7 @@ func newGatewayResponsesImageConcurrencyHandler(t *testing.T, c *gin.Context) *G
 		MaxConcurrentRequests: 1,
 		OverflowMode:          config.ImageConcurrencyOverflowModeReject,
 	}}}
-	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingCache.Stop)
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, apiKey.Group, &service.OpenAIGatewayService{}, billingCache,

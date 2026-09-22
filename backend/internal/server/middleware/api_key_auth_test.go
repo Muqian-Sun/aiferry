@@ -810,54 +810,6 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	require.Equal(t, user.ID, fallback.User.ID)
 }
 
-func TestRequireGroupAssignmentMarksUngroupedKeyBusinessLimited(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	settingService := service.NewSettingService(fakeSettingRepo{
-		values: map[string]string{
-			service.SettingKeyAllowUngroupedKeyScheduling: "false",
-		},
-	}, &config.Config{})
-	apiKey := &service.APIKey{
-		ID:     100,
-		Key:    "ungrouped-key",
-		Status: service.StatusActive,
-	}
-
-	router := gin.New()
-	var markedBusinessLimited bool
-	var businessLimitedReason string
-	var rejectReason IngressRejectReason
-	var rejected bool
-	router.Use(func(c *gin.Context) {
-		c.Next()
-		markedBusinessLimited = service.HasOpsClientBusinessLimited(c)
-		rejectReason, rejected = GetIngressRejectReason(c)
-		if v, ok := c.Get(service.OpsClientBusinessLimitedReasonKey); ok {
-			businessLimitedReason, _ = v.(string)
-		}
-	})
-	router.Use(func(c *gin.Context) {
-		c.Set(string(ContextKeyAPIKey), apiKey)
-		c.Next()
-	})
-	router.Use(RequireGroupAssignment(settingService, AnthropicErrorWriter))
-	router.GET("/t", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/t", nil)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusForbidden, w.Code)
-	require.Contains(t, w.Body.String(), "not assigned to any group")
-	require.True(t, rejected)
-	require.Equal(t, IngressRejectGroupUnassigned, rejectReason)
-	require.True(t, markedBusinessLimited)
-	require.Equal(t, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned, businessLimitedReason)
-}
-
 func TestAPIKeyAuthIPRestrictionUsesTrustedPathWhenSwitchDisabled(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 

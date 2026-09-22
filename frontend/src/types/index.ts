@@ -692,7 +692,6 @@ export interface ApiKey {
 
 export interface CreateApiKeyRequest {
   name: string
-  group_id?: number | null
   custom_key?: string // Optional custom API Key
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -705,7 +704,6 @@ export interface CreateApiKeyRequest {
 
 export interface UpdateApiKeyRequest {
   name?: string
-  group_id?: number | null
   status?: 'active' | 'inactive'
   ip_whitelist?: string[]
   ip_blacklist?: string[]
@@ -1729,16 +1727,6 @@ export interface EndpointStat {
   total_tokens: number
   cost: number
   actual_cost: number
-}
-
-export interface GroupStat {
-  group_id: number
-  group_name: string
-  requests: number
-  total_tokens: number
-  cost: number // 标准计费
-  actual_cost: number // 实际扣除
-  account_cost?: number // 账号成本（仅管理员接口返回）
 }
 
 export interface UserBreakdownItem {

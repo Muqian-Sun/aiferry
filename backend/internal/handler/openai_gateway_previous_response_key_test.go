@@ -69,7 +69,7 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 			upstream := &previousResponseKeyUpstream{}
 			cfg := &config.Config{RunMode: config.RunModeSimple}
 			cfg.Gateway.MaxAccountSwitches = 3
-			billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+			billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 			t.Cleanup(billingCache.Stop)
 			gateway := service.NewOpenAIGatewayService(
 				repo, nil, nil, nil, nil, nil, cfg, nil, nil,
