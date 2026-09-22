@@ -40,7 +40,8 @@ export default {
     home: {
       hero: {
         eyebrow: '{models} 个模型 · 4 条官方协议 · 逐条记账',
-        title: '一把 API Key，\n接入所有主流模型。',
+        title: '一把 API Key，',
+        titleAccent: '接入所有主流模型。',
         description: '按 Anthropic、OpenAI、Gemini 的官方协议原样转发，SDK 不用换，只改一行 base_url；每次请求逐条记账，用量与费用同一本账。',
         getStarted: '开始使用',
         goToConsole: '进入控制台',

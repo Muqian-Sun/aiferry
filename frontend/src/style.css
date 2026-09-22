@@ -240,6 +240,50 @@
     @apply flex h-11 w-11 items-center justify-center rounded-full bg-af-sunken text-af-ink-2;
   }
 
+  /*
+   * 首屏标题的流动渐变（muqian 2026-09-22「我要滚动渐变」，学 new.12ai.org 的 hero-gradient-flow）。
+   * 角度 100deg、色阶位置 22/38/48/62/80%、铺 200% 宽、12s ease-in-out 来回，都是 12ai 实测值；
+   * 颜色换成 token：两端 ink，中段 brand → brand-hover → brand，深色模式随 token 翻。
+   * 这是用户站唯一获准的渐变，模板里仍禁 bg-gradient-* 等工具类（见 templateTokens.ts）。
+   */
+  .text-flow {
+    display: inline-block;
+    background-image: linear-gradient(
+      100deg,
+      rgb(var(--af-ink)),
+      rgb(var(--af-ink)) 22%,
+      rgb(var(--af-brand)) 38%,
+      rgb(var(--af-brand-hover)) 48%,
+      rgb(var(--af-brand)) 62%,
+      rgb(var(--af-ink)) 80%,
+      rgb(var(--af-ink))
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    -webkit-text-fill-color: transparent;
+    animation: text-flow 12s ease-in-out infinite;
+  }
+
+  @keyframes text-flow {
+    0% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+    100% {
+      background-position: 0% 50%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .text-flow {
+      animation: none;
+    }
+  }
+
   /* ============ 卡片（管理站的分区容器：hairline 边、小圆角、无阴影、不上浮） ============ */
   .card {
     @apply bg-af-sheet;

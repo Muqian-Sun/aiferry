@@ -40,7 +40,8 @@ export default {
     home: {
       hero: {
         eyebrow: '{models} models · 4 official protocols · per-request ledger',
-        title: 'One API key,\nevery major model.',
+        title: 'One API key,',
+        titleAccent: 'every major model.',
         description: 'Requests pass through on the official Anthropic, OpenAI and Gemini protocols — keep your SDK, change one base_url. Every request is billed and recorded line by line.',
         getStarted: 'Get started',
         goToConsole: 'Open console',

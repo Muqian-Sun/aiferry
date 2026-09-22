@@ -31,8 +31,9 @@
           <p v-if="catalog.length" class="section-eyebrow" data-testid="hero-eyebrow">
             {{ t('userUi.home.hero.eyebrow', { models: catalog.length }) }}
           </p>
-          <h1 class="mx-auto mt-6 max-w-4xl whitespace-pre-line text-4xl font-semibold leading-[1.15] tracking-tight text-af-ink sm:text-5xl lg:text-6xl">
-            {{ t('userUi.home.hero.title') }}
+          <h1 class="mx-auto mt-6 max-w-4xl text-4xl font-semibold leading-[1.15] tracking-tight text-af-ink sm:text-5xl lg:text-6xl">
+            {{ t('userUi.home.hero.title') }}<br />
+            <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
           </h1>
           <p class="mx-auto mt-6 max-w-2xl text-base leading-7 text-af-ink-2 sm:text-lg sm:leading-8">{{ t('userUi.home.hero.description') }}</p>
           <div class="mt-10 flex flex-wrap items-center justify-center gap-3">

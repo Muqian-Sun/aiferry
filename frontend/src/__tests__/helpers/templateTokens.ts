@@ -16,6 +16,7 @@ export const FORBIDDEN: ForbiddenRule[] = [
   { name: 'legacy gray/slate palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder|accent|fill|stroke|outline)-(?:gray|slate|zinc|neutral|stone)-\d{2,3}\b/ },
   { name: 'legacy dark palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder)-dark-\d{2,3}\b/ },
   { name: 'dark: variant (tokens switch themselves)', re: /(?:^|[\s"'`(:])dark:[a-z]/ },
+  // 唯一获准的渐变是 style.css 的 .text-flow（首屏标题流动渐变，muqian 2026-09-22），模板里不写渐变工具类
   { name: 'gradient', re: /\b(?:bg-gradient-to-\w+|bg-mesh-gradient|text-gradient|gradient-primary|gradient-dark)\b/ },
   { name: 'glass / glow shadows', re: /\b(?:glass(?:-card)?|shadow-glow(?:-lg)?|shadow-glass(?:-sm)?|shadow-card(?:-hover)?)\b/ },
   { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ }

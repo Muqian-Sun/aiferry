@@ -244,6 +244,10 @@ describe('HomeView compact mode', () => {
   it('lays the landing page out as centred sections: hero, features, quickstart, clients, CTA', async () => {
     const wrapper = mountHome({})
     await flushPromises()
+    // 标题第二行走流动渐变原语（12ai 式），第一行留纯色
+    const accent = wrapper.get('[data-testid="hero-title-accent"]')
+    expect(accent.classes()).toContain('text-flow')
+    expect(accent.text()).toBe('userUi.home.hero.titleAccent')
     expect(wrapper.findAll('[data-testid="home-feature"]')).toHaveLength(6)
     expect(wrapper.findAll('[data-testid="home-step"]')).toHaveLength(3)
     expect(wrapper.find('[data-testid="home-quickstart"]').exists()).toBe(true)
