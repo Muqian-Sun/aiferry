@@ -69,7 +69,8 @@ describe('SidebarFrame header styles', () => {
 describe('sidebar subscription feature flag', () => {
   it('also hides the admin Subscription Management entry on recharge-only sites', () => {
     expect(adminSidebarSource).toContain('const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)')
-    expect(adminSidebarSource).toMatch(/path: '\/subscriptions'[^\n]*featureFlag: flagSubscription/)
+    // 「订阅」现在是一个多行的分组对象（订阅管理 / 订阅套餐），开关仍挂在组上。
+    expect(adminSidebarSource).toMatch(/path: '\/subscriptions',[\s\S]{0,200}?featureFlag: flagSubscription,[\s\S]{0,120}?children: \[/)
   })
 })
 

@@ -6,6 +6,32 @@ export default {
     create: '新建模型',
     edit: '编辑模型',
     empty: '目录还是空的，先播种或手动新建。',
+    diagnose: '诊断',
+    diagnosis: {
+      title: '资源诊断 · {model}',
+      empty: '该模型没有绑定资源。',
+      followAccount: '跟随账号',
+      columns: {
+        account: '资源',
+        priority: '优先级',
+        schedulable: '可调度'
+      },
+      inbound: {
+        anthropic: 'Messages',
+        chat_completions: 'Chat',
+        responses: 'Responses',
+        gemini: 'Gemini'
+      },
+      reasons: {
+        disabled: '已停用',
+        unschedulable: '已停调',
+        expired: '已过期',
+        overloaded: '过载冷却中',
+        rate_limited: '限流中',
+        temp_unschedulable: '临时停调',
+        quota_exceeded: '额度已用尽'
+      }
+    },
     seed: '从价格文件播种',
     seeding: '播种中…',
     seedDone: '播种完成：新增 {inserted}，刷新 {refreshed}，跳过管理员改过的 {skipped}',

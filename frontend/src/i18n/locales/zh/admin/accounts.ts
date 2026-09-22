@@ -1,7 +1,7 @@
 export default {
     accounts: {
-      title: '账号管理',
-      description: '管理 AI 平台账号和 Cookie',
+      title: '渠道管理',
+      description: '创建与管理成品号、第三方 key 等上游资源；上架模型在模型目录里绑定',
       createAccount: '添加账号',
       autoRefresh: '自动刷新',
       enableAutoRefresh: '启用自动刷新',
@@ -70,9 +70,12 @@ export default {
         responses: 'Responses',
         gemini: 'Gemini'
       },
+      catalogUnlisted: '未上架',
+      catalogNone: '未绑定任何模型',
       columns: {
         name: '名称',
         id: '账号ID',
+        catalog: '已上架模型',
         platformType: '厂商/类型',
         platform: '平台',
         type: '类型',

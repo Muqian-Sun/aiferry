@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
 const { updateAccountMock, checkMixedChannelRiskMock, authIsSimpleMode, getProtocolDefaultsMock, showErrorMock } = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
@@ -334,13 +335,14 @@ function buildOpenAIOAuthParentAccount() {
   } as any
 }
 
-function mountModal(account = buildAccount(), renderGroupSelector = false) {
+function mountModal(account = buildAccount(), renderGroupSelector = false, catalogEntries?: ModelCatalogEntry[]) {
   return mount(EditAccountModal, {
     props: {
       show: true,
       account,
       proxies: [],
-      groups: []
+      groups: [],
+      catalogEntries
     },
     global: {
       stubs: {
@@ -1934,5 +1936,26 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     await flushPromises()
     expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
+  })
+
+  // 已上架模型是只读展示：绑定在模型目录里改，这里只告诉管理员这个资源承接哪些模型。
+  it('shows the bound catalog entries read-only and marks unlisted ones', async () => {
+    const entry = (id: number, model_id: string, status: string) =>
+      ({ id, model_id, status, bindings: [] } as unknown as ModelCatalogEntry)
+    const wrapper = mountModal(buildAccount(), false, [entry(199, 'gpt-5.6', 'listed'), entry(217, 'gpt-5.6-mini', 'unlisted')])
+    await flushPromises()
+    const section = wrapper.get('[data-testid="edit-account-catalog"]')
+    const chips = section.findAll('span').filter((span) => span.text() === 'gpt-5.6' || span.text() === 'gpt-5.6-mini')
+    expect(chips.map((chip) => chip.text())).toEqual(['gpt-5.6', 'gpt-5.6-mini'])
+    expect(chips[1].classes()).toContain('line-through')
+    expect(section.text()).not.toContain('admin.accounts.catalogNone')
+
+    const empty = mountModal(buildAccount(), false, [])
+    await flushPromises()
+    expect(empty.get('[data-testid="edit-account-catalog"]').text()).toContain('admin.accounts.catalogNone')
+
+    const hidden = mountModal(buildAccount(), false, undefined)
+    await flushPromises()
+    expect(hidden.find('[data-testid="edit-account-catalog"]').exists()).toBe(false)
   })
 })

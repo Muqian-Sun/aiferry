@@ -25,7 +25,6 @@ import {
   CogIcon,
   CreditCardIcon,
   DashboardIcon,
-  FolderIcon,
   GiftIcon,
   GlobeIcon,
   OrderIcon,
@@ -67,21 +66,31 @@ const navItems = computed((): NavItem[] => {
     { path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
     { path: '/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
     { path: '/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
-    { path: '/groups', label: t('nav.groups'), icon: FolderIcon, elementId: 'sidebar-group-manage' },
+    // 「渠道管理」= 渠道（资源：成品号 / 第三方 key）+ 模型目录 + 渠道监控；分组已不是导航概念。
     {
       path: '/channels',
       label: t('nav.channelManagement'),
       icon: ChannelIcon,
-      hideInSimpleMode: true,
       expandOnly: true,
       children: [
+        { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon, elementId: 'sidebar-channel-manage' },
         { path: '/model-catalog', label: t('nav.modelCatalog'), icon: PriceTagIcon },
         { path: '/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
       ],
     },
-    // 「仅充值」站点连管理端的「订阅管理」入口也一并收起（路由本身不拦截）。
-    { path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription },
-    { path: '/accounts', label: t('nav.accounts'), icon: GlobeIcon, elementId: 'sidebar-channel-manage' },
+    // 「仅充值」站点连管理端的「订阅」入口也一并收起（路由本身不拦截）。套餐属于订阅，不挂支付门。
+    {
+      path: '/subscriptions',
+      label: t('nav.subscriptions'),
+      icon: CreditCardIcon,
+      hideInSimpleMode: true,
+      featureFlag: flagSubscription,
+      expandOnly: true,
+      children: [
+        { path: '/subscriptions', label: t('nav.subscriptionRecords'), icon: CreditCardIcon },
+        { path: '/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon },
+      ],
+    },
     { path: '/plugins', label: t('nav.plugins'), icon: PluginIcon, featureFlag: flagPluginManagement },
     { path: '/announcements', label: t('nav.announcements'), icon: BellIcon },
     { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
@@ -121,7 +130,6 @@ const navItems = computed((): NavItem[] => {
       children: [
         { path: '/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
         { path: '/orders', label: t('nav.orderManagement'), icon: OrderIcon },
-        { path: '/orders/plans', label: t('nav.paymentPlans'), icon: CreditCardIcon },
       ],
     },
     { path: '/usage', label: t('nav.usage'), icon: ChartIcon },

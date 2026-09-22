@@ -6,6 +6,32 @@ export default {
     create: 'New model',
     edit: 'Edit model',
     empty: 'The catalog is empty. Seed it or create an entry.',
+    diagnose: 'Diagnose',
+    diagnosis: {
+      title: 'Resource diagnosis · {model}',
+      empty: 'No resources are bound to this model.',
+      followAccount: 'Follows account',
+      columns: {
+        account: 'Resource',
+        priority: 'Priority',
+        schedulable: 'Schedulable'
+      },
+      inbound: {
+        anthropic: 'Messages',
+        chat_completions: 'Chat',
+        responses: 'Responses',
+        gemini: 'Gemini'
+      },
+      reasons: {
+        disabled: 'Disabled',
+        unschedulable: 'Unschedulable',
+        expired: 'Expired',
+        overloaded: 'Overloaded (cooling down)',
+        rate_limited: 'Rate limited',
+        temp_unschedulable: 'Temporarily unschedulable',
+        quota_exceeded: 'Quota exhausted'
+      }
+    },
     seed: 'Seed from pricing file',
     seeding: 'Seeding…',
     seedDone: 'Seed finished: inserted {inserted}, refreshed {refreshed}, skipped admin-edited {skipped}',

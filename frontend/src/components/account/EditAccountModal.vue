@@ -15,6 +15,26 @@
         <label class="input-label">{{ t('common.name') }}</label>
         <input v-model="form.name" type="text" required class="input" data-tour="edit-account-form-name" />
       </div>
+      <!-- 已上架模型（只读）：绑定在模型目录里改，这里只展示这个资源承接哪些模型 -->
+      <div v-if="catalogEntries" data-testid="edit-account-catalog">
+        <label class="input-label">{{ t('admin.accounts.columns.catalog') }}</label>
+        <div class="flex flex-wrap gap-1">
+          <span
+            v-for="entry in catalogEntries"
+            :key="entry.id"
+            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium"
+            :class="entry.status === 'listed'
+              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
+              : 'bg-gray-100 text-gray-500 line-through dark:bg-dark-600 dark:text-gray-400'"
+            :title="entry.status === 'listed' ? entry.model_id : `${entry.model_id} · ${t('admin.accounts.catalogUnlisted')}`"
+          >
+            {{ entry.model_id }}
+          </span>
+          <span v-if="catalogEntries.length === 0" class="text-xs text-gray-400 dark:text-gray-500">
+            {{ t('admin.accounts.catalogNone') }}
+          </span>
+        </div>
+      </div>
       <div>
         <label class="input-label">{{ t('admin.accounts.notes') }}</label>
         <textarea
@@ -2907,6 +2927,7 @@ import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import GroupSelector from '@/components/common/GroupSelector.vue'
 import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
@@ -2982,6 +3003,8 @@ interface Props {
   account: Account | null
   proxies: Proxy[]
   groups: AdminGroup[]
+  /** 该资源被哪些目录条目绑定（只读展示）；不传就不显示这一行。 */
+  catalogEntries?: ModelCatalogEntry[]
 }
 
 const props = defineProps<Props>()

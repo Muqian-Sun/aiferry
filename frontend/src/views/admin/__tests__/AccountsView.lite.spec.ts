@@ -13,6 +13,7 @@ const {
   getUpstreamBillingProbeSettings,
   getAllProxies,
   getAllGroups,
+  listCatalogEntries,
   refreshCredentials,
   showError,
   showWarning
@@ -24,6 +25,7 @@ const {
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
   getAllGroups: vi.fn(),
+  listCatalogEntries: vi.fn(),
   refreshCredentials: vi.fn(),
   showError: vi.fn(),
   showWarning: vi.fn()
@@ -44,7 +46,8 @@ vi.mock('@/api/admin', () => ({
       refreshCredentials
     },
     proxies: { getAll: getAllProxies },
-    groups: { getAll: getAllGroups }
+    groups: { getAll: getAllGroups },
+    modelCatalog: { listEntries: listCatalogEntries }
   }
 }))
 
@@ -165,6 +168,7 @@ describe('admin AccountsView lite account list', () => {
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: true })
     getAllProxies.mockReset().mockResolvedValue([])
     getAllGroups.mockReset().mockResolvedValue([{ id: 7, name: 'codex', platform: 'openai' }])
+    listCatalogEntries.mockReset().mockResolvedValue([])
     refreshCredentials.mockReset()
     showError.mockReset()
     showWarning.mockReset()

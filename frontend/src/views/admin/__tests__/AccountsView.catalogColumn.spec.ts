@@ -4,7 +4,7 @@ import { defineComponent } from 'vue'
 
 import AccountsView from '../AccountsView.vue'
 
-const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups } =
+const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups, listCatalogEntries } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listWithEtag: vi.fn(),
@@ -12,7 +12,8 @@ const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBill
     getBatchTodayStats: vi.fn(),
     getUpstreamBillingProbeSettings: vi.fn(),
     getAllProxies: vi.fn(),
-    getAllGroups: vi.fn()
+    getAllGroups: vi.fn(),
+    listCatalogEntries: vi.fn()
   }))
 
 vi.mock('@/api/admin', () => ({
@@ -31,7 +32,7 @@ vi.mock('@/api/admin', () => ({
     },
     proxies: { getAll: getAllProxies },
     groups: { getAll: getAllGroups },
-    modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
+    modelCatalog: { listEntries: listCatalogEntries }
   }
 }))
 
@@ -48,21 +49,22 @@ vi.mock('vue-i18n', async () => {
   return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
 })
 
-// 只渲染「厂商/类型」单元格，看 vendor 是否透传给徽章、协议地址是否变成协议标签。
+// 只渲染「已上架模型」单元格：条目的 bindings[] 反查到账号，chip 点击开诊断。
 const DataTableStub = defineComponent({
-  props: { data: { type: Array, default: () => [] } },
+  props: { data: { type: Array, default: () => [] }, columns: { type: Array, default: () => [] } },
   template: `
     <div>
+      <span v-for="column in columns" :key="column.key" :data-column="column.key" />
       <div v-for="row in data" :key="row.id" :data-account-id="row.id">
-        <slot name="cell-platform_type" :row="row" />
+        <slot name="cell-catalog" :row="row" />
       </div>
     </div>
   `
 })
 
-const PlatformTypeBadgeStub = defineComponent({
-  props: { platform: String, type: String, vendor: String },
-  template: '<span data-test="badge" :data-platform="platform" :data-vendor="vendor ?? \'\'">{{ vendor || platform }}</span>'
+const DiagnosisModalStub = defineComponent({
+  props: { show: Boolean, entryId: { type: Number, default: null }, modelId: { type: String, default: '' } },
+  template: '<div data-test="diagnosis" :data-show="show" :data-entry-id="entryId ?? \'\'" :data-model-id="modelId" />'
 })
 
 function mountView() {
@@ -72,6 +74,7 @@ function mountView() {
         AppLayout: { template: '<div><slot /></div>' },
         TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
         DataTable: DataTableStub,
+        CatalogEntryDiagnosisModal: DiagnosisModalStub,
         AccountTableActions: true,
         AccountTableFilters: true,
         AccountBulkActionsBar: true,
@@ -89,7 +92,7 @@ function mountView() {
         CreateAccountModal: true,
         EditAccountModal: true,
         BulkEditAccountModal: true,
-        PlatformTypeBadge: PlatformTypeBadgeStub,
+        PlatformTypeBadge: true,
         AccountCapacityCell: true,
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
@@ -105,19 +108,25 @@ function mountView() {
 }
 
 const base = { status: 'active', schedulable: true, concurrency: 1, priority: 1, group_ids: [], extra: {}, credentials: {} }
+const entry = (id: number, model_id: string, status: string, accountIDs: number[]) => ({
+  id, model_id, display_name: model_id, vendor: 'openai', protocols: [], billing_mode: 'token', status, managed_by: 'seed',
+  input_price: 1, output_price: 2, cache_write_price: null, cache_write_1h_price: null, cache_read_price: null,
+  image_input_price: null, image_output_price: null, image_cache_read_price: null, input_price_priority: null,
+  output_price_priority: null, cache_write_price_priority: null, cache_read_price_priority: null,
+  per_request_price: null, search_price_per_call: null, long_context_threshold_inclusive: false, notes: '',
+  intervals: [], time_pricing: null, aliases: [],
+  bindings: accountIDs.map((account_id) => ({ entry_id: id, account_id, priority: null })),
+  created_at: '', updated_at: ''
+})
 
-describe('AccountsView vendor/type cell follows the address-based model', () => {
+describe('AccountsView listed-models column', () => {
   beforeEach(() => {
     listAccounts.mockReset().mockResolvedValue({
       items: [
-        {
-          ...base, id: 1, name: 'deepseek-key', platform: 'openai', type: 'apikey', vendor: 'deepseek',
-          protocol_endpoints: { chat_completions: 'https://api.deepseek.com', anthropic: 'https://api.deepseek.com/anthropic' }
-        },
-        { ...base, id: 2, name: 'relay-key', platform: 'kimi', type: 'apikey', vendor: '', protocol_endpoints: { responses: 'https://relay.example/v1' } },
-        { ...base, id: 3, name: 'oauth', platform: 'anthropic', type: 'oauth', vendor: 'anthropic' }
+        { ...base, id: 1, name: 'K1', platform: 'openai', type: 'apikey' },
+        { ...base, id: 2, name: 'K2', platform: 'anthropic', type: 'apikey' }
       ],
-      total: 3, page: 1, page_size: 20, pages: 1
+      total: 2, page: 1, page_size: 20, pages: 1
     })
     listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: 'e', data: null })
     getById.mockReset()
@@ -125,29 +134,34 @@ describe('AccountsView vendor/type cell follows the address-based model', () => 
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: false })
     getAllProxies.mockReset().mockResolvedValue([])
     getAllGroups.mockReset().mockResolvedValue([])
+    listCatalogEntries.mockReset().mockResolvedValue([
+      entry(199, 'gpt-5.6', 'listed', [1]),
+      entry(217, 'gpt-5.6-mini', 'unlisted', [1]),
+      entry(27, 'claude-sonnet-4-5', 'listed', [])
+    ])
   })
 
-  it('passes the identified vendor to the badge and lists configured protocols with their hosts', async () => {
+  it('derives each account\'s catalog entries from the entries\' bindings and opens the diagnosis on click', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const deepseek = wrapper.get('[data-account-id="1"]')
-    expect(deepseek.get('[data-test="badge"]').attributes('data-vendor')).toBe('deepseek')
-    const chips = deepseek.findAll('[data-testid="key-protocol-chips"] span')
-    expect(chips.map((chip) => chip.text())).toEqual([
-      'admin.accounts.protocolShort.anthropic',
-      'admin.accounts.protocolShort.chat_completions'
-    ])
-    expect(chips.map((chip) => chip.attributes('title'))).toEqual(['api.deepseek.com', 'api.deepseek.com'])
+    expect(wrapper.find('[data-column="catalog"]').exists()).toBe(true)
 
-    const relay = wrapper.get('[data-account-id="2"]')
-    expect(relay.get('[data-test="badge"]').attributes('data-vendor')).toBe('')
-    expect(relay.findAll('[data-testid="key-protocol-chips"] span').map((chip) => chip.text())).toEqual([
-      'admin.accounts.protocolShort.responses'
-    ])
+    const k1 = wrapper.get('[data-account-id="1"]')
+    const chips = k1.findAll('[data-testid="account-catalog-chip"]')
+    expect(chips.map((chip) => chip.text())).toEqual(['gpt-5.6', 'gpt-5.6-mini'])
+    expect(chips[1].classes()).toContain('line-through')
+    expect(k1.find('[data-testid="account-catalog-none"]').exists()).toBe(false)
 
-    const oauth = wrapper.get('[data-account-id="3"]')
-    expect(oauth.find('[data-testid="key-protocol-chips"]').exists()).toBe(false)
-    wrapper.unmount()
+    const k2 = wrapper.get('[data-account-id="2"]')
+    expect(k2.findAll('[data-testid="account-catalog-chip"]')).toHaveLength(0)
+    expect(k2.find('[data-testid="account-catalog-none"]').exists()).toBe(true)
+
+    const modal = wrapper.get('[data-test="diagnosis"]')
+    expect(modal.attributes('data-show')).toBe('false')
+    await chips[0].trigger('click')
+    expect(modal.attributes('data-show')).toBe('true')
+    expect(modal.attributes('data-entry-id')).toBe('199')
+    expect(modal.attributes('data-model-id')).toBe('gpt-5.6')
   })
 })

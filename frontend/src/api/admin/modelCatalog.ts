@@ -80,6 +80,23 @@ export interface ModelCatalogBindingRequestItem {
   priority: number | null
 }
 
+/** 诊断接口按入站协议逐格报告资源能否承接。 */
+export type ModelCatalogInboundProtocol = 'anthropic' | 'chat_completions' | 'responses' | 'gemini'
+
+export interface ModelCatalogDiagnosisAccount extends ModelCatalogBindingAccount {
+  /** 绑定优先级；null 表示跟随账号自身的优先级。 */
+  priority: number | null
+  /** 此刻能否进入调度；不能时 blocked_reason 给第一个原因。 */
+  schedulable: boolean
+  blocked_reason?: string
+  serves: Record<ModelCatalogInboundProtocol, boolean>
+}
+
+export interface ModelCatalogDiagnosis {
+  entry_id: number
+  accounts: ModelCatalogDiagnosisAccount[]
+}
+
 export interface ModelCatalogEntryRequest {
   model_id: string
   display_name?: string
@@ -166,6 +183,10 @@ const modelCatalogAPI = {
   },
   seed: async (): Promise<ModelCatalogSeedResult> => {
     const { data } = await apiClient.post<ModelCatalogSeedResult>('/admin/model-catalog/seed')
+    return data
+  },
+  diagnose: async (id: number): Promise<ModelCatalogDiagnosis> => {
+    const { data } = await apiClient.get<ModelCatalogDiagnosis>(`/admin/model-catalog/entries/${id}/diagnosis`)
     return data
   }
 }
