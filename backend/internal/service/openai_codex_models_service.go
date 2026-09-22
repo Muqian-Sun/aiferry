@@ -46,25 +46,11 @@ const (
 	codexAutoModelPrefix              = "codex-auto-"
 )
 
-// FilterCodexModelIDsForGroup removes dedicated media-generation models,
-// wildcard mapping keys, and Codex automatic modes from a client catalog.
-// Automatic modes are retained only when the group's enabled model allowlist
-// explicitly selects the exact slug; account model mappings describe routing
-// and are not feature opt-ins. Wildcard keys such as "foo-*" are routing
-// patterns, not concrete Codex models. When the allowlist is enabled the
-// catalog is additionally restricted by FilterForListing (wildcard entries
-// expand against the catalog).
-func FilterCodexModelIDsForGroup(modelIDs []string, group *Group) []string {
-	explicitlyEnabled := make(map[string]struct{})
-	if group != nil && group.ModelAllowlistEnabled() {
-		for _, modelID := range group.ModelAllowlist.Models {
-			modelID = strings.TrimSpace(modelID)
-			if strings.HasPrefix(modelID, codexAutoModelPrefix) {
-				explicitlyEnabled[modelID] = struct{}{}
-			}
-		}
-	}
-
+// FilterCodexModelIDs removes dedicated media-generation models, wildcard mapping
+// keys, and Codex automatic modes from a client catalog. Wildcard keys such as
+// "foo-*" are routing patterns, not concrete Codex models; automatic modes are
+// Codex-internal and never listed.
+func FilterCodexModelIDs(modelIDs []string) []string {
 	filtered := make([]string, 0, len(modelIDs))
 	for _, modelID := range modelIDs {
 		modelID = strings.TrimSpace(modelID)
@@ -78,14 +64,9 @@ func FilterCodexModelIDsForGroup(modelIDs []string, group *Group) []string {
 			continue
 		}
 		if strings.HasPrefix(modelID, codexAutoModelPrefix) {
-			if _, ok := explicitlyEnabled[modelID]; !ok {
-				continue
-			}
+			continue
 		}
 		filtered = append(filtered, modelID)
-	}
-	if group != nil && group.ModelAllowlistEnabled() {
-		filtered = group.ModelAllowlist.FilterForListing(filtered)
 	}
 	return filtered
 }
@@ -114,267 +95,6 @@ type OpenAIModelsResponse struct {
 	upstreamSourceBody           []byte
 	convertedFromOpenAIModelList bool
 	NotModified                  bool
-}
-
-// BuildGroupConfiguredCodexModelsManifest builds a Codex catalog from configured
-// public model names, supplemented by defaults for unmapped OpenAI accounts. The
-// boolean result distinguishes "no explicit configuration" from a configured
-// catalog that becomes empty after group-level filtering.
-func (s *OpenAIGatewayService) BuildGroupConfiguredCodexModelsManifest(
-	ctx context.Context,
-	group *Group,
-	ifNoneMatch string,
-	listed func(modelID string) bool,
-) (*OpenAIModelsResponse, bool, error) {
-	if s == nil || s.accountRepo == nil || group == nil || group.Platform != PlatformOpenAI {
-		return nil, false, nil
-	}
-
-	visible, catalog, err := loadCodexGroupCatalogAccounts(ctx, s.accountRepo, group.ID)
-	if err != nil {
-		return nil, false, fmt.Errorf("load group configured Codex models: %w", err)
-	}
-	configuredModels := openAIConfiguredCodexModelIDsForGroup(visible, group)
-	if len(configuredModels) == 0 {
-		return nil, false, nil
-	}
-
-	body, err := buildCodexModelsManifestForAccounts(
-		PlatformOpenAI,
-		configuredModels,
-		catalog,
-		group,
-		nil,
-		true,
-	)
-	if err != nil {
-		return nil, false, fmt.Errorf("initialize group configured Codex models: %w", err)
-	}
-	body, _, err = mergeConfiguredCodexModelsManifest(
-		body,
-		nil,
-		group.ModelAllowlist.Models,
-		group.ModelAllowlistEnabled(),
-	)
-	if err != nil {
-		return nil, false, fmt.Errorf("build group configured Codex models: %w", err)
-	}
-	body, _, err = filterCodexModelsManifestBySlug(body, listed)
-	if err != nil {
-		return nil, false, fmt.Errorf("filter group configured Codex models: %w", err)
-	}
-	manifest := &OpenAIModelsResponse{
-		Body: body,
-		ETag: codexModelsManifestBodyETag(body),
-	}
-	if codexModelsManifestETagMatches(ifNoneMatch, manifest.ETag) {
-		manifest.Body = nil
-		manifest.NotModified = true
-	}
-	return manifest, true, nil
-}
-
-// MergeGroupConfiguredCodexModels adds account model aliases that are visible
-// to the authenticated OpenAI group without discarding metadata from upstream
-// Codex model entries. A group's custom models list also filters the picker,
-// matching the standard /v1/models display policy. listed 最后再过滤一遍：只有
-// 目录上架的 slug 对用户可见；ETag 按最终响应体计算。
-func (s *OpenAIGatewayService) MergeGroupConfiguredCodexModels(
-	ctx context.Context,
-	group *Group,
-	manifest *OpenAIModelsResponse,
-	ifNoneMatch string,
-	listed func(modelID string) bool,
-) error {
-	if s == nil || s.accountRepo == nil || group == nil || manifest == nil || manifest.NotModified {
-		return nil
-	}
-	if group.Platform != PlatformOpenAI || len(manifest.Body) == 0 {
-		return nil
-	}
-
-	var configuredModels []string
-	if !group.CodexModelsManifestConfig.Enabled {
-		var err error
-		configuredModels, err = s.groupConfiguredCodexModelIDs(ctx, group)
-		if err != nil {
-			return fmt.Errorf("load group configured Codex models: %w", err)
-		}
-	}
-	body, changed, err := mergeConfiguredCodexModelsManifest(
-		manifest.Body,
-		configuredModels,
-		group.ModelAllowlist.Models,
-		group.ModelAllowlistEnabled(),
-	)
-	if err != nil {
-		return fmt.Errorf("merge group configured Codex models: %w", err)
-	}
-	if group.CodexModelsManifestConfig.Enabled && group.ModelAllowlistEnabled() {
-		body, err = orderPinnedCodexModelsBySelection(body, group.ModelAllowlist)
-		if err != nil {
-			return fmt.Errorf("order pinned Codex models: %w", err)
-		}
-		changed = true
-	}
-	body, filtered, err := filterCodexModelsManifestBySlug(body, listed)
-	if err != nil {
-		return fmt.Errorf("filter Codex models by catalog: %w", err)
-	}
-	changed = changed || filtered
-	if changed {
-		manifest.Body = body
-		manifest.ETag = codexModelsManifestBodyETag(body)
-	}
-	if codexModelsManifestETagMatches(ifNoneMatch, manifest.ETag) {
-		manifest.Body = nil
-		manifest.NotModified = true
-	}
-	return nil
-}
-
-// filterCodexModelsManifestBySlug 只保留 models[].slug 满足 listed 的条目；没有条目被移除时
-// 原样返回 body（changed=false）。
-func filterCodexModelsManifestBySlug(body []byte, listed func(modelID string) bool) ([]byte, bool, error) {
-	envelope, entries, err := modelCatalogEntries(body, "models")
-	if err != nil {
-		return nil, false, err
-	}
-	kept := make([]json.RawMessage, 0, len(entries))
-	for _, raw := range entries {
-		var model struct {
-			Slug string `json:"slug"`
-		}
-		if err := json.Unmarshal(raw, &model); err != nil {
-			return nil, false, err
-		}
-		if listed(model.Slug) {
-			kept = append(kept, raw)
-		}
-	}
-	if len(kept) == len(entries) {
-		return body, false, nil
-	}
-	mergedModels, err := json.Marshal(kept)
-	if err != nil {
-		return nil, false, err
-	}
-	envelope["models"] = mergedModels
-	merged, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, false, err
-	}
-	return merged, true, nil
-}
-
-func (s *OpenAIGatewayService) groupConfiguredCodexModelIDs(ctx context.Context, group *Group) ([]string, error) {
-	if group == nil {
-		return nil, nil
-	}
-	accounts, err := s.accountRepo.ListSchedulableByGroupID(ctx, group.ID)
-	if err != nil {
-		return nil, err
-	}
-	return openAIConfiguredCodexModelIDsForGroup(accounts, group), nil
-}
-
-// loadCodexGroupCatalogAccounts separates picker membership from capability
-// intersection. visible accounts are currently schedulable and decide which
-// public aliases appear. catalog accounts are persistently enabled group
-// members; the availability query ignores transient rate-limit, overload, and
-// temporary-unschedulable state so those conditions cannot widen advertised
-// capabilities. Persistently disabled accounts are excluded because routing
-// cannot select them. If the availability query fails, the catalog falls back
-// to the schedulable set so a listing error does not fail the client request.
-func loadCodexGroupCatalogAccounts(ctx context.Context, repo AccountRepository, groupID int64) (visible []Account, catalog []Account, err error) {
-	if repo == nil {
-		return nil, nil, nil
-	}
-	visible, err = repo.ListSchedulableByGroupID(ctx, groupID)
-	if err != nil {
-		return nil, nil, err
-	}
-	catalog = visible
-	groupAccounts, listErr := repo.ListModelAvailabilityCandidates(
-		ctx,
-		&groupID,
-		[]string{
-			PlatformAnthropic,
-			PlatformOpenAI,
-			PlatformGemini,
-			PlatformAntigravity,
-			PlatformGrok,
-			PlatformKimi,
-			PlatformZhipu,
-			PlatformDeepseek,
-			PlatformMiniMax,
-		},
-		false,
-	)
-	if listErr != nil {
-		return visible, catalog, nil
-	}
-	return visible, groupAccounts, nil
-}
-
-func openAIConfiguredCodexModelIDs(accounts []Account) []string {
-	seen := make(map[string]struct{})
-	models := make([]string, 0)
-	for i := range accounts {
-		account := &accounts[i]
-		// 第三方 key 的平台只是展示标签：能在 OpenAI 网关承接请求的 key 都贡献映射。
-		if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
-			continue
-		}
-		for modelID := range account.GetModelMapping() {
-			modelID = strings.TrimSpace(modelID)
-			if modelID == "" || strings.Contains(modelID, "*") {
-				continue
-			}
-			if _, exists := seen[modelID]; exists {
-				continue
-			}
-			seen[modelID] = struct{}{}
-			models = append(models, modelID)
-		}
-	}
-	sort.Strings(models)
-	return models
-}
-
-func openAIConfiguredCodexModelIDsForGroup(accounts []Account, group *Group) []string {
-	models := supplementUnmappedOpenAIModels(accounts, openAIConfiguredCodexModelIDs(accounts))
-	if group == nil || !group.ModelAllowlistEnabled() {
-		return models
-	}
-
-	seen := make(map[string]struct{}, len(models)+len(group.ModelAllowlist.Models))
-	for _, modelID := range models {
-		seen[modelID] = struct{}{}
-	}
-	for _, selectedModel := range group.ModelAllowlist.Models {
-		selectedModel = strings.TrimSpace(selectedModel)
-		if selectedModel == "" || strings.Contains(selectedModel, "*") {
-			continue
-		}
-		for i := range accounts {
-			account := &accounts[i]
-			if !AccountServesPlatformForAnyInbound(account, PlatformOpenAI) {
-				continue
-			}
-			mappedModel, matched := account.ResolveMappedModel(selectedModel)
-			if !matched || strings.TrimSpace(mappedModel) == "" {
-				continue
-			}
-			if _, exists := seen[selectedModel]; !exists {
-				seen[selectedModel] = struct{}{}
-				models = append(models, selectedModel)
-			}
-			break
-		}
-	}
-	sort.Strings(models)
-	return models
 }
 
 const (
@@ -839,49 +559,37 @@ func BuildCodexModelsManifest(modelIDs []string) ([]byte, error) {
 	return buildCodexModelsManifest(modelIDs, nil, nil, nil, nil)
 }
 
-// BuildCodexModelsManifestForGroup derives input capabilities from the
-// concrete Responses route and group accounts behind a group. Unknown or mixed
-// capabilities fail closed to the text-only descriptor used by the standalone
-// builder. Caller-supplied model IDs still decide which slugs appear; advertised
-// capabilities intersect all active group members that map the alias, including
-// accounts that are not currently schedulable.
-func (s *GatewayService) BuildCodexModelsManifestForGroup(
-	ctx context.Context,
-	group *Group,
-	platformOverride string,
-	modelIDs []string,
-) ([]byte, error) {
-	if s == nil || s.accountRepo == nil || group == nil {
+// BuildCodexModelsManifestFromCatalog 按目录条目生成 Codex 清单：slug 是条目的模型标识，
+// 输入模态 / 搜索工具 / 元数据从绑定到这些条目的账号推断（同一模型有账号说不支持就按不支持，
+// 与原来「取分组内账号交集」同一口径）。绑定账号取不到时退回纯文本描述符。
+func (s *GatewayService) BuildCodexModelsManifestFromCatalog(ctx context.Context, entries []ModelCatalogEntry) ([]byte, error) {
+	modelIDs := make([]string, 0, len(entries))
+	accountIDs := make(map[int64]struct{})
+	for i := range entries {
+		modelIDs = append(modelIDs, entries[i].ModelID)
+		for _, binding := range entries[i].Bindings {
+			accountIDs[binding.AccountID] = struct{}{}
+		}
+	}
+	if s == nil || s.accountRepo == nil || len(accountIDs) == 0 {
 		return BuildCodexModelsManifest(modelIDs)
 	}
-	effectivePlatform := strings.TrimSpace(platformOverride)
-	if effectivePlatform == "" {
-		effectivePlatform = group.Platform
+	ids := make([]int64, 0, len(accountIDs))
+	for id := range accountIDs {
+		ids = append(ids, id)
 	}
-	if effectivePlatform != PlatformComposite && !isConcreteRequestPlatform(effectivePlatform) {
-		return BuildCodexModelsManifest(modelIDs)
-	}
-
-	_, catalog, err := loadCodexGroupCatalogAccounts(ctx, s.accountRepo, group.ID)
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	bound, err := s.accountRepo.GetByIDs(ctx, ids)
 	if err != nil {
 		return BuildCodexModelsManifest(modelIDs)
 	}
-	var compositeRoutes []CompositeModelRoute
-	compositeRoutesAvailable := true
-	if effectivePlatform == PlatformComposite && s.compositeResolver != nil && s.compositeResolver.repo != nil {
-		compositeRoutes, err = s.compositeResolver.repo.ListByGroup(ctx, group.ID, false)
-		if err != nil {
-			compositeRoutesAvailable = false
+	accounts := make([]Account, 0, len(bound))
+	for _, account := range bound {
+		if account != nil && account.Status == StatusActive && account.Schedulable {
+			accounts = append(accounts, *account)
 		}
 	}
-	return buildCodexModelsManifestForAccounts(
-		effectivePlatform,
-		modelIDs,
-		catalog,
-		group,
-		compositeRoutes,
-		compositeRoutesAvailable,
-	)
+	return buildCodexModelsManifestForAccounts(PlatformOpenAI, modelIDs, accounts, nil, nil, true)
 }
 
 func buildCodexModelsManifestForAccounts(
@@ -1341,134 +1049,6 @@ func isOfficialGrokCodexBaseURL(raw string) bool {
 // callers that still use the provider-specific function name.
 func BuildDeepSeekCodexModelsManifest(modelIDs []string) ([]byte, error) {
 	return BuildCodexModelsManifest(modelIDs)
-}
-
-func mergeConfiguredCodexModelsManifest(
-	body []byte,
-	configuredModels []string,
-	selectedModels []string,
-	filterBySelection bool,
-) ([]byte, bool, error) {
-	var envelope map[string]json.RawMessage
-	if err := json.Unmarshal(body, &envelope); err != nil {
-		return nil, false, err
-	}
-	var upstreamModels []json.RawMessage
-	if err := json.Unmarshal(envelope["models"], &upstreamModels); err != nil {
-		return nil, false, err
-	}
-
-	selected := make(map[string]struct{}, len(selectedModels))
-	for _, modelID := range selectedModels {
-		modelID = strings.TrimSpace(modelID)
-		if modelID != "" {
-			selected[modelID] = struct{}{}
-		}
-	}
-	// 白名单条目匹配统一走 GroupModelAllowlist.Allows（通配条目按前缀展开）。
-	allowlist := GroupModelAllowlist{Enabled: filterBySelection, Models: selectedModels}
-	seen := make(map[string]struct{}, len(upstreamModels)+len(configuredModels))
-	merged := make([]json.RawMessage, 0, len(upstreamModels)+len(configuredModels))
-	changed := false
-	for _, rawModel := range upstreamModels {
-		var descriptor struct {
-			Slug string `json:"slug"`
-		}
-		if err := json.Unmarshal(rawModel, &descriptor); err != nil || strings.TrimSpace(descriptor.Slug) == "" {
-			if filterBySelection {
-				changed = true
-				continue
-			}
-			merged = append(merged, rawModel)
-			continue
-		}
-		descriptor.Slug = strings.TrimSpace(descriptor.Slug)
-		if isCodexDedicatedMediaModel(descriptor.Slug) {
-			changed = true
-			continue
-		}
-		if filterBySelection && !allowlist.Allows(descriptor.Slug) {
-			changed = true
-			continue
-		}
-		if strings.HasPrefix(descriptor.Slug, codexAutoModelPrefix) {
-			_, explicitlyEnabled := selected[descriptor.Slug]
-			explicitlyEnabled = filterBySelection && explicitlyEnabled
-			if !explicitlyEnabled {
-				changed = true
-				continue
-			}
-			visibleModel, visibilityChanged, err := codexModelWithVisibility(rawModel, "list")
-			if err != nil {
-				return nil, false, err
-			}
-			rawModel = visibleModel
-			changed = changed || visibilityChanged
-		}
-		seen[descriptor.Slug] = struct{}{}
-		merged = append(merged, rawModel)
-	}
-
-	for _, modelID := range configuredModels {
-		if isCodexDedicatedMediaModel(modelID) {
-			continue
-		}
-		if filterBySelection && !allowlist.Allows(modelID) {
-			continue
-		}
-		if strings.HasPrefix(modelID, codexAutoModelPrefix) {
-			if _, explicitlyEnabled := selected[modelID]; !filterBySelection || !explicitlyEnabled {
-				continue
-			}
-		}
-		if _, exists := seen[modelID]; exists {
-			continue
-		}
-		rawModel, err := json.Marshal(newConfiguredCodexModelDescriptor(modelID))
-		if err != nil {
-			return nil, false, err
-		}
-		merged = append(merged, rawModel)
-		seen[modelID] = struct{}{}
-		changed = true
-	}
-	if !changed {
-		return body, false, nil
-	}
-
-	rawModels, err := json.Marshal(merged)
-	if err != nil {
-		return nil, false, err
-	}
-	envelope["models"] = rawModels
-	mergedBody, err := json.Marshal(envelope)
-	if err != nil {
-		return nil, false, err
-	}
-	return mergedBody, true, nil
-}
-
-func codexModelWithVisibility(rawModel json.RawMessage, visibility string) (json.RawMessage, bool, error) {
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal(rawModel, &fields); err != nil {
-		return nil, false, err
-	}
-	var current string
-	if rawVisibility, ok := fields["visibility"]; ok {
-		if err := json.Unmarshal(rawVisibility, &current); err == nil && current == visibility {
-			return rawModel, false, nil
-		}
-	}
-	rawVisibility, err := json.Marshal(visibility)
-	if err != nil {
-		return nil, false, err
-	}
-	fields["visibility"] = rawVisibility
-	updated, err := json.Marshal(fields)
-	if err != nil {
-		return nil, false, err
-	}
-	return updated, true, nil
 }
 
 type codexModelsManifestUpstreamError struct {

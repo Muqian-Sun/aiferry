@@ -1053,7 +1053,7 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, groupID *i
 
 	var accounts []Account
 	var err error
-	if groupID != nil && !(s.cfg != nil && s.cfg.RunMode == config.RunModeSimple) {
+	if groupID != nil && (s.cfg == nil || s.cfg.RunMode != config.RunModeSimple) {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, platforms)
 		// 分组内无账号则返回空列表，由上层处理错误，不再回退到全平台查询
 	} else {

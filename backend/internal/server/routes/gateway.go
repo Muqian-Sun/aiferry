@@ -53,9 +53,7 @@ func RegisterGatewayRoutes(
 			h.Gateway.CountTokens(c)
 		}
 	}
-	codexModelsHandler := func(c *gin.Context) {
-		dispatchCodexModelsGateway(c, h.OpenAIGateway.CodexModels, h.Gateway.CodexModels)
-	}
+	codexModelsHandler := h.Gateway.CodexModels
 	modelsHandler := func(c *gin.Context) {
 		if c.Query("client_version") != "" {
 			codexModelsHandler(c)
@@ -437,14 +435,6 @@ func RegisterGatewayRoutes(
 		antigravityV1Beta.POST("/models/*modelAction", h.Gateway.GeminiV1BetaModels)
 	}
 
-}
-
-func dispatchCodexModelsGateway(c *gin.Context, openAIHandler, generatedHandler gin.HandlerFunc) {
-	if routePlatform(c) == service.PlatformOpenAI {
-		openAIHandler(c)
-		return
-	}
-	generatedHandler(c)
 }
 
 // routePlatform 扩展端点分发用的厂商平台：目录路由按条目厂商（RequestVendorPlatform），
