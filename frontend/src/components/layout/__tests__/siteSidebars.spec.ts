@@ -49,6 +49,8 @@ vi.mock('vue-i18n', async (importOriginal) => {
 })
 
 import AdminSidebar from '../../admin/layout/AdminSidebar.vue'
+import SidebarFrame from '../sidebar/SidebarFrame.vue'
+import type { NavItem, NavSection } from '../sidebar/navTypes'
 
 const mountOptions = {
   global: {
@@ -58,6 +60,21 @@ const mountOptions = {
 
 function linkPaths(wrapper: ReturnType<typeof mount>) {
   return wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to'))
+}
+
+/** 导航树（含未展开的子项）：折叠组的子链接不渲染，归属关系要看 SidebarFrame 收到的 sections。 */
+function navItems(wrapper: ReturnType<typeof mount>): NavItem[] {
+  const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
+  return sections.flatMap((section) => section.items)
+}
+
+function childPaths(items: NavItem[], groupPath: string): string[] {
+  const group = items.find((item) => item.path === groupPath)
+  return (group?.children ?? []).map((child) => child.path)
+}
+
+function allPaths(items: NavItem[]): string[] {
+  return items.flatMap((item) => [item.path, ...(item.children ?? []).map((child) => child.path)])
 }
 
 beforeEach(() => {
@@ -70,15 +87,25 @@ describe('AdminSidebar', () => {
   it('renders admin navigation with tour anchors and account security, without user pages', () => {
     const wrapper = mount(AdminSidebar, mountOptions)
     const paths = linkPaths(wrapper)
-    expect(paths).toContain('/accounts')
     expect(paths).toContain('/settings')
     expect(paths).toContain('/profile')
     expect(paths).not.toContain('/keys')
     expect(paths).not.toContain('/purchase')
-    expect(wrapper.find('#sidebar-channel-manage').exists()).toBe(true)
-    expect(wrapper.find('#sidebar-group-manage').exists()).toBe(true)
     expect(wrapper.find('[data-testid="version-badge"]').exists()).toBe(true)
     expect(adminSettingsStore.fetch).toHaveBeenCalled()
+  })
+
+  // 信息架构（PR-6a）：分组不再是导航概念；渠道页挂在「渠道管理」下；套餐属于「订阅」而不是「订单」。
+  it('groups channels under channel management and plans under subscription, without a groups entry', () => {
+    const wrapper = mount(AdminSidebar, mountOptions)
+    const items = navItems(wrapper)
+    expect(allPaths(items)).not.toContain('/groups')
+    expect(childPaths(items, '/channels')).toEqual(['/accounts', '/model-catalog', '/channels/monitor'])
+    expect(childPaths(items, '/subscriptions')).toEqual(['/subscriptions', '/orders/plans'])
+    expect(childPaths(items, '/orders')).not.toContain('/orders/plans')
+    expect(items.some((item) => item.path === '/accounts')).toBe(false)
+    const channels = items.find((item) => item.path === '/channels')
+    expect(channels?.children?.[0]?.elementId).toBe('sidebar-channel-manage')
   })
 
   it('does not offer API keys to administrators in simple mode', () => {

@@ -1,7 +1,7 @@
 export default {
     accounts: {
-      title: 'Account Management',
-      description: 'Manage AI platform accounts and credentials',
+      title: 'Channels',
+      description: 'Create and manage upstream resources (subscriptions, third-party keys); bind them to listed models in the model catalog',
       createAccount: 'Create Account',
       autoRefresh: 'Auto Refresh',
       enableAutoRefresh: 'Enable auto refresh',
@@ -182,9 +182,12 @@ export default {
         responses: 'Responses',
         gemini: 'Gemini'
       },
+      catalogUnlisted: 'Unlisted',
+      catalogNone: 'Not bound to any model',
       columns: {
         name: 'Name',
         id: 'Account ID',
+        catalog: 'Listed models',
         platformType: 'Vendor/Type',
         platform: 'Platform',
         type: 'Type',

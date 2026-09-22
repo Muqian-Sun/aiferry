@@ -73,8 +73,6 @@ export default {
       configureAiAccounts: 'Configure AI platform accounts',
       batchImage: 'Batch Image',
       batchImageDesc: 'Submit jobs and copy agent instructions',
-      groupPricing: 'Group Pricing',
-      groupPricingDesc: 'Configure batch discount and hold ratio',
       systemSettings: 'System Settings',
       configureSystem: 'Configure system settings',
       failedToLoad: 'Failed to load dashboard statistics'

@@ -24,10 +24,9 @@ const PREFETCH_ADJACENCY_BY_SITE: Record<AppSite, Record<string, string[]>> = {
   // 管理后台：预加载最常访问的相邻页面（管理后台是独立站点，路径不带 /admin 前缀）
   admin: {
     '/dashboard': ['/accounts', '/users'],
-    '/accounts': ['/dashboard', '/users'],
-    '/users': ['/groups', '/dashboard'],
-    '/groups': ['/subscriptions', '/users'],
-    '/subscriptions': ['/groups', '/redeem']
+    '/accounts': ['/model-catalog', '/dashboard'],
+    '/users': ['/subscriptions', '/dashboard'],
+    '/subscriptions': ['/orders/plans', '/redeem']
   },
   // 用户站五个页签：用量（落地页）· 密钥 · 模型 · 账务 · 账户
   user: {
