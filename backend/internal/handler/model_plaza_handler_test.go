@@ -52,22 +52,9 @@ func newPlazaHandlerForTest(values map[string]string) *ModelPlazaHandler {
 	)
 }
 
-func TestModelPlazaHandler_NilSettingServiceFailsClosed404(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	h := &ModelPlazaHandler{} // settingService == nil → fail-closed
-	w := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(w)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
-
-	h.Get(c)
-
-	require.Equal(t, http.StatusNotFound, w.Code)
-}
-
 func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := newPlazaHandlerForTest(map[string]string{
-		service.SettingKeyModelPlazaEnabled:     "true",
 		service.SettingKeyModelPlazaDescription: "hello",
 	})
 	w := httptest.NewRecorder()
@@ -105,17 +92,17 @@ func TestModelPlazaHandler_ReturnsListedCatalogModels(t *testing.T) {
 	require.False(t, hasTimePricing)
 }
 
-func TestModelPlazaHandler_RequireAuthRejectsAnonymous(t *testing.T) {
+// 模型广场没有开关：未登录直接拿到完整目录，登录与否结果一致。
+func TestModelPlazaHandler_AnonymousSeesFullCatalog(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	h := newPlazaHandlerForTest(map[string]string{
-		service.SettingKeyModelPlazaEnabled:     "true",
-		service.SettingKeyModelPlazaRequireAuth: "true",
-	})
+	h := newPlazaHandlerForTest(map[string]string{})
+
 	w := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(w)
 	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/model-plaza", nil)
 	h.Get(c)
-	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	anonymous := w.Body.String()
 
 	w = httptest.NewRecorder()
 	c, _ = gin.CreateTestContext(w)
@@ -123,4 +110,6 @@ func TestModelPlazaHandler_RequireAuthRejectsAnonymous(t *testing.T) {
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 7})
 	h.Get(c)
 	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
+	require.JSONEq(t, anonymous, w.Body.String())
+	require.Contains(t, anonymous, `"model_id":"gpt-5.6"`)
 }

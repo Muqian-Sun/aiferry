@@ -142,92 +142,44 @@ describe('HomeView compact mode', () => {
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
   })
 
-  it('shows the model plaza link to anonymous visitors when public access is enabled', () => {
-    const wrapper = mountHome({
-      compact_home_enabled: true,
-      model_plaza_enabled: true,
-      model_plaza_require_auth: false,
-    })
-
-    expect(modelPlazaDestination(wrapper)).toBe('/model-plaza')
-  })
-
-  it('hides the model plaza link from anonymous visitors when sign-in is required', () => {
-    const wrapper = mountHome({
-      compact_home_enabled: true,
-      model_plaza_enabled: true,
-      model_plaza_require_auth: true,
-    })
-
-    expect(modelPlazaDestination(wrapper)).toBeUndefined()
-  })
-
-  it('shows the model plaza link to authenticated visitors when sign-in is required', () => {
+  // 模型广场没有开关：匿名、登录、紧凑首页都有入口
+  it('always links to the model plaza, for anonymous and signed-in visitors alike', () => {
+    expect(modelPlazaDestination(mountHome({ compact_home_enabled: true }))).toBe('/model-plaza')
+    expect(modelPlazaDestination(mountHome({}))).toBe('/model-plaza')
     authStore.isAuthenticated = true
-
-    const wrapper = mountHome({
-      compact_home_enabled: true,
-      model_plaza_enabled: true,
-      model_plaza_require_auth: true,
-    })
-
-    expect(modelPlazaDestination(wrapper)).toBe('/model-plaza')
-  })
-
-  it('shows the model plaza link in the default home header', () => {
-    const wrapper = mountHome({
-      model_plaza_enabled: true,
-      model_plaza_require_auth: false,
-    })
-
-    expect(modelPlazaDestination(wrapper)).toBe('/model-plaza')
-  })
-
-  it('hides the model plaza link when the feature is disabled', () => {
-    const wrapper = mountHome({
-      compact_home_enabled: true,
-      model_plaza_enabled: false,
-      model_plaza_require_auth: false,
-    })
-
-    expect(modelPlazaDestination(wrapper)).toBeUndefined()
+    expect(modelPlazaDestination(mountHome({ compact_home_enabled: true }))).toBe('/model-plaza')
   })
 
   it('renders the stats band and the price preview only when the model catalog loads', async () => {
     getModelPlaza.mockResolvedValue({
       description: '',
-      groups: [
+      models: [
         {
-          id: 1, name: 'default', description: '', platform: 'openai', subscription_type: 'standard', rate_multiplier: 1,
-          peak_rate_enabled: false, peak_start: '', peak_end: '', peak_rate_multiplier: 1, is_exclusive: false,
-          image_rate_independent: false, image_rate_multiplier: 1, long_context_pricing_enabled: false,
-          models: [
-            { name: 'gpt-5.5', platform: 'openai', pricing: null, official_pricing: { input_price: 0.00001, output_price: 0.00003, cache_read_price: null } },
-            { name: 'claude-opus-5', platform: 'anthropic', pricing: null, official_pricing: null }
-          ]
-        }
+          model_id: 'gpt-5.5', display_name: 'GPT-5.5', vendor: 'openai', billing_mode: 'token', aliases: [],
+          pricing: {
+            billing_mode: 'token', input_price: 0.00001, output_price: 0.00003, cache_write_price: null, cache_read_price: null,
+            image_input_price: null, image_output_price: null, per_request_price: null, intervals: []
+          }
+        },
+        { model_id: 'claude-opus-5', display_name: 'Opus 5', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] }
       ]
     })
-    const wrapper = mountHome({ model_plaza_enabled: true, model_plaza_require_auth: false })
+    const wrapper = mountHome({})
     await flushPromises()
 
-    // 数字带从目录算：2 个模型、2 个厂商；价目预览只列有官方价的模型
+    // 数字带从目录算：2 个模型、2 个厂商；价目预览只列有标价的模型
     expect(wrapper.get('[data-testid="home-stats"]').text()).toContain('2')
     expect(wrapper.findAll('[data-testid="home-catalog-row"]')).toHaveLength(1)
     expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('gpt-5.5')
     expect(wrapper.get('[data-testid="home-catalog"]').text()).toContain('$10.00')
   })
 
-  it('hides the stats band and the price preview when the catalog is unavailable, and never asks when the feature is off', async () => {
-    const wrapper = mountHome({ model_plaza_enabled: true, model_plaza_require_auth: false })
+  it('hides the stats band and the price preview when the catalog is unavailable', async () => {
+    const wrapper = mountHome({})
     await flushPromises()
+    expect(getModelPlaza).toHaveBeenCalledOnce()
     expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="home-catalog"]').exists()).toBe(false)
-
-    getModelPlaza.mockClear()
-    mountHome({ model_plaza_enabled: false })
-    await flushPromises()
-    expect(getModelPlaza).not.toHaveBeenCalled()
   })
 
   it('renders the code sample with the site API base URL', async () => {

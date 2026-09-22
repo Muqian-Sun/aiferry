@@ -176,7 +176,6 @@ export default {
     accountSecurity: '账号安全',
     users: '用户管理',
     channels: '渠道',
-    modelPlaza: '模型广场',
     subscriptions: '订阅',
     subscriptionRecords: '订阅管理',
     accounts: '渠道',

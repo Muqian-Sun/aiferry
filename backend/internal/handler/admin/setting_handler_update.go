@@ -330,8 +330,6 @@ type UpdateSettingsRequest struct {
 	SubscriptionEnabled *bool `json:"subscription_enabled"`
 
 	// Model Plaza feature switches + description
-	ModelPlazaEnabled     *bool   `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth *bool   `json:"model_plaza_require_auth"`
 	ModelPlazaDescription *string `json:"model_plaza_description"`
 
 	// Plugin management menu visibility switch; plugin runtime is unaffected.
@@ -1889,18 +1887,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.SubscriptionEnabled
 		}(),
-		ModelPlazaEnabled: func() bool {
-			if req.ModelPlazaEnabled != nil {
-				return *req.ModelPlazaEnabled
-			}
-			return previousSettings.ModelPlazaEnabled
-		}(),
-		ModelPlazaRequireAuth: func() bool {
-			if req.ModelPlazaRequireAuth != nil {
-				return *req.ModelPlazaRequireAuth
-			}
-			return previousSettings.ModelPlazaRequireAuth
-		}(),
 		ModelPlazaDescription: func() string {
 			if req.ModelPlazaDescription != nil {
 				return *req.ModelPlazaDescription
@@ -2296,8 +2282,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 		SubscriptionEnabled: updatedSettings.SubscriptionEnabled,
 
-		ModelPlazaEnabled:       updatedSettings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth:   updatedSettings.ModelPlazaRequireAuth,
 		ModelPlazaDescription:   updatedSettings.ModelPlazaDescription,
 		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
 

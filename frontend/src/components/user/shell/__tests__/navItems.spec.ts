@@ -7,7 +7,6 @@ const base = {
   t,
   simpleMode: false,
   backendMode: false,
-  modelPlazaEnabled: true as boolean | undefined,
   batchImageEnabled: false,
   customItems: [] as CustomMenuItem[]
 }
@@ -37,11 +36,6 @@ describe('buildConsoleNav', () => {
     expect(buildConsoleNav({ ...base, backendMode: true, customItems: [custom('a', 1)] })).toEqual({ tabs: [], more: [] })
   })
 
-  it('model plaza follows the feature flag with lenient undefined', () => {
-    expect(buildConsoleNav({ ...base, modelPlazaEnabled: false }).tabs.map((tab) => tab.path)).not.toContain('/model-plaza')
-    expect(buildConsoleNav({ ...base, modelPlazaEnabled: undefined }).tabs.map((tab) => tab.path)).toContain('/model-plaza')
-  })
-
   it('appends batch images only when the user has access', () => {
     expect(buildConsoleNav({ ...base, batchImageEnabled: true }).tabs.at(-1)?.path).toBe('/batch-image')
   })
@@ -58,17 +52,17 @@ describe('buildConsoleNav', () => {
 
 describe('buildPublicNav', () => {
   it('lists product, pricing and docs for the user site', () => {
-    const tabs = buildPublicNav({ t, adminSite: false, modelPlazaVisible: true, docUrl: 'https://docs.example' })
+    const tabs = buildPublicNav({ t, adminSite: false, docUrl: 'https://docs.example' })
     expect(tabs.map((tab) => tab.path)).toEqual(['/home', '/model-plaza', 'https://docs.example'])
     expect(tabs[2].external).toBe(true)
   })
 
-  it('drops pricing when the plaza is hidden and docs when unset', () => {
-    expect(buildPublicNav({ t, adminSite: false, modelPlazaVisible: false, docUrl: '' }).map((tab) => tab.path)).toEqual(['/home'])
+  it('always lists pricing and drops docs only when unset', () => {
+    expect(buildPublicNav({ t, adminSite: false, docUrl: '' }).map((tab) => tab.path)).toEqual(['/home', '/model-plaza'])
   })
 
   it('renders nothing on the admin site', () => {
-    expect(buildPublicNav({ t, adminSite: true, modelPlazaVisible: true, docUrl: 'x' })).toEqual([])
+    expect(buildPublicNav({ t, adminSite: true, docUrl: 'x' })).toEqual([])
   })
 })
 

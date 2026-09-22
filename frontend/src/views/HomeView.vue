@@ -34,7 +34,7 @@
             <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-lg" data-testid="home-primary-cta">
               {{ isAuthenticated ? t('userUi.home.goToConsole') : t('userUi.home.getStarted') }}
             </RouterLink>
-            <RouterLink v-if="showModelPlazaEntry" to="/model-plaza" class="btn btn-secondary btn-lg">
+            <RouterLink to="/model-plaza" class="btn btn-secondary btn-lg">
               {{ t('userUi.home.viewPricing') }}
             </RouterLink>
           </div>
@@ -64,7 +64,7 @@
         </div>
       </dl>
 
-      <!-- 模型与官方参考价：模型页同一张表的前几行 -->
+      <!-- 模型与标价：模型页同一张表的前几行 -->
       <section v-if="catalogPreview.length" class="py-16">
         <div class="flex flex-wrap items-end justify-between gap-4">
           <div>
@@ -131,10 +131,9 @@ import HomeCatalog from '@/components/user/home/HomeCatalog.vue'
 import { PROTOCOL_ROUTES } from '@/components/user/home/protocols'
 import { CONSOLE_HOME_PATH } from '@/components/user/shell/navItems'
 import { getModelPlaza } from '@/api/modelPlaza'
-import { buildCatalog, catalogPlatforms, type CatalogModel } from '@/components/modelPlaza/catalog'
+import { buildCatalog, catalogVendors, type CatalogModel } from '@/components/modelPlaza/catalog'
 import { sanitizeUrl } from '@/utils/url'
 import { DEFAULT_SITE_NAME, DEFAULT_SITE_SUBTITLE } from '@/utils/branding'
-import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -156,28 +155,22 @@ const isHomeContentUrl = computed(() => {
 
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const consolePath = CONSOLE_HOME_PATH
-// 首屏次入口：模型页开关 + 可选强制登录（顶栏的页签也走同一逻辑）
-const modelPlazaRequiresAuth = computed(() => appStore.cachedPublicSettings?.model_plaza_require_auth === true)
-const showModelPlazaEntry = computed(
-  () => isFeatureFlagEnabled(FeatureFlags.modelPlaza) && (isAuthenticated.value || !modelPlazaRequiresAuth.value)
-)
 
 const apiBaseUrl = computed(() => appStore.cachedPublicSettings?.api_base_url || appStore.apiBaseUrl || '')
 
 const steps = ['create', 'baseUrl', 'watch'] as const
 const facts = ['protocol', 'pricing', 'ledger', 'balance'] as const
 
-// 模型目录：与模型页同一个接口；拿不到（开关关着 / 要求登录 / 网络）就不渲染数字带与价目预览，不放假数字
+// 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字带与价目预览，不放假数字
 const HOME_CATALOG_ROWS = 8
 const catalog = ref<CatalogModel[]>([])
-const vendorCount = computed(() => catalogPlatforms(catalog.value).length)
-const catalogPreview = computed(() => catalog.value.filter((entry) => entry.official).slice(0, HOME_CATALOG_ROWS))
+const vendorCount = computed(() => catalogVendors(catalog.value).length)
+const catalogPreview = computed(() => catalog.value.filter((entry) => entry.price).slice(0, HOME_CATALOG_ROWS))
 
 async function loadCatalog() {
-  if (!showModelPlazaEntry.value) return
   try {
     const response = await getModelPlaza()
-    catalog.value = buildCatalog(response.groups ?? [])
+    catalog.value = buildCatalog(response.models ?? [])
   } catch {
     catalog.value = []
   }

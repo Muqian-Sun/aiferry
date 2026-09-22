@@ -6768,31 +6768,7 @@
             </p>
           </div>
           <div class="space-y-5 p-6">
-            <div class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.settings.features.modelPlaza.enabled') }}
-                </label>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.settings.features.modelPlaza.enabledHint') }}
-                </p>
-              </div>
-              <Toggle v-model="form.model_plaza_enabled" />
-            </div>
-
-            <div v-if="form.model_plaza_enabled" class="flex items-center justify-between">
-              <div>
-                <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
-                  {{ t('admin.settings.features.modelPlaza.requireAuth') }}
-                </label>
-                <p class="mt-0.5 text-xs text-gray-500 dark:text-gray-400">
-                  {{ t('admin.settings.features.modelPlaza.requireAuthHint') }}
-                </p>
-              </div>
-              <Toggle v-model="form.model_plaza_require_auth" />
-            </div>
-
-            <div v-if="form.model_plaza_enabled">
+            <div>
               <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
                 {{ t('admin.settings.features.modelPlaza.priceDescription') }}
               </label>
@@ -9388,8 +9364,6 @@ const form = reactive<SettingsForm>({
   // Subscription feature switch (user sidebar "My Subscriptions" entry)
   subscription_enabled: true,
   // Model Plaza feature switches + description
-  model_plaza_enabled: false,
-  model_plaza_require_auth: false,
   model_plaza_description: '',
   // Plugin management menu visibility; plugin runtime is unaffected.
   plugin_management_enabled: false,
@@ -10881,8 +10855,6 @@ async function saveSettings() {
       // Subscription feature switch
       subscription_enabled: form.subscription_enabled,
       // Model Plaza feature switches + description
-      model_plaza_enabled: form.model_plaza_enabled,
-      model_plaza_require_auth: form.model_plaza_require_auth,
       model_plaza_description: form.model_plaza_description,
       plugin_management_enabled: form.plugin_management_enabled,
       // Affiliate (邀请返利) feature switch

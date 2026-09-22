@@ -235,8 +235,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyChannelMonitorHideUserRanking,
 		SettingKeySubscriptionEnabled,
-		SettingKeyModelPlazaEnabled,
-		SettingKeyModelPlazaRequireAuth,
 		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
@@ -365,8 +363,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		SubscriptionEnabled: !isFalseSettingValue(settings[SettingKeySubscriptionEnabled]),
 
-		ModelPlazaEnabled:       settings[SettingKeyModelPlazaEnabled] == "true",
-		ModelPlazaRequireAuth:   settings[SettingKeyModelPlazaRequireAuth] == "true",
 		PluginManagementEnabled: settings[SettingKeyPluginManagementEnabled] == "true",
 
 		AffiliateEnabled: settings[SettingKeyAffiliateEnabled] == "true",
@@ -486,31 +482,13 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 	}
 }
 
-// ModelPlazaRuntime is the lightweight view of the model-plaza feature consumed
-// by the public plaza handler.
-type ModelPlazaRuntime struct {
-	Enabled     bool
-	RequireAuth bool
-	Description string
-}
-
-// GetModelPlazaRuntime reads the model-plaza feature switches directly from the
-// settings store. Fail-closed: on error returns Enabled=false, matching the
-// opt-in default (unknown ↔ disabled).
-func (s *SettingService) GetModelPlazaRuntime(ctx context.Context) ModelPlazaRuntime {
-	vals, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyModelPlazaEnabled,
-		SettingKeyModelPlazaRequireAuth,
-		SettingKeyModelPlazaDescription,
-	})
+// GetModelPlazaDescription 读模型广场顶部的 Markdown 说明；读不到按空处理（说明只是文案，不影响目录本身）。
+func (s *SettingService) GetModelPlazaDescription(ctx context.Context) string {
+	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyModelPlazaDescription})
 	if err != nil {
-		return ModelPlazaRuntime{Enabled: false}
+		return ""
 	}
-	return ModelPlazaRuntime{
-		Enabled:     vals[SettingKeyModelPlazaEnabled] == "true",
-		RequireAuth: vals[SettingKeyModelPlazaRequireAuth] == "true",
-		Description: vals[SettingKeyModelPlazaDescription],
-	}
+	return vals[SettingKeyModelPlazaDescription]
 }
 
 // IsUserErrorViewAllowed reads the user-facing error-requests visibility switch
@@ -614,8 +592,6 @@ type PublicSettingsInjectionPayload struct {
 	ChannelMonitorHideUserRanking bool `json:"channel_monitor_hide_user_ranking"`
 	ChannelMonitorShowQuota       bool `json:"channel_monitor_show_quota"`
 	SubscriptionEnabled           bool `json:"subscription_enabled"`
-	ModelPlazaEnabled             bool `json:"model_plaza_enabled"`
-	ModelPlazaRequireAuth         bool `json:"model_plaza_require_auth"`
 	PluginManagementEnabled       bool `json:"plugin_management_enabled"`
 	AffiliateEnabled              bool `json:"affiliate_enabled"`
 	RiskControlEnabled            bool `json:"risk_control_enabled"`
@@ -697,8 +673,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
 		SubscriptionEnabled:                  settings.SubscriptionEnabled,
-		ModelPlazaEnabled:                    settings.ModelPlazaEnabled,
-		ModelPlazaRequireAuth:                settings.ModelPlazaRequireAuth,
 		PluginManagementEnabled:              settings.PluginManagementEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
