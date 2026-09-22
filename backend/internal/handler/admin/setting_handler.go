@@ -365,6 +365,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 
 		AccountSchedulingThresholds: settings.AccountSchedulingThresholds,
 		AllowUserViewErrorRequests:  settings.AllowUserViewErrorRequests,
+		ProfitControlEnabled:        settings.ProfitControlEnabled,
+		ProfitMinMargin:             settings.ProfitMinMargin,
+		ProfitSafetyBuffer:          settings.ProfitSafetyBuffer,
 	}
 
 	// OpenAI fast policy (stored under a dedicated setting key)

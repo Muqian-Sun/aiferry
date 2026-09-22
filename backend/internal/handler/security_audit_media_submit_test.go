@@ -56,8 +56,11 @@ func securityAuditMediaTestMiddleware(c *gin.Context) {
 	user := &service.User{ID: 7, Username: "media-user", Email: "media@example.test"}
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
 		ID: 9, UserID: 7, User: user, Name: "media-key", GroupID: &groupID,
-		Group: &service.Group{ID: groupID, Name: "media-group", Platform: service.PlatformOpenAI, AllowImageGeneration: true},
 	})
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
+		EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",
+		Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "gpt-image-1", Vendor: "openai", Status: service.ModelCatalogStatusListed},
+	}))
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 7, Concurrency: 2})
 	c.Next()
 }

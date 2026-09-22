@@ -14,7 +14,6 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/pagination"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -265,313 +264,6 @@ func TestSimpleModeBypassesQuotaCheck(t *testing.T) {
 	})
 }
 
-func TestAPIKeyAuthSetsGroupContext(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	group := &service.Group{
-		ID:       101,
-		Name:     "g1",
-		Status:   service.StatusActive,
-		Platform: service.PlatformAnthropic,
-		Hydrated: true,
-	}
-	user := &service.User{
-		ID:          7,
-		Role:        service.RoleUser,
-		Status:      service.StatusActive,
-		Balance:     10,
-		Concurrency: 3,
-	}
-	apiKey := &service.APIKey{
-		ID:     100,
-		UserID: user.ID,
-		Key:    "test-key",
-		Status: service.StatusActive,
-		User:   user,
-		Group:  group,
-	}
-	apiKey.GroupID = &group.ID
-
-	apiKeyRepo := &stubApiKeyRepo{
-		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
-			if key != apiKey.Key {
-				return nil, service.ErrAPIKeyNotFound
-			}
-			clone := *apiKey
-			return &clone, nil
-		},
-	}
-
-	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
-	router := gin.New()
-	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
-	router.GET("/t", func(c *gin.Context) {
-		groupFromCtx, ok := c.Request.Context().Value(ctxkey.Group).(*service.Group)
-		if !ok || groupFromCtx == nil || groupFromCtx.ID != group.ID {
-			c.JSON(http.StatusInternalServerError, gin.H{"ok": false})
-			return
-		}
-		userIDFromCtx, ok := c.Request.Context().Value(ctxkey.UserID).(int64)
-		if !ok || userIDFromCtx != user.ID {
-			c.JSON(http.StatusInternalServerError, gin.H{"ok": false})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/t", nil)
-	req.Header.Set("x-api-key", apiKey.Key)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestAPIKeyAuthRejectsExclusiveGroupWhenUserNoLongerAllowed(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	group := &service.Group{
-		ID:          202,
-		Name:        "exclusive",
-		Status:      service.StatusActive,
-		IsExclusive: true,
-		Hydrated:    true,
-	}
-	user := &service.User{
-		ID:            7,
-		Role:          service.RoleUser,
-		Status:        service.StatusActive,
-		Balance:       10,
-		Concurrency:   3,
-		AllowedGroups: []int64{},
-	}
-	apiKey := &service.APIKey{
-		ID:     100,
-		UserID: user.ID,
-		Key:    "test-key",
-		Status: service.StatusActive,
-		User:   user,
-		Group:  group,
-	}
-	apiKey.GroupID = &group.ID
-
-	apiKeyRepo := &stubApiKeyRepo{
-		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
-			if key != apiKey.Key {
-				return nil, service.ErrAPIKeyNotFound
-			}
-			clone := *apiKey
-			return &clone, nil
-		},
-	}
-
-	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
-	router := newAuthTestRouter(apiKeyService, nil, cfg)
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/t", nil)
-	req.Header.Set("x-api-key", apiKey.Key)
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusForbidden, w.Code)
-	require.Contains(t, w.Body.String(), "GROUP_NOT_ALLOWED")
-}
-
-func TestAPIKeyAuthOverwritesInvalidContextGroup(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	group := &service.Group{
-		ID:       101,
-		Name:     "g1",
-		Status:   service.StatusActive,
-		Platform: service.PlatformAnthropic,
-		Hydrated: true,
-	}
-	user := &service.User{
-		ID:          7,
-		Role:        service.RoleUser,
-		Status:      service.StatusActive,
-		Balance:     10,
-		Concurrency: 3,
-	}
-	apiKey := &service.APIKey{
-		ID:     100,
-		UserID: user.ID,
-		Key:    "test-key",
-		Status: service.StatusActive,
-		User:   user,
-		Group:  group,
-	}
-	apiKey.GroupID = &group.ID
-
-	apiKeyRepo := &stubApiKeyRepo{
-		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
-			if key != apiKey.Key {
-				return nil, service.ErrAPIKeyNotFound
-			}
-			clone := *apiKey
-			return &clone, nil
-		},
-	}
-
-	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
-	router := gin.New()
-	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
-
-	invalidGroup := &service.Group{
-		ID:       group.ID,
-		Platform: group.Platform,
-		Status:   group.Status,
-	}
-	router.GET("/t", func(c *gin.Context) {
-		groupFromCtx, ok := c.Request.Context().Value(ctxkey.Group).(*service.Group)
-		if !ok || groupFromCtx == nil || groupFromCtx.ID != group.ID || !groupFromCtx.Hydrated || groupFromCtx == invalidGroup {
-			c.JSON(http.StatusInternalServerError, gin.H{"ok": false})
-			return
-		}
-		c.JSON(http.StatusOK, gin.H{"ok": true})
-	})
-
-	w := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/t", nil)
-	req.Header.Set("x-api-key", apiKey.Key)
-	req = req.WithContext(context.WithValue(req.Context(), ctxkey.Group, invalidGroup))
-	router.ServeHTTP(w, req)
-
-	require.Equal(t, http.StatusOK, w.Code)
-}
-
-func TestAPIKeyAuthRejectsUnavailableGroup(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	groupID := int64(101)
-	user := &service.User{
-		ID:          7,
-		Role:        service.RoleUser,
-		Status:      service.StatusActive,
-		Balance:     10,
-		Concurrency: 3,
-	}
-
-	tests := []struct {
-		name       string
-		group      *service.Group
-		wantStatus int
-		wantCode   string
-		wantMarked bool
-		wantReject IngressRejectReason
-	}{
-		{
-			name: "active group passes",
-			group: &service.Group{
-				ID:       groupID,
-				Name:     "active",
-				Status:   service.StatusActive,
-				Platform: service.PlatformAnthropic,
-				Hydrated: true,
-			},
-			wantStatus: http.StatusOK,
-		},
-		{
-			name: "disabled group is forbidden",
-			group: &service.Group{
-				ID:       groupID,
-				Name:     "disabled",
-				Status:   service.StatusDisabled,
-				Platform: service.PlatformAnthropic,
-				Hydrated: true,
-			},
-			wantStatus: http.StatusForbidden,
-			wantCode:   "GROUP_DISABLED",
-			wantMarked: true,
-			wantReject: IngressRejectGroupDisabled,
-		},
-		{
-			name: "deleted status group is forbidden",
-			group: &service.Group{
-				ID:       groupID,
-				Name:     "deleted",
-				Status:   "deleted",
-				Platform: service.PlatformAnthropic,
-				Hydrated: true,
-			},
-			wantStatus: http.StatusForbidden,
-			wantCode:   "GROUP_DELETED",
-			wantMarked: true,
-			wantReject: IngressRejectGroupDeleted,
-		},
-		{
-			name:       "missing group edge is forbidden",
-			group:      nil,
-			wantStatus: http.StatusForbidden,
-			wantCode:   "GROUP_DELETED",
-			wantMarked: true,
-			wantReject: IngressRejectGroupDeleted,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			apiKey := &service.APIKey{
-				ID:      100,
-				UserID:  user.ID,
-				GroupID: &groupID,
-				Key:     "test-key",
-				Status:  service.StatusActive,
-				User:    user,
-				Group:   tt.group,
-			}
-			apiKeyRepo := &stubApiKeyRepo{
-				getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
-					if key != apiKey.Key {
-						return nil, service.ErrAPIKeyNotFound
-					}
-					clone := *apiKey
-					return &clone, nil
-				},
-			}
-			cfg := &config.Config{RunMode: config.RunModeStandard}
-			apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
-			router := gin.New()
-			var markedBusinessLimited bool
-			var businessLimitedReason string
-			var rejectReason IngressRejectReason
-			var rejected bool
-			router.Use(func(c *gin.Context) {
-				c.Next()
-				markedBusinessLimited = service.HasOpsClientBusinessLimited(c)
-				rejectReason, rejected = GetIngressRejectReason(c)
-				if v, ok := c.Get(service.OpsClientBusinessLimitedReasonKey); ok {
-					businessLimitedReason, _ = v.(string)
-				}
-			})
-			router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
-			router.GET("/t", func(c *gin.Context) {
-				c.JSON(http.StatusOK, gin.H{"ok": true})
-			})
-
-			w := httptest.NewRecorder()
-			req := httptest.NewRequest(http.MethodGet, "/t", nil)
-			req.Header.Set("x-api-key", apiKey.Key)
-			router.ServeHTTP(w, req)
-
-			require.Equal(t, tt.wantStatus, w.Code)
-			if tt.wantCode != "" {
-				require.Contains(t, w.Body.String(), tt.wantCode)
-			}
-			require.Equal(t, tt.wantMarked, markedBusinessLimited)
-			require.Equal(t, tt.wantReject != "", rejected)
-			require.Equal(t, tt.wantReject, rejectReason)
-			if tt.wantMarked {
-				require.Equal(t, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable, businessLimitedReason)
-			}
-		})
-	}
-}
-
 func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
@@ -685,7 +377,7 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	user := &service.User{
 		ID:          7,
 		Role:        service.RoleUser,
-		Status:      service.StatusActive,
+		Status:      service.StatusDisabled,
 		Balance:     10,
 		Concurrency: 3,
 	}
@@ -696,13 +388,6 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		Key:     "test-key",
 		Status:  service.StatusActive,
 		User:    user,
-		Group: &service.Group{
-			ID:       groupID,
-			Name:     "disabled",
-			Status:   service.StatusDisabled,
-			Platform: service.PlatformAnthropic,
-			Hydrated: true,
-		},
 	}
 	apiKeyRepo := &stubApiKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
@@ -733,9 +418,9 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	req.Header.Set("x-api-key", apiKey.Key)
 	router.ServeHTTP(w, req)
 
-	// 分组停用 → 早退中断，但 ops fallback key 仍应写入，含 user/group/platform。
-	require.Equal(t, http.StatusForbidden, w.Code)
-	require.Contains(t, w.Body.String(), "GROUP_DISABLED")
+	// 用户停用 → 早退中断，但 ops fallback key 仍应写入，含 user/group_id。
+	require.Equal(t, http.StatusUnauthorized, w.Code)
+	require.Contains(t, w.Body.String(), "USER_INACTIVE")
 	require.True(t, fallbackOK, "鉴权早退时也应写入 ops fallback api key")
 	require.NotNil(t, fallback)
 	require.Equal(t, apiKey.ID, fallback.ID)
@@ -743,8 +428,6 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	require.Equal(t, user.ID, fallback.User.ID)
 	require.NotNil(t, fallback.GroupID)
 	require.Equal(t, groupID, *fallback.GroupID)
-	require.NotNil(t, fallback.Group)
-	require.Equal(t, service.PlatformAnthropic, fallback.Group.Platform)
 }
 
 func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
@@ -754,7 +437,7 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	user := &service.User{
 		ID:          9,
 		Role:        service.RoleUser,
-		Status:      service.StatusActive,
+		Status:      service.StatusDisabled,
 		Balance:     10,
 		Concurrency: 3,
 	}
@@ -765,13 +448,6 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		Key:     "g-key",
 		Status:  service.StatusActive,
 		User:    user,
-		Group: &service.Group{
-			ID:       groupID,
-			Name:     "disabled",
-			Status:   service.StatusDisabled,
-			Platform: service.PlatformGemini,
-			Hydrated: true,
-		},
 	}
 	apiKeyRepo := &stubApiKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
@@ -802,7 +478,7 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	req.Header.Set("x-goog-api-key", apiKey.Key)
 	router.ServeHTTP(w, req)
 
-	require.Equal(t, http.StatusForbidden, w.Code)
+	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.True(t, fallbackOK, "Google 鉴权早退时也应写入 ops fallback api key")
 	require.NotNil(t, fallback)
 	require.Equal(t, apiKey.ID, fallback.ID)

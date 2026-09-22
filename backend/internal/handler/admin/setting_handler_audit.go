@@ -552,6 +552,15 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if !equalAccountSchedulingThresholds(before.AccountSchedulingThresholds, after.AccountSchedulingThresholds) {
 		changed = append(changed, service.SettingKeyAccountSchedulingThresholds)
 	}
+	if before.ProfitControlEnabled != after.ProfitControlEnabled {
+		changed = append(changed, service.SettingKeyProfitControlEnabled)
+	}
+	if before.ProfitMinMargin != after.ProfitMinMargin {
+		changed = append(changed, service.SettingKeyProfitMinMargin)
+	}
+	if before.ProfitSafetyBuffer != after.ProfitSafetyBuffer {
+		changed = append(changed, service.SettingKeyProfitSafetyBuffer)
+	}
 	changed = appendAuthSourceDefaultChanges(changed, beforeAuthSourceDefaults, afterAuthSourceDefaults)
 	return changed
 }

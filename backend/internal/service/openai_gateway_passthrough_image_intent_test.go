@@ -9,30 +9,13 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
-	"github.com/tidwall/gjson"
 )
 
 func TestOpenAIGatewayService_APIKeyPassthrough_ImageIntentPreservesGateAndBilling(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	body := []byte(`{"model":"gpt-5.4","stream":false,"tools":[{"type":"image_generation","model":"gpt-image-2","size":"2048x1152"}],"input":"draw"}`)
 
-	t.Run("disabled group rejects before upstream", func(t *testing.T) {
-		upstream := &httpUpstreamRecorder{}
-		svc := newOpenAIImageGenerationControlTestService(upstream)
-		c, recorder := newOpenAIImageGenerationControlTestContext(false, "curl/8.0")
-		account := newOpenAIImageGenerationControlTestAccount()
-		account.Extra = map[string]any{"openai_passthrough": true}
-
-		result, err := svc.Forward(context.Background(), c, account, body)
-
-		require.Error(t, err)
-		require.Nil(t, result)
-		require.Equal(t, http.StatusForbidden, recorder.Code)
-		require.Equal(t, "permission_error", gjson.GetBytes(recorder.Body.Bytes(), "error.type").String())
-		require.Nil(t, upstream.lastReq)
-	})
-
-	t.Run("allowed group keeps image billing", func(t *testing.T) {
+	t.Run("keeps image billing", func(t *testing.T) {
 		upstream := &httpUpstreamRecorder{resp: &http.Response{
 			StatusCode: http.StatusOK,
 			Header:     http.Header{"Content-Type": []string{"application/json"}},
@@ -41,7 +24,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_ImageIntentPreservesGateAndBilli
 			)),
 		}}
 		svc := newOpenAIImageGenerationControlTestService(upstream)
-		c, _ := newOpenAIImageGenerationControlTestContext(true, "curl/8.0")
+		c, _ := newOpenAIImageGenerationControlTestContext("curl/8.0")
 		account := newOpenAIImageGenerationControlTestAccount()
 		account.Extra = map[string]any{"openai_passthrough": true}
 

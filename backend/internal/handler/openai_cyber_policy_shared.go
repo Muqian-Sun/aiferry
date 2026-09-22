@@ -88,7 +88,7 @@ func enqueueCyberSessionBlockedOpsEntry(c *gin.Context, opsService *service.OpsS
 	if c.Request != nil {
 		requestCtx = c.Request.Context()
 	}
-	meta.Platform = resolveOpsPlatform(requestCtx, apiKey, guessPlatformFromPath(meta.RequestPath))
+	meta.Platform = resolveOpsPlatform(requestCtx, guessPlatformFromPath(meta.RequestPath))
 	if c.Request != nil {
 		meta.ClientRequestID, _ = c.Request.Context().Value(ctxkey.ClientRequestID).(string)
 		meta.UserAgent = c.GetHeader("User-Agent")
@@ -130,9 +130,6 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 			userID = apiKey.User.ID
 			userEmail = apiKey.User.Email
 		}
-		if apiKey.Group != nil {
-			groupName = apiKey.Group.Name
-		}
 	}
 	inboundEndpoint := GetInboundEndpoint(c)
 	upstreamEndpoint := ""
@@ -159,7 +156,7 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 	if c.Request != nil {
 		requestCtx = c.Request.Context()
 	}
-	platform := resolveOpsPlatform(requestCtx, apiKey, guessPlatformFromPath(requestPath))
+	platform := resolveOpsPlatform(requestCtx, guessPlatformFromPath(requestPath))
 	var clientRequestID, userAgent, clientIPStr string
 	if c.Request != nil {
 		clientRequestID, _ = c.Request.Context().Value(ctxkey.ClientRequestID).(string)

@@ -205,17 +205,6 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 				Balance:     10,
 				Concurrency: 3,
 			},
-			Group: &APIKeyAuthGroupSnapshot{
-				ID:                  groupID,
-				Name:                "g",
-				Platform:            PlatformAnthropic,
-				Status:              StatusActive,
-				RateMultiplier:      1,
-				ModelRoutingEnabled: true,
-				ModelRouting: map[string][]int64{
-					"claude-opus-*": {1, 2},
-				},
-			},
 		},
 	}
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
@@ -226,50 +215,8 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), apiKey.ID)
 	require.Equal(t, int64(2), apiKey.User.ID)
-	require.Equal(t, groupID, apiKey.Group.ID)
-	require.True(t, apiKey.Group.ModelRoutingEnabled)
-	require.Equal(t, map[string][]int64{"claude-opus-*": {1, 2}}, apiKey.Group.ModelRouting)
-}
-
-func TestAPIKeyService_SnapshotRoundTrip_PreservesReasoningEffortPolicy(t *testing.T) {
-	svc := NewAPIKeyService(nil, nil, nil, nil, nil, &config.Config{})
-	groupID := int64(9)
-	apiKey := &APIKey{
-		ID:      1,
-		UserID:  2,
-		GroupID: &groupID,
-		Key:     "k-reasoning-policy",
-		Status:  StatusActive,
-		User: &User{
-			ID:          2,
-			Status:      StatusActive,
-			Role:        RoleUser,
-			Balance:     10,
-			Concurrency: 3,
-		},
-		Group: &Group{
-			ID:                          groupID,
-			Name:                        "composite",
-			Platform:                    PlatformComposite,
-			Status:                      StatusActive,
-			RateMultiplier:              1,
-			MaxReasoningEffort:          "medium",
-			MaxReasoningEffortOverLimit: ReasoningEffortOverLimitDeny,
-			ReasoningEffortMappings: []ReasoningEffortMapping{
-				{From: "max", To: "xhigh"},
-			},
-		},
-	}
-
-	snapshot := svc.snapshotFromAPIKey(context.Background(), apiKey)
-	roundTrip := svc.snapshotToAPIKey(apiKey.Key, snapshot)
-
-	require.NotNil(t, roundTrip)
-	require.NotNil(t, roundTrip.Group)
-	require.Equal(t, PlatformComposite, roundTrip.Group.Platform)
-	require.Equal(t, "medium", roundTrip.Group.MaxReasoningEffort)
-	require.Equal(t, ReasoningEffortOverLimitDeny, roundTrip.Group.MaxReasoningEffortOverLimit)
-	require.Equal(t, apiKey.Group.ReasoningEffortMappings, roundTrip.Group.ReasoningEffortMappings)
+	require.Equal(t, groupID, *apiKey.GroupID)
+	require.Nil(t, apiKey.Group, "鉴权快照不带分组（D13）")
 }
 
 func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {

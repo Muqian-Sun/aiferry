@@ -330,6 +330,29 @@ func TestSettingService_UpdateSettings_RegistrationEmailSuffixWhitelist_Invalid(
 	require.Equal(t, "INVALID_REGISTRATION_EMAIL_SUFFIX_WHITELIST", infraerrors.Reason(err))
 }
 
+// D2：利润门三键写入；margin + buffer 超过 ProfitControlRatioMax 是客户端错误（400），不是 500。
+func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
+	repo := &settingUpdateRepoStub{}
+	svc := NewSettingService(repo, &config.Config{})
+
+	err := svc.UpdateSettings(context.Background(), &SystemSettings{
+		ProfitControlEnabled: true, ProfitMinMargin: 0.3, ProfitSafetyBuffer: 0.05,
+	})
+	require.NoError(t, err)
+	require.Equal(t, "true", repo.updates[SettingKeyProfitControlEnabled])
+	require.Equal(t, "0.30000000", repo.updates[SettingKeyProfitMinMargin])
+	require.Equal(t, "0.05000000", repo.updates[SettingKeyProfitSafetyBuffer])
+
+	repo = &settingUpdateRepoStub{}
+	svc = NewSettingService(repo, &config.Config{})
+	err = svc.UpdateSettings(context.Background(), &SystemSettings{
+		ProfitControlEnabled: true, ProfitMinMargin: 0.6, ProfitSafetyBuffer: 0.5,
+	})
+	require.Error(t, err)
+	require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
+	require.Nil(t, repo.updates)
+}
+
 func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
 	got := parseDefaultSubscriptions(`[{"plan_id":11,"validity_days":30},{"plan_id":11,"validity_days":60},{"plan_id":0,"validity_days":10},{"plan_id":12,"validity_days":99999}]`)
 	require.Equal(t, []DefaultSubscriptionSetting{

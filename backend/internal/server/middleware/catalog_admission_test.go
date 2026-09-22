@@ -73,6 +73,15 @@ func newCatalogAdmissionTestRouter(pathPrefix string) (*gin.Engine, *catalogAdmi
 	return router, seen
 }
 
+func doJSON(t *testing.T, router *gin.Engine, method, path, body string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequest(method, path, strings.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	return w
+}
+
 func TestCatalogAdmission_ListedModelPassesWithRoute(t *testing.T) {
 	router, seen := newCatalogAdmissionTestRouter("/v1")
 	w := doJSON(t, router, http.MethodPost, "/v1/messages", `{"model":"sonnet-latest"}`)

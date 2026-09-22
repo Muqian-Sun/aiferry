@@ -48,28 +48,11 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		groupID = resolvedGroupID
 		ctx = s.withGroupContext(ctx, group)
 		platform = group.Platform
-		if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-			// 合成分组解析出的目标平台（目录路由不写它：目录下的资格只看协议，平台参数无关紧要）。
-			platform = resolved
-		} else if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return nil, err
-			}
-			if !ok {
-				return nil, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			platform = decision.TargetPlatform
-			requestedModel = decision.UpstreamModel
-			ctx = WithCompositeRouteDecision(ctx, decision)
-		}
-	} else if resolved, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-		platform = resolved
 	} else {
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
 	}
-	ctx = s.withGatewayProfitControlGate(ctx, groupID)
+	ctx = s.withGatewayProfitControlGate(ctx)
 
 	// anthropic/gemini 分组支持混合调度（包含启用了 mixed_scheduling 的 antigravity 账户）
 	// 注意：强制平台模式不走混合调度
@@ -131,7 +114,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		return nil, err
 	}
 	ctx = s.withGroupContext(ctx, group)
-	ctx = s.withGatewayProfitControlGate(ctx, groupID)
+	ctx = s.withGatewayProfitControlGate(ctx)
 
 	var stickyAccountID int64
 	var stickySource string
@@ -840,7 +823,7 @@ func modelRoutingAppliesToPlatform(targetPlatform, groupPlatform string) bool {
 	if !modelRoutingAppliesToTargetPlatform(targetPlatform) {
 		return false
 	}
-	return groupPlatform == targetPlatform || groupPlatform == PlatformComposite
+	return groupPlatform == targetPlatform
 }
 
 // modelRoutingAppliesToTargetPlatform 是放行平台集合的唯一定义处：新增平台只改这里。
@@ -885,55 +868,28 @@ func (s *GatewayService) routingAccountIDsForRequest(ctx context.Context, groupI
 	return ids
 }
 
+// resolveGatewayGroup 只解析分组本身（分组平台还决定无路由请求的池，7b-2 随分组删）。
+// 原来的 Claude Code 限制与降级分组（D4）已删：兜底 = 同模型换渠道，目录绑定已表达。
 func (s *GatewayService) resolveGatewayGroup(ctx context.Context, groupID *int64) (*Group, *int64, error) {
 	if groupID == nil {
 		return nil, nil, nil
 	}
-
-	currentID := *groupID
-	visited := map[int64]struct{}{}
-	for {
-		if _, seen := visited[currentID]; seen {
-			return nil, nil, fmt.Errorf("fallback group cycle detected")
-		}
-		visited[currentID] = struct{}{}
-
-		group, err := s.resolveGroupByID(ctx, currentID)
-		if err != nil {
-			return nil, nil, err
-		}
-
-		if !group.ClaudeCodeOnly || IsClaudeCodeClient(ctx) {
-			return group, &currentID, nil
-		}
-
-		if group.FallbackGroupID == nil {
-			return nil, nil, ErrClaudeCodeOnly
-		}
-		currentID = *group.FallbackGroupID
+	group, err := s.resolveGroupByID(ctx, *groupID)
+	if err != nil {
+		return nil, nil, err
 	}
+	return group, groupID, nil
 }
 
-// checkClaudeCodeRestriction 检查分组的 Claude Code 客户端限制
-// 如果分组启用了 claude_code_only 且请求不是来自 Claude Code 客户端：
-//   - 有降级分组：返回降级分组的 ID
-//   - 无降级分组：返回 ErrClaudeCodeOnly 错误
+// checkClaudeCodeRestriction 只剩「强制平台模式不解析分组」这一层（D4 的限制已删，名字随 7b-2 一起去）。
 func (s *GatewayService) checkClaudeCodeRestriction(ctx context.Context, groupID *int64) (*Group, *int64, error) {
 	if groupID == nil {
 		return nil, groupID, nil
 	}
-
-	// 强制平台模式不检查 Claude Code 限制
 	if forcePlatform, hasForcePlatform := ctx.Value(ctxkey.ForcePlatform).(string); hasForcePlatform && forcePlatform != "" {
 		return nil, groupID, nil
 	}
-
-	group, resolvedID, err := s.resolveGatewayGroup(ctx, groupID)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return group, resolvedID, nil
+	return s.resolveGatewayGroup(ctx, groupID)
 }
 
 func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, group *Group, requestedModel string) (string, bool, error) {
@@ -941,40 +897,17 @@ func (s *GatewayService) resolvePlatform(ctx context.Context, groupID *int64, gr
 	if hasForcePlatform && forcePlatform != "" {
 		return forcePlatform, true, nil
 	}
-	if platform, ok := ResolvedTargetPlatformFromContext(ctx); ok {
-		return platform, false, nil
-	}
 	// 无模型端点：平台由端点自己声明（SelectOptions.Platform），不看分组
 	if opts := selectOptionsFromContext(ctx); opts.Platform != "" {
 		return opts.Platform, false, nil
 	}
 	if group != nil {
-		if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return "", false, err
-			}
-			if !ok {
-				return "", false, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			return decision.TargetPlatform, false, nil
-		}
 		return group.Platform, false, nil
 	}
 	if groupID != nil {
 		group, err := s.resolveGroupByID(ctx, *groupID)
 		if err != nil {
 			return "", false, err
-		}
-		if group.Platform == PlatformComposite {
-			decision, ok, err := s.resolveCompositeRouteDecision(ctx, group, requestedModel, CompositeRouteEndpointAny)
-			if err != nil {
-				return "", false, err
-			}
-			if !ok {
-				return "", false, fmt.Errorf("%w supporting model: %s (composite target platform unknown)", ErrNoAvailableAccounts, requestedModel)
-			}
-			return decision.TargetPlatform, false, nil
 		}
 		return group.Platform, false, nil
 	}
@@ -1130,9 +1063,6 @@ func (s *GatewayService) candidateAdmits(ctx context.Context, groupID *int64, ac
 	}
 	if requestedModel != "" && !s.isModelSupportedByAccountWithContext(ctx, account, requestedModel) {
 		return false, "model_not_supported"
-	}
-	if group := s.groupFromContext(ctx, derefGroupID(groupID)); group != nil && group.RequirePrivacySet && !account.IsPrivacySet() {
-		return false, "privacy_not_set"
 	}
 	if ok, reason := selectOptionsFromContext(ctx).admits(s.cfg, s.wsProtocolResolver(), account); !ok {
 		return false, reason
@@ -1661,12 +1591,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 	inbound := InboundProtocolFromContext(ctx)
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, platform)
 
-	// require_privacy_set: 获取分组信息
-	var schedGroup *Group
-	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByID(ctx, *groupID)
-	}
-
 	var accounts []Account
 	accountsLoaded := false
 
@@ -1729,12 +1653,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 				continue
 			}
 			if _, excluded := excludedIDs[acc.ID]; excluded {
-				continue
-			}
-			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
-			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
-			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
-			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
 				continue
 			}
 			// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
@@ -1810,12 +1728,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 		if _, excluded := excludedIDs[acc.ID]; excluded {
 			continue
 		}
-		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
-		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
-		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
-		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
-			continue
-		}
 		// 快照可能短暂过期：candidateAdmits 重读调度状态，避免刚被限流 / 过载的账号在桶重建前又被选中。
 		if ok, reason := s.candidateAdmits(ctx, groupID, acc, requestedModel); !ok {
 			if reason == admitReasonCompactUnsupported {
@@ -1861,12 +1773,6 @@ func (s *GatewayService) selectAccountForModelWithPlatform(ctx context.Context, 
 func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, groupID *int64, sessionHash string, requestedModel string, excludedIDs map[int64]struct{}, nativePlatform string) (*Account, error) {
 	inbound := InboundProtocolFromContext(ctx)
 	routingAccountIDs := s.routingAccountIDsForRequest(ctx, groupID, requestedModel, nativePlatform)
-
-	// require_privacy_set: 获取分组信息
-	var schedGroup *Group
-	if groupID != nil && s.groupRepo != nil {
-		schedGroup, _ = s.groupRepo.GetByID(ctx, *groupID)
-	}
 
 	var accounts []Account
 	accountsLoaded := false
@@ -1926,12 +1832,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 				continue
 			}
 			if _, excluded := excludedIDs[acc.ID]; excluded {
-				continue
-			}
-			// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
-			// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
-			// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
-			if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
 				continue
 			}
 			// 过滤：原生平台成品号直接通过，antigravity 成品号需要启用混合调度，第三方 key 看协议地址
@@ -2007,12 +1907,6 @@ func (s *GatewayService) selectAccountWithMixedScheduling(ctx context.Context, g
 	for i := range accounts {
 		acc := &accounts[i]
 		if _, excluded := excludedIDs[acc.ID]; excluded {
-			continue
-		}
-		// require_privacy_set 是分组级准入：只在本分组内排除，不动共享的账号状态。
-		// 第三方 key 的 IsPrivacySet 恒为 false，另一个分组可能有意允许它；
-		// 与 OpenAI 侧同规则（openai_account_scheduler.go）。
-		if schedGroup != nil && schedGroup.RequirePrivacySet && !acc.IsPrivacySet() {
 			continue
 		}
 		// 过滤：原生平台成品号直接通过，antigravity 成品号需要启用混合调度，第三方 key 看协议地址
@@ -2248,11 +2142,6 @@ func summarizeSelectionFailureStats(stats selectionFailureStats) string {
 // Antigravity 只有成品号（第三方 key 的 Vendor 不会是 antigravity），标签为
 // antigravity 的 key 按普通账号的映射判定。
 func (s *GatewayService) isModelSupportedByAccountWithContext(ctx context.Context, account *Account, requestedModel string) bool {
-	if source, ok := CompositeRouteSourceFromContext(ctx); ok && source == CompositeRouteSourceAccount {
-		if publicModel, modelOK := RequestedPublicModelFromContext(ctx); modelOK && !explicitModelMappingClaims(*account, publicModel) {
-			return false
-		}
-	}
 	if account.Vendor() == PlatformAntigravity {
 		if strings.TrimSpace(requestedModel) == "" {
 			return true

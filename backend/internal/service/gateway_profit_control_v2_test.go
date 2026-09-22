@@ -5,6 +5,7 @@ package service
 import (
 	"context"
 	"errors"
+	"strconv"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -12,18 +13,28 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// gatewayProfitTestGroup 只决定调度平台（legacy 路径还按分组平台装池，7b-2 删）；利润门是全局设置。
 func gatewayProfitTestGroup(id int64, platform string) *Group {
 	return &Group{
-		ID:                   id,
-		Name:                 "profit-" + platform,
-		Platform:             platform,
-		Status:               StatusActive,
-		Hydrated:             true,
-		RateMultiplier:       0.5,
-		ProfitControlEnabled: true,
-		ProfitMinMargin:      0,
-		ProfitSafetyBuffer:   0,
+		ID:             id,
+		Name:           "profit-" + platform,
+		Platform:       platform,
+		Status:         StatusActive,
+		Hydrated:       true,
+		RateMultiplier: 0.5,
 	}
+}
+
+// profitControlTestSettingService 造一份利润门设置（全站一档），并让进程内缓存重载。
+func profitControlTestSettingService(t *testing.T, enabled bool, minMargin, safetyBuffer float64) *SettingService {
+	t.Helper()
+	repo := newMockSettingRepo()
+	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitControlEnabled, strconv.FormatBool(enabled)))
+	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitMinMargin, strconv.FormatFloat(minMargin, 'f', -1, 64)))
+	require.NoError(t, repo.Set(context.Background(), SettingKeyProfitSafetyBuffer, strconv.FormatFloat(safetyBuffer, 'f', -1, 64)))
+	InvalidateProfitControlSettingsCache()
+	t.Cleanup(InvalidateProfitControlSettingsCache)
+	return NewSettingService(repo, &config.Config{})
 }
 
 // gatewayProfitTestContext 模拟认证后的请求上下文：D 取用户倍率（这里用夹具分组的数当用户倍率，
@@ -59,111 +70,46 @@ func gatewayProfitTestAccount(id int64, platform string, rate float64, groupID i
 	}
 }
 
-func TestGatewayProfitControlInstallsForFivePlatformsOnlyOnTokenRequests(t *testing.T) {
-	for _, platform := range []string{
-		PlatformOpenAI,
-		PlatformAnthropic,
-		PlatformGemini,
-		PlatformGrok,
-		PlatformAntigravity,
-	} {
+// 门是全站一档：设置开了，任何平台的 token 请求都装门（D2a）；非 token 请求（模型列表 / 媒体）不装；
+// 设置关着不装；同一请求 ctx 里已有门时复用（failover 阈值稳定）。
+func TestGatewayProfitControlInstallsFromGlobalSettings(t *testing.T) {
+	for _, platform := range []string{PlatformOpenAI, PlatformAnthropic, PlatformGemini, PlatformGrok, PlatformAntigravity, PlatformKimi} {
 		t.Run(platform, func(t *testing.T) {
 			group := gatewayProfitTestGroup(101, platform)
-			groupID := group.ID
-			svc := &GatewayService{}
+			svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0.2, 0.05)}
 
-			tokenCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group), &groupID)
+			tokenCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group))
 			gate, _ := tokenCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 			require.NotNil(t, gate)
-			require.Equal(t, platform, gate.platform)
-			require.InDelta(t, 0.5, gate.threshold, 1e-12)
+			require.InDelta(t, 0.5*(1-0.2-0.05), gate.threshold, 1e-12, "阈值 = 用户倍率 × (1 − margin − buffer)")
+
+			reused := svc.withGatewayProfitControlGate(tokenCtx)
+			require.Same(t, gate, reused.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate), "同一请求复用已装的门")
 
 			metadataCtx := context.WithValue(context.Background(), ctxkey.Group, group)
-			metadataCtx = svc.withGatewayProfitControlGate(metadataCtx, &groupID)
+			metadataCtx = svc.withGatewayProfitControlGate(metadataCtx)
 			gate, _ = metadataCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 			require.Nil(t, gate, "未显式标记为 token 请求的入口不得装门")
 		})
 	}
-}
 
-func TestGatewayProfitControlCompositeBillingUsesScheduledMemberConfig(t *testing.T) {
-	billingGroup := &Group{
-		ID:             201,
-		Platform:       PlatformComposite,
-		Status:         StatusActive,
-		Hydrated:       true,
-		RateMultiplier: 0.4,
-	}
-	memberGroup := gatewayProfitTestGroup(202, PlatformAnthropic)
-	memberGroup.RateMultiplier = 99
-	memberGroup.ProfitMinMargin = 0.25
-
-	ctx := context.WithValue(context.Background(), ctxkey.Group, billingGroup)
-	ctx = WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: 0.4})
-	ctx, pricingAt := WithGatewayTokenRequestPricing(ctx)
-	svc := &GatewayService{
-		schedulerSnapshot: NewSchedulerSnapshotService(
-			nil,
-			nil,
-			nil,
-			profitControlGroupRepo{group: memberGroup},
-			nil,
-		),
-	}
-	ctx = svc.withGatewayProfitControlGate(ctx, &memberGroup.ID)
-	gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-	require.NotNil(t, gate)
-	require.Equal(t, memberGroup.ID, gate.groupID)
-	require.Equal(t, PlatformAnthropic, gate.platform)
-	require.Equal(t, pricingAt, gate.pricingAt)
-	require.InDelta(t, 0.4*(1-0.25), gate.threshold, 1e-12, "D = 用户倍率 0.4，margin 取被调度成员分组")
-}
-
-func TestGatewayProfitControlGroupLoadFailureClearsForeignGate(t *testing.T) {
-	billingGroup := &Group{
-		ID:             211,
-		Platform:       PlatformComposite,
-		Status:         StatusActive,
-		Hydrated:       true,
-		RateMultiplier: 0.4,
-	}
-	targetGroupID := int64(212)
-	ctx := gatewayProfitTestContext(billingGroup)
-	ctx = context.WithValue(ctx, openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
-		groupID:   210,
-		platform:  PlatformAnthropic,
-		threshold: 0.1,
+	t.Run("disabled", func(t *testing.T) {
+		group := gatewayProfitTestGroup(102, PlatformOpenAI)
+		svc := &GatewayService{settingService: profitControlTestSettingService(t, false, 0.5, 0.4)}
+		ctx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group))
+		gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
+		require.Nil(t, gate, "设置关着不装门")
+		expensive := gatewayProfitTestAccount(103, PlatformOpenAI, 0.9, group.ID)
+		require.True(t, svc.isGatewayAccountProfitEligible(ctx, &expensive))
 	})
-	svc := &GatewayService{
-		schedulerSnapshot: NewSchedulerSnapshotService(
-			nil,
-			nil,
-			nil,
-			profitControlFailingGroupRepo{},
-			nil,
-		),
-	}
 
-	ctx = svc.withGatewayProfitControlGate(ctx, &targetGroupID)
-	gate, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-	require.True(t, ok)
-	require.Nil(t, gate, "加载新分组失败时必须清除其他分组遗留的门")
-
-	account := gatewayProfitTestAccount(213, PlatformAnthropic, 0.8, targetGroupID)
-	require.True(t, svc.isGatewayAccountProfitEligible(ctx, &account), "配置读取失败按既定语义 fail-open")
-}
-
-type profitControlFailingGroupRepo struct {
-	GroupRepository
-}
-
-func (profitControlFailingGroupRepo) GetByIDLite(context.Context, int64) (*Group, error) {
-	return nil, errors.New("group cache unavailable")
-}
-
-// 见 profitControlGroupRepo.GetByID：利润门必须走不带账号计数聚合的 lite 读取。
-func (profitControlFailingGroupRepo) GetByID(context.Context, int64) (*Group, error) {
-	panic("profit control gate must read groups via GetByIDLite (no account-count aggregation)")
+	t.Run("no setting service", func(t *testing.T) {
+		group := gatewayProfitTestGroup(104, PlatformOpenAI)
+		svc := &GatewayService{}
+		ctx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group))
+		gate, _ := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
+		require.Nil(t, gate)
+	})
 }
 
 func TestGatewayProfitControlLegacyMixedAndRoutedSelection(t *testing.T) {
@@ -176,9 +122,10 @@ func TestGatewayProfitControlLegacyMixedAndRoutedSelection(t *testing.T) {
 			accountsByID: map[int64]*Account{cheap.ID: &cheap, expensive.ID: &expensive},
 		}
 		svc := &GatewayService{
-			accountRepo: repo,
-			cache:       &mockGatewayCacheForPlatform{},
-			cfg:         testConfig(),
+			accountRepo:    repo,
+			cache:          &mockGatewayCacheForPlatform{},
+			cfg:            testConfig(),
+			settingService: profitControlTestSettingService(t, true, 0, 0),
 		}
 
 		selected, err := svc.SelectAccountForModelWithExclusions(
@@ -207,9 +154,10 @@ func TestGatewayProfitControlLegacyMixedAndRoutedSelection(t *testing.T) {
 			accountsByID: map[int64]*Account{cheap.ID: &cheap, expensive.ID: &expensive},
 		}
 		svc := &GatewayService{
-			accountRepo: repo,
-			cache:       &mockGatewayCacheForPlatform{},
-			cfg:         testConfig(),
+			accountRepo:    repo,
+			cache:          &mockGatewayCacheForPlatform{},
+			cfg:            testConfig(),
+			settingService: profitControlTestSettingService(t, true, 0, 0),
 		}
 
 		selected, err := svc.SelectAccountForModelWithExclusions(
@@ -235,6 +183,7 @@ func TestGatewayProfitControlLoadAwareSelectionAndFailover(t *testing.T) {
 		cache:              &mockGatewayCacheForPlatform{},
 		cfg:                cfg,
 		concurrencyService: NewConcurrencyService(stubConcurrencyCache{}),
+		settingService:     profitControlTestSettingService(t, true, 0, 0),
 	}
 
 	result, err := svc.SelectAccountWithLoadAwareness(
@@ -271,9 +220,10 @@ func TestGatewayProfitControlStickyVetoKeepsBindingUntilRateRecovers(t *testing.
 		sessionBindings: map[string]int64{"sticky-profit": expensive.ID},
 	}
 	svc := &GatewayService{
-		accountRepo: repo,
-		cache:       cache,
-		cfg:         testConfig(),
+		accountRepo:    repo,
+		cache:          cache,
+		cfg:            testConfig(),
+		settingService: profitControlTestSettingService(t, true, 0, 0),
 	}
 	ctx := gatewayProfitTestContext(group)
 
@@ -283,7 +233,7 @@ func TestGatewayProfitControlStickyVetoKeepsBindingUntilRateRecovers(t *testing.
 	require.Equal(t, expensive.ID, cache.sessionBindings["sticky-profit"], "候选过滤不得覆盖旧粘性绑定")
 
 	require.NoError(t, svc.BindStickySessionAfterProfitAdmission(
-		svc.withGatewayProfitControlGate(ctx, &group.ID),
+		svc.withGatewayProfitControlGate(ctx),
 		&group.ID,
 		"sticky-profit",
 		cheap.ID,
@@ -337,8 +287,6 @@ func TestGatewayProfitControlTerminalRefreshUsesReplacementObject(t *testing.T) 
 		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
-		groupID:   1,
-		platform:  PlatformGemini,
 		threshold: 0.5,
 	})
 
@@ -363,8 +311,6 @@ func TestGatewayProfitControlTerminalRefreshFallsBackFromCacheToDatabase(t *test
 		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
-		groupID:   1,
-		platform:  PlatformAnthropic,
 		threshold: 0.5,
 	})
 
@@ -384,8 +330,6 @@ func TestGatewayProfitControlTerminalRefreshFailureFallsBackToSelectedObject(t *
 		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
-		groupID:   1,
-		platform:  PlatformAntigravity,
 		threshold: 0.5,
 	})
 
@@ -399,10 +343,10 @@ func TestGatewayProfitControlTerminalRefreshFailureFallsBackToSelectedObject(t *
 // ContextWithSelectionProfitGate 重放后终检与准入后绑定才可见（评审修复回归）。
 func TestGatewayProfitControlSelectionCarriesGateToHandlerContext(t *testing.T) {
 	group := gatewayProfitTestGroup(1, PlatformAnthropic)
-	svc := &GatewayService{}
+	svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0, 0)}
 	expensive := gatewayProfitTestAccount(161, PlatformAnthropic, 0.9, group.ID)
 
-	gateCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group), &group.ID)
+	gateCtx := svc.withGatewayProfitControlGate(gatewayProfitTestContext(group))
 	selection, err := svc.newSelectionResult(gateCtx, &expensive, true, nil, nil)
 	require.NoError(t, err)
 	require.True(t, selection.ProfitGateActive(), "选号结果必须携带调度栈内生效的门")
@@ -428,12 +372,12 @@ func TestGatewayProfitControlSelectionCarriesGateToHandlerContext(t *testing.T) 
 // token 定价上下文照常装配，共享门照常安装并否决越线账号。
 func TestGatewayProfitControlImageIntentDoesNotDisableGate(t *testing.T) {
 	group := gatewayProfitTestGroup(2, PlatformAnthropic)
-	svc := &GatewayService{}
+	svc := &GatewayService{settingService: profitControlTestSettingService(t, true, 0, 0)}
 	expensive := gatewayProfitTestAccount(162, PlatformAnthropic, 0.9, group.ID)
 
 	ctx := gatewayProfitTestContext(group)
 	ctx = WithOpenAIImageGenerationIntent(ctx)
-	gateCtx := svc.withGatewayProfitControlGate(ctx, &group.ID)
+	gateCtx := svc.withGatewayProfitControlGate(ctx)
 	require.False(t, svc.isGatewayAccountProfitEligible(gateCtx, &expensive),
 		"请求体里的生图声明（含被动 image_gen namespace）不得关闭利润门")
 }
@@ -455,7 +399,7 @@ func TestGatewayProfitControlAfterAdmissionBindSemantics(t *testing.T) {
 		// mock 的 miss 返回非 sentinel 错误，等价于 Redis 读失败：门下保守不写。
 		cache := &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{}}
 		svc := &GatewayService{cache: cache}
-		gate := &openAIProfitControlGate{groupID: groupID, platform: PlatformAnthropic, threshold: 0.5}
+		gate := &openAIProfitControlGate{threshold: 0.5}
 		gateCtx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, gate)
 		require.NoError(t, svc.BindStickySessionAfterProfitAdmission(gateCtx, &groupID, "absent", cheapID))
 		require.NotContains(t, cache.sessionBindings, "absent")
@@ -464,7 +408,7 @@ func TestGatewayProfitControlAfterAdmissionBindSemantics(t *testing.T) {
 	t.Run("gated sentinel miss binds", func(t *testing.T) {
 		cache := &sentinelMissGatewayCache{mockGatewayCacheForPlatform: &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{}}}
 		svc := &GatewayService{cache: cache}
-		gate := &openAIProfitControlGate{groupID: groupID, platform: PlatformAnthropic, threshold: 0.5}
+		gate := &openAIProfitControlGate{threshold: 0.5}
 		gateCtx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, gate)
 		require.NoError(t, svc.BindStickySessionAfterProfitAdmission(gateCtx, &groupID, "fresh", cheapID))
 		require.Equal(t, cheapID, cache.sessionBindings["fresh"], "门下无既有绑定（sentinel miss）应建立粘性")

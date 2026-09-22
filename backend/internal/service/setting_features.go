@@ -1081,6 +1081,44 @@ func (s *SettingService) SetStreamTimeoutSettings(ctx context.Context, settings 
 	return s.settingRepo.Set(ctx, SettingKeyStreamTimeoutSettings, string(data))
 }
 
+// GetProfitControlSettings 返回利润门设置；读不到 / 解析失败一律按「关」（fail-open：可用性优先，同原分组门）。
+func (s *SettingService) GetProfitControlSettings(ctx context.Context) ProfitControlSettings {
+	if s == nil || s.settingRepo == nil {
+		return ProfitControlSettings{}
+	}
+	if cached, ok := profitControlSettingsCache.Load().(*cachedProfitControlSettings); ok && cached != nil && time.Now().UnixNano() < cached.expiresAt {
+		return cached.settings
+	}
+	result, _, _ := profitControlSettingsSF.Do(profitControlSettingsRefreshKey, func() (any, error) {
+		if cached, ok := profitControlSettingsCache.Load().(*cachedProfitControlSettings); ok && cached != nil && time.Now().UnixNano() < cached.expiresAt {
+			return cached.settings, nil
+		}
+		dbCtx, cancel := context.WithTimeout(context.WithoutCancel(ctx), profitControlSettingsDBTimeout)
+		defer cancel()
+		settings := ProfitControlSettings{}
+		ttl := profitControlSettingsCacheTTL
+		enabled, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitControlEnabled)
+		if err != nil && !errors.Is(err, ErrSettingNotFound) {
+			slog.Warn("profit_control_settings_load_failed", "error", err)
+			ttl = profitControlSettingsErrorTTL
+		} else if enabled == "true" {
+			settings.Enabled = true
+			if raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitMinMargin); err == nil {
+				settings.MinMargin = parseProfitControlRatio(raw)
+			}
+			if raw, err := s.settingRepo.GetValue(dbCtx, SettingKeyProfitSafetyBuffer); err == nil {
+				settings.SafetyBuffer = parseProfitControlRatio(raw)
+			}
+		}
+		profitControlSettingsCache.Store(&cachedProfitControlSettings{settings: settings, expiresAt: time.Now().Add(ttl).UnixNano()})
+		return settings, nil
+	})
+	if settings, ok := result.(ProfitControlSettings); ok {
+		return settings
+	}
+	return ProfitControlSettings{}
+}
+
 // GetAccountSchedulingThresholds returns per-platform auto-pause thresholds (1..100).
 // 100 disables the threshold for that platform. Hot-path cached with singleflight.
 func (s *SettingService) GetAccountSchedulingThresholds(ctx context.Context) map[string]int {

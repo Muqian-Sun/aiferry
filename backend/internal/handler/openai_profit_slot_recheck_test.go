@@ -16,7 +16,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
@@ -59,22 +58,25 @@ func profitSlotTestAccount(id int64, rate float64) *service.Account {
 	}
 }
 
-func profitSlotTestContext(t *testing.T, gw *service.OpenAIGatewayService, groupID int64, suppress bool) context.Context {
+// profitSlotTestSettings 利润门全站一档：margin 0.5，用户倍率 1 → 阈值 0.5。
+func profitSlotTestSettings(t *testing.T) *service.SettingService {
 	t.Helper()
-	group := &service.Group{
-		ID:                   groupID,
-		Platform:             service.PlatformOpenAI,
-		Status:               service.StatusActive,
-		Hydrated:             true,
-		RateMultiplier:       1.0,
-		ProfitControlEnabled: true,
-		ProfitMinMargin:      0.5,
-	}
-	base := context.WithValue(context.Background(), ctxkey.Group, group)
+	service.InvalidateProfitControlSettingsCache()
+	t.Cleanup(service.InvalidateProfitControlSettingsCache)
+	return service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{
+		service.SettingKeyProfitControlEnabled: "true",
+		service.SettingKeyProfitMinMargin:      "0.5",
+		service.SettingKeyProfitSafetyBuffer:   "0",
+	}}, &config.Config{})
+}
+
+func profitSlotTestContext(t *testing.T, gw *service.OpenAIGatewayService, suppress bool) context.Context {
+	t.Helper()
+	base := service.WithUserRateMultiplier(context.Background(), &service.User{ID: 1, RateMultiplier: 1.0})
 	if suppress {
 		base = service.WithOpenAIProfitControlSuppressed(base)
 	}
-	ctx, pricingAt := gw.WithOpenAIRequestPricingContext(base, &groupID)
+	ctx, pricingAt := gw.WithOpenAIRequestPricingContext(base)
 	require.False(t, pricingAt.IsZero())
 	return ctx
 }
@@ -83,7 +85,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	groupID := int64(50)
 	// 终检与准入后绑定走唯一调度器；这里不选号，调度器只要存在即可。
-	gw := service.NewOpenAIGatewayService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+	gw := service.NewOpenAIGatewayService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, profitSlotTestSettings(t),
 		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, nil, testOpenAIGroup(groupID)))
 
 	newHandler := func(cache *profitCountingConcurrencyCache) *OpenAIGatewayHandler {
@@ -105,7 +107,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, groupID, false))
+		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
 		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(1, 0.8)), false, &streamStarted, zap.NewNop())
@@ -120,7 +122,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, groupID, false))
+		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
 		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(2, 0.3)), false, &streamStarted, zap.NewNop())
@@ -134,7 +136,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		h := newHandler(cache)
 		w := httptest.NewRecorder()
 		c, _ := gin.CreateTestContext(w)
-		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, groupID, true))
+		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, true))
 		streamStarted := false
 
 		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(3, 0.8)), false, &streamStarted, zap.NewNop())

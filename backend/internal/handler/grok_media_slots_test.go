@@ -244,7 +244,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 	groupID := int64(24)
 	scheduler := service.NewGatewayService(
 		repo, gatewayHarnessGroupRepo{group: &service.Group{ID: groupID, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}},
-		nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, scheduler)
 	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), &groupID, "task", 10, 20, 1))

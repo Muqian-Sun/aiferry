@@ -58,13 +58,10 @@ func (h *AsyncImageHandler) Submit(c *gin.Context) {
 		imageTaskError(c, service.ErrImageTaskForbidden)
 		return
 	}
-	platform := effectiveAPIKeyPlatform(c, apiKey)
+	// 异步图片按目录条目厂商分流（openai / grok 两条执行路径）；无路由或别家厂商 404。
+	platform, _ := service.RequestVendorPlatform(c.Request.Context())
 	if platform != service.PlatformOpenAI && platform != service.PlatformGrok {
 		imageTaskJSONError(c, http.StatusNotFound, "not_found_error", "Images API is not supported for this platform")
-		return
-	}
-	if !service.GroupAllowsImageGeneration(apiKey.Group) {
-		imageTaskJSONError(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
 		return
 	}
 	if h == nil || h.tasks == nil || h.execute == nil {

@@ -15,12 +15,20 @@ import (
 	"github.com/tidwall/gjson"
 )
 
+// withVendorRoute 给请求挂一条目录路由，条目厂商决定请求的厂商平台（xai → grok）。
+func withVendorRoute(c *gin.Context, vendor string) {
+	c.Request = c.Request.WithContext(WithCatalogRoute(c.Request.Context(), CatalogRoute{
+		EntryID: 1, CanonicalModel: "m", RequestedModel: "m", Entry: &ModelCatalogEntry{ID: 1, ModelID: "m", Vendor: vendor},
+	}))
+}
+
 func newGrokCacheTestContext(apiKeyID int64) *gin.Context {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", nil)
 	if apiKeyID > 0 {
-		c.Set("api_key", &APIKey{ID: apiKeyID, Group: &Group{Platform: PlatformGrok}})
+		c.Set("api_key", &APIKey{ID: apiKeyID})
+		withVendorRoute(c, "xai")
 	}
 	return c
 }
@@ -383,12 +391,12 @@ func TestGrokConversationHeaderIsScopedToGrokRequestScheduling(t *testing.T) {
 	require.Equal(t, "native-grok-session", (&OpenAIGatewayService{}).ExtractSessionID(grokContext, body))
 
 	openAIContext := newGrokCacheTestContext(601)
-	openAIContext.Set("api_key", &APIKey{ID: 601, Group: &Group{Platform: PlatformOpenAI}})
+	withVendorRoute(openAIContext, "openai")
 	openAIContext.Request.Header.Set(grokConversationIDHeader, "must-be-ignored")
 	require.Equal(t, "body-session", (&OpenAIGatewayService{}).ExtractSessionID(openAIContext, body))
 
 	withoutGrokHeader := newGrokCacheTestContext(601)
-	withoutGrokHeader.Set("api_key", &APIKey{ID: 601, Group: &Group{Platform: PlatformOpenAI}})
+	withVendorRoute(withoutGrokHeader, "openai")
 	require.Equal(t,
 		(&OpenAIGatewayService{}).GenerateSessionHash(withoutGrokHeader, body),
 		(&OpenAIGatewayService{}).GenerateSessionHash(openAIContext, body),

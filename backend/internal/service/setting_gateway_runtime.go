@@ -73,6 +73,33 @@ const gatewayForwardingCacheTTL = 60 * time.Second
 const gatewayForwardingErrorTTL = 5 * time.Second
 const gatewayForwardingDBTimeout = 5 * time.Second
 
+// ProfitControlSettings 利润门（全站一档）：enabled 关着时不装门。
+type ProfitControlSettings struct {
+	Enabled      bool
+	MinMargin    float64
+	SafetyBuffer float64
+}
+
+// cachedProfitControlSettings 缓存利润门设置（进程内缓存，60s TTL；调度热路径每次选号都读）
+type cachedProfitControlSettings struct {
+	settings  ProfitControlSettings
+	expiresAt int64 // unix nano
+}
+
+var profitControlSettingsCache atomic.Value // *cachedProfitControlSettings
+var profitControlSettingsSF singleflight.Group
+
+const profitControlSettingsRefreshKey = "profit_control_settings"
+const profitControlSettingsCacheTTL = 60 * time.Second
+const profitControlSettingsErrorTTL = 5 * time.Second
+const profitControlSettingsDBTimeout = 5 * time.Second
+
+// InvalidateProfitControlSettingsCache 让下一次热路径读取重载设置（设置更新后 / 测试换夹具）。
+func InvalidateProfitControlSettingsCache() {
+	profitControlSettingsSF.Forget(profitControlSettingsRefreshKey)
+	profitControlSettingsCache.Store(&cachedProfitControlSettings{})
+}
+
 // cachedAccountSchedulingThresholds 缓存平台自动停调阈值（进程内缓存，60s TTL）
 type cachedAccountSchedulingThresholds struct {
 	thresholds map[string]int

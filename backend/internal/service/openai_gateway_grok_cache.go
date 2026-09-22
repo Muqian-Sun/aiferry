@@ -140,17 +140,11 @@ func isGrokRequestContext(c *gin.Context) bool {
 	if c == nil {
 		return false
 	}
-	if c.Request != nil {
-		if platform, ok := RequestVendorPlatform(c.Request.Context()); ok {
-			return platform == PlatformGrok
-		}
-	}
-	v, exists := c.Get("api_key")
-	if !exists {
+	if c.Request == nil {
 		return false
 	}
-	apiKey, ok := v.(*APIKey)
-	return ok && apiKey != nil && apiKey.Group != nil && apiKey.Group.Platform == PlatformGrok
+	platform, ok := RequestVendorPlatform(c.Request.Context())
+	return ok && platform == PlatformGrok
 }
 
 // applyGrokResponsesCacheIdentity writes the cache routing identity into an

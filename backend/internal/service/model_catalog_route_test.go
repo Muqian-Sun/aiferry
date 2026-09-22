@@ -6,7 +6,6 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,18 +43,13 @@ func TestRequestVendorPlatform(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, PlatformGrok, platform, "a catalog route answers with the entry's vendor")
 
-	unknownVendor := WithCatalogRoute(WithResolvedTargetPlatform(context.Background(), PlatformOpenAI),
+	unknownVendor := WithCatalogRoute(context.Background(),
 		CatalogRoute{EntryID: 2, Entry: &ModelCatalogEntry{ID: 2, ModelID: "team/best", Vendor: "custom"}})
 	_, ok = RequestVendorPlatform(unknownVendor)
-	require.False(t, ok, "a routed request with an unknown vendor has no vendor platform, even if a composite target was resolved")
-
-	composite := WithResolvedTargetPlatform(context.Background(), PlatformGemini)
-	platform, ok = RequestVendorPlatform(composite)
-	require.True(t, ok)
-	require.Equal(t, PlatformGemini, platform, "without a route the composite group's resolved target is used")
+	require.False(t, ok, "a routed request with an unknown vendor has no vendor platform")
 
 	_, ok = RequestVendorPlatform(context.Background())
-	require.False(t, ok)
+	require.False(t, ok, "without a route there is no vendor platform (composite groups are gone)")
 }
 
 func TestModelCatalogService_ResolveRoute(t *testing.T) {
@@ -104,9 +98,9 @@ func TestWithCatalogRoute(t *testing.T) {
 	require.True(t, ok)
 	require.Equal(t, route, got)
 
-	_, ok = ResolvedTargetPlatformFromContext(ctx)
-	require.False(t, ok, "a catalog route does not resolve a target platform: scheduling is by protocol, not by gateway family")
-	require.Equal(t, "gpt-5.6-sol", ctx.Value(ctxkey.RequestedPublicModel))
+	requested, ok := RequestedPublicModelFromContext(ctx)
+	require.True(t, ok)
+	require.Equal(t, "gpt-5.6-sol", requested, "客户端原始模型名随路由挂上（用量 / 审计记录用）")
 
 	_, ok = CatalogRouteFromContext(context.Background())
 	require.False(t, ok)

@@ -54,7 +54,7 @@ func newGatewayHandlerOverOpenAIService(
 func newTestSchedulerOverRepo(cfg *config.Config, accountRepo service.AccountRepository, group *service.Group) *service.GatewayService {
 	return service.NewGatewayService(
 		accountRepo, gatewayHarnessGroupRepo{group: group}, nil, nil, nil, nil, nil, cfg,
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 }
 

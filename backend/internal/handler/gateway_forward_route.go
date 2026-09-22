@@ -73,8 +73,8 @@ func responsesForwardTarget(account *service.Account) compatForwardTarget {
 // messagesGatewayPlatform 返回 /v1/messages 系请求所在网关的平台，与 service 层
 // （错误透传、调度）读同一份 request.Context：强制平台（/antigravity 路由）优先，其次是
 // 目录条目解析出的目标平台，最后是分组平台；都没有时为 anthropic。
-func messagesGatewayPlatform(c *gin.Context, apiKey *service.APIKey) string {
-	return service.AnthropicGatewayRequestPlatform(c.Request.Context(), apiKey)
+func messagesGatewayPlatform(c *gin.Context) string {
+	return service.AnthropicGatewayRequestPlatform(c.Request.Context())
 }
 
 // keyServesAnthropicCountTokens 报告第三方 key 能否承接 count_tokens。

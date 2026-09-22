@@ -1086,6 +1086,34 @@ describe("admin SettingsView payment visible method controls", () => {
     );
   });
 
+  // 利润门是全站一档的设置（原来在分组上）：载入回填、提交带三键。
+  it("loads and submits the site-wide profit gate settings", async () => {
+    getSettings.mockResolvedValueOnce({
+      ...baseSettingsResponse,
+      profit_control_enabled: true,
+      profit_min_margin: 0.3,
+      profit_safety_buffer: 0.05,
+    });
+
+    const wrapper = mountView();
+
+    await flushPromises();
+    expect((wrapper.get('[data-testid="profit-control-enabled"]').element as HTMLInputElement).checked).toBe(true);
+    expect((wrapper.get('[data-testid="profit-control-min-margin"]').element as HTMLInputElement).value).toBe("0.3");
+    await wrapper.get('[data-testid="profit-control-safety-buffer"]').setValue("0.1");
+    await wrapper.find("form").trigger("submit.prevent");
+    await flushPromises();
+
+    expect(updateSettings).toHaveBeenCalledTimes(1);
+    expect(updateSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        profit_control_enabled: true,
+        profit_min_margin: 0.3,
+        profit_safety_buffer: 0.1,
+      }),
+    );
+  });
+
   it("submits Anthropic cache TTL injection gateway setting", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,

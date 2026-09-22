@@ -3,63 +3,39 @@ package service
 import (
 	"context"
 	"log/slog"
-
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 )
 
 // withGatewayProfitControlGate installs the gate only for explicitly marked
 // token requests. This keeps media, metadata, and models-list paths outside
-// the profit-control surface by construction.
-func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context, groupID *int64) context.Context {
-	if _, ok := gatewayTokenRequestPricingAtFromContext(ctx); !ok || groupID == nil || *groupID <= 0 {
+// the profit-control surface by construction. 门是全站一档（全局设置），同一
+// 请求的 failover 重入复用 ctx 里已装的门（阈值稳定）。
+func (s *GatewayService) withGatewayProfitControlGate(ctx context.Context) context.Context {
+	if _, ok := gatewayTokenRequestPricingAtFromContext(ctx); !ok {
 		return ctx
 	}
-	if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil && existing.groupID == *groupID {
+	if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
 		return ctx
 	}
-
-	group, err := s.resolveProfitControlGroup(ctx, *groupID)
-	if err != nil {
-		slog.Warn("profit_control_group_load_failed", "group_id", *groupID, "error", err)
-		return s.clearForeignProfitControlGate(ctx, groupID)
+	if s == nil || s.settingService == nil {
+		return ctx
 	}
-	if group == nil || !group.ProfitControlEnabled || !profitControlPlatformSupported(group.Platform) {
-		return s.clearForeignProfitControlGate(ctx, groupID)
+	settings := s.settingService.GetProfitControlSettings(ctx)
+	if !settings.Enabled {
+		return ctx
 	}
 
 	pricingAt, _ := gatewayTokenRequestPricingAtFromContext(ctx)
 
 	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源。
 	downstream := UserRateMultiplierFromContext(ctx)
-	threshold := clampProfitControlThreshold(downstream * (1 - group.ProfitMinMargin - group.ProfitSafetyBuffer))
+	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin - settings.SafetyBuffer))
 
 	gate := &openAIProfitControlGate{
-		groupID:   group.ID,
-		platform:  group.Platform,
 		threshold: threshold,
 		pricingAt: pricingAt,
 	}
-	openAIProfitControlObserverInstance.recordInstall(gate.groupID, gate.platform, gate.threshold)
+	openAIProfitControlObserverInstance.recordInstall(gate.threshold)
 	return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, gate)
-}
-
-func (s *GatewayService) clearForeignProfitControlGate(ctx context.Context, groupID *int64) context.Context {
-	existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-	if !ok || existing == nil || groupID == nil || existing.groupID == *groupID {
-		return ctx
-	}
-	return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, (*openAIProfitControlGate)(nil))
-}
-
-func (s *GatewayService) resolveProfitControlGroup(ctx context.Context, groupID int64) (*Group, error) {
-	if group, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(group) && group.ID == groupID {
-		return group, nil
-	}
-	if s.schedulerSnapshot != nil {
-		// Lite 读取：门只用平台/倍率/利润/高峰字段，不需要账号计数聚合。
-		return s.schedulerSnapshot.GetGroupByIDLite(ctx, groupID)
-	}
-	return s.resolveGroupByID(ctx, groupID)
 }
 
 // GatewayProfitControlVetoLatest performs the terminal post-slot check against
@@ -78,8 +54,8 @@ func profitControlVetoLatest(ctx context.Context, selected *Account, snapshot *S
 	if snapshot != nil {
 		refreshed, err := snapshot.GetAccount(ctx, selected.ID)
 		if err != nil || refreshed == nil {
-			slog.Warn("profit_control_account_refresh_failed", "group_id", gate.groupID, "platform", gate.platform, "account_id", selected.ID, "error", err)
-			openAIProfitControlObserverInstance.recordRefreshFailure(gate.groupID, gate.platform, gate.threshold)
+			slog.Warn("profit_control_account_refresh_failed", "account_id", selected.ID, "error", err)
+			openAIProfitControlObserverInstance.recordRefreshFailure(gate.threshold)
 		} else if !refreshed.UpdatedAt.Before(selected.UpdatedAt) {
 			// 选号路径可能已做过 DB recheck，selected 比缓存快照更新鲜；只有
 			// 快照不落后时才替换，避免终检把新鲜账号换回较旧的缓存对象。

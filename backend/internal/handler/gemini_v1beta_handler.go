@@ -42,13 +42,9 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 	// 无模型端点：池 = 全部 gemini 资源（/antigravity 路由带强制平台）
 	forcePlatform, _ := middleware.GetForcePlatformFromContext(c)
 
-	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里，分组白名单开启时再按白名单过滤。
+	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里。
 	subscription, _ := middleware.GetSubscriptionFromContext(c)
-	allowlistOn := apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	visible := func(name string) bool {
-		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(name) {
-			return false
-		}
 		return service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, strings.TrimPrefix(name, "models/"))
 	}
 	filterGeminiModels := func(models []gemini.Model) []gemini.Model {
@@ -174,9 +170,6 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		googleError(c, http.StatusBadRequest, "Invalid model in URL")
 		return
 	}
-	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
-		modelName = strings.TrimSpace(resolvedModel)
-	}
 
 	// 强制 antigravity 模式：返回 antigravity 模型信息
 	if forcePlatform == service.PlatformAntigravity {
@@ -245,9 +238,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		googleError(c, http.StatusBadRequest, "Invalid model in URL")
 		return
 	}
-	if resolvedModel, ok := service.ResolvedUpstreamModelFromContext(c.Request.Context()); ok && strings.TrimSpace(resolvedModel) != "" {
-		modelName = strings.TrimSpace(resolvedModel)
-	}
 
 	stream := action == "streamGenerateContent"
 	reqLog = reqLog.With(zap.String("model", modelName), zap.String("action", action), zap.Bool("stream", stream))
@@ -302,7 +292,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	}
 
 	// 2) billing eligibility check (after wait)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("gemini.billing_eligibility_check_failed", zap.Error(err))
 		status, _, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -358,10 +348,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				// 生成前缀 hash
 				userAgent := c.GetHeader("User-Agent")
 				clientIP := ip.GetClientIP(c)
-				platform := ""
-				if apiKey.Group != nil {
-					platform = apiKey.Group.Platform
-				}
+				platform, _ := service.RequestVendorPlatform(c.Request.Context())
 				geminiPrefixHash = service.GenerateGeminiPrefixHash(
 					authSubject.UserID,
 					apiKey.ID,

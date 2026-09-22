@@ -3,7 +3,6 @@
 package service
 
 import (
-	"context"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -126,25 +125,10 @@ func TestExtractClientSessionID_GrokConversationHeader(t *testing.T) {
 	c := newSessionHeaderContext(t, map[string]string{
 		grokConversationIDHeader: "grok-native-session",
 	})
-	c.Set("api_key", &APIKey{
-		ID:    42,
-		Group: &Group{Platform: PlatformGrok},
-	})
+	c.Set("api_key", &APIKey{ID: 42})
+	withVendorRoute(c, "xai")
 
 	require.Equal(t, "grok-native-session", ExtractClientSessionID(c))
-}
-
-func TestExtractClientSessionID_GrokConversationHeaderForCompositeRoute(t *testing.T) {
-	c := newSessionHeaderContext(t, map[string]string{
-		grokConversationIDHeader: "grok-composite-session",
-	})
-	c.Set("api_key", &APIKey{
-		ID:    43,
-		Group: &Group{Platform: PlatformComposite},
-	})
-	c.Request = c.Request.WithContext(WithResolvedTargetPlatform(context.Background(), PlatformGrok))
-
-	require.Equal(t, "grok-composite-session", ExtractClientSessionID(c))
 }
 
 func TestExtractClientSessionID_InjectionHeaderDropped(t *testing.T) {

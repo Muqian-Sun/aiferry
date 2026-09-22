@@ -429,6 +429,13 @@ export default {
         accountSchedulingThresholdsDisabledHint: '100 表示禁用该平台自动停调；1–99 表示达到该利用率后暂停调度。',
         accountSchedulingThresholdsRangeHint: '整数 1–100（百分比）。仅 OpenAI / Anthropic / Grok。'
       },
+      profitControl: {
+        title: '利润门',
+        description: '账号倍率高于「用户倍率 × (1 − 最低毛利率 − 安全余量)」的资源不派；全站一档，对全部资源生效。',
+        minMargin: '最低毛利率（小数，0.30 = 30%）',
+        safetyBuffer: '安全余量（小数）',
+        hint: '两项之和必须小于 1，否则阈值 ≤ 0，所有可核价资源都会被排除。'
+      },
       upstreamBillingProbe: {
         title: '上游倍率自动探测',
         description: '定期获取 API Key 账号所连接上游 Sub2API 站点声明的计费倍率；只有另行开启“同步上游声明倍率”的账号才会更新账号倍率。',

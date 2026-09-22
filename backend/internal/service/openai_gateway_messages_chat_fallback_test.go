@@ -51,16 +51,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsPreservesFinalModelReasoningEffo
 		mapped     string
 		effortJSON string
 		wantEffort string
-		maxPolicy  string
 	}{
-		{
-			name:       "policy caps converted effort",
-			model:      "gpt-5.6-luna",
-			mapped:     "gpt-5.6-luna",
-			effortJSON: `,"output_config":{"effort":"max"}`,
-			wantEffort: "medium",
-			maxPolicy:  "medium",
-		},
 		{
 			name:       "GPT56 max",
 			model:      "luna",
@@ -109,11 +100,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsPreservesFinalModelReasoningEffo
 			account.Credentials["model_mapping"] = map[string]any{tt.model: tt.mapped}
 
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-			ctx := context.Background()
-			if tt.maxPolicy != "" {
-				ctx = WithOpenAIReasoningEffortPolicy(ctx, tt.maxPolicy, nil, "")
-			}
-			result, err := svc.ForwardAsAnthropic(ctx, c, account, []byte(body), "", "")
+			result, err := svc.ForwardAsAnthropic(context.Background(), c, account, []byte(body), "", "")
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, tt.mapped, gjson.GetBytes(upstream.lastBody, "model").String())
@@ -458,16 +445,15 @@ func TestForwardAsAnthropic_ResponsesSupportedAccountStillUsesResponsesEndpoint(
 	account := rawChatCompletionsTestAccount()
 	account.ProtocolEndpoints[APIProtocolResponses] = "http://upstream.example"
 
-	ctx := WithOpenAIReasoningEffortPolicy(context.Background(), "medium", nil, "")
-	result, err := svc.ForwardAsAnthropic(ctx, c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.True(t, strings.HasSuffix(upstream.lastReq.URL.Path, "/responses"),
 		"responses-capable account must stay on /v1/responses, got %s", upstream.lastReq.URL.String())
 	require.True(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
-	require.Equal(t, "medium", gjson.GetBytes(upstream.lastBody, "reasoning.effort").String())
+	require.Equal(t, "high", gjson.GetBytes(upstream.lastBody, "reasoning.effort").String(), "推理强度由客户端定（D8），不再被分组策略压低")
 	require.NotNil(t, result.ReasoningEffort)
-	require.Equal(t, "medium", *result.ReasoningEffort)
+	require.Equal(t, "high", *result.ReasoningEffort)
 	require.False(t, gjson.GetBytes(upstream.lastBody, "messages").Exists())
 	require.Equal(t, "third-party-client/1.0.0", upstream.lastReq.Header.Get("User-Agent"))
 	require.Equal(t, "opencode", upstream.lastReq.Header.Get("originator"))

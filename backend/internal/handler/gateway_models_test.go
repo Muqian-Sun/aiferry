@@ -58,7 +58,7 @@ func newGatewayModelsHandlerForTest(listed ...string) *GatewayHandler {
 		gatewayService: service.NewGatewayService(
 			nil,
 			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+			nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		),
 	}
 }
@@ -118,21 +118,6 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 		require.Empty(t, got.Data)
 	})
-}
-
-// 分组白名单开启时在目录之上再过滤（通配符按目录条目展开）。
-func TestGatewayModels_AllowlistFiltersListedCatalog(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	h := newGatewayModelsHandlerForTest("gpt-5.4", "gpt-5.5-codex", "gpt-5.5-mini", "other-foo")
-	group := &service.Group{ID: 31, Platform: service.PlatformOpenAI,
-		ModelAllowlist: service.GroupModelAllowlist{Enabled: true, Models: []string{"gpt-5.5-*", "gpt-5.4", "not-in-catalog"}}}
-
-	rec := requestModelsForTest(h, group, "/v1/models")
-	require.Equal(t, http.StatusOK, rec.Code)
-	var got gatewayModelsResponseForTest
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	require.Equal(t, []string{"gpt-5.5-codex", "gpt-5.5-mini", "gpt-5.4"}, modelIDsForTest(got.Data),
-		"allowlist order is kept and entries absent from the catalog are not invented")
 }
 
 // Codex 清单由目录生成：只含上架的 OpenAI 厂商条目（生图专用模型被 Codex 过滤掉），无分组也能拿；

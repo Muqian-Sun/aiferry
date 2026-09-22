@@ -19,7 +19,7 @@ import (
 )
 
 // 错误透传规则按平台配置：成品号按账号平台匹配（行为不变），第三方 key 的平台只是展示
-// 标签，按请求所在网关平台匹配。
+// 标签，按请求所在网关平台（强制平台 / 目录路由的条目厂商）匹配。
 
 func TestErrorPassthroughRulePlatform(t *testing.T) {
 	key := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey}
@@ -31,40 +31,45 @@ func TestErrorPassthroughRulePlatform(t *testing.T) {
 }
 
 func TestAnthropicGatewayRequestPlatform(t *testing.T) {
-	antigravityGroupKey := &APIKey{Group: &Group{Platform: PlatformAntigravity}}
-
-	require.Equal(t, PlatformAnthropic, AnthropicGatewayRequestPlatform(context.Background(), nil))
-	require.Equal(t, PlatformAntigravity, AnthropicGatewayRequestPlatform(context.Background(), antigravityGroupKey))
+	require.Equal(t, PlatformAnthropic, AnthropicGatewayRequestPlatform(context.Background()))
 
 	forced := context.WithValue(context.Background(), ctxkey.ForcePlatform, PlatformGemini)
-	require.Equal(t, PlatformGemini, AnthropicGatewayRequestPlatform(forced, antigravityGroupKey))
-	// Messages 走兜底分组时强制平台被清成空串，改按分组平台。
+	require.Equal(t, PlatformGemini, AnthropicGatewayRequestPlatform(forced))
+	// 强制平台被清成空串时回到默认 anthropic（没有分组可回落了）。
 	cleared := context.WithValue(context.Background(), ctxkey.ForcePlatform, "")
-	require.Equal(t, PlatformAntigravity, AnthropicGatewayRequestPlatform(cleared, antigravityGroupKey))
+	require.Equal(t, PlatformAnthropic, AnthropicGatewayRequestPlatform(cleared))
 
-	composite := WithResolvedTargetPlatform(context.Background(), PlatformGemini)
-	require.Equal(t, PlatformGemini, AnthropicGatewayRequestPlatform(composite, &APIKey{Group: &Group{Platform: PlatformComposite}}))
+	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 1, Entry: &ModelCatalogEntry{ID: 1, ModelID: "gemini-2.5-pro", Vendor: "gemini"}})
+	require.Equal(t, PlatformGemini, AnthropicGatewayRequestPlatform(routed))
 }
 
 func TestOpenAICompatibleRequestPlatform(t *testing.T) {
-	require.Equal(t, PlatformOpenAI, OpenAICompatibleRequestPlatform(context.Background(), nil))
-	require.Equal(t, PlatformKimi, OpenAICompatibleRequestPlatform(context.Background(), &APIKey{Group: &Group{Platform: PlatformKimi}}))
-	composite := WithResolvedTargetPlatform(context.Background(), PlatformGrok)
-	require.Equal(t, PlatformGrok, OpenAICompatibleRequestPlatform(composite, &APIKey{Group: &Group{Platform: PlatformComposite}}))
-	require.Equal(t, PlatformOpenAI, OpenAICompatibleRequestPlatform(WithResolvedTargetPlatform(context.Background(), PlatformAnthropic), nil))
+	require.Equal(t, PlatformOpenAI, OpenAICompatibleRequestPlatform(context.Background()))
+	routedGrok := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 2, Entry: &ModelCatalogEntry{ID: 2, ModelID: "grok-4.5", Vendor: "xai"}})
+	require.Equal(t, PlatformGrok, OpenAICompatibleRequestPlatform(routedGrok))
+	routedAnthropic := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 3, Entry: &ModelCatalogEntry{ID: 3, ModelID: "claude-sonnet-4-5", Vendor: "anthropic"}})
+	require.Equal(t, PlatformOpenAI, OpenAICompatibleRequestPlatform(routedAnthropic), "非 grok / 国产厂商归一为 openai")
 }
 
 const passthroughPlatformTestRuleStatus = http.StatusTeapot
 
-func newPassthroughPlatformTestContext(method, path string, body []byte, groupPlatform string) (*gin.Context, *httptest.ResponseRecorder) {
+// newPassthroughPlatformTestContext 造一个请求：routeVendor 非空挂目录路由（条目厂商决定网关平台），
+// forcePlatform 非空挂 /antigravity 路由的强制平台。
+func newPassthroughPlatformTestContext(method, path string, body []byte, routeVendor, forcePlatform string) (*gin.Context, *httptest.ResponseRecorder) {
 	gin.SetMode(gin.TestMode)
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(method, path, bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
-	if groupPlatform != "" {
-		c.Set("api_key", &APIKey{ID: 1, Group: &Group{ID: 1, Platform: groupPlatform}})
+	ctx := c.Request.Context()
+	if routeVendor != "" {
+		ctx = WithCatalogRoute(ctx, CatalogRoute{EntryID: 1, CanonicalModel: "m", RequestedModel: "m", Entry: &ModelCatalogEntry{ID: 1, ModelID: "m", Vendor: routeVendor}})
 	}
+	if forcePlatform != "" {
+		ctx = context.WithValue(ctx, ctxkey.ForcePlatform, forcePlatform)
+	}
+	c.Request = c.Request.WithContext(ctx)
+	c.Set("api_key", &APIKey{ID: 1})
 	return c, rec
 }
 
@@ -109,36 +114,37 @@ func TestErrorPassthroughRules_KeyMatchesGatewayPlatformNotLabel(t *testing.T) {
 	tests := []struct {
 		name            string
 		label           string
-		groupPlatform   string
+		routeVendor     string
+		forcePlatform   string
 		gatewayPlatform string
 		run             func(c *gin.Context, label string)
 	}{
 		{
-			name: "anthropic gateway error response", label: PlatformOpenAI, groupPlatform: PlatformAntigravity, gatewayPlatform: PlatformAntigravity,
+			name: "anthropic gateway error response", label: PlatformOpenAI, forcePlatform: PlatformAntigravity, gatewayPlatform: PlatformAntigravity,
 			run: func(c *gin.Context, label string) {
 				_, _ = (&GatewayService{}).handleErrorResponse(context.Background(), errorResponse(), c, anthropicKey(label))
 			},
 		},
 		{
-			name: "anthropic gateway retry exhausted", label: PlatformOpenAI, groupPlatform: PlatformAnthropic, gatewayPlatform: PlatformAnthropic,
+			name: "anthropic gateway retry exhausted", label: PlatformOpenAI, routeVendor: "anthropic", gatewayPlatform: PlatformAnthropic,
 			run: func(c *gin.Context, label string) {
 				_, _ = (&GatewayService{}).handleRetryExhaustedError(context.Background(), errorResponse(), c, anthropicKey(label))
 			},
 		},
 		{
-			name: "openai gateway compat error response", label: PlatformAnthropic, groupPlatform: PlatformKimi, gatewayPlatform: PlatformKimi,
+			name: "openai gateway compat error response", label: PlatformAnthropic, routeVendor: "moonshot", gatewayPlatform: PlatformKimi,
 			run: func(c *gin.Context, label string) {
 				_, _ = (&OpenAIGatewayService{}).handleCompatErrorResponse(errorResponse(), c, responsesKey(label), writeChatCompletionsError)
 			},
 		},
 		{
-			name: "openai images error response", label: PlatformAnthropic, groupPlatform: PlatformKimi, gatewayPlatform: PlatformOpenAI,
+			name: "openai images error response", label: PlatformAnthropic, routeVendor: "openai", gatewayPlatform: PlatformOpenAI,
 			run: func(c *gin.Context, label string) {
 				_, _ = (&OpenAIGatewayService{}).handleOpenAIImagesErrorResponse(context.Background(), errorResponse(), c, responsesKey(label))
 			},
 		},
 		{
-			name: "grok media error response", label: PlatformOpenAI, groupPlatform: PlatformOpenAI, gatewayPlatform: PlatformGrok,
+			name: "grok media error response", label: PlatformOpenAI, routeVendor: "xai", gatewayPlatform: PlatformGrok,
 			run: func(c *gin.Context, label string) {
 				key := passthroughPlatformTestKey(label, map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"})
 				_, _ = (&OpenAIGatewayService{}).handleGrokMediaErrorResponse(context.Background(), errorResponse(), c, key, "", "grok-imagine-image")
@@ -187,12 +193,12 @@ func TestErrorPassthroughRules_KeyMatchesGatewayPlatformNotLabel(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			c, rec := newPassthroughPlatformTestContext(http.MethodPost, "/v1/test", nil, tt.groupPlatform)
+			c, rec := newPassthroughPlatformTestContext(http.MethodPost, "/v1/test", nil, tt.routeVendor, tt.forcePlatform)
 			bindPassthroughRule(c, tt.gatewayPlatform, []string{keyword}, passthroughPlatformTestRuleStatus)
 			tt.run(c, tt.label)
 			require.Equal(t, passthroughPlatformTestRuleStatus, rec.Code, "规则配了请求所在网关平台，key 应命中")
 
-			c, rec = newPassthroughPlatformTestContext(http.MethodPost, "/v1/test", nil, tt.groupPlatform)
+			c, rec = newPassthroughPlatformTestContext(http.MethodPost, "/v1/test", nil, tt.routeVendor, tt.forcePlatform)
 			bindPassthroughRule(c, tt.label, []string{keyword}, passthroughPlatformTestRuleStatus)
 			tt.run(c, tt.label)
 			require.NotEqual(t, passthroughPlatformTestRuleStatus, rec.Code, "规则只配了 key 的平台标签，不应命中")

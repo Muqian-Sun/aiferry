@@ -663,6 +663,11 @@ export interface SystemSettings {
 
   // Allow user view error requests
   allow_user_view_error_requests: boolean;
+
+  // 利润门（全站一档）：账号倍率 > 用户倍率 × (1 − min_margin − safety_buffer) 的资源不派
+  profit_control_enabled: boolean;
+  profit_min_margin: number;
+  profit_safety_buffer: number;
 }
 
 export interface UpdateSettingsRequest {
@@ -940,6 +945,10 @@ export interface UpdateSettingsRequest {
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
 
   allow_user_view_error_requests?: boolean;
+
+  profit_control_enabled?: boolean;
+  profit_min_margin?: number;
+  profit_safety_buffer?: number;
 }
 
 /**

@@ -23,17 +23,6 @@ func contentModerationErrorCode(decision *service.ContentModerationDecision) str
 	return "content_policy_violation"
 }
 
-func clientRequestedModel(c *gin.Context, fallback string) string {
-	fallback = strings.TrimSpace(fallback)
-	if c == nil || c.Request == nil {
-		return fallback
-	}
-	if model, ok := service.RequestedPublicModelFromContext(c.Request.Context()); ok {
-		return model
-	}
-	return fallback
-}
-
 func runContentModeration(c *gin.Context, reqLog *zap.Logger, svc *service.ContentModerationService, apiKey *service.APIKey, subject middleware2.AuthSubject, protocol string, model string, body []byte) *service.ContentModerationDecision {
 	if svc == nil || c == nil || c.Request == nil {
 		return nil
@@ -81,7 +70,7 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 		RequestID: contentModerationRequestID(c.Request.Context()),
 		UserID:    subject.UserID,
 		Endpoint:  GetInboundEndpoint(c),
-		Provider:  contentModerationProvider(c, apiKey),
+		Provider:  contentModerationProvider(c),
 		Model:     clientRequestedModel(c, model),
 		Protocol:  protocol,
 		Body:      body,
@@ -102,9 +91,6 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 			groupID := *apiKey.GroupID
 			input.GroupID = &groupID
 		}
-		if apiKey.Group != nil {
-			input.GroupName = apiKey.Group.Name
-		}
 	}
 	if input.Endpoint == "" && c.Request != nil && c.Request.URL != nil {
 		input.Endpoint = c.Request.URL.Path
@@ -112,8 +98,26 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 	return input
 }
 
-func contentModerationProvider(c *gin.Context, apiKey *service.APIKey) string {
-	return strings.TrimSpace(effectiveAPIKeyPlatform(c, apiKey))
+// clientRequestedModel 客户端原始请求的公开模型名（目录路由挂在 ctx 上的 RequestedModel，可能是别名）；
+// 没有路由时用调用方传入的模型。
+func clientRequestedModel(c *gin.Context, fallback string) string {
+	fallback = strings.TrimSpace(fallback)
+	if c == nil || c.Request == nil {
+		return fallback
+	}
+	if model, ok := service.RequestedPublicModelFromContext(c.Request.Context()); ok {
+		return model
+	}
+	return fallback
+}
+
+// contentModerationProvider 审计输入里的厂商：目录路由的条目厂商；无路由（无模型端点）为空。
+func contentModerationProvider(c *gin.Context) string {
+	if c == nil || c.Request == nil {
+		return ""
+	}
+	platform, _ := service.RequestVendorPlatform(c.Request.Context())
+	return strings.TrimSpace(platform)
 }
 
 func contentModerationRequestID(ctx context.Context) string {

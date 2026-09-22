@@ -65,11 +65,11 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 		rulePlatform  string
 		wantRuleMatch bool
 	}{
-		{name: "rule on gateway platform matches", rulePlatform: service.PlatformAntigravity, wantRuleMatch: true},
+		{name: "rule on gateway platform matches", rulePlatform: service.PlatformAnthropic, wantRuleMatch: true},
 		{name: "rule on key label does not match", rulePlatform: service.PlatformOpenAI, wantRuleMatch: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			group := keyRouteGroup(2201, service.PlatformAntigravity)
+			group := keyRouteGroup(2201, service.PlatformAnthropic)
 			key := keyRouteAccount(1201, group.ID, service.PlatformOpenAI,
 				map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}, "claude-sonnet-4-5")
 			h, cleanup := newTestGatewayHandler(t, group, []*service.Account{key})
@@ -82,7 +82,7 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 				service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil),
 				nil, nil, nil, nil, nil,
 				fixedStatusHTTPUpstream{status: http.StatusInternalServerError, body: `{"error":{"message":"` + keyword + `"}}`},
-				nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+				nil, nil, nil, nil, nil, nil, nil, nil, nil,
 			)
 			h.maxAccountSwitches = 0
 			code := http.StatusTeapot

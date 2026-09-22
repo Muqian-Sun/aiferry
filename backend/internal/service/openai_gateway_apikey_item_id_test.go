@@ -27,7 +27,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_StripsInvalidInputItemIDs(t *tes
 		)),
 	}}
 	svc := newOpenAIImageGenerationControlTestService(upstream)
-	c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.144.1")
+	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
 	account := newOpenAIImageGenerationControlTestAccount()
 	account.Extra = map[string]any{"openai_passthrough": true}
 
@@ -83,7 +83,7 @@ func TestOpenAIGatewayService_OAuthPassthrough_SanitizesNativeToolItemIDs(t *tes
 				Body:       io.NopCloser(strings.NewReader(upstreamSSE)),
 			}}
 			svc := newOpenAIImageGenerationControlTestService(upstream)
-			c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.144.1")
+			c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
 			account := newOpenAIImageGenerationControlTestAccount()
 			account.Type = accountType
 			account.Credentials = map[string]any{
@@ -126,7 +126,7 @@ func TestOpenAIGatewayService_SetupTokenLegacy_SanitizesAndTransforms(t *testing
 		Body:       io.NopCloser(strings.NewReader(upstreamSSE)),
 	}}
 	svc := newOpenAIImageGenerationControlTestService(upstream)
-	c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.144.1")
+	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
 	account := newOpenAIImageGenerationControlTestAccount()
 	account.Type = AccountTypeSetupToken
 	account.Credentials = map[string]any{
@@ -174,7 +174,7 @@ func TestOpenAIGatewayService_APIKeyPassthrough_StripsInvalidReasoningItemIDs(t 
 		)),
 	}}
 	svc := newOpenAIImageGenerationControlTestService(upstream)
-	c, _ := newOpenAIImageGenerationControlTestContext(true, "codex_cli_rs/0.144.1")
+	c, _ := newOpenAIImageGenerationControlTestContext("codex_cli_rs/0.144.1")
 	account := newOpenAIImageGenerationControlTestAccount()
 	account.Extra = map[string]any{"openai_passthrough": true}
 

@@ -171,20 +171,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	reqModel := parsedReq.Model
 	reqStream := parsedReq.Stream
 	bindRequestedReasoningEffort(c, body, reqModel)
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if policyBody, changed, err := applyAnthropicReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
-		respondOpenAIReasoningEffortPolicyError(c, err, h.errorResponse)
-		return
-	} else if changed {
-		if err := parsedReq.ReplaceBody(policyBody); err != nil {
-			reqLog.Warn("gateway.reasoning_effort_policy_parse_failed", zap.Error(err))
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to apply reasoning effort policy")
-			return
-		}
-		body = parsedReq.Body.Bytes()
-		reqModel = parsedReq.Model
-		reqStream = parsedReq.Stream
-	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	// 设置 max_tokens=1 + haiku 探测请求标识到 context 中
@@ -214,10 +200,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 验证 model 必填
 	if reqModel == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
-		return
-	}
-	if !compositeTargetPlatformResolved(c, apiKey, reqModel) {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
 
@@ -251,7 +233,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 2. 【新增】Wait后二次检查余额/订阅
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("gateway.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -285,7 +267,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 厂商平台只给错误分类 / 错误透传规则 / 日志用（强制平台 > 条目厂商 > 分组平台），不进调度。
-	platform := messagesGatewayPlatform(c, apiKey)
+	platform := messagesGatewayPlatform(c)
 	sessionKey := sessionHash
 
 	// 查询粘性会话绑定的账号 ID
@@ -509,7 +491,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			// 调度按协议地址放行 key，这里仍对不上说明两边口径不一致，留日志而不是静默换号。
 			reqLog.Warn("gateway.key_protocol_unavailable",
 				zap.Int64("account_id", account.ID),
-				zap.String("gateway_platform", messagesGatewayPlatform(c, apiKey)),
+				zap.String("gateway_platform", messagesGatewayPlatform(c)),
 			)
 			fs.FailedAccountIDs[account.ID] = struct{}{}
 			// 从未转发，立即释放该账号的会话注册（与利润否决同处理）
@@ -757,7 +739,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						// 已写出的失败到不了调度结果上报，单独喂 key 健康熔断
 						h.openAIGatewayService.ObserveOpenAIAccountHealthFailure(c.Request.Context(), account, err)
 					}
-					h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), apiKey)), true)
+					h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context())), true)
 					return
 				}
 				if forwardTarget == compatForwardOpenAI && failoverErr.ShouldReportAccountScheduleFailure() {
@@ -772,12 +754,12 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 					delete(sessionSlotAccounts, account.ID)
 					// OAuth 429 风暴刹车：只在真正换号（不是同账号重试）后判断
 					if fs.SwitchCount > switchCountBefore && h.openAIGatewayService.ShouldStopOpenAIOAuth429Failover(account, failoverErr.StatusCode, fs.SwitchCount, &fs.OAuth429) {
-						h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), apiKey)), streamStarted)
+						h.handleFailoverExhausted(c, failoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context())), streamStarted)
 						return
 					}
 					continue
 				case FailoverExhausted:
-					h.handleFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context(), apiKey)), streamStarted)
+					h.handleFailoverExhausted(c, fs.LastFailoverErr, service.ErrorPassthroughRulePlatform(account, service.AnthropicGatewayRequestPlatform(c.Request.Context())), streamStarted)
 					return
 				case FailoverCanceled:
 					failoverClientGone(c)
@@ -902,9 +884,6 @@ func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) 
 	for i := range entries {
 		ids = append(ids, entries[i].ModelID)
 	}
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
-		ids = apiKey.Group.ModelAllowlist.FilterForListing(ids)
-	}
 	return ids
 }
 
@@ -980,17 +959,11 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 
 // AntigravityModels 返回 Antigravity 支持的模型里目录已上架的那些
 // GET /antigravity/models
-// 分组级模型白名单开启时再按白名单过滤。
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
-	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	allowlistOn := apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	defaults := antigravity.DefaultModels()
 	models := make([]antigravity.ClaudeModel, 0, len(defaults))
 	for _, model := range defaults {
-		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(model.ID) {
-			continue
-		}
 		if !service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, model.ID) {
 			continue
 		}
@@ -1582,7 +1555,6 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	body = parsedReq.Body.Bytes()
 	// count_tokens 走 messages 严格校验时，复用已解析请求，避免二次反序列化。
 	SetClaudeCodeClientContext(c, body, parsedReq)
-	ensureCompositeTargetPlatform(c, apiKey, parsedReq.Model)
 	reqLog = reqLog.With(zap.String("model", parsedReq.Model), zap.Bool("stream", parsedReq.Stream))
 	// 在请求上下文中记录 thinking 状态，供 Antigravity 最终模型 key 推导/模型维度限流使用
 	c.Request = c.Request.WithContext(service.WithThinkingEnabled(c.Request.Context(), parsedReq.ThinkingEnabled, h.metadataBridgeEnabled()))
@@ -1590,10 +1562,6 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	// 验证 model 必填
 	if parsedReq.Model == "" {
 		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "model is required")
-		return
-	}
-	if !compositeTargetPlatformResolved(c, apiKey, parsedReq.Model) {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
 
@@ -1605,7 +1573,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 
 	// 校验 billing eligibility（订阅/余额）
 	// 【注意】不计算并发，但需要校验订阅/余额
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -1635,7 +1603,7 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	}
 	setOpsSelectedAccount(c, account.ID, account.Platform)
 
-	if account.IsThirdPartyKey() && !keyServesAnthropicCountTokens(messagesGatewayPlatform(c, apiKey), account) {
+	if account.IsThirdPartyKey() && !keyServesAnthropicCountTokens(messagesGatewayPlatform(c), account) {
 		// 与 Antigravity 成品号一致返回 404，让客户端回退本地估算。
 		h.errorResponse(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this platform")
 		return

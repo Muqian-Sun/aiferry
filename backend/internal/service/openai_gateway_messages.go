@@ -277,22 +277,6 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			}
 		}
 	}
-	if openAIProtocolFeaturesApply(account) {
-		policyBody, changed, policyErr := ApplyOpenAIReasoningEffortPolicyFromContext(ctx, responsesBody)
-		if policyErr != nil {
-			if IsReasoningEffortPolicyDenied(policyErr) {
-				MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalPolicyDenied)
-				writeAnthropicError(c, http.StatusForbidden, "forbidden_error", policyErr.Error())
-			}
-			return nil, policyErr
-		}
-		if changed {
-			responsesBody = policyBody
-			if responsesReq.Reasoning != nil {
-				responsesReq.Reasoning.Effort = gjson.GetBytes(responsesBody, "reasoning.effort").String()
-			}
-		}
-	}
 
 	// 4c. Apply OpenAI fast policy (may filter service_tier or block the request).
 	// Mirrors the Claude anthropic-beta "fast-mode-2026-02-01" filter, but keyed

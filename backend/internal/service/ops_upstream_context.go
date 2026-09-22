@@ -55,7 +55,6 @@ const (
 	OpsClientBusinessLimitedKey                           = "ops_client_business_limited"
 	OpsClientBusinessLimitedReasonKey                     = "ops_client_business_limited_reason"
 	OpsClientBusinessLimitedReasonIPRestriction           = "api_key_ip_restriction"
-	OpsClientBusinessLimitedReasonAPIKeyGroupUnavailable  = "api_key_group_unavailable"
 	OpsClientBusinessLimitedReasonLocalFeatureGate        = "local_feature_gate"
 	OpsClientBusinessLimitedReasonLocalPolicyDenied       = "local_policy_denied"
 	OpsClientBusinessLimitedReasonLocalModelConfiguration = "local_model_configuration"

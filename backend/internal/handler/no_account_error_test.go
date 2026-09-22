@@ -136,13 +136,11 @@ func TestClassifyOpenAICompatibleNoAccountError_GrokUsesGrokPlatform(t *testing.
 	c := newTestGinContextWithRequest()
 	fd := &fakeDiagnoser{resp: service.ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: false}}
 	groupID := int64(43)
-	apiKey := &service.APIKey{
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:       groupID,
-			Platform: service.PlatformGrok,
-		},
-	}
+	apiKey := &service.APIKey{GroupID: &groupID}
+	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
+		EntryID: 1, CanonicalModel: "grok-4.5", RequestedModel: "grok-4.5",
+		Entry: &service.ModelCatalogEntry{ID: 1, ModelID: "grok-4.5", Vendor: "xai", Status: service.ModelCatalogStatusListed},
+	}))
 
 	cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, fd, apiKey, "grok-4.5", "grok-4.5")
 

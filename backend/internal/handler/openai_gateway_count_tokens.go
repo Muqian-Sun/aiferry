@@ -61,11 +61,6 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 		return
 	}
 	reqModel := strings.TrimSpace(modelResult.String())
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if !openAICompatibleTextTargetAllowed(c, apiKey, reqModel) {
-		h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
-		return
-	}
 
 	setOpsRequestContext(c, reqModel, false)
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(false, false)))
@@ -75,7 +70,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	}
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("openai_input_tokens.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -90,7 +85,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 
 	// Token counting is not billed, so it must not be excluded by the profit gate.
 	c.Request = c.Request.WithContext(service.WithOpenAIProfitControlSuppressed(c.Request.Context()))
-	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	requestStart := time.Now()
 	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, routingModel)
@@ -220,13 +215,6 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	}
 
 	reqModel := parsedReq.Model
-	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	// composite+grok 在路由层已分流到 GrokCountTokens，这里可达的目标平台是
-	// openai 与 CN 供应商；CN 账号由 ForwardCountTokensAsAnthropic 本地估算。
-	if !openAICompatibleTextTargetAllowed(c, apiKey, reqModel) {
-		h.anthropicErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by this OpenAI-compatible endpoint for composite groups")
-		return
-	}
 	routingModel := service.NormalizeOpenAICompatRequestedModel(reqModel)
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", parsedReq.Stream))
 
@@ -234,7 +222,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	setOpsEndpointContext(c, "", int16(service.RequestTypeFromLegacy(false, false)))
 
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, apiKey.Group, subscription); err != nil {
+	if err := h.billingCacheService.CheckBillingEligibility(c.Request.Context(), apiKey.User, apiKey, subscription); err != nil {
 		reqLog.Info("openai_count_tokens.billing_eligibility_check_failed", zap.Error(err))
 		status, code, message, retryAfter := billingErrorDetails(err)
 		if retryAfter > 0 {
@@ -252,7 +240,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, routingModel)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
-		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context(), apiKey)
+		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
 		reqLog.Warn("openai_count_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
 		if errors.Is(err, service.ErrNoAvailableAccounts) {
 			// 与 Gateway 侧 / Antigravity 一致：没有能计数的资源回 404，客户端回退本地估算（§6-8，原来是 500）
