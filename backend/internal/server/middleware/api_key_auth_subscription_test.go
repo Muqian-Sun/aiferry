@@ -111,28 +111,3 @@ func TestAPIKeyAuth_BalanceKeyIgnoresSubscriptionService(t *testing.T) {
 	require.Contains(t, w.Body.String(), `"INSUFFICIENT_BALANCE"`)
 	require.Zero(t, f.subCalls.Load())
 }
-
-// 订阅 key 无分组：RequireGroupAssignment 豁免（资源池由目录路由定）
-func TestRequireGroupAssignment_AllowsSubscriptionKey(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	settingService := service.NewSettingService(fakeSettingRepo{
-		values: map[string]string{service.SettingKeyAllowUngroupedKeyScheduling: "false"},
-	}, &config.Config{})
-	subscriptionID := int64(55)
-	apiKey := &service.APIKey{ID: 100, Key: "sub-key", Status: service.StatusActive, SubscriptionID: &subscriptionID}
-
-	router := gin.New()
-	var rejected bool
-	router.Use(func(c *gin.Context) {
-		c.Set(string(ContextKeyAPIKey), apiKey)
-		c.Next()
-		_, rejected = GetIngressRejectReason(c)
-	})
-	router.Use(RequireGroupAssignment(settingService, AnthropicErrorWriter))
-	router.GET("/t", func(c *gin.Context) { c.JSON(http.StatusOK, gin.H{"ok": true}) })
-
-	w := httptest.NewRecorder()
-	router.ServeHTTP(w, httptest.NewRequest(http.MethodGet, "/t", nil))
-	require.Equal(t, http.StatusOK, w.Code, w.Body.String())
-	require.False(t, rejected)
-}

@@ -453,7 +453,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyMaxClaudeCodeVersion] = settings.MaxClaudeCodeVersion
 
 	// 分组隔离
-	updates[SettingKeyAllowUngroupedKeyScheduling] = strconv.FormatBool(settings.AllowUngroupedKeyScheduling)
 
 	// Backend Mode
 	updates[SettingKeyBackendModeEnabled] = strconv.FormatBool(settings.BackendModeEnabled)

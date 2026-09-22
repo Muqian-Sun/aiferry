@@ -9053,7 +9053,6 @@ type SettingsForm = Omit<
   | "wechat_connect_open_enabled"
   | "wechat_connect_mp_enabled"
   | "wechat_connect_mobile_enabled"
-  | "allow_ungrouped_key_scheduling"
 > & {
   /** Form always binds a concrete boolean (SystemSettings marks this optional). */
   channel_monitor_hide_throughput: boolean;

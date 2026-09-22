@@ -567,7 +567,6 @@ export interface SystemSettings {
   max_claude_code_version: string;
 
   // 分组隔离
-  allow_ungrouped_key_scheduling: boolean;
 
   // Gateway forwarding behavior
   openai_ttft_mode: string;
@@ -852,7 +851,6 @@ export interface UpdateSettingsRequest {
   ops_metrics_interval_seconds?: number;
   min_claude_code_version?: string;
   max_claude_code_version?: string;
-  allow_ungrouped_key_scheduling?: boolean;
   openai_ttft_mode?: string;
   enable_fingerprint_unification?: boolean;
   enable_metadata_passthrough?: boolean;

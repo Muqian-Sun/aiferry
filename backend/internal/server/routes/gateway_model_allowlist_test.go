@@ -37,7 +37,6 @@ func newGatewayRoutesTestRouterWithGroup(group *service.Group) *gin.Engine {
 		nil,
 		nil,
 		nil,
-		nil,
 		admitAllCatalog{},
 		&config.Config{
 			Gateway: config.GatewayConfig{

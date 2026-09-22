@@ -6,7 +6,6 @@ import (
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/googleapi"
-	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 )
 
@@ -94,7 +93,7 @@ func abortWithOpenAIQuotaError(c *gin.Context, statusCode int, message string) {
 }
 
 // ──────────────────────────────────────────────────────────
-// RequireGroupAssignment — 未分组 Key 拦截中间件
+// 网关错误响应格式（目录准入等中间件按入站协议选用）
 // ──────────────────────────────────────────────────────────
 
 // GatewayErrorWriter 定义网关错误响应格式（不同协议使用不同格式）
@@ -136,26 +135,4 @@ func OpenAIErrorWriter(c *gin.Context, status int, message string) {
 			"code":    "model_not_found",
 		},
 	})
-}
-
-// RequireGroupAssignment 检查 API Key 是否已分配到分组，
-// 如果未分组且系统设置不允许未分组 Key 调度则返回 403。
-func RequireGroupAssignment(settingService *service.SettingService, writeError GatewayErrorWriter) gin.HandlerFunc {
-	return func(c *gin.Context) {
-		apiKey, ok := GetAPIKeyFromContext(c)
-		// 订阅 key 无分组：资源池由目录路由（条目绑定）定，不需要分组
-		if !ok || apiKey.GroupID != nil || apiKey.SubscriptionID != nil {
-			c.Next()
-			return
-		}
-		// 未分组 Key — 检查系统设置
-		if settingService.IsUngroupedKeySchedulingAllowed(c.Request.Context()) {
-			c.Next()
-			return
-		}
-		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonAPIKeyGroupUnassigned)
-		MarkIngressRejected(c, IngressRejectGroupUnassigned)
-		writeError(c, http.StatusForbidden, "API Key is not assigned to any group and cannot be used. Please contact the administrator to assign it to a group.")
-		c.Abort()
-	}
 }
