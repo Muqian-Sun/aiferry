@@ -101,7 +101,6 @@ func classifySelectionFailureError(err error, fallback noAccountErrorClassificat
 func classifyNoAccountError(
 	ctx context.Context,
 	diag service.ModelAvailabilityDiagnoser,
-	apiKey *service.APIKey,
 	routingModel string,
 	displayModel string,
 	platform string,
@@ -117,16 +116,16 @@ func classifyNoAccountError(
 	if displayModel == "" {
 		displayModel = routingModel
 	}
-	if diag == nil || apiKey == nil || apiKey.GroupID == nil || routingModel == "" {
+	if diag == nil || routingModel == "" {
 		return fallback
 	}
 
-	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, apiKey.GroupID, routingModel, platform)
+	result := diag.DiagnoseModelAvailabilityForPlatform(ctx, routingModel, platform)
 	if result.HasAccountsInPool && !result.HasModelSupport {
 		return noAccountErrorClassification{
 			Status:        http.StatusNotFound,
 			ErrType:       "model_not_found",
-			Message:       fmt.Sprintf("Model %q is not supported by any configured account in this group", displayModel),
+			Message:       fmt.Sprintf("Model %q is not supported by any configured account", displayModel),
 			ModelNotFound: true,
 		}
 	}
@@ -139,7 +138,6 @@ func classifyNoAccountError(
 func classifyNoAccountErrorFromGin(
 	c *gin.Context,
 	diag service.ModelAvailabilityDiagnoser,
-	apiKey *service.APIKey,
 	routingModel string,
 	displayModel string,
 	platform string,
@@ -148,7 +146,7 @@ func classifyNoAccountErrorFromGin(
 	if c != nil && c.Request != nil {
 		ctx = c.Request.Context()
 	}
-	classification := classifyNoAccountError(ctx, diag, apiKey, routingModel, displayModel, platform)
+	classification := classifyNoAccountError(ctx, diag, routingModel, displayModel, platform)
 	if classification.ModelNotFound {
 		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalModelConfiguration)
 	}
@@ -158,7 +156,6 @@ func classifyNoAccountErrorFromGin(
 func classifyOpenAICompatibleNoAccountErrorFromGin(
 	c *gin.Context,
 	diag service.ModelAvailabilityDiagnoser,
-	apiKey *service.APIKey,
 	routingModel string,
 	displayModel string,
 ) noAccountErrorClassification {
@@ -169,7 +166,6 @@ func classifyOpenAICompatibleNoAccountErrorFromGin(
 	return classifyNoAccountErrorFromGin(
 		c,
 		diag,
-		apiKey,
 		routingModel,
 		displayModel,
 		service.OpenAICompatibleRequestPlatform(ctx),

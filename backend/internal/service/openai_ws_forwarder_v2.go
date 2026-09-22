@@ -118,7 +118,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 
 	stateStore := s.getOpenAIWSStateStore()
-	groupID := getOpenAIGroupIDFromContext(c)
+	scopeID := SchedulingScopeID(ctx)
 	sessionHash := s.GenerateSessionHash(c, nil)
 	if sessionHash == "" {
 		var legacySessionHash string
@@ -132,7 +132,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		sessionHash = executionScope
 	}
 	if turnState == "" && stateStore != nil && sessionHash != "" {
-		if savedTurnState, ok := stateStore.GetSessionTurnState(groupID, sessionHash); ok {
+		if savedTurnState, ok := stateStore.GetSessionTurnState(sessionHash); ok {
 			turnState = savedTurnState
 		}
 	}
@@ -144,7 +144,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	}
 	storeDisabled := s.isOpenAIWSStoreDisabledInRequest(reqBody, account)
 	if stateStore != nil && storeDisabled && previousResponseID == "" && sessionHash != "" {
-		if connID, ok := stateStore.GetSessionConn(groupID, sessionHash); ok {
+		if connID, ok := stateStore.GetSessionConn(sessionHash); ok {
 			preferredConnID = connID
 		}
 	}
@@ -321,7 +321,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 	)
 	if handshakeTurnState != "" {
 		if stateStore != nil && sessionHash != "" {
-			stateStore.BindSessionTurnState(groupID, sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
+			stateStore.BindSessionTurnState(sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
 		}
 		if c != nil {
 			c.Header(http.CanonicalHeaderKey(openAIWSTurnStateHeader), handshakeTurnState)
@@ -337,7 +337,7 @@ func (s *OpenAIGatewayService) forwardOpenAIWSV2(
 		reqBody,
 		account,
 		stateStore,
-		groupID,
+		scopeID,
 	); err != nil {
 		return nil, err
 	}
@@ -821,11 +821,11 @@ readLoop:
 
 	if responseID != "" && stateStore != nil {
 		ttl := s.openAIWSResponseStickyTTL()
-		logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, stateStore.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+		logOpenAIWSBindResponseAccountWarn(scopeID, account.ID, responseID, stateStore.BindResponseAccount(ctx, scopeID, responseID, account.ID, ttl))
 		stateStore.BindResponseConn(responseID, lease.ConnID(), ttl)
 	}
 	if stateStore != nil && storeDisabled && sessionHash != "" {
-		stateStore.BindSessionConn(groupID, sessionHash, lease.ConnID(), s.openAIWSSessionStickyTTL())
+		stateStore.BindSessionConn(sessionHash, lease.ConnID(), s.openAIWSSessionStickyTTL())
 	}
 	firstTokenMsValue := -1
 	if firstTokenMs != nil {

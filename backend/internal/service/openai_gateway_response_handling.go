@@ -1452,10 +1452,9 @@ func (s *OpenAIGatewayService) BindOpenAIHTTPResponseOwner(
 	)
 }
 
-// openAIHTTPResponseScopeID HTTP 续链绑定的作用域：目录路由下是条目 ID，否则分组 ID（0 = 未分组）。
-func openAIHTTPResponseScopeID(ctx context.Context, c *gin.Context) int64 {
-	groupID := getOpenAIGroupIDFromContext(c)
-	return SchedulingScopeID(ctx, &groupID)
+// openAIHTTPResponseScopeID HTTP 续链绑定的作用域：目录路由下是条目 ID，否则 0。
+func openAIHTTPResponseScopeID(ctx context.Context) int64 {
+	return SchedulingScopeID(ctx)
 }
 
 // BindOpenAIHTTPResponseAccount 记录 response id → 承接它的账号，供 HTTP 续链选号预取。
@@ -1484,9 +1483,8 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 		return
 	}
 	// 作用域与读方（ResolveAccountIDByPreviousResponseIDForScheduler / ValidateOpenAIHTTPResponseOwner）
-	// 一致：目录路由下是条目 ID，否则分组 ID。
-	groupID := getOpenAIGroupIDFromContext(c)
-	scopeID := openAIHTTPResponseScopeID(ctx, c)
+	// 一致：目录路由下是条目 ID，否则 0。
+	scopeID := openAIHTTPResponseScopeID(ctx)
 	if !s.BindOpenAIHTTPResponseAccount(ctx, scopeID, responseID, account.ID) {
 		return
 	}
@@ -1495,7 +1493,7 @@ func (s *OpenAIGatewayService) bindHTTPResponseAccount(ctx context.Context, c *g
 			if err := s.BindOpenAIHTTPResponseOwner(ctx, scopeID, responseID, owner.userID, owner.apiKeyID); err != nil {
 				logger.L().Warn(
 					"openai.http_bind_response_owner_failed",
-					zap.Int64("group_id", groupID),
+					zap.Int64("scope_id", scopeID),
 					zap.Int64("account_id", account.ID),
 					zap.Int64("user_id", owner.userID),
 					zap.Int64("api_key_id", owner.apiKeyID),

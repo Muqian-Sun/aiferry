@@ -88,7 +88,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 	requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
 	requestStart := time.Now()
-	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, routingModel)
+	account, err := h.selectTokenCountAccount(c.Request.Context(), sessionHash, routingModel)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
 		reqLog.Warn("openai_input_tokens.account_select_failed", zap.Error(openAICompatibleSelectionErrorForLog(err, requestPlatform)))
@@ -97,7 +97,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 			h.errorResponse(c, http.StatusNotFound, "not_found_error", "input_tokens endpoint is not supported for this model")
 			return
 		}
-		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
+		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 		}
@@ -105,7 +105,7 @@ func (h *OpenAIGatewayHandler) ResponsesInputTokens(c *gin.Context) {
 		return
 	}
 	if account == nil {
-		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
+		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimited(c)
 		}
@@ -237,7 +237,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 	// token 计数都返回 no available accounts。
 	c.Request = c.Request.WithContext(service.WithOpenAIProfitControlSuppressed(c.Request.Context()))
 	sessionHash := h.gatewayService.GenerateSessionHash(c, body)
-	account, err := h.selectTokenCountAccount(c.Request.Context(), apiKey.GroupID, sessionHash, routingModel)
+	account, err := h.selectTokenCountAccount(c.Request.Context(), sessionHash, routingModel)
 	service.SetOpsLatencyMs(c, service.OpsAuthLatencyMsKey, time.Since(requestStart).Milliseconds())
 	if err != nil {
 		requestPlatform := service.OpenAICompatibleRequestPlatform(c.Request.Context())
@@ -247,7 +247,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 			h.anthropicErrorResponse(c, http.StatusNotFound, "not_found_error", "count_tokens endpoint is not supported for this model")
 			return
 		}
-		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
+		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 		}
@@ -255,7 +255,7 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 		return
 	}
 	if account == nil {
-		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, apiKey, routingModel, reqModel)
+		cls := classifyOpenAICompatibleNoAccountErrorFromGin(c, h.gatewayService, routingModel, reqModel)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimited(c)
 		}
@@ -271,7 +271,16 @@ func (h *OpenAIGatewayHandler) CountTokens(c *gin.Context) {
 
 // selectTokenCountAccount 计 token 是非计费请求：不抢槽、利润门抑制，其余门（平台 / 模型 / 能力 / 状态）与正常选号一致。
 // 计数没有协议转换，只有 /v1/responses/input_tokens 一条桥：只认能承接 Responses 的资源（只配 chat 地址的 key 不行）。
-func (h *OpenAIGatewayHandler) selectTokenCountAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string) (*service.Account, error) {
-	ctx = service.WithSelectOptions(service.WithOpenAIProfitControlSuppressed(ctx), service.SelectOptions{Capability: service.OpenAIEndpointCapabilityResponses})
-	return h.gatewayService.Scheduler().SelectAccountForModelWithExclusions(ctx, groupID, sessionHash, routingModel, nil)
+func (h *OpenAIGatewayHandler) selectTokenCountAccount(ctx context.Context, sessionHash, routingModel string) (*service.Account, error) {
+	selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(
+		service.WithOpenAIProfitControlSuppressed(ctx), sessionHash, routingModel, nil,
+		service.SelectOptions{Capability: service.OpenAIEndpointCapabilityResponses, NoSlot: true},
+	)
+	if err != nil {
+		return nil, err
+	}
+	if selection == nil || selection.Account == nil {
+		return nil, service.ErrNoAvailableAccounts
+	}
+	return selection.Account, nil
 }

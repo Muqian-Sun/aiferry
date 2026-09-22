@@ -76,19 +76,19 @@ type OpenAIWSStateStore interface {
 	GetResponseConn(responseID string) (string, bool)
 	DeleteResponseConn(responseID string)
 
-	BindSessionTurnState(groupID int64, sessionHash, turnState string, ttl time.Duration)
-	GetSessionTurnState(groupID int64, sessionHash string) (string, bool)
-	DeleteSessionTurnState(groupID int64, sessionHash string)
+	BindSessionTurnState(sessionHash, turnState string, ttl time.Duration)
+	GetSessionTurnState(sessionHash string) (string, bool)
+	DeleteSessionTurnState(sessionHash string)
 
-	BindSessionConn(groupID int64, sessionHash, connID string, ttl time.Duration)
-	GetSessionConn(groupID int64, sessionHash string) (string, bool)
-	DeleteSessionConn(groupID int64, sessionHash string)
+	BindSessionConn(sessionHash, connID string, ttl time.Duration)
+	GetSessionConn(sessionHash string) (string, bool)
+	DeleteSessionConn(sessionHash string)
 
 	// invalid_encrypted_content lineage：按会话记录已被上游拒绝的
 	// encrypted_content 摘要，后续 turn 进场时仅剥离命中项，避免同一失效
 	// 密文随客户端历史反复触发"整包被拒→剥离→重试/重连"。仅进程内有效。
-	MarkSessionInvalidEncryptedContent(groupID int64, sessionHash string, digests []string, ttl time.Duration)
-	GetSessionInvalidEncryptedContentDigests(groupID int64, sessionHash string) map[string]struct{}
+	MarkSessionInvalidEncryptedContent(sessionHash string, digests []string, ttl time.Duration)
+	GetSessionInvalidEncryptedContentDigests(sessionHash string) map[string]struct{}
 	// HasAnySessionInvalidEncryptedContent 是热路径快速探测：全局无记录时
 	// 调用方可跳过会话哈希计算与摘要匹配。
 	HasAnySessionInvalidEncryptedContent() bool
@@ -331,8 +331,8 @@ func (s *defaultOpenAIWSStateStore) DeleteResponseConn(responseID string) {
 	s.responseToConnMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) BindSessionTurnState(groupID int64, sessionHash, turnState string, ttl time.Duration) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) BindSessionTurnState(sessionHash, turnState string, ttl time.Duration) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	state := strings.TrimSpace(turnState)
 	if key == "" || state == "" {
 		return
@@ -349,8 +349,8 @@ func (s *defaultOpenAIWSStateStore) BindSessionTurnState(groupID int64, sessionH
 	s.sessionToTurnStateMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) GetSessionTurnState(groupID int64, sessionHash string) (string, bool) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) GetSessionTurnState(sessionHash string) (string, bool) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" {
 		return "", false
 	}
@@ -366,8 +366,8 @@ func (s *defaultOpenAIWSStateStore) GetSessionTurnState(groupID int64, sessionHa
 	return binding.turnState, true
 }
 
-func (s *defaultOpenAIWSStateStore) DeleteSessionTurnState(groupID int64, sessionHash string) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) DeleteSessionTurnState(sessionHash string) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" {
 		return
 	}
@@ -376,8 +376,8 @@ func (s *defaultOpenAIWSStateStore) DeleteSessionTurnState(groupID int64, sessio
 	s.sessionToTurnStateMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) BindSessionConn(groupID int64, sessionHash, connID string, ttl time.Duration) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) BindSessionConn(sessionHash, connID string, ttl time.Duration) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	conn := strings.TrimSpace(connID)
 	if key == "" || conn == "" {
 		return
@@ -394,8 +394,8 @@ func (s *defaultOpenAIWSStateStore) BindSessionConn(groupID int64, sessionHash, 
 	s.sessionToConnMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) GetSessionConn(groupID int64, sessionHash string) (string, bool) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) GetSessionConn(sessionHash string) (string, bool) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" {
 		return "", false
 	}
@@ -411,8 +411,8 @@ func (s *defaultOpenAIWSStateStore) GetSessionConn(groupID int64, sessionHash st
 	return binding.connID, true
 }
 
-func (s *defaultOpenAIWSStateStore) DeleteSessionConn(groupID int64, sessionHash string) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) DeleteSessionConn(sessionHash string) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" {
 		return
 	}
@@ -421,8 +421,8 @@ func (s *defaultOpenAIWSStateStore) DeleteSessionConn(groupID int64, sessionHash
 	s.sessionToConnMu.Unlock()
 }
 
-func (s *defaultOpenAIWSStateStore) MarkSessionInvalidEncryptedContent(groupID int64, sessionHash string, digests []string, ttl time.Duration) {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) MarkSessionInvalidEncryptedContent(sessionHash string, digests []string, ttl time.Duration) {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" || len(digests) == 0 {
 		return
 	}
@@ -464,8 +464,8 @@ func (s *defaultOpenAIWSStateStore) MarkSessionInvalidEncryptedContent(groupID i
 	}
 }
 
-func (s *defaultOpenAIWSStateStore) GetSessionInvalidEncryptedContentDigests(groupID int64, sessionHash string) map[string]struct{} {
-	key := openAIWSSessionTurnStateKey(groupID, sessionHash)
+func (s *defaultOpenAIWSStateStore) GetSessionInvalidEncryptedContentDigests(sessionHash string) map[string]struct{} {
+	key := openAIWSSessionTurnStateKey(sessionHash)
 	if key == "" {
 		return nil
 	}
@@ -638,9 +638,9 @@ func openAIHTTPResponseOwnerCacheKey(prefix, responseID string) string {
 	return prefix + hex.EncodeToString(sum[:])
 }
 
-// openAIWSResponseAccountMapKey 本地热缓存按分组隔离的 key，与 Redis 层保持一致，避免跨组命中。
-func openAIWSResponseAccountMapKey(groupID int64, responseID string) string {
-	return fmt.Sprintf("%d:%s", groupID, responseID)
+// openAIWSResponseAccountMapKey 本地热缓存按作用域（目录条目 ID 或 0）隔离的 key，与 Redis 层保持一致。
+func openAIWSResponseAccountMapKey(scopeID int64, responseID string) string {
+	return fmt.Sprintf("%d:%s", scopeID, responseID)
 }
 
 func normalizeOpenAIWSTTL(ttl time.Duration) time.Duration {
@@ -650,12 +650,10 @@ func normalizeOpenAIWSTTL(ttl time.Duration) time.Duration {
 	return ttl
 }
 
-func openAIWSSessionTurnStateKey(groupID int64, sessionHash string) string {
-	hash := strings.TrimSpace(sessionHash)
-	if hash == "" {
-		return ""
-	}
-	return fmt.Sprintf("%d:%s", groupID, hash)
+// openAIWSSessionTurnStateKey 会话级状态（turn state / 连接 / 失效密文）的键：会话 hash 本身
+// （已含用户 / key / 线程身份），没有别的命名空间。
+func openAIWSSessionTurnStateKey(sessionHash string) string {
+	return strings.TrimSpace(sessionHash)
 }
 
 func withOpenAIWSStateStoreRedisTimeout(ctx context.Context) (context.Context, context.CancelFunc) {

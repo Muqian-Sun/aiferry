@@ -165,7 +165,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 	if endpoint.IsVideoLookupRequest() {
 		sessionHash = service.GrokMediaVideoRequestSessionHash(requestID, subject.UserID, apiKey.ID)
 		boundLookupAccountID, err = h.gatewayService.ResolveGrokMediaVideoRequestAccount(
-			c.Request.Context(), apiKey.GroupID, requestID, subject.UserID, apiKey.ID,
+			c.Request.Context(), requestID, subject.UserID, apiKey.ID,
 		)
 		if err != nil || boundLookupAccountID <= 0 {
 			reqLog.Info("grok_media.video_lookup_owner_binding_missing", zap.Error(err))
@@ -211,10 +211,10 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		var selection *service.AccountSelectionResult
 		if boundLookupAccountID > 0 {
 			selection, err = h.gatewayService.SelectGrokMediaVideoRequestAccount(
-				requestCtx, apiKey.GroupID, sessionHash, boundLookupAccountID, routingModel,
+				requestCtx, sessionHash, boundLookupAccountID, routingModel,
 			)
 		} else {
-			selection, err = h.gatewayService.Scheduler().SelectAccountWithOptions(requestCtx, apiKey.GroupID, sessionHash, routingModel, failedAccountIDs,
+			selection, err = h.gatewayService.Scheduler().SelectAccountWithOptions(requestCtx, sessionHash, routingModel, failedAccountIDs,
 				service.SelectOptions{Capability: requiredCapability, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 		}
 		// Own an eagerly acquired slot before any rejection or eligibility probe.
@@ -243,7 +243,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				return
 			}
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, routingModel, service.PlatformGrok)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, requestModel, routingModel, service.PlatformGrok)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -263,7 +263,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 				h.errorResponse(c, http.StatusServiceUnavailable, "grok_media_no_eligible_account", "No eligible Grok media accounts")
 				return
 			}
-			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestModel, routingModel, service.PlatformGrok)
+			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, requestModel, routingModel, service.PlatformGrok)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
 			}
@@ -320,7 +320,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 			admissionSessionHash = ""
 		}
 		var slotResult openAISlotAcquireResult
-		accountReleaseFunc, slotResult = h.acquireResponsesAccountSlot(c, apiKey.GroupID, admissionSessionHash, selection, false, &streamStarted, reqLog)
+		accountReleaseFunc, slotResult = h.acquireResponsesAccountSlot(c, admissionSessionHash, selection, false, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 媒体路径已显式豁免利润门（suppress 标记），此分支仅防御性兜底，
 			// 同样受否决上限约束。
@@ -428,7 +428,7 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		h.gatewayService.ObserveOpenAIAccountResult(account, grokMediaScheduleModel(account, routingModel, result), true)
 		if isGrokVideoCreateEndpoint(endpoint) && strings.TrimSpace(result.ResponseID) != "" {
 			if err := h.gatewayService.BindGrokMediaVideoRequestAccount(
-				requestCtx, apiKey.GroupID, result.ResponseID, subject.UserID, apiKey.ID, account.ID,
+				requestCtx, result.ResponseID, subject.UserID, apiKey.ID, account.ID,
 			); err != nil {
 				reqLog.Warn("grok_media.bind_video_request_account_failed",
 					zap.Int64("account_id", account.ID),

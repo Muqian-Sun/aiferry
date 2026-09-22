@@ -701,12 +701,11 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	// 阻断同一失效密文随客户端历史在每一轮重复触发"被拒→剥离→重试/重连"。
 	// lineage 会话键统一按进场形态的 body 派生：后续重试可能改写 body，
 	// 延迟计算会与下一请求的进场键漂移。
-	lineageGroupID := getOpenAIGroupIDFromContext(c)
 	lineageEntryBody := body
 	lineageSessionHash := ""
 	if stateStore := s.getOpenAIWSStateStore(); stateStore != nil && stateStore.HasAnySessionInvalidEncryptedContent() {
 		lineageSessionHash = s.GenerateSessionHash(c, body)
-		if invalidDigests := stateStore.GetSessionInvalidEncryptedContentDigests(lineageGroupID, lineageSessionHash); len(invalidDigests) > 0 {
+		if invalidDigests := stateStore.GetSessionInvalidEncryptedContentDigests(lineageSessionHash); len(invalidDigests) > 0 {
 			strippedBody, strippedCount := s.stripSessionInvalidEncryptedContentLogged(
 				body, invalidDigests, "invalid_encrypted_lineage_strip", account.ID, 0,
 			)
@@ -821,7 +820,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 				if lineageSessionHash == "" {
 					lineageSessionHash = s.GenerateSessionHash(c, lineageEntryBody)
 				}
-				s.markOpenAIWSInvalidEncryptedContentLineage(lineageGroupID, lineageSessionHash, invalidDigests)
+				s.markOpenAIWSInvalidEncryptedContentLineage(lineageSessionHash, invalidDigests)
 			}
 			previousResponseID := openAIWSPayloadString(wsReqBody, "previous_response_id")
 			hasFunctionCallOutput := HasFunctionCallOutput(wsReqBody)
@@ -1086,7 +1085,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 						if lineageSessionHash == "" {
 							lineageSessionHash = s.GenerateSessionHash(c, lineageEntryBody)
 						}
-						s.markOpenAIWSInvalidEncryptedContentLineage(lineageGroupID, lineageSessionHash, invalidDigests)
+						s.markOpenAIWSInvalidEncryptedContentLineage(lineageSessionHash, invalidDigests)
 					}
 					httpInvalidEncryptedContentRetryTried = true
 					rejectedFieldRetryState.remember(body)

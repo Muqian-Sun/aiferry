@@ -274,38 +274,23 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 }
 
 // SchedulingScopeID 粘性会话、Responses 会话窗、Gemini 摘要会话的作用域：目录路由下是条目 ID，
-// 否则是分组 ID（未分组为 0）。条目 ID 与分组 ID 共用数字空间：撞上时成员判定
-// （accountInSchedulingScope）会把不在池里的粘性账号判为未命中，只是多选一次号。
-func SchedulingScopeID(ctx context.Context, groupID *int64) int64 {
+// 无路由（无模型端点）为 0。
+func SchedulingScopeID(ctx context.Context) int64 {
 	if route, ok := CatalogRouteFromContext(ctx); ok {
 		return route.EntryID
 	}
-	return derefGroupID(groupID)
+	return 0
 }
 
-// accountInSchedulingScope 账号是否属于本次请求的调度池：目录路由看绑定，否则看分组
-// （groupID 为 nil = 未分组账号）。
-func accountInSchedulingScope(ctx context.Context, account *Account, groupID *int64) bool {
+// accountInSchedulingScope 账号是否属于本次请求的调度池：目录路由看绑定；无路由的池是全部资源，恒真。
+func accountInSchedulingScope(ctx context.Context, account *Account) bool {
 	if account == nil {
 		return false
 	}
 	if route, ok := CatalogRouteFromContext(ctx); ok {
 		return slices.Contains(account.CatalogEntryIDs, route.EntryID)
 	}
-	if groupID == nil {
-		return len(account.AccountGroups) == 0 && len(account.GroupIDs) == 0
-	}
-	for _, id := range account.GroupIDs {
-		if id == *groupID {
-			return true
-		}
-	}
-	for _, ag := range account.AccountGroups {
-		if ag.GroupID == *groupID {
-			return true
-		}
-	}
-	return false
+	return true
 }
 
 // SchedulingBlockedReason 返回账号此刻不可调度的类别（SchedulingState.Reason），可调度时返回空串。

@@ -121,7 +121,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 	c.Request = c.Request.WithContext(asPricingCtx)
 
 	for {
-		selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, sessionHash, requestedModel, failedAccountIDs,
+		selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), sessionHash, requestedModel, failedAccountIDs,
 			service.SelectOptions{Capability: service.OpenAIEndpointCapabilityAlphaSearch, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 		if err != nil || selection == nil || selection.Account == nil {
 			if failoverClientGone(c) {
@@ -129,7 +129,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 				return
 			}
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, requestedModel, requestedModel, service.PlatformOpenAI)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, requestedModel, requestedModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -146,7 +146,7 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
-		accountRelease, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, false, &streamStarted, reqLog)
+		accountRelease, slotResult := h.acquireResponsesAccountSlot(c, sessionHash, selection, false, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 利润终检否决：排除该账号重新选号；否决次数达上限则按无可用账号终止。
 			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {

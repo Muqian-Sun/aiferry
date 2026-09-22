@@ -70,10 +70,10 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 		return
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), nil)
+	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context())
 	if err != nil {
 		// 没有 gemini 账户，检查是否有 antigravity 账户可用
-		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), nil)
+		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context())
 		if hasAntigravity {
 			// antigravity 账户使用静态模型列表
 			c.JSON(http.StatusOK, gemini.ModelsListResponse{Models: filterGeminiModels(gemini.DefaultModels())})
@@ -177,10 +177,10 @@ func (h *GatewayHandler) GeminiV1BetaGetModel(c *gin.Context) {
 		return
 	}
 
-	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context(), nil)
+	account, err := h.geminiCompatService.SelectAccountForAIStudioEndpoints(c.Request.Context())
 	if err != nil {
 		// 没有 gemini 账户，检查是否有 antigravity 账户可用
-		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context(), nil)
+		hasAntigravity, _ := h.geminiCompatService.HasAntigravityAccounts(c.Request.Context())
 		if hasAntigravity {
 			// antigravity 账户使用静态模型信息
 			c.JSON(http.StatusOK, gemini.FallbackModel(modelName))
@@ -322,9 +322,9 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 	// 查询粘性会话绑定的账号 ID（用于检测账号切换）
 	var sessionBoundAccountID int64
 	if sessionKey != "" {
-		sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), apiKey.GroupID, sessionKey)
+		sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), sessionKey)
 		if sessionBoundAccountID > 0 {
-			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
+			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context())
 			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedScopeID, h.metadataBridgeEnabled())
 			c.Request = c.Request.WithContext(ctx)
 		}
@@ -361,7 +361,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				// 查找会话
 				foundUUID, foundAccountID, foundMatchedChain, found := h.gatewayService.FindGeminiSession(
 					c.Request.Context(),
-					service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID),
+					service.SchedulingScopeID(c.Request.Context()),
 					geminiPrefixHash,
 					geminiDigestChain,
 				)
@@ -380,7 +380,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 					if sessionKey == "" {
 						sessionKey = service.GenerateGeminiDigestSessionKey(geminiPrefixHash, foundUUID)
 					}
-					_ = h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, foundAccountID)
+					_ = h.gatewayService.BindStickySession(c.Request.Context(), sessionKey, foundAccountID)
 				} else {
 					// 生成新的会话 UUID
 					geminiSessionUUID = uuid.New().String()
@@ -401,16 +401,16 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 
 	// 单资源池提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 	// 避免单资源池收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
-	if h.gatewayService.IsSinglePool(c.Request.Context(), apiKey.GroupID) {
+	if h.gatewayService.IsSinglePool(c.Request.Context()) {
 		ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
 		c.Request = c.Request.WithContext(ctx)
 	}
 
 	for {
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, modelName, fs.FailedAccountIDs) // Gemini 不使用会话限制
+		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), sessionKey, modelName, fs.FailedAccountIDs) // Gemini 不使用会话限制
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, modelName, modelName, service.PlatformGemini)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, modelName, modelName, service.PlatformGemini)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -530,7 +530,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		// 等待路径保持既有 eager 绑定（无门时 helper 直接绑定）；调度器已抢槽
 		// 的直达路径无门时由选号内部绑定，这里只在门下补准入后绑定。
 		if selection.ProfitGateActive() || !selection.Acquired {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, apiKey.GroupID, sessionKey, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, sessionKey, account.ID); err != nil {
 				reqLog.Warn("gemini.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
@@ -543,7 +543,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if fs.SwitchCount > 0 {
 			requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
 		}
-		sessionGroupID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
+		sessionGroupID := service.SchedulingScopeID(c.Request.Context())
 		// Antigravity 成品号走 v1internal；第三方 key（任何标签）原生转发到其 gemini 协议地址。
 		if usesAntigravityV1Internal(account) {
 			result, err = h.antigravityGatewayService.ForwardGemini(
@@ -591,7 +591,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if useDigestFallback && geminiDigestChain != "" && geminiPrefixHash != "" {
 			if err := h.gatewayService.SaveGeminiSession(
 				c.Request.Context(),
-				service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID),
+				service.SchedulingScopeID(c.Request.Context()),
 				geminiPrefixHash,
 				geminiDigestChain,
 				geminiSessionUUID,

@@ -145,7 +145,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 
 	for {
 		reqLog.Debug("openai.images.account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, err := h.selectImagesAccount(requestCtx, apiKey.GroupID, sessionHash, routingModel, failedAccountIDs, parsed.RequiredCapability)
+		selection, err := h.selectImagesAccount(requestCtx, sessionHash, routingModel, failedAccountIDs, parsed.RequiredCapability)
 		if err != nil {
 			if failoverClientGone(c) {
 				reqLog.Info("openai.images.account_select_aborted_client_disconnected", zap.Error(err))
@@ -156,7 +156,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, clientRequestModel, routingModel, service.PlatformOpenAI)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, clientRequestModel, routingModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -175,7 +175,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 			return
 		}
 		if selection == nil || selection.Account == nil {
-			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, clientRequestModel, routingModel, service.PlatformOpenAI)
+			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, clientRequestModel, routingModel, service.PlatformOpenAI)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
 			}
@@ -192,7 +192,7 @@ func (h *OpenAIGatewayHandler) Images(c *gin.Context) {
 		reqLog.Debug("openai.images.account_selected", zap.Int64("account_id", account.ID), zap.String("account_name", account.Name))
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
-		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, sessionHash, selection, parsed.Stream, &streamStarted, reqLog)
+		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, sessionHash, selection, parsed.Stream, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// Images 调度不装利润门，此分支实际不可达；防御性排除重选并受同一否决上限约束。
 			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
@@ -404,7 +404,7 @@ func isMultipartImagesContentType(contentType string) bool {
 
 // selectImagesAccount 按图片能力档选号。原 OpenAI 调度器的「native 无候选回退 basic」两次调用没有保留：
 // SupportsOpenAIImageCapability 对 native / basic 的判定完全相同，第二次调用不可能多出候选。
-func (h *OpenAIGatewayHandler) selectImagesAccount(ctx context.Context, groupID *int64, sessionHash, routingModel string, excluded map[int64]struct{}, capability service.OpenAIImagesCapability) (*service.AccountSelectionResult, error) {
-	return h.gatewayService.Scheduler().SelectAccountWithOptions(ctx, groupID, sessionHash, routingModel, excluded,
+func (h *OpenAIGatewayHandler) selectImagesAccount(ctx context.Context, sessionHash, routingModel string, excluded map[int64]struct{}, capability service.OpenAIImagesCapability) (*service.AccountSelectionResult, error) {
+	return h.gatewayService.Scheduler().SelectAccountWithOptions(ctx, sessionHash, routingModel, excluded,
 		service.SelectOptions{ImageCapability: capability, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 }

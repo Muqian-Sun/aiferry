@@ -15,7 +15,7 @@ type RequestMetadata struct {
 	IsMaxTokensOneHaikuRequest *bool
 	ThinkingEnabled            *bool
 	PrefetchedStickyAccountID  *int64
-	PrefetchedStickyGroupID    *int64
+	PrefetchedStickyScopeID    *int64
 	SingleAccountRetry         *bool
 	AccountSwitchCount         *int
 }
@@ -86,15 +86,16 @@ func WithThinkingEnabled(ctx context.Context, value bool, bridgeOldKeys bool) co
 	})
 }
 
-func WithPrefetchedStickySession(ctx context.Context, accountID, groupID int64, bridgeOldKeys bool) context.Context {
+// WithPrefetchedStickySession handler 预取的粘性账号与它的作用域（SchedulingScopeID：条目 ID 或 0）。
+func WithPrefetchedStickySession(ctx context.Context, accountID, scopeID int64, bridgeOldKeys bool) context.Context {
 	return updateRequestMetadata(ctx, bridgeOldKeys, func(md *RequestMetadata) {
 		account := accountID
-		group := groupID
+		scope := scopeID
 		md.PrefetchedStickyAccountID = &account
-		md.PrefetchedStickyGroupID = &group
+		md.PrefetchedStickyScopeID = &scope
 	}, func(base context.Context) context.Context {
 		bridged := context.WithValue(base, ctxkey.PrefetchedStickyAccountID, accountID)
-		return context.WithValue(bridged, ctxkey.PrefetchedStickyGroupID, groupID)
+		return context.WithValue(bridged, ctxkey.PrefetchedStickyScopeID, scopeID)
 	})
 }
 
@@ -144,14 +145,14 @@ func ThinkingEnabledFromContext(ctx context.Context) (bool, bool) {
 	return false, false
 }
 
-func PrefetchedStickyGroupIDFromContext(ctx context.Context) (int64, bool) {
-	if md := metadataFromContext(ctx); md != nil && md.PrefetchedStickyGroupID != nil {
-		return *md.PrefetchedStickyGroupID, true
+func PrefetchedStickyScopeIDFromContext(ctx context.Context) (int64, bool) {
+	if md := metadataFromContext(ctx); md != nil && md.PrefetchedStickyScopeID != nil {
+		return *md.PrefetchedStickyScopeID, true
 	}
 	if ctx == nil {
 		return 0, false
 	}
-	v := ctx.Value(ctxkey.PrefetchedStickyGroupID)
+	v := ctx.Value(ctxkey.PrefetchedStickyScopeID)
 	switch t := v.(type) {
 	case int64:
 		requestMetadataFallbackPrefetchedStickyGroup.Add(1)

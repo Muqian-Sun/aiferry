@@ -263,7 +263,7 @@ func stripOpenAIInvalidEncryptedContentRaw(payload []byte, invalid map[string]st
 
 // markOpenAIWSInvalidEncryptedContentLineage 把本次被上游拒绝的密文摘要写入
 // 会话 lineage。digests 须在剥离前收集。
-func (s *OpenAIGatewayService) markOpenAIWSInvalidEncryptedContentLineage(groupID int64, sessionHash string, digests []string) {
+func (s *OpenAIGatewayService) markOpenAIWSInvalidEncryptedContentLineage(sessionHash string, digests []string) {
 	if s == nil || len(digests) == 0 || strings.TrimSpace(sessionHash) == "" {
 		return
 	}
@@ -271,12 +271,12 @@ func (s *OpenAIGatewayService) markOpenAIWSInvalidEncryptedContentLineage(groupI
 	if stateStore == nil {
 		return
 	}
-	stateStore.MarkSessionInvalidEncryptedContent(groupID, sessionHash, digests, s.openAIWSSessionStickyTTL())
+	stateStore.MarkSessionInvalidEncryptedContent(sessionHash, digests, s.openAIWSSessionStickyTTL())
 }
 
 // sessionInvalidEncryptedContentDigests 返回会话已知失效密文摘要；全局无记录
 // 时（常态）零成本返回 nil。
-func (s *OpenAIGatewayService) sessionInvalidEncryptedContentDigests(groupID int64, sessionHash string) map[string]struct{} {
+func (s *OpenAIGatewayService) sessionInvalidEncryptedContentDigests(sessionHash string) map[string]struct{} {
 	if s == nil || strings.TrimSpace(sessionHash) == "" {
 		return nil
 	}
@@ -284,7 +284,7 @@ func (s *OpenAIGatewayService) sessionInvalidEncryptedContentDigests(groupID int
 	if stateStore == nil || !stateStore.HasAnySessionInvalidEncryptedContent() {
 		return nil
 	}
-	return stateStore.GetSessionInvalidEncryptedContentDigests(groupID, sessionHash)
+	return stateStore.GetSessionInvalidEncryptedContentDigests(sessionHash)
 }
 
 // openAIWSLineageSessionHashFromContext 取 lineage 会话键：优先 ingress 循环
@@ -312,7 +312,6 @@ func (s *OpenAIGatewayService) markOpenAIWSInvalidEncryptedContentLineageFromPay
 		return
 	}
 	s.markOpenAIWSInvalidEncryptedContentLineage(
-		getOpenAIGroupIDFromContext(c),
 		s.openAIWSLineageSessionHashFromContext(c, payload),
 		digests,
 	)

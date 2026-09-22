@@ -17,6 +17,8 @@ type SelectOptions struct {
 	RequireCompact bool
 	// Transport 需要的上游传输（WS v2 / HTTP SSE / any），按 cfg 与账号解析（openAIAccountTransportCompatible）
 	Transport OpenAIUpstreamTransport
+	// NoSlot 计 token 这类非计费请求：不抢槽、不绑粘性、不等待（粘性命中就用它，否则优先级 + LRU 首个）。
+	NoSlot bool
 	// OnlyAccountID 只认这一个账号（grok 视频状态轮询只能落回任务归属账号）；它不能承接就是无候选，不逃逸到别的账号。
 	OnlyAccountID int64
 	// Platform 端点要求的厂商平台（无模型端点用：live / realtime → openai，web_search / tts → grok…）。

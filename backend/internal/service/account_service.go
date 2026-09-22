@@ -95,7 +95,7 @@ type AccountRepository interface {
 	// as rate-limit, overload, temporary-unschedulable, or expiry windows.
 	// When groupID is nil, includeGrouped controls whether the query scans all
 	// matching accounts or only accounts without a group binding.
-	ListModelAvailabilityCandidates(ctx context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error)
+	ListModelAvailabilityCandidates(ctx context.Context, platforms []string) ([]Account, error)
 
 	SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error
 	SetModelRateLimit(ctx context.Context, id int64, scope string, resetAt time.Time, reason ...string) error

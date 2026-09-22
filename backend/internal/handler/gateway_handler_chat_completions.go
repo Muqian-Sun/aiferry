@@ -162,10 +162,10 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		if c.Request.Context().Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
+		selection, err := h.gatewayService.SelectAccountWithOptions(c.Request.Context(), selectionSessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, requestPlatform)
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -236,7 +236,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		account = latest
 		selection.Account = latest
 		if selection.ProfitGateActive() {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, apiKey.GroupID, selectionSessionHash, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, selectionSessionHash, account.ID); err != nil {
 				reqLog.Warn("gateway.cc.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
