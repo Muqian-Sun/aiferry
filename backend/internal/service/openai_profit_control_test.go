@@ -7,27 +7,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
 
-func profitControlTestGroup(id int64, margin, buffer float64) *Group {
-	return &Group{
-		ID:                   id,
-		Platform:             PlatformOpenAI,
-		Status:               StatusActive,
-		Hydrated:             true,
-		RateMultiplier:       1.0,
-		ProfitControlEnabled: true,
-		ProfitMinMargin:      margin,
-		ProfitSafetyBuffer:   buffer,
-	}
+// profitControlTestService 造一个只带利润门全局设置的 OpenAI 网关服务（全站一档）。
+func profitControlTestService(t *testing.T, enabled bool, margin, buffer float64) *OpenAIGatewayService {
+	t.Helper()
+	return &OpenAIGatewayService{settingService: profitControlTestSettingService(t, enabled, margin, buffer)}
 }
 
-// profitControlTestCtx 模拟认证后的请求上下文：D 取用户倍率（用夹具分组的数当用户倍率）。
-func profitControlTestCtx(group *Group) context.Context {
-	ctx := context.WithValue(context.Background(), ctxkey.Group, group)
-	return WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: group.RateMultiplier})
+// profitControlTestCtx 模拟认证后的请求上下文：D = 用户倍率。
+func profitControlTestCtx(userRate float64) context.Context {
+	return WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: userRate})
 }
 
 func profitControlTestAccountWithRate(account *Account, rate float64) *Account {
@@ -36,62 +27,38 @@ func profitControlTestAccountWithRate(account *Account, rate float64) *Account {
 }
 
 func TestResolveOpenAIProfitControlGate(t *testing.T) {
-	svc := &OpenAIGatewayService{}
-	groupID := int64(7)
-
-	t.Run("nil group id yields no gate", func(t *testing.T) {
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(context.Background(), nil))
+	t.Run("no setting service yields no gate", func(t *testing.T) {
+		svc := &OpenAIGatewayService{}
+		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
 	})
 
-	t.Run("no ctx group and no snapshot yields no gate", func(t *testing.T) {
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(context.Background(), &groupID))
+	t.Run("disabled setting yields no gate", func(t *testing.T) {
+		svc := profitControlTestService(t, false, 0.3, 0)
+		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)))
 	})
 
-	t.Run("disabled group yields no gate", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.3, 0)
-		group.ProfitControlEnabled = false
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID))
-	})
-
-	t.Run("non openai or grok platform yields no gate even if enabled", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.3, 0)
-		group.Platform = PlatformAnthropic
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID))
-	})
-
-	t.Run("grok group routed through openai handler installs gate", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.3, 0.05)
-		group.Platform = PlatformGrok
-		group.RateMultiplier = 0.5
-		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID)
-		require.NotNil(t, gate)
-		require.Equal(t, PlatformGrok, gate.platform)
-		require.InDelta(t, 0.5*(1-0.35), gate.threshold, 1e-12)
-	})
-
-	t.Run("ctx group id mismatch without snapshot yields no gate", func(t *testing.T) {
-		group := profitControlTestGroup(groupID+1, 0.3, 0)
-		require.Nil(t, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID))
-	})
-
-	t.Run("threshold composes margin and buffer from downstream rate", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.3, 0.05)
-		group.RateMultiplier = 2.0
-		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(group), &groupID)
+	t.Run("threshold composes margin and buffer from the user rate", func(t *testing.T) {
+		svc := profitControlTestService(t, true, 0.3, 0.05)
+		gate := svc.resolveOpenAIProfitControlGate(profitControlTestCtx(2.0))
 		require.NotNil(t, gate)
 		require.InDelta(t, 2.0*(1-0.35), gate.threshold, 1e-12)
-		require.Equal(t, PlatformOpenAI, gate.platform)
 		require.False(t, gate.pricingAt.IsZero())
-		require.Equal(t, groupID, gate.groupID)
 	})
 
-	t.Run("threshold uses the user rate multiplier exactly like billing", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.5, 0)
-		ctx := WithUserRateMultiplier(profitControlTestCtx(group), &User{ID: 1, RateMultiplier: 3.0})
-		gate := svc.resolveOpenAIProfitControlGate(ctx, &groupID)
+	t.Run("no user identity prices at rate 1", func(t *testing.T) {
+		svc := profitControlTestService(t, true, 0.5, 0)
+		gate := svc.resolveOpenAIProfitControlGate(context.Background())
 		require.NotNil(t, gate)
-		require.InDelta(t, 3.0*0.5, gate.threshold, 1e-9)
-		require.Equal(t, PlatformOpenAI, gate.platform)
+		require.InDelta(t, 0.5, gate.threshold, 1e-12)
+	})
+
+	t.Run("settings change is visible after cache invalidation", func(t *testing.T) {
+		svc := profitControlTestService(t, true, 0.5, 0)
+		require.InDelta(t, 0.5, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)).threshold, 1e-12)
+		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0.1"))
+		require.InDelta(t, 0.5, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)).threshold, 1e-12, "60s 缓存内仍是旧值")
+		InvalidateProfitControlSettingsCache()
+		require.InDelta(t, 0.9, svc.resolveOpenAIProfitControlGate(profitControlTestCtx(1)).threshold, 1e-12)
 	})
 }
 

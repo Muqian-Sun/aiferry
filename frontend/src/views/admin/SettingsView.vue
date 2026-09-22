@@ -4743,6 +4743,57 @@
                   </div>
                 </div>
               </div>
+
+              <!-- 利润门（全站一档；原来在分组上） -->
+              <div class="border-t border-gray-100 pt-6 dark:border-dark-700">
+                <div class="flex items-center justify-between">
+                  <div>
+                    <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+                      {{ t("admin.settings.profitControl.title") }}
+                    </label>
+                    <p class="text-xs text-gray-500 dark:text-gray-400">
+                      {{ t("admin.settings.profitControl.description") }}
+                    </p>
+                  </div>
+                  <label class="toggle">
+                    <input
+                      v-model="form.profit_control_enabled"
+                      type="checkbox"
+                      data-testid="profit-control-enabled"
+                    />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+                <div v-if="form.profit_control_enabled" class="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <label class="input-label">{{ t("admin.settings.profitControl.minMargin") }}</label>
+                    <input
+                      v-model.number="form.profit_min_margin"
+                      type="number"
+                      min="0"
+                      max="0.99"
+                      step="0.01"
+                      class="input"
+                      data-testid="profit-control-min-margin"
+                    />
+                  </div>
+                  <div>
+                    <label class="input-label">{{ t("admin.settings.profitControl.safetyBuffer") }}</label>
+                    <input
+                      v-model.number="form.profit_safety_buffer"
+                      type="number"
+                      min="0"
+                      max="0.99"
+                      step="0.01"
+                      class="input"
+                      data-testid="profit-control-safety-buffer"
+                    />
+                  </div>
+                  <p class="text-xs text-gray-500 dark:text-gray-400 sm:col-span-2">
+                    {{ t("admin.settings.profitControl.hint") }}
+                  </p>
+                </div>
+              </div>
             </div>
           </div>
 
@@ -9350,6 +9401,10 @@ const form = reactive<SettingsForm>({
   affiliate_enabled: false,
   // Allow user view error requests
   allow_user_view_error_requests: false,
+  // 利润门（全站一档）
+  profit_control_enabled: false,
+  profit_min_margin: 0,
+  profit_safety_buffer: 0,
 });
 
 // 人机验证 UI 状态：单卡片「总开关 + 服务商单选」，落库仍是三个独立
@@ -10837,6 +10892,9 @@ async function saveSettings() {
       // Affiliate (邀请返利) feature switch
       affiliate_enabled: form.affiliate_enabled,
       allow_user_view_error_requests: form.allow_user_view_error_requests,
+      profit_control_enabled: form.profit_control_enabled,
+      profit_min_margin: form.profit_min_margin,
+      profit_safety_buffer: form.profit_safety_buffer,
     };
 
     // 仅当 openai_fast_policy_settings 已成功从后端加载时才回写，

@@ -16,15 +16,14 @@ import (
 // WithOpenAIRequestPricingContext：装门 + 固定 pricingAt；显式抑制标记
 // （媒体/count_tokens/live 等门范围外路径）跳门且防御性装门无法把门加回来。
 func TestProfitControl_RequestPricingContext(t *testing.T) {
-	svc := &OpenAIGatewayService{}
-	groupID := int64(61)
+	svc := profitControlTestService(t, true, 0.5, 0)
 	now := time.Now()
 	expensive := upstreamCostTestAccount(1, UpstreamBillingProbeStatusOK, 0.8, now.Add(-time.Minute), 30*time.Minute)
 	profitControlTestAccountWithRate(expensive, 0.8)
 
 	t.Run("installs gate and pricing instant", func(t *testing.T) {
-		base := profitControlTestCtx(profitControlTestGroup(groupID, 0.5, 0))
-		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base, &groupID)
+		base := profitControlTestCtx(1)
+		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base)
 		require.False(t, pricingAt.IsZero())
 		require.Equal(t, pricingAt, OpenAIPricingAtFromContext(ctx))
 		vetoed, reason := OpenAIProfitControlVeto(ctx, expensive)
@@ -33,57 +32,42 @@ func TestProfitControl_RequestPricingContext(t *testing.T) {
 	})
 
 	t.Run("suppress marker skips gate everywhere", func(t *testing.T) {
-		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(profitControlTestGroup(groupID, 0.5, 0)))
-		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base, &groupID)
+		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(1))
+		ctx, pricingAt := svc.WithOpenAIRequestPricingContext(base)
 		require.False(t, pricingAt.IsZero(), "跳门时 pricingAt 仍需固定供计费共用")
 		vetoed, _ := OpenAIProfitControlVeto(ctx, expensive)
 		require.False(t, vetoed)
 		// service 层防御性装门也必须被抑制标记挡住。
-		reCtx := svc.withOpenAIProfitControlGate(ctx, &groupID)
+		reCtx := svc.withOpenAIProfitControlGate(ctx)
 		vetoed, _ = OpenAIProfitControlVeto(reCtx, expensive)
 		require.False(t, vetoed)
 	})
 }
 
-// failover 重入复用同一门：请求中途分组配置变化不得改变本请求阈值。
+// failover 重入复用同一门：请求中途设置变化不得改变本请求阈值。
 func TestProfitControl_GateReuseKeepsThresholdAcrossFailover(t *testing.T) {
-	svc := &OpenAIGatewayService{}
-	groupID := int64(62)
-	group := profitControlTestGroup(groupID, 0.5, 0)
-	ctx := svc.withOpenAIProfitControlGate(profitControlTestCtx(group), &groupID)
+	svc := profitControlTestService(t, true, 0.5, 0)
+	ctx := svc.withOpenAIProfitControlGate(profitControlTestCtx(1))
 	gate, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 	require.True(t, ok)
 	require.InDelta(t, 0.5, gate.threshold, 1e-12)
 
-	// 模拟请求进行中管理员改配置（ctx 分组为同一指针，与 auth 快照语义一致）。
-	group.ProfitMinMargin = 0.9
-	reCtx := svc.withOpenAIProfitControlGate(ctx, &groupID)
+	// 模拟请求进行中管理员改设置（缓存已失效）。
+	require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0.9"))
+	InvalidateProfitControlSettingsCache()
+	reCtx := svc.withOpenAIProfitControlGate(ctx)
 	reGate, ok := reCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
 	require.True(t, ok)
 	require.Same(t, gate, reGate, "failover 重入必须复用同一门，阈值不得中途变化")
-
-	// 换分组（composite/模型路由成员调度）重新解析；成员分组无门时必须清除
-	// 父分组门，阈值不得跨组泄漏。
-	otherID := int64(63)
-	otherCtx := svc.withOpenAIProfitControlGate(reCtx, &otherID)
-	otherGate, _ := otherCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-	require.Nil(t, otherGate, "成员分组未启用利润控制时父分组门必须清除")
-	now := time.Now()
-	expensive := upstreamCostTestAccount(8, UpstreamBillingProbeStatusOK, 0.9, now.Add(-time.Minute), 30*time.Minute)
-	vetoed, _ := openAIProfitControlVetoReason(otherCtx, expensive)
-	require.False(t, vetoed)
 }
 
 // D 固定在 pricingAt：门记录请求开始时刻，一个请求不会中途变价。
 func TestProfitControl_GateKeepsPricingAt(t *testing.T) {
-	svc := &OpenAIGatewayService{}
-	groupID := int64(64)
-	group := profitControlTestGroup(groupID, 0, 0)
+	svc := profitControlTestService(t, true, 0, 0)
 
 	pricingAt := time.Date(2026, time.January, 15, 8, 30, 0, 0, timezone.Location())
-	ctx := context.WithValue(profitControlTestCtx(group), openAIPricingAtCtxKey{}, pricingAt)
-	ctx = WithUserRateMultiplier(ctx, &User{ID: 1, RateMultiplier: 3.0})
-	gate := svc.resolveOpenAIProfitControlGate(ctx, &groupID)
+	ctx := context.WithValue(profitControlTestCtx(3.0), openAIPricingAtCtxKey{}, pricingAt)
+	gate := svc.resolveOpenAIProfitControlGate(ctx)
 	require.NotNil(t, gate)
 	require.InDelta(t, 3.0, gate.threshold, 1e-9, "阈值 = 用户倍率 3.0 × (1-0)")
 	require.Equal(t, pricingAt, gate.pricingAt)
@@ -108,10 +92,8 @@ func TestProfitControl_AccountRateSemantics(t *testing.T) {
 	manualOAuth := profitControlTestAccountWithRate(upstreamCostTestOAuthAccount(3), 0.3)
 	expensive := profitControlTestAccountWithRate(upstreamCostTestAccount(4, UpstreamBillingProbeStatusOK, 0.1, now.Add(-3*time.Hour), 30*time.Minute), 0.8)
 
-	group := profitControlTestGroup(77, 0.5, 0)
-	group.RateMultiplier = 1
-	base := context.WithValue(profitControlTestCtx(group), openAIPricingAtCtxKey{}, now)
-	gate := (&OpenAIGatewayService{}).resolveOpenAIProfitControlGate(base, &group.ID)
+	base := context.WithValue(profitControlTestCtx(1), openAIPricingAtCtxKey{}, now)
+	gate := profitControlTestService(t, true, 0.5, 0).resolveOpenAIProfitControlGate(base)
 	require.NotNil(t, gate)
 	gateCtx := context.WithValue(base, openAIProfitControlGateCtxKey{}, gate)
 
@@ -137,55 +119,42 @@ func TestOpenAIUsagePricingAt(t *testing.T) {
 }
 
 // WithOpenAITurnPricingContext：长连接 turn 边界重新冻结 pricingAt 并按当前
-// 配置重装门（区别于请求级同门复用）；已装门时以门所属调度分组为准。
+// 设置重装门（区别于请求级同门复用）。
 func TestProfitControl_TurnPricingContext(t *testing.T) {
-	svc := &OpenAIGatewayService{}
-	groupID := int64(63)
 	expensive := upstreamCostTestAccount(3, UpstreamBillingProbeStatusOK, 0.8, time.Now().Add(-time.Minute), 30*time.Minute)
 	profitControlTestAccountWithRate(expensive, 0.8)
 
 	t.Run("refreshes instant and re-resolves gate config", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.5, 0)
-		base := profitControlTestCtx(group)
-		connCtx, connAt := svc.WithOpenAIRequestPricingContext(base, &groupID)
+		svc := profitControlTestService(t, true, 0.5, 0)
+		connCtx, connAt := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
 		vetoed, _ := OpenAIProfitControlVeto(connCtx, expensive)
 		require.True(t, vetoed)
 
 		// 连接中途运营者放宽 margin：turn 级重装必须生效（请求级复用不生效）。
-		group.ProfitMinMargin = 0.1
-		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(connCtx, &groupID)
+		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitMinMargin, "0.1"))
+		InvalidateProfitControlSettingsCache()
+		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(connCtx)
 		require.False(t, turnAt.Before(connAt))
 		require.Equal(t, turnAt, OpenAIPricingAtFromContext(turnCtx))
 		vetoed, _ = OpenAIProfitControlVeto(turnCtx, expensive)
-		require.False(t, vetoed, "turn 级重装应采用最新分组配置")
-	})
-
-	t.Run("keeps scheduled group of the existing gate", func(t *testing.T) {
-		scheduledGroupID := int64(64)
-		scheduled := profitControlTestGroup(scheduledGroupID, 0.5, 0)
-		connCtx, _ := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(scheduled), &scheduledGroupID)
-		// 入口分组与调度分组不同（composite 成员分组场景）：turn 重装取门的分组。
-		entryGroupID := int64(65)
-		turnCtx, _ := svc.WithOpenAITurnPricingContext(connCtx, &entryGroupID)
-		gate, ok := turnCtx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate)
-		require.True(t, ok)
-		require.NotNil(t, gate)
-		require.Equal(t, scheduledGroupID, gate.groupID)
+		require.False(t, vetoed, "turn 级重装应采用最新设置")
 	})
 
 	t.Run("suppress marker only refreshes instant", func(t *testing.T) {
-		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(profitControlTestGroup(groupID, 0.5, 0)))
-		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(base, &groupID)
+		svc := profitControlTestService(t, true, 0.5, 0)
+		base := WithOpenAIProfitControlSuppressed(profitControlTestCtx(1))
+		turnCtx, turnAt := svc.WithOpenAITurnPricingContext(base)
 		require.False(t, turnAt.IsZero())
 		vetoed, _ := OpenAIProfitControlVeto(turnCtx, expensive)
 		require.False(t, vetoed)
 	})
 
-	t.Run("clears gate when group disables profit control mid-connection", func(t *testing.T) {
-		group := profitControlTestGroup(groupID, 0.5, 0)
-		connCtx, _ := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(group), &groupID)
-		group.ProfitControlEnabled = false
-		turnCtx, _ := svc.WithOpenAITurnPricingContext(connCtx, &groupID)
+	t.Run("clears gate when profit control is disabled mid-connection", func(t *testing.T) {
+		svc := profitControlTestService(t, true, 0.5, 0)
+		connCtx, _ := svc.WithOpenAIRequestPricingContext(profitControlTestCtx(1))
+		require.NoError(t, svc.settingService.settingRepo.Set(context.Background(), SettingKeyProfitControlEnabled, "false"))
+		InvalidateProfitControlSettingsCache()
+		turnCtx, _ := svc.WithOpenAITurnPricingContext(connCtx)
 		vetoed, _ := OpenAIProfitControlVeto(turnCtx, expensive)
 		require.False(t, vetoed, "关门后 turn 级复核应放行")
 	})

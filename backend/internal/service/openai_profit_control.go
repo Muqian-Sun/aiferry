@@ -55,14 +55,11 @@ package service
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
 	"math"
-	"sync"
 	"sync/atomic"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
@@ -111,25 +108,21 @@ func profitControlOverThreshold(upstream, threshold float64) bool {
 // openAIProfitControlGate 是一个请求的利润准入门。除 pricingAt 外全部为预计算
 // 标量：候选过滤热路径上每账号只做一次快照解码与一次浮点比较。
 type openAIProfitControlGate struct {
-	// groupID 是门配置来源的被调度分组；请求内按分组复用（failover 阈值稳定），
-	// composite 等跨分组调度切换分组时重新解析。
-	groupID int64
-	// platform 是利润配置所在分组的平台，用于按平台观测门是否真实生效。
-	platform string
 	// threshold = D(pricingAt) × (1 − margin − buffer)，账号倍率必须 <= 它。
+	// margin / buffer 是全站一档的全局设置；同一请求的 failover 重入复用同一个门。
 	threshold float64
 	// pricingAt 是本请求的统一定价时刻（D 侧）。
 	pricingAt time.Time
 }
 
 // WithOpenAIRequestPricingContext 在请求开始处装配请求级定价上下文：固定
-// pricingAt（返回给调用方，供 RecordUsage 入参共用同一时刻），并按分组安装
+// pricingAt（返回给调用方，供 RecordUsage 入参共用同一时刻），并按全局设置安装
 // 利润门。ctx 携带 WithOpenAIProfitControlSuppressed 标记（门范围外流量）时
 // 只固定 pricingAt、不装门。handler 各文本入口应在选号循环前调用一次。
-func (s *OpenAIGatewayService) WithOpenAIRequestPricingContext(ctx context.Context, groupID *int64) (context.Context, time.Time) {
+func (s *OpenAIGatewayService) WithOpenAIRequestPricingContext(ctx context.Context) (context.Context, time.Time) {
 	pricingAt := timezone.Now()
 	ctx = context.WithValue(ctx, openAIPricingAtCtxKey{}, pricingAt)
-	return s.withOpenAIProfitControlGate(ctx, groupID), pricingAt
+	return s.withOpenAIProfitControlGate(ctx), pricingAt
 }
 
 // WithOpenAIProfitControlSuppressed 标记本请求在利润门范围之外（独立图片/视频
@@ -140,30 +133,24 @@ func WithOpenAIProfitControlSuppressed(ctx context.Context) context.Context {
 }
 
 // WithOpenAITurnPricingContext 在长连接（Responses WS）的每个 turn 开始重新
-// 冻结 pricingAt 并按当前配置重装利润门，使 turn 的准入与计费同源：峰前建连
-// 保活不再让后续 turn 继续按建连时刻的谷价定价。连接可能被调度到与入口分组
-// 不同的分组（composite 成员分组），turn 级重装以连接上已装门的调度分组为准；
-// 连接从未装门时才回退入口分组。抑制标记下只刷新 pricingAt。
-func (s *OpenAIGatewayService) WithOpenAITurnPricingContext(ctx context.Context, groupID *int64) (context.Context, time.Time) {
+// 冻结 pricingAt 并按当前设置重装利润门，使 turn 的准入与计费同源：峰前建连
+// 保活不再让后续 turn 继续按建连时刻的谷价定价。抑制标记下只刷新 pricingAt。
+func (s *OpenAIGatewayService) WithOpenAITurnPricingContext(ctx context.Context) (context.Context, time.Time) {
 	pricingAt := timezone.Now()
 	ctx = context.WithValue(ctx, openAIPricingAtCtxKey{}, pricingAt)
 	if _, suppressed := ctx.Value(openAIProfitControlSuppressCtxKey{}).(struct{}); suppressed {
 		return ctx, pricingAt
 	}
-	if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
-		gid := existing.groupID
-		groupID = &gid
-	}
-	gate := s.resolveOpenAIProfitControlGate(ctx, groupID)
+	gate := s.resolveOpenAIProfitControlGate(ctx)
 	if gate == nil {
-		// 分组已关门（或配置读取失败 fail-open）：清除旧 turn 的门，后续 turn
+		// 设置已关门（或读取失败 fail-open）：清除旧 turn 的门，后续 turn
 		// 按无门放行，与 HTTP 路径的开关语义一致。
 		if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
 			return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, (*openAIProfitControlGate)(nil)), pricingAt
 		}
 		return ctx, pricingAt
 	}
-	openAIProfitControlObserverInstance.recordInstall(gate.groupID, gate.platform, gate.threshold)
+	openAIProfitControlObserverInstance.recordInstall(gate.threshold)
 	return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, gate), pricingAt
 }
 
@@ -182,57 +169,30 @@ func OpenAIPricingAtFromContext(ctx context.Context) time.Time {
 	return pricingAt
 }
 
-// withOpenAIProfitControlGate 解析分组利润控制配置；启用时把预计算好的准入门
-// 装进 ctx。抑制标记、未启用/非 openai 分组/无法取到分组配置时原样返回 ctx
-// （门不存在，全部否决点自动放行，既有行为零变化）。ctx 已有同分组门时直接
-// 复用：同一请求的全部 failover 重入共享同一阈值。
-func (s *OpenAIGatewayService) withOpenAIProfitControlGate(ctx context.Context, groupID *int64) context.Context {
+// withOpenAIProfitControlGate 按全局设置把预计算好的准入门装进 ctx。抑制标记、
+// 未启用 / 读不到设置时原样返回 ctx（门不存在，全部否决点自动放行）。ctx 已有门时
+// 直接复用：同一请求的全部 failover 重入共享同一阈值。
+func (s *OpenAIGatewayService) withOpenAIProfitControlGate(ctx context.Context) context.Context {
 	if _, suppressed := ctx.Value(openAIProfitControlSuppressCtxKey{}).(struct{}); suppressed {
 		return ctx
 	}
-	if groupID != nil {
-		if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil && existing.groupID == *groupID {
-			return ctx
-		}
-	}
-	gate := s.resolveOpenAIProfitControlGate(ctx, groupID)
-	if gate == nil {
-		// 被调度分组无门（未启用/非 openai/配置读取失败）而 ctx 带着其他分组的
-		// 请求门时清除之：门配置取被调度分组，父分组阈值不得泄漏到成员分组
-		//（composite/模型路由等跨分组调度）。typed-nil 覆盖值由否决点按无门放行。
-		if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil && groupID != nil && existing.groupID != *groupID {
-			return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, (*openAIProfitControlGate)(nil))
-		}
+	if existing, ok := ctx.Value(openAIProfitControlGateCtxKey{}).(*openAIProfitControlGate); ok && existing != nil {
 		return ctx
 	}
-	openAIProfitControlObserverInstance.recordInstall(gate.groupID, gate.platform, gate.threshold)
+	gate := s.resolveOpenAIProfitControlGate(ctx)
+	if gate == nil {
+		return ctx
+	}
+	openAIProfitControlObserverInstance.recordInstall(gate.threshold)
 	return context.WithValue(ctx, openAIProfitControlGateCtxKey{}, gate)
 }
 
-func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Context, groupID *int64) *openAIProfitControlGate {
-	if s == nil || groupID == nil || *groupID <= 0 {
+func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Context) *openAIProfitControlGate {
+	if s == nil || s.settingService == nil {
 		return nil
 	}
-	// 门配置取被调度分组。直连请求（ctx 认证分组即调度分组，生产绝大多数流量）
-	// 直接复用 auth cache 分组，热路径零额外查询；composite 父分组路由到成员
-	// 分组等 ID 不一致场景才回源仓库读取。auth 快照的分组字段完备性由
-	// GetByKeyForAuth 投影 + 集成测试保证（防投影漏列导致门静默失效）。
-	var group *Group
-	if ctxGroup, ok := ctx.Value(ctxkey.Group).(*Group); ok && IsGroupContextValid(ctxGroup) && ctxGroup.ID == *groupID {
-		group = ctxGroup
-	} else if s.schedulerSnapshot != nil {
-		// Lite 读取：门只用平台/倍率/利润/高峰字段，不需要账号计数聚合。
-		loaded, err := s.schedulerSnapshot.GetGroupByIDLite(ctx, *groupID)
-		if err != nil {
-			// fail-open：配置系统故障时可用性优先，该窗口内利润保证不成立，
-			// 依赖 WARN 暴露；不把瞬时 DB 抖动放大成全站不可调度。
-			slog.Warn("profit_control_group_load_failed", "group_id", *groupID, "error", err)
-			return nil
-		}
-		group = loaded
-	}
-	if group == nil || !group.ProfitControlEnabled ||
-		(group.Platform != PlatformOpenAI && group.Platform != PlatformGrok) {
+	settings := s.settingService.GetProfitControlSettings(ctx)
+	if !settings.Enabled {
 		return nil
 	}
 
@@ -240,14 +200,11 @@ func (s *OpenAIGatewayService) resolveOpenAIProfitControlGate(ctx context.Contex
 	if !ok {
 		pricingAt = timezone.Now()
 	}
-	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；开关与 margin/buffer 取被调度分组。
+	// D = 用户倍率（用户价 = 目录价 × 它），与 RecordUsage 同源；margin / buffer 是全站一档。
 	downstream := UserRateMultiplierFromContext(ctx)
 
-	deduction := group.ProfitMinMargin + group.ProfitSafetyBuffer
-	threshold := clampProfitControlThreshold(downstream * (1 - deduction))
+	threshold := clampProfitControlThreshold(downstream * (1 - settings.MinMargin - settings.SafetyBuffer))
 	return &openAIProfitControlGate{
-		groupID:   *groupID,
-		platform:  group.Platform,
 		threshold: threshold,
 		pricingAt: pricingAt,
 	}
@@ -292,12 +249,12 @@ func openAIProfitControlVetoReason(ctx context.Context, account *Account) (bool,
 		math.IsNaN(*account.RateMultiplier) ||
 		math.IsInf(*account.RateMultiplier, 0) ||
 		*account.RateMultiplier < 0 {
-		openAIProfitControlObserverInstance.recordVeto(gate.groupID, gate.platform, gate.threshold, openAIProfitFilterReasonInvalidAccountRate)
+		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonInvalidAccountRate)
 		return true, openAIProfitFilterReasonInvalidAccountRate
 	}
 	upstream := *account.RateMultiplier
 	if profitControlOverThreshold(upstream, gate.threshold) {
-		openAIProfitControlObserverInstance.recordVeto(gate.groupID, gate.platform, gate.threshold, openAIProfitFilterReasonThreshold)
+		openAIProfitControlObserverInstance.recordVeto(gate.threshold, openAIProfitFilterReasonThreshold)
 		return true, openAIProfitFilterReasonThreshold
 	}
 	return false, ""
@@ -321,13 +278,13 @@ func (s *OpenAIGatewayService) ProfitControlVetoLatest(ctx context.Context, sele
 	return profitControlVetoLatest(ctx, selected, s.schedulerSnapshot)
 }
 
-// ---- 可观测性：按分组累计计数 + 采样日志（无逐请求输出） ----
+// ---- 可观测性：全站累计计数 + 采样日志（无逐请求输出） ----
 //
 // 计数按"每次准入评估"累计，而非每请求：粘性层校验与候选池过滤可能对同一账号
 // 各评估一次，failover 重入也会再次计数。计数用于确认门在真实流量上生效及否决
 // 构成，不能当作精确的请求数或账号数。
 
-type openAIProfitControlGroupStats struct {
+type openAIProfitControlStats struct {
 	installs         atomic.Int64
 	vetoThreshold    atomic.Int64
 	vetoInvalidRate  atomic.Int64
@@ -336,56 +293,35 @@ type openAIProfitControlGroupStats struct {
 }
 
 type openAIProfitControlObserver struct {
-	groups sync.Map // "platform:groupID" -> *openAIProfitControlGroupStats
+	stats openAIProfitControlStats
 }
 
 var openAIProfitControlObserverInstance = &openAIProfitControlObserver{}
 
-func profitControlObserverKey(groupID int64, platform string) string {
-	return platform + ":" + fmt.Sprintf("%d", groupID)
+func (o *openAIProfitControlObserver) recordInstall(threshold float64) {
+	o.stats.installs.Add(1)
+	o.maybeLog(threshold)
 }
 
-func (o *openAIProfitControlObserver) stats(groupID int64, platform string) *openAIProfitControlGroupStats {
-	key := profitControlObserverKey(groupID, platform)
-	if v, ok := o.groups.Load(key); ok {
-		if s, ok := v.(*openAIProfitControlGroupStats); ok {
-			return s
-		}
-	}
-	v, _ := o.groups.LoadOrStore(key, &openAIProfitControlGroupStats{})
-	if s, ok := v.(*openAIProfitControlGroupStats); ok {
-		return s
-	}
-	// 不可达：map 中只存 *openAIProfitControlGroupStats；兜底返回独立实例避免 panic。
-	return &openAIProfitControlGroupStats{}
-}
-
-func (o *openAIProfitControlObserver) recordInstall(groupID int64, platform string, threshold float64) {
-	s := o.stats(groupID, platform)
-	s.installs.Add(1)
-	o.maybeLog(groupID, platform, threshold, s)
-}
-
-func (o *openAIProfitControlObserver) recordVeto(groupID int64, platform string, threshold float64, reason string) {
-	s := o.stats(groupID, platform)
+func (o *openAIProfitControlObserver) recordVeto(threshold float64, reason string) {
 	switch reason {
 	case openAIProfitFilterReasonThreshold:
-		s.vetoThreshold.Add(1)
+		o.stats.vetoThreshold.Add(1)
 	case openAIProfitFilterReasonInvalidAccountRate:
-		s.vetoInvalidRate.Add(1)
+		o.stats.vetoInvalidRate.Add(1)
 	}
-	o.maybeLog(groupID, platform, threshold, s)
+	o.maybeLog(threshold)
 }
 
-func (o *openAIProfitControlObserver) recordRefreshFailure(groupID int64, platform string, threshold float64) {
-	s := o.stats(groupID, platform)
-	s.refreshFailures.Add(1)
-	o.maybeLog(groupID, platform, threshold, s)
+func (o *openAIProfitControlObserver) recordRefreshFailure(threshold float64) {
+	o.stats.refreshFailures.Add(1)
+	o.maybeLog(threshold)
 }
 
-// maybeLog 以 CAS 保证同分组 ≥ profitControlActivityLogInterval 才输出一条
+// maybeLog 以 CAS 保证 ≥ profitControlActivityLogInterval 才输出一条
 // 累计计数 Info；计数为进程内累计值，用于确认门在真实流量上生效及否决构成。
-func (o *openAIProfitControlObserver) maybeLog(groupID int64, platform string, threshold float64, s *openAIProfitControlGroupStats) {
+func (o *openAIProfitControlObserver) maybeLog(threshold float64) {
+	s := &o.stats
 	now := time.Now().UnixMilli()
 	last := s.lastLogUnixMilli.Load()
 	if last != 0 && now-last < profitControlActivityLogInterval.Milliseconds() {
@@ -395,8 +331,6 @@ func (o *openAIProfitControlObserver) maybeLog(groupID int64, platform string, t
 		return
 	}
 	slog.Info("profit_control_activity",
-		"group_id", groupID,
-		"platform", platform,
 		"threshold", threshold,
 		"installs_total", s.installs.Load(),
 		"veto_threshold_total", s.vetoThreshold.Load(),

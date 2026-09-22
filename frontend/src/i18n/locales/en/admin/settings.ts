@@ -435,6 +435,13 @@ export default {
         accountSchedulingThresholdsDisabledHint: '100 disables platform auto-pause. Values 1–99 pause scheduling once utilization reaches that percent.',
         accountSchedulingThresholdsRangeHint: 'Integer 1–100 (percent). OpenAI/Anthropic/Grok only.'
       },
+      profitControl: {
+        title: 'Profit gate',
+        description: 'Resources whose rate multiplier exceeds user multiplier × (1 − min margin − safety buffer) are not scheduled. One site-wide setting, applies to every resource.',
+        minMargin: 'Minimum margin (fraction, 0.30 = 30%)',
+        safetyBuffer: 'Safety buffer (fraction)',
+        hint: 'The two must add up to less than 1, otherwise the threshold is ≤ 0 and every priceable resource is excluded.'
+      },
       upstreamBillingProbe: {
         title: 'Upstream Rate Auto Detection',
         description: 'Periodically retrieve rates declared by upstream Sub2API sites. Account rates change only when the separate sync switch is enabled.',

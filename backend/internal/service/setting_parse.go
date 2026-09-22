@@ -248,6 +248,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodWxpayEnabled:      "false",
 
 		SettingKeyAllowUserViewErrorRequests: "false",
+		SettingKeyProfitControlEnabled:       "false",
+		SettingKeyProfitMinMargin:            "0",
+		SettingKeyProfitSafetyBuffer:         "0",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -923,6 +926,10 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
 
+	result.ProfitControlEnabled = settings[SettingKeyProfitControlEnabled] == "true"
+	result.ProfitMinMargin = parseProfitControlRatio(settings[SettingKeyProfitMinMargin])
+	result.ProfitSafetyBuffer = parseProfitControlRatio(settings[SettingKeyProfitSafetyBuffer])
+
 	// Publish Grok default model_mapping options for accounts with empty mapping.
 	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{
 		DefaultText:          result.GrokDefaultTextModel,
@@ -937,6 +944,15 @@ func normalizeOpenAITTFTMode(mode string) string {
 		return OpenAITTFTModeVisible
 	}
 	return OpenAITTFTModeSemantic
+}
+
+// parseProfitControlRatio 解析利润门的 margin / buffer：非法或越界回 0（= 不扣减）。
+func parseProfitControlRatio(raw string) float64 {
+	value, err := strconv.ParseFloat(strings.TrimSpace(raw), 64)
+	if err != nil || math.IsNaN(value) || math.IsInf(value, 0) || value < 0 || value > ProfitControlRatioMax {
+		return 0
+	}
+	return value
 }
 
 func clampAffiliateRebateRate(value float64) float64 {

@@ -515,6 +515,13 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 
 	updates[SettingKeyAllowUserViewErrorRequests] = strconv.FormatBool(settings.AllowUserViewErrorRequests)
 
+	if settings.ProfitMinMargin < 0 || settings.ProfitSafetyBuffer < 0 || settings.ProfitMinMargin+settings.ProfitSafetyBuffer > ProfitControlRatioMax {
+		return nil, fmt.Errorf("profit control: min_margin + safety_buffer must be within [0, %g]", ProfitControlRatioMax)
+	}
+	updates[SettingKeyProfitControlEnabled] = strconv.FormatBool(settings.ProfitControlEnabled)
+	updates[SettingKeyProfitMinMargin] = strconv.FormatFloat(settings.ProfitMinMargin, 'f', 8, 64)
+	updates[SettingKeyProfitSafetyBuffer] = strconv.FormatFloat(settings.ProfitSafetyBuffer, 'f', 8, 64)
+
 	return updates, nil
 }
 
@@ -677,6 +684,7 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 			expiresAt: 0,
 		})
 	}
+	InvalidateProfitControlSettingsCache()
 	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
 	if settings.AccountSchedulingThresholds != nil {
 		normalizedThresholds, err := validateAndNormalizeAccountSchedulingThresholds(settings.AccountSchedulingThresholds)

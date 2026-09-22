@@ -354,6 +354,11 @@ type UpdateSettingsRequest struct {
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
 
 	AllowUserViewErrorRequests *bool `json:"allow_user_view_error_requests"`
+
+	// 利润门（全站一档；nil = 不修改）
+	ProfitControlEnabled *bool    `json:"profit_control_enabled"`
+	ProfitMinMargin      *float64 `json:"profit_min_margin"`
+	ProfitSafetyBuffer   *float64 `json:"profit_safety_buffer"`
 }
 
 // UpdateSettings 更新系统设置
@@ -1625,6 +1630,24 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.AllowUserViewErrorRequests
 		}(),
+		ProfitControlEnabled: func() bool {
+			if req.ProfitControlEnabled != nil {
+				return *req.ProfitControlEnabled
+			}
+			return previousSettings.ProfitControlEnabled
+		}(),
+		ProfitMinMargin: func() float64 {
+			if req.ProfitMinMargin != nil {
+				return *req.ProfitMinMargin
+			}
+			return previousSettings.ProfitMinMargin
+		}(),
+		ProfitSafetyBuffer: func() float64 {
+			if req.ProfitSafetyBuffer != nil {
+				return *req.ProfitSafetyBuffer
+			}
+			return previousSettings.ProfitSafetyBuffer
+		}(),
 		OpsMonitoringEnabled: func() bool {
 			if req.OpsMonitoringEnabled != nil {
 				return *req.OpsMonitoringEnabled
@@ -2285,6 +2308,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
 		AccountSchedulingThresholds: updatedSettings.AccountSchedulingThresholds,
 		AllowUserViewErrorRequests:  updatedSettings.AllowUserViewErrorRequests,
+		ProfitControlEnabled:        updatedSettings.ProfitControlEnabled,
+		ProfitMinMargin:             updatedSettings.ProfitMinMargin,
+		ProfitSafetyBuffer:          updatedSettings.ProfitSafetyBuffer,
 	}
 	if fastPolicy, err := h.settingService.GetOpenAIFastPolicySettings(c.Request.Context()); err != nil {
 		slog.Error("openai_fast_policy_settings_get_failed", "error", err)

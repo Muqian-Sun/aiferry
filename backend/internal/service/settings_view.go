@@ -281,6 +281,11 @@ type SystemSettings struct {
 
 	// 允许终端用户在用量页查看自己的失败请求
 	AllowUserViewErrorRequests bool
+
+	// 利润门（全站一档）
+	ProfitControlEnabled bool
+	ProfitMinMargin      float64
+	ProfitSafetyBuffer   float64
 }
 
 // DefaultSubscriptionSetting 注册 / 认证来源默认订阅：一个列表最多一项（同一时间只允许一条有效订阅）

@@ -69,7 +69,7 @@ func (s *GatewayService) SelectAccountForModelWithExclusions(ctx context.Context
 		// 无分组时只使用原生 anthropic 平台
 		platform = PlatformAnthropic
 	}
-	ctx = s.withGatewayProfitControlGate(ctx, groupID)
+	ctx = s.withGatewayProfitControlGate(ctx)
 
 	// anthropic/gemini 分组支持混合调度（包含启用了 mixed_scheduling 的 antigravity 账户）
 	// 注意：强制平台模式不走混合调度
@@ -131,7 +131,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, gro
 		return nil, err
 	}
 	ctx = s.withGroupContext(ctx, group)
-	ctx = s.withGatewayProfitControlGate(ctx, groupID)
+	ctx = s.withGatewayProfitControlGate(ctx)
 
 	var stickyAccountID int64
 	var stickySource string

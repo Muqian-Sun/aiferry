@@ -667,6 +667,14 @@ const (
 	SettingKeyWebSearchEmulationConfig = "web_search_emulation_config" // JSON 配置
 )
 
+// 利润门（全站一档；原来在分组上）：账号倍率 > 用户倍率 × (1 − min_margin − safety_buffer) 的资源不派。
+const (
+	SettingKeyProfitControlEnabled = "profit_control_enabled"
+	SettingKeyProfitMinMargin      = "profit_min_margin"    // 最低毛利率，小数（0.30 = 30%）
+	SettingKeyProfitSafetyBuffer   = "profit_safety_buffer" // 安全余量，小数
+	ProfitControlRatioMax          = 0.99                   // margin + buffer 必须 < 1，否则阈值 ≤ 0 全池不可派
+)
+
 // SettingKeyAccountSchedulingThresholds —— 系统全局：按平台自动停调阈值（JSON map）。
 // 值为 map[platform]percent，1..100；100 = 禁用该平台自动停调。
 const SettingKeyAccountSchedulingThresholds = "account_scheduling_thresholds"
