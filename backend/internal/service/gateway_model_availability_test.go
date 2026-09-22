@@ -14,7 +14,7 @@ func TestDiagnoseModelAvailabilityForPlatform_NoModel_AlwaysAvailable(t *testing
 	repo := &mockAccountRepoForPlatform{accounts: nil, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "", PlatformOpenAI)
 
 	require.True(t, diag.HasAccountsInPool, "empty model must return HasAccountsInPool=true so caller stays on 503")
 	require.True(t, diag.HasModelSupport, "empty model must return HasModelSupport=true so caller stays on 503")
@@ -24,7 +24,7 @@ func TestDiagnoseModelAvailabilityForPlatform_EmptyPlatform_AlwaysAvailable(t *t
 	repo := &mockAccountRepoForPlatform{accounts: nil, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5", "")
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5", "")
 
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport, "empty platform must fall back to {true,true} so caller stays on 503")
@@ -33,7 +33,7 @@ func TestDiagnoseModelAvailabilityForPlatform_EmptyPlatform_AlwaysAvailable(t *t
 func TestDiagnoseModelAvailabilityForPlatform_NilReceiver(t *testing.T) {
 	var svc *GatewayService
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5", PlatformOpenAI)
 
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport)
@@ -43,7 +43,7 @@ func TestDiagnoseModelAvailabilityForPlatform_NoAccountsInPool(t *testing.T) {
 	repo := &mockAccountRepoForPlatform{accounts: nil, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5", PlatformOpenAI)
 
 	require.False(t, diag.HasAccountsInPool)
 	require.False(t, diag.HasModelSupport, "no accounts means no support; caller stays on 503 (empty-pool branch)")
@@ -69,7 +69,7 @@ func TestDiagnoseModelAvailabilityForPlatform_ExplicitMappingMatches(t *testing.
 	}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5.1-codex-mini", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5.1-codex-mini", PlatformOpenAI)
 
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport)
@@ -87,7 +87,7 @@ func TestDiagnoseModelAvailabilityForPlatform_EmptyMappingAllowsAll(t *testing.T
 	}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5.1-codex-mini", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5.1-codex-mini", PlatformOpenAI)
 
 	require.True(t, diag.HasModelSupport, "empty model_mapping must be treated as 'allow all' (Account.IsModelSupported semantics)")
 }
@@ -112,7 +112,7 @@ func TestDiagnoseModelAvailabilityForPlatform_WildcardMappingMatches(t *testing.
 	}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5.1-codex-mini", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5.1-codex-mini", PlatformOpenAI)
 
 	require.True(t, diag.HasModelSupport, "wildcard mapping must classify the request as 'serviceable'")
 }
@@ -149,7 +149,7 @@ func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSig
 	}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), &groupID, "gpt-5.1-codex-mini", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5.1-codex-mini", PlatformOpenAI)
 
 	require.True(t, diag.HasAccountsInPool, "group has OpenAI accounts")
 	require.False(t, diag.HasModelSupport, "no account mapping admits the requested model — handler should return 404")
@@ -183,7 +183,7 @@ func TestDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccountRemain
 		schedulerSnapshot: &SchedulerSnapshotService{}, // diagnosis must bypass the transient-only snapshot
 	}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), &groupID, "claude-opus-4-8", PlatformAnthropic)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "claude-opus-4-8", PlatformAnthropic)
 
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport, "a configured model remains supported while every matching account is temporarily cooling down")
@@ -217,7 +217,7 @@ func TestOpenAIDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccount
 		schedulerSnapshot: &SchedulerSnapshotService{}, // diagnosis must bypass the transient-only snapshot
 	}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), &groupID, "claude-opus-4-8", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "claude-opus-4-8", PlatformOpenAI)
 
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport, "OpenAI-compatible diagnosis must keep transiently limited supporting accounts in the configured pool")
@@ -244,7 +244,7 @@ func TestDiagnoseModelAvailabilityForPlatform_WrongPlatformFiltersOut(t *testing
 	}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), nil, "gpt-5", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(context.Background(), "gpt-5", PlatformOpenAI)
 
 	require.False(t, diag.HasAccountsInPool, "OpenAI route must not see Anthropic accounts in pool")
 	require.False(t, diag.HasModelSupport)

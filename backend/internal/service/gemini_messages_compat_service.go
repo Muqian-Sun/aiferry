@@ -101,28 +101,24 @@ func (s *GeminiMessagesCompatService) GetAntigravityGatewayService() *Antigravit
 	return s.antigravityGatewayService
 }
 
-func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, groupID *int64, platform string, hasForcePlatform bool) ([]Account, error) {
+// listSchedulableAccountsOnce platform 平台的池（目录路由下是条目绑定）：快照在就读快照，否则查库。
+func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, platform string, hasForcePlatform bool) ([]Account, error) {
 	if s.schedulerSnapshot != nil {
-		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, groupID, platform, hasForcePlatform)
+		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, nil, platform, hasForcePlatform)
 		return accounts, err
 	}
-
-	useMixedScheduling := platform == PlatformGemini && !hasForcePlatform
-	queryPlatforms := schedulingCandidatePlatforms(platform, useMixedScheduling)
 
 	var accounts []Account
 	var err error
 	if route, ok := CatalogRouteFromContext(ctx); ok {
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
-	} else if groupID != nil {
-		accounts, err = s.accountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, queryPlatforms)
 	} else {
-		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, queryPlatforms)
+		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, []string{platform})
 	}
 	if err != nil {
 		return nil, err
 	}
-	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform, useMixedScheduling), nil
+	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false), nil
 }
 
 func (s *GeminiMessagesCompatService) validateUpstreamBaseURL(raw string) (string, error) {
@@ -145,8 +141,8 @@ func (s *GeminiMessagesCompatService) validateUpstreamBaseURL(raw string) (strin
 }
 
 // HasAntigravityAccounts 检查是否有可用的 antigravity 账户
-func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context, groupID *int64) (bool, error) {
-	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformAntigravity, false)
+func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context) (bool, error) {
+	accounts, err := s.listSchedulableAccountsOnce(ctx, PlatformAntigravity, false)
 	if err != nil {
 		return false, err
 	}
@@ -161,8 +157,8 @@ func (s *GeminiMessagesCompatService) HasAntigravityAccounts(ctx context.Context
 // 2) OAuth accounts without project_id (AI Studio OAuth)
 // 3) OAuth accounts explicitly marked as ai_studio
 // 4) Any remaining Gemini accounts (fallback)
-func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context, groupID *int64) (*Account, error) {
-	accounts, err := s.listSchedulableAccountsOnce(ctx, groupID, PlatformGemini, true)
+func (s *GeminiMessagesCompatService) SelectAccountForAIStudioEndpoints(ctx context.Context) (*Account, error) {
+	accounts, err := s.listSchedulableAccountsOnce(ctx, PlatformGemini, true)
 	if err != nil {
 		return nil, fmt.Errorf("query accounts failed: %w", err)
 	}

@@ -514,7 +514,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 	useHTTPBridge := forceHTTPBridge || s.shouldBridgeOpenAIWSHTTP(account, firstPayload.payloadBytes, firstPayload.previousResponseID)
 	turnState := strings.TrimSpace(c.GetHeader(openAIWSTurnStateHeader))
 	stateStore := s.getOpenAIWSStateStore()
-	groupID := getOpenAIGroupIDFromContext(c)
+	scopeID := SchedulingScopeID(ctx)
 	apiKeyID := getAPIKeyIDFromContext(c)
 	storeDisabledConnMode := s.openAIWSStoreDisabledConnMode()
 	sessionHash := ""
@@ -535,7 +535,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			return
 		}
 		if turnState == "" && stateStore != nil && sessionHash != "" {
-			if savedTurnState, ok := stateStore.GetSessionTurnState(groupID, sessionHash); ok {
+			if savedTurnState, ok := stateStore.GetSessionTurnState(sessionHash); ok {
 				turnState = savedTurnState
 			}
 		}
@@ -547,7 +547,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		}
 
 		if stateStore != nil && storeDisabled && payload.previousResponseID == "" && sessionHash != "" {
-			if connID, ok := stateStore.GetSessionConn(groupID, sessionHash); ok {
+			if connID, ok := stateStore.GetSessionConn(sessionHash); ok {
 				preferredConnID = connID
 			}
 		}
@@ -592,7 +592,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			}
 			// 剥离本会话已知失效的加密项，阻断同一失效密文随历史反复触发上游拒绝。
 			// 历史序列须同步剥离，否则与已剥离的当前 input 项错位，prefix 复用失配。
-			if invalidDigests := s.sessionInvalidEncryptedContentDigests(groupID, sessionHash); len(invalidDigests) > 0 {
+			if invalidDigests := s.sessionInvalidEncryptedContentDigests(sessionHash); len(invalidDigests) > 0 {
 				strippedPayload, strippedCount := s.stripSessionInvalidEncryptedContentLogged(
 					currentBridgePayload.payloadRaw, invalidDigests, "ingress_ws_http_bridge_invalid_encrypted_lineage_strip", account.ID, turn,
 				)
@@ -734,7 +734,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			responseID := strings.TrimSpace(result.RequestID)
 			if responseID != "" && stateStore != nil {
 				ttl := s.openAIWSResponseStickyTTL()
-				logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, stateStore.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+				logOpenAIWSBindResponseAccountWarn(scopeID, account.ID, responseID, stateStore.BindResponseAccount(ctx, scopeID, responseID, account.ID, ttl))
 			}
 			nextClientMessage, readErr := readClientMessage()
 			if readErr != nil {
@@ -920,7 +920,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		if handshakeTurnState := strings.TrimSpace(lease.HandshakeHeader(openAIWSTurnStateHeader)); handshakeTurnState != "" {
 			turnState = handshakeTurnState
 			if stateStore != nil && sessionHash != "" {
-				stateStore.BindSessionTurnState(groupID, sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
+				stateStore.BindSessionTurnState(sessionHash, handshakeTurnState, s.openAIWSSessionStickyTTL())
 			}
 			updatedHeaders := cloneHeader(baseAcquireReq.Headers)
 			if updatedHeaders == nil {
@@ -1064,7 +1064,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 				if fallbackReason == openAIWSFallbackReasonInvalidEncryptedContent {
 					// 记录被上游拒绝的密文摘要；错误照旧透传，下一轮进场时按摘要预剥离。
 					if digests := collectOpenAIEncryptedContentDigestsRaw(payload); len(digests) > 0 {
-						s.markOpenAIWSInvalidEncryptedContentLineage(groupID, sessionHash, digests)
+						s.markOpenAIWSInvalidEncryptedContentLineage(sessionHash, digests)
 						logOpenAIWSModeInfo(
 							"ingress_ws_invalid_encrypted_lineage_mark account_id=%d turn=%d digests=%d",
 							account.ID,
@@ -1462,7 +1462,7 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		skipBeforeTurn = false
 		// 剥离本会话已知失效的加密项，阻断同一失效密文随历史反复触发上游拒绝。
 		// 历史序列须同步剥离，否则与已剥离的当前 input 项错位，prefix 复用失配。
-		if invalidDigests := s.sessionInvalidEncryptedContentDigests(groupID, sessionHash); len(invalidDigests) > 0 {
+		if invalidDigests := s.sessionInvalidEncryptedContentDigests(sessionHash); len(invalidDigests) > 0 {
 			strippedPayload, strippedCount := s.stripSessionInvalidEncryptedContentLogged(
 				currentPayload, invalidDigests, "ingress_ws_invalid_encrypted_lineage_strip", account.ID, turn,
 			)
@@ -1839,11 +1839,11 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 
 		if responseID != "" && stateStore != nil {
 			ttl := s.openAIWSResponseStickyTTL()
-			logOpenAIWSBindResponseAccountWarn(groupID, account.ID, responseID, stateStore.BindResponseAccount(ctx, groupID, responseID, account.ID, ttl))
+			logOpenAIWSBindResponseAccountWarn(scopeID, account.ID, responseID, stateStore.BindResponseAccount(ctx, scopeID, responseID, account.ID, ttl))
 			stateStore.BindResponseConn(responseID, connID, ttl)
 		}
 		if stateStore != nil && storeDisabled && sessionHash != "" {
-			stateStore.BindSessionConn(groupID, sessionHash, connID, s.openAIWSSessionStickyTTL())
+			stateStore.BindSessionConn(sessionHash, connID, s.openAIWSSessionStickyTTL())
 		}
 		if connID != "" {
 			preferredConnID = connID

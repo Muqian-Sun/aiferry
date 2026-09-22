@@ -110,7 +110,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(1, 0.8)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(1, 0.8)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireProfitVetoed, result)
 		require.Nil(t, release)
 		require.Zero(t, w.Body.Len(), "利润终检否决不得写出任何响应")
@@ -125,7 +125,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, false))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(2, 0.3)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(2, 0.3)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireOK, result)
 		require.NotNil(t, release)
 		release()
@@ -139,7 +139,7 @@ func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 		c.Request = httptest.NewRequest("POST", "/v1/responses", nil).WithContext(profitSlotTestContext(t, gw, true))
 		streamStarted := false
 
-		release, result := h.acquireResponsesAccountSlot(c, &groupID, "", newSelection(profitSlotTestAccount(3, 0.8)), false, &streamStarted, zap.NewNop())
+		release, result := h.acquireResponsesAccountSlot(c, "", newSelection(profitSlotTestAccount(3, 0.8)), false, &streamStarted, zap.NewNop())
 		require.Equal(t, openAISlotAcquireOK, result, "生图意图跳门：过贵账号照常获取（图片边界不装门）")
 		require.NotNil(t, release)
 		release()

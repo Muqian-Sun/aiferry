@@ -97,7 +97,7 @@ func TestIsAccountSchedulableOnPlatform_CatalogRouteIgnoresMixedFlag(t *testing.
 
 // 目录路由下：网关族由条目决定（分组是 anthropic 也走 openai 平台候选），池 = 条目绑定；
 // 同一请求去掉 route 后回到分组语义。
-func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOverridesGroup(t *testing.T) {
+func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOrEndpointPlatform(t *testing.T) {
 	groupID := int64(30101)
 	const entryID = int64(77)
 	openAIOAuth := Account{
@@ -119,42 +119,31 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOverridesGrou
 			for i := range repo.accounts {
 				repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
 			}
-			groupRepo := &mockGroupRepoForGateway{groups: map[int64]*Group{
-				groupID: {ID: groupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true},
-			}}
 			cfg := testConfig()
 			cfg.Gateway.Scheduling.LoadBatchEnabled = loadBatch
 			svc := &GatewayService{
 				accountRepo:        repo,
-				groupRepo:          groupRepo,
 				cache:              &mockGatewayCacheForPlatform{},
 				cfg:                cfg,
 				concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 			}
 
 			routed := catalogRouteCtx(entryID, APIProtocolAnthropic)
-			result, err := svc.SelectAccountWithLoadAwareness(routed, &groupID, "", "gpt-5.6", nil)
+			result, err := svc.SelectAccountWithLoadAwareness(routed, "", "gpt-5.6", nil)
 			require.NoError(t, err)
 			require.NotNil(t, result)
-			require.Equal(t, openAIOAuth.ID, result.Account.ID, "the bound openai account is chosen although the group is anthropic")
+			require.Equal(t, openAIOAuth.ID, result.Account.ID, "the bound openai account is chosen")
 
+			// 无路由又无端点平台：没有池（原来按分组平台 / anthropic 兜底）
 			unrouted := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-			result, err = svc.SelectAccountWithLoadAwareness(unrouted, &groupID, "", "claude-sonnet-4-5", nil)
+			result, err = svc.SelectAccountWithLoadAwareness(unrouted, "", "claude-sonnet-4-5", nil)
+			require.ErrorIs(t, err, ErrNoAvailableAccounts, "no route and no endpoint platform: no pool")
+			require.Nil(t, result)
+
+			// 端点声明平台：anthropic 平台池只有平台相等的成品号
+			result, err = svc.SelectAccountWithOptions(unrouted, "", "claude-sonnet-4-5", nil, SelectOptions{Platform: PlatformAnthropic})
 			require.NoError(t, err)
-			require.Equal(t, anthropicInGroup.ID, result.Account.ID, "without a route the group pool still applies")
+			require.Equal(t, anthropicInGroup.ID, result.Account.ID, "endpoint platform pool applies without a route")
 		})
 	}
-}
-
-// 目录路由下分组的主备路由规则不参与选号。
-func TestRoutingAccountIDsSkippedUnderCatalogRoute(t *testing.T) {
-	groupID := int64(30201)
-	groupRepo := &mockGroupRepoForGateway{groups: map[int64]*Group{
-		groupID: {ID: groupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true,
-			ModelRoutingEnabled: true, ModelRouting: map[string][]int64{"claude-sonnet-4-5": {1, 2}}},
-	}}
-	svc := &GatewayService{groupRepo: groupRepo, cfg: testConfig()}
-
-	require.Equal(t, []int64{1, 2}, svc.routingAccountIDsForRequest(context.Background(), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
-	require.Nil(t, svc.routingAccountIDsForRequest(catalogRouteCtx(5, APIProtocolAnthropic), &groupID, "claude-sonnet-4-5", PlatformAnthropic))
 }

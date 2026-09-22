@@ -3,20 +3,18 @@ package service
 import (
 	"context"
 	"strings"
-
-	"github.com/Wei-Shaw/sub2api/internal/config"
 )
 
 // ModelAvailabilityDiagnosis describes whether the requested model can be
-// served by any persistently eligible account in the group (active with its
-// schedulable setting enabled), ignoring transient state such as rate limits,
-// overload, temporary unschedulability, and runtime blocks. Handlers use this
-// on the "no available accounts" error path to distinguish 404
-// model_not_found from 503 service_unavailable.
+// served by any persistently eligible account in the request's pool (active
+// with its schedulable setting enabled), ignoring transient state such as
+// rate limits, overload, temporary unschedulability, and runtime blocks.
+// Handlers use this on the "no available accounts" error path to distinguish
+// 404 model_not_found from 503 service_unavailable.
 type ModelAvailabilityDiagnosis struct {
-	// HasAccountsInPool is true if the group has at least one persistently
-	// eligible account on the queried platform (or, for Anthropic/Gemini, on
-	// the platform plus mixed-scheduled Antigravity accounts).
+	// HasAccountsInPool is true if the pool has at least one persistently
+	// eligible account that can serve the request (catalog route: an account
+	// bound to the entry; otherwise an account on the queried platform).
 	HasAccountsInPool bool
 	// HasModelSupport is true if at least one account's model mapping admits
 	// the requested model.
@@ -30,7 +28,6 @@ type ModelAvailabilityDiagnosis struct {
 type ModelAvailabilityDiagnoser interface {
 	DiagnoseModelAvailabilityForPlatform(
 		ctx context.Context,
-		groupID *int64,
 		requestedModel string,
 		platform string,
 	) ModelAvailabilityDiagnosis
@@ -44,6 +41,15 @@ func modelAvailabilityCandidatePlatforms() []string {
 	return platforms[:]
 }
 
+// modelAvailabilityCandidates 诊断用的候选：目录路由 = 条目绑定的账号（持久可调度），
+// 否则 = 全部平台的持久可调度账号。绕过调度快照、忽略瞬时状态。
+func modelAvailabilityCandidates(ctx context.Context, repo AccountRepository) ([]Account, error) {
+	if route, ok := CatalogRouteFromContext(ctx); ok {
+		return repo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
+	}
+	return repo.ListModelAvailabilityCandidates(ctx, modelAvailabilityCandidatePlatforms())
+}
+
 // DiagnoseModelAvailabilityForPlatform inspects accounts enabled for scheduling
 // by persistent configuration and returns whether the requested model is
 // configured to be served by any of them. The dedicated repository query
@@ -55,7 +61,6 @@ func modelAvailabilityCandidatePlatforms() []string {
 // callers stay on the 503 fallback branch.
 func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 	ctx context.Context,
-	groupID *int64,
 	requestedModel string,
 	platform string,
 ) ModelAvailabilityDiagnosis {
@@ -77,23 +82,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 		return ModelAvailabilityDiagnosis{HasAccountsInPool: true, HasModelSupport: true}
 	}
 
-	useMixed := platform == PlatformAnthropic || platform == PlatformGemini
-	platforms := modelAvailabilityCandidatePlatforms()
-
-	queryGroupID := groupID
-	includeGrouped := false
-	if useMixed {
-		// Preserve the generic scheduler's scope rules: an explicit group wins
-		// for mixed scheduling, while group-less simple mode scans all accounts.
-		if groupID == nil && s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-			includeGrouped = true
-		}
-	} else if s.cfg != nil && s.cfg.RunMode == config.RunModeSimple {
-		queryGroupID = nil
-		includeGrouped = true
-	}
-
-	accounts, err := s.accountRepo.ListModelAvailabilityCandidates(ctx, queryGroupID, platforms, includeGrouped)
+	accounts, err := modelAvailabilityCandidates(ctx, s.accountRepo)
 	if err != nil {
 		// Conservative fallback: pretend everything is fine so the caller
 		// returns 503 (we don't want to flip to 404 just because a lookup
@@ -103,7 +92,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 
 	diag := ModelAvailabilityDiagnosis{}
 	for i := range accounts {
-		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform, useMixed) {
+		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform, false) {
 			continue
 		}
 		diag.HasAccountsInPool = true

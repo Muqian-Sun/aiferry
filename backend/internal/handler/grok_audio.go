@@ -65,7 +65,7 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		// An empty requested model keeps account selection capability-based;
 		// the actual voice model remains in the upstream WS query below.
 		// 无模型端点：池 = 全部 grok 资源（不看分组）
-		candidate, selectErr := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), nil, "", "", failed,
+		candidate, selectErr := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), "", "", failed,
 			service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions, Transport: service.OpenAIUpstreamTransportHTTPSSE, Platform: service.PlatformGrok})
 		if selectErr != nil || candidate == nil || candidate.Account == nil {
 			break
@@ -74,7 +74,7 @@ func (h *OpenAIGatewayHandler) GrokRealtime(c *gin.Context) {
 		account := candidate.Account
 		var streamStarted bool
 		var slotStatus openAISlotAcquireResult
-		release, slotStatus = h.acquireResponsesAccountSlot(c, nil, "", candidate, false, &streamStarted, reqLog)
+		release, slotStatus = h.acquireResponsesAccountSlot(c, "", candidate, false, &streamStarted, reqLog)
 		if slotStatus != openAISlotAcquireOK {
 			if slotStatus == openAISlotAcquireFailed {
 				return
@@ -220,7 +220,7 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 	selectionModel := "grok-4.5"
 
 	for attempts := 0; attempts < 4; attempts++ {
-		selection, selectErr := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), nil, "", selectionModel, failed,
+		selection, selectErr := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), "", selectionModel, failed,
 			service.SelectOptions{Capability: service.OpenAIEndpointCapabilityChatCompletions, Transport: service.OpenAIUpstreamTransportHTTPSSE, Platform: service.PlatformGrok})
 		if selectErr != nil || selection == nil || selection.Account == nil {
 			if last != nil {
@@ -232,7 +232,7 @@ func (h *OpenAIGatewayHandler) GrokVoice(c *gin.Context, endpoint string) {
 		}
 		account := selection.Account
 		var started bool
-		release, status := h.acquireResponsesAccountSlot(c, nil, "", selection, false, &started, reqLog)
+		release, status := h.acquireResponsesAccountSlot(c, "", selection, false, &started, reqLog)
 		if status == openAISlotAcquireProfitVetoed {
 			failed[account.ID] = struct{}{}
 			continue

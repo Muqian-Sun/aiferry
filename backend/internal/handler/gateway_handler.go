@@ -273,14 +273,14 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	// 查询粘性会话绑定的账号 ID
 	var sessionBoundAccountID int64
 	if sessionKey != "" {
-		sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), apiKey.GroupID, sessionKey)
+		sessionBoundAccountID, _ = h.gatewayService.GetCachedSessionAccountID(c.Request.Context(), sessionKey)
 		// [DEBUG-STICKY] 打印粘性会话查询结果
 		reqLog.Info("sticky.cache_lookup",
 			zap.String("session_key", sessionKey),
 			zap.Int64("bound_account_id", sessionBoundAccountID),
 		)
 		if sessionBoundAccountID > 0 {
-			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID)
+			prefetchedScopeID := service.SchedulingScopeID(c.Request.Context())
 			ctx := service.WithPrefetchedStickySession(c.Request.Context(), sessionBoundAccountID, prefetchedScopeID, h.metadataBridgeEnabled())
 			c.Request = c.Request.WithContext(ctx)
 		}
@@ -292,7 +292,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 
 	// 单资源池提前设置 SingleAccountRetry 标记，让 Service 层首次 503 就不设模型限流标记。
 	// 避免单资源池收到 503 (MODEL_CAPACITY_EXHAUSTED) 时设 29s 限流，导致后续请求连续快速失败。
-	if h.gatewayService.IsSinglePool(c.Request.Context(), apiKey.GroupID) {
+	if h.gatewayService.IsSinglePool(c.Request.Context()) {
 		ctx := service.WithSingleAccountRetry(c.Request.Context(), true, h.metadataBridgeEnabled())
 		c.Request = c.Request.WithContext(ctx)
 	}
@@ -329,10 +329,10 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			zap.Bool("has_bound_session", hasBoundSession),
 			zap.Int("failed_account_count", len(fs.FailedAccountIDs)),
 		)
-		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), apiKey.GroupID, sessionKey, reqModel, fs.FailedAccountIDs)
+		selection, err := h.gatewayService.SelectAccountWithLoadAwareness(c.Request.Context(), sessionKey, reqModel, fs.FailedAccountIDs)
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, platform)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, platform)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -475,7 +475,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		// 等待路径保持既有 eager 绑定（无门时 helper 直接绑定）；调度器已
 		// 抢槽的直达路径无门时由选号内部绑定，这里只在门下补准入后绑定。
 		if selection.ProfitGateActive() || !selection.Acquired {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, apiKey.GroupID, sessionKey, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, sessionKey, account.ID); err != nil {
 				reqLog.Warn("gateway.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
@@ -819,7 +819,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		// - 粘性账号因负载/RPM 被跳过、选中了其他账号：不覆盖原绑定，
 		//   下次请求粘性账号恢复后仍可命中
 		if sessionKey != "" && (sessionBoundAccountID == 0 || sessionBoundAccountID == account.ID) {
-			if err := h.gatewayService.BindStickySession(c.Request.Context(), apiKey.GroupID, sessionKey, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySession(c.Request.Context(), sessionKey, account.ID); err != nil {
 				reqLog.Warn("gateway.bind_sticky_session_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
@@ -1590,17 +1590,24 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 	}
 	sessionHash := h.gatewayService.GenerateSessionHash(parsedReq)
 
-	// 选择支持该模型的账号
-	account, err := h.gatewayService.SelectAccountForModel(c.Request.Context(), apiKey.GroupID, sessionHash, parsedReq.Model)
+	// 选择支持该模型的账号：计 token 不抢槽、不绑粘性（NoSlot），利润门抑制
+	selection, err := h.gatewayService.SelectAccountWithOptions(
+		service.WithOpenAIProfitControlSuppressed(c.Request.Context()), sessionHash, parsedReq.Model, nil,
+		service.SelectOptions{NoSlot: true},
+	)
+	if err == nil && (selection == nil || selection.Account == nil) {
+		err = service.ErrNoAvailableAccounts
+	}
 	if err != nil {
 		reqLog.Warn("gateway.count_tokens_select_account_failed", zap.Error(err))
-		cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, parsedReq.Model, parsedReq.Model, service.PlatformAnthropic)
+		cls := classifyNoAccountErrorFromGin(c, h.gatewayService, parsedReq.Model, parsedReq.Model, service.PlatformAnthropic)
 		if !cls.ModelNotFound {
 			markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 		}
 		h.errorResponse(c, cls.Status, cls.ErrType, cls.Message)
 		return
 	}
+	account := selection.Account
 	setOpsSelectedAccount(c, account.ID, account.Platform)
 
 	if account.IsThirdPartyKey() && !keyServesAnthropicCountTokens(messagesGatewayPlatform(c), account) {
@@ -1885,10 +1892,6 @@ func (h *GatewayHandler) maybeLogCompatibilityFallbackMetrics(reqLog *zap.Logger
 	}
 	metrics := service.SnapshotOpenAICompatibilityFallbackMetrics()
 	reqLog.Info("gateway.compatibility_fallback_metrics",
-		zap.Int64("session_hash_legacy_read_fallback_total", metrics.SessionHashLegacyReadFallbackTotal),
-		zap.Int64("session_hash_legacy_read_fallback_hit", metrics.SessionHashLegacyReadFallbackHit),
-		zap.Int64("session_hash_legacy_dual_write_total", metrics.SessionHashLegacyDualWriteTotal),
-		zap.Float64("session_hash_legacy_read_hit_rate", metrics.SessionHashLegacyReadHitRate),
 		zap.Int64("metadata_legacy_fallback_total", metrics.MetadataLegacyFallbackTotal),
 	)
 }

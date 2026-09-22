@@ -20,18 +20,18 @@ func TestCandidateAdmits_ShadowParentUnhealthy(t *testing.T) {
 	svc := newProtocolMatchService(t, true, nil, parent, shadow)
 	ctx := selectOptionsCtx(APIProtocolResponses)
 
-	ok, _ := svc.candidateAdmits(ctx, nil, &shadow, "gpt-5.6")
+	ok, _ := svc.candidateAdmits(ctx, &shadow, "gpt-5.6")
 	require.True(t, ok, "母账号健康")
 
 	until := time.Now().Add(time.Hour)
 	parent.TempUnschedulableUntil = &until
 	svc = newProtocolMatchService(t, true, nil, parent, shadow)
-	ok, reason := svc.candidateAdmits(ctx, nil, &shadow, "gpt-5.6")
+	ok, reason := svc.candidateAdmits(ctx, &shadow, "gpt-5.6")
 	require.False(t, ok)
 	require.Equal(t, "shadow_parent_unhealthy", reason)
 
 	svc = newProtocolMatchService(t, true, nil, shadow)
-	ok, reason = svc.candidateAdmits(ctx, nil, &shadow, "gpt-5.6")
+	ok, reason = svc.candidateAdmits(ctx, &shadow, "gpt-5.6")
 	require.False(t, ok, "母账号不存在")
 	require.Equal(t, "shadow_parent_unhealthy", reason)
 }
@@ -44,23 +44,23 @@ func TestCandidateAdmits_ModelTransientBlocked(t *testing.T) {
 	ctx := selectOptionsCtx(APIProtocolResponses)
 	now := time.Now()
 
-	ok, _ := svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, _ := svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.True(t, ok)
 
 	svc.rateLimitService.RecordModelTransientFailure(&key, "gpt-5.6", now)
 	decision := svc.rateLimitService.RecordModelTransientFailure(&key, "gpt-5.6", now.Add(time.Millisecond))
 	require.Positive(t, decision.Cooldown, "第二次失败进入冷却")
-	ok, reason := svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, reason := svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.False(t, ok)
 	require.Equal(t, "model_transient_blocked", reason)
-	ok, _ = svc.candidateAdmits(ctx, nil, &key, "gpt-5.7")
+	ok, _ = svc.candidateAdmits(ctx, &key, "gpt-5.7")
 	require.True(t, ok, "冷却按账号×模型，别的模型不受影响")
 
 	svc.rateLimitService.ClearModelTransient(key.ID, "gpt-5.6")
-	ok, _ = svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, _ = svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.True(t, ok)
 
-	_, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{})
+	_, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{})
 	require.NoError(t, err)
 }
 
@@ -76,22 +76,22 @@ func TestCandidateAdmits_ProxyQuarantined(t *testing.T) {
 	})
 	ctx := selectOptionsCtx(APIProtocolResponses)
 
-	ok, _ := svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, _ := svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.True(t, ok)
 
 	svc.rateLimitService.RecordProxyStreamDisconnect(&key, context.DeadlineExceeded, "rid")
-	ok, _ = svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, _ = svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.True(t, ok, "超时 / 取消不算流中断")
 
 	svc.rateLimitService.RecordProxyStreamDisconnect(&key, errors.New("stream ended before terminal event"), "rid")
-	ok, reason := svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, reason := svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.False(t, ok)
 	require.Equal(t, "proxy_quarantined", reason)
-	ok, _ = svc.candidateAdmits(withOpenAIProxyStreamQuarantineBypass(ctx), nil, &key, "gpt-5.6")
+	ok, _ = svc.candidateAdmits(withOpenAIProxyStreamQuarantineBypass(ctx), &key, "gpt-5.6")
 	require.True(t, ok, "二次放行的 ctx 下不看隔离")
 
 	svc.rateLimitService.ClearProxyStreamDisconnect(&key)
-	ok, _ = svc.candidateAdmits(ctx, nil, &key, "gpt-5.6")
+	ok, _ = svc.candidateAdmits(ctx, &key, "gpt-5.6")
 	require.True(t, ok)
 }
 
@@ -105,20 +105,20 @@ func TestCandidateAdmits_GrokModelRuntimeBlocked(t *testing.T) {
 	ctx := selectOptionsCtx(APIProtocolResponses)
 	now := time.Now()
 
-	ok, _ := svc.candidateAdmits(ctx, nil, &quota, "grok-4.5")
+	ok, _ := svc.candidateAdmits(ctx, &quota, "grok-4.5")
 	require.True(t, ok)
-	ok, _ = svc.candidateAdmits(ctx, nil, &team, "grok-4.5")
+	ok, _ = svc.candidateAdmits(ctx, &team, "grok-4.5")
 	require.True(t, ok)
 
 	markGrokModelQuotaBlock(quota.ID, "grok-4.5", now.Add(time.Hour))
-	ok, reason := svc.candidateAdmits(ctx, nil, &quota, "grok-4.5")
+	ok, reason := svc.candidateAdmits(ctx, &quota, "grok-4.5")
 	require.False(t, ok)
 	require.Equal(t, "grok_model_blocked", reason)
-	ok, _ = svc.candidateAdmits(ctx, nil, &quota, "grok-4.3")
+	ok, _ = svc.candidateAdmits(ctx, &quota, "grok-4.3")
 	require.True(t, ok, "免费额度耗尽按账号×模型，别的模型不受影响")
 
 	markGrokTeamModelRateLimit(&team, "grok-4.5", now.Add(time.Hour))
-	ok, reason = svc.candidateAdmits(ctx, nil, &team, "grok-4.5")
+	ok, reason = svc.candidateAdmits(ctx, &team, "grok-4.5")
 	require.False(t, ok)
 	require.Equal(t, "grok_model_blocked", reason)
 }

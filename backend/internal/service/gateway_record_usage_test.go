@@ -19,7 +19,6 @@ func newGatewayRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo 
 	cfg.Default.RateMultiplier = 1.1
 	return NewGatewayService(
 		nil,
-		nil,
 		usageRepo,
 		nil,
 		userRepo,

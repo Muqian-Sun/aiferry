@@ -39,12 +39,8 @@ func (r codexModelsVisibilityAccountRepo) ListSchedulableByGroupID(_ context.Con
 	return append([]Account(nil), accounts...), nil
 }
 
-func (r codexModelsVisibilityAccountRepo) ListModelAvailabilityCandidates(_ context.Context, groupID *int64, _ []string, _ bool) ([]Account, error) {
-	if groupID == nil {
-		return nil, nil
-	}
-	accounts := r.byGroup[*groupID]
-	return append([]Account(nil), accounts...), nil
+func (r codexModelsVisibilityAccountRepo) ListModelAvailabilityCandidates(_ context.Context, _ []string) ([]Account, error) {
+	return r.allAccounts(), nil
 }
 
 // codexManifestAccountSource 是分组入口删掉后测试夹具的替身：目录条目绑定 mock 里的全部账号。
@@ -138,11 +134,12 @@ func (r splitCodexModelsAccountRepo) ListByGroup(_ context.Context, groupID int6
 	return append([]Account(nil), accounts...), nil
 }
 
-func (r splitCodexModelsAccountRepo) ListModelAvailabilityCandidates(_ context.Context, groupID *int64, _ []string, _ bool) ([]Account, error) {
-	if groupID == nil {
-		return nil, nil
+func (r splitCodexModelsAccountRepo) ListModelAvailabilityCandidates(_ context.Context, _ []string) ([]Account, error) {
+	var out []Account
+	for _, accounts := range r.catalog {
+		out = append(out, accounts...)
 	}
-	return append([]Account(nil), r.catalog[*groupID]...), nil
+	return out, nil
 }
 
 func newCodexCatalogMappedAccount(

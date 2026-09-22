@@ -25,7 +25,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/Wei-Shaw/sub2api/internal/util/responseheaders"
 	"github.com/cespare/xxhash/v2"
-	gocache "github.com/patrickmn/go-cache"
 	"github.com/tidwall/gjson"
 	"github.com/tidwall/sjson"
 )
@@ -57,7 +56,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
  - Do not use a colon before tool calls. Your tool calls may not be shown directly in the output, so text like "Let me read the file:" followed by a read tool call should just be "Let me read the file." with a period.`
 	maxCacheControlBlocks = 4 // Anthropic API 允许的最大 cache_control 块数量
 
-	defaultModelsListCacheTTL              = 15 * time.Second
 	postUsageBillingTimeout                = 15 * time.Second
 	claudeCodeNoopDeltaKeepaliveMinVersion = "2.1.193"
 	debugGatewayBodyEnv                    = "SUB2API_DEBUG_GATEWAY_BODY"
@@ -92,10 +90,6 @@ var (
 	windowCostPrefetchBatchSQLTotal  atomic.Int64
 	windowCostPrefetchFallbackTotal  atomic.Int64
 	windowCostPrefetchErrorTotal     atomic.Int64
-
-	modelsListCacheHitTotal   atomic.Int64
-	modelsListCacheMissTotal  atomic.Int64
-	modelsListCacheStoreTotal atomic.Int64
 )
 
 func GatewayWindowCostPrefetchStats() (cacheHit, cacheMiss, batchSQL, fallback, errCount int64) {
@@ -104,10 +98,6 @@ func GatewayWindowCostPrefetchStats() (cacheHit, cacheMiss, batchSQL, fallback, 
 		windowCostPrefetchBatchSQLTotal.Load(),
 		windowCostPrefetchFallbackTotal.Load(),
 		windowCostPrefetchErrorTotal.Load()
-}
-
-func GatewayModelsListCacheStats() (cacheHit, cacheMiss, store int64) {
-	return modelsListCacheHitTotal.Load(), modelsListCacheMissTotal.Load(), modelsListCacheStoreTotal.Load()
 }
 
 func openAIStreamEventIsTerminal(data string) bool {
@@ -154,15 +144,6 @@ func anthropicStreamEventIsTerminal(eventName, data string) bool {
 		return true
 	}
 	return gjson.Get(trimmed, "type").String() == "message_stop"
-}
-
-func cloneStringSlice(src []string) []string {
-	if len(src) == 0 {
-		return nil
-	}
-	dst := make([]string, len(src))
-	copy(dst, src)
-	return dst
 }
 
 // IsForceCacheBilling 检查是否启用强制缓存计费
@@ -441,32 +422,11 @@ type GatewayCache interface {
 	GetReasoningContent(ctx context.Context, itemID string) (string, error)
 }
 
-// derefGroupID safely dereferences *int64 to int64, returning 0 if nil
-func derefGroupID(groupID *int64) int64 {
-	if groupID == nil {
-		return 0
-	}
-	return *groupID
-}
-
-func resolveModelsListCacheTTL(cfg *config.Config) time.Duration {
-	if cfg == nil || cfg.Gateway.ModelsListCacheTTLSeconds <= 0 {
-		return defaultModelsListCacheTTL
-	}
-	return time.Duration(cfg.Gateway.ModelsListCacheTTLSeconds) * time.Second
-}
-
-func modelsListCacheKey(groupID *int64, platform string) string {
-	return fmt.Sprintf("%d|%s", derefGroupID(groupID), strings.TrimSpace(platform))
-}
-
-func prefetchedStickyGroupIDFromContext(ctx context.Context) (int64, bool) {
-	return PrefetchedStickyGroupIDFromContext(ctx)
-}
-
-func prefetchedStickyAccountIDFromContext(ctx context.Context, groupID *int64) int64 {
-	prefetchedScopeID, ok := prefetchedStickyGroupIDFromContext(ctx)
-	if !ok || prefetchedScopeID != SchedulingScopeID(ctx, groupID) {
+// prefetchedStickyAccountIDFromContext handler 预取的粘性账号（续链 / 守护父线程亲和 / 视频归属），
+// 只认作用域一致的预取。
+func prefetchedStickyAccountIDFromContext(ctx context.Context) int64 {
+	prefetchedScopeID, ok := PrefetchedStickyScopeIDFromContext(ctx)
+	if !ok || prefetchedScopeID != SchedulingScopeID(ctx) {
 		return 0
 	}
 	if accountID, ok := PrefetchedStickyAccountIDFromContext(ctx); ok && accountID > 0 {
@@ -691,7 +651,6 @@ type GatewayService struct {
 	openaiWSResolver     OpenAIWSProtocolResolver
 	openaiWSResolverOnce sync.Once
 	accountRepo          AccountRepository
-	groupRepo            GroupRepository
 	usageLogRepo         UsageLogRepository
 	usageBillingRepo     UsageBillingRepository
 	userRepo             UserRepository
@@ -710,8 +669,6 @@ type GatewayService struct {
 	claudeTokenProvider  *ClaudeTokenProvider
 	sessionLimitCache    SessionLimitCache // 会话数量限制缓存（仅 Anthropic OAuth/SetupToken）
 	rpmCache             RPMCache          // RPM 计数缓存（仅 Anthropic OAuth/SetupToken）
-	modelsListCache      *gocache.Cache
-	modelsListCacheTTL   time.Duration
 	settingService       *SettingService
 	responseHeaderFilter *responseheaders.CompiledHeaderFilter
 	debugModelRouting    atomic.Bool
@@ -725,7 +682,6 @@ type GatewayService struct {
 // NewGatewayService creates a new GatewayService
 func NewGatewayService(
 	accountRepo AccountRepository,
-	groupRepo GroupRepository,
 	usageLogRepo UsageLogRepository,
 	usageBillingRepo UsageBillingRepository,
 	userRepo UserRepository,
@@ -749,11 +705,8 @@ func NewGatewayService(
 	resolver *ModelPricingResolver,
 	balanceNotifyService *BalanceNotifyService,
 ) *GatewayService {
-	modelsListTTL := resolveModelsListCacheTTL(cfg)
-
 	svc := &GatewayService{
 		accountRepo:          accountRepo,
-		groupRepo:            groupRepo,
 		usageLogRepo:         usageLogRepo,
 		usageBillingRepo:     usageBillingRepo,
 		userRepo:             userRepo,
@@ -773,8 +726,6 @@ func NewGatewayService(
 		sessionLimitCache:    sessionLimitCache,
 		rpmCache:             rpmCache,
 		settingService:       settingService,
-		modelsListCache:      gocache.New(modelsListTTL, time.Minute),
-		modelsListCacheTTL:   modelsListTTL,
 		responseHeaderFilter: compileResponseHeaderFilter(cfg),
 		tlsFPProfileService:  tlsFPProfileService,
 		resolver:             resolver,
@@ -857,25 +808,25 @@ func (s *GatewayService) GenerateSessionHash(parsed *ParsedRequest) string {
 
 // BindStickySession sets session -> account binding with standard TTL.
 // Codex 自动审查子请求与父线程同 session hash 时不写绑定：父线程的绑定属于父线程（守护父线程亲和）。
-func (s *GatewayService) BindStickySession(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
+func (s *GatewayService) BindStickySession(ctx context.Context, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
 		return nil
 	}
 	if preserveOpenAIGuardianParentBinding(ctx, sessionHash) {
 		return nil
 	}
-	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash, accountID, stickySessionTTL)
+	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx), sessionHash, accountID, stickySessionTTL)
 }
 
 // bindGatewayStickySessionDuringSelection preserves the normal eager sticky
 // behavior unless a profit gate is installed. Profit-controlled requests bind
 // only after the terminal post-slot check, otherwise a rejected candidate could
 // overwrite a healthy pre-existing sticky binding.
-func (s *GatewayService) bindGatewayStickySessionDuringSelection(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
+func (s *GatewayService) bindGatewayStickySessionDuringSelection(ctx context.Context, sessionHash string, accountID int64) error {
 	if gatewayProfitControlGateActive(ctx) {
 		return nil
 	}
-	return s.BindStickySession(ctx, groupID, sessionHash, accountID)
+	return s.BindStickySession(ctx, sessionHash, accountID)
 }
 
 // BindStickySessionAfterProfitAdmission records a terminally admitted
@@ -884,32 +835,32 @@ func (s *GatewayService) bindGatewayStickySessionDuringSelection(ctx context.Con
 // different binding that already exists: a temporarily ineligible sticky
 // account remains bound and automatically becomes eligible again if its
 // account rate recovers.
-func (s *GatewayService) BindStickySessionAfterProfitAdmission(ctx context.Context, groupID *int64, sessionHash string, accountID int64) error {
+func (s *GatewayService) BindStickySessionAfterProfitAdmission(ctx context.Context, sessionHash string, accountID int64) error {
 	if sessionHash == "" || accountID <= 0 || s.cache == nil {
 		return nil
 	}
 	if !gatewayProfitControlGateActive(ctx) {
-		return s.BindStickySession(ctx, groupID, sessionHash, accountID)
+		return s.BindStickySession(ctx, sessionHash, accountID)
 	}
-	existingAccountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+	existingAccountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx), sessionHash)
 	if err != nil && !errors.Is(err, ErrStickySessionNotFound) {
 		// 读失败时无法判断既有绑定，保守跳过而不是冒着覆盖健康绑定的风险写入。
-		slog.Warn("profit_control_sticky_binding_read_failed", "group_id", derefGroupID(groupID), "account_id", accountID, "error", err)
+		slog.Warn("profit_control_sticky_binding_read_failed", "scope_id", SchedulingScopeID(ctx), "account_id", accountID, "error", err)
 		return nil
 	}
 	if existingAccountID > 0 && existingAccountID != accountID {
 		return nil
 	}
-	return s.BindStickySession(ctx, groupID, sessionHash, accountID)
+	return s.BindStickySession(ctx, sessionHash, accountID)
 }
 
 // GetCachedSessionAccountID retrieves the account ID bound to a sticky session.
 // Returns 0 if no binding exists or on error.
-func (s *GatewayService) GetCachedSessionAccountID(ctx context.Context, groupID *int64, sessionHash string) (int64, error) {
+func (s *GatewayService) GetCachedSessionAccountID(ctx context.Context, sessionHash string) (int64, error) {
 	if sessionHash == "" || s.cache == nil {
 		return 0, nil
 	}
-	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), sessionHash)
+	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx), sessionHash)
 	if err != nil {
 		return 0, err
 	}
@@ -1208,9 +1159,6 @@ func (s *GatewayService) getOAuthToken(ctx context.Context, account *Account) (s
 	return accessToken, "oauth", nil
 }
 
-// GetAvailableModels returns the list of models available for a group
-// It aggregates model_mapping keys from all schedulable accounts in the group
-
 // DoGrokNativeResponsesJSON POSTs a non-streaming Responses body to the account's
 // Grok upstream and returns the raw JSON body. Used by /v1/web_search.
 // Gin-free: UA is always the pinned Grok CLI identity (resolveGrokUpstreamUserAgent ignores inbound).
@@ -1280,135 +1228,6 @@ func (s *GatewayService) DoGrokNativeResponsesJSON(ctx context.Context, account 
 		return nil, fmt.Errorf("grok upstream %d: %s", resp.StatusCode, msg)
 	}
 	return respBytes, nil
-}
-
-func (s *GatewayService) GetAvailableModels(ctx context.Context, groupID *int64, platform string) []string {
-	cacheKey := modelsListCacheKey(groupID, platform)
-	if s.modelsListCache != nil {
-		if cached, found := s.modelsListCache.Get(cacheKey); found {
-			if models, ok := cached.([]string); ok {
-				modelsListCacheHitTotal.Add(1)
-				return cloneStringSlice(models)
-			}
-		}
-	}
-	modelsListCacheMissTotal.Add(1)
-
-	var accounts []Account
-	var err error
-
-	if groupID != nil {
-		accounts, err = s.accountRepo.ListSchedulableByGroupID(ctx, *groupID)
-	} else {
-		accounts, err = s.accountRepo.ListSchedulable(ctx)
-	}
-
-	if err != nil || len(accounts) == 0 {
-		return nil
-	}
-
-	// Filter by platform if specified. 模型列表不对应某个入站协议（结果按分组+平台缓存），
-	// 第三方 key 能在该网关平台承接任一入站协议即计入。
-	if platform != "" {
-		filtered := make([]Account, 0)
-		for i := range accounts {
-			if AccountServesPlatformForAnyInbound(&accounts[i], platform) {
-				filtered = append(filtered, accounts[i])
-			}
-		}
-		accounts = filtered
-	}
-
-	// Collect unique models from all accounts
-	modelSet := make(map[string]struct{})
-	hasAnyMapping := false
-
-	for _, acc := range accounts {
-		// Passthrough routing accepts models independently of model_mapping. A stale
-		// mapping on any eligible passthrough account therefore cannot define the
-		// public whitelist; return nil so the handler uses its default model set.
-		if platform == PlatformOpenAI && acc.IsOpenAIPassthroughEnabled() {
-			if s.modelsListCache != nil {
-				s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
-				modelsListCacheStoreTotal.Add(1)
-			}
-			return nil
-		}
-
-		mapping := acc.GetModelMapping()
-		if len(mapping) > 0 {
-			hasAnyMapping = true
-			for model := range mapping {
-				modelSet[model] = struct{}{}
-			}
-		}
-	}
-
-	// If no account has model_mapping, return nil (use default)
-	if !hasAnyMapping {
-		if s.modelsListCache != nil {
-			s.modelsListCache.Set(cacheKey, []string(nil), s.modelsListCacheTTL)
-			modelsListCacheStoreTotal.Add(1)
-		}
-		return nil
-	}
-
-	// Convert to slice
-	models := make([]string, 0, len(modelSet))
-	for model := range modelSet {
-		models = append(models, model)
-	}
-	sort.Strings(models)
-
-	if platform == PlatformOpenAI {
-		models = supplementUnmappedOpenAIModels(accounts, models)
-	}
-
-	if s.modelsListCache != nil {
-		s.modelsListCache.Set(cacheKey, cloneStringSlice(models), s.modelsListCacheTTL)
-		modelsListCacheStoreTotal.Add(1)
-	}
-	return cloneStringSlice(models)
-}
-
-func explicitModelMappingClaims(account Account, model string) bool {
-	if account.Credentials == nil || model == "" {
-		return false
-	}
-	mapped, ok := stringMappingFromRaw(account.Credentials["model_mapping"])[model]
-	return ok && strings.TrimSpace(mapped) != ""
-}
-
-func (s *GatewayService) InvalidateAvailableModelsCache(groupID *int64, platform string) {
-	if s == nil || s.modelsListCache == nil {
-		return
-	}
-
-	normalizedPlatform := strings.TrimSpace(platform)
-	// 完整匹配时精准失效；否则按维度批量失效。
-	if groupID != nil && normalizedPlatform != "" {
-		s.modelsListCache.Delete(modelsListCacheKey(groupID, normalizedPlatform))
-		return
-	}
-
-	targetGroup := derefGroupID(groupID)
-	for key := range s.modelsListCache.Items() {
-		parts := strings.SplitN(key, "|", 2)
-		if len(parts) != 2 {
-			continue
-		}
-		groupPart, parseErr := strconv.ParseInt(parts[0], 10, 64)
-		if parseErr != nil {
-			continue
-		}
-		if groupID != nil && groupPart != targetGroup {
-			continue
-		}
-		if normalizedPlatform != "" && parts[1] != normalizedPlatform {
-			continue
-		}
-		s.modelsListCache.Delete(key)
-	}
 }
 
 const debugGatewayBodyDefaultFilename = "gateway_debug.log"

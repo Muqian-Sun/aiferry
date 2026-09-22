@@ -291,9 +291,12 @@ func GrokMediaVideoRequestSessionHash(requestID string, userID, apiKeyID int64) 
 	return "grok-video:" + DeriveSessionHashFromSeed(ownerSeed)
 }
 
+// grokMediaVideoOwnershipScope 视频归属键的作用域：创建请求带目录路由、状态 / 内容查询不带，
+// 两边算出的 SchedulingScopeID 不同，归属键必须用一个固定作用域（键本身已含 user / key / request）。
+const grokMediaVideoOwnershipScope int64 = 0
+
 func (s *OpenAIGatewayService) BindGrokMediaVideoRequestAccount(
 	ctx context.Context,
-	groupID *int64,
 	requestID string,
 	userID, apiKeyID, accountID int64,
 ) error {
@@ -313,12 +316,11 @@ func (s *OpenAIGatewayService) BindGrokMediaVideoRequestAccount(
 			ttl = sticky
 		}
 	}
-	return s.cache.SetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey, accountID, ttl)
+	return s.cache.SetSessionAccountID(ctx, grokMediaVideoOwnershipScope, cacheKey, accountID, ttl)
 }
 
 func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 	ctx context.Context,
-	groupID *int64,
 	requestID string,
 	userID, apiKeyID int64,
 ) (int64, error) {
@@ -329,7 +331,7 @@ func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 	if cacheKey == "" {
 		return 0, fmt.Errorf("grok video request binding is invalid")
 	}
-	return s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx, groupID), cacheKey)
+	return s.cache.GetSessionAccountID(ctx, grokMediaVideoOwnershipScope, cacheKey)
 }
 
 // SelectGrokMediaVideoRequestAccount only admits the already authenticated
@@ -337,15 +339,16 @@ func (s *OpenAIGatewayService) ResolveGrokMediaVideoRequestAccount(
 // the ownership key; video lookups must neither escape nor refresh that key.
 // 归属账号做成预取粘性 + OnlyAccountID 交给唯一调度器：池里只剩它，不能承接就是无候选（不碰别的账号）；
 // sessionHash 传空（预取不看它，空键也不会写任何绑定，归属键不刷新）。
+// 状态 / 内容查询没有模型、没有目录路由，池由端点声明：视频端点只有 grok。
 func (s *OpenAIGatewayService) SelectGrokMediaVideoRequestAccount(
-	ctx context.Context, groupID *int64, sessionHash string, accountID int64, requestedModel string,
+	ctx context.Context, sessionHash string, accountID int64, requestedModel string,
 ) (*AccountSelectionResult, error) {
 	if accountID <= 0 || strings.TrimSpace(sessionHash) == "" || s == nil || s.scheduler == nil {
 		return nil, ErrNoAvailableAccounts
 	}
-	ctx = WithPrefetchedStickySession(WithOpenAIProfitControlSuppressed(ctx), accountID, SchedulingScopeID(ctx, groupID), false)
-	selection, err := s.scheduler.SelectAccountWithOptions(ctx, groupID, "", requestedModel, nil,
-		SelectOptions{Transport: OpenAIUpstreamTransportHTTPSSE, OnlyAccountID: accountID})
+	ctx = WithPrefetchedStickySession(WithOpenAIProfitControlSuppressed(ctx), accountID, SchedulingScopeID(ctx), false)
+	selection, err := s.scheduler.SelectAccountWithOptions(ctx, "", requestedModel, nil,
+		SelectOptions{Transport: OpenAIUpstreamTransportHTTPSSE, OnlyAccountID: accountID, Platform: PlatformGrok})
 	if err != nil {
 		return nil, err
 	}

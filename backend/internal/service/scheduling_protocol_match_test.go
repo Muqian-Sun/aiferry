@@ -50,7 +50,6 @@ func newProtocolMatchService(t *testing.T, loadBatch bool, cache *mockGatewayCac
 	}
 	return &GatewayService{
 		accountRepo:        repo,
-		groupRepo:          &mockGroupRepoForGateway{groups: map[int64]*Group{}},
 		cache:              cache,
 		cfg:                cfg,
 		concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
@@ -64,15 +63,15 @@ func TestSelectAccountWithLoadAwareness_ProtocolMatchBeatsPriority(t *testing.T)
 		t.Run(name, func(t *testing.T) {
 			svc := newProtocolMatchService(t, loadBatch, nil, responsesKey, anthropicOAuth)
 
-			result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), nil, "", "claude-sonnet-4-5", nil)
+			result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.Equal(t, anthropicOAuth.ID, result.Account.ID, "message 入站：anthropic 直连赢过优先级更高但要转换的 responses key")
 
-			result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolResponses), nil, "", "claude-sonnet-4-5", nil)
+			result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolResponses), "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.Equal(t, responsesKey.ID, result.Account.ID, "response 入站：直连的是 responses key")
 
-			result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolChatCompletions), nil, "", "claude-sonnet-4-5", nil)
+			result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolChatCompletions), "", "claude-sonnet-4-5", nil)
 			require.NoError(t, err)
 			require.Equal(t, responsesKey.ID, result.Account.ID, "completion 入站两个都要转换：按配置的优先级")
 		})
@@ -94,7 +93,7 @@ func TestSelectAccountWithLoadAwareness_SamePriorityNoOAuthPreference(t *testing
 					pool = []Account{geminiKey, geminiOAuth}
 				}
 				svc := newProtocolMatchService(t, loadBatch, nil, pool...)
-				result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), nil, "", "gemini-2.5-pro", nil)
+				result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), "", "gemini-2.5-pro", nil)
 				require.NoError(t, err)
 				seen[result.Account.ID]++
 			}
@@ -110,14 +109,14 @@ func TestSelectAccountWithLoadAwareness_StickyKeepsConvertingAccount(t *testing.
 	cache := &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{"session-1": responsesKey.ID}}
 	svc := newProtocolMatchService(t, true, cache, responsesKey, anthropicOAuth)
 
-	result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), nil, "session-1", "claude-sonnet-4-5", nil)
+	result, err := svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolAnthropic), "session-1", "claude-sonnet-4-5", nil)
 	require.NoError(t, err)
 	require.Equal(t, responsesKey.ID, result.Account.ID, "粘性绑定的 responses key 仍能承接 message → 继续用，不因 anthropic 直连出现而换")
 
 	// 绑定的资源承接不了本次入站（generate 没有到 responses 的转换）→ 绑定失效，重选能承接的。
 	_, _, _, geminiKey := protocolMatchPool()
 	svc = newProtocolMatchService(t, true, &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{"session-2": responsesKey.ID}}, responsesKey, anthropicOAuth, geminiKey)
-	result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolGemini), nil, "session-2", "gemini-2.5-pro", nil)
+	result, err = svc.SelectAccountWithLoadAwareness(catalogRouteCtx(protocolMatchEntryID, APIProtocolGemini), "session-2", "gemini-2.5-pro", nil)
 	require.NoError(t, err)
 	require.Equal(t, geminiKey.ID, result.Account.ID)
 }

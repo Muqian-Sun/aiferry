@@ -12,10 +12,6 @@ func (r *openAIAccountTestRepo) ListOAuthRefreshCandidates(context.Context) ([]A
 	panic("unexpected ListOAuthRefreshCandidates call")
 }
 
-func (m *groupAwareMockAccountRepo) ListOAuthRefreshCandidates(context.Context) ([]Account, error) {
-	panic("unexpected ListOAuthRefreshCandidates call")
-}
-
 func (m *mockAccountRepoForPlatform) ListOAuthRefreshCandidates(context.Context) ([]Account, error) {
 	panic("unexpected ListOAuthRefreshCandidates call")
 }

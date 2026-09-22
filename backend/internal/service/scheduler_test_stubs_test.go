@@ -91,7 +91,7 @@ type schedulerGroupAwareOpenAIAccountRepo struct {
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if schedulingCandidateMatchesForTest(acc, platforms) && accountInSchedulingScope(context.Background(), &acc, &groupID) {
+		if schedulingCandidateMatchesForTest(acc, platforms) && accountInGroupForTest(&acc, groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -101,7 +101,7 @@ func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulingCandidatesByGroupID(
 func (r schedulerGroupAwareOpenAIAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
 	var result []Account
 	for _, acc := range r.accounts {
-		if acc.Platform == platform && accountInSchedulingScope(context.Background(), &acc, &groupID) {
+		if acc.Platform == platform && accountInGroupForTest(&acc, groupID) {
 			result = append(result, acc)
 		}
 	}
@@ -300,4 +300,22 @@ func (r schedulerTestGroupRepo) GetByID(context.Context, int64) (*Group, error) 
 
 func (r schedulerTestGroupRepo) GetByIDLite(context.Context, int64) (*Group, error) {
 	return r.group, nil
+}
+
+// accountInGroupForTest 分组桶 stub 用的成员判定（分组路径的仓储方法 7b-2b 随快照删）。
+func accountInGroupForTest(account *Account, groupID int64) bool {
+	if account == nil {
+		return false
+	}
+	for _, id := range account.GroupIDs {
+		if id == groupID {
+			return true
+		}
+	}
+	for _, ag := range account.AccountGroups {
+		if ag.GroupID == groupID {
+			return true
+		}
+	}
+	return false
 }

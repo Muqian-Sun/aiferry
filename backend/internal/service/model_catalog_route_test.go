@@ -239,29 +239,25 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 }
 
 func TestSchedulingScopeID(t *testing.T) {
-	groupID := int64(3)
 	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
-	require.Equal(t, int64(7), SchedulingScopeID(routed, &groupID), "catalog route scopes by entry")
-	require.Equal(t, int64(3), SchedulingScopeID(context.Background(), &groupID), "no route scopes by group")
-	require.Equal(t, int64(0), SchedulingScopeID(context.Background(), nil))
+	require.Equal(t, int64(7), SchedulingScopeID(routed), "catalog route scopes by entry")
+	require.Equal(t, int64(0), SchedulingScopeID(context.Background()), "no route: one shared scope")
 }
 
+// 无路由的池是全部资源：绑没绑分组都在池里（7a 起），粘性命中不能再按分组把账号判成不在池里。
 func TestAccountInSchedulingScope(t *testing.T) {
-	groupID := int64(3)
 	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}, GroupIDs: []int64{3}}
 	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}, GroupIDs: []int64{3}}
 	ungrouped := &Account{ID: 3}
 	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
 
-	require.True(t, accountInSchedulingScope(routed, bound, &groupID))
-	require.False(t, accountInSchedulingScope(routed, unbound, &groupID), "group membership does not matter under a catalog route")
-	require.False(t, accountInSchedulingScope(routed, ungrouped, nil))
+	require.True(t, accountInSchedulingScope(routed, bound))
+	require.False(t, accountInSchedulingScope(routed, unbound), "catalog route: only bound accounts are in scope")
+	require.False(t, accountInSchedulingScope(routed, ungrouped))
 
-	require.True(t, accountInSchedulingScope(context.Background(), bound, &groupID))
-	require.False(t, accountInSchedulingScope(context.Background(), ungrouped, &groupID))
-	require.True(t, accountInSchedulingScope(context.Background(), ungrouped, nil))
-	require.False(t, accountInSchedulingScope(context.Background(), bound, nil), "grouped accounts are not in the ungrouped pool")
-	require.False(t, accountInSchedulingScope(routed, nil, &groupID))
+	require.True(t, accountInSchedulingScope(context.Background(), bound), "grouped accounts are in the all-resources pool")
+	require.True(t, accountInSchedulingScope(context.Background(), ungrouped))
+	require.False(t, accountInSchedulingScope(routed, nil))
 }
 
 func TestResolveCatalogRouteForCandidates(t *testing.T) {

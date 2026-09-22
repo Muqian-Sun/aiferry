@@ -147,7 +147,7 @@ func (s *accountRepoStub) ListSchedulingCandidatesByGroupID(ctx context.Context,
 	panic("unexpected ListSchedulingCandidatesByGroupID call")
 }
 
-func (s *accountRepoStub) ListModelAvailabilityCandidates(ctx context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]Account, error) {
+func (s *accountRepoStub) ListModelAvailabilityCandidates(ctx context.Context, platforms []string) ([]Account, error) {
 	panic("unexpected ListModelAvailabilityCandidates call")
 }
 

@@ -2118,34 +2118,20 @@ func (r *accountRepository) ListSchedulingCandidatesByGroupID(ctx context.Contex
 // pool used to decide whether a model is supported. Unlike scheduling queries,
 // it intentionally ignores transient runtime state (rate limits, overload,
 // temporary unschedulability, and expiry windows).
+// ListModelAvailabilityCandidates 全部平台的持久可调度账号（active + schedulable），不看分组、不看瞬时状态。
 func (r *accountRepository) ListModelAvailabilityCandidates(
 	ctx context.Context,
-	groupID *int64,
 	platforms []string,
-	includeGrouped bool,
 ) ([]service.Account, error) {
 	if len(platforms) == 0 {
 		return []service.Account{}, nil
 	}
-	if groupID != nil {
-		return r.queryAccountsByGroup(ctx, *groupID, accountGroupQueryOptions{
-			status:               service.StatusActive,
-			schedulable:          true,
-			ignoreTransientState: true,
-			platforms:            platforms,
-		})
-	}
-
-	preds := []dbpredicate.Account{
-		dbaccount.StatusEQ(service.StatusActive),
-		dbaccount.SchedulableEQ(true),
-		dbaccount.PlatformIn(platforms...),
-	}
-	if !includeGrouped {
-		preds = append(preds, dbaccount.Not(dbaccount.HasAccountGroups()))
-	}
 	accounts, err := r.client.Account.Query().
-		Where(preds...).
+		Where(
+			dbaccount.StatusEQ(service.StatusActive),
+			dbaccount.SchedulableEQ(true),
+			dbaccount.PlatformIn(platforms...),
+		).
 		Order(dbent.Asc(dbaccount.FieldPriority)).
 		All(ctx)
 	if err != nil {

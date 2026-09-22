@@ -125,7 +125,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "previous_response_id must be a response.id (resp_*), not a message id")
 			return
 		}
-		owned, ownershipErr := h.openAIGatewayService.ValidateOpenAIHTTPResponseOwner(c.Request.Context(), service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID), previousResponseID, subject.UserID, apiKey.ID)
+		owned, ownershipErr := h.openAIGatewayService.ValidateOpenAIHTTPResponseOwner(c.Request.Context(), service.SchedulingScopeID(c.Request.Context()), previousResponseID, subject.UserID, apiKey.ID)
 		if ownershipErr != nil {
 			reqLog.Warn("gateway.responses.previous_response_owner_lookup_failed", zap.Error(ownershipErr))
 		}
@@ -227,13 +227,13 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 	// 续链与守护父线程亲和都是「已绑定的资源」：做成预取粘性，选号时优先于缓存里的会话绑定。
 	stickyID := int64(0)
 	if previousResponseID != "" {
-		stickyID = h.openAIGatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(c.Request.Context(), apiKey.GroupID, previousResponseID, reqModel, nil, capability, requireCompact)
+		stickyID = h.openAIGatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(c.Request.Context(), previousResponseID, reqModel, nil, capability, requireCompact)
 	}
 	if stickyID == 0 {
-		stickyID = h.openAIGatewayService.ResolveOpenAIGuardianParentAccountID(c.Request.Context(), apiKey.GroupID)
+		stickyID = h.openAIGatewayService.ResolveOpenAIGuardianParentAccountID(c.Request.Context())
 	}
 	if stickyID > 0 {
-		c.Request = c.Request.WithContext(service.WithPrefetchedStickySession(c.Request.Context(), stickyID, service.SchedulingScopeID(c.Request.Context(), apiKey.GroupID), h.metadataBridgeEnabled()))
+		c.Request = c.Request.WithContext(service.WithPrefetchedStickySession(c.Request.Context(), stickyID, service.SchedulingScopeID(c.Request.Context()), h.metadataBridgeEnabled()))
 	}
 	requestCtx = c.Request.Context()
 
@@ -246,7 +246,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		if requestCtx.Err() != nil {
 			return
 		}
-		selection, err := h.gatewayService.SelectAccountWithOptions(requestCtx, apiKey.GroupID, sessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: capability, RequireCompact: requireCompact})
+		selection, err := h.gatewayService.SelectAccountWithOptions(requestCtx, sessionHash, reqModel, fs.FailedAccountIDs, service.SelectOptions{Capability: capability, RequireCompact: requireCompact})
 		if err != nil {
 			if len(fs.FailedAccountIDs) == 0 {
 				if legacyCompact && errors.Is(err, service.ErrNoAvailableCompactAccounts) {
@@ -254,7 +254,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 					h.responsesErrorResponse(c, http.StatusServiceUnavailable, "compact_not_supported", "No available accounts support /responses/compact")
 					return
 				}
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, requestPlatform)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, requestPlatform)
 				cls = classifySelectionFailureError(err, cls)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
@@ -345,7 +345,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		account = latest
 		selection.Account = latest
 		if selection.ProfitGateActive() {
-			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, apiKey.GroupID, sessionHash, account.ID); err != nil {
+			if err := h.gatewayService.BindStickySessionAfterProfitAdmission(admissionCtx, sessionHash, account.ID); err != nil {
 				reqLog.Warn("gateway.responses.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}

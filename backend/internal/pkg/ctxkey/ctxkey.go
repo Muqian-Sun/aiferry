@@ -89,9 +89,9 @@ const (
 	// Service 层可复用该值，避免同请求链路重复读取 Redis。
 	PrefetchedStickyAccountID Key = "ctx_prefetched_sticky_account_id"
 
-	// PrefetchedStickyGroupID 标识上游预取 sticky session 时所使用的分组 ID。
+	// PrefetchedStickyScopeID 标识上游预取 sticky session 时所使用的作用域 ID（目录条目 ID 或 0）。
 	// Service 层仅在分组匹配时复用 PrefetchedStickyAccountID，避免分组切换重试误用旧 sticky。
-	PrefetchedStickyGroupID Key = "ctx_prefetched_sticky_group_id"
+	PrefetchedStickyScopeID Key = "ctx_prefetched_sticky_scope_id"
 
 	// ClaudeCodeVersion stores the extracted Claude Code version from User-Agent (e.g. "2.1.22")
 	ClaudeCodeVersion Key = "ctx_claude_code_version"

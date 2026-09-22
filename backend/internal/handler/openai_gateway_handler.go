@@ -770,14 +770,13 @@ func (h *OpenAIGatewayHandler) handleOpenAIProfitVetoExhausted(
 
 func (h *OpenAIGatewayHandler) acquireResponsesAccountSlot(
 	c *gin.Context,
-	groupID *int64,
 	sessionHash string,
 	selection *service.AccountSelectionResult,
 	reqStream bool,
 	streamStarted *bool,
 	reqLog *zap.Logger,
 ) (func(), openAISlotAcquireResult) {
-	return h.acquireOpenAIAccountSlot(c, groupID, sessionHash, selection, reqStream, streamStarted, reqLog, nil)
+	return h.acquireOpenAIAccountSlot(c, sessionHash, selection, reqStream, streamStarted, reqLog, nil)
 }
 
 type openAISlotErrorWriter func(status int, errType, code, message string)
@@ -787,7 +786,6 @@ type openAISlotErrorWriter func(status int, errType, code, message string)
 // while sharing the same WaitPlan, cancellation, and release semantics.
 func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	c *gin.Context,
-	groupID *int64,
 	sessionHash string,
 	selection *service.AccountSelectionResult,
 	reqStream bool,
@@ -824,7 +822,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		// 调度器已抢槽路径无门时由选号内部完成 eager 绑定；门下选号内部
 		// 推迟绑定，这里在终检通过后补准入后绑定。
 		if selection.ProfitGateActive() {
-			if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+			if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, sessionHash, account.ID); err != nil {
 				reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 			}
 		}
@@ -860,7 +858,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 		}
 		account = latest
 		selection.Account = latest
-		if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+		if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, sessionHash, account.ID); err != nil {
 			reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 		}
 		return wrapReleaseOnDone(ctx, fastReleaseFunc), openAISlotAcquireOK
@@ -916,7 +914,7 @@ func (h *OpenAIGatewayHandler) acquireOpenAIAccountSlot(
 	}
 	account = latest
 	selection.Account = latest
-	if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, groupID, sessionHash, account.ID); err != nil {
+	if err := h.gatewayService.Scheduler().BindStickySessionAfterProfitAdmission(ctx, sessionHash, account.ID); err != nil {
 		reqLog.Warn("openai.bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 	}
 	return wrapReleaseOnDone(ctx, accountReleaseFunc), openAISlotAcquireOK
@@ -1175,7 +1173,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	sessionHash := h.gatewayService.GenerateSessionHashWithFallback(
 		c,
 		firstMessage,
-		openAIWSIngressFallbackSessionSeed(subject.UserID, apiKey.ID, apiKey.GroupID),
+		openAIWSIngressFallbackSessionSeed(subject.UserID, apiKey.ID),
 	)
 	ctx = service.WithOpenAIGuardianParentAffinity(ctx, c, firstMessage, reqModel)
 	maxAccountSwitches := h.maxAccountSwitches
@@ -1266,13 +1264,13 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	// 续链与守护父线程亲和都是「已绑定的资源」：做成预取粘性（同 HTTP），选号时优先于缓存里的会话绑定。
 	stickyID := int64(0)
 	if previousResponseID != "" {
-		stickyID = h.gatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, apiKey.GroupID, previousResponseID, wsForwardModel, nil, requiredCapability, false)
+		stickyID = h.gatewayService.ResolveAccountIDByPreviousResponseIDForScheduler(ctx, previousResponseID, wsForwardModel, nil, requiredCapability, false)
 	}
 	if stickyID == 0 {
-		stickyID = h.gatewayService.ResolveOpenAIGuardianParentAccountID(ctx, apiKey.GroupID)
+		stickyID = h.gatewayService.ResolveOpenAIGuardianParentAccountID(ctx)
 	}
 	if stickyID > 0 {
-		ctx = service.WithPrefetchedStickySession(ctx, stickyID, service.SchedulingScopeID(ctx, apiKey.GroupID), false)
+		ctx = service.WithPrefetchedStickySession(ctx, stickyID, service.SchedulingScopeID(ctx), false)
 	}
 	sched := h.gatewayService.Scheduler()
 
@@ -1281,7 +1279,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 			return
 		}
 		reqLog.Debug("openai.websocket_account_selecting", zap.Int("excluded_account_count", len(failedAccountIDs)))
-		selection, err := sched.SelectAccountWithOptions(ctx, apiKey.GroupID, sessionHash, wsForwardModel, failedAccountIDs,
+		selection, err := sched.SelectAccountWithOptions(ctx, sessionHash, wsForwardModel, failedAccountIDs,
 			service.SelectOptions{Capability: requiredCapability, Transport: requiredTransport})
 		if err != nil {
 			reqLog.Warn("openai.websocket_account_select_failed",
@@ -1377,7 +1375,7 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		// captured by the previous failover account before credential lookup.
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 		currentAccountRelease = wrapReleaseOnDone(ctx, accountReleaseFunc)
-		if err := sched.BindStickySessionAfterProfitAdmission(ctx, apiKey.GroupID, sessionHash, account.ID); err != nil {
+		if err := sched.BindStickySessionAfterProfitAdmission(ctx, sessionHash, account.ID); err != nil {
 			reqLog.Warn("openai.websocket_bind_sticky_session_after_profit_admission_failed", zap.Int64("account_id", account.ID), zap.Error(err))
 		}
 
@@ -2232,12 +2230,8 @@ func ensureOpenAIPoolModeSessionHash(sessionHash string, account *service.Accoun
 	return "openai-pool-retry-" + uuid.NewString()
 }
 
-func openAIWSIngressFallbackSessionSeed(userID, apiKeyID int64, groupID *int64) string {
-	gid := int64(0)
-	if groupID != nil {
-		gid = *groupID
-	}
-	return fmt.Sprintf("openai_ws_ingress:%d:%d:%d", gid, userID, apiKeyID)
+func openAIWSIngressFallbackSessionSeed(userID, apiKeyID int64) string {
+	return fmt.Sprintf("openai_ws_ingress:%d:%d", userID, apiKeyID)
 }
 
 func isOpenAIWSUpgradeRequest(r *http.Request) bool {

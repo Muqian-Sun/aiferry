@@ -118,7 +118,7 @@ func preserveOpenAIGuardianParentBinding(ctx context.Context, sessionHash string
 
 // ResolveOpenAIGuardianParentAccountID Codex 自动审查请求按父线程的粘性绑定选号（守护父线程亲和）；无亲和或未绑定返回 0。
 // 父线程的绑定由唯一调度器写（键 = 会话 hash 本身，无 "openai:" 前缀）；旧会话 hash 只作回落读取。
-func (s *OpenAIGatewayService) ResolveOpenAIGuardianParentAccountID(ctx context.Context, groupID *int64) int64 {
+func (s *OpenAIGatewayService) ResolveOpenAIGuardianParentAccountID(ctx context.Context) int64 {
 	if s == nil || s.cache == nil {
 		return 0
 	}
@@ -126,7 +126,7 @@ func (s *OpenAIGatewayService) ResolveOpenAIGuardianParentAccountID(ctx context.
 	if !ok {
 		return 0
 	}
-	scope := SchedulingScopeID(ctx, groupID)
+	scope := SchedulingScopeID(ctx)
 	for _, sessionHash := range []string{affinity.currentSessionHash, affinity.legacySessionHash} {
 		if sessionHash == "" {
 			continue

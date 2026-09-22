@@ -12,7 +12,7 @@ import (
 // grok 视频状态轮询只认任务归属账号：归属账号可用就选中它（抢槽 / 等待计划），
 // 不可用（停调 / 不在分组 / 不存在 / 无效 id）就是无候选——绝不落到别的账号，也不刷新归属键。
 func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
-	for _, state := range []string{"available", "full", "unavailable", "wrong group", "missing", "invalid id"} {
+	for _, state := range []string{"available", "full", "unavailable", "missing", "invalid id"} {
 		t.Run(state, func(t *testing.T) {
 			groupID := int64(24)
 			ownerID := int64(1)
@@ -23,9 +23,6 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			if state == "unavailable" {
 				until := time.Now().Add(time.Minute)
 				owner.TempUnschedulableUntil = &until
-			}
-			if state == "wrong group" {
-				owner.GroupIDs = []int64{25}
 			}
 			accounts := []Account{owner, other}
 			if state == "missing" {
@@ -46,17 +43,16 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			})
 			scheduler := &GatewayService{
 				accountRepo:        repo,
-				groupRepo:          schedulerTestGroupRepo{group: &Group{ID: groupID, Platform: PlatformGrok, Status: StatusActive, Hydrated: true}},
 				cache:              cache,
 				cfg:                cfg,
 				concurrencyService: concurrency,
 			}
 			svc := &OpenAIGatewayService{accountRepo: repo, cache: cache, cfg: cfg, concurrencyService: concurrency, scheduler: scheduler}
 			ctx := context.Background()
-			require.NoError(t, svc.BindGrokMediaVideoRequestAccount(ctx, &groupID, "task", 10, 20, 1))
+			require.NoError(t, svc.BindGrokMediaVideoRequestAccount(ctx, "task", 10, 20, 1))
 			sessionHash := GrokMediaVideoRequestSessionHash("task", 10, 20)
 			for range 20 {
-				selection, err := svc.SelectGrokMediaVideoRequestAccount(ctx, &groupID, sessionHash, ownerID, "")
+				selection, err := svc.SelectGrokMediaVideoRequestAccount(ctx, sessionHash, ownerID, "")
 				switch state {
 				case "available":
 					require.NoError(t, err)
@@ -73,7 +69,7 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 					require.ErrorIs(t, err, ErrNoAvailableAccounts)
 					require.Nil(t, selection)
 				}
-				bound, err := svc.ResolveGrokMediaVideoRequestAccount(ctx, &groupID, "task", 10, 20)
+				bound, err := svc.ResolveGrokMediaVideoRequestAccount(ctx, "task", 10, 20)
 				require.NoError(t, err)
 				require.Equal(t, int64(1), bound)
 			}

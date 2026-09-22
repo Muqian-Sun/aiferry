@@ -1825,7 +1825,7 @@ func (s *stubAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context,
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListModelAvailabilityCandidates(ctx context.Context, groupID *int64, platforms []string, includeGrouped bool) ([]service.Account, error) {
+func (s *stubAccountRepo) ListModelAvailabilityCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 

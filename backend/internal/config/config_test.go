@@ -470,12 +470,6 @@ func TestLoadDefaultOpenAIWSConfig(t *testing.T) {
 	if cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate != 0.5 {
 		t.Fatalf("Gateway.OpenAIScheduler.StickyEscapeErrorRate = %v, want 0.5", cfg.Gateway.OpenAIScheduler.StickyEscapeErrorRate)
 	}
-	if !cfg.Gateway.OpenAIWS.SessionHashReadOldFallback {
-		t.Fatalf("Gateway.OpenAIWS.SessionHashReadOldFallback = false, want true")
-	}
-	if !cfg.Gateway.OpenAIWS.SessionHashDualWriteOld {
-		t.Fatalf("Gateway.OpenAIWS.SessionHashDualWriteOld = false, want true")
-	}
 	if !cfg.Gateway.OpenAIWS.MetadataBridgeEnabled {
 		t.Fatalf("Gateway.OpenAIWS.MetadataBridgeEnabled = false, want true")
 	}

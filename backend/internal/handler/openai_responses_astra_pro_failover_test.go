@@ -81,6 +81,7 @@ func newAstraProFailoverContext(t *testing.T, body string) (*gin.Context, *httpt
 	t.Helper()
 	groupID := int64(3132)
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader([]byte(body)))
+	req = req.WithContext(withTestCatalogRoute(req.Context(), 1, service.PlatformOpenAI, "m"))
 	req.Header.Set("Content-Type", "application/json")
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)

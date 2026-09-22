@@ -210,7 +210,7 @@ func (r *fullRebuildAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Con
 	return r.record(groupID, firstPlatform(platforms))
 }
 
-func (r *fullRebuildAccountRepo) ListModelAvailabilityCandidates(context.Context, *int64, []string, bool) ([]Account, error) {
+func (r *fullRebuildAccountRepo) ListModelAvailabilityCandidates(context.Context, []string) ([]Account, error) {
 	panic("unexpected ListModelAvailabilityCandidates call")
 }
 

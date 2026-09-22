@@ -44,7 +44,7 @@ func (r *keyBucketAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Co
 func (r *keyBucketAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
 	var out []Account
 	for _, account := range r.accounts {
-		if schedulingCandidateMatchesForTest(account, platforms) && accountInSchedulingScope(context.Background(), &account, &groupID) {
+		if schedulingCandidateMatchesForTest(account, platforms) && accountInGroupForTest(&account, groupID) {
 			out = append(out, account)
 		}
 	}

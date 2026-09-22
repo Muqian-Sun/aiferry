@@ -51,7 +51,6 @@ func NewOpenAIWSSessionPreemptedError() error {
 }
 
 type openAIWSSessionPreemptKey struct {
-	groupID     int64
 	apiKeyID    int64
 	sessionHash string
 }
@@ -104,7 +103,6 @@ func (s *OpenAIGatewayService) BeginOpenAIWSIngressSessionPreemptionWithClient(
 
 	preemptScope := ""
 	preemptThreadID := ""
-	preemptGroupID := getOpenAIGroupIDFromContext(c)
 	preemptAPIKeyID := getAPIKeyIDFromContext(c)
 	if account != nil && account.Platform == PlatformOpenAI && account.Type == AccountTypeOAuth {
 		// Codex multi-agent sessions share one session-id across the parent thread
@@ -117,7 +115,6 @@ func (s *OpenAIGatewayService) BeginOpenAIWSIngressSessionPreemptionWithClient(
 	preemptCtx, cleanup, armed, preemptedPrevious := s.beginOpenAIWSSessionPreemptContext(
 		ctx,
 		account,
-		preemptGroupID,
 		preemptAPIKeyID,
 		preemptScope,
 		false,
@@ -128,17 +125,16 @@ func (s *OpenAIGatewayService) BeginOpenAIWSIngressSessionPreemptionWithClient(
 	}
 	if preemptedPrevious {
 		if stateStore := s.getOpenAIWSStateStore(); stateStore != nil {
-			stateStore.DeleteSessionTurnState(preemptGroupID, preemptScope)
-			stateStore.DeleteSessionConn(preemptGroupID, preemptScope)
+			stateStore.DeleteSessionTurnState(preemptScope)
+			stateStore.DeleteSessionConn(preemptScope)
 		}
 		lane := resolveOpenAIWSExecutionLane(c, firstClientMessage)
 		if lane == "" {
 			lane = "main"
 		}
 		logOpenAIWSModeInfo(
-			"ingress_ws_session_preempted account_id=%d group_id=%d api_key_id=%d scope=%s thread_id=%s lane=%s",
+			"ingress_ws_session_preempted account_id=%d api_key_id=%d scope=%s thread_id=%s lane=%s",
 			account.ID,
-			preemptGroupID,
 			preemptAPIKeyID,
 			truncateOpenAIWSLogValue(preemptScope, 12),
 			truncateOpenAIWSLogValue(preemptThreadID, openAIWSIDValueMaxLen),
@@ -148,12 +144,15 @@ func (s *OpenAIGatewayService) BeginOpenAIWSIngressSessionPreemptionWithClient(
 	return preemptCtx, cleanup, true
 }
 
-func newOpenAIWSSessionPreemptKey(groupID, apiKeyID int64, sessionHash string) (openAIWSSessionPreemptKey, bool) {
+// openAIWSSessionPreemptScope 抢占所有权键在会话窗缓存里的作用域：键已含 key ID 与会话 hash，没有别的命名空间。
+const openAIWSSessionPreemptScope int64 = 0
+
+func newOpenAIWSSessionPreemptKey(apiKeyID int64, sessionHash string) (openAIWSSessionPreemptKey, bool) {
 	sessionHash = strings.TrimSpace(sessionHash)
-	if groupID <= 0 || apiKeyID <= 0 || sessionHash == "" {
+	if apiKeyID <= 0 || sessionHash == "" {
 		return openAIWSSessionPreemptKey{}, false
 	}
-	return openAIWSSessionPreemptKey{groupID: groupID, apiKeyID: apiKeyID, sessionHash: sessionHash}, true
+	return openAIWSSessionPreemptKey{apiKeyID: apiKeyID, sessionHash: sessionHash}, true
 }
 
 func openAIWSSessionPreemptCacheHash(apiKeyID int64, sessionHash string) string {
@@ -200,7 +199,7 @@ func (r *openAIWSSessionPreemptRegistry) Begin(key openAIWSSessionPreemptKey, ca
 func (s *OpenAIGatewayService) beginOpenAIWSSessionPreemptContext(
 	ctx context.Context,
 	account *Account,
-	groupID, apiKeyID int64,
+	apiKeyID int64,
 	sessionHash string,
 	httpIngressWSOneShot bool,
 	notifyPreempted func(),
@@ -211,7 +210,7 @@ func (s *OpenAIGatewayService) beginOpenAIWSSessionPreemptContext(
 	if s == nil || account == nil || account.Platform != PlatformOpenAI || account.Type != AccountTypeOAuth || httpIngressWSOneShot {
 		return ctx, func() {}, false, false
 	}
-	key, ok := newOpenAIWSSessionPreemptKey(groupID, apiKeyID, sessionHash)
+	key, ok := newOpenAIWSSessionPreemptKey(apiKeyID, sessionHash)
 	if !ok {
 		return ctx, func() {}, false, false
 	}
@@ -224,8 +223,8 @@ func (s *OpenAIGatewayService) beginOpenAIWSSessionPreemptContext(
 		preemptOnce.Do(func() {
 			state.preempted.Store(true)
 			if stateStore := s.getOpenAIWSStateStore(); stateStore != nil {
-				stateStore.DeleteSessionTurnState(key.groupID, key.sessionHash)
-				stateStore.DeleteSessionConn(key.groupID, key.sessionHash)
+				stateStore.DeleteSessionTurnState(key.sessionHash)
+				stateStore.DeleteSessionConn(key.sessionHash)
 			}
 			if notifyPreempted == nil {
 				cancel(errOpenAIWSSessionPreempted)
@@ -283,7 +282,7 @@ func (s *OpenAIGatewayService) claimOpenAIWSSessionPreemptOwner(ctx context.Cont
 	defer cancel()
 	previous, err := cache.ClaimOpenAIResponsesSessionWindow(
 		cacheCtx,
-		key.groupID,
+		openAIWSSessionPreemptScope,
 		openAIWSSessionPreemptCacheHash(key.apiKeyID, key.sessionHash),
 		[]byte(strings.TrimSpace(ownerToken)),
 		openAIWSSessionPreemptOwnerTTL,
@@ -303,7 +302,7 @@ func (s *OpenAIGatewayService) releaseOpenAIWSSessionPreemptOwner(ctx context.Co
 	defer cancel()
 	_, _ = cache.CompareAndDeleteOpenAIResponsesSessionWindow(
 		cacheCtx,
-		key.groupID,
+		openAIWSSessionPreemptScope,
 		openAIWSSessionPreemptCacheHash(key.apiKeyID, key.sessionHash),
 		[]byte(strings.TrimSpace(ownerToken)),
 	)
@@ -329,7 +328,7 @@ func (s *OpenAIGatewayService) watchOpenAIWSSessionPreemptOwner(ctx context.Cont
 				cacheCtx, cancel := context.WithTimeout(context.Background(), openAIWSStateStoreRedisTimeout)
 				owned, err := cache.CompareAndRefreshOpenAIResponsesSessionWindow(
 					cacheCtx,
-					key.groupID,
+					openAIWSSessionPreemptScope,
 					openAIWSSessionPreemptCacheHash(key.apiKeyID, key.sessionHash),
 					[]byte(strings.TrimSpace(ownerToken)),
 					openAIWSSessionPreemptOwnerTTL,

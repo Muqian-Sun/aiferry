@@ -137,7 +137,7 @@ func (m *mockAccountRepoForGemini) ListSchedulingCandidatesByGroupID(ctx context
 	}
 	return m.ListSchedulingCandidates(ctx, platforms)
 }
-func (m *mockAccountRepoForGemini) ListModelAvailabilityCandidates(ctx context.Context, _ *int64, platforms []string, _ bool) ([]Account, error) {
+func (m *mockAccountRepoForGemini) ListModelAvailabilityCandidates(ctx context.Context, platforms []string) ([]Account, error) {
 	return m.ListSchedulingCandidates(ctx, platforms)
 }
 func (m *mockAccountRepoForGemini) SetRateLimited(ctx context.Context, id int64, resetAt time.Time) error {

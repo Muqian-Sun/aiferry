@@ -126,8 +126,9 @@ type grokMediaSlotBindings struct {
 	billed map[string]bool
 }
 
-func (s *grokMediaSlotBindings) GetSessionAccountID(_ context.Context, groupID int64, key string) (int64, error) {
-	if groupID != 24 || key != s.key {
+func (s *grokMediaSlotBindings) GetSessionAccountID(_ context.Context, scopeID int64, key string) (int64, error) {
+	// 视频归属键的作用域固定为 0（创建带路由、查询不带，两边不能各算各的）
+	if scopeID != 0 || key != s.key {
 		return 0, service.ErrStickySessionNotFound
 	}
 	return s.owner, nil
@@ -241,13 +242,11 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 		_, err := provider.GetAccessToken(context.Background(), &accounts[1])
 		require.NoError(t, err)
 	}
-	groupID := int64(24)
 	scheduler := service.NewGatewayService(
-		repo, gatewayHarnessGroupRepo{group: &service.Group{ID: groupID, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}},
-		nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 	)
 	gateway := service.NewOpenAIGatewayService(repo, nil, nil, nil, nil, bindings, cfg, nil, concurrency, nil, nil, nil, upstream, nil, nil, provider, nil, nil, nil, scheduler)
-	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), &groupID, "task", 10, 20, 1))
+	require.NoError(t, gateway.BindGrokMediaVideoRequestAccount(context.Background(), "task", 10, 20, 1))
 	bindings.writes = 0
 	billing := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billing.Stop)
@@ -260,6 +259,10 @@ func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *
 	method, path, body := http.MethodGet, "/v1/videos/task", ""
 	if generation {
 		method, path, body = http.MethodPost, "/v1/videos/generations", `{"model":"grok-imagine-video","prompt":"test","duration":6}`
+	}
+	if generation {
+		// 生成请求带模型 → 目录路由（条目厂商 xai）；状态查询无模型，池由端点声明（grok）
+		ctx = withTestCatalogRoute(ctx, 1, service.PlatformGrok, "grok-imagine-video")
 	}
 	req := httptest.NewRequest(method, path, strings.NewReader(body)).WithContext(ctx)
 	req.Header.Set("Content-Type", "application/json")
@@ -386,7 +389,7 @@ func TestGrokMediaEligibilityReleasesBeforeSwitch(t *testing.T) {
 }
 
 func TestGrokMediaVideoLookupOwnerIsolation(t *testing.T) {
-	for _, other := range []string{"user", "api key", "group", "task"} {
+	for _, other := range []string{"user", "api key", "task"} {
 		t.Run(other, func(t *testing.T) {
 			h, slots, bindings, upstream := newGrokMediaSlotHandler(t, false, false)
 			c, w := grokMediaSlotContext(context.Background(), false)
@@ -397,9 +400,6 @@ func TestGrokMediaVideoLookupOwnerIsolation(t *testing.T) {
 				c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 11, Concurrency: 5})
 			case "api key":
 				key.ID = 21
-			case "group":
-				groupID := int64(25)
-				key.GroupID = &groupID
 			case "task":
 				c.Params = gin.Params{{Key: "request_id", Value: "other-task"}}
 			}

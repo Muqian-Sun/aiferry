@@ -51,15 +51,15 @@ func TestSelectAccountWithOptions_CapabilityGate(t *testing.T) {
 			svc := newProtocolMatchService(t, loadBatch, nil, oauth, key)
 			ctx := selectOptionsCtx(APIProtocolChatCompletions)
 
-			result, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{})
+			result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{})
 			require.NoError(t, err)
 			require.Equal(t, key.ID, result.Account.ID, "零要求：chat 直连的 key 赢过要转换的成品号")
 
-			result, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{Capability: OpenAIEndpointCapabilityLive})
+			result, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Capability: OpenAIEndpointCapabilityLive})
 			require.NoError(t, err)
 			require.Equal(t, oauth.ID, result.Account.ID, "live 只有 ChatGPT OAuth 成品号有")
 
-			result, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{Capability: OpenAIEndpointCapabilityEmbeddings})
+			result, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Capability: OpenAIEndpointCapabilityEmbeddings})
 			require.NoError(t, err)
 			require.Equal(t, key.ID, result.Account.ID, "embeddings 只有 API key 有")
 		})
@@ -77,11 +77,11 @@ func TestSelectAccountWithOptions_ImageCapability(t *testing.T) {
 	svc := newProtocolMatchService(t, true, nil, anthropicKey, key)
 	ctx := selectOptionsCtx(APIProtocolAnthropic)
 
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{})
 	require.NoError(t, err)
 	require.Equal(t, anthropicKey.ID, result.Account.ID, "零要求：message 入站 anthropic 直连 + 优先级更高")
 
-	result, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{ImageCapability: OpenAIImagesCapabilityNative})
+	result, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{ImageCapability: OpenAIImagesCapabilityNative})
 	require.NoError(t, err)
 	require.Equal(t, key.ID, result.Account.ID, "/v1/images 只有 OpenAI 协议的资源承接")
 }
@@ -93,16 +93,16 @@ func TestSelectAccountWithOptions_RequireCompactPrefersKnownSupport(t *testing.T
 	ctx := selectOptionsCtx(APIProtocolResponses)
 
 	svc := newProtocolMatchService(t, true, nil, tier0, tier1, tier2)
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
 	require.NoError(t, err)
 	require.Equal(t, tier2.ID, result.Account.ID, "同优先级：明确支持 compact 的先于未探测的")
 
 	svc = newProtocolMatchService(t, true, nil, tier0)
-	_, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
+	_, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{RequireCompact: true})
 	require.ErrorIs(t, err, ErrNoAvailableCompactAccounts)
 
 	svc = newProtocolMatchService(t, true, nil, tier0)
-	result, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{})
+	result, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{})
 	require.NoError(t, err)
 	require.Equal(t, tier0.ID, result.Account.ID, "不要求 compact 时 tier 0 照常可用")
 }
@@ -113,15 +113,15 @@ func TestSelectAccountWithOptions_Transport(t *testing.T) {
 	svc.openaiWSResolver = fixedWSResolver{transport: OpenAIUpstreamTransportHTTPSSE}
 	ctx := selectOptionsCtx(APIProtocolResponses)
 
-	_, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportResponsesWebsocketV2})
+	_, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportResponsesWebsocketV2})
 	require.True(t, errors.Is(err, ErrNoAvailableAccounts), "解析出的传输是 HTTP，承接不了 WS v2")
 
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportAny})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportAny})
 	require.NoError(t, err)
 	require.Equal(t, oauth.ID, result.Account.ID)
 
 	svc.openaiWSResolver = fixedWSResolver{transport: OpenAIUpstreamTransportResponsesWebsocketV2}
-	result, err = svc.SelectAccountWithOptions(ctx, nil, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportResponsesWebsocketV2})
+	result, err = svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, SelectOptions{Transport: OpenAIUpstreamTransportResponsesWebsocketV2})
 	require.NoError(t, err)
 	require.Equal(t, oauth.ID, result.Account.ID)
 }
@@ -138,11 +138,11 @@ func TestSelectAccountWithOptions_PlatformFiltersPool(t *testing.T) {
 	svc := newProtocolMatchService(t, true, nil, grokOAuth, openAIOAuth)
 	ctx := context.Background()
 
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
 	require.NoError(t, err)
 	require.Equal(t, grokOAuth.ID, result.Account.ID, "端点声明 grok：优先级更高的 openai 成品号不在池里")
 
-	result, err = svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformOpenAI})
+	result, err = svc.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformOpenAI})
 	require.NoError(t, err)
 	require.Equal(t, openAIOAuth.ID, result.Account.ID)
 }
@@ -162,11 +162,46 @@ func TestSelectAccountWithOptions_PlatformRejectsOtherVendorKeys(t *testing.T) {
 	ctx := context.Background()
 
 	svc := newProtocolMatchService(t, true, nil, grokOAuth, openAIKey)
-	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	result, err := svc.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
 	require.NoError(t, err)
 	require.Equal(t, grokOAuth.ID, result.Account.ID, "优先级 1 的 openai key 有兼容地址也不能承接 grok 原生端点")
 
 	onlyKey := newProtocolMatchService(t, true, nil, openAIKey)
-	_, err = onlyKey.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	_, err = onlyKey.SelectAccountWithOptions(ctx, "", "", nil, SelectOptions{Platform: PlatformGrok})
 	require.ErrorIs(t, err, ErrNoAvailableAccounts)
+}
+
+// NoSlot（计 token）：不抢槽、不绑粘性、不等待；粘性命中且在候选里就用它，否则优先级 + LRU 首个。
+func TestSelectAccountWithOptions_NoSlotDoesNotAcquire(t *testing.T) {
+	high := openAIKey(81021, 1, nil)
+	low := openAIKey(81022, 5, nil)
+	for _, loadBatch := range []bool{true, false} {
+		name := map[bool]string{true: "load aware", false: "legacy order"}[loadBatch]
+		t.Run(name, func(t *testing.T) {
+			concurrency := &mockConcurrencyCache{}
+			cache := &mockGatewayCacheForPlatform{sessionBindings: map[string]int64{"sticky-count": low.ID}}
+			svc := newProtocolMatchService(t, loadBatch, cache, high, low)
+			svc.concurrencyService = NewConcurrencyService(concurrency)
+			ctx := selectOptionsCtx(APIProtocolResponses)
+			opts := SelectOptions{Capability: OpenAIEndpointCapabilityResponses, NoSlot: true}
+
+			result, err := svc.SelectAccountWithOptions(ctx, "", "gpt-5.6", nil, opts)
+			require.NoError(t, err)
+			require.Equal(t, high.ID, result.Account.ID, "无粘性：优先级最小的候选")
+			require.False(t, result.Acquired)
+			require.Nil(t, result.WaitPlan)
+			require.Nil(t, result.ReleaseFunc)
+
+			result, err = svc.SelectAccountWithOptions(ctx, "sticky-count", "gpt-5.6", nil, opts)
+			require.NoError(t, err)
+			require.Equal(t, low.ID, result.Account.ID, "粘性命中且在候选里：用它")
+			require.False(t, result.Acquired)
+
+			result, err = svc.SelectAccountWithOptions(ctx, "fresh-count", "gpt-5.6", nil, opts)
+			require.NoError(t, err)
+			require.Equal(t, high.ID, result.Account.ID)
+			require.Zero(t, concurrency.acquireAccountCalls, "NoSlot 不得抢槽")
+			require.NotContains(t, cache.sessionBindings, "fresh-count", "NoSlot 不得写粘性绑定")
+		})
+	}
 }

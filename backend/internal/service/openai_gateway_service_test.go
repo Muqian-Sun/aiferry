@@ -555,31 +555,33 @@ func TestOpenAIGatewayService_BindHTTPResponseAccount(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
-	groupID := int64(4201)
-	c.Set("api_key", &APIKey{ID: 501, GroupID: &groupID})
+	// 作用域 = SchedulingScopeID(ctx)：目录路由下是条目 ID
+	scopeID := int64(4201)
+	ctx := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: scopeID})
+	c.Set("api_key", &APIKey{ID: 501})
 	SetOpenAIHTTPResponseOwner(c, 601, 501)
 
 	svc := &OpenAIGatewayService{}
 	account := &Account{ID: 37001, Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
-	svc.bindHTTPResponseAccount(context.Background(), c, account, "resp_http_001")
+	svc.bindHTTPResponseAccount(ctx, c, account, "resp_http_001")
 
-	got, err := svc.getOpenAIWSStateStore().GetResponseAccount(context.Background(), groupID, "resp_http_001")
+	got, err := svc.getOpenAIWSStateStore().GetResponseAccount(ctx, scopeID, "resp_http_001")
 	require.NoError(t, err)
 	require.Equal(t, account.ID, got)
 
-	owned, err := svc.ValidateOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_http_001", 601, 501)
+	owned, err := svc.ValidateOpenAIHTTPResponseOwner(ctx, scopeID, "resp_http_001", 601, 501)
 	require.NoError(t, err)
 	require.True(t, owned)
 
-	owned, err = svc.ValidateOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_http_001", 601, 502)
+	owned, err = svc.ValidateOpenAIHTTPResponseOwner(ctx, scopeID, "resp_http_001", 601, 502)
 	require.NoError(t, err)
 	require.True(t, owned, "API keys owned by the same downstream user remain interoperable")
 
-	owned, err = svc.ValidateOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_http_001", 602, 501)
+	owned, err = svc.ValidateOpenAIHTTPResponseOwner(ctx, scopeID, "resp_http_001", 602, 501)
 	require.NoError(t, err)
 	require.False(t, owned)
 
-	owned, err = svc.ValidateOpenAIHTTPResponseOwner(context.Background(), groupID, "resp_unknown", 601, 501)
+	owned, err = svc.ValidateOpenAIHTTPResponseOwner(ctx, scopeID, "resp_unknown", 601, 501)
 	require.NoError(t, err)
 	require.False(t, owned)
 }

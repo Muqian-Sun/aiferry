@@ -28,12 +28,37 @@ func TestDiagnoseModelAvailabilityForPlatform_CountsKeysByProtocolNotLabel(t *te
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 	ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, &groupID, "claude-relay-custom", PlatformAnthropic)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformAnthropic)
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport)
 
-	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, &groupID, "claude-relay-custom", PlatformGemini)
+	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformGemini)
 	require.False(t, diag.HasAccountsInPool)
+	require.False(t, diag.HasModelSupport)
+}
+
+// 目录路由下诊断按条目绑定：绑了但不支持该模型 → {true,false}（404）；没绑任何账号 → {false,false}（503）；
+// 没绑到条目的账号哪怕支持模型也不算。
+func TestDiagnoseModelAvailabilityForPlatform_CatalogRouteUsesBindings(t *testing.T) {
+	const entryID = int64(21120)
+	bound := anthropicEndpointKeyWithMapping(21121, 0)
+	bound.CatalogEntryIDs = []int64{entryID}
+	unbound := anthropicEndpointKeyWithMapping(21122, 0)
+	unbound.Credentials = map[string]any{"model_mapping": map[string]any{"claude-other": "claude-sonnet-4-5"}}
+	repo := &mockAccountRepoForPlatform{accounts: []Account{bound, unbound}, accountsByID: map[int64]*Account{}}
+	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
+	ctx := catalogRouteCtx(entryID, APIProtocolAnthropic)
+
+	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformAnthropic)
+	require.True(t, diag.HasAccountsInPool)
+	require.True(t, diag.HasModelSupport, "绑定账号的映射含该模型")
+
+	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-other", PlatformAnthropic)
+	require.True(t, diag.HasAccountsInPool)
+	require.False(t, diag.HasModelSupport, "只有没绑到条目的账号支持该模型：按绑定看是不支持 → 404")
+
+	diag = svc.DiagnoseModelAvailabilityForPlatform(catalogRouteCtx(entryID+1, APIProtocolAnthropic), "claude-relay-custom", PlatformAnthropic)
+	require.False(t, diag.HasAccountsInPool, "条目没有绑定 → 503")
 	require.False(t, diag.HasModelSupport)
 }
 
@@ -45,12 +70,12 @@ func TestOpenAIDiagnoseModelAvailabilityForPlatform_CountsKeysByInboundProtocol(
 	svc := &OpenAIGatewayService{accountRepo: repo, cfg: testConfig()}
 
 	chatCtx := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
-	diag := svc.DiagnoseModelAvailabilityForPlatform(chatCtx, &groupID, "gpt-relay-custom", PlatformOpenAI)
+	diag := svc.DiagnoseModelAvailabilityForPlatform(chatCtx, "gpt-relay-custom", PlatformOpenAI)
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport)
 
 	geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
-	diag = svc.DiagnoseModelAvailabilityForPlatform(geminiCtx, &groupID, "gpt-relay-custom", PlatformOpenAI)
+	diag = svc.DiagnoseModelAvailabilityForPlatform(geminiCtx, "gpt-relay-custom", PlatformOpenAI)
 	require.False(t, diag.HasAccountsInPool)
 }
 
@@ -82,28 +107,6 @@ func TestAccountServesPlatformForAnyInbound(t *testing.T) {
 			require.Equal(t, tt.want, AccountServesPlatformForAnyInbound(&tt.account, tt.platform))
 		})
 	}
-}
-
-func TestGetAvailableModels_CountsKeysByProtocolNotLabel(t *testing.T) {
-	groupID := int64(21103)
-	repo := &accountRepoStubForCompositeModelsList{accounts: []Account{anthropicEndpointKeyWithMapping(21113, groupID)}}
-	svc := &GatewayService{accountRepo: repo}
-
-	require.Equal(t, []string{"claude-relay-custom"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformAnthropic))
-	// OpenAI 网关能把入站 Messages 以 anthropic 协议转发，只有 anthropic 地址的 key 也计入。
-	require.Equal(t, []string{"claude-relay-custom"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
-	// Gemini 网关只以 gemini 协议转发。
-	require.Nil(t, svc.GetAvailableModels(context.Background(), &groupID, PlatformGemini))
-}
-
-func TestGetAvailableModels_CountsResponsesOnlyKeyOnOpenAIGateway(t *testing.T) {
-	groupID := int64(21105)
-	key := schedulingTestKey(21115, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL}, groupID)
-	key.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-relay-responses": "gpt-5.1"}}
-	repo := &accountRepoStubForCompositeModelsList{accounts: []Account{key}}
-	svc := &GatewayService{accountRepo: repo}
-
-	require.Equal(t, []string{"gpt-relay-responses"}, svc.GetAvailableModels(context.Background(), &groupID, PlatformOpenAI))
 }
 
 func TestAdminGroupModelsListCandidates_CountsKeysByProtocolNotLabel(t *testing.T) {

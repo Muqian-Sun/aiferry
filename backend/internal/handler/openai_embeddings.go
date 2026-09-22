@@ -117,7 +117,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 	c.Request = c.Request.WithContext(embPricingCtx)
 
 	for {
-		selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), apiKey.GroupID, "", forwardModel, failedAccountIDs,
+		selection, err := h.gatewayService.Scheduler().SelectAccountWithOptions(c.Request.Context(), "", forwardModel, failedAccountIDs,
 			service.SelectOptions{Capability: service.OpenAIEndpointCapabilityEmbeddings, Transport: service.OpenAIUpstreamTransportHTTPSSE})
 		if err != nil {
 			if failoverClientGone(c) {
@@ -129,7 +129,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 				zap.Int("excluded_account_count", len(failedAccountIDs)),
 			)
 			if len(failedAccountIDs) == 0 {
-				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
+				cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, service.PlatformOpenAI)
 				if !cls.ModelNotFound {
 					markOpsRoutingCapacityLimitedIfNoAvailable(c, err)
 				}
@@ -144,7 +144,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 			return
 		}
 		if selection == nil || selection.Account == nil {
-			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, apiKey, reqModel, reqModel, service.PlatformOpenAI)
+			cls := classifyNoAccountErrorFromGin(c, h.gatewayService, reqModel, reqModel, service.PlatformOpenAI)
 			if !cls.ModelNotFound {
 				markOpsRoutingCapacityLimited(c)
 			}
@@ -154,7 +154,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		account := selection.Account
 		setOpsSelectedAccount(c, account.ID, account.Platform)
 
-		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, apiKey.GroupID, "", selection, false, &streamStarted, reqLog)
+		accountReleaseFunc, slotResult := h.acquireResponsesAccountSlot(c, "", selection, false, &streamStarted, reqLog)
 		if slotResult == openAISlotAcquireProfitVetoed {
 			// 利润终检否决：排除该账号重新选号；否决次数达上限则按无可用账号终止。
 			if !recordOpenAIProfitVeto(failedAccountIDs, account.ID, &profitVetoCount) {
