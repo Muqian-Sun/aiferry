@@ -146,3 +146,27 @@ func TestSelectAccountWithOptions_PlatformFiltersPool(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, openAIOAuth.ID, result.Account.ID)
 }
+
+// 第三方 key 会进任何有兼容地址的网关平台桶，但厂商原生端点（web_search / tts / live）只能由该厂商的账号承接：
+// Platform 要求候选的账号平台相等，别家的 key 再高优先级也不选；池里只有别家 key 时无候选。
+func TestSelectAccountWithOptions_PlatformRejectsOtherVendorKeys(t *testing.T) {
+	grokOAuth := Account{
+		ID: 81051, Name: "grok-oauth", Platform: PlatformGrok, Type: AccountTypeOAuth, Status: StatusActive,
+		Schedulable: true, Concurrency: 5, Priority: 50, Credentials: map[string]any{"access_token": "tok"},
+	}
+	openAIKey := Account{
+		ID: 81052, Name: "openai-key", Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Status: StatusActive,
+		Schedulable: true, Concurrency: 5, Priority: 1, Credentials: map[string]any{"api_key": "sk"},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com/v1", APIProtocolResponses: "https://api.openai.com/v1"},
+	}
+	ctx := context.Background()
+
+	svc := newProtocolMatchService(t, true, nil, grokOAuth, openAIKey)
+	result, err := svc.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	require.NoError(t, err)
+	require.Equal(t, grokOAuth.ID, result.Account.ID, "优先级 1 的 openai key 有兼容地址也不能承接 grok 原生端点")
+
+	onlyKey := newProtocolMatchService(t, true, nil, openAIKey)
+	_, err = onlyKey.SelectAccountWithOptions(ctx, nil, "", "", nil, SelectOptions{Platform: PlatformGrok})
+	require.ErrorIs(t, err, ErrNoAvailableAccounts)
+}
