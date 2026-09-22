@@ -104,11 +104,6 @@ export const FeatureFlags = {
     mode: 'opt-out',
     label: 'Subscription',
   }),
-  pluginManagement: defineFlag({
-    key: 'plugin_management_enabled',
-    mode: 'opt-in',
-    label: 'Plugin Management',
-  }),
   payment: defineFlag({
     key: 'payment_enabled',
     mode: 'opt-out',
