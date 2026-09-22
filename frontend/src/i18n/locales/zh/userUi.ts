@@ -38,14 +38,58 @@ export default {
       accountMenu: '账户菜单'
     },
     home: {
-      heroTitle: '一把 API Key，\n接入所有主流模型。',
-      heroDescription: '按 Anthropic、OpenAI、Gemini 的官方协议原样转发，SDK 不用换，只改一行 base_url。每次请求逐条记账，用量与费用同一本账。',
-      getStarted: '开始使用',
-      goToConsole: '进入控制台',
-      viewPricing: '查看模型与价格',
-      vendorsLabel: '目录里已上架的厂商',
+      hero: {
+        eyebrow: '{models} 个模型 · 4 条官方协议 · 逐条记账',
+        title: '一把 API Key，\n接入所有主流模型。',
+        description: '按 Anthropic、OpenAI、Gemini 的官方协议原样转发，SDK 不用换，只改一行 base_url；每次请求逐条记账，用量与费用同一本账。',
+        getStarted: '开始使用',
+        goToConsole: '进入控制台',
+        viewPricing: '查看模型与价格',
+        vendorsLabel: '已上架的厂商'
+      },
+      features: {
+        eyebrow: '为什么用这里',
+        title: '把复杂留给我们，把接口留给你',
+        description: '一条接口后面是统一的调度、计价与记账；你只管换 base_url。',
+        items: {
+          protocol: { title: '官方协议直连', body: '同协议的资源优先，不做私有格式转换；SDK、流式、工具调用都和直连一样。' },
+          noFallback: { title: '绝不偷换模型', body: '你请求哪个模型就是哪个模型；唯一的兜底是同模型换渠道，不会静默降级。' },
+          pricing: { title: '上架即标价', body: '模型页列出每个上架模型的标价；实付 = 标价 × 账户倍率，先看价再用。' },
+          sticky: { title: '同一对话固定上游', body: '一段会话固定落在同一上游，缓存命中不被打断，长对话更便宜也更稳。' },
+          ledger: { title: '逐条可查', body: '用量页按请求列出模型、Token、耗时与费用，支持筛选与 CSV 导出。' },
+          balance: { title: '余额透明', body: '可用余额与冻结金额分开显示，每一笔扣费都能追溯到具体请求。' }
+        }
+      },
+      quickstart: {
+        eyebrow: '快速接入',
+        title: '几行代码，接入全部模型',
+        description: '四条官方协议原样支持，换 API Key 与 base_url 即可调用。',
+        steps: {
+          create: { title: '创建密钥', body: '在控制台「密钥」里生成一把 API Key，可设额度与限速。' },
+          baseUrl: { title: '替换 base_url', body: '保留原有 SDK 与请求格式，只把上游地址改成本站。' },
+          call: { title: '发起请求，回来看账', body: '每次请求的 Token、耗时与费用逐条记录，随时导出。' }
+        },
+        links: {
+          docs: { title: '接入文档', body: '在 IDE / Agent 中调用' },
+          clients: { title: '客户端配置', body: '在各类客户端使用' }
+        },
+        sample: {
+          request: 'REQUEST',
+          response: 'RESPONSE',
+          copy: '复制请求',
+          copied: '已复制',
+          tabs: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
+        }
+      },
+      catalog: {
+        eyebrow: '价格公开',
+        title: '模型与标价',
+        description: '标价为本站目录价（USD / 百万 Token），与模型页同源；实付 = 标价 × 账户倍率。',
+        viewAll: '查看全部 {count} 个模型'
+      },
       clients: {
-        title: '开箱即用的客户端',
+        eyebrow: '可用集成',
+        title: '在你熟悉的客户端里用',
         description: '这些工具只要改 base_url 和 key 就能接上；每一个在「密钥 → 使用密钥」里都有可复制的配置片段。',
         cta: '去密钥页取配置',
         items: {
@@ -54,57 +98,21 @@ export default {
           gemini: 'Gemini generateContent 协议，配 API key 即可。',
           grok: 'OpenAI Chat 兼容协议，指向本站的 /v1。',
           opencode: '写一份 provider 配置，模型名从模型页里挑。'
-        }
-      },
-      codeSample: {
-        label: '接入示例',
-        comment: '只改这两行',
-        copy: '复制',
-        copied: '已复制',
-        tabs: { python: 'Python', curl: 'curl', node: 'Node', claudeCode: 'Claude Code' }
+        },
+        sdk: { title: '任何 OpenAI / Anthropic SDK', body: '官方 SDK 与所有兼容库都能直接用：改 base_url，其余不动。' }
       },
       stats: {
-        models: '模型',
+        models: '上架模型',
         vendors: '厂商',
         protocols: '官方协议，原样透传',
         ledgerLabel: '请求记账，可导出',
         ledgerValue: '逐条'
       },
-      catalog: {
-        title: '模型与标价',
-        description: '标价，USD / 百万 Token，与模型页同源；实付 = 标价 × 账户倍率。',
-        viewAll: '查看全部 {count} 个模型'
-      },
-      protocols: {
-        title: '四条官方协议，原样透传',
-        description: '不做私有格式转换：请求体与响应按各家官方协议原样经过，SDK、流式、工具调用都和直连一样。'
-      },
-      routeMap: {
-        routes: {
-          messages: 'Anthropic Messages',
-          responses: 'OpenAI Responses',
-          chat: 'Chat Completions',
-          gemini: 'Gemini Generate'
-        },
-        vendors: {
-          messages: 'Claude',
-          responses: 'GPT',
-          chat: 'GPT、DeepSeek、Qwen、Grok',
-          gemini: 'Gemini'
-        }
-      },
-      steps: {
-        title: '接入只需三步',
-        create: { title: '创建密钥', body: '在控制台生成一把 API Key，可按分组与额度限制用途。' },
-        baseUrl: { title: '换一行 base_url', body: '保留原有 SDK 与请求格式，只把上游地址改成本站。' },
-        watch: { title: '发起请求，回来看用量', body: '每次请求的 Token、耗时与费用逐条记录，随时导出。' }
-      },
-      facts: {
-        title: '你能核对的事',
-        protocol: { title: '官方协议直连', body: '不做私有格式转换，请求体与响应按各家官方协议原样透传。' },
-        pricing: { title: '价格公开', body: '模型页列出每个上架模型的标价，实付 = 标价 × 账户倍率，先看价再用。' },
-        ledger: { title: '逐条可查', body: '用量页按请求列出模型、Token、耗时与费用，支持筛选与 CSV 导出。' },
-        balance: { title: '余额透明', body: '可用余额与冻结金额分开显示，每一笔扣费都能追溯到具体请求。' }
+      cta: {
+        eyebrow: '官方协议 · 上架即标价 · 逐条记账',
+        title: '准备好开始了吗？',
+        getStarted: '免费开始',
+        goToConsole: '进入控制台'
       }
     },
     billing: {

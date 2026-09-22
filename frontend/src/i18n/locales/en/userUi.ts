@@ -38,14 +38,58 @@ export default {
       accountMenu: 'Account menu'
     },
     home: {
-      heroTitle: 'One API key\nfor every major model.',
-      heroDescription: 'Requests pass through unchanged over the official Anthropic, OpenAI and Gemini protocols. Keep your SDK, change one base_url. Every call is logged, so usage and cost live in one ledger.',
-      getStarted: 'Get started',
-      goToConsole: 'Open console',
-      viewPricing: 'Models & pricing',
-      vendorsLabel: 'Vendors with listed models',
+      hero: {
+        eyebrow: '{models} models · 4 official protocols · per-request ledger',
+        title: 'One API key,\nevery major model.',
+        description: 'Requests pass through on the official Anthropic, OpenAI and Gemini protocols — keep your SDK, change one base_url. Every request is billed and recorded line by line.',
+        getStarted: 'Get started',
+        goToConsole: 'Open console',
+        viewPricing: 'Models & pricing',
+        vendorsLabel: 'Vendors with listed models'
+      },
+      features: {
+        eyebrow: 'Why here',
+        title: 'We take the complexity, you keep the interface',
+        description: 'Behind one endpoint sits unified scheduling, pricing and a ledger; all you change is base_url.',
+        items: {
+          protocol: { title: 'Official protocols, untouched', body: 'Same-protocol resources come first and nothing is rewritten into a private format; SDKs, streaming and tool calls behave exactly as direct.' },
+          noFallback: { title: 'Never swaps your model', body: 'The model you ask for is the model you get. The only fallback is another channel for the same model — never a silent downgrade.' },
+          pricing: { title: 'Listed means priced', body: 'Every listed model shows its list price; you pay list price × your account multiplier, visible before you call.' },
+          sticky: { title: 'One conversation, one upstream', body: 'A session stays on the same upstream so cache hits keep landing — long conversations get cheaper and steadier.' },
+          ledger: { title: 'Line-by-line records', body: 'The usage page lists model, tokens, latency and cost per request, with filters and CSV export.' },
+          balance: { title: 'Transparent balance', body: 'Available and frozen balance are shown separately; every charge traces back to a request.' }
+        }
+      },
+      quickstart: {
+        eyebrow: 'Quick start',
+        title: 'A few lines of code, every model',
+        description: 'Four official protocols supported as-is: swap the API key and base_url and call.',
+        steps: {
+          create: { title: 'Create a key', body: 'Generate an API key under Keys in the console, with optional quota and rate limits.' },
+          baseUrl: { title: 'Replace base_url', body: 'Keep your SDK and request format; only point the upstream at this site.' },
+          call: { title: 'Call, then check the ledger', body: 'Tokens, latency and cost are recorded per request and exportable any time.' }
+        },
+        links: {
+          docs: { title: 'Integration docs', body: 'Calling from IDEs and agents' },
+          clients: { title: 'Client configs', body: 'Using desktop and CLI clients' }
+        },
+        sample: {
+          request: 'REQUEST',
+          response: 'RESPONSE',
+          copy: 'Copy request',
+          copied: 'Copied',
+          tabs: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
+        }
+      },
+      catalog: {
+        eyebrow: 'Public pricing',
+        title: 'Models and list prices',
+        description: 'List prices are this site\'s catalog prices (USD per 1M tokens), same source as the models page; you pay list price × your account multiplier.',
+        viewAll: 'See all {count} models'
+      },
       clients: {
-        title: 'Clients that work out of the box',
+        eyebrow: 'Integrations',
+        title: 'Use it from the clients you already have',
         description: 'Point these tools at this base_url with your key and they just work; each one has a copyable config snippet under Keys → Use key.',
         cta: 'Get the config on the keys page',
         items: {
@@ -54,57 +98,21 @@ export default {
           gemini: 'Gemini generateContent protocol; an API key is all it needs.',
           grok: 'OpenAI Chat compatible protocol pointed at /v1 on this site.',
           opencode: 'One provider config; pick model names from the models page.'
-        }
-      },
-      codeSample: {
-        label: 'Integration examples',
-        comment: 'Only these two lines change',
-        copy: 'Copy',
-        copied: 'Copied',
-        tabs: { python: 'Python', curl: 'curl', node: 'Node', claudeCode: 'Claude Code' }
+        },
+        sdk: { title: 'Any OpenAI / Anthropic SDK', body: 'Official SDKs and every compatible library work directly: change base_url, leave the rest.' }
       },
       stats: {
-        models: 'Models',
+        models: 'Listed models',
         vendors: 'Vendors',
-        protocols: 'Official protocols, passed through',
-        ledgerLabel: 'Requests logged, exportable',
+        protocols: 'Official protocols, untouched',
+        ledgerLabel: 'Requests recorded, exportable',
         ledgerValue: 'Every one'
       },
-      catalog: {
-        title: 'Models and list prices',
-        description: 'List prices in USD per million tokens, same source as the models page; you pay list price × your account multiplier.',
-        viewAll: 'See all {count} models'
-      },
-      protocols: {
-        title: 'Four official protocols, passed through unchanged',
-        description: 'No private format conversion: request and response bodies travel exactly as the vendor protocol defines them, so SDKs, streaming and tool calls behave as they do direct.'
-      },
-      routeMap: {
-        routes: {
-          messages: 'Anthropic Messages',
-          responses: 'OpenAI Responses',
-          chat: 'Chat Completions',
-          gemini: 'Gemini Generate'
-        },
-        vendors: {
-          messages: 'Claude',
-          responses: 'GPT',
-          chat: 'GPT, DeepSeek, Qwen, Grok',
-          gemini: 'Gemini'
-        }
-      },
-      steps: {
-        title: 'Three steps to integrate',
-        create: { title: 'Create a key', body: 'Generate an API key in the console; scope it by group and quota.' },
-        baseUrl: { title: 'Change one base_url', body: 'Keep your SDK and request format; point the upstream at this site.' },
-        watch: { title: 'Send requests, review usage', body: 'Tokens, latency and cost are recorded per request and exportable any time.' }
-      },
-      facts: {
-        title: 'What you can verify',
-        protocol: { title: 'Official protocols', body: 'No proprietary translation: request and response bodies pass through as each vendor defines them.' },
-        pricing: { title: 'Public pricing', body: 'The models page lists every listed model\'s list price; you pay list price × your account multiplier.' },
-        ledger: { title: 'Line-by-line records', body: 'The usage page lists model, tokens, latency and cost per request, with filters and CSV export.' },
-        balance: { title: 'Transparent balance', body: 'Available and frozen balance are shown separately; every charge traces back to a request.' }
+      cta: {
+        eyebrow: 'Official protocols · listed means priced · per-request ledger',
+        title: 'Ready to start?',
+        getStarted: 'Start for free',
+        goToConsole: 'Open console'
       }
     },
     billing: {

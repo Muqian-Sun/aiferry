@@ -17,8 +17,16 @@
     </main>
     <!-- 公开站页脚：三栏链接全部来自公开设置（文档地址 / 联系方式 / 协议文档），没有的栏不出现 -->
     <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline" data-testid="site-footer">
-      <div class="mx-auto max-w-site px-6 py-10">
-        <div class="grid gap-8 sm:grid-cols-3">
+      <div class="mx-auto max-w-site px-6 py-12">
+        <div class="grid gap-10 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr]">
+          <!-- 品牌栏：logo + 站名 + 副标题 -->
+          <div class="min-w-0 sm:col-span-2 lg:col-span-1" data-testid="footer-brand">
+            <div class="flex items-center gap-2.5">
+              <img :src="logoSrc" alt="" class="h-6 w-6 object-contain" />
+              <span class="text-base font-semibold text-af-ink">{{ siteName }}</span>
+            </div>
+            <p v-if="siteSubtitle" class="mt-3 max-w-xs text-13 leading-6 text-af-ink-3">{{ siteSubtitle }}</p>
+          </div>
           <div v-for="column in footerColumns" :key="column.key" class="min-w-0">
             <h2 class="text-13 font-medium text-af-ink">{{ column.title }}</h2>
             <ul class="mt-3 space-y-2 text-13 text-af-ink-3">
@@ -70,6 +78,10 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const { title: routeTitle, description: routeDescription } = usePageTitle()
 const siteName = computed(() => appStore.siteName)
+const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || '')
+const logoSrc = computed(
+  () => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/logo.svg'
+)
 const currentYear = new Date().getFullYear()
 
 interface FooterLink {

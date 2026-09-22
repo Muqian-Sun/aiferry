@@ -229,9 +229,33 @@ describe('HomeView compact mode', () => {
     expect(wrapper.find('[data-testid="home-catalog"]').exists()).toBe(false)
   })
 
-  it('renders the code sample with the site API base URL', async () => {
+  it('renders the protocol sample with the site API base URL and switches protocols', async () => {
     const wrapper = mountHome({ api_base_url: 'https://api.example.test/' })
     await flushPromises()
-    expect(wrapper.get('[data-testid="code-sample"]').text()).toContain('base_url="https://api.example.test"')
+    const sample = wrapper.get('[data-testid="protocol-sample"]')
+    expect(sample.text()).toContain('https://api.example.test/v1/messages')
+    expect(sample.text()).toContain('userUi.home.quickstart.sample.request')
+    expect(sample.text()).toContain('userUi.home.quickstart.sample.response')
+    await sample.get('[data-testid="protocol-tab-gemini"]').trigger('click')
+    expect(sample.text()).toContain('https://api.example.test/v1beta/models/gemini-3-pro:generateContent')
+    expect(sample.text()).toContain('usageMetadata')
+  })
+
+  it('lays the landing page out as centred sections: hero, features, quickstart, clients, CTA', async () => {
+    const wrapper = mountHome({})
+    await flushPromises()
+    expect(wrapper.findAll('[data-testid="home-feature"]')).toHaveLength(6)
+    expect(wrapper.findAll('[data-testid="home-step"]')).toHaveLength(3)
+    expect(wrapper.find('[data-testid="home-quickstart"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="home-client-sdk"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="home-cta"]').exists()).toBe(true)
+    // 文档链接卡只在配置了 doc_url 时出现；密钥入口卡恒在
+    expect(wrapper.find('[data-testid="home-link-docs"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="home-link-clients"]').exists()).toBe(true)
+    expect(mountHome({ doc_url: 'https://docs.example' }).find('[data-testid="home-link-docs"]').exists()).toBe(true)
+    // 拿不到目录：眉题、模型段、数字卡都不出现
+    expect(wrapper.find('[data-testid="hero-eyebrow"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="home-catalog-section"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
   })
 })

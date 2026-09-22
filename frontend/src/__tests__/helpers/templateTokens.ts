@@ -16,16 +16,16 @@ export const FORBIDDEN: ForbiddenRule[] = [
   { name: 'legacy gray/slate palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder|accent|fill|stroke|outline)-(?:gray|slate|zinc|neutral|stone)-\d{2,3}\b/ },
   { name: 'legacy dark palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder)-dark-\d{2,3}\b/ },
   { name: 'dark: variant (tokens switch themselves)', re: /(?:^|[\s"'`(:])dark:[a-z]/ },
-  { name: 'card class', re: /(?:^|[\s"'`])card(?:-glass|-hover|-header|-body|-footer)?(?=$|[\s"'`])/ },
-  { name: 'rounded-2xl / rounded-3xl', re: /\brounded-(?:2xl|3xl|4xl)\b/ },
   { name: 'gradient', re: /\b(?:bg-gradient-to-\w+|bg-mesh-gradient|text-gradient|gradient-primary|gradient-dark)\b/ },
   { name: 'glass / glow shadows', re: /\b(?:glass(?:-card)?|shadow-glow(?:-lg)?|shadow-glass(?:-sm)?|shadow-card(?:-hover)?)\b/ },
-  { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ },
-  { name: 'hover lift', re: /hover:-translate-y/ }
+  { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ }
 ]
 
-/** 管理站允许 card 当分区容器（style.css 里已 token 化），其余规则与用户站相同。 */
-export const FORBIDDEN_ADMIN: ForbiddenRule[] = FORBIDDEN.filter((rule) => rule.name !== 'card class')
+/**
+ * 2026-09-22 muqian 定「学参考站的效果，允许用卡片」：card / rounded-2xl / hover 上浮不再禁，
+ * 两站规则现在相同；保留两个名字给各自的 spec 用。
+ */
+export const FORBIDDEN_ADMIN: ForbiddenRule[] = FORBIDDEN
 
 function walk(dir: string, out: string[]): void {
   for (const name of readdirSync(dir)) {

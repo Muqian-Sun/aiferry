@@ -202,6 +202,44 @@
     -moz-appearance: textfield;
   }
 
+  /* ============ 用户站落地页原语（2026-09-22 muqian：学参考站的效果，允许卡片） ============ */
+  /* 内容卡：16px 圆角、hairline 边、一层很轻的投影；hover 只加深边线 */
+  .sheet-card {
+    @apply rounded-2xl border border-af-hairline bg-af-sheet;
+    box-shadow:
+      0 1px 2px rgb(var(--af-ink) / 0.04),
+      0 12px 32px -20px rgb(var(--af-ink) / 0.18);
+    @apply transition-colors duration-200 hover:border-af-hairline-strong;
+  }
+
+  /* 段落眉题：小胶囊 + 品牌色圆点 */
+  .section-eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-af-hairline bg-af-sheet px-3 py-1 text-xs font-medium text-af-ink-2;
+  }
+
+  .section-eyebrow::after {
+    content: '';
+    @apply h-1.5 w-1.5 rounded-full bg-af-brand;
+  }
+
+  .section-title {
+    @apply mt-5 text-3xl font-semibold tracking-tight text-af-ink sm:text-4xl;
+  }
+
+  .section-lead {
+    @apply mx-auto mt-4 max-w-2xl text-base text-af-ink-3 sm:text-lg;
+  }
+
+  /* 胶囊主按钮（首屏 / CTA 用） */
+  .btn-pill {
+    @apply rounded-full px-6 py-3 text-base;
+  }
+
+  /* 卡片左上角的圆形图标位 */
+  .icon-tile {
+    @apply flex h-11 w-11 items-center justify-center rounded-full bg-af-sunken text-af-ink-2;
+  }
+
   /* ============ 卡片（管理站的分区容器：hairline 边、小圆角、无阴影、不上浮） ============ */
   .card {
     @apply bg-af-sheet;

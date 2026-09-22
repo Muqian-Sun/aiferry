@@ -2,7 +2,7 @@
   <!--
     首页「模型与标价」：模型页同一张表的前几行，纯展示。价格是 USD / 百万 Token，与 /model-plaza 同源。
   -->
-  <div class="-mx-6 overflow-x-auto">
+  <div class="overflow-x-auto">
     <table class="w-full min-w-[640px] text-sm" data-testid="home-catalog">
       <thead>
         <tr class="border-b border-af-hairline text-left text-13 text-af-ink-3">
