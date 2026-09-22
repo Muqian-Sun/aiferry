@@ -177,7 +177,6 @@ export default {
     profile: 'Profile',
     accountSecurity: 'Account Security',
     users: 'Users',
-    groups: 'Groups',
     channels: 'Channels',
     modelPlaza: 'Model Plaza',
     subscriptions: 'Subscription',

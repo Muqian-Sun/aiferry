@@ -10,7 +10,6 @@ const {
   getBatchTodayStats,
   getUpstreamBillingProbeSettings,
   getAllProxies,
-  getAllGroups,
   probeUpstreamBilling,
   probeUpstreamBillingBatch,
   showError,
@@ -22,7 +21,6 @@ const {
   getBatchTodayStats: vi.fn(),
   getUpstreamBillingProbeSettings: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn(),
   probeUpstreamBilling: vi.fn(),
   probeUpstreamBillingBatch: vi.fn(),
   showError: vi.fn(),
@@ -46,9 +44,6 @@ vi.mock('@/api/admin', () => ({
     },
     proxies: {
       getAll: getAllProxies
-    },
-    groups: {
-      getAll: getAllGroups
     },
     modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
   }
@@ -135,7 +130,6 @@ describe('admin AccountsView bulk edit scope', () => {
     getBatchTodayStats.mockReset()
     getUpstreamBillingProbeSettings.mockReset()
     getAllProxies.mockReset()
-    getAllGroups.mockReset()
     probeUpstreamBilling.mockReset()
     probeUpstreamBillingBatch.mockReset()
     showError.mockReset()
@@ -161,7 +155,6 @@ describe('admin AccountsView bulk edit scope', () => {
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockResolvedValue([])
-    getAllGroups.mockResolvedValue([])
     probeUpstreamBilling.mockResolvedValue({})
     probeUpstreamBillingBatch.mockResolvedValue([])
   })
@@ -700,7 +693,6 @@ describe('admin AccountsView bulk edit key endpoints', () => {
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: true, interval_minutes: 30 })
     getAllProxies.mockReset().mockResolvedValue([])
-    getAllGroups.mockReset().mockResolvedValue([])
   })
 
   it('passes the protocol endpoints of each selected key, and only keys', async () => {

@@ -58,10 +58,10 @@ const account = (platform = 'grok', type = 'oauth', extra: Record<string, unknow
 
 function mountModal(value = account()) {
   return mount(EditAccountModal, {
-    props: { show: true, account: value, proxies: [], groups: [] },
+    props: { show: true, account: value, proxies: [] },
     global: { stubs: {
       BaseDialog: BaseDialogStub, Select: true, Icon: true, ProxySelector: true,
-      GroupSelector: true, ModelWhitelistSelector: true
+      ModelWhitelistSelector: true
     } }
   })
 }

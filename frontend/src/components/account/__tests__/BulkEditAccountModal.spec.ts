@@ -57,7 +57,6 @@ function mountModal(extraProps: Record<string, unknown> = {}) {
       selectedTypes: ['apikey'],
       selectedKeyEndpoints: selectedTypes.includes('apikey') ? [ANTHROPIC_KEY_ENDPOINTS, ANTHROPIC_KEY_ENDPOINTS] : [],
       proxies: [],
-      groups: [],
       ...extraProps
     } as any,
     global: {
@@ -80,7 +79,6 @@ function mountModal(extraProps: Record<string, unknown> = {}) {
           `
         },
         ProxySelector: true,
-        GroupSelector: true,
         Icon: true
       }
     }

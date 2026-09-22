@@ -42,6 +42,7 @@ export default {
 
     // Proxies Management
     proxies: {
+      accountsCount: '{count} 个账号',
       title: 'IP管理',
       description: '管理代理服务器配置',
       createProxy: '添加代理',

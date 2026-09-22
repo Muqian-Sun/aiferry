@@ -177,7 +177,6 @@ export default {
     profile: '个人资料',
     accountSecurity: '账号安全',
     users: '用户管理',
-    groups: '分组管理',
     channels: '渠道',
     modelPlaza: '模型广场',
     subscriptions: '订阅',

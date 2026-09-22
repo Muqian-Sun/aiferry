@@ -17,7 +17,6 @@ export default {
     day: 'Day',
     hour: 'Hour',
     modelDistribution: 'Model Distribution',
-    groupDistribution: 'Group Usage Distribution',
     platformBreakdown: 'Per-platform Breakdown',
     platformBreakdownEmpty: 'No platform usage yet',
     platformCount: '{count} platforms',
@@ -25,8 +24,6 @@ export default {
     tokenUsageTrend: 'Token Usage Trend',
     noDataAvailable: 'No data available',
     model: 'Model',
-    group: 'Group',
-    noGroup: 'No Group',
     requests: 'Requests',
     tokens: 'Tokens',
     actual: 'Actual',
@@ -50,10 +47,6 @@ export default {
     addBalanceWithCode: 'Add balance with a code'
   },
 
-  // Groups (shared)
-  groups: {
-    subscription: 'Sub'
-  },
 
   // API Keys
   keys: {
@@ -568,7 +561,6 @@ export default {
     columns: {
       name: 'Name',
       provider: 'Provider',
-      groupName: 'Group',
       primaryModel: 'Primary Model',
       availability7d: '7d Availability',
       latency: 'Latency (ms)'
@@ -599,7 +591,6 @@ export default {
     anonymousHint: 'Sign in to see your exclusive groups and personal rates',
     filters: {
       platformLabel: 'Platform',
-      groupLabel: 'Group',
       rateLabel: 'Rate',
       modelLabel: 'Model',
       searchPlaceholder: 'Search models',

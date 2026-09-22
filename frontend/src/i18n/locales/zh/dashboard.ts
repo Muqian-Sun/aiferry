@@ -17,7 +17,6 @@ export default {
     day: '按天',
     hour: '按小时',
     modelDistribution: '模型分布',
-    groupDistribution: '分组使用分布',
     platformBreakdown: '按平台拆分',
     platformBreakdownEmpty: '暂无平台用量',
     platformCount: '{count} 个平台',
@@ -25,8 +24,6 @@ export default {
     tokenUsageTrend: 'Token 使用趋势',
     noDataAvailable: '暂无数据',
     model: '模型',
-    group: '分组',
-    noGroup: '无分组',
     requests: '请求',
     tokens: 'Token',
     actual: '实际',
@@ -50,10 +47,6 @@ export default {
     addBalanceWithCode: '使用兑换码充值'
   },
 
-  // Groups (shared)
-  groups: {
-    subscription: '订阅'
-  },
 
   // API Keys
   keys: {
@@ -573,7 +566,6 @@ export default {
     columns: {
       name: '名称',
       provider: '供应商',
-      groupName: '分组',
       primaryModel: '主模型',
       availability7d: '7 天可用率',
       latency: '延迟 (ms)'
@@ -604,7 +596,6 @@ export default {
     anonymousHint: '登录后可查看你的专属分组与专属倍率',
     filters: {
       platformLabel: '平台',
-      groupLabel: '分组',
       rateLabel: '倍率',
       modelLabel: '模型',
       searchPlaceholder: '搜索模型名称',

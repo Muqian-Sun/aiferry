@@ -8,13 +8,13 @@ const {
   listWithEtag,
   getBatchTodayStats,
   getAllProxies,
-  getAllGroups
+  listCatalogEntries
 } = vi.hoisted(() => ({
   listAccounts: vi.fn(),
   listWithEtag: vi.fn(),
   getBatchTodayStats: vi.fn(),
   getAllProxies: vi.fn(),
-  getAllGroups: vi.fn()
+  listCatalogEntries: vi.fn()
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -32,10 +32,7 @@ vi.mock('@/api/admin', () => ({
     proxies: {
       getAll: getAllProxies
     },
-    groups: {
-      getAll: getAllGroups
-    },
-    modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
+    modelCatalog: { listEntries: listCatalogEntries }
   }
 }))
 
@@ -78,6 +75,7 @@ const DataTableStub = {
       </template>
       <div v-for="row in data" :key="row.id" data-test="account-rate">
         <slot name="cell-rate_multiplier" :row="row" />
+        <slot name="cell-catalog" :row="row" />
       </div>
     </div>
   `
@@ -102,10 +100,7 @@ function mountView() {
         Pagination: true,
         ConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
-        AccountTableFilters: {
-          props: ['groups'],
-          template: '<div data-test="account-filters" :data-group-count="groups.length"></div>'
-        },
+        AccountTableFilters: true,
         AccountBulkActionsBar: true,
         AccountActionMenu: true,
         ImportDataModal: true,
@@ -123,7 +118,10 @@ function mountView() {
         AccountCapacityCell: true,
         AccountStatusIndicator: true,
         AccountTodayStatsCell: true,
-        AccountGroupsCell: true,
+        AccountCatalogCell: {
+          props: ['entries'],
+          template: '<div data-test="account-catalog" :data-entry-count="entries.length"></div>'
+        },
         AccountUsageCell: true,
         Icon: true
       }
@@ -139,7 +137,7 @@ describe('admin AccountsView usage windows hint', () => {
     listWithEtag.mockReset()
     getBatchTodayStats.mockReset()
     getAllProxies.mockReset()
-    getAllGroups.mockReset()
+    listCatalogEntries.mockReset()
 
     listAccounts.mockResolvedValue({
       items: [],
@@ -155,17 +153,22 @@ describe('admin AccountsView usage windows hint', () => {
     })
     getBatchTodayStats.mockResolvedValue({ stats: {} })
     getAllProxies.mockResolvedValue([])
-    getAllGroups.mockResolvedValue([])
+    listCatalogEntries.mockResolvedValue([])
   })
 
-  it('keeps groups available when loading proxies fails', async () => {
+  // onMounted 用 allSettled 并行拉代理 / 目录：一个失败不能拖垮另一个
+  it('keeps catalog entries available when loading proxies fails', async () => {
+    listAccounts.mockResolvedValue({
+      items: [{ id: 3, name: 'K1', platform: 'openai', type: 'apikey', status: 'active', schedulable: true, concurrency: 1, priority: 1, rate_multiplier: 1, extra: {}, credentials: {} }],
+      total: 1, page: 1, page_size: 20, pages: 1
+    })
     getAllProxies.mockRejectedValue(new Error('proxy service unavailable'))
-    getAllGroups.mockResolvedValue([{ id: 7, name: 'production' }])
+    listCatalogEntries.mockResolvedValue([{ id: 199, model_id: 'gpt-5.6', status: 'listed', bindings: [{ entry_id: 199, account_id: 3, priority: null }] }])
 
     const wrapper = mountView()
     await flushPromises()
 
-    expect(wrapper.get('[data-test="account-filters"]').attributes('data-group-count')).toBe('1')
+    expect(wrapper.get('[data-test="account-catalog"]').attributes('data-entry-count')).toBe('1')
   })
 
   it('renders an explanatory tooltip next to the usage windows column header', async () => {

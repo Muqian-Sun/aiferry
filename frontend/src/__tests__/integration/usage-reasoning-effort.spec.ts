@@ -212,7 +212,6 @@ const sharedPageStubs = {
   Icon: iconStub,
   UsageStatsCards: chartStub,
   ModelDistributionChart: chartStub,
-  GroupDistributionChart: chartStub,
   EndpointDistributionChart: chartStub,
   TokenUsageTrend: chartStub,
   IpGeoCell: true,

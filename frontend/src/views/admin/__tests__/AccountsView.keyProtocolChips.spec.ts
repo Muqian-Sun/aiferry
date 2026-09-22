@@ -4,7 +4,7 @@ import { defineComponent } from 'vue'
 
 import AccountsView from '../AccountsView.vue'
 
-const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, getAllGroups } =
+const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listWithEtag: vi.fn(),
@@ -12,7 +12,6 @@ const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBill
     getBatchTodayStats: vi.fn(),
     getUpstreamBillingProbeSettings: vi.fn(),
     getAllProxies: vi.fn(),
-    getAllGroups: vi.fn()
   }))
 
 vi.mock('@/api/admin', () => ({
@@ -30,7 +29,6 @@ vi.mock('@/api/admin', () => ({
       refreshCredentials: vi.fn()
     },
     proxies: { getAll: getAllProxies },
-    groups: { getAll: getAllGroups },
     modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
   }
 }))
@@ -124,7 +122,6 @@ describe('AccountsView vendor/type cell follows the address-based model', () => 
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
     getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: false })
     getAllProxies.mockReset().mockResolvedValue([])
-    getAllGroups.mockReset().mockResolvedValue([])
   })
 
   it('passes the identified vendor to the badge and lists configured protocols with their hosts', async () => {
