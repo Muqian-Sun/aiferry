@@ -192,21 +192,20 @@ func TestResolveOpenAIPassthroughImageIntentReusesAcrossInvariantMutations(t *te
 
 func TestOpenAIGatewayServicePassthroughCompactImageIntentIsAttemptLocal(t *testing.T) {
 	gin.SetMode(gin.TestMode)
+	// 生图资格不再由分组决定（D5）：两个方向都到上游；hint 记的是客户端原始模型的意图，不随 compact 映射变。
 	tests := []struct {
 		name           string
 		canonicalModel string
 		compactModel   string
-		wantRejected   bool
 		wantCanonical  bool
 	}{
 		{
-			name:           "text to image rejects",
+			name:           "text to image keeps canonical hint false",
 			canonicalModel: "gpt-5.4",
 			compactModel:   "gpt-image-2",
-			wantRejected:   true,
 		},
 		{
-			name:           "image to text reaches upstream",
+			name:           "image to text keeps canonical hint true",
 			canonicalModel: "gpt-image-2",
 			compactModel:   "gpt-5.4",
 			wantCanonical:  true,
@@ -221,7 +220,7 @@ func TestOpenAIGatewayServicePassthroughCompactImageIntentIsAttemptLocal(t *test
 				Body:       io.NopCloser(strings.NewReader(`{"id":"resp_compact","model":"` + tt.compactModel + `","usage":{"input_tokens":1,"output_tokens":1}}`)),
 			}}
 			svc := newOpenAIImageGenerationControlTestService(upstream)
-			c, recorder := newOpenAIImageGenerationControlTestContext(false, "unit-test-agent/1.0")
+			c, _ := newOpenAIImageGenerationControlTestContext("unit-test-agent/1.0")
 			c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses/compact", nil)
 			SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 			account := newOpenAIImageGenerationControlTestAccount()
@@ -239,13 +238,6 @@ func TestOpenAIGatewayServicePassthroughCompactImageIntentIsAttemptLocal(t *test
 			cached, known := getOpenAIImageIntentHint(c)
 			require.True(t, known)
 			require.Equal(t, tt.wantCanonical, cached)
-			if tt.wantRejected {
-				require.Error(t, err)
-				require.Nil(t, result)
-				require.Equal(t, http.StatusForbidden, recorder.Code)
-				require.Nil(t, upstream.lastReq)
-				return
-			}
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.NotNil(t, upstream.lastReq)

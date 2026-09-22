@@ -535,9 +535,6 @@ func (s *OpenAIGatewayService) resolveAccountByPreviousResponseIDForCapability(
 		if !simpleMode && !accountInSchedulingScope(ctx, latest, groupID) {
 			return 0, nil, "", nil
 		}
-		if s.openAIGroupRequiresPrivacySet(ctx, groupID) && !latest.IsPrivacySet() {
-			return 0, nil, "", nil
-		}
 		if !parentHealthyForShadow(latest, s.parentAccountLookup(ctx)) {
 			_ = store.DeleteResponseAccount(ctx, SchedulingScopeID(ctx, groupID), responseID)
 			return 0, nil, "", nil
@@ -791,30 +788,4 @@ func (s *OpenAIGatewayService) clearOpenAIWSFallbackCooling(accountID int64) {
 		return
 	}
 	s.openaiWSFallbackUntil.Delete(accountID)
-}
-
-// 分组隐私要求：previous_response_id 解析与 grok 媒体的复检读它（调度门在 candidateAdmits 里另有一份）。
-type openAIGroupPrivacyRequirementContextKey struct{}
-
-type openAIGroupPrivacyRequirement struct {
-	groupID  int64
-	required bool
-}
-
-func (s *OpenAIGatewayService) openAIGroupRequiresPrivacySet(ctx context.Context, groupID *int64) bool {
-	if cached, ok := ctx.Value(openAIGroupPrivacyRequirementContextKey{}).(openAIGroupPrivacyRequirement); ok && cached.groupID == derefGroupID(groupID) {
-		return cached.required
-	}
-	return s.loadOpenAIGroupRequiresPrivacySet(ctx, groupID)
-}
-
-func (s *OpenAIGatewayService) loadOpenAIGroupRequiresPrivacySet(ctx context.Context, groupID *int64) bool {
-	if s == nil || groupID == nil || s.schedulerSnapshot == nil {
-		return false
-	}
-	group, err := s.schedulerSnapshot.GetGroupByID(ctx, *groupID)
-	if err != nil {
-		return true
-	}
-	return group != nil && group.RequirePrivacySet
 }

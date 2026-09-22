@@ -263,11 +263,6 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			)
 		}
 		requestedReasoningEffort := CanonicalRequestedReasoningEffort(normalized, strings.TrimSpace(values[1].String()))
-		if next, policyErr := applyOpenAIWSReasoningEffortPolicy(normalized, hooks); policyErr != nil {
-			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, policyErr.Error(), policyErr)
-		} else {
-			normalized = next
-		}
 		responsesLite := isOpenAIResponsesLiteWebSocketPayload(normalized)
 		if compatibilityBody, compatibilityChanged, compatibilityErr := normalizeOpenAIResponsesWebSocketCompatibilityBody(normalized, account, responsesLite); compatibilityErr != nil {
 			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, "invalid websocket request payload", compatibilityErr)
@@ -339,14 +334,12 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			normalized = litePayload
 		}
 		apiKey := getAPIKeyFromContext(c)
-		imageGenerationAllowed := GroupAllowsImageGeneration(apiKeyGroup(apiKey))
 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
 		if isCodexCLI {
 			codexImageGenerationExplicitToolPolicy = account.CodexImageGenerationExplicitToolPolicy()
 		}
 		codexBridgeEnabled := isCodexCLI &&
 			!isOpenAIResponsesLiteWebSocketPayload(normalized) &&
-			imageGenerationAllowed &&
 			codexImageGenerationExplicitToolPolicy != codexImageGenerationExplicitToolPolicyStrip &&
 			s.isCodexImageGenerationBridgeEnabled(ctx, account, apiKey)
 		if codexBridgeEnabled {
@@ -412,9 +405,6 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 			logOpenAIWSModeInfo("ingress_ws_codex_spark_image_tool_stripped account_id=%d", account.ID)
 		}
 		imageIntent := IsImageGenerationIntentForPlatform(openAIResponsesEndpoint, originalModel, normalized, account.Vendor())
-		if imageIntent && !imageGenerationAllowed {
-			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, ImageGenerationPermissionMessage(), nil)
-		}
 		imageBillingModel := ""
 		imageSizeTier := ""
 		imageInputSize := ""

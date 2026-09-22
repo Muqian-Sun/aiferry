@@ -339,25 +339,6 @@ func TestApplyOpenAIFastPolicyToBody_ForcePriorityRewritesKnownTier(t *testing.T
 	}
 }
 
-func TestApplyOpenAIFastPolicyToBody_GroupForceInjectsAndOverridesTier(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-	ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{
-		ID: 7, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, ForceOpenAIFast: true,
-	})
-
-	for _, body := range [][]byte{
-		[]byte(`{"model":"gpt-5.6-sol","input":"hi"}`),
-		[]byte(`{"model":"gpt-5.6-sol","service_tier":"default"}`),
-		[]byte(`{"model":"gpt-5.6-sol","service_tier":"flex"}`),
-		[]byte(`{"model":"gpt-5.6-sol","service_tier":"client-unknown"}`),
-	} {
-		updated, err := svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.6-sol", body)
-		require.NoError(t, err)
-		require.Equal(t, OpenAIFastTierPriority, gjson.GetBytes(updated, "service_tier").String())
-	}
-}
-
 func TestApplyOpenAIFastPolicyToBody_GroupForceStillHonorsGlobalPolicy(t *testing.T) {
 	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}

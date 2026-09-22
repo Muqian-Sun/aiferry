@@ -37,51 +37,6 @@ func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidates(context.Contex
 	return []service.Account{{ID: 2, Platform: service.PlatformAntigravity, Status: service.StatusActive, Schedulable: true}}, nil
 }
 
-// Gemini 原生 /v1beta/models：白名单开启时过滤 fallback 列表的 models[].name。
-func TestGeminiV1BetaListModels_FiltersFallbackByAllowlist(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	repo := &geminiAllowlistAccountRepoStub{}
-	h := &GatewayHandler{
-		geminiCompatService: service.NewGeminiMessagesCompatService(repo, nil, nil, nil, nil, nil, nil, nil, nil),
-		// gemini-3-pro-preview 在白名单里但未上架，必须不出现。
-		modelCatalog: listedCatalogStub{ids: []string{"gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"}},
-	}
-
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodGet, "/v1beta/models", nil)
-	geminiGroupID := int64(41)
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		GroupID: &geminiGroupID,
-		Group: &service.Group{
-			ID:       geminiGroupID,
-			Platform: service.PlatformGemini,
-			ModelAllowlist: service.GroupModelAllowlist{
-				Enabled: true,
-				Models:  []string{"gemini-2.5-pro", "gemini-3-*"},
-			},
-		},
-	})
-
-	h.GeminiV1BetaListModels(c)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var got struct {
-		Models []struct {
-			Name string `json:"name"`
-		} `json:"models"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	names := make([]string, 0, len(got.Models))
-	for _, model := range got.Models {
-		names = append(names, model.Name)
-	}
-	// models/ 前缀的候选形式也应命中条目；白名单与目录都要过。
-	require.Equal(t, []string{"models/gemini-2.5-pro"}, names)
-}
-
 // 白名单关闭时只按目录过滤。
 func TestGeminiV1BetaListModels_FiltersFallbackByCatalog(t *testing.T) {
 	gin.SetMode(gin.TestMode)
@@ -106,43 +61,6 @@ func TestGeminiV1BetaListModels_FiltersFallbackByCatalog(t *testing.T) {
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
 	require.Len(t, got.Models, 1)
 	require.Equal(t, "models/gemini-2.5-pro", got.Models[0].Name)
-}
-
-// Antigravity /antigravity/models：白名单开启时按条目过滤静态列表。
-func TestAntigravityModels_FiltersByAllowlist(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-
-	// gemini-2.5-flash-thinking 命中白名单的宽容规则，但未上架，必须不出现。
-	h := &GatewayHandler{modelCatalog: listedCatalogStub{ids: []string{"gemini-2.5-flash", "claude-sonnet-4"}}}
-
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodGet, "/antigravity/models", nil)
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{
-			ID:       51,
-			Platform: service.PlatformAntigravity,
-			ModelAllowlist: service.GroupModelAllowlist{
-				Enabled: true,
-				Models:  []string{"gemini-2.5-flash"},
-			},
-		},
-	})
-
-	h.AntigravityModels(c)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	var got struct {
-		Object string `json:"object"`
-		Data   []struct {
-			ID string `json:"id"`
-		} `json:"data"`
-	}
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	require.Equal(t, "list", got.Object)
-	require.Len(t, got.Data, 1)
-	require.Equal(t, "gemini-2.5-flash", got.Data[0].ID)
 }
 
 // 白名单关闭时 /antigravity/models 只按目录过滤。
@@ -207,35 +125,5 @@ func TestFilterUpstreamGeminiModelsBody(t *testing.T) {
 		_, dropped, ok := filterUpstreamGeminiModelsBody([]byte(`not-json`), keep)
 		require.False(t, ok)
 		require.False(t, dropped)
-	})
-}
-
-func TestFilterBatchImageModelsByAllowlist(t *testing.T) {
-	models := []service.BatchImagePublicModel{
-		{ID: "gemini-2.5-flash-image", Object: "image.batch.model", Provider: "gemini_api"},
-		{ID: "gemini-3-pro-image", Object: "image.batch.model", Provider: "vertex"},
-		{ID: "gpt-image-1", Object: "image.batch.model", Provider: "openai"},
-	}
-
-	t.Run("disabled allowlist keeps everything", func(t *testing.T) {
-		got := filterBatchImageModelsByAllowlist(models, service.GroupModelAllowlist{Enabled: false})
-		require.Equal(t, models, got)
-	})
-
-	t.Run("exact and wildcard entries filter by model id", func(t *testing.T) {
-		got := filterBatchImageModelsByAllowlist(models, service.GroupModelAllowlist{
-			Enabled: true,
-			Models:  []string{"gemini-3-*", "gpt-image-1"},
-		})
-		require.Equal(t, []string{"gemini-3-pro-image", "gpt-image-1"}, []string{got[0].ID, got[1].ID})
-		require.Len(t, got, 2)
-	})
-
-	t.Run("no match yields empty list", func(t *testing.T) {
-		got := filterBatchImageModelsByAllowlist(models, service.GroupModelAllowlist{
-			Enabled: true,
-			Models:  []string{"claude-*"},
-		})
-		require.Empty(t, got)
 	})
 }

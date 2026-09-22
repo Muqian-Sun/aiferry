@@ -172,19 +172,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	reqStream := parsedReq.Stream
 	bindRequestedReasoningEffort(c, body, reqModel)
 	ensureCompositeTargetPlatform(c, apiKey, reqModel)
-	if policyBody, changed, err := applyAnthropicReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
-		respondOpenAIReasoningEffortPolicyError(c, err, h.errorResponse)
-		return
-	} else if changed {
-		if err := parsedReq.ReplaceBody(policyBody); err != nil {
-			reqLog.Warn("gateway.reasoning_effort_policy_parse_failed", zap.Error(err))
-			h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", "Failed to apply reasoning effort policy")
-			return
-		}
-		body = parsedReq.Body.Bytes()
-		reqModel = parsedReq.Model
-		reqStream = parsedReq.Stream
-	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	// 设置 max_tokens=1 + haiku 探测请求标识到 context 中
@@ -902,9 +889,6 @@ func (h *GatewayHandler) listedModelIDs(c *gin.Context, apiKey *service.APIKey) 
 	for i := range entries {
 		ids = append(ids, entries[i].ModelID)
 	}
-	if apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled() {
-		ids = apiKey.Group.ModelAllowlist.FilterForListing(ids)
-	}
 	return ids
 }
 
@@ -980,17 +964,11 @@ func writeOpenAIModelsList(c *gin.Context, modelIDs []string) {
 
 // AntigravityModels 返回 Antigravity 支持的模型里目录已上架的那些
 // GET /antigravity/models
-// 分组级模型白名单开启时再按白名单过滤。
 func (h *GatewayHandler) AntigravityModels(c *gin.Context) {
-	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 	subscription, _ := middleware2.GetSubscriptionFromContext(c)
-	allowlistOn := apiKey != nil && apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	defaults := antigravity.DefaultModels()
 	models := make([]antigravity.ClaudeModel, 0, len(defaults))
 	for _, model := range defaults {
-		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(model.ID) {
-			continue
-		}
 		if !service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, model.ID) {
 			continue
 		}

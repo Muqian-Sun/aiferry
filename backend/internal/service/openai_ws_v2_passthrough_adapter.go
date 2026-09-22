@@ -696,11 +696,6 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 		firstClientMessage = liteFirstMessage
 	}
 	originalFirstClientMessage := firstClientMessage
-	if next, policyErr := applyOpenAIWSReasoningEffortPolicy(firstClientMessage, hooks); policyErr != nil {
-		return NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, policyErr.Error(), policyErr)
-	} else {
-		firstClientMessage = next
-	}
 	requestModel := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "model").String())
 	requestPreviousResponseID := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "previous_response_id").String())
 	promptCacheKey := strings.TrimSpace(gjson.GetBytes(firstClientMessage, "prompt_cache_key").String())
@@ -1032,11 +1027,6 @@ func (s *OpenAIGatewayService) proxyResponsesWebSocketV2Passthrough(
 					payload = litePayload
 				}
 				originalResponseCreate := payload
-				if next, policyErr := applyOpenAIWSReasoningEffortPolicy(payload, hooks); policyErr != nil {
-					return payload, nil, NewOpenAIWSClientCloseError(coderws.StatusPolicyViolation, policyErr.Error(), policyErr)
-				} else {
-					payload = next
-				}
 				usageMeta.captureRequestedReasoningEffort(originalResponseCreate)
 			}
 			turnNo := int(completedTurns.Load()) + 1

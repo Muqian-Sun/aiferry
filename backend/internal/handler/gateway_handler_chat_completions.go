@@ -81,13 +81,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
-	// 分组推理强度策略（内部先把请求的 effort 挂到 ctx）
-	if cappedBody, changed, err := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
-		respondOpenAIReasoningEffortPolicyError(c, err, h.chatCompletionsErrorResponse)
-		return
-	} else if changed {
-		body = cappedBody
-	}
+	bindRequestedReasoningEffort(c, body, reqModel)
 	reqStream, ok := parseOpenAICompatibleStream(body)
 	if !ok {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", invalidStreamFieldTypeMessage)
@@ -109,13 +103,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 	c.Request = c.Request.WithContext(pricingCtx)
 
 	// 解析渠道级模型映射
-
-	// Claude Code only restriction
-	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
-		h.chatCompletionsErrorResponse(c, http.StatusForbidden, "permission_error",
-			"This group is restricted to Claude Code clients (/v1/messages only)")
-		return
-	}
 
 	if decision := h.checkSecurityAudit(c, reqLog, apiKey, subject, service.ContentModerationProtocolOpenAIChat, reqModel, body); decision != nil && !decision.AllowNextStage {
 		h.openAISecurityAuditError(c, decision)

@@ -253,16 +253,9 @@ type OpenAIWSIngressHooks struct {
 	InitialRequestModel string
 	// InitialTurnStartedAt freezes when the first response.create was accepted.
 	InitialTurnStartedAt time.Time
-	// MaxReasoningEffort limits explicit reasoning effort values for this WS session.
-	MaxReasoningEffort string
-	// MaxReasoningEffortOverLimit is the access control when an explicit effort
-	// exceeds the ceiling: downgrade (default) or deny.
-	MaxReasoningEffortOverLimit string
-	// ReasoningEffortMappings rewrites explicit effort values for this WS session.
-	ReasoningEffortMappings []ReasoningEffortMapping
-	TurnStarted             func(turn int, startedAt time.Time)
-	BeforeTurn              func(turn int) error
-	BeforeRequest           func(turn int, payload []byte, originalModel string) error
+	TurnStarted          func(turn int, startedAt time.Time)
+	BeforeTurn           func(turn int) error
+	BeforeRequest        func(turn int, payload []byte, originalModel string) error
 	// MapRequestModel resolves the current turn's client model to the model
 	// that must be written into the upstream response.create frame.
 	MapRequestModel func(turn int, originalModel string) (string, error)

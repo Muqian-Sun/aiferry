@@ -8,38 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/stretchr/testify/require"
 )
-
-// 分组隐私要求：分组在 ctx 里（API key 中间件放的、Hydrated），只放行 privacy 已设的成品号；第三方 key 恒不算。
-func TestCandidateAdmits_PrivacySet(t *testing.T) {
-	groupID := int64(8201)
-	group := &Group{ID: groupID, Hydrated: true, Platform: PlatformOpenAI, Status: StatusActive, RequirePrivacySet: true}
-	ctx := context.WithValue(selectOptionsCtx(APIProtocolResponses), ctxkey.Group, group)
-	svc := newProtocolMatchService(t, true, nil)
-
-	unset := openAIOAuthSub(82001, 1)
-	set := openAIOAuthSub(82002, 1)
-	set.Extra = map[string]any{"privacy_mode": PrivacyModeTrainingOff}
-	key := openAIKey(82003, 1, nil)
-
-	ok, reason := svc.candidateAdmits(ctx, &groupID, &unset, "gpt-5.6")
-	require.False(t, ok)
-	require.Equal(t, "privacy_not_set", reason)
-	ok, _ = svc.candidateAdmits(ctx, &groupID, &set, "gpt-5.6")
-	require.True(t, ok)
-	ok, reason = svc.candidateAdmits(ctx, &groupID, &key, "gpt-5.6")
-	require.False(t, ok, "第三方 key 的 IsPrivacySet 恒为 false")
-	require.Equal(t, "privacy_not_set", reason)
-
-	// 分组不要求隐私时三者都通过
-	group.RequirePrivacySet = false
-	for _, acc := range []*Account{&unset, &set, &key} {
-		ok, _ = svc.candidateAdmits(ctx, &groupID, acc, "gpt-5.6")
-		require.True(t, ok)
-	}
-}
 
 // 影子账号只在母账号（OpenAI OAuth）凭据可用时放行；母账号解析走快照 / 仓储。
 func TestCandidateAdmits_ShadowParentUnhealthy(t *testing.T) {

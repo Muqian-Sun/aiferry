@@ -15,18 +15,6 @@ import (
 // 第三方 key 的计费特例按 Vendor（协议地址）判定，平台标签只用于展示。
 // 夹具定义在 account_vendor_model_mapping_test.go 与 vendor_error_quirks_test.go。
 
-func TestGroupBillsOpenAIFastAtStandard_FollowsOpenAIOrRelayVendor(t *testing.T) {
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformOpenAI, FreeOpenAIFast: true}}
-
-	relay := vendorTestKey(PlatformKimi, vendorTestRelayChat)
-	require.Empty(t, relay.Vendor())
-	require.True(t, groupBillsOpenAIFastAtStandard(apiKey, relay, "priority"))
-
-	moonshot := vendorTestKey(PlatformOpenAI, vendorTestMoonshot)
-	require.Equal(t, PlatformKimi, moonshot.Vendor())
-	require.False(t, groupBillsOpenAIFastAtStandard(apiKey, moonshot, "priority"))
-}
-
 func TestFilterCNProviderBillingModelCandidates_FollowsVendor(t *testing.T) {
 	svc := &OpenAIGatewayService{}
 	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}

@@ -3042,92 +3042,6 @@ func TestGatewayService_SelectAccountWithLoadAwareness(t *testing.T) {
 		require.Equal(t, int64(7), result.Account.ID)
 	})
 
-	t.Run("ClaudeCode限制-回退分组", func(t *testing.T) {
-		groupID := int64(60)
-		fallbackID := int64(61)
-
-		repo := &mockAccountRepoForPlatform{
-			accounts: []Account{
-				{ID: 1, Platform: PlatformGemini, Priority: 1, Status: StatusActive, Schedulable: true},
-			},
-			accountsByID: map[int64]*Account{},
-		}
-		for i := range repo.accounts {
-			repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-		}
-
-		groupRepo := &mockGroupRepoForGateway{
-			groups: map[int64]*Group{
-				groupID: {
-					ID:             groupID,
-					Platform:       PlatformAnthropic,
-					Status:         StatusActive,
-					Hydrated:       true,
-					ClaudeCodeOnly: true,
-					FallbackGroupID: func() *int64 {
-						v := fallbackID
-						return &v
-					}(),
-				},
-				fallbackID: {
-					ID:       fallbackID,
-					Platform: PlatformGemini,
-					Status:   StatusActive,
-					Hydrated: true,
-				},
-			},
-		}
-
-		cfg := testConfig()
-		cfg.Gateway.Scheduling.LoadBatchEnabled = false
-
-		svc := &GatewayService{
-			accountRepo:        repo,
-			groupRepo:          groupRepo,
-			cache:              &mockGatewayCacheForPlatform{},
-			cfg:                cfg,
-			concurrencyService: nil,
-		}
-
-		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "gemini-2.5-pro", nil)
-		require.NoError(t, err)
-		require.NotNil(t, result)
-		require.NotNil(t, result.Account)
-		require.Equal(t, int64(1), result.Account.ID)
-	})
-
-	t.Run("ClaudeCode限制-无降级返回错误", func(t *testing.T) {
-		groupID := int64(62)
-
-		groupRepo := &mockGroupRepoForGateway{
-			groups: map[int64]*Group{
-				groupID: {
-					ID:             groupID,
-					Platform:       PlatformAnthropic,
-					Status:         StatusActive,
-					Hydrated:       true,
-					ClaudeCodeOnly: true,
-				},
-			},
-		}
-
-		cfg := testConfig()
-		cfg.Gateway.Scheduling.LoadBatchEnabled = false
-
-		svc := &GatewayService{
-			accountRepo:        &mockAccountRepoForPlatform{},
-			groupRepo:          groupRepo,
-			cache:              &mockGatewayCacheForPlatform{},
-			cfg:                cfg,
-			concurrencyService: nil,
-		}
-
-		result, err := svc.SelectAccountWithLoadAwareness(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
-		require.Error(t, err)
-		require.Nil(t, result)
-		require.ErrorIs(t, err, ErrClaudeCodeOnly)
-	})
-
 	t.Run("负载可用但无法获取槽位-兜底等待", func(t *testing.T) {
 		repo := &mockAccountRepoForPlatform{
 			accounts: []Account{
@@ -3240,7 +3154,7 @@ func TestGatewayService_GroupResolution_ReusesContextGroup(t *testing.T) {
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
 	require.NoError(t, err)
 	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
+	require.Equal(t, 0, groupRepo.getByIDCalls, "分组隐私要求已删（D9）：legacy 路径不再读分组")
 	require.Equal(t, 0, groupRepo.getByIDLiteCalls)
 }
 
@@ -3283,7 +3197,7 @@ func TestGatewayService_GroupResolution_IgnoresInvalidContextGroup(t *testing.T)
 	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
 	require.NoError(t, err)
 	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
+	require.Equal(t, 0, groupRepo.getByIDCalls, "分组隐私要求已删（D9）：legacy 路径不再读分组")
 	require.Equal(t, 1, groupRepo.getByIDLiteCalls)
 }
 
@@ -3308,91 +3222,6 @@ func TestGatewayService_GroupContext_OverwritesInvalidContextGroup(t *testing.T)
 	got, ok := ctx.Value(ctxkey.Group).(*Group)
 	require.True(t, ok)
 	require.Same(t, hydratedGroup, got)
-}
-
-func TestGatewayService_GroupResolution_FallbackUsesLiteOnce(t *testing.T) {
-	ctx := context.Background()
-	groupID := int64(10)
-	fallbackID := int64(11)
-	group := &Group{
-		ID:              groupID,
-		Platform:        PlatformAnthropic,
-		Status:          StatusActive,
-		ClaudeCodeOnly:  true,
-		FallbackGroupID: &fallbackID,
-		Hydrated:        true,
-	}
-	fallbackGroup := &Group{
-		ID:       fallbackID,
-		Platform: PlatformAnthropic,
-		Status:   StatusActive,
-		Hydrated: true,
-	}
-	ctx = context.WithValue(ctx, ctxkey.Group, group)
-
-	repo := &mockAccountRepoForPlatform{
-		accounts: []Account{
-			{ID: 1, Platform: PlatformAnthropic, Priority: 1, Status: StatusActive, Schedulable: true},
-		},
-		accountsByID: map[int64]*Account{},
-	}
-	for i := range repo.accounts {
-		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
-	}
-
-	groupRepo := &mockGroupRepoForGateway{
-		groups: map[int64]*Group{fallbackID: fallbackGroup},
-	}
-
-	svc := &GatewayService{
-		accountRepo: repo,
-		groupRepo:   groupRepo,
-		cfg:         testConfig(),
-	}
-
-	account, err := svc.SelectAccountForModelWithExclusions(ctx, &groupID, "", "claude-3-5-sonnet-20241022", nil)
-	require.NoError(t, err)
-	require.NotNil(t, account)
-	require.Equal(t, 1, groupRepo.getByIDCalls) // +1 for require_privacy_set check
-	require.Equal(t, 1, groupRepo.getByIDLiteCalls)
-}
-
-func TestGatewayService_ResolveGatewayGroup_DetectsFallbackCycle(t *testing.T) {
-	ctx := context.Background()
-	groupID := int64(10)
-	fallbackID := int64(11)
-
-	group := &Group{
-		ID:              groupID,
-		Platform:        PlatformAnthropic,
-		Status:          StatusActive,
-		ClaudeCodeOnly:  true,
-		FallbackGroupID: &fallbackID,
-	}
-	fallbackGroup := &Group{
-		ID:              fallbackID,
-		Platform:        PlatformAnthropic,
-		Status:          StatusActive,
-		ClaudeCodeOnly:  true,
-		FallbackGroupID: &groupID,
-	}
-
-	groupRepo := &mockGroupRepoForGateway{
-		groups: map[int64]*Group{
-			groupID:    group,
-			fallbackID: fallbackGroup,
-		},
-	}
-
-	svc := &GatewayService{
-		groupRepo: groupRepo,
-	}
-
-	gotGroup, gotID, err := svc.resolveGatewayGroup(ctx, &groupID)
-	require.Error(t, err)
-	require.Nil(t, gotGroup)
-	require.Nil(t, gotID)
-	require.Contains(t, err.Error(), "fallback group cycle")
 }
 
 func TestModelRoutingAppliesToPlatform(t *testing.T) {

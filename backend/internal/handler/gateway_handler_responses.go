@@ -101,13 +101,7 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "Model is not supported by composite groups")
 		return
 	}
-	// 分组推理强度策略（内部先把请求的 effort 挂到 ctx）
-	if cappedBody, changed, err := applyOpenAIReasoningEffortPolicyForRequest(c, apiKey, body); err != nil {
-		respondOpenAIReasoningEffortPolicyError(c, err, h.responsesErrorResponse)
-		return
-	} else if changed {
-		body = cappedBody
-	}
+	bindRequestedReasoningEffort(c, body, reqModel)
 	if normalizedBody, changed := normalizeCodexAutomationBootstrap(body); changed {
 		body = normalizedBody
 		reqLog.Info("gateway.responses.codex_automation_bootstrap_normalized", zap.String("normalization", "call_output_to_user_message"))
@@ -162,26 +156,10 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		requestCtx = service.WithOpenAIImageGenerationIntent(requestCtx)
 	}
 	c.Request = c.Request.WithContext(requestCtx)
-	if imageIntent && !service.GroupAllowsImageGeneration(apiKey.Group) {
-		h.responsesErrorResponse(c, http.StatusForbidden, "permission_error", service.ImageGenerationPermissionMessage())
-		return
-	}
 
 	service.SetOpenAIImageIntentHint(c, imageIntent)
 	// 提前校验 function_call_output 是否具备可关联上下文，避免上游 400
 	if !validateFunctionCallOutputRequest(c, body, reqLog) {
-		return
-	}
-
-	// Claude Code only restriction:
-	// /v1/responses is never a Claude Code endpoint.
-	// When claude_code_only is enabled, this endpoint is rejected.
-	// The existing service-layer checkClaudeCodeRestriction handles degradation
-	// to fallback groups when the Forward path calls SelectAccountForModelWithExclusions.
-	// Here we just reject at handler level since /v1/responses clients can't be Claude Code.
-	if apiKey.Group != nil && apiKey.Group.ClaudeCodeOnly {
-		h.responsesErrorResponse(c, http.StatusForbidden, "permission_error",
-			"This group is restricted to Claude Code clients (/v1/messages only)")
 		return
 	}
 

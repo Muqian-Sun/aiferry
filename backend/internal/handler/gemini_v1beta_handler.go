@@ -42,13 +42,9 @@ func (h *GatewayHandler) GeminiV1BetaListModels(c *gin.Context) {
 	// 无模型端点：池 = 全部 gemini 资源（/antigravity 路由带强制平台）
 	forcePlatform, _ := middleware.GetForcePlatformFromContext(c)
 
-	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里，分组白名单开启时再按白名单过滤。
+	// 用户可见 = 目录已上架（名字形如 models/xxx，比对时去前缀）且（订阅 key）在套餐模型集里。
 	subscription, _ := middleware.GetSubscriptionFromContext(c)
-	allowlistOn := apiKey.Group != nil && apiKey.Group.ModelAllowlistEnabled()
 	visible := func(name string) bool {
-		if allowlistOn && !apiKey.Group.ModelAllowlist.Allows(name) {
-			return false
-		}
 		return service.IsVisibleModel(c.Request.Context(), h.modelCatalog, subscription, strings.TrimPrefix(name, "models/"))
 	}
 	filterGeminiModels := func(models []gemini.Model) []gemini.Model {

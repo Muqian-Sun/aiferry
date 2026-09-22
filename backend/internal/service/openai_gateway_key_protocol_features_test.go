@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -161,16 +160,6 @@ func TestShouldPreserveNoneReasoningEffortForKeysFollowsOfficialOpenAIHost(t *te
 	require.False(t, shouldPreserveOpenAIResponsesNoneReasoningEffort(keyProtocolTestAccount(PlatformOpenAI, featureRelayEndpoints())))
 }
 
-func TestOpenAIGroupForcesFastFollowsVendorNotLabel(t *testing.T) {
-	group := &Group{ID: 7, Hydrated: true, Platform: PlatformOpenAI, Status: StatusActive, ForceOpenAIFast: true}
-	ctx := context.WithValue(context.Background(), ctxkey.Group, group)
-	relay := featureRelayKey(featureRelayEndpoints())
-	vendor := featureZhipuKey(featureZhipuEndpoints())
-	requireFeatureFixtures(t, relay, vendor)
-	require.True(t, openAIGroupForcesFast(ctx, relay))
-	require.False(t, openAIGroupForcesFast(ctx, vendor))
-}
-
 func TestOpenAIResponsesNamespaceHandlingFollowsVendorNotLabel(t *testing.T) {
 	relay := featureRelayKey(featureRelayEndpoints())
 	vendor := featureZhipuKey(featureZhipuEndpoints())
@@ -285,38 +274,6 @@ func TestOpenAIGatewayKeyCompatPromptCacheKeyFollowsVendorNotLabel(t *testing.T)
 
 	upstream = captureKeyProtocolRequest(t, vendor, ingress)
 	require.Empty(t, gjson.GetBytes(upstream.lastBody, "prompt_cache_key").String())
-}
-
-// TestOpenAIGatewayKeyGroupReasoningEffortPolicyFollowsVendorNotLabel：分组推理强度上限
-// 在 Messages→Responses 与 Messages→Chat Completions 两条转换路径上都按厂商生效。
-func TestOpenAIGatewayKeyGroupReasoningEffortPolicyFollowsVendorNotLabel(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	body := []byte(`{"model":"gpt-5.4","max_tokens":16,"messages":[{"role":"user","content":"hello"}],"output_config":{"effort":"high"},"stream":false}`)
-	capture := func(t *testing.T, account *Account) *httpUpstreamRecorder {
-		t.Helper()
-		upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
-		svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-		ctx := WithOpenAIReasoningEffortPolicy(context.Background(), "low", nil, "")
-		_, err := svc.ForwardAsAnthropic(ctx, adaptiveProtocolTestContext("/v1/messages", body), account, body, "", "")
-		require.Error(t, err)
-		require.Len(t, upstream.requests, 1)
-		return upstream
-	}
-
-	t.Run("responses upstream", func(t *testing.T) {
-		relay := featureRelayKey(map[string]string{APIProtocolResponses: "http://relay.example/v1"})
-		vendor := featureZhipuKey(map[string]string{APIProtocolResponses: DefaultZhipuPayGBaseURL})
-		requireFeatureFixtures(t, relay, vendor)
-		require.Equal(t, "low", gjson.GetBytes(capture(t, relay).lastBody, "reasoning.effort").String())
-		require.Equal(t, "high", gjson.GetBytes(capture(t, vendor).lastBody, "reasoning.effort").String())
-	})
-	t.Run("chat completions upstream", func(t *testing.T) {
-		relay := featureRelayKey(map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"})
-		vendor := featureZhipuKey(map[string]string{APIProtocolChatCompletions: DefaultZhipuPayGBaseURL})
-		requireFeatureFixtures(t, relay, vendor)
-		require.Equal(t, "low", gjson.GetBytes(capture(t, relay).lastBody, "reasoning_effort").String())
-		require.Equal(t, "high", gjson.GetBytes(capture(t, vendor).lastBody, "reasoning_effort").String())
-	})
 }
 
 // TestOpenAIGatewayKeyEmptyCompletedFailoverFollowsVendorNotLabel：空 response.completed

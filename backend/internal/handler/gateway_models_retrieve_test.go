@@ -46,10 +46,6 @@ func TestRetrieveModelMatchesVisibleCatalogue(t *testing.T) {
 			require.Equal(t, http.StatusOK, retrieved.Code, retrieved.Body.String())
 			require.JSONEq(t, string(catalog.Data[0]), retrieved.Body.String())
 			require.Equal(t, http.StatusNotFound, requestModelForTest(h, group, "unknown-model", "").Code)
-			group.ModelAllowlist = service.GroupModelAllowlist{Enabled: true, Models: []string{"absent-from-source"}}
-			hidden := requestModelForTest(h, group, model.ID, "")
-			require.Equal(t, http.StatusNotFound, hidden.Code, hidden.Body.String())
-			require.Contains(t, hidden.Body.String(), `"code":"model_not_found"`)
 		})
 	}
 }

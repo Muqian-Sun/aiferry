@@ -19,14 +19,15 @@ import (
 )
 
 const (
-	defaultBatchImageMaxItems           = 200
-	defaultBatchImageMaxOutputImages    = 200
-	defaultBatchImageMaxOutputCount     = 4
-	defaultBatchImageMaxPromptChars     = 8000
-	defaultBatchImageResponseMime       = "image/png"
-	defaultBatchImageImageSize          = "1K"
-	defaultBatchImageDiscountMultiplier = 0.5
-	defaultBatchImageHoldMultiplier     = 0.6
+	defaultBatchImageMaxItems        = 200
+	defaultBatchImageMaxOutputImages = 200
+	defaultBatchImageMaxOutputCount  = 4
+	defaultBatchImageMaxPromptChars  = 8000
+	defaultBatchImageResponseMime    = "image/png"
+	defaultBatchImageImageSize       = "1K"
+	// 批量生图按目录价、预扣全额（D5a：分组的折扣 / 预扣倍率随分组删）。
+	defaultBatchImageDiscountMultiplier = 1.0
+	defaultBatchImageHoldMultiplier     = 1.0
 	maxBatchImagePublicErrorChars       = 500
 	maxBatchImageReferenceImageBytes    = 10 * 1024 * 1024
 	defaultBatchImageMaxReferenceImages = 1000
@@ -36,11 +37,6 @@ const (
 type BatchImageAccountSelectionRepository interface {
 	GetByID(ctx context.Context, id int64) (*Account, error)
 	ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error)
-	ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error)
-}
-
-type BatchImageGroupPricingRepository interface {
-	GetByIDLite(ctx context.Context, id int64) (*Group, error)
 }
 
 type BatchImageSubmitRequest struct {
@@ -74,7 +70,6 @@ type BatchImageReferenceInput struct {
 type BatchImageOwner struct {
 	UserID   int64
 	APIKeyID int64
-	GroupID  *int64
 	// RateMultiplier 用户级计费倍率（用户价 = 目录价 × 它）。
 	RateMultiplier float64
 }
@@ -82,7 +77,6 @@ type BatchImageOwner struct {
 type BatchImagePublicService struct {
 	Repo             BatchImageRepository
 	AccountRepo      BatchImageAccountSelectionRepository
-	GroupRepo        BatchImageGroupPricingRepository
 	Queue            BatchImageQueue
 	ProviderRegistry *BatchImageProviderRegistry
 	Pricing          BatchImagePricingResolver
@@ -179,11 +173,10 @@ type BatchImageItemsQuery struct {
 	Cursor string
 }
 
-func NewBatchImagePublicService(repo BatchImageRepository, accountRepo AccountRepository, groupRepo GroupRepository, queue BatchImageQueue, pricing *BatchImageModelPricingResolver, billingRepo UsageBillingRepository, authCache APIKeyAuthCacheInvalidator, cfg *config.Config) *BatchImagePublicService {
+func NewBatchImagePublicService(repo BatchImageRepository, accountRepo AccountRepository, queue BatchImageQueue, pricing *BatchImageModelPricingResolver, billingRepo UsageBillingRepository, authCache APIKeyAuthCacheInvalidator, cfg *config.Config) *BatchImagePublicService {
 	return &BatchImagePublicService{
 		Repo:             repo,
 		AccountRepo:      accountRepo,
-		GroupRepo:        groupRepo,
 		Queue:            queue,
 		ProviderRegistry: NewBatchImageProviderRegistryFromConfig(cfg),
 		Pricing:          pricing,
@@ -199,11 +192,6 @@ func (s *BatchImagePublicService) Submit(ctx context.Context, owner BatchImageOw
 	}
 	normalized, err := s.validateSubmitRequest(req)
 	if err != nil {
-		return nil, err
-	}
-	// 与 ListModels 使用同一鉴权谓词（AllowBatchImageGeneration + Platform==Gemini），
-	// 避免两个入口校验口径不一致留下防御纵深缺口。
-	if err := s.ensureGroupAllowsBatchImage(ctx, owner.GroupID); err != nil {
 		return nil, err
 	}
 	requestHash := HashBatchImageSubmitRequest(normalized)
@@ -617,9 +605,6 @@ func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchIma
 	if s.Pricing == nil {
 		return nil, ErrBatchImageSettlementPricingMissing
 	}
-	if err := s.ensureGroupAllowsBatchImage(ctx, owner.GroupID); err != nil {
-		return nil, err
-	}
 
 	modelsByProvider := make(map[string]map[string]struct{})
 	for _, providerName := range batchImageProviderSelectionOrder("") {
@@ -627,7 +612,7 @@ func (s *BatchImagePublicService) ListModels(ctx context.Context, owner BatchIma
 		if !ok || provider == nil {
 			continue
 		}
-		accounts, err := s.listCandidateAccounts(ctx, owner.GroupID, batchImageProviderPlatform(providerName))
+		accounts, err := s.listCandidateAccounts(ctx, batchImageProviderPlatform(providerName))
 		if err != nil {
 			return nil, err
 		}
@@ -936,7 +921,7 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 		if !ok || provider == nil {
 			continue
 		}
-		accounts, err := s.listCandidateAccounts(ctx, owner.GroupID, batchImageProviderPlatform(providerName))
+		accounts, err := s.listCandidateAccounts(ctx, batchImageProviderPlatform(providerName))
 		if err != nil {
 			return nil, nil, err
 		}
@@ -965,64 +950,22 @@ func (s *BatchImagePublicService) selectProviderAndAccount(ctx context.Context, 
 
 // listCandidateAccounts 装载批量图片的候选账号：成品号按平台精确匹配，第三方 key 不论平台
 // 标签全部装载，由 provider.SupportsAccount 按账号类别与厂商筛选（与调度候选查询同一口径）。
-func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context, groupID *int64, platform string) ([]Account, error) {
+func (s *BatchImagePublicService) listCandidateAccounts(ctx context.Context, platform string) ([]Account, error) {
 	if s.AccountRepo == nil {
 		return nil, ErrBatchImageNoAccountAvailable
-	}
-	if groupID != nil && *groupID > 0 {
-		return s.AccountRepo.ListSchedulingCandidatesByGroupID(ctx, *groupID, []string{platform})
 	}
 	return s.AccountRepo.ListSchedulingCandidates(ctx, []string{platform})
 }
 
-func (s *BatchImagePublicService) ensureGroupAllowsBatchImage(ctx context.Context, groupID *int64) error {
-	if groupID == nil || *groupID <= 0 {
-		return nil
-	}
-	if s.GroupRepo == nil {
-		return ErrBatchImageSettlementPricingMissing
-	}
-	group, err := s.GroupRepo.GetByIDLite(ctx, *groupID)
-	if err != nil || group == nil {
-		return ErrBatchImageSettlementPricingMissing
-	}
-	if !group.AllowBatchImageGeneration {
-		return ErrBatchImageGroupDisabled
-	}
-	if group.Platform != PlatformGemini {
-		return ErrBatchImageGroupDisabled
-	}
-	return nil
-}
-
 func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, owner BatchImageOwner, req BatchImageSubmitRequest, provider string, account *Account) (*BatchImagePricingSnapshot, error) {
 	unit := -1.0
-	// 用户价 = 目录价 × 用户倍率；图片单价来自目录条目（BatchImageUnitPrice），批量折扣仍在分组上。
+	// 用户价 = 目录价 × 用户倍率；图片单价来自目录条目（BatchImageUnitPrice），不再有分组折扣 / 预扣倍率。
 	groupMultiplier := owner.RateMultiplier
 	if groupMultiplier < 0 {
 		groupMultiplier = 0
 	}
 	discountMultiplier := defaultBatchImageDiscountMultiplier
 	holdMultiplier := defaultBatchImageHoldMultiplier
-	if owner.GroupID != nil && *owner.GroupID > 0 {
-		if s.GroupRepo == nil {
-			return nil, ErrBatchImageSettlementPricingMissing
-		}
-		group, err := s.GroupRepo.GetByIDLite(ctx, *owner.GroupID)
-		if err != nil || group == nil {
-			return nil, ErrBatchImageSettlementPricingMissing
-		}
-		if !group.AllowBatchImageGeneration {
-			return nil, ErrBatchImageGroupDisabled
-		}
-		discountMultiplier = group.BatchImageDiscountMultiplier
-		if discountMultiplier < 0 {
-			discountMultiplier = 0
-		}
-		if group.BatchImageHoldMultiplier >= 0 {
-			holdMultiplier = group.BatchImageHoldMultiplier
-		}
-	}
 	if unit < 0 {
 		if s.Pricing == nil {
 			return nil, ErrBatchImageSettlementPricingMissing
@@ -1032,16 +975,6 @@ func (s *BatchImagePublicService) resolvePricingSnapshot(ctx context.Context, ow
 			return nil, ErrBatchImageSettlementPricingMissing
 		}
 		unit = resolvedUnit
-	}
-	// 定价不变式：hold 比例不得低于 discount 比例，否则成功率足够高时
-	// actualCost > holdAmount，结算永远失败、冻结余额无法解冻。
-	// 管理端已校验新配置，此处兜底钳制存量脏数据。
-	if holdMultiplier < discountMultiplier {
-		logger.L().Warn("batch_image.hold_multiplier_below_discount_clamped",
-			zap.Float64("hold_multiplier", holdMultiplier),
-			zap.Float64("discount_multiplier", discountMultiplier),
-		)
-		holdMultiplier = discountMultiplier
 	}
 	accountMultiplier := 1.0
 	if account != nil {
