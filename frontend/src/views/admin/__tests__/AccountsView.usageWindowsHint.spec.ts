@@ -34,7 +34,8 @@ vi.mock('@/api/admin', () => ({
     },
     groups: {
       getAll: getAllGroups
-    }
+    },
+    modelCatalog: { listEntries: vi.fn().mockResolvedValue([]) }
   }
 }))
 

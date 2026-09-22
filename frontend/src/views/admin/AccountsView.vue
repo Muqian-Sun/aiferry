@@ -309,6 +309,9 @@
               :error="todayStatsError"
             />
           </template>
+          <template #cell-catalog="{ row }">
+            <AccountCatalogCell :entries="catalogEntriesForAccount(row.id)" :max-display="4" @diagnose="openCatalogDiagnosis" />
+          </template>
           <template #cell-groups="{ row }">
             <AccountGroupsCell :groups="accountGroupsForRow(row)" :max-display="4" />
           </template>
@@ -434,7 +437,13 @@
       <template #pagination><Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" /></template>
     </TablePageLayout>
     <CreateAccountModal :show="showCreate" :proxies="proxies" :groups="groups" @close="showCreate = false" @created="reload" />
-    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <EditAccountModal :show="showEdit" :account="edAcc" :proxies="proxies" :groups="groups" :catalog-entries="edAcc ? catalogEntriesForAccount(edAcc.id) : []" @close="showEdit = false" @updated="handleAccountUpdated" />
+    <CatalogEntryDiagnosisModal
+      :show="diagnosisEntry !== null"
+      :entry-id="diagnosisEntry?.id ?? null"
+      :model-id="diagnosisEntry?.model_id"
+      @close="diagnosisEntry = null"
+    />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
     <AccountTestModal :show="showTest" :account="testingAcc" @close="closeTestModal" />
     <AccountStatsModal :show="showStats" :account="statsAcc" @close="closeStatsModal" />
@@ -501,6 +510,9 @@ import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
 import AccountGroupsCell from '@/components/account/AccountGroupsCell.vue'
+import AccountCatalogCell from '@/components/account/AccountCatalogCell.vue'
+import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
@@ -524,6 +536,24 @@ const authStore = useAuthStore()
 
 const proxies = ref<AccountProxy[]>([])
 const groups = ref<AdminGroup[]>([])
+// 已上架模型：目录条目自带 bindings[]，按 account_id 反查，不需要后端新接口。
+const catalogEntries = ref<ModelCatalogEntry[]>([])
+const catalogEntriesByAccountID = computed(() => {
+  const byAccount = new Map<number, ModelCatalogEntry[]>()
+  for (const entry of catalogEntries.value) {
+    for (const binding of entry.bindings ?? []) {
+      const list = byAccount.get(binding.account_id)
+      if (list) list.push(entry)
+      else byAccount.set(binding.account_id, [entry])
+    }
+  }
+  return byAccount
+})
+const catalogEntriesForAccount = (accountID: number): ModelCatalogEntry[] => catalogEntriesByAccountID.value.get(accountID) ?? []
+const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
+const openCatalogDiagnosis = (entry: ModelCatalogEntry) => {
+  diagnosisEntry.value = entry
+}
 const groupsByID = computed(() => new Map(groups.value.map(group => [group.id, group])))
 const accountGroupsForRow = (account: Pick<AccountListItem, 'group_ids'>): AdminGroup[] => {
   const groupIDs = account.group_ids ?? []
@@ -1728,7 +1758,8 @@ const allColumns = computed(() => {
     { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
     { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
     { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
-    { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false }
+    { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false },
+    { key: 'catalog', label: t('admin.accounts.columns.catalog'), sortable: false }
   ]
   if (!authStore.isSimpleMode) {
     c.push({ key: 'groups', label: t('admin.accounts.columns.groups'), sortable: false })
@@ -2475,9 +2506,10 @@ onMounted(async () => {
 
   load()
   loadUpstreamBillingProbeGlobalState()
-  const [proxiesResult, groupsResult] = await Promise.allSettled([
+  const [proxiesResult, groupsResult, catalogResult] = await Promise.allSettled([
     adminAPI.proxies.getAll(),
-    adminAPI.groups.getAll()
+    adminAPI.groups.getAll(),
+    adminAPI.modelCatalog.listEntries()
   ])
   if (proxiesResult.status === 'fulfilled') {
     proxies.value = proxiesResult.value
@@ -2488,6 +2520,11 @@ onMounted(async () => {
     groups.value = groupsResult.value
   } else {
     console.error('Failed to load groups:', groupsResult.reason)
+  }
+  if (catalogResult.status === 'fulfilled') {
+    catalogEntries.value = catalogResult.value
+  } else {
+    console.error('Failed to load model catalog:', catalogResult.reason)
   }
   window.addEventListener('scroll', handleScroll, true)
   window.addEventListener('resize', handleViewportResize)

@@ -58,6 +58,9 @@
           </template>
           <template #cell-actions="{ row }">
             <div class="flex justify-end gap-2">
+              <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-actions-diagnose" @click="openDiagnosis(row)">
+                {{ t('admin.modelCatalog.diagnose') }}
+              </button>
               <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-actions-edit" @click="openEdit(row)">
                 {{ t('common.edit') }}
               </button>
@@ -70,6 +73,13 @@
         <EmptyState v-if="!loading && filteredEntries.length === 0" :title="t('admin.modelCatalog.empty')" />
       </template>
     </TablePageLayout>
+
+    <CatalogEntryDiagnosisModal
+      :show="diagnosisEntry !== null"
+      :entry-id="diagnosisEntry?.id ?? null"
+      :model-id="diagnosisEntry?.model_id"
+      @close="diagnosisEntry = null"
+    />
 
     <BaseDialog :show="showEditor" :title="editorTitle" @close="closeEditor">
       <form id="model-catalog-form" class="space-y-4" @submit.prevent="saveEntry">
@@ -291,6 +301,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import Icon from '@/components/icons/Icon.vue'
+import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -301,6 +312,10 @@ const saving = ref(false)
 const entries = ref<ModelCatalogEntry[]>([])
 const searchQuery = ref('')
 const showEditor = ref(false)
+const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
+const openDiagnosis = (entry: ModelCatalogEntry) => {
+  diagnosisEntry.value = entry
+}
 const showDeleteDialog = ref(false)
 const editingId = ref<number | null>(null)
 const pendingDelete = ref<ModelCatalogEntry | null>(null)

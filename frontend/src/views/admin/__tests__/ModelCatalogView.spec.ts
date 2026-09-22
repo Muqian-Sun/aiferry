@@ -96,7 +96,11 @@ function mountView() {
         ConfirmDialog: { props: ['show'], template: '<div v-if="show" />' },
         EmptyState: true,
         Icon: true,
-        PlatformTypeBadge: true
+        PlatformTypeBadge: true,
+        CatalogEntryDiagnosisModal: {
+          props: ['show', 'entryId', 'modelId'],
+          template: '<div data-testid="diagnosis-stub" :data-show="show" :data-entry-id="entryId ?? \'\'" :data-model-id="modelId" />'
+        }
       }
     }
   })
@@ -368,5 +372,16 @@ describe('ModelCatalogView', () => {
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
     expect(showError).toHaveBeenCalledWith('model catalog entry already exists')
+  })
+
+  it('opens the resource diagnosis for the row from the actions column', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const stub = wrapper.get('[data-testid="diagnosis-stub"]')
+    expect(stub.attributes('data-show')).toBe('false')
+    await wrapper.get('[data-testid="model-catalog-actions-diagnose"]').trigger('click')
+    expect(stub.attributes('data-show')).toBe('true')
+    expect(stub.attributes('data-entry-id')).toBe('1')
+    expect(stub.attributes('data-model-id')).toBe('claude-opus-4-6')
   })
 })
