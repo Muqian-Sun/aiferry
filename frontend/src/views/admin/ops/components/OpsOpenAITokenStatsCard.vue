@@ -9,15 +9,13 @@ import { formatNumber } from '@/utils/format'
 
 interface Props {
   platformFilter?: string
-  groupIdFilter?: number | null
   refreshToken: number
 }
 
 type ViewMode = 'topn' | 'pagination'
 
 const props = withDefaults(defineProps<Props>(), {
-  platformFilter: '',
-  groupIdFilter: null
+  platformFilter: ''
 })
 
 const { t } = useI18n()
@@ -83,8 +81,7 @@ function formatInt(v?: number | null): string {
 function buildParams() {
   const params: Record<string, any> = {
     time_range: timeRange.value,
-    platform: props.platformFilter || undefined,
-    group_id: typeof props.groupIdFilter === 'number' && props.groupIdFilter > 0 ? props.groupIdFilter : undefined
+    platform: props.platformFilter || undefined
   }
 
   if (viewMode.value === 'topn') {
@@ -123,7 +120,6 @@ watch(
     page: page.value,
     pageSize: pageSize.value,
     platform: props.platformFilter,
-    groupId: props.groupIdFilter,
     refreshToken: props.refreshToken
   }),
   (next, prev) => {
@@ -133,8 +129,7 @@ watch(
       next.timeRange !== prev.timeRange ||
       next.viewMode !== prev.viewMode ||
       next.pageSize !== prev.pageSize ||
-      next.platform !== prev.platform ||
-      next.groupId !== prev.groupId
+      next.platform !== prev.platform
 
     if (next.viewMode === 'pagination' && filtersChanged && next.page !== 1) {
       page.value = 1

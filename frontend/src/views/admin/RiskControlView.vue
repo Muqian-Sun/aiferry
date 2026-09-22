@@ -263,9 +263,8 @@
               </div>
             </div>
 
-            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-6">
+            <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
               <Select v-model="filters.result" :options="resultOptions" @change="reloadLogsFromFirstPage" />
-              <Select v-model="filters.group_id" :options="groupFilterOptions" @change="reloadLogsFromFirstPage" />
               <Select v-model="filters.endpoint" :options="endpointOptions" @change="reloadLogsFromFirstPage" />
               <input v-model.trim="filters.search" type="search" class="input" :placeholder="t('admin.riskControl.filters.search')" @keyup.enter="reloadLogsFromFirstPage" />
               <input v-model="filters.from" type="datetime-local" class="input" :title="t('admin.riskControl.filters.from')" @change="reloadLogsFromFirstPage" />
@@ -278,7 +277,6 @@
               <thead class="bg-gray-50 dark:bg-dark-800">
                 <tr>
                   <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.time') }}</th>
-                  <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.group') }}</th>
                   <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.user') }}</th>
                   <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.apiKey') }}</th>
                   <th class="px-5 py-3 text-left text-xs font-medium uppercase tracking-wider text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.table.endpoint') }}</th>
@@ -299,7 +297,6 @@
                 <template v-else>
                   <tr v-for="row in logs" :key="row.id" class="hover:bg-gray-50 dark:hover:bg-dark-700/60">
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 dark:text-gray-300">{{ formatDateTime(row.created_at) }}</td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 dark:text-gray-300">{{ row.group_name || '-' }}</td>
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-gray-700 dark:text-gray-300">
                       <div>{{ row.user_email || '-' }}</div>
                       <div v-if="row.user_id" class="text-xs text-gray-400">UID {{ row.user_id }}</div>
@@ -701,60 +698,6 @@
           </div>
 
           <div v-else-if="activeSettingsTab === 'scope'" class="space-y-5">
-            <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h3 class="text-base font-semibold text-gray-900 dark:text-white">{{ t('admin.riskControl.groupScope') }}</h3>
-                <p class="mt-1 text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.groupScopeHint') }}</p>
-              </div>
-              <div class="inline-flex rounded-lg bg-gray-100 p-1 dark:bg-dark-700">
-                <button
-                  type="button"
-                  class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                  :class="configForm.all_groups ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                  @click="configForm.all_groups = true"
-                >
-                  {{ t('admin.riskControl.allGroups') }}
-                </button>
-                <button
-                  type="button"
-                  class="rounded-md px-3 py-1.5 text-sm font-medium transition-colors"
-                  :class="!configForm.all_groups ? 'bg-white text-gray-900 shadow-sm dark:bg-dark-800 dark:text-white' : 'text-gray-500 dark:text-gray-400'"
-                  @click="configForm.all_groups = false"
-                >
-                  {{ t('admin.riskControl.selectedGroups') }}
-                </button>
-              </div>
-            </div>
-
-            <div v-if="!configForm.all_groups" class="space-y-4">
-              <div class="relative">
-                <Icon name="search" size="sm" class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-                <input v-model.trim="groupSearch" type="search" class="input pl-9" :placeholder="t('admin.riskControl.searchGroups')" />
-              </div>
-              <div class="grid max-h-[420px] grid-cols-1 gap-3 overflow-y-auto pr-1 md:grid-cols-2 xl:grid-cols-3">
-                <button
-                  v-for="group in filteredGroups"
-                  :key="group.id"
-                  type="button"
-                  class="flex min-h-20 items-center justify-between rounded-lg border p-4 text-left transition-colors"
-                  :class="isGroupSelected(group.id) ? 'border-primary-300 bg-primary-50 dark:border-primary-700 dark:bg-primary-900/20' : 'border-gray-100 hover:bg-gray-50 dark:border-dark-700 dark:hover:bg-dark-700/60'"
-                  @click="toggleGroup(group.id)"
-                >
-                  <span class="min-w-0">
-                    <span class="block truncate text-sm font-semibold text-gray-900 dark:text-white">{{ group.name }}</span>
-                    <span class="mt-1 inline-flex rounded-md bg-gray-100 px-2 py-0.5 text-xs text-gray-500 dark:bg-dark-700 dark:text-gray-400">{{ group.platform }}</span>
-                  </span>
-                  <span
-                    class="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border"
-                    :class="isGroupSelected(group.id) ? 'border-primary-500 bg-primary-500 text-white' : 'border-gray-300 text-transparent dark:border-dark-500'"
-                  >
-                    <Icon name="check" size="xs" :stroke-width="2" />
-                  </span>
-                </button>
-                <p v-if="filteredGroups.length === 0" class="text-sm text-gray-500 dark:text-gray-400">{{ t('admin.riskControl.noGroups') }}</p>
-              </div>
-            </div>
-
             <div class="space-y-4 rounded-lg border border-gray-100 p-4 dark:border-dark-700">
               <div class="flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
                 <div>
@@ -1100,9 +1043,6 @@
                   {{ inputDetailRow.endpoint || '-' }} · {{ inputDetailRow.provider || '-' }} / {{ inputDetailRow.model || '-' }}
                 </p>
               </div>
-              <span v-if="inputDetailRow.group_name" class="inline-flex rounded-md bg-sky-50 px-2.5 py-1 text-xs font-medium text-sky-700 dark:bg-sky-900/20 dark:text-sky-300">
-                {{ inputDetailRow.group_name }}
-              </span>
             </div>
             <pre class="mt-4 max-h-[420px] overflow-auto whitespace-pre-wrap break-words rounded-lg bg-gray-950 p-4 text-sm leading-6 text-gray-100 shadow-inner dark:bg-black/50">{{ inputDetailText }}</pre>
           </div>
@@ -1143,7 +1083,7 @@ import type {
   ModerationMode,
   UpdateContentModerationConfig,
 } from '@/api/admin/riskControl'
-import type { AdminGroup, Proxy, SelectOption } from '@/types'
+import type { Proxy, SelectOption } from '@/types'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatDateTime as formatDateTimeValue } from '@/utils/format'
@@ -1208,9 +1148,7 @@ const hashActionLoading = ref(false)
 const unbanningUserID = ref<number | null>(null)
 const settingsOpen = ref(false)
 const activeSettingsTab = ref<SettingsTab>('basic')
-const groupSearch = ref('')
 const flaggedHashInput = ref('')
-const groups = ref<AdminGroup[]>([])
 const proxies = ref<Proxy[]>([])
 const logs = ref<ContentModerationLog[]>([])
 const status = ref<ContentModerationRuntimeStatus | null>(null)
@@ -1240,8 +1178,6 @@ const configForm = reactive({
   timeout_ms: 3000,
   retry_count: 2,
   sample_rate: 100,
-  all_groups: true,
-  group_ids: [] as number[],
   record_non_hits: false,
   worker_count: 4,
   queue_size: 32768,
@@ -1271,7 +1207,6 @@ const pagination = reactive({
 
 const filters = reactive({
   result: '',
-  group_id: 0,
   endpoint: '',
   search: '',
   from: '',
@@ -1402,16 +1337,6 @@ const endpointOptions = computed<SelectOption[]>(() => [
   { value: '/v1/images/edits', label: '/v1/images/edits' },
 ])
 
-const groupFilterOptions = computed<SelectOption[]>(() => [
-  { value: 0, label: t('admin.riskControl.filters.allGroups') },
-  ...groups.value.map((group) => ({
-    value: group.id,
-    label: `${group.name} (${group.platform})`,
-  })),
-])
-
-const selectedGroupCount = computed(() => String(configForm.group_ids.length))
-
 const modelFilterModelCount = computed(() => configForm.model_filter_models.length)
 
 const modelFilterSummary = computed(() => {
@@ -1427,14 +1352,6 @@ const modelFilterSummary = computed(() => {
 const modelFilterPreviewModels = computed(() => configForm.model_filter_models.slice(0, 6))
 
 const hiddenModelFilterModelCount = computed(() => Math.max(0, configForm.model_filter_models.length - modelFilterPreviewModels.value.length))
-
-const filteredGroups = computed(() => {
-  const keyword = groupSearch.value.trim().toLowerCase()
-  if (!keyword) return groups.value
-  return groups.value.filter((group) => {
-    return group.name.toLowerCase().includes(keyword) || String(group.platform).toLowerCase().includes(keyword)
-  })
-})
 
 const inputApiKeyCount = computed(() => parseApiKeys(configForm.api_keys_text).length)
 
@@ -1544,9 +1461,9 @@ const overviewItems = computed<OverviewItem[]>(() => [
   },
   {
     key: 'scope',
-    label: t('admin.riskControl.overview.groupScope'),
-    value: configForm.all_groups ? t('admin.riskControl.allGroups') : selectedGroupCount.value,
-    meta: modelFilterSummary.value,
+    label: t('admin.riskControl.tabs.scope'),
+    value: modelFilterSummary.value,
+    meta: t('admin.riskControl.modelFilterModelCount', { count: modelFilterModelCount.value }),
     icon: 'users',
     iconClass: 'bg-violet-50 text-violet-600 dark:bg-violet-900/20 dark:text-violet-300',
   },
@@ -1718,8 +1635,6 @@ function applyConfig(config: ContentModerationConfig) {
   configForm.timeout_ms = config.timeout_ms || 3000
   configForm.retry_count = config.retry_count ?? 2
   configForm.sample_rate = config.sample_rate ?? 100
-  configForm.all_groups = config.all_groups
-  configForm.group_ids = Array.isArray(config.group_ids) ? [...config.group_ids] : []
   configForm.record_non_hits = config.record_non_hits
   configForm.worker_count = config.worker_count || 4
   configForm.queue_size = config.queue_size || 32768
@@ -1744,15 +1659,13 @@ function applyConfig(config: ContentModerationConfig) {
 async function loadAll() {
   loading.value = true
   try {
-    const [config, groupItems, runtimeStatus, proxyItems] = await Promise.all([
+    const [config, runtimeStatus, proxyItems] = await Promise.all([
       adminAPI.riskControl.getConfig(),
-      adminAPI.groups.getAll(),
       adminAPI.riskControl.getStatus(),
       // 代理列表加载失败不阻塞风控页面（仅影响下拉可选项）
       adminAPI.proxies.getAll().catch(() => [] as Proxy[]),
     ])
     applyConfig(config)
-    groups.value = groupItems
     status.value = runtimeStatus
     proxies.value = proxyItems
     if (Array.isArray(runtimeStatus.api_key_statuses)) {
@@ -1803,8 +1716,8 @@ async function saveConfig() {
       timeout_ms: Number(configForm.timeout_ms) || 3000,
       retry_count: Number(configForm.retry_count) || 0,
       sample_rate: Number(configForm.sample_rate) || 0,
-      all_groups: configForm.all_groups,
-      group_ids: configForm.all_groups ? [] : [...configForm.group_ids],
+      // 分组随目录下线：风控对全部请求生效，后端仍要求 all_groups=false 时给分组，所以恒发 true
+      all_groups: true,
       record_non_hits: configForm.record_non_hits,
       clear_api_key: configForm.clear_api_key,
       worker_count: Number(configForm.worker_count) || 4,
@@ -1857,7 +1770,6 @@ async function loadLogs() {
       page: pagination.page,
       page_size: pagination.page_size,
       result: filters.result || undefined,
-      group_id: filters.group_id || undefined,
       endpoint: filters.endpoint || undefined,
       search: filters.search || undefined,
       from: normalizeDateTimeLocal(filters.from),
@@ -2101,19 +2013,6 @@ function fileToDataURL(file: File): Promise<string> {
     reader.onerror = () => reject(reader.error)
     reader.readAsDataURL(file)
   })
-}
-
-function toggleGroup(groupID: number) {
-  const index = configForm.group_ids.indexOf(groupID)
-  if (index >= 0) {
-    configForm.group_ids.splice(index, 1)
-  } else {
-    configForm.group_ids.push(groupID)
-  }
-}
-
-function isGroupSelected(groupID: number): boolean {
-  return configForm.group_ids.includes(groupID)
 }
 
 function modeLabel(mode: ModerationMode): string {

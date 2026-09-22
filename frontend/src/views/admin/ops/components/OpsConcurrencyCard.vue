@@ -5,13 +5,11 @@ import { opsAPI, type OpsAccountAvailabilityStatsResponse, type OpsConcurrencySt
 
 interface Props {
   platformFilter?: string
-  groupIdFilter?: number | null
   refreshToken: number
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  platformFilter: '',
-  groupIdFilter: null
+  platformFilter: ''
 })
 
 const { t } = useI18n()
@@ -37,9 +35,6 @@ function safeNumber(n: unknown): number {
 const displayDimension = computed<'platform' | 'group' | 'account' | 'user'>(() => {
   if (showByUser.value) {
     return 'user'
-  }
-  if (typeof props.groupIdFilter === 'number' && props.groupIdFilter > 0) {
-    return 'account'
   }
   if (props.platformFilter) {
     return 'group'
@@ -187,13 +182,6 @@ const accountRows = computed((): AccountRow[] => {
       const conc = concStats[aid] || {}
       const avail = availStats[aid] || {}
 
-      // 只显示匹配的分组
-      if (typeof props.groupIdFilter === 'number' && props.groupIdFilter > 0) {
-        if (conc.group_id !== props.groupIdFilter && avail.group_id !== props.groupIdFilter) {
-          return null
-        }
-      }
-
       return {
         key: aid,
         name: String(conc.account_name || avail.account_name || `Account ${aid}`),
@@ -270,8 +258,8 @@ async function loadData() {
     } else {
       // 常规模式加载账号/平台/分组数据
       const [concData, availData] = await Promise.all([
-        opsAPI.getConcurrencyStats(props.platformFilter, props.groupIdFilter),
-        opsAPI.getAccountAvailabilityStats(props.platformFilter, props.groupIdFilter)
+        opsAPI.getConcurrencyStats(props.platformFilter),
+        opsAPI.getAccountAvailabilityStats(props.platformFilter)
       ])
       concurrency.value = concData
       availability.value = availData

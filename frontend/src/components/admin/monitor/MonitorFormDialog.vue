@@ -225,7 +225,6 @@
     :show="showKeyPicker"
     :loading="myKeysLoading"
     :keys="myActiveKeys"
-    :provider="form.provider"
     @close="showKeyPicker = false"
     @pick="pickMyKey"
   />

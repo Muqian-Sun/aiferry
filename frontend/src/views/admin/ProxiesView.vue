@@ -205,13 +205,13 @@
               class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-primary-700 hover:bg-gray-200 dark:bg-dark-600 dark:text-primary-300 dark:hover:bg-dark-500"
               @click="openAccountsModal(row)"
             >
-              {{ t('admin.groups.accountsCount', { count: value || 0 }) }}
+              {{ t('admin.proxies.accountsCount', { count: value || 0 }) }}
             </button>
             <span
               v-else
               class="inline-flex items-center rounded bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-800 dark:bg-dark-600 dark:text-gray-300"
             >
-              {{ t('admin.groups.accountsCount', { count: 0 }) }}
+              {{ t('admin.proxies.accountsCount', { count: 0 }) }}
             </span>
           </template>
 

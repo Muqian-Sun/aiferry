@@ -20,8 +20,6 @@ import type {
   CodexSessionImportRequest,
   CodexSessionImportResult,
   OpenAICodexPATCreateRequest,
-  CheckMixedChannelRequest,
-  CheckMixedChannelResponse,
   UpstreamBillingProbeResult,
   UpstreamBillingProbeSettings,
   UpstreamBillingRatesResponse,
@@ -47,7 +45,6 @@ export async function list(
     platform?: string
     type?: string
     status?: string
-    group?: string
     search?: string
     privacy_mode?: string
     lite?: string
@@ -88,7 +85,6 @@ export async function getUpstreamBillingRatesWithEtag(
     platform?: string
     type?: string
     status?: string
-    group?: string
     search?: string
     privacy_mode?: string
     sort_by?: string
@@ -121,7 +117,6 @@ export async function listWithEtag(
     platform?: string
     type?: string
     status?: string
-    group?: string
     search?: string
     privacy_mode?: string
     lite?: string
@@ -255,16 +250,6 @@ export async function updateGrokMediaEligibility(
     `/admin/accounts/${id}/grok-media-eligibility`,
     { mode }
   )
-  return data
-}
-
-/**
- * Check mixed-channel risk for account-group binding.
- */
-export async function checkMixedChannelRisk(
-  payload: CheckMixedChannelRequest
-): Promise<CheckMixedChannelResponse> {
-  const { data } = await apiClient.post<CheckMixedChannelResponse>('/admin/accounts/check-mixed-channel', payload)
   return data
 }
 
@@ -677,7 +662,6 @@ export async function exportData(options?: {
     platform?: string
     type?: string
     status?: string
-    group?: string
     privacy_mode?: string
     search?: string
     sort_by?: string
@@ -689,11 +673,10 @@ export async function exportData(options?: {
   if (options?.ids && options.ids.length > 0) {
     params.ids = options.ids.join(',')
   } else if (options?.filters) {
-    const { platform, type, status, group, privacy_mode, search, sort_by, sort_order } = options.filters
+    const { platform, type, status, privacy_mode, search, sort_by, sort_order } = options.filters
     if (platform) params.platform = platform
     if (type) params.type = type
     if (status) params.status = status
-    if (group) params.group = group
     if (privacy_mode) params.privacy_mode = privacy_mode
     if (search) params.search = search
     if (sort_by) params.sort_by = sort_by
@@ -943,7 +926,6 @@ export interface SparkShadowCreatePayload {
   name?: string
   priority?: number
   concurrency?: number
-  group_ids?: number[]
 }
 
 export async function createSparkShadow(parentId: number, payload: SparkShadowCreatePayload): Promise<Account> {
@@ -1037,7 +1019,6 @@ export const accountsAPI = {
   update,
   getGrokMediaEligibility,
   updateGrokMediaEligibility,
-  checkMixedChannelRisk,
   delete: deleteAccount,
   toggleStatus,
   testAccount,
