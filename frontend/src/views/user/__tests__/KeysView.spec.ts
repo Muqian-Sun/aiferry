@@ -281,7 +281,7 @@ describe('user KeysView column settings', () => {
     listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
     updateKey.mockResolvedValue({ ...key, status, quota_used: 0 })
     const wrapper = await mountView()
-    await getButtonByText(wrapper, 'common.edit').trigger('click')
+    await wrapper.get('[data-testid="edit-key"]').trigger('click')
     await wrapper.get('[data-tour="key-form-name"]').setValue('Unsaved name')
     const statusSelect = wrapper.findAllComponents({ name: 'Select' })
       .find((select) => select.props('options').length === 2 &&
@@ -320,7 +320,15 @@ describe('user KeysView column settings', () => {
     const badges = wrapper.findAll('[data-testid="subscription-key-badge"]')
     expect(badges).toHaveLength(1)
     expect(badges[0].text()).toContain('keys.subscriptionKey')
+    // 删除藏在每行的「更多」菜单里：订阅 key 的菜单没有删除项，余额 key 的有
+    const menus = wrapper.findAll('[data-testid="key-menu"]')
+    expect(menus).toHaveLength(2)
+    await menus[0].trigger('click')
+    expect(wrapper.find('[data-testid="delete-key"]').exists()).toBe(false)
+    await menus[1].trigger('click')
     expect(wrapper.findAll('[data-testid="delete-key"]')).toHaveLength(1)
+    // 一次只开一个菜单
+    expect(wrapper.findAll('[data-testid="key-menu-items"]')).toHaveLength(1)
     wrapper.unmount()
   })
 

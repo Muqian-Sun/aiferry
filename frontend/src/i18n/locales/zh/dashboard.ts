@@ -53,8 +53,9 @@ export default {
     title: 'API 密钥',
     description: '管理您的 API 密钥和访问令牌',
     searchPlaceholder: '搜索名称或Key...',
+    moreActions: '更多操作',
     endpoints: {
-      title: 'API 端点',
+      baseUrl: '接口地址',
       default: '默认',
       copied: '已复制',
       copiedHint: '已复制到剪贴板',

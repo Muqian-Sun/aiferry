@@ -19,7 +19,7 @@ const allEndpoints = computed(() => {
   const items: Array<{ name: string; endpoint: string; description: string; isDefault: boolean }> = []
   if (props.apiBaseUrl) {
     items.push({
-      name: t('keys.endpoints.title'),
+      name: t('keys.endpoints.baseUrl'),
       endpoint: props.apiBaseUrl,
       description: '',
       isDefault: true,
@@ -64,21 +64,21 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div v-if="allEndpoints.length > 0" class="flex flex-wrap gap-2">
-    <div
-      v-for="(item, index) in allEndpoints"
-      :key="index"
-      class="flex items-center gap-1.5 rounded-lg border border-af-hairline bg-af-sheet px-2.5 py-1.5 text-xs transition-colors hover:border-af-brand/40"
-    >
-      <span class="font-medium text-af-ink-2">{{ item.name }}</span>
-      <span
-        v-if="item.isDefault"
-        class="rounded bg-af-brand-tint px-1 py-px text-[10px] font-medium leading-tight text-af-brand"
-      >{{ t('keys.endpoints.default') }}</span>
+  <!--
+    接口地址条：默认地址一行、自定义端点各一行，名称在左、地址 + 复制 + 测速在右。
+    地址是密钥页最常复制的东西，放在表格上方常驻，不折进弹层。
+  -->
+  <dl v-if="allEndpoints.length > 0" class="space-y-2" data-testid="endpoint-strip">
+    <div v-for="(item, index) in allEndpoints" :key="index" class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <dt class="flex w-28 shrink-0 items-center gap-1.5 text-13 text-af-ink-3">
+        <span class="truncate">{{ item.name }}</span>
+        <span
+          v-if="item.isDefault"
+          class="rounded bg-af-brand-tint px-1 py-px text-[10px] font-medium leading-tight text-af-brand"
+        >{{ t('keys.endpoints.default') }}</span>
+      </dt>
 
-      <span class="text-af-ink-4">|</span>
-
-      <div class="group/endpoint relative flex items-center gap-1.5">
+      <dd class="group/endpoint relative flex min-w-0 items-center gap-1.5 text-sm">
         <div
           class="pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-max max-w-[24rem] -translate-x-1/2 translate-y-1 rounded-md border border-af-hairline bg-af-sheet px-3 py-2.5 text-left opacity-0 shadow-lg transition-all duration-150 group-hover/endpoint:translate-y-0 group-hover/endpoint:opacity-100 group-focus-within/endpoint:translate-y-0 group-focus-within/endpoint:opacity-100"
         >
@@ -99,7 +99,7 @@ onBeforeUnmount(() => {
         </div>
 
         <code
-          class="cursor-pointer font-mono text-af-ink-3 decoration-af-ink-4 decoration-dashed underline-offset-2 hover:text-af-brand hover:underline focus:text-af-brand focus:underline focus:outline-none"
+          class="cursor-pointer truncate font-mono text-af-ink decoration-af-ink-4 decoration-dashed underline-offset-2 hover:text-af-brand hover:underline focus:text-af-brand focus:underline focus:outline-none"
           role="button"
           tabindex="0"
           @click="copy(item.endpoint)"
@@ -116,10 +116,10 @@ onBeforeUnmount(() => {
           :aria-label="tooltipHint(item.endpoint)"
           @click="copy(item.endpoint)"
         >
-          <svg v-if="copiedEndpoint === item.endpoint" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
+          <svg v-if="copiedEndpoint === item.endpoint" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7" />
           </svg>
-          <svg v-else class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg v-else class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
           </svg>
         </button>
@@ -131,11 +131,11 @@ onBeforeUnmount(() => {
           class="rounded p-0.5 text-af-ink-4 transition-colors hover:text-af-warning"
           :title="t('keys.endpoints.speedTest')"
         >
-          <svg class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
           </svg>
         </a>
-      </div>
+      </dd>
     </div>
-  </div>
+  </dl>
 </template>

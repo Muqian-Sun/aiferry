@@ -49,6 +49,12 @@
     </template>
 
     <div class="space-y-4">
+      <!-- 接口地址条：表格上方常驻；地址与「使用密钥」同一口径——设置留空就是当前站点 -->
+      <EndpointPopover
+        class="border-b border-af-hairline pb-4"
+        :api-base-url="apiBaseUrl"
+        :custom-endpoints="publicSettings?.custom_endpoints || []"
+      />
       <!-- 筛选与批量操作 -->
       <div class="flex flex-col gap-3">
         <div class="flex flex-wrap items-center gap-3">
@@ -65,11 +71,6 @@
             @update:model-value="onStatusFilterChange"
           />
         </div>
-        <EndpointPopover
-          v-if="publicSettings?.api_base_url || (publicSettings?.custom_endpoints?.length ?? 0) > 0"
-          :api-base-url="publicSettings?.api_base_url || ''"
-          :custom-endpoints="publicSettings?.custom_endpoints || []"
-        />
         <div v-if="selectedIds.length" class="flex flex-wrap items-center gap-3 text-sm">
           <span class="text-af-ink-2">
             {{ t('keys.bulkEdit.selectedCount', { count: selectedIds.length }) }}
@@ -169,17 +170,9 @@
 
         <template #cell-usage="{ row }">
           <div class="text-sm">
-            <div class="flex items-center gap-1.5">
-              <span class="text-af-ink-3">{{ t('keys.today') }}:</span>
-              <span class="font-medium text-af-ink">
-                ${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}
-              </span>
-            </div>
-            <div class="mt-0.5 flex items-center gap-1.5">
-              <span class="text-af-ink-3">{{ t('keys.total') }}:</span>
-              <span class="font-medium text-af-ink">
-                ${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}
-              </span>
+            <div class="flex items-baseline gap-x-3 whitespace-nowrap tabular-nums">
+              <span><span class="text-af-ink-3">{{ t('keys.today') }}</span> <span class="font-medium text-af-ink">${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}</span></span>
+              <span><span class="text-af-ink-3">{{ t('keys.total') }}</span> <span class="font-medium text-af-ink">${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}</span></span>
             </div>
             <!-- Quota progress (if quota is set) -->
             <div v-if="row.quota > 0" class="mt-1.5">
@@ -350,55 +343,39 @@
         </template>
 
         <template #cell-actions="{ row }">
-          <div class="flex items-center gap-1">
-            <!-- Use Key Button -->
+          <!-- 两个常用动作是图标按钮，其余进「更多」菜单，行高不再被五个带字按钮撑开 -->
+          <div class="flex items-center gap-0.5">
             <button
+              type="button"
+              class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+              :title="t('keys.useKey')"
+              :aria-label="t('keys.useKey')"
+              data-testid="use-key"
               @click="openUseKeyModal(row)"
-              class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-success-tint hover:text-af-success"
             >
               <Icon name="terminal" size="sm" />
-              <span class="text-xs">{{ t('keys.useKey') }}</span>
             </button>
-            <!-- Import to CC Switch Button -->
             <button
-              v-if="!publicSettings?.hide_ccs_import_button"
-              @click="importToCcswitch(row)"
-              class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-brand-tint hover:text-af-brand"
-            >
-              <Icon name="upload" size="sm" />
-              <span class="text-xs">{{ t('keys.importToCcSwitch') }}</span>
-            </button>
-            <!-- Toggle Status Button -->
-            <button
-              @click="toggleKeyStatus(row)"
-              :class="[
-                'flex flex-col items-center gap-0.5 rounded-lg p-1.5 transition-colors',
-                row.status === 'active'
-                  ? 'text-af-ink-3 hover:bg-af-warning-tint hover:text-af-warning'
-                  : 'text-af-ink-3 hover:bg-af-success-tint hover:text-af-success'
-              ]"
-            >
-              <Icon v-if="row.status === 'active'" name="ban" size="sm" />
-              <Icon v-else name="checkCircle" size="sm" />
-              <span class="text-xs">{{ row.status === 'active' ? t('keys.disable') : t('keys.enable') }}</span>
-            </button>
-            <!-- Edit Button -->
-            <button
+              type="button"
+              class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+              :title="t('common.edit')"
+              :aria-label="t('common.edit')"
+              data-testid="edit-key"
               @click="editKey(row)"
-              class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-brand"
             >
               <Icon name="edit" size="sm" />
-              <span class="text-xs">{{ t('common.edit') }}</span>
             </button>
-            <!-- Delete Button（订阅 key 是订阅的访问凭证，不能删） -->
             <button
-              v-if="!row.subscription_id"
-              data-testid="delete-key"
-              @click="confirmDelete(row)"
-              class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
+              type="button"
+              class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+              :class="openMenu?.key.id === row.id ? 'bg-af-sunken text-af-ink' : ''"
+              :title="t('keys.moreActions')"
+              :aria-label="t('keys.moreActions')"
+              :aria-expanded="openMenu?.key.id === row.id ? 'true' : 'false'"
+              data-testid="key-menu"
+              @click.stop="toggleKeyMenu(row, $event)"
             >
-              <Icon name="trash" size="sm" />
-              <span class="text-xs">{{ t('common.delete') }}</span>
+              <Icon name="more" size="sm" />
             </button>
           </div>
         </template>
@@ -423,6 +400,40 @@
       />
       </div>
     </div>
+
+    <!-- 行内「更多」菜单：Teleport 到 body 固定定位，不被表格的 sticky 列裁掉 -->
+    <Teleport to="body">
+      <div
+        v-if="openMenu"
+        ref="keyMenuRef"
+        class="dropdown fixed z-50 w-44 py-1"
+        :style="{ top: `${openMenu.top}px`, right: `${openMenu.right}px` }"
+        data-testid="key-menu-items"
+        @click.stop
+      >
+        <button
+          v-if="!publicSettings?.hide_ccs_import_button"
+          type="button"
+          class="dropdown-item w-full text-left"
+          @click="runMenuAction(() => importToCcswitch(openMenu!.key))"
+        >
+          {{ t('keys.importToCcSwitch') }}
+        </button>
+        <button type="button" class="dropdown-item w-full text-left" @click="runMenuAction(() => toggleKeyStatus(openMenu!.key))">
+          {{ openMenu.key.status === 'active' ? t('keys.disable') : t('keys.enable') }}
+        </button>
+        <!-- 订阅 key 是订阅的访问凭证，不能删 -->
+        <button
+          v-if="!openMenu.key.subscription_id"
+          type="button"
+          class="dropdown-item w-full text-left text-af-danger hover:text-af-danger"
+          data-testid="delete-key"
+          @click="runMenuAction(() => confirmDelete(openMenu!.key))"
+        >
+          {{ t('common.delete') }}
+        </button>
+      </div>
+    </Teleport>
 
     <!-- Create/Edit Modal -->
     <BaseDialog
@@ -981,6 +992,7 @@
 
 <script setup lang="ts">
 	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+	import { onClickOutside } from '@vueuse/core'
 	import { useI18n } from 'vue-i18n'
 	import { useAppStore } from '@/stores/app'
 	import { useOnboardingStore } from '@/stores/onboarding'
@@ -1172,7 +1184,31 @@ const ccsClients = [
 const selectedKey = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
+// 设置里的 API 端点地址留空 = 当前站点（与 UseKeyModal 的回落一致）
+const apiBaseUrl = computed(() => publicSettings.value?.api_base_url || window.location.origin)
 const columnDropdownRef = ref<HTMLElement | null>(null)
+onClickOutside(columnDropdownRef, () => {
+  showColumnDropdown.value = false
+})
+// 行内「更多」菜单：一次只开一个；按钮的视口坐标定位，点外面 / 滚动 / 选完动作即关
+const openMenu = ref<{ key: ApiKey; top: number; right: number } | null>(null)
+const keyMenuRef = ref<HTMLElement | null>(null)
+const toggleKeyMenu = (key: ApiKey, event: MouseEvent) => {
+  if (openMenu.value?.key.id === key.id) {
+    openMenu.value = null
+    return
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  openMenu.value = { key, top: rect.bottom + 4, right: window.innerWidth - rect.right }
+}
+const closeKeyMenu = () => {
+  openMenu.value = null
+}
+const runMenuAction = (action: () => void | Promise<void>) => {
+  closeKeyMenu()
+  void action()
+}
+onClickOutside(keyMenuRef, closeKeyMenu)
 let abortController: AbortController | null = null
 
 const formData = ref({
@@ -1676,6 +1712,7 @@ function formatResetTime(resetAt: string | null): string {
 }
 
 onMounted(() => {
+  window.addEventListener('scroll', closeKeyMenu, true)
   loadSavedColumns()
   loadApiKeys()
   loadPublicSettings()
@@ -1683,6 +1720,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
+  window.removeEventListener('scroll', closeKeyMenu, true)
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>
