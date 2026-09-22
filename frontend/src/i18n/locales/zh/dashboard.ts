@@ -677,6 +677,7 @@ export default {
     description: '管理您的账户信息和设置',
     accountBalance: '账户余额',
     concurrencyLimit: '并发限制',
+    rateMultiplier: '计价倍率',
     rpmLimit: 'RPM 限制',
     rpmUnlimited: '不限制',
     memberSince: '注册时间',

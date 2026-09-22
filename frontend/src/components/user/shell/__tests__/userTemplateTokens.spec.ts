@@ -35,7 +35,14 @@ const SCAN_FILES = [
   'components/common/Pagination.vue',
   'components/common/DateRangePicker.vue',
   'components/common/Toast.vue',
-  'components/common/LocaleSwitcher.vue'
+  'components/common/LocaleSwitcher.vue',
+  'components/common/SearchInput.vue',
+  'components/common/AnnouncementBell.vue',
+  'components/common/AnnouncementPopup.vue',
+  'components/common/EmptyState.vue',
+  'components/common/LoadingSpinner.vue',
+  'components/common/VendorIcon.vue',
+  'components/common/ModelIcon.vue'
 ]
 /** 另一工作流负责删除的页面与组件，不纳入本守卫。 */
 const EXCLUDE_PREFIXES = [
