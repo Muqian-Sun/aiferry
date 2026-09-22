@@ -1020,7 +1020,7 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3
-	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	group := &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,

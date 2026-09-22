@@ -27,7 +27,7 @@ func newServiceTierHandlerTest(t *testing.T) *GatewayHandler {
 	return &GatewayHandler{
 		gatewayService:       &service.GatewayService{},
 		openAIGatewayService: &service.OpenAIGatewayService{},
-		billingCacheService:  service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
+		billingCacheService:  service.NewBillingCacheService(nil, nil, nil, nil, nil, &config.Config{RunMode: config.RunModeSimple}),
 		apiKeyService:        &service.APIKeyService{},
 		concurrencyHelper: &ConcurrencyHelper{concurrencyService: service.NewConcurrencyService(
 			&helperConcurrencyCacheStub{userSeq: []bool{true}},

@@ -39,7 +39,7 @@ func newOpenAICountTokensHandlerForTest(t *testing.T, accounts []service.Account
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(1)),
 	)
-	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
 	return NewOpenAIGatewayHandler(
 		gatewayService, service.NewConcurrencyService(nil), billingService,

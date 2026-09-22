@@ -101,7 +101,7 @@ func runGatewayResponsesImagePermissionGateTest(t *testing.T, platform string, b
 
 	// /v1/responses 由 Gateway handler 承接；生图权限门在选号之前，池留空即可（放行的用例走到选号得 503，不是 403）。
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingCache.Stop)
 	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
 	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, apiKey.Group, &service.OpenAIGatewayService{}, billingCache,

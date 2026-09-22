@@ -101,7 +101,7 @@ func newGatewayResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPU
 		nil,
 		nil,
 	)
-	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, nil, cfg)
+	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
 	handler := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: 3131, Platform: service.PlatformOpenAI}, gatewayService, billingService, service.NewConcurrencyService(nil))
 	handler.maxAccountSwitches = 10
