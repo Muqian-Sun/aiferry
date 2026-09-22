@@ -68,6 +68,13 @@ describe('UseKeyModal', () => {
     saveAsMock.mockClear()
   })
 
+  // 裸 <template> 在浏览器里是不渲染子节点的原生元素，jsdom 却能查到它的子节点——用例直接盯它不存在。
+  it('renders the body without an inert template element', () => {
+    const wrapper = mountModal('sk-anthropic-test')
+    expect(wrapper.find('template').exists()).toBe(false)
+    expect(wrapper.findAll('button').some((button) => button.text().includes('keys.useKeyModal.cliTabs.codexCli'))).toBe(true)
+  })
+
   it('omits the attribution override from every standard Claude Code setup form', async () => {
     const wrapper = mountModal('sk-anthropic-test')
 
