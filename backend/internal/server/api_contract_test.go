@@ -217,7 +217,8 @@ func TestAPIContracts(t *testing.T) {
 			name:   "POST /api/v1/keys",
 			method: http.MethodPost,
 			path:   "/api/v1/keys",
-			body:   `{"name":"Key One","custom_key":"sk_custom_1234567890"}`,
+			// 密钥不再有分组：请求里带 group_id 也被忽略，响应 group_id 恒 null（列随 PR-7c 删）
+			body: `{"name":"Key One","custom_key":"sk_custom_1234567890","group_id":10}`,
 			headers: map[string]string{
 				"Content-Type": "application/json",
 			},
@@ -311,76 +312,6 @@ func TestAPIContracts(t *testing.T) {
 					"page_size": 10,
 					"pages": 1
 				}
-			}`,
-		},
-		{
-			name: "GET /api/v1/groups/available",
-			setup: func(t *testing.T, deps *contractDeps) {
-				t.Helper()
-				// 普通用户可见的分组列表不应包含内部字段（如 model_routing/account_count），
-				// 也不得包含利润控制配置——它与同响应的 rate_multiplier 相乘即可反推上游成本上限。
-				deps.groupRepo.SetActive([]service.Group{
-					{
-						ID:                   10,
-						Name:                 "Group One",
-						Description:          "desc",
-						Platform:             service.PlatformAnthropic,
-						RateMultiplier:       1.5,
-						PeakRateMultiplier:   1.0,
-						IsExclusive:          false,
-						Status:               service.StatusActive,
-						ProfitControlEnabled: true,
-						ProfitMinMargin:      0.3,
-						ProfitSafetyBuffer:   0.05,
-						ModelRoutingEnabled:  true,
-						ModelRouting: map[string][]int64{
-							"claude-3-*": []int64{101, 102},
-						},
-						AccountCount: 2,
-						CreatedAt:    deps.now,
-						UpdatedAt:    deps.now,
-					},
-				})
-				deps.userSubRepo.SetActiveByUserID(1, nil)
-			},
-			method:     http.MethodGet,
-			path:       "/api/v1/groups/available",
-			wantStatus: http.StatusOK,
-			wantJSON: `{
-				"code": 0,
-				"message": "success",
-				"data": [
-					{
-						"id": 10,
-						"name": "Group One",
-						"description": "desc",
-						"platform": "anthropic",
-						"rate_multiplier": 1.5,
-						"peak_rate_enabled": false,
-						"peak_start": "",
-						"peak_end": "",
-						"peak_rate_multiplier": 1,
-						"is_exclusive": false,
-						"status": "active",
-						"long_context_pricing_enabled": false,
-						"allow_image_generation": false,
-						"allow_batch_image_generation": false,
-						"batch_image_discount_multiplier": 0,
-						"batch_image_hold_multiplier": 0,
-						"claude_code_only": false,
-						"allow_live": false,
-						"fallback_group_id": null,
-						"fallback_group_id_on_invalid_request": null,
-						"require_oauth_only": false,
-						"require_privacy_set": false,
-						"max_reasoning_effort": "",
-						"max_reasoning_effort_over_limit": "",
-						"reasoning_effort_mappings": null,
-						"rpm_limit": 0,
-						"created_at": "2025-01-02T03:04:05Z",
-						"updated_at": "2025-01-02T03:04:05Z"
-					}
-				]
 			}`,
 		},
 		{
@@ -1419,7 +1350,6 @@ func newContractDeps(t *testing.T) *contractDeps {
 	v1Keys.Use(jwtAuth)
 	v1Keys.GET("/keys", apiKeyHandler.List)
 	v1Keys.POST("/keys", apiKeyHandler.Create)
-	v1Keys.GET("/groups/available", apiKeyHandler.GetAvailableGroups)
 
 	v1Usage := v1.Group("")
 	v1Usage.Use(jwtAuth)

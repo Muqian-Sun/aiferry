@@ -23,14 +23,10 @@ func TestDelete_SubscriptionKeyProtected(t *testing.T) {
 	require.Empty(t, cache.deleteAuthKeys, "被拒不动缓存")
 }
 
-func TestUpdate_SubscriptionKeyRebindProtected(t *testing.T) {
+// 密钥不再有分组：订阅 key 与余额 key 一样只能改名 / 状态等自己的字段。
+func TestUpdate_SubscriptionKeyRenameOnlyWritesName(t *testing.T) {
 	subID := int64(10)
 	svc, repo := newUpdateFieldsAPIKeyService(&APIKey{ID: 1, UserID: 7, Key: "sk-test", Name: "Pro", Status: StatusActive, SubscriptionID: &subID})
-
-	groupID := int64(3)
-	_, err := svc.Update(context.Background(), 1, 7, UpdateAPIKeyRequest{GroupID: &groupID})
-	require.ErrorIs(t, err, ErrSubscriptionKeyProtected)
-	require.Empty(t, repo.updateFields, "被拒不写库")
 
 	name := "renamed"
 	updated, err := svc.Update(context.Background(), 1, 7, UpdateAPIKeyRequest{Name: &name})

@@ -24,8 +24,7 @@ import (
 )
 
 var (
-	ErrAPIKeyNotFound  = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
-	ErrGroupNotAllowed = infraerrors.Forbidden("GROUP_NOT_ALLOWED", "user is not allowed to bind this group")
+	ErrAPIKeyNotFound = infraerrors.NotFound("API_KEY_NOT_FOUND", "api key not found")
 	// ErrSubscriptionKeyProtected 订阅 key 是订阅的访问凭证：不能删、不能改分组
 	ErrSubscriptionKeyProtected = infraerrors.Forbidden("SUBSCRIPTION_KEY_PROTECTED", "subscription api key cannot be deleted or rebound")
 	ErrAPIKeyExists             = infraerrors.Conflict("API_KEY_EXISTS", "api key already exists")
@@ -212,7 +211,6 @@ type APIKeyAuthCacheInvalidator interface {
 // CreateAPIKeyRequest 创建API Key请求
 type CreateAPIKeyRequest struct {
 	Name        string   `json:"name"`
-	GroupID     *int64   `json:"group_id"`
 	CustomKey   *string  `json:"custom_key"`   // 可选的自定义key
 	IPWhitelist []string `json:"ip_whitelist"` // IP 白名单
 	IPBlacklist []string `json:"ip_blacklist"` // IP 黑名单
@@ -230,7 +228,6 @@ type CreateAPIKeyRequest struct {
 // UpdateAPIKeyRequest 更新API Key请求
 type UpdateAPIKeyRequest struct {
 	Name        *string   `json:"name"`
-	GroupID     *int64    `json:"group_id"`
 	Status      *string   `json:"status"`
 	IPWhitelist *[]string `json:"ip_whitelist"` // IP 白名单（nil 不修改，空数组清空）
 	IPBlacklist *[]string `json:"ip_blacklist"` // IP 黑名单（nil 不修改，空数组清空）
@@ -457,8 +454,7 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		return nil, err
 	}
 	// 验证用户存在
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
+	if _, err := s.userRepo.GetByID(ctx, userID); err != nil {
 		return nil, fmt.Errorf("get user: %w", err)
 	}
 
@@ -473,19 +469,6 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 	if len(req.IPBlacklist) > 0 {
 		if invalid := ip.ValidateIPPatterns(req.IPBlacklist); len(invalid) > 0 {
 			return nil, fmt.Errorf("%w: %v", ErrInvalidIPPattern, invalid)
-		}
-	}
-
-	// 验证分组权限（如果指定了分组）
-	if req.GroupID != nil {
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		// 检查用户是否可以绑定该分组
-		if !s.canUserBindGroup(user, group) {
-			return nil, ErrGroupNotAllowed
 		}
 	}
 
@@ -529,7 +512,6 @@ func (s *APIKeyService) Create(ctx context.Context, userID int64, req CreateAPIK
 		UserID:      userID,
 		Key:         key,
 		Name:        html.EscapeString(req.Name),
-		GroupID:     req.GroupID,
 		Status:      StatusActive,
 		IPWhitelist: req.IPWhitelist,
 		IPBlacklist: req.IPBlacklist,
@@ -789,30 +771,6 @@ func (s *APIKeyService) Update(ctx context.Context, id int64, userID int64, req 
 	if req.Name != nil {
 		apiKey.Name = html.EscapeString(*req.Name)
 		fields.Name = true
-	}
-
-	if req.GroupID != nil {
-		// 订阅 key 无分组（资源池由目录路由定），不允许绑到分组上
-		if apiKey.IsSubscriptionKey() {
-			return nil, ErrSubscriptionKeyProtected
-		}
-		// 验证分组权限
-		user, err := s.userRepo.GetByID(ctx, userID)
-		if err != nil {
-			return nil, fmt.Errorf("get user: %w", err)
-		}
-
-		group, err := s.groupRepo.GetByID(ctx, *req.GroupID)
-		if err != nil {
-			return nil, fmt.Errorf("get group: %w", err)
-		}
-
-		if !s.canUserBindGroup(user, group) {
-			return nil, ErrGroupNotAllowed
-		}
-
-		apiKey.GroupID = req.GroupID
-		fields.GroupID = true
 	}
 
 	if req.Status != nil {
