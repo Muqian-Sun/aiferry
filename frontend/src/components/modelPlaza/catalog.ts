@@ -4,7 +4,7 @@
  * 标价来自 /model-plaza 每个条目的 pricing（目录基准价，USD / token），这里换算成 USD / 百万 token。
  * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
  */
-import type { PlazaModel } from '@/api/modelPlaza'
+import type { PlazaModel, PlazaTimePricing } from '@/api/modelPlaza'
 
 export interface CatalogPrice {
   /** USD / 1M tokens；目录没给时为 null */
@@ -22,8 +22,8 @@ export interface CatalogModel {
   /** 三项都缺（如纯按次模型）时为 null */
   price: CatalogPrice | null
   aliases: string[]
-  /** 是否配置了分时倍率 */
-  hasTimePricing: boolean
+  /** 分时倍率（有时段才带） */
+  timePricing: PlazaTimePricing | null
 }
 
 const PER_MILLION = 1_000_000
@@ -49,17 +49,18 @@ export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
         billingMode: model.billing_mode || model.pricing?.billing_mode || 'token',
         price: priceOf(model),
         aliases: model.aliases ?? [],
-        hasTimePricing: (model.time_pricing?.periods.length ?? 0) > 0
+        timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
       })
     )
     .sort((a, b) => a.vendor.localeCompare(b.vendor) || a.id.localeCompare(b.id))
 }
 
-/** 搜索匹配模型 id、展示名和别名；厂商筛选精确匹配 */
-export function filterCatalog(entries: CatalogModel[], search: string, vendor: string): CatalogModel[] {
+/** 搜索匹配模型 id、展示名和别名；厂商 / 计费模式筛选精确匹配（'all' = 不筛） */
+export function filterCatalog(entries: CatalogModel[], search: string, vendor: string, billingMode = 'all'): CatalogModel[] {
   const query = search.trim().toLowerCase()
   return entries.filter((entry) => {
     if (vendor !== 'all' && entry.vendor !== vendor) return false
+    if (billingMode !== 'all' && entry.billingMode !== billingMode) return false
     if (!query) return true
     return (
       entry.id.toLowerCase().includes(query) ||
@@ -67,6 +68,35 @@ export function filterCatalog(entries: CatalogModel[], search: string, vendor: s
       entry.aliases.some((alias) => alias.toLowerCase().includes(query))
     )
   })
+}
+
+/** 每个厂商的条目数（顺序 = catalogVendors） */
+export function countByVendor(entries: CatalogModel[]): Map<string, number> {
+  const counts = new Map<string, number>()
+  for (const entry of entries) {
+    if (!entry.vendor) continue
+    counts.set(entry.vendor, (counts.get(entry.vendor) ?? 0) + 1)
+  }
+  return counts
+}
+
+/** 目录里出现过的计费模式，按名排序 */
+export function catalogBillingModes(entries: CatalogModel[]): string[] {
+  return [...new Set(entries.map((entry) => entry.billingMode))].sort()
+}
+
+/** 用户价 = 标价 × 账户倍率；标价缺项的位置保持 null */
+export function applyMultiplier(price: CatalogPrice | null, multiplier: number): CatalogPrice | null {
+  if (!price) return null
+  const scale = (value: number | null) => (value == null ? null : value * multiplier)
+  return { input: scale(price.input), output: scale(price.output), cacheRead: scale(price.cacheRead) }
+}
+
+/** 分时倍率的一行说明：09:00–18:00 ×1.5 · 12:00–14:00 ×0.8（时区，仅工作日） */
+export function formatTimePricing(timePricing: PlazaTimePricing, weekdaysOnlyLabel: string): string {
+  const periods = timePricing.periods.map((p) => `${p.start_time}–${p.end_time} ×${p.multiplier}`).join(' · ')
+  const scope = timePricing.weekdays_only ? `${timePricing.timezone}, ${weekdaysOnlyLabel}` : timePricing.timezone
+  return `${periods} (${scope})`
 }
 
 /** 目录里出现过的厂商，按名排序 */

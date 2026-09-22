@@ -170,8 +170,17 @@ export default {
     models: {
       title: '模型',
       description: '已上架的模型与标价，按 Token 或按次计费',
-      allVendors: '全部厂商',
+      allVendors: '全部',
+      allBilling: '全部计费',
+      searchHint: '搜索模型、别名（按 / 聚焦）',
       count: '{count} 个模型',
+      view: { label: '视图', table: '表格', grid: '网格' },
+      yourPrice: '你的价格',
+      yourPriceHint: '= 标价 × {multiplier}',
+      multiplierNote: '你的账户倍率是 {multiplier}。',
+      perMillionShort: '$ / 百万 Token',
+      timePricing: '分时',
+      weekdaysOnly: '仅工作日',
       columns: {
         model: '模型',
         vendor: '厂商',
