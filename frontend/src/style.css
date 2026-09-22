@@ -202,43 +202,19 @@
     -moz-appearance: textfield;
   }
 
-  /* ============ 玻璃效果 ============ */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
-  }
-
-  .glass-card {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
-    @apply rounded-2xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
-    @apply transition-all duration-300;
-  }
-
-  /* ============ 卡片样式 ============ */
+  /* ============ 卡片（管理站的分区容器：hairline 边、小圆角、无阴影、不上浮） ============ */
   .card {
-    @apply bg-white dark:bg-dark-800/50;
-    @apply rounded-2xl;
-    @apply border border-gray-100 dark:border-dark-700/50;
-    @apply shadow-card;
-    @apply transition-all duration-300;
+    @apply bg-af-sheet;
+    @apply rounded-lg;
+    @apply border border-af-hairline;
   }
 
   .card-hover {
-    @apply hover:-translate-y-0.5 hover:shadow-card-hover;
-    @apply hover:border-gray-200 dark:hover:border-dark-600;
-  }
-
-  .card-glass {
-    @apply bg-white/70 dark:bg-dark-800/70;
-    @apply backdrop-blur-xl;
-    @apply border border-white/20 dark:border-dark-700/50;
-    @apply shadow-glass;
+    @apply transition-colors hover:border-af-hairline-strong;
   }
 
   .card-header {
-    @apply border-b border-gray-100 dark:border-dark-700;
+    @apply border-b border-af-hairline;
     @apply px-6 py-4;
   }
 
@@ -247,7 +223,7 @@
   }
 
   .card-footer {
-    @apply border-t border-gray-100 dark:border-dark-700;
+    @apply border-t border-af-hairline;
     @apply px-6 py-4;
   }
 
@@ -301,7 +277,7 @@
 
   /* ============ 表格样式 ============ */
   .table-container {
-    @apply overflow-x-auto rounded-xl border border-gray-200 dark:border-dark-700;
+    @apply overflow-x-auto rounded-lg border border-af-hairline;
   }
 
   .table {
@@ -310,15 +286,15 @@
 
   .table th {
     @apply px-4 py-3 text-left font-medium;
-    @apply text-gray-600 dark:text-dark-300;
-    @apply bg-gray-50 dark:bg-dark-800/50;
-    @apply border-b border-gray-200 dark:border-dark-700;
+    @apply text-af-ink-3;
+    @apply bg-af-sunken;
+    @apply border-b border-af-hairline;
   }
 
   .table td {
     @apply px-4 py-3;
-    @apply text-gray-700 dark:text-gray-300;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    @apply text-af-ink-2;
+    @apply border-b border-af-hairline;
   }
 
   .table tr:last-child td {
@@ -327,7 +303,7 @@
 
   .table tbody tr {
     @apply transition-colors duration-150;
-    @apply hover:bg-gray-50 dark:hover:bg-dark-800/30;
+    @apply hover:bg-af-sunken;
   }
 
   /* ============ 徽章样式 ============ */
@@ -505,78 +481,79 @@
   .toast {
     @apply fixed right-4 top-4 z-[100];
     @apply min-w-[320px] max-w-md;
-    @apply bg-white dark:bg-dark-800;
-    @apply rounded-xl shadow-lg;
+    @apply bg-af-sheet;
+    @apply rounded-lg border border-af-hairline shadow-lg;
     @apply border-l-4;
     @apply p-4;
-    @apply animate-slide-in-right;
   }
 
   .toast-success {
-    @apply border-l-emerald-500;
+    @apply border-l-af-success;
   }
 
   .toast-error {
-    @apply border-l-red-500;
+    @apply border-l-af-danger;
   }
 
   .toast-warning {
-    @apply border-l-amber-500;
+    @apply border-l-af-warning;
   }
 
   .toast-info {
-    @apply border-l-primary-500;
+    @apply border-l-af-brand;
   }
 
   /* ============ 侧边栏 ============ */
+  /* 管理站侧栏：与顶栏同一张面，右侧 hairline 分隔；展开 240px、折叠 64px */
   .sidebar {
     @apply fixed inset-y-0 left-0 z-40;
-    @apply w-64 bg-white dark:bg-dark-900;
-    @apply border-r border-gray-200 dark:border-dark-800;
+    @apply w-60 bg-af-sheet;
+    @apply border-r border-af-hairline;
     @apply flex flex-col;
     @apply transition-transform duration-300;
     transition-property: width, transform;
   }
 
   .sidebar-header {
-    @apply h-16 px-6;
-    @apply flex items-center gap-3;
-    @apply border-b border-gray-100 dark:border-dark-800;
+    @apply h-topbar px-4;
+    @apply flex items-center gap-2.5;
+    @apply border-b border-af-hairline;
     transition:
       padding 0.2s ease,
       gap 0.2s ease;
   }
 
   .sidebar-nav {
-    @apply flex-1 overflow-y-auto px-3 py-4;
+    @apply flex-1 overflow-y-auto px-2 py-3;
   }
 
   .sidebar-link {
-    @apply flex items-center gap-3 rounded-xl py-2.5;
+    @apply relative flex items-center gap-2.5 rounded-md py-2;
     @apply overflow-hidden;
-    @apply text-sm font-medium;
-    @apply text-gray-600 dark:text-dark-300;
-    @apply transition-all duration-200;
-    @apply hover:bg-gray-100 dark:hover:bg-dark-800;
-    @apply hover:text-gray-900 dark:hover:text-white;
-    padding-left: 1.0625rem;
-    padding-right: 0.875rem;
+    @apply text-sm text-af-ink-2;
+    @apply transition-colors duration-150;
+    @apply hover:bg-af-sunken hover:text-af-ink;
+    padding-left: 0.75rem;
+    padding-right: 0.625rem;
   }
 
+  /* 激活项：底色 + 左侧 2px 品牌色竖线，不用满底品牌色 */
   .sidebar-link-active {
-    @apply bg-primary-50 dark:bg-primary-900/20;
-    @apply text-primary-600 dark:text-primary-400;
-    @apply hover:bg-primary-100 dark:hover:bg-primary-900/30;
+    @apply bg-af-sunken font-medium text-af-ink;
+  }
+
+  .sidebar-link-active::before {
+    content: '';
+    @apply absolute bottom-1.5 left-0 top-1.5 w-0.5 rounded-full bg-af-brand;
   }
 
   .sidebar-section {
-    @apply mb-6;
+    @apply mb-4;
   }
 
   .sidebar-section-title {
-    @apply mb-2 px-3;
-    @apply text-xs font-semibold uppercase tracking-wider;
-    @apply text-gray-400 dark:text-dark-500;
+    @apply mb-1 px-3;
+    @apply text-xs font-medium text-af-ink-4;
   }
 
   /* ============ 页面头部 ============ */
@@ -585,11 +562,11 @@
   }
 
   .page-title {
-    @apply text-2xl font-bold text-gray-900 dark:text-white;
+    @apply text-xl font-semibold text-af-ink;
   }
 
   .page-description {
-    @apply mt-1 text-sm text-gray-500 dark:text-dark-400;
+    @apply mt-1 text-13 text-af-ink-3;
   }
 
   /* ============ 空状态 ============ */
@@ -692,7 +669,7 @@
 
   /* ============ Tour Description ============ */
   .tour-step-description {
-    @apply space-y-3 text-sm leading-relaxed text-gray-700 dark:text-gray-200;
+    @apply space-y-3 text-sm leading-relaxed text-af-ink-2;
   }
 
   .tour-step-description ul {
@@ -708,23 +685,19 @@
   }
 
   .tour-info-box {
-    @apply rounded-md border-l-4 border-blue-500 bg-blue-50 px-3 py-2 text-xs text-blue-900;
-    @apply dark:border-blue-400 dark:bg-blue-950/40 dark:text-blue-200;
+    @apply rounded-md border-l-2 border-af-brand bg-af-brand-tint px-3 py-2 text-xs text-af-ink-2;
   }
 
   .tour-success-box {
-    @apply rounded-md border-l-4 border-emerald-500 bg-emerald-50 px-3 py-2 text-xs text-emerald-900;
-    @apply dark:border-emerald-400 dark:bg-emerald-950/40 dark:text-emerald-200;
+    @apply rounded-md border-l-2 border-af-success bg-af-success-tint px-3 py-2 text-xs text-af-ink-2;
   }
 
   .tour-warning-box {
-    @apply rounded-md border-l-4 border-amber-500 bg-amber-50 px-3 py-2 text-xs text-amber-900;
-    @apply dark:border-amber-400 dark:bg-amber-950/40 dark:text-amber-200;
+    @apply rounded-md border-l-2 border-af-warning bg-af-warning-tint px-3 py-2 text-xs text-af-ink-2;
   }
 
   .tour-error-box {
-    @apply rounded-md border-l-4 border-red-500 bg-red-50 px-3 py-2 text-xs text-red-900;
-    @apply dark:border-red-400 dark:bg-red-950/40 dark:text-red-200;
+    @apply rounded-md border-l-2 border-af-danger bg-af-danger-tint px-3 py-2 text-xs text-af-ink-2;
   }
 
   /* ============ 表格页面布局优化 ============ */
@@ -733,23 +706,13 @@
     overflow-x: auto;
   }
 
-  /* 表头固定时添加底部阴影，增强视觉层次 */
+  /* 表头固定时用 hairline 收边，不用阴影 */
   .table-wrapper thead.sticky {
-    box-shadow: 0 1px 3px 0 rgb(0 0 0 / 0.1);
+    box-shadow: 0 1px 0 0 rgb(var(--af-hairline));
   }
 }
 
 @layer utilities {
-  /* 文字渐变 */
-  .text-gradient {
-    @apply bg-gradient-to-r from-primary-500 to-accent-500 bg-clip-text text-transparent;
-  }
-
-  /* 玻璃效果 */
-  .glass {
-    @apply bg-white/80 backdrop-blur-xl dark:bg-dark-800/80;
-  }
-
   /* 隐藏滚动条 */
   .scrollbar-hide {
     -ms-overflow-style: none;

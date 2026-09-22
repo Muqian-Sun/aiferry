@@ -1,21 +1,12 @@
 <template>
-  <div class="min-h-screen bg-gray-50 dark:bg-dark-950">
-    <!-- Background Decoration -->
-    <div class="pointer-events-none fixed inset-0 bg-mesh-gradient"></div>
-
-    <!-- Sidebar：由站点根组件提供（用户站 / 管理后台各自的导航） -->
+  <!-- 管理站的壳：左侧栏（站点根组件提供）+ 顶栏 + 内容区。一张面，没有背景渐变。 -->
+  <div class="min-h-screen bg-af-sheet text-af-ink">
     <component :is="siteLayout.sidebar" />
 
-    <!-- Main Content Area -->
-    <div
-      class="relative min-h-screen transition-all duration-300"
-      :class="[sidebarCollapsed ? 'lg:ml-[72px]' : 'lg:ml-64']"
-    >
-      <!-- Header -->
+    <div class="relative min-h-screen transition-[margin] duration-300" :class="[sidebarCollapsed ? 'lg:ml-16' : 'lg:ml-60']">
       <AppHeader />
 
-      <!-- Main Content -->
-      <main class="p-4 md:p-6 lg:p-8">
+      <main class="px-4 py-5 md:px-6 md:py-6 lg:px-8">
         <slot />
       </main>
     </div>
