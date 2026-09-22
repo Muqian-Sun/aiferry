@@ -13,133 +13,94 @@
       <h1 class="mt-6 text-28 font-semibold text-af-ink [overflow-wrap:anywhere]">{{ siteName }}</h1>
       <p class="mt-3 max-w-xl whitespace-pre-wrap text-base text-af-ink-2 [overflow-wrap:anywhere]">{{ siteSubtitle }}</p>
       <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary mt-8">
-        {{ isAuthenticated ? t('userUi.home.goToConsole') : t('userUi.nav.login') }}
+        {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.nav.login') }}
       </RouterLink>
     </div>
   </SiteShell>
 
   <!--
-    默认首页：一个产品页该有的顺序——先看到产品（首屏代码块），再看到规模（数字带）、看到货（模型与官方价）、
-    看到契约（四条协议）、看到路径（三步），最后是可核对的事。模型相关两节由 /model-plaza 数据驱动，拿不到就不出现。
+    默认首页（muqian 2026-09-22 定「正文三块」，9-23 定去底纹 / 不用卡片 / 位置重排）：
+    ① 首屏（左文右厂商图标云，图标自己飘、不跟鼠标）→ ② 数字（一条横排，上下细线分隔）
+    → ③ 五条特色（整幅左右交错，图一侧、字一侧，行间细线）→ 页脚。
+    数据段拿不到就不出现，不放假数字。动效：各段 v-reveal 进视口淡入上浮；标题第二行流动渐变；数字进视口从 0 跳到位；示意图各自循环演示。
   -->
-  <SiteShell v-else variant="public">
+  <SiteShell v-else variant="public" flush>
     <div data-testid="default-home">
-      <section class="grid gap-10 py-14 lg:grid-cols-12 lg:items-center lg:gap-12 lg:py-20">
-        <div class="min-w-0 lg:col-span-6">
-          <h1 class="whitespace-pre-line text-28 font-semibold text-af-ink sm:text-4xl lg:text-44">
-            {{ t('userUi.home.heroTitle') }}
-          </h1>
-          <p class="mt-5 max-w-xl text-base leading-7 text-af-ink-2">{{ t('userUi.home.heroDescription') }}</p>
-          <div class="mt-8 flex flex-wrap items-center gap-3">
-            <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-lg" data-testid="home-primary-cta">
-              {{ isAuthenticated ? t('userUi.home.goToConsole') : t('userUi.home.getStarted') }}
-            </RouterLink>
-            <RouterLink to="/model-plaza" class="btn btn-secondary btn-lg">
-              {{ t('userUi.home.viewPricing') }}
-            </RouterLink>
-          </div>
-          <!-- 厂商行：目录里真有的厂商，拿不到目录就不出现 -->
-          <div v-if="vendors.length" class="mt-10">
-            <p class="text-13 text-af-ink-4">{{ t('userUi.home.vendorsLabel') }}</p>
-            <VendorStrip class="mt-3" :vendors="vendors" />
-          </div>
-        </div>
-        <div class="min-w-0 lg:col-span-6">
-          <CodeSample :base-url="apiBaseUrl" />
-        </div>
-      </section>
-
-      <!-- 数字带：只在拿到模型目录时出现，数字都从目录算 -->
-      <dl v-if="catalog.length" class="grid grid-cols-2 border-y border-af-hairline lg:grid-cols-4 lg:divide-x lg:divide-af-hairline" data-testid="home-stats">
-        <div class="py-6 pr-6 lg:px-6 lg:first:pl-0">
-          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.models') }}</dt>
-          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ catalog.length }}</dd>
-        </div>
-        <div class="py-6 pl-6 lg:px-6">
-          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.vendors') }}</dt>
-          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ vendorCount }}</dd>
-        </div>
-        <div class="border-t border-af-hairline py-6 pr-6 lg:border-t-0 lg:px-6">
-          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.protocols') }}</dt>
-          <dd class="mt-1 text-2xl font-semibold tabular-nums text-af-ink">{{ PROTOCOL_ROUTES.length }}</dd>
-        </div>
-        <div class="border-t border-af-hairline py-6 pl-6 lg:border-t-0 lg:px-6 lg:last:pr-0">
-          <dt class="text-13 text-af-ink-3">{{ t('userUi.home.stats.ledgerLabel') }}</dt>
-          <dd class="mt-1 text-2xl font-semibold text-af-ink">{{ t('userUi.home.stats.ledgerValue') }}</dd>
-        </div>
-      </dl>
-
-      <!-- 模型与标价：模型页同一张表的前几行 -->
-      <section v-if="catalogPreview.length" class="py-16">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.catalog.title') }}</h2>
-            <p class="mt-1 text-sm text-af-ink-3">{{ t('userUi.home.catalog.description') }}</p>
-          </div>
-          <RouterLink to="/model-plaza" class="text-sm font-medium text-af-brand hover:text-af-brand-hover">
-            {{ t('userUi.home.catalog.viewAll', { count: catalog.length }) }}
-          </RouterLink>
-        </div>
-        <div class="mt-6">
-          <HomeCatalog :entries="catalogPreview" />
-        </div>
-      </section>
-
-      <!-- 四条官方协议 -->
-      <section class="border-t border-af-hairline py-16">
-        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.protocols.title') }}</h2>
-        <p class="mt-1 max-w-2xl text-sm text-af-ink-3">{{ t('userUi.home.protocols.description') }}</p>
-        <ul class="mt-8 grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
-          <li v-for="route in PROTOCOL_ROUTES" :key="route.key" class="min-w-0">
-            <h3 class="text-lg font-semibold text-af-ink">{{ t(`userUi.home.routeMap.routes.${route.key}`) }}</h3>
-            <code class="mt-2 block break-all font-mono text-xs text-af-ink-3">{{ route.method }} {{ route.path }}</code>
-            <p class="mt-2 text-sm text-af-ink-2">{{ t(`userUi.home.routeMap.vendors.${route.key}`) }}</p>
-          </li>
-        </ul>
-      </section>
-
-      <!-- 接入三步 -->
-      <section class="border-t border-af-hairline py-16">
-        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.steps.title') }}</h2>
-        <ol class="mt-8 grid gap-8 sm:grid-cols-3">
-          <li v-for="(step, index) in steps" :key="step" class="flex gap-4">
-            <span class="w-5 shrink-0 text-base tabular-nums text-af-ink-4">{{ index + 1 }}.</span>
-            <div class="min-w-0">
-              <h3 class="text-base font-semibold text-af-ink">{{ t(`userUi.home.steps.${step}.title`) }}</h3>
-              <p class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.steps.${step}.body`) }}</p>
+      <!-- ① 首屏：有带图标的厂商时 lg 起左文右图标云，否则整段居中 -->
+      <section class="home-hero relative">
+        <div :class="['mx-auto max-w-site px-6 pb-16 pt-16 sm:pb-20 sm:pt-24', hasCloud ? 'lg:grid lg:grid-cols-[1.05fr_1fr] lg:items-center lg:gap-16' : '']">
+          <div v-reveal.stagger :class="hasCloud ? 'text-center lg:text-left' : 'text-center'" data-testid="hero-copy">
+            <p v-if="catalog.length" class="section-eyebrow" data-testid="hero-eyebrow">
+              {{ t('userUi.home.hero.eyebrow', { models: catalog.length }) }}
+            </p>
+            <h1 :class="['mt-6 text-4xl font-semibold leading-[1.12] tracking-tight text-af-ink sm:text-5xl lg:text-6xl', hasCloud ? '' : 'mx-auto max-w-4xl']">
+              {{ t('userUi.home.hero.title') }}<br />
+              <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
+            </h1>
+            <p :class="['mt-6 text-base leading-7 text-af-ink-2 sm:text-lg sm:leading-8', hasCloud ? 'max-w-xl' : 'mx-auto max-w-2xl']">{{ t('userUi.home.hero.description') }}</p>
+            <div :class="['mt-9 flex flex-wrap items-center gap-3', hasCloud ? 'justify-center lg:justify-start' : 'justify-center']">
+              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-pill" data-testid="home-primary-cta">
+                {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.home.hero.getStarted') }}
+                <Icon name="arrowRight" size="sm" />
+              </RouterLink>
+              <RouterLink to="/model-plaza" class="btn btn-secondary btn-pill">
+                {{ t('userUi.home.hero.viewPricing') }}
+              </RouterLink>
             </div>
-          </li>
-        </ol>
-      </section>
-
-      <!-- 开箱即用的客户端：与「使用密钥」弹窗同一份清单，每项都有配置片段 -->
-      <section class="border-t border-af-hairline py-16" data-testid="home-clients">
-        <div class="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.clients.title') }}</h2>
-            <p class="mt-1 max-w-2xl text-sm text-af-ink-3">{{ t('userUi.home.clients.description') }}</p>
+            <!-- 厂商行：拿不到目录就不出现；lg 起由右侧图标云代替 -->
+            <div v-if="vendors.length" :class="['mt-12', hasCloud ? 'lg:hidden' : '']">
+              <p class="text-13 text-af-ink-4">{{ t('userUi.home.hero.vendorsLabel') }}</p>
+              <VendorStrip class="mt-4 justify-center" :vendors="vendors" />
+            </div>
           </div>
-          <RouterLink :to="isAuthenticated ? '/keys' : { path: '/login', query: { redirect: '/keys' } }" class="text-sm font-medium text-af-brand hover:text-af-brand-hover">
-            {{ t('userUi.home.clients.cta') }}
-          </RouterLink>
+          <VendorCloud v-if="hasCloud" v-reveal="200" :vendors="cloudVendors" class="mx-auto mt-14 hidden lg:mt-0 lg:block" />
         </div>
-        <ul class="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-5">
-          <li v-for="client in HOME_CLIENTS" :key="client.id" class="min-w-0" data-testid="home-client">
-            <h3 class="text-base font-semibold text-af-ink">{{ t(client.labelKey) }}</h3>
-            <p class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(client.homeKey) }}</p>
-          </li>
-        </ul>
       </section>
 
-      <!-- 可核对的事 -->
-      <section class="border-t border-af-hairline py-16">
-        <h2 class="text-xl font-semibold text-af-ink">{{ t('userUi.home.facts.title') }}</h2>
-        <dl class="mt-8 grid gap-x-10 gap-y-8 sm:grid-cols-2 lg:grid-cols-4">
-          <div v-for="fact in facts" :key="fact">
-            <dt class="text-base font-semibold text-af-ink">{{ t(`userUi.home.facts.${fact}.title`) }}</dt>
-            <dd class="mt-1.5 text-sm leading-6 text-af-ink-3">{{ t(`userUi.home.facts.${fact}.body`) }}</dd>
+      <!-- ② 数字：一条横排，上下细线；进视口时从 0 跳到位（.count-up 纯 CSS 计数，跟 v-reveal 联动） -->
+      <section v-if="catalog.length" data-testid="home-stats-section">
+        <div class="mx-auto max-w-site px-6">
+          <dl
+            v-reveal
+            class="grid grid-cols-2 gap-y-8 border-y border-af-hairline py-10 sm:grid-cols-4 sm:gap-y-0 sm:divide-x sm:divide-af-hairline"
+            data-testid="home-stats"
+          >
+            <div v-for="stat in stats" :key="stat.key" class="px-4 text-center">
+              <dd class="text-4xl font-semibold tabular-nums text-af-ink sm:text-5xl">
+                <span class="count-up" :style="{ '--count-to': stat.value }" aria-hidden="true" />
+                <span class="sr-only" data-testid="home-stat-value">{{ stat.value }}</span>
+              </dd>
+              <dt class="mt-2 text-13 text-af-ink-3">{{ t(`userUi.home.stats.${stat.key}`) }}</dt>
+            </div>
+          </dl>
+        </div>
+      </section>
+
+      <!-- ③ 特色：五条整幅左右交错——图一侧、字一侧，行与行之间一条细线 -->
+      <section class="py-20 sm:py-24" data-testid="home-features">
+        <div class="mx-auto max-w-site px-6">
+          <div v-reveal class="max-w-2xl">
+            <p class="section-eyebrow">{{ t('userUi.home.features.eyebrow') }}</p>
+            <h2 class="section-title">{{ t('userUi.home.features.title') }}</h2>
+            <p class="section-lead mx-0">{{ t('userUi.home.features.description') }}</p>
           </div>
-        </dl>
+          <ul class="mt-12 divide-y divide-af-hairline border-t border-af-hairline">
+            <li
+              v-for="(feature, index) in FEATURES"
+              :key="feature"
+              v-reveal
+              class="grid items-center gap-8 py-12 lg:grid-cols-2 lg:gap-16"
+              data-testid="home-feature"
+            >
+              <div :class="['min-w-0', index % 2 ? 'lg:order-2' : '']">
+                <p class="font-mono text-13 text-af-ink-4">{{ String(index + 1).padStart(2, '0') }}</p>
+                <h3 class="mt-3 text-2xl font-semibold tracking-tight text-af-ink">{{ t(`userUi.home.features.items.${feature}.title`) }}</h3>
+                <p class="mt-3 max-w-lg text-base leading-7 text-af-ink-2">{{ t(`userUi.home.features.items.${feature}.body`) }}</p>
+              </div>
+              <HomeFigure :kind="feature" :class="index % 2 ? 'lg:order-1' : ''" />
+            </li>
+          </ul>
+        </div>
       </section>
     </div>
   </SiteShell>
@@ -150,11 +111,14 @@ import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import CodeSample from '@/components/user/home/CodeSample.vue'
-import HomeCatalog from '@/components/user/home/HomeCatalog.vue'
 import VendorStrip from '@/components/user/home/VendorStrip.vue'
-import { HOME_CLIENTS } from '@/components/user/clients'
+import VendorCloud from '@/components/user/home/VendorCloud.vue'
+import HomeFigure, { type FigureKind } from '@/components/user/home/HomeFigure.vue'
+import Icon from '@/components/icons/Icon.vue'
+import { vReveal } from '@/directives/reveal'
+import { vendorIconKey } from '@/components/common/modelIconData'
 import { PROTOCOL_ROUTES } from '@/components/user/home/protocols'
+import { HOME_CLIENTS } from '@/components/user/clients'
 import { CONSOLE_HOME_PATH } from '@/components/user/shell/navItems'
 import { getModelPlaza } from '@/api/modelPlaza'
 import { buildCatalog, catalogVendors, type CatalogModel } from '@/components/modelPlaza/catalog'
@@ -182,17 +146,22 @@ const isHomeContentUrl = computed(() => {
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const consolePath = CONSOLE_HOME_PATH
 
-const apiBaseUrl = computed(() => appStore.cachedPublicSettings?.api_base_url || appStore.apiBaseUrl || '')
+/** 五张插画卡 = 五条特色（muqian 2026-09-22 定）：尽量透传 / 不做不同模型兜底 / 最大程度缓存 / 不记录用户数据 / 不出售用户数据 */
+const FEATURES: readonly FigureKind[] = ['passthrough', 'failover', 'cache', 'privacy', 'noSale']
 
-const steps = ['create', 'baseUrl', 'watch'] as const
-const facts = ['protocol', 'pricing', 'ledger', 'balance'] as const
-
-// 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字带与价目预览，不放假数字
-const HOME_CATALOG_ROWS = 8
+// 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字段，不放假数字
 const catalog = ref<CatalogModel[]>([])
 const vendors = computed(() => catalogVendors(catalog.value))
-const vendorCount = computed(() => vendors.value.length)
-const catalogPreview = computed(() => catalog.value.filter((entry) => entry.price).slice(0, HOME_CATALOG_ROWS))
+// 图标云只放有图标的厂商；一个都没有就不出云，首屏回到居中版
+const cloudVendors = computed(() => vendors.value.filter((vendor) => vendorIconKey(vendor)))
+const hasCloud = computed(() => cloudVendors.value.length > 0)
+/** 数字段：前两个从目录算，后两个是产品事实（四条协议 / 「使用密钥」弹窗里有配置片段的客户端数） */
+const stats = computed(() => [
+  { key: 'models', value: catalog.value.length },
+  { key: 'vendors', value: vendors.value.length },
+  { key: 'protocols', value: PROTOCOL_ROUTES.length },
+  { key: 'clients', value: HOME_CLIENTS.length }
+])
 
 async function loadCatalog() {
   try {

@@ -17,20 +17,21 @@
     </main>
     <!-- 公开站页脚：三栏链接全部来自公开设置（文档地址 / 联系方式 / 协议文档），没有的栏不出现 -->
     <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline" data-testid="site-footer">
-      <div class="mx-auto max-w-site px-6 py-10">
-        <div class="grid gap-8 sm:grid-cols-3">
-          <div v-for="column in footerColumns" :key="column.key" class="min-w-0">
-            <h2 class="text-13 font-medium text-af-ink">{{ column.title }}</h2>
-            <ul class="mt-3 space-y-2 text-13 text-af-ink-3">
-              <li v-for="link in column.links" :key="link.key">
-                <a v-if="link.external" :href="link.to" target="_blank" rel="noopener noreferrer" class="hover:text-af-ink">{{ link.label }}</a>
-                <RouterLink v-else-if="link.to" :to="link.to" class="hover:text-af-ink">{{ link.label }}</RouterLink>
-                <span v-else class="text-af-ink-2">{{ link.label }}</span>
-              </li>
-            </ul>
-          </div>
+      <!-- 横排一行（muqian 2026-09-23）：品牌 · 链接 · 版权；窄屏按需折行，不分栏 -->
+      <div class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-10 gap-y-4 px-6 py-8">
+        <div class="flex min-w-0 items-center gap-2.5" data-testid="footer-brand">
+          <img :src="logoSrc" alt="" class="h-6 w-6 shrink-0 object-contain" />
+          <span class="text-base font-semibold text-af-ink">{{ siteName }}</span>
+          <span v-if="siteSubtitle" class="hidden truncate text-13 text-af-ink-4 lg:inline">· {{ siteSubtitle }}</span>
         </div>
-        <p class="mt-10 text-xs text-af-ink-4">© {{ currentYear }} {{ siteName }}</p>
+        <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-13 text-af-ink-3" data-testid="footer-links">
+          <template v-for="link in footerLinks" :key="link.key">
+            <a v-if="link.external" :href="link.to" target="_blank" rel="noopener noreferrer" class="hover:text-af-ink">{{ link.label }}</a>
+            <RouterLink v-else-if="link.to" :to="link.to" class="hover:text-af-ink">{{ link.label }}</RouterLink>
+            <span v-else class="text-af-ink-4">{{ link.label }}</span>
+          </template>
+        </nav>
+        <p class="text-xs text-af-ink-4">© {{ currentYear }} {{ siteName }}</p>
       </div>
     </footer>
   </div>
@@ -70,6 +71,10 @@ const appStore = useAppStore()
 const authStore = useAuthStore()
 const { title: routeTitle, description: routeDescription } = usePageTitle()
 const siteName = computed(() => appStore.siteName)
+const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || '')
+const logoSrc = computed(
+  () => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/logo.svg'
+)
 const currentYear = new Date().getFullYear()
 
 interface FooterLink {
@@ -79,13 +84,7 @@ interface FooterLink {
   to?: string
   external?: boolean
 }
-interface FooterColumn {
-  key: string
-  title: string
-  links: FooterLink[]
-}
-
-const footerColumns = computed<FooterColumn[]>(() => {
+const footerLinks = computed<FooterLink[]>(() => {
   if (props.variant !== 'public') return []
   const settings = appStore.cachedPublicSettings
   const product: FooterLink[] = [
@@ -108,11 +107,7 @@ const footerColumns = computed<FooterColumn[]>(() => {
     label: doc.title,
     to: `/legal/${doc.id}`
   }))
-  return [
-    { key: 'product', title: t('userUi.footer.product'), links: product },
-    { key: 'help', title: t('userUi.footer.help'), links: help },
-    { key: 'legal', title: t('userUi.footer.legal'), links: legal }
-  ].filter((column) => column.links.length > 0)
+  return [...product, ...help, ...legal]
 })
 
 // 新手引导挂在控制台壳上（原 AppLayout 的职责）；storageKey 与旧实现一致，用户不会重新看到已看过的引导

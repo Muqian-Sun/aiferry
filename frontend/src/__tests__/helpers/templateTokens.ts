@@ -16,12 +16,13 @@ export const FORBIDDEN: ForbiddenRule[] = [
   { name: 'legacy gray/slate palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder|accent|fill|stroke|outline)-(?:gray|slate|zinc|neutral|stone)-\d{2,3}\b/ },
   { name: 'legacy dark palette', re: /\b(?:bg|text|border|divide|ring|from|to|via|placeholder)-dark-\d{2,3}\b/ },
   { name: 'dark: variant (tokens switch themselves)', re: /(?:^|[\s"'`(:])dark:[a-z]/ },
-  { name: 'card class', re: /(?:^|[\s"'`])card(?:-glass|-hover|-header|-body|-footer)?(?=$|[\s"'`])/ },
-  { name: 'rounded-2xl / rounded-3xl', re: /\brounded-(?:2xl|3xl|4xl)\b/ },
+  // 唯一获准的渐变是 style.css 的 .text-flow（首屏标题流动渐变，muqian 2026-09-22），模板里不写渐变工具类
   { name: 'gradient', re: /\b(?:bg-gradient-to-\w+|bg-mesh-gradient|text-gradient|gradient-primary|gradient-dark)\b/ },
+  // muqian 2026-09-23「不要用卡片」：内容不装进卡片，改用细线分隔 + 留白
+  { name: 'card class', re: /(?:^|[\s"'`])card(?:-glass|-hover|-header|-body|-footer)?(?=$|[\s"'`])/ },
+  { name: 'hover lift', re: /hover:-translate-y/ },
   { name: 'glass / glow shadows', re: /\b(?:glass(?:-card)?|shadow-glow(?:-lg)?|shadow-glass(?:-sm)?|shadow-card(?:-hover)?)\b/ },
-  { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ },
-  { name: 'hover lift', re: /hover:-translate-y/ }
+  { name: 'all-caps label', re: /\buppercase\b[^"'`]*\btracking-/ }
 ]
 
 /** 管理站允许 card 当分区容器（style.css 里已 token 化），其余规则与用户站相同。 */

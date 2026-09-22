@@ -5,7 +5,7 @@
   -->
   <ul class="flex flex-wrap items-center gap-x-6 gap-y-3" data-testid="vendor-strip">
     <li v-for="vendor in vendors" :key="vendor" class="flex items-center gap-2 text-sm text-af-ink-2">
-      <VendorIcon :vendor="vendor" class="text-af-ink-3" />
+      <VendorIcon :vendor="vendor" colored />
       <span>{{ vendorLabel(vendor) }}</span>
     </li>
   </ul>

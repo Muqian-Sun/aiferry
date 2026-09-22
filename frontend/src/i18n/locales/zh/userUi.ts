@@ -21,9 +21,6 @@ export default {
     },
     footer: {
       home: '首页',
-      product: '产品',
-      help: '文档与帮助',
-      legal: '协议',
       register: '注册'
     },
     topbar: {
@@ -38,74 +35,42 @@ export default {
       accountMenu: '账户菜单'
     },
     home: {
-      heroTitle: '一把 API Key，\n接入所有主流模型。',
-      heroDescription: '按 Anthropic、OpenAI、Gemini 的官方协议原样转发，SDK 不用换，只改一行 base_url。每次请求逐条记账，用量与费用同一本账。',
-      getStarted: '开始使用',
-      goToConsole: '进入控制台',
-      viewPricing: '查看模型与价格',
-      vendorsLabel: '目录里已上架的厂商',
-      clients: {
-        title: '开箱即用的客户端',
-        description: '这些工具只要改 base_url 和 key 就能接上；每一个在「密钥 → 使用密钥」里都有可复制的配置片段。',
-        cta: '去密钥页取配置',
-        items: {
-          claude: '环境变量指到本站，Anthropic Messages 协议原样走。',
-          codex: 'OpenAI Responses 协议；HTTP 与 WebSocket 两种传输都有配置。',
-          gemini: 'Gemini generateContent 协议，配 API key 即可。',
-          grok: 'OpenAI Chat 兼容协议，指向本站的 /v1。',
-          opencode: '写一份 provider 配置，模型名从模型页里挑。'
-        }
+      hero: {
+        eyebrow: '{models} 个模型 · 4 条官方协议 · 不记录不出售',
+        title: '一把 Key，',
+        titleAccent: '直连所有主流模型。',
+        description: '官方协议原样转发，SDK 不用换，只改一行 base_url。同模型只换渠道、不换模型，缓存能打满就打满；请求内容不落盘，更不会卖给任何人。',
+        getStarted: '免费开始',
+        goToConsole: '进入控制台',
+        viewPricing: '看模型与价格',
+        vendorsLabel: '已接入的厂商'
       },
-      codeSample: {
-        label: '接入示例',
-        comment: '只改这两行',
-        copy: '复制',
-        copied: '已复制',
-        tabs: { python: 'Python', curl: 'curl', node: 'Node', claudeCode: 'Claude Code' }
+      features: {
+        eyebrow: '我们的做法',
+        title: '只做转发这一件事，做到底',
+        description: '中间层能少做一点是一点：不改你的请求、不换你的模型、不留你的数据。',
+        items: {
+          passthrough: { title: '尽量透传', body: '四条官方协议原样转发，不做私有格式转换、不改写你的请求。SDK、流式、工具调用、多模态，行为与直连一致。' },
+          failover: { title: '不做不同模型兜底', body: '你点名的模型就是实际跑的模型。上游超时或报错，只在同一模型的其他渠道之间切换，绝不悄悄降级成便宜模型。' },
+          cache: { title: '最大程度缓存', body: '同一会话固定落在同一上游，提示词缓存持续命中。长对话越聊越快，费用也跟着降下来。' },
+          privacy: { title: '不记录用户数据', body: '请求正文与模型回复都不落盘。每次调用只留一行账：模型、Token、耗时、费用，供你自己对账。' },
+          noSale: { title: '不出售用户数据', body: '不卖、不共享、不拿去训练。你的请求与账单不会流向广告商、数据商或任何第三方。' }
+        },
+        figure: {
+          passthrough: { endpoint: '一个 base_url', note: '同协议原样透传' },
+          failover: { channelA: '渠道 A', channelB: '渠道 B', timeout: '超时', switched: '同模型换渠道' },
+          cache: { session: '会话', pinned: '固定上游', request: '请求', hit: '缓存命中' },
+          privacy: { request: '请求正文', notStored: '不落盘', kept: '只留这一行' },
+          noSale: { yourData: '你的数据', barrier: '不卖 · 不共享 · 不训练', thirdParty: '第三方', ads: '广告', brokers: '数据商' }
+        }
       },
       stats: {
-        models: '模型',
+        models: '已接入模型',
         vendors: '厂商',
-        protocols: '官方协议，原样透传',
-        ledgerLabel: '请求记账，可导出',
-        ledgerValue: '逐条'
+        protocols: '官方协议',
+        clients: '客户端配置'
       },
-      catalog: {
-        title: '模型与标价',
-        description: '标价，USD / 百万 Token，与模型页同源；实付 = 标价 × 账户倍率。',
-        viewAll: '查看全部 {count} 个模型'
-      },
-      protocols: {
-        title: '四条官方协议，原样透传',
-        description: '不做私有格式转换：请求体与响应按各家官方协议原样经过，SDK、流式、工具调用都和直连一样。'
-      },
-      routeMap: {
-        routes: {
-          messages: 'Anthropic Messages',
-          responses: 'OpenAI Responses',
-          chat: 'Chat Completions',
-          gemini: 'Gemini Generate'
-        },
-        vendors: {
-          messages: 'Claude',
-          responses: 'GPT',
-          chat: 'GPT、DeepSeek、Qwen、Grok',
-          gemini: 'Gemini'
-        }
-      },
-      steps: {
-        title: '接入只需三步',
-        create: { title: '创建密钥', body: '在控制台生成一把 API Key，可按分组与额度限制用途。' },
-        baseUrl: { title: '换一行 base_url', body: '保留原有 SDK 与请求格式，只把上游地址改成本站。' },
-        watch: { title: '发起请求，回来看用量', body: '每次请求的 Token、耗时与费用逐条记录，随时导出。' }
-      },
-      facts: {
-        title: '你能核对的事',
-        protocol: { title: '官方协议直连', body: '不做私有格式转换，请求体与响应按各家官方协议原样透传。' },
-        pricing: { title: '价格公开', body: '模型页列出每个上架模型的标价，实付 = 标价 × 账户倍率，先看价再用。' },
-        ledger: { title: '逐条可查', body: '用量页按请求列出模型、Token、耗时与费用，支持筛选与 CSV 导出。' },
-        balance: { title: '余额透明', body: '可用余额与冻结金额分开显示，每一笔扣费都能追溯到具体请求。' }
-      }
+      protocols: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
     },
     billing: {
       title: '账务',
