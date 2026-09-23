@@ -32,8 +32,13 @@ func UpstreamProtocols() []string {
 // 规范化只做两件事：去掉首尾空白、去掉地址末尾的斜杠。**不补任何路径后缀**——
 // 地址以管理员填写的为准，拼接端点路径是转发时的事（joinUpstreamEndpointURL）。
 //
-// 校验一律 fail-closed：未知协议键、空地址都直接报错而不是静默丢弃。静默丢弃
-// 会让管理员以为配置已保存，却在转发时才表现为地址缺失。
+// 校验一律 fail-closed：未知协议键、空地址、**配了多于一个协议**都直接报错而不是静默
+// 丢弃。静默丢弃会让管理员以为配置已保存，却在转发时才表现为地址缺失。
+//
+// 一个资源只承接一个上游协议（产品约定，2026-09-23 写进代码）：一个 key 可以有多个
+// 模型，但协议只有一个；同一渠道要承接多个协议就配多个 key，目录条目分别绑到对应的
+// key 上。配多个协议地址时，选号侧按入站协议的偏好序挑一个、转发侧可能按别的依据挑另
+// 一个，两边口径不一致——与其在转发层补救，不如在配置入口挡住。
 func NormalizeProtocolEndpoints(in map[string]string) (map[string]string, error) {
 	out := make(map[string]string, len(in))
 	if len(in) == 0 {
@@ -63,6 +68,17 @@ func NormalizeProtocolEndpoints(in map[string]string) (map[string]string, error)
 			"unknown upstream protocol(s) %s; supported: %s",
 			strings.Join(unknown, ", "),
 			strings.Join(UpstreamProtocols(), ", "),
+		)
+	}
+	if len(out) > 1 {
+		configured := make([]string, 0, len(out))
+		for protocol := range out {
+			configured = append(configured, protocol)
+		}
+		sort.Strings(configured)
+		return nil, fmt.Errorf(
+			"a resource serves exactly one upstream protocol, got %s; configure one key per protocol",
+			strings.Join(configured, ", "),
 		)
 	}
 	return out, nil

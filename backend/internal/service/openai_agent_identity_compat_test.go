@@ -381,7 +381,7 @@ func TestOpenAIAgentIdentityCompatRoutesRecoverInvalidTaskOnce(t *testing.T) {
 			path: "/v1/chat/completions",
 			body: []byte(`{"model":"gpt-5.4","stream":false,"messages":[{"role":"user","content":"hi"}]}`),
 			call: func(s *OpenAIGatewayService, ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
-				return s.ForwardAsChatCompletions(ctx, c, account, body, "", "gpt-5.4")
+				return s.ForwardAsChatCompletions(ctx, c, account, body, "")
 			},
 		},
 		{
@@ -389,7 +389,7 @@ func TestOpenAIAgentIdentityCompatRoutesRecoverInvalidTaskOnce(t *testing.T) {
 			path: "/v1/messages",
 			body: []byte(`{"model":"gpt-5.4","stream":false,"max_tokens":32,"messages":[{"role":"user","content":"hi"}]}`),
 			call: func(s *OpenAIGatewayService, ctx context.Context, c *gin.Context, account *Account, body []byte) (*OpenAIForwardResult, error) {
-				return s.ForwardAsAnthropic(ctx, c, account, body, "", "gpt-5.4")
+				return s.ForwardAsAnthropic(ctx, c, account, body, "")
 			},
 		},
 	}
@@ -475,7 +475,7 @@ func TestOpenAIAgentIdentityChatRecoveryKeepsAutoDerivedSessionIsolationStable(t
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", bytes.NewReader(body))
 	c.Set("api_key", &APIKey{ID: 99})
 
-	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "gpt-5.4")
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.Error(t, err)
 	require.Len(t, upstream.requests, 2)
 	firstKey := gjson.GetBytes(upstream.bodies[0], "prompt_cache_key").String()

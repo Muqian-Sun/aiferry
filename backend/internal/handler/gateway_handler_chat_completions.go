@@ -267,7 +267,7 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		switch forwardTarget {
 		case compatForwardOpenAI:
 			// responses / chat_completions 上游：OpenAI 网关服务转换（目录模型按请求名转发）
-			oaResult, err = h.openAIGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, promptCacheKey, "")
+			oaResult, err = h.openAIGatewayService.ForwardAsChatCompletions(c.Request.Context(), c, account, forwardBody, promptCacheKey)
 		case compatForwardGemini:
 			if h.geminiCompatService == nil {
 				h.chatCompletionsErrorResponse(c, http.StatusBadGateway, "upstream_error", "Gemini compatibility service is not configured")

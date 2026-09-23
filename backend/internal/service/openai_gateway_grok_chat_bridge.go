@@ -519,7 +519,6 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	account *Account,
 	body []byte,
 	promptCacheKey string,
-	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 
@@ -529,7 +528,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	}
 	originalModel := chatReq.Model
 	clientStream := chatReq.Stream
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	billingModel := resolveOpenAIForwardModel(account, originalModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	cacheIdentity := resolveGrokCacheIdentity(c, body, promptCacheKey, upstreamModel)
 	// Image inputs must go through the Responses bridge: the raw Chat
@@ -538,7 +537,7 @@ func (s *OpenAIGatewayService) forwardGrokChatCompletionsViaResponses(
 	// Responses even when no prompt-cache identity is available.
 	hasImageInput := openAIJSONValueMayContainImageInput(gjson.GetBytes(body, "messages"))
 	if !grokChatResponsesRuntimeEligible(upstreamModel, cacheIdentity) && (!hasImageInput || !grokChatResponsesBridgeModel(upstreamModel)) {
-		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
+		return s.forwardAsRawChatCompletions(ctx, c, account, body)
 	}
 
 	responsesReq, err := apicompat.ChatCompletionsToResponses(&chatReq)

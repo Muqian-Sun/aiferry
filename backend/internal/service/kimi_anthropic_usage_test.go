@@ -116,11 +116,7 @@ func TestMergeAnthropicUsageNormalizesKimiStreamForOpenAIBilling(t *testing.T) {
 	mergeAnthropicUsage(usage, *delta.Usage)
 	require.Equal(t, 250, usage.InputTokens)
 	require.Equal(t, 173056, usage.CacheReadInputTokens)
-
-	openAIUsage := claudeUsageToOpenAIUsage(usage)
-	require.Equal(t, 173306, openAIUsage.InputTokens, "OpenAI gateway expects an inclusive input total")
-	require.Equal(t, 250, openAIUsage.InputTokens-openAIUsage.CacheReadInputTokens-openAIUsage.CacheCreationInputTokens)
-	require.Equal(t, 166, openAIUsage.OutputTokens)
+	require.Equal(t, 166, usage.OutputTokens)
 }
 
 func TestMergeAnthropicUsageNormalizesGLMAndDeepSeekAliases(t *testing.T) {
@@ -147,51 +143,7 @@ func TestMergeAnthropicUsageNormalizesGLMAndDeepSeekAliases(t *testing.T) {
 			mergeAnthropicUsage(usage, src)
 			require.Equal(t, 400, usage.InputTokens)
 			require.Equal(t, 800, usage.CacheReadInputTokens)
-
-			openAIUsage := claudeUsageToOpenAIUsage(usage)
-			require.Equal(t, 1200, openAIUsage.InputTokens)
-			require.Equal(t, 400, openAIUsage.InputTokens-openAIUsage.CacheReadInputTokens-openAIUsage.CacheCreationInputTokens)
-		})
-	}
-}
-
-func TestClaudeUsageToOpenAIUsagePreservesCNProviderNativeAnthropicBuckets(t *testing.T) {
-	tests := []struct {
-		name         string
-		usage        ClaudeUsage
-		wantTotal    int
-		wantUncached int
-	}{
-		{
-			name: "GLM",
-			usage: ClaudeUsage{
-				InputTokens:              2,
-				OutputTokens:             302,
-				CacheCreationInputTokens: 733,
-				CacheReadInputTokens:     376156,
-			},
-			wantTotal:    376891,
-			wantUncached: 2,
-		},
-		{
-			name: "DeepSeek",
-			usage: ClaudeUsage{
-				InputTokens:          400,
-				OutputTokens:         30,
-				CacheReadInputTokens: 800,
-			},
-			wantTotal:    1200,
-			wantUncached: 400,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			openAIUsage := claudeUsageToOpenAIUsage(&tt.usage)
-			require.Equal(t, tt.wantTotal, openAIUsage.InputTokens)
-			require.Equal(t, tt.wantUncached, openAIUsage.InputTokens-openAIUsage.CacheReadInputTokens-openAIUsage.CacheCreationInputTokens)
-			require.Equal(t, tt.usage.CacheReadInputTokens, openAIUsage.CacheReadInputTokens)
-			require.Equal(t, tt.usage.CacheCreationInputTokens, openAIUsage.CacheCreationInputTokens)
+			require.Equal(t, 30, usage.OutputTokens)
 		})
 	}
 }
@@ -226,16 +178,16 @@ func TestCNProviderAnthropicUsageBillsUncachedInput(t *testing.T) {
 	billing := NewBillingService(&config.Config{}, nil)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			// ClaudeUsage.InputTokens 已是未缓存输入（归一化在 parse 里做），直接计费。
 			claudeUsage := parseClaudeUsageFromResponseBody([]byte(tt.body))
-			openAIUsage := claudeUsageToOpenAIUsage(claudeUsage)
-			uncachedInput := max(openAIUsage.InputTokens-openAIUsage.CacheReadInputTokens-openAIUsage.CacheCreationInputTokens, 0)
+			uncachedInput := max(claudeUsage.InputTokens, 0)
 			require.Equal(t, tt.wantInput, uncachedInput)
 
 			cost, err := billing.CalculateCost(tt.model, UsageTokens{
 				InputTokens:         uncachedInput,
-				OutputTokens:        openAIUsage.OutputTokens,
-				CacheCreationTokens: openAIUsage.CacheCreationInputTokens,
-				CacheReadTokens:     openAIUsage.CacheReadInputTokens,
+				OutputTokens:        claudeUsage.OutputTokens,
+				CacheCreationTokens: claudeUsage.CacheCreationInputTokens,
+				CacheReadTokens:     claudeUsage.CacheReadInputTokens,
 			}, 1)
 			require.NoError(t, err)
 			require.Positive(t, cost.InputCost, "uncached input must contribute to the final charge")

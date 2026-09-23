@@ -178,7 +178,7 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 					accountReleaseFunc()
 				}
 			}()
-			return h.gatewayService.ForwardEmbeddings(c.Request.Context(), c, account, forwardBody, "")
+			return h.gatewayService.ForwardEmbeddings(c.Request.Context(), c, account, forwardBody)
 		}()
 
 		forwardDurationMs := time.Since(forwardStart).Milliseconds()

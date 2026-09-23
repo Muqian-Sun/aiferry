@@ -159,7 +159,7 @@ func TestOpenAISetupTokenChatCompletionsUsesCodexTransform(t *testing.T) {
 	svc := &OpenAIGatewayService{cfg: &config.Config{}, httpUpstream: upstream}
 	account := openAISetupTokenCompatAccount(71)
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "gpt-5.4")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -199,7 +199,7 @@ func TestOpenAISetupTokenMessagesUsesCodexBridgeAndTurnState(t *testing.T) {
 	firstCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(firstBody))
 	firstCtx.Request.Header.Set("Content-Type", "application/json")
 
-	firstResult, err := svc.ForwardAsAnthropic(context.Background(), firstCtx, account, firstBody, "stable-cache-key", "gpt-5.4")
+	firstResult, err := svc.ForwardAsAnthropic(context.Background(), firstCtx, account, firstBody, "stable-cache-key")
 
 	require.NoError(t, err)
 	require.NotNil(t, firstResult)
@@ -221,7 +221,7 @@ func TestOpenAISetupTokenMessagesUsesCodexBridgeAndTurnState(t *testing.T) {
 	secondCtx.Request = httptest.NewRequest(http.MethodPost, "/v1/messages", bytes.NewReader(secondBody))
 	secondCtx.Request.Header.Set("Content-Type", "application/json")
 
-	secondResult, err := svc.ForwardAsAnthropic(context.Background(), secondCtx, account, secondBody, "stable-cache-key", "gpt-5.4")
+	secondResult, err := svc.ForwardAsAnthropic(context.Background(), secondCtx, account, secondBody, "stable-cache-key")
 
 	require.NoError(t, err)
 	require.NotNil(t, secondResult)
@@ -242,6 +242,7 @@ func openAISetupTokenCompatAccount(id int64) *Account {
 		Credentials: map[string]any{
 			"access_token":       "setup-token-value",
 			"chatgpt_account_id": "chatgpt-setup",
+			"model_mapping":      map[string]any{"claude-sonnet-4-5": "gpt-5.4"},
 		},
 	}
 }

@@ -404,7 +404,7 @@ func resolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedMode
 	// These API-key accounts therefore apply normal account model_mapping and
 	// upstream normalization, but never compact_model_mapping.
 	if shouldForwardOpenAIResponsesViaRawChatCompletions(account) {
-		upstreamModel := resolveOpenAIForwardModel(account, requestedModel, "")
+		upstreamModel := resolveOpenAIForwardModel(account, requestedModel)
 		return normalizeOpenAIModelForUpstream(account, upstreamModel)
 	}
 
@@ -435,7 +435,7 @@ func resolveOpenAIAccountUpstreamModelForRequest(account *Account, requestedMode
 		}
 	}
 
-	upstreamModel := resolveOpenAIForwardModel(account, requestedModel, "")
+	upstreamModel := resolveOpenAIForwardModel(account, requestedModel)
 	if upstreamModel == "" {
 		return ""
 	}

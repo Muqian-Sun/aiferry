@@ -3,22 +3,17 @@ import {
   ANTIGRAVITY_PROJECT_ID_CREDENTIAL_KEY,
   HEADER_OVERRIDE_ENABLED_CREDENTIAL_KEY,
   HEADER_OVERRIDES_CREDENTIAL_KEY,
-  OPENCODE_GO_PROTOCOL_RULES_KEY,
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  applyOpenCodeGoProtocolRules,
   applyPlanType,
   buildHeaderOverridesObject,
   buildPlanTypeOptions,
-  cloneOpenCodeGoProtocolRules,
   cnQuotaCellVisible,
-  defaultOpenCodeProtocolRules,
   resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
   GROK_BASE_URL_PRESETS,
   parseHeaderOverridesJson,
-  parseOpenCodeGoProtocolRules,
   planTypeDisplayLabel,
   readPlanType,
   serializeHeaderOverrideRows,
@@ -104,7 +99,7 @@ describe('applyAntigravityProjectID', () => {
   })
 })
 
-describe('openCodeGo protocol rules', () => {
+describe('openCodeGo account mode', () => {
   it('resolves missing OpenCode account_mode as GO and zen as Zen', () => {
     expect(resolveOpenCodeAccountMode(undefined)).toBe('go')
     expect(resolveOpenCodeAccountMode('coding')).toBe('go')
@@ -112,38 +107,10 @@ describe('openCodeGo protocol rules', () => {
     expect(resolveOpenCodeAccountMode('go')).toBe('go')
   })
 
-  it('uses Zen vs GO protocol rules', () => {
-    expect(defaultOpenCodeProtocolRules('zen').some(rule => rule.pattern === 'claude-*')).toBe(true)
-    expect(defaultOpenCodeProtocolRules('go').some(rule => rule.pattern === 'minimax-*')).toBe(true)
+  it('hides the quota cell for Zen and shows it for GO', () => {
     expect(cnQuotaCellVisible('opencode_go', 'zen')).toBe(false)
     expect(cnQuotaCellVisible('opencode_go', 'go')).toBe(true)
     expect(cnQuotaCellVisible('opencode_go', '')).toBe(true)
-  })
-
-  it('parses stored rules and skips invalid entries', () => {
-    expect(parseOpenCodeGoProtocolRules(null)).toBeNull()
-    expect(parseOpenCodeGoProtocolRules([])).toEqual([])
-    expect(
-      parseOpenCodeGoProtocolRules([
-        { pattern: 'grok-*', protocol: 'responses' },
-        { pattern: '', protocol: 'anthropic' },
-        { pattern: 'qwen*', protocol: 'adaptive' },
-        { pattern: 'minimax-*', protocol: 'anthropic' }
-      ])
-    ).toEqual([
-      { pattern: 'grok-*', protocol: 'responses' },
-      { pattern: 'minimax-*', protocol: 'anthropic' }
-    ])
-  })
-
-  it('writes lowercase patterns on create and keeps an empty list on edit', () => {
-    const created: Record<string, unknown> = {}
-    applyOpenCodeGoProtocolRules(created, cloneOpenCodeGoProtocolRules(), 'create')
-    expect(created[OPENCODE_GO_PROTOCOL_RULES_KEY]).toEqual(cloneOpenCodeGoProtocolRules())
-
-    const edited: Record<string, unknown> = { api_key: 'sk' }
-    applyOpenCodeGoProtocolRules(edited, [], 'edit')
-    expect(edited[OPENCODE_GO_PROTOCOL_RULES_KEY]).toEqual([])
   })
 })
 

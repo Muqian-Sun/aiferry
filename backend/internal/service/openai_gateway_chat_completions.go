@@ -56,9 +56,8 @@ func (s *OpenAIGatewayService) ForwardAsChatCompletions(
 	account *Account,
 	body []byte,
 	promptCacheKey string,
-	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
-	return s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, defaultMappedModel, false)
+	return s.forwardAsChatCompletions(ctx, c, account, body, promptCacheKey, false)
 }
 
 // convertResponsesShapedChatCompletionsBody 把发到 /v1/chat/completions 的 Responses
@@ -88,7 +87,6 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	account *Account,
 	body []byte,
 	promptCacheKey string,
-	defaultMappedModel string,
 	compatPromptCacheTenantIsolated bool,
 ) (*OpenAIForwardResult, error) {
 	rememberOpenCodeInboundBody(c, body)
@@ -96,9 +94,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions)
 		if err != nil {
 			return nil, err
 		}
@@ -130,7 +126,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	if !account.IsThirdPartyKey() && account.Platform == PlatformGrok {
 		if account.IsGrokOAuth() {
 			if eligible, reason := grokChatResponsesBridgeEligibility(body); eligible {
-				return s.forwardGrokChatCompletionsViaResponses(ctx, c, account, body, promptCacheKey, defaultMappedModel)
+				return s.forwardGrokChatCompletionsViaResponses(ctx, c, account, body, promptCacheKey)
 			} else {
 				logger.L().Debug("grok chat_completions: using raw fallback",
 					zap.Int64("account_id", account.ID),
@@ -138,7 +134,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 				)
 			}
 		}
-		return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
+		return s.forwardAsRawChatCompletions(ctx, c, account, body)
 	}
 
 	// Cursor compatibility: some clients send a Responses-shaped body to the
@@ -149,18 +145,15 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	switch keyProtocol {
 	case APIProtocolChatCompletions:
 		if !isResponsesShape {
-			return s.forwardAsRawChatCompletions(ctx, c, account, body, defaultMappedModel)
+			return s.forwardAsRawChatCompletions(ctx, c, account, body)
 		}
 		chatBody, err := s.convertResponsesShapedChatCompletionsBody(body)
 		if err != nil {
 			return nil, err
 		}
-		return s.forwardAsRawChatCompletions(ctx, c, account, chatBody, defaultMappedModel)
+		return s.forwardAsRawChatCompletions(ctx, c, account, chatBody)
 	case APIProtocolAnthropic:
-		if isResponsesShape {
-			return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
-		}
-		return s.forwardChatCompletionsViaNativeAnthropic(ctx, c, account, body, defaultMappedModel)
+		return nil, anthropicUpstreamOnOpenAIGatewayError(account, APIProtocolChatCompletions)
 	}
 	SetActualOpenAIUpstreamEndpoint(c, openAIResponsesUpstreamEndpoint)
 
@@ -176,7 +169,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 
 	// 2. Resolve model mapping early so compat prompt_cache_key injection can
 	// derive a stable seed from the final upstream model family.
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	billingModel := resolveOpenAIForwardModel(account, originalModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
@@ -382,7 +375,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 			if err := s.recoverAgentIdentityTask(ctx, account, expectedTaskID); err != nil {
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", err)
 			}
-			return s.forwardAsChatCompletions(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, defaultMappedModel, compatPromptCacheTenantIsolated)
+			return s.forwardAsChatCompletions(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, compatPromptCacheTenantIsolated)
 		}
 		if foErr := s.failoverOpenAIUpstreamHTTPError(ctx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {
 			return nil, foErr

@@ -31,16 +31,13 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	account *Account,
 	body []byte,
 	promptCacheKey string,
-	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	rememberOpenCodeInboundBody(c, body)
 	beginUpstreamResponseModelObservation(c)
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolAnthropic, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolAnthropic)
 		if err != nil {
 			return nil, err
 		}
@@ -58,11 +55,9 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 
 	switch keyProtocol {
 	case APIProtocolAnthropic:
-		// Anthropic 上游：/v1/messages 请求零转换直通（仅模型名映射 + 少量 body 清洗），
-		// 完整保留 thinking / tool_use / cache 语义，适配 Claude Code 等原生客户端。
-		return s.forwardAnthropicViaNativeAnthropicEndpoint(ctx, c, account, body, defaultMappedModel)
+		return nil, anthropicUpstreamOnOpenAIGatewayError(account, APIProtocolAnthropic)
 	case APIProtocolChatCompletions:
-		return s.forwardAnthropicViaRawChatCompletions(ctx, c, account, body, defaultMappedModel)
+		return s.forwardAnthropicViaRawChatCompletions(ctx, c, account, body)
 	}
 	SetActualOpenAIUpstreamEndpoint(c, openAIResponsesUpstreamEndpoint)
 
@@ -80,7 +75,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	clientStream := anthropicReq.Stream // client's original stream preference
 
 	// 2. Model mapping
-	billingModel := resolveOpenAIForwardModel(account, normalizedModel, defaultMappedModel)
+	billingModel := resolveOpenAIForwardModel(account, normalizedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	promptCacheKey = strings.TrimSpace(promptCacheKey)
 	apiKeyID := getAPIKeyIDFromContext(c)
@@ -429,7 +424,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 			if err := s.recoverAgentIdentityTask(ctx, account, expectedTaskID); err != nil {
 				return nil, fmt.Errorf("agent identity task recovery failed: %w", err)
 			}
-			return s.ForwardAsAnthropic(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey, defaultMappedModel)
+			return s.ForwardAsAnthropic(markAgentIdentityTaskRecoveryTried(ctx), c, account, body, promptCacheKey)
 		}
 		if previousResponseID != "" && (isOpenAICompatPreviousResponseNotFound(resp.StatusCode, upstreamMsg, respBody) || isOpenAICompatPreviousResponseUnsupported(resp.StatusCode, upstreamMsg, respBody)) {
 			if isOpenAICompatPreviousResponseUnsupported(resp.StatusCode, upstreamMsg, respBody) {
@@ -442,7 +437,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				zap.String("previous_response_id", truncateOpenAIWSLogValue(previousResponseID, openAIWSIDValueMaxLen)),
 				zap.String("upstream_model", upstreamModel),
 			)
-			return s.ForwardAsAnthropic(ctx, c, account, body, promptCacheKey, defaultMappedModel)
+			return s.ForwardAsAnthropic(ctx, c, account, body, promptCacheKey)
 		}
 		// Grok account-switched history often fails decrypt; strip encrypted
 		// reasoning once at the client-body level so failover accounts can accept
@@ -454,7 +449,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 				logger.L().Info("openai messages: stripping thinking signatures for Grok failover retry",
 					zap.Int64("account_id", account.ID),
 				)
-				return s.ForwardAsAnthropic(markGrokEncryptedContentStripRetried(ctx), c, account, strippedBody, promptCacheKey, defaultMappedModel)
+				return s.ForwardAsAnthropic(markGrokEncryptedContentStripRetried(ctx), c, account, strippedBody, promptCacheKey)
 			}
 		}
 		if foErr := s.failoverOpenAIUpstreamHTTPError(ctx, c, account, resp, respBody, upstreamMsg, upstreamModel); foErr != nil {

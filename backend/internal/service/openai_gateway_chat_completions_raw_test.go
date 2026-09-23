@@ -108,7 +108,7 @@ func TestForwardAsRawChatCompletions_ForcesStreamUsageUpstreamAndPassesUsageDown
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 9, result.Usage.InputTokens)
@@ -147,7 +147,7 @@ func TestForwardAsChatCompletions_OpenAICompatibleGrokRawMissingUsageFailsBefore
 	account := rawChatCompletionsTestAccount()
 	account.Name = "openai-compatible-grok"
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -223,7 +223,7 @@ func TestForwardAsChatCompletions_OpenAICompatibleRawUsageGuard(t *testing.T) {
 				account.Credentials["model_mapping"] = tt.modelMapping
 			}
 
-			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 			if !tt.wantGuarded {
 				require.NoError(t, err)
@@ -264,7 +264,7 @@ func TestForwardAsRawChatCompletions_PreservesMappedGPT56MaxEffort(t *testing.T)
 	account := rawChatCompletionsTestAccount()
 	account.Credentials["model_mapping"] = map[string]any{"sol": "gpt-5.6-sol"}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -314,7 +314,7 @@ func TestForwardAsRawChatCompletions_NonStreamingCapturesCacheWriteUsage(t *test
 				httpUpstream: upstream,
 			}
 
-			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+			result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 
 			require.NoError(t, err)
 			require.NotNil(t, result)
@@ -347,7 +347,7 @@ func TestForwardAsRawChatCompletions_PreservesDeepSeekReasoningContentNonStreami
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 3, result.Usage.InputTokens)
@@ -389,7 +389,7 @@ func TestForwardAsRawChatCompletions_PreservesDeepSeekReasoningContentStreaming(
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 3, result.Usage.InputTokens)
@@ -420,7 +420,7 @@ func TestForwardAsRawChatCompletions_PreservesDeepSeekReasoningContentInRequest(
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "need tool", gjson.GetBytes(upstream.lastBody, "messages.1.reasoning_content").String())
@@ -448,7 +448,7 @@ func TestForwardAsRawChatCompletions_NormalizesGLMReasoningEffortForUpstream(t *
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "max", gjson.GetBytes(upstream.lastBody, "reasoning_effort").String())
@@ -482,7 +482,7 @@ func TestForwardAsRawChatCompletions_SilentRefusalTriggersFailover(t *testing.T)
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
 	require.True(t, errors.As(err, &failoverErr))
@@ -522,7 +522,7 @@ func TestForwardAsRawChatCompletions_SilentRefusalToolCallsExempt(t *testing.T) 
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Contains(t, rec.Body.String(), `"tool_calls"`)
@@ -597,7 +597,7 @@ func TestForwardAsRawChatCompletions_SilentRefusalNormalContentExempt(t *testing
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Contains(t, rec.Body.String(), `"content":"ok"`)
@@ -642,7 +642,7 @@ func TestForwardAsRawChatCompletions_StripsEmptyToolCallIdentity(t *testing.T) {
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -711,7 +711,7 @@ func TestForwardAsRawChatCompletions_TruncatedStreamAfterOutputFailsRequest(t *t
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.Error(t, err)
 	require.NotNil(t, result, "已收字节的用量仍需带回，供 ops 记录首 token 时延")
 	var failoverErr *UpstreamFailoverError
@@ -755,7 +755,7 @@ func TestForwardAsRawChatCompletions_TruncationFailoverAttributesManagedProxy(t 
 	account.ProxyID = &proxy.ID
 	account.Proxy = proxy
 
-	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
 	require.Equal(t, proxy.URL(), upstream.lastProxyURL)
@@ -791,7 +791,7 @@ func TestForwardAsRawChatCompletions_EmptyStreamBeforeOutputTriggersFailover(t *
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
 	require.True(t, errors.As(err, &failoverErr))
@@ -828,7 +828,7 @@ func TestForwardAsRawChatCompletions_StreamReadErrorAfterOutputFailsRequest(t *t
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.Error(t, err)
 	require.NotNil(t, result)
 
@@ -866,7 +866,7 @@ func TestForwardAsRawChatCompletions_MissingDoneWithUsageStillSucceeds(t *testin
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 11, result.Usage.InputTokens)
@@ -900,7 +900,7 @@ func TestForwardAsRawChatCompletions_MissingDoneWithFinishReasonStillSucceeds(t 
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Contains(t, rec.Body.String(), `"finish_reason":"stop"`)
@@ -947,7 +947,7 @@ func TestForwardAsRawChatCompletions_ClientDisconnectTruncationStillBills(t *tes
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 }
@@ -976,7 +976,7 @@ func TestForwardAsRawChatCompletions_ClientCancelTruncationStillBills(t *testing
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, rawChatCompletionsTestAccount(), body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 }
@@ -1078,7 +1078,7 @@ func TestForwardAsRawChatCompletions_ClientDisconnectDrainsUsage(t *testing.T) {
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 17, result.Usage.InputTokens)
@@ -1116,7 +1116,7 @@ func TestForwardAsRawChatCompletions_UpstreamRequestIgnoresClientCancel(t *testi
 	}
 	account := rawChatCompletionsTestAccount()
 
-	result, err := svc.forwardAsRawChatCompletions(reqCtx, c, account, body, "")
+	result, err := svc.forwardAsRawChatCompletions(reqCtx, c, account, body)
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.NotNil(t, upstream.lastReq)
@@ -1151,7 +1151,7 @@ func TestForwardAsChatCompletions_ChatOnlyKeyUsesVersionedChatURLWithoutResponse
 	account := rawChatCompletionsTestAccount()
 	account.ProtocolEndpoints = map[string]string{APIProtocolChatCompletions: "https://open.bigmodel.cn/api/paas/v4"}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 1, result.Usage.InputTokens)
