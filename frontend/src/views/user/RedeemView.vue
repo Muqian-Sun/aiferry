@@ -41,7 +41,7 @@
         <div v-if="redeemResult" role="status" class="mt-4 border-l-2 border-af-ink pl-3 text-13 text-af-ink-2">
           <p class="font-medium text-af-ink">{{ t('redeem.redeemSuccess') }}</p>
           <p v-if="redeemResult.type === 'balance'" class="mt-1 tabular-nums">
-            {{ t('redeem.added') }}: ${{ redeemResult.value.toFixed(2) }}
+            {{ t('redeem.added') }}: {{ formatCurrency(redeemResult.value) }}
           </p>
           <p v-else-if="redeemResult.type === 'concurrency'" class="mt-1 tabular-nums">
             {{ t('redeem.added') }}: {{ redeemResult.value }} {{ t('redeem.concurrentRequests') }}
@@ -97,7 +97,7 @@ import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import { formatDateTime } from '@/utils/format'
+import { formatCurrency, formatDateTime } from '@/utils/format'
 
 const { t } = useI18n()
 const authStore = useAuthStore()
@@ -106,9 +106,9 @@ const subscriptionStore = useSubscriptionStore()
 
 const user = computed(() => authStore.user)
 
-/** 顶部摘要：当前余额 / 并发（兑换后即时刷新） */
+/** 顶部摘要：当前余额 / 并发（兑换后即时刷新）；金额与概览、顶栏同一个 formatCurrency */
 const summaryItems = computed<StatItem[]>(() => [
-  { key: 'balance', label: t('redeem.currentBalance'), value: `$${user.value?.balance?.toFixed(2) || '0.00'}` },
+  { key: 'balance', label: t('redeem.currentBalance'), value: formatCurrency(user.value?.balance ?? 0) },
   { key: 'concurrency', label: t('redeem.concurrency'), value: String(user.value?.concurrency || 0), hint: t('redeem.requests') }
 ])
 
@@ -153,7 +153,7 @@ const getHistoryItemTitle = (item: RedeemHistoryItem) => {
 const formatHistoryValue = (item: RedeemHistoryItem) => {
   if (isBalanceType(item.type)) {
     const sign = item.value >= 0 ? '+' : ''
-    return `${sign}$${item.value.toFixed(2)}`
+    return `${sign}${formatCurrency(item.value)}`
   } else if (isSubscriptionType(item.type)) {
     // 订阅类型显示有效天数和套餐名称
     const days = item.validity_days || Math.round(item.value)

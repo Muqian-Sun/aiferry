@@ -3,7 +3,7 @@
   <div>
     <div class="divide-y divide-af-hairline">
       <div
-        v-for="item in providerItems"
+        v-for="item in visibleProviderItems"
         :key="item.provider"
         class="py-4 first:pt-0 last:pb-0"
       >
@@ -436,6 +436,13 @@ const providerItems = computed(() => [
     details: getBindingDetails('wechat'),
   },
 ])
+
+/** 站点没开、用户也没绑过的第三方不列（只剩一行「未绑定」、没有任何可点的动作）；邮箱恒列，绑过的留着好解绑 */
+const visibleProviderItems = computed(() =>
+  providerItems.value.filter(
+    (item) => item.provider === 'email' || item.bound || isProviderEnabledForBinding(item.provider)
+  )
+)
 
 function providerSummary(provider: UserAuthProvider): string {
   if (provider === 'email') {

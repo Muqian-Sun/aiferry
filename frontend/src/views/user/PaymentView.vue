@@ -44,7 +44,7 @@
             </div>
             <div class="min-w-0 pl-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.currentBalance') }}</dt>
-              <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">${{ user?.balance?.toFixed(2) || '0.00' }}</dd>
+              <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ formatCurrency(user?.balance ?? 0) }}</dd>
             </div>
           </dl>
 
@@ -226,6 +226,7 @@ import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
+import { formatCurrency } from '@/utils/format'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'

@@ -74,6 +74,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
+import { formatCurrency } from '@/utils/format'
 import { useI18n } from 'vue-i18n'
 import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
@@ -158,10 +159,6 @@ const providerLabels = computed<Record<UserAuthProvider, string>>(() => ({
   github: 'GitHub',
   google: 'Google'
 }))
-
-function formatCurrency(value: number): string {
-  return `$${value.toFixed(2)}`
-}
 
 function normalizeProvider(value: string): UserAuthProvider | null {
   const normalized = value.trim().toLowerCase()

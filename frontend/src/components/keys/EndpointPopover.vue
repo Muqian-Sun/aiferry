@@ -65,7 +65,7 @@ onBeforeUnmount(() => {
 
 <template>
   <!--
-    接口地址条：默认地址一行、自定义端点各一行，名称在左、地址 + 复制 + 测速在右。
+    接口地址条：默认地址一行、自定义端点各一行，名称在左、地址 + 复制 + 测速在右；只有一条地址时不标「默认」。
     地址是密钥页最常复制的东西，放在表格上方常驻，不折进弹层。
   -->
   <dl v-if="allEndpoints.length > 0" class="space-y-2" data-testid="endpoint-strip">
@@ -73,8 +73,8 @@ onBeforeUnmount(() => {
       <dt class="flex w-28 shrink-0 items-center gap-1.5 text-13 text-af-ink-3">
         <span class="truncate">{{ item.name }}</span>
         <span
-          v-if="item.isDefault"
-          class="rounded bg-af-brand-tint px-1 py-px text-[10px] font-medium leading-tight text-af-brand"
+          v-if="item.isDefault && allEndpoints.length > 1"
+          class="rounded bg-af-sunken px-1 py-px text-[10px] font-medium leading-tight text-af-ink-3"
         >{{ t('keys.endpoints.default') }}</span>
       </dt>
 
@@ -89,17 +89,17 @@ onBeforeUnmount(() => {
             {{ item.description }}
           </p>
           <p
-            class="flex items-center gap-1.5 text-[11px] leading-4 text-af-brand"
+            class="flex items-center gap-1.5 text-[11px] leading-4 text-af-ink-3"
             :class="item.description ? 'mt-1.5' : ''"
           >
-            <span class="h-1.5 w-1.5 rounded-full bg-af-brand"></span>
+            <span class="h-1.5 w-1.5 rounded-full bg-af-ink-4"></span>
             {{ tooltipHint(item.endpoint) }}
           </p>
           <div class="absolute left-1/2 top-full h-3 w-3 -translate-x-1/2 -translate-y-1/2 rotate-45 border-b border-r border-af-hairline bg-af-sheet"></div>
         </div>
 
         <code
-          class="cursor-pointer truncate font-mono text-af-ink decoration-af-ink-4 decoration-dashed underline-offset-2 hover:text-af-brand hover:underline focus:text-af-brand focus:underline focus:outline-none"
+          class="cursor-pointer truncate font-mono text-af-ink decoration-af-ink-4 decoration-dashed underline-offset-2 hover:text-af-ink-2 hover:underline focus:text-af-ink-2 focus:underline focus:outline-none"
           role="button"
           tabindex="0"
           @click="copy(item.endpoint)"
@@ -111,8 +111,8 @@ onBeforeUnmount(() => {
           type="button"
           class="rounded p-0.5 transition-colors"
           :class="copiedEndpoint === item.endpoint
-            ? 'text-af-success'
-            : 'text-af-ink-4 hover:text-af-brand'"
+            ? 'text-af-ink'
+            : 'text-af-ink-4 hover:text-af-ink'"
           :aria-label="tooltipHint(item.endpoint)"
           @click="copy(item.endpoint)"
         >
@@ -128,7 +128,7 @@ onBeforeUnmount(() => {
           :href="speedTestUrl(item.endpoint)"
           target="_blank"
           rel="noopener noreferrer"
-          class="rounded p-0.5 text-af-ink-4 transition-colors hover:text-af-warning"
+          class="rounded p-0.5 text-af-ink-4 transition-colors hover:text-af-ink"
           :title="t('keys.endpoints.speedTest')"
         >
           <svg class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
