@@ -243,8 +243,7 @@ describe('HomeView compact mode', () => {
     // 奇数行把文字挪到右边（图在左），偶数行相反
     const copyOrder = features.map((row) => row.get('div').classes().includes('lg:order-2'))
     expect(copyOrder).toEqual([false, true, false, true, false])
-    // 拿不到目录：数字段不出现（眉题是固定文案，照常出现）
-    expect(wrapper.find('[data-testid="hero-eyebrow"]').exists()).toBe(true)
+    // 拿不到目录：数字段不出现
     expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
 
     // 有目录：正文恰好三块，顺序 首屏 → 数字 → 特色

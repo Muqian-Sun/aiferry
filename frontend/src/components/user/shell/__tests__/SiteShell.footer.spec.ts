@@ -30,11 +30,6 @@ function mountShell(variant: 'public' | 'console' = 'public') {
   })
 }
 
-/** 横排页脚里链接的文字，按出现顺序（产品 → 帮助 → 协议） */
-function linkLabels(wrapper: ReturnType<typeof mountShell>) {
-  return wrapper.findAll('[data-testid="footer-links"] > *').map((node) => node.text())
-}
-
 function linkTargets(wrapper: ReturnType<typeof mountShell>) {
   return wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to'))
 }
@@ -47,35 +42,15 @@ describe('SiteShell public footer', () => {
     appStore.contactInfo = ''
   })
 
-  it('lays the footer out as one horizontal row: brand, links, copyright', () => {
+  it('keeps the footer to one row: copyright only when no agreement documents are configured', () => {
     const wrapper = mountShell()
-    // 没有文档 / 联系方式 / 协议时只剩产品链接，且不再有分栏标题
-    expect(linkLabels(wrapper)).toEqual(['userUi.footer.home', 'userUi.nav.pricing', 'userUi.nav.login'])
-    expect(linkTargets(wrapper)).toEqual(['/home', '/model-plaza', '/login'])
-    expect(wrapper.findAll('[data-testid="site-footer"] h2')).toHaveLength(0)
-    expect(wrapper.get('[data-testid="footer-brand"]').text()).toContain('Test site')
-    expect(wrapper.get('[data-testid="site-footer"]').text()).toContain(`© ${new Date().getFullYear()}`)
+    expect(wrapper.find('[data-testid="footer-brand"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="footer-links"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="footer-legal"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="site-footer"]').text()).toContain(`© ${new Date().getFullYear()} Test site`)
   })
 
-  it('adds sign-up for anonymous visitors when registration is open, and the console when signed in', () => {
-    appStore.cachedPublicSettings = { registration_enabled: true }
-    expect(linkTargets(mountShell())).toContain('/register')
-
-    authStore.isAuthenticated = true
-    const links = linkTargets(mountShell())
-    expect(links).toContain('/usage')
-    expect(links).not.toContain('/login')
-    expect(links).not.toContain('/register')
-  })
-
-  it('appends the docs link (external) and the contact text to the same row', () => {
-    appStore.cachedPublicSettings = { doc_url: 'https://docs.example', contact_info: 'support@example.test' }
-    const wrapper = mountShell()
-    expect(linkLabels(wrapper)).toEqual(['userUi.footer.home', 'userUi.nav.pricing', 'userUi.nav.login', 'userUi.nav.docs', 'support@example.test'])
-    expect(wrapper.get('[data-testid="footer-links"] a[href="https://docs.example/"]').attributes('target')).toBe('_blank')
-  })
-
-  it('appends every login agreement document to the same row', () => {
+  it('lists every login agreement document in the bottom row next to the copyright', () => {
     appStore.cachedPublicSettings = {
       login_agreement_documents: [
         { id: 'tos', title: 'Terms' },
@@ -83,7 +58,7 @@ describe('SiteShell public footer', () => {
       ]
     }
     const wrapper = mountShell()
-    expect(linkLabels(wrapper)).toEqual(['userUi.footer.home', 'userUi.nav.pricing', 'userUi.nav.login', 'Terms', 'Privacy'])
+    expect(wrapper.findAll('[data-testid="footer-legal"] a').map((a) => a.text())).toEqual(['Terms', 'Privacy'])
     expect(linkTargets(wrapper)).toEqual(expect.arrayContaining(['/legal/tos', '/legal/privacy']))
   })
 

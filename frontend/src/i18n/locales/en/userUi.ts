@@ -20,8 +20,8 @@ export default {
       primaryNav: 'Primary'
     },
     footer: {
-      home: 'Home',
-      register: 'Sign up'
+      register: 'Sign up',
+      rights: 'All rights reserved'
     },
     topbar: {
       balance: 'Balance',
@@ -36,26 +36,29 @@ export default {
     },
     home: {
       hero: {
-        eyebrow: 'Official protocols · Never logged · Never sold',
         title: 'One key,',
         titleAccent: 'every leading model',
-        description: 'Official protocols relayed as-is — change one base_url, keep your SDK. We switch channels, never your model; caches stay hot; prompts are never stored or sold.',
+        description: 'AiFerry relays your requests on the official protocols — never rewritten, never swapped for another model, never sold. Change one base_url and your existing SDKs keep working.',
         getStarted: 'Get started',
         goToConsole: 'Open console',
         viewPricing: 'Models & pricing',
-        compat: 'Works with the official OpenAI, Anthropic and Gemini SDKs',
+        points: {
+          protocol: 'Official protocols, untouched',
+          sameModel: 'Next channel, never another model',
+          ledger: 'Pay per use, every request on the ledger'
+        },
         vendorsLabel: 'Vendors connected'
       },
       features: {
         eyebrow: 'How we work',
         title: 'One job — relaying — done properly',
-        description: 'The less a middle layer does, the better: we do not rewrite your request, swap your model, or keep your data.',
+        description: 'The less a middle layer does, the better: we do not rewrite your request, swap your model, or sell your data.',
         items: {
           passthrough: { title: 'Pass through as-is', body: 'Four official protocols relayed untouched — no private format, no rewriting. SDKs, streaming, tool calls and multimodal behave exactly as direct.' },
           failover: { title: 'No cross-model fallback', body: 'The model you name is the model that runs. On a timeout or error we only move between channels serving that same model — never a quiet downgrade to something cheaper.' },
           cache: { title: 'Cache to the limit', body: 'A session stays pinned to one upstream so prompt caches keep hitting. Long conversations get faster as they go, and cheaper with them.' },
-          privacy: { title: 'Never logged', body: 'Request bodies and model replies are never written to disk. Each call leaves one ledger line — model, tokens, latency, cost — for you to reconcile.' },
-          noSale: { title: 'Never sold', body: 'Not sold, not shared, not used for training. Your requests and bills never reach advertisers, brokers or any third party.' }
+          privacy: { title: 'Conversations not logged', body: 'Successful requests leave no request or reply on our side — only one ledger line: model, tokens, latency, cost. Failed requests are kept for troubleshooting and deleted after 30 days.' },
+          noSale: { title: 'Never sold', body: 'Not sold, not rented, not used for training. Beyond the upstream model that serves your request, your requests and bills go to no third party.' }
         },
         figure: {
           passthrough: { endpoint: 'One base_url', note: 'same protocol, passed through' },

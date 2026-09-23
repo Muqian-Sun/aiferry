@@ -20,45 +20,47 @@
 
   <!--
     默认首页（muqian 2026-09-22 定「正文三块」，9-23 定去底纹 / 不用卡片 / 位置重排）：
-    ① 首屏（lg 起满一屏，左文右全球厂商环形图，自己转、不跟鼠标）→ ② 数字（一条横排，上下细线分隔）
+    ① 首屏（左文右 11 家大模型图标云，各自飘、不跟鼠标）→ ② 数字（一条横排，上下细线分隔）
     → ③ 五条特色（整幅左右交错，图一侧、字一侧，行间细线）→ 页脚。
     数据段拿不到就不出现，不放假数字。动效：各段 v-reveal 进视口淡入上浮；标题第二行流动渐变；数字进视口从 0 跳到位；示意图各自循环演示。
   -->
   <SiteShell v-else variant="public" flush>
     <div data-testid="default-home">
       <!--
-        ① 首屏：lg 起占满一屏、内容垂直居中，左文右「全球模型厂商」环形图；窄屏只留文字，下面列目录里真有的厂商。
-        文字列按序渐现，环形图晚 200ms。
+        ① 首屏：lg 起占满一屏、左文右图标云垂直居中，文字列带底部内边距整体略上移（muqian：不要顶部对齐，只上移一点）；文字一律左对齐。
+        文字列按序渐现，图标云晚 200ms；窄屏只留文字，下面列目录里真有的厂商。
       -->
       <section class="home-hero relative">
-        <div class="mx-auto grid max-w-site items-center gap-12 px-6 pb-16 pt-14 sm:pt-20 lg:min-h-[calc(100svh_-_var(--af-topbar-h))] lg:grid-cols-[1.1fr_1fr] lg:gap-8 lg:py-12">
-          <div v-reveal.stagger class="text-center lg:text-left" data-testid="hero-copy">
-            <p class="section-eyebrow section-eyebrow-live" data-testid="hero-eyebrow">{{ t('userUi.home.hero.eyebrow') }}</p>
-            <h1 class="mt-7 text-[2.5rem] font-semibold leading-[1.1] tracking-tight text-af-ink sm:text-5xl lg:text-6xl">
+        <div class="mx-auto grid max-w-site items-center gap-12 px-6 pb-16 pt-12 sm:pt-16 lg:min-h-[calc(100svh_-_var(--af-topbar-h))] lg:grid-cols-[1.1fr_1fr] lg:gap-10 lg:py-10">
+          <div v-reveal.stagger class="text-left lg:pb-20" data-testid="hero-copy">
+            <h1 class="text-[2.75rem] font-semibold leading-[1.06] tracking-[-0.02em] text-af-ink sm:text-[3.5rem] lg:text-[4rem]">
               {{ t('userUi.home.hero.title') }}<br />
               <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
             </h1>
-            <p class="mx-auto mt-6 max-w-xl text-base leading-7 text-af-ink-3 sm:text-lg sm:leading-8 lg:mx-0">{{ t('userUi.home.hero.description') }}</p>
-            <div class="mt-10 flex flex-wrap items-center justify-center gap-3 lg:justify-start">
-              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary btn-pill btn-pill-arrow group" data-testid="home-primary-cta">
+            <p class="mt-6 max-w-lg text-[17px] leading-8 text-af-ink-2">{{ t('userUi.home.hero.description') }}</p>
+            <div class="mt-9 flex flex-wrap items-center gap-3">
+              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-hero btn-brand group" data-testid="home-primary-cta">
                 {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.home.hero.getStarted') }}
-                <span class="btn-pill-icon"><Icon name="arrowRight" size="sm" /></span>
+                <Icon name="arrowRight" size="sm" class="btn-arrow" />
               </RouterLink>
-              <RouterLink to="/model-plaza" class="btn btn-soft btn-pill" data-testid="home-secondary-cta">
+              <RouterLink to="/model-plaza" class="btn btn-hero btn-outline group" data-testid="home-secondary-cta">
                 {{ t('userUi.home.hero.viewPricing') }}
+                <Icon name="chevronRight" size="sm" class="btn-arrow text-af-ink-3" />
               </RouterLink>
             </div>
-            <p class="mt-7 flex items-center justify-center gap-2 text-13 text-af-ink-3 lg:justify-start" data-testid="hero-compat">
-              <Icon name="checkCircle" size="sm" class="text-af-success" />
-              {{ t('userUi.home.hero.compat') }}
-            </p>
-            <!-- 窄屏没有环形图：列目录里真有的厂商，拿不到目录就不出现 -->
+            <ul class="mt-9 flex flex-wrap gap-x-6 gap-y-2.5 text-sm text-af-ink-2" data-testid="hero-points">
+              <li v-for="point in HERO_POINTS" :key="point" class="flex items-center gap-2">
+                <span class="flex h-5 w-5 items-center justify-center rounded-full bg-af-brand-tint text-af-brand"><Icon name="check" size="xs" /></span>
+                {{ t(`userUi.home.hero.points.${point}`) }}
+              </li>
+            </ul>
+            <!-- 窄屏没有图标云：列目录里真有的厂商，拿不到目录就不出现 -->
             <div v-if="vendors.length" class="mt-12 lg:hidden">
               <p class="text-13 text-af-ink-4">{{ t('userUi.home.hero.vendorsLabel') }}</p>
-              <VendorStrip class="mt-4 justify-center" :vendors="vendors" />
+              <VendorStrip class="mt-4" :vendors="vendors" />
             </div>
           </div>
-          <VendorOrbit v-reveal="200" :logo="siteLogo || '/logo.svg'" class="mx-auto hidden lg:block" />
+          <VendorCloud v-reveal="200" class="mx-auto hidden lg:block" />
         </div>
       </section>
 
@@ -117,7 +119,7 @@ import { useI18n } from 'vue-i18n'
 import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import VendorStrip from '@/components/user/home/VendorStrip.vue'
-import VendorOrbit from '@/components/user/home/VendorOrbit.vue'
+import VendorCloud from '@/components/user/home/VendorCloud.vue'
 import HomeFigure, { type FigureKind } from '@/components/user/home/HomeFigure.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { vReveal } from '@/directives/reveal'
@@ -152,6 +154,8 @@ const consolePath = CONSOLE_HOME_PATH
 
 /** 五张插画卡 = 五条特色（muqian 2026-09-22 定）：尽量透传 / 不做不同模型兜底 / 最大程度缓存 / 不记录用户数据 / 不出售用户数据 */
 const FEATURES: readonly FigureKind[] = ['passthrough', 'failover', 'cache', 'privacy', 'noSale']
+/** 首屏按钮下的三条要点 */
+const HERO_POINTS = ['protocol', 'sameModel', 'ledger'] as const
 
 // 模型目录：与模型页同一个接口（对所有人开放）；拿不到（网络 / 空目录）就不渲染数字段，不放假数字
 const catalog = ref<CatalogModel[]>([])

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 首页环形图的厂商 logo 生成器：把 @lobehub/icons 的官方组件渲染成静态 SVG，写成数据文件（用时再编成 data URI）。
+ * 首页图标云的厂商 logo 生成器：把 @lobehub/icons 的官方组件渲染成静态 SVG，写成数据文件（用时再编成 data URI）。
  * 图标路径与配色全部来自这个包本身，不手画、不手抄。
  *
  * 用法：node scripts/gen-vendor-logos.mjs
@@ -23,53 +23,22 @@ const ICONS_DIR = fs.realpathSync(path.join(FRONTEND, 'node_modules/@lobehub/ico
 const ICONS_VERSION = JSON.parse(fs.readFileSync(path.join(ICONS_DIR, 'package.json'), 'utf8')).version
 
 /**
- * 清单：[组件目录名, 变体]。有官方全彩（Color）的用全彩，只有单色的用 Mono。
- * 顺序即图标云里从内圈到外圈的排布顺序：越靠前越知名、越靠近中心。
+ * 清单：[组件目录名, 变体]。muqian 2026-09-23 点名的 11 家「用户最关注的大模型」：
+ * 美国 Claude / OpenAI / Grok / Gemini，中国 智谱（Z.ai 字标）/ Kimi / DeepSeek / MiniMax / MiMo / Qwen / 豆包。
+ * 有官方全彩（Color）的用全彩，只有单色的用 Mono。顺序即首屏图标云里的摆放顺序（中美交错）。
  */
 const LOGOS = [
-  // 内圈：最常被点名的几家
   ['Claude', 'Color'],
-  ['OpenAI', 'Mono'],
-  ['Gemini', 'Color'],
   ['DeepSeek', 'Color'],
+  ['OpenAI', 'Mono'],
   ['Qwen', 'Color'],
-  ['Grok', 'Mono'],
-  ['Meta', 'Color'],
+  ['Gemini', 'Color'],
   ['Kimi', 'Color'],
-  // 中圈
-  ['Mistral', 'Color'],
+  ['Grok', 'Mono'],
   ['Doubao', 'Color'],
-  ['Cohere', 'Color'],
-  ['Zhipu', 'Color'],
-  ['Perplexity', 'Color'],
+  ['ZAI', 'Mono'],
   ['Minimax', 'Color'],
-  ['Copilot', 'Color'],
-  ['Hunyuan', 'Color'],
-  ['Nvidia', 'Color'],
-  ['Wenxin', 'Color'],
-  ['Nova', 'Color'],
-  ['Stepfun', 'Color'],
-  ['Midjourney', 'Mono'],
-  ['Yi', 'Color'],
-  // 外圈
-  ['Stability', 'Color'],
-  ['Spark', 'Color'],
-  ['Luma', 'Color'],
-  ['Baichuan', 'Color'],
-  ['HuggingFace', 'Color'],
-  ['SenseNova', 'Color'],
-  ['Runway', 'Mono'],
-  ['Kling', 'Color'],
-  ['Suno', 'Mono'],
-  ['Hailuo', 'Color'],
-  ['Flux', 'Mono'],
-  ['Vidu', 'Color'],
-  ['Ideogram', 'Mono'],
-  ['XiaomiMiMo', 'Mono'],
-  ['Groq', 'Mono'],
-  ['Together', 'Color'],
-  ['ElevenLabs', 'Mono'],
-  ['Ai21', 'Mono']
+  ['XiaomiMiMo', 'Mono']
 ]
 
 function fail(message) {
@@ -149,7 +118,7 @@ const entries = rendered.map(({ key, variant, title, color, svg }) => {
 })
 
 const header = `/**
- * 首页环形图用的厂商 logo：由 scripts/gen-vendor-logos.mjs 从 @lobehub/icons@${ICONS_VERSION} 生成，勿手改。
+ * 首页图标云用的厂商 logo：由 scripts/gen-vendor-logos.mjs 从 @lobehub/icons@${ICONS_VERSION} 生成，勿手改。
  * 改清单请改脚本里的 LOGOS 后重跑 \`node scripts/gen-vendor-logos.mjs\`。
  *
  * - kind = color：官方全彩 SVG，编成 data URI 当 <img> 画。

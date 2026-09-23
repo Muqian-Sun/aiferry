@@ -20,8 +20,8 @@ export default {
       primaryNav: '主导航'
     },
     footer: {
-      home: '首页',
-      register: '注册'
+      register: '注册',
+      rights: '保留所有权利'
     },
     topbar: {
       balance: '余额',
@@ -36,26 +36,29 @@ export default {
     },
     home: {
       hero: {
-        eyebrow: '官方协议直连 · 不记录 · 不出售',
         title: '一把 Key，',
-        titleAccent: '直连全球主流大模型',
-        description: '官方协议原样透传，只改一行 base_url。同模型只换渠道、不换模型，缓存尽量打满；请求内容不落盘，也不出售。',
+        titleAccent: '摆渡全球大模型',
+        description: 'AiFerry 按官方协议原样转发你的请求：不改写、不偷换模型、不出售数据。只改一行 base_url，现有的 SDK 和代码照常运行。',
         getStarted: '开始使用',
         goToConsole: '进入控制台',
         viewPricing: '查看模型与价格',
-        compat: 'OpenAI、Anthropic、Gemini 官方 SDK 直接可用',
+        points: {
+          protocol: '官方协议原样透传',
+          sameModel: '同模型换渠道，绝不换模型',
+          ledger: '按量计费，逐条可查'
+        },
         vendorsLabel: '已接入的厂商'
       },
       features: {
         eyebrow: '我们的做法',
         title: '只做转发这一件事，做到底',
-        description: '中间层能少做一点是一点：不改你的请求、不换你的模型、不留你的数据。',
+        description: '中间层能少做一点是一点：不改你的请求、不换你的模型、不卖你的数据。',
         items: {
           passthrough: { title: '尽量透传', body: '四条官方协议原样转发，不做私有格式转换、不改写你的请求。SDK、流式、工具调用、多模态，行为与直连一致。' },
           failover: { title: '不做不同模型兜底', body: '你点名的模型就是实际跑的模型。上游超时或报错，只在同一模型的其他渠道之间切换，绝不悄悄降级成便宜模型。' },
           cache: { title: '最大程度缓存', body: '同一会话固定落在同一上游，提示词缓存持续命中。长对话越聊越快，费用也跟着降下来。' },
-          privacy: { title: '不记录用户数据', body: '请求正文与模型回复都不落盘。每次调用只留一行账：模型、Token、耗时、费用，供你自己对账。' },
-          noSale: { title: '不出售用户数据', body: '不卖、不共享、不拿去训练。你的请求与账单不会流向广告商、数据商或任何第三方。' }
+          privacy: { title: '不记录对话内容', body: '请求成功时不保存请求与模型回复，只留一行账：模型、Token、耗时、费用。仅在请求失败时为排障暂存请求内容，30 天后自动删除。' },
+          noSale: { title: '不出售用户数据', body: '不卖、不出租、不拿去训练。除完成请求必需的上游模型外，你的请求与账单不会交给任何第三方。' }
         },
         figure: {
           passthrough: { endpoint: '一个 base_url', note: '同协议原样透传' },

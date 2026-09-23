@@ -220,20 +220,7 @@
     @apply h-1.5 w-1.5 shrink-0 rounded-full bg-af-brand;
   }
 
-  /* 首屏眉题：圆点带一圈呼吸光晕，像「在线」指示 */
-  .section-eyebrow-live::before {
-    animation: eyebrow-live 2.4s ease-out infinite;
-  }
 
-  @keyframes eyebrow-live {
-    0% {
-      box-shadow: 0 0 0 0 rgb(var(--af-brand) / 0.45);
-    }
-    70%,
-    100% {
-      box-shadow: 0 0 0 6px rgb(var(--af-brand) / 0);
-    }
-  }
 
   .section-title {
     @apply mt-5 text-3xl font-semibold tracking-tight text-af-ink sm:text-4xl;
@@ -244,35 +231,41 @@
     @apply mx-auto mt-4 max-w-2xl text-base text-af-ink-3 sm:text-lg;
   }
 
+  /* 顶栏右侧的账户按钮：品牌浅底 + 品牌色字；开放注册时「注册」用品牌实心 */
+  .nav-account-btn {
+    @apply inline-flex h-9 items-center gap-1.5 rounded-full bg-af-brand-tint px-4 text-sm font-medium text-af-brand transition-colors hover:bg-af-brand hover:text-af-on-brand;
+  }
+
+  .nav-account-btn-solid {
+    @apply bg-af-brand text-af-on-brand hover:bg-af-brand-hover;
+  }
+
   /*
-   * 首屏胶囊按钮：48px 高、15px 字。
-   * 主按钮（.btn-primary.btn-pill）带一层压低的投影；.btn-pill-arrow 在右端放一个圆形箭头位，hover 时箭头右移。
-   * 次按钮用 .btn-soft：无描边，底色一档 sunken，hover 加深一档。
+   * 首屏按钮：48px 高、12px 圆角、15px 字，图标跟在文字后、hover 时右移一点。
+   * 主按钮 .btn-brand 用品牌青（和 logo 同色）+ 同色压低的投影；次按钮 .btn-outline 白底细描边。
    */
-  .btn-pill {
-    @apply h-12 rounded-full px-6 py-0 text-[15px];
+  .btn-hero {
+    @apply h-12 gap-2 rounded-xl px-6 py-0 text-[15px];
   }
 
-  .btn-primary.btn-pill {
+  .btn-brand {
+    @apply bg-af-brand text-af-on-brand hover:bg-af-brand-hover;
     box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.12),
-      0 10px 24px -12px rgb(var(--af-ink) / 0.55);
+      inset 0 1px 0 rgb(255 255 255 / 0.14),
+      0 10px 24px -12px rgb(var(--af-brand) / 0.75);
   }
 
-  .btn-pill-arrow {
-    @apply gap-3 pr-1.5;
+  .btn-outline {
+    @apply border border-af-hairline-strong bg-af-sheet text-af-ink hover:border-af-ink-4 hover:bg-af-sunken;
+    box-shadow: 0 1px 2px rgb(var(--af-ink) / 0.05);
   }
 
-  .btn-pill-icon {
-    @apply flex h-9 w-9 items-center justify-center rounded-full bg-af-sheet/15 transition-transform duration-200 ease-out;
+  .btn-arrow {
+    @apply transition-transform duration-200 ease-out;
   }
 
-  .group:hover .btn-pill-icon {
+  .group:hover .btn-arrow {
     @apply translate-x-0.5;
-  }
-
-  .btn-soft {
-    @apply bg-af-sunken text-af-ink hover:bg-af-hairline;
   }
 
   /*
@@ -380,10 +373,6 @@
 
     .count-up {
       transition: none;
-    }
-
-    .section-eyebrow-live::before {
-      animation: none;
     }
   }
 

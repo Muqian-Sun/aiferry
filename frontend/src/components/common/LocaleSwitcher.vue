@@ -3,11 +3,12 @@
     <button
       @click="toggleDropdown"
       :disabled="switching"
-      class="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-sm font-medium text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
+      class="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-13 font-medium text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
       :title="currentLocale?.name"
+      data-testid="locale-switcher-trigger"
     >
-      <span class="text-base">{{ currentLocale?.flag }}</span>
-      <span class="hidden sm:inline">{{ currentLocale?.code.toUpperCase() }}</span>
+      <Icon name="globe" size="sm" />
+      <span class="hidden sm:inline">{{ currentLocale?.name }}</span>
       <Icon
         name="chevronDown"
         size="xs"

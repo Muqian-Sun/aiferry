@@ -16,22 +16,13 @@
       </div>
     </main>
     <!-- 公开站页脚：三栏链接全部来自公开设置（文档地址 / 联系方式 / 协议文档），没有的栏不出现 -->
-    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline" data-testid="site-footer">
-      <!-- 横排一行（muqian 2026-09-23）：品牌 · 链接 · 版权；窄屏按需折行，不分栏 -->
-      <div class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-10 gap-y-4 px-6 py-8">
-        <div class="flex min-w-0 items-center gap-2.5" data-testid="footer-brand">
-          <img :src="logoSrc" alt="" class="h-6 w-6 shrink-0 object-contain" />
-          <span class="text-base font-semibold text-af-ink">{{ siteName }}</span>
-          <span v-if="siteSubtitle" class="hidden truncate text-13 text-af-ink-4 lg:inline">· {{ siteSubtitle }}</span>
-        </div>
-        <nav class="flex flex-wrap items-center gap-x-6 gap-y-2 text-13 text-af-ink-3" data-testid="footer-links">
-          <template v-for="link in footerLinks" :key="link.key">
-            <a v-if="link.external" :href="link.to" target="_blank" rel="noopener noreferrer" class="hover:text-af-ink">{{ link.label }}</a>
-            <RouterLink v-else-if="link.to" :to="link.to" class="hover:text-af-ink">{{ link.label }}</RouterLink>
-            <span v-else class="text-af-ink-4">{{ link.label }}</span>
-          </template>
+    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline bg-af-sunken" data-testid="site-footer">
+      <!-- 横排一行（muqian 2026-09-23：页脚只留版权与条款）：版权在左、条款在右，窄屏按需折行 -->
+      <div class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-13 text-af-ink-3">
+        <p>© {{ currentYear }} {{ siteName }} · {{ t('userUi.footer.rights') }}</p>
+        <nav v-if="legalLinks.length" class="flex flex-wrap items-center gap-x-6 gap-y-1" data-testid="footer-legal">
+          <RouterLink v-for="link in legalLinks" :key="link.key" :to="link.to" class="hover:text-af-ink">{{ link.label }}</RouterLink>
         </nav>
-        <p class="text-xs text-af-ink-4">© {{ currentYear }} {{ siteName }}</p>
       </div>
     </footer>
   </div>
@@ -42,9 +33,6 @@ import '@/styles/onboarding.css'
 import { computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { useAuthStore } from '@/stores/auth'
-import { sanitizeUrl } from '@/utils/url'
-import { CONSOLE_HOME_PATH } from './navItems'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { usePageTitle } from '@/composables/usePageTitle'
@@ -68,46 +56,18 @@ const props = withDefaults(
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const authStore = useAuthStore()
 const { title: routeTitle, description: routeDescription } = usePageTitle()
 const siteName = computed(() => appStore.siteName)
-const siteSubtitle = computed(() => appStore.cachedPublicSettings?.site_subtitle || '')
-const logoSrc = computed(
-  () => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }) || '/logo.svg'
-)
 const currentYear = new Date().getFullYear()
 
-interface FooterLink {
-  key: string
-  label: string
-  /** 站内路径或外链；空 = 纯文字（联系方式） */
-  to?: string
-  external?: boolean
-}
-const footerLinks = computed<FooterLink[]>(() => {
+/** 条款文档（后台「登录协议」里配置的）：和版权同一行 */
+const legalLinks = computed(() => {
   if (props.variant !== 'public') return []
-  const settings = appStore.cachedPublicSettings
-  const product: FooterLink[] = [
-    { key: 'home', label: t('userUi.footer.home'), to: '/home' },
-    { key: 'pricing', label: t('userUi.nav.pricing'), to: '/model-plaza' },
-    authStore.isAuthenticated
-      ? { key: 'console', label: t('userUi.nav.console'), to: CONSOLE_HOME_PATH }
-      : { key: 'login', label: t('userUi.nav.login'), to: '/login' }
-  ]
-  if (!authStore.isAuthenticated && settings?.registration_enabled) {
-    product.push({ key: 'register', label: t('userUi.footer.register'), to: '/register' })
-  }
-  const help: FooterLink[] = []
-  const docUrl = sanitizeUrl(settings?.doc_url || appStore.docUrl)
-  if (docUrl) help.push({ key: 'docs', label: t('userUi.nav.docs'), to: docUrl, external: true })
-  const contact = (settings?.contact_info || appStore.contactInfo || '').trim()
-  if (contact) help.push({ key: 'contact', label: contact })
-  const legal: FooterLink[] = (settings?.login_agreement_documents ?? []).map((doc) => ({
+  return (appStore.cachedPublicSettings?.login_agreement_documents ?? []).map((doc) => ({
     key: `legal-${doc.id}`,
     label: doc.title,
     to: `/legal/${doc.id}`
   }))
-  return [...product, ...help, ...legal]
 })
 
 // 新手引导挂在控制台壳上（原 AppLayout 的职责）；storageKey 与旧实现一致，用户不会重新看到已看过的引导
