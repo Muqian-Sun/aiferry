@@ -11,7 +11,6 @@ import (
 	"time"
 	"unicode/utf8"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
@@ -19,42 +18,20 @@ import (
 type duplicateAccountRepoStub struct {
 	*sparkShadowRepoStub
 	atomicCreateErr error
-	accountGroupsOf map[int64][]AccountGroup
 }
 
 func newDuplicateAccountRepoStub() *duplicateAccountRepoStub {
 	return &duplicateAccountRepoStub{
 		sparkShadowRepoStub: newSparkShadowRepoStub(),
-		accountGroupsOf:     make(map[int64][]AccountGroup),
 	}
 }
 
-func (s *duplicateAccountRepoStub) CreateWithAccountGroups(ctx context.Context, account *Account, groups []AccountGroup) error {
+// Create 覆盖基类：atomicCreateErr 非空时模拟创建失败（原 CreateWithAccountGroups 的事务失败场景）。
+func (s *duplicateAccountRepoStub) Create(ctx context.Context, account *Account) error {
 	if s.atomicCreateErr != nil {
 		return s.atomicCreateErr
 	}
-	groupIDs := make([]int64, 0, len(groups))
-	for _, group := range groups {
-		groupIDs = append(groupIDs, group.GroupID)
-	}
-	account.GroupIDs = groupIDs
-	if err := s.Create(ctx, account); err != nil {
-		return err
-	}
-	clonedGroups := make([]AccountGroup, len(groups))
-	copy(clonedGroups, groups)
-	for i := range clonedGroups {
-		clonedGroups[i].AccountID = account.ID
-	}
-	account.AccountGroups = clonedGroups
-	s.accountGroupsOf[account.ID] = clonedGroups
-	if len(groupIDs) > 0 {
-		s.groupsOf[account.ID] = append([]int64(nil), groupIDs...)
-	}
-	stored := *account
-	s.accounts[account.ID] = &stored
-	s.mockAccountRepoForGemini.accountsByID[account.ID] = &stored
-	return nil
+	return s.sparkShadowRepoStub.Create(ctx, account)
 }
 
 func (s *duplicateAccountRepoStub) FindByExtraField(_ context.Context, key string, value any) ([]Account, error) {
@@ -74,7 +51,7 @@ func (s *duplicateAccountRepoStub) FindByExtraField(_ context.Context, key strin
 func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) {
 	ctx := context.Background()
 	repo := newDuplicateAccountRepoStub()
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+	svc := &adminServiceImpl{accountRepo: repo}
 
 	notes := "keep this note"
 	proxyID := int64(17)
@@ -126,8 +103,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 			"antigravity_force_token_refresh": true,
 			"antigravity_credits_overages":    map[string]any{"enabled": true},
 		},
-		GroupIDs:                []int64{7, 3},
-		AccountGroups:           []AccountGroup{{GroupID: 7, Priority: 50}, {GroupID: 3, Priority: 7}},
 		RateLimitedAt:           &rateLimitedAt,
 		RateLimitResetAt:        &rateLimitResetAt,
 		OverloadUntil:           &overloadUntil,
@@ -153,7 +128,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.Equal(t, source.Concurrency, duplicate.Concurrency)
 	require.Equal(t, source.Priority, duplicate.Priority)
 	require.Equal(t, source.AutoPauseOnExpired, duplicate.AutoPauseOnExpired)
-	require.Equal(t, source.GroupIDs, duplicate.GroupIDs)
 	require.Equal(t, source.Credentials, duplicate.Credentials)
 	require.Equal(t, map[string]any{
 		"config":         map[string]any{"region": "us-east-1"},
@@ -168,11 +142,6 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 	require.Equal(t, source.ProxyFallbackOriginID, duplicate.ProxyID)
 	require.Equal(t, source.RateMultiplier, duplicate.RateMultiplier)
 	require.Equal(t, source.LoadFactor, duplicate.LoadFactor)
-	require.Equal(t, source.GroupIDs, repo.groupsOf[duplicate.ID])
-	require.Equal(t, []AccountGroup{
-		{AccountID: duplicate.ID, GroupID: 7, Priority: 50},
-		{AccountID: duplicate.ID, GroupID: 3, Priority: 7},
-	}, repo.accountGroupsOf[duplicate.ID])
 
 	require.Equal(t, StatusActive, duplicate.Status)
 	require.False(t, duplicate.Schedulable)
@@ -200,7 +169,7 @@ func TestDuplicateAccountCopiesConfigurationAndResetsRuntimeState(t *testing.T) 
 func TestDuplicateAccountRejectsCredentialShadow(t *testing.T) {
 	ctx := context.Background()
 	repo := newDuplicateAccountRepoStub()
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+	svc := &adminServiceImpl{accountRepo: repo}
 	parentID := int64(99)
 	shadow := &Account{
 		Name:            "shadow",
@@ -224,7 +193,7 @@ func TestDuplicateAccountRejectsRotatingOrUnknownCredentialTypes(t *testing.T) {
 		t.Run(accountType, func(t *testing.T) {
 			ctx := context.Background()
 			repo := newDuplicateAccountRepoStub()
-			svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+			svc := &adminServiceImpl{accountRepo: repo}
 			source := &Account{
 				Name:        "rotating-credential-account",
 				Platform:    PlatformOpenAI,
@@ -243,69 +212,23 @@ func TestDuplicateAccountRejectsRotatingOrUnknownCredentialTypes(t *testing.T) {
 	}
 }
 
-func TestDuplicateAccountPreservesUngroupedState(t *testing.T) {
-	ctx := context.Background()
-	repo := newDuplicateAccountRepoStub()
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
-	source := &Account{
-		Name:              "ungrouped",
-		Platform:          PlatformAnthropic,
-		Type:              AccountTypeAPIKey,
-		Credentials:       map[string]any{"api_key": "secret"},
-		GroupIDs:          nil,
-		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-	}
-	require.NoError(t, repo.Create(ctx, source))
-
-	duplicate, err := svc.DuplicateAccount(ctx, source.ID, "admin:1", "")
-
-	require.NoError(t, err)
-	require.Empty(t, duplicate.GroupIDs)
-	require.NotContains(t, repo.groupsOf, duplicate.ID)
-}
-
-func TestDuplicateAccountSimpleModeRejectsCompositeGroupBinding(t *testing.T) {
-	ctx := context.Background()
-	repo := newDuplicateAccountRepoStub()
-	groupRepo := &groupRepoStubForAdmin{getByIDByID: map[int64]*Group{
-		9: {ID: 9, Platform: PlatformComposite},
-	}}
-	svc := &adminServiceImpl{
-		cfg: &config.Config{RunMode: config.RunModeSimple}, groupRepo: groupRepo,
-		accountRepo: repo, accountDuplicateRepo: repo,
-	}
-	source := &Account{
-		Name: "composite-bound", Platform: PlatformAnthropic, Type: AccountTypeAPIKey,
-		Credentials: map[string]any{"api_key": "secret"}, GroupIDs: []int64{9},
-		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
-	}
-	require.NoError(t, repo.Create(ctx, source))
-
-	_, err := svc.DuplicateAccount(ctx, source.ID, "admin:1", "")
-
-	require.Equal(t, "SIMPLE_MODE_GROUP_NOT_BINDABLE", infraerrors.Reason(err))
-	require.Len(t, repo.accounts, 1)
-}
-
 func TestDuplicateAccountAtomicCreateFailureLeavesNoOrphan(t *testing.T) {
 	ctx := context.Background()
 	repo := newDuplicateAccountRepoStub()
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+	svc := &adminServiceImpl{accountRepo: repo}
 	source := &Account{
 		Name:              "source",
 		Platform:          PlatformAnthropic,
 		Type:              AccountTypeAPIKey,
 		Credentials:       map[string]any{"api_key": "secret"},
-		GroupIDs:          []int64{7},
-		AccountGroups:     []AccountGroup{{GroupID: 7, Priority: 25}},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	require.NoError(t, repo.Create(ctx, source))
-	repo.atomicCreateErr = errors.New("group binding failed")
+	repo.atomicCreateErr = errors.New("atomic create failed")
 
 	_, err := svc.DuplicateAccount(ctx, source.ID, "admin:1", "")
 
-	require.ErrorContains(t, err, "group binding failed")
+	require.ErrorContains(t, err, "atomic create failed")
 	require.Len(t, repo.accounts, 1)
 }
 
@@ -319,7 +242,7 @@ func TestDuplicateAccountNamePreservesSuffixWithinSchemaLimit(t *testing.T) {
 func TestDuplicateAccountReturnsExistingCopyForSameOperationKey(t *testing.T) {
 	ctx := context.Background()
 	repo := newDuplicateAccountRepoStub()
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+	svc := &adminServiceImpl{accountRepo: repo}
 	source := &Account{
 		Name:              "source",
 		Platform:          PlatformAnthropic,

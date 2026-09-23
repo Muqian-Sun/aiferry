@@ -105,26 +105,21 @@ type CreateUserInput struct {
 	Concurrency int
 	RPMLimit    int
 	// RateMultiplier 用户级计费倍率；nil 表示默认 1。
-	RateMultiplier       *float64
-	AllowedGroups        []int64
-	RestrictPublicGroups bool
+	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
 	ActorAdminID int64
 }
 
 type UpdateUserInput struct {
-	Email         string
-	Password      string
-	Username      *string
-	Notes         *string
-	Role          string   // 空字符串表示"未提供"(不修改);合法值 admin/user
-	Balance       *float64 // 使用指针区分"未提供"和"设置为0"
-	Concurrency   *int     // 使用指针区分"未提供"和"设置为0"
-	RPMLimit      *int     // 使用指针区分"未提供"和"设置为0"
-	Status        string
-	AllowedGroups *[]int64 // 使用指针区分"未提供"和"设置为空数组"
-	// RestrictPublicGroups 指针区分"未提供"和"显式开关"。
-	RestrictPublicGroups *bool
+	Email       string
+	Password    string
+	Username    *string
+	Notes       *string
+	Role        string   // 空字符串表示"未提供"(不修改);合法值 admin/user
+	Balance     *float64 // 使用指针区分"未提供"和"设置为0"
+	Concurrency *int     // 使用指针区分"未提供"和"设置为0"
+	RPMLimit    *int     // 使用指针区分"未提供"和"设置为0"
+	Status      string
 	// RateMultiplier 用户级计费倍率（>= 0，0 = 免费）；指针区分"未提供"和"设置为0"。
 	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。
@@ -213,7 +208,7 @@ type UpdateAccountInput struct {
 	ProbeEnabled       *bool
 	RateSyncEnabled    *bool
 	// ProtocolEndpoints 为 nil 表示不修改；非 nil（含空 map）表示整体替换。
-	ProtocolEndpoints     *map[string]string
+	ProtocolEndpoints *map[string]string
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
@@ -250,10 +245,9 @@ type BulkUpdateAccountResult struct {
 }
 
 type UserRPMStatus struct {
-	UserRPMUsed  int                  `json:"user_rpm_used"`
-	UserRPMLimit int                  `json:"user_rpm_limit"`
+	UserRPMUsed  int `json:"user_rpm_used"`
+	UserRPMLimit int `json:"user_rpm_limit"`
 }
-
 
 // BulkUpdateAccountsResult is the aggregated response for bulk updates.
 type BulkUpdateAccountsResult struct {

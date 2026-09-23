@@ -40,21 +40,12 @@ func tokenPricingForModels(models []string, inputPerMillion float64) PricingCard
 }
 
 // recordUsageWithCatalogPricing 用给定的目录价卡跑一次 RecordUsage，返回落库的 UsageLog。
-func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscriptionGroup bool, pricings []PricingCard) *UsageLog {
+func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, _ bool, pricings []PricingCard) *UsageLog {
 	t.Helper()
-	const groupID = int64(777)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = newResolverWithCatalogCards(svc.billingService, pricings...)
-
-	group := &Group{
-		ID:             groupID,
-		Platform:       PlatformOpenAI,
-		RateMultiplier: 1,
-	}
-	if subscriptionGroup {
-	}
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -68,13 +59,9 @@ func recordUsageWithCatalogPricing(t *testing.T, requestedModel string, subscrip
 			Duration: time.Second,
 		},
 		RequestedModel: requestedModel,
-		APIKey: &APIKey{
-			ID:      1,
-			GroupID: i64p(groupID),
-			Group:   group,
-		},
-		User:    &User{ID: 1, RateMultiplier: 1},
-		Account: &Account{ID: 1, Platform: PlatformOpenAI},
+		APIKey:         &APIKey{ID: 1},
+		User:           &User{ID: 1, RateMultiplier: 1},
+		Account:        &Account{ID: 1, Platform: PlatformOpenAI},
 	})
 	require.NoError(t, err)
 	require.NotNil(t, usageRepo.lastLog)

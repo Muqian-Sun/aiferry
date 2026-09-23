@@ -17,7 +17,7 @@ import (
 
 func TestFilterCNProviderBillingModelCandidates_FollowsVendor(t *testing.T) {
 	svc := &OpenAIGatewayService{}
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}
+	apiKey := &APIKey{}
 	candidates := []string{"claude-sonnet-4-6", "kimi-k2"}
 
 	relay := vendorTestKey(PlatformKimi, vendorTestRelayChat)
@@ -33,7 +33,7 @@ func TestOpenAIRecordUsage_Resets403CounterWithEscalatingPolicyScope(t *testing.
 	record := func(t *testing.T, account *Account) []int64 {
 		t.Helper()
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 		counter := &openAI403CounterCacheStub{}
 		rls := NewRateLimitService(&rateLimitAccountRepoStub{}, nil, &config.Config{}, nil, nil)
 		rls.SetOpenAI403CounterCache(counter)
@@ -45,7 +45,7 @@ func TestOpenAIRecordUsage_Resets403CounterWithEscalatingPolicyScope(t *testing.
 				Model:     "gpt-5.4",
 				Duration:  time.Second,
 			},
-			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 9500+account.ID, false),
+			APIKey:  &APIKey{ID: 9500 + account.ID},
 			User:    &User{ID: 9600, RateMultiplier: 1.1},
 			Account: account,
 		})

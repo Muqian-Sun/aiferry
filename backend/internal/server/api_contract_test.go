@@ -61,7 +61,6 @@ func TestAPIContracts(t *testing.T) {
 					"rpm_limit": 0,
 					"rate_multiplier": 0,
 					"status": "active",
-					"allowed_groups": null,
 					"created_at": "2025-01-02T03:04:05Z",
 					"updated_at": "2025-01-02T03:04:05Z",
 					"balance_notify_enabled": false,
@@ -1256,7 +1255,6 @@ type contractDeps struct {
 	router      http.Handler
 	cfg         *config.Config
 	apiKeyRepo  *stubApiKeyRepo
-	groupRepo   *stubGroupRepo
 	userSubRepo *stubUserSubscriptionRepo
 	usageRepo   *stubUsageLogRepo
 	settingRepo *stubSettingRepo
@@ -1271,24 +1269,22 @@ func newContractDeps(t *testing.T) *contractDeps {
 	userRepo := &stubUserRepo{
 		users: map[int64]*service.User{
 			1: {
-				ID:            1,
-				Email:         "alice@example.com",
-				Username:      "alice",
-				Notes:         "hello",
-				Role:          service.RoleUser,
-				Balance:       12.5,
-				Concurrency:   5,
-				Status:        service.StatusActive,
-				AllowedGroups: nil,
-				CreatedAt:     now,
-				UpdatedAt:     now,
+				ID:          1,
+				Email:       "alice@example.com",
+				Username:    "alice",
+				Notes:       "hello",
+				Role:        service.RoleUser,
+				Balance:     12.5,
+				Concurrency: 5,
+				Status:      service.StatusActive,
+				CreatedAt:   now,
+				UpdatedAt:   now,
 			},
 		},
 	}
 
 	apiKeyRepo := newStubApiKeyRepo(now)
 	apiKeyCache := stubApiKeyCache{}
-	groupRepo := &stubGroupRepo{}
 	userSubRepo := &stubUserSubscriptionRepo{}
 	accountRepo := stubAccountRepo{}
 	proxyRepo := stubProxyRepo{}
@@ -1316,7 +1312,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	settingRepo := newStubSettingRepo()
 	settingService := service.NewSettingService(settingRepo, cfg)
 
-	adminService := service.NewAdminService(nil, userRepo, groupRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
+	adminService := service.NewAdminService(nil, userRepo, &accountRepo, proxyRepo, apiKeyRepo, redeemRepo, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, nil, redeemService, nil, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
@@ -1376,7 +1372,6 @@ func newContractDeps(t *testing.T) *contractDeps {
 		router:      r,
 		cfg:         cfg,
 		apiKeyRepo:  apiKeyRepo,
-		groupRepo:   groupRepo,
 		userSubRepo: userSubRepo,
 		usageRepo:   usageRepo,
 		settingRepo: settingRepo,
@@ -1506,18 +1501,6 @@ func (r *stubUserRepo) ExistsByEmailAlias(ctx context.Context, email string) (bo
 	return false, errors.New("not implemented")
 }
 
-func (r *stubUserRepo) RemoveGroupFromAllowedGroups(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func (r *stubUserRepo) RemoveGroupFromUserAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
-	return errors.New("not implemented")
-}
-
-func (r *stubUserRepo) AddGroupToAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
-	return errors.New("not implemented")
-}
-
 func (r *stubUserRepo) ListUserAuthIdentities(ctx context.Context, userID int64) ([]service.UserAuthIdentityRecord, error) {
 	return nil, nil
 }
@@ -1596,106 +1579,11 @@ func (stubApiKeyCache) SubscribeAuthCacheInvalidation(ctx context.Context, handl
 	return nil
 }
 
-type stubGroupRepo struct {
-	active []service.Group
-}
-
-func (r *stubGroupRepo) SetActive(groups []service.Group) {
-	r.active = append([]service.Group(nil), groups...)
-}
-
-func (stubGroupRepo) Create(ctx context.Context, group *service.Group) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) GetByID(ctx context.Context, id int64) (*service.Group, error) {
-	return nil, service.ErrGroupNotFound
-}
-
-func (stubGroupRepo) GetByIDLite(ctx context.Context, id int64) (*service.Group, error) {
-	return nil, service.ErrGroupNotFound
-}
-
-func (stubGroupRepo) Update(ctx context.Context, group *service.Group) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) Delete(ctx context.Context, id int64) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) DeleteCascade(ctx context.Context, id int64) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) DeleteCascadeIfEmpty(ctx context.Context, id int64) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) List(ctx context.Context, params pagination.PaginationParams) ([]service.Group, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
-func (stubGroupRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]service.Group, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
-func (r *stubGroupRepo) ListActive(ctx context.Context) ([]service.Group, error) {
-	return append([]service.Group(nil), r.active...), nil
-}
-
-func (r *stubGroupRepo) ListActiveByPlatform(ctx context.Context, platform string) ([]service.Group, error) {
-	out := make([]service.Group, 0, len(r.active))
-	for i := range r.active {
-		g := r.active[i]
-		if g.Platform == platform {
-			out = append(out, g)
-		}
-	}
-	return out, nil
-}
-
-func (stubGroupRepo) ExistsByName(ctx context.Context, name string) (bool, error) {
-	return false, errors.New("not implemented")
-}
-
-func (stubGroupRepo) GetAccountCount(ctx context.Context, groupID int64) (int64, int64, error) {
-	return 0, 0, errors.New("not implemented")
-}
-
-func (stubGroupRepo) DeleteAccountGroupsByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func (stubGroupRepo) BindAccountsToGroup(ctx context.Context, groupID int64, accountIDs []int64) error {
-	return errors.New("not implemented")
-}
-
-func (stubGroupRepo) GetAccountIDsByGroupIDs(ctx context.Context, groupIDs []int64) ([]int64, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (stubGroupRepo) UpdateSortOrders(ctx context.Context, updates []service.GroupSortOrderUpdate) error {
-	return nil
-}
-
-func (stubGroupRepo) FindByDuplicateOperationID(ctx context.Context, operationID string) (*service.Group, error) {
-	return nil, nil
-}
-
-func (stubGroupRepo) CreateFromSource(ctx context.Context, group *service.Group, sourceGroupID int64) error {
-	return errors.New("not implemented")
-}
-
 type stubAccountRepo struct {
 	bulkUpdateIDs []int64
 }
 
 func (s *stubAccountRepo) Create(ctx context.Context, account *service.Account) error {
-	return errors.New("not implemented")
-}
-
-func (s *stubAccountRepo) CreateWithAccountGroups(ctx context.Context, account *service.Account, groups []service.AccountGroup) error {
 	return errors.New("not implemented")
 }
 
@@ -1737,16 +1625,12 @@ func (s *stubAccountRepo) List(ctx context.Context, params pagination.Pagination
 	return nil, nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListAllWithFilters(context.Context, string, string, string, string, int64, string) ([]service.Account, error) {
+func (s *stubAccountRepo) ListAllWithFilters(context.Context, string, string, string, string, string) ([]service.Account, error) {
 	return nil, nil
 }
 
-func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
+func (s *stubAccountRepo) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, privacyMode string) ([]service.Account, *pagination.PaginationResult, error) {
 	return nil, nil, errors.New("not implemented")
-}
-
-func (s *stubAccountRepo) ListByGroup(ctx context.Context, groupID int64) ([]service.Account, error) {
-	return nil, errors.New("not implemented")
 }
 
 func (s *stubAccountRepo) ListActive(ctx context.Context) ([]service.Account, error) {
@@ -1785,10 +1669,6 @@ func (s *stubAccountRepo) AutoPauseExpiredAccounts(ctx context.Context, now time
 	return 0, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) BindGroups(ctx context.Context, accountID int64, groupIDs []int64) error {
-	return errors.New("not implemented")
-}
-
 func (s *stubAccountRepo) ListShadowsByParent(ctx context.Context, parentID int64) ([]*service.Account, error) {
 	return nil, errors.New("not implemented")
 }
@@ -1797,15 +1677,7 @@ func (s *stubAccountRepo) ListSchedulable(ctx context.Context) ([]service.Accoun
 	return nil, errors.New("not implemented")
 }
 
-func (s *stubAccountRepo) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]service.Account, error) {
-	return nil, errors.New("not implemented")
-}
-
 func (s *stubAccountRepo) ListSchedulableByPlatform(ctx context.Context, platform string) ([]service.Account, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (s *stubAccountRepo) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]service.Account, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1815,10 +1687,6 @@ func (s *stubAccountRepo) ListSchedulingCandidates(ctx context.Context, platform
 
 func (s *stubAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
 	return nil, nil
-}
-
-func (s *stubAccountRepo) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
-	return nil, errors.New("not implemented")
 }
 
 func (s *stubAccountRepo) ListModelAvailabilityCandidates(ctx context.Context, platforms []string) ([]service.Account, error) {
@@ -2299,43 +2167,11 @@ func (r *stubApiKeyRepo) ExistsByKey(ctx context.Context, key string) (bool, err
 	return ok, nil
 }
 
-func (r *stubApiKeyRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
 func (r *stubApiKeyRepo) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubApiKeyRepo) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func (r *stubApiKeyRepo) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
-	var updated int64
-	for id, key := range r.byID {
-		if key.UserID != userID || key.GroupID == nil || *key.GroupID != oldGroupID {
-			continue
-		}
-		clone := *key
-		gid := newGroupID
-		clone.GroupID = &gid
-		r.byID[id] = &clone
-		r.byKey[clone.Key] = &clone
-		updated++
-	}
-	return updated, nil
-}
-
-func (r *stubApiKeyRepo) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
 func (r *stubApiKeyRepo) ListKeysByUserID(ctx context.Context, userID int64) ([]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r *stubApiKeyRepo) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -2759,7 +2595,6 @@ var (
 	_ service.UserRepository             = (*stubUserRepo)(nil)
 	_ service.APIKeyRepository           = (*stubApiKeyRepo)(nil)
 	_ service.APIKeyCache                = (*stubApiKeyCache)(nil)
-	_ service.AdminGroupRepository       = (*stubGroupRepo)(nil)
 	_ service.UserSubscriptionRepository = (*stubUserSubscriptionRepo)(nil)
 	_ service.UsageLogRepository         = (*stubUsageLogRepo)(nil)
 	_ service.SettingRepository          = (*stubSettingRepo)(nil)

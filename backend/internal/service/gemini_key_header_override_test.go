@@ -84,7 +84,7 @@ func TestGeminiCompatForwarding_KeyHeaderOverridesApplyOnEveryAPIKeyPath(t *test
 			c, _ := gin.CreateTestContext(rec)
 			c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
 			upstream := &geminiKeyHeaderRecorder{body: geminiKeyHeaderOverrideResponse}
-			svc := NewGeminiMessagesCompatService(nil, nil, nil, nil, nil, nil, upstream, nil, &config.Config{})
+			svc := NewGeminiMessagesCompatService(nil, nil, nil, nil, nil, upstream, nil, &config.Config{})
 
 			require.NoError(t, path.call(svc, c, antigravityLabelledGeminiKeyWithOverrides()))
 

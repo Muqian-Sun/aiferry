@@ -311,13 +311,11 @@ func TestFinalizeLiveCallIsIdempotentAndWritesZeroUsage(t *testing.T) {
 }
 
 func TestGetLiveCallForIdentityRejectsMismatchedCaller(t *testing.T) {
-	groupID := int64(44)
 	record := &LiveCallRecord{
 		CallID:     "call_identity",
 		CallHash:   hashLiveCallID("call_identity"),
 		APIKeyID:   22,
 		UserID:     33,
-		GroupID:    groupID,
 		Controller: LiveControllerPending,
 	}
 	store := &liveTestStore{}
@@ -327,14 +325,12 @@ func TestGetLiveCallForIdentityRejectsMismatchedCaller(t *testing.T) {
 	_, err := service.GetLiveCallForIdentity(context.Background(), record.CallID, LiveCallIdentity{
 		APIKeyID: 99,
 		UserID:   record.UserID,
-		GroupID:  &groupID,
 	})
 	require.ErrorIs(t, err, ErrLiveIdentityMismatch)
 
 	loaded, err := service.GetLiveCallForIdentity(context.Background(), record.CallID, LiveCallIdentity{
 		APIKeyID: record.APIKeyID,
 		UserID:   record.UserID,
-		GroupID:  &groupID,
 	})
 	require.NoError(t, err)
 	require.Equal(t, record.AccountID, loaded.AccountID)

@@ -96,7 +96,6 @@ func (u *openAIImagesFailoverHTTPUpstream) calls() []int64 {
 
 func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhenExhausted(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(3130)
 	accounts := []service.Account{
 		{
 			ID:          1,
@@ -145,7 +144,7 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 		nil,
 		nil,
 		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
@@ -173,12 +172,7 @@ func TestOpenAIGatewayHandlerImages_ServerErrorFailsOverAndReturnsClearErrorWhen
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      99,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:                   groupID,
-			AllowImageGeneration: true,
-		},
+		ID:   99,
 		User: &service.User{ID: 100},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 100, Concurrency: 0})

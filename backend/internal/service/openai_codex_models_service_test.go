@@ -31,12 +31,7 @@ type codexModelsHTTPUpstreamStub struct {
 
 type codexModelsVisibilityAccountRepo struct {
 	AccountRepository
-	byGroup map[int64][]Account
-}
-
-func (r codexModelsVisibilityAccountRepo) ListSchedulableByGroupID(_ context.Context, groupID int64) ([]Account, error) {
-	accounts := r.byGroup[groupID]
-	return append([]Account(nil), accounts...), nil
+	accounts []Account
 }
 
 func (r codexModelsVisibilityAccountRepo) ListModelAvailabilityCandidates(_ context.Context, _ []string) ([]Account, error) {
@@ -47,11 +42,7 @@ func (r codexModelsVisibilityAccountRepo) ListModelAvailabilityCandidates(_ cont
 type codexManifestAccountSource interface{ allAccounts() []Account }
 
 func (r codexModelsVisibilityAccountRepo) allAccounts() []Account {
-	var out []Account
-	for _, accounts := range r.byGroup {
-		out = append(out, accounts...)
-	}
-	return out
+	return append([]Account(nil), r.accounts...)
 }
 
 func (r codexModelsVisibilityAccountRepo) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
@@ -653,14 +644,11 @@ func TestBuildCodexModelsManifestForGroupPrefersSyncedOpenAIImageCapabilities(t 
 		},
 	}
 
-	for i, tt := range tests {
+	for _, tt := range tests {
 		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
-			groupID := int64(760 + i)
-			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-				groupID: tt.accounts,
-			}}}
+			svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: tt.accounts}}
 			body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-5.6-sol")
 			require.NoError(t, err)
 			models := decodeCodexManifestModels(t, body)

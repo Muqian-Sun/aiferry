@@ -260,14 +260,14 @@ func (h *GrokOAuthHandler) ReconcileOAuthAccounts(c *gin.Context) {
 
 func (h *GrokOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 	var req struct {
-		SessionID   string  `json:"session_id" binding:"required"`
-		Code        string  `json:"code" binding:"required"`
-		State       string  `json:"state"`
-		RedirectURI string  `json:"redirect_uri"`
-		ProxyID     *int64  `json:"proxy_id"`
-		Name        string  `json:"name"`
-		Concurrency int     `json:"concurrency"`
-		Priority    int     `json:"priority"`
+		SessionID   string `json:"session_id" binding:"required"`
+		Code        string `json:"code" binding:"required"`
+		State       string `json:"state"`
+		RedirectURI string `json:"redirect_uri"`
+		ProxyID     *int64 `json:"proxy_id"`
+		Name        string `json:"name"`
+		Concurrency int    `json:"concurrency"`
+		Priority    int    `json:"priority"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())

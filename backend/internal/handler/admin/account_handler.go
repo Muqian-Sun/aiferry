@@ -111,20 +111,20 @@ func NewAccountHandler(
 
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
-	Name                    string         `json:"name" binding:"required"`
-	Notes                   *string        `json:"notes"`
-	Platform                string         `json:"platform" binding:"required"`
-	Type                    string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials             map[string]any `json:"credentials" binding:"required"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             int            `json:"concurrency"`
-	Priority                int            `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
+	Name               string         `json:"name" binding:"required"`
+	Notes              *string        `json:"notes"`
+	Platform           string         `json:"platform" binding:"required"`
+	Type               string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials        map[string]any `json:"credentials" binding:"required"`
+	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        int            `json:"concurrency"`
+	Priority           int            `json:"priority"`
+	RateMultiplier     *float64       `json:"rate_multiplier"`
+	LoadFactor         *int           `json:"load_factor"`
+	ExpiresAt          *int64         `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	ProbeEnabled       *bool          `json:"upstream_billing_probe_enabled"`
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
@@ -132,40 +132,40 @@ type CreateAccountRequest struct {
 // UpdateAccountRequest represents update account request
 // 使用指针类型来区分"未提供"和"设置为0"
 type UpdateAccountRequest struct {
-	Name                    string         `json:"name"`
-	Notes                   *string        `json:"notes"`
-	Type                    string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
-	Credentials             map[string]any `json:"credentials"`
-	Extra                   map[string]any `json:"extra"`
-	ProxyID                 *int64         `json:"proxy_id"`
-	Concurrency             *int           `json:"concurrency"`
-	Priority                *int           `json:"priority"`
-	RateMultiplier          *float64       `json:"rate_multiplier"`
-	LoadFactor              *int           `json:"load_factor"`
-	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	ExpiresAt               *int64         `json:"expires_at"`
-	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
-	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
-	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
+	Name               string         `json:"name"`
+	Notes              *string        `json:"notes"`
+	Type               string         `json:"type" binding:"omitempty,oneof=oauth setup-token apikey bedrock service_account"`
+	Credentials        map[string]any `json:"credentials"`
+	Extra              map[string]any `json:"extra"`
+	ProxyID            *int64         `json:"proxy_id"`
+	Concurrency        *int           `json:"concurrency"`
+	Priority           *int           `json:"priority"`
+	RateMultiplier     *float64       `json:"rate_multiplier"`
+	LoadFactor         *int           `json:"load_factor"`
+	Status             string         `json:"status" binding:"omitempty,oneof=active inactive error"`
+	ExpiresAt          *int64         `json:"expires_at"`
+	AutoPauseOnExpired *bool          `json:"auto_pause_on_expired"`
+	ProbeEnabled       *bool          `json:"upstream_billing_probe_enabled"`
+	RateSyncEnabled    *bool          `json:"upstream_billing_rate_sync_enabled"`
 	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
 	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
 
 // BulkUpdateAccountsRequest represents the payload for bulk editing accounts
 type BulkUpdateAccountsRequest struct {
-	AccountIDs              []int64                   `json:"account_ids"`
-	Filters                 *BulkUpdateAccountFilters `json:"filters"`
-	Name                    string                    `json:"name"`
-	ProxyID                 *int64                    `json:"proxy_id"`
-	Concurrency             *int                      `json:"concurrency"`
-	Priority                *int                      `json:"priority"`
-	RateMultiplier          *float64                  `json:"rate_multiplier"`
-	LoadFactor              *int                      `json:"load_factor"`
-	Status                  string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
-	Schedulable             *bool                     `json:"schedulable"`
-	Credentials             map[string]any            `json:"credentials"`
-	Extra                   map[string]any            `json:"extra"`
-	ProbeEnabled            *bool                     `json:"upstream_billing_probe_enabled"`
+	AccountIDs     []int64                   `json:"account_ids"`
+	Filters        *BulkUpdateAccountFilters `json:"filters"`
+	Name           string                    `json:"name"`
+	ProxyID        *int64                    `json:"proxy_id"`
+	Concurrency    *int                      `json:"concurrency"`
+	Priority       *int                      `json:"priority"`
+	RateMultiplier *float64                  `json:"rate_multiplier"`
+	LoadFactor     *int                      `json:"load_factor"`
+	Status         string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
+	Schedulable    *bool                     `json:"schedulable"`
+	Credentials    map[string]any            `json:"credentials"`
+	Extra          map[string]any            `json:"extra"`
+	ProbeEnabled   *bool                     `json:"upstream_billing_probe_enabled"`
 }
 
 type BulkUpdateAccountFilters struct {
@@ -570,21 +570,21 @@ func (h *AccountHandler) Create(c *gin.Context) {
 
 	result, err := executeAdminIdempotent(c, "admin.accounts.create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		account, execErr := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-			Name:                  req.Name,
-			Notes:                 req.Notes,
-			Platform:              req.Platform,
-			Type:                  req.Type,
-			Credentials:           req.Credentials,
-			Extra:                 req.Extra,
-			ProxyID:               req.ProxyID,
-			Concurrency:           req.Concurrency,
-			Priority:              req.Priority,
-			RateMultiplier:        req.RateMultiplier,
-			LoadFactor:            req.LoadFactor,
-			ExpiresAt:             req.ExpiresAt,
-			AutoPauseOnExpired:    req.AutoPauseOnExpired,
-			ProbeEnabled:          req.ProbeEnabled,
-			ProtocolEndpoints:     req.ProtocolEndpoints,
+			Name:               req.Name,
+			Notes:              req.Notes,
+			Platform:           req.Platform,
+			Type:               req.Type,
+			Credentials:        req.Credentials,
+			Extra:              req.Extra,
+			ProxyID:            req.ProxyID,
+			Concurrency:        req.Concurrency,
+			Priority:           req.Priority,
+			RateMultiplier:     req.RateMultiplier,
+			LoadFactor:         req.LoadFactor,
+			ExpiresAt:          req.ExpiresAt,
+			AutoPauseOnExpired: req.AutoPauseOnExpired,
+			ProbeEnabled:       req.ProbeEnabled,
+			ProtocolEndpoints:  req.ProtocolEndpoints,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -687,22 +687,22 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	// 确定是否跳过混合渠道检查
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
-		Name:                  req.Name,
-		Notes:                 req.Notes,
-		Type:                  req.Type,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency, // 指针类型，nil 表示未提供
-		Priority:              req.Priority,    // 指针类型，nil 表示未提供
-		RateMultiplier:        req.RateMultiplier,
-		LoadFactor:            req.LoadFactor,
-		Status:                req.Status,
-		ExpiresAt:             req.ExpiresAt,
-		AutoPauseOnExpired:    req.AutoPauseOnExpired,
-		ProbeEnabled:          req.ProbeEnabled,
-		RateSyncEnabled:       req.RateSyncEnabled,
-		ProtocolEndpoints:     req.ProtocolEndpoints,
+		Name:               req.Name,
+		Notes:              req.Notes,
+		Type:               req.Type,
+		Credentials:        req.Credentials,
+		Extra:              req.Extra,
+		ProxyID:            req.ProxyID,
+		Concurrency:        req.Concurrency, // 指针类型，nil 表示未提供
+		Priority:           req.Priority,    // 指针类型，nil 表示未提供
+		RateMultiplier:     req.RateMultiplier,
+		LoadFactor:         req.LoadFactor,
+		Status:             req.Status,
+		ExpiresAt:          req.ExpiresAt,
+		AutoPauseOnExpired: req.AutoPauseOnExpired,
+		ProbeEnabled:       req.ProbeEnabled,
+		RateSyncEnabled:    req.RateSyncEnabled,
+		ProtocolEndpoints:  req.ProtocolEndpoints,
 	})
 	if err != nil {
 
@@ -1502,20 +1502,19 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 				continue
 			}
 
-
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
-				Name:                  item.Name,
-				Notes:                 item.Notes,
-				Platform:              item.Platform,
-				Type:                  item.Type,
-				Credentials:           item.Credentials,
-				Extra:                 item.Extra,
-				ProxyID:               item.ProxyID,
-				Concurrency:           item.Concurrency,
-				Priority:              item.Priority,
-				RateMultiplier:        item.RateMultiplier,
-				ExpiresAt:             item.ExpiresAt,
-				AutoPauseOnExpired:    item.AutoPauseOnExpired,
+				Name:               item.Name,
+				Notes:              item.Notes,
+				Platform:           item.Platform,
+				Type:               item.Type,
+				Credentials:        item.Credentials,
+				Extra:              item.Extra,
+				ProxyID:            item.ProxyID,
+				Concurrency:        item.Concurrency,
+				Priority:           item.Priority,
+				RateMultiplier:     item.RateMultiplier,
+				ExpiresAt:          item.ExpiresAt,
+				AutoPauseOnExpired: item.AutoPauseOnExpired,
 			})
 			if err != nil {
 				failed++
@@ -1715,19 +1714,19 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 
 	result, err := h.adminService.BulkUpdateAccounts(c.Request.Context(), &service.BulkUpdateAccountsInput{
-		AccountIDs:            req.AccountIDs,
-		Filters:               toServiceBulkUpdateAccountFilters(req.Filters),
-		Name:                  req.Name,
-		ProxyID:               req.ProxyID,
-		Concurrency:           req.Concurrency,
-		Priority:              req.Priority,
-		RateMultiplier:        req.RateMultiplier,
-		LoadFactor:            req.LoadFactor,
-		Status:                req.Status,
-		Schedulable:           req.Schedulable,
-		Credentials:           req.Credentials,
-		Extra:                 req.Extra,
-		ProbeEnabled:          req.ProbeEnabled,
+		AccountIDs:     req.AccountIDs,
+		Filters:        toServiceBulkUpdateAccountFilters(req.Filters),
+		Name:           req.Name,
+		ProxyID:        req.ProxyID,
+		Concurrency:    req.Concurrency,
+		Priority:       req.Priority,
+		RateMultiplier: req.RateMultiplier,
+		LoadFactor:     req.LoadFactor,
+		Status:         req.Status,
+		Schedulable:    req.Schedulable,
+		Credentials:    req.Credentials,
+		Extra:          req.Extra,
+		ProbeEnabled:   req.ProbeEnabled,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

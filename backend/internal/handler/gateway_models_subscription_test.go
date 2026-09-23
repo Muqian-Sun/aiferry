@@ -46,7 +46,7 @@ func TestModels_SubscriptionKeyListsOnlyPlanEntries(t *testing.T) {
 	require.Contains(t, notInPlan.Body.String(), `"code":"model_not_found"`)
 
 	// 余额 key（ctx 无订阅）照旧列全部
-	all := requestModelsForTest(h, nil, "/v1/models")
+	all := requestModelsForTest(h, "/v1/models")
 	require.NoError(t, json.Unmarshal(all.Body.Bytes(), &got))
 	require.Len(t, got.Data, 3)
 }

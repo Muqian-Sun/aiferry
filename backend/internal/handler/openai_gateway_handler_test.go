@@ -643,11 +643,9 @@ func TestGatewayResponses_RejectsMessageIDAsPreviousResponseID(t *testing.T) {
 	))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	groupID := int64(2)
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-		ID:      101,
-		GroupID: &groupID,
-		User:    &service.User{ID: 1},
+		ID:   101,
+		User: &service.User{ID: 1},
 	})
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{
 		UserID:      1,
@@ -662,6 +660,7 @@ func TestGatewayResponses_RejectsMessageIDAsPreviousResponseID(t *testing.T) {
 }
 
 func TestGatewayResponses_RejectsHTTPContinuationOwnedByAnotherUser(t *testing.T) {
+	groupID := int64(2)
 	gin.SetMode(gin.TestMode)
 
 	w := httptest.NewRecorder()
@@ -671,12 +670,10 @@ func TestGatewayResponses_RejectsHTTPContinuationOwnedByAnotherUser(t *testing.T
 	))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	groupID := int64(2)
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-		ID:      202,
-		UserID:  2,
-		GroupID: &groupID,
-		User:    &service.User{ID: 2},
+		ID:     202,
+		UserID: 2,
+		User:   &service.User{ID: 2},
 	})
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 2, Concurrency: 1})
 
@@ -698,8 +695,7 @@ func TestGatewayResponses_RejectsUnownedHTTPContinuation(t *testing.T) {
 	))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	groupID := int64(2)
-	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{ID: 101, UserID: 1, GroupID: &groupID, User: &service.User{ID: 1}})
+	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{ID: 101, UserID: 1, User: &service.User{ID: 1}})
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1, Concurrency: 1})
 
 	h := newGatewayHandlerForPreviousResponseIDValidation(t)
@@ -1080,7 +1076,6 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 	moderationSvc := service.NewContentModerationService(
 		settingRepo,
 		repo,
-		nil,
 		nil,
 		nil,
 		nil,
@@ -1498,11 +1493,9 @@ func newOpenAIWSHandlerTestServer(t *testing.T, h *OpenAIGatewayHandler, subject
 		// WS 入口自己做目录准入；没显式给目录的用例把所有模型当作上架（openai 族）。
 		h.modelCatalog = listAllCatalogStub{}
 	}
-	groupID := int64(2)
 	apiKey := &service.APIKey{
-		ID:      101,
-		GroupID: &groupID,
-		User:    &service.User{ID: subject.UserID},
+		ID:   101,
+		User: &service.User{ID: subject.UserID},
 	}
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
@@ -1523,8 +1516,6 @@ type openAIResponsesWSUsageLogCase struct {
 	userAgent           *string
 	ingressMode         string
 	accountModelMapping map[string]any
-	// group 覆盖 apiKey.Group（分组级模型白名单测试用）；nil 保持原有无分组行为。
-	group *service.Group
 	// subscription 塞进 ctx 模拟订阅 key 鉴权（套餐模型集测试用）；nil = 余额 key。
 	subscription *service.UserSubscription
 	// firstFrameCloseExpected：首帧即被拒（连接被 1008 关闭），不期待任何响应帧。
@@ -1761,7 +1752,6 @@ func (s *openAIWSUsageHandlerUsageLogRepoStub) Create(ctx context.Context, log *
 
 func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(4203)
 	accounts := []service.Account{
 		{
 			ID: 9910, Name: "pool-api-key", Platform: service.PlatformOpenAI,
@@ -1817,9 +1807,9 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 		nil,
 		nil,
 		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
-	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
+	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -1827,9 +1817,8 @@ func TestGatewayResponses_APIKeyPassthroughPool5xxRetriesThenExhaustsMaxSwitches
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-		ID: 1803, GroupID: &groupID,
-		User:  &service.User{ID: 1703, Status: service.StatusActive},
-		Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+		ID:   1803,
+		User: &service.User{ID: 1703, Status: service.StatusActive},
 	})
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1703, Concurrency: 0})
 
@@ -1853,7 +1842,6 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
-			groupID := int64(4203)
 			accounts := []service.Account{
 				{
 					ID: 9910, Name: "pool-api-key", Platform: service.PlatformOpenAI,
@@ -1910,9 +1898,9 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 				nil,
 				nil,
 				nil,
-				newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+				newTestSchedulerOverRepo(cfg, accountRepo),
 			)
-			h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
+			h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
 			rec := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(rec)
@@ -1920,9 +1908,8 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 			c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 			c.Request.Header.Set("Content-Type", "application/json")
 			c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-				ID: 1803, GroupID: &groupID,
-				User:  &service.User{ID: 1703, Status: service.StatusActive},
-				Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+				ID:   1803,
+				User: &service.User{ID: 1703, Status: service.StatusActive},
 			})
 			c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1703, Concurrency: 0})
 
@@ -1937,7 +1924,6 @@ func TestGatewayResponses_APIKeyPassthroughPoolAuthFailureRetriesThenSwitchesToH
 
 func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(4204)
 	accounts := []service.Account{
 		{
 			ID: 9912, Name: "pool-sse-rate-limit", Platform: service.PlatformOpenAI,
@@ -1983,9 +1969,9 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 		nil,
 		nil,
 		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
-	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive}, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
+	h := newGatewayHandlerOverOpenAIService(cfg, accountRepo, gatewaySvc, billingCacheSvc, service.NewConcurrencyService(nil))
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
@@ -1993,9 +1979,8 @@ func TestGatewayResponses_APIKeyPassthroughSSERateLimitUsesConfiguredPoolRetry(t
 	c.Request = c.Request.WithContext(withTestCatalogRoute(c.Request.Context(), 1, service.PlatformOpenAI, "m"))
 	c.Request.Header.Set("Content-Type", "application/json")
 	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-		ID: 1804, GroupID: &groupID,
-		User:  &service.User{ID: 1704, Status: service.StatusActive},
-		Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+		ID:   1804,
+		User: &service.User{ID: 1704, Status: service.StatusActive},
 	})
 	c.Set(string(middleware.ContextKeyUser), middleware.AuthSubject{UserID: 1704, Concurrency: 0})
 
@@ -2055,7 +2040,6 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	}))
 	defer secondUpstream.Close()
 
-	groupID := int64(4202)
 	accounts := []service.Account{
 		{
 			ProtocolEndpoints: map[string]string{
@@ -2141,7 +2125,7 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 		nil,
 		nil,
 		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 
 	cache := &concurrencyCacheMock{
@@ -2162,10 +2146,8 @@ func TestOpenAIResponsesWebSocket_FailoverOnUpstreamUsageLimitEvent(t *testing.T
 	}
 
 	apiKey := &service.APIKey{
-		ID:      1802,
-		GroupID: &groupID,
-		User:    &service.User{ID: 1702, Status: service.StatusActive},
-		Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+		ID:   1802,
+		User: &service.User{ID: 1702, Status: service.StatusActive},
 	}
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
@@ -2275,7 +2257,6 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	}))
 	defer secondUpstream.Close()
 
-	groupID := int64(4212)
 	accounts := []service.Account{
 		{
 			ProtocolEndpoints: map[string]string{
@@ -2340,7 +2321,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), rateLimitSvc, billingCacheSvc,
 		nil, &service.DeferredService{}, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 	cache := &concurrencyCacheMock{
 		acquireUserSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
@@ -2358,10 +2339,8 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 	}
 
 	apiKey := &service.APIKey{
-		ID:      1812,
-		GroupID: &groupID,
-		User:    &service.User{ID: 1712, Status: service.StatusActive},
-		Group:   &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+		ID:   1812,
+		User: &service.User{ID: 1712, Status: service.StatusActive},
 	}
 	handlerDone := make(chan struct{})
 	router := gin.New()
@@ -2429,6 +2408,7 @@ func TestOpenAIResponsesWebSocket_FirstOutputTimeoutWithoutDownstreamReusesClien
 }
 
 func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSUsageLogCase) openAIResponsesWSUsageLogResult {
+	groupID := int64(2)
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 
@@ -2484,7 +2464,6 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	}))
 	defer upstreamServer.Close()
 
-	groupID := int64(4201)
 	account := service.Account{
 		ID:          9901,
 		Name:        "openai-ws-passthrough-usage-e2e",
@@ -2558,7 +2537,7 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 		nil,
 		nil,
 		nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 
 	cache := &concurrencyCacheMock{
@@ -2589,12 +2568,8 @@ func runOpenAIResponsesWebSocketUsageLogCase(t *testing.T, tc openAIResponsesWSU
 	}
 
 	apiKey := &service.APIKey{
-		ID:      1801,
-		GroupID: &groupID,
-		User:    &service.User{ID: 1701, Status: service.StatusActive},
-	}
-	if tc.group != nil {
-		apiKey.Group = tc.group
+		ID:   1801,
+		User: &service.User{ID: 1701, Status: service.StatusActive},
 	}
 	router := gin.New()
 	router.Use(func(c *gin.Context) {

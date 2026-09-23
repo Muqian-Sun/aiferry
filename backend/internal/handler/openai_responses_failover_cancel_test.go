@@ -103,14 +103,13 @@ func newGatewayResponsesFailoverTestHandler(t *testing.T, upstream service.HTTPU
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)
-	handler := newGatewayHandlerOverOpenAIService(cfg, accountRepo, &service.Group{ID: 3131, Platform: service.PlatformOpenAI}, gatewayService, billingService, service.NewConcurrencyService(nil))
+	handler := newGatewayHandlerOverOpenAIService(cfg, accountRepo, gatewayService, billingService, service.NewConcurrencyService(nil))
 	handler.maxAccountSwitches = 10
 	return handler
 }
 
 func newOpenAIResponsesFailoverTestContext(t *testing.T, ctx context.Context) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
-	groupID := int64(3131)
 	body := []byte(`{"model":"gpt-5.1","stream":false,"input":"hello"}`)
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	if ctx != nil {
@@ -122,12 +121,7 @@ func newOpenAIResponsesFailoverTestContext(t *testing.T, ctx context.Context) (*
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      99,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:       groupID,
-			Platform: service.PlatformOpenAI,
-		},
+		ID:   99,
 		User: &service.User{ID: 100},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 100, Concurrency: 0})

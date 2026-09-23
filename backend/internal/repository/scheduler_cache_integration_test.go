@@ -64,7 +64,6 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 				AccountID: 101,
 				GroupID:   fixtureGroupID,
 				Priority:  5,
-				Group:     &service.Group{ID: fixtureGroupID, Name: "gemini-group"},
 			},
 		},
 	}

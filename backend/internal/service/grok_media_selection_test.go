@@ -14,10 +14,9 @@ import (
 func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 	for _, state := range []string{"available", "full", "unavailable", "missing", "invalid id"} {
 		t.Run(state, func(t *testing.T) {
-			groupID := int64(24)
 			ownerID := int64(1)
 			owner := Account{ID: ownerID, Platform: PlatformGrok, Type: AccountTypeAPIKey,
-				Status: StatusActive, Schedulable: true, Concurrency: 50, GroupIDs: []int64{groupID}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
+				Status: StatusActive, Schedulable: true, Concurrency: 50, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.x.ai/v1", APIProtocolResponses: "https://api.x.ai/v1"}}
 			other := owner
 			other.ID = 2
 			if state == "unavailable" {
@@ -36,7 +35,7 @@ func TestSelectGrokMediaVideoRequestAccountPreservesOwner(t *testing.T) {
 			cfg := &config.Config{}
 			cfg.Gateway.Scheduling.StickySessionWaitTimeout = time.Second
 			cfg.Gateway.Scheduling.StickySessionMaxWaiting = 3
-			repo := schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}
+			repo := schedulerTestOpenAIAccountRepo{accounts: accounts}
 			concurrency := NewConcurrencyService(schedulerTestConcurrencyCache{
 				acquireResults: map[int64]bool{1: state != "full", 2: true},
 				acquiredIDs:    &acquired, releasedIDs: &released,

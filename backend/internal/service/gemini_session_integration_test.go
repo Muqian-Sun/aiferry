@@ -8,8 +8,8 @@ import (
 
 // TestGeminiSessionContinuousConversation 测试连续会话的摘要链匹配
 func TestGeminiSessionContinuousConversation(t *testing.T) {
-	store := NewDigestSessionStore()
 	groupID := int64(1)
+	store := NewDigestSessionStore()
 	prefixHash := "test_prefix_hash"
 	sessionUUID := "session-uuid-12345"
 	accountID := int64(100)
@@ -95,8 +95,8 @@ func TestGeminiSessionContinuousConversation(t *testing.T) {
 
 // TestGeminiSessionDifferentConversations 测试不同会话不会错误匹配
 func TestGeminiSessionDifferentConversations(t *testing.T) {
-	store := NewDigestSessionStore()
 	groupID := int64(1)
+	store := NewDigestSessionStore()
 	prefixHash := "test_prefix_hash"
 
 	// 第一个会话
@@ -125,8 +125,8 @@ func TestGeminiSessionDifferentConversations(t *testing.T) {
 
 // TestGeminiSessionPrefixMatchingOrder 测试前缀匹配的优先级（最长匹配优先）
 func TestGeminiSessionPrefixMatchingOrder(t *testing.T) {
-	store := NewDigestSessionStore()
 	groupID := int64(1)
+	store := NewDigestSessionStore()
 	prefixHash := "test_prefix_hash"
 
 	// 保存不同轮次的会话到不同账号

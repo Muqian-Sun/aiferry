@@ -1,7 +1,6 @@
 package service
 
 import (
-	"context"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -12,11 +11,6 @@ type compositeOwnershipAccountRepo struct {
 	accounts []Account
 }
 
-func (r *compositeOwnershipAccountRepo) ListSchedulableByGroupID(context.Context, int64) ([]Account, error) {
-	return r.accounts, nil
-}
-
-// Scenario: 唯一平台的精确别名可路由
 func TestDetectModelPlatform(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -62,6 +56,5 @@ func TestDetectModelPlatform(t *testing.T) {
 func TestConcretePlatformsIncludeCNProviders(t *testing.T) {
 	for _, platform := range []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo} {
 		require.True(t, isConcreteRequestPlatform(platform))
-		require.True(t, canCopyAccountsFromGroupPlatform(PlatformComposite, platform))
 	}
 }

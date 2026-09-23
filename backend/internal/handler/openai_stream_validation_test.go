@@ -75,12 +75,9 @@ func newOpenAICompatibleStreamValidationContext(path, body string) (*gin.Context
 	c.Request = httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	groupID := int64(7)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      11,
-		GroupID: &groupID,
-		Group:   &service.Group{ID: groupID},
-		User:    &service.User{ID: 13},
+		ID:   11,
+		User: &service.User{ID: 13},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 13, Concurrency: 1})
 

@@ -139,7 +139,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "missing_key_returns_redis_nil",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(10)
-				groupID := int64(20)
 
 				_, err := cache.GetSubscriptionCache(ctx, userID, groupID)
 				require.ErrorIs(s.T(), err, redis.Nil, "expected redis.Nil for missing subscription key")
@@ -149,7 +148,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "update_usage_on_nonexistent_is_noop",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(11)
-				groupID := int64(21)
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				require.NoError(s.T(), cache.UpdateSubscriptionUsage(ctx, userID, groupID, 1.0), "UpdateSubscriptionUsage should not error")
@@ -163,7 +161,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "set_and_get_with_ttl",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(12)
-				groupID := int64(22)
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				data := &service.SubscriptionCacheData{
@@ -191,7 +188,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "update_usage_increments_all_fields",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(13)
-				groupID := int64(23)
 
 				data := &service.SubscriptionCacheData{
 					Status:       "active",
@@ -216,7 +212,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "invalidate_removes_key",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(101)
-				groupID := int64(10)
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				data := &service.SubscriptionCacheData{
@@ -247,7 +242,6 @@ func (s *BillingCacheSuite) TestSubscriptionCache() {
 			name: "missing_status_returns_parsing_error",
 			fn: func(ctx context.Context, rdb *redis.Client, cache service.BillingCache) {
 				userID := int64(102)
-				groupID := int64(11)
 				subKey := fmt.Sprintf("%s%d:%d", billingSubKeyPrefix, userID, groupID)
 
 				fields := map[string]any{

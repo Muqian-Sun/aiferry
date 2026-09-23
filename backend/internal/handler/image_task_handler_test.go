@@ -57,11 +57,9 @@ func TestAsyncImageHandlerSubmitAndPoll(t *testing.T) {
 
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
-		groupID := int64(3)
 		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-			ID:      9,
-			UserID:  7,
-			GroupID: &groupID,
+			ID:     9,
+			UserID: 7,
 		})
 		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
 			EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",
@@ -119,11 +117,9 @@ func TestAsyncImageHandlerDisabledReturns404(t *testing.T) {
 
 	router := gin.New()
 	router.Use(func(c *gin.Context) {
-		groupID := int64(3)
 		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-			ID:      9,
-			UserID:  7,
-			GroupID: &groupID,
+			ID:     9,
+			UserID: 7,
 		})
 		c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
 			EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",

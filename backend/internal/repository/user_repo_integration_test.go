@@ -619,12 +619,10 @@ func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups() {
 	other := s.mustCreateGroup("other-7")
 
 	userA := s.mustCreateUser(&service.User{
-		Email:         "a1@example.com",
-		AllowedGroups: []int64{target.ID, other.ID},
+		Email: "a1@example.com",
 	})
 	s.mustCreateUser(&service.User{
-		Email:         "a2@example.com",
-		AllowedGroups: []int64{other.ID},
+		Email: "a2@example.com",
 	})
 
 	affected, err := s.repo.RemoveGroupFromAllowedGroups(s.ctx, target.ID)
@@ -642,8 +640,7 @@ func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups_NoMatch() {
 	groupB := s.mustCreateGroup("nomatch-b")
 
 	s.mustCreateUser(&service.User{
-		Email:         "nomatch@test.com",
-		AllowedGroups: []int64{groupA.ID, groupB.ID},
+		Email: "nomatch@test.com",
 	})
 
 	affected, err := s.repo.RemoveGroupFromAllowedGroups(s.ctx, 999999)

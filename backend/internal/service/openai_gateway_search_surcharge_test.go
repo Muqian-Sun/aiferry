@@ -16,7 +16,7 @@ func TestCalculateOpenAIRecordUsageCost_SearchIsAdditiveToTokens(t *testing.T) {
 	svc := &OpenAIGatewayService{
 		billingService: newTestBillingService(),
 	}
-	apiKey := &APIKey{Group: &Group{}}
+	apiKey := &APIKey{}
 
 	// claude-sonnet-4 fallback: Input $3/MTok, Output $15/MTok
 	// 1000 in + 500 out → 0.003 + 0.0075 = 0.0105
@@ -43,7 +43,7 @@ func TestCalculateOpenAIRecordUsageCost_SearchOnlyWhenNoTokenPricing(t *testing.
 	svc := &OpenAIGatewayService{
 		billingService: newTestBillingService(),
 	}
-	apiKey := &APIKey{Group: &Group{}}
+	apiKey := &APIKey{}
 	// Empty model list: token path fails; search-only surcharge still bills at $5/1k.
 	cost, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(),
@@ -66,7 +66,7 @@ func TestCalculateOpenAIRecordUsageCost_TokenPricingErrorNotSwallowedBySearch(t 
 	svc := &OpenAIGatewayService{
 		billingService: newTestBillingService(),
 	}
-	apiKey := &APIKey{Group: &Group{}}
+	apiKey := &APIKey{}
 	// Unknown model → token pricing fails; search must not replace that with $0/$search bill.
 	cost, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(),

@@ -232,7 +232,6 @@ func TestExportDataPassesAccountFiltersAndSort(t *testing.T) {
 	require.Equal(t, "openai", adminSvc.lastListAccounts.platform)
 	require.Equal(t, "oauth", adminSvc.lastListAccounts.accountType)
 	require.Equal(t, "active", adminSvc.lastListAccounts.status)
-	require.Equal(t, int64(12), adminSvc.lastListAccounts.groupID)
 	require.Equal(t, "blocked", adminSvc.lastListAccounts.privacyMode)
 	require.Equal(t, "keyword", adminSvc.lastListAccounts.search)
 	require.Equal(t, "priority", adminSvc.lastListAccounts.sortBy)
@@ -314,5 +313,4 @@ func TestImportDataReusesProxyAndSkipsDefaultGroup(t *testing.T) {
 
 	require.Len(t, adminSvc.createdProxies, 0)
 	require.Len(t, adminSvc.createdAccounts, 1)
-	require.True(t, adminSvc.createdAccounts[0].SkipDefaultGroupBind)
 }

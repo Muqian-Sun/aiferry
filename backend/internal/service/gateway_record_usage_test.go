@@ -200,7 +200,6 @@ func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *te
 				baseModel: {InputCostPerToken: 0.75e-6, OutputCostPerToken: 3.75e-6, CacheReadInputTokenCost: 0.075e-6},
 			}})
 			svc.resolver = NewModelPricingResolver(nil, svc.billingService)
-			group := &Group{ID: 27, Platform: PlatformGemini, RateMultiplier: 0.15}
 			model := baseModel + "-medium"
 
 			err := svc.RecordUsage(context.Background(), &RecordUsageInput{
@@ -211,7 +210,7 @@ func TestGatewayServiceRecordUsage_GeminiFlashThinkingTierUsesCatalogPrice(t *te
 					Usage:         ClaudeUsage{InputTokens: 8498, OutputTokens: 469, CacheReadInputTokens: 159248},
 					Duration:      time.Second,
 				},
-				APIKey:  &APIKey{ID: 501, GroupID: &group.ID, Group: group},
+				APIKey:  &APIKey{ID: 501},
 				User:    &User{ID: 601, RateMultiplier: 0.15},
 				Account: &Account{ID: 701, Platform: PlatformGemini, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
 			})
@@ -279,7 +278,6 @@ func TestGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstreamModel
 }
 
 func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
-	groupID := int64(901)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	// 图片单价来自目录条目（image 模式，2K 档 0.19）
@@ -302,14 +300,7 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 			ImageInputSize: "auto",
 			Duration:       time.Second,
 		},
-		APIKey: &APIKey{
-			ID:      801,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 1.0,
-			},
-		},
+		APIKey:  &APIKey{ID: 801},
 		User:    &User{ID: 601, RateMultiplier: 1},
 		Account: &Account{ID: 701},
 	})
@@ -328,12 +319,11 @@ func TestGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersist
 }
 
 func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
-	groupID := int64(904)
 	requestStart := time.Date(2024, time.January, 2, 2, 0, 0, 0, time.UTC) // 上海 10:00
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
-	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, groupID, "gpt-5.1", &TimePricing{
+	svc.resolver = newOpenAITokenImageChannelPricingResolverWithTimeForTest(t, 0, "gpt-5.1", &TimePricing{
 		Timezone: "Asia/Shanghai",
 		Periods:  []TimePricingPeriod{{StartTime: "09:00", EndTime: "12:00", Multiplier: 2}},
 	})
@@ -344,9 +334,7 @@ func TestGatewayServiceRecordUsage_TimePricingUsesPricingAt(t *testing.T) {
 			Model:     "gpt-5.1",
 			Usage:     ClaudeUsage{InputTokens: 1000, OutputTokens: 500},
 		},
-		APIKey: &APIKey{ID: 804, GroupID: i64p(groupID), Group: &Group{
-			ID: groupID, RateMultiplier: 0.8,
-		}},
+		APIKey:    &APIKey{ID: 804},
 		User:      &User{ID: 604, RateMultiplier: 0.8},
 		Account:   &Account{ID: 704},
 		PricingAt: requestStart,
@@ -598,8 +586,7 @@ func TestGatewayServiceRecordUsage_ReasoningEffortNil(t *testing.T) {
 func newGatewayRecordUsageServiceWithResolverForTest(usageRepo UsageLogRepository) (*GatewayService, *APIKey) {
 	svc := newGatewayRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
-	groupID := int64(7)
-	return svc, &APIKey{ID: 1, GroupID: &groupID, Group: &Group{ID: groupID, RateMultiplier: 1.0}}
+	return svc, &APIKey{ID: 1}
 }
 
 func TestGatewayServiceRecordUsage_FastSpeedDowngradedByUpstreamResponse(t *testing.T) {

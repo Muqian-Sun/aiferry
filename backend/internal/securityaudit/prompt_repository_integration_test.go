@@ -301,7 +301,6 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	ctx := context.Background()
 	userID := insertIdentity(t, db, "users")
 	apiKeyID := insertIdentity(t, db, "api_keys")
-	groupID := insertIdentity(t, db, "groups")
 	snapshot := integrationSnapshot("identity")
 	snapshot.UserID, snapshot.APIKeyID = userID, apiKeyID
 	event, err := repo.RecordBlocking(ctx, snapshot, 7, integrationResult(EventCritical), true)
@@ -325,8 +324,6 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	_, err = db.Exec(`DELETE FROM users WHERE id=$1`, userID)
 	require.NoError(t, err)
 	_, err = db.Exec(`DELETE FROM api_keys WHERE id=$1`, apiKeyID)
-	require.NoError(t, err)
-	_, err = db.Exec(`DELETE FROM groups WHERE id=$1`, groupID)
 	require.NoError(t, err)
 	stored, err := repo.GetEvent(ctx, event.ID)
 	require.NoError(t, err)

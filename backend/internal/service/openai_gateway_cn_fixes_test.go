@@ -23,7 +23,7 @@ import (
 
 func TestFilterCNProviderBillingModelCandidates(t *testing.T) {
 	svc := &OpenAIGatewayService{} // resolver 为 nil → 无显式分组/渠道定价
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}
+	apiKey := &APIKey{}
 
 	cnAccount := &Account{ID: 1, Platform: PlatformKimi}
 	filtered := svc.filterCNProviderBillingModelCandidates(context.Background(), cnAccount, apiKey,
@@ -52,7 +52,7 @@ func TestFilterCNProviderBillingModelCandidates(t *testing.T) {
 
 func TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable(t *testing.T) {
 	svc := &OpenAIGatewayService{}
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}
+	apiKey := &APIKey{}
 
 	_, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), nil, apiKey, nil,

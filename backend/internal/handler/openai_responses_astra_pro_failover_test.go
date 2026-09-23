@@ -79,7 +79,6 @@ func (u *astraProCapturedUpstream) snapshot() ([]string, []int64, [][]byte) {
 // through the real failover loop for the astra pro request.
 func newAstraProFailoverContext(t *testing.T, body string) (*gin.Context, *httptest.ResponseRecorder) {
 	t.Helper()
-	groupID := int64(3132)
 	req := httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader([]byte(body)))
 	req = req.WithContext(withTestCatalogRoute(req.Context(), 1, service.PlatformOpenAI, "m"))
 	req.Header.Set("Content-Type", "application/json")
@@ -87,12 +86,7 @@ func newAstraProFailoverContext(t *testing.T, body string) (*gin.Context, *httpt
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = req
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      99,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:       groupID,
-			Platform: service.PlatformOpenAI,
-		},
+		ID:   99,
 		User: &service.User{ID: 100},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 100, Concurrency: 0})

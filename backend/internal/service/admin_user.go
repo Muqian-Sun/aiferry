@@ -105,9 +105,6 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		RPMLimit:       input.RPMLimit,
 		RateMultiplier: rateMultiplier,
 		Status:         StatusActive,
-		AllowedGroups:  input.AllowedGroups,
-
-		RestrictPublicGroups: input.RestrictPublicGroups,
 	}
 	if err := user.SetPassword(input.Password); err != nil {
 		return nil, err
@@ -181,7 +178,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	oldRole := user.Role
 	oldRPMLimit := user.RPMLimit
 	oldRateMultiplier := user.RateMultiplier
-	oldAllowedGroups := append([]int64(nil), user.AllowedGroups...)
 
 	// fields 与下面的 input.X 判空条件一一对应：管理员没提交的列不写回，
 	// 避免这份快照回滚并发的扣费、状态变更或批量限额调整。
@@ -244,17 +240,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 		fields.RateMultiplier = true
 	}
 
-	if input.AllowedGroups != nil {
-		user.AllowedGroups = *input.AllowedGroups
-		fields.AllowedGroups = true
-	}
-
-	oldRestrictPublicGroups := user.RestrictPublicGroups
-	if input.RestrictPublicGroups != nil {
-		user.RestrictPublicGroups = *input.RestrictPublicGroups
-		fields.RestrictPublicGroups = true
-	}
-
 	if err := s.userRepo.Update(ctx, user, fields); err != nil {
 		return nil, err
 	}
@@ -267,9 +252,8 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 
 	if s.authCacheInvalidator != nil {
 		// RPMLimit 是 billing_cache_service.checkRPM 唯一的一道 RPM 门（用户级），
-		// allowed_groups 参与 API Key 专属分组授权判断，RateMultiplier 是计费倍率（认证快照里带着）；
-		// 不失效缓存会让修改在一个 L2 TTL 内失去效果。
-		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.RateMultiplier != oldRateMultiplier || user.RestrictPublicGroups != oldRestrictPublicGroups || !sameInt64Set(user.AllowedGroups, oldAllowedGroups) {
+		// RateMultiplier 是计费倍率（认证快照里带着）；不失效缓存会让修改在一个 L2 TTL 内失去效果。
+		if user.Concurrency != oldConcurrency || user.Status != oldStatus || user.Role != oldRole || user.RPMLimit != oldRPMLimit || user.RateMultiplier != oldRateMultiplier {
 			s.authCacheInvalidator.InvalidateAuthCacheByUserID(ctx, user.ID)
 		}
 	}

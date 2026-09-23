@@ -17,7 +17,6 @@ type User struct {
 	FrozenBalance float64    `json:"frozen_balance"`
 	Concurrency   int        `json:"concurrency"`
 	Status        string     `json:"status"`
-	AllowedGroups []int64    `json:"allowed_groups"`
 	LastActiveAt  *time.Time `json:"last_active_at,omitempty"`
 	CreatedAt     time.Time  `json:"created_at"`
 	UpdatedAt     time.Time  `json:"updated_at"`
@@ -46,9 +45,6 @@ type AdminUser struct {
 
 	Notes      string     `json:"notes"`
 	LastUsedAt *time.Time `json:"last_used_at"`
-	// RestrictPublicGroups 为 true 时，该用户仅可使用 allowed_groups 中列出的
-	// 公开分组。这是管理侧的权限开关，不下发给用户自身的接口。
-	RestrictPublicGroups bool `json:"restrict_public_groups"`
 }
 
 type APIKey struct {

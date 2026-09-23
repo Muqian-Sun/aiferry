@@ -29,7 +29,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResetsOpenAI403CounterForZeroUsage(t *t
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 	svc.rateLimitService = rateLimitSvc
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -37,7 +37,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResetsOpenAI403CounterForZeroUsage(t *t
 			RequestID: "resp_zero_usage_reset_403",
 			Model:     "gpt-5.1",
 		},
-		APIKey:  &APIKey{ID: 1001, Group: &Group{RateMultiplier: 1}},
+		APIKey:  &APIKey{ID: 1001},
 		User:    &User{ID: 2001, RateMultiplier: 1},
 		Account: &Account{ID: 777, Platform: PlatformOpenAI},
 	})

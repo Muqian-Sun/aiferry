@@ -66,17 +66,9 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 		nil,
 	)
 
-	groupID := int64(101)
-	group := &service.Group{
-		ID:       groupID,
-		Name:     "openai",
-		Status:   service.StatusActive,
-		Platform: service.PlatformOpenAI,
-		Hydrated: true,
-	}
 	apiKeys := map[string]*service.APIKey{
-		"key-user-42": newOpenAIFastPolicyForwardingAPIKey(1, "key-user-42", 42, groupID, group),
-		"key-user-43": newOpenAIFastPolicyForwardingAPIKey(2, "key-user-43", 43, groupID, group),
+		"key-user-42": newOpenAIFastPolicyForwardingAPIKey(1, "key-user-42", 42),
+		"key-user-43": newOpenAIFastPolicyForwardingAPIKey(2, "key-user-43", 43),
 	}
 	apiKeyService := service.NewAPIKeyService(&openAIFastPolicyForwardingAPIKeyRepo{apiKeys: apiKeys}, nil, nil, cfg)
 	account := &service.Account{
@@ -136,13 +128,12 @@ func TestAPIKeyAuthForwardsUserScopedOpenAIFastPolicyToUpstream(t *testing.T) {
 	require.False(t, gjson.GetBytes(otherUserBody, "service_tier").Exists())
 }
 
-func newOpenAIFastPolicyForwardingAPIKey(id int64, key string, userID, groupID int64, group *service.Group) *service.APIKey {
+func newOpenAIFastPolicyForwardingAPIKey(id int64, key string, userID int64) *service.APIKey {
 	return &service.APIKey{
-		ID:      id,
-		UserID:  userID,
-		Key:     key,
-		Status:  service.StatusActive,
-		GroupID: &groupID,
+		ID:     id,
+		UserID: userID,
+		Key:    key,
+		Status: service.StatusActive,
 		User: &service.User{
 			ID:          userID,
 			Role:        service.RoleUser,
@@ -150,7 +141,6 @@ func newOpenAIFastPolicyForwardingAPIKey(id int64, key string, userID, groupID i
 			Balance:     10,
 			Concurrency: 1,
 		},
-		Group: group,
 	}
 }
 

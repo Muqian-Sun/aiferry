@@ -61,6 +61,7 @@ func writeOpenAIWSExecutionScopeRequest(t *testing.T, conn *coderws.Conn, body s
 // ctx_pool 下的 turn state 绑定与 store=false 的上游连接绑定必须落在执行作用域键下，
 // 不能落在按 session-id 算出的会话哈希下，否则子智能体会覆盖父线程的绑定。
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StateBoundToExecutionScope(t *testing.T) {
+	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 	cfg := newOpenAIWSExecutionScopeTestConfig()
 
@@ -85,7 +86,6 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StateBoundToExec
 		openaiWSPool:       pool,
 		openaiWSStateStore: stateStore,
 	}
-	groupID := int64(9)
 	account := &Account{
 		ID:                454,
 		Name:              "openai-ingress-exec-scope",
@@ -229,6 +229,7 @@ func (c *openAIWSGatedConn) Close() error {
 // A 的请求发到上游后 B 才接入并立即完成，B 完成后才放行 A 的上游事件。
 // 返回 A 与 B 的服务端返回值、A 客户端读结果的错误。
 func runOpenAIWSCodexThreadPair(t *testing.T, threadA, threadB string) (serverErrs []error, aReadErr error) {
+	groupID := int64(9)
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := newOpenAIWSExecutionScopeTestConfig()
@@ -252,7 +253,6 @@ func runOpenAIWSCodexThreadPair(t *testing.T, threadA, threadB string) (serverEr
 		openaiWSPool:       pool,
 		openaiWSStateStore: NewOpenAIWSStateStore(nil),
 	}
-	groupID := int64(9)
 	account := &Account{
 		ID:          455,
 		Name:        "openai-ingress-thread-pair",

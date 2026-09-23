@@ -118,11 +118,10 @@ func TestCreateAccountDropsManagedUpstreamBillingProbeState(t *testing.T) {
 	svc := &adminServiceImpl{accountRepo: repo}
 
 	created, err := svc.CreateAccount(context.Background(), &CreateAccountInput{
-		Name:                 "upstream",
-		Platform:             PlatformOpenAI,
-		Type:                 AccountTypeAPIKey,
-		Credentials:          map[string]any{"api_key": "sk-test"},
-		SkipDefaultGroupBind: true,
+		Name:        "upstream",
+		Platform:    PlatformOpenAI,
+		Type:        AccountTypeAPIKey,
+		Credentials: map[string]any{"api_key": "sk-test"},
 		Extra: map[string]any{
 			UpstreamBillingProbeEnabledExtraKey:    true,
 			UpstreamBillingRateSyncEnabledExtraKey: true,
@@ -140,24 +139,22 @@ func TestCreateAccountAcceptsDedicatedUpstreamBillingProbeSetting(t *testing.T) 
 	enabled := true
 	repo := &upstreamBillingProbeAccountRepo{}
 	created, err := (&adminServiceImpl{accountRepo: repo}).CreateAccount(context.Background(), &CreateAccountInput{
-		Name:                 "upstream",
-		Platform:             PlatformOpenAI,
-		Type:                 AccountTypeAPIKey,
-		Credentials:          map[string]any{"api_key": "sk-test"},
-		ProbeEnabled:         &enabled,
-		SkipDefaultGroupBind: true,
+		Name:         "upstream",
+		Platform:     PlatformOpenAI,
+		Type:         AccountTypeAPIKey,
+		Credentials:  map[string]any{"api_key": "sk-test"},
+		ProbeEnabled: &enabled,
 	})
 
 	require.NoError(t, err)
 	require.Equal(t, true, created.Extra[UpstreamBillingProbeEnabledExtraKey])
 
 	_, err = (&adminServiceImpl{accountRepo: repo}).CreateAccount(context.Background(), &CreateAccountInput{
-		Name:                 "oauth",
-		Platform:             PlatformOpenAI,
-		Type:                 AccountTypeOAuth,
-		Credentials:          map[string]any{"access_token": "token"},
-		ProbeEnabled:         &enabled,
-		SkipDefaultGroupBind: true,
+		Name:         "oauth",
+		Platform:     PlatformOpenAI,
+		Type:         AccountTypeOAuth,
+		Credentials:  map[string]any{"access_token": "token"},
+		ProbeEnabled: &enabled,
 	})
 	require.ErrorIs(t, err, ErrUpstreamBillingProbeAccountInvalid)
 }

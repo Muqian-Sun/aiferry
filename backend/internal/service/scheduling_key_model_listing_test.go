@@ -4,25 +4,23 @@ package service
 
 import (
 	"context"
-	"slices"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
 	"github.com/stretchr/testify/require"
 )
 
 // 模型可用性诊断与管理端模型候选：诊断走调度那套池规则（平台池 = 平台相等 + 入站协议可承接，
 // 目录路由 = 条目绑定 + 协议转换注册表）；没有入站请求的管理端候选按「能不能承接」统计，不看标签。
 
-func anthropicEndpointKeyWithMapping(id int64, groupID int64) Account {
-	key := schedulingTestKey(id, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
+func anthropicEndpointKeyWithMapping(id int64) Account {
+	key := schedulingTestKey(id, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
 	key.Credentials = map[string]any{"model_mapping": map[string]any{"claude-relay-custom": "claude-sonnet-4-5"}}
 	return key
 }
 
 // 无路由的诊断按平台池：key 只算在自己标签的池里（D18）。
 func TestDiagnoseModelAvailabilityForPlatform_PlatformPoolCountsKeysByLabel(t *testing.T) {
-	key := anthropicEndpointKeyWithMapping(21111, 0)
+	key := anthropicEndpointKeyWithMapping(21111)
 	repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 	ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
@@ -46,9 +44,9 @@ func TestDiagnoseModelAvailabilityForPlatform_PlatformPoolCountsKeysByLabel(t *t
 // 没绑到条目的账号哪怕支持模型也不算。
 func TestDiagnoseModelAvailabilityForPlatform_CatalogRouteUsesBindings(t *testing.T) {
 	const entryID = int64(21120)
-	bound := anthropicEndpointKeyWithMapping(21121, 0)
+	bound := anthropicEndpointKeyWithMapping(21121)
 	bound.CatalogEntryIDs = []int64{entryID}
-	unbound := anthropicEndpointKeyWithMapping(21122, 0)
+	unbound := anthropicEndpointKeyWithMapping(21122)
 	unbound.Credentials = map[string]any{"model_mapping": map[string]any{"claude-other": "claude-sonnet-4-5"}}
 	repo := &mockAccountRepoForPlatform{accounts: []Account{bound, unbound}, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
@@ -68,8 +66,7 @@ func TestDiagnoseModelAvailabilityForPlatform_CatalogRouteUsesBindings(t *testin
 }
 
 func TestOpenAIDiagnoseModelAvailabilityForPlatform_CountsKeysByInboundProtocol(t *testing.T) {
-	groupID := int64(21102)
-	key := schedulingTestKey(21112, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
+	key := schedulingTestKey(21112, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	key.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-relay-custom": "gpt-5.1"}}
 	repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
 	svc := &OpenAIGatewayService{accountRepo: repo, cfg: testConfig()}
@@ -110,58 +107,6 @@ func TestAccountServesPlatformForAnyInbound(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			require.Equal(t, tt.want, AccountServesPlatformForAnyInbound(&tt.account, tt.platform))
-		})
-	}
-}
-
-func TestAdminGroupModelsListCandidates_CountsKeysByProtocolNotLabel(t *testing.T) {
-	groupID := int64(21104)
-	responsesKey := schedulingTestKey(21116, PlatformAnthropic, map[string]string{APIProtocolResponses: schedulingTestRelayURL}, groupID)
-	responsesKey.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-relay-responses": "gpt-5.1"}}
-	accountRepo := &accountRepoStubForCompositeModelsList{accounts: []Account{anthropicEndpointKeyWithMapping(21114, groupID), responsesKey}}
-	groupRepo := &groupRepoStubForAdmin{getByIDByID: map[int64]*Group{
-		groupID: {ID: groupID, Platform: PlatformAnthropic},
-	}}
-	svc := &adminServiceImpl{accountRepo: accountRepo, groupRepo: groupRepo}
-
-	candidates, err := svc.GetGroupModelsListCandidates(context.Background(), groupID, PlatformAnthropic)
-	require.NoError(t, err)
-	require.Contains(t, candidates, "claude-relay-custom")
-	require.NotContains(t, candidates, "gpt-relay-responses")
-
-	candidates, err = svc.GetGroupModelsListCandidates(context.Background(), groupID, PlatformOpenAI)
-	require.NoError(t, err)
-	require.Contains(t, candidates, "claude-relay-custom")
-	require.Contains(t, candidates, "gpt-relay-responses")
-
-	candidates, err = svc.GetGroupModelsListCandidates(context.Background(), groupID, PlatformGemini)
-	require.NoError(t, err)
-	require.NotContains(t, candidates, "claude-relay-custom")
-	require.NotContains(t, candidates, "gpt-relay-responses")
-}
-
-// 空映射账号按 OpenAI 默认目录补齐：官方 OpenAI 与通用中转补，已知其他厂商与 OpenAI 网关
-// 承接不了的 key 不补，平台标签不参与。
-func TestSupplementUnmappedOpenAIModels_ByVendorNotLabel(t *testing.T) {
-	mappedModels := []string{"gpt-mapped-only"}
-	defaultModel := openai.DefaultModelIDs()[0]
-
-	tests := []struct {
-		name    string
-		account Account
-		want    bool
-	}{
-		{"relay key with anthropic label", schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}), true},
-		{"official openai key with deepseek label", schedulingTestKey(2, PlatformDeepseek, map[string]string{APIProtocolResponses: "https://api.openai.com"}), true},
-		{"official deepseek key with openai label", schedulingTestKey(3, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: DefaultDeepseekBaseURL}), false},
-		{"relay key without openai gateway endpoint", schedulingTestKey(4, PlatformOpenAI, map[string]string{APIProtocolGemini: schedulingTestRelayURL}), false},
-		{"openai oauth", Account{ID: 5, Platform: PlatformOpenAI, Type: AccountTypeOAuth}, true},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := supplementUnmappedOpenAIModels([]Account{tt.account}, mappedModels)
-			require.Equal(t, tt.want, slices.Contains(got, defaultModel))
-			require.Contains(t, got, "gpt-mapped-only")
 		})
 	}
 }

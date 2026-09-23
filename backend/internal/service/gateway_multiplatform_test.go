@@ -67,11 +67,6 @@ func (m *mockAccountRepoForPlatform) ListSchedulableByPlatform(ctx context.Conte
 	return result, nil
 }
 
-func (m *mockAccountRepoForPlatform) ListSchedulableByGroupIDAndPlatform(ctx context.Context, groupID int64, platform string) ([]Account, error) {
-	return m.ListSchedulableByPlatform(ctx, platform)
-}
-
-// Stub methods to implement AccountRepository interface
 func (m *mockAccountRepoForPlatform) Create(ctx context.Context, account *Account) error {
 	return nil
 }
@@ -86,13 +81,10 @@ func (m *mockAccountRepoForPlatform) Delete(ctx context.Context, id int64) error
 func (m *mockAccountRepoForPlatform) List(ctx context.Context, params pagination.PaginationParams) ([]Account, *pagination.PaginationResult, error) {
 	return nil, nil, nil
 }
-func (m *mockAccountRepoForPlatform) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
+func (m *mockAccountRepoForPlatform) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, accountType, status, search string, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
 	return nil, nil, nil
 }
-func (m *mockAccountRepoForPlatform) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, error) {
-	return nil, nil
-}
-func (m *mockAccountRepoForPlatform) ListByGroup(ctx context.Context, groupID int64) ([]Account, error) {
+func (m *mockAccountRepoForPlatform) ListAllWithFilters(ctx context.Context, platform, accountType, status, search string, privacyMode string) ([]Account, error) {
 	return nil, nil
 }
 func (m *mockAccountRepoForPlatform) ListActive(ctx context.Context) ([]Account, error) {
@@ -119,13 +111,7 @@ func (m *mockAccountRepoForPlatform) SetSchedulable(ctx context.Context, id int6
 func (m *mockAccountRepoForPlatform) AutoPauseExpiredAccounts(ctx context.Context, now time.Time) (int64, error) {
 	return 0, nil
 }
-func (m *mockAccountRepoForPlatform) BindGroups(ctx context.Context, accountID int64, groupIDs []int64) error {
-	return nil
-}
 func (m *mockAccountRepoForPlatform) ListSchedulable(ctx context.Context) ([]Account, error) {
-	return nil, nil
-}
-func (m *mockAccountRepoForPlatform) ListSchedulableByGroupID(ctx context.Context, groupID int64) ([]Account, error) {
 	return nil, nil
 }
 func (m *mockAccountRepoForPlatform) ListSchedulingCandidates(ctx context.Context, platforms []string) ([]Account, error) {
@@ -160,9 +146,6 @@ func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByCatalogEntry(_ co
 	return out, nil
 }
 
-func (m *mockAccountRepoForPlatform) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]Account, error) {
-	return m.ListSchedulingCandidates(ctx, platforms)
-}
 func (m *mockAccountRepoForPlatform) ListModelAvailabilityCandidates(_ context.Context, platforms []string) ([]Account, error) {
 	platformSet := make(map[string]struct{}, len(platforms))
 	for _, platform := range platforms {
@@ -289,72 +272,6 @@ func (m *mockGatewayCacheForPlatform) SetReasoningContent(_ context.Context, _ s
 }
 func (m *mockGatewayCacheForPlatform) GetReasoningContent(_ context.Context, _ string) (string, error) {
 	return "", ErrReasoningContentNotFound
-}
-
-type mockGroupRepoForGateway struct {
-	groups           map[int64]*Group
-	getByIDCalls     int
-	getByIDLiteCalls int
-}
-
-func (m *mockGroupRepoForGateway) GetByID(ctx context.Context, id int64) (*Group, error) {
-	m.getByIDCalls++
-	if g, ok := m.groups[id]; ok {
-		return g, nil
-	}
-	return nil, ErrGroupNotFound
-}
-
-func (m *mockGroupRepoForGateway) GetByIDLite(ctx context.Context, id int64) (*Group, error) {
-	m.getByIDLiteCalls++
-	if g, ok := m.groups[id]; ok {
-		return g, nil
-	}
-	return nil, ErrGroupNotFound
-}
-
-func (m *mockGroupRepoForGateway) Create(ctx context.Context, group *Group) error { return nil }
-func (m *mockGroupRepoForGateway) Update(ctx context.Context, group *Group) error { return nil }
-func (m *mockGroupRepoForGateway) Delete(ctx context.Context, id int64) error     { return nil }
-func (m *mockGroupRepoForGateway) DeleteCascade(ctx context.Context, id int64) error {
-	return nil
-}
-func (m *mockGroupRepoForGateway) List(ctx context.Context, params pagination.PaginationParams) ([]Group, *pagination.PaginationResult, error) {
-	return nil, nil, nil
-}
-func (m *mockGroupRepoForGateway) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error) {
-	return nil, nil, nil
-}
-func (m *mockGroupRepoForGateway) ListActive(ctx context.Context) ([]Group, error) {
-	return nil, nil
-}
-func (m *mockGroupRepoForGateway) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	return nil, nil
-}
-func (m *mockGroupRepoForGateway) ExistsByName(ctx context.Context, name string) (bool, error) {
-	return false, nil
-}
-func (m *mockGroupRepoForGateway) GetAccountCount(ctx context.Context, groupID int64) (int64, int64, error) {
-	return 0, 0, nil
-}
-func (m *mockGroupRepoForGateway) DeleteAccountGroupsByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, nil
-}
-
-func (m *mockGroupRepoForGateway) BindAccountsToGroup(ctx context.Context, groupID int64, accountIDs []int64) error {
-	return nil
-}
-
-func (m *mockGroupRepoForGateway) GetAccountIDsByGroupIDs(ctx context.Context, groupIDs []int64) ([]int64, error) {
-	return nil, nil
-}
-
-func (m *mockGroupRepoForGateway) UpdateSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error {
-	return nil
-}
-
-func ptr[T any](v T) *T {
-	return &v
 }
 
 func TestGatewayService_isModelSupportedByAccount(t *testing.T) {
