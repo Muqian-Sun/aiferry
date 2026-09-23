@@ -613,7 +613,8 @@ describe('UsageView subscription feature flag', () => {
     await flushPromises()
 
     expect(billingTypeSelect(wrapper)).toBeDefined()
-    expect(wrapper.text()).toContain('Billing type')
+    // 筛选行不再写可见标签，标签文字在下拉的 title 上
+    expect(billingTypeSelect(wrapper)?.attributes('title')).toBe('Billing type')
     wrapper.unmount()
   })
 
@@ -624,7 +625,7 @@ describe('UsageView subscription feature flag', () => {
     await flushPromises()
 
     expect(billingTypeSelect(wrapper)).toBeUndefined()
-    expect(wrapper.text()).not.toContain('Billing type')
+    expect(wrapper.find('[title="Billing type"]').exists()).toBe(false)
     wrapper.unmount()
   })
 })

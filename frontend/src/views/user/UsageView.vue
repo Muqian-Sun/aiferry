@@ -6,7 +6,8 @@
   <SiteShell>
     <template #actions>
       <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
-      <button type="button" class="btn btn-secondary btn-md" :disabled="loading" data-testid="usage-refresh" @click="refreshData">
+      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="refreshData">
+        <Icon name="refresh" size="sm" />
         {{ t('common.refresh') }}
       </button>
     </template>
@@ -40,7 +41,7 @@
             <button
               type="button"
               data-testid="usage-column-settings"
-              class="btn btn-secondary btn-sm"
+              class="btn btn-ghost btn-sm"
               :title="t('admin.users.columnSettings')"
               @click="showColumnDropdown = !showColumnDropdown"
             >
@@ -64,65 +65,40 @@
               </button>
             </div>
           </div>
-          <button v-if="activeTab !== 'errors'" type="button" class="btn btn-secondary btn-sm" :disabled="exporting" @click="exportToCSV">
+          <button v-if="activeTab !== 'errors'" type="button" class="btn btn-ghost btn-sm" :disabled="exporting" @click="exportToCSV">
             {{ exporting ? t('usage.exporting') : t('usage.exportCsv') }}
           </button>
         </template>
 
         <SectionTabs v-if="errorViewEnabled" v-model="activeTab" :tabs="recordTabs" class="mb-4" />
 
-        <!-- 筛选：记录 / 错误各一组 -->
-        <div v-if="activeTab === 'errors'" class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div>
-            <label class="input-label">{{ t('usage.errors.keyName') }}</label>
-            <Select v-model="errorFilter.api_key_id" :options="errorKeyOptions" @change="applyErrorFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.model') }}</label>
-            <Select
-              v-model="errorFilter.model"
-              :options="errorModelOptions"
-              searchable
-              creatable
-              clearable
-              :placeholder="t('usage.errors.modelPlaceholder')"
-              @change="applyErrorFilters"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.category') }}</label>
-            <Select v-model="errorFilter.category" :options="errorCategoryOptions" @change="applyErrorFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.status') }}</label>
-            <Select v-model="errorFilter.status_code" :options="errorStatusOptions" @change="applyErrorFilters" />
-          </div>
+        <!--
+          筛选：一行紧凑下拉（muqian 2026-09-23 控制台对齐首页：不要两行带标签的网格）。
+          选项文案本身就是「全部 xx」，所以不再单独写标签；标签文字留给读屏（title）。
+        -->
+        <div v-if="activeTab === 'errors'" class="usage-filters mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
+          <Select v-model="errorFilter.api_key_id" class="w-40" :title="t('usage.errors.keyName')" :options="errorKeyOptions" @change="applyErrorFilters" />
+          <Select
+            v-model="errorFilter.model"
+            class="w-48"
+            :title="t('usage.errors.model')"
+            :options="errorModelOptions"
+            searchable
+            creatable
+            clearable
+            :placeholder="t('usage.errors.modelPlaceholder')"
+            @change="applyErrorFilters"
+          />
+          <Select v-model="errorFilter.category" class="w-40" :title="t('usage.errors.category')" :options="errorCategoryOptions" @change="applyErrorFilters" />
+          <Select v-model="errorFilter.status_code" class="w-40" :title="t('usage.errors.status')" :options="errorStatusOptions" @change="applyErrorFilters" />
         </div>
-        <div v-else class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div>
-            <label class="input-label">{{ t('usage.apiKeyFilter') }}</label>
-            <Select v-model="filters.api_key_id" :options="apiKeyOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.model') }}</label>
-            <Select v-model="filters.model" :options="modelOptions" searchable @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.type') }}</label>
-            <Select v-model="filters.request_type" :options="requestTypeOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.compactionFilter') }}</label>
-            <Select v-model="filters.native_compaction_v2" :options="compactionOptions" @change="applyFilters" />
-          </div>
-          <div v-if="subscriptionFeatureEnabled">
-            <label class="input-label">{{ t('admin.usage.billingType') }}</label>
-            <Select v-model="filters.billing_type" :options="billingTypeOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
-            <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="applyFilters" />
-          </div>
+        <div v-else class="usage-filters mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
+          <Select v-model="filters.api_key_id" class="w-40" :title="t('usage.apiKeyFilter')" :options="apiKeyOptions" :placeholder="t('usage.allApiKeys')" @change="applyFilters" />
+          <Select v-model="filters.model" class="w-48" :title="t('usage.model')" :options="modelOptions" :placeholder="t('admin.usage.allModels')" searchable @change="applyFilters" />
+          <Select v-model="filters.request_type" class="w-36" :title="t('usage.type')" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="applyFilters" />
+          <Select v-model="filters.native_compaction_v2" class="w-36" :title="t('usage.compactionFilter')" :options="compactionOptions" @change="applyFilters" />
+          <Select v-if="subscriptionFeatureEnabled" v-model="filters.billing_type" class="w-40" :title="t('admin.usage.billingType')" :options="billingTypeOptions" @change="applyFilters" />
+          <Select v-model="filters.billing_mode" class="w-40" :title="t('admin.usage.billingMode')" :options="billingModeOptions" @change="applyFilters" />
         </div>
 
         <template v-if="activeTab === 'usage'">
@@ -821,3 +797,10 @@ onUnmounted(() => {
   document.removeEventListener('click', handleColumnClickOutside)
 })
 </script>
+
+<style scoped>
+/* 筛选行：通用 select 是 42px，这一页压到 34px、13px 字，与表格同一密度 */
+.usage-filters :deep(.select-trigger) {
+  @apply px-3 py-1.5 text-13;
+}
+</style>

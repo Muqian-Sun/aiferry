@@ -96,11 +96,12 @@
     class="table-wrapper"
     :class="{
       'actions-expanded': actionsExpanded,
-      'is-scrollable': isScrollable
+      'is-scrollable': isScrollable,
+      'table-head-plain': plainHeader
     }"
   >
     <table class="w-full min-w-max divide-y divide-af-hairline">
-      <thead class="table-header bg-af-sunken">
+      <thead class="table-header">
         <tr>
           <th
             v-if="selectable"
@@ -268,8 +269,12 @@ import { useVirtualizer, observeElementRect as observeElementRectDefault } from 
 import { useI18n } from 'vue-i18n'
 import type { Column } from './types'
 import Icon from '@/components/icons/Icon.vue'
+import { IS_ADMIN_SITE } from '@/app/site'
 
 const { t } = useI18n()
+
+/** 用户站表头与页面同色（见样式区 --table-head-bg） */
+const plainHeader = !IS_ADMIN_SITE
 
 const desktopViewportQuery = '(min-width: 768px)'
 const isDesktopViewport = ref(
@@ -962,16 +967,24 @@ defineExpose({
   isolation: isolate;
 }
 
+/*
+ * 表头底色：管理端铺浅灰；用户站与页面同色（控制台单色为主，muqian 2026-09-23），只靠表头下的 hairline 分隔。
+ * 表头单元格吸顶时必须有不透明底色，所以走同一个变量，不能直接去掉背景。
+ */
+.table-wrapper {
+  --table-head-bg: var(--af-sunken);
+}
+
+.table-wrapper.table-head-plain {
+  --table-head-bg: var(--af-sheet);
+}
+
 /* 表头容器，确保在滚动时覆盖表体内容 */
 .table-wrapper .table-header {
   position: sticky;
   top: 0;
   z-index: 200;
-  background-color: rgb(var(--af-sunken));
-}
-
-.dark .table-wrapper .table-header {
-  background-color: rgb(var(--af-sunken));
+  background-color: rgb(var(--table-head-bg));
 }
 
 /* 表体保持在表头下方 */
@@ -985,11 +998,7 @@ defineExpose({
   position: sticky;
   top: 0;
   z-index: 210; /* 必须高于所有表体内容 */
-  background-color: rgb(var(--af-sunken));
-}
-
-.dark .sticky-header-cell {
-  background-color: rgb(var(--af-sunken));
+  background-color: rgb(var(--table-head-bg));
 }
 
 /* Sticky 列基础样式 */
