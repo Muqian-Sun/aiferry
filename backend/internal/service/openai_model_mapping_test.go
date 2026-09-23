@@ -4,43 +4,18 @@ import "testing"
 
 func TestResolveOpenAIForwardModel(t *testing.T) {
 	tests := []struct {
-		name                        string
-		account                     *Account
-		requestedModel              string
-		messagesDispatchMappedModel string
-		expectedModel               string
+		name           string
+		account        *Account
+		requestedModel string
+		expectedModel  string
 	}{
 		{
-			name: "uses messages dispatch model for known claude family",
-			account: &Account{
-				Credentials: map[string]any{},
-			},
-			requestedModel:              "claude-opus-4-6",
-			messagesDispatchMappedModel: "gpt-4o-mini",
-			expectedModel:               "gpt-4o-mini",
-		},
-		{
-			name: "uses exact messages dispatch model for unknown claude family",
-			account: &Account{
-				Credentials: map[string]any{},
-			},
-			requestedModel:              "claude-fable-5",
-			messagesDispatchMappedModel: " gpt-5.6-sol ",
-			expectedModel:               "gpt-5.6-sol",
-		},
-		{
-			name:                        "nil account uses messages dispatch model",
-			requestedModel:              "claude-fable-5",
-			messagesDispatchMappedModel: "gpt-5.6-sol",
-			expectedModel:               "gpt-5.6-sol",
-		},
-		{
-			name:           "nil account without messages dispatch keeps requested model",
+			name:           "nil account keeps requested model",
 			requestedModel: "claude-fable-5",
 			expectedModel:  "claude-fable-5",
 		},
 		{
-			name: "ordinary unknown gpt model has no messages dispatch fallback",
+			name: "unknown gpt model without mapping keeps requested model",
 			account: &Account{
 				Credentials: map[string]any{},
 			},
@@ -48,7 +23,7 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 			expectedModel:  "gpt6",
 		},
 		{
-			name: "account exact mapping overrides messages dispatch model",
+			name: "account exact mapping applies",
 			account: &Account{
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{
@@ -56,12 +31,11 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 					},
 				},
 			},
-			requestedModel:              "claude-fable-5",
-			messagesDispatchMappedModel: "gpt-5.6-sol",
-			expectedModel:               "gpt-5.5",
+			requestedModel: "claude-fable-5",
+			expectedModel:  "gpt-5.5",
 		},
 		{
-			name: "account wildcard mapping overrides messages dispatch model",
+			name: "account wildcard mapping applies",
 			account: &Account{
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{
@@ -69,12 +43,11 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 					},
 				},
 			},
-			requestedModel:              "claude-fable-5",
-			messagesDispatchMappedModel: "gpt-5.6-sol",
-			expectedModel:               "gpt-5.4",
+			requestedModel: "claude-fable-5",
+			expectedModel:  "gpt-5.4",
 		},
 		{
-			name: "account passthrough mapping overrides messages dispatch model",
+			name: "account passthrough mapping keeps the requested model",
 			account: &Account{
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{
@@ -82,9 +55,8 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 					},
 				},
 			},
-			requestedModel:              "claude-fable-5",
-			messagesDispatchMappedModel: "gpt-5.6-sol",
-			expectedModel:               "claude-fable-5",
+			requestedModel: "claude-fable-5",
+			expectedModel:  "claude-fable-5",
 		},
 		{
 			name: "ordinary codex spark request keeps requested model",
@@ -134,20 +106,11 @@ func TestResolveOpenAIForwardModel(t *testing.T) {
 			requestedModel: "gpt-5.5-openai-compact",
 			expectedModel:  "gpt-5.5-openai-compact",
 		},
-		{
-			name: "whitespace-only messages dispatch model is ignored",
-			account: &Account{
-				Credentials: map[string]any{},
-			},
-			requestedModel:              "gpt-5.5",
-			messagesDispatchMappedModel: "  ",
-			expectedModel:               "gpt-5.5",
-		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := resolveOpenAIForwardModel(tt.account, tt.requestedModel, tt.messagesDispatchMappedModel); got != tt.expectedModel {
+			if got := resolveOpenAIForwardModel(tt.account, tt.requestedModel); got != tt.expectedModel {
 				t.Fatalf("resolveOpenAIForwardModel(...) = %q, want %q", got, tt.expectedModel)
 			}
 		})

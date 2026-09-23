@@ -73,7 +73,7 @@ func TestForwardAsChatCompletions_ResponseFailed_PassthroughRule(t *testing.T) {
 	}
 
 	account := responsesKeyTestAccount()
-	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "passthrough")
@@ -204,7 +204,7 @@ func TestForwardAsAnthropic_ResponseFailed_PassthroughRule(t *testing.T) {
 	}
 
 	account := responsesKeyTestAccount()
-	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "passthrough")
@@ -234,7 +234,7 @@ func TestForwardAsChatCompletions_ResponseFailed_NoRule_Still502(t *testing.T) {
 	}
 
 	account := responsesKeyTestAccount()
-	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Equal(t, http.StatusBadGateway, rec.Code, "without passthrough rule should still be 502")
@@ -282,7 +282,7 @@ func TestForwardAsChatCompletions_ResponseFailed_ErrorCodeRuleMatchesViaSemantic
 	}
 
 	account := responsesKeyTestAccount()
-	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code, "error-code-conditioned rule should match via semantic status inference")
@@ -313,7 +313,7 @@ func TestForwardAsAnthropic_ResponseFailed_ErrorCodeRuleMatchesViaSemanticStatus
 	}
 
 	account := responsesKeyTestAccount()
-	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Equal(t, http.StatusBadRequest, rec.Code, "error-code-conditioned rule should match via semantic status inference")

@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -24,6 +25,19 @@ func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string) (
 		return protocol, nil
 	}
 	return "", MissingProtocolEndpointError(account, strings.Join(UpstreamProtocolPreference(inboundProtocol, account.Vendor()), " / "))
+}
+
+// anthropicUpstreamOnOpenAIGatewayError 报告一次不该发生的分发：anthropic 上游由
+// Anthropic 网关承接，OpenAI 网关不做「转成 Anthropic 走原生端点」这件事。
+//
+// handler 的 compatForwardTargetFor 与这里读同一个 account.UpstreamProtocolFor(inbound)：
+// 解析成 anthropic 的资源会被交给 compatForwardAnthropic，根本到不了 OpenAI 网关。
+// 走到这里说明路由与转发的判定不一致，直接报错比静默改走 Responses 转换链更容易排查。
+func anthropicUpstreamOnOpenAIGatewayError(account *Account, inboundProtocol string) error {
+	return fmt.Errorf(
+		"account %d resolves inbound %s to the anthropic upstream, which the OpenAI gateway does not serve; routing should have picked the Anthropic gateway",
+		account.ID, inboundProtocol,
+	)
 }
 
 // openAIGatewayKeyProtocol 返回第三方 key 处理该入站协议的上游协议（协议转换注册表：

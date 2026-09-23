@@ -32,7 +32,6 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 	c *gin.Context,
 	account *Account,
 	body []byte,
-	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 
@@ -57,7 +56,7 @@ func (s *OpenAIGatewayService) forwardAnthropicViaRawChatCompletions(
 		return nil, fmt.Errorf("convert anthropic to chat completions: %w", err)
 	}
 
-	billingModel := resolveOpenAIForwardModel(account, anthropicReq.Model, defaultMappedModel)
+	billingModel := resolveOpenAIForwardModel(account, anthropicReq.Model)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	chatReq.Model = upstreamModel
 	chatReq.ReasoningEffort = openAICompatAnthropicReasoningEffort(&anthropicReq, upstreamModel, chatReq.ReasoningEffort)

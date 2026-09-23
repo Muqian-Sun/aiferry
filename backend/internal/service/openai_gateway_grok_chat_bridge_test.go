@@ -246,7 +246,7 @@ func TestForwardGrokChatViaResponsesNonStreamingCachesAndReturnsChat(t *testing.
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
@@ -306,7 +306,7 @@ func TestForwardGrokChatViaResponsesNonStreamingRejectsCompletedResponseWithoutU
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -372,7 +372,7 @@ func TestForwardGrokChatViaResponsesCodeBuddyUsesStableConversationHeader(t *tes
 				accountRepo:       repo,
 			}
 
-			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, tt.body, "", "")
+			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, tt.body, "")
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
@@ -411,7 +411,7 @@ func TestForwardGrokChatViaResponsesTraeToolHistoryKeepsCacheRoute(t *testing.T)
 	require.NotEmpty(t, firstTurnIdentity)
 	require.Equal(t, firstTurnIdentity, extendedTurnIdentity)
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
@@ -468,7 +468,7 @@ func TestForwardGrokChatViaResponsesTraeCompatibilityFieldsKeepCacheRoute(t *tes
 	require.NotEmpty(t, firstTurnIdentity)
 	require.Equal(t, firstTurnIdentity, extendedTurnIdentity)
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
@@ -513,7 +513,7 @@ func TestForwardGrokChatViaResponsesStreamingPropagatesCachedUsage(t *testing.T)
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.True(t, result.Stream)
@@ -568,7 +568,7 @@ func TestForwardGrokChatRuntimeGateFallsBackToRaw(t *testing.T) {
 				accountRepo:       repo,
 			}
 
-			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+			result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())
@@ -608,7 +608,7 @@ func TestForwardGrokChatViaResponses429UsesGrokRateLimitPolicy(t *testing.T) {
 	}
 	before := time.Now()
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.Error(t, err)
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -651,7 +651,7 @@ func TestForwardGrokRawChat429PreservesRetryAfter(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Error(t, err)
 	require.Nil(t, result)
@@ -686,7 +686,7 @@ func TestForwardGrokRawChatErrorRecordsActualEndpoint(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.Error(t, err)
 	require.Nil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())

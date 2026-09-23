@@ -87,7 +87,7 @@ func TestForwardEmbeddings_APIKeyPassthroughRecordsUsageAndBatchInput(t *testing
 		},
 	}
 
-	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody, "")
+	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody)
 
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
@@ -138,7 +138,7 @@ func TestForwardEmbeddings_AccessStateUsesTypedFailover(t *testing.T) {
 		},
 	}
 
-	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody, "")
+	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody)
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -181,7 +181,7 @@ func TestForwardEmbeddings_NonAccessFailoverKeepsLegacyShape(t *testing.T) {
 		},
 	}
 
-	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody, "")
+	result, err := svc.ForwardEmbeddings(context.Background(), c, account, reqBody)
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
