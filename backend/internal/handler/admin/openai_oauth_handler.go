@@ -173,7 +173,6 @@ type OpenAICodexPATCreateRequest struct {
 	AccessToken             string         `json:"access_token" binding:"required"`
 	Name                    string         `json:"name"`
 	Notes                   *string        `json:"notes"`
-	GroupIDs                []int64        `json:"group_ids"`
 	ProxyID                 *int64         `json:"proxy_id"`
 	Concurrency             *int           `json:"concurrency"`
 	Priority                *int           `json:"priority"`
@@ -183,8 +182,6 @@ type OpenAICodexPATCreateRequest struct {
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	CredentialExtras        map[string]any `json:"credential_extras"`
 	Extra                   map[string]any `json:"extra"`
-	SkipDefaultGroupBind    *bool          `json:"skip_default_group_bind"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"`
 }
 
 // RefreshToken refreshes an OpenAI OAuth token
@@ -304,7 +301,6 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		Name        string  `json:"name"`
 		Concurrency int     `json:"concurrency"`
 		Priority    int     `json:"priority"`
-		GroupIDs    []int64 `json:"group_ids"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.BadRequest(c, "Invalid request: "+err.Error())
@@ -348,7 +344,6 @@ func (h *OpenAIOAuthHandler) CreateAccountFromOAuth(c *gin.Context) {
 		ProxyID:     req.ProxyID,
 		Concurrency: req.Concurrency,
 		Priority:    req.Priority,
-		GroupIDs:    req.GroupIDs,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -420,10 +415,6 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 	if req.Priority != nil {
 		priority = *req.Priority
 	}
-	skipDefaultGroupBind := false
-	if req.SkipDefaultGroupBind != nil {
-		skipDefaultGroupBind = *req.SkipDefaultGroupBind
-	}
 
 	account, err := h.adminService.CreateAccount(c.Request.Context(), &service.CreateAccountInput{
 		Name:                  buildOpenAICodexPATAccountName(req.Name, tokenInfo),
@@ -437,11 +428,8 @@ func (h *OpenAIOAuthHandler) CreateAccountFromCodexPAT(c *gin.Context) {
 		Priority:              priority,
 		RateMultiplier:        req.RateMultiplier,
 		LoadFactor:            req.LoadFactor,
-		GroupIDs:              req.GroupIDs,
 		ExpiresAt:             req.ExpiresAt,
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
-		SkipDefaultGroupBind:  skipDefaultGroupBind,
-		SkipMixedChannelCheck: req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -535,7 +523,6 @@ type CreateShadowRequest struct {
 	Name        string  `json:"name"`
 	Priority    int     `json:"priority"`
 	Concurrency int     `json:"concurrency"`
-	GroupIDs    []int64 `json:"group_ids"`
 }
 
 // CreateShadow creates a spark-dimension shadow account for a parent OpenAI OAuth account.
@@ -557,7 +544,6 @@ func (h *OpenAIOAuthHandler) CreateShadow(c *gin.Context) {
 		Name:        req.Name,
 		Priority:    req.Priority,
 		Concurrency: req.Concurrency,
-		GroupIDs:    req.GroupIDs,
 	})
 	if err != nil {
 		response.ErrorFrom(c, err)

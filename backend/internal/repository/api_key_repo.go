@@ -3,10 +3,8 @@ package repository
 import (
 	"context"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"strings"
 	"time"
 
@@ -80,7 +78,6 @@ func (r *apiKeyRepository) GetByID(ctx context.Context, id int64) (*service.APIK
 	m, err := r.activeQuery().
 		Where(apikey.IDEQ(id)).
 		WithUser().
-		WithGroup().
 		WithSubscription(func(sq *dbent.UserSubscriptionQuery) { sq.WithPlan() }).
 		Only(ctx)
 	if err != nil {
@@ -107,7 +104,6 @@ func (r *apiKeyRepository) GetByKey(ctx context.Context, key string) (*service.A
 				gq.Select(group.FieldID)
 			})
 		}).
-		WithGroup().
 		WithSubscription(func(sq *dbent.UserSubscriptionQuery) { sq.WithPlan() }).
 		Only(ctx)
 	if err != nil {
@@ -391,7 +387,6 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 	}
 
 	keysQuery := q.
-		WithGroup().
 		WithSubscription(func(sq *dbent.UserSubscriptionQuery) { sq.WithPlan() }).
 		Offset(params.Offset()).
 		Limit(params.Limit())
@@ -417,7 +412,6 @@ func (r *apiKeyRepository) ListByUserID(ctx context.Context, userID int64, param
 
 func (r *apiKeyRepository) ListAllByUserID(ctx context.Context, userID int64, filters service.APIKeyListFilters) ([]service.APIKey, error) {
 	keys, err := r.apiKeyListByUserIDQuery(userID, filters).
-		WithGroup().
 		WithSubscription(func(sq *dbent.UserSubscriptionQuery) { sq.WithPlan() }).
 		Order(dbent.Asc(apikey.FieldID)).
 		All(ctx)
@@ -838,9 +832,6 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 			}
 		}
 	}
-	if m.Edges.Group != nil {
-		out.Group = groupEntityToService(m.Edges.Group)
-	}
 	if m.Edges.Subscription != nil {
 		out.Subscription = userSubscriptionEntityToService(m.Edges.Subscription)
 	}
@@ -884,65 +875,6 @@ func userEntityToService(u *dbent.User) *service.User {
 		out.BalanceNotifyExtraEmails = service.ParseNotifyEmails(u.BalanceNotifyExtraEmails)
 	}
 	return out
-}
-
-func groupEntityToService(g *dbent.Group) *service.Group {
-	if g == nil {
-		return nil
-	}
-	var modelPricing []service.PricingCard
-	if len(g.ModelPricing) > 0 {
-		if err := json.Unmarshal(g.ModelPricing, &modelPricing); err != nil {
-			slog.Warn("group model_pricing unmarshal failed; falling back to channel/builtin pricing",
-				"group_id", g.ID, "error", err)
-			modelPricing = nil
-		}
-	}
-	return &service.Group{
-		ID:                              g.ID,
-		Name:                            g.Name,
-		Description:                     derefString(g.Description),
-		Platform:                        g.Platform,
-		RateMultiplier:                  g.RateMultiplier,
-		IsExclusive:                     g.IsExclusive,
-		Status:                          g.Status,
-		Hydrated:                        true,
-		DuplicateOperationID:            derefString(g.DuplicateOperationID),
-		AllowImageGeneration:            g.AllowImageGeneration,
-		AllowBatchImageGeneration:       g.AllowBatchImageGeneration,
-		BatchImageDiscountMultiplier:    g.BatchImageDiscountMultiplier,
-		BatchImageHoldMultiplier:        g.BatchImageHoldMultiplier,
-		LongContextPricingEnabled:       g.LongContextPricingEnabled,
-		ModelPricing:                    modelPricing,
-		ClaudeCodeOnly:                  g.ClaudeCodeOnly,
-		FallbackGroupID:                 g.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
-		ModelRouting:                    g.ModelRouting,
-		ModelRoutingEnabled:             g.ModelRoutingEnabled,
-		MCPXMLInject:                    g.McpXMLInject,
-		SupportedModelScopes:            g.SupportedModelScopes,
-		SortOrder:                       g.SortOrder,
-		AllowLive:                       g.AllowLive,
-		ForceOpenAIFast:                 g.ForceOpenaiFast,
-		FreeOpenAIFast:                  g.FreeOpenaiFast,
-		RequireOAuthOnly:                g.RequireOauthOnly,
-		RequirePrivacySet:               g.RequirePrivacySet,
-		ModelAllowlist:                  service.GroupModelAllowlistFromDomain(g.ModelAllowlist),
-		CodexModelsManifestConfig:       g.CodexModelsManifestConfig,
-		RPMLimit:                        g.RpmLimit,
-		MaxReasoningEffort:              g.MaxReasoningEffort,
-		MaxReasoningEffortOverLimit:     g.MaxReasoningEffortOverLimit,
-		ReasoningEffortMappings:         g.ReasoningEffortMappings,
-		PeakRateEnabled:                 g.PeakRateEnabled,
-		PeakStart:                       g.PeakStart,
-		PeakEnd:                         g.PeakEnd,
-		PeakRateMultiplier:              g.PeakRateMultiplier,
-		ProfitControlEnabled:            g.ProfitControlEnabled,
-		ProfitMinMargin:                 g.ProfitMinMargin,
-		ProfitSafetyBuffer:              g.ProfitSafetyBuffer,
-		CreatedAt:                       g.CreatedAt,
-		UpdatedAt:                       g.UpdatedAt,
-	}
 }
 
 func derefString(s *string) string {

@@ -122,11 +122,9 @@ type CreateAccountRequest struct {
 	Priority                int            `json:"priority"`
 	RateMultiplier          *float64       `json:"rate_multiplier"`
 	LoadFactor              *int           `json:"load_factor"`
-	GroupIDs                []int64        `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 	// ProtocolEndpoints 协议 → 上游地址映射，第三方 key 用它取代按平台推导地址。
 	ProtocolEndpoints map[string]string `json:"protocol_endpoints"`
 }
@@ -145,12 +143,10 @@ type UpdateAccountRequest struct {
 	RateMultiplier          *float64       `json:"rate_multiplier"`
 	LoadFactor              *int           `json:"load_factor"`
 	Status                  string         `json:"status" binding:"omitempty,oneof=active inactive error"`
-	GroupIDs                *[]int64       `json:"group_ids"`
 	ExpiresAt               *int64         `json:"expires_at"`
 	AutoPauseOnExpired      *bool          `json:"auto_pause_on_expired"`
 	ProbeEnabled            *bool          `json:"upstream_billing_probe_enabled"`
 	RateSyncEnabled         *bool          `json:"upstream_billing_rate_sync_enabled"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 	// ProtocolEndpoints 省略表示不修改；传空对象表示清空。
 	ProtocolEndpoints *map[string]string `json:"protocol_endpoints"`
 }
@@ -167,11 +163,9 @@ type BulkUpdateAccountsRequest struct {
 	LoadFactor              *int                      `json:"load_factor"`
 	Status                  string                    `json:"status" binding:"omitempty,oneof=active inactive error"`
 	Schedulable             *bool                     `json:"schedulable"`
-	GroupIDs                *[]int64                  `json:"group_ids"`
 	Credentials             map[string]any            `json:"credentials"`
 	Extra                   map[string]any            `json:"extra"`
 	ProbeEnabled            *bool                     `json:"upstream_billing_probe_enabled"`
-	ConfirmMixedChannelRisk *bool                     `json:"confirm_mixed_channel_risk"` // 用户确认混合渠道风险
 }
 
 type BulkUpdateAccountFilters struct {
@@ -181,13 +175,6 @@ type BulkUpdateAccountFilters struct {
 	Group       string `json:"group"`
 	Search      string `json:"search"`
 	PrivacyMode string `json:"privacy_mode"`
-}
-
-// CheckMixedChannelRequest represents check mixed channel risk request
-type CheckMixedChannelRequest struct {
-	Platform  string  `json:"platform" binding:"required"`
-	GroupIDs  []int64 `json:"group_ids"`
-	AccountID *int64  `json:"account_id"`
 }
 
 // AccountWithConcurrency extends Account with real-time concurrency info
@@ -211,112 +198,6 @@ type AccountListItemWithConcurrency struct {
 	ActiveSessions     *int     `json:"active_sessions,omitempty"`
 	CurrentRPM         *int     `json:"current_rpm,omitempty"`
 }
-
-type simpleModeGroupReference struct {
-	ID       int64  `json:"id"`
-	Name     string `json:"name"`
-	Platform string `json:"platform"`
-	Status   string `json:"status"`
-}
-
-type simpleModeAccountGroupReference struct {
-	AccountID int64                     `json:"account_id"`
-	GroupID   int64                     `json:"group_id"`
-	Priority  int                       `json:"priority"`
-	CreatedAt time.Time                 `json:"created_at"`
-	Group     *simpleModeGroupReference `json:"group,omitempty"`
-}
-
-func simpleModeGroupReferenceFromDTO(group *dto.Group) *simpleModeGroupReference {
-	if group == nil {
-		return nil
-	}
-	return &simpleModeGroupReference{ID: group.ID, Name: group.Name, Platform: group.Platform, Status: group.Status}
-}
-
-func simpleModeCompositeGroupIDs(account *dto.Account) map[int64]struct{} {
-	hidden := make(map[int64]struct{})
-	if account == nil {
-		return hidden
-	}
-	for _, group := range account.Groups {
-		if group != nil && group.Platform == service.PlatformComposite {
-			hidden[group.ID] = struct{}{}
-		}
-	}
-	for _, accountGroup := range account.AccountGroups {
-		if accountGroup.Group != nil && accountGroup.Group.Platform == service.PlatformComposite {
-			hidden[accountGroup.GroupID] = struct{}{}
-		}
-	}
-	return hidden
-}
-
-func filterSimpleModeGroupIDs(groupIDs []int64, hidden map[int64]struct{}) []int64 {
-	visible := make([]int64, 0, len(groupIDs))
-	for _, groupID := range groupIDs {
-		if _, ok := hidden[groupID]; !ok {
-			visible = append(visible, groupID)
-		}
-	}
-	return visible
-}
-
-func simpleModeCompositeServiceGroupIDs(account *service.Account) map[int64]struct{} {
-	hidden := make(map[int64]struct{})
-	if account == nil {
-		return hidden
-	}
-	for _, group := range account.Groups {
-		if group != nil && group.Platform == service.PlatformComposite {
-			hidden[group.ID] = struct{}{}
-		}
-	}
-	for _, accountGroup := range account.AccountGroups {
-		if accountGroup.Group != nil && accountGroup.Group.Platform == service.PlatformComposite {
-			hidden[accountGroup.GroupID] = struct{}{}
-		}
-	}
-	return hidden
-}
-
-func (a AccountWithConcurrency) MarshalJSON() ([]byte, error) {
-	type alias AccountWithConcurrency
-	if !a.simpleMode || a.Account == nil {
-		return json.Marshal(alias(a))
-	}
-	groups := make([]simpleModeGroupReference, 0, len(a.Groups))
-	compositeIDs := simpleModeCompositeGroupIDs(a.Account)
-	for _, group := range a.Groups {
-		if group != nil && group.Platform == service.PlatformComposite {
-			continue
-		}
-		if ref := simpleModeGroupReferenceFromDTO(group); ref != nil {
-			groups = append(groups, *ref)
-		}
-	}
-	accountGroups := make([]simpleModeAccountGroupReference, 0, len(a.AccountGroups))
-	for _, accountGroup := range a.AccountGroups {
-		if accountGroup.Group != nil && accountGroup.Group.Platform == service.PlatformComposite {
-			continue
-		}
-		if _, hidden := compositeIDs[accountGroup.GroupID]; hidden {
-			continue
-		}
-		accountGroups = append(accountGroups, simpleModeAccountGroupReference{
-			AccountID: accountGroup.AccountID, GroupID: accountGroup.GroupID, Priority: accountGroup.Priority,
-			CreatedAt: accountGroup.CreatedAt, Group: simpleModeGroupReferenceFromDTO(accountGroup.Group),
-		})
-	}
-	return json.Marshal(struct {
-		alias
-		GroupIDs      []int64                           `json:"group_ids,omitempty"`
-		Groups        []simpleModeGroupReference        `json:"groups"`
-		AccountGroups []simpleModeAccountGroupReference `json:"account_groups"`
-	}{alias: alias(a), GroupIDs: filterSimpleModeGroupIDs(a.GroupIDs, compositeIDs), Groups: groups, AccountGroups: accountGroups})
-}
-
-const accountListGroupUngroupedQueryValue = "ungrouped"
 
 func (h *AccountHandler) accountResponseFromService(account *service.Account) *dto.Account {
 	out := dto.AccountFromService(account)
@@ -406,25 +287,7 @@ func (h *AccountHandler) List(c *gin.Context) {
 	}
 	lite := parseBoolQueryWithDefault(c.Query("lite"), false)
 
-	var groupID int64
-	if groupIDStr := c.Query("group"); groupIDStr != "" {
-		if groupIDStr == accountListGroupUngroupedQueryValue {
-			groupID = service.AccountListGroupUngrouped
-		} else {
-			parsedGroupID, parseErr := strconv.ParseInt(groupIDStr, 10, 64)
-			if parseErr != nil {
-				response.ErrorFrom(c, infraerrors.BadRequest("INVALID_GROUP_FILTER", "invalid group filter"))
-				return
-			}
-			if parsedGroupID < 0 {
-				response.ErrorFrom(c, infraerrors.BadRequest("INVALID_GROUP_FILTER", "invalid group filter"))
-				return
-			}
-			groupID = parsedGroupID
-		}
-	}
-
-	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, groupID, privacyMode, sortBy, sortOrder)
+	accounts, total, err := h.adminService.ListAccounts(c.Request.Context(), page, pageSize, platform, accountType, status, search, privacyMode, sortBy, sortOrder)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -530,9 +393,6 @@ func (h *AccountHandler) List(c *gin.Context) {
 		accountResponse := h.accountResponseFromService(acc)
 		if lite {
 			accountResponse = h.accountListResponseFromService(acc)
-			if h.isSimpleMode() {
-				accountResponse.GroupIDs = filterSimpleModeGroupIDs(accountResponse.GroupIDs, simpleModeCompositeServiceGroupIDs(acc))
-			}
 		}
 		item := AccountWithConcurrency{
 			Account:            accountResponse,
@@ -683,50 +543,6 @@ func (h *AccountHandler) GetByID(c *gin.Context) {
 	response.Success(c, h.buildAccountResponseWithRuntime(c.Request.Context(), account))
 }
 
-// CheckMixedChannel handles checking mixed channel risk for account-group binding.
-// POST /api/v1/admin/accounts/check-mixed-channel
-func (h *AccountHandler) CheckMixedChannel(c *gin.Context) {
-	var req CheckMixedChannelRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-
-	if len(req.GroupIDs) == 0 {
-		response.Success(c, gin.H{"has_risk": false})
-		return
-	}
-
-	accountID := int64(0)
-	if req.AccountID != nil {
-		accountID = *req.AccountID
-	}
-
-	err := h.adminService.CheckMixedChannelRisk(c.Request.Context(), accountID, req.Platform, req.GroupIDs)
-	if err != nil {
-		var mixedErr *service.MixedChannelError
-		if errors.As(err, &mixedErr) {
-			response.Success(c, gin.H{
-				"has_risk": true,
-				"error":    "mixed_channel_warning",
-				"message":  mixedErr.Error(),
-				"details": gin.H{
-					"group_id":         mixedErr.GroupID,
-					"group_name":       mixedErr.GroupName,
-					"current_platform": mixedErr.CurrentPlatform,
-					"other_platform":   mixedErr.OtherPlatform,
-				},
-			})
-			return
-		}
-
-		response.ErrorFrom(c, err)
-		return
-	}
-
-	response.Success(c, gin.H{"has_risk": false})
-}
-
 // Create handles creating a new account
 // POST /api/v1/admin/accounts
 func (h *AccountHandler) Create(c *gin.Context) {
@@ -747,7 +563,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 	}
 
 	// 确定是否跳过混合渠道检查
-	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	// 捕获闭包内创建的账号引用，用于创建成功后触发异步探测。
 	// 幂等重放时闭包不会执行 → createdAccount 为 nil → 不重复调度。
@@ -766,12 +581,10 @@ func (h *AccountHandler) Create(c *gin.Context) {
 			Priority:              req.Priority,
 			RateMultiplier:        req.RateMultiplier,
 			LoadFactor:            req.LoadFactor,
-			GroupIDs:              req.GroupIDs,
 			ExpiresAt:             req.ExpiresAt,
 			AutoPauseOnExpired:    req.AutoPauseOnExpired,
 			ProbeEnabled:          req.ProbeEnabled,
 			ProtocolEndpoints:     req.ProtocolEndpoints,
-			SkipMixedChannelCheck: skipCheck,
 		})
 		if execErr != nil {
 			return nil, execErr
@@ -784,16 +597,6 @@ func (h *AccountHandler) Create(c *gin.Context) {
 		return h.buildAccountResponseWithRuntime(ctx, account), nil
 	})
 	if err != nil {
-		// 检查是否为混合渠道错误
-		var mixedErr *service.MixedChannelError
-		if errors.As(err, &mixedErr) {
-			// 创建接口仅返回最小必要字段，详细信息由专门检查接口提供
-			c.JSON(409, gin.H{
-				"error":   "mixed_channel_warning",
-				"message": mixedErr.Error(),
-			})
-			return
-		}
 
 		if retryAfter := service.RetryAfterSecondsFromError(err); retryAfter > 0 {
 			c.Header("Retry-After", strconv.Itoa(retryAfter))
@@ -882,7 +685,6 @@ func (h *AccountHandler) Update(c *gin.Context) {
 	}
 
 	// 确定是否跳过混合渠道检查
-	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	account, err := h.adminService.UpdateAccount(c.Request.Context(), accountID, &service.UpdateAccountInput{
 		Name:                  req.Name,
@@ -896,25 +698,13 @@ func (h *AccountHandler) Update(c *gin.Context) {
 		RateMultiplier:        req.RateMultiplier,
 		LoadFactor:            req.LoadFactor,
 		Status:                req.Status,
-		GroupIDs:              req.GroupIDs,
 		ExpiresAt:             req.ExpiresAt,
 		AutoPauseOnExpired:    req.AutoPauseOnExpired,
 		ProbeEnabled:          req.ProbeEnabled,
 		RateSyncEnabled:       req.RateSyncEnabled,
 		ProtocolEndpoints:     req.ProtocolEndpoints,
-		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {
-		// 检查是否为混合渠道错误
-		var mixedErr *service.MixedChannelError
-		if errors.As(err, &mixedErr) {
-			// 更新接口仅返回最小必要字段，详细信息由专门检查接口提供
-			c.JSON(409, gin.H{
-				"error":   "mixed_channel_warning",
-				"message": mixedErr.Error(),
-			})
-			return
-		}
 
 		response.ErrorFrom(c, err)
 		return
@@ -1712,7 +1502,6 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 				continue
 			}
 
-			skipCheck := item.ConfirmMixedChannelRisk != nil && *item.ConfirmMixedChannelRisk
 
 			account, err := h.adminService.CreateAccount(ctx, &service.CreateAccountInput{
 				Name:                  item.Name,
@@ -1725,10 +1514,8 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 				Concurrency:           item.Concurrency,
 				Priority:              item.Priority,
 				RateMultiplier:        item.RateMultiplier,
-				GroupIDs:              item.GroupIDs,
 				ExpiresAt:             item.ExpiresAt,
 				AutoPauseOnExpired:    item.AutoPauseOnExpired,
-				SkipMixedChannelCheck: skipCheck,
 			})
 			if err != nil {
 				failed++
@@ -1909,7 +1696,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 	}
 
 	// 确定是否跳过混合渠道检查
-	skipCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	hasUpdates := req.Name != "" ||
 		req.ProxyID != nil ||
@@ -1919,7 +1705,6 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		req.LoadFactor != nil ||
 		req.Status != "" ||
 		req.Schedulable != nil ||
-		req.GroupIDs != nil ||
 		len(req.Credentials) > 0 ||
 		len(req.Extra) > 0 ||
 		req.ProbeEnabled != nil
@@ -1940,27 +1725,11 @@ func (h *AccountHandler) BulkUpdate(c *gin.Context) {
 		LoadFactor:            req.LoadFactor,
 		Status:                req.Status,
 		Schedulable:           req.Schedulable,
-		GroupIDs:              req.GroupIDs,
 		Credentials:           req.Credentials,
 		Extra:                 req.Extra,
 		ProbeEnabled:          req.ProbeEnabled,
-		SkipMixedChannelCheck: skipCheck,
 	})
 	if err != nil {
-		var mixedErr *service.MixedChannelError
-		if errors.As(err, &mixedErr) {
-			c.JSON(409, gin.H{
-				"error":   "mixed_channel_warning",
-				"message": mixedErr.Error(),
-				"details": gin.H{
-					"group_id":         mixedErr.GroupID,
-					"group_name":       mixedErr.GroupName,
-					"current_platform": mixedErr.CurrentPlatform,
-					"other_platform":   mixedErr.OtherPlatform,
-				},
-			})
-			return
-		}
 		response.ErrorFrom(c, err)
 		return
 	}
@@ -2804,7 +2573,7 @@ func (h *AccountHandler) BatchRefreshTier(c *gin.Context) {
 	accounts := make([]*service.Account, 0)
 
 	if len(req.AccountIDs) == 0 {
-		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", 0, "", "name", "asc")
+		allAccounts, _, err := h.adminService.ListAccounts(ctx, 1, 10000, "gemini", "oauth", "", "", "", "name", "asc")
 		if err != nil {
 			response.ErrorFrom(c, err)
 			return

@@ -31,12 +31,10 @@ type AdminService interface {
 	GetUserBalanceHistory(ctx context.Context, userID int64, page, pageSize int, codeType string) ([]RedeemCode, int64, float64, error)
 	BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error)
 
-
 	AdminResetAPIKeyRateLimitUsage(ctx context.Context, keyID int64) (*APIKey, error)
 
-
 	// Account management
-	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
+	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
 	GetAccount(ctx context.Context, id int64) (*Account, error)
 	GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error)
 	CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error)
@@ -64,7 +62,6 @@ type AdminService interface {
 	ForceAntigravityPrivacy(ctx context.Context, account *Account) string
 	SetAccountSchedulable(ctx context.Context, id int64, schedulable bool) (*Account, error)
 	BulkUpdateAccounts(ctx context.Context, input *BulkUpdateAccountsInput) (*BulkUpdateAccountsResult, error)
-	CheckMixedChannelRisk(ctx context.Context, currentAccountID int64, currentAccountPlatform string, groupIDs []int64) error
 	// RevertAccountProxyFallback 将账号的 proxy_id 切回 proxy_fallback_origin_id，并清空 origin 字段。
 	// 若账号不存在返回 ErrAccountNotFound；若账号存在但不在 fallback 状态，返回 ErrAccountNotInFallback。
 	RevertAccountProxyFallback(ctx context.Context, id int64) error
@@ -98,23 +95,6 @@ type AdminService interface {
 	ResetAccountQuota(ctx context.Context, id int64) error
 }
 
-type AdminGroupOperation string
-
-const (
-	AdminGroupOperationBasic          AdminGroupOperation = "basic"
-	AdminGroupOperationDuplicate      AdminGroupOperation = "duplicate"
-	AdminGroupOperationRPMOverride    AdminGroupOperation = "rpm_override"
-	AdminGroupOperationSort           AdminGroupOperation = "sort"
-)
-
-func ValidateSimpleModeGroupOperation(cfg *config.Config, operation AdminGroupOperation) error {
-	if cfg != nil && cfg.RunMode == config.RunModeSimple && operation != AdminGroupOperationBasic {
-		return infraerrors.New(http.StatusForbidden, "SIMPLE_MODE_OPERATION_UNSUPPORTED", "This operation is not supported in simple mode")
-	}
-	return nil
-}
-
-// CreateUserInput represents input for creating a new user via admin operations.
 type CreateUserInput struct {
 	Email       string
 	Password    string
@@ -189,117 +169,6 @@ type AdminBoundAuthIdentityChannel struct {
 	UpdatedAt      time.Time      `json:"updated_at"`
 }
 
-type CreateGroupInput struct {
-	Name                      string
-	Description               string
-	Platform                  string
-	RateMultiplier            float64
-	IsExclusive               bool
-	LongContextPricingEnabled bool
-	ModelPricing              []PricingCard
-	// 图片生成计费配置（仅 antigravity 平台使用）
-	AllowImageGeneration         bool
-	AllowBatchImageGeneration    bool
-	BatchImageDiscountMultiplier *float64
-	BatchImageHoldMultiplier     *float64
-	// 高峰时段倍率配置（PeakRateMultiplier 为 nil 时按 1.0 处理）
-	PeakRateEnabled    bool
-	PeakStart          string
-	PeakEnd            string
-	PeakRateMultiplier *float64
-	// Codex alpha/search 网页搜索单次价格（USD/次，仅 openai 平台使用）；nil/负数按默认价 0.01 处理
-	// 搜索工具单价 per 1k
-	// Grok Voice 显式定价（分组级）
-	ClaudeCodeOnly  bool   // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64 // 降级分组 ID
-	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
-	FallbackGroupIDOnInvalidRequest *int64
-	// 模型路由配置（仅 anthropic 平台使用）
-	ModelRouting        map[string][]int64
-	ModelRoutingEnabled bool // 是否启用模型路由
-	MCPXMLInject        *bool
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes []string
-	AllowLive            bool
-	ForceOpenAIFast      bool
-	FreeOpenAIFast       bool
-	RequireOAuthOnly     bool
-	RequirePrivacySet    bool
-	ModelAllowlist       GroupModelAllowlist
-	// CodexModelsManifestConfig 固定账号 manifest 配置；创建路径禁止开启，仅编辑可配置。
-	CodexModelsManifestConfig GroupCodexModelsManifestConfig
-	// RPMLimit 分组 RPM 上限（0 = 不限制）
-	RPMLimit int
-	// MaxReasoningEffort Anthropic/OpenAI 请求的推理强度上限，空字符串表示不限制。
-	MaxReasoningEffort string
-	// MaxReasoningEffortOverLimit 超过上限时的访问控制：downgrade（默认）或 deny。
-	MaxReasoningEffortOverLimit string
-	// ReasoningEffortMappings Anthropic/OpenAI 推理强度映射，可按模型精确名、前缀或后缀限定。
-	ReasoningEffortMappings []ReasoningEffortMapping
-	// 分组利润控制（五个 token 平台分组可启用；margin/buffer 为小数，nil 按 0 处理）
-	ProfitControlEnabled bool
-	ProfitMinMargin      *float64
-	ProfitSafetyBuffer   *float64
-	// 从指定分组复制账号（创建分组后在同一事务内绑定）
-	CopyAccountsFromGroupIDs []int64
-}
-
-type UpdateGroupInput struct {
-	Name                      string
-	Description               *string
-	Platform                  string
-	RateMultiplier            *float64 // 使用指针以支持设置为0
-	IsExclusive               *bool
-	Status                    string
-	LongContextPricingEnabled *bool
-	ModelPricing              *[]PricingCard
-	// 图片生成计费配置（仅 antigravity 平台使用）
-	AllowImageGeneration         *bool
-	AllowBatchImageGeneration    *bool
-	BatchImageDiscountMultiplier *float64
-	BatchImageHoldMultiplier     *float64
-	// 高峰时段倍率配置（nil 表示不修改）
-	PeakRateEnabled    *bool
-	PeakStart          *string
-	PeakEnd            *string
-	PeakRateMultiplier *float64
-	// Codex alpha/search 网页搜索单次价格（USD/次）；nil 表示不修改，负数表示清除回默认价 0.01
-	// 搜索工具单价；nil 不修改，负数清除
-	// Grok Voice 显式定价；nil 表示不修改，负数表示清除
-	ClaudeCodeOnly  *bool  // 仅允许 Claude Code 客户端
-	FallbackGroupID *int64 // 降级分组 ID
-	// 无效请求兜底分组 ID（仅 anthropic 平台使用）
-	FallbackGroupIDOnInvalidRequest *int64
-	// 模型路由配置（仅 anthropic 平台使用）
-	ModelRouting        map[string][]int64
-	ModelRoutingEnabled *bool // 是否启用模型路由
-	MCPXMLInject        *bool
-	// 支持的模型系列（仅 antigravity 平台使用）
-	SupportedModelScopes *[]string
-	AllowLive            *bool
-	ForceOpenAIFast      *bool
-	FreeOpenAIFast       *bool
-	RequireOAuthOnly     *bool
-	RequirePrivacySet    *bool
-	ModelAllowlist       *GroupModelAllowlist
-	// CodexModelsManifestConfig nil 表示不修改；非 openai 平台会被归一化为关闭。
-	CodexModelsManifestConfig *GroupCodexModelsManifestConfig
-	// RPMLimit 分组 RPM 上限（0 = 不限制），nil 表示未提供不改动。
-	RPMLimit *int
-	// MaxReasoningEffort 空字符串表示清除上限；nil 表示未提供不改动。
-	MaxReasoningEffort *string
-	// MaxReasoningEffortOverLimit 空字符串视为 downgrade；nil 表示未提供不改动。
-	MaxReasoningEffortOverLimit *string
-	// ReasoningEffortMappings nil 表示不修改，空数组表示清空，非空数组表示替换。
-	ReasoningEffortMappings *[]ReasoningEffortMapping
-	// 分组利润控制（nil 表示不修改；margin/buffer 为小数）
-	ProfitControlEnabled *bool
-	ProfitMinMargin      *float64
-	ProfitSafetyBuffer   *float64
-	// 从指定分组复制账号（同步操作：先清空当前分组的账号绑定，再绑定源分组的账号）
-	CopyAccountsFromGroupIDs []int64
-}
-
 type CreateAccountInput struct {
 	Name               string
 	Notes              *string
@@ -312,17 +181,11 @@ type CreateAccountInput struct {
 	Priority           int
 	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
 	LoadFactor         *int
-	GroupIDs           []int64
 	ExpiresAt          *int64
 	AutoPauseOnExpired *bool
 	ProbeEnabled       *bool
 	// ProtocolEndpoints 协议 → 上游地址映射，键必须是具体协议，见 NormalizeProtocolEndpoints。
 	ProtocolEndpoints map[string]string
-	// SkipDefaultGroupBind prevents auto-binding to platform default group when GroupIDs is empty.
-	SkipDefaultGroupBind bool
-	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
-	// This should only be set when the caller has explicitly confirmed the risk.
-	SkipMixedChannelCheck bool
 }
 
 // ShadowOptions is the input for CreateShadow.
@@ -331,7 +194,6 @@ type ShadowOptions struct {
 	Name        string
 	Priority    int
 	Concurrency int
-	GroupIDs    []int64
 }
 
 type UpdateAccountInput struct {
@@ -346,14 +208,12 @@ type UpdateAccountInput struct {
 	RateMultiplier     *float64 // 账号计费倍率（>=0，允许 0）
 	LoadFactor         *int
 	Status             string
-	GroupIDs           *[]int64
 	ExpiresAt          *int64
 	AutoPauseOnExpired *bool
 	ProbeEnabled       *bool
 	RateSyncEnabled    *bool
 	// ProtocolEndpoints 为 nil 表示不修改；非 nil（含空 map）表示整体替换。
 	ProtocolEndpoints     *map[string]string
-	SkipMixedChannelCheck bool // 跳过混合渠道检查（用户已确认风险）
 }
 
 // BulkUpdateAccountsInput describes the payload for bulk updating accounts.
@@ -368,13 +228,9 @@ type BulkUpdateAccountsInput struct {
 	LoadFactor     *int
 	Status         string
 	Schedulable    *bool
-	GroupIDs       *[]int64
 	Credentials    map[string]any
 	Extra          map[string]any
 	ProbeEnabled   *bool
-	// SkipMixedChannelCheck skips the mixed channel risk check when binding groups.
-	// This should only be set when the caller has explicitly confirmed the risk.
-	SkipMixedChannelCheck bool
 }
 
 type BulkUpdateAccountFilters struct {
@@ -393,34 +249,11 @@ type BulkUpdateAccountResult struct {
 	Error     string `json:"error,omitempty"`
 }
 
-// AdminUpdateAPIKeyGroupIDResult is the result of AdminUpdateAPIKeyGroupID.
-type AdminUpdateAPIKeyGroupIDResult struct {
-	APIKey                 *APIKey
-	AutoGrantedGroupAccess bool   // true if a new exclusive group permission was auto-added
-	GrantedGroupID         *int64 // the group ID that was auto-granted
-	GrantedGroupName       string // the group name that was auto-granted
-}
-
-// ReplaceUserGroupResult 分组替换操作的结果
-type ReplaceUserGroupResult struct {
-	MigratedKeys int64 // 迁移的 Key 数量
-}
-
-// UserRPMStatus describes a user's current per-minute RPM usage.
 type UserRPMStatus struct {
 	UserRPMUsed  int                  `json:"user_rpm_used"`
 	UserRPMLimit int                  `json:"user_rpm_limit"`
-	PerGroup     []UserGroupRPMStatus `json:"per_group"`
 }
 
-// UserGroupRPMStatus describes current per-minute RPM usage for one user/group pair.
-type UserGroupRPMStatus struct {
-	GroupID   int64  `json:"group_id"`
-	GroupName string `json:"group_name"`
-	Used      int    `json:"used"`
-	Limit     int    `json:"limit"`
-	Source    string `json:"source"` // "group" | "override"
-}
 
 // BulkUpdateAccountsResult is the aggregated response for bulk updates.
 type BulkUpdateAccountsResult struct {
@@ -595,16 +428,11 @@ var ErrRPMStatusUnavailable = infraerrors.New(http.StatusNotImplemented, "RPM_ST
 type adminServiceImpl struct {
 	cfg                  *config.Config
 	userRepo             UserRepository
-	groupRepo            GroupRepository
-	groupDuplicateRepo   GroupDuplicateRepository
-	emptyGroupDeleteRepo EmptyGroupDeleteRepository
 	accountRepo          AccountRepository
-	accountDuplicateRepo AccountDuplicateRepository
 	accountBillingRepo   AccountBillingSettingsRepository
 	proxyRepo            ProxyRepository
 	apiKeyRepo           APIKeyRepository
 	redeemCodeRepo       RedeemCodeRepository
-	userGroupRateRepo    UserGroupRateRepository
 	userRPMCache         UserRPMCache
 	billingCacheService  *BillingCacheService
 	proxyProber          ProxyExitInfoProber
@@ -627,12 +455,10 @@ type adminRechargeAffiliateAccruer interface {
 func NewAdminService(
 	cfg *config.Config,
 	userRepo UserRepository,
-	groupRepo AdminGroupRepository,
 	accountRepo AdminAccountRepository,
 	proxyRepo ProxyRepository,
 	apiKeyRepo APIKeyRepository,
 	redeemCodeRepo RedeemCodeRepository,
-	userGroupRateRepo UserGroupRateRepository,
 	userRPMCache UserRPMCache,
 	billingCacheService *BillingCacheService,
 	proxyProber ProxyExitInfoProber,
@@ -649,16 +475,11 @@ func NewAdminService(
 	return &adminServiceImpl{
 		cfg:                  cfg,
 		userRepo:             userRepo,
-		groupRepo:            groupRepo,
-		groupDuplicateRepo:   groupRepo,
-		emptyGroupDeleteRepo: groupRepo,
 		accountRepo:          accountRepo,
-		accountDuplicateRepo: accountRepo,
 		accountBillingRepo:   accountRepo,
 		proxyRepo:            proxyRepo,
 		apiKeyRepo:           apiKeyRepo,
 		redeemCodeRepo:       redeemCodeRepo,
-		userGroupRateRepo:    userGroupRateRepo,
 		userRPMCache:         userRPMCache,
 		billingCacheService:  billingCacheService,
 		proxyProber:          proxyProber,

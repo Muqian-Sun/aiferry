@@ -26,7 +26,6 @@ type CodexSessionImportRequest struct {
 	Contents                []string       `json:"contents"`
 	Name                    string         `json:"name"`
 	Notes                   *string        `json:"notes"`
-	GroupIDs                []int64        `json:"group_ids"`
 	ProxyID                 *int64         `json:"proxy_id"`
 	Concurrency             *int           `json:"concurrency"`
 	Priority                *int           `json:"priority"`
@@ -37,8 +36,6 @@ type CodexSessionImportRequest struct {
 	CredentialExtras        map[string]any `json:"credential_extras"`
 	Extra                   map[string]any `json:"extra"`
 	UpdateExisting          *bool          `json:"update_existing"`
-	SkipDefaultGroupBind    *bool          `json:"skip_default_group_bind"`
-	ConfirmMixedChannelRisk *bool          `json:"confirm_mixed_channel_risk"`
 }
 
 type CodexSessionImportResult struct {
@@ -159,7 +156,7 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		Items: make([]CodexSessionImportItem, 0, len(entries)),
 	}
 
-	existingAccounts, err := h.listAccountsFiltered(ctx, service.PlatformOpenAI, service.AccountTypeOAuth, "", "", 0, "", "created_at", "desc")
+	existingAccounts, err := h.listAccountsFiltered(ctx, service.PlatformOpenAI, service.AccountTypeOAuth, "", "", "", "created_at", "desc")
 	if err != nil {
 		return result, err
 	}
@@ -178,11 +175,6 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 		priority = *req.Priority
 	}
 	credentialExtras := sanitizeCodexImportCredentialExtras(req.CredentialExtras)
-	skipDefaultGroupBind := false
-	if req.SkipDefaultGroupBind != nil {
-		skipDefaultGroupBind = *req.SkipDefaultGroupBind
-	}
-	skipMixedChannelCheck := req.ConfirmMixedChannelRisk != nil && *req.ConfirmMixedChannelRisk
 
 	seenIdentity := map[string]codexSeenIdentity{}
 	for _, entry := range entries {
@@ -285,11 +277,6 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			if req.ProxyID != nil {
 				updateInput.ProxyID = req.ProxyID
 			}
-			if len(req.GroupIDs) > 0 {
-				groupIDs := append([]int64(nil), req.GroupIDs...)
-				updateInput.GroupIDs = &groupIDs
-				updateInput.SkipMixedChannelCheck = skipMixedChannelCheck
-			}
 			updated, updateErr := h.adminService.UpdateAccount(ctx, existing.ID, updateInput)
 			if updateErr != nil {
 				result.Failed++
@@ -336,11 +323,8 @@ func (h *AccountHandler) importCodexSessions(ctx context.Context, req CodexSessi
 			Priority:              priority,
 			RateMultiplier:        req.RateMultiplier,
 			LoadFactor:            req.LoadFactor,
-			GroupIDs:              req.GroupIDs,
 			ExpiresAt:             effectiveExpiresAt,
 			AutoPauseOnExpired:    autoPauseOnExpired,
-			SkipDefaultGroupBind:  skipDefaultGroupBind,
-			SkipMixedChannelCheck: skipMixedChannelCheck,
 		})
 		if createErr != nil {
 			result.Failed++

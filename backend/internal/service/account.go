@@ -64,9 +64,6 @@ type Account struct {
 	ProtocolEndpoints map[string]string
 
 	Proxy         *Proxy
-	AccountGroups []AccountGroup
-	GroupIDs      []int64
-	Groups        []*Group
 	// CatalogEntryIDs 账号被哪些目录条目绑定为资源（调度按条目建桶，账号变更时按它找桶）。
 	CatalogEntryIDs []int64
 
