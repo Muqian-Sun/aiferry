@@ -286,3 +286,19 @@ func TestChannelMonitorV2CatalogFilterClearsMultiSelectDimensions(t *testing.T) 
 	// Metrics WHERE is narrower once the multi-select platform is applied.
 	require.NotEqual(t, catalogArgs, metricArgs)
 }
+
+// 非管理员的 /models 聚合键不带平台：两个平台上的同名模型落同一行。
+// 管理员保留平台维度。
+func TestChannelMonitorV2ModelStatsKeyHidesPlatformForNonAdmin(t *testing.T) {
+	adminOpenAI := channelMonitorV2ModelStatsKey(true, "openai", "gpt-5")
+	adminAnthropic := channelMonitorV2ModelStatsKey(true, "anthropic", "gpt-5")
+	require.NotEqual(t, adminOpenAI, adminAnthropic)
+	require.Contains(t, adminOpenAI, "openai")
+
+	userOpenAI := channelMonitorV2ModelStatsKey(false, "openai", "gpt-5")
+	userAnthropic := channelMonitorV2ModelStatsKey(false, "anthropic", "gpt-5")
+	require.Equal(t, userOpenAI, userAnthropic)
+	require.NotContains(t, userOpenAI, "openai")
+	require.NotContains(t, userOpenAI, "anthropic")
+	require.NotEqual(t, userOpenAI, channelMonitorV2ModelStatsKey(false, "openai", "claude-sonnet-4-5"))
+}

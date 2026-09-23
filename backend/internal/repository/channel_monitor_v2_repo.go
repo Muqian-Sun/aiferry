@@ -247,6 +247,17 @@ func (r *channelMonitorV2Repository) GetSnapshot(ctx context.Context, filter ser
 	return result, nil
 }
 
+// channelMonitorV2ModelStatsKey 是 /models 聚合键。
+//
+// 非管理员看不到上游渠道（平台）：键里不带平台，同一模型的各平台事实进同一个累加器——
+// 百分位与比率由原始事实与直方图现算，不是把各平台已算好的分位数或比率再平均。
+func channelMonitorV2ModelStatsKey(admin bool, platform, model string) string {
+	if !admin {
+		return "\x00" + model
+	}
+	return platform + "\x00" + model
+}
+
 func (r *channelMonitorV2Repository) GetModels(ctx context.Context, filter service.ChannelMonitorV2Filter, cfg service.ChannelMonitorV2Config, admin bool) (*service.ChannelMonitorV2List[service.ChannelMonitorV2ModelRow], error) {
 	coverage, err := r.loadCoverage(ctx, filter)
 	if err != nil {
@@ -261,13 +272,8 @@ func (r *channelMonitorV2Repository) GetModels(ctx context.Context, filter servi
 	if err != nil {
 		return nil, err
 	}
-	// 非管理员看不到上游渠道（平台）：键里不带平台，同一模型的各平台事实
-	// 进同一个累加器——百分位由原始事实与直方图现算，不是把各平台的分位数平均。
 	keyOf := func(platform, model string) string {
-		if !admin {
-			return "\x00" + model
-		}
-		return platform + "\x00" + model
+		return channelMonitorV2ModelStatsKey(admin, platform, model)
 	}
 	accs := map[string]*metricAccumulator{}
 	for _, platform := range channelMonitorV2EnabledPlatforms(cfg) {

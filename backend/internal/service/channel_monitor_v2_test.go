@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,6 +16,8 @@ type channelMonitorV2RepoStub struct {
 	matrix *ChannelMonitorV2Matrix
 	errors *ChannelMonitorV2List[ChannelMonitorV2ErrorRow]
 	snap   *ChannelMonitorV2Snapshot
+	dims   *ChannelMonitorV2Dimensions
+	models *ChannelMonitorV2List[ChannelMonitorV2ModelRow]
 	group  ChannelMonitorV2GroupBy
 	admin  bool
 }
@@ -30,7 +33,7 @@ func (s *channelMonitorV2RepoStub) UpdateConfig(context.Context, ChannelMonitorV
 	return nil, nil
 }
 func (s *channelMonitorV2RepoStub) GetDimensions(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config) (*ChannelMonitorV2Dimensions, error) {
-	return nil, nil
+	return s.dims, nil
 }
 func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2Snapshot, error) {
 	s.admin = admin
@@ -48,8 +51,9 @@ func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonit
 	out.Config = cfg
 	return &out, nil
 }
-func (s *channelMonitorV2RepoStub) GetModels(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config, bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
-	return nil, nil
+func (s *channelMonitorV2RepoStub) GetModels(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
+	s.admin = admin
+	return s.models, nil
 }
 func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
 	s.group, s.admin = groupBy, admin
@@ -503,4 +507,51 @@ func TestChannelMonitorV2HealthTTFTAtTargetIsHealthy(t *testing.T) {
 	require.Equal(t, "healthy", h.TTFT)
 	require.NotNil(t, h.TTFTScore)
 	require.InDelta(t, 100.0, *h.TTFTScore, 0.01)
+}
+
+// D20：上游渠道（平台）维度只有管理员能用。
+func TestChannelMonitorV2MatrixRejectsPlatformDimensionForNonAdmin(t *testing.T) {
+	repo := &channelMonitorV2RepoStub{
+		config: ChannelMonitorV2Config{Enabled: true},
+		matrix: &ChannelMonitorV2Matrix{GroupBy: ChannelMonitorV2GroupByModel},
+	}
+	svc := NewChannelMonitorV2Service(repo)
+
+	for _, groupBy := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel} {
+		_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, groupBy, false)
+		require.Error(t, err, groupBy)
+		require.Equal(t, "channel_monitor_platform_admin_only", infraerrors.Reason(err), groupBy)
+		require.True(t, groupBy.RequiresAdmin(), groupBy)
+	}
+
+	// model 维度对非管理员放行；管理员两种平台维度都能用。
+	_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByModel, false)
+	require.NoError(t, err)
+	require.False(t, ChannelMonitorV2GroupByModel.RequiresAdmin())
+	_, err = svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatformModel, true)
+	require.NoError(t, err)
+}
+
+// D20：非管理员拿不到平台清单，模型上的平台标注也被抹掉。
+func TestChannelMonitorV2DimensionsHidePlatformsForNonAdmin(t *testing.T) {
+	newRepo := func() *channelMonitorV2RepoStub {
+		return &channelMonitorV2RepoStub{
+			config: ChannelMonitorV2Config{Enabled: true},
+			dims: &ChannelMonitorV2Dimensions{
+				Platforms: []ChannelMonitorV2Dimension{{Value: "openai", Label: "openai", RequestCount: 7}},
+				Models:    []ChannelMonitorV2Dimension{{Value: "gpt-5", Label: "gpt-5", Platform: "openai", RequestCount: 7}},
+			},
+		}
+	}
+
+	user, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, false)
+	require.NoError(t, err)
+	require.Empty(t, user.Platforms)
+	require.Len(t, user.Models, 1)
+	require.Empty(t, user.Models[0].Platform)
+
+	admin, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, true)
+	require.NoError(t, err)
+	require.Len(t, admin.Platforms, 1)
+	require.Equal(t, "openai", admin.Models[0].Platform)
 }
