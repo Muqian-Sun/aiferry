@@ -16,7 +16,7 @@
       </div>
     </main>
     <!-- 公开站页脚：三栏链接全部来自公开设置（文档地址 / 联系方式 / 协议文档），没有的栏不出现 -->
-    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline bg-af-sunken" data-testid="site-footer">
+    <footer v-if="variant === 'public' && !hideFooter" class="border-t border-af-hairline" data-testid="site-footer">
       <!-- 横排一行（muqian 2026-09-23：页脚只留版权与条款）：版权在左、条款在右，窄屏按需折行 -->
       <div class="mx-auto flex max-w-site flex-wrap items-center justify-between gap-x-6 gap-y-2 px-6 py-6 text-13 text-af-ink-3">
         <p>© {{ currentYear }} {{ siteName }} · {{ t('userUi.footer.rights') }}</p>
