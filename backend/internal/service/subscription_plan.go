@@ -29,7 +29,6 @@ type SubscriptionPlan struct {
 	Description   string
 	Price         float64
 	OriginalPrice *float64
-	Currency      string
 	ValidityDays  int
 	ValidityUnit  string
 	Features      string

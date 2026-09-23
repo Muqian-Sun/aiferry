@@ -60,7 +60,6 @@ func (r *subscriptionPlanRepository) Create(ctx context.Context, plan *service.S
 			SetDescription(plan.Description).
 			SetPrice(plan.Price).
 			SetNillableOriginalPrice(plan.OriginalPrice).
-			SetCurrency(plan.Currency).
 			SetValidityDays(plan.ValidityDays).
 			SetValidityUnit(plan.ValidityUnit).
 			SetFeatures(plan.Features).
@@ -87,7 +86,6 @@ func (r *subscriptionPlanRepository) Update(ctx context.Context, plan *service.S
 			SetName(plan.Name).
 			SetDescription(plan.Description).
 			SetPrice(plan.Price).
-			SetCurrency(plan.Currency).
 			SetValidityDays(plan.ValidityDays).
 			SetValidityUnit(plan.ValidityUnit).
 			SetFeatures(plan.Features).
@@ -195,7 +193,6 @@ func subscriptionPlanEntityToService(m *dbent.SubscriptionPlan) *service.Subscri
 		Description:     m.Description,
 		Price:           m.Price,
 		OriginalPrice:   m.OriginalPrice,
-		Currency:        m.Currency,
 		ValidityDays:    m.ValidityDays,
 		ValidityUnit:    m.ValidityUnit,
 		Features:        m.Features,

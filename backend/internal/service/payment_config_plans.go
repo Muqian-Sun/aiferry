@@ -5,22 +5,8 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/payment"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
-
-// normalizePlanCurrency validates and normalizes the display-only currency label.
-// Empty means "no label" and is kept as-is so existing plans stay unchanged.
-func normalizePlanCurrency(raw string) (string, error) {
-	if strings.TrimSpace(raw) == "" {
-		return "", nil
-	}
-	currency, err := payment.NormalizePaymentCurrency(raw)
-	if err != nil {
-		return "", infraerrors.BadRequest("PLAN_CURRENCY_INVALID", "currency must be a 3-letter ISO currency code")
-	}
-	return currency, nil
-}
 
 // validatePlanRequired checks that all required fields for a plan are provided.
 func validatePlanRequired(name string, price float64, validityDays int, validityUnit string, originalPrice *float64, entryIDs []int64) error {
@@ -108,10 +94,6 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 	if err := validatePlanRequired(req.Name, req.Price, req.ValidityDays, req.ValidityUnit, req.OriginalPrice, req.EntryIDs); err != nil {
 		return nil, err
 	}
-	currency, err := normalizePlanCurrency(req.Currency)
-	if err != nil {
-		return nil, err
-	}
 	models := planModelsFromEntryIDs(req.EntryIDs)
 	if len(models) == 0 {
 		return nil, ErrPlanModelsRequired
@@ -121,7 +103,6 @@ func (s *PaymentConfigService) CreatePlan(ctx context.Context, req CreatePlanReq
 		Description:     req.Description,
 		Price:           req.Price,
 		OriginalPrice:   req.OriginalPrice,
-		Currency:        currency,
 		ValidityDays:    req.ValidityDays,
 		ValidityUnit:    req.ValidityUnit,
 		Features:        req.Features,
@@ -161,13 +142,6 @@ func (s *PaymentConfigService) UpdatePlan(ctx context.Context, id int64, req Upd
 	}
 	if req.OriginalPrice != nil {
 		plan.OriginalPrice = req.OriginalPrice
-	}
-	if req.Currency != nil {
-		currency, err := normalizePlanCurrency(*req.Currency)
-		if err != nil {
-			return nil, err
-		}
-		plan.Currency = currency
 	}
 	if req.ValidityDays != nil {
 		plan.ValidityDays = *req.ValidityDays

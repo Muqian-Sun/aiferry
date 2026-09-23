@@ -57,7 +57,6 @@ func TestAdminSubscriptionPlansForResponseIncludesLimitsAndModels(t *testing.T) 
 			Name:           "All models",
 			Description:    "Composite access",
 			Price:          19.99,
-			Currency:       "CNY",
 			ValidityDays:   30,
 			ValidityUnit:   "days",
 			Features:       "OpenAI\nClaude\nGemini\nGrok",
@@ -90,11 +89,6 @@ func TestAdminSubscriptionPlansForResponseIncludesLimitsAndModels(t *testing.T) 
 	}
 	if len(got[0].Models) != 2 || got[0].Models[1].DisplayName != "Claude Sonnet 4.5" {
 		t.Fatalf("expected model names to be included, got %#v", got[0].Models)
-	}
-	// 投影必须保留套餐的全部售卖字段：currency 丢失曾导致编辑保存时
-	// 静默清空套餐货币（PlanEditDialog 回传空串 → SetCurrency("")）。
-	if got[0].Currency != "CNY" {
-		t.Fatalf("expected currency to be preserved, got %q", got[0].Currency)
 	}
 	if !got[0].CreatedAt.Equal(now) || !got[0].UpdatedAt.Equal(now) {
 		t.Fatalf("expected created_at/updated_at to be preserved, got %v / %v", got[0].CreatedAt, got[0].UpdatedAt)

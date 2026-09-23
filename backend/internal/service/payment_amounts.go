@@ -4,32 +4,38 @@ import (
 	"math"
 
 	"github.com/Wei-Shaw/sub2api/internal/payment"
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/shopspring/decimal"
 )
 
-const defaultBalanceRechargeMultiplier = 1.0
-
-func normalizeBalanceRechargeMultiplier(multiplier float64) float64 {
-	if math.IsNaN(multiplier) || math.IsInf(multiplier, 0) || multiplier <= 0 {
-		return defaultBalanceRechargeMultiplier
-	}
-	return multiplier
-}
-
-// normalizeSubscriptionUSDToCNYRate 将非法值归一为 0（换算关闭）。
-// 与余额倍率不同，0 是合法状态：表示订阅保持 price 直付的存量行为。
-func normalizeSubscriptionUSDToCNYRate(rate float64) float64 {
+// normalizeUSDToCNYRate 将非法值归一为 0（未配置）。
+func normalizeUSDToCNYRate(rate float64) float64 {
 	if math.IsNaN(rate) || math.IsInf(rate, 0) || rate < 0 {
 		return 0
 	}
 	return rate
 }
 
-func calculateCreditedBalance(paymentAmount, multiplier float64) float64 {
-	return decimal.NewFromFloat(paymentAmount).
-		Mul(decimal.NewFromFloat(normalizeBalanceRechargeMultiplier(multiplier))).
-		Round(2).
-		InexactFloat64()
+// convertUSDToGatewayAmount 把美元订单金额（充值到账额 / 订阅价格）换算成网关扣款基数（不含手续费）。
+// USD 通道原价；CNY 通道 × 美元汇率，汇率未配置时拒绝下单——不把美元数字当人民币收；
+// 其他币种没有可用汇率，拒绝下单。
+func convertUSDToGatewayAmount(amountUSD, usdToCNYRate float64, currency string) (float64, error) {
+	switch currency {
+	case payment.USDPaymentCurrency:
+		return amountUSD, nil
+	case payment.DefaultPaymentCurrency:
+		rate := normalizeUSDToCNYRate(usdToCNYRate)
+		if rate <= 0 {
+			return 0, infraerrors.ServiceUnavailable("USD_TO_CNY_RATE_NOT_CONFIGURED", "USD to CNY rate is not configured")
+		}
+		return decimal.NewFromFloat(amountUSD).
+			Mul(decimal.NewFromFloat(rate)).
+			Round(int32(payment.CurrencyMaxFractionDigits(currency))).
+			InexactFloat64(), nil
+	default:
+		return 0, infraerrors.ServiceUnavailable("UNSUPPORTED_PAYMENT_CURRENCY", "only CNY and USD payment channels are supported").
+			WithMetadata(map[string]string{"currency": currency})
+	}
 }
 
 func calculateGatewayRefundAmount(orderAmount, payAmount, refundAmount float64, currency string) float64 {

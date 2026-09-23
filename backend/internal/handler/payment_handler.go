@@ -61,7 +61,6 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 		Description     string                      `json:"description"`
 		Price           float64                     `json:"price"`
 		OriginalPrice   *float64                    `json:"original_price,omitempty"`
-		Currency        string                      `json:"currency,omitempty"`
 		ValidityDays    int                         `json:"validity_days"`
 		ValidityUnit    string                      `json:"validity_unit"`
 		Features        string                      `json:"features"`
@@ -77,7 +76,6 @@ func (h *PaymentHandler) GetPlans(c *gin.Context) {
 			DailyLimitUSD: p.DailyLimitUSD, WeeklyLimitUSD: p.WeeklyLimitUSD, MonthlyLimitUSD: p.MonthlyLimitUSD,
 			Models: dto.SubscriptionPlanFromService(p).Models,
 			Name:   p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: p.Features,
 			ProductName: p.ProductName, ForSale: p.ForSale, SortOrder: p.SortOrder,
 		})
@@ -123,7 +121,6 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 			DailyLimitUSD: p.DailyLimitUSD, WeeklyLimitUSD: p.WeeklyLimitUSD, MonthlyLimitUSD: p.MonthlyLimitUSD,
 			Models: dto.SubscriptionPlanFromService(p).Models,
 			Name:   p.Name, Description: p.Description, Price: p.Price, OriginalPrice: p.OriginalPrice,
-			Currency:     p.Currency,
 			ValidityDays: p.ValidityDays, ValidityUnit: p.ValidityUnit, Features: parseFeatures(p.Features),
 			ProductName: p.ProductName,
 		})
@@ -135,8 +132,7 @@ func (h *PaymentHandler) GetCheckoutInfo(c *gin.Context) {
 		GlobalMax:                     limitsResp.GlobalMax,
 		Plans:                         planList,
 		BalanceDisabled:               cfg.BalanceDisabled,
-		BalanceRechargeMultiplier:     cfg.BalanceRechargeMultiplier,
-		SubscriptionUSDToCNYRate:      cfg.SubscriptionUSDToCNYRate,
+		USDToCNYRate:                  cfg.USDToCNYRate,
 		RechargeFeeRate:               cfg.RechargeFeeRate,
 		HelpText:                      cfg.HelpText,
 		HelpImageURL:                  cfg.HelpImageURL,
@@ -152,8 +148,7 @@ type checkoutInfoResponse struct {
 	GlobalMax                     float64                         `json:"global_max"`
 	Plans                         []checkoutPlan                  `json:"plans"`
 	BalanceDisabled               bool                            `json:"balance_disabled"`
-	BalanceRechargeMultiplier     float64                         `json:"balance_recharge_multiplier"`
-	SubscriptionUSDToCNYRate      float64                         `json:"subscription_usd_to_cny_rate"`
+	USDToCNYRate                  float64                         `json:"usd_to_cny_rate"`
 	RechargeFeeRate               float64                         `json:"recharge_fee_rate"`
 	HelpText                      string                          `json:"help_text"`
 	HelpImageURL                  string                          `json:"help_image_url"`
@@ -172,7 +167,6 @@ type checkoutPlan struct {
 	Description     string                      `json:"description"`
 	Price           float64                     `json:"price"`
 	OriginalPrice   *float64                    `json:"original_price,omitempty"`
-	Currency        string                      `json:"currency,omitempty"`
 	ValidityDays    int                         `json:"validity_days"`
 	ValidityUnit    string                      `json:"validity_unit"`
 	Features        []string                    `json:"features"`
