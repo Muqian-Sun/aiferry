@@ -55,7 +55,7 @@ func benchmarkVendorCandidateLoop(b *testing.B, accounts []Account) {
 	for n := 0; n < b.N; n++ {
 		for i := range accounts {
 			account := &accounts[i]
-			_ = isAccountSchedulableOnPlatform(ctx, account, PlatformOpenAI, false)
+			_ = isAccountSchedulableOnPlatform(ctx, account, PlatformOpenAI)
 			_ = account.IsPrivacySet()
 			_ = account.IsModelSupported("gpt-5.1")
 			_ = account.GetModelRateLimitRemainingTimeWithContext(ctx, "gpt-5.1")

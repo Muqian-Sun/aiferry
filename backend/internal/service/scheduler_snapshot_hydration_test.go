@@ -27,22 +27,6 @@ func (c *snapshotHydrationCache) SetSnapshot(ctx context.Context, bucket Schedul
 	return nil
 }
 
-func (c *snapshotHydrationCache) RetireBucket(ctx context.Context, bucket SchedulerBucket) error {
-	return nil
-}
-
-func (c *snapshotHydrationCache) ReopenBucket(ctx context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error) {
-	return SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
-}
-
-func (c *snapshotHydrationCache) TryAcquireGroupLifecycleLease(context.Context, int64, time.Duration) (SchedulerGroupLifecycleLease, bool, error) {
-	return SchedulerGroupLifecycleLease{}, false, nil
-}
-
-func (c *snapshotHydrationCache) ReleaseGroupLifecycleLease(context.Context, SchedulerGroupLifecycleLease) error {
-	return nil
-}
-
 func (c *snapshotHydrationCache) GetAccount(ctx context.Context, accountID int64) (*Account, error) {
 	if c.accounts == nil {
 		return nil, nil
@@ -113,7 +97,7 @@ func TestGatewaySelectAccountWithLoadAwareness_HydratesSelectedAccountFromSchedu
 		},
 	}
 
-	schedulerSnapshot := NewSchedulerSnapshotService(cache, nil, nil, nil, nil)
+	schedulerSnapshot := NewSchedulerSnapshotService(cache, nil, nil, nil)
 	svc := &GatewayService{
 		schedulerSnapshot: schedulerSnapshot,
 		cache:             &mockGatewayCacheForPlatform{},
@@ -180,7 +164,7 @@ func TestGatewaySelectAccountWithLoadAwareness_SkipsAntigravityGeminiFamilyRateL
 		},
 	}
 	svc := &GatewayService{
-		schedulerSnapshot:  NewSchedulerSnapshotService(cache, nil, nil, nil, nil),
+		schedulerSnapshot:  NewSchedulerSnapshotService(cache, nil, nil, nil),
 		concurrencyService: NewConcurrencyService(&mockConcurrencyCache{}),
 		cfg: &config.Config{
 			Gateway: config.GatewayConfig{

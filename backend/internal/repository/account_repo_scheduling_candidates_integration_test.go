@@ -77,19 +77,6 @@ func candidateIDs(accounts []service.Account) map[int64]struct{} {
 	return ids
 }
 
-func (s *SchedulingCandidatesSuite) TestByGroupIDIncludesKeysOfAnyLabel() {
-	f := s.createFixture()
-
-	accounts, err := s.accountRepo.ListSchedulingCandidatesByGroupID(s.ctx, f.groupID, []string{service.PlatformAnthropic})
-	s.Require().NoError(err)
-
-	ids := candidateIDs(accounts)
-	s.Require().Len(ids, 3)
-	for _, id := range []int64{f.subAnthropicInGroup, f.keyOpenAIInGroup, f.keyGeminiInGroup} {
-		s.Require().Contains(ids, id)
-	}
-}
-
 func (s *SchedulingCandidatesSuite) TestAllAccountsIncludesKeysAcrossGroups() {
 	f := s.createFixture()
 

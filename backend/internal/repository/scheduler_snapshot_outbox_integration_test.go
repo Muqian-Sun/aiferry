@@ -49,7 +49,7 @@ func TestSchedulerSnapshotOutboxReplay(t *testing.T) {
 	require.NoError(t, accountRepo.Create(ctx, account))
 	require.NoError(t, cache.SetAccount(ctx, account))
 
-	svc := service.NewSchedulerSnapshotService(cache, outboxRepo, accountRepo, nil, cfg)
+	svc := service.NewSchedulerSnapshotService(cache, outboxRepo, accountRepo, cfg)
 	svc.Start()
 	t.Cleanup(svc.Stop)
 

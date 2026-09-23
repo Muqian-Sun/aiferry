@@ -32,22 +32,6 @@ func (c *outboxCleanupCache) SetSnapshot(ctx context.Context, bucket SchedulerBu
 	return nil
 }
 
-func (c *outboxCleanupCache) RetireBucket(ctx context.Context, bucket SchedulerBucket) error {
-	return nil
-}
-
-func (c *outboxCleanupCache) ReopenBucket(ctx context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error) {
-	return SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
-}
-
-func (c *outboxCleanupCache) TryAcquireGroupLifecycleLease(context.Context, int64, time.Duration) (SchedulerGroupLifecycleLease, bool, error) {
-	return SchedulerGroupLifecycleLease{}, false, nil
-}
-
-func (c *outboxCleanupCache) ReleaseGroupLifecycleLease(context.Context, SchedulerGroupLifecycleLease) error {
-	return nil
-}
-
 func (c *outboxCleanupCache) GetAccount(ctx context.Context, accountID int64) (*Account, error) {
 	return nil, nil
 }
@@ -106,6 +90,15 @@ type outboxCleanupRepo struct {
 
 type outboxCleanupAccountRepo struct {
 	AccountRepository
+}
+
+// 全量重建会为每个平台池查一次候选；本文件只关心 outbox 水位与重建触发，返回空即可。
+func (r *outboxCleanupAccountRepo) ListSchedulingCandidates(context.Context, []string) ([]Account, error) {
+	return nil, nil
+}
+
+func (r *outboxCleanupAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]Account, error) {
+	return nil, nil
 }
 
 type blockingOutboxCleanupCache struct {
@@ -223,7 +216,7 @@ func TestSchedulerSnapshotServicePollOutboxCleansConsumedRowsAfterWatermark(t *t
 		rows:         int64Range(1, 10003),
 		lockAcquired: true,
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, nil)
 
 	svc.pollOutbox()
 
@@ -258,7 +251,7 @@ func TestSchedulerSnapshotServicePollOutboxSkipsCleanupWhenLockUnavailable(t *te
 		rows:         []int64{1, 2, 3, 4},
 		lockAcquired: false,
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, nil)
 
 	svc.pollOutbox()
 
@@ -296,7 +289,7 @@ func TestSchedulerSnapshotServicePollOutboxDoesNotCleanupOnHandleFailure(t *test
 		rows:         []int64{1, 2, 3, 4, 5, 6},
 		lockAcquired: true,
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, nil)
 
 	svc.pollOutbox()
 
@@ -334,7 +327,7 @@ func TestSchedulerSnapshotServicePollOutboxDoesNotUseConsumedEventForLag(t *test
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	svc.pollOutbox()
 
@@ -397,7 +390,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagLatchesPersistentDegradation(t *t
 					},
 				},
 			}
-			svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, nil, cfg)
+			svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, cfg)
 
 			for range 3 {
 				svc.checkOutboxLag(context.Background(), 0)
@@ -424,7 +417,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagFailedRebuildRearmsAfterRecovery(
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	svc.checkOutboxLag(context.Background(), 0)
 	svc.checkOutboxLag(context.Background(), 0)
@@ -460,7 +453,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagFailedRebuildRetriesAfterCooldown
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, cfg)
 
 	svc.checkOutboxLag(context.Background(), 0)
 	for range 3 {
@@ -520,7 +513,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagBacklogRetryDoesNotBypassNewLagTh
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	// Start with backlog-only degradation and leave its failed rebuild retry due.
 	svc.checkOutboxLag(context.Background(), 0)
@@ -562,7 +555,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagLagRetryDoesNotDelayOrEscalateNew
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	// Start with lag-only degradation and a failed rebuild in cooldown.
 	svc.checkOutboxLag(context.Background(), 0)
@@ -599,7 +592,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagBacklogRetrySurvivesUnknownBacklo
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	// A failed backlog rebuild starts a reason-scoped cooldown.
 	svc.checkOutboxLag(context.Background(), 0)
@@ -656,7 +649,7 @@ func TestSchedulerSnapshotServiceCheckOutboxLagPreemptsUnknownBacklogRetryAtThre
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	// Backlog starts the first failed rebuild generation and remains unknown.
 	svc.checkOutboxLag(context.Background(), 0)
@@ -721,7 +714,7 @@ func TestSchedulerSnapshotServicePollOutboxEmptyBatchClearsDegradedEpisode(t *te
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, cfg)
 
 	svc.checkOutboxLag(context.Background(), 0)
 	cache.watermark = 1
@@ -743,7 +736,7 @@ func TestSchedulerSnapshotServicePollOutboxEmptyBatchClearsDegradedEpisode(t *te
 }
 
 func TestSchedulerSnapshotServiceOutboxLagWarningIsTransitionLimited(t *testing.T) {
-	svc := NewSchedulerSnapshotService(nil, nil, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(nil, nil, nil, nil)
 
 	if !svc.shouldLogOutboxLagWarning(true) {
 		t.Fatal("expected the initial degraded transition to log")
@@ -763,7 +756,7 @@ func TestSchedulerSnapshotServiceOutboxLagWarningIsTransitionLimited(t *testing.
 }
 
 func TestSchedulerSnapshotServiceCheckOutboxLagSamplesMaxIDErrors(t *testing.T) {
-	svc := NewSchedulerSnapshotService(nil, nil, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(nil, nil, nil, nil)
 	now := time.Now()
 
 	if !svc.shouldLogOutboxMaxIDError(now) {
@@ -789,7 +782,7 @@ func TestSchedulerSnapshotServicePollOutboxHealthyEmptyBatchSkipsLagHealthQuerie
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, nil, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, nil, cfg)
 
 	svc.pollOutbox()
 
@@ -823,7 +816,7 @@ func TestSchedulerSnapshotServiceEmptyPollDoesNotReleaseRunningRebuild(t *testin
 			},
 		},
 	}
-	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, nil, cfg)
+	svc := NewSchedulerSnapshotService(cache, repo, &outboxCleanupAccountRepo{}, cfg)
 
 	firstDone := make(chan struct{})
 	go func() {
@@ -866,7 +859,7 @@ func TestSchedulerSnapshotServiceCleanupSkipsNonPositiveWatermark(t *testing.T) 
 		rows:         []int64{1, 2, 3},
 		lockAcquired: true,
 	}
-	svc := NewSchedulerSnapshotService(&outboxCleanupCache{}, repo, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(&outboxCleanupCache{}, repo, nil, nil)
 
 	svc.cleanupConsumedOutbox(0)
 

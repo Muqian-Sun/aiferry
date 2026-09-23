@@ -99,7 +99,8 @@ func TestSchedulingState_ModelBlocksOnlyBlockTheirScope(t *testing.T) {
 }
 
 func TestSchedulingState_AntigravityOveragesWaiveModelBlocks(t *testing.T) {
-	now := time.Date(2026, 9, 22, 10, 0, 0, 0, time.UTC)
+	// 积分耗尽判定（isRateLimitActiveForKey）按真实时钟比较，now 必须跟着走，不能钉死日期。
+	now := time.Now().UTC()
 	account := schedulingStateFixture()
 	account.Platform = PlatformAntigravity
 	account.Extra = map[string]any{

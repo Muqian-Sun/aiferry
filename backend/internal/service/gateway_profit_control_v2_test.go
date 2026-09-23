@@ -228,7 +228,6 @@ func TestGatewayProfitControlTerminalRefreshUsesReplacementObject(t *testing.T) 
 		nil,
 		gatewayProfitAccountRepo{},
 		nil,
-		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
 		threshold: 0.5,
@@ -252,7 +251,6 @@ func TestGatewayProfitControlTerminalRefreshFallsBackFromCacheToDatabase(t *test
 		nil,
 		gatewayProfitAccountRepo{account: &replacement},
 		nil,
-		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{
 		threshold: 0.5,
@@ -270,7 +268,6 @@ func TestGatewayProfitControlTerminalRefreshFailureFallsBackToSelectedObject(t *
 		&gatewayProfitSnapshotCache{err: errors.New("cache unavailable")},
 		nil,
 		gatewayProfitAccountRepo{err: errors.New("database unavailable")},
-		nil,
 		nil,
 	)
 	ctx := context.WithValue(context.Background(), openAIProfitControlGateCtxKey{}, &openAIProfitControlGate{

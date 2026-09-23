@@ -456,53 +456,6 @@ func TestGatewayService_isModelSupportedByAccount(t *testing.T) {
 	}
 }
 
-// TestAccount_IsMixedSchedulingEnabled 测试混合调度开关检查
-func TestAccount_IsMixedSchedulingEnabled(t *testing.T) {
-	tests := []struct {
-		name     string
-		account  Account
-		expected bool
-	}{
-		{
-			name:     "非antigravity平台-返回false",
-			account:  Account{Platform: PlatformAnthropic},
-			expected: false,
-		},
-		{
-			name:     "antigravity平台-无extra-返回false",
-			account:  Account{Platform: PlatformAntigravity},
-			expected: false,
-		},
-		{
-			name:     "antigravity平台-extra无mixed_scheduling-返回false",
-			account:  Account{Platform: PlatformAntigravity, Extra: map[string]any{}},
-			expected: false,
-		},
-		{
-			name:     "antigravity平台-mixed_scheduling=false-返回false",
-			account:  Account{Platform: PlatformAntigravity, Extra: map[string]any{"mixed_scheduling": false}},
-			expected: false,
-		},
-		{
-			name:     "antigravity平台-mixed_scheduling=true-返回true",
-			account:  Account{Platform: PlatformAntigravity, Extra: map[string]any{"mixed_scheduling": true}},
-			expected: true,
-		},
-		{
-			name:     "antigravity平台-mixed_scheduling非bool类型-返回false",
-			account:  Account{Platform: PlatformAntigravity, Extra: map[string]any{"mixed_scheduling": "true"}},
-			expected: false,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := tt.account.IsMixedSchedulingEnabled()
-			require.Equal(t, tt.expected, got)
-		})
-	}
-}
-
 // mockConcurrencyService for testing
 type mockConcurrencyService struct {
 	accountLoads      map[int64]*AccountLoadInfo

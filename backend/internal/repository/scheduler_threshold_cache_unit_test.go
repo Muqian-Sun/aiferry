@@ -69,7 +69,7 @@ func TestSchedulerCacheAnthropicThresholdAdmission(t *testing.T) {
 				},
 			}
 			cache := newSchedulerCacheUnit(t)
-			bucket := service.SchedulerBucket{GroupID: 8, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
+			bucket := service.SchedulerBucket{PoolID: 8, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
 			token, err := cache.CaptureBucketWriteToken(ctx, bucket)
 			require.NoError(t, err)
 			require.NoError(t, cache.SetSnapshot(ctx, bucket, token, []service.Account{account}))
@@ -108,7 +108,7 @@ func TestSchedulerCacheAnthropicUsageRefresh(t *testing.T) {
 	now := time.Now().UTC().Truncate(time.Second)
 	end := now.Add(time.Hour)
 	cache := newSchedulerCacheUnit(t)
-	bucket := service.SchedulerBucket{GroupID: 8, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
+	bucket := service.SchedulerBucket{PoolID: 8, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
 	account := service.Account{
 		ID: 3, Platform: service.PlatformAnthropic, Type: service.AccountTypeOAuth,
 		Status: service.StatusActive, Schedulable: true,

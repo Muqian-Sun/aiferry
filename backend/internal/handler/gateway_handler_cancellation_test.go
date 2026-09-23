@@ -39,7 +39,7 @@ func TestGatewayHandlerPreCancelledCompatibleRequestsDoNotSelectAccount(t *testi
 		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	schedulerCache := &countingGatewaySchedulerCache{fakeSchedulerCache: &fakeSchedulerCache{accounts: []*service.Account{account}}}
-	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil)
+	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil)
 	gatewayService := service.NewGatewayService(
 		nil, nil, nil, nil, nil, nil, nil,
 		schedulerSnapshot, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
