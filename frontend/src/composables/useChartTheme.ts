@@ -28,6 +28,9 @@ export interface ChartTheme {
   tooltipBg: string
   tooltipText: string
   tooltipBorder: string
+  /** 单色图（用户控制台）的主线与面积：墨色与极淡墨色 */
+  ink: string
+  inkFill: string
   /** 分类系列色，固定顺序 */
   series: string[]
   /** 面积 / 柱体的淡填充 */
@@ -48,6 +51,8 @@ export function useChartTheme() {
       tooltipBg: readTokenRgb('sheet'),
       tooltipText: readTokenRgb('ink'),
       tooltipBorder: readTokenRgb('hairline-strong'),
+      ink: readTokenRgb('ink'),
+      inkFill: readTokenRgb('ink', 0.06),
       series,
       fill: (index: number) => readTokenRgb(`chart-${slot(index)}`, 0.12),
       color: (index: number) => readTokenRgb(`chart-${slot(index)}`)

@@ -180,8 +180,16 @@ export const userRoutes: RouteRecordRaw[] = [
     redirect: '/home'
   },
   {
+    // 控制台落地页（muqian 2026-09-23 新增「概览」：余额 / 今日 / 快速开始 / 趋势 / 公告）
     path: '/dashboard',
-    redirect: '/usage'
+    name: 'Overview',
+    component: () => import('@/views/user/OverviewView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Overview',
+      titleKey: 'userUi.overview.title'
+    }
   },
   {
     path: '/keys',

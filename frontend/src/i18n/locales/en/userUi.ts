@@ -4,11 +4,13 @@
 export default {
   userUi: {
     nav: {
-      usage: 'Usage',
+      overview: 'Overview',
+      usage: 'Usage details',
       keys: 'API keys',
       models: 'Models',
       billing: 'Billing',
       account: 'Account',
+      profile: 'Profile & security',
       batchImage: 'Batch images',
       more: 'More',
       product: 'Product',
@@ -78,6 +80,34 @@ export default {
       },
       protocols: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
     },
+    overview: {
+      title: 'Overview',
+      description: 'Balance, today\'s usage and how to connect',
+      greeting: {
+        lateNight: 'Working late, {name}',
+        morning: 'Good morning, {name}',
+        noon: 'Good afternoon, {name}',
+        afternoon: 'Good afternoon, {name}',
+        evening: 'Good evening, {name}'
+      },
+      totals: 'Total spent {cost} · {requests} requests · {rpm} RPM now',
+      quickStart: {
+        title: 'Quick start',
+        description: 'Put the base URL and a key into your SDK or client and start calling.',
+        baseUrl: 'Base URL',
+        key: 'Your key',
+        noKey: 'No active key yet',
+        allKeys: 'All keys',
+        createKey: 'Create a key',
+        copy: 'Copy',
+        copied: 'Copied'
+      },
+      trend: {
+        title: 'Usage trend',
+        range: 'Last {days} days',
+        summary: 'Last {days} days · {requests} requests · {tokens} tokens · {cost}'
+      }
+    },
     billing: {
       title: 'Billing',
       description: 'Top up, subscriptions, orders and referrals',
@@ -89,8 +119,8 @@ export default {
       }
     },
     usage: {
-      title: 'Usage',
-      description: 'Requests, tokens and cost, line by line',
+      title: 'Usage details',
+      description: 'Model usage and every request, by date range',
       stats: {
         requests: 'Requests',
         tokens: 'Tokens',

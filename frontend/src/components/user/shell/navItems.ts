@@ -1,9 +1,13 @@
 /**
- * 用户站顶部导航的页签集合（纯函数，便于单测）。
+ * 用户站导航集合（纯函数，便于单测）。
  *
- * 控制台只有 5 个主页签：用量 · 密钥 · 模型 · 账务 · 账户；批量生图按权限追加；
- * 管理员配置的自定义页收进「更多」。simple mode 下去掉账务 / 模型 / 批量生图，
- * backend mode 下没有任何控制台页签（同旧侧栏的行为）。
+ * 控制台是左侧分组栏（muqian 2026-09-23 定）：
+ * - 主组：概览（落地页）· 密钥 · 用量明细 · 模型 · 批量生图（按权限）
+ * - 账务组：充值 / 订阅 / 订单 / 兑换码 / 邀请，按功能开关出现（由调用方按 billingTabs 算好传入）
+ * - 账户组
+ * - 更多：管理员配置的自定义页
+ * simple mode 下去掉模型 / 账务 / 批量生图；backend mode 下没有任何控制台导航。
+ * 顶栏在控制台与公开站是同一组页签（产品 / 模型与价格 / 文档）。
  */
 import type { CustomMenuItem } from '@/types'
 
@@ -18,10 +22,11 @@ export interface NavTab {
   iconSvg?: string
 }
 
-export interface ConsoleNav {
-  tabs: NavTab[]
-  /** 「更多 ▾」下拉里的条目；为空则不渲染下拉。 */
-  more: NavTab[]
+export interface ConsoleNavSection {
+  key: 'main' | 'billing' | 'account' | 'more'
+  /** 组标题；主组没有标题 */
+  label?: string
+  items: NavTab[]
 }
 
 export interface ConsoleNavContext {
@@ -29,35 +34,43 @@ export interface ConsoleNavContext {
   simpleMode: boolean
   backendMode: boolean
   batchImageEnabled: boolean
+  /** 账务子页（已按功能开关过滤，见 views/user/billing/billingTabs.ts） */
+  billingItems: NavTab[]
   customItems: CustomMenuItem[]
 }
 
-export const CONSOLE_HOME_PATH = '/usage'
+export const CONSOLE_HOME_PATH = '/dashboard'
 
-export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNav {
-  if (ctx.backendMode) return { tabs: [], more: [] }
+export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNavSection[] {
+  if (ctx.backendMode) return []
 
-  const tabs: NavTab[] = [
-    { path: '/usage', label: ctx.t('userUi.nav.usage') },
-    { path: '/keys', label: ctx.t('userUi.nav.keys'), dataTour: 'sidebar-my-keys' }
+  const main: NavTab[] = [
+    { path: CONSOLE_HOME_PATH, label: ctx.t('userUi.nav.overview') },
+    { path: '/keys', label: ctx.t('userUi.nav.keys'), dataTour: 'sidebar-my-keys' },
+    { path: '/usage', label: ctx.t('userUi.nav.usage') }
   ]
-  // 模型广场没有开关，对所有人开放；「仅充值」模式下控制台只留用量 / 密钥 / 账户
-  if (!ctx.simpleMode) {
-    tabs.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models') })
-    tabs.push({ path: '/billing', label: ctx.t('userUi.nav.billing') })
+  // 模型广场没有开关，对所有人开放；「仅充值」模式下控制台只留概览 / 密钥 / 用量 / 账户
+  if (!ctx.simpleMode) main.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models') })
+  if (!ctx.simpleMode && ctx.batchImageEnabled) main.push({ path: '/batch-image', label: ctx.t('userUi.nav.batchImage') })
+
+  const sections: ConsoleNavSection[] = [{ key: 'main', items: main }]
+  if (!ctx.simpleMode && ctx.billingItems.length) {
+    sections.push({ key: 'billing', label: ctx.t('userUi.nav.billing'), items: ctx.billingItems })
   }
-  tabs.push({ path: '/profile', label: ctx.t('userUi.nav.account') })
-  if (!ctx.simpleMode && ctx.batchImageEnabled) {
-    tabs.push({ path: '/batch-image', label: ctx.t('userUi.nav.batchImage') })
-  }
+  sections.push({
+    key: 'account',
+    label: ctx.t('userUi.nav.account'),
+    items: [{ path: '/profile', label: ctx.t('userUi.nav.profile') }]
+  })
 
   const more = ctx.customItems
     .filter((item) => item.visibility === 'user')
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
     .map((item): NavTab => ({ path: `/custom/${item.id}`, label: item.label, iconSvg: item.icon_svg }))
+  if (more.length) sections.push({ key: 'more', label: ctx.t('userUi.nav.more'), items: more })
 
-  return { tabs, more }
+  return sections
 }
 
 export interface PublicNavContext {

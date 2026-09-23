@@ -24,6 +24,7 @@ const createMockRouter = (): Router => {
   const mockImportFn = vi.fn().mockResolvedValue({ default: {} })
 
   const routes: Partial<RouteRecordNormalized>[] = [
+    { path: '/dashboard', components: { default: mockImportFn } },
     { path: '/usage', components: { default: mockImportFn } },
     { path: '/keys', components: { default: mockImportFn } },
     { path: '/billing/recharge', components: { default: mockImportFn } },
@@ -63,9 +64,9 @@ describe('useRoutePrefetch', () => {
   })
 
   describe('_getPrefetchConfig', () => {
-    it('普通用户 /usage 落地页应该返回正确的预加载配置', () => {
+    it('普通用户 /dashboard（概览）落地页应该返回正确的预加载配置', () => {
       const { _getPrefetchConfig } = useRoutePrefetch(mockRouter)
-      const route = createMockRoute('/usage')
+      const route = createMockRoute('/dashboard')
       const config = _getPrefetchConfig(route)
 
       expect(config).toHaveLength(2)
@@ -157,10 +158,10 @@ describe('useRoutePrefetch', () => {
   })
 
   describe('预加载映射表', () => {
-    it('两个站点各有一张邻接表：管理后台从 /dashboard 出发，用户站从 /usage 出发（/dashboard 已 redirect）', () => {
+    it('两个站点各有一张邻接表：同名的 /dashboard 在管理后台是仪表盘、在用户站是概览', () => {
       expect(_prefetchAdjacencyBySite.admin['/dashboard']).toEqual(['/accounts', '/users'])
-      expect(_prefetchAdjacencyBySite.user['/dashboard']).toBeUndefined()
-      expect(_prefetchAdjacencyBySite.user['/usage']).toEqual(['/keys', '/billing/recharge'])
+      expect(_prefetchAdjacencyBySite.user['/dashboard']).toEqual(['/keys', '/usage'])
+      expect(_prefetchAdjacencyBySite.user['/usage']).toEqual(['/dashboard', '/keys'])
     })
 
     it('管理后台邻接表不带 /admin 前缀', () => {

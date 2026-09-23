@@ -1,5 +1,6 @@
 /**
- * 顶部导航渲染测试：控制台五页签与权限 / 模式过滤，公开壳的登录 / 控制台入口，管理站不渲染产品页签。
+ * 顶部导航渲染测试：顶栏页签（公开站与控制台同一组）、控制台窄屏行（= 侧栏全部条目）与权限 / 模式过滤，
+ * 公开壳的登录 / 控制台入口，管理站不渲染产品页签。
  * 断言的是路径、data-tour 与文案，不断言样式类。
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -76,42 +77,41 @@ describe('SiteNav console', () => {
     authStore.isAuthenticated = true
   })
 
-  it('renders the five primary tabs (desktop + mobile rows) with the keys tour anchor and no version text', () => {
+  it('shows the public tabs on top and every sidebar item in the narrow-screen row, without the tour anchor', () => {
     const wrapper = mountNav('console')
     const paths = new Set(linkPaths(wrapper))
-    expect([...paths]).toEqual(expect.arrayContaining(['/usage', '/keys', '/model-plaza', '/billing', '/profile']))
+    expect([...paths]).toEqual(
+      expect.arrayContaining(['/home', '/model-plaza', '/dashboard', '/keys', '/usage', '/billing/redeem', '/profile'])
+    )
     expect(paths.has('/purchase')).toBe(false)
     expect(paths.has('/accounts')).toBe(false)
-    expect(wrapper.find('[data-tour="sidebar-my-keys"]').exists()).toBe(true)
+    // 新手引导的锚点在侧栏（ConsoleSidebar），窄屏行排在它前面，不能带同名锚点
+    expect(wrapper.find('[data-tour="sidebar-my-keys"]').exists()).toBe(false)
     expect(wrapper.text()).not.toContain('v1.2.3')
     expect(wrapper.find('[data-testid="balance"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="user-menu"]').exists()).toBe(true)
   })
 
-  it('simple mode drops billing and models and hides the balance', () => {
+  it('simple mode drops the billing items and hides the balance', () => {
     authStore.isSimpleMode = true
     const wrapper = mountNav('console')
-    const paths = new Set(linkPaths(wrapper))
-    expect(paths.has('/billing')).toBe(false)
-    expect(paths.has('/model-plaza')).toBe(false)
-    expect(paths.has('/keys')).toBe(true)
+    const paths = linkPaths(wrapper)
+    expect(paths.some((path) => path.startsWith('/billing'))).toBe(false)
+    expect(paths).toContain('/keys')
     expect(wrapper.find('[data-testid="balance"]').exists()).toBe(false)
   })
 
-  it('backend mode renders no console tabs', () => {
+  it('backend mode renders no console items', () => {
     appStore.backendModeEnabled = true
     const wrapper = mountNav('console')
-    expect(linkPaths(wrapper).filter((path) => path !== '/usage')).toEqual([])
+    expect(linkPaths(wrapper).filter((path) => !['/dashboard', '/home', '/model-plaza'].includes(path))).toEqual([])
   })
 
-  it('puts admin-configured custom pages behind the more menu', async () => {
+  it('lists admin-configured custom pages with the other console items on narrow screens', () => {
     appStore.cachedPublicSettings = {
       custom_menu_items: [{ id: 'docs', label: 'Docs page', icon_svg: '', url: '', visibility: 'user', sort_order: 1 }]
     }
-    const wrapper = mountNav('console')
-    expect(linkPaths(wrapper)).not.toContain('/custom/docs')
-    await wrapper.find('[data-testid="nav-more"]').trigger('click')
-    expect(linkPaths(wrapper)).toContain('/custom/docs')
+    expect(linkPaths(mountNav('console'))).toContain('/custom/docs')
   })
 })
 
@@ -122,7 +122,7 @@ describe('SiteNav public', () => {
     authStore.user = { id: 1 }
     const wrapper = mountNav('public')
     expect(wrapper.find('[data-testid="nav-console"]').exists()).toBe(true)
-    expect(wrapper.findComponent('[data-testid="nav-console"]').props('to')).toBe('/usage')
+    expect(wrapper.findComponent('[data-testid="nav-console"]').props('to')).toBe('/dashboard')
   })
 
   it('always shows the pricing tab to anonymous visitors (the plaza has no switch)', () => {
