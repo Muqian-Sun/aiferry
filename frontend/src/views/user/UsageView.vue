@@ -1,71 +1,20 @@
 <template>
   <!--
-    用量（登录落地页）：账户带 / 今日带不看时间范围；趋势、模型用量、请求明细由头部的时间范围驱动。
-    每个区块独立加载与重试，任一接口失败不把别的区块显示成零。
+    用量明细：模型用量 + 请求明细，都由头部的时间范围驱动（区间合计写在模型用量标题下）。
+    余额 / 今日 / 趋势 / 公告在「概览」（muqian 2026-09-23 拆出）。每个区块独立加载与重试，任一接口失败不把别的区块显示成零。
   -->
   <SiteShell>
     <template #actions>
       <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
-      <button type="button" class="btn btn-secondary btn-md" :disabled="loading" data-testid="usage-refresh" @click="refreshData">
+      <button type="button" class="btn btn-ghost btn-md" :disabled="loading" data-testid="usage-refresh" @click="refreshData">
+        <Icon name="refresh" size="sm" />
         {{ t('common.refresh') }}
       </button>
     </template>
 
     <div class="space-y-8">
-      <!-- 账户带 + 今日带：来自 /usage/dashboard/stats，不随时间范围变 -->
-      <section :aria-busy="dashboardLoading ? 'true' : undefined" class="space-y-6">
-        <StatusState
-          v-if="dashboardError"
-          kind="error"
-          :title="t('userUi.usage.loadFailed')"
-          :description="t('userUi.usage.loadFailedHint')"
-          :action-label="t('userUi.usage.retry')"
-          @action="loadDashboardStats"
-        />
-        <template v-else>
-          <StatRow :items="accountItems" data-testid="account-band" />
-          <StatRow :items="todayItems" class="border-t border-af-hairline pt-6" data-testid="today-band" />
-        </template>
-      </section>
-
-      <!-- 公告：最近三条，点开走全站同一个弹窗；没有公告整段不出现 -->
-      <SheetSection v-if="recentAnnouncements.length" :title="t('userUi.usage.sections.announcements')">
-        <template v-if="unreadAnnouncements > 0" #actions>
-          <span class="text-13 text-af-ink-3">{{ t('userUi.usage.announcements.unread', { count: unreadAnnouncements }) }}</span>
-        </template>
-        <ul class="divide-y divide-af-hairline" data-testid="announcement-list">
-          <li v-for="item in recentAnnouncements" :key="item.id">
-            <button type="button" class="flex w-full items-baseline gap-3 py-3 text-left hover:bg-af-sunken" @click="openAnnouncement(item)">
-              <span class="h-1.5 w-1.5 shrink-0 self-center rounded-full" :class="item.read_at ? 'bg-transparent' : 'bg-af-brand'" aria-hidden="true" />
-              <span class="min-w-0 flex-1 truncate text-sm font-medium text-af-ink">{{ item.title }}</span>
-              <time class="shrink-0 text-xs tabular-nums text-af-ink-4" :datetime="item.created_at">{{ formatDateOnly(item.created_at) }}</time>
-            </button>
-          </li>
-        </ul>
-      </SheetSection>
-
-      <!-- 趋势：区间合计写在标题下；页签切 Token / 请求 / 费用 -->
-      <SheetSection :title="t('userUi.usage.sections.trend')" :description="rangeSummary">
-        <template #actions>
-          <SectionTabs v-model="trendMetric" :tabs="trendMetricTabs" />
-          <div class="w-28">
-            <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
-          </div>
-        </template>
-        <StatusState
-          v-if="chartsError"
-          kind="error"
-          :title="t('userUi.usage.loadFailed')"
-          :description="t('userUi.usage.loadFailedHint')"
-          :action-label="t('userUi.usage.retry')"
-          @action="loadChartData"
-        />
-        <TokenUsageTrend v-else-if="trendMetric === 'tokens'" :trend-data="trendData" :loading="chartsLoading" bare />
-        <UsageMetricTrend v-else :trend-data="trendData" :metric="trendMetric" :loading="chartsLoading" />
-      </SheetSection>
-
       <!-- 模型用量 -->
-      <SheetSection :title="t('userUi.usage.sections.models')">
+      <SheetSection :title="t('userUi.usage.sections.models')" :description="rangeSummary">
         <StatusState
           v-if="modelStatsError"
           kind="error"
@@ -92,7 +41,7 @@
             <button
               type="button"
               data-testid="usage-column-settings"
-              class="btn btn-secondary btn-sm"
+              class="btn btn-ghost btn-sm"
               :title="t('admin.users.columnSettings')"
               @click="showColumnDropdown = !showColumnDropdown"
             >
@@ -116,65 +65,40 @@
               </button>
             </div>
           </div>
-          <button v-if="activeTab !== 'errors'" type="button" class="btn btn-secondary btn-sm" :disabled="exporting" @click="exportToCSV">
+          <button v-if="activeTab !== 'errors'" type="button" class="btn btn-ghost btn-sm" :disabled="exporting" @click="exportToCSV">
             {{ exporting ? t('usage.exporting') : t('usage.exportCsv') }}
           </button>
         </template>
 
         <SectionTabs v-if="errorViewEnabled" v-model="activeTab" :tabs="recordTabs" class="mb-4" />
 
-        <!-- 筛选：记录 / 错误各一组 -->
-        <div v-if="activeTab === 'errors'" class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div>
-            <label class="input-label">{{ t('usage.errors.keyName') }}</label>
-            <Select v-model="errorFilter.api_key_id" :options="errorKeyOptions" @change="applyErrorFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.model') }}</label>
-            <Select
-              v-model="errorFilter.model"
-              :options="errorModelOptions"
-              searchable
-              creatable
-              clearable
-              :placeholder="t('usage.errors.modelPlaceholder')"
-              @change="applyErrorFilters"
-            />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.category') }}</label>
-            <Select v-model="errorFilter.category" :options="errorCategoryOptions" @change="applyErrorFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.errors.status') }}</label>
-            <Select v-model="errorFilter.status_code" :options="errorStatusOptions" @change="applyErrorFilters" />
-          </div>
+        <!--
+          筛选：一行紧凑下拉（muqian 2026-09-23 控制台对齐首页：不要两行带标签的网格）。
+          选项文案本身就是「全部 xx」，所以不再单独写标签；标签文字留给读屏（title）。
+        -->
+        <div v-if="activeTab === 'errors'" class="usage-filters mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
+          <Select v-model="errorFilter.api_key_id" class="w-40" :title="t('usage.errors.keyName')" :options="errorKeyOptions" @change="applyErrorFilters" />
+          <Select
+            v-model="errorFilter.model"
+            class="w-48"
+            :title="t('usage.errors.model')"
+            :options="errorModelOptions"
+            searchable
+            creatable
+            clearable
+            :placeholder="t('usage.errors.modelPlaceholder')"
+            @change="applyErrorFilters"
+          />
+          <Select v-model="errorFilter.category" class="w-40" :title="t('usage.errors.category')" :options="errorCategoryOptions" @change="applyErrorFilters" />
+          <Select v-model="errorFilter.status_code" class="w-40" :title="t('usage.errors.status')" :options="errorStatusOptions" @change="applyErrorFilters" />
         </div>
-        <div v-else class="mb-4 grid grid-cols-2 gap-3 md:grid-cols-4">
-          <div>
-            <label class="input-label">{{ t('usage.apiKeyFilter') }}</label>
-            <Select v-model="filters.api_key_id" :options="apiKeyOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.model') }}</label>
-            <Select v-model="filters.model" :options="modelOptions" searchable @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.type') }}</label>
-            <Select v-model="filters.request_type" :options="requestTypeOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('usage.compactionFilter') }}</label>
-            <Select v-model="filters.native_compaction_v2" :options="compactionOptions" @change="applyFilters" />
-          </div>
-          <div v-if="subscriptionFeatureEnabled">
-            <label class="input-label">{{ t('admin.usage.billingType') }}</label>
-            <Select v-model="filters.billing_type" :options="billingTypeOptions" @change="applyFilters" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
-            <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="applyFilters" />
-          </div>
+        <div v-else class="usage-filters mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
+          <Select v-model="filters.api_key_id" class="w-40" :title="t('usage.apiKeyFilter')" :options="apiKeyOptions" :placeholder="t('usage.allApiKeys')" @change="applyFilters" />
+          <Select v-model="filters.model" class="w-48" :title="t('usage.model')" :options="modelOptions" :placeholder="t('admin.usage.allModels')" searchable @change="applyFilters" />
+          <Select v-model="filters.request_type" class="w-36" :title="t('usage.type')" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="applyFilters" />
+          <Select v-model="filters.native_compaction_v2" class="w-36" :title="t('usage.compactionFilter')" :options="compactionOptions" @change="applyFilters" />
+          <Select v-if="subscriptionFeatureEnabled" v-model="filters.billing_type" class="w-40" :title="t('admin.usage.billingType')" :options="billingTypeOptions" @change="applyFilters" />
+          <Select v-model="filters.billing_mode" class="w-40" :title="t('admin.usage.billingMode')" :options="billingModeOptions" @change="applyFilters" />
         </div>
 
         <template v-if="activeTab === 'usage'">
@@ -235,118 +159,52 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { useAuthStore } from '@/stores/auth'
-import { useAnnouncementStore } from '@/stores/announcements'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { keysAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
-import StatRow from '@/components/user/shell/StatRow.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import type { SectionTab, StatItem } from '@/components/user/shell/types'
+import type { SectionTab } from '@/components/user/shell/types'
 import Pagination from '@/components/common/Pagination.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageTable from '@/components/usage/UsageTable.vue'
 import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
-import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
-import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import Icon from '@/components/icons/Icon.vue'
 import UserErrorRequestsTable from '@/components/user/UserErrorRequestsTable.vue'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
-import { formatCurrency, formatDateOnly, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
+import { formatCurrency, formatNumber, formatReasoningEffort, formatTokensK } from '@/utils/format'
 import { getBillingModeLabel, getDisplayBillingMode as resolveDisplayBillingMode } from '@/utils/billingMode'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import type {
   ApiKey,
   ModelStat,
-  TrendDataPoint,
   UsageLog,
   UsageQueryParams,
   UsageStatsResponse,
-  UserAnnouncement,
   UserErrorRequest,
 } from '@/types'
-import type { UserDashboardStats } from '@/api/usage'
 import type { Column } from '@/components/common/types'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 
 const { t } = useI18n()
 const appStore = useAppStore()
-const authStore = useAuthStore()
-const announcementStore = useAnnouncementStore()
 
 const usageStats = ref<UsageStatsResponse | null>(null)
-const dashboardStats = ref<UserDashboardStats | null>(null)
 const usageLogs = ref<UsageLog[]>([])
-const trendData = ref<TrendDataPoint[]>([])
 const requestedModelStats = ref<ModelStat[]>([])
 
 const loading = ref(false)
 const statsLoading = ref(false)
-const chartsLoading = ref(false)
 const modelStatsLoading = ref(false)
 const exporting = ref(false)
 // 每个区块独立的失败标记：任一接口失败只在自己的区块显示重试，不把别的区块显示成零用量
 const statsError = ref(false)
-const dashboardLoading = ref(false)
-const dashboardError = ref(false)
-const chartsError = ref(false)
 const modelStatsError = ref(false)
 const logsError = ref(false)
 
-// 账户带：余额来自当前用户（simple mode 换成平均耗时），累计与当前速率来自 dashboard/stats
-const paymentEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.payment))
-const accountItems = computed<StatItem[]>(() => {
-  const stats = dashboardStats.value
-  const items: StatItem[] = []
-  if (authStore.isSimpleMode) {
-    items.push({
-      key: 'latency',
-      label: t('userUi.usage.stats.avgLatency'),
-      value: `${Math.round(stats?.average_duration_ms ?? 0)} ms`
-    })
-  } else {
-    items.push({
-      key: 'balance',
-      label: t('userUi.usage.stats.balance'),
-      value: formatCurrency(Number(authStore.user?.balance ?? 0)),
-      link: paymentEnabled.value ? { to: '/billing/recharge', label: t('userUi.usage.stats.recharge') } : undefined
-    })
-  }
-  items.push(
-    { key: 'total-cost', label: t('userUi.usage.stats.totalCost'), value: formatCurrency(stats?.total_actual_cost ?? 0) },
-    { key: 'total-requests', label: t('userUi.usage.stats.totalRequests'), value: formatNumber(stats?.total_requests ?? 0) },
-    {
-      key: 'rate',
-      label: t('userUi.usage.stats.rate'),
-      value: `${formatNumber(stats?.rpm ?? 0)} RPM`,
-      hint: `${formatTokensK(stats?.tpm ?? 0)} TPM`
-    }
-  )
-  return items
-})
-
-// 今日带
-const todayItems = computed<StatItem[]>(() => {
-  const stats = dashboardStats.value
-  return [
-    {
-      key: 'today-cost',
-      label: t('userUi.usage.stats.todayCost'),
-      value: formatCurrency(stats?.today_actual_cost ?? 0),
-      hint:
-        stats && stats.today_cost > stats.today_actual_cost
-          ? `${t('userUi.usage.stats.standardCost')} ${formatCurrency(stats.today_cost)}`
-          : undefined
-    },
-    { key: 'today-requests', label: t('userUi.usage.stats.todayRequests'), value: formatNumber(stats?.today_requests ?? 0) },
-    { key: 'today-tokens', label: t('userUi.usage.stats.todayTokens'), value: formatTokensK(stats?.today_tokens ?? 0) }
-  ]
-})
-
-// 区间合计：由当前时间范围驱动，写在趋势区块的标题下（统计接口失败时留空，不显示零）
+// 区间合计：由当前时间范围驱动，写在模型用量区块的标题下（统计接口失败时留空，不显示零）
 const rangeSummary = computed(() => {
   const stats = usageStats.value
   if (statsError.value || !stats) return ''
@@ -356,25 +214,6 @@ const rangeSummary = computed(() => {
     cost: formatCurrency(stats.total_actual_cost)
   })
 })
-
-const trendMetric = ref<'tokens' | UsageTrendMetric>('tokens')
-const trendMetricTabs = computed<SectionTab[]>(() => [
-  { key: 'tokens', label: t('userUi.usage.trend.tokens') },
-  { key: 'requests', label: t('userUi.usage.trend.requests') },
-  { key: 'cost', label: t('userUi.usage.trend.cost') }
-])
-
-// 公告：最近三条（App 壳登录后已拉取，这里只读），点开复用全站的公告弹窗
-const RECENT_ANNOUNCEMENTS = 3
-const recentAnnouncements = computed(() =>
-  [...announcementStore.announcements]
-    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    .slice(0, RECENT_ANNOUNCEMENTS)
-)
-const unreadAnnouncements = computed(() => announcementStore.unreadCount)
-function openAnnouncement(item: UserAnnouncement) {
-  announcementStore.currentPopup = item
-}
 
 const recordTabs = computed<SectionTab[]>(() => [
   { key: 'usage', label: t('usage.tabs.usage') },
@@ -432,9 +271,7 @@ const applyErrorFilters = () => {
 }
 
 let abortController: AbortController | null = null
-let chartReqSeq = 0
 let statsReqSeq = 0
-let dashboardReqSeq = 0
 let modelStatsReqSeq = 0
 
 const formatLocalDate = (date: Date): string =>
@@ -446,16 +283,9 @@ const getLast24HoursRangeDates = () => {
   return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
-const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
-  const startTime = new Date(`${start}T00:00:00`).getTime()
-  const endTime = new Date(`${end}T00:00:00`).getTime()
-  return Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24)) <= 1 ? 'hour' : 'day'
-}
-
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
-const granularity = ref<'day' | 'hour'>(getGranularityForRange(startDate.value, endDate.value))
 
 const activeTab = ref<'usage' | 'errors'>('usage')
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
@@ -479,10 +309,6 @@ const sortState = reactive({
   sort_order: 'desc' as 'asc' | 'desc',
 })
 
-const granularityOptions = computed<SelectOption[]>(() => [
-  { value: 'day', label: t('admin.dashboard.day') },
-  { value: 'hour', label: t('admin.dashboard.hour') },
-])
 const requestTypeOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allTypes') },
   { value: 'ws_v2', label: t('usage.ws') },
@@ -564,23 +390,6 @@ const loadLogs = async () => {
   }
 }
 
-const loadDashboardStats = async () => {
-  const seq = ++dashboardReqSeq
-  dashboardLoading.value = true
-  dashboardError.value = false
-  try {
-    const stats = await usageAPI.getDashboardStats()
-    if (seq !== dashboardReqSeq) return
-    dashboardStats.value = stats
-  } catch (error) {
-    if (seq !== dashboardReqSeq) return
-    console.error('Failed to load dashboard stats:', error)
-    dashboardError.value = true
-  } finally {
-    if (seq === dashboardReqSeq) dashboardLoading.value = false
-  }
-}
-
 const loadStats = async () => {
   const seq = ++statsReqSeq
   statsLoading.value = true
@@ -619,28 +428,6 @@ const loadModelStats = async () => {
   }
 }
 
-const loadChartData = async () => {
-  const seq = ++chartReqSeq
-  chartsLoading.value = true
-  chartsError.value = false
-  try {
-    const snapshot = await usageAPI.getDashboardSnapshotV2({
-      ...normalizedFilters.value,
-      granularity: granularity.value,
-      include_trend: true,
-      include_model_stats: false,
-    })
-    if (seq !== chartReqSeq) return
-    trendData.value = snapshot.trend || []
-  } catch (error) {
-    if (seq !== chartReqSeq) return
-    console.error('Failed to load chart data:', error)
-    chartsError.value = true
-  } finally {
-    if (seq === chartReqSeq) chartsLoading.value = false
-  }
-}
-
 const refreshModelOptions = (models: ModelStat[]) => {
   const current = filters.value.model
   const set = new Set(modelOptionValues.value)
@@ -656,16 +443,13 @@ const applyFilters = () => {
   void loadLogs()
   void loadStats()
   void loadModelStats()
-  void loadChartData()
   resetErrorRows()
 }
 
 const refreshData = () => {
-  void loadDashboardStats()
   void loadLogs()
   void loadStats()
   void loadModelStats()
-  void loadChartData()
   if (activeTab.value === 'errors') void loadErrors()
 }
 
@@ -681,7 +465,6 @@ const resetFilters = () => {
     billing_type: null,
     billing_mode: null,
   }
-  granularity.value = getGranularityForRange(range.start, range.end)
   applyFilters()
   if (activeTab.value === 'errors') {
     errorFilter.value = { model: '', category: '', api_key_id: null, status_code: null }
@@ -694,7 +477,6 @@ const onDateRangeChange = (range: { startDate: string; endDate: string; preset: 
   endDate.value = range.endDate
   filters.value.start_date = range.startDate
   filters.value.end_date = range.endDate
-  granularity.value = getGranularityForRange(range.startDate, range.endDate)
   applyFilters()
 }
 
@@ -1007,8 +789,6 @@ onMounted(() => {
   loadSavedErrColumns()
   document.addEventListener('click', handleColumnClickOutside)
   void loadFilterOptions()
-  // 指标行的余额来自当前用户：进页时刷新一次（原概览页的行为）
-  void authStore.refreshUser().catch(() => undefined)
   refreshData()
 })
 
@@ -1017,3 +797,10 @@ onUnmounted(() => {
   document.removeEventListener('click', handleColumnClickOutside)
 })
 </script>
+
+<style scoped>
+/* 筛选行：通用 select 是 42px，这一页压到 34px、13px 字，与表格同一密度 */
+.usage-filters :deep(.select-trigger) {
+  @apply px-3 py-1.5 text-13;
+}
+</style>

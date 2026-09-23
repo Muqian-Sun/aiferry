@@ -95,12 +95,12 @@ describe('feature route guard', () => {
   })
 
   it.each<[string, AppSite, Record<string, unknown>, Record<string, boolean>, string]>([
-    ['payment on the user site', 'user', { requiresPayment: true }, { payment_enabled: false }, '/usage'],
+    ['payment on the user site', 'user', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
     ['payment on the admin console', 'admin', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
     ['risk control on the admin console', 'admin', { requiresRiskControl: true }, { risk_control_enabled: false }, '/settings'],
-    ['subscription on the user site', 'user', { requiresSubscription: true }, { subscription_enabled: false }, '/usage'],
+    ['subscription on the user site', 'user', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
     ['subscription on the admin console', 'admin', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
-    ['affiliate on the user site', 'user', { requiresAffiliate: true }, { affiliate_enabled: false }, '/usage'],
+    ['affiliate on the user site', 'user', { requiresAffiliate: true }, { affiliate_enabled: false }, '/dashboard'],
   ])('redirects when loaded settings explicitly disable %s', async (_name, site, meta, settings, target) => {
     appStore.cachedPublicSettings = settings
     appStore.publicSettingsLoaded = true

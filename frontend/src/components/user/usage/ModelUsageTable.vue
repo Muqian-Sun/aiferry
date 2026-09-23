@@ -1,7 +1,7 @@
 <template>
   <!--
     模型用量：表格 + 行内占比条（按实付费用），替代环形图——排序清楚、能读数、无需图例。
-    最多显示前 8 个，其余合并为「其他」（分类色只有 8 槽，且长尾模型没有阅读价值）。
+    占比条一律墨色（控制台单色为主，muqian 2026-09-23）；最多显示前 8 行，其余合并为「其他」（长尾模型没有阅读价值）。
   -->
   <div class="overflow-x-auto">
     <table class="w-full min-w-[560px] text-13" data-testid="model-usage-table">
@@ -20,7 +20,7 @@
           <td class="pr-4">
             <div class="flex items-center gap-2">
               <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-af-sunken">
-                <div class="h-full rounded-full" :style="{ width: `${row.share}%`, backgroundColor: row.color }"></div>
+                <div class="h-full rounded-full bg-af-ink" :style="{ width: `${row.share}%` }"></div>
               </div>
               <span class="w-12 shrink-0 text-right tabular-nums text-af-ink-3">{{ row.share.toFixed(1) }}%</span>
             </div>
@@ -37,13 +37,14 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { CHART_SERIES_SLOTS, useChartTheme } from '@/composables/useChartTheme'
 import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
 import type { ModelStat } from '@/types'
 
 const props = defineProps<{ models: ModelStat[] }>()
 const { t } = useI18n()
-const theme = useChartTheme()
+
+/** 最多显示的行数（含「其他」） */
+const MAX_ROWS = 8
 
 interface Row {
   model: string
@@ -51,14 +52,13 @@ interface Row {
   total_tokens: number
   actual_cost: number
   share: number
-  color: string
 }
 
 const rows = computed<Row[]>(() => {
   const sorted = [...props.models].sort((a, b) => b.actual_cost - a.actual_cost)
   const total = sorted.reduce((sum, item) => sum + item.actual_cost, 0)
-  const head = sorted.slice(0, CHART_SERIES_SLOTS - 1)
-  const tail = sorted.slice(CHART_SERIES_SLOTS - 1)
+  const head = sorted.slice(0, MAX_ROWS - 1)
+  const tail = sorted.slice(MAX_ROWS - 1)
   const merged: Array<Pick<ModelStat, 'model' | 'requests' | 'total_tokens' | 'actual_cost'>> = [...head]
   if (tail.length > 1) {
     merged.push({
@@ -70,13 +70,12 @@ const rows = computed<Row[]>(() => {
   } else if (tail.length === 1) {
     merged.push(tail[0])
   }
-  return merged.map((item, index) => ({
+  return merged.map((item) => ({
     model: item.model,
     requests: item.requests,
     total_tokens: item.total_tokens,
     actual_cost: item.actual_cost,
-    share: total > 0 ? (item.actual_cost / total) * 100 : 0,
-    color: theme.value.color(index)
+    share: total > 0 ? (item.actual_cost / total) * 100 : 0
   }))
 })
 </script>

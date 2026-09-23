@@ -1,7 +1,7 @@
 <template>
   <!--
-    单指标趋势（请求数 / 实付费用）：与 Token 趋势共用同一份 trend 数据，只画一条线。
-    Token 视图仍由 TokenUsageTrend 画（四条线 + 缓存命中率），这里不重复。
+    单指标趋势（Token 总量 / 请求数 / 实付费用）：一份 trend 数据，只画一条墨色线 + 很淡的面积。
+    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；按输入 / 输出 / 缓存拆分的多线图只在管理端用（TokenUsageTrend）。
   -->
   <div v-if="loading" class="flex h-48 items-center justify-center">
     <span class="spinner text-af-ink-3" />
@@ -17,15 +17,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip } from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { useChartTheme } from '@/composables/useChartTheme'
-import { formatCurrency, formatNumber } from '@/utils/format'
+import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
 import type { TrendDataPoint } from '@/types'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
-export type UsageTrendMetric = 'requests' | 'cost'
+export type UsageTrendMetric = 'tokens' | 'requests' | 'cost'
 
 const props = defineProps<{
   trendData: TrendDataPoint[]
@@ -36,14 +36,13 @@ const props = defineProps<{
 const { t } = useI18n()
 const theme = useChartTheme()
 
-// 请求数取色槽 0（与 Token 视图的 Input 同色），费用取槽 1
-const color = computed(() => theme.value.color(props.metric === 'requests' ? 0 : 1))
-
 function valueOf(point: TrendDataPoint): number {
+  if (props.metric === 'tokens') return point.total_tokens
   return props.metric === 'requests' ? point.requests : point.actual_cost
 }
 
 function formatValue(value: number): string {
+  if (props.metric === 'tokens') return formatTokensK(value)
   return props.metric === 'requests' ? formatNumber(value) : formatCurrency(value)
 }
 
@@ -55,12 +54,14 @@ const chartData = computed(() => {
       {
         label: t(`userUi.usage.trend.${props.metric}`),
         data: props.trendData.map(valueOf),
-        borderColor: color.value,
-        backgroundColor: color.value,
+        borderColor: theme.value.ink,
+        backgroundColor: theme.value.inkFill,
         borderWidth: 2,
         pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
-        fill: false,
+        fill: 'origin',
         tension: 0.3
       }
     ]

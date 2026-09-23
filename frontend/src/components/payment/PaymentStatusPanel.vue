@@ -91,7 +91,7 @@
             <button
               v-if="deepLinkState === 'backgrounded'"
               data-test="reopen-alipay"
-              class="btn btn-alipay inline-flex items-center gap-2 text-sm"
+              class="btn btn-primary inline-flex items-center gap-2 text-sm"
               @click="reopenAlipay"
             >
               <Icon name="externalLink" size="sm" />
@@ -142,7 +142,7 @@
             <div class="grid w-full gap-2 sm:grid-cols-2">
               <button
                 data-test="reopen-alipay"
-                class="btn btn-alipay inline-flex items-center justify-center gap-2"
+                class="btn btn-primary inline-flex items-center justify-center gap-2"
                 @click="reopenAlipay"
               >
                 <Icon name="externalLink" size="sm" />

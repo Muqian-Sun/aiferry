@@ -4,7 +4,8 @@
     （PaymentView mode=subscription）。支付功能关闭时只有上半。行间只用 hairline，不做卡片、不按平台上色。
   -->
   <div class="space-y-8">
-    <SheetSection :title="t('userSubscriptions.title')">
+    <!-- 页头标题已是「我的订阅」（取自路由），这一块不再重复 -->
+    <SheetSection>
       <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
       <StatusState
         v-else-if="subscriptions.length === 0"
@@ -23,7 +24,7 @@
                 <span
                   :class="[
                     'badge',
-                    subscription.status === 'active' ? 'badge-success' : subscription.status === 'expired' ? 'badge-gray' : 'badge-danger'
+                    subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
                   ]"
                 >
                   {{ t(`userSubscriptions.status.${subscription.status}`) }}

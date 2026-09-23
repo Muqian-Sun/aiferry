@@ -4,7 +4,7 @@
     单列 640；没有渐变余额卡、没有彩色提示框。
   -->
   <div class="max-w-form space-y-8">
-    <dl class="grid grid-cols-2 divide-x divide-af-hairline border-b border-af-hairline pb-4">
+    <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
       <div class="min-w-0 pr-6">
         <dt class="text-13 text-af-ink-3">{{ t('redeem.currentBalance') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">${{ user?.balance?.toFixed(2) || '0.00' }}</dd>

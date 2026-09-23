@@ -180,8 +180,16 @@ export const userRoutes: RouteRecordRaw[] = [
     redirect: '/home'
   },
   {
+    // 控制台落地页（muqian 2026-09-23 新增「概览」：余额 / 今日 / 快速开始 / 趋势 / 公告）
     path: '/dashboard',
-    redirect: '/usage'
+    name: 'Overview',
+    component: () => import('@/views/user/OverviewView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Overview',
+      titleKey: 'userUi.overview.title'
+    }
   },
   {
     path: '/keys',
@@ -318,15 +326,43 @@ export const userRoutes: RouteRecordRaw[] = [
   { path: '/redeem', redirect: (to) => ({ path: '/billing/redeem', query: to.query }) },
   { path: '/affiliate', redirect: (to) => ({ path: '/billing/affiliate', query: to.query }) },
   {
+    // 账户拆成三个子页（muqian 2026-09-23：侧栏「账户」组），共用 ProfileView 按 section 渲染
     path: '/profile',
     name: 'Profile',
     component: () => import('@/views/user/ProfileView.vue'),
+    props: { section: 'profile' },
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Account',
-      titleKey: 'userUi.account.title',
-      descriptionKey: 'userUi.account.description'
+      title: 'Profile',
+      titleKey: 'userUi.account.sections.profile',
+      descriptionKey: 'userUi.account.descriptions.profile'
+    }
+  },
+  {
+    path: '/profile/security',
+    name: 'ProfileSecurity',
+    component: () => import('@/views/user/ProfileView.vue'),
+    props: { section: 'security' },
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Security',
+      titleKey: 'userUi.account.sections.security',
+      descriptionKey: 'userUi.account.descriptions.security'
+    }
+  },
+  {
+    path: '/profile/notifications',
+    name: 'ProfileNotifications',
+    component: () => import('@/views/user/ProfileView.vue'),
+    props: { section: 'notifications' },
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: false,
+      title: 'Notifications',
+      titleKey: 'userUi.account.sections.notifications',
+      descriptionKey: 'userUi.account.descriptions.notifications'
     }
   },
   {

@@ -138,7 +138,7 @@ describe('RegisterView', () => {
       tencent_captcha_randstr: 'randstr',
       invitation_code: undefined
     })
-    expect(pushMock).toHaveBeenCalledWith('/usage')
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
   })
 
   it('requires matching confirmation before storing only the registration fields for email verification', async () => {

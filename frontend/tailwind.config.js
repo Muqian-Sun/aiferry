@@ -119,6 +119,8 @@ export default {
       },
       maxWidth: {
         site: '1200px',
+        // 控制台多一列左侧栏，整体放宽，内容区与公开页 1200 的正文宽度相当
+        console: '1440px',
         form: '640px'
       },
       boxShadow: {

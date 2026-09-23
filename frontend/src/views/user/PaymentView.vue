@@ -37,7 +37,7 @@
 
         <!-- ===== 充值 ===== -->
         <template v-else-if="mode === 'recharge'">
-          <dl class="grid grid-cols-2 divide-x divide-af-hairline border-b border-af-hairline pb-4">
+          <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
             <div class="min-w-0 pr-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.rechargeAccount') }}</dt>
               <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || '' }}</dd>
@@ -93,7 +93,7 @@
               <p v-if="balanceRechargeMultiplier !== 1" class="mt-2 text-xs text-af-ink-3">
                 {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
               </p>
-              <button :class="['btn btn-md mt-6 w-full', paymentButtonClass]" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
+              <button class="btn btn-primary btn-md mt-6 w-full" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
                 <span v-if="submitting" class="flex items-center justify-center gap-2">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
                   {{ t('common.processing') }}
@@ -169,7 +169,7 @@
                 </div>
               </dl>
               <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
-                <button :class="['btn btn-md w-full sm:w-auto', paymentButtonClass]" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
+                <button class="btn btn-primary btn-md w-full sm:w-auto" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
                   <span v-if="submitting" class="flex items-center justify-center gap-2">
                     <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
                     {{ t('common.processing') }}
@@ -229,7 +229,7 @@ import { isMobileDevice } from '@/utils/device'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
-import { METHOD_ORDER, getPaymentPopupFeatures, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from '@/components/payment/providerConfig'
+import { METHOD_ORDER, getPaymentPopupFeatures } from '@/components/payment/providerConfig'
 import {
   PAYMENT_RECOVERY_STORAGE_KEY,
   buildCreateOrderPayload,
@@ -647,17 +647,6 @@ watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) 
   if (amt <= 0 || amountFitsMethod(amt, method)) return
   const available = enabledMethods.value.find((m) => amountFitsMethod(amt, m))
   if (available) selectedMethod.value = available
-})
-
-// Payment button class: follows selected payment method color
-const paymentButtonClass = computed(() => {
-  const m = selectedMethod.value
-  if (!m) return 'btn-primary'
-  if (isBuiltInAlipayMethod(m)) return 'btn-alipay'
-  if (isBuiltInWxpayMethod(m)) return 'btn-wxpay'
-  if (m === 'stripe') return 'btn-stripe'
-  if (m === 'airwallex') return 'btn-airwallex'
-  return 'btn-primary'
 })
 
 const planValiditySuffix = computed(() => {

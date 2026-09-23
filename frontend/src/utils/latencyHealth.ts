@@ -38,7 +38,7 @@ export const durationSeverity = (ms: number): LatencySeverity =>
   classify(ms, DURATION_THRESHOLDS_MS)
 
 export const LATENCY_TEXT_CLASSES: Record<LatencySeverity, string> = {
-  good: 'text-af-success',
+  good: 'text-af-ink-2',
   warn: 'text-af-warning',
   slow: 'text-af-danger/80',
   critical: 'text-af-danger',
@@ -49,7 +49,7 @@ export const LATENCY_TEXT_CLASSES: Record<LatencySeverity, string> = {
  * 四档只用三种语义色：slow 是 danger 的 60% 不透明度，与 critical 保持同一色相、不同强度。
  */
 export const LATENCY_BAR_CLASSES: Record<LatencySeverity, string> = {
-  good: 'bg-af-success',
+  good: 'bg-af-hairline-strong',
   warn: 'bg-af-warning',
   slow: 'bg-af-danger/60',
   critical: 'bg-af-danger',

@@ -38,7 +38,7 @@
                 </h3>
                 <span
                   :data-testid="`profile-binding-${item.provider}-status`"
-                  :class="['badge', item.bound ? 'badge-success' : 'badge-gray']"
+                  :class="['badge', item.bound ? 'badge-gray text-af-ink' : 'badge-gray opacity-70']"
                 >
                   {{
                     item.bound

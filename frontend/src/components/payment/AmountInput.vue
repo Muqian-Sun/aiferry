@@ -5,16 +5,18 @@
       <label class="mb-2 block text-sm font-medium text-af-ink-2">
         {{ t('payment.quickAmounts') }}
       </label>
-      <div class="grid grid-cols-3 gap-2">
+      <!-- 快捷金额：胶囊，未选是纯文字（悬停出浅底），选中墨色实心；不再用带边框的方块（muqian 2026-09-23） -->
+      <div class="flex flex-wrap gap-1.5">
         <button
           v-for="amt in filteredAmounts"
           :key="amt"
           type="button"
+          :aria-pressed="modelValue === amt"
           :class="[
-            'rounded-lg border-2 px-4 py-3 text-center font-medium transition-colors',
+            'h-10 min-w-[4.5rem] rounded-full px-4 text-center text-base font-medium tabular-nums transition-colors',
             modelValue === amt
-              ? 'border-af-brand bg-af-brand-tint text-af-brand'
-              : 'border-af-hairline bg-af-sheet text-af-ink-2 hover:border-af-hairline-strong',
+              ? 'bg-af-ink text-af-sheet'
+              : 'text-af-ink-2 hover:bg-af-sunken hover:text-af-ink',
           ]"
           @click="selectAmount(amt)"
         >

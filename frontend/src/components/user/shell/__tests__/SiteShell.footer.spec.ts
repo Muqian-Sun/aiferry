@@ -26,7 +26,7 @@ vi.mock('vue-i18n', async (importOriginal) => {
 function mountShell(variant: 'public' | 'console' = 'public') {
   return mount(SiteShell, {
     props: { variant },
-    global: { stubs: { RouterLink: RouterLinkStub, SiteNav: { template: '<nav />' }, PageHeader: { template: '<header />' } } }
+    global: { stubs: { RouterLink: RouterLinkStub, SiteNav: { template: '<nav />' }, ConsoleSidebar: { template: '<aside />' }, PageHeader: { template: '<header />' } } }
   })
 }
 

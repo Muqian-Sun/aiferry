@@ -837,7 +837,7 @@ describe('EmailVerifyView', () => {
       invitation_code: 'INVITE',
     })
     expect(apiClientPostMock).not.toHaveBeenCalled()
-    expect(pushMock).toHaveBeenCalledWith('/usage')
+    expect(pushMock).toHaveBeenCalledWith('/dashboard')
   })
 
   it('does not require another Tencent proof for final email registration', async () => {

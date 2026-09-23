@@ -1,5 +1,8 @@
 <template>
-  <!-- 密钥：页头一个主操作；筛选行；表格在容器内出血随页滚动；分页在下 -->
+  <!--
+    密钥：页头一个实心主操作（创建），其余操作无框；接口地址条；紧凑筛选行；表格在容器内出血随页滚动；分页在下。
+    配色单色为主（muqian 2026-09-23）：状态用小圆点 + 文字，只有用尽 / 过期 / 超限用橙红。
+  -->
   <SiteShell>
     <template #actions>
         <button
@@ -13,7 +16,7 @@
         <div class="relative" ref="columnDropdownRef">
           <button
             @click="showColumnDropdown = !showColumnDropdown"
-            class="btn btn-secondary btn-md px-2 md:px-3"
+            class="btn btn-ghost btn-md px-2 md:px-3"
             :title="t('keys.columnSettings')"
           >
             <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
@@ -57,7 +60,7 @@
       />
       <!-- 筛选与批量操作 -->
       <div class="flex flex-col gap-3">
-        <div class="flex flex-wrap items-center gap-3">
+        <div class="keys-filters flex flex-wrap items-center gap-2">
           <SearchInput
             v-model="filterSearch"
             :placeholder="t('keys.searchPlaceholder')"
@@ -156,14 +159,7 @@
         </template>
 
         <template #cell-current_concurrency="{ value }">
-          <span
-            :class="[
-              'inline-flex min-w-8 items-center justify-center rounded px-2 py-1 text-sm font-semibold tabular-nums',
-              (value ?? 0) > 0
-                ? 'bg-af-success-tint text-af-success ring-1 ring-af-success/30'
-                : 'bg-af-sunken text-af-ink-3'
-            ]"
-          >
+          <span class="text-sm tabular-nums" :class="(value ?? 0) > 0 ? 'font-semibold text-af-ink' : 'text-af-ink-4'">
             {{ value ?? 0 }}
           </span>
         </template>
@@ -193,7 +189,7 @@
                     'h-full rounded-full transition-all',
                     row.quota_used >= row.quota ? 'bg-af-danger' :
                     row.quota_used >= row.quota * 0.8 ? 'bg-af-warning' :
-                    'bg-af-brand'
+                    'bg-af-ink'
                   ]"
                   :style="{ width: Math.min((row.quota_used / row.quota) * 100, 100) + '%' }"
                 />
@@ -223,7 +219,7 @@
                     'h-full rounded-full transition-all',
                     row.usage_5h >= row.rate_limit_5h ? 'bg-af-danger' :
                     row.usage_5h >= row.rate_limit_5h * 0.8 ? 'bg-af-warning' :
-                    'bg-af-success'
+                    'bg-af-ink'
                   ]"
                   :style="{ width: Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) + '%' }"
                 />
@@ -251,7 +247,7 @@
                     'h-full rounded-full transition-all',
                     row.usage_1d >= row.rate_limit_1d ? 'bg-af-danger' :
                     row.usage_1d >= row.rate_limit_1d * 0.8 ? 'bg-af-warning' :
-                    'bg-af-success'
+                    'bg-af-ink'
                   ]"
                   :style="{ width: Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) + '%' }"
                 />
@@ -279,7 +275,7 @@
                     'h-full rounded-full transition-all',
                     row.usage_7d >= row.rate_limit_7d ? 'bg-af-danger' :
                     row.usage_7d >= row.rate_limit_7d * 0.8 ? 'bg-af-warning' :
-                    'bg-af-success'
+                    'bg-af-ink'
                   ]"
                   :style="{ width: Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) + '%' }"
                 />
@@ -313,13 +309,17 @@
         </template>
 
         <template #cell-status="{ value }">
-          <span :class="[
-            'badge',
-            value === 'active' ? 'badge-success' :
-            value === 'quota_exhausted' ? 'badge-warning' :
-            value === 'expired' ? 'badge-danger' :
-            'badge-gray'
-          ]">
+          <span class="inline-flex items-center gap-1.5 whitespace-nowrap text-sm" :class="value === 'inactive' ? 'text-af-ink-4' : 'text-af-ink-2'">
+            <span
+              class="h-1.5 w-1.5 shrink-0 rounded-full"
+              :class="
+                value === 'active' ? 'bg-af-ink' :
+                value === 'quota_exhausted' ? 'bg-af-warning' :
+                value === 'expired' ? 'bg-af-danger' :
+                'bg-af-ink-4'
+              "
+              aria-hidden="true"
+            />
             {{ t('keys.status.' + value) }}
           </span>
         </template>
@@ -670,7 +670,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h ? 'bg-af-danger' :
                       selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'bg-af-warning' :
-                      'bg-af-success'
+                      'bg-af-ink'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) + '%' }"
                   />
@@ -716,7 +716,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d ? 'bg-af-danger' :
                       selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'bg-af-warning' :
-                      'bg-af-success'
+                      'bg-af-ink'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) + '%' }"
                   />
@@ -762,7 +762,7 @@
                       'h-full rounded-full transition-all',
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d ? 'bg-af-danger' :
                       selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'bg-af-warning' :
-                      'bg-af-success'
+                      'bg-af-ink'
                     ]"
                     :style="{ width: Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) + '%' }"
                   />
@@ -1724,3 +1724,11 @@ onUnmounted(() => {
   if (resetTimer) clearInterval(resetTimer)
 })
 </script>
+
+<style scoped>
+/* 筛选行：通用搜索框 / 下拉是 42px，这一页压到 34px、13px 字 */
+.keys-filters :deep(.input),
+.keys-filters :deep(.select-trigger) {
+  @apply py-1.5 text-13;
+}
+</style>

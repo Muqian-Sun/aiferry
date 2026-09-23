@@ -137,7 +137,7 @@ describe('HomeView compact mode', () => {
 
     const wrapper = mountHome({ compact_home_enabled: true })
     // 首页只在用户站提供，管理员不会登录用户站，已登录一律去用户仪表盘
-    expect(compactDestination(wrapper)).toBe('/usage')
+    expect(compactDestination(wrapper)).toBe('/dashboard')
     expect(authStore.checkAuth).toHaveBeenCalledOnce()
     expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
   })

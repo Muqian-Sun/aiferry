@@ -4,7 +4,8 @@
 export default {
   userUi: {
     nav: {
-      usage: '用量',
+      overview: '概览',
+      usage: '用量明细',
       keys: '密钥',
       models: '模型',
       billing: '账务',
@@ -17,7 +18,9 @@ export default {
       console: '控制台',
       login: '登录',
       openMenu: '打开导航',
-      primaryNav: '主导航'
+      primaryNav: '主导航',
+      collapseSidebar: '收起',
+      expandSidebar: '展开侧栏'
     },
     footer: {
       register: '注册',
@@ -78,6 +81,34 @@ export default {
       },
       protocols: { messages: 'Messages', responses: 'Responses', chat: 'Chat', gemini: 'Gemini' }
     },
+    overview: {
+      title: '概览',
+      description: '余额、今日用量与接入信息',
+      greeting: {
+        lateNight: '夜深了，{name}',
+        morning: '早上好，{name}',
+        noon: '中午好，{name}',
+        afternoon: '下午好，{name}',
+        evening: '晚上好，{name}'
+      },
+      totals: '累计消耗 {cost} · 累计请求 {requests} · 当前 {rpm} RPM',
+      quickStart: {
+        title: '快速开始',
+        description: '把接口地址和密钥填进 SDK 或客户端，就能直接调用。',
+        baseUrl: '接口地址',
+        key: '我的密钥',
+        noKey: '还没有可用的密钥',
+        allKeys: '全部密钥',
+        createKey: '创建密钥',
+        copy: '复制',
+        copied: '已复制'
+      },
+      trend: {
+        title: '用量趋势',
+        range: '近 {days} 天',
+        summary: '近 {days} 天 · {requests} 次请求 · {tokens} Token · 费用 {cost}'
+      }
+    },
     billing: {
       title: '账务',
       description: '充值、订阅、订单与邀请返利',
@@ -89,8 +120,8 @@ export default {
       }
     },
     usage: {
-      title: '用量',
-      description: '请求、Token 与费用，逐条可查',
+      title: '用量明细',
+      description: '按时间范围查看模型用量与每一次请求',
       stats: {
         requests: '请求',
         tokens: 'Token',
@@ -130,13 +161,17 @@ export default {
       emptyHint: '换个时间范围，或先创建一把密钥发起第一次调用。'
     },
     account: {
-      title: '账户',
-      description: '资料、安全与通知',
       sections: {
         profile: '基本信息',
         security: '安全',
         notifications: '通知'
-      }
+      },
+      descriptions: {
+        profile: '头像、用户名与账户信息',
+        security: '第三方登录绑定、密码、双因素认证与通行密钥',
+        notifications: '余额不足时发邮件提醒'
+      },
+      notificationsOff: '管理员没有开启余额提醒'
     },
     models: {
       title: '模型',

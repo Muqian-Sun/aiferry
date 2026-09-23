@@ -278,18 +278,15 @@ describe('user UsageView', () => {
     list.mockResolvedValue({ items: [{ id: 1, name: 'demo-key' }], total: 1, page: 1, page_size: 100, pages: 1 })
   })
 
-  it('loads logs, stats, model stats, and snapshot on first render', async () => {
+  it('loads logs, range stats and model stats on first render (account stats and trend live on the overview)', async () => {
     mountUsageView()
     await flushPromises()
 
     expect(query).toHaveBeenCalled()
     expect(getStats).toHaveBeenCalled()
-    expect(getDashboardStats).toHaveBeenCalledTimes(1)
     expect(getDashboardModels).toHaveBeenCalled()
-    expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({
-      include_trend: true,
-      include_model_stats: false,
-    }))
+    expect(getDashboardStats).not.toHaveBeenCalled()
+    expect(getDashboardSnapshotV2).not.toHaveBeenCalled()
     expect(list).toHaveBeenCalledTimes(1)
     expect(list).toHaveBeenCalledWith(1, 100)
   })
@@ -404,7 +401,6 @@ describe('user UsageView', () => {
     )
     expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: true }))
     expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: true }))
-    expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: true }))
 
     query.mockClear()
     getStats.mockClear()
@@ -421,7 +417,6 @@ describe('user UsageView', () => {
     )
     expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: null }))
     expect(getDashboardModels).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: null }))
-    expect(getDashboardSnapshotV2).toHaveBeenCalledWith(expect.objectContaining({ native_compaction_v2: null }))
   })
 
   it('exports csv with current filters and without admin-only fields', async () => {
@@ -590,110 +585,16 @@ describe('user UsageView', () => {
     clickSpy.mockRestore()
   })
 
-  it('a failing dashboard endpoint shows a retry in its own section without hiding the model table', async () => {
-    getDashboardStats.mockRejectedValueOnce(new Error('boom'))
-    const wrapper = mountUsageView()
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(false)
-    expect(wrapper.findComponent(ModelUsageTable).exists()).toBe(true)
-
-    getDashboardStats.mockClear()
-    await wrapper.find('[data-testid="status-error"] button').trigger('click')
-    await flushPromises()
-
-    expect(getDashboardStats).toHaveBeenCalledTimes(1)
-    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="status-error"]').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('a failing range-stats endpoint only blanks the trend summary line', async () => {
+  it('a failing range-stats endpoint only blanks the range summary line', async () => {
     getStats.mockRejectedValueOnce(new Error('boom'))
     const wrapper = mountUsageView()
     await flushPromises()
 
-    expect(wrapper.find('[data-testid="account-band"]').exists()).toBe(true)
+    expect(wrapper.findComponent(ModelUsageTable).exists()).toBe(true)
     expect(wrapper.text()).not.toContain('userUi.usage.trend.rangeSummary')
     wrapper.unmount()
   })
 
-  it('renders the account band (balance → top up, totals, current rate) and the today band from dashboard stats', async () => {
-    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true, payment_enabled: true }
-    const wrapper = mountUsageView()
-    await flushPromises()
-
-    const account = wrapper.get('[data-testid="account-band"]')
-    expect(account.get('[data-testid="stat-balance"]').text()).toContain('99.95')
-    expect(account.get('[data-testid="stat-balance"] a').attributes('href')).toBe('/billing/recharge')
-    expect(account.get('[data-testid="stat-total-cost"]').text()).toContain('12.50')
-    expect(account.get('[data-testid="stat-total-requests"]').text()).toContain('131')
-    expect(account.get('[data-testid="stat-rate"]').text()).toContain('3 RPM')
-    expect(account.get('[data-testid="stat-rate"]').text()).toContain('TPM')
-
-    const today = wrapper.get('[data-testid="today-band"]')
-    expect(today.get('[data-testid="stat-today-cost"]').text()).toContain('1.25')
-    expect(today.get('[data-testid="stat-today-cost"]').text()).toContain('userUi.usage.stats.standardCost')
-    expect(today.get('[data-testid="stat-today-requests"]').text()).toContain('30')
-    expect(today.get('[data-testid="stat-today-tokens"]').text()).toContain('240')
-    // 区间合计写在趋势标题下
-    expect(wrapper.text()).toContain('userUi.usage.trend.rangeSummary')
-    wrapper.unmount()
-  })
-
-  it('drops the top-up link when payment is off and swaps balance for latency in simple mode', async () => {
-    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true, payment_enabled: false }
-    let wrapper = mountUsageView()
-    await flushPromises()
-    expect(wrapper.get('[data-testid="stat-balance"]').find('a').exists()).toBe(false)
-    wrapper.unmount()
-
-    authStoreState.isSimpleMode = true
-    wrapper = mountUsageView()
-    await flushPromises()
-    expect(wrapper.find('[data-testid="stat-balance"]').exists()).toBe(false)
-    expect(wrapper.get('[data-testid="stat-latency"]').text()).toContain('5 ms')
-    wrapper.unmount()
-  })
-
-  it('switches the trend between tokens, requests and cost', async () => {
-    const wrapper = mountUsageView()
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="metric-trend"]').exists()).toBe(false)
-    await wrapper.get('[data-testid="section-tab-cost"]').trigger('click')
-    expect(wrapper.get('[data-testid="metric-trend"]').attributes('data-metric')).toBe('cost')
-    await wrapper.get('[data-testid="section-tab-requests"]').trigger('click')
-    expect(wrapper.get('[data-testid="metric-trend"]').attributes('data-metric')).toBe('requests')
-    wrapper.unmount()
-  })
-
-  it('lists the three newest announcements with an unread count and opens one in the site popup', async () => {
-    announcementState.announcements = [
-      { id: 1, title: 'Old', content: '', created_at: '2026-09-01T00:00:00Z', read_at: '2026-09-02T00:00:00Z' },
-      { id: 2, title: 'Newest', content: '', created_at: '2026-09-20T00:00:00Z' },
-      { id: 3, title: 'Middle', content: '', created_at: '2026-09-10T00:00:00Z' },
-      { id: 4, title: 'Oldest', content: '', created_at: '2026-08-01T00:00:00Z' },
-    ]
-    const wrapper = mountUsageView()
-    await flushPromises()
-
-    const items = wrapper.findAll('[data-testid="announcement-list"] li')
-    expect(items.map((item) => item.find('span.truncate').text())).toEqual(['Newest', 'Middle', 'Old'])
-    expect(wrapper.text()).toContain('userUi.usage.announcements.unread')
-    await items[0].find('button').trigger('click')
-    expect((announcementState.currentPopup as { id: number }).id).toBe(2)
-    wrapper.unmount()
-  })
-
-  it('omits the announcements section entirely when there are none', async () => {
-    const wrapper = mountUsageView()
-    await flushPromises()
-    expect(wrapper.find('[data-testid="announcement-list"]').exists()).toBe(false)
-    expect(wrapper.text()).not.toContain('userUi.usage.sections.announcements')
-    wrapper.unmount()
-  })
 })
 
 describe('UsageView subscription feature flag', () => {
@@ -712,7 +613,8 @@ describe('UsageView subscription feature flag', () => {
     await flushPromises()
 
     expect(billingTypeSelect(wrapper)).toBeDefined()
-    expect(wrapper.text()).toContain('Billing type')
+    // 筛选行不再写可见标签，标签文字在下拉的 title 上
+    expect(billingTypeSelect(wrapper)?.attributes('title')).toBe('Billing type')
     wrapper.unmount()
   })
 
@@ -723,7 +625,7 @@ describe('UsageView subscription feature flag', () => {
     await flushPromises()
 
     expect(billingTypeSelect(wrapper)).toBeUndefined()
-    expect(wrapper.text()).not.toContain('Billing type')
+    expect(wrapper.find('[title="Billing type"]').exists()).toBe(false)
     wrapper.unmount()
   })
 })

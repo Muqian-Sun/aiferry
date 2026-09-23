@@ -1,17 +1,25 @@
 <template>
   <!--
-    用户站唯一的壳：顶部导航 + 1200px 居中内容。页面本身就是一张面（sheet），
-    没有侧栏、没有第二层卡片，区块之间只用 hairline。
-    variant=public：首页 / 模型页 / 法律文档 / 404；variant=console：登录后的五个页签页。
+    用户站唯一的壳。页面本身就是一张面（sheet），没有第二层卡片，区块之间只用 hairline。
+    variant=public：首页 / 模型页 / 法律文档 / 404——顶栏 + 1200px 居中内容 + 页脚。
+    variant=console：登录后的控制台——顶栏 + 左侧分组栏（lg 起；窄屏由顶栏第二行替代）+ 内容区（页头 + 页面）。
   -->
   <div class="flex min-h-screen flex-col bg-af-sheet text-af-ink">
     <SiteNav :variant="variant" />
-    <main class="mx-auto flex w-full flex-1 flex-col" :class="flush ? 'max-w-none' : 'max-w-site px-6 py-8'">
-      <PageHeader v-if="variant === 'console' && !hideHeader" :title="title ?? routeTitle" :description="description ?? routeDescription">
-        <template v-if="$slots.actions" #actions><slot name="actions" /></template>
-        <template v-if="$slots.tabs" #tabs><slot name="tabs" /></template>
-      </PageHeader>
-      <div :class="[variant === 'console' && !hideHeader ? 'pt-6' : '', flush ? 'flex min-h-0 flex-1 flex-col' : '']">
+    <div v-if="variant === 'console'" class="mx-auto flex w-full max-w-console flex-1 px-6">
+      <ConsoleSidebar class="hidden lg:block" />
+      <main class="flex min-w-0 flex-1 flex-col" :class="flush ? '' : 'py-8 lg:pl-10'">
+        <PageHeader v-if="!hideHeader" :title="title ?? routeTitle" :description="description ?? routeDescription">
+          <template v-if="$slots.actions" #actions><slot name="actions" /></template>
+          <template v-if="$slots.tabs" #tabs><slot name="tabs" /></template>
+        </PageHeader>
+        <div :class="flush ? 'flex min-h-0 flex-1 flex-col' : ''">
+          <slot />
+        </div>
+      </main>
+    </div>
+    <main v-else class="mx-auto flex w-full flex-1 flex-col" :class="flush ? 'max-w-none' : 'max-w-site px-6 py-8'">
+      <div :class="flush ? 'flex min-h-0 flex-1 flex-col' : ''">
         <slot />
       </div>
     </main>
@@ -36,6 +44,7 @@ import { useAppStore } from '@/stores/app'
 import { useOnboardingStore } from '@/stores/onboarding'
 import { useOnboardingTour } from '@/composables/useOnboardingTour'
 import { usePageTitle } from '@/composables/usePageTitle'
+import ConsoleSidebar from './ConsoleSidebar.vue'
 import PageHeader from './PageHeader.vue'
 import SiteNav from './SiteNav.vue'
 
