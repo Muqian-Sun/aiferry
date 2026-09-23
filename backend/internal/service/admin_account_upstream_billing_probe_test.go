@@ -234,12 +234,12 @@ func TestUpdateAccountPreservesProbeSnapshotWhenIdentityValuesAreUnchanged(t *te
 				UpstreamBillingProbeEnabledExtraKey: true,
 				UpstreamBillingProbeExtraKey:        map[string]any{"status": "ok"},
 			},
-			ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://upstream.example", APIProtocolResponses: "https://upstream.example"},
+			ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://upstream.example"},
 		},
 	}}
 
 	// 协议映射原样重提（编辑表单整对象回写的常态）不算身份变化。
-	sameEndpoints := map[string]string{APIProtocolResponses: "https://upstream.example", APIProtocolChatCompletions: "https://upstream.example"}
+	sameEndpoints := map[string]string{APIProtocolResponses: "https://upstream.example"}
 	updated, err := (&adminServiceImpl{accountRepo: repo}).UpdateAccount(context.Background(), accountID, &UpdateAccountInput{
 		Credentials: map[string]any{
 			"base_url":                   "https://upstream.example",
