@@ -28,11 +28,6 @@ func newSimpleModeGroupRouter(svc *stubAdminService) *gin.Engine {
 	r.POST("/groups", h.Create)
 	r.PUT("/groups/:id", h.Update)
 	r.POST("/groups/:id/duplicate", h.Duplicate)
-	r.GET("/groups/:id/composite-routes", h.ListCompositeRoutes)
-	r.POST("/groups/:id/composite-routes", h.CreateCompositeRoute)
-	r.POST("/groups/:id/composite-routes/preview", h.PreviewCompositeRoute)
-	r.PUT("/groups/:id/composite-routes/:route_id", h.UpdateCompositeRoute)
-	r.DELETE("/groups/:id/composite-routes/:route_id", h.DeleteCompositeRoute)
 	r.GET("/groups/:id/rpm-overrides", h.GetGroupRPMOverrides)
 	r.PUT("/groups/:id/rpm-overrides", h.BatchSetGroupRPMOverrides)
 	r.DELETE("/groups/:id/rpm-overrides", h.ClearGroupRPMOverrides)
@@ -258,11 +253,6 @@ func TestGroupHandlerSimpleModeBlocksAdvancedOperations(t *testing.T) {
 	}{
 		{http.MethodPost, "/groups/1/duplicate", ""},
 		{http.MethodGet, "/groups/1/model-allowlist-candidates", ""},
-		{http.MethodGet, "/groups/1/composite-routes", ""},
-		{http.MethodPost, "/groups/1/composite-routes", `{"public_model":"x","target_platform":"openai"}`},
-		{http.MethodPost, "/groups/1/composite-routes/preview", `{"model":"x"}`},
-		{http.MethodPut, "/groups/1/composite-routes/2", `{"public_model":"x","target_platform":"openai"}`},
-		{http.MethodDelete, "/groups/1/composite-routes/2", ""},
 		{http.MethodGet, "/groups/1/rpm-overrides", ""},
 		{http.MethodPut, "/groups/1/rpm-overrides", `{"entries":[]}`},
 		{http.MethodDelete, "/groups/1/rpm-overrides", ""},
