@@ -1681,15 +1681,6 @@ func (h *AccountHandler) BatchCreate(c *gin.Context) {
 		response.BadRequest(c, "Invalid request: "+err.Error())
 		return
 	}
-	groupIDs := make([]int64, 0)
-	for _, item := range req.Accounts {
-		groupIDs = append(groupIDs, item.GroupIDs...)
-	}
-	if err := h.adminService.ValidateAccountGroupBindings(c.Request.Context(), groupIDs); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-
 	executeAdminIdempotentJSON(c, "admin.accounts.batch_create", req, service.DefaultWriteIdempotencyTTL(), func(ctx context.Context) (any, error) {
 		success := 0
 		failed := 0

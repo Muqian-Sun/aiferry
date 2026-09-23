@@ -31,44 +31,15 @@ type AdminService interface {
 	GetUserBalanceHistory(ctx context.Context, userID int64, page, pageSize int, codeType string) ([]RedeemCode, int64, float64, error)
 	BindUserAuthIdentity(ctx context.Context, userID int64, input AdminBindAuthIdentityInput) (*AdminBoundAuthIdentity, error)
 
-	// Group management
-	ListGroups(ctx context.Context, page, pageSize int, platform, status, search string, isExclusive *bool, sortBy, sortOrder string) ([]Group, int64, error)
-	GetAllGroups(ctx context.Context) ([]Group, error)
-	GetAllGroupsByPlatform(ctx context.Context, platform string) ([]Group, error)
-	// GetAllGroupsIncludingInactive returns all groups regardless of status (active + disabled),
-	// ordered by sort_order then id. Used by the API Key group filter dropdown.
-	GetAllGroupsIncludingInactive(ctx context.Context) ([]Group, error)
-	GetGroup(ctx context.Context, id int64) (*Group, error)
-	GetGroupModelsListCandidates(ctx context.Context, id int64, platform string) ([]string, error)
-	CreateGroup(ctx context.Context, input *CreateGroupInput) (*Group, error)
-	// DuplicateGroup creates an inactive independent copy of a group's configuration
-	// and account bindings while preserving each binding's priority.
-	DuplicateGroup(ctx context.Context, id int64, actorScope, operationKey string) (*Group, error)
-	// RecoverDuplicateGroup returns a previously committed copy for an ambiguous retry.
-	// It never creates a group.
-	RecoverDuplicateGroup(ctx context.Context, id int64, actorScope, operationKey string) (*Group, error)
-	UpdateGroup(ctx context.Context, id int64, input *UpdateGroupInput) (*Group, error)
-	DeleteGroup(ctx context.Context, id int64) error
-	DeleteGroupIfEmpty(ctx context.Context, id int64) error
-	GetGroupAPIKeys(ctx context.Context, groupID int64, page, pageSize int) ([]APIKey, int64, error)
-	GetGroupRPMOverrides(ctx context.Context, groupID int64) ([]UserGroupRateEntry, error)
-	ClearGroupRPMOverrides(ctx context.Context, groupID int64) error
-	BatchSetGroupRPMOverrides(ctx context.Context, groupID int64, entries []GroupRPMOverrideInput) error
-	UpdateGroupSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error
 
-	// API Key management (admin)
-	AdminUpdateAPIKeyGroupID(ctx context.Context, keyID int64, groupID *int64) (*AdminUpdateAPIKeyGroupIDResult, error)
 	AdminResetAPIKeyRateLimitUsage(ctx context.Context, keyID int64) (*APIKey, error)
 
-	// ReplaceUserGroup 替换用户的专属分组：授予新分组权限、迁移 Key、移除旧分组权限
-	ReplaceUserGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (*ReplaceUserGroupResult, error)
 
 	// Account management
 	ListAccounts(ctx context.Context, page, pageSize int, platform, accountType, status, search string, groupID int64, privacyMode string, sortBy, sortOrder string) ([]Account, int64, error)
 	GetAccount(ctx context.Context, id int64) (*Account, error)
 	GetAccountsByIDs(ctx context.Context, ids []int64) ([]*Account, error)
 	CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error)
-	ValidateAccountGroupBindings(ctx context.Context, groupIDs []int64) error
 	// DuplicateAccount creates an independent account from an existing account's configuration.
 	// First-class runtime columns are intentionally reset by the normal account creation path.
 	DuplicateAccount(ctx context.Context, id int64, actorScope, operationKey string) (*Account, error)
