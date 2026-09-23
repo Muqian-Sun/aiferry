@@ -521,7 +521,7 @@ const filter = ref<MonitorFilter>({
 })
 const activeTab = ref<Tab>(parseTab(route.query.tab, showUserRanking.value))
 // 上游渠道维度是管理员专属：用户站固定按模型聚合。
-const matrixGroupBy = ref<MonitorMatrixGroupBy>('model')
+const matrixGroupBy: MonitorMatrixGroupBy = 'model'
 const healthMode = ref<HealthMode>(parseHealthMode(route.query.health_mode))
 const trendView = ref<TrendView>(parseTrendView(route.query.trend_view))
 const dimensions = ref<MonitorDimensions>({ platforms: [], models: [] })
@@ -622,7 +622,7 @@ async function loadDimensions(signal?: AbortSignal, id = sequence) {
 async function loadMetrics(signal?: AbortSignal, id = sequence) {
   const [nextSnapshot, nextMatrix] = await Promise.all([
     api.getSnapshot(filter.value, isAdmin.value, signal),
-    api.getMatrix(filter.value, matrixGroupBy.value, isAdmin.value, signal),
+    api.getMatrix(filter.value, matrixGroupBy, isAdmin.value, signal),
   ])
   if (id !== sequence) return
   snapshot.value = nextSnapshot
@@ -809,10 +809,6 @@ watch(
   },
   { deep: true }
 )
-watch(matrixGroupBy, () => {
-  syncQuery()
-  void reloadMetricsOnly(true)
-})
 watch(healthMode, syncQuery)
 watch(trendView, syncQuery)
 watch(activeTab, () => {

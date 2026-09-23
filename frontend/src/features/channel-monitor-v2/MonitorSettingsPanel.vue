@@ -279,7 +279,6 @@ const defaultIgnoredErrorCategories = [
   'client_cancelled',
   'content_policy',
   'context_limit',
-  'group_access',
   'model_unsupported',
   'not_found',
   'quota_or_balance',

@@ -20,21 +20,20 @@ describe('channel monitor V2 query serialization', () => {
     const query = repeatedArrayParamsSerializer({
       range: '90m',
       platform: ['openai', 'grok'],
-      group_id: [1, 2],
-      model: undefined,
-      group_by: 'platform_group_model',
+      model: ['gpt-5', 'claude-sonnet-4-5'],
+      group_by: 'platform_model',
     })
 
-    expect(query).toBe('range=90m&platform=openai&platform=grok&group_id=1&group_id=2&group_by=platform_group_model')
+    expect(query).toBe('range=90m&platform=openai&platform=grok&model=gpt-5&model=claude-sonnet-4-5&group_by=platform_model')
     expect(query).not.toContain('%5B%5D')
   })
 
   it('never reaches the admin monitor API from the user site', async () => {
     const get = vi.spyOn(apiClient, 'get').mockResolvedValue({
-      data: { coverage: {}, group_by: 'platform_group', items: [] },
+      data: { coverage: {}, group_by: 'platform', items: [] },
     })
 
-    await getMatrix({ range: '24h', platforms: [], groupIds: [], models: [] }, 'platform_group', true)
+    await getMatrix({ range: '24h', platforms: [], models: [] }, 'platform', true)
 
     expect(get).toHaveBeenCalledWith('/channel-monitor-v2/matrix', expect.anything())
   })
@@ -42,18 +41,17 @@ describe('channel monitor V2 query serialization', () => {
   it('sends the matrix grouping with the shared filters', async () => {
     site.admin = true
     const get = vi.spyOn(apiClient, 'get').mockResolvedValue({
-      data: { coverage: {}, group_by: 'platform_group', items: [] },
+      data: { coverage: {}, group_by: 'platform_model', items: [] },
     })
 
-    await getMatrix({ range: '24h', platforms: ['openai'], groupIds: [7], models: [] }, 'platform_group', true)
+    await getMatrix({ range: '24h', platforms: ['openai'], models: ['gpt-5'] }, 'platform_model', true)
 
     expect(get).toHaveBeenCalledWith('/admin/channel-monitor-v2/matrix', expect.objectContaining({
       params: {
         range: '24h',
         platform: ['openai'],
-        group_id: [7],
-        model: undefined,
-        group_by: 'platform_group',
+        model: ['gpt-5'],
+        group_by: 'platform_model',
       },
     }))
   })

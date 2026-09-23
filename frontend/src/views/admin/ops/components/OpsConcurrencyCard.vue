@@ -42,7 +42,7 @@ const displayDimension = computed<'platform' | 'account' | 'user'>(() => {
   return 'platform'
 })
 
-// 平台/分组汇总行数据
+// 平台汇总行数据
 interface SummaryRow {
   key: string
   name: string

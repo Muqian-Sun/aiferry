@@ -67,7 +67,7 @@ export default {
       filterTimeRange: 'Deletion time range', filterTimeRangeHint: 'Deletes events created before the selected cutoff. Events created after the preview are not affected.',
       timePresets: { '1d': 'Older than 1 day', '7d': 'Older than 7 days', '30d': 'Older than 30 days', '90d': 'Older than 90 days', all: 'All time', custom: 'Custom range' },
       customRangeInvalid: 'A custom range needs a valid start and end time, with the start before the end.',
-      moreConditions: 'More conditions (endpoint / keyword / group / user)',
+      moreConditions: 'More conditions (endpoint / keyword / user)',
       filterDeletePreviewAction: 'Generate delete preview', filterDeletePreviewing: 'Generating preview…', filterDeleteNeedPreview: 'You can delete directly, or generate a preview first to see the match count.',
       filterDeleteConfirmInvalidRange: 'Select a valid deletion time range first (a custom range needs a start before the end).', filterDeleteConfirmNoMatches: 'The current filters matched 0 events, so there is nothing to delete.',
       selectAll: 'Select all events on this page', selectEvent: 'Select event {id}', time: 'Time', identity: 'User / email / API Key', user: 'Username', email: 'User email', apiKey: 'API Key name', route: 'Endpoint / model', result: 'Decision / risk', preview: 'Redacted preview', empty: 'No matching events.',
@@ -93,7 +93,7 @@ export default {
       loadConfig: 'Unable to load Prompt Audit configuration.', loadRuntime: 'Unable to load Prompt Audit runtime.', loadEvents: 'Unable to load audit events.', loadDetail: 'Unable to load event details.', saveConfig: 'Unable to save the configuration.', probe: 'Node probe failed.', delete: 'Unable to delete events.', previewDelete: 'Unable to create a deletion preview. Check the time range.', deleteConfirmation: 'The deletion confirmation is invalid or expired. Preview again.',
       prompt_audit_config_conflict: 'Another administrator updated this configuration. Reload the server version before deciding how to merge your draft.',
       prompt_audit_encryption_key_required: 'No fixed encryption key is configured, so audit node API Keys would be lost on restart. Set the TOTP_ENCRYPTION_KEY environment variable and restart the service first.',
-      prompt_guard_requires_audit_enabled: 'Enable Prompt Audit before synchronous blocking.', prompt_audit_invalid_endpoint: 'The audit node configuration is invalid.', prompt_audit_endpoint_required: 'Enable at least one audit node before enabling Prompt Audit.', prompt_audit_groups_required: 'Select at least one group in selected-group mode.', prompt_audit_scanners_required: 'Enable at least one risk category.',
+      prompt_guard_requires_audit_enabled: 'Enable Prompt Audit before synchronous blocking.', prompt_audit_invalid_endpoint: 'The audit node configuration is invalid.', prompt_audit_endpoint_required: 'Enable at least one audit node before enabling Prompt Audit.', prompt_audit_scanners_required: 'Enable at least one risk category.',
     },
   },
 }
