@@ -387,13 +387,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyDefaultSubscriptions] = string(defaultSubsJSON)
 
-	// Model fallback configuration
-	updates[SettingKeyEnableModelFallback] = strconv.FormatBool(settings.EnableModelFallback)
-	updates[SettingKeyFallbackModelAnthropic] = settings.FallbackModelAnthropic
-	updates[SettingKeyFallbackModelOpenAI] = settings.FallbackModelOpenAI
-	updates[SettingKeyFallbackModelGemini] = settings.FallbackModelGemini
-	updates[SettingKeyFallbackModelAntigravity] = settings.FallbackModelAntigravity
-
 	// Identity patch configuration (Claude -> Gemini)
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)
 	updates[SettingKeyIdentityPatchPrompt] = settings.IdentityPatchPrompt

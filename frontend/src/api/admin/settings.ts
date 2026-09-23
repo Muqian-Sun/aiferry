@@ -539,12 +539,6 @@ export interface SystemSettings {
   google_oauth_redirect_url: string;
   google_oauth_frontend_redirect_url: string;
 
-  // Model fallback configuration
-  enable_model_fallback: boolean;
-  fallback_model_anthropic: string;
-  fallback_model_openai: string;
-  fallback_model_gemini: string;
-  fallback_model_antigravity: string;
   grok_default_text_model: string;
   grok_cross_client_model_map_enabled: boolean;
   grok_default_base_url_mode: string;
@@ -836,11 +830,6 @@ export interface UpdateSettingsRequest {
   google_oauth_client_secret?: string;
   google_oauth_redirect_url?: string;
   google_oauth_frontend_redirect_url?: string;
-  enable_model_fallback?: boolean;
-  fallback_model_anthropic?: string;
-  fallback_model_openai?: string;
-  fallback_model_gemini?: string;
-  fallback_model_antigravity?: string;
   grok_default_text_model?: string;
   grok_cross_client_model_map_enabled?: boolean;
   grok_default_base_url_mode?: string;

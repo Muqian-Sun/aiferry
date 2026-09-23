@@ -619,44 +619,6 @@ func (s *SettingService) DeleteAdminAPIKey(ctx context.Context) error {
 	return s.settingRepo.Delete(ctx, SettingKeyAdminAPIKey)
 }
 
-// IsModelFallbackEnabled 检查是否启用模型兜底机制
-func (s *SettingService) IsModelFallbackEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyEnableModelFallback)
-	if err != nil {
-		return false // Default: disabled
-	}
-	return value == "true"
-}
-
-// GetFallbackModel 获取指定平台的兜底模型
-func (s *SettingService) GetFallbackModel(ctx context.Context, platform string) string {
-	var key string
-	var defaultModel string
-
-	switch platform {
-	case PlatformAnthropic:
-		key = SettingKeyFallbackModelAnthropic
-		defaultModel = "claude-3-5-sonnet-20241022"
-	case PlatformOpenAI:
-		key = SettingKeyFallbackModelOpenAI
-		defaultModel = "gpt-4o"
-	case PlatformGemini:
-		key = SettingKeyFallbackModelGemini
-		defaultModel = "gemini-2.5-pro"
-	case PlatformAntigravity:
-		key = SettingKeyFallbackModelAntigravity
-		defaultModel = "gemini-2.5-pro"
-	default:
-		return ""
-	}
-
-	value, err := s.settingRepo.GetValue(ctx, key)
-	if err != nil || value == "" {
-		return defaultModel
-	}
-	return value
-}
-
 // GetOverloadCooldownSettings 获取529过载冷却配置
 func (s *SettingService) GetOverloadCooldownSettings(ctx context.Context) (*OverloadCooldownSettings, error) {
 	value, err := s.settingRepo.GetValue(ctx, SettingKeyOverloadCooldownSettings)

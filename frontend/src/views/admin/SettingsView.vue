@@ -9263,12 +9263,6 @@ const form = reactive<SettingsForm>({
   google_oauth_client_secret_configured: false,
   google_oauth_redirect_url: "",
   google_oauth_frontend_redirect_url: "/auth/oauth/callback",
-  // Model fallback
-  enable_model_fallback: false,
-  fallback_model_anthropic: "claude-3-5-sonnet-20241022",
-  fallback_model_openai: "gpt-4o",
-  fallback_model_gemini: "gemini-2.5-pro",
-  fallback_model_antigravity: "gemini-2.5-pro",
   grok_default_text_model: "grok-4.5",
   grok_cross_client_model_map_enabled: false,
   grok_default_base_url_mode: "cli",
@@ -10704,11 +10698,6 @@ async function saveSettings() {
       google_oauth_redirect_url: form.google_oauth_redirect_url,
       google_oauth_frontend_redirect_url:
         form.google_oauth_frontend_redirect_url,
-      enable_model_fallback: form.enable_model_fallback,
-      fallback_model_anthropic: form.fallback_model_anthropic,
-      fallback_model_openai: form.fallback_model_openai,
-      fallback_model_gemini: form.fallback_model_gemini,
-      fallback_model_antigravity: form.fallback_model_antigravity,
       grok_default_text_model:
         form.grok_default_text_model.trim() || "grok-4.5",
       grok_cross_client_model_map_enabled:
