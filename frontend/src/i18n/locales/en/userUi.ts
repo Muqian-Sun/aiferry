@@ -10,7 +10,6 @@ export default {
       models: 'Models',
       billing: 'Billing',
       account: 'Account',
-      profile: 'Profile & security',
       batchImage: 'Batch images',
       more: 'More',
       product: 'Product',
@@ -160,13 +159,17 @@ export default {
       emptyHint: 'Try another date range, or create a key and make your first call.'
     },
     account: {
-      title: 'Account',
-      description: 'Profile, security and notifications',
       sections: {
         profile: 'Profile',
         security: 'Security',
         notifications: 'Notifications'
-      }
+      },
+      descriptions: {
+        profile: 'Avatar, username and account details',
+        security: 'Linked sign-ins, password, two-factor and passkeys',
+        notifications: 'Email alerts when your balance runs low'
+      },
+      notificationsOff: 'Balance alerts are not enabled on this site'
     },
     models: {
       title: 'Models',

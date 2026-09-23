@@ -10,7 +10,6 @@ export default {
       models: '模型',
       billing: '账务',
       account: '账户',
-      profile: '资料与安全',
       batchImage: '批量生图',
       more: '更多',
       product: '产品',
@@ -160,13 +159,17 @@ export default {
       emptyHint: '换个时间范围，或先创建一把密钥发起第一次调用。'
     },
     account: {
-      title: '账户',
-      description: '资料、安全与通知',
       sections: {
         profile: '基本信息',
         security: '安全',
         notifications: '通知'
-      }
+      },
+      descriptions: {
+        profile: '头像、用户名与账户信息',
+        security: '第三方登录绑定、密码、双因素认证与通行密钥',
+        notifications: '余额不足时发邮件提醒'
+      },
+      notificationsOff: '管理员没有开启余额提醒'
     },
     models: {
       title: '模型',

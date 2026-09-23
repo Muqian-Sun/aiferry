@@ -36,6 +36,8 @@ export interface ConsoleNavContext {
   batchImageEnabled: boolean
   /** 账务子页（已按功能开关过滤，见 views/user/billing/billingTabs.ts） */
   billingItems: NavTab[]
+  /** 管理员开了余额不足提醒时，账户组才有「通知」 */
+  balanceNotifyEnabled: boolean
   customItems: CustomMenuItem[]
 }
 
@@ -57,11 +59,12 @@ export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNavSection[] {
   if (!ctx.simpleMode && ctx.billingItems.length) {
     sections.push({ key: 'billing', label: ctx.t('userUi.nav.billing'), items: ctx.billingItems })
   }
-  sections.push({
-    key: 'account',
-    label: ctx.t('userUi.nav.account'),
-    items: [{ path: '/profile', label: ctx.t('userUi.nav.profile') }]
-  })
+  const account: NavTab[] = [
+    { path: '/profile', label: ctx.t('userUi.account.sections.profile') },
+    { path: '/profile/security', label: ctx.t('userUi.account.sections.security') }
+  ]
+  if (ctx.balanceNotifyEnabled) account.push({ path: '/profile/notifications', label: ctx.t('userUi.account.sections.notifications') })
+  sections.push({ key: 'account', label: ctx.t('userUi.nav.account'), items: account })
 
   const more = ctx.customItems
     .filter((item) => item.visibility === 'user')
@@ -92,4 +95,16 @@ export function buildPublicNav(ctx: PublicNavContext): NavTab[] {
 export function isTabActive(tab: NavTab, currentPath: string): boolean {
   if (tab.external) return false
   return currentPath === tab.path || currentPath.startsWith(`${tab.path}/`)
+}
+
+/**
+ * 一组页签里当前该亮哪一个：取匹配的最长路径。
+ * 同组里既有 /profile 又有 /profile/security 时，在 /profile/security 上只亮后者。
+ */
+export function pickActivePath(tabs: NavTab[], currentPath: string): string | null {
+  let best: string | null = null
+  for (const tab of tabs) {
+    if (isTabActive(tab, currentPath) && (best === null || tab.path.length > best.length)) best = tab.path
+  }
+  return best
 }

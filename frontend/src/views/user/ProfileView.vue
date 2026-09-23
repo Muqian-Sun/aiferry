@@ -1,16 +1,19 @@
 <template>
-  <!-- 账户：基本信息 / 安全 / 通知 三节，单列 640，区块之间只用 hairline -->
+  <!--
+    账户：基本信息 / 安全 / 通知 三个子页（muqian 2026-09-23 侧栏「账户」组），路由传 section，这里只渲染对应一节。
+    页头标题取路由 meta；内容单列 640，区块之间只用 hairline。
+  -->
   <SiteShell>
-    <div data-testid="profile-shell" class="max-w-form space-y-8">
-      <SheetSection :title="t('userUi.account.sections.profile')">
+    <div data-testid="profile-shell" class="max-w-form">
+      <template v-if="section === 'profile'">
         <ProfileInfoCard :user="user" :oidc-provider-name="oidcOAuthProviderName" />
         <p v-if="contactInfo" class="mt-6 text-13 text-af-ink-3">
           {{ t('common.contactSupport') }}:
           <span class="font-medium text-af-ink-2">{{ contactInfo }}</span>
         </p>
-      </SheetSection>
+      </template>
 
-      <SheetSection :title="t('userUi.account.sections.security')">
+      <template v-else-if="section === 'security'">
         <div class="divide-y divide-af-hairline">
           <div data-testid="profile-auth-bindings-panel" class="pb-6">
             <ProfileIdentityBindingsSection
@@ -35,17 +38,19 @@
             <ProfilePasskeyCard :enabled="passkeyEnabled" />
           </div>
         </div>
-      </SheetSection>
+      </template>
 
-      <SheetSection v-if="user && balanceLowNotifyEnabled" :title="t('userUi.account.sections.notifications')">
+      <template v-else>
         <ProfileBalanceNotifyCard
+          v-if="user && balanceLowNotifyEnabled"
           :enabled="user.balance_notify_enabled ?? true"
           :threshold="user.balance_notify_threshold"
           :extra-emails="user.balance_notify_extra_emails ?? []"
           :system-default-threshold="systemDefaultThreshold"
           :user-email="user.email"
         />
-      </SheetSection>
+        <StatusState v-else-if="settingsLoaded" kind="empty" :title="t('userUi.account.notificationsOff')" />
+      </template>
     </div>
   </SiteShell>
 </template>
@@ -54,7 +59,7 @@
 import { computed, onMounted, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import SheetSection from '@/components/user/shell/SheetSection.vue'
+import StatusState from '@/components/user/shell/StatusState.vue'
 import ProfileBalanceNotifyCard from '@/components/user/profile/ProfileBalanceNotifyCard.vue'
 import ProfileInfoCard from '@/components/user/profile/ProfileInfoCard.vue'
 import ProfileIdentityBindingsSection from '@/components/user/profile/ProfileIdentityBindingsSection.vue'
@@ -64,6 +69,9 @@ import ProfilePasskeyCard from '@/components/user/profile/ProfilePasskeyCard.vue
 import { isWeChatWebOAuthEnabled } from '@/api/auth'
 import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
+
+/** 渲染哪一节：由路由 props 传入（/profile、/profile/security、/profile/notifications） */
+defineProps<{ section: 'profile' | 'security' | 'notifications' }>()
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -81,6 +89,7 @@ const wechatOAuthMPEnabled = ref<boolean | undefined>(undefined)
 const oidcOAuthEnabled = ref(false)
 const oidcOAuthProviderName = ref('OIDC')
 const passkeyEnabled = ref(false)
+const settingsLoaded = ref(false)
 
 onMounted(async () => {
   const profileRefresh = authStore.refreshUser().catch((error) => {
@@ -110,6 +119,9 @@ onMounted(async () => {
     })
     .catch((error) => {
       console.error('Failed to load settings:', error)
+    })
+    .finally(() => {
+      settingsLoaded.value = true
     })
 
   await Promise.all([profileRefresh, settingsLoad])

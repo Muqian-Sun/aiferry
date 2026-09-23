@@ -15,8 +15,8 @@
           <li v-for="item in section.items" :key="item.path">
             <RouterLink
               :to="item.path"
-              :class="linkClass(isTabActive(item, currentPath))"
-              :aria-current="isTabActive(item, currentPath) ? 'page' : undefined"
+              :class="linkClass(item.path === activePath)"
+              :aria-current="item.path === activePath ? 'page' : undefined"
               :data-tour="item.dataTour"
             >
               <span v-if="item.iconSvg" class="h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4" v-html="sanitizeSvg(item.iconSvg)"></span>
@@ -34,13 +34,15 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { sanitizeSvg } from '@/utils/sanitize'
-import { isTabActive } from './navItems'
+import { pickActivePath } from './navItems'
 import { useConsoleNav } from './useConsoleNav'
 
 const { t } = useI18n()
 const route = useRoute()
 const currentPath = computed(() => route.path)
-const { sections } = useConsoleNav()
+const { sections, flatItems } = useConsoleNav()
+/** 整栏只亮一项：所有条目里最长的匹配路径 */
+const activePath = computed(() => pickActivePath(flatItems.value, currentPath.value))
 
 function linkClass(active: boolean): string {
   return [

@@ -25,6 +25,7 @@ export function useConsoleNav() {
       backendMode: appStore.backendModeEnabled,
       batchImageEnabled: canUseBatchImage.value,
       billingItems: buildBillingTabs(billingFlags.value, t).map((tab): NavTab => ({ path: tab.to as string, label: tab.label })),
+      balanceNotifyEnabled: appStore.cachedPublicSettings?.balance_low_notify_enabled === true,
       customItems: appStore.cachedPublicSettings?.custom_menu_items ?? []
     })
   )

@@ -14,8 +14,8 @@
       <RouterLink
         v-else
         :to="tab.path"
-        :class="tabClass(isTabActive(tab, currentPath))"
-        :aria-current="isTabActive(tab, currentPath) ? 'page' : undefined"
+        :class="tabClass(tab.path === activePath)"
+        :aria-current="tab.path === activePath ? 'page' : undefined"
         :data-tour="tab.dataTour"
       >
         <span v-if="tab.iconSvg" class="h-4 w-4 shrink-0 [&>svg]:h-4 [&>svg]:w-4" v-html="sanitizeSvg(tab.iconSvg)"></span>
@@ -30,13 +30,14 @@ import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { sanitizeSvg } from '@/utils/sanitize'
-import { isTabActive, type NavTab } from './navItems'
+import { pickActivePath, type NavTab } from './navItems'
 
-defineProps<{ tabs: NavTab[] }>()
+const props = defineProps<{ tabs: NavTab[] }>()
 
 const { t } = useI18n()
 const route = useRoute()
 const currentPath = computed(() => route.path)
+const activePath = computed(() => pickActivePath(props.tabs, currentPath.value))
 
 /* 页签：胶囊式，当前页一块浅底 + 墨色字，其余悬停出浅底 */
 function tabClass(active: boolean): string {

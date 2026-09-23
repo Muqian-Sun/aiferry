@@ -13,6 +13,7 @@ const base = {
   backendMode: false,
   batchImageEnabled: false,
   billingItems: billing,
+  balanceNotifyEnabled: false,
   customItems: [] as CustomMenuItem[]
 }
 
@@ -27,7 +28,7 @@ describe('buildConsoleNav', () => {
     expect(shape(buildConsoleNav(base))).toEqual([
       ['main', ['/dashboard', '/keys', '/usage', '/model-plaza']],
       ['billing', ['/billing/recharge', '/billing/redeem']],
-      ['account', ['/profile']]
+      ['account', ['/profile', '/profile/security']]
     ])
   })
 
@@ -39,7 +40,7 @@ describe('buildConsoleNav', () => {
   it('simple mode hides billing, models and batch images', () => {
     expect(shape(buildConsoleNav({ ...base, simpleMode: true, batchImageEnabled: true }))).toEqual([
       ['main', ['/dashboard', '/keys', '/usage']],
-      ['account', ['/profile']]
+      ['account', ['/profile', '/profile/security']]
     ])
   })
 

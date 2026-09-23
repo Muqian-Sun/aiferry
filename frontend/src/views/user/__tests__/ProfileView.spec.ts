@@ -73,8 +73,8 @@ describe('ProfileView', () => {
     })
   })
 
-  it('renders the simplified single-column profile shell without separate stat cards', async () => {
-    const wrapper = mount(ProfileView, {
+  const mountSection = (section: 'profile' | 'security' | 'notifications') => mount(ProfileView, {
+      props: { section },
       global: {
         stubs: {
           SiteShell: { template: '<div><slot /></div>' },
@@ -90,15 +90,21 @@ describe('ProfileView', () => {
       }
     })
 
+  it('renders one section per sub-page without separate stat cards', async () => {
+    const profile = mountSection('profile')
     await flushPromises()
+    expect(profile.findAll('.stat-card')).toHaveLength(0)
+    expect(profile.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
+    expect(profile.get('[data-testid="profile-shell"]').html()).not.toContain('profile-password-form')
 
-    expect(wrapper.findAll('.stat-card')).toHaveLength(0)
-    expect(wrapper.get('[data-testid="profile-shell"]').exists()).toBe(true)
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-info-card')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-password-form')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-totp-card')
-    expect(wrapper.get('[data-testid="profile-shell"]').html()).toContain('profile-passkey-card')
-    // 登录方式绑定属于「安全」节，与密码 / 双因素 / Passkey 同列
-    expect(wrapper.get('[data-testid="profile-auth-bindings-panel"]').html()).toContain('profile-identity-bindings')
+    const security = mountSection('security')
+    await flushPromises()
+    const shell = security.get('[data-testid="profile-shell"]').html()
+    expect(shell).toContain('profile-password-form')
+    expect(shell).toContain('profile-totp-card')
+    expect(shell).toContain('profile-passkey-card')
+    expect(shell).not.toContain('profile-info-card')
+    // 登录方式绑定属于「安全」子页，与密码 / 双因素 / Passkey 同列
+    expect(security.get('[data-testid="profile-auth-bindings-panel"]').html()).toContain('profile-identity-bindings')
   })
 })
