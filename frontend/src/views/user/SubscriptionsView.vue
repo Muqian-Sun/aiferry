@@ -1,58 +1,55 @@
 <template>
   <!--
-    订阅页签：上半是我的订阅（每个订阅一行两栏：名称 / 状态 / 到期 / 续费 ‖ 额度条 / 模型 / 订阅密钥），下半是可购套餐与购买流程
-    （PaymentView mode=subscription）。支付功能关闭时只有上半。行间只用 hairline，不做卡片、不按平台上色。
+    订阅（muqian 2026-09-24「排版还是很差」重排）：摘要带 → 「当前订阅」整宽描边面板 → 「选择套餐」整宽卡片网格。
+    两块都铺满内容宽度，右边缘对齐；面板顶行是名称 / 状态 / 续费，下半左边额度条、右边模型与订阅密钥。
+    支付功能关闭时没有「选择套餐」。
   -->
-  <div>
+  <div class="space-y-10">
     <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：生效中的套餐 / 最近到期 / 可用模型；没有订阅就不出现 -->
-    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" class="pb-8" data-testid="subscriptions-summary" />
-    <!-- 以下每块都是同一套两栏行（左 17rem 标题 ‖ 右内容），块间 hairline；页头标题已是「我的订阅」，不再重复 -->
-    <div :class="['divide-y divide-af-hairline', subscriptionSummary ? 'border-t border-af-hairline' : '']">
-      <div v-if="loading" class="py-8">
-        <StatusState kind="loading" :title="t('userUi.status.loading')" />
-      </div>
-      <div v-else-if="subscriptions.length === 0" class="py-8">
-        <StatusState
-          kind="empty"
-          :title="t('userSubscriptions.noActiveSubscriptions')"
-          :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
-        />
-      </div>
-      <!--
-        每个订阅一行两栏（与设置页同一套栅格）：左边套餐名 + 状态、到期、续费；右边整宽额度条（有哪个限额画哪条）、模型、订阅密钥。
-      -->
-      <ul v-else class="divide-y divide-af-hairline">
+    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" data-testid="subscriptions-summary" />
+
+    <SheetSection :title="t('payment.activeSubscription')">
+      <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
+      <StatusState
+        v-else-if="subscriptions.length === 0"
+        kind="empty"
+        :title="t('userSubscriptions.noActiveSubscriptions')"
+        :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
+      />
+      <ul v-else class="space-y-4">
         <li
           v-for="subscription in subscriptions"
           :key="subscription.id"
-          class="grid gap-x-12 gap-y-5 py-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]"
+          class="rounded-lg border border-af-hairline bg-af-sheet p-6"
           data-testid="subscription-row"
         >
-          <div class="min-w-0">
-            <div class="flex flex-wrap items-center gap-2">
-              <h3 class="text-lg font-semibold tracking-[-0.01em] text-af-ink">
-                {{ subscription.plan?.name || `Plan #${subscription.plan_id}` }}
-              </h3>
-              <span
-                :class="[
-                  'badge',
-                  subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
-                ]"
-              >
-                {{ t(`userSubscriptions.status.${subscription.status}`) }}
-              </span>
+          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+            <div class="min-w-0">
+              <div class="flex flex-wrap items-center gap-2">
+                <h3 class="text-lg font-semibold tracking-[-0.01em] text-af-ink">
+                  {{ subscription.plan?.name || `Plan #${subscription.plan_id}` }}
+                </h3>
+                <span
+                  :class="[
+                    'badge',
+                    subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
+                  ]"
+                >
+                  {{ t(`userSubscriptions.status.${subscription.status}`) }}
+                </span>
+              </div>
+              <p class="mt-1 text-13">
+                <span class="text-af-ink-4">{{ t('userSubscriptions.expires') }}</span>
+                <span v-if="subscription.expires_at" class="ml-1.5" :class="getExpirationClass(subscription.expires_at)">
+                  {{ formatExpirationDate(subscription.expires_at) }}
+                </span>
+                <span v-else class="ml-1.5 text-af-ink-2">{{ t('userSubscriptions.noExpiration') }}</span>
+              </p>
             </div>
-            <p class="mt-1.5 text-13">
-              <span class="text-af-ink-4">{{ t('userSubscriptions.expires') }}</span>
-              <span v-if="subscription.expires_at" class="ml-1.5" :class="getExpirationClass(subscription.expires_at)">
-                {{ formatExpirationDate(subscription.expires_at) }}
-              </span>
-              <span v-else class="ml-1.5 text-af-ink-2">{{ t('userSubscriptions.noExpiration') }}</span>
-            </p>
             <button
               v-if="subscription.status === 'active' && canPurchase"
               type="button"
-              class="hero-link mt-4 text-13 font-medium"
+              class="hero-link shrink-0 text-13 font-medium"
               @click="renew(subscription.plan_id)"
             >
               {{ t('payment.renewNow') }}
@@ -60,17 +57,17 @@
             </button>
           </div>
 
-          <div class="min-w-0 max-w-2xl space-y-6">
+          <div class="mt-5 grid gap-x-12 gap-y-5 border-t border-af-hairline pt-5 md:grid-cols-2">
             <div v-if="hasAnyLimit(subscription)" class="space-y-4">
               <div v-for="meter in limitMeters(subscription)" :key="meter.key">
                 <div class="flex items-baseline justify-between text-13">
-                  <span class="text-af-ink-2">{{ meter.label }}</span>
+                  <span class="text-af-ink-3">{{ meter.label }}</span>
                   <span class="tabular-nums text-af-ink">
                     ${{ meter.used.toFixed(2) }} <span class="text-af-ink-4">/ ${{ meter.limit.toFixed(2) }}</span>
                   </span>
                 </div>
                 <div
-                  class="mt-2 h-1.5 overflow-hidden rounded-full bg-af-hairline"
+                  class="mt-2 h-1.5 overflow-hidden rounded-full bg-af-sunken"
                   role="meter"
                   :aria-label="meter.label"
                   :aria-valuemin="0"
@@ -87,12 +84,12 @@
               · {{ t('userSubscriptions.unlimitedDesc') }}
             </p>
 
-            <dl class="grid gap-x-6 gap-y-2 border-t border-af-hairline pt-4 text-13 sm:grid-cols-[6rem_minmax(0,1fr)]">
-              <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
-              <dd class="text-af-ink-2" data-testid="subscription-models">{{ planModelsLabel(subscription) }}</dd>
+            <dl class="grid content-start gap-x-6 gap-y-2 text-13 grid-cols-[5rem_minmax(0,1fr)]">
+              <dt class="text-af-ink-3">{{ t('payment.planCard.models') }}</dt>
+              <dd class="text-af-ink" data-testid="subscription-models">{{ planModelsLabel(subscription) }}</dd>
               <template v-if="subscription.api_key">
-                <dt class="text-af-ink-4">{{ t('payment.planCard.apiKey') }}</dt>
-                <dd class="text-af-ink-2" data-testid="subscription-key">
+                <dt class="text-af-ink-3">{{ t('payment.planCard.apiKey') }}</dt>
+                <dd class="text-af-ink" data-testid="subscription-key">
                   {{ subscription.api_key.name }}
                   <code class="ml-1 tabular-nums text-af-ink-4">{{ subscription.api_key.key_masked }}</code>
                 </dd>
@@ -101,12 +98,12 @@
           </div>
         </li>
       </ul>
+    </SheetSection>
 
-      <!-- 可购套餐 + 购买流程：同一套两栏行，右栏是套餐列表 / 确认购买；支付关闭时不渲染（套餐无法下单） -->
-      <SettingsRow v-if="canPurchase" ref="purchaseSection" :title="t('payment.selectPlan')" :description="t('purchase.subscriptionDescription')">
-        <PaymentView ref="purchase" mode="subscription" />
-      </SettingsRow>
-    </div>
+    <!-- 可购套餐 + 购买流程：整宽卡片网格；确认购买时限宽。支付关闭时不渲染（套餐无法下单） -->
+    <SheetSection v-if="canPurchase" ref="purchaseSection" :title="t('payment.selectPlan')" :description="t('purchase.subscriptionDescription')">
+      <PaymentView ref="purchase" mode="subscription" />
+    </SheetSection>
   </div>
 </template>
 
@@ -116,7 +113,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
-import SettingsRow from '@/components/user/shell/SettingsRow.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'

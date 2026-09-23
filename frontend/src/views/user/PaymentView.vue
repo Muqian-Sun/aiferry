@@ -5,7 +5,7 @@
     这里只用平铺区块（不用 SheetSection 等子组件，让 shallowMount 的旧用例仍能读到文案）。
   -->
   <div>
-    <div :class="['space-y-8', mode === 'recharge' ? 'max-w-form' : '']">
+    <div :class="['space-y-8', mode === 'recharge' || selectedPlan ? 'max-w-form' : '']">
       <div v-if="loading" class="flex items-center justify-center py-16" role="status" aria-busy="true">
         <div class="h-6 w-6 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
       </div>
@@ -184,7 +184,7 @@
           <!-- 套餐列表 -->
           <template v-else>
             <p v-if="checkout.plans.length === 0" class="py-12 text-center text-sm text-af-ink-3">{{ t('payment.noPlans') }}</p>
-            <div v-else class="grid gap-4 sm:grid-cols-2" data-testid="plan-list">
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="plan-list">
               <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlan" />
             </div>
           </template>
