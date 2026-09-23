@@ -5,12 +5,14 @@ package server_test
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -640,13 +642,8 @@ func TestAPIContracts(t *testing.T) {
 						"audit_log_retention_days": 180,
 						"login_agreement_enabled": false,
 						"login_agreement_mode": "modal",
-						"login_agreement_updated_at": "2026-03-31",
-						"login_agreement_documents": [
-							{"id": "terms", "title": "服务条款", "content_md": ""},
-							{"id": "usage-policy", "title": "使用政策", "content_md": ""},
-							{"id": "supported-regions", "title": "支持的国家和地区", "content_md": ""},
-							{"id": "service-specific-terms", "title": "服务特定条款", "content_md": ""}
-						],
+						"login_agreement_updated_at": "2026-09-23",
+						"login_agreement_documents": "__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__",
 						"smtp_host": "smtp.example.com",
 						"smtp_port": 587,
 						"smtp_username": "user",
@@ -956,13 +953,8 @@ func TestAPIContracts(t *testing.T) {
 						"audit_log_retention_days": 180,
 						"login_agreement_enabled": false,
 						"login_agreement_mode": "modal",
-						"login_agreement_updated_at": "2026-03-31",
-						"login_agreement_documents": [
-							{"id": "terms", "title": "服务条款", "content_md": ""},
-							{"id": "usage-policy", "title": "使用政策", "content_md": ""},
-							{"id": "supported-regions", "title": "支持的国家和地区", "content_md": ""},
-							{"id": "service-specific-terms", "title": "服务特定条款", "content_md": ""}
-						],
+						"login_agreement_updated_at": "2026-09-23",
+						"login_agreement_documents": "__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__",
 						"smtp_host": "",
 						"smtp_port": 587,
 						"smtp_username": "",
@@ -1037,9 +1029,9 @@ func TestAPIContracts(t *testing.T) {
 					"google_oauth_client_secret_configured": false,
 					"google_oauth_redirect_url": "",
 					"google_oauth_frontend_redirect_url": "/auth/oauth/callback",
-					"site_name": "Sub2API",
+					"site_name": "AiFerry",
 					"site_logo": "",
-					"site_subtitle": "Subscription to API Conversion Platform",
+					"site_subtitle": "AI Model API Platform",
 					"api_base_url": "",
 					"api_key_acl_trust_forwarded_ip": false,
 					"forwarded_client_ip_headers": [],
@@ -1246,9 +1238,18 @@ func TestAPIContracts(t *testing.T) {
 
 			status, body := doRequest(t, deps.router, tt.method, tt.path, tt.body, tt.headers)
 			require.Equal(t, tt.wantStatus, status)
-			require.JSONEq(t, tt.wantJSON, body)
+			require.JSONEq(t, withDefaultLoginAgreementDocuments(t, tt.wantJSON), body)
 		})
 	}
+}
+
+// withDefaultLoginAgreementDocuments 把期望里的占位符换成默认条款的实际序列化结果：
+// 条款正文来自 legal/*.md、篇幅很长，不在契约字面量里重抄一份；id / 标题 / 正文非空由 service 的单测钉住。
+func withDefaultLoginAgreementDocuments(t *testing.T, want string) string {
+	t.Helper()
+	docs, err := json.Marshal(service.DefaultLoginAgreementDocuments())
+	require.NoError(t, err)
+	return strings.ReplaceAll(want, `"__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__"`, string(docs))
 }
 
 type contractDeps struct {
