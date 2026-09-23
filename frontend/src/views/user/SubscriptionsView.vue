@@ -1,13 +1,10 @@
 <template>
   <!--
-    订阅（muqian 2026-09-24「排版还是很差」重排）：摘要带 → 「当前订阅」整宽描边面板 → 「选择套餐」整宽卡片网格。
-    两块都铺满内容宽度，右边缘对齐；面板顶行是名称 / 状态 / 续费，下半左边额度条、右边模型与订阅密钥。
-    支付功能关闭时没有「选择套餐」。
+    订阅（muqian 2026-09-24「排版还是很差」「重复信息太多了」）：「当前订阅」整宽描边面板 → 「选择套餐」整宽卡片网格。
+    每样信息只出现一次：面板管状态 / 到期 / 用量 / 订阅密钥；套餐内容（价格、额度、模型）与续费只在卡片上。
+    支付功能关闭时没有卡片，模型才在面板里出现。
   -->
   <div class="space-y-10">
-    <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：生效中的套餐 / 最近到期 / 可用模型；没有订阅就不出现 -->
-    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" data-testid="subscriptions-summary" />
-
     <SheetSection :title="t('payment.activeSubscription')">
       <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
       <StatusState
@@ -23,7 +20,7 @@
           class="rounded-lg border border-af-hairline bg-af-sheet p-6"
           data-testid="subscription-row"
         >
-          <div class="flex flex-wrap items-start justify-between gap-x-6 gap-y-3">
+          <div>
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="text-lg font-semibold tracking-[-0.01em] text-af-ink">
@@ -46,15 +43,6 @@
                 <span v-else class="ml-1.5 text-af-ink-2">{{ t('userSubscriptions.noExpiration') }}</span>
               </p>
             </div>
-            <button
-              v-if="subscription.status === 'active' && canPurchase"
-              type="button"
-              class="hero-link shrink-0 text-13 font-medium"
-              @click="renew(subscription.plan_id)"
-            >
-              {{ t('payment.renewNow') }}
-              <Icon name="arrowRight" size="xs" class="hero-link-arrow" />
-            </button>
           </div>
 
           <div class="mt-5 grid gap-x-12 gap-y-5 border-t border-af-hairline pt-5 md:grid-cols-2">
@@ -85,8 +73,10 @@
             </p>
 
             <dl class="grid content-start gap-x-6 gap-y-2 text-13 grid-cols-[5rem_minmax(0,1fr)]">
-              <dt class="text-af-ink-3">{{ t('payment.planCard.models') }}</dt>
-              <dd class="text-af-ink" data-testid="subscription-models">{{ planModelsLabel(subscription) }}</dd>
+              <template v-if="!canPurchase">
+                <dt class="text-af-ink-3">{{ t('payment.planCard.models') }}</dt>
+                <dd class="text-af-ink" data-testid="subscription-models">{{ planModelsLabel(subscription) }}</dd>
+              </template>
               <template v-if="subscription.api_key">
                 <dt class="text-af-ink-3">{{ t('payment.planCard.apiKey') }}</dt>
                 <dd class="text-af-ink" data-testid="subscription-key">
@@ -101,23 +91,20 @@
     </SheetSection>
 
     <!-- 可购套餐 + 购买流程：整宽卡片网格；确认购买时限宽。支付关闭时不渲染（套餐无法下单） -->
-    <SheetSection v-if="canPurchase" ref="purchaseSection" :title="t('payment.selectPlan')" :description="t('purchase.subscriptionDescription')">
-      <PaymentView ref="purchase" mode="subscription" />
+    <SheetSection v-if="canPurchase" :title="t('payment.selectPlan')" :description="t('purchase.subscriptionDescription')">
+      <PaymentView mode="subscription" />
     </SheetSection>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, type ComponentPublicInstance } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
-import StatRow from '@/components/user/shell/StatRow.vue'
-import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import Icon from '@/components/icons/Icon.vue'
 import PaymentView from '@/views/user/PaymentView.vue'
 import { useBillingFlags } from '@/views/user/billing/useBillingFlags'
 import { formatDateTimeToMinute } from '@/utils/format'
@@ -135,16 +122,8 @@ const billingFlags = useBillingFlags()
 const subscriptions = ref<UserSubscription[]>([])
 const loading = ref(true)
 
-// 能不能买：支付功能开着才渲染套餐区与「续费」按钮
+// 能不能买：支付功能开着才渲染套餐卡片（续费也在卡片上）；关着时模型集改在面板里显示
 const canPurchase = computed(() => billingFlags.value.payment)
-const purchase = ref<InstanceType<typeof PaymentView> | null>(null)
-const purchaseSection = ref<ComponentPublicInstance | null>(null)
-
-/** 续费：交给嵌入的支付引擎选套餐，并把视口滚到套餐区 */
-function renew(planId: number) {
-  purchase.value?.startRenewal(planId)
-  purchaseSection.value?.$el?.scrollIntoView?.({ behavior: 'smooth', block: 'start' })
-}
 
 function hasAnyLimit(subscription: UserSubscription): boolean {
   const plan = subscription.plan
@@ -199,27 +178,6 @@ function planModelsLabel(subscription: UserSubscription): string {
   if (models.length === 0) return '-'
   return models.map(m => m.display_name || m.model_id).join(' / ')
 }
-
-/** 顶部摘要：生效中的套餐数 / 最近一个到期还剩几天 / 可用模型（去重） */
-const subscriptionSummary = computed<StatItem[] | null>(() => {
-  if (loading.value || subscriptions.value.length === 0) return null
-  const active = subscriptions.value.filter((s) => s.status === 'active')
-  const now = Date.now()
-  const daysLeft = active
-    .filter((s) => s.expires_at)
-    .map((s) => Math.ceil((new Date(s.expires_at as string).getTime() - now) / (24 * 60 * 60 * 1000)))
-    .filter((d) => d >= 0)
-  const models = new Set(active.flatMap((s) => (s.plan?.models ?? []).map((m) => m.model_id)))
-  return [
-    { key: 'active-plans', label: t('userUi.summary.activePlans'), value: String(active.length) },
-    {
-      key: 'nearest-expiry',
-      label: t('userUi.summary.nearestExpiry'),
-      value: daysLeft.length ? t('userUi.summary.daysLeft', { days: Math.min(...daysLeft) }) : t('userUi.summary.noExpiry')
-    },
-    { key: 'plan-models', label: t('userUi.summary.planModels'), value: String(models.size) }
-  ]
-})
 
 async function loadSubscriptions() {
   try {

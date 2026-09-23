@@ -182,11 +182,6 @@ export default {
     summary: {
       keys: '密钥',
       activeKeys: '活跃',
-      activePlans: '生效中的套餐',
-      nearestExpiry: '最近到期',
-      daysLeft: '剩 {days} 天',
-      noExpiry: '不限期',
-      planModels: '可用模型',
       redeemHistoryDesc: '兑换与管理员调整都记在这里'
     },
     models: {

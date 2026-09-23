@@ -8,14 +8,13 @@
     data-testid="plan-row"
   >
     <div class="min-w-0 flex-1">
-      <div class="flex min-w-0 flex-1 items-start justify-between gap-3">
+      <div class="min-w-0 flex-1">
         <h3
           :title="plan.name"
           class="min-w-0 break-words [overflow-wrap:anywhere] text-base font-semibold leading-6 text-af-ink line-clamp-2"
         >
           {{ plan.name }}
         </h3>
-        <span v-if="isRenewal" class="badge badge-gray shrink-0">{{ t('payment.activeSubscription') }}</span>
       </div>
       <p v-if="plan.description" class="mt-1 text-13 leading-5 text-af-ink-3 line-clamp-2">
         {{ plan.description }}

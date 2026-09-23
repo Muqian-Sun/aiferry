@@ -660,18 +660,6 @@ function selectPlan(plan: SubscriptionPlan) {
   errorMessage.value = ''
 }
 
-/** 续费某个套餐：直接进该套餐的确认购买。SubscriptionsView 的「续费」按钮调用。 */
-function startRenewal(planId: number) {
-  if (props.mode !== 'subscription' || !subscriptionEnabled.value) return
-  const plan = checkout.value.plans.find(p => p.id === planId)
-  if (plan) {
-    selectedPlan.value = plan
-    errorMessage.value = ''
-  }
-}
-
-defineExpose({ startRenewal })
-
 async function handleSubmitRecharge() {
   if (!canSubmit.value || submitting.value) return
   await createOrder(validAmount.value, 'balance')

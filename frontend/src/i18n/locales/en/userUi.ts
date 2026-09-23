@@ -182,11 +182,6 @@ export default {
     summary: {
       keys: 'Keys',
       activeKeys: 'Active',
-      activePlans: 'Active plans',
-      nearestExpiry: 'Next expiry',
-      daysLeft: '{days} days left',
-      noExpiry: 'No expiry',
-      planModels: 'Models included',
       redeemHistoryDesc: 'Redemptions and admin adjustments'
     },
     models: {
