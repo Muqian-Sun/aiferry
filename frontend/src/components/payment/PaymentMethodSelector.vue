@@ -13,16 +13,18 @@
         type="button"
         :title="methodLabel(method)"
         :disabled="!method.available"
+        :aria-pressed="selected === method.type"
         :class="[
-          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg border px-3 transition-all',
+          'relative flex h-[60px] min-w-0 flex-col items-center justify-center rounded-lg px-3 transition-colors',
           !method.available
-            ? 'cursor-not-allowed border-af-hairline bg-af-sunken opacity-50'
+            ? 'cursor-not-allowed text-af-ink-4 opacity-50'
             : selected === method.type
-              ? methodSelectedClass(method.type)
-              : 'border-af-hairline-strong bg-af-sheet text-af-ink-2 hover:border-af-hairline-strong',
+              ? 'bg-af-sunken text-af-ink'
+              : 'text-af-ink-2 hover:bg-af-sunken/70 hover:text-af-ink',
         ]"
         @click="method.available && emit('select', method.type)"
       >
+        <Icon v-if="selected === method.type" name="check" size="xs" class="absolute right-2 top-2 text-af-ink" data-testid="payment-method-selected" />
         <span class="flex w-full min-w-0 items-center justify-center gap-2">
           <img :src="methodIcon(method.type)" :alt="methodLabel(method)" class="h-7 w-7 shrink-0 object-contain" />
           <span class="flex min-w-0 flex-col items-start leading-none">
@@ -45,6 +47,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import Icon from '@/components/icons/Icon.vue'
 import { METHOD_ORDER, isBuiltInAlipayMethod, isBuiltInWxpayMethod } from './providerConfig'
 import alipayIcon from '@/assets/icons/alipay.svg'
 import wxpayIcon from '@/assets/icons/wxpay.svg'
@@ -96,13 +99,5 @@ function methodIcon(type: string): string {
 
 function methodLabel(method: PaymentMethodOption): string {
   return method.display_name || t(`payment.methods.${method.type}`, method.type)
-}
-
-function methodSelectedClass(type: string): string {
-  if (isBuiltInAlipayMethod(type)) return 'border-[#02A9F1] bg-blue-50 text-gray-900 shadow-sm dark:bg-blue-950 dark:text-gray-100'
-  if (isBuiltInWxpayMethod(type)) return 'border-[#09BB07] bg-green-50 text-gray-900 shadow-sm dark:bg-green-950 dark:text-gray-100'
-  if (type === 'stripe') return 'border-[#676BE5] bg-indigo-50 text-gray-900 shadow-sm dark:bg-indigo-950 dark:text-gray-100'
-  if (type === 'airwallex') return 'border-[#FF6B3D] bg-orange-50 text-gray-900 shadow-sm dark:border-[#FF8E3C] dark:bg-orange-950 dark:text-gray-100'
-  return 'border-primary-500 bg-primary-50 text-gray-900 shadow-sm dark:bg-primary-950 dark:text-gray-100'
 }
 </script>

@@ -48,7 +48,7 @@ describe('PaymentMethodSelector', () => {
     expect(wrapper.text()).not.toContain('payment.methods.ldc')
   })
 
-  it('uses the generic selected style for custom methods that contain built-in names', () => {
+  it('treats custom methods that contain built-in names as generic (icon), with the shared selected style', () => {
     const wrapper = mount(PaymentMethodSelector, {
       props: {
         selected: 'card_alipay',
@@ -57,7 +57,10 @@ describe('PaymentMethodSelector', () => {
     })
 
     const button = wrapper.get('button')
-    expect(button.classes()).toContain('border-primary-500')
-    expect(button.classes()).not.toContain('border-[#02A9F1]')
+    // 选中态不再按品牌上色（控制台单色为主）：浅底 + 对勾
+    expect(button.classes()).toContain('bg-af-sunken')
+    expect(button.find('[data-testid="payment-method-selected"]').exists()).toBe(true)
+    // 名字里带 alipay 的自定义方式仍用通用图标，不被当成内置支付宝
+    expect(button.get('img').attributes('src')).not.toContain('alipay')
   })
 })
