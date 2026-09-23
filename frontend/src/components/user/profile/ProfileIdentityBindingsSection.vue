@@ -125,7 +125,7 @@
               v-if="item.provider === 'email' && compact"
               data-testid="profile-binding-email-toggle"
               type="button"
-              class="btn btn-secondary btn-sm"
+              class="hero-link text-13 font-medium"
               @click="toggleEmailForm"
             >
               {{
@@ -138,16 +138,17 @@
               v-if="item.canBind"
               :data-testid="`profile-binding-${item.provider}-action`"
               type="button"
-              class="btn btn-primary btn-sm"
+              class="hero-link text-13 font-medium"
               @click="startBinding(item.provider)"
             >
               {{ t('profile.authBindings.bindAction', { providerName: item.label }) }}
+              <Icon name="arrowRight" size="xs" class="hero-link-arrow" />
             </button>
             <button
               v-if="item.canUnbind"
               :data-testid="`profile-binding-${item.provider}-unbind`"
               type="button"
-              class="btn btn-secondary btn-sm"
+              class="text-13 font-medium text-af-ink-3 transition-colors hover:text-af-danger disabled:opacity-40"
               :disabled="unbindingProvider === item.provider"
               @click="handleUnbindForItem(item.provider, item.label)"
             >
@@ -179,6 +180,7 @@ import {
   startOAuthBinding,
   unbindAuthIdentity,
 } from '@/api/user'
+import Icon from '@/components/icons/Icon.vue'
 import ProviderMark from './ProviderMark.vue'
 import { useAppStore, useAuthStore } from '@/stores'
 import type { User, UserAuthBindingStatus, UserAuthProvider } from '@/types'

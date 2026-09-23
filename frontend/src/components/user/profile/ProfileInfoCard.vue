@@ -7,7 +7,7 @@
     <SettingsRow :title="t('userUi.account.rows.overview')" :description="t('userUi.account.rows.overviewDesc')">
     <section data-testid="profile-overview-hero" class="flex items-start gap-4">
       <div
-        class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-af-brand-tint text-lg font-semibold text-af-brand"
+        class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-af-sunken text-lg font-semibold text-af-ink-2"
       >
         <img
           v-if="avatarUrl"

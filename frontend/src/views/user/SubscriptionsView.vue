@@ -1,6 +1,6 @@
 <template>
   <!--
-    订阅页签：上半是我的订阅（每个订阅一行：名称 / 状态 / 到期 / 额度进度），下半是可购套餐与购买流程
+    订阅页签：上半是我的订阅（每个订阅一行两栏：名称 / 状态 / 到期 / 续费 ‖ 额度条 / 模型 / 订阅密钥），下半是可购套餐与购买流程
     （PaymentView mode=subscription）。支付功能关闭时只有上半。行间只用 hairline，不做卡片、不按平台上色。
   -->
   <div class="space-y-8">
@@ -15,138 +15,87 @@
         :title="t('userSubscriptions.noActiveSubscriptions')"
         :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
       />
-      <ul v-else class="-my-5 divide-y divide-af-hairline">
-        <li v-for="subscription in subscriptions" :key="subscription.id" class="py-5" data-testid="subscription-row">
-          <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="min-w-0">
-              <div class="flex flex-wrap items-center gap-2">
-                <h3 class="font-semibold text-af-ink">
-                  {{ subscription.plan?.name || `Plan #${subscription.plan_id}` }}
-                </h3>
-                <span
-                  :class="[
-                    'badge',
-                    subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
-                  ]"
-                >
-                  {{ t(`userSubscriptions.status.${subscription.status}`) }}
-                </span>
-              </div>
-              <dl class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-13">
-                <div class="flex gap-1.5" data-testid="subscription-models">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
-                  <dd class="text-af-ink-2">{{ planModelsLabel(subscription) }}</dd>
-                </div>
-                <div v-if="subscription.api_key" class="flex gap-1.5" data-testid="subscription-key">
-                  <dt class="text-af-ink-4">{{ t('payment.planCard.apiKey') }}</dt>
-                  <dd class="text-af-ink-2">
-                    {{ subscription.api_key.name }}
-                    <code class="ml-1 tabular-nums text-af-ink-4">{{ subscription.api_key.key_masked }}</code>
-                  </dd>
-                </div>
-                <div class="flex gap-1.5">
-                  <dt class="text-af-ink-4">{{ t('userSubscriptions.expires') }}</dt>
-                  <dd v-if="subscription.expires_at" :class="getExpirationClass(subscription.expires_at)">
-                    {{ formatExpirationDate(subscription.expires_at) }}
-                  </dd>
-                  <dd v-else class="text-af-ink-2">{{ t('userSubscriptions.noExpiration') }}</dd>
-                </div>
-              </dl>
+      <!--
+        每个订阅一行两栏（与设置页同一套栅格）：左边套餐名 + 状态、到期、续费；右边整宽额度条（有哪个限额画哪条）、模型、订阅密钥。
+      -->
+      <ul v-else class="-my-8 divide-y divide-af-hairline">
+        <li
+          v-for="subscription in subscriptions"
+          :key="subscription.id"
+          class="grid gap-x-12 gap-y-5 py-8 lg:grid-cols-[minmax(0,17rem)_minmax(0,1fr)]"
+          data-testid="subscription-row"
+        >
+          <div class="min-w-0">
+            <div class="flex flex-wrap items-center gap-2">
+              <h3 class="text-lg font-semibold tracking-[-0.01em] text-af-ink">
+                {{ subscription.plan?.name || `Plan #${subscription.plan_id}` }}
+              </h3>
+              <span
+                :class="[
+                  'badge',
+                  subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
+                ]"
+              >
+                {{ t(`userSubscriptions.status.${subscription.status}`) }}
+              </span>
             </div>
+            <p class="mt-1.5 text-13">
+              <span class="text-af-ink-4">{{ t('userSubscriptions.expires') }}</span>
+              <span v-if="subscription.expires_at" class="ml-1.5" :class="getExpirationClass(subscription.expires_at)">
+                {{ formatExpirationDate(subscription.expires_at) }}
+              </span>
+              <span v-else class="ml-1.5 text-af-ink-2">{{ t('userSubscriptions.noExpiration') }}</span>
+            </p>
             <button
               v-if="subscription.status === 'active' && canPurchase"
               type="button"
-              class="btn btn-secondary btn-sm shrink-0"
+              class="hero-link mt-4 text-13 font-medium"
               @click="renew(subscription.plan_id)"
             >
               {{ t('payment.renewNow') }}
+              <Icon name="arrowRight" size="xs" class="hero-link-arrow" />
             </button>
           </div>
 
-          <!-- 额度进度：有哪个限额画哪条 -->
-          <div v-if="hasAnyLimit(subscription)" class="mt-4 grid gap-3 sm:grid-cols-3">
-            <div v-if="subscription.plan?.daily_limit_usd">
-              <div class="flex items-baseline justify-between text-13">
-                <span class="text-af-ink-3">{{ t('userSubscriptions.daily') }}</span>
-                <span class="tabular-nums text-af-ink-2">
-                  ${{ (subscription.daily_usage_usd || 0).toFixed(2) }} / ${{ subscription.plan.daily_limit_usd.toFixed(2) }}
-                </span>
-              </div>
-              <div
-                class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-af-hairline"
-                role="meter"
-                :aria-label="t('userSubscriptions.daily')"
-                :aria-valuemin="0"
-                :aria-valuemax="subscription.plan.daily_limit_usd"
-                :aria-valuenow="Math.min(subscription.daily_usage_usd || 0, subscription.plan.daily_limit_usd)"
-              >
+          <div class="min-w-0 max-w-2xl space-y-6">
+            <div v-if="hasAnyLimit(subscription)" class="space-y-4">
+              <div v-for="meter in limitMeters(subscription)" :key="meter.key">
+                <div class="flex items-baseline justify-between text-13">
+                  <span class="text-af-ink-2">{{ meter.label }}</span>
+                  <span class="tabular-nums text-af-ink">
+                    ${{ meter.used.toFixed(2) }} <span class="text-af-ink-4">/ ${{ meter.limit.toFixed(2) }}</span>
+                  </span>
+                </div>
                 <div
-                  class="h-full rounded-full"
-                  :class="getProgressBarClass(subscription.daily_usage_usd, subscription.plan.daily_limit_usd)"
-                  :style="{ width: getProgressWidth(subscription.daily_usage_usd, subscription.plan.daily_limit_usd) }"
-                ></div>
+                  class="mt-2 h-1.5 overflow-hidden rounded-full bg-af-hairline"
+                  role="meter"
+                  :aria-label="meter.label"
+                  :aria-valuemin="0"
+                  :aria-valuemax="meter.limit"
+                  :aria-valuenow="Math.min(meter.used, meter.limit)"
+                >
+                  <div class="h-full rounded-full" :class="getProgressBarClass(meter.used, meter.limit)" :style="{ width: getProgressWidth(meter.used, meter.limit) }"></div>
+                </div>
+                <p v-if="meter.hint" class="mt-1.5 text-xs text-af-ink-4">{{ meter.hint }}</p>
               </div>
-              <p v-if="subscription.daily_window_start" class="mt-1 text-xs text-af-ink-4">
-                {{ formatDailyUsageWindow(subscription) }}
-              </p>
             </div>
+            <p v-else class="text-13 text-af-ink-3">
+              <span class="font-medium text-af-ink">{{ t('userSubscriptions.unlimited') }}</span>
+              · {{ t('userSubscriptions.unlimitedDesc') }}
+            </p>
 
-            <div v-if="subscription.plan?.weekly_limit_usd">
-              <div class="flex items-baseline justify-between text-13">
-                <span class="text-af-ink-3">{{ t('userSubscriptions.weekly') }}</span>
-                <span class="tabular-nums text-af-ink-2">
-                  ${{ (subscription.weekly_usage_usd || 0).toFixed(2) }} / ${{ subscription.plan.weekly_limit_usd.toFixed(2) }}
-                </span>
-              </div>
-              <div
-                class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-af-hairline"
-                role="meter"
-                :aria-label="t('userSubscriptions.weekly')"
-                :aria-valuemin="0"
-                :aria-valuemax="subscription.plan.weekly_limit_usd"
-                :aria-valuenow="Math.min(subscription.weekly_usage_usd || 0, subscription.plan.weekly_limit_usd)"
-              >
-                <div
-                  class="h-full rounded-full"
-                  :class="getProgressBarClass(subscription.weekly_usage_usd, subscription.plan.weekly_limit_usd)"
-                  :style="{ width: getProgressWidth(subscription.weekly_usage_usd, subscription.plan.weekly_limit_usd) }"
-                ></div>
-              </div>
-              <p v-if="subscription.weekly_window_start" class="mt-1 text-xs text-af-ink-4">
-                {{ t('userSubscriptions.resetIn', { time: formatResetTime(subscription.weekly_window_start, 168) }) }}
-              </p>
-            </div>
-
-            <div v-if="subscription.plan?.monthly_limit_usd">
-              <div class="flex items-baseline justify-between text-13">
-                <span class="text-af-ink-3">{{ t('userSubscriptions.monthly') }}</span>
-                <span class="tabular-nums text-af-ink-2">
-                  ${{ (subscription.monthly_usage_usd || 0).toFixed(2) }} / ${{ subscription.plan.monthly_limit_usd.toFixed(2) }}
-                </span>
-              </div>
-              <div
-                class="mt-1.5 h-1.5 overflow-hidden rounded-full bg-af-hairline"
-                role="meter"
-                :aria-label="t('userSubscriptions.monthly')"
-                :aria-valuemin="0"
-                :aria-valuemax="subscription.plan.monthly_limit_usd"
-                :aria-valuenow="Math.min(subscription.monthly_usage_usd || 0, subscription.plan.monthly_limit_usd)"
-              >
-                <div
-                  class="h-full rounded-full"
-                  :class="getProgressBarClass(subscription.monthly_usage_usd, subscription.plan.monthly_limit_usd)"
-                  :style="{ width: getProgressWidth(subscription.monthly_usage_usd, subscription.plan.monthly_limit_usd) }"
-                ></div>
-              </div>
-              <p v-if="subscription.monthly_window_start" class="mt-1 text-xs text-af-ink-4">
-                {{ t('userSubscriptions.resetIn', { time: formatResetTime(subscription.monthly_window_start, 720) }) }}
-              </p>
-            </div>
+            <dl class="grid gap-x-6 gap-y-2 border-t border-af-hairline pt-4 text-13 sm:grid-cols-[6rem_minmax(0,1fr)]">
+              <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
+              <dd class="text-af-ink-2" data-testid="subscription-models">{{ planModelsLabel(subscription) }}</dd>
+              <template v-if="subscription.api_key">
+                <dt class="text-af-ink-4">{{ t('payment.planCard.apiKey') }}</dt>
+                <dd class="text-af-ink-2" data-testid="subscription-key">
+                  {{ subscription.api_key.name }}
+                  <code class="ml-1 tabular-nums text-af-ink-4">{{ subscription.api_key.key_masked }}</code>
+                </dd>
+              </template>
+            </dl>
           </div>
-          <p v-else class="mt-3 text-13 text-af-ink-3">
-            <span class="font-medium text-af-success">{{ t('userSubscriptions.unlimited') }}</span>
-            · {{ t('userSubscriptions.unlimitedDesc') }}
-          </p>
         </li>
       </ul>
     </SheetSection>
@@ -168,6 +117,7 @@ import SheetSection from '@/components/user/shell/SheetSection.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
+import Icon from '@/components/icons/Icon.vue'
 import PaymentView from '@/views/user/PaymentView.vue'
 import { useBillingFlags } from '@/views/user/billing/useBillingFlags'
 import { formatDateTimeToMinute } from '@/utils/format'
@@ -199,6 +149,48 @@ function renew(planId: number) {
 function hasAnyLimit(subscription: UserSubscription): boolean {
   const plan = subscription.plan
   return Boolean(plan?.daily_limit_usd || plan?.weekly_limit_usd || plan?.monthly_limit_usd)
+}
+
+interface LimitMeter {
+  key: 'daily' | 'weekly' | 'monthly'
+  label: string
+  used: number
+  limit: number
+  hint: string
+}
+
+/** 有哪个限额就给哪条额度条（日 / 周 / 月），附上重置时间 */
+function limitMeters(subscription: UserSubscription): LimitMeter[] {
+  const plan = subscription.plan
+  const meters: LimitMeter[] = []
+  if (plan?.daily_limit_usd) {
+    meters.push({
+      key: 'daily',
+      label: t('userSubscriptions.daily'),
+      used: subscription.daily_usage_usd || 0,
+      limit: plan.daily_limit_usd,
+      hint: subscription.daily_window_start ? formatDailyUsageWindow(subscription) : ''
+    })
+  }
+  if (plan?.weekly_limit_usd) {
+    meters.push({
+      key: 'weekly',
+      label: t('userSubscriptions.weekly'),
+      used: subscription.weekly_usage_usd || 0,
+      limit: plan.weekly_limit_usd,
+      hint: subscription.weekly_window_start ? t('userSubscriptions.resetIn', { time: formatResetTime(subscription.weekly_window_start, 168) }) : ''
+    })
+  }
+  if (plan?.monthly_limit_usd) {
+    meters.push({
+      key: 'monthly',
+      label: t('userSubscriptions.monthly'),
+      used: subscription.monthly_usage_usd || 0,
+      limit: plan.monthly_limit_usd,
+      hint: subscription.monthly_window_start ? t('userSubscriptions.resetIn', { time: formatResetTime(subscription.monthly_window_start, 720) }) : ''
+    })
+  }
+  return meters
 }
 
 /** 套餐模型集：显示名优先，没有就 model_id */

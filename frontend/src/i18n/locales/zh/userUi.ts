@@ -101,7 +101,10 @@ export default {
         allKeys: '全部密钥',
         createKey: '创建密钥',
         copy: '复制',
-        copied: '已复制'
+        copied: '已复制',
+        example: '调用示例',
+        exampleHint: '把 $API_KEY 换成上面复制的密钥，或先 export API_KEY=你的密钥',
+        exampleMessage: '你好'
       },
       trend: {
         title: '用量趋势',

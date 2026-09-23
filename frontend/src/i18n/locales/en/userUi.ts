@@ -101,7 +101,10 @@ export default {
         allKeys: 'All keys',
         createKey: 'Create a key',
         copy: 'Copy',
-        copied: 'Copied'
+        copied: 'Copied',
+        example: 'Example',
+        exampleHint: 'Replace $API_KEY with the key copied above, or export API_KEY=your-key first',
+        exampleMessage: 'Hello'
       },
       trend: {
         title: 'Usage trend',
