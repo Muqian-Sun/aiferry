@@ -348,14 +348,14 @@ function cellClass(health: MonitorHealth, requestCount: number): string {
 }
 
 function rowLabel(row: MonitorMatrixRow): string {
-  const parts = [row.platform]
-  if (row.group_name || row.group_id) parts.push(row.group_name || `#${row.group_id}`)
+  const parts: string[] = []
+  if (row.platform) parts.push(row.platform)
   if (row.model) parts.push(row.model === '__other__' ? t('channelMonitorV2.otherModels') : row.model)
   return parts.join(' / ')
 }
 
 function rowKey(row: MonitorMatrixRow): string {
-  return [row.platform, row.group_id || 0, row.model || ''].join(':')
+  return [row.platform || '', row.model || ''].join(':')
 }
 
 function successRate(metrics: MonitorMetric): string {

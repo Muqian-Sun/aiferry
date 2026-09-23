@@ -57,14 +57,6 @@
           <span v-else class="text-sm text-af-ink-4">-</span>
         </template>
 
-        <template #cell-group="{ row }">
-          <span
-            v-if="row.group_name"
-            class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-af-brand-tint text-af-brand"
-          >{{ row.group_name }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
-        </template>
-
         <template #cell-type="{ row }">
           <span
             v-if="requestTypeBadge(row)"
@@ -170,7 +162,6 @@ const allColumns = computed<Column[]>(() => [
   { key: 'model', label: t('usage.errors.model'), sortable: true },
   { key: 'endpoint', label: t('usage.errors.endpoint') },
   { key: 'client_ip', label: 'IP' },
-  { key: 'group', label: t('admin.usage.group') },
   { key: 'type', label: t('usage.type') },
   { key: 'platform', label: t('usage.errors.platform') },
   { key: 'category', label: t('usage.errors.category') },

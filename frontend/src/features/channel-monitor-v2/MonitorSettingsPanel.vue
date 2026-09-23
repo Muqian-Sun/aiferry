@@ -348,8 +348,6 @@ function normalizeConfig(value: MonitorConfig): MonitorConfig {
   const ignored = value.ignored_error_categories
   return {
     ...value,
-    // 分组随目录下线：监控覆盖全部渠道；字段本身 PR-7 随后端一起删
-    group_ids: [],
     health_thresholds: { ...defaultThresholds, ...(value.health_thresholds || {}) },
     // Preserve explicit empty arrays from the server (operator cleared all).
     ignored_error_categories: [

@@ -269,14 +269,11 @@ async function silenceAlert() {
   detailActionLoading.value = true
   try {
     const platform = getDimensionString(ev, 'platform')
-    const groupIdRaw = ev.dimensions?.group_id
-    const groupId = typeof groupIdRaw === 'number' ? groupIdRaw : null
     const region = getDimensionString(ev, 'region') || null
 
     await opsAPI.createAlertSilence({
       rule_id: ev.rule_id,
       platform: platform || '',
-      group_id: groupId ?? undefined,
       region: region ?? undefined,
       until: durationToUntilRFC3339(silenceDuration.value),
       reason: `silence from UI (${silenceDuration.value})`

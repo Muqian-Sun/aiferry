@@ -1891,7 +1891,6 @@ export interface UserErrorRequest {
   key_name: string
   key_deleted: boolean
   client_ip?: string
-  group_name?: string
   request_type?: number
   stream?: boolean
   user_agent?: string

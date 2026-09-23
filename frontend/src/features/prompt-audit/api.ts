@@ -2,7 +2,6 @@ import { apiClient } from '@/api/client'
 import type {
   PromptAuditConfig,
   PromptAuditEvent,
-  PromptAuditGroup,
   PromptAuditRuntime,
   PromptAuditUpdateRequest,
   PromptDeletePreview,
@@ -96,13 +95,6 @@ export async function deleteEventsByFilter(
   return data
 }
 
-export async function listGroups(): Promise<PromptAuditGroup[]> {
-  const { data } = await apiClient.get<PromptAuditGroup[]>('/admin/groups/all', {
-    params: { include_inactive: true },
-  })
-  return data
-}
-
 export const promptAuditAPI = {
   getConfig,
   updateConfig,
@@ -114,7 +106,6 @@ export const promptAuditAPI = {
   batchDeleteEvents,
   previewDelete,
   deleteEventsByFilter,
-  listGroups,
 }
 
 export default promptAuditAPI

@@ -24,11 +24,8 @@ export default {
     currentUser: '当前用户',
     ranges: { '90m': '90m', '24h': '24h', '7d': '7d', '30d': '30d' },
     filters: {
-      platform: '平台', allPlatforms: '全部', group: '分组', allGroups: '全部', model: '模型', allModels: '全部',
+      model: '模型', allModels: '全部',
       empty: '暂无可选项', selectedCount: '{count} 项', labelValue: '{label}：{value}'
-    },
-    groupBy: {
-      label: '展示维度', platform: '平台', platformGroup: '平台 / 分组', platformModel: '平台 / 模型', platformGroupModel: '平台 / 分组 / 模型'
     },
     trendView: { label: '趋势视图', pulse: '色块矩阵', line: '折线图' },
     healthMode: { label: '健康显示', overall: '综合', success: '错误率', ttft: '首 Token', cache: '缓存率' },
@@ -56,7 +53,7 @@ export default {
       durationValue: '请求时长 {value}',
       cacheRateValue: '缓存率 {value}',
     },
-    table: { platformModel: '平台 / 模型', rank: '排名', user: '用户' },
+    table: { model: '模型', rank: '排名', user: '用户' },
     empty: { title: '没有可展示的数据', description: '尝试调整时间范围或筛选条件' },
     bucket: { minutes: '{count} 分钟粒度', hours: '{count} 小时粒度', days: '{count} 天粒度' },
     matrix: {
@@ -67,7 +64,7 @@ export default {
     },
     errorDetail: { http: 'HTTP {code}', upstream: '上游 {code}', noMessage: '无错误消息', empty: '仅展示分类占比（样本消息仅管理员可见）' },
     errorCategories: {
-      content_policy: '内容策略', authentication: '认证失败', context_limit: '上下文超限', invalid_request: '请求格式', model_unsupported: '模型不支持', group_access: '分组权限', quota_or_balance: '额度或余额', account_pool_unavailable: '账号池不可用', rate_or_capacity: '限流或容量', timeout: '超时', transport_or_stream: '传输或流', upstream_forbidden: '上游拒绝', not_found: '资源不存在', client_cancelled: '客户端取消', upstream_5xx: '上游 5xx', internal: '内部错误', other: '其他'
+      content_policy: '内容策略', authentication: '认证失败', context_limit: '上下文超限', invalid_request: '请求格式', model_unsupported: '模型不支持', quota_or_balance: '额度或余额', account_pool_unavailable: '账号池不可用', rate_or_capacity: '限流或容量', timeout: '超时', transport_or_stream: '传输或流', upstream_forbidden: '上游拒绝', not_found: '资源不存在', client_cancelled: '客户端取消', upstream_5xx: '上游 5xx', internal: '内部错误', other: '其他'
     },
     rank: {
       gold: '第 1 名 金',

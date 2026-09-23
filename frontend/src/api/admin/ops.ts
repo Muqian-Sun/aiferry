@@ -29,7 +29,6 @@ export interface OpsDashboardOverview {
   start_time: string
   end_time: string
   platform: string
-  group_id?: number | null
 
   health_score?: number
 
@@ -161,7 +160,6 @@ export interface OpsLatencyHistogramResponse {
   start_time: string
   end_time: string
   platform: string
-  group_id?: number | null
 
   total_requests: number
   buckets: OpsLatencyHistogramBucket[]
@@ -218,7 +216,6 @@ export interface OpsOpenAITokenStatsResponse {
   start_time: string
   end_time: string
   platform?: string
-  group_id?: number | null
   items: OpsOpenAITokenStatsItem[]
   total: number
   page?: number
@@ -282,22 +279,10 @@ export interface PlatformConcurrencyInfo {
   waiting_in_queue: number
 }
 
-export interface GroupConcurrencyInfo {
-  group_id: number
-  group_name: string
-  platform: string
-  current_in_use: number
-  max_capacity: number
-  load_percentage: number
-  waiting_in_queue: number
-}
-
 export interface AccountConcurrencyInfo {
   account_id: number
   account_name?: string
   platform: string
-  group_id: number
-  group_name: string
   current_in_use: number
   max_capacity: number
   load_percentage: number
@@ -307,7 +292,6 @@ export interface AccountConcurrencyInfo {
 export interface OpsConcurrencyStatsResponse {
   enabled: boolean
   platform: Record<string, PlatformConcurrencyInfo>
-  group: Record<string, GroupConcurrencyInfo>
   account: Record<string, AccountConcurrencyInfo>
   timestamp?: string
 }
@@ -351,22 +335,10 @@ export interface PlatformAvailability {
   error_count: number
 }
 
-export interface GroupAvailability {
-  group_id: number
-  group_name: string
-  platform: string
-  total_accounts: number
-  available_count: number
-  rate_limit_count: number
-  error_count: number
-}
-
 export interface AccountAvailability {
   account_id: number
   account_name: string
   platform: string
-  group_id: number
-  group_name: string
   status: string
   is_available: boolean
   is_rate_limited: boolean
@@ -382,7 +354,6 @@ export interface AccountAvailability {
 export interface OpsAccountAvailabilityStatsResponse {
   enabled: boolean
   platform: Record<string, PlatformAvailability>
-  group: Record<string, GroupAvailability>
   account: Record<string, AccountAvailability>
   timestamp?: string
 }
@@ -407,7 +378,6 @@ export interface OpsRealtimeTrafficSummary {
   start_time: string
   end_time: string
   platform: string
-  group_id?: number | null
   qps: OpsRateSummary
   tps: OpsRateSummary
 }
@@ -660,9 +630,6 @@ export type MetricType =
   | 'cpu_usage_percent'
   | 'memory_usage_percent'
   | 'concurrency_queue_depth'
-  | 'group_available_accounts'
-  | 'group_available_ratio'
-  | 'group_rate_limit_ratio'
   | 'account_rate_limited_count'
   | 'account_error_count'
   | 'account_error_ratio'
@@ -901,8 +868,6 @@ export interface OpsErrorLog {
   api_key_deleted?: boolean
   account_id?: number | null
   account_name: string
-  group_id?: number | null
-  group_name: string
 
   client_ip?: string | null
   request_path?: string
@@ -1196,7 +1161,6 @@ export async function updateAlertEventStatus(id: number, status: 'resolved' | 'm
 export async function createAlertSilence(payload: {
   rule_id: number
   platform: string
-  group_id?: number | null
   region?: string | null
   until: string
   reason?: string

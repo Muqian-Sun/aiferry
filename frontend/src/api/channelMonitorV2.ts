@@ -17,12 +17,12 @@ export type HealthScoreBand =
   | 'score8'
   | 'score9'
   | 'score10'
-export type MonitorMatrixGroupBy = 'platform' | 'platform_group' | 'platform_model' | 'platform_group_model'
+// 上游渠道（平台）维度只有管理员能用；普通用户只能用 model。
+export type MonitorMatrixGroupBy = 'model' | 'platform' | 'platform_model'
 
 export interface MonitorFilter {
   range: MonitorRange
   platforms: string[]
-  groupIds: number[]
   models: string[]
 }
 
@@ -104,7 +104,6 @@ export interface MonitorConfig {
   enabled: boolean
   refresh_interval_seconds: 60 | 300
   platforms: Array<{ platform: string; enabled: boolean; models: string[] }>
-  group_ids: number[]
   health_thresholds: {
     minimum_sample: number
     warning_error_rate: number
@@ -129,7 +128,6 @@ export const MONITOR_ERROR_CATEGORIES = [
   'context_limit',
   'invalid_request',
   'model_unsupported',
-  'group_access',
   'quota_or_balance',
   'account_pool_unavailable',
   'rate_or_capacity',
@@ -160,9 +158,7 @@ export interface MonitorMatrixBucket {
 }
 
 export interface MonitorMatrixRow {
-  platform: string
-  group_id?: number
-  group_name?: string
+  platform?: string
   model?: string
   metrics: MonitorMetric
   health: MonitorHealth
@@ -177,11 +173,10 @@ export interface MonitorMatrixResponse {
 
 export interface MonitorDimensions {
   platforms: Array<{ value: string; label: string; request_count: number }>
-  groups: Array<{ id: number; name: string; platform?: string; request_count: number }>
   models: Array<{ value: string; label: string; platform?: string; request_count: number }>
 }
 
-export interface MonitorModelRow { platform: string; model: string; metrics: MonitorMetric; health: MonitorHealth }
+export interface MonitorModelRow { platform?: string; model: string; metrics: MonitorMetric; health: MonitorHealth }
 export interface MonitorErrorRow {
   category: string
   count: number
@@ -213,7 +208,6 @@ function params(filter: MonitorFilter) {
   return {
     range: filter.range,
     platform: filter.platforms.length ? filter.platforms : undefined,
-    group_id: filter.groupIds.length ? filter.groupIds : undefined,
     model: filter.models.length ? filter.models : undefined,
   }
 }

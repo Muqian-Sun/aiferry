@@ -31,13 +31,13 @@ function safeNumber(n: unknown): number {
   return typeof n === 'number' && Number.isFinite(n) ? n : 0
 }
 
-// 计算显示维度
-const displayDimension = computed<'platform' | 'group' | 'account' | 'user'>(() => {
+// 计算显示维度：选了平台就下钻到账号（分组维度已删）
+const displayDimension = computed<'platform' | 'account' | 'user'>(() => {
   if (showByUser.value) {
     return 'user'
   }
   if (props.platformFilter) {
-    return 'group'
+    return 'account'
   }
   return 'platform'
 })
@@ -66,7 +66,6 @@ interface AccountRow {
   key: string
   name: string
   platform: string
-  group_name: string
   // 并发
   current_in_use: number
   max_capacity: number
@@ -127,49 +126,6 @@ const platformRows = computed((): SummaryRow[] => {
   }).sort((a, b) => b.concurrency_percentage - a.concurrency_percentage)
 })
 
-// 分组维度汇总
-const groupRows = computed((): SummaryRow[] => {
-  const concStats = concurrency.value?.group || {}
-  const availStats = availability.value?.group || {}
-
-  const groupIds = new Set([...Object.keys(concStats), ...Object.keys(availStats)])
-
-  const rows = Array.from(groupIds)
-    .map(gid => {
-      const conc = concStats[gid] || {}
-      const avail = availStats[gid] || {}
-
-      // 只显示匹配的平台
-      if (props.platformFilter && conc.platform !== props.platformFilter && avail.platform !== props.platformFilter) {
-        return null
-      }
-
-      const totalAccounts = safeNumber(avail.total_accounts)
-      const availableAccounts = safeNumber(avail.available_count)
-      const totalConcurrency = safeNumber(conc.max_capacity)
-      const usedConcurrency = safeNumber(conc.current_in_use)
-
-      return {
-        key: gid,
-        name: String(conc.group_name || avail.group_name || `Group ${gid}`),
-        platform: String(conc.platform || avail.platform || ''),
-        total_accounts: totalAccounts,
-        available_accounts: availableAccounts,
-        rate_limited_accounts: safeNumber(avail.rate_limit_count),
-  
-        error_accounts: safeNumber(avail.error_count),
-        total_concurrency: totalConcurrency,
-        used_concurrency: usedConcurrency,
-        waiting_in_queue: safeNumber(conc.waiting_in_queue),
-        availability_percentage: totalAccounts > 0 ? Math.round((availableAccounts / totalAccounts) * 100) : 0,
-        concurrency_percentage: totalConcurrency > 0 ? Math.round((usedConcurrency / totalConcurrency) * 100) : 0
-      }
-    })
-    .filter((row): row is NonNullable<typeof row> => row !== null)
-
-  return rows.sort((a, b) => b.concurrency_percentage - a.concurrency_percentage)
-})
-
 // 账号维度详细
 const accountRows = computed((): AccountRow[] => {
   const concStats = concurrency.value?.account || {}
@@ -186,7 +142,6 @@ const accountRows = computed((): AccountRow[] => {
         key: aid,
         name: String(conc.account_name || avail.account_name || `Account ${aid}`),
         platform: String(conc.platform || avail.platform || ''),
-        group_name: String(conc.group_name || avail.group_name || ''),
         current_in_use: safeNumber(conc.current_in_use),
         max_capacity: safeNumber(conc.max_capacity),
         waiting_in_queue: safeNumber(conc.waiting_in_queue),
@@ -236,14 +191,12 @@ const userRows = computed((): UserRow[] => {
 const displayRows = computed(() => {
   if (displayDimension.value === 'user') return userRows.value
   if (displayDimension.value === 'account') return accountRows.value
-  if (displayDimension.value === 'group') return groupRows.value
   return platformRows.value
 })
 
 const displayTitle = computed(() => {
   if (displayDimension.value === 'user') return t('admin.ops.concurrency.byUser')
   if (displayDimension.value === 'account') return t('admin.ops.concurrency.byAccount')
-  if (displayDimension.value === 'group') return t('admin.ops.concurrency.byGroup')
   return t('admin.ops.concurrency.byPlatform')
 })
 
@@ -430,7 +383,7 @@ watch(
       </div>
 
       <!-- 汇总视图（平台/分组） -->
-      <div v-else-if="displayDimension === 'platform' || displayDimension === 'group'" class="custom-scrollbar max-h-[360px] flex-1 space-y-2 overflow-y-auto p-3">
+      <div v-else-if="displayDimension === 'platform'" class="custom-scrollbar max-h-[360px] flex-1 space-y-2 overflow-y-auto p-3">
         <div v-for="row in (displayRows as SummaryRow[])" :key="row.key" class="rounded-lg bg-gray-50 p-3 dark:bg-dark-900">
           <!-- 标题行 -->
           <div class="mb-2 flex items-center justify-between gap-2">
@@ -438,9 +391,6 @@ watch(
               <div class="truncate text-[11px] font-bold text-gray-900 dark:text-white" :title="row.name">
                 {{ row.name }}
               </div>
-              <span v-if="displayDimension === 'group' && row.platform" class="text-[10px] text-gray-400 dark:text-gray-500">
-                {{ row.platform.toUpperCase() }}
-              </span>
             </div>
             <div class="flex shrink-0 items-center gap-2 text-[10px]">
               <span class="font-mono font-bold text-gray-900 dark:text-white"> {{ row.used_concurrency }}/{{ row.total_concurrency }} </span>
@@ -511,9 +461,6 @@ watch(
             <div class="min-w-0 flex-1">
               <div class="truncate text-[11px] font-bold text-gray-900 dark:text-white" :title="row.name">
                 {{ row.name }}
-              </div>
-              <div class="mt-0.5 text-[9px] text-gray-400 dark:text-gray-500">
-                {{ row.group_name }}
               </div>
             </div>
             <div class="flex shrink-0 items-center gap-2">

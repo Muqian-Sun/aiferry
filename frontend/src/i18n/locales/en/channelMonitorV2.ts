@@ -24,11 +24,8 @@ export default {
     currentUser: 'Current user',
     ranges: { '90m': '90m', '24h': '24h', '7d': '7d', '30d': '30d' },
     filters: {
-      platform: 'Platform', allPlatforms: 'All', group: 'Group', allGroups: 'All', model: 'Model', allModels: 'All',
+      model: 'Model', allModels: 'All',
       empty: 'No options', selectedCount: '{count}', labelValue: '{label}: {value}'
-    },
-    groupBy: {
-      label: 'Group by', platform: 'Platform', platformGroup: 'Platform / Group', platformModel: 'Platform / Model', platformGroupModel: 'Platform / Group / Model'
     },
     trendView: { label: 'Trend view', pulse: 'Pulse matrix', line: 'Line chart' },
     healthMode: { label: 'Health display', overall: 'Overall', success: 'Error rate', ttft: 'First token', cache: 'Cache rate' },
@@ -56,7 +53,7 @@ export default {
       durationValue: 'Duration {value}',
       cacheRateValue: 'Cache rate {value}',
     },
-    table: { platformModel: 'Platform / Model', rank: 'Rank', user: 'User' },
+    table: { model: 'Model', rank: 'Rank', user: 'User' },
     empty: { title: 'No data to display', description: 'Try changing the time range or filters' },
     bucket: { minutes: '{count}-minute buckets', hours: '{count}-hour buckets', days: '{count}-day buckets' },
     matrix: {
@@ -67,7 +64,7 @@ export default {
     },
     errorDetail: { http: 'HTTP {code}', upstream: 'Upstream {code}', noMessage: 'No error message', empty: 'Category rates only (sample messages are admin-only)' },
     errorCategories: {
-      content_policy: 'Content policy', authentication: 'Authentication', context_limit: 'Context limit', invalid_request: 'Invalid request', model_unsupported: 'Unsupported model', group_access: 'Group access', quota_or_balance: 'Quota or balance', account_pool_unavailable: 'Account pool unavailable', rate_or_capacity: 'Rate or capacity', timeout: 'Timeout', transport_or_stream: 'Transport or stream', upstream_forbidden: 'Upstream forbidden', not_found: 'Not found', client_cancelled: 'Client cancelled', upstream_5xx: 'Upstream 5xx', internal: 'Internal', other: 'Other'
+      content_policy: 'Content policy', authentication: 'Authentication', context_limit: 'Context limit', invalid_request: 'Invalid request', model_unsupported: 'Unsupported model', quota_or_balance: 'Quota or balance', account_pool_unavailable: 'Account pool unavailable', rate_or_capacity: 'Rate or capacity', timeout: 'Timeout', transport_or_stream: 'Transport or stream', upstream_forbidden: 'Upstream forbidden', not_found: 'Not found', client_cancelled: 'Client cancelled', upstream_5xx: 'Upstream 5xx', internal: 'Internal', other: 'Other'
     },
     rank: {
       gold: 'Rank 1 gold',

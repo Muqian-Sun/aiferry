@@ -1716,8 +1716,6 @@ async function saveConfig() {
       timeout_ms: Number(configForm.timeout_ms) || 3000,
       retry_count: Number(configForm.retry_count) || 0,
       sample_rate: Number(configForm.sample_rate) || 0,
-      // 分组随目录下线：风控对全部请求生效，后端仍要求 all_groups=false 时给分组，所以恒发 true
-      all_groups: true,
       record_non_hits: configForm.record_non_hits,
       clear_api_key: configForm.clear_api_key,
       worker_count: Number(configForm.worker_count) || 4,

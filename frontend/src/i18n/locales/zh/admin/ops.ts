@@ -748,7 +748,6 @@ export default {
       concurrency: {
         title: '并发 / 排队',
         byPlatform: '按平台',
-        byGroup: '按分组',
         byAccount: '按账号',
         byUser: '按用户',
         showByUserTooltip: '切换用户视图，显示每个用户的并发使用情况',

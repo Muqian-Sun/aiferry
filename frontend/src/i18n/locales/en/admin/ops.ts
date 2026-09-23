@@ -747,7 +747,6 @@ export default {
       concurrency: {
         title: 'Concurrency / Queue',
         byPlatform: 'By Platform',
-        byGroup: 'By Group',
         byAccount: 'By Account',
         byUser: 'By User',
         showByUserTooltip: 'Switch to user view to see concurrency usage per user',

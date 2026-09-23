@@ -28,14 +28,6 @@ type dashboardAggregationRepoTestStub struct {
 	events               *[]string
 }
 
-type dashboardAggregationRollupRepoTestStub struct {
-	*dashboardAggregationRepoTestStub
-	groupRollupCalls int
-	groupRollupAt    time.Time
-	groupRollupErr   error
-	groupRollupCtx   context.Context
-}
-
 func (s *dashboardAggregationRepoTestStub) AggregateRange(ctx context.Context, start, end time.Time) error {
 	s.aggregateCalls++
 	s.aggregateCtx = ctx
@@ -100,40 +92,6 @@ func TestDashboardAggregationService_RunScheduledAggregation_EpochUsesRetentionS
 	require.Equal(t, 1, repo.aggregateCalls)
 	require.False(t, repo.lastEnd.IsZero())
 	require.Equal(t, truncateToDayUTC(repo.lastEnd.AddDate(0, 0, -1)), repo.lastStart)
-}
-
-func TestDashboardAggregationService_RunScheduledAggregationSyncsGroupAfterDashboardEarlyReturn(t *testing.T) {
-	events := make([]string, 0, 2)
-	baseRepo := &dashboardAggregationRepoTestStub{
-		watermark:    time.Now().UTC(),
-		aggregateErr: errors.New("dashboard aggregation failed"),
-		events:       &events,
-	}
-	repo := &dashboardAggregationRollupRepoTestStub{
-		dashboardAggregationRepoTestStub: baseRepo,
-		groupRollupErr:                   errors.New("group rollup failed"),
-	}
-	svc := &DashboardAggregationService{
-		repo: repo,
-		cfg: config.DashboardAggregationConfig{
-			LookbackSeconds: 120,
-			Retention: config.DashboardAggregationRetentionConfig{
-				UsageLogsDays: 1,
-			},
-		},
-	}
-
-	svc.runScheduledAggregation()
-
-	require.Equal(t, []string{"dashboard_aggregation", "group_rollup"}, events)
-	require.NotNil(t, repo.aggregateCtx)
-	require.NotNil(t, repo.groupRollupCtx)
-	if repo.aggregateCtx == repo.groupRollupCtx {
-		t.Fatal("分组日汇总必须使用独立于 dashboard 聚合的 context")
-	}
-	groupDeadline, ok := repo.groupRollupCtx.Deadline()
-	require.True(t, ok, "group rollup context must be bounded")
-	require.LessOrEqual(t, time.Until(groupDeadline), defaultDashboardAggregationTimeout)
 }
 
 type dashboardAggregationLeaderLockRecordingCache struct {
