@@ -36,13 +36,14 @@ export default {
     },
     home: {
       hero: {
-        eyebrow: '{models} 个模型 · 4 条官方协议 · 不记录不出售',
+        eyebrow: '官方协议直连 · 不记录 · 不出售',
         title: '一把 Key，',
-        titleAccent: '直连所有主流模型。',
-        description: '官方协议原样转发，SDK 不用换，只改一行 base_url。同模型只换渠道、不换模型，缓存能打满就打满；请求内容不落盘，更不会卖给任何人。',
-        getStarted: '免费开始',
+        titleAccent: '直连全球主流大模型',
+        description: '官方协议原样透传，只改一行 base_url。同模型只换渠道、不换模型，缓存尽量打满；请求内容不落盘，也不出售。',
+        getStarted: '开始使用',
         goToConsole: '进入控制台',
-        viewPricing: '看模型与价格',
+        viewPricing: '查看模型与价格',
+        compat: 'OpenAI、Anthropic、Gemini 官方 SDK 直接可用',
         vendorsLabel: '已接入的厂商'
       },
       features: {

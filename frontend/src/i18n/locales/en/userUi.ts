@@ -36,13 +36,14 @@ export default {
     },
     home: {
       hero: {
-        eyebrow: '{models} models · 4 official protocols · never logged, never sold',
+        eyebrow: 'Official protocols · Never logged · Never sold',
         title: 'One key,',
-        titleAccent: 'every major model.',
-        description: 'Official protocols relayed as-is: keep your SDK, change one base_url. We switch channels but never your model, keep caches hitting, never store your prompts — and never sell them.',
-        getStarted: 'Start free',
+        titleAccent: 'every leading model',
+        description: 'Official protocols relayed as-is — change one base_url, keep your SDK. We switch channels, never your model; caches stay hot; prompts are never stored or sold.',
+        getStarted: 'Get started',
         goToConsole: 'Open console',
         viewPricing: 'Models & pricing',
+        compat: 'Works with the official OpenAI, Anthropic and Gemini SDKs',
         vendorsLabel: 'Vendors connected'
       },
       features: {

@@ -210,14 +210,29 @@
   }
 
   /* ============ 用户站落地页原语（2026-09-22 muqian：学参考站的效果，允许卡片） ============ */
-  /* 段落眉题：小胶囊 + 品牌色圆点 */
+  /* 段落眉题：小胶囊，品牌色圆点在前 */
   .section-eyebrow {
     @apply inline-flex items-center gap-2 rounded-full border border-af-hairline bg-af-sheet px-3 py-1 text-xs font-medium text-af-ink-2;
   }
 
-  .section-eyebrow::after {
+  .section-eyebrow::before {
     content: '';
-    @apply h-1.5 w-1.5 rounded-full bg-af-brand;
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-af-brand;
+  }
+
+  /* 首屏眉题：圆点带一圈呼吸光晕，像「在线」指示 */
+  .section-eyebrow-live::before {
+    animation: eyebrow-live 2.4s ease-out infinite;
+  }
+
+  @keyframes eyebrow-live {
+    0% {
+      box-shadow: 0 0 0 0 rgb(var(--af-brand) / 0.45);
+    }
+    70%,
+    100% {
+      box-shadow: 0 0 0 6px rgb(var(--af-brand) / 0);
+    }
   }
 
   .section-title {
@@ -229,9 +244,35 @@
     @apply mx-auto mt-4 max-w-2xl text-base text-af-ink-3 sm:text-lg;
   }
 
-  /* 胶囊主按钮（首屏 / CTA 用） */
+  /*
+   * 首屏胶囊按钮：48px 高、15px 字。
+   * 主按钮（.btn-primary.btn-pill）带一层压低的投影；.btn-pill-arrow 在右端放一个圆形箭头位，hover 时箭头右移。
+   * 次按钮用 .btn-soft：无描边，底色一档 sunken，hover 加深一档。
+   */
   .btn-pill {
-    @apply rounded-full px-6 py-3 text-base;
+    @apply h-12 rounded-full px-6 py-0 text-[15px];
+  }
+
+  .btn-primary.btn-pill {
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.12),
+      0 10px 24px -12px rgb(var(--af-ink) / 0.55);
+  }
+
+  .btn-pill-arrow {
+    @apply gap-3 pr-1.5;
+  }
+
+  .btn-pill-icon {
+    @apply flex h-9 w-9 items-center justify-center rounded-full bg-af-sheet/15 transition-transform duration-200 ease-out;
+  }
+
+  .group:hover .btn-pill-icon {
+    @apply translate-x-0.5;
+  }
+
+  .btn-soft {
+    @apply bg-af-sunken text-af-ink hover:bg-af-hairline;
   }
 
   /*
@@ -339,6 +380,10 @@
 
     .count-up {
       transition: none;
+    }
+
+    .section-eyebrow-live::before {
+      animation: none;
     }
   }
 
