@@ -62,8 +62,8 @@ export default {
           passthrough: { title: 'Pass through as-is', body: 'Four official protocols relayed untouched — no private format, no rewriting. SDKs, streaming, tool calls and multimodal behave exactly as direct.' },
           failover: { title: 'No cross-model fallback', body: 'The model you name is the model that runs. On a timeout or error we only move between channels serving that same model — never a quiet downgrade to something cheaper.' },
           cache: { title: 'Cache to the limit', body: 'A session stays pinned to one upstream so prompt caches keep hitting. Long conversations get faster as they go, and cheaper with them.' },
-          privacy: { title: 'Conversations not logged', body: 'Successful requests leave no request or reply on our side — only one ledger line: model, tokens, latency, cost. Failed requests are kept for troubleshooting and deleted after 30 days.' },
-          noSale: { title: 'Never sold', body: 'Not sold, not rented, not used for training. Beyond the upstream model that serves your request, your requests and bills go to no third party.' }
+          privacy: { title: 'Conversations not logged', body: 'We store neither your requests nor the model replies — only one ledger line: model, tokens, latency, cost. Failed requests keep only the error for troubleshooting, deleted after 30 days; cross-protocol calls cache the reasoning summary for 7 days; content-audit retention, if enabled, is set out in the privacy policy.' },
+          noSale: { title: 'Never sold', body: 'Not sold, not rented, not used for training. Beyond the upstream model that serves your request (and the moderation service, if content audit is on), your requests and bills go to no third party.' }
         },
         figure: {
           passthrough: { endpoint: 'One base_url', note: 'same protocol, passed through' },

@@ -4,7 +4,7 @@
     - passthrough：四条官方协议各自的品牌色汇到一个 base_url，请求点沿线流下去
     - failover：渠道 A 超时转红 → 同模型换渠道 → 渠道 B 转绿，循环演示
     - cache：同一会话固定上游，三次请求缓存命中率逐次涨上去
-    - privacy：请求内容被抹掉不落盘，只留一行账
+    - privacy：请求内容被抹掉不保存，只留一行账
     - noSale：数据往外流被拦在墨色横条上，下面三个去向全是 ✕
     全是 DOM + CSS 关键帧，不发请求、不放真实数字（示意值），减少动态效果偏好下静止在完成态。
   -->
@@ -377,7 +377,7 @@ const NO_SALE_TARGETS = ['thirdParty', 'ads', 'brokers'] as const
   }
 }
 
-/* 4. 不落盘：内容条 30% 起抹掉，账那一行始终在；5s 一轮 */
+/* 4. 不保存：内容条 30% 起抹掉，账那一行始终在；5s 一轮 */
 .fig-privacy .fig-privacy-body > div {
   animation: fig-privacy-line 5s ease-out infinite;
 }

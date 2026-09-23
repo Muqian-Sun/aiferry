@@ -62,14 +62,14 @@ export default {
           passthrough: { title: '尽量透传', body: '四条官方协议原样转发，不做私有格式转换、不改写你的请求。SDK、流式、工具调用、多模态，行为与直连一致。' },
           failover: { title: '不做不同模型兜底', body: '你点名的模型就是实际跑的模型。上游超时或报错，只在同一模型的其他渠道之间切换，绝不悄悄降级成便宜模型。' },
           cache: { title: '最大程度缓存', body: '同一会话固定落在同一上游，提示词缓存持续命中。长对话越聊越快，费用也跟着降下来。' },
-          privacy: { title: '不记录对话内容', body: '请求成功时不保存请求与模型回复，只留一行账：模型、Token、耗时、费用。仅在请求失败时为排障暂存请求内容，30 天后自动删除。' },
-          noSale: { title: '不出售用户数据', body: '不卖、不出租、不拿去训练。除完成请求必需的上游模型外，你的请求与账单不会交给任何第三方。' }
+          privacy: { title: '不记录对话内容', body: '不保存你发送的请求和模型回复，只留一行账：模型、Token、耗时、费用。请求失败只留错误信息排障，30 天后自动删除；跨协议转换时推理摘要缓存 7 天；开启内容审计时的留存方式见隐私政策。' },
+          noSale: { title: '不出售用户数据', body: '不卖、不出租、不拿去训练。除完成请求必需的上游模型（开启内容审计时还有审核服务）外，你的请求与账单不会交给任何第三方。' }
         },
         figure: {
           passthrough: { endpoint: '一个 base_url', note: '同协议原样透传' },
           failover: { channelA: '渠道 A', channelB: '渠道 B', timeout: '超时', switched: '同模型换渠道' },
           cache: { session: '会话', pinned: '固定上游', request: '请求', hit: '缓存命中' },
-          privacy: { request: '请求正文', notStored: '不落盘', kept: '只留这一行' },
+          privacy: { request: '请求正文', notStored: '不保存', kept: '只留这一行' },
           noSale: { yourData: '你的数据', barrier: '不卖 · 不共享 · 不训练', thirdParty: '第三方', ads: '广告', brokers: '数据商' }
         }
       },
