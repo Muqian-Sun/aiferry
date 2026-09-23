@@ -4,14 +4,13 @@
     只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名。
     价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子里直接显示折算后的你的价格，工具行注明倍率。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
-    两行大字（第二行流动光泽）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
+    一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
   <div class="space-y-6">
     <div v-if="!embedded" class="grid gap-8 pb-4 pt-4 sm:pt-8 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="plaza-hero">
         <h1 class="text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.02em] text-af-ink sm:text-[3.25rem]">
-          {{ t('userUi.models.hero.title') }}<br />
-          <span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
+          {{ t('userUi.models.hero.title') }}<span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
         </h1>
         <p class="mt-5 max-w-xl text-[17px] leading-8 text-af-ink-2">{{ t('userUi.models.hero.description') }}</p>
       </header>
