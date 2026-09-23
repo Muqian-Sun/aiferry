@@ -186,6 +186,28 @@
     @apply border-af-danger focus:border-af-danger focus:ring-af-danger/30;
   }
 
+  /* 认证页标题（登录 / 注册 / 找回密码 / 回调页）：比控制台页头大一档，与首页的大字标题同一家族 */
+  .auth-title {
+    @apply text-[1.75rem] font-semibold leading-tight tracking-[-0.015em] text-af-ink;
+  }
+
+  .auth-lead {
+    @apply mt-2 text-[15px] leading-6 text-af-ink-3;
+  }
+
+  /*
+   * 认证页（登录 / 注册）的输入框与标签：叠在 .input 上用，只改尺寸与观感——44px 高、圆角大一档、15px 字、
+   * 聚焦是墨色细边 + 很淡的外晕（通用 .input 的品牌色 30% 光圈在单色品牌下太重）。框内不放前置图标。
+   */
+  .auth-input {
+    @apply h-11 rounded-lg px-3.5 text-[15px];
+    @apply focus:border-af-ink focus:ring-[3px] focus:ring-af-ink/10;
+  }
+
+  .auth-label {
+    @apply mb-1.5 block text-13 font-medium text-af-ink;
+  }
+
   .input-label {
     @apply mb-1.5 block text-13 font-medium text-af-ink-2;
   }
@@ -210,15 +232,17 @@
   }
 
   /* ============ 用户站落地页原语（2026-09-22 muqian：学参考站的效果，允许卡片） ============ */
-  /* 段落眉题：小胶囊 + 品牌色圆点 */
+  /* 段落眉题：小胶囊，品牌色圆点在前 */
   .section-eyebrow {
     @apply inline-flex items-center gap-2 rounded-full border border-af-hairline bg-af-sheet px-3 py-1 text-xs font-medium text-af-ink-2;
   }
 
-  .section-eyebrow::after {
+  .section-eyebrow::before {
     content: '';
-    @apply h-1.5 w-1.5 rounded-full bg-af-brand;
+    @apply h-1.5 w-1.5 shrink-0 rounded-full bg-af-brand;
   }
+
+
 
   .section-title {
     @apply mt-5 text-3xl font-semibold tracking-tight text-af-ink sm:text-4xl;
@@ -229,15 +253,47 @@
     @apply mx-auto mt-4 max-w-2xl text-base text-af-ink-3 sm:text-lg;
   }
 
-  /* 胶囊主按钮（首屏 / CTA 用） */
-  .btn-pill {
-    @apply rounded-full px-6 py-3 text-base;
+  /* 顶栏右侧的账户入口：纯文字链接，无底色无边框；颜色由使用处给（默认墨色，主入口品牌青） */
+  .nav-text-link {
+    @apply inline-flex h-8 items-center gap-1 text-sm font-medium text-af-ink transition-colors hover:text-af-brand;
   }
 
   /*
-   * 首屏标题的流动渐变（muqian 2026-09-22「我要滚动渐变」，学 new.12ai.org 的 hero-gradient-flow）。
-   * 角度 100deg、色阶位置 22/38/48/62/80%、铺 200% 宽、12s ease-in-out 来回，都是 12ai 实测值；
-   * 颜色换成 token：两端 ink，中段 brand → brand-hover → brand，深色模式随 token 翻。
+   * 首屏行动入口：文字链接，不要按钮框（muqian 2026-09-23：卡片式按钮丑，几轮都差不多）。
+   * 两个入口平时都不带下划线，hover 时下划线从左往右长出来（主入口墨色加粗、2px）；箭头 hover 右移。
+   */
+  .hero-link {
+    @apply relative inline-flex items-center gap-2 pb-1.5 text-base font-medium text-af-ink-2 transition-colors hover:text-af-ink;
+  }
+
+  .hero-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 h-px w-full origin-left scale-x-0 bg-current transition-transform duration-300 ease-out;
+  }
+
+  .hero-link:hover::after {
+    @apply scale-x-100;
+  }
+
+  .hero-link-primary {
+    @apply text-lg font-semibold text-af-ink hover:text-af-ink;
+  }
+
+  .hero-link-primary::after {
+    @apply h-0.5;
+  }
+
+  .hero-link-arrow {
+    @apply transition-transform duration-200 ease-out;
+  }
+
+  .hero-link:hover .hero-link-arrow {
+    @apply translate-x-1;
+  }
+
+  /*
+   * 首屏标题第二行的流动光泽：墨色里一道灰色光带来回扫（12s ease-in-out），铺 200% 宽滚 background-position。
+   * 起初是品牌彩色渐变（学 new.12ai.org），品牌色改单色后（muqian 2026-09-23）换成墨 → 灰 → 墨，深色模式随 token 翻。
    * 这是用户站唯一获准的渐变，模板里仍禁 bg-gradient-* 等工具类（见 templateTokens.ts）。
    */
   .text-flow {
@@ -245,11 +301,11 @@
     background-image: linear-gradient(
       100deg,
       rgb(var(--af-ink)),
-      rgb(var(--af-ink)) 22%,
-      rgb(var(--af-brand)) 38%,
-      rgb(var(--af-brand-hover)) 48%,
-      rgb(var(--af-brand)) 62%,
-      rgb(var(--af-ink)) 80%,
+      rgb(var(--af-ink)) 30%,
+      rgb(var(--af-ink-3)) 45%,
+      rgb(var(--af-ink-4)) 50%,
+      rgb(var(--af-ink-3)) 55%,
+      rgb(var(--af-ink)) 70%,
       rgb(var(--af-ink))
     );
     background-size: 200% 100%;

@@ -23,27 +23,18 @@ func normalizeLoginAgreementMode(raw string) string {
 	}
 }
 
-func defaultLoginAgreementDocuments() []LoginAgreementDocument {
+// DefaultLoginAgreementDocuments 是站点没配置登录协议文档时的默认两份文档（使用政策 / 隐私政策），正文见 legal/*.md。
+func DefaultLoginAgreementDocuments() []LoginAgreementDocument {
 	return []LoginAgreementDocument{
-		{
-			ID:        "terms",
-			Title:     "服务条款",
-			ContentMD: "",
-		},
 		{
 			ID:        "usage-policy",
 			Title:     "使用政策",
-			ContentMD: "",
+			ContentMD: strings.TrimSpace(legalUsagePolicyMD),
 		},
 		{
-			ID:        "supported-regions",
-			Title:     "支持的国家和地区",
-			ContentMD: "",
-		},
-		{
-			ID:        "service-specific-terms",
-			Title:     "服务特定条款",
-			ContentMD: "",
+			ID:        "privacy",
+			Title:     "隐私政策",
+			ContentMD: strings.TrimSpace(legalPrivacyMD),
 		},
 	}
 }
@@ -103,15 +94,15 @@ func normalizeLoginAgreementDocuments(docs []LoginAgreementDocument) []LoginAgre
 func parseLoginAgreementDocuments(raw string) []LoginAgreementDocument {
 	raw = strings.TrimSpace(raw)
 	if raw == "" {
-		return defaultLoginAgreementDocuments()
+		return DefaultLoginAgreementDocuments()
 	}
 	var docs []LoginAgreementDocument
 	if err := json.Unmarshal([]byte(raw), &docs); err != nil {
-		return defaultLoginAgreementDocuments()
+		return DefaultLoginAgreementDocuments()
 	}
 	docs = normalizeLoginAgreementDocuments(docs)
 	if len(docs) == 0 {
-		return defaultLoginAgreementDocuments()
+		return DefaultLoginAgreementDocuments()
 	}
 	return docs
 }
@@ -119,7 +110,7 @@ func parseLoginAgreementDocuments(raw string) []LoginAgreementDocument {
 func marshalLoginAgreementDocuments(docs []LoginAgreementDocument) (string, error) {
 	normalized := normalizeLoginAgreementDocuments(docs)
 	if len(normalized) == 0 {
-		normalized = defaultLoginAgreementDocuments()
+		normalized = DefaultLoginAgreementDocuments()
 	}
 	b, err := json.Marshal(normalized)
 	if err != nil {
@@ -321,9 +312,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AliyunCaptchaSceneID:                settings[SettingKeyAliyunCaptchaSceneID],
 		AliyunCaptchaPrefix:                 settings[SettingKeyAliyunCaptchaPrefix],
 		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, defaultSiteName),
 		SiteLogo:                            settings[SettingKeySiteLogo],
-		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, defaultSiteSubtitle),
 		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
 		ContactInfo:                         settings[SettingKeyContactInfo],
 		DocURL:                              settings[SettingKeyDocURL],

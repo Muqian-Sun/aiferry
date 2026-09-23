@@ -22,7 +22,9 @@ const (
 	quotaDimWeekly = "weekly"
 	quotaDimTotal  = "total"
 
-	defaultSiteName = "Sub2API"
+	// defaultSiteName / defaultSiteSubtitle：站点没配置站名 / 副标题时的产品默认值（与前端 utils/branding.ts 一致）。
+	defaultSiteName     = "AiFerry"
+	defaultSiteSubtitle = "AI Model API Platform"
 )
 
 // quotaDimLabels maps dimension names to display labels.

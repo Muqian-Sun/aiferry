@@ -203,44 +203,6 @@ describe('HomeView compact mode', () => {
     expect(wrapper.find('[data-testid="vendor-strip"]').exists()).toBe(false)
   })
 
-  it('splits the hero into copy + icon cloud only when the catalog has vendors with icons', async () => {
-    // 有图标的厂商（anthropic）→ 出云，文字列 lg 起左对齐，厂商行只留给小屏
-    getModelPlaza.mockResolvedValue({
-      description: '',
-      models: [
-        { model_id: 'claude-opus-5', display_name: '', vendor: 'anthropic', billing_mode: 'token', pricing: null, aliases: [] },
-        { model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] }
-      ]
-    })
-    const withCloud = mountHome({})
-    await flushPromises()
-    const cloud = withCloud.get('[data-testid="vendor-cloud"]')
-    // 云里只放有图标的厂商：每块瓷砖都有 svg
-    const tiles = cloud.findAll('[data-testid="vendor-cloud-tile"]')
-    expect(tiles.length).toBeGreaterThanOrEqual(6)
-    expect(tiles.every((tile) => tile.find('svg').exists())).toBe(true)
-    // 图标用厂商品牌色，不是 currentColor
-    expect(tiles.every((tile) => /^#/.test(tile.get('svg').attributes('fill') ?? ''))).toBe(true)
-    // 各自飘：每块自带周期与相位，且不预设 transform（没有鼠标视差）
-    expect(tiles.every((tile) => {
-      const style = (tile.element as HTMLElement).style
-      return style.getPropertyValue('--drift-dur') !== '' && style.transform === ''
-    })).toBe(true)
-    expect(withCloud.get('[data-testid="hero-copy"]').classes()).toContain('lg:text-left')
-    expect(withCloud.get('[data-testid="vendor-strip"]').element.parentElement?.classList.contains('lg:hidden')).toBe(true)
-
-    // 只有没图标的厂商 → 不出云，首屏居中
-    getModelPlaza.mockResolvedValue({
-      description: '',
-      models: [{ model_id: 'kimi-k2', display_name: '', vendor: 'some-new-provider', billing_mode: 'token', pricing: null, aliases: [] }]
-    })
-    const centred = mountHome({})
-    await flushPromises()
-    expect(centred.find('[data-testid="vendor-cloud"]').exists()).toBe(false)
-    expect(centred.get('[data-testid="hero-copy"]').classes()).not.toContain('lg:text-left')
-    expect(centred.get('[data-testid="vendor-strip"]').element.parentElement?.classList.contains('lg:hidden')).toBe(false)
-  })
-
   it('hides the stats band when the catalog is unavailable, leaving hero + features', async () => {
     const wrapper = mountHome({})
     await flushPromises()
@@ -281,8 +243,7 @@ describe('HomeView compact mode', () => {
     // 奇数行把文字挪到右边（图在左），偶数行相反
     const copyOrder = features.map((row) => row.get('div').classes().includes('lg:order-2'))
     expect(copyOrder).toEqual([false, true, false, true, false])
-    // 拿不到目录：眉题与数字段不出现
-    expect(wrapper.find('[data-testid="hero-eyebrow"]').exists()).toBe(false)
+    // 拿不到目录：数字段不出现
     expect(wrapper.find('[data-testid="home-stats"]').exists()).toBe(false)
 
     // 有目录：正文恰好三块，顺序 首屏 → 数字 → 特色

@@ -40,7 +40,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 			oidcValidateIDTokenDefault = s.cfg.OIDC.ValidateIDToken
 		}
 	}
-	loginAgreementDocumentsJSON, err := marshalLoginAgreementDocuments(defaultLoginAgreementDocuments())
+	loginAgreementDocumentsJSON, err := marshalLoginAgreementDocuments(DefaultLoginAgreementDocuments())
 	if err != nil {
 		return err
 	}
@@ -67,7 +67,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAPIKeyACLTrustForwardedIP:                 "true",
 		SettingKeyForwardedClientIPHeaders:                  string(forwardedClientIPHeadersJSON),
 		settingKeyForwardedClientIPModeV2:                   "true",
-		SettingKeySiteName:                                  "Sub2API",
+		SettingKeySiteName:                                  defaultSiteName,
 		SettingKeySiteLogo:                                  "",
 		SettingKeyPurchaseSubscriptionEnabled:               "false",
 		SettingKeyPurchaseSubscriptionURL:                   "",
@@ -337,9 +337,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		AliyunCaptchaRegion:                    normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
 		APIKeyACLTrustForwardedIP:              apiKeyACLTrustForwardedIP,
 		ForwardedClientIPHeaders:               forwardedClientIPHeaders,
-		SiteName:                               s.getStringOrDefault(settings, SettingKeySiteName, "Sub2API"),
+		SiteName:                               s.getStringOrDefault(settings, SettingKeySiteName, defaultSiteName),
 		SiteLogo:                               settings[SettingKeySiteLogo],
-		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, "Subscription to API Conversion Platform"),
+		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, defaultSiteSubtitle),
 		APIBaseURL:                             settings[SettingKeyAPIBaseURL],
 		ContactInfo:                            settings[SettingKeyContactInfo],
 		DocURL:                                 settings[SettingKeyDocURL],

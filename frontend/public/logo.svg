@@ -1,6 +1,16 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <path d="M8 26h33l-6.5 10H16L8 26Z" fill="#0f6a78"/>
-  <path d="M15 25v-9h19v9M12 16h24M23 10v6" stroke="#0f6a78" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M18 20h3v3h-3zm6 0h3v3h-3zm6 0h2v3h-2z" fill="#0f6a78"/>
-  <path d="M6 40c3-2.5 6-2.5 9 0s6 2.5 9 0 6-2.5 9 0 6 2.5 9 0" stroke="#0f6a78" stroke-width="2.6" stroke-linecap="round"/>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="7 3 34 38" fill-rule="evenodd">
+  <!-- AiFerry 标（favicon / 图片兜底用）：无框摆渡船 + 浪线 + 星芒，墨色；系统深色模式下换浅色。页面内用 BrandLogo.vue，路径保持一致 -->
+  <style>
+    .m { fill: #0F1B22; }
+    .w { fill: none; stroke: #0F1B22; stroke-opacity: .5; }
+    @media (prefers-color-scheme: dark) {
+      .m { fill: #E7EAED; }
+      .w { stroke: #E7EAED; }
+    }
+  </style>
+  <path class="m" d="M35 5l1.05 2.95L39 9l-2.95 1.05L35 13l-1.05-2.95L31 9l2.95-1.05L35 5Z"/>
+  <path class="m" d="M20 11H26.5A1.5 1.5 0 0 1 28 12.5V14.5A1.5 1.5 0 0 1 26.5 16H20A1.5 1.5 0 0 1 18.5 14.5V12.5A1.5 1.5 0 0 1 20 11ZM21.6 12.5H24.9A.6 .6 0 0 1 25.5 13.1V13.9A.6 .6 0 0 1 24.9 14.5H21.6A.6 .6 0 0 1 21 13.9V13.1A.6 .6 0 0 1 21.6 12.5Z"/>
+  <path class="m" d="M14.8 17H33.2A1.8 1.8 0 0 1 35 18.8V22.2A1.8 1.8 0 0 1 33.2 24H14.8A1.8 1.8 0 0 1 13 22.2V18.8A1.8 1.8 0 0 1 14.8 17ZM16.7 19.25H18.7A.7 .7 0 0 1 19.4 19.95V21.05A.7 .7 0 0 1 18.7 21.75H16.7A.7 .7 0 0 1 16 21.05V19.95A.7 .7 0 0 1 16.7 19.25ZM23 19.25H25A.7 .7 0 0 1 25.7 19.95V21.05A.7 .7 0 0 1 25 21.75H23A.7 .7 0 0 1 22.3 21.05V19.95A.7 .7 0 0 1 23 19.25ZM29.3 19.25H31.3A.7 .7 0 0 1 32 19.95V21.05A.7 .7 0 0 1 31.3 21.75H29.3A.7 .7 0 0 1 28.6 21.05V19.95A.7 .7 0 0 1 29.3 19.25Z"/>
+  <path class="m" d="M8.9 25.5h30.2c.8 0 1.3.85.95 1.55l-2.5 4.9A2 2 0 0 1 35.8 33H12.2a2 2 0 0 1-1.75-1.05l-2.5-4.9A1.05 1.05 0 0 1 8.9 25.5Z"/>
+  <path class="w" d="M8.5 38c2.6-1.9 5.2-1.9 7.8 0s5.2 1.9 7.8 0 5.2-1.9 7.8 0 5.2 1.9 7.8 0" stroke-width="2.4" stroke-linecap="round"/>
 </svg>

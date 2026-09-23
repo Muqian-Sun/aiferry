@@ -1,50 +1,45 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="space-y-8">
       <!-- Title -->
       <div>
-        <h2 class="text-xl font-semibold text-af-ink">
+        <h1 class="auth-title">
           {{ t('auth.welcomeBack') }}
-        </h2>
-        <p class="mt-1 text-sm text-af-ink-3">
+        </h1>
+        <p class="auth-lead">
           {{ t('auth.signInToAccount') }}
         </p>
       </div>
       <!-- Login Form -->
-      <form @submit.prevent="handleLogin" class="space-y-5">
-        <!-- Email Input -->
+      <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
-          <label for="email" class="input-label">
-            {{ t('auth.emailLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-af-ink-4" />
-            </div>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              autofocus
-              autocomplete="email"
-              :disabled="authActionDisabled"
-              class="input pl-11"
-              :class="{ 'input-error': errors.email }"
-              :placeholder="t('auth.emailPlaceholder')"
-            />
-          </div>
+          <label for="email" class="auth-label">{{ t('auth.emailLabel') }}</label>
+          <input
+            id="email"
+            v-model="formData.email"
+            type="email"
+            required
+            autofocus
+            autocomplete="email"
+            :disabled="authActionDisabled"
+            class="input auth-input"
+            :class="{ 'input-error': errors.email }"
+            :placeholder="t('auth.emailPlaceholder')"
+          />
         </div>
 
-        <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
-            {{ t('auth.passwordLabel') }}
-          </label>
+          <div class="mb-1.5 flex items-center justify-between">
+            <label for="password" class="auth-label !mb-0">{{ t('auth.passwordLabel') }}</label>
+            <router-link
+              v-if="passwordResetEnabled && selfServiceEnabled"
+              to="/forgot-password"
+              class="text-13 text-af-ink-3 transition-colors hover:text-af-ink"
+            >
+              {{ t('auth.forgotPassword') }}
+            </router-link>
+          </div>
           <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-af-ink-4" />
-            </div>
             <input
               id="password"
               v-model="formData.password"
@@ -52,29 +47,18 @@
               required
               autocomplete="current-password"
               :disabled="authActionDisabled"
-              class="input pl-11 pr-11"
+              class="input auth-input pr-11"
               :class="{ 'input-error': errors.password }"
               :placeholder="t('auth.passwordPlaceholder')"
             />
             <button
               type="button"
-              @click="showPassword = !showPassword"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-4 transition-colors hover:text-af-ink-2"
+              class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-af-ink-4 transition-colors hover:text-af-ink"
+              @click="showPassword = !showPassword"
             >
-              <Icon v-if="showPassword" name="eyeOff" size="md" />
-              <Icon v-else name="eye" size="md" />
+              <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
-          </div>
-          <div class="mt-1 flex items-center justify-between">
-            <span></span>
-            <router-link
-              v-if="passwordResetEnabled && selfServiceEnabled"
-              to="/forgot-password"
-              class="text-sm font-medium text-af-brand transition-colors hover:text-af-brand-hover"
-            >
-              {{ t('auth.forgotPassword') }}
-            </router-link>
           </div>
         </div>
 
@@ -101,11 +85,11 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="btn btn-primary !mt-6 h-11 w-full text-[15px]"
         >
           <svg
             v-if="isLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
+            class="h-4 w-4 animate-spin"
             fill="none"
             viewBox="0 0 24 24"
           >
@@ -123,7 +107,6 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <Icon v-else name="login" size="md" class="mr-2" />
           {{ isLoading ? t('auth.signingIn') : t('auth.signIn') }}
         </button>
 
@@ -205,7 +188,7 @@
         {{ t('auth.dontHaveAccount') }}
         <router-link
           to="/register"
-          class="font-medium text-af-brand transition-colors hover:text-af-brand-hover"
+          class="font-medium text-af-ink underline-offset-4 hover:underline"
         >
           {{ t('auth.signUp') }}
         </router-link>

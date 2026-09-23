@@ -8,18 +8,19 @@ import { DEFAULT_SITE_NAME } from '@/utils/branding'
  * 统一生成页面标题，避免多处写入 document.title 产生覆盖冲突。
  * 优先使用 titleKey 通过 i18n 翻译，fallback 到静态 routeTitle。
  */
-export function resolveDocumentTitle(routeTitle: unknown, siteName?: string, titleKey?: string): string {
+export function resolveDocumentTitle(routeTitle: unknown, siteName?: string, titleKey?: string, brandFirst = false): string {
   const normalizedSiteName = typeof siteName === 'string' && siteName.trim() ? siteName.trim() : DEFAULT_SITE_NAME
+  const join = (text: string) => (brandFirst ? `${normalizedSiteName} - ${text}` : `${text} - ${normalizedSiteName}`)
 
   if (typeof titleKey === 'string' && titleKey.trim()) {
     const translated = i18n.global.t(titleKey)
     if (translated && translated !== titleKey) {
-      return `${translated} - ${normalizedSiteName}`
+      return join(translated)
     }
   }
 
   if (typeof routeTitle === 'string' && routeTitle.trim()) {
-    return `${routeTitle.trim()} - ${normalizedSiteName}`
+    return join(routeTitle.trim())
   }
 
   return normalizedSiteName
@@ -31,7 +32,12 @@ export interface RouteTitleOptions {
    * 仅充值 → 「充值」，仅订阅 → 「订阅」，缺省/两者都有 → 「充值/订阅」。
    */
   billingMode?: SiteBillingMode
+  /** 条款文档（公开设置 login_agreement_documents）：/legal/:documentId 用文档自己的标题当页签标题 */
+  legalDocuments?: Array<{ id: string; title: string }>
 }
+
+/** 条款页路由名，与 apps/user/routes.ts 中的声明保持一致。 */
+export const LEGAL_DOCUMENT_ROUTE_NAME = 'LegalDocument'
 
 export interface RouteMetaKeys {
   titleKey?: string
@@ -74,7 +80,12 @@ export function resolveRouteDocumentTitle(
     ? customMenuItems.find((item) => item.id === id)
     : undefined
   const menuTitle = menuItem?.label.trim()
+  const documentId = typeof route.params.documentId === 'string' ? route.params.documentId : ''
+  const legalTitle = route.name === LEGAL_DOCUMENT_ROUTE_NAME && documentId
+    ? options.legalDocuments?.find((doc) => doc.id === documentId)?.title.trim()
+    : undefined
+  const exactTitle = menuTitle || legalTitle
   const { titleKey } = resolveRouteMetaKeys(route, options)
 
-  return resolveDocumentTitle(menuTitle || route.meta.title, siteName, menuTitle ? undefined : titleKey)
+  return resolveDocumentTitle(exactTitle || route.meta.title, siteName, exactTitle ? undefined : titleKey, route.meta.titleBrandFirst === true)
 }

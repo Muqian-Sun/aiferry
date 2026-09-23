@@ -75,7 +75,9 @@ export async function setLocale(locale: string): Promise<void> {
   const { useAppStore } = await import('@/stores/app')
   const site = getSiteContext()
   const appStore = useAppStore()
-  document.title = resolveRouteDocumentTitle(site.router.currentRoute.value, appStore.siteName, site.getCustomMenuItems())
+  document.title = resolveRouteDocumentTitle(site.router.currentRoute.value, appStore.siteName, site.getCustomMenuItems(), {
+    legalDocuments: appStore.cachedPublicSettings?.login_agreement_documents
+  })
 }
 
 export function getLocale(): LocaleCode {

@@ -20,8 +20,8 @@ export default {
       primaryNav: 'Primary'
     },
     footer: {
-      home: 'Home',
-      register: 'Sign up'
+      register: 'Sign up',
+      rights: 'All rights reserved'
     },
     topbar: {
       balance: 'Balance',
@@ -35,26 +35,32 @@ export default {
       accountMenu: 'Account menu'
     },
     home: {
+      tabTitle: 'One key, every leading model',
+      legalTabTitle: 'Policies',
       hero: {
-        eyebrow: '{models} models · 4 official protocols · never logged, never sold',
         title: 'One key,',
-        titleAccent: 'every major model.',
-        description: 'Official protocols relayed as-is: keep your SDK, change one base_url. We switch channels but never your model, keep caches hitting, never store your prompts — and never sell them.',
-        getStarted: 'Start free',
+        titleAccent: 'every leading model',
+        description: 'AiFerry relays your requests on the official protocols — never rewritten, never swapped for another model, never sold. Change one base_url and your existing SDKs keep working.',
+        getStarted: 'Get started',
         goToConsole: 'Open console',
         viewPricing: 'Models & pricing',
+        points: {
+          protocol: 'Official protocols, untouched',
+          sameModel: 'Next channel, never another model',
+          ledger: 'Pay per use, every request on the ledger'
+        },
         vendorsLabel: 'Vendors connected'
       },
       features: {
         eyebrow: 'How we work',
         title: 'One job — relaying — done properly',
-        description: 'The less a middle layer does, the better: we do not rewrite your request, swap your model, or keep your data.',
+        description: 'The less a middle layer does, the better: we do not rewrite your request, swap your model, or sell your data.',
         items: {
           passthrough: { title: 'Pass through as-is', body: 'Four official protocols relayed untouched — no private format, no rewriting. SDKs, streaming, tool calls and multimodal behave exactly as direct.' },
           failover: { title: 'No cross-model fallback', body: 'The model you name is the model that runs. On a timeout or error we only move between channels serving that same model — never a quiet downgrade to something cheaper.' },
           cache: { title: 'Cache to the limit', body: 'A session stays pinned to one upstream so prompt caches keep hitting. Long conversations get faster as they go, and cheaper with them.' },
-          privacy: { title: 'Never logged', body: 'Request bodies and model replies are never written to disk. Each call leaves one ledger line — model, tokens, latency, cost — for you to reconcile.' },
-          noSale: { title: 'Never sold', body: 'Not sold, not shared, not used for training. Your requests and bills never reach advertisers, brokers or any third party.' }
+          privacy: { title: 'Conversations not logged', body: 'Successful requests leave no request or reply on our side — only one ledger line: model, tokens, latency, cost. Failed requests are kept for troubleshooting and deleted after 30 days.' },
+          noSale: { title: 'Never sold', body: 'Not sold, not rented, not used for training. Beyond the upstream model that serves your request, your requests and bills go to no third party.' }
         },
         figure: {
           passthrough: { endpoint: 'One base_url', note: 'same protocol, passed through' },
@@ -135,28 +141,33 @@ export default {
     models: {
       title: 'Models',
       description: 'Listed models and their list prices, billed per token or per request',
+      hero: {
+        title: 'Every model, ',
+        titleAccent: 'priced in the open',
+        description: 'Every listed model and its list price, in one place. Search or filter by vendor, then copy a model ID and call it.'
+      },
       allVendors: 'All',
       allBilling: 'All billing',
       searchHint: 'Search models or aliases (press / to focus)',
-      count: '{count} models',
-      view: { label: 'View', table: 'Table', grid: 'Grid' },
-      yourPrice: 'Your price',
-      yourPriceHint: '= list × {multiplier}',
+      vendorTabsLabel: 'Vendor',
+      priceUnit: 'Prices in USD per 1M tokens',
+      yourPriceApplied: 'showing your price (list × {multiplier})',
       multiplierNote: 'Your account multiplier is {multiplier}.',
-      perMillionShort: '$ / 1M tokens',
       timePricing: 'Time-based',
       weekdaysOnly: 'weekdays only',
-      columns: {
-        model: 'Model',
-        vendor: 'Vendor',
-        billing: 'Billing',
+      prices: {
         input: 'Input',
         output: 'Output',
-        cacheRead: 'Cache read'
+        cacheWrite: 'Cache write',
+        cacheWrite1h: 'Cache write (1h)',
+        cacheRead: 'Cache read',
+        imageInput: 'Image input',
+        imageOutput: 'Image output',
+        perRequest: 'Per request',
+        perImage: 'Per image',
+        perSecond: 'Per second'
       },
-      perMillion: 'USD per 1M tokens',
-      listPrice: 'List price',
-      priceNote: 'List prices are this site\'s catalog prices (USD per million tokens); per-request models show no token rates. You pay list price × your account multiplier, recorded per request on the usage page.',
+      priceNote: 'Prices are this site\'s catalog list prices. You pay list price × your account multiplier, recorded per request on the usage page.',
       copyId: 'Copy model ID',
       copied: 'Copied',
       empty: 'No models available',

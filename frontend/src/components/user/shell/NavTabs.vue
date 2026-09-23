@@ -1,5 +1,5 @@
 <template>
-  <nav class="flex h-full min-w-0 items-stretch gap-1" :aria-label="t('userUi.nav.primaryNav')">
+  <nav class="flex h-full min-w-0 items-center gap-1" :aria-label="t('userUi.nav.primaryNav')">
     <template v-for="tab in tabs" :key="tab.path">
       <a
         v-if="tab.external"
@@ -22,7 +22,7 @@
     </template>
 
     <!-- 管理员配置的自定义页收进「更多」 -->
-    <div v-if="more.length" ref="moreRef" class="relative flex items-stretch">
+    <div v-if="more.length" ref="moreRef" class="relative flex items-center">
       <button
         type="button"
         :class="tabClass(moreActive)"
@@ -72,13 +72,12 @@ const moreOpen = ref(false)
 const moreRef = ref<HTMLElement | null>(null)
 const moreActive = computed(() => props.more.some((item) => isTabActive(item, currentPath.value)))
 
-/* 页签：文字 + 2px 底线指示当前页；底线压在顶栏 hairline 上 */
+/* 页签：胶囊式，当前页一块浅底 + 墨色字，其余悬停出浅底 */
 function tabClass(active: boolean): string {
   return [
-    'relative inline-flex h-full shrink-0 items-center gap-1 whitespace-nowrap px-3 text-sm font-medium transition-colors',
-    'focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-af-brand/40',
-    "after:absolute after:inset-x-3 after:bottom-0 after:h-0.5 after:rounded-t after:content-['']",
-    active ? 'text-af-ink after:bg-af-brand' : 'text-af-ink-2 hover:text-af-ink after:bg-transparent'
+    'inline-flex h-9 shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-3.5 text-sm font-medium transition-colors',
+    'focus:outline-none focus-visible:ring-2 focus-visible:ring-af-brand/40',
+    active ? 'bg-af-sunken text-af-ink' : 'text-af-ink-2 hover:bg-af-sunken/70 hover:text-af-ink'
   ].join(' ')
 }
 

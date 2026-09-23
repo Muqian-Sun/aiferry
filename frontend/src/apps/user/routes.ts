@@ -14,7 +14,9 @@ export const userRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/HomeView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Home'
+      title: 'Home',
+      titleKey: 'userUi.home.tabTitle',
+      titleBrandFirst: true
     }
   },
   {
@@ -43,7 +45,8 @@ export const userRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/EmailVerifyView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Verify Email'
+      title: 'Verify Email',
+      titleKey: 'auth.verifyYourEmail'
     }
   },
   {
@@ -132,7 +135,8 @@ export const userRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/auth/ResetPasswordView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Reset Password'
+      title: 'Reset Password',
+      titleKey: 'auth.resetPasswordTitle'
     }
   },
   {
@@ -142,6 +146,7 @@ export const userRoutes: RouteRecordRaw[] = [
     meta: {
       requiresAuth: false,
       title: 'Key Usage',
+      titleKey: 'keyUsage.title',
     }
   },
   {
@@ -150,7 +155,8 @@ export const userRoutes: RouteRecordRaw[] = [
     component: () => import('@/views/public/LegalDocumentView.vue'),
     meta: {
       requiresAuth: false,
-      title: 'Legal Document'
+      title: 'Legal Document',
+      titleKey: 'userUi.home.legalTabTitle'
     }
   },
   {

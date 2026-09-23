@@ -53,7 +53,6 @@ const DEFAULT_AUTHED_PATH = defaultAuthedPath(APP_SITE)
 const props = withDefaults(defineProps<{
   disabled?: boolean
   affCode?: string
-  promoCode?: string
   showDivider?: boolean
 }>(), {
   showDivider: true
@@ -69,10 +68,6 @@ function startLogin(): void {
   const redirectTo = (route.query.redirect as string) || DEFAULT_AUTHED_PATH
   storeOAuthAffiliateCode(resolveAffiliateReferralCode(props.affCode, route.query.aff, route.query.aff_code))
   const params: Record<string, string> = { redirect: redirectTo }
-  const promoCode = props.promoCode?.trim()
-  if (promoCode) {
-    params.promo_code = promoCode
-  }
   emit('start', { provider: 'linuxdo', params })
 }
 </script>
