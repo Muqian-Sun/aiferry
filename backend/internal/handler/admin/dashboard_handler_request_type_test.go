@@ -47,7 +47,7 @@ func (s *dashboardUsageRepoCapture) GetUsageTrendWithFilters(
 	ctx context.Context,
 	startTime, endTime time.Time,
 	granularity string,
-	userID, apiKeyID, accountID, groupID int64,
+	userID, apiKeyID, accountID int64,
 	model string,
 	requestType *int16,
 	stream *bool,
@@ -71,20 +71,10 @@ func (s *dashboardUsageRepoCapture) GetModelStatsWithUsageFiltersBySource(
 	return []usagestats.ModelStat{}, nil
 }
 
-func (s *dashboardUsageRepoCapture) GetGroupStatsWithUsageFilters(
-	ctx context.Context,
-	startTime, endTime time.Time,
-	filters usagestats.UsageLogFilters,
-) ([]usagestats.GroupStat, error) {
-	s.groupNativeCompaction = filters.NativeCompactionV2
-	s.groupMismatch = filters.UpstreamModelMismatch
-	return []usagestats.GroupStat{}, nil
-}
-
 func (s *dashboardUsageRepoCapture) GetModelStatsWithFilters(
 	ctx context.Context,
 	startTime, endTime time.Time,
-	userID, apiKeyID, accountID, groupID int64,
+	userID, apiKeyID, accountID int64,
 	requestType *int16,
 	stream *bool,
 	billingType *int8,
@@ -115,7 +105,6 @@ func newDashboardRequestTypeTestRouter(repo *dashboardUsageRepoCapture) *gin.Eng
 	router := gin.New()
 	router.GET("/admin/dashboard/trend", handler.GetUsageTrend)
 	router.GET("/admin/dashboard/models", handler.GetModelStats)
-	router.GET("/admin/dashboard/groups", handler.GetGroupStats)
 	router.GET("/admin/dashboard/users-ranking", handler.GetUserSpendingRanking)
 	return router
 }
@@ -222,7 +211,6 @@ func TestDashboardNativeCompactionFilterPropagatesAlongsideTransport(t *testing.
 	for _, path := range []string{
 		"/admin/dashboard/trend?request_type=stream&native_compaction_v2=true",
 		"/admin/dashboard/models?request_type=stream&native_compaction_v2=true",
-		"/admin/dashboard/groups?request_type=stream&native_compaction_v2=true",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
@@ -247,7 +235,6 @@ func TestDashboardNativeCompactionFilterRejectsInvalidBoolean(t *testing.T) {
 	for _, path := range []string{
 		"/admin/dashboard/trend?native_compaction_v2=invalid",
 		"/admin/dashboard/models?native_compaction_v2=invalid",
-		"/admin/dashboard/groups?native_compaction_v2=invalid",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
@@ -264,7 +251,6 @@ func TestDashboardModelAuditFilterPropagatesToTrendModelAndGroupQueries(t *testi
 	for _, path := range []string{
 		"/admin/dashboard/trend?upstream_model_mismatch=true",
 		"/admin/dashboard/models?upstream_model_mismatch=true",
-		"/admin/dashboard/groups?upstream_model_mismatch=true",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()
@@ -287,7 +273,6 @@ func TestDashboardModelAuditFilterRejectsInvalidBoolean(t *testing.T) {
 	for _, path := range []string{
 		"/admin/dashboard/trend?upstream_model_mismatch=invalid",
 		"/admin/dashboard/models?upstream_model_mismatch=invalid",
-		"/admin/dashboard/groups?upstream_model_mismatch=invalid",
 	} {
 		req := httptest.NewRequest(http.MethodGet, path, nil)
 		rec := httptest.NewRecorder()

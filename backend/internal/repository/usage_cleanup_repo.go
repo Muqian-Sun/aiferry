@@ -333,9 +333,6 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 		return 0, err
 	}
 
-	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
-		return rollback(err)
-	}
 	query := fmt.Sprintf(`
 		WITH target AS (
 			SELECT id
@@ -375,9 +372,6 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 	}
 
 	if deleted > 0 {
-		if err := invalidateGroupUsageRollupsAt(ctx, tx, earliestDeletedAt); err != nil {
-			return rollback(err)
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
@@ -412,11 +406,6 @@ func buildUsageCleanupWhere(filters service.UsageCleanupFilters) (string, []any)
 	if filters.AccountID != nil {
 		conditions = append(conditions, fmt.Sprintf("account_id = $%d", idx))
 		args = append(args, *filters.AccountID)
-		idx++
-	}
-	if filters.GroupID != nil {
-		conditions = append(conditions, fmt.Sprintf("group_id = $%d", idx))
-		args = append(args, *filters.GroupID)
 		idx++
 	}
 	if filters.Model != nil {

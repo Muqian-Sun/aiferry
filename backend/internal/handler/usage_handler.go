@@ -35,15 +35,6 @@ type userModelStat struct {
 	ActualCost          float64 `json:"actual_cost"`
 }
 
-type userGroupStat struct {
-	GroupID     int64   `json:"group_id"`
-	GroupName   string  `json:"group_name"`
-	Requests    int64   `json:"requests"`
-	TotalTokens int64   `json:"total_tokens"`
-	Cost        float64 `json:"cost"`
-	ActualCost  float64 `json:"actual_cost"`
-}
-
 // UsageHandler handles usage-related requests
 type UsageHandler struct {
 	usageService   *service.UsageService
@@ -95,16 +86,6 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 			return nil, false
 		}
 		apiKeyID = id
-	}
-
-	var groupID int64
-	if groupIDStr := strings.TrimSpace(c.Query("group_id")); groupIDStr != "" {
-		id, err := strconv.ParseInt(groupIDStr, 10, 64)
-		if err != nil {
-			response.BadRequest(c, "Invalid group_id")
-			return nil, false
-		}
-		groupID = id
 	}
 
 	var requestType *int16
@@ -207,7 +188,6 @@ func (h *UsageHandler) parseUserUsageFilters(c *gin.Context, requireRange bool) 
 		Filters: usagestats.UsageLogFilters{
 			UserID:             subject.UserID,
 			APIKeyID:           apiKeyID,
-			GroupID:            groupID,
 			Model:              strings.TrimSpace(c.Query("model")),
 			ModelFilterSource:  usagestats.ModelSourceRequested,
 			RequestType:        requestType,
@@ -534,10 +514,6 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 	if !ok {
 		return
 	}
-	includeGroups, ok := parseBoolQueryWithDefault(c, "include_group_stats", false)
-	if !ok {
-		return
-	}
 
 	resp := gin.H{
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
@@ -562,15 +538,6 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 		}
 		resp["models"] = userModelStatsFromUsageStats(models)
 	}
-	if includeGroups {
-		groups, err := h.usageService.GetGroupStatsWithFilters(c.Request.Context(), parsed.StartTime, parsed.EndTime, parsed.Filters)
-		if err != nil {
-			response.ErrorFrom(c, err)
-			return
-		}
-		resp["groups"] = userGroupStatsFromUsageStats(groups)
-	}
-
 	response.Success(c, resp)
 }
 
@@ -587,21 +554,6 @@ func userModelStatsFromUsageStats(stats []usagestats.ModelStat) []userModelStat 
 			TotalTokens:         stat.TotalTokens,
 			Cost:                stat.Cost,
 			ActualCost:          stat.ActualCost,
-		})
-	}
-	return out
-}
-
-func userGroupStatsFromUsageStats(stats []usagestats.GroupStat) []userGroupStat {
-	out := make([]userGroupStat, 0, len(stats))
-	for _, stat := range stats {
-		out = append(out, userGroupStat{
-			GroupID:     stat.GroupID,
-			GroupName:   stat.GroupName,
-			Requests:    stat.Requests,
-			TotalTokens: stat.TotalTokens,
-			Cost:        stat.Cost,
-			ActualCost:  stat.ActualCost,
 		})
 	}
 	return out

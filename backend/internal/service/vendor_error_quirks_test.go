@@ -293,7 +293,7 @@ type geminiPrecheckUsageRepoStub struct {
 	stats []usagestats.ModelStat
 }
 
-func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, int64, *int16, *bool, *int8) ([]usagestats.ModelStat, error) {
+func (r *geminiPrecheckUsageRepoStub) GetModelStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, *int16, *bool, *int8) ([]usagestats.ModelStat, error) {
 	return r.stats, nil
 }
 

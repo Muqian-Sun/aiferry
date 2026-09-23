@@ -609,7 +609,6 @@ type UsageLog struct {
 	// UpstreamEndpoint is the normalized upstream endpoint path, e.g. /v1/responses.
 	UpstreamEndpoint *string `json:"upstream_endpoint,omitempty"`
 
-	GroupID        *int64 `json:"group_id"`
 	SubscriptionID *int64 `json:"subscription_id"`
 
 	InputTokens         int `json:"input_tokens"`
@@ -708,7 +707,6 @@ type UsageCleanupFilters struct {
 	UserID      *int64    `json:"user_id,omitempty"`
 	APIKeyID    *int64    `json:"api_key_id,omitempty"`
 	AccountID   *int64    `json:"account_id,omitempty"`
-	GroupID     *int64    `json:"group_id,omitempty"`
 	Model       *string   `json:"model,omitempty"`
 	RequestType *string   `json:"request_type,omitempty"`
 	Stream      *bool     `json:"stream,omitempty"`

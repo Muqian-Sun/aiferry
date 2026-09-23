@@ -781,23 +781,6 @@ func (h *GroupHandler) GetStats(c *gin.Context) {
 	_ = groupID // TODO: implement actual stats
 }
 
-// GetUsageSummary returns today's, yesterday's, and cumulative cost for all groups.
-// GET /api/v1/admin/groups/usage-summary
-func (h *GroupHandler) GetUsageSummary(c *gin.Context) {
-	if h.rejectUnsupportedSimpleModeOperation(c, "advanced") {
-		return
-	}
-	todayStart := service.GroupUsageTodayStart(time.Now())
-
-	results, err := h.dashboardService.GetGroupUsageSummary(c.Request.Context(), todayStart)
-	if err != nil {
-		response.Error(c, 500, "Failed to get group usage summary")
-		return
-	}
-
-	response.Success(c, results)
-}
-
 // GetCapacitySummary returns aggregated capacity (concurrency/sessions/RPM) for all active groups.
 // GET /api/v1/admin/groups/capacity-summary
 func (h *GroupHandler) GetCapacitySummary(c *gin.Context) {

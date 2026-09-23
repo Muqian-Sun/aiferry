@@ -32,7 +32,6 @@ type dashboardSnapshotV2Response struct {
 	Stats      *dashboardSnapshotV2Stats        `json:"stats,omitempty"`
 	Trend      []usagestats.TrendDataPoint      `json:"trend,omitempty"`
 	Models     []usagestats.ModelStat           `json:"models,omitempty"`
-	Groups     []usagestats.GroupStat           `json:"groups,omitempty"`
 	UsersTrend []usagestats.UserUsageTrendPoint `json:"users_trend,omitempty"`
 }
 
@@ -40,7 +39,6 @@ type dashboardSnapshotV2Filters struct {
 	UserID                int64
 	APIKeyID              int64
 	AccountID             int64
-	GroupID               int64
 	Model                 string
 	RequestType           *int16
 	Stream                *bool
@@ -56,7 +54,6 @@ type dashboardSnapshotV2CacheKey struct {
 	UserID                int64  `json:"user_id"`
 	APIKeyID              int64  `json:"api_key_id"`
 	AccountID             int64  `json:"account_id"`
-	GroupID               int64  `json:"group_id"`
 	Model                 string `json:"model"`
 	RequestType           *int16 `json:"request_type"`
 	Stream                *bool  `json:"stream"`
@@ -66,7 +63,6 @@ type dashboardSnapshotV2CacheKey struct {
 	IncludeStats          bool   `json:"include_stats"`
 	IncludeTrend          bool   `json:"include_trend"`
 	IncludeModels         bool   `json:"include_models"`
-	IncludeGroups         bool   `json:"include_groups"`
 	IncludeUsersTrend     bool   `json:"include_users_trend"`
 	UsersTrendLimit       int    `json:"users_trend_limit"`
 }
@@ -81,7 +77,6 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 	includeStats := parseBoolQueryWithDefault(c.Query("include_stats"), true)
 	includeTrend := parseBoolQueryWithDefault(c.Query("include_trend"), true)
 	includeModels := parseBoolQueryWithDefault(c.Query("include_model_stats"), true)
-	includeGroups := parseBoolQueryWithDefault(c.Query("include_group_stats"), false)
 	includeUsersTrend := parseBoolQueryWithDefault(c.Query("include_users_trend"), false)
 	usersTrendLimit := 12
 	if raw := strings.TrimSpace(c.Query("users_trend_limit")); raw != "" {
@@ -103,7 +98,6 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		UserID:                filters.UserID,
 		APIKeyID:              filters.APIKeyID,
 		AccountID:             filters.AccountID,
-		GroupID:               filters.GroupID,
 		Model:                 filters.Model,
 		RequestType:           filters.RequestType,
 		Stream:                filters.Stream,
@@ -113,7 +107,6 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 		IncludeStats:          includeStats,
 		IncludeTrend:          includeTrend,
 		IncludeModels:         includeModels,
-		IncludeGroups:         includeGroups,
 		IncludeUsersTrend:     includeUsersTrend,
 		UsersTrendLimit:       usersTrendLimit,
 	})
@@ -129,7 +122,6 @@ func (h *DashboardHandler) GetSnapshotV2(c *gin.Context) {
 			includeStats,
 			includeTrend,
 			includeModels,
-			includeGroups,
 			includeUsersTrend,
 			usersTrendLimit,
 		)
@@ -155,7 +147,7 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 	startTime, endTime time.Time,
 	granularity string,
 	filters *dashboardSnapshotV2Filters,
-	includeStats, includeTrend, includeModels, includeGroups, includeUsersTrend bool,
+	includeStats, includeTrend, includeModels, includeUsersTrend bool,
 	usersTrendLimit int,
 ) (*dashboardSnapshotV2Response, error) {
 	resp := &dashboardSnapshotV2Response{
@@ -185,7 +177,6 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.UserID,
 			filters.APIKeyID,
 			filters.AccountID,
-			filters.GroupID,
 			filters.Model,
 			filters.RequestType,
 			filters.Stream,
@@ -207,7 +198,6 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			filters.UserID,
 			filters.APIKeyID,
 			filters.AccountID,
-			filters.GroupID,
 			usagestats.ModelSourceRequested,
 			filters.RequestType,
 			filters.Stream,
@@ -219,27 +209,6 @@ func (h *DashboardHandler) buildSnapshotV2Response(
 			return nil, errors.New("failed to get model statistics")
 		}
 		resp.Models = models
-	}
-
-	if includeGroups {
-		groups, _, err := h.getGroupStatsCached(
-			ctx,
-			startTime,
-			endTime,
-			filters.UserID,
-			filters.APIKeyID,
-			filters.AccountID,
-			filters.GroupID,
-			filters.RequestType,
-			filters.Stream,
-			filters.NativeCompactionV2,
-			filters.BillingType,
-			filters.UpstreamModelMismatch,
-		)
-		if err != nil {
-			return nil, errors.New("failed to get group statistics")
-		}
-		resp.Groups = groups
 	}
 
 	if includeUsersTrend {
@@ -278,13 +247,6 @@ func parseDashboardSnapshotV2Filters(c *gin.Context) (*dashboardSnapshotV2Filter
 			return nil, err
 		}
 		filters.AccountID = id
-	}
-	if groupIDStr := strings.TrimSpace(c.Query("group_id")); groupIDStr != "" {
-		id, err := strconv.ParseInt(groupIDStr, 10, 64)
-		if err != nil {
-			return nil, err
-		}
-		filters.GroupID = id
 	}
 
 	if requestTypeStr := strings.TrimSpace(c.Query("request_type")); requestTypeStr != "" {

@@ -670,10 +670,6 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 		conditions = append(conditions, fmt.Sprintf("account_id = $%d", len(args)+1))
 		args = append(args, filters.AccountID)
 	}
-	if filters.GroupID > 0 {
-		conditions = append(conditions, fmt.Sprintf("group_id = $%d", len(args)+1))
-		args = append(args, filters.GroupID)
-	}
 	conditions, args = appendUsageLogModelWhereCondition(conditions, args, filters.Model, filters.ModelFilterSource)
 	conditions, args = appendRequestTypeOrStreamWhereCondition(conditions, args, filters.RequestType, filters.Stream)
 	conditions, args = appendNativeCompactionV2WhereCondition(conditions, args, filters.NativeCompactionV2, "")
@@ -1072,7 +1068,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		}
 	}
 
-	models, err := r.GetModelStatsWithFilters(ctx, startTime, endTime, 0, 0, accountID, 0, nil, nil, nil)
+	models, err := r.GetModelStatsWithFilters(ctx, startTime, endTime, 0, 0, accountID, nil, nil, nil)
 	if err != nil {
 		models = []ModelStat{}
 	}

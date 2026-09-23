@@ -19,7 +19,6 @@ func newSimpleModeGroupRouter(svc *stubAdminService) *gin.Engine {
 	r.GET("/groups", h.List)
 	r.GET("/groups/all", h.GetAll)
 	r.GET("/groups/live-capability", h.GetLiveCapability)
-	r.GET("/groups/usage-summary", h.GetUsageSummary)
 	r.GET("/groups/capacity-summary", h.GetCapacitySummary)
 	r.PUT("/groups/sort-order", h.UpdateSortOrder)
 	r.GET("/groups/:id", h.GetByID)
@@ -270,7 +269,6 @@ func TestGroupHandlerSimpleModeBlocksAdvancedOperations(t *testing.T) {
 		{http.MethodGet, "/groups/1/stats", ""},
 		{http.MethodGet, "/groups/1/api-keys", ""},
 		{http.MethodGet, "/groups/live-capability", ""},
-		{http.MethodGet, "/groups/usage-summary", ""},
 		{http.MethodGet, "/groups/capacity-summary", ""},
 		{http.MethodPut, "/groups/sort-order", `{"updates":[{"id":1,"sort_order":1}]}`},
 	}

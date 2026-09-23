@@ -296,8 +296,11 @@ func finalizePostUsageBilling(ctx context.Context, p *postUsageBillingParams, de
 	}
 
 	if p.IsSubscriptionBill {
-		if p.Cost.ActualCost > 0 && p.User != nil && p.APIKey != nil && p.APIKey.GroupID != nil {
-			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, *p.APIKey.GroupID, p.Cost.ActualCost)
+		// 订阅用量缓存的键是 (user, plan)——读侧 GetSubscriptionStatus 用 subscription.PlanID 拼键。
+		// 这里原来传的是 apiKey.GroupID：4b 把订阅与分组解耦（迁移 248）后两者不是同一 ID 空间，
+		// 增量会落到 billing:sub:<user>:<groupID> 这个没人读的键上，无分组 key 更是整个跳过。
+		if p.Cost.ActualCost > 0 && p.User != nil && p.Subscription != nil {
+			deps.billingCacheService.QueueUpdateSubscriptionUsage(p.User.ID, p.Subscription.PlanID, p.Cost.ActualCost)
 		}
 	} else if p.Cost.ActualCost > 0 && p.User != nil {
 		syncBalanceCacheAfterDeduction(ctx, p, deps, result)
@@ -811,7 +814,6 @@ func (s *GatewayService) buildRecordUsageLog(
 		UserAgent:                optionalTrimmedStringPtr(input.UserAgent),
 		IPAddress:                optionalTrimmedStringPtr(input.IPAddress),
 		SessionID:                optionalTrimmedStringPtr(input.SessionID),
-		GroupID:                  apiKey.GroupID,
 		SubscriptionID:           optionalSubscriptionID(subscription),
 		CreatedAt:                time.Now(),
 	}

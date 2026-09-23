@@ -286,7 +286,6 @@ func registerDashboardRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		dashboard.GET("/realtime", h.Admin.Dashboard.GetRealtimeMetrics)
 		dashboard.GET("/trend", h.Admin.Dashboard.GetUsageTrend)
 		dashboard.GET("/models", h.Admin.Dashboard.GetModelStats)
-		dashboard.GET("/groups", h.Admin.Dashboard.GetGroupStats)
 		dashboard.GET("/api-keys-trend", h.Admin.Dashboard.GetAPIKeyUsageTrend)
 		dashboard.GET("/users-trend", h.Admin.Dashboard.GetUserUsageTrend)
 		dashboard.GET("/users-ranking", h.Admin.Dashboard.GetUserSpendingRanking)
@@ -326,7 +325,6 @@ func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	{
 		groups.GET("", h.Admin.Group.List)
 		groups.GET("/all", h.Admin.Group.GetAll)
-		groups.GET("/usage-summary", h.Admin.Group.GetUsageSummary)
 		groups.GET("/capacity-summary", h.Admin.Group.GetCapacitySummary)
 		groups.GET("/live-capability", h.Admin.Group.GetLiveCapability)
 		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)

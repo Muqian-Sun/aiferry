@@ -33,7 +33,6 @@ var usageLogInsertArgTypes = [...]string{
 	"text",        // upstream_model
 	"text",        // upstream_response_model
 	"boolean",     // upstream_model_mismatch
-	"bigint",      // group_id
 	"bigint",      // subscription_id
 	"integer",     // input_tokens
 	"integer",     // output_tokens
@@ -230,7 +229,6 @@ func (r *usageLogRepository) createSingle(ctx context.Context, sqlq sqlExecutor,
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -686,7 +684,6 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -777,7 +774,6 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_model,
 				upstream_response_model,
 				upstream_model_mismatch,
-				group_id,
 				subscription_id,
 				input_tokens,
 				output_tokens,
@@ -837,7 +833,6 @@ func buildUsageLogBatchInsertQuery(keys []string, preparedByKey map[string]usage
 				upstream_model,
 				upstream_response_model,
 				upstream_model_mismatch,
-				group_id,
 				subscription_id,
 				input_tokens,
 				output_tokens,
@@ -937,7 +932,6 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -1023,7 +1017,6 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -1083,7 +1076,6 @@ func buildUsageLogBestEffortInsertQuery(preparedList []usageLogInsertPrepared) (
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -1151,7 +1143,6 @@ func execUsageLogInsertNoResult(ctx context.Context, sqlq sqlExecutor, prepared 
 			upstream_model,
 			upstream_response_model,
 			upstream_model_mismatch,
-			group_id,
 			subscription_id,
 			input_tokens,
 			output_tokens,
@@ -1226,7 +1217,6 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 	log.SyncRequestTypeAndLegacyFields()
 	requestType := int16(log.RequestType)
 
-	groupID := nullInt64(log.GroupID)
 	subscriptionID := nullInt64(log.SubscriptionID)
 	duration := nullInt(log.DurationMs)
 	firstToken := nullInt(log.FirstTokenMs)
@@ -1275,7 +1265,6 @@ func prepareUsageLogInsert(log *service.UsageLog) usageLogInsertPrepared {
 			upstreamModel,
 			upstreamResponseModel,
 			upstreamModelMismatch,
-			groupID,
 			subscriptionID,
 			log.InputTokens,
 			log.OutputTokens,
