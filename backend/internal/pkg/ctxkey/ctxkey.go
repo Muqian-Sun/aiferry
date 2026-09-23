@@ -20,8 +20,6 @@ const (
 	// RequestedPublicModel 是客户端原始请求中的公开模型名。
 	RequestedPublicModel Key = "ctx_requested_public_model"
 
-	// CompositeRouteSource 标识 composite 解析结果来自显式路由还是内置模型探测。
-	CompositeRouteSource Key = "ctx_composite_route_source"
 
 	// InboundProtocol 是本次请求的入站协议（anthropic / chat_completions /
 	// responses / gemini），由网关入口按请求路径设置，供调度做协议偏好。

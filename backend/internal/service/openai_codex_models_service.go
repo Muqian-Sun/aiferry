@@ -589,55 +589,27 @@ func (s *GatewayService) BuildCodexModelsManifestFromCatalog(ctx context.Context
 			accounts = append(accounts, *account)
 		}
 	}
-	return buildCodexModelsManifestForAccounts(PlatformOpenAI, modelIDs, accounts, nil, nil, true)
+	return buildCodexModelsManifestForAccounts(PlatformOpenAI, modelIDs, accounts)
 }
 
 func buildCodexModelsManifestForAccounts(
 	effectivePlatform string,
 	modelIDs []string,
 	accounts []Account,
-	group *Group,
-	compositeRoutes []CompositeModelRoute,
-	compositeRoutesAvailable bool,
 ) ([]byte, error) {
 	imageInputModels := make(map[string]bool, len(modelIDs))
 	searchToolModels := make(map[string]bool, len(modelIDs))
-	metadataModels := codexCatalogMetadataModels(
-		effectivePlatform,
-		modelIDs,
-		accounts,
-		compositeRoutes,
-		compositeRoutesAvailable,
-	)
+	metadataModels := codexCatalogMetadataModels(effectivePlatform, modelIDs, accounts)
 	modelMetadata := make(map[string]codexModelMetadataOverride, len(modelIDs))
 	for _, modelID := range modelIDs {
 		modelID = strings.TrimSpace(modelID)
-		if groupCodexModelSupportsImageInput(
-			effectivePlatform,
-			modelID,
-			accounts,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		) {
+		if groupCodexModelSupportsImageInput(effectivePlatform, modelID, accounts) {
 			imageInputModels[modelID] = true
 		}
-		if groupCodexModelSupportsSearchTool(
-			effectivePlatform,
-			modelID,
-			accounts,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		) {
+		if groupCodexModelSupportsSearchTool(effectivePlatform, modelID, accounts) {
 			searchToolModels[modelID] = true
 		}
-		if metadata, ok := groupCodexModelMetadata(
-			effectivePlatform,
-			modelID,
-			accounts,
-			group,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		); ok {
+		if metadata, ok := groupCodexModelMetadata(effectivePlatform, modelID, accounts); ok {
 			modelMetadata[modelID] = metadata
 		}
 	}
@@ -710,8 +682,6 @@ func codexCatalogMetadataModels(
 	platform string,
 	modelIDs []string,
 	accounts []Account,
-	compositeRoutes []CompositeModelRoute,
-	compositeRoutesAvailable bool,
 ) map[string]string {
 	metadataModels := make(map[string]string, len(modelIDs))
 	for _, modelID := range modelIDs {
@@ -719,13 +689,7 @@ func codexCatalogMetadataModels(
 		if modelID == "" {
 			continue
 		}
-		metadataModelID := resolveCodexCatalogMetadataModel(
-			platform,
-			modelID,
-			accounts,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		)
+		metadataModelID := resolveCodexCatalogMetadataModel(platform, modelID, accounts)
 		if metadataModelID != "" && metadataModelID != modelID {
 			metadataModels[modelID] = metadataModelID
 		}
@@ -737,47 +701,10 @@ func resolveCodexCatalogMetadataModel(
 	platform string,
 	modelID string,
 	accounts []Account,
-	compositeRoutes []CompositeModelRoute,
-	compositeRoutesAvailable bool,
 ) string {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
 		return ""
-	}
-	if platform == PlatformComposite {
-		if !compositeRoutesAvailable {
-			return modelID
-		}
-		if route, matched := matchCompositeRoute(compositeRoutes, modelID, CompositeRouteEndpointResponses); matched {
-			if upstreamModel := strings.TrimSpace(route.UpstreamModel); upstreamModel != "" {
-				return upstreamModel
-			}
-			return modelID
-		}
-		if codexCompositeRouteMatchesModel(compositeRoutes, modelID) {
-			return modelID
-		}
-
-		claimedPlatforms := make(map[string]struct{})
-		for _, account := range accounts {
-			accountPlatform := strings.TrimSpace(account.Platform)
-			if !isConcreteRequestPlatform(accountPlatform) || !codexExplicitModelMappingClaims(account, modelID) {
-				continue
-			}
-			claimedPlatforms[accountPlatform] = struct{}{}
-		}
-		if len(claimedPlatforms) > 1 {
-			return modelID
-		}
-		for accountPlatform := range claimedPlatforms {
-			return uniqueCodexMappedModel(accounts, accountPlatform, modelID)
-		}
-
-		detectedPlatform, detected := DetectModelPlatform(modelID)
-		if !detected {
-			return modelID
-		}
-		platform = detectedPlatform
 	}
 	return uniqueCodexMappedModel(accounts, platform, modelID)
 }
@@ -809,25 +736,10 @@ func groupCodexModelSupportsImageInput(
 	platform string,
 	modelID string,
 	accounts []Account,
-	compositeRoutes []CompositeModelRoute,
-	compositeRoutesAvailable bool,
 ) bool {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
 		return false
-	}
-	upstreamModel := modelID
-	if platform == PlatformComposite {
-		var resolved bool
-		platform, upstreamModel, resolved = resolveCodexCompositeModelTarget(
-			modelID,
-			accounts,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		)
-		if !resolved {
-			return false
-		}
 	}
 	if platform != PlatformOpenAI && platform != PlatformGrok && platform != PlatformDeepseek {
 		return false
@@ -836,11 +748,11 @@ func groupCodexModelSupportsImageInput(
 	candidates := 0
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != platform || !account.IsModelSupported(upstreamModel) {
+		if account.Platform != platform || !account.IsModelSupported(modelID) {
 			continue
 		}
 		candidates++
-		if !accountCodexModelSupportsImageInput(account, account.GetMappedModel(upstreamModel)) {
+		if !accountCodexModelSupportsImageInput(account, account.GetMappedModel(modelID)) {
 			return false
 		}
 	}
@@ -855,25 +767,10 @@ func groupCodexModelSupportsSearchTool(
 	platform string,
 	modelID string,
 	accounts []Account,
-	compositeRoutes []CompositeModelRoute,
-	compositeRoutesAvailable bool,
 ) bool {
 	modelID = strings.TrimSpace(modelID)
 	if modelID == "" {
 		return false
-	}
-	upstreamModel := modelID
-	if platform == PlatformComposite {
-		var resolved bool
-		platform, upstreamModel, resolved = resolveCodexCompositeModelTarget(
-			modelID,
-			accounts,
-			compositeRoutes,
-			compositeRoutesAvailable,
-		)
-		if !resolved {
-			return false
-		}
 	}
 	if platform != PlatformOpenAI {
 		return false
@@ -882,7 +779,7 @@ func groupCodexModelSupportsSearchTool(
 	candidates := 0
 	for i := range accounts {
 		account := &accounts[i]
-		if account.Platform != platform || !account.IsModelSupported(upstreamModel) {
+		if account.Platform != platform || !account.IsModelSupported(modelID) {
 			continue
 		}
 		candidates++
@@ -891,68 +788,6 @@ func groupCodexModelSupportsSearchTool(
 		}
 	}
 	return candidates > 0
-}
-
-func resolveCodexCompositeModelTarget(
-	modelID string,
-	accounts []Account,
-	routes []CompositeModelRoute,
-	routesAvailable bool,
-) (string, string, bool) {
-	if !routesAvailable {
-		return "", "", false
-	}
-	if route, matched := matchCompositeRoute(routes, modelID, CompositeRouteEndpointResponses); matched {
-		upstreamModel := strings.TrimSpace(route.UpstreamModel)
-		if upstreamModel == "" {
-			upstreamModel = modelID
-		}
-		return route.TargetPlatform, upstreamModel, true
-	}
-	if codexCompositeRouteMatchesModel(routes, modelID) {
-		return "", "", false
-	}
-
-	claimedPlatforms := make(map[string]struct{})
-	for _, account := range accounts {
-		platform := strings.TrimSpace(account.Platform)
-		if !isConcreteRequestPlatform(platform) || !codexExplicitModelMappingClaims(account, modelID) {
-			continue
-		}
-		claimedPlatforms[platform] = struct{}{}
-	}
-	if len(claimedPlatforms) > 1 {
-		return "", "", false
-	}
-	for platform := range claimedPlatforms {
-		return platform, modelID, true
-	}
-
-	platform, detected := DetectModelPlatform(modelID)
-	if !detected {
-		return "", "", false
-	}
-	return platform, modelID, true
-}
-
-func codexCompositeRouteMatchesModel(routes []CompositeModelRoute, modelID string) bool {
-	for _, route := range routes {
-		publicModel := strings.TrimSpace(route.PublicModel)
-		if publicModel == "" {
-			continue
-		}
-		switch normalizeCompositeRouteMatchType(route.MatchType) {
-		case CompositeRouteMatchPrefix:
-			if strings.HasPrefix(modelID, publicModel) {
-				return true
-			}
-		default:
-			if modelID == publicModel {
-				return true
-			}
-		}
-	}
-	return false
 }
 
 func codexExplicitModelMappingClaims(account Account, modelID string) bool {
