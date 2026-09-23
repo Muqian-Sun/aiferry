@@ -43,7 +43,6 @@ func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonit
 	for i := range cfg.Platforms {
 		cfg.Platforms[i].Models = append([]string(nil), s.snap.Config.Platforms[i].Models...)
 	}
-	cfg.GroupIDs = append([]int64(nil), s.snap.Config.GroupIDs...)
 	cfg.IgnoredErrorCategories = append([]string(nil), s.snap.Config.IgnoredErrorCategories...)
 	out := *s.snap
 	out.Config = cfg
@@ -119,32 +118,38 @@ func TestChannelMonitorV2BootstrapProgress(t *testing.T) {
 func TestChannelMonitorV2ParseFilterDefaultsAndBuckets(t *testing.T) {
 	svc := &ChannelMonitorV2Service{now: func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) }}
 
-	filter, err := svc.ParseFilter("", []string{"openai", "openai", ""}, []string{"gpt-5"}, []int64{2, 1, 2, 0})
+	filter, err := svc.ParseFilter("", []string{"openai", "openai", ""}, []string{"gpt-5"})
 	require.NoError(t, err)
 	require.Equal(t, "90m", filter.Range)
 	require.Equal(t, 5*time.Minute, filter.Bucket)
 	require.Equal(t, []string{"openai"}, filter.Platforms)
-	require.Equal(t, []int64{1, 2}, filter.GroupIDs)
 	require.Equal(t, 90*time.Minute, filter.End.Sub(filter.Start))
 
-	filter, err = svc.ParseFilter("30d", nil, nil, nil)
+	filter, err = svc.ParseFilter("30d", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 24*time.Hour, filter.Bucket)
-	_, err = svc.ParseFilter("15d", nil, nil, nil)
+	_, err = svc.ParseFilter("15d", nil, nil)
 	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidRange)
 }
 
 func TestParseChannelMonitorV2GroupBy(t *testing.T) {
-	groupBy, err := ParseChannelMonitorV2GroupBy("")
+	// 空值按身份取默认：管理员保留平台视角，普通用户只到模型。
+	groupBy, err := ParseChannelMonitorV2GroupBy("", true)
 	require.NoError(t, err)
-	require.Equal(t, ChannelMonitorV2GroupByPlatformGroup, groupBy)
-	for _, value := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformGroup, ChannelMonitorV2GroupByPlatformModel, ChannelMonitorV2GroupByPlatformGroupModel} {
-		parsed, parseErr := ParseChannelMonitorV2GroupBy(string(value))
+	require.Equal(t, ChannelMonitorV2GroupByPlatformModel, groupBy)
+	groupBy, err = ParseChannelMonitorV2GroupBy("", false)
+	require.NoError(t, err)
+	require.Equal(t, ChannelMonitorV2GroupByModel, groupBy)
+	for _, value := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByModel, ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel} {
+		parsed, parseErr := ParseChannelMonitorV2GroupBy(string(value), true)
 		require.NoError(t, parseErr)
 		require.Equal(t, value, parsed)
 	}
-	_, err = ParseChannelMonitorV2GroupBy("group")
-	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy)
+	// 带分组的两种旧维度已删，解析即拒。
+	for _, value := range []string{"platform_group", "platform_group_model", "group"} {
+		_, err = ParseChannelMonitorV2GroupBy(value, true)
+		require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy, value)
+	}
 }
 
 func TestChannelMonitorV2MatrixForwardsGroupingAndAdminScope(t *testing.T) {
@@ -166,18 +171,12 @@ func TestChannelMonitorV2ConfigValidation(t *testing.T) {
 			{Platform: " OpenAI ", Enabled: true, Models: []string{"gpt-5", "gpt-5", ""}},
 			{Platform: "anthropic", Enabled: true},
 		},
-		GroupIDs: []int64{3, 1, 3},
 	}
 	require.NoError(t, normalizeChannelMonitorV2Config(&cfg))
 	require.Equal(t, 300, cfg.RefreshIntervalSeconds)
 	require.Equal(t, "anthropic", cfg.Platforms[0].Platform)
-	require.Equal(t, []int64{1, 3}, cfg.GroupIDs)
 
 	cfg.RefreshIntervalSeconds = 120
-	require.ErrorIs(t, normalizeChannelMonitorV2Config(&cfg), ErrChannelMonitorV2InvalidConfig)
-
-	cfg.RefreshIntervalSeconds = 60
-	cfg.GroupIDs = []int64{0}
 	require.ErrorIs(t, normalizeChannelMonitorV2Config(&cfg), ErrChannelMonitorV2InvalidConfig)
 }
 
@@ -445,7 +444,6 @@ func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {
 				Platforms: []ChannelMonitorV2PlatformConfig{
 					{Platform: "openai", Enabled: true, Models: []string{"gpt-5"}},
 				},
-				GroupIDs:               []int64{1, 2},
 				IgnoredErrorCategories: []string{"timeout"},
 				UpdatedBy:              &updatedBy,
 			},
@@ -455,7 +453,6 @@ func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {
 	svc := NewChannelMonitorV2Service(repo)
 	snap, err := svc.Snapshot(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
-	require.Empty(t, snap.Config.GroupIDs)
 	require.Empty(t, snap.Config.IgnoredErrorCategories)
 	require.Nil(t, snap.Config.UpdatedBy)
 	require.Empty(t, snap.Config.Platforms[0].Models)

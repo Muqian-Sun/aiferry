@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
 const (
@@ -24,11 +26,18 @@ var (
 type ChannelMonitorV2GroupBy string
 
 const (
-	ChannelMonitorV2GroupByPlatform           ChannelMonitorV2GroupBy = "platform"
-	ChannelMonitorV2GroupByPlatformGroup      ChannelMonitorV2GroupBy = "platform_group"
-	ChannelMonitorV2GroupByPlatformModel      ChannelMonitorV2GroupBy = "platform_model"
-	ChannelMonitorV2GroupByPlatformGroupModel ChannelMonitorV2GroupBy = "platform_group_model"
+	// ChannelMonitorV2GroupByModel 跨平台按模型聚合：非管理员唯一可用的维度，
+	// 也是其默认值——用户只看「每个模型可不可用」，看不到具体上游渠道。
+	ChannelMonitorV2GroupByModel ChannelMonitorV2GroupBy = "model"
+	// 下面两个带平台维度，只有管理员能用。
+	ChannelMonitorV2GroupByPlatform      ChannelMonitorV2GroupBy = "platform"
+	ChannelMonitorV2GroupByPlatformModel ChannelMonitorV2GroupBy = "platform_model"
 )
+
+// RequiresAdmin 报告该维度是否暴露上游渠道（平台），只有管理员可用。
+func (g ChannelMonitorV2GroupBy) RequiresAdmin() bool {
+	return g == ChannelMonitorV2GroupByPlatform || g == ChannelMonitorV2GroupByPlatformModel
+}
 
 type ChannelMonitorV2PlatformConfig struct {
 	Platform string   `json:"platform"`
@@ -41,7 +50,6 @@ type ChannelMonitorV2Config struct {
 	Enabled                bool                             `json:"enabled"`
 	RefreshIntervalSeconds int                              `json:"refresh_interval_seconds"`
 	Platforms              []ChannelMonitorV2PlatformConfig `json:"platforms"`
-	GroupIDs               []int64                          `json:"group_ids"`
 	HealthThresholds       ChannelMonitorV2HealthThresholds `json:"health_thresholds"`
 	// IgnoredErrorCategories are excluded from error_rate / health scoring.
 	// They still appear in the error breakdown with ignored=true (greyed in UI).
@@ -59,7 +67,6 @@ var ChannelMonitorV2ErrorCategories = []string{
 	"context_limit",
 	"invalid_request",
 	"model_unsupported",
-	"group_access",
 	"quota_or_balance",
 	"account_pool_unavailable",
 	"rate_or_capacity",
@@ -76,16 +83,10 @@ var ChannelMonitorV2ErrorCategories = []string{
 type ChannelMonitorV2Filter struct {
 	Range     string
 	Platforms []string
-	GroupIDs  []int64
-	// AllowedGroupIDs is the authenticated viewer's server-derived group scope.
-	// RestrictGroups distinguishes an ordinary user with no allowed groups from
-	// the unrestricted admin/configured scope represented by an empty slice.
-	AllowedGroupIDs []int64
-	RestrictGroups  bool
-	Models          []string
-	Start           time.Time
-	End             time.Time
-	Bucket          time.Duration
+	Models    []string
+	Start     time.Time
+	End       time.Time
+	Bucket    time.Duration
 }
 
 type ChannelMonitorV2Metric struct {
@@ -223,17 +224,9 @@ type ChannelMonitorV2Dimension struct {
 	RequestCount int64  `json:"request_count"`
 }
 
-type ChannelMonitorV2GroupDimension struct {
-	ID           int64  `json:"id"`
-	Name         string `json:"name"`
-	Platform     string `json:"platform,omitempty"`
-	RequestCount int64  `json:"request_count"`
-}
-
 type ChannelMonitorV2Dimensions struct {
-	Platforms []ChannelMonitorV2Dimension      `json:"platforms"`
-	Groups    []ChannelMonitorV2GroupDimension `json:"groups"`
-	Models    []ChannelMonitorV2Dimension      `json:"models"`
+	Platforms []ChannelMonitorV2Dimension `json:"platforms"`
+	Models    []ChannelMonitorV2Dimension `json:"models"`
 }
 
 type ChannelMonitorV2ModelRow struct {
@@ -244,13 +237,11 @@ type ChannelMonitorV2ModelRow struct {
 }
 
 type ChannelMonitorV2MatrixRow struct {
-	Platform  string                       `json:"platform"`
-	GroupID   *int64                       `json:"group_id,omitempty"`
-	GroupName string                       `json:"group_name,omitempty"`
-	Model     string                       `json:"model,omitempty"`
-	Metrics   ChannelMonitorV2Metric       `json:"metrics"`
-	Health    ChannelMonitorV2Health       `json:"health"`
-	Buckets   []ChannelMonitorV2TrendPoint `json:"buckets"`
+	Platform string                       `json:"platform,omitempty"`
+	Model    string                       `json:"model,omitempty"`
+	Metrics  ChannelMonitorV2Metric       `json:"metrics"`
+	Health   ChannelMonitorV2Health       `json:"health"`
+	Buckets  []ChannelMonitorV2TrendPoint `json:"buckets"`
 }
 
 type ChannelMonitorV2Matrix struct {
@@ -440,7 +431,7 @@ func (s *ChannelMonitorV2Service) UpdateConfig(ctx context.Context, cfg ChannelM
 	return s.repo.UpdateConfig(ctx, cfg, expectedVersion)
 }
 
-func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string, platforms, models []string, groupIDs []int64) (ChannelMonitorV2Filter, error) {
+func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string, platforms, models []string) (ChannelMonitorV2Filter, error) {
 	now := s.now().UTC()
 	var window, bucket time.Duration
 	switch strings.TrimSpace(rangeValue) {
@@ -464,12 +455,12 @@ func (s *ChannelMonitorV2Service) ParseFilter(rangeValue string, platforms, mode
 		start = end.Add(-window)
 	}
 	return ChannelMonitorV2Filter{
-		Range: rangeValue, Platforms: normalizeStringSet(platforms), Models: normalizeStringSet(models), GroupIDs: normalizeInt64Set(groupIDs),
+		Range: rangeValue, Platforms: normalizeStringSet(platforms), Models: normalizeStringSet(models),
 		Start: start, End: end, Bucket: bucket,
 	}, nil
 }
 
-func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter ChannelMonitorV2Filter) (*ChannelMonitorV2Dimensions, error) {
+func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter ChannelMonitorV2Filter, admin bool) (*ChannelMonitorV2Dimensions, error) {
 	cfg, err := s.getEnabledConfig(ctx)
 	if err != nil {
 		return nil, err
@@ -481,6 +472,13 @@ func (s *ChannelMonitorV2Service) Dimensions(ctx context.Context, filter Channel
 	// Dimension request_count is operational volume; strip for non-admin callers
 	// at the API edge. Dimensions is shared by user/admin routes — redaction is
 	// applied in the handler for user routes only, so keep raw here.
+	if !admin && dims != nil {
+		// 上游渠道（平台）只对管理员可见：清掉平台清单与模型上的平台标注。
+		dims.Platforms = []ChannelMonitorV2Dimension{}
+		for i := range dims.Models {
+			dims.Models[i].Platform = ""
+		}
+	}
 	return dims, nil
 }
 
@@ -525,6 +523,10 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 	if err != nil {
 		return nil, err
 	}
+	// 功能开关先判，再判身份：功能关着时对任何人都是 CHANNEL_MONITOR_DISABLED。
+	if !admin && groupBy.RequiresAdmin() {
+		return nil, infraerrors.Forbidden("channel_monitor_platform_admin_only", "upstream channel breakdown is admin only")
+	}
 	matrix, err := s.repo.GetMatrix(ctx, filter, *cfg, groupBy, admin)
 	if err != nil {
 		return nil, err
@@ -541,11 +543,15 @@ func (s *ChannelMonitorV2Service) Matrix(ctx context.Context, filter ChannelMoni
 	return matrix, nil
 }
 
-func ParseChannelMonitorV2GroupBy(value string) (ChannelMonitorV2GroupBy, error) {
+// ParseChannelMonitorV2GroupBy 解析维度；空值按调用方身份取默认：
+// 管理员默认 platform_model（保留原有的渠道视角），普通用户默认 model。
+func ParseChannelMonitorV2GroupBy(value string, admin bool) (ChannelMonitorV2GroupBy, error) {
 	groupBy := ChannelMonitorV2GroupBy(strings.TrimSpace(value))
 	if groupBy == "" {
-		// Default presentation: platform / group (matches operator mental model).
-		groupBy = ChannelMonitorV2GroupByPlatformGroup
+		if admin {
+			return ChannelMonitorV2GroupByPlatformModel, nil
+		}
+		return ChannelMonitorV2GroupByModel, nil
 	}
 	if !groupBy.Valid() {
 		return "", fmt.Errorf("%w: %s", ErrChannelMonitorV2InvalidGroupBy, value)
@@ -555,7 +561,7 @@ func ParseChannelMonitorV2GroupBy(value string) (ChannelMonitorV2GroupBy, error)
 
 func (g ChannelMonitorV2GroupBy) Valid() bool {
 	switch g {
-	case ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformGroup, ChannelMonitorV2GroupByPlatformModel, ChannelMonitorV2GroupByPlatformGroupModel:
+	case ChannelMonitorV2GroupByModel, ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel:
 		return true
 	default:
 		return false
@@ -598,9 +604,6 @@ func RedactChannelMonitorV2Dimensions(dims *ChannelMonitorV2Dimensions) {
 	for i := range dims.Models {
 		dims.Models[i].RequestCount = 0
 	}
-	for i := range dims.Groups {
-		dims.Groups[i].RequestCount = 0
-	}
 }
 
 func redactChannelMonitorV2Snapshot(snap *ChannelMonitorV2Snapshot, hideThroughput bool) {
@@ -612,7 +615,7 @@ func redactChannelMonitorV2Snapshot(snap *ChannelMonitorV2Snapshot, hideThroughp
 		redactChannelMonitorV2Metric(&snap.Trend[i].Metrics, hideThroughput)
 	}
 	// Public snapshot only needs display thresholds + refresh cadence, not
-	// operational allow-lists (group_ids, model inventories, ignored categories).
+	// operational allow-lists (model inventories, ignored categories).
 	redactChannelMonitorV2PublicConfig(&snap.Config)
 }
 
@@ -622,7 +625,6 @@ func redactChannelMonitorV2PublicConfig(cfg *ChannelMonitorV2Config) {
 	if cfg == nil {
 		return
 	}
-	cfg.GroupIDs = nil
 	cfg.IgnoredErrorCategories = nil
 	cfg.UpdatedBy = nil
 	for i := range cfg.Platforms {
@@ -754,11 +756,6 @@ func normalizeChannelMonitorV2Config(cfg *ChannelMonitorV2Config) error {
 	if cfg.RefreshIntervalSeconds != 60 && cfg.RefreshIntervalSeconds != 300 {
 		return fmt.Errorf("%w: refresh_interval_seconds must be 60 or 300", ErrChannelMonitorV2InvalidConfig)
 	}
-	var err error
-	cfg.GroupIDs, err = normalizeChannelMonitorV2GroupIDs(cfg.GroupIDs)
-	if err != nil {
-		return err
-	}
 	cfg.IgnoredErrorCategories = normalizeChannelMonitorV2IgnoredCategories(cfg.IgnoredErrorCategories)
 	cfg.HealthThresholds = NormalizeChannelMonitorV2HealthThresholds(cfg.HealthThresholds)
 	seen := make(map[string]struct{}, len(cfg.Platforms))
@@ -786,7 +783,6 @@ var DefaultChannelMonitorV2IgnoredErrorCategories = []string{
 	"client_cancelled",
 	"content_policy",
 	"context_limit",
-	"group_access",
 	"model_unsupported",
 	"not_found",
 	"quota_or_balance",
@@ -934,23 +930,6 @@ func normalizeInt64Set(values []int64) []int64 {
 	}
 	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
 	return out
-}
-
-func normalizeChannelMonitorV2GroupIDs(values []int64) ([]int64, error) {
-	seen := make(map[int64]struct{}, len(values))
-	out := make([]int64, 0, len(values))
-	for _, value := range values {
-		if value <= 0 {
-			return nil, fmt.Errorf("%w: group_ids must be positive", ErrChannelMonitorV2InvalidConfig)
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out, nil
 }
 
 func ChannelMonitorV2HealthFor(metrics ChannelMonitorV2Metric) ChannelMonitorV2Health {

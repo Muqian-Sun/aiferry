@@ -33,9 +33,6 @@ func ClassifyChannelMonitorV2Error(input ChannelMonitorV2ErrorInput) string {
 	if channelMonitorV2ContainsAny(text, "does not support the requested model", "not supported by any configured account", "model not supported", "unsupported model") {
 		return "model_unsupported"
 	}
-	if channelMonitorV2ContainsAny(text, "group not allowed", "group_not_allowed", "group access") {
-		return "group_access"
-	}
 	if channelMonitorV2ContainsAny(text, "run out of credits", "insufficient balance", "insufficient quota", "subscription", "quota exceeded", "billing hard limit") {
 		return "quota_or_balance"
 	}

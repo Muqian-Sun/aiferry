@@ -1,10 +1,8 @@
 package handler
 
 import (
-	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -14,16 +12,11 @@ import (
 )
 
 type ChannelMonitorV2Handler struct {
-	service       *service.ChannelMonitorV2Service
-	apiKeyService channelMonitorV2GroupAuthorizer
+	service *service.ChannelMonitorV2Service
 }
 
-type channelMonitorV2GroupAuthorizer interface {
-	GetAvailableGroups(ctx context.Context, userID int64) ([]service.Group, error)
-}
-
-func NewChannelMonitorV2Handler(svc *service.ChannelMonitorV2Service, apiKeyService *service.APIKeyService) *ChannelMonitorV2Handler {
-	return &ChannelMonitorV2Handler{service: svc, apiKeyService: apiKeyService}
+func NewChannelMonitorV2Handler(svc *service.ChannelMonitorV2Service) *ChannelMonitorV2Handler {
+	return &ChannelMonitorV2Handler{service: svc}
 }
 
 // channelMonitorV2IsAdmin is true when the request already passed admin auth
@@ -75,10 +68,7 @@ func (h *ChannelMonitorV2Handler) Dimensions(c *gin.Context) {
 		return
 	}
 	admin := channelMonitorV2IsAdmin(c)
-	if !h.scopeFilter(c, &filter, admin) {
-		return
-	}
-	result, err := h.service.Dimensions(c.Request.Context(), filter)
+	result, err := h.service.Dimensions(c.Request.Context(), filter, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
@@ -104,9 +94,6 @@ func (h *ChannelMonitorV2Handler) snapshot(c *gin.Context, admin bool) {
 	if !ok {
 		return
 	}
-	if !h.scopeFilter(c, &filter, admin) {
-		return
-	}
 	result, err := h.service.Snapshot(c.Request.Context(), filter, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -118,9 +105,6 @@ func (h *ChannelMonitorV2Handler) snapshot(c *gin.Context, admin bool) {
 func (h *ChannelMonitorV2Handler) models(c *gin.Context, admin bool) {
 	filter, ok := h.parseFilter(c)
 	if !ok {
-		return
-	}
-	if !h.scopeFilter(c, &filter, admin) {
 		return
 	}
 	result, err := h.service.Models(c.Request.Context(), filter, admin)
@@ -136,12 +120,9 @@ func (h *ChannelMonitorV2Handler) matrix(c *gin.Context, admin bool) {
 	if !ok {
 		return
 	}
-	groupBy, err := service.ParseChannelMonitorV2GroupBy(c.Query("group_by"))
+	groupBy, err := service.ParseChannelMonitorV2GroupBy(c.Query("group_by"), admin)
 	if err != nil {
 		response.BadRequest(c, err.Error())
-		return
-	}
-	if !h.scopeFilter(c, &filter, admin) {
 		return
 	}
 	result, err := h.service.Matrix(c.Request.Context(), filter, groupBy, admin)
@@ -158,9 +139,6 @@ func (h *ChannelMonitorV2Handler) Errors(c *gin.Context) {
 		return
 	}
 	admin := channelMonitorV2IsAdmin(c)
-	if !h.scopeFilter(c, &filter, admin) {
-		return
-	}
 	result, err := h.service.ErrorsForViewer(c.Request.Context(), filter, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -179,9 +157,6 @@ func (h *ChannelMonitorV2Handler) users(c *gin.Context, admin bool) {
 		response.Error(c, http.StatusUnauthorized, "user not found in context")
 		return
 	}
-	if !h.scopeFilter(c, &filter, admin) {
-		return
-	}
 	result, err := h.service.Users(c.Request.Context(), filter, subject.UserID, admin)
 	if err != nil {
 		response.ErrorFrom(c, err)
@@ -190,39 +165,14 @@ func (h *ChannelMonitorV2Handler) users(c *gin.Context, admin bool) {
 	response.Success(c, result)
 }
 
-func (h *ChannelMonitorV2Handler) scopeFilter(c *gin.Context, filter *service.ChannelMonitorV2Filter, admin bool) bool {
-	if admin {
-		return true
-	}
-	if h.apiKeyService == nil {
-		response.Error(c, http.StatusInternalServerError, "channel monitor group authorization unavailable")
-		return false
-	}
-	subject, ok := middleware.GetAuthSubjectFromContext(c)
-	if !ok || subject.UserID <= 0 {
-		response.Unauthorized(c, "user not found in context")
-		return false
-	}
-	groups, err := h.apiKeyService.GetAvailableGroups(c.Request.Context(), subject.UserID)
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return false
-	}
-	filter.RestrictGroups = true
-	filter.AllowedGroupIDs = make([]int64, 0, len(groups))
-	for i := range groups {
-		filter.AllowedGroupIDs = append(filter.AllowedGroupIDs, groups[i].ID)
-	}
-	return true
-}
-
 func (h *ChannelMonitorV2Handler) parseFilter(c *gin.Context) (service.ChannelMonitorV2Filter, bool) {
-	groups, err := parseChannelMonitorV2GroupIDs(queryList(c, "group_id"))
-	if err != nil {
-		response.BadRequest(c, "invalid group_id")
-		return service.ChannelMonitorV2Filter{}, false
+	// 上游渠道只对管理员可见：普通用户传的 platform 筛选直接丢弃（不报错，
+	// 免得老链接 400），管理员保持原有的平台多选。
+	platforms := []string{}
+	if channelMonitorV2IsAdmin(c) {
+		platforms = queryList(c, "platform")
 	}
-	filter, err := h.service.ParseFilter(c.Query("range"), queryList(c, "platform"), queryList(c, "model"), groups)
+	filter, err := h.service.ParseFilter(c.Query("range"), platforms, queryList(c, "model"))
 	if err != nil {
 		response.BadRequest(c, err.Error())
 		return service.ChannelMonitorV2Filter{}, false
@@ -241,16 +191,4 @@ func queryList(c *gin.Context, key string) []string {
 		}
 	}
 	return result
-}
-
-func parseChannelMonitorV2GroupIDs(values []string) ([]int64, error) {
-	result := make([]int64, 0, len(values))
-	for _, value := range values {
-		id, err := strconv.ParseInt(value, 10, 64)
-		if err != nil || id <= 0 {
-			return nil, errors.New("invalid group id")
-		}
-		result = append(result, id)
-	}
-	return result, nil
 }
