@@ -75,7 +75,6 @@ describe('ModelPlazaContent', () => {
     expect(gpt.text()).toContain('$30.00')
     expect(gpt.text()).toContain('$2.5')
     expect(gpt.text()).toContain('gpt-5.5-sol')
-    expect(wrapper.find('[data-testid="catalog-count"]').text()).toContain('"count":3')
     expect(wrapper.get('[data-testid="price-unit"]').text()).toContain('userUi.models.priceUnit')
     expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
     // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格

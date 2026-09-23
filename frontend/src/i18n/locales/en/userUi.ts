@@ -149,7 +149,6 @@ export default {
       allVendors: 'All',
       allBilling: 'All billing',
       searchHint: 'Search models or aliases (press / to focus)',
-      count: '{count} models',
       vendorTabsLabel: 'Vendor',
       priceUnit: 'Prices in USD per 1M tokens',
       yourPriceApplied: 'showing your price (list × {multiplier})',

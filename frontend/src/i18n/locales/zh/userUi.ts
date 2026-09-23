@@ -149,7 +149,6 @@ export default {
       allVendors: '全部',
       allBilling: '全部计费',
       searchHint: '搜索模型、别名（按 / 聚焦）',
-      count: '{count} 个模型',
       vendorTabsLabel: '厂商',
       priceUnit: '价格单位：美元 / 百万 Token',
       yourPriceApplied: '已按你的账户倍率 ×{multiplier} 折算',

@@ -1,6 +1,6 @@
 <template>
   <!--
-    模型页：厂商页签（彩色图标 + 计数）→ 工具行（搜索 / 计费 / 计数 / 价格单位）→ 网格。
+    模型页：厂商页签（彩色图标 + 计数）→ 工具（计费 / 搜索 / 价格单位，与页签同一行）→ 网格。
     只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名。
     价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子里直接显示折算后的你的价格，工具行注明倍率。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
@@ -37,7 +37,7 @@
     <div v-else v-reveal="120" class="space-y-6">
       <!--
         厂商页签与工具同一行（muqian：放到跟厂商一行）：左边页签（品牌色图标 + 计数，多了横向滚动），
-        右边计数 / 价格单位 / 计费模式 / 搜索（/ 聚焦）。价格单位只在这里写一次（格子里不再逐个写）。
+        右边计费模式 / 搜索（/ 聚焦）/ 价格单位（muqian：不显示模型个数，搜索在单位左边）。价格单位只在这里写一次（格子里不再逐个写）。
         lg 以下工具掉到页签下面一行；lg 起整行一条底线，页签撑满行高、激活下划线压在底线上。
       -->
       <div class="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-8 lg:border-b lg:border-af-hairline">
@@ -63,19 +63,16 @@
           </button>
         </div>
         <div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 lg:flex-nowrap lg:py-2">
-          <span class="text-13 tabular-nums text-af-ink-3" data-testid="catalog-count">
-            {{ t('userUi.models.count', { count: filtered.length }) }}
-          </span>
+          <Select v-if="billingModeOptions.length > 2" v-model="selectedBillingMode" :options="billingModeOptions" class="w-36" />
+          <div ref="searchRef" class="plaza-search w-full sm:w-64">
+            <SearchInput v-model="searchQuery" :placeholder="t('userUi.models.searchHint')" />
+          </div>
           <p class="text-13 text-af-ink-3" data-testid="price-unit">
             {{ t('userUi.models.priceUnit') }}
             <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
               · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
             </span>
           </p>
-          <Select v-if="billingModeOptions.length > 2" v-model="selectedBillingMode" :options="billingModeOptions" class="w-36" />
-          <div ref="searchRef" class="plaza-search w-full sm:w-64">
-            <SearchInput v-model="searchQuery" :placeholder="t('userUi.models.searchHint')" />
-          </div>
         </div>
       </div>
 
