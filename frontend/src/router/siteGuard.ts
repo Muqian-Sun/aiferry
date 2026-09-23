@@ -70,7 +70,9 @@ export function createSiteGuard(options: SiteGuardOptions) {
       authInitialized = true
     }
 
-    document.title = resolveRouteDocumentTitle(to, appStore.siteName, options.getCustomMenuItems())
+    document.title = resolveRouteDocumentTitle(to, appStore.siteName, options.getCustomMenuItems(), {
+      legalDocuments: appStore.cachedPublicSettings?.login_agreement_documents
+    })
 
     const requiresAuth = to.meta.requiresAuth !== false // Default to true
     const backendModeBlocksUsers = isUserSite && appStore.backendModeEnabled

@@ -35,6 +35,8 @@ export default {
       accountMenu: '账户菜单'
     },
     home: {
+      tabTitle: '一把 Key，摆渡全球大模型',
+      legalTabTitle: '使用政策与隐私',
       hero: {
         title: '一把 Key，',
         titleAccent: '摆渡全球大模型',

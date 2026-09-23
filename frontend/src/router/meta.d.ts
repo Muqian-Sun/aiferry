@@ -73,6 +73,12 @@ declare module 'vue-router' {
     titleKey?: string
 
     /**
+     * 页签标题把站名放在前面（「站名 - 标题」），首页用：「AiFerry - 一把 Key，摆渡全球大模型」
+     * @default false
+     */
+    titleBrandFirst?: boolean
+
+    /**
      * i18n key for the page description
      */
     descriptionKey?: string

@@ -19,6 +19,7 @@ const appStore = useAppStore()
 function updateDocumentTitle() {
   document.title = resolveRouteDocumentTitle(route, appStore.siteName, getSiteContext().getCustomMenuItems(), {
     billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
+    legalDocuments: appStore.cachedPublicSettings?.login_agreement_documents,
   })
 }
 

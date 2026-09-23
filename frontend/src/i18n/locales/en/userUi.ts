@@ -35,6 +35,8 @@ export default {
       accountMenu: 'Account menu'
     },
     home: {
+      tabTitle: 'One key, every leading model',
+      legalTabTitle: 'Policies',
       hero: {
         title: 'One key,',
         titleAccent: 'every leading model',
