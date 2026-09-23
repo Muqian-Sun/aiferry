@@ -234,7 +234,7 @@ func (s *fakePayloadStore) Ping(context.Context) error { return s.pingErr }
 func asyncConfig() ActiveConfig {
 	return ActiveConfig{
 		RiskControlEnabled: true, Enabled: true, BlockingEnabled: false, Strategy: "priority",
-		WorkerCount: 1, QueueCapacity: 8, Scanners: []string{"pii"}, AllGroups: true, ConfigVersion: 7,
+		WorkerCount: 1, QueueCapacity: 8, Scanners: []string{"pii"}, ConfigVersion: 7,
 		Endpoints: []ActiveEndpoint{{ID: "guard", Enabled: true, TimeoutMS: 1000, InputLimit: 3}},
 	}
 }
@@ -289,19 +289,13 @@ func TestEnqueuerStagingPayloadPublishProtocolAndFailureCleanup(t *testing.T) {
 	})
 }
 
-func TestEnqueuerSkipsOffOutOfScopeAndNoText(t *testing.T) {
+func TestEnqueuerSkipsOffAndNoText(t *testing.T) {
 	tests := []struct {
 		name string
 		cfg  ActiveConfig
 		req  Request
 	}{
 		{name: "off", cfg: ActiveConfig{}, req: asyncRequest()},
-		{name: "out of scope", cfg: func() ActiveConfig {
-			cfg := asyncConfig()
-			cfg.AllGroups = false
-			cfg.GroupIDs = []int64{9}
-			return cfg
-		}(), req: asyncRequest()},
 		{name: "no user text", cfg: asyncConfig(), req: Request{Protocol: "openai_chat_completions", Body: []byte(`{"messages":[{"role":"function","content":"not audited"}]}`)}},
 	}
 	for _, tt := range tests {
@@ -584,12 +578,9 @@ func TestPromptAuditSyntheticAsyncBaseline(t *testing.T) {
 }
 
 func TestRequestCloneOwnsMutableInputs(t *testing.T) {
-	groupID := int64(7)
-	req := Request{Body: []byte("original"), GroupID: &groupID}
+	req := Request{Body: []byte("original")}
 	clone := req.Clone()
 	clone.Body[0] = 'X'
-	*clone.GroupID = 8
 	require.Equal(t, []byte("original"), req.Body)
-	require.Equal(t, int64(7), *req.GroupID)
 	require.False(t, reflect.ValueOf(req.Body).Pointer() == reflect.ValueOf(clone.Body).Pointer())
 }

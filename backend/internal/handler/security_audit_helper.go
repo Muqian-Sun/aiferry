@@ -132,7 +132,7 @@ func logSecurityAuditStart(reqLog *zap.Logger, request securityaudit.Request, bo
 	}
 	reqLog.Info("security_audit.gateway_check_start",
 		zap.String("request_id", request.RequestID), zap.Int64("user_id", request.UserID),
-		zap.Int64("api_key_id", request.APIKeyID), zap.Int64p("group_id", request.GroupID),
+		zap.Int64("api_key_id", request.APIKeyID),
 		zap.String("endpoint", request.Endpoint), zap.String("provider", request.Provider),
 		zap.String("protocol", request.Protocol), zap.String("model", request.Model), zap.String("stage", request.Stage),
 		zap.Int("body_bytes", bodyBytes), zap.Bool("cached", cached))
@@ -161,8 +161,8 @@ func buildSecurityAuditRequest(c *gin.Context, apiKey *service.APIKey, subject m
 	legacy := buildContentModerationInput(c, apiKey, subject, protocol, model, body)
 	request := securityaudit.Request{
 		RequestID: legacy.RequestID, UserID: legacy.UserID, UserEmail: legacy.UserEmail,
-		APIKeyID: legacy.APIKeyID, APIKeyName: legacy.APIKeyName, GroupID: cloneSecurityAuditGroupID(legacy.GroupID),
-		GroupName: legacy.GroupName, Provider: legacy.Provider, Endpoint: legacy.Endpoint,
+		APIKeyID: legacy.APIKeyID, APIKeyName: legacy.APIKeyName,
+		Provider: legacy.Provider, Endpoint: legacy.Endpoint,
 		Protocol: legacy.Protocol, Model: legacy.Model, Body: body, Stage: strings.TrimSpace(stage),
 	}
 	if apiKey != nil && apiKey.User != nil {
@@ -202,12 +202,4 @@ func securityAuditMessage(decision *securityaudit.Decision) string {
 		return decision.ClientMessage
 	}
 	return "Request blocked by content policy"
-}
-
-func cloneSecurityAuditGroupID(value *int64) *int64 {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
 }

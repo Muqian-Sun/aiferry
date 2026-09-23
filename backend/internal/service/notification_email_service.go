@@ -923,7 +923,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 			"quota_remaining":     "20.00",
 			"quota_threshold":     "20%",
 			"triggered_at":        "2026-05-20 12:00:00",
-			"group_name":          "默认分组",
 			"moderation_category": "violence",
 			"moderation_score":    "0.982",
 			"violation_count":     "2",
@@ -971,7 +970,6 @@ func notificationEmailSampleVariables(locale string) map[string]string {
 		"quota_remaining":     "20.00",
 		"quota_threshold":     "20%",
 		"triggered_at":        "2026-05-20 12:00:00",
-		"group_name":          "Default group",
 		"moderation_category": "violence",
 		"moderation_score":    "0.982",
 		"violation_count":     "2",
@@ -1109,7 +1107,7 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Category:    "risk_control",
 		Optional:    false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
-			"triggered_at", "group_name", "moderation_category", "moderation_score", "violation_count", "ban_threshold"),
+			"triggered_at", "moderation_category", "moderation_score", "violation_count", "ban_threshold"),
 	},
 	NotificationEmailEventContentModerationDisabled: {
 		Event:       NotificationEmailEventContentModerationDisabled,
@@ -1118,7 +1116,7 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Category:    "risk_control",
 		Optional:    false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
-			"triggered_at", "group_name", "moderation_category", "moderation_score", "violation_count", "ban_threshold"),
+			"triggered_at", "moderation_category", "moderation_score", "violation_count", "ban_threshold"),
 	},
 	NotificationEmailEventCyberPolicyNotice: {
 		Event:       NotificationEmailEventCyberPolicyNotice,
@@ -1127,7 +1125,7 @@ var notificationEmailEventDefinitions = map[string]NotificationEmailEventInfo{
 		Category:    "risk_control",
 		Optional:    false,
 		Placeholders: append(append([]string{}, notificationEmailCommonPlaceholders...),
-			"triggered_at", "model", "group_name", "upstream_message"),
+			"triggered_at", "model", "upstream_message"),
 	},
 	NotificationEmailEventOpsAlert: {
 		Event:       NotificationEmailEventOpsAlert,
@@ -1328,7 +1326,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>Your API request triggered the platform content moderation/risk-control policy.</p>
 <table style="width:100%;border-collapse:collapse;">
   <tr><td>Triggered at</td><td>{{triggered_at}}</td></tr>
-  <tr><td>Group</td><td>{{group_name}}</td></tr>
   <tr><td>Category / Score</td><td>{{moderation_category}} / {{moderation_score}}</td></tr>
   <tr><td>Violation count</td><td>{{violation_count}} / {{ban_threshold}}</td></tr>
 </table>
@@ -1341,7 +1338,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>您的 API 请求触发了平台内容审核/风控策略。</p>
 <table style="width:100%;border-collapse:collapse;">
   <tr><td>触发时间</td><td>{{triggered_at}}</td></tr>
-  <tr><td>所属分组</td><td>{{group_name}}</td></tr>
   <tr><td>命中类别 / 分数</td><td>{{moderation_category}} / {{moderation_score}}</td></tr>
   <tr><td>累计触发次数</td><td>{{violation_count}} / {{ban_threshold}}</td></tr>
 </table>
@@ -1356,7 +1352,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>Your account has repeatedly triggered platform content moderation/risk-control rules and has been automatically disabled.</p>
 <table style="width:100%;border-collapse:collapse;">
   <tr><td>Disabled at</td><td>{{triggered_at}}</td></tr>
-  <tr><td>Group</td><td>{{group_name}}</td></tr>
   <tr><td>Category / Score</td><td>{{moderation_category}} / {{moderation_score}}</td></tr>
   <tr><td>Violation count</td><td>{{violation_count}} / {{ban_threshold}}</td></tr>
 </table>
@@ -1369,7 +1364,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <p>您的账户在统计周期内多次触发平台内容审核/风控规则，系统已自动禁用该账户。</p>
 <table style="width:100%;border-collapse:collapse;">
   <tr><td>禁用时间</td><td>{{triggered_at}}</td></tr>
-  <tr><td>所属分组</td><td>{{group_name}}</td></tr>
   <tr><td>命中类别 / 分数</td><td>{{moderation_category}} / {{moderation_score}}</td></tr>
   <tr><td>累计触发次数</td><td>{{violation_count}} / {{ban_threshold}}</td></tr>
 </table>
@@ -1385,7 +1379,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
   <tr><td style="width:128px;vertical-align:top;">Triggered at</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{triggered_at}}</td></tr>
   <tr><td style="width:128px;vertical-align:top;">Model</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{model}}</td></tr>
-  <tr><td style="width:128px;vertical-align:top;">Group</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{group_name}}</td></tr>
   <tr><td style="width:128px;vertical-align:top;">Upstream message</td><td style="overflow-wrap:anywhere;word-break:break-all;white-space:pre-wrap;">{{upstream_message}}</td></tr>
 </table>
 <p>If you believe this is a mistake, try rephrasing your request, or apply for authorized security access.</p>`),
@@ -1398,7 +1391,6 @@ var notificationEmailOfficialTemplates = map[string]map[string]notificationEmail
 <table style="width:100%;border-collapse:collapse;table-layout:fixed;">
   <tr><td style="width:128px;vertical-align:top;">触发时间</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{triggered_at}}</td></tr>
   <tr><td style="width:128px;vertical-align:top;">模型</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{model}}</td></tr>
-  <tr><td style="width:128px;vertical-align:top;">所属分组</td><td style="overflow-wrap:anywhere;word-break:break-word;">{{group_name}}</td></tr>
   <tr><td style="width:128px;vertical-align:top;">上游说明</td><td style="overflow-wrap:anywhere;word-break:break-all;white-space:pre-wrap;">{{upstream_message}}</td></tr>
 </table>
 <p>如认为系误判，可调整请求措辞后重试，或申请获得授权的安全访问权限。</p>`),

@@ -1785,7 +1785,6 @@ func TestBuildContentModerationAccountDisabledEmailBody_ContainsBanDetails(t *te
 	body := buildContentModerationAccountDisabledEmailBody("Sub2API <Admin>", &ContentModerationLog{
 		UserID:          &userID,
 		UserEmail:       "user@example.com",
-		GroupName:       "vip_2",
 		HighestCategory: "sexual",
 		HighestScore:    0.926,
 		ViolationCount:  10,

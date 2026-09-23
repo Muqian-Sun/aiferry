@@ -1067,7 +1067,6 @@ func TestOpenAIResponsesWebSocket_ContentModerationBlocksFirstFrame(t *testing.T
 		Model:        "omni-moderation-latest",
 		APIKeys:      []string{"sk-test"},
 		SampleRate:   100,
-		AllGroups:    true,
 		BlockMessage: "内容审计测试阻断",
 	}
 	rawCfg, err := json.Marshal(cfg)

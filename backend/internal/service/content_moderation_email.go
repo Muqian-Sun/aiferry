@@ -37,7 +37,6 @@ func buildContentModerationViolationEmailBody(siteName string, log *ContentModer
         <table style="width:100%%;border-collapse:collapse;font-size:16px;">
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发时间</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发来源</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">内容审核</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">所属分组</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">命中类别</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s / %.3f</td></tr>
           <tr><td style="padding:12px 0;color:#888;">累计触发次数</td><td style="padding:12px 0;color:#dc2626;font-weight:700;">%d 次（阈值 %d）</td></tr>
         </table>
@@ -50,7 +49,6 @@ func buildContentModerationViolationEmailBody(siteName string, log *ContentModer
 </html>`,
 		html.EscapeString(userName),
 		html.EscapeString(time.Now().Format("2006-01-02 15:04:05")),
-		html.EscapeString(defaultContentModerationString(log.GroupName, "-")),
 		html.EscapeString(defaultContentModerationString(log.HighestCategory, "-")),
 		log.HighestScore,
 		log.ViolationCount,
@@ -86,7 +84,6 @@ func buildContentModerationAccountDisabledEmailBody(siteName string, log *Conten
         <table style="width:100%%;border-collapse:collapse;font-size:16px;">
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">封禁时间</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">触发来源</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">内容审核</td></tr>
-          <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">所属分组</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s</td></tr>
           <tr><td style="padding:12px 0;color:#888;border-bottom:1px solid #fee2e2;">命中类别</td><td style="padding:12px 0;border-bottom:1px solid #fee2e2;">%s / %.3f</td></tr>
           <tr><td style="padding:12px 0;color:#888;">累计触发次数</td><td style="padding:12px 0;color:#dc2626;font-weight:700;">%d 次（阈值 %d）</td></tr>
         </table>
@@ -100,7 +97,6 @@ func buildContentModerationAccountDisabledEmailBody(siteName string, log *Conten
 </html>`,
 		html.EscapeString(userName),
 		html.EscapeString(time.Now().Format("2006-01-02 15:04:05")),
-		html.EscapeString(defaultContentModerationString(log.GroupName, "-")),
 		html.EscapeString(defaultContentModerationString(log.HighestCategory, "-")),
 		log.HighestScore,
 		log.ViolationCount,
