@@ -296,7 +296,11 @@ SELECT
 
   NOW()
 FROM ops_metrics_hourly
+-- group_id IS NULL 不是可有可无的过滤：小时表里还躺着上线前写入的分组行（本 PR 之前的
+-- GROUPING SETS 第三层），它们与平台行统计的是同一批请求。按 (日期, 平台) 汇总时若不排除，
+-- 同一个平台会被算两遍。7c 删掉 group_id 列后这一条连同判空一起去掉。
 WHERE bucket_start >= $1 AND bucket_start < $2
+  AND group_id IS NULL
 GROUP BY 1, 2
 ON CONFLICT (bucket_date, COALESCE(platform, ''), COALESCE(group_id, 0)) DO UPDATE SET
   success_count = EXCLUDED.success_count,
