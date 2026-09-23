@@ -585,6 +585,7 @@ export default {
     description: '邀请新用户注册，并将返利额度转入账户余额',
     yourCode: '我的邀请码',
     inviteLink: '邀请链接',
+    inviteTitle: '邀请',
     copyCode: '复制邀请码',
     copyLink: '复制链接',
     codeCopied: '邀请码已复制',
@@ -593,7 +594,6 @@ export default {
     transferFailed: '转入余额失败',
     stats: {
       rebateRate: '我的返利比例',
-      rebateRateHint: '被邀请用户每次充值后你可获得的返利比例',
       invitedUsers: '邀请人数',
       availableQuota: '可转返利额度',
       frozenQuota: '冻结中',

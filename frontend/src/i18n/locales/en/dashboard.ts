@@ -584,6 +584,7 @@ export default {
     description: 'Invite new users and convert your rebate quota into account balance',
     yourCode: 'Your Affiliate Code',
     inviteLink: 'Invite Link',
+    inviteTitle: 'Invite',
     copyCode: 'Copy Code',
     copyLink: 'Copy Link',
     codeCopied: 'Affiliate code copied',
@@ -592,7 +593,6 @@ export default {
     transferFailed: 'Failed to transfer affiliate quota',
     stats: {
       rebateRate: 'My Rebate Rate',
-      rebateRateHint: 'What you earn each time an invitee recharges',
       invitedUsers: 'Invited Users',
       availableQuota: 'Available Rebate Quota',
       frozenQuota: 'Frozen',

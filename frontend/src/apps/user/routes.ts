@@ -253,8 +253,8 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAuth: true,
           requiresAdmin: false,
           title: 'Top up',
-          titleKey: 'nav.buySubscription',
-          descriptionKey: 'purchase.description',
+          titleKey: 'nav.recharge',
+          descriptionKey: 'purchase.rechargeDescription',
           requiresPayment: true
         }
       },
@@ -280,6 +280,7 @@ export const userRoutes: RouteRecordRaw[] = [
           requiresAdmin: false,
           title: 'My Orders',
           titleKey: 'nav.myOrders',
+          descriptionKey: 'userUi.billing.ordersDescription',
           requiresPayment: true
         }
       },

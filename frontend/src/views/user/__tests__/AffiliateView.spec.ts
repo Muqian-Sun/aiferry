@@ -76,17 +76,12 @@ describe('AffiliateView', () => {
     const values = wrapper.findAll('code')
     expect(values).toHaveLength(2)
     for (const value of values) {
-      expect(value.classes()).toEqual(expect.arrayContaining([
-        'min-w-0',
-        'break-all',
-        'sm:flex-1',
-        'sm:truncate',
-      ]))
-      expect(Array.from(value.element.parentElement?.classList ?? [])).toEqual(expect.arrayContaining([
-        'flex-col',
-        'items-stretch',
-        'sm:flex-row',
-        'sm:items-center',
+      // 长值单行截断；整行 flex-wrap，窄屏时复制按钮换到下一行
+      expect(value.classes()).toEqual(expect.arrayContaining(['block', 'truncate']))
+      expect(Array.from(value.element.parentElement?.parentElement?.classList ?? [])).toEqual(expect.arrayContaining([
+        'flex',
+        'flex-wrap',
+        'items-center',
       ]))
     }
 
@@ -95,11 +90,7 @@ describe('AffiliateView', () => {
     )
     expect(copyButtons).toHaveLength(2)
     for (const button of copyButtons) {
-      expect(button.classes()).toEqual(expect.arrayContaining([
-        'w-full',
-        'sm:w-auto',
-        'sm:shrink-0',
-      ]))
+      expect(button.classes()).toEqual(expect.arrayContaining(['shrink-0']))
     }
 
     await copyButtons[0].trigger('click')

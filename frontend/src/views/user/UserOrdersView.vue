@@ -13,10 +13,10 @@
         <OrderTable :orders="orders" :loading="loading">
           <template #actions="{ row }">
             <div class="flex items-center gap-1">
-              <button v-if="row.status === 'PENDING'" class="btn btn-ghost btn-sm text-af-warning" @click="handleCancel(row.id)">
+              <button v-if="row.status === 'PENDING'" class="btn btn-ghost btn-sm text-af-ink-2 hover:text-af-danger" @click="handleCancel(row.id)">
                 {{ t('payment.orders.cancel') }}
               </button>
-              <button v-if="canRequestRefund(row)" class="btn btn-ghost btn-sm text-af-brand" @click="openRefundDialog(row)">
+              <button v-if="canRequestRefund(row)" class="btn btn-ghost btn-sm text-af-ink" @click="openRefundDialog(row)">
                 {{ t('payment.orders.requestRefund') }}
               </button>
             </div>

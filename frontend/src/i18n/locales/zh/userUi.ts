@@ -115,6 +115,7 @@ export default {
     billing: {
       title: '账务',
       description: '充值、订阅、订单与邀请返利',
+      ordersDescription: '充值与订阅的支付记录；待支付的订单可以取消',
       tabs: {
         recharge: '充值',
         subscriptions: '订阅',

@@ -40,7 +40,7 @@
           <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
             <div class="min-w-0 pr-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.rechargeAccount') }}</dt>
-              <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || '' }}</dd>
+              <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || user?.email || '' }}</dd>
             </div>
             <div class="min-w-0 pl-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.currentBalance') }}</dt>
