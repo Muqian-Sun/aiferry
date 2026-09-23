@@ -141,7 +141,6 @@ export interface SubscriptionPlan {
 
 export interface PaymentChannel {
   id: number
-  group_id?: number
   name: string
   platform: string
   rate_multiplier: number

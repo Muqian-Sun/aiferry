@@ -23,7 +23,7 @@ describe('Admin UI request marker', () => {
     expect(shouldMarkAdminUIRequest(requestURL, 'user')).toBe(true)
   })
 
-  it.each(['/keys', '/groups/available', '/auth/me', '/announcements', '/dashboard'])(
+  it.each(['/keys', '/auth/me', '/announcements', '/dashboard'])(
     'marks every request %s sent from the admin console',
     (requestURL) => {
       expect(shouldMarkAdminUIRequest(requestURL, 'admin')).toBe(true)
@@ -56,8 +56,6 @@ describe('User UI request marker', () => {
     '/user/platform-quotas',
     '/keys',
     '/keys/12',
-    '/groups/available',
-    '/groups/rates',
     '/usage',
     '/usage/stats',
     '/usage/dashboard/snapshot-v2',

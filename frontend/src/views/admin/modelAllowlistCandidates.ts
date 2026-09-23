@@ -1,11 +1,11 @@
-import type { GroupPlatform } from "@/types";
+import type { AccountPlatform } from "@/types";
 
 export type ModelAllowlistCandidatesMode = "create" | "edit";
 
 export interface ModelAllowlistCandidatesRequest {
   mode: ModelAllowlistCandidatesMode;
   groupID: number;
-  platform: GroupPlatform;
+  platform: AccountPlatform;
 }
 
 export interface ModelAllowlistCandidatesTracker {

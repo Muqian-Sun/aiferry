@@ -10,11 +10,8 @@ let pendingLoad: Promise<boolean> | null = null
 const pageSize = 100
 
 function keyAllowsBatchImage(key: ApiKey): boolean {
-  return (
-    key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
-    key.group?.allow_batch_image_generation === true
-  )
+  // 分组删除后（7b-3b-3）批量生图不再由分组开关控制：活跃 key 一律可用，后端仍会按资源能力拒绝。
+  return key.status === 'active'
 }
 
 async function loadBatchImageAccess(force = false): Promise<boolean> {
