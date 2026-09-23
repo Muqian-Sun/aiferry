@@ -34,55 +34,58 @@ func schedulingTestKey(id int64, label string, endpoints map[string]string, grou
 	return account
 }
 
+// 平台池：账号平台必须相等（key 与成品号同一条规则），key 另外要求按入站协议能选出已配地址的上游协议。
 func TestAccountServesSchedulingPlatform(t *testing.T) {
-	antigravityMixed := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth, Extra: map[string]any{"mixed_scheduling": true}}
-	antigravityNotMixed := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
+	antigravityOAuth := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
 	anthropicOAuth := Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}
-	chatOnlyAnthropicLabel := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
+	chatOnlyOpenAILabel := schedulingTestKey(1, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	anthropicOnlyOpenAILabel := schedulingTestKey(2, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
-	anthropicOnlyAntigravityLabel := schedulingTestKey(3, PlatformAntigravity, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
+	anthropicOnlyAnthropicLabel := schedulingTestKey(3, PlatformAnthropic, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
 
 	tests := []struct {
 		name     string
 		account  Account
 		platform string
 		inbound  string
-		useMixed bool
 		want     bool
 	}{
-		// 成品号：规则不变。
-		{"subscription same platform", anthropicOAuth, PlatformAnthropic, APIProtocolAnthropic, true, true},
-		{"subscription other platform", anthropicOAuth, PlatformGemini, APIProtocolGemini, true, false},
-		{"antigravity mixed enabled in mixed bucket", antigravityMixed, PlatformAnthropic, APIProtocolAnthropic, true, true},
-		{"antigravity mixed enabled outside mixed bucket", antigravityMixed, PlatformAnthropic, APIProtocolAnthropic, false, false},
-		{"antigravity mixed disabled", antigravityNotMixed, PlatformGemini, APIProtocolGemini, true, false},
-		// 第三方 key：只看网关平台与入站协议能否选出一个已配地址的上游协议。
-		{"key chat endpoint on openai gateway", chatOnlyAnthropicLabel, PlatformOpenAI, APIProtocolChatCompletions, false, true},
-		{"key chat endpoint converts responses", chatOnlyAnthropicLabel, PlatformKimi, APIProtocolResponses, false, true},
-		{"key chat endpoint gemini inbound", chatOnlyAnthropicLabel, PlatformOpenAI, APIProtocolGemini, false, false},
-		{"key chat endpoint on its label gateway", chatOnlyAnthropicLabel, PlatformAnthropic, APIProtocolAnthropic, true, false},
-		{"key anthropic endpoint on anthropic gateway", anthropicOnlyOpenAILabel, PlatformAnthropic, APIProtocolAnthropic, true, true},
-		{"key anthropic endpoint on gemini gateway", anthropicOnlyOpenAILabel, PlatformGemini, APIProtocolGemini, true, false},
-		{"key anthropic endpoint extension endpoint", anthropicOnlyOpenAILabel, PlatformOpenAI, "", false, false},
-		{"antigravity-labelled key ignores mixed flag", anthropicOnlyAntigravityLabel, PlatformAnthropic, APIProtocolAnthropic, true, true},
+		// 成品号：平台相等。
+		{"subscription same platform", anthropicOAuth, PlatformAnthropic, APIProtocolAnthropic, true},
+		{"subscription other platform", anthropicOAuth, PlatformGemini, APIProtocolGemini, false},
+		{"antigravity subscription in its own pool", antigravityOAuth, PlatformAntigravity, APIProtocolGemini, true},
+		{"antigravity subscription outside its pool", antigravityOAuth, PlatformAnthropic, APIProtocolAnthropic, false},
+		// 第三方 key：平台相等 + 入站协议能选出一个已配地址的上游协议。
+		{"key chat endpoint on its own pool", chatOnlyOpenAILabel, PlatformOpenAI, APIProtocolChatCompletions, true},
+		{"key chat endpoint converts responses", chatOnlyOpenAILabel, PlatformOpenAI, APIProtocolResponses, true},
+		{"key chat endpoint gemini inbound", chatOnlyOpenAILabel, PlatformOpenAI, APIProtocolGemini, false},
+		{"key on another platform pool", chatOnlyOpenAILabel, PlatformKimi, APIProtocolChatCompletions, false},
+		{"key anthropic endpoint on its own pool", anthropicOnlyAnthropicLabel, PlatformAnthropic, APIProtocolAnthropic, true},
+		{"key anthropic endpoint on another pool", anthropicOnlyOpenAILabel, PlatformAnthropic, APIProtocolAnthropic, false},
+		{"key anthropic endpoint extension endpoint", anthropicOnlyOpenAILabel, PlatformOpenAI, "", false},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			require.Equal(t, tt.want, accountServesSchedulingPlatform(&tt.account, tt.platform, tt.inbound, tt.useMixed))
+			require.Equal(t, tt.want, accountServesSchedulingPlatform(&tt.account, tt.platform, tt.inbound))
 			ctx := WithInboundProtocol(context.Background(), tt.inbound)
-			require.Equal(t, tt.want, isAccountSchedulableOnPlatform(ctx, &tt.account, tt.platform, tt.useMixed))
+			require.Equal(t, tt.want, isAccountSchedulableOnPlatform(ctx, &tt.account, tt.platform))
 		})
 	}
 }
 
-func TestSchedulingBucketAdmitsKeysOfAnyLabel(t *testing.T) {
+// 平台池桶只装平台相等的账号：第三方 key 不再进每个平台的桶（D18）。
+func TestSchedulingBucketAdmitsOnlyMatchingPlatform(t *testing.T) {
 	key := schedulingTestKey(1, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
+	require.True(t, schedulingBucketAdmits(&key, PlatformAnthropic))
 	for _, platform := range schedulerSnapshotPlatforms() {
-		require.True(t, schedulingBucketAdmits(&key, platform, false), platform)
+		if platform == PlatformAnthropic {
+			continue
+		}
+		require.False(t, schedulingBucketAdmits(&key, platform), platform)
 	}
-	antigravityNotMixed := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
-	require.False(t, schedulingBucketAdmits(&antigravityNotMixed, PlatformAnthropic, true))
-	require.True(t, schedulingBucketAdmits(&antigravityNotMixed, PlatformAntigravity, false))
+	antigravityOAuth := Account{Platform: PlatformAntigravity, Type: AccountTypeOAuth}
+	require.False(t, schedulingBucketAdmits(&antigravityOAuth, PlatformAnthropic))
+	require.True(t, schedulingBucketAdmits(&antigravityOAuth, PlatformAntigravity))
+	require.False(t, schedulingBucketAdmits(nil, PlatformAnthropic))
 }
 
 // 粘性会话路径（负载感知 Layer 1.5 与无负载图的回退顺序）同样按协议判断跨标签 key。
@@ -257,31 +260,38 @@ func TestOpenAIQuotaPauseDecision_KeysIgnoreLabel(t *testing.T) {
 	require.False(t, paused)
 }
 
-// Gemini AI Studio 端点（GET /v1beta/models 等）只转发到 Gemini 协议：第三方 key 按有无
-// gemini 地址参与选号，不看平台标签。
+// Gemini AI Studio 端点（GET /v1beta/models 等）只转发到 Gemini 协议，池 = gemini 平台池：
+// key 要标签为 gemini（D18：桶只装平台相等的账号）且配了 gemini 地址。
 func TestGeminiSelectAccountForAIStudioEndpoints_KeysByGeminiEndpoint(t *testing.T) {
-	groupID := int64(21201)
-	geminiEndpointAnthropicLabel := schedulingTestKey(21211, PlatformAnthropic, map[string]string{APIProtocolGemini: schedulingTestRelayURL}, groupID)
-	geminiEndpointAnthropicLabel.Priority = 2
-	geminiEndpointAnthropicLabel.Credentials = map[string]any{"api_key": "relay-key"}
-	anthropicEndpointGeminiLabel := schedulingTestKey(21212, PlatformGemini, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
+	geminiEndpointGeminiLabel := schedulingTestKey(21211, PlatformGemini, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
+	geminiEndpointGeminiLabel.Priority = 2
+	geminiEndpointGeminiLabel.Credentials = map[string]any{"api_key": "relay-key"}
+	anthropicEndpointGeminiLabel := schedulingTestKey(21212, PlatformGemini, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL})
 	anthropicEndpointGeminiLabel.Priority = 1
 	anthropicEndpointGeminiLabel.Credentials = map[string]any{"api_key": "relay-key"}
+	geminiEndpointAnthropicLabel := schedulingTestKey(21213, PlatformAnthropic, map[string]string{APIProtocolGemini: schedulingTestRelayURL})
+	geminiEndpointAnthropicLabel.Credentials = map[string]any{"api_key": "relay-key"}
 
 	repo := &mockAccountRepoForGemini{
-		accounts:     []Account{anthropicEndpointGeminiLabel, geminiEndpointAnthropicLabel},
+		accounts:     []Account{anthropicEndpointGeminiLabel, geminiEndpointGeminiLabel},
 		accountsByID: map[int64]*Account{},
 	}
 	for i := range repo.accounts {
 		repo.accountsByID[repo.accounts[i].ID] = &repo.accounts[i]
 	}
-	svc := &GeminiMessagesCompatService{accountRepo: repo, groupRepo: &mockGroupRepoForGemini{groups: map[int64]*Group{}}}
+	svc := &GeminiMessagesCompatService{accountRepo: repo}
 
 	selected, err := svc.SelectAccountForAIStudioEndpoints(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, geminiEndpointAnthropicLabel.ID, selected.ID)
+	require.Equal(t, geminiEndpointGeminiLabel.ID, selected.ID, "只有配了 gemini 地址的 gemini 标签 key 能承接")
 
+	// 只剩没有 gemini 地址的 key：承接不了
 	repo.accounts = []Account{anthropicEndpointGeminiLabel}
+	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background())
+	require.Error(t, err)
+
+	// 有 gemini 地址但标签不是 gemini：不在 gemini 平台池里
+	repo.accounts = []Account{geminiEndpointAnthropicLabel}
 	_, err = svc.SelectAccountForAIStudioEndpoints(context.Background())
 	require.Error(t, err)
 }

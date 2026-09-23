@@ -79,7 +79,7 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 			h.gatewayService = service.NewGatewayService(
 				nil, nil, nil, nil, nil, nil,
 				&config.Config{RunMode: config.RunModeSimple},
-				service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil),
+				service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil),
 				nil, nil, nil, nil, nil,
 				fixedStatusHTTPUpstream{status: http.StatusInternalServerError, body: `{"error":{"message":"` + keyword + `"}}`},
 				nil, nil, nil, nil, nil, nil, nil, nil, nil,

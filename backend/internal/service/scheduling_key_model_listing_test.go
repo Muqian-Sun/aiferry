@@ -11,9 +11,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 模型可用性诊断、网关模型列表与管理端模型候选按调度同一套平台准入规则统计第三方 key：
-// 看协议地址，不看平台标签。诊断带着请求的入站协议；没有入站请求的模型列表与管理端候选
-// 按「该网关上任一入站协议可承接」统计。
+// 模型可用性诊断与管理端模型候选：诊断走调度那套池规则（平台池 = 平台相等 + 入站协议可承接，
+// 目录路由 = 条目绑定 + 协议转换注册表）；没有入站请求的管理端候选按「能不能承接」统计，不看标签。
 
 func anthropicEndpointKeyWithMapping(id int64, groupID int64) Account {
 	key := schedulingTestKey(id, PlatformOpenAI, map[string]string{APIProtocolAnthropic: schedulingTestRelayURL}, groupID)
@@ -21,16 +20,22 @@ func anthropicEndpointKeyWithMapping(id int64, groupID int64) Account {
 	return key
 }
 
-func TestDiagnoseModelAvailabilityForPlatform_CountsKeysByProtocolNotLabel(t *testing.T) {
-	groupID := int64(21101)
-	key := anthropicEndpointKeyWithMapping(21111, groupID)
+// 无路由的诊断按平台池：key 只算在自己标签的池里（D18）。
+func TestDiagnoseModelAvailabilityForPlatform_PlatformPoolCountsKeysByLabel(t *testing.T) {
+	key := anthropicEndpointKeyWithMapping(21111, 0)
 	repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
 	svc := &GatewayService{accountRepo: repo, cfg: testConfig()}
 	ctx := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
 
-	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformAnthropic)
+	// key 标签是 openai、配 anthropic 地址：openai 池里算数（message 入站转 anthropic）
+	diag := svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformOpenAI)
 	require.True(t, diag.HasAccountsInPool)
 	require.True(t, diag.HasModelSupport)
+
+	// anthropic 池里没有它（标签不符）
+	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformAnthropic)
+	require.False(t, diag.HasAccountsInPool)
+	require.False(t, diag.HasModelSupport)
 
 	diag = svc.DiagnoseModelAvailabilityForPlatform(ctx, "claude-relay-custom", PlatformGemini)
 	require.False(t, diag.HasAccountsInPool)
@@ -64,7 +69,7 @@ func TestDiagnoseModelAvailabilityForPlatform_CatalogRouteUsesBindings(t *testin
 
 func TestOpenAIDiagnoseModelAvailabilityForPlatform_CountsKeysByInboundProtocol(t *testing.T) {
 	groupID := int64(21102)
-	key := schedulingTestKey(21112, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
+	key := schedulingTestKey(21112, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
 	key.Credentials = map[string]any{"model_mapping": map[string]any{"gpt-relay-custom": "gpt-5.1"}}
 	repo := &mockAccountRepoForPlatform{accounts: []Account{key}, accountsByID: map[int64]*Account{}}
 	svc := &OpenAIGatewayService{accountRepo: repo, cfg: testConfig()}

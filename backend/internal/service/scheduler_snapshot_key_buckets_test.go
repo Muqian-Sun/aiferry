@@ -10,7 +10,8 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// 第三方 key 进入所属分组每个网关平台的调度桶；桶内容与入站协议无关，协议在读取时过滤。
+// 平台池桶只装平台相等的账号：第三方 key 与成品号同一条规则（D18），
+// key 的展示标签决定它进哪个池；桶内容与入站协议无关，协议在读取时过滤。
 
 type keyBucketAccountRepo struct {
 	*batchAccountQueryRepo
@@ -41,21 +42,21 @@ func (r *keyBucketAccountRepo) ListSchedulingCandidatesByCatalogEntry(context.Co
 	return nil, nil
 }
 
-func (r *keyBucketAccountRepo) ListSchedulingCandidatesByGroupID(_ context.Context, groupID int64, platforms []string) ([]Account, error) {
+func (r *keyBucketAccountRepo) ListSchedulingCandidates(_ context.Context, platforms []string) ([]Account, error) {
 	var out []Account
 	for _, account := range r.accounts {
-		if schedulingCandidateMatchesForTest(account, platforms) && accountInGroupForTest(&account, groupID) {
+		if schedulingCandidateMatchesForTest(account, platforms) {
 			out = append(out, account)
 		}
 	}
 	return out, nil
 }
 
-func keyBucketFixture(groupID int64) (key Account, subscription Account, repo *keyBucketAccountRepo) {
-	key = schedulingTestKey(21011, PlatformAnthropic, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL}, groupID)
+func keyBucketFixture() (key Account, subscription Account, repo *keyBucketAccountRepo) {
+	// openai 标签的第三方 key（只配了 chat 地址）与 openai 成品号：两者都在 openai 池。
+	key = schedulingTestKey(21011, PlatformOpenAI, map[string]string{APIProtocolChatCompletions: schedulingTestRelayURL})
 	subscription = Account{
 		ID: 21012, Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
-		GroupIDs: []int64{groupID}, AccountGroups: []AccountGroup{{AccountID: 21012, GroupID: groupID}},
 	}
 	repo = &keyBucketAccountRepo{batchAccountQueryRepo: newBatchAccountQueryRepo(), accounts: []Account{key, subscription}}
 	return key, subscription, repo
@@ -68,65 +69,58 @@ func publishedAccountIDs(t *testing.T, cache *bulkEventSnapshotCache, bucket Sch
 	return accountIDs(writes[0].accounts)
 }
 
-func TestSchedulerSnapshot_KeyChangeRebuildsEveryGatewayPlatformBucket(t *testing.T) {
-	groupID := int64(21001)
-	key, subscription, repo := keyBucketFixture(groupID)
+// key 变更只重建它自己标签的平台池（原来是所属分组的每个网关平台桶）。
+func TestSchedulerSnapshot_KeyChangeRebuildsItsOwnPlatformPool(t *testing.T) {
+	key, subscription, repo := keyBucketFixture()
 	cache := newBulkEventSnapshotCache()
 	svc := newBulkEventTestService(cache, repo)
 
 	require.NoError(t, svc.handleAccountEvent(context.Background(), &key.ID, nil, make(map[batchSeenKey]struct{})))
 
-	platforms := schedulerSnapshotPlatforms()
-	require.ElementsMatch(t, schedulerBucketsForTest([]int64{groupID}, platforms[:]...), cache.capturedBuckets())
-	// 桶不看入站协议与标签：openai 桶里有这个 anthropic 标签的 key 与 openai 成品号；
-	// gemini 混合桶里也有这个 key（尽管它没有 gemini 地址），成品号仍按平台归桶。
-	require.Equal(t, []int64{key.ID, subscription.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformOpenAI, Mode: SchedulerModeSingle}))
-	require.Equal(t, []int64{key.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformGemini, Mode: SchedulerModeMixed}))
-	require.Equal(t, []int64{key.ID}, publishedAccountIDs(t, cache, SchedulerBucket{GroupID: groupID, Platform: PlatformGrok, Mode: SchedulerModeForced}))
+	require.ElementsMatch(t, platformPoolBuckets(PlatformOpenAI), cache.capturedBuckets())
+	// 桶不看入站协议：openai 池里有这把 key 与 openai 成品号。
+	require.Equal(t, []int64{key.ID, subscription.ID}, publishedAccountIDs(t, cache, platformPoolBucket(PlatformOpenAI)))
 }
 
-func TestSchedulerSnapshot_SubscriptionChangeKeepsLabelScopedRebuild(t *testing.T) {
-	groupID := int64(21002)
-	_, subscription, repo := keyBucketFixture(groupID)
+func TestSchedulerSnapshot_SubscriptionChangeRebuildsItsOwnPlatformPool(t *testing.T) {
+	_, subscription, repo := keyBucketFixture()
 	cache := newBulkEventSnapshotCache()
 	svc := newBulkEventTestService(cache, repo)
 
 	require.NoError(t, svc.handleAccountEvent(context.Background(), &subscription.ID, nil, make(map[batchSeenKey]struct{})))
 
-	require.ElementsMatch(t, schedulerBucketsForTest([]int64{groupID}, PlatformOpenAI), cache.capturedBuckets())
+	require.ElementsMatch(t, platformPoolBuckets(PlatformOpenAI), cache.capturedBuckets())
 }
 
-func TestSchedulerSnapshot_BulkKeyChangeRebuildsEveryGatewayPlatformBucket(t *testing.T) {
-	groupID := int64(21003)
-	key, _, repo := keyBucketFixture(groupID)
+func TestSchedulerSnapshot_BulkKeyChangeRebuildsItsOwnPlatformPool(t *testing.T) {
+	key, _, repo := keyBucketFixture()
 	cache := newBulkEventSnapshotCache()
 	svc := newBulkEventTestService(cache, repo)
 
 	require.NoError(t, svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{key.ID}, nil), make(map[batchSeenKey]struct{})))
 
-	platforms := schedulerSnapshotPlatforms()
-	require.ElementsMatch(t, schedulerBucketsForTest([]int64{groupID}, platforms[:]...), cache.capturedBuckets())
+	require.ElementsMatch(t, platformPoolBuckets(PlatformOpenAI), cache.capturedBuckets())
 }
 
+// 读取时按入站协议过滤：只配 chat 地址的 key 不承接 gemini 入站。
 func TestSchedulerSnapshot_ListSchedulableAccountsFiltersKeysByInboundProtocol(t *testing.T) {
-	groupID := int64(21004)
-	key, subscription, repo := keyBucketFixture(groupID)
+	key, subscription, repo := keyBucketFixture()
 
 	services := map[string]*SchedulerSnapshotService{
 		// 缓存命中：桶里是未过滤的候选。
-		"cache hit": NewSchedulerSnapshotService(&openAISnapshotCacheStub{snapshotAccounts: []*Account{&key, &subscription}}, nil, nil, nil, &config.Config{RunMode: config.RunModeStandard}),
+		"cache hit": NewSchedulerSnapshotService(&openAISnapshotCacheStub{snapshotAccounts: []*Account{&key, &subscription}}, nil, nil, &config.Config{RunMode: config.RunModeStandard}),
 		// 缓存缺失回源数据库。
-		"db fallback": NewSchedulerSnapshotService(nil, nil, repo, nil, nil),
+		"db fallback": NewSchedulerSnapshotService(nil, nil, repo, nil),
 	}
 	for name, svc := range services {
 		t.Run(name, func(t *testing.T) {
 			chatCtx := WithInboundProtocol(context.Background(), APIProtocolChatCompletions)
-			accounts, _, err := svc.ListSchedulableAccounts(chatCtx, &groupID, PlatformOpenAI, false)
+			accounts, err := svc.ListSchedulableAccounts(chatCtx, PlatformOpenAI)
 			require.NoError(t, err)
 			require.Equal(t, []int64{key.ID, subscription.ID}, accountIDs(accounts))
 
 			geminiCtx := WithInboundProtocol(context.Background(), APIProtocolGemini)
-			accounts, _, err = svc.ListSchedulableAccounts(geminiCtx, &groupID, PlatformOpenAI, false)
+			accounts, err = svc.ListSchedulableAccounts(geminiCtx, PlatformOpenAI)
 			require.NoError(t, err)
 			require.Equal(t, []int64{subscription.ID}, accountIDs(accounts))
 		})

@@ -18,7 +18,7 @@ func TestSchedulerCacheUpdateLastUsedUsesSideKeyWithoutRewritingPayloads(t *test
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
 	bucket := service.SchedulerBucket{
-		GroupID:  9,
+		PoolID:   0,
 		Platform: service.PlatformGrok,
 		Mode:     service.SchedulerModeSingle,
 	}
@@ -124,7 +124,7 @@ func TestSchedulerCacheLastUsedSideKeySurvivesStaleAccountAndSnapshotWrites(t *t
 	ctx := context.Background()
 	cache := newSchedulerCacheUnit(t)
 	bucket := service.SchedulerBucket{
-		GroupID:  10,
+		PoolID:   10,
 		Platform: service.PlatformGrok,
 		Mode:     service.SchedulerModeSingle,
 	}

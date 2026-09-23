@@ -92,7 +92,7 @@ func (s *GatewayService) DiagnoseModelAvailabilityForPlatform(
 
 	diag := ModelAvailabilityDiagnosis{}
 	for i := range accounts {
-		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform, false) {
+		if !isAccountSchedulableOnPlatform(ctx, &accounts[i], platform) {
 			continue
 		}
 		diag.HasAccountsInPool = true

@@ -42,10 +42,6 @@ func (c *schedulerFullRebuildTestCache) CaptureBucketWriteToken(_ context.Contex
 	return SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
 }
 
-func (c *schedulerFullRebuildTestCache) ReopenBucket(_ context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error) {
-	return SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
-}
-
 func TestSchedulerSnapshotServiceFullRebuildCoalescesConcurrentRequestsIntoTrailingRun(t *testing.T) {
 	svc := &SchedulerSnapshotService{}
 	wantTrailingErr := errors.New("trailing rebuild failed")
@@ -135,7 +131,7 @@ func TestSchedulerSnapshotServiceFullRebuildRunsAgainForSequentialRequest(t *tes
 
 func TestSchedulerSnapshotServiceInitialFullRebuildFailsClosedWhenListBucketsFails(t *testing.T) {
 	cache := &schedulerFullRebuildTestCache{listErr: errors.New("list buckets failed")}
-	svc := NewSchedulerSnapshotService(cache, nil, nil, nil, nil)
+	svc := NewSchedulerSnapshotService(cache, nil, nil, nil)
 
 	svc.runInitialRebuild()
 

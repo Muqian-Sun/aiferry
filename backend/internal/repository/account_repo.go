@@ -2101,19 +2101,6 @@ func (r *accountRepository) ListSchedulingCandidatesByCatalogEntry(ctx context.C
 	return accounts, nil
 }
 
-func (r *accountRepository) ListSchedulingCandidatesByGroupID(ctx context.Context, groupID int64, platforms []string) ([]service.Account, error) {
-	if len(platforms) == 0 {
-		return nil, nil
-	}
-	// 复用按分组查询逻辑，保证分组优先级 + 账号优先级的排序与筛选一致。
-	return r.queryAccountsByGroup(ctx, groupID, accountGroupQueryOptions{
-		status:                service.StatusActive,
-		schedulable:           true,
-		platforms:             platforms,
-		includeThirdPartyKeys: true,
-	})
-}
-
 // ListModelAvailabilityCandidates returns the persistently configured account
 // pool used to decide whether a model is supported. Unlike scheduling queries,
 // it intentionally ignores transient runtime state (rate limits, overload,

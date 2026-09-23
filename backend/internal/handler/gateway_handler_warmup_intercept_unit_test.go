@@ -38,18 +38,6 @@ func (f *fakeSchedulerCache) CaptureBucketWriteToken(_ context.Context, bucket s
 func (f *fakeSchedulerCache) SetSnapshot(_ context.Context, _ service.SchedulerBucket, _ service.SchedulerBucketWriteToken, _ []service.Account) error {
 	return nil
 }
-func (f *fakeSchedulerCache) RetireBucket(_ context.Context, _ service.SchedulerBucket) error {
-	return nil
-}
-func (f *fakeSchedulerCache) ReopenBucket(_ context.Context, bucket service.SchedulerBucket) (service.SchedulerBucketWriteToken, error) {
-	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
-}
-func (f *fakeSchedulerCache) TryAcquireGroupLifecycleLease(_ context.Context, _ int64, _ time.Duration) (service.SchedulerGroupLifecycleLease, bool, error) {
-	return service.SchedulerGroupLifecycleLease{}, false, nil
-}
-func (f *fakeSchedulerCache) ReleaseGroupLifecycleLease(_ context.Context, _ service.SchedulerGroupLifecycleLease) error {
-	return nil
-}
 func (f *fakeSchedulerCache) GetAccount(_ context.Context, id int64) (*service.Account, error) {
 	for _, account := range f.accounts {
 		if account != nil && account.ID == id {
@@ -160,7 +148,7 @@ func newTestGatewayHandler(t *testing.T, group *service.Group, accounts []*servi
 	t.Helper()
 
 	schedulerCache := &fakeSchedulerCache{accounts: accounts}
-	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil, nil)
+	schedulerSnapshot := service.NewSchedulerSnapshotService(schedulerCache, nil, nil, nil)
 
 	gwSvc := service.NewGatewayService(
 		nil, // accountRepo (not used: scheduler snapshot hit)

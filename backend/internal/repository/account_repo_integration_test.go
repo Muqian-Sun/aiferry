@@ -43,22 +43,6 @@ func (s *schedulerCacheRecorder) SetSnapshot(ctx context.Context, bucket service
 	return nil
 }
 
-func (s *schedulerCacheRecorder) RetireBucket(ctx context.Context, bucket service.SchedulerBucket) error {
-	return nil
-}
-
-func (s *schedulerCacheRecorder) ReopenBucket(ctx context.Context, bucket service.SchedulerBucket) (service.SchedulerBucketWriteToken, error) {
-	return service.SchedulerBucketWriteToken{Bucket: bucket, Epoch: 1}, nil
-}
-
-func (s *schedulerCacheRecorder) TryAcquireGroupLifecycleLease(_ context.Context, groupID int64, _ time.Duration) (service.SchedulerGroupLifecycleLease, bool, error) {
-	return service.SchedulerGroupLifecycleLease{GroupID: groupID, OwnerToken: "scheduler-cache-recorder"}, true, nil
-}
-
-func (s *schedulerCacheRecorder) ReleaseGroupLifecycleLease(context.Context, service.SchedulerGroupLifecycleLease) error {
-	return nil
-}
-
 func (s *schedulerCacheRecorder) GetAccount(ctx context.Context, accountID int64) (*service.Account, error) {
 	if s.accounts == nil {
 		return nil, nil
@@ -1553,7 +1537,7 @@ func (s *AccountRepoSuite) TestUpdateExtra_AnthropicThresholdRefreshesCandidateS
 	})
 	cache := NewSchedulerCache(testRedis(s.T()))
 	s.repo.schedulerCache = cache
-	bucket := service.SchedulerBucket{GroupID: account.ID, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
+	bucket := service.SchedulerBucket{PoolID: account.ID, Platform: service.PlatformAnthropic, Mode: service.SchedulerModeSingle}
 	token, err := cache.CaptureBucketWriteToken(s.ctx, bucket)
 	s.Require().NoError(err)
 	s.Require().NoError(cache.SetSnapshot(s.ctx, bucket, token, []service.Account{*account}))

@@ -78,19 +78,20 @@ func TestAccountServesCatalogRoute_KeysFollowUpstreamAddresses(t *testing.T) {
 	require.False(t, accountServesCatalogRoute(nil, PlatformOpenAI, APIProtocolChatCompletions))
 }
 
-// 目录路由下 antigravity 成品号不再看 mixed_scheduling 开关；同一账号无 route 时按分组规则被排除。
-func TestIsAccountSchedulableOnPlatform_CatalogRouteIgnoresMixedFlag(t *testing.T) {
+// 目录路由下资格只看协议转换注册表（antigravity 成品号能承接 message 入站）；
+// 无路由时按平台池规则，平台不相等就出局。
+func TestIsAccountSchedulableOnPlatform_CatalogRouteVersusPlatformPool(t *testing.T) {
 	antigravity := &Account{ID: 9, Type: AccountTypeOAuth, Platform: PlatformAntigravity, Status: StatusActive, Schedulable: true}
-	require.False(t, antigravity.IsMixedSchedulingEnabled())
 
 	routed := catalogRouteCtx(7, APIProtocolAnthropic)
-	require.True(t, isAccountSchedulableOnPlatform(routed, antigravity, PlatformAnthropic, true))
+	require.True(t, isAccountSchedulableOnPlatform(routed, antigravity, PlatformAnthropic))
 
 	unrouted := WithInboundProtocol(context.Background(), APIProtocolAnthropic)
-	require.False(t, isAccountSchedulableOnPlatform(unrouted, antigravity, PlatformAnthropic, true))
+	require.False(t, isAccountSchedulableOnPlatform(unrouted, antigravity, PlatformAnthropic))
+	require.True(t, isAccountSchedulableOnPlatform(unrouted, antigravity, PlatformAntigravity))
 
 	geminiOAuth := &Account{ID: 10, Type: AccountTypeOAuth, Platform: PlatformGemini, Status: StatusActive, Schedulable: true}
-	filtered := filterAccountsSchedulableOnPlatform(catalogRouteCtx(7, APIProtocolResponses), []Account{*antigravity, *geminiOAuth}, PlatformGemini, false)
+	filtered := filterAccountsSchedulableOnPlatform(catalogRouteCtx(7, APIProtocolResponses), []Account{*antigravity, *geminiOAuth}, PlatformGemini)
 	require.Len(t, filtered, 1, "gemini oauth cannot serve responses; antigravity can")
 	require.Equal(t, int64(9), filtered[0].ID)
 }
