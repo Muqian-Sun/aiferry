@@ -7,21 +7,22 @@
     一行大字「全部模型，明码标价」（后半句流动光泽，muqian：放一行）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
   <div class="space-y-6">
-    <div v-if="!embedded" class="grid gap-8 pb-4 pt-4 sm:pt-8 lg:grid-cols-[1fr_auto] lg:items-end">
+    <!-- 页首收紧（muqian：占的空间过大）：标题 40px、说明一行、数字小一档，整块约 120px 高 -->
+    <div v-if="!embedded" class="grid gap-6 pt-2 sm:pt-4 lg:grid-cols-[1fr_auto] lg:items-end">
       <header v-reveal.stagger data-testid="plaza-hero">
-        <h1 class="text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.02em] text-af-ink sm:text-[3.25rem]">
+        <h1 class="text-[2rem] font-semibold leading-tight tracking-[-0.02em] text-af-ink sm:text-[2.5rem]">
           {{ t('userUi.models.hero.title') }}<span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
         </h1>
-        <p class="mt-5 max-w-xl text-[17px] leading-8 text-af-ink-2">{{ t('userUi.models.hero.description') }}</p>
+        <p class="mt-3 max-w-2xl text-[15px] leading-7 text-af-ink-2">{{ t('userUi.models.hero.description') }}</p>
       </header>
       <!-- 数字：目录加载完才出现，自己挂 v-reveal，出现时才从 0 跳到位 -->
       <dl v-if="catalog.length" v-reveal="200" class="flex divide-x divide-af-hairline" data-testid="plaza-stats">
-        <div v-for="stat in stats" :key="stat.key" class="px-8 first:pl-0 last:pr-0">
-          <dd class="text-4xl font-semibold tabular-nums text-af-ink">
+        <div v-for="stat in stats" :key="stat.key" class="px-6 first:pl-0 last:pr-0">
+          <dd class="text-[1.75rem] font-semibold leading-none tabular-nums text-af-ink">
             <span class="count-up" :style="{ '--count-to': stat.value }" aria-hidden="true" />
             <span class="sr-only">{{ stat.value }}</span>
           </dd>
-          <dt class="mt-1.5 text-13 text-af-ink-3">{{ t(`userUi.home.stats.${stat.key}`) }}</dt>
+          <dt class="mt-2 text-xs text-af-ink-3">{{ t(`userUi.home.stats.${stat.key}`) }}</dt>
         </div>
       </dl>
     </div>
