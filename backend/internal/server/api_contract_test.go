@@ -508,7 +508,6 @@ func TestAPIContracts(t *testing.T) {
 								"request_type": "stream",
 								"native_compaction_v2": false,
 								"openai_ws_mode": false,
-								"group_id": null,
 								"subscription_id": null,
 							"input_tokens": 10,
 							"output_tokens": 20,
@@ -1303,7 +1302,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	}
 
 	userService := service.NewUserService(userRepo, nil, nil, nil)
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, nil, apiKeyCache, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, userRepo, apiKeyCache, cfg)
 
 	usageRepo := newStubUsageLogRepo()
 	usageService := service.NewUsageService(usageRepo, userRepo, nil, nil)

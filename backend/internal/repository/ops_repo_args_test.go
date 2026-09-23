@@ -14,8 +14,9 @@ func TestOpsInsertErrorLogArgsPreservesExplicitZeroUpstreamStatus(t *testing.T) 
 	zero := 0
 	args := opsInsertErrorLogArgs(&service.OpsInsertErrorLogInput{UpstreamStatusCode: &zero})
 
-	require.Len(t, args, 38)
-	encoded, ok := args[27].(sql.NullInt64)
+	// group_id 列已删：实参从 38 降到 37，upstream_status_code 前移一位。
+	require.Len(t, args, 37)
+	encoded, ok := args[26].(sql.NullInt64)
 	require.True(t, ok)
 	require.True(t, encoded.Valid)
 	require.Zero(t, encoded.Int64)

@@ -47,7 +47,7 @@ func (f *subscriptionAuthFixture) serve(t *testing.T, getActiveByID func(context
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := &config.Config{RunMode: config.RunModeStandard}
-	apiKeyService := service.NewAPIKeyService(f.apiKeyRepo, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(f.apiKeyRepo, nil, nil, cfg)
 	subRepo := &stubUserSubscriptionRepo{
 		getActiveByID: func(ctx context.Context, id int64) (*service.UserSubscription, error) {
 			f.subCalls.Add(1)

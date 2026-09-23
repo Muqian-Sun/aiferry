@@ -21,10 +21,8 @@ type dashboardUsageRepoCapture struct {
 	modelRequestType      *int16
 	modelStream           *bool
 	modelNativeCompaction *bool
-	groupNativeCompaction *bool
 	trendMismatch         *bool
 	modelMismatch         *bool
-	groupMismatch         *bool
 	rankingLimit          int
 	ranking               []usagestats.UserSpendingRankingItem
 	rankingTotal          float64
@@ -222,8 +220,6 @@ func TestDashboardNativeCompactionFilterPropagatesAlongsideTransport(t *testing.
 	require.True(t, *repo.trendNativeCompaction)
 	require.NotNil(t, repo.modelNativeCompaction)
 	require.True(t, *repo.modelNativeCompaction)
-	require.NotNil(t, repo.groupNativeCompaction)
-	require.True(t, *repo.groupNativeCompaction)
 	require.NotNil(t, repo.trendRequestType)
 	require.Equal(t, int16(service.RequestTypeStream), *repo.trendRequestType)
 }
@@ -262,8 +258,6 @@ func TestDashboardModelAuditFilterPropagatesToTrendModelAndGroupQueries(t *testi
 	require.True(t, *repo.trendMismatch)
 	require.NotNil(t, repo.modelMismatch)
 	require.True(t, *repo.modelMismatch)
-	require.NotNil(t, repo.groupMismatch)
-	require.True(t, *repo.groupMismatch)
 }
 
 func TestDashboardModelAuditFilterRejectsInvalidBoolean(t *testing.T) {

@@ -188,7 +188,7 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	groupID := int64(9)
 	cacheEntry := &APIKeyAuthCacheEntry{
@@ -232,7 +232,7 @@ func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return &APIKeyAuthCacheEntry{NotFound: true}, nil
 	}
@@ -265,7 +265,7 @@ func TestAPIKeyService_GetByKey_CacheMissStoresL2(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return nil, redis.Nil
 	}
@@ -302,7 +302,7 @@ func TestAPIKeyService_GetByKey_UsesL1Cache(t *testing.T) {
 			L1TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 	require.NotNil(t, svc.authCacheL1)
 
 	_, err := svc.GetByKey(context.Background(), "k-l1")
@@ -329,7 +329,7 @@ func TestAPIKeyService_InvalidateAuthCacheByUserID(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByUserID(context.Background(), 7)
 	require.Len(t, cache.deleteAuthKeys, 2)
@@ -347,7 +347,7 @@ func TestAPIKeyService_InvalidateAuthCacheByGroupID(t *testing.T) {
 			L2TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByGroupID(context.Background(), 9)
 	require.Len(t, cache.deleteAuthKeys, 2)
@@ -365,7 +365,7 @@ func TestAPIKeyService_InvalidateAuthCacheByKey(t *testing.T) {
 			L2TTLSeconds: 60,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByKey(context.Background(), "k1")
 	require.Len(t, cache.deleteAuthKeys, 1)
@@ -388,7 +388,7 @@ func TestAPIKeyService_GetByKey_CachesNegativeOnRepoMiss(t *testing.T) {
 			NegativeTTLSeconds: 30,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 	cache.getAuthCache = func(ctx context.Context, key string) (*APIKeyAuthCacheEntry, error) {
 		return nil, redis.Nil
 	}
@@ -412,7 +412,7 @@ func TestAPIKeyService_GetByKeyRejectsInvalidLengthBeforeCaches(t *testing.T) {
 		t.Fatal("invalid credential reached repository")
 		return nil, nil
 	}}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L2TTLSeconds: 60}})
+	svc := NewAPIKeyService(repo, nil, cache, &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{L2TTLSeconds: 60}})
 
 	for _, key := range []string{"", strings.Repeat("x", MaxAPIKeyCredentialBytes+1)} {
 		_, err := svc.GetByKey(context.Background(), key)
@@ -429,7 +429,7 @@ func TestAPIKeyService_GetByKeyAllowsMaximumLength(t *testing.T) {
 		require.Equal(t, key, got)
 		return nil, ErrAPIKeyNotFound
 	}}
-	svc := NewAPIKeyService(repo, nil, nil, nil, nil, &config.Config{})
+	svc := NewAPIKeyService(repo, nil, nil, &config.Config{})
 	_, err := svc.GetByKey(context.Background(), key)
 	require.ErrorIs(t, err, ErrAPIKeyNotFound)
 	require.Equal(t, int32(1), repoCalls.Load())
@@ -443,7 +443,7 @@ func TestAPIKeyService_AuthLookupBulkheadRejectsExcessMisses(t *testing.T) {
 		<-release
 		return nil, ErrAPIKeyNotFound
 	}}
-	svc := NewAPIKeyService(repo, nil, nil, nil, nil, &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{LookupConcurrency: 1}})
+	svc := NewAPIKeyService(repo, nil, nil, &config.Config{APIKeyAuth: config.APIKeyAuthCacheConfig{LookupConcurrency: 1}})
 
 	done := make(chan error, 1)
 	go func() {
@@ -490,7 +490,7 @@ func TestAPIKeyService_GetByKey_SingleflightCollapses(t *testing.T) {
 			Singleflight: true,
 		},
 	}
-	svc := NewAPIKeyService(repo, nil, nil, nil, cache, cfg)
+	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	start := make(chan struct{})
 	wg := sync.WaitGroup{}

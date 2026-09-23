@@ -419,75 +419,14 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatch(t *testing.T) {
 	}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, userID, "gpt-4", 2).
 		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(start.Add(time.Hour)).AddRow(start.Add(2 * time.Hour)))
-	mock.ExpectExec(`UPDATE usage_group_rollup_state`).
-		WithArgs(start.Add(time.Hour), "Asia/Shanghai").
-		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectCommit()
 
 	deleted, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 2)
 	require.NoError(t, err)
 	require.Equal(t, int64(2), deleted)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUsageCleanupRepositoryDeleteUsageLogsBatchAtomicallyInvalidatesGroupRollups(t *testing.T) {
-	setUsageCleanupRollupTestTimezone(t)
-	db, mock := newSQLMock(t)
-	repo := &usageCleanupRepository{sql: db}
-
-	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	end := start.Add(24 * time.Hour)
-	firstDeletedAt := time.Date(2026, 8, 1, 3, 0, 0, 0, time.UTC)
-	secondDeletedAt := firstDeletedAt.Add(time.Hour)
-	filters := service.UsageCleanupFilters{StartTime: start, EndTime: end}
-
-	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-	mock.ExpectQuery(`(?s)DELETE FROM usage_logs.*RETURNING created_at`).
-		WithArgs(start, end, 2).
-		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).
-			AddRow(firstDeletedAt).
-			AddRow(secondDeletedAt))
-	mock.ExpectExec(`UPDATE usage_group_rollup_state`).
-		WithArgs(firstDeletedAt, "Asia/Shanghai").
-		WillReturnResult(sqlmock.NewResult(0, 1))
-	mock.ExpectCommit()
-
-	deleted, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 2)
-	require.NoError(t, err)
-	require.Equal(t, int64(2), deleted)
-	require.NoError(t, mock.ExpectationsWereMet())
-}
-
-func TestUsageCleanupRepositoryDeleteUsageLogsBatchRollsBackWhenInvalidationFails(t *testing.T) {
-	setUsageCleanupRollupTestTimezone(t)
-	db, mock := newSQLMock(t)
-	repo := &usageCleanupRepository{sql: db}
-
-	start := time.Date(2026, 8, 1, 0, 0, 0, 0, time.UTC)
-	end := start.Add(24 * time.Hour)
-	deletedAt := time.Date(2026, 8, 1, 3, 0, 0, 0, time.UTC)
-	filters := service.UsageCleanupFilters{StartTime: start, EndTime: end}
-
-	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
-	mock.ExpectQuery(`(?s)DELETE FROM usage_logs.*RETURNING created_at`).
-		WithArgs(start, end, 1).
-		WillReturnRows(sqlmock.NewRows([]string{"created_at"}).AddRow(deletedAt))
-	mock.ExpectExec(`UPDATE usage_group_rollup_state`).
-		WithArgs(deletedAt, "Asia/Shanghai").
-		WillReturnError(sql.ErrConnDone)
-	mock.ExpectRollback()
-
-	_, err := repo.DeleteUsageLogsBatch(context.Background(), filters, 1)
-	require.ErrorIs(t, err, sql.ErrConnDone)
 	require.NoError(t, mock.ExpectationsWereMet())
 }
 
@@ -500,8 +439,6 @@ func TestUsageCleanupRepositoryDeleteUsageLogsBatchQueryError(t *testing.T) {
 	filters := service.UsageCleanupFilters{StartTime: start, EndTime: end}
 
 	mock.ExpectBegin()
-	mock.ExpectQuery(`SELECT id FROM usage_group_rollup_state.*FOR UPDATE`).
-		WillReturnRows(sqlmock.NewRows([]string{"id"}).AddRow(1))
 	mock.ExpectQuery("DELETE FROM usage_logs").
 		WithArgs(start, end, 5).
 		WillReturnError(sql.ErrConnDone)
@@ -533,7 +470,7 @@ func TestBuildUsageCleanupWhere(t *testing.T) {
 		BillingType: &billingType,
 	})
 
-	require.Equal(t, "created_at >= $1 AND created_at <= $2 AND user_id = $3 AND api_key_id = $4 AND account_id = $5 AND group_id = $6 AND model = $7 AND stream = $8 AND billing_type = $9", where)
+	require.Equal(t, "created_at >= $1 AND created_at <= $2 AND user_id = $3 AND api_key_id = $4 AND account_id = $5 AND model = $6 AND stream = $7 AND billing_type = $8", where)
 	require.Equal(t, []any{start, end, userID, apiKeyID, accountID, "gpt-4", stream, billingType}, args)
 }
 

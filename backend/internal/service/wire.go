@@ -829,14 +829,12 @@ func ProvideBillingCacheService(
 func ProvideAPIKeyService(
 	apiKeyRepo APIKeyRepository,
 	userRepo UserRepository,
-	groupRepo GroupRepository,
-	userGroupRateRepo UserGroupRateRepository,
 	cache APIKeyCache,
 	cfg *config.Config,
 	billingCacheService *BillingCacheService,
 	concurrencyService *ConcurrencyService,
 ) *APIKeyService {
-	svc := NewAPIKeyService(apiKeyRepo, userRepo, groupRepo, userGroupRateRepo, cache, cfg)
+	svc := NewAPIKeyService(apiKeyRepo, userRepo, cache, cfg)
 	svc.SetRateLimitCacheInvalidator(billingCacheService)
 	svc.SetConcurrencyService(concurrencyService)
 	return svc
