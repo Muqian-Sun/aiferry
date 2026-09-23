@@ -85,7 +85,6 @@ func ProvideAuthService(
 	tencentCaptchaService *TencentCaptchaService,
 	aliyunCaptchaService *AliyunCaptchaService,
 	emailQueueService *EmailQueueService,
-	promoService *PromoService,
 	defaultSubAssigner DefaultSubscriptionAssigner,
 	affiliateService *AffiliateService,
 ) *AuthService {
@@ -99,7 +98,6 @@ func ProvideAuthService(
 		emailService,
 		turnstileService,
 		emailQueueService,
-		promoService,
 		defaultSubAssigner,
 		affiliateService,
 	)
@@ -854,7 +852,6 @@ var ProviderSet = wire.NewSet(
 	NewAccountService,
 	NewProxyService,
 	NewRedeemService,
-	NewPromoService,
 	NewUsageService,
 	NewDashboardService,
 	ProvidePricingService,

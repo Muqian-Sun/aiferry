@@ -25,7 +25,7 @@ func TestJWTAuthRejectsTokenFromOtherSite(t *testing.T) {
 	admin := &service.User{ID: 1, Role: service.RoleAdmin, Status: service.StatusActive, TokenVersion: 1}
 	user := &service.User{ID: 2, Role: service.RoleUser, Status: service.StatusActive, TokenVersion: 1}
 	repo := &stubJWTUserRepo{users: map[int64]*service.User{1: admin, 2: user}}
-	authSvc := service.NewAuthService(nil, repo, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil)
+	authSvc := service.NewAuthService(nil, repo, nil, nil, cfg, nil, nil, nil, nil, nil, nil)
 	mw := NewJWTAuthMiddleware(authSvc, service.NewUserService(repo, nil, nil, nil), nil, nil)
 
 	engine := func(site service.Site) *gin.Engine {
