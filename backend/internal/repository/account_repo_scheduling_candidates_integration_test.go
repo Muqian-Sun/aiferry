@@ -31,39 +31,32 @@ func TestSchedulingCandidatesSuite(t *testing.T) {
 	suite.Run(t, new(SchedulingCandidatesSuite))
 }
 
+// 去分组后候选集不再按分组切分：夹具只区分成品号与第三方 key、可调度与不可调度。
 type schedulingCandidateFixture struct {
-	subAnthropicInGroup   int64
-	subOpenAIInGroup      int64
-	keyOpenAIInGroup      int64 // 标签 openai 的第三方 key
-	keyGeminiInGroup      int64 // 标签 gemini 的第三方 key
-	disabledKeyInGroup    int64
-	keyUngrouped          int64
-	subAnthropicUngrouped int64
-	keyInOtherGroup       int64
+	subAnthropic   int64
+	subOpenAI      int64
+	keyOpenAILabel int64 // 标签 openai 的第三方 key
+	keyGeminiLabel int64 // 标签 gemini 的第三方 key
+	keyKimiLabel   int64
+	keyGrokLabel   int64
+	disabledKey    int64
 }
 
 func (s *SchedulingCandidatesSuite) createFixture() schedulingCandidateFixture {
 	t := s.T()
-	group := mustCreateGroup(t, s.client, &service.Group{Name: "candidates-anthropic", Platform: service.PlatformAnthropic})
-	otherGroup := mustCreateGroup(t, s.client, &service.Group{Name: "candidates-other", Platform: service.PlatformGrok})
-
-	create := func(name, platform, accountType string, groupID int64) int64 {
+	create := func(name, platform, accountType string) int64 {
 		account := mustCreateAccount(t, s.client, &service.Account{Name: name, Platform: platform, Type: accountType})
-		if groupID > 0 {
-			mustBindAccountToGroup(t, s.client, account.ID, groupID, 1)
-		}
 		return account.ID
 	}
-	f := schedulingCandidateFixture{groupID: group.ID}
-	f.subAnthropicInGroup = create("sub-anthropic", service.PlatformAnthropic, service.AccountTypeOAuth, group.ID)
-	f.subOpenAIInGroup = create("sub-openai", service.PlatformOpenAI, service.AccountTypeOAuth, group.ID)
-	f.keyOpenAIInGroup = create("key-openai-label", service.PlatformOpenAI, service.AccountTypeAPIKey, group.ID)
-	f.keyGeminiInGroup = create("key-gemini-label", service.PlatformGemini, service.AccountTypeAPIKey, group.ID)
-	f.disabledKeyInGroup = create("disabled-key", service.PlatformOpenAI, service.AccountTypeAPIKey, group.ID)
-	s.Require().NoError(s.client.Account.UpdateOneID(f.disabledKeyInGroup).SetSchedulable(false).Exec(s.ctx))
-	f.keyUngrouped = create("key-ungrouped", service.PlatformKimi, service.AccountTypeAPIKey, 0)
-	f.subAnthropicUngrouped = create("sub-anthropic-ungrouped", service.PlatformAnthropic, service.AccountTypeOAuth, 0)
-	f.keyInOtherGroup = create("key-other-group", service.PlatformGrok, service.AccountTypeAPIKey, otherGroup.ID)
+	var f schedulingCandidateFixture
+	f.subAnthropic = create("sub-anthropic", service.PlatformAnthropic, service.AccountTypeOAuth)
+	f.subOpenAI = create("sub-openai", service.PlatformOpenAI, service.AccountTypeOAuth)
+	f.keyOpenAILabel = create("key-openai-label", service.PlatformOpenAI, service.AccountTypeAPIKey)
+	f.keyGeminiLabel = create("key-gemini-label", service.PlatformGemini, service.AccountTypeAPIKey)
+	f.keyKimiLabel = create("key-kimi-label", service.PlatformKimi, service.AccountTypeAPIKey)
+	f.keyGrokLabel = create("key-grok-label", service.PlatformGrok, service.AccountTypeAPIKey)
+	f.disabledKey = create("disabled-key", service.PlatformOpenAI, service.AccountTypeAPIKey)
+	s.Require().NoError(s.client.Account.UpdateOneID(f.disabledKey).SetSchedulable(false).Exec(s.ctx))
 	return f
 }
 
@@ -75,17 +68,18 @@ func candidateIDs(accounts []service.Account) map[int64]struct{} {
 	return ids
 }
 
-func (s *SchedulingCandidatesSuite) TestAllAccountsIncludesKeysAcrossGroups() {
+// 平台过滤只约束成品号：任意平台标签的第三方 key 都进候选（能否承接由选号时的协议判断定）。
+func (s *SchedulingCandidatesSuite) TestPlatformFilterOnlyConstrainsSubscriptions() {
 	f := s.createFixture()
 
 	accounts, err := s.accountRepo.ListSchedulingCandidates(s.ctx, []string{service.PlatformAnthropic})
 	s.Require().NoError(err)
 
 	ids := candidateIDs(accounts)
-	for _, id := range []int64{f.subAnthropicInGroup, f.keyOpenAIInGroup, f.keyGeminiInGroup, f.keyUngrouped, f.subAnthropicUngrouped, f.keyInOtherGroup} {
+	for _, id := range []int64{f.subAnthropic, f.keyOpenAILabel, f.keyGeminiLabel, f.keyKimiLabel, f.keyGrokLabel} {
 		s.Require().Contains(ids, id)
 	}
-	for _, id := range []int64{f.subOpenAIInGroup, f.disabledKeyInGroup} {
+	for _, id := range []int64{f.subOpenAI, f.disabledKey} {
 		s.Require().NotContains(ids, id)
 	}
 }

@@ -15,13 +15,6 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-// withVendorRoute 给请求挂一条目录路由，条目厂商决定请求的厂商平台（xai → grok）。
-func withVendorRoute(c *gin.Context, vendor string) {
-	c.Request = c.Request.WithContext(WithCatalogRoute(c.Request.Context(), CatalogRoute{
-		EntryID: 1, CanonicalModel: "m", RequestedModel: "m", Entry: &ModelCatalogEntry{ID: 1, ModelID: "m", Vendor: vendor},
-	}))
-}
-
 func newGrokCacheTestContext(apiKeyID int64) *gin.Context {
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
