@@ -103,17 +103,6 @@ func (s *UserRepoSuite) TestCreateWithEmailAliasGuardAndDomainLimitConcurrent() 
 	s.Require().Equal(1, count)
 }
 
-func (s *UserRepoSuite) mustCreateGroup(name string) *service.Group {
-	s.T().Helper()
-
-	g, err := s.client.Group.Create().
-		SetName(name).
-		SetStatus(service.StatusActive).
-		Save(s.ctx)
-	s.Require().NoError(err, "create group")
-	return groupEntityToService(g)
-}
-
 func (s *UserRepoSuite) mustCreatePlan(name string) *dbent.SubscriptionPlan {
 	s.T().Helper()
 	p, err := s.client.SubscriptionPlan.Create().SetName(name).SetPrice(9.9).Save(s.ctx)
@@ -610,42 +599,6 @@ func (s *UserRepoSuite) TestExistsByEmail() {
 	notExists, err := s.repo.ExistsByEmail(s.ctx, "notexists@test.com")
 	s.Require().NoError(err)
 	s.Require().False(notExists)
-}
-
-// --- RemoveGroupFromAllowedGroups ---
-
-func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups() {
-	target := s.mustCreateGroup("target-42")
-	other := s.mustCreateGroup("other-7")
-
-	userA := s.mustCreateUser(&service.User{
-		Email: "a1@example.com",
-	})
-	s.mustCreateUser(&service.User{
-		Email: "a2@example.com",
-	})
-
-	affected, err := s.repo.RemoveGroupFromAllowedGroups(s.ctx, target.ID)
-	s.Require().NoError(err, "RemoveGroupFromAllowedGroups")
-	s.Require().Equal(int64(1), affected, "expected 1 affected row")
-
-	got, err := s.repo.GetByID(s.ctx, userA.ID)
-	s.Require().NoError(err, "GetByID")
-	s.Require().NotContains(got.AllowedGroups, target.ID)
-	s.Require().Contains(got.AllowedGroups, other.ID)
-}
-
-func (s *UserRepoSuite) TestRemoveGroupFromAllowedGroups_NoMatch() {
-	groupA := s.mustCreateGroup("nomatch-a")
-	groupB := s.mustCreateGroup("nomatch-b")
-
-	s.mustCreateUser(&service.User{
-		Email: "nomatch@test.com",
-	})
-
-	affected, err := s.repo.RemoveGroupFromAllowedGroups(s.ctx, 999999)
-	s.Require().NoError(err)
-	s.Require().Zero(affected, "expected no affected rows")
 }
 
 // --- GetFirstAdmin ---

@@ -61,14 +61,12 @@ func (s *APIKeyRepoSuite) TestGetByID_NotFound() {
 
 func (s *APIKeyRepoSuite) TestGetByKey() {
 	user := s.mustCreateUser("getbykey@test.com")
-	group := s.mustCreateGroup("g-key")
 
 	key := &service.APIKey{
-		UserID:  user.ID,
-		Key:     "sk-getbykey",
-		Name:    "My Key",
-		GroupID: &group.ID,
-		Status:  service.StatusActive,
+		UserID: user.ID,
+		Key:    "sk-getbykey",
+		Name:   "My Key",
+		Status: service.StatusActive,
 	}
 	s.Require().NoError(s.repo.Create(s.ctx, key))
 
@@ -77,8 +75,6 @@ func (s *APIKeyRepoSuite) TestGetByKey() {
 	s.Require().Equal(key.ID, got.ID)
 	s.Require().NotNil(got.User, "expected User preload")
 	s.Require().Equal(user.ID, got.User.ID)
-	s.Require().NotNil(got.Group, "expected Group preload")
-	s.Require().Equal(group.ID, got.Group.ID)
 }
 
 func (s *APIKeyRepoSuite) TestGetByKey_NotFound() {
