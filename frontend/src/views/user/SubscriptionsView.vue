@@ -24,7 +24,7 @@
                 <span
                   :class="[
                     'badge',
-                    subscription.status === 'active' ? 'badge-success' : subscription.status === 'expired' ? 'badge-gray' : 'badge-danger'
+                    subscription.status === 'active' ? 'badge-gray' : subscription.status === 'expired' ? 'badge-gray opacity-70' : 'badge-danger'
                   ]"
                 >
                   {{ t(`userSubscriptions.status.${subscription.status}`) }}

@@ -37,7 +37,7 @@
 
         <!-- ===== 充值 ===== -->
         <template v-else-if="mode === 'recharge'">
-          <dl class="grid grid-cols-2 divide-x divide-af-hairline border-b border-af-hairline pb-4">
+          <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
             <div class="min-w-0 pr-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.rechargeAccount') }}</dt>
               <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || '' }}</dd>
