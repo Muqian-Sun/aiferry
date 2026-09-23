@@ -19,11 +19,6 @@ import (
 	entsql "entgo.io/ent/dialect/sql"
 )
 
-type sqlExecutor interface {
-	ExecContext(ctx context.Context, query string, args ...any) (sql.Result, error)
-	QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error)
-}
-
 type groupRepository struct {
 	client *dbent.Client
 	sql    sqlExecutor
