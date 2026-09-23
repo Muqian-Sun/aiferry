@@ -184,7 +184,7 @@
           <!-- 套餐列表 -->
           <template v-else>
             <p v-if="checkout.plans.length === 0" class="py-12 text-center text-sm text-af-ink-3">{{ t('payment.noPlans') }}</p>
-            <div v-else class="-my-5 divide-y divide-af-hairline" data-testid="plan-list">
+            <div v-else class="grid gap-4 sm:grid-cols-2" data-testid="plan-list">
               <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlan" />
             </div>
           </template>

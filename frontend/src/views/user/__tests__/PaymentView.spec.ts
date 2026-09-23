@@ -365,13 +365,13 @@ describe('PaymentView help text', () => {
 })
 
 describe('PaymentView subscription plan list', () => {
-  it.each([3, 4, 6])('lists %i plans as hairline-separated rows, one per plan', async (planCount) => {
+  it.each([3, 4, 6])('lists %i plans as cards in a grid, one per plan', async (planCount) => {
     const wrapper = await mountSubscriptionPlanList(planCount)
     const rows = wrapper.findAllComponents(SubscriptionPlanCard)
 
     expect(rows).toHaveLength(planCount)
     const list = wrapper.get('[data-testid="plan-list"]')
-    expect(list.classes()).toContain('divide-y')
+    expect(list.classes()).toContain('grid')
     expect(list.findAllComponents(SubscriptionPlanCard)).toHaveLength(planCount)
   })
 })

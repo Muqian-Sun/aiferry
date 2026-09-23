@@ -90,7 +90,7 @@
         <!-- Actions -->
         <div class="flex gap-3">
           <button class="btn btn-secondary flex-1" @click="router.push('/billing/recharge')">{{ t('payment.result.backToRecharge') }}</button>
-          <button class="btn btn-primary flex-1" @click="router.push('/billing/orders')">{{ t('payment.result.viewOrders') }}</button>
+          <button class="btn btn-primary flex-1" @click="router.push('/dashboard')">{{ t('payment.result.backToOverview') }}</button>
         </div>
       </template>
     </div>

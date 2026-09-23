@@ -115,12 +115,9 @@ export default {
     billing: {
       title: 'Billing',
       description: 'Top up, subscriptions, orders and referrals',
-      ordersDescription: 'Payment records for top-ups and subscriptions; pending orders can be cancelled',
       tabs: {
         recharge: 'Top up',
-        subscriptions: 'Subscriptions',
-        orders: 'Orders',
-        affiliate: 'Referrals'
+        subscriptions: 'Subscriptions'
       }
     },
     usage: {

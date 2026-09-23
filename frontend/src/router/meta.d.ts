@@ -61,11 +61,6 @@ declare module 'vue-router' {
      */
     requiresSubscription?: boolean
 
-    /**
-     * 是否要求邀请返利功能开关（affiliate_enabled，opt-in）已启用
-     * @default false
-     */
-    requiresAffiliate?: boolean
 
     /**
      * i18n key for the page title

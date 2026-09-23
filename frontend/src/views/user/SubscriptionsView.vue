@@ -3,22 +3,25 @@
     订阅页签：上半是我的订阅（每个订阅一行两栏：名称 / 状态 / 到期 / 续费 ‖ 额度条 / 模型 / 订阅密钥），下半是可购套餐与购买流程
     （PaymentView mode=subscription）。支付功能关闭时只有上半。行间只用 hairline，不做卡片、不按平台上色。
   -->
-  <div class="space-y-8">
+  <div>
     <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：生效中的套餐 / 最近到期 / 可用模型；没有订阅就不出现 -->
-    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" data-testid="subscriptions-summary" />
-    <!-- 页头标题已是「我的订阅」（取自路由），这一块不再重复 -->
-    <SheetSection>
-      <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
-      <StatusState
-        v-else-if="subscriptions.length === 0"
-        kind="empty"
-        :title="t('userSubscriptions.noActiveSubscriptions')"
-        :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
-      />
+    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" class="pb-8" data-testid="subscriptions-summary" />
+    <!-- 以下每块都是同一套两栏行（左 17rem 标题 ‖ 右内容），块间 hairline；页头标题已是「我的订阅」，不再重复 -->
+    <div :class="['divide-y divide-af-hairline', subscriptionSummary ? 'border-t border-af-hairline' : '']">
+      <div v-if="loading" class="py-8">
+        <StatusState kind="loading" :title="t('userUi.status.loading')" />
+      </div>
+      <div v-else-if="subscriptions.length === 0" class="py-8">
+        <StatusState
+          kind="empty"
+          :title="t('userSubscriptions.noActiveSubscriptions')"
+          :description="t('userSubscriptions.noActiveSubscriptionsDesc')"
+        />
+      </div>
       <!--
         每个订阅一行两栏（与设置页同一套栅格）：左边套餐名 + 状态、到期、续费；右边整宽额度条（有哪个限额画哪条）、模型、订阅密钥。
       -->
-      <ul v-else class="-my-8 divide-y divide-af-hairline">
+      <ul v-else class="divide-y divide-af-hairline">
         <li
           v-for="subscription in subscriptions"
           :key="subscription.id"
@@ -98,12 +101,12 @@
           </div>
         </li>
       </ul>
-    </SheetSection>
 
-    <!-- 可购套餐 + 购买流程；支付关闭时不渲染（套餐无法下单） -->
-    <SheetSection v-if="canPurchase" ref="purchaseSection" :title="t('payment.selectPlan')">
-      <PaymentView ref="purchase" mode="subscription" />
-    </SheetSection>
+      <!-- 可购套餐 + 购买流程：同一套两栏行，右栏是套餐列表 / 确认购买；支付关闭时不渲染（套餐无法下单） -->
+      <SettingsRow v-if="canPurchase" ref="purchaseSection" :title="t('payment.selectPlan')" :description="t('purchase.subscriptionDescription')">
+        <PaymentView ref="purchase" mode="subscription" />
+      </SettingsRow>
+    </div>
   </div>
 </template>
 
@@ -113,7 +116,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
-import SheetSection from '@/components/user/shell/SheetSection.vue'
+import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'

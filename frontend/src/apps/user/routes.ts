@@ -173,7 +173,7 @@ export const userRoutes: RouteRecordRaw[] = [
 
   // ==================== User Routes ====================
   // 控制台五个页签：用量（落地页）· 密钥 · 模型 · 账务 · 账户。
-  // 旧路径（/dashboard /purchase /subscriptions /orders /redeem /affiliate）长期保留 redirect，
+  // 旧路径（/dashboard /purchase /subscriptions /redeem）长期保留 redirect，
   // 书签、邮件、支付回跳都不断。
   {
     path: '/',
@@ -272,19 +272,6 @@ export const userRoutes: RouteRecordRaw[] = [
         }
       },
       {
-        path: 'orders',
-        name: 'OrderList',
-        component: () => import('@/views/user/UserOrdersView.vue'),
-        meta: {
-          requiresAuth: true,
-          requiresAdmin: false,
-          title: 'My Orders',
-          titleKey: 'nav.myOrders',
-          descriptionKey: 'userUi.billing.ordersDescription',
-          requiresPayment: true
-        }
-      },
-      {
         path: 'redeem',
         name: 'Redeem',
         component: () => import('@/views/user/RedeemView.vue'),
@@ -294,19 +281,6 @@ export const userRoutes: RouteRecordRaw[] = [
           title: 'Redeem Code',
           titleKey: 'redeem.title',
           descriptionKey: 'redeem.description'
-        }
-      },
-      {
-        path: 'affiliate',
-        name: 'Affiliate',
-        component: () => import('@/views/user/AffiliateView.vue'),
-        meta: {
-          requiresAuth: true,
-          requiresAdmin: false,
-          title: 'Affiliate',
-          titleKey: 'affiliate.title',
-          descriptionKey: 'affiliate.description',
-          requiresAffiliate: true
         }
       }
     ]
@@ -323,9 +297,7 @@ export const userRoutes: RouteRecordRaw[] = [
     }
   },
   { path: '/subscriptions', redirect: (to) => ({ path: '/billing/subscriptions', query: to.query }) },
-  { path: '/orders', redirect: (to) => ({ path: '/billing/orders', query: to.query }) },
   { path: '/redeem', redirect: (to) => ({ path: '/billing/redeem', query: to.query }) },
-  { path: '/affiliate', redirect: (to) => ({ path: '/billing/affiliate', query: to.query }) },
   {
     // 账户拆成三个子页（muqian 2026-09-23：侧栏「账户」组），共用 ProfileView 按 section 渲染
     path: '/profile',
