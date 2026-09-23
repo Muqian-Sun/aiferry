@@ -810,7 +810,7 @@ function isCreateAccountRecoveryError(error: unknown): boolean {
 
 async function finalizeCompletion(completion: PendingOAuthExchangeResponse, redirect: string) {
   if (getOAuthCompletionKind(completion) === 'bind') {
-    const bindRedirect = sanitizeRedirectPath(completion.redirect || '/profile')
+    const bindRedirect = sanitizeRedirectPath(completion.redirect || '/profile/security')
     clearPendingAuthSession()
     clearAllAffiliateReferralCodes()
     appStore.showSuccess(bindSuccessMessage)

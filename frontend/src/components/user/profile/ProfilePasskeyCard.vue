@@ -1,8 +1,8 @@
 <template>
-  <!-- 平铺区块：小标题 + 列表；外层容器由调用方决定 -->
+  <!-- 小标题 + 列表；外层容器由调用方决定。用户站的两栏设置行自己画标题（headless，只留「添加」按钮），管理端卡片里保留小标题 -->
   <div class="space-y-4">
-    <div class="flex items-start justify-between gap-4">
-      <div>
+    <div class="flex items-start justify-between gap-4" :class="headless && !(enabled && supported && !showAddForm) ? 'hidden' : ''">
+      <div v-if="!headless">
         <h3 class="text-sm font-semibold text-af-ink">
           {{ t('profile.passkey.title') }}
         </h3>
@@ -181,7 +181,7 @@ import { passkeyAPI, type PasskeyCredentialSummary } from '@/api'
 import { Icon } from '@/components/icons'
 import { useAppStore } from '@/stores/app'
 
-const props = defineProps<{ enabled: boolean }>()
+const props = defineProps<{ enabled: boolean; headless?: boolean }>()
 
 const { t } = useI18n()
 const appStore = useAppStore()

@@ -52,6 +52,8 @@
     </template>
 
     <div class="space-y-4">
+      <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：密钥数 / 活跃 / 今日费用 / 累计消耗；接口失败就不出现，不显示零 -->
+      <StatRow v-if="keySummary" :items="keySummary" class="border-b border-af-hairline pb-6" data-testid="keys-summary" />
       <!-- 接口地址条：表格上方常驻；地址与「使用密钥」同一口径——设置留空就是当前站点 -->
       <EndpointPopover
         class="border-b border-af-hairline pb-4"
@@ -1014,10 +1016,13 @@ import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 	import Icon from '@/components/icons/Icon.vue'
 	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
 	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
+import type { UserDashboardStats } from '@/api/usage'
 	import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
 import type { Column } from '@/components/common/types'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
-import { formatDateTime } from '@/utils/format'
+import { formatCurrency, formatDateTime, formatNumber } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
   buildCcSwitchImportDeeplink,
@@ -1186,6 +1191,27 @@ const copiedKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
 // 设置里的 API 端点地址留空 = 当前站点（与 UseKeyModal 的回落一致）
 const apiBaseUrl = computed(() => publicSettings.value?.api_base_url || window.location.origin)
+
+// 顶部摘要：与概览同一个统计接口；拿不到就不渲染（不显示零）
+const dashboardStats = ref<UserDashboardStats | null>(null)
+const keySummary = computed<StatItem[] | null>(() => {
+  const s = dashboardStats.value
+  if (!s) return null
+  return [
+    { key: 'keys', label: t('userUi.summary.keys'), value: formatNumber(s.total_api_keys) },
+    { key: 'active-keys', label: t('userUi.summary.activeKeys'), value: formatNumber(s.active_api_keys) },
+    { key: 'today-cost', label: t('userUi.usage.stats.todayCost'), value: formatCurrency(s.today_actual_cost) },
+    { key: 'total-cost', label: t('userUi.usage.stats.totalCost'), value: formatCurrency(s.total_actual_cost) }
+  ]
+})
+async function loadKeySummary() {
+  try {
+    dashboardStats.value = await usageAPI.getDashboardStats()
+  } catch (error) {
+    console.error('Failed to load key summary:', error)
+    dashboardStats.value = null
+  }
+}
 const columnDropdownRef = ref<HTMLElement | null>(null)
 onClickOutside(columnDropdownRef, () => {
   showColumnDropdown.value = false
@@ -1716,6 +1742,7 @@ onMounted(() => {
   loadSavedColumns()
   loadApiKeys()
   loadPublicSettings()
+  void loadKeySummary()
   resetTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
 

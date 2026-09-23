@@ -1,10 +1,6 @@
 <template>
-  <!-- 平铺区块：头像 + 上传操作，无卡片、无渐变 -->
-  <div class="space-y-4">
-    <h3 class="text-sm font-semibold text-af-ink">
-      {{ t('profile.avatar.title') }}
-    </h3>
-
+  <!-- 头像 + 上传操作；标题在 ProfileInfoCard 的设置行左栏 -->
+  <div>
     <div class="flex items-start gap-4">
       <div
         class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-af-brand-tint text-xl font-semibold text-af-brand"

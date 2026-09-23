@@ -1,6 +1,6 @@
 <template>
   <!--
-    指标行：行内数字，竖 hairline 分隔，不做瓷砖。
+    指标行 / 列表页顶部的数字摘要（muqian 2026-09-23 定列表页加摘要带）：行内大数字，竖 hairline 分隔，不做瓷砖。
     lg 以上一行 N 列；以下两列网格、行间 hairline。数字用 tabular-nums 对齐。
   -->
   <dl class="grid grid-cols-2 gap-y-4 lg:flex lg:divide-x lg:divide-af-hairline" data-testid="stat-row">
@@ -12,8 +12,8 @@
       :data-testid="item.key ? `stat-${item.key}` : undefined"
     >
       <dt class="truncate text-13 text-af-ink-3">{{ item.label }}</dt>
-      <dd class="mt-1 flex items-baseline gap-2">
-        <span class="text-xl font-semibold tabular-nums text-af-ink">{{ item.value }}</span>
+      <dd class="mt-1.5 flex items-baseline gap-2">
+        <span class="text-2xl font-semibold tracking-[-0.01em] tabular-nums text-af-ink">{{ item.value }}</span>
         <span v-if="item.hint" class="truncate text-xs text-af-ink-3">{{ item.hint }}</span>
         <RouterLink v-if="item.link" :to="item.link.to" class="text-xs font-medium text-af-brand hover:text-af-brand-hover">
           {{ item.link.label }}

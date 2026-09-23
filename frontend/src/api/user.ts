@@ -141,7 +141,7 @@ export function buildOAuthBindingStartURL(
   provider: BindableOAuthProvider,
   options: BuildOAuthBindingStartURLOptions = {}
 ): string | null {
-  const redirectTo = options.redirectTo?.trim() || '/profile'
+  const redirectTo = options.redirectTo?.trim() || '/profile/security'
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1'
   const normalized = apiBase.replace(/\/$/, '')
   const params = new URLSearchParams({

@@ -258,7 +258,8 @@ describe('LinuxDoCallbackView', () => {
 
     expect(setToken).not.toHaveBeenCalled()
     expect(showSuccess).toHaveBeenCalledWith('profile.authBindings.bindSuccess')
-    expect(replace).toHaveBeenCalledWith('/profile')
+    // 没带回跳地址时落到「安全」子页（登录方式绑定在那里）
+    expect(replace).toHaveBeenCalledWith('/profile/security')
   })
 
   it('supports bind completion after adoption confirmation', async () => {

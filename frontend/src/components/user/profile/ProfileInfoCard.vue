@@ -1,9 +1,10 @@
 <template>
   <!--
-    账户「基本信息」：身份行（头像 / 名称 / 角色状态 / 邮箱 / 资料来源）→ 三格指标 → 头像上传 → 昵称。
-    单列 640，区块之间只用 hairline；没有卡片、渐变、瓷砖。登录方式绑定放在「安全」节（ProfileView）。
+    账户「基本信息」：两栏设置式三行（muqian 2026-09-23）——账户概况（身份 + 四格指标）/ 头像 / 用户名。
+    行间 hairline；没有卡片、渐变、瓷砖。登录方式绑定在「安全」子页（ProfileView）。
   -->
-  <div class="space-y-6">
+  <div class="divide-y divide-af-hairline">
+    <SettingsRow :title="t('userUi.account.rows.overview')" :description="t('userUi.account.rows.overviewDesc')">
     <section data-testid="profile-overview-hero" class="flex items-start gap-4">
       <div
         class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-md bg-af-brand-tint text-lg font-semibold text-af-brand"
@@ -39,7 +40,7 @@
     </section>
 
     <!-- 余额 / 计价倍率 / 并发 / 注册时间：倍率决定实付 = 标价 × 倍率，用户该看得到 -->
-    <dl class="grid grid-cols-2 gap-y-4 border-y border-af-hairline py-4 sm:grid-cols-4 sm:divide-x sm:divide-af-hairline">
+    <dl class="mt-6 grid grid-cols-2 gap-y-4 border-t border-af-hairline pt-5 sm:grid-cols-4 sm:divide-x sm:divide-af-hairline">
       <div data-testid="profile-overview-metric-balance" class="min-w-0 pr-4">
         <dt class="truncate text-13 text-af-ink-3">{{ t('profile.accountBalance') }}</dt>
         <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ formatCurrency(user?.balance || 0) }}</dd>
@@ -58,13 +59,15 @@
       </div>
     </dl>
 
+    </SettingsRow>
+
     <div data-testid="profile-basics-panel" class="divide-y divide-af-hairline">
-      <div class="pb-6">
+      <SettingsRow :title="t('profile.avatar.title')">
         <ProfileAvatarCard :user="user" />
-      </div>
-      <div class="pt-6">
+      </SettingsRow>
+      <SettingsRow :title="t('profile.username')" :description="t('userUi.account.rows.usernameDesc')">
         <ProfileEditForm :initial-username="user?.username || ''" />
-      </div>
+      </SettingsRow>
     </div>
   </div>
 </template>
@@ -72,6 +75,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import SettingsRow from '@/components/user/shell/SettingsRow.vue'
 import ProfileAvatarCard from '@/components/user/profile/ProfileAvatarCard.vue'
 import ProfileEditForm from '@/components/user/profile/ProfileEditForm.vue'
 import type { User, UserAuthBindingStatus, UserAuthProvider, UserProfileSourceContext } from '@/types'

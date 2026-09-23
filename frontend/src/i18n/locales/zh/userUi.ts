@@ -150,7 +150,6 @@ export default {
         tokens: 'Token',
         requests: '请求',
         cost: '费用',
-        rangeSummary: '区间内 {requests} 次请求 · {tokens} Token · 费用 {cost}',
         empty: '这段时间没有数据'
       },
       share: '占比',
@@ -171,7 +170,23 @@ export default {
         security: '第三方登录绑定、密码、双因素认证与通行密钥',
         notifications: '余额不足时发邮件提醒'
       },
-      notificationsOff: '管理员没有开启余额提醒'
+      notificationsOff: '管理员没有开启余额提醒',
+      rows: {
+        overview: '账户概况',
+        overviewDesc: '登录身份、余额与计价倍率',
+        usernameDesc: '未设置时显示邮箱',
+        passwordDesc: '用于邮箱登录，至少 8 个字符'
+      }
+    },
+    summary: {
+      keys: '密钥',
+      activeKeys: '活跃',
+      activePlans: '生效中的套餐',
+      nearestExpiry: '最近到期',
+      daysLeft: '剩 {days} 天',
+      noExpiry: '不限期',
+      planModels: '可用模型',
+      redeemHistoryDesc: '兑换与管理员调整都记在这里'
     },
     models: {
       title: '模型',

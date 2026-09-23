@@ -1,7 +1,9 @@
 <template>
-  <!-- 平铺区块：小标题 + 表单；外层容器（用户站 SheetSection / 管理端 card）由调用方决定 -->
+  <!--
+    小标题 + 表单；外层容器由调用方决定。用户站的两栏设置行自己画标题（headless），管理端卡片里保留小标题。
+  -->
   <div class="space-y-4">
-    <h3 class="text-sm font-semibold text-af-ink">
+    <h3 v-if="!headless" class="text-sm font-semibold text-af-ink">
       {{ t('profile.changePassword') }}
     </h3>
     <div>
@@ -67,6 +69,9 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { userAPI } from '@/api'
 import { extractApiErrorMessage } from '@/utils/apiError'
+
+/** 用户站两栏设置行里不画自带小标题 */
+defineProps<{ headless?: boolean }>()
 
 const { t } = useI18n()
 const appStore = useAppStore()

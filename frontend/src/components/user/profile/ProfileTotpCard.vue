@@ -1,7 +1,7 @@
 <template>
-  <!-- 平铺区块：小标题 + 状态；外层容器由调用方决定 -->
+  <!-- 小标题 + 状态；外层容器由调用方决定。用户站的两栏设置行自己画标题（headless），管理端卡片里保留小标题 -->
   <div class="space-y-4">
-    <div>
+    <div v-if="!headless">
       <h3 class="text-sm font-semibold text-af-ink">
         {{ t('profile.totp.title') }}
       </h3>
@@ -108,6 +108,9 @@ import { totpAPI } from '@/api'
 import type { TotpStatus } from '@/types'
 import TotpSetupModal from './TotpSetupModal.vue'
 import TotpDisableDialog from './TotpDisableDialog.vue'
+
+/** 用户站两栏设置行里不画自带小标题 */
+defineProps<{ headless?: boolean }>()
 
 const { t } = useI18n()
 

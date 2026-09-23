@@ -4,6 +4,8 @@
     （PaymentView mode=subscription）。支付功能关闭时只有上半。行间只用 hairline，不做卡片、不按平台上色。
   -->
   <div class="space-y-8">
+    <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：生效中的套餐 / 最近到期 / 可用模型；没有订阅就不出现 -->
+    <StatRow v-if="subscriptionSummary" :items="subscriptionSummary" data-testid="subscriptions-summary" />
     <!-- 页头标题已是「我的订阅」（取自路由），这一块不再重复 -->
     <SheetSection>
       <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
@@ -163,6 +165,8 @@ import { useAppStore } from '@/stores/app'
 import subscriptionsAPI from '@/api/subscriptions'
 import type { UserSubscription } from '@/types'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import PaymentView from '@/views/user/PaymentView.vue'
 import { useBillingFlags } from '@/views/user/billing/useBillingFlags'
@@ -203,6 +207,27 @@ function planModelsLabel(subscription: UserSubscription): string {
   if (models.length === 0) return '-'
   return models.map(m => m.display_name || m.model_id).join(' / ')
 }
+
+/** 顶部摘要：生效中的套餐数 / 最近一个到期还剩几天 / 可用模型（去重） */
+const subscriptionSummary = computed<StatItem[] | null>(() => {
+  if (loading.value || subscriptions.value.length === 0) return null
+  const active = subscriptions.value.filter((s) => s.status === 'active')
+  const now = Date.now()
+  const daysLeft = active
+    .filter((s) => s.expires_at)
+    .map((s) => Math.ceil((new Date(s.expires_at as string).getTime() - now) / (24 * 60 * 60 * 1000)))
+    .filter((d) => d >= 0)
+  const models = new Set(active.flatMap((s) => (s.plan?.models ?? []).map((m) => m.model_id)))
+  return [
+    { key: 'active-plans', label: t('userUi.summary.activePlans'), value: String(active.length) },
+    {
+      key: 'nearest-expiry',
+      label: t('userUi.summary.nearestExpiry'),
+      value: daysLeft.length ? t('userUi.summary.daysLeft', { days: Math.min(...daysLeft) }) : t('userUi.summary.noExpiry')
+    },
+    { key: 'plan-models', label: t('userUi.summary.planModels'), value: String(models.size) }
+  ]
+})
 
 async function loadSubscriptions() {
   try {
