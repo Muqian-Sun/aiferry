@@ -35,39 +35,48 @@
 
     <!-- 列表整块在数据到位时淡入上浮一次；筛选、切视图不再重播 -->
     <div v-else v-reveal="120" class="space-y-6">
-      <!-- 厂商页签：全部 + 目录里出现过的厂商，带品牌色图标与计数 -->
-      <div class="flex gap-1 overflow-x-auto border-b border-af-hairline scrollbar-hide" role="tablist" :aria-label="t('userUi.models.vendorTabsLabel')" data-testid="vendor-tabs">
-        <button
-          v-for="tab in vendorTabs"
-          :key="tab.key"
-          type="button"
-          role="tab"
-          :class="tabClass(selectedVendor === tab.key)"
-          :aria-selected="selectedVendor === tab.key"
-          :data-testid="`vendor-tab-${tab.key}`"
-          @click="selectVendor(tab.key)"
+      <!--
+        厂商页签与工具同一行（muqian：放到跟厂商一行）：左边页签（品牌色图标 + 计数，多了横向滚动），
+        右边计数 / 价格单位 / 计费模式 / 搜索（/ 聚焦）。价格单位只在这里写一次（格子里不再逐个写）。
+        lg 以下工具掉到页签下面一行；lg 起整行一条底线，页签撑满行高、激活下划线压在底线上。
+      -->
+      <div class="flex flex-col gap-3 lg:flex-row lg:items-stretch lg:gap-8 lg:border-b lg:border-af-hairline">
+        <div
+          class="flex min-w-0 flex-1 gap-1 overflow-x-auto border-b border-af-hairline scrollbar-hide lg:border-b-0"
+          role="tablist"
+          :aria-label="t('userUi.models.vendorTabsLabel')"
+          data-testid="vendor-tabs"
         >
-          <VendorIcon v-if="tab.key !== 'all'" :vendor="tab.key" :size="16" colored />
-          {{ tab.label }}
-          <span class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
-        </button>
-      </div>
-
-      <!-- 工具行：搜索（/ 聚焦）/ 计费模式 / 计数；价格单位只在这里写一次（格子里不再逐个写） -->
-      <div class="flex flex-wrap items-center gap-3">
-        <div ref="searchRef" class="w-full sm:w-72">
-          <SearchInput v-model="searchQuery" :placeholder="t('userUi.models.searchHint')" />
+          <button
+            v-for="tab in vendorTabs"
+            :key="tab.key"
+            type="button"
+            role="tab"
+            :class="tabClass(selectedVendor === tab.key)"
+            :aria-selected="selectedVendor === tab.key"
+            :data-testid="`vendor-tab-${tab.key}`"
+            @click="selectVendor(tab.key)"
+          >
+            <VendorIcon v-if="tab.key !== 'all'" :vendor="tab.key" :size="16" colored />
+            {{ tab.label }}
+            <span class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
+          </button>
         </div>
-        <Select v-if="billingModeOptions.length > 2" v-model="selectedBillingMode" :options="billingModeOptions" class="w-40" />
-        <span class="text-13 tabular-nums text-af-ink-3" data-testid="catalog-count">
-          {{ t('userUi.models.count', { count: filtered.length }) }}
-        </span>
-        <p class="text-13 text-af-ink-3 sm:ml-auto" data-testid="price-unit">
-          {{ t('userUi.models.priceUnit') }}
-          <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
-            · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
+        <div class="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 lg:flex-nowrap lg:py-2">
+          <span class="text-13 tabular-nums text-af-ink-3" data-testid="catalog-count">
+            {{ t('userUi.models.count', { count: filtered.length }) }}
           </span>
-        </p>
+          <p class="text-13 text-af-ink-3" data-testid="price-unit">
+            {{ t('userUi.models.priceUnit') }}
+            <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
+              · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
+            </span>
+          </p>
+          <Select v-if="billingModeOptions.length > 2" v-model="selectedBillingMode" :options="billingModeOptions" class="w-36" />
+          <div ref="searchRef" class="plaza-search w-full sm:w-64">
+            <SearchInput v-model="searchQuery" :placeholder="t('userUi.models.searchHint')" />
+          </div>
+        </div>
       </div>
 
       <StatusState
@@ -276,7 +285,7 @@ function timePricingText(entry: CatalogModel): string {
 
 function tabClass(active: boolean): string {
   return [
-    'relative -mb-px inline-flex h-10 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-sm font-medium transition-colors',
+    'relative -mb-px inline-flex min-h-10 shrink-0 items-center gap-1.5 whitespace-nowrap px-3 text-sm font-medium transition-colors',
     'border-b-2 focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-af-brand/40',
     active ? 'border-af-brand text-af-ink' : 'border-transparent text-af-ink-2 hover:text-af-ink'
   ].join(' ')
@@ -306,6 +315,10 @@ async function copyId(id: string) {
 </script>
 
 <style scoped>
+/* 与页签同一行：搜索框压到 34px 高（通用 .input 是 42px），行高由页签与它一起定 */
+.plaza-search :deep(.input) {
+  @apply py-1.5;
+}
 .plaza-description :deep(p) {
   @apply mb-2 last:mb-0;
 }
