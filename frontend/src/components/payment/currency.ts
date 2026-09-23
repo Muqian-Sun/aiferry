@@ -1,4 +1,6 @@
 export const DEFAULT_PAYMENT_CURRENCY = 'CNY'
+/** 站内计价币种：余额、充值金额、套餐价格都是美元 */
+export const USD_PAYMENT_CURRENCY = 'USD'
 
 const PAYMENT_CURRENCY_SYMBOLS: Record<string, string> = {
   USD: '$',

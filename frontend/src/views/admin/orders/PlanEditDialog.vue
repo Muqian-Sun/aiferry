@@ -100,11 +100,6 @@
 
       <div class="grid grid-cols-2 gap-4">
         <div><label class="input-label">{{ t('payment.admin.sortOrder') }}</label><input v-model.number="planForm.sort_order" type="number" min="0" class="input" /></div>
-        <div>
-          <label class="input-label">{{ t('payment.admin.currency') }}</label>
-          <input v-model="planForm.currency" type="text" maxlength="3" class="input uppercase" :placeholder="t('payment.admin.currencyPlaceholder')" />
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.currencyHint') }}</p>
-        </div>
       </div>
       <div>
         <label class="input-label">{{ t('payment.admin.features') }}</label>
@@ -170,7 +165,7 @@ const saving = ref(false)
 // 限额：null / '' = 不限（提交成 -1，后端 <= 0 即不限）
 type LimitInput = number | null | ''
 const planForm = reactive({
-  name: '', description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true,
+  name: '', description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true,
   daily_limit_usd: null as LimitInput, weekly_limit_usd: null as LimitInput, monthly_limit_usd: null as LimitInput,
   entry_ids: [] as number[],
 })
@@ -227,7 +222,7 @@ function ceilCnyAmount(value: number): number {
 
 const subscriptionCnyPreview = computed(() => {
   const price = Number(planForm.price) || 0
-  const rate = Number(props.paymentConfig?.subscription_usd_to_cny_rate) || 0
+  const rate = Number(props.paymentConfig?.usd_to_cny_rate) || 0
   if (price <= 0 || rate <= 0) return null
 
   const amount = roundCnyAmount(price * rate)
@@ -251,7 +246,7 @@ watch(() => props.show, (visible) => {
   if (props.plan) {
     Object.assign(planForm, {
       name: props.plan.name, description: props.plan.description, price: props.plan.price, original_price: props.plan.original_price || 0,
-      currency: props.plan.currency || '', validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days',
+      validity_days: props.plan.validity_days, validity_unit: props.plan.validity_unit || 'days',
       sort_order: props.plan.sort_order || 0, for_sale: props.plan.for_sale,
       daily_limit_usd: props.plan.daily_limit_usd ?? null, weekly_limit_usd: props.plan.weekly_limit_usd ?? null, monthly_limit_usd: props.plan.monthly_limit_usd ?? null,
       entry_ids: props.plan.entry_ids ? [...props.plan.entry_ids] : (props.plan.models || []).map(m => m.entry_id),
@@ -259,7 +254,7 @@ watch(() => props.show, (visible) => {
     planFeaturesText.value = (props.plan.features || []).join('\n')
   } else {
     Object.assign(planForm, {
-      name: '', description: '', price: 0, original_price: 0, currency: '', validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true,
+      name: '', description: '', price: 0, original_price: 0, validity_days: 30, validity_unit: 'days', sort_order: 0, for_sale: true,
       daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null, entry_ids: [],
     })
     planFeaturesText.value = ''
@@ -279,7 +274,6 @@ function buildPlanPayload() {
     description: planForm.description,
     price: planForm.price,
     original_price: planForm.original_price || 0,
-    currency: planForm.currency.trim().toUpperCase(),
     validity_days: planForm.validity_days,
     validity_unit: planForm.validity_unit,
     sort_order: planForm.sort_order,

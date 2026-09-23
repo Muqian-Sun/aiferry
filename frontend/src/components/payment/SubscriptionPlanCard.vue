@@ -24,11 +24,10 @@
         <div class="flex items-baseline gap-0.5">
           <span class="text-base font-medium text-af-ink-2">{{ planCurrencySymbol }}</span>
           <span class="text-3xl font-semibold tabular-nums tracking-[-0.02em] text-af-ink">{{ plan.price }}</span>
-          <span v-if="plan.currency" class="text-xs text-af-ink-4">{{ plan.currency }}</span>
           <span class="ml-1.5 text-13 text-af-ink-3">/ {{ validitySuffix }}</span>
         </div>
         <p v-if="plan.original_price" class="mt-1 text-xs text-af-ink-4">
-          <span class="line-through">{{ planCurrencySymbol }}{{ plan.original_price }}<template v-if="plan.currency"> {{ plan.currency }}</template></span>
+          <span class="line-through">{{ planCurrencySymbol }}{{ plan.original_price }}</span>
           <span v-if="discountText" class="ml-1.5 font-medium text-af-ink-2">{{ discountText }}</span>
         </p>
       </div>
@@ -88,7 +87,7 @@ import type { SubscriptionPlan } from '@/types/payment'
 import type { UserSubscription } from '@/types'
 import { planValiditySuffix } from './validity'
 import Icon from '@/components/icons/Icon.vue'
-import { currencySymbol } from '@/components/payment/currency'
+import { USD_PAYMENT_CURRENCY, currencySymbol } from '@/components/payment/currency'
 
 const props = defineProps<{ plan: SubscriptionPlan; activeSubscriptions?: UserSubscription[] }>()
 const emit = defineEmits<{ select: [plan: SubscriptionPlan] }>()
@@ -108,7 +107,8 @@ const discountText = computed(() => {
   return pct > 0 ? `-${pct}%` : ''
 })
 
-const planCurrencySymbol = computed(() => currencySymbol(props.plan.currency || 'USD'))
+// 套餐一律按美元定价
+const planCurrencySymbol = currencySymbol(USD_PAYMENT_CURRENCY)
 
 /** 套餐模型集：显示名优先，没有就 model_id */
 const modelLabels = computed(() => (props.plan.models ?? []).map(m => m.display_name || m.model_id))

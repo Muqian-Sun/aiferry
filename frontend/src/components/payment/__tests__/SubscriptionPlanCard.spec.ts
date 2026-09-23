@@ -107,13 +107,12 @@ describe("SubscriptionPlanCard", () => {
     expect(mountPlanCard({ validity_days: 30, validity_unit: "day" }).text()).toContain("/ 30payment.days");
   });
 
-  it("uses the configured currency symbol while preserving USD for legacy plans", () => {
-    const cnyPlan = mountPlanCard({ currency: "CNY", original_price: 20 }).text();
+  it("prices every plan in USD", () => {
+    const text = mountPlanCard({ original_price: 20 }).text();
 
-    expect(cnyPlan).toContain("¥10CNY");
-    expect(cnyPlan).toContain("¥20CNY");
-    expect(mountPlanCard({ currency: "USD" }).text()).toContain("$10USD");
-    expect(mountPlanCard({ currency: "" }).text()).toContain("$10");
+    expect(text).toContain("$10");
+    expect(text).toContain("$20");
+    expect(text).not.toContain("¥");
   });
 
   it.each([

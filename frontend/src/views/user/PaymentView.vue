@@ -55,7 +55,7 @@
               <h2 class="mb-4 text-base font-semibold text-af-ink">{{ t('payment.amountLabel') }}</h2>
               <AmountInput
                 v-model="amount"
-                :amounts="[10, 20, 50, 100, 200, 500, 1000, 2000, 5000]"
+                :amounts="[5, 10, 20, 50, 100, 200, 500, 1000]"
                 :min="globalMinAmount"
                 :max="globalMaxAmount"
               />
@@ -72,27 +72,27 @@
             </section>
 
             <section v-if="validAmount > 0" class="border-t border-af-hairline pt-6">
-              <dl class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <dt class="text-af-ink-3">{{ t('payment.paymentAmount') }}</dt>
-                  <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(validAmount) }}</dd>
-                </div>
-                <div v-if="feeRate > 0" class="flex justify-between">
-                  <dt class="text-af-ink-3">{{ t('payment.fee') }} ({{ feeRate }}%)</dt>
-                  <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(feeAmount) }}</dd>
-                </div>
-                <div v-if="balanceRechargeMultiplier !== 1" class="flex justify-between">
-                  <dt class="text-af-ink-3">{{ t('payment.creditedBalance') }}</dt>
-                  <dd class="tabular-nums text-af-ink">${{ creditedAmount.toFixed(2) }}</dd>
-                </div>
-                <div class="flex items-baseline justify-between border-t border-af-hairline pt-2">
-                  <dt class="font-medium text-af-ink-2">{{ t('payment.actualPay') }}</dt>
-                  <dd class="text-xl font-semibold tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(totalAmount) }}</dd>
-                </div>
-              </dl>
-              <p v-if="balanceRechargeMultiplier !== 1" class="mt-2 text-xs text-af-ink-3">
-                {{ t('payment.rechargeRatePreview', { currency: selectedCurrency, usd: balanceRechargeMultiplier.toFixed(2) }) }}
-              </p>
+              <!-- 充值金额是美元（= 到账余额）；实付按通道币种换算，人民币通道注明汇率；没配汇率就不能付 -->
+              <p v-if="usdRateMissing" class="text-13 text-af-danger" data-testid="usd-rate-missing">{{ t('payment.usdRateMissing') }}</p>
+              <template v-else>
+                <dl class="space-y-2 text-sm">
+                  <div class="flex justify-between">
+                    <dt class="text-af-ink-3">{{ t('payment.creditedBalance') }}</dt>
+                    <dd class="tabular-nums text-af-ink">{{ formatUsd(validAmount) }}</dd>
+                  </div>
+                  <div v-if="feeRate > 0" class="flex justify-between">
+                    <dt class="text-af-ink-3">{{ t('payment.fee') }} ({{ feeRate }}%)</dt>
+                    <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(feeAmount) }}</dd>
+                  </div>
+                  <div class="flex items-baseline justify-between border-t border-af-hairline pt-2">
+                    <dt class="font-medium text-af-ink-2">{{ t('payment.actualPay') }}</dt>
+                    <dd class="text-xl font-semibold tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(totalAmount) }}</dd>
+                  </div>
+                </dl>
+                <p v-if="selectedCurrency === DEFAULT_PAYMENT_CURRENCY" class="mt-2 text-xs text-af-ink-3">
+                  {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
+                </p>
+              </template>
               <button class="btn btn-primary btn-md mt-6 w-full" :disabled="!canSubmit || submitting" @click="handleSubmitRecharge">
                 <span v-if="submitting" class="flex items-center justify-center gap-2">
                   <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
@@ -113,9 +113,9 @@
                 <h2 class="text-base font-semibold text-af-ink">{{ selectedPlan.name }}</h2>
               </div>
               <div class="mt-2 flex items-baseline gap-2">
-                <span class="text-2xl font-semibold tabular-nums text-af-ink">{{ formatSelectedSubscriptionPaymentAmount(selectedPlan.price) }}</span>
+                <span class="text-2xl font-semibold tabular-nums text-af-ink">{{ formatUsd(selectedPlan.price) }}</span>
                 <span v-if="selectedPlan.original_price" class="text-sm tabular-nums text-af-ink-4 line-through">
-                  {{ formatSelectedSubscriptionPaymentAmount(selectedPlan.original_price) }}
+                  {{ formatUsd(selectedPlan.original_price) }}
                 </span>
                 <span class="text-13 text-af-ink-3">/ {{ planValiditySuffix }}</span>
               </div>
@@ -154,27 +154,34 @@
             </section>
 
             <section class="border-t border-af-hairline pt-6">
-              <dl v-if="feeRate > 0 && selectedPlan.price > 0" class="space-y-2 text-sm">
-                <div class="flex justify-between">
-                  <dt class="text-af-ink-3">{{ t('payment.amountLabel') }}</dt>
-                  <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subPaymentAmount) }}</dd>
-                </div>
-                <div class="flex justify-between">
-                  <dt class="text-af-ink-3">{{ t('payment.fee') }} ({{ feeRate }}%)</dt>
-                  <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subFeeAmount) }}</dd>
-                </div>
-                <div class="flex items-baseline justify-between border-t border-af-hairline pt-2">
-                  <dt class="font-medium text-af-ink-2">{{ t('payment.actualPay') }}</dt>
-                  <dd class="text-xl font-semibold tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subTotalAmount) }}</dd>
-                </div>
-              </dl>
+              <!-- 价格是美元（上方）；这里是通道实付：人民币通道按汇率换算并注明，没配汇率就不能付 -->
+              <p v-if="usdRateMissing" class="text-13 text-af-danger" data-testid="usd-rate-missing">{{ t('payment.usdRateMissing') }}</p>
+              <template v-else-if="subTotalAmount !== null && selectedPlan.price > 0">
+                <dl class="space-y-2 text-sm">
+                  <div v-if="feeRate > 0" class="flex justify-between">
+                    <dt class="text-af-ink-3">{{ t('payment.amountLabel') }}</dt>
+                    <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subPaymentAmount ?? 0) }}</dd>
+                  </div>
+                  <div v-if="feeRate > 0" class="flex justify-between">
+                    <dt class="text-af-ink-3">{{ t('payment.fee') }} ({{ feeRate }}%)</dt>
+                    <dd class="tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subFeeAmount) }}</dd>
+                  </div>
+                  <div :class="['flex items-baseline justify-between', feeRate > 0 ? 'border-t border-af-hairline pt-2' : '']">
+                    <dt class="font-medium text-af-ink-2">{{ t('payment.actualPay') }}</dt>
+                    <dd class="text-xl font-semibold tabular-nums text-af-ink">{{ formatSelectedPaymentAmount(subTotalAmount) }}</dd>
+                  </div>
+                </dl>
+                <p v-if="selectedCurrency === DEFAULT_PAYMENT_CURRENCY" class="mt-2 text-xs text-af-ink-3">
+                  {{ t('payment.usdRateNote', { rate: usdToCnyRate }) }}
+                </p>
+              </template>
               <div class="mt-6 flex flex-col gap-2 sm:flex-row-reverse">
                 <button class="btn btn-primary btn-md w-full sm:w-auto" :disabled="!canSubmitSubscription || submitting" @click="confirmSubscribe">
                   <span v-if="submitting" class="flex items-center justify-center gap-2">
                     <span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"></span>
                     {{ t('common.processing') }}
                   </span>
-                  <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount) }}</span>
+                  <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount ?? 0) }}</span>
                 </button>
                 <button class="btn btn-ghost btn-md w-full sm:w-auto" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
               </div>
@@ -244,7 +251,7 @@ import {
 } from '@/components/payment/paymentFlow'
 import SubscriptionPlanCard from '@/components/payment/SubscriptionPlanCard.vue'
 import PaymentStatusPanel from '@/components/payment/PaymentStatusPanel.vue'
-import { DEFAULT_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
+import { DEFAULT_PAYMENT_CURRENCY, USD_PAYMENT_CURRENCY, formatPaymentAmount, normalizePaymentCurrency } from '@/components/payment/currency'
 import { planValiditySuffix as validitySuffixOf } from '@/components/payment/validity'
 import type { PaymentMethodOption } from '@/components/payment/PaymentMethodSelector.vue'
 import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './paymentUx'
@@ -448,7 +455,7 @@ function onPaymentSettled() {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], balance_disabled: false, balance_recharge_multiplier: 1, subscription_usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], balance_disabled: false, usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const renderedHelpText = computed(() => DOMPurify.sanitize(
@@ -471,18 +478,14 @@ watch(subscriptionEnabled, (enabled) => {
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
 const validAmount = computed(() => amount.value ?? 0)
-const balanceRechargeMultiplier = computed(() => {
-  const multiplier = checkout.value.balance_recharge_multiplier
-  return Number.isFinite(multiplier) && multiplier > 0 ? multiplier : 1
-})
-// 订阅 CNY 换算汇率（1 USD = X CNY）。0 = 未配置，订阅保持 price 直付（与后端 opt-in 条件严格镜像）。
-const subscriptionUsdToCnyRate = computed(() => {
-  const rate = checkout.value.subscription_usd_to_cny_rate
+// 美元汇率（1 USD = X CNY）。站内金额（充值到账额、套餐价格）一律是美元；0 = 未配置，人民币通道不能下单。
+// 与后端 convertUSDToGatewayAmount 严格镜像。
+const usdToCnyRate = computed(() => {
+  const rate = checkout.value.usd_to_cny_rate
   return Number.isFinite(rate) && rate > 0 ? rate : 0
 })
-const creditedAmount = computed(() => Math.round((validAmount.value * balanceRechargeMultiplier.value) * 100) / 100)
 
-// Check if an amount fits a method's [min, max]. 0 = no limit.
+// Check if a gateway amount fits a method's [min, max]. 0 = no limit.
 function amountFitsMethod(amt: number, methodType: string): boolean {
   if (amt <= 0) return true
   const ml = visibleMethods.value[methodType]
@@ -492,18 +495,27 @@ function amountFitsMethod(amt: number, methodType: string): boolean {
   return true
 }
 
-// Visible methods decide the amount range shown to users.
+// 支付方式的单笔限额是通道币种；金额输入框是美元，按汇率折回美元（启用的方式币种一致，后端强制）
+function gatewayLimitToUsd(value: number, currency: string, round: 'up' | 'down'): number {
+  if (value <= 0) return 0
+  if (currency === USD_PAYMENT_CURRENCY) return value
+  if (currency !== DEFAULT_PAYMENT_CURRENCY || usdToCnyRate.value <= 0) return 0
+  const usd = value / usdToCnyRate.value
+  return round === 'up' ? Math.ceil(usd * 100) / 100 : Math.floor(usd * 100) / 100
+}
+
+// Visible methods decide the amount range shown to users (in USD).
 const globalMinAmount = computed(() => {
   const limits = Object.values(visibleMethods.value)
   if (limits.length === 0) return 0
   if (limits.some(limit => limit.single_min <= 0)) return 0
-  return Math.min(...limits.map(limit => limit.single_min))
+  return Math.min(...limits.map(limit => gatewayLimitToUsd(limit.single_min, normalizePaymentCurrency(limit.currency), 'up')))
 })
 const globalMaxAmount = computed(() => {
   const limits = Object.values(visibleMethods.value)
   if (limits.length === 0) return 0
   if (limits.some(limit => limit.single_max <= 0)) return 0
-  return Math.max(...limits.map(limit => limit.single_max))
+  return Math.max(...limits.map(limit => gatewayLimitToUsd(limit.single_max, normalizePaymentCurrency(limit.currency), 'down')))
 })
 
 // Selected method's limits (for validation and error messages)
@@ -541,18 +553,39 @@ function ceilPaymentAmount(value: number, currency: string): number {
   return Math.ceil(value * factor) / factor
 }
 
-function subscriptionPaymentAmountForCurrency(value: number, currency: string): number {
-  const rate = subscriptionUsdToCnyRate.value
-  if (rate <= 0 || currency !== DEFAULT_PAYMENT_CURRENCY) return roundPaymentAmount(value, currency)
-  return roundPaymentAmount(value * rate, currency)
+const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
+
+/** 美元金额换算成通道币种金额（不含手续费）：USD 原价；CNY × 汇率；汇率未配置或其他币种返回 null（后端会拒单） */
+function gatewayAmountForCurrency(valueUsd: number, currency: string): number | null {
+  if (currency === USD_PAYMENT_CURRENCY) return roundPaymentAmount(valueUsd, currency)
+  if (currency === DEFAULT_PAYMENT_CURRENCY && usdToCnyRate.value > 0) return roundPaymentAmount(valueUsd * usdToCnyRate.value, currency)
+  return null
 }
+
+/** 通道实付 = 换算后金额 + 手续费（手续费按换算后金额向上取整，与后端 CalculatePayAmountForCurrency 一致） */
+function gatewayTotalForCurrency(valueUsd: number, currency: string): number | null {
+  const base = gatewayAmountForCurrency(valueUsd, currency)
+  if (base === null) return null
+  if (feeRate.value <= 0 || base <= 0) return base
+  return roundPaymentAmount(base + ceilPaymentAmount((base * feeRate.value) / 100, currency), currency)
+}
+
+/** 某支付方式能否收这笔美元金额：能换算出实付，且实付在该方式的单笔限额内 */
+function usdAmountFitsMethod(valueUsd: number, methodType: string): boolean {
+  if (valueUsd <= 0) return true
+  const total = gatewayTotalForCurrency(valueUsd, normalizePaymentCurrency(visibleMethods.value[methodType]?.currency))
+  return total !== null && amountFitsMethod(total, methodType)
+}
+
+/** 选中的是人民币通道但没配汇率：显示提示、不能提交 */
+const usdRateMissing = computed(() => gatewayAmountForCurrency(1, selectedCurrency.value) === null)
 
 function formatSelectedPaymentAmount(value: number): string {
   return formatPaymentAmount(value, selectedCurrency.value, localeCode.value)
 }
 
-function formatSelectedSubscriptionPaymentAmount(value: number): string {
-  return formatSelectedPaymentAmount(subscriptionPaymentAmountForCurrency(value, selectedCurrency.value))
+function formatUsd(value: number): string {
+  return formatPaymentAmount(value, USD_PAYMENT_CURRENCY, localeCode.value)
 }
 
 const methodOptions = computed<PaymentMethodOption[]>(() =>
@@ -562,91 +595,78 @@ const methodOptions = computed<PaymentMethodOption[]>(() =>
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(validAmount.value, type),
+      available: ml?.available !== false && usdAmountFitsMethod(validAmount.value, type),
     }
   })
 )
 
-const feeRate = computed(() => checkout.value?.recharge_fee_rate ?? 0)
-const feeAmount = computed(() =>
-  feeRate.value > 0 && validAmount.value > 0
-    ? Math.ceil(((validAmount.value * feeRate.value) / 100) * 100) / 100
-    : 0
-)
-const totalAmount = computed(() =>
-  feeRate.value > 0 && validAmount.value > 0
-    ? Math.round((validAmount.value + feeAmount.value) * 100) / 100
-    : validAmount.value
-)
+// 充值：输入的美元金额 = 到账余额；实付按选中通道换算
+const rechargeBaseAmount = computed(() => gatewayAmountForCurrency(validAmount.value, selectedCurrency.value))
+const feeAmount = computed(() => {
+  const base = rechargeBaseAmount.value
+  if (base === null || feeRate.value <= 0 || base <= 0) return 0
+  return ceilPaymentAmount((base * feeRate.value) / 100, selectedCurrency.value)
+})
+const totalAmount = computed(() => gatewayTotalForCurrency(validAmount.value, selectedCurrency.value) ?? 0)
 
 const amountError = computed(() => {
-  if (validAmount.value <= 0) return ''
+  if (validAmount.value <= 0 || usdRateMissing.value) return ''
   // No method can handle this amount
-  if (!enabledMethods.value.some((m) => amountFitsMethod(validAmount.value, m))) {
+  if (!enabledMethods.value.some((m) => usdAmountFitsMethod(validAmount.value, m))) {
     return t('payment.amountNoMethod')
   }
-  // Selected method can't handle this amount (but others can)
+  // Selected method can't handle this amount (but others can); limits are in the channel currency
   const ml = selectedLimit.value
   if (ml) {
-    if (ml.single_min > 0 && validAmount.value < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
-    if (ml.single_max > 0 && validAmount.value > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
+    const total = totalAmount.value
+    if (ml.single_min > 0 && total < ml.single_min) return t('payment.amountTooLow', { min: formatSelectedPaymentAmount(ml.single_min) })
+    if (ml.single_max > 0 && total > ml.single_max) return t('payment.amountTooHigh', { max: formatSelectedPaymentAmount(ml.single_max) })
   }
   return ''
 })
 
 const canSubmit = computed(() =>
   validAmount.value > 0
-    && amountFitsMethod(validAmount.value, selectedMethod.value)
+    && usdAmountFitsMethod(validAmount.value, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
 
-const subPaymentAmount = computed(() => {
-  const price = selectedPlan.value?.price ?? 0
-  return subscriptionPaymentAmountForCurrency(price, selectedCurrency.value)
-})
+// 订阅：价格是美元；实付按选中通道换算
+const subPaymentAmount = computed(() => gatewayAmountForCurrency(selectedPlan.value?.price ?? 0, selectedCurrency.value))
 
 const subFeeAmount = computed(() => {
-  if (feeRate.value <= 0 || subPaymentAmount.value <= 0) return 0
-  return ceilPaymentAmount((subPaymentAmount.value * feeRate.value) / 100, selectedCurrency.value)
+  const base = subPaymentAmount.value
+  if (base === null || feeRate.value <= 0 || base <= 0) return 0
+  return ceilPaymentAmount((base * feeRate.value) / 100, selectedCurrency.value)
 })
 
-const subTotalAmount = computed(() => {
-  if (feeRate.value <= 0 || subPaymentAmount.value <= 0) return subPaymentAmount.value
-  return roundPaymentAmount(subPaymentAmount.value + subFeeAmount.value, selectedCurrency.value)
-})
-
-function subscriptionTotalAmountForCurrency(value: number, currency: string): number {
-  const paymentAmount = subscriptionPaymentAmountForCurrency(value, currency)
-  if (feeRate.value <= 0 || paymentAmount <= 0) return paymentAmount
-  const fee = ceilPaymentAmount((paymentAmount * feeRate.value) / 100, currency)
-  return roundPaymentAmount(paymentAmount + fee, currency)
-}
+const subTotalAmount = computed(() => gatewayTotalForCurrency(selectedPlan.value?.price ?? 0, selectedCurrency.value))
 
 // Subscription-specific: method options based on gateway pay amount
 const subMethodOptions = computed<PaymentMethodOption[]>(() => {
   const price = selectedPlan.value?.price ?? 0
   return enabledMethods.value.map((type) => {
     const ml = visibleMethods.value[type]
-    const currency = normalizePaymentCurrency(ml?.currency)
     return {
       type,
       display_name: ml?.display_name,
       fee_rate: ml?.fee_rate ?? 0,
-      available: ml?.available !== false && amountFitsMethod(subscriptionTotalAmountForCurrency(price, currency), type),
+      available: ml?.available !== false && usdAmountFitsMethod(price, type),
     }
   })
 })
 
 const canSubmitSubscription = computed(() =>
   selectedPlan.value !== null
-    && amountFitsMethod(subTotalAmount.value, selectedMethod.value)
+    && subTotalAmount.value !== null
+    && usdAmountFitsMethod(selectedPlan.value.price, selectedMethod.value)
     && selectedLimit.value?.available !== false
 )
 
 // Auto-switch to first available method when current selection can't handle the amount
 watch(() => [validAmount.value, selectedMethod.value] as const, ([amt, method]) => {
-  if (amt <= 0 || amountFitsMethod(amt, method)) return
-  const available = enabledMethods.value.find((m) => amountFitsMethod(amt, m))
+  if (amt <= 0 || usdAmountFitsMethod(amt, method)) return
+  const available = enabledMethods.value.find((m) => usdAmountFitsMethod(amt, m))
   if (available) selectedMethod.value = available
 })
 

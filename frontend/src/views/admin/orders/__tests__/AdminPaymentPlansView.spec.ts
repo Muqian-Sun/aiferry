@@ -58,7 +58,6 @@ describe('AdminPaymentPlansView', () => {
           models: [{ entry_id: 199, model_id: 'gpt-5.6', display_name: 'GPT 5.6' }],
           price: 499,
           original_price: 599,
-          currency: 'CNY',
           validity_days: 30,
           validity_unit: 'day',
           sort_order: 0,
@@ -75,7 +74,6 @@ describe('AdminPaymentPlansView', () => {
           models: [{ entry_id: 27, model_id: 'claude-sonnet-4-5', display_name: '' }],
           price: 10,
           original_price: 0,
-          currency: '',
           validity_days: 30,
           validity_unit: 'day',
           sort_order: 0,
@@ -86,7 +84,7 @@ describe('AdminPaymentPlansView', () => {
     })
   })
 
-  it('uses the configured currency symbol and keeps legacy prices in USD', async () => {
+  it('shows every plan price in USD', async () => {
     const wrapper = mount(AdminPaymentPlansView, {
       global: {
         plugins: [createPinia()],
@@ -102,8 +100,9 @@ describe('AdminPaymentPlansView', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('¥499.00CNY')
-    expect(wrapper.text()).toContain('¥599.00')
+    expect(wrapper.text()).toContain('$499.00')
+    expect(wrapper.text()).toContain('$599.00')
     expect(wrapper.text()).toContain('$10.00')
+    expect(wrapper.text()).not.toContain('¥')
   })
 })
