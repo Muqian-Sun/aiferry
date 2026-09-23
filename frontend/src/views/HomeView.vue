@@ -38,14 +38,15 @@
               <span class="text-flow" data-testid="hero-title-accent">{{ t('userUi.home.hero.titleAccent') }}</span>
             </h1>
             <p class="mt-6 max-w-lg text-[17px] leading-8 text-af-ink-2">{{ t('userUi.home.hero.description') }}</p>
-            <div class="mt-9 flex flex-wrap items-center gap-3">
-              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-hero btn-brand group" data-testid="home-primary-cta">
+            <!-- 行动入口是文字链接，不是按钮框（muqian：不要卡片式按钮） -->
+            <div class="mt-9 flex flex-wrap items-center gap-x-9 gap-y-4">
+              <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="hero-link hero-link-primary" data-testid="home-primary-cta">
                 {{ isAuthenticated ? t('userUi.home.hero.goToConsole') : t('userUi.home.hero.getStarted') }}
-                <Icon name="arrowRight" size="sm" class="btn-arrow" />
+                <Icon name="arrowRight" size="sm" class="hero-link-arrow" />
               </RouterLink>
-              <RouterLink to="/model-plaza" class="btn btn-hero btn-outline group" data-testid="home-secondary-cta">
+              <RouterLink to="/model-plaza" class="hero-link" data-testid="home-secondary-cta">
                 {{ t('userUi.home.hero.viewPricing') }}
-                <Icon name="chevronRight" size="sm" class="btn-arrow text-af-ink-3" />
+                <Icon name="arrowRight" size="sm" class="hero-link-arrow" />
               </RouterLink>
             </div>
             <ul class="mt-9 flex flex-wrap gap-x-6 gap-y-2.5 text-sm text-af-ink-2" data-testid="hero-points">

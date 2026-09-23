@@ -64,13 +64,14 @@ const SLOTS: Slot[] = [
 ]
 
 /**
- * 远近三档：图标尺寸、透明度、飘动幅度。幅度是拍的：最初远档只有 8px、周期 10s 以上，muqian 看着像静止，
- * 现在所有位置只用近两档，幅度 18 / 15px，周期 6–10s。第三档保留给以后加厂商时用。
+ * 远近三档：图标尺寸、透明度、飘动幅度。都是拍的：最初远档只有 8px、周期 10s 以上，muqian 看着像静止，
+ * 现在所有位置只用近两档，幅度 18 / 15px，周期 6–10s；尺寸按 muqian「缩小一点点」从 60 / 46 调到 52 / 40。
+ * 第三档保留给以后加厂商时用。
  */
 const DEPTH: Record<Depth, { size: number; opacity: number; amp: number }> = {
-  0: { size: 60, opacity: 1, amp: 18 },
-  1: { size: 46, opacity: 0.9, amp: 15 },
-  2: { size: 36, opacity: 0.7, amp: 12 }
+  0: { size: 52, opacity: 1, amp: 18 },
+  1: { size: 40, opacity: 0.9, amp: 15 },
+  2: { size: 32, opacity: 0.7, amp: 12 }
 }
 
 /**

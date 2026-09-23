@@ -241,31 +241,36 @@
   }
 
   /*
-   * 首屏按钮：48px 高、12px 圆角、15px 字，图标跟在文字后、hover 时右移一点。
-   * 主按钮 .btn-brand 用品牌青（和 logo 同色）+ 同色压低的投影；次按钮 .btn-outline 白底细描边。
+   * 首屏行动入口：文字链接，不要按钮框（muqian 2026-09-23：卡片式按钮丑，几轮都差不多）。
+   * 次入口灰字，hover 时下划线从左往右长出来；主入口品牌青加粗，2px 下划线常驻；箭头 hover 右移。
    */
-  .btn-hero {
-    @apply h-12 gap-2 rounded-xl px-6 py-0 text-[15px];
+  .hero-link {
+    @apply relative inline-flex items-center gap-2 pb-1.5 text-base font-medium text-af-ink-2 transition-colors hover:text-af-ink;
   }
 
-  .btn-brand {
-    @apply bg-af-brand text-af-on-brand hover:bg-af-brand-hover;
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.14),
-      0 10px 24px -12px rgb(var(--af-brand) / 0.75);
+  .hero-link::after {
+    content: '';
+    @apply absolute bottom-0 left-0 h-px w-full origin-left scale-x-0 bg-current transition-transform duration-300 ease-out;
   }
 
-  .btn-outline {
-    @apply border border-af-hairline-strong bg-af-sheet text-af-ink hover:border-af-ink-4 hover:bg-af-sunken;
-    box-shadow: 0 1px 2px rgb(var(--af-ink) / 0.05);
+  .hero-link:hover::after {
+    @apply scale-x-100;
   }
 
-  .btn-arrow {
+  .hero-link-primary {
+    @apply text-lg font-semibold text-af-brand hover:text-af-brand-hover;
+  }
+
+  .hero-link-primary::after {
+    @apply h-0.5 scale-x-100;
+  }
+
+  .hero-link-arrow {
     @apply transition-transform duration-200 ease-out;
   }
 
-  .group:hover .btn-arrow {
-    @apply translate-x-0.5;
+  .hero-link:hover .hero-link-arrow {
+    @apply translate-x-1;
   }
 
   /*
