@@ -10,21 +10,14 @@ import (
 )
 
 const (
+	// SchedulerModeSingle 平台池：PoolID 恒 0，候选 = 该平台的全部可调度资源（无模型端点用）。
 	SchedulerModeSingle = "single"
-	SchedulerModeMixed  = "mixed"
-	SchedulerModeForced = "forced"
-	// SchedulerModeCatalog 目录桶：GroupID 字段存的是目录条目 ID，Platform 恒空
-	// （条目没有网关族），候选来自 model_catalog_bindings。与分组桶同一 ID 空间但互不相干，
-	// 分组生命周期（退役 / 重开）只认自己的模式。
+	// SchedulerModeCatalog 目录桶：PoolID 存的是目录条目 ID，Platform 恒空
+	// （条目没有网关族），候选来自 model_catalog_bindings。
 	SchedulerModeCatalog = "catalog"
 )
 
-var (
-	ErrSchedulerBucketRetired              = errors.New("scheduler bucket retired")
-	ErrSchedulerBucketWriteFenced          = errors.New("scheduler bucket write fenced")
-	ErrSchedulerGroupLifecycleLeaseInvalid = errors.New("scheduler group lifecycle lease invalid")
-	ErrSchedulerGroupLifecycleLeaseLost    = errors.New("scheduler group lifecycle lease lost")
-)
+var ErrSchedulerBucketWriteFenced = errors.New("scheduler bucket write fenced")
 
 // SchedulerBucketWriteToken fences a snapshot writer to one bucket epoch.
 // Tokens must be captured before any database load or queued rebuild work.
@@ -37,42 +30,42 @@ func (t SchedulerBucketWriteToken) ValidFor(bucket SchedulerBucket) bool {
 	return t.Epoch > 0 && t.Bucket == bucket
 }
 
-// SchedulerGroupLifecycleLease identifies one owner of a group's short-lived
-// retirement/reopen critical section.
-type SchedulerGroupLifecycleLease struct {
-	GroupID    int64
-	OwnerToken string
-}
-
-func (l SchedulerGroupLifecycleLease) ValidFor(groupID int64) bool {
-	return groupID > 0 && l.GroupID == groupID && l.OwnerToken != ""
-}
-
+// SchedulerBucket 一份候选账号列表的键：目录桶 = (条目 ID, "", catalog)，平台池 = (0, 平台, single)。
 type SchedulerBucket struct {
-	GroupID  int64
+	PoolID   int64
 	Platform string
 	Mode     string
 }
 
 func (b SchedulerBucket) String() string {
-	return fmt.Sprintf("%d:%s:%s", b.GroupID, b.Platform, b.Mode)
+	return fmt.Sprintf("%d:%s:%s", b.PoolID, b.Platform, b.Mode)
 }
 
+// ParseSchedulerBucket 解析注册表里的桶键；只认平台池与目录桶两种形态，
+// 旧的 mixed / forced / 分组桶（PoolID 非 0 的 single）一律拒绝——注册表里的残留成员被忽略，不再重建。
 func ParseSchedulerBucket(raw string) (SchedulerBucket, bool) {
 	parts := strings.Split(raw, ":")
 	if len(parts) != 3 {
 		return SchedulerBucket{}, false
 	}
-	groupID, err := strconv.ParseInt(parts[0], 10, 64)
+	poolID, err := strconv.ParseInt(parts[0], 10, 64)
 	if err != nil {
 		return SchedulerBucket{}, false
 	}
-	// 只有目录桶的 Platform 允许为空（"27::catalog"）。
-	if parts[2] == "" || (parts[1] == "" && parts[2] != SchedulerModeCatalog) {
+	switch parts[2] {
+	case SchedulerModeCatalog:
+		if poolID <= 0 || parts[1] != "" {
+			return SchedulerBucket{}, false
+		}
+	case SchedulerModeSingle:
+		if poolID != 0 || parts[1] == "" {
+			return SchedulerBucket{}, false
+		}
+	default:
 		return SchedulerBucket{}, false
 	}
 	return SchedulerBucket{
-		GroupID:  groupID,
+		PoolID:   poolID,
 		Platform: parts[1],
 		Mode:     parts[2],
 	}, true
@@ -82,29 +75,10 @@ func ParseSchedulerBucket(raw string) (SchedulerBucket, bool) {
 type SchedulerCache interface {
 	// GetSnapshot 读取快照并返回命中与否（ready + active + 数据完整）。
 	GetSnapshot(ctx context.Context, bucket SchedulerBucket) ([]*Account, bool, error)
-	// CaptureBucketWriteToken captures the current open epoch without changing
-	// retirement state. A tombstoned bucket returns ErrSchedulerBucketRetired.
+	// CaptureBucketWriteToken captures the current writer epoch.
 	CaptureBucketWriteToken(ctx context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error)
 	// SetSnapshot 写入快照并切换激活版本。token 必须在 DB load/任务排队前取得。
 	SetSnapshot(ctx context.Context, bucket SchedulerBucket, token SchedulerBucketWriteToken, accounts []Account) error
-	// RetireBucket persistently tombstones a bucket and fences every older writer.
-	// Readers that captured the active version before retirement may finish; new
-	// readers observe ready/active as absent.
-	RetireBucket(ctx context.Context, bucket SchedulerBucket) error
-	// ReopenBucket is the only operation allowed to clear a tombstone. It returns
-	// the retirement generation established by RetireBucket; repeated calls for
-	// the same generation are idempotent. Callers must serialize a fresh authority
-	// check through ReopenBucket with RetireBucket under the same group lifecycle
-	// lease; ordinary rebuild paths never call ReopenBucket.
-	ReopenBucket(ctx context.Context, bucket SchedulerBucket) (SchedulerBucketWriteToken, error)
-	// TryAcquireGroupLifecycleLease serializes authoritative retirement/reopen
-	// decisions for one non-zero group across instances.
-	TryAcquireGroupLifecycleLease(ctx context.Context, groupID int64, ttl time.Duration) (SchedulerGroupLifecycleLease, bool, error)
-	// ReleaseGroupLifecycleLease releases the lease only if its owner token still
-	// matches, so an expired holder cannot delete a successor's lease. Missing,
-	// expired, mismatched, and already released leases return
-	// ErrSchedulerGroupLifecycleLeaseLost.
-	ReleaseGroupLifecycleLease(ctx context.Context, lease SchedulerGroupLifecycleLease) error
 	// GetAccount 获取单账号快照。
 	GetAccount(ctx context.Context, accountID int64) (*Account, error)
 	// SetAccount 写入单账号快照（包含不可调度状态）。

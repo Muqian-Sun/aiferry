@@ -125,7 +125,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 					s.deleteStickySession(ctx, sessionHash)
 				}
 
-				platformOK := isAccountSchedulableOnPlatform(ctx, account, platform, false)
+				platformOK := isAccountSchedulableOnPlatform(ctx, account, platform)
 				admitOK, admitReason := s.candidateAdmits(ctx, account, requestedModel)
 				rpmOK := s.isAccountSchedulableForRPM(ctx, account, true)
 
@@ -237,7 +237,7 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 		if isExcluded(acc.ID) {
 			continue
 		}
-		if !isAccountSchedulableOnPlatform(ctx, acc, platform, false) {
+		if !isAccountSchedulableOnPlatform(ctx, acc, platform) {
 			continue
 		}
 		// Scheduler snapshots can be temporarily stale (bucket rebuild is throttled);
@@ -462,16 +462,16 @@ func (s *GatewayService) listSchedulableAccounts(ctx context.Context, platform s
 	var err error
 	switch {
 	case s.schedulerSnapshot != nil:
-		accounts, _, err = s.schedulerSnapshot.ListSchedulableAccounts(ctx, nil, platform, hasForcePlatform)
+		accounts, err = s.schedulerSnapshot.ListSchedulableAccounts(ctx, platform)
 	case routed:
 		accounts, err = s.accountRepo.ListSchedulingCandidatesByCatalogEntry(ctx, route.EntryID)
 		if err == nil {
-			accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false)
+			accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform)
 		}
 	default:
 		accounts, err = s.accountRepo.ListSchedulingCandidates(ctx, []string{platform})
 		if err == nil {
-			accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false)
+			accounts = filterAccountsSchedulableOnPlatform(ctx, accounts, platform)
 		}
 	}
 	if err != nil {

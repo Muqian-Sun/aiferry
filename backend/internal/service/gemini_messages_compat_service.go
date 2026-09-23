@@ -104,8 +104,7 @@ func (s *GeminiMessagesCompatService) GetAntigravityGatewayService() *Antigravit
 // listSchedulableAccountsOnce platform 平台的池（目录路由下是条目绑定）：快照在就读快照，否则查库。
 func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Context, platform string, hasForcePlatform bool) ([]Account, error) {
 	if s.schedulerSnapshot != nil {
-		accounts, _, err := s.schedulerSnapshot.ListSchedulableAccounts(ctx, nil, platform, hasForcePlatform)
-		return accounts, err
+		return s.schedulerSnapshot.ListSchedulableAccounts(ctx, platform)
 	}
 
 	var accounts []Account
@@ -118,7 +117,7 @@ func (s *GeminiMessagesCompatService) listSchedulableAccountsOnce(ctx context.Co
 	if err != nil {
 		return nil, err
 	}
-	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform, false), nil
+	return filterAccountsSchedulableOnPlatform(ctx, accounts, platform), nil
 }
 
 func (s *GeminiMessagesCompatService) validateUpstreamBaseURL(raw string) (string, error) {
