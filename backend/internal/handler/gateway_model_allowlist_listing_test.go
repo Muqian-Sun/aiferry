@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -20,14 +21,6 @@ type geminiAllowlistAccountRepoStub struct {
 	service.AccountRepository
 }
 
-func (s *geminiAllowlistAccountRepoStub) ListSchedulableByGroupID(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
-}
-
-func (s *geminiAllowlistAccountRepoStub) ListByGroup(context.Context, int64) ([]service.Account, error) {
-	return nil, nil
-}
-
 func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidatesByCatalogEntry(context.Context, int64) ([]service.Account, error) {
 	return nil, nil
 }
@@ -41,14 +34,14 @@ func (s *geminiAllowlistAccountRepoStub) ListSchedulingCandidates(context.Contex
 func TestGeminiV1BetaListModels_FiltersFallbackByCatalog(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	h := &GatewayHandler{
-		geminiCompatService: service.NewGeminiMessagesCompatService(&geminiAllowlistAccountRepoStub{}, nil, nil, nil, nil, nil, nil, nil, nil),
+		geminiCompatService: service.NewGeminiMessagesCompatService(&geminiAllowlistAccountRepoStub{}, nil, nil, nil, nil, nil, nil, nil),
 		modelCatalog:        listedCatalogStub{ids: []string{"gemini-2.5-pro"}},
 	}
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1beta/models", nil)
 	geminiGroupID := int64(42)
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{GroupID: &geminiGroupID, Group: &service.Group{ID: geminiGroupID, Platform: service.PlatformGemini}})
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{GroupID: &geminiGroupID})
 
 	h.GeminiV1BetaListModels(c)
 
@@ -70,7 +63,7 @@ func TestAntigravityModels_FiltersByCatalog(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/antigravity/models", nil)
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{Group: &service.Group{ID: 52, Platform: service.PlatformAntigravity}})
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{})
 
 	h.AntigravityModels(c)
 
@@ -87,8 +80,7 @@ func TestAntigravityModels_FiltersByCatalog(t *testing.T) {
 }
 
 func TestFilterUpstreamGeminiModelsBody(t *testing.T) {
-	allowlist := service.GroupModelAllowlist{Enabled: true, Models: []string{"gemini-2.5-pro"}}
-	keep := allowlist.Allows
+	keep := func(name string) bool { return strings.TrimPrefix(name, "models/") == "gemini-2.5-pro" }
 
 	t.Run("full hit returns original body with dropped=false", func(t *testing.T) {
 		body := []byte(`{"models":[{"name":"models/gemini-2.5-pro"},{"name":"models/gemini-2.5-pro"}]}`)

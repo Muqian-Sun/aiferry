@@ -17,7 +17,6 @@ func setupAdminRouter() (*gin.Engine, *stubAdminService) {
 	adminSvc := newStubAdminService()
 
 	userHandler := NewUserHandler(adminSvc, nil, nil, nil, nil, nil)
-	groupHandler := NewGroupHandler(adminSvc, nil, nil)
 	proxyHandler := NewProxyHandler(adminSvc)
 	redeemHandler := NewRedeemHandler(adminSvc, nil)
 
@@ -30,16 +29,6 @@ func setupAdminRouter() (*gin.Engine, *stubAdminService) {
 	router.POST("/api/v1/admin/users/:id/balance", userHandler.UpdateBalance)
 	router.GET("/api/v1/admin/users/:id/api-keys", userHandler.GetUserAPIKeys)
 	router.GET("/api/v1/admin/users/:id/usage", userHandler.GetUserUsage)
-
-	router.GET("/api/v1/admin/groups", groupHandler.List)
-	router.GET("/api/v1/admin/groups/all", groupHandler.GetAll)
-	router.GET("/api/v1/admin/groups/:id/model-allowlist-candidates", groupHandler.GetGroupModelAllowlistCandidates)
-	router.GET("/api/v1/admin/groups/:id", groupHandler.GetByID)
-	router.POST("/api/v1/admin/groups", groupHandler.Create)
-	router.PUT("/api/v1/admin/groups/:id", groupHandler.Update)
-	router.DELETE("/api/v1/admin/groups/:id", groupHandler.Delete)
-	router.GET("/api/v1/admin/groups/:id/stats", groupHandler.GetStats)
-	router.GET("/api/v1/admin/groups/:id/api-keys", groupHandler.GetGroupAPIKeys)
 
 	router.GET("/api/v1/admin/proxies", proxyHandler.List)
 	router.GET("/api/v1/admin/proxies/all", proxyHandler.GetAll)
@@ -158,60 +147,6 @@ func TestUserHandlerBindAuthIdentityMapsRequest(t *testing.T) {
 	require.Equal(t, "subject-123", adminSvc.boundAuthIdentity.ProviderSubject)
 	require.Nil(t, adminSvc.boundAuthIdentity.Channel)
 	require.Equal(t, float64(12), adminSvc.boundAuthIdentity.Metadata["report_id"])
-}
-
-func TestGroupHandlerEndpoints(t *testing.T) {
-	router, _ := setupAdminRouter()
-
-	rec := httptest.NewRecorder()
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups/all", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups/2", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups/0/model-allowlist-candidates?platform=openai", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-	require.Contains(t, rec.Body.String(), "gpt-5.5")
-
-	body, _ := json.Marshal(map[string]any{"name": "new", "platform": "anthropic", "subscription_type": "standard"})
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPost, "/api/v1/admin/groups", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	body, _ = json.Marshal(map[string]any{"name": "update"})
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodPut, "/api/v1/admin/groups/2", bytes.NewReader(body))
-	req.Header.Set("Content-Type", "application/json")
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodDelete, "/api/v1/admin/groups/2", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups/2/stats", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	rec = httptest.NewRecorder()
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/admin/groups/2/api-keys", nil)
-	router.ServeHTTP(rec, req)
-	require.Equal(t, http.StatusOK, rec.Code)
 }
 
 func TestProxyHandlerEndpoints(t *testing.T) {

@@ -318,8 +318,7 @@ const formatValue = (item: BalanceHistoryItem) => {
   }
   if (isSubscriptionType(item.type)) {
     const days = item.validity_days || Math.round(item.value)
-    const groupName = item.group?.name || ''
-    return groupName ? `${days}d - ${groupName}` : `${days}d`
+    return `${days}d`
   }
   // concurrency types
   const sign = item.value >= 0 ? '+' : ''

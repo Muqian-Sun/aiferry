@@ -27,10 +27,9 @@ func TestAuthCacheInvalidationTrigger_ProfitControlColumns(t *testing.T) {
 	user := mustCreateUser(t, integrationEntClient, &service.User{
 		Email: fmt.Sprintf("profit-trigger-%d@example.com", suffix), Concurrency: 5,
 	})
-	groupID := group.ID
 	keyValue := fmt.Sprintf("sk-profit-trigger-%d", suffix)
 	apiKeyRepo := NewAPIKeyRepository(integrationEntClient, integrationDB)
-	key := &service.APIKey{UserID: user.ID, GroupID: &groupID, Key: keyValue, Name: "profit-trigger", Status: service.StatusActive}
+	key := &service.APIKey{UserID: user.ID, Key: keyValue, Name: "profit-trigger", Status: service.StatusActive}
 	require.NoError(t, apiKeyRepo.Create(ctx, key))
 
 	sum := sha256.Sum256([]byte(keyValue))

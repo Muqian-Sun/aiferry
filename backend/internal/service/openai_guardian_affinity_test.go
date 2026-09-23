@@ -12,34 +12,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type guardianAffinityGroupRepo struct {
-	GroupRepository
-	group *Group
-	err   error
-}
-
 type guardianAffinityAccountRepo struct {
-	schedulerGroupAwareOpenAIAccountRepo
+	schedulerTestOpenAIAccountRepo
 	setErrorCalls int
 }
 
 func (r *guardianAffinityAccountRepo) SetError(context.Context, int64, string) error {
 	r.setErrorCalls++
 	return nil
-}
-
-func (r guardianAffinityGroupRepo) GetByID(context.Context, int64) (*Group, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-	return r.group, nil
-}
-
-func (r guardianAffinityGroupRepo) GetByIDLite(context.Context, int64) (*Group, error) {
-	if r.err != nil {
-		return nil, r.err
-	}
-	return r.group, nil
 }
 
 func guardianAffinityTestContext(t *testing.T, model, subagent, parentHeader, metadata string) context.Context {
@@ -135,7 +115,7 @@ func TestOpenAIGatewayService_GuardianParentAffinitySelectsParentAccount(t *test
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39001}}
 	svc := &OpenAIGatewayService{
-		accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
 		cache:              cache,
 		cfg:                &config.Config{},
 		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39001: true, 39002: true}}),
@@ -170,7 +150,7 @@ func TestOpenAIGatewayService_GuardianParentAffinityFallsBackWhenParentExcluded(
 			}
 			cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39011}}
 			svc := &OpenAIGatewayService{
-				accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
+				accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
 				cache:              cache,
 				cfg:                &config.Config{},
 				concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39011: true, 39012: true}}),
@@ -201,7 +181,7 @@ func TestOpenAIGatewayService_GuardianParentHashCollisionPreservesParentBinding(
 	}
 	cache := &schedulerTestGatewayCache{sessionBindings: map[string]int64{parentHash: 39021}}
 	svc := &OpenAIGatewayService{
-		accountRepo:        schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}},
+		accountRepo:        schedulerTestOpenAIAccountRepo{accounts: accounts},
 		cache:              cache,
 		cfg:                &config.Config{},
 		concurrencyService: NewConcurrencyService(schedulerTestConcurrencyCache{acquireResults: map[int64]bool{39021: true, 39022: true}}),
@@ -227,19 +207,17 @@ func TestOpenAIGatewayService_PreviousResponseBoundAccountSelectedAsPrefetch(t *
 	bound := Account{
 		ID: 39051, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1,
-		GroupIDs:          []int64{3906},
 		Extra:             map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	fallback := Account{
 		ID: 39052, Platform: PlatformOpenAI, Type: AccountTypeAPIKey,
 		Status: StatusActive, Schedulable: true, Concurrency: 1, Priority: 10,
-		GroupIDs:          []int64{3905},
 		Extra:             map[string]any{"openai_apikey_responses_websockets_v2_enabled": true},
 		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
 	}
 	accounts := []Account{bound, fallback}
-	repo := &guardianAffinityAccountRepo{schedulerGroupAwareOpenAIAccountRepo: schedulerGroupAwareOpenAIAccountRepo{schedulerTestOpenAIAccountRepo{accounts: accounts}}}
+	repo := &guardianAffinityAccountRepo{schedulerTestOpenAIAccountRepo: schedulerTestOpenAIAccountRepo{accounts: accounts}}
 	cache := &schedulerTestGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
 	cfg := &config.Config{}

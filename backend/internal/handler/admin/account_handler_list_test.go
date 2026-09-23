@@ -19,15 +19,12 @@ import (
 func TestAccountHandlerListLiteUsesCompactDTOAndETag(t *testing.T) {
 	router, adminSvc := setupAccountListRouter()
 	now := time.Now().UTC()
-	groupID := int64(77)
 	adminSvc.accounts = []service.Account{{
 		ID: 501, Name: "compact-account", Platform: service.PlatformOpenAI, Type: service.AccountTypeOAuth,
 		Credentials: map[string]any{"email": "compact@example.com", "access_token": strings.Repeat("x", 4096)},
 		Extra:       map[string]any{"privacy_mode": "training_off"}, Status: service.StatusActive,
-		Schedulable: true, Concurrency: 4, GroupIDs: []int64{groupID},
-		Groups:        []*service.Group{{ID: groupID, Name: "codex", Platform: service.PlatformOpenAI}},
-		AccountGroups: []service.AccountGroup{{AccountID: 501, GroupID: groupID, Priority: 2, Group: &service.Group{ID: groupID, Name: "codex", Platform: service.PlatformOpenAI}}},
-		CreatedAt:     now, UpdatedAt: now,
+		Schedulable: true, Concurrency: 4,
+		CreatedAt: now, UpdatedAt: now,
 	}}
 
 	rec := httptest.NewRecorder()
@@ -45,7 +42,6 @@ func TestAccountHandlerListLiteUsesCompactDTOAndETag(t *testing.T) {
 	require.Len(t, litePayload.Data.Items, 1)
 	liteItem := litePayload.Data.Items[0]
 	require.Equal(t, float64(501), liteItem["id"])
-	require.Equal(t, []any{float64(groupID)}, liteItem["group_ids"])
 	require.Equal(t, true, liteItem["schedulable"])
 	require.NotContains(t, liteItem, "groups")
 	require.NotContains(t, liteItem, "account_groups")
@@ -75,8 +71,6 @@ func TestAccountHandlerListLiteUsesCompactDTOAndETag(t *testing.T) {
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recFull.Body.Bytes(), &fullPayload))
-	require.Contains(t, fullPayload.Data.Items[0], "groups")
-	require.Contains(t, fullPayload.Data.Items[0], "account_groups")
 }
 
 func TestAccountHandlerListLiteStaysBelowResponseBudget(t *testing.T) {
@@ -85,14 +79,11 @@ func TestAccountHandlerListLiteStaysBelowResponseBudget(t *testing.T) {
 	accounts := make([]service.Account, 20)
 	for i := range accounts {
 		id := int64(600 + i)
-		groupID := int64(800 + i)
 		accounts[i] = service.Account{
 			ID: id, Name: "account-" + strconv.Itoa(i), Platform: service.PlatformOpenAI,
 			Type: service.AccountTypeOAuth, Status: service.StatusActive, Schedulable: true,
-			Concurrency: 4, GroupIDs: []int64{groupID},
-			Groups:        []*service.Group{{ID: groupID, Name: "group-" + strconv.Itoa(i), Description: strings.Repeat("description ", 20)}},
-			AccountGroups: []service.AccountGroup{{AccountID: id, GroupID: groupID, Group: &service.Group{ID: groupID, Name: "group-" + strconv.Itoa(i), Description: strings.Repeat("description ", 20)}}},
-			CreatedAt:     now, UpdatedAt: now,
+			Concurrency: 4,
+			CreatedAt:   now, UpdatedAt: now,
 		}
 	}
 	adminSvc.accounts = accounts

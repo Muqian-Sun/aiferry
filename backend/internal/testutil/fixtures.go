@@ -62,17 +62,3 @@ func NewTestAPIKey(opts ...func(*service.APIKey)) *service.APIKey {
 	}
 	return k
 }
-
-// NewTestGroup 创建一个可用的测试分组，可通过 opts 覆盖默认值。
-func NewTestGroup(opts ...func(*service.Group)) *service.Group {
-	g := &service.Group{
-		ID:       1,
-		Platform: service.PlatformAnthropic,
-		Status:   service.StatusActive,
-		Hydrated: true,
-	}
-	for _, opt := range opts {
-		opt(g)
-	}
-	return g
-}

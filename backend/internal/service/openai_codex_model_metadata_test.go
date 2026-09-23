@@ -269,9 +269,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsDifferentMappedTargetsWithout
 	)
 
 	for _, accounts := range [][]Account{{openAIAccount, arkAccount}, {arkAccount, openAIAccount}} {
-		svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-			groupID: accounts,
-		}}}
+		svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: accounts}}
 		body, err := buildCodexManifestFromCatalogForTest(svc, "my-coder")
 		require.NoError(t, err)
 		models := decodeCodexManifestModels(t, body)

@@ -184,7 +184,7 @@ func registerContentModerationRoutes(admin *gin.RouterGroup, h *handler.Handlers
 func registerAdminAPIKeyRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 	apiKeys := admin.Group("/api-keys")
 	{
-		apiKeys.PUT("/:id", h.Admin.APIKey.UpdateGroup)
+		apiKeys.PUT("/:id", h.Admin.APIKey.UpdateKey)
 	}
 }
 
@@ -309,7 +309,6 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		users.GET("/:id/api-keys", h.Admin.User.GetUserAPIKeys)
 		users.GET("/:id/usage", h.Admin.User.GetUserUsage)
 		users.GET("/:id/balance-history", h.Admin.User.GetBalanceHistory)
-		users.POST("/:id/replace-group", h.Admin.User.ReplaceGroup)
 		users.GET("/:id/rpm-status", h.Admin.User.GetUserRPMStatus)
 		users.POST("/batch-concurrency", h.Admin.User.BatchUpdateConcurrency)
 		users.POST("/batch-limits", h.Admin.User.BatchUpdateLimits)
@@ -321,25 +320,6 @@ func registerUserManagementRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 }
 
 func registerGroupRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
-	groups := admin.Group("/groups")
-	{
-		groups.GET("", h.Admin.Group.List)
-		groups.GET("/all", h.Admin.Group.GetAll)
-		groups.GET("/capacity-summary", h.Admin.Group.GetCapacitySummary)
-		groups.GET("/live-capability", h.Admin.Group.GetLiveCapability)
-		groups.PUT("/sort-order", h.Admin.Group.UpdateSortOrder)
-		groups.GET("/:id/model-allowlist-candidates", h.Admin.Group.GetGroupModelAllowlistCandidates)
-		groups.GET("/:id", h.Admin.Group.GetByID)
-		groups.POST("", h.Admin.Group.Create)
-		groups.POST("/:id/duplicate", h.Admin.Group.Duplicate)
-		groups.PUT("/:id", h.Admin.Group.Update)
-		groups.DELETE("/:id", h.Admin.Group.Delete)
-		groups.GET("/:id/stats", h.Admin.Group.GetStats)
-		groups.GET("/:id/rpm-overrides", h.Admin.Group.GetGroupRPMOverrides)
-		groups.PUT("/:id/rpm-overrides", h.Admin.Group.BatchSetGroupRPMOverrides)
-		groups.DELETE("/:id/rpm-overrides", h.Admin.Group.ClearGroupRPMOverrides)
-		groups.GET("/:id/api-keys", h.Admin.Group.GetGroupAPIKeys)
-	}
 }
 
 func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAuth middleware.StepUpAuthMiddleware) {
@@ -356,7 +336,6 @@ func registerAccountRoutes(admin *gin.RouterGroup, h *handler.Handlers, stepUpAu
 		accounts.GET("/:id", h.Admin.Account.GetByID)
 		accounts.POST("", h.Admin.Account.Create)
 		accounts.POST("/:id/duplicate", h.Admin.Account.Duplicate)
-		accounts.POST("/check-mixed-channel", h.Admin.Account.CheckMixedChannel)
 		accounts.POST("/import/codex-session", h.Admin.Account.ImportCodexSession)
 		accounts.PUT("/:id", h.Admin.Account.Update)
 		accounts.GET("/:id/grok-media-eligibility", h.Admin.Account.GetGrokMediaEligibility)

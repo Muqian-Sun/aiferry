@@ -46,7 +46,6 @@ type APIKey struct {
 	CreatedAt           time.Time
 	UpdatedAt           time.Time
 	User                *User
-	Group               *Group
 	Subscription        *UserSubscription // 订阅 key 的订阅（列表展示用，仓储按需预载）
 	CurrentConcurrency  int
 

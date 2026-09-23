@@ -95,7 +95,7 @@ func platformPoolBuckets(platforms ...string) []SchedulerBucket {
 
 func TestSchedulerBulkAccountEventRebuildsOpenAIPlatformPool(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
-	repo := newBulkEventAccountRepo(&Account{ID: 1, Platform: PlatformOpenAI, GroupIDs: []int64{12}})
+	repo := newBulkEventAccountRepo(&Account{ID: 1, Platform: PlatformOpenAI})
 	svc := newBulkEventTestService(cache, repo)
 
 	err := svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{1}, []int64{11}), make(map[batchSeenKey]struct{}))
@@ -111,7 +111,7 @@ func TestSchedulerBulkAccountEventRebuildsCNPlatformPool(t *testing.T) {
 	for _, platform := range []string{PlatformKimi, PlatformZhipu, PlatformDeepseek, PlatformMiniMax, PlatformOpenCodeGo} {
 		t.Run(platform, func(t *testing.T) {
 			cache := newBulkEventSnapshotCache()
-			repo := newBulkEventAccountRepo(&Account{ID: 1, Platform: platform, GroupIDs: []int64{12}})
+			repo := newBulkEventAccountRepo(&Account{ID: 1, Platform: platform})
 			svc := newBulkEventTestService(cache, repo)
 
 			err := svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{1}, []int64{11}), make(map[batchSeenKey]struct{}))
@@ -136,7 +136,7 @@ func TestSchedulerBulkAccountEventRebuildsOpenAIPoolForUngroupedAccount(t *testi
 func TestSchedulerBulkAccountEventMergesAccountsOfSamePlatform(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
 	repo := newBulkEventAccountRepo(
-		&Account{ID: 7, Platform: PlatformOpenAI, GroupIDs: []int64{51}},
+		&Account{ID: 7, Platform: PlatformOpenAI},
 		&Account{ID: 8, Platform: PlatformOpenAI},
 	)
 	svc := newBulkEventTestService(cache, repo)
@@ -150,8 +150,8 @@ func TestSchedulerBulkAccountEventMergesAccountsOfSamePlatform(t *testing.T) {
 func TestSchedulerBulkAccountEventRebuildsOnlyInvolvedPlatforms(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
 	repo := newBulkEventAccountRepo(
-		&Account{ID: 9, Platform: PlatformOpenAI, GroupIDs: []int64{61}},
-		&Account{ID: 10, Platform: PlatformGrok, GroupIDs: []int64{62}},
+		&Account{ID: 9, Platform: PlatformOpenAI},
+		&Account{ID: 10, Platform: PlatformGrok},
 	)
 	svc := newBulkEventTestService(cache, repo)
 
@@ -164,7 +164,7 @@ func TestSchedulerBulkAccountEventRebuildsOnlyInvolvedPlatforms(t *testing.T) {
 // antigravity 成品号只进 antigravity 池（混合调度已删）。
 func TestSchedulerBulkAccountEventRebuildsAntigravityPoolOnly(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
-	repo := newBulkEventAccountRepo(&Account{ID: 2, Platform: PlatformAntigravity, GroupIDs: []int64{22}})
+	repo := newBulkEventAccountRepo(&Account{ID: 2, Platform: PlatformAntigravity})
 	svc := newBulkEventTestService(cache, repo)
 
 	err := svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{2}, []int64{21}), make(map[batchSeenKey]struct{}))
@@ -175,7 +175,7 @@ func TestSchedulerBulkAccountEventRebuildsAntigravityPoolOnly(t *testing.T) {
 
 func TestSchedulerBulkAccountEventMissingAccountFallsBackToAllPlatforms(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
-	repo := newBulkEventAccountRepo(&Account{ID: 3, Platform: PlatformOpenAI, GroupIDs: []int64{32}})
+	repo := newBulkEventAccountRepo(&Account{ID: 3, Platform: PlatformOpenAI})
 	svc := newBulkEventTestService(cache, repo)
 
 	err := svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{3, 4}, []int64{31}), make(map[batchSeenKey]struct{}))
@@ -190,7 +190,7 @@ func TestSchedulerBulkAccountEventMissingAccountFallsBackToAllPlatforms(t *testi
 
 func TestSchedulerBulkAccountEventIgnoresAccountWithoutPlatform(t *testing.T) {
 	cache := newBulkEventSnapshotCache()
-	repo := newBulkEventAccountRepo(&Account{ID: 5, GroupIDs: []int64{42}})
+	repo := newBulkEventAccountRepo(&Account{ID: 5})
 	svc := newBulkEventTestService(cache, repo)
 
 	err := svc.handleBulkAccountEvent(context.Background(), bulkEventPayload([]int64{5}, []int64{41}), make(map[batchSeenKey]struct{}))

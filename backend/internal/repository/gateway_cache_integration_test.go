@@ -30,7 +30,6 @@ func (s *GatewayCacheSuite) TestGetSessionAccountID_Missing() {
 func (s *GatewayCacheSuite) TestSetAndGetSessionAccountID() {
 	sessionID := "s1"
 	accountID := int64(99)
-	groupID := int64(1)
 	sessionTTL := 1 * time.Minute
 
 	require.NoError(s.T(), s.cache.SetSessionAccountID(s.ctx, groupID, sessionID, accountID, sessionTTL), "SetSessionAccountID")
@@ -43,7 +42,6 @@ func (s *GatewayCacheSuite) TestSetAndGetSessionAccountID() {
 func (s *GatewayCacheSuite) TestSessionAccountID_TTL() {
 	sessionID := "s2"
 	accountID := int64(100)
-	groupID := int64(1)
 	sessionTTL := 1 * time.Minute
 
 	require.NoError(s.T(), s.cache.SetSessionAccountID(s.ctx, groupID, sessionID, accountID, sessionTTL), "SetSessionAccountID")
@@ -57,7 +55,6 @@ func (s *GatewayCacheSuite) TestSessionAccountID_TTL() {
 func (s *GatewayCacheSuite) TestRefreshSessionTTL() {
 	sessionID := "s3"
 	accountID := int64(101)
-	groupID := int64(1)
 	initialTTL := 1 * time.Minute
 	refreshTTL := 3 * time.Minute
 
@@ -80,7 +77,6 @@ func (s *GatewayCacheSuite) TestRefreshSessionTTL_MissingKey() {
 func (s *GatewayCacheSuite) TestDeleteSessionAccountID() {
 	sessionID := "openai:s4"
 	accountID := int64(102)
-	groupID := int64(1)
 	sessionTTL := 1 * time.Minute
 
 	require.NoError(s.T(), s.cache.SetSessionAccountID(s.ctx, groupID, sessionID, accountID, sessionTTL), "SetSessionAccountID")
@@ -92,7 +88,6 @@ func (s *GatewayCacheSuite) TestDeleteSessionAccountID() {
 
 func (s *GatewayCacheSuite) TestGetSessionAccountID_CorruptedValue() {
 	sessionID := "corrupted"
-	groupID := int64(1)
 	sessionKey := buildSessionKey(groupID, sessionID)
 
 	// Set a non-integer value

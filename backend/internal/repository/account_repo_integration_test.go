@@ -398,7 +398,6 @@ func (s *AccountRepoSuite) TestListWithFilters() {
 		accType     string
 		status      string
 		search      string
-		groupID     int64
 		privacyMode string
 		wantCount   int
 		validate    func(accounts []service.Account)

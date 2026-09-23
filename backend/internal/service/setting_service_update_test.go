@@ -223,7 +223,7 @@ func (s *defaultSubPlanReaderStub) GetByID(ctx context.Context, id int64) (*Subs
 	if g, ok := s.byID[id]; ok {
 		return g, nil
 	}
-	return nil, ErrGroupNotFound
+	return nil, ErrPlanNotFound
 }
 
 func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) {

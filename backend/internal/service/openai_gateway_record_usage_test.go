@@ -74,7 +74,7 @@ func TestRecordCyberPolicyUsageLog_BillsRealUpstreamTokens(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 1200, OutputTokens: 300}
 
 	// 流式 cyber：上游 response.failed 报告了真实 token，须按真实 token 计费并扣费，
@@ -108,7 +108,7 @@ func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	// 非流式直接拒：上游未报 token，mark token 为 0 → cost 自然为 0，仍写一条 cyber 行（可见）。
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{
@@ -129,7 +129,7 @@ func TestRecordCyberPolicyUsageLog_NonStreamZeroTokensZeroCost(t *testing.T) {
 
 func TestRecordCyberPolicyUsageLog_SkipsWhenIncomplete(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	acct := &Account{ID: 3}
 	svc.RecordCyberPolicyUsageLog(context.Background(), CyberPolicyUsageInput{Account: acct, Model: "gpt-5"})                                                   // APIKey nil
@@ -200,27 +200,11 @@ func (s *openAIRecordUsageAPIKeyQuotaStub) UpdateRateLimitUsage(ctx context.Cont
 	return s.err
 }
 
-type openAIUserGroupRateRepoStub struct {
-	UserGroupRateRepository
-
-	rate  *float64
-	err   error
-	calls int
-}
-
-func (s *openAIUserGroupRateRepoStub) GetByUserAndGroup(ctx context.Context, userID, groupID int64) (*float64, error) {
-	s.calls++
-	if s.err != nil {
-		return nil, s.err
-	}
-	return s.rate, nil
-}
-
 func i64p(v int64) *int64 {
 	return &v
 }
 
-func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *OpenAIGatewayService {
+func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *OpenAIGatewayService {
 	cfg := &config.Config{}
 	cfg.Default.RateMultiplier = 1.1
 	svc := NewOpenAIGatewayService(
@@ -248,19 +232,8 @@ func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo U
 	return svc
 }
 
-func openAIRecordUsageAPIKeyWithGroup(svc *OpenAIGatewayService, id int64, groupLongContext bool) *APIKey {
-	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
-	return &APIKey{
-		ID: id,
-		Group: &Group{
-			ID:                        1,
-			LongContextPricingEnabled: groupLongContext,
-		},
-	}
-}
-
-func newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository, rateRepo UserGroupRateRepository) *OpenAIGatewayService {
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+func newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo UsageLogRepository, billingRepo UsageBillingRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *OpenAIGatewayService {
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	svc.usageBillingRepo = billingRepo
 	return svc
 }
@@ -291,7 +264,7 @@ func TestOpenAIGatewayServiceRecordUsage_ZeroUsageStillWritesUsageLog(t *testing
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -300,7 +273,7 @@ func TestOpenAIGatewayServiceRecordUsage_ZeroUsageStillWritesUsageLog(t *testing
 			Model:     "gpt-5.1",
 			Duration:  time.Second,
 		},
-		APIKey:        &APIKey{ID: 1000, Quota: 100, Group: &Group{RateMultiplier: 1}},
+		APIKey:        &APIKey{ID: 1000, Quota: 100},
 		User:          &User{ID: 2000, RateMultiplier: 1},
 		Account:       &Account{ID: 3000, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
@@ -341,7 +314,7 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -353,7 +326,7 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 			Model:    "pricing-missing-test-model",
 			Duration: time.Second,
 		},
-		APIKey:        &APIKey{ID: 1002, Quota: 100, Group: &Group{RateMultiplier: 1}},
+		APIKey:        &APIKey{ID: 1002, Quota: 100},
 		User:          &User{ID: 2002, RateMultiplier: 1},
 		Account:       &Account{ID: 3002, Type: AccountTypeAPIKey},
 		APIKeyService: quotaSvc,
@@ -388,14 +361,13 @@ func TestOpenAIGatewayServiceRecordUsage_MissingPricingRecordsZeroCostUsageLog(t
 
 // 用户价 = 目录价 × users.rate_multiplier；分组倍率不再参与。
 func TestOpenAIGatewayServiceRecordUsage_UsesUserRateMultiplier(t *testing.T) {
-	groupID := int64(11)
 	userRate := 1.8
 	usage := OpenAIUsage{InputTokens: 15, OutputTokens: 4, CacheReadInputTokens: 3}
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -405,12 +377,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesUserRateMultiplier(t *testing.T) {
 			Duration:  time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      1001,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 9, // 分组倍率已无效
-			},
+			ID: 1001,
 		},
 		User:    &User{ID: 2001, RateMultiplier: userRate},
 		Account: &Account{ID: 3001},
@@ -432,8 +399,7 @@ func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	rateRepo := &openAIUserGroupRateRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, rateRepo)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -446,8 +412,7 @@ func TestOpenAIGatewayServiceRecordUsage_IncludesEndpointMetadata(t *testing.T) 
 			Duration: time.Second,
 		},
 		APIKey: &APIKey{
-			ID:    1002,
-			Group: &Group{RateMultiplier: 1},
+			ID: 1002,
 		},
 		User:             &User{ID: 2002, RateMultiplier: 1},
 		Account:          &Account{ID: 3002},
@@ -468,7 +433,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateUsageLogSkipsBilling(t *testin
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: false}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -498,7 +463,7 @@ func TestOpenAIGatewayServiceRecordUsage_DuplicateBillingKeySkipsBillingWithRepo
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -532,7 +497,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsWhenUsageLogCreateReturnsError(t *
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: false, err: errors.New("usage log batch state uncertain")}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -557,7 +522,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsageLogWriteErrorDoesNotSkipBilling(t 
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -591,7 +556,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingUsesDetachedContext(t *testing.T
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	reqCtx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -624,7 +589,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingRepoUsesDetachedContext(t *testi
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	reqCtx, cancel := context.WithCancel(context.Background())
 	cancel()
@@ -654,7 +619,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingRepoUsesDetachedContext(t *testi
 func TestOpenAIGatewayServiceRecordUsage_BillingFingerprintIncludesRequestPayloadHash(t *testing.T) {
 	usageRepo := &openAIRecordUsageLogRepoStub{}
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
 	payloadHash := HashUsageRequestPayload([]byte(`{"model":"gpt-5","input":"hello"}`))
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -682,7 +647,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesFallbackRequestIDForBillingAndUsage
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	ctx := context.WithValue(context.Background(), ctxkey.RequestID, "req-local-fallback")
 	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
@@ -712,7 +677,7 @@ func TestOpenAIGatewayServiceRecordUsage_PrefersClientRequestIDOverUpstreamReque
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	ctx := context.WithValue(context.Background(), ctxkey.ClientRequestID, "openai-client-stable-123")
 	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
@@ -742,7 +707,7 @@ func TestOpenAIGatewayServiceRecordUsage_WSModePrefersUpstreamRequestIDOverClien
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	ctx := context.WithValue(context.Background(), ctxkey.ClientRequestID, "openai-ws-connection-123")
 	err := svc.RecordUsage(ctx, &OpenAIRecordUsageInput{
@@ -773,7 +738,7 @@ func TestOpenAIGatewayServiceRecordUsage_GeneratesRequestIDWhenAllSourcesMissing
 	billingRepo := &openAIRecordUsageBillingRepoStub{result: &UsageBillingApplyResult{Applied: true}}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -803,7 +768,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillingErrorWritesUnsettledUsageLog(t *
 	billingRepo := &openAIRecordUsageBillingRepoStub{err: billingErr}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceWithBillingRepoForTest(usageRepo, billingRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -838,7 +803,7 @@ func TestOpenAIGatewayServiceRecordUsage_UpdatesAPIKeyQuotaWhenConfigured(t *tes
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
 	quotaSvc := &openAIRecordUsageAPIKeyQuotaStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -867,7 +832,7 @@ func TestOpenAIGatewayServiceRecordUsage_ClampsActualInputTokensToZero(t *testin
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -894,7 +859,7 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	svc.billingService = NewBillingService(svc.cfg, &PricingService{pricingData: map[string]*LiteLLMModelPricing{
 		"gpt-5.6-sol": {
 			InputCostPerToken:       5e-6,
@@ -933,42 +898,6 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	require.InDelta(t, usageRepo.lastLog.TotalCost*1.1, usageRepo.lastLog.ActualCost, 1e-12)
 }
 
-func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingDisabledWhenGroupAndAccountOff(t *testing.T) {
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "resp_gpt54_long_context",
-			Usage: OpenAIUsage{
-				InputTokens:  300000,
-				OutputTokens: 2000,
-			},
-			Model:    "gpt-5.4-2026-03-05",
-			Duration: time.Second,
-		},
-		APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1014, false),
-		User:    &User{ID: 2014, RateMultiplier: 1.1},
-		Account: &Account{ID: 3014, Platform: PlatformOpenAI},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-
-	expectedInput := 300000 * 2.5e-6
-	expectedOutput := 2000 * 15e-6
-	require.InDelta(t, expectedInput, usageRepo.lastLog.InputCost, 1e-10)
-	require.InDelta(t, expectedOutput, usageRepo.lastLog.OutputCost, 1e-10)
-	require.InDelta(t, expectedInput+expectedOutput, usageRepo.lastLog.TotalCost, 1e-10)
-	require.InDelta(t, (expectedInput+expectedOutput)*1.1, usageRepo.lastLog.ActualCost, 1e-10)
-	require.False(t, usageRepo.lastLog.LongContextBillingApplied)
-	require.Equal(t, 1, userRepo.deductCalls)
-}
-
-// swapInOpenAILadderCatalog 给测试服务换上带 above_272k 阶梯字段的目录：
-// 静态兜底价已不带阶梯，长上下文相关测试需要目录数据。
 func swapInOpenAILadderCatalog(t *testing.T, svc *OpenAIGatewayService) {
 	t.Helper()
 	cfg := &config.Config{}
@@ -976,113 +905,12 @@ func swapInOpenAILadderCatalog(t *testing.T, svc *OpenAIGatewayService) {
 	svc.billingService = NewBillingService(cfg, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
 }
 
-func TestOpenAIGatewayServiceRecordUsage_Gpt54LongContextBillingEnabledPerAccount(t *testing.T) {
-	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	userRepo := &openAIRecordUsageUserRepoStub{}
-	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
-	swapInOpenAILadderCatalog(t, svc)
-
-	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-		Result: &OpenAIForwardResult{
-			RequestID: "resp_gpt54_long_context_disabled",
-			Usage: OpenAIUsage{
-				InputTokens:  300000,
-				OutputTokens: 2000,
-			},
-			Model:    "gpt-5.4-2026-03-05",
-			Duration: time.Second,
-		},
-		APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1015, true),
-		User:   &User{ID: 2015, RateMultiplier: 1.1},
-		Account: &Account{
-			ID:       3015,
-			Platform: PlatformOpenAI,
-			Extra:    map[string]any{"openai_long_context_billing_enabled": true},
-		},
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, usageRepo.lastLog)
-
-	expectedInput := 300000 * 2.5e-6 * 2.0
-	expectedOutput := 2000 * 15e-6 * 1.5
-	require.InDelta(t, expectedInput, usageRepo.lastLog.InputCost, 1e-10)
-	require.InDelta(t, expectedOutput, usageRepo.lastLog.OutputCost, 1e-10)
-	require.InDelta(t, expectedInput+expectedOutput, usageRepo.lastLog.TotalCost, 1e-10)
-	require.InDelta(t, (expectedInput+expectedOutput)*1.1, usageRepo.lastLog.ActualCost, 1e-10)
-	require.True(t, usageRepo.lastLog.LongContextBillingApplied)
-}
-
-func TestOpenAIGatewayServiceRecordUsage_GroupOrAccountLongContextAllows(t *testing.T) {
-	tokens := OpenAIUsage{InputTokens: 300000, OutputTokens: 2000}
-	baseInput := 300000 * 2.5e-6
-	baseOutput := 2000 * 15e-6
-
-	t.Run("group on account off", func(t *testing.T) {
-		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		swapInOpenAILadderCatalog(t, svc)
-		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-			Result:  &OpenAIForwardResult{RequestID: "resp_and_off", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
-			APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1020, true),
-			User:    &User{ID: 2020, RateMultiplier: 1.1},
-			Account: &Account{ID: 3020, Platform: PlatformOpenAI},
-		})
-		require.NoError(t, err)
-		require.True(t, usageRepo.lastLog.LongContextBillingApplied)
-		require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
-		require.InDelta(t, baseOutput*1.5, usageRepo.lastLog.OutputCost, 1e-10)
-	})
-
-	t.Run("group off account on", func(t *testing.T) {
-		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		swapInOpenAILadderCatalog(t, svc)
-		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-			Result: &OpenAIForwardResult{RequestID: "resp_and_group_off", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
-			APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1021, false),
-			User:   &User{ID: 2021, RateMultiplier: 1.1},
-			Account: &Account{
-				ID: 3021, Platform: PlatformOpenAI,
-				Extra: map[string]any{"openai_long_context_billing_enabled": true},
-			},
-		})
-		require.NoError(t, err)
-		require.True(t, usageRepo.lastLog.LongContextBillingApplied)
-		require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
-		require.InDelta(t, baseOutput*1.5, usageRepo.lastLog.OutputCost, 1e-10)
-	})
-
-	t.Run("group on account on", func(t *testing.T) {
-		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-		swapInOpenAILadderCatalog(t, svc)
-		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
-			Result: &OpenAIForwardResult{RequestID: "resp_and_on", Usage: tokens, Model: "gpt-5.4-2026-03-05", Duration: time.Second},
-			APIKey: openAIRecordUsageAPIKeyWithGroup(svc, 1022, true),
-			User:   &User{ID: 2022, RateMultiplier: 1.1},
-			Account: &Account{
-				ID: 3022, Platform: PlatformOpenAI,
-				Extra: map[string]any{"openai_long_context_billing_enabled": true},
-			},
-		})
-		require.NoError(t, err)
-		require.True(t, usageRepo.lastLog.LongContextBillingApplied)
-		require.InDelta(t, baseInput*2, usageRepo.lastLog.InputCost, 1e-10)
-		require.InDelta(t, baseOutput*1.5, usageRepo.lastLog.OutputCost, 1e-10)
-	})
-}
-
-// openai_long_context_billing_enabled is an OpenAI-only account setting, so it
-// must not veto the official Grok >=200k ladder: a Grok account has no way to
-// ever set that flag, which would make the group toggle unreachable.
-// 长上下文阶梯没有分组开关：grok-4.5 官方 200k 起输入 / 输出 ×2 总是应用。
 func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *testing.T) {
 	baseInput := 250000 * 2e-6
 	baseOutput := 1000 * 6e-6
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc.resolver = NewModelPricingResolver(nil, svc.billingService)
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
 			RequestID: "resp_grok_longctx",
@@ -1090,7 +918,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *t
 			Model:     "grok-4.5",
 			Duration:  time.Second,
 		},
-		APIKey:  openAIRecordUsageAPIKeyWithGroup(svc, 1031, false),
+		APIKey:  &APIKey{ID: 1031},
 		User:    &User{ID: 2031, RateMultiplier: 1.1},
 		Account: &Account{ID: 3031, Platform: PlatformGrok, Type: AccountTypeOAuth},
 	})
@@ -1104,7 +932,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierPriorityUsesFastPricing(t *t
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	serviceTier := "priority"
 	usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50}
 
@@ -1135,7 +963,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierFlexHalvesCost(t *testing.T)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	serviceTier := "flex"
 	usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50, CacheReadInputTokens: 20}
 
@@ -1209,7 +1037,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesRequestedModelAndUpstreamModelMetad
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	serviceTier := "priority"
 	reasoning := "high"
 
@@ -1228,7 +1056,7 @@ func TestOpenAIGatewayServiceRecordUsage_UsesRequestedModelAndUpstreamModelMetad
 			Duration:     2 * time.Second,
 			FirstTokenMs: func() *int { v := 120; return &v }(),
 		},
-		APIKey:    &APIKey{ID: 10, GroupID: i64p(11), Group: &Group{ID: 11, RateMultiplier: 1.2}},
+		APIKey:    &APIKey{ID: 10, GroupID: i64p(11)},
 		User:      &User{ID: 20, RateMultiplier: 1.2},
 		Account:   &Account{ID: 30},
 		UserAgent: "codex-cli/1.0",
@@ -1258,7 +1086,7 @@ func TestOpenAIGatewayServiceRecordUsage_PersistsRequestedReasoningEffort(t *tes
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	requested := "max"
 	forwarded := "xhigh"
 
@@ -1291,7 +1119,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesChannelMappedUpstreamModel(t *
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -1322,7 +1150,7 @@ func TestOpenAIGatewayServiceRecordUsage_PreservesLoopedChannelAndAccountUpstrea
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -1350,7 +1178,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsMappedRequestsUsingRequestedModel(
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
 	// Billing should use the requested model ("gpt-5.1"), not the upstream mapped model ("gpt-5.1-codex").
@@ -1386,7 +1214,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelMappedDoesNotOverrideBillingMode
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
 	// 渠道未发生模型映射时，应使用 result.BillingModel 中记录的实际上游计费模型，
@@ -1427,7 +1255,7 @@ func TestOpenAIGatewayServiceRecordUsage_ResponsesMappedBillingModelBillsMappedM
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	expectedCost, err := svc.billingService.CalculateCost("gpt-5.5", tokens, 1.1)
 	require.NoError(t, err)
@@ -1463,7 +1291,7 @@ func TestOpenAIGatewayServiceRecordUsage_BillsCompactOpenAIModelAlias(t *testing
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
 	expectedCost, err := svc.billingService.CalculateCost("gpt-5.5", UsageTokens{
@@ -1499,7 +1327,7 @@ func TestOpenAIGatewayServiceRecordUsage_FallsBackToUpstreamModelWhenPrimaryUnpr
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 20, OutputTokens: 10}
 
 	expectedCost, err := svc.billingService.CalculateCost("gpt-5.4", UsageTokens{
@@ -1533,7 +1361,7 @@ func TestOpenAIGatewayServiceRecordUsage_UnpricedTokenModelFallsBackToZeroCostUs
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -1563,7 +1391,7 @@ func TestOpenAIGatewayServiceRecordUsage_SubscriptionBillingSetsSubscriptionFiel
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	subscription := &UserSubscription{ID: 99}
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1573,7 +1401,7 @@ func TestOpenAIGatewayServiceRecordUsage_SubscriptionBillingSetsSubscriptionFiel
 			Model:     "gpt-5.1",
 			Duration:  time.Second,
 		},
-		APIKey:       &APIKey{ID: 100, GroupID: i64p(88), Group: &Group{ID: 88, RateMultiplier: 1.0}},
+		APIKey:       &APIKey{ID: 100, GroupID: i64p(88)},
 		User:         &User{ID: 200, RateMultiplier: 1},
 		Account:      &Account{ID: 300},
 		Subscription: subscription,
@@ -1592,7 +1420,7 @@ func TestOpenAIGatewayServiceRecordUsage_SimpleModeSkipsBillingAfterPersist(t *t
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	svc.cfg.RunMode = config.RunModeSimple
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1617,7 +1445,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.02, nil)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1643,9 +1471,8 @@ func TestOpenAIGatewayServiceRecordUsage_ImageOnlyUsageStillPersists(t *testing.
 }
 
 func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndPersistence(t *testing.T) {
-	groupID := int64(1201)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.11, map[string]float64{ImageBillingSize2K: 0.31})
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1657,12 +1484,7 @@ func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndP
 			Duration:   time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      11201,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 1.0,
-			},
+			ID: 11201,
 		},
 		User:    &User{ID: 21201, RateMultiplier: 1},
 		Account: &Account{ID: 31201},
@@ -1684,9 +1506,8 @@ func TestOpenAIGatewayServiceRecordUsage_EmptyImageSizeDefaultsBeforeBillingAndP
 }
 
 func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPersistence(t *testing.T) {
-	groupID := int64(1202)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.11, map[string]float64{ImageBillingSize1K: 0.11, ImageBillingSize4K: 0.44})
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1702,12 +1523,7 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 			Duration:         time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      11202,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 1.0,
-			},
+			ID: 11202,
 		},
 		User:    &User{ID: 21202, RateMultiplier: 1},
 		Account: &Account{ID: 31202},
@@ -1729,12 +1545,11 @@ func TestOpenAIGatewayServiceRecordUsage_OutputImageSizeWinsBeforeBillingAndPers
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTokens(t *testing.T) {
-	groupID := int64(12)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.02, nil)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1751,12 +1566,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTo
 			Duration:   time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      1008,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 1.0,
-			},
+			ID: 1008,
 		},
 		User:    &User{ID: 2008, RateMultiplier: 1},
 		Account: &Account{ID: 3008},
@@ -1775,10 +1585,9 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesPerImageBillingEvenWithUsageTo
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingBehavior(t *testing.T) {
-	groupID := int64(121)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.2, nil)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1790,12 +1599,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 			Duration:   time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      10121,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 0.15,
-			},
+			ID: 10121,
 		},
 		User:    &User{ID: 20121, RateMultiplier: 0.15},
 		Account: &Account{ID: 30121},
@@ -1812,14 +1616,12 @@ func TestOpenAIGatewayServiceRecordUsage_ImageSharedMultiplierPreservesExistingB
 
 // 图片按次倍率就是用户倍率：分组倍率不参与。
 func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.T) {
-	groupID := int64(125)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	svc := newOpenAIRecordUsageServiceForTest(
 		usageRepo,
 		&openAIRecordUsageUserRepoStub{},
 		&openAIRecordUsageSubRepoStub{},
-		nil,
 	)
 	svc.resolver = imageCatalogResolverForTest(svc.billingService, "gpt-image-2", 0.5, nil)
 
@@ -1832,12 +1634,7 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.
 			Duration:   time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      10125,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 0.15,
-			},
+			ID: 10125,
 		},
 		User:    &User{ID: 20125, RateMultiplier: 0.2},
 		Account: &Account{ID: 30125},
@@ -1852,10 +1649,9 @@ func TestOpenAIGatewayServiceRecordUsage_ImageUsesUserRateMultiplier(t *testing.
 
 // 视频按秒倍率就是用户倍率：分组倍率不参与。
 func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
-	groupID := int64(126)
 
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = videoCatalogResolverForTest(svc.billingService, "grok-imagine-video-1.5", 0.08, map[string]float64{VideoBillingResolution480P: 0.08})
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1872,13 +1668,7 @@ func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 			Duration:             time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      10126,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				Platform:       PlatformGrok,
-				RateMultiplier: 0.15,
-			},
+			ID: 10126,
 		},
 		User:    &User{ID: 20126, RateMultiplier: 0.25},
 		Account: &Account{ID: 30126, Platform: PlatformGrok},
@@ -1903,9 +1693,8 @@ func TestGrokVideoBillingUsesUserRateMultiplier(t *testing.T) {
 
 // 目录里的 xAI Imagine 种子条目（原硬编码默认价卡）直接生效：720p 每秒 0.14。
 func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesSeededImagineEntry(t *testing.T) {
-	groupID := int64(1261)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 	svc.resolver = seededImagineResolverForTest(svc.billingService)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
@@ -1920,13 +1709,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesSeededImagineEntry(t *test
 			Duration:        time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      101261,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				Platform:       PlatformGrok,
-				RateMultiplier: 1,
-			},
+			ID: 101261,
 		},
 		User:    &User{ID: 201261, RateMultiplier: 1},
 		Account: &Account{ID: 301261, Platform: PlatformGrok},
@@ -1950,10 +1733,9 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoUsesSeededImagineEntry(t *test
 // image_size=NULL，必须携带 video_count>0 才能通过 usage_logs 的 image_size check 约束
 // （迁移 172），否则整个计费事务会因约束违反而丢失。
 func TestOpenAIGatewayServiceRecordUsage_GrokVideoWithTokenChannelPricingKeepsVideoMetadata(t *testing.T) {
-	groupID := int64(132)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, groupID, "grok-imagine-video")
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc.resolver = newOpenAITokenImageChannelPricingResolverForTest(t, 0, "grok-imagine-video")
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -1968,13 +1750,7 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoWithTokenChannelPricingKeepsVi
 			Duration:             time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      10132,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				Platform:       PlatformGrok,
-				RateMultiplier: 1,
-			},
+			ID: 10132,
 		},
 		User:    &User{ID: 20132, RateMultiplier: 1},
 		Account: &Account{ID: 30132, Platform: PlatformGrok},
@@ -1994,10 +1770,9 @@ func TestOpenAIGatewayServiceRecordUsage_GrokVideoWithTokenChannelPricingKeepsVi
 }
 
 func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSharedMultiplier(t *testing.T) {
-	groupID := int64(123)
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
-	svc.resolver = newOpenAIImageChannelPricingResolverForTest(t, groupID, "gpt-image-2", 0.25)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
+	svc.resolver = newOpenAIImageChannelPricingResolverForTest(t, 0, "gpt-image-2", 0.25)
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		Result: &OpenAIForwardResult{
@@ -2008,12 +1783,7 @@ func TestOpenAIGatewayServiceRecordUsage_ChannelImageBillingUsesImageCountAndSha
 			Duration:   time.Second,
 		},
 		APIKey: &APIKey{
-			ID:      10123,
-			GroupID: i64p(groupID),
-			Group: &Group{
-				ID:             groupID,
-				RateMultiplier: 0.15,
-			},
+			ID: 10123,
 		},
 		User:    &User{ID: 20123, RateMultiplier: 0.15},
 		Account: &Account{ID: 30123},
@@ -2061,17 +1831,16 @@ func newOpenAITokenImageCatalogResolverWithTime(t *testing.T, model string, time
 }
 
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCount(t *testing.T) {
-	groupID := int64(126)
 	billingService := NewBillingService(&config.Config{}, nil)
 	svc := &GatewayService{
 		billingService: billingService,
-		resolver:       newOpenAIImageChannelPricingResolverForTest(t, groupID, "gemini-image", 0.25),
+		resolver:       newOpenAIImageChannelPricingResolverForTest(t, 0, "gemini-image", 0.25),
 	}
 
 	cost := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "1K"},
-		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
+		&APIKey{},
 		"gemini-image",
 		1.0,
 		time.Time{},
@@ -2084,7 +1853,6 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesImageCoun
 }
 
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(t *testing.T) {
-	groupID := int64(127)
 	defaultPrice := 0.10
 	price4K := 0.40
 	billingService := NewBillingService(&config.Config{}, nil)
@@ -2104,7 +1872,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 	cost := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: "4K"},
-		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
+		&APIKey{},
 		"gemini-image",
 		1.0,
 		time.Time{},
@@ -2118,9 +1886,9 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingUsesSizeTier(
 
 func TestRecordUsageKeepsCompactionSemanticFlagOrthogonalToTransport(t *testing.T) {
 	logStub := &openAIRecordUsageLogRepoStub{inserted: true}
-	svc := newOpenAIRecordUsageServiceForTest(logStub, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+	svc := newOpenAIRecordUsageServiceForTest(logStub, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 
-	apiKey := &APIKey{ID: 20, UserID: 21, Group: &Group{RateMultiplier: 1}}
+	apiKey := &APIKey{ID: 20, UserID: 21}
 	require.NoError(t, svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 		NativeCompactionV2: true,
 		Result: &OpenAIForwardResult{
@@ -2144,8 +1912,7 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 	logStub := &openAIRecordUsageLogRepoStub{inserted: true}
 	userStub := &openAIRecordUsageUserRepoStub{}
 	subStub := &openAIRecordUsageSubRepoStub{}
-	rateStub := &openAIUserGroupRateRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(logStub, userStub, subStub, rateStub)
+	svc := newOpenAIRecordUsageServiceForTest(logStub, userStub, subStub)
 
 	in := &OpenAIRecordUsageInput{
 		CyberBlocked:       true,
@@ -2155,7 +1922,7 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 			Duration: time.Second,
 			Usage:    OpenAIUsage{InputTokens: 100, OutputTokens: 0},
 		},
-		APIKey:  &APIKey{ID: 2, Group: &Group{RateMultiplier: 1}},
+		APIKey:  &APIKey{ID: 2},
 		User:    &User{ID: 1, RateMultiplier: 1},
 		Account: &Account{ID: 3},
 	}
@@ -2167,7 +1934,6 @@ func TestRecordUsageMarksCyberRequestType(t *testing.T) {
 }
 
 func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMissingSizeTier(t *testing.T) {
-	groupID := int64(128)
 	defaultPrice := 0.10
 	price2K := 0.22
 	billingService := NewBillingService(&config.Config{}, nil)
@@ -2187,7 +1953,7 @@ func TestGatewayServiceCalculateRecordUsageCost_CatalogImageBillingNormalizesMis
 	cost := svc.calculateRecordUsageCost(
 		context.Background(),
 		&ForwardResult{Model: "gemini-image", ImageCount: 2, ImageSize: ""},
-		&APIKey{GroupID: i64p(groupID), Group: &Group{ID: groupID}},
+		&APIKey{},
 		"gemini-image",
 		1.0,
 		time.Time{},
@@ -2203,7 +1969,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierDowngradedByUpstreamResponse
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	serviceTier := "priority"
 	usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50}
 
@@ -2239,7 +2005,6 @@ func TestOpenAIGatewayServiceRecordUsage_CodexDefaultEchoKeepsFastBilling(t *tes
 				usageRepo,
 				&openAIRecordUsageUserRepoStub{},
 				&openAIRecordUsageSubRepoStub{},
-				nil,
 			)
 			serviceTier := "priority"
 			tokens := UsageTokens{InputTokens: 100, OutputTokens: 50}
@@ -2276,7 +2041,6 @@ func TestOpenAIGatewayServiceRecordUsage_ShadowUsesParentCredentialTierContract(
 		usageRepo,
 		&openAIRecordUsageUserRepoStub{},
 		&openAIRecordUsageSubRepoStub{},
-		nil,
 	)
 	parentID := int64(9001)
 	accountRepo := &openAIRecordUsageAccountRepoStub{account: &Account{
@@ -2319,7 +2083,7 @@ func TestOpenAIGatewayServiceRecordUsage_ServiceTierNeverRaisedByUpstreamRespons
 	usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 	userRepo := &openAIRecordUsageUserRepoStub{}
 	subRepo := &openAIRecordUsageSubRepoStub{}
-	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo, nil)
+	svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, subRepo)
 	usage := OpenAIUsage{InputTokens: 100, OutputTokens: 50}
 
 	err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{

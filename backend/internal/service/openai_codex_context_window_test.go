@@ -175,9 +175,7 @@ func codexContextWindowAccount(t *testing.T, id int64, fields string) Account {
 func codexContextWindowManifest(t *testing.T, accounts []Account) map[string]any {
 	t.Helper()
 	const groupID int64 = 7042
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-		groupID: accounts,
-	}}}
+	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: accounts}}
 	body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-6-astra")
 	require.NoError(t, err)
 	models := decodeCodexManifestModels(t, body)

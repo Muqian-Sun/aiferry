@@ -52,10 +52,9 @@ func (e *handlerPromptEngine) snapshot() (evaluated, enqueued int, requests []se
 }
 
 func securityAuditMediaTestMiddleware(c *gin.Context) {
-	groupID := int64(3)
 	user := &service.User{ID: 7, Username: "media-user", Email: "media@example.test"}
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID: 9, UserID: 7, User: user, Name: "media-key", GroupID: &groupID,
+		ID: 9, UserID: 7, User: user, Name: "media-key",
 	})
 	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), service.CatalogRoute{
 		EntryID: 1, CanonicalModel: "gpt-image-1", RequestedModel: "gpt-image-1",
@@ -174,6 +173,7 @@ func TestBatchImagePromptGuardRunsBeforePersistenceOrBilling(t *testing.T) {
 }
 
 func TestSecurityAuditBlockingFailuresLeaveAllDownstreamCountersAtZero(t *testing.T) {
+	groupID := int64(3)
 	gin.SetMode(gin.TestMode)
 	for _, kind := range []securityaudit.DecisionKind{securityaudit.DecisionBlock, securityaudit.DecisionUnavailable, securityaudit.DecisionInvalid} {
 		t.Run(string(kind), func(t *testing.T) {
@@ -185,8 +185,7 @@ func TestSecurityAuditBlockingFailuresLeaveAllDownstreamCountersAtZero(t *testin
 			recorder := httptest.NewRecorder()
 			c, _ := gin.CreateTestContext(recorder)
 			c.Request = httptest.NewRequest(http.MethodPost, "/v1/chat/completions", strings.NewReader(`{"model":"gpt-test","messages":[{"role":"user","content":"guard me"}]}`))
-			groupID := int64(3)
-			apiKey := &service.APIKey{ID: 9, UserID: 7, GroupID: &groupID, Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI}}
+			apiKey := &service.APIKey{ID: 9, UserID: 7, GroupID: &groupID}
 			subject := middleware2.AuthSubject{UserID: 7, Concurrency: 2}
 			decision := runSecurityAudit(c, nil, coordinator, nil, apiKey, subject, service.ContentModerationProtocolOpenAIChat, "gpt-test", []byte(`{"messages":[{"role":"user","content":"guard me"}]}`), "http")
 			require.NotNil(t, decision)

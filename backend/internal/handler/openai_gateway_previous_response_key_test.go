@@ -56,14 +56,11 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 	for name, endpoints := range cases {
 		t.Run(name, func(t *testing.T) {
 			gin.SetMode(gin.TestMode)
-			groupID := int64(31)
 			account := service.Account{
 				ID: 3101, Name: "key", Platform: service.PlatformOpenAI, Type: service.AccountTypeAPIKey,
 				Status: service.StatusActive, Schedulable: true, Concurrency: 5,
 				Credentials:       map[string]any{"api_key": "sk-test"},
 				ProtocolEndpoints: endpoints,
-				GroupIDs:          []int64{groupID},
-				AccountGroups:     []service.AccountGroup{{AccountID: 3101, GroupID: groupID}},
 			}
 			repo := openAIImagesFailoverAccountRepo{accounts: []service.Account{account}}
 			upstream := &previousResponseKeyUpstream{}
@@ -82,11 +79,10 @@ func TestGatewayResponses_HTTPContinuationExcludesKeysByProtocolAndVendor(t *tes
 				acquireAccountSlotFn: func(context.Context, int64, int, string) (bool, error) { return true, nil },
 			}
 			apiKey := &service.APIKey{
-				ID: 3201, UserID: 3301, GroupID: &groupID,
-				User:  &service.User{ID: 3301, Status: service.StatusActive},
-				Group: &service.Group{ID: groupID, Platform: service.PlatformOpenAI, Status: service.StatusActive},
+				ID: 3201, UserID: 3301,
+				User: &service.User{ID: 3301, Status: service.StatusActive},
 			}
-			h := newGatewayHandlerOverOpenAIService(cfg, repo, apiKey.Group, gateway, billingCache, service.NewConcurrencyService(cache))
+			h := newGatewayHandlerOverOpenAIService(cfg, repo, gateway, billingCache, service.NewConcurrencyService(cache))
 			// 续链归属的作用域 = 请求的目录条目 ID（下面挂的路由条目 1）
 			require.NoError(t, gateway.BindOpenAIHTTPResponseOwner(context.Background(), 1, "resp_key_continuation", apiKey.UserID, apiKey.ID))
 

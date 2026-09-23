@@ -45,15 +45,9 @@ func runGatewayHandlerServiceTierTest(t *testing.T, path, body string, handler f
 	c.Request = httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	groupID := int64(6401)
 	userID := int64(6402)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      6403,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:       groupID,
-			Platform: service.PlatformOpenAI,
-		},
+		ID:   6403,
 		User: &service.User{ID: userID, Status: service.StatusActive},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: userID, Concurrency: 1})

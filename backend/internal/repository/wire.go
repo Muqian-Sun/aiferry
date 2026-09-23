@@ -67,8 +67,6 @@ func ProvideSchedulerCache(rdb *redis.Client, cfg *config.Config) service.Schedu
 var ProviderSet = wire.NewSet(
 	NewUserRepository,
 	NewAPIKeyRepository,
-	NewGroupRepository,
-	NewAdminGroupRepository,
 	NewAccountRepository,
 	NewAdminAccountRepository,
 	NewScheduledTestPlanRepository,   // 定时测试计划仓储
@@ -93,7 +91,6 @@ var ProviderSet = wire.NewSet(
 	NewSubscriptionPlanRepository,
 	NewUserAttributeDefinitionRepository,
 	NewUserAttributeValueRepository,
-	NewUserGroupRateRepository,
 	NewErrorPassthroughRepository,
 	NewTLSFingerprintProfileRepository,
 	NewPluginRepository,

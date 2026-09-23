@@ -490,7 +490,6 @@ type ContentModerationService struct {
 	settingRepo              SettingRepository
 	repo                     ContentModerationRepository
 	hashCache                ContentModerationHashCache
-	groupRepo                GroupRepository
 	userRepo                 UserRepository
 	proxyRepo                ProxyRepository
 	authCacheInvalidator     APIKeyAuthCacheInvalidator
@@ -563,7 +562,6 @@ func NewContentModerationService(
 	settingRepo SettingRepository,
 	repo ContentModerationRepository,
 	hashCache ContentModerationHashCache,
-	groupRepo GroupRepository,
 	userRepo UserRepository,
 	proxyRepo ProxyRepository,
 	authCacheInvalidator APIKeyAuthCacheInvalidator,
@@ -573,7 +571,6 @@ func NewContentModerationService(
 		settingRepo:          settingRepo,
 		repo:                 repo,
 		hashCache:            hashCache,
-		groupRepo:            groupRepo,
 		userRepo:             userRepo,
 		proxyRepo:            proxyRepo,
 		authCacheInvalidator: authCacheInvalidator,

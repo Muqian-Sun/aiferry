@@ -22,10 +22,9 @@ func TestGetByKeyForAuthDoesNotLoadGroup(t *testing.T) {
 	user := mustCreateUser(t, integrationEntClient, &service.User{
 		Email: fmt.Sprintf("auth-no-group-%d@example.com", suffix), Concurrency: 5,
 	})
-	groupID := group.ID
 	keyValue := fmt.Sprintf("sk-auth-no-group-%d", suffix)
 	apiKeyRepo := NewAPIKeyRepository(integrationEntClient, integrationDB)
-	key := &service.APIKey{UserID: user.ID, GroupID: &groupID, Key: keyValue, Name: "auth-no-group", Status: service.StatusActive}
+	key := &service.APIKey{UserID: user.ID, Key: keyValue, Name: "auth-no-group", Status: service.StatusActive}
 	require.NoError(t, apiKeyRepo.Create(ctx, key))
 	t.Cleanup(func() {
 		_, err := integrationDB.ExecContext(ctx, "DELETE FROM auth_cache_invalidation_outbox WHERE cache_key = encode(sha256(convert_to($1, 'UTF8')), 'hex')", keyValue)

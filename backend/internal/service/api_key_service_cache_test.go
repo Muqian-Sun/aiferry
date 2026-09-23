@@ -190,13 +190,11 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	}
 	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
-	groupID := int64(9)
 	cacheEntry := &APIKeyAuthCacheEntry{
 		Snapshot: &APIKeyAuthSnapshot{
 			Version:  apiKeyAuthSnapshotVersion,
 			APIKeyID: 1,
 			UserID:   2,
-			GroupID:  &groupID,
 			Status:   StatusActive,
 			User: APIKeyAuthUserSnapshot{
 				ID:          2,
@@ -215,8 +213,6 @@ func TestAPIKeyService_GetByKey_UsesL2Cache(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(1), apiKey.ID)
 	require.Equal(t, int64(2), apiKey.User.ID)
-	require.Equal(t, groupID, *apiKey.GroupID)
-	require.Nil(t, apiKey.Group, "鉴权快照不带分组（D13）")
 }
 
 func TestAPIKeyService_GetByKey_NegativeCache(t *testing.T) {
@@ -332,24 +328,6 @@ func TestAPIKeyService_InvalidateAuthCacheByUserID(t *testing.T) {
 	svc := NewAPIKeyService(repo, nil, cache, cfg)
 
 	svc.InvalidateAuthCacheByUserID(context.Background(), 7)
-	require.Len(t, cache.deleteAuthKeys, 2)
-}
-
-func TestAPIKeyService_InvalidateAuthCacheByGroupID(t *testing.T) {
-	cache := &authCacheStub{}
-	repo := &authRepoStub{
-		listKeysByGroupID: func(ctx context.Context, groupID int64) ([]string, error) {
-			return []string{"k1", "k2"}, nil
-		},
-	}
-	cfg := &config.Config{
-		APIKeyAuth: config.APIKeyAuthCacheConfig{
-			L2TTLSeconds: 60,
-		},
-	}
-	svc := NewAPIKeyService(repo, nil, cache, cfg)
-
-	svc.InvalidateAuthCacheByGroupID(context.Background(), 9)
 	require.Len(t, cache.deleteAuthKeys, 2)
 }
 

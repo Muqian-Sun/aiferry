@@ -41,7 +41,6 @@ func TestUpsertDailyMetricsIgnoresLegacyGroupRows(t *testing.T) {
 
 	type row struct {
 		platform string
-		groupID  int64
 		success  int64
 		tokens   int64
 	}

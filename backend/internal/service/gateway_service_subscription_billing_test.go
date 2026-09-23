@@ -11,9 +11,9 @@ import (
 // multiplier — i.e. cmd.SubscriptionCost tracks ActualCost (= TotalCost *
 // RateMultiplier), not raw TotalCost.
 func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T) {
+	groupID := int64(7)
 	t.Parallel()
 
-	groupID := int64(7)
 	subID := int64(42)
 
 	tests := []struct {

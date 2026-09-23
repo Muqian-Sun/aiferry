@@ -556,7 +556,7 @@
             <select v-model.number="form.apiKeyId" class="input" :disabled="loadingKeys">
               <option :value="0">{{ loadingKeys ? t('batchImage.create.loadingKeys') : t('batchImage.create.selectKeyPlaceholder') }}</option>
               <option v-for="key in geminiApiKeys" :key="key.id" :value="key.id">
-                {{ key.name }} · {{ key.group?.name || 'Gemini' }}
+                {{ key.name }}
               </option>
             </select>
             <p v-if="!loadingKeys && geminiApiKeys.length === 0" class="input-hint text-amber-600 dark:text-amber-400">
@@ -939,9 +939,7 @@ let activePromptPopoverTarget: HTMLElement | null = null
 
 const geminiApiKeys = computed(() =>
   apiKeys.value.filter((key) =>
-    key.status === 'active' &&
-    key.group?.platform === 'gemini' &&
-    key.group?.allow_batch_image_generation === true,
+    key.status === 'active',
   ),
 )
 

@@ -24,6 +24,7 @@ import (
 )
 
 func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
+	groupID := int64(1001)
 	gin.SetMode(gin.TestMode)
 
 	type receivedPayload struct {
@@ -92,7 +93,6 @@ func TestOpenAIGatewayService_Forward_WSv2_SuccessAndBindSticky(t *testing.T) {
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	c.Request.Header.Set("User-Agent", "unit-test-agent/1.0")
-	groupID := int64(1001)
 	c.Set("api_key", &APIKey{GroupID: &groupID})
 
 	cfg := &config.Config{}
@@ -323,14 +323,7 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
-	groupID := int64(1010)
-	c.Set("api_key", &APIKey{
-		GroupID: &groupID,
-		Group: &Group{
-			ID:                   groupID,
-			AllowImageGeneration: true,
-		},
-	})
+	c.Set("api_key", &APIKey{})
 
 	cfg := &config.Config{}
 	cfg.Security.URLAllowlist.Enabled = false
@@ -490,13 +483,13 @@ func TestLogOpenAIWSBindResponseAccountWarn(t *testing.T) {
 }
 
 func TestOpenAIGatewayService_Forward_WSv2_RewriteModelAndToolCallsOnCompletedEvent(t *testing.T) {
+	groupID := int64(1001)
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.98.0")
-	groupID := int64(3001)
 	c.Set("api_key", &APIKey{GroupID: &groupID})
 
 	cfg := &config.Config{}
@@ -628,6 +621,7 @@ func TestOpenAIWSPayloadString_OnlyAcceptsStringValues(t *testing.T) {
 }
 
 func TestOpenAIGatewayService_Forward_WSv2_PoolReuseNotOneToOne(t *testing.T) {
+	groupID := int64(1001)
 	gin.SetMode(gin.TestMode)
 
 	var upgradeCount atomic.Int64
@@ -724,7 +718,6 @@ func TestOpenAIGatewayService_Forward_WSv2_PoolReuseNotOneToOne(t *testing.T) {
 		c, _ := gin.CreateTestContext(rec)
 		c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 		c.Request.Header.Set("User-Agent", "codex_cli_rs/0.98.0")
-		groupID := int64(2001)
 		c.Set("api_key", &APIKey{GroupID: &groupID})
 
 		body := []byte(`{"model":"gpt-5.1","stream":false,"previous_response_id":"resp_prev_reuse","input":[{"type":"input_text","text":"hello"}]}`)
@@ -819,13 +812,13 @@ func TestOpenAIGatewayService_Forward_WSv2_OAuthStoreFalseByDefault(t *testing.T
 }
 
 func TestOpenAIGatewayService_Forward_WSv2_OAuthSanitizesInvalidNativeToolItemID(t *testing.T) {
+	groupID := int64(1001)
 	gin.SetMode(gin.TestMode)
 
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	c.Request.Header.Set("User-Agent", "codex_cli_rs/0.144.1")
-	groupID := int64(5662)
 	c.Set("api_key", &APIKey{GroupID: &groupID})
 
 	cfg := newOpenAIWSV2TestConfig()

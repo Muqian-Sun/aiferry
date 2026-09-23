@@ -32,8 +32,6 @@ func TestSchedulingCandidatesSuite(t *testing.T) {
 }
 
 type schedulingCandidateFixture struct {
-	groupID int64
-
 	subAnthropicInGroup   int64
 	subOpenAIInGroup      int64
 	keyOpenAIInGroup      int64 // 标签 openai 的第三方 key
