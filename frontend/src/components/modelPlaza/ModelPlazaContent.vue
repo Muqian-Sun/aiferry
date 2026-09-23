@@ -1,14 +1,30 @@
 <template>
   <!--
-    模型页：厂商页签（图标 + 计数）→ 工具行（搜索 / 计费 / 计数 / 视图切换）→ 表格或网格。
+    模型页：厂商页签（彩色图标 + 计数）→ 工具行（搜索 / 计费 / 计数 / 视图切换）→ 表格或网格。
     表格每个上架条目一行，标价按百万 Token；登录且账户倍率 ≠ 1 时多一组「你的价格」列。
     网格视图是 hairline 分格的单元（不是卡片）：图标 + 名称 + 厂商 + 标价 + 别名。
-    embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画标题。
+    embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
+    两行大字（第二行流动光泽）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
   <div class="space-y-6">
-    <div v-if="!embedded" class="border-b border-af-hairline pb-4">
-      <h1 class="text-xl font-semibold text-af-ink">{{ t('userUi.models.title') }}</h1>
-      <p class="mt-1 text-13 text-af-ink-3">{{ t('userUi.models.description') }}</p>
+    <div v-if="!embedded" class="grid gap-8 pb-4 pt-4 sm:pt-8 lg:grid-cols-[1fr_auto] lg:items-end">
+      <header v-reveal.stagger data-testid="plaza-hero">
+        <h1 class="text-[2.5rem] font-semibold leading-[1.08] tracking-[-0.02em] text-af-ink sm:text-[3.25rem]">
+          {{ t('userUi.models.hero.title') }}<br />
+          <span class="text-flow">{{ t('userUi.models.hero.titleAccent') }}</span>
+        </h1>
+        <p class="mt-5 max-w-xl text-[17px] leading-8 text-af-ink-2">{{ t('userUi.models.hero.description') }}</p>
+      </header>
+      <!-- 数字：目录加载完才出现，自己挂 v-reveal，出现时才从 0 跳到位 -->
+      <dl v-if="catalog.length" v-reveal="200" class="flex divide-x divide-af-hairline" data-testid="plaza-stats">
+        <div v-for="stat in stats" :key="stat.key" class="px-8 first:pl-0 last:pr-0">
+          <dd class="text-4xl font-semibold tabular-nums text-af-ink">
+            <span class="count-up" :style="{ '--count-to': stat.value }" aria-hidden="true" />
+            <span class="sr-only">{{ stat.value }}</span>
+          </dd>
+          <dt class="mt-1.5 text-13 text-af-ink-3">{{ t(`userUi.home.stats.${stat.key}`) }}</dt>
+        </div>
+      </dl>
     </div>
 
     <!-- 管理员配置的全局价格说明（Markdown） -->
@@ -17,8 +33,9 @@
     <StatusState v-if="loading" kind="loading" :title="t('userUi.status.loading')" />
     <StatusState v-else-if="error" kind="error" :title="t('userUi.models.loadFailed')" />
 
-    <template v-else>
-      <!-- 厂商页签：全部 + 目录里出现过的厂商，带图标与计数 -->
+    <!-- 列表整块在数据到位时淡入上浮一次；筛选、切视图不再重播 -->
+    <div v-else v-reveal="120" class="space-y-6">
+      <!-- 厂商页签：全部 + 目录里出现过的厂商，带品牌色图标与计数 -->
       <div class="flex gap-1 overflow-x-auto border-b border-af-hairline scrollbar-hide" role="tablist" :aria-label="t('userUi.models.columns.vendor')" data-testid="vendor-tabs">
         <button
           v-for="tab in vendorTabs"
@@ -30,7 +47,7 @@
           :data-testid="`vendor-tab-${tab.key}`"
           @click="selectVendor(tab.key)"
         >
-          <VendorIcon v-if="tab.key !== 'all'" :vendor="tab.key" :size="16" class="text-af-ink-3" />
+          <VendorIcon v-if="tab.key !== 'all'" :vendor="tab.key" :size="16" colored />
           {{ tab.label }}
           <span class="tabular-nums text-af-ink-4">{{ tab.count }}</span>
         </button>
@@ -77,7 +94,7 @@
               <th class="py-2 pl-6 pr-4 font-medium">{{ t('userUi.models.columns.model') }}</th>
               <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.vendor') }}</th>
               <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.billing') }}</th>
-              <th class="py-2 pr-4 text-right font-medium" colspan="3">
+              <th class="py-2 text-right font-medium" :class="showUserPrice ? 'pr-4' : 'pr-6'" colspan="3">
                 {{ t('userUi.models.listPrice') }}
                 <span class="ml-1 font-normal text-af-ink-4">{{ t('userUi.models.perMillion') }}</span>
               </th>
@@ -117,7 +134,9 @@
                 </div>
                 <div v-if="entry.aliases.length" class="mt-0.5 font-mono text-xs text-af-ink-4">{{ entry.aliases.join(' · ') }}</div>
               </td>
-              <td class="pr-4 text-af-ink-2">{{ vendorLabel(entry.vendor) }}</td>
+              <td class="pr-4 text-af-ink-2">
+                <span class="inline-flex items-center gap-2"><VendorIcon :vendor="entry.vendor" :size="16" colored />{{ vendorLabel(entry.vendor) }}</span>
+              </td>
               <td class="pr-4 text-af-ink-3">{{ getBillingModeLabel(entry.billingMode, t) }}</td>
               <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.input) }}</td>
               <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.output) }}</td>
@@ -140,7 +159,7 @@
           data-testid="catalog-cell"
         >
           <div class="flex items-start gap-3">
-            <VendorIcon :vendor="entry.vendor" :size="20" class="mt-0.5 text-af-ink-3" />
+            <VendorIcon :vendor="entry.vendor" :size="20" colored class="mt-0.5" />
             <div class="min-w-0 flex-1">
               <div class="flex items-center gap-2">
                 <span class="truncate font-mono font-medium text-af-ink">{{ entry.id }}</span>
@@ -181,7 +200,7 @@
         {{ t('userUi.models.priceNote') }}
         <template v-if="isAuthenticated"> {{ t('userUi.models.multiplierNote', { multiplier: userMultiplier }) }}</template>
       </p>
-    </template>
+    </div>
   </div>
 </template>
 
@@ -196,6 +215,7 @@ import SearchInput from '@/components/common/SearchInput.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import VendorIcon from '@/components/common/VendorIcon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
+import { vReveal } from '@/directives/reveal'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
@@ -276,6 +296,11 @@ const descriptionHtml = computed(() => {
 
 const catalog = computed(() => buildCatalog(props.response?.models ?? []))
 const vendors = computed(() => catalogVendors(catalog.value))
+/** 页首数字：与首页数字段同一口径（上架模型数 / 厂商数） */
+const stats = computed(() => [
+  { key: 'models', value: catalog.value.length },
+  { key: 'vendors', value: vendors.value.length }
+])
 const vendorTabs = computed(() => {
   const counts = countByVendor(catalog.value)
   return [

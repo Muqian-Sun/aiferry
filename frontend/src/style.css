@@ -186,6 +186,15 @@
     @apply border-af-danger focus:border-af-danger focus:ring-af-danger/30;
   }
 
+  /* 认证页标题（登录 / 注册 / 找回密码 / 回调页）：比控制台页头大一档，与首页的大字标题同一家族 */
+  .auth-title {
+    @apply text-[1.75rem] font-semibold leading-tight tracking-[-0.015em] text-af-ink;
+  }
+
+  .auth-lead {
+    @apply mt-2 text-[15px] leading-6 text-af-ink-3;
+  }
+
   .input-label {
     @apply mb-1.5 block text-13 font-medium text-af-ink-2;
   }

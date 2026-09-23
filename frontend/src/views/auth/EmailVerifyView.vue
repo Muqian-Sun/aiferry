@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div>
-        <h2 class="text-xl font-semibold text-af-ink">
+        <h1 class="auth-title">
           {{ t('auth.verifyYourEmail') }}
-        </h2>
-        <p class="mt-2 text-sm text-af-ink-3">
+        </h1>
+        <p class="auth-lead">
           {{ t('auth.sendCodeDesc') }}
           <span class="font-medium text-af-ink-2">{{ email }}</span>
         </p>

@@ -3,10 +3,10 @@
     <div class="space-y-6">
       <!-- Title -->
       <div>
-        <h2 class="text-xl font-semibold text-af-ink">
+        <h1 class="auth-title">
           {{ t('auth.forgotPasswordTitle') }}
-        </h2>
-        <p class="mt-2 text-sm text-af-ink-3">
+        </h1>
+        <p class="auth-lead">
           {{ t('auth.forgotPasswordHint') }}
         </p>
       </div>

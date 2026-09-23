@@ -1,12 +1,12 @@
 <template>
   <AuthLayout>
-    <div class="space-y-6">
+    <div class="space-y-8">
       <!-- Title -->
       <div>
-        <h2 class="text-xl font-semibold text-af-ink">
+        <h1 class="auth-title">
           {{ t('auth.createAccount') }}
-        </h2>
-        <p class="mt-2 text-sm text-af-ink-3">
+        </h1>
+        <p class="auth-lead">
           {{ t('auth.signUpToStart', { siteName }) }}
         </p>
       </div>
@@ -270,11 +270,11 @@
         <button
           type="submit"
           :disabled="registrationActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary w-full"
+          class="btn btn-primary h-11 w-full text-[15px]"
         >
           <svg
             v-if="isLoading"
-            class="-ml-1 mr-2 h-4 w-4 animate-spin text-white"
+            class="h-4 w-4 animate-spin"
             fill="none"
             viewBox="0 0 24 24"
           >
@@ -292,7 +292,6 @@
               d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
             ></path>
           </svg>
-          <Icon v-else name="userPlus" size="md" class="mr-2" />
           {{
             isLoading
               ? t('auth.processing')
@@ -355,7 +354,7 @@
         {{ t('auth.alreadyHaveAccount') }}
         <router-link
           to="/login"
-          class="font-medium text-af-brand transition-colors hover:text-af-brand-hover"
+          class="font-medium text-af-ink underline-offset-4 hover:underline"
         >
           {{ t('auth.signIn') }}
         </router-link>

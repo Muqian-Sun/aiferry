@@ -141,6 +141,11 @@ export default {
     models: {
       title: 'Models',
       description: 'Listed models and their list prices, billed per token or per request',
+      hero: {
+        title: 'Every model,',
+        titleAccent: 'priced in the open',
+        description: 'Every listed model and its list price, in one place. Search or filter by vendor, then copy a model ID and call it.'
+      },
       allVendors: 'All',
       allBilling: 'All billing',
       searchHint: 'Search models or aliases (press / to focus)',
