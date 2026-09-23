@@ -790,4 +790,3 @@ type BulkAssignResult struct {
 	Errors        []string                `json:"errors"`
 	Statuses      map[string]string       `json:"statuses,omitempty"`
 }
-

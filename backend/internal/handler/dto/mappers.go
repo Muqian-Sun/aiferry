@@ -935,4 +935,3 @@ func BulkAssignResultFromService(r *service.BulkAssignResult) *BulkAssignResult 
 		Statuses:      statuses,
 	}
 }
-
