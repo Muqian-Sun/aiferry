@@ -390,44 +390,31 @@ func TestGrokVendorQuirkPredicatesFollowVendorNotLabel(t *testing.T) {
 	})
 }
 
-func TestOpenAIGatewayKeyProtocol_OpenCodeModelRuleChoosesAmongConfiguredProtocols(t *testing.T) {
-	goEndpoints := func() map[string]string {
-		return map[string]string{
-			APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL,
-			APIProtocolAnthropic:       DefaultOpenCodeGoAnthropicBaseURL,
-			APIProtocolResponses:       DefaultOpenCodeGoBaseURL,
-		}
-	}
+// TestOpenAIGatewayKeyProtocol_OpenCodeFollowsTheConfiguredProtocol：OpenCode 官方地址
+// 不再按模型分流——一个 key 只配一个协议地址，入站协议按转换注册表落到那个协议上。
+func TestOpenAIGatewayKeyProtocol_OpenCodeFollowsTheConfiguredProtocol(t *testing.T) {
 	responsesBody := func(model string) keyProtocolIngress {
 		ingress := keyProtocolResponsesIngress
 		ingress.body = []byte(`{"model":"` + model + `","input":"hello","stream":false}`)
 		return ingress
 	}
 
-	t.Run("rule protocol is used on the official host whatever the label", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, goEndpoints()), responsesBody("minimax-m3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/messages", upstream.lastReq.URL.String())
-	})
+	// 只配 anthropic 地址：Responses 入站转 Anthropic，与模型无关（minimax 与 glm 同址）。
+	for _, model := range []string{"minimax-m3", "glm-5.3"} {
+		t.Run("anthropic-only key serves "+model+" natively", func(t *testing.T) {
+			upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, map[string]string{
+				APIProtocolAnthropic: DefaultOpenCodeGoAnthropicBaseURL,
+			}), responsesBody(model))
+			require.Equal(t, "https://opencode.ai/zen/go/v1/messages", upstream.lastReq.URL.String())
+		})
+	}
 
-	t.Run("unmatched model goes to chat completions", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, goEndpoints()), responsesBody("glm-5.3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/chat/completions", upstream.lastReq.URL.String())
-	})
-
-	t.Run("rule protocol without an address falls back to the generic choice", func(t *testing.T) {
-		endpoints := goEndpoints()
-		delete(endpoints, APIProtocolAnthropic)
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, endpoints), responsesBody("minimax-m3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/responses", upstream.lastReq.URL.String())
-	})
-
-	t.Run("opencodego label on a relay does not apply model rules", func(t *testing.T) {
+	// 只配 chat_completions 地址：曾被模型规则判给 Responses 的 grok 也走 Chat Completions。
+	t.Run("chat-completions-only key serves grok via chat completions", func(t *testing.T) {
 		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenCodeGo, map[string]string{
-			APIProtocolChatCompletions: "http://relay.example/v1",
-			APIProtocolAnthropic:       "http://relay.example",
-			APIProtocolResponses:       "http://relay.example/v1",
-		}), responsesBody("minimax-m3"))
-		require.Equal(t, "http://relay.example/v1/responses", upstream.lastReq.URL.String())
+			APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL,
+		}), responsesBody("grok-4.6"))
+		require.Equal(t, "https://opencode.ai/zen/go/v1/chat/completions", upstream.lastReq.URL.String())
 	})
 }
 

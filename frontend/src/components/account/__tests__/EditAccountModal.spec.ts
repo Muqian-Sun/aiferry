@@ -408,14 +408,7 @@ describe('EditAccountModal', () => {
     }
     account.credentials = {
       api_key: 'sk-opencode',
-      account_mode: 'zen',
-      protocol_rules: [
-        { pattern: 'grok-*', protocol: 'responses' },
-        { pattern: 'gpt-*', protocol: 'responses' },
-        { pattern: 'muse-spark-*', protocol: 'responses' },
-        { pattern: 'claude-*', protocol: 'anthropic' },
-        { pattern: 'qwen*', protocol: 'anthropic' }
-      ]
+      account_mode: 'zen'
     }
     updateAccountMock.mockReset().mockResolvedValue(account)
 
@@ -425,15 +418,9 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(account.protocol_endpoints)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({
-      account_mode: 'zen',
-      protocol_rules: [
-        { pattern: 'grok-*', protocol: 'responses' },
-        { pattern: 'gpt-*', protocol: 'responses' },
-        { pattern: 'muse-spark-*', protocol: 'responses' },
-        { pattern: 'claude-*', protocol: 'anthropic' },
-        { pattern: 'qwen*', protocol: 'anthropic' }
-      ]
+      account_mode: 'zen'
     })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('protocol_rules')
   })
 
   it('treats a legacy OpenCode account without account_mode as GO', async () => {

@@ -22,9 +22,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolResponses, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, "")
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolResponses)
 		if err != nil {
 			return nil, err
 		}

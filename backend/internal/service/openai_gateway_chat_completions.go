@@ -96,9 +96,7 @@ func (s *OpenAIGatewayService) forwardAsChatCompletions(
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions)
 		if err != nil {
 			return nil, err
 		}

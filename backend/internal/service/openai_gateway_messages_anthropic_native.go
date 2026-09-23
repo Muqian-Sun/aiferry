@@ -137,12 +137,6 @@ func (s *OpenAIGatewayService) nativeAnthropicTargetURL(account *Account) (strin
 	return joinUpstreamEndpointURL(validatedURL, "/v1/messages"), nil
 }
 
-func resolveOpenCodeGoMappedModel(account *Account, body []byte, defaultMappedModel string) string {
-	original := strings.TrimSpace(gjson.GetBytes(body, "model").String())
-	billing := resolveOpenAIForwardModel(account, original, defaultMappedModel)
-	return normalizeOpenAIModelForUpstream(account, billing)
-}
-
 func (s *OpenAIGatewayService) buildNativeAnthropicUpstreamRequest(
 	ctx context.Context,
 	c *gin.Context,

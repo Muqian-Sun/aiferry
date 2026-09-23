@@ -38,9 +38,7 @@ func (s *OpenAIGatewayService) ForwardAsAnthropic(
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolAnthropic, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, defaultMappedModel)
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolAnthropic)
 		if err != nil {
 			return nil, err
 		}

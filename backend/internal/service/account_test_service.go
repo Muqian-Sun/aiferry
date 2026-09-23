@@ -394,20 +394,19 @@ func (s *AccountTestService) testThirdPartyKeyConnection(c *gin.Context, account
 	return s.testKeyProtocolEndpointConnection(c, account, modelID, prompt, mode)
 }
 
-// testOpenCodeGoAccountConnection probes the endpoint the gateway would use for
-// the selected model: the same protocol choice as Chat Completions forwarding
-// (OpenCode official addresses route per model — grok/gpt/muse-spark → Responses,
-// minimax/qwen → Anthropic, everything else → Chat Completions — among the
-// configured protocol endpoints). Falling through to the generic Claude tester
-// used credentials.base_url + /v1/messages?beta=true, which 404s as HTML on
-// https://opencode.ai/zen/go/v1/v1/messages.
+// testOpenCodeGoAccountConnection 用与 Chat Completions 转发相同的协议选择探测：
+// 取 key 配了地址的那个协议（一个资源只承接一个上游协议），再按协议选探针。
+//
+// 单列一支是因为 responses 分支要走 OpenCode 专用探针：落到通用 Claude 探针会用
+// credentials.base_url + /v1/messages?beta=true，在 https://opencode.ai/zen/go/v1
+// 上拼成 /v1/v1/messages，返回 HTML 404。
 func (s *AccountTestService) testOpenCodeGoAccountConnection(c *gin.Context, account *Account, modelID string, prompt string) error {
 	testModelID := strings.TrimSpace(modelID)
 	if testModelID == "" {
 		testModelID = DefaultOpenCodeGoTestModel
 	}
 	testModelID = account.GetMappedModel(testModelID)
-	proto, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions, func() string { return testModelID })
+	proto, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolChatCompletions)
 	if err != nil {
 		return s.sendErrorAndEnd(c, err.Error())
 	}

@@ -1342,11 +1342,6 @@
             @select="onCnPresetSelect"
           />
         </div>
-        <OpenCodeGoProtocolRulesEditor
-          v-if="isOpenCodeGoPlatform"
-          v-model:rows="openCodeGoProtocolRules"
-          :plan="openCodeAccountMode"
-        />
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
           <input
@@ -3710,7 +3705,6 @@ import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
-import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
 import {
   UPSTREAM_PROTOCOLS,
@@ -3729,9 +3723,6 @@ import {
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  applyOpenCodeGoProtocolRules,
-  cloneOpenCodeGoProtocolRules,
-  defaultOpenCodeProtocolRules,
   isCNProviderPlatform,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
@@ -3739,8 +3730,7 @@ import {
   type CnBaseUrlPreset,
   type CnProviderPlatform,
   type HeaderOverrideRow,
-  type OpenCodeAccountMode,
-  type OpenCodeGoProtocolRule
+  type OpenCodeAccountMode
 } from '@/components/account/credentialsBuilder'
 import {
   formatDateTimeLocalInput,
@@ -3907,9 +3897,6 @@ const upstreamBillingAutoProbeEnabled = ref(true)
 // 转发协议不在这里选：后端按入站协议在已配置的协议地址里挑选。
 const accountMode = ref<CnAccountMode>('payg')
 const openCodeAccountMode = ref<OpenCodeAccountMode>('zen')
-const openCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(
-  cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
-)
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const zhipuOrganization = ref('')
 const zhipuProject = ref('')
@@ -4003,16 +3990,7 @@ function selectOpenCodeGoPlatform() {
   form.type = 'apikey'
   accountCategory.value = 'apikey'
   openCodeAccountMode.value = 'zen'
-  openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(openCodeAccountMode.value))
 }
-// OpenCode 账号类型变更时同步默认协议规则（管理员改过的保留）。
-watch(openCodeAccountMode, (mode, previousMode) => {
-  if (!isOpenCodeGoPlatform.value) return
-  const previousRules = JSON.stringify(defaultOpenCodeProtocolRules(previousMode))
-  if (JSON.stringify(openCodeGoProtocolRules.value) === previousRules) {
-    openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(mode))
-  }
-})
 // 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   accountMode.value = preset.mode
@@ -4892,7 +4870,6 @@ const resetForm = () => {
   addMethod.value = 'oauth'
   accountMode.value = 'payg'
   openCodeAccountMode.value = 'zen'
-  openCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules('zen'))
   apiKeyValue.value = ''
   upstreamRequestIdHeader.value = ''
   upstreamBillingAutoProbeEnabled.value = true
@@ -5330,9 +5307,6 @@ const handleSubmit = async () => {
     if (form.platform === 'zhipu' && accountMode.value === 'coding') {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()
       if (zhipuProject.value.trim()) credentials.zhipu_project = zhipuProject.value.trim()
-    }
-    if (form.platform === 'opencode_go') {
-      applyOpenCodeGoProtocolRules(credentials, openCodeGoProtocolRules.value, 'create')
     }
   }
 

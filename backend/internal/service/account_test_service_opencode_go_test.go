@@ -10,7 +10,9 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func openCodeGoTestAccount(id int64) *Account {
+// openCodeGoTestAccount 造一个只配了单个协议地址的 OpenCode key——一个资源只承接一个
+// 上游协议（NormalizeProtocolEndpoints 在配置入口强制），连接测试按该协议选探针。
+func openCodeGoTestAccount(id int64, protocol, baseURL string) *Account {
 	return &Account{
 		ID:          id,
 		Name:        "oc",
@@ -21,16 +23,12 @@ func openCodeGoTestAccount(id int64) *Account {
 		Credentials: map[string]any{
 			"api_key": "sk-opencode-go-test",
 		},
-		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://opencode.ai/zen/go/v1",
-			APIProtocolAnthropic:       "https://opencode.ai/zen/go",
-			APIProtocolResponses:       "https://opencode.ai/zen/go/v1",
-		},
+		ProtocolEndpoints: map[string]string{protocol: baseURL},
 	}
 }
 
-func TestAccountTestService_OpenCodeGoDeepSeekFlashUsesChatCompletions(t *testing.T) {
-	account := openCodeGoTestAccount(401)
+func TestAccountTestService_OpenCodeGoChatCompletionsKeyUsesChatCompletions(t *testing.T) {
+	account := openCodeGoTestAccount(401, APIProtocolChatCompletions, "https://opencode.ai/zen/go/v1")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
 	c, recorder := newTestContext()
 
@@ -45,8 +43,8 @@ func TestAccountTestService_OpenCodeGoDeepSeekFlashUsesChatCompletions(t *testin
 	require.NotContains(t, upstream.requests[0].URL.Path, "/messages")
 }
 
-func TestAccountTestService_OpenCodeGoGrokUsesResponses(t *testing.T) {
-	account := openCodeGoTestAccount(402)
+func TestAccountTestService_OpenCodeGoResponsesKeyUsesResponses(t *testing.T) {
+	account := openCodeGoTestAccount(402, APIProtocolResponses, "https://opencode.ai/zen/go/v1")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNResponsesTestResponse())
 	c, recorder := newTestContext()
 
@@ -60,8 +58,10 @@ func TestAccountTestService_OpenCodeGoGrokUsesResponses(t *testing.T) {
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-func TestAccountTestService_OpenCodeGoMiniMaxUsesAnthropicMessages(t *testing.T) {
-	account := openCodeGoTestAccount(403)
+// TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages：anthropic 地址走原生
+// messages，且不附加 ?beta=true——OpenCode 的第三方端点不接受该参数。
+func TestAccountTestService_OpenCodeGoAnthropicKeyUsesMessages(t *testing.T) {
+	account := openCodeGoTestAccount(403, APIProtocolAnthropic, "https://opencode.ai/zen/go")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNAnthropicTestResponse())
 	c, recorder := newTestContext()
 
@@ -77,23 +77,8 @@ func TestAccountTestService_OpenCodeGoMiniMaxUsesAnthropicMessages(t *testing.T)
 	require.Contains(t, recorder.Body.String(), `"type":"test_complete"`)
 }
 
-// TestAccountTestService_OpenCodeGoRuleProtocolWithoutEndpointFallsBack：模型规则选中的
-// responses 没配地址时，连接测试与转发一样回到通用选择（Chat Completions）。
-func TestAccountTestService_OpenCodeGoRuleProtocolWithoutEndpointFallsBack(t *testing.T) {
-	account := openCodeGoTestAccount(404)
-	delete(account.ProtocolEndpoints, APIProtocolResponses)
-	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
-	c, _ := newTestContext()
-
-	err := svc.TestAccountConnection(c, account.ID, "grok-4.6", "hi", AccountTestModeDefault)
-
-	require.NoError(t, err)
-	require.Len(t, upstream.requests, 1)
-	require.Equal(t, "https://opencode.ai/zen/go/v1/chat/completions", upstream.requests[0].URL.String())
-}
-
 func TestAccountTestService_OpenCodeGoAppliesModelMappingOnResponses(t *testing.T) {
-	account := openCodeGoTestAccount(406)
+	account := openCodeGoTestAccount(406, APIProtocolResponses, "https://opencode.ai/zen/go/v1")
 	account.Credentials["model_mapping"] = map[string]any{
 		"opencode/muse-spark-1.3-contributior-free": "muse-spark-1.3-contributior-free",
 	}
@@ -111,7 +96,7 @@ func TestAccountTestService_OpenCodeGoAppliesModelMappingOnResponses(t *testing.
 }
 
 func TestAccountTestService_OpenCodeGoEmptyModelDefaultsToChatCatalogID(t *testing.T) {
-	account := openCodeGoTestAccount(405)
+	account := openCodeGoTestAccount(405, APIProtocolChatCompletions, "https://opencode.ai/zen/go/v1")
 	svc, upstream := adaptiveCNAccountTestService(account, adaptiveCNChatTestResponse())
 	c, recorder := newTestContext()
 
