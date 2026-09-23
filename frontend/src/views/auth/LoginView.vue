@@ -11,40 +11,35 @@
         </p>
       </div>
       <!-- Login Form -->
-      <form @submit.prevent="handleLogin" class="space-y-5">
-        <!-- Email Input -->
+      <form @submit.prevent="handleLogin" class="space-y-4">
         <div>
-          <label for="email" class="input-label">
-            {{ t('auth.emailLabel') }}
-          </label>
-          <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="mail" size="md" class="text-af-ink-4" />
-            </div>
-            <input
-              id="email"
-              v-model="formData.email"
-              type="email"
-              required
-              autofocus
-              autocomplete="email"
-              :disabled="authActionDisabled"
-              class="input pl-11"
-              :class="{ 'input-error': errors.email }"
-              :placeholder="t('auth.emailPlaceholder')"
-            />
-          </div>
+          <label for="email" class="auth-label">{{ t('auth.emailLabel') }}</label>
+          <input
+            id="email"
+            v-model="formData.email"
+            type="email"
+            required
+            autofocus
+            autocomplete="email"
+            :disabled="authActionDisabled"
+            class="input auth-input"
+            :class="{ 'input-error': errors.email }"
+            :placeholder="t('auth.emailPlaceholder')"
+          />
         </div>
 
-        <!-- Password Input -->
         <div>
-          <label for="password" class="input-label">
-            {{ t('auth.passwordLabel') }}
-          </label>
+          <div class="mb-1.5 flex items-center justify-between">
+            <label for="password" class="auth-label !mb-0">{{ t('auth.passwordLabel') }}</label>
+            <router-link
+              v-if="passwordResetEnabled && selfServiceEnabled"
+              to="/forgot-password"
+              class="text-13 text-af-ink-3 transition-colors hover:text-af-ink"
+            >
+              {{ t('auth.forgotPassword') }}
+            </router-link>
+          </div>
           <div class="relative">
-            <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
-              <Icon name="lock" size="md" class="text-af-ink-4" />
-            </div>
             <input
               id="password"
               v-model="formData.password"
@@ -52,29 +47,18 @@
               required
               autocomplete="current-password"
               :disabled="authActionDisabled"
-              class="input pl-11 pr-11"
+              class="input auth-input pr-11"
               :class="{ 'input-error': errors.password }"
               :placeholder="t('auth.passwordPlaceholder')"
             />
             <button
               type="button"
-              @click="showPassword = !showPassword"
               :disabled="authActionDisabled"
-              class="absolute inset-y-0 right-0 flex items-center pr-3.5 text-af-ink-4 transition-colors hover:text-af-ink-2"
+              class="absolute inset-y-0 right-0 flex w-11 items-center justify-center text-af-ink-4 transition-colors hover:text-af-ink"
+              @click="showPassword = !showPassword"
             >
-              <Icon v-if="showPassword" name="eyeOff" size="md" />
-              <Icon v-else name="eye" size="md" />
+              <Icon :name="showPassword ? 'eyeOff' : 'eye'" size="sm" />
             </button>
-          </div>
-          <div class="mt-1 flex items-center justify-between">
-            <span></span>
-            <router-link
-              v-if="passwordResetEnabled && selfServiceEnabled"
-              to="/forgot-password"
-              class="text-sm font-medium text-af-brand transition-colors hover:text-af-brand-hover"
-            >
-              {{ t('auth.forgotPassword') }}
-            </router-link>
           </div>
         </div>
 
@@ -101,7 +85,7 @@
         <button
           type="submit"
           :disabled="authActionDisabled || (turnstileEnabled && !turnstileToken)"
-          class="btn btn-primary h-11 w-full text-[15px]"
+          class="btn btn-primary !mt-6 h-11 w-full text-[15px]"
         >
           <svg
             v-if="isLoading"

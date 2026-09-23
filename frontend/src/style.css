@@ -195,6 +195,19 @@
     @apply mt-2 text-[15px] leading-6 text-af-ink-3;
   }
 
+  /*
+   * 认证页（登录 / 注册）的输入框与标签：叠在 .input 上用，只改尺寸与观感——44px 高、圆角大一档、15px 字、
+   * 聚焦是墨色细边 + 很淡的外晕（通用 .input 的品牌色 30% 光圈在单色品牌下太重）。框内不放前置图标。
+   */
+  .auth-input {
+    @apply h-11 rounded-lg px-3.5 text-[15px];
+    @apply focus:border-af-ink focus:ring-[3px] focus:ring-af-ink/10;
+  }
+
+  .auth-label {
+    @apply mb-1.5 block text-13 font-medium text-af-ink;
+  }
+
   .input-label {
     @apply mb-1.5 block text-13 font-medium text-af-ink-2;
   }
