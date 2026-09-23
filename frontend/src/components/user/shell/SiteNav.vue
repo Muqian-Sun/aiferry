@@ -41,32 +41,33 @@
         </template>
 
         <template v-else>
-          <!-- 语言与主题收进一个细边胶囊，和右边的账户按钮分开 -->
-          <div class="flex items-center gap-0.5 rounded-full border border-af-hairline bg-af-sheet p-0.5">
+          <!-- 无框（muqian：胶囊框和浅底按钮丑）：语言 / 主题是纯图标文字，一道细竖线隔开账户入口 -->
+          <div class="flex items-center gap-4">
             <LocaleSwitcher />
             <button
               type="button"
-              class="flex h-8 w-8 items-center justify-center rounded-full text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
+              class="flex h-8 w-6 items-center justify-center text-af-ink-2 transition-colors hover:text-af-ink"
               :aria-label="isDark ? t('userUi.topbar.switchToLight') : t('userUi.topbar.switchToDark')"
               @click="toggleTheme"
             >
               <Icon :name="isDark ? 'sun' : 'moon'" size="sm" />
             </button>
-          </div>
-          <template v-if="!adminSite">
-            <RouterLink v-if="authenticated" :to="CONSOLE_HOME_PATH" class="nav-account-btn ml-2" data-testid="nav-console">
-              {{ t('userUi.nav.console') }}
-              <Icon name="arrowRight" size="xs" />
-            </RouterLink>
-            <template v-else>
-              <RouterLink to="/login" class="nav-account-btn ml-2" data-testid="nav-login">
-                {{ t('userUi.nav.login') }}
+            <template v-if="!adminSite">
+              <span class="h-4 w-px bg-af-hairline-strong" aria-hidden="true" />
+              <RouterLink v-if="authenticated" :to="CONSOLE_HOME_PATH" class="nav-text-link text-af-brand hover:text-af-brand-hover" data-testid="nav-console">
+                {{ t('userUi.nav.console') }}
+                <Icon name="arrowRight" size="xs" />
               </RouterLink>
-              <RouterLink v-if="registrationEnabled" to="/register" class="nav-account-btn nav-account-btn-solid" data-testid="nav-register">
-                {{ t('userUi.footer.register') }}
-              </RouterLink>
+              <template v-else>
+                <RouterLink to="/login" :class="['nav-text-link', registrationEnabled ? '' : 'text-af-brand hover:text-af-brand-hover']" data-testid="nav-login">
+                  {{ t('userUi.nav.login') }}
+                </RouterLink>
+                <RouterLink v-if="registrationEnabled" to="/register" class="nav-text-link text-af-brand hover:text-af-brand-hover" data-testid="nav-register">
+                  {{ t('userUi.footer.register') }}
+                </RouterLink>
+              </template>
             </template>
-          </template>
+          </div>
         </template>
       </div>
     </div>

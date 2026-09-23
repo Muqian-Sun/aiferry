@@ -3,18 +3,12 @@
     <button
       @click="toggleDropdown"
       :disabled="switching"
-      class="flex h-8 items-center gap-1.5 rounded-full px-2.5 text-13 font-medium text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
+      class="flex h-8 items-center gap-1.5 text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
       :title="currentLocale?.name"
       data-testid="locale-switcher-trigger"
     >
       <Icon name="globe" size="sm" />
       <span class="hidden sm:inline">{{ currentLocale?.name }}</span>
-      <Icon
-        name="chevronDown"
-        size="xs"
-        class="text-af-ink-4 transition-transform duration-200"
-        :class="{ 'rotate-180': isOpen }"
-      />
     </button>
 
     <transition name="dropdown">

@@ -1,13 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" fill="none">
-  <!-- AiFerry：品牌青圆角方底 + 白色摆渡船（上层驾驶舱 / 主舱三扇舷窗 / 船身）+ 浪线 + 右上角星芒点出「Ai」 -->
-  <rect width="48" height="48" rx="12" fill="#0F6A78"/>
-  <path d="M35 7.5l1.05 2.95L39 11.5l-2.95 1.05L35 15.5l-1.05-2.95L31 11.5l2.95-1.05L35 7.5Z" fill="#9FE3EA"/>
+  <!-- AiFerry：品牌靛蓝圆角方底 + 白色摆渡船（上层驾驶舱 / 主舱三扇舷窗 / 船身）+ 浪线 + 右上角星芒点出「Ai」 -->
+  <rect width="48" height="48" rx="12" fill="#3B5BDB"/>
+  <path d="M35 7.5l1.05 2.95L39 11.5l-2.95 1.05L35 15.5l-1.05-2.95L31 11.5l2.95-1.05L35 7.5Z" fill="#BAC8FF"/>
   <rect x="18.5" y="13.5" width="9.5" height="5" rx="1.5" fill="#FFFFFF"/>
-  <rect x="21" y="15" width="4.5" height="2" rx=".6" fill="#0F6A78"/>
+  <rect x="21" y="15" width="4.5" height="2" rx=".6" fill="#3B5BDB"/>
   <rect x="13" y="19.5" width="22" height="7" rx="1.8" fill="#FFFFFF"/>
-  <rect x="16" y="21.75" width="3.4" height="2.5" rx=".7" fill="#0F6A78"/>
-  <rect x="22.3" y="21.75" width="3.4" height="2.5" rx=".7" fill="#0F6A78"/>
-  <rect x="28.6" y="21.75" width="3.4" height="2.5" rx=".7" fill="#0F6A78"/>
+  <rect x="16" y="21.75" width="3.4" height="2.5" rx=".7" fill="#3B5BDB"/>
+  <rect x="22.3" y="21.75" width="3.4" height="2.5" rx=".7" fill="#3B5BDB"/>
+  <rect x="28.6" y="21.75" width="3.4" height="2.5" rx=".7" fill="#3B5BDB"/>
   <path d="M8.9 28h30.2c.8 0 1.3.85.95 1.55l-2.5 4.9A2 2 0 0 1 35.8 35.5H12.2a2 2 0 0 1-1.75-1.05l-2.5-4.9A1.05 1.05 0 0 1 8.9 28Z" fill="#FFFFFF"/>
-  <path d="M8.5 40.2c2.6-1.9 5.2-1.9 7.8 0s5.2 1.9 7.8 0 5.2-1.9 7.8 0 5.2 1.9 7.8 0" stroke="#9FE3EA" stroke-width="2.2" stroke-linecap="round"/>
+  <path d="M8.5 40.2c2.6-1.9 5.2-1.9 7.8 0s5.2 1.9 7.8 0 5.2-1.9 7.8 0 5.2 1.9 7.8 0" stroke="#BAC8FF" stroke-width="2.2" stroke-linecap="round"/>
 </svg>
