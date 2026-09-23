@@ -128,7 +128,6 @@ func (r *opsRepository) getDashboardOverviewRaw(ctx context.Context, filter *ser
 		StartTime: start,
 		EndTime:   end,
 		Platform:  strings.TrimSpace(filter.Platform),
-		GroupID:   filter.GroupID,
 
 		SuccessCount:         successCount,
 		ErrorCountTotal:      errorTotal,
@@ -311,7 +310,6 @@ func (r *opsRepository) getDashboardOverviewPreaggregated(ctx context.Context, f
 		StartTime: start,
 		EndTime:   end,
 		Platform:  strings.TrimSpace(filter.Platform),
-		GroupID:   filter.GroupID,
 
 		SuccessCount:         successCount,
 		ErrorCountTotal:      errorTotal,
@@ -387,27 +385,16 @@ func (r *opsRepository) listHourlyMetricsRows(ctx context.Context, filter *servi
 	idx := 3
 
 	platform := ""
-	groupID := (*int64)(nil)
 	if filter != nil {
 		platform = strings.TrimSpace(strings.ToLower(filter.Platform))
-		groupID = filter.GroupID
 	}
 
-	switch {
-	case groupID != nil && *groupID > 0:
-		where += fmt.Sprintf(" AND group_id = $%d", idx)
-		args = append(args, *groupID)
-		idx++
-		if platform != "" {
-			where += fmt.Sprintf(" AND platform = $%d", idx)
-			args = append(args, platform)
-			// idx++ removed - not used after this
-		}
-	case platform != "":
+	// 预聚合表的 group_id 列留到 7c 删；写入侧已不再产生分组行，
+	// 这里仍显式排除 group_id 非空的历史行，避免与平台行重复计数。
+	if platform != "" {
 		where += fmt.Sprintf(" AND platform = $%d AND group_id IS NULL", idx)
 		args = append(args, platform)
-		// idx++ removed - not used after this
-	default:
+	} else {
 		where += " AND platform IS NULL AND group_id IS NULL"
 	}
 
@@ -974,10 +961,8 @@ func isQueryTimeoutErr(err error) bool {
 
 func buildUsageWhere(filter *service.OpsDashboardFilter, start, end time.Time, startIndex int) (join string, where string, args []any, nextIndex int) {
 	platform := ""
-	groupID := (*int64)(nil)
 	if filter != nil {
 		platform = strings.TrimSpace(strings.ToLower(filter.Platform))
-		groupID = filter.GroupID
 	}
 
 	idx := startIndex
@@ -991,17 +976,11 @@ func buildUsageWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 	clauses = append(clauses, fmt.Sprintf("ul.created_at < $%d", idx))
 	idx++
 
-	if groupID != nil && *groupID > 0 {
-		args = append(args, *groupID)
-		clauses = append(clauses, fmt.Sprintf("ul.group_id = $%d", idx))
-		idx++
-	}
 	if platform != "" {
-		// Prefer group.platform when available; fall back to account.platform so we don't
-		// drop rows where group_id is NULL.
-		join = "LEFT JOIN groups g ON g.id = ul.group_id LEFT JOIN accounts a ON a.id = ul.account_id"
+		// 用量行的平台只看承接它的账号（分组已删）。
+		join = "LEFT JOIN accounts a ON a.id = ul.account_id"
 		args = append(args, platform)
-		clauses = append(clauses, fmt.Sprintf("COALESCE(NULLIF(g.platform,''), a.platform) = $%d", idx))
+		clauses = append(clauses, fmt.Sprintf("a.platform = $%d", idx))
 		idx++
 	}
 
@@ -1011,10 +990,8 @@ func buildUsageWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 
 func buildErrorWhere(filter *service.OpsDashboardFilter, start, end time.Time, startIndex int) (where string, args []any, nextIndex int) {
 	platform := ""
-	groupID := (*int64)(nil)
 	if filter != nil {
 		platform = strings.TrimSpace(strings.ToLower(filter.Platform))
-		groupID = filter.GroupID
 	}
 
 	idx := startIndex
@@ -1030,11 +1007,6 @@ func buildErrorWhere(filter *service.OpsDashboardFilter, start, end time.Time, s
 
 	clauses = append(clauses, "is_count_tokens = FALSE")
 
-	if groupID != nil && *groupID > 0 {
-		args = append(args, *groupID)
-		clauses = append(clauses, fmt.Sprintf("group_id = $%d", idx))
-		idx++
-	}
 	if platform != "" {
 		args = append(args, platform)
 		clauses = append(clauses, fmt.Sprintf("platform = $%d", idx))

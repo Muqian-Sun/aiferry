@@ -572,7 +572,6 @@ func (s *OpsScheduledReportService) generateReportContent(ctx context.Context, r
 			StartTime: start,
 			EndTime:   end,
 			Platform:  "",
-			GroupID:   nil,
 			QueryMode: OpsQueryModeAuto,
 		})
 		if err != nil {
@@ -582,7 +581,6 @@ func (s *OpsScheduledReportService) generateReportContent(ctx context.Context, r
 					StartTime: start,
 					EndTime:   end,
 					Platform:  "",
-					GroupID:   nil,
 					QueryMode: OpsQueryModeRaw,
 				})
 			}
@@ -614,7 +612,7 @@ func (s *OpsScheduledReportService) generateReportContent(ctx context.Context, r
 		return opsScheduledReportContent{html: buildOpsErrorDigestEmailHTML(report.Name, start, end, out)}, nil
 	case "account_health":
 		// Best-effort: use account availability (not error rate yet).
-		avail, err := s.opsService.GetAccountAvailability(ctx, "", nil)
+		avail, err := s.opsService.GetAccountAvailability(ctx, "")
 		if err != nil {
 			return opsScheduledReportContent{}, err
 		}

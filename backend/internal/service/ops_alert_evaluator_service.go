@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -217,7 +216,7 @@ func (s *OpsAlertEvaluatorService) evaluateOnce(interval time.Duration) {
 		}
 		rulesEnabled++
 
-		scopePlatform, scopeGroupID, scopeRegion := parseOpsAlertRuleScope(rule.Filters)
+		scopePlatform, scopeRegion := parseOpsAlertRuleScope(rule.Filters)
 
 		windowMinutes := rule.WindowMinutes
 		if windowMinutes <= 0 {
@@ -226,7 +225,7 @@ func (s *OpsAlertEvaluatorService) evaluateOnce(interval time.Duration) {
 		windowStart := safeEnd.Add(-time.Duration(windowMinutes) * time.Minute)
 		windowEnd := safeEnd
 
-		metricValue, ok := s.computeRuleMetric(ctx, rule, systemMetrics, windowStart, windowEnd, scopePlatform, scopeGroupID)
+		metricValue, ok := s.computeRuleMetric(ctx, rule, systemMetrics, windowStart, windowEnd, scopePlatform)
 		if !ok {
 			s.resetRuleState(rule.ID, now)
 			continue
@@ -253,7 +252,7 @@ func (s *OpsAlertEvaluatorService) evaluateOnce(interval time.Duration) {
 				platform := strings.TrimSpace(scopePlatform)
 				region := scopeRegion
 				if platform != "" {
-					if ok, err := s.opsService.IsAlertSilenced(ctx, rule.ID, platform, scopeGroupID, region, now); err == nil && ok {
+					if ok, err := s.opsService.IsAlertSilenced(ctx, rule.ID, platform, region, now); err == nil && ok {
 						continue
 					}
 				}
@@ -276,10 +275,10 @@ func (s *OpsAlertEvaluatorService) evaluateOnce(interval time.Duration) {
 				Severity:       strings.TrimSpace(rule.Severity),
 				Status:         OpsAlertStatusFiring,
 				Title:          fmt.Sprintf("%s: %s", strings.TrimSpace(rule.Severity), strings.TrimSpace(rule.Name)),
-				Description:    buildOpsAlertDescription(rule, metricValue, windowMinutes, scopePlatform, scopeGroupID),
+				Description:    buildOpsAlertDescription(rule, metricValue, windowMinutes, scopePlatform),
 				MetricValue:    float64Ptr(metricValue),
 				ThresholdValue: float64Ptr(rule.Threshold),
-				Dimensions:     buildOpsAlertDimensions(scopePlatform, scopeGroupID),
+				Dimensions:     buildOpsAlertDimensions(scopePlatform),
 				FiredAt:        now,
 				CreatedAt:      now,
 			}
@@ -388,37 +387,13 @@ func requiredSustainedBreaches(sustainedMinutes int, interval time.Duration) int
 	return required
 }
 
-func parseOpsAlertRuleScope(filters map[string]any) (platform string, groupID *int64, region *string) {
+func parseOpsAlertRuleScope(filters map[string]any) (platform string, region *string) {
 	if filters == nil {
-		return "", nil, nil
+		return "", nil
 	}
 	if v, ok := filters["platform"]; ok {
 		if s, ok := v.(string); ok {
 			platform = strings.TrimSpace(s)
-		}
-	}
-	if v, ok := filters["group_id"]; ok {
-		switch t := v.(type) {
-		case float64:
-			if t > 0 {
-				id := int64(t)
-				groupID = &id
-			}
-		case int64:
-			if t > 0 {
-				id := t
-				groupID = &id
-			}
-		case int:
-			if t > 0 {
-				id := int64(t)
-				groupID = &id
-			}
-		case string:
-			n, err := strconv.ParseInt(strings.TrimSpace(t), 10, 64)
-			if err == nil && n > 0 {
-				groupID = &n
-			}
 		}
 	}
 	if v, ok := filters["region"]; ok {
@@ -429,7 +404,7 @@ func parseOpsAlertRuleScope(filters map[string]any) (platform string, groupID *i
 			}
 		}
 	}
-	return platform, groupID, region
+	return platform, region
 }
 
 func (s *OpsAlertEvaluatorService) computeRuleMetric(
@@ -439,7 +414,6 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 	start time.Time,
 	end time.Time,
 	platform string,
-	groupID *int64,
 ) (float64, bool) {
 	if rule == nil {
 		return 0, false
@@ -460,38 +434,11 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 			return float64(*systemMetrics.ConcurrencyQueueDepth), true
 		}
 		return 0, false
-	case "group_available_accounts":
-		if groupID == nil || *groupID <= 0 {
-			return 0, false
-		}
-		if s == nil || s.opsService == nil {
-			return 0, false
-		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
-		if err != nil || availability == nil {
-			return 0, false
-		}
-		if availability.Group == nil {
-			return 0, true
-		}
-		return float64(availability.Group.AvailableCount), true
-	case "group_available_ratio":
-		if groupID == nil || *groupID <= 0 {
-			return 0, false
-		}
-		if s == nil || s.opsService == nil {
-			return 0, false
-		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
-		if err != nil || availability == nil {
-			return 0, false
-		}
-		return computeGroupAvailableRatio(availability.Group), true
 	case "account_rate_limited_count":
 		if s == nil || s.opsService == nil {
 			return 0, false
 		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
+		availability, err := s.opsService.GetAccountAvailability(ctx, platform)
 		if err != nil || availability == nil {
 			return 0, false
 		}
@@ -502,7 +449,7 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		if s == nil || s.opsService == nil {
 			return 0, false
 		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
+		availability, err := s.opsService.GetAccountAvailability(ctx, platform)
 		if err != nil || availability == nil {
 			return 0, false
 		}
@@ -513,7 +460,7 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		if s == nil || s.opsService == nil {
 			return 0, false
 		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
+		availability, err := s.opsService.GetAccountAvailability(ctx, platform)
 		if err != nil || availability == nil {
 			return 0, false
 		}
@@ -521,26 +468,11 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		return float64(countAccountsByCondition(availability.Accounts, func(acc *AccountAvailability) bool {
 			return acc.TempUnschedulableUntil != nil && now.Before(*acc.TempUnschedulableUntil)
 		})), true
-	case "group_rate_limit_ratio":
-		if groupID == nil || *groupID <= 0 {
-			return 0, false
-		}
-		if s == nil || s.opsService == nil {
-			return 0, false
-		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
-		if err != nil || availability == nil {
-			return 0, false
-		}
-		if availability.Group == nil || availability.Group.TotalAccounts <= 0 {
-			return 0, true
-		}
-		return (float64(availability.Group.RateLimitCount) / float64(availability.Group.TotalAccounts)) * 100, true
 	case "account_error_ratio":
 		if s == nil || s.opsService == nil {
 			return 0, false
 		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
+		availability, err := s.opsService.GetAccountAvailability(ctx, platform)
 		if err != nil || availability == nil {
 			return 0, false
 		}
@@ -556,7 +488,7 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		if s == nil || s.opsService == nil {
 			return 0, false
 		}
-		availability, err := s.opsService.GetAccountAvailability(ctx, platform, groupID)
+		availability, err := s.opsService.GetAccountAvailability(ctx, platform)
 		if err != nil || availability == nil {
 			return 0, false
 		}
@@ -587,7 +519,6 @@ func (s *OpsAlertEvaluatorService) computeRuleMetric(
 		StartTime: start,
 		EndTime:   end,
 		Platform:  platform,
-		GroupID:   groupID,
 		QueryMode: OpsQueryModeRaw,
 	})
 	if err != nil {
@@ -637,13 +568,10 @@ func compareMetric(value float64, operator string, threshold float64) bool {
 	}
 }
 
-func buildOpsAlertDimensions(platform string, groupID *int64) map[string]any {
+func buildOpsAlertDimensions(platform string) map[string]any {
 	dims := map[string]any{}
 	if strings.TrimSpace(platform) != "" {
 		dims["platform"] = strings.TrimSpace(platform)
-	}
-	if groupID != nil && *groupID > 0 {
-		dims["group_id"] = *groupID
 	}
 	if len(dims) == 0 {
 		return nil
@@ -651,16 +579,13 @@ func buildOpsAlertDimensions(platform string, groupID *int64) map[string]any {
 	return dims
 }
 
-func buildOpsAlertDescription(rule *OpsAlertRule, value float64, windowMinutes int, platform string, groupID *int64) string {
+func buildOpsAlertDescription(rule *OpsAlertRule, value float64, windowMinutes int, platform string) string {
 	if rule == nil {
 		return ""
 	}
 	scope := "overall"
 	if strings.TrimSpace(platform) != "" {
 		scope = fmt.Sprintf("platform=%s", strings.TrimSpace(platform))
-	}
-	if groupID != nil && *groupID > 0 {
-		scope = fmt.Sprintf("%s group_id=%d", scope, *groupID)
 	}
 	if windowMinutes <= 0 {
 		windowMinutes = 1
@@ -1049,16 +974,6 @@ func (l *slidingWindowLimiter) Allow(now time.Time) bool {
 	}
 	l.sent = append(l.sent, now)
 	return true
-}
-
-// computeGroupAvailableRatio returns the available percentage for a group.
-// Formula: (AvailableCount / TotalAccounts) * 100.
-// Returns 0 when TotalAccounts is 0.
-func computeGroupAvailableRatio(group *GroupAvailability) float64 {
-	if group == nil || group.TotalAccounts <= 0 {
-		return 0
-	}
-	return (float64(group.AvailableCount) / float64(group.TotalAccounts)) * 100
 }
 
 // countAccountsByCondition counts accounts that satisfy the given condition.

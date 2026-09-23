@@ -2425,7 +2425,6 @@ func buildCyberPolicyOpsErrorEntry(meta cyberPolicyOpsErrorMeta, mark *service.C
 	if meta.AccountID > 0 {
 		entry.AccountID = &meta.AccountID
 	}
-	entry.GroupID = meta.GroupID
 	if meta.ClientIP != "" {
 		entry.ClientIP = &meta.ClientIP
 	}
@@ -2472,7 +2471,6 @@ func buildCyberSessionBlockedOpsEntry(meta cyberPolicyOpsErrorMeta) *service.Ops
 	if meta.APIKeyID > 0 {
 		entry.APIKeyID = &meta.APIKeyID
 	}
-	entry.GroupID = meta.GroupID
 	if meta.ClientIP != "" {
 		entry.ClientIP = &meta.ClientIP
 	}

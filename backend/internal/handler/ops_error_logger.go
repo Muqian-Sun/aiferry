@@ -57,8 +57,6 @@ const (
 	opsCodeUserNotFound          = "USER_NOT_FOUND"
 	opsCodeAPIKeyQuotaExhausted  = "API_KEY_QUOTA_EXHAUSTED"
 	opsCodeAPIKeyQueryDeprecated = "api_key_in_query_deprecated"
-	opsCodeGroupDeleted          = "GROUP_DELETED"
-	opsCodeGroupDisabled         = "GROUP_DISABLED"
 )
 
 const (
@@ -1258,9 +1256,6 @@ func OpsErrorLoggerMiddleware(ops *service.OpsService) gin.HandlerFunc {
 			if apiKey.User != nil {
 				entry.UserID = &apiKey.User.ID
 			}
-			if apiKey.GroupID != nil {
-				entry.GroupID = apiKey.GroupID
-			}
 		}
 
 		var clientIP string
@@ -1373,9 +1368,6 @@ func logOpsRecoveredUpstream(c *gin.Context, ops *service.OpsService, finalStatu
 		entry.APIKeyPrefix = keyPrefix(apiKey.Key, 8)
 		if apiKey.User != nil {
 			entry.UserID = &apiKey.User.ID
-		}
-		if apiKey.GroupID != nil {
-			entry.GroupID = apiKey.GroupID
 		}
 	}
 	if clientIP := strings.TrimSpace(ip.GetClientIP(c)); clientIP != "" {
@@ -1558,9 +1550,6 @@ func logOpsStreamErrorValue(c *gin.Context, ops *service.OpsService, wireStatus 
 		entry.APIKeyPrefix = keyPrefix(apiKey.Key, 8)
 		if apiKey.User != nil {
 			entry.UserID = &apiKey.User.ID
-		}
-		if apiKey.GroupID != nil {
-			entry.GroupID = apiKey.GroupID
 		}
 	}
 
@@ -2260,19 +2249,14 @@ func isOpsClientAuthError(code string, msg string) bool {
 		opsCodeAPIKeyExpired,
 		opsCodeAPIKeyDisabled,
 		opsCodeUserNotFound,
-		opsCodeUserInactive,
-		opsCodeGroupDeleted,
-		opsCodeGroupDisabled:
+		opsCodeUserInactive:
 		return true
 	}
 	return strings.Contains(msg, "invalid api key") ||
 		strings.Contains(msg, "api key is required") ||
 		strings.Contains(msg, "api key is disabled") ||
 		strings.Contains(msg, "user associated with api key not found") ||
-		strings.Contains(msg, "user account is not active") ||
-		strings.Contains(msg, "api key 所属分组已删除") ||
-		strings.Contains(msg, "api key 所属分组已停用") ||
-		strings.Contains(msg, "api key is not assigned to any group")
+		strings.Contains(msg, "user account is not active")
 }
 
 func isOpsLocalBusinessLimitError(code string, msg string) bool {

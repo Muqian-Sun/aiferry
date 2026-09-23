@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -13,7 +12,7 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-// GetConcurrencyStats returns real-time concurrency usage aggregated by platform/group/account.
+// GetConcurrencyStats returns real-time concurrency usage aggregated by platform/account.
 // GET /api/v1/admin/ops/concurrency
 func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 	if h.opsService == nil {
@@ -29,7 +28,6 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 		response.Success(c, gin.H{
 			"enabled":   false,
 			"platform":  map[string]*service.PlatformConcurrencyInfo{},
-			"group":     map[int64]*service.GroupConcurrencyInfo{},
 			"account":   map[int64]*service.AccountConcurrencyInfo{},
 			"timestamp": time.Now().UTC(),
 		})
@@ -37,17 +35,7 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 	}
 
 	platformFilter := strings.TrimSpace(c.Query("platform"))
-	var groupID *int64
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		groupID = &id
-	}
-
-	platform, group, account, collectedAt, err := h.opsService.GetConcurrencyStats(c.Request.Context(), platformFilter, groupID)
+	platform, account, collectedAt, err := h.opsService.GetConcurrencyStats(c.Request.Context(), platformFilter)
 	if err != nil {
 		if isOpsRealtimeRequestCanceled(c, err) {
 			return
@@ -59,7 +47,6 @@ func (h *OpsHandler) GetConcurrencyStats(c *gin.Context) {
 	payload := gin.H{
 		"enabled":  true,
 		"platform": platform,
-		"group":    group,
 		"account":  account,
 	}
 	if collectedAt != nil {
@@ -113,7 +100,6 @@ func (h *OpsHandler) GetUserConcurrencyStats(c *gin.Context) {
 //
 // Query params:
 // - platform: optional
-// - group_id: optional
 func (h *OpsHandler) GetAccountAvailability(c *gin.Context) {
 	if h.opsService == nil {
 		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
@@ -128,7 +114,6 @@ func (h *OpsHandler) GetAccountAvailability(c *gin.Context) {
 		response.Success(c, gin.H{
 			"enabled":   false,
 			"platform":  map[string]*service.PlatformAvailability{},
-			"group":     map[int64]*service.GroupAvailability{},
 			"account":   map[int64]*service.AccountAvailability{},
 			"timestamp": time.Now().UTC(),
 		})
@@ -136,17 +121,7 @@ func (h *OpsHandler) GetAccountAvailability(c *gin.Context) {
 	}
 
 	platform := strings.TrimSpace(c.Query("platform"))
-	var groupID *int64
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		groupID = &id
-	}
-
-	platformStats, groupStats, accountStats, collectedAt, err := h.opsService.GetAccountAvailabilityStats(c.Request.Context(), platform, groupID)
+	platformStats, accountStats, collectedAt, err := h.opsService.GetAccountAvailabilityStats(c.Request.Context(), platform)
 	if err != nil {
 		if isOpsRealtimeRequestCanceled(c, err) {
 			return
@@ -158,7 +133,6 @@ func (h *OpsHandler) GetAccountAvailability(c *gin.Context) {
 	payload := gin.H{
 		"enabled":  true,
 		"platform": platformStats,
-		"group":    groupStats,
 		"account":  accountStats,
 	}
 	if collectedAt != nil {
@@ -201,7 +175,6 @@ func parseOpsRealtimeWindow(v string) (time.Duration, string, bool) {
 // Query params:
 // - window: 1min|5min|30min|1h (default: 1min)
 // - platform: optional
-// - group_id: optional
 func (h *OpsHandler) GetRealtimeTrafficSummary(c *gin.Context) {
 	if h.opsService == nil {
 		response.Error(c, http.StatusServiceUnavailable, "Ops service not available")
@@ -219,16 +192,6 @@ func (h *OpsHandler) GetRealtimeTrafficSummary(c *gin.Context) {
 	}
 
 	platform := strings.TrimSpace(c.Query("platform"))
-	var groupID *int64
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		groupID = &id
-	}
-
 	endTime := time.Now().UTC()
 	startTime := endTime.Add(-windowDur)
 
@@ -238,7 +201,6 @@ func (h *OpsHandler) GetRealtimeTrafficSummary(c *gin.Context) {
 			StartTime: startTime,
 			EndTime:   endTime,
 			Platform:  platform,
-			GroupID:   groupID,
 			QPS:       service.OpsRateSummary{},
 			TPS:       service.OpsRateSummary{},
 		}
@@ -254,7 +216,6 @@ func (h *OpsHandler) GetRealtimeTrafficSummary(c *gin.Context) {
 		StartTime: startTime,
 		EndTime:   endTime,
 		Platform:  platform,
-		GroupID:   groupID,
 		QueryMode: service.OpsQueryModeRaw,
 	}
 

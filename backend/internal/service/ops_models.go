@@ -57,8 +57,6 @@ type OpsErrorLog struct {
 	APIKeyID    *int64 `json:"api_key_id"`
 	AccountID   *int64 `json:"account_id"`
 	AccountName string `json:"account_name"`
-	GroupID     *int64 `json:"group_id"`
-	GroupName   string `json:"group_name"`
 
 	ClientIP    *string `json:"client_ip"`
 	RequestPath string  `json:"request_path"`
@@ -106,7 +104,6 @@ type OpsErrorLogFilter struct {
 	EndTime   *time.Time
 
 	Platform  string
-	GroupID   *int64
 	AccountID *int64
 
 	StatusCodes      []int

@@ -8,7 +8,6 @@ type OpsOpenAITokenStatsFilter struct {
 	EndTime   time.Time
 
 	Platform string
-	GroupID  *int64
 
 	// Pagination mode (default): page/page_size
 	Page     int
@@ -38,7 +37,6 @@ type OpsOpenAITokenStatsResponse struct {
 	EndTime   time.Time `json:"end_time"`
 
 	Platform string `json:"platform,omitempty"`
-	GroupID  *int64 `json:"group_id,omitempty"`
 
 	Items []*OpsOpenAITokenStatsItem `json:"items"`
 

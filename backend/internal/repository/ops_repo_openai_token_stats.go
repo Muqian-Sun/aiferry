@@ -28,7 +28,6 @@ func (r *opsRepository) GetOpenAITokenStats(ctx context.Context, filter *service
 		StartTime: filter.StartTime.UTC(),
 		EndTime:   filter.EndTime.UTC(),
 		Platform:  strings.TrimSpace(strings.ToLower(filter.Platform)),
-		GroupID:   filter.GroupID,
 	}
 
 	join, where, baseArgs, next := buildUsageWhere(dashboardFilter, dashboardFilter.StartTime, dashboardFilter.EndTime, 1)
@@ -129,7 +128,6 @@ ORDER BY request_count DESC, model ASC`
 		StartTime: dashboardFilter.StartTime,
 		EndTime:   dashboardFilter.EndTime,
 		Platform:  dashboardFilter.Platform,
-		GroupID:   dashboardFilter.GroupID,
 		Items:     items,
 		Total:     total,
 	}
