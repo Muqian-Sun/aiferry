@@ -1,17 +1,26 @@
 /**
- * 模型页的展示契约：每个上架的目录条目一行。
+ * 模型页的展示契约：每个上架的目录条目一格。
  *
- * 标价来自 /model-plaza 每个条目的 pricing（目录基准价，USD / token），这里换算成 USD / 百万 token。
+ * 标价来自 /model-plaza 每个条目的 pricing（目录基准价）。计费模式决定收哪些钱（后端 billing_service 的实际口径）：
+ * - token：各项都是 USD / token，这里换算成 USD / 百万 token；
+ * - per_request / image / video：只收 per_request_price 一个单价，单位分别是 次 / 张 / 秒，token 价不参与计费、不展示。
  * 用户价 = 标价 × 用户倍率，倍率由页面按登录态另取，这里不算。
  */
 import type { PlazaModel, PlazaTimePricing } from '@/api/modelPlaza'
 
+/** token 模式的各项单价，USD / 1M tokens；目录没给的项为 null */
 export interface CatalogPrice {
-  /** USD / 1M tokens；目录没给时为 null */
   input: number | null
   output: number | null
+  cacheWrite: number | null
+  /** 1 小时缓存写入（只有与 5 分钟价分开定价的模型才有） */
+  cacheWrite1h: number | null
   cacheRead: number | null
+  imageInput: number | null
+  imageOutput: number | null
 }
+
+export type CatalogPriceKey = keyof CatalogPrice
 
 export interface CatalogModel {
   id: string
@@ -19,8 +28,10 @@ export interface CatalogModel {
   vendor: string
   /** token / per_request / image / video；缺省视为 token */
   billingMode: string
-  /** 三项都缺（如纯按次模型）时为 null */
+  /** token 模式的单价；非 token 模式或各项都缺时为 null */
   price: CatalogPrice | null
+  /** 非 token 模式的单价（USD / 次、张、秒）；token 模式或没给时为 null */
+  unitPrice: number | null
   aliases: string[]
   /** 分时倍率（有时段才带） */
   timePricing: PlazaTimePricing | null
@@ -32,26 +43,36 @@ function perMillion(value: number | null | undefined): number | null {
   return value == null ? null : value * PER_MILLION
 }
 
-function priceOf(model: PlazaModel): CatalogPrice | null {
+function priceOf(model: PlazaModel, billingMode: string): CatalogPrice | null {
   const p = model.pricing
-  if (!p) return null
-  const price = { input: perMillion(p.input_price), output: perMillion(p.output_price), cacheRead: perMillion(p.cache_read_price) }
-  return price.input == null && price.output == null && price.cacheRead == null ? null : price
+  if (!p || billingMode !== 'token') return null
+  const price: CatalogPrice = {
+    input: perMillion(p.input_price),
+    output: perMillion(p.output_price),
+    cacheWrite: perMillion(p.cache_write_price),
+    cacheWrite1h: perMillion(p.cache_write_1h_price),
+    cacheRead: perMillion(p.cache_read_price),
+    imageInput: perMillion(p.image_input_price),
+    imageOutput: perMillion(p.image_output_price)
+  }
+  return Object.values(price).every((value) => value == null) ? null : price
 }
 
 export function buildCatalog(models: PlazaModel[]): CatalogModel[] {
   return models
-    .map(
-      (model): CatalogModel => ({
+    .map((model): CatalogModel => {
+      const billingMode = model.billing_mode || model.pricing?.billing_mode || 'token'
+      return {
         id: model.model_id,
         displayName: model.display_name || model.model_id,
         vendor: model.vendor,
-        billingMode: model.billing_mode || model.pricing?.billing_mode || 'token',
-        price: priceOf(model),
+        billingMode,
+        price: priceOf(model, billingMode),
+        unitPrice: billingMode === 'token' ? null : (model.pricing?.per_request_price ?? null),
         aliases: model.aliases ?? [],
         timePricing: model.time_pricing?.periods.length ? model.time_pricing : null
-      })
-    )
+      }
+    })
     .sort((a, b) => a.vendor.localeCompare(b.vendor) || a.id.localeCompare(b.id))
 }
 
@@ -88,8 +109,9 @@ export function catalogBillingModes(entries: CatalogModel[]): string[] {
 /** 用户价 = 标价 × 账户倍率；标价缺项的位置保持 null */
 export function applyMultiplier(price: CatalogPrice | null, multiplier: number): CatalogPrice | null {
   if (!price) return null
-  const scale = (value: number | null) => (value == null ? null : value * multiplier)
-  return { input: scale(price.input), output: scale(price.output), cacheRead: scale(price.cacheRead) }
+  return Object.fromEntries(
+    Object.entries(price).map(([key, value]) => [key, value == null ? null : value * multiplier])
+  ) as unknown as CatalogPrice
 }
 
 /** 分时倍率的一行说明：09:00–18:00 ×1.5 · 12:00–14:00 ×0.8（时区，仅工作日） */

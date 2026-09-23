@@ -55,7 +55,7 @@ function mountContent(props: Partial<{ response: ModelPlazaResponse | null; load
 }
 
 const rowIds = (wrapper: ReturnType<typeof mountContent>) =>
-  wrapper.findAll('[data-testid="catalog-row"]').map((row) => row.find('.font-mono').text())
+  wrapper.findAll('[data-testid="catalog-cell"]').map((cell) => cell.find('.font-mono').text())
 
 describe('ModelPlazaContent', () => {
   beforeEach(() => {
@@ -66,18 +66,20 @@ describe('ModelPlazaContent', () => {
     copyToClipboard.mockClear()
   })
 
-  it('renders one row per listed entry (vendor, then id) with list prices per 1M tokens', () => {
+  it('renders one grid cell per listed entry (vendor, then id) with list prices per 1M tokens', () => {
     const wrapper = mountContent()
     expect(rowIds(wrapper)).toEqual(['claude-opus-5', 'gpt-5.5', 'gpt-image-2'])
-    const gpt = wrapper.findAll('[data-testid="catalog-row"]')[1]
+    const gpt = wrapper.findAll('[data-testid="catalog-cell"]')[1]
     expect(gpt.text()).toContain('OpenAI')
     expect(gpt.text()).toContain('$10.00')
     expect(gpt.text()).toContain('$30.00')
     expect(gpt.text()).toContain('$2.5')
     expect(gpt.text()).toContain('gpt-5.5-sol')
     expect(wrapper.find('[data-testid="catalog-count"]').text()).toContain('"count":3')
-    expect(wrapper.text()).toContain('userUi.models.listPrice')
-    expect(wrapper.find('[data-testid="user-price-header"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="price-unit"]').text()).toContain('userUi.models.priceUnit')
+    expect(wrapper.find('[data-testid="your-price-note"]').exists()).toBe(false)
+    // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格
+    expect(wrapper.get('[data-testid="catalog-cell"]').classes().join(' ')).not.toMatch(/rounded|shadow/)
   })
 
   it('shows vendor tabs with counts and filters by the selected vendor, writing it to the URL', async () => {
@@ -94,39 +96,24 @@ describe('ModelPlazaContent', () => {
     expect(replace).toHaveBeenLastCalledWith({ query: {} })
   })
 
-  it('reads vendor and view from the URL', () => {
-    routeState.query = { vendor: 'anthropic', view: 'grid' }
+  it('reads the vendor from the URL', () => {
+    routeState.query = { vendor: 'anthropic' }
     const wrapper = mountContent()
-    expect(wrapper.find('[data-testid="catalog-table"]').exists()).toBe(false)
     const cells = wrapper.findAll('[data-testid="catalog-cell"]')
     expect(cells).toHaveLength(1)
     expect(cells[0].text()).toContain('claude-opus-5')
   })
 
-  it('switches to the grid view and back, keeping the URL in sync', async () => {
-    const wrapper = mountContent()
-    await wrapper.get('[data-testid="view-grid"]').trigger('click')
-    expect(wrapper.find('[data-testid="catalog-grid"]').exists()).toBe(true)
-    expect(wrapper.findAll('[data-testid="catalog-cell"]')).toHaveLength(3)
-    expect(replace).toHaveBeenLastCalledWith({ query: { view: 'grid' } })
-    // 网格单元不是卡片：没有圆角大盒子，只有 hairline 分格
-    expect(wrapper.get('[data-testid="catalog-cell"]').classes().join(' ')).not.toMatch(/rounded|shadow/)
-
-    await wrapper.get('[data-testid="view-table"]').trigger('click')
-    expect(wrapper.find('[data-testid="catalog-table"]').exists()).toBe(true)
-    expect(replace).toHaveBeenLastCalledWith({ query: {} })
-  })
-
-  it('adds "your price" columns only when signed in with a multiplier other than 1', () => {
+  it('shows "your price" only when signed in with a multiplier other than 1', () => {
     authState.isAuthenticated = true
     authState.user = { rate_multiplier: 1 }
-    expect(mountContent().find('[data-testid="user-price-header"]').exists()).toBe(false)
+    expect(mountContent().find('[data-testid="your-price-note"]').exists()).toBe(false)
 
     authState.user = { rate_multiplier: 2 }
     const wrapper = mountContent()
-    expect(wrapper.get('[data-testid="user-price-header"]').text()).toContain('"multiplier":2')
-    const gpt = wrapper.findAll('[data-testid="catalog-row"]')[1]
-    expect(gpt.get('[data-testid="user-price-input"]').text()).toBe('$20.00')
+    expect(wrapper.get('[data-testid="your-price-note"]').text()).toContain('"multiplier":2')
+    const gpt = wrapper.findAll('[data-testid="catalog-cell"]')[1]
+    expect(gpt.get('[data-testid="price-input"]').text()).toBe('$20.00')
     expect(wrapper.text()).toContain('userUi.models.multiplierNote')
   })
 
@@ -139,16 +126,16 @@ describe('ModelPlazaContent', () => {
 
   it('shows a dash for entries without token prices', () => {
     const wrapper = mountContent()
-    expect(wrapper.findAll('[data-testid="catalog-row"]')[0].text()).toContain('—')
+    expect(wrapper.findAll('[data-testid="catalog-cell"]')[0].text()).toContain('—')
   })
 
   it('renders the admin markdown note sanitized', () => {
     expect(mountContent().find('.plaza-description').html()).toContain('<strong>Prices</strong>')
   })
 
-  it('copies a model id from the row button', async () => {
+  it('copies a model id from the cell button', async () => {
     const wrapper = mountContent()
-    await wrapper.findAll('[data-testid="catalog-row"]')[1].find('button').trigger('click')
+    await wrapper.findAll('[data-testid="catalog-cell"]')[1].find('button').trigger('click')
     expect(copyToClipboard).toHaveBeenCalledWith('gpt-5.5')
   })
 

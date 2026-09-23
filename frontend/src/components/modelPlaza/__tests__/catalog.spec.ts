@@ -39,7 +39,7 @@ describe('buildCatalog', () => {
 
   it('converts list prices from USD per token to USD per million tokens', () => {
     const [entry] = buildCatalog([model('gpt-5.5', 'openai', { pricing: pricing(0.00001, 0.00003, 0.0000025) })])
-    expect(entry.price).toEqual({ input: 10, output: 30, cacheRead: 2.5 })
+    expect(entry.price).toEqual({ input: 10, output: 30, cacheWrite: null, cacheWrite1h: null, cacheRead: 2.5, imageInput: null, imageOutput: null })
   })
 
   it('leaves price null when the entry carries no token prices (per-request models)', () => {
@@ -94,7 +94,8 @@ describe('filterCatalog / catalogVendors', () => {
 
 describe('applyMultiplier / formatTimePricing', () => {
   it('scales every present price by the account multiplier and keeps missing ones null', () => {
-    expect(applyMultiplier({ input: 10, output: 30, cacheRead: null }, 2)).toEqual({ input: 20, output: 60, cacheRead: null })
+    const price = { input: 10, output: 30, cacheWrite: 12.5, cacheWrite1h: null, cacheRead: null, imageInput: null, imageOutput: null }
+    expect(applyMultiplier(price, 2)).toEqual({ input: 20, output: 60, cacheWrite: 25, cacheWrite1h: null, cacheRead: null, imageInput: null, imageOutput: null })
     expect(applyMultiplier(null, 2)).toBeNull()
   })
 

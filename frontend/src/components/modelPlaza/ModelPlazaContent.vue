@@ -1,8 +1,8 @@
 <template>
   <!--
-    模型页：厂商页签（彩色图标 + 计数）→ 工具行（搜索 / 计费 / 计数 / 视图切换）→ 表格或网格。
-    表格每个上架条目一行，标价按百万 Token；登录且账户倍率 ≠ 1 时多一组「你的价格」列。
-    网格视图是 hairline 分格的单元（不是卡片）：图标 + 名称 + 厂商 + 标价 + 别名。
+    模型页：厂商页签（彩色图标 + 计数）→ 工具行（搜索 / 计费 / 计数 / 价格单位）→ 网格。
+    只有网格一种视图（muqian 2026-09-23 去掉了表格）：hairline 分格的单元（不是卡片），图标 + 名称 + 厂商 + 全部计费项 + 别名。
+    价格单位只在工具行写一次；登录且账户倍率 ≠ 1 时格子里直接显示折算后的你的价格，工具行注明倍率。
     embedded=已登录（控制台壳提供页头）；否则公开壳，这里自己画页首——与首页首屏同一套（muqian 2026-09-23）：
     两行大字（第二行流动光泽）+ 一句说明逐行淡入上浮，右侧模型数 / 厂商数进视口从 0 跳到位；厂商图标与首页一样用品牌色。
   -->
@@ -36,7 +36,7 @@
     <!-- 列表整块在数据到位时淡入上浮一次；筛选、切视图不再重播 -->
     <div v-else v-reveal="120" class="space-y-6">
       <!-- 厂商页签：全部 + 目录里出现过的厂商，带品牌色图标与计数 -->
-      <div class="flex gap-1 overflow-x-auto border-b border-af-hairline scrollbar-hide" role="tablist" :aria-label="t('userUi.models.columns.vendor')" data-testid="vendor-tabs">
+      <div class="flex gap-1 overflow-x-auto border-b border-af-hairline scrollbar-hide" role="tablist" :aria-label="t('userUi.models.vendorTabsLabel')" data-testid="vendor-tabs">
         <button
           v-for="tab in vendorTabs"
           :key="tab.key"
@@ -53,7 +53,7 @@
         </button>
       </div>
 
-      <!-- 工具行：搜索（/ 聚焦）/ 计费模式 / 计数 / 视图 -->
+      <!-- 工具行：搜索（/ 聚焦）/ 计费模式 / 计数；价格单位只在这里写一次（格子里不再逐个写） -->
       <div class="flex flex-wrap items-center gap-3">
         <div ref="searchRef" class="w-full sm:w-72">
           <SearchInput v-model="searchQuery" :placeholder="t('userUi.models.searchHint')" />
@@ -62,22 +62,12 @@
         <span class="text-13 tabular-nums text-af-ink-3" data-testid="catalog-count">
           {{ t('userUi.models.count', { count: filtered.length }) }}
         </span>
-        <div class="ml-auto flex items-center gap-0.5" role="group" :aria-label="t('userUi.models.view.label')">
-          <button
-            v-for="option in viewOptions"
-            :key="option.key"
-            type="button"
-            class="rounded-md p-1.5 transition-colors"
-            :class="view === option.key ? 'bg-af-sunken text-af-ink' : 'text-af-ink-4 hover:text-af-ink'"
-            :aria-pressed="view === option.key"
-            :title="option.label"
-            :aria-label="option.label"
-            :data-testid="`view-${option.key}`"
-            @click="setView(option.key)"
-          >
-            <Icon :name="option.icon" size="sm" />
-          </button>
-        </div>
+        <p class="text-13 text-af-ink-3 sm:ml-auto" data-testid="price-unit">
+          {{ t('userUi.models.priceUnit') }}
+          <span v-if="showUserPrice" class="text-af-ink" data-testid="your-price-note">
+            · {{ t('userUi.models.yourPriceApplied', { multiplier: userMultiplier }) }}
+          </span>
+        </p>
       </div>
 
       <StatusState
@@ -86,76 +76,15 @@
         :title="searchActive ? t('userUi.models.noSearchResult') : t('userUi.models.empty')"
       />
 
-      <!-- 表格视图 -->
-      <div v-else-if="view === 'table'" class="-mx-6 overflow-x-auto">
-        <table class="w-full min-w-[720px] text-13" data-testid="catalog-table">
-          <thead>
-            <tr class="border-b border-af-hairline text-left text-af-ink-3">
-              <th class="py-2 pl-6 pr-4 font-medium">{{ t('userUi.models.columns.model') }}</th>
-              <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.vendor') }}</th>
-              <th class="py-2 pr-4 font-medium">{{ t('userUi.models.columns.billing') }}</th>
-              <th class="py-2 text-right font-medium" :class="showUserPrice ? 'pr-4' : 'pr-6'" colspan="3">
-                {{ t('userUi.models.listPrice') }}
-                <span class="ml-1 font-normal text-af-ink-4">{{ t('userUi.models.perMillion') }}</span>
-              </th>
-              <th v-if="showUserPrice" class="py-2 pr-6 text-right font-medium text-af-brand" colspan="2" data-testid="user-price-header">
-                {{ t('userUi.models.yourPrice') }}
-                <span class="ml-1 font-normal text-af-ink-4">{{ t('userUi.models.yourPriceHint', { multiplier: userMultiplier }) }}</span>
-              </th>
-            </tr>
-            <tr class="border-b border-af-hairline text-left text-xs text-af-ink-4">
-              <th class="py-1.5 pl-6 pr-4 font-normal" colspan="3"></th>
-              <th class="py-1.5 pr-4 text-right font-normal">{{ t('userUi.models.columns.input') }}</th>
-              <th class="py-1.5 pr-4 text-right font-normal">{{ t('userUi.models.columns.output') }}</th>
-              <th class="py-1.5 text-right font-normal" :class="showUserPrice ? 'pr-4' : 'pr-6'">{{ t('userUi.models.columns.cacheRead') }}</th>
-              <template v-if="showUserPrice">
-                <th class="py-1.5 pr-4 text-right font-normal">{{ t('userUi.models.columns.input') }}</th>
-                <th class="py-1.5 pr-6 text-right font-normal">{{ t('userUi.models.columns.output') }}</th>
-              </template>
-            </tr>
-          </thead>
-          <tbody class="divide-y divide-af-hairline">
-            <tr v-for="entry in filtered" :key="entry.id" class="group h-11 hover:bg-af-sunken" data-testid="catalog-row">
-              <td class="py-2 pl-6 pr-4">
-                <div class="flex items-center gap-2">
-                  <span class="font-mono font-medium text-af-ink">{{ entry.id }}</span>
-                  <span v-if="entry.timePricing" class="badge badge-gray" :title="timePricingText(entry)" data-testid="time-pricing-badge">
-                    {{ t('userUi.models.timePricing') }}
-                  </span>
-                  <button
-                    type="button"
-                    class="rounded p-1 text-af-ink-4 opacity-0 transition-opacity hover:text-af-ink focus:opacity-100 group-hover:opacity-100 [@media(hover:none)]:opacity-100"
-                    :aria-label="t('userUi.models.copyId')"
-                    :title="copiedId === entry.id ? t('userUi.models.copied') : t('userUi.models.copyId')"
-                    @click="copyId(entry.id)"
-                  >
-                    <Icon :name="copiedId === entry.id ? 'check' : 'copy'" size="xs" />
-                  </button>
-                </div>
-                <div v-if="entry.aliases.length" class="mt-0.5 font-mono text-xs text-af-ink-4">{{ entry.aliases.join(' · ') }}</div>
-              </td>
-              <td class="pr-4 text-af-ink-2">
-                <span class="inline-flex items-center gap-2"><VendorIcon :vendor="entry.vendor" :size="16" colored />{{ vendorLabel(entry.vendor) }}</span>
-              </td>
-              <td class="pr-4 text-af-ink-3">{{ getBillingModeLabel(entry.billingMode, t) }}</td>
-              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.input) }}</td>
-              <td class="pr-4 text-right tabular-nums text-af-ink">{{ formatPrice(entry.price?.output) }}</td>
-              <td class="text-right tabular-nums text-af-ink-2" :class="showUserPrice ? 'pr-4' : 'pr-6'">{{ formatPrice(entry.price?.cacheRead) }}</td>
-              <template v-if="showUserPrice">
-                <td class="pr-4 text-right tabular-nums text-af-ink" data-testid="user-price-input">{{ formatPrice(userPrice(entry)?.input) }}</td>
-                <td class="pr-6 text-right tabular-nums text-af-ink">{{ formatPrice(userPrice(entry)?.output) }}</td>
-              </template>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- 网格视图：hairline 分格，不是卡片 -->
+      <!--
+        网格：hairline 分格，不是卡片。竖线只画在同一行里非第一个格子的左边：
+        sm–lg 两列（偶数格），lg 起三列（非 3n+1 格）——两条规则按断点互斥，不能互相覆盖。
+      -->
       <ul v-else class="-mx-6 grid border-t border-af-hairline sm:grid-cols-2 lg:grid-cols-3" data-testid="catalog-grid">
         <li
           v-for="entry in filtered"
           :key="entry.id"
-          class="group min-w-0 border-b border-af-hairline px-6 py-5 sm:[&:nth-child(2n)]:border-l lg:[&:nth-child(2n)]:border-l-0 lg:[&:not(:nth-child(3n+1))]:border-l"
+          class="group min-w-0 border-b border-af-hairline px-6 py-6 sm:max-lg:[&:nth-child(2n)]:border-l lg:[&:not(:nth-child(3n+1))]:border-l"
           data-testid="catalog-cell"
         >
           <div class="flex items-start gap-3">
@@ -178,20 +107,18 @@
               </p>
             </div>
           </div>
-          <dl class="mt-4 flex items-baseline gap-4 text-13 tabular-nums">
-            <div>
-              <dt class="inline text-af-ink-4">{{ t('userUi.models.columns.input') }}</dt>
-              <dd class="inline font-medium text-af-ink">{{ formatPrice((showUserPrice ? userPrice(entry) : entry.price)?.input) }}</dd>
+          <!-- 计费项：两列对齐，名在左、价在右；单位见工具行 -->
+          <dl class="mt-5 grid grid-cols-2 gap-x-8 gap-y-2 text-13 tabular-nums">
+            <div v-for="item in priceItems(entry)" :key="item.key" class="flex items-baseline justify-between gap-3">
+              <dt class="text-af-ink-4">{{ item.label }}</dt>
+              <dd class="font-medium text-af-ink" :data-testid="`price-${item.key}`">{{ formatPrice(item.value) }}</dd>
             </div>
-            <div>
-              <dt class="inline text-af-ink-4">{{ t('userUi.models.columns.output') }}</dt>
-              <dd class="inline font-medium text-af-ink">{{ formatPrice((showUserPrice ? userPrice(entry) : entry.price)?.output) }}</dd>
-            </div>
-            <span class="text-xs text-af-ink-4">{{ showUserPrice ? t('userUi.models.yourPrice') : t('userUi.models.perMillionShort') }}</span>
           </dl>
-          <div v-if="entry.aliases.length || entry.timePricing" class="mt-3 flex flex-wrap gap-1.5">
+          <div v-if="entry.aliases.length || entry.timePricing" class="mt-4 flex flex-wrap gap-1.5">
             <span v-for="alias in entry.aliases" :key="alias" class="badge badge-gray font-mono">{{ alias }}</span>
-            <span v-if="entry.timePricing" class="badge badge-gray" :title="timePricingText(entry)">{{ t('userUi.models.timePricing') }}</span>
+            <span v-if="entry.timePricing" class="badge badge-gray" :title="timePricingText(entry)" data-testid="time-pricing-badge">
+              {{ t('userUi.models.timePricing') }}
+            </span>
           </div>
         </li>
       </ul>
@@ -230,10 +157,9 @@ import {
   formatCatalogPrice as formatPrice,
   formatTimePricing,
   vendorLabel,
-  type CatalogModel
+  type CatalogModel,
+  type CatalogPriceKey
 } from './catalog'
-
-type PlazaView = 'table' | 'grid'
 
 const props = defineProps<{
   response: ModelPlazaResponse | null
@@ -253,19 +179,14 @@ const selectedBillingMode = ref('all')
 const copiedId = ref<string | null>(null)
 const searchRef = ref<HTMLElement | null>(null)
 
-// 厂商与视图记在 URL（?vendor= / ?view=），刷新与分享都保留
+// 厂商记在 URL（?vendor=），刷新与分享都保留
 function readVendor(): string {
   const value = route.query.vendor
   return typeof value === 'string' && value ? value : 'all'
 }
-function readView(): PlazaView {
-  return route.query.view === 'grid' ? 'grid' : 'table'
-}
 const selectedVendor = ref(readVendor())
-const view = ref<PlazaView>(readView())
 watch(() => route.query, () => {
   selectedVendor.value = readVendor()
-  view.value = readView()
 })
 function replaceQuery(patch: Record<string, string | undefined>) {
   const query: Record<string, string> = {}
@@ -278,15 +199,6 @@ function selectVendor(vendor: string) {
   selectedVendor.value = vendor
   replaceQuery({ vendor: vendor === 'all' ? undefined : vendor })
 }
-function setView(next: PlazaView) {
-  view.value = next
-  replaceQuery({ view: next === 'table' ? undefined : next })
-}
-
-const viewOptions = computed<Array<{ key: PlazaView; label: string; icon: 'menu' | 'grid' }>>(() => [
-  { key: 'table', label: t('userUi.models.view.table'), icon: 'menu' },
-  { key: 'grid', label: t('userUi.models.view.grid'), icon: 'grid' }
-])
 
 const descriptionHtml = computed(() => {
   const md = props.response?.description?.trim()
@@ -329,8 +241,34 @@ watch(billingModeOptions, (options) => {
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const userMultiplier = computed(() => Number(authStore.user?.rate_multiplier ?? 1))
 const showUserPrice = computed(() => isAuthenticated.value && userMultiplier.value !== 1)
-function userPrice(entry: CatalogModel) {
-  return applyMultiplier(entry.price, userMultiplier.value)
+/**
+ * 一个格子要列的计费项（口径 = 后端实际收费项）：
+ * token 模式固定列输入 / 输出 / 缓存写入 / 缓存读取（没定价的显示破折号），1 小时缓存写入与图片输入输出只在定了价时列；
+ * 按次 / 图片 / 视频模式只收一个单价，项名自带单位（每次 / 每张 / 每秒）。倍率 ≠ 1 时列的是折算后的价格。
+ */
+const TOKEN_PRICE_ITEMS: ReadonlyArray<{ key: CatalogPriceKey; always: boolean }> = [
+  { key: 'input', always: true },
+  { key: 'output', always: true },
+  { key: 'cacheWrite', always: true },
+  { key: 'cacheRead', always: true },
+  { key: 'cacheWrite1h', always: false },
+  { key: 'imageInput', always: false },
+  { key: 'imageOutput', always: false }
+]
+const UNIT_PRICE_LABEL: Record<string, string> = { per_request: 'perRequest', image: 'perImage', video: 'perSecond' }
+
+function priceItems(entry: CatalogModel): Array<{ key: string; label: string; value: number | null }> {
+  const scale = showUserPrice.value ? userMultiplier.value : 1
+  if (entry.billingMode !== 'token') {
+    const labelKey = UNIT_PRICE_LABEL[entry.billingMode]
+    return [{ key: 'unit', label: t(`userUi.models.prices.${labelKey}`), value: entry.unitPrice == null ? null : entry.unitPrice * scale }]
+  }
+  const price = applyMultiplier(entry.price, scale)
+  return TOKEN_PRICE_ITEMS.filter(({ key, always }) => always || price?.[key] != null).map(({ key }) => ({
+    key,
+    label: t(`userUi.models.prices.${key}`),
+    value: price?.[key] ?? null
+  }))
 }
 function timePricingText(entry: CatalogModel): string {
   return entry.timePricing ? formatTimePricing(entry.timePricing, t('userUi.models.weekdaysOnly')) : ''
