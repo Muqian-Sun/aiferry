@@ -18,7 +18,9 @@ export default {
       console: 'Console',
       login: 'Sign in',
       openMenu: 'Open navigation',
-      primaryNav: 'Primary'
+      primaryNav: 'Primary',
+      collapseSidebar: 'Collapse',
+      expandSidebar: 'Expand sidebar'
     },
     footer: {
       register: 'Sign up',

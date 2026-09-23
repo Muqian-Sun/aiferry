@@ -18,7 +18,9 @@ export default {
       console: '控制台',
       login: '登录',
       openMenu: '打开导航',
-      primaryNav: '主导航'
+      primaryNav: '主导航',
+      collapseSidebar: '收起',
+      expandSidebar: '展开侧栏'
     },
     footer: {
       register: '注册',

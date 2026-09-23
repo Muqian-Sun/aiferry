@@ -11,6 +11,23 @@
  */
 import type { CustomMenuItem } from '@/types'
 
+/** 侧栏条目用到的图标（Icon 组件的名字；收起成图标栏时靠它认页面） */
+export type NavIcon =
+  | 'home'
+  | 'key'
+  | 'chartBar'
+  | 'cube'
+  | 'sparkles'
+  | 'creditCard'
+  | 'badge'
+  | 'document'
+  | 'gift'
+  | 'users'
+  | 'user'
+  | 'shield'
+  | 'bell'
+  | 'link'
+
 export interface NavTab {
   path: string
   label: string
@@ -20,6 +37,8 @@ export interface NavTab {
   dataTour?: string
   /** 管理员自定义菜单的图标 svg（已在渲染处净化）。 */
   iconSvg?: string
+  /** 侧栏图标（顶栏页签不用） */
+  icon?: NavIcon
 }
 
 export interface ConsoleNavSection {
@@ -47,30 +66,32 @@ export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNavSection[] {
   if (ctx.backendMode) return []
 
   const main: NavTab[] = [
-    { path: CONSOLE_HOME_PATH, label: ctx.t('userUi.nav.overview') },
-    { path: '/keys', label: ctx.t('userUi.nav.keys'), dataTour: 'sidebar-my-keys' },
-    { path: '/usage', label: ctx.t('userUi.nav.usage') }
+    { path: CONSOLE_HOME_PATH, label: ctx.t('userUi.nav.overview'), icon: 'home' },
+    { path: '/keys', label: ctx.t('userUi.nav.keys'), dataTour: 'sidebar-my-keys', icon: 'key' },
+    { path: '/usage', label: ctx.t('userUi.nav.usage'), icon: 'chartBar' }
   ]
   // 模型广场没有开关，对所有人开放；「仅充值」模式下控制台只留概览 / 密钥 / 用量 / 账户
-  if (!ctx.simpleMode) main.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models') })
-  if (!ctx.simpleMode && ctx.batchImageEnabled) main.push({ path: '/batch-image', label: ctx.t('userUi.nav.batchImage') })
+  if (!ctx.simpleMode) main.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models'), icon: 'cube' })
+  if (!ctx.simpleMode && ctx.batchImageEnabled) main.push({ path: '/batch-image', label: ctx.t('userUi.nav.batchImage'), icon: 'sparkles' })
 
   const sections: ConsoleNavSection[] = [{ key: 'main', items: main }]
   if (!ctx.simpleMode && ctx.billingItems.length) {
     sections.push({ key: 'billing', label: ctx.t('userUi.nav.billing'), items: ctx.billingItems })
   }
   const account: NavTab[] = [
-    { path: '/profile', label: ctx.t('userUi.account.sections.profile') },
-    { path: '/profile/security', label: ctx.t('userUi.account.sections.security') }
+    { path: '/profile', label: ctx.t('userUi.account.sections.profile'), icon: 'user' },
+    { path: '/profile/security', label: ctx.t('userUi.account.sections.security'), icon: 'shield' }
   ]
-  if (ctx.balanceNotifyEnabled) account.push({ path: '/profile/notifications', label: ctx.t('userUi.account.sections.notifications') })
+  if (ctx.balanceNotifyEnabled) {
+    account.push({ path: '/profile/notifications', label: ctx.t('userUi.account.sections.notifications'), icon: 'bell' })
+  }
   sections.push({ key: 'account', label: ctx.t('userUi.nav.account'), items: account })
 
   const more = ctx.customItems
     .filter((item) => item.visibility === 'user')
     .slice()
     .sort((a, b) => a.sort_order - b.sort_order)
-    .map((item): NavTab => ({ path: `/custom/${item.id}`, label: item.label, iconSvg: item.icon_svg }))
+    .map((item): NavTab => ({ path: `/custom/${item.id}`, label: item.label, iconSvg: item.icon_svg, icon: 'link' }))
   if (more.length) sections.push({ key: 'more', label: ctx.t('userUi.nav.more'), items: more })
 
   return sections

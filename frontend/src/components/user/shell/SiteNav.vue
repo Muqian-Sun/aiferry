@@ -117,6 +117,6 @@ const registrationEnabled = computed(() => Boolean(appStore.cachedPublicSettings
 const tabs = computed(() => buildPublicNav({ t, adminSite, docUrl: docUrl.value }))
 // 窄屏行在 DOM 里排在侧栏前面：新手引导按第一个 [data-tour] 定位，这一行不带锚点，免得桌面端指向隐藏元素
 const mobileTabs = computed(() =>
-  props.variant === 'console' ? consoleItems.value.map(({ dataTour: _tour, ...item }) => item) : tabs.value
+  props.variant === 'console' ? consoleItems.value.map(({ dataTour: _tour, icon: _icon, ...item }) => item) : tabs.value
 )
 </script>
