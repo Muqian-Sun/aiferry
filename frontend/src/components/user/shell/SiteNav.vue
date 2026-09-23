@@ -7,7 +7,7 @@
   <header class="sticky top-0 z-30 border-b border-af-hairline/70 bg-af-sheet/80 backdrop-blur-md">
     <div class="mx-auto flex h-topbar max-w-site items-center gap-8 px-6">
       <RouterLink :to="brandPath" class="flex shrink-0 items-center gap-2.5" data-testid="site-brand">
-        <img :src="logoSrc" :alt="siteName" class="h-7 w-7 rounded-lg object-contain" />
+        <BrandLogo :src="customLogo" :alt="siteName" class="h-7 w-7 text-af-ink" />
         <span class="text-base font-semibold tracking-[-0.01em] text-af-ink">{{ siteName }}</span>
       </RouterLink>
 
@@ -91,6 +91,7 @@ import { useTheme } from '@/composables/useTheme'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 import { sanitizeUrl } from '@/utils/url'
 import AnnouncementBell from '@/components/common/AnnouncementBell.vue'
+import BrandLogo from '@/components/common/BrandLogo.vue'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
 import BalanceLink from './BalanceLink.vue'
@@ -116,9 +117,8 @@ const user = computed(() => authStore.user)
 const authenticated = computed(() => authStore.isAuthenticated)
 const isSimpleMode = computed(() => authStore.isSimpleMode)
 const siteName = computed(() => appStore.siteName)
-const logoSrc = computed(
-  () => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo, { allowRelative: true, allowDataUrl: true }) || '/logo.svg'
-)
+/** 后台配置的自定义 logo；没配时 BrandLogo 画内置的无框标 */
+const customLogo = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.site_logo || appStore.siteLogo, { allowRelative: true, allowDataUrl: true }))
 const docUrl = computed(() => sanitizeUrl(appStore.cachedPublicSettings?.doc_url || appStore.docUrl))
 const brandPath = computed(() => (props.variant === 'console' ? CONSOLE_HOME_PATH : '/home'))
 const registrationEnabled = computed(() => Boolean(appStore.cachedPublicSettings?.registration_enabled))

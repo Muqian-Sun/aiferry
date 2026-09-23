@@ -238,7 +238,7 @@
 
   /*
    * 首屏行动入口：文字链接，不要按钮框（muqian 2026-09-23：卡片式按钮丑，几轮都差不多）。
-   * 两个入口平时都不带下划线，hover 时下划线从左往右长出来（主入口 2px、品牌色加粗）；箭头 hover 右移。
+   * 两个入口平时都不带下划线，hover 时下划线从左往右长出来（主入口墨色加粗、2px）；箭头 hover 右移。
    */
   .hero-link {
     @apply relative inline-flex items-center gap-2 pb-1.5 text-base font-medium text-af-ink-2 transition-colors hover:text-af-ink;
@@ -254,7 +254,7 @@
   }
 
   .hero-link-primary {
-    @apply text-lg font-semibold text-af-brand hover:text-af-brand-hover;
+    @apply text-lg font-semibold text-af-ink hover:text-af-ink;
   }
 
   .hero-link-primary::after {
@@ -270,9 +270,8 @@
   }
 
   /*
-   * 首屏标题的流动渐变（muqian 2026-09-22「我要滚动渐变」，学 new.12ai.org 的 hero-gradient-flow）。
-   * 角度 100deg、色阶位置 22/38/48/62/80%、铺 200% 宽、12s ease-in-out 来回，都是 12ai 实测值；
-   * 颜色换成 token：两端 ink，中段 brand → brand-hover → brand，深色模式随 token 翻。
+   * 首屏标题第二行的流动光泽：墨色里一道灰色光带来回扫（12s ease-in-out），铺 200% 宽滚 background-position。
+   * 起初是品牌彩色渐变（学 new.12ai.org），品牌色改单色后（muqian 2026-09-23）换成墨 → 灰 → 墨，深色模式随 token 翻。
    * 这是用户站唯一获准的渐变，模板里仍禁 bg-gradient-* 等工具类（见 templateTokens.ts）。
    */
   .text-flow {
@@ -280,11 +279,11 @@
     background-image: linear-gradient(
       100deg,
       rgb(var(--af-ink)),
-      rgb(var(--af-ink)) 22%,
-      rgb(var(--af-brand)) 38%,
-      rgb(var(--af-brand-hover)) 48%,
-      rgb(var(--af-brand)) 62%,
-      rgb(var(--af-ink)) 80%,
+      rgb(var(--af-ink)) 30%,
+      rgb(var(--af-ink-3)) 45%,
+      rgb(var(--af-ink-4)) 50%,
+      rgb(var(--af-ink-3)) 55%,
+      rgb(var(--af-ink)) 70%,
       rgb(var(--af-ink))
     );
     background-size: 200% 100%;

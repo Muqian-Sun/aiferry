@@ -9,7 +9,7 @@
   <!-- 精简首页：品牌 + 一句话 + 一个入口 -->
   <SiteShell v-else-if="compactHomeEnabled" variant="public">
     <div data-testid="compact-home" class="flex min-h-[60vh] flex-col items-start justify-center py-16">
-      <img :src="siteLogo || '/logo.svg'" alt="" class="h-12 w-12 object-contain" />
+      <BrandLogo :src="siteLogo" class="h-12 w-12 text-af-ink" />
       <h1 class="mt-6 text-28 font-semibold text-af-ink [overflow-wrap:anywhere]">{{ siteName }}</h1>
       <p class="mt-3 max-w-xl whitespace-pre-wrap text-base text-af-ink-2 [overflow-wrap:anywhere]">{{ siteSubtitle }}</p>
       <RouterLink :to="isAuthenticated ? consolePath : '/login'" class="btn btn-primary mt-8">
@@ -121,6 +121,7 @@ import { useAuthStore, useAppStore } from '@/stores'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import VendorStrip from '@/components/user/home/VendorStrip.vue'
 import VendorCloud from '@/components/user/home/VendorCloud.vue'
+import BrandLogo from '@/components/common/BrandLogo.vue'
 import HomeFigure, { type FigureKind } from '@/components/user/home/HomeFigure.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { vReveal } from '@/directives/reveal'

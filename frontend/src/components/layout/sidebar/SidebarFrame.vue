@@ -15,7 +15,7 @@
         class="sidebar-logo flex h-7 w-7 items-center justify-center overflow-hidden rounded-md transition-opacity hover:opacity-80"
         @click="handleMenuItemClick"
       >
-        <img v-if="settingsLoaded" :src="siteLogo || '/logo.svg'" alt="Logo" class="h-full w-full object-contain" />
+        <BrandLogo v-if="settingsLoaded" :src="siteLogo" alt="Logo" class="h-full w-full text-af-ink" />
       </router-link>
       <div class="sidebar-brand" :class="{ 'sidebar-brand-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
         <router-link
@@ -152,6 +152,7 @@ import { useAppStore } from '@/stores/app'
 import { useTheme } from '@/composables/useTheme'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
+import BrandLogo from '@/components/common/BrandLogo.vue'
 import type { NavItem, NavSection } from './navTypes'
 import {
   ChevronDoubleLeftIcon,

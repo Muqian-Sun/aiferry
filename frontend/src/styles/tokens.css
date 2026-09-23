@@ -19,10 +19,10 @@
   --af-ink-3: 106 118 126;            /* #6A767E 说明（白底 4.6:1） */
   --af-ink-4: 152 162 169;            /* #98A2A9 占位、禁用 */
 
-  /* 品牌：靛蓝（与 logo 同色；muqian 2026-09-23 否掉了原来的深青） */
-  --af-brand: 59 91 219;              /* #3B5BDB（白底 5.9:1） */
-  --af-brand-hover: 54 79 199;        /* #364FC7 */
-  --af-brand-tint: 237 242 255;       /* #EDF2FF 选中态底 */
+  /* 品牌：单色（与墨色同源）。muqian 2026-09-23 先后否掉深青与靛蓝，全站不用彩色强调 */
+  --af-brand: 15 27 34;               /* #0F1B22 = ink */
+  --af-brand-hover: 61 74 82;         /* #3D4A52 = ink-2 */
+  --af-brand-tint: 243 244 246;       /* #F3F4F6 = sunken，选中态底 */
   --af-on-brand: 255 255 255;
 
   /* 语义 */
@@ -57,7 +57,7 @@
   --af-code-ink-3: 140 150 158;      /* #8C969E 注释、页签未选中 */
   --af-code-string: 184 212 160;     /* #B8D4A0 */
   --af-code-key: 155 183 212;        /* #9BB7D4 */
-  --af-code-accent: 116 143 252;     /* #748FFC 页签指示（与深色品牌色一致） */
+  --af-code-accent: 231 234 237;     /* #E7EAED 页签指示（代码块是深底，用浅墨） */
 
   /* 版式尺寸 */
   --af-topbar-h: 56px;
@@ -74,10 +74,10 @@
   --af-ink-3: 140 150 158;            /* #8C969E（深底 5.6:1） */
   --af-ink-4: 96 106 114;             /* #606A72 */
 
-  --af-brand: 116 143 252;            /* #748FFC */
-  --af-brand-hover: 145 167 255;      /* #91A7FF */
-  --af-brand-tint: 27 33 64;          /* #1B2140 */
-  --af-on-brand: 10 14 32;            /* #0A0E20 */
+  --af-brand: 231 234 237;            /* #E7EAED = 深色 ink */
+  --af-brand-hover: 190 197 203;      /* #BEC5CB = 深色 ink-2 */
+  --af-brand-tint: 38 44 51;          /* #262C33 选中态底 */
+  --af-on-brand: 20 24 28;            /* #14181C = 深色 sheet */
 
   --af-success: 76 175 122;
   --af-success-tint: 18 42 30;
