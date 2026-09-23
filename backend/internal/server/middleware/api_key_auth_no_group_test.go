@@ -42,7 +42,7 @@ func TestAPIKeyAuth_NoGroupLoaded(t *testing.T) {
 	}
 
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, nil, nil, cfg)
+	apiKeyService := service.NewAPIKeyService(apiKeyRepo, nil, nil, cfg)
 	router := gin.New()
 	router.Use(gin.HandlerFunc(NewAPIKeyAuthMiddleware(apiKeyService, nil, cfg)))
 	var seen *service.APIKey

@@ -177,7 +177,7 @@ func (s *RateLimitService) applyGeminiLocalQuota(ctx context.Context, account *A
 		start := geminiDailyWindowStart(now)
 		totals, cached := s.getGeminiUsageTotals(account.ID, start, now)
 		if !cached {
-			stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil, nil, nil)
+			stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, nil, nil, nil)
 			if err == nil {
 				totals = geminiAggregateUsage(stats)
 				s.setGeminiUsageTotals(account.ID, start, now, totals)
@@ -190,7 +190,7 @@ func (s *RateLimitService) applyGeminiLocalQuota(ctx context.Context, account *A
 	}
 	if limit := geminiMinuteLimit(quota, modelClass); limit > 0 {
 		start := now.Truncate(time.Minute)
-		stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, 0, nil, nil, nil)
+		stats, err := s.usageRepo.GetModelStatsWithFilters(ctx, start, now, 0, 0, account.ID, nil, nil, nil)
 		if err == nil {
 			if used := geminiUsedRequests(quota, modelClass, geminiAggregateUsage(stats), false); used >= limit {
 				block(start.Add(time.Minute), quota.SharedRPM > 0, "minute", used, limit)

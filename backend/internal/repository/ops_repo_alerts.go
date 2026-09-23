@@ -650,23 +650,21 @@ func (r *opsRepository) CreateAlertSilence(ctx context.Context, input *service.O
 INSERT INTO ops_alert_silences (
   rule_id,
   platform,
-  group_id,
   region,
   until,
   reason,
   created_by,
   created_at
 ) VALUES (
-  $1,$2,$3,$4,$5,$6,$7,NOW()
+  $1,$2,$3,$4,$5,$6,NOW()
 )
-RETURNING id, rule_id, platform, group_id, region, until, COALESCE(reason,''), created_by, created_at`
+RETURNING id, rule_id, platform, region, until, COALESCE(reason,''), created_by, created_at`
 
 	row := r.db.QueryRowContext(
 		ctx,
 		q,
 		input.RuleID,
 		platform,
-		opsNullInt64(input.GroupID),
 		opsNullString(input.Region),
 		input.Until,
 		opsNullString(input.Reason),
@@ -674,14 +672,12 @@ RETURNING id, rule_id, platform, group_id, region, until, COALESCE(reason,''), c
 	)
 
 	var out service.OpsAlertSilence
-	var groupID sql.NullInt64
 	var region sql.NullString
 	var createdBy sql.NullInt64
 	if err := row.Scan(
 		&out.ID,
 		&out.RuleID,
 		&out.Platform,
-		&groupID,
 		&region,
 		&out.Until,
 		&out.Reason,
@@ -689,10 +685,6 @@ RETURNING id, rule_id, platform, group_id, region, until, COALESCE(reason,''), c
 		&out.CreatedAt,
 	); err != nil {
 		return nil, err
-	}
-	if groupID.Valid {
-		v := groupID.Int64
-		out.GroupID = &v
 	}
 	if region.Valid {
 		v := strings.TrimSpace(region.String)
@@ -707,7 +699,7 @@ RETURNING id, rule_id, platform, group_id, region, until, COALESCE(reason,''), c
 	return &out, nil
 }
 
-func (r *opsRepository) IsAlertSilenced(ctx context.Context, ruleID int64, platform string, groupID *int64, region *string, now time.Time) (bool, error) {
+func (r *opsRepository) IsAlertSilenced(ctx context.Context, ruleID int64, platform string, region *string, now time.Time) (bool, error) {
 	if r == nil || r.db == nil {
 		return false, fmt.Errorf("nil ops repository")
 	}
@@ -727,13 +719,12 @@ SELECT 1
 FROM ops_alert_silences
 WHERE rule_id = $1
   AND platform = $2
-  AND (group_id IS NOT DISTINCT FROM $3)
-  AND (region IS NOT DISTINCT FROM $4)
-  AND until > $5
+  AND (region IS NOT DISTINCT FROM $3)
+  AND until > $4
 LIMIT 1`
 
 	var dummy int
-	err := r.db.QueryRowContext(ctx, q, ruleID, platform, opsNullInt64(groupID), opsNullString(region), now).Scan(&dummy)
+	err := r.db.QueryRowContext(ctx, q, ruleID, platform, opsNullString(region), now).Scan(&dummy)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			return false, nil
@@ -829,10 +820,6 @@ func buildOpsAlertEventsWhere(filter *service.OpsAlertEventFilter) (string, []an
 	if platform := strings.TrimSpace(filter.Platform); platform != "" {
 		args = append(args, platform)
 		clauses = append(clauses, "(dimensions->>'platform') = $"+itoa(len(args)))
-	}
-	if filter.GroupID != nil && *filter.GroupID > 0 {
-		args = append(args, fmt.Sprintf("%d", *filter.GroupID))
-		clauses = append(clauses, "(dimensions->>'group_id') = $"+itoa(len(args)))
 	}
 
 	return "WHERE " + strings.Join(clauses, " AND "), args

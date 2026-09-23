@@ -830,12 +830,10 @@ func TestSanitizeUsageCleanupFiltersModelEmpty(t *testing.T) {
 	model := "   "
 	apiKeyID := int64(-5)
 	accountID := int64(-1)
-	groupID := int64(-2)
 	filters := UsageCleanupFilters{
 		UserID:    &apiKeyID,
 		APIKeyID:  &apiKeyID,
 		AccountID: &accountID,
-		GroupID:   &groupID,
 		Model:     &model,
 	}
 
@@ -843,7 +841,6 @@ func TestSanitizeUsageCleanupFiltersModelEmpty(t *testing.T) {
 	require.Nil(t, filters.UserID)
 	require.Nil(t, filters.APIKeyID)
 	require.Nil(t, filters.AccountID)
-	require.Nil(t, filters.GroupID)
 	require.Nil(t, filters.Model)
 }
 
@@ -853,7 +850,6 @@ func TestDescribeUsageCleanupFiltersAllFields(t *testing.T) {
 	userID := int64(1)
 	apiKeyID := int64(2)
 	accountID := int64(3)
-	groupID := int64(4)
 	model := " gpt-4 "
 	stream := true
 	billingType := int8(2)
@@ -863,14 +859,13 @@ func TestDescribeUsageCleanupFiltersAllFields(t *testing.T) {
 		UserID:      &userID,
 		APIKeyID:    &apiKeyID,
 		AccountID:   &accountID,
-		GroupID:     &groupID,
 		Model:       &model,
 		Stream:      &stream,
 		BillingType: &billingType,
 	}
 
 	desc := describeUsageCleanupFilters(filters)
-	require.Equal(t, "start=2024-02-01T10:00:00Z end=2024-02-01T12:00:00Z user_id=1 api_key_id=2 account_id=3 group_id=4 model=gpt-4 stream=true billing_type=2", desc)
+	require.Equal(t, "start=2024-02-01T10:00:00Z end=2024-02-01T12:00:00Z user_id=1 api_key_id=2 account_id=3 model=gpt-4 stream=true billing_type=2", desc)
 }
 
 func TestUsageCleanupServiceIsTaskCanceledNotFound(t *testing.T) {

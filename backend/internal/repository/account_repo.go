@@ -1004,7 +1004,7 @@ func (r *accountRepository) ListAllWithFilters(ctx context.Context, platform, ac
 	return r.accountsToService(ctx, accounts)
 }
 
-func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platformFilter string, groupIDFilter *int64) ([]service.Account, error) {
+func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platformFilter string) ([]service.Account, error) {
 	if r == nil || r.client == nil {
 		return []service.Account{}, nil
 	}
@@ -1013,10 +1013,6 @@ func (r *accountRepository) ListOpsAccountsForStats(ctx context.Context, platfor
 	if platformFilter = strings.TrimSpace(platformFilter); platformFilter != "" {
 		q = q.Where(dbaccount.PlatformEQ(platformFilter))
 	}
-	if groupIDFilter != nil && *groupIDFilter > 0 {
-		q = q.Where(dbaccount.HasAccountGroupsWith(dbaccountgroup.GroupIDEQ(*groupIDFilter)))
-	}
-
 	accounts, err := q.
 		Select(
 			dbaccount.FieldID,

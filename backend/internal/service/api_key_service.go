@@ -284,8 +284,6 @@ type RateLimitCacheInvalidator interface {
 type APIKeyService struct {
 	apiKeyRepo                APIKeyRepository
 	userRepo                  UserRepository
-	groupRepo                 GroupRepository
-	userGroupRateRepo         UserGroupRateRepository
 	cache                     APIKeyCache
 	rateLimitCacheInvalid     RateLimitCacheInvalidator // optional: invalidate Redis rate limit cache
 	concurrencyService        *ConcurrencyService
@@ -332,18 +330,14 @@ func (s *APIKeyService) AuthLookupMetrics() APIKeyAuthLookupMetrics {
 func NewAPIKeyService(
 	apiKeyRepo APIKeyRepository,
 	userRepo UserRepository,
-	groupRepo GroupRepository,
-	userGroupRateRepo UserGroupRateRepository,
 	cache APIKeyCache,
 	cfg *config.Config,
 ) *APIKeyService {
 	svc := &APIKeyService{
-		apiKeyRepo:        apiKeyRepo,
-		userRepo:          userRepo,
-		groupRepo:         groupRepo,
-		userGroupRateRepo: userGroupRateRepo,
-		cache:             cache,
-		cfg:               cfg,
+		apiKeyRepo: apiKeyRepo,
+		userRepo:   userRepo,
+		cache:      cache,
+		cfg:        cfg,
 	}
 	svc.initAuthCache(cfg)
 	lookupConcurrency := defaultAuthLookupConcurrency
@@ -441,11 +435,6 @@ func (s *APIKeyService) incrementAPIKeyErrorCount(ctx context.Context, userID in
 	}
 
 	_ = s.cache.IncrementCreateAttemptCount(ctx, userID)
-}
-
-// canUserBindGroup 检查用户是否可以绑定指定分组（AllowedGroups 与 IsExclusive）
-func (s *APIKeyService) canUserBindGroup(user *User, group *Group) bool {
-	return user.CanBindGroup(group.ID, group.IsExclusive)
 }
 
 // Create 创建API Key
@@ -974,54 +963,12 @@ func (s *APIKeyService) IncrementUsage(ctx context.Context, keyID int64) error {
 	return nil
 }
 
-// GetAvailableGroups 获取用户有权限绑定的分组列表：公开的（非专属）或用户被明确允许的
-func (s *APIKeyService) GetAvailableGroups(ctx context.Context, userID int64) ([]Group, error) {
-	// 获取用户信息
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, fmt.Errorf("get user: %w", err)
-	}
-
-	// 获取所有活跃分组
-	allGroups, err := s.groupRepo.ListActive(ctx)
-	if err != nil {
-		return nil, fmt.Errorf("list active groups: %w", err)
-	}
-
-	// 过滤出用户有权限的分组
-	availableGroups := make([]Group, 0)
-	for _, group := range allGroups {
-		if s.canUserBindGroup(user, &group) {
-			availableGroups = append(availableGroups, group)
-		}
-	}
-
-	return availableGroups, nil
-}
-
 func (s *APIKeyService) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]APIKey, error) {
 	keys, err := s.apiKeyRepo.SearchAPIKeys(ctx, userID, keyword, limit)
 	if err != nil {
 		return nil, fmt.Errorf("search api keys: %w", err)
 	}
 	return keys, nil
-}
-
-// GetUserGroupVisibility 返回 user_allowed_groups 授权的分组 ID 集合，
-// 以及该用户是否开启了公开分组限制。开启时公开分组的可见性也要落在该集合内。
-//
-// 与 GetAvailableGroups 的区别：这里保留普通授权分组的「橱窗」语义，不检查
-// 分组是否活跃。返回值恒非 nil。
-func (s *APIKeyService) GetUserGroupVisibility(ctx context.Context, userID int64) (map[int64]struct{}, bool, error) {
-	user, err := s.userRepo.GetByID(ctx, userID)
-	if err != nil {
-		return nil, false, fmt.Errorf("get user: %w", err)
-	}
-	allowed := make(map[int64]struct{}, len(user.AllowedGroups))
-	for _, id := range user.AllowedGroups {
-		allowed[id] = struct{}{}
-	}
-	return allowed, user.RestrictPublicGroups, nil
 }
 
 // CheckAPIKeyQuotaAndExpiry checks if the API key is valid for use (not expired, quota not exhausted)

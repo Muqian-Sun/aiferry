@@ -44,4 +44,8 @@ func TestGetByKeyForAuthDoesNotLoadGroup(t *testing.T) {
 	require.Equal(t, groupID, *got.GroupID)
 	require.Nil(t, got.Group, "鉴权投影不装载分组")
 	require.NotNil(t, got.User)
+	// 7b-3a：投影同时去掉 allowed_groups 边与 restrict_public_groups 列——网关没有读者，
+	// 留着等于每个请求白付一次 users → user_allowed_groups → groups 的 JOIN。
+	require.Empty(t, got.User.AllowedGroups, "鉴权投影不再 JOIN user_allowed_groups")
+	require.False(t, got.User.RestrictPublicGroups, "鉴权投影不再 select restrict_public_groups")
 }

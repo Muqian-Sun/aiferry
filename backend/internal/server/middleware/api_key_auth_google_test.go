@@ -27,7 +27,7 @@ func TestGoogleAPIKeyAuthRejectsOversizedCredentialsBeforeLookup(t *testing.T) {
 		return nil, service.ErrAPIKeyNotFound
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, cfg)
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -53,7 +53,7 @@ func TestGoogleAPIKeyAuthMarksLookupBulkheadRejection(t *testing.T) {
 		return nil, service.ErrAPIKeyAuthOverloaded
 	}}
 	cfg := &config.Config{RunMode: config.RunModeSimple}
-	svc := service.NewAPIKeyService(repo, nil, nil, nil, nil, cfg)
+	svc := service.NewAPIKeyService(repo, nil, nil, cfg)
 	r := gin.New()
 	var reason IngressRejectReason
 	var rejected bool
@@ -271,8 +271,6 @@ func newTestAPIKeyService(repo service.APIKeyRepository) *service.APIKeyService 
 	return service.NewAPIKeyService(
 		repo,
 		nil, // userRepo (unused in GetByKey)
-		nil, // groupRepo
-		nil, // userGroupRateRepo
 		nil, // cache
 		&config.Config{},
 	)

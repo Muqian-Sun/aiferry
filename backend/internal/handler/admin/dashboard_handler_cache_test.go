@@ -24,7 +24,7 @@ func (r *dashboardUsageRepoCacheProbe) GetUsageTrendWithFilters(
 	ctx context.Context,
 	startTime, endTime time.Time,
 	granularity string,
-	userID, apiKeyID, accountID, groupID int64,
+	userID, apiKeyID, accountID int64,
 	model string,
 	requestType *int16,
 	stream *bool,

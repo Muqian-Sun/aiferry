@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
 
@@ -15,6 +16,8 @@ type channelMonitorV2RepoStub struct {
 	matrix *ChannelMonitorV2Matrix
 	errors *ChannelMonitorV2List[ChannelMonitorV2ErrorRow]
 	snap   *ChannelMonitorV2Snapshot
+	dims   *ChannelMonitorV2Dimensions
+	models *ChannelMonitorV2List[ChannelMonitorV2ModelRow]
 	group  ChannelMonitorV2GroupBy
 	admin  bool
 }
@@ -30,7 +33,7 @@ func (s *channelMonitorV2RepoStub) UpdateConfig(context.Context, ChannelMonitorV
 	return nil, nil
 }
 func (s *channelMonitorV2RepoStub) GetDimensions(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config) (*ChannelMonitorV2Dimensions, error) {
-	return nil, nil
+	return s.dims, nil
 }
 func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2Snapshot, error) {
 	s.admin = admin
@@ -43,14 +46,14 @@ func (s *channelMonitorV2RepoStub) GetSnapshot(_ context.Context, _ ChannelMonit
 	for i := range cfg.Platforms {
 		cfg.Platforms[i].Models = append([]string(nil), s.snap.Config.Platforms[i].Models...)
 	}
-	cfg.GroupIDs = append([]int64(nil), s.snap.Config.GroupIDs...)
 	cfg.IgnoredErrorCategories = append([]string(nil), s.snap.Config.IgnoredErrorCategories...)
 	out := *s.snap
 	out.Config = cfg
 	return &out, nil
 }
-func (s *channelMonitorV2RepoStub) GetModels(context.Context, ChannelMonitorV2Filter, ChannelMonitorV2Config, bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
-	return nil, nil
+func (s *channelMonitorV2RepoStub) GetModels(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, admin bool) (*ChannelMonitorV2List[ChannelMonitorV2ModelRow], error) {
+	s.admin = admin
+	return s.models, nil
 }
 func (s *channelMonitorV2RepoStub) GetMatrix(_ context.Context, _ ChannelMonitorV2Filter, _ ChannelMonitorV2Config, groupBy ChannelMonitorV2GroupBy, admin bool) (*ChannelMonitorV2Matrix, error) {
 	s.group, s.admin = groupBy, admin
@@ -119,32 +122,38 @@ func TestChannelMonitorV2BootstrapProgress(t *testing.T) {
 func TestChannelMonitorV2ParseFilterDefaultsAndBuckets(t *testing.T) {
 	svc := &ChannelMonitorV2Service{now: func() time.Time { return time.Date(2026, 8, 1, 12, 0, 0, 0, time.UTC) }}
 
-	filter, err := svc.ParseFilter("", []string{"openai", "openai", ""}, []string{"gpt-5"}, []int64{2, 1, 2, 0})
+	filter, err := svc.ParseFilter("", []string{"openai", "openai", ""}, []string{"gpt-5"})
 	require.NoError(t, err)
 	require.Equal(t, "90m", filter.Range)
 	require.Equal(t, 5*time.Minute, filter.Bucket)
 	require.Equal(t, []string{"openai"}, filter.Platforms)
-	require.Equal(t, []int64{1, 2}, filter.GroupIDs)
 	require.Equal(t, 90*time.Minute, filter.End.Sub(filter.Start))
 
-	filter, err = svc.ParseFilter("30d", nil, nil, nil)
+	filter, err = svc.ParseFilter("30d", nil, nil)
 	require.NoError(t, err)
 	require.Equal(t, 24*time.Hour, filter.Bucket)
-	_, err = svc.ParseFilter("15d", nil, nil, nil)
+	_, err = svc.ParseFilter("15d", nil, nil)
 	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidRange)
 }
 
 func TestParseChannelMonitorV2GroupBy(t *testing.T) {
-	groupBy, err := ParseChannelMonitorV2GroupBy("")
+	// 空值按身份取默认：管理员保留平台视角，普通用户只到模型。
+	groupBy, err := ParseChannelMonitorV2GroupBy("", true)
 	require.NoError(t, err)
-	require.Equal(t, ChannelMonitorV2GroupByPlatformGroup, groupBy)
-	for _, value := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformGroup, ChannelMonitorV2GroupByPlatformModel, ChannelMonitorV2GroupByPlatformGroupModel} {
-		parsed, parseErr := ParseChannelMonitorV2GroupBy(string(value))
+	require.Equal(t, ChannelMonitorV2GroupByPlatformModel, groupBy)
+	groupBy, err = ParseChannelMonitorV2GroupBy("", false)
+	require.NoError(t, err)
+	require.Equal(t, ChannelMonitorV2GroupByModel, groupBy)
+	for _, value := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByModel, ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel} {
+		parsed, parseErr := ParseChannelMonitorV2GroupBy(string(value), true)
 		require.NoError(t, parseErr)
 		require.Equal(t, value, parsed)
 	}
-	_, err = ParseChannelMonitorV2GroupBy("group")
-	require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy)
+	// 带分组的两种旧维度已删，解析即拒。
+	for _, value := range []string{"platform_group", "platform_group_model", "group"} {
+		_, err = ParseChannelMonitorV2GroupBy(value, true)
+		require.ErrorIs(t, err, ErrChannelMonitorV2InvalidGroupBy, value)
+	}
 }
 
 func TestChannelMonitorV2MatrixForwardsGroupingAndAdminScope(t *testing.T) {
@@ -166,18 +175,12 @@ func TestChannelMonitorV2ConfigValidation(t *testing.T) {
 			{Platform: " OpenAI ", Enabled: true, Models: []string{"gpt-5", "gpt-5", ""}},
 			{Platform: "anthropic", Enabled: true},
 		},
-		GroupIDs: []int64{3, 1, 3},
 	}
 	require.NoError(t, normalizeChannelMonitorV2Config(&cfg))
 	require.Equal(t, 300, cfg.RefreshIntervalSeconds)
 	require.Equal(t, "anthropic", cfg.Platforms[0].Platform)
-	require.Equal(t, []int64{1, 3}, cfg.GroupIDs)
 
 	cfg.RefreshIntervalSeconds = 120
-	require.ErrorIs(t, normalizeChannelMonitorV2Config(&cfg), ErrChannelMonitorV2InvalidConfig)
-
-	cfg.RefreshIntervalSeconds = 60
-	cfg.GroupIDs = []int64{0}
 	require.ErrorIs(t, normalizeChannelMonitorV2Config(&cfg), ErrChannelMonitorV2InvalidConfig)
 }
 
@@ -445,7 +448,6 @@ func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {
 				Platforms: []ChannelMonitorV2PlatformConfig{
 					{Platform: "openai", Enabled: true, Models: []string{"gpt-5"}},
 				},
-				GroupIDs:               []int64{1, 2},
 				IgnoredErrorCategories: []string{"timeout"},
 				UpdatedBy:              &updatedBy,
 			},
@@ -455,7 +457,6 @@ func TestSnapshotRedactsPublicConfigPolicyFields(t *testing.T) {
 	svc := NewChannelMonitorV2Service(repo)
 	snap, err := svc.Snapshot(context.Background(), ChannelMonitorV2Filter{}, false)
 	require.NoError(t, err)
-	require.Empty(t, snap.Config.GroupIDs)
 	require.Empty(t, snap.Config.IgnoredErrorCategories)
 	require.Nil(t, snap.Config.UpdatedBy)
 	require.Empty(t, snap.Config.Platforms[0].Models)
@@ -506,4 +507,51 @@ func TestChannelMonitorV2HealthTTFTAtTargetIsHealthy(t *testing.T) {
 	require.Equal(t, "healthy", h.TTFT)
 	require.NotNil(t, h.TTFTScore)
 	require.InDelta(t, 100.0, *h.TTFTScore, 0.01)
+}
+
+// D20：上游渠道（平台）维度只有管理员能用。
+func TestChannelMonitorV2MatrixRejectsPlatformDimensionForNonAdmin(t *testing.T) {
+	repo := &channelMonitorV2RepoStub{
+		config: ChannelMonitorV2Config{Enabled: true},
+		matrix: &ChannelMonitorV2Matrix{GroupBy: ChannelMonitorV2GroupByModel},
+	}
+	svc := NewChannelMonitorV2Service(repo)
+
+	for _, groupBy := range []ChannelMonitorV2GroupBy{ChannelMonitorV2GroupByPlatform, ChannelMonitorV2GroupByPlatformModel} {
+		_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, groupBy, false)
+		require.Error(t, err, groupBy)
+		require.Equal(t, "channel_monitor_platform_admin_only", infraerrors.Reason(err), groupBy)
+		require.True(t, groupBy.RequiresAdmin(), groupBy)
+	}
+
+	// model 维度对非管理员放行；管理员两种平台维度都能用。
+	_, err := svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByModel, false)
+	require.NoError(t, err)
+	require.False(t, ChannelMonitorV2GroupByModel.RequiresAdmin())
+	_, err = svc.Matrix(context.Background(), ChannelMonitorV2Filter{}, ChannelMonitorV2GroupByPlatformModel, true)
+	require.NoError(t, err)
+}
+
+// D20：非管理员拿不到平台清单，模型上的平台标注也被抹掉。
+func TestChannelMonitorV2DimensionsHidePlatformsForNonAdmin(t *testing.T) {
+	newRepo := func() *channelMonitorV2RepoStub {
+		return &channelMonitorV2RepoStub{
+			config: ChannelMonitorV2Config{Enabled: true},
+			dims: &ChannelMonitorV2Dimensions{
+				Platforms: []ChannelMonitorV2Dimension{{Value: "openai", Label: "openai", RequestCount: 7}},
+				Models:    []ChannelMonitorV2Dimension{{Value: "gpt-5", Label: "gpt-5", Platform: "openai", RequestCount: 7}},
+			},
+		}
+	}
+
+	user, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, false)
+	require.NoError(t, err)
+	require.Empty(t, user.Platforms)
+	require.Len(t, user.Models, 1)
+	require.Empty(t, user.Models[0].Platform)
+
+	admin, err := NewChannelMonitorV2Service(newRepo()).Dimensions(context.Background(), ChannelMonitorV2Filter{}, true)
+	require.NoError(t, err)
+	require.Len(t, admin.Platforms, 1)
+	require.Equal(t, "openai", admin.Models[0].Platform)
 }

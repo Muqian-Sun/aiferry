@@ -137,20 +137,8 @@ func (r *dashboardAggregationRepository) RecomputeRange(ctx context.Context, sta
 		if err != nil {
 			return err
 		}
-		if err := lockGroupUsageRollupState(ctx, tx); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-		if err := invalidateGroupUsageRollupsAt(ctx, tx, start); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
 		txRepo := newDashboardAggregationRepositoryWithSQL(tx)
 		if err := txRepo.recomputeRangeInTx(ctx, hourStart, hourEnd, dayStart, dayEnd); err != nil {
-			_ = tx.Rollback()
-			return err
-		}
-		if err := txRepo.syncGroupUsageRollupsInTx(ctx, service.GroupUsageTodayStart(r.now())); err != nil {
 			_ = tx.Rollback()
 			return err
 		}
@@ -242,7 +230,7 @@ func (r *dashboardAggregationRepository) CleanupUsageLogs(ctx context.Context, c
 	} else if err := r.cleanupUsageLogsBatches(ctx, cutoff); err != nil {
 		return err
 	}
-	return r.SyncGroupUsageRollups(ctx, service.GroupUsageTodayStart(r.now()))
+	return nil
 }
 
 func (r *dashboardAggregationRepository) cleanupUsageLogsBatches(ctx context.Context, cutoff time.Time) error {
@@ -293,9 +281,6 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 		return 0, err
 	}
 
-	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
-		return rollback(err)
-	}
 	rows, err := tx.QueryContext(ctx, `
 		WITH victims AS (
 			SELECT ctid
@@ -333,9 +318,6 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 		return rollback(err)
 	}
 	if affected > 0 {
-		if err := invalidateGroupUsageRollupsAt(ctx, tx, earliestDeletedAt); err != nil {
-			return rollback(err)
-		}
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
@@ -653,12 +635,6 @@ func dropUsageLogsPartitionWithRollupInvalidation(ctx context.Context, db *sql.D
 		return err
 	}
 
-	if err := lockGroupUsageRollupState(ctx, tx); err != nil {
-		return rollback(err)
-	}
-	if err := invalidateGroupUsageRollupsAt(ctx, tx, monthStart); err != nil {
-		return rollback(err)
-	}
 	if _, err := tx.ExecContext(ctx, fmt.Sprintf("DROP TABLE IF EXISTS %s", pq.QuoteIdentifier(name))); err != nil {
 		return rollback(err)
 	}

@@ -3,7 +3,6 @@ package admin
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -27,7 +26,6 @@ type opsDashboardSnapshotV2CacheKey struct {
 	StartTime    string               `json:"start_time"`
 	EndTime      string               `json:"end_time"`
 	Platform     string               `json:"platform"`
-	GroupID      *int64               `json:"group_id"`
 	QueryMode    service.OpsQueryMode `json:"mode"`
 	BucketSecond int                  `json:"bucket_second"`
 }
@@ -56,21 +54,12 @@ func (h *OpsHandler) GetDashboardSnapshotV2(c *gin.Context) {
 		Platform:  strings.TrimSpace(c.Query("platform")),
 		QueryMode: parseOpsQueryMode(c),
 	}
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		filter.GroupID = &id
-	}
 	bucketSeconds := pickThroughputBucketSeconds(endTime.Sub(startTime))
 
 	keyRaw, _ := json.Marshal(opsDashboardSnapshotV2CacheKey{
 		StartTime:    startTime.UTC().Format(time.RFC3339),
 		EndTime:      endTime.UTC().Format(time.RFC3339),
 		Platform:     filter.Platform,
-		GroupID:      filter.GroupID,
 		QueryMode:    filter.QueryMode,
 		BucketSecond: bucketSeconds,
 	})

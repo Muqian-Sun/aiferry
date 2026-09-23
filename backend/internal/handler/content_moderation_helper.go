@@ -34,8 +34,6 @@ func runContentModeration(c *gin.Context, reqLog *zap.Logger, svc *service.Conte
 			zap.Int64("user_id", input.UserID),
 			zap.Int64("api_key_id", input.APIKeyID),
 			zap.String("api_key_name", input.APIKeyName),
-			zap.Int64p("group_id", input.GroupID),
-			zap.String("group_name", input.GroupName),
 			zap.String("endpoint", input.Endpoint),
 			zap.String("provider", input.Provider),
 			zap.String("protocol", input.Protocol),
@@ -86,10 +84,6 @@ func buildContentModerationInput(c *gin.Context, apiKey *service.APIKey, subject
 		input.APIKeyName = apiKey.Name
 		if apiKey.User != nil {
 			input.UserEmail = apiKey.User.Email
-		}
-		if apiKey.GroupID != nil {
-			groupID := *apiKey.GroupID
-			input.GroupID = &groupID
 		}
 	}
 	if input.Endpoint == "" && c.Request != nil && c.Request.URL != nil {

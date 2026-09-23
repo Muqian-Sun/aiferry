@@ -73,8 +73,6 @@ type Request struct {
 	UserEmail  string
 	APIKeyID   int64
 	APIKeyName string
-	GroupID    *int64
-	GroupName  string
 	Provider   string
 	Endpoint   string
 	Protocol   string
@@ -85,10 +83,6 @@ type Request struct {
 
 func (r Request) Clone() Request {
 	r.Body = append([]byte(nil), r.Body...)
-	if r.GroupID != nil {
-		id := *r.GroupID
-		r.GroupID = &id
-	}
 	return r
 }
 
@@ -99,8 +93,6 @@ type PromptSnapshot struct {
 	UserEmailSnapshot  string `json:"user_email"`
 	APIKeyID           int64  `json:"api_key_id"`
 	APIKeyNameSnapshot string `json:"api_key_name"`
-	GroupID            *int64 `json:"group_id,omitempty"`
-	GroupName          string `json:"group_name"`
 	Provider           string `json:"provider"`
 	Endpoint           string `json:"endpoint"`
 	Protocol           string `json:"protocol"`

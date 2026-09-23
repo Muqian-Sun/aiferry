@@ -49,8 +49,7 @@
                 @update:endpoints="updateEndpoints"
                 @probe="runProbe"
               />
-              <div v-if="loadErrors.groups" role="alert" class="mt-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:bg-amber-950/30 dark:text-amber-200">{{ loadErrors.groups }}</div>
-              <PolicyPanel :draft="draft" :groups="groups" @update:draft="replaceDraft" />
+              <PolicyPanel :draft="draft" @update:draft="replaceDraft" />
             </template>
           </div>
 
@@ -161,7 +160,6 @@ import type {
   PromptAuditDraft,
   PromptAuditEndpointDraft,
   PromptAuditEvent,
-  PromptAuditGroup,
   PromptAuditRuntime,
   PromptDeletePreview,
   PromptEventFilters,
@@ -182,7 +180,6 @@ const pageTabs = computed(() => [
 const serverConfig = ref<PromptAuditDraft | null>(null)
 const draft = ref<PromptAuditDraft | null>(null)
 const runtime = ref<PromptAuditRuntime | null>(null)
-const groups = ref<PromptAuditGroup[]>([])
 const events = reactive<PromptEventPage>({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
 const filters = ref<PromptEventFilters>(emptyEventFilters())
 const appliedFilters = ref<PromptEventFilters>(emptyEventFilters())
@@ -196,8 +193,8 @@ const deletePreview = ref<PromptDeletePreview | null>(null)
 const deletePreviewFilters = ref<PromptEventFilters | null>(null)
 const showBlockingConfirmation = ref(false)
 const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>({ mode: '', ids: [] })
-const loading = reactive({ config: false, runtime: false, groups: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
-const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', groups: '', events: '' })
+const loading = reactive({ config: false, runtime: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
+const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', events: '' })
 const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
 
 const SaveToggle = defineComponent({
@@ -264,15 +261,7 @@ async function loadRuntime() {
   try { runtime.value = await promptAuditAPI.getRuntime() }
   catch (error) { loadErrors.runtime = errorMessage(error, 'admin.promptAudit.errors.loadRuntime') }
   finally { loading.runtime = false }
-}
-async function loadGroups() {
-  loading.groups = true
-  loadErrors.groups = ''
-  try { groups.value = await promptAuditAPI.listGroups() }
-  catch (error) { loadErrors.groups = errorMessage(error, 'admin.promptAudit.errors.loadGroups') }
-  finally { loading.groups = false }
-}
-async function loadEvents() {
+}async function loadEvents() {
   loading.events = true
   loadErrors.events = ''
   try {
@@ -286,7 +275,7 @@ async function loadEvents() {
   }
 }
 async function loadInitial() {
-  await Promise.allSettled([loadConfig(), loadRuntime(), loadGroups(), loadEvents()])
+  await Promise.allSettled([loadConfig(), loadRuntime(), loadEvents()])
 }
 
 function replaceDraft(value: PromptAuditDraft) { draft.value = cloneData(value) }

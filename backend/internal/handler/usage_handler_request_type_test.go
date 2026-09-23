@@ -21,11 +21,9 @@ type userUsageRepoCapture struct {
 	listFilters  usagestats.UsageLogFilters
 	statsFilters usagestats.UsageLogFilters
 	trendFilters usagestats.UsageLogFilters
-	groupFilters usagestats.UsageLogFilters
 	listRows     []service.UsageLog
 	stats        *usagestats.UsageStats
 	modelStats   []usagestats.ModelStat
-	groupStats   []usagestats.GroupStat
 }
 
 func (s *userUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -47,12 +45,11 @@ func (s *userUsageRepoCapture) GetStatsWithFilters(ctx context.Context, filters 
 	return &usagestats.UsageStats{}, nil
 }
 
-func (s *userUsageRepoCapture) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
+func (s *userUsageRepoCapture) GetUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, userID, apiKeyID, accountID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.TrendDataPoint, error) {
 	s.trendFilters = usagestats.UsageLogFilters{
 		UserID:      userID,
 		APIKeyID:    apiKeyID,
 		AccountID:   accountID,
-		GroupID:     groupID,
 		Model:       model,
 		RequestType: requestType,
 		Stream:      stream,
@@ -61,21 +58,8 @@ func (s *userUsageRepoCapture) GetUsageTrendWithFilters(ctx context.Context, sta
 	return []usagestats.TrendDataPoint{}, nil
 }
 
-func (s *userUsageRepoCapture) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
+func (s *userUsageRepoCapture) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
 	return s.modelStats, nil
-}
-
-func (s *userUsageRepoCapture) GetGroupStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.GroupStat, error) {
-	s.groupFilters = usagestats.UsageLogFilters{
-		UserID:      userID,
-		APIKeyID:    apiKeyID,
-		AccountID:   accountID,
-		GroupID:     groupID,
-		RequestType: requestType,
-		Stream:      stream,
-		BillingType: billingType,
-	}
-	return s.groupStats, nil
 }
 
 func newUserUsageRequestTypeTestRouter(repo *userUsageRepoCapture) *gin.Engine {
@@ -161,13 +145,12 @@ func TestUserUsageListAdvancedFilters(t *testing.T) {
 	repo := &userUsageRepoCapture{}
 	router := newUserUsageRequestTypeTestRouter(repo)
 
-	req := httptest.NewRequest(http.MethodGet, "/usage?group_id=7&model=gpt-5&billing_type=1&billing_mode=image&start_date=2026-03-01&end_date=2026-03-02", nil)
+	req := httptest.NewRequest(http.MethodGet, "/usage?model=gpt-5&billing_type=1&billing_mode=image&start_date=2026-03-01&end_date=2026-03-02", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, int64(42), repo.listFilters.UserID)
-	require.Equal(t, int64(7), repo.listFilters.GroupID)
 	require.Equal(t, "gpt-5", repo.listFilters.Model)
 	require.Equal(t, usagestats.ModelSourceRequested, repo.listFilters.ModelFilterSource)
 	require.NotNil(t, repo.listFilters.BillingType)
@@ -267,13 +250,12 @@ func TestUserUsageStatsUsesScopedFilters(t *testing.T) {
 	}
 	router := newUserUsageRequestTypeTestRouter(repo)
 
-	req := httptest.NewRequest(http.MethodGet, "/usage/stats?group_id=9&request_type=sync&billing_mode=token&start_date=2026-03-01&end_date=2026-03-02", nil)
+	req := httptest.NewRequest(http.MethodGet, "/usage/stats?request_type=sync&billing_mode=token&start_date=2026-03-01&end_date=2026-03-02", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, int64(42), repo.statsFilters.UserID)
-	require.Equal(t, int64(9), repo.statsFilters.GroupID)
 	require.Equal(t, usagestats.ModelSourceRequested, repo.statsFilters.ModelFilterSource)
 	require.NotNil(t, repo.statsFilters.RequestType)
 	require.Equal(t, int16(service.RequestTypeSync), *repo.statsFilters.RequestType)
@@ -323,21 +305,17 @@ func TestUserUsageDashboardModelsRejectsAdminModelSources(t *testing.T) {
 func TestUserUsageSnapshotUsesScopedFilters(t *testing.T) {
 	repo := &userUsageRepoCapture{
 		modelStats: []usagestats.ModelStat{{Model: "gpt-5", AccountCost: 0.07}},
-		groupStats: []usagestats.GroupStat{{GroupID: 1, GroupName: "default", AccountCost: 0.06}},
 	}
 	router := newUserUsageRequestTypeTestRouter(repo)
 
-	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?include_trend=true&include_model_stats=true&include_group_stats=true&group_id=11&request_type=stream&start_date=2026-03-01&end_date=2026-03-02", nil)
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?include_trend=true&include_model_stats=true&request_type=stream&start_date=2026-03-01&end_date=2026-03-02", nil)
 	rec := httptest.NewRecorder()
 	router.ServeHTTP(rec, req)
 
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.Equal(t, int64(42), repo.trendFilters.UserID)
-	require.Equal(t, int64(11), repo.trendFilters.GroupID)
 	require.NotNil(t, repo.trendFilters.RequestType)
 	require.Equal(t, int16(service.RequestTypeStream), *repo.trendFilters.RequestType)
-	require.Equal(t, int64(42), repo.groupFilters.UserID)
-	require.Equal(t, int64(11), repo.groupFilters.GroupID)
 	require.NotContains(t, rec.Body.String(), "account_cost")
 }
 
@@ -348,7 +326,6 @@ func TestUserUsageSnapshotRejectsInvalidIncludeFlags(t *testing.T) {
 	for _, query := range []string{
 		"include_trend=bad",
 		"include_model_stats=bad",
-		"include_group_stats=bad",
 	} {
 		req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?start_date=2026-03-01&end_date=2026-03-02&"+query, nil)
 		rec := httptest.NewRecorder()

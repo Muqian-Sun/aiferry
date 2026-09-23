@@ -137,14 +137,6 @@ func (h *OpsHandler) GetErrorLogs(c *gin.Context) {
 	if platform := strings.TrimSpace(c.Query("platform")); platform != "" {
 		filter.Platform = platform
 	}
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		filter.GroupID = &id
-	}
 	if v := strings.TrimSpace(c.Query("account_id")); v != "" {
 		id, err := strconv.ParseInt(v, 10, 64)
 		if err != nil || id <= 0 {
@@ -265,14 +257,6 @@ func (h *OpsHandler) ListRequestErrors(c *gin.Context) {
 
 	if platform := strings.TrimSpace(c.Query("platform")); platform != "" {
 		filter.Platform = platform
-	}
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		filter.GroupID = &id
 	}
 	if v := strings.TrimSpace(c.Query("account_id")); v != "" {
 		id, err := strconv.ParseInt(v, 10, 64)
@@ -480,14 +464,6 @@ func (h *OpsHandler) ListUpstreamErrors(c *gin.Context) {
 	if platform := strings.TrimSpace(c.Query("platform")); platform != "" {
 		filter.Platform = platform
 	}
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		filter.GroupID = &id
-	}
 	if v := strings.TrimSpace(c.Query("account_id")); v != "" {
 		id, err := strconv.ParseInt(v, 10, 64)
 		if err != nil || id <= 0 {
@@ -612,14 +588,6 @@ func (h *OpsHandler) ListRequestDetails(c *gin.Context) {
 			return
 		}
 		filter.AccountID = &id
-	}
-	if v := strings.TrimSpace(c.Query("group_id")); v != "" {
-		id, err := strconv.ParseInt(v, 10, 64)
-		if err != nil || id <= 0 {
-			response.BadRequest(c, "Invalid group_id")
-			return
-		}
-		filter.GroupID = &id
 	}
 
 	if v := strings.TrimSpace(c.Query("min_duration_ms")); v != "" {

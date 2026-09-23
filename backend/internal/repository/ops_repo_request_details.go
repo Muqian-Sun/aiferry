@@ -40,9 +40,6 @@ func (r *opsRepository) ListRequestDetails(ctx context.Context, filter *service.
 		if platform := strings.TrimSpace(strings.ToLower(filter.Platform)); platform != "" {
 			addCondition(fmt.Sprintf("platform = $%d", len(args)+1), platform)
 		}
-		if filter.GroupID != nil && *filter.GroupID > 0 {
-			addCondition(fmt.Sprintf("group_id = $%d", len(args)+1), *filter.GroupID)
-		}
 
 		if filter.UserID != nil && *filter.UserID > 0 {
 			addCondition(fmt.Sprintf("user_id = $%d", len(args)+1), *filter.UserID)
@@ -90,7 +87,7 @@ WITH combined AS (
     'success'::TEXT AS kind,
     ul.created_at AS created_at,
     ul.request_id AS request_id,
-    COALESCE(NULLIF(g.platform, ''), NULLIF(a.platform, ''), '') AS platform,
+    COALESCE(NULLIF(a.platform, ''), '') AS platform,
     ul.model AS model,
     ul.duration_ms AS duration_ms,
     ul.first_token_ms AS first_token_ms,
@@ -102,10 +99,8 @@ WITH combined AS (
     ul.user_id AS user_id,
     ul.api_key_id AS api_key_id,
     ul.account_id AS account_id,
-    ul.group_id AS group_id,
     ul.stream AS stream
   FROM usage_logs ul
-  LEFT JOIN groups g ON g.id = ul.group_id
   LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
 
@@ -115,7 +110,7 @@ WITH combined AS (
     'error'::TEXT AS kind,
     o.created_at AS created_at,
     COALESCE(NULLIF(o.request_id,''), NULLIF(o.client_request_id,''), '') AS request_id,
-    COALESCE(NULLIF(o.platform, ''), NULLIF(g.platform, ''), NULLIF(a.platform, ''), '') AS platform,
+    COALESCE(NULLIF(o.platform, ''), NULLIF(a.platform, ''), '') AS platform,
     o.model AS model,
     o.duration_ms AS duration_ms,
     o.time_to_first_token_ms AS first_token_ms,
@@ -127,10 +122,8 @@ WITH combined AS (
     o.user_id AS user_id,
     o.api_key_id AS api_key_id,
     o.account_id AS account_id,
-    o.group_id AS group_id,
     o.stream AS stream
   FROM ops_error_logs o
-  LEFT JOIN groups g ON g.id = o.group_id
   LEFT JOIN accounts a ON a.id = o.account_id
   WHERE o.created_at >= $1 AND o.created_at < $2
     AND COALESCE(o.status_code, 0) >= 400
@@ -179,7 +172,6 @@ SELECT
   user_id,
   api_key_id,
   account_id,
-  group_id,
   stream
 FROM combined
 %s
@@ -230,7 +222,6 @@ LIMIT $%d OFFSET $%d
 			userID    sql.NullInt64
 			apiKeyID  sql.NullInt64
 			accountID sql.NullInt64
-			groupID   sql.NullInt64
 
 			stream bool
 		)
@@ -251,7 +242,6 @@ LIMIT $%d OFFSET $%d
 			&userID,
 			&apiKeyID,
 			&accountID,
-			&groupID,
 			&stream,
 		); err != nil {
 			return nil, 0, err
@@ -275,7 +265,6 @@ LIMIT $%d OFFSET $%d
 			UserID:    toInt64Ptr(userID),
 			APIKeyID:  toInt64Ptr(apiKeyID),
 			AccountID: toInt64Ptr(accountID),
-			GroupID:   toInt64Ptr(groupID),
 
 			Stream: stream,
 		}

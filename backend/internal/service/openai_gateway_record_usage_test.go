@@ -1251,8 +1251,6 @@ func TestOpenAIGatewayServiceRecordUsage_UsesRequestedModelAndUpstreamModelMetad
 	require.Equal(t, "codex-cli/1.0", *usageRepo.lastLog.UserAgent)
 	require.NotNil(t, usageRepo.lastLog.IPAddress)
 	require.Equal(t, "127.0.0.1", *usageRepo.lastLog.IPAddress)
-	require.NotNil(t, usageRepo.lastLog.GroupID)
-	require.Equal(t, int64(11), *usageRepo.lastLog.GroupID)
 	require.Equal(t, 1, userRepo.deductCalls)
 }
 

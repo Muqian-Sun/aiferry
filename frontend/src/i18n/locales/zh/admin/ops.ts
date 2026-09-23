@@ -489,7 +489,6 @@ export default {
         manage: '预警规则',
         metricGroups: {
           system: '系统指标',
-          group: '分组级别指标（需 group_id）',
           account: '账号级别指标'
         },
         metrics: {
@@ -733,7 +732,7 @@ export default {
         displayAlertEvents: '展示告警事件',
         displayAlertEventsHint: '控制运维监控仪表盘中告警事件卡片是否显示，默认开启。',
         displayOpenAITokenStats: '展示 Token 请求统计',
-        displayOpenAITokenStatsHint: '按模型统计所有平台的 Token 请求，支持平台和分组筛选，默认关闭。',
+        displayOpenAITokenStatsHint: '按模型统计所有平台的 Token 请求，支持平台筛选，默认关闭。',
         autoRefreshCountdown: '自动刷新：{seconds}s',
         validation: {
           title: '请先修正以下问题',
@@ -748,7 +747,6 @@ export default {
       concurrency: {
         title: '并发 / 排队',
         byPlatform: '按平台',
-        byGroup: '按分组',
         byAccount: '按账号',
         byUser: '按用户',
         showByUserTooltip: '切换用户视图，显示每个用户的并发使用情况',

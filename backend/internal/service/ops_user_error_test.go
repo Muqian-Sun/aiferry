@@ -124,7 +124,6 @@ func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
 			ClientIP:         func() *string { s := "1.2.3.4"; return &s }(),
 			UpstreamEndpoint: "https://api.openai.com/v1/chat/completions",
 			UserAgent:        "codex_cli_rs/0.125.0",
-			GroupName:        "grp-a",
 			Stream:           true,
 		},
 		ErrorBody:          `{"error":{"message":"upstream failed","type":"server_error"}}`,
@@ -156,9 +155,6 @@ func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
 	}
 	if out.UserAgent != "codex_cli_rs/0.125.0" {
 		t.Errorf("want user_agent=codex_cli_rs/0.125.0, got %q", out.UserAgent)
-	}
-	if out.GroupName != "grp-a" {
-		t.Errorf("want group_name=grp-a, got %q", out.GroupName)
 	}
 	if !out.Stream {
 		t.Errorf("want stream=true")

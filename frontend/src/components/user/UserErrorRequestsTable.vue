@@ -57,14 +57,6 @@
           <span v-else class="text-sm text-af-ink-4">-</span>
         </template>
 
-        <template #cell-group="{ row }">
-          <span
-            v-if="row.group_name"
-            class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-af-brand-tint text-af-brand"
-          >{{ row.group_name }}</span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
-        </template>
-
         <template #cell-type="{ row }">
           <span
             v-if="requestTypeBadge(row)"
@@ -163,14 +155,13 @@ function onSort(key: string, order: 'asc' | 'desc') {
 
 const { t } = useI18n()
 
-// 列序对齐用户端用量明细:Key → 模型 → 端点 → IP → 分组 → 类型 → 平台 → 分类
+// 列序对齐用户端用量明细:Key → 模型 → 端点 → IP → 类型 → 平台 → 分类
 // → 结果(状态→消息)→ 时间 → UA(用量明细 UA 同在时间之后的尾部)
 const allColumns = computed<Column[]>(() => [
   { key: 'key_name', label: t('usage.errors.keyName') },
   { key: 'model', label: t('usage.errors.model'), sortable: true },
   { key: 'endpoint', label: t('usage.errors.endpoint') },
   { key: 'client_ip', label: 'IP' },
-  { key: 'group', label: t('admin.usage.group') },
   { key: 'type', label: t('usage.type') },
   { key: 'platform', label: t('usage.errors.platform') },
   { key: 'category', label: t('usage.errors.category') },

@@ -22,7 +22,6 @@ type UserErrorRequest struct {
 	KeyName         string    `json:"key_name"`
 	KeyDeleted      bool      `json:"key_deleted"`
 	ClientIP        string    `json:"client_ip,omitempty"`
-	GroupName       string    `json:"group_name,omitempty"`
 	RequestType     *int16    `json:"request_type,omitempty"`
 	Stream          bool      `json:"stream"`
 	UserAgent       string    `json:"user_agent,omitempty"`
@@ -114,7 +113,6 @@ func ToUserErrorRequest(e *OpsErrorLog) *UserErrorRequest {
 		KeyName:         e.APIKeyName,
 		KeyDeleted:      e.APIKeyDeleted,
 		ClientIP:        clientIP,
-		GroupName:       e.GroupName,
 		RequestType:     e.RequestType,
 		Stream:          e.Stream,
 		UserAgent:       e.UserAgent,

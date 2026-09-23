@@ -165,11 +165,11 @@ func (r *channelMonitorV2Repository) RecomputeRange(ctx context.Context, start, 
 
 const channelMonitorV2UsageMetricsSQL = `
 INSERT INTO channel_monitor_v2_metrics_1m (
-  bucket_start, platform, group_id, model, success_requests,
+  bucket_start, platform, model, success_requests,
   input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
   ttft_sum_ms, ttft_count, duration_sum_ms, duration_count, computed_at
 )
-SELECT date_trunc('minute', ul.created_at), %s, COALESCE(ul.group_id, 0), %s,
+SELECT date_trunc('minute', ul.created_at), %s, %s,
        COUNT(DISTINCT COALESCE(NULLIF(ul.request_id, ''), 'usage:' || ul.id::text))
          FILTER (WHERE COALESCE(ul.request_type, 0) NOT IN (4, 6) AND ` + usageLogSuccessFilterUL + `),
        COALESCE(SUM(ul.input_tokens) FILTER (WHERE ` + usageLogSuccessFilterUL + `), 0),
@@ -181,18 +181,17 @@ SELECT date_trunc('minute', ul.created_at), %s, COALESCE(ul.group_id, 0), %s,
        COALESCE(SUM(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL AND ` + usageLogSuccessFilterUL + `), 0),
        COUNT(ul.duration_ms) FILTER (WHERE ` + usageLogSuccessFilterUL + `), NOW()
 FROM usage_logs ul
-LEFT JOIN groups g ON g.id = ul.group_id
 LEFT JOIN accounts a ON a.id = ul.account_id
 WHERE ul.created_at >= $1 AND ul.created_at < $2
-GROUP BY 1, 2, 3, 4`
+GROUP BY 1, 2, 3`
 
 const channelMonitorV2UserMetricsSQL = `
 INSERT INTO channel_monitor_v2_user_metrics_1m (
-  bucket_start, platform, group_id, model, user_id, success_requests,
+  bucket_start, platform, model, user_id, success_requests,
   input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
   ttft_sum_ms, ttft_count, duration_sum_ms, duration_count, computed_at
 )
-SELECT date_trunc('minute', ul.created_at), %s, COALESCE(ul.group_id, 0), %s, ul.user_id,
+SELECT date_trunc('minute', ul.created_at), %s, %s, ul.user_id,
        COUNT(DISTINCT COALESCE(NULLIF(ul.request_id, ''), 'usage:' || ul.id::text))
          FILTER (WHERE COALESCE(ul.request_type, 0) NOT IN (4, 6) AND ` + usageLogSuccessFilterUL + `),
        COALESCE(SUM(ul.input_tokens) FILTER (WHERE ` + usageLogSuccessFilterUL + `), 0),
@@ -204,26 +203,24 @@ SELECT date_trunc('minute', ul.created_at), %s, COALESCE(ul.group_id, 0), %s, ul
        COALESCE(SUM(ul.duration_ms) FILTER (WHERE ul.duration_ms IS NOT NULL AND ` + usageLogSuccessFilterUL + `), 0),
        COUNT(ul.duration_ms) FILTER (WHERE ` + usageLogSuccessFilterUL + `), NOW()
 FROM usage_logs ul
-LEFT JOIN groups g ON g.id = ul.group_id
 LEFT JOIN accounts a ON a.id = ul.account_id
 WHERE ul.created_at >= $1 AND ul.created_at < $2 AND ul.user_id IS NOT NULL
-GROUP BY 1, 2, 3, 4, 5`
+GROUP BY 1, 2, 3, 4`
 
 const channelMonitorV2HistogramSQL = `
 INSERT INTO channel_monitor_v2_latency_histograms_1m (
-  bucket_start, platform, group_id, model, user_id, metric, upper_bound_ms, sample_count
+  bucket_start, platform, model, user_id, metric, upper_bound_ms, sample_count
 )
-SELECT date_trunc('minute', ul.created_at), %s, COALESCE(ul.group_id, 0), %s,
+SELECT date_trunc('minute', ul.created_at), %s, %s,
        audience.user_id, latency.metric, %s, COUNT(*)
 FROM usage_logs ul
-LEFT JOIN groups g ON g.id = ul.group_id
 LEFT JOIN accounts a ON a.id = ul.account_id
 CROSS JOIN LATERAL (VALUES (0::bigint), (ul.user_id)) audience(user_id)
 CROSS JOIN LATERAL (VALUES ('ttft'::text, ul.first_token_ms), ('duration'::text, ul.duration_ms)) latency(metric, value_ms)
 WHERE ul.created_at >= $1 AND ul.created_at < $2
   AND audience.user_id IS NOT NULL AND latency.value_ms IS NOT NULL AND latency.value_ms >= 0
   AND ` + usageLogSuccessFilterUL + `
-GROUP BY 1, 2, 3, 4, 5, 6, 7`
+GROUP BY 1, 2, 3, 4, 5, 6`
 
 func channelMonitorV2HistogramBoundSQL(column string) string {
 	return `CASE
@@ -252,13 +249,7 @@ WITH dedup AS (
     -- Composite groups are a routing layer: resolve the concrete account
     -- platform (mirrors usageLogEffectivePlatformExpr on the usage side) so
     -- error facts share the usage facts' platform key. Without this, composite
-    -- group errors aggregate under platform 'composite', which is never an
-    -- enabled config platform, and are filtered out of every monitor v2 query.
-    lower(CASE
-      WHEN g.platform = 'composite' THEN COALESCE(NULLIF(TRIM(a.platform), ''), NULLIF(NULLIF(lower(TRIM(current_error.platform)), ''), 'composite'), 'unknown')
-      ELSE COALESCE(NULLIF(TRIM(current_error.platform), ''), 'unknown')
-    END) AS platform,
-    COALESCE(current_error.group_id, 0) AS group_id,
+    lower(COALESCE(NULLIF(TRIM(current_error.platform), ''), NULLIF(TRIM(a.platform), ''), 'unknown')) AS platform,
     COALESCE(NULLIF(TRIM(current_error.requested_model), ''), NULLIF(TRIM(current_error.model), ''), 'unknown') AS model,
     current_error.user_id, current_error.error_type, current_error.error_owner, COALESCE(current_error.status_code, 0) AS status_code,
     COALESCE(current_error.upstream_status_code, 0) AS upstream_status_code,
@@ -267,7 +258,6 @@ WITH dedup AS (
       OR current_error.error_owner = 'provider' OR current_error.upstream_status_code IS NOT NULL) AS upstream_affected,
     CASE WHEN jsonb_typeof(current_error.upstream_errors) = 'array' THEN jsonb_array_length(current_error.upstream_errors) ELSE 0 END AS upstream_attempts
   FROM ops_error_logs current_error
-  LEFT JOIN groups g ON g.id = current_error.group_id
   LEFT JOIN accounts a ON a.id = current_error.account_id
   WHERE (
       (NULLIF(current_error.request_id, '') IS NULL AND current_error.created_at >= $1 AND current_error.created_at < $2)
@@ -288,7 +278,6 @@ WITH dedup AS (
     WHEN text LIKE ANY(ARRAY['%context window%','%context length%','%maximum prompt length%','%too many tokens%','%max_tokens%']) THEN 'context_limit'
     WHEN text LIKE ANY(ARRAY['%failed to deserialize%','%missing required parameter%','%invalid request%','%invalid_request%','%tool_choice%']) THEN 'invalid_request'
     WHEN text LIKE ANY(ARRAY['%does not support the requested model%','%not supported by any configured account%','%model not supported%','%unsupported model%']) THEN 'model_unsupported'
-    WHEN text LIKE ANY(ARRAY['%group not allowed%','%group_not_allowed%','%group access%']) THEN 'group_access'
     WHEN text LIKE ANY(ARRAY['%run out of credits%','%insufficient balance%','%insufficient quota%','%subscription%','%quota exceeded%','%billing hard limit%']) THEN 'quota_or_balance'
     WHEN text LIKE ANY(ARRAY['%no available accounts%','%no healthy account%','%no healthy upstream account%','%failover budget exhausted%','%account pool%']) THEN 'account_pool_unavailable'
     WHEN status_code = 429 OR upstream_status_code = 429 OR text LIKE ANY(ARRAY['%rate limit%','%rate_limit%','%high demand%','%overloaded%','%concurrency limit%','%capacity%']) THEN 'rate_or_capacity'
@@ -303,20 +292,20 @@ WITH dedup AS (
   FROM dedup
   WHERE bucket_start >= $1 AND bucket_start < $2
 ), metric_rows AS (
-  INSERT INTO channel_monitor_v2_metrics_1m (bucket_start, platform, group_id, model, error_requests, upstream_affected_requests, upstream_attempt_count, computed_at)
-  SELECT bucket_start, platform, group_id, model, COUNT(*), COUNT(*) FILTER (WHERE upstream_affected), SUM(upstream_attempts), NOW()
-  FROM classified GROUP BY 1,2,3,4
+  INSERT INTO channel_monitor_v2_metrics_1m (bucket_start, platform, model, error_requests, upstream_affected_requests, upstream_attempt_count, computed_at)
+  SELECT bucket_start, platform, model, COUNT(*), COUNT(*) FILTER (WHERE upstream_affected), SUM(upstream_attempts), NOW()
+  FROM classified GROUP BY 1,2,3
   ON CONFLICT (bucket_start, platform, group_id, model) DO UPDATE SET
     error_requests = EXCLUDED.error_requests, upstream_affected_requests = EXCLUDED.upstream_affected_requests,
     upstream_attempt_count = EXCLUDED.upstream_attempt_count, computed_at = NOW()
 ), user_rows AS (
-  INSERT INTO channel_monitor_v2_user_metrics_1m (bucket_start, platform, group_id, model, user_id, error_requests, computed_at)
-  SELECT bucket_start, platform, group_id, model, user_id, COUNT(*), NOW()
-  FROM classified WHERE user_id IS NOT NULL GROUP BY 1,2,3,4,5
+  INSERT INTO channel_monitor_v2_user_metrics_1m (bucket_start, platform, model, user_id, error_requests, computed_at)
+  SELECT bucket_start, platform, model, user_id, COUNT(*), NOW()
+  FROM classified WHERE user_id IS NOT NULL GROUP BY 1,2,3,4
   ON CONFLICT (bucket_start, platform, group_id, model, user_id) DO UPDATE SET error_requests = EXCLUDED.error_requests, computed_at = NOW()
 )
-INSERT INTO channel_monitor_v2_error_metrics_1m (bucket_start, platform, group_id, model, error_category, taxonomy_version, error_requests)
-SELECT bucket_start, platform, group_id, model, category, 1, COUNT(*) FROM classified GROUP BY 1,2,3,4,5
+INSERT INTO channel_monitor_v2_error_metrics_1m (bucket_start, platform, model, error_category, taxonomy_version, error_requests)
+SELECT bucket_start, platform, model, category, 1, COUNT(*) FROM classified GROUP BY 1,2,3,4
 ON CONFLICT (bucket_start, platform, group_id, model, error_category, taxonomy_version)
 DO UPDATE SET error_requests = EXCLUDED.error_requests`
 
@@ -421,54 +410,54 @@ WHERE bucket_seconds = $2::integer
 
 const channelMonitorV2MetricsRollupSQL = `
 INSERT INTO channel_monitor_v2_metrics_rollup (
-  bucket_start, bucket_seconds, platform, group_id, model, success_requests, error_requests,
+  bucket_start, bucket_seconds, platform, model, success_requests, error_requests,
   upstream_affected_requests, upstream_attempt_count, input_tokens, output_tokens,
   cache_creation_tokens, cache_read_tokens, ttft_sum_ms, ttft_count, duration_sum_ms,
   duration_count, computed_at
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, m.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
-       platform, group_id, model, SUM(success_requests), SUM(error_requests),
+       platform, model, SUM(success_requests), SUM(error_requests),
        SUM(upstream_affected_requests), SUM(upstream_attempt_count), SUM(input_tokens),
        SUM(output_tokens), SUM(cache_creation_tokens), SUM(cache_read_tokens),
        SUM(ttft_sum_ms), SUM(ttft_count), SUM(duration_sum_ms), SUM(duration_count), NOW()
 FROM channel_monitor_v2_metrics_1m m, bounds
 WHERE m.bucket_start >= bounds.start_at AND m.bucket_start < bounds.end_at
-GROUP BY 1, 2, 3, 4, 5`
+GROUP BY 1, 2, 3, 4`
 
 const channelMonitorV2UserMetricsRollupSQL = `
 INSERT INTO channel_monitor_v2_user_metrics_rollup (
-  bucket_start, bucket_seconds, platform, group_id, model, user_id, success_requests,
+  bucket_start, bucket_seconds, platform, model, user_id, success_requests,
   error_requests, input_tokens, output_tokens, cache_creation_tokens, cache_read_tokens,
   ttft_sum_ms, ttft_count, duration_sum_ms, duration_count, computed_at
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, m.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
-       platform, group_id, model, user_id, SUM(success_requests), SUM(error_requests),
+       platform, model, user_id, SUM(success_requests), SUM(error_requests),
        SUM(input_tokens), SUM(output_tokens), SUM(cache_creation_tokens), SUM(cache_read_tokens),
        SUM(ttft_sum_ms), SUM(ttft_count), SUM(duration_sum_ms), SUM(duration_count), NOW()
 FROM channel_monitor_v2_user_metrics_1m m, bounds
 WHERE m.bucket_start >= bounds.start_at AND m.bucket_start < bounds.end_at
-GROUP BY 1, 2, 3, 4, 5, 6`
+GROUP BY 1, 2, 3, 4, 5`
 
 const channelMonitorV2HistogramRollupSQL = `
 INSERT INTO channel_monitor_v2_latency_histograms_rollup (
-  bucket_start, bucket_seconds, platform, group_id, model, user_id, metric, upper_bound_ms, sample_count
+  bucket_start, bucket_seconds, platform, model, user_id, metric, upper_bound_ms, sample_count
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, h.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
-       platform, group_id, model, user_id, metric, upper_bound_ms, SUM(sample_count)
+       platform, model, user_id, metric, upper_bound_ms, SUM(sample_count)
 FROM channel_monitor_v2_latency_histograms_1m h, bounds
 WHERE h.bucket_start >= bounds.start_at AND h.bucket_start < bounds.end_at
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8`
+GROUP BY 1, 2, 3, 4, 5, 6, 7`
 
 const channelMonitorV2ErrorRollupSQL = `
 INSERT INTO channel_monitor_v2_error_metrics_rollup (
-  bucket_start, bucket_seconds, platform, group_id, model, error_category, taxonomy_version, error_requests
+  bucket_start, bucket_seconds, platform, model, error_category, taxonomy_version, error_requests
 )
 ` + channelMonitorV2FixedRollupBoundsSQL + `
 SELECT date_bin($1::interval, e.bucket_start, ` + channelMonitorV2DateBinOrigin + `), $2::integer,
-       platform, group_id, model, error_category, taxonomy_version, SUM(error_requests)
+       platform, model, error_category, taxonomy_version, SUM(error_requests)
 FROM channel_monitor_v2_error_metrics_1m e, bounds
 WHERE e.bucket_start >= bounds.start_at AND e.bucket_start < bounds.end_at
-GROUP BY 1, 2, 3, 4, 5, 6, 7`
+GROUP BY 1, 2, 3, 4, 5, 6`

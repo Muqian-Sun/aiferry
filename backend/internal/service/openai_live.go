@@ -832,7 +832,6 @@ func (s *OpenAIGatewayService) finalizeLiveCall(record *LiveCallRecord) {
 		RequestID:        record.CallHash,
 		Model:            record.Model,
 		RequestedModel:   record.Model,
-		GroupID:          liveOptionalID(record.GroupID),
 		SubscriptionID:   liveOptionalID(record.SubscriptionID),
 		RateMultiplier:   1,
 		BillingType:      billingType,

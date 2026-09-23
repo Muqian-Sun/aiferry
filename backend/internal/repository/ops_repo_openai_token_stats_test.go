@@ -15,15 +15,13 @@ import (
 func TestOpsRepositoryGetOpenAITokenStats_PlatformScope(t *testing.T) {
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(time.Hour)
-	groupID := int64(9)
 	tests := []struct {
 		name     string
 		platform string
-		groupID  *int64
 		models   []string
 	}{
 		{name: "all platforms", models: []string{"claude-sonnet-4", "deepseek-chat", "gemini-2.5-pro", "gpt-4o", "o3"}},
-		{name: "anthropic group", platform: "anthropic", groupID: &groupID, models: []string{"claude-sonnet-4"}},
+		{name: "anthropic", platform: "anthropic", models: []string{"claude-sonnet-4"}},
 		{name: "gemini", platform: "gemini", models: []string{"gemini-2.5-pro"}},
 		{name: "openai reasoning model", platform: "openai", models: []string{"o3"}},
 	}
@@ -37,7 +35,6 @@ func TestOpsRepositoryGetOpenAITokenStats_PlatformScope(t *testing.T) {
 				StartTime: start,
 				EndTime:   end,
 				Platform:  tt.platform,
-				GroupID:   tt.groupID,
 				TopN:      20,
 			}
 
@@ -45,16 +42,8 @@ func TestOpsRepositoryGetOpenAITokenStats_PlatformScope(t *testing.T) {
 			// model restriction cannot silently narrow the selected platform scope.
 			where := "WHERE ul.created_at >= $1 AND ul.created_at < $2"
 			args := []driver.Value{start, end}
-			if tt.groupID != nil {
-				where += " AND ul.group_id = $3"
-				args = append(args, *tt.groupID)
-			}
 			if tt.platform != "" {
-				placeholder := "$3"
-				if tt.groupID != nil {
-					placeholder = "$4"
-				}
-				where += " AND COALESCE(NULLIF(g.platform,''), a.platform) = " + placeholder
+				where += " AND a.platform = $3"
 				args = append(args, tt.platform)
 			}
 			queryPrefix := regexp.QuoteMeta(where) + `\s+GROUP BY ul.model\s+\)`
@@ -76,7 +65,6 @@ func TestOpsRepositoryGetOpenAITokenStats_PlatformScope(t *testing.T) {
 			resp, err := repo.GetOpenAITokenStats(context.Background(), filter)
 			require.NoError(t, err)
 			require.Equal(t, tt.platform, resp.Platform)
-			require.Equal(t, tt.groupID, resp.GroupID)
 			require.Equal(t, int64(len(tt.models)), resp.Total)
 			require.Len(t, resp.Items, len(tt.models))
 			for i, model := range tt.models {
@@ -93,20 +81,18 @@ func TestOpsRepositoryGetOpenAITokenStats_PaginationMode(t *testing.T) {
 
 	start := time.Date(2026, 1, 1, 0, 0, 0, 0, time.UTC)
 	end := start.Add(24 * time.Hour)
-	groupID := int64(9)
 
 	filter := &service.OpsOpenAITokenStatsFilter{
 		TimeRange: "1d",
 		StartTime: start,
 		EndTime:   end,
 		Platform:  " OpenAI ",
-		GroupID:   &groupID,
 		Page:      2,
 		PageSize:  10,
 	}
 
 	mock.ExpectQuery(`SELECT COUNT\(\*\) FROM stats`).
-		WithArgs(start, end, groupID, "openai").
+		WithArgs(start, end, "openai").
 		WillReturnRows(sqlmock.NewRows([]string{"count"}).AddRow(int64(3)))
 
 	rows := sqlmock.NewRows([]string{
@@ -121,8 +107,8 @@ func TestOpsRepositoryGetOpenAITokenStats_PaginationMode(t *testing.T) {
 		AddRow("gpt-4o-mini", int64(20), 21.56, 120.34, int64(3000), int64(850), int64(18)).
 		AddRow("gpt-4.1", int64(20), 10.2, 240.0, int64(2500), int64(900), int64(20))
 
-	mock.ExpectQuery(`ORDER BY request_count DESC, model ASC\s+LIMIT \$5 OFFSET \$6`).
-		WithArgs(start, end, groupID, "openai", 10, 10).
+	mock.ExpectQuery(`ORDER BY request_count DESC, model ASC\s+LIMIT \$4 OFFSET \$5`).
+		WithArgs(start, end, "openai", 10, 10).
 		WillReturnRows(rows)
 
 	resp, err := repo.GetOpenAITokenStats(context.Background(), filter)
@@ -133,8 +119,6 @@ func TestOpsRepositoryGetOpenAITokenStats_PaginationMode(t *testing.T) {
 	require.Equal(t, 10, resp.PageSize)
 	require.Nil(t, resp.TopN)
 	require.Equal(t, "openai", resp.Platform)
-	require.NotNil(t, resp.GroupID)
-	require.Equal(t, groupID, *resp.GroupID)
 	require.Len(t, resp.Items, 2)
 	require.Equal(t, "gpt-4o-mini", resp.Items[0].Model)
 	require.NotNil(t, resp.Items[0].AvgTokensPerSec)

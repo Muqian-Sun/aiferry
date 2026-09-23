@@ -148,7 +148,6 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				user.FieldBalance,
 				user.FieldConcurrency,
 				user.FieldBalanceNotifyEnabled,
-				user.FieldRestrictPublicGroups,
 				user.FieldBalanceNotifyThresholdType,
 				user.FieldBalanceNotifyThreshold,
 				user.FieldBalanceNotifyExtraEmails,
@@ -159,9 +158,6 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 				user.FieldRpmLimit,
 				user.FieldRateMultiplier,
 			)
-			q.WithAllowedGroups(func(gq *dbent.GroupQuery) {
-				gq.Select(group.FieldID)
-			})
 		}).
 		Only(ctx)
 	if err != nil {

@@ -120,12 +120,10 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 
 	requestID := c.Writer.Header().Get("X-Request-Id")
 	var userID, apiKeyID int64
-	var userEmail, apiKeyName, groupName string
-	var groupID *int64
+	var userEmail, apiKeyName string
 	if apiKey != nil {
 		apiKeyID = apiKey.ID
 		apiKeyName = apiKey.Name
-		groupID = apiKey.GroupID
 		if apiKey.User != nil {
 			userID = apiKey.User.ID
 			userEmail = apiKey.User.Email
@@ -183,7 +181,6 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 		UserID:          userID,
 		APIKeyID:        apiKeyID,
 		AccountID:       accountID,
-		GroupID:         groupID,
 		ClientIP:        clientIPStr,
 		CreatedAt:       time.Now(),
 	}
@@ -205,8 +202,6 @@ func recordCyberPolicyIfMarked(c *gin.Context, deps cyberPolicyDeps, apiKey *ser
 				UserEmail:       userEmail,
 				APIKeyID:        apiKeyID,
 				APIKeyName:      apiKeyName,
-				GroupID:         groupID,
-				GroupName:       groupName,
 				Endpoint:        inboundEndpoint,
 				Model:           model,
 				UpstreamMessage: mark.Message,

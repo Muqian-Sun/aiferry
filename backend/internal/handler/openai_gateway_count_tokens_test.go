@@ -43,7 +43,7 @@ func newOpenAICountTokensHandlerForTest(t *testing.T, accounts []service.Account
 	t.Cleanup(billingService.Stop)
 	return NewOpenAIGatewayHandler(
 		gatewayService, service.NewConcurrencyService(nil), billingService,
-		service.NewAPIKeyService(nil, nil, nil, nil, nil, cfg), nil, nil, nil, nil, cfg, nil,
+		service.NewAPIKeyService(nil, nil, nil, cfg), nil, nil, nil, nil, cfg, nil,
 	)
 }
 

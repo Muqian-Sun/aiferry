@@ -489,7 +489,6 @@ export default {
         deleteConfirmMessage: 'This will remove the rule and its related events. Continue?',
         metricGroups: {
           system: 'System Metrics',
-          group: 'Group-level Metrics (requires group_id)',
           account: 'Account-level Metrics'
         },
         metrics: {
@@ -732,7 +731,7 @@ export default {
         displayAlertEvents: 'Display alert events',
         displayAlertEventsHint: 'Show or hide the recent alert events card on the ops dashboard. Enabled by default.',
         displayOpenAITokenStats: 'Display token request stats',
-        displayOpenAITokenStatsHint: 'Show token request stats by model across all platforms, with platform and group filters. Hidden by default.',
+        displayOpenAITokenStatsHint: 'Show token request stats by model across all platforms, with a platform filter. Hidden by default.',
         autoRefreshCountdown: 'Auto refresh: {seconds}s',
         validation: {
           title: 'Please fix the following issues',
@@ -747,7 +746,6 @@ export default {
       concurrency: {
         title: 'Concurrency / Queue',
         byPlatform: 'By Platform',
-        byGroup: 'By Group',
         byAccount: 'By Account',
         byUser: 'By User',
         showByUserTooltip: 'Switch to user view to see concurrency usage per user',

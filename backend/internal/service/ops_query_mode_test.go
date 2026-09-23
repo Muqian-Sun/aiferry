@@ -47,12 +47,10 @@ func TestCloneOpsFilterWithMode(t *testing.T) {
 	})
 
 	t.Run("cloned filter has new mode", func(t *testing.T) {
-		groupID := int64(42)
 		original := &OpsDashboardFilter{
 			StartTime: time.Now(),
 			EndTime:   time.Now().Add(time.Hour),
 			Platform:  "anthropic",
-			GroupID:   &groupID,
 			QueryMode: OpsQueryModeAuto,
 		}
 
@@ -61,6 +59,5 @@ func TestCloneOpsFilterWithMode(t *testing.T) {
 		require.Equal(t, OpsQueryModeAuto, original.QueryMode, "original should not be modified")
 		require.Equal(t, original.Platform, cloned.Platform)
 		require.Equal(t, original.StartTime, cloned.StartTime)
-		require.Equal(t, original.GroupID, cloned.GroupID)
 	})
 }

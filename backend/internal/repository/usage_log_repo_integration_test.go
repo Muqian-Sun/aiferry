@@ -707,7 +707,6 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 		UpdatedAt: todayStart.Add(-24 * time.Hour),
 	})
 
-	group := mustCreateGroup(s.T(), s.client, &service.Group{Name: "g-ul"})
 	apiKey1 := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: userToday.ID, Key: "sk-ul-1", Name: "ul1"})
 	mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: userOld.ID, Key: "sk-ul-2", Name: "ul2", Status: service.StatusDisabled})
 
@@ -723,7 +722,6 @@ func (s *UsageLogRepoSuite) TestDashboardStats_TodayTotalsAndPerformance() {
 		APIKeyID:            apiKey1.ID,
 		AccountID:           accNormal.ID,
 		Model:               "claude-3",
-		GroupID:             &group.ID,
 		InputTokens:         10,
 		OutputTokens:        20,
 		CacheCreationTokens: 3,
@@ -1408,17 +1406,17 @@ func (s *UsageLogRepoSuite) TestGetUsageTrendWithFilters() {
 	endTime := base.Add(48 * time.Hour)
 
 	// Test with user filter
-	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", user.ID, 0, 0, 0, "", nil, nil, nil)
+	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", user.ID, 0, 0, "", nil, nil, nil)
 	s.Require().NoError(err, "GetUsageTrendWithFilters user filter")
 	s.Require().Len(trend, 2)
 
 	// Test with apiKey filter
-	trend, err = s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", 0, apiKey.ID, 0, 0, "", nil, nil, nil)
+	trend, err = s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", 0, apiKey.ID, 0, "", nil, nil, nil)
 	s.Require().NoError(err, "GetUsageTrendWithFilters apiKey filter")
 	s.Require().Len(trend, 2)
 
 	// Test with both filters
-	trend, err = s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", user.ID, apiKey.ID, 0, 0, "", nil, nil, nil)
+	trend, err = s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "day", user.ID, apiKey.ID, 0, "", nil, nil, nil)
 	s.Require().NoError(err, "GetUsageTrendWithFilters both filters")
 	s.Require().Len(trend, 2)
 }
@@ -1435,7 +1433,7 @@ func (s *UsageLogRepoSuite) TestGetUsageTrendWithFilters_HourlyGranularity() {
 	startTime := base.Add(-1 * time.Hour)
 	endTime := base.Add(3 * time.Hour)
 
-	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "hour", user.ID, 0, 0, 0, "", nil, nil, nil)
+	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, startTime, endTime, "hour", user.ID, 0, 0, "", nil, nil, nil)
 	s.Require().NoError(err, "GetUsageTrendWithFilters hourly")
 	s.Require().Len(trend, 2)
 }
@@ -1481,17 +1479,17 @@ func (s *UsageLogRepoSuite) TestGetModelStatsWithFilters() {
 	endTime := base.Add(2 * time.Hour)
 
 	// Test with user filter
-	stats, err := s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, user.ID, 0, 0, 0, nil, nil, nil)
+	stats, err := s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, user.ID, 0, 0, nil, nil, nil)
 	s.Require().NoError(err, "GetModelStatsWithFilters user filter")
 	s.Require().Len(stats, 2)
 
 	// Test with apiKey filter
-	stats, err = s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, 0, apiKey.ID, 0, 0, nil, nil, nil)
+	stats, err = s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, 0, apiKey.ID, 0, nil, nil, nil)
 	s.Require().NoError(err, "GetModelStatsWithFilters apiKey filter")
 	s.Require().Len(stats, 2)
 
 	// Test with account filter
-	stats, err = s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, 0, 0, account.ID, 0, nil, nil, nil)
+	stats, err = s.repo.GetModelStatsWithFilters(s.ctx, startTime, endTime, 0, 0, account.ID, nil, nil, nil)
 	s.Require().NoError(err, "GetModelStatsWithFilters account filter")
 	s.Require().Len(stats, 2)
 }

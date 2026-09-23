@@ -56,7 +56,6 @@ func TestGetUserBreakdown_GroupIDFilter(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, int64(42), repo.capturedDim.GroupID)
 	require.Empty(t, repo.capturedDim.Model)
 	require.Empty(t, repo.capturedDim.Endpoint)
 	require.Equal(t, 50, repo.capturedLimit)  // default limit
@@ -88,7 +87,6 @@ func TestGetUserBreakdown_ModelFilter(t *testing.T) {
 	require.Equal(t, http.StatusOK, w.Code)
 	require.Equal(t, "claude-opus-4-6", repo.capturedDim.Model)
 	require.Equal(t, usagestats.ModelSourceRequested, repo.capturedDim.ModelType)
-	require.Equal(t, int64(0), repo.capturedDim.GroupID)
 }
 
 func TestGetUserBreakdown_ModelSourceFilter(t *testing.T) {
@@ -237,7 +235,6 @@ func TestGetUserBreakdown_NoFilters(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	require.Equal(t, http.StatusOK, w.Code)
-	require.Equal(t, int64(0), repo.capturedDim.GroupID)
 	require.Empty(t, repo.capturedDim.Model)
 	require.Empty(t, repo.capturedDim.Endpoint)
 }

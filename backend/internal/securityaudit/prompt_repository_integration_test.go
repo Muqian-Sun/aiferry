@@ -75,7 +75,7 @@ func integrationSnapshot(seed string) PromptSnapshot {
 	return PromptSnapshot{
 		RequestID: "request-" + seed, UsernameSnapshot: "user-" + seed,
 		UserEmailSnapshot: "user-" + seed + "@example.test", APIKeyNameSnapshot: "key-" + seed,
-		GroupName: "group-" + seed, Provider: "openai", Endpoint: "/v1/chat/completions",
+		Provider: "openai", Endpoint: "/v1/chat/completions",
 		Protocol: "openai_chat", Model: "gpt-test", PromptHash: strings.Repeat(seed[:1], 64),
 		RedactedPreview: "redacted-" + seed, PromptLength: len([]rune(seed)), MessageCount: 1,
 	}
@@ -303,7 +303,7 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	apiKeyID := insertIdentity(t, db, "api_keys")
 	groupID := insertIdentity(t, db, "groups")
 	snapshot := integrationSnapshot("identity")
-	snapshot.UserID, snapshot.APIKeyID, snapshot.GroupID = userID, apiKeyID, &groupID
+	snapshot.UserID, snapshot.APIKeyID = userID, apiKeyID
 	event, err := repo.RecordBlocking(ctx, snapshot, 7, integrationResult(EventCritical), true)
 	require.NoError(t, err)
 	require.NotNil(t, event)
@@ -311,7 +311,7 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	start, end := time.Now().Add(-time.Hour), time.Now().Add(time.Hour)
 	page, err := repo.ListEvents(ctx, EventFilter{
 		Decision: string(EventCritical), RiskLevel: string(RiskCritical), Endpoint: snapshot.Endpoint,
-		GroupID: &groupID, UserID: &userID, APIKeyID: &apiKeyID, RequestID: snapshot.RequestID,
+		UserID: &userID, APIKeyID: &apiKeyID, RequestID: snapshot.RequestID,
 		PromptHash: snapshot.PromptHash, Keyword: snapshot.UsernameSnapshot, StartAt: &start, EndAt: &end,
 	}, 1, 10)
 	require.NoError(t, err)
@@ -332,7 +332,6 @@ func TestPromptAuditRepositoryForeignKeysFiltersAndStableIdentitySnapshots(t *te
 	require.NoError(t, err)
 	require.Zero(t, stored.Snapshot.UserID)
 	require.Zero(t, stored.Snapshot.APIKeyID)
-	require.Nil(t, stored.Snapshot.GroupID)
 	require.Equal(t, snapshot.UsernameSnapshot, stored.Snapshot.UsernameSnapshot)
 	require.Equal(t, snapshot.UserEmailSnapshot, stored.Snapshot.UserEmailSnapshot)
 	require.Equal(t, snapshot.APIKeyNameSnapshot, stored.Snapshot.APIKeyNameSnapshot)

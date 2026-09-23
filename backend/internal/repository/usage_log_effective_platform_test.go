@@ -7,10 +7,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestUsageLogEffectivePlatformExprUsesAccountPlatformForCompositeGroups(t *testing.T) {
+// 分组删除后，用量行的「有效平台」只看承接该请求的账号，不再有分组平台覆写。
+func TestUsageLogEffectivePlatformExprUsesAccountPlatform(t *testing.T) {
 	expr := strings.ToLower(usageLogEffectivePlatformExpr)
 
-	require.Contains(t, expr, "g.platform = 'composite'")
-	require.Contains(t, expr, "then a.platform")
-	require.Contains(t, expr, "coalesce")
+	require.Equal(t, "a.platform", expr)
+	require.NotContains(t, expr, "g.platform")
+	require.NotContains(t, expr, "composite")
 }

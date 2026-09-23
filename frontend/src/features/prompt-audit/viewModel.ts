@@ -30,7 +30,6 @@ export function cloneData<T>(value: T): T {
 export function configToDraft(config: PromptAuditConfig): PromptAuditDraft {
   return {
     ...cloneData(config),
-    group_ids: [...(config.group_ids ?? [])],
     scanners: [...(config.scanners ?? [])],
     endpoints: (config.endpoints ?? []).map((endpoint) => ({
       ...endpoint,
@@ -68,8 +67,6 @@ export function buildUpdateRequest(draft: PromptAuditDraft): PromptAuditUpdateRe
     worker_count: Number(draft.worker_count),
     queue_capacity: Number(draft.queue_capacity),
     scanners: [...draft.scanners],
-    all_groups: draft.all_groups,
-    group_ids: draft.all_groups ? [] : [...draft.group_ids].sort((a, b) => a - b),
     endpoints: draft.endpoints.map((endpoint) => ({
       id: endpoint.id.trim(),
       name: endpoint.name.trim(),
@@ -95,7 +92,6 @@ export function emptyEventFilters(): PromptEventFilters {
     decision: '',
     risk_level: '',
     endpoint: '',
-    group_id: '',
     user_id: '',
     api_key_id: '',
     request_id: '',
@@ -118,7 +114,7 @@ export function eventQueryParams(filters: PromptEventFilters): Record<string, st
     const value = filters[key].trim()
     if (value) result[key] = value
   }
-  for (const key of ['group_id', 'user_id', 'api_key_id'] as const) {
+  for (const key of ['user_id', 'api_key_id'] as const) {
     const value = Number(filters[key])
     if (Number.isInteger(value) && value > 0) result[key] = value
   }

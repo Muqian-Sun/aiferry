@@ -157,42 +157,25 @@ func TestRecordCyberPolicyEvent_WritesLogWhenEnabled(t *testing.T) {
 		"Error should mention flagged or cyber_policy")
 }
 
+// 分组作用域已删：风控只按模型作用域收窄，任何 key（含无分组 key）都进审核。
 func TestRecordCyberPolicyEvent_RespectsContentModerationScope(t *testing.T) {
-	groupID := int64(7)
 	tests := []struct {
 		name       string
 		config     string
-		groupID    *int64
 		model      string
 		wantCalls  []bool
 		wantLogs   int
 		wantBanned bool
 	}{
 		{
-			name:     "excluded group",
-			config:   `{"all_groups":false,"group_ids":[8],"ban_threshold":1}`,
-			groupID:  &groupID,
-			model:    "gpt-5",
-			wantLogs: 0,
-		},
-		{
-			name:     "ungrouped excluded by selected groups",
-			config:   `{"all_groups":false,"group_ids":[7],"ban_threshold":1}`,
-			groupID:  nil,
-			model:    "gpt-5",
-			wantLogs: 0,
-		},
-		{
 			name:     "excluded model",
-			config:   `{"all_groups":true,"model_filter":{"type":"include","models":["gpt-4o"]},"ban_threshold":1}`,
-			groupID:  &groupID,
+			config:   `{"model_filter":{"type":"include","models":["gpt-4o"]},"ban_threshold":1}`,
 			model:    "gpt-5",
 			wantLogs: 0,
 		},
 		{
-			name:       "included group and model",
-			config:     `{"enabled":false,"mode":"off","sample_rate":0,"all_groups":false,"group_ids":[7],"model_filter":{"type":"include","models":["gpt-5"]},"ban_threshold":1}`,
-			groupID:    &groupID,
+			name:       "included model",
+			config:     `{"enabled":false,"mode":"off","sample_rate":0,"model_filter":{"type":"include","models":["gpt-5"]},"ban_threshold":1}`,
 			model:      "gpt-5",
 			wantCalls:  []bool{false},
 			wantLogs:   1,
@@ -213,9 +196,8 @@ func TestRecordCyberPolicyEvent_RespectsContentModerationScope(t *testing.T) {
 			)
 
 			svc.RecordCyberPolicyEvent(context.Background(), CyberPolicyRecordInput{
-				UserID:  1,
-				GroupID: tt.groupID,
-				Model:   tt.model,
+				UserID: 1,
+				Model:  tt.model,
 			})
 
 			if tt.wantCalls == nil {

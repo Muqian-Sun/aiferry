@@ -147,32 +147,19 @@ ORDER BY bucket ASC`
 	points = fillOpsThroughputBuckets(start, end, bucketSeconds, points)
 
 	var byPlatform []*service.OpsThroughputPlatformBreakdownItem
-	var topGroups []*service.OpsThroughputGroupBreakdownItem
 
 	platform := ""
 	if filter != nil {
 		platform = strings.TrimSpace(strings.ToLower(filter.Platform))
 	}
-	groupID := (*int64)(nil)
-	if filter != nil {
-		groupID = filter.GroupID
-	}
 
-	// Drilldown helpers:
-	// - No platform/group: totals by platform
-	// - Platform selected but no group: top groups in that platform
-	if platform == "" && (groupID == nil || *groupID <= 0) {
+	// Drilldown helper: no platform selected → totals by platform.
+	if platform == "" {
 		items, err := r.getThroughputBreakdownByPlatform(ctx, start, end)
 		if err != nil {
 			return nil, err
 		}
 		byPlatform = items
-	} else if platform != "" && (groupID == nil || *groupID <= 0) {
-		items, err := r.getThroughputTopGroupsByPlatform(ctx, start, end, platform, 10)
-		if err != nil {
-			return nil, err
-		}
-		topGroups = items
 	}
 
 	return &service.OpsThroughputTrendResponse{
@@ -180,18 +167,16 @@ ORDER BY bucket ASC`
 		Points: points,
 
 		ByPlatform: byPlatform,
-		TopGroups:  topGroups,
 	}, nil
 }
 
 func (r *opsRepository) getThroughputBreakdownByPlatform(ctx context.Context, start, end time.Time) ([]*service.OpsThroughputPlatformBreakdownItem, error) {
 	q := `
 WITH usage_totals AS (
-  SELECT COALESCE(NULLIF(g.platform,''), a.platform) AS platform,
+  SELECT a.platform AS platform,
          COUNT(*) AS success_count,
          COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
   FROM usage_logs ul
-  LEFT JOIN groups g ON g.id = ul.group_id
   LEFT JOIN accounts a ON a.id = ul.account_id
   WHERE ul.created_at >= $1 AND ul.created_at < $2
   GROUP BY 1
@@ -238,89 +223,6 @@ ORDER BY request_count DESC`
 		}
 		items = append(items, &service.OpsThroughputPlatformBreakdownItem{
 			Platform:      platform,
-			RequestCount:  requests,
-			TokenConsumed: tokenConsumed,
-		})
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-func (r *opsRepository) getThroughputTopGroupsByPlatform(ctx context.Context, start, end time.Time, platform string, limit int) ([]*service.OpsThroughputGroupBreakdownItem, error) {
-	if strings.TrimSpace(platform) == "" {
-		return nil, nil
-	}
-	if limit <= 0 || limit > 100 {
-		limit = 10
-	}
-
-	q := `
-WITH usage_totals AS (
-  SELECT ul.group_id AS group_id,
-         g.name AS group_name,
-         COUNT(*) AS success_count,
-         COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS token_consumed
-  FROM usage_logs ul
-  JOIN groups g ON g.id = ul.group_id
-  WHERE ul.created_at >= $1 AND ul.created_at < $2
-    AND g.platform = $3
-  GROUP BY 1, 2
-),
-error_totals AS (
-  SELECT group_id,
-         COUNT(*) AS error_count
-  FROM ops_error_logs
-  WHERE created_at >= $1 AND created_at < $2
-    AND platform = $3
-    AND group_id IS NOT NULL
-    AND COALESCE(status_code, 0) >= 400
-    AND is_count_tokens = FALSE  -- 排除 count_tokens 请求的错误
-  GROUP BY 1
-),
-combined AS (
-  SELECT COALESCE(u.group_id, e.group_id) AS group_id,
-         COALESCE(u.group_name, g2.name, '') AS group_name,
-         COALESCE(u.success_count, 0) AS success_count,
-         COALESCE(e.error_count, 0) AS error_count,
-         COALESCE(u.token_consumed, 0) AS token_consumed
-  FROM usage_totals u
-  FULL OUTER JOIN error_totals e ON u.group_id = e.group_id
-  LEFT JOIN groups g2 ON g2.id = COALESCE(u.group_id, e.group_id)
-)
-SELECT group_id, group_name, (success_count + error_count) AS request_count, token_consumed
-FROM combined
-WHERE group_id IS NOT NULL
-ORDER BY request_count DESC
-LIMIT $4`
-
-	rows, err := r.db.QueryContext(ctx, q, start, end, platform, limit)
-	if err != nil {
-		return nil, err
-	}
-	defer func() { _ = rows.Close() }()
-
-	items := make([]*service.OpsThroughputGroupBreakdownItem, 0, limit)
-	for rows.Next() {
-		var groupID int64
-		var groupName sql.NullString
-		var requests int64
-		var tokens sql.NullInt64
-		if err := rows.Scan(&groupID, &groupName, &requests, &tokens); err != nil {
-			return nil, err
-		}
-		tokenConsumed := int64(0)
-		if tokens.Valid {
-			tokenConsumed = tokens.Int64
-		}
-		name := ""
-		if groupName.Valid {
-			name = groupName.String
-		}
-		items = append(items, &service.OpsThroughputGroupBreakdownItem{
-			GroupID:       groupID,
-			GroupName:     name,
 			RequestCount:  requests,
 			TokenConsumed: tokenConsumed,
 		})

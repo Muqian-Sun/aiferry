@@ -31,13 +31,14 @@ func TestInsertSystemMetricsNullableIntegerMetrics(t *testing.T) {
 			}
 			t.Cleanup(func() { _ = db.Close() })
 
-			args := make([]driver.Value, 40)
+			// group_id 列已删：占位符从 40 降到 39，列表后移一位。
+			args := make([]driver.Value, 39)
 			args[0] = createdAt
 			args[1] = int64(1)
-			for i := 4; i <= 12; i++ {
+			for i := 3; i <= 11; i++ {
 				args[i] = int64(0)
 			}
-			args[35] = tt.wantDBActive
+			args[34] = tt.wantDBActive
 
 			mock.ExpectExec("INSERT INTO ops_system_metrics").
 				WithArgs(args...).
