@@ -18,8 +18,6 @@ type Tx struct {
 	APIKey *APIKeyClient
 	// Account is the client for interacting with the Account builders.
 	Account *AccountClient
-	// AccountGroup is the client for interacting with the AccountGroup builders.
-	AccountGroup *AccountGroupClient
 	// Announcement is the client for interacting with the Announcement builders.
 	Announcement *AnnouncementClient
 	// AnnouncementRead is the client for interacting with the AnnouncementRead builders.
@@ -42,12 +40,8 @@ type Tx struct {
 	ChannelMonitorHistory *ChannelMonitorHistoryClient
 	// ChannelMonitorRequestTemplate is the client for interacting with the ChannelMonitorRequestTemplate builders.
 	ChannelMonitorRequestTemplate *ChannelMonitorRequestTemplateClient
-	// CompositeModelRoute is the client for interacting with the CompositeModelRoute builders.
-	CompositeModelRoute *CompositeModelRouteClient
 	// ErrorPassthroughRule is the client for interacting with the ErrorPassthroughRule builders.
 	ErrorPassthroughRule *ErrorPassthroughRuleClient
-	// Group is the client for interacting with the Group builders.
-	Group *GroupClient
 	// IdempotencyRecord is the client for interacting with the IdempotencyRecord builders.
 	IdempotencyRecord *IdempotencyRecordClient
 	// IdentityAdoptionDecision is the client for interacting with the IdentityAdoptionDecision builders.
@@ -90,8 +84,6 @@ type Tx struct {
 	UsageLog *UsageLogClient
 	// User is the client for interacting with the User builders.
 	User *UserClient
-	// UserAllowedGroup is the client for interacting with the UserAllowedGroup builders.
-	UserAllowedGroup *UserAllowedGroupClient
 	// UserAttributeDefinition is the client for interacting with the UserAttributeDefinition builders.
 	UserAttributeDefinition *UserAttributeDefinitionClient
 	// UserAttributeValue is the client for interacting with the UserAttributeValue builders.
@@ -231,7 +223,6 @@ func (tx *Tx) Client() *Client {
 func (tx *Tx) init() {
 	tx.APIKey = NewAPIKeyClient(tx.config)
 	tx.Account = NewAccountClient(tx.config)
-	tx.AccountGroup = NewAccountGroupClient(tx.config)
 	tx.Announcement = NewAnnouncementClient(tx.config)
 	tx.AnnouncementRead = NewAnnouncementReadClient(tx.config)
 	tx.AuthIdentity = NewAuthIdentityClient(tx.config)
@@ -243,9 +234,7 @@ func (tx *Tx) init() {
 	tx.ChannelMonitorDailyRollup = NewChannelMonitorDailyRollupClient(tx.config)
 	tx.ChannelMonitorHistory = NewChannelMonitorHistoryClient(tx.config)
 	tx.ChannelMonitorRequestTemplate = NewChannelMonitorRequestTemplateClient(tx.config)
-	tx.CompositeModelRoute = NewCompositeModelRouteClient(tx.config)
 	tx.ErrorPassthroughRule = NewErrorPassthroughRuleClient(tx.config)
-	tx.Group = NewGroupClient(tx.config)
 	tx.IdempotencyRecord = NewIdempotencyRecordClient(tx.config)
 	tx.IdentityAdoptionDecision = NewIdentityAdoptionDecisionClient(tx.config)
 	tx.ModelCatalogAlias = NewModelCatalogAliasClient(tx.config)
@@ -267,7 +256,6 @@ func (tx *Tx) init() {
 	tx.UsageCleanupTask = NewUsageCleanupTaskClient(tx.config)
 	tx.UsageLog = NewUsageLogClient(tx.config)
 	tx.User = NewUserClient(tx.config)
-	tx.UserAllowedGroup = NewUserAllowedGroupClient(tx.config)
 	tx.UserAttributeDefinition = NewUserAttributeDefinitionClient(tx.config)
 	tx.UserAttributeValue = NewUserAttributeValueClient(tx.config)
 	tx.UserSubscription = NewUserSubscriptionClient(tx.config)

@@ -51,8 +51,6 @@ const (
 	FieldLastLoginAt = "last_login_at"
 	// FieldLastActiveAt holds the string denoting the last_active_at field in the database.
 	FieldLastActiveAt = "last_active_at"
-	// FieldRestrictPublicGroups holds the string denoting the restrict_public_groups field in the database.
-	FieldRestrictPublicGroups = "restrict_public_groups"
 	// FieldBalanceNotifyEnabled holds the string denoting the balance_notify_enabled field in the database.
 	FieldBalanceNotifyEnabled = "balance_notify_enabled"
 	// FieldBalanceNotifyThresholdType holds the string denoting the balance_notify_threshold_type field in the database.
@@ -77,8 +75,6 @@ const (
 	EdgeAssignedSubscriptions = "assigned_subscriptions"
 	// EdgeAnnouncementReads holds the string denoting the announcement_reads edge name in mutations.
 	EdgeAnnouncementReads = "announcement_reads"
-	// EdgeAllowedGroups holds the string denoting the allowed_groups edge name in mutations.
-	EdgeAllowedGroups = "allowed_groups"
 	// EdgeUsageLogs holds the string denoting the usage_logs edge name in mutations.
 	EdgeUsageLogs = "usage_logs"
 	// EdgeAttributeValues holds the string denoting the attribute_values edge name in mutations.
@@ -89,8 +85,6 @@ const (
 	EdgeAuthIdentities = "auth_identities"
 	// EdgePendingAuthSessions holds the string denoting the pending_auth_sessions edge name in mutations.
 	EdgePendingAuthSessions = "pending_auth_sessions"
-	// EdgeUserAllowedGroups holds the string denoting the user_allowed_groups edge name in mutations.
-	EdgeUserAllowedGroups = "user_allowed_groups"
 	// Table holds the table name of the user in the database.
 	Table = "users"
 	// APIKeysTable is the table that holds the api_keys relation/edge.
@@ -128,11 +122,6 @@ const (
 	AnnouncementReadsInverseTable = "announcement_reads"
 	// AnnouncementReadsColumn is the table column denoting the announcement_reads relation/edge.
 	AnnouncementReadsColumn = "user_id"
-	// AllowedGroupsTable is the table that holds the allowed_groups relation/edge. The primary key declared below.
-	AllowedGroupsTable = "user_allowed_groups"
-	// AllowedGroupsInverseTable is the table name for the Group entity.
-	// It exists in this package in order to avoid circular dependency with the "group" package.
-	AllowedGroupsInverseTable = "groups"
 	// UsageLogsTable is the table that holds the usage_logs relation/edge.
 	UsageLogsTable = "usage_logs"
 	// UsageLogsInverseTable is the table name for the UsageLog entity.
@@ -168,13 +157,6 @@ const (
 	PendingAuthSessionsInverseTable = "pending_auth_sessions"
 	// PendingAuthSessionsColumn is the table column denoting the pending_auth_sessions relation/edge.
 	PendingAuthSessionsColumn = "target_user_id"
-	// UserAllowedGroupsTable is the table that holds the user_allowed_groups relation/edge.
-	UserAllowedGroupsTable = "user_allowed_groups"
-	// UserAllowedGroupsInverseTable is the table name for the UserAllowedGroup entity.
-	// It exists in this package in order to avoid circular dependency with the "userallowedgroup" package.
-	UserAllowedGroupsInverseTable = "user_allowed_groups"
-	// UserAllowedGroupsColumn is the table column denoting the user_allowed_groups relation/edge.
-	UserAllowedGroupsColumn = "user_id"
 )
 
 // Columns holds all SQL columns for user fields.
@@ -198,7 +180,6 @@ var Columns = []string{
 	FieldSignupSource,
 	FieldLastLoginAt,
 	FieldLastActiveAt,
-	FieldRestrictPublicGroups,
 	FieldBalanceNotifyEnabled,
 	FieldBalanceNotifyThresholdType,
 	FieldBalanceNotifyThreshold,
@@ -207,12 +188,6 @@ var Columns = []string{
 	FieldRpmLimit,
 	FieldRateMultiplier,
 }
-
-var (
-	// AllowedGroupsPrimaryKey and AllowedGroupsColumn2 are the table columns denoting the
-	// primary key for the allowed_groups relation (M2M).
-	AllowedGroupsPrimaryKey = []string{"user_id", "group_id"}
-)
 
 // ValidColumn reports if the column name is valid (part of the table columns).
 func ValidColumn(column string) bool {
@@ -268,8 +243,6 @@ var (
 	DefaultSignupSource string
 	// SignupSourceValidator is a validator for the "signup_source" field. It is called by the builders before save.
 	SignupSourceValidator func(string) error
-	// DefaultRestrictPublicGroups holds the default value on creation for the "restrict_public_groups" field.
-	DefaultRestrictPublicGroups bool
 	// DefaultBalanceNotifyEnabled holds the default value on creation for the "balance_notify_enabled" field.
 	DefaultBalanceNotifyEnabled bool
 	// DefaultBalanceNotifyThresholdType holds the default value on creation for the "balance_notify_threshold_type" field.
@@ -382,11 +355,6 @@ func ByLastActiveAt(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldLastActiveAt, opts...).ToFunc()
 }
 
-// ByRestrictPublicGroups orders the results by the restrict_public_groups field.
-func ByRestrictPublicGroups(opts ...sql.OrderTermOption) OrderOption {
-	return sql.OrderByField(FieldRestrictPublicGroups, opts...).ToFunc()
-}
-
 // ByBalanceNotifyEnabled orders the results by the balance_notify_enabled field.
 func ByBalanceNotifyEnabled(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldBalanceNotifyEnabled, opts...).ToFunc()
@@ -492,20 +460,6 @@ func ByAnnouncementReads(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption
 	}
 }
 
-// ByAllowedGroupsCount orders the results by allowed_groups count.
-func ByAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newAllowedGroupsStep(), opts...)
-	}
-}
-
-// ByAllowedGroups orders the results by allowed_groups terms.
-func ByAllowedGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newAllowedGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByUsageLogsCount orders the results by usage_logs count.
 func ByUsageLogsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -575,20 +529,6 @@ func ByPendingAuthSessions(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOpti
 		sqlgraph.OrderByNeighborTerms(s, newPendingAuthSessionsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
 }
-
-// ByUserAllowedGroupsCount orders the results by user_allowed_groups count.
-func ByUserAllowedGroupsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newUserAllowedGroupsStep(), opts...)
-	}
-}
-
-// ByUserAllowedGroups orders the results by user_allowed_groups terms.
-func ByUserAllowedGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newUserAllowedGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
 func newAPIKeysStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -624,13 +564,6 @@ func newAnnouncementReadsStep() *sqlgraph.Step {
 		sqlgraph.Edge(sqlgraph.O2M, false, AnnouncementReadsTable, AnnouncementReadsColumn),
 	)
 }
-func newAllowedGroupsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(AllowedGroupsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, false, AllowedGroupsTable, AllowedGroupsPrimaryKey...),
-	)
-}
 func newUsageLogsStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
 		sqlgraph.From(Table, FieldID),
@@ -664,12 +597,5 @@ func newPendingAuthSessionsStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(PendingAuthSessionsInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.O2M, false, PendingAuthSessionsTable, PendingAuthSessionsColumn),
-	)
-}
-func newUserAllowedGroupsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(UserAllowedGroupsInverseTable, UserAllowedGroupsColumn),
-		sqlgraph.Edge(sqlgraph.O2M, true, UserAllowedGroupsTable, UserAllowedGroupsColumn),
 	)
 }

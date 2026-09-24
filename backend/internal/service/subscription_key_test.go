@@ -30,7 +30,6 @@ func TestCreateSubscription_GeneratesBoundKey(t *testing.T) {
 	require.Equal(t, sub.ID, *key.SubscriptionID)
 	require.Equal(t, int64(1001), key.UserID)
 	require.Equal(t, "E2E Pro", key.Name)
-	require.Nil(t, key.GroupID, "订阅 key 无分组")
 	require.Equal(t, StatusActive, key.Status)
 	require.True(t, strings.HasPrefix(key.Key, "tf-"), "前缀来自 cfg.Default.APIKeyPrefix，got %q", key.Key)
 	require.Len(t, key.Key, len("tf-")+64)

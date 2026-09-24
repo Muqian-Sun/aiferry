@@ -251,11 +251,10 @@ func (s *APIKeyRepoSuite) mustCreateApiKey(userID int64, key, name string, group
 	s.T().Helper()
 
 	k := &service.APIKey{
-		UserID:  userID,
-		Key:     key,
-		Name:    name,
-		GroupID: groupID,
-		Status:  service.StatusActive,
+		UserID: userID,
+		Key:    key,
+		Name:   name,
+		Status: service.StatusActive,
 	}
 	s.Require().NoError(s.repo.Create(s.ctx, k), "create api key")
 	return k

@@ -17,7 +17,6 @@ import (
 // turn state 必须落在执行作用域键下，而不是按 session_id 算出的会话哈希下，
 // 否则子智能体会覆盖父线程的绑定；同一线程在 WS 接入与 HTTP 路径之间也才能共享状态。
 func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *testing.T) {
-	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -87,7 +86,7 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	c.Request.Header.Set("session_id", "root-session")
 	c.Request.Header.Set(openAIWSTurnMetadataHeader, `{"session_id":"root-session","thread_id":"child-thread"}`)
-	c.Set("api_key", &APIKey{ID: 21, GroupID: &groupID})
+	c.Set("api_key", &APIKey{ID: 21})
 
 	result, err := svc.Forward(context.Background(), c, account, reqBody)
 	require.NoError(t, err)
@@ -112,7 +111,6 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 // session_id 的会话会落到同一个键共用 turn state，客户端自带线程标识时也会与 WS 接入路径
 // 按原始报文算出的键对不上。
 func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t *testing.T) {
-	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{}
@@ -168,7 +166,7 @@ func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t 
 		c, _ := gin.CreateTestContext(rec)
 		c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 		c.Request.Header.Set("session_id", sessionID)
-		c.Set("api_key", &APIKey{ID: apiKeyID, GroupID: &groupID})
+		c.Set("api_key", &APIKey{ID: apiKeyID})
 		raw := []byte(body)
 		result, err := svc.Forward(context.Background(), c, account, raw)
 		require.NoError(t, err)

@@ -145,11 +145,6 @@ func LastActiveAt(v time.Time) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldLastActiveAt, v))
 }
 
-// RestrictPublicGroups applies equality check predicate on the "restrict_public_groups" field. It's identical to RestrictPublicGroupsEQ.
-func RestrictPublicGroups(v bool) predicate.User {
-	return predicate.User(sql.FieldEQ(FieldRestrictPublicGroups, v))
-}
-
 // BalanceNotifyEnabled applies equality check predicate on the "balance_notify_enabled" field. It's identical to BalanceNotifyEnabledEQ.
 func BalanceNotifyEnabled(v bool) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldBalanceNotifyEnabled, v))
@@ -1125,16 +1120,6 @@ func LastActiveAtNotNil() predicate.User {
 	return predicate.User(sql.FieldNotNull(FieldLastActiveAt))
 }
 
-// RestrictPublicGroupsEQ applies the EQ predicate on the "restrict_public_groups" field.
-func RestrictPublicGroupsEQ(v bool) predicate.User {
-	return predicate.User(sql.FieldEQ(FieldRestrictPublicGroups, v))
-}
-
-// RestrictPublicGroupsNEQ applies the NEQ predicate on the "restrict_public_groups" field.
-func RestrictPublicGroupsNEQ(v bool) predicate.User {
-	return predicate.User(sql.FieldNEQ(FieldRestrictPublicGroups, v))
-}
-
 // BalanceNotifyEnabledEQ applies the EQ predicate on the "balance_notify_enabled" field.
 func BalanceNotifyEnabledEQ(v bool) predicate.User {
 	return predicate.User(sql.FieldEQ(FieldBalanceNotifyEnabled, v))
@@ -1560,29 +1545,6 @@ func HasAnnouncementReadsWith(preds ...predicate.AnnouncementRead) predicate.Use
 	})
 }
 
-// HasAllowedGroups applies the HasEdge predicate on the "allowed_groups" edge.
-func HasAllowedGroups() predicate.User {
-	return predicate.User(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, AllowedGroupsTable, AllowedGroupsPrimaryKey...),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasAllowedGroupsWith applies the HasEdge predicate on the "allowed_groups" edge with a given conditions (other predicates).
-func HasAllowedGroupsWith(preds ...predicate.Group) predicate.User {
-	return predicate.User(func(s *sql.Selector) {
-		step := newAllowedGroupsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasUsageLogs applies the HasEdge predicate on the "usage_logs" edge.
 func HasUsageLogs() predicate.User {
 	return predicate.User(func(s *sql.Selector) {
@@ -1690,29 +1652,6 @@ func HasPendingAuthSessions() predicate.User {
 func HasPendingAuthSessionsWith(preds ...predicate.PendingAuthSession) predicate.User {
 	return predicate.User(func(s *sql.Selector) {
 		step := newPendingAuthSessionsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasUserAllowedGroups applies the HasEdge predicate on the "user_allowed_groups" edge.
-func HasUserAllowedGroups() predicate.User {
-	return predicate.User(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, UserAllowedGroupsTable, UserAllowedGroupsColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasUserAllowedGroupsWith applies the HasEdge predicate on the "user_allowed_groups" edge with a given conditions (other predicates).
-func HasUserAllowedGroupsWith(preds ...predicate.UserAllowedGroup) predicate.User {
-	return predicate.User(func(s *sql.Selector) {
-		step := newUserAllowedGroupsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

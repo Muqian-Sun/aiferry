@@ -945,7 +945,6 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 		"handler.openai_gateway.responses_ws",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 		zap.Bool("openai_ws_mode", true),
 	)
 	if !h.ensureResponsesDependencies(c, reqLog) {
@@ -2382,7 +2381,6 @@ type cyberPolicyOpsErrorMeta struct {
 	UserID          int64
 	APIKeyID        int64
 	AccountID       int64
-	GroupID         *int64
 	ClientIP        string
 	CreatedAt       time.Time
 	SessionBlockKey string

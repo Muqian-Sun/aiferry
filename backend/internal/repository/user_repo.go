@@ -219,7 +219,7 @@ func (r *userRepository) Update(ctx context.Context, userIn *service.User, field
 		return nil
 	}
 
-	// 使用 ent 事务包裹用户更新与 allowed_groups 同步，避免跨层事务不一致。
+	// 使用 ent 事务包裹用户更新，避免跨层事务不一致。
 	tx, err := r.client.Tx(ctx)
 	if err != nil && !errors.Is(err, dbent.ErrTxStarted) {
 		return err

@@ -258,9 +258,6 @@ func mustCreateApiKey(t *testing.T, client *dbent.Client, k *service.APIKey) *se
 	if k.ExpiresAt != nil {
 		create.SetExpiresAt(*k.ExpiresAt)
 	}
-	if k.GroupID != nil {
-		create.SetGroupID(*k.GroupID)
-	}
 	if !k.CreatedAt.IsZero() {
 		create.SetCreatedAt(k.CreatedAt)
 	}
@@ -414,16 +411,4 @@ func mustCreateSubscription(t *testing.T, client *dbent.Client, s *service.UserS
 	s.CreatedAt = created.CreatedAt
 	s.UpdatedAt = created.UpdatedAt
 	return s
-}
-
-func mustBindAccountToGroup(t *testing.T, client *dbent.Client, accountID, groupID int64, priority int) {
-	t.Helper()
-	ctx := context.Background()
-
-	_, err := client.AccountGroup.Create().
-		SetAccountID(accountID).
-		SetGroupID(groupID).
-		SetPriority(priority).
-		Save(ctx)
-	require.NoError(t, err, "create account_group")
 }

@@ -40,8 +40,7 @@ func TestGeminiV1BetaListModels_FiltersFallbackByCatalog(t *testing.T) {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1beta/models", nil)
-	geminiGroupID := int64(42)
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{GroupID: &geminiGroupID})
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{})
 
 	h.GeminiV1BetaListModels(c)
 

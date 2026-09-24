@@ -61,10 +61,10 @@ func (r *usageBatchLogRepoStub) GetModelStatsWithFilters(context.Context, time.T
 func (r *usageBatchLogRepoStub) GetModelUsageTrendWithUsageFilters(context.Context, time.Time, time.Time, string, usagestats.UsageLogFilters) ([]usagestats.ModelTrendPoint, error) {
 	return nil, nil
 }
-func (r *usageBatchLogRepoStub) GetEndpointStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, int64, string, *int16, *bool, *int8) ([]usagestats.EndpointStat, error) {
+func (r *usageBatchLogRepoStub) GetEndpointStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, string, *int16, *bool, *int8) ([]usagestats.EndpointStat, error) {
 	return nil, nil
 }
-func (r *usageBatchLogRepoStub) GetUpstreamEndpointStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, int64, string, *int16, *bool, *int8) ([]usagestats.EndpointStat, error) {
+func (r *usageBatchLogRepoStub) GetUpstreamEndpointStatsWithFilters(context.Context, time.Time, time.Time, int64, int64, int64, string, *int16, *bool, *int8) ([]usagestats.EndpointStat, error) {
 	return nil, nil
 }
 

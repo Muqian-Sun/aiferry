@@ -300,14 +300,13 @@ func TestSchedulerFullRebuildIsPlatformPoolsPlusCatalogBuckets(t *testing.T) {
 
 // group 事件不再有任何处理：既不重建也不报错（发送端随 7b-3 的分组 repo 删）。
 func TestSchedulerSnapshot_GroupEventIsIgnored(t *testing.T) {
-	groupID := int64(3)
 	cache := newCatalogBucketCache(catalogBucket(7))
 	accounts := &catalogBucketAccountRepo{byEntry: map[int64][]Account{}, byPlatform: map[string][]Account{}}
 	svc := newCatalogBucketService(cache, accounts)
 
 	require.NoError(t, svc.handleOutboxEvent(
 		context.Background(),
-		SchedulerOutboxEvent{EventType: SchedulerOutboxEventGroupChanged, GroupID: &groupID},
+		SchedulerOutboxEvent{EventType: SchedulerOutboxEventGroupChanged},
 		map[batchSeenKey]struct{}{},
 	))
 	require.Empty(t, cache.written())

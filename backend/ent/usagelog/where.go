@@ -105,11 +105,6 @@ func BillingMode(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldBillingMode, v))
 }
 
-// GroupID applies equality check predicate on the "group_id" field. It's identical to GroupIDEQ.
-func GroupID(v int64) predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldEQ(FieldGroupID, v))
-}
-
 // SubscriptionID applies equality check predicate on the "subscription_id" field. It's identical to SubscriptionIDEQ.
 func SubscriptionID(v int64) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldEQ(FieldSubscriptionID, v))
@@ -778,36 +773,6 @@ func BillingModeEqualFold(v string) predicate.UsageLog {
 // BillingModeContainsFold applies the ContainsFold predicate on the "billing_mode" field.
 func BillingModeContainsFold(v string) predicate.UsageLog {
 	return predicate.UsageLog(sql.FieldContainsFold(FieldBillingMode, v))
-}
-
-// GroupIDEQ applies the EQ predicate on the "group_id" field.
-func GroupIDEQ(v int64) predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldEQ(FieldGroupID, v))
-}
-
-// GroupIDNEQ applies the NEQ predicate on the "group_id" field.
-func GroupIDNEQ(v int64) predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldNEQ(FieldGroupID, v))
-}
-
-// GroupIDIn applies the In predicate on the "group_id" field.
-func GroupIDIn(vs ...int64) predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldIn(FieldGroupID, vs...))
-}
-
-// GroupIDNotIn applies the NotIn predicate on the "group_id" field.
-func GroupIDNotIn(vs ...int64) predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldNotIn(FieldGroupID, vs...))
-}
-
-// GroupIDIsNil applies the IsNil predicate on the "group_id" field.
-func GroupIDIsNil() predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldIsNull(FieldGroupID))
-}
-
-// GroupIDNotNil applies the NotNil predicate on the "group_id" field.
-func GroupIDNotNil() predicate.UsageLog {
-	return predicate.UsageLog(sql.FieldNotNull(FieldGroupID))
 }
 
 // SubscriptionIDEQ applies the EQ predicate on the "subscription_id" field.
@@ -2346,29 +2311,6 @@ func HasAccount() predicate.UsageLog {
 func HasAccountWith(preds ...predicate.Account) predicate.UsageLog {
 	return predicate.UsageLog(func(s *sql.Selector) {
 		step := newAccountStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasGroup applies the HasEdge predicate on the "group" edge.
-func HasGroup() predicate.UsageLog {
-	return predicate.UsageLog(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2O, true, GroupTable, GroupColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasGroupWith applies the HasEdge predicate on the "group" edge with a given conditions (other predicates).
-func HasGroupWith(preds ...predicate.Group) predicate.UsageLog {
-	return predicate.UsageLog(func(s *sql.Selector) {
-		step := newGroupStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

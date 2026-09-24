@@ -72,7 +72,6 @@ func (h *OpenAIGatewayHandler) handleGrokMedia(c *gin.Context, endpoint service.
 		"handler.openai_gateway.grok_media",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 		zap.String("endpoint", string(endpoint)),
 	)
 	if !h.ensureResponsesDependencies(c, reqLog) {
@@ -723,7 +722,6 @@ func recordGrokMediaUsage(
 				zap.String("component", "handler.openai_gateway.grok_media"),
 				zap.Int64("user_id", subject.UserID),
 				zap.Int64("api_key_id", apiKey.ID),
-				zap.Any("group_id", apiKey.GroupID),
 				zap.String("model", requestModel),
 				zap.Int64("account_id", account.ID),
 			).Error("grok_media.record_usage_failed", zap.Error(err))

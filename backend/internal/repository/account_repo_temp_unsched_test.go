@@ -180,7 +180,7 @@ func TestAccountRepository_SetGrokOAuthErrorIfCredentialsUnchanged_AppliedWrites
 	normalized := normalizeSQLWhitespace(exec.execQueries[0])
 	require.Contains(t, normalized, "WITH updated AS")
 	require.Contains(t, normalized, "INSERT INTO scheduler_outbox")
-	require.Contains(t, normalized, "SELECT $8, updated.id, NULL, NULL FROM updated")
+	require.Contains(t, normalized, "SELECT $8, updated.id, NULL FROM updated")
 }
 
 func TestAccountRepository_SetGrokOAuthRefreshErrorIfCredentialsUnchanged_UsesAttemptCredentialsAndProxy(t *testing.T) {

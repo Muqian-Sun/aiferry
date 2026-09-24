@@ -211,11 +211,10 @@ func TestOpenAIWSSessionPreemptContextEligibilityAndLocalCancellation(t *testing
 
 func TestOpenAIWSIngressSessionPreemptionSurvivesNestedForwardCleanup(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(7)
 	newContext := func() *gin.Context {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-		c.Set("api_key", &APIKey{ID: 11, GroupID: &groupID})
+		c.Set("api_key", &APIKey{ID: 11})
 		return c
 	}
 
@@ -249,11 +248,10 @@ func TestOpenAIWSIngressSessionPreemptionSurvivesNestedForwardCleanup(t *testing
 
 func TestOpenAIWSIngressSessionPreemptionRespectsResolvedMode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(7)
 	newContext := func() *gin.Context {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-		c.Set("api_key", &APIKey{ID: 11, GroupID: &groupID})
+		c.Set("api_key", &APIKey{ID: 11})
 		return c
 	}
 	newAccount := func(mode string) *Account {
@@ -340,12 +338,11 @@ func TestOpenAIWSHTTPBridgeSessionPreemptionEligibility(t *testing.T) {
 			cfg.Gateway.OpenAIWS.IngressModeDefault = tt.defaultMode
 			cache := &openAIWSSessionPreemptCacheStub{}
 			svc := &OpenAIGatewayService{cfg: cfg, cache: cache}
-			groupID := int64(7)
 			newContext := func() *gin.Context {
 				c, _ := gin.CreateTestContext(httptest.NewRecorder())
 				c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
 				c.Request.Header.Set("session-id", "shared-session")
-				c.Set("api_key", &APIKey{ID: 11, GroupID: &groupID})
+				c.Set("api_key", &APIKey{ID: 11})
 				return c
 			}
 			account := &Account{ID: 1, Platform: PlatformOpenAI, Type: AccountTypeOAuth,
@@ -384,14 +381,13 @@ func TestNewOpenAIWSSessionPreemptKeyRequiresFullIsolationScope(t *testing.T) {
 }
 
 func newOpenAIWSPreemptCodexContext(apiKeyID int64, threadID string) *gin.Context {
-	groupID := int64(7)
 	c, _ := gin.CreateTestContext(httptest.NewRecorder())
 	c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
 	c.Request.Header.Set("session-id", "root-session")
 	if threadID != "" {
 		c.Request.Header.Set(openAIWSTurnMetadataHeader, `{"session_id":"root-session","thread_id":"`+threadID+`"}`)
 	}
-	c.Set("api_key", &APIKey{ID: apiKeyID, GroupID: &groupID})
+	c.Set("api_key", &APIKey{ID: apiKeyID})
 	return c
 }
 
@@ -489,11 +485,10 @@ func TestOpenAIWSIngressSessionPreemptionKeepsDetachedRequestsApart(t *testing.T
 
 func TestOpenAIWSIngressSessionPreemptionSkipsContentOnlyIdentity(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(7)
 	newContext := func() *gin.Context {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = httptest.NewRequest(http.MethodGet, "/v1/responses", nil)
-		c.Set("api_key", &APIKey{ID: 11, GroupID: &groupID})
+		c.Set("api_key", &APIKey{ID: 11})
 		return c
 	}
 	svc := &OpenAIGatewayService{}

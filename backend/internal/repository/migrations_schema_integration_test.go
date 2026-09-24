@@ -55,11 +55,6 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireColumn(t, tx, "accounts", "session_window_status", "character varying", 20, true)
 	requireIndex(t, tx, "accounts", "idx_accounts_autopause_expiry_due")
 
-	// groups: OpenAI Live 与 Fast 强制策略都默认关闭，管理员显式开启后才生效。
-	requireColumn(t, tx, "groups", "allow_live", "boolean", 0, false)
-	requireColumn(t, tx, "groups", "force_openai_fast", "boolean", 0, false)
-	requireColumn(t, tx, "groups", "free_openai_fast", "boolean", 0, false)
-
 	// api_keys: key length should be 128
 	requireColumn(t, tx, "api_keys", "key", "character varying", 128, false)
 
@@ -79,7 +74,6 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	requireIndexAbsent(t, tx, "user_subscriptions", "user_subscriptions_user_group_unique_active")
 	requireColumn(t, tx, "api_keys", "subscription_id", "bigint", 0, true)
 	requireIndex(t, tx, "api_keys", "idx_api_keys_subscription_id")
-	requireIndexAbsent(t, tx, "groups", "idx_groups_subscription_type")
 
 	// usage_logs: billing_type used by filters/stats
 	requireColumn(t, tx, "usage_logs", "billing_type", "smallint", 0, false)
@@ -175,27 +169,68 @@ WHERE ns.nspname = 'public'
 	requireColumn(t, tx, "ops_ingress_reject_aggregates", "bucket_start", "timestamp with time zone", 0, false)
 	requireColumn(t, tx, "ops_ingress_reject_aggregates", "client_ip", "inet", 0, false)
 	requireColumn(t, tx, "ops_ingress_reject_aggregates", "request_count", "bigint", 0, false)
+
+	// 7c（迁移 252）：分组表与各表的分组列必须已消失
+	for _, table := range []string{
+		"groups", "account_groups", "user_allowed_groups", "user_group_rate_multipliers",
+		"orphan_allowed_groups_audit", "composite_model_routes",
+		"usage_group_daily_rollups", "usage_group_rollup_state", "channel_groups",
+	} {
+		var regclass sql.NullString
+		require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public."+table+"')").Scan(&regclass))
+		require.False(t, regclass.Valid, "表 %s 应随迁移 252 删掉", table)
+	}
+	for _, tc := range []struct{ table, column string }{
+		{"api_keys", "group_id"}, {"usage_logs", "group_id"}, {"users", "restrict_public_groups"},
+		{"scheduler_outbox", "group_id"}, {"ops_error_logs", "group_id"},
+		{"ops_metrics_hourly", "group_id"}, {"ops_metrics_daily", "group_id"},
+		{"ops_system_metrics", "group_id"}, {"content_moderation_logs", "group_id"},
+		{"prompt_audit_events", "group_id"}, {"prompt_audit_jobs", "group_id"},
+		{"channel_monitor_v2_config", "group_ids"}, {"channel_monitor_v2_metrics_1m", "group_id"},
+		{"usage_logs", "channel_id"}, {"usage_logs", "model_mapping_chain"}, {"usage_logs", "billing_tier"},
+	} {
+		var n int
+		require.NoError(t, tx.QueryRowContext(context.Background(),
+			"SELECT count(*) FROM information_schema.columns WHERE table_schema='public' AND table_name=$1 AND column_name=$2",
+			tc.table, tc.column).Scan(&n))
+		require.Zero(t, n, "列 %s.%s 应随迁移 252 删掉", tc.table, tc.column)
+	}
+	// channel_monitor_v2 的 8 个主键去掉 group_id 后重建：列组合写错的话
+	// channel_monitor_v2_aggregation 的 UPSERT 会在运行时报
+	// "no unique or exclusion constraint matching the ON CONFLICT specification"。
+	for _, pk := range []struct{ table, cols string }{
+		{"channel_monitor_v2_metrics_1m", "bucket_start, platform, model"},
+		{"channel_monitor_v2_metrics_rollup", "bucket_seconds, bucket_start, platform, model"},
+		{"channel_monitor_v2_error_metrics_1m", "bucket_start, platform, model, error_category, taxonomy_version"},
+		{"channel_monitor_v2_error_metrics_rollup", "bucket_seconds, bucket_start, platform, model, error_category, taxonomy_version"},
+		{"channel_monitor_v2_user_metrics_1m", "bucket_start, platform, model, user_id"},
+		{"channel_monitor_v2_user_metrics_rollup", "bucket_seconds, bucket_start, platform, model, user_id"},
+		{"channel_monitor_v2_latency_histograms_1m", "bucket_start, platform, model, user_id, metric, upper_bound_ms"},
+		{"channel_monitor_v2_latency_histograms_rollup", "bucket_seconds, bucket_start, platform, model, user_id, metric, upper_bound_ms"},
+	} {
+		var cols sql.NullString
+		require.NoError(t, tx.QueryRowContext(context.Background(), `
+			SELECT string_agg(a.attname, ', ' ORDER BY k.ord)
+			FROM pg_constraint c
+			JOIN unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord) ON TRUE
+			JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+			WHERE c.conrelid = $1::regclass AND c.contype = 'p'`, pk.table).Scan(&cols))
+		require.True(t, cols.Valid, "表 %s 应有主键（迁移 252 重建）", pk.table)
+		require.Equal(t, pk.cols, cols.String, "表 %s 的主键列组合", pk.table)
+	}
+
+	// preagg 唯一索引收窄成两列：不再含 group_id
+	for _, idx := range []string{"idx_ops_metrics_hourly_unique_dim", "idx_ops_metrics_daily_unique_dim"} {
+		var def string
+		require.NoError(t, tx.QueryRowContext(context.Background(),
+			"SELECT indexdef FROM pg_indexes WHERE schemaname='public' AND indexname=$1", idx).Scan(&def))
+		require.NotContains(t, def, "group_id", "%s 不应再含 group_id", idx)
+	}
 	requireIndex(t, tx, "ops_ingress_reject_aggregates", "idx_ops_ingress_reject_aggregates_bucket")
 	requireIndex(t, tx, "ops_ingress_reject_aggregates", "idx_ops_ingress_reject_aggregates_ip_bucket")
 
-	// user_allowed_groups table should exist
-	var uagRegclass sql.NullString
-	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.user_allowed_groups')").Scan(&uagRegclass))
-	require.True(t, uagRegclass.Valid, "expected user_allowed_groups table to exist")
-
 	// user_subscriptions: deleted_at for soft delete support (migration 012)
 	requireColumn(t, tx, "user_subscriptions", "deleted_at", "timestamp with time zone", 0, true)
-
-	// orphan_allowed_groups_audit table should exist (migration 013)
-	var orphanAuditRegclass sql.NullString
-	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT to_regclass('public.orphan_allowed_groups_audit')").Scan(&orphanAuditRegclass))
-	require.True(t, orphanAuditRegclass.Valid, "expected orphan_allowed_groups_audit table to exist")
-
-	// account_groups: created_at should be timestamptz
-	requireColumn(t, tx, "account_groups", "created_at", "timestamp with time zone", 0, false)
-
-	// user_allowed_groups: created_at should be timestamptz
-	requireColumn(t, tx, "user_allowed_groups", "created_at", "timestamp with time zone", 0, false)
 }
 
 func TestMigrationsRunner_AuthIdentityAndPaymentSchemaStayAligned(t *testing.T) {

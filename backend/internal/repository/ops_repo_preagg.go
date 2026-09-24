@@ -25,8 +25,8 @@ func (r *opsRepository) UpsertHourlyMetrics(ctx context.Context, startTime, endT
 	//   2) platform: (bucket_start, platform)
 	//
 	// IMPORTANT: Postgres UNIQUE treats NULLs as distinct, so the table uses a COALESCE-based
-	// unique index; our ON CONFLICT target must match that expression set. group_id is no longer
-	// written (always NULL → COALESCE 0); the column and the index are replaced in 7c.
+	// unique index; our ON CONFLICT target must match that expression set (migration 252
+	// narrowed both the index and this target to two columns).
 	q := `
 WITH usage_base AS (
   SELECT
@@ -187,7 +187,7 @@ SELECT
 FROM combined
 WHERE bucket_start IS NOT NULL
   AND (platform IS NULL OR platform <> '')
-ON CONFLICT (bucket_start, COALESCE(platform, ''), COALESCE(group_id, 0)) DO UPDATE SET
+ON CONFLICT (bucket_start, COALESCE(platform, '')) DO UPDATE SET
   success_count = EXCLUDED.success_count,
   ttft_sample_count = EXCLUDED.ttft_sample_count,
   error_count_total = EXCLUDED.error_count_total,
@@ -296,13 +296,9 @@ SELECT
 
   NOW()
 FROM ops_metrics_hourly
--- group_id IS NULL 不是可有可无的过滤：小时表里还躺着上线前写入的分组行（本 PR 之前的
--- GROUPING SETS 第三层），它们与平台行统计的是同一批请求。按 (日期, 平台) 汇总时若不排除，
--- 同一个平台会被算两遍。7c 删掉 group_id 列后这一条连同判空一起去掉。
 WHERE bucket_start >= $1 AND bucket_start < $2
-  AND group_id IS NULL
 GROUP BY 1, 2
-ON CONFLICT (bucket_date, COALESCE(platform, ''), COALESCE(group_id, 0)) DO UPDATE SET
+ON CONFLICT (bucket_date, COALESCE(platform, '')) DO UPDATE SET
   success_count = EXCLUDED.success_count,
   ttft_sample_count = EXCLUDED.ttft_sample_count,
   error_count_total = EXCLUDED.error_count_total,

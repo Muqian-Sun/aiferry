@@ -45,7 +45,6 @@ func (h *OpenAIGatewayHandler) AlphaSearch(c *gin.Context) {
 		"handler.openai_gateway.alpha_search",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 	if !h.ensureResponsesDependencies(c, reqLog) {
 		return
@@ -280,7 +279,6 @@ func (h *OpenAIGatewayHandler) recordAlphaSearchUsage(
 				zap.String("component", "handler.openai_gateway.alpha_search"),
 				zap.Int64("user_id", userID),
 				zap.Int64("api_key_id", apiKey.ID),
-				zap.Any("group_id", apiKey.GroupID),
 				zap.String("model", requestedModel),
 				zap.Int64("account_id", account.ID),
 			).Error("openai_alpha_search.record_usage_failed", zap.Error(err))

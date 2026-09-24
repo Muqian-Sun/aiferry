@@ -1972,7 +1972,6 @@ func contentModerationEmailSourceID(log *ContentModerationLog) string {
 func contentModerationEmailVariables(log *ContentModerationLog, cfg *ContentModerationConfig) map[string]string {
 	variables := map[string]string{
 		"triggered_at":        time.Now().UTC().Format(time.RFC3339),
-		"group_name":          "-",
 		"moderation_category": "-",
 		"moderation_score":    "0.000",
 		"violation_count":     "0",

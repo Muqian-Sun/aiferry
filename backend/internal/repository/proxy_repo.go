@@ -265,7 +265,7 @@ func enqueueProxyProbeAccountChanges(ctx context.Context, exec sqlExecutor, acco
 			end = len(accountIDs)
 		}
 		payload := map[string]any{"account_ids": accountIDs[start:end]}
-		if err := enqueueSchedulerOutbox(ctx, exec, service.SchedulerOutboxEventAccountBulkChanged, nil, nil, payload); err != nil {
+		if err := enqueueSchedulerOutbox(ctx, exec, service.SchedulerOutboxEventAccountBulkChanged, nil, payload); err != nil {
 			return err
 		}
 	}
@@ -670,7 +670,7 @@ func (r *proxyRepository) SweepExpiredProxies(ctx context.Context, now time.Time
 		// 各代理的改投事务已经提交；这里仅汇总真实被 UPDATE 命中的账号，
 		// 避免代理到期时用全量重建刷新所有调度分桶。
 		payload := map[string]any{"account_ids": changedAccountIDs}
-		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountBulkChanged, nil, nil, payload); err != nil {
+		if err := enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventAccountBulkChanged, nil, payload); err != nil {
 			logger.LegacyPrintf("repository.proxy", "[SchedulerOutbox] enqueue proxy expiry account changes failed: err=%v", err)
 		}
 	}

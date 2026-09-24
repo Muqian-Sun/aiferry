@@ -1605,29 +1605,6 @@ func QuotaDimensionNotIn(vs ...QuotaDimension) predicate.Account {
 	return predicate.Account(sql.FieldNotIn(FieldQuotaDimension, vs...))
 }
 
-// HasGroups applies the HasEdge predicate on the "groups" edge.
-func HasGroups() predicate.Account {
-	return predicate.Account(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, GroupsTable, GroupsPrimaryKey...),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasGroupsWith applies the HasEdge predicate on the "groups" edge with a given conditions (other predicates).
-func HasGroupsWith(preds ...predicate.Group) predicate.Account {
-	return predicate.Account(func(s *sql.Selector) {
-		step := newGroupsStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
 // HasProxy applies the HasEdge predicate on the "proxy" edge.
 func HasProxy() predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
@@ -1735,29 +1712,6 @@ func HasCatalogEntries() predicate.Account {
 func HasCatalogEntriesWith(preds ...predicate.ModelCatalogEntry) predicate.Account {
 	return predicate.Account(func(s *sql.Selector) {
 		step := newCatalogEntriesStep()
-		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
-			for _, p := range preds {
-				p(s)
-			}
-		})
-	})
-}
-
-// HasAccountGroups applies the HasEdge predicate on the "account_groups" edge.
-func HasAccountGroups() predicate.Account {
-	return predicate.Account(func(s *sql.Selector) {
-		step := sqlgraph.NewStep(
-			sqlgraph.From(Table, FieldID),
-			sqlgraph.Edge(sqlgraph.O2M, true, AccountGroupsTable, AccountGroupsColumn),
-		)
-		sqlgraph.HasNeighbors(s, step)
-	})
-}
-
-// HasAccountGroupsWith applies the HasEdge predicate on the "account_groups" edge with a given conditions (other predicates).
-func HasAccountGroupsWith(preds ...predicate.AccountGroup) predicate.Account {
-	return predicate.Account(func(s *sql.Selector) {
-		step := newAccountGroupsStep()
 		sqlgraph.HasNeighborsWith(s, step, func(s *sql.Selector) {
 			for _, p := range preds {
 				p(s)

@@ -4,10 +4,9 @@ import "time"
 
 // APIKeyAuthSnapshot API Key 认证缓存快照（仅包含认证所需字段）
 type APIKeyAuthSnapshot struct {
-	Version  int    `json:"version"`
-	APIKeyID int64  `json:"api_key_id"`
-	UserID   int64  `json:"user_id"`
-	GroupID  *int64 `json:"group_id,omitempty"`
+	Version  int   `json:"version"`
+	APIKeyID int64 `json:"api_key_id"`
+	UserID   int64 `json:"user_id"`
 	// SubscriptionID 订阅 key 绑定的订阅；余额 key 为 nil。缺这一项的旧快照会被版本号挡掉（v25）
 	SubscriptionID *int64                 `json:"subscription_id,omitempty"`
 	Name           string                 `json:"name"`
