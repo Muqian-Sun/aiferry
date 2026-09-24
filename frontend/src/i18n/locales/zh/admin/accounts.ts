@@ -74,6 +74,24 @@ export default {
       dataImportSuccess: '导入完成：账号 {account_created}，失败 {account_failed}',
       dataImportCompletedWithErrors: '导入完成但有错误：账号失败 {account_failed}，代理失败 {proxy_failed}',
       editAccount: '编辑渠道',
+      // 新建 / 编辑渠道整页（A5-c）：/accounts/new、/accounts/:id/edit
+      formPage: {
+        createTitle: '添加渠道',
+        editTitle: '编辑渠道',
+        backToList: '渠道',
+        backToListAction: '返回渠道列表',
+        loading: '正在加载渠道…',
+        notFound: '找不到渠道 #{id}，可能已被删除。',
+        loadFailed: '渠道加载失败：{message}',
+        retry: '重试',
+        sections: {
+          basics: '基本',
+          endpoint: '地址与协议',
+          models: '模型与映射',
+          limits: '额度',
+          advanced: '高级'
+        }
+      },
       deleteAccount: '删除渠道',
       searchAccounts: '搜索渠道名称',
       notes: '备注',

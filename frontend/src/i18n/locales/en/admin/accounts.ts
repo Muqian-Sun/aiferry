@@ -74,6 +74,24 @@ export default {
       dataImportSuccess: 'Import completed: accounts {account_created}, failed {account_failed}',
       dataImportCompletedWithErrors: 'Import completed with errors: account failed {account_failed}, proxy failed {proxy_failed}',
       editAccount: 'Edit Channel',
+      // Standalone create / edit channel pages (A5-c): /accounts/new, /accounts/:id/edit
+      formPage: {
+        createTitle: 'Add channel',
+        editTitle: 'Edit channel',
+        backToList: 'Channels',
+        backToListAction: 'Back to channels',
+        loading: 'Loading channel…',
+        notFound: 'Channel #{id} was not found. It may have been deleted.',
+        loadFailed: 'Failed to load the channel: {message}',
+        retry: 'Retry',
+        sections: {
+          basics: 'Basics',
+          endpoint: 'Endpoint & protocol',
+          models: 'Models & mapping',
+          limits: 'Limits',
+          advanced: 'Advanced'
+        }
+      },
       deleteAccount: 'Delete Channel',
       searchAccounts: 'Search channel name',
       notes: 'Notes',
