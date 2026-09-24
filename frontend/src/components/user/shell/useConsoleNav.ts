@@ -11,9 +11,7 @@ import { buildConsoleNav, type NavIcon, type NavTab } from './navItems'
 const BILLING_ICONS: Record<string, NavIcon> = {
   recharge: 'creditCard',
   subscriptions: 'badge',
-  orders: 'document',
-  redeem: 'gift',
-  affiliate: 'users'
+  redeem: 'gift'
 }
 
 /**

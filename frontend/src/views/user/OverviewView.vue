@@ -70,6 +70,18 @@
               <Icon name="arrowRight" size="xs" class="hero-link-arrow" />
             </RouterLink>
           </div>
+          <!-- 调用示例：用目录里真有的模型、按它的原生协议写；密钥写成 $API_KEY，不把完整密钥摆在屏幕上 -->
+          <div v-if="example" class="flex flex-wrap items-start gap-x-6 gap-y-2 py-3.5" data-testid="overview-example">
+            <dt class="w-24 shrink-0 pt-2.5 text-13 text-af-ink-3">{{ t('userUi.overview.quickStart.example') }}</dt>
+            <dd class="min-w-0 flex-1">
+              <pre class="overflow-x-auto rounded-md bg-af-sunken px-4 py-3 font-mono text-13 leading-6 text-af-ink-2"><code>{{ example }}</code></pre>
+              <p class="mt-2 text-xs text-af-ink-4">{{ t('userUi.overview.quickStart.exampleHint') }}</p>
+            </dd>
+            <button type="button" :class="[COPY_BUTTON, 'pt-2.5']" @click="copy('example', example)">
+              <Icon :name="copied === 'example' ? 'check' : 'copy'" size="sm" />
+              {{ copied === 'example' ? t('userUi.overview.quickStart.copied') : t('userUi.overview.quickStart.copy') }}
+            </button>
+          </div>
         </dl>
       </SheetSection>
 
@@ -118,6 +130,8 @@ import { useClipboard } from '@/composables/useClipboard'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { formatCurrency, formatDateOnly, formatNumber, formatTokensK } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
+import { getModelPlaza } from '@/api/modelPlaza'
+import { buildCatalog, type CatalogModel } from '@/components/modelPlaza/catalog'
 import { vReveal } from '@/directives/reveal'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -203,7 +217,7 @@ async function loadStats() {
 const baseUrl = computed(() => appStore.cachedPublicSettings?.api_base_url || window.location.origin)
 const firstKey = ref<ApiKey | null>(null)
 const keysLoading = ref(false)
-const copied = ref<'url' | 'key' | null>(null)
+const copied = ref<'url' | 'key' | 'example' | null>(null)
 let copiedTimer: ReturnType<typeof setTimeout> | null = null
 
 /** 第一把可用的密钥（按创建时间倒序）；拿不到就显示「创建密钥」入口，不报错 */
@@ -220,7 +234,55 @@ async function loadFirstKey() {
   }
 }
 
-async function copy(which: 'url' | 'key', value: string) {
+// 调用示例的模型：目录里真有的（优先 OpenAI 厂商，Chat Completions 最通用）；拿不到目录就不出示例
+const exampleModel = ref<CatalogModel | null>(null)
+async function loadExampleModel() {
+  try {
+    const catalog = buildCatalog((await getModelPlaza()).models ?? [])
+    exampleModel.value = catalog.find((m) => m.vendor === 'openai') ?? catalog[0] ?? null
+  } catch (error) {
+    console.error('Failed to load model catalog:', error)
+    exampleModel.value = null
+  }
+}
+
+/**
+ * 按模型厂商的原生协议写 curl（网关各入口都认 Authorization: Bearer，见 server/middleware/api_key_auth*.go）：
+ * Anthropic → /v1/messages；Gemini → /v1beta/models/{model}:generateContent；其余 → /v1/chat/completions。
+ */
+const example = computed(() => {
+  const model = exampleModel.value
+  if (!model) return ''
+  const base = baseUrl.value.replace(/\/+$/, '')
+  const auth = '  -H "Authorization: Bearer $API_KEY" \\'
+  const json = '  -H "Content-Type: application/json" \\'
+  const hello = t('userUi.overview.quickStart.exampleMessage')
+  if (model.vendor === 'anthropic') {
+    return [
+      `curl ${base}/v1/messages \\`,
+      auth,
+      json,
+      '  -H "anthropic-version: 2023-06-01" \\',
+      `  -d '{"model": "${model.id}", "max_tokens": 256, "messages": [{"role": "user", "content": "${hello}"}]}'`
+    ].join('\n')
+  }
+  if (model.vendor === 'google' || model.vendor === 'gemini') {
+    return [
+      `curl ${base}/v1beta/models/${model.id}:generateContent \\`,
+      auth,
+      json,
+      `  -d '{"contents": [{"parts": [{"text": "${hello}"}]}]}'`
+    ].join('\n')
+  }
+  return [
+    `curl ${base}/v1/chat/completions \\`,
+    auth,
+    json,
+    `  -d '{"model": "${model.id}", "messages": [{"role": "user", "content": "${hello}"}]}'`
+  ].join('\n')
+})
+
+async function copy(which: 'url' | 'key' | 'example', value: string) {
   if (!(await copyToClipboard(value))) return
   copied.value = which
   if (copiedTimer) clearTimeout(copiedTimer)
@@ -264,6 +326,27 @@ const trendSummary = computed(() => {
   })
 })
 
+/** 按天补齐：接口只返回有请求的日子，趋势要连续 N 天，缺的日子各项记 0 */
+function fillDays(points: TrendDataPoint[], start: Date, days: number): TrendDataPoint[] {
+  const byDate = new Map(points.map((p) => [p.date, p]))
+  return Array.from({ length: days }, (_, i) => {
+    const date = formatLocalDate(new Date(start.getTime() + i * 24 * 60 * 60 * 1000))
+    return (
+      byDate.get(date) ?? {
+        date,
+        requests: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 0,
+        total_tokens: 0,
+        cost: 0,
+        actual_cost: 0
+      }
+    )
+  })
+}
+
 async function loadTrend() {
   trendLoading.value = true
   trendError.value = false
@@ -277,7 +360,7 @@ async function loadTrend() {
       include_trend: true,
       include_model_stats: false
     })
-    trend.value = snapshot.trend || []
+    trend.value = fillDays(snapshot.trend || [], start, TREND_DAYS)
   } catch (error) {
     console.error('Failed to load trend:', error)
     trendError.value = true
@@ -304,5 +387,6 @@ onMounted(() => {
   void loadStats()
   void loadFirstKey()
   void loadTrend()
+  void loadExampleModel()
 })
 </script>

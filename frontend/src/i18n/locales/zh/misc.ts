@@ -60,15 +60,8 @@ export default {
 
   // Recharge / Subscription Page
   purchase: {
-    title: '充值/订阅',
-    description: '通过内嵌页面完成充值/订阅',
-    rechargeDescription: '通过内嵌页面完成充值',
-    subscriptionDescription: '通过内嵌页面完成订阅',
-    openInNewTab: '新窗口打开',
-    notEnabledTitle: '该功能未开启',
-    notEnabledDesc: '管理员暂未开启充值/订阅入口，请联系管理员。',
-    notConfiguredTitle: '充值/订阅链接未配置',
-    notConfiguredDesc: '管理员已开启入口，但尚未配置充值/订阅链接，请联系管理员。'
+    rechargeDescription: '为账户余额充值，调用时按量从余额扣费',
+    subscriptionDescription: '购买订阅套餐，在套餐额度内使用'
   },
 
   // Custom Page (iframe embed)
@@ -282,7 +275,6 @@ export default {
       userId: '用户 ID',
       orderType: '订单类型',
       actions: '操作',
-      requestRefund: '申请退款',
     },
     result: {
       success: '支付成功',
@@ -291,7 +283,7 @@ export default {
       processingHint: '支付结果仍在确认中，页面会自动刷新。',
       failed: '支付失败',
       backToRecharge: '返回充值',
-      viewOrders: '查看订单',
+      backToOverview: '返回概览',
     },
     currentBalance: '当前余额',
     rechargeAccount: '充值账户',
@@ -303,13 +295,10 @@ export default {
     notAvailable: '充值功能暂未开放',
     billingUnavailable: '充值与订阅均暂未开放，请联系管理员。',
     confirmSubscription: '确认订阅',
-    confirmCancel: '确定要取消此订单吗？',
     amountTooLow: '最低金额为 {min}',
     amountTooHigh: '最高金额为 {max}',
     amountNoMethod: '该金额没有可用的支付方式',
     rechargeRatePreview: '当前倍率：1 {currency} = {usd} USD',
-    refundReason: '退款原因',
-    refundReasonPlaceholder: '请描述您的退款原因',
     stripeLoadFailed: '支付组件加载失败，请刷新页面重试',
     stripeMissingParams: '缺少订单ID或支付密钥',
     stripeNotConfigured: 'Stripe 未配置',

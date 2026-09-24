@@ -1,9 +1,6 @@
 <template>
-  <!-- 平铺区块：说明 + 开关 + 阈值 + 通知邮箱；外层由 ProfileView 的「通知」节承载 -->
-  <div class="space-y-6">
-    <p class="text-13 text-af-ink-3">
-      {{ t('profile.balanceNotify.description') }}
-    </p>
+  <!-- 开关 + 阈值 + 通知邮箱；标题与说明在 ProfileView 的设置行左栏 -->
+  <div>
     <div class="space-y-6">
       <!-- Enable toggle -->
       <div class="flex items-center justify-between">

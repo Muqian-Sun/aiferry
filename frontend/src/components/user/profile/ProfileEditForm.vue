@@ -1,13 +1,11 @@
 <template>
-  <!-- 平铺区块：小标题 + 表单 -->
-  <div class="space-y-4">
-    <h3 class="text-sm font-semibold text-af-ink">
-      {{ t('profile.editProfile') }}
-    </h3>
+  <!-- 用户名表单；标题在 ProfileInfoCard 的设置行左栏 -->
+  <div>
     <div>
-      <form @submit.prevent="handleUpdateProfile" class="space-y-4">
-        <div>
-          <label for="username" class="input-label">
+      <form @submit.prevent="handleUpdateProfile" class="flex flex-col gap-3 sm:flex-row">
+        <div class="min-w-0 flex-1">
+          <!-- 设置行左栏已写「用户名」，这里只给读屏 -->
+          <label for="username" class="sr-only">
             {{ t('profile.username') }}
           </label>
           <input
@@ -19,11 +17,9 @@
           />
         </div>
 
-        <div class="flex justify-end pt-2">
-          <button type="submit" :disabled="loading" class="btn btn-primary btn-sm">
-            {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
-          </button>
-        </div>
+        <button type="submit" :disabled="loading" class="btn btn-primary btn-md shrink-0">
+          {{ loading ? t('profile.updating') : t('profile.updateProfile') }}
+        </button>
       </form>
     </div>
   </div>

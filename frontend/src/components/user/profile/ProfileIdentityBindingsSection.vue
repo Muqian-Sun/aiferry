@@ -1,34 +1,17 @@
 <template>
-  <!-- 平铺区块：每个登录方式一行，行间 hairline，无卡片 -->
-  <div class="space-y-4">
-    <div>
-      <h3 class="text-sm font-semibold text-af-ink">
-        {{ t('profile.authBindings.title') }}
-      </h3>
-      <p class="mt-1 text-13 text-af-ink-3">
-        {{ t('profile.authBindings.description') }}
-      </p>
-    </div>
-
+  <!-- 每个登录方式一行，行间 hairline，无卡片；标题与说明在 ProfileView 的设置行左栏 -->
+  <div>
     <div class="divide-y divide-af-hairline">
       <div
-        v-for="item in providerItems"
+        v-for="item in visibleProviderItems"
         :key="item.provider"
         class="py-4 first:pt-0 last:pb-0"
       >
         <div class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
           <div class="flex min-w-0 flex-1 items-start gap-4">
-            <div
-              class="flex h-9 w-9 shrink-0 items-center justify-center rounded-md text-sm font-semibold"
-              :class="item.bound ? 'bg-af-brand-tint text-af-brand' : 'bg-af-sunken text-af-ink-3'"
-            >
-              <Icon
-                v-if="item.provider === 'email'"
-                name="mail"
-                size="sm"
-                class="text-current"
-              />
-              <span v-else>{{ providerInitial(item.provider) }}</span>
+            <!-- 登录方式标识：真品牌标（有的话）或线性图标，不再是灰底字母方块 -->
+            <div class="flex h-9 w-6 shrink-0 items-center justify-center" :class="item.bound ? 'text-af-ink' : 'text-af-ink-4'">
+              <ProviderMark :provider="item.provider" />
             </div>
 
             <div class="min-w-0 flex-1 space-y-3">
@@ -142,7 +125,7 @@
               v-if="item.provider === 'email' && compact"
               data-testid="profile-binding-email-toggle"
               type="button"
-              class="btn btn-secondary btn-sm"
+              class="hero-link text-13 font-medium"
               @click="toggleEmailForm"
             >
               {{
@@ -155,16 +138,17 @@
               v-if="item.canBind"
               :data-testid="`profile-binding-${item.provider}-action`"
               type="button"
-              class="btn btn-primary btn-sm"
+              class="hero-link text-13 font-medium"
               @click="startBinding(item.provider)"
             >
               {{ t('profile.authBindings.bindAction', { providerName: item.label }) }}
+              <Icon name="arrowRight" size="xs" class="hero-link-arrow" />
             </button>
             <button
               v-if="item.canUnbind"
               :data-testid="`profile-binding-${item.provider}-unbind`"
               type="button"
-              class="btn btn-secondary btn-sm"
+              class="text-13 font-medium text-af-ink-3 transition-colors hover:text-af-danger disabled:opacity-40"
               :disabled="unbindingProvider === item.provider"
               @click="handleUnbindForItem(item.provider, item.label)"
             >
@@ -197,6 +181,7 @@ import {
   unbindAuthIdentity,
 } from '@/api/user'
 import Icon from '@/components/icons/Icon.vue'
+import ProviderMark from './ProviderMark.vue'
 import { useAppStore, useAuthStore } from '@/stores'
 import type { User, UserAuthBindingStatus, UserAuthProvider } from '@/types'
 
@@ -452,22 +437,12 @@ const providerItems = computed(() => [
   },
 ])
 
-function providerInitial(provider: UserAuthProvider): string {
-  if (provider === 'linuxdo') {
-    return 'L'
-  }
-  if (provider === 'dingtalk') {
-    return 'D'
-  }
-  if (provider === 'wechat') {
-    return 'W'
-  }
-  if (provider === 'oidc') {
-    return 'O'
-  }
-  return 'E'
-}
-
+/** 站点没开、用户也没绑过的第三方不列（只剩一行「未绑定」、没有任何可点的动作）；邮箱恒列，绑过的留着好解绑 */
+const visibleProviderItems = computed(() =>
+  providerItems.value.filter(
+    (item) => item.provider === 'email' || item.bound || isProviderEnabledForBinding(item.provider)
+  )
+)
 
 function providerSummary(provider: UserAuthProvider): string {
   if (provider === 'email') {

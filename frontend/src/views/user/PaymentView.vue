@@ -5,7 +5,7 @@
     这里只用平铺区块（不用 SheetSection 等子组件，让 shallowMount 的旧用例仍能读到文案）。
   -->
   <div>
-    <div :class="['space-y-8', mode === 'recharge' ? 'max-w-form' : '']">
+    <div :class="['space-y-8', mode === 'recharge' || selectedPlan ? 'max-w-form' : '']">
       <div v-if="loading" class="flex items-center justify-center py-16" role="status" aria-busy="true">
         <div class="h-6 w-6 animate-spin rounded-full border-2 border-af-brand border-t-transparent"></div>
       </div>
@@ -40,11 +40,11 @@
           <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
             <div class="min-w-0 pr-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.rechargeAccount') }}</dt>
-              <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || '' }}</dd>
+              <dd class="mt-1 truncate text-base font-semibold text-af-ink">{{ user?.username || user?.email || '' }}</dd>
             </div>
             <div class="min-w-0 pl-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.currentBalance') }}</dt>
-              <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">${{ user?.balance?.toFixed(2) || '0.00' }}</dd>
+              <dd class="mt-1 text-base font-semibold tabular-nums text-af-ink">{{ formatCurrency(user?.balance ?? 0) }}</dd>
             </div>
           </dl>
 
@@ -184,7 +184,7 @@
           <!-- 套餐列表 -->
           <template v-else>
             <p v-if="checkout.plans.length === 0" class="py-12 text-center text-sm text-af-ink-3">{{ t('payment.noPlans') }}</p>
-            <div v-else class="-my-5 divide-y divide-af-hairline" data-testid="plan-list">
+            <div v-else class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3" data-testid="plan-list">
               <SubscriptionPlanCard v-for="plan in checkout.plans" :key="plan.id" :plan="plan" :active-subscriptions="activeSubscriptions" @select="selectPlan" />
             </div>
           </template>
@@ -226,6 +226,7 @@ import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
+import { formatCurrency } from '@/utils/format'
 import type { SubscriptionPlan, CheckoutInfoResponse, CreateOrderResult, OrderType } from '@/types/payment'
 import AmountInput from '@/components/payment/AmountInput.vue'
 import PaymentMethodSelector from '@/components/payment/PaymentMethodSelector.vue'
@@ -658,18 +659,6 @@ function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   errorMessage.value = ''
 }
-
-/** 续费某个套餐：直接进该套餐的确认购买。SubscriptionsView 的「续费」按钮调用。 */
-function startRenewal(planId: number) {
-  if (props.mode !== 'subscription' || !subscriptionEnabled.value) return
-  const plan = checkout.value.plans.find(p => p.id === planId)
-  if (plan) {
-    selectedPlan.value = plan
-    errorMessage.value = ''
-  }
-}
-
-defineExpose({ startRenewal })
 
 async function handleSubmitRecharge() {
   if (!canSubmit.value || submitting.value) return

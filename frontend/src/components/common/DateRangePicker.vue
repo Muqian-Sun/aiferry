@@ -3,7 +3,7 @@
     <button
       type="button"
       @click="toggle"
-      :class="['date-picker-trigger', isOpen && 'date-picker-trigger-open']"
+      :class="['date-picker-trigger', isOpen && 'date-picker-trigger-open', plain && 'date-picker-trigger-plain']"
     >
       <span class="date-picker-icon">
         <Icon name="calendar" size="sm" />
@@ -79,6 +79,7 @@
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
+import { IS_ADMIN_SITE } from '@/app/site'
 
 interface DatePreset {
   labelKey: string
@@ -101,6 +102,9 @@ const props = defineProps<Props>()
 const emit = defineEmits<Emits>()
 
 const { t, locale } = useI18n()
+
+/** 用户站触发器不画框（见样式区 .date-picker-trigger-plain） */
+const plain = !IS_ADMIN_SITE
 
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
@@ -433,5 +437,11 @@ onUnmounted(() => {
 .date-picker-dropdown-leave-to {
   opacity: 0;
   transform: translateY(-8px);
+}
+
+/* 用户站：触发器不画框，只有图标 + 文字 + 箭头（与语言切换同一套，muqian 2026-09-23 不要方块）；管理端保持描边 */
+.date-picker-trigger-plain {
+  @apply border-transparent bg-transparent px-1 font-medium text-af-ink;
+  @apply hover:border-transparent hover:text-af-ink-2 focus:border-transparent focus:ring-0 focus-visible:underline;
 }
 </style>

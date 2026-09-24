@@ -27,6 +27,9 @@
       </dl>
     </div>
 
+    <!-- 控制台形态：页头由壳画，这里补一条数字摘要（上架模型 / 厂商 / 你的计价倍率），与其它列表页一致 -->
+    <StatRow v-if="embedded && catalog.length" :items="consoleSummary" data-testid="plaza-console-summary" />
+
     <!-- 管理员配置的全局价格说明（Markdown） -->
     <div v-if="descriptionHtml" class="plaza-description text-sm text-af-ink-2" v-html="descriptionHtml"></div>
 
@@ -148,6 +151,8 @@ import SearchInput from '@/components/common/SearchInput.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import VendorIcon from '@/components/common/VendorIcon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import { vReveal } from '@/directives/reveal'
 import type { ModelPlazaResponse } from '@/api/modelPlaza'
 import { useAuthStore } from '@/stores/auth'
@@ -247,6 +252,11 @@ watch(billingModeOptions, (options) => {
 const isAuthenticated = computed(() => authStore.isAuthenticated)
 const userMultiplier = computed(() => Number(authStore.user?.rate_multiplier ?? 1))
 const showUserPrice = computed(() => isAuthenticated.value && userMultiplier.value !== 1)
+const consoleSummary = computed<StatItem[]>(() => [
+  { key: 'models', label: t('userUi.home.stats.models'), value: String(catalog.value.length) },
+  { key: 'vendors', label: t('userUi.home.stats.vendors'), value: String(vendors.value.length) },
+  { key: 'multiplier', label: t('profile.rateMultiplier'), value: `× ${userMultiplier.value}` }
+])
 /**
  * 一个格子要列的计费项（口径 = 后端实际收费项）：
  * token 模式固定列输入 / 输出 / 缓存写入 / 缓存读取（没定价的显示破折号），1 小时缓存写入与图片输入输出只在定了价时列；

@@ -14,8 +14,6 @@ import type {
   ChangePasswordRequest,
   NotifyEmailEntry,
   UserAuthProvider,
-  UserAffiliateDetail,
-  AffiliateTransferResponse,
 } from '@/types'
 
 /**
@@ -141,7 +139,7 @@ export function buildOAuthBindingStartURL(
   provider: BindableOAuthProvider,
   options: BuildOAuthBindingStartURLOptions = {}
 ): string | null {
-  const redirectTo = options.redirectTo?.trim() || '/profile'
+  const redirectTo = options.redirectTo?.trim() || '/profile/security'
   const apiBase = (import.meta.env.VITE_API_BASE_URL as string | undefined) || '/api/v1'
   const normalized = apiBase.replace(/\/$/, '')
   const params = new URLSearchParams({
@@ -175,16 +173,6 @@ export async function startOAuthBinding(
   window.location.href = startURL
 }
 
-export async function getAffiliateDetail(): Promise<UserAffiliateDetail> {
-  const { data } = await apiClient.get<UserAffiliateDetail>('/user/aff')
-  return data
-}
-
-export async function transferAffiliateQuota(): Promise<AffiliateTransferResponse> {
-  const { data } = await apiClient.post<AffiliateTransferResponse>('/user/aff/transfer')
-  return data
-}
-
 export const userAPI = {
   getProfile,
   updateProfile,
@@ -198,8 +186,6 @@ export const userAPI = {
   unbindAuthIdentity,
   buildOAuthBindingStartURL,
   startOAuthBinding,
-  getAffiliateDetail,
-  transferAffiliateQuota,
 }
 
 export default userAPI

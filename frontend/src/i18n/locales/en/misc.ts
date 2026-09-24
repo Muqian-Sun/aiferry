@@ -61,16 +61,8 @@ export default {
 
   // Recharge / Subscription Page
   purchase: {
-    title: 'Recharge / Subscription',
-    description: 'Recharge balance or purchase subscription via the embedded page',
-    rechargeDescription: 'Recharge balance via the embedded page',
-    subscriptionDescription: 'Purchase subscription via the embedded page',
-    openInNewTab: 'Open in new tab',
-    notEnabledTitle: 'Feature not enabled',
-    notEnabledDesc: 'The administrator has not enabled the recharge/subscription entry. Please contact admin.',
-    notConfiguredTitle: 'Recharge / Subscription URL not configured',
-    notConfiguredDesc:
-      'The administrator enabled the entry but has not configured a recharge/subscription URL. Please contact admin.'
+    rechargeDescription: 'Top up your balance; usage is charged from it per request',
+    subscriptionDescription: 'Buy a subscription plan and use it within its limits'
   },
 
   // Custom Page (iframe embed)
@@ -281,7 +273,6 @@ export default {
       userId: 'User ID',
       orderType: 'Order Type',
       actions: 'Actions',
-      requestRefund: 'Request Refund',
     },
     result: {
       success: 'Payment Successful',
@@ -290,7 +281,7 @@ export default {
       processingHint: 'Payment confirmation is still pending. This page will refresh automatically.',
       failed: 'Payment Failed',
       backToRecharge: 'Back to Recharge',
-      viewOrders: 'View Orders',
+      backToOverview: 'Back to overview',
     },
     currentBalance: 'Current Balance',
     rechargeAccount: 'Recharge Account',
@@ -302,13 +293,10 @@ export default {
     notAvailable: 'Top-up is currently unavailable',
     billingUnavailable: 'Neither top-up nor subscriptions are currently available. Please contact the administrator.',
     confirmSubscription: 'Confirm Subscription',
-    confirmCancel: 'Are you sure you want to cancel this order?',
     amountTooLow: 'Minimum amount is {min}',
     amountTooHigh: 'Maximum amount is {max}',
     amountNoMethod: 'No payment method available for this amount',
     rechargeRatePreview: 'Current rate: 1 {currency} = {usd} USD',
-    refundReason: 'Refund Reason',
-    refundReasonPlaceholder: 'Please describe your refund reason',
     stripeLoadFailed: 'Failed to load payment component. Please refresh and try again.',
     stripeMissingParams: 'Missing order ID or client secret',
     stripeNotConfigured: 'Stripe is not configured',

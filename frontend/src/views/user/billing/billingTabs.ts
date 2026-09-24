@@ -7,7 +7,6 @@ import type { SectionTab } from '@/components/user/shell/types'
 export interface BillingFlags {
   payment: boolean
   subscription: boolean
-  affiliate: boolean
 }
 
 interface BillingTabDef {
@@ -20,9 +19,7 @@ interface BillingTabDef {
 const BILLING_TABS: BillingTabDef[] = [
   { key: 'recharge', path: '/billing/recharge', labelKey: 'userUi.billing.tabs.recharge', visible: (f) => f.payment },
   { key: 'subscriptions', path: '/billing/subscriptions', labelKey: 'userUi.billing.tabs.subscriptions', visible: (f) => f.subscription },
-  { key: 'orders', path: '/billing/orders', labelKey: 'userUi.billing.tabs.orders', visible: (f) => f.payment },
-  { key: 'redeem', path: '/billing/redeem', labelKey: 'redeem.title', visible: () => true },
-  { key: 'affiliate', path: '/billing/affiliate', labelKey: 'userUi.billing.tabs.affiliate', visible: (f) => f.affiliate }
+  { key: 'redeem', path: '/billing/redeem', labelKey: 'redeem.title', visible: () => true }
 ]
 
 export function buildBillingTabs(flags: BillingFlags, t: (key: string) => string): SectionTab[] {

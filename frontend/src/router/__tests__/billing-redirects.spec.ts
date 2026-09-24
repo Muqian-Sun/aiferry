@@ -45,9 +45,7 @@ describe('legacy billing redirects', () => {
 
   it.each([
     ['/subscriptions', '/billing/subscriptions'],
-    ['/orders', '/billing/orders'],
-    ['/redeem', '/billing/redeem'],
-    ['/affiliate', '/billing/affiliate']
+    ['/redeem', '/billing/redeem']
   ])('maps %s to %s keeping the query', (from, target) => {
     expect(redirectOf(from)(to(from, { page: '2' }))).toEqual({ path: target, query: { page: '2' } })
   })

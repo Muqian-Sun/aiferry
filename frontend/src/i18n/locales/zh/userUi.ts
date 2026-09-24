@@ -101,7 +101,10 @@ export default {
         allKeys: '全部密钥',
         createKey: '创建密钥',
         copy: '复制',
-        copied: '已复制'
+        copied: '已复制',
+        example: '调用示例',
+        exampleHint: '把 $API_KEY 换成上面复制的密钥，或先 export API_KEY=你的密钥',
+        exampleMessage: '你好'
       },
       trend: {
         title: '用量趋势',
@@ -114,9 +117,7 @@ export default {
       description: '充值、订阅、订单与邀请返利',
       tabs: {
         recharge: '充值',
-        subscriptions: '订阅',
-        orders: '订单',
-        affiliate: '邀请'
+        subscriptions: '订阅'
       }
     },
     usage: {
@@ -150,7 +151,6 @@ export default {
         tokens: 'Token',
         requests: '请求',
         cost: '费用',
-        rangeSummary: '区间内 {requests} 次请求 · {tokens} Token · 费用 {cost}',
         empty: '这段时间没有数据'
       },
       share: '占比',
@@ -171,7 +171,18 @@ export default {
         security: '第三方登录绑定、密码、双因素认证与通行密钥',
         notifications: '余额不足时发邮件提醒'
       },
-      notificationsOff: '管理员没有开启余额提醒'
+      notificationsOff: '管理员没有开启余额提醒',
+      rows: {
+        overview: '账户概况',
+        overviewDesc: '登录身份、余额与计价倍率',
+        usernameDesc: '未设置时显示邮箱',
+        passwordDesc: '用于邮箱登录，至少 8 个字符'
+      }
+    },
+    summary: {
+      keys: '密钥',
+      activeKeys: '活跃',
+      redeemHistoryDesc: '兑换与管理员调整都记在这里'
     },
     models: {
       title: '模型',

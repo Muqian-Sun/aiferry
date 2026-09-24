@@ -135,7 +135,7 @@ export function createSiteGuard(options: SiteGuardOptions) {
     // 公共设置可能尚未加载（根组件 onMounted 异步拉取晚于首次导航，且纯静态部署
     // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
     // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-    if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSubscription || to.meta.requiresAffiliate) && !appStore.publicSettingsLoaded) {
+    if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSubscription) && !appStore.publicSettingsLoaded) {
       try {
         await appStore.fetchPublicSettings()
       } catch (error) {
@@ -155,11 +155,6 @@ export function createSiteGuard(options: SiteGuardOptions) {
     }
     // 订阅功能是 opt-out 开关：只有显式 false 才拦截「我的订阅」页直达。
     if (to.meta.requiresSubscription && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.subscription_enabled === false) {
-      next(homePath)
-      return
-    }
-    // 邀请返利与支付一样是 opt-in：账务页签不显示它时，直达 /billing/affiliate 也要弹走
-    if (to.meta.requiresAffiliate && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.affiliate_enabled === false) {
       next(homePath)
       return
     }

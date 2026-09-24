@@ -83,15 +83,14 @@ describe('SubscriptionsView', () => {
     const meter = rows[0].get('[role="meter"]')
     expect(meter.attributes('aria-valuemax')).toBe('10')
     expect(meter.attributes('aria-valuenow')).toBe('3')
-    expect(wrapper.get('[data-testid="subscription-models"]').text()).toContain('GPT 5.6 / claude-sonnet-4-5')
     expect(wrapper.get('[data-testid="subscription-key"]').text()).toContain('sk-abc****wxyz')
   })
 
-  it('hands the renewal off to the embedded payment engine with the subscription plan id', async () => {
+  it('keeps renewal and plan contents on the plan cards only, not repeated in the subscription panel', async () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(true)
-    await wrapper.get('[data-testid="subscription-row"] button').trigger('click')
-    expect(startRenewal).toHaveBeenCalledWith(42)
+    expect(wrapper.find('[data-testid="subscription-row"] button').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="subscription-models"]').exists()).toBe(false)
   })
 
   it('renders neither the purchase section nor renew buttons when payment is disabled', async () => {
@@ -99,6 +98,8 @@ describe('SubscriptionsView', () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="subscription-row"] button').exists()).toBe(false)
+    // 没有套餐卡片时，模型集留在面板里
+    expect(wrapper.get('[data-testid="subscription-models"]').text()).toContain('GPT 5.6 / claude-sonnet-4-5')
   })
 
   it('shows the empty state when the user has no subscriptions', async () => {

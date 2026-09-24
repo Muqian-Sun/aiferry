@@ -36,6 +36,11 @@ const props = defineProps<{
 const { t } = useI18n()
 const theme = useChartTheme()
 
+/** 按天的日期（YYYY-MM-DD）横轴只写 MM-DD；按小时的原样 */
+function shortLabel(date: string): string {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5) : date
+}
+
 function valueOf(point: TrendDataPoint): number {
   if (props.metric === 'tokens') return point.total_tokens
   return props.metric === 'requests' ? point.requests : point.actual_cost
@@ -49,7 +54,7 @@ function formatValue(value: number): string {
 const chartData = computed(() => {
   if (!props.trendData?.length) return null
   return {
-    labels: props.trendData.map((d) => d.date),
+    labels: props.trendData.map((d) => shortLabel(d.date)),
     datasets: [
       {
         label: t(`userUi.usage.trend.${props.metric}`),

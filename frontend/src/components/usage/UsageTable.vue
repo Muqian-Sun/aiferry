@@ -1,16 +1,25 @@
 <template>
   <!-- 无外框：外观由调用方决定（用户站随页滚动、管理端套在 card 里） -->
   <div>
+    <!--
+      只有真有待查归属地的 IP 时才出现（原来 IP 列一显示就常驻一条空条，两站都去掉）。
+      用户站：一行小字 + 墨色文字链接、无底线；管理端保持原来的描边条与品牌色按钮。
+    -->
     <div
-      v-if="showIpGeoToolbar"
-      class="flex items-center justify-end gap-2 border-b border-af-hairline px-4 py-2"
+      v-if="showIpGeoToolbar && (pendingIpCount > 0 || ipGeoBatchLoading)"
+      :class="['flex items-center justify-end text-xs', IS_ADMIN_SITE ? 'gap-2 border-b border-af-hairline px-4 py-2' : 'gap-3 px-6 pb-3']"
     >
-      <span v-if="pendingIpCount > 0" class="text-xs text-af-ink-3">
+      <span v-if="pendingIpCount > 0" class="text-af-ink-3">
         {{ t('usage.ipGeo.pending', { count: pendingIpCount }) }}
       </span>
       <button
         type="button"
-        class="inline-flex items-center gap-1 rounded px-2 py-1 text-xs font-medium text-af-brand transition-colors hover:bg-af-brand-tint disabled:cursor-not-allowed disabled:opacity-50"
+        :class="[
+          'font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
+          IS_ADMIN_SITE
+            ? 'inline-flex items-center gap-1 rounded px-2 py-1 text-af-brand hover:bg-af-brand-tint'
+            : 'text-af-ink underline-offset-4 hover:underline'
+        ]"
         :disabled="ipGeoBatchLoading || pendingIpCount === 0"
         @click="handleBatchFetchIpGeo"
       >
@@ -524,6 +533,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { IS_ADMIN_SITE } from '@/app/site'
 import { formatDateTime, formatReasoningEffort, reasoningEffortValuesEqual } from '@/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'

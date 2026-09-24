@@ -101,7 +101,10 @@ export default {
         allKeys: 'All keys',
         createKey: 'Create a key',
         copy: 'Copy',
-        copied: 'Copied'
+        copied: 'Copied',
+        example: 'Example',
+        exampleHint: 'Replace $API_KEY with the key copied above, or export API_KEY=your-key first',
+        exampleMessage: 'Hello'
       },
       trend: {
         title: 'Usage trend',
@@ -114,9 +117,7 @@ export default {
       description: 'Top up, subscriptions, orders and referrals',
       tabs: {
         recharge: 'Top up',
-        subscriptions: 'Subscriptions',
-        orders: 'Orders',
-        affiliate: 'Referrals'
+        subscriptions: 'Subscriptions'
       }
     },
     usage: {
@@ -150,7 +151,6 @@ export default {
         tokens: 'Tokens',
         requests: 'Requests',
         cost: 'Cost',
-        rangeSummary: '{requests} requests · {tokens} tokens · {cost} in this range',
         empty: 'No data in this period'
       },
       share: 'Share',
@@ -171,7 +171,18 @@ export default {
         security: 'Linked sign-ins, password, two-factor and passkeys',
         notifications: 'Email alerts when your balance runs low'
       },
-      notificationsOff: 'Balance alerts are not enabled on this site'
+      notificationsOff: 'Balance alerts are not enabled on this site',
+      rows: {
+        overview: 'Account',
+        overviewDesc: 'Sign-in identity, balance and rate multiplier',
+        usernameDesc: 'Your email is shown when this is empty',
+        passwordDesc: 'Used for email sign-in, at least 8 characters'
+      }
+    },
+    summary: {
+      keys: 'Keys',
+      activeKeys: 'Active',
+      redeemHistoryDesc: 'Redemptions and admin adjustments'
     },
     models: {
       title: 'Models',

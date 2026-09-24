@@ -66,9 +66,11 @@ export function formatCurrency(amount: number | null | undefined, currency: stri
   // For very small amounts, show more decimals
   const fractionDigits = amount > 0 && amount < 0.01 ? 6 : 2
 
+  // narrowSymbol：中文环境下 USD 也写成 $，不写 US$（muqian 2026-09-23，与表格明细的 $ 一致）
   return new Intl.NumberFormat(locale, {
     style: 'currency',
     currency: currency,
+    currencyDisplay: 'narrowSymbol',
     minimumFractionDigits: fractionDigits,
     maximumFractionDigits: fractionDigits
   }).format(amount)

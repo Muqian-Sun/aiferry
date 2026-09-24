@@ -1,13 +1,9 @@
 <template>
-  <!-- 平铺区块：头像 + 上传操作，无卡片、无渐变 -->
-  <div class="space-y-4">
-    <h3 class="text-sm font-semibold text-af-ink">
-      {{ t('profile.avatar.title') }}
-    </h3>
-
+  <!-- 头像 + 上传操作；标题在 ProfileInfoCard 的设置行左栏 -->
+  <div>
     <div class="flex items-start gap-4">
       <div
-        class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-md bg-af-brand-tint text-xl font-semibold text-af-brand"
+        class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-full bg-af-sunken text-xl font-semibold text-af-ink-2"
       >
         <img
           v-if="avatarPreviewUrl"
@@ -24,8 +20,8 @@
           {{ t('profile.avatar.uploadHint') }}
         </p>
 
-        <div class="flex flex-wrap items-center gap-3">
-          <label class="btn btn-secondary btn-sm cursor-pointer">
+        <div class="flex flex-wrap items-center gap-5">
+          <label class="hero-link text-13 font-medium cursor-pointer">
             <input
               data-testid="profile-avatar-file-input"
               type="file"
@@ -36,7 +32,9 @@
             {{ t('profile.avatar.uploadAction') }}
           </label>
 
+          <!-- 选了新图才出现「保存」（没有草稿时一个灰掉的按钮只是噪音） -->
           <button
+            v-if="avatarDraft"
             data-testid="profile-avatar-save"
             type="button"
             class="btn btn-primary btn-sm"
@@ -49,7 +47,7 @@
           <button
             data-testid="profile-avatar-delete"
             type="button"
-            class="btn btn-secondary btn-sm"
+            class="text-13 font-medium text-af-ink-3 transition-colors hover:text-af-danger disabled:opacity-40"
             :disabled="avatarSaving"
             @click="handleAvatarDelete"
           >

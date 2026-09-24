@@ -13,8 +13,11 @@
     </template>
 
     <div class="space-y-8">
+      <!-- 区间数字摘要（muqian 2026-09-23 列表页加摘要带）：跟随头部时间范围；统计接口失败就不出现，不显示零 -->
+      <StatRow v-if="rangeItems" :items="rangeItems" data-testid="usage-range-summary" />
+
       <!-- 模型用量 -->
-      <SheetSection :title="t('userUi.usage.sections.models')" :description="rangeSummary">
+      <SheetSection :title="t('userUi.usage.sections.models')">
         <StatusState
           v-if="modelStatsError"
           kind="error"
@@ -165,7 +168,8 @@ import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import type { SectionTab } from '@/components/user/shell/types'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { SectionTab, StatItem } from '@/components/user/shell/types'
 import Pagination from '@/components/common/Pagination.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
@@ -204,15 +208,21 @@ const statsError = ref(false)
 const modelStatsError = ref(false)
 const logsError = ref(false)
 
-// 区间合计：由当前时间范围驱动，写在模型用量区块的标题下（统计接口失败时留空，不显示零）
-const rangeSummary = computed(() => {
+// 区间摘要：由当前时间范围驱动，放在页面最上方（统计接口失败时不出现，不显示零）
+const rangeItems = computed<StatItem[] | null>(() => {
   const stats = usageStats.value
-  if (statsError.value || !stats) return ''
-  return t('userUi.usage.trend.rangeSummary', {
-    requests: formatNumber(stats.total_requests),
-    tokens: formatTokensK(stats.total_tokens),
-    cost: formatCurrency(stats.total_actual_cost)
-  })
+  if (statsError.value || !stats) return null
+  return [
+    { key: 'range-requests', label: t('userUi.usage.stats.requests'), value: formatNumber(stats.total_requests) },
+    { key: 'range-tokens', label: t('userUi.usage.stats.tokens'), value: formatTokensK(stats.total_tokens) },
+    {
+      key: 'range-cost',
+      label: t('userUi.usage.stats.cost'),
+      value: formatCurrency(stats.total_actual_cost),
+      hint: stats.total_cost > stats.total_actual_cost ? `${t('userUi.usage.stats.standardCost')} ${formatCurrency(stats.total_cost)}` : undefined
+    },
+    { key: 'range-latency', label: t('userUi.usage.stats.avgLatency'), value: `${Math.round(stats.average_duration_ms ?? 0)} ms` }
+  ]
 })
 
 const recordTabs = computed<SectionTab[]>(() => [

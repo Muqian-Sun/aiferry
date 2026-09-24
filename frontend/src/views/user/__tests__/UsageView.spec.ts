@@ -591,7 +591,7 @@ describe('user UsageView', () => {
     await flushPromises()
 
     expect(wrapper.findComponent(ModelUsageTable).exists()).toBe(true)
-    expect(wrapper.text()).not.toContain('userUi.usage.trend.rangeSummary')
+    expect(wrapper.find('[data-testid="usage-range-summary"]').exists()).toBe(false)
     wrapper.unmount()
   })
 
