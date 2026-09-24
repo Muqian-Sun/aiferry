@@ -1,60 +1,89 @@
 <template>
   <!--
-    模型目录：上架 = 用户能看到并调用；上架必有价、必有资源承接。
-    筛选（状态 / 厂商 / 计费 / 资源）→ 汇总行 → 表格（标价按百万 Token 列出）→ 分页；勾选后批量上下架。
+    模型目录（A4 列表模板）：上架 = 用户能看到并调用；上架必有价、必有资源承接。
+    标题右侧「⋯」（从价格文件播种）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
+    工具行 = 搜索 + 状态 / 厂商 / 计费 / 资源筛选标签 + 刷新；行尾「编辑」图标 +「⋯」（诊断、删除）；选中行时批量上下架。
   -->
   <AppLayout>
-    <TablePageLayout>
-      <template #filters>
-        <div class="space-y-3">
-          <div class="flex flex-wrap items-center gap-3">
-            <SearchInput
-              v-model="searchQuery"
-              :placeholder="t('admin.modelCatalog.search')"
-              class="w-full sm:w-72"
-              data-testid="model-catalog-search"
-            />
-            <Select v-model="statusFilter" :options="statusOptions" class="w-36" data-testid="model-catalog-filter-status" />
-            <Select v-model="vendorFilter" :options="vendorOptions" class="w-44" data-testid="model-catalog-filter-vendor" />
-            <Select v-model="billingFilter" :options="billingOptions" class="w-36" data-testid="model-catalog-filter-billing" />
-            <Select v-model="resourceFilter" :options="resourceOptions" class="w-36" data-testid="model-catalog-filter-resources" />
-            <div class="ml-auto flex items-center gap-2">
-              <button
-                type="button"
-                class="btn btn-secondary"
-                :disabled="seeding"
-                data-testid="model-catalog-seed"
-                @click="runSeed"
-              >
-                {{ seeding ? t('admin.modelCatalog.seeding') : t('admin.modelCatalog.seed') }}
-              </button>
-              <button type="button" class="btn btn-primary" data-testid="model-catalog-create" @click="openCreate">
-                <Icon name="plus" size="md" class="mr-1" />
-                {{ t('admin.modelCatalog.create') }}
-              </button>
-            </div>
-          </div>
+    <template #header-actions>
+      <PopoverMenu width-class="w-52">
+        <template #trigger="{ open }">
+          <button
+            type="button"
+            class="btn btn-ghost btn-md px-2.5"
+            :class="open ? 'bg-af-sunken text-af-ink' : ''"
+            :title="t('common.more')"
+            :aria-label="t('common.more')"
+            data-testid="model-catalog-tools"
+          >
+            <Icon name="more" size="md" />
+          </button>
+        </template>
+        <MenuItem icon="download" :disabled="seeding" data-testid="model-catalog-seed" @click="runSeed">
+          {{ seeding ? t('admin.modelCatalog.seeding') : t('admin.modelCatalog.seed') }}
+        </MenuItem>
+      </PopoverMenu>
+      <button type="button" class="btn btn-primary btn-md" data-testid="model-catalog-create" @click="openCreate">
+        <Icon name="plus" size="md" />
+        {{ t('admin.modelCatalog.create') }}
+      </button>
+    </template>
 
-          <!-- 汇总 + 批量操作 -->
-          <div class="flex flex-wrap items-center gap-x-4 gap-y-2 text-13 text-af-ink-3">
-            <span data-testid="model-catalog-summary">
-              {{ t('admin.modelCatalog.summary', { total: entries.length, listed: listedCount, noResources: listedWithoutResources }) }}
-            </span>
-            <span v-if="filteredEntries.length !== entries.length" class="text-af-ink-4">
-              {{ t('admin.modelCatalog.filtered', { count: filteredEntries.length }) }}
-            </span>
-            <template v-if="selectedIds.length">
-              <span class="text-af-ink">{{ t('admin.modelCatalog.bulk.selected', { count: selectedIds.length }) }}</span>
-              <button type="button" class="btn btn-secondary btn-sm" :disabled="bulkRunning" data-testid="model-catalog-bulk-list" @click="bulkSetStatus('listed')">
-                {{ t('admin.modelCatalog.bulk.list') }}
-              </button>
-              <button type="button" class="btn btn-secondary btn-sm" :disabled="bulkRunning" data-testid="model-catalog-bulk-unlist" @click="bulkSetStatus('unlisted')">
-                {{ t('admin.modelCatalog.bulk.unlist') }}
-              </button>
-              <button type="button" class="btn btn-ghost btn-sm" @click="selectedIds = []">{{ t('admin.modelCatalog.bulk.clear') }}</button>
-            </template>
-          </div>
-        </div>
+    <TablePageLayout>
+      <template v-if="summaryItems" #summary>
+        <StatRow :items="summaryItems" data-testid="model-catalog-summary" />
+      </template>
+
+      <template #filters>
+        <ListToolbar>
+          <SearchInput
+            v-model="searchQuery"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('admin.modelCatalog.search')"
+            data-testid="model-catalog-search"
+          />
+          <FilterChip
+            v-model="statusFilter"
+            :label="t('admin.modelCatalog.fields.status')"
+            :options="statusOptions"
+            test-id="model-catalog-filter-status"
+          />
+          <FilterChip
+            v-model="vendorFilter"
+            :label="t('admin.modelCatalog.fields.vendor')"
+            :options="vendorOptions"
+            test-id="model-catalog-filter-vendor"
+          />
+          <FilterChip
+            v-model="billingFilter"
+            :label="t('admin.modelCatalog.fields.billingMode')"
+            :options="billingOptions"
+            test-id="model-catalog-filter-billing"
+          />
+          <FilterChip
+            v-model="resourceFilter"
+            :label="t('admin.modelCatalog.fields.resources')"
+            :options="resourceOptions"
+            test-id="model-catalog-filter-resources"
+          />
+          <span v-if="isFiltered" class="px-1 text-13 tabular-nums text-af-ink-3" data-testid="model-catalog-filtered">
+            {{ t('admin.modelCatalog.filtered', { count: filteredEntries.length }) }}
+          </span>
+
+          <template #end>
+            <button
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="loading"
+              :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadEntries"
+            >
+              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+            </button>
+          </template>
+        </ListToolbar>
       </template>
 
       <template #table>
@@ -69,13 +98,14 @@
         >
           <template #cell-model_id="{ row }">
             <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="truncate font-mono font-medium text-af-ink">{{ row.model_id }}</span>
-                <span v-if="row.aliases?.length" class="badge badge-gray" :title="row.aliases.map((a: ModelCatalogAlias) => a.alias).join(', ')">
+              <div class="truncate font-mono font-medium text-af-ink">{{ row.model_id }}</div>
+              <div v-if="row.display_name || row.aliases?.length" class="mt-0.5 truncate text-xs text-af-ink-3">
+                <span v-if="row.display_name">{{ row.display_name }}</span>
+                <span v-if="row.display_name && row.aliases?.length" class="text-af-ink-4"> · </span>
+                <span v-if="row.aliases?.length" :title="row.aliases.map((a: ModelCatalogAlias) => a.alias).join(', ')">
                   {{ t('admin.modelCatalog.aliasCount', { count: row.aliases.length }) }}
                 </span>
               </div>
-              <div v-if="row.display_name" class="mt-0.5 truncate text-xs text-af-ink-3">{{ row.display_name }}</div>
             </div>
           </template>
           <template #cell-vendor="{ value }">
@@ -88,19 +118,23 @@
           <template #cell-price="{ row }">
             <PriceCell :entry="row" />
           </template>
+          <!-- 上架 / 下架都是常态：灰点纯文字，上架的点与字深一档 -->
           <template #cell-status="{ value }">
-            <span :class="['badge', value === 'listed' ? 'badge-success' : 'badge-gray']">
-              {{ t(`admin.modelCatalog.status.${value}`) }}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span :class="['inline-block h-2 w-2 rounded-full', value === 'listed' ? 'bg-af-ink-3' : 'bg-af-hairline-strong']"></span>
+              <span :class="value === 'listed' ? 'text-af-ink' : 'text-af-ink-3'">{{ t(`admin.modelCatalog.status.${value}`) }}</span>
+            </div>
           </template>
+          <!-- 上架却没有资源承接是真异常：橙点橙字，点开诊断 -->
           <template #cell-resources="{ row }">
             <button
               v-if="row.status === 'listed' && bindingCount(row) === 0"
               type="button"
-              class="badge badge-warning"
+              class="inline-flex items-center gap-1.5 text-af-warning hover:underline"
               data-testid="model-catalog-no-resources"
               @click="openDiagnosis(row)"
             >
+              <span class="inline-block h-2 w-2 rounded-full bg-af-warning"></span>
               {{ t('admin.modelCatalog.noResources') }}
             </button>
             <button
@@ -117,41 +151,28 @@
             <span class="text-af-ink-3">{{ t(`admin.modelCatalog.managedBy.${value}`) }}</span>
           </template>
           <template #cell-actions="{ row }">
-            <div class="flex items-center justify-end gap-0.5">
-              <button
-                type="button"
-                class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
-                :title="t('admin.modelCatalog.diagnose')"
-                :aria-label="t('admin.modelCatalog.diagnose')"
-                data-testid="model-catalog-actions-diagnose"
-                @click="openDiagnosis(row)"
-              >
-                <Icon name="beaker" size="sm" />
-              </button>
-              <button
-                type="button"
-                class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
-                :title="t('common.edit')"
-                :aria-label="t('common.edit')"
-                data-testid="model-catalog-actions-edit"
-                @click="openEdit(row)"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
-                type="button"
-                class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                :title="t('common.delete')"
-                :aria-label="t('common.delete')"
-                data-testid="model-catalog-actions-delete"
-                @click="askDelete(row)"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
+            <RowActions :actions="rowActions(row)" />
+          </template>
+
+          <template #empty>
+            <EmptyState
+              :title="entries.length ? t('admin.modelCatalog.noMatch') : t('admin.modelCatalog.empty')"
+              :action-text="entries.length ? undefined : t('admin.modelCatalog.create')"
+              @action="openCreate"
+            />
           </template>
         </DataTable>
-        <EmptyState v-if="!loading && filteredEntries.length === 0" :title="entries.length ? t('admin.modelCatalog.noMatch') : t('admin.modelCatalog.empty')" />
+      </template>
+
+      <template #bulk>
+        <BulkBar :count="selectedIds.length" @clear="selectedIds = []">
+          <button type="button" class="bulk-btn" :disabled="bulkRunning" data-testid="model-catalog-bulk-list" @click="bulkSetStatus('listed')">
+            {{ t('admin.modelCatalog.bulk.list') }}
+          </button>
+          <button type="button" class="bulk-btn" :disabled="bulkRunning" data-testid="model-catalog-bulk-unlist" @click="bulkSetStatus('unlisted')">
+            {{ t('admin.modelCatalog.bulk.unlist') }}
+          </button>
+        </BulkBar>
       </template>
 
       <template #pagination>
@@ -196,13 +217,15 @@ import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogAlias, ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import type { Column } from '@/components/common/types'
-import type { SelectOption } from '@/components/common/Select.vue'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
 import SearchInput from '@/components/common/SearchInput.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
+import { BulkBar, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
+import type { FilterOption, RowAction } from '@/components/admin/list'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -221,12 +244,13 @@ const bulkRunning = ref(false)
 const entries = ref<ModelCatalogEntry[]>([])
 const selectedIds = ref<number[]>([])
 
-// 筛选
+// 筛选（空串 = 全部；厂商筛选里「无厂商」用 NO_VENDOR 占位，空串已表示不筛）
+const NO_VENDOR = '__none__'
 const searchQuery = ref('')
-const statusFilter = ref('all')
-const vendorFilter = ref('all')
-const billingFilter = ref('all')
-const resourceFilter = ref('all')
+const statusFilter = ref('')
+const vendorFilter = ref('')
+const billingFilter = ref('')
+const resourceFilter = ref('')
 
 // 弹窗
 const showEditor = ref(false)
@@ -259,22 +283,18 @@ const columns = computed<Column[]>(() => [
 ])
 
 const vendorValues = computed(() => [...new Set(entries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
-const statusOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: t('admin.modelCatalog.filters.allStatus') },
+const statusOptions = computed<FilterOption[]>(() => [
   { value: 'listed', label: t('admin.modelCatalog.status.listed') },
   { value: 'unlisted', label: t('admin.modelCatalog.status.unlisted') }
 ])
-const vendorOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: t('admin.modelCatalog.filters.allVendors') },
+const vendorOptions = computed<FilterOption[]>(() => [
   ...vendorValues.value.map((vendor) => ({ value: vendor, label: vendor })),
-  ...(entries.value.some((entry) => !entry.vendor) ? [{ value: '', label: t('admin.modelCatalog.filters.noVendor') }] : [])
+  ...(entries.value.some((entry) => !entry.vendor) ? [{ value: NO_VENDOR, label: t('admin.modelCatalog.filters.noVendor') }] : [])
 ])
-const billingOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: t('admin.modelCatalog.filters.allBilling') },
-  ...['token', 'per_request', 'image', 'video'].map((mode) => ({ value: mode, label: t(`admin.modelCatalog.billingModes.${mode}`) }))
-])
-const resourceOptions = computed<SelectOption[]>(() => [
-  { value: 'all', label: t('admin.modelCatalog.filters.allResources') },
+const billingOptions = computed<FilterOption[]>(() =>
+  ['token', 'per_request', 'image', 'video'].map((mode) => ({ value: mode, label: t(`admin.modelCatalog.billingModes.${mode}`) }))
+)
+const resourceOptions = computed<FilterOption[]>(() => [
   { value: 'bound', label: t('admin.modelCatalog.filters.withResources') },
   { value: 'unbound', label: t('admin.modelCatalog.filters.withoutResources') }
 ])
@@ -282,12 +302,38 @@ const resourceOptions = computed<SelectOption[]>(() => [
 const listedCount = computed(() => entries.value.filter((entry) => entry.status === 'listed').length)
 const listedWithoutResources = computed(() => entries.value.filter((entry) => entry.status === 'listed' && bindingCount(entry) === 0).length)
 
+/** 摘要「上架但无渠道」旁的「筛选」：一键筛出这些条目（其余筛选清掉，免得叠加后看不全） */
+function showListedWithoutResources() {
+  searchQuery.value = ''
+  vendorFilter.value = ''
+  billingFilter.value = ''
+  statusFilter.value = 'listed'
+  resourceFilter.value = 'unbound'
+}
+
+// 数字摘要：直接用已加载的全量条目；目录为空（或加载失败）就不显示，不摆一排 0
+const summaryItems = computed<StatItem[] | null>(() => {
+  if (entries.value.length === 0) return null
+  const fmt = (n: number) => n.toLocaleString()
+  const unbound = listedWithoutResources.value
+  return [
+    { key: 'total', label: t('admin.modelCatalog.summaryStats.total'), value: fmt(entries.value.length) },
+    { key: 'listed', label: t('admin.modelCatalog.summaryStats.listed'), value: fmt(listedCount.value) },
+    {
+      key: 'unbound',
+      label: t('admin.modelCatalog.summaryStats.listedWithoutResources'),
+      value: fmt(unbound),
+      action: unbound > 0 ? { label: t('admin.modelCatalog.summaryStats.showThem'), onClick: showListedWithoutResources } : undefined
+    }
+  ]
+})
+
 const filteredEntries = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   return entries.value.filter((entry) => {
-    if (statusFilter.value !== 'all' && entry.status !== statusFilter.value) return false
-    if (vendorFilter.value !== 'all' && (entry.vendor || '') !== vendorFilter.value) return false
-    if (billingFilter.value !== 'all' && (entry.billing_mode || 'token') !== billingFilter.value) return false
+    if (statusFilter.value && entry.status !== statusFilter.value) return false
+    if (vendorFilter.value && (entry.vendor || NO_VENDOR) !== vendorFilter.value) return false
+    if (billingFilter.value && (entry.billing_mode || 'token') !== billingFilter.value) return false
     if (resourceFilter.value === 'bound' && bindingCount(entry) === 0) return false
     if (resourceFilter.value === 'unbound' && bindingCount(entry) > 0) return false
     if (!q) return true
@@ -296,6 +342,8 @@ const filteredEntries = computed(() => {
     )
   })
 })
+
+const isFiltered = computed(() => filteredEntries.value.length !== entries.value.length)
 
 const pagedEntries = computed(() => {
   const start = (page.value - 1) * pageSize.value
@@ -347,6 +395,15 @@ function openEdit(entry: ModelCatalogEntry) {
 
 function openDiagnosis(entry: ModelCatalogEntry) {
   diagnosisEntry.value = entry
+}
+
+// 行操作（A4）：编辑是图标；诊断、删除进「⋯」，删除红字且仍走确认框
+function rowActions(entry: ModelCatalogEntry): RowAction[] {
+  return [
+    { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => openEdit(entry) },
+    { key: 'diagnose', label: t('admin.modelCatalog.diagnose'), icon: 'beaker', onSelect: () => openDiagnosis(entry) },
+    { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, dividerBefore: true, onSelect: () => askDelete(entry) }
+  ]
 }
 
 async function onSaved() {

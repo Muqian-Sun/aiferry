@@ -1,12 +1,12 @@
 <template>
   <div class="relative w-full">
-    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-      <Icon name="search" size="md" class="text-af-ink-4" />
+    <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center" :class="compact ? 'pl-2.5' : 'pl-3'">
+      <Icon name="search" :size="compact ? 'sm' : 'md'" class="text-af-ink-4" />
     </div>
     <input
       :value="modelValue"
       type="text"
-      class="input pl-10"
+      :class="['input', compact ? 'h-8 py-0 pl-8 pr-3 text-13' : 'pl-10']"
       :placeholder="placeholder"
       @input="handleInput"
     />
@@ -21,6 +21,8 @@ const props = withDefaults(defineProps<{
   modelValue: string
   placeholder?: string
   debounceMs?: number
+  /** 管理站列表工具行用的 32px 高紧凑版，和筛选标签同高 */
+  compact?: boolean
 }>(), {
   placeholder: 'Search...',
   debounceMs: 300

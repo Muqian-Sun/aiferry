@@ -1,5 +1,10 @@
 export default {
   common: {
+    labelSeparator: ': ',
+    selectedItems: '{count} selected',
+    columnSettings: 'Columns',
+    restoreDefault: 'Restore defaults',
+    cancelSelection: 'Clear selection',
     loading: 'Loading...',
     submitting: 'Submitting...',
     justNow: 'just now',

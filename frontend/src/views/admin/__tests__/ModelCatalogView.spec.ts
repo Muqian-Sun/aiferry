@@ -85,8 +85,11 @@ function mountView() {
   return mount(ModelCatalogView, {
     global: {
       stubs: {
-        AppLayout: { template: '<div><slot /></div>' },
-        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /></div>' },
+        AppLayout: { template: '<div><slot name="header-actions" /><slot /></div>' },
+        TablePageLayout: { template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /></div>' },
+        // 弹出层（页头工具菜单、行尾「⋯」、筛选标签）桩成内联渲染，菜单项直接可点
+        PopoverMenu: { template: '<div><slot name="trigger" :open="false" /><slot :close="() => {}" /></div>' },
+        RouterLink: true,
         DataTable: {
           props: ['data'],
           template:
@@ -177,7 +180,7 @@ describe('ModelCatalogView', () => {
     })
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await flushPromises()
     expect(getBindings).toHaveBeenCalledWith(1)
     expect(wrapper.findAll('[data-testid="model-catalog-binding-remove"]')).toHaveLength(1)
@@ -211,7 +214,7 @@ describe('ModelCatalogView', () => {
     ])
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await flushPromises()
     await wrapper.findAll('[data-testid="model-catalog-binding-remove"]')[0].trigger('click')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
@@ -224,7 +227,7 @@ describe('ModelCatalogView', () => {
     updateBindings.mockRejectedValue({ message: 'account 7 has no upstream address usable on the anthropic gateway', error: 'CATALOG_BINDING_UNSERVABLE' })
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await flushPromises()
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -262,6 +265,11 @@ describe('ModelCatalogView', () => {
   it('keeps intervals, time pricing and hidden prices when editing', async () => {
     const existing = entry({
       cache_read_price: 1.5,
+      cache_write_1h_price: 2.5,
+      image_output_price: 4,
+      input_price_priority: 30,
+      long_context_input_threshold: 200000,
+      fast_multiplier: 2,
       intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
       time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [{ start_time: '09:00', end_time: '12:00', multiplier: 2 }] }
     })
@@ -269,7 +277,7 @@ describe('ModelCatalogView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-output-price"]').setValue('80')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -280,16 +288,83 @@ describe('ModelCatalogView', () => {
       model_id: existing.model_id,
       output_price: 80,
       cache_read_price: 1.5,
+      cache_write_1h_price: 2.5,
+      image_output_price: 4,
+      input_price_priority: 30,
+      long_context_input_threshold: 200000,
+      fast_multiplier: 2,
       intervals: existing.intervals,
       time_pricing: existing.time_pricing
     })
+    // 旧后端没有音频价：条目里没有就不发这两个键
+    expect(updateEntry.mock.calls[0][1]).not.toHaveProperty('audio_input_price')
+    expect(updateEntry.mock.calls[0][1]).not.toHaveProperty('audio_output_price')
+  })
+
+  // 「更多价格」：缓存 / 图片 / 音频单价可编辑，按 $/token 存、给百万 Token 换算；音频价有值才发
+  it('edits cache, image and audio prices in the collapsed "more prices" section', async () => {
+    listEntries.mockResolvedValue([entry({ cache_read_price: 0.0000015, audio_input_price: 0.00004 })])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
+    await flushPromises()
+
+    expect(wrapper.find('[data-testid="model-catalog-cache-write-price"]').exists()).toBe(false)
+    const toggle = wrapper.get('[data-testid="model-catalog-more-prices-toggle"]')
+    expect(toggle.text()).toContain('admin.modelCatalog.editor.morePricesFilled:{"count":2}')
+    await toggle.trigger('click')
+
+    const cacheRead = wrapper.get('[data-testid="model-catalog-cache-read-price"]')
+    expect((cacheRead.element as HTMLInputElement).value).toBe('0.0000015')
+    expect(cacheRead.element.parentElement?.textContent).toContain('admin.modelCatalog.editor.perMillion:{"price":1.5}')
+    await wrapper.get('[data-testid="model-catalog-cache-write-price"]').setValue('0.00000375')
+    await wrapper.get('[data-testid="model-catalog-image-input-price"]').setValue('0.00001')
+    await wrapper.get('[data-testid="model-catalog-audio-output-price"]').setValue('0.00008')
+    await wrapper.get('[data-testid="model-catalog-audio-input-price"]').setValue('')
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+
+    const sent = updateEntry.mock.calls[0][1]
+    expect(sent).toMatchObject({
+      cache_write_price: 0.00000375,
+      cache_read_price: 0.0000015,
+      image_input_price: 0.00001,
+      audio_output_price: 0.00008
+    })
+    expect(sent).not.toHaveProperty('audio_input_price')
+  })
+
+  // 新建用的空表单要清掉上一次编辑留下的隐藏字段（价格、分档、分时），否则会被带进新条目
+  it('does not carry hidden fields from a previously edited entry into a new one', async () => {
+    listEntries.mockResolvedValue([
+      entry({
+        cache_read_price: 1.5,
+        audio_input_price: 0.00004,
+        fast_multiplier: 2,
+        intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
+        time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [] }
+      })
+    ])
+    const wrapper = mountView()
+    await flushPromises()
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
+    await flushPromises()
+    await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+
+    const sent = createEntry.mock.calls[0][0]
+    expect(sent).toMatchObject({ model_id: 'gpt-5', cache_read_price: null, fast_multiplier: null, intervals: [], time_pricing: null })
+    expect(sent).not.toHaveProperty('audio_input_price')
   })
 
   // 数字输入清空后 v-model.number 给的是 ''，后端会报 400：清空要当成「未配置」发 null。
   it('sends null instead of an empty string for cleared number inputs', async () => {
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-input-price"]').setValue('')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -315,7 +390,7 @@ describe('ModelCatalogView', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     expect(wrapper.findAll('[data-testid="model-catalog-media-tier-row"]')).toHaveLength(1)
     expect(wrapper.find('[data-testid="model-catalog-search-price-per-call"]').exists()).toBe(false)
 
@@ -342,7 +417,7 @@ describe('ModelCatalogView', () => {
   it('shows search price per call only for token entries and sends it', async () => {
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-actions-edit"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     expect(wrapper.find('[data-testid="model-catalog-media-tiers"]').exists()).toBe(false)
     await wrapper.get('[data-testid="model-catalog-search-price-per-call"]').setValue('0.02')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
@@ -379,7 +454,7 @@ describe('ModelCatalogView', () => {
     await flushPromises()
     const stub = wrapper.get('[data-testid="diagnosis-stub"]')
     expect(stub.attributes('data-show')).toBe('false')
-    await wrapper.get('[data-testid="model-catalog-actions-diagnose"]').trigger('click')
+    await wrapper.get('[data-testid="row-action-diagnose"]').trigger('click')
     expect(stub.attributes('data-show')).toBe('true')
     expect(stub.attributes('data-entry-id')).toBe('1')
     expect(stub.attributes('data-model-id')).toBe('claude-opus-4-6')

@@ -299,7 +299,15 @@ export default {
         success: 'Deleted {count} users',
         failed: 'Failed to delete {count} users. They remain selected for retry.'
       },
+      summary: {
+        total: 'Users',
+        todayNew: 'New today',
+        todayActive: 'Active today',
+        apiKeys: 'API keys',
+        apiKeysActive: '{count} enabled'
+      },
       bulkLimits: {
+        button: 'Set limits',
         action: 'Set limits ({count})',
         title: 'Set user limits',
         selectedCount: '{count} users selected',
@@ -506,6 +514,7 @@ export default {
         title: 'User Attributes',
         description: 'Configure custom user attribute fields',
         configButton: 'Attributes',
+        filterButton: 'Attribute',
         addAttribute: 'Add Attribute',
         editAttribute: 'Edit Attribute',
         deleteAttribute: 'Delete Attribute',

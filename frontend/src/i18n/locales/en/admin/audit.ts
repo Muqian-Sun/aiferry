@@ -5,7 +5,6 @@ export default {
     empty: 'No audit logs yet',
     loadFailed: 'Failed to load audit logs',
     filters: {
-      all: 'All',
       q: 'Keyword',
       qPlaceholder: 'Path / action / actor email',
       actorEmail: 'Actor Email',
@@ -17,7 +16,9 @@ export default {
       resultSuccess: 'Success',
       resultFailure: 'Failure',
       startTime: 'Start Time',
-      endTime: 'End Time'
+      endTime: 'End Time',
+      more: 'More filters',
+      reset: 'Reset filters'
     },
     columns: {
       time: 'Time',

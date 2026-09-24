@@ -42,7 +42,6 @@ export default {
 
     // Proxies Management
     proxies: {
-      accountsCount: '{count} 个账号',
       description: '管理代理服务器配置',
       createProxy: '添加代理',
       editProxy: '编辑代理',
@@ -106,8 +105,6 @@ export default {
       // Additional keys used in ProxiesView
       copyProxyUrl: '复制代理 URL',
       urlCopied: '代理 URL 已复制',
-      allProtocols: '全部协议',
-      allStatus: '全部状态',
       searchProxies: '搜索代理...',
       protocols: {
         http: 'HTTP',
@@ -133,14 +130,14 @@ export default {
       createFirstProxy: '添加您的第一个代理以开始使用。',
       testConnection: '测试连接',
       qualityCheck: '质量检测',
-      batchQualityCheck: '批量质量检测',
       batchTest: '批量测试',
+      testAll: '全部测试连接',
+      qualityCheckAll: '全部质量检测',
       testFailed: '失败',
       latencyFailed: '链接失败',
       batchTestEmpty: '暂无可测试的代理',
       batchTestDone: '批量测试完成，共测试 {count} 个代理',
       batchTestFailed: '批量测试失败',
-      batchDeleteAction: '删除',
       batchDelete: '批量删除',
       batchDeleteConfirm: '确定删除选中的 {count} 个代理吗？已被账号使用的将自动跳过。',
       batchDeleteDone: '已删除 {deleted} 个代理，跳过 {skipped} 个',
@@ -263,8 +260,6 @@ export default {
       subscription: '订阅',
       invitation: '邀请码',
       invitationHint: '邀请码用于限制用户注册，使用后自动标记为已使用。',
-      allTypes: '全部类型',
-      allStatus: '全部状态',
       unused: '未使用',
       used: '已使用',
       searchCodes: '搜索兑换码或邮箱...',
@@ -272,7 +267,6 @@ export default {
       batchUpdate: '批量修改',
       batchUpdateTitle: '批量修改兑换码',
       selectedCount: '已选择 {count} 个兑换码',
-      clearSelection: '清空选择',
       selectCodesFirst: '请先选择兑换码',
       noBatchFieldsSelected: '请至少勾选一个要修改的字段',
       batchUpdateSuccess: '成功修改 {count} 个兑换码',
@@ -363,7 +357,17 @@ export default {
       failedToLoad: '加载兑换码列表失败',
       failedToGenerate: '生成兑换码失败',
       failedToUpdate: '更新兑换码失败',
-      failedToDelete: '删除兑换码失败'
+      failedToDelete: '删除兑换码失败',
+      summary: {
+        total: '兑换码'
+      },
+      bulkDelete: {
+        title: '删除选中的兑换码',
+        confirm: '确定删除选中的 {count} 个兑换码吗？此操作无法撤销。',
+        confirmWithSkipped: '将删除选中的 {count} 个未使用兑换码，另外 {skipped} 个已使用、已过期或已禁用的会跳过。此操作无法撤销。',
+        noneDeletable: '只有未使用的兑换码可以删除，选中的兑换码都不是未使用状态',
+        done: '已删除 {count} 个兑换码'
+      }
     },
 
     // Announcements
@@ -375,7 +379,6 @@ export default {
       deleteAnnouncement: '删除公告',
       searchAnnouncements: '搜索公告...',
       status: '状态',
-      allStatus: '全部状态',
       columns: {
         title: '标题',
         status: '状态',

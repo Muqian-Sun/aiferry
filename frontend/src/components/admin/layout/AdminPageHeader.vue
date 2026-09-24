@@ -4,6 +4,10 @@
     同组页面（订阅 · 套餐、订单 · 收款概览、内容审核 · 提示词）共用组标题，下方页签切换，侧栏只留一个入口。
   -->
   <PageHeader v-if="title" :title="title" :description="description">
+    <!-- 页面级操作（A4）：主按钮、刷新、工具菜单放在标题右侧，和用户站控制台一致 -->
+    <template v-if="$slots.actions" #actions>
+      <slot name="actions" />
+    </template>
     <template v-if="group" #tabs>
       <SectionTabs :tabs="groupTabs" :label="title" />
     </template>

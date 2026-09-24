@@ -389,9 +389,8 @@ export default {
         reset_quota: 'Bulk Reset Quota',
         revoke: 'Bulk Revoke',
         restore: 'Bulk Restore',
-        selected: '{count} subscriptions selected',
+        adjustExpiry: 'Adjust expiry',
         selectSubscription: 'Select subscription #{id}',
-        clearSelection: 'Clear Selection',
         selectionHint: 'Select up to 100 subscriptions on this page. Changing pages or filters clears the selection. Each action only processes subscriptions with an applicable status.',
         selectionLimit: 'You can process up to 100 subscriptions at a time',
         selectionRequired: 'Select at least one subscription',
@@ -417,8 +416,6 @@ export default {
       adjustSubscription: 'Adjust Subscription',
       revokeSubscription: 'Revoke Subscription',
       restoreSubscription: 'Restore Subscription',
-      allStatus: 'All Status',
-      allPlans: 'All Plans',
       daily: 'Daily',
       weekly: 'Weekly',
       monthly: 'Monthly',
@@ -478,7 +475,6 @@ export default {
       quotaResetSuccess: 'Quota reset successfully',
       failedToResetQuota: 'Failed to reset quota',
       noSubscriptionsYet: 'No subscriptions yet',
-      assignFirstSubscription: 'Assign a subscription to get started.',
       subscriptionAssigned: 'Subscription assigned successfully',
       subscriptionAdjusted: 'Subscription adjusted successfully',
       subscriptionRevoked: 'Subscription revoked successfully',
@@ -497,36 +493,9 @@ export default {
         "Are you sure you want to revoke the subscription for '{user}'? You can restore it later from the revoked list.",
       restoreConfirm:
         "Restore the subscription for '{user}'? If the original subscription has expired, it will be restored as expired.",
-      guide: {
-        title: 'Subscription Management Guide',
-        subtitle: 'Subscription mode lets you assign time-based usage quotas to users, with daily/weekly/monthly limits. Follow these steps to get started.',
-        showGuide: 'Usage Guide',
-        step1: {
-          title: 'Create a Plan',
-          line1: 'Go to "Subscription Plans" page, click "Create Plan"',
-          line2: 'Pick the models the plan can call, configure daily/weekly/monthly quota limits',
-          line3: 'Save the plan',
-          link: 'Go to Subscription Plans'
-        },
-        step2: {
-          title: 'Assign Subscription to User',
-          line1: 'Click the "Assign Subscription" button in the top right',
-          line2: 'Search for a user by email and select them',
-          line3: 'Choose a plan, set validity days, then click "Assign"; a key bound to the subscription is generated for the user'
-        },
-        step3: {
-          title: 'Manage Existing Subscriptions'
-        },
-        actions: {
-          adjust: 'Adjust',
-          adjustDesc: 'Extend or shorten the subscription validity period',
-          resetQuota: 'Reset Quota',
-          resetQuotaDesc: 'Reset daily/weekly/monthly usage to zero',
-          revoke: 'Revoke',
-          revokeDesc: 'Immediately terminate the subscription (restorable from the revoked list)'
-        },
-        tip: 'Tip: a user can hold only one active subscription at a time; assigning the same plan again renews it, assigning a different plan is rejected.'
-      }
+      userColumnMode: 'User column shows',
+      emptyHint: 'Subscriptions come from plans: create one on the Plans tab first, then assign it to users.',
+      goToPlans: 'Go to plans'
     },
 
     // Accounts

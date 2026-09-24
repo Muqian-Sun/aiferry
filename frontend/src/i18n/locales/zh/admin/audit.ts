@@ -5,7 +5,6 @@ export default {
     empty: '暂无操作日志',
     loadFailed: '加载操作日志失败',
     filters: {
-      all: '全部',
       q: '关键字',
       qPlaceholder: '路径 / 动作 / 操作者邮箱',
       actorEmail: '操作者邮箱',
@@ -17,7 +16,9 @@ export default {
       resultSuccess: '成功',
       resultFailure: '失败',
       startTime: '开始时间',
-      endTime: '结束时间'
+      endTime: '结束时间',
+      more: '更多筛选',
+      reset: '重置筛选'
     },
     columns: {
       time: '时间',

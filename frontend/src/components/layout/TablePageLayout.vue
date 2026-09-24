@@ -1,5 +1,14 @@
 <template>
+  <!--
+    列表页骨架（A4 起管理站统一）：数字摘要 → 工具行 → 表格 → 批量条 → 分页。
+    表格不再包卡片边框，与用户站控制台一致：表头与页面同色，只靠 hairline 分隔。
+  -->
   <div class="table-page-layout" :class="{ 'mobile-mode': isMobile }">
+    <!-- 固定区域：数字摘要（StatRow） -->
+    <div v-if="$slots.summary" class="layout-section-fixed border-b border-af-hairline pb-5">
+      <slot name="summary" />
+    </div>
+
     <!-- 固定区域：操作按钮 -->
     <div v-if="$slots.actions" class="layout-section-fixed">
       <slot name="actions" />
@@ -12,9 +21,14 @@
 
     <!-- 滚动区域：表格 -->
     <div class="layout-section-scrollable">
-      <div class="card table-scroll-container">
+      <div class="table-scroll-container">
         <slot name="table" />
       </div>
+    </div>
+
+    <!-- 固定区域：批量操作条（选中行时才有内容） -->
+    <div v-if="$slots.bulk" class="layout-section-fixed empty:hidden">
+      <slot name="bulk" />
     </div>
 
     <!-- 固定区域：分页器 -->
@@ -61,10 +75,12 @@ onUnmounted(() => {
 
 /* 表格滚动容器 - 增强版表体滚动方案 */
 .table-scroll-container {
-  @apply flex flex-col overflow-hidden h-full bg-af-sheet rounded-lg border border-af-hairline;
+  @apply flex flex-col overflow-hidden h-full bg-af-sheet;
 }
 
 .table-scroll-container :deep(.table-wrapper) {
+  /* 表头与页面同色（DataTable 的 table-head-plain 同一口径），吸顶时仍有不透明底 */
+  --table-head-bg: var(--af-sheet);
   @apply flex-1 overflow-x-auto overflow-y-auto;
   /* 确保横向滚动条显示在最底部 */
   scrollbar-gutter: stable;
@@ -77,7 +93,7 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(thead) {
-  @apply bg-af-sunken;
+  @apply bg-af-sheet;
 }
 
 .table-scroll-container :deep(tbody) {
@@ -85,7 +101,7 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(th) {
-  @apply px-4 py-3 text-left text-13 font-medium text-af-ink-3 border-b border-af-hairline;
+  @apply px-4 py-2.5 text-left text-13 font-normal text-af-ink-3 border-b border-af-hairline;
 }
 
 .table-scroll-container :deep(td) {

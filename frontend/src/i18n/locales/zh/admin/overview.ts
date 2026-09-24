@@ -299,7 +299,15 @@ export default {
         success: '已删除 {count} 个用户',
         failed: '{count} 个用户删除失败，已保留选中，可重试。'
       },
+      summary: {
+        total: '用户',
+        todayNew: '今日新增',
+        todayActive: '今日活跃',
+        apiKeys: 'API 密钥',
+        apiKeysActive: '{count} 个启用'
+      },
       bulkLimits: {
+        button: '设置限额',
         action: '批量设置限制（{count}）',
         title: '批量设置用户限制',
         selectedCount: '已选择 {count} 个用户',
@@ -504,6 +512,7 @@ export default {
         title: '用户属性配置',
         description: '配置用户的自定义属性字段',
         configButton: '属性配置',
+        filterButton: '属性',
         addAttribute: '添加属性',
         editAttribute: '编辑属性',
         deleteAttribute: '删除属性',

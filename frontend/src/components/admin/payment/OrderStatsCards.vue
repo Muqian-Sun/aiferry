@@ -1,79 +1,21 @@
 <template>
-  <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-    <!-- Today Revenue -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-af-sunken p-2">
-          <Icon name="dollar" size="md" class="text-af-ink-2" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-af-ink-3">{{ t('payment.admin.todayRevenue') }}</p>
-          <p v-for="[currency, amount] in sortedAmounts(stats.today_amount)" :key="currency" class="text-xl font-bold text-af-ink">
-            {{ formatMoney(currency, amount) }}
-          </p>
-          <p class="text-xs text-af-ink-3">
-            {{ stats.today_count }} {{ t('payment.admin.orders') }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Total Revenue -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-af-sunken p-2">
-          <Icon name="creditCard" size="md" class="text-af-ink-2" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-af-ink-3">{{ t('payment.admin.totalRevenue') }}</p>
-          <p v-for="[currency, amount] in sortedAmounts(stats.total_amount)" :key="currency" class="text-xl font-bold text-af-ink">
-            {{ formatMoney(currency, amount) }}
-          </p>
-          <p class="text-xs text-af-ink-3">
-            {{ stats.total_count }} {{ t('payment.admin.orders') }}
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Today Orders -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-af-sunken p-2">
-          <Icon name="chart" size="md" class="text-af-ink-2" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-af-ink-3">{{ t('payment.admin.todayOrders') }}</p>
-          <p class="text-xl font-bold text-af-ink">{{ stats.today_count }}</p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Average Amount -->
-    <div class="card p-4">
-      <div class="flex items-center gap-3">
-        <div class="rounded-lg bg-af-sunken p-2">
-          <Icon name="chart" size="md" class="text-af-ink-2" :stroke-width="2" />
-        </div>
-        <div>
-          <p class="text-xs font-medium text-af-ink-3">{{ t('payment.admin.avgAmount') }}</p>
-          <p v-for="[currency, amount] in sortedAmounts(stats.avg_amount)" :key="currency" class="text-xl font-bold text-af-ink">
-            {{ formatMoney(currency, amount) }}
-          </p>
-        </div>
-      </div>
-    </div>
-  </div>
+  <!--
+    收款概览的四个数字（A4）：与用户站控制台同一个 StatRow——行内大数字、竖 hairline 分隔，不再一格一张卡片。
+    金额可能有多个币种，同一格里用「·」连起来。
+  -->
+  <StatRow :items="items" data-testid="order-stats" />
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import type { CurrencyAmounts, DashboardStats } from '@/types/payment'
 
 const { t } = useI18n()
 
-defineProps<{
+const props = defineProps<{
   stats: DashboardStats
 }>()
 
@@ -84,4 +26,30 @@ function sortedAmounts(amounts: CurrencyAmounts): [string, number][] {
 function formatMoney(currency: string, amount: number): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
 }
+
+/** 多币种金额拼成一串；没有任何币种的收入时写「—」 */
+function formatAmounts(amounts: CurrencyAmounts | null | undefined): string {
+  const entries = sortedAmounts(amounts ?? {})
+  return entries.length ? entries.map(([currency, amount]) => formatMoney(currency, amount)).join(' · ') : '—'
+}
+
+const items = computed<StatItem[]>(() => {
+  const stats = props.stats
+  return [
+    {
+      key: 'today-revenue',
+      label: t('payment.admin.todayRevenue'),
+      value: formatAmounts(stats.today_amount),
+      hint: `${stats.today_count} ${t('payment.admin.orders')}`
+    },
+    {
+      key: 'total-revenue',
+      label: t('payment.admin.totalRevenue'),
+      value: formatAmounts(stats.total_amount),
+      hint: `${stats.total_count} ${t('payment.admin.orders')}`
+    },
+    { key: 'today-orders', label: t('payment.admin.todayOrders'), value: String(stats.today_count) },
+    { key: 'avg-amount', label: t('payment.admin.avgAmount'), value: formatAmounts(stats.avg_amount) }
+  ]
+})
 </script>

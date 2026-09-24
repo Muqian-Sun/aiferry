@@ -4,17 +4,18 @@ export default {
     search: 'Search by model id, display name, vendor or alias',
     create: 'New model',
     noMatch: 'No entries match',
-    summary: '{total} models · {listed} listed · {noResources} listed without resources',
+    summaryStats: {
+      total: 'Models',
+      listed: 'Listed',
+      listedWithoutResources: 'Listed without channels',
+      showThem: 'Filter'
+    },
     filtered: '{count} after filters',
     aliasCount: '{count} aliases',
     filters: {
-      allStatus: 'All statuses',
-      allVendors: 'All vendors',
       noVendor: '(no vendor)',
-      allBilling: 'All billing',
-      allResources: 'All resources',
-      withResources: 'With resources',
-      withoutResources: 'Without resources'
+      withResources: 'With channels',
+      withoutResources: 'Without channels'
     },
     columns: {
       price: 'List price',
@@ -27,10 +28,8 @@ export default {
       tiers: '{count} tiers'
     },
     bulk: {
-      selected: '{count} selected',
-      list: 'List selected',
-      unlist: 'Unlist selected',
-      clear: 'Clear selection',
+      list: 'List',
+      unlist: 'Unlist',
       nothingToDo: 'The selected entries already have that status',
       listedDone: 'Listed {count} models',
       unlistedDone: 'Unlisted {count} models',
@@ -40,17 +39,20 @@ export default {
       basics: 'Basics',
       pricing: 'Billing & list price',
       vendorHint: 'Use the lowercase vendor tag (anthropic / openai / gemini / xai…); the user site matches vendor tabs and icons on it.',
-      perMillion: '= ${price} per 1M tokens'
+      perMillion: '= ${price} per 1M tokens',
+      morePrices: 'More prices',
+      morePricesFilled: '{count} set',
+      morePricesHint: 'Per-token prices for cache, image and audio; leave empty for not configured.'
     },
     edit: 'Edit model',
     empty: 'The catalog is empty. Seed it or create an entry.',
     diagnose: 'Diagnose',
     diagnosis: {
-      title: 'Resource diagnosis · {model}',
-      empty: 'No resources are bound to this model.',
+      title: 'Channel diagnosis · {model}',
+      empty: 'No channels are bound to this model.',
       followAccount: 'Follows account',
       columns: {
-        account: 'Resource',
+        account: 'Channel',
         priority: 'Priority',
         schedulable: 'Schedulable'
       },
@@ -76,9 +78,9 @@ export default {
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Token context intervals and time pricing are written back unchanged; image / video tiers are edited above.',
+    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, priority prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
-    noResources: 'No resources',
+    noResources: 'No channels',
     fields: {
       modelId: 'Model id',
       displayName: 'Display name',
@@ -86,13 +88,21 @@ export default {
       billingMode: 'Billing mode',
       status: 'Listing status',
       managedBy: 'Managed by',
-      resources: 'Resources',
+      resources: 'Channels',
       inputPrice: 'Input price ($/token)',
       outputPrice: 'Output price ($/token)',
       perRequestPrice: 'Default price per request ($)',
       perImagePrice: 'Default price per image ($, used when no tier matches)',
       perSecondPrice: 'Default price per second ($, used when no tier matches)',
-      searchPricePerCall: 'Built-in search price per call ($, empty = built-in 0.01)'
+      searchPricePerCall: 'Built-in search price per call ($, empty = built-in 0.01)',
+      cacheWritePrice: 'Cache write price · 5 min ($/token)',
+      cacheWrite1hPrice: 'Cache write price · 1 hour ($/token)',
+      cacheReadPrice: 'Cache read price ($/token)',
+      imageInputPrice: 'Image input price ($/token)',
+      imageOutputPrice: 'Image output price ($/token)',
+      imageCacheReadPrice: 'Image cache read price ($/token)',
+      audioInputPrice: 'Audio input price ($/token)',
+      audioOutputPrice: 'Audio output price ($/token)'
     },
     tiers: {
       title: 'Tier prices',
@@ -107,14 +117,14 @@ export default {
       empty: 'No tiers; the default price applies.'
     },
     bindings: {
-      title: 'Bound resources',
-      hint: 'Requests for a listed model are served by these resources; leave priority empty to follow the resource.',
-      search: 'Search resources by name',
-      noResults: 'No matching resources',
+      title: 'Bound channels',
+      hint: 'Requests for a listed model are served by these channels; leave priority empty to follow the channel.',
+      search: 'Search channels by name',
+      noResults: 'No matching channels',
       add: 'Add',
       priority: 'Priority',
       remove: 'Remove',
-      empty: 'No resources bound yet'
+      empty: 'No channels bound yet'
     },
     status: {
       listed: 'Listed',

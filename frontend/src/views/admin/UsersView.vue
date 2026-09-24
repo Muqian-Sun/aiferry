@@ -1,251 +1,126 @@
 <template>
+  <!--
+    用户（A4 列表模板）：标题右侧是工具菜单与「创建用户」；数字摘要；工具行 = 搜索 + 筛选标签 + 刷新 / 列设置；
+    行尾「编辑」图标 + 「⋯」（充值、扣款、余额记录、API 密钥、禁用、删除）；选中行时出现批量条。
+  -->
   <AppLayout>
+    <template #header-actions>
+      <PopoverMenu width-class="w-48">
+        <template #trigger="{ open }">
+          <button
+            type="button"
+            class="btn btn-ghost btn-md px-2.5"
+            :class="open ? 'bg-af-sunken text-af-ink' : ''"
+            :title="t('common.more')"
+            :aria-label="t('common.more')"
+            data-testid="users-tools"
+          >
+            <Icon name="more" size="md" />
+          </button>
+        </template>
+        <MenuItem icon="cog" @click="showAttributesModal = true">
+          {{ t('admin.users.attributes.configButton') }}
+        </MenuItem>
+      </PopoverMenu>
+      <button @click="showCreateModal = true" class="btn btn-primary btn-md">
+        <Icon name="plus" size="md" />
+        {{ t('admin.users.createUser') }}
+      </button>
+    </template>
+
     <TablePageLayout>
-      <!-- Single Row: Search, Filters, and Actions -->
+      <template v-if="summaryItems" #summary>
+        <StatRow :items="summaryItems" data-testid="users-summary" />
+      </template>
+
       <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Active Filters -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <!-- Search Box -->
-            <div class="relative w-full md:w-64">
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3"
+        <ListToolbar>
+          <SearchInput
+            v-model="searchQuery"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('admin.users.searchUsers')"
+            @update:model-value="handleSearch"
+          />
+          <FilterChip
+            v-model="filters.role"
+            :label="t('admin.users.columns.role')"
+            :options="[
+              { value: 'admin', label: t('admin.users.admin') },
+              { value: 'user', label: t('admin.users.user') }
+            ]"
+            test-id="filter-role"
+            @change="applyFilter"
+          />
+          <FilterChip
+            v-model="filters.status"
+            :label="t('admin.users.columns.status')"
+            :options="[
+              { value: 'active', label: t('common.active') },
+              { value: 'disabled', label: t('admin.users.disabled') }
+            ]"
+            test-id="filter-status"
+            @change="applyFilter"
+          />
+
+          <!-- 自定义属性筛选：从「+ 属性」里挑出来的才显示 -->
+          <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
+            <div v-if="visibleFilters.has(`attr_${attrId}`)" class="w-full sm:w-36">
+              <Select
+                v-if="['select', 'multi_select'].includes(getAttributeDefinition(Number(attrId))?.type || '')"
+                :model-value="value"
+                :options="[
+                  { value: '', label: getAttributeDefinitionName(Number(attrId)) },
+                  ...(getAttributeDefinition(Number(attrId))?.options || [])
+                ]"
+                @update:model-value="(val) => { updateAttributeFilter(Number(attrId), String(val ?? '')); applyFilter() }"
               />
               <input
-                v-model="searchQuery"
-                type="text"
-                :placeholder="t('admin.users.searchUsers')"
-                class="input pl-10"
-                @input="handleSearch"
+                v-else
+                :value="value"
+                :type="getAttributeDefinition(Number(attrId))?.type === 'number' ? 'number' : 'text'"
+                :placeholder="getAttributeDefinitionName(Number(attrId))"
+                class="input h-8 py-0 text-13"
+                @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
+                @keyup.enter="applyFilter"
               />
             </div>
-
-            <!-- Role Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('role')" class="w-full sm:w-32">
-              <Select
-                v-model="filters.role"
-                :options="[
-                  { value: '', label: t('admin.users.allRoles') },
-                  { value: 'admin', label: t('admin.users.admin') },
-                  { value: 'user', label: t('admin.users.user') }
-                ]"
-                @change="applyFilter"
-              />
-            </div>
-
-            <!-- Status Filter (visible when enabled) -->
-            <div v-if="visibleFilters.has('status')" class="w-full sm:w-32">
-              <Select
-                v-model="filters.status"
-                :options="[
-                  { value: '', label: t('admin.users.allStatus') },
-                  { value: 'active', label: t('common.active') },
-                  { value: 'disabled', label: t('admin.users.disabled') }
-                ]"
-                @change="applyFilter"
-              />
-            </div>
-
-            <!-- Dynamic Attribute Filters -->
-            <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
-              <div
-                v-if="visibleFilters.has(`attr_${attrId}`)"
-                class="relative w-full sm:w-36"
+          </template>
+          <PopoverMenu v-if="filterableAttributes.length > 0" align="start" width-class="w-52" :close-on-select="false">
+            <template #trigger>
+              <button
+                type="button"
+                class="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-13 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+                data-testid="filter-attributes"
               >
-                <!-- Text/Email/URL/Textarea/Date type: styled input -->
-                <input
-                  v-if="['text', 'textarea', 'email', 'url', 'date'].includes(getAttributeDefinition(Number(attrId))?.type || 'text')"
-                  :value="value"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
-                  :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
-                />
-                <!-- Number type: number input -->
-                <input
-                  v-else-if="getAttributeDefinition(Number(attrId))?.type === 'number'"
-                  :value="value"
-                  type="number"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
-                  :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
-                />
-                <!-- Select/Multi-select type -->
-                <template v-else-if="['select', 'multi_select'].includes(getAttributeDefinition(Number(attrId))?.type || '')">
-                  <div class="w-full">
-                    <Select
-                      :model-value="value"
-                      :options="[
-                        { value: '', label: getAttributeDefinitionName(Number(attrId)) },
-                        ...(getAttributeDefinition(Number(attrId))?.options || [])
-                      ]"
-                      @update:model-value="(val) => { updateAttributeFilter(Number(attrId), String(val ?? '')); applyFilter() }"
-                    />
-                  </div>
-                </template>
-                <!-- Fallback -->
-                <input
-                  v-else
-                  :value="value"
-                  @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
-                  @keyup.enter="applyFilter"
-                  :placeholder="getAttributeDefinitionName(Number(attrId))"
-                  class="input w-full"
-                />
-              </div>
+                <Icon name="plus" size="xs" :stroke-width="2" />
+                {{ t('admin.users.attributes.filterButton') }}
+              </button>
             </template>
-          </div>
-
-          <!-- Right: Actions and Settings -->
-          <div class="flex flex-wrap items-center justify-end gap-2">
-            <!-- Mobile: Secondary buttons (icon only) -->
-            <div class="flex items-center gap-2 md:contents">
-              <!-- Refresh Button -->
-              <button
-                @click="loadUsers"
-                :disabled="loading"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('common.refresh')"
-              >
-                <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-              </button>
-              <!-- Filter Settings Dropdown -->
-              <div class="relative" ref="filterDropdownRef">
-                <button
-                  @click="showFilterDropdown = !showFilterDropdown"
-                  class="btn btn-secondary px-2 md:px-3"
-                  :title="t('admin.users.filterSettings')"
-                >
-                  <Icon name="filter" size="sm" class="md:mr-1.5" />
-                  <span class="hidden md:inline">{{ t('admin.users.filterSettings') }}</span>
-                </button>
-                <!-- Dropdown menu -->
-                <div
-                  v-if="showFilterDropdown"
-                  class="absolute right-0 top-full z-50 mt-1 w-48 rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
-                >
-                  <!-- Built-in filters -->
-                  <button
-                    v-for="filter in builtInFilters"
-                    :key="filter.key"
-                    @click="toggleBuiltInFilter(filter.key)"
-                    class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-af-ink-2 hover:bg-af-sunken"
-                  >
-                    <span>{{ filter.name }}</span>
-                    <Icon
-                      v-if="visibleFilters.has(filter.key)"
-                      name="check"
-                      size="sm"
-                      class="text-af-brand"
-                      :stroke-width="2"
-                    />
-                  </button>
-                  <!-- Divider if custom attributes exist -->
-                  <div
-                    v-if="filterableAttributes.length > 0"
-                    class="my-1 border-t border-af-hairline"
-                  ></div>
-                  <!-- Custom attribute filters -->
-                  <button
-                    v-for="attr in filterableAttributes"
-                    :key="attr.id"
-                    @click="toggleAttributeFilter(attr)"
-                    class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-af-ink-2 hover:bg-af-sunken"
-                  >
-                    <span>{{ attr.name }}</span>
-                    <Icon
-                      v-if="visibleFilters.has(`attr_${attr.id}`)"
-                      name="check"
-                      size="sm"
-                      class="text-af-brand"
-                      :stroke-width="2"
-                    />
-                  </button>
-                </div>
-              </div>
-              <!-- Column Settings Dropdown -->
-              <div class="relative" ref="columnDropdownRef">
-                <button
-                  @click="showColumnDropdown = !showColumnDropdown"
-                  class="btn btn-secondary px-2 md:px-3"
-                  :title="t('admin.users.columnSettings')"
-                >
-                  <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                  </svg>
-                  <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-                </button>
-                <!-- Dropdown menu -->
-                <div
-                  v-if="showColumnDropdown"
-                  class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
-                >
-                  <button
-                    v-for="col in toggleableColumns"
-                    :key="col.key"
-                    :disabled="isForcedVisibleColumn(col.key)"
-                    @click="toggleColumn(col.key)"
-                    :class="[
-                      'flex w-full items-center justify-between px-4 py-2 text-left text-sm',
-                      isForcedVisibleColumn(col.key)
-                        ? 'cursor-not-allowed text-af-ink-3'
-                        : 'text-af-ink-2 hover:bg-af-sunken'
-                    ]"
-                    :title="isForcedVisibleColumn(col.key) ? t('admin.users.columnAlwaysVisible') : ''"
-                  >
-                    <span>{{ col.label }}</span>
-                    <Icon
-                      v-if="isColumnVisible(col.key)"
-                      name="check"
-                      size="sm"
-                      :class="isForcedVisibleColumn(col.key) ? 'text-af-ink-3' : 'text-af-brand'"
-                      :stroke-width="2"
-                    />
-                  </button>
-                </div>
-              </div>
-              <!-- Attributes Config Button -->
-              <button
-                @click="showAttributesModal = true"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('admin.users.attributes.configButton')"
-              >
-                <Icon name="cog" size="sm" class="md:mr-1.5" />
-                <span class="hidden md:inline">{{ t('admin.users.attributes.configButton') }}</span>
-              </button>
-            </div>
-
-            <button
-              v-if="selectedCount > 0"
-              class="btn btn-secondary flex-1 md:flex-initial"
-              data-test="bulk-edit-limits"
-              @click="showBulkEditModal = true"
+            <MenuItem
+              v-for="attr in filterableAttributes"
+              :key="attr.id"
+              :checked="visibleFilters.has(`attr_${attr.id}`)"
+              @click="toggleAttributeFilter(attr)"
             >
-              <Icon name="users" size="md" class="mr-2" />
-              {{ t('admin.users.bulkLimits.action', { count: selectedCount }) }}
-            </button>
+              {{ attr.name }}
+            </MenuItem>
+          </PopoverMenu>
 
+          <template #end>
             <button
-              v-if="selectedCount > 0"
-              class="btn btn-danger flex-1 md:flex-initial"
-              data-test="bulk-delete-users"
-              :disabled="bulkDeleting"
-              @click="bulkDeleteIds = [...selectedIds]"
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="loading"
+              :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadUsers"
             >
-              <Icon name="trash" size="md" class="mr-2" />
-              {{ t('admin.users.bulkDelete.action', { count: selectedCount }) }}
+              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-
-            <!-- Create User Button (full width on mobile, auto width on desktop) -->
-            <button @click="showCreateModal = true" class="btn btn-primary flex-1 md:flex-initial">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.users.createUser') }}
-            </button>
-          </div>
-        </div>
+            <ColumnSettingsMenu :settings="columnSettings" />
+          </template>
+        </ListToolbar>
       </template>
 
       <!-- Users Table -->
@@ -258,7 +133,6 @@
           selectable
           :selected-keys="selectedIds"
           :selection-label="getUserSelectionLabel"
-          :actions-count="7"
           :server-side-sort="true"
           default-sort-key="created_at"
           default-sort-order="desc"
@@ -266,16 +140,10 @@
           @sort="handleSort"
           @update:selected-keys="handleSelectedKeysUpdate"
         >
-          <template #cell-email="{ value }">
-            <div class="flex items-center gap-2">
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-af-brand-tint"
-              >
-                <span class="text-sm font-medium text-af-brand">
-                  {{ value.charAt(0).toUpperCase() }}
-                </span>
-              </div>
-              <span class="font-medium text-af-ink">{{ value }}</span>
+          <template #cell-email="{ value, row }">
+            <div class="min-w-0">
+              <div class="truncate font-medium text-af-ink">{{ value }}</div>
+              <div v-if="row.username" class="truncate text-xs text-af-ink-3">{{ row.username }}</div>
             </div>
           </template>
 
@@ -313,7 +181,7 @@
           </template>
 
           <template #cell-role="{ value }">
-            <span :class="['badge', value === 'admin' ? 'badge-primary' : 'badge-gray']">
+            <span :class="value === 'admin' ? 'font-medium text-af-ink' : 'text-af-ink-2'">
               {{ t('admin.users.roles.' + value) }}
             </span>
           </template>
@@ -345,28 +213,14 @@
           </template>
 
           <template #cell-balance="{ value, row }">
-            <div class="flex items-center gap-2">
-              <div class="group relative">
-                <button
-                  class="font-medium text-af-ink underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
-                  @click="handleBalanceHistory(row)"
-                >
-                  ${{ value.toFixed(2) }}
-                </button>
-                <!-- Instant tooltip -->
-                <div class="pointer-events-none absolute bottom-full left-1/2 z-50 mb-1.5 -translate-x-1/2 whitespace-nowrap rounded bg-af-ink px-2 py-1 text-xs text-af-on-brand opacity-0 shadow-lg transition-opacity duration-75 group-hover:opacity-100">
-                  {{ t('admin.users.balanceHistoryTip') }}
-                  <div class="absolute left-1/2 top-full -translate-x-1/2 border-4 border-transparent border-t-af-ink-3"></div>
-                </div>
-              </div>
-              <button
-                @click.stop="handleDeposit(row)"
-                class="rounded px-2 py-0.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-sunken hover:text-af-ink"
-                :title="t('admin.users.deposit')"
-              >
-                {{ t('admin.users.deposit') }}
-              </button>
-            </div>
+            <button
+              type="button"
+              class="font-medium tabular-nums text-af-ink underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
+              :title="t('admin.users.balanceHistoryTip')"
+              @click="handleBalanceHistory(row)"
+            >
+              ${{ value.toFixed(2) }}
+            </button>
           </template>
 
           <!-- 用量列自定义表头：列名 + 单个排序图标按钮，点击展开"今日/近30天"菜单。
@@ -482,7 +336,7 @@
           </template>
 
           <template #cell-rate_multiplier="{ row }">
-            <span class="font-mono text-sm text-af-ink-2">{{ row.rate_multiplier }}x</span>
+            <span class="tabular-nums text-af-ink-2">× {{ row.rate_multiplier }}</span>
           </template>
 
           <template #cell-status="{ value }">
@@ -490,68 +344,32 @@
               <span
                 :class="[
                   'inline-block h-2 w-2 rounded-full',
-                  value === 'active' ? 'bg-af-success' : 'bg-af-danger'
+                  value === 'active' ? 'bg-af-ink-4' : 'bg-af-danger'
                 ]"
               ></span>
-              <span class="text-sm text-af-ink-2">
+              <span :class="value === 'active' ? 'text-af-ink-2' : 'text-af-danger'">
                 {{ value === 'active' ? t('common.active') : t('admin.users.disabled') }}
               </span>
             </div>
           </template>
 
+          <!-- 时间列：最近活跃 / 最近使用写相对时间，悬停看精确时间；注册时间只写日期 -->
           <template #cell-created_at="{ value }">
-            <span class="text-sm text-af-ink-3">{{ formatDateTime(value) }}</span>
+            <span class="tabular-nums text-af-ink-3" :title="formatDateTime(value)">{{ formatDateOnly(value) }}</span>
           </template>
 
           <template #cell-last_used_at="{ value }">
-            <span class="text-sm text-af-ink-3">
-              {{ value ? formatDateTime(value) : '-' }}
-            </span>
+            <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
           <template #cell-last_active_at="{ value }">
-            <span class="text-sm text-af-ink-3">
-              {{ value ? formatDateTime(value) : '-' }}
-            </span>
+            <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
-              <!-- Edit Button -->
-              <button
-                @click="handleEdit(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-brand-hover"
-              >
-                <Icon name="edit" size="sm" />
-                <span class="text-xs">{{ t('common.edit') }}</span>
-              </button>
-
-              <!-- Toggle Status Button (not for admin) -->
-              <button
-                v-if="row.role !== 'admin'"
-                @click="handleToggleStatus(row)"
-                :class="[
-                  'flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors',
-                  row.status === 'active'
-                    ? 'hover:bg-af-sunken hover:text-af-ink'
-                    : 'hover:bg-af-sunken hover:text-af-ink'
-                ]"
-              >
-                <Icon v-if="row.status === 'active'" name="ban" size="sm" />
-                <Icon v-else name="checkCircle" size="sm" />
-                <span class="text-xs">{{ row.status === 'active' ? t('admin.users.disable') : t('admin.users.enable') }}</span>
-              </button>
-
-              <!-- More Actions Menu Trigger -->
-              <button
-                @click="openActionMenu(row, $event)"
-                class="action-menu-trigger flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
-                :class="{ 'bg-af-sunken text-af-ink': activeMenuId === row.id }"
-              >
-                <Icon name="more" size="sm" />
-                <span class="text-xs">{{ t('common.more') }}</span>
-              </button>
-            </div>
+            <RowActions :actions="rowActions(row)" />
           </template>
 
           <template #empty>
@@ -563,6 +381,23 @@
             />
           </template>
         </DataTable>
+      </template>
+
+      <template #bulk>
+        <BulkBar :count="selectedCount" @clear="clearSelection">
+          <button type="button" class="bulk-btn" data-test="bulk-edit-limits" @click="showBulkEditModal = true">
+            {{ t('admin.users.bulkLimits.button') }}
+          </button>
+          <button
+            type="button"
+            class="bulk-btn bulk-btn-danger"
+            data-test="bulk-delete-users"
+            :disabled="bulkDeleting"
+            @click="bulkDeleteIds = [...selectedIds]"
+          >
+            {{ t('common.delete') }}
+          </button>
+        </BulkBar>
       </template>
 
       <!-- Pagination -->
@@ -577,73 +412,6 @@
       />
       </template>
     </TablePageLayout>
-
-    <!-- Action Menu (Teleported) -->
-    <Teleport to="body">
-      <div
-        v-if="activeMenuId !== null && menuPosition"
-        class="action-menu-content fixed z-[9999] w-48 overflow-hidden rounded-xl bg-af-sheet shadow-lg ring-1 ring-af-ink/5"
-        :style="{ top: menuPosition.top + 'px', left: menuPosition.left + 'px' }"
-      >
-        <div class="py-1">
-          <template v-for="user in users" :key="user.id">
-            <template v-if="user.id === activeMenuId">
-              <!-- View API Keys -->
-              <button
-                @click="handleViewApiKeys(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-              >
-                <Icon name="key" size="sm" class="text-af-ink-3" :stroke-width="2" />
-                {{ t('admin.users.apiKeys') }}
-              </button>
-
-              <div class="my-1 border-t border-af-hairline"></div>
-
-              <!-- Deposit -->
-              <button
-                @click="handleDeposit(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-              >
-                <Icon name="plus" size="sm" class="text-af-ink-2" :stroke-width="2" />
-                {{ t('admin.users.deposit') }}
-              </button>
-
-              <!-- Withdraw -->
-              <button
-                @click="handleWithdraw(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-              >
-                <svg class="h-4 w-4 text-af-ink-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4" />
-                </svg>
-                {{ t('admin.users.withdraw') }}
-              </button>
-
-              <!-- Balance History -->
-              <button
-                @click="handleBalanceHistory(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-              >
-                <Icon name="dollar" size="sm" class="text-af-ink-3" :stroke-width="2" />
-                {{ t('admin.users.balanceHistory') }}
-              </button>
-
-              <div class="my-1 border-t border-af-hairline"></div>
-
-              <!-- Delete (not for admin) -->
-              <button
-                v-if="user.role !== 'admin'"
-                @click="handleDelete(user); closeActionMenu()"
-                class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-danger hover:bg-af-danger-tint"
-              >
-                <Icon name="trash" size="sm" :stroke-width="2" />
-                {{ t('common.delete') }}
-              </button>
-            </template>
-          </template>
-        </div>
-      </div>
-    </Teleport>
 
     <ConfirmDialog :show="showDeleteDialog" :title="t('admin.users.deleteUser')" :message="t('admin.users.deleteConfirm', { email: deletingUser?.email })" :danger="true" @confirm="confirmDelete" @cancel="showDeleteDialog = false" />
     <ConfirmDialog
@@ -671,12 +439,12 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
+import { ref, reactive, computed, onMounted, onUnmounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
-import { formatDateTime } from '@/utils/format'
+import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
@@ -690,6 +458,13 @@ import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
+import { BulkBar, ColumnSettingsMenu, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
+import { useColumnSettings } from '@/composables/useColumnSettings'
+import type { DashboardStats } from '@/types'
 import Select from '@/components/common/Select.vue'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
@@ -775,109 +550,22 @@ const allColumns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.users.columns.actions'), sortable: false }
 ])
 
-// Columns that can be toggled (exclude email and actions which are always visible)
-const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'email' && col.key !== 'actions')
-)
-
-// Hidden columns (stored in Set - columns NOT in this set are visible)
-// This way, new columns are visible by default
-const hiddenColumns = reactive<Set<string>>(new Set())
-
-// Default hidden columns (columns hidden by default on first load)
+// 列设置（A4 共用实现）：用户列与操作列恒显示；ID、用户名与「用户」列（邮箱 + 用户名小字）重复，默认收起
 const DEFAULT_HIDDEN_COLUMNS = [
   'notes', 'subscriptions', 'usage', 'concurrency',
   'usage_anthropic', 'usage_openai', 'usage_gemini', 'usage_antigravity',
-  // A2-3：ID、用户名与「用户」列（头像 + 邮箱）重复，默认收进「列设置」
   'id', 'username'
 ]
-const REMOVED_COLUMNS = new Set(['last_login_at'])
-// 强制可见列：加载时会被强制移出 hiddenColumns，并在列设置 UI 上 disabled。
-// 当前没有列需要强制可见 —— last_active_at 已改为可被用户隐藏。
-const FORCED_VISIBLE_COLUMNS = new Set<string>()
+const columnSettings = useColumnSettings({
+  storageKey: 'admin-users-columns',
+  version: 1,
+  columns: allColumns,
+  defaultHidden: DEFAULT_HIDDEN_COLUMNS,
+  alwaysVisible: ['email', 'actions']
+})
+const isColumnVisible = columnSettings.isVisible
+const columns = columnSettings.visibleColumns
 
-// localStorage keys for column settings
-const HIDDEN_COLUMNS_KEY = 'user-hidden-columns'
-// 列设置 schema 版本号。每次给 DEFAULT_HIDDEN_COLUMNS 新增列时 bump 一次，
-// 并在 VERSION_NEW_HIDDEN_COLUMNS 中登记该版本新增的 key。
-// 这样老用户升级后这些新列会被自动隐藏一次，而不会影响他们对其它老列的偏好。
-const COLUMN_SETTINGS_VERSION_KEY = 'user-column-settings-version'
-const COLUMN_SETTINGS_VERSION = 4
-const VERSION_NEW_HIDDEN_COLUMNS: Record<number, string[]> = {
-  2: ['usage_anthropic', 'usage_openai', 'usage_gemini', 'usage_antigravity'],
-  4: ['id', 'username']
-}
-
-// Load saved column settings
-const loadSavedColumns = () => {
-  try {
-    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[]
-      parsed
-        .filter(key => !REMOVED_COLUMNS.has(key) && !FORCED_VISIBLE_COLUMNS.has(key))
-        .forEach(key => hiddenColumns.add(key))
-
-      // 老用户升级：把每个未应用过的版本里新增的默认隐藏列自动追加到 hiddenColumns。
-      const storedVersion = Number(localStorage.getItem(COLUMN_SETTINGS_VERSION_KEY) ?? '1')
-      if (storedVersion < COLUMN_SETTINGS_VERSION) {
-        let mutated = false
-        for (let v = storedVersion + 1; v <= COLUMN_SETTINGS_VERSION; v++) {
-          for (const key of VERSION_NEW_HIDDEN_COLUMNS[v] ?? []) {
-            if (REMOVED_COLUMNS.has(key) || FORCED_VISIBLE_COLUMNS.has(key)) continue
-            if (!hiddenColumns.has(key)) {
-              hiddenColumns.add(key)
-              mutated = true
-            }
-          }
-        }
-        if (mutated) saveColumnsToStorage()
-        else localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-      }
-    } else {
-      // Use default hidden columns on first load
-      DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
-      localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-    }
-  } catch (e) {
-    console.error('Failed to load saved columns:', e)
-    DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
-  }
-}
-
-// Save column settings to localStorage
-const saveColumnsToStorage = () => {
-  try {
-    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
-    localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-  } catch (e) {
-    console.error('Failed to save columns:', e)
-  }
-}
-
-// Toggle column visibility
-const isForcedVisibleColumn = (key: string) => FORCED_VISIBLE_COLUMNS.has(key)
-const toggleColumn = (key: string) => {
-  // 强制可见列(如 last_active_at)在加载时会被恢复成可见，
-  // 这里阻止用户在当前会话隐藏它，避免"取消勾选 → 刷新又恢复"的反直觉行为。
-  if (FORCED_VISIBLE_COLUMNS.has(key)) return
-  const wasHidden = hiddenColumns.has(key)
-  if (hiddenColumns.has(key)) {
-    hiddenColumns.delete(key)
-  } else {
-    hiddenColumns.add(key)
-  }
-  saveColumnsToStorage()
-  if (wasHidden && (key === 'usage' || key.startsWith('usage_') || key.startsWith('attr_'))) {
-    refreshCurrentPageSecondaryData()
-  }
-  if (key === 'subscriptions') {
-    loadUsers()
-  }
-}
-
-// Check if column is visible (not in hidden set)
-const isColumnVisible = (key: string) => !hiddenColumns.has(key)
 // usage 主列或任意 usage_<platform> 子列可见时都需要批量拉取用量数据
 // 列 key → 平台名（'usage' 主列汇总所有平台时为 null）
 // 显式数组取代 Object.keys()：保证迭代顺序（决定列头排序按钮渲染顺序）
@@ -892,18 +580,12 @@ const USAGE_COLUMN_PLATFORMS: Record<string, string | null> = {
 }
 const PLATFORM_USAGE_COLUMNS = USAGE_COLUMN_KEYS.filter((k) => k !== 'usage')
 const hasVisibleUsageColumn = computed(
-  () => !hiddenColumns.has('usage') || PLATFORM_USAGE_COLUMNS.some((k) => !hiddenColumns.has(k))
+  () => isColumnVisible('usage') || PLATFORM_USAGE_COLUMNS.some((k) => isColumnVisible(k))
 )
 const hasVisibleAttributeColumns = computed(() =>
-  attributeDefinitions.value.some((def) => def.enabled && !hiddenColumns.has(`attr_${def.id}`))
+  attributeDefinitions.value.some((def) => def.enabled && isColumnVisible(`attr_${def.id}`))
 )
 
-// Filtered columns based on visibility
-const columns = computed<Column[]>(() =>
-  allColumns.value.filter(col =>
-    col.key === 'email' || col.key === 'actions' || !hiddenColumns.has(col.key)
-  )
-)
 
 const users = ref<AdminUser[]>([])
 const loading = ref(false)
@@ -939,14 +621,6 @@ const activeAttributeFilters = reactive<Record<number, string>>({})
 // Keys: 'role', 'status', 'attr_${id}'
 const visibleFilters = reactive<Set<string>>(new Set())
 
-// Dropdown states
-const showFilterDropdown = ref(false)
-const showColumnDropdown = ref(false)
-
-// Dropdown refs for click outside detection
-const filterDropdownRef = ref<HTMLElement | null>(null)
-const columnDropdownRef = ref<HTMLElement | null>(null)
-
 // localStorage keys
 const FILTER_VALUES_KEY = 'user-filter-values'
 const VISIBLE_FILTERS_KEY = 'user-visible-filters'
@@ -955,12 +629,6 @@ const VISIBLE_FILTERS_KEY = 'user-visible-filters'
 const filterableAttributes = computed(() =>
   attributeDefinitions.value.filter(def => def.enabled)
 )
-
-// Built-in filter definitions
-const builtInFilters = computed(() => [
-  { key: 'role', name: t('admin.users.columns.role'), type: 'select' as const },
-  { key: 'status', name: t('admin.users.columns.status'), type: 'select' as const }
-])
 
 // Load saved filters from localStorage
 const loadSavedFilters = () => {
@@ -1200,85 +868,61 @@ const refreshCurrentPageSecondaryData = () => {
   void loadUsersSecondaryData(userIds, undefined, seq)
 }
 
-// Action Menu State
-const activeMenuId = ref<number | null>(null)
-const menuPosition = ref<{ top: number; left: number } | null>(null)
-
-const openActionMenu = (user: AdminUser, e: MouseEvent) => {
-  if (activeMenuId.value === user.id) {
-    closeActionMenu()
-  } else {
-    const target = e.currentTarget as HTMLElement
-    if (!target) {
-      closeActionMenu()
-      return
-    }
-
-    const rect = target.getBoundingClientRect()
-    const menuWidth = 200
-    const menuHeight = 240
-    const padding = 8
-    const viewportWidth = window.innerWidth
-    const viewportHeight = window.innerHeight
-
-    let left, top
-
-    if (viewportWidth < 768) {
-      // 居中显示,水平位置
-      left = Math.max(padding, Math.min(
-        rect.left + rect.width / 2 - menuWidth / 2,
-        viewportWidth - menuWidth - padding
-      ))
-
-      // 优先显示在按钮下方
-      top = rect.bottom + 4
-
-      // 如果下方空间不够,显示在上方
-      if (top + menuHeight > viewportHeight - padding) {
-        top = rect.top - menuHeight - 4
-        // 如果上方也不够,就贴在视口顶部
-        if (top < padding) {
-          top = padding
-        }
-      }
-    } else {
-      left = Math.max(padding, Math.min(
-        e.clientX - menuWidth,
-        viewportWidth - menuWidth - padding
-      ))
-      top = e.clientY
-      if (top + menuHeight > viewportHeight - padding) {
-        top = viewportHeight - menuHeight - padding
-      }
-    }
-
-    menuPosition.value = { top, left }
-    activeMenuId.value = user.id
+// 行操作（A4）：编辑是图标；其余进「⋯」。管理员不能在这里禁用或删除。
+const rowActions = (user: AdminUser): RowAction[] => {
+  const actions: RowAction[] = [
+    { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => handleEdit(user) },
+    { key: 'deposit', label: t('admin.users.deposit'), icon: 'plus', onSelect: () => handleDeposit(user) },
+    { key: 'withdraw', label: t('admin.users.withdraw'), icon: 'arrowDown', onSelect: () => handleWithdraw(user) },
+    { key: 'balance-history', label: t('admin.users.balanceHistory'), icon: 'dollar', onSelect: () => handleBalanceHistory(user) },
+    { key: 'api-keys', label: t('admin.users.apiKeys'), icon: 'key', onSelect: () => handleViewApiKeys(user) }
+  ]
+  if (user.role !== 'admin') {
+    actions.push(
+      {
+        key: 'toggle-status',
+        label: user.status === 'active' ? t('admin.users.disable') : t('admin.users.enable'),
+        icon: user.status === 'active' ? 'ban' : 'checkCircle',
+        dividerBefore: true,
+        onSelect: () => handleToggleStatus(user)
+      },
+      { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => handleDelete(user) }
+    )
   }
+  return actions
 }
 
-const closeActionMenu = () => {
-  activeMenuId.value = null
-  menuPosition.value = null
-}
-
-// Close menu when clicking outside
+// 用量列表头的「今日 / 近 30 天」排序菜单：点外面关掉
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
-  if (!target.closest('.action-menu-trigger') && !target.closest('.action-menu-content')) {
-    closeActionMenu()
-  }
-  // Close filter dropdown when clicking outside
-  if (filterDropdownRef.value && !filterDropdownRef.value.contains(target)) {
-    showFilterDropdown.value = false
-  }
-  // Close column dropdown when clicking outside
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false
-  }
-  // Close usage sort dropdown when clicking outside any usage-sort-trigger
   if (openUsageSortMenu.value !== null && !target.closest('.usage-sort-trigger')) {
     openUsageSortMenu.value = null
+  }
+}
+
+// 数字摘要：取仪表盘统计；接口失败就不显示，不摆一排 0
+const dashboardStats = ref<DashboardStats | null>(null)
+const summaryItems = computed<StatItem[] | null>(() => {
+  const stats = dashboardStats.value
+  if (!stats) return null
+  const fmt = (n: number) => n.toLocaleString()
+  return [
+    { key: 'total', label: t('admin.users.summary.total'), value: fmt(stats.total_users) },
+    { key: 'new', label: t('admin.users.summary.todayNew'), value: fmt(stats.today_new_users) },
+    { key: 'active', label: t('admin.users.summary.todayActive'), value: fmt(stats.active_users) },
+    {
+      key: 'keys',
+      label: t('admin.users.summary.apiKeys'),
+      value: fmt(stats.total_api_keys),
+      hint: t('admin.users.summary.apiKeysActive', { count: fmt(stats.active_api_keys) })
+    }
+  ]
+})
+const loadSummary = async () => {
+  try {
+    dashboardStats.value = await adminAPI.dashboard.getStats()
+  } catch {
+    dashboardStats.value = null
   }
 }
 
@@ -1428,20 +1072,6 @@ const getAttributeDefinitionName = (attrId: number): string => {
   return def?.name || String(attrId)
 }
 
-// Toggle a built-in filter (role/status)
-const toggleBuiltInFilter = (key: string) => {
-  if (visibleFilters.has(key)) {
-    visibleFilters.delete(key)
-    if (key === 'role') filters.role = ''
-    if (key === 'status') filters.status = ''
-  } else {
-    visibleFilters.add(key)
-  }
-  saveFiltersToStorage()
-  pagination.page = 1
-  loadUsers()
-}
-
 // Toggle a custom attribute filter
 const toggleAttributeFilter = (attr: UserAttributeDefinition) => {
   const key = `attr_${attr.id}`
@@ -1585,23 +1215,28 @@ const handleWithdrawFromHistory = () => {
   }
 }
 
-// 滚动时关闭菜单
-const handleScroll = () => {
-  closeActionMenu()
-}
+// 刚打开的列要补数据：用量 / 属性列按需批量拉取，订阅列随列表一起取
+watch(
+  () => columns.value.map((col) => col.key),
+  (next, prev) => {
+    const opened = next.filter((key) => !prev?.includes(key))
+    if (opened.some((key) => key === 'usage' || key.startsWith('usage_') || key.startsWith('attr_'))) {
+      refreshCurrentPageSecondaryData()
+    }
+    if (opened.includes('subscriptions')) loadUsers()
+  }
+)
 
 onMounted(async () => {
   await loadAttributeDefinitions()
   loadSavedFilters()
-  loadSavedColumns()
   loadUsers()
+  void loadSummary()
   document.addEventListener('click', handleClickOutside)
-  window.addEventListener('scroll', handleScroll, true)
 })
 
 onUnmounted(() => {
   document.removeEventListener('click', handleClickOutside)
-  window.removeEventListener('scroll', handleScroll, true)
   clearTimeout(searchTimeout)
   abortController?.abort()
 })

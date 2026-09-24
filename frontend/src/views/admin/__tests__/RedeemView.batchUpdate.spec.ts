@@ -53,12 +53,15 @@ vi.mock('vue-i18n', async () => {
   }
 })
 
+// 行选择由 DataTable 自带的勾选列负责（A4）：桩里给每行一个 select-code 勾选框，勾上即发 update:selectedKeys
 const DataTableStub = {
-  props: ['columns', 'data'],
+  props: ['columns', 'data', 'selectedKeys'],
+  emits: ['update:selectedKeys'],
   template: `
     <table>
       <thead>
         <tr>
+          <th></th>
           <th v-for="column in columns" :key="column.key">
             <slot :name="'header-' + column.key" :column="column">{{ column.label }}</slot>
           </th>
@@ -66,6 +69,16 @@ const DataTableStub = {
       </thead>
       <tbody>
         <tr v-for="row in data" :key="row.id">
+          <td>
+            <input
+              data-test="select-code"
+              type="checkbox"
+              :checked="(selectedKeys || []).includes(row.id)"
+              @change="$emit('update:selectedKeys', $event.target.checked
+                ? [...(selectedKeys || []), row.id]
+                : (selectedKeys || []).filter((key) => key !== row.id))"
+            />
+          </td>
           <td v-for="column in columns" :key="column.key">
             <slot :name="'cell-' + column.key" :row="row" :value="row[column.key]">
               {{ row[column.key] }}
@@ -152,13 +165,14 @@ describe('admin RedeemView batch update', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: true,
           ConfirmDialog: true,
           Select: SelectStub,
           Icon: true,
+          RouterLink: true,
           Teleport: true
         }
       }

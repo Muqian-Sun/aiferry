@@ -35,6 +35,9 @@ export interface ModelCatalogEntry {
   image_input_price: number | null
   image_output_price: number | null
   image_cache_read_price: number | null
+  /** 音频 Token 单价：较新的后端才有；旧后端不返回这两个字段 */
+  audio_input_price?: number | null
+  audio_output_price?: number | null
   input_price_priority: number | null
   output_price_priority: number | null
   cache_write_price_priority: number | null
@@ -112,6 +115,9 @@ export interface ModelCatalogEntryRequest {
   image_input_price?: number | null
   image_output_price?: number | null
   image_cache_read_price?: number | null
+  /** 只在有值时发送：旧后端不认识这两个字段，会直接忽略 */
+  audio_input_price?: number | null
+  audio_output_price?: number | null
   input_price_priority?: number | null
   output_price_priority?: number | null
   cache_write_price_priority?: number | null

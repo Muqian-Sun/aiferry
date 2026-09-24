@@ -1,188 +1,135 @@
 <template>
+  <!--
+    订阅（A4 列表模板）：标题右侧「分配订阅」（套餐页签那边是「新建套餐」，同组页头各管各的主操作）；
+    工具行 = 用户搜索 + 状态 / 套餐筛选标签 + 刷新 / 用户列显示 / 列设置；
+    行尾「调整」图标 + 「⋯」（重置配额、恢复、撤销）；选中行时出现批量条。
+  -->
   <AppLayout>
+    <template #header-actions>
+      <button type="button" class="btn btn-primary btn-md" @click="showAssignModal = true">
+        <Icon name="plus" size="md" />
+        {{ t('admin.subscriptions.assignSubscription') }}
+      </button>
+    </template>
+
     <TablePageLayout>
       <template #filters>
-        <!-- Top Toolbar: Left (search + filters) / Right (actions) -->
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <!-- Left: Fuzzy user search + filters (wrap to multiple lines) -->
-          <div class="flex flex-1 flex-wrap items-center gap-3">
-            <!-- User Search -->
-            <div
-              class="relative w-full sm:w-64"
-              data-filter-user-search
+        <ListToolbar>
+          <!-- 用户搜索：边输边查（含已删除用户，便于查历史订阅），选中后按用户过滤 -->
+          <div class="relative w-full sm:w-64" data-filter-user-search>
+            <Icon
+              name="search"
+              size="sm"
+              class="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-af-ink-4"
+            />
+            <input
+              v-model="filterUserKeyword"
+              type="text"
+              :placeholder="t('admin.usage.searchUserPlaceholder')"
+              class="input h-8 py-0 pl-8 pr-8 text-13"
+              @input="debounceSearchFilterUsers"
+              @focus="showFilterUserDropdown = true"
+            />
+            <button
+              v-if="selectedFilterUser"
+              @click="clearFilterUser"
+              type="button"
+              class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3 hover:text-af-ink-2"
+              :title="t('common.clear')"
+              :aria-label="t('common.clear')"
             >
-              <Icon
-                name="search"
-                size="md"
-                class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3"
-              />
-              <input
-                v-model="filterUserKeyword"
-                type="text"
-                :placeholder="t('admin.users.searchUsers')"
-                class="input pl-10 pr-8"
-                @input="debounceSearchFilterUsers"
-                @focus="showFilterUserDropdown = true"
-              />
-              <button
-                v-if="selectedFilterUser"
-                @click="clearFilterUser"
-                type="button"
-                class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3 hover:text-af-ink-2"
-                :title="t('common.clear')"
-              >
-                <Icon name="x" size="sm" :stroke-width="2" />
-              </button>
+              <Icon name="x" size="sm" :stroke-width="2" />
+            </button>
 
-              <!-- User Dropdown -->
+            <!-- User Dropdown -->
+            <div
+              v-if="showFilterUserDropdown && (filterUserResults.length > 0 || filterUserKeyword)"
+              class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
+            >
               <div
-                v-if="showFilterUserDropdown && (filterUserResults.length > 0 || filterUserKeyword)"
-                class="absolute z-50 mt-1 max-h-60 w-full overflow-auto rounded-lg border border-af-hairline bg-af-sheet shadow-lg"
+                v-if="filterUserLoading"
+                class="px-3 py-2 text-sm text-af-ink-3"
               >
-                <div
-                  v-if="filterUserLoading"
-                  class="px-4 py-3 text-sm text-af-ink-3"
-                >
-                  {{ t('common.loading') }}
-                </div>
-                <div
-                  v-else-if="filterUserResults.length === 0 && filterUserKeyword"
-                  class="px-4 py-3 text-sm text-af-ink-3"
-                >
-                  {{ t('common.noOptionsFound') }}
-                </div>
-                <button
-                  v-for="user in filterUserResults"
-                  :key="user.id"
-                  type="button"
-                  @click="selectFilterUser(user)"
-                  class="w-full px-4 py-2 text-left text-sm hover:bg-af-sunken"
-                >
-                  <span class="font-medium text-af-ink">{{ user.email }}</span>
-                  <span class="ml-2 text-af-ink-3">#{{ user.id }}</span>
-                </button>
+                {{ t('common.loading') }}
               </div>
-            </div>
-
-            <!-- Filters -->
-            <div class="w-full sm:w-40">
-              <Select
-                v-model="filters.status"
-                :options="statusOptions"
-                :placeholder="t('admin.subscriptions.allStatus')"
-                @change="applyFilters"
-              />
-            </div>
-            <div class="w-full sm:w-48">
-              <Select
-                v-model="filters.plan_id"
-                :options="planFilterOptions"
-                :placeholder="t('admin.subscriptions.allPlans')"
-                @change="applyFilters"
-              />
+              <div
+                v-else-if="filterUserResults.length === 0 && filterUserKeyword"
+                class="px-3 py-2 text-sm text-af-ink-3"
+              >
+                {{ t('common.noOptionsFound') }}
+              </div>
+              <button
+                v-for="user in filterUserResults"
+                :key="user.id"
+                type="button"
+                @click="selectFilterUser(user)"
+                class="w-full px-3 py-1.5 text-left text-sm hover:bg-af-sunken"
+              >
+                <span class="text-af-ink">{{ user.email }}</span>
+                <span class="ml-2 tabular-nums text-af-ink-3">#{{ user.id }}</span>
+              </button>
             </div>
           </div>
 
-          <!-- Right: Actions -->
-          <div class="ml-auto flex flex-wrap items-center justify-end gap-3">
+          <FilterChip
+            v-model="filters.status"
+            :label="t('admin.subscriptions.columns.status')"
+            :options="statusOptions"
+            test-id="filter-status"
+            @change="applyFilters"
+          />
+          <FilterChip
+            v-model="filters.plan_id"
+            :label="t('admin.subscriptions.columns.plan')"
+            :options="planFilterOptions"
+            test-id="filter-plan"
+            @change="applyFilters"
+          />
+
+          <template #end>
             <button
-              @click="loadSubscriptions"
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
               :disabled="loading"
-              class="btn btn-secondary"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadSubscriptions"
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <!-- Column Settings Dropdown -->
-            <div class="relative" ref="columnDropdownRef">
-              <button
-                @click="showColumnDropdown = !showColumnDropdown"
-                class="btn btn-secondary px-2 md:px-3"
-                :title="t('admin.users.columnSettings')"
+            <!-- 「用户」列写邮箱还是用户名（存本机） -->
+            <PopoverMenu width-class="w-44">
+              <template #trigger="{ open }">
+                <button
+                  type="button"
+                  class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+                  :class="open ? 'bg-af-sunken text-af-ink' : ''"
+                  :title="t('admin.subscriptions.userColumnMode')"
+                  :aria-label="t('admin.subscriptions.userColumnMode')"
+                  data-testid="user-column-mode"
+                >
+                  <Icon name="user" size="md" />
+                </button>
+              </template>
+              <div class="px-3 pb-1 pt-1.5 text-xs text-af-ink-3">{{ t('admin.subscriptions.userColumnMode') }}</div>
+              <MenuItem
+                :checked="userColumnMode === 'email'"
+                data-testid="user-column-mode-email"
+                @click="setUserColumnMode('email')"
               >
-                <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
-                <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
-              </button>
-              <!-- Dropdown menu -->
-              <div
-                v-if="showColumnDropdown"
-                class="absolute right-0 z-50 mt-2 w-48 origin-top-right rounded-lg border border-af-hairline bg-af-sheet shadow-lg"
+                {{ t('admin.users.columns.email') }}
+              </MenuItem>
+              <MenuItem
+                :checked="userColumnMode === 'username'"
+                data-testid="user-column-mode-username"
+                @click="setUserColumnMode('username')"
               >
-                <div class="p-2">
-                  <!-- User column mode selection -->
-                  <div class="mb-2 border-b border-af-hairline pb-2">
-                    <div class="px-3 py-1 text-xs font-medium text-af-ink-3">
-                      {{ t('admin.subscriptions.columns.user') }}
-                    </div>
-                    <button
-                      @click="setUserColumnMode('email')"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-                    >
-                      <span>{{ t('admin.users.columns.email') }}</span>
-                      <Icon v-if="userColumnMode === 'email'" name="check" size="sm" class="text-af-brand" />
-                    </button>
-                    <button
-                      @click="setUserColumnMode('username')"
-                      class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-                    >
-                      <span>{{ t('admin.users.columns.username') }}</span>
-                      <Icon v-if="userColumnMode === 'username'" name="check" size="sm" class="text-af-brand" />
-                    </button>
-                  </div>
-                  <!-- Other columns toggle -->
-                  <button
-                    v-for="col in toggleableColumns"
-                    :key="col.key"
-                    @click="toggleColumn(col.key)"
-                    class="flex w-full items-center justify-between rounded-md px-3 py-2 text-sm text-af-ink-2 hover:bg-af-sunken"
-                  >
-                    <span>{{ col.label }}</span>
-                    <Icon v-if="isColumnVisible(col.key)" name="check" size="sm" class="text-af-brand" />
-                  </button>
-                </div>
-              </div>
-            </div>
-            <button
-              @click="showGuideModal = true"
-              class="btn btn-secondary"
-              :title="t('admin.subscriptions.guide.showGuide')"
-            >
-              <Icon name="questionCircle" size="md" />
-            </button>
-            <button @click="showAssignModal = true" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-2" />
-              {{ t('admin.subscriptions.assignSubscription') }}
-            </button>
-          </div>
-        </div>
-        <div
-          v-if="selectedCount > 0"
-          class="mt-3 space-y-2 rounded-xl border border-af-hairline-strong bg-af-brand-tint p-3"
-          data-test="subscription-bulk-actions"
-        >
-          <div class="flex flex-wrap items-center gap-2">
-            <span class="mr-2 text-sm font-medium text-af-brand">
-              {{ t('admin.subscriptions.bulk.selected', { count: selectedCount }) }}
-            </span>
-            <button
-              v-for="action in bulkActions"
-              :key="action"
-              type="button"
-              :class="action === 'revoke' ? 'btn btn-danger btn-sm' : 'btn btn-secondary btn-sm'"
-              :data-test="`bulk-${action}`"
-              :disabled="loading || bulkTargets[action].length === 0"
-              @click="openBulkAction(action)"
-            >
-              {{ t(`admin.subscriptions.bulk.${action}`) }} ({{ bulkTargets[action].length }})
-            </button>
-            <button type="button" class="btn btn-secondary btn-sm" @click="clearSelection">
-              {{ t('admin.subscriptions.bulk.clearSelection') }}
-            </button>
-          </div>
-          <p class="text-xs text-af-ink-2">{{ t('admin.subscriptions.bulk.selectionHint') }}</p>
-        </div>
+                {{ t('admin.users.columns.username') }}
+              </MenuItem>
+            </PopoverMenu>
+            <ColumnSettingsMenu :settings="columnSettings" />
+          </template>
+        </ListToolbar>
       </template>
 
       <!-- Subscriptions Table -->
@@ -201,188 +148,116 @@
           @sort="handleSort"
           @update:selected-keys="handleSelectedKeysUpdate"
         >
+          <!-- 用户：点进去看这个用户的用量记录 -->
           <template #cell-user="{ row }">
-            <div class="flex items-center gap-2">
-              <div
-                class="flex h-8 w-8 items-center justify-center rounded-full bg-af-brand-tint"
-              >
-                <span class="text-sm font-medium text-af-brand">
-                  {{ userColumnMode === 'email'
-                    ? (row.user?.email?.charAt(0).toUpperCase() || '?')
-                    : (row.user?.username?.charAt(0).toUpperCase() || '?')
-                  }}
-                </span>
-              </div>
-              <RouterLink
-                :to="{ path: '/usage', query: { user_id: row.user_id } }"
-                class="rounded font-medium text-af-ink hover:text-af-brand-hover hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-af-brand focus-visible:ring-offset-2"
-              >
-                {{ userColumnMode === 'email'
-                  ? (row.user?.email || t('admin.redeem.userPrefix', { id: row.user_id }))
-                  : (row.user?.username || t('admin.redeem.userPrefix', { id: row.user_id }))
-                }}
-              </RouterLink>
-            </div>
+            <RouterLink
+              :to="{ path: '/usage', query: { user_id: row.user_id } }"
+              class="block max-w-[15rem] truncate rounded font-medium text-af-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-af-brand focus-visible:ring-offset-2"
+            >
+              {{ userColumnMode === 'email'
+                ? (row.user?.email || t('admin.redeem.userPrefix', { id: row.user_id }))
+                : (row.user?.username || t('admin.redeem.userPrefix', { id: row.user_id }))
+              }}
+            </RouterLink>
           </template>
 
           <template #cell-plan="{ row }">
             <div v-if="row.plan" class="min-w-0">
-              <div class="text-sm font-medium text-af-ink">{{ row.plan.name }}</div>
-              <div class="text-xs text-af-ink-3">{{ formatPlanLimits(row.plan) }}</div>
+              <div class="truncate font-medium text-af-ink">{{ row.plan.name }}</div>
+              <div class="whitespace-nowrap text-xs text-af-ink-3">{{ formatPlanLimits(row.plan) }}</div>
             </div>
-            <span v-else class="text-sm text-af-ink-3">-</span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
           <template #cell-api_key="{ row }">
             <div v-if="row.api_key" class="min-w-0">
-              <div class="truncate text-sm text-af-ink">{{ row.api_key.name }}</div>
-              <code class="text-xs text-af-ink-3">{{ row.api_key.key_masked }}</code>
+              <div class="truncate text-af-ink-2">{{ row.api_key.name }}</div>
+              <code class="font-mono text-xs text-af-ink-3">{{ row.api_key.key_masked }}</code>
             </div>
-            <span v-else class="text-sm text-af-ink-3">-</span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
+          <!-- 用量：日 / 周 / 月三条细进度条，常态墨色，≥70% 橙、≥90% 红 -->
           <template #cell-usage="{ row }">
-            <div class="min-w-[280px] space-y-2">
-              <!-- Daily Usage -->
+            <div class="min-w-[240px] space-y-1.5">
               <div v-if="row.plan?.daily_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.daily') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-af-hairline">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-af-sunken">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="h-full rounded-full"
                       :class="getProgressClass(row.daily_usage_usd, row.plan?.daily_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.daily_usage_usd, row.plan?.daily_limit_usd)
-                      }"
+                      :style="{ width: getProgressWidth(row.daily_usage_usd, row.plan?.daily_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
                     ${{ row.daily_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-3">/</span>
-                    ${{ row.plan?.daily_limit_usd?.toFixed(2) }}
+                    <span class="text-af-ink-4">/ ${{ row.plan?.daily_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
-                <div class="reset-info" v-if="row.daily_window_start">
-                  <svg
-                    class="h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>{{ formatDailyUsageWindow(row) }}</span>
-                </div>
+                <div class="reset-info" v-if="row.daily_window_start">{{ formatDailyUsageWindow(row) }}</div>
               </div>
 
-              <!-- Weekly Usage -->
               <div v-if="row.plan?.weekly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.weekly') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-af-hairline">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-af-sunken">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="h-full rounded-full"
                       :class="getProgressClass(row.weekly_usage_usd, row.plan?.weekly_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.weekly_usage_usd, row.plan?.weekly_limit_usd)
-                      }"
+                      :style="{ width: getProgressWidth(row.weekly_usage_usd, row.plan?.weekly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
                     ${{ row.weekly_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-3">/</span>
-                    ${{ row.plan?.weekly_limit_usd?.toFixed(2) }}
+                    <span class="text-af-ink-4">/ ${{ row.plan?.weekly_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
-                <div class="reset-info" v-if="row.weekly_window_start">
-                  <svg
-                    class="h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>{{ formatResetTime(row.weekly_window_start, 'weekly') }}</span>
-                </div>
+                <div class="reset-info" v-if="row.weekly_window_start">{{ formatResetTime(row.weekly_window_start, 'weekly') }}</div>
               </div>
 
-              <!-- Monthly Usage -->
               <div v-if="row.plan?.monthly_limit_usd" class="usage-row">
                 <div class="flex items-center gap-2">
                   <span class="usage-label">{{ t('admin.subscriptions.monthly') }}</span>
-                  <div class="h-1.5 flex-1 rounded-full bg-af-hairline">
+                  <div class="h-1.5 flex-1 overflow-hidden rounded-full bg-af-sunken">
                     <div
-                      class="h-1.5 rounded-full transition-all"
+                      class="h-full rounded-full"
                       :class="getProgressClass(row.monthly_usage_usd, row.plan?.monthly_limit_usd)"
-                      :style="{
-                        width: getProgressWidth(row.monthly_usage_usd, row.plan?.monthly_limit_usd)
-                      }"
+                      :style="{ width: getProgressWidth(row.monthly_usage_usd, row.plan?.monthly_limit_usd) }"
                     ></div>
                   </div>
                   <span class="usage-amount">
                     ${{ row.monthly_usage_usd?.toFixed(2) || '0.00' }}
-                    <span class="text-af-ink-3">/</span>
-                    ${{ row.plan?.monthly_limit_usd?.toFixed(2) }}
+                    <span class="text-af-ink-4">/ ${{ row.plan?.monthly_limit_usd?.toFixed(2) }}</span>
                   </span>
                 </div>
-                <div class="reset-info" v-if="row.monthly_window_start">
-                  <svg
-                    class="h-3 w-3"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    stroke-width="2"
-                  >
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
-                    />
-                  </svg>
-                  <span>{{ formatResetTime(row.monthly_window_start, 'monthly') }}</span>
-                </div>
+                <div class="reset-info" v-if="row.monthly_window_start">{{ formatResetTime(row.monthly_window_start, 'monthly') }}</div>
               </div>
 
-              <!-- No Limits - Unlimited badge -->
+              <!-- 三档都不限 -->
               <div
                 v-if="
                   !row.plan?.daily_limit_usd &&
                   !row.plan?.weekly_limit_usd &&
                   !row.plan?.monthly_limit_usd
                 "
-                class="flex items-center gap-2 rounded-lg bg-af-sunken px-3 py-2"
+                class="text-af-ink-3"
               >
-                <span class="text-lg text-af-ink-2">∞</span>
-                <span class="text-xs font-medium text-af-ink-2">
-                  {{ t('admin.subscriptions.unlimited') }}
-                </span>
+                ∞ {{ t('admin.subscriptions.unlimited') }}
               </div>
             </div>
           </template>
 
+          <!-- 到期：只写日期（悬停看精确时间），下一行剩余时长；7 天内到期标橙 -->
           <template #cell-expires_at="{ value }">
-            <div v-if="value">
-              <span
-                class="text-sm"
-                :class="
-                  isExpiringSoon(value)
-                    ? 'text-af-warning'
-                    : 'text-af-ink-2'
-                "
+            <div v-if="value" class="whitespace-nowrap">
+              <div
+                class="tabular-nums"
+                :class="isExpiringSoon(value) ? 'text-af-warning' : 'text-af-ink-2'"
+                :title="formatDateTimeToMinute(value)"
               >
-                {{ formatDateTimeToMinute(value) }}
-              </span>
+                {{ formatDateOnly(value) }}
+              </div>
               <template
                 v-for="remainingExpiry in [formatRemainingExpiry(value)]"
                 :key="remainingExpiry ?? 'expired'"
@@ -392,73 +267,69 @@
                 </div>
               </template>
             </div>
-            <span v-else class="text-sm text-af-ink-3">{{
+            <span v-else class="text-af-ink-3">{{
               t('admin.subscriptions.noExpiration')
             }}</span>
           </template>
 
+          <!-- 状态：生效中灰点常态；过期橙、撤销红 -->
           <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'active'
-                  ? 'badge-success'
-                  : value === 'expired'
-                    ? 'badge-warning'
-                    : 'badge-danger'
-              ]"
-            >
-              {{ t(`admin.subscriptions.status.${value}`) }}
+            <span class="inline-flex items-center gap-1.5 whitespace-nowrap">
+              <span class="inline-block h-2 w-2 rounded-full" :class="statusTone(value).dot"></span>
+              <span :class="statusTone(value).text">{{ t(`admin.subscriptions.status.${value}`) }}</span>
             </span>
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center gap-1">
-              <button
-                v-if="row.status === 'active' || row.status === 'expired'"
-                @click="handleExtend(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-              >
-                <Icon name="calendar" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.adjust') }}</span>
-              </button>
-              <button
-                v-if="row.status === 'active'"
-                @click="handleResetQuota(row)"
-                :disabled="resettingQuota && resettingSubscription?.id === row.id"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                <Icon name="refresh" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.resetQuota') }}</span>
-              </button>
-              <button
-                v-if="row.status === 'active'"
-                @click="handleRevoke(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-              >
-                <Icon name="ban" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.revoke') }}</span>
-              </button>
-              <button
-                v-if="row.status === 'revoked'"
-                @click="handleRestore(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
-              >
-                <Icon name="refresh" size="sm" />
-                <span class="text-xs">{{ t('admin.subscriptions.restore') }}</span>
-              </button>
-            </div>
+            <RowActions :actions="rowActions(row)" />
           </template>
 
           <template #empty>
             <EmptyState
               :title="t('admin.subscriptions.noSubscriptionsYet')"
-              :description="t('admin.subscriptions.assignFirstSubscription')"
-              :action-text="t('admin.subscriptions.assignSubscription')"
-              @action="showAssignModal = true"
-            />
+              :description="t('admin.subscriptions.emptyHint')"
+            >
+              <template #action>
+                <div class="flex flex-wrap items-center justify-center gap-4">
+                  <button type="button" class="btn btn-primary" @click="showAssignModal = true">
+                    <Icon name="plus" size="md" class="mr-2" />
+                    {{ t('admin.subscriptions.assignSubscription') }}
+                  </button>
+                  <RouterLink
+                    to="/orders/plans"
+                    class="inline-flex items-center gap-1 text-sm font-medium text-af-ink-2 hover:text-af-ink"
+                  >
+                    {{ t('admin.subscriptions.goToPlans') }}
+                    <Icon name="arrowRight" size="xs" />
+                  </RouterLink>
+                </div>
+              </template>
+            </EmptyState>
           </template>
         </DataTable>
+      </template>
+
+      <!-- 批量条：按钮后的数字是选中里适用该操作的条数（其余状态不处理） -->
+      <template #bulk>
+        <BulkBar
+          :count="selectedCount"
+          :title="t('admin.subscriptions.bulk.selectionHint')"
+          data-test="subscription-bulk-actions"
+          @clear="clearSelection"
+        >
+          <button
+            v-for="action in bulkActions"
+            :key="action"
+            type="button"
+            :class="action === 'revoke' ? 'bulk-btn bulk-btn-danger' : 'bulk-btn'"
+            :data-test="`bulk-${action}`"
+            :disabled="loading || bulkTargets[action].length === 0"
+            @click="openBulkAction(action)"
+          >
+            {{ bulkActionLabel(action) }}
+            <span class="tabular-nums opacity-70">{{ bulkTargets[action].length }}</span>
+          </button>
+        </BulkBar>
       </template>
 
       <!-- Pagination -->
@@ -732,85 +603,6 @@
       @confirm="confirmResetQuota"
       @cancel="showResetQuotaConfirm = false"
     />
-    <!-- Subscription Guide Modal -->
-    <teleport to="body">
-      <transition name="modal">
-        <div v-if="showGuideModal" class="fixed inset-0 z-50 flex items-center justify-center p-4" @mousedown.self="showGuideModal = false">
-          <div class="fixed inset-0 bg-black/50" @click="showGuideModal = false"></div>
-          <div class="relative max-h-[85vh] w-full max-w-2xl overflow-y-auto rounded-xl bg-af-sheet p-6 shadow-2xl">
-            <button type="button" class="absolute right-4 top-4 text-af-ink-3 hover:text-af-ink-2" @click="showGuideModal = false">
-              <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
-            </button>
-
-            <h2 class="mb-4 text-lg font-bold text-af-ink">{{ t('admin.subscriptions.guide.title') }}</h2>
-            <p class="mb-5 text-sm text-af-ink-3">{{ t('admin.subscriptions.guide.subtitle') }}</p>
-
-            <!-- Step 1 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-af-ink">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-af-brand-tint text-xs font-bold text-af-brand">1</span>
-                {{ t('admin.subscriptions.guide.step1.title') }}
-              </h3>
-              <ol class="ml-8 list-decimal space-y-1 text-sm text-af-ink-2">
-                <li>{{ t('admin.subscriptions.guide.step1.line1') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step1.line2') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step1.line3') }}</li>
-              </ol>
-              <div class="ml-8 mt-2">
-                <router-link
-                  to="/orders/plans"
-                  @click="showGuideModal = false"
-                  class="inline-flex items-center gap-1 text-sm font-medium text-af-brand hover:text-af-brand-hover"
-                >
-                  {{ t('admin.subscriptions.guide.step1.link') }}
-                  <Icon name="arrowRight" size="xs" />
-                </router-link>
-              </div>
-            </div>
-
-            <!-- Step 2 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-af-ink">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-af-brand-tint text-xs font-bold text-af-brand">2</span>
-                {{ t('admin.subscriptions.guide.step2.title') }}
-              </h3>
-              <ol class="ml-8 list-decimal space-y-1 text-sm text-af-ink-2">
-                <li>{{ t('admin.subscriptions.guide.step2.line1') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step2.line2') }}</li>
-                <li>{{ t('admin.subscriptions.guide.step2.line3') }}</li>
-              </ol>
-            </div>
-
-            <!-- Step 3 -->
-            <div class="mb-5">
-              <h3 class="mb-2 flex items-center gap-2 text-sm font-semibold text-af-ink">
-                <span class="flex h-6 w-6 items-center justify-center rounded-full bg-af-brand-tint text-xs font-bold text-af-brand">3</span>
-                {{ t('admin.subscriptions.guide.step3.title') }}
-              </h3>
-              <div class="ml-8 overflow-hidden rounded-lg border border-af-hairline">
-                <table class="w-full text-sm">
-                  <tbody>
-                    <tr v-for="(row, i) in guideActionRows" :key="i" class="border-b border-af-hairline last:border-0">
-                      <td class="whitespace-nowrap bg-af-sunken px-3 py-2 font-medium text-af-ink-2">{{ row.action }}</td>
-                      <td class="px-3 py-2 text-af-ink-2">{{ row.desc }}</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            <!-- Tip -->
-            <div class="rounded-lg bg-af-sunken p-3 text-xs text-af-ink-2">
-              {{ t('admin.subscriptions.guide.tip') }}
-            </div>
-
-            <div class="mt-4 text-right">
-              <button type="button" class="btn btn-primary btn-sm" @click="showGuideModal = false">{{ t('common.close') }}</button>
-            </div>
-          </div>
-        </div>
-      </transition>
-    </teleport>
   </AppLayout>
 </template>
 
@@ -825,9 +617,10 @@ import { adminPaymentAPI } from '@/api/admin/payment'
 import type { SimpleUser } from '@/api/admin/usage'
 import type { SubscriptionBulkAction, SubscriptionBulkActionResult, BulkAssignSubscriptionResult } from '@/api/admin/subscriptions'
 import { useTableSelection } from '@/composables/useTableSelection'
+import { useColumnSettings } from '@/composables/useColumnSettings'
 import BulkSubscriptionActionDialog from '@/components/admin/subscription/BulkSubscriptionActionDialog.vue'
 import type { Column } from '@/components/common/types'
-import { formatDateTimeToMinute } from '@/utils/format'
+import { formatDateOnly, formatDateTimeToMinute } from '@/utils/format'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
@@ -838,6 +631,8 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { BulkBar, ColumnSettingsMenu, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
 import {
   getRemainingDurationParts,
   getRemainingExpiryDuration,
@@ -847,15 +642,6 @@ import {
 
 const { t } = useI18n()
 const appStore = useAppStore()
-
-// Guide modal state
-const showGuideModal = ref(false)
-
-const guideActionRows = computed(() => [
-  { action: t('admin.subscriptions.guide.actions.adjust'), desc: t('admin.subscriptions.guide.actions.adjustDesc') },
-  { action: t('admin.subscriptions.guide.actions.resetQuota'), desc: t('admin.subscriptions.guide.actions.resetQuotaDesc') },
-  { action: t('admin.subscriptions.guide.actions.revoke'), desc: t('admin.subscriptions.guide.actions.revokeDesc') }
-])
 
 // User column display mode: 'email' or 'username'
 const userColumnMode = ref<'email' | 'username'>('email')
@@ -902,76 +688,29 @@ const allColumns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.subscriptions.columns.actions'), sortable: false }
 ])
 
-// Columns that can be toggled (exclude user and actions which are always visible)
-const toggleableColumns = computed(() =>
-  allColumns.value.filter(col => col.key !== 'user' && col.key !== 'actions')
-)
+// 列设置（A4 共用实现）：用户列与操作列恒显示；订阅密钥名多半就是套餐名，默认收起，表格不用横向滚动
+const columnSettings = useColumnSettings({
+  storageKey: 'admin-subscriptions-columns',
+  version: 1,
+  columns: allColumns,
+  defaultHidden: ['api_key'],
+  alwaysVisible: ['user', 'actions']
+})
+const columns = columnSettings.visibleColumns
 
-// Hidden columns set
-const hiddenColumns = reactive<Set<string>>(new Set())
-
-// Default hidden columns
-const DEFAULT_HIDDEN_COLUMNS: string[] = []
-
-// localStorage key
-const HIDDEN_COLUMNS_KEY = 'subscription-hidden-columns'
-
-// Load saved column settings
-const loadSavedColumns = () => {
-  try {
-    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[]
-      parsed.forEach(key => hiddenColumns.add(key))
-    } else {
-      DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
-    }
-  } catch (e) {
-    console.error('Failed to load saved columns:', e)
-    DEFAULT_HIDDEN_COLUMNS.forEach(key => hiddenColumns.add(key))
-  }
-}
-
-// Save column settings to localStorage
-const saveColumnsToStorage = () => {
-  try {
-    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
-  } catch (e) {
-    console.error('Failed to save columns:', e)
-  }
-}
-
-// Toggle column visibility
-const toggleColumn = (key: string) => {
-  if (hiddenColumns.has(key)) {
-    hiddenColumns.delete(key)
-  } else {
-    hiddenColumns.add(key)
-  }
-  saveColumnsToStorage()
-}
-
-// Check if column is visible
-const isColumnVisible = (key: string) => !hiddenColumns.has(key)
-
-// Filtered columns for display
-const columns = computed<Column[]>(() =>
-  allColumns.value.filter(col =>
-    col.key === 'user' || col.key === 'actions' || !hiddenColumns.has(col.key)
-  )
-)
-
-// Column dropdown state
-const showColumnDropdown = ref(false)
-const columnDropdownRef = ref<HTMLElement | null>(null)
-
-// Filter options
+// 筛选标签的选项（「全部」= 清掉标签，不作为选项）
 const statusOptions = computed(() => [
-  { value: '', label: t('admin.subscriptions.allStatus') },
   { value: 'active', label: t('admin.subscriptions.status.active') },
   { value: 'expired', label: t('admin.subscriptions.status.expired') },
   { value: 'revoked', label: t('admin.subscriptions.status.revoked') }
 ])
+
+// 状态：生效中是常态（灰点 + 普通字），过期 / 暂停橙、撤销红
+const statusTone = (status: string): { dot: string; text: string } => {
+  if (status === 'active') return { dot: 'bg-af-ink-4', text: 'text-af-ink-2' }
+  if (status === 'revoked') return { dot: 'bg-af-danger', text: 'text-af-danger' }
+  return { dot: 'bg-af-warning', text: 'text-af-warning' }
+}
 
 const subscriptions = ref<UserSubscription[]>([])
 const plans = ref<SubscriptionPlan[]>([])
@@ -980,7 +719,14 @@ let abortController: AbortController | null = null
 
 const { selectedIds, selectedCount, setSelectedIds, clear: clearSelection, removeMany: removeSelectedIds } =
   useTableSelection<UserSubscription>({ rows: subscriptions, getId: (subscription) => subscription.id })
-const bulkActions: SubscriptionBulkAction[] = ['extend', 'reset_quota', 'revoke', 'restore']
+// 批量条里危险的「撤销」排最后
+const bulkActions: SubscriptionBulkAction[] = ['extend', 'reset_quota', 'restore', 'revoke']
+const bulkActionLabel = (action: SubscriptionBulkAction): string => ({
+  extend: t('admin.subscriptions.bulk.adjustExpiry'),
+  reset_quota: t('admin.subscriptions.resetQuota'),
+  revoke: t('admin.subscriptions.revoke'),
+  restore: t('admin.subscriptions.restore')
+})[action]
 const bulkAction = ref<SubscriptionBulkAction | null>(null)
 const bulkSubscriptions = ref<UserSubscription[]>([])
 const bulkTargets = computed(() => {
@@ -1069,10 +815,9 @@ const extendForm = reactive({
 })
 
 // 套餐筛选（全部套餐，含下架）
-const planFilterOptions = computed(() => [
-  { value: '', label: t('admin.subscriptions.allPlans') },
-  ...plans.value.map((p) => ({ value: p.id.toString(), label: p.name }))
-])
+const planFilterOptions = computed(() =>
+  plans.value.map((p) => ({ value: p.id.toString(), label: p.name }))
+)
 
 // 分配用：套餐名 + 三档限额
 const planOptions = computed(() =>
@@ -1489,13 +1234,14 @@ const getProgressWidth = (used: number | null | undefined, limit: number | null)
   return `${percentage}%`
 }
 
+// 与用户站「我的订阅」同一口径：常态墨色，≥70% 橙、≥90% 红
 const getProgressClass = (used: number | null | undefined, limit: number | null): string => {
-  if (!limit || limit === 0) return 'bg-af-ink-4'
+  if (!limit || limit === 0) return 'bg-af-hairline-strong'
   const usedValue = used ?? 0
   const percentage = (usedValue / limit) * 100
   if (percentage >= 90) return 'bg-af-danger'
   if (percentage >= 70) return 'bg-af-warning'
-  return 'bg-af-success'
+  return 'bg-af-brand'
 }
 
 const formatResetDuration = (parts: RemainingDurationParts): string => {
@@ -1557,19 +1303,57 @@ const formatResetTime = (windowStart: string | null, period: 'daily' | 'weekly' 
   return parts ? formatResetDuration(parts) : t('admin.subscriptions.windowNotActive')
 }
 
-// Handle click outside to close dropdowns
+// 行操作（A4）：「调整」是图标；其余进「⋯」，撤销红字、走确认框
+const rowActions = (subscription: UserSubscription): RowAction[] => {
+  const actions: RowAction[] = []
+  if (subscription.status === 'active' || subscription.status === 'expired') {
+    actions.push({
+      key: 'adjust',
+      label: t('admin.subscriptions.adjust'),
+      icon: 'calendar',
+      primary: true,
+      onSelect: () => handleExtend(subscription)
+    })
+  }
+  if (subscription.status === 'active') {
+    actions.push(
+      {
+        key: 'reset-quota',
+        label: t('admin.subscriptions.resetQuota'),
+        icon: 'refresh',
+        disabled: resettingQuota.value && resettingSubscription.value?.id === subscription.id,
+        onSelect: () => handleResetQuota(subscription)
+      },
+      {
+        key: 'revoke',
+        label: t('admin.subscriptions.revoke'),
+        icon: 'ban',
+        danger: true,
+        dividerBefore: true,
+        onSelect: () => handleRevoke(subscription)
+      }
+    )
+  }
+  if (subscription.status === 'revoked') {
+    actions.push({
+      key: 'restore',
+      label: t('admin.subscriptions.restore'),
+      icon: 'refresh',
+      onSelect: () => handleRestore(subscription)
+    })
+  }
+  return actions
+}
+
+// 两个用户搜索下拉：点外面关掉
 const handleClickOutside = (event: MouseEvent) => {
   const target = event.target as HTMLElement
   if (!target.closest('[data-assign-user-search]')) showUserDropdown.value = false
   if (!target.closest('[data-filter-user-search]')) showFilterUserDropdown.value = false
-  if (columnDropdownRef.value && !columnDropdownRef.value.contains(target)) {
-    showColumnDropdown.value = false
-  }
 }
 
 onMounted(() => {
   loadUserColumnMode()
-  loadSavedColumns()
   loadSubscriptions()
   loadPlans()
   document.addEventListener('click', handleClickOutside)
@@ -1588,18 +1372,20 @@ onUnmounted(() => {
 
 <style scoped>
 .usage-row {
-  @apply space-y-1;
+  @apply space-y-0.5;
 }
 
 .usage-label {
-  @apply w-10 flex-shrink-0 text-xs font-medium text-af-ink-3;
+  @apply w-8 flex-shrink-0 text-xs text-af-ink-3;
 }
 
+/* 金额定宽右对齐，各行进度条等长 */
 .usage-amount {
-  @apply whitespace-nowrap text-xs tabular-nums text-af-ink-2;
+  @apply min-w-[6.5rem] whitespace-nowrap text-right text-xs tabular-nums text-af-ink-2;
 }
 
+/* 重置倒计时：跟在进度条下面、与条左端对齐 */
 .reset-info {
-  @apply flex items-center gap-1 pl-12 text-[10px] text-af-ink-2;
+  @apply pl-10 text-[11px] text-af-ink-4;
 }
 </style>

@@ -18,6 +18,15 @@
         <RouterLink v-if="item.link" :to="item.link.to" class="text-xs font-medium text-af-brand hover:text-af-brand-hover">
           {{ item.link.label }}
         </RouterLink>
+        <button
+          v-else-if="item.action"
+          type="button"
+          class="text-xs font-medium text-af-brand hover:text-af-brand-hover"
+          :data-testid="item.key ? `stat-${item.key}-action` : undefined"
+          @click="item.action.onClick()"
+        >
+          {{ item.action.label }}
+        </button>
       </dd>
     </div>
   </dl>

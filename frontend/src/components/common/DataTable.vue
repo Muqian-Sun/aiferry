@@ -51,7 +51,7 @@
         class="border-b border-af-hairline py-4"
         :class="{
           'cursor-pointer': clickableRows,
-          'bg-af-brand-tint/60': selectable && isRowSelected(row, index)
+          'row-selected bg-af-sunken': selectable && isRowSelected(row, index)
         }"
         @click="clickableRows && emit('rowClick', row)"
       >
@@ -217,7 +217,7 @@
             class="hover:bg-af-sunken"
             :class="{
               'cursor-pointer': clickableRows,
-              'bg-af-brand-tint/60': selectable && isRowSelected(item.row, item.index)
+              'row-selected bg-af-sunken': selectable && isRowSelected(item.row, item.index)
             }"
             @click="clickableRows && emit('rowClick', item.row)"
           >
@@ -1039,6 +1039,11 @@ tbody .sticky-col {
 
 .dark tbody .sticky-col {
   background-color: rgb(var(--af-sheet));
+}
+
+/* 选中行：固定列跟着整行高亮（固定列自带不透明底色，不设的话会在高亮行里留两块白） */
+tbody tr.row-selected .sticky-col {
+  background-color: rgb(var(--af-sunken));
 }
 
 /* hover 状态保持 */
