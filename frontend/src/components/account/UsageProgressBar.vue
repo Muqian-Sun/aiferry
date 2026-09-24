@@ -5,19 +5,19 @@
       v-if="windowStats && (windowStats.requests > 0 || windowStats.tokens > 0)"
       class="mb-0.5 flex items-center"
     >
-      <div class="flex items-center gap-1.5 text-[9px] text-gray-500 dark:text-gray-400">
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+      <div class="flex items-center gap-1.5 text-[9px] text-af-ink-3">
+        <span class="rounded bg-af-sunken px-1.5 py-0.5">
           {{ formatRequests }} req
         </span>
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800">
+        <span class="rounded bg-af-sunken px-1.5 py-0.5">
           {{ formatTokens }}
         </span>
-        <span class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800" :title="t('usage.accountBilled')">
+        <span class="rounded bg-af-sunken px-1.5 py-0.5" :title="t('usage.accountBilled')">
           A ${{ formatAccountCost }}
         </span>
         <span
           v-if="windowStats?.user_cost != null"
-          class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
+          class="rounded bg-af-sunken px-1.5 py-0.5"
           :title="t('usage.userBilled')"
         >
           U ${{ formatUserCost }}
@@ -25,7 +25,7 @@
         <span
           v-if="estimatedTotalCost != null"
           data-test="estimated-total-cost"
-          class="rounded bg-gray-100 px-1.5 py-0.5 dark:bg-gray-800"
+          class="rounded bg-af-sunken px-1.5 py-0.5"
           :title="t('admin.accounts.usageWindow.estimatedTotalCostTooltip')"
         >
           {{ t('admin.accounts.usageWindow.estimatedTotalCost', { cost: estimatedTotalCost.toFixed(2) }) }}
@@ -41,7 +41,7 @@
       </span>
 
       <!-- Progress bar container -->
-      <div class="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-gray-200 dark:bg-gray-700">
+      <div class="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-af-hairline">
         <div
           :class="['h-full transition-all duration-300', barClass]"
           :style="{ width: barWidth }"
@@ -54,7 +54,7 @@
       </span>
 
       <!-- Reset time -->
-      <span v-if="shouldShowResetTime" class="shrink-0 text-[10px] text-gray-400">
+      <span v-if="shouldShowResetTime" class="shrink-0 text-[10px] text-af-ink-3">
         {{ formatResetTime }}
       </span>
     </div>
@@ -73,7 +73,6 @@ const props = withDefaults(
     label: string
     utilization: number // Percentage (0-100+)
     resetsAt?: string | null
-    color: 'indigo' | 'emerald' | 'purple' | 'amber'
     windowStats?: WindowStats | null
     estimatedTotalCost?: number | null
     showNowWhenIdle?: boolean
@@ -109,16 +108,8 @@ watch(
   },
 )
 
-// Label background colors
-const labelClass = computed(() => {
-  const colors = {
-    indigo: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/40 dark:text-indigo-300',
-    emerald: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    purple: 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300',
-    amber: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
-  }
-  return colors[props.color]
-})
+// 窗口标签一律灰底墨字（原按窗口类型配色，muqian 2026-09-24 装饰色收成墨色；用量高低看进度条的阈值色）
+const labelClass = 'bg-af-sunken text-af-ink-2'
 
 // Label badge width mode: fixed 定宽保证账号页纵向对齐；auto 限宽截断适配
 // 监控页「Pro/7 天」类组合标签。百分比列在两种模式下保持不变。
@@ -132,18 +123,18 @@ const labelSizeClass = computed(() =>
 const barClass = computed(() => {
   if (props.remainingCapacity) {
     if (props.utilization <= 20) {
-      return 'bg-red-500'
+      return 'bg-af-danger'
     } else if (props.utilization <= 50) {
-      return 'bg-amber-500'
+      return 'bg-af-warning'
     }
-    return 'bg-green-500'
+    return 'bg-af-success'
   }
   if (props.utilization >= 90) {
-    return 'bg-red-500'
+    return 'bg-af-danger'
   } else if (props.utilization >= 75) {
-    return 'bg-amber-500'
+    return 'bg-af-warning'
   } else {
-    return 'bg-green-500'
+    return 'bg-af-success'
   }
 })
 
@@ -151,18 +142,18 @@ const barClass = computed(() => {
 const textClass = computed(() => {
   if (props.remainingCapacity) {
     if (props.utilization <= 20) {
-      return 'text-red-600 dark:text-red-400'
+      return 'text-af-danger'
     } else if (props.utilization <= 50) {
-      return 'text-amber-600 dark:text-amber-400'
+      return 'text-af-warning'
     }
-    return 'text-gray-600 dark:text-gray-400'
+    return 'text-af-ink-2'
   }
   if (props.utilization >= 90) {
-    return 'text-red-600 dark:text-red-400'
+    return 'text-af-danger'
   } else if (props.utilization >= 75) {
-    return 'text-amber-600 dark:text-amber-400'
+    return 'text-af-warning'
   } else {
-    return 'text-gray-600 dark:text-gray-400'
+    return 'text-af-ink-2'
   }
 })
 

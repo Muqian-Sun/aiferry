@@ -16,7 +16,6 @@
         :label="row.label"
         :title="row.title"
         label-width="auto"
-        :color="row.color"
         :utilization="row.tier.used_percent"
         :resets-at="row.tier.reset_at ?? null"
       />
@@ -58,13 +57,10 @@ const props = defineProps<{
 
 const { t, te } = useI18n()
 
-type TierColor = 'indigo' | 'emerald' | 'purple' | 'amber'
-
 interface QuotaTierRow {
   key: string
   label: string
   title: string
-  color: TierColor
   tier: MonitorQuotaTier
 }
 
@@ -101,15 +97,11 @@ function tierLabel(tier: MonitorQuotaTier): string {
   return `${label}/${window}`
 }
 
-// tier 配色按数组顺序轮转（UsageProgressBar 支持的色板）。
-const tierColors: TierColor[] = ['indigo', 'emerald', 'purple', 'amber']
-
 const tierRows = computed<QuotaTierRow[]>(() =>
   (props.snapshot?.tiers || []).map((tier, idx) => ({
     key: `${tier.window}-${tier.label || ''}-${idx}`,
     label: tierLabel(tier),
     title: tierLabel(tier),
-    color: tierColors[idx % tierColors.length],
     tier,
   })),
 )

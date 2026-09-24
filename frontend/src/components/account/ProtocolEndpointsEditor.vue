@@ -5,7 +5,7 @@
       <button
         v-if="canRestoreOfficial"
         type="button"
-        class="text-xs text-primary-600 hover:text-primary-700 dark:text-primary-400"
+        class="text-xs text-af-brand hover:text-af-brand-hover"
         data-testid="protocol-endpoints-restore-official"
         @click="restoreOfficial"
       >
@@ -15,14 +15,14 @@
     <p class="input-hint mb-2">{{ t('admin.accounts.protocolEndpoints.hint') }}</p>
     <p
       v-if="defaultsLoadFailed"
-      class="mb-2 text-sm text-amber-600 dark:text-amber-400"
+      class="mb-2 text-sm text-af-warning"
       data-testid="protocol-defaults-load-failed"
     >
       {{ t('admin.accounts.protocolEndpoints.loadFailed') }}
     </p>
     <div v-if="configured.length > 0" class="space-y-2">
       <div v-for="protocol in configured" :key="protocol" class="flex items-center gap-2">
-        <span class="w-44 shrink-0 text-sm text-gray-700 dark:text-gray-300">{{ protocolLabel(protocol) }}</span>
+        <span class="w-44 shrink-0 text-sm text-af-ink-2">{{ protocolLabel(protocol) }}</span>
         <input
           :value="modelValue[protocol]"
           type="text"
@@ -33,7 +33,7 @@
         />
         <button
           type="button"
-          class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+          class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
           :aria-label="t('admin.accounts.protocolEndpoints.remove', { protocol: protocolLabel(protocol) })"
           :data-testid="`protocol-endpoint-remove-${protocol}`"
           @click="remove(protocol)"
@@ -42,7 +42,7 @@
         </button>
       </div>
     </div>
-    <p v-else class="text-sm text-amber-600 dark:text-amber-400" data-testid="protocol-endpoints-empty">
+    <p v-else class="text-sm text-af-warning" data-testid="protocol-endpoints-empty">
       {{ t('admin.accounts.protocolEndpoints.empty') }}
     </p>
     <div v-if="unconfigured.length > 0" class="mt-2 flex flex-wrap gap-2">
@@ -50,7 +50,7 @@
         v-for="protocol in unconfigured"
         :key="protocol"
         type="button"
-        class="rounded-lg border border-dashed border-gray-300 px-3 py-1 text-xs text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+        class="rounded-lg border border-dashed border-af-hairline-strong px-3 py-1 text-xs text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
         :data-testid="`protocol-endpoint-add-${protocol}`"
         @click="add(protocol)"
       >

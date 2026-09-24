@@ -1,14 +1,14 @@
 <template>
   <button
     type="button"
-    class="rounded-lg bg-primary-50 px-3 py-1 text-xs text-primary-700 transition-colors hover:bg-primary-100 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
+    class="rounded-lg bg-af-brand-tint px-3 py-1 text-xs text-af-brand transition-colors hover:bg-af-hairline"
     @click="toggleImportPanel"
   >
     {{ t('admin.accounts.headerOverride.importJson') }}
   </button>
   <button
     type="button"
-    class="rounded-lg bg-primary-50 px-3 py-1 text-xs text-primary-700 transition-colors hover:bg-primary-100 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-primary-900/30 dark:text-primary-400 dark:hover:bg-primary-900/50"
+    class="rounded-lg bg-af-brand-tint px-3 py-1 text-xs text-af-brand transition-colors hover:bg-af-hairline disabled:cursor-not-allowed disabled:opacity-50"
     :disabled="!hasNamedRows"
     @click="copyAsJson"
   >
@@ -26,20 +26,20 @@
     <div class="flex gap-2">
       <button
         type="button"
-        class="rounded-lg bg-primary-600 px-3 py-1 text-xs text-white transition-colors hover:bg-primary-700"
+        class="rounded-lg bg-af-brand px-3 py-1 text-xs text-af-on-brand transition-colors hover:bg-af-brand-hover"
         @click="applyImport"
       >
         {{ t('admin.accounts.headerOverride.importJsonApply') }}
       </button>
       <button
         type="button"
-        class="rounded-lg bg-gray-100 px-3 py-1 text-xs text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
+        class="rounded-lg bg-af-sunken px-3 py-1 text-xs text-af-ink-2 transition-colors hover:bg-af-hairline"
         @click="closeImportPanel"
       >
         {{ t('admin.accounts.headerOverride.importJsonCancel') }}
       </button>
     </div>
-    <p class="text-xs text-gray-500 dark:text-gray-400">
+    <p class="text-xs text-af-ink-3">
       {{ t('admin.accounts.headerOverride.importJsonHint') }}
     </p>
   </div>

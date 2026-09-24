@@ -6,8 +6,8 @@
       type="button"
       class="inline-flex max-w-32 items-center truncate rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors"
       :class="entry.status === 'listed'
-        ? 'bg-sky-50 text-sky-700 hover:bg-sky-100 dark:bg-sky-900/30 dark:text-sky-300 dark:hover:bg-sky-900/50'
-        : 'bg-gray-100 text-gray-500 line-through hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400'"
+        ? 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
+        : 'bg-af-sunken text-af-ink-3 line-through hover:bg-af-hairline'"
       :title="entry.status === 'listed' ? entry.model_id : `${entry.model_id} · ${t('admin.accounts.catalogUnlisted')}`"
       data-testid="account-catalog-chip"
       @click.stop="emit('diagnose', entry)"
@@ -16,14 +16,14 @@
     </button>
     <span
       v-if="hiddenCount > 0"
-      class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-xs font-medium text-gray-600 dark:bg-dark-600 dark:text-gray-300"
+      class="inline-flex items-center rounded-md bg-af-sunken px-1.5 py-0.5 text-xs font-medium text-af-ink-2"
       :title="hiddenTitle"
       data-testid="account-catalog-more"
     >
       +{{ hiddenCount }}
     </span>
   </div>
-  <span v-else class="text-xs text-gray-400 dark:text-gray-500" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
+  <span v-else class="text-xs text-af-ink-3" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
 </template>
 
 <script setup lang="ts">

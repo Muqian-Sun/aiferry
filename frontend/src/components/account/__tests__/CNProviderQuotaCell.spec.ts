@@ -70,17 +70,15 @@ describe('CNProviderQuotaCell', () => {
     await flushPromises()
     expect(queryQuota).toHaveBeenCalledWith(account.id)
 
-    // tier 行由 UsageProgressBar 渲染：数量、label/color/utilization/reset 逐行对齐
+    // tier 行由 UsageProgressBar 渲染：数量、label/utilization/reset 逐行对齐
     expect(root.findAll('[data-test="cn-provider-quota-tier"]')).toHaveLength(2)
     const bars = root.findAllComponents(UsageProgressBar)
     expect(bars).toHaveLength(2)
     expect(bars[0].props('label')).toBe('admin.accounts.cnProviders.window5h')
     expect(bars[0].props('utilization')).toBe(0)
-    expect(bars[0].props('color')).toBe('indigo')
     expect(bars[0].props('resetsAt')).toBe('2026-08-18T12:30:00+08:00')
     expect(bars[1].props('label')).toBe('admin.accounts.cnProviders.windowWeekly')
     expect(bars[1].props('utilization')).toBe(27)
-    expect(bars[1].props('color')).toBe('emerald')
     expect(bars[1].props('resetsAt')).toBe('2026-08-22T00:00:00+08:00')
   })
 
