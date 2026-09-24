@@ -26,7 +26,6 @@ const announcement = {
   title: 'Preview announcement',
   content: '## Preview heading\n\n<div>HTML content</div><script>window.__xss = true</script>',
   status: 'draft' as const,
-  notify_mode: 'popup' as const,
   targeting: { any_of: [] },
   created_at: '2026-07-24T07:30:00Z',
   updated_at: '2026-07-24T07:30:00Z',
@@ -54,7 +53,6 @@ describe('AnnouncementPopup', () => {
         '<table><thead><tr><th>Status</th></tr></thead><tbody><tr><td>OK</td></tr></tbody></table>',
         '<script>window.__announcementXss = true</script>',
       ].join('\n'),
-      notify_mode: 'popup',
       created_at: '2026-07-24T07:30:00Z',
       updated_at: '2026-07-24T07:30:00Z',
     }

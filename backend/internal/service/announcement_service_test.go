@@ -48,12 +48,11 @@ func TestAnnouncementServiceCreateRejectsEqualStartEndTimes(t *testing.T) {
 	now := time.Unix(1776790020, 0)
 
 	_, err := svc.Create(context.Background(), &CreateAnnouncementInput{
-		Title:      "公告",
-		Content:    "内容",
-		Status:     AnnouncementStatusActive,
-		NotifyMode: AnnouncementNotifyModePopup,
-		StartsAt:   &now,
-		EndsAt:     &now,
+		Title:    "公告",
+		Content:  "内容",
+		Status:   AnnouncementStatusActive,
+		StartsAt: &now,
+		EndsAt:   &now,
 	})
 	require.ErrorIs(t, err, ErrAnnouncementInvalidSchedule)
 }
@@ -61,11 +60,10 @@ func TestAnnouncementServiceCreateRejectsEqualStartEndTimes(t *testing.T) {
 func TestAnnouncementServiceUpdateRejectsEqualStartEndTimes(t *testing.T) {
 	repo := &announcementRepoStub{
 		item: &Announcement{
-			ID:         1,
-			Title:      "公告",
-			Content:    "内容",
-			Status:     AnnouncementStatusActive,
-			NotifyMode: AnnouncementNotifyModePopup,
+			ID:      1,
+			Title:   "公告",
+			Content: "内容",
+			Status:  AnnouncementStatusActive,
 		},
 	}
 	svc := NewAnnouncementService(repo, nil, nil, nil)
