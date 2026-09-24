@@ -82,15 +82,18 @@ type ContentBlock struct {
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
-	// image
+	// image / document
 	Source *ImageSource `json:"source,omitempty"`
 }
 
-// ImageSource Claude 图片来源
+// ImageSource Claude 图片 / 文档来源
 type ImageSource struct {
-	Type      string `json:"type"`       // "base64"
-	MediaType string `json:"media_type"` // "image/png", "image/jpeg" 等
-	Data      string `json:"data"`
+	Type      string          `json:"type"`       // "base64" | "url" | "text" | "file" | "content"
+	MediaType string          `json:"media_type"` // "image/png", "image/jpeg", "application/pdf" 等
+	Data      string          `json:"data"`
+	URL       string          `json:"url,omitempty"`
+	FileID    string          `json:"file_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
 }
 
 // ClaudeResponse Claude Messages API 响应

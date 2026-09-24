@@ -110,9 +110,10 @@ func TestResponsesToAnthropic_UnknownItemTypeKeepsRecognizableText(t *testing.T)
 }
 
 // user 消息的分片全部不可识别时，以前会退化成 content:""，Anthropic 拒收空内容消息。
+// （input_file 的 file_id 现在是明确拒收的多模态分片，见 multimodal_parts_test.go。）
 func TestResponsesToAnthropic_UserMessageWithOnlyUnknownPartsIsDropped(t *testing.T) {
 	messages := responsesToAnthropicMessages(t, `[
-		{"type":"message","role":"user","content":[{"type":"input_file","file_id":"file_1"}]}
+		{"type":"message","role":"user","content":[{"type":"some_future_part","payload":"x"}]}
 	]`)
 
 	requireAnthropicMessagesAreSendable(t, messages)

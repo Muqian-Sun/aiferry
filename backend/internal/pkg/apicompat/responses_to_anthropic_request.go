@@ -152,7 +152,10 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 
 		case item.Type == "function_call_output":
 			// function_call_output → user message with tool_result block
-			contentJSON := responsesFunctionOutputToAnthropicContent(item)
+			contentJSON, err := responsesFunctionOutputToAnthropicContent(item)
+			if err != nil {
+				return nil, nil, err
+			}
 			block := AnthropicContentBlock{
 				Type:      "tool_result",
 				ToolUseID: fromResponsesCallIDToAnthropic(item.CallID),
@@ -241,14 +244,14 @@ func convertResponsesInputToAnthropic(instructions string, inputRaw json.RawMess
 	return system, messages, nil
 }
 
-func responsesFunctionOutputToAnthropicContent(item ResponsesInputItem) json.RawMessage {
+func responsesFunctionOutputToAnthropicContent(item ResponsesInputItem) (json.RawMessage, error) {
 	if len(item.outputRaw) == 0 {
 		output := item.Output
 		if output == "" {
 			output = "(empty)"
 		}
 		content, _ := json.Marshal(output)
-		return content
+		return content, nil
 	}
 
 	var parts []ResponsesContentPart
@@ -260,24 +263,111 @@ func responsesFunctionOutputToAnthropicContent(item ResponsesInputItem) json.Raw
 				if part.Text != "" {
 					blocks = append(blocks, AnthropicContentBlock{Type: "text", Text: part.Text})
 				}
-			case "input_image":
-				if source := dataURIToAnthropicImageSource(part.ImageURL); source != nil {
-					blocks = append(blocks, AnthropicContentBlock{Type: "image", Source: source})
+			case "input_image", "input_file", "input_audio":
+				// Anthropic tool_result content accepts image and document blocks.
+				block, err := responsesMediaPartToAnthropicBlock(part)
+				if err != nil {
+					return nil, err
+				}
+				if block != nil {
+					blocks = append(blocks, *block)
 				}
 			}
 		}
 		if len(blocks) > 0 {
 			content, _ := json.Marshal(blocks)
-			return content
+			return content, nil
 		}
 		if len(parts) == 0 {
 			content, _ := json.Marshal("(empty)")
-			return content
+			return content, nil
 		}
 	}
 
 	content, _ := json.Marshal(item.Output)
-	return content
+	return content, nil
+}
+
+// responsesMediaPartToAnthropicBlock maps a Responses input_image / input_file /
+// input_audio part onto an Anthropic content block.
+//
+//   - input_image: base64 data URI → image base64 source (unchanged historical
+//     handling, including a malformed data URI being dropped); http(s) URL →
+//     image url source; file_id → rejected (OpenAI file IDs mean nothing to
+//     Anthropic).
+//   - input_file: file_data PDF → document base64; text/plain → document text
+//     source; image/* → image base64; file_url → document url source; file_id
+//     and any other media type → rejected.
+//   - input_audio: Anthropic has no audio input → rejected.
+//
+// A nil block with a nil error means the part carries nothing to forward (an
+// empty image/file part), which keeps the historical drop behaviour.
+func responsesMediaPartToAnthropicBlock(p ResponsesContentPart) (*AnthropicContentBlock, error) {
+	switch p.Type {
+	case "input_image":
+		imageURL := strings.TrimSpace(p.ImageURL)
+		switch {
+		case strings.HasPrefix(p.ImageURL, "data:"):
+			if src := dataURIToAnthropicImageSource(p.ImageURL); src != nil {
+				return &AnthropicContentBlock{Type: "image", Source: src}, nil
+			}
+			return nil, nil
+		case isHTTPURL(imageURL):
+			return &AnthropicContentBlock{Type: "image", Source: &AnthropicImageSource{Type: "url", URL: imageURL}}, nil
+		case strings.TrimSpace(p.FileID) != "":
+			return nil, newUnsupportedContentError(partImageFileID, UpstreamProtocolNameAnthropic, HintFileIDNotPortable)
+		case imageURL == "":
+			return nil, nil
+		default:
+			return nil, newUnsupportedContentError("image URL that is neither http(s) nor a base64 data URI", UpstreamProtocolNameAnthropic, HintInlineBase64)
+		}
+	case "input_file":
+		switch {
+		case p.FileData != "":
+			file := parseOpenAIFileData(p.FileData, p.Filename)
+			switch {
+			case file.MediaType == MediaTypePDF:
+				return &AnthropicContentBlock{
+					Type:   "document",
+					Source: &AnthropicImageSource{Type: "base64", MediaType: MediaTypePDF, Data: file.Data},
+					Title:  p.Filename,
+				}, nil
+			case file.MediaType == "text/plain":
+				if text, ok := decodeBase64Text(file.Data); ok {
+					return &AnthropicContentBlock{
+						Type:   "document",
+						Source: &AnthropicImageSource{Type: "text", MediaType: "text/plain", Data: text},
+						Title:  p.Filename,
+					}, nil
+				}
+			case strings.HasPrefix(file.MediaType, "image/"):
+				return &AnthropicContentBlock{
+					Type:   "image",
+					Source: &AnthropicImageSource{Type: "base64", MediaType: file.MediaType, Data: file.Data},
+				}, nil
+			}
+			return nil, newUnsupportedContentError(DescribeFileMediaType("file", file.MediaType), UpstreamProtocolNameAnthropic,
+				"only PDF (application/pdf), plain-text (text/plain) and image files can be forwarded")
+		case strings.TrimSpace(p.FileURL) != "":
+			fileURL := strings.TrimSpace(p.FileURL)
+			if !isHTTPURL(fileURL) {
+				return nil, newUnsupportedContentError("file_url that is not an http(s) URL", UpstreamProtocolNameAnthropic, HintInlineBase64)
+			}
+			return &AnthropicContentBlock{
+				Type:   "document",
+				Source: &AnthropicImageSource{Type: "url", URL: fileURL},
+				Title:  p.Filename,
+			}, nil
+		case strings.TrimSpace(p.FileID) != "":
+			return nil, newUnsupportedContentError(partFileID, UpstreamProtocolNameAnthropic, HintFileIDNotPortable)
+		default:
+			return nil, nil
+		}
+	case "input_audio":
+		return nil, newUnsupportedContentError("input_audio content", UpstreamProtocolNameAnthropic, "")
+	default:
+		return nil, nil
+	}
 }
 
 // normalizeAnthropicToolPairing rebuilds the message sequence so it satisfies
@@ -476,13 +566,13 @@ func convertResponsesUserToAnthropicContent(raw json.RawMessage) (json.RawMessag
 					Text: p.Text,
 				})
 			}
-		case "input_image":
-			src := dataURIToAnthropicImageSource(p.ImageURL)
-			if src != nil {
-				blocks = append(blocks, AnthropicContentBlock{
-					Type:   "image",
-					Source: src,
-				})
+		case "input_image", "input_file", "input_audio":
+			block, err := responsesMediaPartToAnthropicBlock(p)
+			if err != nil {
+				return nil, err
+			}
+			if block != nil {
+				blocks = append(blocks, *block)
 			}
 		}
 	}
@@ -549,21 +639,11 @@ func fromResponsesCallIDToAnthropic(id string) string {
 
 // dataURIToAnthropicImageSource parses a data URI into an AnthropicImageSource.
 func dataURIToAnthropicImageSource(dataURI string) *AnthropicImageSource {
-	if !strings.HasPrefix(dataURI, "data:") {
-		return nil
-	}
 	// Format: data:<media_type>;base64,<data>
-	rest := strings.TrimPrefix(dataURI, "data:")
-	semicolonIdx := strings.Index(rest, ";")
-	if semicolonIdx < 0 {
+	mediaType, data, ok := parseBase64DataURI(dataURI)
+	if !ok {
 		return nil
 	}
-	mediaType := rest[:semicolonIdx]
-	rest = rest[semicolonIdx+1:]
-	if !strings.HasPrefix(rest, "base64,") {
-		return nil
-	}
-	data := strings.TrimPrefix(rest, "base64,")
 	return &AnthropicImageSource{
 		Type:      "base64",
 		MediaType: mediaType,

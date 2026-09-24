@@ -73,11 +73,11 @@ func (s *AntigravityGatewayService) ForwardAsChatCompletions(
 
 	responsesRequest, err := apicompat.ChatCompletionsToResponses(&request)
 	if err != nil {
-		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, s.writeAntigravityCompatConversionError(c, err)
 	}
 	claudeRequest, err := apicompat.ResponsesToAnthropicRequest(responsesRequest)
 	if err != nil {
-		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, s.writeAntigravityCompatConversionError(c, err)
 	}
 	preserveChatCompletionTokenLimit(&request, claudeRequest)
 	claudeRequest.Stream = request.Stream
@@ -120,7 +120,7 @@ func (s *AntigravityGatewayService) ForwardAsResponses(
 
 	claudeRequest, err := apicompat.ResponsesToAnthropicRequest(&request)
 	if err != nil {
-		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, s.writeAntigravityCompatConversionError(c, err)
 	}
 	claudeRequest.Stream = request.Stream
 	claudeBody, err := json.Marshal(claudeRequest)
@@ -240,6 +240,9 @@ func (s *AntigravityGatewayService) prepareAntigravityCompatCall(
 	}
 	geminiBody, err := s.buildAntigravityCompatGeminiBody(ctx, request.claudeBody, &claudeRequest, projectID, mappedModel)
 	if err != nil {
+		if _, ok := apicompat.AsUnsupportedContentError(err); ok {
+			return nil, s.writeAntigravityCompatConversionError(c, err)
+		}
 		return nil, s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", "Invalid request")
 	}
 
@@ -520,6 +523,15 @@ func (s *AntigravityGatewayService) writeAntigravityCompatError(
 		},
 	})
 	return errors.New(message)
+}
+
+// writeAntigravityCompatConversionError 写出入站转换失败的 400。Antigravity 上游说的是
+// v1internal（Gemini 形态），链式转换中间一步拒收的分片按 Gemini 报错；返回的错误保留
+// apicompat.UnsupportedContentError 类型，handler 据此按客户端错误收尾（不换号）。
+func (s *AntigravityGatewayService) writeAntigravityCompatConversionError(c *gin.Context, err error) error {
+	err = apicompat.RetargetUnsupportedContentError(err, apicompat.UpstreamProtocolNameGemini)
+	_ = s.writeAntigravityCompatError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+	return err
 }
 
 func (s *AntigravityGatewayService) writeMappedAntigravityCompatError(

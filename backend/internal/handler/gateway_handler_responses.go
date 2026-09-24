@@ -488,6 +488,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 				submitAttemptUsage()
 				return
 			}
+			// 上游协议表达不了的内容分片：400，不换号、不计账号健康（见 handleUnsupportedContentError）。
+			// 口径与 failover 判定相同：扣除 compact 心跳字节；心跳提交的 200 由 responsesErrorResponse 降级处理。
+			if h.handleUnsupportedContentError(c, reqLog, account, err,
+				service.OpenAICompactKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeForward, streamStarted, h.responsesErrorResponse) {
+				return
+			}
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
 				// 已写出语义字节（心跳不算）就不能换号；SafeToFailoverAfterWrite 的错误除外

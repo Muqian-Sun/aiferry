@@ -178,36 +178,42 @@ func anthropicUserToChatMessages(raw json.RawMessage) ([]ChatMessage, error) {
 	}
 
 	var out []ChatMessage
-	var toolResultImageParts []ChatContentPart
+	var toolResultMediaParts []ChatContentPart
 
-	// tool_result → "tool" role messages, text extracted; images deferred.
+	// tool_result → "tool" role messages, text extracted; images/PDFs deferred.
 	for _, b := range blocks {
 		if b.Type != "tool_result" {
 			continue
 		}
-		text, imageParts := convertToolResultOutput(b)
+		text, mediaParts, err := convertToolResultOutput(b, UpstreamProtocolNameChatCompletions)
+		if err != nil {
+			return nil, err
+		}
 		content, _ := json.Marshal(text)
 		out = append(out, ChatMessage{
 			Role:       "tool",
 			Content:    content,
 			ToolCallID: b.ToolUseID,
 		})
-		for _, ip := range imageParts {
-			toolResultImageParts = append(toolResultImageParts, ChatContentPart{
-				Type:     "image_url",
-				ImageURL: &ChatImageURL{URL: ip.ImageURL},
-			})
+		for _, mp := range mediaParts {
+			chatPart, err := responsesMediaPartToChatPart(mp, UpstreamProtocolNameChatCompletions)
+			if err != nil {
+				return nil, err
+			}
+			if chatPart != nil {
+				toolResultMediaParts = append(toolResultMediaParts, *chatPart)
+			}
 		}
 	}
 
-	// Remaining text + image blocks → user message. The double-conversion path
-	// (responsesContentPartsToChatContent) folds text-only content into a single
-	// string joined with "\n\n" and only uses the parts-array form when an image
-	// is present — strict chat upstreams reject array content — so the direct
-	// bridge preserves that folding.
+	// Remaining text + image/document blocks → user message. The
+	// double-conversion path (responsesContentPartsToChatContent) folds text-only
+	// content into a single string joined with "\n\n" and only uses the
+	// parts-array form when media is present — strict chat upstreams reject array
+	// content — so the direct bridge preserves that folding.
 	var textParts []string
 	var parts []ChatContentPart
-	hasImage := false
+	hasMedia := false
 	for _, b := range blocks {
 		switch b.Type {
 		case "text":
@@ -215,22 +221,35 @@ func anthropicUserToChatMessages(raw json.RawMessage) ([]ChatMessage, error) {
 				textParts = append(textParts, b.Text)
 				parts = append(parts, ChatContentPart{Type: "text", Text: b.Text})
 			}
-		case "image":
-			if uri := anthropicImageToDataURI(b.Source); uri != "" {
-				hasImage = true
-				parts = append(parts, ChatContentPart{
-					Type:     "image_url",
-					ImageURL: &ChatImageURL{URL: uri},
-				})
+		case "image", "document":
+			responsesPart, err := anthropicMediaBlockToResponsesPart(b, UpstreamProtocolNameChatCompletions)
+			if err != nil {
+				return nil, err
 			}
+			if responsesPart == nil {
+				continue
+			}
+			chatPart, err := responsesMediaPartToChatPart(*responsesPart, UpstreamProtocolNameChatCompletions)
+			if err != nil {
+				return nil, err
+			}
+			if chatPart == nil {
+				continue
+			}
+			if chatPart.Type == "text" {
+				textParts = append(textParts, chatPart.Text)
+			} else {
+				hasMedia = true
+			}
+			parts = append(parts, *chatPart)
 		}
 	}
-	if len(toolResultImageParts) > 0 {
-		hasImage = true
-		parts = append(parts, toolResultImageParts...)
+	if len(toolResultMediaParts) > 0 {
+		hasMedia = true
+		parts = append(parts, toolResultMediaParts...)
 	}
 
-	if !hasImage {
+	if !hasMedia {
 		if len(textParts) > 0 {
 			content, _ := json.Marshal(strings.Join(textParts, "\n\n"))
 			out = append(out, ChatMessage{Role: "user", Content: content})

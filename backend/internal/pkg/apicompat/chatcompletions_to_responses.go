@@ -350,7 +350,10 @@ func marshalChatInputContent(content chatMessageContent) (json.RawMessage, error
 	if content.Text != nil {
 		return json.Marshal(*content.Text)
 	}
-	parts := convertChatContentPartsToResponses(content.Parts)
+	parts, err := convertChatContentPartsToResponses(content.Parts)
+	if err != nil {
+		return nil, err
+	}
 	if len(parts) == 0 {
 		// A nil slice marshals to JSON null, which the upstream Responses API
 		// rejects ("expected an array of objects or string, but got null").
@@ -360,7 +363,12 @@ func marshalChatInputContent(content chatMessageContent) (json.RawMessage, error
 	return json.Marshal(parts)
 }
 
-func convertChatContentPartsToResponses(parts []ChatContentPart) []ResponsesContentPart {
+// convertChatContentPartsToResponses maps Chat content parts onto Responses
+// input parts. image_url (data URI or http(s) URL, detail carried over) and file
+// (file_data / file_id) have exact Responses counterparts. input_audio has no
+// counterpart in this gateway's Responses model, so it is rejected with
+// UnsupportedContentError instead of being silently dropped.
+func convertChatContentPartsToResponses(parts []ChatContentPart) ([]ResponsesContentPart, error) {
 	var responseParts []ResponsesContentPart
 	for _, p := range parts {
 		switch p.Type {
@@ -376,6 +384,7 @@ func convertChatContentPartsToResponses(parts []ChatContentPart) []ResponsesCont
 				responseParts = append(responseParts, ResponsesContentPart{
 					Type:     "input_image",
 					ImageURL: p.ImageURL.URL,
+					Detail:   p.ImageURL.Detail,
 				})
 			}
 		case "file":
@@ -387,9 +396,11 @@ func convertChatContentPartsToResponses(parts []ChatContentPart) []ResponsesCont
 					FileID:   p.File.FileID,
 				})
 			}
+		case "input_audio":
+			return nil, newUnsupportedContentError("input_audio content", UpstreamProtocolNameResponses, "")
 		}
 	}
-	return responseParts
+	return responseParts, nil
 }
 
 func isEmptyBase64DataURI(raw string) bool {

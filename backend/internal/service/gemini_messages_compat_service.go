@@ -272,7 +272,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body)
 	if err != nil {
-		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		// 400 已写出；返回原始错误以保留 apicompat.UnsupportedContentError 类型，
+		// handler 据此按客户端错误收尾（不换号、不计账号健康）。
+		_ = s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, fmt.Errorf("convert claude messages to gemini: %w", err)
 	}
 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
 	originalClaudeBody := body
@@ -3155,19 +3158,20 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 						},
 					})
 				case "image":
-					if src, ok := bm["source"].(map[string]any); ok {
-						if srcType, _ := src["type"].(string); srcType == "base64" {
-							mediaType, _ := src["media_type"].(string)
-							data, _ := src["data"].(string)
-							if mediaType != "" && data != "" {
-								parts = append(parts, map[string]any{
-									"inlineData": map[string]any{
-										"mimeType": mediaType,
-										"data":     data,
-									},
-								})
-							}
-						}
+					part, err := claudeImageBlockToGeminiPart(bm)
+					if err != nil {
+						return nil, err
+					}
+					if part != nil {
+						parts = append(parts, part)
+					}
+				case "document":
+					part, err := claudeDocumentBlockToGeminiPart(bm)
+					if err != nil {
+						return nil, err
+					}
+					if part != nil {
+						parts = append(parts, part)
 					}
 				default:
 					// best-effort: preserve unknown blocks as text

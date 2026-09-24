@@ -44,9 +44,13 @@ func (s *GatewayService) ForwardAsChatCompletions(
 	clientStream := ccReq.Stream
 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
 
-	// 2. Convert CC → Responses → Anthropic (chained conversion)
+	// 2. Convert CC → Responses → Anthropic (chained conversion). The Responses
+	// hop is internal: a part it rejects is reported against the Anthropic
+	// upstream the client is actually served by. Conversion errors (including
+	// apicompat.UnsupportedContentError → 400) surface before any upstream call.
 	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
 	if err != nil {
+		err = apicompat.RetargetUnsupportedContentError(err, apicompat.UpstreamProtocolNameAnthropic)
 		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 	}
 

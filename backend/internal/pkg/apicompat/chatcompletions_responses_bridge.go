@@ -600,7 +600,7 @@ func buildChatMessagesFromItems(messages []ChatMessage, rawItems []json.RawMessa
 			pendingReasoning = ""
 			lastTurnReasoning = ""
 			continue
-		case "input_image":
+		case "input_image", "input_file", "input_audio":
 			content, err := chatContentFromSingleResponsesPart(itemType, item)
 			if err != nil {
 				return nil, nil, err
@@ -1040,19 +1040,21 @@ func responsesContentPartsToChatContent(rawParts []json.RawMessage, role string)
 			}
 			textParts = append(textParts, text)
 			chatParts = append(chatParts, ChatContentPart{Type: "text", Text: text})
-		case "input_image", "image_url":
-			imageURL := rawString(part["image_url"])
-			if imageURL == "" {
-				imageURL = rawNestedString(part["image_url"], "url")
+		case "input_image", "image_url", "input_file", "file", "input_audio":
+			// Chat 只有 user 消息能携带多模态分片；其余角色历来只保留文本。
+			if role != "user" {
+				hasNonText = true
+				continue
 			}
-			if imageURL == "" {
+			chatPart, err := responsesRawMediaPartToChatPart(partType, part)
+			if err != nil {
+				return nil, err
+			}
+			if chatPart == nil {
 				continue
 			}
 			hasNonText = true
-			chatParts = append(chatParts, ChatContentPart{
-				Type:     "image_url",
-				ImageURL: &ChatImageURL{URL: imageURL},
-			})
+			chatParts = append(chatParts, *chatPart)
 		}
 	}
 
@@ -1073,17 +1075,100 @@ func responsesContentPartsToChatContent(rawParts []json.RawMessage, role string)
 
 func chatContentFromSingleResponsesPart(partType string, part map[string]json.RawMessage) (json.RawMessage, error) {
 	switch partType {
-	case "input_image", "image_url":
-		imageURL := rawString(part["image_url"])
-		if imageURL == "" {
-			imageURL = rawNestedString(part["image_url"], "url")
+	case "input_image", "image_url", "input_file", "file", "input_audio":
+		chatPart, err := responsesRawMediaPartToChatPart(partType, part)
+		if err != nil {
+			return nil, err
 		}
-		return json.Marshal([]ChatContentPart{{
-			Type:     "image_url",
-			ImageURL: &ChatImageURL{URL: imageURL},
-		}})
+		if chatPart == nil {
+			return json.Marshal("")
+		}
+		return json.Marshal([]ChatContentPart{*chatPart})
 	default:
 		return json.Marshal(rawString(part["text"]))
+	}
+}
+
+// responsesRawMediaPartToChatPart maps a raw Responses media part (input_image /
+// input_file / input_audio, plus the chat-shaped image_url / file aliases the
+// bridge has always tolerated) onto a Chat content part. A nil part with a nil
+// error means there is nothing to forward.
+func responsesRawMediaPartToChatPart(partType string, part map[string]json.RawMessage) (*ChatContentPart, error) {
+	switch partType {
+	case "input_image", "image_url":
+		imageURL := rawString(part["image_url"])
+		detail := rawString(part["detail"])
+		if imageURL == "" {
+			imageURL = rawNestedString(part["image_url"], "url")
+			if detail == "" {
+				detail = rawNestedString(part["image_url"], "detail")
+			}
+		}
+		return responsesMediaPartToChatPart(ResponsesContentPart{
+			Type:     "input_image",
+			ImageURL: imageURL,
+			Detail:   detail,
+			FileID:   rawString(part["file_id"]),
+		}, UpstreamProtocolNameChatCompletions)
+	case "input_file", "file":
+		fields := part
+		if nested := bytesTrimSpace(part["file"]); len(nested) > 0 && nested[0] == '{' {
+			var obj map[string]json.RawMessage
+			if err := json.Unmarshal(nested, &obj); err == nil {
+				fields = obj
+			}
+		}
+		return responsesMediaPartToChatPart(ResponsesContentPart{
+			Type:     "input_file",
+			Filename: rawString(fields["filename"]),
+			FileData: rawString(fields["file_data"]),
+			FileID:   rawString(fields["file_id"]),
+			FileURL:  rawString(fields["file_url"]),
+		}, UpstreamProtocolNameChatCompletions)
+	case "input_audio":
+		var audio ChatInputAudio
+		if err := json.Unmarshal(part["input_audio"], &audio); err != nil || strings.TrimSpace(audio.Data) == "" {
+			return nil, nil
+		}
+		return &ChatContentPart{Type: "input_audio", InputAudio: &audio}, nil
+	default:
+		return nil, nil
+	}
+}
+
+// responsesMediaPartToChatPart maps a typed Responses part onto a Chat content
+// part. input_image keeps its URL / data URI and detail; input_file keeps
+// filename + file_data / file_id (Chat and Responses are both OpenAI protocols,
+// so OpenAI file IDs stay meaningful). Chat has no way to reference an image by
+// file_id or a file by URL, so those are rejected instead of dropped. upstream
+// names the protocol the request is finally served over (error messages only).
+func responsesMediaPartToChatPart(p ResponsesContentPart, upstream string) (*ChatContentPart, error) {
+	switch p.Type {
+	case "input_text", "output_text", "text":
+		if p.Text == "" {
+			return nil, nil
+		}
+		return &ChatContentPart{Type: "text", Text: p.Text}, nil
+	case "input_image":
+		if p.ImageURL == "" {
+			if strings.TrimSpace(p.FileID) != "" {
+				return nil, newUnsupportedContentError(partImageFileID, upstream,
+					"image_url parts only accept an http(s) URL or a base64 data URI")
+			}
+			return nil, nil
+		}
+		return &ChatContentPart{Type: "image_url", ImageURL: &ChatImageURL{URL: p.ImageURL, Detail: p.Detail}}, nil
+	case "input_file":
+		if p.FileData == "" && p.FileID == "" {
+			if strings.TrimSpace(p.FileURL) != "" {
+				return nil, newUnsupportedContentError(partFileURL, upstream,
+					"file parts only accept inline base64 file_data or a file_id; "+HintInlineBase64)
+			}
+			return nil, nil
+		}
+		return &ChatContentPart{Type: "file", File: &ChatFile{Filename: p.Filename, FileData: p.FileData, FileID: p.FileID}}, nil
+	default:
+		return nil, nil
 	}
 }
 

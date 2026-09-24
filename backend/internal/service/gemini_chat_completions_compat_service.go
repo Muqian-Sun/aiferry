@@ -42,14 +42,20 @@ func (s *GeminiMessagesCompatService) ForwardAsChatCompletions(
 	clientStream := ccReq.Stream
 	includeUsage := ccReq.StreamOptions != nil && ccReq.StreamOptions.IncludeUsage
 
+	// Chat → Responses → Anthropic → Gemini 的中间格式只是网关内部实现：中间一步拒收的
+	// 分片按最终上游（Gemini）报错。400 写出后返回带类型的错误，handler 按客户端错误收尾。
 	responsesReq, err := apicompat.ChatCompletionsToResponses(&ccReq)
 	if err != nil {
-		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		err = apicompat.RetargetUnsupportedContentError(err, apicompat.UpstreamProtocolNameGemini)
+		_ = s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, fmt.Errorf("convert chat completions to responses: %w", err)
 	}
 
 	anthropicReq, err := apicompat.ResponsesToAnthropicRequest(responsesReq)
 	if err != nil {
-		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		err = apicompat.RetargetUnsupportedContentError(err, apicompat.UpstreamProtocolNameGemini)
+		_ = s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, fmt.Errorf("convert responses to anthropic: %w", err)
 	}
 	anthropicReq.Stream = clientStream
 
@@ -90,7 +96,8 @@ func (s *GeminiMessagesCompatService) forwardClaudeBodyAsChatCompletions(
 
 	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(claudeBody)
 	if err != nil {
-		return nil, s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		_ = s.writeChatCompletionsError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, fmt.Errorf("convert claude messages to gemini: %w", err)
 	}
 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
 

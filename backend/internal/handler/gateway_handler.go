@@ -719,6 +719,11 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				h.errorResponse(c, http.StatusBadRequest, "invalid_request_error", betaBlockedErr.Message)
 				return
 			}
+			// 上游协议表达不了的内容分片：400，不换号、不计账号健康（见 handleUnsupportedContentError）
+			if h.handleUnsupportedContentError(c, reqLog, account, err,
+				c.Writer.Size() != writerSizeBeforeForward, streamStarted || c.Writer.Written(), h.errorResponse) {
+				return
+			}
 
 			var promptTooLongErr *service.PromptTooLongError
 			if errors.As(err, &promptTooLongErr) {

@@ -3,11 +3,13 @@ package service
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/stretchr/testify/require"
 )
 
@@ -102,6 +104,9 @@ func TestClassifyOpenAIAPIKeyHealthFailureExclusions(t *testing.T) {
 		{name: "dedicated same account retry", err: &UpstreamFailoverError{StatusCode: http.StatusTooManyRequests, RetryableOnSameAccount: true}},
 		{name: "credential disable path", err: &UpstreamFailoverError{StatusCode: http.StatusUnauthorized, Stage: GatewayFailureStageAccountAuth, Scope: GatewayFailureScopeAccount}},
 		{name: "client request", err: &UpstreamFailoverError{StatusCode: http.StatusBadRequest}},
+		// 跨协议转换拒收的内容分片是客户端错误，发生在任何上游请求之前，不能计入 key 健康。
+		{name: "unsupported content part", err: fmt.Errorf("convert chat completions to responses: %w",
+			&apicompat.UnsupportedContentError{Part: "input_audio content", Upstream: apicompat.UpstreamProtocolNameResponses})},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
