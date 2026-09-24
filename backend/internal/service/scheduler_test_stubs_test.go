@@ -223,29 +223,3 @@ func (s *openAISnapshotCacheStub) GetAccount(ctx context.Context, accountID int6
 	cloned := *account
 	return &cloned, nil
 }
-func upstreamCostTestAccount(id int64, status string, rate float64, receivedAt time.Time, interval time.Duration) *Account {
-	return &Account{
-		ID:       id,
-		Platform: PlatformOpenAI,
-		Type:     AccountTypeAPIKey,
-		Extra: map[string]any{
-			UpstreamBillingProbeExtraKey: map[string]any{
-				"status": status,
-				"data": map[string]any{
-					"billing_scope":             "token",
-					"resolved_rate_multiplier":  rate,
-					"peak_rate_enabled":         false,
-					"effective_rate_multiplier": rate,
-				},
-				"received_at":     receivedAt.UTC().Format(time.RFC3339Nano),
-				"fresh_until":     receivedAt.Add(2 * interval).UTC().Format(time.RFC3339Nano),
-				"last_attempt_at": receivedAt.UTC().Format(time.RFC3339Nano),
-				"next_probe_at":   receivedAt.Add(interval).UTC().Format(time.RFC3339Nano),
-			},
-		},
-		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
-	}
-}
-func upstreamCostTestOAuthAccount(id int64) *Account {
-	return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-}

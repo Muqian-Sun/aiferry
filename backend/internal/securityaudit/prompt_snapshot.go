@@ -649,11 +649,3 @@ func stringValue(value any) string {
 	text, _ := value.(string)
 	return strings.TrimSpace(text)
 }
-
-func cloneInt64Ptr(value *int64) *int64 {
-	if value == nil {
-		return nil
-	}
-	cloned := *value
-	return &cloned
-}

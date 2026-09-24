@@ -60,15 +60,6 @@ func (s *stickyGatewayCacheHotpathStub) GetReasoningContent(_ context.Context, _
 	return "", ErrReasoningContentNotFound
 }
 
-func resetGatewayHotpathStatsForTest() {
-	windowCostPrefetchCacheHitTotal.Store(0)
-	windowCostPrefetchCacheMissTotal.Store(0)
-	windowCostPrefetchBatchSQLTotal.Store(0)
-	windowCostPrefetchFallbackTotal.Store(0)
-	windowCostPrefetchErrorTotal.Store(0)
-
-}
-
 func TestGatewayHotpathHelpers_StickyContext(t *testing.T) {
 	t.Run("prefetched_sticky_account_id_from_context", func(t *testing.T) {
 		require.Equal(t, int64(0), prefetchedStickyAccountIDFromContext(context.TODO()))

@@ -3,11 +3,47 @@
 package service
 
 import (
+	mathrand "math/rand"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/require"
 )
+
+// shuffleWithinSortGroups / sameAccountWithLoadGroup 只剩本文件（unit 标签）的用例在测，生产路径已不调用；
+// 放在无标签的 gateway_scheduling.go 里会被默认标签下的 lint 判成未使用。
+
+// shuffleWithinSortGroups 对排序后的 accountWithLoad 切片，按 (Priority, LoadRate, LastUsedAt) 分组后组内随机打乱。
+// 防止并发请求读取同一快照时，确定性排序导致所有请求命中相同账号。
+func shuffleWithinSortGroups(accounts []accountWithLoad) {
+	if len(accounts) <= 1 {
+		return
+	}
+	i := 0
+	for i < len(accounts) {
+		j := i + 1
+		for j < len(accounts) && sameAccountWithLoadGroup(accounts[i], accounts[j]) {
+			j++
+		}
+		if j-i > 1 {
+			mathrand.Shuffle(j-i, func(a, b int) {
+				accounts[i+a], accounts[i+b] = accounts[i+b], accounts[i+a]
+			})
+		}
+		i = j
+	}
+}
+
+// sameAccountWithLoadGroup 判断两个 accountWithLoad 是否属于同一排序组
+func sameAccountWithLoadGroup(a, b accountWithLoad) bool {
+	if a.account.Priority != b.account.Priority {
+		return false
+	}
+	if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
+		return false
+	}
+	return sameLastUsedAt(a.account.LastUsedAt, b.account.LastUsedAt)
+}
 
 // ============ shuffleWithinSortGroups 测试 ============
 

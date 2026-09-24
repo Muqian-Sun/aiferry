@@ -1075,10 +1075,6 @@ func (s *SchedulerSnapshotService) withFallbackTimeout(ctx context.Context) (con
 	return context.WithTimeout(ctx, timeout)
 }
 
-func (s *SchedulerSnapshotService) isRunModeSimple() bool {
-	return s.cfg != nil && s.cfg.RunMode == config.RunModeSimple
-}
-
 func (s *SchedulerSnapshotService) outboxPollInterval() time.Duration {
 	if s.cfg == nil {
 		return time.Second

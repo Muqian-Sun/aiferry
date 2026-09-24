@@ -157,13 +157,6 @@ func WithForceCacheBilling(ctx context.Context) context.Context {
 	return context.WithValue(ctx, ForceCacheBillingContextKey, true)
 }
 
-func (s *GatewayService) debugModelRoutingEnabled() bool {
-	if s == nil {
-		return false
-	}
-	return s.debugModelRouting.Load()
-}
-
 func (s *GatewayService) debugClaudeMimicEnabled() bool {
 	if s == nil {
 		return false
@@ -671,7 +664,6 @@ type GatewayService struct {
 	rpmCache             RPMCache          // RPM 计数缓存（仅 Anthropic OAuth/SetupToken）
 	settingService       *SettingService
 	responseHeaderFilter *responseheaders.CompiledHeaderFilter
-	debugModelRouting    atomic.Bool
 	debugClaudeMimic     atomic.Bool
 	resolver             *ModelPricingResolver
 	debugGatewayBodyFile atomic.Pointer[os.File] // non-nil when SUB2API_DEBUG_GATEWAY_BODY is set
@@ -731,7 +723,6 @@ func NewGatewayService(
 		resolver:             resolver,
 		balanceNotifyService: balanceNotifyService,
 	}
-	svc.debugModelRouting.Store(parseDebugEnvBool(os.Getenv("SUB2API_DEBUG_MODEL_ROUTING")))
 	svc.debugClaudeMimic.Store(parseDebugEnvBool(os.Getenv("SUB2API_DEBUG_CLAUDE_MIMIC")))
 	if path := strings.TrimSpace(os.Getenv(debugGatewayBodyEnv)); path != "" {
 		svc.initDebugGatewayBodyFile(path)

@@ -94,22 +94,6 @@ func TestDashboardAggregationService_RunScheduledAggregation_EpochUsesRetentionS
 	require.Equal(t, truncateToDayUTC(repo.lastEnd.AddDate(0, 0, -1)), repo.lastStart)
 }
 
-type dashboardAggregationLeaderLockRecordingCache struct {
-	delegate    *fakeLeaderLockCache
-	acquireKeys []string
-	acquireTTLs []time.Duration
-}
-
-func (c *dashboardAggregationLeaderLockRecordingCache) TryAcquireLeaderLock(ctx context.Context, key, owner string, ttl time.Duration) (bool, error) {
-	c.acquireKeys = append(c.acquireKeys, key)
-	c.acquireTTLs = append(c.acquireTTLs, ttl)
-	return c.delegate.TryAcquireLeaderLock(ctx, key, owner, ttl)
-}
-
-func (c *dashboardAggregationLeaderLockRecordingCache) ReleaseLeaderLock(ctx context.Context, key, owner string) error {
-	return c.delegate.ReleaseLeaderLock(ctx, key, owner)
-}
-
 func TestDashboardAggregationService_CleanupRetentionFailure_DoesNotRecord(t *testing.T) {
 	repo := &dashboardAggregationRepoTestStub{cleanupAggregatesErr: errors.New("清理失败")}
 	svc := &DashboardAggregationService{

@@ -3,12 +3,188 @@
 package service
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/stretchr/testify/require"
 )
+
+// 以下价卡校验原本给分组价卡（normalizeGroupModelPricing）用，分组删掉后生产路径已不调用，
+// 只剩本文件（unit 标签）的用例在测；放在无标签的 pricing_card.go 里会被默认标签下的 lint 判成未使用。
+
+func validatePricingTimePricing(pricing []PricingCard) error {
+	for i := range pricing {
+		config := pricing[i].TimePricing
+		if config == nil {
+			continue
+		}
+		if len(config.Periods) == 0 {
+			pricing[i].TimePricing = nil
+			continue
+		}
+		mode := pricing[i].BillingMode
+		if mode != "" && mode != BillingModeToken {
+			return infraerrors.BadRequest("TIME_PRICING_UNSUPPORTED_MODE", "time pricing only supports token billing mode")
+		}
+		if err := validateTimePricing(config); err != nil {
+			return infraerrors.BadRequest("INVALID_TIME_PRICING", fmt.Sprintf(
+				"invalid time pricing for models %v: %v", pricing[i].Models, err))
+		}
+	}
+	return nil
+}
+
+// validatePricingBillingMode 校验计费模式配置：按次/图片模式必须配价格或区间，所有价格字段不能为负，区间至少有一个价格字段。
+func validatePricingBillingMode(pricing []PricingCard) error {
+	for _, p := range pricing {
+		if err := checkBillingModeRequirements(p); err != nil {
+			return err
+		}
+		if err := checkPricesNotNegative(p); err != nil {
+			return err
+		}
+		if err := checkIntervalsHavePrices(p); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func checkBillingModeRequirements(p PricingCard) error {
+	if p.BillingMode == BillingModePerRequest || p.BillingMode == BillingModeImage || p.BillingMode == BillingModeVideo {
+		if p.PerRequestPrice == nil && len(p.Intervals) == 0 {
+			return infraerrors.BadRequest(
+				"BILLING_MODE_MISSING_PRICE",
+				"per-request price or intervals required for per_request/image billing mode",
+			)
+		}
+	}
+	return nil
+}
+
+func checkPricesNotNegative(p PricingCard) error {
+	checks := []struct {
+		field string
+		val   *float64
+	}{
+		{"input_price", p.InputPrice},
+		{"output_price", p.OutputPrice},
+		{"cache_write_price", p.CacheWritePrice},
+		{"cache_write_1h_price", p.CacheWrite1hPrice},
+		{"cache_read_price", p.CacheReadPrice},
+		{"image_input_price", p.ImageInputPrice},
+		{"image_output_price", p.ImageOutputPrice},
+		{"per_request_price", p.PerRequestPrice},
+	}
+	for _, c := range checks {
+		if c.val != nil && *c.val < 0 {
+			return infraerrors.BadRequest("NEGATIVE_PRICE", fmt.Sprintf("%s must be >= 0", c.field))
+		}
+	}
+	for _, c := range []struct {
+		field string
+		val   *float64
+	}{
+		{"fast_multiplier", p.FastMultiplier},
+		{"flex_multiplier", p.FlexMultiplier},
+	} {
+		if c.val != nil && *c.val <= 0 {
+			return infraerrors.BadRequest("INVALID_MULTIPLIER", fmt.Sprintf("%s must be > 0", c.field))
+		}
+	}
+	return nil
+}
+
+func checkIntervalsHavePrices(p PricingCard) error {
+	for _, iv := range p.Intervals {
+		if iv.InputPrice == nil && iv.OutputPrice == nil &&
+			iv.CacheWritePrice == nil && iv.CacheWrite1hPrice == nil && iv.CacheReadPrice == nil &&
+			iv.PerRequestPrice == nil && iv.InputMultiplier == nil &&
+			iv.OutputMultiplier == nil && iv.CacheWriteMultiplier == nil &&
+			iv.CacheReadMultiplier == nil {
+			return infraerrors.BadRequest(
+				"INTERVAL_MISSING_PRICE",
+				fmt.Sprintf("interval [%d, %s] has no price fields set for model %v",
+					iv.MinTokens, formatMaxTokens(iv.MaxTokens), p.Models),
+			)
+		}
+	}
+	return nil
+}
+
+func formatMaxTokens(max *int) string {
+	if max == nil {
+		return "∞"
+	}
+	return fmt.Sprintf("%d", *max)
+}
+
+// modelEntry 表示一个模型模式条目（用于冲突检测）
+type modelEntry struct {
+	pattern  string // 原始模式（如 "claude-*" 或 "claude-opus-4"）
+	prefix   string // lowercase 前缀（通配符去掉 *，精确名保持原样）
+	wildcard bool
+}
+
+// conflictsBetween 检查两个模型模式是否冲突
+func conflictsBetween(a, b modelEntry) bool {
+	switch {
+	case !a.wildcard && !b.wildcard:
+		return a.prefix == b.prefix
+	case a.wildcard && !b.wildcard:
+		return strings.HasPrefix(b.prefix, a.prefix)
+	case !a.wildcard && b.wildcard:
+		return strings.HasPrefix(a.prefix, b.prefix)
+	default:
+		return strings.HasPrefix(a.prefix, b.prefix) ||
+			strings.HasPrefix(b.prefix, a.prefix)
+	}
+}
+
+// toPricingModelEntry 将模型名转换为 modelEntry（用于模型定价的冲突检测）。
+//
+// 与 toModelEntry 的区别：定价缓存的键走 normalizePricingModelName
+// （额外做 TrimSpace，并把 claude-* 的 "." 换成 "-"），冲突检测必须用同一套归一化，
+// 否则两个校验时看着不同、写进缓存后键相同的定价会互相静默覆盖。
+func toPricingModelEntry(pattern string) modelEntry {
+	// 先剥通配符再归一化，与 expandPricingToCache 的处理顺序保持一致
+	prefix, isWild := splitWildcardSuffix(pattern)
+	return modelEntry{
+		pattern:  pattern,
+		prefix:   normalizePricingModelName(prefix),
+		wildcard: isWild,
+	}
+}
+
+// validateNoConflictingModels 检查定价列表中是否有冲突模型模式。
+// 冲突包括：精确重复、通配符之间的前缀包含、通配符与精确名的前缀匹配。
+func validateNoConflictingModels(pricingList []PricingCard) error {
+	entries := make([]modelEntry, 0)
+	for _, p := range pricingList {
+		for _, model := range p.Models {
+			entries = append(entries, toPricingModelEntry(model))
+		}
+	}
+	return detectConflicts(entries, "MODEL_PATTERN_CONFLICT", "model patterns")
+}
+
+// detectConflicts 在一组 modelEntry 中检测冲突，返回带有 errCode 和 label 的错误
+func detectConflicts(entries []modelEntry, errCode, label string) error {
+	for i := 0; i < len(entries); i++ {
+		for j := i + 1; j < len(entries); j++ {
+			if conflictsBetween(entries[i], entries[j]) {
+				return infraerrors.BadRequest(errCode,
+					fmt.Sprintf("%s '%s' and '%s' conflict: overlapping match range "+
+						"(model names are matched case-insensitively, so an existing entry already covers all case variants)",
+						label, entries[i].pattern, entries[j].pattern))
+			}
+		}
+	}
+	return nil
+}
 
 func TestGetIntervalForContext(t *testing.T) {
 	p := &PricingCard{

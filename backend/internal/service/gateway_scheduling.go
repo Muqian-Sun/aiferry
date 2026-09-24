@@ -376,22 +376,6 @@ func (s *GatewayService) selectAccountWithLoadAwareness(ctx context.Context, ses
 	return nil, ErrNoAvailableAccounts
 }
 
-// stickyAccountIDForSelection 本次请求的粘性账号：handler 预取的（续链 / 守护父线程亲和 / Messages 提前查的）优先，
-// 其次缓存里的会话绑定；没有返回 0。
-func (s *GatewayService) stickyAccountIDForSelection(ctx context.Context, sessionHash string) int64 {
-	if prefetch := prefetchedStickyAccountIDFromContext(ctx); prefetch > 0 {
-		return prefetch
-	}
-	if sessionHash == "" || s.cache == nil {
-		return 0
-	}
-	accountID, err := s.cache.GetSessionAccountID(ctx, SchedulingScopeID(ctx), sessionHash)
-	if err != nil {
-		return 0
-	}
-	return accountID
-}
-
 // deleteStickySession 清缓存里的会话绑定（缓存未配置时 no-op）。
 func (s *GatewayService) deleteStickySession(ctx context.Context, sessionHash string) {
 	if s.cache == nil || sessionHash == "" {
@@ -540,12 +524,6 @@ func (s *GatewayService) candidateAdmits(ctx context.Context, account *Account, 
 		return false, "shadow_parent_unhealthy"
 	}
 	return true, ""
-}
-
-// admits 是 candidateAdmits 的布尔版（粘性层的长条件链用）。
-func (s *GatewayService) admits(ctx context.Context, account *Account, requestedModel string) bool {
-	ok, _ := s.candidateAdmits(ctx, account, requestedModel)
-	return ok
 }
 
 // shadowParentLookup 影子账号的母账号解析：快照优先（与选中后的 hydrate 同源）。
@@ -886,38 +864,6 @@ func sortAccountsByPriorityAndLastUsed(accounts []*Account, inbound string) {
 	shuffleWithinPriorityAndLastUsed(accounts, inbound)
 }
 
-// shuffleWithinSortGroups 对排序后的 accountWithLoad 切片，按 (Priority, LoadRate, LastUsedAt) 分组后组内随机打乱。
-// 防止并发请求读取同一快照时，确定性排序导致所有请求命中相同账号。
-func shuffleWithinSortGroups(accounts []accountWithLoad) {
-	if len(accounts) <= 1 {
-		return
-	}
-	i := 0
-	for i < len(accounts) {
-		j := i + 1
-		for j < len(accounts) && sameAccountWithLoadGroup(accounts[i], accounts[j]) {
-			j++
-		}
-		if j-i > 1 {
-			mathrand.Shuffle(j-i, func(a, b int) {
-				accounts[i+a], accounts[i+b] = accounts[i+b], accounts[i+a]
-			})
-		}
-		i = j
-	}
-}
-
-// sameAccountWithLoadGroup 判断两个 accountWithLoad 是否属于同一排序组
-func sameAccountWithLoadGroup(a, b accountWithLoad) bool {
-	if a.account.Priority != b.account.Priority {
-		return false
-	}
-	if a.loadInfo.LoadRate != b.loadInfo.LoadRate {
-		return false
-	}
-	return sameLastUsedAt(a.account.LastUsedAt, b.account.LastUsedAt)
-}
-
 // shuffleWithinPriorityAndLastUsed 对排序后的 []*Account 切片，按 (协议直连, Priority, LastUsedAt) 分组后
 // 组内随机打乱，避免并发请求读同一快照时全部命中同一个账号。
 func shuffleWithinPriorityAndLastUsed(accounts []*Account, inbound string) {
@@ -974,25 +920,6 @@ func filterByProtocolMatch(accounts []accountWithLoad, inbound string) []account
 		return accounts
 	}
 	return matched
-}
-
-// candidatePrecedes 报告 candidate 应排在 current 前：协议直连 → 优先级 → 从未用过 → 更久未用。
-// 非负载感知路径（legacy / 单平台 / 混合）逐个比较时用它，与排序函数同一套键。
-func candidatePrecedes(candidate, current *Account, inbound string) bool {
-	if rc, ru := protocolRank(candidate, inbound), protocolRank(current, inbound); rc != ru {
-		return rc < ru
-	}
-	if candidate.Priority != current.Priority {
-		return candidate.Priority < current.Priority
-	}
-	switch {
-	case candidate.LastUsedAt == nil && current.LastUsedAt != nil:
-		return true
-	case candidate.LastUsedAt == nil || current.LastUsedAt == nil:
-		return false
-	default:
-		return candidate.LastUsedAt.Before(*current.LastUsedAt)
-	}
 }
 
 // sameLastUsedAt 判断两个 LastUsedAt 是否相同（精度到秒）

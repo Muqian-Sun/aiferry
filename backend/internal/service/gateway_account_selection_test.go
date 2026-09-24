@@ -212,6 +212,28 @@ func TestSortAccountsByPriorityOnly_ProtocolMatchFirst(t *testing.T) {
 	require.Equal(t, int64(1), accounts[0].ID)
 }
 
+// candidatePrecedes 只剩本文件（unit 标签）的用例在测，生产路径已不调用；
+// 放在无标签的 gateway_scheduling.go 里会被默认标签下的 lint 判成未使用。
+
+// candidatePrecedes 报告 candidate 应排在 current 前：协议直连 → 优先级 → 从未用过 → 更久未用。
+// 与排序函数同一套键。
+func candidatePrecedes(candidate, current *Account, inbound string) bool {
+	if rc, ru := protocolRank(candidate, inbound), protocolRank(current, inbound); rc != ru {
+		return rc < ru
+	}
+	if candidate.Priority != current.Priority {
+		return candidate.Priority < current.Priority
+	}
+	switch {
+	case candidate.LastUsedAt == nil && current.LastUsedAt != nil:
+		return true
+	case candidate.LastUsedAt == nil || current.LastUsedAt == nil:
+		return false
+	default:
+		return candidate.LastUsedAt.Before(*current.LastUsedAt)
+	}
+}
+
 func TestCandidatePrecedes(t *testing.T) {
 	direct, converting := protocolRankTestAccounts()
 	require.True(t, candidatePrecedes(direct, converting, APIProtocolAnthropic), "直连先于优先级")

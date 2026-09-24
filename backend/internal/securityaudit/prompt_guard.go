@@ -270,10 +270,3 @@ func guardErrorCode(err error) string {
 	}
 	return ErrorCodeUnavailable
 }
-
-func pointerLogID(value *int64) int64 {
-	if value == nil {
-		return 0
-	}
-	return *value
-}

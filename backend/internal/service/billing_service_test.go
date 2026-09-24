@@ -33,6 +33,23 @@ func newTestBillingService() *BillingService {
 	return NewBillingService(&config.Config{}, nil)
 }
 
+// openAILadderCatalogJSON 镜像真实同步目录的形态：长上下文用 above_272k 绝对价字段表达，
+// 由解析层折算成阈值+倍率。静态 Go 兜底价不再携带阶梯，阶梯计费一律走目录数据。
+// 只有 unit 标签的用例（本文件与 billing_token_cost_request_test.go）用；放在无标签的
+// pricing_stub_helpers_test.go 里会被默认标签下的 lint 判成未使用。
+const openAILadderCatalogJSON = `{
+	"gpt-5.4": {"litellm_provider": "openai", "mode": "chat",
+		"input_cost_per_token": 2.5e-06, "output_cost_per_token": 1.5e-05,
+		"cache_read_input_token_cost": 2.5e-07, "cache_creation_input_token_cost": 2.5e-06,
+		"input_cost_per_token_above_272k_tokens": 5e-06,
+		"output_cost_per_token_above_272k_tokens": 2.25e-05,
+		"cache_read_input_token_cost_above_272k_tokens": 5e-07},
+	"gpt-5.5-pro": {"litellm_provider": "openai", "mode": "chat",
+		"input_cost_per_token": 3e-05, "output_cost_per_token": 1.8e-04,
+		"input_cost_per_token_above_272k_tokens": 6e-05,
+		"output_cost_per_token_above_272k_tokens": 2.7e-04}
+}`
+
 func newTestBillingServiceWithOpenAILadderCatalog(t *testing.T) *BillingService {
 	t.Helper()
 	return NewBillingService(&config.Config{}, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
