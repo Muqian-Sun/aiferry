@@ -550,7 +550,7 @@ onUnmounted(() => {
   @apply bg-af-sheet;
   @apply rounded-lg;
   @apply border border-af-hairline;
-  @apply shadow-lg shadow-black/10;
+  @apply shadow-lg shadow-af-ink/10;
   @apply overflow-hidden;
   pointer-events: auto !important;
 }

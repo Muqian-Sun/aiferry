@@ -9,7 +9,6 @@
       label="5h"
       :utilization="snapshot.data.five_hour.used_percent"
       :resets-at="snapshot.data.five_hour.reset_at"
-      color="indigo"
       data-testid="ollama-cloud-five-hour"
     />
     <UsageProgressBar
@@ -17,13 +16,12 @@
       label="7d"
       :utilization="snapshot.data.seven_day.used_percent"
       :resets-at="snapshot.data.seven_day.reset_at"
-      color="emerald"
       data-testid="ollama-cloud-seven-day"
     />
     <div v-if="state.configured" class="flex items-center pt-0.5">
       <button
         type="button"
-        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-blue-600 transition-colors hover:bg-blue-50 disabled:cursor-not-allowed disabled:opacity-50 dark:text-blue-400 dark:hover:bg-blue-900/30"
+        class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="refreshing"
         data-testid="ollama-cloud-usage-query"
         @click="refreshUsage"
@@ -46,7 +44,7 @@
       </button>
     </div>
   </div>
-  <span v-else class="text-sm text-gray-400 dark:text-dark-500">-</span>
+  <span v-else class="text-sm text-af-ink-3">-</span>
 </template>
 
 <script setup lang="ts">

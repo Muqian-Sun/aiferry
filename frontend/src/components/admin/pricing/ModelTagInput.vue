@@ -1,18 +1,17 @@
 <template>
   <div>
     <!-- Tags display -->
-    <div class="flex flex-wrap gap-1.5 rounded-lg border border-gray-200 bg-white p-2 dark:border-dark-600 dark:bg-dark-800 min-h-[2.5rem]">
+    <div class="flex flex-wrap gap-1.5 rounded-lg border border-af-hairline bg-af-sheet p-2 min-h-[2.5rem]">
       <span
         v-for="(model, idx) in models"
         :key="idx"
-        class="inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-sm"
-        :class="getPlatformTagClass(props.platform || '')"
+        class="inline-flex items-center gap-1 rounded-md bg-af-sunken px-2 py-0.5 text-sm text-af-ink-2"
       >
         {{ model }}
         <button
           type="button"
           @click="removeModel(idx)"
-          class="ml-0.5 rounded-full p-0.5 hover:bg-primary-200 dark:hover:bg-primary-800"
+          class="ml-0.5 rounded-full p-0.5 hover:bg-af-brand-tint"
         >
           <Icon name="x" size="xs" />
         </button>
@@ -21,7 +20,7 @@
         ref="inputRef"
         v-model="inputValue"
         type="text"
-        class="flex-1 min-w-[120px] border-none bg-transparent text-sm outline-none placeholder:text-gray-400 dark:text-white"
+        class="flex-1 min-w-[120px] border-none bg-transparent text-sm outline-none placeholder:text-af-ink-3"
         :placeholder="models.length === 0 ? placeholder : ''"
         @keydown.enter.prevent="addModel"
         @keydown.tab.prevent="addModel"
@@ -30,7 +29,7 @@
         @blur="addModel"
       />
     </div>
-    <p class="mt-1 text-xs text-gray-400">
+    <p class="mt-1 text-xs text-af-ink-3">
       {{ t('admin.channels.form.modelInputHint', 'Press Enter to add, supports paste for batch import.') }}
     </p>
   </div>
@@ -40,14 +39,12 @@
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
-import { getPlatformTagClass } from './types'
 
 const { t } = useI18n()
 
 const props = defineProps<{
   models: string[]
   placeholder?: string
-  platform?: string
 }>()
 
 const emit = defineEmits<{

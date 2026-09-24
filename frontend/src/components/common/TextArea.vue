@@ -2,7 +2,7 @@
   <div class="w-full">
     <label v-if="label" :for="id" class="input-label mb-1.5 block">
       {{ label }}
-      <span v-if="required" class="text-red-500">*</span>
+      <span v-if="required" class="text-af-danger">*</span>
     </label>
     <div class="relative">
       <textarea
@@ -16,8 +16,8 @@
         :rows="rows"
         :class="[
           'input w-full min-h-[80px] transition-all duration-200 resize-y',
-          error ? 'input-error ring-2 ring-red-500/20' : '',
-          disabled ? 'cursor-not-allowed bg-gray-100 opacity-60 dark:bg-dark-900' : ''
+          error ? 'input-error ring-2 ring-af-danger/20' : '',
+          disabled ? 'cursor-not-allowed bg-af-sunken opacity-60' : ''
         ]"
         @input="onInput"
         @change="$emit('change', ($event.target as HTMLTextAreaElement).value)"

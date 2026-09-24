@@ -24,13 +24,13 @@
             :key="entry.id"
             class="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium"
             :class="entry.status === 'listed'
-              ? 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300'
-              : 'bg-gray-100 text-gray-500 line-through dark:bg-dark-600 dark:text-gray-400'"
+              ? 'bg-af-sunken text-af-ink-2'
+              : 'bg-af-sunken text-af-ink-3 line-through'"
             :title="entry.status === 'listed' ? entry.model_id : `${entry.model_id} · ${t('admin.accounts.catalogUnlisted')}`"
           >
             {{ entry.model_id }}
           </span>
-          <span v-if="catalogEntries.length === 0" class="text-xs text-gray-400 dark:text-gray-500">
+          <span v-if="catalogEntries.length === 0" class="text-xs text-af-ink-3">
             {{ t('admin.accounts.catalogNone') }}
           </span>
         </div>
@@ -78,21 +78,21 @@
               :class="[
                 'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                 editOpenCodeAccountMode === 'zen'
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                  : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
+                  ? 'border-af-brand bg-af-brand-tint'
+                  : 'border-af-hairline hover:border-af-hairline-strong'
               ]"
             >
               <div
                 :class="[
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                  editOpenCodeAccountMode === 'zen' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+                  editOpenCodeAccountMode === 'zen' ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
                 ]"
               >
                 <Icon name="creditCard" size="sm" />
               </div>
               <div>
-                <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.opencodeGo.accountMode.zen') }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.opencodeGo.accountMode.zenDesc') }}</span>
+                <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.zen') }}</span>
+                <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.zenDesc') }}</span>
               </div>
             </button>
             <button
@@ -101,21 +101,21 @@
               :class="[
                 'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
                 editOpenCodeAccountMode === 'go'
-                  ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
-                  : 'border-gray-200 hover:border-gray-400 dark:border-dark-600 dark:hover:border-gray-600'
+                  ? 'border-af-brand bg-af-brand-tint'
+                  : 'border-af-hairline hover:border-af-hairline-strong'
               ]"
             >
               <div
                 :class="[
                   'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                  editOpenCodeAccountMode === 'go' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-500 dark:bg-dark-600 dark:text-gray-400'
+                  editOpenCodeAccountMode === 'go' ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
                 ]"
               >
                 <Icon name="bolt" size="sm" />
               </div>
               <div>
-                <span class="block text-sm font-medium text-gray-900 dark:text-white">{{ t('admin.accounts.opencodeGo.accountMode.go') }}</span>
-                <span class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.opencodeGo.accountMode.goDesc') }}</span>
+                <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.go') }}</span>
+                <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.goDesc') }}</span>
               </div>
             </button>
           </div>
@@ -131,8 +131,8 @@
               :class="[
                 'rounded-lg border-2 px-3 py-1.5 text-xs transition-all',
                 editAccountMode === opt.value
-                  ? 'border-primary-500 bg-primary-50 font-medium text-primary-700 dark:bg-primary-900/30 dark:text-primary-300'
-                  : 'border-gray-200 text-gray-700 hover:border-gray-400 dark:border-dark-600 dark:text-gray-300 dark:hover:border-gray-600'
+                  ? 'border-af-brand bg-af-brand-tint font-medium text-af-brand'
+                  : 'border-af-hairline text-af-ink-2 hover:border-af-hairline-strong'
               ]"
               @click="editAccountMode = opt.value"
             >
@@ -196,14 +196,14 @@
         </div>
 
         <!-- Model Restriction Section (不适用于 Antigravity) -->
-        <div v-if="account.platform !== 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div v-if="account.platform !== 'antigravity'" class="border-t border-af-hairline pt-4">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <div
             v-if="isOpenAIModelRestrictionDisabled"
-            class="mb-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20"
+            class="mb-3 rounded-lg bg-af-warning-tint p-3"
           >
-            <p class="text-xs text-amber-700 dark:text-amber-400">
+            <p class="text-xs text-af-warning">
               {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
             </p>
           </div>
@@ -217,8 +217,8 @@
                 :class="[
                   'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                   modelRestrictionMode === 'whitelist'
-                    ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                    ? 'bg-af-brand-tint text-af-brand'
+                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
                 ]"
               >
                 <svg
@@ -242,8 +242,8 @@
                 :class="[
                   'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                   modelRestrictionMode === 'mapping'
-                    ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                    ? 'bg-af-sunken text-af-ink-2'
+                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
                 ]"
               >
                 <svg
@@ -266,7 +266,7 @@
             <!-- Whitelist Mode -->
             <div v-if="modelRestrictionMode === 'whitelist'">
               <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-              <p class="text-xs text-gray-500 dark:text-gray-400">
+              <p class="text-xs text-af-ink-3">
                 {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
                 <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
                   t('admin.accounts.supportsAllModels')
@@ -276,8 +276,8 @@
 
             <!-- Mapping Mode -->
             <div v-else>
-              <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-                <p class="text-xs text-purple-700 dark:text-purple-400">
+              <div class="mb-3 rounded-lg bg-af-sunken p-3">
+                <p class="text-xs text-af-ink-2">
                   <svg
                     class="mr-1 inline h-4 w-4"
                     fill="none"
@@ -309,7 +309,7 @@
                   :placeholder="t('admin.accounts.requestModel')"
                 />
                 <svg
-                  class="h-4 w-4 flex-shrink-0 text-gray-400"
+                  class="h-4 w-4 flex-shrink-0 text-af-ink-3"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -330,7 +330,7 @@
                 <button
                   type="button"
                   @click="removeModelMapping(index)"
-                  class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
                 >
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -347,7 +347,7 @@
             <button
               type="button"
               @click="addModelMapping"
-              class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+              class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
             >
               <svg
                 class="mr-1 inline h-4 w-4"
@@ -382,11 +382,11 @@
         </div>
 
         <!-- Pool Mode Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-af-hairline pt-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
             </div>
@@ -394,20 +394,20 @@
               type="button"
               @click="poolModeEnabled = !poolModeEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                poolModeEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg bg-af-sunken p-3">
+            <p class="text-xs text-af-ink-2">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -422,7 +422,7 @@
               step="1"
               class="input"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{
                 t('admin.accounts.poolModeRetryCountHint', {
                   default: DEFAULT_POOL_MODE_RETRY_COUNT,
@@ -439,18 +439,18 @@
               class="input"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
             </p>
           </div>
         </div>
 
         <!-- Custom Error Codes Section -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-af-hairline pt-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.customErrorCodes') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.customErrorCodesHint') }}
               </p>
             </div>
@@ -458,13 +458,13 @@
               type="button"
               @click="customErrorCodesEnabled = !customErrorCodesEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                customErrorCodesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                customErrorCodesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   customErrorCodesEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -472,8 +472,8 @@
           </div>
 
           <div v-if="customErrorCodesEnabled" class="space-y-3">
-            <div class="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20">
-              <p class="text-xs text-amber-700 dark:text-amber-400">
+            <div class="rounded-lg bg-af-warning-tint p-3">
+              <p class="text-xs text-af-warning">
                 <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
                 {{ t('admin.accounts.customErrorCodesWarning') }}
               </p>
@@ -489,8 +489,8 @@
                 :class="[
                   'rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
                   selectedErrorCodes.includes(code.value)
-                    ? 'bg-red-100 text-red-700 ring-1 ring-red-500 dark:bg-red-900/30 dark:text-red-400'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                    ? 'bg-af-danger-tint text-af-danger ring-1 ring-af-danger'
+                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
                 ]"
               >
                 {{ code.value }} {{ code.label }}
@@ -525,18 +525,18 @@
               <span
                 v-for="code in selectedErrorCodes.sort((a, b) => a - b)"
                 :key="code"
-                class="inline-flex items-center gap-1 rounded-full bg-red-100 px-2.5 py-0.5 text-sm font-medium text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                class="inline-flex items-center gap-1 rounded-full bg-af-danger-tint px-2.5 py-0.5 text-sm font-medium text-af-danger"
               >
                 {{ code }}
                 <button
                   type="button"
                   @click="removeErrorCode(code)"
-                  class="hover:text-red-900 dark:hover:text-red-300"
+                  class="hover:text-af-danger"
                 >
                   <Icon name="x" size="sm" :stroke-width="2" />
                 </button>
               </span>
-              <span v-if="selectedErrorCodes.length === 0" class="text-xs text-gray-400">
+              <span v-if="selectedErrorCodes.length === 0" class="text-xs text-af-ink-3">
                 {{ t('admin.accounts.noneSelectedUsesDefault') }}
               </span>
             </div>
@@ -548,12 +548,12 @@
       <!-- Grok OAuth client-tool prompt cache opt-in -->
       <div
         v-if="account.platform === 'grok' && account.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.grokClientToolCache.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.grokClientToolCache.hint') }}
             </p>
           </div>
@@ -568,13 +568,13 @@
       <!-- Grok OAuth media generation eligibility override -->
       <div
         v-if="isGrokOAuthAccount"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
         data-testid="grok-media-eligibility-card"
       >
         <div class="space-y-3">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.grokMediaEligibility.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.grokMediaEligibility.hint') }}
             </p>
           </div>
@@ -588,13 +588,13 @@
             <option value="enabled">{{ t('admin.accounts.grokMediaEligibility.enabled') }}</option>
             <option value="disabled">{{ t('admin.accounts.grokMediaEligibility.disabled') }}</option>
           </select>
-          <p v-if="grokMediaEligibilityLoading" class="text-xs text-gray-500 dark:text-gray-400">
+          <p v-if="grokMediaEligibilityLoading" class="text-xs text-af-ink-3">
             {{ t('admin.accounts.grokMediaEligibility.loading') }}
           </p>
-          <p v-else-if="grokMediaEligibilityError" class="text-xs text-red-600 dark:text-red-400">
+          <p v-else-if="grokMediaEligibilityError" class="text-xs text-af-danger">
             {{ grokMediaEligibilityError }}
           </p>
-          <div v-else-if="grokMediaEligibilityState" class="rounded-lg bg-gray-50 p-3 text-xs dark:bg-dark-700">
+          <div v-else-if="grokMediaEligibilityState" class="rounded-lg bg-af-sunken p-3 text-xs">
             <span class="font-medium">{{ t('admin.accounts.grokMediaEligibility.current') }}</span>
             <span class="ml-1" data-testid="grok-media-eligibility-status">
               {{ grokMediaEligibilityState.eligible ? t('admin.accounts.grokMediaEligibility.eligible') : t('admin.accounts.grokMediaEligibility.ineligible') }}
@@ -603,14 +603,14 @@
           </div>
           <div
             v-if="grokMediaEligibilityMode === 'enabled'"
-            class="rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20"
+            class="rounded-lg bg-af-warning-tint p-3"
           >
-            <p class="text-xs text-amber-700 dark:text-amber-400">
+            <p class="text-xs text-af-warning">
               <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.grokMediaEligibility.forceEnableWarning') }}
             </p>
           </div>
-          <p v-else-if="grokMediaEligibilityMode === 'auto'" class="text-xs text-gray-500 dark:text-gray-400">
+          <p v-else-if="grokMediaEligibilityMode === 'auto'" class="text-xs text-af-ink-3">
             {{ t('admin.accounts.grokMediaEligibility.autoHint') }}
           </p>
         </div>
@@ -620,12 +620,12 @@
       <div
         v-if="headerOverrideCapable"
         data-testid="edit-header-override"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.headerOverride.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.headerOverride.hint') }}
             </p>
           </div>
@@ -634,13 +634,13 @@
             data-testid="edit-header-override-toggle"
             @click="headerOverrideEnabled = !headerOverrideEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              headerOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              headerOverrideEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 headerOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -648,8 +648,8 @@
         </div>
 
         <div v-if="headerOverrideEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div class="rounded-lg bg-af-sunken p-3">
+            <p class="text-xs text-af-ink-2">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.headerOverride.info') }}
             </p>
@@ -665,15 +665,15 @@
       <!-- OpenAI/Grok OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
       <div
         v-if="(account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
         <div
           v-if="isOpenAIModelRestrictionDisabled"
-          class="mb-3 rounded-lg bg-amber-50 p-3 dark:bg-amber-900/20"
+          class="mb-3 rounded-lg bg-af-warning-tint p-3"
         >
-          <p class="text-xs text-amber-700 dark:text-amber-400">
+          <p class="text-xs text-af-warning">
             {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
           </p>
         </div>
@@ -687,8 +687,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'whitelist'
-                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-brand-tint text-af-brand'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               {{ t('admin.accounts.modelWhitelist') }}
@@ -699,8 +699,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-sunken text-af-ink-2'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               {{ t('admin.accounts.modelMapping') }}
@@ -710,7 +710,7 @@
           <!-- Whitelist Mode -->
           <div v-if="modelRestrictionMode === 'whitelist'">
             <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-            <p class="text-xs text-gray-500 dark:text-gray-400">
+            <p class="text-xs text-af-ink-3">
               {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
               <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
                 t('admin.accounts.supportsAllModels')
@@ -720,8 +720,8 @@
 
           <!-- Mapping Mode -->
           <div v-else>
-            <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-              <p class="text-xs text-purple-700 dark:text-purple-400">
+            <div class="mb-3 rounded-lg bg-af-sunken p-3">
+              <p class="text-xs text-af-ink-2">
                 {{ t('admin.accounts.mapRequestModels') }}
               </p>
             </div>
@@ -739,7 +739,7 @@
                   :placeholder="t('admin.accounts.requestModel')"
                 />
                 <svg
-                  class="h-4 w-4 flex-shrink-0 text-gray-400"
+                  class="h-4 w-4 flex-shrink-0 text-af-ink-3"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -760,7 +760,7 @@
                 <button
                   type="button"
                   @click="removeModelMapping(index)"
-                  class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
                 >
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -777,7 +777,7 @@
             <button
               type="button"
               @click="addModelMapping"
-              class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+              class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
             >
               + {{ t('admin.accounts.addMapping') }}
             </button>
@@ -838,7 +838,7 @@
         </div>
 
         <!-- Model Restriction Section for Service Account -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-af-hairline pt-4">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <!-- Mode Toggle -->
@@ -849,8 +849,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'whitelist'
-                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-brand-tint text-af-brand'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               <svg
@@ -874,8 +874,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-sunken text-af-ink-2'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               <svg
@@ -898,7 +898,7 @@
           <!-- Whitelist Mode -->
           <div v-if="modelRestrictionMode === 'whitelist'">
             <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-            <p class="text-xs text-gray-500 dark:text-gray-400">
+            <p class="text-xs text-af-ink-3">
               {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
               <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
                 t('admin.accounts.supportsAllModels')
@@ -908,8 +908,8 @@
 
           <!-- Mapping Mode -->
           <div v-else>
-            <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-              <p class="text-xs text-purple-700 dark:text-purple-400">
+            <div class="mb-3 rounded-lg bg-af-sunken p-3">
+              <p class="text-xs text-af-ink-2">
                 <svg
                   class="mr-1 inline h-4 w-4"
                   fill="none"
@@ -941,7 +941,7 @@
                   :placeholder="t('admin.accounts.requestModel')"
                 />
                 <svg
-                  class="h-4 w-4 flex-shrink-0 text-gray-400"
+                  class="h-4 w-4 flex-shrink-0 text-af-ink-3"
                   fill="none"
                   viewBox="0 0 24 24"
                   stroke="currentColor"
@@ -962,7 +962,7 @@
                 <button
                   type="button"
                   @click="removeModelMapping(index)"
-                  class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
                 >
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -979,7 +979,7 @@
             <button
               type="button"
               @click="addModelMapping"
-              class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+              class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
             >
               <svg
                 class="mr-1 inline h-4 w-4"
@@ -1078,15 +1078,15 @@
             <input
               v-model="editBedrockForceGlobal"
               type="checkbox"
-              class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
             />
-            <span class="text-sm text-gray-700 dark:text-gray-300">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
+            <span class="text-sm text-af-ink-2">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
           </label>
           <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
         </div>
 
         <!-- Model Restriction for Bedrock -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-af-hairline pt-4">
           <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
           <!-- Mode Toggle -->
@@ -1097,8 +1097,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'whitelist'
-                  ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-brand-tint text-af-brand'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               {{ t('admin.accounts.modelWhitelist') }}
@@ -1109,8 +1109,8 @@
               :class="[
                 'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
                 modelRestrictionMode === 'mapping'
-                  ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400'
-                  : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                  ? 'bg-af-sunken text-af-ink-2'
+                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
               ]"
             >
               {{ t('admin.accounts.modelMapping') }}
@@ -1120,7 +1120,7 @@
           <!-- Whitelist Mode -->
           <div v-if="modelRestrictionMode === 'whitelist'">
             <ModelWhitelistSelector v-model="allowedModels" platform="anthropic" />
-            <p class="text-xs text-gray-500 dark:text-gray-400">
+            <p class="text-xs text-af-ink-3">
               {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
               <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{ t('admin.accounts.supportsAllModels') }}</span>
             </p>
@@ -1130,9 +1130,9 @@
           <div v-else class="space-y-3">
             <div v-for="(mapping, index) in modelMappings" :key="getModelMappingKey(mapping)" class="flex items-center gap-2">
               <input v-model="mapping.from" type="text" class="input flex-1" :placeholder="t('admin.accounts.fromModel')" />
-              <span class="text-gray-400">→</span>
+              <span class="text-af-ink-3">→</span>
               <input v-model="mapping.to" type="text" class="input flex-1" :placeholder="t('admin.accounts.toModel')" />
-              <button type="button" @click="modelMappings.splice(index, 1)" class="text-red-500 hover:text-red-700">
+              <button type="button" @click="modelMappings.splice(index, 1)" class="text-af-danger hover:text-af-danger">
                 <Icon name="trash" size="sm" />
               </button>
             </div>
@@ -1155,11 +1155,11 @@
         </div>
 
         <!-- Pool Mode Section for Bedrock -->
-        <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+        <div class="border-t border-af-hairline pt-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.poolMode') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.poolModeHint') }}
               </p>
             </div>
@@ -1167,20 +1167,20 @@
               type="button"
               @click="poolModeEnabled = !poolModeEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                poolModeEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                poolModeEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   poolModeEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
             </button>
           </div>
-          <div v-if="poolModeEnabled" class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div v-if="poolModeEnabled" class="rounded-lg bg-af-sunken p-3">
+            <p class="text-xs text-af-ink-2">
               <Icon name="exclamationCircle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.poolModeInfo') }}
             </p>
@@ -1195,7 +1195,7 @@
               step="1"
               class="input"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{
                 t('admin.accounts.poolModeRetryCountHint', {
                   default: DEFAULT_POOL_MODE_RETRY_COUNT,
@@ -1212,7 +1212,7 @@
               class="input"
               :placeholder="DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ')"
             />
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.poolModeRetryStatusCodesHint', { default: DEFAULT_POOL_MODE_RETRY_STATUS_CODES.join(', ') }) }}
             </p>
           </div>
@@ -1221,7 +1221,7 @@
 
       <div
         v-if="account.platform === 'antigravity' && account.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
         <input
@@ -1236,13 +1236,13 @@
 
       <!-- Antigravity model restriction (applies to all antigravity types) -->
       <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
-      <div v-if="account.platform === 'antigravity'" class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div v-if="account.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
         <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
 
         <!-- Mapping Mode Only (no toggle for Antigravity) -->
         <div>
-          <div class="mb-3 rounded-lg bg-purple-50 p-3 dark:bg-purple-900/20">
-            <p class="text-xs text-purple-700 dark:text-purple-400">{{ t('admin.accounts.mapRequestModels') }}</p>
+          <div class="mb-3 rounded-lg bg-af-sunken p-3">
+            <p class="text-xs text-af-ink-2">{{ t('admin.accounts.mapRequestModels') }}</p>
           </div>
 
           <div class="mb-3 flex flex-wrap gap-2">
@@ -1250,7 +1250,7 @@
               type="button"
               @click="syncAntigravityUpstreamModels"
               :disabled="isSyncingAntigravityUpstream || !account?.id"
-              class="rounded-lg border border-emerald-200 px-3 py-1.5 text-sm text-emerald-600 hover:bg-emerald-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/30"
+              class="rounded-lg border border-af-hairline-strong px-3 py-1.5 text-sm text-af-ink-2 hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-60"
             >
               {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
             </button>
@@ -1268,12 +1268,12 @@
                   type="text"
                   :class="[
                     'input flex-1',
-                    !isValidWildcardPattern(mapping.from) ? 'border-red-500 dark:border-red-500' : '',
+                    !isValidWildcardPattern(mapping.from) ? 'border-af-danger' : '',
                     mapping.to.includes('*') ? '' : ''
                   ]"
                   :placeholder="t('admin.accounts.requestModel')"
                 />
-                <svg class="h-4 w-4 flex-shrink-0 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <svg class="h-4 w-4 flex-shrink-0 text-af-ink-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
                 </svg>
                 <input
@@ -1281,14 +1281,14 @@
                   type="text"
                   :class="[
                     'input flex-1',
-                    mapping.to.includes('*') ? 'border-red-500 dark:border-red-500' : ''
+                    mapping.to.includes('*') ? 'border-af-danger' : ''
                   ]"
                   :placeholder="t('admin.accounts.actualModel')"
                 />
                 <button
                   type="button"
                   @click="removeAntigravityModelMapping(index)"
-                  class="rounded-lg p-2 text-red-500 transition-colors hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-900/20"
+                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
                 >
                   <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
@@ -1301,10 +1301,10 @@
                 </button>
               </div>
               <!-- 校验错误提示 -->
-              <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-red-500">
+              <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-af-danger">
                 {{ t('admin.accounts.wildcardOnlyAtEnd') }}
               </p>
-              <p v-if="mapping.to.includes('*')" class="text-xs text-red-500">
+              <p v-if="mapping.to.includes('*')" class="text-xs text-af-danger">
                 {{ t('admin.accounts.targetNoWildcard') }}
               </p>
             </div>
@@ -1313,7 +1313,7 @@
           <button
             type="button"
             @click="addAntigravityModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
           >
             <svg class="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
@@ -1336,11 +1336,11 @@
       </div>
 
       <!-- Temp Unschedulable Rules -->
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4">
+      <div class="border-t border-af-hairline pt-4 space-y-4">
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.tempUnschedulable.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.tempUnschedulable.hint') }}
             </p>
           </div>
@@ -1348,13 +1348,13 @@
             type="button"
             @click="tempUnschedEnabled = !tempUnschedEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              tempUnschedEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              tempUnschedEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 tempUnschedEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1362,8 +1362,8 @@
         </div>
 
         <div v-if="tempUnschedEnabled" class="space-y-3">
-          <div class="rounded-lg bg-blue-50 p-3 dark:bg-blue-900/20">
-            <p class="text-xs text-blue-700 dark:text-blue-400">
+          <div class="rounded-lg bg-af-sunken p-3">
+            <p class="text-xs text-af-ink-2">
               <Icon name="exclamationTriangle" size="sm" class="mr-1 inline" :stroke-width="2" />
               {{ t('admin.accounts.tempUnschedulable.notice') }}
             </p>
@@ -1375,7 +1375,7 @@
               :key="preset.label"
               type="button"
               @click="addTempUnschedRule(preset.rule)"
-              class="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
+              class="rounded-lg bg-af-sunken px-3 py-1.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-hairline"
             >
               + {{ preset.label }}
             </button>
@@ -1385,10 +1385,10 @@
             <div
               v-for="(rule, index) in tempUnschedRules"
               :key="getTempUnschedRuleKey(rule)"
-              class="rounded-lg border border-gray-200 p-3 dark:border-dark-600"
+              class="rounded-lg border border-af-hairline p-3"
             >
               <div class="mb-2 flex items-center justify-between">
-                <span class="text-xs font-medium text-gray-500 dark:text-gray-400">
+                <span class="text-xs font-medium text-af-ink-3">
                   {{ t('admin.accounts.tempUnschedulable.ruleIndex', { index: index + 1 }) }}
                 </span>
                 <div class="flex items-center gap-2">
@@ -1396,7 +1396,7 @@
                     type="button"
                     :disabled="index === 0"
                     @click="moveTempUnschedRule(index, -1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
+                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <Icon name="chevronUp" size="sm" :stroke-width="2" />
                   </button>
@@ -1404,7 +1404,7 @@
                     type="button"
                     :disabled="index === tempUnschedRules.length - 1"
                     @click="moveTempUnschedRule(index, 1)"
-                    class="rounded p-1 text-gray-400 transition-colors hover:text-gray-600 disabled:cursor-not-allowed disabled:opacity-40 dark:hover:text-gray-200"
+                    class="rounded p-1 text-af-ink-3 transition-colors hover:text-af-ink-2 disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
@@ -1413,7 +1413,7 @@
                   <button
                     type="button"
                     @click="removeTempUnschedRule(index)"
-                    class="rounded p-1 text-red-500 transition-colors hover:text-red-600"
+                    class="rounded p-1 text-af-danger transition-colors hover:text-af-danger"
                   >
                     <Icon name="x" size="sm" :stroke-width="2" />
                   </button>
@@ -1468,7 +1468,7 @@
           <button
             type="button"
             @click="addTempUnschedRule()"
-            class="w-full rounded-lg border-2 border-dashed border-gray-300 px-4 py-2 text-sm text-gray-600 transition-colors hover:border-gray-400 hover:text-gray-700 dark:border-dark-500 dark:text-gray-400 dark:hover:border-dark-400 dark:hover:text-gray-300"
+            class="w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-sm text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
           >
             <svg
               class="mr-1 inline h-4 w-4"
@@ -1486,13 +1486,13 @@
 
       <div
         v-if="supportsAccountSchedulingThresholdOverride"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
         data-testid="account-scheduling-threshold-section"
       >
         <div class="mb-3 flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.accountSchedulingThresholdOverride') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.accountSchedulingThresholdOverrideHint') }}
             </p>
           </div>
@@ -1500,7 +1500,7 @@
             v-model="accountSchedulingThresholdOverrideEnabled"
             data-testid="account-scheduling-threshold-override-enabled"
             type="checkbox"
-            class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+            class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
           />
         </div>
         <div v-if="accountSchedulingThresholdOverrideEnabled">
@@ -1520,14 +1520,14 @@
       <!-- Intercept Warmup Requests (Anthropic/Antigravity) -->
       <div
         v-if="account?.platform === 'anthropic' || account?.platform === 'antigravity'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
             }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.interceptWarmupRequestsDesc') }}
             </p>
           </div>
@@ -1535,13 +1535,13 @@
             type="button"
             @click="interceptWarmupRequests = !interceptWarmupRequests"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              interceptWarmupRequests ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              interceptWarmupRequests ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 interceptWarmupRequests ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1611,10 +1611,10 @@
             class="mt-3 flex items-center justify-between gap-3"
           >
             <div class="min-w-0">
-              <p class="text-xs font-medium text-gray-700 dark:text-gray-200">
+              <p class="text-xs font-medium text-af-ink-2">
                 {{ t('admin.accounts.upstreamBilling.syncRate') }}
               </p>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
               </p>
             </div>
@@ -1627,7 +1627,7 @@
           </div>
         </div>
       </div>
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div class="border-t border-af-hairline pt-4">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
         <div class="mt-2 flex gap-2">
@@ -1648,18 +1648,18 @@
       <div
         v-if="openAIResponsesSettingsVisible"
         data-testid="edit-openai-passthrough"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.oauthPassthroughDesc') }}
             </p>
             <p
               v-if="account?.type === 'apikey'"
               data-testid="edit-openai-key-protocol-hint"
-              class="mt-1 text-xs text-amber-600 dark:text-amber-400"
+              class="mt-1 text-xs text-af-warning"
             >
               {{ t('admin.accounts.openai.keyProtocolSettingsHint') }}
             </p>
@@ -1669,13 +1669,13 @@
             data-testid="edit-openai-passthrough-toggle"
             @click="openaiPassthroughEnabled = !openaiPassthroughEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              openaiPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 openaiPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1686,12 +1686,12 @@
       <!-- OpenAI Codex namespace 工具摊平（兼容开关，仅 OAuth） -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.flattenNamespacesDesc') }}
             </p>
           </div>
@@ -1700,13 +1700,13 @@
             data-testid="edit-openai-flatten-namespaces-toggle"
             @click="openaiFlattenNamespacesEnabled = !openaiFlattenNamespacesEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              openaiFlattenNamespacesEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              openaiFlattenNamespacesEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 openaiFlattenNamespacesEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1717,11 +1717,11 @@
       <!-- OpenAI Codex hosted image_generation bridge policy -->
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token' || account?.type === 'apikey')"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
-        <div class="overflow-hidden rounded-lg border border-sky-100 bg-sky-50/60 shadow-sm dark:border-sky-900/50 dark:bg-sky-950/20">
+        <div class="overflow-hidden rounded-lg border border-af-hairline bg-af-sunken/60">
           <div class="flex items-start gap-3 px-4 py-3">
-            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-white text-sky-600 shadow-sm ring-1 ring-sky-100 dark:bg-dark-800 dark:text-sky-300 dark:ring-sky-900/60">
+            <div class="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-af-sheet text-af-ink-2 ring-1 ring-af-hairline">
               <Icon name="sparkles" size="sm" />
             </div>
             <div class="min-w-0 flex-1">
@@ -1734,12 +1734,12 @@
                   {{ codexImageToolBadgeLabel }}
                 </span>
               </div>
-              <p class="mt-1 text-xs leading-5 text-slate-600 dark:text-slate-300">
+              <p class="mt-1 text-xs leading-5 text-af-ink-2">
                 {{ t('admin.accounts.openai.codexImageToolDesc') }}
               </p>
             </div>
           </div>
-          <div class="border-t border-sky-100 bg-white/70 p-2 dark:border-sky-900/50 dark:bg-dark-800/70">
+          <div class="border-t border-af-hairline bg-af-sheet/70 p-2">
             <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
               <button
                 v-for="option in codexImageToolOptions"
@@ -1751,7 +1751,7 @@
                   'group flex min-h-[62px] items-start gap-2 rounded-md border px-3 py-2 text-left transition-all',
                   codexImageToolMode === option.value
                     ? option.selectedCardClass
-                    : 'border-transparent bg-transparent text-slate-600 hover:border-gray-200 hover:bg-gray-50 dark:text-slate-300 dark:hover:border-dark-500 dark:hover:bg-dark-700'
+                    : 'border-transparent bg-transparent text-af-ink-2 hover:border-af-hairline hover:bg-af-sunken'
                 ]"
               >
                 <span
@@ -1759,14 +1759,14 @@
                     'mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-colors',
                     codexImageToolMode === option.value
                       ? option.selectedDotClass
-                      : 'border-gray-300 text-transparent group-hover:border-gray-400 dark:border-dark-500'
+                      : 'border-af-hairline-strong text-transparent group-hover:border-af-ink-4'
                   ]"
                 >
                   <Icon name="check" size="xs" :stroke-width="2" />
                 </span>
                 <span class="min-w-0">
                   <span class="block text-sm font-medium">{{ option.label }}</span>
-                  <span class="mt-0.5 block text-xs leading-4 text-slate-500 dark:text-slate-400">{{ option.description }}</span>
+                  <span class="mt-0.5 block text-xs leading-4 text-af-ink-3">{{ option.description }}</span>
                 </span>
               </button>
             </div>
@@ -1777,15 +1777,15 @@
       <!-- OpenAI WS Mode（off/ctx_pool/passthrough/http_bridge），展示条件同自动透传 -->
       <div
         v-if="openAIResponsesSettingsVisible"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.wsModeDesc') }}
             </p>
-            <p v-if="openAIWSModeHintKey" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p v-if="openAIWSModeHintKey" class="mt-1 text-xs text-af-ink-3">
               {{ t(openAIWSModeHintKey) }}
             </p>
           </div>
@@ -1798,7 +1798,7 @@
       <!-- OpenAI APIKey endpoint capabilities -->
       <div
         v-if="openAIKeySettingsVisible"
-        class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="space-y-4 border-t border-af-hairline pt-4"
       >
         <div>
           <label class="input-label mb-2 block">{{ t('admin.accounts.openai.endpointCapabilities') }}</label>
@@ -1806,16 +1806,16 @@
             <label
               v-for="option in openAIEndpointCapabilityOptions"
               :key="option.value"
-              class="flex cursor-pointer items-center gap-2 rounded-lg border border-gray-200 px-3 py-2 text-sm dark:border-dark-600"
+              class="flex cursor-pointer items-center gap-2 rounded-lg border border-af-hairline px-3 py-2 text-sm"
             >
               <input
                 type="checkbox"
-                class="rounded border-gray-300 text-primary-600 focus:ring-primary-500 dark:border-dark-500"
+                class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
                 :data-testid="`openai-endpoint-capability-${option.value}`"
                 :checked="openAIEndpointCapabilities.includes(option.value)"
                 @change="toggleOpenAIEndpointCapability(option.value, $event)"
               />
-              <span class="text-gray-700 dark:text-gray-200">{{ option.label }}</span>
+              <span class="text-af-ink-2">{{ option.label }}</span>
             </label>
           </div>
           <p class="input-hint">{{ t('admin.accounts.openai.endpointCapabilitiesDesc') }}</p>
@@ -1825,11 +1825,11 @@
       <!-- OpenAI APIKey images: backfill b64_json from url -->
       <div
         v-if="openAIKeySettingsVisible"
-        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
       >
         <div>
           <label class="input-label mb-0">{{ t('admin.accounts.openai.imagesUrlToB64Json') }}</label>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.openai.imagesUrlToB64JsonDesc') }}
           </p>
         </div>
@@ -1840,13 +1840,13 @@
           :aria-checked="openAIImagesUrlToB64JsonEnabled"
           @click="openAIImagesUrlToB64JsonEnabled = !openAIImagesUrlToB64JsonEnabled"
           :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-            openAIImagesUrlToB64JsonEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+            openAIImagesUrlToB64JsonEnabled ? 'bg-af-brand' : 'bg-af-hairline'
           ]"
         >
           <span
             :class="[
-              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+              'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
               openAIImagesUrlToB64JsonEnabled ? 'translate-x-5' : 'translate-x-0'
             ]"
           />
@@ -1855,11 +1855,11 @@
 
       <div
         v-if="account?.type === 'apikey'"
-        class="flex items-center justify-between gap-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
       >
         <div>
           <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
           </p>
         </div>
@@ -1881,12 +1881,12 @@
       <div
         v-if="anthropicKeySettingsVisible"
         data-testid="edit-anthropic-passthrough"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.anthropic.apiKeyPassthroughDesc') }}
             </p>
           </div>
@@ -1895,13 +1895,13 @@
             data-testid="edit-anthropic-passthrough-toggle"
             @click="anthropicPassthroughEnabled = !anthropicPassthroughEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              anthropicPassthroughEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              anthropicPassthroughEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 anthropicPassthroughEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1911,12 +1911,12 @@
 
       <div
         v-if="anthropicKeySettingsVisible"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyAuthScheme') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.anthropic.apiKeyAuthSchemeDesc') }}
             </p>
           </div>
@@ -1935,12 +1935,12 @@
       <div
         v-if="anthropicKeySettingsVisible && webSearchGlobalEnabled"
         data-testid="edit-web-search-emulation"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.anthropic.webSearchEmulationDesc') }}
             </p>
           </div>
@@ -1949,13 +1949,13 @@
             data-testid="edit-web-search-emulation-toggle"
             @click="webSearchEmulationEnabled = !webSearchEmulationEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              webSearchEmulationEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              webSearchEmulationEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 webSearchEmulationEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1967,12 +1967,12 @@
       <div
         v-if="anthropicKeySettingsVisible"
         data-testid="edit-bedrock-cc-compat"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.anthropic.bedrockCCCompatDesc') }}
             </p>
           </div>
@@ -1981,13 +1981,13 @@
             data-testid="edit-bedrock-cc-compat-toggle"
             @click="bedrockCCCompatEnabled = !bedrockCCCompatEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              bedrockCCCompatEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              bedrockCCCompatEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 bedrockCCCompatEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -1998,11 +1998,11 @@
       <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
       <div
         v-if="account?.platform === 'anthropic' && (account?.type === 'apikey' || account?.type === 'bedrock')"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+        class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="mb-3">
           <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
         </div>
@@ -2049,11 +2049,11 @@
       <!-- 配额控制 (非 Anthropic apikey/bedrock) -->
       <div
         v-else-if="account?.type === 'apikey' || account?.type === 'bedrock'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+        class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="mb-3">
           <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.quotaLimitHint') }}
           </p>
         </div>
@@ -2100,12 +2100,12 @@
 
       <div
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token')"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.codexCLIOnlyDesc') }}
             </p>
           </div>
@@ -2113,13 +2113,13 @@
             type="button"
             @click="codexCLIOnlyEnabled = !codexCLIOnlyEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              codexCLIOnlyEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 codexCLIOnlyEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -2127,11 +2127,11 @@
         </div>
         <div
           v-if="codexCLIOnlyEnabled"
-          class="mt-4 flex items-center justify-between border-l-2 border-gray-200 pl-4 dark:border-dark-600"
+          class="mt-4 flex items-center justify-between border-l-2 border-af-hairline pl-4"
         >
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnlyAppServer') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.codexCLIOnlyAppServerDesc') }}
             </p>
           </div>
@@ -2139,13 +2139,13 @@
             type="button"
             @click="codexCLIOnlyAppServerEnabled = !codexCLIOnlyAppServerEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              codexCLIOnlyAppServerEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              codexCLIOnlyAppServerEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 codexCLIOnlyAppServerEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -2156,12 +2156,12 @@
       <!-- Codex 指纹收敛模式（仅 OpenAI OAuth） -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexFingerprintMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.codexFingerprintModeDesc') }}
             </p>
           </div>
@@ -2174,12 +2174,12 @@
       <!-- OpenAI 订阅档位手动覆盖（Plus/Pro/Free），仅 OAuth 非影子账号 -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="border-t border-af-hairline pt-4"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.openai.planType') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.planTypeDesc') }}
             </p>
           </div>
@@ -2193,12 +2193,12 @@
       <div
         v-if="openAIResponsesSettingsVisible"
         data-testid="edit-openai-compact"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+        class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="flex items-center justify-between">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.openai.compactModeDesc') }}
             </p>
           </div>
@@ -2206,11 +2206,11 @@
             <Select v-model="openAICompactMode" data-testid="edit-openai-compact-mode-select" :options="openAICompactModeOptions" />
           </div>
         </div>
-        <div class="rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-600 dark:bg-dark-700 dark:text-gray-300">
+        <div class="rounded-lg bg-af-sunken px-3 py-2 text-xs text-af-ink-2">
           <span class="font-medium">{{ t(openAICompactStatusKey) }}</span>
           <span
             v-if="account?.extra?.openai_compact_checked_at"
-            class="ml-2 text-gray-500 dark:text-gray-400"
+            class="ml-2 text-af-ink-3"
           >
             {{ t('admin.accounts.openai.compactLastChecked') }}:
             {{ formatDateTime(new Date(String(account.extra.openai_compact_checked_at))) }}
@@ -2231,14 +2231,14 @@
                 class="input flex-1"
                 :placeholder="t('admin.accounts.fromModel')"
               />
-              <span class="text-gray-400">→</span>
+              <span class="text-af-ink-3">→</span>
               <input
                 v-model="mapping.to"
                 type="text"
                 class="input flex-1"
                 :placeholder="t('admin.accounts.toModel')"
               />
-              <button type="button" @click="removeOpenAICompactModelMapping(index)" class="text-red-500 hover:text-red-700">
+              <button type="button" @click="removeOpenAICompactModelMapping(index)" class="text-af-danger hover:text-af-danger">
                 <Icon name="trash" size="sm" />
               </button>
             </div>
@@ -2255,7 +2255,7 @@
             <label class="input-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
             }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.autoPauseOnExpiredDesc') }}
             </p>
           </div>
@@ -2263,13 +2263,13 @@
             type="button"
             @click="autoPauseOnExpired = !autoPauseOnExpired"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              autoPauseOnExpired ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              autoPauseOnExpired ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 autoPauseOnExpired ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -2279,7 +2279,7 @@
 
       <div
         v-if="account?.platform === 'openai'"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+        class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="space-y-2">
           <div class="flex items-center justify-between">
@@ -2288,14 +2288,14 @@
               type="button"
               @click="autoPause5hDisabled = !autoPause5hDisabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                autoPause5hDisabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                autoPause5hDisabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
               data-testid="auto-pause-5h-disabled"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   autoPause5hDisabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2324,14 +2324,14 @@
               type="button"
               @click="autoPause7dDisabled = !autoPause7dDisabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                autoPause7dDisabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                autoPause7dDisabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
               data-testid="auto-pause-7d-disabled"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   autoPause7dDisabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2357,13 +2357,13 @@
 
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth' && !isSparkShadow"
-        class="space-y-4 border-t border-gray-200 pt-4 dark:border-dark-600"
+        class="space-y-4 border-t border-af-hairline pt-4"
         data-testid="auto-reset-credit-settings"
       >
         <div class="flex items-center justify-between gap-4">
           <div class="min-w-0">
             <label class="input-label mb-0">{{ t('admin.accounts.autoResetCredit.title') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.autoResetCredit.hint') }}
             </p>
           </div>
@@ -2372,13 +2372,13 @@
             data-testid="auto-reset-credit-enabled"
             @click="autoResetCreditEnabled = !autoResetCreditEnabled"
             :class="[
-              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-              autoResetCreditEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+              'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+              autoResetCreditEnabled ? 'bg-af-brand' : 'bg-af-hairline'
             ]"
           >
             <span
               :class="[
-                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                 autoResetCreditEnabled ? 'translate-x-5' : 'translate-x-0'
               ]"
             />
@@ -2418,21 +2418,21 @@
       <!-- 配额控制 (Anthropic OAuth/SetupToken: 亲和 + 窗口费用 + 会话 + RPM 等) -->
       <div
         v-if="account?.platform === 'anthropic' && (account?.type === 'oauth' || account?.type === 'setup-token')"
-        class="border-t border-gray-200 pt-4 dark:border-dark-600 space-y-4"
+        class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="mb-3">
           <h3 class="input-label mb-0 text-base font-semibold">{{ t('admin.accounts.quotaControl.title') }}</h3>
-          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.accounts.quotaControl.hint') }}
           </p>
         </div>
 
         <!-- Window Cost Limit -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.windowCost.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.windowCost.hint') }}
               </p>
             </div>
@@ -2440,13 +2440,13 @@
               type="button"
               @click="windowCostEnabled = !windowCostEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                windowCostEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                windowCostEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   windowCostEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2457,7 +2457,7 @@
             <div>
               <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.limit') }}</label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
                 <input
                   v-model.number="windowCostLimit"
                   type="number"
@@ -2472,7 +2472,7 @@
             <div>
               <label class="input-label">{{ t('admin.accounts.quotaControl.windowCost.stickyReserve') }}</label>
               <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">$</span>
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
                 <input
                   v-model.number="windowCostStickyReserve"
                   type="number"
@@ -2488,11 +2488,11 @@
         </div>
 
         <!-- Session Limit -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionLimit.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.sessionLimit.hint') }}
               </p>
             </div>
@@ -2500,13 +2500,13 @@
               type="button"
               @click="sessionLimitEnabled = !sessionLimitEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                sessionLimitEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                sessionLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   sessionLimitEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2537,7 +2537,7 @@
                   class="input pr-12"
                   :placeholder="t('admin.accounts.quotaControl.sessionLimit.idleTimeoutPlaceholder')"
                 />
-                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 dark:text-gray-400">{{ t('common.minutes') }}</span>
+                <span class="absolute right-3 top-1/2 -translate-y-1/2 text-af-ink-3">{{ t('common.minutes') }}</span>
               </div>
               <p class="input-hint">{{ t('admin.accounts.quotaControl.sessionLimit.idleTimeoutHint') }}</p>
             </div>
@@ -2545,11 +2545,11 @@
         </div>
 
         <!-- RPM Limit -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="mb-3 flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.rpmLimit.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.rpmLimit.hint') }}
               </p>
             </div>
@@ -2557,13 +2557,13 @@
               type="button"
               @click="rpmLimitEnabled = !rpmLimitEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                rpmLimitEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                rpmLimitEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   rpmLimitEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2594,8 +2594,8 @@
                   :class="[
                     'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
                     rpmStrategy === 'tiered'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                      ? 'bg-af-brand-tint text-af-brand'
+                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
                   ]"
                 >
                   <div class="text-center">
@@ -2609,8 +2609,8 @@
                   :class="[
                     'flex-1 rounded-lg px-3 py-2 text-sm font-medium transition-all',
                     rpmStrategy === 'sticky_exempt'
-                      ? 'bg-primary-100 text-primary-700 dark:bg-primary-900/30 dark:text-primary-400'
-                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500'
+                      ? 'bg-af-brand-tint text-af-brand'
+                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
                   ]"
                 >
                   <div class="text-center">
@@ -2639,7 +2639,7 @@
           <!-- 用户消息限速模式（独立于 RPM 开关，始终可见） -->
           <div class="mt-4">
             <label class="input-label">{{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueue') }}</label>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400 mb-2">
+            <p class="mt-1 text-xs text-af-ink-3 mb-2">
               {{ t('admin.accounts.quotaControl.rpmLimit.userMsgQueueHint') }}
             </p>
             <div class="flex space-x-2">
@@ -2648,8 +2648,8 @@
                 :class="[
                   'px-3 py-1.5 text-sm rounded-md border transition-colors',
                   userMsgQueueMode === opt.value
-                    ? 'bg-primary-600 text-white border-primary-600'
-                    : 'bg-white dark:bg-dark-700 text-gray-700 dark:text-gray-300 border-gray-300 dark:border-dark-500 hover:bg-gray-50 dark:hover:bg-dark-600'
+                    ? 'bg-af-brand text-af-on-brand border-af-brand'
+                    : 'bg-af-sheet text-af-ink-2 border-af-hairline-strong hover:bg-af-sunken'
                 ]">
                 {{ opt.label }}
               </button>
@@ -2658,11 +2658,11 @@
         </div>
 
         <!-- TLS Fingerprint -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.tlsFingerprint.hint') }}
               </p>
             </div>
@@ -2670,13 +2670,13 @@
               type="button"
               @click="tlsFingerprintEnabled = !tlsFingerprintEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                tlsFingerprintEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                tlsFingerprintEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   tlsFingerprintEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2693,11 +2693,11 @@
         </div>
 
         <!-- Session ID Masking -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.sessionIdMasking.hint') }}
               </p>
             </div>
@@ -2705,13 +2705,13 @@
               type="button"
               @click="sessionIdMaskingEnabled = !sessionIdMaskingEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                sessionIdMaskingEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                sessionIdMaskingEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   sessionIdMaskingEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2720,11 +2720,11 @@
         </div>
 
         <!-- Cache TTL Override -->
-        <div class="rounded-lg border border-gray-200 p-4 dark:border-dark-600">
+        <div class="rounded-lg border border-af-hairline p-4">
           <div class="flex items-center justify-between">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
-              <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              <p class="mt-1 text-xs text-af-ink-3">
                 {{ t('admin.accounts.quotaControl.cacheTTLOverride.hint') }}
               </p>
             </div>
@@ -2732,13 +2732,13 @@
               type="button"
               @click="cacheTTLOverrideEnabled = !cacheTTLOverrideEnabled"
               :class="[
-                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-                cacheTTLOverrideEnabled ? 'bg-primary-600' : 'bg-gray-200 dark:bg-dark-600'
+                'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                cacheTTLOverrideEnabled ? 'bg-af-brand' : 'bg-af-hairline'
               ]"
             >
               <span
                 :class="[
-                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+                  'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
                   cacheTTLOverrideEnabled ? 'translate-x-5' : 'translate-x-0'
                 ]"
               />
@@ -2748,12 +2748,12 @@
             <label class="input-label text-xs">{{ t('admin.accounts.quotaControl.cacheTTLOverride.target') }}</label>
             <select
               v-model="cacheTTLOverrideTarget"
-              class="mt-1 block w-full rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-primary-500 focus:outline-none focus:ring-1 focus:ring-primary-500 dark:border-dark-500 dark:bg-dark-700 dark:text-white"
+              class="mt-1 block w-full rounded-md border border-af-hairline-strong bg-af-sheet px-3 py-2 text-sm focus:border-af-brand focus:outline-none focus:ring-1 focus:ring-af-brand"
             >
               <option value="5m">5m</option>
               <option value="1h">1h</option>
             </select>
-            <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            <p class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.accounts.quotaControl.cacheTTLOverride.targetHint') }}
             </p>
           </div>
@@ -2761,7 +2761,7 @@
 
       </div>
 
-      <div class="border-t border-gray-200 pt-4 dark:border-dark-600">
+      <div class="border-t border-af-hairline pt-4">
         <div>
           <label class="input-label">{{ t('common.status') }}</label>
           <Select v-model="form.status" :options="statusOptions" />
@@ -2773,24 +2773,24 @@
             <input
               type="checkbox"
               v-model="allowOverages"
-              class="h-4 w-4 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
+              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
             />
-            <span class="text-sm font-medium text-gray-700 dark:text-gray-300">
+            <span class="text-sm font-medium text-af-ink-2">
               {{ t('admin.accounts.allowOverages') }}
             </span>
           </label>
           <div class="group relative">
             <span
-              class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-gray-200 text-xs text-gray-500 hover:bg-gray-300 dark:bg-dark-600 dark:text-gray-400 dark:hover:bg-dark-500"
+              class="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full bg-af-hairline text-xs text-af-ink-3 hover:bg-af-ink-4"
             >
               ?
             </span>
             <div
-              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-gray-900 px-3 py-2 text-xs text-white opacity-0 transition-opacity group-hover:opacity-100 dark:bg-gray-700"
+              class="pointer-events-none absolute left-0 top-full z-[100] mt-1.5 w-72 rounded bg-af-ink px-3 py-2 text-xs text-af-on-brand opacity-0 transition-opacity group-hover:opacity-100"
             >
               {{ t('admin.accounts.allowOveragesTooltip') }}
               <div
-                class="absolute bottom-full left-3 border-4 border-transparent border-b-gray-900 dark:border-b-gray-700"
+                class="absolute bottom-full left-3 border-4 border-transparent border-b-af-ink-3"
               ></div>
             </div>
           </div>
@@ -3360,29 +3360,29 @@ const codexImageToolOptions = computed<Array<{
     value: 'inherit',
     label: t('admin.accounts.openai.codexImageToolInherit'),
     description: t('admin.accounts.openai.codexImageToolInheritDesc'),
-    selectedCardClass: 'border-sky-300 bg-sky-50 text-sky-900 shadow-sm ring-1 ring-sky-200 dark:border-sky-700 dark:bg-sky-900/25 dark:text-sky-100 dark:ring-sky-800',
-    selectedDotClass: 'border-sky-500 bg-sky-500 text-white'
+    selectedCardClass: 'border-af-hairline bg-af-sunken text-af-ink-2 ring-1 ring-af-hairline',
+    selectedDotClass: 'border-af-ink-3 bg-af-ink text-af-on-brand'
   },
   {
     value: 'enabled',
     label: t('admin.accounts.openai.codexImageToolEnabled'),
     description: t('admin.accounts.openai.codexImageToolEnabledDesc'),
-    selectedCardClass: 'border-emerald-300 bg-emerald-50 text-emerald-900 shadow-sm ring-1 ring-emerald-200 dark:border-emerald-700 dark:bg-emerald-900/25 dark:text-emerald-100 dark:ring-emerald-800',
-    selectedDotClass: 'border-emerald-500 bg-emerald-500 text-white'
+    selectedCardClass: 'border-af-success/30 bg-af-success-tint text-af-success ring-1 ring-af-success/30',
+    selectedDotClass: 'border-af-success bg-af-success text-af-on-brand'
   },
   {
     value: 'disabled',
     label: t('admin.accounts.openai.codexImageToolDisabled'),
     description: t('admin.accounts.openai.codexImageToolDisabledDesc'),
-    selectedCardClass: 'border-amber-300 bg-amber-50 text-amber-900 shadow-sm ring-1 ring-amber-200 dark:border-amber-700 dark:bg-amber-900/25 dark:text-amber-100 dark:ring-amber-800',
-    selectedDotClass: 'border-amber-500 bg-amber-500 text-white'
+    selectedCardClass: 'border-af-warning/30 bg-af-warning-tint text-af-warning ring-1 ring-af-warning/30',
+    selectedDotClass: 'border-af-warning bg-af-warning text-af-on-brand'
   },
   {
     value: 'block',
     label: t('admin.accounts.openai.codexImageToolBlock'),
     description: t('admin.accounts.openai.codexImageToolBlockDesc'),
-    selectedCardClass: 'border-rose-300 bg-rose-50 text-rose-900 shadow-sm ring-1 ring-rose-200 dark:border-rose-700 dark:bg-rose-900/25 dark:text-rose-100 dark:ring-rose-800',
-    selectedDotClass: 'border-rose-500 bg-rose-500 text-white'
+    selectedCardClass: 'border-af-danger/30 bg-af-danger-tint text-af-danger ring-1 ring-af-danger/30',
+    selectedDotClass: 'border-af-danger bg-af-danger text-af-on-brand'
   }
 ])
 const codexImageToolBadgeLabel = computed(() => {
@@ -3400,13 +3400,13 @@ const codexImageToolBadgeLabel = computed(() => {
 const codexImageToolBadgeClass = computed(() => {
   switch (codexImageToolMode.value) {
     case 'enabled':
-      return 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
+      return 'bg-af-success-tint text-af-success'
     case 'disabled':
-      return 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300'
+      return 'bg-af-warning-tint text-af-warning'
     case 'block':
-      return 'bg-rose-100 text-rose-700 dark:bg-rose-900/40 dark:text-rose-300'
+      return 'bg-af-danger-tint text-af-danger'
     default:
-      return 'bg-slate-100 text-slate-600 dark:bg-dark-600 dark:text-slate-300'
+      return 'bg-af-sunken text-af-ink-2'
   }
 })
 const openAICompactModeOptions = computed(() => [

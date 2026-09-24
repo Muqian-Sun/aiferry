@@ -28,8 +28,7 @@ describe('UsageProgressBar', () => {
         label: '5h',
         utilization: 0,
         resetsAt: '2026-03-17T02:30:00Z',
-        showNowWhenIdle: true,
-        color: 'indigo'
+        showNowWhenIdle: true
       }
     })
 
@@ -43,8 +42,7 @@ describe('UsageProgressBar', () => {
         label: '7d',
         utilization: 12,
         resetsAt: '2026-03-17T02:30:00Z',
-        showNowWhenIdle: true,
-        color: 'emerald'
+        showNowWhenIdle: true
       }
     })
 
@@ -59,8 +57,7 @@ describe('UsageProgressBar', () => {
         label: '1d',
         utilization: 0,
         resetsAt: '2026-03-17T02:30:00Z',
-        showNowWhenIdle: false,
-        color: 'indigo'
+        showNowWhenIdle: false
       }
     })
 
@@ -74,8 +71,7 @@ describe('UsageProgressBar', () => {
         label: '5h',
         utilization: 53,
         // 早于 fake system time 2026-03-17T00:00:00Z
-        resetsAt: '2026-03-16T22:00:00Z',
-        color: 'indigo'
+        resetsAt: '2026-03-16T22:00:00Z'
       }
     })
 
@@ -88,8 +84,7 @@ describe('UsageProgressBar', () => {
       props: {
         label: '5h',
         utilization: 0,
-        resetsAt: '2026-03-16T22:00:00Z',
-        color: 'indigo'
+        resetsAt: '2026-03-16T22:00:00Z'
       }
     })
 
@@ -102,14 +97,13 @@ describe('UsageProgressBar', () => {
       props: {
         label: 'Req',
         utilization: 100,
-        remainingCapacity: true,
-        color: 'indigo'
+        remainingCapacity: true
       }
     })
 
     expect(wrapper.text()).toContain('100%')
     expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 100%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-green-500')
+    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-success')
   })
 
   it('剩余容量模式在低量和耗尽时缩短并变红', async () => {
@@ -117,58 +111,56 @@ describe('UsageProgressBar', () => {
       props: {
         label: 'Req',
         utilization: 15,
-        remainingCapacity: true,
-        color: 'indigo'
+        remainingCapacity: true
       }
     })
 
     expect(wrapper.text()).toContain('15%')
     expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 15%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
 
     await wrapper.setProps({ utilization: 0 })
 
     expect(wrapper.text()).toContain('0%')
     expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 0%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
   })
 
   it('默认利用率模式仍把超限显示为满格红色', () => {
     const wrapper = mount(UsageProgressBar, {
       props: {
         label: '5h',
-        utilization: 120,
-        color: 'indigo'
+        utilization: 120
       }
     })
 
     expect(wrapper.text()).toContain('120%')
     expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 100%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
   })
 
   it('默认利用率模式按 75/90 阈值提前预警分级', () => {
     const mountAt = (utilization: number) =>
       mount(UsageProgressBar, {
-        props: { label: '5h', utilization, color: 'indigo' }
+        props: { label: '5h', utilization }
       })
 
     // 条形配色：74 绿 / 75 与 89 黄 / 90 红
-    expect(mountAt(74).get('.h-1\\.5 > div').classes()).toContain('bg-green-500')
-    expect(mountAt(75).get('.h-1\\.5 > div').classes()).toContain('bg-amber-500')
-    expect(mountAt(89).get('.h-1\\.5 > div').classes()).toContain('bg-amber-500')
-    expect(mountAt(90).get('.h-1\\.5 > div').classes()).toContain('bg-red-500')
+    expect(mountAt(74).get('.h-1\\.5 > div').classes()).toContain('bg-af-success')
+    expect(mountAt(75).get('.h-1\\.5 > div').classes()).toContain('bg-af-warning')
+    expect(mountAt(89).get('.h-1\\.5 > div').classes()).toContain('bg-af-warning')
+    expect(mountAt(90).get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
 
     // 百分比文本同步分级
-    expect(mountAt(74).get('.h-1\\.5 + span').classes()).toContain('text-gray-600')
-    expect(mountAt(75).get('.h-1\\.5 + span').classes()).toContain('text-amber-600')
-    expect(mountAt(89).get('.h-1\\.5 + span').classes()).toContain('text-amber-600')
-    expect(mountAt(90).get('.h-1\\.5 + span').classes()).toContain('text-red-600')
+    expect(mountAt(74).get('.h-1\\.5 + span').classes()).toContain('text-af-ink-2')
+    expect(mountAt(75).get('.h-1\\.5 + span').classes()).toContain('text-af-warning')
+    expect(mountAt(89).get('.h-1\\.5 + span').classes()).toContain('text-af-warning')
+    expect(mountAt(90).get('.h-1\\.5 + span').classes()).toContain('text-af-danger')
   })
 
   it('labelWidth 默认 fixed：标签保持定宽居中，百分比列不变', () => {
     const wrapper = mount(UsageProgressBar, {
-      props: { label: '5h', utilization: 30, color: 'indigo' }
+      props: { label: '5h', utilization: 30 }
     })
 
     const label = wrapper.get('.gap-1 > span')
@@ -186,7 +178,6 @@ describe('UsageProgressBar', () => {
       props: {
         label: 'Pro/7 天',
         utilization: 30,
-        color: 'purple',
         labelWidth: 'auto'
       }
     })

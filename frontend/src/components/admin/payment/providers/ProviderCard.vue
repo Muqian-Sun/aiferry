@@ -35,7 +35,7 @@
             :class="[
               'rounded px-2 py-0.5 text-xs font-medium transition-all',
               isSelected(pt.value)
-                ? 'bg-af-brand text-white'
+                ? 'bg-af-brand text-af-on-brand'
                 : 'bg-af-sunken text-af-ink-4',
             ]"
           >{{ pt.label }}</button>

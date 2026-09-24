@@ -304,11 +304,11 @@ function cancelDelete() {
 </script>
 
 <template>
-  <div class="rounded-3xl bg-white p-6 shadow-sm ring-1 ring-gray-900/5 dark:bg-dark-800 dark:ring-dark-700">
+  <div class="rounded-lg bg-af-sheet p-6 ring-1 ring-af-hairline">
     <div class="mb-4 flex flex-wrap items-start justify-between gap-3 sm:gap-4">
       <div>
-        <h3 class="text-sm font-bold text-gray-900 dark:text-white">{{ t('admin.ops.alertRules.title') }}</h3>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('admin.ops.alertRules.description') }}</p>
+        <h3 class="text-sm font-bold text-af-ink">{{ t('admin.ops.alertRules.title') }}</h3>
+        <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.ops.alertRules.description') }}</p>
       </div>
 
       <div class="flex items-center gap-2">
@@ -316,7 +316,7 @@ function cancelDelete() {
           {{ t('admin.ops.alertRules.create') }}
         </button>
         <button
-          class="flex items-center gap-1.5 rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-bold text-gray-700 transition-colors hover:bg-gray-200 disabled:cursor-not-allowed disabled:opacity-50 dark:bg-dark-700 dark:text-gray-300 dark:hover:bg-dark-600"
+          class="flex items-center gap-1.5 rounded-lg bg-af-sunken px-3 py-1.5 text-xs font-bold text-af-ink-2 transition-colors hover:bg-af-hairline disabled:cursor-not-allowed disabled:opacity-50"
           :disabled="loading"
           @click="load"
         >
@@ -328,34 +328,34 @@ function cancelDelete() {
       </div>
     </div>
 
-    <div v-if="loading" class="py-10 text-center text-sm text-gray-500 dark:text-gray-400">
+    <div v-if="loading" class="py-10 text-center text-sm text-af-ink-3">
       {{ t('admin.ops.alertRules.loading') }}
     </div>
 
-    <div v-else-if="sortedRules.length === 0" class="rounded-xl border border-dashed border-gray-200 p-8 text-center text-sm text-gray-500 dark:border-dark-700 dark:text-gray-400">
+    <div v-else-if="sortedRules.length === 0" class="rounded-xl border border-dashed border-af-hairline p-8 text-center text-sm text-af-ink-3">
       {{ t('admin.ops.alertRules.empty') }}
     </div>
 
-    <div v-else class="max-h-[520px] overflow-hidden rounded-xl border border-gray-200 dark:border-dark-700">
+    <div v-else class="max-h-[520px] overflow-hidden rounded-xl border border-af-hairline">
       <div class="max-h-[520px] overflow-y-auto">
-        <div v-if="!isDesktopViewport" class="divide-y divide-gray-100 dark:divide-dark-800">
+        <div v-if="!isDesktopViewport" class="divide-y divide-af-hairline">
           <div v-for="row in sortedRules" :key="row.id" class="space-y-2 p-4">
             <div class="flex items-start justify-between gap-2">
               <div class="min-w-0">
-                <div class="text-xs font-bold text-gray-900 dark:text-white">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
+                <div class="text-xs font-bold text-af-ink">{{ row.name }}</div>
+                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-af-ink-3">
                   {{ row.description }}
                 </div>
               </div>
-              <span class="shrink-0 text-xs font-bold text-gray-700 dark:text-gray-200">{{ row.severity }}</span>
+              <span class="shrink-0 text-xs font-bold text-af-ink-2">{{ row.severity }}</span>
             </div>
-            <div class="text-xs text-gray-700 dark:text-gray-200">
+            <div class="text-xs text-af-ink-2">
               <span class="font-mono">{{ row.metric_type }}</span>
-              <span class="mx-1 text-gray-400">{{ row.operator }}</span>
+              <span class="mx-1 text-af-ink-3">{{ row.operator }}</span>
               <span class="font-mono">{{ row.threshold }}</span>
             </div>
             <div class="flex items-center justify-between gap-2">
-              <span class="text-xs text-gray-700 dark:text-gray-200">
+              <span class="text-xs text-af-ink-2">
                 {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
               </span>
               <div class="flex items-center gap-2">
@@ -363,51 +363,51 @@ function cancelDelete() {
                 <button class="btn btn-sm btn-danger" @click="requestDelete(row)">{{ t('common.delete') }}</button>
               </div>
             </div>
-            <div v-if="row.updated_at" class="text-[10px] text-gray-400">
+            <div v-if="row.updated_at" class="text-[10px] text-af-ink-3">
               {{ formatDateTime(row.updated_at) }}
             </div>
           </div>
         </div>
-        <table v-else class="min-w-full divide-y divide-gray-200 dark:divide-dark-700">
-          <thead class="sticky top-0 z-10 bg-gray-50 dark:bg-dark-900">
+        <table v-else class="min-w-full divide-y divide-af-hairline">
+          <thead class="sticky top-0 z-10 bg-af-sunken">
             <tr>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.name') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.metric') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.severity') }}
               </th>
-              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th class="px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.enabled') }}
               </th>
-              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">
+              <th class="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-af-ink-3">
                 {{ t('admin.ops.alertRules.table.actions') }}
               </th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-gray-200 bg-white dark:divide-dark-700 dark:bg-dark-800">
-            <tr v-for="row in sortedRules" :key="row.id" class="hover:bg-gray-50 dark:hover:bg-dark-700/50">
+          <tbody class="divide-y divide-af-hairline bg-af-sheet">
+            <tr v-for="row in sortedRules" :key="row.id" class="hover:bg-af-sunken">
               <td class="px-4 py-3">
-                <div class="text-xs font-bold text-gray-900 dark:text-white">{{ row.name }}</div>
-                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-gray-500 dark:text-gray-400">
+                <div class="text-xs font-bold text-af-ink">{{ row.name }}</div>
+                <div v-if="row.description" class="mt-0.5 line-clamp-2 text-[11px] text-af-ink-3">
                   {{ row.description }}
                 </div>
-                <div v-if="row.updated_at" class="mt-1 text-[10px] text-gray-400">
+                <div v-if="row.updated_at" class="mt-1 text-[10px] text-af-ink-3">
                   {{ formatDateTime(row.updated_at) }}
                 </div>
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
+              <td class="whitespace-nowrap px-4 py-3 text-xs text-af-ink-2">
                 <span class="font-mono">{{ row.metric_type }}</span>
-                <span class="mx-1 text-gray-400">{{ row.operator }}</span>
+                <span class="mx-1 text-af-ink-3">{{ row.operator }}</span>
                 <span class="font-mono">{{ row.threshold }}</span>
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs font-bold text-gray-700 dark:text-gray-200">
+              <td class="whitespace-nowrap px-4 py-3 text-xs font-bold text-af-ink-2">
                 {{ row.severity }}
               </td>
-              <td class="whitespace-nowrap px-4 py-3 text-xs text-gray-700 dark:text-gray-200">
+              <td class="whitespace-nowrap px-4 py-3 text-xs text-af-ink-2">
                 {{ row.enabled ? t('common.enabled') : t('common.disabled') }}
               </td>
               <td class="whitespace-nowrap px-4 py-3 text-right text-xs">
@@ -427,7 +427,7 @@ function cancelDelete() {
       @close="showEditor = false"
     >
       <div class="space-y-4">
-        <div v-if="!editorValidation.valid" class="rounded-xl bg-red-50 p-4 text-xs text-red-700 dark:bg-red-900/30 dark:text-red-300">
+        <div v-if="!editorValidation.valid" class="rounded-xl bg-af-danger-tint p-4 text-xs text-af-danger">
           <div class="font-bold">{{ t('admin.ops.alertRules.validation.title') }}</div>
           <ul class="mt-1 list-disc pl-5">
             <li v-for="e in editorValidation.errors" :key="e">{{ e }}</li>
@@ -448,7 +448,7 @@ function cancelDelete() {
           <div>
             <label class="input-label">{{ t('admin.ops.alertRules.form.metric') }}</label>
             <Select v-model="draft!.metric_type" :options="metricOptions" />
-            <div v-if="selectedMetricDefinition" class="mt-1 space-y-0.5 text-xs text-gray-500 dark:text-gray-400">
+            <div v-if="selectedMetricDefinition" class="mt-1 space-y-0.5 text-xs text-af-ink-3">
               <p>{{ selectedMetricDefinition.description }}</p>
               <p>
                 {{
@@ -492,14 +492,14 @@ function cancelDelete() {
             <input v-model.number="draft!.cooldown_minutes" class="input" type="number" min="0" max="1440" />
           </div>
 
-          <div class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-dark-800/50 md:col-span-2">
-            <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.enabled') }}</span>
-            <input v-model="draft!.enabled" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <div class="flex items-center justify-between rounded-xl bg-af-sunken px-4 py-3 md:col-span-2">
+            <span class="text-xs font-bold text-af-ink-2">{{ t('admin.ops.alertRules.form.enabled') }}</span>
+            <input v-model="draft!.enabled" type="checkbox" class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand" />
           </div>
 
-          <div class="flex items-center justify-between rounded-xl bg-gray-50 px-4 py-3 dark:bg-dark-800/50 md:col-span-2">
-            <span class="text-xs font-bold text-gray-700 dark:text-gray-200">{{ t('admin.ops.alertRules.form.notifyEmail') }}</span>
-            <input v-model="draft!.notify_email" type="checkbox" class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500" />
+          <div class="flex items-center justify-between rounded-xl bg-af-sunken px-4 py-3 md:col-span-2">
+            <span class="text-xs font-bold text-af-ink-2">{{ t('admin.ops.alertRules.form.notifyEmail') }}</span>
+            <input v-model="draft!.notify_email" type="checkbox" class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand" />
           </div>
         </div>
       </div>

@@ -69,7 +69,7 @@
 
       <!-- Desktop pagination buttons -->
       <nav
-        :class="plain ? 'inline-flex items-center gap-0.5' : 'relative z-0 inline-flex -space-x-px rounded-md shadow-sm'"
+        :class="plain ? 'inline-flex items-center gap-0.5' : 'relative z-0 inline-flex -space-x-px rounded-md'"
         aria-label="Pagination"
       >
         <!-- Previous button -->

@@ -19,38 +19,34 @@ function mountPlan(platform: AccountPlatform, planType: string) {
 }
 
 describe('PlatformTypeBadge ChatGPT plan tiers', () => {
-  it('labels pro / chatgptpro as Pro 20x with the Pro color', () => {
+  it('labels pro / chatgptpro as Pro 20x', () => {
     for (const planType of ['pro', 'chatgptpro', 'PRO']) {
       const wrapper = mountPlan('openai', planType)
 
       expect(wrapper.text()).toContain('Pro 20x')
-      expect(wrapper.html()).toContain('bg-violet-100')
     }
   })
 
-  it('labels prolite as Pro 5x sharing the Pro color', () => {
+  it('labels prolite as Pro 5x', () => {
     for (const planType of ['prolite', 'PROLITE', 'pro_lite']) {
       const wrapper = mountPlan('openai', planType)
 
       expect(wrapper.text()).toContain('Pro 5x')
-      expect(wrapper.html()).toContain('bg-violet-100')
       expect(wrapper.text()).not.toContain('Pro 20x')
     }
   })
 
-  it('labels team as Business Standard with the Team color', () => {
+  it('labels team as Business Standard', () => {
     const wrapper = mountPlan('openai', 'team')
 
     expect(wrapper.text()).toContain('Business Standard')
-    expect(wrapper.html()).toContain('bg-indigo-100')
   })
 
-  it('labels self_serve_business_prolite as Business Premium sharing the Team color', () => {
+  it('labels self_serve_business_prolite as Business Premium', () => {
     for (const planType of ['self_serve_business_prolite', 'selfservebusinessprolite']) {
       const wrapper = mountPlan('openai', planType)
 
       expect(wrapper.text()).toContain('Business Premium')
-      expect(wrapper.html()).toContain('bg-indigo-100')
       expect(wrapper.text()).not.toContain('self_serve_business_prolite')
     }
   })
@@ -58,15 +54,13 @@ describe('PlatformTypeBadge ChatGPT plan tiers', () => {
   it('keeps plus, free and abnormal labels unchanged', () => {
     const plus = mountPlan('openai', 'plus')
     expect(plus.text()).toContain('Plus')
-    expect(plus.html()).toContain('bg-sky-100')
 
     const free = mountPlan('openai', 'free')
     expect(free.text()).toContain('Free')
-    expect(free.html()).toContain('bg-gray-100')
 
     const abnormal = mountPlan('openai', 'abnormal')
     expect(abnormal.text()).toContain('admin.accounts.subscriptionAbnormal')
-    expect(abnormal.html()).toContain('bg-red-100')
+    expect(abnormal.html()).toContain('bg-af-danger-tint')
   })
 
   it('falls back to the raw value for unknown plans', () => {

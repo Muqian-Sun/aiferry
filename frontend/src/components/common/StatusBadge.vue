@@ -6,7 +6,7 @@
         variantClass
       ]"
     ></span>
-    <span class="text-sm text-gray-700 dark:text-gray-300">
+    <span class="text-sm text-af-ink-2">
       {{ label }}
     </span>
   </div>
@@ -24,16 +24,16 @@ const variantClass = computed(() => {
   switch (props.status) {
     case 'active':
     case 'success':
-      return 'bg-green-500'
+      return 'bg-af-success'
     case 'disabled':
     case 'inactive':
     case 'warning':
-      return 'bg-yellow-500'
+      return 'bg-af-warning'
     case 'error':
     case 'danger':
-      return 'bg-red-500'
+      return 'bg-af-danger'
     default:
-      return 'bg-gray-400'
+      return 'bg-af-ink-4'
   }
 })
 </script>
