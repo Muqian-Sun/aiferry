@@ -915,23 +915,6 @@ func normalizeStringSet(values []string) []string {
 	return out
 }
 
-func normalizeInt64Set(values []int64) []int64 {
-	seen := make(map[int64]struct{}, len(values))
-	out := make([]int64, 0, len(values))
-	for _, value := range values {
-		if value <= 0 {
-			continue
-		}
-		if _, ok := seen[value]; ok {
-			continue
-		}
-		seen[value] = struct{}{}
-		out = append(out, value)
-	}
-	sort.Slice(out, func(i, j int) bool { return out[i] < out[j] })
-	return out
-}
-
 func ChannelMonitorV2HealthFor(metrics ChannelMonitorV2Metric) ChannelMonitorV2Health {
 	return ChannelMonitorV2HealthForWithThresholds(metrics, DefaultChannelMonitorV2HealthThresholds())
 }

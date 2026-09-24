@@ -168,20 +168,6 @@ func groupCodexModelMetadata(
 	return metadata, true
 }
 
-func codexExplicitModelTargetsConflict(accounts []Account, modelID string) bool {
-	targets := make(map[string]struct{})
-	for i := range accounts {
-		account := &accounts[i]
-		mappedModel, matched := account.ResolveMappedModel(modelID)
-		mappedModel = strings.TrimSpace(mappedModel)
-		if !matched || mappedModel == "" {
-			continue
-		}
-		targets[strings.TrimSpace(account.Platform)+"\x00"+mappedModel] = struct{}{}
-	}
-	return len(targets) > 1
-}
-
 func codexExplicitModelTargetsConflictForPlatform(accounts []Account, platform, modelID string) bool {
 	targets := make(map[string]struct{})
 	for i := range accounts {

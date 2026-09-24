@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
+	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/gin-gonic/gin"
 )
@@ -90,6 +91,11 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 	// 转换 Claude 请求为 Gemini 格式
 	geminiBody, err := antigravity.TransformClaudeToGeminiWithOptions(&claudeReq, projectID, mappedModel, transformOpts)
 	if err != nil {
+		if _, ok := apicompat.AsUnsupportedContentError(err); ok {
+			// 上游表达不了的内容分片：写出具体原因的 400，返回带类型的错误（handler 不换号）。
+			_ = s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+			return nil, fmt.Errorf("transform claude request for antigravity: %w", err)
+		}
 		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", "Invalid request")
 	}
 

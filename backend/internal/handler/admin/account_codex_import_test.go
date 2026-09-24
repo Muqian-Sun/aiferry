@@ -993,10 +993,6 @@ func cloneCodexImportTestMap(input map[string]any) map[string]any {
 	return out
 }
 
-func boolPtr(v bool) *bool {
-	return &v
-}
-
 func buildCodexImportTestJWT(t *testing.T, exp time.Time, extraClaims map[string]any) string {
 	t.Helper()
 	header := map[string]any{

@@ -487,13 +487,21 @@ func buildParts(content json.RawMessage, toolIDToName map[string]string, allowDu
 			parts = append(parts, part)
 
 		case "image":
-			if block.Source != nil && block.Source.Type == "base64" {
-				parts = append(parts, GeminiPart{
-					InlineData: &GeminiInlineData{
-						MimeType: block.Source.MediaType,
-						Data:     block.Source.Data,
-					},
-				})
+			part, err := claudeImageBlockToGeminiPart(block)
+			if err != nil {
+				return nil, false, err
+			}
+			if part != nil {
+				parts = append(parts, *part)
+			}
+
+		case "document":
+			part, err := claudeDocumentBlockToGeminiPart(block)
+			if err != nil {
+				return nil, false, err
+			}
+			if part != nil {
+				parts = append(parts, *part)
 			}
 
 		case "tool_use":

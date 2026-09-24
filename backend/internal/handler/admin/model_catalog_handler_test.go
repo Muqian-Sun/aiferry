@@ -337,6 +337,23 @@ func TestModelCatalogHandler_UpdateEntry(t *testing.T) {
 		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/99", bytes.NewBufferString(`{"model_id":"x","input_price":1}`)))
 		require.Equal(t, http.StatusNotFound, rec.Code)
 	})
+
+	t.Run("audio prices round-trip", func(t *testing.T) {
+		body := `{"model_id":"m","status":"unlisted","input_price":0.000004,"audio_input_price":0.00004,"audio_output_price":0.00008}`
+		rec := httptest.NewRecorder()
+		router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/entries/3", bytes.NewBufferString(body)))
+		require.Equal(t, http.StatusOK, rec.Code)
+		require.NotNil(t, repo.entries[0].AudioInputPrice)
+		require.InDelta(t, 4e-5, *repo.entries[0].AudioInputPrice, 1e-12)
+		require.NotNil(t, repo.entries[0].AudioOutputPrice)
+		require.InDelta(t, 8e-5, *repo.entries[0].AudioOutputPrice, 1e-12)
+
+		envelope := decodeCatalogResponse(t, rec)
+		raw, err := json.Marshal(envelope.Data)
+		require.NoError(t, err)
+		require.Contains(t, string(raw), `"audio_input_price":0.00004`)
+		require.Contains(t, string(raw), `"audio_output_price":0.00008`)
+	})
 }
 
 func TestModelCatalogHandler_DeleteEntry(t *testing.T) {

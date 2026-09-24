@@ -10,33 +10,31 @@ import (
 )
 
 type stubAdminService struct {
-	users                       []service.User
-	apiKeys                     []service.APIKey
-	accounts                    []service.Account
-	proxies                     []service.Proxy
-	proxyCounts                 []service.ProxyWithAccountCount
-	redeems                     []service.RedeemCode
-	boundAuthIdentity           *service.AdminBindAuthIdentityInput
-	boundAuthIdentityFor        int64
-	createdAccounts             []*service.CreateAccountInput
-	deleteGroupIfEmptyErr       error
-	advancedGroupOperationCalls int
-	createdProxies              []*service.CreateProxyInput
-	updatedProxyIDs             []int64
-	updatedProxies              []*service.UpdateProxyInput
-	testedProxyIDs              []int64
-	getUserErr                  error
-	createAccountErr            error
-	createSparkShadowErr        error
-	updateAccountErr            error
-	lastUpdateAccountInput      *service.UpdateAccountInput
-	bulkUpdateAccountErr        error
-	lastBulkUpdateAccountInput  *service.BulkUpdateAccountsInput
-	getAccountResult            *service.Account
-	updateAccountCalls          int
-	updateAccountExtraCalls     int
-	checkMixedErr               error
-	lastMixedCheck              struct {
+	users                      []service.User
+	apiKeys                    []service.APIKey
+	accounts                   []service.Account
+	proxies                    []service.Proxy
+	proxyCounts                []service.ProxyWithAccountCount
+	redeems                    []service.RedeemCode
+	boundAuthIdentity          *service.AdminBindAuthIdentityInput
+	boundAuthIdentityFor       int64
+	createdAccounts            []*service.CreateAccountInput
+	createdProxies             []*service.CreateProxyInput
+	updatedProxyIDs            []int64
+	updatedProxies             []*service.UpdateProxyInput
+	testedProxyIDs             []int64
+	getUserErr                 error
+	createAccountErr           error
+	createSparkShadowErr       error
+	updateAccountErr           error
+	lastUpdateAccountInput     *service.UpdateAccountInput
+	bulkUpdateAccountErr       error
+	lastBulkUpdateAccountInput *service.BulkUpdateAccountsInput
+	getAccountResult           *service.Account
+	updateAccountCalls         int
+	updateAccountExtraCalls    int
+	checkMixedErr              error
+	lastMixedCheck             struct {
 		accountID int64
 		platform  string
 		groupIDs  []int64

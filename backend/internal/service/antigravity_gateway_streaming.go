@@ -975,6 +975,8 @@ returnResponse:
 		CacheCreationInputTokens: agUsage.CacheCreationInputTokens,
 		CacheReadInputTokens:     agUsage.CacheReadInputTokens,
 		ImageOutputTokens:        agUsage.ImageOutputTokens,
+		AudioInputTokens:         agUsage.AudioInputTokens,
+		AudioOutputTokens:        agUsage.AudioOutputTokens,
 	}
 
 	return claudeResp, &antigravityStreamResult{usage: usage, firstTokenMs: firstTokenMs}, nil
@@ -1044,6 +1046,8 @@ func (s *AntigravityGatewayService) handleClaudeStreamingResponse(c *gin.Context
 			OutputTokens:             agUsage.OutputTokens,
 			CacheCreationInputTokens: agUsage.CacheCreationInputTokens,
 			CacheReadInputTokens:     agUsage.CacheReadInputTokens,
+			AudioInputTokens:         agUsage.AudioInputTokens,
+			AudioOutputTokens:        agUsage.AudioOutputTokens,
 		}
 	}
 

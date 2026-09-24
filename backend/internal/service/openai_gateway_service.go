@@ -227,6 +227,10 @@ type OpenAIUsage struct {
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
 	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	// AudioInputTokens / AudioOutputTokens 是 InputTokens / OutputTokens 中的音频部分
+	// （prompt/input_tokens_details.audio_tokens 扣掉已缓存的音频，completion/output_tokens_details.audio_tokens）。
+	AudioInputTokens  int `json:"audio_input_tokens,omitempty"`
+	AudioOutputTokens int `json:"audio_output_tokens,omitempty"`
 }
 
 // OpenAIForwardResult represents the result of forwarding
@@ -570,6 +574,10 @@ func (s *OpenAIGatewayService) Scheduler() *GatewayService {
 }
 
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
+	// 生图未开放（gateway.image_generation_tool_enabled=false）时桥接一律不注入，账号级覆盖也不能放开。
+	if s == nil || !OpenAIImageGenerationToolEnabled(s.cfg) {
+		return false
+	}
 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
 		return *override
 	}

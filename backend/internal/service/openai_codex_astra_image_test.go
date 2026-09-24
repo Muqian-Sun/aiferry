@@ -9,7 +9,6 @@ import (
 func TestBuildCodexModelsManifestForGroupCorrectsOfficialAstraStaleModalities(t *testing.T) {
 	t.Parallel()
 
-	const groupID int64 = 780
 	account := Account{
 		ID:                1,
 		Platform:          PlatformOpenAI,
@@ -35,7 +34,6 @@ func TestBuildCodexModelsManifestForGroupCorrectsOfficialAstraStaleModalities(t 
 func TestBuildCodexModelsManifestForGroupPreservesCompatibleAstraTextOnlyMetadata(t *testing.T) {
 	t.Parallel()
 
-	const groupID int64 = 781
 	account := Account{
 		ID:          2,
 		Platform:    PlatformOpenAI,

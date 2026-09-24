@@ -200,11 +200,15 @@ func TestGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *testin
 // 池留空：放行的用例走到选号得 503，不是 429。
 func newGatewayResponsesImageConcurrencyHandler(t *testing.T, c *gin.Context) *GatewayHandler {
 	t.Helper()
-	cfg := &config.Config{RunMode: config.RunModeSimple, Gateway: config.GatewayConfig{ImageConcurrency: config.ImageConcurrencyConfig{
-		Enabled:               true,
-		MaxConcurrentRequests: 1,
-		OverflowMode:          config.ImageConcurrencyOverflowModeReject,
-	}}}
+	// 生图并发限制只在出图工具开放时才有意义，这里打开开关（关闭时的把关另有用例）。
+	cfg := &config.Config{RunMode: config.RunModeSimple, Gateway: config.GatewayConfig{
+		ImageGenerationToolEnabled: true,
+		ImageConcurrency: config.ImageConcurrencyConfig{
+			Enabled:               true,
+			MaxConcurrentRequests: 1,
+			OverflowMode:          config.ImageConcurrencyOverflowModeReject,
+		},
+	}}
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingCache.Stop)
 	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, &service.OpenAIGatewayService{}, billingCache,

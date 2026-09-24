@@ -23,6 +23,36 @@ func profitControlTestCtx(userRate float64) context.Context {
 	return WithUserRateMultiplier(context.Background(), &User{ID: 1, RateMultiplier: userRate})
 }
 
+// upstreamCostTestAccount / upstreamCostTestOAuthAccount 只有 unit 标签的用例（本文件与
+// openai_profit_control_pricing_test.go）用；放在无标签的 scheduler_test_stubs_test.go 里会被默认标签下的 lint 判成未使用。
+func upstreamCostTestAccount(id int64, status string, rate float64, receivedAt time.Time, interval time.Duration) *Account {
+	return &Account{
+		ID:       id,
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeAPIKey,
+		Extra: map[string]any{
+			UpstreamBillingProbeExtraKey: map[string]any{
+				"status": status,
+				"data": map[string]any{
+					"billing_scope":             "token",
+					"resolved_rate_multiplier":  rate,
+					"peak_rate_enabled":         false,
+					"effective_rate_multiplier": rate,
+				},
+				"received_at":     receivedAt.UTC().Format(time.RFC3339Nano),
+				"fresh_until":     receivedAt.Add(2 * interval).UTC().Format(time.RFC3339Nano),
+				"last_attempt_at": receivedAt.UTC().Format(time.RFC3339Nano),
+				"next_probe_at":   receivedAt.Add(interval).UTC().Format(time.RFC3339Nano),
+			},
+		},
+		ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+	}
+}
+
+func upstreamCostTestOAuthAccount(id int64) *Account {
+	return &Account{ID: id, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
+}
+
 func profitControlTestAccountWithRate(account *Account, rate float64) *Account {
 	account.RateMultiplier = &rate
 	return account

@@ -155,6 +155,7 @@ func TestOpenAIGatewayService_Forward_DecodedMutationKeepsLaterFieldDeletes(t *t
 		},
 	}
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
 	account := &Account{
@@ -428,6 +429,7 @@ func TestOpenAIGatewayService_Forward_ImageToolBillingDoesNotForceFullDecode(t *
 		},
 	}
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
 	account := &Account{
@@ -640,6 +642,7 @@ func TestOpenAIGatewayService_Forward_CodexBridgeInjectionSetsImageBilling(t *te
 		},
 	}
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Gateway.ForceCodexCLI = true
 	cfg.Gateway.CodexImageGenerationBridgeEnabled = true
@@ -724,6 +727,7 @@ func TestOpenAIGatewayService_Forward_StripsImageGenerationToolForSparkAPIKey(t 
 		},
 	}
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	svc := &OpenAIGatewayService{cfg: cfg, httpUpstream: upstream}
 	account := &Account{

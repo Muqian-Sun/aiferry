@@ -220,6 +220,7 @@ func TestOpenAIGatewayService_Forward_WSv2_UsesPatchedBodyAfterValidationDecode(
 	c.Request.Header.Set("User-Agent", "unit-test-agent/1.0")
 
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 	cfg.Gateway.OpenAIWS.Enabled = true
@@ -326,6 +327,7 @@ func TestOpenAIGatewayService_Forward_WSv2_ImageGenerationCountsOutputs(t *testi
 	c.Set("api_key", &APIKey{})
 
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 	cfg.Gateway.OpenAIWS.Enabled = true

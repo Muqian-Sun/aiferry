@@ -252,8 +252,8 @@ func addGeminiModerationImage(images *[]string, part gjson.Result) {
 			addModerationImage(images, fmt.Sprintf("data:%s;base64,%s", mimeType, data))
 		}
 	}
-	addModerationImage(images, part.Get("file_data.file_uri").String())
-	addModerationImage(images, part.Get("fileData.fileUri").String())
+	// fileData 的 URI 是 Gemini Files API / GCS 地址，要带 Google 凭据才能取，审核服务取不到，
+	// 送审只会失败放行（同上），不收。
 }
 
 func addModerationImageData(images *[]string, mimeType string, data string) {
@@ -265,14 +265,33 @@ func addModerationImageData(images *[]string, mimeType string, data string) {
 	addModerationImage(images, fmt.Sprintf("data:%s;base64,%s", mimeType, data))
 }
 
+// addModerationImage 收集送图片审核的图：data: URI 只收 image/* 类型。PDF / 音频 / 视频的
+// base64 送进图片审核会被审核 API 拒掉，而审核失败按放行处理——整条请求连同文本都没审，
+// 等于带个附件就能绕过审核。
 func addModerationImage(images *[]string, image string) {
 	image = strings.TrimSpace(image)
 	if image == "" {
 		return
 	}
-	if strings.HasPrefix(image, "data:") || strings.HasPrefix(image, "http://") || strings.HasPrefix(image, "https://") {
-		*images = append(*images, image)
+	switch {
+	case strings.HasPrefix(image, "data:"):
+		if !isImageDataURI(image) {
+			return
+		}
+	case strings.HasPrefix(image, "http://"), strings.HasPrefix(image, "https://"):
+	default:
+		return
 	}
+	*images = append(*images, image)
+}
+
+// isImageDataURI 报告 data: URI 的媒体类型是不是 image/*。
+func isImageDataURI(uri string) bool {
+	mediaType := strings.TrimPrefix(uri, "data:")
+	if i := strings.IndexAny(mediaType, ";,"); i >= 0 {
+		mediaType = mediaType[:i]
+	}
+	return strings.HasPrefix(strings.ToLower(strings.TrimSpace(mediaType)), "image/")
 }
 
 func normalizeModerationImages(images []string) []string {

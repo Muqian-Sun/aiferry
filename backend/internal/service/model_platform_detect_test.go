@@ -6,11 +6,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-type compositeOwnershipAccountRepo struct {
-	AccountRepository
-	accounts []Account
-}
-
 func TestDetectModelPlatform(t *testing.T) {
 	tests := []struct {
 		name     string

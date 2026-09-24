@@ -1073,7 +1073,7 @@ func init() {
 	// modelcatalogentry.ManagedByValidator is a validator for the "managed_by" field. It is called by the builders before save.
 	modelcatalogentry.ManagedByValidator = modelcatalogentryDescManagedBy.Validators[0].(func(string) error)
 	// modelcatalogentryDescLongContextThresholdInclusive is the schema descriptor for long_context_threshold_inclusive field.
-	modelcatalogentryDescLongContextThresholdInclusive := modelcatalogentryFields[22].Descriptor()
+	modelcatalogentryDescLongContextThresholdInclusive := modelcatalogentryFields[24].Descriptor()
 	// modelcatalogentry.DefaultLongContextThresholdInclusive holds the default value on creation for the long_context_threshold_inclusive field.
 	modelcatalogentry.DefaultLongContextThresholdInclusive = modelcatalogentryDescLongContextThresholdInclusive.Default.(bool)
 	modelcatalogpriceintervalMixin := schema.ModelCatalogPriceInterval{}.Mixin()

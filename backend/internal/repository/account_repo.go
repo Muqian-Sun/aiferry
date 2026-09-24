@@ -257,11 +257,9 @@ func (r *accountRepository) GetByIDs(ctx context.Context, ids []int64) ([]*servi
 		return []*service.Account{}, nil
 	}
 
-	accountIDs := make([]int64, 0, len(entAccounts))
 	entByID := make(map[int64]*dbent.Account, len(entAccounts))
 	for _, acc := range entAccounts {
 		entByID[acc.ID] = acc
-		accountIDs = append(accountIDs, acc.ID)
 	}
 
 	outByID := make(map[int64]*service.Account, len(entAccounts))
@@ -2738,15 +2736,6 @@ func (r *accountRepository) BulkUpdate(ctx context.Context, ids []int64, updates
 		}
 	}
 	return rows, nil
-}
-
-type accountGroupQueryOptions struct {
-	status               string
-	schedulable          bool
-	ignoreTransientState bool
-	platforms            []string // 允许的多个平台，空切片表示不进行平台过滤
-	// includeThirdPartyKeys 为 true 时，平台过滤只约束成品号，任意平台标签的第三方 key 都保留。
-	includeThirdPartyKeys bool
 }
 
 func (r *accountRepository) accountsToService(ctx context.Context, accounts []*dbent.Account) ([]service.Account, error) {

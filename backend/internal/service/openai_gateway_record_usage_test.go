@@ -200,10 +200,6 @@ func (s *openAIRecordUsageAPIKeyQuotaStub) UpdateRateLimitUsage(ctx context.Cont
 	return s.err
 }
 
-func i64p(v int64) *int64 {
-	return &v
-}
-
 func newOpenAIRecordUsageServiceForTest(usageRepo UsageLogRepository, userRepo UserRepository, subRepo UserSubscriptionRepository) *OpenAIGatewayService {
 	cfg := &config.Config{}
 	cfg.Default.RateMultiplier = 1.1
@@ -896,13 +892,6 @@ func TestOpenAIGatewayServiceRecordUsage_GPT56SeparatesCacheWriteForBillingAndSt
 	require.InDelta(t, 100*0.5e-6, usageRepo.lastLog.CacheReadCost, 1e-12)
 	require.InDelta(t, 50*30e-6, usageRepo.lastLog.OutputCost, 1e-12)
 	require.InDelta(t, usageRepo.lastLog.TotalCost*1.1, usageRepo.lastLog.ActualCost, 1e-12)
-}
-
-func swapInOpenAILadderCatalog(t *testing.T, svc *OpenAIGatewayService) {
-	t.Helper()
-	cfg := &config.Config{}
-	cfg.Default.RateMultiplier = 1.1
-	svc.billingService = NewBillingService(cfg, newStubPricingServiceFromJSON(t, openAILadderCatalogJSON))
 }
 
 func TestOpenAIGatewayServiceRecordUsage_GrokLongContextLadderAlwaysApplies(t *testing.T) {

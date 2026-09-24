@@ -689,20 +689,6 @@ func (s *GatewayService) hasResolvableTokenPricing(ctx context.Context, model st
 	return err == nil
 }
 
-// resolveOperatorPricing 返回运营者显式定价（被管理员改过的目录条目）的解析结果，
-// 平台默认价卡返回 nil。只给「响应模型计费采纳」与「组合模型计费基准」判定用；
-// 媒体计价不再区分运营者 / 平台价卡（CalculateMediaCost）。
-func (s *GatewayService) resolveOperatorPricing(ctx context.Context, billingModel string) *ResolvedPricing {
-	if s.resolver == nil {
-		return nil
-	}
-	resolved := s.resolver.Resolve(ctx, PricingInput{Model: billingModel})
-	if resolved.operatorPricing {
-		return resolved
-	}
-	return nil
-}
-
 // calculateTokenCost 计算 Token 计费：路径选择（分组/渠道定价 → 内置定价）
 // 统一交给 BillingService.CalculateTokenCostForRequest，与模型广场的阶梯表查询同源。
 func (s *GatewayService) calculateTokenCost(
@@ -721,6 +707,10 @@ func (s *GatewayService) calculateTokenCost(
 		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
 		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
 		ImageOutputTokens:     result.Usage.ImageOutputTokens,
+		// 音频 token 在 InputTokens / OutputTokens 之内（Gemini 的 AUDIO 模态）；超出部分由
+		// computeTokenBreakdown 截到文本 token 数（如 ForceCacheBilling 把输入转成缓存读取后）。
+		AudioInputTokens:  result.Usage.AudioInputTokens,
+		AudioOutputTokens: result.Usage.AudioOutputTokens,
 	}
 
 	var resolved *ResolvedPricing

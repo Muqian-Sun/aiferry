@@ -9,9 +9,9 @@ const ADMIN_JWT = process.env.SUB2API_JWT || "";
 
 function usage() {
   console.log(`Usage:
-  sub2api-admin.js accounts list [--page-size 200] [--page N] [--search TEXT] [--platform openai] [--type oauth] [--status active] [--group NAME] [--privacy-mode MODE] [--sort-by name] [--sort-order asc]
+  sub2api-admin.js accounts list [--page-size 200] [--page N] [--search TEXT] [--platform openai] [--type oauth] [--status active] [--privacy-mode MODE] [--sort-by name] [--sort-order asc]
   sub2api-admin.js accounts export [--ids 1,2] [--file accounts.json] [--include-proxies false] [list filters...]
-  sub2api-admin.js accounts import-data --file accounts.json [--skip-default-group-bind]
+  sub2api-admin.js accounts import-data --file accounts.json
   sub2api-admin.js accounts create --json '{...}' | --file account.json
   sub2api-admin.js accounts update <id> --json '{...}' | --file patch.json
   sub2api-admin.js accounts get <id>
@@ -42,7 +42,6 @@ function usage() {
   sub2api-admin.js accounts import-codex-session --json '{...}' | --file payload.json
   sub2api-admin.js accounts antigravity-default-model-mapping
   sub2api-admin.js accounts import-json --file <path> --template-name <name> [--skip-name <name>] [--dry-run]
-  sub2api-admin.js groups all
   sub2api-admin.js proxies all
   sub2api-admin.js redeem-codes list [--page-size 200] [--page N] [--type balance] [--status unused] [--search TEXT] [--sort-by id] [--sort-order desc]
   sub2api-admin.js redeem-codes export [--file redeem-codes.csv] [list filters...]
@@ -185,7 +184,6 @@ async function listAccounts(options = {}) {
     platform: options.platform,
     type: options.type,
     status: options.status,
-    group: options.group,
     privacy_mode: options.privacyMode,
   };
   return apiRequest("GET", `/api/v1/admin/accounts${encodeQuery(params)}`);
@@ -238,7 +236,6 @@ function accountListOptions(flags) {
     platform: flags.platform,
     type: flags.type,
     status: flags.status,
-    group: flags.group,
     privacyMode: flags["privacy-mode"],
     sortBy: flags["sort-by"] || "name",
     sortOrder: flags["sort-order"] || "asc",
@@ -289,7 +286,6 @@ async function accountData(flags) {
       platform: "platform",
       type: "type",
       status: "status",
-      group: "group",
       search: "search",
       "privacy-mode": "privacy_mode",
       "sort-by": "sort_by",
@@ -329,7 +325,6 @@ async function commandAccounts(args) {
     if (!file) throw new Error("accounts import-data requires --file");
     const payload = {
       data: JSON.parse(fs.readFileSync(path.resolve(file), "utf8")),
-      skip_default_group_bind: Boolean(args.flags["skip-default-group-bind"]),
     };
     printJson(await adminRequest("POST", "/admin/accounts/data", payload));
     return;
@@ -526,7 +521,6 @@ async function commandAccounts(args) {
     const template = liveItems.find((item) => item.name === templateName);
     if (!template) throw new Error(`template account not found in backend: ${templateName}`);
 
-    const templateGroupIds = template.group_ids || [];
     const templateConcurrency = template.concurrency;
     const templatePriority = template.priority;
     const templateModelMapping = (template.credentials && template.credentials.model_mapping) || {};
@@ -540,7 +534,6 @@ async function commandAccounts(args) {
           name: template.name,
           concurrency: templateConcurrency,
           priority: templatePriority,
-          group_ids: templateGroupIds,
           model_mapping: templateModelMapping,
         },
         to_import: planned.map((acc) => ({
@@ -559,7 +552,6 @@ async function commandAccounts(args) {
       }
       const payload = {
         ...acc,
-        group_ids: templateGroupIds,
         concurrency: templateConcurrency,
         priority: templatePriority,
         credentials: {
@@ -575,15 +567,6 @@ async function commandAccounts(args) {
   }
 
   throw new Error(`unknown accounts subcommand: ${sub || "(missing)"}`);
-}
-
-async function commandGroups(args) {
-  const sub = args.positional[1];
-  if (sub === "all") {
-    printJson(await adminRequest("GET", "/admin/groups/all"));
-    return;
-  }
-  throw new Error(`unknown groups subcommand: ${sub || "(missing)"}`);
 }
 
 async function commandProxies(args) {
@@ -712,10 +695,6 @@ async function main() {
   }
   if (root === "accounts") {
     await commandAccounts(args);
-    return;
-  }
-  if (root === "groups") {
-    await commandGroups(args);
     return;
   }
   if (root === "proxies") {

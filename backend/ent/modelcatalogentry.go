@@ -52,6 +52,10 @@ type ModelCatalogEntry struct {
 	ImageOutputPrice *float64 `json:"image_output_price,omitempty"`
 	// ImageCacheReadPrice holds the value of the "image_cache_read_price" field.
 	ImageCacheReadPrice *float64 `json:"image_cache_read_price,omitempty"`
+	// AudioInputPrice holds the value of the "audio_input_price" field.
+	AudioInputPrice *float64 `json:"audio_input_price,omitempty"`
+	// AudioOutputPrice holds the value of the "audio_output_price" field.
+	AudioOutputPrice *float64 `json:"audio_output_price,omitempty"`
 	// InputPricePriority holds the value of the "input_price_priority" field.
 	InputPricePriority *float64 `json:"input_price_priority,omitempty"`
 	// OutputPricePriority holds the value of the "output_price_priority" field.
@@ -146,7 +150,7 @@ func (*ModelCatalogEntry) scanValues(columns []string) ([]any, error) {
 			values[i] = new([]byte)
 		case modelcatalogentry.FieldLongContextThresholdInclusive:
 			values[i] = new(sql.NullBool)
-		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldLongContextInputMultiplier, modelcatalogentry.FieldLongContextOutputMultiplier, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
+		case modelcatalogentry.FieldInputPrice, modelcatalogentry.FieldOutputPrice, modelcatalogentry.FieldCacheWritePrice, modelcatalogentry.FieldCacheWrite1hPrice, modelcatalogentry.FieldCacheReadPrice, modelcatalogentry.FieldImageInputPrice, modelcatalogentry.FieldImageOutputPrice, modelcatalogentry.FieldImageCacheReadPrice, modelcatalogentry.FieldAudioInputPrice, modelcatalogentry.FieldAudioOutputPrice, modelcatalogentry.FieldInputPricePriority, modelcatalogentry.FieldOutputPricePriority, modelcatalogentry.FieldCacheWritePricePriority, modelcatalogentry.FieldCacheReadPricePriority, modelcatalogentry.FieldPerRequestPrice, modelcatalogentry.FieldSearchPricePerCall, modelcatalogentry.FieldLongContextInputMultiplier, modelcatalogentry.FieldLongContextOutputMultiplier, modelcatalogentry.FieldFastMultiplier, modelcatalogentry.FieldFlexMultiplier, modelcatalogentry.FieldMaxReasoningEffortMultiplier:
 			values[i] = new(sql.NullFloat64)
 		case modelcatalogentry.FieldID, modelcatalogentry.FieldLongContextInputThreshold:
 			values[i] = new(sql.NullInt64)
@@ -286,6 +290,20 @@ func (_m *ModelCatalogEntry) assignValues(columns []string, values []any) error 
 			} else if value.Valid {
 				_m.ImageCacheReadPrice = new(float64)
 				*_m.ImageCacheReadPrice = value.Float64
+			}
+		case modelcatalogentry.FieldAudioInputPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field audio_input_price", values[i])
+			} else if value.Valid {
+				_m.AudioInputPrice = new(float64)
+				*_m.AudioInputPrice = value.Float64
+			}
+		case modelcatalogentry.FieldAudioOutputPrice:
+			if value, ok := values[i].(*sql.NullFloat64); !ok {
+				return fmt.Errorf("unexpected type %T for field audio_output_price", values[i])
+			} else if value.Valid {
+				_m.AudioOutputPrice = new(float64)
+				*_m.AudioOutputPrice = value.Float64
 			}
 		case modelcatalogentry.FieldInputPricePriority:
 			if value, ok := values[i].(*sql.NullFloat64); !ok {
@@ -504,6 +522,16 @@ func (_m *ModelCatalogEntry) String() string {
 	builder.WriteString(", ")
 	if v := _m.ImageCacheReadPrice; v != nil {
 		builder.WriteString("image_cache_read_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AudioInputPrice; v != nil {
+		builder.WriteString("audio_input_price=")
+		builder.WriteString(fmt.Sprintf("%v", *v))
+	}
+	builder.WriteString(", ")
+	if v := _m.AudioOutputPrice; v != nil {
+		builder.WriteString("audio_output_price=")
 		builder.WriteString(fmt.Sprintf("%v", *v))
 	}
 	builder.WriteString(", ")

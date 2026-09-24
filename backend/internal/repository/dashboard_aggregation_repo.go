@@ -15,8 +15,7 @@ import (
 )
 
 type dashboardAggregationRepository struct {
-	sql   sqlExecutor
-	clock func() time.Time
+	sql sqlExecutor
 }
 
 const usageLogsCleanupBatchSize = 10000
@@ -35,14 +34,7 @@ func NewDashboardAggregationRepository(sqlDB *sql.DB) service.DashboardAggregati
 }
 
 func newDashboardAggregationRepositoryWithSQL(sqlq sqlExecutor) *dashboardAggregationRepository {
-	return &dashboardAggregationRepository{sql: sqlq, clock: time.Now}
-}
-
-func (r *dashboardAggregationRepository) now() time.Time {
-	if r.clock != nil {
-		return r.clock()
-	}
-	return time.Now()
+	return &dashboardAggregationRepository{sql: sqlq}
 }
 
 func isPostgresDriver(db *sql.DB) bool {
@@ -298,7 +290,6 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 	}
 
 	var affected int64
-	var earliestDeletedAt time.Time
 	for rows.Next() {
 		var deletedAt time.Time
 		if err := rows.Scan(&deletedAt); err != nil {
@@ -306,9 +297,6 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 			return rollback(err)
 		}
 		affected++
-		if earliestDeletedAt.IsZero() || deletedAt.Before(earliestDeletedAt) {
-			earliestDeletedAt = deletedAt
-		}
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
@@ -316,8 +304,6 @@ func cleanupUsageLogsBatchWithRollupInvalidation(ctx context.Context, db *sql.DB
 	}
 	if err := rows.Close(); err != nil {
 		return rollback(err)
-	}
-	if affected > 0 {
 	}
 	if err := tx.Commit(); err != nil {
 		return 0, err

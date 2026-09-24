@@ -76,6 +76,9 @@ func (ModelCatalogEntry) Fields() []ent.Field {
 		modelCatalogPriceField("image_input_price"),
 		modelCatalogPriceField("image_output_price"),
 		modelCatalogPriceField("image_cache_read_price"),
+		// 音频输入 / 输出 token 价；nil 时音频 token 按文本输入 / 输出价计。
+		modelCatalogPriceField("audio_input_price"),
+		modelCatalogPriceField("audio_output_price"),
 
 		// priority / fast 服务档显式价格，nil 时由 fast 倍率或基准价比例推导。
 		modelCatalogPriceField("input_price_priority"),

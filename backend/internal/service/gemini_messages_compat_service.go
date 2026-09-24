@@ -272,7 +272,10 @@ func (s *GeminiMessagesCompatService) Forward(ctx context.Context, c *gin.Contex
 
 	geminiReq, err := convertClaudeMessagesToGeminiGenerateContent(body)
 	if err != nil {
-		return nil, s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		// 400 已写出；返回原始错误以保留 apicompat.UnsupportedContentError 类型，
+		// handler 据此按客户端错误收尾（不换号、不计账号健康）。
+		_ = s.writeClaudeError(c, http.StatusBadRequest, "invalid_request_error", err.Error())
+		return nil, fmt.Errorf("convert claude messages to gemini: %w", err)
 	}
 	geminiReq = ensureGeminiFunctionCallThoughtSignatures(geminiReq)
 	originalClaudeBody := body
@@ -2724,14 +2727,39 @@ func extractGeminiUsage(data []byte) *ClaudeUsage {
 		})
 	}
 
+	// 音频按模态分列在 promptTokensDetails / candidatesTokensDetails 里，且计在
+	// promptTokenCount / candidatesTokenCount 之内（普通 Gemini 对话模型也收音频输入）。
+	// 输入侧扣掉 cacheTokensDetails 里已命中缓存的音频：缓存部分按缓存价计。
+	inputTokens := prompt - cached
+	audioInputTokens := geminiModalityTokenCount(usage.Get("promptTokensDetails"), "AUDIO") -
+		geminiModalityTokenCount(usage.Get("cacheTokensDetails"), "AUDIO")
+	audioInputTokens = min(max(audioInputTokens, 0), max(inputTokens, 0))
+
 	// 注意：Gemini 的 promptTokenCount 包含 cachedContentTokenCount，
 	// 但 Claude 的 input_tokens 不包含 cache_read_input_tokens，需要减去
 	return &ClaudeUsage{
-		InputTokens:          prompt - cached,
+		InputTokens:          inputTokens,
 		OutputTokens:         cand + thoughts,
 		CacheReadInputTokens: cached,
 		ImageOutputTokens:    imageTokens,
+		AudioInputTokens:     audioInputTokens,
+		AudioOutputTokens:    geminiModalityTokenCount(usage.Get("candidatesTokensDetails"), "AUDIO"),
 	}
+}
+
+// geminiModalityTokenCount 汇总 usageMetadata 某个 *TokensDetails 列表里指定模态的 token 数。
+func geminiModalityTokenCount(details gjson.Result, modality string) int {
+	if !details.IsArray() {
+		return 0
+	}
+	total := 0
+	details.ForEach(func(_, detail gjson.Result) bool {
+		if strings.EqualFold(strings.TrimSpace(detail.Get("modality").String()), modality) {
+			total += max(int(detail.Get("tokenCount").Int()), 0)
+		}
+		return true
+	})
+	return total
 }
 
 func asInt(v any) (int, bool) {
@@ -3155,19 +3183,20 @@ func convertClaudeMessagesToGeminiContents(messages any, toolUseIDToName map[str
 						},
 					})
 				case "image":
-					if src, ok := bm["source"].(map[string]any); ok {
-						if srcType, _ := src["type"].(string); srcType == "base64" {
-							mediaType, _ := src["media_type"].(string)
-							data, _ := src["data"].(string)
-							if mediaType != "" && data != "" {
-								parts = append(parts, map[string]any{
-									"inlineData": map[string]any{
-										"mimeType": mediaType,
-										"data":     data,
-									},
-								})
-							}
-						}
+					part, err := claudeImageBlockToGeminiPart(bm)
+					if err != nil {
+						return nil, err
+					}
+					if part != nil {
+						parts = append(parts, part)
+					}
+				case "document":
+					part, err := claudeDocumentBlockToGeminiPart(bm)
+					if err != nil {
+						return nil, err
+					}
+					if part != nil {
+						parts = append(parts, part)
 					}
 				default:
 					// best-effort: preserve unknown blocks as text

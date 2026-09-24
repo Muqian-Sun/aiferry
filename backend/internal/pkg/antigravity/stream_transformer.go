@@ -40,6 +40,8 @@ type StreamingProcessor struct {
 	outputTokens      int
 	cacheReadTokens   int
 	imageOutputTokens int
+	audioInputTokens  int
+	audioOutputTokens int
 }
 
 // NewStreamingProcessor 创建流式响应处理器
@@ -115,6 +117,8 @@ func (p *StreamingProcessor) ProcessLine(line string) []byte {
 		p.outputTokens = geminiResp.UsageMetadata.CandidatesTokenCount + geminiResp.UsageMetadata.ThoughtsTokenCount
 		p.cacheReadTokens = cached
 		p.imageOutputTokens = geminiResp.UsageMetadata.ImageOutputTokens()
+		p.audioInputTokens = geminiResp.UsageMetadata.AudioInputTokens()
+		p.audioOutputTokens = geminiResp.UsageMetadata.AudioOutputTokens()
 	}
 
 	// 处理 parts
@@ -156,6 +160,8 @@ func (p *StreamingProcessor) Finish() ([]byte, *ClaudeUsage) {
 		OutputTokens:         p.outputTokens,
 		CacheReadInputTokens: p.cacheReadTokens,
 		ImageOutputTokens:    p.imageOutputTokens,
+		AudioInputTokens:     p.audioInputTokens,
+		AudioOutputTokens:    p.audioOutputTokens,
 	}
 
 	if !p.messageStartSent {

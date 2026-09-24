@@ -1254,6 +1254,12 @@ func mergeOpenAIUsageNonZero(dst *OpenAIUsage, src OpenAIUsage) {
 	if src.ImageOutputTokens > 0 {
 		dst.ImageOutputTokens = src.ImageOutputTokens
 	}
+	if src.AudioInputTokens > 0 {
+		dst.AudioInputTokens = src.AudioInputTokens
+	}
+	if src.AudioOutputTokens > 0 {
+		dst.AudioOutputTokens = src.AudioOutputTokens
+	}
 }
 
 func openAIUsageHasTokens(usage *OpenAIUsage) bool {
@@ -1541,6 +1547,7 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 		value.Get("input_tokens_details.image_tokens"),
 		value.Get("prompt_tokens_details.image_tokens"),
 	)
+	audioInputTokens, audioOutputTokens := openAIAudioTokensFromUsage(value)
 	return OpenAIUsage{
 		InputTokens:              int(inputTokens),
 		ImageInputTokens:         imageInputTokens,
@@ -1548,7 +1555,33 @@ func openAIUsageFromGJSON(value gjson.Result) (OpenAIUsage, bool) {
 		CacheCreationInputTokens: cacheCreationTokens,
 		CacheReadInputTokens:     cacheReadTokens,
 		ImageOutputTokens:        int(imageOutputTokens),
+		AudioInputTokens:         audioInputTokens,
+		AudioOutputTokens:        audioOutputTokens,
 	}, true
+}
+
+// openAIAudioTokensFromUsage 取 usage 里计在 input / output 总数中的音频 token：
+// Chat Completions 的 prompt/completion_tokens_details.audio_tokens、Responses 的
+// input/output_tokens_details.audio_tokens、Realtime 的 input/output_token_details.audio_tokens。
+// 输入侧扣掉已命中缓存的音频（cached_tokens_details.audio_tokens，只有 Realtime 报）：缓存部分
+// 已算在缓存读取里，按缓存价计。
+func openAIAudioTokensFromUsage(value gjson.Result) (int, int) {
+	audioInput := firstPositiveGJSONInt(
+		value.Get("prompt_tokens_details.audio_tokens"),
+		value.Get("input_tokens_details.audio_tokens"),
+		value.Get("input_token_details.audio_tokens"),
+	)
+	cachedAudioInput := firstPositiveGJSONInt(
+		value.Get("prompt_tokens_details.cached_tokens_details.audio_tokens"),
+		value.Get("input_tokens_details.cached_tokens_details.audio_tokens"),
+		value.Get("input_token_details.cached_tokens_details.audio_tokens"),
+	)
+	audioOutput := firstPositiveGJSONInt(
+		value.Get("completion_tokens_details.audio_tokens"),
+		value.Get("output_tokens_details.audio_tokens"),
+		value.Get("output_token_details.audio_tokens"),
+	)
+	return max(audioInput-cachedAudioInput, 0), audioOutput
 }
 
 func openAICacheReadTokensFromUsage(value gjson.Result) int {

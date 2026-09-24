@@ -351,7 +351,6 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 	}
 
 	var deleted int64
-	var earliestDeletedAt time.Time
 	for rows.Next() {
 		var deletedAt time.Time
 		if err := rows.Scan(&deletedAt); err != nil {
@@ -359,9 +358,6 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 			return rollback(err)
 		}
 		deleted++
-		if earliestDeletedAt.IsZero() || deletedAt.Before(earliestDeletedAt) {
-			earliestDeletedAt = deletedAt
-		}
 	}
 	if err := rows.Err(); err != nil {
 		_ = rows.Close()
@@ -371,8 +367,6 @@ func (r *usageCleanupRepository) deleteUsageLogsBatchWithRollupInvalidation(ctx 
 		return rollback(err)
 	}
 
-	if deleted > 0 {
-	}
 	if err := tx.Commit(); err != nil {
 		return 0, err
 	}

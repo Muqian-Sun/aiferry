@@ -216,7 +216,7 @@ Other Gemini account/login types are not selected by the current batch image pro
 
 ## Official Google Enablement
 
-Operators must enable Gemini/Vertex capability in Google's official console before turning on Sub2API batch image for any group. Sub2API feature flags and group switches do not create Google-side access by themselves.
+Operators must enable Gemini/Vertex capability in Google's official console before turning on Sub2API batch image. Sub2API feature flags do not create Google-side access by themselves.
 
 Recommended production path:
 
@@ -225,7 +225,7 @@ Recommended production path:
 - Use a service account or Application Default Credentials for the Sub2API runtime.
 - Create one fixed Cloud Storage bucket for batch image input and output, then grant the runtime and Vertex service agent the minimum required bucket permissions.
 - Configure Sub2API with the project id, location, managed bucket, provider account, model whitelist, and pricing.
-- Enable `BATCH_IMAGE_ENABLED` globally, enable image generation on the intended Gemini group, then enable `allow_batch_image_generation` for that group. Non-Gemini groups are not eligible for batch image generation, and the admin UI only shows the batch image group switch after image generation is enabled on a Gemini group.
+- Enable `BATCH_IMAGE_ENABLED` globally. There is no per-group or per-key batch image switch any more; the backend picks a schedulable Gemini/Vertex account that supports the requested model, returning `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` when none does.
 
 API-key path:
 

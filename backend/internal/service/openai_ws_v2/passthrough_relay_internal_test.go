@@ -366,6 +366,24 @@ func TestParseUsageAndAccumulateAcceptsChatUsageAliases(t *testing.T) {
 	require.Equal(t, got, state.usage)
 }
 
+func TestParseUsageAndAccumulateParsesAudioTokens(t *testing.T) {
+	t.Parallel()
+
+	state := &relayState{}
+	got := parseUsageAndAccumulate(
+		state,
+		[]byte(`{"type":"response.done","response":{"usage":{"input_tokens":100,"output_tokens":40,`+
+			`"input_tokens_details":{"cached_tokens":10,"audio_tokens":60,"cached_tokens_details":{"audio_tokens":5}},`+
+			`"output_tokens_details":{"audio_tokens":25}}}}`),
+		"response.done",
+		nil,
+	)
+	finalizeRelayTurnUsage(state)
+	require.Equal(t, 55, got.AudioInputTokens)
+	require.Equal(t, 25, got.AudioOutputTokens)
+	require.Equal(t, got, state.usage)
+}
+
 func TestRelayUsageTerminalWithoutUsageKeepsFallback(t *testing.T) {
 	t.Parallel()
 

@@ -40,6 +40,9 @@ type ModelCatalogEntryRequest struct {
 	ImageInputPrice     *float64 `json:"image_input_price"`
 	ImageOutputPrice    *float64 `json:"image_output_price"`
 	ImageCacheReadPrice *float64 `json:"image_cache_read_price"`
+	// 音频 token 价；空 = 音频 token 按文本输入 / 输出价计。
+	AudioInputPrice  *float64 `json:"audio_input_price"`
+	AudioOutputPrice *float64 `json:"audio_output_price"`
 
 	InputPricePriority      *float64 `json:"input_price_priority"`
 	OutputPricePriority     *float64 `json:"output_price_priority"`
@@ -81,6 +84,8 @@ func (r *ModelCatalogEntryRequest) toEntry() *service.ModelCatalogEntry {
 		ImageInputPrice:     r.ImageInputPrice,
 		ImageOutputPrice:    r.ImageOutputPrice,
 		ImageCacheReadPrice: r.ImageCacheReadPrice,
+		AudioInputPrice:     r.AudioInputPrice,
+		AudioOutputPrice:    r.AudioOutputPrice,
 
 		InputPricePriority:      r.InputPricePriority,
 		OutputPricePriority:     r.OutputPricePriority,

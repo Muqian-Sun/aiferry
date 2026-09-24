@@ -216,6 +216,15 @@ func writeOpenAIResponsesInputTokensError(c *gin.Context, status int, errType, m
 	})
 }
 
+// CountTokensConversionErrorMessage 是 count_tokens 请求转换失败时给客户端的 400 消息：
+// 上游协议表达不了的内容分片报出具体原因，其余沿用通用的解析失败提示。
+func CountTokensConversionErrorMessage(err error) string {
+	if unsupported, ok := apicompat.AsUnsupportedContentError(err); ok {
+		return unsupported.Error()
+	}
+	return "Failed to parse request body"
+}
+
 // EstimateGrokCountTokens estimates an Anthropic-compatible count_tokens request
 // locally. Grok does not expose a compatible token-counting endpoint, so this
 // path deliberately avoids account selection, credentials, and upstream calls.
@@ -278,7 +287,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	if vendor := account.Vendor(); IsCNProvider(vendor) || vendor == PlatformOpenCodeGo {
 		estimated, err := estimateAnthropicCountTokensLocally(body)
 		if err != nil {
-			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+			writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", CountTokensConversionErrorMessage(err))
 			return fmt.Errorf("count_tokens: estimate cn provider input tokens: %w", err)
 		}
 		logger.L().Debug("openai count_tokens: cn provider local estimate",
@@ -293,7 +302,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 
 	prepared, err := prepareOpenAIInputTokensCountRequest(body, account)
 	if err != nil {
-		writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+		writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", CountTokensConversionErrorMessage(err))
 		return err
 	}
 

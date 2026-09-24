@@ -89,6 +89,15 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		h.chatCompletionsErrorResponse(c, http.StatusBadRequest, "invalid_request_error", "This model is not supported on the Chat Completions endpoint")
 		return
 	}
+	// 发到本端点的 Responses 形状请求体（Cursor 等：有 input、无 messages）会原样转发到 Responses
+	// 上游，image_generation 工具能带过去，与 /v1/responses 同样把关。Chat 形状的请求体在
+	// Chat→Responses 转换里只保留 function / web_search / code_execution / x_search 工具，带不过去。
+	if !gjson.GetBytes(body, "messages").Exists() && gjson.GetBytes(body, "input").Exists() {
+		body, ok = gateOpenAIImageGenerationTool(c, h.cfg, reqLog, reqModel, body, h.chatCompletionsErrorResponse)
+		if !ok {
+			return
+		}
+	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 
 	setOpsRequestContext(c, reqModel, reqStream)
@@ -382,6 +391,11 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		}
 
 		if err != nil {
+			// 上游协议表达不了的内容分片：400，不换号、不计账号健康（见 handleUnsupportedContentError）
+			if h.handleUnsupportedContentError(c, reqLog, account, err,
+				c.Writer.Size() != writerSizeBeforeForward, streamStarted || c.Writer.Written(), h.chatCompletionsErrorResponse) {
+				return
+			}
 			var failoverErr *service.UpstreamFailoverError
 			if errors.As(err, &failoverErr) {
 				if c.Writer.Size() != writerSizeBeforeForward {

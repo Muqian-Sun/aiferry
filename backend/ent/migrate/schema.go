@@ -962,6 +962,8 @@ var (
 		{Name: "image_input_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "image_output_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "image_cache_read_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "audio_input_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
+		{Name: "audio_output_price", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "input_price_priority", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "output_price_priority", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},
 		{Name: "cache_write_price_priority", Type: field.TypeFloat64, Nullable: true, SchemaType: map[string]string{"postgres": "decimal(20,12)"}},

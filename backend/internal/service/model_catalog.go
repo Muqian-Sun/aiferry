@@ -88,6 +88,9 @@ type ModelCatalogEntry struct {
 	ImageInputPrice     *float64 `json:"image_input_price"`
 	ImageOutputPrice    *float64 `json:"image_output_price"`
 	ImageCacheReadPrice *float64 `json:"image_cache_read_price"`
+	// AudioInputPrice / AudioOutputPrice 是音频 token 价；nil 时音频 token 按文本输入 / 输出价计。
+	AudioInputPrice  *float64 `json:"audio_input_price"`
+	AudioOutputPrice *float64 `json:"audio_output_price"`
 
 	InputPricePriority      *float64 `json:"input_price_priority"`
 	OutputPricePriority     *float64 `json:"output_price_priority"`
@@ -238,6 +241,7 @@ func (e *ModelCatalogEntry) HasAnyTokenPrice() bool {
 	for _, p := range []*float64{
 		e.InputPrice, e.OutputPrice, e.CacheWritePrice, e.CacheWrite1hPrice, e.CacheReadPrice,
 		e.ImageInputPrice, e.ImageOutputPrice, e.ImageCacheReadPrice,
+		e.AudioInputPrice, e.AudioOutputPrice,
 		e.InputPricePriority, e.OutputPricePriority, e.CacheWritePricePriority, e.CacheReadPricePriority,
 	} {
 		if p != nil {
@@ -306,6 +310,12 @@ func (e *ModelCatalogEntry) ApplyToModelPricing(pricing *ModelPricing) {
 	}
 	if e.ImageCacheReadPrice != nil {
 		pricing.ImageCacheReadPricePerToken = *e.ImageCacheReadPrice
+	}
+	if e.AudioInputPrice != nil {
+		pricing.AudioInputPricePerToken = *e.AudioInputPrice
+	}
+	if e.AudioOutputPrice != nil {
+		pricing.AudioOutputPricePerToken = *e.AudioOutputPrice
 	}
 
 	if e.LongContextInputThreshold != nil {
@@ -432,6 +442,8 @@ func (e *ModelCatalogEntry) Validate() error {
 		"image_input_price":          e.ImageInputPrice,
 		"image_output_price":         e.ImageOutputPrice,
 		"image_cache_read_price":     e.ImageCacheReadPrice,
+		"audio_input_price":          e.AudioInputPrice,
+		"audio_output_price":         e.AudioOutputPrice,
 		"input_price_priority":       e.InputPricePriority,
 		"output_price_priority":      e.OutputPricePriority,
 		"cache_write_price_priority": e.CacheWritePricePriority,

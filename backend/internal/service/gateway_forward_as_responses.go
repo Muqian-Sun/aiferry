@@ -39,7 +39,8 @@ func (s *GatewayService) ForwardAsResponses(
 
 	normalizedBody, normalized, err := normalizeOpenAIResponsesLegacyIngress(body)
 	if err != nil {
-		return nil, err
+		// 旧式 messages 入参经 Chat→Responses 归一：拒收的分片按实际上游（Anthropic）报错。
+		return nil, apicompat.RetargetUnsupportedContentError(err, apicompat.UpstreamProtocolNameAnthropic)
 	}
 	if normalized {
 		body = normalizedBody

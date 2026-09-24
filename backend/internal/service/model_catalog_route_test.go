@@ -238,6 +238,73 @@ func TestModelCatalogService_ReplaceBindings(t *testing.T) {
 	})
 }
 
+// 经扩展端点调用的条目只看 openai / grok 厂商；图片 / 视频计费或价格文件标成生图 / 向量的才算。
+func TestCatalogEntryServedByExtensionEndpoints(t *testing.T) {
+	cases := []struct {
+		name          string
+		entry         ModelCatalogEntry
+		priceFileMode string
+		want          bool
+	}{
+		{"openai token-priced image model", ModelCatalogEntry{ModelID: "gpt-image-2", Vendor: "openai"}, "image_generation", true},
+		{"openai embedding model", ModelCatalogEntry{ModelID: "text-embedding-3-small", Vendor: "openai"}, "embedding", true},
+		{"azure image model", ModelCatalogEntry{ModelID: "gpt-image-1", Vendor: "azure"}, "image_generation", true},
+		{"grok per-image model", ModelCatalogEntry{ModelID: "grok-imagine-image", Vendor: "xai", BillingMode: BillingModeImage}, "", true},
+		{"grok video model", ModelCatalogEntry{ModelID: "grok-imagine-video", Vendor: "xai", BillingMode: BillingModeVideo}, "", true},
+		{"openai chat model", ModelCatalogEntry{ModelID: "gpt-5.5", Vendor: "openai"}, "chat", false},
+		{"openai responses model", ModelCatalogEntry{ModelID: "gpt-5.5-pro", Vendor: "openai"}, "responses", false},
+		{"gemini image model is called via chat", ModelCatalogEntry{ModelID: "gemini-2.5-flash-image", Vendor: "gemini", BillingMode: BillingModeImage}, "image_generation", false},
+		{"no vendor", ModelCatalogEntry{ModelID: "doubao-embedding-vision"}, "embedding", false},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			require.Equal(t, tc.want, CatalogEntryServedByExtensionEndpoints(&tc.entry, tc.priceFileMode))
+		})
+	}
+}
+
+// gpt-image 绑到只配 responses 地址的 key 会通过协议校验，但 /v1/images 永远选不到它：绑定时就挡住。
+func TestModelCatalogService_ReplaceBindings_ExtensionEndpointEntries(t *testing.T) {
+	pricing := &PricingService{pricingData: map[string]*LiteLLMModelPricing{
+		"gpt-image-2": {Mode: "image_generation", LiteLLMProvider: "openai"},
+	}}
+	newService := func() (*ModelCatalogService, *stubModelCatalogRepo) {
+		repo := &stubModelCatalogRepo{entries: []ModelCatalogEntry{
+			{ID: 1, ModelID: "gpt-image-2", Vendor: "openai", Status: ModelCatalogStatusListed, InputPrice: testPtrFloat64(5e-6)},
+			{ID: 2, ModelID: "gemini-2.5-flash-image", Vendor: "gemini", BillingMode: BillingModeImage, Status: ModelCatalogStatusListed, PerRequestPrice: testPtrFloat64(0.04)},
+		}}
+		return NewModelCatalogService(repo, nil, ModelCatalogSeedInput{PricingService: pricing}), repo
+	}
+	accounts := stubCatalogBindingAccounts{
+		1: {ID: 1, Type: AccountTypeAPIKey, Platform: PlatformOpenAI, ProtocolEndpoints: map[string]string{APIProtocolResponses: "https://api.openai.com"}},
+		2: {ID: 2, Type: AccountTypeAPIKey, Platform: PlatformOpenAI, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com"}},
+		3: {ID: 3, Type: AccountTypeOAuth, Platform: PlatformOpenAI},
+		4: {ID: 4, Type: AccountTypeAPIKey, Platform: PlatformGemini, ProtocolEndpoints: map[string]string{APIProtocolGemini: "https://generativelanguage.googleapis.com"}},
+	}
+	ctx := context.Background()
+
+	t.Run("rejects a responses-only key for an image model", func(t *testing.T) {
+		svc, repo := newService()
+		err := svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 2}, {AccountID: 1}}, accounts)
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "CATALOG_BINDING_UNSERVABLE")
+		require.Contains(t, err.Error(), "chat_completions")
+		require.Equal(t, 0, repo.replaceCalls, "nothing is written when one account fails")
+	})
+
+	t.Run("accepts a chat_completions key and a subscription account", func(t *testing.T) {
+		svc, repo := newService()
+		require.NoError(t, svc.ReplaceBindings(ctx, 1, []ModelCatalogBinding{{AccountID: 2}, {AccountID: 3}}, accounts))
+		require.Equal(t, 1, repo.replaceCalls)
+	})
+
+	t.Run("gemini image models keep the plain protocol check", func(t *testing.T) {
+		svc, repo := newService()
+		require.NoError(t, svc.ReplaceBindings(ctx, 2, []ModelCatalogBinding{{AccountID: 4}}, accounts))
+		require.Equal(t, 1, repo.replaceCalls)
+	})
+}
+
 func TestSchedulingScopeID(t *testing.T) {
 	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
 	require.Equal(t, int64(7), SchedulingScopeID(routed), "catalog route scopes by entry")

@@ -23488,6 +23488,10 @@ type ModelCatalogEntryMutation struct {
 	addimage_output_price              *float64
 	image_cache_read_price             *float64
 	addimage_cache_read_price          *float64
+	audio_input_price                  *float64
+	addaudio_input_price               *float64
+	audio_output_price                 *float64
+	addaudio_output_price              *float64
 	input_price_priority               *float64
 	addinput_price_priority            *float64
 	output_price_priority              *float64
@@ -24535,6 +24539,146 @@ func (m *ModelCatalogEntryMutation) ResetImageCacheReadPrice() {
 	m.image_cache_read_price = nil
 	m.addimage_cache_read_price = nil
 	delete(m.clearedFields, modelcatalogentry.FieldImageCacheReadPrice)
+}
+
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (m *ModelCatalogEntryMutation) SetAudioInputPrice(f float64) {
+	m.audio_input_price = &f
+	m.addaudio_input_price = nil
+}
+
+// AudioInputPrice returns the value of the "audio_input_price" field in the mutation.
+func (m *ModelCatalogEntryMutation) AudioInputPrice() (r float64, exists bool) {
+	v := m.audio_input_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudioInputPrice returns the old "audio_input_price" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldAudioInputPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudioInputPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudioInputPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudioInputPrice: %w", err)
+	}
+	return oldValue.AudioInputPrice, nil
+}
+
+// AddAudioInputPrice adds f to the "audio_input_price" field.
+func (m *ModelCatalogEntryMutation) AddAudioInputPrice(f float64) {
+	if m.addaudio_input_price != nil {
+		*m.addaudio_input_price += f
+	} else {
+		m.addaudio_input_price = &f
+	}
+}
+
+// AddedAudioInputPrice returns the value that was added to the "audio_input_price" field in this mutation.
+func (m *ModelCatalogEntryMutation) AddedAudioInputPrice() (r float64, exists bool) {
+	v := m.addaudio_input_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (m *ModelCatalogEntryMutation) ClearAudioInputPrice() {
+	m.audio_input_price = nil
+	m.addaudio_input_price = nil
+	m.clearedFields[modelcatalogentry.FieldAudioInputPrice] = struct{}{}
+}
+
+// AudioInputPriceCleared returns if the "audio_input_price" field was cleared in this mutation.
+func (m *ModelCatalogEntryMutation) AudioInputPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogentry.FieldAudioInputPrice]
+	return ok
+}
+
+// ResetAudioInputPrice resets all changes to the "audio_input_price" field.
+func (m *ModelCatalogEntryMutation) ResetAudioInputPrice() {
+	m.audio_input_price = nil
+	m.addaudio_input_price = nil
+	delete(m.clearedFields, modelcatalogentry.FieldAudioInputPrice)
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (m *ModelCatalogEntryMutation) SetAudioOutputPrice(f float64) {
+	m.audio_output_price = &f
+	m.addaudio_output_price = nil
+}
+
+// AudioOutputPrice returns the value of the "audio_output_price" field in the mutation.
+func (m *ModelCatalogEntryMutation) AudioOutputPrice() (r float64, exists bool) {
+	v := m.audio_output_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// OldAudioOutputPrice returns the old "audio_output_price" field's value of the ModelCatalogEntry entity.
+// If the ModelCatalogEntry object wasn't provided to the builder, the object is fetched from the database.
+// An error is returned if the mutation operation is not UpdateOne, or the database query fails.
+func (m *ModelCatalogEntryMutation) OldAudioOutputPrice(ctx context.Context) (v *float64, err error) {
+	if !m.op.Is(OpUpdateOne) {
+		return v, errors.New("OldAudioOutputPrice is only allowed on UpdateOne operations")
+	}
+	if m.id == nil || m.oldValue == nil {
+		return v, errors.New("OldAudioOutputPrice requires an ID field in the mutation")
+	}
+	oldValue, err := m.oldValue(ctx)
+	if err != nil {
+		return v, fmt.Errorf("querying old value for OldAudioOutputPrice: %w", err)
+	}
+	return oldValue.AudioOutputPrice, nil
+}
+
+// AddAudioOutputPrice adds f to the "audio_output_price" field.
+func (m *ModelCatalogEntryMutation) AddAudioOutputPrice(f float64) {
+	if m.addaudio_output_price != nil {
+		*m.addaudio_output_price += f
+	} else {
+		m.addaudio_output_price = &f
+	}
+}
+
+// AddedAudioOutputPrice returns the value that was added to the "audio_output_price" field in this mutation.
+func (m *ModelCatalogEntryMutation) AddedAudioOutputPrice() (r float64, exists bool) {
+	v := m.addaudio_output_price
+	if v == nil {
+		return
+	}
+	return *v, true
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (m *ModelCatalogEntryMutation) ClearAudioOutputPrice() {
+	m.audio_output_price = nil
+	m.addaudio_output_price = nil
+	m.clearedFields[modelcatalogentry.FieldAudioOutputPrice] = struct{}{}
+}
+
+// AudioOutputPriceCleared returns if the "audio_output_price" field was cleared in this mutation.
+func (m *ModelCatalogEntryMutation) AudioOutputPriceCleared() bool {
+	_, ok := m.clearedFields[modelcatalogentry.FieldAudioOutputPrice]
+	return ok
+}
+
+// ResetAudioOutputPrice resets all changes to the "audio_output_price" field.
+func (m *ModelCatalogEntryMutation) ResetAudioOutputPrice() {
+	m.audio_output_price = nil
+	m.addaudio_output_price = nil
+	delete(m.clearedFields, modelcatalogentry.FieldAudioOutputPrice)
 }
 
 // SetInputPricePriority sets the "input_price_priority" field.
@@ -25604,7 +25748,7 @@ func (m *ModelCatalogEntryMutation) Type() string {
 // order to get all numeric fields that were incremented/decremented, call
 // AddedFields().
 func (m *ModelCatalogEntryMutation) Fields() []string {
-	fields := make([]string, 0, 31)
+	fields := make([]string, 0, 33)
 	if m.created_at != nil {
 		fields = append(fields, modelcatalogentry.FieldCreatedAt)
 	}
@@ -25655,6 +25799,12 @@ func (m *ModelCatalogEntryMutation) Fields() []string {
 	}
 	if m.image_cache_read_price != nil {
 		fields = append(fields, modelcatalogentry.FieldImageCacheReadPrice)
+	}
+	if m.audio_input_price != nil {
+		fields = append(fields, modelcatalogentry.FieldAudioInputPrice)
+	}
+	if m.audio_output_price != nil {
+		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
 	}
 	if m.input_price_priority != nil {
 		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
@@ -25740,6 +25890,10 @@ func (m *ModelCatalogEntryMutation) Field(name string) (ent.Value, bool) {
 		return m.ImageOutputPrice()
 	case modelcatalogentry.FieldImageCacheReadPrice:
 		return m.ImageCacheReadPrice()
+	case modelcatalogentry.FieldAudioInputPrice:
+		return m.AudioInputPrice()
+	case modelcatalogentry.FieldAudioOutputPrice:
+		return m.AudioOutputPrice()
 	case modelcatalogentry.FieldInputPricePriority:
 		return m.InputPricePriority()
 	case modelcatalogentry.FieldOutputPricePriority:
@@ -25811,6 +25965,10 @@ func (m *ModelCatalogEntryMutation) OldField(ctx context.Context, name string) (
 		return m.OldImageOutputPrice(ctx)
 	case modelcatalogentry.FieldImageCacheReadPrice:
 		return m.OldImageCacheReadPrice(ctx)
+	case modelcatalogentry.FieldAudioInputPrice:
+		return m.OldAudioInputPrice(ctx)
+	case modelcatalogentry.FieldAudioOutputPrice:
+		return m.OldAudioOutputPrice(ctx)
 	case modelcatalogentry.FieldInputPricePriority:
 		return m.OldInputPricePriority(ctx)
 	case modelcatalogentry.FieldOutputPricePriority:
@@ -25967,6 +26125,20 @@ func (m *ModelCatalogEntryMutation) SetField(name string, value ent.Value) error
 		}
 		m.SetImageCacheReadPrice(v)
 		return nil
+	case modelcatalogentry.FieldAudioInputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudioInputPrice(v)
+		return nil
+	case modelcatalogentry.FieldAudioOutputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.SetAudioOutputPrice(v)
+		return nil
 	case modelcatalogentry.FieldInputPricePriority:
 		v, ok := value.(float64)
 		if !ok {
@@ -26097,6 +26269,12 @@ func (m *ModelCatalogEntryMutation) AddedFields() []string {
 	if m.addimage_cache_read_price != nil {
 		fields = append(fields, modelcatalogentry.FieldImageCacheReadPrice)
 	}
+	if m.addaudio_input_price != nil {
+		fields = append(fields, modelcatalogentry.FieldAudioInputPrice)
+	}
+	if m.addaudio_output_price != nil {
+		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
+	}
 	if m.addinput_price_priority != nil {
 		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
 	}
@@ -26157,6 +26335,10 @@ func (m *ModelCatalogEntryMutation) AddedField(name string) (ent.Value, bool) {
 		return m.AddedImageOutputPrice()
 	case modelcatalogentry.FieldImageCacheReadPrice:
 		return m.AddedImageCacheReadPrice()
+	case modelcatalogentry.FieldAudioInputPrice:
+		return m.AddedAudioInputPrice()
+	case modelcatalogentry.FieldAudioOutputPrice:
+		return m.AddedAudioOutputPrice()
 	case modelcatalogentry.FieldInputPricePriority:
 		return m.AddedInputPricePriority()
 	case modelcatalogentry.FieldOutputPricePriority:
@@ -26245,6 +26427,20 @@ func (m *ModelCatalogEntryMutation) AddField(name string, value ent.Value) error
 			return fmt.Errorf("unexpected type %T for field %s", value, name)
 		}
 		m.AddImageCacheReadPrice(v)
+		return nil
+	case modelcatalogentry.FieldAudioInputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAudioInputPrice(v)
+		return nil
+	case modelcatalogentry.FieldAudioOutputPrice:
+		v, ok := value.(float64)
+		if !ok {
+			return fmt.Errorf("unexpected type %T for field %s", value, name)
+		}
+		m.AddAudioOutputPrice(v)
 		return nil
 	case modelcatalogentry.FieldInputPricePriority:
 		v, ok := value.(float64)
@@ -26365,6 +26561,12 @@ func (m *ModelCatalogEntryMutation) ClearedFields() []string {
 	if m.FieldCleared(modelcatalogentry.FieldImageCacheReadPrice) {
 		fields = append(fields, modelcatalogentry.FieldImageCacheReadPrice)
 	}
+	if m.FieldCleared(modelcatalogentry.FieldAudioInputPrice) {
+		fields = append(fields, modelcatalogentry.FieldAudioInputPrice)
+	}
+	if m.FieldCleared(modelcatalogentry.FieldAudioOutputPrice) {
+		fields = append(fields, modelcatalogentry.FieldAudioOutputPrice)
+	}
 	if m.FieldCleared(modelcatalogentry.FieldInputPricePriority) {
 		fields = append(fields, modelcatalogentry.FieldInputPricePriority)
 	}
@@ -26444,6 +26646,12 @@ func (m *ModelCatalogEntryMutation) ClearField(name string) error {
 		return nil
 	case modelcatalogentry.FieldImageCacheReadPrice:
 		m.ClearImageCacheReadPrice()
+		return nil
+	case modelcatalogentry.FieldAudioInputPrice:
+		m.ClearAudioInputPrice()
+		return nil
+	case modelcatalogentry.FieldAudioOutputPrice:
+		m.ClearAudioOutputPrice()
 		return nil
 	case modelcatalogentry.FieldInputPricePriority:
 		m.ClearInputPricePriority()
@@ -26542,6 +26750,12 @@ func (m *ModelCatalogEntryMutation) ResetField(name string) error {
 		return nil
 	case modelcatalogentry.FieldImageCacheReadPrice:
 		m.ResetImageCacheReadPrice()
+		return nil
+	case modelcatalogentry.FieldAudioInputPrice:
+		m.ResetAudioInputPrice()
+		return nil
+	case modelcatalogentry.FieldAudioOutputPrice:
+		m.ResetAudioOutputPrice()
 		return nil
 	case modelcatalogentry.FieldInputPricePriority:
 		m.ResetInputPricePriority()

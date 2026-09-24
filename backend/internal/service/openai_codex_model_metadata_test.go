@@ -228,7 +228,6 @@ func TestCompleteAPIKeyCodexManifestSearchCapabilityPreservesUpstreamAndFailsClo
 func TestBuildCodexModelsManifestForGroupIntersectsDifferentMappedTargetsWithoutLeakingAlias(t *testing.T) {
 	t.Parallel()
 
-	const groupID int64 = 739
 	reasoning := true
 	newAccount := func(id int64, target, displayName, description string, levels, modalities []string, contextWindow int64) Account {
 		account := Account{

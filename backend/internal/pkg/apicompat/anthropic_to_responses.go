@@ -217,7 +217,10 @@ func anthropicUserToResponses(raw json.RawMessage) ([]ResponsesInputItem, error)
 		if b.Type != "tool_result" {
 			continue
 		}
-		outputText, imageParts := convertToolResultOutput(b)
+		outputText, imageParts, err := convertToolResultOutput(b, UpstreamProtocolNameResponses)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, ResponsesInputItem{
 			Type:   "function_call_output",
 			CallID: toResponsesCallID(b.ToolUseID),
@@ -226,8 +229,8 @@ func anthropicUserToResponses(raw json.RawMessage) ([]ResponsesInputItem, error)
 		toolResultImageParts = append(toolResultImageParts, imageParts...)
 	}
 
-	// Remaining text + image blocks → user message with content parts.
-	// Also include images extracted from tool_results so the model can see them.
+	// Remaining text + image/document blocks → user message with content parts.
+	// Also include media extracted from tool_results so the model can see them.
 	var parts []ResponsesContentPart
 	for _, b := range blocks {
 		switch b.Type {
@@ -235,9 +238,13 @@ func anthropicUserToResponses(raw json.RawMessage) ([]ResponsesInputItem, error)
 			if b.Text != "" {
 				parts = append(parts, ResponsesContentPart{Type: "input_text", Text: b.Text})
 			}
-		case "image":
-			if uri := anthropicImageToDataURI(b.Source); uri != "" {
-				parts = append(parts, ResponsesContentPart{Type: "input_image", ImageURL: uri})
+		case "image", "document":
+			part, err := anthropicMediaBlockToResponsesPart(b, UpstreamProtocolNameResponses)
+			if err != nil {
+				return nil, err
+			}
+			if part != nil {
+				parts = append(parts, *part)
 			}
 		}
 	}
@@ -362,13 +369,130 @@ func anthropicImageToDataURI(src *AnthropicImageSource) string {
 	return "data:" + mediaType + ";base64," + src.Data
 }
 
-// convertToolResultOutput extracts text and image content from a tool_result
+// anthropicMediaBlockToResponsesPart maps an Anthropic image / document block
+// onto a Responses input part. upstream names the protocol the request is
+// finally served over and only feeds error messages.
+//
+//   - image: base64 → input_image data URI (historical handling: missing data is
+//     dropped); url → input_image with the URL; file (Anthropic Files API) →
+//     rejected.
+//   - document: base64 PDF → input_file{filename, file_data}; url →
+//     input_file{file_url} (rejected when the final upstream is Chat
+//     Completions, which has no URL file part); text / text-only content →
+//     input_text; file and non-PDF base64 → rejected.
+//
+// A nil part with a nil error means there is nothing to forward.
+func anthropicMediaBlockToResponsesPart(b AnthropicContentBlock, upstream string) (*ResponsesContentPart, error) {
+	src := b.Source
+	switch b.Type {
+	case "image":
+		if src == nil {
+			return nil, nil
+		}
+		switch src.Type {
+		case "url":
+			imageURL := strings.TrimSpace(src.URL)
+			if imageURL == "" {
+				return nil, nil
+			}
+			return &ResponsesContentPart{Type: "input_image", ImageURL: imageURL}, nil
+		case "file":
+			return nil, newUnsupportedContentError("image with an Anthropic file_id source", upstream, HintFileIDNotPortable)
+		default:
+			if uri := anthropicImageToDataURI(src); uri != "" {
+				return &ResponsesContentPart{Type: "input_image", ImageURL: uri}, nil
+			}
+			return nil, nil
+		}
+	case "document":
+		if src == nil {
+			return nil, nil
+		}
+		switch src.Type {
+		case "base64":
+			if src.Data == "" {
+				return nil, nil
+			}
+			mediaType := NormalizeMediaType(src.MediaType)
+			if mediaType != "" && mediaType != MediaTypePDF {
+				return nil, newUnsupportedContentError(DescribeFileMediaType("document", mediaType), upstream, HintPDFOnly)
+			}
+			filename := strings.TrimSpace(b.Title)
+			if filename == "" {
+				filename = defaultDocumentFilename
+			}
+			return &ResponsesContentPart{Type: "input_file", Filename: filename, FileData: base64DataURI(MediaTypePDF, src.Data)}, nil
+		case "url":
+			fileURL := strings.TrimSpace(src.URL)
+			if fileURL == "" {
+				return nil, nil
+			}
+			if upstream == UpstreamProtocolNameChatCompletions {
+				// Chat 的 file 分片只收内联 file_data / file_id，没有 URL 形态；在这里按 Anthropic
+				// 的块名报错，而不是等中转后报网关内部的 file_url 措辞。
+				return nil, newUnsupportedContentError("document with a URL source", upstream, HintInlineBase64)
+			}
+			return &ResponsesContentPart{Type: "input_file", FileURL: fileURL}, nil
+		case "text":
+			if src.Data == "" {
+				return nil, nil
+			}
+			return &ResponsesContentPart{Type: "input_text", Text: src.Data}, nil
+		case "content":
+			text, ok := AnthropicDocumentContentText(src.Content)
+			if !ok {
+				return nil, newUnsupportedContentError("document with a non-text content source", upstream, "")
+			}
+			if text == "" {
+				return nil, nil
+			}
+			return &ResponsesContentPart{Type: "input_text", Text: text}, nil
+		case "file":
+			return nil, newUnsupportedContentError("document with an Anthropic file_id source", upstream, HintFileIDNotPortable)
+		default:
+			return nil, newUnsupportedContentError(fmt.Sprintf("document with source type %q", src.Type), upstream, "")
+		}
+	default:
+		return nil, nil
+	}
+}
+
+// AnthropicDocumentContentText flattens a document "content" source (a string
+// or a list of text blocks). ok=false when the content carries anything other
+// than text.
+func AnthropicDocumentContentText(raw json.RawMessage) (string, bool) {
+	if len(raw) == 0 {
+		return "", true
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err == nil {
+		return s, true
+	}
+	var blocks []AnthropicContentBlock
+	if err := json.Unmarshal(raw, &blocks); err != nil {
+		return "", false
+	}
+	texts := make([]string, 0, len(blocks))
+	for _, block := range blocks {
+		if block.Type != "text" {
+			return "", false
+		}
+		if block.Text != "" {
+			texts = append(texts, block.Text)
+		}
+	}
+	return strings.Join(texts, "\n\n"), true
+}
+
+// convertToolResultOutput extracts text and media content from a tool_result
 // block. Returns the text as a string for the function_call_output Output
-// field, plus any image parts that must be sent in a separate user message
-// (the Responses API output field only accepts strings).
-func convertToolResultOutput(b AnthropicContentBlock) (string, []ResponsesContentPart) {
+// field, plus any media parts (images, PDF files) that must be sent in a
+// separate user message (the Responses API output field only accepts strings).
+// Plain-text documents fold into the output text. upstream names the protocol
+// the request is finally served over (error messages only).
+func convertToolResultOutput(b AnthropicContentBlock, upstream string) (string, []ResponsesContentPart, error) {
 	if len(b.Content) == 0 {
-		return "(empty)", nil
+		return "(empty)", nil, nil
 	}
 
 	// Try plain string content.
@@ -377,27 +501,35 @@ func convertToolResultOutput(b AnthropicContentBlock) (string, []ResponsesConten
 		if s == "" {
 			s = "(empty)"
 		}
-		return s, nil
+		return s, nil, nil
 	}
 
-	// Array of content blocks — may contain text and/or images.
+	// Array of content blocks — may contain text, images and documents.
 	var inner []AnthropicContentBlock
 	if err := json.Unmarshal(b.Content, &inner); err != nil {
-		return "(empty)", nil
+		return "(empty)", nil, nil
 	}
 
-	// Separate text (for function_call_output) from images (for user message).
+	// Separate text (for function_call_output) from media (for user message).
 	var textParts []string
-	var imageParts []ResponsesContentPart
+	var mediaParts []ResponsesContentPart
 	for _, ib := range inner {
 		switch ib.Type {
 		case "text":
 			if ib.Text != "" {
 				textParts = append(textParts, ib.Text)
 			}
-		case "image":
-			if uri := anthropicImageToDataURI(ib.Source); uri != "" {
-				imageParts = append(imageParts, ResponsesContentPart{Type: "input_image", ImageURL: uri})
+		case "image", "document":
+			part, err := anthropicMediaBlockToResponsesPart(ib, upstream)
+			if err != nil {
+				return "", nil, err
+			}
+			switch {
+			case part == nil:
+			case part.Type == "input_text":
+				textParts = append(textParts, part.Text)
+			default:
+				mediaParts = append(mediaParts, *part)
 			}
 		}
 	}
@@ -406,7 +538,7 @@ func convertToolResultOutput(b AnthropicContentBlock) (string, []ResponsesConten
 	if text == "" {
 		text = "(empty)"
 	}
-	return text, imageParts
+	return text, mediaParts, nil
 }
 
 // extractAnthropicTextFromBlocks joins all text blocks, ignoring thinking/

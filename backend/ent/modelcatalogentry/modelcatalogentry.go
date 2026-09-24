@@ -48,6 +48,10 @@ const (
 	FieldImageOutputPrice = "image_output_price"
 	// FieldImageCacheReadPrice holds the string denoting the image_cache_read_price field in the database.
 	FieldImageCacheReadPrice = "image_cache_read_price"
+	// FieldAudioInputPrice holds the string denoting the audio_input_price field in the database.
+	FieldAudioInputPrice = "audio_input_price"
+	// FieldAudioOutputPrice holds the string denoting the audio_output_price field in the database.
+	FieldAudioOutputPrice = "audio_output_price"
 	// FieldInputPricePriority holds the string denoting the input_price_priority field in the database.
 	FieldInputPricePriority = "input_price_priority"
 	// FieldOutputPricePriority holds the string denoting the output_price_priority field in the database.
@@ -132,6 +136,8 @@ var Columns = []string{
 	FieldImageInputPrice,
 	FieldImageOutputPrice,
 	FieldImageCacheReadPrice,
+	FieldAudioInputPrice,
+	FieldAudioOutputPrice,
 	FieldInputPricePriority,
 	FieldOutputPricePriority,
 	FieldCacheWritePricePriority,
@@ -286,6 +292,16 @@ func ByImageOutputPrice(opts ...sql.OrderTermOption) OrderOption {
 // ByImageCacheReadPrice orders the results by the image_cache_read_price field.
 func ByImageCacheReadPrice(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldImageCacheReadPrice, opts...).ToFunc()
+}
+
+// ByAudioInputPrice orders the results by the audio_input_price field.
+func ByAudioInputPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioInputPrice, opts...).ToFunc()
+}
+
+// ByAudioOutputPrice orders the results by the audio_output_price field.
+func ByAudioOutputPrice(opts ...sql.OrderTermOption) OrderOption {
+	return sql.OrderByField(FieldAudioOutputPrice, opts...).ToFunc()
 }
 
 // ByInputPricePriority orders the results by the input_price_priority field.

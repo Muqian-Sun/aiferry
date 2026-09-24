@@ -30,6 +30,9 @@ type Usage struct {
 	CacheCreationInputTokens int
 	CacheReadInputTokens     int
 	ImageOutputTokens        int
+	// AudioInputTokens / AudioOutputTokens 是 InputTokens / OutputTokens 中的音频部分（输入侧已扣缓存音频）。
+	AudioInputTokens  int
+	AudioOutputTokens int
 }
 
 type RelayResult struct {
@@ -1145,6 +1148,8 @@ func parseUsageAndAccumulate(
 		CacheCreationInputTokens: openAICacheCreationTokensFromUsage(usageResult),
 		CacheReadInputTokens:     cachedTokens,
 		ImageOutputTokens:        int(imageTokens),
+		AudioInputTokens:         relayAudioInputTokens(usageResult),
+		AudioOutputTokens:        relayAudioOutputTokens(usageResult),
 	}
 
 	if isTerminalEvent(strings.TrimSpace(eventType)) {
@@ -1183,6 +1188,46 @@ func mergeRelayUsageNonZero(dst *Usage, src Usage) {
 	if src.ImageOutputTokens > 0 {
 		dst.ImageOutputTokens = src.ImageOutputTokens
 	}
+	if src.AudioInputTokens > 0 {
+		dst.AudioInputTokens = src.AudioInputTokens
+	}
+	if src.AudioOutputTokens > 0 {
+		dst.AudioOutputTokens = src.AudioOutputTokens
+	}
+}
+
+// relayAudioInputTokens 取计在 input 总数里的音频 token，扣掉已命中缓存的音频（与
+// service.openAIAudioTokensFromUsage 同口径）。
+func relayAudioInputTokens(usage gjson.Result) int {
+	audio := firstPositiveUsageInt(
+		usage.Get("input_tokens_details.audio_tokens"),
+		usage.Get("prompt_tokens_details.audio_tokens"),
+		usage.Get("input_token_details.audio_tokens"),
+	)
+	cached := firstPositiveUsageInt(
+		usage.Get("input_tokens_details.cached_tokens_details.audio_tokens"),
+		usage.Get("prompt_tokens_details.cached_tokens_details.audio_tokens"),
+		usage.Get("input_token_details.cached_tokens_details.audio_tokens"),
+	)
+	return max(audio-cached, 0)
+}
+
+// relayAudioOutputTokens 取计在 output 总数里的音频 token。
+func relayAudioOutputTokens(usage gjson.Result) int {
+	return firstPositiveUsageInt(
+		usage.Get("output_tokens_details.audio_tokens"),
+		usage.Get("completion_tokens_details.audio_tokens"),
+		usage.Get("output_token_details.audio_tokens"),
+	)
+}
+
+func firstPositiveUsageInt(values ...gjson.Result) int {
+	for _, value := range values {
+		if n := int(value.Int()); n > 0 {
+			return n
+		}
+	}
+	return 0
 }
 
 func finalizeRelayTurnUsage(state *relayState) Usage {
@@ -1195,6 +1240,8 @@ func finalizeRelayTurnUsage(state *relayState) Usage {
 	state.usage.CacheCreationInputTokens += turnUsage.CacheCreationInputTokens
 	state.usage.CacheReadInputTokens += turnUsage.CacheReadInputTokens
 	state.usage.ImageOutputTokens += turnUsage.ImageOutputTokens
+	state.usage.AudioInputTokens += turnUsage.AudioInputTokens
+	state.usage.AudioOutputTokens += turnUsage.AudioOutputTokens
 	state.turnUsage = Usage{}
 	return turnUsage
 }

@@ -12,6 +12,10 @@ import (
 
 // --- validateWebSearchConfig ---
 
+// int64Ptr 只有 unit 标签的用例（本文件与 channel_monitor_quota_mode_test.go）用；
+// 放在无标签的测试文件里会被默认标签下的 lint 判成未使用。
+func int64Ptr(v int64) *int64 { return &v }
+
 func TestValidateWebSearchConfig_Nil(t *testing.T) {
 	require.NoError(t, validateWebSearchConfig(nil))
 }

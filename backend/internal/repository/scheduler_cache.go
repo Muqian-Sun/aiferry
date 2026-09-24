@@ -34,10 +34,6 @@ const (
 	snapshotGraceTTLSeconds = 60
 )
 
-const (
-	schedulerGroupLifecycleOwnerTokenBytes = 16
-)
-
 var updateSchedulerLastUsedScript = redis.NewScript(`
 local updated = 0
 for index = 1, #ARGV do

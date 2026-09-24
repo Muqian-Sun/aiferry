@@ -113,6 +113,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
+	// 生图未开放：带 image_generation 工具的语言模型请求在选号前处理（Codex 官方客户端剥掉工具，
+	// 其余客户端 400），不打上游、不算账号失败。
+	body, ok = gateOpenAIImageGenerationTool(c, h.cfg, reqLog, reqModel, body, h.responsesErrorResponse)
+	if !ok {
+		return
+	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	// previous_response_id：只认 resp_*，且必须是本用户的续链
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())
@@ -486,6 +492,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 			if (oaResult != nil && oaResult.ClientDisconnect) || failoverClientGone(c) {
 				reqLog.Info("gateway.responses.client_disconnected", zap.Int64("account_id", account.ID), zap.Error(err))
 				submitAttemptUsage()
+				return
+			}
+			// 上游协议表达不了的内容分片：400，不换号、不计账号健康（见 handleUnsupportedContentError）。
+			// 口径与 failover 判定相同：扣除 compact 心跳字节；心跳提交的 200 由 responsesErrorResponse 降级处理。
+			if h.handleUnsupportedContentError(c, reqLog, account, err,
+				service.OpenAICompactKeepaliveAdjustedWrittenSize(c) != writerSizeBeforeForward, streamStarted, h.responsesErrorResponse) {
 				return
 			}
 			var failoverErr *service.UpstreamFailoverError

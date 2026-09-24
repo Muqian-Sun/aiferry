@@ -67,8 +67,10 @@ type AnthropicContentBlock struct {
 	// so multi-turn Claude clients can round-trip it back on subsequent turns.
 	Signature string `json:"signature,omitempty"`
 
-	// type=image
+	// type=image / type=document
 	Source *AnthropicImageSource `json:"source,omitempty"`
+	// type=document 的标题（OpenAI file 分片的 filename 与之互转）。
+	Title string `json:"title,omitempty"`
 
 	// type=tool_use
 	ID    string          `json:"id,omitempty"`
@@ -103,11 +105,50 @@ func (b AnthropicContentBlock) MarshalJSON() ([]byte, error) {
 	}
 }
 
-// AnthropicImageSource describes the source data for an image content block.
+// AnthropicImageSource describes the source of an image or document content
+// block. Type selects which fields are meaningful:
+//
+//	base64  → media_type + data (image, or PDF document)
+//	text    → media_type ("text/plain") + data (plain-text document)
+//	url     → url (image, or PDF document)
+//	file    → file_id (Anthropic Files API)
+//	content → content (document made of content blocks)
 type AnthropicImageSource struct {
-	Type      string `json:"type"` // "base64"
-	MediaType string `json:"media_type"`
-	Data      string `json:"data"`
+	Type      string          `json:"type"`
+	MediaType string          `json:"media_type"`
+	Data      string          `json:"data"`
+	URL       string          `json:"url,omitempty"`
+	FileID    string          `json:"file_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
+}
+
+// MarshalJSON emits only the fields that belong to the source type: Anthropic
+// rejects a url source that carries stray media_type/data keys. base64/text
+// sources keep the historical byte-identical {type, media_type, data} shape.
+func (s AnthropicImageSource) MarshalJSON() ([]byte, error) {
+	switch s.Type {
+	case "url":
+		return json.Marshal(struct {
+			Type string `json:"type"`
+			URL  string `json:"url"`
+		}{Type: s.Type, URL: s.URL})
+	case "file":
+		return json.Marshal(struct {
+			Type   string `json:"type"`
+			FileID string `json:"file_id"`
+		}{Type: s.Type, FileID: s.FileID})
+	case "content":
+		return json.Marshal(struct {
+			Type    string          `json:"type"`
+			Content json.RawMessage `json:"content,omitempty"`
+		}{Type: s.Type, Content: s.Content})
+	default:
+		return json.Marshal(struct {
+			Type      string `json:"type"`
+			MediaType string `json:"media_type"`
+			Data      string `json:"data"`
+		}{Type: s.Type, MediaType: s.MediaType, Data: s.Data})
+	}
 }
 
 // AnthropicTool describes a tool available to the model.
@@ -311,12 +352,14 @@ func (i *ResponsesInputItem) UnmarshalJSON(data []byte) error {
 type ResponsesContentPart struct {
 	Type     string `json:"type"` // "input_text" | "output_text" | "input_image" | "input_file"
 	Text     string `json:"text,omitempty"`
-	ImageURL string `json:"image_url,omitempty"` // data URI for input_image
+	ImageURL string `json:"image_url,omitempty"` // data URI or http(s) URL for input_image
+	Detail   string `json:"detail,omitempty"`    // input_image: "auto" | "low" | "high"
 
-	// input_file fields.
+	// input_file fields (input_image also accepts file_id).
 	Filename string `json:"filename,omitempty"`
 	FileData string `json:"file_data,omitempty"` // data URI
 	FileID   string `json:"file_id,omitempty"`
+	FileURL  string `json:"file_url,omitempty"`
 }
 
 // ResponsesTool describes a tool in the Responses API.
@@ -698,10 +741,17 @@ type ChatMessage struct {
 
 // ChatContentPart is a typed content part in a multi-modal message.
 type ChatContentPart struct {
-	Type     string        `json:"type"` // "text" | "image_url" | "file"
-	Text     string        `json:"text,omitempty"`
-	ImageURL *ChatImageURL `json:"image_url,omitempty"`
-	File     *ChatFile     `json:"file,omitempty"`
+	Type       string          `json:"type"` // "text" | "image_url" | "file" | "input_audio"
+	Text       string          `json:"text,omitempty"`
+	ImageURL   *ChatImageURL   `json:"image_url,omitempty"`
+	File       *ChatFile       `json:"file,omitempty"`
+	InputAudio *ChatInputAudio `json:"input_audio,omitempty"`
+}
+
+// ChatInputAudio is the payload of an "input_audio" content part.
+type ChatInputAudio struct {
+	Data   string `json:"data"`   // base64 audio
+	Format string `json:"format"` // "wav" | "mp3"
 }
 
 // ChatImageURL contains the URL for an image content part.

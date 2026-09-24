@@ -282,26 +282,6 @@ func (s *adminServiceImpl) UpdateUser(ctx context.Context, id int64, input *Upda
 	return user, nil
 }
 
-func sameInt64Set(a, b []int64) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	if len(a) == 0 {
-		return true
-	}
-	counts := make(map[int64]int, len(a))
-	for _, v := range a {
-		counts[v]++
-	}
-	for _, v := range b {
-		if counts[v] == 0 {
-			return false
-		}
-		counts[v]--
-	}
-	return true
-}
-
 func (s *adminServiceImpl) DeleteUser(ctx context.Context, id int64) error {
 	// Protect admin users: cannot delete admin accounts
 	user, err := s.userRepo.GetByID(ctx, id)

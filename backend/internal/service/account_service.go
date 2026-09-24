@@ -191,10 +191,6 @@ type AccountService struct {
 	accountRepo AccountRepository
 }
 
-type groupExistenceBatchChecker interface {
-	ExistsByIDs(ctx context.Context, ids []int64) (map[int64]bool, error)
-}
-
 // NewAccountService 创建账号服务实例
 func NewAccountService(accountRepo AccountRepository) *AccountService {
 	return &AccountService{

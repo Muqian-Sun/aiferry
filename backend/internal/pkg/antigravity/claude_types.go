@@ -82,15 +82,18 @@ type ContentBlock struct {
 	ToolUseID string          `json:"tool_use_id,omitempty"`
 	Content   json.RawMessage `json:"content,omitempty"`
 	IsError   bool            `json:"is_error,omitempty"`
-	// image
+	// image / document
 	Source *ImageSource `json:"source,omitempty"`
 }
 
-// ImageSource Claude 图片来源
+// ImageSource Claude 图片 / 文档来源
 type ImageSource struct {
-	Type      string `json:"type"`       // "base64"
-	MediaType string `json:"media_type"` // "image/png", "image/jpeg" 等
-	Data      string `json:"data"`
+	Type      string          `json:"type"`       // "base64" | "url" | "text" | "file" | "content"
+	MediaType string          `json:"media_type"` // "image/png", "image/jpeg", "application/pdf" 等
+	Data      string          `json:"data"`
+	URL       string          `json:"url,omitempty"`
+	FileID    string          `json:"file_id,omitempty"`
+	Content   json.RawMessage `json:"content,omitempty"`
 }
 
 // ClaudeResponse Claude Messages API 响应
@@ -129,6 +132,10 @@ type ClaudeUsage struct {
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
 	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	// AudioInputTokens / AudioOutputTokens 只供计费（Gemini 的 AUDIO 模态，含在输入 / 输出总数里），
+	// 不属于 Claude 协议的 usage，不输出给客户端。
+	AudioInputTokens  int `json:"-"`
+	AudioOutputTokens int `json:"-"`
 }
 
 // ClaudeError Claude 错误响应
