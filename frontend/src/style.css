@@ -500,10 +500,6 @@
     @apply bg-af-sunken text-af-ink-2;
   }
 
-  .badge-purple {
-    @apply bg-af-chart-5/15 text-af-chart-5;
-  }
-
   /* ============ 下拉菜单 ============ */
   .dropdown {
     @apply absolute z-50;

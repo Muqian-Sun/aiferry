@@ -9,19 +9,19 @@
       <!-- Account Info Card -->
       <div
         v-if="account"
-        class="flex items-center justify-between rounded-xl border border-gray-200 bg-gradient-to-r from-gray-50 to-gray-100 p-3 dark:border-dark-500 dark:from-dark-700 dark:to-dark-600"
+        class="flex items-center justify-between rounded-xl border border-af-hairline bg-af-sunken p-3"
       >
         <div class="flex items-center gap-3">
           <div
-            class="flex h-10 w-10 items-center justify-center rounded-lg bg-gradient-to-br from-primary-500 to-primary-600"
+            class="flex h-10 w-10 items-center justify-center rounded-lg bg-af-ink"
           >
-            <Icon name="play" size="md" class="text-white" :stroke-width="2" />
+            <Icon name="play" size="md" class="text-af-on-brand" :stroke-width="2" />
           </div>
           <div>
-            <div class="font-semibold text-gray-900 dark:text-gray-100">{{ account.name }}</div>
-            <div class="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+            <div class="font-semibold text-af-ink">{{ account.name }}</div>
+            <div class="flex items-center gap-1.5 text-xs text-af-ink-3">
               <span
-                class="rounded bg-gray-200 px-1.5 py-0.5 text-[10px] font-medium uppercase dark:bg-dark-500"
+                class="rounded bg-af-hairline px-1.5 py-0.5 text-[10px] font-medium uppercase"
               >
                 {{ account.type }}
               </span>
@@ -33,8 +33,8 @@
           :class="[
             'rounded-full px-2.5 py-1 text-xs font-semibold',
             account.status === 'active'
-              ? 'bg-green-100 text-green-700 dark:bg-green-500/20 dark:text-green-400'
-              : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
+              ? 'bg-af-success-tint text-af-success'
+              : 'bg-af-sunken text-af-ink-2'
           ]"
         >
           {{ account.status }}
@@ -43,7 +43,7 @@
 
       <!-- Grok: mode first, then optional model / mode params -->
       <div v-if="isGrokAccount" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="text-sm font-medium text-af-ink-2">
           {{ t('admin.accounts.grok.testMode') }}
         </label>
         <Select
@@ -51,13 +51,13 @@
           :options="grokTestModeOptions"
           :disabled="status === 'connecting'"
         />
-        <p class="text-xs text-gray-500 dark:text-gray-400">
+        <p class="text-xs text-af-ink-3">
           {{ t('admin.accounts.grok.testModeHint') }}
         </p>
       </div>
 
       <div v-if="showModelSelect" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="text-sm font-medium text-af-ink-2">
           {{ t('admin.accounts.selectTestModel') }}
         </label>
         <Select
@@ -71,7 +71,7 @@
       </div>
 
       <div v-if="isOpenAIAccount" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="text-sm font-medium text-af-ink-2">
           {{ t('admin.accounts.openai.testMode') }}
         </label>
         <Select
@@ -93,14 +93,14 @@
       </div>
       <p
         v-else-if="isGrokAccount && promptInputHint"
-        class="text-xs text-gray-500 dark:text-gray-400"
+        class="text-xs text-af-ink-3"
       >
         {{ promptInputHint }}
       </p>
 
       <!-- Optional media uploads for real generation / transcription -->
       <div v-if="supportsImageUpload" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="text-sm font-medium text-af-ink-2">
           {{ imageUploadLabel }}
         </label>
         <div class="flex items-center gap-3">
@@ -112,7 +112,7 @@
           >
             {{ t('admin.accounts.grok.chooseImageFile') }}
           </button>
-          <span class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
+          <span class="min-w-0 truncate text-xs text-af-ink-3">
             {{
               uploadImageName
                 ? t('common.selectedFile', { name: uploadImageName })
@@ -128,18 +128,18 @@
             @change="onImageFileChange"
           />
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ imageUploadHint }}</p>
-        <div v-if="uploadImagePreview" class="overflow-hidden rounded-lg border border-gray-200 dark:border-dark-500">
+        <p class="text-xs text-af-ink-3">{{ imageUploadHint }}</p>
+        <div v-if="uploadImagePreview" class="overflow-hidden rounded-lg border border-af-hairline">
           <img
             :src="uploadImagePreview"
             :alt="t('admin.accounts.grok.uploadPreviewAlt')"
-            class="max-h-40 w-full object-contain bg-gray-50 dark:bg-dark-700"
+            class="max-h-40 w-full object-contain bg-af-sunken"
           />
         </div>
       </div>
 
       <div v-if="supportsAudioUpload" class="space-y-1.5">
-        <label class="text-sm font-medium text-gray-700 dark:text-gray-300">
+        <label class="text-sm font-medium text-af-ink-2">
           {{ t('admin.accounts.grok.audioUploadLabel') }}
         </label>
         <div class="flex items-center gap-3">
@@ -151,7 +151,7 @@
           >
             {{ t('admin.accounts.grok.chooseAudioFile') }}
           </button>
-          <span class="min-w-0 truncate text-xs text-gray-500 dark:text-gray-400">
+          <span class="min-w-0 truncate text-xs text-af-ink-3">
             {{
               uploadAudioName
                 ? t('common.selectedFile', { name: uploadAudioName })
@@ -167,21 +167,21 @@
             @change="onAudioFileChange"
           />
         </div>
-        <p class="text-xs text-gray-500 dark:text-gray-400">{{ t('admin.accounts.grok.audioUploadHint') }}</p>
+        <p class="text-xs text-af-ink-3">{{ t('admin.accounts.grok.audioUploadHint') }}</p>
       </div>
 
       <!-- Terminal Output -->
       <div class="group relative">
         <div
           ref="terminalRef"
-          class="max-h-[240px] min-h-[120px] overflow-y-auto rounded-xl border border-gray-700 bg-gray-900 p-4 font-mono text-sm dark:border-gray-800 dark:bg-black"
+          class="max-h-[240px] min-h-[120px] overflow-y-auto rounded-xl border border-af-ink-3 bg-af-ink p-4 font-mono text-sm"
         >
           <!-- Status Line -->
-          <div v-if="status === 'idle'" class="flex items-center gap-2 text-gray-500">
+          <div v-if="status === 'idle'" class="flex items-center gap-2 text-af-ink-3">
             <Icon name="play" size="sm" :stroke-width="2" />
             <span>{{ t('admin.accounts.readyToTest') }}</span>
           </div>
-          <div v-else-if="status === 'connecting'" class="flex items-center gap-2 text-yellow-400">
+          <div v-else-if="status === 'connecting'" class="flex items-center gap-2 text-af-warning">
             <Icon name="refresh" size="sm" class="animate-spin" :stroke-width="2" />
             <span>{{ t('admin.accounts.connectingToApi') }}</span>
           </div>
@@ -192,21 +192,21 @@
           </div>
 
           <!-- Streaming Content -->
-          <div v-if="streamingContent" class="text-green-400">
+          <div v-if="streamingContent" class="text-af-success">
             {{ streamingContent }}<span class="animate-pulse">_</span>
           </div>
 
           <!-- Result Status -->
           <div
             v-if="status === 'success'"
-            class="mt-3 flex items-center gap-2 border-t border-gray-700 pt-3 text-green-400"
+            class="mt-3 flex items-center gap-2 border-t border-af-ink-3 pt-3 text-af-success"
           >
             <Icon name="check" size="sm" :stroke-width="2" />
             <span>{{ t('admin.accounts.testCompleted') }}</span>
           </div>
           <div
             v-else-if="status === 'error'"
-            class="mt-3 flex items-center gap-2 border-t border-gray-700 pt-3 text-red-400"
+            class="mt-3 flex items-center gap-2 border-t border-af-ink-3 pt-3 text-af-danger"
           >
             <Icon name="x" size="sm" :stroke-width="2" />
             <span>{{ errorMessage }}</span>
@@ -217,7 +217,7 @@
         <button
           v-if="outputLines.length > 0"
           @click="copyOutput"
-          class="absolute right-2 top-2 rounded-lg bg-gray-800/80 p-1.5 text-gray-400 opacity-0 transition-all hover:bg-gray-700 hover:text-white group-hover:opacity-100"
+          class="absolute right-2 top-2 rounded-lg bg-af-ink/80 p-1.5 text-af-ink-3 opacity-0 transition-all hover:bg-af-ink-2 hover:text-af-on-brand group-hover:opacity-100"
           :title="t('admin.accounts.copyOutput')"
         >
           <Icon name="link" size="sm" :stroke-width="2" />
@@ -225,14 +225,14 @@
       </div>
 
       <div v-if="generatedImages.length > 0" class="space-y-2">
-        <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+        <div class="text-xs font-medium text-af-ink-2">
           {{ t('admin.accounts.imagePreview') }}
         </div>
         <div class="flex flex-wrap justify-center gap-3">
           <div
             v-for="(image, index) in generatedImages"
             :key="`${image.url}-${index}`"
-            class="group/img relative cursor-pointer overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm transition hover:border-primary-300 hover:shadow-md dark:border-dark-500 dark:bg-dark-700"
+            class="group/img relative cursor-pointer overflow-hidden rounded-xl border border-af-hairline bg-af-sheet transition hover:border-af-hairline-strong hover:shadow-md"
             @click="previewImageUrl = image.url"
           >
             <img
@@ -241,9 +241,9 @@
               class="max-h-[360px] w-full object-contain"
             />
             <div class="absolute inset-0 flex items-center justify-center bg-black/0 transition-colors group-hover/img:bg-black/20">
-              <Icon name="eye" size="lg" class="text-white opacity-0 drop-shadow-lg transition-opacity group-hover/img:opacity-100" :stroke-width="2" />
+              <Icon name="eye" size="lg" class="text-af-on-brand opacity-0 drop-shadow-lg transition-opacity group-hover/img:opacity-100" :stroke-width="2" />
             </div>
-            <div class="border-t border-gray-100 px-3 py-1.5 text-xs text-gray-500 dark:border-dark-500 dark:text-gray-300">
+            <div class="border-t border-af-hairline px-3 py-1.5 text-xs text-af-ink-3">
               {{ image.mimeType || 'image/*' }}
             </div>
           </div>
@@ -251,30 +251,30 @@
       </div>
 
       <div v-if="generatedAudios.length > 0" class="space-y-2">
-        <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+        <div class="text-xs font-medium text-af-ink-2">
           {{ t('admin.accounts.audioPreview') }}
         </div>
         <div
           v-for="(audio, index) in generatedAudios"
           :key="`audio-${index}`"
-          class="rounded-xl border border-gray-200 bg-white p-3 dark:border-dark-500 dark:bg-dark-700"
+          class="rounded-xl border border-af-hairline bg-af-sheet p-3"
         >
           <audio :src="audio.url" controls class="w-full" :type="audio.mimeType" />
-          <div class="mt-1 text-xs text-gray-500 dark:text-gray-300">{{ audio.mimeType || 'audio/*' }}</div>
+          <div class="mt-1 text-xs text-af-ink-3">{{ audio.mimeType || 'audio/*' }}</div>
         </div>
       </div>
 
       <div v-if="generatedVideos.length > 0" class="space-y-2">
-        <div class="text-xs font-medium text-gray-600 dark:text-gray-300">
+        <div class="text-xs font-medium text-af-ink-2">
           {{ t('admin.accounts.videoPreview') }}
         </div>
         <div
           v-for="(video, index) in generatedVideos"
           :key="`video-${index}`"
-          class="overflow-hidden rounded-xl border border-gray-200 bg-black dark:border-dark-500"
+          class="overflow-hidden rounded-xl border border-af-hairline bg-black"
         >
           <video :src="video.url" controls class="max-h-[360px] w-full" :type="video.mimeType" />
-          <div class="border-t border-gray-100 bg-white px-3 py-1.5 text-xs text-gray-500 dark:border-dark-500 dark:bg-dark-700 dark:text-gray-300">
+          <div class="border-t border-af-hairline bg-af-sheet px-3 py-1.5 text-xs text-af-ink-3">
             {{ video.mimeType || 'video/*' }}
           </div>
         </div>
@@ -289,7 +289,7 @@
             @click.self="previewImageUrl = ''"
           >
             <button
-              class="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-white transition-colors hover:bg-black/70"
+              class="absolute right-4 top-4 rounded-full bg-black/50 p-2 text-af-on-brand transition-colors hover:bg-black/70"
               @click="previewImageUrl = ''"
             >
               <Icon name="x" size="lg" :stroke-width="2" />
@@ -304,7 +304,7 @@
       </Teleport>
 
       <!-- Test Info -->
-      <div class="flex items-center justify-between px-1 text-xs text-gray-500 dark:text-gray-400">
+      <div class="flex items-center justify-between px-1 text-xs text-af-ink-3">
         <div class="flex items-center gap-3">
           <span class="flex items-center gap-1">
             <Icon name="grid" size="sm" :stroke-width="2" />
@@ -322,7 +322,7 @@
       <div class="flex justify-end gap-3">
         <button
           @click="handleClose"
-          class="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 transition-colors hover:bg-gray-200 dark:bg-dark-600 dark:text-gray-300 dark:hover:bg-dark-500"
+          class="rounded-lg bg-af-sunken px-4 py-2 text-sm font-medium text-af-ink-2 transition-colors hover:bg-af-hairline"
         >
           {{ t('common.close') }}
         </button>
@@ -332,12 +332,8 @@
           :class="[
             'flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-medium transition-all',
             !canStartTest
-              ? 'cursor-not-allowed bg-primary-400 text-white'
-              : status === 'success'
-                ? 'bg-green-500 text-white hover:bg-green-600'
-                : status === 'error'
-                  ? 'bg-orange-500 text-white hover:bg-orange-600'
-                  : 'bg-primary-500 text-white hover:bg-primary-600'
+              ? 'cursor-not-allowed bg-af-hairline text-af-ink-4'
+              : 'bg-af-brand text-af-on-brand hover:bg-af-brand-hover'
           ]"
         >
           <Icon
@@ -813,7 +809,7 @@ const abortStream = () => {
   }
 }
 
-const addLine = (text: string, className: string = 'text-gray-300') => {
+const addLine = (text: string, className: string = 'text-af-ink-4') => {
   outputLines.value.push({ text, class: className })
   scrollToBottom()
 }
@@ -830,14 +826,14 @@ const startTest = async () => {
 
   resetState()
   status.value = 'connecting'
-  addLine(t('admin.accounts.startingTestForAccount', { name: props.account.name }), 'text-blue-400')
-  addLine(t('admin.accounts.testAccountTypeLabel', { type: props.account.type }), 'text-gray-400')
+  addLine(t('admin.accounts.startingTestForAccount', { name: props.account.name }), 'text-af-ink-2')
+  addLine(t('admin.accounts.testAccountTypeLabel', { type: props.account.type }), 'text-af-ink-3')
   if (isGrokAccount.value) {
     const modeLabel =
       grokTestModeOptions.value.find((o) => o.value === grokTestMode.value)?.label || grokTestMode.value
-    addLine(t('admin.accounts.grok.selectedTestMode', { mode: modeLabel }), 'text-gray-400')
+    addLine(t('admin.accounts.grok.selectedTestMode', { mode: modeLabel }), 'text-af-ink-3')
   }
-  addLine('', 'text-gray-300')
+  addLine('', 'text-af-ink-4')
 
   abortStream()
 
@@ -934,7 +930,7 @@ const startTest = async () => {
     status.value = 'error'
     const msg = error instanceof Error ? error.message : t('common.unknownError')
     errorMessage.value = msg
-    addLine(t('admin.accounts.errorPrefix', { message: msg }), 'text-red-400')
+    addLine(t('admin.accounts.errorPrefix', { message: msg }), 'text-af-danger')
   }
 }
 
@@ -951,9 +947,9 @@ const handleEvent = (event: {
 }) => {
   switch (event.type) {
     case 'test_start':
-      addLine(t('admin.accounts.connectedToApi'), 'text-green-400')
+      addLine(t('admin.accounts.connectedToApi'), 'text-af-success')
       if (event.model) {
-        addLine(t('admin.accounts.usingModel', { model: event.model }), 'text-cyan-400')
+        addLine(t('admin.accounts.usingModel', { model: event.model }), 'text-af-ink-2')
       }
       addLine(
         isGrokAccount.value
@@ -973,10 +969,10 @@ const handleEvent = (event: {
           : supportsImageTest.value
             ? t('admin.accounts.sendingImageRequest')
             : t('admin.accounts.sendingTestMessage'),
-        'text-gray-400'
+        'text-af-ink-3'
       )
-      addLine('', 'text-gray-300')
-      addLine(t('admin.accounts.response'), 'text-yellow-400')
+      addLine('', 'text-af-ink-4')
+      addLine(t('admin.accounts.response'), 'text-af-warning')
       break
 
     case 'content':
@@ -992,7 +988,7 @@ const handleEvent = (event: {
           url: event.image_url,
           mimeType: event.mime_type
         })
-        addLine(t('admin.accounts.imageReceived', { count: generatedImages.value.length }), 'text-purple-300')
+        addLine(t('admin.accounts.imageReceived', { count: generatedImages.value.length }), 'text-af-ink-3')
       }
       break
 
@@ -1002,7 +998,7 @@ const handleEvent = (event: {
           url: event.audio_url,
           mimeType: event.mime_type
         })
-        addLine(t('admin.accounts.audioReceived', { count: generatedAudios.value.length }), 'text-purple-300')
+        addLine(t('admin.accounts.audioReceived', { count: generatedAudios.value.length }), 'text-af-ink-3')
       }
       break
 
@@ -1012,20 +1008,20 @@ const handleEvent = (event: {
           url: event.video_url,
           mimeType: event.mime_type
         })
-        addLine(t('admin.accounts.videoReceived', { count: generatedVideos.value.length }), 'text-purple-300')
+        addLine(t('admin.accounts.videoReceived', { count: generatedVideos.value.length }), 'text-af-ink-3')
       }
       break
 
     case 'status':
       if (event.text) {
-        addLine(event.text, 'text-cyan-300')
+        addLine(event.text, 'text-af-ink-3')
       }
       break
 
     case 'test_complete':
       // Move streaming content to output lines
       if (streamingContent.value) {
-        addLine(streamingContent.value, 'text-green-300')
+        addLine(streamingContent.value, 'text-af-success')
         streamingContent.value = ''
       }
       if (event.success) {
@@ -1040,7 +1036,7 @@ const handleEvent = (event: {
       status.value = 'error'
       errorMessage.value = event.error || t('common.unknownError')
       if (streamingContent.value) {
-        addLine(streamingContent.value, 'text-green-300')
+        addLine(streamingContent.value, 'text-af-success')
         streamingContent.value = ''
       }
       break

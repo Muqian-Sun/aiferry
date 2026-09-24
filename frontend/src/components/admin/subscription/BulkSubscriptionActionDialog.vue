@@ -9,15 +9,15 @@
   >
     <form id="bulk-subscription-action-form" class="space-y-4" novalidate @submit.prevent="submit">
       <div>
-        <p class="mb-2 text-sm font-medium text-gray-900 dark:text-gray-100">
+        <p class="mb-2 text-sm font-medium text-af-ink">
           {{ t('admin.subscriptions.bulk.confirmTargets', { count: targets.length }) }}
         </p>
-        <ul class="max-h-48 divide-y divide-gray-100 overflow-y-auto rounded-lg border border-gray-200 dark:divide-dark-700 dark:border-dark-600">
+        <ul class="max-h-48 divide-y divide-af-hairline overflow-y-auto rounded-lg border border-af-hairline">
           <li v-for="subscription in targets" :key="subscription.id" class="px-3 py-2 text-sm">
-            <div class="break-all text-gray-900 dark:text-gray-100">
+            <div class="break-all text-af-ink">
               {{ subscription.email || `#${subscription.id}` }}
             </div>
-            <div class="break-words text-xs text-gray-500 dark:text-gray-400">
+            <div class="break-words text-xs text-af-ink-3">
               {{ subscription.plan || t('admin.subscriptions.bulk.planFallback', { id: subscription.planId }) }}
               <span v-if="subscription.email" class="ml-2">#{{ subscription.id }}</span>
             </div>
@@ -42,52 +42,52 @@
             :placeholder="t('admin.subscriptions.adjustDaysPlaceholder')"
             aria-describedby="bulk-subscription-days-hint"
           />
-          <p id="bulk-subscription-days-hint" class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          <p id="bulk-subscription-days-hint" class="mt-1 text-xs text-af-ink-3">
             {{ t('admin.subscriptions.bulk.extendHint') }}
           </p>
         </div>
 
         <template v-else-if="currentAction === 'reset_quota'">
-          <legend class="text-sm font-medium text-gray-700 dark:text-gray-200">
+          <legend class="text-sm font-medium text-af-ink-2">
             {{ t('admin.subscriptions.bulk.resetWindows') }}
           </legend>
           <div class="flex flex-wrap gap-5">
-            <label v-for="window in quotaWindows" :key="window" class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+            <label v-for="window in quotaWindows" :key="window" class="flex items-center gap-2 text-sm text-af-ink-2">
               <input
                 v-model="windows[window]"
                 :name="window"
                 type="checkbox"
-                class="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+                class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
                 :disabled="parametersLocked"
               />
               {{ t(`admin.subscriptions.${window}`) }}
             </label>
           </div>
-          <p class="text-xs text-gray-500 dark:text-gray-400">
+          <p class="text-xs text-af-ink-3">
             {{ t('admin.subscriptions.bulk.resetHint') }}
           </p>
         </template>
 
-        <p v-else class="rounded-lg bg-amber-50 p-3 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-200">
+        <p v-else class="rounded-lg bg-af-warning-tint p-3 text-sm text-af-warning">
           {{ t(`admin.subscriptions.bulk.${currentAction}Hint`) }}
         </p>
       </fieldset>
 
-      <p v-if="validationError && !parametersLocked" role="alert" class="text-sm text-red-600 dark:text-red-400">
+      <p v-if="validationError && !parametersLocked" role="alert" class="text-sm text-af-danger">
         {{ validationError }}
       </p>
 
-      <div v-if="requestError" role="alert" class="space-y-2 rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+      <div v-if="requestError" role="alert" class="space-y-2 rounded-lg bg-af-danger-tint p-3 text-sm text-af-danger">
         <p>{{ requestError }}</p>
         <p v-if="pendingOperation">{{ t('admin.subscriptions.bulk.retryHint') }}</p>
       </div>
 
       <div v-if="result" aria-live="polite" class="space-y-3">
-        <p class="rounded-lg bg-gray-50 p-3 text-sm font-medium text-gray-900 dark:bg-dark-700 dark:text-gray-100">
+        <p class="rounded-lg bg-af-sunken p-3 text-sm font-medium text-af-ink">
           {{ t('admin.subscriptions.bulk.result', { success: result.success_count, failed: result.failed_count }) }}
         </p>
         <ul v-if="failedResults.length" class="max-h-48 space-y-2 overflow-y-auto">
-          <li v-for="item in failedResults" :key="item.subscription_id" class="rounded-lg bg-red-50 p-3 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+          <li v-for="item in failedResults" :key="item.subscription_id" class="rounded-lg bg-af-danger-tint p-3 text-sm text-af-danger">
             <p class="break-all font-medium">{{ failedTargetLabel(item.subscription_id) }}</p>
             <p class="mt-1 break-words">{{ item.error || t('admin.subscriptions.bulk.itemFailed') }}</p>
           </li>

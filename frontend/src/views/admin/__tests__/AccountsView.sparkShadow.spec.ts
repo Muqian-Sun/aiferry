@@ -337,10 +337,9 @@ describe('admin AccountsView — 账号行展示', () => {
     })
     expect(link.classes()).toEqual(expect.arrayContaining([
       'border-dotted',
-      'text-gray-900',
-      'dark:text-white',
+      'text-af-ink',
     ]))
-    expect(link.classes()).not.toContain('text-primary-600')
+    expect(link.classes()).not.toContain('text-af-brand')
     const tooltip = wrapper.findComponent(HelpTooltip)
     expect(tooltip.props('content')).toBe('https://relay.example.com')
     expect(tooltip.props('widthClass')).toBe('w-max max-w-sm break-all')

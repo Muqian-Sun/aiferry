@@ -1,17 +1,17 @@
 <template>
-  <div class="rounded-2xl border border-gray-200 bg-gray-50 p-4 dark:border-dark-700 dark:bg-dark-800/50">
+  <div class="rounded-lg border border-af-hairline bg-af-sunken p-4">
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div>
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
+        <div class="text-sm font-medium text-af-ink">
           {{ t('admin.announcements.form.targetingMode') }}
         </div>
-        <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+        <div class="mt-1 text-xs text-af-ink-3">
           {{ mode === 'all' ? t('admin.announcements.form.targetingAll') : t('admin.announcements.form.targetingCustom') }}
         </div>
       </div>
 
       <div class="flex items-center gap-3">
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <label class="flex items-center gap-2 text-sm text-af-ink-2">
           <input
             type="radio"
             name="announcement-targeting-mode"
@@ -22,7 +22,7 @@
           />
           {{ t('admin.announcements.form.targetingAll') }}
         </label>
-        <label class="flex items-center gap-2 text-sm text-gray-700 dark:text-gray-300">
+        <label class="flex items-center gap-2 text-sm text-af-ink-2">
           <input
             type="radio"
             name="announcement-targeting-mode"
@@ -38,9 +38,9 @@
 
     <div v-if="mode === 'custom'" class="mt-4 space-y-4">
       <div class="flex items-center justify-between">
-        <div class="text-sm font-medium text-gray-900 dark:text-white">
+        <div class="text-sm font-medium text-af-ink">
           OR
-          <span class="ml-1 text-xs font-normal text-gray-500 dark:text-dark-400">
+          <span class="ml-1 text-xs font-normal text-af-ink-3">
             ({{ anyOf.length }}/50)
           </span>
         </div>
@@ -55,22 +55,22 @@
         </button>
       </div>
 
-      <div v-if="anyOf.length === 0" class="rounded-xl border border-dashed border-gray-300 p-4 text-sm text-gray-500 dark:border-dark-600 dark:text-dark-400">
+      <div v-if="anyOf.length === 0" class="rounded-xl border border-dashed border-af-hairline-strong p-4 text-sm text-af-ink-3">
         {{ t('admin.announcements.form.targetingCustom') }}: {{ t('admin.announcements.form.addOrGroup') }}
       </div>
 
       <div
         v-for="(group, groupIndex) in anyOf"
         :key="groupIndex"
-        class="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm dark:border-dark-700 dark:bg-dark-800"
+        class="rounded-lg border border-af-hairline bg-af-sheet p-4"
       >
         <div class="flex items-start justify-between gap-3">
           <div class="min-w-0">
-            <div class="text-sm font-medium text-gray-900 dark:text-white">
+            <div class="text-sm font-medium text-af-ink">
               {{ t('admin.announcements.form.targetingCustom') }} #{{ groupIndex + 1 }}
-              <span class="ml-2 text-xs font-normal text-gray-500 dark:text-dark-400">AND ({{ (group.all_of?.length || 0) }}/50)</span>
+              <span class="ml-2 text-xs font-normal text-af-ink-3">AND ({{ (group.all_of?.length || 0) }}/50)</span>
             </div>
-            <div class="mt-1 text-xs text-gray-500 dark:text-dark-400">
+            <div class="mt-1 text-xs text-af-ink-3">
               {{ t('admin.announcements.form.addAndCondition') }}
             </div>
           </div>
@@ -89,7 +89,7 @@
           <div
             v-for="(cond, condIndex) in (group.all_of || [])"
             :key="condIndex"
-            class="rounded-xl border border-gray-200 bg-gray-50 p-3 dark:border-dark-700 dark:bg-dark-900/30"
+            class="rounded-xl border border-af-hairline bg-af-sunken p-3"
           >
             <div class="flex flex-col gap-3 md:flex-row md:items-end">
               <div class="w-full md:w-52">
@@ -104,24 +104,24 @@
               <div v-if="cond.type === 'subscription'" class="flex-1">
                 <label class="input-label">
                   {{ t('admin.announcements.form.selectPackages') }}
-                  <span class="font-normal text-gray-400">{{ t('common.selectedCount', { count: (subscriptionSelections[groupIndex]?.[condIndex] ?? []).length }) }}</span>
+                  <span class="font-normal text-af-ink-3">{{ t('common.selectedCount', { count: (subscriptionSelections[groupIndex]?.[condIndex] ?? []).length }) }}</span>
                 </label>
-                <div class="grid max-h-32 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 dark:border-dark-600 dark:bg-dark-800">
+                <div class="grid max-h-32 grid-cols-2 gap-1 overflow-y-auto rounded-lg border border-af-hairline bg-af-sunken p-2">
                   <label
                     v-for="plan in plans"
                     :key="plan.id"
-                    class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-white dark:hover:bg-dark-700"
+                    class="flex cursor-pointer items-center gap-2 rounded px-2 py-1.5 transition-colors hover:bg-af-sheet"
                   >
                     <input
                       type="checkbox"
                       :value="plan.id"
                       :checked="(subscriptionSelections[groupIndex]?.[condIndex] ?? []).includes(plan.id)"
-                      class="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-primary-500 focus:ring-primary-500 dark:border-dark-500"
+                      class="h-3.5 w-3.5 shrink-0 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
                       @change="togglePlan(groupIndex, condIndex, plan.id, ($event.target as HTMLInputElement).checked)"
                     />
-                    <span class="min-w-0 flex-1 truncate text-sm text-gray-900 dark:text-white">{{ plan.name }}</span>
+                    <span class="min-w-0 flex-1 truncate text-sm text-af-ink">{{ plan.name }}</span>
                   </label>
-                  <div v-if="plans.length === 0" class="col-span-2 py-2 text-center text-sm text-gray-500 dark:text-gray-400">
+                  <div v-if="plans.length === 0" class="col-span-2 py-2 text-center text-sm text-af-ink-3">
                     {{ t('admin.announcements.form.noPlans') }}
                   </div>
                 </div>
@@ -175,7 +175,7 @@
         </div>
       </div>
 
-      <div v-if="validationError" class="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700 dark:border-red-900/30 dark:bg-red-900/10 dark:text-red-300">
+      <div v-if="validationError" class="rounded-xl border border-af-danger/30 bg-af-danger-tint p-3 text-sm text-af-danger">
         {{ validationError }}
       </div>
     </div>

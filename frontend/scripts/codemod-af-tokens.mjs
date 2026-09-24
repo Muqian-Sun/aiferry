@@ -215,14 +215,27 @@ function mapClassList(text) {
     if (r.out !== null && !out.includes(r.out)) out.push(r.out)
     else if (r.out !== null) changed = true
   }
-  if (!changed) return { text, unmapped, changed: false }
-  // 常态与悬停落到同一个 token 时（bg-gray-50 hover:bg-gray-100 → 都是 sunken），悬停往上加深一档，保住悬停反馈
+  // 常态是中性色、只有悬停变绿 / 变黄的（测试、续期、启用这类非危险操作）：悬停改中性——绿 / 黄只留给状态。
+  // 悬停变红（删除等危险操作）保留；元素本身就是绿 / 黄（状态块）时也保留。
+  for (let i = 0; i < out.length; i++) {
+    const hover = out[i].match(/^((?:[a-z-]+:)*(?:hover|group-hover):)(!?)(bg|text)-af-(success|warning)(?:-tint)?(?:\/\d+)?$/)
+    if (!hover) continue
+    const semanticBase = out.some((t) => !t.includes(':') && new RegExp(`^!?(?:bg|text|border)-af-${hover[4]}\\b`).test(t))
+    if (semanticBase) continue
+    out[i] = `${hover[1]}${hover[2]}${hover[3]}-${hover[3] === 'bg' ? 'af-sunken' : 'af-ink'}`
+    changed = true
+  }
+  // 常态与悬停落到同一个 token 时（bg-gray-50 hover:bg-gray-100 → 都是 sunken；或上一步中性化后撞色），悬停往上加深一档，保住悬停反馈
   for (let i = 0; i < out.length; i++) {
     const hover = out[i].match(/^((?:[a-z-]+:)*(?:hover|group-hover):)(!?)(bg|text|border)-(af-[a-z0-9-]+)$/)
     if (!hover || !out.includes(`${hover[2]}${hover[3]}-${hover[4]}`)) continue
     const next = HOVER_STEP[hover[3]][hover[4]]
-    if (next) out[i] = `${hover[1]}${hover[2]}${hover[3]}-${next}`
+    if (next) {
+      out[i] = `${hover[1]}${hover[2]}${hover[3]}-${next}`
+      changed = true
+    }
   }
+  if (!changed) return { text, unmapped, changed: false }
   const lead = text.match(/^\s*/)[0]
   const trail = text.match(/\s*$/)[0]
   return { text: lead + out.join(' ') + trail, unmapped, changed: true }

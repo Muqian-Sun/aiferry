@@ -2,16 +2,16 @@
   <BaseDialog :show="show" :title="plan ? t('payment.admin.editPlan') : t('payment.admin.createPlan')" width="wide" @close="emit('close')">
     <form id="plan-form" @submit.prevent="handleSavePlan" class="space-y-4">
       <div>
-        <label class="input-label">{{ t('payment.admin.planName') }} <span class="text-red-500">*</span></label>
+        <label class="input-label">{{ t('payment.admin.planName') }} <span class="text-af-danger">*</span></label>
         <input v-model="planForm.name" type="text" class="input" required />
       </div>
 
-      <div><label class="input-label">{{ t('payment.admin.planDescription') }} <span class="text-red-500">*</span></label><textarea v-model="planForm.description" rows="2" class="input" required></textarea></div>
+      <div><label class="input-label">{{ t('payment.admin.planDescription') }} <span class="text-af-danger">*</span></label><textarea v-model="planForm.description" rows="2" class="input" required></textarea></div>
       <div class="grid grid-cols-2 gap-4">
         <div>
-          <label class="input-label">{{ t('payment.admin.price') }} <span class="text-red-500">*</span></label>
+          <label class="input-label">{{ t('payment.admin.price') }} <span class="text-af-danger">*</span></label>
           <input v-model.number="planForm.price" type="number" step="0.01" min="0.01" class="input" required />
-          <p v-if="subscriptionCnyPreview" class="mt-1 text-xs font-medium text-primary-600 dark:text-primary-400">
+          <p v-if="subscriptionCnyPreview" class="mt-1 text-xs font-medium text-af-brand">
             {{ t('payment.admin.subscriptionCnyPayPreview', { amount: subscriptionCnyPreview.amount }) }}
             <span v-if="subscriptionCnyPreview.feeRate > 0">
               {{ t('payment.admin.subscriptionCnyPayPreviewWithFee', { feeRate: subscriptionCnyPreview.feeRate, total: subscriptionCnyPreview.total }) }}
@@ -21,8 +21,8 @@
         <div><label class="input-label">{{ t('payment.admin.originalPrice') }}</label><input v-model.number="planForm.original_price" type="number" step="0.01" min="0" class="input" /></div>
       </div>
       <div class="grid grid-cols-2 gap-4">
-        <div><label class="input-label">{{ t('payment.admin.validity') }} <span class="text-red-500">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
-        <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-red-500">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
+        <div><label class="input-label">{{ t('payment.admin.validity') }} <span class="text-af-danger">*</span></label><input v-model.number="planForm.validity_days" type="number" min="1" class="input" required /></div>
+        <div><label class="input-label">{{ t('payment.admin.validityUnit') }} <span class="text-af-danger">*</span></label><Select v-model="planForm.validity_unit" :options="validityUnitOptions" /></div>
       </div>
       <!-- 三档限额：空 = 不限 -->
       <div class="grid grid-cols-3 gap-4">
@@ -42,32 +42,32 @@
 
       <!-- 套餐模型集：只列目录里已上架的条目，至少选一个 -->
       <div>
-        <label class="input-label">{{ t('payment.admin.models') }} <span class="text-red-500">*</span></label>
+        <label class="input-label">{{ t('payment.admin.models') }} <span class="text-af-danger">*</span></label>
         <div class="relative">
           <div
             data-testid="plan-models-toggle"
-            class="cursor-pointer rounded-lg border border-gray-300 bg-white px-3 py-2 dark:border-dark-500 dark:bg-dark-700"
+            class="cursor-pointer rounded-lg border border-af-hairline-strong bg-af-sheet px-3 py-2"
             @click="showModelDropdown = !showModelDropdown"
           >
             <div v-if="selectedEntries.length" class="flex flex-wrap gap-1.5">
               <span
                 v-for="entry in selectedEntries"
                 :key="entry.id"
-                class="inline-flex items-center gap-1 rounded bg-gray-100 px-2 py-1 text-xs text-gray-700 dark:bg-dark-600 dark:text-gray-300"
+                class="inline-flex items-center gap-1 rounded bg-af-sunken px-2 py-1 text-xs text-af-ink-2"
               >
                 <span class="truncate">{{ entryLabel(entry) }}</span>
-                <button type="button" class="shrink-0 rounded-full hover:bg-gray-200 dark:hover:bg-dark-500" @click.stop="toggleEntry(entry.id)">
+                <button type="button" class="shrink-0 rounded-full hover:bg-af-hairline" @click.stop="toggleEntry(entry.id)">
                   <Icon name="x" size="xs" class="h-3.5 w-3.5" :stroke-width="2" />
                 </button>
               </span>
             </div>
-            <span v-else class="text-sm text-gray-400">{{ t('payment.admin.selectModels') }}</span>
+            <span v-else class="text-sm text-af-ink-3">{{ t('payment.admin.selectModels') }}</span>
           </div>
           <div
             v-if="showModelDropdown"
-            class="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-gray-200 bg-white shadow-lg dark:border-dark-600 dark:bg-dark-700"
+            class="absolute left-0 right-0 top-full z-50 mt-1 rounded-lg border border-af-hairline bg-af-sheet shadow-lg"
           >
-            <div class="sticky top-0 border-b border-gray-200 bg-white p-2 dark:border-dark-600 dark:bg-dark-700">
+            <div class="sticky top-0 border-b border-af-hairline bg-af-sheet p-2">
               <input v-model="modelSearch" type="text" class="input w-full text-sm" :placeholder="t('admin.accounts.searchModels')" @click.stop />
             </div>
             <div class="max-h-52 overflow-auto">
@@ -76,26 +76,26 @@
                 :key="entry.id"
                 type="button"
                 data-testid="plan-model-option"
-                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-gray-100 dark:hover:bg-dark-600"
+                class="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-af-sunken"
                 @click="toggleEntry(entry.id)"
               >
                 <span
                   :class="[
                     'flex h-4 w-4 shrink-0 items-center justify-center rounded border',
-                    planForm.entry_ids.includes(entry.id) ? 'border-primary-500 bg-primary-500 text-white' : 'border-gray-300 dark:border-dark-500'
+                    planForm.entry_ids.includes(entry.id) ? 'border-af-brand bg-af-brand text-af-on-brand' : 'border-af-hairline-strong'
                   ]"
                 >
                   <Icon v-if="planForm.entry_ids.includes(entry.id)" name="check" size="xs" class="h-3 w-3" :stroke-width="3" />
                 </span>
-                <span class="truncate text-gray-900 dark:text-white">{{ entryLabel(entry) }}</span>
+                <span class="truncate text-af-ink">{{ entryLabel(entry) }}</span>
               </button>
-              <div v-if="filteredEntries.length === 0" class="px-3 py-4 text-center text-sm text-gray-500">
+              <div v-if="filteredEntries.length === 0" class="px-3 py-4 text-center text-sm text-af-ink-3">
                 {{ t('admin.accounts.noMatchingModels') }}
               </div>
             </div>
           </div>
         </div>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.modelsHint') }}</p>
+        <p class="mt-1 text-xs text-af-ink-3">{{ t('payment.admin.modelsHint') }}</p>
       </div>
 
       <div class="grid grid-cols-2 gap-4">
@@ -104,20 +104,20 @@
       <div>
         <label class="input-label">{{ t('payment.admin.features') }}</label>
         <textarea v-model="planFeaturesText" rows="3" class="input" :placeholder="t('payment.admin.featuresPlaceholder')"></textarea>
-        <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">{{ t('payment.admin.featuresHint') }}</p>
+        <p class="mt-1 text-xs text-af-ink-3">{{ t('payment.admin.featuresHint') }}</p>
       </div>
       <div class="flex items-center gap-3">
-        <label class="text-sm text-gray-700 dark:text-gray-300">{{ t('payment.admin.forSale') }}</label>
+        <label class="text-sm text-af-ink-2">{{ t('payment.admin.forSale') }}</label>
         <button
           type="button"
           :class="[
-            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2',
-            planForm.for_sale ? 'bg-primary-500' : 'bg-gray-300 dark:bg-dark-600'
+            'relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+            planForm.for_sale ? 'bg-af-brand' : 'bg-af-ink-4'
           ]"
           @click="planForm.for_sale = !planForm.for_sale"
         >
           <span :class="[
-            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out',
+            'pointer-events-none inline-block h-5 w-5 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
             planForm.for_sale ? 'translate-x-5' : 'translate-x-0'
           ]" />
         </button>
