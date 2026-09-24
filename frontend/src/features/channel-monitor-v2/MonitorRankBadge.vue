@@ -42,7 +42,7 @@
     <span v-if="showTrophy" class="sr-only">{{ ariaLabel }}</span>
     <span
       class="text-xs font-semibold"
-      :class="showTrophy ? rankClass : 'text-gray-500 dark:text-dark-300'"
+      :class="showTrophy ? rankClass : 'text-af-ink-3'"
     >
       {{ label }}
     </span>
@@ -114,9 +114,10 @@ const ariaLabel = computed(() => {
 const titleText = computed(() => ariaLabel.value)
 
 const rankClass = computed(() => {
-  if (rankNum.value === 1) return 'text-amber-600 dark:text-amber-400'
-  if (rankNum.value === 2) return 'text-slate-500 dark:text-slate-300'
-  if (rankNum.value === 3) return 'text-amber-800 dark:text-amber-600'
+  // 前三名：墨色深浅递进（原金 / 银 / 铜是装饰色）
+  if (rankNum.value === 1) return 'text-af-ink'
+  if (rankNum.value === 2) return 'text-af-ink-2'
+  if (rankNum.value === 3) return 'text-af-ink-3'
   return ''
 })
 </script>

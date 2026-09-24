@@ -2,8 +2,8 @@
  * 管理站壳的模板守卫（A0）：壳组件只允许 token 工具类与 style.css 原语；
  * 管理站的 card 是 token 化的分区容器，所以规则里不禁 card。
  *
- * 扫描集现在只有壳（AppLayout / AppHeader / SidebarFrame / AdminSidebar / TablePageLayout）与
- * 已 token 化的页头样式；A1 全站换皮时把 views/admin、components/admin 加进来并配棘轮白名单。
+ * 扫描集只有壳（AppLayout / AppHeader / SidebarFrame / AdminSidebar / TablePageLayout）与已重做的管理页。
+ * 全站旧调色类由 scripts/codemod-af-tokens.mjs --check 盯住（pnpm check:admin-tokens，已接进 build），不在这里配白名单。
  * 另外盯住 style.css：壳用到的原语（card / sidebar / page / table / toast / tour）不能再带旧调色。
  */
 import { readFileSync } from 'node:fs'

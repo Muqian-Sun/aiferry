@@ -2,8 +2,9 @@
 /**
  * 管理站换皮 codemod（A1）：把旧调色类换成 af-* 设计 token。
  *
- * 用法：node scripts/codemod-af-tokens.mjs [--write] <文件或目录>...
- *   不带 --write 只报告；带 --write 才写回。映射不了的类逐条打印（文件:行 类名），存在时退出码 1——fail-closed，不静默跳过。
+ * 用法：node scripts/codemod-af-tokens.mjs [--write | --check] <文件或目录>...
+ *   不带参数只报告；--write 写回；--check 用于构建检查：还有要改写的类名串也判失败。
+ *   映射不了的类逐条打印（文件:行 类名），存在时退出码 1——fail-closed，不静默跳过。
  *
  * 只动这些位置（全部走 AST，不做全文正则）：
  *   - 模板里的静态 class 与 :class 绑定表达式中的字符串字面量 / 模板字符串 / 对象字符串键
@@ -20,9 +21,14 @@ import postcss from 'postcss'
 
 const args = process.argv.slice(2)
 const WRITE = args.includes('--write')
-const targets = args.filter((a) => a !== '--write')
+const CHECK = args.includes('--check')
+const targets = args.filter((a) => a !== '--write' && a !== '--check')
+if (WRITE && CHECK) {
+  console.error('--write 与 --check 不能同时用')
+  process.exit(2)
+}
 if (!targets.length) {
-  console.error('usage: codemod-af-tokens.mjs [--write] <file|dir>...')
+  console.error('usage: codemod-af-tokens.mjs [--write | --check] <file|dir>...')
   process.exit(2)
 }
 
@@ -436,4 +442,7 @@ if (allUnmapped.length) {
   console.log(`\n${allUnmapped.length} unmapped classes (fix by hand):`)
   allUnmapped.forEach((u) => console.log(`  ${u}`))
 }
-process.exit(failures.length || allUnmapped.length ? 1 : 0)
+if (CHECK && totalEdits > 0) {
+  console.log(`\n${totalEdits} class strings in ${changedFiles} files still use legacy classes — run with --write`)
+}
+process.exit(failures.length || allUnmapped.length || (CHECK && totalEdits > 0) ? 1 : 0)
