@@ -16,8 +16,8 @@ export default {
     aliasCount: '{count} 别名',
     filters: {
       noVendor: '（无厂商）',
-      withResources: '有资源',
-      withoutResources: '无资源'
+      withResources: '有渠道',
+      withoutResources: '无渠道'
     },
     columns: {
       price: '标价',
@@ -48,11 +48,11 @@ export default {
     },
     diagnose: '诊断',
     diagnosis: {
-      title: '资源诊断 · {model}',
-      empty: '该模型没有绑定资源。',
+      title: '渠道诊断 · {model}',
+      empty: '该模型没有绑定渠道。',
       followAccount: '跟随账号',
       columns: {
-        account: '资源',
+        account: '渠道',
         priority: '优先级',
         schedulable: '可调度'
       },
@@ -80,7 +80,7 @@ export default {
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
     fullReplaceHint: '保存是整条覆盖。本页没列出的项（按 Token 的区间分档、分时定价、优先级价、长上下文与倍率）按原值写回；图片 / 视频分档在上方编辑。',
     listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
-    noResources: '无资源',
+    noResources: '无渠道',
     fields: {
       modelId: '模型标识',
       displayName: '展示名',
@@ -88,7 +88,7 @@ export default {
       billingMode: '计费模式',
       status: '上架状态',
       managedBy: '维护方',
-      resources: '资源',
+      resources: '渠道',
       inputPrice: '输入价（$/token）',
       outputPrice: '输出价（$/token）',
       perRequestPrice: '每次默认价（$）',
@@ -117,14 +117,14 @@ export default {
       empty: '未配分档，按默认价计。'
     },
     bindings: {
-      title: '绑定资源',
-      hint: '上架后由这些资源承接请求；优先级留空则跟随资源自身的优先级。',
-      search: '搜索资源名称',
-      noResults: '没有匹配的资源',
+      title: '绑定渠道',
+      hint: '上架后由这些渠道承接请求；优先级留空则跟随渠道自身的优先级。',
+      search: '搜索渠道名称',
+      noResults: '没有匹配的渠道',
       add: '添加',
       priority: '优先级',
       remove: '移除',
-      empty: '尚未绑定资源'
+      empty: '尚未绑定渠道'
     },
     status: {
       listed: '上架',

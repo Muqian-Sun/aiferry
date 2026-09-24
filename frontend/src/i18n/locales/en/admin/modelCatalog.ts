@@ -14,8 +14,8 @@ export default {
     aliasCount: '{count} aliases',
     filters: {
       noVendor: '(no vendor)',
-      withResources: 'With resources',
-      withoutResources: 'Without resources'
+      withResources: 'With channels',
+      withoutResources: 'Without channels'
     },
     columns: {
       price: 'List price',
@@ -48,11 +48,11 @@ export default {
     empty: 'The catalog is empty. Seed it or create an entry.',
     diagnose: 'Diagnose',
     diagnosis: {
-      title: 'Resource diagnosis · {model}',
-      empty: 'No resources are bound to this model.',
+      title: 'Channel diagnosis · {model}',
+      empty: 'No channels are bound to this model.',
       followAccount: 'Follows account',
       columns: {
-        account: 'Resource',
+        account: 'Channel',
         priority: 'Priority',
         schedulable: 'Schedulable'
       },
@@ -80,7 +80,7 @@ export default {
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
     fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, priority prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
-    noResources: 'No resources',
+    noResources: 'No channels',
     fields: {
       modelId: 'Model id',
       displayName: 'Display name',
@@ -88,7 +88,7 @@ export default {
       billingMode: 'Billing mode',
       status: 'Listing status',
       managedBy: 'Managed by',
-      resources: 'Resources',
+      resources: 'Channels',
       inputPrice: 'Input price ($/token)',
       outputPrice: 'Output price ($/token)',
       perRequestPrice: 'Default price per request ($)',
@@ -117,14 +117,14 @@ export default {
       empty: 'No tiers; the default price applies.'
     },
     bindings: {
-      title: 'Bound resources',
-      hint: 'Requests for a listed model are served by these resources; leave priority empty to follow the resource.',
-      search: 'Search resources by name',
-      noResults: 'No matching resources',
+      title: 'Bound channels',
+      hint: 'Requests for a listed model are served by these channels; leave priority empty to follow the channel.',
+      search: 'Search channels by name',
+      noResults: 'No matching channels',
       add: 'Add',
       priority: 'Priority',
       remove: 'Remove',
-      empty: 'No resources bound yet'
+      empty: 'No channels bound yet'
     },
     status: {
       listed: 'Listed',
