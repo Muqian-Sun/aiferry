@@ -14,7 +14,9 @@
     >
       <Icon :name="action.icon ?? 'edit'" size="sm" />
     </button>
-    <PopoverMenu v-if="menuActions.length" width-class="w-44">
+    <!-- 这一行没有菜单项时占住「⋯」的位置，否则同一列里的图标会错位 -->
+    <span v-if="!menuActions.length" class="inline-block w-7 shrink-0" aria-hidden="true"></span>
+    <PopoverMenu v-else width-class="w-44">
       <template #trigger="{ open }">
         <button
           type="button"

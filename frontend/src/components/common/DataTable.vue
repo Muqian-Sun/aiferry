@@ -51,7 +51,7 @@
         class="border-b border-af-hairline py-4"
         :class="{
           'cursor-pointer': clickableRows,
-          'row-selected bg-af-brand-tint/60': selectable && isRowSelected(row, index)
+          'row-selected bg-af-sunken': selectable && isRowSelected(row, index)
         }"
         @click="clickableRows && emit('rowClick', row)"
       >
@@ -217,7 +217,7 @@
             class="hover:bg-af-sunken"
             :class="{
               'cursor-pointer': clickableRows,
-              'row-selected bg-af-brand-tint/60': selectable && isRowSelected(item.row, item.index)
+              'row-selected bg-af-sunken': selectable && isRowSelected(item.row, item.index)
             }"
             @click="clickableRows && emit('rowClick', item.row)"
           >

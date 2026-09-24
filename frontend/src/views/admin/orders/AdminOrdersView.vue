@@ -56,11 +56,7 @@
       <template #table>
         <OrderTable :orders="orders" :loading="ordersLoading" show-user>
           <template #actions="{ row }">
-            <div class="flex items-center justify-end">
-              <RowActions :actions="rowActions(row)" />
-              <!-- 已结束的订单只有「详情」：补一个「⋯」宽的空位，详情图标与其它行对齐 -->
-              <span v-if="rowActions(row).length === 1" class="ml-0.5 w-7 shrink-0" aria-hidden="true"></span>
-            </div>
+            <RowActions :actions="rowActions(row)" />
           </template>
           <template #empty>
             <EmptyState :title="t('payment.orders.empty')" :description="t('payment.admin.ordersEmptyHint')" />
