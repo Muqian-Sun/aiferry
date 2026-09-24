@@ -1,5 +1,6 @@
 export default {
   common: {
+    labelSeparator: '：',
     selectedItems: '已选 {count} 项',
     columnSettings: '列设置',
     restoreDefault: '恢复默认',

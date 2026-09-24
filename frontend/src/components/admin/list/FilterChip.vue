@@ -14,13 +14,12 @@
             : 'border-dashed border-af-hairline-strong text-af-ink-2 hover:border-af-ink-4 hover:text-af-ink',
           open ? 'border-af-ink-4' : ''
         ]"
-        :aria-label="isSet ? `${label}：${selectedLabel}` : label"
+        :aria-label="isSet ? `${label}${t('common.labelSeparator')}${selectedLabel}` : label"
         :data-testid="testId"
       >
         <span>{{ label }}</span>
         <template v-if="isSet">
-          <span class="text-af-ink-4">:</span>
-          <span class="max-w-[10rem] truncate font-medium">{{ selectedLabel }}</span>
+          <span class="-ml-1.5 max-w-[10rem] truncate"><span class="text-af-ink-3">{{ t('common.labelSeparator') }}</span><span class="font-medium">{{ selectedLabel }}</span></span>
           <span
             role="button"
             tabindex="0"

@@ -131,7 +131,7 @@ const mountBulkDeleteView = () => mount(UsersView, {
     stubs: {
       AppLayout: { template: '<div><slot /></div>' },
       TablePageLayout: {
-        template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+        template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
       },
       DataTable: DataTableStub,
       Pagination: PaginationStub,
@@ -276,7 +276,7 @@ describe('admin UsersView', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: true,
@@ -322,19 +322,21 @@ describe('admin UsersView', () => {
 
   it('clears usage current-page sort when switching to last_used_at server sort', async () => {
     vi.useFakeTimers()
-    localStorage.setItem('user-column-settings-version', '3')
+    // 共用列设置（A4）：存「隐藏了哪些列」+ 版本号；这里把「用量」列打开
     localStorage.setItem(
-      'user-hidden-columns',
-      JSON.stringify([
-        'notes',
-        'groups',
-        'subscriptions',
-        'concurrency',
-        'usage_anthropic',
-        'usage_openai',
-        'usage_gemini',
-        'usage_antigravity'
-      ])
+      'admin-users-columns',
+      JSON.stringify({
+        version: 1,
+        hidden: [
+          'notes',
+          'subscriptions',
+          'concurrency',
+          'usage_anthropic',
+          'usage_openai',
+          'usage_gemini',
+          'usage_antigravity'
+        ]
+      })
     )
 
     listUsers.mockResolvedValue({
@@ -359,7 +361,7 @@ describe('admin UsersView', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: true,
@@ -435,7 +437,7 @@ describe('admin UsersView', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: PaginationStub,

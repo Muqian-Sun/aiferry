@@ -1,5 +1,6 @@
 export default {
   common: {
+    labelSeparator: ': ',
     selectedItems: '{count} selected',
     columnSettings: 'Columns',
     restoreDefault: 'Restore defaults',

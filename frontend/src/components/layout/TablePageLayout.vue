@@ -21,7 +21,7 @@
 
     <!-- 滚动区域：表格 -->
     <div class="layout-section-scrollable">
-      <div class="card table-scroll-container">
+      <div class="table-scroll-container">
         <slot name="table" />
       </div>
     </div>
@@ -75,10 +75,7 @@ onUnmounted(() => {
 
 /* 表格滚动容器 - 增强版表体滚动方案 */
 .table-scroll-container {
-  @apply flex flex-col overflow-hidden h-full bg-af-sheet border-t border-af-hairline;
-  /* 去掉 .card 的圆角、阴影与四周描边，只留顶部一条线 */
-  border-radius: 0;
-  box-shadow: none;
+  @apply flex flex-col overflow-hidden h-full bg-af-sheet;
 }
 
 .table-scroll-container :deep(.table-wrapper) {

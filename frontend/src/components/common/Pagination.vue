@@ -7,7 +7,7 @@
       <button
         @click="goToPage(page - 1)"
         :disabled="page === 1"
-        :class="plain ? PLAIN_STEP : 'relative inline-flex items-center rounded-md border border-af-hairline-strong bg-af-sheet px-4 py-2 text-sm font-medium text-af-ink hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50'"
+        :class="PLAIN_STEP"
       >
         {{ t('pagination.previous') }}
       </button>
@@ -17,7 +17,7 @@
       <button
         @click="goToPage(page + 1)"
         :disabled="page === totalPages"
-        :class="plain ? PLAIN_STEP : 'relative ml-3 inline-flex items-center rounded-md border border-af-hairline-strong bg-af-sheet px-4 py-2 text-sm font-medium text-af-ink hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50'"
+        :class="PLAIN_STEP"
       >
         {{ t('pagination.next') }}
       </button>
@@ -69,14 +69,14 @@
 
       <!-- Desktop pagination buttons -->
       <nav
-        :class="plain ? 'inline-flex items-center gap-0.5' : 'relative z-0 inline-flex -space-x-px rounded-md'"
+        class="inline-flex items-center gap-0.5"
         aria-label="Pagination"
       >
         <!-- Previous button -->
         <button
           @click="goToPage(page - 1)"
           :disabled="page === 1"
-          :class="plain ? PLAIN_ARROW : 'relative inline-flex items-center rounded-l-md border border-af-hairline-strong bg-af-sheet px-2 py-2 text-sm font-medium text-af-ink-3 hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50'"
+          :class="PLAIN_ARROW"
           :aria-label="t('pagination.previous')"
         >
           <Icon name="chevronLeft" size="md" />
@@ -88,17 +88,11 @@
           :key="`${pageNum}-${index}`"
           @click="typeof pageNum === 'number' && goToPage(pageNum)"
           :disabled="typeof pageNum !== 'number'"
-          :class="plain ? [
+          :class="[
             'inline-flex h-8 min-w-8 items-center justify-center px-2 text-sm tabular-nums transition-colors',
             pageNum === page
               ? 'font-semibold text-af-ink underline decoration-2 underline-offset-[6px]'
               : 'text-af-ink-3 hover:text-af-ink',
-            typeof pageNum !== 'number' && 'cursor-default'
-          ] : [
-            'relative inline-flex items-center border px-4 py-2 text-sm font-medium',
-            pageNum === page
-              ? 'z-10 border-af-brand bg-af-brand-tint text-af-brand'
-              : 'border-af-hairline-strong bg-af-sheet text-af-ink-2 hover:bg-af-sunken',
             typeof pageNum !== 'number' && 'cursor-default'
           ]"
           :aria-label="
@@ -113,7 +107,7 @@
         <button
           @click="goToPage(page + 1)"
           :disabled="page === totalPages"
-          :class="plain ? PLAIN_ARROW : 'relative inline-flex items-center rounded-r-md border border-af-hairline-strong bg-af-sheet px-2 py-2 text-sm font-medium text-af-ink-3 hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50'"
+          :class="PLAIN_ARROW"
           :aria-label="t('pagination.next')"
         >
           <Icon name="chevronRight" size="md" />
@@ -128,17 +122,15 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import Select from './Select.vue'
-import { IS_ADMIN_SITE } from '@/app/site'
 import { getConfiguredTablePageSizeOptions, normalizeTablePageSize } from '@/utils/tablePreferences'
 import { setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
 
 /**
- * 用户站分页不画边框（控制台单色为主、不要方块，muqian 2026-09-23）：页码是纯数字，当前页墨色加粗 + 下划线，
- * 箭头无框。管理端保持原来的描边分段按钮，等它自己的换皮。
+ * 分页不画边框（控制台单色为主、不要方块，muqian 2026-09-23；管理站 A4 起同一套）：页码是纯数字，
+ * 当前页墨色加粗 + 下划线，箭头无框。
  */
-const plain = !IS_ADMIN_SITE
 const PLAIN_ARROW = 'inline-flex h-8 w-8 items-center justify-center text-af-ink-3 transition-colors hover:text-af-ink disabled:cursor-not-allowed disabled:opacity-40'
 const PLAIN_STEP = 'inline-flex items-center text-sm font-medium text-af-ink-2 transition-colors hover:text-af-ink disabled:cursor-not-allowed disabled:opacity-40'
 
