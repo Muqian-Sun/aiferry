@@ -1,63 +1,77 @@
 <template>
+  <!--
+    订单（A4 列表模板）：与「收款概览」同组共用页头，没有新建类操作，标题右侧留空；
+    工具行 = 搜索 + 状态 / 支付方式 / 订单类型筛选标签 + 刷新；
+    行尾「详情」图标 + 「⋯」（按状态：取消、重试、批准退款 / 重试退款 / 查询退款状态、退款）。
+    表格沿用 OrderTable，只从外面塞操作列与空状态，表格本身的样子不动。
+  -->
   <AppLayout>
-    <div class="space-y-4">
-      <!-- Filters -->
-      <div class="card p-4">
-        <div class="flex flex-wrap items-center gap-3">
-          <div class="flex-1 sm:max-w-64">
-            <input v-model="orderSearch" type="text" :placeholder="t('payment.admin.searchOrders')" class="input" @input="debounceLoadOrders" />
-          </div>
-          <Select v-model="orderFilters.status" :options="statusFilterOptions" class="w-36" @change="loadOrders" />
-          <Select v-model="orderFilters.payment_type" :options="paymentTypeFilterOptions" class="w-40" @change="loadOrders" />
-          <Select v-model="orderFilters.order_type" :options="orderTypeFilterOptions" class="w-36" @change="loadOrders" />
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
-            <button @click="loadOrders" :disabled="ordersLoading" class="btn btn-secondary" :title="t('common.refresh')">
+    <TablePageLayout>
+      <template #filters>
+        <ListToolbar>
+          <SearchInput
+            v-model="orderSearch"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('payment.admin.searchOrders')"
+            @update:model-value="debounceLoadOrders"
+          />
+          <FilterChip
+            v-model="orderFilters.status"
+            :label="t('payment.orders.status')"
+            :options="statusFilterOptions"
+            test-id="filter-order-status"
+            @change="loadOrders"
+          />
+          <FilterChip
+            v-model="orderFilters.payment_type"
+            :label="t('payment.orders.paymentMethod')"
+            :options="paymentTypeFilterOptions"
+            test-id="filter-payment-type"
+            @change="loadOrders"
+          />
+          <FilterChip
+            v-model="orderFilters.order_type"
+            :label="t('payment.admin.orderType')"
+            :options="orderTypeFilterOptions"
+            test-id="filter-order-type"
+            @change="loadOrders"
+          />
+
+          <template #end>
+            <button
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="ordersLoading"
+              :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadOrders"
+            >
               <Icon name="refresh" size="md" :class="ordersLoading ? 'animate-spin' : ''" />
             </button>
-          </div>
-        </div>
-      </div>
+          </template>
+        </ListToolbar>
+      </template>
 
-      <!-- Table -->
-      <OrderTable :orders="orders" :loading="ordersLoading" show-user>
-        <template #actions="{ row }">
-          <div class="flex items-center gap-1">
-            <button @click="showOrderDetail(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-ink-2 hover:bg-af-sunken">
-              <Icon name="eye" size="sm" />
-              {{ t('common.view') }}
-            </button>
-            <button v-if="row.status === 'PENDING'" @click="handleCancelOrder(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-warning hover:bg-af-warning-tint">
-              <Icon name="x" size="sm" />
-              {{ t('payment.orders.cancel') }}
-            </button>
-            <button v-if="row.status === 'FAILED'" @click="handleRetryOrder(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-ink-2 hover:bg-af-sunken">
-              <Icon name="refresh" size="sm" />
-              {{ t('payment.admin.retry') }}
-            </button>
-            <template v-if="row.status === 'REFUND_REQUESTED'">
-              <span v-if="row.refund_amount" class="rounded-full bg-af-sunken px-1.5 py-0.5 text-xs font-medium text-af-ink-2">{{ creditedAmountSymbol }}{{ row.refund_amount.toFixed(2) }}</span>
-              <button @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-ink-2 hover:bg-af-sunken">
-                <Icon name="check" size="sm" />
-                {{ t('payment.admin.approveRefund') }}
-              </button>
-            </template>
-            <button v-else-if="row.status === 'REFUND_FAILED'" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-ink-2 hover:bg-af-sunken">
-              <Icon name="refresh" size="sm" />
-              {{ t('payment.admin.retryRefund') }}
-            </button>
-            <button v-else-if="row.status === 'REFUND_PENDING'" :disabled="refundQueryingIds.has(row.id)" @click="handleQueryRefund(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-warning hover:bg-af-warning-tint disabled:opacity-60">
-              <Icon name="refresh" size="sm" :class="refundQueryingIds.has(row.id) ? 'animate-spin' : ''" />
-              {{ t('payment.admin.queryRefundStatus') }}
-            </button>
-            <button v-else-if="row.status === 'COMPLETED' || row.status === 'PARTIALLY_REFUNDED'" @click="openRefundDialog(row)" class="inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs font-medium text-af-danger hover:bg-af-danger-tint">
-              <Icon name="dollar" size="sm" />
-              {{ t('payment.admin.refund') }}
-            </button>
-          </div>
-        </template>
-      </OrderTable>
-      <Pagination v-if="orderPagination.total > 0" :page="orderPagination.page" :total="orderPagination.total" :page-size="orderPagination.page_size" @update:page="handleOrderPageChange" @update:pageSize="handleOrderPageSizeChange" />
-    </div>
+      <template #table>
+        <OrderTable :orders="orders" :loading="ordersLoading" show-user>
+          <template #actions="{ row }">
+            <div class="flex items-center justify-end">
+              <RowActions :actions="rowActions(row)" />
+              <!-- 已结束的订单只有「详情」：补一个「⋯」宽的空位，详情图标与其它行对齐 -->
+              <span v-if="rowActions(row).length === 1" class="ml-0.5 w-7 shrink-0" aria-hidden="true"></span>
+            </div>
+          </template>
+          <template #empty>
+            <EmptyState :title="t('payment.orders.empty')" :description="t('payment.admin.ordersEmptyHint')" />
+          </template>
+        </OrderTable>
+      </template>
+
+      <template #pagination>
+        <Pagination v-if="orderPagination.total > 0" :page="orderPagination.page" :total="orderPagination.total" :page-size="orderPagination.page_size" @update:page="handleOrderPageChange" @update:pageSize="handleOrderPageSizeChange" />
+      </template>
+    </TablePageLayout>
 
     <!-- Order Detail Dialog -->
     <BaseDialog :show="showDetailDialog" :title="t('payment.admin.orderDetail')" width="wide" @close="showDetailDialog = false">
@@ -124,10 +138,14 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
 import type { PaymentOrder } from '@/types/payment'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import Pagination from '@/components/common/Pagination.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
-import Select from '@/components/common/Select.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { FilterChip, ListToolbar, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
 import AdminRefundDialog from '@/components/admin/payment/AdminRefundDialog.vue'
 import OrderStatusBadge from '@/components/payment/OrderStatusBadge.vue'
 import OrderTable from '@/components/payment/OrderTable.vue'
@@ -187,8 +205,8 @@ async function loadOrders() {
 function handleOrderPageChange(page: number) { orderPagination.page = page; loadOrders() }
 function handleOrderPageSizeChange(size: number) { orderPagination.page_size = size; orderPagination.page = 1; loadOrders() }
 
+// 筛选标签的选项（「全部」= 清掉标签，不作为选项）
 const statusFilterOptions = computed(() => [
-  { value: '', label: t('payment.admin.allStatuses') },
   { value: 'PENDING', label: t('payment.status.pending') },
   { value: 'PAID', label: t('payment.status.paid') },
   { value: 'COMPLETED', label: t('payment.status.completed') },
@@ -202,7 +220,6 @@ const statusFilterOptions = computed(() => [
 ])
 
 const paymentTypeFilterOptions = computed(() => [
-  { value: '', label: t('payment.admin.allPaymentTypes') },
   { value: 'alipay', label: t('payment.methods.alipay') },
   { value: 'wxpay', label: t('payment.methods.wxpay') },
   { value: 'stripe', label: t('payment.methods.stripe') },
@@ -210,10 +227,39 @@ const paymentTypeFilterOptions = computed(() => [
 ])
 
 const orderTypeFilterOptions = computed(() => [
-  { value: '', label: t('payment.admin.allOrderTypes') },
   { value: 'balance', label: t('payment.admin.balanceOrder') },
   { value: 'subscription', label: t('payment.admin.subscriptionOrder') },
 ])
+
+// 行操作（A4）：「详情」是图标；其余按订单状态进「⋯」。退款红字，走退款确认框
+function rowActions(order: PaymentOrder): RowAction[] {
+  const actions: RowAction[] = [
+    { key: 'detail', label: t('payment.admin.orderDetail'), icon: 'eye', primary: true, onSelect: () => showOrderDetail(order) }
+  ]
+  if (order.status === 'PENDING') {
+    actions.push({ key: 'cancel', label: t('payment.orders.cancel'), icon: 'x', onSelect: () => handleCancelOrder(order) })
+  }
+  if (order.status === 'FAILED') {
+    actions.push({ key: 'retry', label: t('payment.admin.retry'), icon: 'refresh', onSelect: () => handleRetryOrder(order) })
+  }
+  if (order.status === 'REFUND_REQUESTED') {
+    const amount = order.refund_amount ? ` ${creditedAmountSymbol}${order.refund_amount.toFixed(2)}` : ''
+    actions.push({ key: 'approve-refund', label: `${t('payment.admin.approveRefund')}${amount}`, icon: 'check', onSelect: () => openRefundDialog(order) })
+  } else if (order.status === 'REFUND_FAILED') {
+    actions.push({ key: 'retry-refund', label: t('payment.admin.retryRefund'), icon: 'refresh', onSelect: () => openRefundDialog(order) })
+  } else if (order.status === 'REFUND_PENDING') {
+    actions.push({
+      key: 'query-refund',
+      label: t('payment.admin.queryRefundStatus'),
+      icon: 'refresh',
+      disabled: refundQueryingIds.value.has(order.id),
+      onSelect: () => handleQueryRefund(order)
+    })
+  } else if (order.status === 'COMPLETED' || order.status === 'PARTIALLY_REFUNDED') {
+    actions.push({ key: 'refund', label: t('payment.admin.refund'), icon: 'dollar', danger: true, onSelect: () => openRefundDialog(order) })
+  }
+  return actions
+}
 
 async function showOrderDetail(order: PaymentOrder) {
   selectedOrder.value = order

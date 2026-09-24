@@ -389,9 +389,8 @@ export default {
         reset_quota: '批量重置配额',
         revoke: '批量撤销',
         restore: '批量恢复',
-        selected: '已选择 {count} 条订阅',
+        adjustExpiry: '调整有效期',
         selectSubscription: '选择订阅 #{id}',
-        clearSelection: '清空选择',
         selectionHint: '当前页选择，翻页或筛选会清空，最多 100 条。各操作仅处理适用状态的订阅。',
         selectionLimit: '每次最多操作 100 条订阅',
         selectionRequired: '请至少选择一条订阅',
@@ -417,8 +416,6 @@ export default {
       adjustSubscription: '调整订阅',
       revokeSubscription: '撤销订阅',
       restoreSubscription: '恢复订阅',
-      allStatus: '全部状态',
-      allPlans: '全部套餐',
       daily: '每日',
       weekly: '每周',
       monthly: '每月',
@@ -478,7 +475,6 @@ export default {
       quotaResetSuccess: '配额重置成功',
       failedToResetQuota: '重置配额失败',
       noSubscriptionsYet: '暂无订阅',
-      assignFirstSubscription: '分配一个订阅以开始使用。',
       subscriptionAssigned: '订阅分配成功',
       subscriptionAdjusted: '订阅调整成功',
       subscriptionRevoked: '订阅撤销成功',
@@ -495,36 +491,9 @@ export default {
       validityDaysRequired: '请输入有效的天数（至少1天）',
       revokeConfirm: "确定要撤销 '{user}' 的订阅吗？可稍后在已撤销列表中恢复。",
       restoreConfirm: "确定要恢复 '{user}' 的订阅吗？如果原订阅已过期，恢复后将显示为已过期。",
-      guide: {
-        title: '订阅管理教程',
-        subtitle: '订阅模式允许你按时间周期为用户分配使用额度，支持日/周/月配额限制。按照以下步骤即可完成配置。',
-        showGuide: '使用指南',
-        step1: {
-          title: '创建套餐',
-          line1: '前往「订阅套餐」页面，点击「创建套餐」',
-          line2: '勾选套餐可调用的模型，配置日/周/月额度限制',
-          line3: '保存套餐',
-          link: '前往订阅套餐'
-        },
-        step2: {
-          title: '分配订阅给用户',
-          line1: '点击本页右上角「分配订阅」按钮',
-          line2: '在弹窗中搜索用户邮箱并选择目标用户',
-          line3: '选择套餐、设置有效期天数，点击「分配」；系统会为用户生成一把绑定该订阅的密钥'
-        },
-        step3: {
-          title: '管理已有订阅'
-        },
-        actions: {
-          adjust: '调整',
-          adjustDesc: '延长或缩短订阅有效期',
-          resetQuota: '重置配额',
-          resetQuotaDesc: '将日/周/月用量归零，重新开始计算',
-          revoke: '撤销',
-          revokeDesc: '立即终止该用户的订阅，可在已撤销列表中恢复'
-        },
-        tip: '提示：同一用户同一时间只能持有一条有效订阅；再分配同一套餐会续期，分配别的套餐会被拒绝。'
-      }
+      userColumnMode: '用户列显示',
+      emptyHint: '订阅来自套餐：先在「套餐」页签建好套餐，再分配给用户。',
+      goToPlans: '前往套餐'
     },
 
     // Accounts Management

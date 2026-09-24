@@ -28,8 +28,8 @@ function mountView() {
   return mount(SubscriptionsView, {
     global: {
       stubs: {
-        AppLayout: { template: '<div><slot /></div>' },
-        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
+        AppLayout: { template: '<div><slot name="header-actions" /><slot /></div>' },
+        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
         DataTable: { name: 'DataTable', props: ['data', 'selectedKeys'], emits: ['update:selectedKeys', 'sort'], template: '<div />' },
         BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
         Pagination: true, Select: true, ConfirmDialog: true, Icon: true,
@@ -100,7 +100,7 @@ describe('subscription bulk operations', () => {
     await flushPromises()
     expect(wrapper.getComponent({ name: 'DataTable' }).props('selectedKeys')).toEqual([])
     await select([3])
-    wrapper.findAllComponents({ name: 'Select' })[0]!.vm.$emit('change')
+    wrapper.findAllComponents({ name: 'FilterChip' })[0]!.vm.$emit('change')
     await flushPromises()
     expect(wrapper.getComponent({ name: 'DataTable' }).props('selectedKeys')).toEqual([])
   })

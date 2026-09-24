@@ -35,6 +35,10 @@
     <template #cell-actions="{ row }">
       <slot name="actions" :row="row" />
     </template>
+    <!-- 空状态：调用方给了才替换 DataTable 默认的，不给则样子不变 -->
+    <template v-if="$slots.empty" #empty>
+      <slot name="empty" />
+    </template>
   </DataTable>
 </template>
 

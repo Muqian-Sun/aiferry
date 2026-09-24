@@ -18,7 +18,14 @@
               {{ d }}{{ t('payment.admin.daySuffix') }}
             </button>
           </div>
-          <button @click="loadDashboard" :disabled="loading" class="btn btn-secondary" :title="t('common.refresh')">
+          <button
+            type="button"
+            class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+            :disabled="loading"
+            :title="t('common.refresh')"
+            :aria-label="t('common.refresh')"
+            @click="loadDashboard"
+          >
             <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
           </button>
         </div>
@@ -29,6 +36,7 @@
         <LoadingSpinner />
       </div>
       <template v-else-if="stats">
+        <!-- 四个数字用 StatRow（A4）：不再一格一张卡片；图表区留到 A7 再改 -->
         <OrderStatsCards :stats="stats" />
         <DailyRevenueChart :data="stats.daily_series || []" :loading="loading" />
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">

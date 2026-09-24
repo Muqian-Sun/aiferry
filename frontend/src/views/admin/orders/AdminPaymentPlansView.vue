@@ -1,65 +1,99 @@
 <template>
+  <!--
+    套餐（A4 列表模板）：与「订阅」同组共用页头，本页签的主操作「新建套餐」在标题右侧；
+    工具行只有刷新；上架开关留在行内；行尾「编辑」图标 + 「⋯」（删除，红字、走确认框）。
+  -->
   <AppLayout>
-    <div class="space-y-4">
-      <!-- Actions -->
-      <div class="flex items-center justify-end gap-2">
-        <button @click="loadPlans" :disabled="plansLoading" class="btn btn-secondary" :title="t('common.refresh')">
-          <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
-        </button>
-        <button @click="openPlanEdit(null)" class="btn btn-primary">{{ t('payment.admin.createPlan') }}</button>
-      </div>
+    <template #header-actions>
+      <button type="button" class="btn btn-primary btn-md" @click="openPlanEdit(null)">
+        <Icon name="plus" size="md" />
+        {{ t('payment.admin.createPlan') }}
+      </button>
+    </template>
 
-      <!-- Plans Table -->
-      <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
-        <template #cell-name="{ value }">
-          <span class="text-sm font-medium text-af-ink">{{ value }}</span>
-        </template>
-        <template #cell-limits="{ row }">
-          <span class="text-sm text-af-ink-2">{{ formatPlanLimits(row) }}</span>
-        </template>
-        <template #cell-models="{ row }">
-          <span class="text-sm text-af-ink-2" :title="(row.models || []).map(modelLabel).join(' / ')">
-            {{ (row.models || []).map(modelLabel).join(' / ') || '-' }}
-          </span>
-        </template>
-        <template #cell-price="{ value, row }">
-          <div class="text-sm">
-            <span class="font-medium text-af-ink">${{ (value ?? 0).toFixed(2) }}</span>
-            <span v-if="row.original_price" class="ml-1 text-xs text-af-ink-3 line-through">${{ row.original_price.toFixed(2) }}</span>
-          </div>
-        </template>
-        <template #cell-validity_days="{ value, row }">
-          <span class="text-sm">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
-        </template>
-        <template #cell-for_sale="{ value, row }">
-          <button
-            type="button"
-            :class="[
-              'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
-              value ? 'bg-af-brand' : 'bg-af-ink-4'
-            ]"
-            @click="toggleForSale(row)"
-          >
-            <span :class="[
-              'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
-              value ? 'translate-x-4' : 'translate-x-0'
-            ]" />
-          </button>
-        </template>
-        <template #cell-actions="{ row }">
-          <div class="flex items-center gap-2">
-            <button @click="openPlanEdit(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2">
-              <Icon name="edit" size="sm" />
-              <span class="text-xs">{{ t('common.edit') }}</span>
+    <TablePageLayout>
+      <template #filters>
+        <ListToolbar>
+          <template #end>
+            <button
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="plansLoading"
+              :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadPlans"
+            >
+              <Icon name="refresh" size="md" :class="plansLoading ? 'animate-spin' : ''" />
             </button>
-            <button @click="confirmDeletePlan(row)" class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger">
-              <Icon name="trash" size="sm" />
-              <span class="text-xs">{{ t('common.delete') }}</span>
+          </template>
+        </ListToolbar>
+      </template>
+
+      <template #table>
+        <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
+          <template #cell-id="{ value }">
+            <span class="tabular-nums text-af-ink-3">{{ value }}</span>
+          </template>
+          <template #cell-name="{ value }">
+            <span class="font-medium text-af-ink">{{ value }}</span>
+          </template>
+          <template #cell-limits="{ row }">
+            <span class="whitespace-nowrap text-af-ink-2">{{ formatPlanLimits(row) }}</span>
+          </template>
+          <template #cell-models="{ row }">
+            <span
+              class="block max-w-[15rem] truncate text-af-ink-2"
+              :title="(row.models || []).map(modelLabel).join(' / ')"
+            >
+              {{ (row.models || []).map(modelLabel).join(' / ') || '-' }}
+            </span>
+          </template>
+          <template #cell-price="{ value, row }">
+            <div class="whitespace-nowrap tabular-nums">
+              <span class="font-medium text-af-ink">${{ (value ?? 0).toFixed(2) }}</span>
+              <span v-if="row.original_price" class="ml-1 text-xs text-af-ink-4 line-through">${{ row.original_price.toFixed(2) }}</span>
+            </div>
+          </template>
+          <template #cell-validity_days="{ value, row }">
+            <span class="whitespace-nowrap tabular-nums">{{ value }} {{ t('payment.admin.' + (row.validity_unit || 'days')) }}</span>
+          </template>
+          <template #cell-for_sale="{ value, row }">
+            <button
+              type="button"
+              role="switch"
+              :aria-checked="value ? 'true' : 'false'"
+              :aria-label="value ? t('payment.admin.onSale') : t('payment.admin.offSale')"
+              :title="value ? t('payment.admin.onSale') : t('payment.admin.offSale')"
+              :class="[
+                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-af-brand focus:ring-offset-2',
+                value ? 'bg-af-brand' : 'bg-af-ink-4'
+              ]"
+              @click="toggleForSale(row)"
+            >
+              <span :class="[
+                'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet ring-0 transition duration-200 ease-in-out',
+                value ? 'translate-x-4' : 'translate-x-0'
+              ]" />
             </button>
-          </div>
-        </template>
-      </DataTable>
-    </div>
+          </template>
+          <template #cell-sort_order="{ value }">
+            <span class="tabular-nums text-af-ink-3">{{ value }}</span>
+          </template>
+          <template #cell-actions="{ row }">
+            <RowActions :actions="rowActions(row)" />
+          </template>
+
+          <template #empty>
+            <EmptyState
+              :title="t('payment.admin.noPlansYet')"
+              :description="t('payment.admin.createFirstPlan')"
+              :action-text="t('payment.admin.createPlan')"
+              @action="openPlanEdit(null)"
+            />
+          </template>
+        </DataTable>
+      </template>
+    </TablePageLayout>
 
     <!-- Plan Edit Dialog -->
     <PlanEditDialog :show="showPlanDialog" :plan="editingPlan" :payment-config="paymentConfig" @close="showPlanDialog = false" @saved="loadPlans" />
@@ -78,9 +112,13 @@ import { extractI18nErrorMessage } from '@/utils/apiError'
 import type { SubscriptionPlan } from '@/types/payment'
 import type { Column } from '@/components/common/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { ListToolbar, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
 import PlanEditDialog from './PlanEditDialog.vue'
 
 const { t } = useI18n()
@@ -150,6 +188,14 @@ async function loadPlans() {
 function openPlanEdit(plan: SubscriptionPlan | null) {
   editingPlan.value = plan
   showPlanDialog.value = true
+}
+
+// 行操作（A4）：编辑是图标；删除进「⋯」、红字、走确认框
+function rowActions(plan: SubscriptionPlan): RowAction[] {
+  return [
+    { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => openPlanEdit(plan) },
+    { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => confirmDeletePlan(plan) }
+  ]
 }
 
 
