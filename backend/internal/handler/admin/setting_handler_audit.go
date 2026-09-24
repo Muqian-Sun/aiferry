@@ -44,9 +44,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.RegistrationEmailDomainQuotaEnabled != after.RegistrationEmailDomainQuotaEnabled {
 		changed = append(changed, "registration_email_domain_quota_enabled")
 	}
-	if before.PromoCodeEnabled != after.PromoCodeEnabled {
-		changed = append(changed, "promo_code_enabled")
-	}
 	if before.InvitationCodeEnabled != after.InvitationCodeEnabled {
 		changed = append(changed, "invitation_code_enabled")
 	}
@@ -367,21 +364,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
 		changed = append(changed, "default_subscriptions")
-	}
-	if before.EnableModelFallback != after.EnableModelFallback {
-		changed = append(changed, "enable_model_fallback")
-	}
-	if before.FallbackModelAnthropic != after.FallbackModelAnthropic {
-		changed = append(changed, "fallback_model_anthropic")
-	}
-	if before.FallbackModelOpenAI != after.FallbackModelOpenAI {
-		changed = append(changed, "fallback_model_openai")
-	}
-	if before.FallbackModelGemini != after.FallbackModelGemini {
-		changed = append(changed, "fallback_model_gemini")
-	}
-	if before.FallbackModelAntigravity != after.FallbackModelAntigravity {
-		changed = append(changed, "fallback_model_antigravity")
 	}
 	if before.EnableIdentityPatch != after.EnableIdentityPatch {
 		changed = append(changed, "enable_identity_patch")

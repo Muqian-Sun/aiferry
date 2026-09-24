@@ -18,10 +18,6 @@ func isUpstreamModelNotFoundError(statusCode int, body []byte) bool {
 	return containsModelNotFoundKeyword(normalized)
 }
 
-func isModelNotFoundError(statusCode int, body []byte) bool {
-	return isUpstreamModelNotFoundError(statusCode, body) || statusCode == http.StatusNotFound
-}
-
 // openAICodexPlanGatedModelPhrase matches the deterministic Codex 400 returned
 // when a ChatGPT OAuth account's plan cannot serve the requested model, e.g.
 // {"detail":"The 'gpt-5.6-sol' model is not supported when using Codex with a ChatGPT account."}

@@ -448,17 +448,6 @@ export default {
       deleteConfirm: '确定要删除该公告吗？此操作无法撤销。'
     },
 
-    // Promo Codes
-    promo: {
-      columns: {
-        maxUses: '最大使用次数',
-        usedCount: '已使用',
-      },
-      // 消息
-      noCodesYet: '暂无优惠码',
-      createFirstCode: '创建您的第一个优惠码，为新用户提供注册奖励。',
-    },
-
     // Usage Records
     usage: {
       title: '使用记录',

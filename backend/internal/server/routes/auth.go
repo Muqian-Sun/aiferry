@@ -63,10 +63,6 @@ func RegisterAuthRoutes(
 			auth.POST("/send-verify-code", rateLimiter.LimitWithOptions("auth-send-verify-code", 5, time.Minute, middleware.RateLimitOptions{
 				FailureMode: middleware.RateLimitFailClose,
 			}), h.Auth.SendVerifyCode)
-			// 优惠码验证接口添加速率限制：每分钟最多 10 次（Redis 故障时 fail-close）
-			auth.POST("/validate-promo-code", rateLimiter.LimitWithOptions("validate-promo", 10, time.Minute, middleware.RateLimitOptions{
-				FailureMode: middleware.RateLimitFailClose,
-			}), h.Auth.ValidatePromoCode)
 			// 邀请码验证接口添加速率限制：每分钟最多 10 次（Redis 故障时 fail-close）
 			auth.POST("/validate-invitation-code", rateLimiter.LimitWithOptions("validate-invitation", 10, time.Minute, middleware.RateLimitOptions{
 				FailureMode: middleware.RateLimitFailClose,

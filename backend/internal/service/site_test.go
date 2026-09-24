@@ -42,7 +42,7 @@ func TestTokenIssuanceRespectsSite(t *testing.T) {
 	cfg := &config.Config{}
 	cfg.JWT.Secret = "test-jwt-secret-32bytes-long!!!"
 	cfg.JWT.AccessTokenExpireMinutes = 60
-	svc := NewAuthService(nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil)
+	svc := NewAuthService(nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, nil)
 	admin := &User{ID: 1, Role: RoleAdmin, Status: StatusActive}
 	user := &User{ID: 2, Role: RoleUser, Status: StatusActive}
 	userSite := WithSite(context.Background(), SiteUser)

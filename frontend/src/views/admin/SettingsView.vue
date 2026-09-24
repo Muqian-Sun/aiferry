@@ -1552,21 +1552,6 @@
                 />
               </div>
 
-              <!-- Promo Code -->
-              <div
-                class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
-              >
-                <div>
-                  <label class="font-medium text-gray-900 dark:text-white">{{
-                    t("admin.settings.registration.promoCode")
-                  }}</label>
-                  <p class="text-sm text-gray-500 dark:text-gray-400">
-                    {{ t("admin.settings.registration.promoCodeHint") }}
-                  </p>
-                </div>
-                <Toggle v-model="form.promo_code_enabled" />
-              </div>
-
               <!-- Invitation Code -->
               <div
                 class="flex items-center justify-between border-t border-gray-100 pt-4 dark:border-dark-700"
@@ -9071,7 +9056,6 @@ const form = reactive<SettingsForm>({
   email_verify_enabled: false,
   registration_email_suffix_whitelist: [],
   registration_email_domain_quota_enabled: false,
-  promo_code_enabled: true,
   invitation_code_enabled: false,
   password_reset_enabled: false,
   totp_enabled: false,
@@ -9263,12 +9247,6 @@ const form = reactive<SettingsForm>({
   google_oauth_client_secret_configured: false,
   google_oauth_redirect_url: "",
   google_oauth_frontend_redirect_url: "/auth/oauth/callback",
-  // Model fallback
-  enable_model_fallback: false,
-  fallback_model_anthropic: "claude-3-5-sonnet-20241022",
-  fallback_model_openai: "gpt-4o",
-  fallback_model_gemini: "gemini-2.5-pro",
-  fallback_model_antigravity: "gemini-2.5-pro",
   grok_default_text_model: "grok-4.5",
   grok_cross_client_model_map_enabled: false,
   grok_default_base_url_mode: "cli",
@@ -10545,7 +10523,6 @@ async function saveSettings() {
         ),
       registration_email_domain_quota_enabled:
         form.registration_email_domain_quota_enabled,
-      promo_code_enabled: form.promo_code_enabled,
       invitation_code_enabled: form.invitation_code_enabled,
       password_reset_enabled: form.password_reset_enabled,
       totp_enabled: form.totp_enabled,
@@ -10704,11 +10681,6 @@ async function saveSettings() {
       google_oauth_redirect_url: form.google_oauth_redirect_url,
       google_oauth_frontend_redirect_url:
         form.google_oauth_frontend_redirect_url,
-      enable_model_fallback: form.enable_model_fallback,
-      fallback_model_anthropic: form.fallback_model_anthropic,
-      fallback_model_openai: form.fallback_model_openai,
-      fallback_model_gemini: form.fallback_model_gemini,
-      fallback_model_antigravity: form.fallback_model_antigravity,
       grok_default_text_model:
         form.grok_default_text_model.trim() || "grok-4.5",
       grok_cross_client_model_map_enabled:

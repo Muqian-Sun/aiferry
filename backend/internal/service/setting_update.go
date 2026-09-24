@@ -166,7 +166,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyRegistrationEmailSuffixWhitelist] = string(registrationEmailSuffixWhitelistJSON)
 	updates[SettingKeyRegistrationEmailDomainQuotaEnabled] = strconv.FormatBool(settings.RegistrationEmailDomainQuotaEnabled)
-	updates[SettingKeyPromoCodeEnabled] = strconv.FormatBool(settings.PromoCodeEnabled)
 	updates[SettingKeyPasswordResetEnabled] = strconv.FormatBool(settings.PasswordResetEnabled)
 	updates[SettingKeyFrontendURL] = settings.FrontendURL
 	updates[SettingKeyInvitationCodeEnabled] = strconv.FormatBool(settings.InvitationCodeEnabled)
@@ -386,13 +385,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		return nil, fmt.Errorf("marshal default subscriptions: %w", err)
 	}
 	updates[SettingKeyDefaultSubscriptions] = string(defaultSubsJSON)
-
-	// Model fallback configuration
-	updates[SettingKeyEnableModelFallback] = strconv.FormatBool(settings.EnableModelFallback)
-	updates[SettingKeyFallbackModelAnthropic] = settings.FallbackModelAnthropic
-	updates[SettingKeyFallbackModelOpenAI] = settings.FallbackModelOpenAI
-	updates[SettingKeyFallbackModelGemini] = settings.FallbackModelGemini
-	updates[SettingKeyFallbackModelAntigravity] = settings.FallbackModelAntigravity
 
 	// Identity patch configuration (Claude -> Gemini)
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)

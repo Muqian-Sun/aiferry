@@ -451,17 +451,6 @@ export default {
       deleteConfirm: 'Are you sure you want to delete this announcement? This action cannot be undone.'
     },
 
-    // Promo Codes
-    promo: {
-      columns: {
-        maxUses: 'Max Uses',
-        usedCount: 'Used',
-      },
-      // Messages
-      noCodesYet: 'No promo codes yet',
-      createFirstCode: 'Create your first promo code to offer registration bonuses.',
-    },
-
     // Usage Records
     usage: {
       title: 'Usage Records',

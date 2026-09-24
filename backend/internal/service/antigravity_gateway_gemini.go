@@ -95,7 +95,6 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 		MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
 		return nil, s.writeGoogleError(c, http.StatusForbidden, fmt.Sprintf("model %s not in whitelist", originalModel))
 	}
-	forwardedModel := mappedModel
 
 	// 获取 access_token
 	if s.tokenProvider == nil {
@@ -197,30 +196,6 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 		// 尽早关闭原始响应体，释放连接；后续逻辑仍可能需要读取 body，因此用内存副本重新包装。
 		_ = resp.Body.Close()
 		resp.Body = io.NopCloser(bytes.NewReader(respBody))
-
-		// 模型兜底：模型不存在且开启 fallback 时，自动用 fallback 模型重试一次
-		if s.settingService != nil && s.settingService.IsModelFallbackEnabled(ctx) &&
-			isModelNotFoundError(resp.StatusCode, respBody) {
-			fallbackModel := s.settingService.GetFallbackModel(ctx, PlatformAntigravity)
-			if fallbackModel != "" && fallbackModel != mappedModel {
-				logger.LegacyPrintf("service.antigravity_gateway", "[Antigravity] Model not found (%s), retrying with fallback model %s (account: %s)", mappedModel, fallbackModel, account.Name)
-
-				fallbackWrapped, err := s.wrapV1InternalRequest(projectID, fallbackModel, injectedBody)
-				if err == nil {
-					fallbackReq, err := antigravity.NewAPIRequest(ctx, upstreamAction, accessToken, fallbackWrapped)
-					if err == nil {
-						fallbackResp, err := s.httpUpstream.Do(fallbackReq, proxyURL, account.ID, account.Concurrency)
-						if err == nil && fallbackResp.StatusCode < 400 {
-							_ = resp.Body.Close()
-							resp = fallbackResp
-							forwardedModel = fallbackModel
-						} else if fallbackResp != nil {
-							_ = fallbackResp.Body.Close()
-						}
-					}
-				}
-			}
-		}
 
 		// Gemini 原生请求中的 thoughtSignature 可能来自旧上下文/旧账号，触发上游严格校验后返回
 		// "Corrupted thought signature."。检测到此类 400 时，将 thoughtSignature 清理为 dummy 值后重试一次。
@@ -336,7 +311,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 			}
 		}
 
-		// fallback 成功：继续按正常响应处理
+		// thoughtSignature 重试成功：继续按正常响应处理
 		if resp.StatusCode < 400 {
 			goto handleSuccess
 		}
@@ -460,7 +435,7 @@ handleSuccess:
 		UpstreamHeaders:               resp.Header,
 		Usage:                         *usage,
 		Model:                         originalModel,
-		UpstreamModel:                 forwardedModel,
+		UpstreamModel:                 mappedModel,
 		UpstreamResponseModel:         observedUpstreamResponseModel(c),
 		UpstreamResponseModelConflict: observedUpstreamResponseModelConflict(c),
 		Stream:                        stream,
