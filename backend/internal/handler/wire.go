@@ -168,6 +168,8 @@ func ProvideSystemHandler(updateService *service.UpdateService, lockService *ser
 
 // ProvideSettingHandler creates SettingHandler with version from BuildInfo
 func ProvideSettingHandler(settingService *service.SettingService, buildInfo BuildInfo, notificationEmailService *service.NotificationEmailService) *SettingHandler {
+	// 注入 HTML 的 window.__APP_CONFIG__ 也要带版本号（管理站侧栏显示它），和 /settings/public 接口一致
+	settingService.SetVersion(buildInfo.Version)
 	h := NewSettingHandler(settingService, buildInfo.Version)
 	h.SetNotificationEmailService(notificationEmailService)
 	return h

@@ -47,7 +47,8 @@ onUnmounted(() => {
 /* 桌面端：Flexbox 布局，表格区在视口内滚动（表头 sticky、虚拟滚动都依赖这个容器） */
 .table-page-layout {
   @apply flex flex-col gap-5;
-  height: calc(100vh - var(--af-topbar-h) - 3rem); /* 减去顶栏 + main 的上下内边距 */
+  /* 减去顶栏 + main 的上下内边距 + 管理站页头（AppLayout 量出来的，没有页头时为 0） */
+  height: calc(100vh - var(--af-topbar-h) - 3rem - var(--admin-page-header-h, 0px));
 }
 
 .layout-section-fixed {

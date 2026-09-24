@@ -1,6 +1,5 @@
 export default {
   modelCatalog: {
-    title: 'Model catalog',
     description: 'Canonical model prices and aliases. Billing reads from here.',
     search: 'Search by model id, display name, vendor or alias',
     create: 'New model',

@@ -47,7 +47,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Admin Dashboard',
-      titleKey: 'admin.dashboard.title',
+      titleKey: 'nav.overview',
       descriptionKey: 'admin.dashboard.description'
     }
   },
@@ -59,8 +59,9 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Ops Monitoring',
-      titleKey: 'admin.ops.title',
-      descriptionKey: 'admin.ops.description'
+      titleKey: 'nav.ops',
+      descriptionKey: 'admin.ops.description',
+      hidePageHeader: true
     }
   },
   {
@@ -71,7 +72,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Audit Logs',
-      titleKey: 'admin.audit.title',
+      titleKey: 'nav.auditLogs',
       descriptionKey: 'admin.audit.description'
     }
   },
@@ -83,7 +84,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'User Management',
-      titleKey: 'admin.users.title',
+      titleKey: 'nav.users',
       descriptionKey: 'admin.users.description'
     }
   },
@@ -99,7 +100,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Model Catalog',
-      titleKey: 'admin.modelCatalog.title',
+      titleKey: 'nav.models',
       descriptionKey: 'admin.modelCatalog.description'
     }
   },
@@ -111,7 +112,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Channel Monitor',
-      titleKey: 'admin.channelMonitor.title',
+      titleKey: 'nav.channelHealth',
       descriptionKey: 'admin.channelMonitor.description'
     }
   },
@@ -124,7 +125,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
-      descriptionKey: 'admin.subscriptions.description'
+      descriptionKey: 'admin.subscriptions.description',
+      pageGroup: 'subscriptions'
     }
   },
   {
@@ -135,7 +137,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Account Management',
-      titleKey: 'admin.accounts.title',
+      titleKey: 'nav.channels',
       descriptionKey: 'admin.accounts.description'
     }
   },
@@ -147,7 +149,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Announcements',
-      titleKey: 'admin.announcements.title',
+      titleKey: 'nav.announcements',
       descriptionKey: 'admin.announcements.description'
     }
   },
@@ -159,7 +161,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Proxy Management',
-      titleKey: 'admin.proxies.title',
+      titleKey: 'nav.proxies',
       descriptionKey: 'admin.proxies.description'
     }
   },
@@ -171,7 +173,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Redeem Code Management',
-      titleKey: 'admin.redeem.title',
+      titleKey: 'nav.redeemCodes',
       descriptionKey: 'admin.redeem.description'
     }
   },
@@ -183,7 +185,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'System Settings',
-      titleKey: 'admin.settings.title',
+      titleKey: 'nav.settings',
       descriptionKey: 'admin.settings.description'
     }
   },
@@ -197,7 +199,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       title: 'Risk Control',
       titleKey: 'admin.riskControl.title',
       descriptionKey: 'admin.riskControl.description',
-      requiresRiskControl: true
+      requiresRiskControl: true,
+      pageGroup: 'review'
     }
   },
   {
@@ -210,7 +213,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       title: 'Prompt Audit',
       titleKey: 'admin.promptAudit.title',
       descriptionKey: 'admin.promptAudit.description',
-      requiresRiskControl: true
+      requiresRiskControl: true,
+      pageGroup: 'review'
     }
   },
   {
@@ -221,7 +225,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Usage Records',
-      titleKey: 'admin.usage.title',
+      titleKey: 'nav.usage',
       descriptionKey: 'admin.usage.description'
     }
   },
@@ -237,7 +241,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Payment Dashboard',
       titleKey: 'nav.paymentDashboard',
-      requiresPayment: true
+      requiresPayment: true,
+      pageGroup: 'orders'
     }
   },
   {
@@ -249,7 +254,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Order Management',
       titleKey: 'nav.orderManagement',
-      requiresPayment: true
+      requiresPayment: true,
+      pageGroup: 'orders'
     }
   },
   {
@@ -260,7 +266,21 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Subscription Plans',
-      titleKey: 'nav.paymentPlans'
+      titleKey: 'nav.paymentPlans',
+      pageGroup: 'subscriptions'
+    }
+  },
+
+  // 侧栏灰色入口（功能未开启）的落地页（A3）
+  {
+    path: '/feature-off',
+    name: 'AdminFeatureOff',
+    component: () => import('@/views/admin/FeatureOffView.vue'),
+    meta: {
+      requiresAuth: true,
+      requiresAdmin: true,
+      title: 'Feature off',
+      titleKey: 'admin.featureOff.title'
     }
   },
 

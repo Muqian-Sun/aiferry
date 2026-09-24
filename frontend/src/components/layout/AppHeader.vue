@@ -1,7 +1,7 @@
 <template>
   <!--
     管理站顶栏：56px（与用户站同高），一张面 + 底部 hairline，无玻璃 / 阴影。
-    左：移动端菜单 + 页面标题 / 描述（来自路由 meta）；右：文档、语言、管理员菜单。
+    左：移动端菜单；右：文档、语言、管理员菜单。页面标题在内容区（AdminPageHeader，A3）。
   -->
   <header class="sticky top-0 z-30 border-b border-af-hairline bg-af-sheet">
     <div class="flex h-topbar items-center justify-between gap-3 px-4 sm:px-6">
@@ -14,11 +14,6 @@
         >
           <Icon name="menu" size="md" />
         </button>
-
-        <div class="min-w-0">
-          <h1 class="truncate text-base font-semibold leading-tight text-af-ink">{{ pageTitle }}</h1>
-          <p v-if="pageDescription" class="hidden truncate text-xs text-af-ink-3 sm:block">{{ pageDescription }}</p>
-        </div>
       </div>
 
       <div class="flex shrink-0 items-center gap-1 sm:gap-2">
@@ -67,16 +62,6 @@
                   <Icon name="user" size="sm" />
                   {{ t('nav.accountSecurity') }}
                 </router-link>
-                <a
-                  href="https://github.com/Wei-Shaw/sub2api"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="dropdown-item"
-                  @click="closeDropdown"
-                >
-                  <Icon name="externalLink" size="sm" />
-                  {{ t('nav.github') }}
-                </a>
               </div>
 
               <div v-if="contactInfo" class="border-t border-af-hairline px-4 py-2.5 text-xs text-af-ink-3">
@@ -100,17 +85,14 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore, useAuthStore } from '@/stores'
 import LocaleSwitcher from '@/components/common/LocaleSwitcher.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { sanitizeUrl } from '@/utils/url'
-import { resolveRouteMetaKeys } from '@/router/title'
-import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 
 const router = useRouter()
-const route = useRoute()
 const { t } = useI18n()
 const appStore = useAppStore()
 const authStore = useAuthStore()
@@ -129,23 +111,6 @@ const userInitials = computed(() => {
 })
 
 const displayName = computed(() => user.value?.username?.trim() || user.value?.email || '')
-
-// 标题 / 描述与 document.title 共用同一解析（含按站点计费模式切换的键）
-const routeMetaKeys = computed(() => resolveRouteMetaKeys(route, {
-  billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
-}))
-
-const pageTitle = computed(() => {
-  const titleKey = routeMetaKeys.value.titleKey
-  if (titleKey) return t(titleKey)
-  return (route.meta.title as string) || ''
-})
-
-const pageDescription = computed(() => {
-  const descKey = routeMetaKeys.value.descriptionKey
-  if (descKey) return t(descKey)
-  return (route.meta.description as string) || ''
-})
 
 function toggleMobileSidebar() {
   appStore.toggleMobileSidebar()

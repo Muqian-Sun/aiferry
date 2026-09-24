@@ -43,14 +43,10 @@ export default {
     // Proxies
     proxies: {
       accountsCount: '{count} accounts',
-      title: 'Proxy Management',
       description: 'Manage proxy servers for accounts',
       createProxy: 'Create Proxy',
       editProxy: 'Edit Proxy',
       deleteProxy: 'Delete Proxy',
-      ad: {
-        inline: 'Need proxy IP?'
-      },
       deleteConfirmMessage: "Are you sure you want to delete proxy '{name}'?",
       testProxy: 'Test Proxy',
       dataImport: 'Import',
@@ -241,7 +237,6 @@ export default {
 
     // Redeem Codes
     redeem: {
-      title: 'Redeem Code Management',
       description: 'Generate and manage redeem codes',
       generateCodes: 'Generate Codes',
       searchCodes: 'Search codes or email...',
@@ -376,7 +371,6 @@ export default {
 
     // Announcements
     announcements: {
-      title: 'Announcements',
       description: 'Create announcements and target by conditions',
       createFirstAnnouncement: 'No announcements yet. Create your first one.',
       createAnnouncement: 'Create Announcement',
@@ -446,7 +440,6 @@ export default {
 
     // Usage Records
     usage: {
-      title: 'Usage Records',
       description: 'View and manage all user usage records',
       userFilter: 'User',
       searchUserPlaceholder: 'Search user by email...',

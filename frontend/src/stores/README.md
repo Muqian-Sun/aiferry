@@ -8,7 +8,7 @@
 | `subscriptions.ts` | 用户站 | 当前用户的订阅与轮询 |
 | `payment.ts` | 用户站 | 支付流程状态 |
 | `onboarding.ts` | 用户站 | 新手引导重放回调 |
-| `adminSettings.ts` / `adminCompliance.ts` / `adminVersion.ts` | 管理站 | 管理端设置缓存、合规确认、版本检查与升级 |
+| `adminSettings.ts` / `adminCompliance.ts` | 管理站 | 管理端设置缓存、合规确认 |
 
 用户站入口不得 import `admin*` 三个 store（`app/__tests__/siteSplit.spec.ts` 守着 import 图）。
 

@@ -74,22 +74,17 @@ export default {
       unranked: 'Unranked',
     },
     settings: {
-      title: 'V2 data monitor config',
       description:
         'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user /monitor page show rates, RPM, and TPM — not absolute request volume.',
       save: 'Save',
       loading: 'Loading…',
-      loadFailed: 'Failed to load V2 config',
-      saveSuccess: 'V2 monitor config saved',
-      saveFailed: 'Failed to save V2 config',
-      modeBanner:
-        'System mode is currently {mode}. V2 minute aggregation will not run; this config can be prepared now and takes effect after switching to {modeV2}. Change mode under System Settings → Feature switches.',
-      modeClosed: 'Channel monitor disabled',
-      modeV1: 'V1 active probes',
-      modeV2: 'V2 passive monitoring',
-      enableTitle: 'Enable V2 aggregation',
+      loadFailed: 'Failed to load config',
+      saveSuccess: 'Config saved',
+      saveFailed: 'Failed to save config',
+      enableTitle: 'Enable aggregation',
       enableHint:
-        'Applies when system mode is V2. Turning this off only stops this config’s aggregation; the system mode switch remains under Feature switches.',
+        'Turning this off only stops this aggregation; the switch for the whole channel health feature is under Settings › Features.',
+      disabledBanner: 'Channel health is turned off under Settings › Features, so aggregation will not run. You can still save this config now.',
       refreshTitle: 'Aggregation interval',
       refreshHint: 'Affects matrix time granularity and refresh cadence',
       refreshAria: 'Aggregation interval',
@@ -125,16 +120,6 @@ export default {
         latency: 'Latency shows AVG · P50 · P90; absolute request / error counts are not shown',
         models: 'Empty model lists show real names and never dump everything into “Other”',
       },
-    },
-    admin: {
-      descriptionV1:
-        'System mode is V1 active probes: manage probe monitors and run checks now; V2 aggregation does not run.',
-      descriptionV2:
-        'System mode is V2 passive monitoring: configure aggregation dimensions; V1 active probes do not run.',
-      tabAria: 'Monitor management',
-      tabV2: 'V2 data monitor config',
-      tabV1Active: 'V1 active probes',
-      tabV1History: 'V1 history (probes not active in current mode)',
     },
   },
 }

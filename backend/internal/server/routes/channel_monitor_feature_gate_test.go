@@ -141,10 +141,10 @@ func TestChannelMonitorModeV2Guard(t *testing.T) {
 			wantCode:   "CHANNEL_MONITOR_DISABLED",
 		},
 		{
-			name:       "mode v1 blocks with mode mismatch",
+			// V1 已下线：库里存量的 v1（旧默认值）按 v2 处理，不再被挡
+			name:       "stored v1 is treated as v2",
 			svc:        newChannelMonitorModeSettings(true, service.ChannelMonitorModeV1),
-			wantStatus: http.StatusForbidden,
-			wantCode:   "CHANNEL_MONITOR_MODE_MISMATCH",
+			wantStatus: http.StatusOK,
 		},
 		{
 			name:       "mode v2 allows",

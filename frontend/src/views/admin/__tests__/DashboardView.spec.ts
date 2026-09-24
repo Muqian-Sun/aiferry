@@ -149,15 +149,4 @@ describe('admin DashboardView', () => {
       granularity: 'hour'
     }))
   })
-
-  // 分组入口卡片随分组一起下线；快捷入口里换成模型目录。
-  it('quick actions link to the model catalog instead of groups', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-
-    await wrapper.get('[data-testid="dashboard-model-catalog"]').trigger('click')
-    expect(routerPush).toHaveBeenCalledWith('/model-catalog')
-    expect(routerPush).not.toHaveBeenCalledWith('/groups')
-    expect(wrapper.html()).not.toContain('/groups')
-  })
 })

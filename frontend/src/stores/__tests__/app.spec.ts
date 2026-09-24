@@ -52,7 +52,6 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
     account_quota_notify_enabled: false,
     balance_low_notify_threshold: 0,
     channel_monitor_enabled: true,
-    channel_monitor_default_interval_seconds: 60,
     subscription_enabled: true,
     payment_balance_disabled: false,
     service_quota_enabled: false,
@@ -62,10 +61,6 @@ function createPublicSettings(overrides: Partial<PublicSettings> = {}): PublicSe
 }
 
 // Mock API 模块
-vi.mock('@/api/admin/system', () => ({
-  checkUpdates: vi.fn(),
-}))
-
 vi.mock('@/api/auth', () => ({
   getPublicSettings: vi.fn(),
 }))

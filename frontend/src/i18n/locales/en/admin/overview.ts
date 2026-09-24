@@ -1,7 +1,14 @@
 export default {
+    // Landing page for greyed-out sidebar entries (A3)
+    featureOff: {
+      title: 'Feature off',
+      message: '{name} is turned off',
+      hint: 'Turn it on under Settings › Features and the sidebar entry comes back.',
+      goSettings: 'Open settings',
+      fallbackName: 'This feature'
+    },
     // Dashboard
     dashboard: {
-      title: 'Admin Dashboard',
       description: 'System overview and real-time statistics',
       apiKeys: 'API Keys',
       totalApiKeys: 'Total API Keys',
@@ -56,15 +63,10 @@ export default {
       noUsageRecords: 'No usage records',
       startUsingApi: 'Once you start using the API, your usage history will appear here.',
       viewAllUsage: 'View all',
-      quickActions: 'Quick Actions',
       manageUsers: 'Manage Users',
       viewUserAccounts: 'View and manage user accounts',
       manageAccounts: 'Manage Accounts',
       configureAiAccounts: 'Configure AI platform accounts',
-      batchImage: 'Batch Image',
-      batchImageDesc: 'Submit jobs and copy agent instructions',
-      modelCatalog: 'Model catalog',
-      modelCatalogDesc: 'List models, set prices, bind channels',
       systemSettings: 'System Settings',
       configureSystem: 'Configure system settings',
       share: 'Share',
@@ -288,7 +290,6 @@ export default {
 
     // Users
     users: {
-      title: 'User Management',
       description: 'Manage users and their permissions',
       createUser: 'Create User',
       bulkDelete: {

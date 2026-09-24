@@ -6636,102 +6636,54 @@
               <Toggle v-model="form.channel_monitor_enabled" />
             </div>
 
-            <div v-if="form.channel_monitor_enabled" class="space-y-5">
-              <div>
-                <label class="input-label">
-                  {{ t('admin.settings.features.channelMonitor.mode') }}
-                </label>
-                <div class="mt-1.5 inline-flex w-full max-w-md rounded-lg border border-af-hairline bg-af-sunken p-1">
-                  <button
-                    type="button"
-                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                    :class="
-                      form.channel_monitor_mode === 'v2'
-                        ? 'bg-af-sheet text-af-brand'
-                        : 'text-af-ink-2 hover:text-af-ink'
-                    "
-                    @click="form.channel_monitor_mode = 'v2'"
-                  >
-                    {{ t('admin.settings.features.channelMonitor.modeV2') }}
-                  </button>
-                  <button
-                    type="button"
-                    class="inline-flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition"
-                    :class="
-                      form.channel_monitor_mode === 'v1'
-                        ? 'bg-af-sheet text-af-brand'
-                        : 'text-af-ink-2 hover:text-af-ink'
-                    "
-                    @click="form.channel_monitor_mode = 'v1'"
-                  >
-                    {{ t('admin.settings.features.channelMonitor.modeV1') }}
-                  </button>
-                </div>
-                <p class="mt-1.5 text-xs text-af-ink-3">
-                  {{
-                    form.channel_monitor_mode === 'v1'
-                      ? t('admin.settings.features.channelMonitor.modeV1Hint')
-                      : t('admin.settings.features.channelMonitor.modeV2Hint')
-                  }}
-                </p>
-                <p class="mt-1 text-xs text-af-ink-3">
-                  {{ t('admin.settings.features.channelMonitor.modeHint') }}
-                </p>
-              </div>
-
-              <div v-if="form.channel_monitor_mode === 'v1'">
-                <label class="input-label">
-                  {{ t('admin.settings.features.channelMonitor.defaultInterval') }}
-                  <span class="text-af-danger">*</span>
-                </label>
-                <input
-                  v-model.number="form.channel_monitor_default_interval_seconds"
-                  type="number"
-                  min="15"
-                  max="3600"
-                  class="input"
-                />
-                <p class="mt-1 text-xs text-af-ink-3">
-                  {{ t('admin.settings.features.channelMonitor.defaultIntervalHint') }}
-                </p>
-              </div>
-
-              <div v-if="form.channel_monitor_mode === 'v2'" class="space-y-4">
-                <div class="flex items-start justify-between gap-4">
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-af-ink">
-                      {{ t('admin.settings.features.channelMonitor.hideThroughput') }}
-                    </p>
-                    <p class="mt-1 text-xs text-af-ink-3">
-                      {{ t('admin.settings.features.channelMonitor.hideThroughputHint') }}
-                    </p>
-                  </div>
-                  <Toggle v-model="form.channel_monitor_hide_throughput" />
-                </div>
-                <div class="flex items-start justify-between gap-4">
-                  <div class="min-w-0">
-                    <p class="text-sm font-medium text-af-ink">
-                      {{ t('admin.settings.features.channelMonitor.hideUserRanking') }}
-                    </p>
-                    <p class="mt-1 text-xs text-af-ink-3">
-                      {{ t('admin.settings.features.channelMonitor.hideUserRankingHint') }}
-                    </p>
-                  </div>
-                  <Toggle v-model="form.channel_monitor_hide_user_ranking" />
-                </div>
-              </div>
-
-              <div v-if="form.channel_monitor_mode === 'v1'" class="flex items-start justify-between gap-4">
+            <div v-if="form.channel_monitor_enabled" class="space-y-4">
+              <div class="flex items-start justify-between gap-4">
                 <div class="min-w-0">
                   <p class="text-sm font-medium text-af-ink">
-                    {{ t('admin.settings.features.channelMonitor.showQuota') }}
+                    {{ t('admin.settings.features.channelMonitor.hideThroughput') }}
                   </p>
                   <p class="mt-1 text-xs text-af-ink-3">
-                    {{ t('admin.settings.features.channelMonitor.showQuotaHint') }}
+                    {{ t('admin.settings.features.channelMonitor.hideThroughputHint') }}
                   </p>
                 </div>
-                <Toggle v-model="form.channel_monitor_show_quota" />
+                <Toggle v-model="form.channel_monitor_hide_throughput" />
               </div>
+              <div class="flex items-start justify-between gap-4">
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-af-ink">
+                    {{ t('admin.settings.features.channelMonitor.hideUserRanking') }}
+                  </p>
+                  <p class="mt-1 text-xs text-af-ink-3">
+                    {{ t('admin.settings.features.channelMonitor.hideUserRankingHint') }}
+                  </p>
+                </div>
+                <Toggle v-model="form.channel_monitor_hide_user_ranking" />
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 运维监控开关（A3）：关掉后侧栏入口变灰、运维页不可用，只能从这里再打开 -->
+        <div class="card" data-testid="settings-ops-monitoring">
+          <div class="border-b border-af-hairline px-6 py-4">
+            <h2 class="text-lg font-semibold text-af-ink">
+              {{ t('admin.settings.opsMonitoring.title') }}
+            </h2>
+            <p class="mt-1 text-sm text-af-ink-3">
+              {{ t('admin.settings.opsMonitoring.description') }}
+            </p>
+          </div>
+          <div class="p-6">
+            <div class="flex items-center justify-between">
+              <div>
+                <label class="text-sm font-medium text-af-ink-2">
+                  {{ t('admin.settings.opsMonitoring.enabled') }}
+                </label>
+                <p class="mt-0.5 text-xs text-af-ink-3">
+                  {{ t('admin.settings.opsMonitoring.enabledHint') }}
+                </p>
+              </div>
+              <Toggle v-model="form.ops_monitoring_enabled" />
             </div>
           </div>
         </div>
@@ -8982,7 +8934,6 @@ type SettingsForm = Omit<
 > & {
   /** Form always binds a concrete boolean (SystemSettings marks this optional). */
   channel_monitor_hide_throughput: boolean;
-  channel_monitor_show_quota: boolean;
   channel_monitor_hide_user_ranking: boolean;
   smtp_password: string;
   turnstile_secret_key: string;
@@ -9250,10 +9201,7 @@ const form = reactive<SettingsForm>({
   account_quota_notify_emails: [] as NotifyEmailEntry[],
   // Channel Monitor feature switch
   channel_monitor_enabled: true,
-  channel_monitor_mode: 'v1' as 'v1' | 'v2',
-  channel_monitor_default_interval_seconds: 60,
   channel_monitor_hide_throughput: false,
-  channel_monitor_show_quota: false,
   channel_monitor_hide_user_ranking: false,
   // Available Channels feature switch
   // Subscription feature switch (user sidebar "My Subscriptions" entry)
@@ -10146,13 +10094,8 @@ async function loadSettings() {
       : defaultFingerprintSignalRows();
     form.login_agreement_mode =
       settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
-    form.channel_monitor_mode =
-      settings.channel_monitor_mode === "v2" ? "v2" : "v1";
     form.channel_monitor_hide_throughput = Boolean(
       settings.channel_monitor_hide_throughput
-    );
-    form.channel_monitor_show_quota = Boolean(
-      settings.channel_monitor_show_quota
     );
     form.channel_monitor_hide_user_ranking = Boolean(
       settings.channel_monitor_hide_user_ranking
@@ -10729,12 +10672,10 @@ async function saveSettings() {
       ).filter((e) => e.email.trim() !== ""),
       // Channel Monitor feature switch
       channel_monitor_enabled: form.channel_monitor_enabled,
-      channel_monitor_mode: form.channel_monitor_mode === 'v1' ? 'v1' : 'v2',
-      channel_monitor_default_interval_seconds:
-        Number(form.channel_monitor_default_interval_seconds) || 60,
       channel_monitor_hide_throughput: Boolean(form.channel_monitor_hide_throughput),
-      channel_monitor_show_quota: Boolean(form.channel_monitor_show_quota),
       channel_monitor_hide_user_ranking: Boolean(form.channel_monitor_hide_user_ranking),
+      // Ops monitoring feature switch
+      ops_monitoring_enabled: form.ops_monitoring_enabled,
       // Available Channels feature switch
       // Subscription feature switch
       subscription_enabled: form.subscription_enabled,

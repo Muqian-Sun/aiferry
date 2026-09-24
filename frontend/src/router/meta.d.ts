@@ -77,5 +77,16 @@ declare module 'vue-router' {
      * i18n key for the page description
      */
     descriptionKey?: string
+
+    /**
+     * 管理站：同组页面共用组标题 + 页签（见 components/admin/layout/adminPageGroups.ts）
+     */
+    pageGroup?: 'subscriptions' | 'orders' | 'review'
+
+    /**
+     * 管理站：页面自己画标题（运维监控有全屏模式，标题在它自己的工具条里），内容区不再放页头
+     * @default false
+     */
+    hidePageHeader?: boolean
   }
 }

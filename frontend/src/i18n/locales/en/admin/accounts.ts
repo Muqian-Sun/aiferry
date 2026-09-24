@@ -1,6 +1,5 @@
 export default {
     accounts: {
-      title: 'Channels',
       description: 'Create and manage upstream resources (subscriptions, third-party keys); bind them to listed models in the model catalog',
       createAccount: 'Create Account',
       autoRefresh: 'Auto Refresh',
