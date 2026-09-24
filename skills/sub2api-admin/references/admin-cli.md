@@ -86,7 +86,7 @@ node scripts/sub2api-admin.js accounts batch-refresh --ids 40,39
 node scripts/sub2api-admin.js accounts batch-clear-error --ids 40,39
 ```
 
-`bulk-update` 可覆盖页面“批量更新”的字段，payload 由后台表单字段决定，例如 `base_url`、`model_mapping`、`group_ids`、`proxy_id`、`concurrency`、`priority`、`rate_multiplier`、`status`、`compact_mode` 等。更新前先用 `accounts get <id>` 确认字段名。
+`bulk-update` 可覆盖页面“批量更新”的字段，payload 由后台表单字段决定，例如 `base_url`、`model_mapping`、`proxy_id`、`concurrency`、`priority`、`rate_multiplier`、`status`、`compact_mode` 等。更新前先用 `accounts get <id>` 确认字段名。
 
 ### 导入
 
@@ -110,13 +110,11 @@ node scripts/sub2api-admin.js accounts import-json \
 
 - `concurrency`
 - `priority`
-- `group_ids`
 - `credentials.model_mapping`
 
-## Groups And Proxies
+## Proxies
 
 ```bash
-node scripts/sub2api-admin.js groups all
 node scripts/sub2api-admin.js proxies all
 ```
 
@@ -142,11 +140,11 @@ node scripts/sub2api-admin.js redeem-codes generate \
   --idempotency-key "redeem-generate-$(date +%s)"
 ```
 
-订阅兑换码需要 `group_id` 和非零 `validity_days`：
+订阅兑换码需要 `plan_id`（订阅套餐 ID）和非零 `validity_days`：
 
 ```bash
 node scripts/sub2api-admin.js redeem-codes generate \
-  --json '{"count":1,"type":"subscription","value":0,"group_id":2,"validity_days":30}' \
+  --json '{"count":1,"type":"subscription","value":0,"plan_id":2,"validity_days":30}' \
   --idempotency-key "redeem-subscription-$(date +%s)"
 ```
 
@@ -195,7 +193,7 @@ node scripts/sub2api-admin.js tls-profiles delete 1
 未封装或新版本后台接口可用 `api` 直通。路径可写 `/admin/...` 或 `/api/v1/admin/...`。
 
 ```bash
-node scripts/sub2api-admin.js api GET /admin/groups/all
+node scripts/sub2api-admin.js api GET /admin/proxies/all
 node scripts/sub2api-admin.js api POST /admin/accounts/bulk-update \
   --json '{"account_ids":[40],"concurrency":10}'
 ```
@@ -207,7 +205,6 @@ node scripts/sub2api-admin.js api POST /admin/accounts/bulk-update \
 - `POST /api/v1/admin/accounts`
 - `PUT /api/v1/admin/accounts/:id`
 - `DELETE /api/v1/admin/accounts/:id`
-- `POST /api/v1/admin/accounts/check-mixed-channel`
 - `GET /api/v1/admin/accounts/:id/usage`
 - `GET /api/v1/admin/accounts/:id/stats`
 - `GET /api/v1/admin/accounts/:id/today-stats`
@@ -233,7 +230,6 @@ node scripts/sub2api-admin.js api POST /admin/accounts/bulk-update \
 - `POST /api/v1/admin/accounts/data`
 - `POST /api/v1/admin/accounts/import/codex-session`
 - `GET /api/v1/admin/accounts/antigravity/default-model-mapping`
-- `GET /api/v1/admin/groups/all`
 - `GET /api/v1/admin/proxies/all`
 - `GET /api/v1/admin/redeem-codes`
 - `GET /api/v1/admin/redeem-codes/export`

@@ -1,6 +1,6 @@
 ---
 name: sub2api-admin
-description: Manage Sub2API admin APIs for accounts, redeem codes, groups, proxies, error passthrough rules, TLS fingerprint profiles, imports, exports, batch updates, and raw administrator API calls. Use when the user mentions Sub2API, admin API keys, account management, redeem code management, recharge codes, invitation codes, bulk account import/export, keeping or deleting accounts, refreshing accounts, clearing errors, or managing Sub2API backend settings through the admin API.
+description: Manage Sub2API admin APIs for accounts, redeem codes, proxies, error passthrough rules, TLS fingerprint profiles, imports, exports, batch updates, and raw administrator API calls. Use when the user mentions Sub2API, admin API keys, account management, redeem code management, recharge codes, invitation codes, bulk account import/export, keeping or deleting accounts, refreshing accounts, clearing errors, or managing Sub2API backend settings through the admin API.
 ---
 
 # Sub2API Admin
@@ -20,7 +20,7 @@ For all commands and payload examples, read [references/admin-cli.md](references
 ## Workflow
 
 1. Reuse `SUB2API_BASE_URL` and either `SUB2API_ADMIN_API_KEY` or `SUB2API_JWT` from the environment.
-2. Run read-only commands first: `accounts list`, `accounts get <id>`, `groups all`, or `proxies all`.
+2. Run read-only commands first: `accounts list`, `accounts get <id>`, or `proxies all`.
 3. Before destructive or bulk writes, print the target account names and IDs.
 4. Execute the write command only after the target set is clear.
 5. Run a follow-up read command to verify the result.
