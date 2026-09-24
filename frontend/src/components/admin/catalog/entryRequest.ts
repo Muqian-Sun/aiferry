@@ -28,6 +28,22 @@ export const NUMERIC_FIELDS = [
   'max_reasoning_effort_multiplier'
 ] as const satisfies readonly (keyof ModelCatalogEntryRequest)[]
 
+/**
+ * 音频单价：新后端才有的字段。只在有值时放进请求体——旧后端忽略未知字段，
+ * 新后端整条覆盖时「没传」与「传 null」一样都是未配置，所以省掉 null 不会丢值。
+ */
+export const OPTIONAL_NUMERIC_FIELDS = ['audio_input_price', 'audio_output_price'] as const satisfies readonly (keyof ModelCatalogEntryRequest)[]
+
+/** 就地把可选单价规整成数字；空值直接删掉这个键 */
+export function applyOptionalPrices(body: ModelCatalogEntryRequest, source: Partial<Record<(typeof OPTIONAL_NUMERIC_FIELDS)[number], unknown>>): ModelCatalogEntryRequest {
+  for (const field of OPTIONAL_NUMERIC_FIELDS) {
+    const value = numberOrNull(source[field])
+    if (value == null) delete body[field]
+    else body[field] = value
+  }
+  return body
+}
+
 export function numberOrNull(value: unknown): number | null {
   if (value === '' || value === null || value === undefined) return null
   return typeof value === 'number' && Number.isFinite(value) ? value : null
@@ -35,7 +51,7 @@ export function numberOrNull(value: unknown): number | null {
 
 /** 把一条目录条目原样投影成保存请求（区间分档、分时定价、隐藏价一并带上）。 */
 export function entryToRequest(entry: ModelCatalogEntry): ModelCatalogEntryRequest {
-  return {
+  const body: ModelCatalogEntryRequest = {
     model_id: entry.model_id,
     display_name: entry.display_name,
     vendor: entry.vendor,
@@ -67,6 +83,7 @@ export function entryToRequest(entry: ModelCatalogEntry): ModelCatalogEntryReque
     intervals: entry.intervals,
     time_pricing: entry.time_pricing
   }
+  return applyOptionalPrices(body, entry)
 }
 
 /** 图片 / 视频分档：档位只能是后端认的这几个（计费查档区分大小写），每档一个按次价。 */

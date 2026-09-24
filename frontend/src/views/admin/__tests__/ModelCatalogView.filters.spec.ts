@@ -99,8 +99,10 @@ function mountView() {
   return mount(ModelCatalogView, {
     global: {
       stubs: {
-        AppLayout: { template: '<div><slot /></div>' },
-        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
+        AppLayout: { template: '<div><slot name="header-actions" /><slot /></div>' },
+        TablePageLayout: { template: '<div><slot name="summary" /><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
+        PopoverMenu: { template: '<div><slot name="trigger" :open="false" /><slot :close="() => {}" /></div>' },
+        RouterLink: true,
         DataTable: DataTableStub,
         Pagination: true,
         BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
@@ -116,9 +118,10 @@ function mountView() {
 
 const rowIds = (wrapper: ReturnType<typeof mountView>) => wrapper.findAll('[data-testid="row"]').map((row) => row.find('.font-mono').text())
 
-async function pickSelect(wrapper: ReturnType<typeof mountView>, testid: string, value: string) {
-  const select = wrapper.findAllComponents({ name: 'Select' }).find((c) => c.attributes('data-testid') === testid)!
-  await select.vm.$emit('update:modelValue', value)
+/** 筛选标签（A4）：空串 = 全部 */
+async function pickFilter(wrapper: ReturnType<typeof mountView>, testid: string, value: string) {
+  const chip = wrapper.findAllComponents({ name: 'FilterChip' }).find((c) => c.props('testId') === testid)!
+  await chip.vm.$emit('update:modelValue', value)
   await flushPromises()
 }
 
@@ -137,29 +140,40 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
   it('summarises total / listed / listed-without-resources and lists every entry by default', async () => {
     const wrapper = mountView()
     await flushPromises()
-    expect(wrapper.get('[data-testid="model-catalog-summary"]').text()).toContain('"total":5,"listed":2,"noResources":1')
+    const summary = wrapper.get('[data-testid="model-catalog-summary"]')
+    expect(summary.get('[data-testid="stat-total"]').text()).toContain('5')
+    expect(summary.get('[data-testid="stat-listed"]').text()).toContain('2')
+    expect(summary.get('[data-testid="stat-unbound"]').text()).toContain('1')
     expect(rowIds(wrapper)).toEqual(['claude-opus-4-6', 'gpt-5.6', 'gpt-image-2', 'nameless', 'veo-x'])
+
+    // 「上架但无渠道」旁的「筛选」一键筛出这些条目
+    await summary.get('[data-testid="stat-unbound-action"]').trigger('click')
+    await flushPromises()
+    expect(rowIds(wrapper)).toEqual(['gpt-5.6'])
   })
 
   it('filters by status, vendor (including the blank vendor), billing mode and resources', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    await pickSelect(wrapper, 'model-catalog-filter-status', 'unlisted')
+    await pickFilter(wrapper, 'model-catalog-filter-status', 'unlisted')
     expect(rowIds(wrapper)).toEqual(['gpt-image-2', 'nameless', 'veo-x'])
-    await pickSelect(wrapper, 'model-catalog-filter-status', 'all')
+    await pickFilter(wrapper, 'model-catalog-filter-status', '')
 
-    await pickSelect(wrapper, 'model-catalog-filter-vendor', 'openai')
+    await pickFilter(wrapper, 'model-catalog-filter-vendor', 'openai')
     expect(rowIds(wrapper)).toEqual(['gpt-5.6', 'gpt-image-2'])
-    await pickSelect(wrapper, 'model-catalog-filter-vendor', '')
+    // 「无厂商」是单独一个选项（空串已表示不筛）
+    const vendorChip = wrapper.findAllComponents({ name: 'FilterChip' }).find((c) => c.props('testId') === 'model-catalog-filter-vendor')!
+    const noVendor = (vendorChip.props('options') as { value: string; label: string }[]).find((o) => o.label === 'admin.modelCatalog.filters.noVendor')!
+    await pickFilter(wrapper, 'model-catalog-filter-vendor', noVendor.value)
     expect(rowIds(wrapper)).toEqual(['nameless'])
-    await pickSelect(wrapper, 'model-catalog-filter-vendor', 'all')
+    await pickFilter(wrapper, 'model-catalog-filter-vendor', '')
 
-    await pickSelect(wrapper, 'model-catalog-filter-billing', 'image')
+    await pickFilter(wrapper, 'model-catalog-filter-billing', 'image')
     expect(rowIds(wrapper)).toEqual(['gpt-image-2'])
-    await pickSelect(wrapper, 'model-catalog-filter-billing', 'all')
+    await pickFilter(wrapper, 'model-catalog-filter-billing', '')
 
-    await pickSelect(wrapper, 'model-catalog-filter-resources', 'bound')
+    await pickFilter(wrapper, 'model-catalog-filter-resources', 'bound')
     expect(rowIds(wrapper)).toEqual(['claude-opus-4-6'])
     expect(wrapper.text()).toContain('admin.modelCatalog.filtered:{"count":1}')
   })
@@ -192,7 +206,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     await flushPromises()
     await wrapper.get('[data-testid="select-all"]').trigger('click')
     await flushPromises()
-    expect(wrapper.text()).toContain('admin.modelCatalog.bulk.selected:{"count":5}')
+    expect(wrapper.text()).toContain('common.selectedItems:{"count":5}')
 
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
     await flushPromises()
@@ -203,7 +217,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     expect(updateEntry).toHaveBeenCalledWith(4, expect.objectContaining({ model_id: 'nameless', status: 'listed' }))
     expect(showSuccess).toHaveBeenCalledWith('admin.modelCatalog.bulk.listedDone:{"count":3}')
     expect(listEntries).toHaveBeenCalledTimes(2)
-    expect(wrapper.text()).not.toContain('admin.modelCatalog.bulk.selected')
+    expect(wrapper.find('[data-testid="bulk-bar"]').exists()).toBe(false)
   })
 
   it('keeps the failed entries selected and reports each reason when a bulk update is partly rejected', async () => {
@@ -221,7 +235,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     const message = showError.mock.calls[0][0] as string
     expect(message).toContain('"done":2,"failed":1')
     expect(message).toContain('nameless: listed model requires a price')
-    expect(wrapper.text()).toContain('admin.modelCatalog.bulk.selected:{"count":1}')
+    expect(wrapper.text()).toContain('common.selectedItems:{"count":1}')
   })
 
   it('does nothing but say so when every selected entry already has the target status', async () => {

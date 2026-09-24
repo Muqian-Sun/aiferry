@@ -6,15 +6,16 @@ export default {
     edit: '编辑模型',
     empty: '目录还是空的，先播种或手动新建。',
     noMatch: '没有匹配的条目',
-    summary: '共 {total} 个模型 · 上架 {listed} · 上架但无资源 {noResources}',
+    summaryStats: {
+      total: '模型',
+      listed: '已上架',
+      listedWithoutResources: '上架但无渠道',
+      showThem: '筛选'
+    },
     filtered: '筛选后 {count} 个',
     aliasCount: '{count} 别名',
     filters: {
-      allStatus: '全部状态',
-      allVendors: '全部厂商',
       noVendor: '（无厂商）',
-      allBilling: '全部计费',
-      allResources: '全部资源',
       withResources: '有资源',
       withoutResources: '无资源'
     },
@@ -29,10 +30,8 @@ export default {
       tiers: '{count} 档'
     },
     bulk: {
-      selected: '已选 {count} 个',
-      list: '批量上架',
-      unlist: '批量下架',
-      clear: '取消选择',
+      list: '上架',
+      unlist: '下架',
       nothingToDo: '选中的条目已经是目标状态',
       listedDone: '已上架 {count} 个模型',
       unlistedDone: '已下架 {count} 个模型',
@@ -42,7 +41,10 @@ export default {
       basics: '基本信息',
       pricing: '计费与标价',
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
-      perMillion: '= ${price} / 百万 Token'
+      perMillion: '= ${price} / 百万 Token',
+      morePrices: '更多价格',
+      morePricesFilled: '已填 {count} 项',
+      morePricesHint: '缓存、图片、音频的 Token 单价；留空即未配置。'
     },
     diagnose: '诊断',
     diagnosis: {
@@ -76,7 +78,7 @@ export default {
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
-    fullReplaceHint: '保存是整条覆盖。按 Token 的区间分档和分时定价按原值写回，本页暂不编辑；图片 / 视频分档在上方编辑。',
+    fullReplaceHint: '保存是整条覆盖。本页没列出的项（按 Token 的区间分档、分时定价、优先级价、长上下文与倍率）按原值写回；图片 / 视频分档在上方编辑。',
     listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
     noResources: '无资源',
     fields: {
@@ -92,7 +94,15 @@ export default {
       perRequestPrice: '每次默认价（$）',
       perImagePrice: '每张默认价（$，分档未命中时用）',
       perSecondPrice: '每秒默认价（$，分档未命中时用）',
-      searchPricePerCall: '内置搜索每次调用价（$，留空用内置单价 0.01）'
+      searchPricePerCall: '内置搜索每次调用价（$，留空用内置单价 0.01）',
+      cacheWritePrice: '缓存写入价 · 5 分钟（$/token）',
+      cacheWrite1hPrice: '缓存写入价 · 1 小时（$/token）',
+      cacheReadPrice: '缓存读取价（$/token）',
+      imageInputPrice: '图片输入价（$/token）',
+      imageOutputPrice: '图片输出价（$/token）',
+      imageCacheReadPrice: '图片缓存读取价（$/token）',
+      audioInputPrice: '音频输入价（$/token）',
+      audioOutputPrice: '音频输出价（$/token）'
     },
     tiers: {
       title: '分档单价',

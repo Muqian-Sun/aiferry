@@ -1,6 +1,7 @@
 <template>
   <!--
-    目录条目编辑器：基本信息 / 计费与标价 / 图片视频分档 / 绑定资源，一个弹窗。
+    目录条目编辑器：基本信息 / 计费与标价（含收起的「更多价格」）/ 图片视频分档 / 绑定资源，一个弹窗。
+    保存是整条覆盖：表单从条目整条投影（entryToRequest），没露出的字段（优先级价、长上下文、倍率、分时…）原样写回。
     保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定；绑定被拒时条目已保存，弹出后端原因、编辑器保持打开。
   -->
   <BaseDialog :show="show" :title="title" width="wide" @close="emit('close')">
@@ -68,6 +69,32 @@
             <input v-model.number="form.search_price_per_call" type="number" step="any" class="input" data-testid="model-catalog-search-price-per-call" />
           </div>
         </div>
+        <!-- 更多价格：缓存 / 图片 / 音频的 Token 单价，默认收起；收起时也按原值写回 -->
+        <div class="space-y-3" data-testid="model-catalog-more-prices">
+          <button
+            type="button"
+            class="inline-flex items-center gap-1 text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+            :aria-expanded="showMorePrices ? 'true' : 'false'"
+            data-testid="model-catalog-more-prices-toggle"
+            @click="showMorePrices = !showMorePrices"
+          >
+            <Icon name="chevronRight" size="sm" :class="['transition-transform', showMorePrices ? 'rotate-90' : '']" />
+            {{ t('admin.modelCatalog.editor.morePrices') }}
+            <span v-if="morePricesFilled > 0" class="font-normal text-af-ink-3">
+              · {{ t('admin.modelCatalog.editor.morePricesFilled', { count: morePricesFilled }) }}
+            </span>
+          </button>
+          <template v-if="showMorePrices">
+            <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.editor.morePricesHint') }}</p>
+            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div v-for="field in MORE_PRICE_FIELDS" :key="field.key">
+                <label class="input-label">{{ t(`admin.modelCatalog.fields.${field.label}`) }}</label>
+                <input v-model.number="form[field.key]" type="number" step="any" class="input" :data-testid="`model-catalog-${field.testId}`" />
+                <p class="input-hint">{{ perMillionHint(form[field.key]) }}</p>
+              </div>
+            </div>
+          </template>
+        </div>
         <div v-if="isMediaMode" class="space-y-2" data-testid="model-catalog-media-tiers">
           <div class="flex items-center justify-between">
             <div>
@@ -133,11 +160,13 @@ import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogBinding, ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import Icon from '@/components/icons/Icon.vue'
 import CatalogBindingsEditor from './CatalogBindingsEditor.vue'
 import {
   IMAGE_TIER_LABELS,
   NUMERIC_FIELDS,
   VIDEO_TIER_LABELS,
+  applyOptionalPrices,
   entryToRequest,
   mediaTiersFromIntervals,
   mediaTiersToIntervals,
@@ -163,6 +192,7 @@ const loadedEntry = ref<ModelCatalogEntry | null>(null)
 const bindings = ref<ModelCatalogBinding[]>([])
 const bindingsEditorRef = ref<InstanceType<typeof CatalogBindingsEditor> | null>(null)
 
+// 新建用的空表单要把每个字段都列全：Object.assign 只覆盖列出的键，漏一个就会把上一次编辑的条目的值带进新条目
 const emptyForm = (): ModelCatalogEntryRequest => ({
   model_id: '',
   display_name: '',
@@ -170,12 +200,38 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
   protocols: [],
   billing_mode: 'token',
   status: 'listed',
-  input_price: null,
-  output_price: null,
-  per_request_price: null,
-  search_price_per_call: null
+  ...(Object.fromEntries(NUMERIC_FIELDS.map((field) => [field, null])) as Record<(typeof NUMERIC_FIELDS)[number], null>),
+  audio_input_price: null,
+  audio_output_price: null,
+  long_context_threshold_inclusive: false,
+  notes: null,
+  intervals: [],
+  time_pricing: null
 })
 const form = reactive<ModelCatalogEntryRequest>(emptyForm())
+
+// 「更多价格」里的字段：都是 $/token，和输入 / 输出价一样给百万 Token 换算
+type MorePriceKey =
+  | 'cache_write_price'
+  | 'cache_write_1h_price'
+  | 'cache_read_price'
+  | 'image_input_price'
+  | 'image_output_price'
+  | 'image_cache_read_price'
+  | 'audio_input_price'
+  | 'audio_output_price'
+const MORE_PRICE_FIELDS: ReadonlyArray<{ key: MorePriceKey; label: string; testId: string }> = [
+  { key: 'cache_write_price', label: 'cacheWritePrice', testId: 'cache-write-price' },
+  { key: 'cache_write_1h_price', label: 'cacheWrite1hPrice', testId: 'cache-write-1h-price' },
+  { key: 'cache_read_price', label: 'cacheReadPrice', testId: 'cache-read-price' },
+  { key: 'image_input_price', label: 'imageInputPrice', testId: 'image-input-price' },
+  { key: 'image_output_price', label: 'imageOutputPrice', testId: 'image-output-price' },
+  { key: 'image_cache_read_price', label: 'imageCacheReadPrice', testId: 'image-cache-read-price' },
+  { key: 'audio_input_price', label: 'audioInputPrice', testId: 'audio-input-price' },
+  { key: 'audio_output_price', label: 'audioOutputPrice', testId: 'audio-output-price' }
+]
+const showMorePrices = ref(false)
+const morePricesFilled = computed(() => MORE_PRICE_FIELDS.filter((field) => numberOrNull(form[field.key]) != null).length)
 
 // 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
 const billingModes = ['token', 'per_request', 'image', 'video'] as const
@@ -215,6 +271,7 @@ function showApiError(error: unknown) {
 async function loadFor(entry: ModelCatalogEntry | null) {
   bindingsEditorRef.value?.reset()
   bindings.value = []
+  showMorePrices.value = false
   if (!entry) {
     editingId.value = null
     loadedEntry.value = null
@@ -252,7 +309,7 @@ function payload(): ModelCatalogEntryRequest {
   for (const field of NUMERIC_FIELDS) {
     body[field] = numberOrNull(form[field])
   }
-  return body
+  return applyOptionalPrices(body, form)
 }
 
 function bindingsPayload() {

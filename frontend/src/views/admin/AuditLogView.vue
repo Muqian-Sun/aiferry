@@ -1,92 +1,137 @@
 <template>
+  <!--
+    操作日志（A4 列表模板）：标题右侧「⋯」（全部清理，确认 → TOTP 二次验证）；
+    工具行 = 关键字搜索 + 方法 / 认证方式 / 结果 / 时间范围筛选标签 +「+ 更多筛选」（动作 / 操作者邮箱 / 客户端 IP，
+    都是自由文本，挑出来才出现小输入框）+ 刷新；筛选即时生效。时间列保留精确时间；行尾「详情」图标。
+  -->
   <AppLayout>
+    <template #header-actions>
+      <PopoverMenu width-class="w-48">
+        <template #trigger="{ open }">
+          <button
+            type="button"
+            class="btn btn-ghost btn-md px-2.5"
+            :class="open ? 'bg-af-sunken text-af-ink' : ''"
+            :title="t('common.more')"
+            :aria-label="t('common.more')"
+            data-testid="audit-tools"
+          >
+            <Icon name="more" size="md" />
+          </button>
+        </template>
+        <MenuItem icon="trash" danger :disabled="checkingTotpStatus" data-testid="audit-clear" @click="openClearDialog">
+          {{ t('admin.audit.clearAll') }}
+        </MenuItem>
+      </PopoverMenu>
+    </template>
+
     <TablePageLayout>
-      <!-- Filters -->
       <template #filters>
-        <div class="card p-4 sm:p-6">
-          <div class="flex flex-wrap items-end justify-between gap-4">
-            <!-- Left: filter fields -->
-            <div class="flex flex-1 flex-wrap items-end gap-4">
-              <div class="w-full sm:w-auto sm:min-w-[240px]">
-                <label class="input-label">{{ t('admin.audit.filters.q') }}</label>
-                <div class="relative">
-                  <Icon
-                    name="search"
-                    size="md"
-                    class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3"
-                  />
-                  <input
-                    v-model.trim="filters.q"
-                    type="text"
-                    class="input pl-10"
-                    :placeholder="t('admin.audit.filters.qPlaceholder')"
-                    @keyup.enter="search"
-                  />
-                </div>
-              </div>
+        <ListToolbar>
+          <SearchInput
+            v-model="filters.q"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('admin.audit.filters.qPlaceholder')"
+            data-testid="audit-search"
+            @search="search"
+          />
+          <FilterChip
+            v-model="filters.method"
+            :label="t('admin.audit.filters.method')"
+            :options="methodOptions"
+            test-id="audit-filter-method"
+            @change="search"
+          />
+          <FilterChip
+            v-model="filters.auth_method"
+            :label="t('admin.audit.filters.authMethod')"
+            :options="authMethodOptions"
+            test-id="audit-filter-auth-method"
+            @change="search"
+          />
+          <FilterChip
+            v-model="filters.success"
+            :label="t('admin.audit.filters.result')"
+            :options="resultOptions"
+            test-id="audit-filter-result"
+            @change="search"
+          />
+          <FilterChip
+            :model-value="timeRangeChipValue"
+            :label="t('admin.dashboard.timeRange')"
+            :options="timeRangeOptions"
+            test-id="audit-filter-time"
+            @update:model-value="handleTimeRangeChange"
+          />
 
-              <div class="w-full sm:w-auto sm:min-w-[200px]">
-                <label class="input-label">{{ t('admin.audit.filters.actorEmail') }}</label>
-                <input v-model.trim="filters.actor_email" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[180px]">
-                <label class="input-label">{{ t('admin.audit.filters.action') }}</label>
-                <input v-model.trim="filters.action" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[160px]">
-                <label class="input-label">{{ t('admin.audit.filters.clientIp') }}</label>
-                <input v-model.trim="filters.client_ip" type="text" class="input" @keyup.enter="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[140px]">
-                <label class="input-label">{{ t('admin.audit.filters.method') }}</label>
-                <Select v-model="filters.method" :options="methodOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[170px]">
-                <label class="input-label">{{ t('admin.audit.filters.authMethod') }}</label>
-                <Select v-model="filters.auth_method" :options="authMethodOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[140px]">
-                <label class="input-label">{{ t('admin.audit.filters.result') }}</label>
-                <Select v-model="filters.success" :options="resultOptions" @change="search" />
-              </div>
-
-              <div class="w-full sm:w-auto sm:min-w-[170px]">
-                <label class="input-label">{{ t('admin.dashboard.timeRange') }}</label>
-                <Select
-                  :model-value="timeRange"
-                  :options="timeRangeOptions"
-                  @update:model-value="handleTimeRangeChange"
-                />
-              </div>
-            </div>
-
-            <!-- Right: actions -->
-            <div class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
-              <button type="button" class="btn btn-primary" :disabled="loading" @click="search">
-                {{ t('common.search') }}
+          <!-- 自由文本筛选：从「+ 更多筛选」里挑出来的才显示 -->
+          <template v-for="field in TEXT_FILTERS" :key="field.key">
+            <input
+              v-if="visibleTextFilters.has(field.key)"
+              v-model="filters[field.key]"
+              type="text"
+              class="input h-8 w-full py-0 text-13 sm:w-40"
+              :class="field.key === 'client_ip' || field.key === 'action' ? 'font-mono' : ''"
+              :placeholder="t(field.label)"
+              :title="t(field.label)"
+              :aria-label="t(field.label)"
+              :data-testid="`audit-filter-${field.key}`"
+              @input="searchDebounced"
+              @keyup.enter="search"
+            />
+          </template>
+          <PopoverMenu align="start" width-class="w-48" :close-on-select="false">
+            <template #trigger>
+              <button
+                type="button"
+                class="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-13 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+                data-testid="audit-filter-more"
+              >
+                <Icon name="plus" size="xs" :stroke-width="2" />
+                {{ t('admin.audit.filters.more') }}
               </button>
-              <button type="button" class="btn btn-secondary" :disabled="loading" @click="resetFilters">
-                {{ t('common.reset') }}
-              </button>
-              <button type="button" class="btn btn-danger" @click="openClearDialog">
-                <Icon name="trash" size="sm" class="mr-1.5" />
-                {{ t('admin.audit.clearAll') }}
-              </button>
-            </div>
-          </div>
-        </div>
+            </template>
+            <MenuItem
+              v-for="field in TEXT_FILTERS"
+              :key="field.key"
+              :checked="visibleTextFilters.has(field.key)"
+              :data-testid="`audit-filter-more-${field.key}`"
+              @click="toggleTextFilter(field.key)"
+            >
+              {{ t(field.label) }}
+            </MenuItem>
+          </PopoverMenu>
+          <button
+            v-if="hasActiveFilters"
+            type="button"
+            class="h-8 rounded-md px-2 text-13 text-af-ink-3 transition-colors hover:text-af-ink"
+            data-testid="audit-filter-reset"
+            @click="resetFilters"
+          >
+            {{ t('admin.audit.filters.reset') }}
+          </button>
+
+          <template #end>
+            <button
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
+              :disabled="loading"
+              :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="fetchLogs"
+            >
+              <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+            </button>
+          </template>
+        </ListToolbar>
       </template>
 
-      <!-- Table -->
       <template #table>
         <DataTable :columns="columns" :data="logs" :loading="loading" row-key="id">
+          <!-- 审计要精确时间，不写相对时间 -->
           <template #cell-created_at="{ value }">
-            <span class="whitespace-nowrap text-af-ink-2">{{ formatTime(value) }}</span>
+            <span class="whitespace-nowrap tabular-nums text-af-ink-2">{{ formatTime(value) }}</span>
           </template>
 
           <template #cell-actor="{ row }">
@@ -111,15 +156,16 @@
             </div>
           </template>
 
+          <!-- 成功是常态：灰点；4xx 橙、5xx 红 -->
           <template #cell-status_code="{ row }">
-            <span :class="statusBadgeClass(row.status_code)">
-              <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(row.status_code)"></span>
-              {{ row.status_code }}
-            </span>
+            <div class="flex items-center gap-1.5 whitespace-nowrap">
+              <span class="inline-block h-2 w-2 rounded-full" :class="statusDotClass(row.status_code)"></span>
+              <span class="tabular-nums" :class="statusTextClass(row.status_code)">{{ row.status_code }}</span>
+            </div>
           </template>
 
           <template #cell-latency_ms="{ value }">
-            <span class="whitespace-nowrap text-af-ink-3">{{ value }} ms</span>
+            <span class="whitespace-nowrap tabular-nums text-af-ink-3">{{ value }} ms</span>
           </template>
 
           <template #cell-client_ip="{ value }">
@@ -127,26 +173,19 @@
           </template>
 
           <template #cell-actions="{ row }">
-            <button
-              type="button"
-              class="inline-flex items-center gap-1 font-medium text-af-brand transition-colors hover:text-af-brand-hover"
-              @click="openDetail(row.id)"
-            >
-              <Icon name="eye" size="sm" />
-              {{ t('admin.audit.columns.detail') }}
-            </button>
+            <RowActions :actions="rowActions(row)" />
           </template>
 
           <template #empty>
-            <div class="flex flex-col items-center py-8">
-              <Icon name="shield" size="xl" class="mb-4 h-12 w-12 text-af-ink-4" />
-              <p class="text-sm font-medium text-af-ink-3">{{ t('admin.audit.empty') }}</p>
-            </div>
+            <EmptyState :title="t('admin.audit.empty')">
+              <template #icon>
+                <Icon name="shield" size="xl" class="empty-state-icon h-10 w-10" />
+              </template>
+            </EmptyState>
           </template>
         </DataTable>
       </template>
 
-      <!-- Pagination -->
       <template #pagination>
         <Pagination
           v-if="total > 0"
@@ -175,31 +214,31 @@
       </div>
 
       <div v-else-if="detail" class="space-y-5 py-2">
-        <!-- Hero: action + result at a glance -->
-        <div class="rounded-lg border border-af-hairline bg-af-sunken/60 p-5">
-          <div class="flex flex-wrap items-center gap-3">
-            <span :class="statusBadgeClass(detail.status_code)">
-              <span class="h-1.5 w-1.5 rounded-full" :class="statusDotClass(detail.status_code)"></span>
-              {{ detail.status_code }} {{ statusText(detail.status_code) }}
-            </span>
+        <!-- 动作与结果 -->
+        <div>
+          <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
             <span class="break-all font-mono text-base font-semibold text-af-ink">
               {{ detail.action }}
             </span>
-          </div>
-
-          <div class="mt-3 flex items-center gap-2 rounded-lg bg-af-sheet px-3 py-2 ring-1 ring-af-hairline">
-            <span class="rounded bg-af-sunken px-1.5 py-0.5 font-mono text-[11px] font-bold text-af-ink-2">
-              {{ detail.method }}
+            <span class="inline-flex items-center gap-1.5 text-sm">
+              <span class="inline-block h-2 w-2 rounded-full" :class="statusDotClass(detail.status_code)"></span>
+              <span class="tabular-nums" :class="statusTextClass(detail.status_code)">
+                {{ detail.status_code }} {{ statusText(detail.status_code) }}
+              </span>
             </span>
-            <span class="break-all font-mono text-xs text-af-ink-2">{{ detail.path }}</span>
           </div>
 
-          <div class="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-af-ink-3">
-            <span class="inline-flex items-center gap-1.5">
+          <div class="mt-2 break-all font-mono text-xs text-af-ink-2">
+            <span class="font-semibold text-af-ink">{{ detail.method }}</span>
+            {{ detail.path }}
+          </div>
+
+          <div class="mt-2 flex flex-wrap items-center gap-x-5 gap-y-1.5 text-xs text-af-ink-3">
+            <span class="inline-flex items-center gap-1.5 tabular-nums">
               <Icon name="clock" size="xs" />
               {{ formatTime(detail.created_at) }}
             </span>
-            <span>{{ t('admin.audit.detail.latency') }} {{ detail.latency_ms }} ms</span>
+            <span class="tabular-nums">{{ t('admin.audit.detail.latency') }} {{ detail.latency_ms }} ms</span>
             <span v-if="detail.request_id" class="inline-flex items-center gap-1">
               {{ t('admin.audit.detail.requestId') }}
               <span class="break-all font-mono">{{ detail.request_id }}</span>
@@ -207,64 +246,46 @@
           </div>
         </div>
 
-        <!-- Actor / auth / source -->
-        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
-          <div class="rounded-xl bg-af-sunken p-4">
-            <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">
-              {{ t('admin.audit.columns.actor') }}
-            </div>
-            <div class="mt-1 break-all text-sm font-medium text-af-ink">
-              {{ detail.actor_email || '—' }}
-            </div>
-            <div class="mt-0.5 text-xs text-af-ink-3">{{ detail.actor_role }}</div>
+        <!-- 操作者 / 认证 / 来源 -->
+        <dl class="grid grid-cols-1 gap-4 border-y border-af-hairline py-4 sm:grid-cols-3">
+          <div class="min-w-0">
+            <dt class="text-xs text-af-ink-3">{{ t('admin.audit.columns.actor') }}</dt>
+            <dd class="mt-1 break-all text-sm font-medium text-af-ink">{{ detail.actor_email || '—' }}</dd>
+            <dd class="mt-0.5 text-xs text-af-ink-3">{{ detail.actor_role }}</dd>
           </div>
 
-          <div class="rounded-xl bg-af-sunken p-4">
-            <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">
-              {{ t('admin.audit.filters.authMethod') }}
-            </div>
-            <div class="mt-1 text-sm font-medium text-af-ink">
-              {{ authMethodLabel(detail.auth_method) || '—' }}
-            </div>
-            <div v-if="detail.credential_masked" class="mt-0.5 break-all font-mono text-xs text-af-ink-3">
+          <div class="min-w-0">
+            <dt class="text-xs text-af-ink-3">{{ t('admin.audit.filters.authMethod') }}</dt>
+            <dd class="mt-1 text-sm font-medium text-af-ink">{{ authMethodLabel(detail.auth_method) || '—' }}</dd>
+            <dd v-if="detail.credential_masked" class="mt-0.5 break-all font-mono text-xs text-af-ink-3">
               {{ detail.credential_masked }}
-            </div>
+            </dd>
           </div>
 
-          <div class="rounded-xl bg-af-sunken p-4">
-            <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">
-              {{ t('admin.audit.columns.clientIp') }}
-            </div>
-            <div class="mt-1 break-all font-mono text-sm font-medium text-af-ink">
-              {{ detail.client_ip || '—' }}
-            </div>
+          <div class="min-w-0">
+            <dt class="text-xs text-af-ink-3">{{ t('admin.audit.columns.clientIp') }}</dt>
+            <dd class="mt-1 break-all font-mono text-sm font-medium text-af-ink">{{ detail.client_ip || '—' }}</dd>
           </div>
-        </div>
+        </dl>
 
         <!-- User-Agent -->
         <section>
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-af-ink-3">
-            {{ t('admin.audit.detail.userAgent') }}
-          </h4>
-          <div class="break-all rounded-xl bg-af-sunken p-3 font-mono text-xs leading-relaxed text-af-ink-2">
+          <h4 class="mb-1.5 text-xs text-af-ink-3">{{ t('admin.audit.detail.userAgent') }}</h4>
+          <div class="break-all rounded-lg bg-af-sunken p-3 font-mono text-xs leading-relaxed text-af-ink-2">
             {{ detail.user_agent || '—' }}
           </div>
         </section>
 
         <!-- Request body (redacted) -->
         <section v-if="detail.request_body">
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-af-ink-3">
-            {{ t('admin.audit.detail.requestBody') }}
-          </h4>
-          <pre class="max-h-72 overflow-auto rounded-xl bg-af-sunken p-4 font-mono text-xs leading-relaxed text-af-ink-2">{{ prettyBody(detail.request_body) }}</pre>
+          <h4 class="mb-1.5 text-xs text-af-ink-3">{{ t('admin.audit.detail.requestBody') }}</h4>
+          <pre class="max-h-72 overflow-auto rounded-lg bg-af-sunken p-4 font-mono text-xs leading-relaxed text-af-ink-2">{{ prettyBody(detail.request_body) }}</pre>
         </section>
 
         <!-- Extra -->
         <section v-if="detail.extra && Object.keys(detail.extra).length">
-          <h4 class="mb-1.5 text-xs font-bold uppercase tracking-wider text-af-ink-3">
-            {{ t('admin.audit.detail.extra') }}
-          </h4>
-          <pre class="max-h-48 overflow-auto rounded-xl bg-af-sunken p-4 font-mono text-xs leading-relaxed text-af-ink-2">{{ JSON.stringify(detail.extra, null, 2) }}</pre>
+          <h4 class="mb-1.5 text-xs text-af-ink-3">{{ t('admin.audit.detail.extra') }}</h4>
+          <pre class="max-h-48 overflow-auto rounded-lg bg-af-sunken p-4 font-mono text-xs leading-relaxed text-af-ink-2">{{ JSON.stringify(detail.extra, null, 2) }}</pre>
         </section>
       </div>
     </BaseDialog>
@@ -352,7 +373,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type AuditLog } from '@/api/admin'
 import { totpAPI } from '@/api'
@@ -361,10 +382,13 @@ import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import type { Column } from '@/components/common/types'
 import Pagination from '@/components/common/Pagination.vue'
-import Select from '@/components/common/Select.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
+import type { FilterOption, RowAction } from '@/components/admin/list'
 import { useAppStore } from '@/stores'
 
 const { t } = useI18n()
@@ -386,6 +410,29 @@ const filters = reactive({
   success: ''
 })
 
+// 自由文本筛选（后端按包含 / 精确匹配）：默认不占工具行，从「+ 更多筛选」里挑出来才显示输入框
+type TextFilterKey = 'action' | 'actor_email' | 'client_ip'
+const TEXT_FILTERS: ReadonlyArray<{ key: TextFilterKey; label: string }> = [
+  { key: 'action', label: 'admin.audit.filters.action' },
+  { key: 'actor_email', label: 'admin.audit.filters.actorEmail' },
+  { key: 'client_ip', label: 'admin.audit.filters.clientIp' }
+]
+const visibleTextFilters = reactive(new Set<TextFilterKey>())
+
+async function toggleTextFilter(key: TextFilterKey) {
+  if (visibleTextFilters.has(key)) {
+    visibleTextFilters.delete(key)
+    if (filters[key]) {
+      filters[key] = ''
+      search()
+    }
+    return
+  }
+  visibleTextFilters.add(key)
+  await nextTick()
+  document.querySelector<HTMLInputElement>(`[data-testid="audit-filter-${key}"]`)?.focus()
+}
+
 // 时间范围：预设窗口（同 /admin/ops 时间下拉）+ 自定义起止（datetime-local，支持时分）
 const timeRange = ref('')
 const customStartTime = ref('')
@@ -403,31 +450,34 @@ const TIME_RANGE_MINUTES: Record<string, number> = {
   '30d': 30 * 24 * 60
 }
 
-const timeRangeOptions = computed(() => [
-  { value: '', label: t('admin.audit.filters.all') },
+// 自定义范围生效时，标签显示起止时间（CUSTOM_ACTIVE 一项，已勾选）；「自定义…」一项始终在，
+// 再点它可以改范围（筛选标签点当前值不会触发，所以两项分开）。
+const CUSTOM_ACTIVE = 'custom:active'
+const customActive = computed(() => timeRange.value === 'custom' && !!customStartTime.value && !!customEndTime.value)
+const timeRangeChipValue = computed(() => (timeRange.value === 'custom' ? CUSTOM_ACTIVE : timeRange.value))
+const timeRangeOptions = computed<FilterOption[]>(() => [
   { value: '30m', label: t('admin.ops.timeRange.30m') },
   { value: '1h', label: t('admin.ops.timeRange.1h') },
   { value: '6h', label: t('admin.ops.timeRange.6h') },
   { value: '24h', label: t('admin.ops.timeRange.24h') },
   { value: '7d', label: t('admin.ops.timeRange.7d') },
   { value: '30d', label: t('admin.ops.timeRange.30d') },
-  {
-    value: 'custom',
-    label:
-      timeRange.value === 'custom' && customStartTime.value && customEndTime.value
-        ? `${t('admin.ops.timeRange.custom')} (${formatCustomTimeRangeLabel(customStartTime.value, customEndTime.value)})`
-        : t('admin.ops.timeRange.custom')
-  }
+  ...(customActive.value
+    ? [{ value: CUSTOM_ACTIVE, label: formatCustomTimeRangeLabel(customStartTime.value, customEndTime.value) }]
+    : []),
+  { value: 'custom', label: `${t('admin.ops.timeRange.custom')}…` }
 ])
 
+// 标签里放得下：同一天只写一次日期（09-24 13:14 ~ 14:14）
 function formatCustomTimeRangeLabel(startTime: string, endTime: string): string {
-  const fmt = (raw: string) => {
-    const d = new Date(raw)
-    if (Number.isNaN(d.getTime())) return raw
-    const pad = (n: number) => String(n).padStart(2, '0')
-    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`
-  }
-  return `${fmt(startTime)} ~ ${fmt(endTime)}`
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const day = (d: Date) => `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+  const clock = (d: Date) => `${pad(d.getHours())}:${pad(d.getMinutes())}`
+  const start = new Date(startTime)
+  const end = new Date(endTime)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return `${startTime} ~ ${endTime}`
+  const sameDay = start.getFullYear() === end.getFullYear() && day(start) === day(end)
+  return `${day(start)} ${clock(start)} ~ ${sameDay ? '' : `${day(end)} `}${clock(end)}`
 }
 
 function toDatetimeLocal(d: Date): string {
@@ -435,8 +485,9 @@ function toDatetimeLocal(d: Date): string {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
-function handleTimeRangeChange(val: string | number | boolean | null) {
+function handleTimeRangeChange(val: string | number) {
   const value = String(val ?? '')
+  if (value === CUSTOM_ACTIVE) return
   if (value === 'custom') {
     // 预填：已有自定义值沿用，否则默认最近1小时（本地时区）
     const now = new Date()
@@ -459,7 +510,7 @@ function handleCustomTimeRangeConfirm() {
 }
 
 function handleCustomTimeRangeCancel() {
-  // 未确认不改变当前时间范围；Select 是受控组件，展示值保持不变。
+  // 未确认不改变当前时间范围；筛选标签是受控的，展示值保持不变。
   showCustomTimeRangeDialog.value = false
 }
 
@@ -473,30 +524,25 @@ const columns = computed<Column[]>(() => [
   { key: 'actions', label: t('common.actions') }
 ])
 
-const methodOptions = computed(() => [
-  { value: '', label: t('admin.audit.filters.all') },
-  { value: 'POST', label: 'POST' },
-  { value: 'PUT', label: 'PUT' },
-  { value: 'PATCH', label: 'PATCH' },
-  { value: 'DELETE', label: 'DELETE' },
-  { value: 'GET', label: 'GET' }
-])
+const methodOptions: FilterOption[] = ['POST', 'PUT', 'PATCH', 'DELETE', 'GET'].map((method) => ({ value: method, label: method }))
 
-const authMethodOptions = computed(() => [
-  { value: '', label: t('admin.audit.filters.all') },
+const authMethodOptions: FilterOption[] = [
   { value: 'jwt', label: 'JWT' },
   { value: 'admin_api_key', label: 'Admin API Key' }
-])
+]
 
-const resultOptions = computed(() => [
-  { value: '', label: t('admin.audit.filters.all') },
+const resultOptions = computed<FilterOption[]>(() => [
   { value: 'true', label: t('admin.audit.filters.resultSuccess') },
   { value: 'false', label: t('admin.audit.filters.resultFailure') }
 ])
 
 function authMethodLabel(method: string): string {
-  const found = authMethodOptions.value.find((o) => o.value === method)
-  return found && found.value ? found.label : method
+  return authMethodOptions.find((o) => o.value === method)?.label ?? method
+}
+
+// 行操作（A4）：只有「详情」，图标直接点
+function rowActions(row: AuditLog): RowAction[] {
+  return [{ key: 'detail', label: t('admin.audit.columns.detail'), icon: 'eye', primary: true, onSelect: () => openDetail(row.id) }]
 }
 
 function toRFC3339(local: string): string | undefined {
@@ -522,10 +568,10 @@ function buildQuery() {
   return {
     page: page.value,
     page_size: pageSize.value,
-    q: filters.q || undefined,
-    actor_email: filters.actor_email || undefined,
-    action: filters.action || undefined,
-    client_ip: filters.client_ip || undefined,
+    q: filters.q.trim() || undefined,
+    actor_email: filters.actor_email.trim() || undefined,
+    action: filters.action.trim() || undefined,
+    client_ip: filters.client_ip.trim() || undefined,
     method: filters.method || undefined,
     auth_method: filters.auth_method || undefined,
     success: filters.success || undefined,
@@ -547,9 +593,21 @@ async function fetchLogs() {
 }
 
 function search() {
+  clearTimeout(searchTimer)
   page.value = 1
   fetchLogs()
 }
+
+// 自由文本输入：停手 300ms 再查（回车立即查）
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+function searchDebounced() {
+  clearTimeout(searchTimer)
+  searchTimer = setTimeout(search, 300)
+}
+
+const hasActiveFilters = computed(
+  () => Object.values(filters).some((value) => value.trim() !== '') || timeRange.value !== ''
+)
 
 function resetFilters() {
   filters.q = ''
@@ -559,6 +617,7 @@ function resetFilters() {
   filters.method = ''
   filters.auth_method = ''
   filters.success = ''
+  visibleTextFilters.clear()
   timeRange.value = ''
   customStartTime.value = ''
   customEndTime.value = ''
@@ -668,18 +727,18 @@ function statusText(status: number): string {
   return status < 400 ? t('admin.audit.filters.resultSuccess') : t('admin.audit.filters.resultFailure')
 }
 
-function statusBadgeClass(status: number): string {
-  const base = 'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold '
-  if (status >= 500) return base + 'bg-af-danger-tint text-af-danger'
-  if (status >= 400) return base + 'bg-af-warning-tint text-af-warning'
-  return base + 'bg-af-success-tint text-af-success'
-}
-
 function statusDotClass(status: number): string {
   if (status >= 500) return 'bg-af-danger'
   if (status >= 400) return 'bg-af-warning'
-  return 'bg-af-success'
+  return 'bg-af-ink-4'
+}
+
+function statusTextClass(status: number): string {
+  if (status >= 500) return 'text-af-danger'
+  if (status >= 400) return 'text-af-warning'
+  return 'text-af-ink-2'
 }
 
 onMounted(fetchLogs)
+onUnmounted(() => clearTimeout(searchTimer))
 </script>
