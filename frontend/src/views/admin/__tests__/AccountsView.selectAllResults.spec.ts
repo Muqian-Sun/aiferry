@@ -21,10 +21,13 @@ const {
   showError: vi.fn()
 }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush })
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -83,13 +86,12 @@ const makeAccounts = (count: number) => Array.from({ length: count }, (_, index)
 
 const AccountBulkActionsBarStub = {
   props: ['selectedIds', 'totalResults', 'selectingAll', 'allResultsSelected'],
-  emits: ['select-all-results', 'select-page', 'clear', 'refresh-token'],
+  emits: ['select-all-results', 'clear', 'refresh-token'],
   template: `
     <div>
       <span data-test="selected-count">{{ selectedIds.length }}</span>
       <span data-test="total-results">{{ totalResults }}</span>
       <span data-test="all-results-selected">{{ String(allResultsSelected) }}</span>
-      <button data-test="select-page" @click="$emit('select-page')">select page</button>
       <button data-test="select-all-results" @click="$emit('select-all-results')">select all</button>
       <button data-test="clear" @click="$emit('clear')">clear</button>
       <button data-test="refresh-token" @click="$emit('refresh-token')">refresh token</button>
@@ -107,11 +109,12 @@ const mountView = () => mount(AccountsView, {
     stubs: {
       AppLayout: { template: '<div><slot /></div>' },
       TablePageLayout: {
-        template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+        template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
       },
       DataTable: {
         props: ['data'],
-        template: '<div data-test="data-table"><div v-for="row in data" :key="row.id"><slot name="cell-select" :row="row" /></div></div>'
+        // 表头复选框选中本页（A5 起批量条不再有「本页全选」）
+        template: '<div><div data-test="header-select"><slot name="header-select" /></div><div data-test="data-table"><div v-for="row in data" :key="row.id"><slot name="cell-select" :row="row" /></div></div></div>'
       },
       Pagination: true,
       ConfirmDialog: true,
@@ -176,7 +179,7 @@ describe('admin AccountsView select all filtered results', () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const wrapper = mountView()
     await flushPromises()
-    await wrapper.get('[data-test="select-page"]').trigger('click')
+    await wrapper.get('[data-test="header-select"] input').setValue(true)
     await wrapper.get('[data-test="refresh-token"]').trigger('click')
     await flushPromises()
 
@@ -252,7 +255,7 @@ describe('admin AccountsView select all filtered results', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    await wrapper.get('[data-test="select-page"]').trigger('click')
+    await wrapper.get('[data-test="header-select"] input').setValue(true)
     expect(wrapper.get('[data-test="selected-count"]').text()).toBe('20')
 
     await wrapper.get('[data-test="select-all-results"]').trigger('click')

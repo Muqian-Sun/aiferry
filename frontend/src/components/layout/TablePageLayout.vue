@@ -101,11 +101,11 @@ onUnmounted(() => {
 }
 
 .table-scroll-container :deep(th) {
-  @apply px-4 py-2.5 text-left text-13 font-normal text-af-ink-3 border-b border-af-hairline;
+  @apply px-3 py-2.5 text-left text-13 font-normal text-af-ink-3 border-b border-af-hairline;
 }
 
 .table-scroll-container :deep(td) {
-  @apply px-4 py-3 text-sm text-af-ink-2 border-b border-af-hairline;
+  @apply px-3 py-3 text-sm text-af-ink-2 border-b border-af-hairline;
 }
 
 /* 移动端：恢复正常滚动 */

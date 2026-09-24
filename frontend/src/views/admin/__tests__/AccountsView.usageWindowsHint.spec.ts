@@ -17,10 +17,13 @@ const {
   listCatalogEntries: vi.fn()
 }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush })
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -99,7 +102,7 @@ function mountView() {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
         TablePageLayout: {
-          template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+          template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
         },
         DataTable: DataTableStub,
         HelpTooltip: HelpTooltipStub,
@@ -202,6 +205,8 @@ describe('admin AccountsView usage windows hint', () => {
   })
 
   it('renders the upstream billing trust warning next to the declared-rate column', async () => {
+    // A5 起上游声明倍率默认收在列设置里，这里先打开全部列
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 1, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 

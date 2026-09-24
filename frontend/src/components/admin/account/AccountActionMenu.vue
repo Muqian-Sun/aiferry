@@ -1,62 +1,39 @@
 <template>
+  <!--
+    渠道行尾「⋯」菜单（A5）：外观与列表模板的 PopoverMenu / MenuItem 一致；按渠道类型只列能用的操作，删除放最后。
+    自己定位（锚点是触发按钮的位置），因为自动刷新要知道菜单是否开着（开着时暂停刷新）。
+  -->
   <Teleport to="body">
     <div v-if="show && anchorRect">
       <!-- Backdrop: click anywhere outside to close -->
       <div class="fixed inset-0 z-[9998]" @click="emit('close')"></div>
       <div
         ref="menuRef"
-        class="action-menu-content fixed z-[9999] w-52 overflow-y-auto overscroll-contain rounded-xl bg-af-sheet shadow-lg ring-1 ring-af-ink/5"
+        role="menu"
+        class="action-menu-content fixed z-[9999] w-48 overflow-y-auto overscroll-contain rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
         :style="menuStyle"
         @click.stop
       >
-        <div class="py-1">
-          <template v-if="account">
-            <button @click="$emit('test', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-af-sunken">
-              <Icon name="play" size="sm" class="text-af-ink-2" :stroke-width="2" />
-              {{ t('admin.accounts.testConnection') }}
-            </button>
-            <button @click="$emit('stats', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-af-sunken">
-              <Icon name="chart" size="sm" class="text-af-ink-2" />
-              {{ t('admin.accounts.viewStats') }}
-            </button>
-            <button @click="$emit('schedule', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-af-sunken">
-              <Icon name="clock" size="sm" class="text-af-ink-2" />
-              {{ t('admin.scheduledTests.schedule') }}
-            </button>
-            <button v-if="canDuplicate" @click="$emit('duplicate', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm hover:bg-af-sunken">
-              <Icon name="copy" size="sm" class="text-af-ink-2" />
-              {{ t('admin.accounts.duplicateAccount') }}
-            </button>
-            <!-- 影子账号不持凭据:重授权/刷新 token 对其无效(后端拒绝),故隐藏(外审 G4)。 -->
-            <template v-if="(account.type === 'oauth' || account.type === 'setup-token') && !isShadow">
-              <button @click="$emit('reauth', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken">
-                <Icon name="link" size="sm" />
-                {{ t('admin.accounts.reAuthorize') }}
-              </button>
-              <button @click="$emit('refresh-token', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken">
-                <Icon name="refresh" size="sm" />
-                {{ t('admin.accounts.refreshToken') }}
-              </button>
-            </template>
-            <button v-if="isOpenAIOAuthParent" @click="$emit('create-spark-shadow', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-warning hover:bg-af-sunken">
-              <Icon name="sparkles" size="sm" />
-              {{ t('admin.accounts.createSparkShadow') }}
-            </button>
-            <button v-if="supportsPrivacy" @click="$emit('set-privacy', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-success hover:bg-af-sunken">
-              <Icon name="shield" size="sm" />
-              {{ t('admin.accounts.setPrivacy') }}
-            </button>
-            <div v-if="hasRecoverableState" class="my-1 border-t border-af-hairline"></div>
-            <button v-if="hasRecoverableState" @click="$emit('recover-state', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-success hover:bg-af-sunken">
-              <Icon name="sync" size="sm" />
-              {{ t('admin.accounts.recoverState') }}
-            </button>
-            <button v-if="hasQuotaLimit" @click="$emit('reset-quota', account); $emit('close')" class="flex w-full items-center gap-2 px-4 py-2 text-sm text-af-ink-2 hover:bg-af-sunken">
-              <Icon name="refresh" size="sm" />
-              {{ t('admin.accounts.resetQuota') }}
-            </button>
+        <template v-if="account">
+          <MenuItem icon="play" @click="fire('test')">{{ t('admin.accounts.testConnection') }}</MenuItem>
+          <MenuItem icon="chart" @click="fire('stats')">{{ t('admin.accounts.viewStats') }}</MenuItem>
+          <MenuItem icon="clock" @click="fire('schedule')">{{ t('admin.scheduledTests.schedule') }}</MenuItem>
+          <MenuItem v-if="canDuplicate" icon="copy" @click="fire('duplicate')">{{ t('admin.accounts.duplicateAccount') }}</MenuItem>
+          <!-- 影子账号不持凭据:重授权/刷新 token 对其无效(后端拒绝),故隐藏(外审 G4)。 -->
+          <template v-if="(account.type === 'oauth' || account.type === 'setup-token') && !isShadow">
+            <MenuItem icon="link" @click="fire('reauth')">{{ t('admin.accounts.reAuthorize') }}</MenuItem>
+            <MenuItem icon="refresh" @click="fire('refresh-token')">{{ t('admin.accounts.refreshToken') }}</MenuItem>
           </template>
-        </div>
+          <MenuItem v-if="isOpenAIOAuthParent" icon="sparkles" @click="fire('create-spark-shadow')">{{ t('admin.accounts.createSparkShadow') }}</MenuItem>
+          <MenuItem v-if="supportsPrivacy" icon="shield" @click="fire('set-privacy')">{{ t('admin.accounts.setPrivacy') }}</MenuItem>
+          <template v-if="hasRecoverableState || hasQuotaLimit">
+            <MenuItem divider />
+            <MenuItem v-if="hasRecoverableState" icon="sync" @click="fire('recover-state')">{{ t('admin.accounts.recoverState') }}</MenuItem>
+            <MenuItem v-if="hasQuotaLimit" icon="refresh" @click="fire('reset-quota')">{{ t('admin.accounts.resetQuota') }}</MenuItem>
+          </template>
+          <MenuItem divider />
+          <MenuItem icon="trash" danger data-testid="account-menu-delete" @click="fire('delete')">{{ t('common.delete') }}</MenuItem>
+        </template>
       </div>
     </div>
   </Teleport>
@@ -66,12 +43,19 @@
 import { computed, ref, watch, onUnmounted } from 'vue'
 import { useResizeObserver, useWindowSize } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
-import { Icon } from '@/components/icons'
+import { MenuItem } from '@/components/admin/list'
 import type { Account } from '@/types'
 
 const props = defineProps<{ show: boolean; account: Account | null; anchorRect: DOMRect | null }>()
-const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'duplicate', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy', 'create-spark-shadow'])
+type MenuEvent = 'test' | 'stats' | 'schedule' | 'duplicate' | 'reauth' | 'refresh-token' | 'recover-state' | 'reset-quota' | 'set-privacy' | 'create-spark-shadow' | 'delete'
+const emit = defineEmits(['close', 'test', 'stats', 'schedule', 'duplicate', 'reauth', 'refresh-token', 'recover-state', 'reset-quota', 'set-privacy', 'create-spark-shadow', 'delete'])
 const { t } = useI18n()
+
+function fire(event: MenuEvent) {
+  if (!props.account) return
+  emit(event, props.account)
+  emit('close')
+}
 const menuRef = ref<HTMLElement | null>(null)
 const { width: viewportWidth, height: viewportHeight } = useWindowSize()
 const viewportPadding = 8

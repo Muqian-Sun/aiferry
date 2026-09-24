@@ -306,6 +306,39 @@ export default {
         apiKeys: 'API keys',
         apiKeysActive: '{count} enabled'
       },
+      // User detail drawer (A5)
+      detail: {
+        eyebrow: 'User #{id}',
+        tabs: {
+          overview: 'Overview',
+          balance: 'Balance history',
+          keys: 'API keys',
+          subscriptions: 'Subscriptions',
+          usage: 'Usage'
+        },
+        disabledBanner: 'This user is disabled: they cannot sign in and API calls are rejected.',
+        frozen: '${amount} on hold',
+        concurrencyValue: '{current} in use · limit {max}',
+        rpmLimit: 'RPM limit',
+        unlimited: 'Unlimited',
+        attributes: 'Custom attributes',
+        historyType: 'Type',
+        keyCreated: 'Created {date}',
+        keyLastUsed: 'Last used {time}',
+        keyNeverUsed: 'Never used',
+        keyQuota: 'Quota ${used} / ${quota}',
+        keyExpires: 'Expires {date}',
+        subscriptionPeriod: '{start} to {end}',
+        usagePeriod: 'Last 30 days',
+        usageRange: '{start} to {end}',
+        usageRequests: 'Requests',
+        usageTokens: 'Tokens',
+        usageCost: 'Cost',
+        usageStandardCost: 'Standard ${amount}',
+        viewUsage: 'View usage records',
+        loadFailed: 'Failed to load',
+        retry: 'Retry'
+      },
       bulkLimits: {
         button: 'Set limits',
         action: 'Set limits ({count})',

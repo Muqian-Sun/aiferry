@@ -54,9 +54,10 @@ const currentConcurrency = computed(() => props.account.current_concurrency || 0
 const concurrencyClass = computed(() => {
   const current = currentConcurrency.value
   const max = props.account.concurrency
-  if (current >= max) return 'bg-af-danger-tint text-af-danger'
-  if (current > 0) return 'bg-af-warning-tint text-af-warning'
-  return 'bg-af-sunken text-af-ink-2'
+  // 并发只在占满时标红；有请求在跑是正常状态，不上色（A5）
+  if (current >= max) return 'text-af-danger'
+  if (current > 0) return 'text-af-ink'
+  return 'text-af-ink-3'
 })
 
 // ====== 窗口费用 ======
@@ -78,10 +79,10 @@ const windowCostClass = computed(() => {
   const current = currentWindowCost.value
   const limit = props.account.window_cost_limit || 0
   const reserve = props.account.window_cost_sticky_reserve || 10
-  if (current >= limit + reserve) return 'bg-af-danger-tint text-af-danger'
-  if (current >= limit) return 'bg-af-warning-tint text-af-warning'
-  if (current >= limit * 0.8) return 'bg-af-warning-tint text-af-warning'
-  return 'bg-af-success-tint text-af-success'
+  if (current >= limit + reserve) return 'text-af-danger'
+  if (current >= limit) return 'text-af-warning'
+  if (current >= limit * 0.8) return 'text-af-warning'
+  return 'text-af-ink-3'
 })
 
 const windowCostTooltip = computed(() => {
@@ -107,9 +108,9 @@ const sessionLimitClass = computed(() => {
   if (!showSessionLimit.value) return ''
   const current = activeSessions.value
   const max = props.account.max_sessions || 0
-  if (current >= max) return 'bg-af-danger-tint text-af-danger'
-  if (current >= max * 0.8) return 'bg-af-warning-tint text-af-warning'
-  return 'bg-af-success-tint text-af-success'
+  if (current >= max) return 'text-af-danger'
+  if (current >= max * 0.8) return 'text-af-warning'
+  return 'text-af-ink-3'
 })
 
 const sessionLimitTooltip = computed(() => {
@@ -143,13 +144,13 @@ const rpmClass = computed(() => {
   const base = props.account.base_rpm ?? 0
   const buffer = rpmBuffer.value
   if (rpmStrategy.value === 'tiered') {
-    if (current >= base + buffer) return 'bg-af-danger-tint text-af-danger'
-    if (current >= base) return 'bg-af-warning-tint text-af-warning'
+    if (current >= base + buffer) return 'text-af-danger'
+    if (current >= base) return 'text-af-warning'
   } else {
-    if (current >= base) return 'bg-af-warning-tint text-af-warning'
+    if (current >= base) return 'text-af-warning'
   }
-  if (current >= base * 0.8) return 'bg-af-warning-tint text-af-warning'
-  return 'bg-af-success-tint text-af-success'
+  if (current >= base * 0.8) return 'text-af-warning'
+  return 'text-af-ink-3'
 })
 
 const rpmTooltip = computed(() => {

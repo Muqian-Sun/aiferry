@@ -29,10 +29,13 @@ const {
   showWarning: vi.fn()
 }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush })
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -78,11 +81,6 @@ const DataTableStub = defineComponent({
   `
 })
 
-const EditAccountModalStub = defineComponent({
-  props: { show: Boolean, account: { type: Object, default: null } },
-  template: '<div data-test="edit-account">{{ show ? account?.name : "" }}</div>'
-})
-
 const AccountTestModalStub = defineComponent({
   props: { show: Boolean, account: { type: Object, default: null } },
   template: '<div data-test="test-account">{{ show ? account?.name : "" }}</div>'
@@ -99,7 +97,7 @@ function mountView(stubActionMenu = true) {
     global: {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
-        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
+        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
         DataTable: DataTableStub,
         AccountTableActions: { template: '<div><slot name="after" /></div>' },
         AccountTableFilters: true,
@@ -116,7 +114,6 @@ function mountView(stubActionMenu = true) {
         ErrorPassthroughRulesModal: true,
         TLSFingerprintProfilesModal: true,
         CreateAccountModal: true,
-        EditAccountModal: EditAccountModalStub,
         BulkEditAccountModal: true,
         PlatformTypeBadge: true,
         AccountCapacityCell: true,
@@ -154,6 +151,7 @@ const fullAccount = {
 describe('admin AccountsView lite account list', () => {
   beforeEach(() => {
     localStorage.clear()
+    routerPush.mockReset()
     listAccounts.mockReset().mockResolvedValue({ items: [listRow], total: 1, page: 1, page_size: 20, pages: 1 })
     listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: 'compact-etag', data: null })
     getById.mockReset().mockResolvedValue(fullAccount)
@@ -188,8 +186,7 @@ describe('admin AccountsView lite account list', () => {
     const wrapper = mountView(false)
     await flushPromises()
 
-    const trigger = wrapper.findAll('button').find(button => button.text() === 'common.more')!
-    await trigger.trigger('click')
+    await wrapper.get('[data-testid="row-action-more"]').trigger('click')
     const menu = new DOMWrapper(document.body.querySelector('.action-menu-content')!)
     menu.element.dispatchEvent(new Event('scroll'))
     await flushPromises()
@@ -224,26 +221,24 @@ describe('admin AccountsView lite account list', () => {
     wrapper.unmount()
   })
 
-  it('loads the full account by id before opening edit, test, and stats actions', async () => {
+  it('opens edit as a page, loads the full account before testing, and shows stats in the drawer', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const editButton = wrapper.findAll('button').find(button => button.text().includes('common.edit'))
-    expect(editButton).toBeTruthy()
-    await editButton!.trigger('click')
-    await flushPromises()
-    expect(getById).toHaveBeenCalledWith(42)
-    expect(wrapper.get('[data-test="edit-account"]').text()).toBe('compact row')
+    // A5：编辑是独立页面，由页面自己按 id 拉完整账号
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/accounts/42/edit')
+    expect(getById).not.toHaveBeenCalled()
 
     const menu = wrapper.findComponent(AccountActionMenu)
     menu.vm.$emit('test', listRow)
     await flushPromises()
-    expect(getById).toHaveBeenCalledTimes(2)
+    expect(getById).toHaveBeenCalledTimes(1)
     expect(wrapper.get('[data-test="test-account"]').text()).toBe('compact row')
 
+    // 「查看统计」在详情抽屉的「用量」页签里
     menu.vm.$emit('stats', listRow)
     await flushPromises()
-    expect(getById).toHaveBeenCalledTimes(3)
     expect(wrapper.get('[data-test="stats-account"]').text()).toBe('compact row')
     wrapper.unmount()
   })
@@ -272,12 +267,11 @@ describe('admin AccountsView lite account list', () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const editButton = wrapper.findAll('button').find(button => button.text().includes('common.edit'))
-    await editButton!.trigger('click')
+    wrapper.findComponent(AccountActionMenu).vm.$emit('test', listRow)
     await flushPromises()
 
     expect(showError).toHaveBeenCalledWith('detail failed')
-    expect(wrapper.get('[data-test="edit-account"]').text()).toBe('')
+    expect(wrapper.get('[data-test="test-account"]').text()).toBe('')
     consoleError.mockRestore()
     wrapper.unmount()
   })

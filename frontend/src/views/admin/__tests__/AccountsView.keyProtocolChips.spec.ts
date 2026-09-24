@@ -14,10 +14,13 @@ const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBill
     getAllProxies: vi.fn(),
   }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush })
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -52,13 +55,13 @@ vi.mock('vue-i18n', async () => {
   return { ...actual, useI18n: () => ({ t: (key: string) => key }) }
 })
 
-// 只渲染「厂商/类型」单元格，看 vendor 是否透传给徽章、协议地址是否变成协议标签。
+// 只渲染名称单元格（A5 起厂商 / 类型 / 协议并进名称下面那行小字），看 vendor 是否透传给徽章、协议地址是否变成协议标签。
 const DataTableStub = defineComponent({
   props: { data: { type: Array, default: () => [] } },
   template: `
     <div>
       <div v-for="row in data" :key="row.id" :data-account-id="row.id">
-        <slot name="cell-platform_type" :row="row" />
+        <slot name="cell-name" :row="row" :value="row.name" />
       </div>
     </div>
   `
@@ -74,7 +77,7 @@ function mountView() {
     global: {
       stubs: {
         AppLayout: { template: '<div><slot /></div>' },
-        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>' },
+        TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
         DataTable: DataTableStub,
         AccountTableActions: true,
         AccountTableFilters: true,

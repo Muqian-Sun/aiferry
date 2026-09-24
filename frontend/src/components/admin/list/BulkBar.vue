@@ -10,7 +10,11 @@
     :aria-label="label"
     data-testid="bulk-bar"
   >
-    <span class="tabular-nums">{{ label }}</span>
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-1">
+      <span class="tabular-nums">{{ label }}</span>
+      <!-- 计数旁的补充，如渠道页「选择全部 45 个结果」 -->
+      <slot name="meta" />
+    </div>
     <div class="bulk-actions flex flex-wrap items-center gap-2">
       <slot />
       <button type="button" class="bulk-btn" data-testid="bulk-clear" @click="$emit('clear')">
@@ -47,7 +51,7 @@ const label = computed(() => t('common.selectedItems', { count: props.count }))
     animation: none;
   }
 }
-/* 批量条里的按钮：墨色底上的描边按钮，危险操作用 .bulk-btn-danger */
+/* 批量条里的按钮：墨色底上的描边按钮，危险操作用 .bulk-btn-danger；计数旁的文字链接用 .bulk-link */
 .bulk-actions :deep(.bulk-btn) {
   @apply inline-flex h-8 items-center gap-1.5 rounded-md border px-3 text-13 transition-colors disabled:cursor-not-allowed disabled:opacity-40;
   border-color: rgb(var(--af-sheet) / 0.3);
@@ -55,6 +59,13 @@ const label = computed(() => t('common.selectedItems', { count: props.count }))
 }
 .bulk-actions :deep(.bulk-btn:hover:not(:disabled)) {
   background-color: rgb(var(--af-sheet) / 0.12);
+}
+.bulk-bar :deep(.bulk-link) {
+  @apply text-13 underline decoration-dotted underline-offset-2 disabled:cursor-not-allowed disabled:opacity-60;
+  color: rgb(var(--af-sheet) / 0.8);
+}
+.bulk-bar :deep(.bulk-link:hover:not(:disabled)) {
+  color: rgb(var(--af-sheet));
 }
 .bulk-actions :deep(.bulk-btn-danger) {
   border-color: rgb(var(--af-danger) / 0.7);

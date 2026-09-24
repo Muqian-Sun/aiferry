@@ -306,6 +306,39 @@ export default {
         apiKeys: 'API 密钥',
         apiKeysActive: '{count} 个启用'
       },
+      // 用户详情抽屉（A5）
+      detail: {
+        eyebrow: '用户 #{id}',
+        tabs: {
+          overview: '概况',
+          balance: '余额流水',
+          keys: 'API 密钥',
+          subscriptions: '订阅',
+          usage: '用量'
+        },
+        disabledBanner: '该用户已禁用：不能登录，API 调用会被拒绝。',
+        frozen: '冻结中 ${amount}',
+        concurrencyValue: '当前 {current} · 上限 {max}',
+        rpmLimit: 'RPM 上限',
+        unlimited: '不限制',
+        attributes: '自定义属性',
+        historyType: '类型',
+        keyCreated: '创建于 {date}',
+        keyLastUsed: '最近使用 {time}',
+        keyNeverUsed: '从未使用',
+        keyQuota: '额度 ${used} / ${quota}',
+        keyExpires: '{date} 到期',
+        subscriptionPeriod: '{start} 至 {end}',
+        usagePeriod: '近 30 天',
+        usageRange: '{start} 至 {end}',
+        usageRequests: '请求',
+        usageTokens: 'Token',
+        usageCost: '费用',
+        usageStandardCost: '标准价 ${amount}',
+        viewUsage: '查看使用记录',
+        loadFailed: '加载失败',
+        retry: '重试'
+      },
       bulkLimits: {
         button: '设置限额',
         action: '批量设置限制（{count}）',

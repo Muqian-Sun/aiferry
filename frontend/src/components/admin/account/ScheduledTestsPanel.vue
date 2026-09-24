@@ -1,5 +1,6 @@
 <template>
-  <BaseDialog
+  <component
+    :is="layout === 'inline' ? InlineShell : BaseDialog"
     :show="show"
     :title="t('admin.scheduledTests.title')"
     width="wide"
@@ -9,7 +10,7 @@
       <!-- Add Plan Button -->
       <div class="flex items-center justify-between">
         <p class="text-sm text-af-ink-3">
-          {{ t('admin.scheduledTests.title') }}
+          {{ layout === 'inline' ? '' : t('admin.scheduledTests.title') }}
         </p>
         <button
           @click="showAddForm = !showAddForm"
@@ -459,13 +460,14 @@
       @confirm="handleDelete"
       @cancel="showDeleteConfirm = false"
     />
-  </BaseDialog>
+  </component>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, watch } from 'vue'
+import { onMounted, ref, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import InlineShell from '@/components/admin/list/InlineShell.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
@@ -480,11 +482,16 @@ import type { ScheduledTestPlan, ScheduledTestResult } from '@/types'
 const { t } = useI18n()
 const appStore = useAppStore()
 
-const props = defineProps<{
-  show: boolean
-  accountId: number | null
-  modelOptions: SelectOption[]
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    accountId: number | null
+    modelOptions: SelectOption[]
+    /** inline：放进渠道详情抽屉的「定时测试」页签（A5） */
+    layout?: 'dialog' | 'inline'
+  }>(),
+  { layout: 'dialog' }
+)
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -528,9 +535,10 @@ const resetNewPlan = () => {
 }
 
 // Load plans when dialog opens
+// 换了渠道也要重载（抽屉页签里 show 一直为 true，只是 accountId 变了）
 watch(
-  () => props.show,
-  async (visible) => {
+  [() => props.show, () => props.accountId],
+  async ([visible]) => {
     if (visible && props.accountId) {
       await loadPlans()
     } else {
@@ -681,4 +689,9 @@ const toggleResultDetail = (resultId: number) => {
     expandedResultIds.add(resultId)
   }
 }
+
+// 抽屉里一打开就停在这个页签时，挂载那一刻 show 已经是 true，watch 不会触发
+onMounted(() => {
+  if (props.show && props.accountId) void loadPlans()
+})
 </script>

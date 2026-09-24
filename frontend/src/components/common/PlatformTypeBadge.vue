@@ -1,5 +1,24 @@
 <template>
-  <div class="inline-flex flex-col gap-0.5 text-xs font-medium">
+  <!-- plain：一行小字「厂商 · 类型 · 套餐 · 隐私 · 到期」，给渠道列表名称下面那行用（A5）；只有异常才上色 -->
+  <span v-if="variant === 'plain'" class="inline-flex min-w-0 flex-wrap items-center gap-x-1 text-xs text-af-ink-3" data-testid="platform-plain">
+    <PlatformIcon :platform="displayPlatform" size="xs" class="shrink-0" />
+    <span :title="platformTitle" data-testid="platform-badge">{{ platformLabel }}</span>
+    <span aria-hidden="true">·</span>
+    <span>{{ typeLabel }}</span>
+    <template v-if="planLabel">
+      <span aria-hidden="true">·</span>
+      <span :class="normalizedPlanType === 'abnormal' ? 'text-af-danger' : ''">{{ planLabel }}</span>
+    </template>
+    <template v-if="privacyBadge">
+      <span aria-hidden="true">·</span>
+      <span :class="privacyBadge.plainClass" :title="privacyBadge.title">{{ privacyBadge.label }}</span>
+    </template>
+    <template v-if="expiresLabel">
+      <span aria-hidden="true">·</span>
+      <span :title="subscriptionExpiresAt">{{ expiresLabel }}</span>
+    </template>
+  </span>
+  <div v-else class="inline-flex flex-col gap-0.5 text-xs font-medium">
     <!-- Row 1: Platform + Type -->
     <div class="inline-flex items-center overflow-hidden rounded-md">
       <span :class="['inline-flex items-center gap-1 px-2 py-1', platformClass]" :title="platformTitle" data-testid="platform-badge">
@@ -88,9 +107,11 @@ interface Props {
   planType?: string
   privacyMode?: string
   subscriptionExpiresAt?: string
+  /** badge：原来的灰底分段徽章；plain：一行小字 */
+  variant?: 'badge' | 'plain'
 }
 
-const props = defineProps<Props>()
+const props = withDefaults(defineProps<Props>(), { variant: 'badge' })
 
 const isThirdPartyKey = computed(() => props.type === 'apikey')
 
@@ -238,16 +259,16 @@ const privacyBadge = computed(() => {
   switch (props.privacyMode) {
     // OpenAI states
     case 'training_off':
-      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyTrainingOff'), class: 'bg-af-success-tint text-af-success' }
+      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyTrainingOff'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
     case 'training_set_cf_blocked':
-      return { label: 'CF', icon: shieldX, title: t('admin.accounts.privacyCfBlocked'), class: 'bg-af-warning-tint text-af-warning' }
+      return { label: 'CF', icon: shieldX, title: t('admin.accounts.privacyCfBlocked'), class: 'bg-af-warning-tint text-af-warning', plainClass: 'text-af-warning' }
     case 'training_set_failed':
-      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyFailed'), class: 'bg-af-danger-tint text-af-danger' }
+      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
     // Antigravity states
     case 'privacy_set':
-      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyAntigravitySet'), class: 'bg-af-success-tint text-af-success' }
+      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyAntigravitySet'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
     case 'privacy_set_failed':
-      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyAntigravityFailed'), class: 'bg-af-danger-tint text-af-danger' }
+      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyAntigravityFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
     default:
       return null
   }

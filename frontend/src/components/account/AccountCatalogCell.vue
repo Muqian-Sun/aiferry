@@ -1,13 +1,12 @@
 <template>
-  <div v-if="entries.length > 0" class="flex max-w-56 flex-wrap gap-1" data-testid="account-catalog-cell">
+  <!-- 已上架模型（A5）：前几个模型 ID 一行一个的小字，多出的写「+N」；下架的划线。点模型打开诊断。 -->
+  <div v-if="entries.length > 0" class="flex max-w-56 flex-col items-start gap-0.5" data-testid="account-catalog-cell">
     <button
       v-for="entry in displayEntries"
       :key="entry.id"
       type="button"
-      class="inline-flex max-w-32 items-center truncate rounded-md px-1.5 py-0.5 text-xs font-medium transition-colors"
-      :class="entry.status === 'listed'
-        ? 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-        : 'bg-af-sunken text-af-ink-3 line-through hover:bg-af-hairline'"
+      class="max-w-full truncate text-left font-mono text-xs transition-colors hover:underline"
+      :class="entry.status === 'listed' ? 'text-af-ink-2 hover:text-af-ink' : 'text-af-ink-3 line-through'"
       :title="entry.status === 'listed' ? entry.model_id : `${entry.model_id} · ${t('admin.accounts.catalogUnlisted')}`"
       data-testid="account-catalog-chip"
       @click.stop="emit('diagnose', entry)"
@@ -16,14 +15,14 @@
     </button>
     <span
       v-if="hiddenCount > 0"
-      class="inline-flex items-center rounded-md bg-af-sunken px-1.5 py-0.5 text-xs font-medium text-af-ink-2"
+      class="text-xs tabular-nums text-af-ink-3"
       :title="hiddenTitle"
       data-testid="account-catalog-more"
     >
       +{{ hiddenCount }}
     </span>
   </div>
-  <span v-else class="text-xs text-af-ink-3" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
+  <span v-else class="text-xs text-af-ink-4" :title="t('admin.accounts.catalogNone')" data-testid="account-catalog-none">—</span>
 </template>
 
 <script setup lang="ts">
