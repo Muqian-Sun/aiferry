@@ -67,18 +67,10 @@ export const PAYMENT_MODE_POPUP = 'popup'
  * precreate→pagepay flow. */
 export const PAYMENT_MODE_REDIRECT = 'redirect'
 
+// 站内计价统一美元：通道只收人民币（按美元汇率换算）或美元（原价），其他币种没有汇率可用
 export const PAYMENT_CURRENCY_OPTIONS: TypeOption[] = [
   { value: 'CNY', label: 'CNY' },
-  { value: 'HKD', label: 'HKD' },
   { value: 'USD', label: 'USD' },
-  { value: 'EUR', label: 'EUR' },
-  { value: 'GBP', label: 'GBP' },
-  { value: 'AUD', label: 'AUD' },
-  { value: 'CAD', label: 'CAD' },
-  { value: 'SGD', label: 'SGD' },
-  { value: 'JPY', label: 'JPY' },
-  { value: 'KRW', label: 'KRW' },
-  { value: 'NZD', label: 'NZD' },
 ]
 
 // 与后端当前集成的 stripe-go v85.0.0 的 stripe.APIVersion 保持一致。

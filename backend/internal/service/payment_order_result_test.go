@@ -214,80 +214,75 @@ func TestCalculateCreateOrderPayAmountUsesCurrencyPrecision(t *testing.T) {
 	}
 }
 
-func TestCalculateCreateOrderPayAmountForSubscriptionConvertsCNYPriceWhenRateConfigured(t *testing.T) {
+// 站内计价一律美元：CNY 通道按美元汇率换算实付（充值与订阅同一口径）。
+func TestCalculateCreateOrderGatewayPayAmountConvertsUSDToCNYWithRate(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "CNY", payment.OrderTypeSubscription, 7.15)
+	amountStr, amount, err := calculateCreateOrderGatewayPayAmount(9.99, 0, "CNY", 7.15)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if amountStr != "71.43" || amount != 71.43 {
-		t.Fatalf("subscription CNY pay amount = (%q, %v), want (71.43, 71.43)", amountStr, amount)
+		t.Fatalf("CNY pay amount = (%q, %v), want (71.43, 71.43)", amountStr, amount)
+	}
+
+	// 充值金额同样是美元：$50 × 7.2 = ¥360
+	amountStr, amount, err = calculateCreateOrderGatewayPayAmount(50, 0, "CNY", 7.2)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if amountStr != "360.00" || amount != 360 {
+		t.Fatalf("CNY recharge pay amount = (%q, %v), want (360.00, 360)", amountStr, amount)
 	}
 }
 
-func TestCalculateCreateOrderPayAmountForSubscriptionAppliesFeeAfterCNYConversion(t *testing.T) {
+func TestCalculateCreateOrderGatewayPayAmountAppliesFeeAfterCNYConversion(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 2.5, "CNY", payment.OrderTypeSubscription, 7.15)
+	amountStr, amount, err := calculateCreateOrderGatewayPayAmount(9.99, 2.5, "CNY", 7.15)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if amountStr != "73.22" || amount != 73.22 {
-		t.Fatalf("subscription CNY pay amount with fee = (%q, %v), want (73.22, 73.22)", amountStr, amount)
+		t.Fatalf("CNY pay amount with fee = (%q, %v), want (73.22, 73.22)", amountStr, amount)
 	}
 }
 
-func TestCalculateCreateOrderPayAmountForSubscriptionKeepsNonCNYPrice(t *testing.T) {
+func TestCalculateCreateOrderGatewayPayAmountKeepsUSDAmountOnUSDChannel(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "USD", payment.OrderTypeSubscription, 7.15)
+	amountStr, amount, err := calculateCreateOrderGatewayPayAmount(9.99, 0, "USD", 7.15)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
 	if amountStr != "9.99" || amount != 9.99 {
-		t.Fatalf("subscription USD pay amount = (%q, %v), want (9.99, 9.99)", amountStr, amount)
+		t.Fatalf("USD pay amount = (%q, %v), want (9.99, 9.99)", amountStr, amount)
 	}
 }
 
-// 换算是 opt-in：未配置汇率（rate=0）时，CNY 订阅保持 price 直付的存量行为。
-// 该测试锁住存量部署升级后行为不变的兼容承诺。
-func TestCalculateCreateOrderPayAmountForSubscriptionKeepsDirectPriceWhenRateDisabled(t *testing.T) {
+// 汇率未配置时 CNY 通道拒绝下单，不把美元数字当人民币收。
+func TestCalculateCreateOrderGatewayPayAmountRejectsCNYWithoutRate(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(9.99, 0, "CNY", payment.OrderTypeSubscription, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, _, err := calculateCreateOrderGatewayPayAmount(9.99, 0, "CNY", 0)
+	if err == nil {
+		t.Fatal("expected an error when the USD to CNY rate is not configured")
 	}
-	if amountStr != "9.99" || amount != 9.99 {
-		t.Fatalf("subscription CNY pay amount without rate = (%q, %v), want (9.99, 9.99)", amountStr, amount)
+	if got := infraerrors.Reason(err); got != "USD_TO_CNY_RATE_NOT_CONFIGURED" {
+		t.Fatalf("reason = %q, want USD_TO_CNY_RATE_NOT_CONFIGURED", got)
 	}
 }
 
-// 汇率只作用于订阅订单，余额充值订单不受影响。
-func TestCalculateCreateOrderPayAmountForBalanceIgnoresSubscriptionRate(t *testing.T) {
+// 只支持 CNY / USD 通道：其他币种没有可用汇率。
+func TestCalculateCreateOrderGatewayPayAmountRejectsOtherCurrencies(t *testing.T) {
 	t.Parallel()
 
-	amountStr, amount, err := calculateCreateOrderPayAmountForOrderType(50, 0, "CNY", payment.OrderTypeBalance, 7.15)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
+	_, _, err := calculateCreateOrderGatewayPayAmount(9.99, 0, "HKD", 7.15)
+	if err == nil {
+		t.Fatal("expected an error for a non CNY/USD channel")
 	}
-	if amountStr != "50.00" || amount != 50 {
-		t.Fatalf("balance CNY pay amount = (%q, %v), want (50.00, 50)", amountStr, amount)
-	}
-}
-
-func TestCalculateCreditedBalanceStillUsesRechargeMultiplier(t *testing.T) {
-	t.Parallel()
-
-	got := calculateCreditedBalance(10, 0.14)
-	if got != 1.4 {
-		t.Fatalf("credited balance = %v, want 1.4", got)
-	}
-
-	got = calculateCreditedBalance(5, 10)
-	if got != 50 {
-		t.Fatalf("credited balance = %v, want 50", got)
+	if got := infraerrors.Reason(err); got != "UNSUPPORTED_PAYMENT_CURRENCY" {
+		t.Fatalf("reason = %q, want UNSUPPORTED_PAYMENT_CURRENCY", got)
 	}
 }
 

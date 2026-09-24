@@ -58,7 +58,7 @@
             </div>
             <div v-if="hasAmountFields(order) && order.amount !== order.pay_amount" class="flex justify-between">
               <span class="text-af-ink-3">{{ t('payment.orders.creditedAmount') }}</span>
-              <span class="font-medium text-af-ink">{{ order.order_type === 'balance' ? '$' + order.amount.toFixed(2) : formatGatewayAmount(order.amount) }}</span>
+              <span class="font-medium text-af-ink">${{ order.amount.toFixed(2) }}</span>
             </div>
             <div v-if="hasPaymentType(order)" class="flex justify-between">
               <span class="text-af-ink-3">{{ t('payment.orders.paymentMethod') }}</span>

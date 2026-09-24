@@ -17,7 +17,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/payment/provider"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/servertiming"
-	"github.com/shopspring/decimal"
 )
 
 // --- Order Creation ---
@@ -53,14 +52,12 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 	if s.notificationEmailService != nil {
 		s.notificationEmailService.RememberRecipientLocale(ctx, req.UserID, user.Email, req.Locale)
 	}
+	// 订单金额一律是美元：充值 = 到账余额，订阅 = 套餐价格；网关实付按通道币种换算（convertUSDToGatewayAmount）
 	orderAmount := req.Amount
-	limitAmount := req.Amount
 	if plan != nil {
 		orderAmount = plan.Price
-		limitAmount = plan.Price
-	} else if req.OrderType == payment.OrderTypeBalance {
-		orderAmount = calculateCreditedBalance(req.Amount, cfg.BalanceRechargeMultiplier)
 	}
+	limitAmount := orderAmount
 	feeRate := cfg.RechargeFeeRate
 	methodCurrency := payment.DefaultPaymentCurrency
 	if s.configService != nil {
@@ -69,7 +66,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 			return nil, err
 		}
 	}
-	payAmountStr, payAmount, err := calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, methodCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+	payAmountStr, payAmount, err := calculateCreateOrderGatewayPayAmount(limitAmount, feeRate, methodCurrency, cfg.USDToCNYRate)
 	if err != nil {
 		return nil, err
 	}
@@ -85,7 +82,7 @@ func (s *PaymentService) CreateOrder(ctx context.Context, req CreateOrderRequest
 		selectedCurrency = paymentProviderConfigCurrency(sel.ProviderKey, sel.Config)
 	}
 	if selectedCurrency != methodCurrency {
-		payAmountStr, payAmount, err = calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate, selectedCurrency, req.OrderType, cfg.SubscriptionUSDToCNYRate)
+		payAmountStr, payAmount, err = calculateCreateOrderGatewayPayAmount(limitAmount, feeRate, selectedCurrency, cfg.USDToCNYRate)
 		if err != nil {
 			return nil, err
 		}
@@ -328,12 +325,9 @@ func (s *PaymentService) checkDailyLimit(ctx context.Context, tx *dbent.Tx, user
 	if err != nil {
 		return fmt.Errorf("query daily usage: %w", err)
 	}
+	// 订单金额（Amount）一律是美元，每日限额按美元累计
 	var used float64
 	for _, o := range orders {
-		if o.OrderType == payment.OrderTypeBalance {
-			used += o.PayAmount
-			continue
-		}
 		used += o.Amount
 	}
 	if used+amount > limit {
@@ -640,26 +634,13 @@ func calculateCreateOrderPayAmount(limitAmount, feeRate float64, currency string
 	return payAmountStr, payAmount, nil
 }
 
-func calculateCreateOrderPayAmountForOrderType(limitAmount, feeRate float64, currency, orderType string, usdToCnyRate float64) (string, float64, error) {
-	paymentAmount := limitAmount
-	if orderType == payment.OrderTypeSubscription {
-		paymentAmount = calculateSubscriptionGatewayBaseAmount(limitAmount, usdToCnyRate, currency)
+// calculateCreateOrderGatewayPayAmount：美元订单金额先按网关币种换算，再加手续费。充值与订阅同一口径。
+func calculateCreateOrderGatewayPayAmount(amountUSD, feeRate float64, currency string, usdToCNYRate float64) (string, float64, error) {
+	base, err := convertUSDToGatewayAmount(amountUSD, usdToCNYRate, currency)
+	if err != nil {
+		return "", 0, err
 	}
-	return calculateCreateOrderPayAmount(paymentAmount, feeRate, currency)
-}
-
-// calculateSubscriptionGatewayBaseAmount 计算订阅订单的网关扣款基数。
-// 换算是显式 opt-in：仅当管理员配置了订阅汇率（rate > 0，1 USD = rate CNY）
-// 且网关币种为 CNY 时，按 price × rate 换算；未配置时保持 price 直付的存量行为。
-func calculateSubscriptionGatewayBaseAmount(amount, usdToCnyRate float64, currency string) float64 {
-	rate := normalizeSubscriptionUSDToCNYRate(usdToCnyRate)
-	if rate <= 0 || currency != payment.DefaultPaymentCurrency {
-		return amount
-	}
-	return decimal.NewFromFloat(amount).
-		Mul(decimal.NewFromFloat(rate)).
-		Round(int32(payment.CurrencyMaxFractionDigits(currency))).
-		InexactFloat64()
+	return calculateCreateOrderPayAmount(base, feeRate, currency)
 }
 
 func validateCreateOrderAmountCurrency(amount float64, currency string) error {

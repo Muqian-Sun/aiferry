@@ -340,7 +340,6 @@ func mustCreatePlan(t *testing.T, client *dbent.Client, p *service.SubscriptionP
 		SetDescription(p.Description).
 		SetPrice(p.Price).
 		SetNillableOriginalPrice(p.OriginalPrice).
-		SetCurrency(p.Currency).
 		SetValidityDays(p.ValidityDays).
 		SetValidityUnit(p.ValidityUnit).
 		SetFeatures(p.Features).

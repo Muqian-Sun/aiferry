@@ -9,6 +9,9 @@ import (
 
 const DefaultPaymentCurrency = "CNY"
 
+// USDPaymentCurrency 是站内计价币种：余额、充值金额、套餐价格都是美元。
+const USDPaymentCurrency = "USD"
+
 type paymentCurrencyAmountUnit struct {
 	apiMinorUnit      int
 	maxFractionDigits int

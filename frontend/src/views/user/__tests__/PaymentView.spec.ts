@@ -124,8 +124,7 @@ function checkoutInfoFixture(overrides: Partial<CheckoutInfoResponse> = {}) {
     global_max: 0,
     plans: [],
     balance_disabled: false,
-    balance_recharge_multiplier: 1,
-    subscription_usd_to_cny_rate: 0,
+    usd_to_cny_rate: 7.2,
     recharge_fee_rate: 0,
     help_text: '',
     help_image_url: '',
@@ -376,20 +375,12 @@ describe('PaymentView subscription plan list', () => {
   })
 })
 
-describe('PaymentView recharge rate preview', () => {
-  it('uses the selected payment method currency in both locale templates', async () => {
+describe('PaymentView recharge amounts in USD', () => {
+  async function mountRecharge(checkout: Partial<CheckoutInfoResponse>) {
     translate.mockClear()
     routeState.path = '/purchase'
     routeState.query = {}
-    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({
-      balance_recharge_multiplier: 0.5,
-      methods: {
-        stripe: {
-          ...checkoutInfoFixture().data.methods.wxpay,
-          currency: 'USD',
-        },
-      },
-    }))
+    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture(checkout))
 
     const wrapper = shallowMount(PaymentView, {
       props: { mode: 'recharge' },
@@ -404,22 +395,33 @@ describe('PaymentView recharge rate preview', () => {
     await flushPromises()
     wrapper.getComponent(AmountInput).vm.$emit('update:modelValue', 10)
     await flushPromises()
+    return wrapper
+  }
 
-    expect(translate).toHaveBeenCalledWith('payment.rechargeRatePreview', {
-      currency: 'USD',
-      usd: '0.50',
-    })
-    expect(en.payment.rechargeRatePreview).toBe('Current rate: 1 {currency} = {usd} USD')
-    expect(zh.payment.rechargeRatePreview).toBe('当前倍率：1 {currency} = {usd} USD')
+  it('credits the USD amount and charges the CNY channel at the USD rate', async () => {
+    const wrapper = await mountRecharge({ usd_to_cny_rate: 7.2 })
+
+    const text = wrapper.text()
+    expect(text).toContain(formatPaymentAmount(10, 'USD'))
+    expect(text).toContain(formatPaymentAmount(72, 'CNY'))
+    expect(translate).toHaveBeenCalledWith('payment.usdRateNote', { rate: 7.2 })
+    expect(en.payment.usdRateNote).toBe('Converted at 1 USD = {rate} CNY')
+    expect(zh.payment.usdRateNote).toBe('按 1 USD = {rate} CNY 换算')
+  })
+
+  it('blocks CNY top-ups while the USD rate is not configured', async () => {
+    const wrapper = await mountRecharge({ usd_to_cny_rate: 0 })
+
+    expect(wrapper.find('[data-testid="usd-rate-missing"]').exists()).toBe(true)
+    expect(wrapper.text()).not.toContain(formatPaymentAmount(10, 'CNY'))
   })
 })
 
 describe('PaymentView subscription confirmation amounts', () => {
-  it('shows converted CNY pay amount using the subscription rate, not the balance multiplier', async () => {
+  it('shows the USD price and the CNY pay amount converted at the USD rate', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: {
-        balance_recharge_multiplier: 0.14,
-        subscription_usd_to_cny_rate: 7.15,
+        usd_to_cny_rate: 7.15,
       },
       method: {
         currency: 'CNY',
@@ -432,22 +434,18 @@ describe('PaymentView subscription confirmation amounts', () => {
 
     const text = wrapper.text()
     const convertedPrice = formatPaymentAmount(71.43, 'CNY')
-    const convertedOriginalPrice = formatPaymentAmount(92.88, 'CNY')
 
+    expect(text).toContain(formatPaymentAmount(9.99, 'USD'))
+    expect(text).toContain(formatPaymentAmount(12.99, 'USD'))
     expect(text).toContain(convertedPrice)
-    expect(text).toContain(convertedOriginalPrice)
     expect(text).not.toContain(formatPaymentAmount(9.99, 'CNY'))
-    // 换算必须使用订阅汇率（×7.15），而不是余额倍率（÷0.14 = 71.36）
-    expect(text).not.toContain(formatPaymentAmount(71.36, 'CNY'))
     expect(wrapper.findAll('button').some(button => button.text().includes(convertedPrice))).toBe(true)
   })
 
-  it('keeps plan price when the subscription rate is not configured or payment currency is not CNY', async () => {
-    // opt-in 回归锁：即使余额倍率已配置，未配置订阅汇率时 CNY 订阅仍按 price 直付
+  it('blocks CNY checkout without a USD rate and charges the USD price on USD channels', async () => {
     const cnyWrapper = await mountSubscriptionConfirm({
       checkout: {
-        balance_recharge_multiplier: 0.14,
-        subscription_usd_to_cny_rate: 0,
+        usd_to_cny_rate: 0,
       },
       method: {
         currency: 'CNY',
@@ -457,13 +455,14 @@ describe('PaymentView subscription confirmation amounts', () => {
       },
     })
 
-    expect(cnyWrapper.text()).toContain(formatPaymentAmount(7.99, 'CNY'))
-    expect(cnyWrapper.text()).not.toContain(formatPaymentAmount(57.07, 'CNY'))
-    expect(cnyWrapper.text()).not.toContain(formatPaymentAmount(57.13, 'CNY'))
+    expect(cnyWrapper.find('[data-testid="usd-rate-missing"]').exists()).toBe(true)
+    expect(cnyWrapper.text()).not.toContain(formatPaymentAmount(7.99, 'CNY'))
+    const confirm = cnyWrapper.findAll('button').find(button => button.text().includes('payment.createOrder'))
+    expect(confirm?.attributes('disabled')).toBeDefined()
 
     const usdWrapper = await mountSubscriptionConfirm({
       checkout: {
-        subscription_usd_to_cny_rate: 7.15,
+        usd_to_cny_rate: 7.15,
       },
       method: {
         currency: 'USD',
@@ -474,6 +473,7 @@ describe('PaymentView subscription confirmation amounts', () => {
       },
     })
 
+    expect(usdWrapper.find('[data-testid="usd-rate-missing"]').exists()).toBe(false)
     expect(usdWrapper.text()).toContain(formatPaymentAmount(7.99, 'USD'))
     expect(usdWrapper.text()).toContain(formatPaymentAmount(9.99, 'USD'))
   })
@@ -481,7 +481,7 @@ describe('PaymentView subscription confirmation amounts', () => {
   it('adds fee rate after CNY rate conversion to match backend pay_amount', async () => {
     const wrapper = await mountSubscriptionConfirm({
       checkout: {
-        subscription_usd_to_cny_rate: 7.15,
+        usd_to_cny_rate: 7.15,
         recharge_fee_rate: 2.5,
       },
       method: {

@@ -77,9 +77,9 @@ describe('PlanEditDialog', () => {
     ])
   })
 
-  it('shows CNY channel charge using the configured subscription rate and fee', async () => {
+  it('shows CNY channel charge using the configured USD rate and fee', async () => {
     const wrapper = mountDialog({
-      paymentConfig: { subscription_usd_to_cny_rate: 7.15, recharge_fee_rate: 2.5 },
+      paymentConfig: { usd_to_cny_rate: 7.15, recharge_fee_rate: 2.5 },
     })
     await wrapper.find('input[type="number"]').setValue('9.99')
     expect(wrapper.text()).toContain('preview')
@@ -88,9 +88,9 @@ describe('PlanEditDialog', () => {
     expect(wrapper.text()).toContain('¥73.22')
   })
 
-  it('hides the preview when the subscription rate is not configured', async () => {
+  it('hides the preview when the USD rate is not configured', async () => {
     const wrapper = mountDialog({
-      paymentConfig: { subscription_usd_to_cny_rate: 0, recharge_fee_rate: 2.5 },
+      paymentConfig: { usd_to_cny_rate: 0, recharge_fee_rate: 2.5 },
     })
     await wrapper.find('input[type="number"]').setValue('9.99')
     expect(wrapper.text()).not.toContain('preview')
