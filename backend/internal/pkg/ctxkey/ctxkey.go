@@ -20,9 +20,6 @@ const (
 	// RequestedPublicModel 是客户端原始请求中的公开模型名。
 	RequestedPublicModel Key = "ctx_requested_public_model"
 
-	// CompositeRouteSource 标识 composite 解析结果来自显式路由还是内置模型探测。
-	CompositeRouteSource Key = "ctx_composite_route_source"
-
 	// InboundProtocol 是本次请求的入站协议（anthropic / chat_completions /
 	// responses / gemini），由网关入口按请求路径设置，供调度做协议偏好。
 	InboundProtocol Key = "ctx_inbound_protocol"
@@ -65,9 +62,6 @@ const (
 	// /v1/responses 带图片模型时也会置位；本 key 只在专用生图端点置位，
 	// 用于区分"用错端点"与"端点用对了但账号没能力"。
 	OpenAIImagesEndpoint Key = "ctx_openai_images_endpoint"
-
-	// Group 认证后的分组信息，由 API Key 认证中间件设置
-	Group Key = "ctx_group"
 
 	// UserID 认证后的 Sub2API 用户 ID，由 API Key 认证中间件设置。
 	// 供 service 层执行用户级策略，不能使用客户端请求体中的 user 标识替代。

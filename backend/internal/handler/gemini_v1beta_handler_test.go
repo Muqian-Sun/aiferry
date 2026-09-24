@@ -3,53 +3,25 @@
 package handler
 
 import (
-	"encoding/json"
 	"net/http"
-	"net/http/httptest"
+	"strings"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
-	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
 func TestGeminiV1BetaListModels_AllowlistFiltersNativeResponse(t *testing.T) {
 	body := []byte(`{"models":[{"name":"models/gemini-2.5-pro"},{"name":"models/gemini-2.5-flash"}],"nextPageToken":"next"}`)
-	filtered, dropped, ok := filterUpstreamGeminiModelsBody(body, service.GroupModelAllowlist{Enabled: true, Models: []string{"gemini-2.5-pro"}}.Allows)
+	filtered, dropped, ok := filterUpstreamGeminiModelsBody(body, func(name string) bool { return strings.TrimPrefix(name, "models/") == "gemini-2.5-pro" })
 	require.True(t, ok)
 	require.True(t, dropped)
 	require.JSONEq(t, `{"models":[{"name":"models/gemini-2.5-pro"}],"nextPageToken":"next"}`, string(filtered))
 }
 
-func TestGeminiV1BetaListModels_ForcedAntigravityAppliesAllowlist(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodGet, "/antigravity/v1beta/models", nil)
-	c.Set(string(middleware.ContextKeyAPIKey), &service.APIKey{
-		Group: &service.Group{
-			Platform: service.PlatformGemini,
-			ModelAllowlist: service.GroupModelAllowlist{
-				Enabled: true,
-				Models:  []string{"gemini-custom"},
-			},
-		},
-	})
-	c.Set(string(middleware.ContextKeyForcePlatform), service.PlatformAntigravity)
-
-	(&GatewayHandler{modelCatalog: listedCatalogStub{ids: []string{"gemini-custom", "gemini-2.5-pro"}}}).GeminiV1BetaListModels(c)
-
-	require.Equal(t, http.StatusOK, rec.Code)
-	var got antigravity.GeminiModelsListResponse
-	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
-	require.Empty(t, got.Models, "gemini-custom is listed but not an antigravity model; gemini-2.5-pro is not allowlisted")
-}
-
 func TestGeminiModelAllowlist_DisabledPreservesNativeResponse(t *testing.T) {
 	body := []byte(`{"models":[{"name":"models/gemini-2.5-pro"}]}`)
-	filtered, dropped, ok := filterUpstreamGeminiModelsBody(body, service.GroupModelAllowlist{Enabled: false, Models: []string{"other"}}.Allows)
+	filtered, dropped, ok := filterUpstreamGeminiModelsBody(body, func(string) bool { return true })
 	require.True(t, ok)
 	require.False(t, dropped)
 	require.Equal(t, body, filtered)

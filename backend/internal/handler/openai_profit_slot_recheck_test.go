@@ -83,10 +83,9 @@ func profitSlotTestContext(t *testing.T, gw *service.OpenAIGatewayService, suppr
 
 func TestAcquireResponsesAccountSlotProfitRecheck(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(50)
 	// 终检与准入后绑定走唯一调度器；这里不选号，调度器只要存在即可。
 	gw := service.NewOpenAIGatewayService(nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, profitSlotTestSettings(t),
-		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, nil, testOpenAIGroup(groupID)))
+		newTestSchedulerOverRepo(&config.Config{RunMode: config.RunModeSimple}, nil))
 
 	newHandler := func(cache *profitCountingConcurrencyCache) *OpenAIGatewayHandler {
 		return &OpenAIGatewayHandler{

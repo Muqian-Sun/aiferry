@@ -23,9 +23,7 @@ func TestBuildCodexModelsManifestForGroupCorrectsOfficialAstraStaleModalities(t 
 		},
 	})
 
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{groupID: {account}},
-	}}
+	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: []Account{account}}}
 
 	body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-6-astra")
 	require.NoError(t, err)
@@ -53,9 +51,7 @@ func TestBuildCodexModelsManifestForGroupPreservesCompatibleAstraTextOnlyMetadat
 		},
 	})
 
-	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{
-		byGroup: map[int64][]Account{groupID: {account}},
-	}}
+	svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: []Account{account}}}
 
 	body, err := buildCodexManifestFromCatalogForTest(svc, "gpt-6-astra")
 	require.NoError(t, err)

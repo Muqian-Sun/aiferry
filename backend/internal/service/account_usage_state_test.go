@@ -224,7 +224,7 @@ func TestRecordUsage_AppliesAccountUsageState(t *testing.T) {
 
 	t.Run("openai gateway", func(t *testing.T) {
 		rl, repo := newRateLimit()
-		svc := newOpenAIRecordUsageServiceForTest(&openAIRecordUsageLogRepoStub{inserted: true}, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{}, nil)
+		svc := newOpenAIRecordUsageServiceForTest(&openAIRecordUsageLogRepoStub{inserted: true}, &openAIRecordUsageUserRepoStub{}, &openAIRecordUsageSubRepoStub{})
 		svc.rateLimitService = rl
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result:  &OpenAIForwardResult{RequestID: "usage-state-oa", Model: "gpt-5.1", Usage: OpenAIUsage{InputTokens: 100, OutputTokens: 50}, Duration: time.Second},

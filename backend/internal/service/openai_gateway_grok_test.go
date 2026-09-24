@@ -1971,7 +1971,7 @@ func TestForwardAsChatCompletionsForGrokStopFallsBackToXAIChatCompletions(t *tes
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
@@ -2424,7 +2424,7 @@ func TestForwardAsChatCompletionsForGrokAPIKeyUsesConfiguredRawEndpointWithoutOA
 	}}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 
-	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.Equal(t, "https://grok.example.test/v1/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer third-party-key", upstream.lastReq.Header.Get("Authorization"))
@@ -2459,7 +2459,7 @@ func TestForwardAsChatCompletionsForGrokAPIKeyRejectsNonStreamingResponseWithout
 	}}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 
 	require.Nil(t, result)
 	var failoverErr *UpstreamFailoverError
@@ -2612,7 +2612,7 @@ func TestForwardAsChatCompletionsForGrokStreamingUsesRawXAIChatCompletions(t *te
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
@@ -2785,7 +2785,7 @@ func TestForwardAsChatCompletionsForGrokStreamingStopFallsBackToRawXAIChatComple
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/chat/completions", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
@@ -2846,7 +2846,7 @@ func TestForwardAsChatCompletionsForGrokComposerBridgesImageInput(t *testing.T) 
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Len(t, upstream.requests, 2)
@@ -2891,7 +2891,7 @@ func TestForwardAsAnthropicForGrokUsesXAIResponses(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
 	require.Equal(t, "Bearer access-token", upstream.lastReq.Header.Get("Authorization"))
@@ -2961,7 +2961,7 @@ func TestForwardAsAnthropicForGrokFunctionToolUsesCacheCapableMixedRoute(t *test
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -3012,7 +3012,7 @@ func TestForwardAsAnthropicForGrokStreamingPreservesCacheUsage(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, 2, result.Usage.CacheReadInputTokens)

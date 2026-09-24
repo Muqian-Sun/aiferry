@@ -5,7 +5,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
@@ -47,23 +46,9 @@ func (h *AccountHandler) GetUpstreamBillingRates(c *gin.Context) {
 	sortBy := c.DefaultQuery("sort_by", "name")
 	sortOrder := c.DefaultQuery("sort_order", "asc")
 
-	var groupID int64
-	if groupQuery := c.Query("group"); groupQuery != "" {
-		if groupQuery == accountListGroupUngroupedQueryValue {
-			groupID = service.AccountListGroupUngrouped
-		} else {
-			parsed, err := strconv.ParseInt(groupQuery, 10, 64)
-			if err != nil || parsed < 0 {
-				response.BadRequest(c, "invalid group filter")
-				return
-			}
-			groupID = parsed
-		}
-	}
-
 	accounts, total, err := h.adminService.ListAccounts(
 		c.Request.Context(), page, pageSize, platform, accountType, status,
-		search, groupID, privacyMode, sortBy, sortOrder,
+		search, privacyMode, sortBy, sortOrder,
 	)
 	if err != nil {
 		response.ErrorFrom(c, err)

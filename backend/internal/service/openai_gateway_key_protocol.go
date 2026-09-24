@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"strings"
 )
 
@@ -14,22 +15,29 @@ import (
 // 使用的上游协议。inboundProtocol 由转发入口固定：Forward 是 responses，
 // ForwardAsChatCompletions 是 chat_completions，ForwardAsAnthropic 是 anthropic。
 //
-// OpenCode 官方地址是厂商特化：同一个 key 按模型分流到不同原生端点。模型规则选出的
-// 协议配了地址就用它，没配则回到通用选择——规则只在 key 已配置的协议之间挑。
-// upstreamModel 只在需要时才求值（解析请求体有成本）。
+// 一个资源只承接一个上游协议（配置入口强制，见 NormalizeProtocolEndpoints），协议
+// 因此只由「资源配了哪个地址」决定，与请求的模型无关。
 //
 // 取不到协议时返回 MissingProtocolEndpointError：调度已排除这类 key，走到这里说明
 // 调度与转发的判定不一致，直接报错比静默改走别的协议或官方地址更容易排查。
-func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string, upstreamModel func() string) (string, error) {
-	if account.Vendor() == PlatformOpenCodeGo && upstreamModel != nil {
-		if protocol := account.ResolveOpenCodeGoUpstreamProtocol(upstreamModel()); protocol != "" && account.ProtocolEndpoint(protocol) != "" {
-			return protocol, nil
-		}
-	}
+func resolveOpenAIGatewayKeyProtocol(account *Account, inboundProtocol string) (string, error) {
 	if protocol := openAIGatewayKeyProtocol(account, inboundProtocol); protocol != "" {
 		return protocol, nil
 	}
 	return "", MissingProtocolEndpointError(account, strings.Join(UpstreamProtocolPreference(inboundProtocol, account.Vendor()), " / "))
+}
+
+// anthropicUpstreamOnOpenAIGatewayError 报告一次不该发生的分发：anthropic 上游由
+// Anthropic 网关承接，OpenAI 网关不做「转成 Anthropic 走原生端点」这件事。
+//
+// handler 的 compatForwardTargetFor 与这里读同一个 account.UpstreamProtocolFor(inbound)：
+// 解析成 anthropic 的资源会被交给 compatForwardAnthropic，根本到不了 OpenAI 网关。
+// 走到这里说明路由与转发的判定不一致，直接报错比静默改走 Responses 转换链更容易排查。
+func anthropicUpstreamOnOpenAIGatewayError(account *Account, inboundProtocol string) error {
+	return fmt.Errorf(
+		"account %d resolves inbound %s to the anthropic upstream, which the OpenAI gateway does not serve; routing should have picked the Anthropic gateway",
+		account.ID, inboundProtocol,
+	)
 }
 
 // openAIGatewayKeyProtocol 返回第三方 key 处理该入站协议的上游协议（协议转换注册表：
@@ -47,10 +55,8 @@ func openAIGatewayKeyExtensionBaseURL(account *Account) string {
 // shouldForwardOpenAIResponsesViaRawChatCompletions 报告入站 Responses 请求是否会被
 // 转成 Chat Completions 发往上游。只有第三方 key 会走这条路：它的 Responses 入站
 // 首选协议是 chat_completions（没配 responses 地址）。
-//
-// OpenCode 官方地址按模型分流，不带模型时判断不了，按不转换处理。
 func shouldForwardOpenAIResponsesViaRawChatCompletions(account *Account) bool {
-	if account == nil || !account.IsThirdPartyKey() || account.Vendor() == PlatformOpenCodeGo {
+	if account == nil || !account.IsThirdPartyKey() {
 		return false
 	}
 	return openAIGatewayKeyProtocol(account, APIProtocolResponses) == APIProtocolChatCompletions

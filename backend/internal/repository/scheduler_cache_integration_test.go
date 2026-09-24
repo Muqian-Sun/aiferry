@@ -12,9 +12,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// fixtureGroupID 分组成员仍在账号投影里（分组列随 7c 删）；桶不再有分组维度。
-const fixtureGroupID int64 = 42
-
 func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T) {
 	ctx := context.Background()
 	rdb := testRedis(t)
@@ -46,6 +43,8 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 			"huge_blob":     strings.Repeat("x", 4096),
 		},
 		Extra: map[string]any{
+			// 瘦身白名单之外的键必须被丢掉；mixed_scheduling 随分组池下线（7b-2b）。
+			"mixed_scheduling":             true,
 			"window_cost_limit":            12.5,
 			"window_cost_sticky_reserve":   8.0,
 			"max_sessions":                 4,
@@ -58,15 +57,6 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 		SessionWindowStart:     &now,
 		SessionWindowEnd:       &windowEnd,
 		SessionWindowStatus:    "active",
-		GroupIDs:               []int64{fixtureGroupID},
-		AccountGroups: []service.AccountGroup{
-			{
-				AccountID: 101,
-				GroupID:   fixtureGroupID,
-				Priority:  5,
-				Group:     &service.Group{ID: fixtureGroupID, Name: "gemini-group"},
-			},
-		},
 	}
 
 	token, err := cache.CaptureBucketWriteToken(ctx, bucket)
@@ -86,23 +76,16 @@ func TestSchedulerCacheSnapshotUsesSlimMetadataButKeepsFullAccount(t *testing.T)
 	require.NotEmpty(t, got.GetModelMapping())
 	require.Empty(t, got.GetCredential("access_token"))
 	require.Empty(t, got.GetCredential("huge_blob"))
-	require.Equal(t, true, got.Extra["mixed_scheduling"])
+	require.NotContains(t, got.Extra, "mixed_scheduling", "混合调度标记随分组池下线（7b-2b）")
 	require.Equal(t, 12.5, got.GetWindowCostLimit())
 	require.Equal(t, 8.0, got.GetWindowCostStickyReserve())
 	require.Equal(t, 4, got.GetMaxSessions())
 	require.Equal(t, 11, got.GetSessionIdleTimeoutMinutes())
 	require.Nil(t, got.Extra["unused_large_field"])
-	require.Equal(t, []int64{fixtureGroupID}, got.GroupIDs)
-	require.Len(t, got.AccountGroups, 1)
-	require.Equal(t, account.ID, got.AccountGroups[0].AccountID)
-	require.Equal(t, fixtureGroupID, got.AccountGroups[0].GroupID)
-	require.Nil(t, got.AccountGroups[0].Group)
 
 	full, err := cache.GetAccount(ctx, account.ID)
 	require.NoError(t, err)
 	require.NotNil(t, full)
 	require.Equal(t, "secret-access-token", full.GetCredential("access_token"))
 	require.Equal(t, strings.Repeat("x", 4096), full.GetCredential("huge_blob"))
-	require.Len(t, full.AccountGroups, 1)
-	require.NotNil(t, full.AccountGroups[0].Group)
 }

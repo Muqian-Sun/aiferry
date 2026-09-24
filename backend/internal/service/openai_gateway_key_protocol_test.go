@@ -56,7 +56,7 @@ var (
 		path: "/v1/chat/completions",
 		body: []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`),
 		forward: func(svc *OpenAIGatewayService, c *gin.Context, account *Account, body []byte) error {
-			_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+			_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 			return err
 		},
 	}
@@ -74,7 +74,7 @@ var (
 		path: "/v1/messages",
 		body: []byte(`{"model":"gpt-5.4","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"stream":false}`),
 		forward: func(svc *OpenAIGatewayService, c *gin.Context, account *Account, body []byte) error {
-			_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+			_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 			return err
 		},
 	}
@@ -95,6 +95,27 @@ func captureKeyProtocolRequest(t *testing.T, account *Account, ingress keyProtoc
 	require.Error(t, err)
 	require.Len(t, upstream.requests, 1, "exactly one upstream request")
 	return upstream
+}
+
+// requireAnthropicUpstreamRefused 断言 OpenAI 网关不承接 anthropic 上游：解析成
+// anthropic 协议时按「路由与转发判定不一致」直接报错，而不是落到 Responses 转换链
+// 报一个指错方向的「没配 responses 地址」（handler 侧本该把这类资源交给 Anthropic
+// 网关，见 compatForwardTargetFor）。
+//
+// 只断言错误内容，不断言「没发上游请求」：只配 anthropic 地址的账号无论如何都会在
+// 更下游缺地址失败，那条断言去掉守卫也照样过，是空转。
+func requireAnthropicUpstreamRefused(t *testing.T, account *Account, ingress keyProtocolIngress) {
+	t.Helper()
+	gin.SetMode(gin.TestMode)
+	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
+	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
+	c := adaptiveProtocolTestContext(ingress.path, ingress.body)
+	if ingress.setup != nil {
+		ingress.setup(c)
+	}
+	err := ingress.forward(svc, c, account, ingress.body)
+	require.Error(t, err)
+	require.Contains(t, err.Error(), "the OpenAI gateway does not serve")
 }
 
 func TestOpenAIGatewayKeyProtocol_RelayWithChatAndResponses(t *testing.T) {
@@ -160,36 +181,23 @@ func TestOpenAIGatewayKeyProtocol_ResponsesShapedChatFollowsProtocol(t *testing.
 		require.True(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
 	})
 
-	t.Run("anthropic upstream receives an anthropic body", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformZhipu, map[string]string{
+	t.Run("anthropic upstream is refused", func(t *testing.T) {
+		requireAnthropicUpstreamRefused(t, keyProtocolTestAccount(PlatformZhipu, map[string]string{
 			APIProtocolAnthropic: "http://anthropic.example",
 		}), ingress)
-		require.Equal(t, "http://anthropic.example/v1/messages", upstream.lastReq.URL.String())
-		require.True(t, gjson.GetBytes(upstream.lastBody, "messages").IsArray())
-		require.False(t, gjson.GetBytes(upstream.lastBody, "input").Exists())
 	})
 }
 
+// TestOpenAIGatewayKeyProtocol_AnthropicOnlyKey：只配 anthropic 地址的 key 在 OpenAI
+// 网关上三种入站全部报错——anthropic 上游由 Anthropic 网关承接，路由不会把这类资源
+// 交到这里来（7b-4 删掉了 OpenAI 网关里的 native anthropic 转发）。
 func TestOpenAIGatewayKeyProtocol_AnthropicOnlyKey(t *testing.T) {
 	endpoints := map[string]string{APIProtocolAnthropic: "http://anthropic.example"}
 	for _, ingress := range []keyProtocolIngress{keyProtocolChatIngress, keyProtocolResponsesIngress, keyProtocolMessagesIngress} {
 		t.Run(ingress.name, func(t *testing.T) {
-			upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, endpoints), ingress)
-			require.Equal(t, "http://anthropic.example/v1/messages", upstream.lastReq.URL.String())
+			requireAnthropicUpstreamRefused(t, keyProtocolTestAccount(PlatformOpenAI, endpoints), ingress)
 		})
 	}
-}
-
-func TestOpenAIGatewayKeyProtocol_MessagesPreferAnthropicEndpoint(t *testing.T) {
-	account := keyProtocolTestAccount(PlatformZhipu, map[string]string{
-		APIProtocolChatCompletions: "http://chat.example",
-		APIProtocolAnthropic:       "http://anthropic.example",
-	})
-	ingress := keyProtocolMessagesIngress
-	ingress.body = []byte(`{"model":"glm-4.7","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
-	upstream := captureKeyProtocolRequest(t, account, ingress)
-	require.Equal(t, "http://anthropic.example/v1/messages", upstream.lastReq.URL.String())
-	require.Equal(t, "glm-4.7", gjson.GetBytes(upstream.lastBody, "model").String())
 }
 
 func TestOpenAIGatewayKeyProtocol_OfficialOpenAIPrefersResponses(t *testing.T) {
@@ -390,44 +398,30 @@ func TestGrokVendorQuirkPredicatesFollowVendorNotLabel(t *testing.T) {
 	})
 }
 
-func TestOpenAIGatewayKeyProtocol_OpenCodeModelRuleChoosesAmongConfiguredProtocols(t *testing.T) {
-	goEndpoints := func() map[string]string {
-		return map[string]string{
-			APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL,
-			APIProtocolAnthropic:       DefaultOpenCodeGoAnthropicBaseURL,
-			APIProtocolResponses:       DefaultOpenCodeGoBaseURL,
-		}
-	}
+// TestOpenAIGatewayKeyProtocol_OpenCodeFollowsTheConfiguredProtocol：OpenCode 官方地址
+// 不再按模型分流——一个 key 只配一个协议地址，入站协议按转换注册表落到那个协议上。
+func TestOpenAIGatewayKeyProtocol_OpenCodeFollowsTheConfiguredProtocol(t *testing.T) {
 	responsesBody := func(model string) keyProtocolIngress {
 		ingress := keyProtocolResponsesIngress
 		ingress.body = []byte(`{"model":"` + model + `","input":"hello","stream":false}`)
 		return ingress
 	}
 
-	t.Run("rule protocol is used on the official host whatever the label", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, goEndpoints()), responsesBody("minimax-m3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/messages", upstream.lastReq.URL.String())
-	})
+	// 只配 anthropic 地址：OpenAI 网关不承接，与模型无关（minimax 与 glm 同样报错）。
+	for _, model := range []string{"minimax-m3", "glm-5.3"} {
+		t.Run("anthropic-only key is refused for "+model, func(t *testing.T) {
+			requireAnthropicUpstreamRefused(t, keyProtocolTestAccount(PlatformOpenAI, map[string]string{
+				APIProtocolAnthropic: DefaultOpenCodeGoAnthropicBaseURL,
+			}), responsesBody(model))
+		})
+	}
 
-	t.Run("unmatched model goes to chat completions", func(t *testing.T) {
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, goEndpoints()), responsesBody("glm-5.3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/chat/completions", upstream.lastReq.URL.String())
-	})
-
-	t.Run("rule protocol without an address falls back to the generic choice", func(t *testing.T) {
-		endpoints := goEndpoints()
-		delete(endpoints, APIProtocolAnthropic)
-		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenAI, endpoints), responsesBody("minimax-m3"))
-		require.Equal(t, "https://opencode.ai/zen/go/v1/responses", upstream.lastReq.URL.String())
-	})
-
-	t.Run("opencodego label on a relay does not apply model rules", func(t *testing.T) {
+	// 只配 chat_completions 地址：曾被模型规则判给 Responses 的 grok 也走 Chat Completions。
+	t.Run("chat-completions-only key serves grok via chat completions", func(t *testing.T) {
 		upstream := captureKeyProtocolRequest(t, keyProtocolTestAccount(PlatformOpenCodeGo, map[string]string{
-			APIProtocolChatCompletions: "http://relay.example/v1",
-			APIProtocolAnthropic:       "http://relay.example",
-			APIProtocolResponses:       "http://relay.example/v1",
-		}), responsesBody("minimax-m3"))
-		require.Equal(t, "http://relay.example/v1/responses", upstream.lastReq.URL.String())
+			APIProtocolChatCompletions: DefaultOpenCodeGoBaseURL,
+		}), responsesBody("grok-4.6"))
+		require.Equal(t, "https://opencode.ai/zen/go/v1/chat/completions", upstream.lastReq.URL.String())
 	})
 }
 
@@ -451,27 +445,6 @@ func TestOpenAIGatewayKeyProtocol_ResponsesOutputLimitFollowsProtocol(t *testing
 			require.False(t, gjson.GetBytes(upstream.lastBody, "max_tokens").Exists())
 		})
 	}
-}
-
-// TestNativeAnthropicTargetURLIgnoresLabel：Anthropic 上游地址只取 anthropic 协议地址，
-// 带不带 /v1 都拼成 {base}/v1/messages，与标签无关；没配地址报 MissingProtocolEndpointError。
-func TestNativeAnthropicTargetURLIgnoresLabel(t *testing.T) {
-	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig()}
-	for _, platform := range []string{PlatformKimi, PlatformOpenAI, PlatformOpenCodeGo} {
-		versioned := keyProtocolTestAccount(platform, map[string]string{APIProtocolAnthropic: "http://relay.example/v1"})
-		target, err := svc.nativeAnthropicTargetURL(versioned)
-		require.NoError(t, err)
-		require.Equal(t, "http://relay.example/v1/messages", target, platform)
-
-		root := keyProtocolTestAccount(platform, map[string]string{APIProtocolAnthropic: "http://relay.example/anthropic"})
-		target, err = svc.nativeAnthropicTargetURL(root)
-		require.NoError(t, err)
-		require.Equal(t, "http://relay.example/anthropic/v1/messages", target, platform)
-	}
-
-	_, err := svc.nativeAnthropicTargetURL(keyProtocolTestAccount(PlatformKimi, map[string]string{APIProtocolChatCompletions: "http://relay.example/v1"}))
-	require.Error(t, err)
-	require.Equal(t, "MISSING_PROTOCOL_ENDPOINT", infraerrors.Reason(err))
 }
 
 func TestGetOpenAIResponsesBaseURLIsStrict(t *testing.T) {

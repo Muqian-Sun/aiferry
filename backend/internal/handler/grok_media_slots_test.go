@@ -218,7 +218,7 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 	for i := range accounts {
 		accounts[i] = service.Account{ID: int64(i + 1), Platform: service.PlatformGrok, Type: service.AccountTypeAPIKey,
 			Status: service.StatusActive, Schedulable: true, Concurrency: 50, Priority: i,
-			GroupIDs: []int64{24}, Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
+			Credentials: map[string]any{"api_key": "test-key", "access_token": "test-token"}, ProtocolEndpoints: map[string]string{service.APIProtocolChatCompletions: "https://api.x.ai/v1", service.APIProtocolResponses: "https://api.x.ai/v1"}}
 		if oauth {
 			accounts[i].Type = service.AccountTypeOAuth
 			accounts[i].Credentials["refresh_token"] = "test-refresh"
@@ -255,7 +255,6 @@ func newGrokMediaSlotHandler(t *testing.T, oauth, ownerMissing bool) (*OpenAIGat
 }
 
 func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *httptest.ResponseRecorder) {
-	groupID := int64(24)
 	method, path, body := http.MethodGet, "/v1/videos/task", ""
 	if generation {
 		method, path, body = http.MethodPost, "/v1/videos/generations", `{"model":"grok-imagine-video","prompt":"test","duration":6}`
@@ -273,8 +272,8 @@ func grokMediaSlotContext(ctx context.Context, generation bool) (*gin.Context, *
 	c, _ := gin.CreateTestContext(w)
 	c.Request = req
 	c.Params = gin.Params{{Key: "request_id", Value: "task"}}
-	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 20, UserID: 10, GroupID: &groupID,
-		Group: &service.Group{ID: groupID, Platform: service.PlatformGrok, AllowImageGeneration: true}, User: &service.User{ID: 10}})
+	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{ID: 20, UserID: 10,
+		User: &service.User{ID: 10}})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 10, Concurrency: 5})
 	return c, w
 }

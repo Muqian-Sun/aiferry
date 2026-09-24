@@ -63,10 +63,7 @@ type Account struct {
 	// 现阶段只做读写打通，尚未参与地址解析。
 	ProtocolEndpoints map[string]string
 
-	Proxy         *Proxy
-	AccountGroups []AccountGroup
-	GroupIDs      []int64
-	Groups        []*Group
+	Proxy *Proxy
 	// CatalogEntryIDs 账号被哪些目录条目绑定为资源（调度按条目建桶，账号变更时按它找桶）。
 	CatalogEntryIDs []int64
 

@@ -373,7 +373,6 @@ func TestAPIKeyAuthMarksOnlyExpectedIngressRejections(t *testing.T) {
 func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	groupID := int64(101)
 	user := &service.User{
 		ID:          7,
 		Role:        service.RoleUser,
@@ -382,12 +381,11 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		Concurrency: 3,
 	}
 	apiKey := &service.APIKey{
-		ID:      100,
-		UserID:  user.ID,
-		GroupID: &groupID,
-		Key:     "test-key",
-		Status:  service.StatusActive,
-		User:    user,
+		ID:     100,
+		UserID: user.ID,
+		Key:    "test-key",
+		Status: service.StatusActive,
+		User:   user,
 	}
 	apiKeyRepo := &stubApiKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
@@ -418,7 +416,7 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	req.Header.Set("x-api-key", apiKey.Key)
 	router.ServeHTTP(w, req)
 
-	// 用户停用 → 早退中断，但 ops fallback key 仍应写入，含 user/group_id。
+	// 用户停用 → 早退中断，但 ops fallback key 仍应写入，含 user。
 	require.Equal(t, http.StatusUnauthorized, w.Code)
 	require.Contains(t, w.Body.String(), "USER_INACTIVE")
 	require.True(t, fallbackOK, "鉴权早退时也应写入 ops fallback api key")
@@ -426,14 +424,11 @@ func TestAPIKeyAuthSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	require.Equal(t, apiKey.ID, fallback.ID)
 	require.NotNil(t, fallback.User)
 	require.Equal(t, user.ID, fallback.User.ID)
-	require.NotNil(t, fallback.GroupID)
-	require.Equal(t, groupID, *fallback.GroupID)
 }
 
 func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	groupID := int64(202)
 	user := &service.User{
 		ID:          9,
 		Role:        service.RoleUser,
@@ -442,12 +437,11 @@ func TestAPIKeyAuthGoogleSetsOpsFallbackKeyOnEarlyAbort(t *testing.T) {
 		Concurrency: 3,
 	}
 	apiKey := &service.APIKey{
-		ID:      200,
-		UserID:  user.ID,
-		GroupID: &groupID,
-		Key:     "g-key",
-		Status:  service.StatusActive,
-		User:    user,
+		ID:     200,
+		UserID: user.ID,
+		Key:    "g-key",
+		Status: service.StatusActive,
+		User:   user,
 	}
 	apiKeyRepo := &stubApiKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
@@ -844,12 +838,6 @@ func TestAPIKeyAuthTouchesLastUsedInStandardMode(t *testing.T) {
 func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	group := &service.Group{
-		ID:       42,
-		Name:     "subscription",
-		Status:   service.StatusActive,
-		Hydrated: true,
-	}
 	user := &service.User{
 		ID:          7,
 		Role:        service.RoleUser,
@@ -860,13 +848,12 @@ func TestAPIKeyAuthBillingInfoSkipsBillingAndSideEffects(t *testing.T) {
 	expiredAt := time.Now().Add(-time.Hour)
 	subscriptionID := int64(9)
 	apiKey := &service.APIKey{
-		ID:             100,
-		UserID:         user.ID,
-		Key:            "billing-info-auth-only",
-		Status:         service.StatusAPIKeyQuotaExhausted,
-		User:           user,
-		GroupID:        &group.ID,
-		Group:          group,
+		ID:     100,
+		UserID: user.ID,
+		Key:    "billing-info-auth-only",
+		Status: service.StatusAPIKeyQuotaExhausted,
+		User:   user,
+
 		SubscriptionID: &subscriptionID,
 		Quota:          1,
 		QuotaUsed:      1,
@@ -1055,10 +1042,9 @@ func TestAPIKeyAuthOpenAIQuotaErrorFormat(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{ID: 11, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
-	group := &service.Group{ID: 8, Platform: service.PlatformOpenAI, Status: service.StatusActive}
 	apiKey := &service.APIKey{
 		ID: 105, UserID: user.ID, Key: "openai-quota-exhausted", Status: service.StatusAPIKeyQuotaExhausted,
-		User: user, Group: group, GroupID: &group.ID,
+		User: user,
 	}
 	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
 		if key != apiKey.Key {
@@ -1097,10 +1083,9 @@ func TestAPIKeyAuthQuotaErrorKeepsLegacyFormatOutsideResponses(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	user := &service.User{ID: 11, Role: service.RoleUser, Status: service.StatusActive, Balance: 10}
-	group := &service.Group{ID: 8, Platform: service.PlatformOpenAI, Status: service.StatusActive}
 	apiKey := &service.APIKey{
 		ID: 105, UserID: user.ID, Key: "openai-quota-exhausted", Status: service.StatusAPIKeyQuotaExhausted,
-		User: user, Group: group, GroupID: &group.ID,
+		User: user,
 	}
 	apiKeyRepo := &stubApiKeyRepo{getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {
 		if key != apiKey.Key {
@@ -1202,31 +1187,11 @@ func (r *stubApiKeyRepo) ExistsByKey(ctx context.Context, key string) (bool, err
 	return false, errors.New("not implemented")
 }
 
-func (r *stubApiKeyRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
-
 func (r *stubApiKeyRepo) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubApiKeyRepo) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func (r *stubApiKeyRepo) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
-func (r *stubApiKeyRepo) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-
 func (r *stubApiKeyRepo) ListKeysByUserID(ctx context.Context, userID int64) ([]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r *stubApiKeyRepo) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
 	return nil, errors.New("not implemented")
 }
 
@@ -1316,13 +1281,13 @@ func (r *stubUserSubscriptionRepo) GetByIDIncludeDeleted(ctx context.Context, id
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) GetByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (r *stubUserSubscriptionRepo) GetByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*service.UserSubscription, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (*service.UserSubscription, error) {
+func (r *stubUserSubscriptionRepo) GetActiveByUserIDAndPlanID(ctx context.Context, userID, planID int64) (*service.UserSubscription, error) {
 	if r.getActive != nil {
-		return r.getActive(ctx, userID, groupID)
+		return r.getActive(ctx, userID, planID)
 	}
 	return nil, errors.New("not implemented")
 }
@@ -1351,7 +1316,7 @@ func (r *stubUserSubscriptionRepo) List(ctx context.Context, params pagination.P
 	return nil, nil, errors.New("not implemented")
 }
 
-func (r *stubUserSubscriptionRepo) ExistsByUserIDAndPlanID(ctx context.Context, userID, groupID int64) (bool, error) {
+func (r *stubUserSubscriptionRepo) ExistsByUserIDAndPlanID(ctx context.Context, userID, planID int64) (bool, error) {
 	return false, errors.New("not implemented")
 }
 

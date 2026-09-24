@@ -28,10 +28,6 @@ func newGatewayRoutesTestRouterWithConfig(cfg *config.Config, platform ...string
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
 
-	groupPlatform := service.PlatformOpenAI
-	if len(platform) > 0 && platform[0] != "" {
-		groupPlatform = platform[0]
-	}
 	RegisterGatewayRoutes(
 		router,
 		&handler.Handlers{
@@ -40,11 +36,7 @@ func newGatewayRoutesTestRouterWithConfig(cfg *config.Config, platform ...string
 			AsyncImage:    handler.NewAsyncImageHandler(nil, nil),
 		},
 		servermiddleware.APIKeyAuthMiddleware(func(c *gin.Context) {
-			groupID := int64(1)
-			c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{
-				GroupID: &groupID,
-				Group:   &service.Group{Platform: groupPlatform},
-			})
+			c.Set(string(servermiddleware.ContextKeyAPIKey), &service.APIKey{})
 			c.Next()
 		}),
 		nil,

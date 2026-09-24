@@ -321,7 +321,7 @@ func TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens(t *testi
 	upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 
-	_, err := svc.forwardAsRawChatCompletions(context.Background(), adaptiveProtocolTestContext("/v1/chat/completions", body), account, body, "")
+	_, err := svc.forwardAsRawChatCompletions(context.Background(), adaptiveProtocolTestContext("/v1/chat/completions", body), account, body)
 	require.Error(t, err)
 	require.Equal(t, "deepseek-v4-flash", gjson.GetBytes(upstream.lastBody, "model").String())
 	require.Equal(t, int64(65535), gjson.GetBytes(upstream.lastBody, "max_tokens").Int())
@@ -332,7 +332,7 @@ func TestForwardAsRawChatCompletions_DeepseekOllamaCloudClampsMaxTokens(t *testi
 	officialUpstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 	officialSvc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: officialUpstream}
 
-	_, err = officialSvc.forwardAsRawChatCompletions(context.Background(), adaptiveProtocolTestContext("/v1/chat/completions", officialBody), official, officialBody, "")
+	_, err = officialSvc.forwardAsRawChatCompletions(context.Background(), adaptiveProtocolTestContext("/v1/chat/completions", officialBody), official, officialBody)
 	require.Error(t, err)
 	require.Equal(t, string(officialBody), string(officialUpstream.lastBody))
 }

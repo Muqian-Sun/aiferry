@@ -154,28 +154,28 @@ func TestErrorPassthroughRules_KeyMatchesGatewayPlatformNotLabel(t *testing.T) {
 			name: "chat completions buffered response.failed", label: PlatformAnthropic, gatewayPlatform: PlatformOpenAI,
 			run: func(c *gin.Context, label string) {
 				body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":false}`)
-				_, _ = openAISvc(sseResponse()).ForwardAsChatCompletions(context.Background(), c, responsesKey(label), body, "", "")
+				_, _ = openAISvc(sseResponse()).ForwardAsChatCompletions(context.Background(), c, responsesKey(label), body, "")
 			},
 		},
 		{
 			name: "chat completions streaming response.failed", label: PlatformAnthropic, gatewayPlatform: PlatformOpenAI,
 			run: func(c *gin.Context, label string) {
 				body := []byte(`{"model":"gpt-5.4","messages":[{"role":"user","content":"hello"}],"stream":true}`)
-				_, _ = openAISvc(sseResponse()).ForwardAsChatCompletions(context.Background(), c, responsesKey(label), body, "", "")
+				_, _ = openAISvc(sseResponse()).ForwardAsChatCompletions(context.Background(), c, responsesKey(label), body, "")
 			},
 		},
 		{
 			name: "messages buffered response.failed", label: PlatformGemini, gatewayPlatform: PlatformOpenAI,
 			run: func(c *gin.Context, label string) {
 				body := []byte(`{"model":"gpt-5.4","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"stream":false}`)
-				_, _ = openAISvc(sseResponse()).ForwardAsAnthropic(context.Background(), c, responsesKey(label), body, "", "")
+				_, _ = openAISvc(sseResponse()).ForwardAsAnthropic(context.Background(), c, responsesKey(label), body, "")
 			},
 		},
 		{
 			name: "messages streaming response.failed", label: PlatformGemini, gatewayPlatform: PlatformOpenAI,
 			run: func(c *gin.Context, label string) {
 				body := []byte(`{"model":"gpt-5.4","max_tokens":32,"messages":[{"role":"user","content":"hello"}],"stream":true}`)
-				_, _ = openAISvc(sseResponse()).ForwardAsAnthropic(context.Background(), c, responsesKey(label), body, "", "")
+				_, _ = openAISvc(sseResponse()).ForwardAsAnthropic(context.Background(), c, responsesKey(label), body, "")
 			},
 		},
 		{

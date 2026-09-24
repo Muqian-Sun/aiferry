@@ -36,7 +36,7 @@ func TestForwardGrokChatViaResponsesDropsRedundantViewImage(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())
@@ -66,7 +66,7 @@ func TestForwardGrokRawChatDropsRedundantViewImage(t *testing.T) {
 	}}
 	svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "https://api.x.ai/v1/chat/completions", upstream.lastReq.URL.String())
@@ -104,7 +104,7 @@ func TestForwardGrokMessagesDropsRedundantViewImage(t *testing.T) {
 		accountRepo:       repo,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, xai.DefaultCLIBaseURL+"/responses", upstream.lastReq.URL.String())

@@ -31,18 +31,16 @@ type APIKeyAuthSnapshot struct {
 
 // APIKeyAuthUserSnapshot 用户快照
 type APIKeyAuthUserSnapshot struct {
-	ID            int64   `json:"id"`
-	Status        string  `json:"status"`
-	Role          string  `json:"role"`
-	Balance       float64 `json:"balance"`
-	Concurrency   int     `json:"concurrency"`
-	AllowedGroups []int64 `json:"allowed_groups,omitempty"`
+	ID          int64   `json:"id"`
+	Status      string  `json:"status"`
+	Role        string  `json:"role"`
+	Balance     float64 `json:"balance"`
+	Concurrency int     `json:"concurrency"`
 
 	// Balance notification fields (required for CheckBalanceAfterDeduction)
 	Email                      string             `json:"email"`
 	Username                   string             `json:"username"`
 	BalanceNotifyEnabled       bool               `json:"balance_notify_enabled"`
-	RestrictPublicGroups       bool               `json:"restrict_public_groups"`
 	BalanceNotifyThresholdType string             `json:"balance_notify_threshold_type"`
 	BalanceNotifyThreshold     *float64           `json:"balance_notify_threshold,omitempty"`
 	BalanceNotifyExtraEmails   []NotifyEmailEntry `json:"balance_notify_extra_emails,omitempty"`

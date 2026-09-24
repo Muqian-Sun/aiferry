@@ -32,28 +32,13 @@ func (r *keyBillingRouteAPIKeyRepo) GetByKeyForAuth(_ context.Context, key strin
 
 func newKeyBillingRouteTestRouter(runMode string) (*gin.Engine, string) {
 	gin.SetMode(gin.TestMode)
-	group := &service.Group{
-		ID:             42,
-		Status:         service.StatusActive,
-		Hydrated:       true,
-		Platform:       service.PlatformOpenAI,
-		RateMultiplier: 9, // 分组倍率已无效
-	}
 	user := &service.User{ID: 7, Role: service.RoleUser, Status: service.StatusActive, Balance: 10, RateMultiplier: 0.75}
-	var groupID *int64
-	var apiKeyGroup *service.Group
-	if runMode != config.RunModeSimple {
-		groupID = &group.ID
-		apiKeyGroup = group
-	}
 	apiKey := &service.APIKey{
-		ID:      100,
-		UserID:  user.ID,
-		Key:     "billing-route-test-key",
-		Status:  service.StatusActive,
-		User:    user,
-		GroupID: groupID,
-		Group:   apiKeyGroup,
+		ID:     100,
+		UserID: user.ID,
+		Key:    "billing-route-test-key",
+		Status: service.StatusActive,
+		User:   user,
 	}
 	cfg := &config.Config{RunMode: runMode}
 	apiKeyService := service.NewAPIKeyService(

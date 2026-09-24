@@ -11,19 +11,16 @@ import (
 	"context"
 	"errors"
 	"net/http"
-	"net/http/httptest"
 	"testing"
 	"time"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/apicompat"
-	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
 
 func TestFilterCNProviderBillingModelCandidates(t *testing.T) {
 	svc := &OpenAIGatewayService{} // resolver 为 nil → 无显式分组/渠道定价
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}
+	apiKey := &APIKey{}
 
 	cnAccount := &Account{ID: 1, Platform: PlatformKimi}
 	filtered := svc.filterCNProviderBillingModelCandidates(context.Background(), cnAccount, apiKey,
@@ -52,7 +49,7 @@ func TestFilterCNProviderBillingModelCandidates(t *testing.T) {
 
 func TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable(t *testing.T) {
 	svc := &OpenAIGatewayService{}
-	apiKey := &APIKey{Group: &Group{ID: 1, Platform: PlatformKimi}}
+	apiKey := &APIKey{}
 
 	_, err := svc.calculateOpenAIRecordUsageCost(
 		context.Background(), nil, apiKey, nil,
@@ -61,37 +58,6 @@ func TestCalculateOpenAIRecordUsageCost_EmptyCandidatesIsPricingUnavailable(t *t
 	require.Error(t, err)
 	require.True(t, isUsagePricingUnavailableError(err),
 		"空候选必须按无价可循处理（上层零成本落账），而不是丢弃整条 usage 记录: %v", err)
-}
-
-func TestResponsesStreamingFromNativeAnthropic_ClientDisconnectDrainsUsage(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	svc := newNativeAnthropicHangTestService(5)
-
-	rec := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(rec)
-	c.Request = httptest.NewRequest(http.MethodPost, "/", nil)
-	// failAfter=0：首次写出即失败，模拟客户端断开（复用测试包既有 failingGinWriter）。
-	failWriter := &failingGinWriter{ResponseWriter: c.Writer, failAfter: 0}
-	c.Writer = failWriter
-
-	resp, pr, pw := newHangingUpstreamResponse()
-	go func() {
-		// 首事件触发客户端写失败后，末尾 message_delta 才携带最终 output_tokens：
-		// 断开即弃会把整段生成记成 1 token。
-		_, _ = pw.Write([]byte(miniAnthropicSSEStream()))
-		_ = pw.Close()
-	}()
-	defer func() { _ = pr.Close() }()
-
-	res, err := svc.handleResponsesStreamingFromNativeAnthropic(
-		resp, c, "glm-4.7", "glm-4.7", "glm-4.7", nil, time.Now(), apicompat.ResponsesClientToolMapping{})
-
-	require.NoError(t, err, "断开排水至上游自然结束应返回 nil error（usage 走成功路径落账）")
-	require.NotNil(t, res)
-	require.True(t, res.ClientDisconnect)
-	require.Equal(t, 10, res.Usage.InputTokens, "input_tokens 应来自 message_start")
-	require.Equal(t, 5, res.Usage.OutputTokens,
-		"output_tokens 必须来自排水读到的末尾 message_delta（断开即弃时会是 1）")
 }
 
 func TestHandle403_CNProviderHTMLBodySkipsAccountPenalty(t *testing.T) {

@@ -46,10 +46,9 @@ func TestCalculateOpenAIRecordUsageCostWebSearchPerCall(t *testing.T) {
 	t.Parallel()
 	bs := NewBillingService(&config.Config{}, nil)
 	svc := &OpenAIGatewayService{billingService: bs}
-	groupID := int64(11)
 
 	// 目录没有该条目：alpha search 按内置单价 0.01 × 用户倍率。
-	apiKey := &APIKey{ID: 1, GroupID: &groupID, Group: &Group{ID: groupID, Platform: PlatformOpenAI}}
+	apiKey := &APIKey{ID: 1}
 	result := &OpenAIForwardResult{Model: "gpt-5.6-sol", UpstreamModel: "gpt-5.6-sol", WebSearchCalls: 1}
 	cost, err := svc.calculateOpenAIRecordUsageCost(context.Background(), result, apiKey, []string{"gpt-5.6-sol"}, 2.0, UsageTokens{}, "", time.Time{})
 	require.NoError(t, err)

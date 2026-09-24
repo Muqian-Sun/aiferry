@@ -4,6 +4,8 @@ package repository
 
 import (
 	"context"
+	"fmt"
+	"strings"
 	"testing"
 	"time"
 
@@ -12,6 +14,13 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/stretchr/testify/require"
 )
+
+// uniqueTestValue 给夹具取一个带用例名的唯一值，避免同库并发用例互相踩。
+func uniqueTestValue(t *testing.T, prefix string) string {
+	t.Helper()
+	safeName := strings.NewReplacer("/", "_", " ", "_").Replace(t.Name())
+	return fmt.Sprintf("%s-%s", prefix, safeName)
+}
 
 func mustCreateUser(t *testing.T, client *dbent.Client, u *service.User) *service.User {
 	t.Helper()
@@ -56,59 +65,7 @@ func mustCreateUser(t *testing.T, client *dbent.Client, u *service.User) *servic
 	u.CreatedAt = created.CreatedAt
 	u.UpdatedAt = created.UpdatedAt
 
-	if len(u.AllowedGroups) > 0 {
-		for _, groupID := range u.AllowedGroups {
-			_, err := client.UserAllowedGroup.Create().
-				SetUserID(u.ID).
-				SetGroupID(groupID).
-				Save(ctx)
-			require.NoError(t, err, "create user_allowed_groups row")
-		}
-	}
-
 	return u
-}
-
-func mustCreateGroup(t *testing.T, client *dbent.Client, g *service.Group) *service.Group {
-	t.Helper()
-	ctx := context.Background()
-
-	if g.Platform == "" {
-		g.Platform = service.PlatformAnthropic
-	}
-	if g.Status == "" {
-		g.Status = service.StatusActive
-	}
-	create := client.Group.Create().
-		SetName(g.Name).
-		SetPlatform(g.Platform).
-		SetStatus(g.Status).
-		SetRateMultiplier(g.RateMultiplier).
-		SetIsExclusive(g.IsExclusive).
-		SetForceOpenaiFast(g.ForceOpenAIFast).
-		SetFreeOpenaiFast(g.FreeOpenAIFast).
-		SetModelAllowlist(service.DomainGroupModelAllowlist(g.ModelAllowlist)).
-		SetCodexModelsManifestConfig(g.CodexModelsManifestConfig).
-		SetProfitControlEnabled(g.ProfitControlEnabled).
-		SetProfitMinMargin(g.ProfitMinMargin).
-		SetProfitSafetyBuffer(g.ProfitSafetyBuffer)
-	if g.Description != "" {
-		create.SetDescription(g.Description)
-	}
-	if !g.CreatedAt.IsZero() {
-		create.SetCreatedAt(g.CreatedAt)
-	}
-	if !g.UpdatedAt.IsZero() {
-		create.SetUpdatedAt(g.UpdatedAt)
-	}
-
-	created, err := create.Save(ctx)
-	require.NoError(t, err, "create group")
-
-	g.ID = created.ID
-	g.CreatedAt = created.CreatedAt
-	g.UpdatedAt = created.UpdatedAt
-	return g
 }
 
 func mustCreateProxy(t *testing.T, client *dbent.Client, p *service.Proxy) *service.Proxy {

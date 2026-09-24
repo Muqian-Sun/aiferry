@@ -101,7 +101,7 @@ func TestForwardAsChatCompletions_CancelsUpstreamBeforeClosingBody(t *testing.T)
 	}
 	resultCh := make(chan forwardResult, 1)
 	go func() {
-		result, err := svc.ForwardAsChatCompletions(context.Background(), c, responsesKeyTestAccount(), body, "", "gpt-5.1")
+		result, err := svc.ForwardAsChatCompletions(context.Background(), c, responsesKeyTestAccount(), body, "")
 		resultCh <- forwardResult{result: result, err: err}
 	}()
 

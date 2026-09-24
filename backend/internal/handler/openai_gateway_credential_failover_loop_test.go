@@ -954,7 +954,6 @@ func newGrokCredentialFailoverGatewayHandler(t *testing.T, mode string) (*Gatewa
 
 func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredentialFailoverFixture {
 	t.Helper()
-	groupID := int64(901)
 	accounts := []service.Account{
 		{
 			ID: 801, Name: "revoked", Platform: service.PlatformGrok, Type: service.AccountTypeOAuth,
@@ -1038,17 +1037,15 @@ func newGrokCredentialFailoverFixture(t *testing.T, mode string) *grokCredential
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	cfg.Gateway.MaxAccountSwitches = 3
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
-	group := &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformGrok, Status: service.StatusActive, AllowImageGeneration: true}
 	gateway := service.NewOpenAIGatewayService(
 		repo, nil, nil, nil, nil, nil, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCache, upstream,
 		&service.DeferredService{}, nil, provider, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, repo, group),
+		newTestSchedulerOverRepo(cfg, repo),
 	)
 	apiKey := &service.APIKey{
-		ID: 902, GroupID: &groupID,
-		User:  &service.User{ID: 903, Status: service.StatusActive},
-		Group: group,
+		ID:   902,
+		User: &service.User{ID: 903, Status: service.StatusActive},
 	}
 	return &grokCredentialFailoverFixture{repo: repo, upstream: upstream, gateway: gateway, billingCache: billingCache, cfg: cfg, refresher: refresher, apiKey: apiKey}
 }

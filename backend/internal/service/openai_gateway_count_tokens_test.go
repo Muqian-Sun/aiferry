@@ -68,8 +68,9 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_APIKeyUsesResponsesI
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":  "sk-test",
-			"base_url": "http://upstream.example",
+			"api_key":       "sk-test",
+			"base_url":      "http://upstream.example",
+			"model_mapping": map[string]any{"claude-sonnet-4-5": "gpt-5.3-codex"},
 		},
 		ProtocolEndpoints: map[string]string{
 			APIProtocolChatCompletions: "http://upstream.example", APIProtocolResponses: "http://upstream.example",
@@ -78,7 +79,7 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_APIKeyUsesResponsesI
 		Schedulable: true,
 	}
 
-	err := svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "gpt-5.3-codex")
+	err := svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body)
 	require.NoError(t, err)
 	require.Equal(t, http.StatusOK, rec.Code)
 	require.JSONEq(t, `{"input_tokens":42}`, rec.Body.String())
@@ -108,7 +109,7 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_OAuthFallsBackWhenPl
 		Schedulable: true,
 	}
 
-	prepared, err := prepareOpenAIInputTokensCountRequest(body, account, "gpt-5.4")
+	prepared, err := prepareOpenAIInputTokensCountRequest(body, account)
 	require.NoError(t, err)
 	expectedEstimate, err := estimateOpenAIInputTokens(prepared.Request)
 	require.NoError(t, err)
@@ -160,7 +161,7 @@ func TestOpenAIGatewayService_ForwardCountTokensAsAnthropic_OAuthFallsBackWhenPl
 				rateLimitService: &RateLimitService{accountRepo: repo, cfg: &config.Config{}},
 			}
 
-			err := svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "gpt-5.4")
+			err := svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body)
 			require.NoError(t, err)
 			require.Equal(t, http.StatusOK, rec.Code)
 			require.JSONEq(t, `{"input_tokens":`+strconv.Itoa(expectedEstimate)+`}`, rec.Body.String())
@@ -322,32 +323,38 @@ func TestEstimateOpenAIInputTokens_CompareWithOpenAIAPI(t *testing.T) {
 	}
 
 	client := &http.Client{Timeout: 30 * time.Second}
+	// 出站模型由账号 credentials.model_mapping 决定（唯一的映射来源）。
 	cases := []struct {
-		name               string
-		anthropicBody      []byte
-		defaultOpenAIModel string
+		name          string
+		anthropicBody []byte
+		modelMapping  map[string]any
 	}{
 		{
-			name:               "simple user text",
-			defaultOpenAIModel: "gpt-5",
-			anthropicBody:      []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello world from sub2api"}]}`),
+			name:          "simple user text",
+			modelMapping:  map[string]any{"claude-sonnet-4-5": "gpt-5"},
+			anthropicBody: []byte(`{"model":"claude-sonnet-4-5","messages":[{"role":"user","content":"hello world from sub2api"}]}`),
 		},
 		{
-			name:               "system plus tool",
-			defaultOpenAIModel: "gpt-5",
-			anthropicBody:      []byte(`{"model":"claude-sonnet-4-5","system":"You are helpful.","messages":[{"role":"user","content":"find weather in shanghai"}],"tools":[{"name":"lookup_weather","description":"Look up current weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}`),
+			name:          "system plus tool",
+			modelMapping:  map[string]any{"claude-sonnet-4-5": "gpt-5"},
+			anthropicBody: []byte(`{"model":"claude-sonnet-4-5","system":"You are helpful.","messages":[{"role":"user","content":"find weather in shanghai"}],"tools":[{"name":"lookup_weather","description":"Look up current weather","input_schema":{"type":"object","properties":{"city":{"type":"string"}},"required":["city"]}}]}`),
 		},
 		{
-			name:               "multi turn text",
-			defaultOpenAIModel: "gpt-4.1",
-			anthropicBody:      []byte(`{"model":"claude-opus-4-1","messages":[{"role":"user","content":"summarize this repo"},{"role":"assistant","content":"which repo?"},{"role":"user","content":"sub2api"}]}`),
+			name:          "multi turn text",
+			modelMapping:  map[string]any{"claude-opus-4-1": "gpt-4.1"},
+			anthropicBody: []byte(`{"model":"claude-opus-4-1","messages":[{"role":"user","content":"summarize this repo"},{"role":"assistant","content":"which repo?"},{"role":"user","content":"sub2api"}]}`),
 		},
 	}
 
-	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			prepared, err := prepareOpenAIInputTokensCountRequest(tc.anthropicBody, account, tc.defaultOpenAIModel)
+			account := &Account{
+				Platform:          PlatformOpenAI,
+				Type:              AccountTypeAPIKey,
+				Credentials:       map[string]any{"model_mapping": tc.modelMapping},
+				ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"},
+			}
+			prepared, err := prepareOpenAIInputTokensCountRequest(tc.anthropicBody, account)
 			require.NoError(t, err)
 
 			estimated, err := estimateOpenAIInputTokens(prepared.Request)

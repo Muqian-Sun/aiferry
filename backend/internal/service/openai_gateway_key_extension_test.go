@@ -176,7 +176,7 @@ func TestForwardCountTokensAsAnthropicLocalEstimateFollowsVendorNotLabel(t *test
 		c.Request = httptest.NewRequest(http.MethodPost, "/v1/messages/count_tokens", bytes.NewReader(body))
 		upstream := &httpUpstreamRecorder{err: errors.New("stop after capture")}
 		svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-		_ = svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body, "")
+		_ = svc.ForwardCountTokensAsAnthropic(context.Background(), c, account, body)
 		return upstream, recorder
 	}
 

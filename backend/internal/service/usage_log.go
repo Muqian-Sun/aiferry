@@ -204,7 +204,6 @@ type UsageLog struct {
 	User         *User
 	APIKey       *APIKey
 	Account      *Account
-	Group        *Group
 	Subscription *UserSubscription
 }
 

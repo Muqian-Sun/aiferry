@@ -22,7 +22,6 @@ func UserFromServiceShallow(u *service.User) *User {
 		FrozenBalance:              u.FrozenBalance,
 		Concurrency:                u.Concurrency,
 		Status:                     u.Status,
-		AllowedGroups:              u.AllowedGroups,
 		LastActiveAt:               u.LastActiveAt,
 		CreatedAt:                  u.CreatedAt,
 		UpdatedAt:                  u.UpdatedAt,
@@ -70,10 +69,9 @@ func UserFromServiceAdmin(u *service.User) *AdminUser {
 		return nil
 	}
 	return &AdminUser{
-		User:                 *base,
-		Notes:                u.Notes,
-		LastUsedAt:           u.LastUsedAt,
-		RestrictPublicGroups: u.RestrictPublicGroups,
+		User:       *base,
+		Notes:      u.Notes,
+		LastUsedAt: u.LastUsedAt,
 	}
 }
 
@@ -86,7 +84,6 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		UserID:             k.UserID,
 		Key:                k.Key,
 		Name:               k.Name,
-		GroupID:            k.GroupID,
 		SubscriptionID:     k.SubscriptionID,
 		Status:             k.Status,
 		IPWhitelist:        k.IPWhitelist,
@@ -109,7 +106,6 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		Window1dStart:      k.Window1dStart,
 		Window7dStart:      k.Window7dStart,
 		User:               UserFromServiceShallow(k.User),
-		Group:              GroupFromServiceShallow(k.Group),
 	}
 	if k.Subscription != nil && k.Subscription.Plan != nil {
 		out.SubscriptionPlanName = k.Subscription.Plan.Name
@@ -127,89 +123,6 @@ func APIKeyFromService(k *service.APIKey) *APIKey {
 		out.Reset7dAt = &t
 	}
 	return out
-}
-
-func GroupFromServiceShallow(g *service.Group) *Group {
-	if g == nil {
-		return nil
-	}
-	out := groupFromServiceBase(g)
-	return &out
-}
-
-func GroupFromService(g *service.Group) *Group {
-	if g == nil {
-		return nil
-	}
-	return GroupFromServiceShallow(g)
-}
-
-// GroupFromServiceAdmin converts a service Group to DTO for admin users.
-// It includes internal fields like model_routing and account_count.
-func GroupFromServiceAdmin(g *service.Group) *AdminGroup {
-	if g == nil {
-		return nil
-	}
-	out := &AdminGroup{
-		Group:                     groupFromServiceBase(g),
-		ForceOpenAIFast:           g.ForceOpenAIFast,
-		FreeOpenAIFast:            g.FreeOpenAIFast,
-		ProfitControlEnabled:      g.ProfitControlEnabled,
-		ProfitMinMargin:           g.ProfitMinMargin,
-		ProfitSafetyBuffer:        g.ProfitSafetyBuffer,
-		ModelPricing:              g.ModelPricing,
-		ModelRouting:              g.ModelRouting,
-		ModelRoutingEnabled:       g.ModelRoutingEnabled,
-		MCPXMLInject:              g.MCPXMLInject,
-		ModelAllowlist:            g.ModelAllowlist,
-		CodexModelsManifestConfig: g.CodexModelsManifestConfig,
-		SupportedModelScopes:      g.SupportedModelScopes,
-		AccountCount:              g.AccountCount,
-		ActiveAccountCount:        g.ActiveAccountCount,
-		RateLimitedAccountCount:   g.RateLimitedAccountCount,
-		SortOrder:                 g.SortOrder,
-	}
-	if len(g.AccountGroups) > 0 {
-		out.AccountGroups = make([]AccountGroup, 0, len(g.AccountGroups))
-		for i := range g.AccountGroups {
-			ag := g.AccountGroups[i]
-			out.AccountGroups = append(out.AccountGroups, *AccountGroupFromService(&ag))
-		}
-	}
-	return out
-}
-
-func groupFromServiceBase(g *service.Group) Group {
-	return Group{
-		ID:                              g.ID,
-		Name:                            g.Name,
-		Description:                     g.Description,
-		Platform:                        g.Platform,
-		RateMultiplier:                  g.RateMultiplier,
-		IsExclusive:                     g.IsExclusive,
-		Status:                          g.Status,
-		LongContextPricingEnabled:       g.LongContextPricingEnabled,
-		AllowImageGeneration:            g.AllowImageGeneration,
-		AllowBatchImageGeneration:       g.AllowBatchImageGeneration,
-		BatchImageDiscountMultiplier:    g.BatchImageDiscountMultiplier,
-		BatchImageHoldMultiplier:        g.BatchImageHoldMultiplier,
-		PeakRateEnabled:                 g.PeakRateEnabled,
-		PeakStart:                       g.PeakStart,
-		PeakEnd:                         g.PeakEnd,
-		PeakRateMultiplier:              g.PeakRateMultiplier,
-		ClaudeCodeOnly:                  g.ClaudeCodeOnly,
-		FallbackGroupID:                 g.FallbackGroupID,
-		FallbackGroupIDOnInvalidRequest: g.FallbackGroupIDOnInvalidRequest,
-		AllowLive:                       g.AllowLive,
-		RequireOAuthOnly:                g.RequireOAuthOnly,
-		RequirePrivacySet:               g.RequirePrivacySet,
-		RPMLimit:                        g.RPMLimit,
-		MaxReasoningEffort:              g.MaxReasoningEffort,
-		MaxReasoningEffortOverLimit:     g.MaxReasoningEffortOverLimit,
-		ReasoningEffortMappings:         g.ReasoningEffortMappings,
-		CreatedAt:                       g.CreatedAt,
-		UpdatedAt:                       g.UpdatedAt,
-	}
 }
 
 func AccountFromServiceShallow(a *service.Account) *Account {
@@ -255,7 +168,6 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		SessionWindowStart:      a.SessionWindowStart,
 		SessionWindowEnd:        a.SessionWindowEnd,
 		SessionWindowStatus:     a.SessionWindowStatus,
-		GroupIDs:                a.GroupIDs,
 		ParentAccountID:         a.ParentAccountID,
 		QuotaDimension:          a.QuotaDimension,
 		ProtocolEndpoints:       a.ProtocolEndpoints,
@@ -407,19 +319,6 @@ func AccountFromService(a *service.Account) *Account {
 	}
 	out := AccountFromServiceShallow(a)
 	out.Proxy = ProxyFromService(a.Proxy)
-	if len(a.AccountGroups) > 0 {
-		out.AccountGroups = make([]AccountGroup, 0, len(a.AccountGroups))
-		for i := range a.AccountGroups {
-			ag := a.AccountGroups[i]
-			out.AccountGroups = append(out.AccountGroups, *AccountGroupFromService(&ag))
-		}
-	}
-	if len(a.Groups) > 0 {
-		out.Groups = make([]*Group, 0, len(a.Groups))
-		for _, g := range a.Groups {
-			out.Groups = append(out.Groups, GroupFromServiceShallow(g))
-		}
-	}
 	return out
 }
 
@@ -459,7 +358,7 @@ func AccountListItemFromAccount(a *Account) *AccountListItem {
 		QuotaNotifyTotalThreshold: a.QuotaNotifyTotalThreshold, ParentAccountID: a.ParentAccountID,
 		QuotaDimension: a.QuotaDimension, ParentEmail: a.ParentEmail, ParentPlanType: a.ParentPlanType,
 		ParentPrivacyMode: a.ParentPrivacyMode, ParentSubscriptionExpiresAt: a.ParentSubscriptionExpiresAt,
-		ParentChatGPTAccountID: a.ParentChatGPTAccountID, Proxy: a.Proxy, GroupIDs: a.GroupIDs,
+		ParentChatGPTAccountID: a.ParentChatGPTAccountID, Proxy: a.Proxy,
 	}
 }
 
@@ -469,20 +368,6 @@ func timeToUnixSeconds(value *time.Time) *int64 {
 	}
 	ts := value.Unix()
 	return &ts
-}
-
-func AccountGroupFromService(ag *service.AccountGroup) *AccountGroup {
-	if ag == nil {
-		return nil
-	}
-	return &AccountGroup{
-		AccountID: ag.AccountID,
-		GroupID:   ag.GroupID,
-		Priority:  ag.Priority,
-		CreatedAt: ag.CreatedAt,
-		Account:   AccountFromServiceShallow(ag.Account),
-		Group:     GroupFromServiceShallow(ag.Group),
-	}
 }
 
 func ProxyFromService(p *service.Proxy) *Proxy {
@@ -707,7 +592,6 @@ func usageLogFromServiceUser(l *service.UsageLog) UsageLog {
 		CreatedAt:                 l.CreatedAt,
 		User:                      UserFromServiceShallow(l.User),
 		APIKey:                    APIKeyFromService(l.APIKey),
-		Group:                     GroupFromServiceShallow(l.Group),
 		Subscription:              UserSubscriptionFromService(l.Subscription),
 	}
 }

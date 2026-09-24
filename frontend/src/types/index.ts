@@ -91,7 +91,6 @@ export interface User {
   rpm_limit?: number // User-level RPM cap (0 = unlimited); effective as fallback when group has no rpm_limit
   rate_multiplier: number // 用户价 = 目录价 × rate_multiplier；0 = 免费
   status: 'active' | 'disabled' // Account status
-  allowed_groups: number[] | null // Allowed group IDs (null = all non-exclusive groups)
   balance_notify_enabled: boolean
   balance_notify_threshold: number | null
   balance_notify_extra_emails: NotifyEmailEntry[]
@@ -106,9 +105,7 @@ export interface AdminUser extends User {
   // 管理员备注（普通用户接口不返回）
   notes: string
   last_used_at?: string | null
-  // 为 true 时该用户仅可使用 allowed_groups 中列出的公开分组。
   // 管理侧权限开关，普通用户接口不返回。
-  restrict_public_groups?: boolean
   // 当前并发数（仅管理员列表接口返回）
   current_concurrency?: number
 }
@@ -505,8 +502,6 @@ export interface PaginationConfig {
 
 // ==================== API Key & Group Types ====================
 
-export type GroupPlatform = 'anthropic' | 'openai' | 'gemini' | 'antigravity' | 'grok' | 'kimi' | 'zhipu' | 'deepseek' | 'minimax' | 'opencode_go' | 'composite'
-
 export type ReasoningEffortMatchType = 'exact' | 'prefix' | 'suffix'
 
 export interface ReasoningEffortMapping {
@@ -514,45 +509,6 @@ export interface ReasoningEffortMapping {
   to: string
   match_type?: ReasoningEffortMatchType
   model?: string
-}
-
-export interface Group {
-  id: number
-  name: string
-  description: string | null
-  platform: GroupPlatform
-  rate_multiplier: number
-  rpm_limit?: number // Group-level RPM cap (0 = unlimited); overrides user-level rpm_limit when set
-  max_reasoning_effort?: string // Anthropic/OpenAI reasoning ceiling; empty means unlimited
-  max_reasoning_effort_over_limit?: string // downgrade (default) or deny when over the ceiling
-  reasoning_effort_mappings?: ReasoningEffortMapping[]
-  is_exclusive: boolean
-  status: 'active' | 'inactive'
-  long_context_pricing_enabled: boolean
-  // 图片生成计费配置
-  allow_image_generation: boolean
-  allow_batch_image_generation: boolean
-  batch_image_discount_multiplier: number
-  batch_image_hold_multiplier: number
-  // Optional model-family x resolution overrides for Grok video pricing.
-  // Codex 网页搜索单次价格（USD/次）；null 表示使用默认价 0.01
-  // Grok Voice 显式定价（分组级）
-  // 高峰时段倍率配置
-  peak_rate_enabled: boolean
-  peak_start: string
-  peak_end: string
-  peak_rate_multiplier: number
-  // Claude Code 客户端限制
-  claude_code_only: boolean
-  fallback_group_id: number | null
-  fallback_group_id_on_invalid_request: number | null
-  // OpenAI Messages 调度开关（用户侧需要此字段判断是否展示 Claude Code 教程）
-  // OpenAI Live 接口开关
-  allow_live: boolean
-  require_oauth_only: boolean
-  require_privacy_set: boolean
-  created_at: string
-  updated_at: string
 }
 
 export interface ModelAllowlist {
@@ -567,69 +523,11 @@ export interface CodexModelsManifestConfig {
   fallback_to_scheduler: boolean
 }
 
-export type CompositeRouteMatchType = 'exact' | 'prefix'
-
-export type CompositeRouteEndpoint =
-  | 'any'
-  | 'messages'
-  | 'count_tokens'
-  | 'responses'
-  | 'chat_completions'
-  | 'embeddings'
-  | 'images'
-  | 'gemini'
-
-export type CompositeRouteSource = 'route' | 'detector' | string
-
-export interface CompositeModelRoute {
-  id: number
-  group_id: number
-  public_model: string
-  match_type: CompositeRouteMatchType
-  target_platform: Exclude<GroupPlatform, 'composite'>
-  upstream_model: string
-  endpoint: CompositeRouteEndpoint
-  priority: number
-  enabled: boolean
-  notes: string
-  created_at?: string
-  updated_at?: string
-}
-
-export interface CompositeModelRouteInput {
-  public_model: string
-  match_type: CompositeRouteMatchType
-  target_platform: Exclude<GroupPlatform, 'composite'>
-  upstream_model?: string
-  endpoint: CompositeRouteEndpoint
-  priority?: number
-  enabled?: boolean
-  notes?: string
-}
-
-export interface CompositeRoutePreviewRequest {
-  model: string
-  endpoint: CompositeRouteEndpoint
-}
-
-export interface CompositeRouteDecision {
-  matched: boolean
-  source: CompositeRouteSource
-  group_id: number
-  public_model: string
-  target_platform: Exclude<GroupPlatform, 'composite'> | ''
-  upstream_model: string
-  endpoint: CompositeRouteEndpoint
-  route?: CompositeModelRoute
-  reason?: string
-}
-
 export interface ApiKey {
   id: number
   user_id: number
   key: string
   name: string
-  group_id: number | null
   status: 'active' | 'inactive' | 'quota_exhausted' | 'expired'
   ip_whitelist: string[]
   ip_blacklist: string[]
@@ -641,7 +539,6 @@ export interface ApiKey {
   created_at: string
   updated_at: string
   current_concurrency: number
-  group?: Group
   /** 订阅 key：绑定的订阅；余额 key 为 null。订阅 key 不能删、不能改分组 */
   subscription_id: number | null
   subscription_plan_name?: string
@@ -821,7 +718,6 @@ export interface UpstreamBillingData {
   object: 'sub2api.key_billing'
   schema_version: 1
   billing_scope: 'token'
-  group_rate_multiplier: number
   user_rate_multiplier?: number
   resolved_rate_multiplier: number
   peak_rate_enabled: boolean
@@ -988,8 +884,6 @@ export interface Account {
   created_at: string
   updated_at: string
   proxy?: Proxy
-  group_ids?: number[] // Groups this account belongs to
-  groups?: Group[] // Preloaded group objects
 
   // Rate limit & scheduling fields
   schedulable: boolean
@@ -1068,7 +962,7 @@ export interface Account {
 
 // The admin account list may return this compact shape when lite=1. Detail
 // operations still use Account from /admin/accounts/:id.
-export type AccountListItem = Omit<Account, 'groups'>
+export type AccountListItem = Account
 
 // Account Usage types
 export interface WindowStats {
@@ -1239,7 +1133,6 @@ export interface CreateAccountRequest {
   load_factor?: number | null
   priority?: number
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
-  group_ids?: number[]
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
@@ -1260,7 +1153,6 @@ export interface UpdateAccountRequest {
   rate_multiplier?: number // Account billing multiplier (>=0, 0 means free)
   schedulable?: boolean
   status?: 'active' | 'inactive' | 'error'
-  group_ids?: number[]
   expires_at?: number | null
   auto_pause_on_expired?: boolean
   upstream_billing_probe_enabled?: boolean
@@ -1361,7 +1253,6 @@ export interface CodexSessionImportRequest {
   contents?: string[]
   name?: string
   notes?: string | null
-  group_ids?: number[]
   proxy_id?: number | null
   concurrency?: number
   priority?: number
@@ -1372,7 +1263,6 @@ export interface CodexSessionImportRequest {
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
   update_existing?: boolean
-  skip_default_group_bind?: boolean
   confirm_mixed_channel_risk?: boolean
 }
 
@@ -1380,7 +1270,6 @@ export interface OpenAICodexPATCreateRequest {
   access_token: string
   name?: string
   notes?: string | null
-  group_ids?: number[]
   proxy_id?: number | null
   concurrency?: number
   priority?: number
@@ -1390,7 +1279,6 @@ export interface OpenAICodexPATCreateRequest {
   auto_pause_on_expired?: boolean
   credential_extras?: Record<string, unknown>
   extra?: Record<string, unknown>
-  skip_default_group_bind?: boolean
   confirm_mixed_channel_risk?: boolean
 }
 
@@ -1437,8 +1325,6 @@ export interface UsageLog {
   reasoning_effort?: string | null
   inbound_endpoint?: string | null
   upstream_endpoint?: string | null
-
-  group_id: number | null
   subscription_id: number | null
 
   input_tokens: number
@@ -1491,7 +1377,6 @@ export interface UsageLog {
 
   user?: User
   api_key?: ApiKey
-  group?: Group
   subscription?: UserSubscription
 }
 
@@ -1520,7 +1405,6 @@ export interface UsageCleanupFilters {
   user_id?: number
   api_key_id?: number
   account_id?: number
-  group_id?: number
   model?: string | null
   request_type?: UsageRequestType | null
   stream?: boolean | null
@@ -1761,8 +1645,6 @@ export interface UpdateUserRequest {
   rpm_limit?: number
   rate_multiplier?: number
   status?: 'active' | 'disabled'
-  allowed_groups?: number[] | null
-  restrict_public_groups?: boolean
 }
 
 export interface ChangePasswordRequest {
@@ -1895,7 +1777,6 @@ export interface UsageQueryParams {
   api_key_id?: number
   user_id?: number
   account_id?: number
-  group_id?: number
   model?: string
   request_type?: UsageRequestType
   stream?: boolean

@@ -166,7 +166,7 @@ func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScope
 		},
 	}
 
-	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 
 	var failoverErr *UpstreamFailoverError
 	require.ErrorAs(t, err, &failoverErr)
@@ -187,7 +187,7 @@ func TestOpenAIGatewayService_ForwardAsAnthropic_CapacityShedReturnsRequestScope
 	secondAccount := *account
 	secondAccount.ID = 5100
 	secondAccount.Name = "healthy-failover-account"
-	result, secondErr := svc.ForwardAsAnthropic(context.Background(), secondContext, &secondAccount, body, "", "")
+	result, secondErr := svc.ForwardAsAnthropic(context.Background(), secondContext, &secondAccount, body, "")
 	require.NoError(t, secondErr)
 	require.NotNil(t, result)
 	require.Equal(t, "resp_second", result.ResponseID)

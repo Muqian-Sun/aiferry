@@ -11,7 +11,6 @@ import (
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/ctxkey"
 	middleware "github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
@@ -30,12 +29,9 @@ func (c *countingGatewaySchedulerCache) GetSnapshot(ctx context.Context, bucket 
 
 func TestGatewayHandlerPreCancelledCompatibleRequestsDoNotSelectAccount(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	groupID := int64(9100)
-	group := &service.Group{ID: groupID, Hydrated: true, Platform: service.PlatformAnthropic, Status: service.StatusActive}
 	account := &service.Account{
 		ID: 9101, Platform: service.PlatformAnthropic, Type: service.AccountTypeAPIKey,
 		Status: service.StatusActive, Schedulable: true, Concurrency: 1,
-		AccountGroups:     []service.AccountGroup{{AccountID: 9101, GroupID: groupID}},
 		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
 	schedulerCache := &countingGatewaySchedulerCache{fakeSchedulerCache: &fakeSchedulerCache{accounts: []*service.Account{account}}}
@@ -55,7 +51,7 @@ func TestGatewayHandlerPreCancelledCompatibleRequestsDoNotSelectAccount(t *testi
 		cfg:                 cfg,
 	}
 	apiKey := &service.APIKey{
-		ID: 9102, UserID: 9103, GroupID: &groupID, Group: group, Status: service.StatusActive,
+		ID: 9102, UserID: 9103, Status: service.StatusActive,
 		User: &service.User{ID: 9103, Concurrency: 10, Balance: 100},
 	}
 
@@ -82,7 +78,6 @@ func TestGatewayHandlerPreCancelledCompatibleRequestsDoNotSelectAccount(t *testi
 			c, _ := gin.CreateTestContext(recorder)
 			ctx, cancel := context.WithCancel(context.Background())
 			cancel()
-			ctx = context.WithValue(ctx, ctxkey.Group, group)
 			req := httptest.NewRequest(http.MethodPost, tt.path, bytes.NewBufferString(tt.body)).WithContext(ctx)
 			req.Header.Set("Content-Type", "application/json")
 			c.Request = req

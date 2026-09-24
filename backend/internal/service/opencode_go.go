@@ -1,27 +1,19 @@
 package service
 
 import (
-	"fmt"
-	"net/http"
 	"net/url"
 	"strings"
-
-	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )
 
-// OpenCode Go 是 OpenCode Zen 的订阅网关：同一 API Key 下按模型分流到
-// Responses / Chat Completions / Anthropic Messages 三种原生端点，
-// 额度窗口为 rolling(5h) / weekly / monthly。
+// OpenCode Go 是 OpenCode Zen 的订阅网关：额度窗口为 rolling(5h) / weekly / monthly。
+// 上游协议与其他第三方 key 一样由账号配的那一个协议地址决定（一个资源只承接一个上游
+// 协议，见 NormalizeProtocolEndpoints），要多协议就按协议各配一个 key。
 
 const (
 	openCodeGoUsagePath = "/usage"
 	// DefaultOpenCodeGoTestModel is the admin connection-test fallback when
 	// the UI does not pick a model. glm-5.3 is a Chat Completions catalog ID.
 	DefaultOpenCodeGoTestModel = "glm-5.3"
-
-	openCodeGoProtocolRulesKey         = "protocol_rules"
-	maxOpenCodeGoProtocolRules         = 64
-	maxOpenCodeGoProtocolPatternLength = 128
 )
 
 // DefaultOpenCodeGoModelIDs 是官方文档当前公开的模型 ID 目录，
@@ -59,232 +51,12 @@ func DefaultOpenCodeGoModelIDs() []string {
 	}
 }
 
-func normalizeOpenCodeGoModelID(model string) string {
-	model = strings.ToLower(strings.TrimSpace(model))
-	for _, prefix := range []string{"opencode-go/", "opencode_go/", "opencode/"} {
-		model = strings.TrimPrefix(model, prefix)
-	}
-	return model
-}
-
-// OpenCodeGoProtocolRule is one model-pattern → native protocol mapping.
-// Pattern is an exact ID or a suffix glob (foo* / *). First match wins.
-type OpenCodeGoProtocolRule struct {
-	Pattern  string `json:"pattern"`
-	Protocol string `json:"protocol"`
-}
-
-// DefaultOpenCodeGoProtocolRules is the built-in adaptive routing table for Go.
-func DefaultOpenCodeGoProtocolRules() []OpenCodeGoProtocolRule {
-	return []OpenCodeGoProtocolRule{
-		{Pattern: "grok-*", Protocol: APIProtocolResponses},
-		{Pattern: "gpt-*", Protocol: APIProtocolResponses},
-		{Pattern: "muse-spark-*", Protocol: APIProtocolResponses},
-		{Pattern: "minimax-*", Protocol: APIProtocolAnthropic},
-		{Pattern: "qwen*", Protocol: APIProtocolAnthropic},
-	}
-}
-
-// DefaultOpenCodeZenProtocolRules 对齐 https://opencode.ai/docs/zen/ 端点表：
-// GPT/Grok/Muse Spark → Responses，Claude/Qwen → Anthropic，其余 Chat Completions。
-func DefaultOpenCodeZenProtocolRules() []OpenCodeGoProtocolRule {
-	return []OpenCodeGoProtocolRule{
-		{Pattern: "grok-*", Protocol: APIProtocolResponses},
-		{Pattern: "gpt-*", Protocol: APIProtocolResponses},
-		{Pattern: "muse-spark-*", Protocol: APIProtocolResponses},
-		{Pattern: "claude-*", Protocol: APIProtocolAnthropic},
-		{Pattern: "qwen*", Protocol: APIProtocolAnthropic},
-	}
-}
-
-func defaultOpenCodeProtocolRules(mode string) []OpenCodeGoProtocolRule {
-	if mode == AccountModeZen {
-		return DefaultOpenCodeZenProtocolRules()
-	}
-	return DefaultOpenCodeGoProtocolRules()
-}
-
-func isNativeOpenCodeGoProtocol(protocol string) bool {
-	switch protocol {
-	case APIProtocolChatCompletions, APIProtocolAnthropic, APIProtocolResponses:
-		return true
-	default:
-		return false
-	}
-}
-
-func openCodeGoPatternMatches(pattern, model string) bool {
-	pattern = strings.ToLower(strings.TrimSpace(pattern))
-	model = normalizeOpenCodeGoModelID(model)
-	if pattern == "" || model == "" {
-		return false
-	}
-	if pattern == "*" {
-		return true
-	}
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(model, strings.TrimSuffix(pattern, "*"))
-	}
-	return model == pattern
-}
-
-func matchOpenCodeGoProtocolRules(model string, rules []OpenCodeGoProtocolRule) string {
-	for _, rule := range rules {
-		if !isNativeOpenCodeGoProtocol(rule.Protocol) {
-			continue
-		}
-		if openCodeGoPatternMatches(rule.Pattern, model) {
-			return rule.Protocol
-		}
-	}
-	return APIProtocolChatCompletions
-}
-
-// OpenCodeGoModelProtocol 返回内置默认表下模型对应的原生上游协议。
-// 未命中时为 Chat Completions。账号自定义 protocol_rules 见
-// ResolveOpenCodeGoUpstreamProtocol。
-func OpenCodeGoModelProtocol(model string) string {
-	return matchOpenCodeGoProtocolRules(model, DefaultOpenCodeGoProtocolRules())
-}
-
-func (a *Account) openCodeGoProtocolRules() ([]OpenCodeGoProtocolRule, bool) {
-	if a == nil || a.Credentials == nil {
-		return nil, false
-	}
-	raw, ok := a.Credentials[openCodeGoProtocolRulesKey]
-	if !ok || raw == nil {
-		return nil, false
-	}
-	rules, err := parseOpenCodeGoProtocolRules(raw)
-	if err != nil {
-		return nil, false
-	}
-	return rules, true
-}
-
-func parseOpenCodeGoProtocolRules(raw any) ([]OpenCodeGoProtocolRule, error) {
-	items, err := openCodeGoProtocolRuleItems(raw)
-	if err != nil {
-		return nil, err
-	}
-	if len(items) > maxOpenCodeGoProtocolRules {
-		return nil, fmt.Errorf("protocol_rules supports at most %d entries", maxOpenCodeGoProtocolRules)
-	}
-	rules := make([]OpenCodeGoProtocolRule, 0, len(items))
-	for i, item := range items {
-		entry, ok := item.(map[string]any)
-		if !ok {
-			return nil, fmt.Errorf("protocol_rules[%d] must be an object", i)
-		}
-		pattern, _ := entry["pattern"].(string)
-		protocol, _ := entry["protocol"].(string)
-		pattern, err := normalizeOpenCodeGoProtocolPattern(pattern)
-		if err != nil {
-			return nil, fmt.Errorf("protocol_rules[%d]: %w", i, err)
-		}
-		protocol = strings.TrimSpace(protocol)
-		if !isNativeOpenCodeGoProtocol(protocol) {
-			return nil, fmt.Errorf("protocol_rules[%d]: protocol must be chat_completions, anthropic, or responses", i)
-		}
-		rules = append(rules, OpenCodeGoProtocolRule{Pattern: pattern, Protocol: protocol})
-	}
-	return rules, nil
-}
-
-func openCodeGoProtocolRuleItems(raw any) ([]any, error) {
-	switch items := raw.(type) {
-	case []any:
-		return items, nil
-	case []map[string]any:
-		out := make([]any, 0, len(items))
-		for _, item := range items {
-			out = append(out, item)
-		}
-		return out, nil
-	default:
-		return nil, fmt.Errorf("protocol_rules must be an array")
-	}
-}
-
-func normalizeOpenCodeGoProtocolPattern(pattern string) (string, error) {
-	pattern = strings.ToLower(strings.TrimSpace(pattern))
-	if pattern == "" {
-		return "", fmt.Errorf("pattern is required")
-	}
-	if len(pattern) > maxOpenCodeGoProtocolPatternLength {
-		return "", fmt.Errorf("pattern is too long")
-	}
-	if strings.ContainsAny(pattern, " \t") {
-		return "", fmt.Errorf("pattern must not contain whitespace")
-	}
-	star := strings.Count(pattern, "*")
-	if star > 1 || (star == 1 && !strings.HasSuffix(pattern, "*")) {
-		return "", fmt.Errorf("pattern may use a single trailing * wildcard")
-	}
-	return pattern, nil
-}
-
-// NormalizeOpenCodeGoProtocolRulesCredentials 校验并原地规范化 credentials.protocol_rules。
-// 未携带该字段时为 no-op，使旧账号继续使用内置默认表。
-func NormalizeOpenCodeGoProtocolRulesCredentials(credentials map[string]any) error {
-	if credentials == nil {
-		return nil
-	}
-	raw, ok := credentials[openCodeGoProtocolRulesKey]
-	if !ok || raw == nil {
-		return nil
-	}
-	rules, err := parseOpenCodeGoProtocolRules(raw)
-	if err != nil {
-		return infraerrors.New(http.StatusBadRequest, "INVALID_OPENCODE_GO_PROTOCOL_RULES", err.Error())
-	}
-	encoded := make([]any, 0, len(rules))
-	for _, rule := range rules {
-		encoded = append(encoded, map[string]any{
-			"pattern":  rule.Pattern,
-			"protocol": rule.Protocol,
-		})
-	}
-	credentials[openCodeGoProtocolRulesKey] = encoded
-	return nil
-}
-
 func (a *Account) IsOpenCodeGo() bool {
 	return a != nil && a.Platform == PlatformOpenCodeGo
 }
 
-// openCodeGoNativeProtocol 返回 OpenCode 官方网关上该模型的原生上游协议。
-// 规则未命中、空值或未知协议一律兜底 Chat Completions，避免落入 Responses 转换链。
-func openCodeGoNativeProtocol(account *Account, model string) string {
-	if account == nil {
-		return APIProtocolChatCompletions
-	}
-	switch proto := account.ResolveOpenCodeGoUpstreamProtocol(model); proto {
-	case APIProtocolAnthropic, APIProtocolResponses:
-		return proto
-	default:
-		return APIProtocolChatCompletions
-	}
-}
-
-// ResolveOpenCodeGoUpstreamProtocol 按模型规则返回 OpenCode 官方网关上该模型的原生
-// 上游协议：配置了 credentials.protocol_rules 就用它（未命中走 Chat Completions），
-// 否则用内置默认表。
-//
-// 按模型分流是 OpenCode 官方网关的厂商特化：只对地址识别为 OpenCode 的账号生效，
-// 平台标签不参与，其余账号返回空串。
-func (a *Account) ResolveOpenCodeGoUpstreamProtocol(model string) string {
-	if a == nil || a.Vendor() != PlatformOpenCodeGo {
-		return ""
-	}
-	if rules, present := a.openCodeGoProtocolRules(); present {
-		return matchOpenCodeGoProtocolRules(model, rules)
-	}
-	return matchOpenCodeGoProtocolRules(model, defaultOpenCodeProtocolRules(a.openCodeEndpointMode()))
-}
-
 // openCodeEndpointMode 按协议地址区分 OpenCode 的 Go 套餐与 Zen 按量：Go 的官方地址在
-// /zen/go 下。内置默认规则表按套餐不同，地址是比平台标签下的 account_mode 更直接的依据。
+// /zen/go 下。地址是比平台标签下的 account_mode 更直接的依据。
 func (a *Account) openCodeEndpointMode() string {
 	for _, endpoint := range a.ProtocolEndpoints {
 		parsed, err := url.Parse(strings.TrimSpace(endpoint))

@@ -99,7 +99,6 @@ func TestIsAccountSchedulableOnPlatform_CatalogRouteVersusPlatformPool(t *testin
 // 目录路由下：网关族由条目决定（分组是 anthropic 也走 openai 平台候选），池 = 条目绑定；
 // 同一请求去掉 route 后回到分组语义。
 func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOrEndpointPlatform(t *testing.T) {
-	groupID := int64(30101)
 	const entryID = int64(77)
 	openAIOAuth := Account{
 		ID: 30102, Name: "openai-oauth", Platform: PlatformOpenAI, Type: AccountTypeOAuth, Status: StatusActive,
@@ -107,9 +106,7 @@ func TestGatewayService_SelectAccountWithLoadAwareness_CatalogRouteOrEndpointPla
 	}
 	anthropicInGroup := Account{
 		ID: 30103, Name: "anthropic-oauth", Platform: PlatformAnthropic, Type: AccountTypeOAuth, Status: StatusActive,
-		Schedulable: true, Concurrency: 5, Priority: 1, GroupIDs: []int64{groupID},
-		AccountGroups: []AccountGroup{{AccountID: 30103, GroupID: groupID}},
-	}
+		Schedulable: true, Concurrency: 5, Priority: 1}
 	for _, loadBatch := range []bool{true, false} {
 		name := "load aware"
 		if !loadBatch {

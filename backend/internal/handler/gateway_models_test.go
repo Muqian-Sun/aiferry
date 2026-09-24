@@ -63,15 +63,12 @@ func newGatewayModelsHandlerForTest(listed ...string) *GatewayHandler {
 	}
 }
 
-func requestModelsForTest(h *GatewayHandler, group *service.Group, path string, headers ...string) *httptest.ResponseRecorder {
+func requestModelsForTest(h *GatewayHandler, path string, headers ...string) *httptest.ResponseRecorder {
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodGet, path, nil)
 	for i := 0; i+1 < len(headers); i += 2 {
 		c.Request.Header.Set(headers[i], headers[i+1])
-	}
-	if group != nil {
-		c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{GroupID: &group.ID, Group: group})
 	}
 	h.Models(c)
 	return rec
@@ -83,7 +80,7 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 	h := newGatewayModelsHandlerForTest("claude-sonnet-4", "gpt-5.6", "grok-4.5")
 
 	t.Run("anthropic-version header uses claude shape", func(t *testing.T) {
-		rec := requestModelsForTest(h, nil, "/v1/models", "anthropic-version", "2023-06-01")
+		rec := requestModelsForTest(h, "/v1/models", "anthropic-version", "2023-06-01")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
@@ -91,8 +88,8 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 		require.Equal(t, "2024-01-01T00:00:00Z", got.Data[0].CreatedAt)
 	})
 
-	t.Run("no header uses openai shape even for an anthropic group", func(t *testing.T) {
-		rec := requestModelsForTest(h, &service.Group{ID: 1, Platform: service.PlatformAnthropic}, "/v1/models")
+	t.Run("no header uses openai shape", func(t *testing.T) {
+		rec := requestModelsForTest(h, "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
@@ -103,7 +100,7 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 	})
 
 	t.Run("grok group gets the openai shape too", func(t *testing.T) {
-		rec := requestModelsForTest(h, &service.Group{ID: 4, Platform: service.PlatformGrok}, "/v1/models")
+		rec := requestModelsForTest(h, "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code, rec.Body.String())
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))
@@ -112,7 +109,7 @@ func TestGatewayModels_ListsListedCatalogEntries(t *testing.T) {
 	})
 
 	t.Run("empty catalog lists nothing", func(t *testing.T) {
-		rec := requestModelsForTest(newGatewayModelsHandlerForTest(), nil, "/v1/models")
+		rec := requestModelsForTest(newGatewayModelsHandlerForTest(), "/v1/models")
 		require.Equal(t, http.StatusOK, rec.Code)
 		var got gatewayModelsResponseForTest
 		require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &got))

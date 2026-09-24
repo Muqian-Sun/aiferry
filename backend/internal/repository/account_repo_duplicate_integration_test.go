@@ -12,17 +12,13 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateWithAccountGroupsPersistsPausedCopyAtomically(t *testing.T) {
+// 复制账号落库的原子性：账号行与 scheduler_outbox 必须同生同死。
+// 去分组后没有 account_groups 一起写，原子边界由 accountRepo.Create 自己兜。
+func TestCreateAccountPersistsPausedCopyAtomically(t *testing.T) {
 	ctx := context.Background()
 	client := testEntClient(t)
 	repo := newAccountRepositoryWithSQL(client, integrationDB, nil)
 	suffix := time.Now().UnixNano()
-
-	group, err := client.Group.Create().
-		SetName(fmt.Sprintf("duplicate-atomic-%d", suffix)).
-		SetPlatform(service.PlatformAnthropic).
-		Save(ctx)
-	require.NoError(t, err)
 
 	success := &service.Account{
 		Name:              fmt.Sprintf("duplicate-success-%d", suffix),
@@ -34,42 +30,34 @@ func TestCreateWithAccountGroupsPersistsPausedCopyAtomically(t *testing.T) {
 		Credentials:       map[string]any{"api_key": "secret"},
 		Extra:             map[string]any{},
 	}
-	require.NoError(t, repo.CreateWithAccountGroups(ctx, success, []service.AccountGroup{{GroupID: group.ID, Priority: 37}}))
+	require.NoError(t, repo.Create(ctx, success))
 	t.Cleanup(func() {
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM scheduler_outbox WHERE account_id = $1", success.ID)
-		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM account_groups WHERE account_id = $1", success.ID)
 		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = $1", success.ID)
-		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM groups WHERE id = $1", group.ID)
 	})
 
 	var schedulable bool
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT schedulable FROM accounts WHERE id = $1", success.ID).Scan(&schedulable))
-	require.False(t, schedulable)
-	var priority int
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT priority FROM account_groups WHERE account_id = $1 AND group_id = $2", success.ID, group.ID).Scan(&priority))
-	require.Equal(t, 37, priority)
+	require.False(t, schedulable, "复制出来的副本必须是暂停态")
 	var outboxCount int
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM scheduler_outbox WHERE account_id = $1", success.ID).Scan(&outboxCount))
-	require.Equal(t, 1, outboxCount)
+	require.Equal(t, 1, outboxCount, "建号必须且只能写一条调度 outbox")
 
+	// 协议地址缺失：Create 在落库前就挡住，账号行与 outbox 都不能留下痕迹。
 	failure := &service.Account{
-		Name:              fmt.Sprintf("duplicate-failure-%d", suffix),
-		Platform:          service.PlatformAnthropic,
-		Type:              service.AccountTypeAPIKey,
-		ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://api.anthropic.com"},
-		Status:            service.StatusActive,
-		Schedulable:       false,
-		Credentials:       map[string]any{"api_key": "secret"},
-		Extra:             map[string]any{},
+		Name:        fmt.Sprintf("duplicate-failure-%d", suffix),
+		Platform:    service.PlatformAnthropic,
+		Type:        service.AccountTypeAPIKey,
+		Status:      service.StatusActive,
+		Schedulable: false,
+		Credentials: map[string]any{"api_key": "secret"},
+		Extra:       map[string]any{},
 	}
-	err = repo.CreateWithAccountGroups(ctx, failure, []service.AccountGroup{{GroupID: int64(^uint64(0) >> 1), Priority: 1}})
-	require.Error(t, err)
+	require.Error(t, repo.Create(ctx, failure))
 
-	var accountCount, groupCount, failedOutboxCount int
+	var accountCount, failedOutboxCount int
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM accounts WHERE name = $1", failure.Name).Scan(&accountCount))
-	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM account_groups WHERE account_id = $1", failure.ID).Scan(&groupCount))
 	require.NoError(t, integrationDB.QueryRowContext(ctx, "SELECT COUNT(*) FROM scheduler_outbox WHERE account_id = $1", failure.ID).Scan(&failedOutboxCount))
 	require.Zero(t, accountCount)
-	require.Zero(t, groupCount)
 	require.Zero(t, failedOutboxCount)
 }

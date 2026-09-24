@@ -234,7 +234,7 @@ func TestForwardAsRawChatCompletions_TransportErrorFailsOver(t *testing.T) {
 	c, rec := newOpenAITransportErrTestContext()
 	body := []byte(`{"model":"deepseek-v4-flash-free","messages":[{"role":"user","content":"hello"}]}`)
 
-	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+	_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 
 	require.Equal(t, 1, upstream.calls)
 	require.Equal(t, proxy.URL(), upstream.proxyURL)
@@ -275,7 +275,7 @@ func TestForwardAsRawChatCompletions_RecordsProxyPerAccountAttempt(t *testing.T)
 	body := []byte(`{"model":"test","messages":[{"role":"user","content":"hello"}]}`)
 
 	for _, account := range accounts {
-		_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body, "")
+		_, err := svc.forwardAsRawChatCompletions(context.Background(), c, account, body)
 		var failoverErr *UpstreamFailoverError
 		require.ErrorAs(t, err, &failoverErr)
 	}

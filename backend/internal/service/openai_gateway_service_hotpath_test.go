@@ -370,7 +370,7 @@ func TestOpenAIGatewayService_Forward_TextResponsesBillingModelMatchesChatComple
 	chatRecorder := httptest.NewRecorder()
 	chatCtx, _ := gin.CreateTestContext(chatRecorder)
 	chatCtx.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/chat/completions", nil)
-	chatResult, err := chatSvc.ForwardAsChatCompletions(context.Background(), chatCtx, account, []byte(`{"model":"gpt-5.4","stream":false,"messages":[{"role":"user","content":"hello"}]}`), "", "")
+	chatResult, err := chatSvc.ForwardAsChatCompletions(context.Background(), chatCtx, account, []byte(`{"model":"gpt-5.4","stream":false,"messages":[{"role":"user","content":"hello"}]}`), "")
 	require.NoError(t, err)
 	require.NotNil(t, chatResult)
 
@@ -660,7 +660,7 @@ func TestOpenAIGatewayService_Forward_CodexBridgeInjectionSetsImageBilling(t *te
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
-	c.Set("api_key", &APIKey{Group: &Group{AllowImageGeneration: true}})
+	c.Set("api_key", &APIKey{})
 	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 
 	body := []byte(`{"model":"gpt-5","stream":false,"input":"draw if needed"}`)
@@ -744,7 +744,7 @@ func TestOpenAIGatewayService_Forward_StripsImageGenerationToolForSparkAPIKey(t 
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	// Allow image generation so the tool is normalized (not gated out), reproducing
 	// the leak the strip must override.
-	c.Set("api_key", &APIKey{Group: &Group{AllowImageGeneration: true}})
+	c.Set("api_key", &APIKey{})
 	SetOpenAIClientTransport(c, OpenAIClientTransportHTTP)
 
 	body := []byte(`{"model":"gpt-5.3-codex-spark","stream":false,"input":"hi","tools":[{"type":"function","name":"shell"},{"type":"image_generation","output_format":"png"}]}`)

@@ -608,14 +608,8 @@ func newOpenAIImageGenerationControlTestContext(userAgent string) (*gin.Context,
 	c, _ := gin.CreateTestContext(recorder)
 	c.Request = httptest.NewRequest(http.MethodPost, "/openai/v1/responses", nil)
 	c.Request.Header.Set("User-Agent", userAgent)
-	groupID := int64(4242)
 	c.Set("api_key", &APIKey{
-		ID:      2424,
-		GroupID: &groupID,
-		Group: &Group{
-			ID:             groupID,
-			RateMultiplier: 1,
-		},
+		ID: 2424,
 	})
 	return c, recorder
 }

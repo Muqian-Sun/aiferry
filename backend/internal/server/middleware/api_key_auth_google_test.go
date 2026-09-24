@@ -127,22 +127,10 @@ func (f fakeAPIKeyRepo) CountByUserID(ctx context.Context, userID int64) (int64,
 func (f fakeAPIKeyRepo) ExistsByKey(ctx context.Context, key string) (bool, error) {
 	return false, errors.New("not implemented")
 }
-func (f fakeAPIKeyRepo) ListByGroupID(ctx context.Context, groupID int64, params pagination.PaginationParams) ([]service.APIKey, *pagination.PaginationResult, error) {
-	return nil, nil, errors.New("not implemented")
-}
 func (f fakeAPIKeyRepo) SearchAPIKeys(ctx context.Context, userID int64, keyword string, limit int) ([]service.APIKey, error) {
 	return nil, errors.New("not implemented")
 }
-func (f fakeAPIKeyRepo) ClearGroupIDByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
-func (f fakeAPIKeyRepo) CountByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
-}
 func (f fakeAPIKeyRepo) ListKeysByUserID(ctx context.Context, userID int64) ([]string, error) {
-	return nil, errors.New("not implemented")
-}
-func (f fakeAPIKeyRepo) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
 	return nil, errors.New("not implemented")
 }
 func (f fakeAPIKeyRepo) IncrementQuotaUsed(ctx context.Context, id int64, amount float64) (float64, error) {
@@ -162,9 +150,6 @@ func (f fakeAPIKeyRepo) ResetRateLimitWindows(ctx context.Context, id int64) err
 }
 func (f fakeAPIKeyRepo) GetRateLimitData(ctx context.Context, id int64) (*service.APIKeyRateLimitData, error) {
 	return &service.APIKeyRateLimitData{}, nil
-}
-func (f fakeAPIKeyRepo) UpdateGroupIDByUserAndGroup(ctx context.Context, userID, oldGroupID, newGroupID int64) (int64, error) {
-	return 0, errors.New("not implemented")
 }
 
 func (f fakeGoogleSubscriptionRepo) Create(ctx context.Context, sub *service.UserSubscription) error {
@@ -690,13 +675,6 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 	gin.SetMode(gin.TestMode)
 
 	limit := 1.0
-	group := &service.Group{
-		ID:       77,
-		Name:     "gemini-sub",
-		Status:   service.StatusActive,
-		Platform: service.PlatformGemini,
-		Hydrated: true,
-	}
 	plan := &service.SubscriptionPlan{ID: 7, Name: "gemini plan", DailyLimitUSD: &limit}
 	user := &service.User{
 		ID:          999,
@@ -712,10 +690,8 @@ func TestApiKeyAuthWithSubscriptionGoogle_SubscriptionLimitExceededReturns429(t 
 		Key:            "google-sub-limit",
 		Status:         service.StatusActive,
 		User:           user,
-		Group:          group,
 		SubscriptionID: &subscriptionID,
 	}
-	apiKey.GroupID = &group.ID
 
 	apiKeyService := newTestAPIKeyService(fakeAPIKeyRepo{
 		getByKey: func(ctx context.Context, key string) (*service.APIKey, error) {

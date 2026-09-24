@@ -11,10 +11,10 @@ import (
 )
 
 func TestOpenAIWSStateStore_BindGetDeleteResponseAccount(t *testing.T) {
+	groupID := int64(7)
 	cache := &stubGatewayCache{}
 	store := NewOpenAIWSStateStore(cache)
 	ctx := context.Background()
-	groupID := int64(7)
 
 	require.NoError(t, store.BindResponseAccount(ctx, groupID, "resp_abc", 101, time.Minute))
 
@@ -29,9 +29,9 @@ func TestOpenAIWSStateStore_BindGetDeleteResponseAccount(t *testing.T) {
 }
 
 func TestOpenAIWSStateStore_HTTPResponseOwnerPersistsAcrossStoreInstances(t *testing.T) {
+	groupID := int64(7)
 	cache := &stubGatewayCache{}
 	ctx := context.Background()
-	groupID := int64(8)
 	writer := NewOpenAIWSStateStore(cache)
 
 	require.NoError(t, writer.BindHTTPResponseOwner(ctx, groupID, "resp_owned", 201, 301, time.Minute))
@@ -89,10 +89,10 @@ func TestOpenAIWSStateStore_SessionConnTTL(t *testing.T) {
 }
 
 func TestOpenAIWSStateStore_GetResponseAccount_NoStaleAfterCacheMiss(t *testing.T) {
+	groupID := int64(7)
 	cache := &stubGatewayCache{sessionBindings: map[string]int64{}}
 	store := NewOpenAIWSStateStore(cache)
 	ctx := context.Background()
-	groupID := int64(17)
 	responseID := "resp_cache_stale"
 	cacheKey := openAIWSResponseAccountCacheKey(responseID)
 
@@ -228,10 +228,10 @@ func (c *openAIWSStateStoreTimeoutProbeCache) GetReasoningContent(_ context.Cont
 }
 
 func TestOpenAIWSStateStore_RedisOpsUseShortTimeout(t *testing.T) {
+	groupID := int64(7)
 	probe := &openAIWSStateStoreTimeoutProbeCache{}
 	store := NewOpenAIWSStateStore(probe)
 	ctx := context.Background()
-	groupID := int64(5)
 
 	err := store.BindResponseAccount(ctx, groupID, "resp_timeout_probe", 11, time.Minute)
 	require.Error(t, err)

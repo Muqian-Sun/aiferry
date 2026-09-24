@@ -57,7 +57,6 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	c *gin.Context,
 	account *Account,
 	body []byte,
-	defaultMappedModel string,
 ) (*OpenAIForwardResult, error) {
 	startTime := time.Now()
 
@@ -70,7 +69,7 @@ func (s *OpenAIGatewayService) forwardAsRawChatCompletions(
 	clientStream := gjson.GetBytes(body, "stream").Bool()
 
 	// 2. Resolve model mapping (same as ForwardAsChatCompletions)
-	billingModel := resolveOpenAIForwardModel(account, originalModel, defaultMappedModel)
+	billingModel := resolveOpenAIForwardModel(account, originalModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	SetOpsUpstreamModel(c, upstreamModel)
 	// xAI 厂商特化：成品号按平台，第三方 key 按地址识别的厂商。
