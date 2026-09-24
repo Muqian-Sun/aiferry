@@ -648,7 +648,9 @@ const accountToolsDropdownStyle = computed(() => ({
   width: `${accountToolsDropdownPosition.width}px`
 }))
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'proxy', 'notes', 'rate_multiplier']
+// 默认只露 10 个数据列（名称 / 厂商类型 / 容量 / 状态 / 调度 / 已上架模型 / 用量窗口 / 优先级 / 上游声明倍率（带可信度提示）/ 最近使用），其余进「列设置」
+// （A2-2，原 16 列横向滚动）。已保存过列设置的管理员保留原样，不强制重置。
+const DEFAULT_HIDDEN_COLUMNS = ['id', 'today_stats', 'proxy', 'rate_multiplier', 'created_at', 'expires_at', 'notes']
 const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
 // One-time migration: hide scheduler score for existing admins too, because showing it opt-ins to heavy backend scoring.
 
