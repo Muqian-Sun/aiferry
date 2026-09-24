@@ -1,5 +1,7 @@
 export { default as BulkBar } from './BulkBar.vue'
 export { default as ColumnSettingsMenu } from './ColumnSettingsMenu.vue'
+export { default as DetailDrawer } from './DetailDrawer.vue'
+export { default as DetailField } from './DetailField.vue'
 export { default as FilterChip } from './FilterChip.vue'
 export { default as ListToolbar } from './ListToolbar.vue'
 export { default as MenuItem } from './MenuItem.vue'
