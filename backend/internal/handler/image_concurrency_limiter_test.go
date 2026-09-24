@@ -149,14 +149,8 @@ func TestGatewayHandlerResponses_ImageIntentRejectedByImageConcurrency(t *testin
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
-	groupID := int64(1)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      10,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:                   groupID,
-			AllowImageGeneration: true,
-		},
+		ID:   10,
 		User: &service.User{ID: 20},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 20, Concurrency: 1})
@@ -182,14 +176,8 @@ func TestGatewayHandlerResponses_TextOnlyNotRejectedByImageConcurrency(t *testin
 	rec := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(rec)
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", strings.NewReader(body))
-	groupID := int64(1)
 	c.Set(string(middleware2.ContextKeyAPIKey), &service.APIKey{
-		ID:      10,
-		GroupID: &groupID,
-		Group: &service.Group{
-			ID:                   groupID,
-			AllowImageGeneration: true,
-		},
+		ID:   10,
 		User: &service.User{ID: 20},
 	})
 	c.Set(string(middleware2.ContextKeyUser), middleware2.AuthSubject{UserID: 20, Concurrency: 1})
@@ -219,8 +207,7 @@ func newGatewayResponsesImageConcurrencyHandler(t *testing.T, c *gin.Context) *G
 	}}}
 	billingCache := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingCache.Stop)
-	apiKey, _ := middleware2.GetAPIKeyFromContext(c)
-	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, apiKey.Group, &service.OpenAIGatewayService{}, billingCache,
+	h := newGatewayHandlerOverOpenAIService(cfg, openAIImagesFailoverAccountRepo{}, &service.OpenAIGatewayService{}, billingCache,
 		service.NewConcurrencyService(&helperConcurrencyCacheStub{userSeq: []bool{true}}))
 	h.imageLimiter = &ImageConcurrencyLimiter{}
 	return h

@@ -120,15 +120,6 @@ export default {
           go: 'GO',
           goDesc: 'Subscription gateway, rate-limited by 5-hour / weekly / monthly usage windows.',
         },
-        protocolRules: {
-          title: 'Model protocol routing',
-          hint: 'In adaptive mode, each model is sent to a native upstream protocol. Use an exact ID or a trailing * glob (e.g. grok-*, qwen*). The first matching rule wins; unmatched models use Chat Completions.',
-          patternPlaceholder: 'grok-* or deepseek-v4-flash',
-          add: 'Add rule',
-          remove: 'Remove rule',
-          restoreDefaults: 'Restore defaults',
-          fallback: 'Unmatched models → Chat Completions (/v1/chat/completions)',
-        },
       },
       types: {
         oauth: 'OAuth',

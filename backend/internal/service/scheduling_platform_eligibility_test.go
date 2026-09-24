@@ -15,7 +15,7 @@ import (
 
 const schedulingTestRelayURL = "https://relay.example.com/v1"
 
-func schedulingTestKey(id int64, label string, endpoints map[string]string, groupIDs ...int64) Account {
+func schedulingTestKey(id int64, label string, endpoints map[string]string) Account {
 	account := Account{
 		ID:                id,
 		Name:              "key",
@@ -26,10 +26,6 @@ func schedulingTestKey(id int64, label string, endpoints map[string]string, grou
 		Concurrency:       5,
 		Priority:          1,
 		ProtocolEndpoints: endpoints,
-		GroupIDs:          groupIDs,
-	}
-	for _, groupID := range groupIDs {
-		account.AccountGroups = append(account.AccountGroups, AccountGroup{AccountID: id, GroupID: groupID})
 	}
 	return account
 }

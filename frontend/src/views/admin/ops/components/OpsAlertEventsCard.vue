@@ -185,8 +185,6 @@ function formatDimensionsSummary(event: AlertEvent): string {
   const parts: string[] = []
   const platform = getDimensionString(event, 'platform')
   if (platform) parts.push(`platform=${platform}`)
-  const groupId = event.dimensions?.group_id
-  if (groupId != null && groupId !== '') parts.push(`group_id=${String(groupId)}`)
   const region = getDimensionString(event, 'region')
   if (region) parts.push(`region=${region}`)
   return parts.length ? parts.join(' ') : '-'
@@ -242,9 +240,7 @@ async function loadHistory() {
       const p1 = getDimensionString(it, 'platform')
       const p2 = getDimensionString(ev, 'platform')
       if ((p1 || '') !== (p2 || '')) return false
-      const g1 = it.dimensions?.group_id
-      const g2 = ev.dimensions?.group_id
-      return (g1 ?? null) === (g2 ?? null)
+      return true
     })
   } catch (err: any) {
     console.error('[OpsAlertEventsCard] Failed to load alert history', err)
@@ -632,7 +628,6 @@ const empty = computed(() => events.value.length === 0 && !loading.value)
               <div class="text-xs font-bold uppercase tracking-wider text-gray-400">{{ t('admin.ops.alertEvents.detail.dimensions') }}</div>
               <div class="mt-1 text-sm text-gray-900 dark:text-white">
                 <div v-if="getDimensionString(selected, 'platform')">platform={{ getDimensionString(selected, 'platform') }}</div>
-                <div v-if="selected.dimensions?.group_id">group_id={{ selected.dimensions.group_id }}</div>
                 <div v-if="getDimensionString(selected, 'region')">region={{ getDimensionString(selected, 'region') }}</div>
               </div>
             </div>

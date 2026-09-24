@@ -15,14 +15,13 @@ import (
 
 func TestGatewayHandlerChatCompletions_ResponsesKeyForwardsViaOpenAIService(t *testing.T) {
 	const entryID = 199
-	group := keyRouteGroup(2301, service.PlatformAnthropic)
-	key := keyRouteAccount(1301, group.ID, service.PlatformOpenAI,
+	key := keyRouteAccount(1301, service.PlatformOpenAI,
 		map[string]string{service.APIProtocolResponses: "https://relay.example.com"}, "gpt-5.6")
 	key.CatalogEntryIDs = []int64{entryID}
-	hs := newKeyRouteHarness(t, group, []*service.Account{key})
+	hs := newKeyRouteHarness(t, []*service.Account{key})
 
 	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"user","content":"hello"}]}`)
-	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, group, service.APIProtocolChatCompletions, "")
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, service.APIProtocolChatCompletions, "")
 	openAIRouteEntry(c, entryID, "gpt-5.6")
 
 	hs.handler.ChatCompletions(c)
@@ -37,16 +36,15 @@ func TestGatewayHandlerChatCompletions_ResponsesKeyForwardsViaOpenAIService(t *t
 
 func TestGatewayHandlerChatCompletions_ChatKeyDirect(t *testing.T) {
 	const entryID = 199
-	group := keyRouteGroup(2302, service.PlatformAnthropic)
-	key := keyRouteAccount(1302, group.ID, service.PlatformOpenAI,
+	key := keyRouteAccount(1302, service.PlatformOpenAI,
 		map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com"}, "gpt-5.6")
 	key.CatalogEntryIDs = []int64{entryID}
-	hs := newKeyRouteHarness(t, group, []*service.Account{key})
+	hs := newKeyRouteHarness(t, []*service.Account{key})
 	hs.openAIUpstream.respBody = openAIChatCompletionOK
 	hs.openAIUpstream.contentType = "application/json"
 
 	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"user","content":"hello"}]}`)
-	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, group, service.APIProtocolChatCompletions, "")
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, service.APIProtocolChatCompletions, "")
 	openAIRouteEntry(c, entryID, "gpt-5.6")
 
 	hs.handler.ChatCompletions(c)
@@ -60,21 +58,20 @@ func TestGatewayHandlerChatCompletions_ChatKeyDirect(t *testing.T) {
 // 协议直连是第一排序键：chat 地址的 key 即使优先级更低也赢过要转换的 responses key。
 func TestGatewayHandlerChatCompletions_ProtocolMatchBeatsPriority(t *testing.T) {
 	const entryID = 199
-	group := keyRouteGroup(2303, service.PlatformAnthropic)
-	chatKey := keyRouteAccount(1303, group.ID, service.PlatformOpenAI,
+	chatKey := keyRouteAccount(1303, service.PlatformOpenAI,
 		map[string]string{service.APIProtocolChatCompletions: "https://chat.example.com"}, "gpt-5.6")
 	chatKey.Priority = 50
 	chatKey.CatalogEntryIDs = []int64{entryID}
-	responsesKey := keyRouteAccount(1304, group.ID, service.PlatformOpenAI,
+	responsesKey := keyRouteAccount(1304, service.PlatformOpenAI,
 		map[string]string{service.APIProtocolResponses: "https://responses.example.com"}, "gpt-5.6")
 	responsesKey.Priority = 1
 	responsesKey.CatalogEntryIDs = []int64{entryID}
-	hs := newKeyRouteHarness(t, group, []*service.Account{chatKey, responsesKey})
+	hs := newKeyRouteHarness(t, []*service.Account{chatKey, responsesKey})
 	hs.openAIUpstream.respBody = openAIChatCompletionOK
 	hs.openAIUpstream.contentType = "application/json"
 
 	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"user","content":"hello"}]}`)
-	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, group, service.APIProtocolChatCompletions, "")
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, service.APIProtocolChatCompletions, "")
 	openAIRouteEntry(c, entryID, "gpt-5.6")
 
 	hs.handler.ChatCompletions(c)
@@ -87,14 +84,13 @@ func TestGatewayHandlerChatCompletions_ProtocolMatchBeatsPriority(t *testing.T) 
 
 func TestGatewayHandlerChatCompletions_OpenAITargetRecordsOpenAIUsage(t *testing.T) {
 	const entryID = 199
-	group := keyRouteGroup(2304, service.PlatformAnthropic)
-	key := keyRouteAccount(1305, group.ID, service.PlatformOpenAI,
+	key := keyRouteAccount(1305, service.PlatformOpenAI,
 		map[string]string{service.APIProtocolResponses: "https://relay.example.com"}, "gpt-5.6")
 	key.CatalogEntryIDs = []int64{entryID}
-	hs := newKeyRouteHarness(t, group, []*service.Account{key})
+	hs := newKeyRouteHarness(t, []*service.Account{key})
 
 	body := []byte(`{"model":"gpt-5.6","messages":[{"role":"user","content":"hello"}]}`)
-	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, group, service.APIProtocolChatCompletions, "")
+	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/chat/completions", body, service.APIProtocolChatCompletions, "")
 	openAIRouteEntry(c, entryID, "gpt-5.6")
 
 	hs.handler.ChatCompletions(c)

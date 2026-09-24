@@ -435,7 +435,7 @@ func TestAccountHandlerSyncUpstreamModelsPreviewUsesProvidedModelMapping(t *test
 		strings.NewReader(`{
 			"platform":"openai",
 			"type":"apikey",
-			"protocol_endpoints":{"chat_completions":"https://provider.example/v1","responses":"https://provider.example/v1"},
+			"protocol_endpoints":{"chat_completions":"https://provider.example/v1"},
 			"api_key":"key",
 			"model_mapping":{"public-glm":"glm-5.3"}
 		}`),

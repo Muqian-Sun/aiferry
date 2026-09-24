@@ -37,7 +37,7 @@ func newOpenAICountTokensHandlerForTest(t *testing.T, accounts []service.Account
 	cfg := &config.Config{RunMode: config.RunModeSimple}
 	gatewayService := service.NewOpenAIGatewayService(
 		accountRepo, nil, nil, nil, nil, nil, cfg, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(1)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 	billingService := service.NewBillingCacheService(nil, nil, nil, nil, nil, cfg)
 	t.Cleanup(billingService.Stop)

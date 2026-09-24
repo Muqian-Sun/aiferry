@@ -12,7 +12,6 @@
       </template>
       <div class="space-y-1">
         <template v-if="hasEffectiveRate && data">
-          <p>{{ t('admin.accounts.upstreamBilling.groupRate', { value: data.group_rate_multiplier }) }}</p>
           <p v-if="data.user_rate_multiplier != null">
             {{ t('admin.accounts.upstreamBilling.userRate', { value: data.user_rate_multiplier }) }}
           </p>

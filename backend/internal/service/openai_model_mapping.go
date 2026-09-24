@@ -5,19 +5,12 @@ import "strings"
 // resolveOpenAIForwardModel 解析 OpenAI 兼容转发使用的模型。
 // messagesDispatchMappedModel 是调用方已为 /v1/messages 解析的显式调度结果；
 // 普通 OpenAI 请求必须传空，避免将分组配置作为通用模型兜底。
-func resolveOpenAIForwardModel(account *Account, requestedModel, messagesDispatchMappedModel string) string {
-	messagesDispatchMappedModel = strings.TrimSpace(messagesDispatchMappedModel)
+func resolveOpenAIForwardModel(account *Account, requestedModel string) string {
 	if account == nil {
-		if messagesDispatchMappedModel != "" {
-			return messagesDispatchMappedModel
-		}
 		return requestedModel
 	}
-
-	mappedModel, matched := account.ResolveMappedModel(requestedModel)
-	if !matched && messagesDispatchMappedModel != "" {
-		return messagesDispatchMappedModel
-	}
+	// 未命中映射时 ResolveMappedModel 原样返回 requestedModel。
+	mappedModel, _ := account.ResolveMappedModel(requestedModel)
 	return mappedModel
 }
 

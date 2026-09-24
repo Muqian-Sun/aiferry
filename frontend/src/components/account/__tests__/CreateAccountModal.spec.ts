@@ -451,15 +451,9 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_base_urls')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'zen',
-      protocol_rules: [
-        { pattern: 'grok-*', protocol: 'responses' },
-        { pattern: 'gpt-*', protocol: 'responses' },
-        { pattern: 'muse-spark-*', protocol: 'responses' },
-        { pattern: 'claude-*', protocol: 'anthropic' },
-        { pattern: 'qwen*', protocol: 'anthropic' }
-      ]
+      account_mode: 'zen'
     })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('protocol_rules')
   })
 
   it('submits OpenCode GO endpoints after switching account type', async () => {
@@ -476,15 +470,9 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.go)
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
-      account_mode: 'go',
-      protocol_rules: [
-        { pattern: 'grok-*', protocol: 'responses' },
-        { pattern: 'gpt-*', protocol: 'responses' },
-        { pattern: 'muse-spark-*', protocol: 'responses' },
-        { pattern: 'minimax-*', protocol: 'anthropic' },
-        { pattern: 'qwen*', protocol: 'anthropic' }
-      ]
+      account_mode: 'go'
     })
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('protocol_rules')
   })
 
   it('submits Kimi protocol endpoints without an API protocol', async () => {

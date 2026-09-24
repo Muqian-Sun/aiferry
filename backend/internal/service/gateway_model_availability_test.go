@@ -118,7 +118,6 @@ func TestDiagnoseModelAvailabilityForPlatform_WildcardMappingMatches(t *testing.
 }
 
 func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSignal(t *testing.T) {
-	groupID := int64(42)
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
 			{
@@ -126,9 +125,6 @@ func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSig
 				Platform:    PlatformOpenAI,
 				Status:      StatusActive,
 				Schedulable: true,
-				AccountGroups: []AccountGroup{
-					{GroupID: groupID},
-				},
 				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5": "gpt-5"}},
 			},
 			{
@@ -136,9 +132,6 @@ func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSig
 				Platform:    PlatformOpenAI,
 				Status:      StatusActive,
 				Schedulable: true,
-				AccountGroups: []AccountGroup{
-					{GroupID: groupID},
-				},
 				Credentials: map[string]any{"model_mapping": map[string]any{"gpt-5-mini": "gpt-5-mini"}},
 			},
 		},
@@ -156,7 +149,6 @@ func TestDiagnoseModelAvailabilityForPlatform_NoMatchingModel_ReturnsNotFoundSig
 }
 
 func TestDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccountRemainsConfigured(t *testing.T) {
-	groupID := int64(42)
 	cooldownUntil := time.Now().Add(time.Hour)
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
@@ -168,7 +160,6 @@ func TestDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccountRemain
 				RateLimitResetAt:       &cooldownUntil,
 				OverloadUntil:          &cooldownUntil,
 				TempUnschedulableUntil: &cooldownUntil,
-				AccountGroups:          []AccountGroup{{GroupID: groupID}},
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"claude-opus-4-8": "claude-opus-4-8"},
 				},
@@ -190,7 +181,6 @@ func TestDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccountRemain
 }
 
 func TestOpenAIDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccountRemainsConfigured(t *testing.T) {
-	groupID := int64(43)
 	cooldownUntil := time.Now().Add(time.Hour)
 	repo := &mockAccountRepoForPlatform{
 		accounts: []Account{
@@ -202,7 +192,6 @@ func TestOpenAIDiagnoseModelAvailabilityForPlatform_RateLimitedSupportingAccount
 				RateLimitResetAt:       &cooldownUntil,
 				OverloadUntil:          &cooldownUntil,
 				TempUnschedulableUntil: &cooldownUntil,
-				AccountGroups:          []AccountGroup{{GroupID: groupID}},
 				Credentials: map[string]any{
 					"model_mapping": map[string]any{"claude-opus-4-8": "claude-opus-4-8"},
 				},

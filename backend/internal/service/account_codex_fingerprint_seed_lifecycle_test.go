@@ -21,10 +21,9 @@ func TestAdminCreateAccountStripsUserSeedAndCreatesFreshSeedWhenEnabled(t *testi
 	svc := &adminServiceImpl{accountRepo: repo}
 
 	created, err := svc.CreateAccount(context.Background(), &CreateAccountInput{
-		Name:                 "codex-oauth",
-		Platform:             PlatformOpenAI,
-		Type:                 AccountTypeOAuth,
-		SkipDefaultGroupBind: true,
+		Name:     "codex-oauth",
+		Platform: PlatformOpenAI,
+		Type:     AccountTypeOAuth,
 		Extra: map[string]any{
 			codexFingerprintModeExtraKey: "session",
 			codexFingerprintSeedExtraKey: userSuppliedCodexFingerprintSeed,
@@ -168,14 +167,10 @@ type codexSeedDuplicateRepo struct {
 	*upstreamBillingProbeAccountRepo
 }
 
-func (r *codexSeedDuplicateRepo) CreateWithAccountGroups(ctx context.Context, account *Account, _ []AccountGroup) error {
-	return r.Create(ctx, account)
-}
-
 func TestDuplicateAccountDoesNotCopyCodexFingerprintSeed(t *testing.T) {
 	ctx := context.Background()
 	repo := &codexSeedDuplicateRepo{upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: make(map[int64]*Account)}}
-	svc := &adminServiceImpl{accountRepo: repo, accountDuplicateRepo: repo}
+	svc := &adminServiceImpl{accountRepo: repo}
 	source := &Account{
 		Name:     "source",
 		Platform: PlatformOpenAI,
@@ -218,7 +213,7 @@ func TestDuplicateCreatePathMintsFreshSeedWhenEligible(t *testing.T) {
 func TestAccountServiceCreateAndUpdateCodexSeedLifecycle(t *testing.T) {
 	ctx := context.Background()
 	repo := &upstreamBillingProbeAccountRepo{accounts: make(map[int64]*Account)}
-	svc := NewAccountService(repo, nil)
+	svc := NewAccountService(repo)
 
 	created, err := svc.Create(ctx, CreateAccountRequest{
 		Name:     "legacy-create",

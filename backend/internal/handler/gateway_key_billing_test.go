@@ -26,12 +26,9 @@ func newKeyBillingContext(apiKey *service.APIKey) (*gin.Context, *httptest.Respo
 
 // 计费自省只报用户倍率：分组倍率 / 峰值都不再参与，无分组的 key 同样能查。
 func TestGatewayHandlerKeyBillingInfoUsesUserMultiplier(t *testing.T) {
-	groupID := int64(7)
 	c, w := newKeyBillingContext(&service.APIKey{
-		UserID:  11,
-		GroupID: &groupID,
-		Group:   &service.Group{ID: groupID, RateMultiplier: 9, PeakRateEnabled: true, PeakRateMultiplier: 3},
-		User:    &service.User{ID: 11, RateMultiplier: 0.8},
+		UserID: 11,
+		User:   &service.User{ID: 11, RateMultiplier: 0.8},
 	})
 	(&GatewayHandler{}).KeyBillingInfo(c)
 	require.Equal(t, http.StatusOK, w.Code)

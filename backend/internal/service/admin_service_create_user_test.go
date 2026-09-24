@@ -17,13 +17,12 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	balance := 12.5
 
 	input := &CreateUserInput{
-		Email:         "user@test.com",
-		Password:      "strong-pass",
-		Username:      "tester",
-		Notes:         "note",
-		Balance:       &balance,
-		Concurrency:   7,
-		AllowedGroups: []int64{3, 5},
+		Email:       "user@test.com",
+		Password:    "strong-pass",
+		Username:    "tester",
+		Notes:       "note",
+		Balance:     &balance,
+		Concurrency: 7,
 	}
 
 	user, err := svc.CreateUser(context.Background(), input)
@@ -35,7 +34,6 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.Equal(t, input.Notes, user.Notes)
 	require.Equal(t, balance, user.Balance)
 	require.Equal(t, input.Concurrency, user.Concurrency)
-	require.Equal(t, input.AllowedGroups, user.AllowedGroups)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
 	require.True(t, user.CheckPassword(input.Password))

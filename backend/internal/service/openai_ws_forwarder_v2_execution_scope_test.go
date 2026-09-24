@@ -17,6 +17,7 @@ import (
 // turn state 必须落在执行作用域键下，而不是按 session_id 算出的会话哈希下，
 // 否则子智能体会覆盖父线程的绑定；同一线程在 WS 接入与 HTTP 路径之间也才能共享状态。
 func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *testing.T) {
+	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
@@ -65,7 +66,6 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 		openaiWSResolver: NewOpenAIWSProtocolResolver(cfg),
 		toolCorrector:    NewCodexToolCorrector(),
 	}
-	groupID := int64(9)
 	account := &Account{
 		ID:          456,
 		Name:        "openai-http-exec-scope",
@@ -112,6 +112,7 @@ func TestOpenAIGatewayService_Forward_WSv2_TurnStateBoundToExecutionScope(t *tes
 // session_id 的会话会落到同一个键共用 turn state，客户端自带线程标识时也会与 WS 接入路径
 // 按原始报文算出的键对不上。
 func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t *testing.T) {
+	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{}
@@ -145,7 +146,6 @@ func TestOpenAIGatewayService_Forward_WSv2_ExecutionScopeUsesOriginalIdentity(t 
 		openaiWSPool:       pool,
 		openaiWSStateStore: stateStore,
 	}
-	groupID := int64(9)
 	const apiKeyID = int64(21)
 	account := &Account{
 		ID:          457,

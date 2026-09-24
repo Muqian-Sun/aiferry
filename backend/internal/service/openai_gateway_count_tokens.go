@@ -137,7 +137,7 @@ func prepareNativeOpenAIInputTokensCountRequest(body []byte, account *Account) (
 	if originalModel == "" {
 		return nil, fmt.Errorf("parse responses input_tokens request: model is required")
 	}
-	billingModel := resolveOpenAIForwardModel(account, originalModel, "")
+	billingModel := resolveOpenAIForwardModel(account, originalModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 	req.Model = upstreamModel
 	return &openAIInputTokensCountPrepared{
@@ -262,7 +262,6 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 	c *gin.Context,
 	account *Account,
 	body []byte,
-	defaultMappedModel string,
 ) error {
 	if account == nil {
 		writeAnthropicCountTokensError(c, http.StatusServiceUnavailable, "api_error", "No available OpenAI accounts")
@@ -292,7 +291,7 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 		return nil
 	}
 
-	prepared, err := prepareOpenAIInputTokensCountRequest(body, account, defaultMappedModel)
+	prepared, err := prepareOpenAIInputTokensCountRequest(body, account)
 	if err != nil {
 		writeAnthropicCountTokensError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
 		return err
@@ -398,7 +397,6 @@ func (s *OpenAIGatewayService) ForwardCountTokensAsAnthropic(
 func prepareOpenAIInputTokensCountRequest(
 	body []byte,
 	account *Account,
-	defaultMappedModel string,
 ) (*openAIInputTokensCountPrepared, error) {
 	var anthropicReq apicompat.AnthropicRequest
 	if err := json.Unmarshal(body, &anthropicReq); err != nil {
@@ -408,7 +406,7 @@ func prepareOpenAIInputTokensCountRequest(
 	originalModel := anthropicReq.Model
 	applyOpenAICompatModelNormalization(&anthropicReq)
 	normalizedModel := anthropicReq.Model
-	billingModel := resolveOpenAIForwardModel(account, normalizedModel, strings.TrimSpace(defaultMappedModel))
+	billingModel := resolveOpenAIForwardModel(account, normalizedModel)
 	upstreamModel := normalizeOpenAIModelForUpstream(account, billingModel)
 
 	responsesReq, err := apicompat.AnthropicToResponses(&anthropicReq)

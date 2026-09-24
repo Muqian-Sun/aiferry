@@ -21,11 +21,6 @@ func TestUserRateMultiplier(t *testing.T) {
 // 用户价 = 目录价 × users.rate_multiplier：分组上的倍率 / 峰值 / config 默认倍率都不参与。
 func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 	inputPrice, outputPrice := 1e-6, 2e-6
-	groupID := int64(77)
-	group := &Group{
-		ID: groupID, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true,
-		RateMultiplier: 9, PeakRateEnabled: true, PeakStart: "00:00", PeakEnd: "23:59", PeakRateMultiplier: 9,
-	}
 	tokens := ClaudeUsage{InputTokens: 100, OutputTokens: 50}
 	expected := (100*inputPrice + 50*outputPrice) * 2 // 4e-4
 
@@ -39,7 +34,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		})
 		err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 			Result:  &ForwardResult{RequestID: "user-rate-gw", Model: "claude-sonnet-4-5", Usage: tokens, Duration: time.Second},
-			APIKey:  &APIKey{ID: 1, GroupID: &groupID, Group: group},
+			APIKey:  &APIKey{ID: 1},
 			User:    &User{ID: 2, RateMultiplier: 2},
 			Account: &Account{ID: 3, Platform: PlatformAnthropic},
 		})
@@ -52,16 +47,14 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 	t.Run("openai gateway", func(t *testing.T) {
 		usageRepo := &openAIRecordUsageLogRepoStub{inserted: true}
 		userRepo := &openAIRecordUsageUserRepoStub{}
-		svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{}, nil)
+		svc := newOpenAIRecordUsageServiceForTest(usageRepo, userRepo, &openAIRecordUsageSubRepoStub{})
 		svc.resolver = newResolverWithCatalogCards(svc.billingService, PricingCard{
 			Models: []string{"gpt-5.6"}, BillingMode: BillingModeToken,
 			InputPrice: &inputPrice, OutputPrice: &outputPrice,
 		})
-		openAIGroup := *group
-		openAIGroup.Platform = PlatformOpenAI
 		err := svc.RecordUsage(context.Background(), &OpenAIRecordUsageInput{
 			Result:  &OpenAIForwardResult{RequestID: "user-rate-oa", Model: "gpt-5.6", Usage: OpenAIUsage{InputTokens: 100, OutputTokens: 50}, Duration: time.Second},
-			APIKey:  &APIKey{ID: 1, GroupID: &groupID, Group: &openAIGroup},
+			APIKey:  &APIKey{ID: 1},
 			User:    &User{ID: 2, RateMultiplier: 2},
 			Account: &Account{ID: 3, Platform: PlatformOpenAI, Type: AccountTypeOAuth},
 		})
@@ -81,7 +74,7 @@ func TestRecordUsage_ChargesCatalogPriceTimesUserMultiplier(t *testing.T) {
 		})
 		err := svc.RecordUsage(context.Background(), &RecordUsageInput{
 			Result:  &ForwardResult{RequestID: "user-rate-free", Model: "claude-sonnet-4-5", Usage: tokens, Duration: time.Second},
-			APIKey:  &APIKey{ID: 1, GroupID: &groupID, Group: group},
+			APIKey:  &APIKey{ID: 1},
 			User:    &User{ID: 2, RateMultiplier: 0},
 			Account: &Account{ID: 3, Platform: PlatformAnthropic},
 		})

@@ -141,11 +141,6 @@
           </div>
           <p class="input-hint">{{ t(`admin.accounts.cnProviders.accountMode.${editAccountMode}Desc`) }}</p>
         </div>
-        <OpenCodeGoProtocolRulesEditor
-          v-if="account.platform === 'opencode_go'"
-          v-model:rows="editOpenCodeGoProtocolRules"
-          :plan="editOpenCodeAccountMode"
-        />
         <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后用量查询走团队版端点） -->
         <div v-if="account.platform === 'zhipu' && editAccountMode === 'coding'">
           <div class="flex items-center">
@@ -2873,7 +2868,6 @@ import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
-import OpenCodeGoProtocolRulesEditor from '@/components/account/OpenCodeGoProtocolRulesEditor.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
 import {
   UPSTREAM_PROTOCOLS,
@@ -2893,12 +2887,8 @@ import {
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  applyOpenCodeGoProtocolRules,
   applyPlanType,
   buildPlanTypeOptions,
-  cloneOpenCodeGoProtocolRules,
-  defaultOpenCodeProtocolRules,
-  parseOpenCodeGoProtocolRules,
   readPlanType,
   resolveOpenCodeAccountMode,
   isHeaderOverrideCapable,
@@ -2911,8 +2901,7 @@ import {
   type CnBaseUrlPreset,
   type CnProviderPlatform,
   type HeaderOverrideRow,
-  type OpenCodeAccountMode,
-  type OpenCodeGoProtocolRule
+  type OpenCodeAccountMode
 } from '@/components/account/credentialsBuilder'
 import {
   formatDateTime,
@@ -3004,7 +2993,6 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
   }
   return 'kimi'
 })
-const editOpenCodeGoProtocolRules = ref<OpenCodeGoProtocolRule[]>(cloneOpenCodeGoProtocolRules())
 const editAccountMode = ref<CnAccountMode>('payg')
 const editOpenCodeAccountMode = ref<OpenCodeAccountMode>('go')
 function currentOpenCodeOrCNMode(): CnAccountMode | OpenCodeAccountMode {
@@ -3080,13 +3068,6 @@ watch(editAccountMode, (mode) => {
   const effectiveMode = props.account!.platform === 'deepseek' && mode === 'coding' ? 'payg' : mode
   if (effectiveMode !== mode) {
     editAccountMode.value = effectiveMode
-  }
-})
-watch(editOpenCodeAccountMode, (mode, previousMode) => {
-  if (!isCNApiKeyAccount.value || props.account?.platform !== 'opencode_go' || syncingForm.value) return
-  const previousRules = JSON.stringify(defaultOpenCodeProtocolRules(previousMode))
-  if (JSON.stringify(editOpenCodeGoProtocolRules.value) === previousRules) {
-    editOpenCodeGoProtocolRules.value = cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(mode))
   }
 })
 // 点击国产供应商预设：回填账号类型和该协议的地址。
@@ -3897,11 +3878,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
         editZhipuOrganization.value = typeof credentials.zhipu_organization === 'string' ? credentials.zhipu_organization : ''
         editZhipuProject.value = typeof credentials.zhipu_project === 'string' ? credentials.zhipu_project : ''
       }
-      if (newAccount.platform === 'opencode_go') {
-        editOpenCodeGoProtocolRules.value =
-          parseOpenCodeGoProtocolRules(credentials.protocol_rules) ??
-          cloneOpenCodeGoProtocolRules(defaultOpenCodeProtocolRules(editOpenCodeAccountMode.value))
-      }
     }
     // Load model mappings and detect mode
     loadModelRestrictionFromMapping(credentials.model_mapping as Record<string, unknown> | undefined)
@@ -4519,9 +4495,6 @@ const handleSubmit = async () => {
       // 国产供应商：模式写入凭据（决定额度/余额探测）。
       if (isCNApiKeyAccount.value) {
         newCredentials.account_mode = currentOpenCodeOrCNMode()
-        if (props.account.platform === 'opencode_go') {
-          applyOpenCodeGoProtocolRules(newCredentials, editOpenCodeGoProtocolRules.value, 'edit')
-        }
         // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写，清空即移除回落个人版路径）
         if (props.account.platform === 'zhipu') {
           const org = editZhipuOrganization.value.trim()

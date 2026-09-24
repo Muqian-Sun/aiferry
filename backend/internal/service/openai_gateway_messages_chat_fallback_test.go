@@ -100,7 +100,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsPreservesFinalModelReasoningEffo
 			account.Credentials["model_mapping"] = map[string]any{tt.model: tt.mapped}
 
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
-			result, err := svc.ForwardAsAnthropic(context.Background(), c, account, []byte(body), "", "")
+			result, err := svc.ForwardAsAnthropic(context.Background(), c, account, []byte(body), "")
 			require.NoError(t, err)
 			require.NotNil(t, result)
 			require.Equal(t, tt.mapped, gjson.GetBytes(upstream.lastBody, "model").String())
@@ -132,7 +132,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsNonStreaming(t *testing.T) {
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.Equal(t, "http://upstream.example/v1/chat/completions", upstream.lastReq.URL.String())
@@ -187,7 +187,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsStreamingClosesOpenBlockOnDone(t
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.True(t, gjson.GetBytes(upstream.lastBody, "stream_options.include_usage").Bool())
@@ -247,7 +247,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsStreamingToolCallAggregation(t *
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -290,7 +290,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsStreamingLengthMapsToMaxTokens(t
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -320,7 +320,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsEmptyStreamStillFramesMessage(t 
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 
@@ -352,7 +352,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsNonFailover400UsesSharedErrorHan
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.Error(t, err)
 	require.Nil(t, result)
 
@@ -403,7 +403,7 @@ func TestForwardAsAnthropic_ForceChatCompletionsStreamReadErrorSkipsFinalize(t *
 		httpUpstream: upstream,
 	}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, forceChatMessagesFallbackAccount(), body, "")
 	require.Error(t, err)
 	require.Contains(t, err.Error(), "stream usage incomplete")
 	require.NotNil(t, result)
@@ -445,7 +445,7 @@ func TestForwardAsAnthropic_ResponsesSupportedAccountStillUsesResponsesEndpoint(
 	account := rawChatCompletionsTestAccount()
 	account.ProtocolEndpoints[APIProtocolResponses] = "http://upstream.example"
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "")
 	require.NoError(t, err)
 	require.NotNil(t, result)
 	require.True(t, strings.HasSuffix(upstream.lastReq.URL.Path, "/responses"),

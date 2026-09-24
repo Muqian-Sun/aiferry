@@ -246,8 +246,8 @@ func TestSchedulingScopeID(t *testing.T) {
 
 // 无路由的池是全部资源：绑没绑分组都在池里（7a 起），粘性命中不能再按分组把账号判成不在池里。
 func TestAccountInSchedulingScope(t *testing.T) {
-	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}, GroupIDs: []int64{3}}
-	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}, GroupIDs: []int64{3}}
+	bound := &Account{ID: 1, CatalogEntryIDs: []int64{7}}
+	unbound := &Account{ID: 2, CatalogEntryIDs: []int64{8}}
 	ungrouped := &Account{ID: 3}
 	routed := WithCatalogRoute(context.Background(), CatalogRoute{EntryID: 7})
 

@@ -374,21 +374,19 @@ func TestAPIKeyService_List_FillsCurrentConcurrency(t *testing.T) {
 }
 
 func TestAPIKeyService_List_SortByCurrentConcurrency(t *testing.T) {
-	groupID := int64(42)
 	keys := []APIKey{
-		{ID: 1, UserID: 7, Key: "sk-target-1", Name: "target-one", GroupID: &groupID, Status: StatusActive},
-		{ID: 2, UserID: 7, Key: "sk-target-2", Name: "target-two", GroupID: &groupID, Status: StatusActive},
-		{ID: 3, UserID: 7, Key: "sk-target-3", Name: "target-three", GroupID: &groupID, Status: StatusActive},
-		{ID: 4, UserID: 7, Key: "sk-target-4", Name: "target-four", GroupID: &groupID, Status: StatusActive},
-		{ID: 9, UserID: 7, Key: "sk-target-9", Name: "target-inactive", GroupID: &groupID, Status: StatusDisabled},
-		{ID: 10, UserID: 7, Key: "sk-other-10", Name: "other", GroupID: &groupID, Status: StatusActive},
+		{ID: 1, UserID: 7, Key: "sk-target-1", Name: "target-one", Status: StatusActive},
+		{ID: 2, UserID: 7, Key: "sk-target-2", Name: "target-two", Status: StatusActive},
+		{ID: 3, UserID: 7, Key: "sk-target-3", Name: "target-three", Status: StatusActive},
+		{ID: 4, UserID: 7, Key: "sk-target-4", Name: "target-four", Status: StatusActive},
+		{ID: 9, UserID: 7, Key: "sk-target-9", Name: "target-inactive", Status: StatusDisabled},
+		{ID: 10, UserID: 7, Key: "sk-other-10", Name: "other", Status: StatusActive},
 		{ID: 11, UserID: 7, Key: "sk-target-11", Name: "target-no-group", Status: StatusActive},
-		{ID: 12, UserID: 8, Key: "sk-target-12", Name: "target-other-user", GroupID: &groupID, Status: StatusActive},
+		{ID: 12, UserID: 8, Key: "sk-target-12", Name: "target-other-user", Status: StatusActive},
 	}
 	filters := APIKeyListFilters{
-		Search:  "target",
-		Status:  StatusActive,
-		GroupID: &groupID,
+		Search: "target",
+		Status: StatusActive,
 	}
 	repo := &apiKeyRepoStub{
 		allowListAllByUserID: true,
@@ -397,7 +395,7 @@ func TestAPIKeyService_List_SortByCurrentConcurrency(t *testing.T) {
 	concurrency := NewConcurrencyService(&stubConcurrencyCacheForTest{
 		apiKeyConcurrency: map[int64]int{
 			1:  5,
-			2:  5,
+			2:  6,
 			3:  2,
 			4:  8,
 			9:  99,
@@ -415,18 +413,16 @@ func TestAPIKeyService_List_SortByCurrentConcurrency(t *testing.T) {
 		SortOrder: "desc",
 	}, filters)
 	require.NoError(t, err)
-	require.Equal(t, []int64{1, 3}, apiKeyTestIDs(got))
-	require.Equal(t, int64(4), page.Total)
+	require.Equal(t, []int64{2, 1}, apiKeyTestIDs(got))
+	require.Equal(t, int64(5), page.Total)
 	require.Equal(t, 2, page.Page)
 	require.Equal(t, 2, page.PageSize)
-	require.Equal(t, 2, page.Pages)
+	require.Equal(t, 3, page.Pages)
 	require.Empty(t, repo.listByUserIDCalls)
 	require.Equal(t, []int64{7}, repo.listAllByUserIDCalls)
 	require.Len(t, repo.listAllByUserIDFilters, 1)
 	require.Equal(t, filters.Search, repo.listAllByUserIDFilters[0].Search)
 	require.Equal(t, filters.Status, repo.listAllByUserIDFilters[0].Status)
-	require.NotNil(t, repo.listAllByUserIDFilters[0].GroupID)
-	require.Equal(t, groupID, *repo.listAllByUserIDFilters[0].GroupID)
 }
 
 func TestAPIKeyService_List_SortByCurrentConcurrencyAscTiesByID(t *testing.T) {

@@ -207,18 +207,6 @@ func (s *userRepoStub) ExistsByEmailAlias(ctx context.Context, email string) (bo
 	return s.aliasExists, nil
 }
 
-func (s *userRepoStub) RemoveGroupFromAllowedGroups(ctx context.Context, groupID int64) (int64, error) {
-	panic("unexpected RemoveGroupFromAllowedGroups call")
-}
-
-func (s *userRepoStub) RemoveGroupFromUserAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
-	panic("unexpected RemoveGroupFromUserAllowedGroups call")
-}
-
-func (s *userRepoStub) AddGroupToAllowedGroups(ctx context.Context, userID int64, groupID int64) error {
-	panic("unexpected AddGroupToAllowedGroups call")
-}
-
 func (s *userRepoStub) ListUserAuthIdentities(ctx context.Context, userID int64) ([]UserAuthIdentityRecord, error) {
 	panic("unexpected ListUserAuthIdentities call")
 }
@@ -241,97 +229,6 @@ func (s *userRepoStub) DisableTotp(ctx context.Context, userID int64) error {
 
 func (s *userRepoStub) GetByIDIncludeDeleted(ctx context.Context, id int64) (*User, error) {
 	return s.GetByID(ctx, id)
-}
-
-type groupRepoStub struct {
-	deleteErr    error
-	deleteCalls  []int64
-	guardedCalls []int64
-}
-
-func (s *groupRepoStub) Create(ctx context.Context, group *Group) error {
-	panic("unexpected Create call")
-}
-
-func (s *groupRepoStub) GetByID(ctx context.Context, id int64) (*Group, error) {
-	panic("unexpected GetByID call")
-}
-
-func (s *groupRepoStub) GetByIDLite(ctx context.Context, id int64) (*Group, error) {
-	panic("unexpected GetByIDLite call")
-}
-
-func (s *groupRepoStub) Update(ctx context.Context, group *Group) error {
-	panic("unexpected Update call")
-}
-
-func (s *groupRepoStub) Delete(ctx context.Context, id int64) error {
-	panic("unexpected Delete call")
-}
-
-func (s *groupRepoStub) DeleteCascade(ctx context.Context, id int64) error {
-	s.deleteCalls = append(s.deleteCalls, id)
-	return s.deleteErr
-}
-
-func (s *groupRepoStub) DeleteCascadeIfEmpty(ctx context.Context, id int64) error {
-	s.guardedCalls = append(s.guardedCalls, id)
-	return s.deleteErr
-}
-
-func (s *groupRepoStub) List(ctx context.Context, params pagination.PaginationParams) ([]Group, *pagination.PaginationResult, error) {
-	panic("unexpected List call")
-}
-
-func (s *groupRepoStub) ListWithFilters(ctx context.Context, params pagination.PaginationParams, platform, status, search string, isExclusive *bool) ([]Group, *pagination.PaginationResult, error) {
-	panic("unexpected ListWithFilters call")
-}
-
-func (s *groupRepoStub) ListActive(ctx context.Context) ([]Group, error) {
-	panic("unexpected ListActive call")
-}
-
-func (s *groupRepoStub) ListActiveByPlatform(ctx context.Context, platform string) ([]Group, error) {
-	panic("unexpected ListActiveByPlatform call")
-}
-
-func (s *groupRepoStub) ExistsByName(ctx context.Context, name string) (bool, error) {
-	panic("unexpected ExistsByName call")
-}
-
-func (s *groupRepoStub) GetAccountCount(ctx context.Context, groupID int64) (int64, int64, error) {
-	panic("unexpected GetAccountCount call")
-}
-
-func (s *groupRepoStub) DeleteAccountGroupsByGroupID(ctx context.Context, groupID int64) (int64, error) {
-	panic("unexpected DeleteAccountGroupsByGroupID call")
-}
-
-func (s *groupRepoStub) BindAccountsToGroup(ctx context.Context, groupID int64, accountIDs []int64) error {
-	panic("unexpected BindAccountsToGroup call")
-}
-
-func (s *groupRepoStub) GetAccountIDsByGroupIDs(ctx context.Context, groupIDs []int64) ([]int64, error) {
-	panic("unexpected GetAccountIDsByGroupIDs call")
-}
-
-func (s *groupRepoStub) UpdateSortOrders(ctx context.Context, updates []GroupSortOrderUpdate) error {
-	return nil
-}
-
-type deleteGroupAPIKeyRepoStub struct {
-	apiKeyRepoStubForGroupUpdate
-	keys         []string
-	listErr      error
-	listGroupIDs []int64
-}
-
-func (s *deleteGroupAPIKeyRepoStub) ListKeysByGroupID(ctx context.Context, groupID int64) ([]string, error) {
-	s.listGroupIDs = append(s.listGroupIDs, groupID)
-	if s.listErr != nil {
-		return nil, s.listErr
-	}
-	return s.keys, nil
 }
 
 type proxyRepoStub struct {
@@ -488,8 +385,8 @@ func (s *redeemRepoStub) SumPositiveBalanceByUser(ctx context.Context, userID in
 }
 
 type subscriptionInvalidateCall struct {
-	userID  int64
-	groupID int64
+	userID int64
+	planID int64
 }
 
 type billingCacheStub struct {
@@ -528,8 +425,8 @@ func (s *billingCacheStub) UpdateSubscriptionUsage(ctx context.Context, userID, 
 	panic("unexpected UpdateSubscriptionUsage call")
 }
 
-func (s *billingCacheStub) InvalidateSubscriptionCache(ctx context.Context, userID, groupID int64) error {
-	s.invalidations <- subscriptionInvalidateCall{userID: userID, groupID: groupID}
+func (s *billingCacheStub) InvalidateSubscriptionCache(ctx context.Context, userID, planID int64) error {
+	s.invalidations <- subscriptionInvalidateCall{userID: userID, planID: planID}
 	return nil
 }
 
@@ -627,75 +524,6 @@ func TestAdminService_DeleteUser_DeleteError(t *testing.T) {
 	require.Equal(t, []int64{9}, repo.deletedIDs)
 }
 
-// 订阅已脱离分组：删分组只删分组，不碰任何订阅缓存。
-func TestAdminService_DeleteGroup_Success_NoSubscriptionCacheInvalidation(t *testing.T) {
-	cache := newBillingCacheStub(2)
-	repo := &groupRepoStub{}
-	svc := &adminServiceImpl{
-		groupRepo:           repo,
-		billingCacheService: &BillingCacheService{cache: cache},
-	}
-
-	err := svc.DeleteGroup(context.Background(), 5)
-	require.NoError(t, err)
-	require.Equal(t, []int64{5}, repo.deleteCalls)
-	select {
-	case call := <-cache.invalidations:
-		t.Fatalf("unexpected subscription cache invalidation: %+v", call)
-	case <-time.After(50 * time.Millisecond):
-	}
-}
-
-func TestAdminService_DeleteGroup_InvalidatesAuthCacheForBoundKeys(t *testing.T) {
-	repo := &groupRepoStub{}
-	apiKeyRepo := &deleteGroupAPIKeyRepoStub{keys: []string{"k1", "k2"}}
-	invalidator := &authCacheInvalidatorStub{}
-	svc := &adminServiceImpl{
-		groupRepo:            repo,
-		apiKeyRepo:           apiKeyRepo,
-		authCacheInvalidator: invalidator,
-	}
-
-	err := svc.DeleteGroup(context.Background(), 5)
-	require.NoError(t, err)
-	require.Equal(t, []int64{5}, repo.deleteCalls)
-	require.Equal(t, []int64{5}, apiKeyRepo.listGroupIDs)
-	require.Equal(t, []string{"k1", "k2"}, invalidator.keys)
-}
-
-func TestAdminService_DeleteGroup_NotFound(t *testing.T) {
-	repo := &groupRepoStub{deleteErr: ErrGroupNotFound}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	err := svc.DeleteGroup(context.Background(), 99)
-	require.ErrorIs(t, err, ErrGroupNotFound)
-}
-
-func TestAdminService_DeleteGroup_Error(t *testing.T) {
-	deleteErr := errors.New("delete failed")
-	repo := &groupRepoStub{deleteErr: deleteErr}
-	svc := &adminServiceImpl{groupRepo: repo}
-
-	err := svc.DeleteGroup(context.Background(), 42)
-	require.ErrorIs(t, err, deleteErr)
-}
-
-func TestAdminService_DeleteGroupIfEmpty_UsesGuardedCascade(t *testing.T) {
-	repo := &groupRepoStub{deleteErr: ErrGroupNotEmpty}
-	svc := &adminServiceImpl{groupRepo: repo, emptyGroupDeleteRepo: repo}
-
-	err := svc.DeleteGroupIfEmpty(context.Background(), 42)
-	require.ErrorIs(t, err, ErrGroupNotEmpty)
-	require.Equal(t, []int64{42}, repo.guardedCalls)
-	require.Empty(t, repo.deleteCalls)
-}
-
-func TestAdminService_DeleteGroupIfEmpty_MissingCapabilityReturnsError(t *testing.T) {
-	svc := &adminServiceImpl{groupRepo: &groupRepoStub{}}
-
-	require.ErrorContains(t, svc.DeleteGroupIfEmpty(context.Background(), 42), "guarded group deletion is unavailable")
-}
-
 func TestAdminService_DeleteProxy_Success(t *testing.T) {
 	repo := &proxyRepoStub{}
 	svc := &adminServiceImpl{proxyRepo: repo}
@@ -782,8 +610,4 @@ func TestAdminService_BatchDeleteRedeemCodes_PartialFailures(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(2), deleted)
 	require.Equal(t, []int64{1, 2, 3}, repo.deletedIDs)
-}
-
-func (*deleteGroupAPIKeyRepoStub) ExistsBySubscriptionID(context.Context, int64) (bool, error) {
-	return false, nil
 }

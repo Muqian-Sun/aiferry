@@ -69,10 +69,9 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 		{name: "rule on key label does not match", rulePlatform: service.PlatformOpenAI, wantRuleMatch: false},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			group := keyRouteGroup(2201, service.PlatformAnthropic)
-			key := keyRouteAccount(1201, group.ID, service.PlatformOpenAI,
+			key := keyRouteAccount(1201, service.PlatformOpenAI,
 				map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}, "claude-sonnet-4-5")
-			h, cleanup := newTestGatewayHandler(t, group, []*service.Account{key})
+			h, cleanup := newTestGatewayHandler(t, []*service.Account{key})
 			t.Cleanup(cleanup)
 
 			schedulerCache := &fakeSchedulerCache{accounts: []*service.Account{key}}
@@ -99,7 +98,7 @@ func TestGatewayHandlerMessages_FailoverExhaustedPassthroughRuleUsesGatewayPlatf
 			}}}, nil)
 
 			body := []byte(`{"model":"claude-sonnet-4-5","max_tokens":16,"messages":[{"role":"user","content":"hello"}]}`)
-			c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, group, service.APIProtocolAnthropic, "")
+			c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/messages", body, service.APIProtocolAnthropic, "")
 
 			h.Messages(c)
 

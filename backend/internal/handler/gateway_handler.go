@@ -582,7 +582,7 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 			result, err = h.antigravityGatewayService.Forward(requestCtx, c, account, attemptBody, hasBoundSession)
 		case compatForwardOpenAI:
 			// 目录模型按请求名转发（defaultMappedModel 为空）；账号 credentials.model_mapping 在服务层里生效。
-			oaResult, err = h.openAIGatewayService.ForwardAsAnthropic(requestCtx, c, account, attemptBody, promptCacheKey, "")
+			oaResult, err = h.openAIGatewayService.ForwardAsAnthropic(requestCtx, c, account, attemptBody, promptCacheKey)
 		default:
 			result, err = h.gatewayService.Forward(requestCtx, c, account, attemptParsedReq)
 		}

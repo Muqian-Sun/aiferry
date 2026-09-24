@@ -342,9 +342,7 @@ func TestApplyOpenAIFastPolicyToBody_ForcePriorityRewritesKnownTier(t *testing.T
 func TestApplyOpenAIFastPolicyToBody_GroupForceStillHonorsGlobalPolicy(t *testing.T) {
 	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-	ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{
-		ID: 7, Platform: PlatformOpenAI, Status: StatusActive, Hydrated: true, ForceOpenAIFast: true,
-	})
+	ctx := context.Background()
 
 	updated, err := svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.6-sol", []byte(`{"model":"gpt-5.6-sol"}`))
 	require.NoError(t, err)
@@ -356,9 +354,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresHydratedGroup(t *testing.
 	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	body := []byte(`{"model":"gpt-5.6-sol"}`)
-	ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{
-		ID: 7, Platform: PlatformOpenAI, Status: StatusActive, ForceOpenAIFast: true,
-	})
+	ctx := context.Background()
 
 	updated, err := svc.applyOpenAIFastPolicyToBody(ctx, account, "gpt-5.6-sol", body)
 	require.NoError(t, err)
@@ -368,9 +364,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresHydratedGroup(t *testing.
 func TestApplyOpenAIFastPolicyToBody_GroupForceOnlyTargetsOpenAIAccounts(t *testing.T) {
 	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
 	body := []byte(`{"model":"grok-4.1"}`)
-	ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{
-		ID: 7, Platform: PlatformComposite, Status: StatusActive, Hydrated: true, ForceOpenAIFast: true,
-	})
+	ctx := context.Background()
 
 	updated, err := svc.applyOpenAIFastPolicyToBody(
 		ctx,
@@ -385,9 +379,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceOnlyTargetsOpenAIAccounts(t *test
 func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresSupportedGroupPlatform(t *testing.T) {
 	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
 	body := []byte(`{"model":"gpt-5.6-sol"}`)
-	ctx := context.WithValue(context.Background(), ctxkey.Group, &Group{
-		ID: 7, Platform: PlatformAnthropic, Status: StatusActive, Hydrated: true, ForceOpenAIFast: true,
-	})
+	ctx := context.Background()
 
 	updated, err := svc.applyOpenAIFastPolicyToBody(
 		ctx,

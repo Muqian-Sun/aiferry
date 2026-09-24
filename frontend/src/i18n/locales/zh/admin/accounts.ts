@@ -326,15 +326,6 @@ export default {
           go: 'GO',
           goDesc: '订阅制网关，按 5 小时 / 周 / 月滚动用量窗口限流。',
         },
-        protocolRules: {
-          title: '模型协议分流',
-          hint: '自适应模式下按模型匹配上游协议。支持精确 ID 或末尾 * 通配（如 grok-*、qwen*）；自上而下第一条命中生效；未命中走 Chat Completions。',
-          patternPlaceholder: 'grok-* 或 deepseek-v4-flash',
-          add: '添加规则',
-          remove: '删除规则',
-          restoreDefaults: '恢复默认',
-          fallback: '未命中以上规则 → Chat Completions（/v1/chat/completions）',
-        },
       },
       types: {
         oauth: 'OAuth',

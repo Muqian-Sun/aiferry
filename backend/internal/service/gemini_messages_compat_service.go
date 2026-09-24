@@ -43,7 +43,6 @@ const geminiDummyThoughtSignature = "skip_thought_signature_validator"
 
 type GeminiMessagesCompatService struct {
 	accountRepo               AccountRepository
-	groupRepo                 GroupRepository
 	cache                     GatewayCache
 	schedulerSnapshot         *SchedulerSnapshotService
 	tokenProvider             *GeminiTokenProvider
@@ -68,7 +67,6 @@ func (s *GeminiMessagesCompatService) readUpstreamErrorBody(resp *http.Response)
 
 func NewGeminiMessagesCompatService(
 	accountRepo AccountRepository,
-	groupRepo GroupRepository,
 	cache GatewayCache,
 	schedulerSnapshot *SchedulerSnapshotService,
 	tokenProvider *GeminiTokenProvider,
@@ -79,7 +77,6 @@ func NewGeminiMessagesCompatService(
 ) *GeminiMessagesCompatService {
 	return &GeminiMessagesCompatService{
 		accountRepo:               accountRepo,
-		groupRepo:                 groupRepo,
 		cache:                     cache,
 		schedulerSnapshot:         schedulerSnapshot,
 		tokenProvider:             tokenProvider,

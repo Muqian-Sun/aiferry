@@ -22,9 +22,7 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	ClearActualOpenAIUpstreamEndpoint(c)
 	keyProtocol := ""
 	if account.IsThirdPartyKey() {
-		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolResponses, func() string {
-			return resolveOpenCodeGoMappedModel(account, body, "")
-		})
+		protocol, err := resolveOpenAIGatewayKeyProtocol(account, APIProtocolResponses)
 		if err != nil {
 			return nil, err
 		}
@@ -171,9 +169,8 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 		return s.forwardGrokResponses(ctx, c, account, body, originalModel, reqStream, startTime)
 	}
 
-	// Responses 客户端 × Anthropic 上游：转成 Anthropic 请求走原生端点。
 	if keyProtocol == APIProtocolAnthropic {
-		return s.forwardResponsesViaNativeAnthropic(ctx, c, account, body, "")
+		return nil, anthropicUpstreamOnOpenAIGatewayError(account, APIProtocolResponses)
 	}
 	if keyUsesOpenAIProtocolFeatures(account) {
 		if normalized, changed, normalizeErr := normalizeOpenAIParallelToolCallsWithoutTools(body, responsesLite); normalizeErr != nil {

@@ -19,7 +19,7 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 		"base_url": "https://relay.example/v1", "model_mapping": map[string]any{"public-astra": "gpt-6-astra"},
 	}, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://relay.example/v1", APIProtocolResponses: "https://relay.example/v1"}}
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: metadata})
-	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account}, nil, nil, true)
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account})
 	require.NoError(t, err)
 	model := decodeCodexManifestModels(t, body)[0]
 	require.Equal(t, "high", model["multi_agent_reasoning_effort"])
@@ -27,7 +27,7 @@ func TestAstraUltraCatalogPreservesWorkflowMetadata(t *testing.T) {
 	require.Equal(t, []string{"high", "ultra"}, effortsFromManifestModel(t, model))
 
 	peer := Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, Credentials: account.Credentials}
-	body, err = buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account, peer}, nil, nil, true)
+	body, err = buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{account, peer})
 	require.NoError(t, err)
 	model = decodeCodexManifestModels(t, body)[0]
 	require.Nil(t, model["multi_agent_reasoning_effort"], "do not advertise one account's override for all peers")
@@ -87,7 +87,7 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 		{"implemented chat bridge", []Account{bridge}, true},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, tt.accounts, nil, nil, true)
+			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, tt.accounts)
 			require.NoError(t, err)
 			model := decodeCodexManifestModels(t, body)[0]
 			require.Equal(t, "public-astra", model["slug"])
@@ -105,7 +105,7 @@ func TestAstraCodexToolCapabilitiesUseAccountScopeAndSharedDeclarations(t *testi
 			"comp_hash": json.RawMessage(`"3000"`), "tool_mode": json.RawMessage("null"), "use_responses_lite": json.RawMessage("false"),
 		}},
 	}})
-	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{official, custom}, nil, nil, true)
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"public-astra"}, []Account{official, custom})
 	require.NoError(t, err)
 	model := decodeCodexManifestModels(t, body)[0]
 	require.Equal(t, true, model["supports_search_tool"])
@@ -175,9 +175,7 @@ func TestBuildCodexModelsManifestForGroupAdvertisesSearchOnlyForChatBridgeRoutes
 		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
-			body, err := buildCodexModelsManifestForAccounts(
-				PlatformOpenAI, []string{"company-coding-model"}, tc.accounts, nil, nil, true,
-			)
+			body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"company-coding-model"}, tc.accounts)
 			require.NoError(t, err)
 			models := decodeCodexManifestModels(t, body)
 			require.Len(t, models, 1)
@@ -271,9 +269,7 @@ func TestBuildCodexModelsManifestForGroupIntersectsDifferentMappedTargetsWithout
 	)
 
 	for _, accounts := range [][]Account{{openAIAccount, arkAccount}, {arkAccount, openAIAccount}} {
-		svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{byGroup: map[int64][]Account{
-			groupID: accounts,
-		}}}
+		svc := &GatewayService{accountRepo: codexModelsVisibilityAccountRepo{accounts: accounts}}
 		body, err := buildCodexManifestFromCatalogForTest(svc, "my-coder")
 		require.NoError(t, err)
 		models := decodeCodexManifestModels(t, body)
@@ -400,7 +396,7 @@ func TestAstraCodexToolCapabilitiesKeepAPIKeyResponsesLiteGuard(t *testing.T) {
 	account.SetUpstreamModelMetadataSnapshot(UpstreamModelMetadataSnapshot{Models: map[string]UpstreamModelMetadata{
 		"gpt-6-astra": {CodexToolCapabilities: map[string]json.RawMessage{"use_responses_lite": json.RawMessage("true")}},
 	}})
-	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"my-astra"}, []Account{account}, nil, nil, true)
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"my-astra"}, []Account{account})
 	require.NoError(t, err)
 	require.Equal(t, false, decodeCodexManifestModels(t, body)[0]["use_responses_lite"])
 	body, err = adjustAPIKeyCodexModelsManifest([]byte(`{"models":[{"slug":"my-astra","use_responses_lite":true}]}`), &account)
@@ -409,11 +405,9 @@ func TestAstraCodexToolCapabilitiesKeepAPIKeyResponsesLiteGuard(t *testing.T) {
 }
 
 // Scenario: an OpenAI group keeps a failover account whose mapping points the
-// shared public alias at a different upstream model. Without an explicit routing
-// rule the alias target is ambiguous and capabilities must fail closed; with one,
-// the operator has declared who serves the alias, so the reasoning slider and
-// image input must survive.
-func TestCodexAliasFailoverMappingHonorsModelRouting(t *testing.T) {
+// shared public alias at a different upstream model. The alias target is then
+// ambiguous, so capabilities must fail closed.
+func TestCodexAliasFailoverMappingFailsClosed(t *testing.T) {
 	newAccount := func(id int64, target string, priority int) Account {
 		return Account{
 			ID:       id,
@@ -433,81 +427,22 @@ func TestCodexAliasFailoverMappingHonorsModelRouting(t *testing.T) {
 	failover := newAccount(1, "gpt-5.6-sol", 10)
 	accounts := []Account{primary, failover}
 
+	body, err := buildCodexModelsManifestForAccounts(PlatformOpenAI, []string{"gpt-6-astra"}, accounts)
+	require.NoError(t, err)
+	models := decodeCodexManifestModels(t, body)
+	require.Len(t, models, 1)
+	model := models[0]
+	require.Equal(t, "gpt-6-astra", model["slug"])
+
 	// supported_reasoning_levels entries are {effort, description} objects; the
 	// slider only cares about the effort names.
-	manifestFieldsOf := func(t *testing.T, group *Group) ([]string, any, any) {
-		t.Helper()
-		body, err := buildCodexModelsManifestForAccounts(
-			PlatformOpenAI, []string{"gpt-6-astra"}, accounts, group, nil, true,
-		)
-		require.NoError(t, err)
-		models := decodeCodexManifestModels(t, body)
-		require.Len(t, models, 1)
-		model := models[0]
-		require.Equal(t, "gpt-6-astra", model["slug"])
-		var efforts []string
-		levels, _ := model["supported_reasoning_levels"].([]any)
-		for _, level := range levels {
-			entry, ok := level.(map[string]any)
-			require.True(t, ok, "reasoning level entry must be an object")
-			effort, ok := entry["effort"].(string)
-			require.True(t, ok, "reasoning level entry must carry an effort name")
-			efforts = append(efforts, effort)
-		}
-		return efforts, model["default_reasoning_level"], model["input_modalities"]
-	}
-
-	t.Run("no routing rule still fails closed", func(t *testing.T) {
-		levels, def, modalities := manifestFieldsOf(t, nil)
-		require.Empty(t, levels, "ambiguous alias target must not advertise reasoning levels")
-		require.Nil(t, def)
-		require.Equal(t, []any{"text", "image"}, modalities,
-			"image input is resolved per-account independently of routing rules")
-	})
-
-	t.Run("routing rule resolves the alias", func(t *testing.T) {
-		group := &Group{
-			ID:                  2,
-			Platform:            PlatformOpenAI,
-			ModelRoutingEnabled: true,
-			ModelRouting:        map[string][]int64{"gpt-6-astra": {16, 1}},
-		}
-		levels, def, modalities := manifestFieldsOf(t, group)
-		require.Equal(t,
-			[]string{"low", "medium", "high", "xhigh", "max", "ultra"},
-			levels,
-			"routed alias must keep a movable reasoning slider",
-		)
-		require.Equal(t, "medium", def)
-		require.Contains(t, modalities, "image")
-	})
-
-	t.Run("routing disabled falls back to failing closed", func(t *testing.T) {
-		group := &Group{
-			ID:                  2,
-			Platform:            PlatformOpenAI,
-			ModelRoutingEnabled: false,
-			ModelRouting:        map[string][]int64{"gpt-6-astra": {16, 1}},
-		}
-		levels, _, _ := manifestFieldsOf(t, group)
-		require.Empty(t, levels, "a disabled routing rule must not resolve the alias")
-	})
-
-	t.Run("routing rule for another alias does not leak", func(t *testing.T) {
-		group := &Group{
-			ID:                  2,
-			Platform:            PlatformOpenAI,
-			ModelRoutingEnabled: true,
-			ModelRouting:        map[string][]int64{"gpt-5.6-sol": {1}},
-		}
-		levels, _, _ := manifestFieldsOf(t, group)
-		require.Empty(t, levels, "unrelated routing rules must not resolve this alias")
-	})
+	levels, _ := model["supported_reasoning_levels"].([]any)
+	require.Empty(t, levels, "ambiguous alias target must not advertise reasoning levels")
+	require.Nil(t, model["default_reasoning_level"])
+	require.Equal(t, []any{"text", "image"}, model["input_modalities"],
+		"image input is resolved per-account independently of alias ambiguity")
 }
 
-// Scenario: mixed groups prefer capability metadata synced for the routed account.
-
-// accountCodexToolCapabilities 不看第三方 key 的平台标签。
 func TestAccountCodexToolCapabilities_KeysIgnoreLabel(t *testing.T) {
 	t.Run("chat bridge search tool for any label", func(t *testing.T) {
 		bridge := &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey,

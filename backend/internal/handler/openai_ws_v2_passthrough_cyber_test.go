@@ -36,10 +36,9 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 		service.SettingKeyCyberSessionBlockTTLSeconds: "60",
 	}}
 	moderationRepo := &contentModerationHandlerTestRepo{}
-	moderationSvc := service.NewContentModerationService(settingRepo, moderationRepo, nil, nil, nil, nil, nil, nil)
+	moderationSvc := service.NewContentModerationService(settingRepo, moderationRepo, nil, nil, nil, nil, nil)
 	settingSvc := service.NewSettingService(settingRepo, nil)
 
-	groupID := int64(4301)
 	account := service.Account{
 		ProtocolEndpoints: map[string]string{
 			service.APIProtocolChatCompletions: upstreamURL,
@@ -79,7 +78,7 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 		accountRepo, usageRepo, nil, nil, nil, gatewayCache, cfg, nil, nil,
 		service.NewBillingService(cfg, nil), nil, billingCacheSvc, nil, &service.DeferredService{},
 		nil, nil, nil, nil, settingSvc,
-		newTestSchedulerOverRepo(cfg, accountRepo, testOpenAIGroup(groupID)),
+		newTestSchedulerOverRepo(cfg, accountRepo),
 	)
 	concurrencyCache := &concurrencyCacheMock{
 		acquireUserSlotFn:    func(context.Context, int64, int, string) (bool, error) { return true, nil },
@@ -95,11 +94,10 @@ func newOpenAIWSPassthroughHandlerHarness(t *testing.T, upstreamURL string) *ope
 	}
 
 	apiKey := &service.APIKey{
-		ID:      1851,
-		Name:    "ws-cyber-key",
-		Key:     "sk-handler-cyber-test",
-		GroupID: &groupID,
-		User:    &service.User{ID: 1751, Status: service.StatusActive},
+		ID:   1851,
+		Name: "ws-cyber-key",
+		Key:  "sk-handler-cyber-test",
+		User: &service.User{ID: 1751, Status: service.StatusActive},
 	}
 	handlerDone := make(chan struct{})
 	router := gin.New()

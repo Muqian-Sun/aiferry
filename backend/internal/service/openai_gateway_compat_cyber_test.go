@@ -60,7 +60,7 @@ func TestForwardAsChatCompletions_BufferedCyberPolicyNoFailover(t *testing.T) {
 
 	svc := &OpenAIGatewayService{httpUpstream: compatCyberUpstreamRecorder()}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, compatCyberOAuthAccount(), body, "", "gpt-5.5")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, compatCyberOAuthAccount(), body, "")
 	require.Error(t, err)
 	require.Nil(t, result, "cyber must drop result so handler writes tokens=0 free row, not RecordUsage")
 	var failoverErr *UpstreamFailoverError
@@ -83,7 +83,7 @@ func TestForwardAsChatCompletions_StreamCyberPolicyDropsResult(t *testing.T) {
 
 	svc := &OpenAIGatewayService{httpUpstream: compatCyberUpstreamRecorder()}
 
-	result, err := svc.ForwardAsChatCompletions(context.Background(), c, compatCyberOAuthAccount(), body, "", "gpt-5.5")
+	result, err := svc.ForwardAsChatCompletions(context.Background(), c, compatCyberOAuthAccount(), body, "")
 	require.Error(t, err)
 	require.Nil(t, result, "cyber must drop result so handler does not bill via RecordUsage")
 	var failoverErr *UpstreamFailoverError
@@ -103,7 +103,7 @@ func TestForwardAsAnthropic_BufferedCyberPolicyNoFailover(t *testing.T) {
 
 	svc := &OpenAIGatewayService{httpUpstream: compatCyberUpstreamRecorder()}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, compatCyberOAuthAccount(), body, "", "gpt-5.5")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, compatCyberOAuthAccount(), body, "")
 	require.Error(t, err)
 	require.Nil(t, result, "cyber must drop result so handler writes tokens=0 free row")
 	var failoverErr *UpstreamFailoverError
@@ -126,7 +126,7 @@ func TestForwardAsAnthropic_StreamCyberPolicyNoFailover(t *testing.T) {
 
 	svc := &OpenAIGatewayService{httpUpstream: compatCyberUpstreamRecorder()}
 
-	result, err := svc.ForwardAsAnthropic(context.Background(), c, compatCyberOAuthAccount(), body, "", "gpt-5.5")
+	result, err := svc.ForwardAsAnthropic(context.Background(), c, compatCyberOAuthAccount(), body, "")
 	require.Error(t, err)
 	require.Nil(t, result, "cyber must drop result so handler does not bill via RecordUsage")
 	var failoverErr *UpstreamFailoverError

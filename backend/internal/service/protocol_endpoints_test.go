@@ -18,16 +18,25 @@ func TestNormalizeProtocolEndpoints(t *testing.T) {
 		require.Equal(t, map[string]string{}, got)
 	})
 
-	t.Run("四种具体协议都接受", func(t *testing.T) {
-		in := map[string]string{
-			APIProtocolAnthropic:       "https://relay.example.com",
-			APIProtocolChatCompletions: "https://relay.example.com/v1",
-			APIProtocolResponses:       "https://relay.example.com",
-			APIProtocolGemini:          "https://relay.example.com/gemini",
+	t.Run("四种具体协议都接受（各自单独配）", func(t *testing.T) {
+		for _, protocol := range UpstreamProtocols() {
+			got, err := NormalizeProtocolEndpoints(map[string]string{protocol: "https://relay.example.com"})
+			require.NoError(t, err, protocol)
+			require.Equal(t, map[string]string{protocol: "https://relay.example.com"}, got)
 		}
-		got, err := NormalizeProtocolEndpoints(in)
-		require.NoError(t, err)
-		require.Len(t, got, 4)
+	})
+
+	// 一个资源只承接一个上游协议：一个 key 多个模型、一个协议；同一渠道要多协议就配多个 key。
+	// 配两个地址时选号侧与转发侧会按不同依据各挑一个，口径不一致，必须在配置入口挡住。
+	t.Run("配多个协议地址报错", func(t *testing.T) {
+		_, err := NormalizeProtocolEndpoints(map[string]string{
+			APIProtocolAnthropic: "https://relay.example.com",
+			APIProtocolResponses: "https://relay.example.com/v1",
+		})
+		require.Error(t, err)
+		require.Contains(t, err.Error(), "exactly one upstream protocol")
+		require.Contains(t, err.Error(), APIProtocolAnthropic)
+		require.Contains(t, err.Error(), APIProtocolResponses)
 	})
 
 	t.Run("去掉首尾空白与末尾斜杠", func(t *testing.T) {

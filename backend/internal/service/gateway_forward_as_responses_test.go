@@ -117,6 +117,31 @@ func TestHandleResponsesBufferedStreamingResponse_RestoresNamespaceTool(t *testi
 	require.NotContains(t, rec.Body.String(), `"name":"codex_app__read_thread"`)
 }
 
+// toolAnthropicSSEStream 是一段带 tool_use 的 Anthropic SSE，原先与 native 桥接用例
+// 同住一个文件；native 桥接删掉后只剩下面这一个消费者，跟着搬过来。
+func toolAnthropicSSEStream() string {
+	return strings.Join([]string{
+		"event: message_start",
+		`data: {"type":"message_start","message":{"id":"msg_tool","type":"message","role":"assistant","content":[],"model":"glm-4.7","usage":{"input_tokens":10}}}`,
+		"",
+		"event: content_block_start",
+		`data: {"type":"content_block_start","index":0,"content_block":{"type":"tool_use","id":"toolu_1","name":"lookup","input":{}}}`,
+		"",
+		"event: content_block_delta",
+		`data: {"type":"content_block_delta","index":0,"delta":{"type":"input_json_delta","partial_json":"{\"query\":\"status\"}"}}`,
+		"",
+		"event: content_block_stop",
+		`data: {"type":"content_block_stop","index":0}`,
+		"",
+		"event: message_delta",
+		`data: {"type":"message_delta","delta":{"stop_reason":"tool_use"},"usage":{"output_tokens":5}}`,
+		"",
+		"event: message_stop",
+		`data: {"type":"message_stop"}`,
+		"",
+	}, "\n")
+}
+
 func TestHandleResponsesBufferedStreamingResponse_ToolArgumentsAreValidJSON(t *testing.T) {
 	t.Parallel()
 	gin.SetMode(gin.TestMode)

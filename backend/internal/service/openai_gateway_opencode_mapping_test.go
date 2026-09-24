@@ -14,33 +14,26 @@ import (
 	"github.com/tidwall/gjson"
 )
 
-func openCodeMappedTestAccount() *Account {
+// openCodeMappedTestAccount 造一个只配单个协议地址的 OpenCode key —— 一个资源只承接
+// 一个上游协议（NormalizeProtocolEndpoints 在配置入口强制），要多协议就配多个 key。
+func openCodeMappedTestAccount(id int64, protocol, baseURL string) *Account {
 	return &Account{
-		ID:          801,
+		ID:          id,
 		Name:        "oc",
 		Platform:    PlatformOpenCodeGo,
 		Type:        AccountTypeAPIKey,
 		Concurrency: 1,
 		Credentials: map[string]any{
-			"api_key":      "sk-opencode",
-			"account_mode": AccountModeZen,
-			"base_url":     "https://opencode.ai/zen/v1",
-			"api_base_urls": map[string]any{
-				APIProtocolChatCompletions: "https://opencode.ai/zen/v1",
-				APIProtocolAnthropic:       "https://opencode.ai/zen",
-				APIProtocolResponses:       "https://opencode.ai/zen/v1",
-			},
+			"api_key":       "sk-opencode",
+			"account_mode":  AccountModeZen,
+			"base_url":      baseURL,
+			"api_base_urls": map[string]any{protocol: baseURL},
 			"model_mapping": map[string]any{
 				"opencode/muse-spark-1.3-contributior-free": "muse-spark-1.3-contributior-free",
-				"opencode/claude-sonnet-4":                  "claude-sonnet-4",
 				"opencode/glm-5.3":                          "glm-5.3",
 			},
 		},
-		ProtocolEndpoints: map[string]string{
-			APIProtocolChatCompletions: "https://opencode.ai/zen/v1",
-			APIProtocolAnthropic:       "https://opencode.ai/zen",
-			APIProtocolResponses:       "https://opencode.ai/zen/v1",
-		},
+		ProtocolEndpoints: map[string]string{protocol: baseURL},
 	}
 }
 
@@ -49,6 +42,8 @@ func TestOpenCodeGatewayAppliesMappedModelOnAllIngresses(t *testing.T) {
 
 	tests := []struct {
 		name         string
+		protocol     string
+		baseURL      string
 		path         string
 		body         string
 		wantURL      string
@@ -59,6 +54,8 @@ func TestOpenCodeGatewayAppliesMappedModelOnAllIngresses(t *testing.T) {
 	}{
 		{
 			name:         "responses muse-spark",
+			protocol:     APIProtocolResponses,
+			baseURL:      "https://opencode.ai/zen/v1",
 			path:         "/v1/responses",
 			body:         `{"model":"opencode/muse-spark-1.3-contributior-free","stream":false,"input":"hi"}`,
 			wantURL:      "https://opencode.ai/zen/v1/responses",
@@ -79,6 +76,8 @@ func TestOpenCodeGatewayAppliesMappedModelOnAllIngresses(t *testing.T) {
 		},
 		{
 			name:         "chat completions glm",
+			protocol:     APIProtocolChatCompletions,
+			baseURL:      "https://opencode.ai/zen/v1",
 			path:         "/v1/chat/completions",
 			body:         `{"model":"opencode/glm-5.3","stream":false,"messages":[{"role":"user","content":"hi"}]}`,
 			wantURL:      "https://opencode.ai/zen/v1/chat/completions",
@@ -92,20 +91,7 @@ func TestOpenCodeGatewayAppliesMappedModelOnAllIngresses(t *testing.T) {
 				)),
 			},
 			forward: func(svc *OpenAIGatewayService, c *gin.Context, account *Account, body []byte) error {
-				_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "", "")
-				return err
-			},
-		},
-		{
-			name:         "messages claude",
-			path:         "/v1/messages",
-			body:         `{"model":"opencode/claude-sonnet-4","max_tokens":32,"stream":false,"messages":[{"role":"user","content":"hi"}]}`,
-			wantURL:      "https://opencode.ai/zen/v1/messages",
-			wantModel:    "claude-sonnet-4",
-			wantNotModel: "opencode/claude-sonnet-4",
-			upstream:     nativeAnthropicBufferedResponse(),
-			forward: func(svc *OpenAIGatewayService, c *gin.Context, account *Account, body []byte) error {
-				_, err := svc.ForwardAsAnthropic(context.Background(), c, account, body, "", "")
+				_, err := svc.ForwardAsChatCompletions(context.Background(), c, account, body, "")
 				return err
 			},
 		},
@@ -117,7 +103,8 @@ func TestOpenCodeGatewayAppliesMappedModelOnAllIngresses(t *testing.T) {
 			svc := &OpenAIGatewayService{cfg: rawChatCompletionsTestConfig(), httpUpstream: upstream}
 			c := adaptiveProtocolTestContext(tt.path, []byte(tt.body))
 
-			err := tt.forward(svc, c, openCodeMappedTestAccount(), []byte(tt.body))
+			account := openCodeMappedTestAccount(801, tt.protocol, tt.baseURL)
+			err := tt.forward(svc, c, account, []byte(tt.body))
 			require.NoError(t, err)
 			require.NotNil(t, upstream.lastReq)
 			require.Equal(t, tt.wantURL, upstream.lastReq.URL.String())

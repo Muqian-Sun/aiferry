@@ -128,10 +128,6 @@ func TestGatewaySelectAccountWithLoadAwareness_SkipsAntigravityGeminiFamilyRateL
 				Schedulable: true,
 				Concurrency: 1,
 				Priority:    1,
-				AccountGroups: []AccountGroup{
-					{AccountID: 1, GroupID: 22},
-				},
-				GroupIDs: []int64{22},
 				Extra: map[string]any{
 					"mixed_scheduling": true,
 					modelRateLimitsKey: map[string]any{
@@ -149,10 +145,6 @@ func TestGatewaySelectAccountWithLoadAwareness_SkipsAntigravityGeminiFamilyRateL
 				Schedulable: true,
 				Concurrency: 1,
 				Priority:    2,
-				AccountGroups: []AccountGroup{
-					{AccountID: 2, GroupID: 22},
-				},
-				GroupIDs: []int64{22},
 				Extra: map[string]any{
 					"mixed_scheduling": true,
 				},

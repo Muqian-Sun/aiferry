@@ -240,77 +240,8 @@ export function isOpenCodeGoPlatform(platform: string): boolean {
   return platform === 'opencode_go'
 }
 
-export const OPENCODE_GO_PROTOCOL_RULES_KEY = 'protocol_rules'
-
-export interface OpenCodeGoProtocolRule {
-  pattern: string
-  protocol: CnNativeApiProtocol
-}
-
-export const DEFAULT_OPENCODE_GO_PROTOCOL_RULES: OpenCodeGoProtocolRule[] = [
-  { pattern: 'grok-*', protocol: 'responses' },
-  { pattern: 'gpt-*', protocol: 'responses' },
-  { pattern: 'muse-spark-*', protocol: 'responses' },
-  { pattern: 'minimax-*', protocol: 'anthropic' },
-  { pattern: 'qwen*', protocol: 'anthropic' }
-]
-
-export const DEFAULT_OPENCODE_ZEN_PROTOCOL_RULES: OpenCodeGoProtocolRule[] = [
-  { pattern: 'grok-*', protocol: 'responses' },
-  { pattern: 'gpt-*', protocol: 'responses' },
-  { pattern: 'muse-spark-*', protocol: 'responses' },
-  { pattern: 'claude-*', protocol: 'anthropic' },
-  { pattern: 'qwen*', protocol: 'anthropic' }
-]
-
 export function resolveOpenCodeAccountMode(value: unknown): OpenCodeAccountMode {
   return value === 'zen' ? 'zen' : 'go'
-}
-
-export function defaultOpenCodeProtocolRules(mode: OpenCodeAccountMode = 'go'): OpenCodeGoProtocolRule[] {
-  return mode === 'zen' ? DEFAULT_OPENCODE_ZEN_PROTOCOL_RULES : DEFAULT_OPENCODE_GO_PROTOCOL_RULES
-}
-
-export function cloneOpenCodeGoProtocolRules(
-  rules: OpenCodeGoProtocolRule[] = DEFAULT_OPENCODE_GO_PROTOCOL_RULES
-): OpenCodeGoProtocolRule[] {
-  return rules.map(rule => ({ pattern: rule.pattern, protocol: rule.protocol }))
-}
-
-function isNativeOpenCodeGoProtocol(value: unknown): value is CnNativeApiProtocol {
-  return value === 'chat_completions' || value === 'anthropic' || value === 'responses'
-}
-
-export function parseOpenCodeGoProtocolRules(raw: unknown): OpenCodeGoProtocolRule[] | null {
-  if (raw == null) return null
-  if (!Array.isArray(raw)) return cloneOpenCodeGoProtocolRules()
-  const rules: OpenCodeGoProtocolRule[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const pattern = typeof (item as { pattern?: unknown }).pattern === 'string'
-      ? (item as { pattern: string }).pattern.trim()
-      : ''
-    const protocol = (item as { protocol?: unknown }).protocol
-    if (!pattern || !isNativeOpenCodeGoProtocol(protocol)) continue
-    rules.push({ pattern, protocol })
-  }
-  return rules
-}
-
-export function applyOpenCodeGoProtocolRules(
-  credentials: Record<string, unknown>,
-  rules: OpenCodeGoProtocolRule[],
-  mode: 'create' | 'edit'
-): void {
-  const serialized = rules
-    .map(rule => ({
-      pattern: rule.pattern.trim().toLowerCase(),
-      protocol: rule.protocol
-    }))
-    .filter(rule => rule.pattern.length > 0 && isNativeOpenCodeGoProtocol(rule.protocol))
-  if (serialized.length > 0 || mode === 'edit') {
-    credentials[OPENCODE_GO_PROTOCOL_RULES_KEY] = serialized
-  }
 }
 
 export function isMultiProtocolApiKeyPlatform(platform: string): boolean {

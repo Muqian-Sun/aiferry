@@ -47,7 +47,6 @@ type accountRepoStubForBulkUpdate struct {
 		accountType string
 		status      string
 		search      string
-		groupID     int64
 		privacyMode string
 	}
 }
@@ -82,18 +81,6 @@ func (s *accountRepoStubForBulkUpdate) Update(_ context.Context, account *Accoun
 	return s.updateErr
 }
 
-func (s *accountRepoStubForBulkUpdate) BindGroups(_ context.Context, accountID int64, groupIDs []int64) error {
-	s.bindGroupsCalls = append(s.bindGroupsCalls, accountID)
-	if s.bindGroupsByAccount == nil {
-		s.bindGroupsByAccount = make(map[int64][]int64)
-	}
-	s.bindGroupsByAccount[accountID] = append([]int64{}, groupIDs...)
-	if err, ok := s.bindGroupErrByID[accountID]; ok {
-		return err
-	}
-	return nil
-}
-
 func (s *accountRepoStubForBulkUpdate) GetByIDs(_ context.Context, ids []int64) ([]*Account, error) {
 	s.getByIDsCalled = true
 	s.getByIDsIDs = append([]int64{}, ids...)
@@ -114,28 +101,17 @@ func (s *accountRepoStubForBulkUpdate) GetByID(_ context.Context, id int64) (*Ac
 	return nil, errors.New("account not found")
 }
 
-func (s *accountRepoStubForBulkUpdate) ListByGroup(_ context.Context, groupID int64) ([]Account, error) {
-	if err, ok := s.listByGroupErr[groupID]; ok {
-		return nil, err
-	}
-	if rows, ok := s.listByGroupData[groupID]; ok {
-		return rows, nil
-	}
+func (s *accountRepoStubForBulkUpdate) ListAllWithFilters(context.Context, string, string, string, string, string) ([]Account, error) {
 	return nil, nil
 }
 
-func (s *accountRepoStubForBulkUpdate) ListAllWithFilters(context.Context, string, string, string, string, int64, string) ([]Account, error) {
-	return nil, nil
-}
-
-func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, groupID int64, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
+func (s *accountRepoStubForBulkUpdate) ListWithFilters(_ context.Context, params pagination.PaginationParams, platform, accountType, status, search string, privacyMode string) ([]Account, *pagination.PaginationResult, error) {
 	s.listCalled = true
 	s.lastListParams = params
 	s.lastListFilters.platform = platform
 	s.lastListFilters.accountType = accountType
 	s.lastListFilters.status = status
 	s.lastListFilters.search = search
-	s.lastListFilters.groupID = groupID
 	s.lastListFilters.privacyMode = privacyMode
 	if s.listErr != nil {
 		return nil, nil, s.listErr
@@ -198,84 +174,6 @@ func TestAdminService_BulkUpdateAccounts_RejectsRateChangeForSyncedAccounts(t *t
 	require.Empty(t, repo.bulkUpdateIDs, "rate conflict must be rejected before any write")
 }
 
-// TestAdminService_BulkUpdateAccounts_PartialFailureIDs 验证部分失败时 success_ids/failed_ids 正确。
-func TestAdminService_BulkUpdateAccounts_PartialFailureIDs(t *testing.T) {
-	repo := &accountRepoStubForBulkUpdate{
-		bindGroupErrByID: map[int64]error{
-			2: errors.New("bind failed"),
-		},
-	}
-	svc := &adminServiceImpl{
-		accountRepo: repo,
-		groupRepo:   &groupRepoStubForAdmin{getByID: &Group{ID: 10, Name: "g10"}},
-	}
-
-	groupIDs := []int64{10}
-	schedulable := false
-	input := &BulkUpdateAccountsInput{
-		AccountIDs:            []int64{1, 2, 3},
-		GroupIDs:              &groupIDs,
-		Schedulable:           &schedulable,
-		SkipMixedChannelCheck: true,
-	}
-
-	result, err := svc.BulkUpdateAccounts(context.Background(), input)
-	require.NoError(t, err)
-	require.Equal(t, 2, result.Success)
-	require.Equal(t, 1, result.Failed)
-	require.ElementsMatch(t, []int64{1, 3}, result.SuccessIDs)
-	require.ElementsMatch(t, []int64{2}, result.FailedIDs)
-	require.Len(t, result.Results, 3)
-}
-
-func TestAdminService_BulkUpdateAccounts_NilGroupRepoReturnsError(t *testing.T) {
-	repo := &accountRepoStubForBulkUpdate{}
-	svc := &adminServiceImpl{accountRepo: repo}
-
-	groupIDs := []int64{10}
-	input := &BulkUpdateAccountsInput{
-		AccountIDs: []int64{1},
-		GroupIDs:   &groupIDs,
-	}
-
-	result, err := svc.BulkUpdateAccounts(context.Background(), input)
-	require.Nil(t, result)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "group repository not configured")
-}
-
-// TestAdminService_BulkUpdateAccounts_MixedChannelPreCheckBlocksOnExistingConflict verifies
-// that the global pre-check detects a conflict with existing group members and returns an
-// error before any DB write is performed.
-func TestAdminService_BulkUpdateAccounts_MixedChannelPreCheckBlocksOnExistingConflict(t *testing.T) {
-	repo := &accountRepoStubForBulkUpdate{
-		getByIDsAccounts: []*Account{
-			{ID: 1, Platform: PlatformAntigravity},
-		},
-		// Group 10 already contains an Anthropic account.
-		listByGroupData: map[int64][]Account{
-			10: {{ID: 99, Platform: PlatformAnthropic}},
-		},
-	}
-	svc := &adminServiceImpl{
-		accountRepo: repo,
-		groupRepo:   &groupRepoStubForAdmin{getByID: &Group{ID: 10, Name: "target-group"}},
-	}
-
-	groupIDs := []int64{10}
-	input := &BulkUpdateAccountsInput{
-		AccountIDs: []int64{1},
-		GroupIDs:   &groupIDs,
-	}
-
-	result, err := svc.BulkUpdateAccounts(context.Background(), input)
-	require.Nil(t, result)
-	require.Error(t, err)
-	require.Contains(t, err.Error(), "mixed channel")
-	// No BindGroups should have been called since the check runs before any write.
-	require.Empty(t, repo.bindGroupsCalls)
-}
-
 func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	repo := &accountRepoStubForBulkUpdate{
 		listData: []Account{
@@ -311,7 +209,6 @@ func TestAdminServiceBulkUpdateAccounts_ResolvesIDsFromFilters(t *testing.T) {
 	require.Equal(t, AccountTypeOAuth, repo.lastListFilters.accountType)
 	require.Equal(t, StatusActive, repo.lastListFilters.status)
 	require.Equal(t, "bulk-target", repo.lastListFilters.search)
-	require.Equal(t, int64(12), repo.lastListFilters.groupID)
 	require.Equal(t, PrivacyModeCFBlocked, repo.lastListFilters.privacyMode)
 	require.Equal(t, []int64{7, 11}, repo.bulkUpdateIDs)
 	require.Equal(t, 2, result.Success)
