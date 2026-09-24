@@ -58,11 +58,12 @@ func hashLiveCallID(callID string) string {
 	return hex.EncodeToString(sum[:])
 }
 
-func liveGroupID(groupID *int64) int64 {
-	if groupID == nil {
+// liveNullableID 把可空 ID 压成 0，供 Redis 里的定长记录字段使用。
+func liveNullableID(id *int64) int64 {
+	if id == nil {
 		return 0
 	}
-	return *groupID
+	return *id
 }
 
 func liveOptionalID(value int64) *int64 {
@@ -211,8 +212,7 @@ func (s *OpenAIGatewayService) CreateLiveCall(
 			AccountID:             account.ID,
 			APIKeyID:              identity.APIKeyID,
 			UserID:                identity.UserID,
-			GroupID:               liveGroupID(identity.GroupID),
-			SubscriptionID:        liveGroupID(identity.SubscriptionID),
+			SubscriptionID:        liveNullableID(identity.SubscriptionID),
 			LeaseID:               leaseID,
 			Model:                 model,
 			CreatedAt:             now,
@@ -471,8 +471,7 @@ func (s *OpenAIGatewayService) GetLiveCallForIdentity(
 	}
 	if record.CallID != callID ||
 		record.APIKeyID != identity.APIKeyID ||
-		record.UserID != identity.UserID ||
-		record.GroupID != liveGroupID(identity.GroupID) {
+		record.UserID != identity.UserID {
 		return nil, ErrLiveIdentityMismatch
 	}
 	if record.Controller == LiveControllerClosed {

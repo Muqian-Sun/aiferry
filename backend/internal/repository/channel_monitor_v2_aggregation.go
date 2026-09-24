@@ -295,18 +295,18 @@ WITH dedup AS (
   INSERT INTO channel_monitor_v2_metrics_1m (bucket_start, platform, model, error_requests, upstream_affected_requests, upstream_attempt_count, computed_at)
   SELECT bucket_start, platform, model, COUNT(*), COUNT(*) FILTER (WHERE upstream_affected), SUM(upstream_attempts), NOW()
   FROM classified GROUP BY 1,2,3
-  ON CONFLICT (bucket_start, platform, group_id, model) DO UPDATE SET
+  ON CONFLICT (bucket_start, platform, model) DO UPDATE SET
     error_requests = EXCLUDED.error_requests, upstream_affected_requests = EXCLUDED.upstream_affected_requests,
     upstream_attempt_count = EXCLUDED.upstream_attempt_count, computed_at = NOW()
 ), user_rows AS (
   INSERT INTO channel_monitor_v2_user_metrics_1m (bucket_start, platform, model, user_id, error_requests, computed_at)
   SELECT bucket_start, platform, model, user_id, COUNT(*), NOW()
   FROM classified WHERE user_id IS NOT NULL GROUP BY 1,2,3,4
-  ON CONFLICT (bucket_start, platform, group_id, model, user_id) DO UPDATE SET error_requests = EXCLUDED.error_requests, computed_at = NOW()
+  ON CONFLICT (bucket_start, platform, model, user_id) DO UPDATE SET error_requests = EXCLUDED.error_requests, computed_at = NOW()
 )
 INSERT INTO channel_monitor_v2_error_metrics_1m (bucket_start, platform, model, error_category, taxonomy_version, error_requests)
 SELECT bucket_start, platform, model, category, 1, COUNT(*) FROM classified GROUP BY 1,2,3,4
-ON CONFLICT (bucket_start, platform, group_id, model, error_category, taxonomy_version)
+ON CONFLICT (bucket_start, platform, model, error_category, taxonomy_version)
 DO UPDATE SET error_requests = EXCLUDED.error_requests`
 
 // Floor matches channelMonitorV2RetentionMax (90d). Keep the INTERVAL literal in

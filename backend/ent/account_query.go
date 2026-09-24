@@ -14,8 +14,6 @@ import (
 	"entgo.io/ent/dialect/sql/sqlgraph"
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
-	"github.com/Wei-Shaw/sub2api/ent/accountgroup"
-	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogbinding"
 	"github.com/Wei-Shaw/sub2api/ent/modelcatalogentry"
 	"github.com/Wei-Shaw/sub2api/ent/predicate"
@@ -30,13 +28,11 @@ type AccountQuery struct {
 	order               []account.OrderOption
 	inters              []Interceptor
 	predicates          []predicate.Account
-	withGroups          *GroupQuery
 	withProxy           *ProxyQuery
 	withParent          *AccountQuery
 	withChildren        *AccountQuery
 	withUsageLogs       *UsageLogQuery
 	withCatalogEntries  *ModelCatalogEntryQuery
-	withAccountGroups   *AccountGroupQuery
 	withCatalogBindings *ModelCatalogBindingQuery
 	modifiers           []func(*sql.Selector)
 	// intermediate query (i.e. traversal path).
@@ -73,28 +69,6 @@ func (_q *AccountQuery) Unique(unique bool) *AccountQuery {
 func (_q *AccountQuery) Order(o ...account.OrderOption) *AccountQuery {
 	_q.order = append(_q.order, o...)
 	return _q
-}
-
-// QueryGroups chains the current query on the "groups" edge.
-func (_q *AccountQuery) QueryGroups() *GroupQuery {
-	query := (&GroupClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(account.Table, account.FieldID, selector),
-			sqlgraph.To(group.Table, group.FieldID),
-			sqlgraph.Edge(sqlgraph.M2M, false, account.GroupsTable, account.GroupsPrimaryKey...),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
 }
 
 // QueryProxy chains the current query on the "proxy" edge.
@@ -200,28 +174,6 @@ func (_q *AccountQuery) QueryCatalogEntries() *ModelCatalogEntryQuery {
 			sqlgraph.From(account.Table, account.FieldID, selector),
 			sqlgraph.To(modelcatalogentry.Table, modelcatalogentry.FieldID),
 			sqlgraph.Edge(sqlgraph.M2M, true, account.CatalogEntriesTable, account.CatalogEntriesPrimaryKey...),
-		)
-		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
-		return fromU, nil
-	}
-	return query
-}
-
-// QueryAccountGroups chains the current query on the "account_groups" edge.
-func (_q *AccountQuery) QueryAccountGroups() *AccountGroupQuery {
-	query := (&AccountGroupClient{config: _q.config}).Query()
-	query.path = func(ctx context.Context) (fromU *sql.Selector, err error) {
-		if err := _q.prepareQuery(ctx); err != nil {
-			return nil, err
-		}
-		selector := _q.sqlQuery(ctx)
-		if err := selector.Err(); err != nil {
-			return nil, err
-		}
-		step := sqlgraph.NewStep(
-			sqlgraph.From(account.Table, account.FieldID, selector),
-			sqlgraph.To(accountgroup.Table, accountgroup.AccountColumn),
-			sqlgraph.Edge(sqlgraph.O2M, true, account.AccountGroupsTable, account.AccountGroupsColumn),
 		)
 		fromU = sqlgraph.SetNeighbors(_q.driver.Dialect(), step)
 		return fromU, nil
@@ -443,29 +395,16 @@ func (_q *AccountQuery) Clone() *AccountQuery {
 		order:               append([]account.OrderOption{}, _q.order...),
 		inters:              append([]Interceptor{}, _q.inters...),
 		predicates:          append([]predicate.Account{}, _q.predicates...),
-		withGroups:          _q.withGroups.Clone(),
 		withProxy:           _q.withProxy.Clone(),
 		withParent:          _q.withParent.Clone(),
 		withChildren:        _q.withChildren.Clone(),
 		withUsageLogs:       _q.withUsageLogs.Clone(),
 		withCatalogEntries:  _q.withCatalogEntries.Clone(),
-		withAccountGroups:   _q.withAccountGroups.Clone(),
 		withCatalogBindings: _q.withCatalogBindings.Clone(),
 		// clone intermediate query.
 		sql:  _q.sql.Clone(),
 		path: _q.path,
 	}
-}
-
-// WithGroups tells the query-builder to eager-load the nodes that are connected to
-// the "groups" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *AccountQuery) WithGroups(opts ...func(*GroupQuery)) *AccountQuery {
-	query := (&GroupClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withGroups = query
-	return _q
 }
 
 // WithProxy tells the query-builder to eager-load the nodes that are connected to
@@ -520,17 +459,6 @@ func (_q *AccountQuery) WithCatalogEntries(opts ...func(*ModelCatalogEntryQuery)
 		opt(query)
 	}
 	_q.withCatalogEntries = query
-	return _q
-}
-
-// WithAccountGroups tells the query-builder to eager-load the nodes that are connected to
-// the "account_groups" edge. The optional arguments are used to configure the query builder of the edge.
-func (_q *AccountQuery) WithAccountGroups(opts ...func(*AccountGroupQuery)) *AccountQuery {
-	query := (&AccountGroupClient{config: _q.config}).Query()
-	for _, opt := range opts {
-		opt(query)
-	}
-	_q.withAccountGroups = query
 	return _q
 }
 
@@ -623,14 +551,12 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	var (
 		nodes       = []*Account{}
 		_spec       = _q.querySpec()
-		loadedTypes = [8]bool{
-			_q.withGroups != nil,
+		loadedTypes = [6]bool{
 			_q.withProxy != nil,
 			_q.withParent != nil,
 			_q.withChildren != nil,
 			_q.withUsageLogs != nil,
 			_q.withCatalogEntries != nil,
-			_q.withAccountGroups != nil,
 			_q.withCatalogBindings != nil,
 		}
 	)
@@ -654,13 +580,6 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	}
 	if len(nodes) == 0 {
 		return nodes, nil
-	}
-	if query := _q.withGroups; query != nil {
-		if err := _q.loadGroups(ctx, query, nodes,
-			func(n *Account) { n.Edges.Groups = []*Group{} },
-			func(n *Account, e *Group) { n.Edges.Groups = append(n.Edges.Groups, e) }); err != nil {
-			return nil, err
-		}
 	}
 	if query := _q.withProxy; query != nil {
 		if err := _q.loadProxy(ctx, query, nodes, nil,
@@ -695,13 +614,6 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 			return nil, err
 		}
 	}
-	if query := _q.withAccountGroups; query != nil {
-		if err := _q.loadAccountGroups(ctx, query, nodes,
-			func(n *Account) { n.Edges.AccountGroups = []*AccountGroup{} },
-			func(n *Account, e *AccountGroup) { n.Edges.AccountGroups = append(n.Edges.AccountGroups, e) }); err != nil {
-			return nil, err
-		}
-	}
 	if query := _q.withCatalogBindings; query != nil {
 		if err := _q.loadCatalogBindings(ctx, query, nodes,
 			func(n *Account) { n.Edges.CatalogBindings = []*ModelCatalogBinding{} },
@@ -712,67 +624,6 @@ func (_q *AccountQuery) sqlAll(ctx context.Context, hooks ...queryHook) ([]*Acco
 	return nodes, nil
 }
 
-func (_q *AccountQuery) loadGroups(ctx context.Context, query *GroupQuery, nodes []*Account, init func(*Account), assign func(*Account, *Group)) error {
-	edgeIDs := make([]driver.Value, len(nodes))
-	byID := make(map[int64]*Account)
-	nids := make(map[int64]map[*Account]struct{})
-	for i, node := range nodes {
-		edgeIDs[i] = node.ID
-		byID[node.ID] = node
-		if init != nil {
-			init(node)
-		}
-	}
-	query.Where(func(s *sql.Selector) {
-		joinT := sql.Table(account.GroupsTable)
-		s.Join(joinT).On(s.C(group.FieldID), joinT.C(account.GroupsPrimaryKey[1]))
-		s.Where(sql.InValues(joinT.C(account.GroupsPrimaryKey[0]), edgeIDs...))
-		columns := s.SelectedColumns()
-		s.Select(joinT.C(account.GroupsPrimaryKey[0]))
-		s.AppendSelect(columns...)
-		s.SetDistinct(false)
-	})
-	if err := query.prepareQuery(ctx); err != nil {
-		return err
-	}
-	qr := QuerierFunc(func(ctx context.Context, q Query) (Value, error) {
-		return query.sqlAll(ctx, func(_ context.Context, spec *sqlgraph.QuerySpec) {
-			assign := spec.Assign
-			values := spec.ScanValues
-			spec.ScanValues = func(columns []string) ([]any, error) {
-				values, err := values(columns[1:])
-				if err != nil {
-					return nil, err
-				}
-				return append([]any{new(sql.NullInt64)}, values...), nil
-			}
-			spec.Assign = func(columns []string, values []any) error {
-				outValue := values[0].(*sql.NullInt64).Int64
-				inValue := values[1].(*sql.NullInt64).Int64
-				if nids[inValue] == nil {
-					nids[inValue] = map[*Account]struct{}{byID[outValue]: {}}
-					return assign(columns[1:], values[1:])
-				}
-				nids[inValue][byID[outValue]] = struct{}{}
-				return nil
-			}
-		})
-	})
-	neighbors, err := withInterceptors[[]*Group](ctx, query, qr, query.inters)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		nodes, ok := nids[n.ID]
-		if !ok {
-			return fmt.Errorf(`unexpected "groups" node returned %v`, n.ID)
-		}
-		for kn := range nodes {
-			assign(kn, n)
-		}
-	}
-	return nil
-}
 func (_q *AccountQuery) loadProxy(ctx context.Context, query *ProxyQuery, nodes []*Account, init func(*Account), assign func(*Account, *Proxy)) error {
 	ids := make([]int64, 0, len(nodes))
 	nodeids := make(map[int64][]*Account)
@@ -958,36 +809,6 @@ func (_q *AccountQuery) loadCatalogEntries(ctx context.Context, query *ModelCata
 		for kn := range nodes {
 			assign(kn, n)
 		}
-	}
-	return nil
-}
-func (_q *AccountQuery) loadAccountGroups(ctx context.Context, query *AccountGroupQuery, nodes []*Account, init func(*Account), assign func(*Account, *AccountGroup)) error {
-	fks := make([]driver.Value, 0, len(nodes))
-	nodeids := make(map[int64]*Account)
-	for i := range nodes {
-		fks = append(fks, nodes[i].ID)
-		nodeids[nodes[i].ID] = nodes[i]
-		if init != nil {
-			init(nodes[i])
-		}
-	}
-	if len(query.ctx.Fields) > 0 {
-		query.ctx.AppendFieldOnce(accountgroup.FieldAccountID)
-	}
-	query.Where(predicate.AccountGroup(func(s *sql.Selector) {
-		s.Where(sql.InValues(s.C(account.AccountGroupsColumn), fks...))
-	}))
-	neighbors, err := query.All(ctx)
-	if err != nil {
-		return err
-	}
-	for _, n := range neighbors {
-		fk := n.AccountID
-		node, ok := nodeids[fk]
-		if !ok {
-			return fmt.Errorf(`unexpected referenced foreign-key "account_id" returned %v for node %v`, fk, n)
-		}
-		assign(node, n)
 	}
 	return nil
 }

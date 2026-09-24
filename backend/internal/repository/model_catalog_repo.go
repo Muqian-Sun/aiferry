@@ -245,7 +245,7 @@ func translateCatalogBindingError(err error) error {
 
 func (r *modelCatalogRepository) enqueueCatalogBindingsChanged(ctx context.Context, entryID int64) error {
 	payload := map[string]any{"entry_ids": []int64{entryID}}
-	return enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventCatalogBindingsChanged, nil, nil, payload)
+	return enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventCatalogBindingsChanged, nil, payload)
 }
 
 func (r *modelCatalogRepository) CreateEntry(ctx context.Context, entry *service.ModelCatalogEntry) error {

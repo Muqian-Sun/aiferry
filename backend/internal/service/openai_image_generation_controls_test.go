@@ -356,7 +356,6 @@ func TestOpenAIGatewayServiceForward_CodexBridgeSkipsCompactRequests(t *testing.
 }
 
 func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *testing.T) {
-	groupID := int64(4242)
 
 	tests := []struct {
 		name    string
@@ -430,7 +429,7 @@ func TestOpenAIGatewayService_CodexImageGenerationBridgeOverridePrecedence(t *te
 		t.Run(tt.name, func(t *testing.T) {
 			svc := newOpenAIImageGenerationControlTestService(&httpUpstreamRecorder{})
 			svc.cfg.Gateway.CodexImageGenerationBridgeEnabled = tt.global
-			apiKey := &APIKey{GroupID: &groupID}
+			apiKey := &APIKey{}
 
 			got := svc.isCodexImageGenerationBridgeEnabled(context.Background(), tt.account, apiKey)
 

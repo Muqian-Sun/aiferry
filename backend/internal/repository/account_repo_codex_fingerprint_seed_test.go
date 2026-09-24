@@ -54,7 +54,7 @@ func TestUpdateExtraEnsuresCodexFingerprintSeedAtomicallyWhenEnabling(t *testing
 		WithArgs(`{"codex_fingerprint_mode":"device"}`, int64(27)).
 		WillReturnResult(sqlmock.NewResult(0, 1))
 	mock.ExpectExec(regexp.QuoteMeta("INSERT INTO scheduler_outbox")).
-		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(27), nil, nil, sqlmock.AnyArg()).
+		WithArgs(service.SchedulerOutboxEventAccountChanged, int64(27), nil, sqlmock.AnyArg()).
 		WillReturnResult(sqlmock.NewResult(1, 1))
 	mock.ExpectCommit()
 	repo := newAccountRepositoryWithSQL(client, db, nil)

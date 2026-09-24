@@ -80,8 +80,6 @@ const (
 	FieldParentAccountID = "parent_account_id"
 	// FieldQuotaDimension holds the string denoting the quota_dimension field in the database.
 	FieldQuotaDimension = "quota_dimension"
-	// EdgeGroups holds the string denoting the groups edge name in mutations.
-	EdgeGroups = "groups"
 	// EdgeProxy holds the string denoting the proxy edge name in mutations.
 	EdgeProxy = "proxy"
 	// EdgeParent holds the string denoting the parent edge name in mutations.
@@ -92,17 +90,10 @@ const (
 	EdgeUsageLogs = "usage_logs"
 	// EdgeCatalogEntries holds the string denoting the catalog_entries edge name in mutations.
 	EdgeCatalogEntries = "catalog_entries"
-	// EdgeAccountGroups holds the string denoting the account_groups edge name in mutations.
-	EdgeAccountGroups = "account_groups"
 	// EdgeCatalogBindings holds the string denoting the catalog_bindings edge name in mutations.
 	EdgeCatalogBindings = "catalog_bindings"
 	// Table holds the table name of the account in the database.
 	Table = "accounts"
-	// GroupsTable is the table that holds the groups relation/edge. The primary key declared below.
-	GroupsTable = "account_groups"
-	// GroupsInverseTable is the table name for the Group entity.
-	// It exists in this package in order to avoid circular dependency with the "group" package.
-	GroupsInverseTable = "groups"
 	// ProxyTable is the table that holds the proxy relation/edge.
 	ProxyTable = "accounts"
 	// ProxyInverseTable is the table name for the Proxy entity.
@@ -130,13 +121,6 @@ const (
 	// CatalogEntriesInverseTable is the table name for the ModelCatalogEntry entity.
 	// It exists in this package in order to avoid circular dependency with the "modelcatalogentry" package.
 	CatalogEntriesInverseTable = "model_catalog_entries"
-	// AccountGroupsTable is the table that holds the account_groups relation/edge.
-	AccountGroupsTable = "account_groups"
-	// AccountGroupsInverseTable is the table name for the AccountGroup entity.
-	// It exists in this package in order to avoid circular dependency with the "accountgroup" package.
-	AccountGroupsInverseTable = "account_groups"
-	// AccountGroupsColumn is the table column denoting the account_groups relation/edge.
-	AccountGroupsColumn = "account_id"
 	// CatalogBindingsTable is the table that holds the catalog_bindings relation/edge.
 	CatalogBindingsTable = "model_catalog_bindings"
 	// CatalogBindingsInverseTable is the table name for the ModelCatalogBinding entity.
@@ -184,9 +168,6 @@ var Columns = []string{
 }
 
 var (
-	// GroupsPrimaryKey and GroupsColumn2 are the table columns denoting the
-	// primary key for the groups relation (M2M).
-	GroupsPrimaryKey = []string{"account_id", "group_id"}
 	// CatalogEntriesPrimaryKey and CatalogEntriesColumn2 are the table columns denoting the
 	// primary key for the catalog_entries relation (M2M).
 	CatalogEntriesPrimaryKey = []string{"entry_id", "account_id"}
@@ -425,20 +406,6 @@ func ByQuotaDimension(opts ...sql.OrderTermOption) OrderOption {
 	return sql.OrderByField(FieldQuotaDimension, opts...).ToFunc()
 }
 
-// ByGroupsCount orders the results by groups count.
-func ByGroupsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newGroupsStep(), opts...)
-	}
-}
-
-// ByGroups orders the results by groups terms.
-func ByGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByProxyField orders the results by proxy field.
 func ByProxyField(field string, opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -495,20 +462,6 @@ func ByCatalogEntries(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	}
 }
 
-// ByAccountGroupsCount orders the results by account_groups count.
-func ByAccountGroupsCount(opts ...sql.OrderTermOption) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborsCount(s, newAccountGroupsStep(), opts...)
-	}
-}
-
-// ByAccountGroups orders the results by account_groups terms.
-func ByAccountGroups(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
-	return func(s *sql.Selector) {
-		sqlgraph.OrderByNeighborTerms(s, newAccountGroupsStep(), append([]sql.OrderTerm{term}, terms...)...)
-	}
-}
-
 // ByCatalogBindingsCount orders the results by catalog_bindings count.
 func ByCatalogBindingsCount(opts ...sql.OrderTermOption) OrderOption {
 	return func(s *sql.Selector) {
@@ -521,13 +474,6 @@ func ByCatalogBindings(term sql.OrderTerm, terms ...sql.OrderTerm) OrderOption {
 	return func(s *sql.Selector) {
 		sqlgraph.OrderByNeighborTerms(s, newCatalogBindingsStep(), append([]sql.OrderTerm{term}, terms...)...)
 	}
-}
-func newGroupsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(GroupsInverseTable, FieldID),
-		sqlgraph.Edge(sqlgraph.M2M, false, GroupsTable, GroupsPrimaryKey...),
-	)
 }
 func newProxyStep() *sqlgraph.Step {
 	return sqlgraph.NewStep(
@@ -562,13 +508,6 @@ func newCatalogEntriesStep() *sqlgraph.Step {
 		sqlgraph.From(Table, FieldID),
 		sqlgraph.To(CatalogEntriesInverseTable, FieldID),
 		sqlgraph.Edge(sqlgraph.M2M, true, CatalogEntriesTable, CatalogEntriesPrimaryKey...),
-	)
-}
-func newAccountGroupsStep() *sqlgraph.Step {
-	return sqlgraph.NewStep(
-		sqlgraph.From(Table, FieldID),
-		sqlgraph.To(AccountGroupsInverseTable, AccountGroupsColumn),
-		sqlgraph.Edge(sqlgraph.O2M, true, AccountGroupsTable, AccountGroupsColumn),
 	)
 }
 func newCatalogBindingsStep() *sqlgraph.Step {

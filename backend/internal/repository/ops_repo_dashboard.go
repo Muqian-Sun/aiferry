@@ -389,13 +389,11 @@ func (r *opsRepository) listHourlyMetricsRows(ctx context.Context, filter *servi
 		platform = strings.TrimSpace(strings.ToLower(filter.Platform))
 	}
 
-	// 预聚合表的 group_id 列留到 7c 删；写入侧已不再产生分组行，
-	// 这里仍显式排除 group_id 非空的历史行，避免与平台行重复计数。
 	if platform != "" {
-		where += fmt.Sprintf(" AND platform = $%d AND group_id IS NULL", idx)
+		where += fmt.Sprintf(" AND platform = $%d", idx)
 		args = append(args, platform)
 	} else {
-		where += " AND platform IS NULL AND group_id IS NULL"
+		where += " AND platform IS NULL"
 	}
 
 	q := `

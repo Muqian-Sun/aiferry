@@ -65,7 +65,6 @@ type APIKeyUpdateFields struct {
 	Name      bool
 	Status    bool
 	Quota     bool
-	GroupID   bool
 	ExpiresAt bool
 	// QuotaUsed 仅供"重置配额用量"路径声明；常规计费走 IncrementQuotaUsed。
 	QuotaUsed bool

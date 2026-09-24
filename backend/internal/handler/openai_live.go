@@ -45,7 +45,6 @@ func (h *OpenAIGatewayHandler) Live(c *gin.Context) {
 		"handler.openai_gateway.live",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 	if decision := h.checkSecurityAudit(
 		c,
@@ -151,7 +150,6 @@ func liveCallIdentity(
 	return service.LiveCallIdentity{
 		APIKeyID:        apiKey.ID,
 		UserID:          userID,
-		GroupID:         apiKey.GroupID,
 		SubscriptionID:  subscriptionID,
 		UserAgent:       c.GetHeader("User-Agent"),
 		IPAddress:       ip.GetClientIP(c),
@@ -194,7 +192,6 @@ func (h *OpenAIGatewayHandler) LiveSideband(c *gin.Context) {
 	identity := service.LiveCallIdentity{
 		APIKeyID: apiKey.ID,
 		UserID:   subject.UserID,
-		GroupID:  apiKey.GroupID,
 	}
 	record, err := h.gatewayService.GetLiveCallForIdentity(c.Request.Context(), c.Param("call_id"), identity)
 	if err != nil {

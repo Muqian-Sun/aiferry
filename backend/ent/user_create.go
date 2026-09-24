@@ -14,7 +14,6 @@ import (
 	"github.com/Wei-Shaw/sub2api/ent/announcementread"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/paymentorder"
 	"github.com/Wei-Shaw/sub2api/ent/pendingauthsession"
 	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
@@ -268,20 +267,6 @@ func (_c *UserCreate) SetNillableLastActiveAt(v *time.Time) *UserCreate {
 	return _c
 }
 
-// SetRestrictPublicGroups sets the "restrict_public_groups" field.
-func (_c *UserCreate) SetRestrictPublicGroups(v bool) *UserCreate {
-	_c.mutation.SetRestrictPublicGroups(v)
-	return _c
-}
-
-// SetNillableRestrictPublicGroups sets the "restrict_public_groups" field if the given value is not nil.
-func (_c *UserCreate) SetNillableRestrictPublicGroups(v *bool) *UserCreate {
-	if v != nil {
-		_c.SetRestrictPublicGroups(*v)
-	}
-	return _c
-}
-
 // SetBalanceNotifyEnabled sets the "balance_notify_enabled" field.
 func (_c *UserCreate) SetBalanceNotifyEnabled(v bool) *UserCreate {
 	_c.mutation.SetBalanceNotifyEnabled(v)
@@ -455,21 +440,6 @@ func (_c *UserCreate) AddAnnouncementReads(v ...*AnnouncementRead) *UserCreate {
 	return _c.AddAnnouncementReadIDs(ids...)
 }
 
-// AddAllowedGroupIDs adds the "allowed_groups" edge to the Group entity by IDs.
-func (_c *UserCreate) AddAllowedGroupIDs(ids ...int64) *UserCreate {
-	_c.mutation.AddAllowedGroupIDs(ids...)
-	return _c
-}
-
-// AddAllowedGroups adds the "allowed_groups" edges to the Group entity.
-func (_c *UserCreate) AddAllowedGroups(v ...*Group) *UserCreate {
-	ids := make([]int64, len(v))
-	for i := range v {
-		ids[i] = v[i].ID
-	}
-	return _c.AddAllowedGroupIDs(ids...)
-}
-
 // AddUsageLogIDs adds the "usage_logs" edge to the UsageLog entity by IDs.
 func (_c *UserCreate) AddUsageLogIDs(ids ...int64) *UserCreate {
 	_c.mutation.AddUsageLogIDs(ids...)
@@ -632,10 +602,6 @@ func (_c *UserCreate) defaults() error {
 		v := user.DefaultSignupSource
 		_c.mutation.SetSignupSource(v)
 	}
-	if _, ok := _c.mutation.RestrictPublicGroups(); !ok {
-		v := user.DefaultRestrictPublicGroups
-		_c.mutation.SetRestrictPublicGroups(v)
-	}
 	if _, ok := _c.mutation.BalanceNotifyEnabled(); !ok {
 		v := user.DefaultBalanceNotifyEnabled
 		_c.mutation.SetBalanceNotifyEnabled(v)
@@ -733,9 +699,6 @@ func (_c *UserCreate) check() error {
 		if err := user.SignupSourceValidator(v); err != nil {
 			return &ValidationError{Name: "signup_source", err: fmt.Errorf(`ent: validator failed for field "User.signup_source": %w`, err)}
 		}
-	}
-	if _, ok := _c.mutation.RestrictPublicGroups(); !ok {
-		return &ValidationError{Name: "restrict_public_groups", err: errors.New(`ent: missing required field "User.restrict_public_groups"`)}
 	}
 	if _, ok := _c.mutation.BalanceNotifyEnabled(); !ok {
 		return &ValidationError{Name: "balance_notify_enabled", err: errors.New(`ent: missing required field "User.balance_notify_enabled"`)}
@@ -854,10 +817,6 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		_spec.SetField(user.FieldLastActiveAt, field.TypeTime, value)
 		_node.LastActiveAt = &value
 	}
-	if value, ok := _c.mutation.RestrictPublicGroups(); ok {
-		_spec.SetField(user.FieldRestrictPublicGroups, field.TypeBool, value)
-		_node.RestrictPublicGroups = value
-	}
 	if value, ok := _c.mutation.BalanceNotifyEnabled(); ok {
 		_spec.SetField(user.FieldBalanceNotifyEnabled, field.TypeBool, value)
 		_node.BalanceNotifyEnabled = value
@@ -964,26 +923,6 @@ func (_c *UserCreate) createSpec() (*User, *sqlgraph.CreateSpec) {
 		for _, k := range nodes {
 			edge.Target.Nodes = append(edge.Target.Nodes, k)
 		}
-		_spec.Edges = append(_spec.Edges, edge)
-	}
-	if nodes := _c.mutation.AllowedGroupsIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2M,
-			Inverse: false,
-			Table:   user.AllowedGroupsTable,
-			Columns: user.AllowedGroupsPrimaryKey,
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		createE := &UserAllowedGroupCreate{config: _c.config, mutation: newUserAllowedGroupMutation(_c.config, OpCreate)}
-		createE.defaults()
-		_, specE := createE.createSpec()
-		edge.Target.Fields = specE.Fields
 		_spec.Edges = append(_spec.Edges, edge)
 	}
 	if nodes := _c.mutation.UsageLogsIDs(); len(nodes) > 0 {
@@ -1367,18 +1306,6 @@ func (u *UserUpsert) UpdateLastActiveAt() *UserUpsert {
 // ClearLastActiveAt clears the value of the "last_active_at" field.
 func (u *UserUpsert) ClearLastActiveAt() *UserUpsert {
 	u.SetNull(user.FieldLastActiveAt)
-	return u
-}
-
-// SetRestrictPublicGroups sets the "restrict_public_groups" field.
-func (u *UserUpsert) SetRestrictPublicGroups(v bool) *UserUpsert {
-	u.Set(user.FieldRestrictPublicGroups, v)
-	return u
-}
-
-// UpdateRestrictPublicGroups sets the "restrict_public_groups" field to the value that was provided on create.
-func (u *UserUpsert) UpdateRestrictPublicGroups() *UserUpsert {
-	u.SetExcluded(user.FieldRestrictPublicGroups)
 	return u
 }
 
@@ -1832,20 +1759,6 @@ func (u *UserUpsertOne) UpdateLastActiveAt() *UserUpsertOne {
 func (u *UserUpsertOne) ClearLastActiveAt() *UserUpsertOne {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastActiveAt()
-	})
-}
-
-// SetRestrictPublicGroups sets the "restrict_public_groups" field.
-func (u *UserUpsertOne) SetRestrictPublicGroups(v bool) *UserUpsertOne {
-	return u.Update(func(s *UserUpsert) {
-		s.SetRestrictPublicGroups(v)
-	})
-}
-
-// UpdateRestrictPublicGroups sets the "restrict_public_groups" field to the value that was provided on create.
-func (u *UserUpsertOne) UpdateRestrictPublicGroups() *UserUpsertOne {
-	return u.Update(func(s *UserUpsert) {
-		s.UpdateRestrictPublicGroups()
 	})
 }
 
@@ -2484,20 +2397,6 @@ func (u *UserUpsertBulk) UpdateLastActiveAt() *UserUpsertBulk {
 func (u *UserUpsertBulk) ClearLastActiveAt() *UserUpsertBulk {
 	return u.Update(func(s *UserUpsert) {
 		s.ClearLastActiveAt()
-	})
-}
-
-// SetRestrictPublicGroups sets the "restrict_public_groups" field.
-func (u *UserUpsertBulk) SetRestrictPublicGroups(v bool) *UserUpsertBulk {
-	return u.Update(func(s *UserUpsert) {
-		s.SetRestrictPublicGroups(v)
-	})
-}
-
-// UpdateRestrictPublicGroups sets the "restrict_public_groups" field to the value that was provided on create.
-func (u *UserUpsertBulk) UpdateRestrictPublicGroups() *UserUpsertBulk {
-	return u.Update(func(s *UserUpsert) {
-		s.UpdateRestrictPublicGroups()
 	})
 }
 

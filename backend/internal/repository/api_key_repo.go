@@ -46,7 +46,6 @@ func (r *apiKeyRepository) Create(ctx context.Context, key *service.APIKey) erro
 		SetKey(key.Key).
 		SetName(key.Name).
 		SetStatus(key.Status).
-		SetNillableGroupID(key.GroupID).
 		SetNillableSubscriptionID(key.SubscriptionID).
 		SetNillableLastUsedAt(key.LastUsedAt).
 		SetQuota(key.Quota).
@@ -116,7 +115,6 @@ func (r *apiKeyRepository) GetByKeyForAuth(ctx context.Context, key string) (*se
 		Select(
 			apikey.FieldID,
 			apikey.FieldUserID,
-			apikey.FieldGroupID,
 			apikey.FieldSubscriptionID,
 			apikey.FieldName,
 			apikey.FieldStatus,
@@ -215,13 +213,6 @@ func (r *apiKeyRepository) Update(ctx context.Context, key *service.APIKey, fiel
 			builder.SetWindow7dStart(*key.Window7dStart)
 		} else {
 			builder.ClearWindow7dStart()
-		}
-	}
-	if fields.GroupID {
-		if key.GroupID != nil {
-			builder.SetGroupID(*key.GroupID)
-		} else {
-			builder.ClearGroupID()
 		}
 	}
 
@@ -361,13 +352,6 @@ func (r *apiKeyRepository) apiKeyListByUserIDQuery(userID int64, filters service
 	}
 	if filters.Status != "" {
 		q = q.Where(apikey.StatusEQ(filters.Status))
-	}
-	if filters.GroupID != nil {
-		if *filters.GroupID == 0 {
-			q = q.Where(apikey.GroupIDIsNil())
-		} else {
-			q = q.Where(apikey.GroupIDEQ(*filters.GroupID))
-		}
 	}
 
 	return q
@@ -735,7 +719,6 @@ func apiKeyEntityToService(m *dbent.APIKey) *service.APIKey {
 		LastUsedAt:     m.LastUsedAt,
 		CreatedAt:      m.CreatedAt,
 		UpdatedAt:      m.UpdatedAt,
-		GroupID:        m.GroupID,
 		SubscriptionID: m.SubscriptionID,
 		Quota:          m.Quota,
 		QuotaUsed:      m.QuotaUsed,

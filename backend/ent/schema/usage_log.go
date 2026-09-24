@@ -65,9 +65,6 @@ func (UsageLog) Fields() []ent.Field {
 			Optional().
 			Nillable(),
 		field.String("billing_mode").MaxLen(20).Optional().Nillable().Comment("计费模式：token/per_request/image"),
-		field.Int64("group_id").
-			Optional().
-			Nillable(),
 		field.Int64("subscription_id").
 			Optional().
 			Nillable(),
@@ -204,10 +201,6 @@ func (UsageLog) Edges() []ent.Edge {
 			Field("account_id").
 			Required().
 			Unique(),
-		edge.From("group", Group.Type).
-			Ref("usage_logs").
-			Field("group_id").
-			Unique(),
 		edge.From("subscription", UserSubscription.Type).
 			Ref("usage_logs").
 			Field("subscription_id").
@@ -221,7 +214,6 @@ func (UsageLog) Indexes() []ent.Index {
 		index.Fields("user_id"),
 		index.Fields("api_key_id"),
 		index.Fields("account_id"),
-		index.Fields("group_id"),
 		index.Fields("subscription_id"),
 		index.Fields("created_at"),
 		index.Fields("model"),
@@ -230,7 +222,5 @@ func (UsageLog) Indexes() []ent.Index {
 		// 复合索引用于时间范围查询
 		index.Fields("user_id", "created_at"),
 		index.Fields("api_key_id", "created_at"),
-		// 分组维度时间范围查询（线上由 SQL 迁移创建 group_id IS NOT NULL 的部分索引）
-		index.Fields("group_id", "created_at"),
 	}
 }

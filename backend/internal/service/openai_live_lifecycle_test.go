@@ -272,7 +272,6 @@ func TestFinalizeLiveCallIsIdempotentAndWritesZeroUsage(t *testing.T) {
 		AccountID:       11,
 		APIKeyID:        22,
 		UserID:          33,
-		GroupID:         44,
 		LeaseID:         "lease-1",
 		Model:           "gpt-live-test",
 		CreatedAt:       time.Now().Add(-time.Second),

@@ -13,7 +13,6 @@ import (
 	"entgo.io/ent/schema/field"
 	"github.com/Wei-Shaw/sub2api/ent/account"
 	"github.com/Wei-Shaw/sub2api/ent/apikey"
-	"github.com/Wei-Shaw/sub2api/ent/group"
 	"github.com/Wei-Shaw/sub2api/ent/usagelog"
 	"github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/ent/usersubscription"
@@ -123,20 +122,6 @@ func (_c *UsageLogCreate) SetBillingMode(v string) *UsageLogCreate {
 func (_c *UsageLogCreate) SetNillableBillingMode(v *string) *UsageLogCreate {
 	if v != nil {
 		_c.SetBillingMode(*v)
-	}
-	return _c
-}
-
-// SetGroupID sets the "group_id" field.
-func (_c *UsageLogCreate) SetGroupID(v int64) *UsageLogCreate {
-	_c.mutation.SetGroupID(v)
-	return _c
-}
-
-// SetNillableGroupID sets the "group_id" field if the given value is not nil.
-func (_c *UsageLogCreate) SetNillableGroupID(v *int64) *UsageLogCreate {
-	if v != nil {
-		_c.SetGroupID(*v)
 	}
 	return _c
 }
@@ -608,11 +593,6 @@ func (_c *UsageLogCreate) SetAPIKey(v *APIKey) *UsageLogCreate {
 // SetAccount sets the "account" edge to the Account entity.
 func (_c *UsageLogCreate) SetAccount(v *Account) *UsageLogCreate {
 	return _c.SetAccountID(v.ID)
-}
-
-// SetGroup sets the "group" edge to the Group entity.
-func (_c *UsageLogCreate) SetGroup(v *Group) *UsageLogCreate {
-	return _c.SetGroupID(v.ID)
 }
 
 // SetSubscription sets the "subscription" edge to the UserSubscription entity.
@@ -1122,23 +1102,6 @@ func (_c *UsageLogCreate) createSpec() (*UsageLog, *sqlgraph.CreateSpec) {
 		_node.AccountID = nodes[0]
 		_spec.Edges = append(_spec.Edges, edge)
 	}
-	if nodes := _c.mutation.GroupIDs(); len(nodes) > 0 {
-		edge := &sqlgraph.EdgeSpec{
-			Rel:     sqlgraph.M2O,
-			Inverse: true,
-			Table:   usagelog.GroupTable,
-			Columns: []string{usagelog.GroupColumn},
-			Bidi:    false,
-			Target: &sqlgraph.EdgeTarget{
-				IDSpec: sqlgraph.NewFieldSpec(group.FieldID, field.TypeInt64),
-			},
-		}
-		for _, k := range nodes {
-			edge.Target.Nodes = append(edge.Target.Nodes, k)
-		}
-		_node.GroupID = &nodes[0]
-		_spec.Edges = append(_spec.Edges, edge)
-	}
 	if nodes := _c.mutation.SubscriptionIDs(); len(nodes) > 0 {
 		edge := &sqlgraph.EdgeSpec{
 			Rel:     sqlgraph.M2O,
@@ -1355,24 +1318,6 @@ func (u *UsageLogUpsert) UpdateBillingMode() *UsageLogUpsert {
 // ClearBillingMode clears the value of the "billing_mode" field.
 func (u *UsageLogUpsert) ClearBillingMode() *UsageLogUpsert {
 	u.SetNull(usagelog.FieldBillingMode)
-	return u
-}
-
-// SetGroupID sets the "group_id" field.
-func (u *UsageLogUpsert) SetGroupID(v int64) *UsageLogUpsert {
-	u.Set(usagelog.FieldGroupID, v)
-	return u
-}
-
-// UpdateGroupID sets the "group_id" field to the value that was provided on create.
-func (u *UsageLogUpsert) UpdateGroupID() *UsageLogUpsert {
-	u.SetExcluded(usagelog.FieldGroupID)
-	return u
-}
-
-// ClearGroupID clears the value of the "group_id" field.
-func (u *UsageLogUpsert) ClearGroupID() *UsageLogUpsert {
-	u.SetNull(usagelog.FieldGroupID)
 	return u
 }
 
@@ -2175,27 +2120,6 @@ func (u *UsageLogUpsertOne) UpdateBillingMode() *UsageLogUpsertOne {
 func (u *UsageLogUpsertOne) ClearBillingMode() *UsageLogUpsertOne {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearBillingMode()
-	})
-}
-
-// SetGroupID sets the "group_id" field.
-func (u *UsageLogUpsertOne) SetGroupID(v int64) *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetGroupID(v)
-	})
-}
-
-// UpdateGroupID sets the "group_id" field to the value that was provided on create.
-func (u *UsageLogUpsertOne) UpdateGroupID() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateGroupID()
-	})
-}
-
-// ClearGroupID clears the value of the "group_id" field.
-func (u *UsageLogUpsertOne) ClearGroupID() *UsageLogUpsertOne {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearGroupID()
 	})
 }
 
@@ -3261,27 +3185,6 @@ func (u *UsageLogUpsertBulk) UpdateBillingMode() *UsageLogUpsertBulk {
 func (u *UsageLogUpsertBulk) ClearBillingMode() *UsageLogUpsertBulk {
 	return u.Update(func(s *UsageLogUpsert) {
 		s.ClearBillingMode()
-	})
-}
-
-// SetGroupID sets the "group_id" field.
-func (u *UsageLogUpsertBulk) SetGroupID(v int64) *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.SetGroupID(v)
-	})
-}
-
-// UpdateGroupID sets the "group_id" field to the value that was provided on create.
-func (u *UsageLogUpsertBulk) UpdateGroupID() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.UpdateGroupID()
-	})
-}
-
-// ClearGroupID clears the value of the "group_id" field.
-func (u *UsageLogUpsertBulk) ClearGroupID() *UsageLogUpsertBulk {
-	return u.Update(func(s *UsageLogUpsert) {
-		s.ClearGroupID()
 	})
 }
 

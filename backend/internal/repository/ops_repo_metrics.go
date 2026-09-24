@@ -182,7 +182,6 @@ SELECT
 FROM ops_system_metrics
 WHERE window_minutes = $1
   AND platform IS NULL
-  AND group_id IS NULL
 ORDER BY created_at DESC
 LIMIT 1`
 

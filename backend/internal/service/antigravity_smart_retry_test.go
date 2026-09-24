@@ -22,12 +22,12 @@ type stubSmartRetryCache struct {
 }
 
 type deleteSessionCall struct {
-	groupID     int64
+	scopeID     int64
 	sessionHash string
 }
 
-func (c *stubSmartRetryCache) DeleteSessionAccountID(_ context.Context, groupID int64, sessionHash string) error {
-	c.deleteCalls = append(c.deleteCalls, deleteSessionCall{groupID: groupID, sessionHash: sessionHash})
+func (c *stubSmartRetryCache) DeleteSessionAccountID(_ context.Context, scopeID int64, sessionHash string) error {
+	c.deleteCalls = append(c.deleteCalls, deleteSessionCall{scopeID: scopeID, sessionHash: sessionHash})
 	return nil
 }
 
@@ -856,7 +856,7 @@ func TestHandleSmartRetry_ShortDelay_StickySession_FailedRetry_ClearsSession(t *
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         42,
+		scopeID:         42,
 		sessionHash:     "sticky-hash-abc",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -877,7 +877,7 @@ func TestHandleSmartRetry_ShortDelay_StickySession_FailedRetry_ClearsSession(t *
 
 	// 核心断言：DeleteSessionAccountID 被调用，且参数正确
 	require.Len(t, cache.deleteCalls, 1, "should call DeleteSessionAccountID exactly once")
-	require.Equal(t, int64(42), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(42), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "sticky-hash-abc", cache.deleteCalls[0].sessionHash)
 
 	// 验证仅重试 1 次
@@ -944,7 +944,7 @@ func TestHandleSmartRetry_ShortDelay_NonStickySession_FailedRetry_NoDeleteSessio
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: false,
-		groupID:         42,
+		scopeID:         42,
 		sessionHash:     "", // 非粘性会话，sessionHash 为空
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1020,7 +1020,7 @@ func TestHandleSmartRetry_ShortDelay_StickySession_FailedRetry_NilCache_NoPanic(
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         42,
+		scopeID:         42,
 		sessionHash:     "sticky-hash-nil-cache",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1085,7 +1085,7 @@ func TestHandleSmartRetry_ShortDelay_StickySession_SuccessRetry_NoDeleteSession(
 		body:            []byte(`{"input":"test"}`),
 		httpUpstream:    upstream,
 		isStickySession: true,
-		groupID:         42,
+		scopeID:         42,
 		sessionHash:     "sticky-hash-success",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1144,7 +1144,7 @@ func TestHandleSmartRetry_LongDelay_StickySession_ClearsSession(t *testing.T) {
 		body:            []byte(`{"input":"test"}`),
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         42,
+		scopeID:         42,
 		sessionHash:     "sticky-hash-long-delay",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1162,7 +1162,7 @@ func TestHandleSmartRetry_LongDelay_StickySession_ClearsSession(t *testing.T) {
 	require.True(t, result.switchError.IsStickySession)
 
 	require.Len(t, cache.deleteCalls, 1, "long delay path should clear sticky session in handleSmartRetry")
-	require.Equal(t, int64(42), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(42), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "sticky-hash-long-delay", cache.deleteCalls[0].sessionHash)
 }
 
@@ -1208,7 +1208,7 @@ func TestHandleSmartRetry_ShortDelay_NetworkError_StickySession_ClearsSession(t 
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         99,
+		scopeID:         99,
 		sessionHash:     "sticky-net-error",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1226,7 +1226,7 @@ func TestHandleSmartRetry_ShortDelay_NetworkError_StickySession_ClearsSession(t 
 
 	// 核心断言：网络错误耗尽重试后也应清除粘性绑定
 	require.Len(t, cache.deleteCalls, 1, "should call DeleteSessionAccountID after network error exhausts retry")
-	require.Equal(t, int64(99), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(99), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "sticky-net-error", cache.deleteCalls[0].sessionHash)
 
 	require.Len(t, repo.modelRateLimitCalls, 2)
@@ -1292,7 +1292,7 @@ func TestHandleSmartRetry_ShortDelay_503_StickySession_FailedRetry_ClearsSession
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         77,
+		scopeID:         77,
 		sessionHash:     "sticky-503-short",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1310,7 +1310,7 @@ func TestHandleSmartRetry_ShortDelay_503_StickySession_FailedRetry_ClearsSession
 
 	// 验证粘性绑定被清除
 	require.Len(t, cache.deleteCalls, 1)
-	require.Equal(t, int64(77), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(77), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "sticky-503-short", cache.deleteCalls[0].sessionHash)
 
 	// 验证模型限流已设置：Gemini 同时写入精确模型和家族级 scope
@@ -1383,7 +1383,7 @@ func TestAntigravityRetryLoop_SmartRetryFailed_StickySession_SwitchErrorPropagat
 		httpUpstream:    upstream,
 		accountRepo:     repo,
 		isStickySession: true,
-		groupID:         55,
+		scopeID:         55,
 		sessionHash:     "sticky-loop-test",
 		handleError: func(ctx context.Context, prefix string, account *Account, statusCode int, headers http.Header, body []byte, requestedModel string, groupID int64, sessionHash string, isStickySession bool) *handleModelRateLimitResult {
 			return nil
@@ -1401,6 +1401,6 @@ func TestAntigravityRetryLoop_SmartRetryFailed_StickySession_SwitchErrorPropagat
 
 	// 验证粘性绑定被清除
 	require.Len(t, cache.deleteCalls, 1, "should clear sticky session in handleSmartRetry")
-	require.Equal(t, int64(55), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(55), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "sticky-loop-test", cache.deleteCalls[0].sessionHash)
 }

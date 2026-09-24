@@ -132,7 +132,6 @@ func (u *httpBridgeIsolationUpstream) DoWithTLS(req *http.Request, proxyURL stri
 }
 
 func TestOpenAIWSHTTPBridgeSessionIsolationAcrossSameSessionHash(t *testing.T) {
-	groupID := int64(7)
 	gin.SetMode(gin.TestMode)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -155,7 +154,7 @@ func TestOpenAIWSHTTPBridgeSessionIsolationAcrossSameSessionHash(t *testing.T) {
 		c, _ := gin.CreateTestContext(httptest.NewRecorder())
 		c.Request = r.Clone(ctx)
 		c.Request.Header.Set("session-id", "shared-session")
-		c.Set("api_key", &APIKey{ID: 11, GroupID: &groupID})
+		c.Set("api_key", &APIKey{ID: 11})
 		return c
 	}
 	seedHash := svc.GenerateSessionHash(newContext(httptest.NewRequest(http.MethodGet, "/v1/responses", nil)), nil)

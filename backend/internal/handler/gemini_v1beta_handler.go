@@ -222,7 +222,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		"handler.gemini_v1beta.models",
 		zap.Int64("user_id", authSubject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 
 	// 不按分组 / 条目厂商拦：模型带在路径里，目录准入已把条目路由挂上，谁能承接 gemini 入站由调度
@@ -543,7 +542,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 		if fs.SwitchCount > 0 {
 			requestCtx = service.WithAccountSwitchCount(requestCtx, fs.SwitchCount, h.metadataBridgeEnabled())
 		}
-		sessionGroupID := service.SchedulingScopeID(c.Request.Context())
+		sessionScopeID := service.SchedulingScopeID(c.Request.Context())
 		// Antigravity 成品号走 v1internal；第三方 key（任何标签）原生转发到其 gemini 协议地址。
 		if usesAntigravityV1Internal(account) {
 			result, err = h.antigravityGatewayService.ForwardGemini(
@@ -555,7 +554,7 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 				stream,
 				body,
 				hasBoundSession,
-				service.WithForwardGeminiSession(sessionGroupID, sessionKey),
+				service.WithForwardGeminiSession(sessionScopeID, sessionKey),
 			)
 		} else {
 			result, err = h.geminiCompatService.ForwardNative(requestCtx, c, account, modelName, action, stream, body)
@@ -632,7 +631,6 @@ func (h *GatewayHandler) GeminiV1BetaModels(c *gin.Context) {
 					zap.String("component", "handler.gemini_v1beta.models"),
 					zap.Int64("user_id", authSubject.UserID),
 					zap.Int64("api_key_id", apiKey.ID),
-					zap.Any("group_id", apiKey.GroupID),
 					zap.String("model", modelName),
 					zap.Int64("account_id", account.ID),
 				).Error("gemini.record_usage_failed", zap.Error(err))
@@ -839,5 +837,3 @@ func safeShortPrefix(value string, n int) string {
 	}
 	return value[:n]
 }
-
-// derefGroupID 安全解引用 *int64，nil 返回 0

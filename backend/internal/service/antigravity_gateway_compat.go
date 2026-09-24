@@ -191,7 +191,7 @@ func (s *AntigravityGatewayService) forwardAntigravityCompat(
 		handleError:     s.handleUpstreamError,
 		requestedModel:  request.originalModel,
 		isStickySession: false,
-		groupID:         0,
+		scopeID:         0,
 		sessionHash:     "",
 	})
 	if err != nil {

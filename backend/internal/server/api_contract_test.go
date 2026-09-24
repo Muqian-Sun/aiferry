@@ -218,7 +218,7 @@ func TestAPIContracts(t *testing.T) {
 			name:   "POST /api/v1/keys",
 			method: http.MethodPost,
 			path:   "/api/v1/keys",
-			// 密钥不再有分组：请求里带 group_id 也被忽略，响应 group_id 恒 null（列随 PR-7c 删）
+			// 密钥不再有分组：请求里带 group_id 被忽略，响应里也没有该字段（7c 删列）
 			body: `{"name":"Key One","custom_key":"sk_custom_1234567890","group_id":10}`,
 			headers: map[string]string{
 				"Content-Type": "application/json",
@@ -232,7 +232,6 @@ func TestAPIContracts(t *testing.T) {
 					"user_id": 1,
 					"key": "sk_custom_1234567890",
 					"name": "Key One",
-					"group_id": null,
 					"subscription_id": null,
 					"status": "active",
 					"ip_whitelist": null,
@@ -284,8 +283,7 @@ func TestAPIContracts(t *testing.T) {
 							"user_id": 1,
 							"key": "sk_custom_1234567890",
 							"name": "Key One",
-							"group_id": null,
-							"subscription_id": null,
+									"subscription_id": null,
 							"status": "active",
 							"ip_whitelist": null,
 							"ip_blacklist": null,
@@ -2264,11 +2262,11 @@ func (r *stubUsageLogRepo) GetModelStatsWithFilters(ctx context.Context, startTi
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
+func (r *stubUsageLogRepo) GetEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
 	return nil, errors.New("not implemented")
 }
 
-func (r *stubUsageLogRepo) GetUpstreamEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID, groupID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
+func (r *stubUsageLogRepo) GetUpstreamEndpointStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID int64, model string, requestType *int16, stream *bool, billingType *int8) ([]usagestats.EndpointStat, error) {
 	return nil, errors.New("not implemented")
 }
 
