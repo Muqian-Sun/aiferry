@@ -2,6 +2,7 @@
   <!--
     用户（A4 列表模板）：标题右侧是工具菜单与「创建用户」；数字摘要；工具行 = 搜索 + 筛选标签 + 刷新 / 列设置；
     行尾「编辑」图标 + 「⋯」（充值、扣款、余额记录、API 密钥、禁用、删除）；选中行时出现批量条。
+    点行打开详情抽屉（A5）：概况 / 余额流水 / API 密钥 / 订阅 / 用量；「余额记录」「API 密钥」和余额数字都直接开到对应页签。
   -->
   <AppLayout>
     <template #header-actions>
@@ -137,8 +138,10 @@
           default-sort-key="created_at"
           default-sort-order="desc"
           :sort-storage-key="USER_SORT_STORAGE_KEY"
+          clickable-rows
           @sort="handleSort"
           @update:selected-keys="handleSelectedKeysUpdate"
+          @row-click="openDrawer($event)"
         >
           <template #cell-email="{ value, row }">
             <div class="min-w-0">
@@ -217,7 +220,7 @@
               type="button"
               class="font-medium tabular-nums text-af-ink underline decoration-dashed decoration-af-ink-4 underline-offset-4 transition-colors hover:text-af-brand-hover"
               :title="t('admin.users.balanceHistoryTip')"
-              @click="handleBalanceHistory(row)"
+              @click.stop="openDrawer(row, 'balance')"
             >
               ${{ value.toFixed(2) }}
             </button>
@@ -423,17 +426,28 @@
       @confirm="confirmBulkDelete"
       @cancel="bulkDeleteIds = []"
     />
+    <UserDetailDrawer
+      :show="drawerOpen"
+      :user="drawerUser"
+      v-model:tab="drawerTab"
+      :attribute-definitions="filterableAttributes"
+      :refresh-key="drawerRefreshKey"
+      @close="drawerOpen = false"
+      @edit="drawerUser && handleEdit(drawerUser)"
+      @deposit="drawerUser && handleDeposit(drawerUser)"
+      @withdraw="drawerUser && handleWithdraw(drawerUser)"
+      @toggle-status="drawerUser && handleToggleStatus(drawerUser)"
+      @delete="drawerUser && handleDelete(drawerUser)"
+    />
     <UserCreateModal :show="showCreateModal" @close="showCreateModal = false" @success="loadUsers" />
-    <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="loadUsers" />
+    <UserEditModal :show="showEditModal" :user="editingUser" @close="closeEditModal" @success="handleUserMutated" />
     <BulkEditUserModal
       :show="showBulkEditModal"
       :selected-ids="selectedIds"
       @close="showBulkEditModal = false"
       @success="handleBulkLimitsSuccess"
     />
-    <UserApiKeysModal :show="showApiKeysModal" :user="viewingUser" @close="closeApiKeysModal" />
-    <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="loadUsers" />
-    <UserBalanceHistoryModal :show="showBalanceHistoryModal" :user="balanceHistoryUser" @close="closeBalanceHistoryModal" @deposit="handleDepositFromHistory" @withdraw="handleWithdrawFromHistory" />
+    <UserBalanceModal :show="showBalanceModal" :user="balanceUser" :operation="balanceOperation" @close="closeBalanceModal" @success="handleUserMutated" />
     <UserAttributesConfigModal :show="showAttributesModal" @close="handleAttributesModalClose" />
   </AppLayout>
 </template>
@@ -473,9 +487,9 @@ import PlatformCostCell from '@/components/user/PlatformCostCell.vue'
 import UserCreateModal from '@/components/admin/user/UserCreateModal.vue'
 import UserEditModal from '@/components/admin/user/UserEditModal.vue'
 import BulkEditUserModal from '@/components/admin/user/BulkEditUserModal.vue'
-import UserApiKeysModal from '@/components/admin/user/UserApiKeysModal.vue'
 import UserBalanceModal from '@/components/admin/user/UserBalanceModal.vue'
-import UserBalanceHistoryModal from '@/components/admin/user/UserBalanceHistoryModal.vue'
+import UserDetailDrawer from '@/components/admin/user/UserDetailDrawer.vue'
+import { formatAttributeValue } from '@/components/admin/user/attributeValue'
 
 const appStore = useAppStore()
 
@@ -496,33 +510,7 @@ const getAttributeValue = (userId: number, attrId: number): string => {
   if (!userAttrs) return '-'
   const value = userAttrs[attrId]
   if (!value) return '-'
-
-  // Find definition for this attribute
-  const def = attributeDefinitions.value.find(d => d.id === attrId)
-  if (!def) return value
-
-  // Format based on type
-  if (def.type === 'multi_select' && value) {
-    try {
-      const arr = JSON.parse(value)
-      if (Array.isArray(arr)) {
-        // Map values to labels
-        return arr.map(v => {
-          const opt = def.options?.find(o => o.value === v)
-          return opt?.label || v
-        }).join(', ')
-      }
-    } catch {
-      return value
-    }
-  }
-
-  if (def.type === 'select' && value && def.options) {
-    const opt = def.options.find(o => o.value === value)
-    return opt?.label || value
-  }
-
-  return value
+  return formatAttributeValue(attributeDefinitions.value.find(d => d.id === attrId), value)
 }
 
 // All possible columns (for column settings)
@@ -807,11 +795,9 @@ const showBulkEditModal = ref(false)
 const showDeleteDialog = ref(false)
 const bulkDeleteIds = ref<number[]>([])
 const bulkDeleting = ref(false)
-const showApiKeysModal = ref(false)
 const showAttributesModal = ref(false)
 const editingUser = ref<AdminUser | null>(null)
 const deletingUser = ref<AdminUser | null>(null)
-const viewingUser = ref<AdminUser | null>(null)
 let abortController: AbortController | null = null
 let secondaryDataSeq = 0
 
@@ -874,8 +860,8 @@ const rowActions = (user: AdminUser): RowAction[] => {
     { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => handleEdit(user) },
     { key: 'deposit', label: t('admin.users.deposit'), icon: 'plus', onSelect: () => handleDeposit(user) },
     { key: 'withdraw', label: t('admin.users.withdraw'), icon: 'arrowDown', onSelect: () => handleWithdraw(user) },
-    { key: 'balance-history', label: t('admin.users.balanceHistory'), icon: 'dollar', onSelect: () => handleBalanceHistory(user) },
-    { key: 'api-keys', label: t('admin.users.apiKeys'), icon: 'key', onSelect: () => handleViewApiKeys(user) }
+    { key: 'balance-history', label: t('admin.users.balanceHistory'), icon: 'dollar', onSelect: () => openDrawer(user, 'balance') },
+    { key: 'api-keys', label: t('admin.users.apiKeys'), icon: 'key', onSelect: () => openDrawer(user, 'keys') }
   ]
   if (user.role !== 'admin') {
     actions.push(
@@ -931,9 +917,40 @@ const showBalanceModal = ref(false)
 const balanceUser = ref<AdminUser | null>(null)
 const balanceOperation = ref<'add' | 'subtract'>('add')
 
-// Balance History modal state
-const showBalanceHistoryModal = ref(false)
-const balanceHistoryUser = ref<AdminUser | null>(null)
+// 详情抽屉（A5）：记住打开的是哪个用户；列表刷新后从新数据里取同一个人，不在当前页了就单独取一次
+const drawerOpen = ref(false)
+const drawerTab = ref('overview')
+const drawerUserId = ref<number | null>(null)
+const drawerSnapshot = ref<AdminUser | null>(null)
+const drawerRefreshKey = ref(0)
+const drawerUser = computed<AdminUser | null>(
+  () => users.value.find((u) => u.id === drawerUserId.value) ?? drawerSnapshot.value
+)
+
+const openDrawer = (user: AdminUser, tab = 'overview') => {
+  drawerUserId.value = user.id
+  drawerSnapshot.value = user
+  drawerTab.value = tab
+  drawerOpen.value = true
+}
+
+// 改完数据：刷新列表行，再让抽屉重取当前页签（余额流水、密钥等）
+const handleUserMutated = async () => {
+  await loadUsers()
+  const id = drawerUserId.value
+  if (!drawerOpen.value || id === null) return
+  const fresh = users.value.find((u) => u.id === id)
+  if (fresh) {
+    drawerSnapshot.value = fresh
+  } else {
+    try {
+      drawerSnapshot.value = await adminAPI.users.getById(id)
+    } catch (error) {
+      console.error('Failed to refresh user detail:', error)
+    }
+  }
+  drawerRefreshKey.value++
+}
 
 // 计算剩余天数
 const getDaysRemaining = (expiresAt: string): number => {
@@ -1114,21 +1131,11 @@ const handleToggleStatus = async (user: AdminUser) => {
     appStore.showSuccess(
       newStatus === 'active' ? t('admin.users.userEnabled') : t('admin.users.userDisabled')
     )
-    loadUsers()
+    void handleUserMutated()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.users.failedToToggle'))
     console.error('Error toggling user status:', error)
   }
-}
-
-const handleViewApiKeys = (user: AdminUser) => {
-  viewingUser.value = user
-  showApiKeysModal.value = true
-}
-
-const closeApiKeysModal = () => {
-  showApiKeysModal.value = false
-  viewingUser.value = null
 }
 
 const handleDelete = (user: AdminUser) => {
@@ -1141,6 +1148,7 @@ const confirmDelete = async () => {
   try {
     await adminAPI.users.delete(deletingUser.value.id)
     appStore.showSuccess(t('common.success'))
+    if (drawerUserId.value === deletingUser.value.id) drawerOpen.value = false
     showDeleteDialog.value = false
     deletingUser.value = null
     loadUsers()
@@ -1189,30 +1197,6 @@ const handleWithdraw = (user: AdminUser) => {
 const closeBalanceModal = () => {
   showBalanceModal.value = false
   balanceUser.value = null
-}
-
-const handleBalanceHistory = (user: AdminUser) => {
-  balanceHistoryUser.value = user
-  showBalanceHistoryModal.value = true
-}
-
-const closeBalanceHistoryModal = () => {
-  showBalanceHistoryModal.value = false
-  balanceHistoryUser.value = null
-}
-
-// Handle deposit from balance history modal
-const handleDepositFromHistory = () => {
-  if (balanceHistoryUser.value) {
-    handleDeposit(balanceHistoryUser.value)
-  }
-}
-
-// Handle withdraw from balance history modal
-const handleWithdrawFromHistory = () => {
-  if (balanceHistoryUser.value) {
-    handleWithdraw(balanceHistoryUser.value)
-  }
 }
 
 // 刚打开的列要补数据：用量 / 属性列按需批量拉取，订阅列随列表一起取
