@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -24,6 +25,11 @@ type userUsageRepoCapture struct {
 	listRows     []service.UsageLog
 	stats        *usagestats.UsageStats
 	modelStats   []usagestats.ModelStat
+	// 按模型趋势：记录是否调用与入参
+	modelTrendCalled      bool
+	modelTrendGranularity string
+	modelTrendFilters     usagestats.UsageLogFilters
+	modelTrend            []usagestats.ModelTrendPoint
 }
 
 func (s *userUsageRepoCapture) ListWithFilters(ctx context.Context, params pagination.PaginationParams, filters usagestats.UsageLogFilters) ([]service.UsageLog, *pagination.PaginationResult, error) {
@@ -60,6 +66,13 @@ func (s *userUsageRepoCapture) GetUsageTrendWithFilters(ctx context.Context, sta
 
 func (s *userUsageRepoCapture) GetModelStatsWithFilters(ctx context.Context, startTime, endTime time.Time, userID, apiKeyID, accountID int64, requestType *int16, stream *bool, billingType *int8) ([]usagestats.ModelStat, error) {
 	return s.modelStats, nil
+}
+
+func (s *userUsageRepoCapture) GetModelUsageTrendWithUsageFilters(ctx context.Context, startTime, endTime time.Time, granularity string, filters usagestats.UsageLogFilters) ([]usagestats.ModelTrendPoint, error) {
+	s.modelTrendCalled = true
+	s.modelTrendGranularity = granularity
+	s.modelTrendFilters = filters
+	return s.modelTrend, nil
 }
 
 func newUserUsageRequestTypeTestRouter(repo *userUsageRepoCapture) *gin.Engine {
@@ -326,6 +339,7 @@ func TestUserUsageSnapshotRejectsInvalidIncludeFlags(t *testing.T) {
 	for _, query := range []string{
 		"include_trend=bad",
 		"include_model_stats=bad",
+		"include_model_trend=bad",
 	} {
 		req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?start_date=2026-03-01&end_date=2026-03-02&"+query, nil)
 		rec := httptest.NewRecorder()
@@ -333,4 +347,35 @@ func TestUserUsageSnapshotRejectsInvalidIncludeFlags(t *testing.T) {
 
 		require.Equal(t, http.StatusBadRequest, rec.Code, query)
 	}
+}
+
+func TestUserUsageSnapshotModelTrendIsOptInAndScoped(t *testing.T) {
+	repo := &userUsageRepoCapture{
+		modelTrend: []usagestats.ModelTrendPoint{{Date: "2026-03-01", Model: "gpt-5.6", Requests: 3, TotalTokens: 120}},
+	}
+	router := newUserUsageRequestTypeTestRouter(repo)
+
+	// 不传 include_model_trend：不查、不返回
+	req := httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?include_trend=false&include_model_stats=false&start_date=2026-03-01&end_date=2026-03-02", nil)
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.False(t, repo.modelTrendCalled)
+	require.NotContains(t, rec.Body.String(), "model_trend")
+
+	req = httptest.NewRequest(http.MethodGet, "/usage/dashboard/snapshot-v2?include_trend=false&include_model_stats=false&include_model_trend=true&granularity=day&start_date=2026-03-01&end_date=2026-03-02", nil)
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, req)
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.True(t, repo.modelTrendCalled)
+	require.Equal(t, "day", repo.modelTrendGranularity)
+	require.Equal(t, int64(42), repo.modelTrendFilters.UserID)
+
+	var body struct {
+		Data struct {
+			ModelTrend json.RawMessage `json:"model_trend"`
+		} `json:"data"`
+	}
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
+	require.JSONEq(t, `[{"date":"2026-03-01","model":"gpt-5.6","requests":3,"total_tokens":120}]`, string(body.Data.ModelTrend))
 }

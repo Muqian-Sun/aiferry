@@ -83,7 +83,6 @@ export default {
     },
     overview: {
       title: 'Overview',
-      description: 'Balance, today\'s usage and how to connect',
       greeting: {
         lateNight: 'Working late, {name}',
         morning: 'Good morning, {name}',
@@ -91,30 +90,33 @@ export default {
         afternoon: 'Good afternoon, {name}',
         evening: 'Good evening, {name}'
       },
-      totals: 'Total spent {cost} · {requests} requests · {rpm} RPM now',
-      quickStart: {
-        title: 'Quick start',
-        description: 'Put the base URL and a key into your SDK or client and start calling.',
-        baseUrl: 'Base URL',
-        key: 'Your key',
-        noKey: 'No active key yet',
-        allKeys: 'All keys',
-        createKey: 'Create a key',
-        copy: 'Copy',
-        copied: 'Copied',
-        example: 'Example',
-        exampleHint: 'Replace $API_KEY with the key copied above, or export API_KEY=your-key first',
-        exampleMessage: 'Hello'
+      range: {
+        label: 'Time range',
+        days: '{days} days'
       },
-      trend: {
-        title: 'Usage trend',
-        range: 'Last {days} days',
-        summary: 'Last {days} days · {requests} requests · {tokens} tokens · {cost}'
+      numbers: {
+        today: 'Tokens today',
+        range: 'Tokens, last {days} days',
+        total: 'Tokens, all time'
+      },
+      models: {
+        title: 'By model',
+        other: 'Other',
+        empty: 'No usage in this range'
+      },
+      composition: {
+        title: 'Token mix',
+        input: 'Input',
+        output: 'Output',
+        cacheRead: 'Cache read',
+        cacheWrite: 'Cache write',
+        hitRate: 'Cache hit rate',
+        empty: 'No usage in this range'
       }
     },
     billing: {
       title: 'Billing',
-      description: 'Top up, subscriptions, orders and referrals',
+      description: 'Top up, subscriptions and redeem codes',
       tabs: {
         recharge: 'Top up',
         subscriptions: 'Subscriptions'
@@ -128,24 +130,13 @@ export default {
         tokens: 'Tokens',
         cost: 'Cost',
         standardCost: 'List price',
-        balance: 'Available balance',
-        recharge: 'Top up',
         totalCost: 'Total spent',
-        totalRequests: 'Total requests',
-        rate: 'Current rate (last 5 min)',
         todayCost: 'Today cost',
-        todayRequests: 'Today requests',
-        todayTokens: 'Today tokens',
         avgLatency: 'Avg latency'
       },
       sections: {
-        announcements: 'Announcements',
-        trend: 'Usage trend',
         models: 'Usage by model',
         records: 'Request details'
-      },
-      announcements: {
-        unread: '{count} unread'
       },
       trend: {
         tokens: 'Tokens',

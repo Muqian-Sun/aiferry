@@ -42,6 +42,9 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	require.NoError(t, tx.QueryRowContext(context.Background(), "SELECT COUNT(*) FROM schema_migrations").Scan(&applied))
 	require.GreaterOrEqual(t, applied, 7, "expected schema_migrations to contain applied migrations")
 
+	// announcements.notify_mode 已作废（253 删列）：用户站改为登录后统一弹公告窗
+	requireColumnAbsent(t, tx, "announcements", "notify_mode")
+
 	// users: columns required by repository queries
 	requireColumn(t, tx, "users", "username", "character varying", 100, false)
 	requireColumn(t, tx, "users", "notes", "text", 0, false)
@@ -389,6 +392,23 @@ WHERE table_schema = 'public'
 	for _, fragment := range fragments {
 		require.Contains(t, columnDefault.String, fragment, "expected default for %s.%s to contain %q", table, column, fragment)
 	}
+}
+
+func requireColumnAbsent(t *testing.T, tx *sql.Tx, table, column string) {
+	t.Helper()
+
+	var exists bool
+	err := tx.QueryRowContext(context.Background(), `
+SELECT EXISTS (
+	SELECT 1
+	FROM information_schema.columns
+	WHERE table_schema = 'public'
+	  AND table_name = $1
+	  AND column_name = $2
+)
+`, table, column).Scan(&exists)
+	require.NoError(t, err, "query information_schema.columns for %s.%s", table, column)
+	require.False(t, exists, "expected column %s.%s to be absent", table, column)
 }
 
 func requireColumn(t *testing.T, tx *sql.Tx, table, column, dataType string, maxLen int, nullable bool) {

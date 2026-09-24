@@ -83,7 +83,6 @@ export default {
     },
     overview: {
       title: '概览',
-      description: '余额、今日用量与接入信息',
       greeting: {
         lateNight: '夜深了，{name}',
         morning: '早上好，{name}',
@@ -91,30 +90,33 @@ export default {
         afternoon: '下午好，{name}',
         evening: '晚上好，{name}'
       },
-      totals: '累计消耗 {cost} · 累计请求 {requests} · 当前 {rpm} RPM',
-      quickStart: {
-        title: '快速开始',
-        description: '把接口地址和密钥填进 SDK 或客户端，就能直接调用。',
-        baseUrl: '接口地址',
-        key: '我的密钥',
-        noKey: '还没有可用的密钥',
-        allKeys: '全部密钥',
-        createKey: '创建密钥',
-        copy: '复制',
-        copied: '已复制',
-        example: '调用示例',
-        exampleHint: '把 $API_KEY 换成上面复制的密钥，或先 export API_KEY=你的密钥',
-        exampleMessage: '你好'
+      range: {
+        label: '时间范围',
+        days: '近 {days} 天'
       },
-      trend: {
-        title: '用量趋势',
-        range: '近 {days} 天',
-        summary: '近 {days} 天 · {requests} 次请求 · {tokens} Token · 费用 {cost}'
+      numbers: {
+        today: '今日 Token',
+        range: '近 {days} 天 Token',
+        total: '累计 Token'
+      },
+      models: {
+        title: '模型用量',
+        other: '其他',
+        empty: '这段时间没有用量'
+      },
+      composition: {
+        title: 'Token 构成',
+        input: '输入',
+        output: '输出',
+        cacheRead: '缓存读',
+        cacheWrite: '缓存写',
+        hitRate: '缓存命中率',
+        empty: '这段时间没有用量'
       }
     },
     billing: {
       title: '账务',
-      description: '充值、订阅、订单与邀请返利',
+      description: '充值、订阅与兑换码',
       tabs: {
         recharge: '充值',
         subscriptions: '订阅'
@@ -128,24 +130,13 @@ export default {
         tokens: 'Token',
         cost: '费用',
         standardCost: '标准价',
-        balance: '可用余额',
-        recharge: '前往充值',
         totalCost: '累计消耗',
-        totalRequests: '累计请求',
-        rate: '当前速率（近 5 分钟）',
         todayCost: '今日费用',
-        todayRequests: '今日请求',
-        todayTokens: '今日 Token',
         avgLatency: '平均耗时'
       },
       sections: {
-        announcements: '公告',
-        trend: '用量趋势',
         models: '模型用量',
         records: '请求明细'
-      },
-      announcements: {
-        unread: '{count} 条未读'
       },
       trend: {
         tokens: 'Token',

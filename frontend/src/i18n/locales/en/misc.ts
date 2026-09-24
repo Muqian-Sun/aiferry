@@ -100,7 +100,9 @@ export default {
     total: 'announcements',
     emptyDescription: 'There are no system announcements at this time',
     readStatus: 'You have read this announcement',
-    markReadHint: 'Click "Mark as read" to mark this announcement'
+    markReadHint: 'Click "Mark as read" to mark this announcement',
+    snoozeToday: "Don't show again today",
+    gotIt: 'Got it'
   },
 
   // User Subscriptions Page
@@ -119,11 +121,6 @@ export default {
     usage: 'Usage',
     expires: 'Expires',
     noExpiration: 'No expiration',
-    unlimited: 'Unlimited',
-    unlimitedDesc: 'No usage limits on this subscription',
-    daily: 'Daily',
-    weekly: 'Weekly',
-    monthly: 'Monthly',
     daysRemaining: '{days} days remaining',
     expiresOn: 'Expires on {date}',
     resetIn: 'Resets in {time}',
@@ -364,6 +361,7 @@ export default {
     },
     subscribeNow: 'Subscribe Now',
     renewNow: 'Renew',
+    renewPlanUnavailable: 'This plan is no longer on sale and cannot be renewed right now',
     selectPlan: 'Select Plan',
     planFeatures: 'Features',
     planCard: {

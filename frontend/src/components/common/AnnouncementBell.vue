@@ -225,7 +225,7 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  [isModalOpen, detailModalOpen, () => announcementStore.currentPopup],
+  [isModalOpen, detailModalOpen, () => announcementStore.noticeOpen],
   ([modal, detail, popup]) => {
     document.body.style.overflow = (modal || detail || popup) ? 'hidden' : ''
   }

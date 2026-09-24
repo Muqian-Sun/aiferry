@@ -33,25 +33,23 @@ func NewAnnouncementService(
 }
 
 type CreateAnnouncementInput struct {
-	Title      string
-	Content    string
-	Status     string
-	NotifyMode string
-	Targeting  AnnouncementTargeting
-	StartsAt   *time.Time
-	EndsAt     *time.Time
-	ActorID    *int64 // 管理员用户ID
+	Title     string
+	Content   string
+	Status    string
+	Targeting AnnouncementTargeting
+	StartsAt  *time.Time
+	EndsAt    *time.Time
+	ActorID   *int64 // 管理员用户ID
 }
 
 type UpdateAnnouncementInput struct {
-	Title      *string
-	Content    *string
-	Status     *string
-	NotifyMode *string
-	Targeting  *AnnouncementTargeting
-	StartsAt   **time.Time
-	EndsAt     **time.Time
-	ActorID    *int64 // 管理员用户ID
+	Title     *string
+	Content   *string
+	Status    *string
+	Targeting *AnnouncementTargeting
+	StartsAt  **time.Time
+	EndsAt    **time.Time
+	ActorID   *int64 // 管理员用户ID
 }
 
 type UserAnnouncement struct {
@@ -99,14 +97,6 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 		return nil, err
 	}
 
-	notifyMode := strings.TrimSpace(input.NotifyMode)
-	if notifyMode == "" {
-		notifyMode = AnnouncementNotifyModeSilent
-	}
-	if !isValidAnnouncementNotifyMode(notifyMode) {
-		return nil, ErrAnnouncementInvalidNotifyMode
-	}
-
 	if input.StartsAt != nil && input.EndsAt != nil {
 		if !input.StartsAt.Before(*input.EndsAt) {
 			return nil, ErrAnnouncementInvalidSchedule
@@ -114,13 +104,12 @@ func (s *AnnouncementService) Create(ctx context.Context, input *CreateAnnouncem
 	}
 
 	a := &Announcement{
-		Title:      title,
-		Content:    content,
-		Status:     status,
-		NotifyMode: notifyMode,
-		Targeting:  targeting,
-		StartsAt:   input.StartsAt,
-		EndsAt:     input.EndsAt,
+		Title:     title,
+		Content:   content,
+		Status:    status,
+		Targeting: targeting,
+		StartsAt:  input.StartsAt,
+		EndsAt:    input.EndsAt,
 	}
 	if input.ActorID != nil && *input.ActorID > 0 {
 		a.CreatedBy = input.ActorID
@@ -168,14 +157,6 @@ func (s *AnnouncementService) Update(ctx context.Context, id int64, input *Updat
 			return nil, ErrAnnouncementInvalidStatus
 		}
 		a.Status = status
-	}
-
-	if input.NotifyMode != nil {
-		notifyMode := strings.TrimSpace(*input.NotifyMode)
-		if !isValidAnnouncementNotifyMode(notifyMode) {
-			return nil, ErrAnnouncementInvalidNotifyMode
-		}
-		a.NotifyMode = notifyMode
 	}
 
 	if input.Targeting != nil {
@@ -399,15 +380,6 @@ func (s *AnnouncementService) ListUserReadStatus(
 func isValidAnnouncementStatus(status string) bool {
 	switch status {
 	case AnnouncementStatusDraft, AnnouncementStatusActive, AnnouncementStatusArchived:
-		return true
-	default:
-		return false
-	}
-}
-
-func isValidAnnouncementNotifyMode(mode string) bool {
-	switch mode {
-	case AnnouncementNotifyModeSilent, AnnouncementNotifyModePopup:
 		return true
 	default:
 		return false

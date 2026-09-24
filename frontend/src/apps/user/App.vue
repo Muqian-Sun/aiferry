@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/app/AppShell.vue'
-import AnnouncementPopup from '@/components/common/AnnouncementPopup.vue'
+import AnnouncementNotice from '@/components/user/AnnouncementNotice.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAnnouncementStore } from '@/stores/announcements'
@@ -50,7 +50,11 @@ watch(
         startSubscriptionSync()
       }
 
-      // Announcements: new login vs page refresh restore
+      // 公告：登录 / 进站时登记一次弹窗（新登录总弹；刷新恢复登录态时本标签页弹过就不再弹；今日不再弹出的除外）
+      const userId = authStore.user?.id
+      if (userId !== undefined) {
+        announcementStore.requestNotice(userId, oldValue === false)
+      }
       if (oldValue === false) {
         // New login: delay 3s then force fetch
         setTimeout(() => announcementStore.fetchAnnouncements(true), 3000)
@@ -84,6 +88,6 @@ onBeforeUnmount(() => {
 
 <template>
   <AppShell>
-    <AnnouncementPopup />
+    <AnnouncementNotice />
   </AppShell>
 </template>

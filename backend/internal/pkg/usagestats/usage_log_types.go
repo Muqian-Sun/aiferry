@@ -92,6 +92,14 @@ type TrendDataPoint struct {
 	ActualCost          float64 `json:"actual_cost"` // 实际扣除
 }
 
+// ModelTrendPoint 是按「时间桶 + 模型」分组的用量点（用户概览的按模型趋势）。
+type ModelTrendPoint struct {
+	Date        string `json:"date"`
+	Model       string `json:"model"`
+	Requests    int64  `json:"requests"`
+	TotalTokens int64  `json:"total_tokens"`
+}
+
 // ModelStat represents usage statistics for a single model
 type ModelStat struct {
 	Model               string  `json:"model"`

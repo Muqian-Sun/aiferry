@@ -16,11 +16,6 @@ const (
 )
 
 const (
-	AnnouncementNotifyModeSilent = domain.AnnouncementNotifyModeSilent
-	AnnouncementNotifyModePopup  = domain.AnnouncementNotifyModePopup
-)
-
-const (
 	AnnouncementConditionTypeSubscription = domain.AnnouncementConditionTypeSubscription
 	AnnouncementConditionTypeBalance      = domain.AnnouncementConditionTypeBalance
 )
@@ -43,11 +38,7 @@ var (
 		"ANNOUNCEMENT_CONTENT_REQUIRED",
 		"announcement content is required",
 	)
-	ErrAnnouncementInvalidStatus     = infraerrors.BadRequest("ANNOUNCEMENT_STATUS_INVALID", "announcement status is invalid")
-	ErrAnnouncementInvalidNotifyMode = infraerrors.BadRequest(
-		"ANNOUNCEMENT_NOTIFY_MODE_INVALID",
-		"announcement notify_mode is invalid",
-	)
+	ErrAnnouncementInvalidStatus   = infraerrors.BadRequest("ANNOUNCEMENT_STATUS_INVALID", "announcement status is invalid")
 	ErrAnnouncementInvalidSchedule = infraerrors.BadRequest(
 		"ANNOUNCEMENT_TIME_RANGE_INVALID",
 		"starts_at must be before ends_at",

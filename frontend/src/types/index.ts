@@ -299,7 +299,6 @@ export interface UpdateSubscriptionRequest {
 // ==================== Announcement Types ====================
 
 export type AnnouncementStatus = 'draft' | 'active' | 'archived'
-export type AnnouncementNotifyMode = 'silent' | 'popup'
 
 export type AnnouncementConditionType = 'subscription' | 'balance'
 
@@ -325,7 +324,6 @@ export interface Announcement {
   title: string
   content: string
   status: AnnouncementStatus
-  notify_mode: AnnouncementNotifyMode
   targeting: AnnouncementTargeting
   starts_at?: string
   ends_at?: string
@@ -339,7 +337,6 @@ export interface UserAnnouncement {
   id: number
   title: string
   content: string
-  notify_mode: AnnouncementNotifyMode
   starts_at?: string
   ends_at?: string
   read_at?: string
@@ -351,7 +348,6 @@ export interface CreateAnnouncementRequest {
   title: string
   content: string
   status?: AnnouncementStatus
-  notify_mode?: AnnouncementNotifyMode
   targeting: AnnouncementTargeting
   starts_at?: number
   ends_at?: number
@@ -361,7 +357,6 @@ export interface UpdateAnnouncementRequest {
   title?: string
   content?: string
   status?: AnnouncementStatus
-  notify_mode?: AnnouncementNotifyMode
   targeting?: AnnouncementTargeting
   starts_at?: number
   ends_at?: number
@@ -1559,6 +1554,14 @@ export interface TrendDataPoint {
   total_tokens: number
   cost: number // 标准计费
   actual_cost: number // 实际扣除
+}
+
+/** 按「时间桶 + 模型」分组的用量点（概览的按模型趋势；模型按请求时的名字） */
+export interface ModelTrendPoint {
+  date: string
+  model: string
+  requests: number
+  total_tokens: number
 }
 
 export interface ModelStat {

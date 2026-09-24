@@ -385,7 +385,6 @@ export default {
       columns: {
         title: '标题',
         status: '状态',
-        notifyMode: '通知方式',
         targeting: '展示条件',
         timeRange: '有效期',
         createdAt: '创建时间',
@@ -396,16 +395,10 @@ export default {
         active: '展示中',
         archived: '已归档'
       },
-      notifyModeLabels: {
-        silent: '静默',
-        popup: '弹窗'
-      },
       form: {
         title: '标题',
         content: '内容（支持 Markdown）',
         status: '状态',
-        notifyMode: '通知方式',
-        notifyModeHint: '弹窗模式会自动弹出通知给用户',
         startsAt: '开始时间',
         endsAt: '结束时间',
         startsAtHint: '留空表示立即生效',

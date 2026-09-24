@@ -99,7 +99,9 @@ export default {
     total: '条公告',
     emptyDescription: '暂时没有任何系统公告',
     readStatus: '您已阅读此公告',
-    markReadHint: '点击"已读"标记此公告'
+    markReadHint: '点击"已读"标记此公告',
+    snoozeToday: '今日不再弹出',
+    gotIt: '知道了'
   },
 
   // User Subscriptions Page
@@ -117,11 +119,6 @@ export default {
     usage: '用量',
     expires: '到期时间',
     noExpiration: '无到期时间',
-    unlimited: '无限制',
-    unlimitedDesc: '该订阅无用量限制',
-    daily: '每日',
-    weekly: '每周',
-    monthly: '每月',
     daysRemaining: '剩余 {days} 天',
     expiresOn: '{date} 到期',
     resetIn: '{time} 后重置',
@@ -366,6 +363,7 @@ export default {
     },
     subscribeNow: '立即开通',
     renewNow: '续费',
+    renewPlanUnavailable: '该套餐已下架，暂时无法续费',
     selectPlan: '选择套餐',
     planFeatures: '功能特性',
     planCard: {

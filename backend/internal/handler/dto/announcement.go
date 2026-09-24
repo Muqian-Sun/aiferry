@@ -7,11 +7,10 @@ import (
 )
 
 type Announcement struct {
-	ID         int64  `json:"id"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	Status     string `json:"status"`
-	NotifyMode string `json:"notify_mode"`
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
+	Status  string `json:"status"`
 
 	Targeting service.AnnouncementTargeting `json:"targeting"`
 
@@ -26,10 +25,9 @@ type Announcement struct {
 }
 
 type UserAnnouncement struct {
-	ID         int64  `json:"id"`
-	Title      string `json:"title"`
-	Content    string `json:"content"`
-	NotifyMode string `json:"notify_mode"`
+	ID      int64  `json:"id"`
+	Title   string `json:"title"`
+	Content string `json:"content"`
 
 	StartsAt *time.Time `json:"starts_at,omitempty"`
 	EndsAt   *time.Time `json:"ends_at,omitempty"`
@@ -45,18 +43,17 @@ func AnnouncementFromService(a *service.Announcement) *Announcement {
 		return nil
 	}
 	return &Announcement{
-		ID:         a.ID,
-		Title:      a.Title,
-		Content:    a.Content,
-		Status:     a.Status,
-		NotifyMode: a.NotifyMode,
-		Targeting:  a.Targeting,
-		StartsAt:   a.StartsAt,
-		EndsAt:     a.EndsAt,
-		CreatedBy:  a.CreatedBy,
-		UpdatedBy:  a.UpdatedBy,
-		CreatedAt:  a.CreatedAt,
-		UpdatedAt:  a.UpdatedAt,
+		ID:        a.ID,
+		Title:     a.Title,
+		Content:   a.Content,
+		Status:    a.Status,
+		Targeting: a.Targeting,
+		StartsAt:  a.StartsAt,
+		EndsAt:    a.EndsAt,
+		CreatedBy: a.CreatedBy,
+		UpdatedBy: a.UpdatedBy,
+		CreatedAt: a.CreatedAt,
+		UpdatedAt: a.UpdatedAt,
 	}
 }
 
@@ -65,14 +62,13 @@ func UserAnnouncementFromService(a *service.UserAnnouncement) *UserAnnouncement 
 		return nil
 	}
 	return &UserAnnouncement{
-		ID:         a.Announcement.ID,
-		Title:      a.Announcement.Title,
-		Content:    a.Announcement.Content,
-		NotifyMode: a.Announcement.NotifyMode,
-		StartsAt:   a.Announcement.StartsAt,
-		EndsAt:     a.Announcement.EndsAt,
-		ReadAt:     a.ReadAt,
-		CreatedAt:  a.Announcement.CreatedAt,
-		UpdatedAt:  a.Announcement.UpdatedAt,
+		ID:        a.Announcement.ID,
+		Title:     a.Announcement.Title,
+		Content:   a.Announcement.Content,
+		StartsAt:  a.Announcement.StartsAt,
+		EndsAt:    a.Announcement.EndsAt,
+		ReadAt:    a.ReadAt,
+		CreatedAt: a.Announcement.CreatedAt,
+		UpdatedAt: a.Announcement.UpdatedAt,
 	}
 }

@@ -5,16 +5,44 @@ import type { UserAnnouncement } from '@/types'
 
 const THROTTLE_MS = 20 * 60 * 1000 // 20 minutes
 
+// 登录公告弹窗（muqian 2026-09-24「每次登录都默认弹，用户可以选择今日不弹」）：
+// 「今日不再弹出」按用户记在本机（localStorage，值为本地日期）；本标签页弹过一次就不再弹（sessionStorage），刷新页面不重复弹。
+// 两者都只是本机便利：存储不可用时照常弹，不报错。
+const snoozeKey = (userId: number) => `aiferry:announcement-notice:snoozed-on:${userId}`
+const shownKey = (userId: number) => `aiferry:announcement-notice:shown:${userId}`
+
+function readStorage(storage: () => Storage, key: string): string | null {
+  try {
+    return storage().getItem(key)
+  } catch {
+    return null
+  }
+}
+
+function writeStorage(storage: () => Storage, key: string, value: string) {
+  try {
+    storage().setItem(key, value)
+  } catch {
+    // 私密窗口等存储不可用时忽略：下次照常弹
+  }
+}
+
+function localDate(): string {
+  const now = new Date()
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+}
+
 export const useAnnouncementStore = defineStore('announcements', () => {
   // State
   const announcements = ref<UserAnnouncement[]>([])
   const loading = ref(false)
   const lastFetchTime = ref(0)
-  const popupQueue = ref<UserAnnouncement[]>([])
-  const currentPopup = ref<UserAnnouncement | null>(null)
+  const loaded = ref(false)
+  const noticeOpen = ref(false)
 
-  // Session-scoped dedup set — not reactive, used as plain lookup only
-  let shownPopupIds = new Set<number>()
+  // 等公告取回后要弹窗的用户（登录 / 进站时登记）
+  let noticeRequestedFor: number | null = null
+  let noticeUserId: number | null = null
 
   // Getters
   const unreadCount = computed(() =>
@@ -35,7 +63,8 @@ export const useAnnouncementStore = defineStore('announcements', () => {
       loading.value = true
       const all = await announcementsAPI.list(false)
       announcements.value = all.slice(0, 20)
-      enqueueNewPopups()
+      loaded.value = true
+      openRequestedNotice()
     } catch (err: any) {
       // Revert throttle timestamp on failure so retry is allowed
       lastFetchTime.value = 0
@@ -45,44 +74,34 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     }
   }
 
-  function enqueueNewPopups() {
-    const newPopups = announcements.value.filter(
-      (a) => a.notify_mode === 'popup' && !a.read_at && !shownPopupIds.has(a.id)
-    )
-    if (newPopups.length === 0) return
-
-    for (const p of newPopups) {
-      if (!popupQueue.value.some((q) => q.id === p.id)) {
-        popupQueue.value.push(p)
-      }
-    }
-
-    if (!currentPopup.value) {
-      showNextPopup()
-    }
+  /**
+   * 登录或进站时登记一次弹窗。今天选过「今日不再弹出」就不登记；
+   * freshLogin=false（刷新页面恢复登录态）时，本标签页已经弹过也不登记。
+   */
+  function requestNotice(userId: number, freshLogin: boolean) {
+    if (readStorage(() => localStorage, snoozeKey(userId)) === localDate()) return
+    if (!freshLogin && readStorage(() => sessionStorage, shownKey(userId))) return
+    noticeRequestedFor = userId
+    openRequestedNotice()
   }
 
-  function showNextPopup() {
-    if (popupQueue.value.length === 0) {
-      currentPopup.value = null
-      return
-    }
-    currentPopup.value = popupQueue.value.shift()!
-    shownPopupIds.add(currentPopup.value.id)
+  function openRequestedNotice() {
+    if (noticeRequestedFor === null || !loaded.value) return
+    const userId = noticeRequestedFor
+    noticeRequestedFor = null
+    if (announcements.value.length === 0) return
+    noticeUserId = userId
+    noticeOpen.value = true
+    writeStorage(() => sessionStorage, shownKey(userId), '1')
   }
 
-  async function dismissPopup() {
-    if (!currentPopup.value) return
-    const id = currentPopup.value.id
-    currentPopup.value = null
-
-    // Mark as read (fire-and-forget, UI already updated)
-    markAsRead(id)
-
-    // Show next popup after a short delay
-    if (popupQueue.value.length > 0) {
-      setTimeout(() => showNextPopup(), 300)
+  /** 关弹窗：全部标为已读；勾了「今日不再弹出」就记下今天的日期 */
+  function closeNotice(snoozeToday: boolean) {
+    noticeOpen.value = false
+    if (snoozeToday && noticeUserId !== null) {
+      writeStorage(() => localStorage, snoozeKey(noticeUserId), localDate())
     }
+    void markAllAsRead().catch(() => undefined)
   }
 
   async function markAsRead(id: number) {
@@ -120,9 +139,10 @@ export const useAnnouncementStore = defineStore('announcements', () => {
   function reset() {
     announcements.value = []
     lastFetchTime.value = 0
-    shownPopupIds = new Set()
-    popupQueue.value = []
-    currentPopup.value = null
+    loaded.value = false
+    noticeOpen.value = false
+    noticeRequestedFor = null
+    noticeUserId = null
     loading.value = false
   }
 
@@ -130,12 +150,13 @@ export const useAnnouncementStore = defineStore('announcements', () => {
     // State
     announcements,
     loading,
-    currentPopup,
+    noticeOpen,
     // Getters
     unreadCount,
     // Actions
     fetchAnnouncements,
-    dismissPopup,
+    requestNotice,
+    closeNotice,
     markAsRead,
     markAllAsRead,
     reset,
