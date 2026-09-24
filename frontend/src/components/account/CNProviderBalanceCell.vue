@@ -4,7 +4,7 @@
     <div class="flex flex-wrap items-center gap-1.5">
       <span
         data-test="cn-provider-balance-value"
-        :class="['text-[10px] font-medium leading-4', platformTextClass(account.platform)]"
+        class="text-[10px] font-medium leading-4 text-af-ink-2"
         :title="t('admin.accounts.cnProviders.balanceProbeTooltip')"
       >
         {{ balanceLabel }}
@@ -62,7 +62,6 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { CNProviderBalanceEntry, CNProviderBalanceResult } from '@/api/admin/cnProviders'
 import type { Account } from '@/types'
-import { platformTextClass } from '@/utils/platformColors'
 import { cnBalanceCellVisible } from './credentialsBuilder'
 
 const props = defineProps<{
