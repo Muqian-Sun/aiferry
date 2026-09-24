@@ -9,7 +9,11 @@
       <!-- 页头高度交给列表页：TablePageLayout 按视口定高，要把页头占掉的高度扣出去 -->
       <main class="px-4 py-5 md:px-6 md:py-6 lg:px-8" :style="{ '--admin-page-header-h': `${pageHeaderHeight}px` }">
         <div v-if="!route.meta.hidePageHeader" ref="pageHeaderEl" class="flow-root">
-          <AdminPageHeader />
+          <AdminPageHeader>
+            <template v-if="$slots['header-actions']" #actions>
+              <slot name="header-actions" />
+            </template>
+          </AdminPageHeader>
         </div>
         <slot />
       </main>

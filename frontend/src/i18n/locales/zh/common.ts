@@ -1,5 +1,9 @@
 export default {
   common: {
+    selectedItems: '已选 {count} 项',
+    columnSettings: '列设置',
+    restoreDefault: '恢复默认',
+    cancelSelection: '取消选择',
     loading: '加载中...',
     submitting: '提交中...',
     justNow: '刚刚',
