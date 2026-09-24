@@ -71,6 +71,8 @@ type ModelPricing struct {
 	LongContextOutputMultiplier        float64  // 长上下文整次会话输出倍率
 	ImageOutputPricePerToken           float64  // 图片输出 token 价格 (USD)
 	ImageOutputPriceExplicit           bool     // 是否由渠道定价显式设定（为 true 时即使 == 0 也不回退）
+	AudioInputPricePerToken            float64  // 音频输入 token 价格 (USD)；为 0 时回退到文本输入价（已含档位 / 长上下文调整）
+	AudioOutputPricePerToken           float64  // 音频输出 token 价格 (USD)；为 0 时回退到文本输出价
 }
 
 func normalizeBillingServiceTier(serviceTier string) string {
@@ -142,13 +144,18 @@ type UsageTokens struct {
 	CacheCreation5mTokens int
 	CacheCreation1hTokens int
 	ImageOutputTokens     int
+	// AudioInputTokens / AudioOutputTokens 是 InputTokens / OutputTokens 里的音频部分（上游把音频
+	// 计在总数里：OpenAI *_tokens_details.audio_tokens，Gemini 的 AUDIO 模态）。计费时从文本 token
+	// 中剥出来按音频价计；InputTokens 已扣掉缓存读写时，这里也只算未命中缓存的音频输入。
+	AudioInputTokens  int
+	AudioOutputTokens int
 }
 
 // CostBreakdown 费用明细
 type CostBreakdown struct {
-	InputCost                 float64 // 文本输入费用（不含图片输入，图片输入单独记入 ImageInputCost）
+	InputCost                 float64 // 输入费用（含音频输入，不含图片输入，图片输入单独记入 ImageInputCost）
 	ImageInputCost            float64 // 图片输入 token 费用（如 gpt-image-2 图片编辑）
-	OutputCost                float64
+	OutputCost                float64 // 输出费用（含音频输出，不含图片输出）
 	ImageOutputCost           float64
 	CacheCreationCost         float64
 	CacheReadCost             float64
@@ -156,6 +163,10 @@ type CostBreakdown struct {
 	ActualCost                float64 // 应用倍率后的实际费用
 	BillingMode               string  // 计费模式（"token"/"per_request"/"image"），由 CalculateCostUnified 填充
 	LongContextBillingApplied bool
+	// AudioInputCost / AudioOutputCost 是 InputCost / OutputCost 中的音频部分（已含在内，用量行不单列），
+	// 仅供明细与测试核对。
+	AudioInputCost  float64
+	AudioOutputCost float64
 }
 
 func applyCostBreakdownMultiplier(cost *CostBreakdown, multiplier float64) {
@@ -166,6 +177,8 @@ func applyCostBreakdownMultiplier(cost *CostBreakdown, multiplier float64) {
 	cost.ImageInputCost *= multiplier
 	cost.OutputCost *= multiplier
 	cost.ImageOutputCost *= multiplier
+	cost.AudioInputCost *= multiplier
+	cost.AudioOutputCost *= multiplier
 	cost.CacheCreationCost *= multiplier
 	cost.CacheReadCost *= multiplier
 	cost.TotalCost *= multiplier
@@ -1253,6 +1266,8 @@ func (s *BillingService) getModelPricingAt(model string, pricingAt time.Time) (*
 				ImageInputPricePerToken:       litellmPricing.InputCostPerImageToken,
 				ImageCacheReadPricePerToken:   litellmPricing.CacheReadInputImageTokenCost,
 				ImageOutputPricePerToken:      litellmPricing.OutputCostPerImageToken,
+				AudioInputPricePerToken:       litellmPricing.InputCostPerAudioToken,
+				AudioOutputPricePerToken:      litellmPricing.OutputCostPerAudioToken,
 			}, true, pricingAt), nil
 		}
 	}
@@ -1525,11 +1540,12 @@ func (s *BillingService) computeTokenBreakdown(
 
 	bd := &CostBreakdown{}
 	// 分离图片输入 token 与文本输入 token（多模态 embedding、图片编辑等图文不同价场景）。
-	// InputCost 仅计文本输入，图片输入费用单独记入 ImageInputCost，便于对账；总额不变。
+	// InputCost 不含图片输入，图片输入费用单独记入 ImageInputCost，便于对账；总额不变。
 	// ImageInputTokens 为 0 时（绝大多数 chat/vision 流量）走原始单价路径，行为不变。
+	textInputTokens := tokens.InputTokens
 	if tokens.ImageInputTokens > 0 {
 		imageInputTokens := tokens.ImageInputTokens
-		textInputTokens := tokens.InputTokens - imageInputTokens
+		textInputTokens = tokens.InputTokens - imageInputTokens
 		if textInputTokens < 0 {
 			textInputTokens = 0
 			imageInputTokens = tokens.InputTokens
@@ -1539,10 +1555,20 @@ func (s *BillingService) computeTokenBreakdown(
 			// 未配置图片输入档时回退到文本 input 价（已含 priority / 长上下文调整）
 			imageInputPrice = inputPrice
 		}
-		bd.InputCost = float64(textInputTokens) * inputPrice
 		bd.ImageInputCost = float64(imageInputTokens) * imageInputPrice
-	} else {
-		bd.InputCost = float64(tokens.InputTokens) * inputPrice
+	}
+	// 音频输入 token 计在输入总数里：剥出来按音频价计，费用仍并入 InputCost（用量行不单列），
+	// AudioInputCost 只做明细。未配音频价时回退到文本 input 价，与剥离前同价（不会变成 0）。
+	audioInputTokens := min(max(tokens.AudioInputTokens, 0), max(textInputTokens, 0))
+	textInputTokens -= audioInputTokens
+	bd.InputCost = float64(textInputTokens) * inputPrice
+	if audioInputTokens > 0 {
+		audioInputPrice := pricing.AudioInputPricePerToken
+		if audioInputPrice <= 0 {
+			audioInputPrice = inputPrice
+		}
+		bd.AudioInputCost = float64(audioInputTokens) * audioInputPrice
+		bd.InputCost += bd.AudioInputCost
 	}
 
 	// 分离图片输出 token 与文本输出 token
@@ -1550,7 +1576,18 @@ func (s *BillingService) computeTokenBreakdown(
 	if textOutputTokens < 0 {
 		textOutputTokens = 0
 	}
+	// 音频输出同理：从文本输出里剥出来按音频价计，并入 OutputCost；未配音频价回退文本 output 价。
+	audioOutputTokens := min(max(tokens.AudioOutputTokens, 0), textOutputTokens)
+	textOutputTokens -= audioOutputTokens
 	bd.OutputCost = float64(textOutputTokens) * outputPrice
+	if audioOutputTokens > 0 {
+		audioOutputPrice := pricing.AudioOutputPricePerToken
+		if audioOutputPrice <= 0 {
+			audioOutputPrice = outputPrice
+		}
+		bd.AudioOutputCost = float64(audioOutputTokens) * audioOutputPrice
+		bd.OutputCost += bd.AudioOutputCost
+	}
 
 	// 图片输出 token 费用（独立费率）
 	if tokens.ImageOutputTokens > 0 {
@@ -1574,6 +1611,8 @@ func (s *BillingService) computeTokenBreakdown(
 		bd.ImageInputCost *= tierMultiplier
 		bd.OutputCost *= tierMultiplier
 		bd.ImageOutputCost *= tierMultiplier
+		bd.AudioInputCost *= tierMultiplier
+		bd.AudioOutputCost *= tierMultiplier
 		bd.CacheCreationCost *= tierMultiplier
 		bd.CacheReadCost *= tierMultiplier
 	}

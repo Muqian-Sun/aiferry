@@ -355,6 +355,60 @@ func (_u *ModelCatalogEntryUpdate) ClearImageCacheReadPrice() *ModelCatalogEntry
 	return _u
 }
 
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdate) SetAudioInputPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.ResetAudioInputPrice()
+	_u.mutation.SetAudioInputPrice(v)
+	return _u
+}
+
+// SetNillableAudioInputPrice sets the "audio_input_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableAudioInputPrice(v *float64) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetAudioInputPrice(*v)
+	}
+	return _u
+}
+
+// AddAudioInputPrice adds value to the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdate) AddAudioInputPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddAudioInputPrice(v)
+	return _u
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdate) ClearAudioInputPrice() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearAudioInputPrice()
+	return _u
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdate) SetAudioOutputPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.ResetAudioOutputPrice()
+	_u.mutation.SetAudioOutputPrice(v)
+	return _u
+}
+
+// SetNillableAudioOutputPrice sets the "audio_output_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdate) SetNillableAudioOutputPrice(v *float64) *ModelCatalogEntryUpdate {
+	if v != nil {
+		_u.SetAudioOutputPrice(*v)
+	}
+	return _u
+}
+
+// AddAudioOutputPrice adds value to the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdate) AddAudioOutputPrice(v float64) *ModelCatalogEntryUpdate {
+	_u.mutation.AddAudioOutputPrice(v)
+	return _u
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdate) ClearAudioOutputPrice() *ModelCatalogEntryUpdate {
+	_u.mutation.ClearAudioOutputPrice()
+	return _u
+}
+
 // SetInputPricePriority sets the "input_price_priority" field.
 func (_u *ModelCatalogEntryUpdate) SetInputPricePriority(v float64) *ModelCatalogEntryUpdate {
 	_u.mutation.ResetInputPricePriority()
@@ -977,6 +1031,24 @@ func (_u *ModelCatalogEntryUpdate) sqlSave(ctx context.Context) (_node int, err 
 	if _u.mutation.ImageCacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldImageCacheReadPrice, field.TypeFloat64)
 	}
+	if value, ok := _u.mutation.AudioInputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioInputPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioInputPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.AudioOutputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioOutputPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioOutputPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64)
+	}
 	if value, ok := _u.mutation.InputPricePriority(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
 	}
@@ -1537,6 +1609,60 @@ func (_u *ModelCatalogEntryUpdateOne) AddImageCacheReadPrice(v float64) *ModelCa
 // ClearImageCacheReadPrice clears the value of the "image_cache_read_price" field.
 func (_u *ModelCatalogEntryUpdateOne) ClearImageCacheReadPrice() *ModelCatalogEntryUpdateOne {
 	_u.mutation.ClearImageCacheReadPrice()
+	return _u
+}
+
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdateOne) SetAudioInputPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.ResetAudioInputPrice()
+	_u.mutation.SetAudioInputPrice(v)
+	return _u
+}
+
+// SetNillableAudioInputPrice sets the "audio_input_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableAudioInputPrice(v *float64) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetAudioInputPrice(*v)
+	}
+	return _u
+}
+
+// AddAudioInputPrice adds value to the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdateOne) AddAudioInputPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddAudioInputPrice(v)
+	return _u
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearAudioInputPrice() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearAudioInputPrice()
+	return _u
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdateOne) SetAudioOutputPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.ResetAudioOutputPrice()
+	_u.mutation.SetAudioOutputPrice(v)
+	return _u
+}
+
+// SetNillableAudioOutputPrice sets the "audio_output_price" field if the given value is not nil.
+func (_u *ModelCatalogEntryUpdateOne) SetNillableAudioOutputPrice(v *float64) *ModelCatalogEntryUpdateOne {
+	if v != nil {
+		_u.SetAudioOutputPrice(*v)
+	}
+	return _u
+}
+
+// AddAudioOutputPrice adds value to the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdateOne) AddAudioOutputPrice(v float64) *ModelCatalogEntryUpdateOne {
+	_u.mutation.AddAudioOutputPrice(v)
+	return _u
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (_u *ModelCatalogEntryUpdateOne) ClearAudioOutputPrice() *ModelCatalogEntryUpdateOne {
+	_u.mutation.ClearAudioOutputPrice()
 	return _u
 }
 
@@ -2191,6 +2317,24 @@ func (_u *ModelCatalogEntryUpdateOne) sqlSave(ctx context.Context) (_node *Model
 	}
 	if _u.mutation.ImageCacheReadPriceCleared() {
 		_spec.ClearField(modelcatalogentry.FieldImageCacheReadPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.AudioInputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioInputPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioInputPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64)
+	}
+	if value, ok := _u.mutation.AudioOutputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
+	}
+	if value, ok := _u.mutation.AddedAudioOutputPrice(); ok {
+		_spec.AddField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
+	}
+	if _u.mutation.AudioOutputPriceCleared() {
+		_spec.ClearField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64)
 	}
 	if value, ok := _u.mutation.InputPricePriority(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)

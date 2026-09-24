@@ -163,6 +163,9 @@ func (s *OpenAIGatewayService) RecordUsage(ctx context.Context, input *OpenAIRec
 		CacheCreationTokens:  result.Usage.CacheCreationInputTokens,
 		CacheReadTokens:      result.Usage.CacheReadInputTokens,
 		ImageOutputTokens:    result.Usage.ImageOutputTokens,
+		// 音频 token 在输入 / 输出总数里：输入侧只算未命中缓存的部分（缓存读取按缓存价计）。
+		AudioInputTokens:  min(max(result.Usage.AudioInputTokens, 0), actualInputTokens),
+		AudioOutputTokens: max(result.Usage.AudioOutputTokens, 0),
 	}
 
 	// 用户价 = 目录价 × 用户倍率；图片 / 视频 / 搜索按次倍率与 token 倍率是同一个数。

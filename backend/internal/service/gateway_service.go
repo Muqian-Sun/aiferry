@@ -480,6 +480,10 @@ type ClaudeUsage struct {
 	CacheCreation5mTokens    int // 5分钟缓存创建token（来自嵌套 cache_creation 对象）
 	CacheCreation1hTokens    int // 1小时缓存创建token（来自嵌套 cache_creation 对象）
 	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	// AudioInputTokens / AudioOutputTokens 是 InputTokens / OutputTokens 中的音频部分
+	// （Gemini usageMetadata 的 AUDIO 模态；输入侧已扣掉缓存命中的音频）。
+	AudioInputTokens  int `json:"audio_input_tokens,omitempty"`
+	AudioOutputTokens int `json:"audio_output_tokens,omitempty"`
 }
 
 // ForwardResult 转发结果

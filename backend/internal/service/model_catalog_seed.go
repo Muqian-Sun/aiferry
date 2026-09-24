@@ -170,6 +170,8 @@ func seedEntryFromLiteLLM(name string, pricing *LiteLLMModelPricing) ModelCatalo
 		ImageInputPrice:     positivePrice(pricing.InputCostPerImageToken),
 		ImageOutputPrice:    positivePrice(pricing.OutputCostPerImageToken),
 		ImageCacheReadPrice: positivePrice(pricing.CacheReadInputImageTokenCost),
+		AudioInputPrice:     positivePrice(pricing.InputCostPerAudioToken),
+		AudioOutputPrice:    positivePrice(pricing.OutputCostPerAudioToken),
 
 		InputPricePriority:      positivePrice(pricing.InputCostPerTokenPriority),
 		OutputPricePriority:     positivePrice(pricing.OutputCostPerTokenPriority),
@@ -221,6 +223,8 @@ func seedEntryFromFallback(name string, pricing *ModelPricing) ModelCatalogEntry
 		ImageInputPrice:     positivePrice(pricing.ImageInputPricePerToken),
 		ImageOutputPrice:    positivePrice(pricing.ImageOutputPricePerToken),
 		ImageCacheReadPrice: positivePrice(pricing.ImageCacheReadPricePerToken),
+		AudioInputPrice:     positivePrice(pricing.AudioInputPricePerToken),
+		AudioOutputPrice:    positivePrice(pricing.AudioOutputPricePerToken),
 
 		InputPricePriority:      positivePrice(pricing.InputPricePerTokenPriority),
 		OutputPricePriority:     positivePrice(pricing.OutputPricePerTokenPriority),

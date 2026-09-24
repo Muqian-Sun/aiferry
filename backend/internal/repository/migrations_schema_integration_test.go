@@ -45,6 +45,10 @@ func TestMigrationsRunner_IsIdempotent_AndSchemaIsUpToDate(t *testing.T) {
 	// announcements.notify_mode 已作废（253 删列）：用户站改为登录后统一弹公告窗
 	requireColumnAbsent(t, tx, "announcements", "notify_mode")
 
+	// 254 目录条目音频 token 价（可空：未配置时音频 token 回退文本价）
+	requireColumn(t, tx, "model_catalog_entries", "audio_input_price", "numeric", 0, true)
+	requireColumn(t, tx, "model_catalog_entries", "audio_output_price", "numeric", 0, true)
+
 	// users: columns required by repository queries
 	requireColumn(t, tx, "users", "username", "character varying", 100, false)
 	requireColumn(t, tx, "users", "notes", "text", 0, false)

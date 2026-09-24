@@ -707,6 +707,10 @@ func (s *GatewayService) calculateTokenCost(
 		CacheCreation5mTokens: result.Usage.CacheCreation5mTokens,
 		CacheCreation1hTokens: result.Usage.CacheCreation1hTokens,
 		ImageOutputTokens:     result.Usage.ImageOutputTokens,
+		// 音频 token 在 InputTokens / OutputTokens 之内（Gemini 的 AUDIO 模态）；超出部分由
+		// computeTokenBreakdown 截到文本 token 数（如 ForceCacheBilling 把输入转成缓存读取后）。
+		AudioInputTokens:  result.Usage.AudioInputTokens,
+		AudioOutputTokens: result.Usage.AudioOutputTokens,
 	}
 
 	var resolved *ResolvedPricing

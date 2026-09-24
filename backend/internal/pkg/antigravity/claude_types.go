@@ -132,6 +132,10 @@ type ClaudeUsage struct {
 	CacheCreationInputTokens int `json:"cache_creation_input_tokens,omitempty"`
 	CacheReadInputTokens     int `json:"cache_read_input_tokens,omitempty"`
 	ImageOutputTokens        int `json:"image_output_tokens,omitempty"`
+	// AudioInputTokens / AudioOutputTokens 只供计费（Gemini 的 AUDIO 模态，含在输入 / 输出总数里），
+	// 不属于 Claude 协议的 usage，不输出给客户端。
+	AudioInputTokens  int `json:"-"`
+	AudioOutputTokens int `json:"-"`
 }
 
 // ClaudeError Claude 错误响应

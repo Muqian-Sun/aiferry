@@ -156,6 +156,8 @@ type LiteLLMModelPricing struct {
 	OutputCostPerImageToken             float64 `json:"output_cost_per_image_token"` // 图片输出 token 价格
 	InputCostPerImageToken              float64 `json:"input_cost_per_image_token"`  // 图片输入 token 价格（如 gpt-image-2 图片编辑）
 	CacheReadInputImageTokenCost        float64 `json:"cache_read_input_image_token_cost"`
+	InputCostPerAudioToken              float64 `json:"input_cost_per_audio_token"`  // 音频输入 token 价格
+	OutputCostPerAudioToken             float64 `json:"output_cost_per_audio_token"` // 音频输出 token 价格
 	// SearchContextCostPerQuery 是模型内置搜索每次调用价，按 search_context_size_{low,medium,high} 分档。
 	SearchContextCostPerQuery map[string]float64 `json:"search_context_cost_per_query,omitempty"`
 
@@ -193,6 +195,8 @@ type LiteLLMRawEntry struct {
 	OutputCostPerImageToken             *float64           `json:"output_cost_per_image_token"`
 	InputCostPerImageToken              *float64           `json:"input_cost_per_image_token"`
 	CacheReadInputImageTokenCost        *float64           `json:"cache_read_input_image_token_cost"`
+	InputCostPerAudioToken              *float64           `json:"input_cost_per_audio_token"`
+	OutputCostPerAudioToken             *float64           `json:"output_cost_per_audio_token"`
 	SearchContextCostPerQuery           map[string]float64 `json:"search_context_cost_per_query"`
 }
 
@@ -711,6 +715,12 @@ func (s *PricingService) parsePricingData(body []byte) (map[string]*LiteLLMModel
 		}
 		if entry.CacheReadInputImageTokenCost != nil {
 			pricing.CacheReadInputImageTokenCost = *entry.CacheReadInputImageTokenCost
+		}
+		if entry.InputCostPerAudioToken != nil {
+			pricing.InputCostPerAudioToken = *entry.InputCostPerAudioToken
+		}
+		if entry.OutputCostPerAudioToken != nil {
+			pricing.OutputCostPerAudioToken = *entry.OutputCostPerAudioToken
 		}
 
 		hasExplicitLongContext := entry.LongContextInputTokenThreshold != nil ||

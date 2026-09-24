@@ -135,6 +135,16 @@ func ImageCacheReadPrice(v float64) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldImageCacheReadPrice, v))
 }
 
+// AudioInputPrice applies equality check predicate on the "audio_input_price" field. It's identical to AudioInputPriceEQ.
+func AudioInputPrice(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldAudioInputPrice, v))
+}
+
+// AudioOutputPrice applies equality check predicate on the "audio_output_price" field. It's identical to AudioOutputPriceEQ.
+func AudioOutputPrice(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldAudioOutputPrice, v))
+}
+
 // InputPricePriority applies equality check predicate on the "input_price_priority" field. It's identical to InputPricePriorityEQ.
 func InputPricePriority(v float64) predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldInputPricePriority, v))
@@ -1083,6 +1093,106 @@ func ImageCacheReadPriceIsNil() predicate.ModelCatalogEntry {
 // ImageCacheReadPriceNotNil applies the NotNil predicate on the "image_cache_read_price" field.
 func ImageCacheReadPriceNotNil() predicate.ModelCatalogEntry {
 	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldImageCacheReadPrice))
+}
+
+// AudioInputPriceEQ applies the EQ predicate on the "audio_input_price" field.
+func AudioInputPriceEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceNEQ applies the NEQ predicate on the "audio_input_price" field.
+func AudioInputPriceNEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceIn applies the In predicate on the "audio_input_price" field.
+func AudioInputPriceIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldAudioInputPrice, vs...))
+}
+
+// AudioInputPriceNotIn applies the NotIn predicate on the "audio_input_price" field.
+func AudioInputPriceNotIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldAudioInputPrice, vs...))
+}
+
+// AudioInputPriceGT applies the GT predicate on the "audio_input_price" field.
+func AudioInputPriceGT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceGTE applies the GTE predicate on the "audio_input_price" field.
+func AudioInputPriceGTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceLT applies the LT predicate on the "audio_input_price" field.
+func AudioInputPriceLT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceLTE applies the LTE predicate on the "audio_input_price" field.
+func AudioInputPriceLTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldAudioInputPrice, v))
+}
+
+// AudioInputPriceIsNil applies the IsNil predicate on the "audio_input_price" field.
+func AudioInputPriceIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldAudioInputPrice))
+}
+
+// AudioInputPriceNotNil applies the NotNil predicate on the "audio_input_price" field.
+func AudioInputPriceNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldAudioInputPrice))
+}
+
+// AudioOutputPriceEQ applies the EQ predicate on the "audio_output_price" field.
+func AudioOutputPriceEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldEQ(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceNEQ applies the NEQ predicate on the "audio_output_price" field.
+func AudioOutputPriceNEQ(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNEQ(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceIn applies the In predicate on the "audio_output_price" field.
+func AudioOutputPriceIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIn(FieldAudioOutputPrice, vs...))
+}
+
+// AudioOutputPriceNotIn applies the NotIn predicate on the "audio_output_price" field.
+func AudioOutputPriceNotIn(vs ...float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotIn(FieldAudioOutputPrice, vs...))
+}
+
+// AudioOutputPriceGT applies the GT predicate on the "audio_output_price" field.
+func AudioOutputPriceGT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGT(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceGTE applies the GTE predicate on the "audio_output_price" field.
+func AudioOutputPriceGTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldGTE(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceLT applies the LT predicate on the "audio_output_price" field.
+func AudioOutputPriceLT(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLT(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceLTE applies the LTE predicate on the "audio_output_price" field.
+func AudioOutputPriceLTE(v float64) predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldLTE(FieldAudioOutputPrice, v))
+}
+
+// AudioOutputPriceIsNil applies the IsNil predicate on the "audio_output_price" field.
+func AudioOutputPriceIsNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldIsNull(FieldAudioOutputPrice))
+}
+
+// AudioOutputPriceNotNil applies the NotNil predicate on the "audio_output_price" field.
+func AudioOutputPriceNotNil() predicate.ModelCatalogEntry {
+	return predicate.ModelCatalogEntry(sql.FieldNotNull(FieldAudioOutputPrice))
 }
 
 // InputPricePriorityEQ applies the EQ predicate on the "input_price_priority" field.

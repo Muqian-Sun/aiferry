@@ -563,6 +563,8 @@ func applyCatalogEntryCreate(builder *dbent.ModelCatalogEntryCreate, entry *serv
 		SetNillableImageInputPrice(entry.ImageInputPrice).
 		SetNillableImageOutputPrice(entry.ImageOutputPrice).
 		SetNillableImageCacheReadPrice(entry.ImageCacheReadPrice).
+		SetNillableAudioInputPrice(entry.AudioInputPrice).
+		SetNillableAudioOutputPrice(entry.AudioOutputPrice).
 		SetNillableInputPricePriority(entry.InputPricePriority).
 		SetNillableOutputPricePriority(entry.OutputPricePriority).
 		SetNillableCacheWritePricePriority(entry.CacheWritePricePriority).
@@ -616,6 +618,8 @@ func applyCatalogEntryUpdate(builder *dbent.ModelCatalogEntryUpdateOne, entry *s
 	setPrice(builder.SetImageInputPrice, builder.ClearImageInputPrice, entry.ImageInputPrice)
 	setPrice(builder.SetImageOutputPrice, builder.ClearImageOutputPrice, entry.ImageOutputPrice)
 	setPrice(builder.SetImageCacheReadPrice, builder.ClearImageCacheReadPrice, entry.ImageCacheReadPrice)
+	setPrice(builder.SetAudioInputPrice, builder.ClearAudioInputPrice, entry.AudioInputPrice)
+	setPrice(builder.SetAudioOutputPrice, builder.ClearAudioOutputPrice, entry.AudioOutputPrice)
 	setPrice(builder.SetInputPricePriority, builder.ClearInputPricePriority, entry.InputPricePriority)
 	setPrice(builder.SetOutputPricePriority, builder.ClearOutputPricePriority, entry.OutputPricePriority)
 	setPrice(builder.SetCacheWritePricePriority, builder.ClearCacheWritePricePriority, entry.CacheWritePricePriority)
@@ -663,6 +667,8 @@ func modelCatalogEntryToService(row *dbent.ModelCatalogEntry) *service.ModelCata
 		ImageInputPrice:     row.ImageInputPrice,
 		ImageOutputPrice:    row.ImageOutputPrice,
 		ImageCacheReadPrice: row.ImageCacheReadPrice,
+		AudioInputPrice:     row.AudioInputPrice,
+		AudioOutputPrice:    row.AudioOutputPrice,
 
 		InputPricePriority:      row.InputPricePriority,
 		OutputPricePriority:     row.OutputPricePriority,

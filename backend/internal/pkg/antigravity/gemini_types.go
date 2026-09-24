@@ -1,5 +1,7 @@
 package antigravity
 
+import "strings"
+
 // Gemini v1internal 请求/响应类型定义
 
 // V1InternalRequest v1internal 请求包装
@@ -169,6 +171,7 @@ type GeminiUsageMetadata struct {
 	ThoughtsTokenCount      int                 `json:"thoughtsTokenCount,omitempty"` // thinking tokens（按输出价格计费）
 	CandidatesTokensDetails []GeminiTokenDetail `json:"candidatesTokensDetails,omitempty"`
 	PromptTokensDetails     []GeminiTokenDetail `json:"promptTokensDetails,omitempty"`
+	CacheTokensDetails      []GeminiTokenDetail `json:"cacheTokensDetails,omitempty"`
 }
 
 // ImageOutputTokens 从 CandidatesTokensDetails 中提取 IMAGE 模态的 token 数
@@ -179,6 +182,28 @@ func (m *GeminiUsageMetadata) ImageOutputTokens() int {
 		}
 	}
 	return 0
+}
+
+// AudioInputTokens 返回未命中缓存的 AUDIO 模态输入 token 数：PromptTokensDetails 的 AUDIO
+// 扣掉 CacheTokensDetails 的 AUDIO，并截到未命中缓存的输入总数以内（音频计在 promptTokenCount 里）。
+func (m *GeminiUsageMetadata) AudioInputTokens() int {
+	audio := geminiModalityTokens(m.PromptTokensDetails, "AUDIO") - geminiModalityTokens(m.CacheTokensDetails, "AUDIO")
+	return min(max(audio, 0), max(m.PromptTokenCount-m.CachedContentTokenCount, 0))
+}
+
+// AudioOutputTokens 返回 CandidatesTokensDetails 里 AUDIO 模态的输出 token 数。
+func (m *GeminiUsageMetadata) AudioOutputTokens() int {
+	return geminiModalityTokens(m.CandidatesTokensDetails, "AUDIO")
+}
+
+func geminiModalityTokens(details []GeminiTokenDetail, modality string) int {
+	total := 0
+	for _, d := range details {
+		if strings.EqualFold(strings.TrimSpace(d.Modality), modality) {
+			total += max(d.TokenCount, 0)
+		}
+	}
+	return total
 }
 
 // GeminiGroundingMetadata Gemini grounding 元数据（Web Search）

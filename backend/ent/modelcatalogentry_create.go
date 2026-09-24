@@ -246,6 +246,34 @@ func (_c *ModelCatalogEntryCreate) SetNillableImageCacheReadPrice(v *float64) *M
 	return _c
 }
 
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (_c *ModelCatalogEntryCreate) SetAudioInputPrice(v float64) *ModelCatalogEntryCreate {
+	_c.mutation.SetAudioInputPrice(v)
+	return _c
+}
+
+// SetNillableAudioInputPrice sets the "audio_input_price" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableAudioInputPrice(v *float64) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetAudioInputPrice(*v)
+	}
+	return _c
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (_c *ModelCatalogEntryCreate) SetAudioOutputPrice(v float64) *ModelCatalogEntryCreate {
+	_c.mutation.SetAudioOutputPrice(v)
+	return _c
+}
+
+// SetNillableAudioOutputPrice sets the "audio_output_price" field if the given value is not nil.
+func (_c *ModelCatalogEntryCreate) SetNillableAudioOutputPrice(v *float64) *ModelCatalogEntryCreate {
+	if v != nil {
+		_c.SetAudioOutputPrice(*v)
+	}
+	return _c
+}
+
 // SetInputPricePriority sets the "input_price_priority" field.
 func (_c *ModelCatalogEntryCreate) SetInputPricePriority(v float64) *ModelCatalogEntryCreate {
 	_c.mutation.SetInputPricePriority(v)
@@ -695,6 +723,14 @@ func (_c *ModelCatalogEntryCreate) createSpec() (*ModelCatalogEntry, *sqlgraph.C
 		_spec.SetField(modelcatalogentry.FieldImageCacheReadPrice, field.TypeFloat64, value)
 		_node.ImageCacheReadPrice = &value
 	}
+	if value, ok := _c.mutation.AudioInputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioInputPrice, field.TypeFloat64, value)
+		_node.AudioInputPrice = &value
+	}
+	if value, ok := _c.mutation.AudioOutputPrice(); ok {
+		_spec.SetField(modelcatalogentry.FieldAudioOutputPrice, field.TypeFloat64, value)
+		_node.AudioOutputPrice = &value
+	}
 	if value, ok := _c.mutation.InputPricePriority(); ok {
 		_spec.SetField(modelcatalogentry.FieldInputPricePriority, field.TypeFloat64, value)
 		_node.InputPricePriority = &value
@@ -1130,6 +1166,54 @@ func (u *ModelCatalogEntryUpsert) AddImageCacheReadPrice(v float64) *ModelCatalo
 // ClearImageCacheReadPrice clears the value of the "image_cache_read_price" field.
 func (u *ModelCatalogEntryUpsert) ClearImageCacheReadPrice() *ModelCatalogEntryUpsert {
 	u.SetNull(modelcatalogentry.FieldImageCacheReadPrice)
+	return u
+}
+
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsert) SetAudioInputPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldAudioInputPrice, v)
+	return u
+}
+
+// UpdateAudioInputPrice sets the "audio_input_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateAudioInputPrice() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldAudioInputPrice)
+	return u
+}
+
+// AddAudioInputPrice adds v to the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsert) AddAudioInputPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Add(modelcatalogentry.FieldAudioInputPrice, v)
+	return u
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsert) ClearAudioInputPrice() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldAudioInputPrice)
+	return u
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsert) SetAudioOutputPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Set(modelcatalogentry.FieldAudioOutputPrice, v)
+	return u
+}
+
+// UpdateAudioOutputPrice sets the "audio_output_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsert) UpdateAudioOutputPrice() *ModelCatalogEntryUpsert {
+	u.SetExcluded(modelcatalogentry.FieldAudioOutputPrice)
+	return u
+}
+
+// AddAudioOutputPrice adds v to the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsert) AddAudioOutputPrice(v float64) *ModelCatalogEntryUpsert {
+	u.Add(modelcatalogentry.FieldAudioOutputPrice, v)
+	return u
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsert) ClearAudioOutputPrice() *ModelCatalogEntryUpsert {
+	u.SetNull(modelcatalogentry.FieldAudioOutputPrice)
 	return u
 }
 
@@ -1836,6 +1920,62 @@ func (u *ModelCatalogEntryUpsertOne) UpdateImageCacheReadPrice() *ModelCatalogEn
 func (u *ModelCatalogEntryUpsertOne) ClearImageCacheReadPrice() *ModelCatalogEntryUpsertOne {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearImageCacheReadPrice()
+	})
+}
+
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertOne) SetAudioInputPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetAudioInputPrice(v)
+	})
+}
+
+// AddAudioInputPrice adds v to the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertOne) AddAudioInputPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddAudioInputPrice(v)
+	})
+}
+
+// UpdateAudioInputPrice sets the "audio_input_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateAudioInputPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateAudioInputPrice()
+	})
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertOne) ClearAudioInputPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearAudioInputPrice()
+	})
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertOne) SetAudioOutputPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetAudioOutputPrice(v)
+	})
+}
+
+// AddAudioOutputPrice adds v to the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertOne) AddAudioOutputPrice(v float64) *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddAudioOutputPrice(v)
+	})
+}
+
+// UpdateAudioOutputPrice sets the "audio_output_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertOne) UpdateAudioOutputPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateAudioOutputPrice()
+	})
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertOne) ClearAudioOutputPrice() *ModelCatalogEntryUpsertOne {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearAudioOutputPrice()
 	})
 }
 
@@ -2761,6 +2901,62 @@ func (u *ModelCatalogEntryUpsertBulk) UpdateImageCacheReadPrice() *ModelCatalogE
 func (u *ModelCatalogEntryUpsertBulk) ClearImageCacheReadPrice() *ModelCatalogEntryUpsertBulk {
 	return u.Update(func(s *ModelCatalogEntryUpsert) {
 		s.ClearImageCacheReadPrice()
+	})
+}
+
+// SetAudioInputPrice sets the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertBulk) SetAudioInputPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetAudioInputPrice(v)
+	})
+}
+
+// AddAudioInputPrice adds v to the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertBulk) AddAudioInputPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddAudioInputPrice(v)
+	})
+}
+
+// UpdateAudioInputPrice sets the "audio_input_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateAudioInputPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateAudioInputPrice()
+	})
+}
+
+// ClearAudioInputPrice clears the value of the "audio_input_price" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearAudioInputPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearAudioInputPrice()
+	})
+}
+
+// SetAudioOutputPrice sets the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertBulk) SetAudioOutputPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.SetAudioOutputPrice(v)
+	})
+}
+
+// AddAudioOutputPrice adds v to the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertBulk) AddAudioOutputPrice(v float64) *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.AddAudioOutputPrice(v)
+	})
+}
+
+// UpdateAudioOutputPrice sets the "audio_output_price" field to the value that was provided on create.
+func (u *ModelCatalogEntryUpsertBulk) UpdateAudioOutputPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.UpdateAudioOutputPrice()
+	})
+}
+
+// ClearAudioOutputPrice clears the value of the "audio_output_price" field.
+func (u *ModelCatalogEntryUpsertBulk) ClearAudioOutputPrice() *ModelCatalogEntryUpsertBulk {
+	return u.Update(func(s *ModelCatalogEntryUpsert) {
+		s.ClearAudioOutputPrice()
 	})
 }
 
