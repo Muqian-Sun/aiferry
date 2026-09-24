@@ -250,7 +250,6 @@
 
     <AnnouncementPopup
       :announcement="previewAnnouncement"
-      preview
       @close="previewAnnouncement = null"
     />
   </AppLayout>

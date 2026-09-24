@@ -5,7 +5,6 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import AnnouncementPopup from '../AnnouncementPopup.vue'
-import { useAnnouncementStore } from '@/stores/announcements'
 
 const announcementMarkdownStyles = readFileSync(
   resolve(process.cwd(), 'src/styles/announcement-markdown.css'),
@@ -44,8 +43,7 @@ describe('AnnouncementPopup', () => {
   })
 
   it('renders mixed Markdown and HTML inside the shared styled container', async () => {
-    const store = useAnnouncementStore()
-    store.currentPopup = {
+    const mixed = {
       id: 1,
       title: 'Mixed content announcement',
       content: [
@@ -61,7 +59,7 @@ describe('AnnouncementPopup', () => {
       updated_at: '2026-07-24T07:30:00Z',
     }
 
-    const wrapper = mount(AnnouncementPopup)
+    const wrapper = mount(AnnouncementPopup, { props: { announcement: mixed } })
     await wrapper.vm.$nextTick()
 
     const content = document.body.querySelector('.markdown-body')
@@ -82,12 +80,9 @@ describe('AnnouncementPopup', () => {
   )
 
   it('previews an admin announcement without marking it as read', async () => {
-    const store = useAnnouncementStore()
-    const dismissPopup = vi.spyOn(store, 'dismissPopup')
     const wrapper = mount(AnnouncementPopup, {
       props: {
         announcement,
-        preview: true,
       },
     })
 
@@ -103,27 +98,9 @@ describe('AnnouncementPopup', () => {
     await wrapper.vm.$nextTick()
 
     expect(wrapper.emitted('close')).toHaveLength(1)
-    expect(dismissPopup).not.toHaveBeenCalled()
 
     await wrapper.setProps({ announcement: null })
     expect(document.body.style.overflow).toBe('')
-    wrapper.unmount()
-  })
-
-  it('keeps the existing user popup dismissal behavior', async () => {
-    const store = useAnnouncementStore()
-    store.currentPopup = announcement
-    const dismissPopup = vi.spyOn(store, 'dismissPopup').mockResolvedValue()
-    const wrapper = mount(AnnouncementPopup)
-
-    const dismissButton = document.body.querySelector<HTMLButtonElement>(
-      '[data-testid="announcement-popup-dismiss"]',
-    )
-    dismissButton?.click()
-    await wrapper.vm.$nextTick()
-
-    expect(dismissPopup).toHaveBeenCalledTimes(1)
-    expect(wrapper.emitted('close')).toBeUndefined()
     wrapper.unmount()
   })
 })
