@@ -27,6 +27,12 @@ const {
   showSuccess: vi.fn()
 }))
 
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+vi.mock('vue-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => ({ query: {} })
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {

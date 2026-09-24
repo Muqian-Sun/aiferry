@@ -99,18 +99,13 @@
     <div v-if="activeView === 'model_distribution' && loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div
-      v-else-if="activeView === 'model_distribution' && displayModelStats.length > 0 && chartData"
-      class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6"
-    >
-      <div class="h-48 w-48 shrink-0">
-        <Doughnut :data="chartData" :options="doughnutOptions" />
-      </div>
-      <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
+    <div v-else-if="activeView === 'model_distribution' && displayModelStats.length > 0">
+      <div class="max-h-72 w-full overflow-auto">
         <table class="w-full text-xs">
           <thead>
             <tr class="text-af-ink-3">
               <th class="pb-2 text-left">{{ t('admin.dashboard.model') }}</th>
+              <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
@@ -134,6 +129,14 @@
                     <svg v-if="enableBreakdown && expandedKey === `model-${model.model}`" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
                     <svg v-else-if="enableBreakdown" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
                     {{ model.model }}
+                  </span>
+                </td>
+                <td class="w-32 py-1.5 pl-3">
+                  <span class="flex items-center gap-2">
+                    <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-af-sunken">
+                      <span class="block h-full rounded-full bg-af-ink" :style="{ width: shareWidth(modelMetricValue(model), modelMetricTotal) }" />
+                    </span>
+                    <span class="w-11 shrink-0 text-right tabular-nums text-af-ink-3">{{ sharePercent(modelMetricValue(model), modelMetricTotal) }}</span>
                   </span>
                 </td>
                 <td class="py-1.5 text-right text-af-ink-2">
@@ -182,15 +185,13 @@
     >
       {{ t('admin.dashboard.failedToLoad') }}
     </div>
-    <div v-else-if="rankingDisplayItems.length > 0 && rankingChartData" class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
-      <div class="h-48 w-48 shrink-0">
-        <Doughnut :data="rankingChartData" :options="rankingDoughnutOptions" />
-      </div>
-      <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
+    <div v-else-if="rankingDisplayItems.length > 0">
+      <div class="max-h-72 w-full overflow-auto">
         <table class="w-full text-xs">
           <thead>
             <tr class="text-af-ink-3">
               <th class="pb-2 text-left">{{ t('admin.dashboard.spendingRankingUser') }}</th>
+              <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingRequests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingTokens') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingSpend') }}</th>
@@ -219,6 +220,14 @@
                   </span>
                 </div>
               </td>
+              <td class="w-32 py-1.5 pl-3">
+                <span class="flex items-center gap-2">
+                  <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-af-sunken">
+                  <span class="block h-full rounded-full bg-af-ink" :style="{ width: shareWidth(toFiniteNumber(item.actual_cost), rankingCostTotal) }" />
+                    </span>
+                  <span class="w-11 shrink-0 text-right tabular-nums text-af-ink-3">{{ sharePercent(toFiniteNumber(item.actual_cost), rankingCostTotal) }}</span>
+                  </span>
+              </td>
               <td class="py-1.5 text-right text-af-ink-2">
                 {{ formatNumber(item.requests) }}
               </td>
@@ -245,14 +254,10 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Doughnut } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import type { UserBreakdownLoader } from './userBreakdown'
-
-ChartJS.register(ArcElement, Tooltip, Legend)
 
 const { t } = useI18n()
 
@@ -339,23 +344,8 @@ const emit = defineEmits<{
 
 const enableRankingView = computed(() => props.enableRankingView)
 const showAccountCost = computed(() => props.showAccountCost)
-const distributionColspan = computed(() => showAccountCost.value ? 6 : 5)
+const distributionColspan = computed(() => showAccountCost.value ? 7 : 6)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
-
-const chartColors = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-  '#6366f1',
-  '#84cc16',
-  '#06b6d4',
-  '#a855f7'
-]
 
 const displayModelStats = computed(() => {
   const sourceStats = props.source === 'upstream'
@@ -369,45 +359,16 @@ const displayModelStats = computed(() => {
   return [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
 })
 
-const chartData = computed(() => {
-  if (!displayModelStats.value.length) return null
-
-  return {
-    labels: displayModelStats.value.map((m) => m.model),
-    datasets: [
-      {
-        data: displayModelStats.value.map((m) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)),
-        backgroundColor: chartColors.slice(0, displayModelStats.value.length),
-        borderWidth: 0
-      }
-    ]
-  }
-})
-
-const rankingChartData = computed(() => {
-  if (!props.rankingItems?.length) return null
-
-  const labels = props.rankingItems.map((item, index) => `#${index + 1} ${getRankingUserLabel(item)}`)
-  const data = props.rankingItems.map((item) => toFiniteNumber(item.actual_cost))
-  const backgroundColor = chartColors.slice(0, props.rankingItems.length)
-
-  if (otherRankingItem.value) {
-    labels.push(t('admin.dashboard.spendingRankingOther'))
-    data.push(otherRankingItem.value.actual_cost)
-    backgroundColor.push('#94a3b8')
-  }
-
-  return {
-    labels,
-    datasets: [
-      {
-        data,
-        backgroundColor,
-        borderWidth: 0
-      }
-    ]
-  }
-})
+/** 占比条：模型按当前指标（Token / 实付），消费榜按实付；单色墨条，旁边写百分比（原环形图是多色装饰） */
+const modelMetricValue = (m: ModelStat) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)
+const modelMetricTotal = computed(() => displayModelStats.value.reduce((sum, m) => sum + modelMetricValue(m), 0))
+const rankingCostTotal = computed(() => rankingDisplayItems.value.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0))
+const shareOf = (value: number, total: number) => (total > 0 ? value / total : 0)
+const shareWidth = (value: number, total: number) => `${(shareOf(value, total) * 100).toFixed(1)}%`
+const sharePercent = (value: number, total: number) => {
+  const share = shareOf(value, total)
+  return `${(share * 100).toFixed(share > 0 && share < 0.1 ? 1 : 0)}%`
+}
 
 const otherRankingItem = computed<RankingDisplayItem | null>(() => {
   if (!props.rankingItems?.length) return null
@@ -439,49 +400,6 @@ const rankingDisplayItems = computed<RankingDisplayItem[]>(() => {
     ? [...props.rankingItems, otherRankingItem.value]
     : [...props.rankingItems]
 })
-
-const doughnutOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const value = context.raw as number
-          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-          const formattedValue = props.metric === 'actual_cost'
-            ? `$${formatCost(value)}`
-            : formatTokens(value)
-          return `${context.label}: ${formattedValue} (${percentage}%)`
-        }
-      }
-    }
-  }
-}))
-
-const rankingDoughnutOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const value = context.raw as number
-          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-          return `${context.label}: $${formatCost(value)} (${percentage}%)`
-        }
-      }
-    }
-  }
-}))
 
 const formatTokens = (value: number): string => {
   if (value >= 1_000_000_000) {

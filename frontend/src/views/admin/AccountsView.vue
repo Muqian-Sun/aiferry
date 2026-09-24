@@ -476,6 +476,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
@@ -1018,6 +1019,14 @@ const toggleColumn = (key: string) => {
 
 const isColumnVisible = (key: string) => !hiddenColumns.has(key)
 
+// 仪表盘「需要处理」带 ?status=error / rate_limited 跳过来：用作初始状态筛选（只认筛选下拉里有的值）
+const route = useRoute()
+const ACCOUNT_STATUS_FILTER_VALUES = ['active', 'inactive', 'error', 'rate_limited', 'temp_unschedulable', 'unschedulable']
+function initialStatusFromQuery(): string {
+  const value = route.query.status
+  return typeof value === 'string' && ACCOUNT_STATUS_FILTER_VALUES.includes(value) ? value : ''
+}
+
 const {
   items: accounts,
   loading,
@@ -1033,7 +1042,7 @@ const {
   initialParams: {
     platform: '',
     type: '',
-    status: '',
+    status: initialStatusFromQuery(),
     privacy_mode: '',
     search: '',
     lite: '1',
