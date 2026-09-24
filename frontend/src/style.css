@@ -696,14 +696,18 @@
     @apply overflow-hidden;
     @apply text-sm text-af-ink-2;
     @apply transition-colors duration-150;
-    @apply hover:bg-af-sunken hover:text-af-ink;
+    @apply hover:text-af-ink;
     padding-left: 0.75rem;
     padding-right: 0.625rem;
   }
 
-  /* 激活项：底色 + 左侧 2px 品牌色竖线，不用满底品牌色 */
+  /* 当前项：纯文字加粗 + 左侧 2px 竖线，不要灰底块（同用户站控制台，A3） */
   .sidebar-link-active {
-    @apply bg-af-sunken font-medium text-af-ink;
+    @apply font-semibold text-af-ink;
+  }
+
+  .sidebar-link-disabled {
+    @apply text-af-ink-4 hover:text-af-ink-3;
   }
 
   .sidebar-link-active::before {

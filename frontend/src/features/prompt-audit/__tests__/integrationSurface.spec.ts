@@ -18,19 +18,20 @@ describe('Prompt Audit integration surface', () => {
     expect(route).toContain('requiresRiskControl: true')
   })
 
-  it('keeps the legacy content moderation route and adds both pages under an expand-only security group', () => {
+  // A3：内容审核与提示词合成一个「审查」入口，同组页面在页头页签里切
+  it('keeps content moderation and prompt audit behind one review entry with two tabs', () => {
     const sidebar = read('../../../components/admin/layout/AdminSidebar.vue')
-    // 安全审计组在「运营」段里，下一段是「系统」
-    const group = sidebar.slice(sidebar.indexOf("path: '/security-audit'"), sidebar.indexOf("key: 'system'"))
-    expect(group).toContain('expandOnly: true')
-    expect(group).toContain("path: '/risk-control'")
-    expect(group).toContain("path: '/prompt-audit'")
+    expect(sidebar).toMatch(/path: '\/risk-control'[^\n]*activePaths: \['\/prompt-audit'\]/)
+    const groups = read('../../../components/admin/layout/adminPageGroups.ts')
+    const review = groups.slice(groups.indexOf('  review: {'))
+    expect(review).toContain("path: '/risk-control'")
+    expect(review).toContain("path: '/prompt-audit'")
   })
 
   it('keeps Prompt Audit locale trees symmetric and all operational controls named', () => {
     expect(Object.keys(zh.admin.promptAudit)).toEqual(Object.keys(en.admin.promptAudit))
-    expect(zh.nav.securityAudit).toBeTruthy()
-    expect(en.nav.securityAudit).toBeTruthy()
+    expect(zh.nav.review).toBeTruthy()
+    expect(en.nav.review).toBeTruthy()
     const endpoint = read('../components/EndpointPool.vue')
     const events = read('../components/EventWorkspace.vue')
     expect(endpoint).toContain('aria-label')

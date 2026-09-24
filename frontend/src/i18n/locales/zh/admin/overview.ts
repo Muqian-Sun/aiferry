@@ -1,7 +1,14 @@
 export default {
+    // 侧栏灰色入口的落地页（A3）
+    featureOff: {
+      title: '功能未开启',
+      message: '{name} 未开启',
+      hint: '在「设置 › 功能开关」里打开后，侧栏入口会恢复。',
+      goSettings: '去设置打开',
+      fallbackName: '这个功能'
+    },
     // Dashboard
     dashboard: {
-      title: '管理控制台',
       description: '系统概览与统计数据',
       apiKeys: 'API 密钥',
       totalApiKeys: 'API 密钥总数',
@@ -56,15 +63,10 @@ export default {
       noUsageRecords: '暂无使用记录',
       startUsingApi: '开始使用 API 后，使用历史将显示在这里。',
       viewAllUsage: '查看全部',
-      quickActions: '快捷操作',
       manageUsers: '管理用户',
       viewUserAccounts: '查看和管理用户账户',
       manageAccounts: '管理账号',
       configureAiAccounts: '配置 AI 平台账号',
-      batchImage: '批量生图',
-      batchImageDesc: '提交任务、复制 Agent 调用说明',
-      modelCatalog: '模型目录',
-      modelCatalogDesc: '上架模型、配定价、绑定渠道',
       systemSettings: '系统设置',
       configureSystem: '配置系统设置',
       share: '占比',
@@ -288,7 +290,6 @@ export default {
 
     // Users Management
     users: {
-      title: '用户管理',
       description: '管理用户账户和权限',
       createUser: '创建用户',
       bulkDelete: {

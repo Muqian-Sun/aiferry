@@ -9,8 +9,6 @@ const read = (path: string) => readFileSync(resolve(here, path), 'utf8')
 const frameSource = read('../sidebar/SidebarFrame.vue')
 // 用户站导航已改为顶部页签（components/user/shell），其行为测试见 user/shell/__tests__/navItems.spec.ts 与 SiteNav.spec.ts
 const siteNavSource = read('../../user/shell/SiteNav.vue')
-const adminSidebarSource = read('../../admin/layout/AdminSidebar.vue')
-const styleSource = read('../../../style.css')
 
 describe('SidebarFrame custom SVG styles', () => {
   it('does not override uploaded SVG fill or stroke colors', () => {
@@ -42,35 +40,6 @@ describe('SidebarFrame scroll position persistence', () => {
     expect(frameSource).toContain('onMounted')
     expect(frameSource).toContain('appStore.sidebarScrollTop')
     expect(frameSource).toContain('nextTick')
-  })
-})
-
-describe('SidebarFrame collapsible groups', () => {
-  it('lets the user collapse a group even while a child route is active', () => {
-    // The expand state must come from the user's override first, falling back
-    // to the active-route heuristic only when the user has not clicked yet.
-    expect(frameSource).toContain('const groupExpandOverrides = ref<Map<string, boolean>>(new Map())')
-    expect(frameSource).not.toContain('expandedGroups.value.has(item.path) || isGroupActive(item)')
-  })
-})
-
-describe('SidebarFrame header styles', () => {
-  it('does not clip the version badge dropdown', () => {
-    const sidebarHeaderBlockMatch = styleSource.match(/\.sidebar-header\s*\{[\s\S]*?\n {2}\}/)
-    const sidebarBrandBlockMatch = frameSource.match(/\.sidebar-brand\s*\{[\s\S]*?\n\}/)
-
-    expect(sidebarHeaderBlockMatch).not.toBeNull()
-    expect(sidebarBrandBlockMatch).not.toBeNull()
-    expect(sidebarHeaderBlockMatch?.[0]).not.toContain('@apply overflow-hidden;')
-    expect(sidebarBrandBlockMatch?.[0]).not.toContain('overflow: hidden;')
-  })
-})
-
-describe('sidebar subscription feature flag', () => {
-  it('also hides the admin Subscription Management entry on recharge-only sites', () => {
-    expect(adminSidebarSource).toContain('const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)')
-    // 「订阅」现在是一个多行的分组对象（订阅管理 / 订阅套餐），开关仍挂在组上。
-    expect(adminSidebarSource).toMatch(/path: '\/subscriptions',[\s\S]{0,200}?featureFlag: flagSubscription,[\s\S]{0,120}?children: \[/)
   })
 })
 

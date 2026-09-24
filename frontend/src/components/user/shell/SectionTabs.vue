@@ -29,6 +29,7 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import type { SectionTab } from './types'
 
@@ -36,8 +37,17 @@ const props = defineProps<{ tabs: SectionTab[]; modelValue?: string; label?: str
 const emit = defineEmits<{ 'update:modelValue': [key: string] }>()
 const route = useRoute()
 
+const matchesRoute = (to: string) => route.path === to || route.path.startsWith(`${to}/`)
+
+/** 带路由的页签：匹配得最长的那个才算当前（同时有 /orders 与 /orders/dashboard 时只亮后者） */
+const activeTo = computed(() =>
+  props.tabs
+    .filter((tab) => tab.to && matchesRoute(tab.to))
+    .reduce<string | null>((best, tab) => (!best || tab.to!.length > best.length ? tab.to! : best), null)
+)
+
 function isActive(tab: SectionTab): boolean {
-  if (tab.to) return route.path === tab.to || route.path.startsWith(`${tab.to}/`)
+  if (tab.to) return tab.to === activeTo.value
   return props.modelValue === tab.key
 }
 

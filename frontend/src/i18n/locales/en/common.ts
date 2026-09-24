@@ -75,12 +75,6 @@ export default {
     saving: 'Saving...',
     selectedCount: '({count} selected)',
     refresh: 'Refresh',
-    autoRefresh: {
-      title: 'Auto Refresh',
-      enable: 'Enable auto refresh',
-      countdown: 'Auto refresh: {seconds}s',
-      seconds: '{n} seconds',
-    },
     view: 'View',
     settings: 'Settings',
     chooseFile: 'Choose File',
@@ -162,12 +156,30 @@ export default {
   nav: {
     sections: {
       overview: 'Overview',
-      channels: 'Channels',
-      billing: 'Users & billing',
+      supply: 'Supply',
+      users: 'Users',
       operations: 'Operations',
-      system: 'System'
+      security: 'Security'
     },
-    dashboard: 'Dashboard',
+    overview: 'Overview',
+    models: 'Models',
+    channelHealth: 'Channel health',
+    orders: 'Orders',
+    review: 'Review',
+    featureOff: 'Off',
+    tabs: {
+      subscriptions: 'Subscriptions',
+      plans: 'Plans',
+      orders: 'Orders',
+      collections: 'Collections',
+      moderation: 'Content moderation',
+      prompts: 'Prompts'
+    },
+    groupDescriptions: {
+      subscriptions: 'Subscriptions users hold and the plans on sale',
+      orders: 'Top-up and subscription orders, collection overview',
+      review: 'Request content moderation and prompt review'
+    },
     announcements: 'Announcements',
     apiKeys: 'API Keys',
     batchImage: 'Batch Images',
@@ -178,7 +190,6 @@ export default {
     users: 'Users',
     channels: 'Channels',
     subscriptions: 'Subscription',
-    subscriptionRecords: 'Subscriptions',
     accounts: 'Channels',
     proxies: 'Proxies',
     redeemCodes: 'Redeem Codes',
@@ -190,7 +201,6 @@ export default {
     collapse: 'Collapse',
     expand: 'Expand',
     logout: 'Logout',
-    github: 'GitHub',
     mySubscriptions: 'My Subscriptions',
     buySubscription: 'Recharge / Subscription',
     recharge: 'Recharge',
@@ -201,13 +211,8 @@ export default {
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
-    modelCatalog: 'Model catalog',
-    channelMonitor: 'Channel Monitor',
     channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
-    securityAudit: 'Security Audit',
-    contentModeration: 'Content Moderation',
-    promptAudit: 'Prompt Audit',
     auditLogs: 'Audit Logs',
   },
 

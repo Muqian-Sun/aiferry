@@ -10,7 +10,6 @@ import proxiesAPI from './proxies'
 import redeemAPI from './redeem'
 import announcementsAPI from './announcements'
 import settingsAPI from './settings'
-import systemAPI from './system'
 import subscriptionsAPI from './subscriptions'
 import usageAPI from './usage'
 import geminiAPI from './gemini'
@@ -23,8 +22,6 @@ import errorPassthroughAPI from './errorPassthrough'
 import scheduledTestsAPI from './scheduledTests'
 import tlsFingerprintProfileAPI from './tlsFingerprintProfile'
 import modelCatalogAPI from './modelCatalog'
-import channelMonitorAPI from './channelMonitor'
-import channelMonitorTemplateAPI from './channelMonitorTemplate'
 import adminPaymentAPI from './payment'
 import riskControlAPI from './riskControl'
 import adminComplianceAPI from './compliance'
@@ -42,7 +39,6 @@ export const adminAPI = {
   redeem: redeemAPI,
   announcements: announcementsAPI,
   settings: settingsAPI,
-  system: systemAPI,
   subscriptions: subscriptionsAPI,
   usage: usageAPI,
   gemini: geminiAPI,
@@ -55,8 +51,6 @@ export const adminAPI = {
   scheduledTests: scheduledTestsAPI,
   tlsFingerprintProfiles: tlsFingerprintProfileAPI,
   modelCatalog: modelCatalogAPI,
-  channelMonitor: channelMonitorAPI,
-  channelMonitorTemplate: channelMonitorTemplateAPI,
   payment: adminPaymentAPI,
   riskControl: riskControlAPI,
   compliance: adminComplianceAPI,
@@ -72,7 +66,6 @@ export {
   redeemAPI,
   announcementsAPI,
   settingsAPI,
-  systemAPI,
   subscriptionsAPI,
   usageAPI,
   geminiAPI,
@@ -84,8 +77,6 @@ export {
   errorPassthroughAPI,
   scheduledTestsAPI,
   tlsFingerprintProfileAPI,
-  channelMonitorAPI,
-  channelMonitorTemplateAPI,
   adminPaymentAPI,
   riskControlAPI,
   adminComplianceAPI,

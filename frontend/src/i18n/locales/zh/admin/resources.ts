@@ -43,14 +43,10 @@ export default {
     // Proxies Management
     proxies: {
       accountsCount: '{count} 个账号',
-      title: 'IP管理',
       description: '管理代理服务器配置',
       createProxy: '添加代理',
       editProxy: '编辑代理',
       deleteProxy: '删除代理',
-      ad: {
-        inline: '正在寻找合适的代理 IP？'
-      },
       deleteConfirmMessage: "确定要删除代理 '{name}' 吗？",
       testProxy: '测试代理',
       dataImport: '导入',
@@ -239,7 +235,6 @@ export default {
 
     // Redeem Codes Management
     redeem: {
-      title: '兑换码管理',
       description: '生成和管理兑换码',
       generateCodes: '生成兑换码',
       columns: {
@@ -373,7 +368,6 @@ export default {
 
     // Announcements
     announcements: {
-      title: '公告管理',
       description: '创建公告并按条件投放',
       createFirstAnnouncement: '还没有公告，创建您的第一条公告。',
       createAnnouncement: '创建公告',
@@ -443,7 +437,6 @@ export default {
 
     // Usage Records
     usage: {
-      title: '使用记录',
       description: '查看和管理所有用户的使用记录',
       userFilter: '用户',
       searchUserPlaceholder: '按邮箱搜索用户...',

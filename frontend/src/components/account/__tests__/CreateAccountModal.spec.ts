@@ -179,7 +179,6 @@ function mountModal() {
         Icon: true,
         PlatformIcon: true,
         ProxySelector: true,
-        ProxyAdBanner: true,
         ModelWhitelistSelector: ModelWhitelistSelectorStub,
         QuotaLimitCard: true,
       },

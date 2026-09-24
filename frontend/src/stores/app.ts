@@ -221,8 +221,6 @@ export const useAppStore = defineStore('app', () => {
     toasts.value = []
   }
 
-  // 版本检查（依赖管理 API）见 stores/adminVersion.ts，只在管理后台使用。
-
   // ==================== Public Settings Management ====================
 
   /**
@@ -307,7 +305,6 @@ export const useAppStore = defineStore('app', () => {
         account_quota_notify_enabled: false,
         balance_low_notify_threshold: 0,
         channel_monitor_enabled: true,
-        channel_monitor_default_interval_seconds: 60,
         subscription_enabled: true,
         payment_balance_disabled: false,
         risk_control_enabled: false,

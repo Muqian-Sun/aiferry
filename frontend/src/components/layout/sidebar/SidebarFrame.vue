@@ -25,7 +25,7 @@
         >
           {{ siteName }}
         </router-link>
-        <!-- Version: 管理后台为带升级操作的徽标，用户站为纯文本 -->
+        <!-- 版本号，纯文本 -->
         <slot name="version" />
       </div>
     </div>
@@ -44,45 +44,22 @@
           </span>
         </div>
         <template v-for="item in section.items" :key="item.path">
-          <!-- Collapsible group (has children) -->
-          <template v-if="item.children?.length">
-            <button
-              type="button"
-              class="sidebar-link mb-1 w-full"
-              :class="{
-                'sidebar-link-active': isGroupActive(item) && !isGroupExpanded(item),
-                'sidebar-link-collapsed': sidebarCollapsed
-              }"
-              :title="sidebarCollapsed ? item.label : undefined"
-              @click="handleGroupClick(item)"
-            >
-              <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-3" />
-              <span
-                class="sidebar-label sidebar-label-flex"
-                :class="{ 'sidebar-label-collapsed': sidebarCollapsed }"
-                :aria-hidden="sidebarCollapsed ? 'true' : 'false'"
-              >
-                <span class="min-w-0 truncate">{{ item.label }}</span>
-                <ChevronDownIcon
-                  class="h-3.5 w-3.5 flex-shrink-0 text-af-ink-4 transition-transform duration-200"
-                  :class="isGroupExpanded(item) ? 'rotate-180' : ''"
-                />
-              </span>
-            </button>
-            <!-- Children：缩进一层，靠左侧 hairline 表明归属 -->
-            <div v-if="!sidebarCollapsed && isGroupExpanded(item)" class="mb-1 ml-[1.375rem] border-l border-af-hairline pl-1.5">
-              <router-link
-                v-for="child in item.children"
-                :key="child.path"
-                :to="child.path"
-                class="sidebar-link mb-0.5 py-1.5 text-13"
-                :class="{ 'sidebar-link-active': route.path === child.path }"
-                @click="handleMenuItemClick"
-              >
-                <span>{{ child.label }}</span>
-              </router-link>
-            </div>
-          </template>
+          <!-- 未开启的功能：灰色入口，点进去是「未开启 · 去设置打开」 -->
+          <router-link
+            v-if="item.disabled"
+            :to="{ path: '/feature-off', query: { name: item.label } }"
+            class="sidebar-link sidebar-link-disabled mb-1"
+            :class="{ 'sidebar-link-collapsed': sidebarCollapsed }"
+            :title="sidebarCollapsed ? `${item.label} · ${t('nav.featureOff')}` : undefined"
+            :data-testid="`nav-disabled-${item.path}`"
+            @click="handleMenuItemClick"
+          >
+            <component :is="item.icon" class="h-[18px] w-[18px] flex-shrink-0 text-af-ink-4" />
+            <span class="sidebar-label sidebar-label-flex" :class="{ 'sidebar-label-collapsed': sidebarCollapsed }" :aria-hidden="sidebarCollapsed ? 'true' : 'false'">
+              <span class="min-w-0 truncate">{{ item.label }}</span>
+              <span class="shrink-0 text-xs text-af-ink-4">{{ t('nav.featureOff') }}</span>
+            </span>
+          </router-link>
           <!-- Normal item (no children) -->
           <router-link
             v-else
@@ -146,42 +123,34 @@
  * （UserSidebar / AdminSidebar）按各自规则构建后传入，本组件不含任何站点专属逻辑。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { useTheme } from '@/composables/useTheme'
 import { sanitizeSvg } from '@/utils/sanitize'
 import { sanitizeUrl } from '@/utils/url'
 import BrandLogo from '@/components/common/BrandLogo.vue'
-import type { NavItem, NavSection } from './navTypes'
+import type { NavSection } from './navTypes'
 import {
   ChevronDoubleLeftIcon,
   ChevronDoubleRightIcon,
-  ChevronDownIcon,
   MoonIcon,
   SunIcon
 } from './navIcons'
 
-defineProps<{
+const props = defineProps<{
   sections: NavSection[]
   homePath: string
 }>()
 
 const { t } = useI18n()
 const route = useRoute()
-const router = useRouter()
 const appStore = useAppStore()
 
 const sidebarCollapsed = computed(() => appStore.sidebarCollapsed)
 const mobileOpen = computed(() => appStore.mobileOpen)
 const sidebarNavRef = ref<HTMLElement | null>(null)
 const { isDark, toggleTheme } = useTheme()
-
-// Per-group expand/collapse overrides. A group with no entry follows the
-// automatic behavior (expanded while the active route is one of its children);
-// a chevron click records the user's choice, which wins over the automatic
-// state so an active group can still be collapsed manually.
-const groupExpandOverrides = ref<Map<string, boolean>>(new Map())
 
 const siteName = computed(() => appStore.siteName)
 const siteLogo = computed(() => sanitizeUrl(appStore.siteLogo || '', { allowRelative: true, allowDataUrl: true }))
@@ -203,41 +172,29 @@ function handleMenuItemClick() {
   }
 }
 
-function isActive(path: string): boolean {
-  return route.path === path || route.path.startsWith(path + '/')
-}
-
-function isGroupActive(item: NavItem): boolean {
-  if (!item.children) return false
-  return item.children.some(child => route.path === child.path)
-}
-
-function isGroupExpanded(item: NavItem): boolean {
-  const override = groupExpandOverrides.value.get(item.path)
-  if (override !== undefined) return override
-  return isGroupActive(item)
-}
-
-function toggleGroup(item: NavItem) {
-  groupExpandOverrides.value.set(item.path, !isGroupExpanded(item))
-}
-
 /**
- * Click handler for collapsible parent items.
- * - When sidebar is collapsed: do nothing (children are not visible).
- * - When `expandOnly` is true: only toggle expand state.
- * - Otherwise: navigate to the parent path (router-link semantics) and ensure the group is expanded.
+ * 当前项：所有入口（含 activePaths）里与当前路径匹配得最长的那一个。
+ * 避免 /orders/plans 同时点亮「订单」（前缀 /orders）与「订阅」（activePaths 含 /orders/plans）。
  */
-function handleGroupClick(item: NavItem) {
-  if (sidebarCollapsed.value) return
-  if (item.expandOnly) {
-    toggleGroup(item)
-    return
+const activeItemPath = computed(() => {
+  let best = ''
+  let bestLength = -1
+  for (const section of props.sections) {
+    for (const item of section.items) {
+      for (const candidate of [item.path, ...(item.activePaths ?? [])]) {
+        const matches = route.path === candidate || route.path.startsWith(`${candidate}/`)
+        if (matches && candidate.length > bestLength) {
+          best = item.path
+          bestLength = candidate.length
+        }
+      }
+    }
   }
-  if (route.path !== item.path) {
-    router.push(item.path)
-  }
-  groupExpandOverrides.value.set(item.path, true)
+  return best
+})
+
+function isActive(path: string): boolean {
+  return activeItemPath.value === path
 }
 
 onMounted(() => {

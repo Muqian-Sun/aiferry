@@ -31,12 +31,6 @@ const { appStore, authStore, adminSettingsStore } = vi.hoisted(() => ({
 vi.mock('@/stores/app', () => ({ useAppStore: () => appStore }))
 vi.mock('@/stores/auth', () => ({ useAuthStore: () => authStore }))
 vi.mock('@/stores/adminSettings', () => ({ useAdminSettingsStore: () => adminSettingsStore }))
-vi.mock('@/stores/adminVersion', () => ({
-  useAdminVersionStore: () => ({ fetchVersion: vi.fn(), clearVersionCache: vi.fn(), currentVersion: '', hasUpdate: false }),
-}))
-vi.mock('@/composables/useBatchImageAccess', () => ({
-  useBatchImageAccess: () => ({ canUseBatchImage: { value: true }, refreshBatchImageAccess: vi.fn() }),
-}))
 vi.mock('vue-router', () => ({
   useRoute: () => ({ path: '/dashboard' }),
   useRouter: () => ({ push: vi.fn() }),
@@ -48,11 +42,11 @@ vi.mock('vue-i18n', async (importOriginal) => {
 
 import AdminSidebar from '../../admin/layout/AdminSidebar.vue'
 import SidebarFrame from '../sidebar/SidebarFrame.vue'
-import type { NavItem, NavSection } from '../sidebar/navTypes'
+import type { NavSection } from '../sidebar/navTypes'
 
 const mountOptions = {
   global: {
-    stubs: { RouterLink: RouterLinkStub, VersionBadge: { template: '<span data-testid="version-badge" />' } },
+    stubs: { RouterLink: RouterLinkStub },
   },
 }
 
@@ -60,67 +54,55 @@ function linkPaths(wrapper: ReturnType<typeof mount>) {
   return wrapper.findAllComponents(RouterLinkStub).map((link) => link.props('to'))
 }
 
-/** 导航树（含未展开的子项）：折叠组的子链接不渲染，归属关系要看 SidebarFrame 收到的 sections。 */
-function navItems(wrapper: ReturnType<typeof mount>): NavItem[] {
+function sectionPaths(wrapper: ReturnType<typeof mount>): Record<string, string[]> {
   const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
-  return sections.flatMap((section) => section.items)
-}
-
-function childPaths(items: NavItem[], groupPath: string): string[] {
-  const group = items.find((item) => item.path === groupPath)
-  return (group?.children ?? []).map((child) => child.path)
-}
-
-function allPaths(items: NavItem[]): string[] {
-  return items.flatMap((item) => [item.path, ...(item.children ?? []).map((child) => child.path)])
+  return Object.fromEntries(sections.map((section) => [section.key, section.items.map((item) => item.path)]))
 }
 
 beforeEach(() => {
   appStore.backendModeEnabled = false
+  appStore.cachedPublicSettings = {}
   authStore.isSimpleMode = false
   vi.spyOn(window, 'matchMedia').mockReturnValue({ matches: false } as MediaQueryList)
 })
 
 describe('AdminSidebar', () => {
-  it('renders admin navigation with tour anchors and account security, without user pages', () => {
+  it('renders admin navigation without user pages; account security lives in the header menu', () => {
     const wrapper = mount(AdminSidebar, mountOptions)
     const paths = linkPaths(wrapper)
     expect(paths).toContain('/settings')
-    expect(paths).toContain('/profile')
+    expect(paths).not.toContain('/profile')
     expect(paths).not.toContain('/keys')
     expect(paths).not.toContain('/purchase')
-    expect(wrapper.find('[data-testid="version-badge"]').exists()).toBe(true)
     expect(adminSettingsStore.fetch).toHaveBeenCalled()
   })
 
-  // 信息架构：分组不再是导航概念；侧栏按「概览 / 渠道 / 用户与计费 / 运营 / 系统」分组（A0）；
-  // 渠道 / 模型目录 / 渠道监控 / IP 管理是「渠道」组的平级项；套餐属于「订阅」而不是「订单」。
-  it('groups the navigation into five titled sections, without a groups entry', () => {
+  // A3 导航（渠道在前）：概览 / 供给 / 用户 / 运营 / 安全，最后是不带标题的设置；
+  // 订阅、订单、审查各一个入口，同组页面走页头页签。
+  it('groups the navigation into five titled sections plus settings', () => {
+    appStore.cachedPublicSettings = { risk_control_enabled: true }
     const wrapper = mount(AdminSidebar, mountOptions)
     const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
-    expect(sections.map((section) => section.key)).toEqual(['overview', 'channels', 'billing', 'operations', 'system'])
-    expect(sections.every((section) => section.title)).toBe(true)
-    const byKey = Object.fromEntries(sections.map((section) => [section.key, section.items.map((item) => item.path)]))
-    expect(byKey.overview).toEqual(['/dashboard', '/ops'])
-    expect(byKey.channels).toEqual(['/accounts', '/model-catalog', '/channels/monitor', '/proxies'])
-    expect(byKey.billing).toEqual(['/users', '/subscriptions', '/orders', '/redeem'])
-    // 风控开关在这个夹具里关着，安全审计组不出现
-    expect(byKey.operations).toEqual(['/usage', '/announcements'])
-    expect(byKey.system).toEqual(['/settings', '/audit-logs', '/profile'])
-
-    const items = navItems(wrapper)
-    expect(allPaths(items)).not.toContain('/groups')
-    expect(childPaths(items, '/subscriptions')).toEqual(['/subscriptions', '/orders/plans'])
-    expect(childPaths(items, '/orders')).not.toContain('/orders/plans')
+    expect(sections.map((section) => section.key)).toEqual(['overview', 'supply', 'users', 'operations', 'security', 'settings'])
+    expect(sections.filter((section) => section.key !== 'settings').every((section) => section.title)).toBe(true)
+    expect(sections.find((section) => section.key === 'settings')?.title).toBeUndefined()
+    expect(sectionPaths(wrapper)).toEqual({
+      overview: ['/dashboard', '/ops'],
+      supply: ['/accounts', '/model-catalog', '/channels/monitor', '/proxies'],
+      users: ['/users', '/subscriptions', '/orders', '/redeem'],
+      operations: ['/usage', '/announcements'],
+      security: ['/risk-control', '/audit-logs'],
+      settings: ['/settings'],
+    })
   })
 
   it('drops a whole section when every item in it is hidden', () => {
     authStore.isSimpleMode = true
     const wrapper = mount(AdminSidebar, mountOptions)
-    const sections = wrapper.findComponent(SidebarFrame).props('sections') as NavSection[]
-    // 仅充值模式：用户 / 订阅 / 订单 / 兑换码全部收起 → 「用户与计费」整组消失
-    expect(sections.map((section) => section.key)).not.toContain('billing')
-    expect(sections.find((section) => section.key === 'system')?.items.map((item) => item.path)).toEqual(['/settings', '/profile'])
+    const paths = sectionPaths(wrapper)
+    // 简易模式：用户 / 订阅 / 订单 / 兑换码全部收起 → 「用户」整组消失
+    expect(Object.keys(paths)).not.toContain('users')
+    expect(paths.security).toEqual(['/risk-control'])
   })
 
   it('does not offer API keys to administrators in simple mode', () => {

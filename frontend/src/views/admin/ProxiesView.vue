@@ -374,9 +374,7 @@
       @close="closeCreateModal"
     >
       <!-- Tab Switch -->
-      <div
-        class="mb-6 flex items-center justify-between gap-3 border-b border-af-hairline"
-      >
+      <div class="mb-6 border-b border-af-hairline">
         <div class="flex min-w-0 shrink-0">
           <button
             type="button"
@@ -417,7 +415,6 @@
             {{ t('admin.proxies.batchAdd') }}
           </button>
         </div>
-        <ProxyAdBanner />
       </div>
 
       <!-- Standard Add Form -->
@@ -979,7 +976,6 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import ImportDataModal from '@/components/admin/proxy/ImportDataModal.vue'
 import Select from '@/components/common/Select.vue'
-import ProxyAdBanner from '@/components/common/ProxyAdBanner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
 import { useClipboard } from '@/composables/useClipboard'

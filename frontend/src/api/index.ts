@@ -19,7 +19,6 @@ export * as batchImageAPI from './batchImage'
 export { totpAPI } from './totp'
 export { passkeyAPI, type PasskeyCredentialSummary } from './passkey'
 export { default as announcementsAPI } from './announcements'
-export { channelMonitorUserAPI } from './channelMonitor'
 
 // 管理 API 不从这里导出：管理端代码直接从 '@/api/admin' 引入，用户站经由本入口不会带上管理端代码
 

@@ -1,19 +1,9 @@
 <template>
   <section class="mx-auto w-full max-w-6xl space-y-5 px-1 py-2 sm:px-2">
-    <header
-      class="page-header mb-0 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-af-sheet p-5 ring-1 ring-af-hairline sm:p-6"
-    >
-      <div class="min-w-0">
-        <h2 class="page-title flex items-center gap-2 text-xl font-black text-af-ink">
-          <span class="inline-flex h-8 w-8 items-center justify-center rounded-xl bg-af-sunken text-af-ink-2">
-            <Icon name="chart" size="sm" />
-          </span>
-          {{ t('channelMonitorV2.settings.title') }}
-        </h2>
-        <p class="page-description mt-1.5 text-xs text-af-ink-3">
-          {{ t('channelMonitorV2.settings.description') }}
-        </p>
-      </div>
+    <header class="flex flex-wrap items-center justify-between gap-3">
+      <p class="min-w-0 max-w-3xl text-sm text-af-ink-3">
+        {{ t('channelMonitorV2.settings.description') }}
+      </p>
       <button
         type="button"
         class="btn btn-primary"
@@ -26,16 +16,11 @@
     </header>
 
     <div
-      v-if="!systemModeV2"
+      v-if="!featureEnabled"
       class="rounded-lg border border-af-warning/30 bg-af-warning-tint/90 px-4 py-3 text-sm text-af-warning"
       role="status"
     >
-      {{
-        t('channelMonitorV2.settings.modeBanner', {
-          mode: systemModeLabel,
-          modeV2: t('channelMonitorV2.settings.modeV2'),
-        })
-      }}
+      {{ t('channelMonitorV2.settings.disabledBanner') }}
       <router-link class="ml-1 font-medium underline" to="/settings">{{ t('admin.settings.tabs.features') }}</router-link>
     </div>
 
@@ -225,7 +210,7 @@ import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import { getChannelMonitorMode, isChannelMonitorV2Mode } from '@/utils/featureFlags'
+import { isChannelMonitorRouteEnabled } from '@/utils/featureFlags'
 import {
   getConfig,
   updateConfig,
@@ -248,16 +233,8 @@ const errorCategories = MONITOR_ERROR_CATEGORIES
 const countedErrorCategoryCount = computed(
   () => errorCategories.length - (draft.value?.ignored_error_categories?.length || 0)
 )
-/** System settings mode must be v2 for aggregation to run; config remains editable for prep. */
-const systemModeV2 = computed(() => isChannelMonitorV2Mode())
-const systemModeLabel = computed(() => {
-  if (!appStore.cachedPublicSettings?.channel_monitor_enabled) {
-    return t('channelMonitorV2.settings.modeClosed')
-  }
-  return getChannelMonitorMode() === 'v1'
-    ? t('channelMonitorV2.settings.modeV1')
-    : t('channelMonitorV2.settings.modeV2')
-})
+/** 功能开关（设置 › 功能开关）关着时汇总不跑；配置仍可先保存。 */
+const featureEnabled = computed(() => isChannelMonitorRouteEnabled())
 const defaultThresholds = {
   minimum_sample: 50,
   warning_error_rate: 0.05,

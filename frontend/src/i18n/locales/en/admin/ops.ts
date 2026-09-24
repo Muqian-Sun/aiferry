@@ -1,6 +1,5 @@
 export default {
     ops: {
-      title: 'Ops Monitoring',
       description: 'Operational monitoring and troubleshooting',
       // Dashboard
       systemHealth: 'System Health',

@@ -6,11 +6,7 @@
       </div>
 
       <template v-else>
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div>
-            <h1 class="text-2xl font-semibold text-af-ink">{{ t('admin.riskControl.title') }}</h1>
-            <p class="mt-1 text-sm text-af-ink-3">{{ t('admin.riskControl.description') }}</p>
-          </div>
+        <div class="flex flex-wrap items-center justify-end gap-2">
           <div class="flex flex-wrap items-center gap-2">
             <button type="button" class="btn btn-secondary inline-flex items-center gap-2" :disabled="statusLoading" @click="loadStatus(false)">
               <Icon name="refresh" size="sm" :class="statusLoading ? 'animate-spin' : ''" />

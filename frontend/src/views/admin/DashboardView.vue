@@ -62,55 +62,6 @@
           </ul>
         </section>
 
-        <!-- Quick Actions -->
-        <div class="card p-4">
-          <div class="mb-3 flex items-center justify-between">
-            <h2 class="text-sm font-semibold text-af-ink">
-              {{ t('admin.dashboard.quickActions') }}
-            </h2>
-          </div>
-          <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-            <button
-              v-if="canUseBatchImage"
-              type="button"
-              class="group flex items-center gap-3 rounded-lg bg-af-sunken p-3 text-left transition-colors hover:bg-af-hairline"
-              @click="router.push('/batch-image')"
-            >
-              <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-af-sunken text-af-ink-2">
-                <Icon name="sparkles" size="md" :stroke-width="2" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm font-medium text-af-ink">
-                  {{ t('admin.dashboard.batchImage') }}
-                </span>
-                <span class="block text-xs text-af-ink-3">
-                  {{ t('admin.dashboard.batchImageDesc') }}
-                </span>
-              </span>
-              <Icon name="chevronRight" size="sm" class="text-af-ink-3 group-hover:text-af-ink-2" />
-            </button>
-            <button
-              type="button"
-              class="group flex items-center gap-3 rounded-lg bg-af-sunken p-3 text-left transition-colors hover:bg-af-hairline"
-              data-testid="dashboard-model-catalog"
-              @click="router.push('/model-catalog')"
-            >
-              <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-af-sheet text-af-ink-2">
-                <Icon name="grid" size="md" :stroke-width="2" />
-              </span>
-              <span class="min-w-0 flex-1">
-                <span class="block text-sm font-medium text-af-ink">
-                  {{ t('admin.dashboard.modelCatalog') }}
-                </span>
-                <span class="block text-xs text-af-ink-3">
-                  {{ t('admin.dashboard.modelCatalogDesc') }}
-                </span>
-              </span>
-              <Icon name="chevronRight" size="sm" class="text-af-ink-3 group-hover:text-af-ink" />
-            </button>
-          </div>
-        </div>
-
         <div class="space-y-6">
           <div class="card p-4">
             <div class="flex flex-wrap items-center gap-4">
@@ -194,12 +145,10 @@ import Select from '@/components/common/Select.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
-import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 
 const { t } = useI18n()
 const appStore = useAppStore()
 const router = useRouter()
-const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
 const stats = ref<DashboardStats | null>(null)
 const loading = ref(false)
 const chartsLoading = ref(false)
@@ -483,7 +432,6 @@ const loadChartData = async () => {
 }
 
 onMounted(() => {
-  void refreshBatchImageAccess()
   loadDashboardStats()
 })
 </script>

@@ -1,0 +1,37 @@
+/**
+ * 同组页面（A3）：侧栏只留一个入口，页头显示组标题 + 页签。路由 meta.pageGroup 指向这里的键。
+ */
+export type AdminPageGroupKey = 'subscriptions' | 'orders' | 'review'
+
+export interface AdminPageGroup {
+  titleKey: string
+  descriptionKey: string
+  tabs: Array<{ path: string; labelKey: string }>
+}
+
+export const ADMIN_PAGE_GROUPS: Record<AdminPageGroupKey, AdminPageGroup> = {
+  subscriptions: {
+    titleKey: 'nav.subscriptions',
+    descriptionKey: 'nav.groupDescriptions.subscriptions',
+    tabs: [
+      { path: '/subscriptions', labelKey: 'nav.tabs.subscriptions' },
+      { path: '/orders/plans', labelKey: 'nav.tabs.plans' }
+    ]
+  },
+  orders: {
+    titleKey: 'nav.orders',
+    descriptionKey: 'nav.groupDescriptions.orders',
+    tabs: [
+      { path: '/orders', labelKey: 'nav.tabs.orders' },
+      { path: '/orders/dashboard', labelKey: 'nav.tabs.collections' }
+    ]
+  },
+  review: {
+    titleKey: 'nav.review',
+    descriptionKey: 'nav.groupDescriptions.review',
+    tabs: [
+      { path: '/risk-control', labelKey: 'nav.tabs.moderation' },
+      { path: '/prompt-audit', labelKey: 'nav.tabs.prompts' }
+    ]
+  }
+}

@@ -1,7 +1,7 @@
 <template>
   <SidebarFrame :sections="sections" home-path="/dashboard">
     <template #version>
-      <VersionBadge :version="siteVersion" />
+      <span v-if="siteVersion" class="text-xs tabular-nums text-af-ink-3" data-testid="admin-version">v{{ siteVersion }}</span>
     </template>
   </SidebarFrame>
 </template>
@@ -31,10 +31,8 @@ import {
   ShieldIcon,
   SignalIcon,
   TicketIcon,
-  UserIcon,
   UsersIcon
 } from '@/components/layout/sidebar/navIcons'
-import VersionBadge from './VersionBadge.vue'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -50,63 +48,43 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 
-// 分组侧栏：概览 / 渠道 / 用户与计费 / 运营 / 系统。路由不变，只加组标题（muqian 定 B2 档）。
 // 「仅充值」站点连管理端的「订阅」入口也一并收起（路由本身不拦截）。套餐属于订阅，不挂支付门。
 function visibleItems(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
   return authStore.isSimpleMode ? visible.filter((item) => !item.hideInSimpleMode) : visible
 }
 
+// A3 导航（管理站改造方案，muqian 2026-09-24「渠道在前」）：概览 / 供给 / 用户 / 运营 / 安全 / 设置。
+// 订阅、订单、审查各是一个入口，同组的页面在页头页签里切（activePaths 让同组页面都点亮这一项）；
+// 账号安全只在右上角头像菜单里。功能没开时入口不消失，显示为灰色，点进去是「未开启 · 去设置打开」。
 const sections = computed((): NavSection[] => {
   const groups: NavSection[] = [
     {
       key: 'overview',
       title: t('nav.sections.overview'),
       items: [
-        { path: '/dashboard', label: t('nav.dashboard'), icon: DashboardIcon },
+        { path: '/dashboard', label: t('nav.overview'), icon: DashboardIcon },
         { path: '/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
       ],
     },
     {
-      key: 'channels',
-      title: t('nav.sections.channels'),
+      key: 'supply',
+      title: t('nav.sections.supply'),
       items: [
-        // 渠道 = 资源（成品号 / 第三方 key）；模型目录决定上架与标价；分组已不是导航概念
+        // 渠道 = 资源（成品号 / 第三方 key）；模型决定上架与标价
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
-        { path: '/model-catalog', label: t('nav.modelCatalog'), icon: PriceTagIcon },
-        { path: '/channels/monitor', label: t('nav.channelMonitor'), icon: SignalIcon, featureFlag: flagChannelMonitor },
+        { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
+        { path: '/channels/monitor', label: t('nav.channelHealth'), icon: SignalIcon, featureFlag: flagChannelMonitor },
         { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
       ],
     },
     {
-      key: 'billing',
-      title: t('nav.sections.billing'),
+      key: 'users',
+      title: t('nav.sections.users'),
       items: [
         { path: '/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
-        {
-          path: '/subscriptions',
-          label: t('nav.subscriptions'),
-          icon: CreditCardIcon,
-          hideInSimpleMode: true,
-          featureFlag: flagSubscription,
-          expandOnly: true,
-          children: [
-            { path: '/subscriptions', label: t('nav.subscriptionRecords'), icon: CreditCardIcon },
-            { path: '/orders/plans', label: t('nav.paymentPlans'), icon: PriceTagIcon },
-          ],
-        },
-        {
-          path: '/orders',
-          label: t('nav.orderManagement'),
-          icon: OrderIcon,
-          hideInSimpleMode: true,
-          expandOnly: true,
-          featureFlag: flagAdminPayment,
-          children: [
-            { path: '/orders/dashboard', label: t('nav.paymentDashboard'), icon: ChartIcon },
-            { path: '/orders', label: t('nav.orderManagement'), icon: OrderIcon },
-          ],
-        },
+        { path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription, activePaths: ['/orders/plans'] },
+        { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment, activePaths: ['/orders/dashboard'] },
         { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
       ],
     },
@@ -116,28 +94,19 @@ const sections = computed((): NavSection[] => {
       items: [
         { path: '/usage', label: t('nav.usage'), icon: ChartIcon },
         { path: '/announcements', label: t('nav.announcements'), icon: BellIcon },
-        {
-          path: '/security-audit',
-          label: t('nav.securityAudit'),
-          icon: ShieldIcon,
-          expandOnly: true,
-          featureFlag: flagRiskControl,
-          children: [
-            { path: '/risk-control', label: t('nav.contentModeration'), icon: ShieldIcon },
-            { path: '/prompt-audit', label: t('nav.promptAudit'), icon: ShieldIcon },
-          ],
-        },
       ],
     },
     {
-      key: 'system',
-      title: t('nav.sections.system'),
+      key: 'security',
+      title: t('nav.sections.security'),
       items: [
-        { path: '/settings', label: t('nav.settings'), icon: CogIcon },
+        { path: '/risk-control', label: t('nav.review'), icon: ShieldIcon, featureFlag: flagRiskControl, activePaths: ['/prompt-audit'] },
         { path: '/audit-logs', label: t('nav.auditLogs'), icon: ShieldIcon, hideInSimpleMode: true },
-        // 管理员自己的账号安全（密码、双因素、Passkey）
-        { path: '/profile', label: t('nav.accountSecurity'), icon: UserIcon },
       ],
+    },
+    {
+      key: 'settings',
+      items: [{ path: '/settings', label: t('nav.settings'), icon: CogIcon }],
     },
   ]
   return groups.map((group) => ({ ...group, items: visibleItems(group.items) })).filter((group) => group.items.length > 0)

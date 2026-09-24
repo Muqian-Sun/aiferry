@@ -1,13 +1,8 @@
 <template>
   <AppLayout>
     <div class="mx-auto max-w-[1600px]" :class="activeTab === 'config' && draft ? 'pb-28' : 'pb-8'">
-      <header class="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <p class="text-xs font-semibold uppercase tracking-[0.16em] text-af-brand">{{ t('nav.securityAudit') }}</p>
-          <h1 class="mt-1 text-2xl font-semibold tracking-tight text-af-ink">{{ t('admin.promptAudit.title') }}</h1>
-          <p class="mt-2 max-w-3xl text-sm text-af-ink-3">{{ t('admin.promptAudit.description') }}</p>
-        </div>
-        <div v-if="draft" class="text-right text-xs text-af-ink-3">
+      <header v-if="draft" class="mb-4 flex justify-end">
+        <div class="text-right text-xs text-af-ink-3">
           <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
           <p v-if="draft.updated_at" class="mt-1">{{ formatDate(draft.updated_at) }}</p>
         </div>

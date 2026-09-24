@@ -1,6 +1,5 @@
 export default {
     accounts: {
-      title: '渠道管理',
       description: '创建与管理成品号、第三方 key 等上游资源；上架模型在模型目录里绑定',
       createAccount: '添加账号',
       autoRefresh: '自动刷新',

@@ -14,7 +14,6 @@ function read(rel: string) {
 
 describe('channel-monitor-v2 design system structure', () => {
   it('user ChannelStatus V2 shell uses page-header, card, btn, tabs utilities', () => {
-    // Route wrapper may switch V1/V2; design chrome lives on the V2 implementation.
     const src = read('views/user/ChannelStatusV2View.vue')
     expect(src).toContain('page-header')
     expect(src).toContain('page-title')
@@ -84,21 +83,18 @@ describe('channel-monitor-v2 design system structure', () => {
     expect(src).toContain('dropdown-item')
   })
 
-  it('MonitorSettingsPanel uses page-header, card, btn-primary, tabs', () => {
+  it('MonitorSettingsPanel uses card, btn-primary, tabs', () => {
     const src = read('features/channel-monitor-v2/MonitorSettingsPanel.vue')
-    expect(src).toContain('page-header')
     expect(src).toContain('btn btn-primary')
     expect(src).toContain('class="card')
     expect(src).toContain('tab-active')
     expect(src).toMatch(/max-h-\[min\(40vh/)
   })
 
-  it('admin ChannelMonitorView V2 tab chrome uses project tabs', () => {
+  // V1 下线后只剩配置面板；标题由管理站页头给出，页面里不再自带一个
+  it('admin ChannelMonitorView renders only the settings panel under the shared page header', () => {
     const src = read('views/admin/ChannelMonitorView.vue')
-    expect(src).toContain('page-header')
-    expect(src).toContain('page-title')
-    expect(src).toContain('class="tabs')
-    expect(src).toContain('tab-active')
     expect(src).toContain('MonitorSettingsPanel')
+    expect(src).not.toContain('page-title')
   })
 })

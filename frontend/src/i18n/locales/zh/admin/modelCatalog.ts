@@ -1,6 +1,5 @@
 export default {
   modelCatalog: {
-    title: '模型目录',
     description: '平台模型的基准价与别名，计价从这里取。',
     search: '搜索模型标识、展示名、厂商或别名',
     create: '新建模型',
