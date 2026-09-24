@@ -303,6 +303,78 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 	`, dateFormat)
 
 	args := []any{startTime, endTime}
+	query, args = appendTrendFilterConditions(query, args, userID, apiKeyID, accountID, model, modelSource, requestType, stream, billingType, billingMode, upstreamModelMismatch, nativeCompactionV2)
+	query += " GROUP BY date ORDER BY date ASC"
+
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// 保持主错误优先；仅在无错误时回传 Close 失败。
+		// 同时清空返回值，避免误用不完整结果。
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			results = nil
+		}
+	}()
+
+	results, err = scanTrendRows(rows)
+	if err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// GetModelUsageTrendWithUsageFilters 按「时间桶 + 模型」分组返回用量（用户概览的按模型趋势）。
+// 模型口径与用户侧模型统计一致：requested_model 优先，空时回落 model。
+func (r *usageLogRepository) GetModelUsageTrendWithUsageFilters(ctx context.Context, startTime, endTime time.Time, granularity string, filters UsageLogFilters) (results []usagestats.ModelTrendPoint, err error) {
+	dateFormat := safeDateFormat(granularity)
+	modelExpr := resolveModelDimensionExpression(usagestats.ModelSourceRequested)
+
+	query := fmt.Sprintf(`
+		SELECT
+			TO_CHAR(created_at, '%s') as date,
+			%s as model,
+			COUNT(*) as requests,
+			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as total_tokens
+		FROM usage_logs
+		WHERE created_at >= $1 AND created_at < $2
+	`, dateFormat, modelExpr)
+
+	args := []any{startTime, endTime}
+	query, args = appendTrendFilterConditions(query, args, filters.UserID, filters.APIKeyID, filters.AccountID, filters.Model, filters.ModelFilterSource, filters.RequestType, filters.Stream, filters.BillingType, filters.BillingMode, filters.UpstreamModelMismatch, filters.NativeCompactionV2)
+	query += fmt.Sprintf(" GROUP BY date, %s ORDER BY date ASC, total_tokens DESC", modelExpr)
+
+	rows, err := r.sql.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer func() {
+		// 保持主错误优先；仅在无错误时回传 Close 失败。
+		// 同时清空返回值，避免误用不完整结果。
+		if closeErr := rows.Close(); closeErr != nil && err == nil {
+			err = closeErr
+			results = nil
+		}
+	}()
+
+	results = make([]usagestats.ModelTrendPoint, 0)
+	for rows.Next() {
+		var row usagestats.ModelTrendPoint
+		if err = rows.Scan(&row.Date, &row.Model, &row.Requests, &row.TotalTokens); err != nil {
+			return nil, err
+		}
+		results = append(results, row)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, err
+	}
+	return results, nil
+}
+
+// appendTrendFilterConditions 追加趋势类查询共用的 WHERE 条件（按天/小时总趋势与按模型趋势共用）。
+func appendTrendFilterConditions(query string, args []any, userID, apiKeyID, accountID int64, model, modelSource string, requestType *int16, stream *bool, billingType *int8, billingMode string, upstreamModelMismatch, nativeCompactionV2 *bool) (string, []any) {
 	if userID > 0 {
 		query += fmt.Sprintf(" AND user_id = $%d", len(args)+1)
 		args = append(args, userID)
@@ -326,26 +398,7 @@ func (r *usageLogRepository) getUsageTrendWithFilters(ctx context.Context, start
 	if upstreamModelMismatch != nil {
 		query += " AND " + upstreamModelMismatchCondition("upstream_model_mismatch", *upstreamModelMismatch)
 	}
-	query += " GROUP BY date ORDER BY date ASC"
-
-	rows, err := r.sql.QueryContext(ctx, query, args...)
-	if err != nil {
-		return nil, err
-	}
-	defer func() {
-		// 保持主错误优先；仅在无错误时回传 Close 失败。
-		// 同时清空返回值，避免误用不完整结果。
-		if closeErr := rows.Close(); closeErr != nil && err == nil {
-			err = closeErr
-			results = nil
-		}
-	}()
-
-	results, err = scanTrendRows(rows)
-	if err != nil {
-		return nil, err
-	}
-	return results, nil
+	return query, args
 }
 
 func shouldUsePreaggregatedTrend(granularity string, userID, apiKeyID, accountID int64, model string, requestType *int16, stream *bool, billingType *int8, billingMode string, upstreamModelMismatch *bool, nativeCompactionV2 *bool) bool {

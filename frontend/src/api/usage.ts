@@ -11,6 +11,7 @@ import type {
   PaginatedResponse,
   TrendDataPoint,
   ModelStat,
+  ModelTrendPoint,
   UsageRequestType,
   UserErrorRequest,
   UserErrorRequestDetail,
@@ -103,6 +104,7 @@ export interface ApiKeyDailyUsageResponse {
 export interface UsageDashboardSnapshotV2Params extends TrendParams {
   include_trend?: boolean
   include_model_stats?: boolean
+  include_model_trend?: boolean
 }
 
 export interface UsageDashboardSnapshotV2Response {
@@ -112,6 +114,7 @@ export interface UsageDashboardSnapshotV2Response {
   granularity: string
   trend?: TrendDataPoint[]
   models?: ModelStat[]
+  model_trend?: ModelTrendPoint[]
 }
 
 /**

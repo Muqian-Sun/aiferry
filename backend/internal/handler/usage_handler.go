@@ -514,6 +514,10 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 	if !ok {
 		return
 	}
+	includeModelTrend, ok := parseBoolQueryWithDefault(c, "include_model_trend", false)
+	if !ok {
+		return
+	}
 
 	resp := gin.H{
 		"generated_at": time.Now().UTC().Format(time.RFC3339),
@@ -537,6 +541,14 @@ func (h *UsageHandler) DashboardSnapshotV2(c *gin.Context) {
 			return
 		}
 		resp["models"] = userModelStatsFromUsageStats(models)
+	}
+	if includeModelTrend {
+		modelTrend, err := h.usageService.GetModelUsageTrendWithFilters(c.Request.Context(), parsed.StartTime, parsed.EndTime, granularity, parsed.Filters)
+		if err != nil {
+			response.ErrorFrom(c, err)
+			return
+		}
+		resp["model_trend"] = modelTrend
 	}
 	response.Success(c, resp)
 }

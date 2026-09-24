@@ -1561,6 +1561,14 @@ export interface TrendDataPoint {
   actual_cost: number // 实际扣除
 }
 
+/** 按「时间桶 + 模型」分组的用量点（概览的按模型趋势；模型按请求时的名字） */
+export interface ModelTrendPoint {
+  date: string
+  model: string
+  requests: number
+  total_tokens: number
+}
+
 export interface ModelStat {
   model: string
   requests: number

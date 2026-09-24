@@ -144,3 +144,40 @@ func TestUsageLog_GetStatsWithFilters_AggregatesAndEndpoints(t *testing.T) {
 	require.NotEmpty(t, stats.UpstreamEndpoints)
 	require.NotEmpty(t, stats.EndpointPaths)
 }
+
+func TestUsageLog_GetModelUsageTrendWithUsageFilters_GroupsByBucketAndRequestedModel(t *testing.T) {
+	ctx := context.Background()
+	tx := testEntTx(t)
+	client := tx.Client()
+	repo := newUsageLogRepositoryWithSQL(client, tx)
+
+	user := mustCreateUser(t, client, &service.User{Email: "model-trend@test.com"})
+	other := mustCreateUser(t, client, &service.User{Email: "model-trend-other@test.com"})
+	apiKey := mustCreateApiKey(t, client, &service.APIKey{UserID: user.ID, Key: "sk-model-trend", Name: "model-trend"})
+	otherKey := mustCreateApiKey(t, client, &service.APIKey{UserID: other.ID, Key: "sk-model-trend-other", Name: "model-trend-other"})
+	account := mustCreateAccount(t, client, &service.Account{Name: "model-trend-account"})
+
+	day1 := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	day2 := day1.Add(24 * time.Hour)
+	for _, log := range []*service.UsageLog{
+		// 同一天同一请求模型两条合并；上游改写后的 model 不影响分组（按 requested_model）
+		{UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, RequestedModel: "gpt-5.6", Model: "gpt-5.6-upstream", InputTokens: 10, OutputTokens: 5, CreatedAt: day1},
+		{UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, RequestedModel: "gpt-5.6", Model: "gpt-5.6", InputTokens: 1, OutputTokens: 1, CacheReadTokens: 100, CreatedAt: day1.Add(time.Hour)},
+		// requested_model 为空时回落 model；四类 token 都计入
+		{UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, Model: "claude-sonnet-4-5", InputTokens: 3, OutputTokens: 4, CacheCreationTokens: 2, CreatedAt: day1},
+		{UserID: user.ID, APIKeyID: apiKey.ID, AccountID: account.ID, RequestedModel: "gpt-5.6", Model: "gpt-5.6", InputTokens: 7, CreatedAt: day2},
+		// 别的用户不计入
+		{UserID: other.ID, APIKeyID: otherKey.ID, AccountID: account.ID, RequestedModel: "gpt-5.6", Model: "gpt-5.6", InputTokens: 1000, CreatedAt: day1},
+	} {
+		_, err := repo.Create(ctx, log)
+		require.NoError(t, err)
+	}
+
+	trend, err := repo.GetModelUsageTrendWithUsageFilters(ctx, day1.Add(-time.Hour), day2.Add(time.Hour), "day", usagestats.UsageLogFilters{UserID: user.ID})
+	require.NoError(t, err)
+	require.Equal(t, []usagestats.ModelTrendPoint{
+		{Date: "2026-03-01", Model: "gpt-5.6", Requests: 2, TotalTokens: 117},
+		{Date: "2026-03-01", Model: "claude-sonnet-4-5", Requests: 1, TotalTokens: 9},
+		{Date: "2026-03-02", Model: "gpt-5.6", Requests: 1, TotalTokens: 7},
+	}, trend)
+}

@@ -335,6 +335,15 @@ func (s *UsageService) GetUsageTrendWithFilters(ctx context.Context, startTime, 
 	return trend, nil
 }
 
+// GetModelUsageTrendWithFilters returns usage grouped by time bucket and requested model.
+func (s *UsageService) GetModelUsageTrendWithFilters(ctx context.Context, startTime, endTime time.Time, granularity string, filters usagestats.UsageLogFilters) ([]usagestats.ModelTrendPoint, error) {
+	trend, err := s.usageRepo.GetModelUsageTrendWithUsageFilters(ctx, startTime, endTime, granularity, filters)
+	if err != nil {
+		return nil, fmt.Errorf("get model usage trend: %w", err)
+	}
+	return trend, nil
+}
+
 // GetUserModelStats returns per-user model usage stats.
 func (s *UsageService) GetUserModelStats(ctx context.Context, userID int64, startTime, endTime time.Time) ([]usagestats.ModelStat, error) {
 	stats, err := s.usageRepo.GetUserModelStats(ctx, userID, startTime, endTime)
