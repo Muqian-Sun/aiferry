@@ -3,6 +3,7 @@
     模型目录（A4 列表模板）：上架 = 用户能看到并调用；上架必有价、必有资源承接。
     标题右侧「⋯」（从价格文件播种）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
     工具行 = 搜索 + 状态 / 厂商 / 计费 / 资源筛选标签 + 刷新；行尾「编辑」图标 +「⋯」（诊断、删除）；选中行时批量上下架。
+    点行打开详情抽屉（A5）：概况（全部价格、别名…）/ 渠道（绑定的渠道此刻能否调度 + 诊断）；抽屉右上「编辑」「⋯」。
   -->
   <AppLayout>
     <template #header-actions>
@@ -94,7 +95,9 @@
           selectable
           row-key="id"
           :selected-keys="selectedIds"
+          clickable-rows
           @update:selected-keys="handleSelectionChange"
+          @row-click="openDrawer($event)"
         >
           <template #cell-model_id="{ row }">
             <div class="min-w-0">
@@ -132,7 +135,7 @@
               type="button"
               class="inline-flex items-center gap-1.5 text-af-warning hover:underline"
               data-testid="model-catalog-no-resources"
-              @click="openDiagnosis(row)"
+              @click.stop="openDiagnosis(row)"
             >
               <span class="inline-block h-2 w-2 rounded-full bg-af-warning"></span>
               {{ t('admin.modelCatalog.noResources') }}
@@ -142,7 +145,7 @@
               type="button"
               class="tabular-nums text-af-ink-2 underline decoration-af-ink-4 decoration-dotted underline-offset-2 hover:text-af-ink"
               data-testid="model-catalog-resource-count"
-              @click="openDiagnosis(row)"
+              @click.stop="openDiagnosis(row)"
             >
               {{ bindingCount(row) }}
             </button>
@@ -187,6 +190,17 @@
       </template>
     </TablePageLayout>
 
+    <CatalogEntryDrawer
+      :show="drawerOpen"
+      :entry="drawerEntry"
+      v-model:tab="drawerTab"
+      @close="drawerOpen = false"
+      @edit="drawerEntry && openEdit(drawerEntry)"
+      @diagnose="drawerEntry && openDiagnosis(drawerEntry)"
+      @set-status="drawerEntry && setEntryStatus(drawerEntry, $event)"
+      @delete="drawerEntry && askDelete(drawerEntry)"
+    />
+
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"
       :entry-id="diagnosisEntry?.id ?? null"
@@ -230,6 +244,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
+import CatalogEntryDrawer from '@/components/admin/catalog/CatalogEntryDrawer.vue'
 import CatalogEntryEditor from '@/components/admin/catalog/CatalogEntryEditor.vue'
 import PriceCell from '@/components/admin/catalog/CatalogPriceCell.vue'
 import { entryToRequest } from '@/components/admin/catalog/entryRequest'
@@ -258,6 +273,12 @@ const editingEntry = ref<ModelCatalogEntry | null>(null)
 const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
 const showDeleteDialog = ref(false)
 const pendingDelete = ref<ModelCatalogEntry | null>(null)
+
+// 详情抽屉（A5）：按 ID 记住打开的条目，列表重载后自动换成新数据；条目被删就跟着关
+const drawerOpen = ref(false)
+const drawerTab = ref('overview')
+const drawerEntryId = ref<number | null>(null)
+const drawerEntry = computed(() => entries.value.find((entry) => entry.id === drawerEntryId.value) ?? null)
 
 // 分页（客户端：列表接口一次返回全部）
 const page = ref(1)
@@ -397,6 +418,24 @@ function openDiagnosis(entry: ModelCatalogEntry) {
   diagnosisEntry.value = entry
 }
 
+function openDrawer(entry: ModelCatalogEntry, tab = 'overview') {
+  drawerEntryId.value = entry.id
+  drawerTab.value = tab
+  drawerOpen.value = true
+}
+
+/** 抽屉「⋯」里的上架 / 下架：与批量上下架同一条路（整条覆盖 PUT，价格 / 绑定校验在后端） */
+async function setEntryStatus(entry: ModelCatalogEntry, status: 'listed' | 'unlisted') {
+  if (entry.status === status) return
+  try {
+    await adminAPI.modelCatalog.updateEntry(entry.id, { ...entryToRequest(entry), status })
+    appStore.showSuccess(t(`admin.modelCatalog.drawer.${status}Done`, { model: entry.model_id }))
+    await loadEntries()
+  } catch (error) {
+    showApiError(error)
+  }
+}
+
 // 行操作（A4）：编辑是图标；诊断、删除进「⋯」，删除红字且仍走确认框
 function rowActions(entry: ModelCatalogEntry): RowAction[] {
   return [
@@ -422,6 +461,7 @@ async function confirmDelete() {
   if (!entry) return
   try {
     await adminAPI.modelCatalog.deleteEntry(entry.id)
+    if (drawerEntryId.value === entry.id) drawerOpen.value = false
     await loadEntries()
   } catch (error) {
     showApiError(error)
