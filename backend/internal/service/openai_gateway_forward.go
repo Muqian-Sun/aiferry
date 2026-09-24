@@ -225,7 +225,12 @@ func (s *OpenAIGatewayService) Forward(ctx context.Context, c *gin.Context, acco
 	isCodexCLI := openai.IsCodexOfficialClientByHeaders(c.GetHeader("User-Agent"), c.GetHeader("originator")) || (s.cfg != nil && s.cfg.Gateway.ForceCodexCLI)
 	codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
 	if isCodexCLI {
-		codexImageGenerationExplicitToolPolicy = account.CodexImageGenerationExplicitToolPolicy()
+		// 生图未开放时有效策略恒为 strip：Codex 自带的 image_generation 工具被剥掉后照常转发。
+		codexImageGenerationExplicitToolPolicy = s.codexImageGenerationToolPolicy(account)
+	} else if !OpenAIImageGenerationToolEnabled(s.cfg) && openAIRequestDeclaresHostedImageGenerationTool(reqModel, body) {
+		// 入站 handler 已在选号前拦过；这里兜住其它调用方，保证不打上游、不算账号失败。
+		writeOpenAIImageGenerationToolUnavailable(c)
+		return nil, ErrOpenAIImageGenerationToolUnavailable
 	}
 	if c != nil {
 		c.Set("openai_ws_transport_decision", string(wsDecision.Transport))

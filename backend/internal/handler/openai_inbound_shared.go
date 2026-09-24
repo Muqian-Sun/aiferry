@@ -3,6 +3,7 @@ package handler
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"runtime/debug"
@@ -65,6 +66,35 @@ func openAIStreamingAwareError(c *gin.Context, status int, errType string, code 
 
 	// Normal case: return JSON response with proper status code
 	writeOpenAIError(c, status, errType, code, message)
+}
+
+// gateOpenAIImageGenerationTool 生图未开放（gateway.image_generation_tool_enabled=false）时，在选号前
+// 处理请求里的 Responses image_generation 工具：Codex 官方客户端剥掉工具后继续（返回剥后的 body），
+// 其余客户端经 writeError 回 400 并返回 ok=false——不选号、不打上游、不算账号失败。
+func gateOpenAIImageGenerationTool(
+	c *gin.Context,
+	cfg *config.Config,
+	reqLog *zap.Logger,
+	reqModel string,
+	body []byte,
+	writeError func(c *gin.Context, status int, errType, message string),
+) ([]byte, bool) {
+	gated, stripped, err := service.GateOpenAIImageGenerationTool(cfg, c.GetHeader("User-Agent"), c.GetHeader("originator"), reqModel, body)
+	if err != nil {
+		if errors.Is(err, service.ErrOpenAIImageGenerationToolUnavailable) {
+			service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+			reqLog.Info("openai.image_generation_tool_rejected", zap.String("model", reqModel))
+			writeError(c, http.StatusBadRequest, "invalid_request_error", service.OpenAIImageGenerationToolUnavailableMessage)
+			return nil, false
+		}
+		reqLog.Warn("openai.image_generation_tool_strip_failed", zap.Error(err))
+		writeError(c, http.StatusBadRequest, "invalid_request_error", "Failed to parse request body")
+		return nil, false
+	}
+	if stripped {
+		reqLog.Info("openai.image_generation_tool_stripped_for_codex", zap.String("model", reqModel))
+	}
+	return gated, true
 }
 
 // writeOpenAIError OpenAI 形状的 JSON 错误；code 为空时省略。

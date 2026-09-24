@@ -280,6 +280,16 @@ gateway:
   # 默认 false：保持纯文本 Codex 请求不被改写；客户端显式提供 image_generation tool 时，
   # 仍会在分组允许图片生成的情况下正常转发。
   codex_image_generation_bridge_enabled: false
+  # Allow language-model requests to generate images upstream via the Responses
+  # image_generation tool.
+  # 是否允许语言模型请求经 Responses image_generation 工具在上游出图。
+  #
+  # 默认 false（生图未开放）：Codex 官方客户端带上的 image_generation 工具会被剥掉后照常转发；
+  # 其余客户端带该工具直接返回 400 invalid_request_error，不选号、不打上游。
+  # 关闭时上面的 codex_image_generation_bridge_enabled 与账号级桥接覆盖一律不生效；
+  # 账号级设置只能在开启时进一步收窄，不能在关闭时放开。
+  # 开启后行为不变。已知问题（暂未修复）：对话模型经该工具出图时，整单换成图片模型计费。
+  image_generation_tool_enabled: false
   # Optional: template file used to build the final top-level Codex `instructions`.
   # 可选：用于构建最终 Codex 顶层 `instructions` 的模板文件路径。
   #

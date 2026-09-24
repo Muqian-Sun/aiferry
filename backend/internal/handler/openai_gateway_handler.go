@@ -1060,6 +1060,14 @@ func (h *OpenAIGatewayHandler) ResponsesWebSocket(c *gin.Context) {
 	}
 	c.Request = c.Request.WithContext(service.WithCatalogRoute(c.Request.Context(), route))
 	ctx = c.Request.Context()
+	// 生图未开放：非 Codex 客户端首帧带 image_generation 工具在选号前以 1008 关闭（与目录准入的
+	// 首帧拒绝同一方式）。Codex 官方客户端由转发层逐 turn 剥掉；后续 turn 的拒绝也在转发层，均不转发上游。
+	if _, _, gateErr := service.GateOpenAIImageGenerationTool(h.cfg, c.GetHeader("User-Agent"), c.GetHeader("originator"), reqModel, firstMessage); errors.Is(gateErr, service.ErrOpenAIImageGenerationToolUnavailable) {
+		service.MarkOpsClientBusinessLimited(c, service.OpsClientBusinessLimitedReasonLocalFeatureGate)
+		reqLog.Info("openai.websocket_image_generation_tool_rejected", zap.String("model", reqModel))
+		closeOpenAIClientWS(wsConn, coderws.StatusPolicyViolation, service.OpenAIImageGenerationToolUnavailableMessage)
+		return
+	}
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(firstMessage, "previous_response_id").String())
 	previousResponseIDKind := service.ClassifyOpenAIPreviousResponseIDKind(previousResponseID)
 	if previousResponseID != "" && previousResponseIDKind == service.OpenAIPreviousResponseIDKindMessageID {

@@ -8,6 +8,15 @@ import (
 
 // Responses WS 没有经过 HTTP 准入中间件，首帧与后续 turn 在 handler 里做目录准入。
 
+// 生图未开放（默认）：非 Codex 客户端首帧带 image_generation 工具，在选号前以 1008 关闭。
+func TestResponsesWebSocket_ImageGenerationToolRejectedOnFirstFrame(t *testing.T) {
+	runOpenAIResponsesWebSocketUsageLogCase(t, openAIResponsesWSUsageLogCase{
+		firstPayload:            `{"type":"response.create","model":"gpt-5.4","stream":false,"input":"draw","tools":[{"type":"image_generation"}]}`,
+		firstFrameCloseExpected: true,
+		closeReasonContains:     service.OpenAIImageGenerationToolUnavailableMessage,
+	})
+}
+
 // 首帧模型未上架：连接被 1008 关闭，原因是目录（不是分组白名单）。
 func TestResponsesWebSocket_RejectsUnlistedFirstFrame(t *testing.T) {
 	for _, mode := range []string{service.OpenAIWSIngressModePassthrough, service.OpenAIWSIngressModeDedicated} {

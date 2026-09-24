@@ -629,6 +629,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_CodexImageBridge
 	gin.SetMode(gin.TestMode)
 
 	cfg := &config.Config{}
+	cfg.Gateway.ImageGenerationToolEnabled = true // 本用例描述出图工具开关打开时的既有行为
 	cfg.Security.URLAllowlist.Enabled = false
 	cfg.Security.URLAllowlist.AllowInsecureHTTP = true
 	cfg.Gateway.OpenAIWS.Enabled = true

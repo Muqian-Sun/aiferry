@@ -593,6 +593,9 @@ func TestHandleStreamingResponse_CyberPolicyCapturesRealUpstreamTokens(t *testin
 
 func newOpenAIImageGenerationControlTestService(upstream *httpUpstreamRecorder) *OpenAIGatewayService {
 	cfg := &config.Config{}
+	// 这组用例描述出图工具开关打开时的既有行为（桥接、账号策略、显式工具转发）；
+	// 开关关闭时的把关见 openai_image_generation_tool_gate_test.go。
+	cfg.Gateway.ImageGenerationToolEnabled = true
 	return &OpenAIGatewayService{
 		cfg:              cfg,
 		httpUpstream:     upstream,

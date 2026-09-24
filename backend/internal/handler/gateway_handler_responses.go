@@ -113,6 +113,12 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		h.responsesErrorResponse(c, http.StatusBadRequest, "invalid_request_error", err.Error())
 		return
 	}
+	// 生图未开放：带 image_generation 工具的语言模型请求在选号前处理（Codex 官方客户端剥掉工具，
+	// 其余客户端 400），不打上游、不算账号失败。
+	body, ok = gateOpenAIImageGenerationTool(c, h.cfg, reqLog, reqModel, body, h.responsesErrorResponse)
+	if !ok {
+		return
+	}
 	reqLog = reqLog.With(zap.String("model", reqModel), zap.Bool("stream", reqStream))
 	// previous_response_id：只认 resp_*，且必须是本用户的续链
 	previousResponseID := strings.TrimSpace(gjson.GetBytes(body, "previous_response_id").String())

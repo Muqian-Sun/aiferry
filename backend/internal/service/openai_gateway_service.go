@@ -570,6 +570,10 @@ func (s *OpenAIGatewayService) Scheduler() *GatewayService {
 }
 
 func (s *OpenAIGatewayService) isCodexImageGenerationBridgeEnabled(ctx context.Context, account *Account, apiKey *APIKey) bool {
+	// 生图未开放（gateway.image_generation_tool_enabled=false）时桥接一律不注入，账号级覆盖也不能放开。
+	if s == nil || !OpenAIImageGenerationToolEnabled(s.cfg) {
+		return false
+	}
 	if override := account.CodexImageGenerationBridgeOverride(); override != nil {
 		return *override
 	}

@@ -135,9 +135,14 @@ type keyRouteHarness struct {
 
 func newKeyRouteHarness(t *testing.T, accounts []*service.Account) *keyRouteHarness {
 	t.Helper()
+	return newKeyRouteHarnessWithConfig(t, accounts, &config.Config{RunMode: config.RunModeSimple})
+}
+
+// newKeyRouteHarnessWithConfig 同 newKeyRouteHarness，但各网关服务用调用方给的配置。
+func newKeyRouteHarnessWithConfig(t *testing.T, accounts []*service.Account, cfg *config.Config) *keyRouteHarness {
+	t.Helper()
 	h, cleanup := newTestGatewayHandler(t, accounts)
 	t.Cleanup(cleanup)
-	cfg := &config.Config{RunMode: config.RunModeSimple}
 	geminiUpstream := &recordingHTTPUpstream{respBody: geminiGenerateContentOK}
 	antigravityUpstream := &recordingHTTPUpstream{respBody: geminiGenerateContentOK}
 	openAIUpstream := &recordingHTTPUpstream{respBody: openAIResponsesSSEOK, contentType: "text/event-stream"}

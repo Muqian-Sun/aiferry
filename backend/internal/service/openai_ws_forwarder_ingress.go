@@ -336,7 +336,22 @@ func (s *OpenAIGatewayService) ProxyResponsesWebSocketFromClient(
 		apiKey := getAPIKeyFromContext(c)
 		codexImageGenerationExplicitToolPolicy := codexImageGenerationExplicitToolPolicyAllow
 		if isCodexCLI {
-			codexImageGenerationExplicitToolPolicy = account.CodexImageGenerationExplicitToolPolicy()
+			// 生图未开放时有效策略恒为 strip（下方剥离），桥接也不注入。
+			codexImageGenerationExplicitToolPolicy = s.codexImageGenerationToolPolicy(account)
+		} else if !OpenAIImageGenerationToolEnabled(s.cfg) && openAIRequestDeclaresHostedImageGenerationTool(originalModel, normalized) {
+			// 首轮与后续 turn 都走这里：该帧不转发上游，先回 error 事件再以 PolicyViolation 关连接
+			// （与 fast policy 拦截同一处理方式；ClientCloseError 不计入账号健康失败）。
+			MarkOpsClientBusinessLimited(c, OpsClientBusinessLimitedReasonLocalFeatureGate)
+			if eventBytes := BuildOpenAIImageGenerationToolUnavailableWSEvent(); eventBytes != nil {
+				writeCtx, cancel := newOpenAIWSDownstreamWriteContext(ctx, hooks, s.openAIWSWriteTimeout())
+				_ = clientConn.Write(writeCtx, coderws.MessageText, eventBytes)
+				cancel()
+			}
+			return openAIWSClientPayload{}, NewOpenAIWSClientCloseError(
+				coderws.StatusPolicyViolation,
+				OpenAIImageGenerationToolUnavailableMessage,
+				ErrOpenAIImageGenerationToolUnavailable,
+			)
 		}
 		codexBridgeEnabled := isCodexCLI &&
 			!isOpenAIResponsesLiteWebSocketPayload(normalized) &&

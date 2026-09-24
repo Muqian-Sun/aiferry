@@ -130,6 +130,8 @@ func TestGatewayHandlerResponses_ImageIntentRequiresResponsesCapability(t *testi
 	key := keyRouteAccount(1407, service.PlatformOpenAI, map[string]string{service.APIProtocolChatCompletions: "https://relay.example.com"}, "gpt-5.6")
 	key.CatalogEntryIDs = []int64{entryID}
 	hs := newKeyRouteHarness(t, []*service.Account{key})
+	// 出图工具开放时的能力路由（开关关闭时该请求在选号前就被 400，见 image_generation_tool_gate 用例）。
+	hs.handler.cfg = &config.Config{Gateway: config.GatewayConfig{ImageGenerationToolEnabled: true}}
 
 	body := []byte(`{"model":"gpt-5.6","input":"draw a cat","tools":[{"type":"image_generation"}],"stream":false}`)
 	c, rec := newKeyRouteContext(t, http.MethodPost, "/v1/responses", body, service.APIProtocolResponses, "")
