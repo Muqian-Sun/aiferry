@@ -27,6 +27,12 @@ const {
   showSuccess: vi.fn()
 }))
 
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+vi.mock('vue-router', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('vue-router')>()),
+  useRoute: () => ({ query: {} })
+}))
+
 vi.mock('@/api/admin', () => ({
   adminAPI: {
     accounts: {
@@ -204,7 +210,8 @@ describe('admin AccountsView bulk edit scope', () => {
     expect(wrapper.get('[data-test="bulk-edit-modal"]').attributes('data-target-mode')).toBe('filtered')
   })
 
-  it('renders the created_at column by default', async () => {
+  it('renders the created_at column when enabled in column settings (hidden by default since A2-2)', async () => {
+    localStorage.setItem('account-hidden-columns', JSON.stringify([]))
     listAccounts.mockResolvedValue({
       items: [
         {

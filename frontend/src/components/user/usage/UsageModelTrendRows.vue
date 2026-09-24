@@ -1,7 +1,7 @@
 <template>
   <!--
     按模型的 Token 趋势（muqian 2026-09-24「趋势图用模型来统计」「概览放几个图大致看一看，少点文字」）：
-    每个模型一行迷你柱（小倍数），前 5 个模型 + 「其他」，单色。
+    每个模型一行迷你柱（小倍数），前 limit 行（默认 5）+ 「其他」，单色；管理端仪表盘也用它画 Top 12 用户。
     每行按自己的最大值缩放——看的是各模型自己的起伏；量级看右侧的合计与占比。柱限宽 36px 居中（7 天时不至于成块），
     悬停某根柱，右侧换成那一天的数。
   -->
@@ -58,17 +58,21 @@ import { useI18n } from 'vue-i18n'
 import { formatTokensK } from '@/utils/format'
 import type { ModelTrendPoint } from '@/types'
 
-const props = defineProps<{
-  points: ModelTrendPoint[]
-  /** 区间内逐日的日期（YYYY-MM-DD），决定柱的根数与顺序 */
-  days: string[]
-  loading?: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    /** 按 model 分组；带 label 时显示 label（管理端 Top 用户：model 放用户 id，label 放名字，同名不合并） */
+    points: Array<ModelTrendPoint & { label?: string }>
+    /** 区间内逐个时间桶（YYYY-MM-DD 或 YYYY-MM-DD HH:00），决定柱的根数与顺序 */
+    days: string[]
+    loading?: boolean
+    /** 最多列几行，其余并成「其他」 */
+    limit?: number
+  }>(),
+  { loading: false, limit: 5 }
+)
 
 const { t } = useI18n()
 
-/** 最多列几个模型，其余并成「其他」（再多行就太密，概览只求大致一看） */
-const TOP_N = 5
 const GRID = 'grid grid-cols-[minmax(0,9rem)_minmax(0,1fr)_7.5rem] items-end gap-x-5'
 
 interface TrendRow {
@@ -83,24 +87,26 @@ interface TrendRow {
 const rows = computed<TrendRow[]>(() => {
   const dayIndex = new Map(props.days.map((day, index) => [day, index]))
   const byModel = new Map<string, number[]>()
+  const labels = new Map<string, string>()
   for (const point of props.points) {
     const index = dayIndex.get(point.date)
     if (index === undefined) continue
     const values = byModel.get(point.model) ?? new Array<number>(props.days.length).fill(0)
     values[index] += point.total_tokens
     byModel.set(point.model, values)
+    if (point.label) labels.set(point.model, point.label)
   }
 
   const sum = (values: number[]) => values.reduce((acc, v) => acc + v, 0)
   const sorted = [...byModel.entries()]
-    .map(([model, values]) => ({ key: model, label: model, values, total: sum(values) }))
+    .map(([model, values]) => ({ key: model, label: labels.get(model) ?? model, values, total: sum(values) }))
     .filter((row) => row.total > 0)
     .sort((a, b) => b.total - a.total)
   const grand = sorted.reduce((acc, row) => acc + row.total, 0)
   if (grand <= 0) return []
 
-  const head = sorted.slice(0, TOP_N)
-  const rest = sorted.slice(TOP_N)
+  const head = sorted.slice(0, props.limit)
+  const rest = sorted.slice(props.limit)
   if (rest.length) {
     const values = props.days.map((_, index) => rest.reduce((acc, row) => acc + row.values[index], 0))
     head.push({ key: '__other__', label: t('userUi.overview.models.other'), values, total: sum(values) })
@@ -124,5 +130,6 @@ function barHeight(value: number, max: number): string {
   return `${Math.max((value / max) * 100, 8)}%`
 }
 
+/** 日桶显示 MM-DD，小时桶显示 MM-DD HH:00 */
 const dayLabel = (index: number) => props.days[index]?.slice(5) ?? ''
 </script>

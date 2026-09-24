@@ -476,6 +476,7 @@
 import { ref, reactive, computed, onMounted, onUnmounted, toRaw, watch } from 'vue'
 import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { useTableLoader } from '@/composables/useTableLoader'
@@ -647,7 +648,9 @@ const accountToolsDropdownStyle = computed(() => ({
   width: `${accountToolsDropdownPosition.width}px`
 }))
 const hiddenColumns = reactive<Set<string>>(new Set())
-const DEFAULT_HIDDEN_COLUMNS = ['today_stats', 'proxy', 'notes', 'rate_multiplier']
+// 默认只露 10 个数据列（名称 / 厂商类型 / 容量 / 状态 / 调度 / 已上架模型 / 用量窗口 / 优先级 / 上游声明倍率（带可信度提示）/ 最近使用），其余进「列设置」
+// （A2-2，原 16 列横向滚动）。已保存过列设置的管理员保留原样，不强制重置。
+const DEFAULT_HIDDEN_COLUMNS = ['id', 'today_stats', 'proxy', 'rate_multiplier', 'created_at', 'expires_at', 'notes']
 const HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
 // One-time migration: hide scheduler score for existing admins too, because showing it opt-ins to heavy backend scoring.
 
@@ -1018,6 +1021,14 @@ const toggleColumn = (key: string) => {
 
 const isColumnVisible = (key: string) => !hiddenColumns.has(key)
 
+// 仪表盘「需要处理」带 ?status=error / rate_limited 跳过来：用作初始状态筛选（只认筛选下拉里有的值）
+const route = useRoute()
+const ACCOUNT_STATUS_FILTER_VALUES = ['active', 'inactive', 'error', 'rate_limited', 'temp_unschedulable', 'unschedulable']
+function initialStatusFromQuery(): string {
+  const value = route.query.status
+  return typeof value === 'string' && ACCOUNT_STATUS_FILTER_VALUES.includes(value) ? value : ''
+}
+
 const {
   items: accounts,
   loading,
@@ -1033,7 +1044,7 @@ const {
   initialParams: {
     platform: '',
     type: '',
-    status: '',
+    status: initialStatusFromQuery(),
     privacy_mode: '',
     search: '',
     lite: '1',

@@ -1,220 +1,66 @@
 <template>
+  <!--
+    管理端仪表盘（A2-1，muqian 2026-09-24 定）：
+    ① 今日 / 累计两行数字（原 8 张彩色卡片）；右上角实时 RPM · TPM
+    ② 需要处理：只放渠道异常 / 限流 / 过载，点进渠道页带状态筛选；都是 0 时整段不出现
+    ③ 快捷入口（保留）
+    ④ 时间范围 + 粒度；用量趋势单线 + 页签（Token / 请求 / 费用，去掉原双轴图，缓存命中率改成①里的数字）；
+       模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。全部单色。
+  -->
   <AppLayout>
     <div class="space-y-6">
-      <!-- Loading State -->
       <div v-if="loading" class="flex items-center justify-center py-12">
         <LoadingSpinner />
       </div>
 
       <template v-else-if="stats">
-        <!-- Row 1: Core Stats -->
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <!-- Total API Keys -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="key" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.apiKeys') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ stats.total_api_keys }}
-                </p>
-                <p class="text-xs text-af-success">
-                  {{ stats.active_api_keys }} {{ t('common.active') }}
-                </p>
-              </div>
-            </div>
+        <section class="card p-5" data-testid="dashboard-numbers">
+          <div class="mb-3 flex justify-end">
+            <p class="text-xs tabular-nums text-af-ink-3" data-testid="dashboard-realtime">
+              {{ t('admin.dashboard.realtime', { rpm: formatNumber(stats.rpm), tpm: formatTokens(stats.tpm) }) }}
+            </p>
           </div>
-
-          <!-- Service Accounts -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="server" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.accounts') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ stats.total_accounts }}
-                </p>
-                <p class="text-xs">
-                  <span class="text-af-success"
-                    >{{ stats.normal_accounts }} {{ t('common.active') }}</span
-                  >
-                  <span v-if="stats.error_accounts > 0" class="ml-1 text-af-danger"
-                    >{{ stats.error_accounts }} {{ t('common.error') }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Today Requests -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="chart" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.todayRequests') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ stats.today_requests }}
-                </p>
-                <p class="text-xs text-af-ink-3">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_requests) }}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- New Users Today -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="userPlus" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.users') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  +{{ stats.today_new_users }}
-                </p>
-                <p class="text-xs text-af-ink-3">
-                  {{ t('common.total') }}: {{ formatNumber(stats.total_users) }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Row 2: Token Stats -->
-        <div class="grid grid-cols-2 gap-4 lg:grid-cols-4">
-          <!-- Today Tokens -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="cube" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.todayTokens') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ formatTokens(stats.today_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-af-ink"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.today_actual_cost) }}</span
-                  >
-                  <span class="text-af-ink-3"> / </span>
-                  <span
-                    class="text-af-ink-3"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.today_account_cost) }}</span
-                  >
-                  <span class="text-af-ink-3"> / </span>
-                  <span
-                    class="text-af-ink-3"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.today_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Total Tokens -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="database" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.totalTokens') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ formatTokens(stats.total_tokens) }}
-                </p>
-                <p class="text-xs">
-                  <span
-                    class="text-af-ink"
-                    :title="t('admin.dashboard.actual')"
-                    >${{ formatCost(stats.total_actual_cost) }}</span
-                  >
-                  <span class="text-af-ink-3"> / </span>
-                  <span
-                    class="text-af-ink-3"
-                    :title="t('admin.dashboard.accountCost')"
-                    >${{ formatCost(stats.total_account_cost) }}</span
-                  >
-                  <span class="text-af-ink-3"> / </span>
-                  <span
-                    class="text-af-ink-3"
-                    :title="t('admin.dashboard.standard')"
-                    >${{ formatCost(stats.total_cost) }}</span
-                  >
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <!-- Performance (RPM/TPM) -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="bolt" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div class="flex-1">
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.performance') }}
-                </p>
-                <div class="flex items-baseline gap-2">
-                  <p class="text-xl font-bold text-af-ink">
-                    {{ formatTokens(stats.rpm) }}
-                  </p>
-                  <span class="text-xs text-af-ink-3">RPM</span>
+          <div class="divide-y divide-af-hairline">
+            <div
+              v-for="row in numberRows"
+              :key="row.key"
+              class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start"
+              :data-testid="`dashboard-row-${row.key}`"
+            >
+              <p class="w-16 shrink-0 pt-1 text-13 font-medium text-af-ink-3">{{ row.title }}</p>
+              <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+                <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
+                  <dd class="truncate text-xl font-semibold tabular-nums text-af-ink">{{ cell.value }}</dd>
+                  <dt class="mt-0.5 truncate text-xs text-af-ink-3">
+                    {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-4"> · {{ cell.hint }}</span>
+                  </dt>
                 </div>
-                <div class="flex items-baseline gap-2">
-                  <p class="text-sm font-semibold text-af-ink-2">
-                    {{ formatTokens(stats.tpm) }}
-                  </p>
-                  <span class="text-xs text-af-ink-3">TPM</span>
-                </div>
-              </div>
+              </dl>
             </div>
           </div>
+        </section>
 
-          <!-- Avg Response Time -->
-          <div class="card p-4">
-            <div class="flex items-center gap-3">
-              <div class="rounded-lg bg-af-sunken p-2">
-                <Icon name="clock" size="md" class="text-af-ink-2" :stroke-width="2" />
-              </div>
-              <div>
-                <p class="text-xs font-medium text-af-ink-3">
-                  {{ t('admin.dashboard.avgResponse') }}
-                </p>
-                <p class="text-xl font-bold text-af-ink">
-                  {{ formatDuration(stats.average_duration_ms) }}
-                </p>
-                <p class="text-xs text-af-ink-3">
-                  {{ stats.active_users }} {{ t('admin.dashboard.activeUsers') }}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
+        <section v-if="attentionItems.length" class="card p-5" data-testid="dashboard-attention">
+          <h2 class="text-sm font-semibold text-af-ink">{{ t('admin.dashboard.attentionTitle') }}</h2>
+          <ul class="mt-2 divide-y divide-af-hairline">
+            <li v-for="item in attentionItems" :key="item.key">
+              <RouterLink
+                :to="item.to"
+                class="group flex items-center justify-between gap-4 py-2.5 text-sm text-af-ink"
+                :data-testid="`dashboard-attention-${item.key}`"
+              >
+                <span class="flex items-center gap-2.5">
+                  <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="item.dot" aria-hidden="true" />
+                  {{ item.label }}
+                </span>
+                <span class="inline-flex items-center gap-1 text-13 text-af-ink-3 group-hover:text-af-ink">
+                  {{ t('admin.dashboard.attentionGo') }}
+                  <Icon name="chevronRight" size="sm" />
+                </span>
+              </RouterLink>
+            </li>
+          </ul>
+        </section>
 
         <!-- Quick Actions -->
         <div class="card p-4">
@@ -265,40 +111,46 @@
           </div>
         </div>
 
-        <!-- Charts Section -->
         <div class="space-y-6">
-          <!-- Date Range Filter -->
           <div class="card p-4">
             <div class="flex flex-wrap items-center gap-4">
               <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-af-ink-2"
-                  >{{ t('admin.dashboard.timeRange') }}:</span
-                >
-                <DateRangePicker
-                  v-model:start-date="startDate"
-                  v-model:end-date="endDate"
-                  @change="onDateRangeChange"
-                />
+                <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.timeRange') }}:</span>
+                <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
               </div>
-              <button @click="loadDashboardStats" :disabled="chartsLoading" class="btn btn-secondary">
+              <button :disabled="chartsLoading" class="btn btn-secondary" @click="loadDashboardStats">
                 {{ t('common.refresh') }}
               </button>
               <div class="ml-auto flex items-center gap-2">
-                <span class="text-sm font-medium text-af-ink-2"
-                  >{{ t('admin.dashboard.granularity') }}:</span
-                >
+                <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.granularity') }}:</span>
                 <div class="w-28">
-                  <Select
-                    v-model="granularity"
-                    :options="granularityOptions"
-                    @change="loadChartData"
-                  />
+                  <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Charts Grid -->
+          <section class="card p-4" data-testid="dashboard-trend">
+            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h3 class="text-sm font-semibold text-af-ink">{{ t('admin.dashboard.usageTrend') }}</h3>
+              <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.dashboard.usageTrend')">
+                <button
+                  v-for="tab in trendTabs"
+                  :key="tab.key"
+                  type="button"
+                  role="tab"
+                  class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                  :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
+                  :aria-selected="trendMetric === tab.key"
+                  @click="trendMetric = tab.key"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+            </div>
+            <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
+          </section>
+
           <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
             <ModelDistributionChart
               :model-stats="modelStats"
@@ -315,26 +167,10 @@
               :load-user-breakdown="getUserBreakdown"
               @ranking-click="goToUserUsage"
             />
-            <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
-          </div>
-
-          <!-- User Usage Trend (Full Width) -->
-          <div class="card p-4">
-            <h3 class="mb-4 text-sm font-semibold text-af-ink">
-              {{ t('admin.dashboard.recentUsage') }} (Top 12)
-            </h3>
-            <div class="h-64">
-              <div v-if="userTrendLoading" class="flex h-full items-center justify-center">
-                <LoadingSpinner size="md" />
-              </div>
-              <Line v-else-if="userTrendChartData" :data="userTrendChartData" :options="lineOptions" />
-              <div
-                v-else
-                class="flex h-full items-center justify-center text-sm text-af-ink-3"
-              >
-                {{ t('admin.dashboard.noDataAvailable') }}
-              </div>
-            </div>
+            <section class="card p-4" data-testid="dashboard-top-users">
+              <h3 class="mb-4 text-sm font-semibold text-af-ink">{{ t('admin.dashboard.userUsageTrend') }}</h3>
+              <UsageModelTrendRows :points="userTrendRows" :days="bucketKeys" :limit="12" :loading="userTrendLoading" />
+            </section>
           </div>
         </div>
       </template>
@@ -347,49 +183,20 @@ import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-
-const { t } = useI18n()
 import { adminAPI } from '@/api/admin'
 import { getUserBreakdown } from '@/api/admin/dashboard'
-import type {
-  DashboardStats,
-  TrendDataPoint,
-  ModelStat,
-  UserUsageTrendPoint,
-  UserSpendingRankingItem
-} from '@/types'
+import type { DashboardStats, TrendDataPoint, ModelStat, UserUsageTrendPoint, UserSpendingRankingItem } from '@/types'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import Icon from '@/components/icons/Icon.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select from '@/components/common/Select.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
-import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
+import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
+import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
 import { useBatchImageAccess } from '@/composables/useBatchImageAccess'
 
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js'
-import { Line } from 'vue-chartjs'
-
-// Register Chart.js components
-ChartJS.register(
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-)
-
+const { t } = useI18n()
 const appStore = useAppStore()
 const router = useRouter()
 const { canUseBatchImage, refreshBatchImageAccess } = useBatchImageAccess()
@@ -400,7 +207,6 @@ const userTrendLoading = ref(false)
 const rankingLoading = ref(false)
 const rankingError = ref(false)
 
-// Chart data
 const trendData = ref<TrendDataPoint[]>([])
 const modelStats = ref<ModelStat[]>([])
 const userTrend = ref<UserUsageTrendPoint[]>([])
@@ -413,245 +219,185 @@ let usersTrendLoadSeq = 0
 let rankingLoadSeq = 0
 const rankingLimit = 12
 
-// Helper function to format date in local timezone
-const formatLocalDate = (date: Date): string => {
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
+const pad = (n: number) => String(n).padStart(2, '0')
+const formatLocalDate = (date: Date): string => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 
 const getLast24HoursRangeDates = (): { start: string; end: string } => {
   const end = new Date()
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
-  return {
-    start: formatLocalDate(start),
-    end: formatLocalDate(end)
-  }
+  return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
-// Date range
 const granularity = ref<'day' | 'hour'>('hour')
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
 
-// Granularity options for Select component
 const granularityOptions = computed(() => [
   { value: 'day', label: t('admin.dashboard.day') },
   { value: 'hour', label: t('admin.dashboard.hour') }
 ])
 
-// Dark mode detection
-const isDarkMode = computed(() => {
-  return document.documentElement.classList.contains('dark')
-})
-
-// Chart colors
-const chartColors = computed(() => ({
-  text: isDarkMode.value ? '#e5e7eb' : '#374151',
-  grid: isDarkMode.value ? '#374151' : '#e5e7eb'
-}))
-
-// Line chart options (for user trend chart)
-const lineOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  interaction: {
-    intersect: false,
-    mode: 'index' as const
-  },
-  plugins: {
-    legend: {
-      position: 'top' as const,
-      labels: {
-        color: chartColors.value.text,
-        usePointStyle: true,
-        pointStyle: 'circle',
-        padding: 15,
-        font: {
-          size: 11
-        }
-      }
-    },
-    tooltip: {
-      itemSort: (a: any, b: any) => {
-        const aValue = typeof a?.raw === 'number' ? a.raw : Number(a?.parsed?.y ?? 0)
-        const bValue = typeof b?.raw === 'number' ? b.raw : Number(b?.parsed?.y ?? 0)
-        return bValue - aValue
-      },
-      callbacks: {
-        label: (context: any) => {
-          return `${context.dataset.label}: ${formatTokens(context.raw)}`
-        }
-      }
-    }
-  },
-  scales: {
-    x: {
-      grid: {
-        color: chartColors.value.grid
-      },
-      ticks: {
-        color: chartColors.value.text,
-        font: {
-          size: 10
-        }
-      }
-    },
-    y: {
-      grid: {
-        color: chartColors.value.grid
-      },
-      ticks: {
-        color: chartColors.value.text,
-        font: {
-          size: 10
-        },
-        callback: (value: string | number) => formatTokens(Number(value))
-      }
-    }
-  }
-}))
-
-// User trend chart data
-const userTrendChartData = computed(() => {
-  if (!userTrend.value?.length) return null
-
-  const getDisplayName = (point: UserUsageTrendPoint): string => {
-    const username = point.username?.trim()
-    if (username) {
-      return username
-    }
-
-    const email = point.email?.trim()
-    if (email) {
-      return email
-    }
-
-    return t('admin.redeem.userPrefix', { id: point.user_id })
-  }
-
-  // Group by user_id to avoid merging different users with the same display name
-  const userGroups = new Map<number, { name: string; data: Map<string, number> }>()
-  const allDates = new Set<string>()
-
-  userTrend.value.forEach((point) => {
-    allDates.add(point.date)
-    const key = point.user_id
-    if (!userGroups.has(key)) {
-      userGroups.set(key, { name: getDisplayName(point), data: new Map() })
-    }
-    userGroups.get(key)!.data.set(point.date, point.tokens)
-  })
-
-  const sortedDates = Array.from(allDates).sort()
-  const colors = [
-    '#3b82f6',
-    '#10b981',
-    '#f59e0b',
-    '#ef4444',
-    '#8b5cf6',
-    '#ec4899',
-    '#14b8a6',
-    '#f97316',
-    '#6366f1',
-    '#84cc16',
-    '#06b6d4',
-    '#a855f7'
-  ]
-
-  const datasets = Array.from(userGroups.values()).map((group, idx) => ({
-    label: group.name,
-    data: sortedDates.map((date) => group.data.get(date) || 0),
-    borderColor: colors[idx % colors.length],
-    backgroundColor: `${colors[idx % colors.length]}20`,
-    fill: false,
-    tension: 0.3
-  }))
-
-  return {
-    labels: sortedDates,
-    datasets
-  }
-})
-
-// Format helpers
-const formatTokens = (value: number | undefined): string => {
-  if (value === undefined || value === null) return '0'
-  if (value >= 1_000_000_000) {
-    return `${(value / 1_000_000_000).toFixed(2)}B`
-  } else if (value >= 1_000_000) {
-    return `${(value / 1_000_000).toFixed(2)}M`
-  } else if (value >= 1_000) {
-    return `${(value / 1_000).toFixed(2)}K`
-  }
-  return value.toLocaleString()
-}
-
+// ---------- ① 今日 / 累计 ----------
 const toFiniteNumber = (value: unknown): number => {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) ? numberValue : 0
 }
-
-const formatNumber = (value: number | null | undefined): string => {
-  return toFiniteNumber(value).toLocaleString()
+const formatNumber = (value: number | null | undefined): string => toFiniteNumber(value).toLocaleString()
+const formatTokens = (value: number | undefined): string => {
+  const v = toFiniteNumber(value)
+  if (v >= 1_000_000_000) return `${(v / 1_000_000_000).toFixed(2)}B`
+  if (v >= 1_000_000) return `${(v / 1_000_000).toFixed(2)}M`
+  if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`
+  return v.toLocaleString()
 }
-
 const formatCost = (value: number | null | undefined): string => {
-  const safeValue = toFiniteNumber(value)
-  if (safeValue >= 1000) {
-    return (safeValue / 1000).toFixed(2) + 'K'
-  } else if (safeValue >= 1) {
-    return safeValue.toFixed(2)
-  } else if (safeValue >= 0.01) {
-    return safeValue.toFixed(3)
-  }
-  return safeValue.toFixed(4)
+  const v = toFiniteNumber(value)
+  if (v >= 1000) return `$${(v / 1000).toFixed(2)}K`
+  if (v >= 1) return `$${v.toFixed(2)}`
+  if (v >= 0.01) return `$${v.toFixed(3)}`
+  return `$${v.toFixed(4)}`
 }
+const formatDuration = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`)
 
-const formatDuration = (ms: number): string => {
-  if (ms >= 1000) {
-    return `${(ms / 1000).toFixed(2)}s`
+/** 缓存命中率 = 缓存读 ÷（输入 + 缓存读 + 缓存写）；四类 token 记账时互斥。没有输入侧 token 时显示「—」 */
+const todayCacheHitRate = computed(() => {
+  const s = stats.value
+  if (!s) return '—'
+  const denominator = toFiniteNumber(s.today_input_tokens) + toFiniteNumber(s.today_cache_read_tokens) + toFiniteNumber(s.today_cache_creation_tokens)
+  if (denominator <= 0) return '—'
+  const share = toFiniteNumber(s.today_cache_read_tokens) / denominator
+  return `${(share * 100).toFixed(share > 0 && share < 0.1 ? 1 : 0)}%`
+})
+
+interface NumberCell { key: string; label: string; value: string; hint?: string }
+const numberRows = computed<Array<{ key: string; title: string; cells: NumberCell[] }>>(() => {
+  const s = stats.value
+  if (!s) return []
+  return [
+    {
+      key: 'today',
+      title: t('admin.dashboard.rowToday'),
+      cells: [
+        { key: 'requests', label: t('admin.dashboard.requests'), value: formatNumber(s.today_requests) },
+        { key: 'tokens', label: t('admin.dashboard.tokens'), value: formatTokens(s.today_tokens) },
+        {
+          key: 'charged',
+          label: t('admin.dashboard.charged'),
+          value: formatCost(s.today_actual_cost),
+          hint: t('admin.dashboard.standardHint', { amount: formatCost(s.today_cost) })
+        },
+        { key: 'accountCost', label: t('admin.dashboard.accountCost'), value: formatCost(s.today_account_cost) },
+        { key: 'cacheHitRate', label: t('admin.dashboard.cacheHitRate'), value: todayCacheHitRate.value },
+        { key: 'latency', label: t('admin.dashboard.avgResponse'), value: formatDuration(toFiniteNumber(s.average_duration_ms)) }
+      ]
+    },
+    {
+      key: 'total',
+      title: t('admin.dashboard.rowTotal'),
+      cells: [
+        { key: 'users', label: t('admin.dashboard.users'), value: formatNumber(s.total_users), hint: t('admin.dashboard.newToday', { count: formatNumber(s.today_new_users) }) },
+        { key: 'apiKeys', label: t('admin.dashboard.apiKeys'), value: formatNumber(s.total_api_keys), hint: t('admin.dashboard.enabledCount', { count: formatNumber(s.active_api_keys) }) },
+        { key: 'channels', label: t('admin.dashboard.channels'), value: formatNumber(s.total_accounts), hint: t('admin.dashboard.healthyCount', { count: formatNumber(s.normal_accounts) }) },
+        { key: 'requests', label: t('admin.dashboard.requests'), value: formatNumber(s.total_requests) },
+        { key: 'tokens', label: t('admin.dashboard.tokens'), value: formatTokens(s.total_tokens) },
+        { key: 'charged', label: t('admin.dashboard.charged'), value: formatCost(s.total_actual_cost) }
+      ]
+    }
+  ]
+})
+
+// ---------- ② 需要处理 ----------
+const attentionItems = computed(() => {
+  const s = stats.value
+  if (!s) return []
+  const items = [
+    { key: 'error', count: toFiniteNumber(s.error_accounts), label: 'attentionError', dot: 'bg-af-danger', to: { path: '/accounts', query: { status: 'error' } } },
+    { key: 'rate-limited', count: toFiniteNumber(s.ratelimit_accounts), label: 'attentionRateLimited', dot: 'bg-af-warning', to: { path: '/accounts', query: { status: 'rate_limited' } } },
+    // 过载没有对应的状态筛选，只跳渠道页
+    { key: 'overloaded', count: toFiniteNumber(s.overload_accounts), label: 'attentionOverloaded', dot: 'bg-af-warning', to: { path: '/accounts' } }
+  ]
+  return items
+    .filter((item) => item.count > 0)
+    .map((item) => ({ ...item, label: t(`admin.dashboard.${item.label}`, { count: formatNumber(item.count) }) }))
+})
+
+// ---------- ④ 趋势 / 分布 / Top 用户 ----------
+const trendMetric = ref<UsageTrendMetric>('tokens')
+const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() => [
+  { key: 'tokens', label: t('admin.dashboard.tokens') },
+  { key: 'requests', label: t('admin.dashboard.requests') },
+  { key: 'cost', label: t('admin.dashboard.cost') }
+])
+
+/** 区间内逐个时间桶（与后端 TO_CHAR 同格式）：按天 YYYY-MM-DD；按小时 YYYY-MM-DD HH:00，截到当前小时 */
+const bucketKeys = computed(() => {
+  const start = new Date(`${startDate.value}T00:00:00`)
+  const end = new Date(`${endDate.value}T00:00:00`)
+  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
+  const keys: string[] = []
+  if (granularity.value === 'day') {
+    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) keys.push(formatLocalDate(d))
+    return keys
   }
-  return `${Math.round(ms)}ms`
-}
+  const last = Math.min(end.getTime() + 23 * 60 * 60 * 1000, Date.now())
+  for (const d = new Date(start); d.getTime() <= last; d.setHours(d.getHours() + 1)) {
+    keys.push(`${formatLocalDate(d)} ${pad(d.getHours())}:00`)
+  }
+  return keys
+})
+
+/** 趋势按连续时间桶补零：接口只返回有请求的桶，直接连线会把中间没请求的时段连过去 */
+const trendFilled = computed<TrendDataPoint[]>(() => {
+  const byDate = new Map(trendData.value.map((point) => [point.date, point]))
+  return bucketKeys.value.map(
+    (date) =>
+      byDate.get(date) ?? {
+        date,
+        requests: 0,
+        input_tokens: 0,
+        output_tokens: 0,
+        cache_creation_tokens: 0,
+        cache_read_tokens: 0,
+        total_tokens: 0,
+        cost: 0,
+        actual_cost: 0
+      }
+  )
+})
+
+const userDisplayName = (point: UserUsageTrendPoint): string =>
+  point.username?.trim() || point.email?.trim() || t('admin.redeem.userPrefix', { id: point.user_id })
+
+/** Top 12 用户：按用户 id 分组（同名不合并），显示名字；值用 Token */
+const userTrendRows = computed(() =>
+  userTrend.value.map((point) => ({
+    date: point.date,
+    model: String(point.user_id),
+    label: userDisplayName(point),
+    requests: point.requests,
+    total_tokens: point.tokens
+  }))
+)
 
 const goToUserUsage = (item: UserSpendingRankingItem) => {
   void router.push({
     path: '/usage',
-    query: {
-      user_id: String(item.user_id),
-      start_date: startDate.value,
-      end_date: endDate.value
-    }
+    query: { user_id: String(item.user_id), start_date: startDate.value, end_date: endDate.value }
   })
 }
 
-// Date range change handler
-const onDateRangeChange = (range: {
-  startDate: string
-  endDate: string
-  preset: string | null
-}) => {
-  // Auto-select granularity based on date range
+const onDateRangeChange = (range: { startDate: string; endDate: string; preset: string | null }) => {
   const start = new Date(range.startDate)
   const end = new Date(range.endDate)
   const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
-
-  // If range is 1 day, use hourly granularity
-  if (daysDiff <= 1) {
-    granularity.value = 'hour'
-  } else {
-    granularity.value = 'day'
-  }
-
+  granularity.value = daysDiff <= 1 ? 'hour' : 'day'
   loadChartData()
 }
 
-// Load data
 const loadDashboardSnapshot = async (includeStats: boolean) => {
   const currentSeq = ++chartLoadSeq
-  if (includeStats && !stats.value) {
-    loading.value = true
-  }
+  if (includeStats && !stats.value) loading.value = true
   chartsLoading.value = true
   try {
     const response = await adminAPI.dashboard.getSnapshotV2({
@@ -664,9 +410,7 @@ const loadDashboardSnapshot = async (includeStats: boolean) => {
       include_users_trend: false
     })
     if (currentSeq !== chartLoadSeq) return
-    if (includeStats && response.stats) {
-      stats.value = response.stats
-    }
+    if (includeStats && response.stats) stats.value = response.stats
     trendData.value = response.trend || []
     modelStats.value = response.models || []
   } catch (error) {
@@ -698,9 +442,7 @@ const loadUsersTrend = async () => {
     console.error('Error loading users trend:', error)
     userTrend.value = []
   } finally {
-    if (currentSeq === usersTrendLoadSeq) {
-      userTrendLoading.value = false
-    }
+    if (currentSeq === usersTrendLoadSeq) userTrendLoading.value = false
   }
 }
 
@@ -728,26 +470,16 @@ const loadUserSpendingRanking = async () => {
     rankingTotalTokens.value = 0
     rankingError.value = true
   } finally {
-    if (currentSeq === rankingLoadSeq) {
-      rankingLoading.value = false
-    }
+    if (currentSeq === rankingLoadSeq) rankingLoading.value = false
   }
 }
 
 const loadDashboardStats = async () => {
-  await Promise.all([
-    loadDashboardSnapshot(true),
-    loadUsersTrend(),
-    loadUserSpendingRanking()
-  ])
+  await Promise.all([loadDashboardSnapshot(true), loadUsersTrend(), loadUserSpendingRanking()])
 }
 
 const loadChartData = async () => {
-  await Promise.all([
-    loadDashboardSnapshot(false),
-    loadUsersTrend(),
-    loadUserSpendingRanking()
-  ])
+  await Promise.all([loadDashboardSnapshot(false), loadUsersTrend(), loadUserSpendingRanking()])
 }
 
 onMounted(() => {
@@ -755,6 +487,3 @@ onMounted(() => {
   loadDashboardStats()
 })
 </script>
-
-<style scoped>
-</style>

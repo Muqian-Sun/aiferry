@@ -36,9 +36,9 @@ const props = defineProps<{
 const { t } = useI18n()
 const theme = useChartTheme()
 
-/** 按天的日期（YYYY-MM-DD）横轴只写 MM-DD；按小时的原样 */
+/** 横轴去掉年份：按天 YYYY-MM-DD → MM-DD；按小时 YYYY-MM-DD HH:00 → MM-DD HH:00 */
 function shortLabel(date: string): string {
-  return /^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5) : date
+  return /^\d{4}-\d{2}-\d{2}(?: \d{2}:00)?$/.test(date) ? date.slice(5) : date
 }
 
 function valueOf(point: TrendDataPoint): number {
