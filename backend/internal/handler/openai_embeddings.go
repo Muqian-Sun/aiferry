@@ -40,7 +40,6 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 		"handler.openai_gateway.embeddings",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 	if !h.ensureResponsesDependencies(c, reqLog) {
 		return
@@ -257,7 +256,6 @@ func (h *OpenAIGatewayHandler) Embeddings(c *gin.Context) {
 					zap.String("component", "handler.openai_gateway.embeddings"),
 					zap.Int64("user_id", subject.UserID),
 					zap.Int64("api_key_id", apiKey.ID),
-					zap.Any("group_id", apiKey.GroupID),
 					zap.String("model", reqModel),
 					zap.Int64("account_id", account.ID),
 				).Error("openai_embeddings.record_usage_failed", zap.Error(err))

@@ -165,7 +165,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 		handleError:     s.handleUpstreamError,
 		requestedModel:  originalModel,
 		isStickySession: isStickySession, // ForwardGemini 由上层判断粘性会话
-		groupID:         forwardOpts.groupID,
+		scopeID:         forwardOpts.groupID,
 		sessionHash:     forwardOpts.sessionHash,
 	})
 	if err != nil {
@@ -243,7 +243,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 					handleError:     s.handleUpstreamError,
 					requestedModel:  originalModel,
 					isStickySession: isStickySession,
-					groupID:         forwardOpts.groupID,
+					scopeID:         forwardOpts.groupID,
 					sessionHash:     forwardOpts.sessionHash,
 				})
 				if retryErr == nil {

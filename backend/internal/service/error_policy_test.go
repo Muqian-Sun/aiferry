@@ -606,7 +606,7 @@ func TestApplyErrorPolicy_GeminiRateLimitBypassesCustomSkip(t *testing.T) {
 		prefix:      "[test]",
 		account:     account,
 		accountRepo: repo,
-		groupID:     42,
+		scopeID:     42,
 		sessionHash: "gemini:sticky",
 		handleError: func(context.Context, string, *Account, int, http.Header, []byte, string, int64, string, bool) *handleModelRateLimitResult {
 			t.Fatal("model rate limit should be handled before custom error fallback")
@@ -623,7 +623,7 @@ func TestApplyErrorPolicy_GeminiRateLimitBypassesCustomSkip(t *testing.T) {
 	require.Equal(t, "gemini-3-flash", repo.modelRateLimitCalls[0].modelKey)
 	require.Equal(t, antigravityGeminiModelRateLimitKey, repo.modelRateLimitCalls[1].modelKey)
 	require.Len(t, cache.deleteCalls, 1)
-	require.Equal(t, int64(42), cache.deleteCalls[0].groupID)
+	require.Equal(t, int64(42), cache.deleteCalls[0].scopeID)
 	require.Equal(t, "gemini:sticky", cache.deleteCalls[0].sessionHash)
 }
 

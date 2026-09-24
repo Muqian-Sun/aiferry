@@ -40,7 +40,6 @@ func (h *GatewayHandler) ChatCompletions(c *gin.Context) {
 		"handler.gateway.chat_completions",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 
 	// Read request body

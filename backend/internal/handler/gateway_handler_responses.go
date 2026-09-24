@@ -45,7 +45,6 @@ func (h *GatewayHandler) Responses(c *gin.Context) {
 		"handler.gateway.responses",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 
 	// Read request body

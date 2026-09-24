@@ -117,6 +117,5 @@ func TestGetByKeyForAuthCarriesSubscriptionID(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, got.SubscriptionID, "鉴权投影要带 subscription_id")
 	require.Equal(t, sub.ID, *got.SubscriptionID)
-	require.Nil(t, got.GroupID)
 	require.True(t, got.IsSubscriptionKey())
 }

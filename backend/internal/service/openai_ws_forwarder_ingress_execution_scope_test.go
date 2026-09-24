@@ -61,7 +61,6 @@ func writeOpenAIWSExecutionScopeRequest(t *testing.T, conn *coderws.Conn, body s
 // ctx_pool 下的 turn state 绑定与 store=false 的上游连接绑定必须落在执行作用域键下，
 // 不能落在按 session-id 算出的会话哈希下，否则子智能体会覆盖父线程的绑定。
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StateBoundToExecutionScope(t *testing.T) {
-	groupID := int64(9)
 	gin.SetMode(gin.TestMode)
 	cfg := newOpenAIWSExecutionScopeTestConfig()
 
@@ -114,7 +113,7 @@ func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_StateBoundToExec
 		req.Header = req.Header.Clone()
 		req.Header.Set("User-Agent", "unit-test-agent/1.0")
 		ginCtx.Request = req
-		ginCtx.Set("api_key", &APIKey{ID: 21, GroupID: &groupID})
+		ginCtx.Set("api_key", &APIKey{ID: 21})
 		readCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		_, firstMessage, readErr := conn.Read(readCtx)
 		cancel()
@@ -229,7 +228,6 @@ func (c *openAIWSGatedConn) Close() error {
 // A 的请求发到上游后 B 才接入并立即完成，B 完成后才放行 A 的上游事件。
 // 返回 A 与 B 的服务端返回值、A 客户端读结果的错误。
 func runOpenAIWSCodexThreadPair(t *testing.T, threadA, threadB string) (serverErrs []error, aReadErr error) {
-	groupID := int64(9)
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	cfg := newOpenAIWSExecutionScopeTestConfig()
@@ -279,7 +277,7 @@ func runOpenAIWSCodexThreadPair(t *testing.T, threadA, threadB string) (serverEr
 		req.Header = req.Header.Clone()
 		req.Header.Set("User-Agent", "unit-test-agent/1.0")
 		ginCtx.Request = req
-		ginCtx.Set("api_key", &APIKey{ID: 21, GroupID: &groupID})
+		ginCtx.Set("api_key", &APIKey{ID: 21})
 		readCtx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 		_, firstMessage, readErr := conn.Read(readCtx)
 		cancel()

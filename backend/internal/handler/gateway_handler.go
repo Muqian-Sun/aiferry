@@ -138,7 +138,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 		"handler.gateway.messages",
 		zap.Int64("user_id", subject.UserID),
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 	defer h.maybeLogCompatibilityFallbackMetrics(reqLog)
 
@@ -244,7 +243,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 	}
 
 	// 设置请求所属分组 ID（用于渠道级功能判断，如 WebSearch 模拟）
-	parsedReq.GroupID = apiKey.GroupID
 
 	// 计算粘性会话hash
 	parsedReq.SessionContext = &service.SessionContext{
@@ -338,7 +336,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 				}
 				reqLog.Warn("gateway.select_account_no_available",
 					zap.String("model", reqModel),
-					zap.Int64p("group_id", apiKey.GroupID),
 					zap.String("platform", platform),
 					zap.Bool("model_not_found", cls.ModelNotFound),
 					zap.Error(err),
@@ -655,7 +652,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.String("component", "handler.gateway.messages"),
 						zap.Int64("user_id", subject.UserID),
 						zap.Int64("api_key_id", apiKey.ID),
-						zap.Any("group_id", apiKey.GroupID),
 						zap.String("model", reqModel),
 						zap.Int64("account_id", account.ID),
 					).Error("gateway.record_usage_failed", zap.Error(err))
@@ -694,7 +690,6 @@ func (h *GatewayHandler) Messages(c *gin.Context) {
 						zap.String("component", "handler.gateway.messages"),
 						zap.Int64("user_id", subject.UserID),
 						zap.Int64("api_key_id", apiKey.ID),
-						zap.Any("group_id", apiKey.GroupID),
 						zap.String("model", reqModel),
 						zap.Int64("account_id", account.ID),
 					).Error("gateway.record_openai_usage_failed", zap.Error(err))
@@ -1523,7 +1518,6 @@ func (h *GatewayHandler) CountTokens(c *gin.Context) {
 		c,
 		"handler.gateway.count_tokens",
 		zap.Int64("api_key_id", apiKey.ID),
-		zap.Any("group_id", apiKey.GroupID),
 	)
 	defer h.maybeLogCompatibilityFallbackMetrics(reqLog)
 

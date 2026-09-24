@@ -33,7 +33,7 @@ func (r *schedulerOutboxRepository) ListAfterAndReleaseDedup(ctx context.Context
 	}
 	rows, err := r.db.QueryContext(ctx, `
 		WITH selected AS MATERIALIZED (
-			SELECT id, event_type, account_id, group_id, payload, created_at
+			SELECT id, event_type, account_id, payload, created_at
 			FROM scheduler_outbox
 			WHERE id > $1
 			ORDER BY id ASC
@@ -47,7 +47,7 @@ func (r *schedulerOutboxRepository) ListAfterAndReleaseDedup(ctx context.Context
 				AND o.dedup_key IS NOT NULL
 			RETURNING o.id
 		)
-		SELECT s.id, s.event_type, s.account_id, s.group_id, s.payload, s.created_at
+		SELECT s.id, s.event_type, s.account_id, s.payload, s.created_at
 		FROM selected AS s
 		CROSS JOIN (SELECT COUNT(*) FROM released) AS release_barrier
 		ORDER BY s.id ASC
@@ -64,19 +64,14 @@ func (r *schedulerOutboxRepository) ListAfterAndReleaseDedup(ctx context.Context
 		var (
 			payloadRaw []byte
 			accountID  sql.NullInt64
-			groupID    sql.NullInt64
 			event      service.SchedulerOutboxEvent
 		)
-		if err := rows.Scan(&event.ID, &event.EventType, &accountID, &groupID, &payloadRaw, &event.CreatedAt); err != nil {
+		if err := rows.Scan(&event.ID, &event.EventType, &accountID, &payloadRaw, &event.CreatedAt); err != nil {
 			return nil, err
 		}
 		if accountID.Valid {
 			v := accountID.Int64
 			event.AccountID = &v
-		}
-		if groupID.Valid {
-			v := groupID.Int64
-			event.GroupID = &v
 		}
 		if len(payloadRaw) > 0 {
 			var payload map[string]any
@@ -178,7 +173,7 @@ func (l *schedulerOutboxCleanupLease) Release() {
 	l.conn = nil
 }
 
-func enqueueSchedulerOutbox(ctx context.Context, exec sqlExecutor, eventType string, accountID *int64, groupID *int64, payload any) error {
+func enqueueSchedulerOutbox(ctx context.Context, exec sqlExecutor, eventType string, accountID *int64, payload any) error {
 	if exec == nil {
 		return nil
 	}
@@ -193,15 +188,15 @@ func enqueueSchedulerOutbox(ctx context.Context, exec sqlExecutor, eventType str
 		payloadJSON = encoded
 	}
 	query := `
-		INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload)
-		VALUES ($1, $2, $3, $4)
+		INSERT INTO scheduler_outbox (event_type, account_id, payload)
+		VALUES ($1, $2, $3)
 	`
-	args := []any{eventType, accountID, groupID, payloadArg}
+	args := []any{eventType, accountID, payloadArg}
 	if schedulerOutboxEventSupportsDedup(eventType) {
-		dedupKey := schedulerOutboxDedupKey(eventType, accountID, groupID, payloadJSON)
+		dedupKey := schedulerOutboxDedupKey(eventType, accountID, payloadJSON)
 		query = `
-			INSERT INTO scheduler_outbox (event_type, account_id, group_id, payload, dedup_key)
-			VALUES ($1, $2, $3, $4, $5)
+			INSERT INTO scheduler_outbox (event_type, account_id, payload, dedup_key)
+			VALUES ($1, $2, $3, $4)
 			ON CONFLICT (dedup_key) WHERE dedup_key IS NOT NULL DO NOTHING
 		`
 		args = append(args, dedupKey)
@@ -210,7 +205,7 @@ func enqueueSchedulerOutbox(ctx context.Context, exec sqlExecutor, eventType str
 	return err
 }
 
-func schedulerOutboxDedupKey(eventType string, accountID *int64, groupID *int64, payloadJSON []byte) string {
+func schedulerOutboxDedupKey(eventType string, accountID *int64, payloadJSON []byte) string {
 	h := sha256.New()
 	_, _ = h.Write([]byte(eventType))
 	_, _ = h.Write([]byte{0})
@@ -218,9 +213,6 @@ func schedulerOutboxDedupKey(eventType string, accountID *int64, groupID *int64,
 		_, _ = h.Write([]byte(strconv.FormatInt(*accountID, 10)))
 	}
 	_, _ = h.Write([]byte{0})
-	if groupID != nil {
-		_, _ = h.Write([]byte(strconv.FormatInt(*groupID, 10)))
-	}
 	_, _ = h.Write([]byte{0})
 	_, _ = h.Write(payloadJSON)
 	return fmt.Sprintf("scheduler_outbox:%s", hex.EncodeToString(h.Sum(nil)))

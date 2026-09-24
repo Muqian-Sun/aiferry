@@ -116,17 +116,6 @@ func TestEntSoftDelete_ApiKey_HardDeleteViaSkipSoftDelete(t *testing.T) {
 
 // --- UserSubscription 软删除测试 ---
 
-func createEntGroup(t *testing.T, ctx context.Context, client *dbent.Client, name string) *dbent.Group {
-	t.Helper()
-
-	g, err := client.Group.Create().
-		SetName(name).
-		SetStatus(service.StatusActive).
-		Save(ctx)
-	require.NoError(t, err, "create ent group")
-	return g
-}
-
 // createEntPlan 订阅挂套餐；软删用例只要一个能引用的套餐行
 func createEntPlan(t *testing.T, ctx context.Context, client *dbent.Client, name string) *dbent.SubscriptionPlan {
 	t.Helper()

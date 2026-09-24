@@ -324,7 +324,6 @@ func (h *OpenAIGatewayHandler) recordGrokVoiceUsage(
 				zap.String("component", "handler.openai_gateway.grok_voice"),
 				zap.Int64("user_id", apiKey.User.ID),
 				zap.Int64("api_key_id", apiKey.ID),
-				zap.Any("group_id", apiKey.GroupID),
 				zap.String("endpoint", endpoint),
 				zap.Int64("account_id", account.ID),
 			).Error("grok_voice.record_usage_failed", zap.Error(err))

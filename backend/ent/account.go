@@ -91,8 +91,6 @@ type Account struct {
 
 // AccountEdges holds the relations/edges for other nodes in the graph.
 type AccountEdges struct {
-	// Groups holds the value of the groups edge.
-	Groups []*Group `json:"groups,omitempty"`
 	// Proxy holds the value of the proxy edge.
 	Proxy *Proxy `json:"proxy,omitempty"`
 	// Parent holds the value of the parent edge.
@@ -103,22 +101,11 @@ type AccountEdges struct {
 	UsageLogs []*UsageLog `json:"usage_logs,omitempty"`
 	// CatalogEntries holds the value of the catalog_entries edge.
 	CatalogEntries []*ModelCatalogEntry `json:"catalog_entries,omitempty"`
-	// AccountGroups holds the value of the account_groups edge.
-	AccountGroups []*AccountGroup `json:"account_groups,omitempty"`
 	// CatalogBindings holds the value of the catalog_bindings edge.
 	CatalogBindings []*ModelCatalogBinding `json:"catalog_bindings,omitempty"`
 	// loadedTypes holds the information for reporting if a
 	// type was loaded (or requested) in eager-loading or not.
-	loadedTypes [8]bool
-}
-
-// GroupsOrErr returns the Groups value or an error if the edge
-// was not loaded in eager-loading.
-func (e AccountEdges) GroupsOrErr() ([]*Group, error) {
-	if e.loadedTypes[0] {
-		return e.Groups, nil
-	}
-	return nil, &NotLoadedError{edge: "groups"}
+	loadedTypes [6]bool
 }
 
 // ProxyOrErr returns the Proxy value or an error if the edge
@@ -126,7 +113,7 @@ func (e AccountEdges) GroupsOrErr() ([]*Group, error) {
 func (e AccountEdges) ProxyOrErr() (*Proxy, error) {
 	if e.Proxy != nil {
 		return e.Proxy, nil
-	} else if e.loadedTypes[1] {
+	} else if e.loadedTypes[0] {
 		return nil, &NotFoundError{label: proxy.Label}
 	}
 	return nil, &NotLoadedError{edge: "proxy"}
@@ -137,7 +124,7 @@ func (e AccountEdges) ProxyOrErr() (*Proxy, error) {
 func (e AccountEdges) ParentOrErr() (*Account, error) {
 	if e.Parent != nil {
 		return e.Parent, nil
-	} else if e.loadedTypes[2] {
+	} else if e.loadedTypes[1] {
 		return nil, &NotFoundError{label: account.Label}
 	}
 	return nil, &NotLoadedError{edge: "parent"}
@@ -146,7 +133,7 @@ func (e AccountEdges) ParentOrErr() (*Account, error) {
 // ChildrenOrErr returns the Children value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
-	if e.loadedTypes[3] {
+	if e.loadedTypes[2] {
 		return e.Children, nil
 	}
 	return nil, &NotLoadedError{edge: "children"}
@@ -155,7 +142,7 @@ func (e AccountEdges) ChildrenOrErr() ([]*Account, error) {
 // UsageLogsOrErr returns the UsageLogs value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
-	if e.loadedTypes[4] {
+	if e.loadedTypes[3] {
 		return e.UsageLogs, nil
 	}
 	return nil, &NotLoadedError{edge: "usage_logs"}
@@ -164,25 +151,16 @@ func (e AccountEdges) UsageLogsOrErr() ([]*UsageLog, error) {
 // CatalogEntriesOrErr returns the CatalogEntries value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CatalogEntriesOrErr() ([]*ModelCatalogEntry, error) {
-	if e.loadedTypes[5] {
+	if e.loadedTypes[4] {
 		return e.CatalogEntries, nil
 	}
 	return nil, &NotLoadedError{edge: "catalog_entries"}
 }
 
-// AccountGroupsOrErr returns the AccountGroups value or an error if the edge
-// was not loaded in eager-loading.
-func (e AccountEdges) AccountGroupsOrErr() ([]*AccountGroup, error) {
-	if e.loadedTypes[6] {
-		return e.AccountGroups, nil
-	}
-	return nil, &NotLoadedError{edge: "account_groups"}
-}
-
 // CatalogBindingsOrErr returns the CatalogBindings value or an error if the edge
 // was not loaded in eager-loading.
 func (e AccountEdges) CatalogBindingsOrErr() ([]*ModelCatalogBinding, error) {
-	if e.loadedTypes[7] {
+	if e.loadedTypes[5] {
 		return e.CatalogBindings, nil
 	}
 	return nil, &NotLoadedError{edge: "catalog_bindings"}
@@ -454,11 +432,6 @@ func (_m *Account) Value(name string) (ent.Value, error) {
 	return _m.selectValues.Get(name)
 }
 
-// QueryGroups queries the "groups" edge of the Account entity.
-func (_m *Account) QueryGroups() *GroupQuery {
-	return NewAccountClient(_m.config).QueryGroups(_m)
-}
-
 // QueryProxy queries the "proxy" edge of the Account entity.
 func (_m *Account) QueryProxy() *ProxyQuery {
 	return NewAccountClient(_m.config).QueryProxy(_m)
@@ -482,11 +455,6 @@ func (_m *Account) QueryUsageLogs() *UsageLogQuery {
 // QueryCatalogEntries queries the "catalog_entries" edge of the Account entity.
 func (_m *Account) QueryCatalogEntries() *ModelCatalogEntryQuery {
 	return NewAccountClient(_m.config).QueryCatalogEntries(_m)
-}
-
-// QueryAccountGroups queries the "account_groups" edge of the Account entity.
-func (_m *Account) QueryAccountGroups() *AccountGroupQuery {
-	return NewAccountClient(_m.config).QueryAccountGroups(_m)
 }
 
 // QueryCatalogBindings queries the "catalog_bindings" edge of the Account entity.

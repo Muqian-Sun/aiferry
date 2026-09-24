@@ -28,11 +28,10 @@ func IsWindowExpired(windowStart *time.Time, duration time.Duration) bool {
 }
 
 type APIKey struct {
-	ID      int64
-	UserID  int64
-	Key     string
-	Name    string
-	GroupID *int64
+	ID     int64
+	UserID int64
+	Key    string
+	Name   string
 	// SubscriptionID 订阅 key：随订阅生成并绑定；用户自建的 key 恒为 nil（余额计费）
 	SubscriptionID *int64
 	Status         string
@@ -146,7 +145,6 @@ func (k *APIKey) EffectiveUsage7d() float64 {
 
 // APIKeyListFilters holds optional filtering parameters for listing API keys.
 type APIKeyListFilters struct {
-	Search  string
-	Status  string
-	GroupID *int64 // nil=不筛选, 0=无分组, >0=指定分组
+	Search string
+	Status string
 }

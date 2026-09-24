@@ -48,11 +48,10 @@ type AdminUser struct {
 }
 
 type APIKey struct {
-	ID      int64  `json:"id"`
-	UserID  int64  `json:"user_id"`
-	Key     string `json:"key"`
-	Name    string `json:"name"`
-	GroupID *int64 `json:"group_id"`
+	ID     int64  `json:"id"`
+	UserID int64  `json:"user_id"`
+	Key    string `json:"key"`
+	Name   string `json:"name"`
 	// SubscriptionID 订阅 key 绑定的订阅；余额 key 为 null。SubscriptionPlanName 给列表显示「订阅 · 套餐名」
 	SubscriptionID       *int64     `json:"subscription_id"`
 	SubscriptionPlanName string     `json:"subscription_plan_name,omitempty"`
@@ -295,8 +294,7 @@ type AccountListItem struct {
 	ParentSubscriptionExpiresAt string `json:"parent_subscription_expires_at,omitempty"`
 	ParentChatGPTAccountID      string `json:"parent_chatgpt_account_id,omitempty"`
 
-	Proxy    *Proxy  `json:"proxy,omitempty"`
-	GroupIDs []int64 `json:"group_ids,omitempty"`
+	Proxy *Proxy `json:"proxy,omitempty"`
 }
 
 type Proxy struct {

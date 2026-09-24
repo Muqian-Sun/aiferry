@@ -9,7 +9,6 @@ type SchedulerOutboxEvent struct {
 	ID        int64
 	EventType string
 	AccountID *int64
-	GroupID   *int64
 	Payload   map[string]any
 	CreatedAt time.Time
 }

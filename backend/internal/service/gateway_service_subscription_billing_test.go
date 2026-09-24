@@ -11,7 +11,6 @@ import (
 // multiplier — i.e. cmd.SubscriptionCost tracks ActualCost (= TotalCost *
 // RateMultiplier), not raw TotalCost.
 func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T) {
-	groupID := int64(7)
 	t.Parallel()
 
 	subID := int64(42)
@@ -64,7 +63,7 @@ func TestBuildUsageBillingCommand_SubscriptionAppliesRateMultiplier(t *testing.T
 			p := &postUsageBillingParams{
 				Cost:               &CostBreakdown{TotalCost: tt.totalCost, ActualCost: tt.actualCost},
 				User:               &User{ID: 1},
-				APIKey:             &APIKey{ID: 2, GroupID: &groupID},
+				APIKey:             &APIKey{ID: 2},
 				Account:            &Account{ID: 3},
 				Subscription:       &UserSubscription{ID: subID},
 				IsSubscriptionBill: tt.isSubscription,

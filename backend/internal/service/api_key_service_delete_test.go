@@ -154,15 +154,6 @@ func filterAPIKeyStubKeys(userID int64, keys []APIKey, filters APIKeyListFilters
 		if filters.Status != "" && key.Status != filters.Status {
 			continue
 		}
-		if filters.GroupID != nil {
-			if *filters.GroupID == 0 {
-				if key.GroupID != nil {
-					continue
-				}
-			} else if key.GroupID == nil || *key.GroupID != *filters.GroupID {
-				continue
-			}
-		}
 		result = append(result, key)
 	}
 	return result

@@ -95,7 +95,6 @@ func enqueueCyberSessionBlockedOpsEntry(c *gin.Context, opsService *service.OpsS
 		meta.ClientIP = strings.TrimSpace(ip.GetClientIP(c))
 	}
 	meta.APIKeyID = apiKey.ID
-	meta.GroupID = apiKey.GroupID
 	meta.APIKeyPrefix = keyPrefix(apiKey.Key, 8)
 	if apiKey.User != nil {
 		meta.UserID = apiKey.User.ID
