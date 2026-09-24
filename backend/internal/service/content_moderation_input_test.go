@@ -177,3 +177,51 @@ func TestExtractContentModerationInput_ResponsesLastIsAssistantSkipped(t *testin
 	require.Empty(t, input.Text)
 	require.Empty(t, input.Images)
 }
+
+// 非图片附件（PDF / 音频 / Files API 地址）不进图片审核：送进去会被审核 API 拒掉，
+// 失败放行会让整条请求连同文本都不审。文本照常提取。
+func TestExtractContentModerationInput_GeminiSkipsNonImageAttachments(t *testing.T) {
+	body := []byte(`{
+		"contents": [
+			{"role":"user","parts":[
+				{"text":"总结这份文件"},
+				{"inlineData":{"mimeType":"application/pdf","data":"JVBERi0xLjQK"}},
+				{"inline_data":{"mime_type":"audio/wav","data":"UklGRg=="}},
+				{"fileData":{"mimeType":"image/png","fileUri":"https://generativelanguage.googleapis.com/v1beta/files/abc"}},
+				{"inlineData":{"mimeType":"image/png","data":"iVBORw0KGgo="}}
+			]}
+		]
+	}`)
+
+	input := ExtractContentModerationInput(ContentModerationProtocolGemini, body)
+
+	require.Equal(t, "总结这份文件", input.Text)
+	require.Equal(t, []string{"data:image/png;base64,iVBORw0KGgo="}, input.Images)
+}
+
+func TestExtractContentModerationInput_OpenAIChatKeepsOnlyImageDataURIs(t *testing.T) {
+	body := []byte(`{
+		"messages": [
+			{"role":"user","content":[
+				{"type":"text","text":"看图"},
+				{"type":"image_url","image_url":{"url":"data:application/pdf;base64,JVBERi0xLjQK"}},
+				{"type":"image_url","image_url":{"url":"data:image/jpeg;base64,/9j/4AAQ"}},
+				{"type":"image_url","image_url":{"url":"https://example.com/cat.png"}}
+			]}
+		]
+	}`)
+
+	input := ExtractContentModerationInput(ContentModerationProtocolOpenAIChat, body)
+
+	require.Equal(t, "看图", input.Text)
+	require.Equal(t, []string{"data:image/jpeg;base64,/9j/4AAQ", "https://example.com/cat.png"}, input.Images)
+}
+
+func TestIsImageDataURI(t *testing.T) {
+	require.True(t, isImageDataURI("data:image/png;base64,AAAA"))
+	require.True(t, isImageDataURI("data:IMAGE/WEBP;base64,AAAA"))
+	require.False(t, isImageDataURI("data:application/pdf;base64,AAAA"))
+	require.False(t, isImageDataURI("data:audio/wav;base64,AAAA"))
+	require.False(t, isImageDataURI("data:;base64,AAAA"))
+	require.False(t, isImageDataURI("data:,hello"))
+}
