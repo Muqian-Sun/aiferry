@@ -97,8 +97,10 @@ let previousFocus: HTMLElement | null = null
 
 function onKey(event: KeyboardEvent) {
   if (event.key !== 'Escape' || !props.closeOnEscape) return
-  // 抽屉上面开着对话框（BaseDialog 给 body 加 modal-open）时，Esc 归对话框
+  // 抽屉上面开着对话框（BaseDialog 给 body 加 modal-open）或弹出菜单时，Esc 归它们。
+  // 监听挂在捕获阶段：对话框的 Esc 处理在冒泡阶段，它一关，Vue 在两个监听之间就把 modal-open 摘掉了。
   if (document.body.classList.contains('modal-open')) return
+  if (document.querySelector('body > [role="menu"]')) return
   emit('close')
 }
 
@@ -107,11 +109,11 @@ watch(
   async (open) => {
     if (open) {
       previousFocus = document.activeElement as HTMLElement | null
-      document.addEventListener('keydown', onKey)
+      document.addEventListener('keydown', onKey, true)
       await nextTick()
       panelEl.value?.focus()
     } else {
-      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('keydown', onKey, true)
       previousFocus?.focus?.()
       previousFocus = null
     }
@@ -119,7 +121,7 @@ watch(
   { immediate: true }
 )
 
-onBeforeUnmount(() => document.removeEventListener('keydown', onKey))
+onBeforeUnmount(() => document.removeEventListener('keydown', onKey, true))
 </script>
 
 <style scoped>
