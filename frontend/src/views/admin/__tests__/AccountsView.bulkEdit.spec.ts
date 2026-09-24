@@ -27,10 +27,13 @@ const {
   showSuccess: vi.fn()
 }))
 
-// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）
+const { routerPush } = vi.hoisted(() => ({ routerPush: vi.fn() }))
+
+// 渠道页读 ?status= 作为初始筛选（仪表盘「需要处理」跳转用）；新建 / 编辑渠道走路由（A5）
 vi.mock('vue-router', async (importOriginal) => ({
   ...(await importOriginal<typeof import('vue-router')>()),
-  useRoute: () => ({ query: {} })
+  useRoute: () => ({ query: {} }),
+  useRouter: () => ({ push: routerPush })
 }))
 
 vi.mock('@/api/admin', () => ({
@@ -171,7 +174,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: true,
@@ -236,7 +239,7 @@ describe('admin AccountsView bulk edit scope', () => {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
           TablePageLayout: {
-            template: '<div><slot name="filters" /><slot name="table" /><slot name="pagination" /></div>'
+            template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
           },
           DataTable: DataTableStub,
           Pagination: true,
@@ -303,7 +306,7 @@ describe('admin AccountsView bulk edit scope', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="bulk" /></div>' },
           DataTable: {
             props: ['data'],
             template: '<div><div v-for="row in data" :key="row.id"><slot name="cell-upstream_billing_rate" :row="row" /></div></div>'
@@ -365,7 +368,7 @@ describe('admin AccountsView bulk edit scope', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
           DataTable: DataTableStub,
           Pagination: PaginationStub,
           ConfirmDialog: true,
@@ -439,7 +442,7 @@ describe('admin AccountsView bulk edit scope', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="table" /><slot name="pagination" /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
           DataTable: DataTableStub,
           AccountBulkActionsBar: AccountBulkActionsBarStub,
           AccountTableActions: true,
@@ -512,7 +515,7 @@ describe('admin AccountsView bulk edit scope', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="bulk" /></div>' },
           DataTable: DataTableStub,
           AccountBulkActionsBar: AccountBulkActionsBarStub,
           AccountTableActions: true,
@@ -583,7 +586,7 @@ describe('admin AccountsView bulk edit scope', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="table" /></div>' },
+          TablePageLayout: { template: '<div><slot name="table" /><slot name="bulk" /></div>' },
           DataTable: ProbeDataTableStub,
           AccountBulkActionsBar: true,
           AccountTableActions: true,
@@ -661,7 +664,7 @@ describe('admin AccountsView bulk edit key endpoints', () => {
       global: {
         stubs: {
           AppLayout: { template: '<div><slot /></div>' },
-          TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /></div>' },
+          TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /></div>' },
           DataTable: DataTableStub,
           Pagination: true,
           ConfirmDialog: true,

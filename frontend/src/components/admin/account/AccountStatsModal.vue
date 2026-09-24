@@ -1,5 +1,6 @@
 <template>
-  <BaseDialog
+  <component
+    :is="layout === 'inline' ? InlineShell : BaseDialog"
     :show="show"
     :title="t('admin.accounts.usageStatistics')"
     width="extra-wide"
@@ -8,7 +9,7 @@
     <div class="space-y-6">
       <!-- Account Info Header -->
       <div
-        v-if="account"
+        v-if="account && layout !== 'inline'"
         class="flex items-center justify-between rounded-xl border border-af-hairline bg-af-sunken p-3"
       >
         <div class="flex items-center gap-3">
@@ -444,11 +445,11 @@
         </button>
       </div>
     </template>
-  </BaseDialog>
+  </component>
 </template>
 
 <script setup lang="ts">
-import { ref, watch, computed } from 'vue'
+import { onMounted, ref, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import {
   Chart as ChartJS,
@@ -463,6 +464,7 @@ import {
 } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import InlineShell from '@/components/admin/list/InlineShell.vue'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
@@ -483,10 +485,15 @@ ChartJS.register(
 
 const { t } = useI18n()
 
-const props = defineProps<{
-  show: boolean
-  account: Account | null
-}>()
+const props = withDefaults(
+  defineProps<{
+    show: boolean
+    account: Account | null
+    /** inline：放进渠道详情抽屉的「用量」页签，不要对话框外壳和账号信息头（A5） */
+    layout?: 'dialog' | 'inline'
+  }>(),
+  { layout: 'dialog' }
+)
 
 const emit = defineEmits<{
   (e: 'close'): void
@@ -644,8 +651,8 @@ const lineChartOptions = computed(() => ({
 
 // Load stats when modal opens
 watch(
-  () => props.show,
-  async (newVal) => {
+  [() => props.show, () => props.account?.id],
+  async ([newVal]) => {
     if (newVal && props.account) {
       await loadStats()
     } else {
@@ -710,4 +717,9 @@ const formatDuration = (ms: number): string => {
   }
   return `${Math.round(ms)}ms`
 }
+
+// 抽屉里一打开就停在「用量」页签时，挂载那一刻 show 已经是 true，watch 不会触发
+onMounted(() => {
+  if (props.show && props.account) void loadStats()
+})
 </script>

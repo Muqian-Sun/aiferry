@@ -23,7 +23,9 @@
             <div class="min-w-0">
               <p v-if="eyebrow" class="truncate text-xs text-af-ink-3">{{ eyebrow }}</p>
               <h2 :id="titleId" class="mt-0.5 truncate text-lg font-semibold text-af-ink">{{ title }}</h2>
-              <p v-if="subtitle" class="mt-0.5 truncate text-13 text-af-ink-3">{{ subtitle }}</p>
+              <div v-if="subtitle || $slots.subtitle" class="mt-0.5 truncate text-13 text-af-ink-3">
+                <slot name="subtitle">{{ subtitle }}</slot>
+              </div>
             </div>
             <div class="flex shrink-0 items-center gap-2">
               <slot name="actions" />
@@ -78,8 +80,10 @@ const props = withDefaults(
     tab?: string
     loading?: boolean
     width?: 'md' | 'lg'
+    /** 抽屉上还叠着自己定位的菜单等时传 false，Esc 先给它们 */
+    closeOnEscape?: boolean
   }>(),
-  { eyebrow: '', subtitle: '', tabs: undefined, tab: undefined, loading: false, width: 'md' }
+  { eyebrow: '', subtitle: '', tabs: undefined, tab: undefined, loading: false, width: 'md', closeOnEscape: true }
 )
 
 const emit = defineEmits<{ (e: 'close'): void; (e: 'update:tab', key: string): void }>()
@@ -92,7 +96,7 @@ const widthClass = computed(() => (props.width === 'lg' ? 'sm:max-w-[720px]' : '
 let previousFocus: HTMLElement | null = null
 
 function onKey(event: KeyboardEvent) {
-  if (event.key !== 'Escape') return
+  if (event.key !== 'Escape' || !props.closeOnEscape) return
   // 抽屉上面开着对话框（BaseDialog 给 body 加 modal-open）时，Esc 归对话框
   if (document.body.classList.contains('modal-open')) return
   emit('close')

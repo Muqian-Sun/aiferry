@@ -49,10 +49,13 @@
         v-for="(row, index) in sortedData"
         :key="resolveRowKey(row, index)"
         class="border-b border-af-hairline py-4"
-        :class="{
-          'cursor-pointer': clickableRows,
-          'row-selected bg-af-sunken': selectable && isRowSelected(row, index)
-        }"
+        :class="[
+          {
+            'cursor-pointer': clickableRows,
+            'row-selected bg-af-sunken': selectable && isRowSelected(row, index)
+          },
+          rowClass?.(row)
+        ]"
         @click="clickableRows && emit('rowClick', row)"
       >
         <div class="space-y-3">
@@ -215,10 +218,13 @@
             :data-index="item.index"
             :ref="item.measure ? measureElement : undefined"
             class="hover:bg-af-sunken"
-            :class="{
-              'cursor-pointer': clickableRows,
-              'row-selected bg-af-sunken': selectable && isRowSelected(item.row, item.index)
-            }"
+            :class="[
+              {
+                'cursor-pointer': clickableRows,
+                'row-selected bg-af-sunken': selectable && isRowSelected(item.row, item.index)
+              },
+              rowClass?.(item.row)
+            ]"
             @click="clickableRows && emit('rowClick', item.row)"
           >
             <td v-if="selectable" class="w-11 min-w-11 px-3 py-4 text-center">
@@ -460,6 +466,8 @@ interface Props {
   serverSideSort?: boolean
   /** Emit 'rowClick' on row/card click and show pointer cursor (interactive cells should @click.stop) */
   clickableRows?: boolean
+  /** Extra classes per row, e.g. pages that keep their own selection pass 'row-selected bg-af-sunken' */
+  rowClass?: (row: any) => string | undefined
   /** Estimated row height in px for the virtualizer (default 56) */
   estimateRowHeight?: number
   /** Number of rows to render beyond the visible area (default 5) */

@@ -1,0 +1,298 @@
+<template>
+  <!--
+    渠道详情抽屉（A5）：点列表行打开。原来散在「统计」「定时测试」两个对话框里的内容成了页签；
+    测试连接、重新授权等动作仍走原来的对话框（盖在抽屉上面）。⋯ 菜单复用列表行的 AccountActionMenu。
+  -->
+  <DetailDrawer
+    :show="account !== null"
+    :title="account?.name ?? ''"
+    :eyebrow="account ? t('admin.accounts.detail.eyebrow', { id: account.id }) : ''"
+    :tabs="tabs"
+    :tab="tab"
+    width="lg"
+    :close-on-escape="!menuOpen"
+    @update:tab="emit('update:tab', $event as AccountDetailTab)"
+    @close="emit('close')"
+  >
+    <template v-if="account" #subtitle>
+      <PlatformTypeBadge
+        variant="plain"
+        :platform="account.platform"
+        :type="account.type"
+        :vendor="account.vendor"
+        :auth-mode="getOpenAIAuthMode(account)"
+        :plan-type="getAccountPlanType(account)"
+        :privacy-mode="privacyMode"
+        :subscription-expires-at="subscriptionExpiresAt"
+      />
+    </template>
+
+    <template v-if="account" #actions>
+      <button type="button" class="btn btn-secondary btn-sm" data-testid="account-detail-test" @click="emit('test', account)">
+        <Icon name="play" size="sm" />
+        {{ t('admin.accounts.testConnection') }}
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" data-testid="account-detail-edit" @click="emit('edit', account)">
+        <Icon name="edit" size="sm" />
+        {{ t('common.edit') }}
+      </button>
+      <button
+        type="button"
+        class="rounded-md p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink"
+        :class="menuOpen ? 'bg-af-sunken text-af-ink' : ''"
+        :title="t('common.more')"
+        :aria-label="t('common.more')"
+        data-testid="account-detail-more"
+        @click="emit('open-menu', account, $event)"
+      >
+        <Icon name="more" size="md" />
+      </button>
+    </template>
+
+    <template v-if="account && banner" #banner>
+      <p
+        :class="[
+          'rounded-md px-3 py-2 text-13 leading-5',
+          banner.tone === 'danger' ? 'bg-af-danger-tint text-af-danger' : 'bg-af-warning-tint text-af-warning'
+        ]"
+        role="status"
+        data-testid="account-detail-banner"
+      >
+        {{ banner.text }}
+      </p>
+    </template>
+
+    <template v-if="account">
+      <!-- 概况 -->
+      <dl v-if="tab === 'overview'" class="divide-y divide-af-hairline" data-testid="account-detail-overview">
+        <DetailField :label="t('admin.accounts.columns.status')">
+          <AccountStatusIndicator :account="account" @show-temp-unsched="emit('show-temp-unsched', account)" />
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.schedulable')">
+          <span class="inline-flex items-center gap-2">
+            <MiniSwitch
+              :model-value="account.schedulable"
+              data-testid="account-detail-schedulable"
+              @toggle="emit('toggle-schedulable', account)"
+            />
+            <span class="text-af-ink-2">
+              {{ account.schedulable ? t('admin.accounts.schedulableEnabled') : t('admin.accounts.schedulableDisabled') }}
+            </span>
+          </span>
+        </DetailField>
+        <DetailField v-if="protocolRows.length" :label="t('admin.accounts.detail.endpoints')">
+          <ul class="space-y-1">
+            <li v-for="row in protocolRows" :key="row.protocol" class="flex min-w-0 items-baseline gap-2">
+              <span class="w-20 shrink-0 text-xs text-af-ink-3">{{ t(`admin.accounts.protocolShort.${row.protocol}`) }}</span>
+              <span class="min-w-0 break-all font-mono text-13 text-af-ink-2">{{ row.url }}</span>
+            </li>
+          </ul>
+        </DetailField>
+        <DetailField v-if="email" :label="t('admin.accounts.detail.email')" :value="email" />
+        <DetailField :label="t('admin.accounts.detail.concurrency')">
+          <span class="tabular-nums">{{ account.current_concurrency ?? 0 }} / {{ account.concurrency }}</span>
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.priority')">
+          <span class="tabular-nums">{{ account.priority }}</span>
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.billingRateMultiplier')">
+          <span class="font-mono tabular-nums">{{ formatMultiplier(account.rate_multiplier ?? 1) }}x</span>
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.proxy')" :value="account.proxy ? account.proxy.name : t('admin.accounts.detail.noProxy')" />
+        <DetailField :label="t('admin.accounts.columns.expiresAt')">
+          <span :class="isExpired ? 'text-af-warning' : ''">{{ expiresText }}</span>
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.lastUsed')">
+          <span :title="account.last_used_at ? formatDateTime(account.last_used_at) : undefined">{{ formatRelativeTime(account.last_used_at) }}</span>
+        </DetailField>
+        <DetailField :label="t('admin.accounts.columns.createdAt')" :value="formatDateTime(account.created_at)" />
+        <DetailField :label="t('admin.accounts.columns.notes')" :value="account.notes" />
+      </dl>
+
+      <!-- 上架模型：模型目录里绑定了这个渠道的条目 -->
+      <div v-else-if="tab === 'models'" data-testid="account-detail-models">
+        <template v-if="catalogEntries.length">
+          <p class="mb-3 text-13 text-af-ink-3">{{ t('admin.accounts.detail.modelsHint') }}</p>
+          <ul class="divide-y divide-af-hairline border-y border-af-hairline">
+            <li v-for="entry in catalogEntries" :key="entry.id" class="flex items-center justify-between gap-4 py-2.5">
+              <div class="min-w-0">
+                <div :class="['truncate font-mono text-13', entry.status === 'listed' ? 'text-af-ink' : 'text-af-ink-3 line-through']">
+                  {{ entry.model_id }}
+                </div>
+                <div class="truncate text-xs text-af-ink-3">
+                  {{ entry.display_name || entry.model_id }}
+                  <template v-if="entry.status !== 'listed'"> · {{ t('admin.accounts.catalogUnlisted') }}</template>
+                </div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm shrink-0" @click="emit('diagnose', entry)">
+                {{ t('admin.accounts.detail.diagnose') }}
+              </button>
+            </li>
+          </ul>
+        </template>
+        <StatusState v-else kind="empty" :title="t('admin.accounts.catalogNone')" :description="t('admin.accounts.detail.modelsEmptyHint')" />
+        <RouterLink to="/model-catalog" class="mt-4 inline-flex text-13 font-medium text-af-brand hover:text-af-brand-hover">
+          {{ t('admin.accounts.detail.goToCatalog') }}
+        </RouterLink>
+      </div>
+
+      <!-- 用量：用量窗口 + 近 30 天统计 -->
+      <div v-else-if="tab === 'usage'" class="space-y-6" data-testid="account-detail-usage">
+        <SheetSection :title="t('admin.accounts.columns.usageWindows')">
+          <AccountUsageCell
+            :account="account"
+            :today-stats="todayStats"
+            :today-stats-loading="todayStatsLoading"
+            @account-updated="emit('account-updated', $event)"
+          />
+        </SheetSection>
+        <SheetSection :title="t('admin.accounts.usageStatistics')">
+          <AccountStatsModal layout="inline" :show="true" :account="account" />
+        </SheetSection>
+      </div>
+
+      <!-- 定时测试 -->
+      <div v-else-if="tab === 'schedule'" data-testid="account-detail-schedule">
+        <ScheduledTestsPanel layout="inline" :show="true" :account-id="account.id" :model-options="scheduleModelOptions" />
+      </div>
+    </template>
+  </DetailDrawer>
+</template>
+
+<script setup lang="ts">
+import { computed, ref, watch } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { adminAPI } from '@/api/admin'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
+import { DetailDrawer, DetailField, MiniSwitch } from '@/components/admin/list'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
+import StatusState from '@/components/user/shell/StatusState.vue'
+import type { SectionTab } from '@/components/user/shell/types'
+import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
+import type { SelectOption } from '@/components/common/Select.vue'
+import Icon from '@/components/icons/Icon.vue'
+import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
+import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
+import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
+import AccountStatsModal from './AccountStatsModal.vue'
+import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
+import { accountDisplayEmail, getAccountPlanType, getOpenAIAuthMode } from './accountDisplay'
+import type { AccountDetailTab } from './accountDetail'
+import { formatCountdown, formatDateTime, formatRelativeTime } from '@/utils/format'
+import { formatMultiplier } from '@/utils/formatters'
+import type { Account, AccountListItem, ClaudeModel, WindowStats } from '@/types'
+
+const props = withDefaults(
+  defineProps<{
+    account: AccountListItem | null
+    catalogEntries?: ModelCatalogEntry[]
+    tab?: AccountDetailTab
+    /** 行尾 ⋯ 菜单开着（它自己处理 Esc） */
+    menuOpen?: boolean
+    /** 列表已经批量拉好的今日统计，第三方 key 的用量窗口用它 */
+    todayStats?: WindowStats | null
+    todayStatsLoading?: boolean
+  }>(),
+  { catalogEntries: () => [], tab: 'overview', menuOpen: false, todayStats: null, todayStatsLoading: false }
+)
+
+const emit = defineEmits<{
+  (e: 'close'): void
+  (e: 'update:tab', tab: AccountDetailTab): void
+  (e: 'edit', account: AccountListItem): void
+  (e: 'test', account: AccountListItem): void
+  (e: 'toggle-schedulable', account: AccountListItem): void
+  (e: 'open-menu', account: AccountListItem, event: MouseEvent): void
+  (e: 'diagnose', entry: ModelCatalogEntry): void
+  (e: 'show-temp-unsched', account: Account): void
+  (e: 'account-updated', account: Account): void
+}>()
+
+const { t } = useI18n()
+
+const tabs = computed<SectionTab[]>(() => [
+  { key: 'overview', label: t('admin.accounts.detail.tabs.overview') },
+  { key: 'models', label: t('admin.accounts.detail.tabs.models'), count: props.catalogEntries.length },
+  { key: 'usage', label: t('admin.accounts.detail.tabs.usage') },
+  { key: 'schedule', label: t('admin.accounts.detail.tabs.schedule') }
+])
+
+const email = computed(() => (props.account ? accountDisplayEmail(props.account) : ''))
+const asText = (value: unknown): string | undefined => (typeof value === 'string' && value ? value : undefined)
+const privacyMode = computed(() => asText(props.account?.extra?.privacy_mode) ?? asText(props.account?.parent_privacy_mode))
+const subscriptionExpiresAt = computed(
+  () => asText(props.account?.credentials?.subscription_expires_at) ?? asText(props.account?.parent_subscription_expires_at)
+)
+
+const protocolRows = computed(() => {
+  const endpoints = props.account?.protocol_endpoints
+  if (!endpoints) return []
+  return UPSTREAM_PROTOCOLS.flatMap((protocol) => {
+    const url = endpoints[protocol]?.trim()
+    return url ? [{ protocol, url }] : []
+  })
+})
+
+const isExpired = computed(() => {
+  const value = props.account?.expires_at
+  return !!value && value * 1000 <= Date.now()
+})
+const expiresText = computed(() => {
+  const value = props.account?.expires_at
+  if (!value) return t('admin.accounts.detail.neverExpires')
+  const text = formatDateTime(new Date(value * 1000))
+  return isExpired.value ? `${text} · ${t('admin.accounts.expired')}` : text
+})
+
+const isFuture = (value?: string | null) => !!value && new Date(value).getTime() > Date.now()
+
+// 抽屉顶部一行：只在出问题时出现，直接写原因和恢复时间
+const banner = computed<{ tone: 'danger' | 'warning'; text: string } | null>(() => {
+  const account = props.account
+  if (!account) return null
+  if (account.status === 'error') {
+    return {
+      tone: 'danger',
+      text: account.error_message
+        ? t('admin.accounts.detail.bannerError', { reason: account.error_message })
+        : t('admin.accounts.status.error')
+    }
+  }
+  if (isFuture(account.rate_limit_reset_at)) {
+    return { tone: 'warning', text: t('admin.accounts.detail.bannerRateLimited', { time: formatCountdown(account.rate_limit_reset_at) }) }
+  }
+  if (isFuture(account.overload_until)) {
+    return { tone: 'danger', text: t('admin.accounts.detail.bannerOverloaded', { time: formatCountdown(account.overload_until) }) }
+  }
+  if (isFuture(account.temp_unschedulable_until)) {
+    return {
+      tone: 'warning',
+      text: t('admin.accounts.detail.bannerTempUnsched', {
+        time: formatDateTime(account.temp_unschedulable_until),
+        reason: account.temp_unschedulable_reason || '—'
+      })
+    }
+  }
+  return null
+})
+
+// 定时测试要选模型：打开这个页签时按渠道拉一次可用模型
+const scheduleModelOptions = ref<SelectOption[]>([])
+const scheduleModelsFor = ref<number | null>(null)
+watch(
+  () => [props.tab, props.account?.id] as const,
+  async ([tab, id]) => {
+    if (tab !== 'schedule' || !id || scheduleModelsFor.value === id) return
+    scheduleModelsFor.value = id
+    scheduleModelOptions.value = []
+    try {
+      const models = await adminAPI.accounts.getAvailableModels(id)
+      if (props.account?.id !== id) return
+      scheduleModelOptions.value = models.map((m: ClaudeModel) => ({ value: m.id, label: m.display_name || m.id }))
+    } catch {
+      scheduleModelOptions.value = []
+    }
+  },
+  { immediate: true }
+)
+</script>

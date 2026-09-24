@@ -488,28 +488,16 @@
 
       <!-- Usage data or unlimited flow -->
       <div class="space-y-1">
+        <!-- 今日：请求 · Token / 渠道计费 · 用户扣费，两行小字（A5：不再是四个灰底小块） -->
         <div
           v-if="showGeminiTodayStats && todayStats"
-          class="mb-0.5 flex items-center"
+          class="mb-0.5 flex flex-col text-xs leading-4 tabular-nums text-af-ink-3"
         >
-          <div class="flex items-center gap-1.5 text-[9px] text-af-ink-3">
-            <span class="rounded bg-af-sunken px-1.5 py-0.5">
-              {{ formatKeyRequests }} req
-            </span>
-            <span class="rounded bg-af-sunken px-1.5 py-0.5">
-              {{ formatKeyTokens }}
-            </span>
-            <span class="rounded bg-af-sunken px-1.5 py-0.5" :title="t('usage.accountBilled')">
-              A ${{ formatKeyCost }}
-            </span>
-            <span
-              v-if="todayStats.user_cost != null"
-              class="rounded bg-af-sunken px-1.5 py-0.5"
-              :title="t('usage.userBilled')"
-            >
-              U ${{ formatKeyUserCost }}
-            </span>
-          </div>
+          <span class="text-af-ink-2">{{ formatKeyRequests }} req · {{ formatKeyTokens }}</span>
+          <span>
+            <span :title="t('usage.accountBilled')">A ${{ formatKeyCost }}</span>
+            <template v-if="todayStats.user_cost != null"> · <span :title="t('usage.userBilled')">U ${{ formatKeyUserCost }}</span></template>
+          </span>
         </div>
         <div
           v-else-if="showGeminiTodayStats && todayStatsLoading"
@@ -570,26 +558,13 @@
       <!-- Today stats row (requests, tokens, cost, user_cost) -->
       <div
         v-if="todayStats"
-        class="mb-0.5 flex items-center"
+        class="mb-0.5 flex flex-col text-xs leading-4 tabular-nums text-af-ink-3"
       >
-        <div class="flex items-center gap-1.5 text-[9px] text-af-ink-3">
-          <span class="rounded bg-af-sunken px-1.5 py-0.5">
-            {{ formatKeyRequests }} req
-          </span>
-          <span class="rounded bg-af-sunken px-1.5 py-0.5">
-            {{ formatKeyTokens }}
-          </span>
-          <span class="rounded bg-af-sunken px-1.5 py-0.5" :title="t('usage.accountBilled')">
-            A ${{ formatKeyCost }}
-          </span>
-          <span
-            v-if="todayStats.user_cost != null"
-            class="rounded bg-af-sunken px-1.5 py-0.5"
-            :title="t('usage.userBilled')"
-          >
-            U ${{ formatKeyUserCost }}
-          </span>
-        </div>
+        <span class="text-af-ink-2">{{ formatKeyRequests }} req · {{ formatKeyTokens }}</span>
+        <span>
+          <span :title="t('usage.accountBilled')">A ${{ formatKeyCost }}</span>
+          <template v-if="todayStats.user_cost != null"> · <span :title="t('usage.userBilled')">U ${{ formatKeyUserCost }}</span></template>
+        </span>
       </div>
       <!-- Loading skeleton for today stats -->
       <div
