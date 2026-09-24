@@ -240,8 +240,52 @@ func (s *ModelCatalogService) ListBindings(ctx context.Context, entryID int64) (
 	return s.repo.ListBindingsByEntry(ctx, entryID)
 }
 
+// catalogExtensionEndpointPriceFileModes 是价格文件里「经扩展端点调用」的模型 mode：
+// 生图走 /v1/images、向量走 /v1/embeddings。
+var catalogExtensionEndpointPriceFileModes = map[string]bool{
+	"image_generation": true,
+	"embedding":        true,
+}
+
+// CatalogEntryServedByExtensionEndpoints 报告条目是否经扩展端点（/v1/images、/v1/videos、
+// /v1/embeddings，入站协议为空）承接。扩展端点只按 openai / grok 厂商分流（routes/gateway.go），
+// 其余厂商的条目恒为 false——Gemini 出图模型走对话入口。判据是图片 / 视频计费，或价格文件把
+// 模型标成生图 / 向量模型（gpt-image-* 在目录里按 token 计价，只能靠这一条认出来）。
+func CatalogEntryServedByExtensionEndpoints(entry *ModelCatalogEntry, priceFileMode string) bool {
+	switch CatalogVendorPlatform(entry) {
+	case PlatformOpenAI, PlatformGrok:
+	default:
+		return false
+	}
+	switch entry.EffectiveBillingMode() {
+	case BillingModeImage, BillingModeVideo:
+		return true
+	}
+	return catalogExtensionEndpointPriceFileModes[strings.ToLower(strings.TrimSpace(priceFileMode))]
+}
+
+// AccountServesCatalogExtensionEndpoints 绑定前检查资源能否承接扩展端点：与调度同一条规则
+// （ServesInbound("")）——第三方 key 必须配 chat_completions 地址，成品号看厂商。
+func AccountServesCatalogExtensionEndpoints(entry *ModelCatalogEntry, account *Account) error {
+	if account.ServesInbound("") {
+		return nil
+	}
+	return infraerrors.BadRequest("CATALOG_BINDING_UNSERVABLE",
+		fmt.Sprintf("account %d cannot serve %s: image / video / embedding models are called through the extension endpoints, "+
+			"and a third-party key serves those only when it has a chat_completions endpoint", account.ID, entry.ModelID))
+}
+
+// priceFileMode 返回价格文件里该模型的 mode（确定性识别，不按子串猜）；没有价格服务或识别不到时为空。
+func (s *ModelCatalogService) priceFileMode(modelID string) string {
+	if pricing := s.seedInput.PricingService.GetIdentifiedModelPricing(modelID); pricing != nil {
+		return pricing.Mode
+	}
+	return ""
+}
+
 // ReplaceBindings 用整份列表覆盖条目的资源绑定：先确认条目存在，再逐个取账号并检查
-// 它能承接条目（AccountServesCatalogEntry），全部通过才写库，然后失效快照。
+// 它能承接条目（AccountServesCatalogEntry；经扩展端点调用的条目还要能承接扩展端点），
+// 全部通过才写库，然后失效快照。
 func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64, bindings []ModelCatalogBinding, accounts CatalogBindingAccountSource) error {
 	if s == nil || s.repo == nil {
 		return ErrModelCatalogEntryNotFound
@@ -250,6 +294,7 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 	if err != nil {
 		return err
 	}
+	extensionEndpoints := CatalogEntryServedByExtensionEndpoints(entry, s.priceFileMode(entry.ModelID))
 	seen := make(map[int64]struct{}, len(bindings))
 	normalized := make([]ModelCatalogBinding, 0, len(bindings))
 	for _, binding := range bindings {
@@ -263,6 +308,11 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 		}
 		if err := AccountServesCatalogEntry(entry, account); err != nil {
 			return err
+		}
+		if extensionEndpoints {
+			if err := AccountServesCatalogExtensionEndpoints(entry, account); err != nil {
+				return err
+			}
 		}
 		normalized = append(normalized, ModelCatalogBinding{EntryID: entryID, AccountID: binding.AccountID, Priority: binding.Priority})
 	}
