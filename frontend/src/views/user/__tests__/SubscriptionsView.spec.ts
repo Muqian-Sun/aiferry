@@ -22,7 +22,7 @@ vi.mock('@/views/user/PaymentView.vue', async () => {
   return {
     default: {
       name: 'PaymentView',
-      props: ['mode'],
+      props: ['mode', 'renewPlanId'],
       setup(_props: unknown, { expose }: { expose: (exposed: Record<string, unknown>) => void }) {
         expose({ startRenewal })
         return () => h('div', { 'data-testid': 'payment-engine' })
@@ -84,13 +84,20 @@ describe('SubscriptionsView', () => {
     expect(meter.attributes('aria-valuemax')).toBe('10')
     expect(meter.attributes('aria-valuenow')).toBe('3')
     expect(wrapper.get('[data-testid="subscription-key"]').text()).toContain('sk-abc****wxyz')
+    // 周、月两块固定出现（这个套餐没设，写无限制）
+    const limits = rows[0].get('[data-testid="subscription-limits"]').text()
+    expect(limits).toContain('payment.planCard.weeklyLimit')
+    expect(limits).toContain('payment.planCard.monthlyLimit')
+    expect(limits).toContain('payment.planCard.unlimited')
   })
 
-  it('keeps renewal and plan contents on the plan cards only, not repeated in the subscription panel', async () => {
+  it('hides the plan list while a subscription is active and renews from the panel', async () => {
     const wrapper = await mountView()
+    expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(false)
+    expect(wrapper.get('[data-testid="subscription-models"]').text()).toContain('GPT 5.6 / claude-sonnet-4-5')
+    await wrapper.get('[data-testid="subscription-renew"]').trigger('click')
+    await flushPromises()
     expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="subscription-row"] button').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="subscription-models"]').exists()).toBe(false)
   })
 
   it('renders neither the purchase section nor renew buttons when payment is disabled', async () => {
@@ -107,5 +114,7 @@ describe('SubscriptionsView', () => {
     const wrapper = await mountView()
     expect(wrapper.find('[data-testid="status-empty"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="subscription-row"]').exists()).toBe(false)
+    // 没有订阅时列出可选套餐
+    expect(wrapper.find('[data-testid="payment-engine"]').exists()).toBe(true)
   })
 })

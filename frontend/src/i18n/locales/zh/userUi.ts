@@ -110,11 +110,25 @@ export default {
         title: '用量趋势',
         range: '近 {days} 天',
         summary: '近 {days} 天 · {requests} 次请求 · {tokens} Token · 费用 {cost}'
+      },
+      hourly: {
+        title: '近 24 小时',
+        requests: '请求',
+        summary: '{requests} 次请求 · 高峰 {peak}',
+        none: '近 24 小时暂无请求',
+        empty: '近 24 小时没有请求'
+      },
+      models: {
+        title: '模型分布',
+        description: '近 {days} 天各模型的实付费用占比',
+        other: '其他',
+        requestsUnit: '次',
+        empty: '近期没有模型用量'
       }
     },
     billing: {
       title: '账务',
-      description: '充值、订阅、订单与邀请返利',
+      description: '充值、订阅与兑换码',
       tabs: {
         recharge: '充值',
         subscriptions: '订阅'

@@ -2,9 +2,10 @@
   <!--
     概览：控制台落地页（muqian 2026-09-23 定）。与首页同一套写法——大字、细线分区、文字链接、进场淡入；只有错误态用色。
     ① 账户：余额大字 + 充值入口 + 累计一行；右侧今日三数（/usage/dashboard/stats，不随时间范围变）
-    ② 快速开始：接口地址 + 第一把可用密钥，一键复制
-    ③ 近 7 天趋势：Token / 请求 / 费用 页签，墨色单线
-    ④ 公告：最近 5 条，点开走全站同一个弹窗；没有公告整段不出现
+    ② 近 7 天趋势：Token / 请求 / 费用 页签，墨色单线
+    ③ 近 24 小时每小时请求（柱）+ 近 7 天模型分布（横条）并排——muqian 2026-09-24「概览页多一点图」；全部单色
+    ④ 快速开始：接口地址 + 第一把可用密钥 + 调用示例，一键复制（放在图表之后：老用户进来先看用量）
+    ⑤ 公告：最近 5 条，点开走全站同一个弹窗；没有公告整段不出现
     每块独立加载与重试，任一接口失败不把别的块显示成零。
   -->
   <SiteShell :title="greeting" :description="t('userUi.overview.description')">
@@ -39,6 +40,53 @@
               <p v-if="item.hint" class="mt-1 truncate text-xs text-af-ink-4">{{ item.hint }}</p>
             </div>
           </dl>
+        </div>
+      </section>
+
+      <SheetSection :title="t('userUi.overview.trend.title')" :description="trendSummary">
+        <template #actions>
+          <SectionTabs v-model="trendMetric" :tabs="trendMetricTabs" :label="t('userUi.overview.trend.title')" />
+        </template>
+        <StatusState
+          v-if="trendError"
+          kind="error"
+          :title="t('userUi.usage.loadFailed')"
+          :description="t('userUi.usage.loadFailedHint')"
+          :action-label="t('userUi.usage.retry')"
+          @action="loadTrend"
+        />
+        <UsageMetricTrend v-else :trend-data="trend" :metric="trendMetric" :loading="trendLoading" data-testid="overview-trend" />
+      </SheetSection>
+
+      <!-- 今日每小时 + 近 7 天模型分布：并排两块，窄屏上下叠；各自加载、各自失败 -->
+      <section class="grid gap-x-12 gap-y-10 border-t border-af-hairline pt-6 lg:grid-cols-2" data-testid="overview-charts">
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold text-af-ink">{{ t('userUi.overview.hourly.title') }}</h2>
+          <p class="mt-0.5 text-13 text-af-ink-3">{{ hourlySummary }}</p>
+          <div class="mt-4">
+            <StatusState
+              v-if="hourlyError"
+              kind="error"
+              :title="t('userUi.usage.loadFailed')"
+              :action-label="t('userUi.usage.retry')"
+              @action="loadHourly"
+            />
+            <UsageHourlyBars v-else :points="hourly" :loading="hourlyLoading" />
+          </div>
+        </div>
+        <div class="min-w-0">
+          <h2 class="text-base font-semibold text-af-ink">{{ t('userUi.overview.models.title') }}</h2>
+          <p class="mt-0.5 text-13 text-af-ink-3">{{ t('userUi.overview.models.description', { days: TREND_DAYS }) }}</p>
+          <div class="mt-4">
+            <StatusState
+              v-if="trendError"
+              kind="error"
+              :title="t('userUi.usage.loadFailed')"
+              :action-label="t('userUi.usage.retry')"
+              @action="loadTrend"
+            />
+            <UsageModelShare v-else :models="modelStats" :loading="trendLoading" />
+          </div>
         </div>
       </section>
 
@@ -85,21 +133,6 @@
         </dl>
       </SheetSection>
 
-      <SheetSection :title="t('userUi.overview.trend.title')" :description="trendSummary">
-        <template #actions>
-          <SectionTabs v-model="trendMetric" :tabs="trendMetricTabs" :label="t('userUi.overview.trend.title')" />
-        </template>
-        <StatusState
-          v-if="trendError"
-          kind="error"
-          :title="t('userUi.usage.loadFailed')"
-          :description="t('userUi.usage.loadFailedHint')"
-          :action-label="t('userUi.usage.retry')"
-          @action="loadTrend"
-        />
-        <UsageMetricTrend v-else :trend-data="trend" :metric="trendMetric" :loading="trendLoading" data-testid="overview-trend" />
-      </SheetSection>
-
       <SheetSection v-if="recentAnnouncements.length" :title="t('userUi.usage.sections.announcements')">
         <template v-if="unreadAnnouncements > 0" #actions>
           <span class="text-13 text-af-ink-3">{{ t('userUi.usage.announcements.unread', { count: unreadAnnouncements }) }}</span>
@@ -139,8 +172,10 @@ import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
+import UsageHourlyBars from '@/components/user/usage/UsageHourlyBars.vue'
+import UsageModelShare from '@/components/user/usage/UsageModelShare.vue'
 import Icon from '@/components/icons/Icon.vue'
-import type { ApiKey, TrendDataPoint, UserAnnouncement } from '@/types'
+import type { ApiKey, ModelStat, TrendDataPoint, UserAnnouncement } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -347,6 +382,53 @@ function fillDays(points: TrendDataPoint[], start: Date, days: number): TrendDat
   })
 }
 
+// ---------- 近 24 小时 ----------
+const hourly = ref<TrendDataPoint[]>([])
+const hourlyLoading = ref(true)
+const hourlyError = ref(false)
+const modelStats = ref<ModelStat[]>([])
+
+/** 近 24 小时内的小时桶（接口取的是昨天 + 今天，这里截掉 24 小时以前的） */
+const recentHourly = computed(() => {
+  const cutoff = Date.now() - 24 * 60 * 60 * 1000
+  return hourly.value.filter((p) => {
+    const ts = new Date(p.date.replace(' ', 'T')).getTime()
+    return Number.isFinite(ts) && ts + 60 * 60 * 1000 > cutoff
+  })
+})
+
+/** 「近 24 小时 N 次请求 · 高峰 HH:00」；没有请求时只说「近 24 小时暂无请求」 */
+const hourlySummary = computed(() => {
+  const points = recentHourly.value
+  const total = points.reduce((sum, p) => sum + p.requests, 0)
+  if (total <= 0) return t('userUi.overview.hourly.none')
+  const peak = points.reduce((best, p) => (p.requests > best.requests ? p : best), points[0])
+  const peakHour = /(\d{2}):00$/.exec(peak.date)?.[1] ?? ''
+  return t('userUi.overview.hourly.summary', { requests: formatNumber(total), peak: `${peakHour}:00` })
+})
+
+async function loadHourly() {
+  hourlyLoading.value = true
+  hourlyError.value = false
+  const now = new Date()
+  try {
+    const snapshot = await usageAPI.getDashboardSnapshotV2({
+      start_date: formatLocalDate(new Date(now.getTime() - 24 * 60 * 60 * 1000)),
+      end_date: formatLocalDate(now),
+      granularity: 'hour',
+      timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+      include_trend: true,
+      include_model_stats: false
+    })
+    hourly.value = snapshot.trend || []
+  } catch (error) {
+    console.error('Failed to load hourly usage:', error)
+    hourlyError.value = true
+  } finally {
+    hourlyLoading.value = false
+  }
+}
+
 async function loadTrend() {
   trendLoading.value = true
   trendError.value = false
@@ -358,9 +440,10 @@ async function loadTrend() {
       end_date: formatLocalDate(end),
       granularity: 'day',
       include_trend: true,
-      include_model_stats: false
+      include_model_stats: true
     })
     trend.value = fillDays(snapshot.trend || [], start, TREND_DAYS)
+    modelStats.value = snapshot.models || []
   } catch (error) {
     console.error('Failed to load trend:', error)
     trendError.value = true
@@ -387,6 +470,7 @@ onMounted(() => {
   void loadStats()
   void loadFirstKey()
   void loadTrend()
+  void loadHourly()
   void loadExampleModel()
 })
 </script>

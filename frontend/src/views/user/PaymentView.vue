@@ -120,7 +120,8 @@
                 <span class="text-13 text-af-ink-3">/ {{ planValiditySuffix }}</span>
               </div>
               <p v-if="selectedPlan.description" class="mt-2 text-13 leading-5 text-af-ink-3">{{ selectedPlan.description }}</p>
-              <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-13 sm:grid-cols-3">
+              <!-- 续费时套餐的模型与额度已在上方订阅面板里，这里不重复 -->
+              <dl v-if="renewPlanId == null" class="mt-4 grid grid-cols-2 gap-x-6 gap-y-2 text-13 sm:grid-cols-3">
                 <div class="col-span-2 sm:col-span-3" data-testid="checkout-plan-models">
                   <dt class="text-af-ink-4">{{ t('payment.planCard.models') }}</dt>
                   <dd class="font-medium text-af-ink-2">{{ (selectedPlan.models || []).map(m => m.display_name || m.model_id).join(' / ') || '-' }}</dd>
@@ -183,10 +184,13 @@
                   </span>
                   <span v-else>{{ t('payment.createOrder') }} {{ formatSelectedPaymentAmount(subTotalAmount ?? 0) }}</span>
                 </button>
-                <button class="btn btn-ghost btn-md w-full sm:w-auto" @click="selectedPlan = null">{{ t('common.cancel') }}</button>
+                <button class="btn btn-ghost btn-md w-full sm:w-auto" @click="cancelSelection">{{ t('common.cancel') }}</button>
               </div>
             </section>
           </template>
+
+          <!-- 续费模式下套餐已下架：不列其他套餐，只说明 -->
+          <p v-else-if="renewPlanId != null" class="py-6 text-sm text-af-ink-3" data-testid="renew-plan-unavailable">{{ t('payment.renewPlanUnavailable') }}</p>
 
           <!-- 套餐列表 -->
           <template v-else>
@@ -258,7 +262,12 @@ import { buildPaymentErrorToastMessage, describePaymentScenarioError } from './p
 import { hasWechatResumeQuery, parseWechatResumeRoute, stripWechatResumeQuery } from './paymentWechatResume'
 
 /** 由路由决定：/billing/recharge 传 recharge，SubscriptionsView 嵌入时传 subscription。 */
-const props = defineProps<{ mode: 'recharge' | 'subscription' }>()
+const props = defineProps<{
+  mode: 'recharge' | 'subscription'
+  /** 续费模式：只为这个套餐确认购买，不列其他套餐（订阅页面板上的「续费」传入） */
+  renewPlanId?: number | null
+}>()
+const emit = defineEmits<{ cancel: [] }>()
 
 const i18n = useI18n()
 const { t } = i18n
@@ -678,6 +687,18 @@ const planValiditySuffix = computed(() => {
 function selectPlan(plan: SubscriptionPlan) {
   selectedPlan.value = plan
   errorMessage.value = ''
+}
+
+// 续费模式：套餐列表加载后直接进这个套餐的确认购买
+watch(() => [props.renewPlanId, checkout.value.plans] as const, ([planId, plans]) => {
+  if (planId == null) return
+  const plan = plans.find((p) => p.id === planId)
+  if (plan) selectPlan(plan)
+}, { immediate: true })
+
+function cancelSelection() {
+  selectedPlan.value = null
+  if (props.renewPlanId != null) emit('cancel')
 }
 
 async function handleSubmitRecharge() {

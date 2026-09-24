@@ -110,11 +110,25 @@ export default {
         title: 'Usage trend',
         range: 'Last {days} days',
         summary: 'Last {days} days · {requests} requests · {tokens} tokens · {cost}'
+      },
+      hourly: {
+        title: 'Last 24 hours',
+        requests: 'Requests',
+        summary: '{requests} requests · peak at {peak}',
+        none: 'No requests in the last 24 hours',
+        empty: 'No requests in the last 24 hours'
+      },
+      models: {
+        title: 'By model',
+        description: 'Share of spend per model, last {days} days',
+        other: 'Other',
+        requestsUnit: 'req',
+        empty: 'No recent model usage'
       }
     },
     billing: {
       title: 'Billing',
-      description: 'Top up, subscriptions, orders and referrals',
+      description: 'Top up, subscriptions and redeem codes',
       tabs: {
         recharge: 'Top up',
         subscriptions: 'Subscriptions'
