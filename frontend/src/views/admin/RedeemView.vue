@@ -1,58 +1,79 @@
 <template>
+  <!--
+    兑换码（A4 列表模板）：标题右侧「⋯」（导出 CSV、删除全部未使用）+「生成兑换码」；数字摘要；
+    工具行 = 搜索 + 类型 / 状态筛选标签 + 刷新；行尾只有「⋯ → 删除」（仅未使用的码）；选中行时出现批量条。
+  -->
   <AppLayout>
+    <template #header-actions>
+      <PopoverMenu width-class="w-52">
+        <template #trigger="{ open }">
+          <button
+            type="button"
+            class="btn btn-ghost btn-md px-2.5"
+            :class="open ? 'bg-af-sunken text-af-ink' : ''"
+            :title="t('common.more')"
+            :aria-label="t('common.more')"
+            data-testid="redeem-tools"
+          >
+            <Icon name="more" size="md" />
+          </button>
+        </template>
+        <MenuItem icon="download" data-testid="redeem-export" @click="handleExportCodes">
+          {{ t('admin.redeem.exportCsv') }}
+        </MenuItem>
+        <MenuItem divider />
+        <MenuItem icon="trash" danger data-testid="redeem-delete-unused" @click="showDeleteUnusedDialog = true">
+          {{ t('admin.redeem.deleteAllUnused') }}
+        </MenuItem>
+      </PopoverMenu>
+      <button type="button" class="btn btn-primary btn-md" @click="showGenerateDialog = true">
+        <Icon name="plus" size="md" />
+        {{ t('admin.redeem.generateCodes') }}
+      </button>
+    </template>
+
     <TablePageLayout>
+      <template v-if="summaryItems" #summary>
+        <StatRow :items="summaryItems" data-testid="redeem-summary" />
+      </template>
+
       <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Filters -->
-          <div class="flex-1 sm:max-w-64">
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('admin.redeem.searchCodes')"
-              class="input"
-              @input="handleSearch"
-            />
-          </div>
-          <Select
-            v-model="filters.type"
-            :options="filterTypeOptions"
-            class="w-36"
-            @change="loadCodes"
+        <ListToolbar>
+          <SearchInput
+            v-model="searchQuery"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('admin.redeem.searchCodes')"
+            @update:model-value="handleSearch"
           />
-          <Select
+          <FilterChip
+            v-model="filters.type"
+            :label="t('admin.redeem.columns.type')"
+            :options="typeOptions"
+            test-id="filter-type"
+            @change="applyFilter"
+          />
+          <FilterChip
             v-model="filters.status"
+            :label="t('admin.redeem.columns.status')"
             :options="filterStatusOptions"
-            class="w-36"
-            @change="loadCodes"
+            test-id="filter-status"
+            @change="applyFilter"
           />
 
-          <!-- Right: Action buttons -->
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
+          <template #end>
             <button
-              @click="loadCodes"
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
               :disabled="loading"
-              class="btn btn-secondary"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="refresh"
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <button @click="handleExportCodes" class="btn btn-secondary">
-              {{ t('admin.redeem.exportCsv') }}
-            </button>
-            <button
-              data-test="batch-update-open"
-              @click="openBatchUpdateDialog"
-              :disabled="selectedCount === 0 || batchUpdating"
-              class="btn btn-secondary"
-            >
-              <Icon name="edit" size="md" class="mr-2" />
-              {{ t('admin.redeem.batchUpdate') }}
-            </button>
-            <button @click="showGenerateDialog = true" class="btn btn-primary">
-              {{ t('admin.redeem.generateCodes') }}
-            </button>
-          </div>
-        </div>
+          </template>
+        </ListToolbar>
       </template>
 
       <template #table>
@@ -60,176 +81,116 @@
           :columns="columns"
           :data="codes"
           :loading="loading"
+          row-key="id"
+          selectable
+          :selected-keys="selectedIds"
+          :selection-label="getCodeSelectionLabel"
           :server-side-sort="true"
           default-sort-key="id"
           default-sort-order="desc"
           @sort="handleSort"
+          @update:selected-keys="handleSelectedKeysUpdate"
         >
-          <template #header-select>
-            <input
-              data-test="select-all-codes"
-              type="checkbox"
-              class="h-4 w-4 cursor-pointer rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-              :checked="allVisibleSelected"
-              @click.stop
-              @change="toggleSelectAllVisible($event)"
-            />
-          </template>
-
-          <template #cell-select="{ row }">
-            <input
-              data-test="select-code"
-              type="checkbox"
-              class="h-4 w-4 cursor-pointer rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-              :checked="selectedCodeIds.has(row.id)"
-              @click.stop
-              @change="toggleSelectRow(row.id, $event)"
-            />
-          </template>
-
+          <!-- 兑换码：等宽字体 + 复制 -->
           <template #cell-code="{ value }">
-            <div class="flex items-center space-x-2">
-              <code class="font-mono text-sm text-af-ink">{{ value }}</code>
+            <div class="flex items-center gap-1.5">
+              <code class="font-mono text-13 text-af-ink">{{ value }}</code>
               <button
-                @click="copyToClipboard(value)"
-                :class="[
-                  'flex items-center transition-colors',
-                  copiedCode === value
-                    ? 'text-af-success'
-                    : 'text-af-ink-3 hover:text-af-ink-2'
-                ]"
+                type="button"
+                class="rounded p-0.5 transition-colors"
+                :class="copiedCode === value ? 'text-af-success' : 'text-af-ink-4 hover:text-af-ink-2'"
                 :title="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
+                :aria-label="copiedCode === value ? t('admin.redeem.copied') : t('keys.copyToClipboard')"
+                @click.stop="copyToClipboard(value)"
               >
-                <Icon v-if="copiedCode !== value" name="copy" size="sm" :stroke-width="2" />
-                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
+                <Icon :name="copiedCode === value ? 'check' : 'copy'" size="sm" :stroke-width="2" />
               </button>
             </div>
           </template>
 
           <template #cell-type="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'balance'
-                  ? 'badge-success'
-                  : value === 'subscription'
-                    ? 'badge-warning'
-                    : 'badge-primary'
-              ]"
-            >
-              {{ t('admin.redeem.types.' + value) }}
-            </span>
+            <span class="text-af-ink-2">{{ t('admin.redeem.types.' + value) }}</span>
           </template>
 
           <template #cell-value="{ value, row }">
-            <span class="text-sm font-medium text-af-ink">
+            <span class="tabular-nums text-af-ink">
               <template v-if="row.type === 'balance'">${{ value.toFixed(2) }}</template>
               <template v-else-if="row.type === 'subscription'">
                 {{ row.validity_days || 30 }} {{ t('admin.redeem.days') }}
-                <span v-if="row.plan" class="ml-1 text-xs text-af-ink-3"
-                  >({{ row.plan.name }})</span
-                >
+                <span v-if="row.plan" class="ml-1 text-xs text-af-ink-3">{{ row.plan.name }}</span>
               </template>
+              <template v-else-if="row.type === 'invitation'"><span class="text-af-ink-4">-</span></template>
               <template v-else>{{ value }}</template>
             </span>
           </template>
 
+          <!-- 状态：未使用是常态（灰点）；已使用 / 已禁用淡色空心点；已过期黄点 -->
           <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'unused'
-                  ? 'badge-success'
-                  : value === 'used'
-                    ? 'badge-gray'
-                    : 'badge-danger'
-              ]"
-            >
-              {{ t('admin.redeem.status.' + value) }}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span :class="['inline-block h-2 w-2 rounded-full', statusDotClass(value)]"></span>
+              <span :class="statusTextClass(value)">{{ t('admin.redeem.status.' + value) }}</span>
+            </div>
           </template>
 
           <template #cell-used_by="{ value, row }">
-            <span class="text-sm text-af-ink-3">
-              {{ row.user?.email || (value ? t('admin.redeem.userPrefix', { id: value }) : '-') }}
+            <span v-if="row.user?.email || value" class="text-af-ink-2">
+              {{ row.user?.email || t('admin.redeem.userPrefix', { id: value }) }}
             </span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
           <template #cell-used_at="{ value }">
-            <span class="text-sm text-af-ink-3">{{
-              value ? formatDateTime(value) : '-'
-            }}</span>
+            <span v-if="value" class="text-af-ink-2" :title="formatDateTime(value)">{{ formatRelativeTime(value) }}</span>
+            <span v-else class="text-af-ink-4">-</span>
           </template>
 
-          <template #cell-expires_at="{ value, row }">
-            <span
-              :class="[
-                'text-sm',
-                row.status === 'expired'
-                  ? 'text-af-danger'
-                  : 'text-af-ink-3'
-              ]"
-            >
-              {{ value ? formatDateTime(value) : t('admin.redeem.neverExpires') }}
-            </span>
+          <template #cell-expires_at="{ value }">
+            <span v-if="value" class="tabular-nums text-af-ink-3" :title="formatDateTime(value)">{{ formatDateOnly(value) }}</span>
+            <span v-else class="text-af-ink-3">{{ t('admin.redeem.neverExpires') }}</span>
           </template>
 
+          <!-- 已使用 / 已过期的码没有操作；占住一个图标按钮的高度，行高不跳 -->
           <template #cell-actions="{ row }">
-            <div class="flex items-center space-x-2">
-              <button
-                v-if="row.status === 'unused'"
-                @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-              >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-                <span class="text-xs">{{ t('common.delete') }}</span>
-              </button>
-              <span v-else class="text-af-ink-3">-</span>
+            <div class="flex min-h-7 items-center justify-end">
+              <RowActions :actions="rowActions(row)" />
             </div>
+          </template>
+
+          <template #empty>
+            <EmptyState
+              :title="t('admin.redeem.noCodes')"
+              :description="t('admin.redeem.noCodesDescription')"
+              :action-text="t('admin.redeem.generateCodes')"
+              @action="showGenerateDialog = true"
+            />
           </template>
         </DataTable>
       </template>
 
-      <template #pagination>
-        <div
-          v-if="selectedCount > 0"
-          class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg bg-af-brand-tint p-3"
-        >
-          <span class="text-sm font-medium text-af-brand">
-            {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
-          </span>
-          <div class="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              class="text-xs font-medium text-af-brand hover:text-af-brand-hover"
-              @click="clearSelectedCodes"
-            >
-              {{ t('admin.redeem.clearSelection') }}
-            </button>
-            <button
-              type="button"
-              class="btn btn-primary btn-sm"
-              @click="openBatchUpdateDialog"
-            >
-              {{ t('admin.redeem.batchUpdate') }}
-            </button>
-          </div>
-        </div>
+      <template #bulk>
+        <BulkBar :count="selectedCount" @clear="clearSelectedCodes">
+          <button
+            type="button"
+            class="bulk-btn"
+            data-test="batch-update-open"
+            :disabled="batchUpdating"
+            @click="openBatchUpdateDialog"
+          >
+            {{ t('admin.redeem.batchUpdate') }}
+          </button>
+          <button
+            type="button"
+            class="bulk-btn bulk-btn-danger"
+            data-test="bulk-delete-codes"
+            :disabled="bulkDeleting"
+            @click="openBulkDelete"
+          >
+            {{ t('common.delete') }}
+          </button>
+        </BulkBar>
+      </template>
 
+      <template #pagination>
         <Pagination
           v-if="pagination.total > 0"
           :page="pagination.page"
@@ -238,13 +199,6 @@
           @update:page="handlePageChange"
           @update:pageSize="handlePageSizeChange"
         />
-
-        <!-- Batch Actions -->
-        <div v-if="filters.status === 'unused'" class="flex justify-end">
-          <button @click="showDeleteUnusedDialog = true" class="btn btn-danger">
-            {{ t('admin.redeem.deleteAllUnused') }}
-          </button>
-        </div>
       </template>
     </TablePageLayout>
 
@@ -260,6 +214,22 @@
       @cancel="showDeleteDialog = false"
     />
 
+    <!-- Bulk delete: only the selected codes that are still unused -->
+    <ConfirmDialog
+      :show="bulkDeleteIds.length > 0"
+      :title="t('admin.redeem.bulkDelete.title')"
+      :message="
+        bulkDeleteSkipped > 0
+          ? t('admin.redeem.bulkDelete.confirmWithSkipped', { count: bulkDeleteIds.length, skipped: bulkDeleteSkipped })
+          : t('admin.redeem.bulkDelete.confirm', { count: bulkDeleteIds.length })
+      "
+      :confirm-text="t('common.delete')"
+      :cancel-text="t('common.cancel')"
+      danger
+      @confirm="confirmBulkDelete"
+      @cancel="bulkDeleteIds = []"
+    />
+
     <!-- Delete Unused Codes Dialog -->
     <ConfirmDialog
       :show="showDeleteUnusedDialog"
@@ -273,317 +243,254 @@
     />
 
     <!-- Generate Codes Dialog -->
-    <Teleport to="body">
-      <div v-if="showGenerateDialog" class="fixed inset-0 z-50 flex items-center justify-center">
-        <div class="fixed inset-0 bg-black/50" @click="showGenerateDialog = false"></div>
-        <div
-          class="relative z-10 w-full max-w-md rounded-xl bg-af-sheet p-6 shadow-xl"
-        >
-          <h2 class="mb-4 text-lg font-semibold text-af-ink">
-            {{ t('admin.redeem.generateCodesTitle') }}
-          </h2>
-          <form @submit.prevent="handleGenerateCodes" class="space-y-4">
-            <div>
-              <label class="input-label">{{ t('admin.redeem.codeType') }}</label>
-              <Select v-model="generateForm.type" :options="typeOptions" />
-            </div>
-            <!-- 余额/并发类型：显示数值输入 -->
-            <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
-              <label class="input-label">
-                {{
-                  generateForm.type === 'balance'
-                    ? t('admin.redeem.amount')
-                    : t('admin.redeem.columns.value')
-                }}
-              </label>
-              <input
-                v-model.number="generateForm.value"
-                type="number"
-                :step="generateForm.type === 'balance' ? '0.01' : '1'"
-                :min="generateForm.type === 'balance' ? '0.01' : '1'"
-                required
-                class="input"
-              />
-            </div>
-            <!-- 邀请码类型：显示提示信息 -->
-            <div v-if="generateForm.type === 'invitation'" class="rounded-lg bg-af-sunken p-3">
-              <p class="text-sm text-af-ink-2">
-                {{ t('admin.redeem.invitationHint') }}
-              </p>
-            </div>
-            <!-- 订阅类型：显示套餐选择和有效天数 -->
-            <template v-if="generateForm.type === 'subscription'">
-              <div>
-                <label class="input-label">{{ t('admin.redeem.selectPlan') }}</label>
-                <Select
-                  v-model="generateForm.plan_id"
-                  :options="planOptions"
-                  :placeholder="t('admin.redeem.selectPlanPlaceholder')"
-                />
-              </div>
-              <div>
-                <label class="input-label">{{ t('admin.redeem.validityDays') }}</label>
-                <input
-                  v-model.number="generateForm.validity_days"
-                  type="number"
-                  min="1"
-                  max="36500"
-                  required
-                  class="input"
-                />
-              </div>
-            </template>
-            <div>
-              <label class="input-label">{{ t('admin.redeem.codeExpiry') }}</label>
-              <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
-                <button
-                  v-for="option in redeemCodeExpiryOptions"
-                  :key="option.value"
-                  type="button"
-                  @click="generateForm.expiry_option = option.value"
-                  :class="[
-                    'rounded-lg border px-3 py-2 text-sm transition-colors',
-                    generateForm.expiry_option === option.value
-                      ? 'border-af-brand bg-af-brand-tint text-af-brand'
-                      : 'border-af-hairline text-af-ink-2 hover:bg-af-sunken'
-                  ]"
-                >
-                  {{ option.label }}
-                </button>
-              </div>
-              <input
-                v-if="generateForm.expiry_option === 'custom'"
-                v-model.number="generateForm.custom_expiry_days"
-                type="number"
-                min="1"
-                max="3650"
-                required
-                class="input mt-2"
-                :placeholder="t('admin.redeem.customExpiryDays')"
-              />
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.redeem.count') }}</label>
-              <input
-                v-model.number="generateForm.count"
-                type="number"
-                min="1"
-                max="100"
-                required
-                class="input"
-              />
-            </div>
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="showGenerateDialog = false" class="btn btn-secondary">
-                {{ t('common.cancel') }}
-              </button>
-              <button type="submit" :disabled="generating" class="btn btn-primary">
-                {{ generating ? t('admin.redeem.generating') : t('admin.redeem.generate') }}
-              </button>
-            </div>
-          </form>
+    <BaseDialog
+      :show="showGenerateDialog"
+      :title="t('admin.redeem.generateCodesTitle')"
+      width="normal"
+      @close="showGenerateDialog = false"
+    >
+      <form id="redeem-generate-form" class="space-y-4" @submit.prevent="handleGenerateCodes">
+        <div>
+          <label class="input-label">{{ t('admin.redeem.codeType') }}</label>
+          <Select v-model="generateForm.type" :options="typeOptions" />
         </div>
-      </div>
-    </Teleport>
+        <!-- 余额/并发类型：显示数值输入 -->
+        <div v-if="generateForm.type !== 'subscription' && generateForm.type !== 'invitation'">
+          <label class="input-label">
+            {{
+              generateForm.type === 'balance'
+                ? t('admin.redeem.amount')
+                : t('admin.redeem.columns.value')
+            }}
+          </label>
+          <input
+            v-model.number="generateForm.value"
+            type="number"
+            :step="generateForm.type === 'balance' ? '0.01' : '1'"
+            :min="generateForm.type === 'balance' ? '0.01' : '1'"
+            required
+            class="input"
+          />
+        </div>
+        <!-- 邀请码类型：显示提示信息 -->
+        <p v-if="generateForm.type === 'invitation'" class="rounded-lg bg-af-sunken p-3 text-sm text-af-ink-2">
+          {{ t('admin.redeem.invitationHint') }}
+        </p>
+        <!-- 订阅类型：显示套餐选择和有效天数 -->
+        <template v-if="generateForm.type === 'subscription'">
+          <div>
+            <label class="input-label">{{ t('admin.redeem.selectPlan') }}</label>
+            <Select
+              v-model="generateForm.plan_id"
+              :options="planOptions"
+              :placeholder="t('admin.redeem.selectPlanPlaceholder')"
+            />
+          </div>
+          <div>
+            <label class="input-label">{{ t('admin.redeem.validityDays') }}</label>
+            <input
+              v-model.number="generateForm.validity_days"
+              type="number"
+              min="1"
+              max="36500"
+              required
+              class="input"
+            />
+          </div>
+        </template>
+        <div>
+          <label class="input-label">{{ t('admin.redeem.codeExpiry') }}</label>
+          <div class="grid grid-cols-2 gap-2 sm:grid-cols-5">
+            <button
+              v-for="option in redeemCodeExpiryOptions"
+              :key="option.value"
+              type="button"
+              :class="[
+                'rounded-lg border px-2 py-2 text-sm transition-colors',
+                generateForm.expiry_option === option.value
+                  ? 'border-af-ink bg-af-sunken text-af-ink'
+                  : 'border-af-hairline text-af-ink-2 hover:bg-af-sunken'
+              ]"
+              @click="generateForm.expiry_option = option.value"
+            >
+              {{ option.label }}
+            </button>
+          </div>
+          <input
+            v-if="generateForm.expiry_option === 'custom'"
+            v-model.number="generateForm.custom_expiry_days"
+            type="number"
+            min="1"
+            max="3650"
+            required
+            class="input mt-2"
+            :placeholder="t('admin.redeem.customExpiryDays')"
+          />
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.redeem.count') }}</label>
+          <input
+            v-model.number="generateForm.count"
+            type="number"
+            min="1"
+            max="100"
+            required
+            class="input"
+          />
+        </div>
+      </form>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" @click="showGenerateDialog = false">
+            {{ t('common.cancel') }}
+          </button>
+          <button type="submit" form="redeem-generate-form" :disabled="generating" class="btn btn-primary">
+            {{ generating ? t('admin.redeem.generating') : t('admin.redeem.generate') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
 
     <!-- Batch Update Dialog -->
-    <Teleport to="body">
-      <div
-        v-if="showBatchUpdateDialog"
-        class="fixed inset-0 z-50 flex items-center justify-center p-4"
-      >
-        <div class="fixed inset-0 bg-black/50" @click="closeBatchUpdateDialog"></div>
-        <div
-          class="relative z-10 w-full max-w-lg rounded-xl bg-af-sheet p-6 shadow-xl"
-        >
-          <h2 class="mb-1 text-lg font-semibold text-af-ink">
-            {{ t('admin.redeem.batchUpdateTitle') }}
-          </h2>
-          <p class="mb-4 text-sm text-af-ink-3">
-            {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
-          </p>
+    <BaseDialog
+      :show="showBatchUpdateDialog"
+      :title="t('admin.redeem.batchUpdateTitle')"
+      width="normal"
+      @close="closeBatchUpdateDialog"
+    >
+      <p class="mb-4 text-sm text-af-ink-3">
+        {{ t('admin.redeem.selectedCount', { count: selectedCount }) }}
+      </p>
 
-          <form data-test="batch-update-form" class="space-y-4" @submit.prevent="handleBatchUpdate">
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
-                <input
-                  data-test="batch-field-status"
-                  v-model="batchUpdateForm.update_status"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                />
-                {{ t('admin.redeem.batchFields.status') }}
-              </label>
-              <Select
-                v-if="batchUpdateForm.update_status"
-                v-model="batchUpdateForm.status"
-                data-test="batch-status-select"
-                :options="batchStatusOptions"
-              />
-            </div>
-
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
-                <input
-                  v-model="batchUpdateForm.update_expires_at"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                />
-                {{ t('admin.redeem.batchFields.expiresAt') }}
-              </label>
-              <template v-if="batchUpdateForm.update_expires_at">
-                <Select v-model="batchUpdateForm.expires_mode" :options="batchExpiryModeOptions" />
-                <input
-                  v-if="batchUpdateForm.expires_mode === 'custom'"
-                  v-model="batchUpdateForm.expires_at_local"
-                  type="datetime-local"
-                  class="input"
-                />
-                <p v-if="batchUpdateForm.expires_mode === 'custom'" class="input-hint">
-                  {{ t('admin.redeem.localTimeZoneHint', { timezone: browserTimeZone }) }}
-                </p>
-              </template>
-            </div>
-
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
-                <input
-                  data-test="batch-field-notes"
-                  v-model="batchUpdateForm.update_notes"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                />
-                {{ t('admin.redeem.batchFields.notes') }}
-              </label>
-              <textarea
-                v-if="batchUpdateForm.update_notes"
-                data-test="batch-notes-input"
-                v-model="batchUpdateForm.notes"
-                rows="3"
-                class="input"
-                :placeholder="t('admin.redeem.batchNotesPlaceholder')"
-              ></textarea>
-            </div>
-
-            <div class="space-y-2">
-              <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
-                <input
-                  v-model="batchUpdateForm.update_plan_id"
-                  type="checkbox"
-                  class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-                />
-                {{ t('admin.redeem.batchFields.plan') }}
-              </label>
-              <Select
-                v-if="batchUpdateForm.update_plan_id"
-                v-model="batchUpdateForm.plan_id"
-                :options="batchPlanOptions"
-                :placeholder="t('admin.redeem.selectPlanPlaceholder')"
-              />
-            </div>
-
-            <div class="flex justify-end gap-3 pt-2">
-              <button type="button" @click="closeBatchUpdateDialog" class="btn btn-secondary">
-                {{ t('common.cancel') }}
-              </button>
-              <button
-                data-test="batch-update-submit"
-                type="submit"
-                :disabled="batchUpdating"
-                class="btn btn-primary"
-              >
-                {{ batchUpdating ? t('common.submitting') : t('admin.redeem.batchUpdate') }}
-              </button>
-            </div>
-          </form>
+      <form id="redeem-batch-update-form" data-test="batch-update-form" class="space-y-4" @submit.prevent="handleBatchUpdate">
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
+            <input
+              v-model="batchUpdateForm.update_status"
+              data-test="batch-field-status"
+              type="checkbox"
+              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+            />
+            {{ t('admin.redeem.batchFields.status') }}
+          </label>
+          <Select
+            v-if="batchUpdateForm.update_status"
+            v-model="batchUpdateForm.status"
+            data-test="batch-status-select"
+            :options="batchStatusOptions"
+          />
         </div>
-      </div>
-    </Teleport>
+
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
+            <input
+              v-model="batchUpdateForm.update_expires_at"
+              type="checkbox"
+              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+            />
+            {{ t('admin.redeem.batchFields.expiresAt') }}
+          </label>
+          <template v-if="batchUpdateForm.update_expires_at">
+            <Select v-model="batchUpdateForm.expires_mode" :options="batchExpiryModeOptions" />
+            <input
+              v-if="batchUpdateForm.expires_mode === 'custom'"
+              v-model="batchUpdateForm.expires_at_local"
+              type="datetime-local"
+              class="input"
+            />
+            <p v-if="batchUpdateForm.expires_mode === 'custom'" class="input-hint">
+              {{ t('admin.redeem.localTimeZoneHint', { timezone: browserTimeZone }) }}
+            </p>
+          </template>
+        </div>
+
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
+            <input
+              v-model="batchUpdateForm.update_notes"
+              data-test="batch-field-notes"
+              type="checkbox"
+              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+            />
+            {{ t('admin.redeem.batchFields.notes') }}
+          </label>
+          <textarea
+            v-if="batchUpdateForm.update_notes"
+            v-model="batchUpdateForm.notes"
+            data-test="batch-notes-input"
+            rows="3"
+            class="input"
+            :placeholder="t('admin.redeem.batchNotesPlaceholder')"
+          ></textarea>
+        </div>
+
+        <div class="space-y-2">
+          <label class="flex items-center gap-2 text-sm font-medium text-af-ink-2">
+            <input
+              v-model="batchUpdateForm.update_plan_id"
+              type="checkbox"
+              class="h-4 w-4 rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+            />
+            {{ t('admin.redeem.batchFields.plan') }}
+          </label>
+          <Select
+            v-if="batchUpdateForm.update_plan_id"
+            v-model="batchUpdateForm.plan_id"
+            :options="batchPlanOptions"
+            :placeholder="t('admin.redeem.selectPlanPlaceholder')"
+          />
+        </div>
+      </form>
+
+      <template #footer>
+        <div class="flex justify-end gap-3">
+          <button type="button" class="btn btn-secondary" @click="closeBatchUpdateDialog">
+            {{ t('common.cancel') }}
+          </button>
+          <button
+            data-test="batch-update-submit"
+            type="submit"
+            form="redeem-batch-update-form"
+            :disabled="batchUpdating"
+            class="btn btn-primary"
+          >
+            {{ batchUpdating ? t('common.submitting') : t('admin.redeem.batchUpdate') }}
+          </button>
+        </div>
+      </template>
+    </BaseDialog>
 
     <!-- Generated Codes Result Dialog -->
-    <Teleport to="body">
-      <div v-if="showResultDialog" class="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div class="fixed inset-0 bg-black/50" @click="closeResultDialog"></div>
-        <div class="relative z-10 w-full max-w-lg rounded-xl bg-af-sheet shadow-xl">
-          <!-- Header -->
-          <div
-            class="flex items-center justify-between border-b border-af-hairline px-5 py-4"
-          >
-            <div class="flex items-center gap-3">
-              <div
-                class="flex h-10 w-10 items-center justify-center rounded-full bg-af-success-tint"
-              >
-                <svg
-                  class="h-5 w-5 text-af-success"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M5 13l4 4L19 7"
-                  />
-                </svg>
-              </div>
-              <div>
-                <h2 class="text-base font-semibold text-af-ink">
-                  {{ t('admin.redeem.generatedSuccessfully') }}
-                </h2>
-                <p class="text-sm text-af-ink-3">
-                  {{ t('admin.redeem.codesCreated', { count: generatedCodes.length }) }}
-                </p>
-              </div>
-            </div>
-            <button
-              @click="closeResultDialog"
-              class="rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-            >
-              <Icon name="x" size="md" :stroke-width="2" />
-            </button>
-          </div>
-          <!-- Content -->
-          <div class="p-5">
-            <div class="relative">
-              <textarea
-                readonly
-                :value="generatedCodesText"
-                :style="{ height: textareaHeight }"
-                class="w-full resize-none rounded-lg border border-af-hairline bg-af-sunken p-3 font-mono text-sm text-af-ink focus:outline-none"
-              ></textarea>
-            </div>
-          </div>
-          <!-- Footer -->
-          <div
-            class="flex justify-end gap-2 rounded-b-xl border-t border-af-hairline bg-af-sunken px-5 py-4"
-          >
-            <button
-              @click="copyGeneratedCodes"
-              :class="[
-                'btn flex items-center gap-2 transition-all',
-                copiedAll ? 'btn-success' : 'btn-secondary'
-              ]"
-            >
-              <Icon v-if="!copiedAll" name="copy" size="sm" :stroke-width="2" />
-              <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M5 13l4 4L19 7"
-                />
-              </svg>
-              {{ copiedAll ? t('admin.redeem.copied') : t('admin.redeem.copyAll') }}
-            </button>
-            <button @click="downloadGeneratedCodes" class="btn btn-primary flex items-center gap-2">
-              <Icon name="download" size="sm" :stroke-width="2" />
-              {{ t('admin.redeem.download') }}
-            </button>
-          </div>
+    <BaseDialog
+      :show="showResultDialog"
+      :title="t('admin.redeem.generatedSuccessfully')"
+      width="normal"
+      @close="closeResultDialog"
+    >
+      <p class="mb-3 text-sm text-af-ink-3">
+        {{ t('admin.redeem.codesCreated', { count: generatedCodes.length }) }}
+      </p>
+      <textarea
+        readonly
+        :value="generatedCodesText"
+        :style="{ height: textareaHeight }"
+        class="w-full resize-none rounded-lg border border-af-hairline bg-af-sunken p-3 font-mono text-sm text-af-ink focus:outline-none"
+      ></textarea>
+
+      <template #footer>
+        <div class="flex justify-end gap-2">
+          <button type="button" class="btn btn-secondary" @click="copyGeneratedCodes">
+            <Icon :name="copiedAll ? 'check' : 'copy'" size="sm" :stroke-width="2" />
+            {{ copiedAll ? t('admin.redeem.copied') : t('admin.redeem.copyAll') }}
+          </button>
+          <button type="button" class="btn btn-primary" @click="downloadGeneratedCodes">
+            <Icon name="download" size="sm" :stroke-width="2" />
+            {{ t('admin.redeem.download') }}
+          </button>
         </div>
-      </div>
-    </Teleport>
+      </template>
+    </BaseDialog>
   </AppLayout>
 </template>
 
@@ -596,7 +503,9 @@ import { useTableSelection } from '@/composables/useTableSelection'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
 import {
+  formatDateOnly,
   formatDateTime,
+  formatRelativeTime,
   getBrowserTimeZone,
   parseDateTimeLocalInput
 } from '@/utils/format'
@@ -612,9 +521,16 @@ import AppLayout from '@/components/layout/AppLayout.vue'
 import TablePageLayout from '@/components/layout/TablePageLayout.vue'
 import DataTable from '@/components/common/DataTable.vue'
 import Pagination from '@/components/common/Pagination.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import EmptyState from '@/components/common/EmptyState.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
+import { BulkBar, FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -682,7 +598,6 @@ const downloadGeneratedCodes = () => {
 }
 
 const columns = computed<Column[]>(() => [
-  { key: 'select', label: '' },
   { key: 'code', label: t('admin.redeem.columns.code') },
   { key: 'type', label: t('admin.redeem.columns.type'), sortable: true },
   { key: 'value', label: t('admin.redeem.columns.value'), sortable: true },
@@ -693,6 +608,7 @@ const columns = computed<Column[]>(() => [
   { key: 'actions', label: t('admin.redeem.columns.actions') }
 ])
 
+// 生成表单的类型选项，也用作「类型」筛选标签的选项（筛选标签自带「全部」）
 const typeOptions = computed(() => [
   { value: 'balance', label: t('admin.redeem.balance') },
   { value: 'concurrency', label: t('admin.redeem.concurrency') },
@@ -700,16 +616,7 @@ const typeOptions = computed(() => [
   { value: 'invitation', label: t('admin.redeem.invitation') }
 ])
 
-const filterTypeOptions = computed(() => [
-  { value: '', label: t('admin.redeem.allTypes') },
-  { value: 'balance', label: t('admin.redeem.balance') },
-  { value: 'concurrency', label: t('admin.redeem.concurrency') },
-  { value: 'subscription', label: t('admin.redeem.subscription') },
-  { value: 'invitation', label: t('admin.redeem.invitation') }
-])
-
 const filterStatusOptions = computed(() => [
-  { value: '', label: t('admin.redeem.allStatus') },
   { value: 'unused', label: t('admin.redeem.unused') },
   { value: 'used', label: t('admin.redeem.used') },
   { value: 'expired', label: t('admin.redeem.status.expired') },
@@ -726,10 +633,23 @@ const batchExpiryModeOptions = computed(() => [
   { value: 'custom', label: t('admin.redeem.customExpiry') }
 ])
 
+// 状态：未使用是常态（灰点）；已使用 / 已禁用是「用完 / 停掉」的淡色空心点；已过期是没人动它却失效了，黄点
+const statusDotClass = (status: string) => {
+  if (status === 'unused') return 'bg-af-ink-4'
+  if (status === 'expired') return 'bg-af-warning'
+  return 'border border-af-ink-4'
+}
+const statusTextClass = (status: string) => {
+  if (status === 'unused') return 'text-af-ink-2'
+  if (status === 'expired') return 'text-af-warning'
+  return 'text-af-ink-3'
+}
+
 const codes = ref<RedeemCode[]>([])
 const loading = ref(false)
 const generating = ref(false)
 const batchUpdating = ref(false)
+const bulkDeleting = ref(false)
 const searchQuery = ref('')
 const filters = reactive({
   type: '',
@@ -756,16 +676,24 @@ const copiedCode = ref<string | null>(null)
 
 const {
   selectedSet: selectedCodeIds,
+  selectedIds,
   selectedCount,
-  allVisibleSelected,
-  select,
-  deselect,
+  setSelectedIds,
   clear: clearSelectedCodes,
-  toggleVisible
+  removeMany: removeSelectedCodes
 } = useTableSelection<RedeemCode>({
   rows: codes,
   getId: (code) => code.id
 })
+
+const handleSelectedKeysUpdate = (keys: Array<string | number>) => {
+  setSelectedIds(keys.filter((key): key is number => typeof key === 'number'))
+}
+
+const getCodeSelectionLabel = (code: RedeemCode) => code.code
+
+// 选中可以跨页，批量删除要知道每个选中码的状态：记下翻过的每一页里码的状态
+const knownStatus = new Map<number, RedeemCode['status']>()
 
 const batchUpdateForm = reactive({
   update_status: false,
@@ -811,6 +739,34 @@ watch(
   }
 )
 
+// 数字摘要：全部 / 未使用 / 已使用 / 已过期。/admin/redeem-codes/stats 后端还是占位（全 0），
+// 所以用列表接口按状态各取 1 条读 total；接口失败或一个码都没有就不显示，不摆一排 0。
+const summary = ref<{ total: number; unused: number; used: number; expired: number } | null>(null)
+const summaryItems = computed<StatItem[] | null>(() => {
+  const s = summary.value
+  if (!s || s.total === 0) return null
+  const fmt = (n: number) => n.toLocaleString()
+  return [
+    { key: 'total', label: t('admin.redeem.summary.total'), value: fmt(s.total) },
+    { key: 'unused', label: t('admin.redeem.status.unused'), value: fmt(s.unused) },
+    { key: 'used', label: t('admin.redeem.status.used'), value: fmt(s.used) },
+    { key: 'expired', label: t('admin.redeem.status.expired'), value: fmt(s.expired) }
+  ]
+})
+const loadSummary = async () => {
+  try {
+    const [all, unused, used, expired] = await Promise.all([
+      adminAPI.redeem.list(1, 1),
+      adminAPI.redeem.list(1, 1, { status: 'unused' }),
+      adminAPI.redeem.list(1, 1, { status: 'used' }),
+      adminAPI.redeem.list(1, 1, { status: 'expired' })
+    ])
+    summary.value = { total: all.total, unused: unused.total, used: used.total, expired: expired.total }
+  } catch {
+    summary.value = null
+  }
+}
+
 const buildRedeemQueryFilters = () => ({
   type: (filters.type || undefined) as RedeemCodeType | undefined,
   status: (filters.status || undefined) as 'used' | 'expired' | 'unused' | 'disabled' | undefined,
@@ -839,6 +795,7 @@ const loadCodes = async () => {
       return
     }
     codes.value = response.items
+    response.items.forEach((code) => knownStatus.set(code.id, code.status))
     pagination.total = response.total
     pagination.pages = response.pages
   } catch (error: any) {
@@ -859,6 +816,12 @@ const loadCodes = async () => {
   }
 }
 
+/** 列表和摘要一起刷新（增删改之后、点刷新按钮） */
+const refresh = () => {
+  loadCodes()
+  loadSummary()
+}
+
 let searchTimeout: ReturnType<typeof setTimeout>
 const handleSearch = () => {
   clearTimeout(searchTimeout)
@@ -866,6 +829,11 @@ const handleSearch = () => {
     pagination.page = 1
     loadCodes()
   }, 300)
+}
+
+const applyFilter = () => {
+  pagination.page = 1
+  loadCodes()
 }
 
 const handlePageChange = (page: number) => {
@@ -886,18 +854,12 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
   loadCodes()
 }
 
-const toggleSelectRow = (id: number, event: Event) => {
-  const target = event.target as HTMLInputElement
-  if (target.checked) {
-    select(id)
-    return
-  }
-  deselect(id)
-}
-
-const toggleSelectAllVisible = (event: Event) => {
-  const target = event.target as HTMLInputElement
-  toggleVisible(target.checked)
+// 行操作（A4）：只有未使用的码能删，删除进「⋯」、红字
+const rowActions = (code: RedeemCode): RowAction[] => {
+  if (code.status !== 'unused') return []
+  return [
+    { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => handleDelete(code) }
+  ]
 }
 
 const getRedeemCodeExpiresInDays = () => {
@@ -1010,7 +972,7 @@ const handleGenerateCodes = async () => {
     generateForm.validity_days = 30
     generateForm.expiry_option = 'never'
     generateForm.custom_expiry_days = 7
-    loadCodes()
+    refresh()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToGenerate'))
     console.error('Error generating codes:', error)
@@ -1062,11 +1024,44 @@ const confirmDelete = async () => {
     await adminAPI.redeem.delete(deletingCode.value.id)
     appStore.showSuccess(t('admin.redeem.codeDeleted'))
     showDeleteDialog.value = false
+    removeSelectedCodes([deletingCode.value.id])
     deletingCode.value = null
-    loadCodes()
+    refresh()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDelete'))
     console.error('Error deleting code:', error)
+  }
+}
+
+// 批量删除：和行尾一样只删未使用的码，已使用 / 已过期 / 已禁用的跳过（确认框里写明）
+const bulkDeleteIds = ref<number[]>([])
+const bulkDeleteSkipped = ref(0)
+
+const openBulkDelete = () => {
+  const ids = selectedIds.value.filter((id) => knownStatus.get(id) === 'unused')
+  if (ids.length === 0) {
+    appStore.showInfo(t('admin.redeem.bulkDelete.noneDeletable'))
+    return
+  }
+  bulkDeleteSkipped.value = selectedIds.value.length - ids.length
+  bulkDeleteIds.value = ids
+}
+
+const confirmBulkDelete = async () => {
+  const ids = bulkDeleteIds.value
+  if (ids.length === 0) return
+  bulkDeleting.value = true
+  try {
+    const result = await adminAPI.redeem.batchDelete(ids)
+    appStore.showSuccess(t('admin.redeem.bulkDelete.done', { count: result.deleted }))
+    bulkDeleteIds.value = []
+    clearSelectedCodes()
+    refresh()
+  } catch (error: any) {
+    appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDelete'))
+    console.error('Error bulk deleting codes:', error)
+  } finally {
+    bulkDeleting.value = false
   }
 }
 
@@ -1085,7 +1080,8 @@ const confirmDeleteUnused = async () => {
     const result = await adminAPI.redeem.batchDelete(unusedCodeIds)
     appStore.showSuccess(t('admin.redeem.codesDeleted', { count: result.deleted }))
     showDeleteUnusedDialog.value = false
-    loadCodes()
+    removeSelectedCodes(unusedCodeIds)
+    refresh()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToDeleteUnused'))
     console.error('Error deleting unused codes:', error)
@@ -1120,7 +1116,7 @@ const handleBatchUpdate = async () => {
     appStore.showSuccess(t('admin.redeem.batchUpdateSuccess', { count: result.updated }))
     showBatchUpdateDialog.value = false
     clearSelectedCodes()
-    loadCodes()
+    refresh()
   } catch (error: any) {
     appStore.showError(error.response?.data?.detail || t('admin.redeem.failedToBatchUpdate'))
     console.error('Error batch updating codes:', error)
@@ -1141,6 +1137,7 @@ const loadPlans = async () => {
 
 onMounted(() => {
   loadCodes()
+  loadSummary()
   loadPlans()
 })
 

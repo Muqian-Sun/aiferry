@@ -10,6 +10,10 @@ const { listProxies, getAllWithCount } = vi.hoisted(() => ({
 vi.mock('@/api/admin', () => ({
   adminAPI: { proxies: { list: listProxies, getAllWithCount } }
 }))
+// A4：ListToolbar.vue 只有模板、没有组件名，shallowMount 按名字桩不到；换成透传两个插槽的实现
+vi.mock('@/components/admin/list/ListToolbar.vue', () => ({
+  default: { name: 'ListToolbar', template: '<div><slot /><slot name="end" /></div>' }
+}))
 vi.mock('@/stores/app', () => ({ useAppStore: () => ({ showError: vi.fn() }) }))
 vi.mock('vue-i18n', async () => ({
   ...await vi.importActual<typeof import('vue-i18n')>('vue-i18n'),
@@ -32,11 +36,14 @@ const mountView = () => shallowMount(ProxiesView, {
         emits: ['update:page'],
         template: '<button data-test="page" @click="$emit(\'update:page\', 2)">{{ page }}</button>'
       },
-      Select: {
-        props: ['modelValue', 'options', 'placeholder'],
+      // A4：工具行换成 ListToolbar + 筛选标签（选项里没有「全部」，清空 = 空串）
+      ListToolbar: false,
+      FilterChip: {
+        props: ['modelValue', 'options', 'testId'],
         emits: ['update:modelValue', 'change'],
-        template: `<select :data-filter="placeholder" :value="modelValue"
+        template: `<select :data-filter="testId" :value="modelValue"
           @change="$emit('update:modelValue', $event.target.value); $emit('change', $event.target.value)">
+          <option value=""></option>
           <option v-for="option in options" :key="option.value" :value="option.value">{{ option.label }}</option>
         </select>`
       }
@@ -56,14 +63,14 @@ afterEach(() => wrapper?.unmount())
 
 describe('proxy list filter pagination', () => {
   it.each([
-    ['protocol', 'admin.proxies.allProtocols', 'socks5', ''],
-    ['protocol', 'admin.proxies.allProtocols', '', 'http'],
-    ['status', 'admin.proxies.allStatus', 'expired', ''],
-    ['status', 'admin.proxies.allStatus', '', 'active']
-  ])('starts at page one when changing %s through %s to "%s"', async (field, placeholder, value, initial) => {
+    ['protocol', 'filter-protocol', 'socks5', ''],
+    ['protocol', 'filter-protocol', '', 'http'],
+    ['status', 'filter-status', 'expired', ''],
+    ['status', 'filter-status', '', 'active']
+  ])('starts at page one when changing %s through %s to "%s"', async (field, testId, value, initial) => {
     wrapper = mountView()
     await flushPromises()
-    const filter = wrapper.get(`select[data-filter="${placeholder}"]`)
+    const filter = wrapper.get(`select[data-filter="${testId}"]`)
     if (initial) {
       await filter.setValue(initial)
       await flushPromises()

@@ -1,41 +1,47 @@
 <template>
+  <!--
+    公告（A4 列表模板）：标题右侧「创建公告」；工具行 = 搜索 + 状态筛选标签 + 刷新；
+    行尾「编辑」图标 +「⋯」（预览、已读情况、删除）。
+  -->
   <AppLayout>
+    <template #header-actions>
+      <button type="button" class="btn btn-primary btn-md" @click="openCreateDialog">
+        <Icon name="plus" size="md" />
+        {{ t('admin.announcements.createAnnouncement') }}
+      </button>
+    </template>
+
     <TablePageLayout>
       <template #filters>
-        <div class="flex flex-wrap items-center gap-3">
-          <!-- Left: Search + Filters -->
-          <div class="flex-1 sm:max-w-64">
-            <input
-              v-model="searchQuery"
-              type="text"
-              :placeholder="t('admin.announcements.searchAnnouncements')"
-              class="input"
-              @input="handleSearch"
-            />
-          </div>
-          <Select
+        <ListToolbar>
+          <SearchInput
+            v-model="searchQuery"
+            compact
+            class="w-full sm:w-64"
+            :placeholder="t('admin.announcements.searchAnnouncements')"
+            @update:model-value="handleSearch"
+          />
+          <FilterChip
             v-model="filters.status"
-            :options="statusFilterOptions"
-            class="w-40"
+            :label="t('admin.announcements.columns.status')"
+            :options="statusOptions"
+            test-id="filter-status"
             @change="handleStatusChange"
           />
 
-          <!-- Right: Action buttons -->
-          <div class="flex flex-1 flex-wrap items-center justify-end gap-2">
+          <template #end>
             <button
-              @click="loadAnnouncements"
+              type="button"
+              class="rounded-md p-2 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink disabled:opacity-40"
               :disabled="loading"
-              class="btn btn-secondary"
               :title="t('common.refresh')"
+              :aria-label="t('common.refresh')"
+              @click="loadAnnouncements"
             >
               <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
             </button>
-            <button @click="openCreateDialog" class="btn btn-primary">
-              <Icon name="plus" size="md" class="mr-1" />
-              {{ t('admin.announcements.createAnnouncement') }}
-            </button>
-          </div>
-        </div>
+          </template>
+        </ListToolbar>
       </template>
 
       <template #table>
@@ -49,87 +55,44 @@
           @sort="handleSort"
         >
           <template #cell-title="{ value, row }">
-            <div class="min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="truncate font-medium text-af-ink">{{ value }}</span>
-              </div>
-              <div class="mt-1 flex items-center gap-2 text-xs text-af-ink-3">
-                <span>#{{ row.id }}</span>
-                <span class="text-af-ink-4">·</span>
-                <span>{{ formatDateTime(row.created_at) }}</span>
-              </div>
+            <div class="min-w-0 max-w-md">
+              <div class="truncate font-medium text-af-ink" :title="value">{{ value }}</div>
+              <div class="mt-0.5 text-xs tabular-nums text-af-ink-4">#{{ row.id }}</div>
             </div>
           </template>
 
+          <!-- 状态：展示中是常态（灰点）；草稿 / 已归档不在展示，淡色空心点 -->
           <template #cell-status="{ value }">
-            <span
-              :class="[
-                'badge',
-                value === 'active'
-                  ? 'badge-success'
-                  : value === 'draft'
-                    ? 'badge-gray'
-                    : 'badge-warning'
-              ]"
-            >
-              {{ statusLabel(value) }}
-            </span>
+            <div class="flex items-center gap-1.5">
+              <span
+                :class="[
+                  'inline-block h-2 w-2 rounded-full',
+                  value === 'active' ? 'bg-af-ink-4' : 'border border-af-ink-4'
+                ]"
+              ></span>
+              <span :class="value === 'active' ? 'text-af-ink-2' : 'text-af-ink-3'">{{ statusLabel(value) }}</span>
+            </div>
           </template>
 
           <template #cell-targeting="{ row }">
-            <span class="text-sm text-af-ink-2">
-              {{ targetingSummary(row.targeting) }}
+            <span class="text-af-ink-2">{{ targetingSummary(row.targeting) }}</span>
+          </template>
+
+          <!-- 有效期：一行「开始 → 结束」，精确到分钟（维护通知这类公告的时刻有意义） -->
+          <template #cell-timeRange="{ row }">
+            <span class="tabular-nums text-af-ink-2">
+              {{ row.starts_at ? formatDateTimeToMinute(row.starts_at) : t('admin.announcements.timeImmediate') }}
+              <span class="mx-1 text-af-ink-4">→</span>
+              {{ row.ends_at ? formatDateTimeToMinute(row.ends_at) : t('admin.announcements.timeNever') }}
             </span>
           </template>
 
-          <template #cell-timeRange="{ row }">
-            <div class="text-sm text-af-ink-2">
-              <div>
-                <span class="font-medium">{{ t('admin.announcements.form.startsAt') }}:</span>
-                <span class="ml-1">{{ row.starts_at ? formatDateTime(row.starts_at) : t('admin.announcements.timeImmediate') }}</span>
-              </div>
-              <div class="mt-0.5">
-                <span class="font-medium">{{ t('admin.announcements.form.endsAt') }}:</span>
-                <span class="ml-1">{{ row.ends_at ? formatDateTime(row.ends_at) : t('admin.announcements.timeNever') }}</span>
-              </div>
-            </div>
-          </template>
-
           <template #cell-created_at="{ value }">
-            <span class="text-sm text-af-ink-3">{{ formatDateTime(value) }}</span>
+            <span class="tabular-nums text-af-ink-3" :title="formatDateTime(value)">{{ formatDateOnly(value) }}</span>
           </template>
 
           <template #cell-actions="{ row }">
-            <div class="flex items-center space-x-1">
-              <button
-                @click="openPreview(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-                :title="t('admin.announcements.preview')"
-              >
-                <Icon name="eye" size="sm" />
-              </button>
-              <button
-                @click="openReadStatus(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-                :title="t('admin.announcements.readStatus')"
-              >
-                <Icon name="chartBar" size="sm" />
-              </button>
-              <button
-                @click="openEditDialog(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-                :title="t('common.edit')"
-              >
-                <Icon name="edit" size="sm" />
-              </button>
-              <button
-                @click="handleDelete(row)"
-                class="flex flex-col items-center gap-0.5 rounded-lg p-1.5 text-af-ink-3 transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                :title="t('common.delete')"
-              >
-                <Icon name="trash" size="sm" />
-              </button>
-            </div>
+            <RowActions :actions="rowActions(row)" />
           </template>
 
           <template #empty>
@@ -243,7 +206,13 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { adminAPI } from '@/api/admin'
-import { formatDateTime, formatDateTimeLocalInput, parseDateTimeLocalInput } from '@/utils/format'
+import {
+  formatDateOnly,
+  formatDateTime,
+  formatDateTimeLocalInput,
+  formatDateTimeToMinute,
+  parseDateTimeLocalInput
+} from '@/utils/format'
 import type { Announcement, AnnouncementTargeting } from '@/types'
 import type { SubscriptionPlan } from '@/types/payment'
 import { adminPaymentAPI } from '@/api/admin/payment'
@@ -257,7 +226,10 @@ import BaseDialog from '@/components/common/BaseDialog.vue'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import Select from '@/components/common/Select.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { FilterChip, ListToolbar, RowActions } from '@/components/admin/list'
+import type { RowAction } from '@/components/admin/list'
 
 import AnnouncementTargetingEditor from '@/components/admin/announcements/AnnouncementTargetingEditor.vue'
 import AnnouncementReadStatusDialog from '@/components/admin/announcements/AnnouncementReadStatusDialog.vue'
@@ -286,13 +258,7 @@ const sortState = reactive({
   sort_order: 'desc' as 'asc' | 'desc'
 })
 
-const statusFilterOptions = computed(() => [
-  { value: '', label: t('admin.announcements.allStatus') },
-  { value: 'draft', label: t('admin.announcements.statusLabels.draft') },
-  { value: 'active', label: t('admin.announcements.statusLabels.active') },
-  { value: 'archived', label: t('admin.announcements.statusLabels.archived') }
-])
-
+// 编辑表单的状态选项，也用作「状态」筛选标签的选项（筛选标签自带「全部」）
 const statusOptions = computed(() => [
   { value: 'draft', label: t('admin.announcements.statusLabels.draft') },
   { value: 'active', label: t('admin.announcements.statusLabels.active') },
@@ -320,6 +286,14 @@ const targetingSummary = (targeting: AnnouncementTargeting) => {
   if (!anyOf || anyOf.length === 0) return t('admin.announcements.targetingSummaryAll')
   return t('admin.announcements.targetingSummaryCustom', { groups: anyOf.length })
 }
+
+// 行操作（A4）：编辑是图标；预览、已读情况、删除进「⋯」，删除红字
+const rowActions = (row: Announcement): RowAction[] => [
+  { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => openEditDialog(row) },
+  { key: 'preview', label: t('admin.announcements.preview'), icon: 'eye', onSelect: () => openPreview(row) },
+  { key: 'read-status', label: t('admin.announcements.readStatus'), icon: 'chartBar', onSelect: () => openReadStatus(row) },
+  { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, dividerBefore: true, onSelect: () => handleDelete(row) }
+]
 
 // ===== CRUD / list =====
 let currentController: AbortController | null = null

@@ -42,7 +42,6 @@ export default {
 
     // Proxies
     proxies: {
-      accountsCount: '{count} accounts',
       description: 'Manage proxy servers for accounts',
       createProxy: 'Create Proxy',
       editProxy: 'Edit Proxy',
@@ -73,8 +72,6 @@ export default {
       copyProxyUrl: 'Copy Proxy URL',
       urlCopied: 'Proxy URL copied',
       searchProxies: 'Search proxies...',
-      allProtocols: 'All Protocols',
-      allStatus: 'All Status',
       protocols: {
         http: 'HTTP',
         https: 'HTTPS',
@@ -116,14 +113,14 @@ export default {
       },
       testConnection: 'Test Connection',
       qualityCheck: 'Quality Check',
-      batchQualityCheck: 'Batch Quality Check',
       batchTest: 'Test All Proxies',
+      testAll: 'Test All',
+      qualityCheckAll: 'Quality Check All',
       testFailed: 'Failed',
       latencyFailed: 'Connection failed',
       batchTestEmpty: 'No proxies available for testing',
       batchTestDone: 'Batch test completed for {count} proxies',
       batchTestFailed: 'Batch test failed',
-      batchDeleteAction: 'Delete',
       batchDelete: 'Batch delete',
       batchDeleteConfirm: 'Delete {count} selected proxies? In-use ones will be skipped.',
       batchDeleteDone: 'Deleted {deleted} proxies, skipped {skipped}',
@@ -240,8 +237,6 @@ export default {
       description: 'Generate and manage redeem codes',
       generateCodes: 'Generate Codes',
       searchCodes: 'Search codes or email...',
-      allTypes: 'All Types',
-      allStatus: 'All Status',
       balance: 'Balance',
       concurrency: 'Concurrency',
       subscription: 'Subscription',
@@ -265,7 +260,6 @@ export default {
       batchUpdate: 'Batch Update',
       batchUpdateTitle: 'Batch Update Redeem Codes',
       selectedCount: '{count} redeem code(s) selected',
-      clearSelection: 'Clear selection',
       selectCodesFirst: 'Select redeem codes first',
       noBatchFieldsSelected: 'Select at least one field to update',
       batchUpdateSuccess: 'Updated {count} redeem code(s)',
@@ -366,7 +360,17 @@ export default {
       codeDisabledSuccess: 'Redeem code disabled',
       codeEnabledSuccess: 'Redeem code enabled',
       codeDeletedSuccess: 'Redeem code deleted successfully',
-      failedToUpdate: 'Failed to update redeem code'
+      failedToUpdate: 'Failed to update redeem code',
+      summary: {
+        total: 'Codes'
+      },
+      bulkDelete: {
+        title: 'Delete Selected Codes',
+        confirm: 'Delete the {count} selected redeem code(s)? This cannot be undone.',
+        confirmWithSkipped: 'Delete {count} selected unused code(s)? The other {skipped} used, expired or disabled code(s) will be skipped. This cannot be undone.',
+        noneDeletable: 'Only unused redeem codes can be deleted, and none of the selected codes are unused',
+        done: 'Deleted {count} redeem code(s)'
+      }
     },
 
     // Announcements
@@ -378,7 +382,6 @@ export default {
       deleteAnnouncement: 'Delete Announcement',
       searchAnnouncements: 'Search announcements...',
       status: 'Status',
-      allStatus: 'All Status',
       columns: {
         title: 'Title',
         status: 'Status',

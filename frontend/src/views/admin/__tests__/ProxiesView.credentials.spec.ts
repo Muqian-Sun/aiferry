@@ -15,6 +15,9 @@ const mountView = () => shallowMount(ProxiesView, {
     TablePageLayout: { template: '<div><slot name="table" /></div>' },
     DataTable: { props: ['data'], template: '<div v-for="row in data" :key="row.id"><slot name="cell-actions" :row="row" /></div>' },
     BaseDialog: { props: ['show'], template: '<div v-if="show"><slot /><slot name="footer" /></div>' },
+    // A4：行尾操作走 RowActions（编辑是无字图标）；桩成带文字的按钮。编辑对话框拆成了 ProxyEditDialog，照常渲染
+    RowActions: { props: ['actions'], template: '<div><button v-for="a in actions" :key="a.key" @click="a.onSelect()">{{ a.label }}</button></div>' },
+    ProxyEditDialog: false,
   } },
 })
 let wrapper: ReturnType<typeof mountView>
