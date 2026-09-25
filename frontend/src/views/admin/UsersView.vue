@@ -1,8 +1,12 @@
 <template>
   <!--
     用户（A4 列表模板）：标题右侧是工具菜单与「创建用户」；数字摘要；工具行 = 搜索 + 筛选标签 + 刷新 / 列设置；
-    行尾「编辑」图标 + 「⋯」（充值、扣款、余额记录、API 密钥、禁用、删除）；选中行时出现批量条。
-    点行打开详情抽屉（A5）：概况 / 余额流水 / API 密钥 / 订阅 / 用量；「余额记录」「API 密钥」和余额数字都直接开到对应页签。
+    默认列（管理站瘦身方案）：用户、余额、计费倍率、近 30 天消费、状态、最近活跃，其余进列设置。
+    「活跃」在这页只有一个意思：调用过 API（摘要「今日活跃」、列「最近活跃」= last_used_at）；
+    登录 / 打开控制台记在 last_active_at，列名写「最近访问控制台」，默认不显示。
+    行尾「编辑」图标 + 「⋯」（充值、扣减余额、余额流水、API 密钥、禁用、删除）；选中行时出现批量条。
+    点行打开详情抽屉（A5）：概况 / 余额流水 / API 密钥 / 订阅（订阅功能开着才有）/ 用量；
+    「余额流水」「API 密钥」和余额数字都直接开到对应页签。
   -->
   <AppLayout>
     <template #header-actions>
@@ -64,28 +68,28 @@
             @change="applyFilter"
           />
 
-          <!-- 自定义属性筛选：从「+ 属性」里挑出来的才显示 -->
+          <!-- 自定义属性筛选：从「+ 属性」里挑出来的才显示；单选 / 多选型和角色、状态一样用筛选标签，其他型是输入框（回车生效） -->
           <template v-for="(value, attrId) in activeAttributeFilters" :key="attrId">
-            <div v-if="visibleFilters.has(`attr_${attrId}`)" class="w-full sm:w-36">
-              <Select
+            <template v-if="visibleFilters.has(`attr_${attrId}`)">
+              <FilterChip
                 v-if="['select', 'multi_select'].includes(getAttributeDefinition(Number(attrId))?.type || '')"
                 :model-value="value"
-                :options="[
-                  { value: '', label: getAttributeDefinitionName(Number(attrId)) },
-                  ...(getAttributeDefinition(Number(attrId))?.options || [])
-                ]"
-                @update:model-value="(val) => { updateAttributeFilter(Number(attrId), String(val ?? '')); applyFilter() }"
+                :label="getAttributeDefinitionName(Number(attrId))"
+                :options="getAttributeDefinition(Number(attrId))?.options || []"
+                :test-id="`filter-attr-${attrId}`"
+                @update:model-value="(val) => updateAttributeFilter(Number(attrId), String(val))"
+                @change="applyFilter"
               />
               <input
                 v-else
                 :value="value"
                 :type="getAttributeDefinition(Number(attrId))?.type === 'number' ? 'number' : 'text'"
                 :placeholder="getAttributeDefinitionName(Number(attrId))"
-                class="input h-8 py-0 text-13"
+                class="input h-8 w-full py-0 text-13 sm:w-36"
                 @input="(e) => updateAttributeFilter(Number(attrId), (e.target as HTMLInputElement).value)"
                 @keyup.enter="applyFilter"
               />
-            </div>
+            </template>
           </template>
           <PopoverMenu v-if="filterableAttributes.length > 0" align="start" width-class="w-52" :close-on-select="false">
             <template #trigger>
@@ -189,6 +193,7 @@
             </span>
           </template>
 
+          <!-- 订阅列只在订阅功能开着时进列表（SITE_FEATURES.subscription） -->
           <template #cell-subscriptions="{ row }">
             <div
               v-if="row.subscriptions && row.subscriptions.length > 0"
@@ -222,113 +227,50 @@
               :title="t('admin.users.balanceHistoryTip')"
               @click.stop="openDrawer(row, 'balance')"
             >
-              ${{ value.toFixed(2) }}
+              {{ formatMoney(value) }}
             </button>
           </template>
 
-          <!-- 用量列自定义表头：列名 + 单个排序图标按钮，点击展开"今日/近30天"菜单。
-               column.sortable=false，DataTable 内置点击逻辑不会触发；
-               菜单项三态循环：desc → asc → off。 -->
-          <template
-            v-for="usageKey in USAGE_COLUMN_KEYS"
-            :key="usageKey"
-            #[`header-${usageKey}`]="{ column }"
-          >
-            <div class="flex items-center gap-1.5">
+          <!-- 「近 30 天消费」表头：用量是列表出来后另取的、只有本页，所以排序在前端做，只排本页。
+               点一下降序 → 再点升序 → 再点取消；指示三角和 DataTable 自带的排序列一个样子。 -->
+          <template #header-usage="{ column }">
+            <button
+              type="button"
+              class="inline-flex items-center gap-1 transition-colors hover:text-af-ink"
+              :class="usageSort ? 'text-af-ink' : ''"
+              :title="t('admin.users.usageSortHint')"
+              :aria-label="t('admin.users.usageSortHint')"
+              data-test="usage-sort-trigger-usage"
+              @click.stop="toggleUsageSort"
+            >
               <span>{{ column.label }}</span>
-              <div class="usage-sort-trigger relative">
-                <button
-                  type="button"
-                  class="flex items-center gap-1 rounded px-1 py-0.5 transition-colors hover:bg-af-hairline"
-                  :class="usageSort && usageSort.key === usageKey
-                    ? 'text-af-brand'
-                    : 'text-af-ink-3'"
-                  :title="t('admin.users.sortBy')"
-                  :data-test="`usage-sort-trigger-${usageKey}`"
-                  @click.stop="toggleUsageSortMenu(usageKey)"
+              <span class="inline-flex h-5 w-4 flex-col items-center justify-center" aria-hidden="true">
+                <svg
+                  class="h-2.5 w-2.5"
+                  :class="usageSort === 'asc' ? 'text-af-brand' : 'text-af-ink-4'"
+                  fill="currentColor"
+                  viewBox="0 0 10 10"
                 >
-                  <span
-                    v-if="usageSort && usageSort.key === usageKey"
-                    class="text-[10px] normal-case font-medium tracking-normal"
-                  >{{ usageSort.metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
-                  <svg
-                    v-if="usageSort && usageSort.key === usageKey"
-                    class="h-3.5 w-3.5"
-                    :class="{ 'rotate-180': usageSort.order === 'desc' }"
-                    fill="currentColor"
-                    viewBox="0 0 20 20"
-                  >
-                    <path
-                      fill-rule="evenodd"
-                      d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-                      clip-rule="evenodd"
-                    />
-                  </svg>
-                  <svg v-else class="h-3.5 w-3.5" fill="currentColor" viewBox="0 0 20 20">
-                    <path d="M10 3l-4 5h8l-4-5zM10 17l4-5H6l4 5z" />
-                  </svg>
-                </button>
-                <!-- 弹出菜单：今日 / 近30天，点击进行三态循环切换。 -->
-                <div
-                  v-if="openUsageSortMenu === usageKey"
-                  class="absolute right-0 top-full z-50 mt-1 min-w-[120px] rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
+                  <path d="M5 2L1.5 6.5h7L5 2z" />
+                </svg>
+                <svg
+                  class="-mt-0.5 h-2.5 w-2.5"
+                  :class="usageSort === 'desc' ? 'text-af-brand' : 'text-af-ink-4'"
+                  fill="currentColor"
+                  viewBox="0 0 10 10"
                 >
-                  <button
-                    v-for="metric in (['today', 'total'] as const)"
-                    :key="metric"
-                    type="button"
-                    class="flex w-full items-center justify-between gap-3 px-3 py-1.5 text-left text-xs normal-case tracking-normal hover:bg-af-sunken"
-                    :class="isUsageSortActive(usageKey, metric)
-                      ? 'font-medium text-af-brand'
-                      : 'text-af-ink-2'"
-                    :data-test="`usage-sort-${usageKey}-${metric}`"
-                    @click.stop="toggleUsageSort(usageKey, metric)"
-                  >
-                    <span>{{ metric === 'today' ? t('admin.users.today') : t('admin.users.total') }}</span>
-                    <svg
-                      v-if="getUsageSortOrder(usageKey, metric)"
-                      class="h-3 w-3"
-                      :class="{ 'rotate-180': getUsageSortOrder(usageKey, metric) === 'desc' }"
-                      fill="currentColor"
-                      viewBox="0 0 20 20"
-                    >
-                      <path
-                        fill-rule="evenodd"
-                        d="M14.707 12.707a1 1 0 01-1.414 0L10 9.414l-3.293 3.293a1 1 0 01-1.414-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 010 1.414z"
-                        clip-rule="evenodd"
-                      />
-                    </svg>
-                  </button>
-                  <div class="mt-1 border-t border-af-hairline px-3 py-1 text-[10px] normal-case tracking-normal text-af-ink-3">
-                    {{ t('admin.users.sortCurrentPageOnly') }}
-                  </div>
-                </div>
-              </div>
-            </div>
+                  <path d="M5 8L1.5 3.5h7L5 8z" />
+                </svg>
+              </span>
+            </button>
           </template>
 
+          <!-- 近 30 天消费：收入口径（actual_cost），两位小数 -->
           <template #cell-usage="{ row }">
             <PlatformUsageBreakdown
-              :today="usageStats[row.id]?.today_actual_cost ?? 0"
               :total="usageStats[row.id]?.total_actual_cost ?? 0"
               :by-platform="usageStats[row.id]?.by_platform"
             />
-          </template>
-
-          <template #cell-usage_anthropic="{ row }">
-            <PlatformCostCell :usage="getPlatformUsage(row.id, 'anthropic')" />
-          </template>
-
-          <template #cell-usage_openai="{ row }">
-            <PlatformCostCell :usage="getPlatformUsage(row.id, 'openai')" />
-          </template>
-
-          <template #cell-usage_gemini="{ row }">
-            <PlatformCostCell :usage="getPlatformUsage(row.id, 'gemini')" />
-          </template>
-
-          <template #cell-usage_antigravity="{ row }">
-            <PlatformCostCell :usage="getPlatformUsage(row.id, 'antigravity')" />
           </template>
 
           <template #cell-concurrency="{ row }">
@@ -356,9 +298,13 @@
             </div>
           </template>
 
-          <!-- 时间列：最近活跃 / 最近使用写相对时间，悬停看精确时间；注册时间只写日期 -->
+          <!-- 时间列：最近活跃（调用 API）/ 最近访问控制台写相对时间，悬停看精确时间；创建时间只写日期 -->
           <template #cell-created_at="{ value }">
             <span class="tabular-nums text-af-ink-3" :title="formatDateTime(value)">{{ formatDateOnly(value) }}</span>
+          </template>
+
+          <template #header-last_used_at="{ column }">
+            <span :title="t('admin.users.columns.lastUsedHint')">{{ column.label }}</span>
           </template>
 
           <template #cell-last_used_at="{ value }">
@@ -459,6 +405,8 @@ import { useAppStore } from '@/stores/app'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { useTableSelection } from '@/composables/useTableSelection'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
+import { formatMoney } from '@/utils/money'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 
 const { t } = useI18n()
@@ -479,11 +427,9 @@ import { BulkBar, ColumnSettingsMenu, FilterChip, ListToolbar, MenuItem, Popover
 import type { RowAction } from '@/components/admin/list'
 import { useColumnSettings } from '@/composables/useColumnSettings'
 import type { DashboardStats } from '@/types'
-import Select from '@/components/common/Select.vue'
 import UserAttributesConfigModal from '@/components/user/UserAttributesConfigModal.vue'
 import UserConcurrencyCell from '@/components/user/UserConcurrencyCell.vue'
 import PlatformUsageBreakdown from '@/components/user/PlatformUsageBreakdown.vue'
-import PlatformCostCell from '@/components/user/PlatformCostCell.vue'
 import UserCreateModal from '@/components/admin/user/UserCreateModal.vue'
 import UserEditModal from '@/components/admin/user/UserEditModal.vue'
 import BulkEditUserModal from '@/components/admin/user/BulkEditUserModal.vue'
@@ -513,40 +459,39 @@ const getAttributeValue = (userId: number, attrId: number): string => {
   return formatAttributeValue(attributeDefinitions.value.find(d => d.id === attrId), value)
 }
 
-// All possible columns (for column settings)
+// 全部列（列设置菜单按这个顺序列）。默认显示的六列排在最前，顺序同方案：用户、余额、计费倍率、近 30 天消费、状态、最近活跃。
+// 原来按平台写死的四个用量子列（Claude / OpenAI / Gemini / Antigravity）已删：按平台看放在「近 30 天消费」的悬停里，平台不写死。
 const allColumns = computed<Column[]>(() => [
   { key: 'email', label: t('admin.users.columns.user'), sortable: true },
   { key: 'id', label: t('admin.users.columns.id'), sortable: true },
   { key: 'username', label: t('admin.users.columns.username'), sortable: true },
-  { key: 'notes', label: t('admin.users.columns.notes'), sortable: false },
-  // Dynamic attribute columns
-  ...attributeColumns.value,
   { key: 'role', label: t('admin.users.columns.role'), sortable: true },
-  { key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false },
   { key: 'balance', label: t('admin.users.columns.balance'), sortable: true },
-  { key: 'usage', label: t('admin.users.columns.usage'), sortable: false },
-  { key: 'usage_anthropic', label: t('admin.users.columns.usageAnthropic'), sortable: false },
-  { key: 'usage_openai', label: t('admin.users.columns.usageOpenAI'), sortable: false },
-  { key: 'usage_gemini', label: t('admin.users.columns.usageGemini'), sortable: false },
-  { key: 'usage_antigravity', label: t('admin.users.columns.usageAntigravity'), sortable: false },
-  { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
   { key: 'rate_multiplier', label: t('admin.users.columns.rateMultiplier'), sortable: true },
+  { key: 'usage', label: t('admin.users.columns.usage'), sortable: false },
+  { key: 'concurrency', label: t('admin.users.columns.concurrency'), sortable: true },
+  ...(SITE_FEATURES.subscription
+    ? [{ key: 'subscriptions', label: t('admin.users.columns.subscriptions'), sortable: false }]
+    : []),
   { key: 'status', label: t('admin.users.columns.status'), sortable: true },
-  { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
   { key: 'last_used_at', label: t('admin.users.columns.lastUsed'), sortable: true },
+  { key: 'last_active_at', label: t('admin.users.columns.lastActive'), sortable: true },
   { key: 'created_at', label: t('admin.users.columns.created'), sortable: true },
+  { key: 'notes', label: t('admin.users.columns.notes'), sortable: false },
+  // 自定义属性：启用了几个就多几列
+  ...attributeColumns.value,
   { key: 'actions', label: t('admin.users.columns.actions'), sortable: false }
 ])
 
-// 列设置（A4 共用实现）：用户列与操作列恒显示；ID、用户名与「用户」列（邮箱 + 用户名小字）重复，默认收起
+// 列设置（A4 共用实现）：用户列与操作列恒显示；ID、用户名与「用户」列（邮箱 + 用户名小字）重复，默认收起。
+// 方案改了默认列，version 加一让本机旧设置作废、回到新默认。
 const DEFAULT_HIDDEN_COLUMNS = [
-  'notes', 'subscriptions', 'usage', 'concurrency',
-  'usage_anthropic', 'usage_openai', 'usage_gemini', 'usage_antigravity',
-  'id', 'username'
+  'id', 'username', 'role', 'concurrency', 'subscriptions',
+  'last_active_at', 'created_at', 'notes'
 ]
 const columnSettings = useColumnSettings({
   storageKey: 'admin-users-columns',
-  version: 1,
+  version: 2,
   columns: allColumns,
   defaultHidden: DEFAULT_HIDDEN_COLUMNS,
   alwaysVisible: ['email', 'actions']
@@ -554,25 +499,11 @@ const columnSettings = useColumnSettings({
 const isColumnVisible = columnSettings.isVisible
 const columns = columnSettings.visibleColumns
 
-// usage 主列或任意 usage_<platform> 子列可见时都需要批量拉取用量数据
-// 列 key → 平台名（'usage' 主列汇总所有平台时为 null）
-// 显式数组取代 Object.keys()：保证迭代顺序（决定列头排序按钮渲染顺序）
-// 不会因 JS 引擎差异或 USAGE_COLUMN_PLATFORMS 属性顺序调整而静默变化。
-const USAGE_COLUMN_KEYS: readonly string[] = ['usage', 'usage_anthropic', 'usage_openai', 'usage_gemini', 'usage_antigravity']
-const USAGE_COLUMN_PLATFORMS: Record<string, string | null> = {
-  usage: null,
-  usage_anthropic: 'anthropic',
-  usage_openai: 'openai',
-  usage_gemini: 'gemini',
-  usage_antigravity: 'antigravity'
-}
-const PLATFORM_USAGE_COLUMNS = USAGE_COLUMN_KEYS.filter((k) => k !== 'usage')
-const hasVisibleUsageColumn = computed(
-  () => isColumnVisible('usage') || PLATFORM_USAGE_COLUMNS.some((k) => isColumnVisible(k))
-)
 const hasVisibleAttributeColumns = computed(() =>
   attributeDefinitions.value.some((def) => def.enabled && isColumnVisible(`attr_${def.id}`))
 )
+// 订阅列不在表里（功能关着或列被收起）就不让后端顺带查订阅
+const hasSubscriptionsColumn = computed(() => columns.value.some((col) => col.key === 'subscriptions'))
 
 
 const users = ref<AdminUser[]>([])
@@ -665,37 +596,26 @@ const getAttributeDefinition = (attrId: number): UserAttributeDefinition | undef
 }
 const usageStats = ref<Record<string, BatchUserUsageStats>>({})
 
-const getPlatformUsage = (userId: number, platform: string) =>
-  usageStats.value[userId]?.by_platform?.find((p) => p.platform === platform)
-
-// 用量列前端排序：DataTable 工作在 server-side-sort 模式，所有 sortable
-// 字段都会触发后端查询，而用量列数据是异步批量拉取后再合并到当前页，
-// 因此采用独立的前端排序状态对当前页 users 做本地排序。
-// 排序状态独立于后端 sortState 持久化；缺失数据按 0 处理（desc 沉底、asc 置顶）。
-type UsageMetric = 'today' | 'total'
-type UsageSortState = { key: string; metric: UsageMetric; order: 'asc' | 'desc' } | null
+// 「近 30 天消费」前端排序：DataTable 工作在 server-side-sort 模式，所有 sortable 字段都会触发后端查询，
+// 而消费数据是列表出来后按本页用户批量另取的，所以用独立的前端排序状态只排本页。
+// 排序状态独立于后端 sortState 持久化（只存 'asc' / 'desc'，读到别的值——含旧版存的 JSON——按未排序）；
+// 缺失数据按 0 处理（desc 沉底、asc 置顶）。
+type UsageSortOrder = 'asc' | 'desc' | null
 const USAGE_SORT_STORAGE_KEY = 'admin-users-usage-sort'
-// 列头排序按钮点击后弹出的"今日/近30天"选择菜单，同时只允许一个列展开。
-const openUsageSortMenu = ref<string | null>(null)
 
-const loadInitialUsageSort = (): UsageSortState => {
+const loadInitialUsageSort = (): UsageSortOrder => {
   try {
     const raw = localStorage.getItem(USAGE_SORT_STORAGE_KEY)
-    if (!raw) return null
-    const parsed = JSON.parse(raw) as Partial<{ key: string; metric: string; order: string }>
-    if (!parsed.key || !USAGE_COLUMN_KEYS.includes(parsed.key)) return null
-    const metric: UsageMetric = parsed.metric === 'total' ? 'total' : 'today'
-    const order: 'asc' | 'desc' = parsed.order === 'asc' ? 'asc' : 'desc'
-    return { key: parsed.key, metric, order }
+    return raw === 'asc' || raw === 'desc' ? raw : null
   } catch {
     return null
   }
 }
-const usageSort = ref<UsageSortState>(loadInitialUsageSort())
+const usageSort = ref<UsageSortOrder>(loadInitialUsageSort())
 const persistUsageSort = () => {
   try {
     if (usageSort.value) {
-      localStorage.setItem(USAGE_SORT_STORAGE_KEY, JSON.stringify(usageSort.value))
+      localStorage.setItem(USAGE_SORT_STORAGE_KEY, usageSort.value)
     } else {
       localStorage.removeItem(USAGE_SORT_STORAGE_KEY)
     }
@@ -706,56 +626,27 @@ const persistUsageSort = () => {
 const clearUsageSort = () => {
   if (!usageSort.value) return
   usageSort.value = null
-  openUsageSortMenu.value = null
   persistUsageSort()
 }
 
-const isUsageSortActive = (key: string, metric: UsageMetric) =>
-  !!usageSort.value && usageSort.value.key === key && usageSort.value.metric === metric
-const getUsageSortOrder = (key: string, metric: UsageMetric): 'asc' | 'desc' | null =>
-  isUsageSortActive(key, metric) ? usageSort.value!.order : null
-
-// 三态循环：desc → asc → off。选完即关闭菜单（用户大多希望"选中即应用"，
-// 想再切换 order 时重新打开菜单点同一项即可）。
-const toggleUsageSort = (key: string, metric: UsageMetric) => {
-  const cur = usageSort.value
-  if (cur && cur.key === key && cur.metric === metric) {
-    usageSort.value = cur.order === 'desc' ? { key, metric, order: 'asc' } : null
-  } else {
-    usageSort.value = { key, metric, order: 'desc' }
-  }
+// 三态循环：desc → asc → off
+const toggleUsageSort = () => {
+  usageSort.value = usageSort.value === null ? 'desc' : usageSort.value === 'desc' ? 'asc' : null
   persistUsageSort()
-  openUsageSortMenu.value = null
 }
 
-// 点击图标本身不触发排序，仅开关菜单；首次排序由用户在菜单内选择 metric 触发（默认 desc，详见 toggleUsageSort）。
-const toggleUsageSortMenu = (key: string) => {
-  openUsageSortMenu.value = openUsageSortMenu.value === key ? null : key
-}
-
-const getUsageValue = (userId: number, key: string, metric: UsageMetric): number => {
-  const stats = usageStats.value[userId]
-  if (!stats) return 0
-  const platform = USAGE_COLUMN_PLATFORMS[key]
-  if (platform === null) {
-    return metric === 'today' ? stats.today_actual_cost ?? 0 : stats.total_actual_cost ?? 0
-  }
-  const p = stats.by_platform?.find((x) => x.platform === platform)
-  if (!p) return 0
-  return metric === 'today' ? p.today_actual_cost ?? 0 : p.total_actual_cost ?? 0
-}
-
-// 在 server-side 排序结果之上叠加用量列的本地排序；无 usageSort 时直接透传原数组。
+// 在 server-side 排序结果之上叠加消费列的本地排序；未排序或列被收起时直接透传原数组。
 // 稳定排序：等值按原 index 保序，避免拉取新用量数据时表行抖动。
 const sortedUsers = computed(() => {
-  const s = usageSort.value
-  if (!s) return users.value
+  const order = usageSort.value
+  if (!order || !isColumnVisible('usage')) return users.value
+  const spend = (userId: number) => usageStats.value[userId]?.total_actual_cost ?? 0
   return [...users.value]
     .map((row, index) => ({ row, index }))
     .sort((a, b) => {
-      const av = getUsageValue(a.row.id, s.key, s.metric)
-      const bv = getUsageValue(b.row.id, s.key, s.metric)
-      if (av !== bv) return s.order === 'asc' ? av - bv : bv - av
+      const av = spend(a.row.id)
+      const bv = spend(b.row.id)
+      if (av !== bv) return order === 'asc' ? av - bv : bv - av
       return a.index - b.index
     })
     .map((x) => x.row)
@@ -810,7 +701,7 @@ const loadUsersSecondaryData = async (
 
   const tasks: Promise<void>[] = []
 
-  if (hasVisibleUsageColumn.value) {
+  if (isColumnVisible('usage')) {
     tasks.push(
       (async () => {
         try {
@@ -878,15 +769,8 @@ const rowActions = (user: AdminUser): RowAction[] => {
   return actions
 }
 
-// 用量列表头的「今日 / 近 30 天」排序菜单：点外面关掉
-const handleClickOutside = (event: MouseEvent) => {
-  const target = event.target as HTMLElement
-  if (openUsageSortMenu.value !== null && !target.closest('.usage-sort-trigger')) {
-    openUsageSortMenu.value = null
-  }
-}
-
-// 数字摘要：取仪表盘统计；接口失败就不显示，不摆一排 0
+// 数字摘要：取仪表盘统计；接口失败就不显示，不摆一排 0。
+// 「今日活跃」= 今天调用过 API 的用户（usage_logs 去重），小字写明，和「最近活跃」列同一个意思。
 const dashboardStats = ref<DashboardStats | null>(null)
 const summaryItems = computed<StatItem[] | null>(() => {
   const stats = dashboardStats.value
@@ -895,7 +779,12 @@ const summaryItems = computed<StatItem[] | null>(() => {
   return [
     { key: 'total', label: t('admin.users.summary.total'), value: fmt(stats.total_users) },
     { key: 'new', label: t('admin.users.summary.todayNew'), value: fmt(stats.today_new_users) },
-    { key: 'active', label: t('admin.users.summary.todayActive'), value: fmt(stats.active_users) },
+    {
+      key: 'active',
+      label: t('admin.users.summary.todayActive'),
+      value: fmt(stats.active_users),
+      hint: t('admin.users.summary.todayActiveHint')
+    },
     {
       key: 'keys',
       label: t('admin.users.summary.apiKeys'),
@@ -1009,7 +898,8 @@ const loadUsers = async () => {
         status: filters.status as any,
         search: searchQuery.value || undefined,
         attributes: Object.keys(attrFilters).length > 0 ? attrFilters : undefined,
-        include_subscriptions: true,
+        // 后端不传这个参数时默认带订阅，所以显式传 false
+        include_subscriptions: hasSubscriptionsColumn.value,
         sort_by: sortState.sort_by,
         sort_order: sortState.sort_order
       },
@@ -1199,12 +1089,12 @@ const closeBalanceModal = () => {
   balanceUser.value = null
 }
 
-// 刚打开的列要补数据：用量 / 属性列按需批量拉取，订阅列随列表一起取
+// 刚打开的列要补数据：消费 / 属性列按需批量拉取，订阅列随列表一起取
 watch(
   () => columns.value.map((col) => col.key),
   (next, prev) => {
     const opened = next.filter((key) => !prev?.includes(key))
-    if (opened.some((key) => key === 'usage' || key.startsWith('usage_') || key.startsWith('attr_'))) {
+    if (opened.some((key) => key === 'usage' || key.startsWith('attr_'))) {
       refreshCurrentPageSecondaryData()
     }
     if (opened.includes('subscriptions')) loadUsers()
@@ -1216,11 +1106,9 @@ onMounted(async () => {
   loadSavedFilters()
   loadUsers()
   void loadSummary()
-  document.addEventListener('click', handleClickOutside)
 })
 
 onUnmounted(() => {
-  document.removeEventListener('click', handleClickOutside)
   clearTimeout(searchTimeout)
   abortController?.abort()
 })
