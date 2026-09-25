@@ -1421,8 +1421,6 @@ export default {
         tier: {
           label: '账号等级',
           hint: '提示：系统会优先尝试自动识别账号等级；若自动识别不可用或失败，则使用你选择的等级作为回退（本地模拟配额）。',
-          aiStudioHint:
-            'AI Studio 的配额是按模型分别限流（Pro/Flash 独立）。若已绑卡（按量付费），请选 Pay-as-you-go。',
           googleOne: {
             free: 'Google One Free',
             pro: 'Google One Pro',

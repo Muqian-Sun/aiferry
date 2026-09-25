@@ -427,7 +427,7 @@
             <template v-if="tooltipData && !isImageUsage(tooltipData) && (!tooltipData.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN)">
               <div v-if="tooltipData && textInputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.inputTokenPrice') }}</span>
-                <span class="font-medium text-af-on-brand">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
+                <span class="font-medium text-af-ink">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
               </div>
               <div v-if="tooltipData && hasImageInputTokens(tooltipData)" class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.imageInputTokenPrice') }}</span>
@@ -435,7 +435,7 @@
               </div>
               <div v-if="tooltipData && tooltipData.output_cost > 0 && textOutputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.outputTokenPrice') }}</span>
-                <span class="font-medium text-af-on-brand">{{ formatTokenPricePerMillion(tooltipData.output_cost, textOutputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
+                <span class="font-medium text-af-ink">{{ formatTokenPricePerMillion(tooltipData.output_cost, textOutputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
               </div>
               <div v-if="tooltipData && hasImageOutputTokens(tooltipData)" class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.imageOutputTokenPrice') }}</span>
@@ -469,7 +469,7 @@
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.imageUnitPrice') }}</span>
-                <span class="font-medium text-af-on-brand">${{ imageUnitPrice(tooltipData).toFixed(8) }}</span>
+                <span class="font-medium text-af-ink">${{ imageUnitPrice(tooltipData).toFixed(8) }}</span>
               </div>
               <div class="flex items-center justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('usage.imageTotalPrice') }}</span>
@@ -478,7 +478,7 @@
             </template>
             <div v-else class="flex items-center justify-between gap-4">
               <span class="text-af-ink-3">{{ t('usage.unitPrice') }}</span>
-              <span class="font-medium text-af-on-brand">${{ tooltipData?.total_cost?.toFixed(8) || '0.00000000' }}</span>
+              <span class="font-medium text-af-ink">${{ tooltipData?.total_cost?.toFixed(8) || '0.00000000' }}</span>
             </div>
             <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
               <span class="text-af-ink-3">{{ t('admin.usage.cacheCreationCost') }}</span>

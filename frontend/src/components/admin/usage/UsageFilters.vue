@@ -127,7 +127,7 @@
         </div>
 
         <!-- Native compaction is independent of the transport request type. -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
+        <div v-if="mode !== 'errors' && mode !== 'cleanup'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
           <Select v-model="filters.native_compaction_v2" :options="compactionOptions" :placeholder="t('usage.allCompactionTypes')" @change="emitChange" />
         </div>
 
@@ -193,8 +193,9 @@ interface Props {
    * errors 模式:隐藏用量专属字段,显示错误类型+状态码(错误请求 tab 用)
    * ranking 模式:同 usage 但隐藏计费模式与上游模型审计(用户排行 tab 用,下钻接口不支持这两个维度)
    * analysis 模式:同 usage 但隐藏计费模式(分析 tab 的趋势 / 分布接口不支持该维度)
+   * cleanup 模式:只留清理接口认的条件(用户 / Key / 模型 / 渠道 / 请求类型 / 计费类型),弹窗里显示的就是要删的范围
    */
-  mode?: 'usage' | 'errors' | 'ranking' | 'analysis'
+  mode?: 'usage' | 'errors' | 'ranking' | 'analysis' | 'cleanup'
   /** 嵌入页面内使用：去掉自身卡片外观 */
   flat?: boolean
 }

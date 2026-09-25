@@ -1357,8 +1357,6 @@ export default {
         tier: {
           label: 'Account Tier',
           hint: 'Tip: The system will try to auto-detect the tier first; if auto-detection is unavailable or fails, your selected tier is used as a fallback (simulated quota).',
-          aiStudioHint:
-            'AI Studio quotas are per-model (Pro/Flash are limited independently). If billing is enabled, choose Pay-as-you-go.',
           googleOne: {
             free: 'Google One Free',
             pro: 'Google One Pro',
