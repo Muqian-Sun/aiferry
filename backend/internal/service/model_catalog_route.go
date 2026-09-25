@@ -275,6 +275,15 @@ func AccountServesCatalogExtensionEndpoints(entry *ModelCatalogEntry, account *A
 			"and a third-party key serves those only when it has a chat_completions endpoint", account.ID, entry.ModelID))
 }
 
+// EntryServedByExtensionEndpoints 条目是否经扩展端点（生图 / 视频 / 向量）承接，口径同绑定校验：
+// 管理端据此让渠道表单的默认勾选只含对话模型（扩展端点有额外的承接条件，默认勾上可能整批被拒）。
+func (s *ModelCatalogService) EntryServedByExtensionEndpoints(entry *ModelCatalogEntry) bool {
+	if s == nil || entry == nil {
+		return false
+	}
+	return CatalogEntryServedByExtensionEndpoints(entry, s.priceFileMode(entry.ModelID))
+}
+
 // priceFileMode 返回价格文件里该模型的 mode（确定性识别，不按子串猜）；没有价格服务或识别不到时为空。
 func (s *ModelCatalogService) priceFileMode(modelID string) string {
 	if pricing := s.seedInput.PricingService.GetIdentifiedModelPricing(modelID); pricing != nil {

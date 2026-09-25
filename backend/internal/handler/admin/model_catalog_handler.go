@@ -171,6 +171,8 @@ type ModelCatalogEntryView struct {
 	service.ModelCatalogEntry
 	// VendorPlatform 厂商族，认不出的厂商（含空厂商）为空串。
 	VendorPlatform string `json:"vendor_platform"`
+	// ExtensionEndpoints 经扩展端点（生图 / 视频 / 向量）承接：渠道表单的默认勾选不含这类模型。
+	ExtensionEndpoints bool `json:"extension_endpoints"`
 }
 
 // ListEntries 返回全部目录条目（含别名、分档、分时）。
@@ -183,7 +185,11 @@ func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
 	}
 	views := make([]ModelCatalogEntryView, len(entries))
 	for i := range entries {
-		views[i] = ModelCatalogEntryView{ModelCatalogEntry: entries[i], VendorPlatform: service.CatalogVendorPlatform(&entries[i])}
+		views[i] = ModelCatalogEntryView{
+			ModelCatalogEntry:  entries[i],
+			VendorPlatform:     service.CatalogVendorPlatform(&entries[i]),
+			ExtensionEndpoints: h.service.EntryServedByExtensionEndpoints(&entries[i]),
+		}
 	}
 	response.Success(c, views)
 }

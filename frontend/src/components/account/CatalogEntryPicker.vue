@@ -2,6 +2,7 @@
   <!--
     渠道承接的目录模型（muqian 2026-09-25：渠道表单里直接绑定模型）。按厂商族分组、可搜索；
     勾选结果是目录条目 ID，由表单在保存渠道后整份写入（PUT /admin/accounts/:id/catalog-entries）。
+    collapsible：先只显示「已选 N 个：…」一行，点「修改」再展开列表（新建表单用，muqian「还是太繁琐」）。
   -->
   <div data-testid="catalog-entry-picker">
     <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -9,15 +10,38 @@
       <span class="text-xs text-af-ink-3" data-testid="catalog-entry-picker-count">
         {{ t('admin.accounts.catalogEntries.selected', { count: modelValue.length }) }}
         <button
-          v-if="modelValue.length > 0"
+          v-if="modelValue.length > 0 && expanded"
           type="button"
           class="ml-2 text-af-brand hover:text-af-brand-hover"
           @click="emit('update:modelValue', [])"
         >
           {{ t('admin.accounts.catalogEntries.clear') }}
         </button>
+        <button
+          v-if="collapsible"
+          type="button"
+          class="ml-2 text-af-brand hover:text-af-brand-hover"
+          data-testid="catalog-entry-picker-toggle"
+          @click="expanded = !expanded"
+        >
+          {{ expanded ? t('admin.accounts.catalogEntries.collapse') : t('admin.accounts.catalogEntries.edit') }}
+        </button>
       </span>
     </div>
+
+    <p v-if="!expanded" class="input-hint" data-testid="catalog-entry-picker-summary">
+      <template v-if="loading">{{ t('admin.accounts.catalogEntries.loading') }}</template>
+      <template v-else-if="loadFailed">{{ t('admin.accounts.catalogEntries.loadFailed') }}</template>
+      <template v-else-if="selectedModelIds.length === 0">{{ t('admin.accounts.catalogEntries.noneSelected') }}</template>
+      <template v-else>
+        <span class="font-mono">{{ selectedModelIds.slice(0, SUMMARY_LIMIT).join('、') }}</span>
+        <template v-if="selectedModelIds.length > SUMMARY_LIMIT">
+          {{ t('admin.accounts.catalogEntries.andMore', { count: selectedModelIds.length - SUMMARY_LIMIT }) }}
+        </template>
+      </template>
+    </p>
+
+    <template v-else>
     <p class="input-hint mb-2">{{ t('admin.accounts.catalogEntries.hint') }}</p>
 
     <div class="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center">
@@ -98,6 +122,7 @@
       </section>
       </template>
     </div>
+    </template>
   </div>
 </template>
 
@@ -116,10 +141,14 @@ const props = defineProps<{
   modelValue: number[]
   /** 来源对应的厂商族：排在最前并默认展开；中转没有。 */
   suggestedPlatform?: string
+  /** 先收起成一行摘要，点「修改」展开。 */
+  collapsible?: boolean
 }>()
 
 const emit = defineEmits<{
   'update:modelValue': [value: number[]]
+  /** 目录加载完：表单据此定默认勾选。 */
+  loaded: [entries: ModelCatalogEntry[]]
 }>()
 
 const { t } = useI18n()
@@ -129,7 +158,12 @@ const loading = ref(false)
 const loadFailed = ref(false)
 const query = ref('')
 const listedOnly = ref(false)
-const expanded = ref(new Set<string>())
+const expandedGroups = ref(new Set<string>())
+const expanded = ref(!props.collapsible)
+const SUMMARY_LIMIT = 4
+const selectedModelIds = computed(() =>
+  entries.value.filter((entry) => props.modelValue.includes(entry.id)).map((entry) => entry.model_id)
+)
 
 // 分组顺序：来源厂商族在最前，其余按渠道来源的顺序，认不出厂商的归「其他」放最后。
 const FAMILY_ORDER = ['anthropic', 'openai', 'gemini', 'grok', 'kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go']
@@ -143,6 +177,7 @@ async function load() {
   try {
     entries.value = await adminAPI.modelCatalog.listEntries()
     expandInitialGroups()
+    emit('loaded', entries.value)
   } catch {
     loadFailed.value = true
   } finally {
@@ -157,7 +192,7 @@ function expandInitialGroups() {
   for (const entry of entries.value) {
     if (selectedSet.value.has(entry.id)) next.add(entry.vendor_platform ?? '')
   }
-  expanded.value = next
+  expandedGroups.value = next
 }
 
 const normalizedQuery = computed(() => query.value.trim().toLowerCase())
@@ -206,14 +241,14 @@ const groups = computed<EntryGroup[]>(() => {
 })
 
 function isExpanded(key: string): boolean {
-  return normalizedQuery.value !== '' || expanded.value.has(key)
+  return normalizedQuery.value !== '' || expandedGroups.value.has(key)
 }
 
 function toggleGroup(key: string) {
-  const next = new Set(expanded.value)
+  const next = new Set(expandedGroups.value)
   if (next.has(key)) next.delete(key)
   else next.add(key)
-  expanded.value = next
+  expandedGroups.value = next
 }
 
 function toggleEntry(id: number) {
@@ -238,7 +273,7 @@ function toggleAll(groupEntries: ModelCatalogEntry[]) {
 watch(
   () => props.suggestedPlatform,
   (platform) => {
-    if (platform && !expanded.value.has(platform)) expanded.value = new Set([...expanded.value, platform])
+    if (platform && !expandedGroups.value.has(platform)) expandedGroups.value = new Set([...expandedGroups.value, platform])
   }
 )
 

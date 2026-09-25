@@ -47,8 +47,6 @@
       @submit.prevent="handleSubmit"
       class="space-y-5"
     >
-      <FormSectionHeading section="basics" :title="t('admin.accounts.formPage.sections.basics')" />
-
       <!-- 先选接入方式与来源（muqian 2026-09-25）：第三方 key 不选平台，成品号只选哪家的账号 -->
       <AccessSourcePicker v-model="accessSourceId" />
 
@@ -61,17 +59,6 @@
           class="input"
           :placeholder="t('admin.accounts.enterAccountName')"
         />
-      </div>
-
-      <div>
-        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
-        <textarea
-          v-model="form.notes"
-          rows="3"
-          class="input"
-          :placeholder="t('admin.accounts.notesPlaceholder')"
-        ></textarea>
-        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
       </div>
 
       <div
@@ -331,52 +318,6 @@
           </div>
         </div>
 
-        <!-- 成品号档位（自动识别失败时的兜底）；第三方 key 的档位在凭证区 -->
-        <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <div class="mt-2">
-            <select
-              v-if="geminiOAuthType === 'google_one'"
-              v-model="geminiTierGoogleOne"
-              class="input"
-            >
-              <option value="google_one_free">{{ t('admin.accounts.gemini.tier.googleOne.free') }}</option>
-              <option value="google_ai_pro">{{ t('admin.accounts.gemini.tier.googleOne.pro') }}</option>
-              <option value="google_ai_ultra">{{ t('admin.accounts.gemini.tier.googleOne.ultra') }}</option>
-            </select>
-
-            <select
-              v-else-if="geminiOAuthType === 'code_assist'"
-              v-model="geminiTierGcp"
-              class="input"
-            >
-              <option value="gcp_standard">{{ t('admin.accounts.gemini.tier.gcp.standard') }}</option>
-              <option value="gcp_enterprise">{{ t('admin.accounts.gemini.tier.gcp.enterprise') }}</option>
-            </select>
-
-            <select
-              v-else
-              v-model="geminiTierAIStudio"
-              class="input"
-            >
-              <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-              <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-            </select>
-          </div>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.hint') }}</p>
-        </div>
-      </div>
-
-      <div v-if="form.platform === 'antigravity'">
-        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
-        <input
-          v-model="antigravityProjectId"
-          data-testid="antigravity-project-id-input"
-          type="text"
-          class="input font-mono"
-          :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
-        />
-        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
       </div>
 
       <!-- Vertex Service Account -->
@@ -469,19 +410,6 @@
         </div>
       </div>
 
-      <!-- 第三方 key 的 API Key -->
-      <div v-if="form.type === 'apikey'">
-        <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
-        <input
-          v-model="apiKeyValue"
-          type="password"
-          required
-          class="input font-mono"
-          :placeholder="apiKeyValuePlaceholder"
-        />
-        <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
-      </div>
-
       <!-- Bedrock 凭证（仅 Anthropic Bedrock 类型） -->
       <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="space-y-4">
         <!-- Auth Mode Radio -->
@@ -553,6 +481,172 @@
         </div>
       </div>
 
+      <!-- Bedrock 区域与全局推理 -->
+      <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="space-y-4">
+        <!-- Shared: Region -->
+        <div>
+          <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
+          <select v-model="bedrockRegion" class="input">
+            <optgroup label="US">
+              <option value="us-east-1">us-east-1 (N. Virginia)</option>
+              <option value="us-east-2">us-east-2 (Ohio)</option>
+              <option value="us-west-1">us-west-1 (N. California)</option>
+              <option value="us-west-2">us-west-2 (Oregon)</option>
+              <option value="us-gov-east-1">us-gov-east-1 (GovCloud US-East)</option>
+              <option value="us-gov-west-1">us-gov-west-1 (GovCloud US-West)</option>
+            </optgroup>
+            <optgroup label="Europe">
+              <option value="eu-west-1">eu-west-1 (Ireland)</option>
+              <option value="eu-west-2">eu-west-2 (London)</option>
+              <option value="eu-west-3">eu-west-3 (Paris)</option>
+              <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
+              <option value="eu-central-2">eu-central-2 (Zurich)</option>
+              <option value="eu-south-1">eu-south-1 (Milan)</option>
+              <option value="eu-south-2">eu-south-2 (Spain)</option>
+              <option value="eu-north-1">eu-north-1 (Stockholm)</option>
+            </optgroup>
+            <optgroup label="Asia Pacific">
+              <option value="ap-northeast-1">ap-northeast-1 (Tokyo)</option>
+              <option value="ap-northeast-2">ap-northeast-2 (Seoul)</option>
+              <option value="ap-northeast-3">ap-northeast-3 (Osaka)</option>
+              <option value="ap-south-1">ap-south-1 (Mumbai)</option>
+              <option value="ap-south-2">ap-south-2 (Hyderabad)</option>
+              <option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
+              <option value="ap-southeast-2">ap-southeast-2 (Sydney)</option>
+            </optgroup>
+            <optgroup label="Canada">
+              <option value="ca-central-1">ca-central-1 (Canada)</option>
+            </optgroup>
+            <optgroup label="South America">
+              <option value="sa-east-1">sa-east-1 (São Paulo)</option>
+            </optgroup>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
+        </div>
+
+        <!-- Shared: Force Global -->
+        <div>
+          <label class="flex items-center gap-2 cursor-pointer">
+            <input
+              v-model="bedrockForceGlobal"
+              type="checkbox"
+              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
+            />
+            <span class="text-sm text-af-ink-2">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
+          </label>
+          <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
+        </div>
+      </div>
+
+      <!--
+        第三方 key 的协议地址（muqian 2026-09-25：key 不选平台）：可从常用官方地址里选一条填入，也可直接填中转地址；
+        厂商按地址识别，识别出的厂商才有它的专属选项（Coding 套餐、智谱团队版、Gemini 档位）。
+      -->
+      <div v-if="form.type === 'apikey'" class="space-y-4">
+        <div>
+          <KeyAddressPresetMenu
+            v-if="keyPresets.length > 0"
+            class="mb-3"
+            :presets="keyPresets"
+            @select="applyKeyAddressPreset"
+          />
+          <ProtocolEndpointsEditor
+            v-model="protocolEndpoints"
+            :protocols="UPSTREAM_PROTOCOLS"
+            :official-endpoints="officialProtocolEndpoints"
+            :defaults-load-failed="protocolDefaultsLoadFailed"
+          />
+          <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
+            {{ t('admin.accounts.keyAddress.detected', { vendor: keyVendorLabel }) }}
+          </p>
+          <p v-else-if="hasKeyAddress" class="input-hint" data-testid="key-vendor-relay">
+            {{ t('admin.accounts.keyAddress.relay') }}
+          </p>
+        </div>
+
+        <!-- 按量 / Coding 套餐：地址分得出就不问（识别提示里带上）；MiniMax 两种套餐同一个地址，要管理员选 -->
+        <div v-if="keyPlanNeedsChoice" data-testid="key-plan-mode">
+          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              v-for="mode in CN_PLAN_MODES"
+              :key="mode.value"
+              type="button"
+              :data-testid="`key-plan-mode-${mode.value}`"
+              :class="[
+                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                keyPlanMode === mode.value ? 'border-af-brand bg-af-brand-tint' : 'border-af-hairline hover:border-af-hairline-strong'
+              ]"
+              @click="keyPlanMode = mode.value"
+            >
+              <span
+                :class="[
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+                  keyPlanMode === mode.value ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
+                ]"
+              >
+                <Icon :name="mode.icon" size="sm" />
+              </span>
+              <span>
+                <span class="block text-sm font-medium text-af-ink">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}`) }}</span>
+                <span class="text-xs text-af-ink-3">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}Desc`) }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 第三方 key 的 API Key -->
+      <div v-if="form.type === 'apikey'">
+        <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+        <input
+          v-model="apiKeyValue"
+          type="password"
+          required
+          class="input font-mono"
+          :placeholder="apiKeyValuePlaceholder"
+        />
+        <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
+      </div>
+
+      <!-- 承接的模型：默认勾上识别出的厂商已上架的对话模型（muqian 2026-09-25），收成一行，点「修改」展开 -->
+      <CatalogEntryPicker
+        v-model="selectedCatalogEntryIds"
+        collapsible
+        :suggested-platform="catalogSuggestedPlatform"
+        @update:model-value="catalogSelectionTouched = true"
+        @loaded="catalogEntries = $event"
+      />
+
+      <!-- 更多设置：不点开就按默认值建（muqian 2026-09-25「还是太繁琐」：默认只露必填项） -->
+      <div class="border-t border-af-hairline pt-4">
+        <button
+          type="button"
+          class="flex w-full items-center gap-2 text-left text-sm font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+          :aria-expanded="showMoreSettings ? 'true' : 'false'"
+          data-testid="create-more-settings-toggle"
+          @click="showMoreSettings = !showMoreSettings"
+        >
+          <Icon name="chevronRight" size="sm" :class="['transition-transform', showMoreSettings ? 'rotate-90' : '']" />
+          {{ t('admin.accounts.moreSettings.title') }}
+          <span class="font-normal text-af-ink-3">{{ t('admin.accounts.moreSettings.hint') }}</span>
+        </button>
+      </div>
+
+      <template v-if="showMoreSettings">
+      <FormSectionHeading section="basics" :title="t('admin.accounts.formPage.sections.basics')" />
+
+      <div>
+        <label class="input-label">{{ t('admin.accounts.notes') }}</label>
+        <textarea
+          v-model="form.notes"
+          rows="3"
+          class="input"
+          :placeholder="t('admin.accounts.notesPlaceholder')"
+        ></textarea>
+        <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
+      </div>
+
       <div class="border-t border-af-hairline pt-4">
         <label class="input-label">{{ t('admin.accounts.expiresAt') }}</label>
         <input v-model="expiresAtInput" type="datetime-local" class="input" />
@@ -598,6 +692,18 @@
         </div>
       </div>
 
+      <div v-if="form.platform === 'antigravity'">
+        <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
+        <input
+          v-model="antigravityProjectId"
+          data-testid="antigravity-project-id-input"
+          type="text"
+          class="input font-mono"
+          :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
+        />
+        <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
+      </div>
+
       <!-- 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这一项。条件放在外层，别的平台不留一条空分隔线 -->
       <div v-if="form.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
         <div class="flex items-center gap-2">
@@ -629,65 +735,47 @@
         </div>
       </div>
 
+      <!-- Gemini 成品号档位（自动识别失败时的兜底） -->
+      <div v-if="form.platform === 'gemini'">
+        <div v-if="accountCategory === 'oauth-based'" class="mt-4">
+          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
+          <div class="mt-2">
+            <select
+              v-if="geminiOAuthType === 'google_one'"
+              v-model="geminiTierGoogleOne"
+              class="input"
+            >
+              <option value="google_one_free">{{ t('admin.accounts.gemini.tier.googleOne.free') }}</option>
+              <option value="google_ai_pro">{{ t('admin.accounts.gemini.tier.googleOne.pro') }}</option>
+              <option value="google_ai_ultra">{{ t('admin.accounts.gemini.tier.googleOne.ultra') }}</option>
+            </select>
+
+            <select
+              v-else-if="geminiOAuthType === 'code_assist'"
+              v-model="geminiTierGcp"
+              class="input"
+            >
+              <option value="gcp_standard">{{ t('admin.accounts.gemini.tier.gcp.standard') }}</option>
+              <option value="gcp_enterprise">{{ t('admin.accounts.gemini.tier.gcp.enterprise') }}</option>
+            </select>
+
+            <select
+              v-else
+              v-model="geminiTierAIStudio"
+              class="input"
+            >
+              <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
+              <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
+            </select>
+          </div>
+          <p class="input-hint">{{ t('admin.accounts.gemini.tier.hint') }}</p>
+        </div>
+      </div>
+
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
-      <!--
-        第三方 key 的协议地址（muqian 2026-09-25：key 不选平台）：可从常用官方地址里选一条填入，也可直接填中转地址；
-        厂商按地址识别，识别出的厂商才有它的专属选项（Coding 套餐、智谱团队版、Gemini 档位）。
-      -->
+      <!-- 第三方 key 的其余设置：智谱团队版、Gemini 档位（按识别出的厂商显示）、上游倍率探测 -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
-        <div>
-          <KeyAddressPresetMenu
-            v-if="keyPresets.length > 0"
-            class="mb-3"
-            :presets="keyPresets"
-            @select="applyKeyAddressPreset"
-          />
-          <ProtocolEndpointsEditor
-            v-model="protocolEndpoints"
-            :protocols="UPSTREAM_PROTOCOLS"
-            :official-endpoints="officialProtocolEndpoints"
-            :defaults-load-failed="protocolDefaultsLoadFailed"
-          />
-          <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
-            {{ t('admin.accounts.keyAddress.detected', { vendor: platformLabel(keyVendor) }) }}
-          </p>
-          <p v-else-if="hasKeyAddress" class="input-hint" data-testid="key-vendor-relay">
-            {{ t('admin.accounts.keyAddress.relay') }}
-          </p>
-        </div>
-
-        <!-- 按量 / Coding 套餐：MiniMax 两种套餐同一个地址，靠地址分不出来，要管理员选 -->
-        <div v-if="keyHasCodingPlan" data-testid="key-plan-mode">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            <button
-              v-for="mode in CN_PLAN_MODES"
-              :key="mode.value"
-              type="button"
-              :data-testid="`key-plan-mode-${mode.value}`"
-              :class="[
-                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
-                keyPlanMode === mode.value ? 'border-af-brand bg-af-brand-tint' : 'border-af-hairline hover:border-af-hairline-strong'
-              ]"
-              @click="keyPlanMode = mode.value"
-            >
-              <span
-                :class="[
-                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
-                  keyPlanMode === mode.value ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
-                ]"
-              >
-                <Icon :name="mode.icon" size="sm" />
-              </span>
-              <span>
-                <span class="block text-sm font-medium text-af-ink">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}`) }}</span>
-                <span class="text-xs text-af-ink-3">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}Desc`) }}</span>
-              </span>
-            </button>
-          </div>
-        </div>
-
         <!-- 智谱团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
         <div v-if="keyVendor === 'zhipu' && keyPlanMode === 'coding'">
           <div class="flex items-center">
@@ -743,63 +831,6 @@
             data-testid="upstream-billing-auto-probe"
             :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
           />
-        </div>
-      </div>
-
-      <!-- Bedrock 区域与全局推理 -->
-      <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="space-y-4">
-        <!-- Shared: Region -->
-        <div>
-          <label class="input-label">{{ t('admin.accounts.bedrockRegion') }}</label>
-          <select v-model="bedrockRegion" class="input">
-            <optgroup label="US">
-              <option value="us-east-1">us-east-1 (N. Virginia)</option>
-              <option value="us-east-2">us-east-2 (Ohio)</option>
-              <option value="us-west-1">us-west-1 (N. California)</option>
-              <option value="us-west-2">us-west-2 (Oregon)</option>
-              <option value="us-gov-east-1">us-gov-east-1 (GovCloud US-East)</option>
-              <option value="us-gov-west-1">us-gov-west-1 (GovCloud US-West)</option>
-            </optgroup>
-            <optgroup label="Europe">
-              <option value="eu-west-1">eu-west-1 (Ireland)</option>
-              <option value="eu-west-2">eu-west-2 (London)</option>
-              <option value="eu-west-3">eu-west-3 (Paris)</option>
-              <option value="eu-central-1">eu-central-1 (Frankfurt)</option>
-              <option value="eu-central-2">eu-central-2 (Zurich)</option>
-              <option value="eu-south-1">eu-south-1 (Milan)</option>
-              <option value="eu-south-2">eu-south-2 (Spain)</option>
-              <option value="eu-north-1">eu-north-1 (Stockholm)</option>
-            </optgroup>
-            <optgroup label="Asia Pacific">
-              <option value="ap-northeast-1">ap-northeast-1 (Tokyo)</option>
-              <option value="ap-northeast-2">ap-northeast-2 (Seoul)</option>
-              <option value="ap-northeast-3">ap-northeast-3 (Osaka)</option>
-              <option value="ap-south-1">ap-south-1 (Mumbai)</option>
-              <option value="ap-south-2">ap-south-2 (Hyderabad)</option>
-              <option value="ap-southeast-1">ap-southeast-1 (Singapore)</option>
-              <option value="ap-southeast-2">ap-southeast-2 (Sydney)</option>
-            </optgroup>
-            <optgroup label="Canada">
-              <option value="ca-central-1">ca-central-1 (Canada)</option>
-            </optgroup>
-            <optgroup label="South America">
-              <option value="sa-east-1">sa-east-1 (São Paulo)</option>
-            </optgroup>
-          </select>
-          <p class="input-hint">{{ t('admin.accounts.bedrockRegionHint') }}</p>
-        </div>
-
-        <!-- Shared: Force Global -->
-        <div>
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input
-              v-model="bedrockForceGlobal"
-              type="checkbox"
-              class="rounded border-af-hairline-strong text-af-brand focus:ring-af-brand"
-            />
-            <span class="text-sm text-af-ink-2">{{ t('admin.accounts.bedrockForceGlobal') }}</span>
-          </label>
-          <p class="input-hint mt-1">{{ t('admin.accounts.bedrockForceGlobalHint') }}</p>
         </div>
       </div>
 
@@ -1071,13 +1102,7 @@
         </button>
       </div>
 
-      <FormSectionHeading section="models" :title="t('admin.accounts.formPage.sections.models')" />
-
-      <!-- 承接的模型：勾选的目录模型在渠道建好后写入绑定，所有接入方式都有 -->
-      <CatalogEntryPicker
-        v-model="selectedCatalogEntryIds"
-        :suggested-platform="catalogSuggestedPlatform"
-      />
+      <FormSectionHeading v-if="showModelMoreSection" section="models" :title="t('admin.accounts.formPage.sections.models')" />
 
       <!-- 模型改名（可选）：只改名，不限定能接哪些模型（那由上面的勾选决定），提交时带 model_mapping_rename_only -->
       <ModelRenameEditor
@@ -2158,6 +2183,7 @@
         :platform="form.platform"
         :type="form.type"
       />
+      </template>
     </form>
 
     <!-- Step 2: OAuth Authorization -->
@@ -2532,6 +2558,7 @@ import type {
   ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
+import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
@@ -2758,6 +2785,8 @@ const accessSource = computed(() => findAccessSource(accessSourceId.value))
 // 第三方 key 不选平台：form.platform 只是表单内部占位，提交时不带，厂商按地址识别（keyVendor）
 const isKeyMode = computed(() => accessSource.value.kind === 'key')
 const selectedCatalogEntryIds = ref<number[]>([])
+// 默认只露必填项，其余在「更多设置」里（muqian 2026-09-25「还是太繁琐，要填的东西太多了」）
+const showMoreSettings = ref(false)
 
 // 选接入方式 / 成品号的厂商 = 切到它的平台与类别。先换平台并等平台 watcher 跑完（它会重置平台相关字段，
 // 部分平台还会把类别复位成成品号），再定类别。
@@ -2791,6 +2820,20 @@ const CN_PLAN_MODES = [
 ] as const
 const keyPlanMode = ref<CnAccountMode>('payg')
 const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
+// 地址本身定得了套餐就不问（识别提示里带上）；MiniMax 两种套餐同地址、智谱 Anthropic 同地址才要选
+const keyPlanFromAddress = computed(() => {
+  const vendor = keyVendor.value
+  if (!vendor || !keyHasCodingPlan.value) return null
+  const mode = modeOfAddress(keyPresets.value, vendor, protocolEndpoints.value)
+  return mode === 'payg' || mode === 'coding' ? mode : null
+})
+const keyPlanNeedsChoice = computed(() => keyHasCodingPlan.value && keyPlanFromAddress.value === null)
+const keyVendorLabel = computed(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return ''
+  const plan = keyPlanFromAddress.value
+  return plan ? `${platformLabel(vendor)} · ${t(`admin.accounts.cnProviders.accountMode.${plan}`)}` : platformLabel(vendor)
+})
 // 写进 credentials.account_mode 的模式：国产厂商按量 / 套餐，OpenCode 的 Zen / Go 由地址定；中转不写
 const keyAccountMode = computed<string | undefined>(() => {
   const vendor = keyVendor.value
@@ -2799,21 +2842,21 @@ const keyAccountMode = computed<string | undefined>(() => {
   if (vendor === 'deepseek') return 'payg'
   return keyHasCodingPlan.value ? keyPlanMode.value : undefined
 })
-watch([keyVendor, protocolEndpoints], () => {
-  const vendor = keyVendor.value
-  if (!vendor || !VENDORS_WITH_CODING_PLAN.has(vendor)) return
-  const mode = modeOfAddress(keyPresets.value, vendor, protocolEndpoints.value)
-  if (mode === 'payg' || mode === 'coding') keyPlanMode.value = mode
+watch(keyPlanFromAddress, (mode) => {
+  if (mode) keyPlanMode.value = mode
 })
 // 换套餐时，地址还是上一个套餐的官方地址（没改过）就换成新套餐同协议的官方地址
 watch(keyPlanMode, (mode, previous) => {
   const vendor = keyVendor.value
   const current = currentProtocolOf(protocolEndpoints.value)
   if (!vendor || !current || mode === previous) return
+  // 新套餐在这个协议上没有官方地址就不动，换套餐不能把地址清掉
+  const next = protocolDefaultsFor(protocolDefaults.value, vendor, mode)
+  if (!next[current]) return
   protocolEndpoints.value = endpointsAfterDefaultsChange(
     protocolEndpoints.value,
     protocolDefaultsFor(protocolDefaults.value, vendor, previous),
-    protocolDefaultsFor(protocolDefaults.value, vendor, mode),
+    next,
     current
   )
 })
@@ -2829,8 +2872,23 @@ function applyKeyAddressPreset(preset: KeyAddressPreset) {
   if (preset.mode === 'payg' || preset.mode === 'coding') keyPlanMode.value = preset.mode
 }
 // 承接的模型：成品号的厂商、或 key 按地址识别出的厂商排在最前；中转没有
+const catalogEntries = ref<ModelCatalogEntry[]>([])
+const catalogSelectionTouched = ref(false)
 const catalogSuggestedPlatform = computed(() =>
   isKeyMode.value ? (keyVendor.value ?? undefined) : accessSource.value.platform
+)
+// 承接模型的默认勾选：识别出的厂商（成品号即它的平台）已上架的对话模型；管理员动过就不再改。
+// 生图 / 视频 / 向量走扩展端点，另有承接条件（key 要有 Chat Completions 地址），默认不勾，免得整批绑定被拒
+watch(
+  () => [catalogEntries.value, catalogSuggestedPlatform.value] as const,
+  ([entries, platform]) => {
+    if (catalogSelectionTouched.value) return
+    selectedCatalogEntryIds.value = platform
+      ? entries
+          .filter((entry) => entry.status === 'listed' && entry.vendor_platform === platform && !entry.extension_endpoints)
+          .map((entry) => entry.id)
+      : []
+  }
 )
 async function ensureProtocolDefaults() {
   try {
@@ -3223,13 +3281,14 @@ const isOpenAIModelRestrictionDisabled = computed(() =>
 // 「地址与协议」只在分区里有区块时才出标题，条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
 const showEndpointSection = computed(() =>
   form.type === 'apikey' ||
-  (form.platform === 'anthropic' && accountCategory.value === 'bedrock') ||
   (form.platform === 'openai' && form.type === 'oauth') ||
   openAIResponsesSettingsVisible.value ||
   anthropicKeySettingsVisible.value ||
   openAIKeySettingsVisible.value
 )
 // 模型改名：沿用原来有模型映射的接入方式（第三方 key、Bedrock、Antigravity、OpenAI / Grok 成品号）
+// 「更多设置」里的模型分区：改名或 Compact 有一个就出标题（承接的模型在前面，不在这个分区）
+const showModelMoreSection = computed(() => showModelRename.value || openAIResponsesSettingsVisible.value)
 const showModelRename = computed(() =>
   form.platform === 'antigravity' ||
   form.type === 'apikey' ||
@@ -3679,6 +3738,8 @@ const resetForm = () => {
   openAICompactModelMappings.value = []
   accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
   selectedCatalogEntryIds.value = []
+  catalogSelectionTouched.value = false
+  showMoreSettings.value = false
   poolModeEnabled.value = false
   poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
   poolModeRetryStatusCodesInput.value = ''

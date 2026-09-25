@@ -126,6 +126,13 @@
     智谱团队版、Gemini 档位；OpenCode 的 Zen / Go 由地址定。**提交时不带平台**，后端 `resolveCreateAccountPlatform` 按地址推导。
     表单里的 `form.platform` 对 key 只是占位。原「Antigravity 第三方 key」就是普通中转 key。
   - 成品号要选是哪家的账号（授权流程各家不同）：Claude / ChatGPT / Gemini / Antigravity / Grok / AWS Bedrock / Vertex·Claude / Vertex·Gemini。
+  - **默认只露必填项**（muqian「还是太繁琐，要填的东西太多了」，12:5x 定：只留必填其余收起、默认勾模型、名称仍必填）：
+    接入方式 → 名称 → 地址（key）/ 哪家的账号与授权方式（成品号）→ API Key → 承接的模型（一行摘要，点「修改」展开）→ 创建；
+    备注、到期、并发 / 优先级 / 倍率、配额、代理、池模式、错误码、请求头覆写、协议开关、模型改名、智谱团队版、Gemini 档位、
+    倍率探测等全部在默认收起的「更多设置」里，不点开就按原来的默认值建。套餐只在地址分不出来时问（MiniMax、智谱 Anthropic 地址），
+    分得出就写在识别提示里（「按地址识别为 Kimi · Coding 套餐」）。
+  - **承接的模型默认勾选**：识别出的厂商（成品号即它的平台）在目录里已上架的对话模型；生图 / 视频 / 向量走扩展端点、另有承接条件，
+    默认不勾（目录列表多返回 `extension_endpoints`，口径同绑定校验）；中转不勾；管理员动过勾选就不再自动改。
   - 所有建号路径（含 OAuth 批量、Grok SSO）走 `createAccountRecord`：映射打 `model_mapping_rename_only`，建好后
     `PUT /admin/accounts/:id/catalog-entries` 写入勾选的模型；绑定失败不回滚建号，提示去编辑页再勾。
 - **一个 key 只承接一个协议**：地址编辑器改成「协议下拉 + 地址」一行（`ProtocolEndpointsEditor`）；官方地址表多协议时只取

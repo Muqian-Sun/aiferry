@@ -118,6 +118,11 @@ export default {
           vertexGemini: 'GCP service account for Gemini on Vertex'
         }
       },
+      // The add-channel form shows only required fields; the rest is under "More settings"
+      moreSettings: {
+        title: 'More settings',
+        hint: 'Notes, expiry, concurrency and quotas, proxy, protocol switches, model renames and more; defaults apply if left alone'
+      },
       // Third-party key address: fill from common official addresses; the vendor is detected from the address
       keyAddress: {
         presetPlaceholder: 'Fill from a common official address…',
@@ -141,6 +146,10 @@ export default {
         selectAll: 'Select all',
         deselectAll: 'Select none',
         unlisted: 'Unlisted',
+        edit: 'Change',
+        collapse: 'Collapse',
+        noneSelected: 'No models ticked: the channel will serve no models until you tick some on its edit page.',
+        andMore: 'and {count} more',
         bindFailed: 'The channel was created, but its models were not saved: {message}. Tick them again on the edit page.',
         saveFailed: 'The channel was saved, but its models were not: {message}. Click Save again to retry.',
         loadBoundFailed: 'Could not load the models this channel serves. Reload the page before changing them.'

@@ -118,6 +118,11 @@ export default {
           vertexGemini: 'GCP 服务账号，调 Vertex 上的 Gemini'
         }
       },
+      // 新建渠道默认只露必填项，其余收进「更多设置」
+      moreSettings: {
+        title: '更多设置',
+        hint: '备注、到期、并发与配额、代理、协议开关、模型改名等，不改就用默认值'
+      },
       // 第三方 key 的地址：常用官方地址快捷填入、按地址识别厂商（key 不选平台）
       keyAddress: {
         presetPlaceholder: '从常用官方地址填入…',
@@ -141,6 +146,10 @@ export default {
         selectAll: '全选',
         deselectAll: '全不选',
         unlisted: '未上架',
+        edit: '修改',
+        collapse: '收起',
+        noneSelected: '还没勾模型：建好后这个渠道不承接任何模型，可以之后在编辑页勾。',
+        andMore: '等 {count} 个',
         bindFailed: '渠道已创建，但承接的模型没保存成功：{message}。请到编辑页重新勾选。',
         saveFailed: '渠道已保存，但承接的模型没保存成功：{message}。可以再点一次保存重试。',
         loadBoundFailed: '这个渠道承接的模型没读出来，刷新页面后再改。'

@@ -266,6 +266,7 @@ func TestModelCatalogHandler_ListEntries(t *testing.T) {
 		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed},
 		{ID: 2, ModelID: "gemini-embedding", Vendor: "vertex_ai-embedding-models", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
 		{ID: 3, ModelID: "mystery", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
+		{ID: 4, ModelID: "gpt-image-2", Vendor: "openai", BillingMode: service.BillingModeImage, Status: service.ModelCatalogStatusListed},
 	}})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/entries", nil)
@@ -278,13 +279,16 @@ func TestModelCatalogHandler_ListEntries(t *testing.T) {
 	require.NoError(t, err)
 	var entries []ModelCatalogEntryView
 	require.NoError(t, json.Unmarshal(raw, &entries))
-	require.Len(t, entries, 3)
+	require.Len(t, entries, 4)
 	require.Equal(t, "claude-sonnet-4", entries[0].ModelID)
 	// 渠道表单按厂商族分组：厂商族与条目字段平铺在同一层
 	require.Equal(t, service.PlatformAnthropic, entries[0].VendorPlatform)
 	require.Equal(t, service.PlatformGemini, entries[1].VendorPlatform, "vertex_ai-* 按前缀归 gemini")
 	require.Empty(t, entries[2].VendorPlatform, "没有厂商就没有厂商族")
 	require.Contains(t, string(raw), `"vendor_platform":"anthropic"`)
+	// 渠道表单默认只勾对话模型：生图 / 视频 / 向量走扩展端点，另有承接条件
+	require.False(t, entries[0].ExtensionEndpoints)
+	require.True(t, entries[3].ExtensionEndpoints, "OpenAI 按图计费的条目走扩展端点")
 	require.Contains(t, string(raw), `"model_id":"claude-sonnet-4"`)
 }
 

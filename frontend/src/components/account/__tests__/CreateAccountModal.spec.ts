@@ -141,6 +141,7 @@ const KEY = {
   openai: { protocol: 'responses', url: 'https://api.openai.com' },
   grokUsEast: { protocol: 'responses', url: 'https://us-east-1.api.x.ai/v1' },
   kimi: { protocol: 'chat_completions', url: 'https://api.moonshot.cn/v1' },
+  kimiCoding: { protocol: 'chat_completions', url: 'https://api.kimi.com/coding/v1' },
   minimax: { protocol: 'chat_completions', url: 'https://api.minimaxi.com/v1', mode: 'payg' },
   minimaxIntlAnthropic: { protocol: 'anthropic', url: 'https://api.minimax.io/anthropic', mode: 'payg' },
   opencodeZen: { protocol: 'chat_completions', url: 'https://opencode.ai/zen/v1' },
@@ -203,7 +204,16 @@ async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: 
   await button?.trigger('click')
 }
 
-// 新建渠道第一步：先选接入方式（第三方 key / 成品号），再选来源（见 accessSources.ts）
+// 默认只露必填项（muqian 2026-09-25「还是太繁琐」）：其余字段在「更多设置」里，用例先展开再操作
+async function expandMoreSettings(wrapper: ReturnType<typeof mountModal>) {
+  const toggle = wrapper.find('[data-testid="create-more-settings-toggle"]')
+  if (toggle.exists() && toggle.attributes('aria-expanded') !== 'true') {
+    await toggle.trigger('click')
+    await flushPromises()
+  }
+}
+
+// 新建渠道第一步：先选接入方式（第三方 key / 成品号）；成品号再选哪家的账号（见 accessSources.ts）
 async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: string) {
   let button = wrapper.find(`[data-testid="access-source-${sourceId}"]`)
   if (!button.exists()) {
@@ -213,6 +223,7 @@ async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: st
   }
   await button.trigger('click')
   await flushPromises()
+  await expandMoreSettings(wrapper)
 }
 
 // 第三方 key 不选平台 / 来源：选「第三方 key」，再从常用官方地址里挑一条；不传地址就留空（中转自己填）
@@ -220,6 +231,7 @@ async function selectKey(wrapper: ReturnType<typeof mountModal>, address?: KeyAd
   await wrapper.get('[data-testid="access-kind-key"]').trigger('click')
   await flushPromises()
   if (address) await pickKeyAddress(wrapper, address)
+  await expandMoreSettings(wrapper)
 }
 
 async function pickKeyAddress(wrapper: ReturnType<typeof mountModal>, address: KeyAddress) {
@@ -506,8 +518,9 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('submits Kimi Coding Plan Responses endpoint', async () => {
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.kimi)
-    await wrapper.get('[data-testid="key-plan-mode-coding"]').trigger('click')
+    // Kimi 的套餐看地址就知道（api.kimi.com 是 Coding），不用再选
+    await selectKey(wrapper, KEY.kimiCoding)
+    expect(wrapper.find('[data-testid="key-plan-mode"]').exists()).toBe(false)
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi coding')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi-coding')
 
@@ -578,24 +591,21 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(payload?.credentials).not.toHaveProperty('api_protocol')
   })
 
-  it('switches to the new official endpoints on mode change but keeps edited ones', async () => {
+  // 套餐只在地址分不出来时问：MiniMax 按量与 Coding 同一个地址，要管理员选，选了不动地址
+  it('asks for the plan only when the address cannot tell it and keeps the address', async () => {
     const wrapper = mountModal()
-    await selectKey(wrapper, KEY.kimi)
-    await flushPromises()
+    await selectKey(wrapper, KEY.minimax)
+    expect(wrapper.find('[data-testid="key-plan-mode"]').exists()).toBe(true)
     await wrapper.get('[data-testid="key-plan-mode-coding"]').trigger('click')
     await flushPromises()
     expect(
       (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
-    ).toBe('https://api.kimi.com/coding/v1')
-
-    // 改过的地址（仍是 Kimi 的域名，套餐选项还在）换套餐时保留
-    await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://api.kimi.com/coding/v1/')
-    await wrapper.get('[data-testid="key-plan-mode-payg"]').trigger('click')
+    ).toBe('https://api.minimaxi.com/v1')
+    await wrapper.get('form#create-account-form input[type="text"]').setValue('minimax coding')
+    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
+    await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
-
-    expect(
-      (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
-    ).toBe('https://api.kimi.com/coding/v1/')
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'coding' })
   })
 
   it('fills only the preset protocol when a Chinese provider preset is picked', async () => {

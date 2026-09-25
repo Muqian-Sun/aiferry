@@ -59,6 +59,8 @@ export interface ModelCatalogEntry {
   bindings: ModelCatalogBinding[]
   /** 厂商族（与渠道平台同一套标识，认不出为空串）：只有列表接口带。 */
   vendor_platform?: string
+  /** 经扩展端点（生图 / 视频 / 向量）承接：只有列表接口带；渠道表单的默认勾选不含这类模型。 */
+  extension_endpoints?: boolean
   created_at: string
   updated_at: string
 }
