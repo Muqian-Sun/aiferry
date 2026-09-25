@@ -35,9 +35,9 @@ const BACKEND_MODE_CALLBACK_PATHS = [
 ]
 const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 
-// 简易模式下隐藏的页面：用户站整个账务区（含旧路径 /subscriptions /redeem 的 redirect 入口），
-// 管理后台的订阅/兑换管理路径与旧用户站相同
-const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions', '/redeem']
+// 简易模式下隐藏的页面：用户站整个账务区（含旧路径 /subscriptions 的 redirect 入口），
+// 管理后台的订阅管理路径与旧用户站相同
+const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions']
 
 
 export function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {

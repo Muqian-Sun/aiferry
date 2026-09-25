@@ -24,10 +24,10 @@
 | 用量（落地页） | `/usage` |
 | 密钥 | `/keys` |
 | 模型 | `/model-plaza` |
-| 账务 | `/billing` → `/billing/recharge` `/billing/subscriptions` `/billing/orders` `/billing/redeem` `/billing/affiliate`（按开关出现） |
+| 账务 | `/billing` → `/billing/recharge` `/billing/subscriptions`（按开关出现） |
 | 账户 | `/profile` |
 
-旧路径 `/dashboard` `/purchase` `/subscriptions` `/orders` `/redeem` `/affiliate` 都 redirect 到上面。
+旧路径 `/purchase` `/subscriptions` 都 redirect 到上面。
 
 ## 管理站（`apps/admin/routes.ts`）
 

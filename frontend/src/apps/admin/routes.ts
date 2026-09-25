@@ -212,18 +212,6 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/redeem',
-    name: 'AdminRedeem',
-    component: () => import('@/views/admin/RedeemView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Redeem Code Management',
-      titleKey: 'nav.redeemCodes',
-      descriptionKey: 'admin.redeem.description'
-    }
-  },
-  {
     // A6：每个小节一个地址，缺省落到第一节（settings/sections.ts）
     path: '/settings/:section?',
     name: 'AdminSettings',

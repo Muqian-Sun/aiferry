@@ -26,7 +26,7 @@ const PREFETCH_ADJACENCY_BY_SITE: Record<AppSite, Record<string, string[]>> = {
     '/dashboard': ['/accounts', '/users'],
     '/accounts': ['/model-catalog', '/dashboard'],
     '/users': ['/subscriptions', '/dashboard'],
-    '/subscriptions': ['/orders/plans', '/redeem']
+    '/subscriptions': ['/orders/plans']
   },
   // 用户站控制台：概览（落地页）· 密钥 · 用量明细 · 账务 · 账户
   user: {

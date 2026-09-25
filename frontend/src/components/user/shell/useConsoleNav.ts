@@ -10,8 +10,7 @@ import { buildConsoleNav, type NavIcon, type NavTab } from './navItems'
 /** 账务子页的侧栏图标（键 = billingTabs 的 key） */
 const BILLING_ICONS: Record<string, NavIcon> = {
   recharge: 'creditCard',
-  subscriptions: 'badge',
-  redeem: 'gift'
+  subscriptions: 'badge'
 }
 
 /**

@@ -30,7 +30,6 @@ import {
   ServerIcon,
   ShieldIcon,
   SignalIcon,
-  TicketIcon,
   UsersIcon
 } from '@/components/layout/sidebar/navIcons'
 
@@ -85,7 +84,6 @@ const sections = computed((): NavSection[] => {
         { path: '/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
         { path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription, activePaths: ['/orders/plans'] },
         { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment, activePaths: ['/orders/dashboard'] },
-        { path: '/redeem', label: t('nav.redeemCodes'), icon: TicketIcon, hideInSimpleMode: true },
       ],
     },
     {

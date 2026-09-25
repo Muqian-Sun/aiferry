@@ -87,11 +87,10 @@ describe.each<AppSite>(['user', 'admin'])('%s 站点通用守卫', (site) => {
     expect((await navigate(site, '/login', publicMeta)).allowed).toBe(true)
   })
 
-  it('简易模式隐藏订阅与兑换页面', async () => {
+  it('简易模式隐藏订阅页面', async () => {
     signIn(role)
     authStore.isSimpleMode = true
     expect((await navigate(site, '/subscriptions', protectedMeta)).redirect).toBe(home)
-    expect((await navigate(site, '/redeem', protectedMeta)).redirect).toBe(home)
     expect((await navigate(site, '/billing/orders', protectedMeta)).redirect).toBe(home)
     expect((await navigate(site, '/dashboard', protectedMeta)).allowed).toBe(true)
   })
