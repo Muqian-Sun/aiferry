@@ -1,6 +1,6 @@
 <template>
-  <div :class="flat ? 'p-4 sm:p-6' : 'card p-6'">
-    <!-- Toolbar: left filters (multi-line) + right actions -->
+  <div :class="flat ? 'py-4' : 'card p-6'">
+    <!-- 左：筛选（可换行）；右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7） -->
     <div class="flex flex-wrap items-end justify-between gap-4">
       <!-- Left: filters (allowed to wrap to multiple rows) -->
       <div class="flex flex-1 flex-wrap items-end gap-4">
@@ -145,7 +145,7 @@
           <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="emitChange" />
         </div>
 
-        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[220px]">
+        <div v-if="mode === 'usage' || mode === 'analysis'" class="w-full sm:w-auto sm:min-w-[220px]">
           <label class="input-label">{{ t('admin.usage.upstreamModelAudit') }}</label>
           <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" @change="emitChange" />
         </div>
@@ -172,21 +172,10 @@
 
       <!-- Right: actions -->
       <div v-if="showActions" class="flex w-full flex-wrap items-center justify-end gap-3 sm:w-auto">
-        <button type="button" @click="$emit('refresh')" class="btn btn-secondary">
-          {{ t('common.refresh') }}
-        </button>
         <button type="button" @click="$emit('reset')" class="btn btn-secondary">
           {{ t('common.reset') }}
         </button>
         <slot name="after-reset" />
-        <template v-if="mode === 'usage'">
-          <button type="button" @click="$emit('cleanup')" class="btn btn-danger">
-            {{ t('admin.usage.cleanup.button') }}
-          </button>
-          <button type="button" @click="$emit('export')" :disabled="exporting" class="btn btn-primary">
-            {{ t('usage.exportExcel') }}
-          </button>
-        </template>
       </div>
     </div>
   </div>
@@ -204,17 +193,17 @@ type ModelValue = Record<string, any>
 
 interface Props {
   modelValue: ModelValue
-  exporting: boolean
   startDate: string
   endDate: string
   showActions?: boolean
   modelOptions?: string[]
   /**
-   * errors 模式:隐藏用量专属字段/按钮,显示错误类型+状态码(错误请求 tab 用)
-   * ranking 模式:同 usage 但隐藏计费模式筛选与清理/导出按钮(用户排行 tab 用)
+   * errors 模式:隐藏用量专属字段,显示错误类型+状态码(错误请求 tab 用)
+   * ranking 模式:同 usage 但隐藏计费模式与上游模型审计(用户排行 tab 用,下钻接口不支持这两个维度)
+   * analysis 模式:同 usage 但隐藏计费模式(分析 tab 的趋势 / 分布接口不支持该维度)
    */
-  mode?: 'usage' | 'errors' | 'ranking'
-  /** 嵌入统一卡片内使用：去掉自身卡片外观 */
+  mode?: 'usage' | 'errors' | 'ranking' | 'analysis'
+  /** 嵌入页面内使用：去掉自身卡片外观 */
   flat?: boolean
 }
 
@@ -226,10 +215,7 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits([
   'update:modelValue',
   'change',
-  'refresh',
-  'reset',
-  'export',
-  'cleanup'
+  'reset'
 ])
 
 const { t } = useI18n()

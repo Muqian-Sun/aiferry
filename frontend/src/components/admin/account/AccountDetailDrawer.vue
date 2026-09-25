@@ -147,7 +147,7 @@
           />
         </SheetSection>
         <SheetSection :title="t('admin.accounts.usageStatistics')">
-          <AccountStatsModal layout="inline" :show="true" :account="account" />
+          <AccountUsagePanel :account="account" />
         </SheetSection>
       </div>
 
@@ -174,7 +174,7 @@ import Icon from '@/components/icons/Icon.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
-import AccountStatsModal from './AccountStatsModal.vue'
+import AccountUsagePanel from './AccountUsagePanel.vue'
 import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
 import { accountDisplayEmail, getAccountPlanType, getOpenAIAuthMode } from './accountDisplay'
 import type { AccountDetailTab } from './accountDetail'

@@ -210,10 +210,9 @@ const sharedPageStubs = {
   Select: true,
   DateRangePicker: true,
   Icon: iconStub,
-  UsageStatsCards: chartStub,
   ModelDistributionChart: chartStub,
   EndpointDistributionChart: chartStub,
-  TokenUsageTrend: chartStub,
+  UsageMetricTrend: chartStub,
   IpGeoCell: true,
   EmptyState: true,
 }

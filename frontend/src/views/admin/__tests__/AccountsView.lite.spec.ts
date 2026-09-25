@@ -86,9 +86,9 @@ const AccountTestModalStub = defineComponent({
   template: '<div data-test="test-account">{{ show ? account?.name : "" }}</div>'
 })
 
-const AccountStatsModalStub = defineComponent({
-  props: { show: Boolean, account: { type: Object, default: null } },
-  template: '<div data-test="stats-account">{{ show ? account?.name : "" }}</div>'
+const AccountUsagePanelStub = defineComponent({
+  props: { account: { type: Object, default: null } },
+  template: '<div data-test="stats-account">{{ account?.name }}</div>'
 })
 
 function mountView(stubActionMenu = true) {
@@ -108,7 +108,7 @@ function mountView(stubActionMenu = true) {
         ImportDataModal: true,
         ReAuthAccountModal: true,
         AccountTestModal: AccountTestModalStub,
-        AccountStatsModal: AccountStatsModalStub,
+        AccountUsagePanel: AccountUsagePanelStub,
         ScheduledTestsPanel: true,
         TempUnschedStatusModal: true,
         ErrorPassthroughRulesModal: true,

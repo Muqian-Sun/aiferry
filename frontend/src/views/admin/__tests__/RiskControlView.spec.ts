@@ -149,7 +149,7 @@ const runtimeStatus = () => ({
   last_cleanup_deleted_non_hit: 0,
 })
 
-const AppLayoutStub = { template: '<div><slot /></div>' }
+const AppLayoutStub = { template: '<div><slot name="header-actions" /><slot /></div>' }
 const BaseDialogStub = defineComponent({
   props: {
     show: {

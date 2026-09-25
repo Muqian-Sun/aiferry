@@ -1,7 +1,7 @@
 <template>
   <!--
     单指标趋势（Token 总量 / 请求数 / 实付费用）：一份 trend 数据，只画一条墨色线 + 很淡的面积。
-    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；按输入 / 输出 / 缓存拆分的多线图只在管理端用（TokenUsageTrend）。
+    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；管理站概览与用量「分析」也用它（A7 起管理端也不再画多色折线）。
   -->
   <div v-if="loading" class="flex h-48 items-center justify-center">
     <span class="spinner text-af-ink-3" />

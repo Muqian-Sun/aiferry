@@ -128,7 +128,6 @@ describe('admin DashboardView', () => {
           DateRangePicker: true,
           Select: true,
           ModelDistributionChart: true,
-          TokenUsageTrend: true,
           Line: true
         }
       }

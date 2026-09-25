@@ -1,7 +1,8 @@
 <template>
-  <div class="card p-4">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold text-af-ink">
+  <!-- 不带卡片外框（A7）：由调用方用 hairline 分节；标题随「模型分布 / 消费排行」切换 -->
+  <div>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-af-ink">
         {{ !enableRankingView || activeView === 'model_distribution'
           ? t('admin.dashboard.modelDistribution')
           : t('admin.dashboard.spendingRankingTitle') }}
@@ -121,7 +122,7 @@
                 @click="enableBreakdown && toggleBreakdown('model', model.model)"
               >
                 <td
-                  class="max-w-[100px] truncate py-1.5 font-medium"
+                  class="max-w-[180px] truncate py-1.5 font-medium"
                   :class="enableBreakdown ? 'text-af-ink-2 hover:text-af-ink' : 'text-af-ink'"
                   :title="model.model"
                 >
@@ -132,12 +133,7 @@
                   </span>
                 </td>
                 <td class="w-32 py-1.5 pl-3">
-                  <span class="flex items-center gap-2">
-                    <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-af-sunken">
-                      <span class="block h-full rounded-full bg-af-ink" :style="{ width: shareWidth(modelMetricValue(model), modelMetricTotal) }" />
-                    </span>
-                    <span class="w-11 shrink-0 text-right tabular-nums text-af-ink-3">{{ sharePercent(modelMetricValue(model), modelMetricTotal) }}</span>
-                  </span>
+                  <ShareBar :value="modelMetricValue(model)" :total="modelMetricTotal" />
                 </td>
                 <td class="py-1.5 text-right text-af-ink-2">
                   {{ formatNumber(model.requests) }}
@@ -221,12 +217,7 @@
                 </div>
               </td>
               <td class="w-32 py-1.5 pl-3">
-                <span class="flex items-center gap-2">
-                  <span class="h-1.5 min-w-0 flex-1 overflow-hidden rounded-full bg-af-sunken">
-                  <span class="block h-full rounded-full bg-af-ink" :style="{ width: shareWidth(toFiniteNumber(item.actual_cost), rankingCostTotal) }" />
-                    </span>
-                  <span class="w-11 shrink-0 text-right tabular-nums text-af-ink-3">{{ sharePercent(toFiniteNumber(item.actual_cost), rankingCostTotal) }}</span>
-                  </span>
+                <ShareBar :value="toFiniteNumber(item.actual_cost)" :total="rankingCostTotal" />
               </td>
               <td class="py-1.5 text-right text-af-ink-2">
                 {{ formatNumber(item.requests) }}
@@ -256,6 +247,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
+import ShareBar from './ShareBar.vue'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import type { UserBreakdownLoader } from './userBreakdown'
 
@@ -359,16 +351,10 @@ const displayModelStats = computed(() => {
   return [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
 })
 
-/** 占比条：模型按当前指标（Token / 实付），消费榜按实付；单色墨条，旁边写百分比（原环形图是多色装饰） */
+/** 占比条：模型按当前指标（Token / 实付），消费榜按实付 */
 const modelMetricValue = (m: ModelStat) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)
 const modelMetricTotal = computed(() => displayModelStats.value.reduce((sum, m) => sum + modelMetricValue(m), 0))
 const rankingCostTotal = computed(() => rankingDisplayItems.value.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0))
-const shareOf = (value: number, total: number) => (total > 0 ? value / total : 0)
-const shareWidth = (value: number, total: number) => `${(shareOf(value, total) * 100).toFixed(1)}%`
-const sharePercent = (value: number, total: number) => {
-  const share = shareOf(value, total)
-  return `${(share * 100).toFixed(share > 0 && share < 0.1 ? 1 : 0)}%`
-}
 
 const otherRankingItem = computed<RankingDisplayItem | null>(() => {
   if (!props.rankingItems?.length) return null

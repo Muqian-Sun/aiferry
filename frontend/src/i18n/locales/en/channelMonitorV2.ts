@@ -84,8 +84,6 @@ export default {
         hideUserRankingHint:
           'When on, the user Channel Status page hides the user ranking and the user API returns no ranking rows. Admins still see the ranking.',
       },
-      description:
-        'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user /monitor page show rates, RPM, and TPM — not absolute request volume.',
       save: 'Save',
       loading: 'Loading…',
       loadFailed: 'Failed to load config',

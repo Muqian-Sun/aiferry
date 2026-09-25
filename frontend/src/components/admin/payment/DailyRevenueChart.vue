@@ -1,111 +1,144 @@
 <template>
-  <div class="card p-4">
-    <h3 class="mb-4 text-sm font-semibold text-af-ink">
-      {{ t('payment.admin.dailyRevenue') }}
-    </h3>
+  <!--
+    每日收款（A7）：一条墨色线 + 很淡的面积。原来把各币种收入和订单数叠在一张双轴彩色图上，
+    改成页签一次看一条（每个币种的收入各一个页签 + 订单数），不再用双轴。
+  -->
+  <SheetSection :title="t('payment.admin.dailyRevenue')" data-testid="daily-revenue">
+    <template v-if="metricTabs.length > 1" #actions>
+      <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('payment.admin.dailyRevenue')">
+        <button
+          v-for="tab in metricTabs"
+          :key="tab.key"
+          type="button"
+          role="tab"
+          class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+          :class="activeMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
+          :aria-selected="activeMetric === tab.key"
+          :data-testid="`daily-revenue-metric-${tab.key}`"
+          @click="selectedMetric = tab.key"
+        >
+          {{ tab.label }}
+        </button>
+      </div>
+    </template>
     <div class="h-64">
       <div v-if="loading" class="flex h-full items-center justify-center">
         <LoadingSpinner size="md" />
       </div>
       <Line v-else-if="chartData" :data="chartData" :options="chartOptions" />
-      <div
-        v-else
-        class="flex h-full items-center justify-center text-sm text-af-ink-3"
-      >
+      <div v-else class="flex h-full items-center justify-center text-sm text-af-ink-3">
         {{ t('payment.admin.noData') }}
       </div>
     </div>
-  </div>
+  </SheetSection>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import {
-  Chart as ChartJS,
-  CategoryScale,
-  LinearScale,
-  PointElement,
-  LineElement,
-  Tooltip,
-  Legend,
-  Filler
-} from 'chart.js'
+import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
+import { useChartTheme } from '@/composables/useChartTheme'
 import type { DailyPaymentStats } from '@/types/payment'
 
-ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Legend, Filler)
+ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 const { t } = useI18n()
+const theme = useChartTheme()
 
 const props = defineProps<{
   data: DailyPaymentStats[]
   loading?: boolean
 }>()
 
-const colors = [
-  ['rgb(59, 130, 246)', 'rgba(59, 130, 246, 0.1)'],
-  ['rgb(168, 85, 247)', 'rgba(168, 85, 247, 0.1)'],
-  ['rgb(245, 158, 11)', 'rgba(245, 158, 11, 0.1)'],
-  ['rgb(239, 68, 68)', 'rgba(239, 68, 68, 0.1)'],
-]
+const COUNT_METRIC = 'count'
+const amountMetric = (currency: string) => `amount:${currency}`
+
+const currencies = computed(() => [...new Set(props.data.flatMap((day) => Object.keys(day.amount)))].sort())
+
+/** 只有一个币种时页签只写「收入」；多个币种时带上币种 */
+const metricTabs = computed(() => [
+  ...currencies.value.map((currency) => ({
+    key: amountMetric(currency),
+    label: currencies.value.length > 1 ? `${currency} ${t('payment.admin.revenue')}` : t('payment.admin.revenue')
+  })),
+  { key: COUNT_METRIC, label: t('payment.admin.orderCount') }
+])
+
+const selectedMetric = ref('')
+/** 换了时间范围后币种可能变了：选中的页签不在了就回到第一个 */
+const activeMetric = computed(() =>
+  metricTabs.value.some((tab) => tab.key === selectedMetric.value) ? selectedMetric.value : metricTabs.value[0].key
+)
+const activeCurrency = computed(() =>
+  activeMetric.value === COUNT_METRIC ? null : activeMetric.value.slice(amountMetric('').length)
+)
+
+function formatValue(value: number, compact = false): string {
+  const currency = activeCurrency.value
+  if (!currency) return value.toLocaleString()
+  return new Intl.NumberFormat(undefined, { style: 'currency', currency, ...(compact ? { notation: 'compact' as const } : {}) }).format(value)
+}
+
+/** 横轴去掉年份：YYYY-MM-DD → MM-DD */
+const shortLabel = (date: string) => (/^\d{4}-\d{2}-\d{2}$/.test(date) ? date.slice(5) : date)
 
 const chartData = computed(() => {
-  if (!props.data || props.data.length === 0) return null
-  const currencies = [...new Set(props.data.flatMap(day => Object.keys(day.amount)))].sort()
+  if (!props.data.length) return null
+  const currency = activeCurrency.value
+  const label = metricTabs.value.find((tab) => tab.key === activeMetric.value)?.label ?? ''
   return {
-    labels: props.data.map(d => d.date),
+    labels: props.data.map((day) => shortLabel(day.date)),
     datasets: [
-      ...currencies.map((currency, index) => {
-        const [borderColor, backgroundColor] = colors[index % colors.length]
-        return {
-          label: `${currency} ${t('payment.admin.revenue')}`,
-          data: props.data.map(day => day.amount[currency] || 0),
-          borderColor,
-          backgroundColor,
-          fill: true,
-          tension: 0.3,
-          pointRadius: 3,
-          pointHoverRadius: 5,
-        }
-      }),
       {
-        label: t('payment.admin.orderCount'),
-        data: props.data.map(d => d.count),
-        borderColor: 'rgb(16, 185, 129)',
-        backgroundColor: 'rgba(16, 185, 129, 0.1)',
-        fill: false,
-        tension: 0.3,
-        pointRadius: 3,
-        pointHoverRadius: 5,
-        yAxisID: 'y1',
+        label,
+        data: props.data.map((day) => (currency ? day.amount[currency] || 0 : day.count)),
+        borderColor: theme.value.ink,
+        backgroundColor: theme.value.inkFill,
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: theme.value.ink,
+        pointHitRadius: 8,
+        fill: 'origin',
+        tension: 0.3
       }
     ]
   }
 })
 
-const chartOptions = {
+const chartOptions = computed(() => ({
   responsive: true,
   maintainAspectRatio: false,
   interaction: { mode: 'index' as const, intersect: false },
-  scales: {
-    y: {
-      type: 'linear' as const,
-      display: true,
-      position: 'left' as const,
-      title: { display: true, text: t('payment.admin.revenue') },
-    },
-    y1: {
-      type: 'linear' as const,
-      display: true,
-      position: 'right' as const,
-      title: { display: true, text: t('payment.admin.orderCount') },
-      grid: { drawOnChartArea: false },
+  plugins: {
+    legend: { display: false },
+    tooltip: {
+      callbacks: {
+        label: (context: { dataset: { label?: string }; parsed: { y: number | null } }) =>
+          `${context.dataset.label ?? ''}: ${formatValue(context.parsed.y ?? 0)}`
+      }
     }
   },
-  plugins: {
-    legend: { position: 'top' as const },
+  scales: {
+    x: {
+      grid: { display: false },
+      ticks: { color: theme.value.text, maxTicksLimit: 12, font: { size: 10 } }
+    },
+    y: {
+      beginAtZero: true,
+      grid: { color: theme.value.grid },
+      ticks: {
+        color: theme.value.text,
+        font: { size: 10 },
+        maxTicksLimit: 6,
+        // 订单数只取整数刻度
+        ...(activeCurrency.value ? {} : { precision: 0 }),
+        callback: (value: string | number) => formatValue(Number(value), true)
+      }
+    }
   }
-}
+}))
 </script>

@@ -1,7 +1,8 @@
 <template>
-  <div class="card p-4">
-    <div class="mb-4 flex items-center justify-between gap-3">
-      <h3 class="text-sm font-semibold text-af-ink">
+  <!-- 不带卡片外框（A7）：由调用方用 hairline 分节。原多色环形图换成与模型分布同一种单色占比列 -->
+  <div>
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <h3 class="text-base font-semibold text-af-ink">
         {{ title || t('usage.endpointDistribution') }}
       </h3>
       <div class="flex flex-wrap items-center justify-end gap-2">
@@ -71,15 +72,13 @@
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
     </div>
-    <div v-else-if="displayEndpointStats.length > 0 && chartData" class="flex flex-col items-center gap-4 sm:flex-row sm:gap-6">
-      <div class="h-48 w-48 shrink-0">
-        <Doughnut :data="chartData" :options="doughnutOptions" />
-      </div>
-      <div class="max-h-48 w-full min-w-0 flex-1 overflow-auto">
+    <div v-else-if="displayEndpointStats.length > 0">
+      <div class="max-h-72 w-full overflow-auto">
         <table class="w-full text-xs">
           <thead>
             <tr class="text-af-ink-3">
               <th class="pb-2 text-left">{{ t('usage.endpoint') }}</th>
+              <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
@@ -100,6 +99,9 @@
                     {{ item.endpoint }}
                   </span>
                 </td>
+                <td class="w-32 py-1.5 pl-3">
+                  <ShareBar :value="metricValue(item)" :total="metricTotal" />
+                </td>
                 <td class="py-1.5 text-right text-af-ink-2">
                   {{ formatNumber(item.requests) }}
                 </td>
@@ -114,7 +116,7 @@
                 </td>
               </tr>
               <tr v-if="expandedKey === item.endpoint">
-                <td colspan="5" class="p-0">
+                <td colspan="6" class="p-0">
                   <UserBreakdownSubTable
                     :items="breakdownItems"
                     :loading="breakdownLoading"
@@ -135,14 +137,11 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Doughnut } from 'vue-chartjs'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
+import ShareBar from './ShareBar.vue'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
 import type { UserBreakdownLoader } from './userBreakdown'
-
-ChartJS.register(ArcElement, Tooltip, Legend)
 
 const { t } = useI18n()
 
@@ -214,21 +213,6 @@ const toggleBreakdown = async (endpoint: string) => {
   }
 }
 
-const chartColors = [
-  '#3b82f6',
-  '#10b981',
-  '#f59e0b',
-  '#ef4444',
-  '#8b5cf6',
-  '#ec4899',
-  '#14b8a6',
-  '#f97316',
-  '#6366f1',
-  '#84cc16',
-  '#06b6d4',
-  '#a855f7'
-]
-
 const displayEndpointStats = computed(() => {
   const sourceStats = props.source === 'upstream'
     ? props.upstreamEndpointStats
@@ -241,45 +225,9 @@ const displayEndpointStats = computed(() => {
   return [...sourceStats].sort((a, b) => b[metricKey] - a[metricKey])
 })
 
-const chartData = computed(() => {
-  if (!displayEndpointStats.value?.length) return null
-
-  return {
-    labels: displayEndpointStats.value.map((item) => item.endpoint),
-    datasets: [
-      {
-        data: displayEndpointStats.value.map((item) =>
-          props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens
-        ),
-        backgroundColor: chartColors.slice(0, displayEndpointStats.value.length),
-        borderWidth: 0
-      }
-    ]
-  }
-})
-
-const doughnutOptions = computed(() => ({
-  responsive: true,
-  maintainAspectRatio: false,
-  plugins: {
-    legend: {
-      display: false
-    },
-    tooltip: {
-      callbacks: {
-        label: (context: any) => {
-          const value = context.raw as number
-          const total = context.dataset.data.reduce((a: number, b: number) => a + b, 0)
-          const percentage = total > 0 ? ((value / total) * 100).toFixed(1) : '0.0'
-          const formattedValue = props.metric === 'actual_cost'
-            ? `$${formatCost(value)}`
-            : formatTokens(value)
-          return `${context.label}: ${formattedValue} (${percentage}%)`
-        }
-      }
-    }
-  }
-}))
+/** 占比按当前指标（Token / 实付） */
+const metricValue = (item: EndpointStat) => (props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens)
+const metricTotal = computed(() => displayEndpointStats.value.reduce((sum, item) => sum + metricValue(item), 0))
 
 const formatTokens = (value: number): string => {
   if (value >= 1_000_000_000) {

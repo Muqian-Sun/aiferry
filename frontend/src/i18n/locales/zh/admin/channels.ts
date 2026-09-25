@@ -362,7 +362,7 @@ export default {
 
     // Channel Monitor
     channelMonitor: {
-      description: '监测各渠道的可用性、延迟和状态',
+      description: '配置被动用量汇总维度（平台 / 模型）与刷新频率。健康色与明细在用户端「渠道状态」页以比例、RPM / TPM 展示，不暴露绝对请求量。',
       form: {
         kindRequired: '请选择供应商'
       },

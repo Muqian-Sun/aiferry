@@ -1,130 +1,121 @@
 <template>
   <!--
-    管理端仪表盘（A2-1，muqian 2026-09-24 定）：
-    ① 今日 / 累计两行数字（原 8 张彩色卡片）；右上角实时 RPM · TPM
+    管理端概览（A2-1 定内容，A7 改成一张面）：
+    ① 今日 / 累计两行数字；右上角实时 RPM · TPM
     ② 需要处理：只放渠道异常 / 限流 / 过载，点进渠道页带状态筛选；都是 0 时整段不出现
-    ③ 快捷入口（保留）
-    ④ 时间范围 + 粒度；用量趋势单线 + 页签（Token / 请求 / 费用，去掉原双轴图，缓存命中率改成①里的数字）；
-       模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。全部单色。
+    ③ 用量趋势单线 + 页签（Token / 请求 / 费用）；模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。全部单色。
+    区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
   -->
   <AppLayout>
-    <div class="space-y-6">
-      <div v-if="loading" class="flex items-center justify-center py-12">
-        <LoadingSpinner />
+    <template #header-actions>
+      <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
+      <div class="w-28">
+        <Select v-model="granularity" :options="granularityOptions" :title="t('admin.dashboard.granularity')" @change="loadChartData" />
       </div>
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :disabled="chartsLoading"
+        :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
+        data-testid="dashboard-refresh"
+        @click="loadDashboardStats"
+      >
+        <Icon name="refresh" size="md" />
+      </button>
+    </template>
 
-      <template v-else-if="stats">
-        <section class="card p-5" data-testid="dashboard-numbers">
-          <div class="mb-3 flex justify-end">
-            <p class="text-xs tabular-nums text-af-ink-3" data-testid="dashboard-realtime">
-              {{ t('admin.dashboard.realtime', { rpm: formatNumber(stats.rpm), tpm: formatTokens(stats.tpm) }) }}
-            </p>
-          </div>
-          <div class="divide-y divide-af-hairline">
-            <div
-              v-for="row in numberRows"
-              :key="row.key"
-              class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start"
-              :data-testid="`dashboard-row-${row.key}`"
-            >
-              <p class="w-16 shrink-0 pt-1 text-13 font-medium text-af-ink-3">{{ row.title }}</p>
-              <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
-                <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
-                  <dd class="truncate text-xl font-semibold tabular-nums text-af-ink">{{ cell.value }}</dd>
-                  <dt class="mt-0.5 truncate text-xs text-af-ink-3">
-                    {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-4"> · {{ cell.hint }}</span>
-                  </dt>
-                </div>
-              </dl>
-            </div>
-          </div>
-        </section>
+    <div v-if="loading" class="flex items-center justify-center py-12">
+      <LoadingSpinner />
+    </div>
 
-        <section v-if="attentionItems.length" class="card p-5" data-testid="dashboard-attention">
-          <h2 class="text-sm font-semibold text-af-ink">{{ t('admin.dashboard.attentionTitle') }}</h2>
-          <ul class="mt-2 divide-y divide-af-hairline">
-            <li v-for="item in attentionItems" :key="item.key">
-              <RouterLink
-                :to="item.to"
-                class="group flex items-center justify-between gap-4 py-2.5 text-sm text-af-ink"
-                :data-testid="`dashboard-attention-${item.key}`"
-              >
-                <span class="flex items-center gap-2.5">
-                  <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="item.dot" aria-hidden="true" />
-                  {{ item.label }}
-                </span>
-                <span class="inline-flex items-center gap-1 text-13 text-af-ink-3 group-hover:text-af-ink">
-                  {{ t('admin.dashboard.attentionGo') }}
-                  <Icon name="chevronRight" size="sm" />
-                </span>
-              </RouterLink>
-            </li>
-          </ul>
-        </section>
-
-        <div class="space-y-6">
-          <div class="card p-4">
-            <div class="flex flex-wrap items-center gap-4">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.timeRange') }}:</span>
-                <DateRangePicker v-model:start-date="startDate" v-model:end-date="endDate" @change="onDateRangeChange" />
+    <div v-else-if="stats" class="space-y-8">
+      <section data-testid="dashboard-numbers">
+        <p class="mb-3 text-right text-xs tabular-nums text-af-ink-3" data-testid="dashboard-realtime">
+          {{ t('admin.dashboard.realtime', { rpm: formatNumber(stats.rpm), tpm: formatTokens(stats.tpm) }) }}
+        </p>
+        <div class="divide-y divide-af-hairline">
+          <div
+            v-for="row in numberRows"
+            :key="row.key"
+            class="flex flex-col gap-3 py-4 first:pt-0 last:pb-0 lg:flex-row lg:items-start"
+            :data-testid="`dashboard-row-${row.key}`"
+          >
+            <p class="w-16 shrink-0 pt-1 text-13 font-medium text-af-ink-3">{{ row.title }}</p>
+            <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+              <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
+                <dd class="truncate text-xl font-semibold tabular-nums text-af-ink">{{ cell.value }}</dd>
+                <dt class="mt-0.5 truncate text-xs text-af-ink-3">
+                  {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-4"> · {{ cell.hint }}</span>
+                </dt>
               </div>
-              <button :disabled="chartsLoading" class="btn btn-secondary" @click="loadDashboardStats">
-                {{ t('common.refresh') }}
-              </button>
-              <div class="ml-auto flex items-center gap-2">
-                <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.granularity') }}:</span>
-                <div class="w-28">
-                  <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <section class="card p-4" data-testid="dashboard-trend">
-            <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h3 class="text-sm font-semibold text-af-ink">{{ t('admin.dashboard.usageTrend') }}</h3>
-              <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.dashboard.usageTrend')">
-                <button
-                  v-for="tab in trendTabs"
-                  :key="tab.key"
-                  type="button"
-                  role="tab"
-                  class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-                  :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
-                  :aria-selected="trendMetric === tab.key"
-                  @click="trendMetric = tab.key"
-                >
-                  {{ tab.label }}
-                </button>
-              </div>
-            </div>
-            <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
-          </section>
-
-          <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-            <ModelDistributionChart
-              :model-stats="modelStats"
-              :enable-ranking-view="true"
-              :ranking-items="rankingItems"
-              :ranking-total-actual-cost="rankingTotalActualCost"
-              :ranking-total-requests="rankingTotalRequests"
-              :ranking-total-tokens="rankingTotalTokens"
-              :loading="chartsLoading"
-              :ranking-loading="rankingLoading"
-              :ranking-error="rankingError"
-              :start-date="startDate"
-              :end-date="endDate"
-              :load-user-breakdown="getUserBreakdown"
-              @ranking-click="goToUserUsage"
-            />
-            <section class="card p-4" data-testid="dashboard-top-users">
-              <h3 class="mb-4 text-sm font-semibold text-af-ink">{{ t('admin.dashboard.userUsageTrend') }}</h3>
-              <UsageModelTrendRows :points="userTrendRows" :days="bucketKeys" :limit="12" :loading="userTrendLoading" />
-            </section>
+            </dl>
           </div>
         </div>
-      </template>
+      </section>
+
+      <SheetSection v-if="attentionItems.length" :title="t('admin.dashboard.attentionTitle')" data-testid="dashboard-attention">
+        <ul class="-mt-2 divide-y divide-af-hairline">
+          <li v-for="item in attentionItems" :key="item.key">
+            <RouterLink
+              :to="item.to"
+              class="group flex items-center justify-between gap-4 py-2.5 text-sm text-af-ink"
+              :data-testid="`dashboard-attention-${item.key}`"
+            >
+              <span class="flex items-center gap-2.5">
+                <span class="h-1.5 w-1.5 shrink-0 rounded-full" :class="item.dot" aria-hidden="true" />
+                {{ item.label }}
+              </span>
+              <span class="inline-flex items-center gap-1 text-13 text-af-ink-3 group-hover:text-af-ink">
+                {{ t('admin.dashboard.attentionGo') }}
+                <Icon name="chevronRight" size="sm" />
+              </span>
+            </RouterLink>
+          </li>
+        </ul>
+      </SheetSection>
+
+      <SheetSection :title="t('admin.dashboard.usageTrend')" data-testid="dashboard-trend">
+        <template #actions>
+          <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.dashboard.usageTrend')">
+            <button
+              v-for="tab in trendTabs"
+              :key="tab.key"
+              type="button"
+              role="tab"
+              class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+              :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
+              :aria-selected="trendMetric === tab.key"
+              @click="trendMetric = tab.key"
+            >
+              {{ tab.label }}
+            </button>
+          </div>
+        </template>
+        <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
+      </SheetSection>
+
+      <section class="grid grid-cols-1 gap-x-10 gap-y-8 border-t border-af-hairline pt-6 lg:grid-cols-2">
+        <ModelDistributionChart
+          :model-stats="modelStats"
+          :enable-ranking-view="true"
+          :ranking-items="rankingItems"
+          :ranking-total-actual-cost="rankingTotalActualCost"
+          :ranking-total-requests="rankingTotalRequests"
+          :ranking-total-tokens="rankingTotalTokens"
+          :loading="chartsLoading"
+          :ranking-loading="rankingLoading"
+          :ranking-error="rankingError"
+          :start-date="startDate"
+          :end-date="endDate"
+          :load-user-breakdown="getUserBreakdown"
+          @ranking-click="goToUserUsage"
+        />
+        <div data-testid="dashboard-top-users">
+          <h3 class="mb-4 text-base font-semibold text-af-ink">{{ t('admin.dashboard.userUsageTrend') }}</h3>
+          <UsageModelTrendRows :points="userTrendRows" :days="bucketKeys" :limit="12" :loading="userTrendLoading" />
+        </div>
+      </section>
     </div>
   </AppLayout>
 </template>
@@ -143,8 +134,10 @@ import Icon from '@/components/icons/Icon.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import Select from '@/components/common/Select.vue'
 import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
+import { fillTrendBuckets, formatLocalDate, trendBucketKeys, type TrendGranularity } from '@/utils/trendBuckets'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -168,16 +161,13 @@ let usersTrendLoadSeq = 0
 let rankingLoadSeq = 0
 const rankingLimit = 12
 
-const pad = (n: number) => String(n).padStart(2, '0')
-const formatLocalDate = (date: Date): string => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
-
 const getLast24HoursRangeDates = (): { start: string; end: string } => {
   const end = new Date()
   const start = new Date(end.getTime() - 24 * 60 * 60 * 1000)
   return { start: formatLocalDate(start), end: formatLocalDate(end) }
 }
 
-const granularity = ref<'day' | 'hour'>('hour')
+const granularity = ref<TrendGranularity>('hour')
 const defaultRange = getLast24HoursRangeDates()
 const startDate = ref(defaultRange.start)
 const endDate = ref(defaultRange.end)
@@ -271,7 +261,7 @@ const attentionItems = computed(() => {
     .map((item) => ({ ...item, label: t(`admin.dashboard.${item.label}`, { count: formatNumber(item.count) }) }))
 })
 
-// ---------- ④ 趋势 / 分布 / Top 用户 ----------
+// ---------- ③ 趋势 / 分布 / Top 用户 ----------
 const trendMetric = ref<UsageTrendMetric>('tokens')
 const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() => [
   { key: 'tokens', label: t('admin.dashboard.tokens') },
@@ -279,41 +269,8 @@ const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() =
   { key: 'cost', label: t('admin.dashboard.cost') }
 ])
 
-/** 区间内逐个时间桶（与后端 TO_CHAR 同格式）：按天 YYYY-MM-DD；按小时 YYYY-MM-DD HH:00，截到当前小时 */
-const bucketKeys = computed(() => {
-  const start = new Date(`${startDate.value}T00:00:00`)
-  const end = new Date(`${endDate.value}T00:00:00`)
-  if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) return []
-  const keys: string[] = []
-  if (granularity.value === 'day') {
-    for (const d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) keys.push(formatLocalDate(d))
-    return keys
-  }
-  const last = Math.min(end.getTime() + 23 * 60 * 60 * 1000, Date.now())
-  for (const d = new Date(start); d.getTime() <= last; d.setHours(d.getHours() + 1)) {
-    keys.push(`${formatLocalDate(d)} ${pad(d.getHours())}:00`)
-  }
-  return keys
-})
-
-/** 趋势按连续时间桶补零：接口只返回有请求的桶，直接连线会把中间没请求的时段连过去 */
-const trendFilled = computed<TrendDataPoint[]>(() => {
-  const byDate = new Map(trendData.value.map((point) => [point.date, point]))
-  return bucketKeys.value.map(
-    (date) =>
-      byDate.get(date) ?? {
-        date,
-        requests: 0,
-        input_tokens: 0,
-        output_tokens: 0,
-        cache_creation_tokens: 0,
-        cache_read_tokens: 0,
-        total_tokens: 0,
-        cost: 0,
-        actual_cost: 0
-      }
-  )
-})
+const bucketKeys = computed(() => trendBucketKeys(startDate.value, endDate.value, granularity.value))
+const trendFilled = computed(() => fillTrendBuckets(trendData.value, bucketKeys.value))
 
 const userDisplayName = (point: UserUsageTrendPoint): string =>
   point.username?.trim() || point.email?.trim() || t('admin.redeem.userPrefix', { id: point.user_id })
