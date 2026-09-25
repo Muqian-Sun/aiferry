@@ -1,7 +1,7 @@
 <template>
   <!--
     收款概览的四个数字（A4）：与用户站控制台同一个 StatRow——行内大数字、竖 hairline 分隔，不再一格一张卡片。
-    金额可能有多个币种，同一格里用「·」连起来。
+    金额可能有多个币种：大数字只写第一个币种（按币种代码排序），其余币种写进旁边的小字，免得一格折成两行、把订单数挤掉。
   -->
   <StatRow :items="items" data-testid="order-stats" />
 </template>
@@ -27,10 +27,11 @@ function formatMoney(currency: string, amount: number): string {
   return new Intl.NumberFormat(undefined, { style: 'currency', currency }).format(amount)
 }
 
-/** 多币种金额拼成一串；没有任何币种的收入时写「—」 */
-function formatAmounts(amounts: CurrencyAmounts | null | undefined): string {
-  const entries = sortedAmounts(amounts ?? {})
-  return entries.length ? entries.map(([currency, amount]) => formatMoney(currency, amount)).join(' · ') : '—'
+/** 第一个币种进大数字，其余币种与额外说明一起进小字；没有任何币种的收入时写「—」 */
+function splitAmounts(amounts: CurrencyAmounts | null | undefined, extra: string[] = []): { value: string; hint?: string } {
+  const [first, ...rest] = sortedAmounts(amounts ?? {}).map(([currency, amount]) => formatMoney(currency, amount))
+  const hint = [...rest, ...extra].join(' · ')
+  return { value: first ?? '—', hint: hint || undefined }
 }
 
 const items = computed<StatItem[]>(() => {
@@ -39,17 +40,15 @@ const items = computed<StatItem[]>(() => {
     {
       key: 'today-revenue',
       label: t('payment.admin.todayRevenue'),
-      value: formatAmounts(stats.today_amount),
-      hint: `${stats.today_count} ${t('payment.admin.orders')}`
+      ...splitAmounts(stats.today_amount, [`${stats.today_count} ${t('payment.admin.orders')}`])
     },
     {
       key: 'total-revenue',
       label: t('payment.admin.totalRevenue'),
-      value: formatAmounts(stats.total_amount),
-      hint: `${stats.total_count} ${t('payment.admin.orders')}`
+      ...splitAmounts(stats.total_amount, [`${stats.total_count} ${t('payment.admin.orders')}`])
     },
     { key: 'today-orders', label: t('payment.admin.todayOrders'), value: String(stats.today_count) },
-    { key: 'avg-amount', label: t('payment.admin.avgAmount'), value: formatAmounts(stats.avg_amount) }
+    { key: 'avg-amount', label: t('payment.admin.avgAmount'), ...splitAmounts(stats.avg_amount) }
   ]
 })
 </script>

@@ -103,7 +103,8 @@ const chartData = computed(() => {
         pointHoverBackgroundColor: theme.value.ink,
         pointHitRadius: 8,
         fill: 'origin',
-        tension: 0.3
+        // 单调插值：普通 tension 在很多 0 的稀疏数据两侧会冲到 0 以下
+        cubicInterpolationMode: 'monotone' as const
       }
     ]
   }
