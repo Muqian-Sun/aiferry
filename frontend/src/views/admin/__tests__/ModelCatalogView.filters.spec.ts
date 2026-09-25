@@ -137,14 +137,14 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     showInfo.mockReset()
   })
 
-  it('summarises total / listed / listed-without-resources and lists every entry by default', async () => {
+  it('summarises total / listed / listed-without-resources and lists only listed entries by default', async () => {
     const wrapper = mountView()
     await flushPromises()
     const summary = wrapper.get('[data-testid="model-catalog-summary"]')
     expect(summary.get('[data-testid="stat-total"]').text()).toContain('5')
     expect(summary.get('[data-testid="stat-listed"]').text()).toContain('2')
     expect(summary.get('[data-testid="stat-unbound"]').text()).toContain('1')
-    expect(rowIds(wrapper)).toEqual(['claude-opus-4-6', 'gpt-5.6', 'gpt-image-2', 'nameless', 'veo-x'])
+    expect(rowIds(wrapper)).toEqual(['claude-opus-4-6', 'gpt-5.6'])
 
     // 「上架但无渠道」旁的「筛选」一键筛出这些条目
     await summary.get('[data-testid="stat-unbound-action"]').trigger('click')
@@ -160,7 +160,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     expect(rowIds(wrapper)).toEqual(['gpt-image-2', 'nameless', 'veo-x'])
     await pickFilter(wrapper, 'model-catalog-filter-status', '')
 
-    await pickFilter(wrapper, 'model-catalog-filter-vendor', 'openai')
+    await pickFilter(wrapper, 'model-catalog-filter-vendor', 'OpenAI')
     expect(rowIds(wrapper)).toEqual(['gpt-5.6', 'gpt-image-2'])
     // 「无厂商」是单独一个选项（空串已表示不筛）
     const vendorChip = wrapper.findAllComponents({ name: 'FilterChip' }).find((c) => c.props('testId') === 'model-catalog-filter-vendor')!
@@ -190,20 +190,24 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
   it('shows list prices per million tokens, per-unit prices for media, and flags unpriced entries', async () => {
     const wrapper = mountView()
     await flushPromises()
+    await pickFilter(wrapper, 'model-catalog-filter-status', '')
     const prices = wrapper.findAll('[data-testid="model-catalog-price"]')
     expect(prices[0].text()).toContain('$15.00')
     expect(prices[0].text()).toContain('$75.00')
     expect(prices[0].find('.text-af-danger').exists()).toBe(false)
     expect(prices[2].text()).toContain('$0.04')
     expect(prices[2].text()).toContain('admin.modelCatalog.columns.perUnit.image')
-    // 没配价：标红（token 与媒体模式各一条）
-    expect(prices[3].find('.text-af-danger').exists()).toBe(true)
-    expect(prices[4].find('.text-af-danger').exists()).toBe(true)
+    // 没配价：写「未配价」（token 与媒体模式各一条）；这两条未上架，不标红
+    expect(prices[3].text()).toContain('admin.modelCatalog.columns.unpriced')
+    expect(prices[4].text()).toContain('admin.modelCatalog.columns.unpriced')
+    expect(prices[3].find('.text-af-danger').exists()).toBe(false)
+    expect(prices[4].find('.text-af-danger').exists()).toBe(false)
   })
 
   it('bulk-lists the selection with full-entry PUTs, skipping entries already in that state', async () => {
     const wrapper = mountView()
     await flushPromises()
+    await pickFilter(wrapper, 'model-catalog-filter-status', '')
     await wrapper.get('[data-testid="select-all"]').trigger('click')
     await flushPromises()
     expect(wrapper.text()).toContain('common.selectedItems:{"count":5}')
@@ -227,6 +231,7 @@ describe('ModelCatalogView filters, summary, prices and bulk status', () => {
     })
     const wrapper = mountView()
     await flushPromises()
+    await pickFilter(wrapper, 'model-catalog-filter-status', '')
     await wrapper.get('[data-testid="select-all"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-bulk-list"]').trigger('click')
     await flushPromises()

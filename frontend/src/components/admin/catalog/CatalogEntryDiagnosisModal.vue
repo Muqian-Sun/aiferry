@@ -30,9 +30,15 @@
           >
             <td class="px-3 py-2">
               <div class="font-medium text-af-ink">{{ account.name }}</div>
-              <div class="text-xs text-af-ink-3">
-                #{{ account.id }} · {{ account.platform }} / {{ account.type }}
-                <span v-if="account.vendor" class="ml-1 rounded bg-af-sunken px-1.5 py-0.5 text-[11px]">{{ account.vendor }}</span>
+              <div class="flex items-center gap-1 text-xs text-af-ink-3">
+                <span class="shrink-0 tabular-nums">#{{ account.id }}</span>
+                <span aria-hidden="true">·</span>
+                <PlatformTypeBadge
+                  variant="plain"
+                  :platform="account.platform as AccountPlatform"
+                  :type="account.type as AccountType"
+                  :vendor="account.vendor"
+                />
               </div>
             </td>
             <td class="px-3 py-2 text-af-ink-2">
@@ -66,12 +72,15 @@
 
 <script setup lang="ts">
 /**
- * 目录条目诊断：一条上架模型绑定了哪些资源、每个此刻能不能调度、四个入站协议各能不能承接。
- * 数据来自 GET /admin/model-catalog/entries/:id/diagnosis；目录页行操作与渠道页的模型 chip 共用。
+ * 目录条目诊断：一条模型绑定了哪些渠道、每个此刻能不能调度、四个入站协议各能不能承接。
+ * 数据来自 GET /admin/model-catalog/entries/:id/diagnosis；目录页详情抽屉「渠道」页签与渠道页的模型 chip 共用。
+ * 渠道的平台 / 类型用渠道页同一套名字（PlatformTypeBadge 小字版），不写原始标识。
  */
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
+import type { AccountPlatform, AccountType } from '@/types'
 import modelCatalogAPI, {
   type ModelCatalogDiagnosisAccount,
   type ModelCatalogInboundProtocol

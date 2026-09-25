@@ -1,11 +1,13 @@
 export default {
   modelCatalog: {
-    description: '平台模型的基准价与别名，计价从这里取。',
+    description: '平台模型的标价与别名；收入、成本都按标价乘倍率算。',
     search: '搜索模型标识、展示名、厂商或别名',
     create: '新建模型',
     edit: '编辑模型',
-    empty: '目录还是空的，先播种或手动新建。',
+    empty: '目录还是空的，先从价格文件导入或手动新建。',
     noMatch: '没有匹配的条目',
+    noneListed: '还没有上架的模型',
+    showAll: '看全部模型',
     summaryStats: {
       total: '模型',
       listed: '已上架',
@@ -13,21 +15,25 @@ export default {
       showThem: '筛选'
     },
     filtered: '筛选后 {count} 个',
-    aliasCount: '{count} 别名',
+    aliasCount: '{count} 个别名',
     filters: {
       noVendor: '（无厂商）',
       withResources: '有渠道',
       withoutResources: '无渠道'
     },
     columns: {
+      model: '模型',
       price: '标价',
-      perMillion: '$ / 百万 Token',
+      channels: '承接渠道数',
+      status: '状态',
+      perMillion: '输入 / 输出 · 每百万 Token',
       perUnit: {
         per_request: '每次',
         image: '每张',
         video: '每秒'
       },
-      tiers: '{count} 档'
+      tiers: '{count} 档',
+      unpriced: '未配价'
     },
     bulk: {
       list: '上架',
@@ -88,12 +94,11 @@ export default {
       unboundBanner: '已上架但没有绑定渠道：用户调用这个模型会失败。',
       listedDone: '已上架 {model}',
       unlistedDone: '已下架 {model}',
-      protocols: '协议',
       aliases: '别名',
       notes: '备注',
       updatedAt: '更新时间',
-      prices: '价格',
-      perMillionHint: '按 Token 计的单价，单位 $ / 百万 Token',
+      prices: '标价',
+      perMillionHint: '按 Token 计的标价，单位：美元 / 百万 Token',
       price: {
         input: '输入',
         output: '输出',
@@ -105,20 +110,26 @@ export default {
         imageCacheRead: '图片缓存读取',
         audioInput: '音频输入',
         audioOutput: '音频输出',
-        inputPriority: '优先级 · 输入',
-        outputPriority: '优先级 · 输出',
-        cacheWritePriority: '优先级 · 缓存写入',
-        cacheReadPriority: '优先级 · 缓存读取',
+        // 服务档位：priority 档与 Fast 同一档（与用户站「服务档位」同名），别写成「优先级」——渠道页签的「优先级」是调度优先级
+        inputPriority: 'Fast 档 · 输入',
+        outputPriority: 'Fast 档 · 输出',
+        cacheWritePriority: 'Fast 档 · 缓存写入',
+        cacheReadPriority: 'Fast 档 · 缓存读取',
         perRequest: '按次',
-        perCall: '{price} / 次',
+        per: {
+          per_request: '{price} / 次',
+          image: '{price} / 张',
+          video: '{price} / 秒'
+        },
         searchPerCall: '内置搜索',
         longContext: '长上下文 {op} {threshold}',
-        defaultPrice: '默认价',
-        fast: 'Fast 倍率',
-        flex: 'Flex 倍率',
+        listPrice: '标价',
+        fast: 'Fast 档倍率',
+        flex: 'Flex 档倍率',
         maxReasoning: '最高推理倍率'
       },
       tiers: '分档',
+      mediaTiersHint: '命中档位按档位价计，没命中按上面的标价。',
       tokenTier: '{min} – {max} Token',
       tokenTierOpen: '{min} Token 以上',
       timePricing: '分时定价',
@@ -127,6 +138,7 @@ export default {
       bind: '去绑定',
       priority: '优先级 {value}',
       notSchedulable: '不可调度',
+      channelsHint: '这些渠道此刻能不能调度；各入口协议能不能承接，点「诊断」看。',
       channelsFallback: '渠道状态没取到，下面只列出绑定的渠道。'
     },
     diagnose: '诊断',
@@ -155,9 +167,9 @@ export default {
         quota_exceeded: '额度已用尽'
       }
     },
-    seed: '从价格文件播种',
-    seeding: '播种中…',
-    seedDone: '播种完成：新增 {inserted}，刷新 {refreshed}，跳过管理员改过的 {skipped}',
+    seed: '从价格文件导入',
+    seeding: '导入中…',
+    seedDone: '导入完成：新增 {inserted}，更新 {refreshed}，跳过手动改过的 {skipped}',
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
@@ -170,8 +182,7 @@ export default {
       vendor: '厂商',
       billingMode: '计费模式',
       status: '上架状态',
-      managedBy: '维护方',
-      resources: '渠道',
+      resources: '承接渠道',
       inputPrice: '输入价',
       outputPrice: '输出价',
       perRequestPrice: '每次默认价',
@@ -215,18 +226,14 @@ export default {
       priorityFollow: '跟随渠道'
     },
     status: {
-      listed: '上架',
-      unlisted: '下架'
+      listed: '已上架',
+      unlisted: '未上架'
     },
     billingModes: {
       token: '按 Token',
       per_request: '按次',
       image: '按图片',
       video: '按视频'
-    },
-    managedBy: {
-      seed: '播种',
-      admin: '管理员'
     }
   }
 }

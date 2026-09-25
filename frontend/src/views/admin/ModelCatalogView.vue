@@ -1,9 +1,10 @@
 <template>
   <!--
-    模型目录（A4 列表模板）：上架 = 用户能看到并调用；上架必有价、必有资源承接。
-    标题右侧「⋯」（从价格文件播种）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
-    工具行 = 搜索 + 状态 / 厂商 / 计费 / 资源筛选标签 + 刷新；行尾「编辑」图标 +「⋯」（诊断、删除）；选中行时批量上下架。
-    点行打开详情抽屉（A5）：概况（全部价格、别名…）/ 渠道（绑定的渠道此刻能否调度 + 诊断）；抽屉右上「编辑」「⋯」。
+    模型目录（A4 列表模板）：上架 = 用户能看到并调用；上架必有价、必有渠道承接。
+    标题右侧「⋯」（从价格文件导入）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
+    工具行 = 搜索 + 状态（默认只看已上架：价格文件带进来的几百个模型大多没上架）/ 厂商 / 计费 / 渠道筛选标签 + 刷新；
+    列 = 模型、厂商、标价（输入 / 输出，每百万 Token；整列同一个小数位数）、承接渠道数、状态；行尾「编辑」图标 +「⋯」（删除）；选中行时批量上下架。
+    点行打开详情抽屉（A5）：概况（全部标价、别名…）/ 渠道（承接的渠道此刻能否调度 + 诊断）；点承接渠道数直接打开渠道页签。
     新建 / 编辑是独立页（/model-catalog/new、/model-catalog/:id/edit）。
   -->
   <AppLayout>
@@ -47,7 +48,7 @@
           />
           <FilterChip
             v-model="statusFilter"
-            :label="t('admin.modelCatalog.fields.status')"
+            :label="t('admin.modelCatalog.columns.status')"
             :options="statusOptions"
             test-id="model-catalog-filter-status"
           />
@@ -112,31 +113,21 @@
               </div>
             </div>
           </template>
-          <template #cell-vendor="{ value }">
-            <span v-if="value" class="text-af-ink-2">{{ value }}</span>
+          <template #cell-vendor="{ row }">
+            <span v-if="catalogVendorLabel(row)" class="text-af-ink-2">{{ catalogVendorLabel(row) }}</span>
             <span v-else class="text-af-ink-4">—</span>
           </template>
-          <template #cell-billing_mode="{ value }">
-            <span class="text-af-ink-2">{{ t(`admin.modelCatalog.billingModes.${value || 'token'}`) }}</span>
-          </template>
           <template #cell-price="{ row }">
-            <PriceCell :entry="row" />
+            <PriceCell :entry="row" :decimals="priceDecimals" />
           </template>
-          <!-- 上架 / 下架都是常态：灰点纯文字，上架的点与字深一档 -->
-          <template #cell-status="{ value }">
-            <div class="flex items-center gap-1.5">
-              <span :class="['inline-block h-2 w-2 rounded-full', value === 'listed' ? 'bg-af-ink-3' : 'bg-af-hairline-strong']"></span>
-              <span :class="value === 'listed' ? 'text-af-ink' : 'text-af-ink-3'">{{ t(`admin.modelCatalog.status.${value}`) }}</span>
-            </div>
-          </template>
-          <!-- 上架却没有资源承接是真异常：橙点橙字，点开诊断 -->
+          <!-- 上架却没有渠道承接是真异常：橙点橙字；点数字 / 「无渠道」都打开详情抽屉的渠道页签 -->
           <template #cell-resources="{ row }">
             <button
               v-if="row.status === 'listed' && bindingCount(row) === 0"
               type="button"
               class="inline-flex items-center gap-1.5 text-af-warning hover:underline"
               data-testid="model-catalog-no-resources"
-              @click.stop="openDiagnosis(row)"
+              @click.stop="openDrawer(row, 'channels')"
             >
               <span class="inline-block h-2 w-2 rounded-full bg-af-warning"></span>
               {{ t('admin.modelCatalog.noResources') }}
@@ -146,20 +137,32 @@
               type="button"
               class="tabular-nums text-af-ink-2 underline decoration-af-ink-4 decoration-dotted underline-offset-2 hover:text-af-ink"
               data-testid="model-catalog-resource-count"
-              @click.stop="openDiagnosis(row)"
+              @click.stop="openDrawer(row, 'channels')"
             >
               {{ bindingCount(row) }}
             </button>
           </template>
-          <template #cell-managed_by="{ value }">
-            <span class="text-af-ink-3">{{ t(`admin.modelCatalog.managedBy.${value}`) }}</span>
+          <!-- 已上架 / 未上架都是常态：灰点纯文字，已上架的点与字深一档 -->
+          <template #cell-status="{ value }">
+            <div class="flex items-center gap-1.5">
+              <span :class="['inline-block h-2 w-2 rounded-full', value === 'listed' ? 'bg-af-ink-3' : 'bg-af-hairline-strong']"></span>
+              <span :class="value === 'listed' ? 'text-af-ink' : 'text-af-ink-3'">{{ t(`admin.modelCatalog.status.${value}`) }}</span>
+            </div>
           </template>
           <template #cell-actions="{ row }">
             <RowActions :actions="rowActions(row)" />
           </template>
 
           <template #empty>
+            <!-- 默认只看已上架：一个都没上架时别只说「没有匹配」，给一键看全部 -->
             <EmptyState
+              v-if="entries.length && onlyDefaultFilter && listedCount === 0"
+              :title="t('admin.modelCatalog.noneListed')"
+              :action-text="t('admin.modelCatalog.showAll')"
+              @action="statusFilter = ''"
+            />
+            <EmptyState
+              v-else
               :title="entries.length ? t('admin.modelCatalog.noMatch') : t('admin.modelCatalog.empty')"
               :action-text="entries.length ? undefined : t('admin.modelCatalog.create')"
               @action="openCreate"
@@ -247,6 +250,8 @@ import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryD
 import CatalogEntryDrawer from '@/components/admin/catalog/CatalogEntryDrawer.vue'
 import PriceCell from '@/components/admin/catalog/CatalogPriceCell.vue'
 import { entryToRequest } from '@/components/admin/catalog/entryRequest'
+import { LIST_PRICE_MAX_DECIMALS, listPriceValues, sharedPriceDecimals } from '@/components/admin/catalog/priceFormat'
+import { catalogVendorLabel } from '@/components/admin/catalog/vendorLabel'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
@@ -260,9 +265,11 @@ const entries = ref<ModelCatalogEntry[]>([])
 const selectedIds = ref<number[]>([])
 
 // 筛选（空串 = 全部；厂商筛选里「无厂商」用 NO_VENDOR 占位，空串已表示不筛）
+// 状态默认只看已上架：价格文件带进来的几百个模型大多没上架，默认全列出来会把真在卖的几个淹掉
 const NO_VENDOR = '__none__'
+const DEFAULT_STATUS_FILTER = 'listed'
 const searchQuery = ref('')
-const statusFilter = ref('')
+const statusFilter = ref(DEFAULT_STATUS_FILTER)
 const vendorFilter = ref('')
 const billingFilter = ref('')
 const resourceFilter = ref('')
@@ -291,24 +298,24 @@ function bindingCount(entry: ModelCatalogEntry): number {
 }
 
 const columns = computed<Column[]>(() => [
-  { key: 'model_id', label: t('admin.modelCatalog.fields.modelId') },
+  { key: 'model_id', label: t('admin.modelCatalog.columns.model') },
   { key: 'vendor', label: t('admin.modelCatalog.fields.vendor') },
-  { key: 'billing_mode', label: t('admin.modelCatalog.fields.billingMode') },
   { key: 'price', label: t('admin.modelCatalog.columns.price'), class: 'text-right' },
-  { key: 'status', label: t('admin.modelCatalog.fields.status') },
-  { key: 'resources', label: t('admin.modelCatalog.fields.resources') },
-  { key: 'managed_by', label: t('admin.modelCatalog.fields.managedBy') },
+  { key: 'resources', label: t('admin.modelCatalog.columns.channels') },
+  { key: 'status', label: t('admin.modelCatalog.columns.status') },
   { key: 'actions', label: t('common.actions'), class: 'text-right' }
 ])
 
-const vendorValues = computed(() => [...new Set(entries.value.map((entry) => entry.vendor).filter(Boolean))].sort())
+// 厂商筛选按展示名分组：同一厂商族的几个原始标识（如 gemini / vertex_ai-*）是一个选项
+const vendorValues = computed(() => [...new Set(entries.value.map(catalogVendorLabel).filter(Boolean))].sort((a, b) => a.localeCompare(b)))
 const statusOptions = computed<FilterOption[]>(() => [
+  { value: '', label: t('common.all') },
   { value: 'listed', label: t('admin.modelCatalog.status.listed') },
   { value: 'unlisted', label: t('admin.modelCatalog.status.unlisted') }
 ])
 const vendorOptions = computed<FilterOption[]>(() => [
   ...vendorValues.value.map((vendor) => ({ value: vendor, label: vendor })),
-  ...(entries.value.some((entry) => !entry.vendor) ? [{ value: NO_VENDOR, label: t('admin.modelCatalog.filters.noVendor') }] : [])
+  ...(entries.value.some((entry) => !catalogVendorLabel(entry)) ? [{ value: NO_VENDOR, label: t('admin.modelCatalog.filters.noVendor') }] : [])
 ])
 const billingOptions = computed<FilterOption[]>(() =>
   ['token', 'per_request', 'image', 'video'].map((mode) => ({ value: mode, label: t(`admin.modelCatalog.billingModes.${mode}`) }))
@@ -350,19 +357,35 @@ const summaryItems = computed<StatItem[] | null>(() => {
 const filteredEntries = computed(() => {
   const q = searchQuery.value.trim().toLowerCase()
   return entries.value.filter((entry) => {
+    const vendor = catalogVendorLabel(entry)
     if (statusFilter.value && entry.status !== statusFilter.value) return false
-    if (vendorFilter.value && (entry.vendor || NO_VENDOR) !== vendorFilter.value) return false
+    if (vendorFilter.value && (vendor || NO_VENDOR) !== vendorFilter.value) return false
     if (billingFilter.value && (entry.billing_mode || 'token') !== billingFilter.value) return false
     if (resourceFilter.value === 'bound' && bindingCount(entry) === 0) return false
     if (resourceFilter.value === 'unbound' && bindingCount(entry) > 0) return false
     if (!q) return true
-    return [entry.model_id, entry.display_name, entry.vendor, ...(entry.aliases ?? []).map((alias) => alias.alias)].some((value) =>
+    return [entry.model_id, entry.display_name, entry.vendor, vendor, ...(entry.aliases ?? []).map((alias) => alias.alias)].some((value) =>
       (value || '').toLowerCase().includes(q)
     )
   })
 })
 
 const isFiltered = computed(() => filteredEntries.value.length !== entries.value.length)
+
+/** 只有默认的「已上架」筛选在生效（空态据此给「看全部」） */
+const onlyDefaultFilter = computed(
+  () =>
+    statusFilter.value === DEFAULT_STATUS_FILTER &&
+    !searchQuery.value.trim() &&
+    !vendorFilter.value &&
+    !billingFilter.value &&
+    !resourceFilter.value
+)
+
+/** 标价列整列共用的小数位数：按当前筛选结果（不止本页）算，翻页不跳位数 */
+const priceDecimals = computed(() =>
+  sharedPriceDecimals(filteredEntries.value.flatMap(listPriceValues), LIST_PRICE_MAX_DECIMALS)
+)
 
 const pagedEntries = computed(() => {
   const start = (page.value - 1) * pageSize.value
@@ -432,12 +455,12 @@ async function setEntryStatus(entry: ModelCatalogEntry, status: 'listed' | 'unli
   }
 }
 
-// 行操作（A4）：编辑是图标；诊断、删除进「⋯」，删除红字且仍走确认框
+// 行操作（A4）：编辑是图标；删除进「⋯」，红字且仍走确认框。
+// 诊断只留一个入口：详情抽屉「渠道」页签（点承接渠道数直达）里的「诊断」按钮
 function rowActions(entry: ModelCatalogEntry): RowAction[] {
   return [
     { key: 'edit', label: t('common.edit'), icon: 'edit', primary: true, onSelect: () => openEdit(entry) },
-    { key: 'diagnose', label: t('admin.modelCatalog.diagnose'), icon: 'beaker', onSelect: () => openDiagnosis(entry) },
-    { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, dividerBefore: true, onSelect: () => askDelete(entry) }
+    { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, onSelect: () => askDelete(entry) }
   ]
 }
 
