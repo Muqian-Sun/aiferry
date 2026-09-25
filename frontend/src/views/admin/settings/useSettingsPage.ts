@@ -5,7 +5,8 @@
  * SettingsView 调用一次后 provide，各小节组件（settings/sections/*Section.vue）用 useSettingsPageContext() 取用。
  * 返回值里只放模板实际用到的绑定（由 Vue 编译器分析各小节模板得出）。
  */
-import { ref, reactive, computed, onMounted, watch, inject, type InjectionKey } from "vue";
+import { ref, reactive, computed, onMounted, watch, inject, type InjectionKey, nextTick, type Ref } from "vue";
+import type { SettingsSectionKey } from "./sections";
 import { useI18n } from "vue-i18n";
 import { adminAPI } from "@/api/admin";
 import {
@@ -70,7 +71,7 @@ import {
   type FingerprintSignalRow,
 } from "../codexFingerprintSignals";
 
-export function useSettingsPage() {
+export function useSettingsPage(currentSection: Ref<SettingsSectionKey>) {
   const { t, locale } = useI18n();
   const appStore = useAppStore();
   // 关闭 step-up 开关是敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 码重试
@@ -1990,7 +1991,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     t(`admin.settings.features.siteBillingMode.hints.${SITE_BILLING_MODE_I18N_KEYS[siteBillingMode.value]}`),
   );
 
-  async function saveSettings() {
+  async function saveSettings(): Promise<boolean> {
     saving.value = true;
     try {
       const normalizedTableDefaultPageSize = Math.floor(
@@ -2007,7 +2008,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             max: tablePageSizeMax,
           }),
         );
-        return;
+        return false;
       }
 
       const normalizedTablePageSizeOptions = parseTablePageSizeOptionsInput(
@@ -2020,7 +2021,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             max: tablePageSizeMax,
           }),
         );
-        return;
+        return false;
       }
 
       form.table_default_page_size = normalizedTableDefaultPageSize;
@@ -2035,7 +2036,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             "At least one document is required when login agreement is enabled.",
           ),
         );
-        return;
+        return false;
       }
       const emptyTitleDocument = normalizedLoginAgreementDocuments.find(
         (doc) => !doc.title,
@@ -2047,7 +2048,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             "Login agreement document title cannot be empty.",
           ),
         );
-        return;
+        return false;
       }
       const duplicateLoginAgreementDocumentId =
         findDuplicateLoginAgreementDocumentId(normalizedLoginAgreementDocuments);
@@ -2058,7 +2059,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             `Login agreement document routes cannot be duplicated: /legal/${duplicateLoginAgreementDocumentId}`,
           ),
         );
-        return;
+        return false;
       }
       form.login_agreement_mode =
         form.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
@@ -2085,7 +2086,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             "Official Account and Mobile App cannot be enabled at the same time.",
           ),
         );
-        return;
+        return false;
       }
       // Validate URL fields — novalidate disables browser-native checks, so we validate here
       const isValidHttpUrl = (url: string): boolean => {
@@ -2499,10 +2500,11 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       if (wsOk) {
         appStore.showSuccess(t("admin.settings.settingsSaved"));
       }
+      return wsOk;
     } catch (error: unknown) {
       // 用户取消 step-up 验证：静默返回，不弹错误
       if (isStepUpCancelled(error)) {
-        return;
+        return false;
       }
       if (isStepUpBlocked(error)) {
         appStore.showError(
@@ -2510,18 +2512,19 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
             ? t("stepUp.adminApiKeyForbidden")
             : t("stepUp.notEnabled"),
         );
-        return;
+        return false;
       }
       // 开启 step-up 开关但本人未启用 2FA：给出可操作的专用提示
       if (
         (error as { reason?: string })?.reason === "STEP_UP_ENABLE_REQUIRES_TOTP"
       ) {
         appStore.showError(t("admin.settings.security.stepUpEnableRequiresTotp"));
-        return;
+        return false;
       }
       appStore.showError(
         extractApiErrorMessage(error, t("admin.settings.failedToSave")),
       );
+      return false;
     } finally {
       saving.value = false;
     }
@@ -2661,7 +2664,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveUpstreamBillingProbeSettings() {
+  async function saveUpstreamBillingProbeSettings(): Promise<boolean> {
     upstreamBillingProbeSaving.value = true;
     try {
       const updated = await adminAPI.accounts.updateUpstreamBillingProbeSettings({
@@ -2669,6 +2672,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(upstreamBillingProbeForm, updated);
       appStore.showSuccess(t("admin.settings.upstreamBillingProbe.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(
@@ -2676,6 +2680,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           t("admin.settings.upstreamBillingProbe.saveFailed"),
         ),
       );
+      return false;
     } finally {
       upstreamBillingProbeSaving.value = false;
     }
@@ -2695,7 +2700,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveOllamaCloudUsageSettings() {
+  async function saveOllamaCloudUsageSettings(): Promise<boolean> {
     ollamaCloudUsageSaving.value = true;
     try {
       const updated = await adminAPI.accounts.updateOllamaCloudUsageSettings({
@@ -2703,10 +2708,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(ollamaCloudUsageForm, updated);
       appStore.showSuccess(t("admin.settings.ollamaCloudUsage.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(error, t("admin.settings.ollamaCloudUsage.saveFailed")),
       );
+      return false;
     } finally {
       ollamaCloudUsageSaving.value = false;
     }
@@ -2725,7 +2732,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveOverloadCooldownSettings() {
+  async function saveOverloadCooldownSettings(): Promise<boolean> {
     overloadCooldownSaving.value = true;
     try {
       const updated = await adminAPI.settings.updateOverloadCooldownSettings({
@@ -2734,6 +2741,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(overloadCooldownForm, updated);
       appStore.showSuccess(t("admin.settings.overloadCooldown.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(
@@ -2741,6 +2749,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           t("admin.settings.overloadCooldown.saveFailed"),
         ),
       );
+      return false;
     } finally {
       overloadCooldownSaving.value = false;
     }
@@ -2759,7 +2768,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function savePanelRateLimitSettings() {
+  async function savePanelRateLimitSettings(): Promise<boolean> {
     panelRateLimitSaving.value = true;
     try {
       const updated = await adminAPI.settings.updatePanelRateLimitSettings({
@@ -2771,6 +2780,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(panelRateLimitForm, updated);
       appStore.showSuccess(t("admin.settings.panelRateLimit.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(
@@ -2778,6 +2788,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           t("admin.settings.panelRateLimit.saveFailed"),
         ),
       );
+      return false;
     } finally {
       panelRateLimitSaving.value = false;
     }
@@ -2796,7 +2807,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveRateLimit429CooldownSettings() {
+  async function saveRateLimit429CooldownSettings(): Promise<boolean> {
     rateLimit429CooldownSaving.value = true;
     try {
       const updated = await adminAPI.settings.updateRateLimit429CooldownSettings({
@@ -2805,6 +2816,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(rateLimit429CooldownForm, updated);
       appStore.showSuccess(t("admin.settings.rateLimit429Cooldown.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(
@@ -2812,6 +2824,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           t("admin.settings.rateLimit429Cooldown.saveFailed"),
         ),
       );
+      return false;
     } finally {
       rateLimit429CooldownSaving.value = false;
     }
@@ -2830,7 +2843,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveStreamTimeoutSettings() {
+  async function saveStreamTimeoutSettings(): Promise<boolean> {
     streamTimeoutSaving.value = true;
     try {
       const updated = await adminAPI.settings.updateStreamTimeoutSettings({
@@ -2842,6 +2855,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       Object.assign(streamTimeoutForm, updated);
       appStore.showSuccess(t("admin.settings.streamTimeout.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(
@@ -2849,6 +2863,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           t("admin.settings.streamTimeout.saveFailed"),
         ),
       );
+      return false;
     } finally {
       streamTimeoutSaving.value = false;
     }
@@ -2871,7 +2886,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  async function saveRectifierSettings() {
+  async function saveRectifierSettings(): Promise<boolean> {
     rectifierSaving.value = true;
     try {
       const updated = await adminAPI.settings.updateRectifierSettings({
@@ -2888,10 +2903,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         rectifierForm.apikey_signature_patterns = [];
       }
       appStore.showSuccess(t("admin.settings.rectifier.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(error, t("admin.settings.rectifier.saveFailed")),
       );
+      return false;
     } finally {
       rectifierSaving.value = false;
     }
@@ -3060,7 +3077,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     rule.model_whitelist?.splice(idx, 1);
   }
 
-  async function saveBetaPolicySettings() {
+  async function saveBetaPolicySettings(): Promise<boolean> {
     betaPolicySaving.value = true;
     try {
       // Clean up empty patterns before saving
@@ -3087,10 +3104,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
       });
       betaPolicyForm.rules = updated.rules;
       appStore.showSuccess(t("admin.settings.betaPolicy.saved"));
+      return true;
     } catch (error: unknown) {
       appStore.showError(
         extractApiErrorMessage(error, t("admin.settings.betaPolicy.saveFailed")),
       );
+      return false;
     } finally {
       betaPolicySaving.value = false;
     }
@@ -3456,19 +3475,25 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     }
   }
 
-  onMounted(() => {
-    loadSettings();
-    loadSubscriptionPlans();
-    loadAdminApiKey();
-    loadUpstreamBillingProbeSettings();
-    loadOllamaCloudUsageSettings();
-    loadOverloadCooldownSettings();
-    loadRateLimit429CooldownSettings();
-    loadPanelRateLimitSettings();
-    loadStreamTimeoutSettings();
-    loadRectifierSettings();
-    loadBetaPolicySettings();
-    loadProviders();
+  onMounted(async () => {
+    await Promise.allSettled([
+      loadSettings(),
+      loadSubscriptionPlans(),
+      loadAdminApiKey(),
+      loadUpstreamBillingProbeSettings(),
+      loadOllamaCloudUsageSettings(),
+      loadOverloadCooldownSettings(),
+      loadRateLimit429CooldownSettings(),
+      loadPanelRateLimitSettings(),
+      loadStreamTimeoutSettings(),
+      loadRectifierSettings(),
+      loadBetaPolicySettings(),
+      loadProviders(),
+    ]);
+    // 加载后的规整（watch / 子组件回写）都跑完再取基线，页面一打开不应显示「有未保存的修改」
+    await nextTick();
+    await nextTick();
+    markAllClean();
   });
 
   // bypass_registration 与身份同步三开关仅在 internal_only 模式下生效。切换 policy 到其它值时，
@@ -3486,7 +3511,153 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     },
   );
 
-  return {
+  // =========================
+  // A6-2 每节保存
+  // =========================
+  // 同一时间只有当前小节可能有改动：切走时有改动会先问「放弃 / 留下」，放弃就恢复成已保存的值。
+  // 所以保存某一节时照旧整份提交总表单（其它节都等于已保存值，结果等于只存这一节）：saveSettings 里
+  // 有跨小节的校验与规整（分页、条款文档、人机验证、OAuth 回调……），按节拆请求体风险大、收益小。
+  // （后端本身支持只发部分字段：没发送的值类型字段不写库，见 setting_handler_update.go omittedSettingKeys。）
+  // 改动判断：每块状态与「上次加载 / 保存后的基线」比较。
+
+  /** 走独立接口保存的卡片：各自一块状态、一个保存函数，固定属于某一节 */
+  const SECTION_SUB_PARTS: Record<
+    string,
+    { section: SettingsSectionKey; state: object; save: () => Promise<boolean> }
+  > = {
+    overloadCooldown: { section: "cooldown", state: overloadCooldownForm, save: saveOverloadCooldownSettings },
+    rateLimit429Cooldown: { section: "cooldown", state: rateLimit429CooldownForm, save: saveRateLimit429CooldownSettings },
+    streamTimeout: { section: "cooldown", state: streamTimeoutForm, save: saveStreamTimeoutSettings },
+    rectifier: { section: "forwarding", state: rectifierForm, save: saveRectifierSettings },
+    betaPolicy: { section: "forwarding", state: betaPolicyForm, save: saveBetaPolicySettings },
+    panelRateLimit: { section: "security", state: panelRateLimitForm, save: savePanelRateLimitSettings },
+    upstreamBillingProbe: { section: "upstream", state: upstreamBillingProbeForm, save: saveUpstreamBillingProbeSettings },
+    ollamaCloudUsage: { section: "upstream", state: ollamaCloudUsageForm, save: saveOllamaCloudUsageSettings },
+  };
+  /** 没有总表单字段的小节：保存时不必整份提交 */
+  const SECTIONS_WITHOUT_MAIN_FIELDS: SettingsSectionKey[] = ["upstream"];
+
+  /** 总表单保存时会读到的全部状态（form 之外的是保存前才同步进 form 的编辑态） */
+  function mainState() {
+    return {
+      form,
+      registrationEmailSuffixWhitelistTags: registrationEmailSuffixWhitelistTags.value,
+      registrationEmailSuffixWhitelistDraft: registrationEmailSuffixWhitelistDraft.value,
+      forwardedClientIpHeaderDraft: forwardedClientIpHeaderDraft.value,
+      tablePageSizeOptionsInput: tablePageSizeOptionsInput.value,
+      captchaProviderSelection: captchaProviderSelection.value,
+      claudeOAuthSystemPromptBlocks: claudeOAuthSystemPromptBlocks.value,
+      codexBlacklistRows: codexBlacklistRows.value,
+      codexWhitelistRows: codexWhitelistRows.value,
+      codexFingerprintRows: codexFingerprintRows.value,
+      authSourceDefaults,
+      openaiFastPolicyForm,
+      webSearchConfig,
+    };
+  }
+  // 联网搜索的「已用额度」是即时操作（重置额度直接调接口），不算未保存的改动
+  function serializeMain(): string {
+    const state = mainState();
+    return JSON.stringify({
+      ...state,
+      webSearchConfig: {
+        enabled: state.webSearchConfig.enabled,
+        providers: state.webSearchConfig.providers.map(({ quota_used: _used, ...rest }) => rest),
+      },
+    });
+  }
+  function restoreMain(saved: ReturnType<typeof mainState>) {
+    const copy = JSON.parse(JSON.stringify(saved)) as ReturnType<typeof mainState>;
+    Object.assign(form, copy.form);
+    registrationEmailSuffixWhitelistTags.value = copy.registrationEmailSuffixWhitelistTags;
+    registrationEmailSuffixWhitelistDraft.value = copy.registrationEmailSuffixWhitelistDraft;
+    forwardedClientIpHeaderDraft.value = copy.forwardedClientIpHeaderDraft;
+    tablePageSizeOptionsInput.value = copy.tablePageSizeOptionsInput;
+    captchaProviderSelection.value = copy.captchaProviderSelection;
+    claudeOAuthSystemPromptBlocks.value = copy.claudeOAuthSystemPromptBlocks;
+    codexBlacklistRows.value = copy.codexBlacklistRows;
+    codexWhitelistRows.value = copy.codexWhitelistRows;
+    codexFingerprintRows.value = copy.codexFingerprintRows;
+    Object.assign(authSourceDefaults, copy.authSourceDefaults);
+    Object.assign(openaiFastPolicyForm, copy.openaiFastPolicyForm);
+    Object.assign(webSearchConfig, copy.webSearchConfig);
+  }
+
+  const baselines = reactive<Record<string, string>>({});
+  const restorePoints = new Map<string, unknown>();
+  function markClean(part: string) {
+    if (part === "main") {
+      baselines.main = serializeMain();
+      restorePoints.set("main", JSON.parse(JSON.stringify(mainState())));
+      return;
+    }
+    const snapshot = JSON.stringify(SECTION_SUB_PARTS[part].state);
+    baselines[part] = snapshot;
+    restorePoints.set(part, JSON.parse(snapshot));
+  }
+  function markAllClean() {
+    markClean("main");
+    for (const part of Object.keys(SECTION_SUB_PARTS)) markClean(part);
+  }
+
+  const dirtyParts = computed(() => {
+    const dirty = new Set<string>();
+    if (baselines.main !== undefined && serializeMain() !== baselines.main) dirty.add("main");
+    for (const [part, { state }] of Object.entries(SECTION_SUB_PARTS)) {
+      if (baselines[part] !== undefined && JSON.stringify(state) !== baselines[part]) dirty.add(part);
+    }
+    return dirty;
+  });
+  // 总表单的改动记在「改的时候所在的小节」上（只有当前小节能改）
+  const mainDirtyOwner = ref<SettingsSectionKey | null>(null);
+  watch(
+    () => dirtyParts.value.has("main"),
+    (dirty) => {
+      mainDirtyOwner.value = dirty ? currentSection.value : null;
+    },
+  );
+
+  function isSectionDirty(key: SettingsSectionKey): boolean {
+    const dirty = dirtyParts.value;
+    if (dirty.has("main") && mainDirtyOwner.value === key) return true;
+    return Object.entries(SECTION_SUB_PARTS).some(([part, sub]) => sub.section === key && dirty.has(part));
+  }
+
+  const sectionSaving = ref(false);
+  async function saveSection(key: SettingsSectionKey): Promise<void> {
+    if (sectionSaving.value) return;
+    sectionSaving.value = true;
+    try {
+      const dirty = new Set(dirtyParts.value);
+      const subDirty = Object.entries(SECTION_SUB_PARTS).some(([part, sub]) => sub.section === key && dirty.has(part));
+      // 总表单：有改动才提交；本节什么都没改时（输入框里回车）照旧整份提交，和拆页前一致
+      const saveMain = !SECTIONS_WITHOUT_MAIN_FIELDS.includes(key) && (dirty.has("main") || !subDirty);
+      if (saveMain && (await saveSettings())) {
+        await nextTick();
+        markClean("main");
+      }
+      for (const [part, sub] of Object.entries(SECTION_SUB_PARTS)) {
+        if (sub.section === key && dirty.has(part) && (await sub.save())) markClean(part);
+      }
+    } finally {
+      sectionSaving.value = false;
+    }
+  }
+
+  /** 放弃这一节的改动：恢复成上次加载 / 保存后的值（不重新请求） */
+  function discardSection(key: SettingsSectionKey) {
+    const dirty = dirtyParts.value;
+    if (dirty.has("main") && mainDirtyOwner.value === key) {
+      restoreMain(restorePoints.get("main") as ReturnType<typeof mainState>);
+    }
+    for (const [part, sub] of Object.entries(SECTION_SUB_PARTS)) {
+      if (sub.section === key && dirty.has(part)) {
+        Object.assign(sub.state, JSON.parse(JSON.stringify(restorePoints.get(part))));
+      }
+    }
+  }
+
+return {
     addAuthSourceDefaultSubscription,
     addClaudeOAuthSystemPromptBlock,
     addCodexBlacklistRow,
@@ -3514,7 +3685,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     betaPolicyActionOptions,
     betaPolicyForm,
     betaPolicyLoading,
-    betaPolicySaving,
     betaPolicyScopeOptions,
     betaPresets,
     cancelRateLimitModeOptions,
@@ -3540,6 +3710,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     currentOrigin,
     defaultSubscriptionPlanOptions,
     deleteAdminApiKey,
+    discardSection,
     editingProvider,
     enabledProviderKeyOptions,
     expandedProviders,
@@ -3566,6 +3737,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     hasAnyPaymentTypeEnabled,
     hasOpenAIFastPolicyTargetModels,
     isPaymentTypeEnabled,
+    isSectionDirty,
     isZhLocale,
     linuxdoRedirectUrlSuggestion,
     loadBalanceOptions,
@@ -3581,7 +3753,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     oidcRedirectUrlSuggestion,
     ollamaCloudUsageForm,
     ollamaCloudUsageLoading,
-    ollamaCloudUsageSaving,
     openCreateProvider,
     openEditProvider,
     openTestDialog,
@@ -3592,25 +3763,21 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     openaiFastPolicyTierOptions,
     overloadCooldownForm,
     overloadCooldownLoading,
-    overloadCooldownSaving,
     panelRateLimitForm,
     panelRateLimitLoading,
-    panelRateLimitSaving,
     parseSubscribedAt,
     paymentGuideHref,
     paymentMethodsHref,
-    providerKeyOptions,
     providerDialogRef,
+    providerKeyOptions,
     providerSaving,
     providers,
     providersLoading,
     quotaPercentage,
     rateLimit429CooldownForm,
     rateLimit429CooldownLoading,
-    rateLimit429CooldownSaving,
     rectifierForm,
     rectifierLoading,
-    rectifierSaving,
     regenerateAdminApiKey,
     registrationEmailSuffixWhitelistDraft,
     registrationEmailSuffixWhitelistTags,
@@ -3630,17 +3797,11 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     removeWebSearchProvider,
     resetClaudeOAuthSystemPromptBlocks,
     resetWebSearchUsage,
-    saveBetaPolicySettings,
     saveOllamaCloudUsageSettings,
-    saveOverloadCooldownSettings,
-    savePanelRateLimitSettings,
-    saveRateLimit429CooldownSettings,
-    saveRectifierSettings,
-    saveSettings,
-    saveStreamTimeoutSettings,
+    saveSection,
     saveUpstreamBillingProbeSettings,
-    saving,
     schedulingThresholdPlatforms,
+    sectionSaving,
     selectCaptchaProvider,
     sendTestEmail,
     sendingTestEmail,
@@ -3657,7 +3818,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     smtpPasswordManuallyEdited,
     streamTimeoutForm,
     streamTimeoutLoading,
-    streamTimeoutSaving,
     subscriptionPlans,
     t,
     tablePageSizeOptionsInput,
@@ -3671,7 +3831,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     toggleProviderExpand,
     upstreamBillingProbeForm,
     upstreamBillingProbeLoading,
-    upstreamBillingProbeSaving,
     webSearchConfig,
     webSearchProxies,
     wechatRedirectUrlSuggestion,

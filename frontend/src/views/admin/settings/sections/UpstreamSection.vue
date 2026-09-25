@@ -65,23 +65,6 @@
             </p>
           </div>
 
-          <div
-            class="flex justify-end border-t border-af-hairline pt-4"
-          >
-            <button
-              type="button"
-              class="btn btn-primary btn-sm"
-              :disabled="upstreamBillingProbeSaving"
-              data-testid="upstream-billing-probe-save"
-              @click="saveUpstreamBillingProbeSettings"
-            >
-              {{
-                upstreamBillingProbeSaving
-                  ? t("common.saving")
-                  : t("common.save")
-              }}
-            </button>
-          </div>
         </template>
       </div>
     </div>
@@ -155,17 +138,6 @@
               </p>
             </div>
           </div>
-          <div class="flex justify-end border-t border-af-hairline pt-4">
-            <button
-              type="button"
-              class="btn btn-primary btn-sm"
-              :disabled="ollamaCloudUsageSaving"
-              data-testid="ollama-cloud-usage-global-save"
-              @click="saveOllamaCloudUsageSettings"
-            >
-              {{ ollamaCloudUsageSaving ? t("common.saving") : t("common.save") }}
-            </button>
-          </div>
         </template>
       </div>
     </div>
@@ -180,12 +152,10 @@ import { useSettingsPageContext } from '../useSettingsPage'
 const {
   ollamaCloudUsageForm,
   ollamaCloudUsageLoading,
-  ollamaCloudUsageSaving,
   saveOllamaCloudUsageSettings,
   saveUpstreamBillingProbeSettings,
   t,
   upstreamBillingProbeForm,
-  upstreamBillingProbeLoading,
-  upstreamBillingProbeSaving
+  upstreamBillingProbeLoading
 } = useSettingsPageContext()
 </script>

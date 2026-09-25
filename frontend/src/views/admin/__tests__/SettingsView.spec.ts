@@ -157,6 +157,8 @@ vi.mock("vue-router", async () => {
   const { reactive } = await import("vue");
   const route = reactive({ params: {} as Record<string, string> });
   return {
+    onBeforeRouteLeave: () => {},
+    onBeforeRouteUpdate: () => {},
     useRoute: () => route,
     useRouter: () => ({
       push: async (to: { params?: Record<string, string> }) => {
@@ -755,9 +757,8 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(userRpmInput.exists()).toBe(true);
     await userRpmInput.setValue("120");
 
-    const saveButton = wrapper.find('[data-testid="panel-rate-limit-save"]');
-    expect(saveButton.exists()).toBe(true);
-    await saveButton.trigger("click");
+    // A6：卡片不再各自保存，由所在小节（访问与限流）的保存栏保存
+    await wrapper.get('[data-testid="settings-section-security"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updatePanelRateLimitSettings).toHaveBeenCalledWith({
@@ -1313,7 +1314,7 @@ describe("admin SettingsView payment visible method controls", () => {
 
     await card.get('[data-testid="upstream-billing-probe-enabled"]').setValue(true);
     await card.get('[data-testid="upstream-billing-probe-interval"]').setValue(60);
-    await card.get('[data-testid="upstream-billing-probe-save"]').trigger("click");
+    await wrapper.get('[data-testid="settings-section-upstream"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updateUpstreamBillingProbeSettings).toHaveBeenCalledWith({
@@ -1389,7 +1390,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await card.get('[data-testid="ollama-cloud-usage-global-enabled"]').setValue(true);
     await card.get('[data-testid="ollama-cloud-usage-global-debounce"]').setValue(3);
     await card.get('[data-testid="ollama-cloud-usage-global-interval"]').setValue(90);
-    await card.get('[data-testid="ollama-cloud-usage-global-save"]').trigger("click");
+    await wrapper.get('[data-testid="settings-section-upstream"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updateOllamaCloudUsageSettings).toHaveBeenCalledWith({
