@@ -2,9 +2,10 @@
   <!--
     概览：控制台落地页。muqian 2026-09-24「以 Token 统计为主」「具体用量去用量页，余额顶部有，概览就是放几个图大致看一看，少点文字」：
     ① 三个数：今日 / 区间 / 累计 Token（/usage/dashboard/stats + 区间趋势求和）
-    ② 模型用量：每个模型一行迷你柱（前 5 + 其他），按天
+    ② 模型用量：按模型的 Token 折线（muqian 2026-09-25 从迷你柱改成折线；前 3 个模型 + 其他，按天）
     ③ Token 构成：输入 / 输出 / 缓存读 / 缓存写占比 + 缓存命中率
-    右上角 7 / 30 天切换，②③ 跟着变。全部单色，只有错误态用色；每块独立加载与重试，任一接口失败不把别的块显示成零。
+    右上角 7 / 30 天切换，②③ 跟着变。② 的几条线要靠颜色区分模型（校验过的三色），其余单色，只有错误态用色；
+    每块独立加载与重试，任一接口失败不把别的块显示成零。
     公告不在这里列——登录后弹窗（AnnouncementNotice）。
   -->
   <SiteShell :title="greeting">
@@ -38,7 +39,7 @@
           :action-label="t('userUi.usage.retry')"
           @action="loadSnapshot"
         />
-        <UsageModelTrendRows v-else :points="modelTrend" :days="days" :loading="snapshotLoading" />
+        <UsageModelTrendLines v-else :points="modelTrend" :days="days" :loading="snapshotLoading" />
       </SheetSection>
 
       <SheetSection :title="t('userUi.overview.composition.title')">
@@ -68,7 +69,7 @@ import SheetSection from '@/components/user/shell/SheetSection.vue'
 import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab } from '@/components/user/shell/types'
-import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
+import UsageModelTrendLines from '@/components/user/usage/UsageModelTrendLines.vue'
 import UsageTokenComposition from '@/components/user/usage/UsageTokenComposition.vue'
 import type { ModelTrendPoint, TrendDataPoint } from '@/types'
 
