@@ -2,9 +2,12 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import ModelCatalogView from '../ModelCatalogView.vue'
+import CatalogEntryEditor from '@/components/admin/catalog/CatalogEntryEditor.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
-const { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings, listAccounts } = vi.hoisted(() => ({
+const { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings, listAccounts, priceLookup, routerPush } = vi.hoisted(() => ({
+  priceLookup: vi.fn(),
+  routerPush: vi.fn(),
   listEntries: vi.fn(),
   createEntry: vi.fn(),
   updateEntry: vi.fn(),
@@ -17,7 +20,7 @@ const { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, u
 
 vi.mock('@/api/admin', () => ({
   adminAPI: {
-    modelCatalog: { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings },
+    modelCatalog: { listEntries, createEntry, updateEntry, deleteEntry, seed, getBindings, updateBindings, priceLookup },
     accounts: { list: listAccounts }
   }
 }))
@@ -32,6 +35,10 @@ vi.mock('@/stores/app', () => ({
 }))
 
 vi.mock('@/api', () => ({}))
+
+vi.mock('vue-router', () => ({
+  useRouter: () => ({ push: routerPush })
+}))
 
 vi.mock('vue-i18n', () => ({
   useI18n: () => ({
@@ -109,21 +116,36 @@ function mountView() {
   })
 }
 
-describe('ModelCatalogView', () => {
-  beforeEach(() => {
-    listEntries.mockReset().mockResolvedValue([entry()])
-    createEntry.mockReset().mockResolvedValue(entry())
-    updateEntry.mockReset().mockResolvedValue(entry())
-    deleteEntry.mockReset().mockResolvedValue(undefined)
-    seed.mockReset().mockResolvedValue({ inserted: 10, refreshed: 2, skipped_admin: 1, skipped_invalid: 0, failed: 0 })
-    getBindings.mockReset().mockResolvedValue([])
-    updateBindings.mockReset().mockResolvedValue([])
-    listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 20, pages: 0 })
-    showError.mockReset()
-    showSuccess.mockReset()
-    vi.useRealTimers()
-  })
+beforeEach(() => {
+  listEntries.mockReset().mockResolvedValue([entry()])
+  createEntry.mockReset().mockResolvedValue(entry())
+  updateEntry.mockReset().mockResolvedValue(entry())
+  deleteEntry.mockReset().mockResolvedValue(undefined)
+  seed.mockReset().mockResolvedValue({ inserted: 10, refreshed: 2, skipped_admin: 1, skipped_invalid: 0, failed: 0 })
+  getBindings.mockReset().mockResolvedValue([])
+  updateBindings.mockReset().mockResolvedValue([])
+  listAccounts.mockReset().mockResolvedValue({ items: [], total: 0, page: 1, page_size: 500, pages: 0 })
+  priceLookup.mockReset().mockResolvedValue(null)
+  routerPush.mockReset()
+  showError.mockReset()
+  showSuccess.mockReset()
+  vi.useRealTimers()
+})
 
+function mountEditor(initial: ModelCatalogEntry | null) {
+  return mount(CatalogEntryEditor, {
+    props: { entry: initial, vendorOptions: ['anthropic', 'openai'] },
+    global: {
+      stubs: {
+        FormPageShell: { props: ['show'], template: '<div><slot /><slot name="footer" /></div>' },
+        Icon: true,
+        PlatformTypeBadge: true
+      }
+    }
+  })
+}
+
+describe('ModelCatalogView', () => {
   it('lists catalog entries from the admin API', async () => {
     const wrapper = mountView()
     await flushPromises()
@@ -131,17 +153,14 @@ describe('ModelCatalogView', () => {
     expect(wrapper.text()).toContain('claude-opus-4-6')
   })
 
-  it('creates an entry with the form values', async () => {
+  // 新建 / 编辑是独立页（2026-09-25，原来是列表页里的弹窗）
+  it('opens the model form pages for create and edit', async () => {
     const wrapper = mountView()
     await flushPromises()
     await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
-    await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(createEntry).toHaveBeenCalledTimes(1)
-    expect(createEntry.mock.calls[0][0]).toMatchObject({ model_id: 'gpt-5', billing_mode: 'token', status: 'listed' })
-    // 新建成功后用返回的 ID 写绑定（空列表也要写，保证条目与绑定同一份来源）。
-    expect(updateBindings).toHaveBeenCalledWith(entry().id, [])
+    expect(routerPush).toHaveBeenCalledWith('/model-catalog/new')
+    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
+    expect(routerPush).toHaveBeenCalledWith('/model-catalog/1/edit')
   })
 
   it('shows the resource count and flags listed entries without resources', async () => {
@@ -163,76 +182,6 @@ describe('ModelCatalogView', () => {
     await flushPromises()
     expect(wrapper.find('[data-testid="model-catalog-no-resources"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="model-catalog-resource-count"]').text()).toBe('0')
-  })
-
-  // 编辑时先读绑定预填；保存先存条目再整份覆盖绑定，payload 只带 account_id 与 priority。
-  it('loads bindings on edit and saves them after the entry', async () => {
-    vi.useFakeTimers()
-    getBindings.mockResolvedValue([
-      { entry_id: 1, account_id: 7, priority: 5, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
-    ])
-    listAccounts.mockResolvedValue({
-      items: [
-        { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', status: 'active' },
-        { id: 9, name: 'oauth-b', platform: 'anthropic', type: 'oauth', vendor: 'anthropic', status: 'active' }
-      ],
-      total: 2, page: 1, page_size: 20, pages: 1
-    })
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    await flushPromises()
-    expect(getBindings).toHaveBeenCalledWith(1)
-    expect(wrapper.findAll('[data-testid="model-catalog-binding-remove"]')).toHaveLength(1)
-
-    await wrapper.get('[data-testid="model-catalog-resource-search"]').setValue('relay')
-    await vi.advanceTimersByTimeAsync(300)
-    await flushPromises()
-    expect(listAccounts).toHaveBeenCalledWith(1, 20, { search: 'relay', lite: 'true' })
-    const addButtons = wrapper.findAll('[data-testid="model-catalog-resource-add"]')
-    expect(addButtons).toHaveLength(2)
-    expect(addButtons[0].attributes('disabled')).toBeDefined()
-    await addButtons[1].trigger('click')
-    expect(wrapper.findAll('[data-testid="model-catalog-binding-remove"]')).toHaveLength(2)
-
-    const calls: string[] = []
-    updateEntry.mockImplementation(async () => { calls.push('entry'); return entry() })
-    updateBindings.mockImplementation(async () => { calls.push('bindings'); return [] })
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(calls).toEqual(['entry', 'bindings'])
-    expect(updateBindings).toHaveBeenCalledWith(1, [
-      { account_id: 7, priority: 5 },
-      { account_id: 9, priority: null }
-    ])
-  })
-
-  it('removing a binding drops it from the saved list', async () => {
-    getBindings.mockResolvedValue([
-      { entry_id: 1, account_id: 7, priority: null, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } },
-      { entry_id: 1, account_id: 8, priority: null, account: { id: 8, name: 'relay-b', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
-    ])
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    await flushPromises()
-    await wrapper.findAll('[data-testid="model-catalog-binding-remove"]')[0].trigger('click')
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(updateBindings).toHaveBeenCalledWith(1, [{ account_id: 8, priority: null }])
-  })
-
-  // 绑定被后端拒绝（资源承接不了该网关族）：弹出后端原因，编辑器保持打开。
-  it('keeps the editor open and shows the reason when bindings are rejected', async () => {
-    updateBindings.mockRejectedValue({ message: 'account 7 has no upstream address usable on the anthropic gateway', error: 'CATALOG_BINDING_UNSERVABLE' })
-    const wrapper = mountView()
-    await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    await flushPromises()
-    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
-    await flushPromises()
-    expect(showError).toHaveBeenCalledWith('account 7 has no upstream address usable on the anthropic gateway')
-    expect(wrapper.find('#model-catalog-form').exists()).toBe(true)
   })
 
   it('seeds the catalog and reloads the list', async () => {
@@ -261,6 +210,91 @@ describe('ModelCatalogView', () => {
     expect(String(showError.mock.calls[0][0])).toContain('bad-model: value too long')
   })
 
+  it('opens the resource diagnosis for the row from the actions column', async () => {
+    const wrapper = mountView()
+    await flushPromises()
+    const stub = wrapper.get('[data-testid="diagnosis-stub"]')
+    expect(stub.attributes('data-show')).toBe('false')
+    await wrapper.get('[data-testid="row-action-diagnose"]').trigger('click')
+    expect(stub.attributes('data-show')).toBe('true')
+    expect(stub.attributes('data-entry-id')).toBe('1')
+    expect(stub.attributes('data-model-id')).toBe('claude-opus-4-6')
+  })
+})
+
+// 模型表单（独立页 /model-catalog/new、/model-catalog/:id/edit 的表单本体）
+describe('CatalogEntryEditor', () => {
+  it('creates an entry with the form values', async () => {
+    const wrapper = mountEditor(null)
+    await flushPromises()
+    await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(createEntry).toHaveBeenCalledTimes(1)
+    expect(createEntry.mock.calls[0][0]).toMatchObject({ model_id: 'gpt-5', billing_mode: 'token', status: 'listed' })
+    // 新建成功后用返回的 ID 写绑定（空列表也要写，保证条目与绑定同一份来源）。
+    expect(updateBindings).toHaveBeenCalledWith(entry().id, [])
+  })
+
+  // 编辑时先读绑定预填；保存先存条目再整份覆盖绑定，payload 只带 account_id 与 priority。
+  it('loads bindings on edit and saves them after the entry', async () => {
+    getBindings.mockResolvedValue([
+      { entry_id: 1, account_id: 7, priority: 5, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
+    ])
+    listAccounts.mockResolvedValue({
+      items: [
+        { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', status: 'active' },
+        { id: 9, name: 'oauth-b', platform: 'anthropic', type: 'oauth', vendor: 'anthropic', status: 'active' }
+      ],
+      total: 2, page: 1, page_size: 500, pages: 1
+    })
+    const wrapper = mountEditor(entry())
+    await flushPromises()
+    expect(getBindings).toHaveBeenCalledWith(1)
+    // 渠道列表直接列出、勾选即绑定（不再先搜再加）
+    expect(listAccounts).toHaveBeenCalledWith(1, 500, { lite: 'true' })
+    expect((wrapper.get('[data-testid="model-catalog-channel-7"]').element as HTMLInputElement).checked).toBe(true)
+    expect((wrapper.get('[data-testid="model-catalog-channel-9"]').element as HTMLInputElement).checked).toBe(false)
+    await wrapper.get('[data-testid="model-catalog-channel-9"]').setValue(true)
+    expect(wrapper.findAll('[data-testid="model-catalog-binding-priority"]')).toHaveLength(2)
+
+    const calls: string[] = []
+    updateEntry.mockImplementation(async () => { calls.push('entry'); return entry() })
+    updateBindings.mockImplementation(async () => { calls.push('bindings'); return [] })
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(calls).toEqual(['entry', 'bindings'])
+    expect(updateBindings).toHaveBeenCalledWith(1, [
+      { account_id: 7, priority: 5 },
+      { account_id: 9, priority: null }
+    ])
+  })
+
+  it('removing a binding drops it from the saved list', async () => {
+    getBindings.mockResolvedValue([
+      { entry_id: 1, account_id: 7, priority: null, account: { id: 7, name: 'relay-a', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } },
+      { entry_id: 1, account_id: 8, priority: null, account: { id: 8, name: 'relay-b', platform: 'openai', type: 'apikey', vendor: '', status: 'active' } }
+    ])
+    const wrapper = mountEditor(entry())
+    await flushPromises()
+    await wrapper.get('[data-testid="model-catalog-channel-7"]').setValue(false)
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(updateBindings).toHaveBeenCalledWith(1, [{ account_id: 8, priority: null }])
+  })
+
+  // 绑定被后端拒绝（资源承接不了该网关族）：弹出后端原因，编辑器保持打开。
+  it('keeps the editor open and shows the reason when bindings are rejected', async () => {
+    updateBindings.mockRejectedValue({ message: 'account 7 has no upstream address usable on the anthropic gateway', error: 'CATALOG_BINDING_UNSERVABLE' })
+    const wrapper = mountEditor(entry())
+    await flushPromises()
+    await wrapper.get('#model-catalog-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(showError).toHaveBeenCalledWith('account 7 has no upstream address usable on the anthropic gateway')
+    expect(wrapper.find('#model-catalog-form').exists()).toBe(true)
+    expect(wrapper.emitted('saved')).toBeUndefined()
+  })
+
   // 编辑只改表单里露出的字段；分档 / 分时 / 其余价格字段必须按原值写回，不能在保存时丢掉。
   it('keeps intervals, time pricing and hidden prices when editing', async () => {
     const existing = entry({
@@ -273,11 +307,10 @@ describe('ModelCatalogView', () => {
       intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
       time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [{ start_time: '09:00', end_time: '12:00', multiplier: 2 }] }
     })
-    listEntries.mockResolvedValue([existing])
-    const wrapper = mountView()
+    const wrapper = mountEditor(existing)
     await flushPromises()
 
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
+    // 价格按每百万 Token 输入，存 $/token
     await wrapper.get('[data-testid="model-catalog-output-price"]').setValue('80')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -286,7 +319,7 @@ describe('ModelCatalogView', () => {
     expect(updateEntry.mock.calls[0][0]).toBe(existing.id)
     expect(updateEntry.mock.calls[0][1]).toMatchObject({
       model_id: existing.model_id,
-      output_price: 80,
+      output_price: 0.00008,
       cache_read_price: 1.5,
       cache_write_1h_price: 2.5,
       image_output_price: 4,
@@ -301,25 +334,22 @@ describe('ModelCatalogView', () => {
     expect(updateEntry.mock.calls[0][1]).not.toHaveProperty('audio_output_price')
   })
 
-  // 「更多价格」：缓存 / 图片 / 音频单价可编辑，按 $/token 存、给百万 Token 换算；音频价有值才发
-  it('edits cache, image and audio prices in the collapsed "more prices" section', async () => {
-    listEntries.mockResolvedValue([entry({ cache_read_price: 0.0000015, audio_input_price: 0.00004 })])
-    const wrapper = mountView()
+  // 价格按每百万 Token 输入、按 $/token 存：按 Token 计费时缓存价直接露出；图片 / 音频在收起的「更多价格」里，音频价有值才发
+  it('edits cache prices directly and image / audio prices in the collapsed "more prices" section', async () => {
+    const wrapper = mountEditor(entry({ cache_read_price: 0.0000015, audio_input_price: 0.00004 }))
     await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.find('[data-testid="model-catalog-cache-write-price"]').exists()).toBe(false)
-    const toggle = wrapper.get('[data-testid="model-catalog-more-prices-toggle"]')
-    expect(toggle.text()).toContain('admin.modelCatalog.editor.morePricesFilled:{"count":2}')
-    await toggle.trigger('click')
 
     const cacheRead = wrapper.get('[data-testid="model-catalog-cache-read-price"]')
-    expect((cacheRead.element as HTMLInputElement).value).toBe('0.0000015')
-    expect(cacheRead.element.parentElement?.textContent).toContain('admin.modelCatalog.editor.perMillion:{"price":1.5}')
-    await wrapper.get('[data-testid="model-catalog-cache-write-price"]').setValue('0.00000375')
-    await wrapper.get('[data-testid="model-catalog-image-input-price"]').setValue('0.00001')
-    await wrapper.get('[data-testid="model-catalog-audio-output-price"]').setValue('0.00008')
+    expect((cacheRead.element as HTMLInputElement).value).toBe('1.5')
+    expect(cacheRead.element.parentElement?.textContent).toContain('admin.modelCatalog.editor.units.perMillion')
+    expect(wrapper.find('[data-testid="model-catalog-image-input-price"]').exists()).toBe(false)
+    const toggle = wrapper.get('[data-testid="model-catalog-more-prices-toggle"]')
+    expect(toggle.text()).toContain('admin.modelCatalog.editor.morePricesFilled:{"count":1}')
+    await toggle.trigger('click')
+
+    await wrapper.get('[data-testid="model-catalog-cache-write-price"]').setValue('3.75')
+    await wrapper.get('[data-testid="model-catalog-image-input-price"]').setValue('10')
+    await wrapper.get('[data-testid="model-catalog-audio-output-price"]').setValue('80')
     await wrapper.get('[data-testid="model-catalog-audio-input-price"]').setValue('')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -336,7 +366,7 @@ describe('ModelCatalogView', () => {
 
   // 新建用的空表单要清掉上一次编辑留下的隐藏字段（价格、分档、分时），否则会被带进新条目
   it('does not carry hidden fields from a previously edited entry into a new one', async () => {
-    listEntries.mockResolvedValue([
+    const wrapper = mountEditor(
       entry({
         cache_read_price: 1.5,
         audio_input_price: 0.00004,
@@ -344,12 +374,9 @@ describe('ModelCatalogView', () => {
         intervals: [{ min_tokens: 0, max_tokens: 200000, input_price: 3, output_price: 15 }],
         time_pricing: { timezone: 'Asia/Shanghai', weekdays_only: false, periods: [] }
       })
-    ])
-    const wrapper = mountView()
+    )
     await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
-    await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
+    await wrapper.setProps({ entry: null })
     await flushPromises()
     await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
@@ -362,9 +389,8 @@ describe('ModelCatalogView', () => {
 
   // 数字输入清空后 v-model.number 给的是 ''，后端会报 400：清空要当成「未配置」发 null。
   it('sends null instead of an empty string for cleared number inputs', async () => {
-    const wrapper = mountView()
+    const wrapper = mountEditor(entry())
     await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-input-price"]').setValue('')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
@@ -386,11 +412,9 @@ describe('ModelCatalogView', () => {
         { min_tokens: 0, max_tokens: null, tier_label: '1K', input_price: null, output_price: null, cache_write_price: null, cache_read_price: null, input_multiplier: null, output_multiplier: null, cache_write_multiplier: null, cache_read_multiplier: null, per_request_price: 0.05, sort_order: 0 }
       ]
     })
-    listEntries.mockResolvedValue([existing])
-    const wrapper = mountView()
+    const wrapper = mountEditor(existing)
     await flushPromises()
 
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     expect(wrapper.findAll('[data-testid="model-catalog-media-tier-row"]')).toHaveLength(1)
     expect(wrapper.find('[data-testid="model-catalog-search-price-per-call"]').exists()).toBe(false)
 
@@ -415,9 +439,8 @@ describe('ModelCatalogView', () => {
   })
 
   it('shows search price per call only for token entries and sends it', async () => {
-    const wrapper = mountView()
+    const wrapper = mountEditor(entry())
     await flushPromises()
-    await wrapper.get('[data-testid="row-action-edit"]').trigger('click')
     expect(wrapper.find('[data-testid="model-catalog-media-tiers"]').exists()).toBe(false)
     await wrapper.get('[data-testid="model-catalog-search-price-per-call"]').setValue('0.02')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
@@ -430,9 +453,8 @@ describe('ModelCatalogView', () => {
   })
 
   it('offers only the four billing modes', async () => {
-    const wrapper = mountView()
+    const wrapper = mountEditor(null)
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
     const options = wrapper.get('[data-testid="model-catalog-billing-mode"]').findAll('option')
     expect(options.map((o) => o.attributes('value'))).toEqual(['token', 'per_request', 'image', 'video'])
   })
@@ -440,23 +462,12 @@ describe('ModelCatalogView', () => {
   // 接口错误提示要走 extractApiErrorMessage：拦截器给的 { message, error } 与裸 Error 都能取到文案。
   it('shows the API error message when saving fails', async () => {
     createEntry.mockRejectedValue({ message: 'model catalog entry already exists', error: 'MODEL_CATALOG_ENTRY_EXISTS' })
-    const wrapper = mountView()
+    const wrapper = mountEditor(null)
     await flushPromises()
-    await wrapper.get('[data-testid="model-catalog-create"]').trigger('click')
     await wrapper.get('[data-testid="model-catalog-model-id"]').setValue('gpt-5')
     await wrapper.get('#model-catalog-form').trigger('submit.prevent')
     await flushPromises()
     expect(showError).toHaveBeenCalledWith('model catalog entry already exists')
   })
 
-  it('opens the resource diagnosis for the row from the actions column', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    const stub = wrapper.get('[data-testid="diagnosis-stub"]')
-    expect(stub.attributes('data-show')).toBe('false')
-    await wrapper.get('[data-testid="row-action-diagnose"]').trigger('click')
-    expect(stub.attributes('data-show')).toBe('true')
-    expect(stub.attributes('data-entry-id')).toBe('1')
-    expect(stub.attributes('data-model-id')).toBe('claude-opus-4-6')
-  })
 })

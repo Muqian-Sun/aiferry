@@ -41,10 +41,41 @@ export default {
       basics: '基本信息',
       pricing: '计费与标价',
       vendorHint: '用小写厂商标识（anthropic / openai / gemini / xai…），用户站的厂商页签与图标按它匹配。',
-      perMillion: '= ${price} / 百万 Token',
+      vendorNone: '（不设厂商）',
+      vendorCustom: '其他（手填）…',
+      vendorCustomPlaceholder: '厂商标识，如 anthropic',
+      modelIdPlaceholder: '如 claude-sonnet-4-5',
+      channels: '承接的渠道',
       morePrices: '更多价格',
       morePricesFilled: '已填 {count} 项',
-      morePricesHint: '缓存、图片、音频的 Token 单价；留空即未配置。'
+      morePricesHint: '图片、音频（以及按 Token 以外计费时的缓存）的单价；留空即未配置。',
+      units: {
+        perMillion: '$ / 百万 Token',
+        perCall: '$ / 次',
+        perImage: '$ / 张',
+        perSecond: '$ / 秒'
+      },
+      lookup: {
+        idle: '输入模型 ID 后会从价格文件自动带出厂商、计费方式和价格。',
+        editIdle: '可以按价格文件重新带出厂商、计费方式和价格。',
+        loading: '正在查价格文件…',
+        applied: '已从价格文件带出厂商、计费方式和价格，可以再改。',
+        found: '价格文件里有这个模型。',
+        apply: '用价格文件的价格',
+        missing: '价格文件里没有这个模型，厂商和价格要手填。',
+        error: '查价失败，厂商和价格要手填。',
+        refill: '按价格文件带价'
+      }
+    },
+    // 新建 / 编辑模型独立页
+    formPage: {
+      backToList: '模型',
+      backToListAction: '返回模型列表',
+      loading: '正在加载模型…',
+      notFound: '找不到模型 #{id}，可能已被删除。',
+      loadFailed: '模型加载失败：{message}',
+      retry: '重试',
+      saved: '模型已保存'
     },
     // 模型详情抽屉（A5）
     drawer: {
@@ -141,20 +172,20 @@ export default {
       status: '上架状态',
       managedBy: '维护方',
       resources: '渠道',
-      inputPrice: '输入价（$/token）',
-      outputPrice: '输出价（$/token）',
-      perRequestPrice: '每次默认价（$）',
-      perImagePrice: '每张默认价（$，分档未命中时用）',
-      perSecondPrice: '每秒默认价（$，分档未命中时用）',
-      searchPricePerCall: '内置搜索每次调用价（$，留空用内置单价 0.01）',
-      cacheWritePrice: '缓存写入价 · 5 分钟（$/token）',
-      cacheWrite1hPrice: '缓存写入价 · 1 小时（$/token）',
-      cacheReadPrice: '缓存读取价（$/token）',
-      imageInputPrice: '图片输入价（$/token）',
-      imageOutputPrice: '图片输出价（$/token）',
-      imageCacheReadPrice: '图片缓存读取价（$/token）',
-      audioInputPrice: '音频输入价（$/token）',
-      audioOutputPrice: '音频输出价（$/token）'
+      inputPrice: '输入价',
+      outputPrice: '输出价',
+      perRequestPrice: '每次默认价',
+      perImagePrice: '每张默认价（分档未命中时用）',
+      perSecondPrice: '每秒默认价（分档未命中时用）',
+      searchPricePerCall: '内置搜索每次调用价（留空用内置单价 0.01）',
+      cacheWritePrice: '缓存写入 · 5 分钟',
+      cacheWrite1hPrice: '缓存写入 · 1 小时',
+      cacheReadPrice: '缓存读取',
+      imageInputPrice: '图片输入价',
+      imageOutputPrice: '图片输出价',
+      imageCacheReadPrice: '图片缓存读取价',
+      audioInputPrice: '音频输入价',
+      audioOutputPrice: '音频输出价'
     },
     tiers: {
       title: '分档单价',
@@ -169,14 +200,19 @@ export default {
       empty: '未配分档，按默认价计。'
     },
     bindings: {
-      title: '绑定渠道',
-      hint: '上架后由这些渠道承接请求；优先级留空则跟随渠道自身的优先级。',
-      search: '搜索渠道名称',
+      title: '承接这个模型的渠道',
+      hint: '勾上的渠道承接这个模型的请求；优先级留空则跟随渠道自身的优先级。',
+      selected: '已选 {count} 个',
+      search: '搜索渠道名称或 ID',
+      boundOnly: '只看已选',
+      loading: '正在加载渠道…',
+      loadFailed: '渠道列表加载失败',
+      retry: '重试',
       noResults: '没有匹配的渠道',
-      add: '添加',
+      noChannels: '还没有渠道，先到「渠道」页添加。',
+      inactive: '已停用',
       priority: '优先级',
-      remove: '移除',
-      empty: '尚未绑定渠道'
+      priorityFollow: '跟随渠道'
     },
     status: {
       listed: '上架',
