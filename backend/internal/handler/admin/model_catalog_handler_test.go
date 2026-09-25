@@ -263,7 +263,9 @@ func decodeCatalogResponse(t *testing.T, rec *httptest.ResponseRecorder) respons
 
 func TestModelCatalogHandler_ListEntries(t *testing.T) {
 	h := newCatalogHandler(&catalogRepoStub{entries: []service.ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed},
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed},
+		{ID: 2, ModelID: "gemini-embedding", Vendor: "vertex_ai-embedding-models", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
+		{ID: 3, ModelID: "mystery", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
 	}})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/entries", nil)
@@ -274,10 +276,16 @@ func TestModelCatalogHandler_ListEntries(t *testing.T) {
 	require.Equal(t, 0, envelope.Code)
 	raw, err := json.Marshal(envelope.Data)
 	require.NoError(t, err)
-	var entries []service.ModelCatalogEntry
+	var entries []ModelCatalogEntryView
 	require.NoError(t, json.Unmarshal(raw, &entries))
-	require.Len(t, entries, 1)
+	require.Len(t, entries, 3)
 	require.Equal(t, "claude-sonnet-4", entries[0].ModelID)
+	// 渠道表单按厂商族分组：厂商族与条目字段平铺在同一层
+	require.Equal(t, service.PlatformAnthropic, entries[0].VendorPlatform)
+	require.Equal(t, service.PlatformGemini, entries[1].VendorPlatform, "vertex_ai-* 按前缀归 gemini")
+	require.Empty(t, entries[2].VendorPlatform, "没有厂商就没有厂商族")
+	require.Contains(t, string(raw), `"vendor_platform":"anthropic"`)
+	require.Contains(t, string(raw), `"model_id":"claude-sonnet-4"`)
 }
 
 func TestModelCatalogHandler_GetEntry(t *testing.T) {

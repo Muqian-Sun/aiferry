@@ -57,6 +57,8 @@ export interface ModelCatalogEntry {
   aliases: ModelCatalogAlias[]
   /** 绑定的资源（账号）；上架条目由这些账号承接请求。 */
   bindings: ModelCatalogBinding[]
+  /** 厂商族（与渠道平台同一套标识，认不出为空串）：只有列表接口带。 */
+  vendor_platform?: string
   created_at: string
   updated_at: string
 }
@@ -194,6 +196,25 @@ const modelCatalogAPI = {
   diagnose: async (id: number): Promise<ModelCatalogDiagnosis> => {
     const { data } = await apiClient.get<ModelCatalogDiagnosis>(`/admin/model-catalog/entries/${id}/diagnosis`)
     return data
+  },
+  /** 渠道承接的目录条目 ID（渠道表单里直接勾选）。 */
+  listAccountEntryIds: async (accountId: number): Promise<number[]> => {
+    const { data } = await apiClient.get<{ entry_ids: number[] | null }>(`/admin/accounts/${accountId}/catalog-entries`)
+    return data?.entry_ids ?? []
+  },
+  /** 整份覆盖渠道承接的目录条目；保留的绑定优先级不变，新增的跟随渠道优先级。 */
+  replaceAccountEntries: async (accountId: number, entryIds: number[]): Promise<number[]> => {
+    const { data } = await apiClient.put<{ entry_ids: number[] | null }>(`/admin/accounts/${accountId}/catalog-entries`, {
+      entry_ids: entryIds
+    })
+    return data?.entry_ids ?? []
+  },
+  /** 按模型 ID 从价格文件带出厂商与价格；找不到返回 null。 */
+  priceLookup: async (modelId: string): Promise<ModelCatalogEntry | null> => {
+    const { data } = await apiClient.get<{ found: boolean; entry?: ModelCatalogEntry }>('/admin/model-catalog/price-lookup', {
+      params: { model_id: modelId }
+    })
+    return data?.found && data.entry ? data.entry : null
   }
 }
 

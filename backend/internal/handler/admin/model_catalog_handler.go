@@ -165,6 +165,14 @@ type ModelCatalogAliasRequest struct {
 	Notes   *string `json:"notes"`
 }
 
+// ModelCatalogEntryView 是列表里的条目，附带厂商族：渠道表单按厂商族（与渠道平台同一套标识）
+// 分组展示目录模型；厂商 → 平台的对照只在后端维护（CatalogVendorPlatform），前端不留副本。
+type ModelCatalogEntryView struct {
+	service.ModelCatalogEntry
+	// VendorPlatform 厂商族，认不出的厂商（含空厂商）为空串。
+	VendorPlatform string `json:"vendor_platform"`
+}
+
 // ListEntries 返回全部目录条目（含别名、分档、分时）。
 // GET /api/v1/admin/model-catalog/entries
 func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
@@ -173,7 +181,11 @@ func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, entries)
+	views := make([]ModelCatalogEntryView, len(entries))
+	for i := range entries {
+		views[i] = ModelCatalogEntryView{ModelCatalogEntry: entries[i], VendorPlatform: service.CatalogVendorPlatform(&entries[i])}
+	}
+	response.Success(c, views)
 }
 
 // GetEntry 按 ID 取条目。

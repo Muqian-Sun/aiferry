@@ -35,27 +35,18 @@ function lastEmitted(wrapper: ReturnType<typeof mountEditor>): ProtocolEndpoints
   return events![events!.length - 1][0] as ProtocolEndpoints
 }
 
+// 一个 key 只承接一个上游协议（后端拒绝多协议）：编辑器是「协议 + 地址」一行。
 describe('ProtocolEndpointsEditor', () => {
-  it('renders configured protocols in the given protocol order', () => {
-    const wrapper = mountEditor({ responses: 'https://r.example', anthropic: 'https://a.example' })
-
-    const inputs = wrapper.findAll('input')
-    expect(inputs.map((input) => input.attributes('data-testid'))).toEqual([
-      'protocol-endpoint-input-anthropic',
-      'protocol-endpoint-input-responses'
-    ])
-    expect((inputs[0].element as HTMLInputElement).value).toBe('https://a.example')
-  })
-
-  it('offers only the protocols that are not configured yet', () => {
+  it('shows the configured protocol and its address', () => {
     const wrapper = mountEditor({ anthropic: 'https://a.example' })
 
-    expect(wrapper.find('[data-testid="protocol-endpoint-add-anthropic"]').exists()).toBe(false)
-    expect(wrapper.find('[data-testid="protocol-endpoint-add-chat_completions"]').exists()).toBe(true)
-    expect(wrapper.find('[data-testid="protocol-endpoint-add-gemini"]').exists()).toBe(true)
+    const select = wrapper.find('[data-testid="protocol-endpoint-protocol"]').element as HTMLSelectElement
+    expect(select.value).toBe('anthropic')
+    const input = wrapper.find('[data-testid="protocol-endpoint-input-anthropic"]').element as HTMLInputElement
+    expect(input.value).toBe('https://a.example')
   })
 
-  it('emits an updated copy when an address is edited', async () => {
+  it('emits an updated copy when the address is edited', async () => {
     const value = { anthropic: 'https://a.example' }
     const wrapper = mountEditor(value)
 
@@ -65,32 +56,31 @@ describe('ProtocolEndpointsEditor', () => {
     expect(value).toEqual({ anthropic: 'https://a.example' })
   })
 
-  it('adds a protocol with an empty address so validation can flag it', async () => {
-    const wrapper = mountEditor({ anthropic: 'https://a.example' })
+  it('switches protocol and keeps an address the admin typed in', async () => {
+    const wrapper = mountEditor({ anthropic: 'https://relay.example' }, ALL, { anthropic: 'https://api.anthropic.com' })
 
-    await wrapper.find('[data-testid="protocol-endpoint-add-gemini"]').trigger('click')
+    await wrapper.find('[data-testid="protocol-endpoint-protocol"]').setValue('responses')
 
-    expect(lastEmitted(wrapper)).toEqual({ anthropic: 'https://a.example', gemini: '' })
+    expect(lastEmitted(wrapper)).toEqual({ responses: 'https://relay.example' })
   })
 
-  it('removes a protocol entirely instead of leaving an empty address', async () => {
-    const wrapper = mountEditor({ anthropic: 'https://a.example', responses: 'https://r.example' })
+  it('switches to the new protocol\'s official address when the current one was untouched', async () => {
+    const official = { anthropic: 'https://api.moonshot.cn/anthropic', chat_completions: 'https://api.moonshot.cn/v1' }
+    const wrapper = mountEditor({ anthropic: 'https://api.moonshot.cn/anthropic' }, ALL, official)
 
-    await wrapper.find('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
+    await wrapper.find('[data-testid="protocol-endpoint-protocol"]').setValue('chat_completions')
 
-    const next = lastEmitted(wrapper)
-    expect(next).toEqual({ anthropic: 'https://a.example' })
-    expect('responses' in next).toBe(false)
+    expect(lastEmitted(wrapper)).toEqual({ chat_completions: 'https://api.moonshot.cn/v1' })
   })
 
-  it('shows the empty state when nothing is configured', () => {
+  it('shows the empty state and a disabled address box when nothing is configured', () => {
     const wrapper = mountEditor({})
 
     expect(wrapper.find('[data-testid="protocol-endpoints-empty"]').exists()).toBe(true)
-    expect(wrapper.findAll('input')).toHaveLength(0)
+    expect(wrapper.find('[data-testid="protocol-endpoint-input-none"]').attributes('disabled')).toBeDefined()
   })
 
-  it('offers the official addresses only when they differ from the current value', () => {
+  it('offers the official address only when it differs from the current value', () => {
     const official = { anthropic: 'https://api.anthropic.com' }
 
     expect(
@@ -107,17 +97,13 @@ describe('ProtocolEndpointsEditor', () => {
     ).toBe(false)
   })
 
-  it('replaces the whole mapping with a copy of the official addresses', async () => {
-    const official = { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' }
-    const wrapper = mountEditor({ anthropic: 'https://relay.example' }, ALL, official)
+  it('restores only the current protocol\'s official address', async () => {
+    const official = { chat_completions: 'https://api.openai.com/v1', responses: 'https://api.openai.com/v1' }
+    const wrapper = mountEditor({ responses: 'https://relay.example' }, ALL, official)
 
     await wrapper.find('[data-testid="protocol-endpoints-restore-official"]').trigger('click')
 
-    const next = lastEmitted(wrapper)
-    expect(next).toEqual(official)
-    // 发出的必须是副本：之后在表单里改地址不能改到官方地址表。
-    next.chat_completions = 'https://relay.example/v1'
-    expect(official.chat_completions).toBe('https://api.openai.com')
+    expect(lastEmitted(wrapper)).toEqual({ responses: 'https://api.openai.com/v1' })
   })
 
   it('tells the admin to fill addresses manually when official addresses failed to load', () => {
@@ -133,5 +119,7 @@ describe('ProtocolEndpointsEditor', () => {
     const wrapper = mountEditor({ gemini: 'https://g.example' }, ['anthropic'])
 
     expect(wrapper.find('[data-testid="protocol-endpoint-input-gemini"]').exists()).toBe(true)
+    const options = wrapper.findAll('[data-testid="protocol-endpoint-protocol"] option').map((option) => option.attributes('value'))
+    expect(options).toContain('gemini')
   })
 })

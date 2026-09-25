@@ -1113,7 +1113,8 @@ export interface OpenAICompactState {
 export interface CreateAccountRequest {
   name: string
   notes?: string | null
-  platform: AccountPlatform
+  /** 成品号必填；第三方 key 不带，后端按协议地址推导（认得出官方厂商即该厂商，中转按协议归族）。 */
+  platform?: AccountPlatform
   type: AccountType
   credentials: Record<string, unknown>
   protocol_endpoints?: ProtocolEndpoints

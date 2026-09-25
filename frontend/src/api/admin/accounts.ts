@@ -713,17 +713,6 @@ export async function createOpenAICodexPAT(payload: OpenAICodexPATCreateRequest)
 }
 
 /**
- * Get Antigravity default model mapping from backend
- * @returns Default model mapping (from -> to)
- */
-export async function getAntigravityDefaultModelMapping(): Promise<Record<string, string>> {
-  const { data } = await apiClient.get<Record<string, string>>(
-    '/admin/accounts/antigravity/default-model-mapping'
-  )
-  return data
-}
-
-/**
  * Refresh OpenAI token using refresh token
  * @param refreshToken - The refresh token
  * @param proxyId - Optional proxy ID
@@ -1050,7 +1039,6 @@ export const accountsAPI = {
   importData,
   importCodexSession,
   createOpenAICodexPAT,
-  getAntigravityDefaultModelMapping,
   batchDelete,
   batchClearError,
   batchRefresh,

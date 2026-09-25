@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const {
   createAccountMock,
+  replaceAccountEntriesMock,
   probeUpstreamBillingMock,
   syncUpstreamModelsMock,
   showWarningMock,
@@ -14,6 +15,7 @@ const {
   showErrorMock,
 } = vi.hoisted(() => ({
   createAccountMock: vi.fn(),
+  replaceAccountEntriesMock: vi.fn(),
   probeUpstreamBillingMock: vi.fn(),
   syncUpstreamModelsMock: vi.fn(),
   showWarningMock: vi.fn(),
@@ -57,11 +59,14 @@ vi.mock('@/api/admin', () => ({
     tlsFingerprintProfiles: {
       list: vi.fn().mockResolvedValue([]),
     },
+    modelCatalog: {
+      listEntries: vi.fn().mockResolvedValue([]),
+      replaceAccountEntries: replaceAccountEntriesMock,
+    },
   },
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  getAntigravityDefaultModelMapping: vi.fn().mockResolvedValue([]),
   accountsAPI: { getProtocolDefaults: getProtocolDefaultsMock },
 }))
 
@@ -75,6 +80,7 @@ vi.mock('vue-i18n', async () => {
 
 import { adminAPI } from '@/api/admin'
 import CreateAccountModal from '../CreateAccountModal.vue'
+import { findAccessSource } from '../accessSources'
 import { resetProtocolDefaultsCacheForTest } from '../protocolEndpoints'
 
 // 与后端 GET /admin/accounts/protocol-defaults 同形；取自开发实例的真实返回（节选）。
@@ -149,24 +155,6 @@ const OAuthAuthorizationFlowStub = defineComponent({
   `,
 })
 
-const ModelWhitelistSelectorStub = defineComponent({
-  name: 'ModelWhitelistSelector',
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => [],
-    },
-    platform: String,
-    syncCredentials: Object,
-  },
-  emits: ['update:modelValue', 'upstream-synced'],
-  template: `<button
-    type="button"
-    data-testid="model-whitelist-selector"
-    @click="$emit('update:modelValue', ['public-glm']); $emit('upstream-synced')"
-  >models</button>`,
-})
-
 function mountModal() {
   return mount(CreateAccountModal, {
     props: { show: true, proxies: [] },
@@ -179,7 +167,6 @@ function mountModal() {
         Icon: true,
         PlatformIcon: true,
         ProxySelector: true,
-        ModelWhitelistSelector: ModelWhitelistSelectorStub,
         QuotaLimitCard: true,
       },
     },
@@ -192,15 +179,29 @@ async function selectButtonByText(wrapper: ReturnType<typeof mountModal>, text: 
   await button?.trigger('click')
 }
 
+// 新建渠道第一步：先选接入方式（第三方 key / 成品号），再选来源（见 accessSources.ts）
+async function selectSource(wrapper: ReturnType<typeof mountModal>, sourceId: string) {
+  let button = wrapper.find(`[data-testid="access-source-${sourceId}"]`)
+  if (!button.exists()) {
+    await wrapper.get(`[data-testid="access-kind-${findAccessSource(sourceId).kind}"]`).trigger('click')
+    await flushPromises()
+    button = wrapper.get(`[data-testid="access-source-${sourceId}"]`)
+  }
+  await button.trigger('click')
+  await flushPromises()
+}
+
+// 一个 key 只承接一个协议：换协议走下拉，地址没改过就换成新协议的官方地址
+async function switchProtocol(wrapper: ReturnType<typeof mountModal>, protocol: string) {
+  await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue(protocol)
+}
+
 async function submitApiKeyAccount(
   platform: 'openai' | 'anthropic',
   disableUpstreamBillingProbe = false
 ) {
   const wrapper = mountModal()
-  await selectButtonByText(wrapper, platform === 'openai' ? 'OpenAI' : 'admin.accounts.claudeConsole')
-  if (platform === 'openai') {
-    await selectButtonByText(wrapper, 'API Key')
-  }
+  await selectSource(wrapper, platform === 'openai' ? 'openai-key' : 'anthropic-key')
   await wrapper.get('form#create-account-form input[type="text"]').setValue(`${platform} account`)
   await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
   if (disableUpstreamBillingProbe) {
@@ -213,7 +214,7 @@ async function submitApiKeyAccount(
 
 async function openCodexImportStep() {
   const wrapper = mountModal()
-  await selectButtonByText(wrapper, 'OpenAI')
+  await selectSource(wrapper, 'chatgpt')
   await wrapper.get('form#create-account-form input[type="text"]').setValue('Codex import')
   await wrapper.get('form#create-account-form').trigger('submit.prevent')
   return wrapper
@@ -223,6 +224,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'openai', type: 'apikey' })
+    replaceAccountEntriesMock.mockReset().mockResolvedValue([])
     probeUpstreamBillingMock.mockReset().mockResolvedValue({})
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
     showWarningMock.mockReset()
@@ -243,8 +245,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     vi.useFakeTimers({ toFake: ['Date'] })
     vi.setSystemTime(new Date('2026-01-31T12:34:00'))
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     const input = wrapper.get<HTMLInputElement>('input[type="datetime-local"]')
@@ -268,8 +269,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('allows a manually entered expiry to override a preset before account creation', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('custom expiry account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await selectButtonByText(wrapper, 'payment.oneMonth')
@@ -290,8 +290,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('sends the trimmed upstream request id header in extra when filled', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('openai account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await wrapper.get('[data-testid="upstream-request-id-header"]').setValue('  X-Oneapi-Request-Id  ')
@@ -311,8 +310,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('sends images_url_to_b64_json in extra when the toggle is enabled', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('openai account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
     await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
@@ -323,49 +321,22 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.extra?.images_url_to_b64_json).toBe(true)
   })
 
-  it('persists upstream model metadata after creating an account from preview', async () => {
-    const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
-    await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenCode account')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="model-whitelist-selector"]').trigger('click')
-    await wrapper.get('form#create-account-form').trigger('submit.prevent')
-    await flushPromises()
-
-    expect(createAccountMock).toHaveBeenCalledOnce()
-    expect(syncUpstreamModelsMock).toHaveBeenCalledWith(42)
-  })
-
-  it('includes the current concrete model mapping in preview credentials', async () => {
-    const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="model-whitelist-selector"]').trigger('click')
-    await flushPromises()
-
-    expect(wrapper.getComponent(ModelWhitelistSelectorStub).props('syncCredentials')).toMatchObject({
-      model_mapping: { 'public-glm': 'public-glm' }
-    })
-  })
-
   it('runs formal capability sync after creating an account with explicit mappings', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Mapped account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await selectButtonByText(wrapper, 'admin.accounts.modelMapping')
-    await selectButtonByText(wrapper, 'admin.accounts.addMapping')
-    await wrapper.get('input[placeholder="admin.accounts.requestModel"]').setValue('public-glm')
-    await wrapper.get('input[placeholder="admin.accounts.actualModel"]').setValue('glm-5.3')
+    await wrapper.get('[data-testid="model-rename-add"]').trigger('click')
+    await wrapper.get('[data-testid="model-rename-from-0"]').setValue('public-glm')
+    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('glm-5.3')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
 
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping).toEqual({
       'public-glm': 'glm-5.3'
     })
+    // 映射只改名（2026-09-25 去掉白名单）：写映射时一并打标记
+    expect(createAccountMock.mock.calls[0]?.[0]?.credentials?.model_mapping_rename_only).toBe(true)
     expect(syncUpstreamModelsMock).toHaveBeenCalledWith(42)
   })
 
@@ -375,11 +346,12 @@ describe('CreateAccountModal OpenAI account creation', () => {
       warnings: [{ code: 'upstream_model_metadata_incomplete', message: 'metadata incomplete' }],
     })
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenCode account')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('test-api-key')
-    await wrapper.get('[data-testid="model-whitelist-selector"]').trigger('click')
+    await wrapper.get('[data-testid="model-rename-add"]').trigger('click')
+    await wrapper.get('[data-testid="model-rename-from-0"]').setValue('public-glm')
+    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('x-preview-f-free')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
     await flushPromises()
 
@@ -391,13 +363,13 @@ describe('CreateAccountModal OpenAI account creation', () => {
   // namespace 摊平是仅 OAuth 的兼容开关：API Key 走 chat completions 回退桥时由桥自行摊平
   it('shows the Codex namespace flatten toggle only for OpenAI OAuth accounts', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
+    await selectSource(wrapper, 'chatgpt')
 
     expect(wrapper.find('[data-testid="create-openai-flatten-namespaces-toggle"]').exists()).toBe(
       true
     )
 
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     expect(wrapper.find('[data-testid="create-openai-flatten-namespaces-toggle"]').exists()).toBe(
       false
     )
@@ -437,7 +409,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('submits OpenCode Zen default protocol rules with adaptive endpoints', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenCode')
+    await selectSource(wrapper, 'opencode')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('oc')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-opencode-zen')
 
@@ -445,7 +417,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.zen)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.opencode_go.zen.chat_completions })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('base_url')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_base_urls')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
@@ -457,7 +429,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('submits OpenCode GO endpoints after switching account type', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenCode')
+    await selectSource(wrapper, 'opencode')
     await selectButtonByText(wrapper, 'admin.accounts.opencodeGo.accountMode.go')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('oc-go')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-opencode-go')
@@ -466,7 +438,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.opencode_go.go)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.opencode_go.go.chat_completions })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({
       account_mode: 'go'
@@ -476,7 +448,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('submits Kimi protocol endpoints without an API protocol', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
+    await selectSource(wrapper, 'kimi')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi adaptive')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
@@ -484,14 +456,14 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.default.chat_completions })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('submits Kimi Coding Plan Responses endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
+    await selectSource(wrapper, 'kimi')
     await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.coding')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('Kimi coding')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi-coding')
@@ -500,14 +472,14 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'coding' })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('submits MiniMax protocol endpoints', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'MiniMax')
+    await selectSource(wrapper, 'minimax')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('MiniMax adaptive')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-minimax')
 
@@ -515,46 +487,26 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
-    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.minimax.default)
+    expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.minimax.default.chat_completions })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).toMatchObject({ account_mode: 'payg' })
     expect(createAccountMock.mock.calls[0]?.[0]?.credentials).not.toHaveProperty('api_protocol')
-  })
-
-  it('previews upstream models with the edited protocol endpoints', async () => {
-    const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
-    await flushPromises()
-    await wrapper
-      .get('[data-testid="protocol-endpoint-input-chat_completions"]')
-      .setValue('https://relay.example.com/v1')
-    await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-relay')
-
-    const syncCredentials = wrapper.getComponent(ModelWhitelistSelectorStub).props('syncCredentials')
-    expect(syncCredentials).toMatchObject({
-      platform: 'kimi',
-      type: 'apikey',
-      api_key: 'sk-relay',
-      protocol_endpoints: {
-        ...PROTOCOL_DEFAULTS.defaults.kimi.default,
-        chat_completions: 'https://relay.example.com/v1'
-      }
-    })
-    expect(syncCredentials).not.toHaveProperty('base_url')
   })
 
   it('submits the official endpoints prefilled from the backend for an OpenAI API key', async () => {
     await submitApiKeyAccount('openai')
 
     const payload = createAccountMock.mock.calls[0]?.[0]
-    expect(payload?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.openai.default)
+    // 官方地址表列了两个协议，一个 key 只取一个：OpenAI 默认 Responses
+    expect(payload?.protocol_endpoints).toEqual({ responses: PROTOCOL_DEFAULTS.defaults.openai.default.responses })
     expect(payload?.credentials).not.toHaveProperty('base_url')
+    // 第三方 key 不带平台，后端按地址认厂商
+    expect(payload).not.toHaveProperty('platform')
   })
 
   it('refuses to create a third-party key without any protocol endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    // 自定义中转不预填地址
+    await selectSource(wrapper, 'relay')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('no endpoint')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-test')
 
@@ -565,12 +517,12 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(showErrorMock).toHaveBeenCalledWith('admin.accounts.protocolEndpoints.errors.empty')
   })
 
-  it('has no API protocol selector: a Chinese provider key keeps whichever endpoints it configures', async () => {
+  it('has no API protocol selector: a Chinese provider key keeps whichever endpoint it configures', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
+    await selectSource(wrapper, 'kimi')
     await flushPromises()
     expect(wrapper.text()).not.toContain('admin.accounts.cnProviders.apiProtocol.title')
-    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    await switchProtocol(wrapper, 'responses')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('kimi without anthropic')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-kimi')
 
@@ -579,13 +531,13 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     const payload = createAccountMock.mock.calls[0]?.[0]
-    expect(payload?.protocol_endpoints).not.toHaveProperty('anthropic')
+    expect(payload?.protocol_endpoints).toEqual({ responses: PROTOCOL_DEFAULTS.defaults.kimi.default.responses })
     expect(payload?.credentials).not.toHaveProperty('api_protocol')
   })
 
   it('switches to the new official endpoints on mode change but keeps edited ones', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
+    await selectSource(wrapper, 'kimi')
     await flushPromises()
     await selectButtonByText(wrapper, 'admin.accounts.cnProviders.accountMode.coding')
     await flushPromises()
@@ -604,7 +556,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('fills only the preset protocol when a Chinese provider preset is picked', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'MiniMax')
+    await selectSource(wrapper, 'minimax')
     await flushPromises()
     // 选一个与官方预填不同的地址（国际站），才能区分「预设回填」与「官方预填」。
     const preset = wrapper
@@ -622,17 +574,12 @@ describe('CreateAccountModal OpenAI account creation', () => {
     const payload = createAccountMock.mock.calls[0]?.[0]
     expect(payload?.credentials).toMatchObject({ account_mode: 'payg' })
     expect(payload?.credentials).not.toHaveProperty('api_protocol')
-    expect(payload?.protocol_endpoints).toEqual({
-      ...PROTOCOL_DEFAULTS.defaults.minimax.default,
-      anthropic: 'https://api.minimax.io/anthropic'
-    })
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://api.minimax.io/anthropic' })
   })
 
-  it('applies a Grok preset to both Chat Completions and Responses endpoints', async () => {
+  it('applies a Grok preset to the configured Grok protocol', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Grok')
-    await wrapper.get('[data-testid="grok-account-type-api-key"]').trigger('click')
-    await flushPromises()
+    await selectSource(wrapper, 'grok-key')
     const preset = wrapper.findAll('[data-testid="grok-base-url-preset"]').find((button) => button.text().includes('us-east-1'))
     expect(preset).toBeDefined()
     await preset!.trigger('click')
@@ -643,7 +590,6 @@ describe('CreateAccountModal OpenAI account creation', () => {
     await flushPromises()
 
     expect(createAccountMock.mock.calls[0]?.[0]?.protocol_endpoints).toEqual({
-      chat_completions: 'https://us-east-1.api.x.ai/v1',
       responses: 'https://us-east-1.api.x.ai/v1'
     })
   })
@@ -651,8 +597,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
   it('asks for manual endpoints when official addresses fail to load', async () => {
     getProtocolDefaultsMock.mockReset().mockRejectedValue(new Error('offline'))
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
-    await flushPromises()
+    await selectSource(wrapper, 'anthropic-key')
 
     expect(wrapper.find('[data-testid="protocol-defaults-load-failed"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="protocol-endpoint-input-anthropic"]').exists()).toBe(false)
@@ -660,7 +605,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
   it('exposes Agent Identity in the OpenAI authorization methods', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
+    await selectSource(wrapper, 'chatgpt')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('OpenAI account')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
 
@@ -700,20 +645,19 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(createAccountMock.mock.calls[0]?.[0]?.upstream_billing_probe_enabled).toBe(false)
   })
 
-  it('antigravity 第三方 key 不带成品号的混合调度 / 超量键', async () => {
+  it('自定义中转 key 不带 Antigravity 成品号的混合调度 / 超量键', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Antigravity')
-    // 先在成品号（OAuth）形态下勾上两项，再切到第三方 key：残留的勾选不能写进 key 的 extra。
+    await selectSource(wrapper, 'antigravity')
+    // 先在成品号（OAuth）形态下勾上两项，再切到中转 key：残留的勾选不能写进 key 的 extra。
     const checkboxes = wrapper.findAll('form#create-account-form input[type="checkbox"]')
     for (const checkbox of checkboxes) {
       await checkbox.setValue(true)
     }
-    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await selectSource(wrapper, 'relay')
     expect(wrapper.text()).not.toContain('admin.accounts.mixedScheduling')
     expect(wrapper.text()).not.toContain('admin.accounts.allowOverages')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -725,15 +669,12 @@ describe('CreateAccountModal OpenAI account creation', () => {
     expect(extra).not.toHaveProperty('allow_overages')
   })
 
-  it('antigravity upstream 创建默认携带上游倍率探测开关', async () => {
-    // antigravity upstream 走独立创建 helper，
-    // 也必须与其余 API-key 平台一样默认开启探测并传递开关。
+  it('自定义中转 key 创建默认携带上游倍率探测开关、不带平台', async () => {
+    // 中转 key 与其余第三方 key 一样默认开启探测并传递开关；平台由后端按地址推导。
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Antigravity')
-    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
+    await selectSource(wrapper, 'relay')
     await wrapper.get('form#create-account-form input[type="text"]').setValue('antigravity relay')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await wrapper.get('form#create-account-form input[type="password"]').setValue('sk-upstream')
     await wrapper.get('form#create-account-form').trigger('submit.prevent')
@@ -741,7 +682,7 @@ describe('CreateAccountModal OpenAI account creation', () => {
 
     expect(createAccountMock).toHaveBeenCalledTimes(1)
     const payload = createAccountMock.mock.calls[0]?.[0]
-    expect(payload?.platform).toBe('antigravity')
+    expect(payload).not.toHaveProperty('platform')
     expect(payload?.type).toBe('apikey')
     expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://relay.example/antigravity' })
     expect(payload?.credentials).not.toHaveProperty('base_url')
@@ -774,6 +715,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
   beforeEach(() => {
     authIsSimpleMode.value = true
     createAccountMock.mockReset().mockResolvedValue({ id: 42, platform: 'antigravity', type: 'apikey' })
+    replaceAccountEntriesMock.mockReset().mockResolvedValue([])
     probeUpstreamBillingMock.mockReset().mockResolvedValue({})
     syncUpstreamModelsMock.mockReset().mockResolvedValue({ models: [], metadata: {} })
   })
@@ -790,12 +732,10 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     return createAccountMock.mock.calls[0]?.[0]
   }
 
-  it('offers header overrides for an Antigravity upstream key and submits them', async () => {
+  it('offers header overrides for a custom relay key and submits them', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Antigravity')
-    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await selectSource(wrapper, 'relay')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await fillKeyBasics(wrapper, 'antigravity relay')
 
@@ -818,15 +758,15 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     const wrapper = mountModal()
     // 默认是 Anthropic OAuth 成品号
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(false)
-    await selectButtonByText(wrapper, 'Grok')
+    await selectSource(wrapper, 'grok')
     expect(wrapper.find('[data-testid="create-header-override"]').exists()).toBe(true)
   })
 
   it('shows Anthropic protocol settings for a Kimi key with an anthropic endpoint and submits them', async () => {
     vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
-    await flushPromises()
+    await selectSource(wrapper, 'kimi')
+    await switchProtocol(wrapper, 'anthropic')
     await fillKeyBasics(wrapper, 'kimi relay')
 
     await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
@@ -835,7 +775,8 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     await wrapper.get('[data-testid="create-bedrock-cc-compat-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.platform).toBe('kimi')
+    expect(payload).not.toHaveProperty('platform')
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: PROTOCOL_DEFAULTS.defaults.kimi.default.anthropic })
     expect(payload?.extra).toMatchObject({
       anthropic_passthrough: true,
       anthropic_apikey_auth_scheme: 'authorization_bearer',
@@ -846,17 +787,15 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('hides Anthropic protocol settings once an Anthropic-labelled key drops its anthropic endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
-    await flushPromises()
+    await selectSource(wrapper, 'anthropic-key')
     expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
     await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
-    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    await switchProtocol(wrapper, 'chat_completions')
     expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-anthropic-auth-scheme"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
     await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
     await fillKeyBasics(wrapper, 'anthropic label without anthropic endpoint')
     const payload = await submitPayload(wrapper)
@@ -866,29 +805,28 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('clears Anthropic protocol settings when switching to another platform label', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
-    await flushPromises()
+    await selectSource(wrapper, 'kimi')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="create-anthropic-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="create-anthropic-auth-scheme"]').setValue('authorization_bearer')
 
-    // MiniMax 的官方地址同样带 anthropic，区块一直可见
-    await selectButtonByText(wrapper, 'MiniMax')
-    await flushPromises()
+    // 换来源回到新厂商的默认协议；切回 anthropic 用 MiniMax 的官方地址，区块重新出现、勾选已清空
+    await selectSource(wrapper, 'minimax')
+    await switchProtocol(wrapper, 'anthropic')
     expect(wrapper.find('[data-testid="create-anthropic-passthrough"]').exists()).toBe(true)
     await fillKeyBasics(wrapper, 'minimax after kimi')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.platform).toBe('minimax')
+    expect(payload).not.toHaveProperty('platform')
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: PROTOCOL_DEFAULTS.defaults.minimax.default.anthropic })
     expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
     expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_apikey_auth_scheme')
   })
 
-  it('submits Anthropic protocol settings for an Antigravity upstream key', async () => {
+  it('submits Anthropic protocol settings for a custom relay key', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Antigravity')
-    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await selectSource(wrapper, 'relay')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example/antigravity')
     await fillKeyBasics(wrapper, 'antigravity relay')
 
@@ -900,7 +838,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('submits endpoint capabilities and the b64 toggle for a Kimi key with an OpenAI endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Kimi')
+    await selectSource(wrapper, 'kimi')
     await flushPromises()
     await fillKeyBasics(wrapper, 'kimi relay capabilities')
 
@@ -909,30 +847,28 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.platform).toBe('kimi')
+    expect(payload).not.toHaveProperty('platform')
     expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
     expect(payload?.extra?.images_url_to_b64_json).toBe(true)
   })
 
   it('hides endpoint capabilities and the b64 toggle for an Anthropic-labelled key without an OpenAI endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
-    await flushPromises()
+    await selectSource(wrapper, 'anthropic-key')
     expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="protocol-endpoint-add-chat_completions"]').trigger('click')
+    await switchProtocol(wrapper, 'chat_completions')
     await wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').setValue('https://relay.example.com/v1')
     expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(true)
   })
 
   it('shows OpenAI Responses settings with the vendor hint once an Anthropic-labelled key gains a responses endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'admin.accounts.claudeConsole')
-    await flushPromises()
+    await selectSource(wrapper, 'anthropic-key')
     expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await switchProtocol(wrapper, 'responses')
     await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example.com/v1')
     expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(true)
     wrapper.get('[data-testid="create-openai-ws-mode"]').findComponent({ name: 'Select' }).vm.$emit('update:modelValue', 'ctx_pool')
@@ -948,7 +884,7 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     await fillKeyBasics(wrapper, 'anthropic label with responses')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.platform).toBe('anthropic')
+    expect(payload).not.toHaveProperty('platform')
     expect(payload?.extra).toMatchObject({
       openai_passthrough: true,
       openai_apikey_responses_websockets_v2_mode: 'ctx_pool',
@@ -959,14 +895,11 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('hides OpenAI Responses settings once an OpenAI-labelled key drops its responses and chat_completions endpoints', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await flushPromises()
     await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
 
-    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
-    await wrapper.get('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await switchProtocol(wrapper, 'anthropic')
     await wrapper.get('[data-testid="protocol-endpoint-input-anthropic"]').setValue('https://relay.example.com')
     expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
@@ -978,12 +911,10 @@ describe('CreateAccountModal third-party key settings do not follow the platform
     expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
   })
 
-  it('submits OpenAI Responses settings for an Antigravity upstream key with a responses endpoint', async () => {
+  it('submits OpenAI Responses settings for a custom relay key with a responses endpoint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'Antigravity')
-    await selectButtonByText(wrapper, 'admin.accounts.types.antigravityApikey')
-    await flushPromises()
-    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await selectSource(wrapper, 'relay')
+    await switchProtocol(wrapper, 'responses')
     await wrapper.get('[data-testid="protocol-endpoint-input-responses"]').setValue('https://relay.example/v1')
     await fillKeyBasics(wrapper, 'antigravity responses relay')
 
@@ -1005,33 +936,30 @@ describe('CreateAccountModal third-party key settings do not follow the platform
 
   it('clears OpenAI Responses settings when switching to another platform label', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await selectButtonByText(wrapper, 'API Key')
+    await selectSource(wrapper, 'openai-key')
     await flushPromises()
     await wrapper.get('[data-testid="create-openai-passthrough-toggle"]').trigger('click')
 
-    // Kimi 的官方地址同样带 responses / chat_completions，区块一直可见
-    await selectButtonByText(wrapper, 'Kimi')
-    await flushPromises()
+    // 换来源回到新厂商的默认协议（Kimi 是 Chat Completions），OpenAI 协议设置区块一直可见
+    await selectSource(wrapper, 'kimi')
     expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
     await fillKeyBasics(wrapper, 'kimi after openai')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.platform).toBe('kimi')
+    expect(payload).not.toHaveProperty('platform')
+    expect(payload?.protocol_endpoints).toEqual({ chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.default.chat_completions })
     expect(payload?.extra ?? {}).not.toHaveProperty('openai_passthrough')
   })
 
   it('keeps OpenAI Responses settings for OpenAI subscriptions only, without the key hint', async () => {
     const wrapper = mountModal()
-    await selectButtonByText(wrapper, 'OpenAI')
-    await flushPromises()
+    await selectSource(wrapper, 'chatgpt')
     expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="create-openai-compact"]').exists()).toBe(true)
     expect(wrapper.find('[data-testid="create-openai-key-protocol-hint"]').exists()).toBe(false)
 
     // Grok OAuth 成品号：协议地址预填了 chat_completions / responses 也不展示
-    await selectButtonByText(wrapper, 'Grok')
-    await flushPromises()
+    await selectSource(wrapper, 'grok')
     expect(wrapper.find('[data-testid="create-openai-passthrough"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="create-openai-ws-mode"]').exists()).toBe(false)
   })

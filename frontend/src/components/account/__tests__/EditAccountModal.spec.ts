@@ -3,8 +3,17 @@ import { defineComponent } from 'vue'
 import { flushPromises, mount } from '@vue/test-utils'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 
-const { updateAccountMock, authIsSimpleMode, getProtocolDefaultsMock, showErrorMock } = vi.hoisted(() => ({
+const {
+  updateAccountMock,
+  authIsSimpleMode,
+  getProtocolDefaultsMock,
+  showErrorMock,
+  listAccountEntryIdsMock,
+  replaceAccountEntriesMock
+} = vi.hoisted(() => ({
   updateAccountMock: vi.fn(),
+  listAccountEntryIdsMock: vi.fn(),
+  replaceAccountEntriesMock: vi.fn(),
   authIsSimpleMode: { value: true },
   getProtocolDefaultsMock: vi.fn(),
   showErrorMock: vi.fn()
@@ -37,12 +46,16 @@ vi.mock('@/api/admin', () => ({
     },
     tlsFingerprintProfiles: {
       list: vi.fn().mockResolvedValue([])
+    },
+    modelCatalog: {
+      listEntries: vi.fn().mockResolvedValue([]),
+      listAccountEntryIds: listAccountEntryIdsMock,
+      replaceAccountEntries: replaceAccountEntriesMock
     }
   }
 }))
 
 vi.mock('@/api/admin/accounts', () => ({
-  getAntigravityDefaultModelMapping: vi.fn(),
   accountsAPI: { getProtocolDefaults: getProtocolDefaultsMock }
 }))
 
@@ -84,6 +97,8 @@ beforeEach(() => {
   resetProtocolDefaultsCacheForTest()
   getProtocolDefaultsMock.mockReset().mockResolvedValue(PROTOCOL_DEFAULTS)
   showErrorMock.mockReset()
+  listAccountEntryIdsMock.mockReset().mockResolvedValue([])
+  replaceAccountEntriesMock.mockReset().mockImplementation(async (_id: number, ids: number[]) => ids)
 })
 
 const BaseDialogStub = defineComponent({
@@ -95,31 +110,6 @@ const BaseDialogStub = defineComponent({
     }
   },
   template: '<div v-if="show"><slot /><slot name="footer" /></div>'
-})
-
-const ModelWhitelistSelectorStub = defineComponent({
-  name: 'ModelWhitelistSelector',
-  props: {
-    modelValue: {
-      type: Array,
-      default: () => []
-    }
-  },
-  emits: ['update:modelValue'],
-  template: `
-    <div>
-      <button
-        type="button"
-        data-testid="rewrite-to-snapshot"
-        @click="$emit('update:modelValue', ['gpt-5.2-2025-12-11'])"
-      >
-        rewrite
-      </button>
-      <span data-testid="model-whitelist-value">
-        {{ Array.isArray(modelValue) ? modelValue.join(',') : '' }}
-      </span>
-    </div>
-  `
 })
 
 const SelectStub = defineComponent({
@@ -161,7 +151,7 @@ function buildAccount() {
         'gpt-5.2': 'gpt-5.2'
       }
     },
-    protocol_endpoints: { chat_completions: 'https://api.openai.com', responses: 'https://api.openai.com' },
+    protocol_endpoints: { responses: 'https://api.openai.com' },
     extra: {},
     proxy_id: null,
     concurrency: 1,
@@ -277,7 +267,7 @@ function buildGrokAPIKeyAccount() {
     name: 'Grok API Key',
     platform: 'grok',
     credentials: {},
-    protocol_endpoints: { chat_completions: 'https://api.x.ai/v1', responses: 'https://api.x.ai/v1' },
+    protocol_endpoints: { responses: 'https://api.x.ai/v1' },
     credentials_status: { has_api_key: true },
     concurrency: 2
   } as any
@@ -306,21 +296,19 @@ function buildOpenAIOAuthParentAccount() {
   } as any
 }
 
-function mountModal(account = buildAccount(), catalogEntries?: ModelCatalogEntry[]) {
+function mountModal(account = buildAccount()) {
   return mount(EditAccountModal, {
     props: {
       show: true,
       account,
-      proxies: [],
-      catalogEntries
+      proxies: []
     },
     global: {
       stubs: {
         BaseDialog: BaseDialogStub,
         Select: SelectStub,
         Icon: true,
-        ProxySelector: true,
-        ModelWhitelistSelector: ModelWhitelistSelectorStub
+        ProxySelector: true
       }
     }
   })
@@ -373,22 +361,24 @@ describe('EditAccountModal', () => {
     wrapper.unmount()
   })
 
-  it('reopening the same account rehydrates the OpenAI whitelist from props', async () => {
+  it('reopening the same account rehydrates the model renames from props', async () => {
     const account = buildAccount()
     updateAccountMock.mockReset()
     updateAccountMock.mockResolvedValue(account)
 
     const wrapper = mountModal(account)
+    const renameTo = () => wrapper.get('[data-testid="model-rename-to-0"]').element as HTMLInputElement
 
-    expect(wrapper.get('[data-testid="model-whitelist-value"]').text()).toBe('gpt-5.2')
+    // 旧白名单留下的同名项也作为改名行展示（去掉白名单后映射只改名）
+    expect(renameTo().value).toBe('gpt-5.2')
 
-    await wrapper.get('[data-testid="rewrite-to-snapshot"]').trigger('click')
-    expect(wrapper.get('[data-testid="model-whitelist-value"]').text()).toBe('gpt-5.2-2025-12-11')
+    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('gpt-5.2-2025-12-11')
+    expect(renameTo().value).toBe('gpt-5.2-2025-12-11')
 
     await wrapper.setProps({ show: false })
     await wrapper.setProps({ show: true })
 
-    expect(wrapper.get('[data-testid="model-whitelist-value"]').text()).toBe('gpt-5.2')
+    expect(renameTo().value).toBe('gpt-5.2')
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
@@ -396,16 +386,13 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
       'gpt-5.2': 'gpt-5.2'
     })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
   it('preserves OpenCode Zen account type and endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'opencode_go'
-    account.protocol_endpoints = {
-      chat_completions: 'https://opencode.ai/zen/v1',
-      anthropic: 'https://opencode.ai/zen',
-      responses: 'https://opencode.ai/zen/v1'
-    }
+    account.protocol_endpoints = { chat_completions: 'https://opencode.ai/zen/v1' }
     account.credentials = {
       api_key: 'sk-opencode',
       account_mode: 'zen'
@@ -442,7 +429,7 @@ describe('EditAccountModal', () => {
   it('preserves Kimi Responses endpoint on submit', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
-    account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
+    account.protocol_endpoints = { responses: PROTOCOL_DEFAULTS.defaults.kimi.default.responses }
     account.credentials = {
       api_key: 'sk-kimi',
       account_mode: 'payg'
@@ -453,17 +440,16 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.default)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      responses: PROTOCOL_DEFAULTS.defaults.kimi.default.responses
+    })
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'payg' })
   })
 
   it('preserves GLM endpoints on submit', async () => {
     const account = buildAccount()
     account.platform = 'zhipu'
-    account.protocol_endpoints = {
-      chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      anthropic: 'https://open.bigmodel.cn/api/anthropic'
-    }
+    account.protocol_endpoints = { chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4' }
     account.credentials = {
       api_key: 'sk-glm',
       account_mode: 'coding'
@@ -475,8 +461,7 @@ describe('EditAccountModal', () => {
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4',
-      anthropic: 'https://open.bigmodel.cn/api/anthropic'
+      chat_completions: 'https://open.bigmodel.cn/api/coding/paas/v4'
     })
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).toMatchObject({ account_mode: 'coding' })
   })
@@ -532,12 +517,12 @@ describe('EditAccountModal', () => {
     // coding 的官方地址（模式与地址不一致的存量数据），回填窗口内不能被 payg 官方地址覆盖。
     const first = buildAccount()
     first.platform = 'kimi'
-    first.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
+    first.protocol_endpoints = { chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions }
     first.credentials = { api_key: 'sk-kimi', account_mode: 'coding' }
     const second = buildAccount()
     second.id = 99
     second.platform = 'kimi'
-    second.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.coding }
+    second.protocol_endpoints = { chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions }
     second.credentials = { api_key: 'sk-kimi-2', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(second)
 
@@ -548,7 +533,9 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock.mock.calls[0]?.[0]).toBe(99)
-    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions
+    })
   })
 
   it('fills the preset protocol endpoint when a Chinese provider preset is picked', async () => {
@@ -568,10 +555,8 @@ describe('EditAccountModal', () => {
 
     const payload = updateAccountMock.mock.calls[0]?.[1]
     expect(payload?.credentials).not.toHaveProperty('api_protocol')
-    expect(payload?.protocol_endpoints).toEqual({
-      chat_completions: 'https://api.minimaxi.com/v1',
-      anthropic: 'https://api.minimax.io/anthropic'
-    })
+    // 一个 key 只承接一个协议：预设换成它的协议和地址
+    expect(payload?.protocol_endpoints).toEqual({ anthropic: 'https://api.minimax.io/anthropic' })
   })
 
   it('applies a Grok preset to the configured Grok endpoints', async () => {
@@ -585,7 +570,6 @@ describe('EditAccountModal', () => {
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      chat_completions: 'https://eu-west-1.api.x.ai/v1',
       responses: 'https://eu-west-1.api.x.ai/v1'
     })
   })
@@ -593,7 +577,7 @@ describe('EditAccountModal', () => {
   it('switches unedited official endpoints when the admin changes the account mode', async () => {
     const account = buildAccount()
     account.platform = 'kimi'
-    account.protocol_endpoints = { ...PROTOCOL_DEFAULTS.defaults.kimi.default }
+    account.protocol_endpoints = { chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.default.chat_completions }
     account.credentials = { api_key: 'sk-kimi', account_mode: 'payg' }
     updateAccountMock.mockReset().mockResolvedValue(account)
 
@@ -607,10 +591,13 @@ describe('EditAccountModal', () => {
     await flushPromises()
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
-    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual(PROTOCOL_DEFAULTS.defaults.kimi.coding)
+    // 同一平台换模式保留当前协议
+    expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
+      chat_completions: PROTOCOL_DEFAULTS.defaults.kimi.coding.chat_completions
+    })
   })
 
-  it('preserves model mappings when editing the whitelist', async () => {
+  it('keeps every mapping row, same-name rows included, and saves the mapping as rename-only', async () => {
     const account = buildAccount()
     account.credentials.model_mapping = {
       'gpt-5.2': 'gpt-5.2',
@@ -621,16 +608,18 @@ describe('EditAccountModal', () => {
 
     const wrapper = mountModal(account)
 
-    expect(wrapper.get('[data-testid="model-whitelist-value"]').text()).toBe('gpt-5.2')
+    expect((wrapper.get('[data-testid="model-rename-from-0"]').element as HTMLInputElement).value).toBe('gpt-5.2')
+    expect((wrapper.get('[data-testid="model-rename-from-1"]').element as HTMLInputElement).value).toBe('gpt-latest')
 
-    await wrapper.get('[data-testid="rewrite-to-snapshot"]').trigger('click')
+    await wrapper.get('[data-testid="model-rename-to-0"]').setValue('gpt-5.2-2025-12-11')
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
-      'gpt-5.2-2025-12-11': 'gpt-5.2-2025-12-11',
+      'gpt-5.2': 'gpt-5.2-2025-12-11',
       'gpt-latest': 'gpt-5.2'
     })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
   it('submits OpenAI compact mode and compact-only model mapping', async () => {
@@ -803,6 +792,7 @@ describe('EditAccountModal', () => {
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping).toEqual({
       grok: 'grok-build-0.1'
     })
+    expect(updateAccountMock.mock.calls[0]?.[1]?.credentials?.model_mapping_rename_only).toBe(true)
   })
 
   it('saves a Grok API-key account with its stored endpoints and no base_url fallback', async () => {
@@ -813,14 +803,13 @@ describe('EditAccountModal', () => {
     const wrapper = mountModal(account)
 
     expect(
-      (wrapper.get('[data-testid="protocol-endpoint-input-chat_completions"]').element as HTMLInputElement).value
+      (wrapper.get('[data-testid="protocol-endpoint-input-responses"]').element as HTMLInputElement).value
     ).toBe('https://api.x.ai/v1')
 
     await wrapper.get('form#edit-account-form').trigger('submit.prevent')
 
     expect(updateAccountMock).toHaveBeenCalledTimes(1)
     expect(updateAccountMock.mock.calls[0]?.[1]?.protocol_endpoints).toEqual({
-      chat_completions: 'https://api.x.ai/v1',
       responses: 'https://api.x.ai/v1'
     })
     expect(updateAccountMock.mock.calls[0]?.[1]?.credentials).not.toHaveProperty('base_url')
@@ -1449,10 +1438,7 @@ describe('EditAccountModal third-party key settings do not follow the platform l
 
   it('shows Anthropic protocol settings for a Kimi-labelled key with an anthropic endpoint and submits them', async () => {
     vi.mocked(adminAPI.settings.getWebSearchEmulationConfig).mockResolvedValueOnce({ enabled: true, providers: [{}] } as any)
-    const wrapper = mountModal(buildKey('kimi', {
-      anthropic: 'https://api.moonshot.cn/anthropic',
-      chat_completions: 'https://api.moonshot.cn/v1'
-    }))
+    const wrapper = mountModal(buildKey('kimi', { anthropic: 'https://api.moonshot.cn/anthropic' }))
     await flushPromises()
 
     await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
@@ -1532,36 +1518,31 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     })
   })
 
-  it('follows anthropic endpoint rows added or removed in the modal and does not submit hidden edits', async () => {
+  it('follows the protocol switched in the modal and does not submit hidden Anthropic edits', async () => {
     const wrapper = mountModal(buildKey('kimi', { chat_completions: 'https://api.moonshot.cn/v1' }))
     await flushPromises()
     expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="protocol-endpoint-add-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
     expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(true)
     await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
 
-    await wrapper.get('[data-testid="protocol-endpoint-remove-anthropic"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('chat_completions')
     expect(wrapper.find('[data-testid="edit-anthropic-passthrough"]').exists()).toBe(false)
 
     const payload = await submitPayload(wrapper)
     expect(payload?.extra ?? {}).not.toHaveProperty('anthropic_passthrough')
   })
 
-  it('keeps Anthropic settings when an OpenAI-labelled key also has OpenAI settings to save', async () => {
-    const wrapper = mountModal(buildKey('openai', {
-      anthropic: 'https://relay.example.com',
-      responses: 'https://api.openai.com'
-    }))
+  it('saves Anthropic settings for an OpenAI-labelled key with an anthropic endpoint', async () => {
+    const wrapper = mountModal(buildKey('openai', { anthropic: 'https://relay.example.com' }))
     await flushPromises()
 
     await wrapper.get('[data-testid="edit-anthropic-passthrough-toggle"]').trigger('click')
 
     const payload = await submitPayload(wrapper)
-    expect(payload?.extra).toMatchObject({
-      anthropic_passthrough: true,
-      openai_apikey_responses_websockets_v2_mode: 'off'
-    })
+    expect(payload?.extra).toMatchObject({ anthropic_passthrough: true })
+    expect(payload?.extra ?? {}).not.toHaveProperty('openai_apikey_responses_websockets_v2_mode')
   })
 
   it('shows OpenAI Responses settings with the vendor hint for an Anthropic-labelled key with a responses endpoint', async () => {
@@ -1672,18 +1653,15 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     expect(payload?.credentials?.openai_capabilities).toEqual(['chat_completions'])
   })
 
-  it('does not submit endpoint capabilities or the b64 flag edited before the OpenAI endpoint was removed', async () => {
-    const account = buildKey('kimi', {
-      chat_completions: 'https://relay.example.com/v1',
-      anthropic: 'https://relay.example.com'
-    })
+  it('does not submit endpoint capabilities or the b64 flag edited before switching away from the OpenAI protocol', async () => {
+    const account = buildKey('kimi', { chat_completions: 'https://relay.example.com/v1' })
     const wrapper = mountModal(account)
     await flushPromises()
 
     await wrapper.get('[data-testid="openai-endpoint-capability-embeddings"]').setValue(false)
     await wrapper.get('[data-testid="openai-images-url-to-b64-json-toggle"]').trigger('click')
 
-    await wrapper.get('[data-testid="protocol-endpoint-remove-chat_completions"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
     expect(wrapper.find('[data-testid="openai-endpoint-capability-embeddings"]').exists()).toBe(false)
     expect(wrapper.find('[data-testid="openai-images-url-to-b64-json-toggle"]').exists()).toBe(false)
 
@@ -1715,12 +1693,12 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     expect(payload?.credentials?.compact_model_mapping).toEqual({ 'gpt-5.4': 'gpt-5.4-compact' })
   })
 
-  it('follows responses endpoint rows added or removed in the modal and does not submit hidden edits', async () => {
+  it('follows the protocol switched in the modal and does not submit hidden OpenAI edits', async () => {
     const wrapper = mountModal(buildKey('kimi', { anthropic: 'https://api.moonshot.cn/anthropic' }))
     await flushPromises()
     expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="protocol-endpoint-add-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('responses')
     expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(true)
     await wrapper.get('[data-testid="edit-openai-passthrough-toggle"]').trigger('click')
     await wrapper.get('[data-testid="edit-openai-compact-mode-select"]').setValue('force_on')
@@ -1730,7 +1708,7 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     await from.setValue('gpt-5.4')
     await to.setValue('gpt-5.4-compact')
 
-    await wrapper.get('[data-testid="protocol-endpoint-remove-responses"]').trigger('click')
+    await wrapper.get('[data-testid="protocol-endpoint-protocol"]').setValue('anthropic')
     expect(wrapper.find('[data-testid="edit-openai-passthrough"]').exists()).toBe(false)
 
     const payload = await submitPayload(wrapper)
@@ -1762,25 +1740,38 @@ describe('EditAccountModal third-party key settings do not follow the platform l
     expect(wrapper.find('[data-testid="edit-anthropic-auth-scheme"]').exists()).toBe(false)
   })
 
-  // 已上架模型是只读展示：绑定在模型目录里改，这里只告诉管理员这个资源承接哪些模型。
-  it('shows the bound catalog entries read-only and marks unlisted ones', async () => {
+  // 承接的模型（2026-09-25 渠道表单里直接绑定）：按渠道读绑定，勾选变了保存时整份写回，没变不写。
+  it('loads the bound catalog entries and saves changed ticks through the account API', async () => {
     const entry = (id: number, model_id: string, status: string) =>
-      ({ id, model_id, status, bindings: [] } as unknown as ModelCatalogEntry)
-    const wrapper = mountModal(buildAccount(), [entry(199, 'gpt-5.6', 'listed'), entry(217, 'gpt-5.6-mini', 'unlisted')])
-    await flushPromises()
-    const section = wrapper.get('[data-testid="edit-account-catalog"]')
-    const chips = section.findAll('span').filter((span) => span.text() === 'gpt-5.6' || span.text() === 'gpt-5.6-mini')
-    expect(chips.map((chip) => chip.text())).toEqual(['gpt-5.6', 'gpt-5.6-mini'])
-    expect(chips[1].classes()).toContain('line-through')
-    expect(section.text()).not.toContain('admin.accounts.catalogNone')
+      ({ id, model_id, status, vendor: 'openai', vendor_platform: 'openai', bindings: [] } as unknown as ModelCatalogEntry)
+    vi.mocked(adminAPI.modelCatalog.listEntries).mockResolvedValue([
+      entry(199, 'gpt-5.6', 'listed'),
+      entry(217, 'gpt-5.6-mini', 'unlisted')
+    ])
+    listAccountEntryIdsMock.mockResolvedValue([199])
+    const account = buildAccount()
+    updateAccountMock.mockReset().mockResolvedValue(account)
 
-    const empty = mountModal(buildAccount(), [])
+    const unchanged = mountModal(account)
     await flushPromises()
-    expect(empty.get('[data-testid="edit-account-catalog"]').text()).toContain('admin.accounts.catalogNone')
+    expect(listAccountEntryIdsMock).toHaveBeenCalledWith(1)
+    await unchanged.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+    expect(replaceAccountEntriesMock).not.toHaveBeenCalled()
+    unchanged.unmount()
 
-    const hidden = mountModal(buildAccount(), undefined)
+    const wrapper = mountModal(account)
     await flushPromises()
-    expect(hidden.find('[data-testid="edit-account-catalog"]').exists()).toBe(false)
+    const picker = wrapper.get('[data-testid="catalog-entry-picker"]')
+    expect((picker.get('[data-testid="catalog-entry-199"]').element as HTMLInputElement).checked).toBe(true)
+    expect((picker.get('[data-testid="catalog-entry-217"]').element as HTMLInputElement).checked).toBe(false)
+    await picker.get('[data-testid="catalog-entry-217"]').setValue(true)
+    await wrapper.get('form#edit-account-form').trigger('submit.prevent')
+    await flushPromises()
+
+    expect(replaceAccountEntriesMock).toHaveBeenCalledTimes(1)
+    expect(replaceAccountEntriesMock.mock.calls[0]?.[0]).toBe(1)
+    expect([...(replaceAccountEntriesMock.mock.calls[0]?.[1] ?? [])].sort()).toEqual([199, 217])
   })
 
   // 分组绑定段已删：弹窗里没有分组选择器，保存也不带 group_ids

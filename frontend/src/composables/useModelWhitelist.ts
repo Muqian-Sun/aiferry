@@ -396,26 +396,6 @@ const bedrockPresetMappings = [
   { label: 'Haiku 4.5', from: 'claude-haiku-4-5', to: 'us.anthropic.claude-haiku-4-5-20251001-v1:0', color: 'bg-green-100 text-green-700 hover:bg-green-200 dark:bg-green-900/30 dark:text-green-400' },
 ]
 
-// Antigravity 默认映射（从后端 API 获取，与 constants.go 保持一致）
-// 使用 fetchAntigravityDefaultMappings() 异步获取
-import { getAntigravityDefaultModelMapping } from '@/api/admin/accounts'
-
-let _antigravityDefaultMappingsCache: { from: string; to: string }[] | null = null
-
-export async function fetchAntigravityDefaultMappings(): Promise<{ from: string; to: string }[]> {
-  if (_antigravityDefaultMappingsCache !== null) {
-    return _antigravityDefaultMappingsCache
-  }
-  try {
-    const mapping = await getAntigravityDefaultModelMapping()
-    _antigravityDefaultMappingsCache = Object.entries(mapping).map(([from, to]) => ({ from, to }))
-  } catch (e) {
-    console.warn('[fetchAntigravityDefaultMappings] API failed, using empty fallback', e)
-    _antigravityDefaultMappingsCache = []
-  }
-  return _antigravityDefaultMappingsCache
-}
-
 // =====================
 // 常用错误码
 // =====================
@@ -485,6 +465,21 @@ export function getPresetMappingsByPlatform(platform: string) {
   return anthropicPresetMappings
 }
 
+/**
+ * 上游自带模型表的平台（Antigravity 默认表、xAI 模型目录）：映射叠在默认表之上，
+ * 表外的模型要加一条改名（可同名）才承接。与后端 Account.vendorDefaultModelMapping 对应。
+ */
+export const PLATFORMS_WITH_VENDOR_MODEL_TABLE: ReadonlySet<string> = new Set(['antigravity', 'grok'])
+
+/**
+ * 改名快捷项（muqian 2026-09-25 去掉白名单后映射只改名）：同名预设原来是白名单用的，
+ * 只在自带模型表的上游有意义（把表外模型加进来），其余上游只留真正改名的。
+ */
+export function renamePresetsFor(platform: string) {
+  const presets = getPresetMappingsByPlatform(platform)
+  return PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(platform) ? presets : presets.filter((preset) => preset.from !== preset.to)
+}
+
 // =====================
 // 构建模型映射对象（用于 API）
 // =====================
@@ -503,32 +498,6 @@ export type ModelRestrictionMode = 'whitelist' | 'mapping' | 'combined'
 export interface ModelMappingEntry {
   from: string
   to: string
-}
-
-export function splitModelMappingObject(
-  modelMapping?: Record<string, unknown> | null
-): { allowedModels: string[]; modelMappings: ModelMappingEntry[] } {
-  const allowedModels: string[] = []
-  const modelMappings: ModelMappingEntry[] = []
-
-  if (!modelMapping || typeof modelMapping !== 'object') {
-    return { allowedModels, modelMappings }
-  }
-
-  for (const [rawFrom, rawTo] of Object.entries(modelMapping)) {
-    if (typeof rawTo !== 'string') continue
-    const from = rawFrom.trim()
-    const to = rawTo.trim()
-    if (!from || !to) continue
-
-    if (from === to) {
-      allowedModels.push(from)
-    } else {
-      modelMappings.push({ from, to })
-    }
-  }
-
-  return { allowedModels, modelMappings }
 }
 
 export function buildModelMappingObject(

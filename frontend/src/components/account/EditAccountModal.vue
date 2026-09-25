@@ -761,698 +761,43 @@
         </div>
       </div>
 
-      <FormSectionHeading v-if="showModelSection" section="models" :title="t('admin.accounts.formPage.sections.models')" />
+      <FormSectionHeading section="models" :title="t('admin.accounts.formPage.sections.models')" />
 
-      <!-- 已上架模型（只读）：绑定在模型目录里改，这里只展示这个资源承接哪些模型 -->
-      <div v-if="catalogEntries" data-testid="edit-account-catalog">
-        <label class="input-label">{{ t('admin.accounts.columns.catalog') }}</label>
-        <div class="flex flex-wrap gap-1">
-          <span
-            v-for="entry in catalogEntries"
-            :key="entry.id"
-            class="inline-flex items-center rounded-md px-1.5 py-0.5 text-xs font-medium"
-            :class="entry.status === 'listed'
-              ? 'bg-af-sunken text-af-ink-2'
-              : 'bg-af-sunken text-af-ink-3 line-through'"
-            :title="entry.status === 'listed' ? entry.model_id : `${entry.model_id} · ${t('admin.accounts.catalogUnlisted')}`"
-          >
-            {{ entry.model_id }}
-          </span>
-          <span v-if="catalogEntries.length === 0" class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.catalogNone') }}
-          </span>
-        </div>
-      </div>
-
-      <!-- API Key 类型的模型限制（不适用于 Antigravity） -->
-      <!-- Model Restriction Section (不适用于 Antigravity) -->
-      <div v-if="account.type === 'apikey' && account.platform !== 'antigravity'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <div
-          v-if="isOpenAIModelRestrictionDisabled"
-          class="mb-3 rounded-lg bg-af-warning-tint p-3"
-        >
-          <p class="text-xs text-af-warning">
-            {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
-          </p>
-        </div>
-
-        <template v-else>
-          <!-- Mode Toggle -->
-          <div class="mb-4 flex gap-2">
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'whitelist'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'whitelist'
-                  ? 'bg-af-brand-tint text-af-brand'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              <svg
-                class="mr-1.5 inline h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {{ t('admin.accounts.modelWhitelist') }}
-            </button>
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'mapping'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'mapping'
-                  ? 'bg-af-sunken text-af-ink-2'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              <svg
-                class="mr-1.5 inline h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                />
-              </svg>
-              {{ t('admin.accounts.modelMapping') }}
-            </button>
-          </div>
-
-          <!-- Whitelist Mode -->
-          <div v-if="modelRestrictionMode === 'whitelist'">
-            <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-            <p class="text-xs text-af-ink-3">
-              {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-              <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
-                t('admin.accounts.supportsAllModels')
-              }}</span>
-            </p>
-          </div>
-
-          <!-- Mapping Mode -->
-          <div v-else>
-            <div class="mb-3 rounded-lg bg-af-sunken p-3">
-              <p class="text-xs text-af-ink-2">
-                <svg
-                  class="mr-1 inline h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {{ t('admin.accounts.mapRequestModels') }}
-              </p>
-            </div>
-
-          <!-- Model Mapping List -->
-          <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in modelMappings"
-              :key="getModelMappingKey(mapping)"
-              class="flex items-center gap-2"
-            >
-              <input
-                v-model="mapping.from"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.requestModel')"
-              />
-              <svg
-                class="h-4 w-4 flex-shrink-0 text-af-ink-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
-              <input
-                v-model="mapping.to"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.actualModel')"
-              />
-              <button
-                type="button"
-                @click="removeModelMapping(index)"
-                class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-              >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            {{ t('admin.accounts.addMapping') }}
-          </button>
-
-            <!-- Quick Add Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="preset in presetMappings"
-                :key="preset.label"
-                type="button"
-                @click="addPresetMapping(preset.from, preset.to)"
-                :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-              >
-                + {{ preset.label }}
-              </button>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- OpenAI/Grok OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
-      <div
-        v-if="(account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth'"
-        class="border-t border-af-hairline pt-4"
+      <!-- 承接的模型（muqian 2026-09-25 渠道表单里直接绑定）：勾选变了，保存时整份写入绑定 -->
+      <p
+        v-if="catalogEntryIdsLoadFailed"
+        class="text-sm text-af-warning"
+        data-testid="edit-account-catalog-load-failed"
       >
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
+        {{ t('admin.accounts.catalogEntries.loadBoundFailed') }}
+      </p>
+      <CatalogEntryPicker
+        v-else-if="catalogEntryIdsLoaded"
+        v-model="selectedCatalogEntryIds"
+        :suggested-platform="account.platform"
+      />
 
-        <div
-          v-if="isOpenAIModelRestrictionDisabled"
-          class="mb-3 rounded-lg bg-af-warning-tint p-3"
-        >
-          <p class="text-xs text-af-warning">
-            {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
-          </p>
-        </div>
-
-        <template v-else>
-          <!-- Mode Toggle -->
-          <div class="mb-4 flex gap-2">
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'whitelist'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'whitelist'
-                  ? 'bg-af-brand-tint text-af-brand'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              {{ t('admin.accounts.modelWhitelist') }}
-            </button>
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'mapping'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'mapping'
-                  ? 'bg-af-sunken text-af-ink-2'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              {{ t('admin.accounts.modelMapping') }}
-            </button>
-          </div>
-
-          <!-- Whitelist Mode -->
-          <div v-if="modelRestrictionMode === 'whitelist'">
-            <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-            <p class="text-xs text-af-ink-3">
-              {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-              <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
-                t('admin.accounts.supportsAllModels')
-              }}</span>
-            </p>
-          </div>
-
-          <!-- Mapping Mode -->
-          <div v-else>
-            <div class="mb-3 rounded-lg bg-af-sunken p-3">
-              <p class="text-xs text-af-ink-2">
-                {{ t('admin.accounts.mapRequestModels') }}
-              </p>
-            </div>
-
-            <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
-              <div
-                v-for="(mapping, index) in modelMappings"
-                :key="'oauth-' + getModelMappingKey(mapping)"
-                class="flex items-center gap-2"
-              >
-                <input
-                  v-model="mapping.from"
-                  type="text"
-                  class="input flex-1"
-                  :placeholder="t('admin.accounts.requestModel')"
-                />
-                <svg
-                  class="h-4 w-4 flex-shrink-0 text-af-ink-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
-                </svg>
-                <input
-                  v-model="mapping.to"
-                  type="text"
-                  class="input flex-1"
-                  :placeholder="t('admin.accounts.actualModel')"
-                />
-                <button
-                  type="button"
-                  @click="removeModelMapping(index)"
-                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              @click="addModelMapping"
-              class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-            >
-              + {{ t('admin.accounts.addMapping') }}
-            </button>
-
-            <!-- Quick Add Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="preset in presetMappings"
-                :key="'oauth-' + preset.label"
-                type="button"
-                @click="addPresetMapping(preset.from, preset.to)"
-                :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-              >
-                + {{ preset.label }}
-              </button>
-            </div>
-          </div>
+      <!-- 模型改名（可选）：只改名、不限定能接哪些模型，保存时带 model_mapping_rename_only（spark 影子账号除外） -->
+      <ModelRenameEditor
+        v-if="showModelRename"
+        v-model="modelMappings"
+        data-testid="edit-model-rename"
+        class="border-t border-af-hairline pt-4"
+        :presets="renamePresets"
+        :disabled="isOpenAIModelRestrictionDisabled"
+        :extends-vendor-table="extendsVendorTable"
+      >
+        <template v-if="account.platform === 'antigravity'" #actions>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            :disabled="isSyncingAntigravityUpstream || !account?.id"
+            @click="syncAntigravityUpstreamModels"
+          >
+            {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
+          </button>
         </template>
-      </div>
-
-      <!-- Vertex Service Account 的模型限制 -->
-      <!-- Model Restriction Section for Service Account -->
-      <div v-if="(account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <!-- Mode Toggle -->
-        <div class="mb-4 flex gap-2">
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'whitelist'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'whitelist'
-                ? 'bg-af-brand-tint text-af-brand'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            <svg
-              class="mr-1.5 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {{ t('admin.accounts.modelWhitelist') }}
-          </button>
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'mapping'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'mapping'
-                ? 'bg-af-sunken text-af-ink-2'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            <svg
-              class="mr-1.5 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-              />
-            </svg>
-            {{ t('admin.accounts.modelMapping') }}
-          </button>
-        </div>
-
-        <!-- Whitelist Mode -->
-        <div v-if="modelRestrictionMode === 'whitelist'">
-          <ModelWhitelistSelector v-model="allowedModels" :platform="account?.platform || 'anthropic'" :account-id="account?.id" />
-          <p class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-            <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{
-              t('admin.accounts.supportsAllModels')
-            }}</span>
-          </p>
-        </div>
-
-        <!-- Mapping Mode -->
-        <div v-else>
-          <div class="mb-3 rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              <svg
-                class="mr-1 inline h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {{ t('admin.accounts.mapRequestModels') }}
-            </p>
-          </div>
-
-          <!-- Model Mapping List -->
-          <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in modelMappings"
-              :key="getModelMappingKey(mapping)"
-              class="flex items-center gap-2"
-            >
-              <input
-                v-model="mapping.from"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.requestModel')"
-              />
-              <svg
-                class="h-4 w-4 flex-shrink-0 text-af-ink-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
-              <input
-                v-model="mapping.to"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.actualModel')"
-              />
-              <button
-                type="button"
-                @click="removeModelMapping(index)"
-                class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-              >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            {{ t('admin.accounts.addMapping') }}
-          </button>
-
-          <!-- Quick Add Buttons -->
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in presetMappings"
-              :key="preset.label"
-              type="button"
-              @click="addPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Bedrock 的模型限制 -->
-      <!-- Model Restriction for Bedrock -->
-      <div v-if="account.type === 'bedrock'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <!-- Mode Toggle -->
-        <div class="mb-4 flex gap-2">
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'whitelist'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'whitelist'
-                ? 'bg-af-brand-tint text-af-brand'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            {{ t('admin.accounts.modelWhitelist') }}
-          </button>
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'mapping'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'mapping'
-                ? 'bg-af-sunken text-af-ink-2'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            {{ t('admin.accounts.modelMapping') }}
-          </button>
-        </div>
-
-        <!-- Whitelist Mode -->
-        <div v-if="modelRestrictionMode === 'whitelist'">
-          <ModelWhitelistSelector v-model="allowedModels" platform="anthropic" />
-          <p class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-            <span v-if="allowedModels.length === 0 && modelMappings.length === 0">{{ t('admin.accounts.supportsAllModels') }}</span>
-          </p>
-        </div>
-
-        <!-- Mapping Mode -->
-        <div v-else class="space-y-3">
-          <div v-for="(mapping, index) in modelMappings" :key="getModelMappingKey(mapping)" class="flex items-center gap-2">
-            <input v-model="mapping.from" type="text" class="input flex-1" :placeholder="t('admin.accounts.fromModel')" />
-            <span class="text-af-ink-3">→</span>
-            <input v-model="mapping.to" type="text" class="input flex-1" :placeholder="t('admin.accounts.toModel')" />
-            <button type="button" @click="modelMappings.splice(index, 1)" class="text-af-danger hover:text-af-danger">
-              <Icon name="trash" size="sm" />
-            </button>
-          </div>
-          <button type="button" @click="modelMappings.push({ from: '', to: '' })" class="btn btn-secondary text-sm">
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
-          <!-- Bedrock Preset Mappings -->
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in bedrockPresets"
-              :key="preset.from"
-              type="button"
-              @click="modelMappings.push({ from: preset.from, to: preset.to })"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- Antigravity model restriction (applies to all antigravity types) -->
-      <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
-      <div v-if="account.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <!-- Mapping Mode Only (no toggle for Antigravity) -->
-        <div>
-          <div class="mb-3 rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">{{ t('admin.accounts.mapRequestModels') }}</p>
-          </div>
-
-          <div class="mb-3 flex flex-wrap gap-2">
-            <button
-              type="button"
-              @click="syncAntigravityUpstreamModels"
-              :disabled="isSyncingAntigravityUpstream || !account?.id"
-              class="rounded-lg border border-af-hairline-strong px-3 py-1.5 text-sm text-af-ink-2 hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-60"
-            >
-              {{ isSyncingAntigravityUpstream ? t('admin.accounts.syncUpstreamModelsLoading') : t('admin.accounts.syncUpstreamModels') }}
-            </button>
-          </div>
-
-          <div v-if="antigravityModelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in antigravityModelMappings"
-              :key="getAntigravityModelMappingKey(mapping)"
-              class="space-y-1"
-            >
-              <div class="flex items-center gap-2">
-                <input
-                  v-model="mapping.from"
-                  type="text"
-                  :class="[
-                    'input flex-1',
-                    !isValidWildcardPattern(mapping.from) ? 'border-af-danger' : '',
-                    mapping.to.includes('*') ? '' : ''
-                  ]"
-                  :placeholder="t('admin.accounts.requestModel')"
-                />
-                <svg class="h-4 w-4 flex-shrink-0 text-af-ink-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-                <input
-                  v-model="mapping.to"
-                  type="text"
-                  :class="[
-                    'input flex-1',
-                    mapping.to.includes('*') ? 'border-af-danger' : ''
-                  ]"
-                  :placeholder="t('admin.accounts.actualModel')"
-                />
-                <button
-                  type="button"
-                  @click="removeAntigravityModelMapping(index)"
-                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <!-- 校验错误提示 -->
-              <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-af-danger">
-                {{ t('admin.accounts.wildcardOnlyAtEnd') }}
-              </p>
-              <p v-if="mapping.to.includes('*')" class="text-xs text-af-danger">
-                {{ t('admin.accounts.targetNoWildcard') }}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addAntigravityModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg class="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            {{ t('admin.accounts.addMapping') }}
-          </button>
-
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in antigravityPresetMappings"
-              :key="preset.label"
-              type="button"
-              @click="addAntigravityPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-        </div>
-      </div>
+      </ModelRenameEditor>
 
       <!-- OpenAI Compact 模式与专属模型映射，展示条件同自动透传 -->
       <div
@@ -2891,9 +2236,9 @@ import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestId
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
-import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
+import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
 import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
@@ -2901,7 +2246,9 @@ import {
   UPSTREAM_PROTOCOLS,
   applyPresetUrl,
   describeProtocolEndpointsIssue,
+  currentProtocolOf,
   endpointsAfterDefaultsChange,
+  preferredProtocolFor,
   hasAnthropicEndpoint,
   hasOpenAIEndpoint,
   loadProtocolDefaults,
@@ -2951,19 +2298,16 @@ import {
   resolveOpenAIWSModeFromExtra
 } from '@/utils/openaiWsMode'
 import {
-  getPresetMappingsByPlatform,
+  PLATFORMS_WITH_VENDOR_MODEL_TABLE,
   commonErrorCodes,
   buildModelMappingObject,
-  splitModelMappingObject,
-  isValidWildcardPattern
+  renamePresetsFor
 } from '@/composables/useModelWhitelist'
 
 interface Props {
   show: boolean
   account: Account | null
   proxies: Proxy[]
-  /** 该资源被哪些目录条目绑定（只读展示）；不传就不显示这一行。 */
-  catalogEntries?: ModelCatalogEntry[]
   /** 'dialog'（默认）：列表页里的弹窗；'page'：/accounts/:id/edit 整页，外壳换成 FormPageShell */
   layout?: 'dialog' | 'page'
 }
@@ -2988,8 +2332,6 @@ const handleOllamaCloudUsageUpdated = (state: OllamaCloudUsageState) => {
   if (props.account) emit('updated', { ...props.account, ollama_cloud_usage: state })
 }
 
-const antigravityPresetMappings = computed(() => getPresetMappingsByPlatform('antigravity'))
-const bedrockPresets = computed(() => getPresetMappingsByPlatform('bedrock'))
 
 // Model mapping type
 interface ModelMapping {
@@ -3055,7 +2397,13 @@ const officialProtocolEndpoints = computed(() =>
 )
 watch(officialProtocolEndpoints, (next, previous) => {
   if (syncingForm.value) return
-  editProtocolEndpoints.value = endpointsAfterDefaultsChange(editProtocolEndpoints.value, previous ?? {}, next)
+  editProtocolEndpoints.value = endpointsAfterDefaultsChange(
+    editProtocolEndpoints.value,
+    previous ?? {},
+    next,
+    // 编辑时平台不变，换模式保留当前协议
+    currentProtocolOf(editProtocolEndpoints.value) ?? preferredProtocolFor(props.account?.platform ?? '')
+  )
 })
 async function ensureProtocolDefaults() {
   try {
@@ -3105,7 +2453,7 @@ watch(editAccountMode, (mode) => {
 // 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   editAccountMode.value = preset.mode
-  editProtocolEndpoints.value = { ...editProtocolEndpoints.value, [preset.protocol]: preset.url }
+  editProtocolEndpoints.value = { [preset.protocol]: preset.url }
 }
 // Grok 预设地址同时服务 Chat Completions 与 Responses。
 function applyGrokPreset(url: string) {
@@ -3127,8 +2475,53 @@ const isBedrockAPIKeyMode = computed(() =>
 )
 const modelMappings = ref<ModelMapping[]>([])
 const openAICompactModelMappings = ref<ModelMapping[]>([])
-const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
-const allowedModels = ref<string[]>([])
+
+// 承接的模型：按渠道读绑定（GET /admin/accounts/:id/catalog-entries），保存时勾选变了才整份写回。
+const selectedCatalogEntryIds = ref<number[]>([])
+const initialCatalogEntryIds = ref<number[]>([])
+const catalogEntryIdsLoaded = ref(false)
+const catalogEntryIdsLoadFailed = ref(false)
+let catalogEntryIdsLoadSeq = 0
+const loadCatalogEntryIds = async (accountID: number) => {
+  const seq = ++catalogEntryIdsLoadSeq
+  catalogEntryIdsLoaded.value = false
+  catalogEntryIdsLoadFailed.value = false
+  try {
+    const ids = await adminAPI.modelCatalog.listAccountEntryIds(accountID)
+    if (seq !== catalogEntryIdsLoadSeq) return
+    initialCatalogEntryIds.value = [...ids]
+    selectedCatalogEntryIds.value = [...ids]
+    catalogEntryIdsLoaded.value = true
+  } catch {
+    if (seq === catalogEntryIdsLoadSeq) catalogEntryIdsLoadFailed.value = true
+  }
+}
+// 换了渠道才重新读；同一渠道保存后回写账号（updated）不重置勾选
+watch(
+  () => props.account?.id,
+  (accountID) => {
+    if (accountID) void loadCatalogEntryIds(accountID)
+  },
+  { immediate: true }
+)
+const sameIdSet = (a: number[], b: number[]) => a.length === b.length && a.every((id) => b.includes(id))
+// 渠道本身已保存；绑定写失败时提示并留在页面，再点保存会重试。
+const persistCatalogEntries = async (accountID: number): Promise<boolean> => {
+  if (!catalogEntryIdsLoaded.value || sameIdSet(selectedCatalogEntryIds.value, initialCatalogEntryIds.value)) {
+    return true
+  }
+  try {
+    const ids = await adminAPI.modelCatalog.replaceAccountEntries(accountID, selectedCatalogEntryIds.value)
+    initialCatalogEntryIds.value = [...ids]
+    selectedCatalogEntryIds.value = [...ids]
+    return true
+  } catch (error: any) {
+    appStore.showError(t('admin.accounts.catalogEntries.saveFailed', {
+      message: error?.response?.data?.message || error?.message || ''
+    }))
+    return false
+  }
+}
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
@@ -3241,9 +2634,6 @@ const readUpstreamRequestIdHeader = (extra: unknown): string => {
 }
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
-const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
-const antigravityWhitelistModels = ref<string[]>([])
-const antigravityModelMappings = ref<ModelMapping[]>([])
 const isSyncingAntigravityUpstream = ref(false)
 const tempUnschedEnabled = ref(false)
 const accountSchedulingThresholdOverrideEnabled = ref(false)
@@ -3253,9 +2643,7 @@ const supportsAccountSchedulingThresholdOverride = computed(() =>
   supportsAccountSchedulingThresholdOverridePlatform(props.account?.platform)
 )
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
-const getModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-model-mapping')
 const getOpenAICompactModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-openai-compact-model-mapping')
-const getAntigravityModelMappingKey = createStableObjectKeyResolver<ModelMapping>('edit-antigravity-model-mapping')
 const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('edit-temp-unsched-rule')
 
 
@@ -3341,17 +2729,16 @@ const showEndpointSection = computed(() => {
     anthropicKeySettingsVisible.value
   )
 })
-const showModelSection = computed(() => {
+// 模型改名：沿用原来有模型映射的类型（第三方 key、OpenAI / Grok 成品号、Vertex、Bedrock、Antigravity）
+const showModelRename = computed(() => {
   const account = props.account
   if (!account) return false
   return (
-    !!props.catalogEntries ||
-    (account.type === 'apikey' && account.platform !== 'antigravity') ||
+    account.type === 'apikey' ||
     ((account.platform === 'openai' || account.platform === 'grok') && account.type === 'oauth') ||
     ((account.platform === 'gemini' || account.platform === 'anthropic') && account.type === 'service_account') ||
     account.type === 'bedrock' ||
-    account.platform === 'antigravity' ||
-    openAIResponsesSettingsVisible.value
+    account.platform === 'antigravity'
   )
 })
 const {
@@ -3553,8 +2940,11 @@ const openAICompactStatusKey = computed(() => {
   return 'admin.accounts.openai.compactAuto'
 })
 
-// Computed: current preset mappings based on platform
-const presetMappings = computed(() => getPresetMappingsByPlatform(props.account?.platform || 'anthropic'))
+// 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
+const renamePresets = computed(() =>
+  renamePresetsFor(props.account?.type === 'bedrock' ? 'bedrock' : (props.account?.platform || 'anthropic'))
+)
+const extendsVendorTable = computed(() => PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(props.account?.platform ?? ''))
 const tempUnschedPresets = computed(() => [
   {
     label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
@@ -3644,29 +3034,35 @@ const normalizePoolModeRetryCount = (value: number) => {
   return normalized
 }
 
+// 映射整份按改名行展示：旧白名单留下的同名项也在——对承接没影响，但 Antigravity / xAI 这类自带模型表的
+// 上游靠它扩表、批量生图也按映射列模型，不能静默丢掉，管理员可以自己删。
 const loadModelRestrictionFromMapping = (rawMapping?: Record<string, unknown>) => {
-  const parsed = splitModelMappingObject(rawMapping)
-  allowedModels.value = parsed.allowedModels
-  modelMappings.value = parsed.modelMappings
-  modelRestrictionMode.value =
-    parsed.modelMappings.length > 0 && parsed.allowedModels.length === 0
-      ? 'mapping'
-      : 'whitelist'
+  modelMappings.value = Object.entries(rawMapping ?? {}).flatMap(([from, to]) =>
+    typeof to === 'string' && from.trim() && to.trim() ? [{ from: from.trim(), to: to.trim() }] : []
+  )
 }
 
-const buildModelRestrictionMapping = () =>
-  buildModelMappingObject('combined', allowedModels.value, modelMappings.value)
+// 写映射并打「只改名」标记（muqian 2026-09-25 去掉白名单）。spark 影子账号的映射是系统维护的模型集合，
+// 后端也只放行 model_mapping / compact_model_mapping 两个键，不打标记。
+const writeRenameMapping = (credentials: Record<string, unknown>) => {
+  const modelMapping = buildModelMappingObject('mapping', [], modelMappings.value)
+  if (modelMapping) {
+    credentials.model_mapping = modelMapping
+  } else {
+    delete credentials.model_mapping
+  }
+  if (modelMapping && !isSparkShadow.value) {
+    credentials.model_mapping_rename_only = true
+  } else {
+    delete credentials.model_mapping_rename_only
+  }
+}
 
 const applyOpenAIModelMappingCredentials = (credentials: Record<string, unknown>) => {
   const shouldApplyModelMapping = !openaiPassthroughEnabled.value
 
   if (shouldApplyModelMapping) {
-    const modelMapping = buildModelRestrictionMapping()
-    if (modelMapping) {
-      credentials.model_mapping = modelMapping
-    } else {
-      delete credentials.model_mapping
-    }
+    writeRenameMapping(credentials)
   } else if (!credentials.model_mapping) {
     delete credentials.model_mapping
   }
@@ -3856,37 +3252,6 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     resetQuotaNotify()
   }
 
-  // Load antigravity model mapping (Antigravity 只支持映射模式)
-  if (newAccount.platform === 'antigravity') {
-    const credentials = newAccount.credentials as Record<string, unknown> | undefined
-
-    // Antigravity 始终使用映射模式
-    antigravityModelRestrictionMode.value = 'mapping'
-    antigravityWhitelistModels.value = []
-
-    // 从 model_mapping 读取映射配置
-    const rawAgMapping = credentials?.model_mapping as Record<string, string> | undefined
-    if (rawAgMapping && typeof rawAgMapping === 'object') {
-      const entries = Object.entries(rawAgMapping)
-      // 无论是白名单样式(key===value)还是真正的映射，都统一转换为映射列表
-      antigravityModelMappings.value = entries.map(([from, to]) => ({ from, to }))
-    } else {
-      // 兼容旧数据：从 model_whitelist 读取，转换为映射格式
-      const rawWhitelist = credentials?.model_whitelist
-      if (Array.isArray(rawWhitelist) && rawWhitelist.length > 0) {
-        antigravityModelMappings.value = rawWhitelist
-          .map((v) => String(v).trim())
-          .filter((v) => v.length > 0)
-          .map((m) => ({ from: m, to: m }))
-      } else {
-        antigravityModelMappings.value = []
-      }
-    }
-  } else {
-    antigravityModelRestrictionMode.value = 'mapping'
-    antigravityWhitelistModels.value = []
-    antigravityModelMappings.value = []
-  }
 
   // Load quota control settings (Anthropic OAuth/SetupToken only)
   loadQuotaControlSettings(newAccount)
@@ -4001,10 +3366,22 @@ const syncFormFromAccount = (newAccount: Account | null) => {
     if ((newAccount.platform === 'openai' || newAccount.platform === 'grok') && newAccount.credentials) {
       const oauthCredentials = newAccount.credentials as Record<string, unknown>
       loadModelRestrictionFromMapping(oauthCredentials.model_mapping as Record<string, unknown> | undefined)
+    } else if (newAccount.platform === 'antigravity') {
+      const agCredentials = (newAccount.credentials as Record<string, unknown> | undefined) ?? {}
+      const rawWhitelist = agCredentials.model_whitelist
+      if (agCredentials.model_mapping && typeof agCredentials.model_mapping === 'object') {
+        loadModelRestrictionFromMapping(agCredentials.model_mapping as Record<string, unknown>)
+      } else if (Array.isArray(rawWhitelist)) {
+        // 旧数据：model_whitelist 转成同名改名行，保存时迁到 model_mapping
+        modelMappings.value = rawWhitelist
+          .map((value) => String(value).trim())
+          .filter((value) => value.length > 0)
+          .map((model) => ({ from: model, to: model }))
+      } else {
+        modelMappings.value = []
+      }
     } else {
-      modelRestrictionMode.value = 'whitelist'
       modelMappings.value = []
-      allowedModels.value = []
     }
     poolModeEnabled.value = false
     poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
@@ -4039,46 +3416,12 @@ watch(
 )
 
 // Model mapping helpers
-const addModelMapping = () => {
-  modelMappings.value.push({ from: '', to: '' })
-}
-
-const removeModelMapping = (index: number) => {
-  modelMappings.value.splice(index, 1)
-}
-
-const addPresetMapping = (from: string, to: string) => {
-  const exists = modelMappings.value.some((m) => m.from === from)
-  if (exists) {
-    appStore.showInfo(t('admin.accounts.mappingExists', { model: from }))
-    return
-  }
-  modelMappings.value.push({ from, to })
-}
-
-const addAntigravityModelMapping = () => {
-  antigravityModelMappings.value.push({ from: '', to: '' })
-}
-
 const addOpenAICompactModelMapping = () => {
   openAICompactModelMappings.value.push({ from: '', to: '' })
 }
 
 const removeOpenAICompactModelMapping = (index: number) => {
   openAICompactModelMappings.value.splice(index, 1)
-}
-
-const removeAntigravityModelMapping = (index: number) => {
-  antigravityModelMappings.value.splice(index, 1)
-}
-
-const addAntigravityPresetMapping = (from: string, to: string) => {
-  const exists = antigravityModelMappings.value.some((m) => m.from === from)
-  if (exists) {
-    appStore.showInfo(t('admin.accounts.mappingExists', { model: from }))
-    return
-  }
-  antigravityModelMappings.value.push({ from, to })
 }
 
 const syncAntigravityUpstreamModels = async () => {
@@ -4095,9 +3438,9 @@ const syncAntigravityUpstreamModels = async () => {
 
     let addedCount = 0
     for (const model of upstreamModels) {
-      const exists = antigravityModelMappings.value.some((mapping) => mapping.from === model)
+      const exists = modelMappings.value.some((mapping) => mapping.from === model)
       if (!exists) {
-        antigravityModelMappings.value.push({ from: model, to: model })
+        modelMappings.value = [...modelMappings.value, { from: model, to: model }]
         addedCount += 1
       }
     }
@@ -4491,9 +3834,10 @@ const submitUpdateAccount = async (accountID: number, updatePayload: Record<stri
   try {
     let updatedAccount = await adminAPI.accounts.update(accountID, updatePayload)
     updatedAccount = await persistGrokMediaEligibility(accountID, updatedAccount)
+    const catalogSaved = await persistCatalogEntries(accountID)
     appStore.showSuccess(t('admin.accounts.accountUpdated'))
     emit('updated', updatedAccount)
-    handleClose()
+    if (catalogSaved) handleClose()
   } catch (error: any) {
     appStore.showError(error.message || t('admin.accounts.failedToUpdate'))
   } finally {
@@ -4586,12 +3930,7 @@ const handleSubmit = async () => {
 
       // Add model mapping if configured（OpenAI 开启自动透传时保留现有映射，不再编辑）
       if (shouldApplyModelMapping) {
-        const modelMapping = buildModelRestrictionMapping()
-        if (modelMapping) {
-          newCredentials.model_mapping = modelMapping
-        } else {
-          delete newCredentials.model_mapping
-        }
+        writeRenameMapping(newCredentials)
       } else if (currentCredentials.model_mapping) {
         newCredentials.model_mapping = currentCredentials.model_mapping
       }
@@ -4685,13 +4024,7 @@ const handleSubmit = async () => {
       newCredentials.location = editVertexLocation.value.trim()
       newCredentials.tier_id = 'vertex'
 
-      // Add model mapping if configured
-      const modelMapping = buildModelRestrictionMapping()
-      if (modelMapping) {
-        newCredentials.model_mapping = modelMapping
-      } else {
-        delete newCredentials.model_mapping
-      }
+      writeRenameMapping(newCredentials)
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
       applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
@@ -4743,13 +4076,7 @@ const handleSubmit = async () => {
         delete newCredentials.pool_mode_retry_status_codes
       }
 
-      // Model mapping
-      const modelMapping = buildModelRestrictionMapping()
-      if (modelMapping) {
-        newCredentials.model_mapping = modelMapping
-      } else {
-        delete newCredentials.model_mapping
-      }
+      writeRenameMapping(newCredentials)
 
       applyInterceptWarmup(newCredentials, interceptWarmupRequests.value, 'edit')
       applyAccountSchedulingThresholdOverridePatch(newCredentials, currentCredentials)
@@ -4782,12 +4109,7 @@ const handleSubmit = async () => {
       if (props.account.platform === 'openai') {
         applyOpenAIModelMappingCredentials(newCredentials)
       } else {
-        const modelMapping = buildModelRestrictionMapping()
-        if (modelMapping) {
-          newCredentials.model_mapping = modelMapping
-        } else {
-          delete newCredentials.model_mapping
-        }
+        writeRenameMapping(newCredentials)
       }
 
       updatePayload.credentials = newCredentials
@@ -4839,19 +4161,9 @@ const handleSubmit = async () => {
         applyAntigravityProjectID(newCredentials, antigravityProjectId.value, 'edit')
       }
 
-      // 移除旧字段
+      // 移除旧字段；改名叠在 Antigravity 默认表之上（后端合并）
       delete newCredentials.model_whitelist
-      delete newCredentials.model_mapping
-
-      // 只使用映射模式
-      const antigravityModelMapping = buildModelMappingObject(
-        'mapping',
-        [],
-        antigravityModelMappings.value
-      )
-      if (antigravityModelMapping) {
-        newCredentials.model_mapping = antigravityModelMapping
-      }
+      writeRenameMapping(newCredentials)
 
       updatePayload.credentials = newCredentials
     }

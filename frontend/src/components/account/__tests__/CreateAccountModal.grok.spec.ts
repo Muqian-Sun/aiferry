@@ -6,12 +6,17 @@ const source = readFileSync(
   resolve(process.cwd(), 'src/components/account/CreateAccountModal.vue'),
   'utf8'
 )
+// 接入方式与来源（2026-09-25 起替代平台 / 类型按钮）
+const accessSources = readFileSync(
+  resolve(process.cwd(), 'src/components/account/accessSources.ts'),
+  'utf8'
+)
 
 describe('CreateAccountModal Grok account types', () => {
   it('offers API-key setup alongside OAuth', () => {
     // API-key 的官方地址由后端 protocol-defaults 预填，前端不再写死，见 CreateAccountModal.spec.ts
-    expect(source).toContain('data-testid="grok-account-type-api-key"')
-    expect(source).toContain("@click=\"accountCategory = 'apikey'\"")
+    expect(accessSources).toContain("id: 'grok-key', kind: 'key', platform: 'grok', category: 'apikey'")
+    expect(accessSources).toContain("id: 'grok', kind: 'subscription', platform: 'grok', category: 'oauth-based'")
     expect(source).toContain("form.platform === 'grok'")
     expect(source).toContain(':placeholder="apiKeyValuePlaceholder"')
     expect(source).toContain("return 'xai-...'")

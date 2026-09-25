@@ -73,21 +73,34 @@ describe('endpointsAfterDefaultsChange', () => {
   const next = { chat_completions: 'https://api.kimi.com/coding/v1' }
 
   it('switches to the new official endpoints when the admin has not edited them', () => {
-    expect(endpointsAfterDefaultsChange({ ...previous }, previous, next)).toEqual(next)
+    expect(endpointsAfterDefaultsChange({ ...previous }, previous, next, 'chat_completions')).toEqual(next)
   })
 
   it('fills the new official endpoints when nothing is configured', () => {
-    expect(endpointsAfterDefaultsChange({}, previous, next)).toEqual(next)
+    expect(endpointsAfterDefaultsChange({}, previous, next, 'chat_completions')).toEqual(next)
   })
 
   it('keeps endpoints the admin typed in', () => {
     const edited = { chat_completions: 'https://relay.example.com/v1' }
-    expect(endpointsAfterDefaultsChange(edited, previous, next)).toBe(edited)
+    expect(endpointsAfterDefaultsChange(edited, previous, next, 'chat_completions')).toBe(edited)
   })
 
-  it('treats an added or removed protocol as an edit', () => {
-    const added = { ...previous, anthropic: 'https://relay.example.com' }
-    expect(endpointsAfterDefaultsChange(added, previous, next)).toBe(added)
+  // 官方地址表一个平台可能列了多个协议；一个 key 只能承接一个（后端拒绝多协议）
+  it('fills only the preferred protocol from multi-protocol official defaults', () => {
+    const multi = { anthropic: 'https://api.moonshot.cn/anthropic', chat_completions: 'https://api.moonshot.cn/v1' }
+    expect(endpointsAfterDefaultsChange({}, {}, multi, 'anthropic')).toEqual({ anthropic: 'https://api.moonshot.cn/anthropic' })
+    expect(endpointsAfterDefaultsChange({}, {}, multi, 'responses')).toEqual({ anthropic: 'https://api.moonshot.cn/anthropic' })
+  })
+
+  // 调用方定协议：同一平台换模式传当前协议，换平台传新平台的默认协议
+  it('switches an untouched address to the protocol the caller asks for', () => {
+    const multi = { anthropic: 'https://api.kimi.com/coding', chat_completions: 'https://api.kimi.com/coding/v1' }
+    expect(endpointsAfterDefaultsChange({ ...previous }, previous, multi, 'chat_completions')).toEqual({
+      chat_completions: 'https://api.kimi.com/coding/v1'
+    })
+    expect(endpointsAfterDefaultsChange({ ...previous }, previous, multi, 'anthropic')).toEqual({
+      anthropic: 'https://api.kimi.com/coding'
+    })
   })
 })
 
@@ -97,20 +110,24 @@ describe('validateProtocolEndpoints', () => {
   })
 
   it('rejects a configured protocol whose address is blank', () => {
-    expect(validateProtocolEndpoints({ anthropic: 'https://api.anthropic.com', responses: '   ' })).toEqual({
+    expect(validateProtocolEndpoints({ responses: '   ' })).toEqual({
       kind: 'blank',
       protocol: 'responses'
     })
   })
 
-  it('accepts any non-empty mapping without requiring a particular protocol', () => {
+  it('accepts one protocol with an address without requiring a particular protocol', () => {
     expect(validateProtocolEndpoints({ chat_completions: 'https://api.deepseek.com' })).toBeNull()
+    expect(validateProtocolEndpoints({ anthropic: 'https://api.deepseek.com/anthropic' })).toBeNull()
+  })
+
+  it('rejects more than one protocol, like the backend', () => {
     expect(
       validateProtocolEndpoints({
         chat_completions: 'https://api.deepseek.com',
         anthropic: 'https://api.deepseek.com/anthropic'
       })
-    ).toBeNull()
+    ).toEqual({ kind: 'multiple' })
   })
 })
 
@@ -122,23 +139,27 @@ describe('describeProtocolEndpointsIssue', () => {
       'admin.accounts.protocolEndpoints.errors.blank|admin.accounts.protocolEndpoints.protocols.responses'
     )
     expect(describeProtocolEndpointsIssue({ kind: 'empty' }, t)).toBe('admin.accounts.protocolEndpoints.errors.empty')
+    expect(describeProtocolEndpointsIssue({ kind: 'multiple' }, t)).toBe('admin.accounts.protocolEndpoints.errors.multiple')
   })
 })
 
 describe('applyPresetUrl', () => {
   const both = ['chat_completions', 'responses'] as const
 
-  it('updates only the target protocols that are configured', () => {
-    expect(
-      applyPresetUrl({ responses: 'https://api.x.ai/v1', anthropic: 'https://a.example' }, both, 'https://eu-west-1.api.x.ai/v1')
-    ).toEqual({ responses: 'https://eu-west-1.api.x.ai/v1', anthropic: 'https://a.example' })
+  it('keeps the configured protocol when the preset serves it', () => {
+    expect(applyPresetUrl({ responses: 'https://api.x.ai/v1' }, both, 'https://eu-west-1.api.x.ai/v1')).toEqual({
+      responses: 'https://eu-west-1.api.x.ai/v1'
+    })
   })
 
-  it('fills every target protocol when none is configured', () => {
-    expect(applyPresetUrl({}, both, 'https://api.x.ai/v1')).toEqual({
-      chat_completions: 'https://api.x.ai/v1',
-      responses: 'https://api.x.ai/v1'
+  it('switches to the preset\'s first protocol when the configured one is not served', () => {
+    expect(applyPresetUrl({ anthropic: 'https://a.example' }, both, 'https://api.x.ai/v1')).toEqual({
+      chat_completions: 'https://api.x.ai/v1'
     })
+  })
+
+  it('fills the preset\'s first protocol when none is configured', () => {
+    expect(applyPresetUrl({}, both, 'https://api.x.ai/v1')).toEqual({ chat_completions: 'https://api.x.ai/v1' })
   })
 })
 

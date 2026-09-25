@@ -49,6 +49,9 @@
     >
       <FormSectionHeading section="basics" :title="t('admin.accounts.formPage.sections.basics')" />
 
+      <!-- 先选接入方式与来源（muqian 2026-09-25）：第三方 key 不选平台，成品号只选哪家的账号 -->
+      <AccessSourcePicker v-model="accessSourceId" />
+
       <div>
         <label class="input-label">{{ t('admin.accounts.accountName') }}</label>
         <input
@@ -71,298 +74,11 @@
         <p class="input-hint">{{ t('admin.accounts.notesHint') }}</p>
       </div>
 
-      <!-- Platform Selection - Segmented Control Style -->
-      <div>
-        <label class="input-label">{{ t('admin.accounts.platform') }}</label>
-        <div class="mt-2 flex flex-wrap rounded-lg bg-af-sunken p-1">
-          <button
-            type="button"
-            @click="form.platform = 'anthropic'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'anthropic'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <Icon name="sparkles" size="sm" />
-            Anthropic
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'openai'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'openai'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <svg
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z"
-              />
-            </svg>
-            OpenAI
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'gemini'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'gemini'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <svg
-              class="h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-              stroke-width="1.5"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                d="M12 2l1.5 6.5L20 10l-6.5 1.5L12 18l-1.5-6.5L4 10l6.5-1.5L12 2z"
-              />
-            </svg>
-            Gemini
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'antigravity'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'antigravity'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <Icon name="cloud" size="sm" />
-            Antigravity
-          </button>
-          <button
-            type="button"
-            @click="form.platform = 'grok'"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-4 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'grok'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="grok" size="sm" />
-            Grok
-          </button>
-        </div>
-        <!-- Multi-protocol API-key providers: Kimi / Zhipu GLM / DeepSeek / OpenCode -->
-        <div class="mt-2 flex flex-wrap rounded-lg bg-af-sunken p-1">
-          <button
-            type="button"
-            @click="selectCNPlatform('kimi')"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'kimi'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="kimi" size="sm" />
-            Kimi
-          </button>
-          <button
-            type="button"
-            @click="selectCNPlatform('zhipu')"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'zhipu'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="zhipu" size="sm" />
-            Zhipu GLM
-          </button>
-          <button
-            type="button"
-            @click="selectCNPlatform('deepseek')"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'deepseek'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="deepseek" size="sm" />
-            DeepSeek
-          </button>
-          <button
-            type="button"
-            @click="selectCNPlatform('minimax')"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'minimax'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="minimax" size="sm" />
-            MiniMax
-          </button>
-          <button
-            type="button"
-            @click="selectOpenCodeGoPlatform()"
-            :class="[
-              'flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2.5 text-sm font-medium transition-all',
-              form.platform === 'opencode_go'
-                ? 'bg-af-sheet text-af-ink'
-                : 'text-af-ink-2 hover:text-af-ink'
-            ]"
-          >
-            <PlatformIcon platform="opencode_go" size="sm" />
-            OpenCode
-          </button>
-        </div>
-      </div>
-
-      <!-- Account Type Selection (Anthropic) -->
-      <div v-if="form.platform === 'anthropic'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
-        <div class="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <button
-            type="button"
-            @click="accountCategory = 'oauth-based'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'oauth-based'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'oauth-based'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="sparkles" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{
-                t('admin.accounts.claudeCode')
-              }}</span>
-              <span class="text-xs text-af-ink-3">{{
-                t('admin.accounts.oauthSetupToken')
-              }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'apikey'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'apikey'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'apikey'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{
-                t('admin.accounts.claudeConsole')
-              }}</span>
-              <span class="text-xs text-af-ink-3">{{
-                t('admin.accounts.apiKey')
-              }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'bedrock'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'bedrock'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'bedrock'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="cloud" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{
-                t('admin.accounts.bedrockLabel')
-              }}</span>
-              <span class="text-xs text-af-ink-3">{{
-                t('admin.accounts.bedrockDesc')
-              }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'service_account'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'service_account'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'service_account'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="cloud" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">Vertex</span>
-              <span class="text-xs text-af-ink-3">Service Account</span>
-            </div>
-          </button>
-
-        </div>
-
-        <div
-          v-if="accountCategory === 'service_account'"
-          class="mt-3 rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 text-xs text-af-ink-2"
-        >
-          <p>{{ t('admin.accounts.vertexAnthropicHint') }}</p>
-        </div>
+      <div
+        v-if="form.platform === 'anthropic' && accountCategory === 'service_account'"
+        class="rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 text-xs text-af-ink-2"
+      >
+        <p>{{ t('admin.accounts.vertexAnthropicHint') }}</p>
       </div>
 
       <!-- Add Method (only for Anthropic OAuth-based type) -->
@@ -389,124 +105,6 @@
               t('admin.accounts.setupTokenLongLived')
             }}</span>
           </label>
-        </div>
-      </div>
-
-      <!-- Account Type Selection (OpenAI) -->
-      <div v-if="form.platform === 'openai'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
-        <div class="mt-2 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            @click="accountCategory = 'oauth-based'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'oauth-based'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'oauth-based'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">OAuth</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.chatgptOauth') }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'apikey'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'apikey'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'apikey'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">API Key</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.responsesApi') }}</span>
-            </div>
-          </button>
-
-        </div>
-      </div>
-
-      <!-- Account Type Selection (Grok) -->
-      <div v-if="form.platform === 'grok'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
-        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            @click="accountCategory = 'oauth-based'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'oauth-based'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'oauth-based'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <PlatformIcon platform="grok" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">OAuth</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.grokOauth') }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            data-testid="grok-account-type-api-key"
-            @click="accountCategory = 'apikey'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'apikey'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'apikey'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">API Key</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.responsesApi') }}</span>
-            </div>
-          </button>
         </div>
       </div>
 
@@ -653,125 +251,8 @@
         <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
       </div>
 
-      <!-- Account Type Selection (Gemini) -->
+      <!-- Gemini 的附加选项（接入方式在上面的来源里选） -->
       <div v-if="form.platform === 'gemini'">
-        <div class="flex items-center justify-between">
-          <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
-          <button
-            type="button"
-            @click="showGeminiHelpDialog = true"
-            class="flex items-center gap-1 rounded px-2 py-1 text-xs text-af-ink-2 hover:bg-af-sunken"
-          >
-            <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z" />
-            </svg>
-            {{ t('admin.accounts.gemini.helpButton') }}
-          </button>
-        </div>
-        <div class="mt-2 grid grid-cols-3 gap-3">
-          <button
-            type="button"
-            @click="accountCategory = 'oauth-based'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'oauth-based'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'oauth-based'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">
-                {{ t('admin.accounts.gemini.accountType.oauthTitle') }}
-              </span>
-              <span class="text-xs text-af-ink-3">
-                {{ t('admin.accounts.gemini.accountType.oauthDesc') }}
-              </span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'apikey'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'apikey'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'apikey'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <svg
-                class="h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-                stroke-width="1.5"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  d="M15.75 5.25a3 3 0 013 3m3 0a6 6 0 01-7.029 5.912c-.563-.097-1.159.026-1.563.43L10.5 17.25H8.25v2.25H6v2.25H2.25v-2.818c0-.597.237-1.17.659-1.591l6.499-6.499c.404-.404.527-1 .43-1.563A6 6 0 1721.75 8.25z"
-                />
-              </svg>
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">
-                {{ t('admin.accounts.gemini.accountType.apiKeyTitle') }}
-              </span>
-              <span class="text-xs text-af-ink-3">
-                {{ t('admin.accounts.gemini.accountType.apiKeyDesc') }}
-              </span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="accountCategory = 'service_account'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountCategory === 'service_account'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountCategory === 'service_account'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="cloud" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">
-                Vertex
-              </span>
-              <span class="text-xs text-af-ink-3">
-                Service Account
-              </span>
-            </div>
-          </button>
-        </div>
-
         <div
           v-if="accountCategory === 'apikey'"
           class="mt-3 rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 text-xs text-af-ink-2"
@@ -798,7 +279,17 @@
 
         <!-- OAuth Type Selection (only show when oauth-based is selected) -->
         <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <label class="input-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
+          <div class="flex items-center justify-between">
+            <label class="input-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
+            <button
+              type="button"
+              class="flex items-center gap-1 rounded px-2 py-1 text-xs text-af-ink-2 hover:bg-af-sunken"
+              @click="showGeminiHelpDialog = true"
+            >
+              <Icon name="questionCircle" size="sm" />
+              {{ t('admin.accounts.gemini.helpButton') }}
+            </button>
+          </div>
           <div class="mt-2 grid grid-cols-2 gap-3">
             <!-- Google One OAuth -->
             <button
@@ -1000,8 +491,8 @@
           </div>
         </div>
 
-        <!-- Tier selection (used as fallback when auto-detection is unavailable/fails) -->
-        <div v-if="accountCategory !== 'service_account'" class="mt-4">
+        <!-- 成品号档位（自动识别失败时的兜底）；第三方 key 的档位在凭证区 -->
+        <div v-if="accountCategory === 'oauth-based'" class="mt-4">
           <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
           <div class="mt-2">
             <select
@@ -1036,65 +527,7 @@
         </div>
       </div>
 
-      <!-- Account Type Selection (Antigravity - OAuth or Upstream) -->
       <div v-if="form.platform === 'antigravity'">
-        <label class="input-label">{{ t('admin.accounts.accountType') }}</label>
-        <div class="mt-2 grid grid-cols-2 gap-3">
-          <button
-            type="button"
-            @click="antigravityAccountType = 'oauth'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              antigravityAccountType === 'oauth'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                antigravityAccountType === 'oauth'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="key" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">OAuth</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.antigravityOauth') }}</span>
-            </div>
-          </button>
-
-          <button
-            type="button"
-            @click="antigravityAccountType = 'apikey'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              antigravityAccountType === 'apikey'
-                ? 'border-af-brand bg-af-brand-tint'
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                antigravityAccountType === 'apikey'
-                  ? 'bg-af-ink text-af-on-brand'
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="cloud" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">API Key</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.types.antigravityApikey') }}</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'oauth'">
         <label class="input-label">{{ t('admin.accounts.antigravityProjectIdLabel') }}</label>
         <input
           v-model="antigravityProjectId"
@@ -1104,19 +537,6 @@
           :placeholder="t('admin.accounts.antigravityProjectIdPlaceholder')"
         />
         <p class="input-hint">{{ t('admin.accounts.antigravityProjectIdHint') }}</p>
-      </div>
-
-      <!-- Antigravity 第三方 key：上游 API Key（地址与倍率探测在「地址与协议」） -->
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'apikey'">
-        <label class="input-label">{{ t('admin.accounts.upstream.apiKey') }}</label>
-        <input
-          v-model="upstreamApiKey"
-          type="password"
-          required
-          class="input font-mono"
-          placeholder="sk-..."
-        />
-        <p class="input-hint">{{ t('admin.accounts.upstream.apiKeyHint') }}</p>
       </div>
 
       <!-- Vertex Service Account -->
@@ -1209,8 +629,8 @@
         </div>
       </div>
 
-      <!-- API Key 凭证（Antigravity 除外，它有自己的字段）；Gemini key 的档位也在这里 -->
-      <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
+      <!-- API Key 凭证；Gemini key 的档位也在这里 -->
+      <div v-if="form.type === 'apikey'" class="space-y-4">
         <div>
           <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
           <input
@@ -1351,7 +771,7 @@
       </div>
 
       <!-- 超量：Antigravity 成品号（OAuth）专属；第三方 key 按协议调度，没有这一项。条件放在外层，别的平台不留一条空分隔线 -->
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'oauth'" class="border-t border-af-hairline pt-4">
+      <div v-if="form.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
         <div class="flex items-center gap-2">
           <label class="flex cursor-pointer items-center gap-2">
             <input
@@ -1383,36 +803,8 @@
 
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
-      <!-- Antigravity 第三方 key：协议地址 + 上游倍率自动探测 -->
-      <div v-if="form.platform === 'antigravity' && antigravityAccountType === 'apikey'" class="space-y-4">
-        <div>
-          <ProtocolEndpointsEditor
-            v-model="protocolEndpoints"
-            :protocols="UPSTREAM_PROTOCOLS"
-            :official-endpoints="officialProtocolEndpoints"
-            :defaults-load-failed="protocolDefaultsLoadFailed"
-          />
-          <p class="input-hint">{{ t('admin.accounts.upstream.baseUrlHint') }}</p>
-        </div>
-
-        <!-- 上游倍率自动探测：antigravity upstream 也是 API-key 账号 -->
-        <div class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4">
-          <div>
-            <label class="input-label mb-0">{{ t('admin.accounts.upstreamBilling.autoProbe') }}</label>
-            <p class="mt-1 text-xs text-af-ink-3">
-              {{ t('admin.accounts.upstreamBilling.autoProbeHint') }}
-            </p>
-          </div>
-          <Toggle
-            v-model="upstreamBillingAutoProbeEnabled"
-            data-testid="upstream-billing-auto-probe-antigravity"
-            :aria-label="t('admin.accounts.upstreamBilling.autoProbe')"
-          />
-        </div>
-      </div>
-
       <!-- API Key 类型的协议地址 / 预设 + 上游倍率自动探测 -->
-      <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="space-y-4">
+      <div v-if="form.type === 'apikey'" class="space-y-4">
         <div>
           <ProtocolEndpointsEditor
             v-model="protocolEndpoints"
@@ -1777,506 +1169,24 @@
         </button>
       </div>
 
-      <FormSectionHeading v-if="showModelSection" section="models" :title="t('admin.accounts.formPage.sections.models')" />
+      <FormSectionHeading section="models" :title="t('admin.accounts.formPage.sections.models')" />
 
-      <!-- Antigravity model restriction (applies to OAuth + Upstream) -->
-      <!-- Antigravity 只支持模型映射模式，不支持白名单模式 -->
-      <div v-if="form.platform === 'antigravity'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
+      <!-- 承接的模型：勾选的目录模型在渠道建好后写入绑定，所有接入方式都有 -->
+      <CatalogEntryPicker
+        v-model="selectedCatalogEntryIds"
+        :suggested-platform="catalogSuggestedPlatform"
+      />
 
-        <!-- Mapping Mode Only (no toggle for Antigravity) -->
-        <div>
-          <div class="mb-3 rounded-lg bg-af-sunken p-3">
-            <p class="text-xs text-af-ink-2">
-              {{ t('admin.accounts.mapRequestModels') }}
-            </p>
-          </div>
-
-          <div v-if="antigravityModelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in antigravityModelMappings"
-              :key="getAntigravityModelMappingKey(mapping)"
-              class="space-y-1"
-            >
-              <div class="flex items-center gap-2">
-                <input
-                  v-model="mapping.from"
-                  type="text"
-                  :class="[
-                    'input flex-1',
-                    !isValidWildcardPattern(mapping.from) ? 'border-af-danger' : ''
-                  ]"
-                  :placeholder="t('admin.accounts.requestModel')"
-                />
-                <svg class="h-4 w-4 flex-shrink-0 text-af-ink-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3" />
-                </svg>
-                <input
-                  v-model="mapping.to"
-                  type="text"
-                  :class="[
-                    'input flex-1',
-                    mapping.to.includes('*') ? 'border-af-danger' : ''
-                  ]"
-                  :placeholder="t('admin.accounts.actualModel')"
-                />
-                <button
-                  type="button"
-                  @click="removeAntigravityModelMapping(index)"
-                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-              <!-- 校验错误提示 -->
-              <p v-if="!isValidWildcardPattern(mapping.from)" class="text-xs text-af-danger">
-                {{ t('admin.accounts.wildcardOnlyAtEnd') }}
-              </p>
-              <p v-if="mapping.to.includes('*')" class="text-xs text-af-danger">
-                {{ t('admin.accounts.targetNoWildcard') }}
-              </p>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addAntigravityModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg class="mr-1 inline h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-            </svg>
-            {{ t('admin.accounts.addMapping') }}
-          </button>
-
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in antigravityPresetMappings"
-              :key="preset.label"
-              type="button"
-              @click="addAntigravityPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- API Key 类型的模型限制（Antigravity 已在条件里排除） -->
-      <!-- Model Restriction Section (Antigravity 已在上层条件排除) -->
-      <div v-if="form.type === 'apikey' && form.platform !== 'antigravity'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <div
-          v-if="isOpenAIModelRestrictionDisabled"
-          class="mb-3 rounded-lg bg-af-warning-tint p-3"
-        >
-          <p class="text-xs text-af-warning">
-            {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
-          </p>
-        </div>
-
-        <template v-else>
-          <!-- Mode Toggle -->
-          <div class="mb-4 flex gap-2">
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'whitelist'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'whitelist'
-                  ? 'bg-af-brand-tint text-af-brand'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              <svg
-                class="mr-1.5 inline h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                />
-              </svg>
-              {{ t('admin.accounts.modelWhitelist') }}
-            </button>
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'mapping'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'mapping'
-                  ? 'bg-af-sunken text-af-ink-2'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              <svg
-                class="mr-1.5 inline h-4 w-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
-                />
-              </svg>
-              {{ t('admin.accounts.modelMapping') }}
-            </button>
-          </div>
-
-          <!-- Whitelist Mode -->
-          <div v-if="modelRestrictionMode === 'whitelist'">
-            <ModelWhitelistSelector
-              v-model="allowedModels"
-              :platform="form.platform"
-              :sync-credentials="syncPreviewCredentials"
-              @upstream-synced="upstreamModelsPreviewed = true"
-            />
-            <p class="text-xs text-af-ink-3">
-              {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-              <span v-if="allowedModels.length === 0">{{
-                t('admin.accounts.supportsAllModels')
-              }}</span>
-            </p>
-          </div>
-
-          <!-- Mapping Mode -->
-          <div v-else>
-            <div class="mb-3 rounded-lg bg-af-sunken p-3">
-              <p class="text-xs text-af-ink-2">
-                <svg
-                  class="mr-1 inline h-4 w-4"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {{ t('admin.accounts.mapRequestModels') }}
-              </p>
-            </div>
-
-          <!-- Model Mapping List -->
-          <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
-            <div
-              v-for="(mapping, index) in modelMappings"
-              :key="getModelMappingKey(mapping)"
-              class="flex items-center gap-2"
-            >
-              <input
-                v-model="mapping.from"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.requestModel')"
-              />
-              <svg
-                class="h-4 w-4 flex-shrink-0 text-af-ink-3"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M14 5l7 7m0 0l-7 7m7-7H3"
-                />
-              </svg>
-              <input
-                v-model="mapping.to"
-                type="text"
-                class="input flex-1"
-                :placeholder="t('admin.accounts.actualModel')"
-              />
-              <button
-                type="button"
-                @click="removeModelMapping(index)"
-                class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-              >
-                <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                  />
-                </svg>
-              </button>
-            </div>
-          </div>
-
-          <button
-            type="button"
-            @click="addModelMapping"
-            class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-          >
-            <svg
-              class="mr-1 inline h-4 w-4"
-              fill="none"
-              viewBox="0 0 24 24"
-              stroke="currentColor"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M12 4v16m8-8H4"
-              />
-            </svg>
-            {{ t('admin.accounts.addMapping') }}
-          </button>
-
-            <!-- Quick Add Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="preset in presetMappings"
-                :key="preset.label"
-                type="button"
-                @click="addPresetMapping(preset.from, preset.to)"
-                :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-              >
-                + {{ preset.label }}
-              </button>
-            </div>
-          </div>
-        </template>
-      </div>
-
-      <!-- Bedrock 的模型限制 -->
-      <!-- Model Restriction Section for Bedrock -->
-      <div v-if="form.platform === 'anthropic' && accountCategory === 'bedrock'" class="border-t border-af-hairline pt-4">
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <!-- Mode Toggle -->
-        <div class="mb-4 flex gap-2">
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'whitelist'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'whitelist'
-                ? 'bg-af-brand-tint text-af-brand'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            {{ t('admin.accounts.modelWhitelist') }}
-          </button>
-          <button
-            type="button"
-            @click="modelRestrictionMode = 'mapping'"
-            :class="[
-              'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-              modelRestrictionMode === 'mapping'
-                ? 'bg-af-sunken text-af-ink-2'
-                : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-            ]"
-          >
-            {{ t('admin.accounts.modelMapping') }}
-          </button>
-        </div>
-
-        <!-- Whitelist Mode -->
-        <div v-if="modelRestrictionMode === 'whitelist'">
-          <ModelWhitelistSelector
-            v-model="allowedModels"
-            platform="anthropic"
-            :sync-credentials="syncPreviewCredentials"
-            @upstream-synced="upstreamModelsPreviewed = true"
-          />
-          <p class="text-xs text-af-ink-3">
-            {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-            <span v-if="allowedModels.length === 0">{{ t('admin.accounts.supportsAllModels') }}</span>
-          </p>
-        </div>
-
-        <!-- Mapping Mode -->
-        <div v-else class="space-y-3">
-          <div v-for="(mapping, index) in modelMappings" :key="index" class="flex items-center gap-2">
-            <input v-model="mapping.from" type="text" class="input flex-1" :placeholder="t('admin.accounts.fromModel')" />
-            <span class="text-af-ink-3">→</span>
-            <input v-model="mapping.to" type="text" class="input flex-1" :placeholder="t('admin.accounts.toModel')" />
-            <button type="button" @click="modelMappings.splice(index, 1)" class="text-af-danger hover:text-af-danger">
-              <Icon name="trash" size="sm" />
-            </button>
-          </div>
-          <button type="button" @click="modelMappings.push({ from: '', to: '' })" class="btn btn-secondary text-sm">
-            + {{ t('admin.accounts.addMapping') }}
-          </button>
-          <!-- Bedrock Preset Mappings -->
-          <div class="flex flex-wrap gap-2">
-            <button
-              v-for="preset in bedrockPresets"
-              :key="preset.from"
-              type="button"
-              @click="addPresetMapping(preset.from, preset.to)"
-              :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-            >
-              + {{ preset.label }}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      <!-- OpenAI OAuth Model Mapping (OAuth 类型没有 apikey 容器，需要独立的模型映射区域) -->
-      <div
-        v-if="(form.platform === 'openai' || form.platform === 'grok') && isOAuthFlow"
+      <!-- 模型改名（可选）：只改名，不限定能接哪些模型（那由上面的勾选决定），提交时带 model_mapping_rename_only -->
+      <ModelRenameEditor
+        v-if="showModelRename"
+        v-model="modelMappings"
+        data-testid="create-model-rename"
         class="border-t border-af-hairline pt-4"
-      >
-        <label class="input-label">{{ t('admin.accounts.modelRestriction') }}</label>
-
-        <div
-          v-if="isOpenAIModelRestrictionDisabled"
-          class="mb-3 rounded-lg bg-af-warning-tint p-3"
-        >
-          <p class="text-xs text-af-warning">
-            {{ t('admin.accounts.openai.modelRestrictionDisabledByPassthrough') }}
-          </p>
-        </div>
-
-        <template v-else>
-          <!-- Mode Toggle -->
-          <div class="mb-4 flex gap-2">
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'whitelist'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'whitelist'
-                  ? 'bg-af-brand-tint text-af-brand'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              {{ t('admin.accounts.modelWhitelist') }}
-            </button>
-            <button
-              type="button"
-              @click="modelRestrictionMode = 'mapping'"
-              :class="[
-                'flex-1 rounded-lg px-4 py-2 text-sm font-medium transition-all',
-                modelRestrictionMode === 'mapping'
-                  ? 'bg-af-sunken text-af-ink-2'
-                  : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-              ]"
-            >
-              {{ t('admin.accounts.modelMapping') }}
-            </button>
-          </div>
-
-          <!-- Whitelist Mode -->
-          <div v-if="modelRestrictionMode === 'whitelist'">
-            <ModelWhitelistSelector
-              v-model="allowedModels"
-              :platform="form.platform"
-              :sync-credentials="syncPreviewCredentials"
-              @upstream-synced="upstreamModelsPreviewed = true"
-            />
-            <p class="text-xs text-af-ink-3">
-              {{ t('admin.accounts.selectedModels', { count: allowedModels.length }) }}
-              <span v-if="allowedModels.length === 0">{{
-                t('admin.accounts.supportsAllModels')
-              }}</span>
-            </p>
-          </div>
-
-          <!-- Mapping Mode -->
-          <div v-else>
-            <div class="mb-3 rounded-lg bg-af-sunken p-3">
-              <p class="text-xs text-af-ink-2">
-                {{ t('admin.accounts.mapRequestModels') }}
-              </p>
-            </div>
-
-            <div v-if="modelMappings.length > 0" class="mb-3 space-y-2">
-              <div
-                v-for="(mapping, index) in modelMappings"
-                :key="'oauth-' + getModelMappingKey(mapping)"
-                class="flex items-center gap-2"
-              >
-                <input
-                  v-model="mapping.from"
-                  type="text"
-                  class="input flex-1"
-                  :placeholder="t('admin.accounts.requestModel')"
-                />
-                <svg
-                  class="h-4 w-4 flex-shrink-0 text-af-ink-3"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M14 5l7 7m0 0l-7 7m7-7H3"
-                  />
-                </svg>
-                <input
-                  v-model="mapping.to"
-                  type="text"
-                  class="input flex-1"
-                  :placeholder="t('admin.accounts.actualModel')"
-                />
-                <button
-                  type="button"
-                  @click="removeModelMapping(index)"
-                  class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-                >
-                  <svg class="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      stroke-linecap="round"
-                      stroke-linejoin="round"
-                      stroke-width="2"
-                      d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <button
-              type="button"
-              @click="addModelMapping"
-              class="mb-3 w-full rounded-lg border-2 border-dashed border-af-hairline-strong px-4 py-2 text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-            >
-              + {{ t('admin.accounts.addMapping') }}
-            </button>
-
-            <!-- Quick Add Buttons -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="preset in presetMappings"
-                :key="'oauth-' + preset.label"
-                type="button"
-                @click="addPresetMapping(preset.from, preset.to)"
-                :class="['rounded-lg px-3 py-1 text-xs transition-colors', preset.color]"
-              >
-                + {{ preset.label }}
-              </button>
-            </div>
-          </div>
-        </template>
-      </div>
+        :presets="renamePresets"
+        :disabled="isOpenAIModelRestrictionDisabled"
+        :extends-vendor-table="extendsVendorTable"
+      />
 
       <!-- OpenAI Compact 能力配置，展示条件同自动透传 -->
       <div
@@ -3687,18 +2597,15 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from 'vue'
+import { ref, reactive, computed, watch, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 
 import {
-  claudeModels,
-  getPresetMappingsByPlatform,
-  getModelsByPlatform,
+  PLATFORMS_WITH_VENDOR_MODEL_TABLE,
   commonErrorCodes,
   buildModelMappingObject,
-  fetchAntigravityDefaultMappings,
-  isValidWildcardPattern
+  renamePresetsFor
 } from '@/composables/useModelWhitelist'
 import { adminAPI } from '@/api/admin'
 import { useQuotaNotifyState } from '@/composables/useQuotaNotifyState'
@@ -3712,6 +2619,7 @@ import { useGeminiOAuth } from '@/composables/useGeminiOAuth'
 import { useAntigravityOAuth } from '@/composables/useAntigravityOAuth'
 import { useGrokOAuth } from '@/composables/useGrokOAuth'
 import type {
+  Account,
   Proxy,
   AccountPlatform,
   AccountType,
@@ -3728,10 +2636,16 @@ import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Select from '@/components/common/Select.vue'
 import HelpTooltip from '@/components/common/HelpTooltip.vue'
 import UpstreamRequestIdHeaderField from '@/components/account/UpstreamRequestIdHeaderField.vue'
-import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ProxySelector from '@/components/common/ProxySelector.vue'
-import ModelWhitelistSelector from '@/components/account/ModelWhitelistSelector.vue'
+import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
+import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
+import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
+import {
+  CUSTOM_RELAY_SOURCE_ID,
+  DEFAULT_ACCESS_SOURCE_ID,
+  findAccessSource
+} from '@/components/account/accessSources'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
@@ -3741,7 +2655,9 @@ import {
   UPSTREAM_PROTOCOLS,
   applyPresetUrl,
   describeProtocolEndpointsIssue,
+  currentProtocolOf,
   endpointsAfterDefaultsChange,
+  preferredProtocolFor,
   hasAnthropicEndpoint,
   hasOpenAIEndpoint,
   loadProtocolDefaults,
@@ -3819,6 +2735,7 @@ const withUpstreamRequestIdHeader = <T extends Record<string, unknown> | undefin
 }
 
 const apiKeyHint = computed(() => {
+  if (isCustomRelay.value) return t('admin.accounts.upstream.apiKeyHint')
   if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
   if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
   if (form.platform === 'grok') return ''
@@ -3826,6 +2743,7 @@ const apiKeyHint = computed(() => {
 })
 
 const apiKeyValuePlaceholder = computed(() => {
+  if (isCustomRelay.value) return 'sk-...'
   switch (form.platform) {
     case 'openai':
       return 'sk-proj-...'
@@ -3938,6 +2856,32 @@ const zhipuProject = ref('')
 const isCNPlatform = computed(() => isCNProviderPlatform(form.platform))
 const isOpenCodeGoPlatform = computed(() => form.platform === 'opencode_go')
 
+// ── 接入方式与来源（新建渠道第一步，见 accessSources.ts） ──
+const accessSourceId = ref(DEFAULT_ACCESS_SOURCE_ID)
+const accessSource = computed(() => findAccessSource(accessSourceId.value))
+// 自定义中转：不预填官方地址，提交时和其它第三方 key 一样不带平台
+const isCustomRelay = computed(() => accessSourceId.value === CUSTOM_RELAY_SOURCE_ID)
+// 承接的模型：来源的厂商族排在最前；中转没有厂商族
+const catalogSuggestedPlatform = computed(() => (isCustomRelay.value ? undefined : accessSource.value.platform))
+const selectedCatalogEntryIds = ref<number[]>([])
+
+// 选来源 = 切到它的平台与类别。先换平台并等平台 watcher 跑完（它会重置平台相关字段，
+// 部分平台还会把类别复位成成品号），再定类别。
+async function applyAccessSource(sourceId: string) {
+  const source = findAccessSource(sourceId)
+  if (form.platform !== source.platform) {
+    form.platform = source.platform
+    await nextTick()
+  }
+  accountCategory.value = source.category
+  // DeepSeek 没有 Coding 套餐；OpenCode 默认 Zen
+  if (source.platform === 'deepseek') accountMode.value = 'payg'
+  if (source.platform === 'opencode_go') openCodeAccountMode.value = 'zen'
+}
+watch(accessSourceId, (sourceId) => {
+  void applyAccessSource(sourceId)
+})
+
 // ── 第三方 key 协议地址 ──
 // 官方地址由后端 protocol-defaults 预填，存库的就是这份显式地址；管理员可改成中转
 // 地址。切换平台或账号模式时只在地址没被改过时换成新的官方地址。
@@ -3949,8 +2893,8 @@ const protocolDefaultsMode = computed(() => {
   if (isCNPlatform.value) return accountMode.value
   return undefined
 })
-const officialProtocolEndpoints = computed(() =>
-  protocolDefaultsFor(protocolDefaults.value, form.platform, protocolDefaultsMode.value)
+const officialProtocolEndpoints = computed<ProtocolEndpoints>(() =>
+  isCustomRelay.value ? {} : protocolDefaultsFor(protocolDefaults.value, form.platform, protocolDefaultsMode.value)
 )
 async function ensureProtocolDefaults() {
   try {
@@ -3980,47 +2924,15 @@ const cnPresetPlatform = computed<CnProviderPlatform>(() => {
 // 选中平台卡片的描边 / 图标底色：统一墨色（原按平台品牌色；muqian 2026-09-24 管理站装饰色收成墨色）
 const cnAccentActiveClass = 'border-af-brand bg-af-brand-tint'
 const cnAccentIconClass = 'bg-af-ink text-af-on-brand'
-// 切换国产供应商平台：强制 apikey 类型，deepseek 无 coding 套餐故锁定 payg。
-// 协议地址由官方地址预填的 watcher 处理。
-function selectCNPlatform(platform: CnProviderPlatform) {
-  form.platform = platform
-  form.type = 'apikey'
-  accountCategory.value = 'apikey'
-  if (platform === 'deepseek') {
-    accountMode.value = 'payg'
-  }
-}
-function selectOpenCodeGoPlatform() {
-  form.platform = 'opencode_go'
-  form.type = 'apikey'
-  accountCategory.value = 'apikey'
-  openCodeAccountMode.value = 'zen'
-}
 // 点击国产供应商预设：回填账号类型和该协议的地址。
 function onCnPresetSelect(preset: CnBaseUrlPreset) {
   accountMode.value = preset.mode
-  protocolEndpoints.value = { ...protocolEndpoints.value, [preset.protocol]: preset.url }
+  protocolEndpoints.value = { [preset.protocol]: preset.url }
 }
 // Grok 预设地址同时服务 Chat Completions 与 Responses。
 function applyGrokPreset(url: string) {
   protocolEndpoints.value = applyPresetUrl(protocolEndpoints.value, ['chat_completions', 'responses'], url)
 }
-
-const syncPreviewCredentials = computed(() => {
-  if (!apiKeyValue.value) return undefined
-  const modelMapping = buildModelMappingObject(
-    modelRestrictionMode.value,
-    allowedModels.value,
-    modelMappings.value
-  )
-  return {
-    platform: form.platform,
-    type: form.type,
-    api_key: apiKeyValue.value,
-    protocol_endpoints: trimProtocolEndpoints(protocolEndpoints.value),
-    ...(modelMapping ? { model_mapping: modelMapping } : {})
-  }
-})
 
 const editQuotaLimit = ref<number | null>(null)
 const editQuotaDailyLimit = ref<number | null>(null)
@@ -4031,11 +2943,10 @@ const editWeeklyResetMode = ref<'rolling' | 'fixed' | null>(null)
 const editWeeklyResetDay = ref<number | null>(null)
 const editWeeklyResetHour = ref<number | null>(null)
 const editResetTimezone = ref<string | null>(null)
+// 模型改名（可选）：只改名、不兼任白名单，写入时带 model_mapping_rename_only（见 withRenameOnlyMapping）
 const modelMappings = ref<ModelMapping[]>([])
+const buildRenameMapping = () => buildModelMappingObject('mapping', [], modelMappings.value)
 const openAICompactModelMappings = ref<ModelMapping[]>([])
-const modelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
-const allowedModels = ref<string[]>([])
-const upstreamModelsPreviewed = ref(false)
 const DEFAULT_POOL_MODE_RETRY_COUNT = 3
 const MAX_POOL_MODE_RETRY_COUNT = 10
 const DEFAULT_POOL_MODE_RETRY_STATUS_CODES = [401, 403, 429]
@@ -4134,14 +3045,7 @@ adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
 
 loadQuotaNotifyGlobal()
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
-const antigravityAccountType = ref<'oauth' | 'apikey'>('oauth') // Antigravity：成品号（OAuth）或第三方 key
 const antigravityProjectId = ref('')
-const upstreamApiKey = ref('') // For upstream type: API key
-const antigravityModelRestrictionMode = ref<'whitelist' | 'mapping'>('whitelist')
-const antigravityWhitelistModels = ref<string[]>([])
-const antigravityModelMappings = ref<ModelMapping[]>([])
-const antigravityPresetMappings = computed(() => getPresetMappingsByPlatform('antigravity'))
-const bedrockPresets = computed(() => getPresetMappingsByPlatform('bedrock'))
 
 // Bedrock credentials
 const bedrockAuthMode = ref<'sigv4' | 'apikey'>('sigv4')
@@ -4159,9 +3063,7 @@ const vertexLocation = ref('global')
 const vertexServiceAccountDragActive = ref(false)
 const tempUnschedEnabled = ref(false)
 const tempUnschedRules = ref<TempUnschedRuleForm[]>([])
-const getModelMappingKey = createStableObjectKeyResolver<ModelMapping>('create-model-mapping')
 const getOpenAICompactModelMappingKey = createStableObjectKeyResolver<ModelMapping>('create-openai-compact-model-mapping')
-const getAntigravityModelMappingKey = createStableObjectKeyResolver<ModelMapping>('create-antigravity-model-mapping')
 const getTempUnschedRuleKey = createStableObjectKeyResolver<TempUnschedRuleForm>('create-temp-unsched-rule')
 const geminiOAuthType = ref<'code_assist' | 'google_one' | 'ai_studio'>('google_one')
 const geminiAIStudioOAuthEnabled = ref(false)
@@ -4315,8 +3217,9 @@ const geminiHelpLinks = {
   countryChange: 'https://policies.google.com/country-association-form'
 }
 
-// Computed: current preset mappings based on platform
-const presetMappings = computed(() => getPresetMappingsByPlatform(form.platform))
+// 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
+const renamePresets = computed(() => renamePresetsFor(accountCategory.value === 'bedrock' ? 'bedrock' : form.platform))
+const extendsVendorTable = computed(() => PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(form.platform))
 const tempUnschedPresets = computed(() => [
   {
     label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
@@ -4363,10 +3266,6 @@ const form = reactive({
 
 // Helper to check if current type needs OAuth flow
 const isOAuthFlow = computed(() => {
-  // Antigravity upstream 类型不需要 OAuth 流程
-  if (form.platform === 'antigravity' && antigravityAccountType.value === 'apikey') {
-    return false
-  }
   // Bedrock 类型不需要 OAuth 流程
   if (form.platform === 'anthropic' && accountCategory.value === 'bedrock') {
     return false
@@ -4374,7 +3273,7 @@ const isOAuthFlow = computed(() => {
   return accountCategory.value === 'oauth-based'
 })
 
-// 第三方 key（含 Antigravity 上游 key）的 Anthropic 协议设置按编辑中的协议地址展示，不看平台标签。
+// 第三方 key 的 Anthropic 协议设置按编辑中的协议地址展示，不看平台标签。
 // 区块隐藏（换成成品号、删掉 anthropic 地址行）时提交不写入（见 buildAnthropicExtra）；切换平台时清空。
 const anthropicKeySettingsVisible = computed(
   () => form.type === 'apikey' && hasAnthropicEndpoint(protocolEndpoints.value)
@@ -4399,24 +3298,22 @@ const isOpenAIModelRestrictionDisabled = computed(() =>
   openAIResponsesSettingsVisible.value && openaiPassthroughEnabled.value
 )
 
-// 表单分区（A5-c）：「基本」「额度」「高级」总有字段；「地址与协议」「模型与映射」只在分区里有区块时才出标题，
-// 条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
+// 表单分区（A5-c）：「基本」「模型与映射」「额度」「高级」总有字段（承接的模型所有接入方式都有）；
+// 「地址与协议」只在分区里有区块时才出标题，条件与分区内各区块的 v-if 一一对应（改区块条件时这里一起改）。
 const showEndpointSection = computed(() =>
-  (form.platform === 'antigravity' && antigravityAccountType.value === 'apikey') ||
-  (form.type === 'apikey' && form.platform !== 'antigravity') ||
+  form.type === 'apikey' ||
   (form.platform === 'anthropic' && accountCategory.value === 'bedrock') ||
   (form.platform === 'openai' && form.type === 'oauth') ||
   openAIResponsesSettingsVisible.value ||
   anthropicKeySettingsVisible.value ||
   openAIKeySettingsVisible.value
 )
-const showModelSection = computed(() =>
-  // Antigravity 总有模型映射；其余 API Key 类型有模型限制
+// 模型改名：沿用原来有模型映射的接入方式（第三方 key、Bedrock、Antigravity、OpenAI / Grok 成品号）
+const showModelRename = computed(() =>
   form.platform === 'antigravity' ||
   form.type === 'apikey' ||
   (form.platform === 'anthropic' && accountCategory.value === 'bedrock') ||
-  ((form.platform === 'openai' || form.platform === 'grok') && isOAuthFlow.value) ||
-  openAIResponsesSettingsVisible.value
+  ((form.platform === 'openai' || form.platform === 'grok') && isOAuthFlow.value)
 )
 
 const isGrokSSOInputMethod = computed(() => form.platform === 'grok' && oauthFlowRef.value?.inputMethod === 'sso_cookie')
@@ -4458,20 +3355,6 @@ watch(
       adminAPI.tlsFingerprintProfiles.list()
         .then(profiles => { tlsFingerprintProfiles.value = profiles.map(p => ({ id: p.id, name: p.name })) })
         .catch(() => { tlsFingerprintProfiles.value = [] })
-      // Modal opened - fill related models
-      allowedModels.value = [...getModelsByPlatform(form.platform)]
-      // Antigravity: 默认使用映射模式并填充默认映射
-      if (form.platform === 'antigravity') {
-        antigravityModelRestrictionMode.value = 'mapping'
-        fetchAntigravityDefaultMappings().then(mappings => {
-          antigravityModelMappings.value = [...mappings]
-        })
-        antigravityWhitelistModels.value = []
-      } else {
-        antigravityWhitelistModels.value = []
-        antigravityModelMappings.value = []
-        antigravityModelRestrictionMode.value = 'mapping'
-      }
     } else {
       resetForm()
     }
@@ -4482,13 +3365,8 @@ watch(
 
 // Sync form.type based on accountCategory, addMethod, and platform-specific type
 watch(
-  [accountCategory, addMethod, antigravityAccountType, () => form.platform],
-  ([category, method, agType]) => {
-    // Antigravity upstream 类型（实际创建为 apikey）
-    if (form.platform === 'antigravity' && agType === 'apikey') {
-      form.type = 'apikey'
-      return
-    }
+  [accountCategory, addMethod, () => form.platform],
+  ([category, method]) => {
     // Bedrock 类型
     if (form.platform === 'anthropic' && category === 'bedrock') {
       form.type = 'bedrock' as AccountType
@@ -4514,38 +3392,31 @@ watch(
   { immediate: true }
 )
 // 平台或账号模式切换、官方地址加载完成时预填协议地址（管理员改过的保留）。
-watch(officialProtocolEndpoints, (next, previous) => {
-  protocolEndpoints.value = endpointsAfterDefaultsChange(protocolEndpoints.value, previous ?? {}, next)
-})
+// 换了来源（平台）用新平台的默认协议；同一平台换模式（按量 / 套餐）保留当前协议。
+watch(
+  () => [officialProtocolEndpoints.value, form.platform] as const,
+  ([next, platform], [previous, previousPlatform]) => {
+    const current = currentProtocolOf(protocolEndpoints.value)
+    const preferred = platform === previousPlatform && current ? current : preferredProtocolFor(platform)
+    protocolEndpoints.value = endpointsAfterDefaultsChange(protocolEndpoints.value, previous ?? {}, next, preferred)
+  }
+)
 
 // Reset platform-specific settings when platform changes
 watch(
   () => form.platform,
   (newPlatform) => {
-    // Clear model-related settings
-    allowedModels.value = []
-    upstreamModelsPreviewed.value = false
+    // 改名是按平台的模型名写的，换平台清空（Antigravity 的默认表由后端叠加，不再预填）
     modelMappings.value = []
-    // Antigravity: 默认使用映射模式并填充默认映射
     if (newPlatform === 'antigravity') {
-      antigravityModelRestrictionMode.value = 'mapping'
-      fetchAntigravityDefaultMappings().then(mappings => {
-        antigravityModelMappings.value = [...mappings]
-      })
-      antigravityWhitelistModels.value = []
       accountCategory.value = 'oauth-based'
-      antigravityAccountType.value = 'oauth'
     } else {
       allowOverages.value = false
       antigravityProjectId.value = ''
-      antigravityWhitelistModels.value = []
-      antigravityModelMappings.value = []
-      antigravityModelRestrictionMode.value = 'mapping'
     }
     if (newPlatform === 'grok') {
       accountCategory.value = 'oauth-based'
       addMethod.value = 'oauth'
-      modelRestrictionMode.value = 'mapping'
       form.concurrency = 1
       form.load_factor = null
     }
@@ -4639,64 +3510,13 @@ const handleSelectGeminiOAuthType = (oauthType: 'code_assist' | 'google_one' | '
   geminiOAuthType.value = oauthType
 }
 
-// Auto-fill related models when switching to whitelist mode or changing platform
-watch(
-  [modelRestrictionMode, () => form.platform],
-  ([newMode]) => {
-    if (newMode === 'whitelist') {
-      allowedModels.value = [...getModelsByPlatform(form.platform)]
-    }
-  }
-)
-
-watch(
-  [antigravityModelRestrictionMode, () => form.platform],
-  ([, platform]) => {
-    if (platform !== 'antigravity') return
-    // Antigravity 默认不做限制：白名单留空表示允许所有（包含未来新增模型）。
-    // 如果需要快速填充常用模型，可在组件内点“填充相关模型”。
-  }
-)
-
 // Model mapping helpers
-const addModelMapping = () => {
-  modelMappings.value.push({ from: '', to: '' })
-}
-
 const addOpenAICompactModelMapping = () => {
   openAICompactModelMappings.value.push({ from: '', to: '' })
 }
 
 const removeOpenAICompactModelMapping = (index: number) => {
   openAICompactModelMappings.value.splice(index, 1)
-}
-
-const removeModelMapping = (index: number) => {
-  modelMappings.value.splice(index, 1)
-}
-
-const addPresetMapping = (from: string, to: string) => {
-  if (modelMappings.value.some((m) => m.from === from)) {
-    appStore.showInfo(t('admin.accounts.mappingExists', { model: from }))
-    return
-  }
-  modelMappings.value.push({ from, to })
-}
-
-const addAntigravityModelMapping = () => {
-  antigravityModelMappings.value.push({ from: '', to: '' })
-}
-
-const removeAntigravityModelMapping = (index: number) => {
-  antigravityModelMappings.value.splice(index, 1)
-}
-
-const addAntigravityPresetMapping = (from: string, to: string) => {
-  if (antigravityModelMappings.value.some((m) => m.from === from)) {
-    appStore.showInfo(t('admin.accounts.mappingExists', { model: from }))
-    return
-  }
-  antigravityModelMappings.value.push({ from, to })
 }
 
 // Error code toggle helper
@@ -4835,10 +3655,43 @@ const splitTempUnschedKeywords = (value: string) => {
     .filter((item) => item.length > 0)
 }
 
+// 映射只改名（muqian 2026-09-25 去掉白名单）：写了 model_mapping 就一并打标记，渠道承接哪些模型看目录绑定。
+const withRenameOnlyMapping = (credentials: Record<string, unknown>): Record<string, unknown> => {
+  const out = { ...credentials }
+  if (out.model_mapping) out.model_mapping_rename_only = true
+  else delete out.model_mapping_rename_only
+  return out
+}
+
+// 把勾选的目录模型写成这些渠道的绑定。绑定失败不回滚建号，提示到编辑页再勾。
+const bindSelectedCatalogEntries = async (accountIds: number[]) => {
+  const entryIds = [...selectedCatalogEntryIds.value]
+  if (entryIds.length === 0) return
+  for (const accountId of accountIds) {
+    try {
+      await adminAPI.modelCatalog.replaceAccountEntries(accountId, entryIds)
+    } catch (error: any) {
+      appStore.showWarning(t('admin.accounts.catalogEntries.bindFailed', {
+        message: error?.response?.data?.message || error?.message || ''
+      }))
+    }
+  }
+}
+
+// 所有单个建号都走这里：第三方 key 不带平台（后端按地址认厂商，认不出的中转按协议归族），
+// 映射打「只改名」标记，建好后写入承接的模型。
+const createAccountRecord = async (payload: CreateAccountRequest): Promise<Account> => {
+  const body: CreateAccountRequest = { ...payload, credentials: withRenameOnlyMapping(payload.credentials) }
+  if (body.type === 'apikey') delete body.platform
+  const account = await adminAPI.accounts.create(body)
+  await bindSelectedCatalogEntries([account.id])
+  return account
+}
+
 const submitCreateAccount = async (payload: CreateAccountRequest) => {
   submitting.value = true
   try {
-    const account = await adminAPI.accounts.create(payload)
+    const account = await createAccountRecord(payload)
     const modelMapping = payload.credentials.model_mapping
     const hasConcreteMappedTarget = payload.type === 'apikey' &&
       typeof modelMapping === 'object' &&
@@ -4846,7 +3699,7 @@ const submitCreateAccount = async (payload: CreateAccountRequest) => {
       Object.values(modelMapping).some((target) =>
         typeof target === 'string' && target.trim() !== '' && !target.includes('*')
       )
-    if (upstreamModelsPreviewed.value || hasConcreteMappedTarget) {
+    if (hasConcreteMappedTarget) {
       try {
         const result = await adminAPI.accounts.syncUpstreamModels(account.id)
         const warnings = result.warnings ?? []
@@ -4911,14 +3764,8 @@ const resetForm = () => {
   editResetTimezone.value = null
   modelMappings.value = []
   openAICompactModelMappings.value = []
-  modelRestrictionMode.value = 'whitelist'
-  allowedModels.value = [...claudeModels] // Default fill related models
-
-  antigravityModelRestrictionMode.value = 'mapping'
-  antigravityWhitelistModels.value = []
-  fetchAntigravityDefaultMappings().then(mappings => {
-    antigravityModelMappings.value = [...mappings]
-  })
+  accessSourceId.value = DEFAULT_ACCESS_SOURCE_ID
+  selectedCatalogEntryIds.value = []
   poolModeEnabled.value = false
   poolModeRetryCount.value = DEFAULT_POOL_MODE_RETRY_COUNT
   poolModeRetryStatusCodesInput.value = ''
@@ -4961,9 +3808,7 @@ const resetForm = () => {
   cacheTTLOverrideEnabled.value = false
   cacheTTLOverrideTarget.value = '5m'
   allowOverages.value = false
-  antigravityAccountType.value = 'oauth'
   antigravityProjectId.value = ''
-  upstreamApiKey.value = ''
   vertexServiceAccountJson.value = ''
   vertexProjectId.value = ''
   vertexClientEmail.value = ''
@@ -4980,7 +3825,6 @@ const resetForm = () => {
   antigravityOAuth.resetState()
   grokOAuth.resetState()
   oauthFlowRef.value?.reset()
-  upstreamModelsPreviewed.value = false
 }
 
 const handleClose = () => {
@@ -5217,9 +4061,7 @@ const handleSubmit = async () => {
     }
 
     // Model mapping
-    const modelMapping = buildModelMappingObject(
-      modelRestrictionMode.value, allowedModels.value, modelMappings.value
-    )
+    const modelMapping = buildRenameMapping()
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     }
@@ -5237,48 +4079,6 @@ const handleSubmit = async () => {
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
 
     await createAccountAndFinish('anthropic', 'bedrock' as AccountType, credentials)
-    return
-  }
-
-  // For Antigravity upstream type, create directly
-  if (form.platform === 'antigravity' && antigravityAccountType.value === 'apikey') {
-    if (!form.name.trim()) {
-      appStore.showError(t('admin.accounts.pleaseEnterAccountName'))
-      return
-    }
-    if (!upstreamApiKey.value.trim()) {
-      appStore.showError(t('admin.accounts.upstream.pleaseEnterApiKey'))
-      return
-    }
-    const upstreamEndpoints = validatedProtocolEndpoints()
-    if (!upstreamEndpoints) {
-      return
-    }
-
-    // Build upstream credentials (and optional model restriction)
-    const credentials: Record<string, unknown> = {
-      api_key: upstreamApiKey.value.trim()
-    }
-
-    // Antigravity 只使用映射模式
-    const antigravityModelMapping = buildModelMappingObject(
-      'mapping',
-      [],
-      antigravityModelMappings.value
-    )
-    if (antigravityModelMapping) {
-      credentials.model_mapping = antigravityModelMapping
-    }
-
-    if (!applyKeyHeaderOverride(credentials)) {
-      return
-    }
-    applyKeyCompactModelMapping(credentials)
-    applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-
-    // 第三方 key 没有混合调度 / 超量（那是 Antigravity 成品号的），不带 buildAntigravityExtra。
-    const extra = buildAnthropicExtra(buildOpenAIExtra())
-    await createAccountAndFinish(form.platform, 'apikey', credentials, extra, upstreamEndpoints)
     return
   }
 
@@ -5339,7 +4139,7 @@ const handleSubmit = async () => {
 
   // Add model mapping if configured（OpenAI 开启自动透传时不应用）
   if (!isOpenAIModelRestrictionDisabled.value) {
-    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+    const modelMapping = buildRenameMapping()
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     }
@@ -5489,7 +4289,7 @@ const createAccountAndFinish = async (
     }
   }
   if (platform === 'grok') {
-    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+    const modelMapping = buildRenameMapping()
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     } else {
@@ -5555,7 +4355,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
         const extra = grokOAuth.buildExtraInfo(tokenInfo)
         const accountName = refreshTokens.length > 1 ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}` : (form.name || tokenInfo.email || 'Grok OAuth Account')
 
-        const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+        const modelMapping = buildRenameMapping()
         if (modelMapping) {
           credentials.model_mapping = modelMapping
         }
@@ -5563,7 +4363,7 @@ const handleGrokValidateRT = async (refreshTokenInput: string) => {
           return
         }
 
-        await adminAPI.accounts.create({
+        await createAccountRecord({
           name: accountName,
           notes: form.notes,
           platform: 'grok',
@@ -5621,7 +4421,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
 
   const credentials: Record<string, unknown> = {}
   applyGrokOAuthUpstreamConfig(credentials)
-  const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+  const modelMapping = buildRenameMapping()
   if (modelMapping) {
     credentials.model_mapping = modelMapping
   }
@@ -5636,7 +4436,7 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       name: form.name || undefined,
       notes: form.notes || undefined,
       proxy_id: form.proxy_id,
-      credentials,
+      credentials: withRenameOnlyMapping(credentials),
       concurrency: form.concurrency,
       load_factor: form.load_factor ?? undefined,
       priority: form.priority,
@@ -5644,6 +4444,9 @@ const handleGrokImportSSO = async (ssoInput: string) => {
       expires_at: form.expires_at,
       auto_pause_on_expired: autoPauseOnExpired.value
     })
+    await bindSelectedCatalogEntries(
+      (result.created ?? []).flatMap((item) => (item.account ? [item.account.id] : []))
+    )
 
     const successCount = result.created?.length || 0
     const failedCount = result.failed?.length || 0
@@ -5726,11 +4529,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
             ? `${form.name || tokenInfo.email || 'Grok OAuth Account'} #${i + 1}`
             : form.name || tokenInfo.email || 'Grok OAuth Account'
 
-        const modelMapping = buildModelMappingObject(
-          modelRestrictionMode.value,
-          allowedModels.value,
-          modelMappings.value
-        )
+        const modelMapping = buildRenameMapping()
         if (modelMapping) {
           credentials.model_mapping = modelMapping
         }
@@ -5738,7 +4537,7 @@ const handleGrokAuthorizePassword = async (emailPasswordInput: string) => {
           return
         }
 
-        await adminAPI.accounts.create({
+        await createAccountRecord({
           name: accountName,
           notes: form.notes,
           platform: 'grok',
@@ -5818,7 +4617,7 @@ const handleOpenAIExchange = async (authCode: string) => {
 
     // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
     if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
-      const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+      const modelMapping = buildRenameMapping()
       if (modelMapping) {
         credentials.model_mapping = modelMapping
       }
@@ -5836,7 +4635,7 @@ const handleOpenAIExchange = async (authCode: string) => {
     }
 
     if (shouldCreateOpenAI) {
-      await adminAPI.accounts.create({
+      await createAccountRecord({
         name: form.name,
         notes: form.notes,
         platform: 'openai',
@@ -5871,7 +4670,7 @@ const OPENAI_MOBILE_RT_CLIENT_ID = 'app_LlGpXReQgckcGGUo2JrYvtJK'
 const buildOpenAICodexImportCredentialExtras = (): Record<string, unknown> | null => {
   const credentials: Record<string, unknown> = {}
   if (!isOpenAIModelRestrictionDisabled.value) {
-    const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+    const modelMapping = buildRenameMapping()
     if (modelMapping) {
       credentials.model_mapping = modelMapping
     }
@@ -6097,7 +4896,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
 
         // Add model mapping for OpenAI OAuth accounts（透传模式下不应用）
         if (shouldCreateOpenAI && !isOpenAIModelRestrictionDisabled.value) {
-          const modelMapping = buildModelMappingObject(modelRestrictionMode.value, allowedModels.value, modelMappings.value)
+          const modelMapping = buildRenameMapping()
           if (modelMapping) {
             credentials.model_mapping = modelMapping
           }
@@ -6114,7 +4913,7 @@ const handleOpenAIBatchRT = async (refreshTokenInput: string, clientId?: string)
         const accountName = refreshTokens.length > 1 ? `${baseName} #${i + 1}` : baseName
 
         if (shouldCreateOpenAI) {
-          await adminAPI.accounts.create({
+          await createAccountRecord({
             name: accountName,
             notes: form.notes,
             platform: 'openai',
@@ -6227,7 +5026,7 @@ const handleAntigravityValidateRT = async (refreshTokenInput: string) => {
           expires_at: form.expires_at,
           auto_pause_on_expired: autoPauseOnExpired.value
         }
-        await adminAPI.accounts.create(createPayload)
+        await createAccountRecord(createPayload)
         successCount++
       } catch (error: any) {
         failedCount++
@@ -6324,12 +5123,8 @@ const handleAntigravityExchange = async (authCode: string) => {
 		const credentials = antigravityOAuth.buildCredentials(tokenInfo)
 		applyAntigravityProjectID(credentials, antigravityProjectId.value, 'create')
 		applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
-		// Antigravity 只使用映射模式
-		const antigravityModelMapping = buildModelMappingObject(
-			'mapping',
-			[],
-			antigravityModelMappings.value
-		)
+		// 改名叠在 Antigravity 默认表之上（后端合并），不填就是默认表
+		const antigravityModelMapping = buildRenameMapping()
 		if (antigravityModelMapping) {
 			credentials.model_mapping = antigravityModelMapping
 		}
@@ -6580,7 +5375,7 @@ const handleCookieAuth = async (sessionKey: string) => {
           credentials.temp_unschedulable_rules = tempUnschedPayload
         }
 
-        await adminAPI.accounts.create({
+        await createAccountRecord({
           name: accountName,
           notes: form.notes,
           platform: form.platform,
