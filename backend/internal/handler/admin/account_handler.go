@@ -111,9 +111,10 @@ func NewAccountHandler(
 
 // CreateAccountRequest represents create account request
 type CreateAccountRequest struct {
-	Name               string         `json:"name" binding:"required"`
-	Notes              *string        `json:"notes"`
-	Platform           string         `json:"platform" binding:"required"`
+	Name  string  `json:"name" binding:"required"`
+	Notes *string `json:"notes"`
+	// Platform 成品号必填（决定授权流程）；第三方 key 可不填，按地址推导（resolveCreateAccountPlatform）。
+	Platform           string         `json:"platform"`
 	Type               string         `json:"type" binding:"required,oneof=oauth setup-token apikey bedrock service_account"`
 	Credentials        map[string]any `json:"credentials" binding:"required"`
 	Extra              map[string]any `json:"extra"`

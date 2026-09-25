@@ -68,6 +68,41 @@ func (r *stubModelCatalogRepo) ReplaceBindings(_ context.Context, entryID int64,
 	return nil
 }
 
+// ReplaceAccountBindings 与真实仓储同一语义：保留的绑定优先级不变，去掉不在列表里的，新增的优先级为空。
+func (r *stubModelCatalogRepo) ReplaceAccountBindings(_ context.Context, accountID int64, entryIDs []int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bindings == nil {
+		r.bindings = make(map[int64][]ModelCatalogBinding)
+	}
+	want := make(map[int64]bool, len(entryIDs))
+	for _, id := range entryIDs {
+		want[id] = true
+	}
+	for entryID, bindings := range r.bindings {
+		kept := bindings[:0:0]
+		for _, binding := range bindings {
+			if binding.AccountID != accountID || want[entryID] {
+				kept = append(kept, binding)
+			}
+		}
+		r.bindings[entryID] = kept
+	}
+	for _, entryID := range entryIDs {
+		found := false
+		for _, binding := range r.bindings[entryID] {
+			if binding.AccountID == accountID {
+				found = true
+				break
+			}
+		}
+		if !found {
+			r.bindings[entryID] = append(r.bindings[entryID], ModelCatalogBinding{EntryID: entryID, AccountID: accountID})
+		}
+	}
+	return nil
+}
+
 func (r *stubModelCatalogRepo) ListEntryIDsByAccount(_ context.Context, accountID int64) ([]int64, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()

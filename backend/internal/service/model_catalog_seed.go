@@ -142,6 +142,42 @@ func buildModelCatalogSeedEntries(input ModelCatalogSeedInput) []ModelCatalogEnt
 	return entries
 }
 
+// LookupPriceFileEntry 按模型标识构造一条建议条目，给「添加模型」自动带出厂商 / 计费方式 / 价格。
+// 与播种同一来源、同一优先级：价格文件（确定性识别，不按子串猜）→ 硬编码兜底价 → xAI Imagine 官方媒体价。
+// 带出的条目模型标识用管理员输入的写法、状态为下架；找不到时 ok=false。
+func (s *ModelCatalogService) LookupPriceFileEntry(modelID string) (entry ModelCatalogEntry, ok bool) {
+	modelID = strings.TrimSpace(modelID)
+	if s == nil || modelID == "" {
+		return ModelCatalogEntry{}, false
+	}
+	if s.seedInput.PricingService != nil {
+		if pricing := s.seedInput.PricingService.GetIdentifiedModelPricing(modelID); pricing != nil {
+			entry := seedEntryFromLiteLLM(modelID, pricing)
+			// 与播种同一口径：按 token 计费却没有 token 价的不带出（会按 $0 计费）
+			if !(entry.BillingMode == BillingModeToken && pricing.TokenPricingAbsent) {
+				return entry, true
+			}
+		}
+	}
+	key := NormalizeModelCatalogKey(modelID)
+	if s.seedInput.BillingService != nil {
+		for name, pricing := range s.seedInput.BillingService.SnapshotFallbackPricing() {
+			if pricing != nil && NormalizeModelCatalogKey(name) == key {
+				entry := seedEntryFromFallback(name, pricing)
+				entry.ModelID = modelID
+				return entry, true
+			}
+		}
+	}
+	for _, seed := range xaiImagineSeeds() {
+		if NormalizeModelCatalogKey(seed.ModelID) == key {
+			seed.ModelID = modelID
+			return seed, true
+		}
+	}
+	return ModelCatalogEntry{}, false
+}
+
 // positivePrice 把 0 / 负数视为「未配置」返回 nil。
 // 价格文件用零值表示缺失，播种成 0 会让目录把「没配这一项」变成「显式收 0」，
 // 进而关掉下游的回退（如图片输出价回退到文本输出价）。

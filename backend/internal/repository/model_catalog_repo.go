@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"log/slog"
+	"sort"
 	"strings"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
@@ -228,6 +229,56 @@ func (r *modelCatalogRepository) ListEntryIDsByAccount(ctx context.Context, acco
 		ids = append(ids, row.EntryID)
 	}
 	return ids, nil
+}
+
+// ReplaceAccountBindings 用整份条目列表覆盖账号被绑定的条目：删掉不在列表里的，补上新增的
+// （优先级为空，跟随账号优先级），保留下来的绑定原优先级不变。提交后按受影响的条目投递调度 outbox。
+func (r *modelCatalogRepository) ReplaceAccountBindings(ctx context.Context, accountID int64, entryIDs []int64) error {
+	want := make(map[int64]struct{}, len(entryIDs))
+	for _, id := range entryIDs {
+		want[id] = struct{}{}
+	}
+	var affected []int64
+	err := r.withTx(ctx, func(tx *dbent.Tx) error {
+		rows, err := tx.ModelCatalogBinding.Query().
+			Where(modelcatalogbinding.AccountIDEQ(accountID)).
+			All(ctx)
+		if err != nil {
+			return err
+		}
+		have := make(map[int64]struct{}, len(rows))
+		for _, row := range rows {
+			have[row.EntryID] = struct{}{}
+			if _, keep := want[row.EntryID]; keep {
+				continue
+			}
+			if _, err := tx.ModelCatalogBinding.Delete().
+				Where(modelcatalogbinding.AccountIDEQ(accountID), modelcatalogbinding.EntryIDEQ(row.EntryID)).
+				Exec(ctx); err != nil {
+				return err
+			}
+			affected = append(affected, row.EntryID)
+		}
+		for _, id := range entryIDs {
+			if _, exists := have[id]; exists {
+				continue
+			}
+			if _, err := tx.ModelCatalogBinding.Create().
+				SetEntryID(id).
+				SetAccountID(accountID).
+				Save(ctx); err != nil {
+				return translateCatalogBindingError(err)
+			}
+			affected = append(affected, id)
+		}
+		return nil
+	})
+	if err != nil || len(affected) == 0 {
+		return err
+	}
+	sort.Slice(affected, func(i, j int) bool { return affected[i] < affected[j] })
+	payload := map[string]any{"entry_ids": affected}
+	return enqueueSchedulerOutbox(ctx, r.sql, service.SchedulerOutboxEventCatalogBindingsChanged, nil, payload)
 }
 
 // translateCatalogBindingError 把绑定写入的外键冲突翻译成业务错误：

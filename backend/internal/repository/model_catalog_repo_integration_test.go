@@ -455,6 +455,81 @@ func TestModelCatalogRepository_BindingsReplaceAndCascade(t *testing.T) {
 	require.Equal(t, before+1, outboxCount(), "deleting the entry also enqueues the event")
 }
 
+// 按渠道覆盖绑定（渠道表单里直接勾选模型）：保留的绑定优先级不变、不在列表里的删掉、新增的优先级为空，
+// 别的渠道在同一条目上的绑定不受影响；受影响的条目投递 catalog_bindings_changed；外键失败整批回滚。
+func TestModelCatalogRepository_ReplaceAccountBindings(t *testing.T) {
+	ctx := context.Background()
+	repo, unique := newModelCatalogRepoForTest(t, "repo-acct-bind")
+	client := testEntClient(t)
+
+	newEntry := func(name string) *service.ModelCatalogEntry {
+		entry := &service.ModelCatalogEntry{
+			ModelID: unique(name), Vendor: "anthropic", BillingMode: service.BillingModeToken,
+			Status: service.ModelCatalogStatusListed, ManagedBy: service.ModelCatalogManagedByAdmin,
+			InputPrice: float64Value(1e-6),
+		}
+		require.NoError(t, repo.CreateEntry(ctx, entry))
+		return entry
+	}
+	entryA, entryB := newEntry("a"), newEntry("b")
+	t.Cleanup(func() {
+		for _, id := range []int64{entryA.ID, entryB.ID} {
+			_, _ = integrationDB.ExecContext(context.Background(),
+				"DELETE FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+				service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", id))
+		}
+	})
+	mine := mustCreateAccount(t, client, &service.Account{Name: unique("mine"), Priority: 10})
+	other := mustCreateAccount(t, client, &service.Account{Name: unique("other"), Priority: 20})
+	t.Cleanup(func() {
+		_, _ = integrationDB.ExecContext(context.Background(), "DELETE FROM accounts WHERE id = ANY($1)", pq.Array([]int64{mine.ID, other.ID}))
+	})
+	outboxCount := func(entryID int64) int {
+		var n int
+		require.NoError(t, integrationDB.QueryRowContext(ctx,
+			"SELECT COUNT(*) FROM scheduler_outbox WHERE event_type = $1 AND payload->'entry_ids' @> $2::jsonb",
+			service.SchedulerOutboxEventCatalogBindingsChanged, fmt.Sprintf("[%d]", entryID)).Scan(&n))
+		return n
+	}
+
+	priority := 5
+	require.NoError(t, repo.ReplaceBindings(ctx, entryA.ID, []service.ModelCatalogBinding{
+		{AccountID: mine.ID, Priority: &priority},
+		{AccountID: other.ID},
+	}))
+	outboxA, outboxB := outboxCount(entryA.ID), outboxCount(entryB.ID)
+
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryA.ID, entryB.ID}))
+	ids, err := repo.ListEntryIDsByAccount(ctx, mine.ID)
+	require.NoError(t, err)
+	require.Equal(t, []int64{entryA.ID, entryB.ID}, ids)
+	bindingsA, err := repo.ListBindingsByEntry(ctx, entryA.ID)
+	require.NoError(t, err)
+	require.Len(t, bindingsA, 2)
+	require.Equal(t, mine.ID, bindingsA[0].AccountID)
+	require.NotNil(t, bindingsA[0].Priority, "保留下来的绑定优先级不变")
+	require.Equal(t, 5, *bindingsA[0].Priority)
+	bindingsB, err := repo.ListBindingsByEntry(ctx, entryB.ID)
+	require.NoError(t, err)
+	require.Len(t, bindingsB, 1)
+	require.Nil(t, bindingsB[0].Priority, "新增的绑定优先级为空，跟随账号")
+	require.Equal(t, outboxA, outboxCount(entryA.ID), "条目 A 没变化，不投递")
+	require.Equal(t, outboxB+1, outboxCount(entryB.ID), "新增绑定的条目投递一次")
+
+	require.NoError(t, repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryB.ID}))
+	bindingsA, err = repo.ListBindingsByEntry(ctx, entryA.ID)
+	require.NoError(t, err)
+	require.Len(t, bindingsA, 1, "只摘掉本渠道在条目 A 上的绑定")
+	require.Equal(t, other.ID, bindingsA[0].AccountID)
+	require.Equal(t, outboxA+1, outboxCount(entryA.ID), "摘掉绑定的条目投递一次")
+
+	err = repo.ReplaceAccountBindings(ctx, mine.ID, []int64{entryA.ID, -1})
+	require.ErrorIs(t, err, service.ErrModelCatalogEntryNotFound)
+	ids, err = repo.ListEntryIDsByAccount(ctx, mine.ID)
+	require.NoError(t, err)
+	require.Equal(t, []int64{entryB.ID}, ids, "失败的覆盖整批回滚")
+}
+
 // 种子自带分档与别名时随条目落库：插入写、刷新整份覆盖分档、别名只补不删；
 // 别名已被管理员占用（指向别的条目）时跳过且不报错。
 func TestModelCatalogRepository_SeedWritesIntervalsAndAliases(t *testing.T) {

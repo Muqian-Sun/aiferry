@@ -78,6 +78,8 @@ type Account struct {
 	// modelMappingCacheVendor 记录解析时的厂商：厂商默认映射按 Vendor 启用，而 Vendor
 	// 由协议地址决定，地址变了（管理端改号后复用同一对象）缓存必须失效。
 	modelMappingCacheVendor string
+	// modelMappingCacheRenameOnly 记录解析时的「只改名」标记：有默认表的厂商在标记下会叠加默认表。
+	modelMappingCacheRenameOnly bool
 
 	// header_overrides 热路径缓存（非持久化字段，同 model_mapping 缓存先例）
 	headerOverrideCache               map[string]string
@@ -590,12 +592,14 @@ func (a *Account) GetModelMapping() map[string]string {
 	rawSig := uint64(0)
 	rawSigReady := false
 
+	renameOnly := a.ModelMappingRenameOnly()
 	if a.modelMappingCacheReady &&
 		a.modelMappingCacheCredentialsPtr == credentialsPtr &&
 		a.modelMappingCacheRawPtr == rawPtr &&
 		a.modelMappingCacheRawLen == rawLen &&
 		a.modelMappingCacheRuntimeVersion == runtimeVersion &&
-		a.modelMappingCacheVendor == vendor {
+		a.modelMappingCacheVendor == vendor &&
+		a.modelMappingCacheRenameOnly == renameOnly {
 		rawSig = modelMappingSignature(rawMapping)
 		rawSigReady = true
 		if a.modelMappingCacheRawSig == rawSig {
@@ -616,7 +620,33 @@ func (a *Account) GetModelMapping() map[string]string {
 	a.modelMappingCacheRawSig = rawSig
 	a.modelMappingCacheRuntimeVersion = runtimeVersion
 	a.modelMappingCacheVendor = vendor
+	a.modelMappingCacheRenameOnly = renameOnly
 	return mapping
+}
+
+// ModelMappingRenameOnly 渠道的模型映射是否只做改名（管理端新表单写入 credentials.model_mapping_rename_only）。
+// 有标记时映射不兼任白名单，见 IsModelSupported；系统生成的映射（spark 影子等）不带标记，仍是模型集合。
+func (a *Account) ModelMappingRenameOnly() bool {
+	if a == nil || a.Credentials == nil {
+		return false
+	}
+	v, _ := a.Credentials["model_mapping_rename_only"].(bool)
+	return v
+}
+
+// vendorDefaultModelMapping 厂商自带的默认映射表，它同时是这个上游能接的模型集合
+// （Google One 的保守默认、Antigravity 默认表、xAI 模型目录）。按 Vendor 判定，第三方 key 的标签不算。
+func (a *Account) vendorDefaultModelMapping() map[string]string {
+	if a.Credentials != nil && a.IsGeminiGoogleOne() {
+		return geminicli.GoogleOneModelMapping()
+	}
+	switch a.Vendor() {
+	case PlatformAntigravity:
+		return domain.DefaultAntigravityModelMapping
+	case PlatformGrok:
+		return xai.DefaultModelMapping()
+	}
+	return nil
 }
 
 // resolveModelMapping 解析账号的有效模型映射。
@@ -680,6 +710,20 @@ func (a *Account) resolveModelMapping(rawMapping map[string]any) map[string]stri
 				"gemini-3.8-flash-tiered",
 			})
 			applyAntigravityGemini31ProAliases(result)
+		}
+		// 只改名的映射叠在厂商默认表之上（改名 / 补充），不替换默认表：
+		// 只配一条改名不应让默认表里的其它模型都不可用。
+		if a.ModelMappingRenameOnly() {
+			if defaults := a.vendorDefaultModelMapping(); len(defaults) > 0 {
+				merged := make(map[string]string, len(defaults)+len(result))
+				for k, v := range defaults {
+					merged[k] = v
+				}
+				for k, v := range result {
+					merged[k] = v
+				}
+				return merged
+			}
 		}
 		return result
 	}
@@ -848,6 +892,7 @@ func resolveRequestedModelInMapping(mapping map[string]string, requestedModel st
 
 // IsModelSupported 检查模型是否在 model_mapping 中（支持通配符）
 // 如果未配置 mapping，返回 true（允许所有模型）。
+// 映射标记为「只改名」时（ModelMappingRenameOnly）不兼任白名单，没命中映射按无映射处理。
 //
 // 例外：OpenAI OAuth 账号（Codex 上游）的空映射会排除明确属于其他厂商
 // 家族的模型（deepseek-*/glm-* 等）——转发阶段 normalizeOpenAIModelForUpstream
@@ -883,7 +928,21 @@ func (a *Account) IsModelSupported(requestedModel string) bool {
 		return true
 	}
 	normalized := normalizeRequestedModelForLookup(a.Vendor(), requestedModel)
-	return normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized)
+	if normalized != requestedModel && mappingSupportsRequestedModel(mapping, normalized) {
+		return true
+	}
+	// 只改名的映射（管理端新表单，2026-09-25）不兼任白名单：渠道承接哪些模型由目录绑定决定，
+	// 没命中映射的按无映射的规则判定。厂商默认表已叠进映射，默认表仍是模型集合。
+	if a.ModelMappingRenameOnly() && len(a.vendorDefaultModelMapping()) == 0 {
+		if a.IsOpenAIOAuth() {
+			return isOpenAIOAuthServableModel(requestedModel)
+		}
+		if a.Vendor() == PlatformDeepseek {
+			return isDeepseekServableModel(requestedModel)
+		}
+		return true
+	}
+	return false
 }
 
 // GetMappedModel 获取映射后的模型名（支持通配符，最长优先匹配）
