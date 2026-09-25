@@ -173,7 +173,7 @@ export default {
     seedPartial: '{summary}；另有 {failed} 条写入失败：{errors}',
     deleteTitle: '删除目录条目',
     deleteConfirm: '删除后别名、分档和分时定价会一起删掉。确定删除？',
-    fullReplaceHint: '保存是整条覆盖。本页没列出的项（按 Token 的区间分档、分时定价、优先级价、长上下文与倍率）按原值写回；图片 / 视频分档在上方编辑。',
+    fullReplaceHint: '保存是整条覆盖。本页没列出的项（按 Token 的区间分档、分时定价、Fast 档价、长上下文与倍率）按原值写回；图片 / 视频分档在上方编辑。',
     listedRequiresPrice: '上架的模型必须配好价格，用户才能看到并调用。',
     noResources: '无渠道',
     fields: {
@@ -185,9 +185,9 @@ export default {
       resources: '承接渠道',
       inputPrice: '输入价',
       outputPrice: '输出价',
-      perRequestPrice: '每次默认价',
-      perImagePrice: '每张默认价（分档未命中时用）',
-      perSecondPrice: '每秒默认价（分档未命中时用）',
+      perRequestPrice: '每次标价',
+      perImagePrice: '每张标价（分档未命中时用）',
+      perSecondPrice: '每秒标价（分档未命中时用）',
       searchPricePerCall: '内置搜索每次调用价（留空用内置单价 0.01）',
       cacheWritePrice: '缓存写入 · 5 分钟',
       cacheWrite1hPrice: '缓存写入 · 1 小时',
@@ -201,14 +201,14 @@ export default {
     tiers: {
       title: '分档单价',
       hint: {
-        image: '按输出尺寸分档，每张价；上架必须填默认价。',
-        video: '按分辨率分档，每秒价；上架必须填默认价。'
+        image: '按输出尺寸分档，每张价；上架必须填每张标价。',
+        video: '按分辨率分档，每秒价；上架必须填每秒标价。'
       },
       tier: '档位',
       price: '单价（$）',
       add: '加一档',
       remove: '移除',
-      empty: '未配分档，按默认价计。'
+      empty: '未配分档，按标价计。'
     },
     bindings: {
       title: '承接这个模型的渠道',

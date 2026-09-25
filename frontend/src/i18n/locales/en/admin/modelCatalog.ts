@@ -173,7 +173,7 @@ export default {
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, priority prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
+    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, Fast tier prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
     noResources: 'No channels',
     fields: {
@@ -185,9 +185,9 @@ export default {
       resources: 'Serving channels',
       inputPrice: 'Input price',
       outputPrice: 'Output price',
-      perRequestPrice: 'Default price per request',
-      perImagePrice: 'Default price per image (used when no tier matches)',
-      perSecondPrice: 'Default price per second (used when no tier matches)',
+      perRequestPrice: 'List price per request',
+      perImagePrice: 'List price per image (used when no tier matches)',
+      perSecondPrice: 'List price per second (used when no tier matches)',
       searchPricePerCall: 'Built-in search price per call (empty = built-in 0.01)',
       cacheWritePrice: 'Cache write · 5 min',
       cacheWrite1hPrice: 'Cache write · 1 hour',
@@ -201,14 +201,14 @@ export default {
     tiers: {
       title: 'Tier prices',
       hint: {
-        image: 'Per image by output size; a listed entry must have the default price.',
-        video: 'Per second by resolution; a listed entry must have the default price.'
+        image: 'Per image by output size; a listed entry must have the list price per image.',
+        video: 'Per second by resolution; a listed entry must have the list price per second.'
       },
       tier: 'Tier',
       price: 'Price ($)',
       add: 'Add tier',
       remove: 'Remove',
-      empty: 'No tiers; the default price applies.'
+      empty: 'No tiers; the list price applies.'
     },
     bindings: {
       title: 'Channels serving this model',
