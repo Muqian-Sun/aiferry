@@ -1,7 +1,7 @@
 <template>
   <!--
     编辑渠道（A5-c）：原来列表页里的「编辑账号」弹窗改成整页 /accounts/:id/edit。
-    账号详情、代理、模型目录三路并行加载；表单本体仍是 EditAccountModal（layout="page"，外壳换成 FormPageShell）。
+    账号详情、代理两路并行加载（承接的模型由表单自己按渠道读）；表单本体仍是 EditAccountModal（layout="page"，外壳换成 FormPageShell）。
     表单保存成功会先 updated 再 close，所以回列表挂在 close 上（取消也走这里）；
     updated 只把最新账号写回来——Ollama Cloud 用量面板也会发 updated（不是保存），那时留在本页。
   -->
@@ -49,7 +49,6 @@
       :show="!!account"
       :account="account"
       :proxies="proxies"
-      :catalog-entries="catalogEntries"
       @close="back"
       @updated="onUpdated"
     />
@@ -61,7 +60,6 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
-import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
 import type { Account, Proxy } from '@/types'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import AppLayout from '@/components/layout/AppLayout.vue'
@@ -76,7 +74,6 @@ const routeId = computed(() => (typeof route.params.id === 'string' ? route.para
 
 const account = ref<Account | null>(null)
 const proxies = ref<Proxy[]>([])
-const catalogEntries = ref<ModelCatalogEntry[]>([])
 const loading = ref(true)
 /** 'not-found' 或错误信息；空串表示没出错 */
 const loadError = ref('')
@@ -94,10 +91,9 @@ async function load() {
     return
   }
   loading.value = true
-  const [accountResult, proxiesResult, catalogResult] = await Promise.allSettled([
+  const [accountResult, proxiesResult] = await Promise.allSettled([
     adminAPI.accounts.getById(id),
-    adminAPI.proxies.getAll(),
-    adminAPI.modelCatalog.listEntries()
+    adminAPI.proxies.getAll()
   ])
   if (seq !== loadSeq) return
   loading.value = false
@@ -107,18 +103,11 @@ async function load() {
     loadError.value = status === 404 ? 'not-found' : extractApiErrorMessage(accountResult.reason, t('common.error'))
     return
   }
-  // 代理 / 模型目录拿不到不挡编辑（和列表页一致）：代理下拉为空，已上架模型显示为空
+  // 代理拿不到不挡编辑（和列表页一致）：代理下拉为空
   if (proxiesResult.status === 'fulfilled') {
     proxies.value = proxiesResult.value
   } else {
     console.error('Failed to load proxies:', proxiesResult.reason)
-  }
-  if (catalogResult.status === 'fulfilled') {
-    catalogEntries.value = catalogResult.value.filter((entry) =>
-      (entry.bindings ?? []).some((binding) => binding.account_id === id)
-    )
-  } else {
-    console.error('Failed to load model catalog:', catalogResult.reason)
   }
   account.value = accountResult.value
 }

@@ -41,7 +41,7 @@
 | A4 | 列表页模板：一套共用构件，套到用户、订阅、套餐、订单、兑换码、公告、代理、操作日志、模型 | 已合 | #65 |
 | A5 | 渠道列表套模板；渠道 / 用户 / 模型详情抽屉；新建 / 编辑渠道改成独立页面 | 已合 | #67 |
 | A6 | 设置拆成 13 个小节页（二级导航 + 路由）、每节保存 + 离开提醒、两栏布局、功能子设置回功能页、删邀请返利卡片 | 已开 PR | #68 |
-| F1 | 渠道 / 模型添加表单重做（插在 A7 前，见「下一步」） | **下一步** | |
+| F1 | 渠道 / 模型添加表单重做：先选「第三方 key / 成品号」、key 不选平台、渠道表单里直接勾选模型、去掉模型白名单（映射只改名）、模型新建 / 编辑改独立页（按模型 ID 带价、每百万 Token 填价、渠道可勾选） | 已开 PR | #69 |
 | A7 | 数据页（概览、用量、渠道健康、审查、收款概览） | 未开始 | |
 | A8 | 收尾 | 未开始 | |
 
@@ -114,22 +114,45 @@
 - **设置接口支持只发部分字段**：请求里没带的字段不写库（`setting_handler_update.go` 的 `omittedSettingKeys`）。
   功能页（渠道健康、审查）就是这样只发自己那几项的。
 
-### F1 渠道 / 模型添加表单重做（muqian 2026-09-25 提，插在 A7 前）
+### F1 实施结果（muqian 2026-09-25 提，插在 A7 前；给后来者）
 
-- **添加渠道**：开头先选「第三方 key / 成品号」。
-  - key：不选平台；填协议 + 地址 + Key，常用厂商地址做快捷预设；厂商从地址识别（`Account.Vendor()` 已有）。
-    平台字段对 key 只剩「无模型接口（联网搜索 / 语音 → grok、live → openai）按标签归池」、默认地址、国产厂商套餐模式、
-    默认白名单这几处用处，都能从地址 / 协议推出。
-  - 成品号：各家 OAuth 流程不同，只选哪家的账号再授权。
-- **渠道表单里直接绑定模型**：从模型目录勾选（搜索、按厂商分组、只列协议兼容的），保存时一起绑定；后端要加「按渠道替换绑定」接口
-  （现在只有按模型条目整表替换，`PUT /model-catalog/entries/:id/bindings`）。
-  - **待 muqian 定**：渠道自带的「模型白名单」是否去掉（它是绑定之上的第二道过滤：绑了但白名单里没有，调度会跳过该渠道）；
-    建议去掉白名单、保留「模型映射」作可选项（目录名 → 上游名）。
-- **添加模型**：填模型 ID 自动从价格文件带出厂商 / 计费 / 价格；价格按每百万 token 填；厂商改下拉；
-  绑定渠道改成可浏览勾选的列表（只列协议兼容的）；弹窗改成独立分节页。
-- **顺带修的 bug（读代码确认，未实跑）**：后端规定一个 key 只承接一个上游协议（`NormalizeProtocolEndpoints`），
-  但 `PlatformProtocolDefaults` 给 OpenAI / Grok 预填 2 个协议、Kimi / 智谱 / DeepSeek / MiniMax / OpenCode 预填 2–3 个，
-  用默认预填新建这些 key 会被拒。
+- **决策**：key 不选平台；渠道表单里直接勾选目录模型；**模型白名单去掉**（muqian：「去掉」），映射保留为可选的「模型改名」。
+- **新建渠道**（`CreateAccountModal`）：第一块是 `AccessSourcePicker`（`components/account/accessSources.ts`）：先选「第三方 key / 成品号」。
+  - **第三方 key 不选平台、也不选来源**（muqian 追问「渠道里面怎么还有来源」后改掉：第一版给 key 做了一排厂商来源，等于换名的平台选择）。
+    只填协议 + 地址 + Key；常用官方地址做一个下拉菜单快捷填入（`KeyAddressPresetMenu` / `keyAddress.ts`：后端官方地址表 +
+    国产国际站 + Grok 区域）。厂商按地址识别：官方域名表由后端随 `protocol-defaults` 下发（`vendor_hosts`，与
+    `OfficialVendorOfURL` 同一张表），认不出就提示「按中转处理」。识别出的厂商才有它的专属选项，都在地址下面：
+    Kimi / 智谱 / MiniMax 的「按量 / Coding 套餐」（地址能分出来就跟地址走，MiniMax 两种套餐同地址要管理员选）、
+    智谱团队版、Gemini 档位；OpenCode 的 Zen / Go 由地址定。**提交时不带平台**，后端 `resolveCreateAccountPlatform` 按地址推导。
+    表单里的 `form.platform` 对 key 只是占位。原「Antigravity 第三方 key」就是普通中转 key。
+  - 成品号要选是哪家的账号（授权流程各家不同）：Claude / ChatGPT / Gemini / Antigravity / Grok / AWS Bedrock / Vertex·Claude / Vertex·Gemini。
+  - **默认只露必填项**（muqian「还是太繁琐，要填的东西太多了」，12:5x 定：只留必填其余收起、默认勾模型、名称仍必填）：
+    接入方式 → 名称 → 地址（key）/ 哪家的账号与授权方式（成品号）→ API Key → 承接的模型（一行摘要，点「修改」展开）→ 创建；
+    备注、到期、并发 / 优先级 / 倍率、配额、代理、池模式、错误码、请求头覆写、协议开关、模型改名、智谱团队版、Gemini 档位、
+    倍率探测等全部在默认收起的「更多设置」里，不点开就按原来的默认值建。套餐只在地址分不出来时问（MiniMax、智谱 Anthropic 地址），
+    分得出就写在识别提示里（「按地址识别为 Kimi · Coding 套餐」）。
+  - **承接的模型默认勾选**：识别出的厂商（成品号即它的平台）在目录里已上架的对话模型；生图 / 视频 / 向量走扩展端点、另有承接条件，
+    默认不勾（目录列表多返回 `extension_endpoints`，口径同绑定校验）；中转不勾；管理员动过勾选就不再自动改。
+  - 所有建号路径（含 OAuth 批量、Grok SSO）走 `createAccountRecord`：映射打 `model_mapping_rename_only`，建好后
+    `PUT /admin/accounts/:id/catalog-entries` 写入勾选的模型；绑定失败不回滚建号，提示去编辑页再勾。
+- **一个 key 只承接一个协议**：地址编辑器改成「协议下拉 + 地址」一行（`ProtocolEndpointsEditor`）；官方地址表多协议时只取
+  一个（`preferredProtocolFor`：Anthropic→anthropic、OpenAI / Grok→responses、Gemini→gemini、其余→chat_completions）。
+  换套餐时地址还是上一个套餐的官方地址就换成新套餐同协议的官方地址。修掉了「用默认预填新建 OpenAI / 国产 key 被后端拒」。
+- **编辑渠道**（`EditAccountModal`）：「已上架模型」从只读改成可勾选（`CatalogEntryPicker`，按渠道读 / 写绑定，勾选变了才写）；
+  五块白名单 / 映射合成一块 `ModelRenameEditor`。旧映射整份按改名行展示，**同名行（旧白名单）保留**：对承接没影响，
+  但 Antigravity / xAI 这类自带模型表的上游靠它扩表、批量生图也按映射列模型。spark 影子账号不打标记（后端只放行两个键）。
+- **批量编辑**：映射同样只改名、带标记。同名预设只对自带模型表的上游（Antigravity、Grok）保留（`renamePresetsFor`）。
+- **模型新建 / 编辑**：独立页 `/model-catalog/new`、`/model-catalog/:id/edit`（`ModelCatalogEntryFormView` + `CatalogEntryEditor`）。
+  新建时输入模型 ID 400ms 后查价格文件（`GET /admin/model-catalog/price-lookup`），表单没被改过就自动带出厂商 / 计费 / 价格，
+  改过了只提示「用价格文件的价格」；编辑页有「按价格文件带价」按钮。价格按每百万 Token 填（`PriceInput`，存 $/token）。
+  厂商改下拉（目录已有厂商 + 自定义）。承接的渠道改成全量可勾选列表（`CatalogChannelPicker`）。
+- **后端**（F1-a 提交 + 本 PR）：`model_mapping_rename_only` 语义、按渠道读写绑定、key 建号推导平台、按模型 ID 查价；
+  目录列表多返回 `vendor_platform`（厂商族，渠道表单按它分组，对照表只在后端 `CatalogVendorPlatform`）。
+- **没做 / 待定**：
+  - 浏览器走查截图没做：本次会话里 Chrome 扩展一直连不上。已部署到 dev（8081），`/accounts/new`、`/accounts/:id/edit`、
+    `/model-catalog/new` 需要人工过一遍（浅色 / 深色 / 窄屏）。
+  - 批量生图的模型列表仍从渠道映射里取（`batchImageModelsFromAccountMapping`），不看目录绑定；要改成看绑定是单独的后端改动。
+  - 后端 `GET /admin/accounts/antigravity/default-model-mapping` 前端已不再调用（Antigravity 不再预填默认表，由后端叠加）。
 
 ### A7 数据页
 

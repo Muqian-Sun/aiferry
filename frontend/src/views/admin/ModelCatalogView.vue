@@ -4,6 +4,7 @@
     标题右侧「⋯」（从价格文件播种）+「新建模型」；数字摘要（模型 / 已上架 / 上架但无渠道，可一键筛出）；
     工具行 = 搜索 + 状态 / 厂商 / 计费 / 资源筛选标签 + 刷新；行尾「编辑」图标 +「⋯」（诊断、删除）；选中行时批量上下架。
     点行打开详情抽屉（A5）：概况（全部价格、别名…）/ 渠道（绑定的渠道此刻能否调度 + 诊断）；抽屉右上「编辑」「⋯」。
+    新建 / 编辑是独立页（/model-catalog/new、/model-catalog/:id/edit）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -208,8 +209,6 @@
       @close="diagnosisEntry = null"
     />
 
-    <CatalogEntryEditor :show="showEditor" :entry="editingEntry" :vendor-options="vendorValues" @close="showEditor = false" @saved="onSaved" />
-
     <ConfirmDialog
       :show="showDeleteDialog"
       :title="t('admin.modelCatalog.deleteTitle')"
@@ -225,6 +224,7 @@
 
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
@@ -245,12 +245,12 @@ import EmptyState from '@/components/common/EmptyState.vue'
 import Icon from '@/components/icons/Icon.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
 import CatalogEntryDrawer from '@/components/admin/catalog/CatalogEntryDrawer.vue'
-import CatalogEntryEditor from '@/components/admin/catalog/CatalogEntryEditor.vue'
 import PriceCell from '@/components/admin/catalog/CatalogPriceCell.vue'
 import { entryToRequest } from '@/components/admin/catalog/entryRequest'
 import { getPersistedPageSize, setPersistedPageSize } from '@/composables/usePersistedPageSize'
 
 const { t } = useI18n()
+const router = useRouter()
 const appStore = useAppStore()
 
 const loading = ref(false)
@@ -268,8 +268,6 @@ const billingFilter = ref('')
 const resourceFilter = ref('')
 
 // 弹窗
-const showEditor = ref(false)
-const editingEntry = ref<ModelCatalogEntry | null>(null)
 const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
 const showDeleteDialog = ref(false)
 const pendingDelete = ref<ModelCatalogEntry | null>(null)
@@ -405,13 +403,11 @@ async function loadEntries() {
 }
 
 function openCreate() {
-  editingEntry.value = null
-  showEditor.value = true
+  void router.push('/model-catalog/new')
 }
 
 function openEdit(entry: ModelCatalogEntry) {
-  editingEntry.value = entry
-  showEditor.value = true
+  void router.push(`/model-catalog/${entry.id}/edit`)
 }
 
 function openDiagnosis(entry: ModelCatalogEntry) {
@@ -443,11 +439,6 @@ function rowActions(entry: ModelCatalogEntry): RowAction[] {
     { key: 'diagnose', label: t('admin.modelCatalog.diagnose'), icon: 'beaker', onSelect: () => openDiagnosis(entry) },
     { key: 'delete', label: t('common.delete'), icon: 'trash', danger: true, dividerBefore: true, onSelect: () => askDelete(entry) }
   ]
-}
-
-async function onSaved() {
-  showEditor.value = false
-  await loadEntries()
 }
 
 function askDelete(entry: ModelCatalogEntry) {

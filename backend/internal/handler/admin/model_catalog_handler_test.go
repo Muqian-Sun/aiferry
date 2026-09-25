@@ -9,6 +9,8 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"sort"
+	"strings"
 	"sync"
 	"testing"
 
@@ -175,8 +177,41 @@ func (r *catalogRepoStub) ReplaceBindings(_ context.Context, entryID int64, bind
 	return nil
 }
 
-func (r *catalogRepoStub) ListEntryIDsByAccount(context.Context, int64) ([]int64, error) {
-	return nil, nil
+func (r *catalogRepoStub) ListEntryIDsByAccount(_ context.Context, accountID int64) ([]int64, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	var ids []int64
+	for entryID, bindings := range r.bindings {
+		for _, binding := range bindings {
+			if binding.AccountID == accountID {
+				ids = append(ids, entryID)
+				break
+			}
+		}
+	}
+	sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+	return ids, nil
+}
+
+func (r *catalogRepoStub) ReplaceAccountBindings(_ context.Context, accountID int64, entryIDs []int64) error {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.bindings == nil {
+		r.bindings = make(map[int64][]service.ModelCatalogBinding)
+	}
+	for entryID, bindings := range r.bindings {
+		kept := bindings[:0:0]
+		for _, binding := range bindings {
+			if binding.AccountID != accountID {
+				kept = append(kept, binding)
+			}
+		}
+		r.bindings[entryID] = kept
+	}
+	for _, entryID := range entryIDs {
+		r.bindings[entryID] = append(r.bindings[entryID], service.ModelCatalogBinding{EntryID: entryID, AccountID: accountID})
+	}
+	return nil
 }
 
 // catalogAccountsStub 按 ID 取账号；不在表里的账号视为不存在。
@@ -213,6 +248,9 @@ func newCatalogRouter(h *ModelCatalogHandler) *gin.Engine {
 	r.PUT("/aliases/:id", h.UpdateAlias)
 	r.DELETE("/aliases/:id", h.DeleteAlias)
 	r.POST("/seed", h.Seed)
+	r.GET("/price-lookup", h.PriceLookup)
+	r.GET("/accounts/:id/catalog-entries", h.ListAccountEntries)
+	r.PUT("/accounts/:id/catalog-entries", h.ReplaceAccountEntries)
 	return r
 }
 
@@ -225,7 +263,10 @@ func decodeCatalogResponse(t *testing.T, rec *httptest.ResponseRecorder) respons
 
 func TestModelCatalogHandler_ListEntries(t *testing.T) {
 	h := newCatalogHandler(&catalogRepoStub{entries: []service.ModelCatalogEntry{
-		{ID: 1, ModelID: "claude-sonnet-4", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed},
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed},
+		{ID: 2, ModelID: "gemini-embedding", Vendor: "vertex_ai-embedding-models", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
+		{ID: 3, ModelID: "mystery", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusUnlisted},
+		{ID: 4, ModelID: "gpt-image-2", Vendor: "openai", BillingMode: service.BillingModeImage, Status: service.ModelCatalogStatusListed},
 	}})
 	rec := httptest.NewRecorder()
 	req := httptest.NewRequest(http.MethodGet, "/entries", nil)
@@ -236,10 +277,19 @@ func TestModelCatalogHandler_ListEntries(t *testing.T) {
 	require.Equal(t, 0, envelope.Code)
 	raw, err := json.Marshal(envelope.Data)
 	require.NoError(t, err)
-	var entries []service.ModelCatalogEntry
+	var entries []ModelCatalogEntryView
 	require.NoError(t, json.Unmarshal(raw, &entries))
-	require.Len(t, entries, 1)
+	require.Len(t, entries, 4)
 	require.Equal(t, "claude-sonnet-4", entries[0].ModelID)
+	// 渠道表单按厂商族分组：厂商族与条目字段平铺在同一层
+	require.Equal(t, service.PlatformAnthropic, entries[0].VendorPlatform)
+	require.Equal(t, service.PlatformGemini, entries[1].VendorPlatform, "vertex_ai-* 按前缀归 gemini")
+	require.Empty(t, entries[2].VendorPlatform, "没有厂商就没有厂商族")
+	require.Contains(t, string(raw), `"vendor_platform":"anthropic"`)
+	// 渠道表单默认只勾对话模型：生图 / 视频 / 向量走扩展端点，另有承接条件
+	require.False(t, entries[0].ExtensionEndpoints)
+	require.True(t, entries[3].ExtensionEndpoints, "OpenAI 按图计费的条目走扩展端点")
+	require.Contains(t, string(raw), `"model_id":"claude-sonnet-4"`)
 }
 
 func TestModelCatalogHandler_GetEntry(t *testing.T) {
@@ -566,4 +616,62 @@ func TestModelCatalogHandler_Diagnose(t *testing.T) {
 	rec = httptest.NewRecorder()
 	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/entries/42/diagnosis", nil))
 	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+func catalogPrice(v float64) *float64 { return &v }
+
+// 渠道表单里直接勾选承接的模型（2026-09-25）：按渠道读写整份条目列表，校验走服务层。
+func TestModelCatalogHandler_AccountCatalogEntries(t *testing.T) {
+	repo := &catalogRepoStub{entries: []service.ModelCatalogEntry{
+		{ID: 1, ModelID: "claude-sonnet-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: catalogPrice(1e-6)},
+		{ID: 2, ModelID: "claude-opus-4", Vendor: "anthropic", BillingMode: service.BillingModeToken, Status: service.ModelCatalogStatusListed, InputPrice: catalogPrice(1e-6)},
+	}}
+	h := newCatalogHandlerWithAccounts(repo, catalogAccountsStub{
+		5: {ID: 5, Type: service.AccountTypeAPIKey, Platform: service.PlatformAnthropic, ProtocolEndpoints: map[string]string{service.APIProtocolAnthropic: "https://relay.example.com"}},
+		6: {ID: 6, Type: service.AccountTypeAPIKey, Platform: service.PlatformOpenAI},
+	})
+	router := newCatalogRouter(h)
+	entryIDs := func(rec *httptest.ResponseRecorder) []int64 {
+		envelope := decodeCatalogResponse(t, rec)
+		raw, err := json.Marshal(envelope.Data)
+		require.NoError(t, err)
+		var body struct {
+			EntryIDs []int64 `json:"entry_ids"`
+		}
+		require.NoError(t, json.Unmarshal(raw, &body))
+		return body.EntryIDs
+	}
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/accounts/5/catalog-entries", strings.NewReader(`{"entry_ids":[2,1]}`)))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, []int64{1, 2}, entryIDs(rec))
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/accounts/5/catalog-entries", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	require.Equal(t, []int64{1, 2}, entryIDs(rec))
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodPut, "/accounts/6/catalog-entries", strings.NewReader(`{"entry_ids":[1]}`)))
+	require.Equal(t, http.StatusBadRequest, rec.Code, "没配地址的 key 承接不了")
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/accounts/99/catalog-entries", nil))
+	require.Equal(t, http.StatusNotFound, rec.Code)
+}
+
+// 「添加模型」按模型 ID 带价：没有价格服务时恒为 found=false；缺 model_id 报 400。
+func TestModelCatalogHandler_PriceLookup(t *testing.T) {
+	router := newCatalogRouter(newCatalogHandler(&catalogRepoStub{}))
+
+	rec := httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/price-lookup?model_id=claude-sonnet-4", nil))
+	require.Equal(t, http.StatusOK, rec.Code)
+	envelope := decodeCatalogResponse(t, rec)
+	require.Equal(t, map[string]any{"found": false}, envelope.Data)
+
+	rec = httptest.NewRecorder()
+	router.ServeHTTP(rec, httptest.NewRequest(http.MethodGet, "/price-lookup", nil))
+	require.Equal(t, http.StatusBadRequest, rec.Code)
 }

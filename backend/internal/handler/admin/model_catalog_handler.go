@@ -2,6 +2,7 @@ package admin
 
 import (
 	"strconv"
+	"strings"
 
 	"github.com/Wei-Shaw/sub2api/internal/pkg/response"
 	"github.com/Wei-Shaw/sub2api/internal/service"
@@ -164,6 +165,16 @@ type ModelCatalogAliasRequest struct {
 	Notes   *string `json:"notes"`
 }
 
+// ModelCatalogEntryView 是列表里的条目，附带厂商族：渠道表单按厂商族（与渠道平台同一套标识）
+// 分组展示目录模型；厂商 → 平台的对照只在后端维护（CatalogVendorPlatform），前端不留副本。
+type ModelCatalogEntryView struct {
+	service.ModelCatalogEntry
+	// VendorPlatform 厂商族，认不出的厂商（含空厂商）为空串。
+	VendorPlatform string `json:"vendor_platform"`
+	// ExtensionEndpoints 经扩展端点（生图 / 视频 / 向量）承接：渠道表单的默认勾选不含这类模型。
+	ExtensionEndpoints bool `json:"extension_endpoints"`
+}
+
 // ListEntries 返回全部目录条目（含别名、分档、分时）。
 // GET /api/v1/admin/model-catalog/entries
 func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
@@ -172,7 +183,15 @@ func (h *ModelCatalogHandler) ListEntries(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	response.Success(c, entries)
+	views := make([]ModelCatalogEntryView, len(entries))
+	for i := range entries {
+		views[i] = ModelCatalogEntryView{
+			ModelCatalogEntry:  entries[i],
+			VendorPlatform:     service.CatalogVendorPlatform(&entries[i]),
+			ExtensionEndpoints: h.service.EntryServedByExtensionEndpoints(&entries[i]),
+		}
+	}
+	response.Success(c, views)
 }
 
 // GetEntry 按 ID 取条目。
@@ -291,6 +310,61 @@ func (h *ModelCatalogHandler) ReplaceBindings(c *gin.Context) {
 		return
 	}
 	h.ListBindings(c)
+}
+
+// PriceLookup 按模型 ID 从价格文件带出建议条目（厂商、计费方式、价格），给「添加模型」自动填。
+// GET /api/v1/admin/model-catalog/price-lookup?model_id=
+func (h *ModelCatalogHandler) PriceLookup(c *gin.Context) {
+	modelID := strings.TrimSpace(c.Query("model_id"))
+	if modelID == "" {
+		response.BadRequest(c, "model_id is required")
+		return
+	}
+	entry, ok := h.service.LookupPriceFileEntry(modelID)
+	if !ok {
+		response.Success(c, gin.H{"found": false})
+		return
+	}
+	response.Success(c, gin.H{"found": true, "entry": entry})
+}
+
+// AccountCatalogEntriesRequest 渠道承接的目录条目（整份列表）。
+type AccountCatalogEntriesRequest struct {
+	EntryIDs []int64 `json:"entry_ids"`
+}
+
+// ListAccountEntries 返回渠道被哪些目录条目绑定。
+// GET /api/v1/admin/accounts/:id/catalog-entries
+func (h *ModelCatalogHandler) ListAccountEntries(c *gin.Context) {
+	id, ok := parseModelCatalogID(c, "Invalid account ID")
+	if !ok {
+		return
+	}
+	ids, err := h.service.ListAccountEntryIDs(c.Request.Context(), id, h.accounts)
+	if err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	response.Success(c, gin.H{"entry_ids": ids})
+}
+
+// ReplaceAccountEntries 用整份条目列表覆盖渠道承接的目录模型（渠道表单里直接勾选）。
+// PUT /api/v1/admin/accounts/:id/catalog-entries
+func (h *ModelCatalogHandler) ReplaceAccountEntries(c *gin.Context) {
+	id, ok := parseModelCatalogID(c, "Invalid account ID")
+	if !ok {
+		return
+	}
+	var req AccountCatalogEntriesRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.BadRequest(c, "Invalid request: "+err.Error())
+		return
+	}
+	if err := h.service.ReplaceAccountBindings(c.Request.Context(), id, req.EntryIDs, h.accounts); err != nil {
+		response.ErrorFrom(c, err)
+		return
+	}
+	h.ListAccountEntries(c)
 }
 
 // Diagnose 逐个说明条目绑定的资源此刻能不能承接请求：可调度与否、原因、能承接哪些入站协议。

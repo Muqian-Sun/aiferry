@@ -1,4 +1,8 @@
 <template>
+  <!--
+    第三方 key 的上游地址：一个 key 只承接一个上游协议（后端拒绝多协议），所以是「协议 + 地址」一行。
+    切换协议时，地址没改过（空或仍是原协议的官方地址）就换成新协议的官方地址。
+  -->
   <div data-testid="protocol-endpoints-editor">
     <div class="flex items-center justify-between gap-2">
       <label class="input-label mb-0">{{ t('admin.accounts.protocolEndpoints.title') }}</label>
@@ -20,58 +24,43 @@
     >
       {{ t('admin.accounts.protocolEndpoints.loadFailed') }}
     </p>
-    <div v-if="configured.length > 0" class="space-y-2">
-      <div v-for="protocol in configured" :key="protocol" class="flex items-center gap-2">
-        <span class="w-44 shrink-0 text-sm text-af-ink-2">{{ protocolLabel(protocol) }}</span>
-        <input
-          :value="modelValue[protocol]"
-          type="text"
-          class="input flex-1 font-mono text-sm"
-          :placeholder="t('admin.accounts.protocolEndpoints.urlPlaceholder')"
-          :data-testid="`protocol-endpoint-input-${protocol}`"
-          @input="onInput(protocol, $event)"
-        />
-        <button
-          type="button"
-          class="rounded-lg p-2 text-af-danger transition-colors hover:bg-af-danger-tint hover:text-af-danger"
-          :aria-label="t('admin.accounts.protocolEndpoints.remove', { protocol: protocolLabel(protocol) })"
-          :data-testid="`protocol-endpoint-remove-${protocol}`"
-          @click="remove(protocol)"
-        >
-          <Icon name="trash" size="sm" />
-        </button>
-      </div>
+    <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
+      <select
+        :value="protocol ?? ''"
+        class="input sm:w-52 sm:shrink-0"
+        data-testid="protocol-endpoint-protocol"
+        :aria-label="t('admin.accounts.protocolEndpoints.protocolLabel')"
+        @change="onProtocolChange"
+      >
+        <option v-if="!protocol" value="" disabled>{{ t('admin.accounts.protocolEndpoints.choose') }}</option>
+        <option v-for="option in protocolOptions" :key="option" :value="option">{{ protocolLabel(option) }}</option>
+      </select>
+      <input
+        :value="protocol ? modelValue[protocol] : ''"
+        type="text"
+        class="input flex-1 font-mono text-sm"
+        :disabled="!protocol"
+        :placeholder="t('admin.accounts.protocolEndpoints.urlPlaceholder')"
+        :data-testid="`protocol-endpoint-input-${protocol ?? 'none'}`"
+        @input="onInput"
+      />
     </div>
-    <p v-else class="text-sm text-af-warning" data-testid="protocol-endpoints-empty">
+    <p v-if="!protocol" class="mt-2 text-sm text-af-warning" data-testid="protocol-endpoints-empty">
       {{ t('admin.accounts.protocolEndpoints.empty') }}
     </p>
-    <div v-if="unconfigured.length > 0" class="mt-2 flex flex-wrap gap-2">
-      <button
-        v-for="protocol in unconfigured"
-        :key="protocol"
-        type="button"
-        class="rounded-lg border border-dashed border-af-hairline-strong px-3 py-1 text-xs text-af-ink-2 transition-colors hover:border-af-ink-4 hover:text-af-ink"
-        :data-testid="`protocol-endpoint-add-${protocol}`"
-        @click="add(protocol)"
-      >
-        {{ t('admin.accounts.protocolEndpoints.add', { protocol: protocolLabel(protocol) }) }}
-      </button>
-    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
-import Icon from '@/components/icons/Icon.vue'
 import type { ProtocolEndpoints, UpstreamProtocol } from '@/types'
-import { sameEndpoints } from './protocolEndpoints'
 
 const props = defineProps<{
   modelValue: ProtocolEndpoints
-  /** 可配置的协议，顺序即展示顺序（取自后端 protocol-defaults 的 protocols）。 */
+  /** 可选的协议，顺序即展示顺序。 */
   protocols: readonly UpstreamProtocol[]
-  /** 当前平台 / 模式的官方地址；非空且与当前值不同时提供「填入官方地址」。 */
+  /** 当前平台 / 模式各协议的官方地址；当前协议有官方地址且与当前值不同时提供「填入官方地址」。 */
   officialEndpoints?: ProtocolEndpoints
   /** 官方地址加载失败：提示管理员手动填写。 */
   defaultsLoadFailed?: boolean
@@ -83,41 +72,35 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-const configured = computed<UpstreamProtocol[]>(() => {
-  const present = Object.keys(props.modelValue) as UpstreamProtocol[]
-  const ordered = props.protocols.filter((protocol) => present.includes(protocol))
-  // 已存的协议即便不在当前可选列表里也要展示，否则会被静默丢掉。
-  return [...ordered, ...present.filter((protocol) => !props.protocols.includes(protocol))]
-})
+const protocol = computed<UpstreamProtocol | null>(() => (Object.keys(props.modelValue)[0] as UpstreamProtocol) ?? null)
 
-const unconfigured = computed<UpstreamProtocol[]>(() =>
-  props.protocols.filter((protocol) => !(protocol in props.modelValue))
+// 已存的协议即便不在当前可选列表里也要能看到，否则会被静默丢掉。
+const protocolOptions = computed<UpstreamProtocol[]>(() =>
+  protocol.value && !props.protocols.includes(protocol.value) ? [...props.protocols, protocol.value] : [...props.protocols]
 )
 
-const canRestoreOfficial = computed(() => {
-  const official = props.officialEndpoints
-  return !!official && Object.keys(official).length > 0 && !sameEndpoints(props.modelValue, official)
-})
+const officialUrl = computed(() => (protocol.value ? props.officialEndpoints?.[protocol.value] : undefined))
+const canRestoreOfficial = computed(
+  () => !!protocol.value && !!officialUrl.value && props.modelValue[protocol.value] !== officialUrl.value
+)
 
 function restoreOfficial() {
-  emit('update:modelValue', { ...props.officialEndpoints })
+  if (protocol.value && officialUrl.value) emit('update:modelValue', { [protocol.value]: officialUrl.value })
 }
 
-function protocolLabel(protocol: UpstreamProtocol): string {
-  return t(`admin.accounts.protocolEndpoints.protocols.${protocol}`)
+function protocolLabel(value: UpstreamProtocol): string {
+  return t(`admin.accounts.protocolEndpoints.protocols.${value}`)
 }
 
-function onInput(protocol: UpstreamProtocol, event: Event) {
-  emit('update:modelValue', { ...props.modelValue, [protocol]: (event.target as HTMLInputElement).value })
+function onProtocolChange(event: Event) {
+  const next = (event.target as HTMLSelectElement).value as UpstreamProtocol
+  const current = protocol.value
+  const currentUrl = current ? (props.modelValue[current] ?? '') : ''
+  const untouched = !currentUrl.trim() || (!!current && currentUrl === props.officialEndpoints?.[current])
+  emit('update:modelValue', { [next]: untouched ? (props.officialEndpoints?.[next] ?? '') : currentUrl })
 }
 
-function add(protocol: UpstreamProtocol) {
-  emit('update:modelValue', { ...props.modelValue, [protocol]: '' })
-}
-
-function remove(protocol: UpstreamProtocol) {
-  const next = { ...props.modelValue }
-  delete next[protocol]
-  emit('update:modelValue', next)
+function onInput(event: Event) {
+  if (protocol.value) emit('update:modelValue', { [protocol.value]: (event.target as HTMLInputElement).value })
 }
 </script>

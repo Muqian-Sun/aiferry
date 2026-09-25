@@ -92,6 +92,74 @@ export default {
           advanced: '高级'
         }
       },
+      // 新建渠道第一步：接入方式与来源（2026-09-25）
+      accessSource: {
+        kindLabel: '接入方式',
+        accountLabel: '哪家的账号',
+        kinds: {
+          key: {
+            title: '第三方 key',
+            description: '厂商官方或中转站的 API Key：填协议、地址和 Key，厂商按地址识别'
+          },
+          subscription: {
+            title: '成品号',
+            description: '订阅账号或云账号，只走官方地址'
+          }
+        },
+        hints: {
+          key: '填协议、地址和 Key',
+          claude: 'Claude Code OAuth / Setup Token',
+          chatgpt: 'ChatGPT 订阅（Codex OAuth）',
+          gemini: 'Google One / Code Assist',
+          antigravity: 'Antigravity OAuth',
+          grok: 'Grok 订阅 OAuth',
+          bedrock: 'AWS 访问密钥或 Bedrock API Key',
+          vertexClaude: 'GCP 服务账号，调 Vertex 上的 Claude',
+          vertexGemini: 'GCP 服务账号，调 Vertex 上的 Gemini'
+        }
+      },
+      // 新建渠道默认只露必填项，其余收进「更多设置」
+      moreSettings: {
+        title: '更多设置',
+        hint: '备注、到期、并发与配额、代理、协议开关、模型改名等，不改就用默认值'
+      },
+      // 第三方 key 的地址：常用官方地址快捷填入、按地址识别厂商（key 不选平台）
+      keyAddress: {
+        presetPlaceholder: '从常用官方地址填入…',
+        detected: '按地址识别为 {vendor}',
+        relay: '没认出官方厂商：按中转处理，只走标准协议'
+      },
+      // 渠道承接的目录模型（渠道表单里直接勾选）
+      catalogEntries: {
+        title: '承接的模型',
+        hint: '勾选这个渠道能承接的模型；用户请求这些模型时会调度到它。未上架的模型要在「模型」页上架后才对用户开放。',
+        selected: '已选 {count} 个',
+        clear: '清空',
+        searchPlaceholder: '搜索模型 ID 或名称',
+        listedOnly: '只看已上架',
+        loading: '正在加载模型目录…',
+        loadFailed: '模型目录加载失败',
+        retry: '重试',
+        emptyCatalog: '模型目录还是空的，先到「模型」页添加模型。',
+        noMatch: '没有匹配的模型',
+        otherVendors: '其他',
+        selectAll: '全选',
+        deselectAll: '全不选',
+        unlisted: '未上架',
+        edit: '修改',
+        collapse: '收起',
+        noneSelected: '还没勾模型：建好后这个渠道不承接任何模型，可以之后在编辑页勾。',
+        andMore: '等 {count} 个',
+        bindFailed: '渠道已创建，但承接的模型没保存成功：{message}。请到编辑页重新勾选。',
+        saveFailed: '渠道已保存，但承接的模型没保存成功：{message}。可以再点一次保存重试。',
+        loadBoundFailed: '这个渠道承接的模型没读出来，刷新页面后再改。'
+      },
+      // 模型改名（映射只改名，不限定能接哪些模型）
+      modelRename: {
+        title: '模型改名（可选）',
+        hint: '把请求里的模型名改成上游认的名字，左边是请求的模型，右边是发给上游的模型。只改名，不限定能接哪些模型——那由上面勾选的模型决定。',
+        vendorTableHint: '这个上游自带模型表：表里没有的模型要在这里加一条（可以同名）才会承接。'
+      },
       deleteAccount: '删除渠道',
       searchAccounts: '搜索渠道名称',
       notes: '备注',
@@ -378,13 +446,8 @@ export default {
       },
       types: {
         oauth: 'OAuth',
-        chatgptOauth: 'ChatGPT OAuth',
-        responsesApi: 'Responses API',
         googleOauth: 'Google OAuth',
         codeAssist: 'Code Assist',
-        antigravityOauth: 'Antigravity OAuth',
-        grokOauth: 'Grok OAuth',
-        antigravityApikey: '通过 Base URL + API Key 连接'
       },
       antigravityProjectIdLabel: 'GCP Project ID（可选）',
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',
@@ -626,11 +689,6 @@ export default {
       platform: '平台',
       accountName: '账号名称',
       enterAccountName: '请输入账号名称',
-      accountType: '账号类型',
-      claudeCode: 'Claude Code',
-      claudeConsole: 'Claude Console',
-      bedrockLabel: 'AWS Bedrock',
-      bedrockDesc: 'SigV4 / API Key',
       vertexLabel: 'Vertex',
       vertexDesc: 'Service Account',
       vertexAnthropicHint: '使用 Google Cloud Service Account JSON 通过 Vertex AI 调用 Anthropic Claude。建议配置模型映射，将客户端 Claude 模型名映射到 Vertex 模型 ID。',
@@ -651,20 +709,20 @@ export default {
       vertexSaJsonMissingClientEmail: 'Service Account JSON 缺少 client_email',
       vertexSaJsonInvalid: 'Service Account JSON 格式无效',
       vertexSaJsonRequired: '请上传 Service Account JSON',
-      oauthSetupToken: 'OAuth / Setup Token',
       addMethod: '添加方式',
       setupTokenLongLived: 'Setup Token（长期有效）',
       protocolEndpoints: {
-        title: '协议地址',
-        hint: '第三方 key 只按这里的地址转发，不会回落到任何默认地址。官方 key 已预填官方地址；聚合平台请改成它的地址，不支持的协议删掉即可。',
+        title: '上游地址',
+        hint: '一个渠道只承接一个协议：选协议、填地址。同一上游要承接多个协议，就按协议各建一个渠道。第三方 key 只按这里的地址转发，不会回落到任何默认地址。',
         urlPlaceholder: 'https://api.example.com',
-        add: '添加 {protocol}',
-        remove: '删除 {protocol} 地址',
-        empty: '还没有配置协议地址，至少需要一个。',
-        loadFailed: '官方地址加载失败，请手动填写各协议地址。',
+        protocolLabel: '协议',
+        choose: '选择协议',
+        empty: '还没有选协议和地址。',
+        loadFailed: '官方地址加载失败，请手动填写地址。',
         restoreOfficial: '填入官方地址',
         errors: {
-          empty: '请至少配置一个协议地址',
+          empty: '请选择协议并填写地址',
+          multiple: '一个渠道只能承接一个协议',
           blank: '{protocol} 的地址不能为空'
         },
         protocols: {
@@ -839,15 +897,8 @@ export default {
         bedrockCCCompatDesc:
           '转发前清理 Claude Code 专有请求字段并过滤上游不支持的 anthropic-beta，适用于按 Bedrock Anthropic 方言接入的上游。',
       },
-      modelRestriction: '模型限制（可选）',
-      modelWhitelist: '模型白名单',
-      modelMapping: '模型映射',
       fromModel: '请求模型',
       toModel: '目标模型',
-      selectAllowedModels: '选择允许的模型。留空则支持所有模型。',
-      mapRequestModels: '将请求模型映射到实际模型。左边是请求的模型，右边是发送到 API 的实际模型。',
-      selectedModels: '已选择 {count} 个模型',
-      supportsAllModels: '（支持所有模型）',
       requestModel: '请求模型',
       actualModel: '实际模型',
       addMapping: '添加映射',
@@ -1104,10 +1155,7 @@ export default {
       leaveEmptyToKeep: '留空以保持当前密钥',
       // Upstream type
       upstream: {
-        baseUrlHint: '按上游实际地址填写，系统不会自动补任何路径。第三方网关通常形如 https://relay.example.com/antigravity',
-        apiKey: '上游 API Key',
         apiKeyHint: '上游服务的 API Key',
-        pleaseEnterApiKey: '请输入上游 API Key'
       },
       // OAuth flow
       oauth: {
@@ -1390,11 +1438,6 @@ export default {
           }
         },
         accountType: {
-          oauthTitle: 'OAuth 授权（Gemini）',
-          oauthDesc: '使用 Google 账号授权，并选择 OAuth 子类型。',
-          apiKeyTitle: 'API 密钥（AI Studio）',
-          apiKeyDesc: '最快接入方式，使用 AIza API Key。',
-          apiKeyNote: '适合轻量测试。免费层限流严格，数据可能用于训练。',
           apiKeyLink: '获取 API Key',
           quotaLink: '配额说明'
         },

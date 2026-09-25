@@ -275,6 +275,15 @@ func AccountServesCatalogExtensionEndpoints(entry *ModelCatalogEntry, account *A
 			"and a third-party key serves those only when it has a chat_completions endpoint", account.ID, entry.ModelID))
 }
 
+// EntryServedByExtensionEndpoints 条目是否经扩展端点（生图 / 视频 / 向量）承接，口径同绑定校验：
+// 管理端据此让渠道表单的默认勾选只含对话模型（扩展端点有额外的承接条件，默认勾上可能整批被拒）。
+func (s *ModelCatalogService) EntryServedByExtensionEndpoints(entry *ModelCatalogEntry) bool {
+	if s == nil || entry == nil {
+		return false
+	}
+	return CatalogEntryServedByExtensionEndpoints(entry, s.priceFileMode(entry.ModelID))
+}
+
 // priceFileMode 返回价格文件里该模型的 mode（确定性识别，不按子串猜）；没有价格服务或识别不到时为空。
 func (s *ModelCatalogService) priceFileMode(modelID string) string {
 	if pricing := s.seedInput.PricingService.GetIdentifiedModelPricing(modelID); pricing != nil {
@@ -317,6 +326,56 @@ func (s *ModelCatalogService) ReplaceBindings(ctx context.Context, entryID int64
 		normalized = append(normalized, ModelCatalogBinding{EntryID: entryID, AccountID: binding.AccountID, Priority: binding.Priority})
 	}
 	if err := s.repo.ReplaceBindings(ctx, entryID, normalized); err != nil {
+		return err
+	}
+	s.invalidate(ctx)
+	return nil
+}
+
+// ListAccountEntryIDs 返回账号被哪些目录条目绑定（渠道表单里「承接的模型」）。
+func (s *ModelCatalogService) ListAccountEntryIDs(ctx context.Context, accountID int64, accounts CatalogBindingAccountSource) ([]int64, error) {
+	if s == nil || s.repo == nil {
+		return nil, ErrModelCatalogEntryNotFound
+	}
+	if _, err := accounts.GetAccount(ctx, accountID); err != nil {
+		return nil, err
+	}
+	return s.repo.ListEntryIDsByAccount(ctx, accountID)
+}
+
+// ReplaceAccountBindings 用整份条目列表覆盖账号承接的目录模型：逐个确认条目存在、账号能承接
+// （与 ReplaceBindings 同一套校验：AccountServesCatalogEntry，经扩展端点调用的条目还要能承接扩展端点），
+// 全部通过才写库，然后失效快照。
+func (s *ModelCatalogService) ReplaceAccountBindings(ctx context.Context, accountID int64, entryIDs []int64, accounts CatalogBindingAccountSource) error {
+	if s == nil || s.repo == nil {
+		return ErrModelCatalogEntryNotFound
+	}
+	account, err := accounts.GetAccount(ctx, accountID)
+	if err != nil {
+		return err
+	}
+	seen := make(map[int64]struct{}, len(entryIDs))
+	normalized := make([]int64, 0, len(entryIDs))
+	for _, entryID := range entryIDs {
+		if _, dup := seen[entryID]; dup {
+			return catalogValidationError(fmt.Sprintf("duplicate entry %d in bindings", entryID))
+		}
+		seen[entryID] = struct{}{}
+		entry, err := s.repo.GetEntryByID(ctx, entryID)
+		if err != nil {
+			return err
+		}
+		if err := AccountServesCatalogEntry(entry, account); err != nil {
+			return err
+		}
+		if CatalogEntryServedByExtensionEndpoints(entry, s.priceFileMode(entry.ModelID)) {
+			if err := AccountServesCatalogExtensionEndpoints(entry, account); err != nil {
+				return err
+			}
+		}
+		normalized = append(normalized, entryID)
+	}
+	if err := s.repo.ReplaceAccountBindings(ctx, accountID, normalized); err != nil {
 		return err
 	}
 	s.invalidate(ctx)

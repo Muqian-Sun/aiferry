@@ -73,6 +73,16 @@ func upstreamHostOf(rawURL string) string {
 	return strings.ToLower(parsed.Hostname())
 }
 
+// OfficialVendorHosts 返回「官方域名 → 厂商」对照表的副本：管理端建第三方 key 时按地址提示厂商，
+// 与 OfficialVendorOfURL 同一张表，前端不另抄。
+func OfficialVendorHosts() map[string]string {
+	out := make(map[string]string, len(officialVendorHosts))
+	for host, vendor := range officialVendorHosts {
+		out[host] = vendor
+	}
+	return out
+}
+
 // OfficialVendorOfURL 返回地址所属的官方厂商；不是已知官方域名时返回空串。
 // 只认完整域名、不做后缀匹配，api.openai.com.example.net 这类地址不会被当成官方。
 func OfficialVendorOfURL(rawURL string) string {

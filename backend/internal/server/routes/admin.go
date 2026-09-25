@@ -732,7 +732,11 @@ func registerModelCatalogRoutes(admin *gin.RouterGroup, h *handler.Handlers) {
 		catalog.DELETE("/aliases/:id", h.Admin.ModelCatalog.DeleteAlias)
 
 		catalog.POST("/seed", h.Admin.ModelCatalog.Seed)
+		catalog.GET("/price-lookup", h.Admin.ModelCatalog.PriceLookup)
 	}
+	// 渠道承接的目录模型：渠道表单里直接勾选（按渠道整份覆盖，与按条目绑定同一套校验）
+	admin.GET("/accounts/:id/catalog-entries", h.Admin.ModelCatalog.ListAccountEntries)
+	admin.PUT("/accounts/:id/catalog-entries", h.Admin.ModelCatalog.ReplaceAccountEntries)
 }
 
 func registerChannelMonitorRoutes(admin *gin.RouterGroup, h *handler.Handlers, settingService *service.SettingService) {

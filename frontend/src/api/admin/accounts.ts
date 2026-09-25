@@ -645,6 +645,8 @@ export interface ProtocolDefaultsResponse {
   protocols: UpstreamProtocol[]
   /** 平台 → 账号模式（default / coding / zen / go）→ 协议 → 官方地址。 */
   defaults: Record<string, Record<string, ProtocolEndpoints>>
+  /** 官方域名 → 厂商（与后端 OfficialVendorOfURL 同一张表）：建第三方 key 时按地址提示厂商。 */
+  vendor_hosts: Record<string, string>
 }
 
 /**
@@ -709,17 +711,6 @@ export async function importCodexSession(payload: CodexSessionImportRequest): Pr
 
 export async function createOpenAICodexPAT(payload: OpenAICodexPATCreateRequest): Promise<Account> {
   const { data } = await apiClient.post<Account>('/admin/openai/create-from-codex-pat', payload)
-  return data
-}
-
-/**
- * Get Antigravity default model mapping from backend
- * @returns Default model mapping (from -> to)
- */
-export async function getAntigravityDefaultModelMapping(): Promise<Record<string, string>> {
-  const { data } = await apiClient.get<Record<string, string>>(
-    '/admin/accounts/antigravity/default-model-mapping'
-  )
   return data
 }
 
@@ -1050,7 +1041,6 @@ export const accountsAPI = {
   importData,
   importCodexSession,
   createOpenAICodexPAT,
-  getAntigravityDefaultModelMapping,
   batchDelete,
   batchClearError,
   batchRefresh,

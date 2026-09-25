@@ -1,145 +1,189 @@
 <template>
   <!--
-    目录条目编辑器：基本信息 / 计费与标价（含收起的「更多价格」）/ 图片视频分档 / 绑定资源，一个弹窗。
+    目录条目表单（muqian 2026-09-25 改成独立页 /model-catalog/new、/model-catalog/:id/edit，分区导航在左）：
+    基本（模型 ID 输入后按价格文件自动带出厂商 / 计费 / 价格）/ 价格（按每百万 Token 填）/ 承接的渠道（直接勾选）。
     保存是整条覆盖：表单从条目整条投影（entryToRequest），没露出的字段（优先级价、长上下文、倍率、分时…）原样写回。
-    保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定；绑定被拒时条目已保存，弹出后端原因、编辑器保持打开。
+    保存顺序：先存条目（新建时拿到 ID），再整份覆盖绑定；绑定被拒时条目已保存，弹出后端原因、表单保持打开。
   -->
-  <BaseDialog :show="show" :title="title" width="wide" @close="emit('close')">
-    <form id="model-catalog-form" class="space-y-6" @submit.prevent="save">
-      <section class="space-y-4">
-        <h3 class="text-13 font-medium text-af-ink-3">{{ t('admin.modelCatalog.editor.basics') }}</h3>
-        <div>
-          <label class="input-label">{{ t('admin.modelCatalog.fields.modelId') }}</label>
-          <input v-model="form.model_id" class="input font-mono" required data-testid="model-catalog-model-id" />
-        </div>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.displayName') }}</label>
-            <input v-model="form.display_name" class="input" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.vendor') }}</label>
-            <input v-model="form.vendor" class="input" list="model-catalog-vendor-options" data-testid="model-catalog-vendor" />
-            <datalist id="model-catalog-vendor-options">
-              <option v-for="vendor in vendorOptions" :key="vendor" :value="vendor" />
-            </datalist>
-            <p class="input-hint">{{ t('admin.modelCatalog.editor.vendorHint') }}</p>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.billingMode') }}</label>
-            <select v-model="form.billing_mode" class="input" data-testid="model-catalog-billing-mode">
-              <option v-for="mode in billingModes" :key="mode" :value="mode">
-                {{ t(`admin.modelCatalog.billingModes.${mode}`) }}
-              </option>
-            </select>
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
-            <select v-model="form.status" class="input" data-testid="model-catalog-status">
-              <option value="listed">{{ t('admin.modelCatalog.status.listed') }}</option>
-              <option value="unlisted">{{ t('admin.modelCatalog.status.unlisted') }}</option>
-            </select>
-          </div>
-        </div>
-      </section>
+  <FormPageShell :show="true" :title="title">
+    <form id="model-catalog-form" class="space-y-5" @submit.prevent="save">
+      <FormSectionHeading section="basics" :title="t('admin.modelCatalog.editor.basics')" />
 
-      <section class="space-y-4 border-t border-af-hairline pt-5">
-        <h3 class="text-13 font-medium text-af-ink-3">{{ t('admin.modelCatalog.editor.pricing') }}</h3>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.inputPrice') }}</label>
-            <input v-model.number="form.input_price" type="number" step="any" class="input" data-testid="model-catalog-input-price" />
-            <p class="input-hint">{{ perMillionHint(form.input_price) }}</p>
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.outputPrice') }}</label>
-            <input v-model.number="form.output_price" type="number" step="any" class="input" data-testid="model-catalog-output-price" />
-            <p class="input-hint">{{ perMillionHint(form.output_price) }}</p>
-          </div>
+      <div>
+        <label class="input-label">{{ t('admin.modelCatalog.fields.modelId') }}</label>
+        <div class="flex gap-2">
+          <input
+            v-model="form.model_id"
+            class="input flex-1 font-mono"
+            required
+            autocomplete="off"
+            :placeholder="t('admin.modelCatalog.editor.modelIdPlaceholder')"
+            data-testid="model-catalog-model-id"
+          />
+          <button
+            v-if="editingId"
+            type="button"
+            class="btn btn-secondary shrink-0"
+            :disabled="lookup.state === 'loading' || !form.model_id.trim()"
+            data-testid="model-catalog-price-lookup"
+            @click="lookupPrice(true)"
+          >
+            {{ t('admin.modelCatalog.editor.lookup.refill') }}
+          </button>
         </div>
-        <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div v-if="isMediaMode || form.billing_mode === 'per_request'">
-            <label class="input-label">{{ t(`admin.modelCatalog.fields.${perRequestPriceLabelKey}`) }}</label>
-            <input v-model.number="form.per_request_price" type="number" step="any" class="input" data-testid="model-catalog-per-request-price" />
-          </div>
-          <div v-else>
-            <label class="input-label">{{ t('admin.modelCatalog.fields.searchPricePerCall') }}</label>
-            <input v-model.number="form.search_price_per_call" type="number" step="any" class="input" data-testid="model-catalog-search-price-per-call" />
-          </div>
+        <p class="input-hint" data-testid="model-catalog-lookup-status">
+          {{ lookupHint }}
+          <button
+            v-if="lookup.state === 'found' && !lookup.applied"
+            type="button"
+            class="ml-1 text-af-brand hover:text-af-brand-hover"
+            data-testid="model-catalog-lookup-apply"
+            @click="lookup.entry && applyLookup(lookup.entry)"
+          >
+            {{ t('admin.modelCatalog.editor.lookup.apply') }}
+          </button>
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.displayName') }}</label>
+          <input v-model="form.display_name" class="input" :placeholder="form.model_id" />
         </div>
-        <!-- 更多价格：缓存 / 图片 / 音频的 Token 单价，默认收起；收起时也按原值写回 -->
-        <div class="space-y-3" data-testid="model-catalog-more-prices">
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.vendor') }}</label>
+          <select v-model="vendorChoice" class="input" data-testid="model-catalog-vendor">
+            <option value="">{{ t('admin.modelCatalog.editor.vendorNone') }}</option>
+            <option v-for="vendor in vendorChoices" :key="vendor" :value="vendor">{{ vendor }}</option>
+            <option :value="CUSTOM_VENDOR">{{ t('admin.modelCatalog.editor.vendorCustom') }}</option>
+          </select>
+          <input
+            v-if="customVendor"
+            v-model="form.vendor"
+            class="input mt-2"
+            :placeholder="t('admin.modelCatalog.editor.vendorCustomPlaceholder')"
+            data-testid="model-catalog-vendor-custom"
+          />
+          <p class="input-hint">{{ t('admin.modelCatalog.editor.vendorHint') }}</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.billingMode') }}</label>
+          <select v-model="form.billing_mode" class="input" data-testid="model-catalog-billing-mode">
+            <option v-for="mode in billingModes" :key="mode" :value="mode">
+              {{ t(`admin.modelCatalog.billingModes.${mode}`) }}
+            </option>
+          </select>
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.status') }}</label>
+          <select v-model="form.status" class="input" data-testid="model-catalog-status">
+            <option value="listed">{{ t('admin.modelCatalog.status.listed') }}</option>
+            <option value="unlisted">{{ t('admin.modelCatalog.status.unlisted') }}</option>
+          </select>
+          <p class="input-hint">{{ t('admin.modelCatalog.listedRequiresPrice') }}</p>
+        </div>
+      </div>
+
+      <FormSectionHeading section="pricing" :title="t('admin.modelCatalog.editor.pricing')" />
+
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.inputPrice') }}</label>
+          <PriceInput v-model="form.input_price" :scale="PER_MILLION" :unit="perMillionUnit" test-id="model-catalog-input-price" />
+        </div>
+        <div>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.outputPrice') }}</label>
+          <PriceInput v-model="form.output_price" :scale="PER_MILLION" :unit="perMillionUnit" test-id="model-catalog-output-price" />
+        </div>
+      </div>
+      <div v-if="form.billing_mode === 'token'" class="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <div v-for="field in CACHE_PRICE_FIELDS" :key="field.key">
+          <label class="input-label">{{ t(`admin.modelCatalog.fields.${field.label}`) }}</label>
+          <PriceInput v-model="form[field.key]" :scale="PER_MILLION" :unit="perMillionUnit" :test-id="`model-catalog-${field.testId}`" />
+        </div>
+      </div>
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+        <div v-if="isMediaMode || form.billing_mode === 'per_request'">
+          <label class="input-label">{{ t(`admin.modelCatalog.fields.${perRequestPriceLabelKey}`) }}</label>
+          <PriceInput v-model="form.per_request_price" :unit="perRequestUnit" test-id="model-catalog-per-request-price" />
+        </div>
+        <div v-else>
+          <label class="input-label">{{ t('admin.modelCatalog.fields.searchPricePerCall') }}</label>
+          <PriceInput v-model="form.search_price_per_call" :unit="t('admin.modelCatalog.editor.units.perCall')" test-id="model-catalog-search-price-per-call" />
+        </div>
+      </div>
+
+      <!-- 更多价格：图片 / 音频的 Token 单价（按 Token 以外的计费还有缓存价），默认收起；收起时也按原值写回 -->
+      <div class="space-y-3" data-testid="model-catalog-more-prices">
+        <button
+          type="button"
+          class="inline-flex items-center gap-1 text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
+          :aria-expanded="showMorePrices ? 'true' : 'false'"
+          data-testid="model-catalog-more-prices-toggle"
+          @click="showMorePrices = !showMorePrices"
+        >
+          <Icon name="chevronRight" size="sm" :class="['transition-transform', showMorePrices ? 'rotate-90' : '']" />
+          {{ t('admin.modelCatalog.editor.morePrices') }}
+          <span v-if="morePricesFilled > 0" class="font-normal text-af-ink-3">
+            · {{ t('admin.modelCatalog.editor.morePricesFilled', { count: morePricesFilled }) }}
+          </span>
+        </button>
+        <template v-if="showMorePrices">
+          <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.editor.morePricesHint') }}</p>
+          <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div v-for="field in morePriceFields" :key="field.key">
+              <label class="input-label">{{ t(`admin.modelCatalog.fields.${field.label}`) }}</label>
+              <PriceInput v-model="form[field.key]" :scale="PER_MILLION" :unit="perMillionUnit" :test-id="`model-catalog-${field.testId}`" />
+            </div>
+          </div>
+        </template>
+      </div>
+
+      <div v-if="isMediaMode" class="space-y-2" data-testid="model-catalog-media-tiers">
+        <div class="flex items-center justify-between">
+          <div>
+            <div class="text-sm font-medium text-af-ink">{{ t('admin.modelCatalog.tiers.title') }}</div>
+            <p class="mt-1 text-xs text-af-ink-3">{{ t(`admin.modelCatalog.tiers.hint.${form.billing_mode}`) }}</p>
+          </div>
           <button
             type="button"
-            class="inline-flex items-center gap-1 text-13 font-medium text-af-ink-2 transition-colors hover:text-af-ink"
-            :aria-expanded="showMorePrices ? 'true' : 'false'"
-            data-testid="model-catalog-more-prices-toggle"
-            @click="showMorePrices = !showMorePrices"
+            class="btn btn-secondary btn-sm"
+            :disabled="availableTierLabels.length === 0"
+            data-testid="model-catalog-media-tier-add"
+            @click="addMediaTier"
           >
-            <Icon name="chevronRight" size="sm" :class="['transition-transform', showMorePrices ? 'rotate-90' : '']" />
-            {{ t('admin.modelCatalog.editor.morePrices') }}
-            <span v-if="morePricesFilled > 0" class="font-normal text-af-ink-3">
-              · {{ t('admin.modelCatalog.editor.morePricesFilled', { count: morePricesFilled }) }}
-            </span>
+            {{ t('admin.modelCatalog.tiers.add') }}
           </button>
-          <template v-if="showMorePrices">
-            <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.editor.morePricesHint') }}</p>
-            <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <div v-for="field in MORE_PRICE_FIELDS" :key="field.key">
-                <label class="input-label">{{ t(`admin.modelCatalog.fields.${field.label}`) }}</label>
-                <input v-model.number="form[field.key]" type="number" step="any" class="input" :data-testid="`model-catalog-${field.testId}`" />
-                <p class="input-hint">{{ perMillionHint(form[field.key]) }}</p>
-              </div>
-            </div>
-          </template>
         </div>
-        <div v-if="isMediaMode" class="space-y-2" data-testid="model-catalog-media-tiers">
-          <div class="flex items-center justify-between">
-            <div>
-              <div class="text-sm font-medium text-af-ink">{{ t('admin.modelCatalog.tiers.title') }}</div>
-              <p class="mt-1 text-xs text-af-ink-3">{{ t(`admin.modelCatalog.tiers.hint.${form.billing_mode}`) }}</p>
-            </div>
-            <button
-              type="button"
-              class="btn btn-secondary btn-sm"
-              :disabled="availableTierLabels.length === 0"
-              data-testid="model-catalog-media-tier-add"
-              @click="addMediaTier"
-            >
-              {{ t('admin.modelCatalog.tiers.add') }}
-            </button>
+        <p v-if="mediaTiers.length === 0" class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.tiers.empty') }}</p>
+        <div
+          v-for="(tier, index) in mediaTiers"
+          :key="index"
+          class="grid grid-cols-[1fr_1fr_auto] items-end gap-3"
+          data-testid="model-catalog-media-tier-row"
+        >
+          <div>
+            <label class="input-label">{{ t('admin.modelCatalog.tiers.tier') }}</label>
+            <select v-model="tier.tier_label" class="input" data-testid="model-catalog-media-tier-label">
+              <option v-for="label in mediaTierLabels" :key="label" :value="label">{{ label }}</option>
+            </select>
           </div>
-          <p v-if="mediaTiers.length === 0" class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.tiers.empty') }}</p>
-          <div
-            v-for="(tier, index) in mediaTiers"
-            :key="index"
-            class="grid grid-cols-[1fr_1fr_auto] items-end gap-3"
-            data-testid="model-catalog-media-tier-row"
-          >
-            <div>
-              <label class="input-label">{{ t('admin.modelCatalog.tiers.tier') }}</label>
-              <select v-model="tier.tier_label" class="input" data-testid="model-catalog-media-tier-label">
-                <option v-for="label in mediaTierLabels" :key="label" :value="label">{{ label }}</option>
-              </select>
-            </div>
-            <div>
-              <label class="input-label">{{ t('admin.modelCatalog.tiers.price') }}</label>
-              <input v-model.number="tier.per_request_price" type="number" step="any" class="input" data-testid="model-catalog-media-tier-price" />
-            </div>
-            <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-media-tier-remove" @click="removeMediaTier(index)">
-              {{ t('admin.modelCatalog.tiers.remove') }}
-            </button>
+          <div>
+            <label class="input-label">{{ t('admin.modelCatalog.tiers.price') }}</label>
+            <PriceInput v-model="tier.per_request_price" :unit="perRequestUnit" test-id="model-catalog-media-tier-price" />
           </div>
+          <button type="button" class="btn btn-secondary btn-sm" data-testid="model-catalog-media-tier-remove" @click="removeMediaTier(index)">
+            {{ t('admin.modelCatalog.tiers.remove') }}
+          </button>
         </div>
-        <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.listedRequiresPrice') }}</p>
-        <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
-      </section>
+      </div>
+      <p class="text-xs text-af-ink-3">{{ t('admin.modelCatalog.fullReplaceHint') }}</p>
 
-      <section class="border-t border-af-hairline pt-5">
-        <CatalogBindingsEditor ref="bindingsEditorRef" v-model="bindings" :entry-id="editingId" />
-      </section>
+      <FormSectionHeading section="channels" :title="t('admin.modelCatalog.editor.channels')" />
+      <CatalogChannelPicker v-model="bindings" :entry-id="editingId" />
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -149,22 +193,25 @@
         </button>
       </div>
     </template>
-  </BaseDialog>
+  </FormPageShell>
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import type { ModelCatalogBinding, ModelCatalogEntry, ModelCatalogEntryRequest } from '@/api/admin/modelCatalog'
-import BaseDialog from '@/components/common/BaseDialog.vue'
+import FormPageShell from '@/components/admin/form/FormPageShell.vue'
+import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Icon from '@/components/icons/Icon.vue'
-import CatalogBindingsEditor from './CatalogBindingsEditor.vue'
+import CatalogChannelPicker from './CatalogChannelPicker.vue'
+import PriceInput from './PriceInput.vue'
 import {
   IMAGE_TIER_LABELS,
   NUMERIC_FIELDS,
+  OPTIONAL_NUMERIC_FIELDS,
   VIDEO_TIER_LABELS,
   applyOptionalPrices,
   entryToRequest,
@@ -175,10 +222,9 @@ import {
 } from './entryRequest'
 
 const props = defineProps<{
-  show: boolean
   /** null = 新建 */
   entry: ModelCatalogEntry | null
-  /** 目录里已有的厂商标签，给厂商输入框做联想 */
+  /** 目录里已有的厂商标签，给厂商下拉做选项 */
   vendorOptions: string[]
 }>()
 const emit = defineEmits<{ close: []; saved: [] }>()
@@ -186,11 +232,13 @@ const emit = defineEmits<{ close: []; saved: [] }>()
 const { t } = useI18n()
 const appStore = useAppStore()
 
+const PER_MILLION = 1_000_000
+const perMillionUnit = computed(() => t('admin.modelCatalog.editor.units.perMillion'))
+
 const saving = ref(false)
 const editingId = ref<number | null>(null)
 const loadedEntry = ref<ModelCatalogEntry | null>(null)
 const bindings = ref<ModelCatalogBinding[]>([])
-const bindingsEditorRef = ref<InstanceType<typeof CatalogBindingsEditor> | null>(null)
 
 // 新建用的空表单要把每个字段都列全：Object.assign 只覆盖列出的键，漏一个就会把上一次编辑的条目的值带进新条目
 const emptyForm = (): ModelCatalogEntryRequest => ({
@@ -210,8 +258,7 @@ const emptyForm = (): ModelCatalogEntryRequest => ({
 })
 const form = reactive<ModelCatalogEntryRequest>(emptyForm())
 
-// 「更多价格」里的字段：都是 $/token，和输入 / 输出价一样给百万 Token 换算
-type MorePriceKey =
+type TokenPriceKey =
   | 'cache_write_price'
   | 'cache_write_1h_price'
   | 'cache_read_price'
@@ -220,18 +267,29 @@ type MorePriceKey =
   | 'image_cache_read_price'
   | 'audio_input_price'
   | 'audio_output_price'
-const MORE_PRICE_FIELDS: ReadonlyArray<{ key: MorePriceKey; label: string; testId: string }> = [
-  { key: 'cache_write_price', label: 'cacheWritePrice', testId: 'cache-write-price' },
-  { key: 'cache_write_1h_price', label: 'cacheWrite1hPrice', testId: 'cache-write-1h-price' },
+interface PriceField {
+  key: TokenPriceKey
+  label: string
+  testId: string
+}
+// 缓存价：按 Token 计费时直接露出；其它计费模式收进「更多价格」
+const CACHE_PRICE_FIELDS: readonly PriceField[] = [
   { key: 'cache_read_price', label: 'cacheReadPrice', testId: 'cache-read-price' },
+  { key: 'cache_write_price', label: 'cacheWritePrice', testId: 'cache-write-price' },
+  { key: 'cache_write_1h_price', label: 'cacheWrite1hPrice', testId: 'cache-write-1h-price' }
+]
+const MEDIA_TOKEN_PRICE_FIELDS: readonly PriceField[] = [
   { key: 'image_input_price', label: 'imageInputPrice', testId: 'image-input-price' },
   { key: 'image_output_price', label: 'imageOutputPrice', testId: 'image-output-price' },
   { key: 'image_cache_read_price', label: 'imageCacheReadPrice', testId: 'image-cache-read-price' },
   { key: 'audio_input_price', label: 'audioInputPrice', testId: 'audio-input-price' },
   { key: 'audio_output_price', label: 'audioOutputPrice', testId: 'audio-output-price' }
 ]
+const morePriceFields = computed(() =>
+  form.billing_mode === 'token' ? MEDIA_TOKEN_PRICE_FIELDS : [...CACHE_PRICE_FIELDS, ...MEDIA_TOKEN_PRICE_FIELDS]
+)
 const showMorePrices = ref(false)
-const morePricesFilled = computed(() => MORE_PRICE_FIELDS.filter((field) => numberOrNull(form[field.key]) != null).length)
+const morePricesFilled = computed(() => morePriceFields.value.filter((field) => numberOrNull(form[field.key]) != null).length)
 
 // 与后端 BillingMode 一致；目录条目的计费模式只能是这四种。
 const billingModes = ['token', 'per_request', 'image', 'video'] as const
@@ -245,14 +303,127 @@ const perRequestPriceLabelKey = computed(() => {
   if (form.billing_mode === 'video') return 'perSecondPrice'
   return 'perRequestPrice'
 })
+const perRequestUnit = computed(() => {
+  if (form.billing_mode === 'image') return t('admin.modelCatalog.editor.units.perImage')
+  if (form.billing_mode === 'video') return t('admin.modelCatalog.editor.units.perSecond')
+  return t('admin.modelCatalog.editor.units.perCall')
+})
 const title = computed(() => (editingId.value ? t('admin.modelCatalog.edit') : t('admin.modelCatalog.create')))
 
-/** 单价是 $/token，编辑时给一行「= $x / 百万 Token」的换算，免得数零 */
-function perMillionHint(value: number | null | undefined): string {
-  const n = numberOrNull(value)
-  if (n == null) return ''
-  return t('admin.modelCatalog.editor.perMillion', { price: Number((n * 1_000_000).toFixed(4)) })
+// ── 厂商：目录已有的厂商做下拉，另可自定义 ──
+const CUSTOM_VENDOR = '__custom__'
+const customVendor = ref(false)
+const vendorChoices = computed(() =>
+  [...new Set([...props.vendorOptions, ...(customVendor.value || !form.vendor ? [] : [form.vendor])])].sort()
+)
+const vendorChoice = computed({
+  get: () => (customVendor.value ? CUSTOM_VENDOR : form.vendor ?? ''),
+  set: (value: string) => {
+    if (value === CUSTOM_VENDOR) {
+      customVendor.value = true
+      form.vendor = ''
+      return
+    }
+    customVendor.value = false
+    form.vendor = value
+  }
+})
+
+// ── 按模型 ID 从价格文件带价（新建时输入即查；编辑时点按钮） ──
+type LookupState = 'idle' | 'loading' | 'found' | 'missing' | 'error'
+const lookup = reactive({
+  state: 'idle' as LookupState,
+  entry: null as ModelCatalogEntry | null,
+  applied: false
+})
+let lookupSeq = 0
+let lookupTimer: ReturnType<typeof setTimeout> | null = null
+
+// 带价会改的字段；管理员没动过（与上次带出的值一致，或还全是空）才自动覆盖
+function autofillSnapshot(): string {
+  return JSON.stringify({
+    vendor: form.vendor,
+    billing_mode: form.billing_mode,
+    prices: [...NUMERIC_FIELDS, ...OPTIONAL_NUMERIC_FIELDS].map((field) => numberOrNull(form[field])),
+    tiers: mediaTiers.value
+  })
 }
+let lastAutofill: string | null = null
+function formUntouched(): boolean {
+  if (lastAutofill !== null) return autofillSnapshot() === lastAutofill
+  const pricesEmpty = [...NUMERIC_FIELDS, ...OPTIONAL_NUMERIC_FIELDS].every((field) => numberOrNull(form[field]) == null)
+  return !form.vendor && pricesEmpty && mediaTiers.value.length === 0
+}
+
+function applyLookup(entry: ModelCatalogEntry) {
+  const found = entryToRequest(entry)
+  customVendor.value = false
+  form.vendor = found.vendor ?? ''
+  form.billing_mode = found.billing_mode ?? 'token'
+  form.protocols = found.protocols ?? []
+  if (!form.display_name?.trim()) form.display_name = found.display_name ?? ''
+  for (const field of NUMERIC_FIELDS) form[field] = numberOrNull(found[field])
+  for (const field of OPTIONAL_NUMERIC_FIELDS) form[field] = numberOrNull(found[field])
+  mediaTiers.value = mediaTiersFromIntervals(found.intervals)
+  if (!loadedEntry.value) {
+    // 新建：区间分档与分时随带价一起写入（编辑时这两项按原值写回，见 payload）
+    form.intervals = found.intervals ?? []
+    form.time_pricing = found.time_pricing ?? null
+  }
+  lastAutofill = autofillSnapshot()
+  lookup.applied = true
+}
+
+async function lookupPrice(force: boolean) {
+  const modelId = form.model_id.trim()
+  const seq = ++lookupSeq
+  if (!modelId) {
+    lookup.state = 'idle'
+    return
+  }
+  lookup.state = 'loading'
+  try {
+    const entry = await adminAPI.modelCatalog.priceLookup(modelId)
+    if (seq !== lookupSeq) return
+    lookup.entry = entry
+    lookup.applied = false
+    if (!entry) {
+      lookup.state = 'missing'
+      return
+    }
+    lookup.state = 'found'
+    if (force || formUntouched()) applyLookup(entry)
+  } catch {
+    if (seq === lookupSeq) lookup.state = 'error'
+  }
+}
+
+watch(
+  () => form.model_id,
+  () => {
+    if (editingId.value) return
+    if (lookupTimer) clearTimeout(lookupTimer)
+    lookupTimer = setTimeout(() => {
+      lookupTimer = null
+      void lookupPrice(false)
+    }, 400)
+  }
+)
+
+const lookupHint = computed(() => {
+  switch (lookup.state) {
+    case 'loading':
+      return t('admin.modelCatalog.editor.lookup.loading')
+    case 'found':
+      return lookup.applied ? t('admin.modelCatalog.editor.lookup.applied') : t('admin.modelCatalog.editor.lookup.found')
+    case 'missing':
+      return t('admin.modelCatalog.editor.lookup.missing')
+    case 'error':
+      return t('admin.modelCatalog.editor.lookup.error')
+    default:
+      return editingId.value ? t('admin.modelCatalog.editor.lookup.editIdle') : t('admin.modelCatalog.editor.lookup.idle')
+  }
+})
 
 function addMediaTier() {
   const label = availableTierLabels.value[0]
@@ -269,9 +440,13 @@ function showApiError(error: unknown) {
 }
 
 async function loadFor(entry: ModelCatalogEntry | null) {
-  bindingsEditorRef.value?.reset()
   bindings.value = []
   showMorePrices.value = false
+  customVendor.value = false
+  lastAutofill = null
+  lookup.state = 'idle'
+  lookup.entry = null
+  lookup.applied = false
   if (!entry) {
     editingId.value = null
     loadedEntry.value = null
@@ -290,14 +465,17 @@ async function loadFor(entry: ModelCatalogEntry | null) {
   }
 }
 
-// 每次打开按传入的条目重置（同一条目重复打开也重新拉绑定，避免显示上一次没保存的工作副本）
 watch(
-  () => [props.show, props.entry] as const,
-  ([show, entry]) => {
-    if (show) void loadFor(entry)
+  () => props.entry,
+  (entry) => {
+    void loadFor(entry)
   },
   { immediate: true }
 )
+
+onBeforeUnmount(() => {
+  if (lookupTimer) clearTimeout(lookupTimer)
+})
 
 function payload(): ModelCatalogEntryRequest {
   const body: ModelCatalogEntryRequest = {

@@ -288,6 +288,28 @@ func normalizeAccountConcurrency(platform, accountType string, concurrency int) 
 
 // Grok media eligibility helpers live in account_grok_media_eligibility.go.
 
+// resolveCreateAccountPlatform 第三方 key 不再要求填平台（管理端添加渠道先选「第三方 key / 成品号」，
+// key 只填地址 + Key，2026-09-25）：没带平台时按地址推导——认得出官方厂商就是该厂商，指向中转的按主协议归族
+// （AccountModelFamily）。这个标签仍用于无模型接口（联网搜索 / 语音 / live）按平台归池。成品号的厂商决定授权流程，必须填。
+func resolveCreateAccountPlatform(input *CreateAccountInput) error {
+	input.Platform = strings.TrimSpace(input.Platform)
+	if input.Platform != "" {
+		return nil
+	}
+	if input.Type != AccountTypeAPIKey {
+		return infraerrors.BadRequest("ACCOUNT_PLATFORM_REQUIRED", "platform is required for subscription accounts")
+	}
+	endpoints, err := NormalizeProtocolEndpoints(input.ProtocolEndpoints)
+	if err != nil {
+		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", err.Error())
+	}
+	if len(endpoints) == 0 {
+		return infraerrors.BadRequest("INVALID_PROTOCOL_ENDPOINTS", "a third-party key needs one upstream protocol endpoint")
+	}
+	input.Platform = AccountModelFamily(&Account{Type: AccountTypeAPIKey, ProtocolEndpoints: endpoints})
+	return nil
+}
+
 func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]any) (*Account, error) {
 	// Probe/session state is system-managed. New accounts always start with automatic refresh disabled.
 	delete(accountExtra, UpstreamBillingProbeEnabledExtraKey)
@@ -358,6 +380,9 @@ func buildAccountForCreate(input *CreateAccountInput, accountExtra map[string]an
 }
 
 func (s *adminServiceImpl) CreateAccount(ctx context.Context, input *CreateAccountInput) (*Account, error) {
+	if err := resolveCreateAccountPlatform(input); err != nil {
+		return nil, err
+	}
 	accountExtra, err := normalizeGrokMediaEligibilityExtra(input.Platform, input.Extra)
 	if err != nil {
 		return nil, err

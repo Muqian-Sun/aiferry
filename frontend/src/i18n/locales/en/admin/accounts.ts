@@ -92,6 +92,74 @@ export default {
           advanced: 'Advanced'
         }
       },
+      // Add channel, step one: access type and source (2026-09-25)
+      accessSource: {
+        kindLabel: 'Access type',
+        accountLabel: 'Whose account',
+        kinds: {
+          key: {
+            title: 'Third-party key',
+            description: 'An API key from a vendor or a relay: fill in the protocol, address and key; the vendor is detected from the address'
+          },
+          subscription: {
+            title: 'Subscription account',
+            description: 'Subscription or cloud accounts that only use official endpoints'
+          }
+        },
+        hints: {
+          key: 'Protocol, address and key',
+          claude: 'Claude Code OAuth / setup token',
+          chatgpt: 'ChatGPT subscription (Codex OAuth)',
+          gemini: 'Google One / Code Assist',
+          antigravity: 'Antigravity OAuth',
+          grok: 'Grok subscription OAuth',
+          bedrock: 'AWS access keys or a Bedrock API key',
+          vertexClaude: 'GCP service account for Claude on Vertex',
+          vertexGemini: 'GCP service account for Gemini on Vertex'
+        }
+      },
+      // The add-channel form shows only required fields; the rest is under "More settings"
+      moreSettings: {
+        title: 'More settings',
+        hint: 'Notes, expiry, concurrency and quotas, proxy, protocol switches, model renames and more; defaults apply if left alone'
+      },
+      // Third-party key address: fill from common official addresses; the vendor is detected from the address
+      keyAddress: {
+        presetPlaceholder: 'Fill from a common official address…',
+        detected: 'Detected from the address: {vendor}',
+        relay: 'No official vendor recognised: treated as a relay, standard protocols only'
+      },
+      // Catalog models this channel serves (picked right in the channel form)
+      catalogEntries: {
+        title: 'Models served',
+        hint: 'Tick the models this channel can serve; requests for them are scheduled to it. Unlisted models reach users only after they are listed on the Models page.',
+        selected: '{count} selected',
+        clear: 'Clear',
+        searchPlaceholder: 'Search model ID or name',
+        listedOnly: 'Listed only',
+        loading: 'Loading the model catalog…',
+        loadFailed: 'Failed to load the model catalog',
+        retry: 'Retry',
+        emptyCatalog: 'The model catalog is empty. Add models on the Models page first.',
+        noMatch: 'No matching models',
+        otherVendors: 'Other',
+        selectAll: 'Select all',
+        deselectAll: 'Select none',
+        unlisted: 'Unlisted',
+        edit: 'Change',
+        collapse: 'Collapse',
+        noneSelected: 'No models ticked: the channel will serve no models until you tick some on its edit page.',
+        andMore: 'and {count} more',
+        bindFailed: 'The channel was created, but its models were not saved: {message}. Tick them again on the edit page.',
+        saveFailed: 'The channel was saved, but its models were not: {message}. Click Save again to retry.',
+        loadBoundFailed: 'Could not load the models this channel serves. Reload the page before changing them.'
+      },
+      // Model renames (the mapping only renames; it does not restrict which models are served)
+      modelRename: {
+        title: 'Model renames (optional)',
+        hint: 'Rename requested models to the names the upstream expects: the requested model on the left, the model sent upstream on the right. Renames do not restrict which models the channel serves; the models ticked above do.',
+        vendorTableHint: 'This upstream has its own model table: a model missing from it is served only after you add a row for it here (the same name on both sides is fine).'
+      },
       deleteAccount: 'Delete Channel',
       searchAccounts: 'Search channel name',
       notes: 'Notes',
@@ -171,13 +239,8 @@ export default {
       },
       types: {
         oauth: 'OAuth',
-        chatgptOauth: 'ChatGPT OAuth',
-        responsesApi: 'Responses API',
         googleOauth: 'Google OAuth',
         codeAssist: 'Code Assist',
-        antigravityOauth: 'Antigravity OAuth',
-        grokOauth: 'Grok OAuth',
-        antigravityApikey: 'Connect via Base URL + API Key'
       },
       antigravityProjectIdLabel: 'GCP Project ID (optional)',
       antigravityProjectIdPlaceholder: 'your-gcp-project-id',
@@ -537,11 +600,6 @@ export default {
       platform: 'Platform',
       accountName: 'Account Name',
       enterAccountName: 'Enter account name',
-      accountType: 'Account Type',
-      claudeCode: 'Claude Code',
-      claudeConsole: 'Claude Console',
-      bedrockLabel: 'AWS Bedrock',
-      bedrockDesc: 'SigV4 / API Key',
       vertexLabel: 'Vertex',
       vertexDesc: 'Service Account',
       vertexAnthropicHint: 'Use a Google Cloud Service Account JSON to call Anthropic Claude via Vertex AI. It is recommended to configure model mapping to map client Claude model names to Vertex model IDs.',
@@ -562,20 +620,20 @@ export default {
       vertexSaJsonMissingClientEmail: 'Service Account JSON is missing client_email',
       vertexSaJsonInvalid: 'Service Account JSON format is invalid',
       vertexSaJsonRequired: 'Please upload a Service Account JSON',
-      oauthSetupToken: 'OAuth / Setup Token',
       addMethod: 'Add Method',
       setupTokenLongLived: 'Setup Token (Long-lived)',
       protocolEndpoints: {
-        title: 'Protocol endpoints',
-        hint: 'Third-party keys are forwarded only to these addresses and never fall back to a default. Official addresses are prefilled for official keys; for an aggregator, replace them with its addresses and remove unsupported protocols.',
+        title: 'Upstream address',
+        hint: 'A channel serves exactly one protocol: pick the protocol and fill in the address. To serve several protocols from one upstream, create one channel per protocol. Third-party keys are forwarded only to this address and never fall back to a default.',
         urlPlaceholder: 'https://api.example.com',
-        add: 'Add {protocol}',
-        remove: 'Remove {protocol} endpoint',
-        empty: 'No protocol endpoint configured yet; at least one is required.',
-        loadFailed: 'Failed to load official addresses. Please fill in each protocol endpoint manually.',
-        restoreOfficial: 'Use official addresses',
+        protocolLabel: 'Protocol',
+        choose: 'Choose a protocol',
+        empty: 'No protocol and address yet.',
+        loadFailed: 'Failed to load official addresses. Please fill in the address manually.',
+        restoreOfficial: 'Use official address',
         errors: {
-          empty: 'Configure at least one protocol endpoint',
+          empty: 'Choose a protocol and fill in the address',
+          multiple: 'A channel can serve only one protocol',
           blank: 'The {protocol} endpoint cannot be empty'
         },
         protocols: {
@@ -758,16 +816,8 @@ export default {
         bedrockCCCompatDesc:
           'Strip Claude Code-only request fields and unsupported anthropic-beta tokens before forwarding, for upstreams that speak the Bedrock Anthropic dialect.',
       },
-      modelRestriction: 'Model Restriction (Optional)',
-      modelWhitelist: 'Model Whitelist',
-      modelMapping: 'Model Mapping',
       fromModel: 'Request model',
       toModel: 'Target model',
-      selectAllowedModels: 'Select allowed models. Leave empty to support all models.',
-      mapRequestModels:
-        'Map request models to actual models. Left is the requested model, right is the actual model sent to API.',
-      selectedModels: 'Selected {count} model(s)',
-      supportsAllModels: '(supports all models)',
       requestModel: 'Request model',
       actualModel: 'Actual model',
       addMapping: 'Add Mapping',
@@ -1030,10 +1080,7 @@ export default {
       leaveEmptyToKeep: 'Leave empty to keep current key',
       // Upstream type
       upstream: {
-        baseUrlHint: 'Enter the exact upstream address; no path is appended automatically. Third-party gateways usually look like https://relay.example.com/antigravity',
-        apiKey: 'Upstream API Key',
         apiKeyHint: 'API Key for the upstream service',
-        pleaseEnterApiKey: 'Please enter upstream API Key'
       },
       // OAuth flow
       oauth: {
@@ -1327,12 +1374,6 @@ export default {
           }
         },
         accountType: {
-          oauthTitle: 'OAuth (Gemini)',
-          oauthDesc: 'Authorize with your Google account and choose an OAuth type.',
-          apiKeyTitle: 'API Key (AI Studio)',
-          apiKeyDesc: 'Fastest setup. Use an AIza API key.',
-          apiKeyNote:
-            'Best for light testing. Free tier has strict rate limits and data may be used for training.',
           apiKeyLink: 'Get API Key',
           quotaLink: 'Quota guide'
         },
