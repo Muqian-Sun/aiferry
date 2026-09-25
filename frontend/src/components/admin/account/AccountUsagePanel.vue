@@ -110,16 +110,22 @@ const summaryItems = computed<StatItem[]>(() => {
   return [
     { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(s.total_actual_cost), hint: dailyHint(formatMoney(s.avg_daily_actual_cost)) },
     { key: 'cost', label: t('common.money.cost'), value: formatMoney(s.total_account_cost), hint: dailyHint(formatMoney(s.avg_daily_account_cost)) },
-    { key: 'profit', label: t('common.money.profit'), value: formatMoney(profitOf(s.total_actual_cost, s.total_account_cost)), hint: t('common.money.profitHint') },
+    {
+      key: 'profit',
+      label: t('common.money.profit'),
+      value: formatMoney(profitOf(s.total_actual_cost, s.total_account_cost)),
+      hint: t('common.money.profitHint'),
+      valueClass: profitTextClass(profitOf(s.total_actual_cost, s.total_account_cost))
+    },
     { key: 'requests', label: t('admin.accounts.stats.requests'), value: formatCount(s.total_requests), hint: dailyHint(formatCount(Math.round(s.avg_daily_requests))) }
   ]
 })
 
 // ---------- 趋势 ----------
-// 趋势组件的 cost 指标画的是点上的 actual_cost，这里就是收入
-const trendMetric = ref<UsageTrendMetric>('cost')
+const trendMetric = ref<UsageTrendMetric>('revenue')
 const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() => [
-  { key: 'cost', label: t('common.money.revenue') },
+  { key: 'revenue', label: t('common.money.revenue') },
+  { key: 'profit', label: t('common.money.profit') },
   { key: 'requests', label: t('admin.accounts.stats.requests') },
   { key: 'tokens', label: t('admin.accounts.stats.tokens') }
 ])
@@ -134,7 +140,8 @@ const trendPoints = computed<TrendDataPoint[]>(() =>
     total_tokens: day.tokens,
     // 趋势组件的点结构要求有标价字段；管理站不显示标价，接口也不再返回，这里不填
     cost: 0,
-    actual_cost: day.actual_cost
+    actual_cost: day.actual_cost,
+    account_cost: day.account_cost
   }))
 )
 

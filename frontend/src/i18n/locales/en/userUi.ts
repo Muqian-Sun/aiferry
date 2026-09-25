@@ -141,7 +141,6 @@ export default {
       trend: {
         tokens: 'Tokens',
         requests: 'Requests',
-        cost: 'Cost',
         empty: 'No data in this period'
       },
       share: 'Share',

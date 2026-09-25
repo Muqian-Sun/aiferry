@@ -27,11 +27,9 @@ import type { TrendDataPoint } from '@/types'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 /**
- * revenue = 收入（actual_cost）；profit = 利润（actual_cost − account_cost，只有管理端趋势接口带 account_cost）。
- * cost 是旧叫法：同样画 actual_cost、标签「费用」，用量页和渠道抽屉还在用（渠道抽屉把渠道成本塞进了 actual_cost），
- * 两处改用 revenue / 自己的成本口径后删掉。
+ * revenue = 收入（actual_cost）；profit = 利润（actual_cost − account_cost，只有管理端的趋势数据带 account_cost）。
  */
-export type UsageTrendMetric = 'tokens' | 'requests' | 'revenue' | 'profit' | 'cost'
+export type UsageTrendMetric = 'tokens' | 'requests' | 'revenue' | 'profit'
 
 const props = defineProps<{
   trendData: TrendDataPoint[]
@@ -51,8 +49,7 @@ const labelKeys: Record<UsageTrendMetric, string> = {
   tokens: 'userUi.usage.trend.tokens',
   requests: 'userUi.usage.trend.requests',
   revenue: 'common.money.revenue',
-  profit: 'common.money.profit',
-  cost: 'userUi.usage.trend.cost'
+  profit: 'common.money.profit'
 }
 const metricLabel = computed(() => t(labelKeys[props.metric]))
 

@@ -141,7 +141,6 @@ export default {
       trend: {
         tokens: 'Token',
         requests: '请求',
-        cost: '费用',
         empty: '这段时间没有数据'
       },
       share: '占比',

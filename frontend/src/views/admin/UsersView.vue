@@ -495,9 +495,11 @@ const DEFAULT_HIDDEN_COLUMNS = [
 ]
 const columnSettings = useColumnSettings({
   storageKey: 'admin-users-columns',
-  version: 2,
+  version: 3,
   columns: allColumns,
   defaultHidden: DEFAULT_HIDDEN_COLUMNS,
+  // 自定义属性列是异步加载后才出现的，按列名规则默认收起（方案：默认只留六列）
+  defaultHiddenMatch: (key) => key.startsWith('attr_'),
   alwaysVisible: ['email', 'actions']
 })
 const isColumnVisible = columnSettings.isVisible
