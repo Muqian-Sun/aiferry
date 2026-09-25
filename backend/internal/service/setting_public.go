@@ -179,8 +179,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyHomeContent,
 		SettingKeyCompactHomeEnabled,
 		SettingKeyHideCcsImportButton,
-		SettingKeyPurchaseSubscriptionEnabled,
-		SettingKeyPurchaseSubscriptionURL,
 		SettingKeyTableDefaultPageSize,
 		SettingKeyTablePageSizeOptions,
 		SettingKeyCustomMenuItems,
@@ -205,7 +203,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWeChatConnectFrontendRedirectURL,
 		SettingKeyBackendModeEnabled,
 		SettingPaymentEnabled,
-		SettingBalancePayDisabled,
 		SettingKeyOIDCConnectEnabled,
 		SettingKeyOIDCConnectProviderName,
 		SettingKeyGitHubOAuthEnabled,
@@ -223,7 +220,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyChannelMonitorHideThroughput,
 		SettingKeyChannelMonitorShowQuota,
 		SettingKeyChannelMonitorHideUserRanking,
-		SettingKeySubscriptionEnabled,
 		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
@@ -318,8 +314,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		HomeContent:                         settings[SettingKeyHomeContent],
 		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
-		PurchaseSubscriptionEnabled:         settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
-		PurchaseSubscriptionURL:             strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
 		TableDefaultPageSize:                tableDefaultPageSize,
 		TablePageSizeOptions:                tablePageSizeOptions,
 		CustomMenuItems:                     settings[SettingKeyCustomMenuItems],
@@ -332,7 +326,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		WeChatOAuthMobileEnabled:            weChatMobileEnabled,
 		BackendModeEnabled:                  settings[SettingKeyBackendModeEnabled] == "true",
 		PaymentEnabled:                      settings[SettingPaymentEnabled] == "true",
-		PaymentBalanceDisabled:              settings[SettingBalancePayDisabled] == "true",
 		OIDCOAuthEnabled:                    oidcEnabled,
 		OIDCOAuthProviderName:               oidcProviderName,
 		GitHubOAuthEnabled:                  gitHubEnabled,
@@ -348,8 +341,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		ChannelMonitorHideThroughput:         !isFalseSettingValue(settings[SettingKeyChannelMonitorHideThroughput]),
 		ChannelMonitorShowQuota:              settings[SettingKeyChannelMonitorShowQuota] == "true",
 		ChannelMonitorHideUserRanking:        isTrueSettingValue(settings[SettingKeyChannelMonitorHideUserRanking]),
-
-		SubscriptionEnabled: !isFalseSettingValue(settings[SettingKeySubscriptionEnabled]),
 
 		PluginManagementEnabled: settings[SettingKeyPluginManagementEnabled] == "true",
 
@@ -523,8 +514,6 @@ type PublicSettingsInjectionPayload struct {
 	HomeContent                         string                   `json:"home_content"`
 	CompactHomeEnabled                  bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton                 bool                     `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled         bool                     `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL             string                   `json:"purchase_subscription_url"`
 	TableDefaultPageSize                int                      `json:"table_default_page_size"`
 	TablePageSizeOptions                []int                    `json:"table_page_size_options"`
 	CustomMenuItems                     json.RawMessage          `json:"custom_menu_items"`
@@ -541,7 +530,6 @@ type PublicSettingsInjectionPayload struct {
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                      bool                     `json:"payment_enabled"`
-	PaymentBalanceDisabled              bool                     `json:"payment_balance_disabled"`
 	Version                             string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移），高峰时段等服务端本地时间窗口的展示标注用
 	ServerTimezone              string  `json:"server_timezone"`
@@ -566,7 +554,6 @@ type PublicSettingsInjectionPayload struct {
 	// from non-admin channel-monitor v2 viewers; default false (visible).
 	ChannelMonitorHideUserRanking bool `json:"channel_monitor_hide_user_ranking"`
 	ChannelMonitorShowQuota       bool `json:"channel_monitor_show_quota"`
-	SubscriptionEnabled           bool `json:"subscription_enabled"`
 	PluginManagementEnabled       bool `json:"plugin_management_enabled"`
 	AffiliateEnabled              bool `json:"affiliate_enabled"`
 	RiskControlEnabled            bool `json:"risk_control_enabled"`
@@ -613,8 +600,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
 		HideCcsImportButton:                 settings.HideCcsImportButton,
-		PurchaseSubscriptionEnabled:         settings.PurchaseSubscriptionEnabled,
-		PurchaseSubscriptionURL:             settings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                settings.TableDefaultPageSize,
 		TablePageSizeOptions:                settings.TablePageSizeOptions,
 		CustomMenuItems:                     filterUserVisibleMenuItems(settings.CustomMenuItems),
@@ -631,7 +616,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
-		PaymentBalanceDisabled:              settings.PaymentBalanceDisabled,
 		Version:                             s.version,
 		ServerTimezone:                      timezone.Name(),
 		ServerUTCOffset:                     timezone.UTCOffset(),
@@ -646,7 +630,6 @@ func (s *SettingService) GetPublicSettingsForInjection(ctx context.Context) (any
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
-		SubscriptionEnabled:                  settings.SubscriptionEnabled,
 		PluginManagementEnabled:              settings.PluginManagementEnabled,
 		AffiliateEnabled:                     settings.AffiliateEnabled,
 		RiskControlEnabled:                   settings.RiskControlEnabled,
@@ -702,8 +685,8 @@ func safeRawJSONArray(raw string) json.RawMessage {
 	return json.RawMessage("[]")
 }
 
-// GetFrameSrcOrigins returns deduplicated http(s) origins from home_content URL,
-// purchase_subscription_url, and all custom_menu_items URLs. Used by the router layer for CSP frame-src injection.
+// GetFrameSrcOrigins returns deduplicated http(s) origins from home_content URL
+// and all custom_menu_items URLs. Used by the router layer for CSP frame-src injection.
 func (s *SettingService) GetFrameSrcOrigins(ctx context.Context) ([]string, error) {
 	settings, err := s.GetPublicSettings(ctx)
 	if err != nil {
@@ -724,11 +707,6 @@ func (s *SettingService) GetFrameSrcOrigins(ctx context.Context) ([]string, erro
 
 	// home content URL (when home_content is set to a URL for iframe embedding)
 	addOrigin(settings.HomeContent)
-
-	// purchase subscription URL
-	if settings.PurchaseSubscriptionEnabled {
-		addOrigin(settings.PurchaseSubscriptionURL)
-	}
 
 	// all custom menu items (including admin-only, since CSP must allow all iframes)
 	for _, item := range parseCustomMenuItemURLs(settings.CustomMenuItems) {

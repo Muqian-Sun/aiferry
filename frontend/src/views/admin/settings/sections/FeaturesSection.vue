@@ -87,36 +87,6 @@
     <div class="card">
       <div class="border-b border-af-hairline px-6 py-4">
         <h2 class="text-lg font-semibold text-af-ink">
-          {{ t('admin.settings.features.siteBillingMode.title') }}
-        </h2>
-        <p class="mt-1 text-sm text-af-ink-3">
-          {{ t('admin.settings.features.siteBillingMode.description') }}
-        </p>
-      </div>
-      <div class="space-y-5 p-6">
-        <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-          <div class="min-w-0">
-            <label class="text-sm font-medium text-af-ink-2">
-              {{ t('admin.settings.features.siteBillingMode.label') }}
-            </label>
-            <p class="mt-0.5 text-xs text-af-ink-3">
-              {{ siteBillingModeHint }}
-            </p>
-          </div>
-          <div class="w-full shrink-0 sm:w-56">
-            <Select
-              :modelValue="siteBillingMode"
-              :options="siteBillingModeOptions"
-              @update:modelValue="siteBillingMode = $event as SiteBillingMode"
-            />
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="border-b border-af-hairline px-6 py-4">
-        <h2 class="text-lg font-semibold text-af-ink">
           {{ t('admin.settings.features.riskControl.title') }}
         </h2>
         <p class="mt-1 text-sm text-af-ink-3">
@@ -151,16 +121,11 @@
 
 <script setup lang="ts">
 // 系统设置 › features（A6 从 SettingsView 拆出，卡片模板原样搬来；状态与逻辑在 useSettingsPage）
-import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
-import type { SiteBillingMode } from '@/utils/siteBillingMode'
 import { useSettingsPageContext } from '../useSettingsPage'
 
 const {
   form,
-  siteBillingMode,
-  siteBillingModeHint,
-  siteBillingModeOptions,
   t
 } = useSettingsPageContext()
 </script>

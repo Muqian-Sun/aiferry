@@ -595,7 +595,6 @@ export interface SystemSettings {
   payment_order_timeout_minutes: number;
   payment_max_pending_orders: number;
   payment_enabled_types: string[];
-  payment_balance_disabled: boolean;
   payment_usd_to_cny_rate: number;
   payment_recharge_fee_rate: number;
   payment_load_balance_strategy: string;
@@ -629,9 +628,6 @@ export interface SystemSettings {
   channel_monitor_hide_user_ranking?: boolean;
 
   // Available Channels feature switch
-
-  // Subscription feature switch (user sidebar "My Subscriptions" entry)
-  subscription_enabled: boolean;
 
   // Model Plaza feature switches + description
   model_plaza_description: string;
@@ -860,7 +856,6 @@ export interface UpdateSettingsRequest {
   payment_order_timeout_minutes?: number;
   payment_max_pending_orders?: number;
   payment_enabled_types?: string[];
-  payment_balance_disabled?: boolean;
   payment_usd_to_cny_rate?: number;
   payment_recharge_fee_rate?: number;
   payment_load_balance_strategy?: string;
@@ -893,9 +888,6 @@ export interface UpdateSettingsRequest {
   channel_monitor_hide_user_ranking?: boolean;
 
   // Available Channels feature switch
-
-  // Subscription feature switch
-  subscription_enabled?: boolean;
 
   // Model Plaza feature switches + description
   model_plaza_description?: string;

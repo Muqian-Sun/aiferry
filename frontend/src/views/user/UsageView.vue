@@ -162,7 +162,7 @@
 import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { keysAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -330,8 +330,8 @@ const compactionOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('usage.allCompactionTypes') },
   { value: true, label: t('usage.compactionOnly') },
 ])
-// 订阅功能关闭后只剩余额计费，「计费类型」筛选（余额/订阅）失去意义，整块隐藏。
-const subscriptionFeatureEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
+// 订阅不显示时只剩余额计费，「计费类型」筛选（余额/订阅）失去意义，整块隐藏。
+const subscriptionFeatureEnabled = SITE_FEATURES.subscription
 const billingTypeOptions = computed<SelectOption[]>(() => [
   { value: null, label: t('admin.usage.allBillingTypes') },
   { value: 0, label: t('admin.usage.billingTypeBalance') },

@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RouteLocation, RouteRecordRaw } from 'vue-router'
 
 vi.mock('@/utils/featureFlags', () => ({
-  FeatureFlags: { payment: 'payment_enabled', subscription: 'subscription_enabled', affiliate: 'affiliate_enabled' },
+  FeatureFlags: { payment: 'payment_enabled', affiliate: 'affiliate_enabled' },
   isFeatureFlagEnabled: () => true,
   resolveFeatureFlag: () => true,
 }))

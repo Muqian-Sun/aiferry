@@ -76,8 +76,6 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		HomeContent:                         settings.HomeContent,
 		CompactHomeEnabled:                  settings.CompactHomeEnabled,
 		HideCcsImportButton:                 settings.HideCcsImportButton,
-		PurchaseSubscriptionEnabled:         settings.PurchaseSubscriptionEnabled,
-		PurchaseSubscriptionURL:             settings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                settings.TableDefaultPageSize,
 		TablePageSizeOptions:                settings.TablePageSizeOptions,
 		CustomMenuItems:                     dto.ParseUserVisibleMenuItems(settings.CustomMenuItems),
@@ -94,7 +92,6 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		GoogleOAuthEnabled:                  settings.GoogleOAuthEnabled,
 		BackendModeEnabled:                  settings.BackendModeEnabled,
 		PaymentEnabled:                      settings.PaymentEnabled,
-		PaymentBalanceDisabled:              settings.PaymentBalanceDisabled,
 		Version:                             h.version,
 		ServerTimezone:                      timezone.Name(),
 		ServerUTCOffset:                     timezone.UTCOffset(),
@@ -109,8 +106,6 @@ func (h *SettingHandler) GetPublicSettings(c *gin.Context) {
 		ChannelMonitorHideThroughput:         settings.ChannelMonitorHideThroughput,
 		ChannelMonitorShowQuota:              settings.ChannelMonitorShowQuota,
 		ChannelMonitorHideUserRanking:        settings.ChannelMonitorHideUserRanking,
-
-		SubscriptionEnabled: settings.SubscriptionEnabled,
 
 		PluginManagementEnabled: settings.PluginManagementEnabled,
 

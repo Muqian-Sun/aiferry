@@ -1,12 +1,12 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, watch } from 'vue'
+import { onBeforeUnmount, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import AppShell from '@/app/AppShell.vue'
 import AnnouncementNotice from '@/components/user/AnnouncementNotice.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAnnouncementStore } from '@/stores/announcements'
-import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 
 // 用户站的壳是 components/user/shell/SiteShell（顶部导航，无侧栏）；SITE_LAYOUT 注入只剩管理后台在用。
 const router = useRouter()
@@ -20,9 +20,7 @@ function onVisibilityChange() {
   }
 }
 
-// 订阅功能开关（opt-out）。关闭后不再预加载/轮询订阅接口；开关在登录后才到达时补启动，反向则清空。
-const subscriptionFeatureEnabled = computed(() => isFeatureFlagEnabled(FeatureFlags.subscription))
-
+// 订阅不显示时（SITE_FEATURES.subscription）不预加载 / 轮询订阅接口。
 function startSubscriptionSync() {
   subscriptionStore.fetchActiveSubscriptions().catch((error) => {
     console.error('Failed to preload subscriptions:', error)
@@ -30,23 +28,13 @@ function startSubscriptionSync() {
   subscriptionStore.startPolling()
 }
 
-watch(subscriptionFeatureEnabled, (enabled) => {
-  if (!authStore.isAuthenticated) return
-  if (enabled) {
-    startSubscriptionSync()
-  } else {
-    subscriptionStore.clear()
-  }
-})
-
 // Watch for authentication state and manage subscription data + announcements
 watch(
   () => authStore.isAuthenticated,
   (isAuthenticated, oldValue) => {
     if (isAuthenticated) {
-      // User logged in: preload subscriptions and start polling (skipped when the
-      // subscription feature is switched off; see the flag watcher above)
-      if (subscriptionFeatureEnabled.value) {
+      // User logged in: preload subscriptions and start polling
+      if (SITE_FEATURES.subscription) {
         startSubscriptionSync()
       }
 

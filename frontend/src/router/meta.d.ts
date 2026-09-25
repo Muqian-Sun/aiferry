@@ -56,7 +56,7 @@ declare module 'vue-router' {
     requiresRiskControl?: boolean
 
     /**
-     * 是否要求订阅功能开关（subscription_enabled，opt-out）未被显式关闭
+     * 是否属于订阅功能（SITE_FEATURES.subscription 为 false 时拦回首页）
      * @default false
      */
     requiresSubscription?: boolean

@@ -1,23 +1,18 @@
 /**
  * 当前路由的页标题 / 说明（与 document.title 共用 resolveRouteMetaKeys 的解析）。
- * 自定义页取管理员配置的菜单 label；充值页标题随站点计费模式切换。
+ * 自定义页取管理员配置的菜单 label。
  */
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { getSiteContext } from '@/app/siteContext'
-import { useAppStore } from '@/stores/app'
 import { resolveRouteMetaKeys } from '@/router/title'
-import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 
 export function usePageTitle() {
   const route = useRoute()
   const { t } = useI18n()
-  const appStore = useAppStore()
 
-  const metaKeys = computed(() =>
-    resolveRouteMetaKeys(route, { billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings) })
-  )
+  const metaKeys = computed(() => resolveRouteMetaKeys(route))
 
   const title = computed(() => {
     if (route.name === 'CustomPage') {

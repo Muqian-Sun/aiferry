@@ -209,7 +209,6 @@ export default {
     mySubscriptions: '我的订阅',
     buySubscription: '充值/订阅',
     recharge: '充值',
-    subscribe: '订阅',
     docs: '文档',
     orderManagement: '订单管理',
     paymentConfig: '支付配置',

@@ -242,7 +242,7 @@ describe('KeyUsageView daily detail', () => {
   })
 })
 
-describe('KeyUsageView subscription feature flag', () => {
+describe('KeyUsageView billing row wording', () => {
   beforeEach(() => {
     localStorage.clear()
     Object.defineProperty(window, 'matchMedia', {
@@ -291,16 +291,8 @@ describe('KeyUsageView subscription feature flag', () => {
     return wrapper
   }
 
-  it('labels the wallet row "Subscription Type" while subscriptions are enabled', async () => {
-    const wrapper = await mountAndQuery()
-
-    expect(wrapper.text()).toContain('Subscription Type')
-    expect(wrapper.text()).toContain('Wallet Balance')
-    wrapper.unmount()
-  })
-
-  it('drops the "Subscription" wording from the wallet row when subscriptions are disabled', async () => {
-    appStoreState.cachedPublicSettings = { subscription_enabled: false }
+  // 订阅由代码决定显不显示（SITE_FEATURES.subscription，现在是 false）
+  it('drops the "Subscription" wording from the wallet row while subscriptions are hidden', async () => {
     const wrapper = await mountAndQuery()
 
     expect(wrapper.text()).toContain('Billing Type')

@@ -8,27 +8,27 @@ vi.mock('@/api/auth', () => ({
   getPublicSettings: vi.fn(),
 }))
 
-describe('FeatureFlags.subscription', () => {
+describe('FeatureFlags.payment', () => {
   beforeEach(() => {
     setActivePinia(createPinia())
     delete (window as any).__APP_CONFIG__
   })
 
-  it('reads subscription_enabled as an opt-out flag: visible before settings load', () => {
-    expect(FeatureFlags.subscription.key).toBe('subscription_enabled')
-    expect(FeatureFlags.subscription.mode).toBe('opt-out')
+  it('reads payment_enabled as an opt-out flag: visible before settings load', () => {
+    expect(FeatureFlags.payment.key).toBe('payment_enabled')
+    expect(FeatureFlags.payment.mode).toBe('opt-out')
     expect(useAppStore().cachedPublicSettings).toBeNull()
-    expect(isFeatureFlagEnabled(FeatureFlags.subscription)).toBe(true)
+    expect(isFeatureFlagEnabled(FeatureFlags.payment)).toBe(true)
   })
 
   it('hides only when the backend explicitly sends false', () => {
     const store = useAppStore()
-    const sidebarFlag = makeSidebarFlag(FeatureFlags.subscription)
+    const sidebarFlag = makeSidebarFlag(FeatureFlags.payment)
 
-    store.cachedPublicSettings = { subscription_enabled: false } as PublicSettings
+    store.cachedPublicSettings = { payment_enabled: false } as PublicSettings
     expect(sidebarFlag()).toBe(false)
 
-    store.cachedPublicSettings = { subscription_enabled: true } as PublicSettings
+    store.cachedPublicSettings = { payment_enabled: true } as PublicSettings
     expect(sidebarFlag()).toBe(true)
 
     store.cachedPublicSettings = {} as PublicSettings
@@ -42,20 +42,20 @@ describe('resolveFeatureFlag', () => {
   })
 
   it('reads an explicit boolean from the given settings object', () => {
-    expect(resolveFeatureFlag({ subscription_enabled: false } as PublicSettings, FeatureFlags.subscription)).toBe(false)
-    expect(resolveFeatureFlag({ subscription_enabled: true } as PublicSettings, FeatureFlags.subscription)).toBe(true)
+    expect(resolveFeatureFlag({ payment_enabled: false } as PublicSettings, FeatureFlags.payment)).toBe(false)
+    expect(resolveFeatureFlag({ payment_enabled: true } as PublicSettings, FeatureFlags.payment)).toBe(true)
     expect(resolveFeatureFlag({ risk_control_enabled: true } as PublicSettings, FeatureFlags.riskControl)).toBe(true)
   })
 
   it('falls back to the declared mode when settings are missing or the key is absent', () => {
-    expect(resolveFeatureFlag(undefined, FeatureFlags.subscription)).toBe(true)
-    expect(resolveFeatureFlag(null, FeatureFlags.subscription)).toBe(true)
-    expect(resolveFeatureFlag({} as PublicSettings, FeatureFlags.subscription)).toBe(true)
+    expect(resolveFeatureFlag(undefined, FeatureFlags.payment)).toBe(true)
+    expect(resolveFeatureFlag(null, FeatureFlags.payment)).toBe(true)
+    expect(resolveFeatureFlag({} as PublicSettings, FeatureFlags.payment)).toBe(true)
     expect(resolveFeatureFlag({} as PublicSettings, FeatureFlags.riskControl)).toBe(false)
   })
 
   it('backs isFeatureFlagEnabled with the same resolution', () => {
-    useAppStore().cachedPublicSettings = { subscription_enabled: false } as PublicSettings
-    expect(isFeatureFlagEnabled(FeatureFlags.subscription)).toBe(false)
+    useAppStore().cachedPublicSettings = { payment_enabled: false } as PublicSettings
+    expect(isFeatureFlagEnabled(FeatureFlags.payment)).toBe(false)
   })
 })

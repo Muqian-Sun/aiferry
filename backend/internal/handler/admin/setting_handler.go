@@ -254,8 +254,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		HomeContent:                            settings.HomeContent,
 		CompactHomeEnabled:                     settings.CompactHomeEnabled,
 		HideCcsImportButton:                    settings.HideCcsImportButton,
-		PurchaseSubscriptionEnabled:            settings.PurchaseSubscriptionEnabled,
-		PurchaseSubscriptionURL:                settings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                   settings.TableDefaultPageSize,
 		TablePageSizeOptions:                   settings.TablePageSizeOptions,
 		CustomMenuItems:                        dto.ParseCustomMenuItems(settings.CustomMenuItems),
@@ -320,7 +318,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		PaymentOrderTimeoutMin:                 paymentCfg.OrderTimeoutMin,
 		PaymentMaxPendingOrders:                paymentCfg.MaxPendingOrders,
 		PaymentEnabledTypes:                    paymentCfg.EnabledTypes,
-		PaymentBalanceDisabled:                 paymentCfg.BalanceDisabled,
 		PaymentUSDToCNYRate:                    paymentCfg.USDToCNYRate,
 		PaymentRechargeFeeRate:                 paymentCfg.RechargeFeeRate,
 		PaymentLoadBalanceStrat:                paymentCfg.LoadBalanceStrategy,
@@ -346,8 +343,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		GrokDefaultTextModel:           settings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: settings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         settings.GrokDefaultBaseURLMode,
-
-		SubscriptionEnabled: settings.SubscriptionEnabled,
 
 		PluginManagementEnabled: settings.PluginManagementEnabled,
 		ModelPlazaDescription:   settings.ModelPlazaDescription,

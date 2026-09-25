@@ -16,6 +16,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useAdminSettingsStore } from '@/stores/adminSettings'
 import { FeatureFlags, makeSidebarFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import SidebarFrame from '@/components/layout/sidebar/SidebarFrame.vue'
 import { applyFeatureFlags, type NavItem, type NavSection } from '@/components/layout/sidebar/navTypes'
 import {
@@ -41,13 +42,12 @@ const adminSettingsStore = useAdminSettingsStore()
 const siteVersion = computed(() => appStore.siteVersion)
 
 const flagChannelMonitor = makeSidebarFlag(FeatureFlags.channelMonitor)
-const flagSubscription = makeSidebarFlag(FeatureFlags.subscription)
 const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 // Admin-only flags (not in public settings)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 
-// 「仅充值」站点连管理端的「订阅」入口也一并收起（路由本身不拦截）。套餐属于订阅，不挂支付门。
+// 设置里的功能开关没开时入口变灰（applyFeatureFlags）；简易模式再收起 hideInSimpleMode 的项。
 function visibleItems(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
   return authStore.isSimpleMode ? visible.filter((item) => !item.hideInSimpleMode) : visible
@@ -82,7 +82,10 @@ const sections = computed((): NavSection[] => {
       title: t('nav.sections.users'),
       items: [
         { path: '/users', label: t('nav.users'), icon: UsersIcon, hideInSimpleMode: true },
-        { path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, featureFlag: flagSubscription, activePaths: ['/orders/plans'] },
+        // 订阅由代码决定显不显示（utils/siteFeatures.ts），不显示时入口直接不出现；套餐属于订阅，不挂支付门
+        ...(SITE_FEATURES.subscription
+          ? [{ path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, activePaths: ['/orders/plans'] }]
+          : []),
         { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment, activePaths: ['/orders/dashboard'] },
       ],
     },

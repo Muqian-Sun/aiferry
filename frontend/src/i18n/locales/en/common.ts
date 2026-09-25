@@ -209,7 +209,6 @@ export default {
     mySubscriptions: 'My Subscriptions',
     buySubscription: 'Recharge / Subscription',
     recharge: 'Recharge',
-    subscribe: 'Subscription',
     docs: 'Docs',
     orderManagement: 'Orders',
     paymentConfig: 'Payment Config',

@@ -68,8 +68,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		settingKeyForwardedClientIPModeV2:                   "true",
 		SettingKeySiteName:                                  defaultSiteName,
 		SettingKeySiteLogo:                                  "",
-		SettingKeyPurchaseSubscriptionEnabled:               "false",
-		SettingKeyPurchaseSubscriptionURL:                   "",
 		SettingKeyTableDefaultPageSize:                      "20",
 		SettingKeyTablePageSizeOptions:                      "[10,20,50,100]",
 		SettingKeyCustomMenuItems:                           "[]",
@@ -193,9 +191,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyGrokDefaultBaseURLMode:         GrokDefaultBaseURLModeCLI,
 
 		// Available channels feature (default disabled; opt-in)
-
-		// Subscription feature (default enabled; opt-out)
-		SettingKeySubscriptionEnabled: "true",
 
 		SettingKeyModelPlazaDescription:   "",
 		SettingKeyPluginManagementEnabled: "false",
@@ -338,8 +333,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		HomeContent:                            settings[SettingKeyHomeContent],
 		CompactHomeEnabled:                     settings[SettingKeyCompactHomeEnabled] == "true",
 		HideCcsImportButton:                    settings[SettingKeyHideCcsImportButton] == "true",
-		PurchaseSubscriptionEnabled:            settings[SettingKeyPurchaseSubscriptionEnabled] == "true",
-		PurchaseSubscriptionURL:                strings.TrimSpace(settings[SettingKeyPurchaseSubscriptionURL]),
 		CustomMenuItems:                        settings[SettingKeyCustomMenuItems],
 		CustomEndpoints:                        settings[SettingKeyCustomEndpoints],
 		BackendModeEnabled:                     settings[SettingKeyBackendModeEnabled] == "true",
@@ -788,9 +781,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.GrokDefaultBaseURLMode = normalizeGrokDefaultBaseURLMode(settings[SettingKeyGrokDefaultBaseURLMode])
 
 	// Available channels feature (default: disabled; strict true)
-
-	// Subscription feature (default: enabled; only an explicit false disables)
-	result.SubscriptionEnabled = !isFalseSettingValue(settings[SettingKeySubscriptionEnabled])
 
 	result.ModelPlazaDescription = settings[SettingKeyModelPlazaDescription]
 	result.PluginManagementEnabled = settings[SettingKeyPluginManagementEnabled] == "true"

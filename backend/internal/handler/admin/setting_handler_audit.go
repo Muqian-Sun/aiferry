@@ -410,12 +410,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.BackendModeEnabled != after.BackendModeEnabled {
 		changed = append(changed, "backend_mode_enabled")
 	}
-	if before.PurchaseSubscriptionEnabled != after.PurchaseSubscriptionEnabled {
-		changed = append(changed, "purchase_subscription_enabled")
-	}
-	if before.PurchaseSubscriptionURL != after.PurchaseSubscriptionURL {
-		changed = append(changed, "purchase_subscription_url")
-	}
 	if before.TableDefaultPageSize != after.TableDefaultPageSize {
 		changed = append(changed, "table_default_page_size")
 	}
@@ -506,9 +500,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
-	}
-	if before.SubscriptionEnabled != after.SubscriptionEnabled {
-		changed = append(changed, "subscription_enabled")
 	}
 	if before.ModelPlazaDescription != after.ModelPlazaDescription {
 		changed = append(changed, "model_plaza_description")

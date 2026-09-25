@@ -131,7 +131,6 @@ func TestParsePaymentConfig(t *testing.T) {
 			SettingOrderTimeoutMinutes:           "15",
 			SettingMaxPendingOrders:              "5",
 			SettingEnabledPaymentTypes:           "alipay,wxpay,stripe",
-			SettingBalancePayDisabled:            "true",
 			SettingLoadBalanceStrategy:           "least_amount",
 			SettingProductNamePrefix:             "PRE",
 			SettingProductNameSuffix:             "SUF",
@@ -162,9 +161,6 @@ func TestParsePaymentConfig(t *testing.T) {
 		}
 		if cfg.EnabledTypes[0] != "alipay" || cfg.EnabledTypes[1] != "wxpay" || cfg.EnabledTypes[2] != "stripe" {
 			t.Fatalf("EnabledTypes = %v, want [alipay wxpay stripe]", cfg.EnabledTypes)
-		}
-		if !cfg.BalanceDisabled {
-			t.Fatal("expected BalanceDisabled=true")
 		}
 		if cfg.LoadBalanceStrategy != "least_amount" {
 			t.Fatalf("LoadBalanceStrategy = %q, want %q", cfg.LoadBalanceStrategy, "least_amount")
@@ -517,7 +513,7 @@ func TestUpdatePaymentConfig_OmittedVisibleMethodRoutingIsPreserved(t *testing.T
 func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
 	repo := &paymentConfigSettingRepoStub{values: map[string]string{
 		SettingEnabledPaymentTypes: "alipay,wxpay",
-		SettingBalancePayDisabled:  "true",
+		SettingCancelRateLimitOn:   "true",
 		SettingProductNamePrefix:   "existing",
 	}}
 	svc := &PaymentConfigService{settingRepo: repo}
@@ -525,9 +521,9 @@ func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
 	falseValue := false
 	emptyString := ""
 	err := svc.UpdatePaymentConfig(context.Background(), UpdatePaymentConfigRequest{
-		EnabledTypes:      []string{},
-		BalanceDisabled:   &falseValue,
-		ProductNamePrefix: &emptyString,
+		EnabledTypes:           []string{},
+		CancelRateLimitEnabled: &falseValue,
+		ProductNamePrefix:      &emptyString,
 	})
 	if err != nil {
 		t.Fatalf("UpdatePaymentConfig returned error: %v", err)
@@ -535,7 +531,7 @@ func TestUpdatePaymentConfig_PersistsExplicitEmptyAndFalseValues(t *testing.T) {
 
 	want := map[string]string{
 		SettingEnabledPaymentTypes: "",
-		SettingBalancePayDisabled:  "false",
+		SettingCancelRateLimitOn:   "false",
 		SettingProductNamePrefix:   "",
 	}
 	if len(repo.updates) != len(want) {

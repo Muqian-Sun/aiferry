@@ -23,7 +23,6 @@ const (
 	SettingMaxPendingOrders    = "MAX_PENDING_ORDERS"
 	SettingEnabledPaymentTypes = "ENABLED_PAYMENT_TYPES"
 	SettingLoadBalanceStrategy = "LOAD_BALANCE_STRATEGY"
-	SettingBalancePayDisabled  = "BALANCE_PAYMENT_DISABLED"
 	// SettingUSDToCNYRate 是美元汇率（1 USD = X CNY）：充值与订阅都按美元计价，CNY 通道按它换算实付。
 	// 0/未配置时 CNY 通道拒绝下单。
 	SettingUSDToCNYRate                  = "USD_TO_CNY_RATE"
@@ -56,7 +55,6 @@ type PaymentConfig struct {
 	OrderTimeoutMin  int      `json:"order_timeout_minutes"`
 	MaxPendingOrders int      `json:"max_pending_orders"`
 	EnabledTypes     []string `json:"enabled_payment_types"`
-	BalanceDisabled  bool     `json:"balance_disabled"`
 	// USDToCNYRate 为 0 表示未配置，CNY 通道拒绝下单。
 	USDToCNYRate         float64 `json:"usd_to_cny_rate"`
 	RechargeFeeRate      float64 `json:"recharge_fee_rate"`
@@ -89,7 +87,6 @@ type UpdatePaymentConfigRequest struct {
 	OrderTimeoutMin     *int     `json:"order_timeout_minutes"`
 	MaxPendingOrders    *int     `json:"max_pending_orders"`
 	EnabledTypes        []string `json:"enabled_payment_types"`
-	BalanceDisabled     *bool    `json:"balance_disabled"`
 	USDToCNYRate        *float64 `json:"usd_to_cny_rate"`
 	RechargeFeeRate     *float64 `json:"recharge_fee_rate"`
 	LoadBalanceStrategy *string  `json:"load_balance_strategy"`
@@ -231,7 +228,7 @@ func (s *PaymentConfigService) GetPaymentConfig(ctx context.Context) (*PaymentCo
 	keys := []string{
 		SettingPaymentEnabled, SettingMinRechargeAmount, SettingMaxRechargeAmount,
 		SettingDailyRechargeLimit, SettingOrderTimeoutMinutes, SettingMaxPendingOrders,
-		SettingEnabledPaymentTypes, SettingBalancePayDisabled, SettingUSDToCNYRate, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
+		SettingEnabledPaymentTypes, SettingUSDToCNYRate, SettingRechargeFeeRate, SettingLoadBalanceStrategy,
 		SettingProductNamePrefix, SettingProductNameSuffix,
 		SettingHelpImageURL, SettingHelpText,
 		SettingCancelRateLimitOn, SettingCancelRateLimitMax,
@@ -258,7 +255,6 @@ func (s *PaymentConfigService) parsePaymentConfig(vals map[string]string) *Payme
 		DailyLimit:          pcParseFloat(vals[SettingDailyRechargeLimit], 0),
 		OrderTimeoutMin:     pcParseInt(vals[SettingOrderTimeoutMinutes], defaultOrderTimeoutMin),
 		MaxPendingOrders:    pcParseInt(vals[SettingMaxPendingOrders], defaultMaxPendingOrders),
-		BalanceDisabled:     vals[SettingBalancePayDisabled] == "true",
 		USDToCNYRate:        normalizeUSDToCNYRate(pcParseFloat(vals[SettingUSDToCNYRate], 0)),
 		RechargeFeeRate:     pcParseFloat(vals[SettingRechargeFeeRate], 0),
 		LoadBalanceStrategy: vals[SettingLoadBalanceStrategy],
@@ -370,9 +366,6 @@ func (s *PaymentConfigService) UpdatePaymentConfig(ctx context.Context, req Upda
 	}
 	if req.EnabledTypes != nil {
 		m[SettingEnabledPaymentTypes] = strings.Join(req.EnabledTypes, ",")
-	}
-	if req.BalanceDisabled != nil {
-		m[SettingBalancePayDisabled] = formatBoolOrEmpty(req.BalanceDisabled)
 	}
 	if req.USDToCNYRate != nil {
 		m[SettingUSDToCNYRate] = formatPositiveFloatExact(req.USDToCNYRate)

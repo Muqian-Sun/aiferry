@@ -149,7 +149,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
       descriptionKey: 'admin.subscriptions.description',
-      pageGroup: 'subscriptions'
+      pageGroup: 'subscriptions',
+      requiresSubscription: true
     }
   },
   {
@@ -302,7 +303,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Plans',
       titleKey: 'nav.paymentPlans',
-      pageGroup: 'subscriptions'
+      pageGroup: 'subscriptions',
+      requiresSubscription: true
     }
   },
 

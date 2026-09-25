@@ -11,14 +11,12 @@ import { resolveRouteDocumentTitle } from '@/router/title'
 import { getSiteContext } from '@/app/siteContext'
 import { useAppStore } from '@/stores/app'
 import { updateFavicon } from '@/utils/branding'
-import { resolveSiteBillingMode } from '@/utils/siteBillingMode'
 
 const route = useRoute()
 const appStore = useAppStore()
 
 function updateDocumentTitle() {
   document.title = resolveRouteDocumentTitle(route, appStore.siteName, getSiteContext().getCustomMenuItems(), {
-    billingMode: resolveSiteBillingMode(appStore.cachedPublicSettings),
     legalDocuments: appStore.cachedPublicSettings?.login_agreement_documents,
   })
 }
@@ -41,8 +39,6 @@ watch(
     () => route.meta.titleKey,
     () => appStore.siteName,
     () => getSiteContext().getCustomMenuItems(),
-    () => appStore.cachedPublicSettings?.subscription_enabled,
-    () => appStore.cachedPublicSettings?.payment_balance_disabled,
   ],
   updateDocumentTitle,
   { deep: true }

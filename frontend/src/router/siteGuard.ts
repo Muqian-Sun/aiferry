@@ -9,6 +9,7 @@ import type { AppSite } from '@/app/site'
 import type { CustomMenuItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
@@ -135,7 +136,7 @@ export function createSiteGuard(options: SiteGuardOptions) {
     // 公共设置可能尚未加载（根组件 onMounted 异步拉取晚于首次导航，且纯静态部署
     // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
     // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-    if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSubscription) && !appStore.publicSettingsLoaded) {
+    if ((to.meta.requiresPayment || to.meta.requiresRiskControl) && !appStore.publicSettingsLoaded) {
       try {
         await appStore.fetchPublicSettings()
       } catch (error) {
@@ -153,8 +154,8 @@ export function createSiteGuard(options: SiteGuardOptions) {
       next(isUserSite ? homePath : '/settings')
       return
     }
-    // 订阅功能是 opt-out 开关：只有显式 false 才拦截「我的订阅」页直达。
-    if (to.meta.requiresSubscription && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.subscription_enabled === false) {
+    // 订阅显不显示由代码决定（utils/siteFeatures.ts）；不显示时两站的订阅页都拦回首页。
+    if (to.meta.requiresSubscription && !SITE_FEATURES.subscription) {
       next(homePath)
       return
     }

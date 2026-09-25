@@ -596,7 +596,7 @@ describe('user UsageView', () => {
 
 })
 
-describe('UsageView subscription feature flag', () => {
+describe('UsageView billing-type filter', () => {
   afterEach(() => {
     appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true }
   })
@@ -607,19 +607,8 @@ describe('UsageView subscription feature flag', () => {
     )
   }
 
-  it('offers the balance / subscription billing-type filter by default', async () => {
-    const wrapper = mountUsageView()
-    await flushPromises()
-
-    expect(billingTypeSelect(wrapper)).toBeDefined()
-    // 筛选行不再写可见标签，标签文字在下拉的 title 上
-    expect(billingTypeSelect(wrapper)?.attributes('title')).toBe('Billing type')
-    wrapper.unmount()
-  })
-
-  it('hides the billing-type filter entirely when subscriptions are disabled', async () => {
-    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true, subscription_enabled: false }
-
+  // 订阅由代码决定显不显示（SITE_FEATURES.subscription，现在是 false）
+  it('hides the billing-type filter entirely while subscriptions are hidden', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
 
