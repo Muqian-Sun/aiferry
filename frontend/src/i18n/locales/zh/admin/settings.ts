@@ -64,7 +64,7 @@ export default {
         },
       },
       emailTabDisabledTitle: '邮箱验证未启用',
-      emailTabDisabledHint: '请在「安全与认证」选项卡中启用邮箱验证后，再配置 SMTP 设置。',
+      emailTabDisabledHint: '先在「设置 › 注册与登录」里打开邮箱验证，再来配置 SMTP。',
       registration: {
         title: '注册设置',
         description: '控制用户注册和验证',

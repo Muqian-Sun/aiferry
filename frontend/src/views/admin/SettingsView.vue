@@ -27,7 +27,9 @@
             <p class="mt-1 text-sm text-af-ink-3">{{ t(`admin.settings.sections.${section.key}.description`) }}</p>
           </header>
 
-          <component :is="SECTION_COMPONENTS[section.key]" />
+          <div class="settings-blocks">
+            <component :is="SECTION_COMPONENTS[section.key]" />
+          </div>
 
           <div class="settings-save-bar">
             <span v-if="isSectionDirty(section.key)" class="mr-auto text-13 text-af-ink-3">
@@ -169,8 +171,38 @@ onBeforeUnmount(() => window.removeEventListener('beforeunload', onBeforeUnload)
 </script>
 
 <style scoped>
+/*
+ * 两栏布局（A6-3，同用户站「基本信息」）：小节里每张卡片 = 标题头 + 正文。
+ * 卡片框去掉，区块之间只用 hairline 分隔；宽屏标题头在左（这一项是干什么的），正文在右；窄屏单栏。
+ * 小节模板是从原设置页原样搬来的，结构统一（见各 *Section.vue），所以在外壳上一处改样式即可。
+ */
+.settings-blocks > :deep(div > .card) {
+  @apply mt-0 grid gap-x-10 gap-y-4 rounded-none border-0 border-t border-af-hairline bg-transparent py-7 shadow-none lg:grid-cols-[15rem_minmax(0,1fr)];
+}
+
+/* 只有一块内容的卡片（提示条）不分栏 */
+.settings-blocks > :deep(div > .card:has(> :only-child)) {
+  @apply block;
+}
+
+/* 标题头；带按钮的（如 SMTP 的「测试连接」）在左栏里上下排，不带的 flex-col 不起作用 */
+.settings-blocks > :deep(div > .card > :first-child) {
+  @apply flex-col items-start gap-3 border-0 p-0;
+}
+
+.settings-blocks > :deep(div > .card > :first-child h2) {
+  @apply text-base;
+}
+
+.settings-blocks > :deep(div > .card > :not(:first-child)) {
+  @apply min-w-0 p-0;
+}
+
 /* 吸底保存栏：长小节滚到哪都能保存 */
 .settings-save-bar {
-  @apply sticky bottom-0 z-10 mt-8 flex items-center justify-end gap-2 border-t border-af-hairline bg-af-sheet py-4;
+  /* sticky 不用 @apply：Tailwind 会把全局里带 .sticky 的规则一起改写过来 */
+  position: sticky;
+  bottom: 0;
+  @apply z-10 mt-8 flex items-center justify-end gap-2 border-t border-af-hairline bg-af-sheet py-4;
 }
 </style>
