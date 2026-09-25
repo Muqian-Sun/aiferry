@@ -1,60 +1,31 @@
 <template>
   <!--
-    密钥：页头一个实心主操作（创建），其余操作无框；接口地址条；紧凑筛选行；表格在容器内出血随页滚动；分页在下。
-    配色单色为主（muqian 2026-09-23）：状态用小圆点 + 文字，只有用尽 / 过期 / 超限用橙红。
+    密钥（muqian 2026-09-25 定）：回答「每把 key 还能不能用、怎么用」。
+    页头一个实心主操作（创建）；「需要处理」一行只在有事时出现（已过期 / 额度用尽 / 限额将满 / 7 天内到期，点「筛选」看是哪几把）；
+    接口地址条常驻；表格只放判断能不能用的列（用量与最紧的一项限额合成一列），点行开右侧详情抽屉（趋势、限额与重置、使用方法）。
+    配色单色为主：状态用小圆点 + 文字，只有用尽 / 过期 / 超限用橙红。
   -->
   <SiteShell>
     <template #actions>
-        <button
-          @click="loadApiKeys"
-          :disabled="loading"
-          class="btn btn-ghost btn-md"
-          :title="t('common.refresh')"
-        >
-          <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
-        </button>
-        <div class="relative" ref="columnDropdownRef">
-          <button
-            @click="showColumnDropdown = !showColumnDropdown"
-            class="btn btn-ghost btn-md px-2 md:px-3"
-            :title="t('keys.columnSettings')"
-          >
-            <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-            </svg>
-            <span class="hidden md:inline">{{ t('keys.columnSettings') }}</span>
-          </button>
-          <div
-            v-if="showColumnDropdown"
-            class="absolute right-0 top-full z-50 mt-1 max-h-80 w-48 overflow-y-auto rounded-lg border border-af-hairline bg-af-sheet py-1 shadow-lg"
-          >
-            <button
-              v-for="col in toggleableColumns"
-              :key="col.key"
-              @click="toggleColumn(col.key)"
-              class="flex w-full items-center justify-between px-4 py-2 text-left text-sm text-af-ink-2 hover:bg-af-sunken"
-            >
-              <span>{{ col.label }}</span>
-              <Icon
-                v-if="isColumnVisible(col.key)"
-                name="check"
-                size="sm"
-                class="text-af-brand"
-                :stroke-width="2"
-              />
-            </button>
-          </div>
-        </div>
-        <button @click="showCreateModal = true" class="btn btn-primary btn-md" data-tour="keys-create-btn">
-          <Icon name="plus" size="md" class="mr-2" />
-          {{ t('keys.createKey') }}
-        </button>
+      <button
+        @click="loadApiKeys({ refreshAttention: true })"
+        :disabled="loading"
+        class="btn btn-ghost btn-md"
+        :title="t('common.refresh')"
+      >
+        <Icon name="refresh" size="md" :class="loading ? 'animate-spin' : ''" />
+      </button>
+      <ColumnSettingsMenu :settings="columnSettings" />
+      <button @click="showCreateModal = true" class="btn btn-primary btn-md" data-tour="keys-create-btn">
+        <Icon name="plus" size="md" class="mr-2" />
+        {{ t('keys.createKey') }}
+      </button>
     </template>
 
     <div class="space-y-4">
-      <!-- 数字摘要（muqian 2026-09-23 列表页加摘要带）：密钥数 / 活跃 / 今日费用 / 累计消耗；接口失败就不出现，不显示零 -->
-      <StatRow v-if="keySummary" :items="keySummary" class="border-b border-af-hairline pb-6" data-testid="keys-summary" />
-      <!-- 接口地址条：表格上方常驻；地址与「使用密钥」同一口径——设置留空就是当前站点 -->
+      <!-- 需要处理：只在有事时出现；接口失败或密钥太多数不全就不出现，不摆零 -->
+      <StatRow v-if="attentionItems.length" :items="attentionItems" class="border-b border-af-hairline pb-6" data-testid="keys-attention" />
+      <!-- 接口地址条：表格上方常驻；地址与「使用方法」同一口径——设置留空就是当前站点 -->
       <EndpointPopover
         class="border-b border-af-hairline pb-4"
         :api-base-url="apiBaseUrl"
@@ -69,11 +40,21 @@
             class="w-full sm:w-64"
             @search="onFilterChange"
           />
-          <Select
+          <FilterChip
             :model-value="filterStatus"
-            class="w-40"
+            :label="t('common.status')"
             :options="statusFilterOptions"
+            test-id="keys-filter-status"
             @update:model-value="onStatusFilterChange"
+          />
+          <!-- 「限额将满」「7 天内到期」没有后端筛选：在已拉到的全部密钥里挑出来，关掉即回到分页列表 -->
+          <FilterChip
+            v-if="attentionFilter"
+            :model-value="attentionFilter"
+            :label="t('keys.attention.filterLabel')"
+            :options="attentionFilterOptions"
+            test-id="keys-filter-attention"
+            @update:model-value="setAttentionFilter($event === '' ? '' : ($event as AttentionFilter))"
           />
         </div>
         <div v-if="selectedIds.length" class="flex flex-wrap items-center gap-3 text-sm">
@@ -93,17 +74,20 @@
           </button>
         </div>
       </div>
-      <!-- 表格：-mx-6 让行分隔线贯通到页面边缘 -->
-      <div class="-mx-6">
+      <!-- 桌面表格出血到页边让行线贯通；窄屏是卡片列表，留页边距 -->
+      <div class="md:-mx-6">
       <DataTable
-        :columns="columns"
-        :data="apiKeys"
+        :columns="columnSettings.visibleColumns.value"
+        :data="tableRows"
         :loading="loading"
         selectable
         row-key="id"
         :selected-keys="selectedIds"
         :selection-label="(key: ApiKey) => t('keys.bulkEdit.selectKey', { name: key.name })"
+        clickable-rows
+        :row-class="(row: ApiKey) => (detailKey?.id === row.id ? 'row-selected bg-af-sunken' : undefined)"
         @update:selected-keys="handleSelectionChange"
+        @row-click="openKeyDetail($event, 'overview')"
         :server-side-sort="true"
         default-sort-key="created_at"
         default-sort-order="desc"
@@ -119,7 +103,7 @@
               {{ maskApiKey(value) }}
             </code>
             <button
-              @click="copyToClipboard(value, row.id)"
+              @click.stop="copyToClipboard(value, row.id)"
               class="rounded-lg p-1 transition-colors hover:bg-af-sunken"
               :class="
                 copiedKeyId === row.id
@@ -154,7 +138,7 @@
               v-if="row.ip_whitelist?.length > 0 || row.ip_blacklist?.length > 0"
               name="shield"
               size="sm"
-              class="text-af-brand"
+              class="text-af-ink-3"
               :title="t('keys.ipRestrictionEnabled')"
             />
           </div>
@@ -166,148 +150,24 @@
           </span>
         </template>
 
+        <!-- 用量 / 限额：今日与近 30 天实付；下面只画用得最满的一项限额，没设就写「不限额」，全部限额在抽屉里 -->
         <template #cell-usage="{ row }">
-          <div class="text-sm">
+          <div class="min-w-[180px] text-sm" data-testid="key-usage-cell">
             <div class="flex items-baseline gap-x-3 whitespace-nowrap tabular-nums">
-              <span><span class="text-af-ink-3">{{ t('keys.today') }}</span> <span class="font-medium text-af-ink">${{ (usageStats[row.id]?.today_actual_cost ?? 0).toFixed(4) }}</span></span>
-              <span><span class="text-af-ink-3">{{ t('keys.total') }}</span> <span class="font-medium text-af-ink">${{ (usageStats[row.id]?.total_actual_cost ?? 0).toFixed(4) }}</span></span>
+              <span><span class="text-af-ink-3">{{ t('keys.today') }}</span> <span class="font-medium text-af-ink">{{ formatCurrency(usageStats[row.id]?.today_actual_cost ?? 0) }}</span></span>
+              <span><span class="text-af-ink-3">{{ t('keys.total') }}</span> <span class="font-medium text-af-ink">{{ formatCurrency(usageStats[row.id]?.total_actual_cost ?? 0) }}</span></span>
             </div>
-            <!-- Quota progress (if quota is set) -->
-            <div v-if="row.quota > 0" class="mt-1.5">
-              <div class="flex items-center gap-1.5">
-                <span class="text-af-ink-3">{{ t('keys.quota') }}:</span>
-                <span :class="[
-                  'font-medium',
-                  row.quota_used >= row.quota ? 'text-af-danger' :
-                  row.quota_used >= row.quota * 0.8 ? 'text-af-warning' :
-                  'text-af-ink'
-                ]">
-                  ${{ row.quota_used?.toFixed(2) || '0.00' }} / ${{ row.quota?.toFixed(2) }}
-                </span>
-              </div>
-              <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-af-hairline">
-                <div
-                  :class="[
-                    'h-full rounded-full transition-all',
-                    row.quota_used >= row.quota ? 'bg-af-danger' :
-                    row.quota_used >= row.quota * 0.8 ? 'bg-af-warning' :
-                    'bg-af-ink'
-                  ]"
-                  :style="{ width: Math.min((row.quota_used / row.quota) * 100, 100) + '%' }"
-                />
-              </div>
-            </div>
+            <KeyLimitInline class="mt-1.5" :meter="rowLimits.get(row.id) ?? null" />
           </div>
         </template>
 
-        <template #cell-rate_limit="{ row }">
-          <div v-if="row.rate_limit_5h > 0 || row.rate_limit_1d > 0 || row.rate_limit_7d > 0" class="space-y-1.5 min-w-[140px]">
-            <!-- 5h window -->
-            <div v-if="row.rate_limit_5h > 0">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-af-ink-3">5h</span>
-                <span :class="[
-                  'font-medium tabular-nums',
-                  row.usage_5h >= row.rate_limit_5h ? 'text-af-danger' :
-                  row.usage_5h >= row.rate_limit_5h * 0.8 ? 'text-af-warning' :
-                  'text-af-ink-2'
-                ]">
-                  ${{ row.usage_5h?.toFixed(2) || '0.00' }}/${{ row.rate_limit_5h?.toFixed(2) }}
-                </span>
-              </div>
-              <div class="h-1 w-full overflow-hidden rounded-full bg-af-hairline">
-                <div
-                  :class="[
-                    'h-full rounded-full transition-all',
-                    row.usage_5h >= row.rate_limit_5h ? 'bg-af-danger' :
-                    row.usage_5h >= row.rate_limit_5h * 0.8 ? 'bg-af-warning' :
-                    'bg-af-ink'
-                  ]"
-                  :style="{ width: Math.min((row.usage_5h / row.rate_limit_5h) * 100, 100) + '%' }"
-                />
-              </div>
-              <div v-if="row.reset_5h_at && formatResetTime(row.reset_5h_at)" class="text-[10px] text-af-ink-4 tabular-nums">
-                ⟳ {{ formatResetTime(row.reset_5h_at) }}
-              </div>
-            </div>
-            <!-- 1d window -->
-            <div v-if="row.rate_limit_1d > 0">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-af-ink-3">1d</span>
-                <span :class="[
-                  'font-medium tabular-nums',
-                  row.usage_1d >= row.rate_limit_1d ? 'text-af-danger' :
-                  row.usage_1d >= row.rate_limit_1d * 0.8 ? 'text-af-warning' :
-                  'text-af-ink-2'
-                ]">
-                  ${{ row.usage_1d?.toFixed(2) || '0.00' }}/${{ row.rate_limit_1d?.toFixed(2) }}
-                </span>
-              </div>
-              <div class="h-1 w-full overflow-hidden rounded-full bg-af-hairline">
-                <div
-                  :class="[
-                    'h-full rounded-full transition-all',
-                    row.usage_1d >= row.rate_limit_1d ? 'bg-af-danger' :
-                    row.usage_1d >= row.rate_limit_1d * 0.8 ? 'bg-af-warning' :
-                    'bg-af-ink'
-                  ]"
-                  :style="{ width: Math.min((row.usage_1d / row.rate_limit_1d) * 100, 100) + '%' }"
-                />
-              </div>
-              <div v-if="row.reset_1d_at && formatResetTime(row.reset_1d_at)" class="text-[10px] text-af-ink-4 tabular-nums">
-                ⟳ {{ formatResetTime(row.reset_1d_at) }}
-              </div>
-            </div>
-            <!-- 7d window -->
-            <div v-if="row.rate_limit_7d > 0">
-              <div class="flex items-center justify-between text-xs">
-                <span class="text-af-ink-3">7d</span>
-                <span :class="[
-                  'font-medium tabular-nums',
-                  row.usage_7d >= row.rate_limit_7d ? 'text-af-danger' :
-                  row.usage_7d >= row.rate_limit_7d * 0.8 ? 'text-af-warning' :
-                  'text-af-ink-2'
-                ]">
-                  ${{ row.usage_7d?.toFixed(2) || '0.00' }}/${{ row.rate_limit_7d?.toFixed(2) }}
-                </span>
-              </div>
-              <div class="h-1 w-full overflow-hidden rounded-full bg-af-hairline">
-                <div
-                  :class="[
-                    'h-full rounded-full transition-all',
-                    row.usage_7d >= row.rate_limit_7d ? 'bg-af-danger' :
-                    row.usage_7d >= row.rate_limit_7d * 0.8 ? 'bg-af-warning' :
-                    'bg-af-ink'
-                  ]"
-                  :style="{ width: Math.min((row.usage_7d / row.rate_limit_7d) * 100, 100) + '%' }"
-                />
-              </div>
-              <div v-if="row.reset_7d_at && formatResetTime(row.reset_7d_at)" class="text-[10px] text-af-ink-4 tabular-nums">
-                ⟳ {{ formatResetTime(row.reset_7d_at) }}
-              </div>
-            </div>
-            <!-- Reset button -->
-            <button
-              v-if="row.usage_5h > 0 || row.usage_1d > 0 || row.usage_7d > 0"
-              @click.stop="confirmResetRateLimitFromTable(row)"
-              class="mt-0.5 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs text-af-ink-3 transition-colors hover:bg-af-sunken hover:text-af-brand"
-              :title="t('keys.resetRateLimitUsage')"
-            >
-              <Icon name="refresh" size="xs" />
-              {{ t('keys.resetUsage') }}
-            </button>
-          </div>
-          <span v-else class="text-sm text-af-ink-4">-</span>
-        </template>
-
-        <template #cell-expires_at="{ value }">
-          <span v-if="value" :class="[
-            'text-sm',
-            new Date(value) < new Date() ? 'text-af-danger' : 'text-af-ink-3'
-          ]">
-            {{ formatDateTime(value) }}
+        <template #cell-expires_at="{ value, row }">
+          <span v-if="!value" class="text-sm text-af-ink-4">{{ t('keys.noExpiration') }}</span>
+          <span v-else-if="new Date(value) < now" class="text-sm text-af-danger">{{ formatDateTime(value) }}</span>
+          <span v-else-if="isExpiringSoon(row, now)" class="text-sm text-af-warning" :title="formatDateTime(value)">
+            {{ t('keys.expiresInDaysShort', { days: daysUntilExpiry(row, now) }) }}
           </span>
-          <span v-else class="text-sm text-af-ink-4">{{ t('keys.noExpiration') }}</span>
+          <span v-else class="text-sm text-af-ink-3">{{ formatDateTime(value) }}</span>
         </template>
 
         <template #cell-status="{ value }">
@@ -326,11 +186,12 @@
           </span>
         </template>
 
+        <!-- 最近使用写相对时间（能看出这把 key 还有没有人在用），悬停看具体时间 -->
         <template #cell-last_used_at="{ value }">
-          <span v-if="value" class="text-sm text-af-ink-3">
-            {{ formatDateTime(value) }}
+          <span v-if="value" class="whitespace-nowrap text-sm text-af-ink-2" :title="formatDateTime(value)">
+            {{ formatRelativeTime(value) }}
           </span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
+          <span v-else class="text-sm text-af-ink-4">{{ t('keys.detail.neverUsed') }}</span>
         </template>
 
         <template #cell-last_used_ip="{ value }">
@@ -353,7 +214,7 @@
               :title="t('keys.useKey')"
               :aria-label="t('keys.useKey')"
               data-testid="use-key"
-              @click="openUseKeyModal(row)"
+              @click.stop="openKeyDetail(row, 'use')"
             >
               <Icon name="terminal" size="sm" />
             </button>
@@ -363,7 +224,7 @@
               :title="t('common.edit')"
               :aria-label="t('common.edit')"
               data-testid="edit-key"
-              @click="editKey(row)"
+              @click.stop="editKey(row)"
             >
               <Icon name="edit" size="sm" />
             </button>
@@ -393,7 +254,7 @@
         </template>
       </DataTable>
       <Pagination
-        v-if="pagination.total > 0"
+        v-if="!attentionFilter && pagination.total > 0"
         :page="pagination.page"
         :total="pagination.total"
         :page-size="pagination.page_size"
@@ -402,6 +263,21 @@
       />
       </div>
     </div>
+
+    <KeyDetailDrawer
+      :show="detailKey !== null"
+      :api-key="detailKey"
+      :usage="detailKey ? usageStats[detailKey.id] : undefined"
+      :tab="detailTab"
+      :base-url="publicSettings?.api_base_url || ''"
+      :site-name="publicSettings?.site_name || ''"
+      :now="now"
+      @update:tab="detailTab = $event"
+      @close="detailKey = null"
+      @edit="editKey"
+      @reset-quota="confirmResetQuota"
+      @reset-rate-limit="confirmResetRateLimit"
+    />
 
     <!-- 行内「更多」菜单：Teleport 到 body 固定定位，不被表格的 sticky 列裁掉 -->
     <Teleport to="body">
@@ -437,7 +313,8 @@
       </div>
     </Teleport>
 
-    <!-- Create/Edit Modal -->
+    <!-- 新建 / 编辑：新建默认只露名称，其余收进「更多设置」（muqian 2026-09-25，与渠道表单同一思路）；编辑时全部展开。
+         已用多少、重置这些状态信息在详情抽屉里，表单只放设置。 -->
     <BaseDialog
       :show="showCreateModal || showEditModal"
       :title="showEditModal ? t('keys.editKey') : t('keys.createKey')"
@@ -457,406 +334,180 @@
           />
         </div>
 
-        <!-- Custom Key Section (only for create) -->
-        <div v-if="!showEditModal" class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.customKeyLabel') }}</label>
-            <button
-              type="button"
-              @click="formData.use_custom_key = !formData.use_custom_key"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.use_custom_key ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet shadow ring-0 transition duration-200 ease-in-out',
-                  formData.use_custom_key ? 'translate-x-4' : 'translate-x-0'
-                ]"
+        <button
+          v-if="!showEditModal"
+          type="button"
+          class="flex w-full items-center justify-between gap-3 border-t border-af-hairline pt-4 text-left"
+          :aria-expanded="showMoreSettings ? 'true' : 'false'"
+          data-testid="key-form-more"
+          @click="showMoreSettings = !showMoreSettings"
+        >
+          <span>
+            <span class="block text-sm font-medium text-af-ink">{{ t('keys.moreSettings') }}</span>
+            <span class="block text-13 text-af-ink-3">{{ t('keys.moreSettingsHint') }}</span>
+          </span>
+          <Icon :name="showMoreSettings ? 'chevronUp' : 'chevronDown'" size="sm" class="shrink-0 text-af-ink-3" />
+        </button>
+
+        <template v-if="showEditModal || showMoreSettings">
+          <!-- Custom Key Section (only for create) -->
+          <div v-if="!showEditModal" class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="input-label mb-0">{{ t('keys.customKeyLabel') }}</label>
+              <Toggle v-model="formData.use_custom_key" />
+            </div>
+            <div v-if="formData.use_custom_key">
+              <input
+                v-model="formData.custom_key"
+                type="text"
+                class="input font-mono"
+                :placeholder="t('keys.customKeyPlaceholder')"
+                :class="{ 'border-af-danger': customKeyError }"
               />
-            </button>
+              <p v-if="customKeyError" class="mt-1 text-sm text-af-danger">{{ customKeyError }}</p>
+              <p v-else class="input-hint">{{ t('keys.customKeyHint') }}</p>
+            </div>
           </div>
-          <div v-if="formData.use_custom_key">
-            <input
-              v-model="formData.custom_key"
-              type="text"
-              class="input font-mono"
-              :placeholder="t('keys.customKeyPlaceholder')"
-              :class="{ 'border-af-danger': customKeyError }"
+
+          <div v-if="showEditModal">
+            <label class="input-label">{{ t('keys.statusLabel') }}</label>
+            <Select
+              v-model="formData.status"
+              :options="statusOptions"
+              :placeholder="t('keys.selectStatus')"
             />
-            <p v-if="customKeyError" class="mt-1 text-sm text-af-danger">{{ customKeyError }}</p>
-            <p v-else class="input-hint">{{ t('keys.customKeyHint') }}</p>
-          </div>
-        </div>
-
-        <div v-if="showEditModal">
-          <label class="input-label">{{ t('keys.statusLabel') }}</label>
-          <Select
-            v-model="formData.status"
-            :options="statusOptions"
-            :placeholder="t('keys.selectStatus')"
-          />
-        </div>
-
-        <!-- IP Restriction Section -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.ipRestriction') }}</label>
-            <button
-              type="button"
-              @click="formData.enable_ip_restriction = !formData.enable_ip_restriction"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.enable_ip_restriction ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet shadow ring-0 transition duration-200 ease-in-out',
-                  formData.enable_ip_restriction ? 'translate-x-4' : 'translate-x-0'
-                ]"
-              />
-            </button>
           </div>
 
-          <div v-if="formData.enable_ip_restriction" class="space-y-4 pt-2">
-            <div>
-              <label class="input-label">{{ t('keys.ipWhitelist') }}</label>
-              <textarea
-                v-model="formData.ip_whitelist"
-                rows="3"
-                class="input font-mono text-sm"
-                :placeholder="t('keys.ipWhitelistPlaceholder')"
+          <!-- 额度：留空 / 0 = 不限 -->
+          <div>
+            <label class="input-label">{{ t('keys.quotaLimit') }}</label>
+            <div class="relative">
+              <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
+              <input
+                v-model.number="formData.quota"
+                type="number"
+                step="0.01"
+                min="0"
+                class="input pl-7"
+                :placeholder="t('keys.quotaAmountPlaceholder')"
               />
-              <p class="input-hint">{{ t('keys.ipWhitelistHint') }}</p>
             </div>
-
-            <div>
-              <label class="input-label">{{ t('keys.ipBlacklist') }}</label>
-              <textarea
-                v-model="formData.ip_blacklist"
-                rows="3"
-                class="input font-mono text-sm"
-                :placeholder="t('keys.ipBlacklistPlaceholder')"
-              />
-              <p class="input-hint">{{ t('keys.ipBlacklistHint') }}</p>
-            </div>
+            <p class="input-hint">{{ t('keys.quotaAmountHint') }}</p>
           </div>
-        </div>
 
-        <!-- Quota Limit Section -->
-        <div class="space-y-3">
-          <label class="input-label">{{ t('keys.quotaLimit') }}</label>
-          <!-- Switch commented out - always show input, 0 = unlimited
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.quotaLimit') }}</label>
-            <button
-              type="button"
-              @click="formData.enable_quota = !formData.enable_quota"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.enable_quota ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet shadow ring-0 transition duration-200 ease-in-out',
-                  formData.enable_quota ? 'translate-x-4' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-          -->
-
-          <div class="space-y-4">
-            <div>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
-                <input
-                  v-model.number="formData.quota"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="input pl-7"
-                  :placeholder="t('keys.quotaAmountPlaceholder')"
-                />
-              </div>
-              <p class="input-hint">{{ t('keys.quotaAmountHint') }}</p>
+          <!-- 速率限制：5h / 1d / 7d 三档 -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="input-label mb-0">{{ t('keys.rateLimitSection') }}</label>
+              <Toggle v-model="formData.enable_rate_limit" />
             </div>
-
-            <!-- Quota used display (only in edit mode) -->
-            <div v-if="showEditModal && selectedKey && selectedKey.quota > 0">
-              <label class="input-label">{{ t('keys.quotaUsed') }}</label>
-              <div class="flex items-center gap-2">
-                <div class="flex-1 rounded-lg bg-af-sunken px-3 py-2">
-                  <span class="font-medium text-af-ink">
-                    ${{ selectedKey.quota_used?.toFixed(4) || '0.0000' }}
-                  </span>
-                  <span class="mx-2 text-af-ink-4">/</span>
-                  <span class="text-af-ink-3">
-                    ${{ selectedKey.quota?.toFixed(2) || '0.00' }}
-                  </span>
+            <div v-if="formData.enable_rate_limit" class="space-y-4 pt-1">
+              <p class="input-hint -mt-2">{{ t('keys.rateLimitHint') }}</p>
+              <div v-for="window in RATE_WINDOWS" :key="window.field">
+                <label class="input-label">{{ t(window.labelKey) }}</label>
+                <div class="relative">
+                  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
+                  <input
+                    v-model.number="formData[window.field]"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    class="input pl-7"
+                    placeholder="0"
+                  />
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 到期 -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="input-label mb-0">{{ t('keys.expiration') }}</label>
+              <Toggle v-model="formData.enable_expiration" />
+            </div>
+
+            <div v-if="formData.enable_expiration" class="space-y-4 pt-1">
+              <div class="flex flex-wrap gap-2">
+                <button
+                  v-for="days in ['7', '30', '90']"
+                  :key="days"
+                  type="button"
+                  @click="setExpirationDays(parseInt(days))"
+                  :class="[
+                    'rounded-lg px-3 py-1.5 text-sm transition-colors',
+                    formData.expiration_preset === days
+                      ? 'bg-af-brand-tint text-af-brand'
+                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
+                  ]"
+                >
+                  {{ showEditModal ? t('keys.extendDays', { days }) : t('keys.expiresInDays', { days }) }}
+                </button>
                 <button
                   type="button"
-                  @click="confirmResetQuota"
-                  class="btn btn-secondary text-sm"
-                  :title="t('keys.resetQuotaUsed')"
+                  @click="formData.expiration_preset = 'custom'"
+                  :class="[
+                    'rounded-lg px-3 py-1.5 text-sm transition-colors',
+                    formData.expiration_preset === 'custom'
+                      ? 'bg-af-brand-tint text-af-brand'
+                      : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
+                  ]"
                 >
-                  {{ t('keys.reset') }}
+                  {{ t('keys.customDate') }}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
 
-        <!-- Rate Limit Section -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.rateLimitSection') }}</label>
-            <button
-              type="button"
-              @click="formData.enable_rate_limit = !formData.enable_rate_limit"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.enable_rate_limit ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet shadow ring-0 transition duration-200 ease-in-out',
-                  formData.enable_rate_limit ? 'translate-x-4' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="formData.enable_rate_limit" class="space-y-4 pt-2">
-            <p class="input-hint -mt-2">{{ t('keys.rateLimitHint') }}</p>
-            <!-- 5-Hour Limit -->
-            <div>
-              <label class="input-label">{{ t('keys.rateLimit5h') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
+              <div>
+                <label class="input-label">{{ t('keys.expirationDate') }}</label>
                 <input
-                  v-model.number="formData.rate_limit_5h"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="input pl-7"
-                  :placeholder="'0'"
+                  v-model="formData.expiration_date"
+                  type="datetime-local"
+                  class="input"
                 />
+                <p class="input-hint">{{ t('keys.expirationDateHint') }}</p>
               </div>
-              <!-- Usage info (edit mode only) -->
-              <div v-if="showEditModal && selectedKey && selectedKey.rate_limit_5h > 0" class="mt-2">
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 rounded-lg bg-af-sunken px-3 py-2 text-sm">
-                    <span :class="[
-                      'font-medium',
-                      selectedKey.usage_5h >= selectedKey.rate_limit_5h ? 'text-af-danger' :
-                      selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'text-af-warning' :
-                      'text-af-ink'
-                    ]">
-                      ${{ selectedKey.usage_5h?.toFixed(4) || '0.0000' }}
-                    </span>
-                    <span class="mx-2 text-af-ink-4">/</span>
-                    <span class="text-af-ink-3">
-                      ${{ selectedKey.rate_limit_5h?.toFixed(2) || '0.00' }}
-                    </span>
-                  </div>
-                </div>
-                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-af-hairline">
-                  <div
-                    :class="[
-                      'h-full rounded-full transition-all',
-                      selectedKey.usage_5h >= selectedKey.rate_limit_5h ? 'bg-af-danger' :
-                      selectedKey.usage_5h >= selectedKey.rate_limit_5h * 0.8 ? 'bg-af-warning' :
-                      'bg-af-ink'
-                    ]"
-                    :style="{ width: Math.min((selectedKey.usage_5h / selectedKey.rate_limit_5h) * 100, 100) + '%' }"
-                  />
-                </div>
-              </div>
-            </div>
 
-            <!-- Daily Limit -->
-            <div>
-              <label class="input-label">{{ t('keys.rateLimit1d') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
-                <input
-                  v-model.number="formData.rate_limit_1d"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="input pl-7"
-                  :placeholder="'0'"
-                />
+              <div v-if="showEditModal && selectedKey?.expires_at" class="text-sm">
+                <span class="text-af-ink-3">{{ t('keys.currentExpiration') }}: </span>
+                <span class="font-medium text-af-ink">
+                  {{ formatDateTime(selectedKey.expires_at) }}
+                </span>
               </div>
-              <!-- Usage info (edit mode only) -->
-              <div v-if="showEditModal && selectedKey && selectedKey.rate_limit_1d > 0" class="mt-2">
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 rounded-lg bg-af-sunken px-3 py-2 text-sm">
-                    <span :class="[
-                      'font-medium',
-                      selectedKey.usage_1d >= selectedKey.rate_limit_1d ? 'text-af-danger' :
-                      selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'text-af-warning' :
-                      'text-af-ink'
-                    ]">
-                      ${{ selectedKey.usage_1d?.toFixed(4) || '0.0000' }}
-                    </span>
-                    <span class="mx-2 text-af-ink-4">/</span>
-                    <span class="text-af-ink-3">
-                      ${{ selectedKey.rate_limit_1d?.toFixed(2) || '0.00' }}
-                    </span>
-                  </div>
-                </div>
-                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-af-hairline">
-                  <div
-                    :class="[
-                      'h-full rounded-full transition-all',
-                      selectedKey.usage_1d >= selectedKey.rate_limit_1d ? 'bg-af-danger' :
-                      selectedKey.usage_1d >= selectedKey.rate_limit_1d * 0.8 ? 'bg-af-warning' :
-                      'bg-af-ink'
-                    ]"
-                    :style="{ width: Math.min((selectedKey.usage_1d / selectedKey.rate_limit_1d) * 100, 100) + '%' }"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- 7-Day Limit -->
-            <div>
-              <label class="input-label">{{ t('keys.rateLimit7d') }}</label>
-              <div class="relative">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-af-ink-3">$</span>
-                <input
-                  v-model.number="formData.rate_limit_7d"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  class="input pl-7"
-                  :placeholder="'0'"
-                />
-              </div>
-              <!-- Usage info (edit mode only) -->
-              <div v-if="showEditModal && selectedKey && selectedKey.rate_limit_7d > 0" class="mt-2">
-                <div class="flex items-center gap-2">
-                  <div class="flex-1 rounded-lg bg-af-sunken px-3 py-2 text-sm">
-                    <span :class="[
-                      'font-medium',
-                      selectedKey.usage_7d >= selectedKey.rate_limit_7d ? 'text-af-danger' :
-                      selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'text-af-warning' :
-                      'text-af-ink'
-                    ]">
-                      ${{ selectedKey.usage_7d?.toFixed(4) || '0.0000' }}
-                    </span>
-                    <span class="mx-2 text-af-ink-4">/</span>
-                    <span class="text-af-ink-3">
-                      ${{ selectedKey.rate_limit_7d?.toFixed(2) || '0.00' }}
-                    </span>
-                  </div>
-                </div>
-                <div class="mt-1 h-1.5 w-full overflow-hidden rounded-full bg-af-hairline">
-                  <div
-                    :class="[
-                      'h-full rounded-full transition-all',
-                      selectedKey.usage_7d >= selectedKey.rate_limit_7d ? 'bg-af-danger' :
-                      selectedKey.usage_7d >= selectedKey.rate_limit_7d * 0.8 ? 'bg-af-warning' :
-                      'bg-af-ink'
-                    ]"
-                    :style="{ width: Math.min((selectedKey.usage_7d / selectedKey.rate_limit_7d) * 100, 100) + '%' }"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <!-- Reset Rate Limit button (edit mode only) -->
-            <div v-if="showEditModal && selectedKey && (selectedKey.rate_limit_5h > 0 || selectedKey.rate_limit_1d > 0 || selectedKey.rate_limit_7d > 0)">
-              <button
-                type="button"
-                @click="confirmResetRateLimit"
-                class="btn btn-secondary text-sm"
-              >
-                {{ t('keys.resetRateLimitUsage') }}
-              </button>
             </div>
           </div>
-        </div>
 
-        <!-- Expiration Section -->
-        <div class="space-y-3">
-          <div class="flex items-center justify-between">
-            <label class="input-label mb-0">{{ t('keys.expiration') }}</label>
-            <button
-              type="button"
-              @click="formData.enable_expiration = !formData.enable_expiration"
-              :class="[
-                'relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none',
-                formData.enable_expiration ? 'bg-af-brand' : 'bg-af-hairline'
-              ]"
-            >
-              <span
-                :class="[
-                  'pointer-events-none inline-block h-4 w-4 transform rounded-full bg-af-sheet shadow ring-0 transition duration-200 ease-in-out',
-                  formData.enable_expiration ? 'translate-x-4' : 'translate-x-0'
-                ]"
-              />
-            </button>
-          </div>
-
-          <div v-if="formData.enable_expiration" class="space-y-4 pt-2">
-            <!-- Quick select buttons (for both create and edit mode) -->
-            <div class="flex flex-wrap gap-2">
-              <button
-                v-for="days in ['7', '30', '90']"
-                :key="days"
-                type="button"
-                @click="setExpirationDays(parseInt(days))"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm transition-colors',
-                  formData.expiration_preset === days
-                    ? 'bg-af-brand-tint text-af-brand'
-                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                ]"
-              >
-                {{ showEditModal ? t('keys.extendDays', { days }) : t('keys.expiresInDays', { days }) }}
-              </button>
-              <button
-                type="button"
-                @click="formData.expiration_preset = 'custom'"
-                :class="[
-                  'rounded-lg px-3 py-1.5 text-sm transition-colors',
-                  formData.expiration_preset === 'custom'
-                    ? 'bg-af-brand-tint text-af-brand'
-                    : 'bg-af-sunken text-af-ink-2 hover:bg-af-hairline'
-                ]"
-              >
-                {{ t('keys.customDate') }}
-              </button>
+          <!-- IP 限制 -->
+          <div class="space-y-3">
+            <div class="flex items-center justify-between">
+              <label class="input-label mb-0">{{ t('keys.ipRestriction') }}</label>
+              <Toggle v-model="formData.enable_ip_restriction" />
             </div>
 
-            <!-- Date picker (always show for precise adjustment) -->
-            <div>
-              <label class="input-label">{{ t('keys.expirationDate') }}</label>
-              <input
-                v-model="formData.expiration_date"
-                type="datetime-local"
-                class="input"
-              />
-              <p class="input-hint">{{ t('keys.expirationDateHint') }}</p>
-            </div>
+            <div v-if="formData.enable_ip_restriction" class="space-y-4 pt-1">
+              <div>
+                <label class="input-label">{{ t('keys.ipWhitelist') }}</label>
+                <textarea
+                  v-model="formData.ip_whitelist"
+                  rows="3"
+                  class="input font-mono text-sm"
+                  :placeholder="t('keys.ipWhitelistPlaceholder')"
+                />
+                <p class="input-hint">{{ t('keys.ipWhitelistHint') }}</p>
+              </div>
 
-            <!-- Current expiration display (only in edit mode) -->
-            <div v-if="showEditModal && selectedKey?.expires_at" class="text-sm">
-              <span class="text-af-ink-3">{{ t('keys.currentExpiration') }}: </span>
-              <span class="font-medium text-af-ink">
-                {{ formatDateTime(selectedKey.expires_at) }}
-              </span>
+              <div>
+                <label class="input-label">{{ t('keys.ipBlacklist') }}</label>
+                <textarea
+                  v-model="formData.ip_blacklist"
+                  rows="3"
+                  class="input font-mono text-sm"
+                  :placeholder="t('keys.ipBlacklistPlaceholder')"
+                />
+                <p class="input-hint">{{ t('keys.ipBlacklistHint') }}</p>
+              </div>
             </div>
           </div>
-        </div>
+        </template>
       </form>
       <template #footer>
         <div class="flex justify-end gap-3">
@@ -925,7 +576,7 @@
     <ConfirmDialog
       :show="showResetQuotaDialog"
       :title="t('keys.resetQuotaTitle')"
-      :message="t('keys.resetQuotaConfirmMessage', { name: selectedKey?.name, used: selectedKey?.quota_used?.toFixed(4) })"
+      :message="t('keys.resetQuotaConfirmMessage', { name: resetTarget?.name, used: resetTarget?.quota_used?.toFixed(4) })"
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
@@ -937,21 +588,12 @@
     <ConfirmDialog
       :show="showResetRateLimitDialog"
       :title="t('keys.resetRateLimitTitle')"
-      :message="t('keys.resetRateLimitConfirmMessage', { name: selectedKey?.name })"
+      :message="t('keys.resetRateLimitConfirmMessage', { name: resetTarget?.name })"
       :confirm-text="t('keys.reset')"
       :cancel-text="t('common.cancel')"
       :danger="true"
       @confirm="resetRateLimitUsage"
       @cancel="showResetRateLimitDialog = false"
-    />
-
-    <!-- Use Key Modal -->
-    <UseKeyModal
-      :show="showUseKeyModal"
-      :api-key="selectedKey?.key || ''"
-      :base-url="publicSettings?.api_base_url || ''"
-      :site-name="publicSettings?.site_name || ''"
-      @close="closeUseKeyModal"
     />
 
     <!-- CCS Client Selection Dialog：导入哪个客户端由用户选 -->
@@ -993,41 +635,55 @@
 </template>
 
 <script setup lang="ts">
-	import { ref, reactive, computed, onMounted, onUnmounted } from 'vue'
-	import { onClickOutside } from '@vueuse/core'
-	import { useI18n } from 'vue-i18n'
-	import { useAppStore } from '@/stores/app'
-	import { useOnboardingStore } from '@/stores/onboarding'
-	import { useClipboard } from '@/composables/useClipboard'
-import { DEFAULT_SITE_NAME } from '@/utils/branding'
+import { ref, computed, onMounted, onUnmounted } from 'vue'
+import { onClickOutside } from '@vueuse/core'
+import { useI18n } from 'vue-i18n'
+import { useRoute } from 'vue-router'
+import { useAppStore } from '@/stores/app'
+import { useOnboardingStore } from '@/stores/onboarding'
+import { useClipboard } from '@/composables/useClipboard'
+import { useColumnSettings } from '@/composables/useColumnSettings'
 import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
-
-const { t } = useI18n()
+import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { keysAPI, authAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
-	import DataTable from '@/components/common/DataTable.vue'
-	import Pagination from '@/components/common/Pagination.vue'
-	import BaseDialog from '@/components/common/BaseDialog.vue'
-	import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
-	import StatusState from '@/components/user/shell/StatusState.vue'
-	import Select from '@/components/common/Select.vue'
-	import SearchInput from '@/components/common/SearchInput.vue'
-	import Icon from '@/components/icons/Icon.vue'
-	import UseKeyModal from '@/components/keys/UseKeyModal.vue'
-	import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
+import StatusState from '@/components/user/shell/StatusState.vue'
 import type { StatItem } from '@/components/user/shell/types'
-import type { UserDashboardStats } from '@/api/usage'
-	import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
-import type { Column } from '@/components/common/types'
+import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
+import EndpointPopover from '@/components/keys/EndpointPopover.vue'
+import DataTable from '@/components/common/DataTable.vue'
+import Pagination from '@/components/common/Pagination.vue'
+import BaseDialog from '@/components/common/BaseDialog.vue'
+import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
+import ColumnSettingsMenu from '@/components/common/ColumnSettingsMenu.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
+import Select from '@/components/common/Select.vue'
+import SearchInput from '@/components/common/SearchInput.vue'
+import Toggle from '@/components/common/Toggle.vue'
+import type { Column, FilterOption } from '@/components/common/types'
+import Icon from '@/components/icons/Icon.vue'
+import KeyDetailDrawer, { type KeyDrawerTab } from '@/components/user/keys/KeyDetailDrawer.vue'
+import KeyLimitInline from '@/components/user/keys/KeyLimitInline.vue'
+import {
+  daysUntilExpiry,
+  isExpiringSoon,
+  isNearLimit,
+  keyAttention,
+  loadAllKeys,
+  tightestLimit,
+  type KeyLimitMeter
+} from '@/components/user/keys/keyAttention'
 import type { BatchApiKeyUsageStats } from '@/api/usage'
-import { formatCurrency, formatDateTime, formatNumber } from '@/utils/format'
+import type { ApiKey, PublicSettings, UpdateApiKeyRequest } from '@/types'
+import { formatCurrency, formatDateTime, formatRelativeTime } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import {
   buildCcSwitchImportDeeplink,
   type CcSwitchClientType
 } from '@/utils/ccswitchImport'
+
+const { t } = useI18n()
 
 // Helper to format date for datetime-local input
 const formatDateTimeLocal = (isoDate: string): string => {
@@ -1036,124 +692,56 @@ const formatDateTimeLocal = (isoDate: string): string => {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-
 const appStore = useAppStore()
 const onboardingStore = useOnboardingStore()
 const { copyToClipboard: clipboardCopy } = useClipboard()
+// 单测里不装路由：拿不到就当没有地址栏参数
+const route = useRoute() as ReturnType<typeof useRoute> | undefined
 
+// ---------- 列 ----------
 const allColumns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
   { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
-  { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
-  { key: 'usage', label: t('keys.usage'), sortable: false },
-  { key: 'rate_limit', label: t('keys.rateLimitColumn'), sortable: false },
-  { key: 'expires_at', label: t('keys.expiresAt'), sortable: true },
   { key: 'status', label: t('common.status'), sortable: true },
+  { key: 'usage', label: t('keys.usageAndLimit'), sortable: false },
+  { key: 'current_concurrency', label: t('keys.currentConcurrency'), sortable: true },
   { key: 'last_used_at', label: t('keys.lastUsedAt'), sortable: true },
   { key: 'last_used_ip', label: t('keys.lastUsedIP'), sortable: false },
+  { key: 'expires_at', label: t('keys.expiresAt'), sortable: true },
   { key: 'created_at', label: t('keys.created'), sortable: true },
   { key: 'actions', label: t('common.actions'), sortable: false }
 ])
 
-const ALWAYS_VISIBLE_COLUMNS = new Set(['name', 'actions'])
-const DEFAULT_HIDDEN_COLUMNS = ['id', 'rate_limit', 'last_used_at', 'last_used_ip']
-const HIDDEN_COLUMNS_KEY = 'api-key-hidden-columns'
-const COLUMN_SETTINGS_VERSION_KEY = 'api-key-column-settings-version'
-const COLUMN_SETTINGS_VERSION = 3
-const VERSION_NEW_HIDDEN_COLUMNS: Record<number, string[]> = {
-  2: ['last_used_ip'],
-  3: ['id']
-}
-
-const toggleableColumns = computed(() =>
-  allColumns.value.filter((col) => !ALWAYS_VISIBLE_COLUMNS.has(col.key))
-)
-
-const hiddenColumns = reactive<Set<string>>(new Set())
-
-const saveColumnsToStorage = () => {
-  try {
-    localStorage.setItem(HIDDEN_COLUMNS_KEY, JSON.stringify([...hiddenColumns]))
-    localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-  } catch (error) {
-    console.error('Failed to save API key table columns:', error)
-  }
-}
-
-const loadSavedColumns = () => {
-  hiddenColumns.clear()
-  try {
-    const saved = localStorage.getItem(HIDDEN_COLUMNS_KEY)
-    if (saved) {
-      const parsed = JSON.parse(saved) as string[]
-      const validColumnKeys = new Set(allColumns.value.map((col) => col.key))
-      parsed
-        .filter((key) =>
-          typeof key === 'string' &&
-          validColumnKeys.has(key) &&
-          !ALWAYS_VISIBLE_COLUMNS.has(key)
-        )
-        .forEach((key) => hiddenColumns.add(key))
-      const storedVersion = Number(localStorage.getItem(COLUMN_SETTINGS_VERSION_KEY) ?? '1')
-      if (storedVersion < COLUMN_SETTINGS_VERSION) {
-        for (let v = storedVersion + 1; v <= COLUMN_SETTINGS_VERSION; v++) {
-          for (const key of VERSION_NEW_HIDDEN_COLUMNS[v] ?? []) {
-            if (validColumnKeys.has(key) && !ALWAYS_VISIBLE_COLUMNS.has(key)) {
-              hiddenColumns.add(key)
-            }
-          }
-        }
-        saveColumnsToStorage()
-      } else {
-        localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-      }
-    } else {
-      DEFAULT_HIDDEN_COLUMNS.forEach((key) => hiddenColumns.add(key))
-      localStorage.setItem(COLUMN_SETTINGS_VERSION_KEY, String(COLUMN_SETTINGS_VERSION))
-    }
-  } catch (error) {
-    console.error('Failed to load API key table columns:', error)
-    DEFAULT_HIDDEN_COLUMNS.forEach((key) => hiddenColumns.add(key))
-  }
-}
-
-const toggleColumn = (key: string) => {
-  if (ALWAYS_VISIBLE_COLUMNS.has(key)) return
-  if (hiddenColumns.has(key)) {
-    hiddenColumns.delete(key)
-  } else {
-    hiddenColumns.add(key)
-  }
-  saveColumnsToStorage()
-}
-
-const isColumnVisible = (key: string) => !hiddenColumns.has(key)
-
-const columns = computed<Column[]>(() =>
-  allColumns.value.filter((col) => ALWAYS_VISIBLE_COLUMNS.has(col.key) || !hiddenColumns.has(col.key))
-)
+// 默认只留判断「能不能用」的列；ID / 并发 / 最近 IP / 创建时间在详情抽屉里（muqian 2026-09-25）
+const columnSettings = useColumnSettings({
+  storageKey: 'user-keys-columns',
+  version: 1,
+  columns: allColumns,
+  defaultHidden: ['id', 'current_concurrency', 'last_used_ip', 'created_at'],
+  alwaysVisible: ['name', 'actions']
+})
 
 const apiKeys = ref<ApiKey[]>([])
 const selectedIds = ref<number[]>([])
 const showBulkEditModal = ref(false)
-const selectedApiKeys = computed(() => apiKeys.value.filter((key) => selectedIds.value.includes(key.id)))
+const selectedApiKeys = computed(() => tableRows.value.filter((key) => selectedIds.value.includes(key.id)))
 
 const handleSelectionChange = (ids: Array<string | number>) => {
-  const visibleIds = new Set(apiKeys.value.map((key) => key.id))
+  const visibleIds = new Set(tableRows.value.map((key) => key.id))
   selectedIds.value = [...new Set(ids.map(Number))].filter((id) => visibleIds.has(id))
 }
 
 const handleBulkUpdated = (succeededIds: number[]) => {
   const succeeded = new Set(succeededIds)
   selectedIds.value = selectedIds.value.filter((id) => !succeeded.has(id))
-  loadApiKeys()
+  loadApiKeys({ refreshAttention: true })
 }
 
 const loading = ref(false)
 const submitting = ref(false)
 const now = ref(new Date())
-let resetTimer: ReturnType<typeof setInterval> | null = null
+let nowTimer: ReturnType<typeof setInterval> | null = null
 const usageStats = ref<Record<string, BatchApiKeyUsageStats>>({})
 
 const pagination = ref({
@@ -1169,16 +757,15 @@ const sortState = ref({
 
 // Filter state
 const filterSearch = ref('')
-const filterStatus = ref('')
+const filterStatus = ref<string | number>('')
 
 const showCreateModal = ref(false)
 const showEditModal = ref(false)
+const showMoreSettings = ref(false)
 const showDeleteDialog = ref(false)
 const showResetQuotaDialog = ref(false)
 const showResetRateLimitDialog = ref(false)
-const showUseKeyModal = ref(false)
 const showCcsClientSelect = ref(false)
-const showColumnDropdown = ref(false)
 const pendingCcsRow = ref<ApiKey | null>(null)
 const ccsClients = [
   { type: 'claude', icon: 'terminal' },
@@ -1187,35 +774,97 @@ const ccsClients = [
   { type: 'grokbuild', icon: 'terminal' }
 ] as const satisfies ReadonlyArray<{ type: CcSwitchClientType; icon: 'terminal' | 'sparkles' }>
 const selectedKey = ref<ApiKey | null>(null)
+/** 正要重置额度 / 速率用量的那把（从详情抽屉发起） */
+const resetTarget = ref<ApiKey | null>(null)
 const copiedKeyId = ref<number | null>(null)
 const publicSettings = ref<PublicSettings | null>(null)
-// 设置里的 API 端点地址留空 = 当前站点（与 UseKeyModal 的回落一致）
+// 设置里的 API 端点地址留空 = 当前站点（与「使用方法」的回落一致）
 const apiBaseUrl = computed(() => publicSettings.value?.api_base_url || window.location.origin)
 
-// 顶部摘要：与概览同一个统计接口；拿不到就不渲染（不显示零）
-const dashboardStats = ref<UserDashboardStats | null>(null)
-const keySummary = computed<StatItem[] | null>(() => {
-  const s = dashboardStats.value
-  if (!s) return null
-  return [
-    { key: 'keys', label: t('userUi.summary.keys'), value: formatNumber(s.total_api_keys) },
-    { key: 'active-keys', label: t('userUi.summary.activeKeys'), value: formatNumber(s.active_api_keys) },
-    { key: 'today-cost', label: t('userUi.usage.stats.todayCost'), value: formatCurrency(s.today_actual_cost) },
-    { key: 'total-cost', label: t('userUi.usage.stats.totalCost'), value: formatCurrency(s.total_actual_cost) }
-  ]
-})
-async function loadKeySummary() {
-  try {
-    dashboardStats.value = await usageAPI.getDashboardStats()
-  } catch (error) {
-    console.error('Failed to load key summary:', error)
-    dashboardStats.value = null
+// ---------- 需要处理 ----------
+// 全部密钥（最多 500 把）：「需要处理」按它算；不全就不出数字
+const allKeys = ref<ApiKey[] | null>(null)
+const attention = computed(() => (allKeys.value ? keyAttention(allKeys.value, now.value) : null))
+
+type AttentionFilter = 'near_limit' | 'expiring'
+const attentionFilter = ref<AttentionFilter | ''>('')
+const attentionFilterOptions = computed<FilterOption[]>(() => [
+  { value: 'near_limit', label: t('keys.attention.nearLimit') },
+  { value: 'expiring', label: t('keys.attention.expiringSoon') }
+])
+
+function filterByStatus(status: string) {
+  attentionFilter.value = ''
+  filterStatus.value = status
+  onFilterChange()
+}
+
+function setAttentionFilter(value: AttentionFilter | '') {
+  selectedIds.value = []
+  attentionFilter.value = value
+  if (value) {
+    filterSearch.value = ''
+    filterStatus.value = ''
+    void loadUsageStats(attentionRows.value.map((key) => key.id))
   }
 }
-const columnDropdownRef = ref<HTMLElement | null>(null)
-onClickOutside(columnDropdownRef, () => {
-  showColumnDropdown.value = false
+
+const attentionItems = computed<StatItem[]>(() => {
+  const a = attention.value
+  if (!a) return []
+  const items: StatItem[] = []
+  const filterAction = (onClick: () => void) => ({ label: t('keys.attention.filter'), onClick })
+  if (a.expired.length) {
+    items.push({ key: 'attention-expired', label: t('keys.attention.expired'), value: String(a.expired.length), action: filterAction(() => filterByStatus('expired')) })
+  }
+  if (a.quotaExhausted.length) {
+    items.push({ key: 'attention-quota', label: t('keys.attention.quotaExhausted'), value: String(a.quotaExhausted.length), action: filterAction(() => filterByStatus('quota_exhausted')) })
+  }
+  if (a.nearLimit.length) {
+    items.push({ key: 'attention-near-limit', label: t('keys.attention.nearLimit'), value: String(a.nearLimit.length), action: filterAction(() => setAttentionFilter('near_limit')) })
+  }
+  if (a.expiringSoon.length) {
+    items.push({ key: 'attention-expiring', label: t('keys.attention.expiringSoon'), value: String(a.expiringSoon.length), action: filterAction(() => setAttentionFilter('expiring')) })
+  }
+  return items
 })
+
+const attentionRows = computed<ApiKey[]>(() => {
+  if (!attentionFilter.value || !allKeys.value) return []
+  const test = attentionFilter.value === 'near_limit' ? isNearLimit : isExpiringSoon
+  return allKeys.value.filter((key) => test(key, now.value))
+})
+
+/** 表格数据：「限额将满 / 即将到期」时是从全部密钥里挑出来的几把（不分页），否则是服务端分页列表 */
+const tableRows = computed(() => (attentionFilter.value ? attentionRows.value : apiKeys.value))
+const rowLimits = computed(() => new Map<number, KeyLimitMeter | null>(tableRows.value.map((key) => [key.id, tightestLimit(key, now.value)])))
+
+async function loadAttentionKeys() {
+  try {
+    const { keys, complete } = await loadAllKeys()
+    allKeys.value = complete ? keys : null
+    if (attentionFilter.value) void loadUsageStats(attentionRows.value.map((key) => key.id))
+  } catch (error) {
+    console.error('Failed to load keys for attention:', error)
+    allKeys.value = null
+  }
+}
+
+// ---------- 详情抽屉 ----------
+const detailKey = ref<ApiKey | null>(null)
+const detailTab = ref<KeyDrawerTab>('overview')
+const openKeyDetail = (key: ApiKey, tab: KeyDrawerTab) => {
+  closeKeyMenu()
+  detailKey.value = key
+  detailTab.value = tab
+}
+/** 列表刷新后，抽屉里的那把换成新数据（被删了就关掉） */
+function syncDetailKey() {
+  if (!detailKey.value) return
+  const fresh = tableRows.value.find((key) => key.id === detailKey.value!.id) ?? allKeys.value?.find((key) => key.id === detailKey.value!.id)
+  if (fresh) detailKey.value = fresh
+}
+
 // 行内「更多」菜单：一次只开一个；按钮的视口坐标定位，点外面 / 滚动 / 选完动作即关
 const openMenu = ref<{ key: ApiKey; top: number; right: number } | null>(null)
 const keyMenuRef = ref<HTMLElement | null>(null)
@@ -1237,7 +886,13 @@ const runMenuAction = (action: () => void | Promise<void>) => {
 onClickOutside(keyMenuRef, closeKeyMenu)
 let abortController: AbortController | null = null
 
-const formData = ref({
+const RATE_WINDOWS = [
+  { field: 'rate_limit_5h', labelKey: 'keys.rateLimit5h' },
+  { field: 'rate_limit_1d', labelKey: 'keys.rateLimit1d' },
+  { field: 'rate_limit_7d', labelKey: 'keys.rateLimit7d' }
+] as const
+
+const emptyForm = () => ({
   name: '',
   status: 'active' as 'active' | 'inactive',
   use_custom_key: false,
@@ -1246,7 +901,6 @@ const formData = ref({
   ip_whitelist: '',
   ip_blacklist: '',
   // Quota settings (empty = unlimited)
-  enable_quota: false,
   quota: null as number | null,
   // Rate limit settings
   enable_rate_limit: false,
@@ -1257,6 +911,8 @@ const formData = ref({
   expiration_preset: '30' as '7' | '30' | '90' | 'custom',
   expiration_date: ''
 })
+
+const formData = ref(emptyForm())
 
 // 自定义Key验证
 const customKeyError = computed(() => {
@@ -1286,10 +942,7 @@ const shouldSubmitEditStatus = (key: ApiKey, status: 'active' | 'inactive') => {
   return true
 }
 
-// Filter dropdown options
-
-const statusFilterOptions = computed(() => [
-  { value: '', label: t('keys.allStatus') },
+const statusFilterOptions = computed<FilterOption[]>(() => [
   { value: 'active', label: t('keys.status.active') },
   { value: 'inactive', label: t('keys.status.inactive') },
   { value: 'quota_exhausted', label: t('keys.status.quota_exhausted') },
@@ -1298,13 +951,13 @@ const statusFilterOptions = computed(() => [
 
 const onFilterChange = () => {
   selectedIds.value = []
+  attentionFilter.value = ''
   pagination.value.page = 1
   loadApiKeys()
 }
 
-
-const onStatusFilterChange = (value: string | number | boolean | null) => {
-  filterStatus.value = value as string
+const onStatusFilterChange = (value: string | number) => {
+  filterStatus.value = value
   onFilterChange()
 }
 
@@ -1324,14 +977,30 @@ const isAbortError = (error: unknown) => {
   return name === 'AbortError' || code === 'ERR_CANCELED'
 }
 
-const loadApiKeys = async () => {
+async function loadUsageStats(ids: number[], signal?: AbortSignal) {
+  if (ids.length === 0) return
+  try {
+    const usageResponse = await usageAPI.getDashboardApiKeysUsage(ids.slice(0, 100), { signal })
+    if (signal?.aborted) return
+    usageStats.value = { ...usageStats.value, ...usageResponse.stats }
+  } catch (e) {
+    if (!isAbortError(e)) {
+      console.error('Failed to load usage stats:', e)
+    }
+  }
+}
+
+/**
+ * 拉当前页。refreshAttention：同时重算「需要处理」（首次进入、刷新、任何改动之后）；
+ * 没有筛选且一页就装得下时直接用这一页，不再多拉一次。
+ */
+const loadApiKeys = async (options: { refreshAttention?: boolean } = {}) => {
   abortController?.abort()
   const controller = new AbortController()
   abortController = controller
   const { signal } = controller
   loading.value = true
   try {
-    // Build filters
     const filters: {
       search?: string
       status?: string
@@ -1339,7 +1008,7 @@ const loadApiKeys = async () => {
       sort_order?: 'asc' | 'desc'
     } = {}
     if (filterSearch.value) filters.search = filterSearch.value
-    if (filterStatus.value) filters.status = filterStatus.value
+    if (filterStatus.value) filters.status = String(filterStatus.value)
     filters.sort_by = sortState.value.sort_by
     filters.sort_order = sortState.value.sort_order
 
@@ -1352,19 +1021,18 @@ const loadApiKeys = async () => {
     pagination.value.total = response.total
     pagination.value.pages = response.pages
 
-    // Load usage stats for all API keys in the list
-    if (response.items.length > 0) {
-      const keyIds = response.items.map((k) => k.id)
-      try {
-        const usageResponse = await usageAPI.getDashboardApiKeysUsage(keyIds, { signal })
-        if (signal.aborted) return
-        usageStats.value = usageResponse.stats
-      } catch (e) {
-        if (!isAbortError(e)) {
-          console.error('Failed to load usage stats:', e)
-        }
+    if (options.refreshAttention) {
+      const unfiltered = !filters.search && !filters.status
+      if (unfiltered && pagination.value.page === 1 && (response.pages ?? 0) <= 1) {
+        allKeys.value = response.items
+      } else {
+        void loadAttentionKeys()
       }
     }
+    syncDetailKey()
+
+    // Load usage stats for all API keys in the list
+    await loadUsageStats(response.items.map((k) => k.id), signal)
   } catch (error) {
     if (isAbortError(error)) {
       return
@@ -1377,23 +1045,12 @@ const loadApiKeys = async () => {
   }
 }
 
-
 const loadPublicSettings = async () => {
   try {
     publicSettings.value = await authAPI.getPublicSettings()
   } catch (error) {
     console.error('Failed to load public settings:', error)
   }
-}
-
-const openUseKeyModal = (key: ApiKey) => {
-  selectedKey.value = key
-  showUseKeyModal.value = true
-}
-
-const closeUseKeyModal = () => {
-  showUseKeyModal.value = false
-  selectedKey.value = null
 }
 
 const handlePageChange = (page: number) => {
@@ -1418,6 +1075,7 @@ const handleSort = (key: string, order: 'asc' | 'desc') => {
 }
 
 const editKey = (key: ApiKey) => {
+  closeKeyMenu()
   selectedKey.value = key
   const hasIPRestriction = (key.ip_whitelist?.length > 0) || (key.ip_blacklist?.length > 0)
   const hasExpiration = !!key.expires_at
@@ -1429,7 +1087,6 @@ const editKey = (key: ApiKey) => {
     enable_ip_restriction: hasIPRestriction,
     ip_whitelist: (key.ip_whitelist || []).join('\n'),
     ip_blacklist: (key.ip_blacklist || []).join('\n'),
-    enable_quota: key.quota > 0,
     quota: key.quota > 0 ? key.quota : null,
     enable_rate_limit: (key.rate_limit_5h > 0) || (key.rate_limit_1d > 0) || (key.rate_limit_7d > 0),
     rate_limit_5h: key.rate_limit_5h || null,
@@ -1449,7 +1106,7 @@ const toggleKeyStatus = async (key: ApiKey) => {
     appStore.showSuccess(
       newStatus === 'active' ? t('keys.keyEnabledSuccess') : t('keys.keyDisabledSuccess')
     )
-    loadApiKeys()
+    loadApiKeys({ refreshAttention: true })
   } catch (error) {
     appStore.showError(t('keys.failedToUpdateStatus'))
   }
@@ -1544,7 +1201,7 @@ const handleSubmit = async () => {
       }
     }
     closeModals()
-    loadApiKeys()
+    loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToSave')
     appStore.showError(errorMsg)
@@ -1566,7 +1223,8 @@ const handleDelete = async () => {
     await keysAPI.delete(selectedKey.value.id)
     appStore.showSuccess(t('keys.keyDeletedSuccess'))
     showDeleteDialog.value = false
-    loadApiKeys()
+    if (detailKey.value?.id === selectedKey.value.id) detailKey.value = null
+    loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     // 优先使用后端返回的错误消息，提供更具体的错误信息给用户
     const errorMsg = error?.message || t('keys.failedToDelete')
@@ -1577,30 +1235,9 @@ const handleDelete = async () => {
 const closeModals = () => {
   showCreateModal.value = false
   showEditModal.value = false
+  showMoreSettings.value = false
   selectedKey.value = null
-  formData.value = {
-    name: '',
-    status: 'active',
-    use_custom_key: false,
-    custom_key: '',
-    enable_ip_restriction: false,
-    ip_whitelist: '',
-    ip_blacklist: '',
-    enable_quota: false,
-    quota: null,
-    enable_rate_limit: false,
-    rate_limit_5h: null,
-    rate_limit_1d: null,
-    rate_limit_7d: null,
-    enable_expiration: false,
-    expiration_preset: '30',
-    expiration_date: ''
-  }
-}
-
-// Show reset quota confirmation dialog
-const confirmResetQuota = () => {
-  showResetQuotaDialog.value = true
+  formData.value = emptyForm()
 }
 
 // Set expiration date based on quick select days
@@ -1611,55 +1248,54 @@ const setExpirationDays = (days: number) => {
   formData.value.expiration_date = formatDateTimeLocal(expDate.toISOString())
 }
 
-// Reset quota used for an API key
+// ---------- 重置已用（详情抽屉里发起，先确认） ----------
+const confirmResetQuota = (key: ApiKey) => {
+  resetTarget.value = key
+  showResetQuotaDialog.value = true
+}
+
+const confirmResetRateLimit = (key: ApiKey) => {
+  resetTarget.value = key
+  showResetRateLimitDialog.value = true
+}
+
+/** 用接口返回的新数据替换列表、全部密钥与抽屉里的同一把 */
+function applyKeyUpdate(updated: ApiKey) {
+  const replace = (list: ApiKey[]) => list.map((key) => (key.id === updated.id ? { ...key, ...updated } : key))
+  apiKeys.value = replace(apiKeys.value)
+  if (allKeys.value) allKeys.value = replace(allKeys.value)
+  if (detailKey.value?.id === updated.id) detailKey.value = { ...detailKey.value, ...updated }
+}
+
 const resetQuotaUsed = async () => {
-  const key = selectedKey.value
+  const key = resetTarget.value
   if (!key) return
   showResetQuotaDialog.value = false
   try {
     const updatedKey = await keysAPI.update(key.id, { reset_quota: true })
     appStore.showSuccess(t('keys.quotaResetSuccess'))
-    key.quota_used = updatedKey.quota_used
-    if (key.status !== updatedKey.status) {
-      key.status = updatedKey.status
-      if (selectedKey.value?.id === key.id) {
-        formData.value.status = updatedKey.status === 'active' ? 'active' : 'inactive'
-      }
-    }
+    applyKeyUpdate({ ...key, quota_used: updatedKey.quota_used, status: updatedKey.status })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetQuota')
     appStore.showError(errorMsg)
+  } finally {
+    resetTarget.value = null
   }
 }
 
-// Show reset rate limit confirmation dialog (from edit modal)
-const confirmResetRateLimit = () => {
-  showResetRateLimitDialog.value = true
-}
-
-// Show reset rate limit confirmation dialog (from table row)
-const confirmResetRateLimitFromTable = (row: ApiKey) => {
-  selectedKey.value = row
-  showResetRateLimitDialog.value = true
-}
-
-// Reset rate limit usage for an API key
 const resetRateLimitUsage = async () => {
-  if (!selectedKey.value) return
+  const key = resetTarget.value
+  if (!key) return
   showResetRateLimitDialog.value = false
   try {
-    await keysAPI.update(selectedKey.value.id, { reset_rate_limit_usage: true })
+    await keysAPI.update(key.id, { reset_rate_limit_usage: true })
     appStore.showSuccess(t('keys.rateLimitResetSuccess'))
-    // Refresh key data
-    await loadApiKeys()
-    // Update the editing key with fresh data
-    const refreshedKey = apiKeys.value.find(k => k.id === selectedKey.value!.id)
-    if (refreshedKey) {
-      selectedKey.value = refreshedKey
-    }
+    await loadApiKeys({ refreshAttention: true })
   } catch (error: any) {
     const errorMsg = error.response?.data?.detail || t('keys.failedToResetRateLimit')
     appStore.showError(errorMsg)
+  } finally {
+    resetTarget.value = null
   }
 }
 
@@ -1725,30 +1361,25 @@ const closeCcsClientSelect = () => {
   pendingCcsRow.value = null
 }
 
-function formatResetTime(resetAt: string | null): string {
-  if (!resetAt) return ''
-  const diff = new Date(resetAt).getTime() - now.value.getTime()
-  if (diff <= 0) return t('keys.resetNow')
-  const days = Math.floor(diff / 86400000)
-  const hours = Math.floor((diff % 86400000) / 3600000)
-  const mins = Math.floor((diff % 3600000) / 60000)
-  if (days > 0) return `${days}d ${hours}h`
-  if (hours > 0) return `${hours}h ${mins}m`
-  return `${mins}m`
+/** 概览「需要处理」带过来的条件：?status=expired|quota_exhausted 走后端筛选，?attention=near_limit|expiring 在全部密钥里挑 */
+function applyRouteQuery() {
+  const status = route?.query.status
+  if (typeof status === 'string' && statusFilterOptions.value.some((option) => option.value === status)) filterStatus.value = status
+  const focus = route?.query.attention
+  if (focus === 'near_limit' || focus === 'expiring') attentionFilter.value = focus
 }
 
 onMounted(() => {
   window.addEventListener('scroll', closeKeyMenu, true)
-  loadSavedColumns()
-  loadApiKeys()
+  applyRouteQuery()
+  loadApiKeys({ refreshAttention: true })
   loadPublicSettings()
-  void loadKeySummary()
-  resetTimer = setInterval(() => { now.value = new Date() }, 60000)
+  nowTimer = setInterval(() => { now.value = new Date() }, 60000)
 })
 
 onUnmounted(() => {
   window.removeEventListener('scroll', closeKeyMenu, true)
-  if (resetTimer) clearInterval(resetTimer)
+  if (nowTimer) clearInterval(nowTimer)
 })
 </script>
 

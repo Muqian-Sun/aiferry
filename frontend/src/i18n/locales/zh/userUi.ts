@@ -104,8 +104,59 @@ export default {
         other: '其他',
         empty: '这段时间没有用量'
       },
+      share: '占比',
+      trend: {
+        title: '用量趋势'
+      },
+      attention: {
+        title: '需要处理',
+        view: '查看',
+        recharge: '充值',
+        renew: '续费',
+        keyExpiredOne: '密钥「{name}」已过期',
+        keyExpired: '{count} 把密钥已过期',
+        keyQuotaOne: '密钥「{name}」额度已用尽',
+        keyQuota: '{count} 把密钥额度已用尽',
+        keyQuotaNearOne: '密钥「{name}」额度已用 {percent}%',
+        keyNearLimitOne: '密钥「{name}」{limit}限额已用 {percent}%',
+        keyNearLimit: '{count} 把密钥限额将满',
+        keyExpiringOne: '密钥「{name}」{days} 天后到期',
+        keyExpiring: '{count} 把密钥 7 天内到期',
+        balanceEmpty: '余额已用完',
+        balanceRunway: '余额 {balance}，按近 7 天的用量约够 {days} 天',
+        balanceBelowThreshold: '余额 {balance}，低于你设的提醒线 {threshold}',
+        subscriptionQuota: '订阅「{name}」{window}额度已用 {percent}%',
+        subscriptionExpiring: '订阅「{name}」{days} 天后到期',
+        failuresToday: '今天有 {count} 次失败请求'
+      },
+      subscriptions: {
+        title: '订阅额度',
+        manage: '管理订阅',
+        unlimited: '不限额',
+        daily: '今日',
+        weekly: '本周',
+        monthly: '本月',
+        fallbackName: '订阅',
+        noExpiry: '长期有效',
+        expiresIn: '{days} 天后到期'
+      },
+      gettingStarted: {
+        title: '开始使用',
+        description: '把接口地址和密钥填进 SDK 或客户端，就能直接调用。发出第一次请求后，这里会换成用量概览。',
+        baseUrl: '接口地址',
+        key: '我的密钥',
+        noKey: '还没有可用的密钥',
+        allKeys: '全部密钥',
+        createKey: '创建密钥',
+        copy: '复制',
+        copied: '已复制',
+        example: '调用示例',
+        exampleHint: '把 $API_KEY 换成上面复制的密钥，或先 export API_KEY=你的密钥',
+        exampleMessage: '你好'
+      },
       composition: {
         title: 'Token 构成',
+        kind: '类型',
         input: '输入',
         output: '输出',
         cacheRead: '缓存读',
@@ -124,19 +175,31 @@ export default {
     },
     usage: {
       title: '用量明细',
-      description: '按时间范围查看模型用量与每一次请求',
+      description: '钱花在哪了、某一次请求怎么了',
+      moreActions: '更多操作',
+      moreFilters: '更多筛选',
+      clearFilters: '清除筛选',
+      costShare: '费用占比',
       stats: {
         requests: '请求',
         tokens: 'Token',
-        cost: '费用',
+        actualCost: '实付',
         standardCost: '标准价',
-        totalCost: '累计消耗',
-        todayCost: '今日费用',
-        avgLatency: '平均耗时'
+        cacheHitRate: '缓存命中',
+        avgLatency: '平均耗时',
+        failures: '失败请求',
+        viewFailures: '查看'
       },
       sections: {
-        models: '模型用量',
+        spend: '费用分布',
         records: '请求明细'
+      },
+      detail: {
+        eyebrow: '请求详情',
+        request: '请求信息',
+        requestId: '请求 ID',
+        requestIdCopied: '已复制请求 ID',
+        copy: '复制'
       },
       trend: {
         tokens: 'Token',
@@ -144,7 +207,6 @@ export default {
         cost: '费用',
         empty: '这段时间没有数据'
       },
-      share: '占比',
       retry: '重试',
       loadFailed: '这一块没有加载出来',
       loadFailedHint: '接口暂时不可用，其他区块不受影响。',
@@ -171,8 +233,6 @@ export default {
       }
     },
     summary: {
-      keys: '密钥',
-      activeKeys: '活跃',
       redeemHistoryDesc: '兑换与管理员调整都记在这里'
     },
     models: {

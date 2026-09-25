@@ -1,44 +1,34 @@
 <template>
   <!--
-    Token 构成（muqian 2026-09-24）：区间内输入 / 输出 / 缓存读 / 缓存写各占多少——一条 100% 横条，四段墨色由深到浅、段间留 2px 缝，
-    下面图例写占比与数量；右侧缓存命中率 = 缓存读 ÷（输入 + 缓存读 + 缓存写）。四类 token 在记账时是互斥的（OpenAI 的输入已扣掉缓存部分）。
+    Token 构成（概览；muqian 2026-09-25 改成与模型用量同一种画法）：输入 / 输出 / 缓存读 / 缓存写各一行，墨色占比条 + 数量；
+    下面一行缓存命中率 = 缓存读 ÷（输入 + 缓存读 + 缓存写）。四类 token 在记账时是互斥的（OpenAI 的输入已扣掉缓存部分）。
   -->
-  <div v-if="loading" class="flex h-24 items-center justify-center">
+  <div v-if="loading" class="flex h-40 items-center justify-center">
     <span class="spinner text-af-ink-3" />
   </div>
-  <div
-    v-else-if="total > 0"
-    class="grid gap-x-12 gap-y-6 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-center"
-    data-testid="token-composition"
-  >
-    <div class="min-w-0">
-      <div class="flex h-3 gap-[2px] overflow-hidden rounded-full" role="img" :aria-label="ariaLabel">
-        <span
-          v-for="segment in visibleSegments"
-          :key="segment.key"
-          class="h-full min-w-[3px]"
-          :class="segment.swatch"
-          :style="{ flexGrow: segment.value, flexBasis: 0 }"
-        />
-      </div>
-      <dl class="mt-4 grid grid-cols-2 gap-x-6 gap-y-3 sm:grid-cols-4">
-        <div v-for="segment in segments" :key="segment.key" class="min-w-0">
-          <dt class="flex items-center gap-2 text-13 text-af-ink-3">
-            <span class="h-2 w-2 shrink-0 rounded-full" :class="segment.swatch" aria-hidden="true" />
-            {{ segment.label }}
-          </dt>
-          <dd class="mt-1 truncate text-base font-semibold tabular-nums text-af-ink">
-            {{ segment.percentText }}<span class="ml-1.5 text-13 font-normal text-af-ink-4">{{ formatTokensK(segment.value) }}</span>
-          </dd>
-        </div>
-      </dl>
-    </div>
-    <div class="sm:border-l sm:border-af-hairline sm:pl-12" data-testid="cache-hit-rate">
-      <p class="text-13 text-af-ink-3">{{ t('userUi.overview.composition.hitRate') }}</p>
-      <p class="mt-2 text-[2rem] font-semibold leading-none tabular-nums text-af-ink">{{ hitRateText }}</p>
+  <div v-else-if="total > 0" data-testid="token-composition">
+    <table class="w-full text-13">
+      <thead>
+        <tr class="border-b border-af-hairline text-left text-af-ink-3">
+          <th class="py-2 pr-4 font-medium">{{ t('userUi.overview.composition.kind') }}</th>
+          <th class="w-[45%] py-2 pr-4 font-medium">{{ t('userUi.overview.share') }}</th>
+          <th class="py-2 text-right font-medium">{{ t('userUi.usage.stats.tokens') }}</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-af-hairline">
+        <tr v-for="segment in segments" :key="segment.key" class="h-11">
+          <td class="pr-4 text-af-ink">{{ segment.label }}</td>
+          <td class="pr-4"><ShareBar :value="segment.value" :total="total" /></td>
+          <td class="text-right tabular-nums text-af-ink-2">{{ formatTokensK(segment.value) }}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="mt-4 flex items-baseline justify-between gap-4 border-t border-af-hairline pt-4" data-testid="cache-hit-rate">
+      <span class="text-13 text-af-ink-3">{{ t('userUi.overview.composition.hitRate') }}</span>
+      <span class="text-2xl font-semibold text-af-ink">{{ hitRateText }}</span>
     </div>
   </div>
-  <div v-else class="flex h-24 items-center justify-center text-sm text-af-ink-3">
+  <div v-else class="flex h-40 items-center justify-center text-sm text-af-ink-3">
     {{ t('userUi.overview.composition.empty') }}
   </div>
 </template>
@@ -46,6 +36,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import ShareBar from '@/components/charts/ShareBar.vue'
 import { formatTokensK } from '@/utils/format'
 
 const props = defineProps<{
@@ -60,23 +51,12 @@ const percent = (share: number) => `${(share * 100).toFixed(share > 0 && share <
 const total = computed(() => props.totals.input + props.totals.output + props.totals.cacheRead + props.totals.cacheWrite)
 
 const segments = computed(() =>
-  (
-    [
-      { key: 'input', value: props.totals.input, swatch: 'bg-af-ink' },
-      { key: 'output', value: props.totals.output, swatch: 'bg-af-ink-2' },
-      { key: 'cacheRead', value: props.totals.cacheRead, swatch: 'bg-af-ink-3' },
-      { key: 'cacheWrite', value: props.totals.cacheWrite, swatch: 'bg-af-ink-4' }
-    ] as const
-  ).map((segment) => ({
-    ...segment,
-    label: t(`userUi.overview.composition.${segment.key}`),
-    percentText: percent(total.value > 0 ? segment.value / total.value : 0)
+  (['input', 'output', 'cacheRead', 'cacheWrite'] as const).map((key) => ({
+    key,
+    value: props.totals[key],
+    label: t(`userUi.overview.composition.${key}`)
   }))
 )
-
-const visibleSegments = computed(() => segments.value.filter((segment) => segment.value > 0))
-
-const ariaLabel = computed(() => segments.value.map((segment) => `${segment.label} ${segment.percentText}`).join('，'))
 
 /** 命中率的分母是全部输入侧 token（输入 + 缓存读 + 缓存写）；没有输入侧 token 时显示「—」 */
 const hitRateText = computed(() => {

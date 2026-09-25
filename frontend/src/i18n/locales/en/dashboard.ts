@@ -235,6 +235,39 @@ export default {
     currentExpiration: 'Current expiration',
     expiresAt: 'Expires',
     noExpiration: 'Never',
+    expiresInDaysShort: 'Expires in {days} days',
+    usageAndLimit: 'Usage / limit',
+    noLimit: 'No limit',
+    moreSettings: 'More settings',
+    moreSettingsHint: 'Custom key, quota, rate limits, expiry and IP rules — leave empty for no limit',
+    attention: {
+      filterLabel: 'Needs attention',
+      filter: 'Filter',
+      expired: 'Expired',
+      quotaExhausted: 'Quota used up',
+      nearLimit: 'Close to a limit',
+      expiringSoon: 'Expires within 7 days'
+    },
+    detail: {
+      eyebrow: 'API key',
+      tabOverview: 'Overview',
+      tabUse: 'How to use',
+      neverUsed: 'Never used',
+      trendTitle: 'Last 30 days',
+      limitsTitle: 'Quota and rate limits',
+      resetQuota: 'Reset used quota',
+      resetRate: 'Reset rate usage',
+      resetsIn: 'Resets in {time}',
+      noLimits: 'No quota or rate limit is set.',
+      setLimits: 'Set one',
+      infoTitle: 'Details',
+      viewUsage: 'See this key in usage details',
+      window: {
+        '5h': '5 hours',
+        '1d': '1 day',
+        '7d': '7 days'
+      }
+    },
     status: {
       active: 'Active',
       inactive: 'Inactive',

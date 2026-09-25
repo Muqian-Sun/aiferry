@@ -237,6 +237,39 @@ export default {
     currentExpiration: '当前过期时间',
     expiresAt: '过期时间',
     noExpiration: '永久有效',
+    expiresInDaysShort: '{days} 天后到期',
+    usageAndLimit: '用量 / 限额',
+    noLimit: '不限额',
+    moreSettings: '更多设置',
+    moreSettingsHint: '自定义密钥、额度、速率限制、到期时间、IP 限制；不填就是不限',
+    attention: {
+      filterLabel: '需要处理',
+      filter: '筛选',
+      expired: '已过期',
+      quotaExhausted: '额度用尽',
+      nearLimit: '限额将满',
+      expiringSoon: '7 天内到期'
+    },
+    detail: {
+      eyebrow: 'API 密钥',
+      tabOverview: '概览',
+      tabUse: '使用方法',
+      neverUsed: '从未使用',
+      trendTitle: '近 30 天',
+      limitsTitle: '额度与速率限制',
+      resetQuota: '重置已用额度',
+      resetRate: '重置速率用量',
+      resetsIn: '{time} 后重置',
+      noLimits: '没有设置额度或速率限制。',
+      setLimits: '去设置',
+      infoTitle: '其他信息',
+      viewUsage: '在用量明细里查看这把密钥',
+      window: {
+        '5h': '5 小时',
+        '1d': '1 天',
+        '7d': '7 天'
+      }
+    },
     status: {
       active: '活跃',
       inactive: '已停用',
