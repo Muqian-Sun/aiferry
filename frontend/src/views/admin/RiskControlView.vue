@@ -1,53 +1,23 @@
 <template>
   <AppLayout>
+    <template v-if="!loading" #header-actions>
+      <button type="button" class="btn btn-secondary btn-md" :disabled="statusLoading" @click="loadStatus(false)">
+        <Icon name="refresh" size="sm" :class="statusLoading ? 'animate-spin' : ''" />
+        {{ t('admin.riskControl.refreshStatus') }}
+      </button>
+      <button type="button" class="btn btn-primary btn-md" @click="openSettings">
+        <Icon name="cog" size="sm" />
+        {{ t('admin.riskControl.openSettings') }}
+      </button>
+    </template>
+
     <div class="space-y-6">
       <div v-if="loading" class="flex items-center justify-center py-16">
         <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
       </div>
 
       <template v-else>
-        <div class="flex flex-wrap items-center justify-end gap-2">
-          <div class="flex flex-wrap items-center gap-2">
-            <button type="button" class="btn btn-secondary inline-flex items-center gap-2" :disabled="statusLoading" @click="loadStatus(false)">
-              <Icon name="refresh" size="sm" :class="statusLoading ? 'animate-spin' : ''" />
-              {{ t('admin.riskControl.refreshStatus') }}
-            </button>
-            <button type="button" class="btn btn-primary inline-flex items-center gap-2" @click="openSettings">
-              <Icon name="cog" size="sm" />
-              {{ t('admin.riskControl.openSettings') }}
-            </button>
-          </div>
-        </div>
-
-        <div class="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
-          <div
-            v-for="item in overviewItems"
-            :key="item.key"
-            class="rounded-lg border border-af-hairline bg-af-sheet px-4 py-3"
-          >
-            <div class="flex min-w-0 items-center gap-3">
-              <div class="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg" :class="item.iconClass">
-                <Icon :name="item.icon" size="sm" />
-              </div>
-              <div class="min-w-0 flex-1">
-                <div class="flex min-w-0 items-center justify-between gap-2">
-                  <p class="truncate text-xs font-medium text-af-ink-3">{{ item.label }}</p>
-                  <span
-                    v-if="item.badge"
-                    class="inline-flex flex-shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium"
-                    :class="item.badgeClass"
-                  >
-                    {{ item.badge }}
-                  </span>
-                </div>
-                <div class="mt-1 flex min-w-0 items-baseline gap-2">
-                  <p class="truncate text-xl font-semibold leading-7 text-af-ink">{{ item.value }}</p>
-                  <p v-if="item.meta" class="truncate text-xs text-af-ink-3">{{ item.meta }}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <StatRow :items="overviewItems" data-testid="risk-overview" />
 
         <div
           v-if="showPreBlockRuntimeCard"
@@ -1074,6 +1044,8 @@ import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import type { StatItem } from '@/components/user/shell/types'
 import Select from '@/components/common/Select.vue'
 import Toggle from '@/components/common/Toggle.vue'
 import Pagination from '@/components/common/Pagination.vue'
@@ -1101,17 +1073,6 @@ import { formatDateTime as formatDateTimeValue } from '@/utils/format'
 type SettingsTab = 'basic' | 'scope' | 'runtime' | 'response' | 'riskThresholds' | 'retention' | 'keywords'
 type WorkerSlotState = 'active' | 'idle' | 'disabled'
 type APIKeysWriteMode = 'append' | 'replace'
-type OverviewIcon = 'shield' | 'key' | 'users' | 'document'
-type OverviewItem = {
-  key: string
-  label: string
-  value: string
-  meta: string
-  icon: OverviewIcon
-  iconClass: string
-  badge?: string
-  badgeClass?: string
-}
 type ModerationScoreRow = {
   category: string
   score: number
@@ -1451,42 +1412,30 @@ const apiKeyHealthSummary = computed(() => {
     .join(' · ')
 })
 
-const overviewItems = computed<OverviewItem[]>(() => [
+const overviewItems = computed<StatItem[]>(() => [
   {
     key: 'status',
     label: t('admin.riskControl.overview.status'),
-    value: configForm.enabled ? t('admin.riskControl.overview.enabled') : t('admin.riskControl.overview.disabled'),
-    meta: modeLabel(configForm.mode),
-    icon: 'shield',
-    iconClass: configForm.enabled
-      ? 'bg-af-success-tint text-af-success'
-      : 'bg-af-sunken text-af-ink-3',
-    badge: runtimeBadgeText.value,
-    badgeClass: runtimeBadgeClass.value,
+    value: runtimeStatusText.value,
+    hint: modeLabel(configForm.mode),
   },
   {
     key: 'api-key',
     label: t('admin.riskControl.overview.apiKey'),
     value: configForm.api_key_configured ? t('admin.riskControl.apiKeyCount', { count: configForm.api_key_count }) : t('admin.riskControl.notConfigured'),
-    meta: configForm.api_key_configured ? apiKeyHealthSummary.value || configForm.model || '-' : configForm.model || '-',
-    icon: 'key',
-    iconClass: 'bg-af-sunken text-af-ink-2',
+    hint: configForm.api_key_configured ? apiKeyHealthSummary.value || configForm.model || '-' : configForm.model || '-',
   },
   {
     key: 'scope',
     label: t('admin.riskControl.tabs.scope'),
     value: modelFilterSummary.value,
-    meta: t('admin.riskControl.modelFilterModelCount', { count: modelFilterModelCount.value }),
-    icon: 'users',
-    iconClass: 'bg-af-sunken text-af-ink-2',
+    hint: t('admin.riskControl.modelFilterModelCount', { count: modelFilterModelCount.value }),
   },
   {
     key: 'logs',
     label: t('admin.riskControl.overview.logs'),
     value: formatNumber(pagination.total),
-    meta: t('admin.riskControl.overview.currentFilter'),
-    icon: 'document',
-    iconClass: 'bg-af-warning-tint text-af-warning',
+    hint: t('admin.riskControl.overview.currentFilter'),
   },
 ])
 
@@ -1615,17 +1564,10 @@ const workerSlots = computed(() => {
   }))
 })
 
-const runtimeBadgeText = computed(() => {
+const runtimeStatusText = computed(() => {
   if (!status.value?.risk_control_enabled) return t('admin.riskControl.riskSwitchOff')
   if (!configForm.enabled || configForm.mode === 'off') return t('admin.riskControl.overview.disabled')
   return t('admin.riskControl.overview.enabled')
-})
-
-const runtimeBadgeClass = computed(() => {
-  if (!status.value?.risk_control_enabled || !configForm.enabled || configForm.mode === 'off') {
-    return 'bg-af-sunken text-af-ink-2'
-  }
-  return 'bg-af-success-tint text-af-success'
 })
 
 function applyConfig(config: ContentModerationConfig) {

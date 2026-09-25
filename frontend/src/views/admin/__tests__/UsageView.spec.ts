@@ -156,10 +156,10 @@ const ModelDistributionChartStub = {
 
 const mountRouteFilteredUsageView = () => mount(UsageView, {
   global: { stubs: {
-    AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+    AppLayout: AppLayoutStub, UsageFilters: UsageFiltersStub,
     UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
     UserBalanceHistoryModal: true, Pagination: true, Select: true,
-    DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+    DateRangePicker: true, Icon: true, UsageMetricTrend: true,
     ModelDistributionChart: true,
     EndpointDistributionChart: true, UserTokenRanking: true,
   } },
@@ -368,10 +368,10 @@ describe('admin UsageView distribution metric toggles', () => {
 
     const wrapper = mount(UsageView, {
       global: { stubs: {
-        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        AppLayout: AppLayoutStub, UsageFilters: UsageFiltersStub,
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
-        DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        DateRangePicker: true, Icon: true, UsageMetricTrend: true,
         ModelDistributionChart: ModelDistributionChartStub,
         EndpointDistributionChart: true, UserTokenRanking: true,
       } },
@@ -398,7 +398,6 @@ describe('admin UsageView distribution metric toggles', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          UsageStatsCards: true,
           UsageFilters: UsageFiltersStub,
           UsageTable: true,
           UsageExportProgress: true,
@@ -408,7 +407,7 @@ describe('admin UsageView distribution metric toggles', () => {
           Select: true,
           DateRangePicker: true,
           Icon: true,
-          TokenUsageTrend: true,
+          UsageMetricTrend: true,
           ModelDistributionChart: ModelDistributionChartStub,
           UserTokenRanking: true,
         },
@@ -461,7 +460,6 @@ describe('admin UsageView request ID column visibility', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          UsageStatsCards: true,
           UsageFilters: UsageFiltersStub,
           UsageTable: UsageTableStub,
           UsageExportProgress: true,
@@ -472,7 +470,7 @@ describe('admin UsageView request ID column visibility', () => {
           Select: true,
           DateRangePicker: true,
           Icon: true,
-          TokenUsageTrend: true,
+          UsageMetricTrend: true,
           ModelDistributionChart: true,
          
           EndpointDistributionChart: true,
@@ -506,7 +504,6 @@ describe('admin UsageView request ID column visibility', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          UsageStatsCards: true,
           UsageFilters: UsageFiltersStub,
           UsageTable: UsageTableStub,
           UsageExportProgress: true,
@@ -517,7 +514,7 @@ describe('admin UsageView request ID column visibility', () => {
           Select: true,
           DateRangePicker: true,
           Icon: true,
-          TokenUsageTrend: true,
+          UsageMetricTrend: true,
           ModelDistributionChart: true,
          
           EndpointDistributionChart: true,
@@ -570,7 +567,6 @@ describe('admin UsageView handleUserClick', () => {
       global: {
         stubs: {
           AppLayout: AppLayoutStub,
-          UsageStatsCards: true,
           UsageFilters: UsageFiltersStub,
           UsageTable: UsageTableStub,
           UsageExportProgress: true,
@@ -581,7 +577,7 @@ describe('admin UsageView handleUserClick', () => {
           Select: true,
           DateRangePicker: true,
           Icon: true,
-          TokenUsageTrend: true,
+          UsageMetricTrend: true,
           ModelDistributionChart: true,
          
           EndpointDistributionChart: true,
@@ -626,10 +622,10 @@ describe('admin UsageView errors tab filter forwarding', () => {
   it('forwards model/account_id to listErrorLogs on the errors tab', async () => {
     const wrapper = mount(UsageView, {
       global: { stubs: {
-        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        AppLayout: AppLayoutStub, UsageFilters: UsageFiltersStub,
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, AuditLogModal: true, Pagination: true, Select: true,
-        DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        DateRangePicker: true, Icon: true, UsageMetricTrend: true,
         ModelDistributionChart: true, EndpointDistributionChart: true,
         UserTokenRanking: true, OpsErrorLogTable: true, OpsErrorDetailModal: true,
       } },
@@ -644,7 +640,7 @@ describe('admin UsageView errors tab filter forwarding', () => {
     await flushPromises()
 
     // 切换到「错误请求」标签（第二个 tab 按钮）触发 loadAdminErrors
-    const tabs = wrapper.findAll('[data-testid="usage-detail-tab"]')
+    const tabs = wrapper.findAll('[data-testid^="section-tab-"]')
     await tabs[1].trigger('click')
     await flushPromises()
 
@@ -682,10 +678,10 @@ describe('admin UsageView ranking tab', () => {
   it('mounts ranking lazily and drill-down sets user filter then jumps back to usage tab', async () => {
     const wrapper = mount(UsageView, {
       global: { stubs: {
-        AppLayout: AppLayoutStub, UsageStatsCards: true, UsageFilters: UsageFiltersStub,
+        AppLayout: AppLayoutStub, UsageFilters: UsageFiltersStub,
         UsageTable: true, UsageExportProgress: true, UsageCleanupDialog: true,
         UserBalanceHistoryModal: true, Pagination: true, Select: true,
-        DateRangePicker: true, Icon: true, TokenUsageTrend: true,
+        DateRangePicker: true, Icon: true, UsageMetricTrend: true,
         ModelDistributionChart: true, EndpointDistributionChart: true,
         UserTokenRanking: UserTokenRankingStub, OpsErrorLogTable: true, OpsErrorDetailModal: true,
       } },
@@ -696,8 +692,8 @@ describe('admin UsageView ranking tab', () => {
     // 懒挂载:切到排行 tab 前不渲染
     expect(wrapper.find('[data-test="ranking"]').exists()).toBe(false)
 
-    const tabs = wrapper.findAll('[data-testid="usage-detail-tab"]')
-    expect(tabs).toHaveLength(3)
+    const tabs = wrapper.findAll('[data-testid^="section-tab-"]')
+    expect(tabs).toHaveLength(4)
     await tabs[2].trigger('click')
     await flushPromises()
     expect(wrapper.find('[data-test="ranking"]').exists()).toBe(true)

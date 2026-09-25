@@ -1422,13 +1422,13 @@ function getOpenAICompactMeta(row: any): { label: string; className: string; dot
       return {
         label: t('admin.accounts.openai.compactSupported'),
         className: 'text-af-success',
-        dotClass: 'bg-emerald-500 shadow-[0_0_0_2px_rgba(16,185,129,0.14)]'
+        dotClass: 'bg-af-success'
       }
     case 'blocked':
       return {
         label: t('admin.accounts.openai.compactUnsupported'),
         className: 'text-af-danger',
-        dotClass: 'bg-rose-500 shadow-[0_0_0_2px_rgba(244,63,94,0.14)]'
+        dotClass: 'bg-af-danger'
       }
     case 'auto':
       return {

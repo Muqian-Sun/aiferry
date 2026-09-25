@@ -444,6 +444,7 @@ export default {
     // Usage Records
     usage: {
       description: 'View and manage all user usage records',
+      tabs: { records: 'Records', errors: 'Errors', ranking: 'Ranking', analysis: 'Analysis' },
       userFilter: 'User',
       searchUserPlaceholder: 'Search user by email...',
       searchApiKeyPlaceholder: 'Search API key by name...',

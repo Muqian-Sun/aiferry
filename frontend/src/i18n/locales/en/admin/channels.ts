@@ -362,7 +362,7 @@ export default {
 
     // Channel Monitor
     channelMonitor: {
-      description: 'Monitor channel availability, latency and status',
+      description: 'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user Channel Status page show rates, RPM, and TPM — not absolute request volume.',
       form: {
         kindRequired: 'Please select a provider'
       },

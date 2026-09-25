@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { readTokenRgb, useChartTheme } from '@/composables/useChartTheme'
 import { Chart as ChartJS, ArcElement, Legend, Tooltip } from 'chart.js'
 import { Doughnut } from 'vue-chartjs'
 import type { OpsErrorDistributionResponse } from '@/api/admin/ops'
@@ -21,14 +22,18 @@ const emit = defineEmits<{
 }>()
 const { t } = useI18n()
 
-const isDarkMode = computed(() => document.documentElement.classList.contains('dark'))
-const colors = computed(() => ({
-  blue: '#3b82f6',
-  red: '#ef4444',
-  orange: '#f59e0b',
-  gray: '#9ca3af',
-  text: isDarkMode.value ? '#9ca3af' : '#6b7280'
-}))
+const theme = useChartTheme()
+const colors = computed(() => {
+  // 依赖 theme 以便切主题时重读状态色
+  void theme.value
+  return {
+    client: readTokenRgb('ink-2'),
+    system: readTokenRgb('danger'),
+    upstream: readTokenRgb('warning'),
+    other: readTokenRgb('ink-4'),
+    text: theme.value.text
+  }
+})
 
 const totalSlaErrors = computed(() =>
   (props.data?.items ?? []).reduce((total, item) => total + Number(item.sla || 0), 0)
@@ -68,10 +73,10 @@ const categories = computed<ErrorCategory[]>(() => {
   }
 
   const out: ErrorCategory[] = []
-  if (upstream > 0) out.push({ label: t('admin.ops.upstream'), count: upstream, color: colors.value.orange })
-  if (client > 0) out.push({ label: t('admin.ops.client'), count: client, color: colors.value.blue })
-  if (system > 0) out.push({ label: t('admin.ops.system'), count: system, color: colors.value.red })
-  if (other > 0) out.push({ label: t('admin.ops.other'), count: other, color: colors.value.gray })
+  if (upstream > 0) out.push({ label: t('admin.ops.upstream'), count: upstream, color: colors.value.upstream })
+  if (client > 0) out.push({ label: t('admin.ops.client'), count: client, color: colors.value.client })
+  if (system > 0) out.push({ label: t('admin.ops.system'), count: system, color: colors.value.system })
+  if (other > 0) out.push({ label: t('admin.ops.other'), count: other, color: colors.value.other })
   return out
 })
 
@@ -100,9 +105,9 @@ const options = computed(() => ({
   plugins: {
     legend: { display: false },
     tooltip: {
-      backgroundColor: isDarkMode.value ? '#1f2937' : '#ffffff',
-      titleColor: isDarkMode.value ? '#f3f4f6' : '#111827',
-      bodyColor: isDarkMode.value ? '#d1d5db' : '#4b5563'
+      backgroundColor: theme.value.tooltipBg,
+      titleColor: theme.value.tooltipText,
+      bodyColor: theme.value.tooltipText
     }
   }
 }))

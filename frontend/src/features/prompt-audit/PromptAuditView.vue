@@ -1,12 +1,14 @@
 <template>
+  <!-- 提示词审查（A7）：页签与全站同一种下划线页签；内容不套卡片；配置版本放在页头右侧 -->
   <AppLayout>
+    <template v-if="draft" #header-actions>
+      <div class="text-right text-xs text-af-ink-3" data-test="config-version">
+        <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
+        <p v-if="draft.updated_at" class="mt-0.5">{{ formatDate(draft.updated_at) }}</p>
+      </div>
+    </template>
+
     <div class="mx-auto max-w-[1600px]" :class="activeTab === 'config' && draft ? 'pb-28' : 'pb-8'">
-      <header v-if="draft" class="mb-4 flex justify-end">
-        <div class="text-right text-xs text-af-ink-3">
-          <p>{{ t('admin.promptAudit.configVersion', { version: draft.config_version }) }}</p>
-          <p v-if="draft.updated_at" class="mt-1">{{ formatDate(draft.updated_at) }}</p>
-        </div>
-      </header>
 
       <div v-if="loadErrors.config && !draft" role="alert" class="rounded-xl border border-af-danger/30 bg-af-danger-tint p-5">
         <p class="text-sm text-af-danger">{{ loadErrors.config }}</p>
@@ -14,25 +16,9 @@
       </div>
 
       <template v-else>
-        <div class="mb-4" role="tablist" :aria-label="t('admin.promptAudit.title')">
-          <div class="tabs inline-flex">
-            <button
-              v-for="tab in pageTabs"
-              :key="tab.id"
-              type="button"
-              role="tab"
-              class="tab"
-              :class="{ 'tab-active': activeTab === tab.id }"
-              :aria-selected="activeTab === tab.id"
-              :data-test="`tab-${tab.id}`"
-              @click="activeTab = tab.id"
-            >
-              {{ tab.label }}
-            </button>
-          </div>
-        </div>
+        <SectionTabs :model-value="activeTab" :tabs="pageTabs" :label="t('admin.promptAudit.title')" @update:model-value="onTabChange" />
 
-        <main class="card px-4 sm:px-6 lg:px-8">
+        <main>
           <div v-show="activeTab === 'config'" data-test="tab-panel-config">
             <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" @refresh="loadRuntime" />
 
@@ -141,6 +127,8 @@
 import { computed, defineComponent, h, onMounted, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import AppLayout from '@/components/layout/AppLayout.vue'
+import SectionTabs from '@/components/user/shell/SectionTabs.vue'
+import type { SectionTab } from '@/components/user/shell/types'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 import { useAppStore } from '@/stores/app'
 import { extractApiErrorCode, extractApiErrorMessage } from '@/utils/apiError'
@@ -168,10 +156,13 @@ const { t, locale } = useI18n()
 const appStore = useAppStore()
 type PromptAuditPageTab = 'config' | 'events'
 const activeTab = ref<PromptAuditPageTab>('events')
-const pageTabs = computed(() => [
-  { id: 'events' as const, label: t('admin.promptAudit.tabs.events') },
-  { id: 'config' as const, label: t('admin.promptAudit.tabs.config') },
+const pageTabs = computed<SectionTab[]>(() => [
+  { key: 'events', label: t('admin.promptAudit.tabs.events') },
+  { key: 'config', label: t('admin.promptAudit.tabs.config') },
 ])
+const onTabChange = (key: string) => {
+  activeTab.value = key as PromptAuditPageTab
+}
 const serverConfig = ref<PromptAuditDraft | null>(null)
 const draft = ref<PromptAuditDraft | null>(null)
 const runtime = ref<PromptAuditRuntime | null>(null)

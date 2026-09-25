@@ -5,7 +5,6 @@
         v-model="localFilters"
         v-model:startDate="localStartDate"
         v-model:endDate="localEndDate"
-        :exporting="false"
         :show-actions="false"
         @change="noop"
       />

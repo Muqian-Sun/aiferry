@@ -395,15 +395,6 @@ const healthScoreValue = computed<number | null>(() => {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 })
 
-const healthScoreColor = computed(() => {
-  if (isSystemIdle.value) return '#9ca3af' // gray-400
-  const score = healthScoreValue.value
-  if (score == null) return '#9ca3af'
-  if (score >= 90) return '#10b981' // green
-  if (score >= 60) return '#f59e0b' // yellow
-  return '#ef4444' // red
-})
-
 const healthScoreClass = computed(() => {
   if (isSystemIdle.value) return 'text-af-ink-3'
   const score = healthScoreValue.value
@@ -1020,11 +1011,11 @@ function handleToolbarRefresh() {
                   :r="radius"
                   :stroke-width="strokeWidth"
                   fill="transparent"
-                  :stroke="healthScoreColor"
+                  stroke="currentColor"
                   stroke-linecap="round"
                   :stroke-dasharray="circumference"
                   :stroke-dashoffset="dashOffset"
-                  class="transition-all duration-1000 ease-out"
+                  :class="['transition-all duration-1000 ease-out', healthScoreClass]"
                 />
               </svg>
 
@@ -1137,7 +1128,8 @@ function handleToolbarRefresh() {
                   <path
                     d="M0 16 Q 20 16, 40 16 T 80 16 T 120 10 T 160 22 T 200 16 T 240 16 T 280 16"
                     fill="none"
-                    stroke="#3b82f6"
+                    class="text-af-ink-3"
+                    stroke="currentColor"
                     stroke-width="2"
                     vector-effect="non-scaling-stroke"
                   >

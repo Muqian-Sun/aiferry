@@ -441,6 +441,7 @@ export default {
     // Usage Records
     usage: {
       description: '查看和管理所有用户的使用记录',
+      tabs: { records: '明细', errors: '错误', ranking: '排行', analysis: '分析' },
       userFilter: '用户',
       searchUserPlaceholder: '按邮箱搜索用户...',
       searchApiKeyPlaceholder: '按名称搜索 API 密钥...',

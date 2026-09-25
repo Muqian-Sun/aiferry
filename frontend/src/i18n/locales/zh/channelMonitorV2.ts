@@ -84,8 +84,6 @@ export default {
         hideUserRankingHint:
           '开启后，用户端渠道状态页不再显示「用户排行」，用户 API 也不返回排行数据。管理员仍可查看。',
       },
-      description:
-        '配置被动用量汇总维度（平台 / 模型）与刷新频率。健康色与明细在用户端 /monitor 以比例、RPM/TPM 展示，不暴露绝对请求量。',
       save: '保存',
       loading: '加载中...',
       loadFailed: '配置加载失败',

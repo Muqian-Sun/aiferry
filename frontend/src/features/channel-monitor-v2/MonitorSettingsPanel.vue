@@ -1,9 +1,7 @@
 <template>
   <section class="mx-auto w-full max-w-6xl space-y-5 px-1 py-2 sm:px-2">
-    <header class="flex flex-wrap items-center justify-between gap-3">
-      <p class="min-w-0 max-w-3xl text-sm text-af-ink-3">
-        {{ t('channelMonitorV2.settings.description') }}
-      </p>
+    <!-- 说明在管理站页头（A7 去重复），这里只留保存 -->
+    <header class="flex justify-end">
       <button
         type="button"
         class="btn btn-primary"

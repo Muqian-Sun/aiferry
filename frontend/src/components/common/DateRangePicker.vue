@@ -21,7 +21,7 @@
     </button>
 
     <Transition name="date-picker-dropdown">
-      <div v-if="isOpen" class="date-picker-dropdown">
+      <div v-if="isOpen" ref="dropdownRef" :class="['date-picker-dropdown', alignEnd && 'date-picker-dropdown-end']">
         <!-- Quick presets -->
         <div class="date-picker-presets">
           <button
@@ -76,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { ref, computed, watch, nextTick, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import { IS_ADMIN_SITE } from '@/app/site'
@@ -108,6 +108,18 @@ const plain = !IS_ADMIN_SITE
 
 const isOpen = ref(false)
 const containerRef = ref<HTMLElement | null>(null)
+const dropdownRef = ref<HTMLElement | null>(null)
+
+/** 面板默认与触发器左对齐；触发器靠右（如放在页头右侧）时放不下，就改成右对齐，免得溢出视口撑出横向滚动条 */
+const VIEWPORT_MARGIN = 8
+const alignEnd = ref(false)
+watch(isOpen, async (open) => {
+  if (!open) return
+  alignEnd.value = false
+  await nextTick()
+  const panel = dropdownRef.value
+  if (panel) alignEnd.value = panel.getBoundingClientRect().right > window.innerWidth - VIEWPORT_MARGIN
+})
 const localStartDate = ref(props.startDate)
 const localEndDate = ref(props.endDate)
 const activePreset = ref<string | null>('last24Hours')
@@ -361,6 +373,10 @@ onUnmounted(() => {
   @apply shadow-lg shadow-af-ink/10;
   @apply overflow-hidden;
   @apply min-w-[320px];
+}
+
+.date-picker-dropdown-end {
+  @apply left-auto right-0;
 }
 
 .date-picker-presets {

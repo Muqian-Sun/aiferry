@@ -1,91 +1,66 @@
 <template>
+  <!--
+    用量（A7）：区间数字摘要 + 页签（明细 · 错误 · 排行 · 分析）。
+    时间范围、刷新、导出 / 清理在页头，作用于整页；筛选对四个页签都生效（错误页签换成错误相关字段）。
+    图表只在「分析」里，全部单色；不套卡片，区块之间只用 hairline 分隔。
+  -->
   <AppLayout>
-    <div class="space-y-6">
-      <UsageStatsCards :stats="usageStats" />
-      <!-- Charts Section -->
-      <div class="space-y-4">
-        <div class="card p-4">
-          <div class="flex flex-wrap items-center gap-4">
-            <div class="flex items-center gap-2">
-              <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.timeRange') }}:</span>
-              <DateRangePicker
-                v-model:start-date="startDate"
-                v-model:end-date="endDate"
-                @change="onDateRangeChange"
-              />
-            </div>
-            <div class="ml-auto flex items-center gap-2">
-              <span class="text-sm font-medium text-af-ink-2">{{ t('admin.dashboard.granularity') }}:</span>
-              <div class="w-28">
-                <Select v-model="granularity" :options="granularityOptions" @change="loadChartData" />
-              </div>
-            </div>
-          </div>
-        </div>
-        <div class="grid grid-cols-1 gap-6 lg:grid-cols-2">
-          <ModelDistributionChart
-            v-model:source="modelDistributionSource"
-            v-model:metric="modelDistributionMetric"
-            :model-stats="requestedModelStats"
-            :upstream-model-stats="upstreamModelStats"
-            :mapping-model-stats="mappingModelStats"
-            :loading="modelStatsLoading"
-            :show-source-toggle="true"
-            :show-metric-toggle="true"
-            :start-date="startDate"
-            :end-date="endDate"
-            :filters="breakdownFilters"
-            :load-user-breakdown="getUserBreakdown"
-          />
-          <EndpointDistributionChart
-            v-model:source="endpointDistributionSource"
-            v-model:metric="endpointDistributionMetric"
-            :endpoint-stats="inboundEndpointStats"
-            :upstream-endpoint-stats="upstreamEndpointStats"
-            :endpoint-path-stats="endpointPathStats"
-            :loading="endpointStatsLoading"
-            :show-source-toggle="true"
-            :show-metric-toggle="true"
-            :title="t('usage.endpointDistribution')"
-            :start-date="startDate"
-            :end-date="endDate"
-            :filters="breakdownFilters"
-            :load-user-breakdown="getUserBreakdown"
-          />
-        </div>
-        <TokenUsageTrend :trend-data="trendData" :loading="chartsLoading" />
-      </div>
-      <!-- 明细区：tab 栏 + 筛选 + 内容收进同一张卡片，消除割裂感 -->
-      <div class="card">
-        <div class="flex flex-wrap items-center border-b border-af-hairline px-2 sm:px-4">
+    <template #header-actions>
+      <DateRangePicker
+        v-model:start-date="startDate"
+        v-model:end-date="endDate"
+        @change="onDateRangeChange"
+      />
+      <button
+        type="button"
+        class="btn btn-ghost btn-md px-2.5"
+        :title="t('common.refresh')"
+        :aria-label="t('common.refresh')"
+        data-testid="usage-refresh"
+        @click="refreshData"
+      >
+        <Icon name="refresh" size="md" />
+      </button>
+      <PopoverMenu width-class="w-44">
+        <template #trigger="{ open }">
           <button
-            v-for="tab in detailTabs"
-            :key="tab.key"
             type="button"
-            data-testid="usage-detail-tab"
-            class="-mb-px inline-flex items-center gap-1.5 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4"
-            :class="activeTab === tab.key
-              ? 'border-af-brand text-af-brand'
-              : 'border-transparent text-af-ink-3 hover:border-af-hairline-strong hover:text-af-ink-2'"
-            @click="switchTab(tab.key)"
+            class="btn btn-ghost btn-md px-2.5"
+            :class="open ? 'bg-af-sunken text-af-ink' : ''"
+            :title="t('common.more')"
+            :aria-label="t('common.more')"
+            data-testid="usage-tools"
           >
-            <Icon :name="tab.icon" size="sm" />
-            {{ tab.label }}
+            <Icon name="more" size="md" />
           </button>
-        </div>
+        </template>
+        <MenuItem icon="download" :disabled="exporting" data-testid="usage-export" @click="exportToExcel">
+          {{ exporting ? t('usage.exporting') : t('usage.exportExcel') }}
+        </MenuItem>
+        <MenuItem divider />
+        <MenuItem icon="trash" danger data-testid="usage-cleanup" @click="openCleanupDialog">
+          {{ t('admin.usage.cleanup.button') }}
+        </MenuItem>
+      </PopoverMenu>
+    </template>
 
-        <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" class="border-b border-af-hairline" :start-date="startDate" :end-date="endDate" :exporting="exporting" :model-options="modelNameOptions" @change="applyFilters" @refresh="refreshData" @reset="resetFilters" @cleanup="openCleanupDialog" @export="exportToExcel">
+    <div class="space-y-6">
+      <!-- 区间摘要：统计接口失败就不出现，不摆一排 0 -->
+      <StatRow v-if="summaryItems" :items="summaryItems" data-testid="usage-summary" />
+
+      <div>
+        <SectionTabs :model-value="activeTab" :tabs="detailTabs" :label="t('nav.usage')" @update:model-value="onTabChange" />
+
+        <UsageFilters v-model="filters" ref="usageFiltersRef" flat :mode="activeTab" :start-date="startDate" :end-date="endDate" :model-options="modelNameOptions" @change="applyFilters" @reset="resetFilters">
           <template #after-reset>
-            <div v-if="activeTab !== 'ranking'" class="relative" ref="columnDropdownRef">
+            <div v-if="activeTab === 'usage' || activeTab === 'errors'" class="relative" ref="columnDropdownRef">
               <button
                 data-testid="usage-column-settings"
                 @click="showColumnDropdown = !showColumnDropdown"
                 class="btn btn-secondary px-2 md:px-3"
                 :title="t('admin.users.columnSettings')"
               >
-                <svg class="h-4 w-4 md:mr-1.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="1.5">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M9 4.5v15m6-15v15m-10.875 0h15.75c.621 0 1.125-.504 1.125-1.125V5.625c0-.621-.504-1.125-1.125-1.125H4.125C3.504 4.5 3 5.004 3 5.625v12.75c0 .621.504 1.125 1.125 1.125z" />
-                </svg>
+                <Icon name="columns" size="sm" class="md:mr-1.5" />
                 <span class="hidden md:inline">{{ t('admin.users.columnSettings') }}</span>
               </button>
               <div
@@ -113,7 +88,7 @@
           </template>
         </UsageFilters>
 
-        <div v-show="activeTab === 'usage'" class="overflow-hidden rounded-b-lg">
+        <div v-show="activeTab === 'usage'" class="border-t border-af-hairline">
           <UsageTable
             :data="usageLogs"
             :loading="loading"
@@ -127,7 +102,7 @@
           />
           <Pagination v-if="pagination.total > 0" :page="pagination.page" :total="pagination.total" :page-size="pagination.page_size" @update:page="handlePageChange" @update:pageSize="handlePageSizeChange" />
         </div>
-        <div v-show="activeTab === 'errors'" class="overflow-hidden rounded-b-lg">
+        <div v-show="activeTab === 'errors'" class="border-t border-af-hairline">
           <OpsErrorLogTable
             flat
             :rows="errRows" :total="errTotal" :loading="errLoading"
@@ -142,7 +117,7 @@
             @ipGeoBatchFailed="handleIpGeoBatchFailed" />
         </div>
         <!-- 懒挂载：首次切到该 tab 才请求排行数据，之后随筛选自动刷新 -->
-        <div v-if="rankingMounted" v-show="activeTab === 'ranking'" class="overflow-hidden rounded-b-lg">
+        <div v-if="rankingMounted" v-show="activeTab === 'ranking'" class="border-t border-af-hairline">
           <UserTokenRanking
             ref="rankingRef"
             :start-date="startDate"
@@ -151,6 +126,64 @@
             :model="filters.model"
             @select-user="handleRankingSelectUser"
           />
+        </div>
+        <!-- 分析：趋势 / 模型分布 / 端点分布，随时间范围与筛选变；进页就拉（模型筛选的候选项来自模型分布） -->
+        <div v-show="activeTab === 'analysis'" class="space-y-8 border-t border-af-hairline pt-6" data-testid="usage-analysis">
+          <SheetSection :title="t('admin.dashboard.usageTrend')" data-testid="usage-trend">
+            <template #actions>
+              <div class="w-28">
+                <Select v-model="granularity" :options="granularityOptions" :title="t('admin.dashboard.granularity')" @change="loadChartData" />
+              </div>
+              <div class="inline-flex rounded-lg bg-af-sunken p-1" role="tablist" :aria-label="t('admin.dashboard.usageTrend')">
+                <button
+                  v-for="tab in trendTabs"
+                  :key="tab.key"
+                  type="button"
+                  role="tab"
+                  class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
+                  :class="trendMetric === tab.key ? 'bg-af-sheet text-af-ink' : 'text-af-ink-3 hover:text-af-ink-2'"
+                  :aria-selected="trendMetric === tab.key"
+                  @click="trendMetric = tab.key"
+                >
+                  {{ tab.label }}
+                </button>
+              </div>
+            </template>
+            <UsageMetricTrend :trend-data="trendFilled" :metric="trendMetric" :loading="chartsLoading" />
+          </SheetSection>
+          <SheetSection>
+            <ModelDistributionChart
+              v-model:source="modelDistributionSource"
+              v-model:metric="modelDistributionMetric"
+              :model-stats="requestedModelStats"
+              :upstream-model-stats="upstreamModelStats"
+              :mapping-model-stats="mappingModelStats"
+              :loading="modelStatsLoading"
+              :show-source-toggle="true"
+              :show-metric-toggle="true"
+              :start-date="startDate"
+              :end-date="endDate"
+              :filters="breakdownFilters"
+              :load-user-breakdown="getUserBreakdown"
+            />
+          </SheetSection>
+          <SheetSection>
+            <EndpointDistributionChart
+              v-model:source="endpointDistributionSource"
+              v-model:metric="endpointDistributionMetric"
+              :endpoint-stats="inboundEndpointStats"
+              :upstream-endpoint-stats="upstreamEndpointStats"
+              :endpoint-path-stats="endpointPathStats"
+              :loading="endpointStatsLoading"
+              :show-source-toggle="true"
+              :show-metric-toggle="true"
+              :title="t('usage.endpointDistribution')"
+              :start-date="startDate"
+              :end-date="endDate"
+              :filters="breakdownFilters"
+              :load-user-breakdown="getUserBreakdown"
+            />
+          </SheetSection>
         </div>
       </div>
       <OpsErrorDetailModal v-model:show="showErrorModal" :error-id="selectedErrorId" :error-type="'request'" />
@@ -183,7 +216,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { formatReasoningEffort } from '@/utils/format'
 import { resolveUsageRequestType, requestTypeToLegacyStream } from '@/utils/usageRequestType'
 import AppLayout from '@/components/layout/AppLayout.vue'; import Pagination from '@/components/common/Pagination.vue'; import Select from '@/components/common/Select.vue'; import DateRangePicker from '@/components/common/DateRangePicker.vue'
-import UsageStatsCards from '@/components/admin/usage/UsageStatsCards.vue'; import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
+import UsageFilters from '@/components/admin/usage/UsageFilters.vue'
 import UsageTable from '@/components/usage/UsageTable.vue'; import UsageExportProgress from '@/components/admin/usage/UsageExportProgress.vue'
 import UserTokenRanking from '@/components/admin/usage/UserTokenRanking.vue'
 import UsageCleanupDialog from '@/components/admin/usage/UsageCleanupDialog.vue'
@@ -192,9 +225,16 @@ import OpsErrorLogTable from '@/views/admin/ops/components/OpsErrorLogTable.vue'
 import OpsErrorDetailModal from '@/views/admin/ops/components/OpsErrorDetailModal.vue'
 import { listErrorLogs } from '@/api/admin/ops'
 import type { OpsErrorLog } from '@/api/admin/ops'
-import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'; import TokenUsageTrend from '@/components/charts/TokenUsageTrend.vue'
+import ModelDistributionChart from '@/components/charts/ModelDistributionChart.vue'
 import EndpointDistributionChart from '@/components/charts/EndpointDistributionChart.vue'
 import Icon from '@/components/icons/Icon.vue'
+import StatRow from '@/components/user/shell/StatRow.vue'
+import SectionTabs from '@/components/user/shell/SectionTabs.vue'
+import SheetSection from '@/components/user/shell/SheetSection.vue'
+import type { SectionTab, StatItem } from '@/components/user/shell/types'
+import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
+import { MenuItem, PopoverMenu } from '@/components/admin/list'
+import { fillTrendBuckets, trendBucketKeys, type TrendGranularity } from '@/utils/trendBuckets'
 import type { AdminUsageLog, TrendDataPoint, ModelStat, EndpointStat, AdminUser } from '@/types'; import type { AdminUsageStatsResponse, AdminUsageQueryParams } from '@/api/admin/usage'
 
 const { t } = useI18n()
@@ -204,7 +244,7 @@ type EndpointSource = 'inbound' | 'upstream' | 'path'
 type ModelDistributionSource = 'requested' | 'upstream' | 'mapping'
 const route = useRoute()
 const usageStats = ref<AdminUsageStatsResponse | null>(null); const usageLogs = ref<AdminUsageLog[]>([]); const loading = ref(false); const exporting = ref(false)
-const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<'day' | 'hour'>('hour')
+const trendData = ref<TrendDataPoint[]>([]); const requestedModelStats = ref<ModelStat[]>([]); const upstreamModelStats = ref<ModelStat[]>([]); const mappingModelStats = ref<ModelStat[]>([]); const chartsLoading = ref(false); const modelStatsLoading = ref(false); const granularity = ref<TrendGranularity>('hour')
 const modelDistributionMetric = ref<DistributionMetric>('tokens')
 const modelDistributionSource = ref<ModelDistributionSource>('requested')
 const loadedModelSources = reactive<Record<ModelDistributionSource, boolean>>({
@@ -238,6 +278,72 @@ const breakdownFilters = computed(() => {
   if (filters.value.billing_type != null) f.billing_type = filters.value.billing_type
   return f
 })
+
+// ---------- 区间摘要 ----------
+const toFiniteNumber = (value: unknown): number => {
+  const numberValue = Number(value)
+  return Number.isFinite(numberValue) ? numberValue : 0
+}
+const formatTokens = (value: number): string => {
+  if (value >= 1_000_000_000) return `${(value / 1_000_000_000).toFixed(2)}B`
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`
+  if (value >= 1_000) return `${(value / 1_000).toFixed(2)}K`
+  return value.toLocaleString()
+}
+const formatCost = (value: number): string => {
+  if (value >= 1000) return `$${(value / 1000).toFixed(2)}K`
+  if (value >= 1) return `$${value.toFixed(2)}`
+  if (value >= 0.01) return `$${value.toFixed(3)}`
+  return `$${value.toFixed(4)}`
+}
+const formatDuration = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`)
+
+/** 与概览同一套口径：缓存命中率 = 缓存读 ÷（输入 + 缓存读 + 缓存写）；没有输入侧 token 时显示「—」 */
+const summaryItems = computed<StatItem[] | null>(() => {
+  const s = usageStats.value
+  if (!s) return null
+  const input = toFiniteNumber(s.total_input_tokens)
+  const cacheRead = toFiniteNumber(s.total_cache_read_tokens)
+  const cacheCreation = toFiniteNumber(s.total_cache_creation_tokens)
+  const promptTokens = input + cacheRead + cacheCreation
+  const hitShare = promptTokens > 0 ? cacheRead / promptTokens : null
+  return [
+    { key: 'requests', label: t('admin.dashboard.requests'), value: toFiniteNumber(s.total_requests).toLocaleString() },
+    {
+      key: 'tokens',
+      label: t('admin.dashboard.tokens'),
+      value: formatTokens(toFiniteNumber(s.total_tokens)),
+      hint: `${t('usage.in')} ${formatTokens(input)} · ${t('usage.out')} ${formatTokens(toFiniteNumber(s.total_output_tokens))}`
+    },
+    {
+      key: 'cacheHitRate',
+      label: t('admin.dashboard.cacheHitRate'),
+      value: hitShare === null ? '—' : `${(hitShare * 100).toFixed(hitShare > 0 && hitShare < 0.1 ? 1 : 0)}%`
+    },
+    {
+      key: 'charged',
+      label: t('admin.dashboard.charged'),
+      value: formatCost(toFiniteNumber(s.total_actual_cost)),
+      hint: t('admin.dashboard.standardHint', { amount: formatCost(toFiniteNumber(s.total_cost)) })
+    },
+    { key: 'accountCost', label: t('admin.dashboard.accountCost'), value: formatCost(toFiniteNumber(s.total_account_cost)) },
+    { key: 'latency', label: t('admin.dashboard.avgResponse'), value: formatDuration(toFiniteNumber(s.average_duration_ms)) }
+  ]
+})
+
+// ---------- 分析：用量趋势 ----------
+const trendMetric = ref<UsageTrendMetric>('tokens')
+const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() => [
+  { key: 'tokens', label: t('admin.dashboard.tokens') },
+  { key: 'requests', label: t('admin.dashboard.requests') },
+  { key: 'cost', label: t('admin.dashboard.cost') }
+])
+const trendFilled = computed(() =>
+  fillTrendBuckets(
+    trendData.value,
+    trendBucketKeys(filters.value.start_date || startDate.value, filters.value.end_date || endDate.value, granularity.value)
+  )
+)
 
 const modelNameOptions = computed(() =>
   Array.from(new Set(requestedModelStats.value.map((m) => m.model).filter(Boolean))).sort()
@@ -278,7 +384,7 @@ const getLast24HoursRangeDates = (): { start: string; end: string } => {
     end: formatLD(end)
   }
 }
-const getGranularityForRange = (start: string, end: string): 'day' | 'hour' => {
+const getGranularityForRange = (start: string, end: string): TrendGranularity => {
   const startTime = new Date(`${start}T00:00:00`).getTime()
   const endTime = new Date(`${end}T00:00:00`).getTime()
   const daysDiff = Math.ceil((endTime - startTime) / (1000 * 60 * 60 * 24))
@@ -764,13 +870,14 @@ const loadSavedColumns = () => {
   }
 }
 
-// Detail tabs
-type DetailTab = 'usage' | 'errors' | 'ranking'
+// 页签：明细（默认）· 错误 · 排行 · 分析
+type DetailTab = 'usage' | 'errors' | 'ranking' | 'analysis'
 const activeTab = ref<DetailTab>('usage')
-const detailTabs = computed(() => [
-  { key: 'usage' as const, label: t('usage.tabs.usage'), icon: 'document' as const },
-  { key: 'errors' as const, label: t('usage.tabs.errors'), icon: 'exclamationTriangle' as const },
-  { key: 'ranking' as const, label: t('usage.tabs.ranking'), icon: 'chart' as const },
+const detailTabs = computed<SectionTab[]>(() => [
+  { key: 'usage', label: t('admin.usage.tabs.records') },
+  { key: 'errors', label: t('admin.usage.tabs.errors') },
+  { key: 'ranking', label: t('admin.usage.tabs.ranking') },
+  { key: 'analysis', label: t('admin.usage.tabs.analysis') },
 ])
 const usageFiltersRef = ref<InstanceType<typeof UsageFilters> | null>(null)
 const rankingMounted = ref(false)
@@ -781,6 +888,7 @@ const switchTab = (tab: DetailTab) => {
   if (tab === 'errors' && errRows.value.length === 0) loadAdminErrors()
   if (tab === 'ranking') rankingMounted.value = true
 }
+const onTabChange = (key: string) => switchTab(key as DetailTab)
 
 // Error tab state
 const errRows = ref<OpsErrorLog[]>([])

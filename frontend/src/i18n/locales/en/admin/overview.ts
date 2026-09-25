@@ -37,7 +37,6 @@ export default {
       modelDistribution: 'Model Distribution',
       metricTokens: 'By Tokens',
       metricActualCost: 'By Actual Cost',
-      tokenUsageTrend: 'Token Usage Trend',
       userUsageTrend: 'User Usage Trend (Top 12)',
       model: 'Model',
       requests: 'Requests',
