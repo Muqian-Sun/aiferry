@@ -640,10 +640,12 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     | "wechat_connect_open_enabled"
     | "wechat_connect_mp_enabled"
     | "wechat_connect_mobile_enabled"
+    // A6-4：这几项挪到了功能页（渠道健康 / 审查），设置页不再读写
+    | "channel_monitor_hide_throughput"
+    | "channel_monitor_hide_user_ranking"
+    | "cyber_session_block_enabled"
+    | "cyber_session_block_ttl_seconds"
   > & {
-    /** Form always binds a concrete boolean (SystemSettings marks this optional). */
-    channel_monitor_hide_throughput: boolean;
-    channel_monitor_hide_user_ranking: boolean;
     smtp_password: string;
     turnstile_secret_key: string;
     tencent_captcha_app_secret_key: string;
@@ -706,8 +708,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     hide_ccs_import_button: false,
     payment_enabled: false,
     risk_control_enabled: false,
-    cyber_session_block_enabled: false,
-    cyber_session_block_ttl_seconds: 3600,
     payment_min_amount: 1,
     payment_max_amount: 10000,
     payment_daily_limit: 50000,
@@ -905,8 +905,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     account_quota_notify_emails: [] as NotifyEmailEntry[],
     // Channel Monitor feature switch
     channel_monitor_enabled: true,
-    channel_monitor_hide_throughput: false,
-    channel_monitor_hide_user_ranking: false,
     // Available Channels feature switch
     // Subscription feature switch (user sidebar "My Subscriptions" entry)
     subscription_enabled: true,
@@ -1796,12 +1794,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         : defaultFingerprintSignalRows();
       form.login_agreement_mode =
         settings.login_agreement_mode === "checkbox" ? "checkbox" : "modal";
-      form.channel_monitor_hide_throughput = Boolean(
-        settings.channel_monitor_hide_throughput
-      );
-      form.channel_monitor_hide_user_ranking = Boolean(
-        settings.channel_monitor_hide_user_ranking
-      );
       form.login_agreement_updated_at =
         settings.login_agreement_updated_at || "2026-03-31";
       form.login_agreement_documents =
@@ -2323,9 +2315,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         // Payment configuration
         payment_enabled: form.payment_enabled,
         risk_control_enabled: form.risk_control_enabled,
-        cyber_session_block_enabled: form.cyber_session_block_enabled,
-        cyber_session_block_ttl_seconds:
-          Number(form.cyber_session_block_ttl_seconds) || 3600,
         payment_min_amount: Number(form.payment_min_amount) || 0,
         payment_max_amount: Number(form.payment_max_amount) || 0,
         payment_daily_limit: Number(form.payment_daily_limit) || 0,
@@ -2366,8 +2355,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         ).filter((e) => e.email.trim() !== ""),
         // Channel Monitor feature switch
         channel_monitor_enabled: form.channel_monitor_enabled,
-        channel_monitor_hide_throughput: Boolean(form.channel_monitor_hide_throughput),
-        channel_monitor_hide_user_ranking: Boolean(form.channel_monitor_hide_user_ranking),
         // Ops monitoring feature switch
         ops_monitoring_enabled: form.ops_monitoring_enabled,
         // Available Channels feature switch

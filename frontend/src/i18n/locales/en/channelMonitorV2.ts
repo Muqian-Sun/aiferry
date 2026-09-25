@@ -74,6 +74,16 @@ export default {
       unranked: 'Unranked',
     },
     settings: {
+      visibility: {
+        title: 'What users see',
+        description: 'What users can see on the Channel Status page.',
+        hideThroughput: 'Hide throughput rates from users (RPM / TPM)',
+        hideThroughputHint:
+          'When on, the user Channel Status page and user APIs omit RPM and TPM so fleet volume cannot be reverse-estimated from rates × window. Admins still see full metrics. Error rates, latency, and cache rates remain visible.',
+        hideUserRanking: 'Hide user ranking from users',
+        hideUserRankingHint:
+          'When on, the user Channel Status page hides the user ranking and the user API returns no ranking rows. Admins still see the ranking.',
+      },
       description:
         'Configure passive usage aggregation dimensions (platform / model) and refresh cadence. Health colors and details on the user /monitor page show rates, RPM, and TPM — not absolute request volume.',
       save: 'Save',
@@ -83,8 +93,8 @@ export default {
       saveFailed: 'Failed to save config',
       enableTitle: 'Enable aggregation',
       enableHint:
-        'Turning this off only stops this aggregation; the switch for the whole channel health feature is under Settings › Features.',
-      disabledBanner: 'Channel health is turned off under Settings › Features, so aggregation will not run. You can still save this config now.',
+        'Turning this off only stops this aggregation; the switch for the whole channel health feature is under Settings › Switches.',
+      disabledBanner: 'Channel health is turned off under Settings › Switches, so aggregation will not run. You can still save this config now.',
       refreshTitle: 'Aggregation interval',
       refreshHint: 'Affects matrix time granularity and refresh cadence',
       refreshAria: 'Aggregation interval',

@@ -843,6 +843,20 @@
                 <label class="input-label">{{ t('admin.riskControl.violationWindowHours') }}</label>
                 <input v-model.number="configForm.violation_window_hours" type="number" min="1" max="8760" class="input" />
               </div>
+              <!-- cyber 会话自动屏蔽（A6-4 从设置页挪来）：存在全局设置里，保存时只发这两项 -->
+              <template v-if="sessionBlock">
+                <div class="flex items-center justify-between rounded-lg border border-af-hairline p-4 lg:col-span-2" data-testid="risk-cyber-session-block">
+                  <div>
+                    <p class="text-sm font-medium text-af-ink">{{ t('admin.riskControl.cyberSessionBlock') }}</p>
+                    <p class="mt-1 text-xs text-af-ink-3">{{ t('admin.riskControl.cyberSessionBlockHint') }}</p>
+                  </div>
+                  <Toggle v-model="sessionBlock.enabled" />
+                </div>
+                <div v-if="sessionBlock.enabled">
+                  <label class="input-label">{{ t('admin.riskControl.cyberSessionBlockTTL') }}</label>
+                  <input v-model.number="sessionBlock.ttl_seconds" type="number" min="1" class="input" />
+                </div>
+              </template>
             </div>
           </div>
 
@@ -1143,6 +1157,9 @@ const apiKeyTesting = ref(false)
 const hashActionLoading = ref(false)
 const unbanningUserID = ref<number | null>(null)
 const settingsOpen = ref(false)
+/** cyber 会话自动屏蔽：存在全局设置里（cyber_session_block_*），打开设置时读取 */
+const sessionBlock = ref<{ enabled: boolean; ttl_seconds: number } | null>(null)
+const sessionBlockOriginal = ref('')
 const activeSettingsTab = ref<SettingsTab>('basic')
 const flaggedHashInput = ref('')
 const proxies = ref<Proxy[]>([])
@@ -1747,6 +1764,14 @@ async function saveConfig() {
 
     const updated = await adminAPI.riskControl.updateConfig(payload)
     applyConfig(updated)
+    if (sessionBlock.value && JSON.stringify(sessionBlock.value) !== sessionBlockOriginal.value) {
+      // 设置接口只写请求里带了的字段，这里只发这两项
+      await adminAPI.settings.updateSettings({
+        cyber_session_block_enabled: sessionBlock.value.enabled,
+        cyber_session_block_ttl_seconds: Number(sessionBlock.value.ttl_seconds) || 3600,
+      })
+      sessionBlockOriginal.value = JSON.stringify(sessionBlock.value)
+    }
     settingsOpen.value = false
     appStore.showSuccess(t('admin.riskControl.saved'))
     await Promise.all([loadStatus(true), loadLogs()])
@@ -1849,6 +1874,22 @@ async function clearFlaggedHashes() {
 function openSettings() {
   activeSettingsTab.value = 'basic'
   settingsOpen.value = true
+  void loadSessionBlock()
+}
+
+async function loadSessionBlock() {
+  try {
+    const settings = await adminAPI.settings.getSettings()
+    const value = {
+      enabled: Boolean(settings.cyber_session_block_enabled),
+      ttl_seconds: Number(settings.cyber_session_block_ttl_seconds) || 3600,
+    }
+    sessionBlock.value = { ...value }
+    sessionBlockOriginal.value = JSON.stringify(value)
+  } catch (err: unknown) {
+    sessionBlock.value = null
+    appStore.showError(extractApiErrorMessage(err, t('admin.riskControl.loadFailed')))
+  }
 }
 
 function reloadLogsFromFirstPage() {

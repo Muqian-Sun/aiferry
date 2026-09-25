@@ -33,12 +33,6 @@ export default {
           configureLink: '前往 渠道健康 配置汇总维度',
           enabled: '启用渠道健康',
           enabledHint: '关闭后汇总任务停止；已有配置与历史保留。',
-          hideThroughput: '对用户隐藏吞吐速率（RPM / TPM）',
-          hideThroughputHint:
-            '开启后，用户端渠道状态页与用户 API 不返回 RPM/TPM，避免用「速率 × 时间窗」反推集群规模。管理员仍可见完整指标；错误率、延迟、缓存率照常展示。',
-          hideUserRanking: '对用户隐藏用户排行',
-          hideUserRankingHint:
-            '开启后，用户端渠道状态页不再显示「用户排行」，用户 API 也不返回排行数据。管理员仍可查看。',
         },
         siteBillingMode: {
           title: '站点类型',
@@ -67,9 +61,6 @@ export default {
           configureLink: '前往 风控中心 配置内容审计',
           enabled: '启用风控中心',
           enabledHint: '关闭后管理员侧边栏入口隐藏，网关内容审计不会执行。',
-          cyberSessionBlock: 'cyber 会话自动屏蔽',
-          cyberSessionBlockHint: '开启后,被上游网络安全策略(cyber_policy)拦截的会话将在 TTL 内被本地屏蔽,不再发往上游。仅屏蔽该会话,不影响同 Key 其他会话。',
-          cyberSessionBlockTTL: '屏蔽时长(秒)',
         },
       },
       emailTabDisabledTitle: '邮箱验证未启用',

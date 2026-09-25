@@ -30,31 +30,6 @@
           </div>
           <Toggle v-model="form.channel_monitor_enabled" />
         </div>
-
-        <div v-if="form.channel_monitor_enabled" class="space-y-4">
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-af-ink">
-                {{ t('admin.settings.features.channelMonitor.hideThroughput') }}
-              </p>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.settings.features.channelMonitor.hideThroughputHint') }}
-              </p>
-            </div>
-            <Toggle v-model="form.channel_monitor_hide_throughput" />
-          </div>
-          <div class="flex items-start justify-between gap-4">
-            <div class="min-w-0">
-              <p class="text-sm font-medium text-af-ink">
-                {{ t('admin.settings.features.channelMonitor.hideUserRanking') }}
-              </p>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.settings.features.channelMonitor.hideUserRankingHint') }}
-              </p>
-            </div>
-            <Toggle v-model="form.channel_monitor_hide_user_ranking" />
-          </div>
-        </div>
       </div>
     </div>
 
@@ -168,31 +143,6 @@
             </p>
           </div>
           <Toggle v-model="form.risk_control_enabled" />
-        </div>
-
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="text-sm font-medium text-af-ink-2">
-              {{ t('admin.settings.features.riskControl.cyberSessionBlock') }}
-            </label>
-            <p class="mt-0.5 text-xs text-af-ink-3">
-              {{ t('admin.settings.features.riskControl.cyberSessionBlockHint') }}
-            </p>
-          </div>
-          <Toggle v-model="form.cyber_session_block_enabled" />
-        </div>
-
-        <div v-if="form.cyber_session_block_enabled">
-          <label class="input-label">
-            {{ t('admin.settings.features.riskControl.cyberSessionBlockTTL') }}
-            <span class="text-af-danger">*</span>
-          </label>
-          <input
-            v-model.number="form.cyber_session_block_ttl_seconds"
-            type="number"
-            min="1"
-            class="input"
-          />
         </div>
       </div>
     </div>

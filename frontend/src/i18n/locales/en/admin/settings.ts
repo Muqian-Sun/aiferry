@@ -33,12 +33,6 @@ export default {
           configureLink: 'Configure aggregation in Channel health',
           enabled: 'Enable channel health',
           enabledHint: 'Turning this off stops aggregation; existing config and history are kept.',
-          hideThroughput: 'Hide throughput rates from users (RPM / TPM)',
-          hideThroughputHint:
-            'When on, the user Channel Status page and user APIs omit RPM and TPM so fleet volume cannot be reverse-estimated from rates × window. Admins still see full metrics. Error rates, latency, and cache rates remain visible.',
-          hideUserRanking: 'Hide user ranking from users',
-          hideUserRankingHint:
-            'When on, the user Channel Status page hides the user ranking and the user API returns no ranking rows. Admins still see the ranking.',
         },
         siteBillingMode: {
           title: 'Site Billing Mode',
@@ -67,9 +61,6 @@ export default {
           configureLink: 'Configure content moderation in Risk Control',
           enabled: 'Enable Risk Control',
           enabledHint: 'When off, the admin sidebar entry is hidden and gateway moderation is skipped.',
-          cyberSessionBlock: 'Cyber session auto-block',
-          cyberSessionBlockHint: 'When enabled, sessions hit by upstream cyber_policy are blocked locally for the TTL and no longer forwarded. Only the offending session is blocked; other sessions on the same key are unaffected.',
-          cyberSessionBlockTTL: 'Block TTL (seconds)',
         },
       },
       emailTabDisabledTitle: 'Email Verification Not Enabled',

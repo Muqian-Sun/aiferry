@@ -32,6 +32,32 @@
     </div>
 
     <template v-else-if="draft">
+      <!-- 用户端展示（A6-4 从设置页挪来）：存在全局设置里，保存时只发这两项 -->
+      <div
+        v-if="visibility"
+        class="card divide-y divide-af-hairline !rounded-lg !border-0 ring-1 ring-af-hairline"
+        data-testid="monitor-user-visibility"
+      >
+        <div class="px-5 py-4">
+          <strong class="text-sm font-semibold text-af-ink">{{ t('channelMonitorV2.settings.visibility.title') }}</strong>
+          <p class="mt-0.5 text-xs text-af-ink-3">{{ t('channelMonitorV2.settings.visibility.description') }}</p>
+        </div>
+        <div class="flex items-start justify-between gap-4 px-5 py-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-af-ink">{{ t('channelMonitorV2.settings.visibility.hideThroughput') }}</p>
+            <p class="mt-1 text-xs text-af-ink-3">{{ t('channelMonitorV2.settings.visibility.hideThroughputHint') }}</p>
+          </div>
+          <Toggle v-model="visibility.hide_throughput" />
+        </div>
+        <div class="flex items-start justify-between gap-4 px-5 py-4">
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-af-ink">{{ t('channelMonitorV2.settings.visibility.hideUserRanking') }}</p>
+            <p class="mt-1 text-xs text-af-ink-3">{{ t('channelMonitorV2.settings.visibility.hideUserRankingHint') }}</p>
+          </div>
+          <Toggle v-model="visibility.hide_user_ranking" />
+        </div>
+      </div>
+
       <div class="card divide-y divide-af-hairline !rounded-lg !border-0 ring-1 ring-af-hairline">
         <div class="flex flex-wrap items-center justify-between gap-4 px-5 py-4">
           <div>
@@ -209,6 +235,7 @@ import { useI18n } from 'vue-i18n'
 import Toggle from '@/components/common/Toggle.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
+import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { isChannelMonitorRouteEnabled } from '@/utils/featureFlags'
 import {
@@ -225,7 +252,25 @@ const saving = ref(false)
 const draft = ref<MonitorConfig | null>(null)
 const original = ref('')
 
-const dirty = computed(() => (draft.value ? JSON.stringify(draft.value) !== original.value : false))
+/** 用户端展示的两个开关存在全局设置里（channel_monitor_hide_*），与汇总配置分开存 */
+interface MonitorVisibility {
+  hide_throughput: boolean
+  hide_user_ranking: boolean
+}
+const visibility = ref<MonitorVisibility | null>(null)
+const visibilityOriginal = ref('')
+const visibilityDirty = computed(() => (visibility.value ? JSON.stringify(visibility.value) !== visibilityOriginal.value : false))
+const configDirty = computed(() => (draft.value ? JSON.stringify(draft.value) !== original.value : false))
+const dirty = computed(() => configDirty.value || visibilityDirty.value)
+
+function applyVisibility(settings: { channel_monitor_hide_throughput?: boolean; channel_monitor_hide_user_ranking?: boolean }) {
+  const value: MonitorVisibility = {
+    hide_throughput: Boolean(settings.channel_monitor_hide_throughput),
+    hide_user_ranking: Boolean(settings.channel_monitor_hide_user_ranking),
+  }
+  visibility.value = { ...value }
+  visibilityOriginal.value = JSON.stringify(value)
+}
 const namedModelCount = computed(
   () => draft.value?.platforms.filter((p) => p.enabled).reduce((sum, p) => sum + p.models.length, 0) || 0
 )
@@ -335,10 +380,11 @@ function normalizeConfig(value: MonitorConfig): MonitorConfig {
 async function load() {
   loading.value = true
   try {
-    const value = await getConfig()
+    const [value, settings] = await Promise.all([getConfig(), adminAPI.settings.getSettings()])
     const normalized = normalizeConfig(value)
     draft.value = structuredClone(normalized)
     original.value = JSON.stringify(normalized)
+    applyVisibility(settings)
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.settings.loadFailed')))
   } finally {
@@ -350,11 +396,21 @@ async function save() {
   if (!draft.value) return
   saving.value = true
   try {
-    const payload = normalizeConfig(draft.value)
-    const value = await updateConfig(payload)
-    const normalized = normalizeConfig(value)
-    draft.value = structuredClone(normalized)
-    original.value = JSON.stringify(normalized)
+    if (configDirty.value) {
+      const payload = normalizeConfig(draft.value)
+      const value = await updateConfig(payload)
+      const normalized = normalizeConfig(value)
+      draft.value = structuredClone(normalized)
+      original.value = JSON.stringify(normalized)
+    }
+    if (visibility.value && visibilityDirty.value) {
+      // 设置接口只写请求里带了的字段，这里只发这两项
+      const updated = await adminAPI.settings.updateSettings({
+        channel_monitor_hide_throughput: visibility.value.hide_throughput,
+        channel_monitor_hide_user_ranking: visibility.value.hide_user_ranking,
+      })
+      applyVisibility(updated)
+    }
     appStore.showSuccess(t('channelMonitorV2.settings.saveSuccess'))
   } catch (error) {
     appStore.showError(extractApiErrorMessage(error, t('channelMonitorV2.settings.saveFailed')))

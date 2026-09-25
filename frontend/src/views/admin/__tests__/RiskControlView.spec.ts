@@ -38,6 +38,11 @@ vi.mock('@/api/admin', () => ({
       clearFlaggedHashes: vi.fn(),
       unbanUser: vi.fn(),
     },
+    // A6-4：会话封禁挪进审查设置，打开设置时读全局设置
+    settings: {
+      getSettings: vi.fn().mockResolvedValue({ cyber_session_block_enabled: false, cyber_session_block_ttl_seconds: 3600 }),
+      updateSettings: vi.fn(),
+    },
     groups: {
       getAll: getGroups,
     },
