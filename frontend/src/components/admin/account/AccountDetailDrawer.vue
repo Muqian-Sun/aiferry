@@ -186,6 +186,7 @@ import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import { durationUntilWords } from '@/components/account/durationWords'
+import { tempUnschedReasonText } from '@/components/account/tempUnschedReason'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import AccountUsagePanel from './AccountUsagePanel.vue'
 import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
@@ -296,7 +297,7 @@ const banner = computed<{ tone: 'danger' | 'warning'; text: string } | null>(() 
       tone: 'warning',
       text: t('admin.accounts.detail.bannerTempUnsched', {
         time: formatDateTime(account.temp_unschedulable_until),
-        reason: account.temp_unschedulable_reason || '—'
+        reason: tempUnschedReasonText(account.temp_unschedulable_reason) || '—'
       })
     }
   }

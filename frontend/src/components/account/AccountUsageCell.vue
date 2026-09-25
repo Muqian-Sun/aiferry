@@ -246,20 +246,12 @@
       <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.gemini.rateLimit.unlimited') }}</p>
     </template>
 
-    <!-- 第三方 key / Bedrock：设了配额时的日 / 周 / 总额度（成本口径） -->
-    <template v-else-if="account.type === 'apikey' || account.type === 'bedrock'">
+    <!-- 其余第三方 key / Bedrock：只有下面的额度进度条；没设额度时写一句 -->
+    <template v-else-if="isQuotaEligible">
       <OllamaCloudUsageCell
         v-if="account.ollama_cloud_usage?.eligible"
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
-      />
-      <UsageProgressBar
-        v-for="bar in quotaBars"
-        :key="bar.key"
-        :label="bar.label"
-        :utilization="bar.utilization"
-        :resets-at="bar.resetsAt"
-        :note="bar.note"
       />
       <p v-if="!quotaBars.length && !account.ollama_cloud_usage?.eligible" class="text-xs text-af-ink-3">
         {{ t('admin.accounts.usageWindow.noQuota') }}
@@ -267,6 +259,17 @@
     </template>
 
     <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.none') }}</p>
+
+    <!-- 第三方 key / Bedrock 设了配额时的日 / 周 / 总额度（成本口径）。平台标签是 Gemini、国产平台的 key 也能设额度，
+         所以不放进上面按平台分的分支里（容量里已不再重复画额度，这里是唯一一处） -->
+    <UsageProgressBar
+      v-for="bar in quotaBars"
+      :key="bar.key"
+      :label="bar.label"
+      :utilization="bar.utilization"
+      :resets-at="bar.resetsAt"
+      :note="bar.note"
+    />
   </div>
 </template>
 
@@ -761,8 +764,11 @@ const quotaResetsAt = (startKey: 'quota_daily_start' | 'quota_weekly_start'): st
   return new Date(new Date(startStr).getTime() + periodMs).toISOString()
 }
 
+const isQuotaEligible = computed(() => props.account.type === 'apikey' || props.account.type === 'bedrock')
+
 const quotaBars = computed<QuotaBar[]>(() => {
   const account = props.account
+  if (!isQuotaEligible.value) return []
   const dims: Array<{ key: string; labelKey: string; used?: number | null; limit?: number | null; startKey?: 'quota_daily_start' | 'quota_weekly_start' }> = [
     { key: 'daily', labelKey: 'admin.accounts.usageWindow.quotaDaily', used: account.quota_daily_used, limit: account.quota_daily_limit, startKey: 'quota_daily_start' },
     { key: 'weekly', labelKey: 'admin.accounts.usageWindow.quotaWeekly', used: account.quota_weekly_used, limit: account.quota_weekly_limit, startKey: 'quota_weekly_start' },

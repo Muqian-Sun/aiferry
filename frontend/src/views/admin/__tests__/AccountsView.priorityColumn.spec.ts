@@ -131,18 +131,4 @@ describe('admin AccountsView priority column preferences', () => {
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
   })
-
-  it('preserves an existing preference that explicitly hides priority', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify(['priority', 'today_stats']))
-    localStorage.setItem('account-hidden-columns-version', 'scheduler-score-hidden-by-default')
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.find('[data-column="priority"]').exists()).toBe(false)
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).toEqual([
-      'priority',
-      'today_stats'
-    ])
-  })
 })

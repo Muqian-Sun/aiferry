@@ -259,8 +259,6 @@ export default {
     actualCost: '实际',
     userBilled: '用户扣费',
     accountBilled: '渠道计费',
-    resetNow: '现在',
-    resetPending: '待刷新',
     accountMultiplier: '渠道倍率',
     perRequest: '每次请求',
     apiKeyFilter: 'API 密钥',

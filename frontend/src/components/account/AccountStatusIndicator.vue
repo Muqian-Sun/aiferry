@@ -46,6 +46,7 @@ import { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
 import { formatDateTime, formatDateTimeToMinute } from '@/utils/format'
 import { durationUntilWords } from './durationWords'
+import { tempUnschedReasonText } from './tempUnschedReason'
 
 const { t } = useI18n()
 
@@ -178,7 +179,7 @@ const reason = computed(() => {
   }
   if (hasError.value) return props.account.error_message || ''
   if (isTempUnschedulable.value) {
-    return props.account.temp_unschedulable_reason
+    return tempUnschedReasonText(props.account.temp_unschedulable_reason)
       || t('admin.accounts.status.tempUnschedulableUntil', { time: formatDateTime(props.account.temp_unschedulable_until) })
   }
   if (!props.detailed && tone.value === 'ok' && activeModelStatuses.value.length > 0) {

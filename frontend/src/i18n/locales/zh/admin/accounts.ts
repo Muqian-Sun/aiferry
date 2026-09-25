@@ -315,7 +315,7 @@ export default {
         enabled: '打开',
         disabled: '关闭',
         probeFailed: '探测上游倍率失败',
-        noEligibleAccounts: '请选择 API Key 渠道',
+        noEligibleAccounts: '请选择第三方 key 渠道',
         batchLimit: '每次最多探测 20 个渠道',
         batchCompleted: '已完成 {count} 个渠道的倍率探测',
         batchPartial: '倍率探测部分完成：成功 {success} 个，失败 {failed} 个'
@@ -628,7 +628,7 @@ export default {
         countTooltipLoad: '点击查询剩余重置次数',
         countTooltipRefresh: '点击刷新剩余重置次数',
         resetTooltipReady: '消耗 1 次重置次数以立即恢复当前窗口',
-        resetTooltipNeedQuery: '先点击「次数」加载剩余重置次数',
+        resetTooltipNeedQuery: '先点击「重置次数」加载剩余次数',
         resetTooltipNoCredits: '没有可用的重置次数',
         resetTooltipShadow: 'Spark 影子渠道不能重置次数，请在母渠道上重置',
         expiresAt: '到期 {time}',

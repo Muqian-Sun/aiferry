@@ -257,8 +257,6 @@ export default {
     actualCost: 'Actual',
     userBilled: 'User billed',
     accountBilled: 'Account billed',
-    resetNow: 'Now',
-    resetPending: 'Pending refresh',
     accountMultiplier: 'Account rate',
     perRequest: 'per request',
     apiKeyFilter: 'API Key',

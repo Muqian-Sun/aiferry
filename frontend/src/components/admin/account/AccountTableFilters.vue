@@ -37,7 +37,8 @@ const tOpts = computed<FilterOption[]>(() => [
   { value: 'apikey', label: t('admin.accounts.access.apikey') },
   { value: 'oauth', label: t('admin.accounts.access.oauth') },
   { value: 'setup-token', label: t('admin.accounts.access.setupToken') },
-  { value: 'bedrock', label: t('admin.accounts.access.bedrock') }
+  { value: 'bedrock', label: t('admin.accounts.access.bedrock') },
+  { value: 'service_account', label: t('admin.accounts.access.serviceAccount') }
 ])
 const sOpts = computed<FilterOption[]>(() => [
   { value: 'active', label: t('admin.accounts.status.active') },
