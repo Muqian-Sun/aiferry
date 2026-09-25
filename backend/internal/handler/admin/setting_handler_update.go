@@ -30,7 +30,6 @@ type UpdateSettingsRequest struct {
 	PasswordResetEnabled                bool                         `json:"password_reset_enabled"`
 	FrontendURL                         string                       `json:"frontend_url"`
 	InvitationCodeEnabled               bool                         `json:"invitation_code_enabled"`
-	TotpEnabled                         bool                         `json:"totp_enabled"`             // TOTP 双因素认证
 	PasskeyEnabled                      *bool                        `json:"passkey_enabled"`          // Passkey 登录（省略=保持现值）
 	SessionBindingEnabled               *bool                        `json:"session_binding_enabled"`  // 会话 IP/UA 绑定（省略=保持现值）
 	StepUpEnabled                       *bool                        `json:"step_up_enabled"`          // 敏感操作 step-up 2FA（省略=保持现值）
@@ -739,15 +738,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	// TOTP 双因素认证参数验证
-	// 只有手动配置了加密密钥才允许启用 TOTP 功能
-	if req.TotpEnabled && !previousSettings.TotpEnabled {
-		// 尝试启用 TOTP，检查加密密钥是否已手动配置
-		if !h.settingService.IsTotpEncryptionKeyConfigured() {
-			response.BadRequest(c, "Cannot enable TOTP: TOTP_ENCRYPTION_KEY environment variable must be configured first. Generate a key with 'openssl rand -hex 32' and set it in your environment.")
-			return
-		}
-	}
 	loginAgreementMode := strings.ToLower(strings.TrimSpace(req.LoginAgreementMode))
 	if loginAgreementMode == "" {
 		loginAgreementMode = strings.ToLower(strings.TrimSpace(previousSettings.LoginAgreementMode))
@@ -1438,7 +1428,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PasswordResetEnabled:                req.PasswordResetEnabled,
 		FrontendURL:                         req.FrontendURL,
 		InvitationCodeEnabled:               req.InvitationCodeEnabled,
-		TotpEnabled:                         req.TotpEnabled,
 		PasskeyEnabled:                      passkeyEnabled,
 		SessionBindingEnabled:               sessionBindingEnabled,
 		StepUpEnabled:                       stepUpEnabled,
@@ -2012,8 +2001,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PasswordResetEnabled:                   updatedSettings.PasswordResetEnabled,
 		FrontendURL:                            updatedSettings.FrontendURL,
 		InvitationCodeEnabled:                  updatedSettings.InvitationCodeEnabled,
-		TotpEnabled:                            updatedSettings.TotpEnabled,
-		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
 		PasskeyEnabled:                         updatedSettings.PasskeyEnabled,
 		PasskeyConfigured:                      passkeyConfigured,
 		PasskeyRPID:                            passkeyRPID,

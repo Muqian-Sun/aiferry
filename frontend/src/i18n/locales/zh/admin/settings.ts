@@ -72,10 +72,6 @@ export default {
         frontendUrl: '前端地址',
         frontendUrlPlaceholder: 'https://example.com',
         frontendUrlHint: '用于生成邮件中的密码重置链接，例如 https://example.com',
-        totp: '双因素认证 (2FA)',
-        totpHint: '允许用户使用 Google Authenticator 等应用进行二次验证',
-        totpKeyNotConfigured:
-          '请先在环境变量中配置 TOTP_ENCRYPTION_KEY。使用命令 openssl rand -hex 32 生成密钥。'
       },
       security: {
         passkey: 'Passkey 登录',

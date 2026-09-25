@@ -2071,11 +2071,9 @@ func TestResolvePendingOAuthTargetUserIDNormalizesLegacySpacingAndCase(t *testin
 func TestBindOIDCOAuthLoginReturns2FAChallengeWhenUserHasTotp(t *testing.T) {
 	totpCache := &oauthPendingFlowTotpCacheStub{}
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
-		settingValues: map[string]string{
-			service.SettingKeyTotpEnabled: "true",
-		},
-		totpCache:     totpCache,
-		totpEncryptor: oauthPendingFlowTotpEncryptorStub{},
+		totpKeyConfigured: true,
+		totpCache:         totpCache,
+		totpEncryptor:     oauthPendingFlowTotpEncryptorStub{},
 	})
 	ctx := context.Background()
 
@@ -2160,12 +2158,12 @@ func TestLogin2FACompletesPendingOAuthBindAndConsumesSession(t *testing.T) {
 	defaultSubAssigner := &oauthPendingFlowDefaultSubAssignerStub{}
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
 		settingValues: map[string]string{
-			service.SettingKeyTotpEnabled:                           "true",
 			service.SettingKeyAuthSourceDefaultOIDCBalance:          "8",
 			service.SettingKeyAuthSourceDefaultOIDCConcurrency:      "2",
 			service.SettingKeyAuthSourceDefaultOIDCGrantOnFirstBind: "true",
 		},
 		defaultSubAssigner: defaultSubAssigner,
+		totpKeyConfigured:  true,
 		totpCache:          totpCache,
 		totpEncryptor:      oauthPendingFlowTotpEncryptorStub{},
 	})
@@ -2327,6 +2325,8 @@ type oauthPendingFlowTestHandlerOptions struct {
 	totpCache          service.TotpCache
 	totpEncryptor      service.SecretEncryptor
 	userRepoOptions    oauthPendingFlowUserRepoOptions
+	// 配了 TOTP_ENCRYPTION_KEY 才有双因素认证（IsTotpEnabled）
+	totpKeyConfigured bool
 }
 
 func newOAuthPendingFlowTestHandlerWithDependencies(
@@ -2393,6 +2393,7 @@ CREATE TABLE IF NOT EXISTS user_affiliates (
 			UserBalance:     0,
 			UserConcurrency: 1,
 		},
+		Totp: config.TotpConfig{EncryptionKeyConfigured: options.totpKeyConfigured},
 	}
 	settingValues := map[string]string{
 		service.SettingKeyRegistrationEnabled:              "true",

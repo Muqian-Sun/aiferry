@@ -53,9 +53,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.FrontendURL != after.FrontendURL {
 		changed = append(changed, "frontend_url")
 	}
-	if before.TotpEnabled != after.TotpEnabled {
-		changed = append(changed, "totp_enabled")
-	}
 	if before.PasskeyEnabled != after.PasskeyEnabled {
 		changed = append(changed, "passkey_enabled")
 	}

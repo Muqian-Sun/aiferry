@@ -19,7 +19,6 @@ type SystemSettings struct {
 	PasswordResetEnabled                bool
 	FrontendURL                         string
 	InvitationCodeEnabled               bool
-	TotpEnabled                         bool // TOTP 双因素认证
 	PasskeyEnabled                      bool // Passkey 登录
 	SessionBindingEnabled               bool // 会话 IP/UA 绑定（变更即失效）
 	StepUpEnabled                       bool // 敏感操作 step-up 2FA 门控
@@ -284,7 +283,6 @@ type PublicSettings struct {
 	RegistrationEmailDomainQuotaEnabled bool
 	PasswordResetEnabled                bool
 	InvitationCodeEnabled               bool
-	TotpEnabled                         bool // TOTP 双因素认证
 	PasskeyEnabled                      bool
 	LoginAgreementEnabled               bool
 	LoginAgreementMode                  string

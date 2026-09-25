@@ -140,8 +140,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		PasswordResetEnabled:                   settings.PasswordResetEnabled,
 		FrontendURL:                            settings.FrontendURL,
 		InvitationCodeEnabled:                  settings.InvitationCodeEnabled,
-		TotpEnabled:                            settings.TotpEnabled,
-		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
 		PasskeyEnabled:                         settings.PasskeyEnabled,
 		PasskeyConfigured:                      passkeyConfigured,
 		PasskeyRPID:                            passkeyRPID,

@@ -240,3 +240,15 @@ func TestSettingService_GetPublicSettings_FallsBackToConfigForWeChatOAuthCapabil
 	require.False(t, settings.WeChatOAuthMPEnabled)
 	require.False(t, settings.WeChatOAuthMobileEnabled)
 }
+
+// 双因素认证只看 TOTP_ENCRYPTION_KEY 配没配：设置表里残留的 totp_enabled 不起作用。
+// 以前关掉这个开关，已绑 TOTP 的账号（含管理员）登录就不再要验证码。
+func TestSettingService_IsTotpEnabled_FollowsEncryptionKeyOnly(t *testing.T) {
+	staleOff := &settingPublicRepoStub{values: map[string]string{"totp_enabled": "false"}}
+	withKey := NewSettingService(staleOff, &config.Config{Totp: config.TotpConfig{EncryptionKeyConfigured: true}})
+	require.True(t, withKey.IsTotpEnabled(), "配了密钥：库里的旧开关关着也要验证码")
+
+	staleOn := &settingPublicRepoStub{values: map[string]string{"totp_enabled": "true"}}
+	withoutKey := NewSettingService(staleOn, &config.Config{})
+	require.False(t, withoutKey.IsTotpEnabled(), "没配密钥：库里的旧开关开着也不可用")
+}

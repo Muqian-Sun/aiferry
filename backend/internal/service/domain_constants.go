@@ -242,7 +242,6 @@ const (
 	settingKeyForwardedClientIPModeV2   = "forwarded_client_ip_mode_v2_migrated"
 
 	// TOTP 双因素认证设置
-	SettingKeyTotpEnabled    = "totp_enabled"    // 是否启用 TOTP 2FA 功能
 	SettingKeyPasskeyEnabled = "passkey_enabled" // 是否启用 Passkey 登录（仍要求有效的 WebAuthn 部署配置）
 
 	// 会话安全设置
