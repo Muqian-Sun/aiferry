@@ -17,7 +17,7 @@ export default {
       waiting: '等待',
       conns: '连接',
       queue: '队列',
-      accountSwitches: '账号切换',
+      accountSwitches: '渠道切换',
       ok: '正常',
       lastRun: '最近运行',
       lastSuccess: '最近成功',
@@ -118,7 +118,7 @@ export default {
       failedToLoadData: '加载运维数据失败',
       failedToLoadOverview: '加载概览数据失败',
       failedToLoadThroughputTrend: '加载吞吐趋势失败',
-      failedToLoadSwitchTrend: '加载平均账号切换趋势失败',
+      failedToLoadSwitchTrend: '加载平均渠道切换趋势失败',
       failedToLoadLatencyHistogram: '加载请求时长分布失败',
       failedToLoadErrorTrend: '加载错误趋势失败',
       failedToLoadErrorDistribution: '加载错误分布失败',
@@ -127,11 +127,11 @@ export default {
       tpsK: 'TPS（千）',
       top: '最高：',
       throughputTrend: '吞吐趋势',
-      switchRateTrend: '平均账号切换趋势',
+      switchRateTrend: '平均渠道切换趋势',
       latencyHistogram: '请求时长分布',
       errorTrend: '错误趋势',
       errorDistribution: '错误分布',
-      switchRate: '平均账号切换',
+      switchRate: '平均渠道切换',
       // Health Score & Diagnosis
       health: '健康',
       healthCondition: '健康状况',
@@ -252,8 +252,8 @@ export default {
         userId: '用户 ID',
         apiKey: 'API Key',
         keyDeletedBadge: 'Key 已删除',
-        account: '账号',
-        accountId: '账号 ID',
+        account: '渠道',
+        accountId: '渠道 ID',
         status: '状态码',
         message: '响应内容',
         ip: 'IP',
@@ -268,7 +268,7 @@ export default {
         typeUpstream: '上游',
         typeRequest: '请求',
         typeAuth: '认证',
-        typeAccountAuth: '账号认证',
+        typeAccountAuth: '渠道认证',
         typeRouting: '路由',
         typeInternal: '内部',
         endpoint: '端点',
@@ -294,7 +294,7 @@ export default {
         phase: {
           request: '请求',
           auth: '认证',
-          account_auth: '账号认证',
+          account_auth: '渠道认证',
           routing: '路由',
           upstream: '上游',
           network: '网络',
@@ -328,7 +328,7 @@ export default {
           upstreamErrors: '上游错误列表'
         },
         upstreamEvent: {
-          account: '账号',
+          account: '渠道',
           status: '状态码',
           requestId: '请求ID'
         },
@@ -355,7 +355,7 @@ export default {
         platform: '平台',
         model: '模型',
         user: '用户',
-        account: '账号',
+        account: '渠道',
         latency: '请求时长',
         businessLimited: '业务限制',
         requestPath: '请求路径',
@@ -386,7 +386,7 @@ export default {
         compareA: '对比 A',
         compareB: '对比 B',
         suggestion: '处理建议',
-        suggestUpstream: '⚠️ 上游服务不稳定，建议：检查上游账号状态 / 考虑切换账号',
+        suggestUpstream: '⚠️ 上游服务不稳定，建议：检查上游账号状态 / 考虑切换渠道',
         suggestRequest: '⚠️ 客户端请求错误，建议：联系客户修正请求参数 / 手动标记已解决',
         suggestAuth: '⚠️ 认证失败，建议：检查 API Key 是否有效 / 联系客户更新凭证',
         suggestPlatform: '🚨 平台错误，建议立即排查修复',
@@ -488,7 +488,7 @@ export default {
         manage: '预警规则',
         metricGroups: {
           system: '系统指标',
-          account: '账号级别指标'
+          account: '渠道级别指标'
         },
         metrics: {
           successRate: '成功率 (%)',
@@ -499,11 +499,11 @@ export default {
           cpu: 'CPU 使用率 (%)',
           memory: '内存使用率 (%)',
           queueDepth: '并发排队深度',
-          accountRateLimitedCount: '限流账号数',
-          accountErrorCount: '错误账号数（不含临时不可调度）',
-          accountErrorRatio: '错误账号比例 (%)',
-          accountTempUnscheduledCount: '临时不可调度账号数',
-          overloadAccountCount: '过载账号数'
+          accountRateLimitedCount: '限流渠道数',
+          accountErrorCount: '错误渠道数（不含临时不可调度）',
+          accountErrorRatio: '错误渠道比例 (%)',
+          accountTempUnscheduledCount: '临时不可调度渠道数',
+          overloadAccountCount: '过载渠道数'
         },
         metricDescriptions: {
           successRate: '统计窗口内成功请求占比（0~100）。',
@@ -514,11 +514,11 @@ export default {
           cpu: '当前实例 CPU 使用率（0~100）。',
           memory: '当前实例内存使用率（0~100）。',
           queueDepth: '统计窗口内并发队列排队深度（等待中的请求数）。',
-          accountRateLimitedCount: '统计窗口内被限流的账号数量。',
-          accountErrorCount: '统计窗口内产生错误的账号数量（不含临时不可调度）。',
-          accountErrorRatio: '统计窗口内错误账号占比（0~100）。',
-          accountTempUnscheduledCount: '当前处于临时不可调度状态的账号数量（如代理/凭据故障被自动摘除）。',
-          overloadAccountCount: '统计窗口内过载账号数量。'
+          accountRateLimitedCount: '统计窗口内被限流的渠道数量。',
+          accountErrorCount: '统计窗口内产生错误的渠道数量（不含临时不可调度）。',
+          accountErrorRatio: '统计窗口内错误渠道占比（0~100）。',
+          accountTempUnscheduledCount: '当前处于临时不可调度状态的渠道数量（如代理/凭据故障被自动摘除）。',
+          overloadAccountCount: '统计窗口内过载渠道数量。'
         },
         hints: {
           recommended: '推荐：运算符 {operator}，阈值 {threshold}{unit}',
@@ -605,7 +605,7 @@ export default {
         enableAggregation: '启用预聚合任务',
         aggregationHint: '预聚合可提升长时间窗口查询性能',
         openaiQuotaAutoPause: 'OpenAI 账号配额自动暂停',
-        openaiQuotaAutoPauseHint: '当 OpenAI 账号 5h / 7d 用量达到阈值时，调度会自动跳过该账号；窗口滚动后自动恢复。账号级阈值优先于此全局默认值。',
+        openaiQuotaAutoPauseHint: '当 OpenAI 账号 5h / 7d 用量达到阈值时，调度会自动跳过该渠道；窗口滚动后自动恢复。渠道级阈值优先于此全局默认值。',
         openaiQuotaAutoPauseDefault5h: '默认 5h 用量阈值 (%)',
         openaiQuotaAutoPauseDefault7d: '默认 7d 用量阈值 (%)',
         openaiQuotaAutoPauseThresholdHint: '取值 0-100，留空或 0 表示不启用全局默认阈值。',
@@ -615,10 +615,10 @@ export default {
         ignoreContextCanceled: '忽略客户端断连错误',
         ignoreContextCanceledHint:
           '启用后，客户端主动断开连接（context canceled）的错误将不会写入错误日志。',
-        ignoreNoAvailableAccounts: '忽略无可用账号错误',
+        ignoreNoAvailableAccounts: '忽略无可用渠道错误',
         ignoreNoAvailableAccountsHint: '启用后，"No available accounts" 错误将不会写入错误日志（不推荐，这通常是配置问题）。',
         ignoreInsufficientBalanceErrors: '忽略余额不足错误',
-        ignoreInsufficientBalanceErrorsHint: '启用后，账号余额不足（Insufficient balance）的错误将不会写入错误日志。',
+        ignoreInsufficientBalanceErrorsHint: '启用后，渠道余额不足（Insufficient balance）的错误将不会写入错误日志。',
         autoRefresh: '自动刷新',
         enableAutoRefresh: '启用自动刷新',
         enableAutoRefreshHint: '自动刷新仪表板数据，启用后会定期拉取最新数据。',
@@ -645,7 +645,7 @@ export default {
       concurrency: {
         title: '并发 / 排队',
         byPlatform: '按平台',
-        byAccount: '按账号',
+        byAccount: '按渠道',
         byUser: '按用户',
         showByUserTooltip: '切换用户视图，显示每个用户的并发使用情况',
         switchToUser: '切换到用户视图',
@@ -680,7 +680,7 @@ export default {
       tooltips: {
         totalRequests: '当前时间窗口内的总请求数和Token消耗量。',
         throughputTrend: '当前窗口内的请求/QPS 与 token/TPS 趋势。',
-        switchRateTrend: '近5小时内账号切换次数 / 请求总数的趋势（平均切换次数）。',
+        switchRateTrend: '近5小时内渠道切换次数 / 请求总数的趋势（平均切换次数）。',
         latencyHistogram: '成功请求的请求时长分布（毫秒）。',
         errorTrend: '错误趋势（SLA 口径排除业务限制；上游错误率排除 429/529）。',
         errorDistribution: '按状态码统计的错误分布（SLA 口径，排除业务限制）。',
