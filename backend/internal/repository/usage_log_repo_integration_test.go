@@ -1438,6 +1438,51 @@ func (s *UsageLogRepoSuite) TestGetUsageTrendWithFilters_HourlyGranularity() {
 	s.Require().Len(trend, 2)
 }
 
+// 趋势点要带渠道成本（标价 × 渠道成本倍率；历史数据没有倍率快照按 1）——管理站概览的利润趋势靠它。
+// 明细表、按用户、两张预聚合表四条查询都核；预聚合查询出错时上层会静默回落到明细表，所以直接调 getUsageTrendFromAggregates。
+func (s *UsageLogRepoSuite) TestUsageTrend_AccountCost() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "trend-account-cost@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-trend-account-cost", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-trend-account-cost"})
+
+	// 用一个别的测试不会碰的日期，天级预聚合桶里只有这里写的两条
+	hour := time.Date(2031, 3, 7, 5, 0, 0, 0, time.UTC)
+	half := 0.5
+	for i, log := range []*service.UsageLog{
+		{TotalCost: 1.0, ActualCost: 1.2, AccountRateMultiplier: &half},
+		{TotalCost: 0.4, ActualCost: 0.5}, // 没有倍率快照，按 1
+	} {
+		log.UserID, log.APIKeyID, log.AccountID = user.ID, apiKey.ID, account.ID
+		log.RequestID = uuid.New().String()
+		log.Model = "claude-3"
+		log.InputTokens, log.OutputTokens = 10, 20
+		log.CreatedAt = hour.Add(time.Duration(i+1) * time.Minute)
+		_, err := s.repo.Create(s.ctx, log)
+		s.Require().NoError(err)
+	}
+	const wantActual, wantAccount = 1.7, 0.9 // 1.0×0.5 + 0.4×1
+
+	start, end := hour.Add(-time.Hour), hour.Add(24*time.Hour)
+	assertOneBucket := func(name string, trend []TrendDataPoint, err error) {
+		s.Require().NoError(err, name)
+		s.Require().Len(trend, 1, name)
+		s.Require().InDelta(wantActual, trend[0].ActualCost, 1e-9, name)
+		s.Require().InDelta(wantAccount, trend[0].AccountCost, 1e-9, name)
+	}
+
+	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, start, end, "hour", user.ID, 0, 0, "", nil, nil, nil)
+	assertOneBucket("usage_logs", trend, err)
+	trend, err = s.repo.GetUserUsageTrendByUserID(s.ctx, user.ID, start, end, "hour")
+	assertOneBucket("by user", trend, err)
+
+	aggRepo := newDashboardAggregationRepositoryWithSQL(s.tx)
+	s.Require().NoError(aggRepo.AggregateRange(s.ctx, hour, hour.Add(time.Hour)))
+	for _, granularity := range []string{"hour", "day"} {
+		trend, err = s.repo.getUsageTrendFromAggregates(s.ctx, start, end, granularity)
+		assertOneBucket("aggregate "+granularity, trend, err)
+	}
+}
+
 // --- GetModelStatsWithFilters ---
 
 func (s *UsageLogRepoSuite) TestGetModelStatsWithFilters() {
