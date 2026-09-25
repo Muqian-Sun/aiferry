@@ -54,7 +54,7 @@
               : 'text-af-ink-3 hover:text-af-ink-2'"
             @click="emit('update:metric', 'tokens')"
           >
-            {{ t('admin.dashboard.metricTokens') }}
+            {{ t('admin.dashboard.tokens') }}
           </button>
           <button
             type="button"
@@ -64,7 +64,7 @@
               : 'text-af-ink-3 hover:text-af-ink-2'"
             @click="emit('update:metric', 'actual_cost')"
           >
-            {{ t('admin.dashboard.metricActualCost') }}
+            {{ t('common.money.revenue') }}
           </button>
         </div>
       </div>
@@ -81,8 +81,9 @@
               <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.costHint')">{{ t('common.money.cost') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.profitHint')">{{ t('common.money.profit') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -108,21 +109,21 @@
                 <td class="py-1.5 text-right text-af-ink-2">
                   {{ formatTokens(item.total_tokens) }}
                 </td>
-                <td class="py-1.5 text-right text-af-ink">
-                  ${{ formatCost(item.actual_cost) }}
+                <td class="py-1.5 text-right tabular-nums text-af-ink">
+                  {{ formatMoney(item.actual_cost) }}
                 </td>
-                <td class="py-1.5 text-right text-af-ink-3">
-                  ${{ formatCost(item.cost) }}
+                <td class="py-1.5 text-right tabular-nums text-af-ink-3">
+                  {{ formatMoney(item.account_cost) }}
                 </td>
-              </tr>
-              <tr v-if="expandedKey === item.endpoint">
-                <td colspan="6" class="p-0">
-                  <UserBreakdownSubTable
-                    :items="breakdownItems"
-                    :loading="breakdownLoading"
-                  />
+                <td class="py-1.5 text-right tabular-nums" :class="profitTextClass(profitOf(item.actual_cost, item.account_cost)) || 'text-af-ink-2'">
+                  {{ formatMoney(profitOf(item.actual_cost, item.account_cost)) }}
                 </td>
               </tr>
+              <UserBreakdownSubTable
+                v-if="expandedKey === item.endpoint"
+                :items="breakdownItems"
+                :loading="breakdownLoading"
+              />
             </template>
           </tbody>
         </table>
@@ -140,6 +141,7 @@ import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import ShareBar from './ShareBar.vue'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 import type { EndpointStat, UserBreakdownItem } from '@/types'
 import type { UserBreakdownLoader } from './userBreakdown'
 
@@ -225,7 +227,7 @@ const displayEndpointStats = computed(() => {
   return [...sourceStats].sort((a, b) => b[metricKey] - a[metricKey])
 })
 
-/** 占比按当前指标（Token / 实付） */
+/** 占比按当前指标（Token / 收入） */
 const metricValue = (item: EndpointStat) => (props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens)
 const metricTotal = computed(() => displayEndpointStats.value.reduce((sum, item) => sum + metricValue(item), 0))
 
@@ -242,16 +244,5 @@ const formatTokens = (value: number): string => {
 
 const formatNumber = (value: number): string => {
   return value.toLocaleString()
-}
-
-const formatCost = (value: number): string => {
-  if (value >= 1000) {
-    return (value / 1000).toFixed(2) + 'K'
-  } else if (value >= 1) {
-    return value.toFixed(2)
-  } else if (value >= 0.01) {
-    return value.toFixed(3)
-  }
-  return value.toFixed(4)
 }
 </script>

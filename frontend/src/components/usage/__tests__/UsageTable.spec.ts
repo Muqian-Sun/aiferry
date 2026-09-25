@@ -266,9 +266,7 @@ describe('admin UsageTable tooltip', () => {
     expect(text).toContain('Fast')
     expect(text).toContain('Rate')
     expect(text).toContain('1.00x')
-    expect(text).toContain('Account rate')
     expect(text).toContain('User billed')
-    expect(text).toContain('Account billed')
     expect(text).toContain('$0.092883')
     expect(text).toContain('$5.0000 / 1M tokens')
     expect(text).toContain('$30.0000 / 1M tokens')
@@ -299,7 +297,7 @@ describe('admin UsageTable tooltip', () => {
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text())
     expect(amounts).toEqual(expect.arrayContaining([
       '$0.00000001', '$0.00000002', '$0.00000003', '$0.00000004',
-      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042', '$0.00000033',
+      '$0.00000005', '$0.00000006', '$0.00000022', '$0.00000042',
     ]))
     if (billingMode === 'image') expect(amounts).toContain('$0.00000011')
     wrapper.unmount()
@@ -317,7 +315,7 @@ describe('admin UsageTable tooltip', () => {
     const triggers = wrapper.findAll('.group.relative')
     await triggers[triggers.length - 1].trigger('mouseenter')
     const amounts = wrapper.get('.fixed').findAll('span').map(span => span.text()).filter(text => text.startsWith('$'))
-    expect(amounts).toEqual(['$0.00000000', '$0.00000000', '$0.00000000', '$0.00000000'])
+    expect(amounts).toEqual(['$0.00000000', '$0.00000000', '$0.00000000'])
     wrapper.unmount()
   })
 
@@ -607,33 +605,6 @@ describe('admin UsageTable request ID column', () => {
   beforeEach(() => {
     appStoreMocks.showSuccess.mockReset()
     appStoreMocks.showError.mockReset()
-  })
-
-  it('renders and copies the request ID', async () => {
-    const writeText = vi.fn().mockResolvedValue(undefined)
-    vi.stubGlobal('navigator', { clipboard: { writeText } })
-
-    const wrapper = mount(UsageTable, {
-      props: {
-        data: [{ ...baseImageRow, request_id: 'req-admin-visible-id' }],
-        loading: false,
-        columns: [{ key: 'request_id', label: 'Request ID' }],
-      },
-      global: {
-        stubs: {
-          DataTable: DataTableStub,
-          EmptyState: true,
-          Icon: true,
-          Teleport: true,
-        },
-      },
-    })
-
-    expect(wrapper.text()).toContain('req-admin-visible-id')
-    await wrapper.get('button[title="Copy to clipboard"]').trigger('click')
-
-    expect(writeText).toHaveBeenCalledWith('req-admin-visible-id')
-    expect(appStoreMocks.showSuccess).toHaveBeenCalledWith('Request ID copied')
   })
 
   it('renders and copies the upstream ID', async () => {

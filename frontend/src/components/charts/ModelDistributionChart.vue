@@ -55,7 +55,7 @@
               : 'text-af-ink-3 hover:text-af-ink-2'"
             @click="emit('update:metric', 'tokens')"
           >
-            {{ t('admin.dashboard.metricTokens') }}
+            {{ t('admin.dashboard.tokens') }}
           </button>
           <button
             type="button"
@@ -65,7 +65,7 @@
               : 'text-af-ink-3 hover:text-af-ink-2'"
             @click="emit('update:metric', 'actual_cost')"
           >
-            {{ t('admin.dashboard.metricActualCost') }}
+            {{ t('common.money.revenue') }}
           </button>
         </div>
         <div v-if="enableRankingView" class="inline-flex rounded-lg bg-af-sunken p-1">
@@ -109,9 +109,9 @@
               <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th v-if="showAccountCost" class="pb-2 text-right">{{ t('admin.dashboard.accountCost') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.costHint')">{{ t('common.money.cost') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.profitHint')">{{ t('common.money.profit') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -141,25 +141,21 @@
                 <td class="py-1.5 text-right text-af-ink-2">
                   {{ formatTokens(model.total_tokens) }}
                 </td>
-                <td class="py-1.5 text-right text-af-ink">
-                  ${{ formatCost(model.actual_cost) }}
+                <td class="py-1.5 text-right tabular-nums text-af-ink">
+                  {{ formatMoney(model.actual_cost) }}
                 </td>
-                <td v-if="showAccountCost" class="py-1.5 text-right text-af-ink-3">
-                  ${{ formatCost(model.account_cost) }}
+                <td class="py-1.5 text-right tabular-nums text-af-ink-3">
+                  {{ formatMoney(model.account_cost) }}
                 </td>
-                <td class="py-1.5 text-right text-af-ink-3">
-                  ${{ formatCost(model.cost) }}
-                </td>
-              </tr>
-              <tr v-if="expandedKey === `model-${model.model}`">
-                <td :colspan="distributionColspan" class="p-0">
-                  <UserBreakdownSubTable
-                    :items="breakdownItems"
-                    :loading="breakdownLoading"
-                    :show-account-cost="showAccountCost"
-                  />
+                <td class="py-1.5 text-right tabular-nums" :class="profitTextClass(profitOf(model.actual_cost, model.account_cost)) || 'text-af-ink-2'">
+                  {{ formatMoney(profitOf(model.actual_cost, model.account_cost)) }}
                 </td>
               </tr>
+              <UserBreakdownSubTable
+                v-if="expandedKey === `model-${model.model}`"
+                :items="breakdownItems"
+                :loading="breakdownLoading"
+              />
             </template>
           </tbody>
         </table>
@@ -190,7 +186,7 @@
               <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingRequests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingTokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.spendingRankingSpend') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
             </tr>
           </thead>
           <tbody>
@@ -225,8 +221,8 @@
               <td class="py-1.5 text-right text-af-ink-2">
                 {{ formatTokens(item.tokens) }}
               </td>
-              <td class="py-1.5 text-right text-af-ink">
-                ${{ formatCost(item.actual_cost) }}
+              <td class="py-1.5 text-right tabular-nums text-af-ink">
+                {{ formatMoney(item.actual_cost) }}
               </td>
             </tr>
           </tbody>
@@ -248,6 +244,7 @@ import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
 import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import ShareBar from './ShareBar.vue'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 import type { ModelStat, UserSpendingRankingItem, UserBreakdownItem } from '@/types'
 import type { UserBreakdownLoader } from './userBreakdown'
 
@@ -272,7 +269,6 @@ const props = withDefaults(defineProps<{
   showMetricToggle?: boolean
   /** 按用户下钻的加载函数；不传则不提供下钻（用户站复用本图表时不传）。 */
   loadUserBreakdown?: UserBreakdownLoader
-  showAccountCost?: boolean
   rankingLoading?: boolean
   rankingError?: boolean
   startDate?: string
@@ -291,7 +287,6 @@ const props = withDefaults(defineProps<{
   metric: 'tokens',
   showSourceToggle: false,
   showMetricToggle: false,
-  showAccountCost: true,
   rankingLoading: false,
   rankingError: false
 })
@@ -335,8 +330,6 @@ const emit = defineEmits<{
 }>()
 
 const enableRankingView = computed(() => props.enableRankingView)
-const showAccountCost = computed(() => props.showAccountCost)
-const distributionColspan = computed(() => showAccountCost.value ? 7 : 6)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
 
 const displayModelStats = computed(() => {
@@ -351,7 +344,7 @@ const displayModelStats = computed(() => {
   return [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
 })
 
-/** 占比条：模型按当前指标（Token / 实付），消费榜按实付 */
+/** 占比条：模型按当前指标（Token / 收入），消费榜按收入 */
 const modelMetricValue = (m: ModelStat) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)
 const modelMetricTotal = computed(() => displayModelStats.value.reduce((sum, m) => sum + modelMetricValue(m), 0))
 const rankingCostTotal = computed(() => rankingDisplayItems.value.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0))
@@ -416,17 +409,5 @@ const getRankingRowLabel = (item: RankingDisplayItem): string => {
 const toFiniteNumber = (value: unknown): number => {
   const numberValue = Number(value)
   return Number.isFinite(numberValue) ? numberValue : 0
-}
-
-const formatCost = (value: number | null | undefined): string => {
-  const safeValue = toFiniteNumber(value)
-  if (safeValue >= 1000) {
-    return (safeValue / 1000).toFixed(2) + 'K'
-  } else if (safeValue >= 1) {
-    return safeValue.toFixed(2)
-  } else if (safeValue >= 0.01) {
-    return safeValue.toFixed(3)
-  }
-  return safeValue.toFixed(4)
 }
 </script>

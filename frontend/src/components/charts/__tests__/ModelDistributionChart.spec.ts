@@ -105,24 +105,6 @@ describe('ModelDistributionChart', () => {
     expect(rows[0].text()).toContain('88%')
   })
 
-  it('can hide account cost for user usage stats without account_cost', () => {
-    const wrapper = mount(ModelDistributionChart, {
-      props: {
-        modelStats,
-        showAccountCost: false,
-      },
-      global: {
-        stubs: {
-          LoadingSpinner: true,
-        },
-      },
-    })
-
-    expect(wrapper.text()).not.toContain('Account Cost')
-    expect(wrapper.findAll('thead th')).toHaveLength(6)
-    expect(wrapper.findAll('tbody tr')[0].findAll('td')).toHaveLength(6)
-  })
-
   it('uses the dashboard user label policy and renders an Others row', async () => {
     const wrapper = mount(ModelDistributionChart, {
       props: {
