@@ -354,20 +354,11 @@ export function deriveWeChatConnectStoredMode(
  */
 export interface SystemSettings {
   // Registration settings
-  registration_enabled: boolean;
   email_verify_enabled: boolean;
   registration_email_suffix_whitelist: string[];
   registration_email_domain_quota_enabled: boolean;
-  password_reset_enabled: boolean;
   frontend_url: string;
-  invitation_code_enabled: boolean;
-  passkey_enabled: boolean;
-  passkey_configured: boolean;
-  passkey_rp_id: string;
-  passkey_rp_origins: string[];
-  session_binding_enabled: boolean; // 会话 IP/UA 绑定
   step_up_enabled: boolean; // 敏感操作 step-up 2FA
-  audit_log_retention_days: number; // 审计日志保留天数
   login_agreement_enabled: boolean;
   login_agreement_mode: "modal" | "checkbox" | string;
   login_agreement_updated_at: string;
@@ -645,17 +636,11 @@ export interface SystemSettings {
 }
 
 export interface UpdateSettingsRequest {
-  registration_enabled?: boolean;
   email_verify_enabled?: boolean;
   registration_email_suffix_whitelist?: string[];
   registration_email_domain_quota_enabled?: boolean;
-  password_reset_enabled?: boolean;
   frontend_url?: string;
-  invitation_code_enabled?: boolean;
-  passkey_enabled?: boolean;
-  session_binding_enabled?: boolean; // 会话 IP/UA 绑定
   step_up_enabled?: boolean; // 敏感操作 step-up 2FA
-  audit_log_retention_days?: number; // 审计日志保留天数
   login_agreement_enabled?: boolean;
   login_agreement_mode?: "modal" | "checkbox" | string;
   login_agreement_updated_at?: string;

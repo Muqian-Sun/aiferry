@@ -1375,10 +1375,7 @@ func newWeChatOAuthTestHandlerWithSettings(t *testing.T, invitationEnabled bool,
 			UserConcurrency: 1,
 		},
 	}
-	values := map[string]string{
-		service.SettingKeyRegistrationEnabled:   "true",
-		service.SettingKeyInvitationCodeEnabled: boolSettingValue(invitationEnabled),
-	}
+	values := map[string]string{}
 	for key, value := range wechatOAuthTestSettings("open", "wx-open-app", "wx-open-secret", "/auth/wechat/callback") {
 		values[key] = value
 	}

@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -77,40 +76,6 @@ func TestBindPasskeyFinishRequestRejectsOversizedBody(t *testing.T) {
 	_, ok := bindPasskeyFinishRequest(context)
 	require.False(t, ok)
 	require.Equal(t, http.StatusBadRequest, recorder.Code)
-}
-
-func TestPasskeyBeginLoginRejectsDisabledAdminSwitch(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	repo := &passkeySwitchSettingRepo{value: "false"}
-	settings := service.NewSettingService(repo, &config.Config{
-		WebAuthn: config.WebAuthnConfig{Enabled: true},
-	})
-	handler := NewPasskeyHandler(nil, nil, settings)
-	recorder := httptest.NewRecorder()
-	ginContext, _ := gin.CreateTestContext(recorder)
-	ginContext.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/passkey/login/begin", nil)
-
-	handler.BeginLogin(ginContext)
-
-	require.Equal(t, http.StatusForbidden, recorder.Code)
-	require.Contains(t, recorder.Body.String(), "PASSKEY_DISABLED")
-}
-
-func TestPasskeyBeginLoginReportsSettingStoreFailure(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	settings := service.NewSettingService(
-		&passkeySwitchSettingRepo{err: errors.New("database unavailable")},
-		&config.Config{WebAuthn: config.WebAuthnConfig{Enabled: true}},
-	)
-	handler := NewPasskeyHandler(nil, nil, settings)
-	recorder := httptest.NewRecorder()
-	ginContext, _ := gin.CreateTestContext(recorder)
-	ginContext.Request = httptest.NewRequest(http.MethodPost, "/api/v1/auth/passkey/login/begin", nil)
-
-	handler.BeginLogin(ginContext)
-
-	require.Equal(t, http.StatusInternalServerError, recorder.Code)
-	require.NotContains(t, recorder.Body.String(), "PASSKEY_DISABLED")
 }
 
 func newTencentProtectedPasskeyHandler(t *testing.T) (*PasskeyHandler, *passkeyCaptchaVerifierStub, *passkeyBeginSessionStoreStub) {

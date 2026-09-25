@@ -2396,8 +2396,6 @@ CREATE TABLE IF NOT EXISTS user_affiliates (
 		Totp: config.TotpConfig{EncryptionKeyConfigured: options.totpKeyConfigured},
 	}
 	settingValues := map[string]string{
-		service.SettingKeyRegistrationEnabled:              "true",
-		service.SettingKeyInvitationCodeEnabled:            boolSettingValue(options.invitationEnabled),
 		service.SettingKeyEmailVerifyEnabled:               boolSettingValue(options.emailVerifyEnabled),
 		service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
 	}

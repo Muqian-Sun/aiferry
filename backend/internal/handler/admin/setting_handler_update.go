@@ -22,18 +22,11 @@ import (
 
 // UpdateSettingsRequest 更新设置请求
 type UpdateSettingsRequest struct {
-	// 注册设置
-	RegistrationEnabled                 bool                         `json:"registration_enabled"`
 	EmailVerifyEnabled                  bool                         `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string                     `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailDomainQuotaEnabled *bool                        `json:"registration_email_domain_quota_enabled"` // 非白名单域名限量注册开关（省略=保持现值）
-	PasswordResetEnabled                bool                         `json:"password_reset_enabled"`
 	FrontendURL                         string                       `json:"frontend_url"`
-	InvitationCodeEnabled               bool                         `json:"invitation_code_enabled"`
-	PasskeyEnabled                      *bool                        `json:"passkey_enabled"`          // Passkey 登录（省略=保持现值）
-	SessionBindingEnabled               *bool                        `json:"session_binding_enabled"`  // 会话 IP/UA 绑定（省略=保持现值）
-	StepUpEnabled                       *bool                        `json:"step_up_enabled"`          // 敏感操作 step-up 2FA（省略=保持现值）
-	AuditLogRetentionDays               int                          `json:"audit_log_retention_days"` // 审计日志保留天数
+	StepUpEnabled                       *bool                        `json:"step_up_enabled"` // 敏感操作 step-up 2FA（省略=保持现值）
 	LoginAgreementEnabled               bool                         `json:"login_agreement_enabled"`
 	LoginAgreementMode                  string                       `json:"login_agreement_mode"`
 	LoginAgreementUpdatedAt             string                       `json:"login_agreement_updated_at"`
@@ -467,28 +460,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 
 	// 两个安全开关的请求字段为指针：省略字段=保持现值，避免旧客户端/脚本
 	// 用不含新字段的全量 payload 保存设置时把安全开关静默重置。
-	sessionBindingEnabled := previousSettings.SessionBindingEnabled
-	if req.SessionBindingEnabled != nil {
-		sessionBindingEnabled = *req.SessionBindingEnabled
-	}
 	stepUpEnabled := previousSettings.StepUpEnabled
 	if req.StepUpEnabled != nil {
 		stepUpEnabled = *req.StepUpEnabled
 	}
-	passkeyEnabled := previousSettings.PasskeyEnabled
-	if req.PasskeyEnabled != nil {
-		passkeyEnabled = *req.PasskeyEnabled
-	}
 	registrationEmailDomainQuotaEnabled := previousSettings.RegistrationEmailDomainQuotaEnabled
 	if req.RegistrationEmailDomainQuotaEnabled != nil {
 		registrationEmailDomainQuotaEnabled = *req.RegistrationEmailDomainQuotaEnabled
-	}
-	if passkeyEnabled {
-		configured, _, _ := h.settingService.PasskeyConfiguration()
-		if !configured {
-			response.BadRequest(c, "Passkey sign-in requires a valid WebAuthn RP ID and allowed HTTPS origins in the deployment configuration")
-			return
-		}
 	}
 	forwardedClientIPHeaders := append([]string(nil), previousSettings.ForwardedClientIPHeaders...)
 	if req.ForwardedClientIPHeaders != nil {
@@ -1421,17 +1399,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	settings := &service.SystemSettings{
 		AccountSchedulingThresholds: req.AccountSchedulingThresholds,
 
-		RegistrationEnabled:                 req.RegistrationEnabled,
 		EmailVerifyEnabled:                  req.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:    req.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled: registrationEmailDomainQuotaEnabled,
-		PasswordResetEnabled:                req.PasswordResetEnabled,
 		FrontendURL:                         req.FrontendURL,
-		InvitationCodeEnabled:               req.InvitationCodeEnabled,
-		PasskeyEnabled:                      passkeyEnabled,
-		SessionBindingEnabled:               sessionBindingEnabled,
 		StepUpEnabled:                       stepUpEnabled,
-		AuditLogRetentionDays:               req.AuditLogRetentionDays,
 		LoginAgreementEnabled:               req.LoginAgreementEnabled,
 		LoginAgreementMode:                  loginAgreementMode,
 		LoginAgreementUpdatedAt:             loginAgreementUpdatedAt,
@@ -1991,23 +1963,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if updatedPaymentCfg == nil {
 		updatedPaymentCfg = &service.PaymentConfig{}
 	}
-	passkeyConfigured, passkeyRPID, passkeyRPOrigins := h.settingService.PasskeyConfiguration()
 
 	payload := dto.SystemSettings{
-		RegistrationEnabled:                    updatedSettings.RegistrationEnabled,
 		EmailVerifyEnabled:                     updatedSettings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled:    updatedSettings.RegistrationEmailDomainQuotaEnabled,
-		PasswordResetEnabled:                   updatedSettings.PasswordResetEnabled,
 		FrontendURL:                            updatedSettings.FrontendURL,
-		InvitationCodeEnabled:                  updatedSettings.InvitationCodeEnabled,
-		PasskeyEnabled:                         updatedSettings.PasskeyEnabled,
-		PasskeyConfigured:                      passkeyConfigured,
-		PasskeyRPID:                            passkeyRPID,
-		PasskeyRPOrigins:                       passkeyRPOrigins,
-		SessionBindingEnabled:                  updatedSettings.SessionBindingEnabled,
 		StepUpEnabled:                          updatedSettings.StepUpEnabled,
-		AuditLogRetentionDays:                  updatedSettings.AuditLogRetentionDays,
 		LoginAgreementEnabled:                  updatedSettings.LoginAgreementEnabled,
 		LoginAgreementMode:                     updatedSettings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:                updatedSettings.LoginAgreementUpdatedAt,

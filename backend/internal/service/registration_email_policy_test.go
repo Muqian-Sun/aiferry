@@ -48,7 +48,6 @@ func TestIsRegistrationEmailSuffixAllowed(t *testing.T) {
 func TestRegistrationEmailQuotaRejectsMalformedDomainWhenWhitelistConfigured(t *testing.T) {
 	repo := &userRepoStub{}
 	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEnabled:                 "true",
 		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
 		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 	}, nil)

@@ -32,9 +32,6 @@ func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.Sys
 
 func diffSettings(before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) []string {
 	changed := make([]string, 0, 20)
-	if before.RegistrationEnabled != after.RegistrationEnabled {
-		changed = append(changed, "registration_enabled")
-	}
 	if before.EmailVerifyEnabled != after.EmailVerifyEnabled {
 		changed = append(changed, "email_verify_enabled")
 	}
@@ -44,20 +41,8 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.RegistrationEmailDomainQuotaEnabled != after.RegistrationEmailDomainQuotaEnabled {
 		changed = append(changed, "registration_email_domain_quota_enabled")
 	}
-	if before.InvitationCodeEnabled != after.InvitationCodeEnabled {
-		changed = append(changed, "invitation_code_enabled")
-	}
-	if before.PasswordResetEnabled != after.PasswordResetEnabled {
-		changed = append(changed, "password_reset_enabled")
-	}
 	if before.FrontendURL != after.FrontendURL {
 		changed = append(changed, "frontend_url")
-	}
-	if before.PasskeyEnabled != after.PasskeyEnabled {
-		changed = append(changed, "passkey_enabled")
-	}
-	if before.SessionBindingEnabled != after.SessionBindingEnabled {
-		changed = append(changed, "session_binding_enabled")
 	}
 	if before.StepUpEnabled != after.StepUpEnabled {
 		changed = append(changed, "step_up_enabled")

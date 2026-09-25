@@ -128,8 +128,6 @@ func TestSettingHandler_GetSettings_InjectsAuthSourceDefaults(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
 		values: map[string]string{
-			service.SettingKeyRegistrationEnabled:                 "true",
-			service.SettingKeyInvitationCodeEnabled:               "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:   "8",
 			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":31,"validity_days":15}]`,
@@ -163,8 +161,6 @@ func TestSettingHandler_UpdateSettings_PreservesOmittedAuthSourceDefaults(t *tes
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
 		values: map[string]string{
-			service.SettingKeyRegistrationEnabled:                    "false",
-			service.SettingKeyInvitationCodeEnabled:                  "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:          "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:      "8",
 			service.SettingKeyAuthSourceDefaultEmailSubscriptions:    `[{"plan_id":31,"validity_days":15}]`,
@@ -209,9 +205,7 @@ func TestSettingHandler_UpdateSettings_PreservesOmittedAuthSourceDefaults(t *tes
 func TestSettingHandler_UpdateSettings_PersistsPaymentVisibleMethods(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
-		values: map[string]string{
-			service.SettingKeyInvitationCodeEnabled: "true",
-		},
+		values: map[string]string{},
 	}
 	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
 	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
@@ -253,7 +247,6 @@ func TestSettingHandler_UpdateSettings_PreservesLegacyBlankPaymentVisibleMethodS
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
 		values: map[string]string{
-			service.SettingKeyInvitationCodeEnabled:          "true",
 			service.SettingPaymentVisibleMethodAlipayEnabled: "true",
 			service.SettingPaymentVisibleMethodAlipaySource:  "",
 			service.SettingPaymentVisibleMethodWxpayEnabled:  "false",
@@ -285,7 +278,6 @@ func TestSettingHandler_UpdateSettings_PersistsExplicitFalseOIDCCompatibilityFla
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
 		values: map[string]string{
-			service.SettingKeyInvitationCodeEnabled:          "true",
 			service.SettingKeyOIDCConnectEnabled:             "true",
 			service.SettingKeyOIDCConnectProviderName:        "OIDC",
 			service.SettingKeyOIDCConnectClientID:            "oidc-client",
@@ -341,7 +333,6 @@ func TestSettingHandler_UpdateSettings_DoesNotSolidifyImplicitOIDCSecurityDefaul
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
 		values: map[string]string{
-			service.SettingKeyInvitationCodeEnabled:           "true",
 			service.SettingKeyOIDCConnectEnabled:              "true",
 			service.SettingKeyOIDCConnectProviderName:         "OIDC",
 			service.SettingKeyOIDCConnectClientID:             "oidc-client",
@@ -409,9 +400,7 @@ func TestSettingHandler_UpdateSettings_DoesNotSolidifyImplicitOIDCSecurityDefaul
 func TestSettingHandler_UpdateSettings_RejectsInvalidPaymentVisibleMethodSource(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{
-		values: map[string]string{
-			service.SettingKeyInvitationCodeEnabled: "true",
-		},
+		values: map[string]string{},
 	}
 	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
 	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil, nil)
@@ -438,8 +427,6 @@ func TestSettingHandler_UpdateSettings_DoesNotPersistPartialSystemSettingsWhenAu
 	gin.SetMode(gin.TestMode)
 	repo := &failingAuthSourceSettingsRepoStub{
 		values: map[string]string{
-			service.SettingKeyRegistrationEnabled:                 "false",
-			service.SettingKeyInvitationCodeEnabled:               "true",
 			service.SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
 			service.SettingKeyAuthSourceDefaultEmailConcurrency:   "8",
 			service.SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":31,"validity_days":15}]`,
@@ -465,7 +452,6 @@ func TestSettingHandler_UpdateSettings_DoesNotPersistPartialSystemSettingsWhenAu
 	handler.UpdateSettings(c)
 
 	require.Equal(t, http.StatusInternalServerError, rec.Code)
-	require.Equal(t, "false", repo.values[service.SettingKeyRegistrationEnabled])
 	require.Equal(t, "9.5", repo.values[service.SettingKeyAuthSourceDefaultEmailBalance])
 }
 

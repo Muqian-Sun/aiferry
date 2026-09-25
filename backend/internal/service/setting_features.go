@@ -14,14 +14,9 @@ import (
 	"time"
 )
 
-// IsRegistrationEnabled 检查是否开放注册
+// IsRegistrationEnabled 是否开放注册：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEnabled)
-	if err != nil {
-		// 安全默认：如果设置不存在或查询出错，默认关闭注册
-		return false
-	}
-	return value == "true"
+	return RegistrationOpen
 }
 
 // IsEmailVerifyEnabled 检查是否开启邮件验证
@@ -52,13 +47,9 @@ func (s *SettingService) GetRegistrationEmailSuffixWhitelist(ctx context.Context
 	return ParseRegistrationEmailSuffixWhitelist(value)
 }
 
-// IsInvitationCodeEnabled 检查是否启用邀请码注册功能
+// IsInvitationCodeEnabled 注册是否要邀请码：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsInvitationCodeEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyInvitationCodeEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return InvitationCodeRequired
 }
 
 // GetCustomMenuItemsRaw returns the raw JSON string of custom_menu_items setting.
@@ -152,18 +143,9 @@ func (s *SettingService) GetAffiliateRebatePerInviteeCap(ctx context.Context) fl
 	return cap
 }
 
-// IsPasswordResetEnabled 检查是否启用密码重置功能
-// 要求：必须同时开启邮件验证
+// IsPasswordResetEnabled 忘记密码跟着邮箱验证走：能发信就允许重置，不再有单独的开关。
 func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
-	// Password reset requires email verification to be enabled
-	if !s.IsEmailVerifyEnabled(ctx) {
-		return false
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyPasswordResetEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return s.IsEmailVerifyEnabled(ctx)
 }
 
 // IsTotpEnabled 双因素认证是否可用：配了 TOTP_ENCRYPTION_KEY 就开，不再有后台开关。
@@ -172,51 +154,13 @@ func (s *SettingService) IsTotpEnabled() bool {
 	return s.IsTotpEncryptionKeyConfigured()
 }
 
-// PasskeyEnabled reports the effective runtime switch. WebAuthn deployment
-// configuration remains the security boundary; the database setting can only
-// disable a valid configured relying party, never replace or weaken it.
-func (s *SettingService) PasskeyEnabled(ctx context.Context) (bool, error) {
-	if !s.passkeyConfigured() {
-		return false, nil
-	}
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyPasskeyEnabled)
-	if errors.Is(err, ErrSettingNotFound) {
-		return true, nil // configured deployments default to enabled until the admin persists the switch
-	}
-	if err != nil {
-		return false, fmt.Errorf("read passkey setting: %w", err)
-	}
-	return value == "true", nil
-}
-
-// PasskeyConfiguration returns non-secret relying-party configuration for the
-// admin status UI. Enabled configurations have already passed Config.Validate.
-func (s *SettingService) PasskeyConfiguration() (configured bool, rpID string, origins []string) {
-	if s == nil || s.cfg == nil {
-		return false, "", []string{}
-	}
-	origins = append([]string{}, s.cfg.WebAuthn.RPOrigins...)
-	return s.cfg.WebAuthn.Enabled,
-		strings.TrimSpace(s.cfg.WebAuthn.RPID),
-		origins
+// PasskeyEnabled Passkey 登录跟着部署配置走（webauthn.enabled + RP ID / origins），不再有后台开关。
+func (s *SettingService) PasskeyEnabled() bool {
+	return s.passkeyConfigured()
 }
 
 func (s *SettingService) passkeyConfigured() bool {
 	return s != nil && s.cfg != nil && s.cfg.WebAuthn.Enabled
-}
-
-// passkeySettingEnabled must stay ANDed with passkeyConfigured: a stale
-// "true" row after the WebAuthn config is removed would otherwise make the
-// admin update gate reject every settings save while the UI toggle is locked.
-func (s *SettingService) passkeySettingEnabled(settings map[string]string) bool {
-	if !s.passkeyConfigured() {
-		return false
-	}
-	value, ok := settings[SettingKeyPasskeyEnabled]
-	if !ok {
-		return true
-	}
-	return value == "true"
 }
 
 // IsTotpEncryptionKeyConfigured 检查 TOTP 加密密钥是否已手动配置
@@ -225,15 +169,9 @@ func (s *SettingService) IsTotpEncryptionKeyConfigured() bool {
 	return s.cfg.Totp.EncryptionKeyConfigured
 }
 
-// IsSessionBindingEnabled 检查会话 IP/UA 绑定是否启用（默认关闭）。
-// 开启时会话与登录时的 IP/User-Agent 绑定，任一变化立即失效并撤销该会话。
-// 默认关闭：移动网络/多出口 IP 场景下 IP 频繁变化会导致登录后立即掉线。
+// IsSessionBindingEnabled 会话 IP/UA 绑定是否启用：由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsSessionBindingEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeySessionBindingEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return SessionBindingEnabled
 }
 
 // IsStepUpEnabled 检查敏感操作 step-up 2FA 门控是否启用（默认关闭）。
@@ -245,34 +183,6 @@ func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
 		return false // 默认关闭
 	}
 	return value == "true"
-}
-
-// defaultAuditLogRetentionDays 审计日志默认保留天数。
-const defaultAuditLogRetentionDays = 180
-
-// GetAuditLogRetentionDays 审计日志保留天数（<=0 表示永久保留，仅支持手动清空）。
-func (s *SettingService) GetAuditLogRetentionDays(ctx context.Context) int {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyAuditLogRetentionDays)
-	if err != nil {
-		return defaultAuditLogRetentionDays
-	}
-	return parseAuditLogRetentionDays(value)
-}
-
-// parseAuditLogRetentionDays 解析保留天数配置，空/非法值回退默认值。
-func parseAuditLogRetentionDays(value string) int {
-	value = strings.TrimSpace(value)
-	if value == "" {
-		return defaultAuditLogRetentionDays
-	}
-	n, err := strconv.Atoi(value)
-	if err != nil {
-		return defaultAuditLogRetentionDays
-	}
-	if n < 0 {
-		return 0
-	}
-	return n
 }
 
 // GetSiteName 获取网站名称

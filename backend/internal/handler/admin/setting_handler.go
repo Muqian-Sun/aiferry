@@ -130,23 +130,13 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 	if paymentCfg == nil {
 		paymentCfg = &service.PaymentConfig{}
 	}
-	passkeyConfigured, passkeyRPID, passkeyRPOrigins := h.settingService.PasskeyConfiguration()
 
 	payload := dto.SystemSettings{
-		RegistrationEnabled:                    settings.RegistrationEnabled,
 		EmailVerifyEnabled:                     settings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       settings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled:    settings.RegistrationEmailDomainQuotaEnabled,
-		PasswordResetEnabled:                   settings.PasswordResetEnabled,
 		FrontendURL:                            settings.FrontendURL,
-		InvitationCodeEnabled:                  settings.InvitationCodeEnabled,
-		PasskeyEnabled:                         settings.PasskeyEnabled,
-		PasskeyConfigured:                      passkeyConfigured,
-		PasskeyRPID:                            passkeyRPID,
-		PasskeyRPOrigins:                       passkeyRPOrigins,
-		SessionBindingEnabled:                  settings.SessionBindingEnabled,
 		StepUpEnabled:                          settings.StepUpEnabled,
-		AuditLogRetentionDays:                  settings.AuditLogRetentionDays,
 		LoginAgreementEnabled:                  settings.LoginAgreementEnabled,
 		LoginAgreementMode:                     settings.LoginAgreementMode,
 		LoginAgreementUpdatedAt:                settings.LoginAgreementUpdatedAt,

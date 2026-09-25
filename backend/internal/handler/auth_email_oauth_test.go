@@ -4,83 +4,18 @@ import (
 	"context"
 	"net/http"
 	"net/http/httptest"
-	"net/url"
 	"strings"
 	"testing"
 	"time"
 
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/ent/authidentity"
-	"github.com/Wei-Shaw/sub2api/ent/redeemcode"
 	dbuser "github.com/Wei-Shaw/sub2api/ent/user"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 )
-
-func TestEmailOAuthCallbackRequiresPendingRegistrationWhenInvitationEnabled(t *testing.T) {
-	handler, client := newOAuthPendingFlowTestHandler(t, true)
-	ctx := context.Background()
-
-	state := "github-oauth-state"
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/github/callback?code=code-1&state="+url.QueryEscape(state), nil)
-	req.AddCookie(&http.Cookie{Name: emailOAuthStateCookieName, Value: encodeCookieValue(state)})
-	req.AddCookie(&http.Cookie{Name: emailOAuthRedirectCookie, Value: encodeCookieValue("/dashboard")})
-	req.AddCookie(&http.Cookie{Name: emailOAuthProviderCookie, Value: encodeCookieValue("github")})
-	c.Request = req
-
-	profile := &emailOAuthProfile{
-		Subject:       "github-123",
-		Email:         "fresh@example.com",
-		EmailVerified: true,
-		Username:      "fresh",
-		DisplayName:   "Fresh User",
-		AvatarURL:     "https://cdn.example/fresh.png",
-		Metadata: map[string]any{
-			"login": "fresh",
-		},
-	}
-	handler.emailOAuthCallbackWithProfile(c, "github", config.EmailOAuthProviderConfig{
-		Enabled:             true,
-		ClientID:            "github-client",
-		ClientSecret:        "github-secret",
-		RedirectURL:         "https://app.example/api/v1/auth/oauth/github/callback",
-		FrontendRedirectURL: "/auth/oauth/callback",
-	}, "/auth/oauth/callback", "/dashboard", profile)
-
-	require.Equal(t, http.StatusFound, recorder.Code)
-	location := recorder.Header().Get("Location")
-	require.Contains(t, location, "/auth/oauth/callback")
-	require.NotContains(t, location, "access_token=")
-
-	userCount, err := client.User.Query().Where(dbuser.EmailEQ("fresh@example.com")).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, userCount)
-
-	session, err := client.PendingAuthSession.Query().Only(ctx)
-	require.NoError(t, err)
-	require.Equal(t, "github", session.ProviderType)
-	require.Equal(t, "github", session.ProviderKey)
-	require.Equal(t, "github-123", session.ProviderSubject)
-	require.Equal(t, "fresh@example.com", session.ResolvedEmail)
-	require.Equal(t, "/dashboard", session.RedirectTo)
-	require.Nil(t, session.TargetUserID)
-
-	completion, ok := readCompletionResponse(session.LocalFlowState)
-	require.True(t, ok)
-	require.Equal(t, oauthPendingChoiceStep, completion["step"])
-	require.Equal(t, "invitation_required", completion["error"])
-	require.Equal(t, true, completion["invitation_required"])
-	require.Equal(t, "fresh@example.com", completion["email"])
-	require.Equal(t, "fresh@example.com", completion["resolved_email"])
-	require.Equal(t, true, completion["create_account_allowed"])
-
-	require.NotEmpty(t, findSetCookieValue(recorder.Result().Cookies(), oauthPendingSessionCookieName))
-	require.NotEmpty(t, findSetCookieValue(recorder.Result().Cookies(), oauthPendingBrowserCookieName))
-}
 
 func TestEmailOAuthCallbackExistingEmailLogsInWhenInvitationEnabled(t *testing.T) {
 	handler, client := newOAuthPendingFlowTestHandler(t, true)
@@ -187,7 +122,6 @@ func TestEmailOAuthCallbackCreatesPasswordRegistrationSessionForNewEmail(t *test
 func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *testing.T) {
 	affiliateRepo := newOAuthEmailAffiliateRepoStub(map[string]int64{"AFF456": 2002})
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
-		invitationEnabled: true,
 		settingValues: map[string]string{
 			service.SettingKeyAffiliateEnabled: "true",
 		},
@@ -196,13 +130,6 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 		},
 	})
 	ctx := context.Background()
-	invitation, err := client.RedeemCode.Create().
-		SetCode("INVITE456").
-		SetType(service.RedeemTypeInvitation).
-		SetStatus(service.StatusUnused).
-		SetValue(0).
-		Save(ctx)
-	require.NoError(t, err)
 
 	session, err := client.PendingAuthSession.Create().
 		SetSessionToken("email-oauth-aff-session-token").
@@ -232,7 +159,7 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/google/complete-registration", strings.NewReader(`{"password":"secret-123","invitation_code":"INVITE456","email":"tampered@example.com"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/google/complete-registration", strings.NewReader(`{"password":"secret-123","email":"tampered@example.com"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: oauthPendingSessionCookieName, Value: encodeCookieValue(session.SessionToken)})
 	req.AddCookie(&http.Cookie{Name: oauthPendingBrowserCookieName, Value: encodeCookieValue("browser-aff-key")})
@@ -249,10 +176,6 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 	require.NoError(t, err)
 	require.Zero(t, tamperedCount)
 	require.Equal(t, []oauthEmailAffiliateBindCall{{userID: user.ID, inviterID: 2002}}, affiliateRepo.bindCalls)
-	storedInvitation, err := client.RedeemCode.Query().Where(redeemcode.IDEQ(invitation.ID)).Only(ctx)
-	require.NoError(t, err)
-	require.NotNil(t, storedInvitation.UsedBy)
-	require.Equal(t, user.ID, *storedInvitation.UsedBy)
 }
 
 func TestCompleteEmailOAuthRegistrationRequiresPassword(t *testing.T) {

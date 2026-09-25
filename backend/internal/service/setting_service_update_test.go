@@ -709,45 +709,20 @@ func TestSettingService_UpdateSettings_RejectsInvalidPaymentVisibleMethodSource(
 	require.Nil(t, repo.updates)
 }
 
-func TestSettingService_PasskeySwitchPersistsAndDefaultsToConfigured(t *testing.T) {
+func TestSettingService_PasskeyFollowsDeploymentConfig(t *testing.T) {
 	cfg := &config.Config{WebAuthn: config.WebAuthnConfig{
 		Enabled:   true,
 		RPID:      "sub3.nebula-spaces.com",
 		RPOrigins: []string{"https://sub3.nebula-spaces.com"},
 	}}
-	runtimeRepo := &forwardedIPMigrationRepoStub{values: map[string]string{}}
-	runtimeService := NewSettingService(runtimeRepo, cfg)
-
-	enabled, err := runtimeService.PasskeyEnabled(context.Background())
+	// 库里残留旧开关关着也不影响：配了部署就开
+	configured := NewSettingService(&forwardedIPMigrationRepoStub{values: map[string]string{"passkey_enabled": "false"}}, cfg)
+	require.True(t, configured.PasskeyEnabled())
+	publicSettings, err := configured.GetPublicSettings(context.Background())
 	require.NoError(t, err)
-	require.True(t, enabled)
+	require.True(t, publicSettings.PasskeyEnabled)
 
-	updateRepo := &settingUpdateRepoStub{}
-	updateService := NewSettingService(updateRepo, cfg)
-	require.NoError(t, updateService.UpdateSettings(context.Background(), &SystemSettings{
-		PasskeyEnabled: false,
-	}))
-	require.Equal(t, "false", updateRepo.updates[SettingKeyPasskeyEnabled])
-
-	runtimeRepo.values[SettingKeyPasskeyEnabled] = "false"
-	enabled, err = runtimeService.PasskeyEnabled(context.Background())
-	require.NoError(t, err)
-	require.False(t, enabled)
-	publicSettings, err := runtimeService.GetPublicSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, publicSettings.PasskeyEnabled)
-}
-
-// 移除 WebAuthn 配置后，残留的 passkey_enabled="true" 不得再让 GetAllSettings
-// 报告开关开启：admin 更新门控以此为准，一旦误报为 true 会拒绝所有设置保存，
-// 而此时前端开关处于禁用态，管理员无法在 UI 里自救。
-func TestSettingService_StalePasskeyTrueWithoutConfigReportsDisabled(t *testing.T) {
-	repo := &settingGetAllRepoStub{values: map[string]string{
-		SettingKeyPasskeyEnabled: "true",
-	}}
-	service := NewSettingService(repo, &config.Config{})
-
-	settings, err := service.GetAllSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, settings.PasskeyEnabled)
+	// 没配部署：残留旧开关开着也不可用
+	unconfigured := NewSettingService(&forwardedIPMigrationRepoStub{values: map[string]string{"passkey_enabled": "true"}}, &config.Config{})
+	require.False(t, unconfigured.PasskeyEnabled())
 }

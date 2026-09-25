@@ -663,19 +663,10 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   const schedulingThresholdPlatforms = SCHEDULING_THRESHOLD_PLATFORMS;
 
   const form = reactive<SettingsForm>({
-    registration_enabled: true,
     email_verify_enabled: false,
     registration_email_suffix_whitelist: [],
     registration_email_domain_quota_enabled: false,
-    invitation_code_enabled: false,
-    password_reset_enabled: false,
-    passkey_enabled: false,
-    passkey_configured: false,
-    passkey_rp_id: "",
-    passkey_rp_origins: [],
-    session_binding_enabled: false,
     step_up_enabled: false,
-    audit_log_retention_days: 180,
     login_agreement_enabled: false,
     login_agreement_mode: "modal",
     login_agreement_updated_at: "2026-03-31",
@@ -2077,7 +2068,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         claudeOAuthSystemPromptBlocksJSON;
 
       const payload: UpdateSettingsRequest = {
-        registration_enabled: form.registration_enabled,
         email_verify_enabled: form.email_verify_enabled,
         registration_email_suffix_whitelist:
           registrationEmailSuffixWhitelistTags.value.map((suffix) =>
@@ -2085,16 +2075,7 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           ),
         registration_email_domain_quota_enabled:
           form.registration_email_domain_quota_enabled,
-        invitation_code_enabled: form.invitation_code_enabled,
-        password_reset_enabled: form.password_reset_enabled,
-        passkey_enabled: form.passkey_enabled,
-        session_binding_enabled: form.session_binding_enabled,
         step_up_enabled: form.step_up_enabled,
-        // 清空数字框时 v-model.number 会得到空串，后端 int 字段解析空串会 400 拒绝整次保存；
-        // 空/非法值回退默认 180（与后端 parseAuditLogRetentionDays("") 语义一致，0 仍表示永久保留）。
-        audit_log_retention_days: Number.isFinite(form.audit_log_retention_days)
-          ? form.audit_log_retention_days
-          : 180,
         login_agreement_enabled: form.login_agreement_enabled,
         login_agreement_mode: form.login_agreement_mode,
         login_agreement_updated_at: form.login_agreement_updated_at,

@@ -217,15 +217,11 @@ func (h *PasskeyHandler) requirePasskeysEnabled(c *gin.Context) bool {
 		response.ErrorFrom(c, service.ErrPasskeysDisabled)
 		return false
 	}
-	enabled, err := h.settingSvc.PasskeyEnabled(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
+	if !h.settingSvc.PasskeyEnabled() {
+		response.ErrorFrom(c, service.ErrPasskeysDisabled)
 		return false
 	}
-	if !enabled {
-		response.ErrorFrom(c, service.ErrPasskeysDisabled)
-	}
-	return enabled
+	return true
 }
 
 func (h *PasskeyHandler) ensureBackendModeAllowsUser(ctx context.Context, user *service.User) error {

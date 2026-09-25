@@ -1090,36 +1090,6 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathBackendModeBlocksBeforeUserCreati
 	require.Zero(t, pendingCount)
 }
 
-func TestTryOIDCVerifiedEmailFastPathSkippedWhenInvitationCodeRequired(t *testing.T) {
-	handler, client := newOAuthPendingFlowTestHandler(t, true)
-	t.Cleanup(func() { _ = client.Close() })
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	c.Request = httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/callback", nil)
-
-	identity := service.PendingAuthIdentityKey{
-		ProviderType:    "oidc",
-		ProviderKey:     "https://issuer.example.com",
-		ProviderSubject: "fast-path-skipped-invitation",
-	}
-	completed := handler.tryOIDCVerifiedEmailFastPath(
-		c,
-		"/auth/oidc/callback",
-		"/dashboard",
-		identity,
-		"invite-only@example.com",
-		"invite_only_user",
-		map[string]any{},
-	)
-	require.False(t, completed)
-	require.NotEqual(t, http.StatusFound, recorder.Code)
-
-	userCount, err := client.User.Query().Where(dbuser.EmailEQ("invite-only@example.com")).Count(context.Background())
-	require.NoError(t, err)
-	require.Zero(t, userCount)
-}
-
 func TestTryOIDCVerifiedEmailFastPathSkippedWhenForceEmailEnabled(t *testing.T) {
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
 		settingValues: map[string]string{

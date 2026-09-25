@@ -13,21 +13,6 @@
         </p>
       </div>
       <div class="space-y-5 p-6">
-        <!-- Enable Registration -->
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.registration.enableRegistration")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{
-                t("admin.settings.registration.enableRegistrationHint")
-              }}
-            </p>
-          </div>
-          <Toggle v-model="form.registration_enabled" />
-        </div>
-
         <!-- Email Verification -->
         <div
           class="flex items-center justify-between border-t border-af-hairline pt-4"
@@ -129,38 +114,9 @@
           />
         </div>
 
-        <!-- Invitation Code -->
-        <div
-          class="flex items-center justify-between border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.registration.invitationCode")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{ t("admin.settings.registration.invitationCodeHint") }}
-            </p>
-          </div>
-          <Toggle v-model="form.invitation_code_enabled" />
-        </div>
-        <!-- Password Reset - Only show when email verification is enabled -->
-        <div
-          v-if="form.email_verify_enabled"
-          class="flex items-center justify-between border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.registration.passwordReset")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{ t("admin.settings.registration.passwordResetHint") }}
-            </p>
-          </div>
-          <Toggle v-model="form.password_reset_enabled" />
-        </div>
         <!-- Frontend URL - Only show when password reset is enabled -->
         <div
-          v-if="form.email_verify_enabled && form.password_reset_enabled"
+          v-if="form.email_verify_enabled"
           class="border-t border-af-hairline pt-4"
         >
           <label
@@ -181,65 +137,6 @@
           </p>
         </div>
 
-        <!-- Passkey sign-in -->
-        <div
-          class="border-t border-af-hairline pt-4"
-          data-testid="passkey-settings"
-        >
-          <div class="flex items-start justify-between gap-4">
-            <div>
-              <label class="font-medium text-af-ink">{{
-                t("admin.settings.security.passkey")
-              }}</label>
-              <p class="text-sm text-af-ink-3">
-                {{ t("admin.settings.security.passkeyHint") }}
-              </p>
-            </div>
-            <Toggle
-              v-model="form.passkey_enabled"
-              data-testid="passkey-toggle"
-              :disabled="!form.passkey_configured"
-            />
-          </div>
-          <div
-            class="mt-3 rounded-lg border px-3 py-2 text-sm"
-            :class="
-              form.passkey_configured
-                ? 'border-af-success/30 bg-af-success-tint text-af-success'
-                : 'border-af-warning/30 bg-af-warning-tint text-af-warning'
-            "
-            data-testid="passkey-config-status"
-          >
-            <p class="font-medium">
-              {{
-                form.passkey_configured
-                  ? t("admin.settings.security.passkeyConfigured")
-                  : t("admin.settings.security.passkeyNotConfigured")
-              }}
-            </p>
-            <p class="mt-1 break-all">
-              {{ t("admin.settings.security.passkeyRPID") }}:
-              {{
-                form.passkey_rp_id ||
-                t("admin.settings.security.passkeyValueNotConfigured")
-              }}
-            </p>
-            <p class="mt-1 break-all">
-              {{ t("admin.settings.security.passkeyOrigins") }}:
-              {{
-                form.passkey_rp_origins.length > 0
-                  ? form.passkey_rp_origins.join(", ")
-                  : t(
-                      "admin.settings.security.passkeyValueNotConfigured",
-                    )
-              }}
-            </p>
-            <p v-if="!form.passkey_configured" class="mt-2">
-              {{ t("admin.settings.security.passkeyDeploymentHint") }}
-            </p>
-          </div>
-        </div>
-
         <!-- 敏感操作 step-up 2FA -->
         <div
           class="flex items-center justify-between border-t border-af-hairline pt-4"
@@ -255,40 +152,6 @@
           <Toggle v-model="form.step_up_enabled" />
         </div>
 
-        <!-- 会话 IP/UA 绑定 -->
-        <div
-          class="flex items-center justify-between border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.security.sessionBinding")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{ t("admin.settings.security.sessionBindingHint") }}
-            </p>
-          </div>
-          <Toggle v-model="form.session_binding_enabled" />
-        </div>
-
-        <!-- 审计日志保留天数 -->
-        <div
-          class="flex items-center justify-between border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.security.auditRetention")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{ t("admin.settings.security.auditRetentionHint") }}
-            </p>
-          </div>
-          <input
-            v-model.number="form.audit_log_retention_days"
-            type="number"
-            min="0"
-            class="input w-28 text-right"
-          />
-        </div>
       </div>
     </div>
 

@@ -169,9 +169,7 @@ func TestRegisterOAuthEmailAccountRollsBackCreatedUserWhenTokenPairGenerationFai
 		redeemRepo,
 		nil,
 		map[string]string{
-			SettingKeyRegistrationEnabled:   "true",
-			SettingKeyInvitationCodeEnabled: "true",
-			SettingKeyEmailVerifyEnabled:    "true",
+			SettingKeyEmailVerifyEnabled: "true",
 		},
 		emailCache,
 	)
@@ -202,7 +200,6 @@ func TestRegisterOAuthEmailAccount_NonWhitelistDomainLimit(t *testing.T) {
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
 		map[string]string{
-			SettingKeyRegistrationEnabled:                 "true",
 			SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
 			SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 		},
@@ -232,7 +229,6 @@ func TestRegisterVerifiedOAuthEmailAccount_NonWhitelistDomainLimit(t *testing.T)
 		nil,
 		&refreshTokenCacheStub{},
 		map[string]string{
-			SettingKeyRegistrationEnabled:                 "true",
 			SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
 			SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 		},
@@ -257,7 +253,6 @@ func TestSendPendingOAuthVerifyCode_NonWhitelistDomainLimit(t *testing.T) {
 		nil,
 		nil,
 		map[string]string{
-			SettingKeyRegistrationEnabled:                 "true",
 			SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
 			SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
 		},
@@ -276,7 +271,6 @@ func TestSendPendingOAuthVerifyCode_NonWhitelistDomainRejectedWhenQuotaDisabled(
 		nil,
 		nil,
 		map[string]string{
-			SettingKeyRegistrationEnabled:              "true",
 			SettingKeyRegistrationEmailSuffixWhitelist: `["@example.com"]`,
 		},
 		&emailCacheStub{},
@@ -309,8 +303,7 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
 		map[string]string{
-			SettingKeyRegistrationEnabled: "true",
-			SettingKeyEmailVerifyEnabled:  "true",
+			SettingKeyEmailVerifyEnabled: "true",
 		},
 		emailCache,
 	)
@@ -368,8 +361,7 @@ func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T)
 				&redeemCodeRepoStub{},
 				&refreshTokenCacheStub{},
 				map[string]string{
-					SettingKeyRegistrationEnabled: "true",
-					SettingKeyEmailVerifyEnabled:  "true",
+					SettingKeyEmailVerifyEnabled: "true",
 				},
 				emailCache,
 			)
@@ -407,8 +399,7 @@ func TestRegisterOAuthEmailAccountFallsBackUnknownSignupSourceToEmail(t *testing
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
 		map[string]string{
-			SettingKeyRegistrationEnabled: "true",
-			SettingKeyEmailVerifyEnabled:  "true",
+			SettingKeyEmailVerifyEnabled: "true",
 		},
 		emailCache,
 	)
@@ -429,56 +420,13 @@ func TestRegisterOAuthEmailAccountFallsBackUnknownSignupSourceToEmail(t *testing
 	require.Equal(t, "email", userRepo.created[0].SignupSource)
 }
 
-func TestRollbackOAuthEmailAccountCreationRestoresInvitationUsage(t *testing.T) {
-	userRepo := &userRepoStub{}
-	redeemRepo := &redeemCodeRepoStub{
-		codesByCode: map[string]*RedeemCode{
-			"INVITE123": {
-				ID:     7,
-				Code:   "INVITE123",
-				Type:   RedeemTypeInvitation,
-				Status: StatusUsed,
-				UsedBy: func() *int64 {
-					v := int64(42)
-					return &v
-				}(),
-				UsedAt: func() *time.Time {
-					v := time.Now().UTC()
-					return &v
-				}(),
-			},
-		},
-	}
-	authService := newOAuthEmailFlowAuthService(
-		userRepo,
-		redeemRepo,
-		&refreshTokenCacheStub{},
-		map[string]string{
-			SettingKeyRegistrationEnabled:   "true",
-			SettingKeyInvitationCodeEnabled: "true",
-		},
-		&emailCacheStub{},
-	)
-
-	err := authService.RollbackOAuthEmailAccountCreation(context.Background(), 42, "INVITE123")
-
-	require.NoError(t, err)
-	require.Equal(t, []int64{42}, userRepo.deletedIDs)
-	require.Len(t, redeemRepo.updateCalls, 1)
-	require.Equal(t, StatusUnused, redeemRepo.updateCalls[0].Status)
-	require.Nil(t, redeemRepo.updateCalls[0].UsedBy)
-	require.Nil(t, redeemRepo.updateCalls[0].UsedAt)
-}
-
 func TestRollbackOAuthEmailAccountCreationPropagatesDeleteError(t *testing.T) {
 	userRepo := &userRepoStub{deleteErr: errors.New("delete failed")}
 	authService := newOAuthEmailFlowAuthService(
 		userRepo,
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
-		map[string]string{
-			SettingKeyRegistrationEnabled: "true",
-		},
+		map[string]string{},
 		&emailCacheStub{},
 	)
 

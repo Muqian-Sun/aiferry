@@ -551,7 +551,6 @@ func TestAPIContracts(t *testing.T) {
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
-					service.SettingKeyRegistrationEnabled:              "true",
 					service.SettingKeyEmailVerifyEnabled:               "false",
 					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
 
@@ -618,19 +617,11 @@ func TestAPIContracts(t *testing.T) {
 				"code": 0,
 				"message": "success",
 				"data": {
-					"registration_enabled": true,
 					"email_verify_enabled": false,
 					"registration_email_suffix_whitelist": [],
 					"registration_email_domain_quota_enabled": false,
-					"password_reset_enabled": false,
 						"frontend_url": "",
-						"passkey_enabled": false,
-						"passkey_configured": false,
-						"passkey_rp_id": "",
-						"passkey_rp_origins": [],
-						"session_binding_enabled": false,
 						"step_up_enabled": false,
-						"audit_log_retention_days": 180,
 						"login_agreement_enabled": false,
 						"login_agreement_mode": "modal",
 						"login_agreement_updated_at": "2026-09-23",
@@ -768,7 +759,6 @@ func TestAPIContracts(t *testing.T) {
 					"default_subscriptions": [],
 						"enable_identity_patch": true,
 						"identity_patch_prompt": "",
-						"invitation_code_enabled": false,
 						"home_content": "",
 					"hide_ccs_import_button": false,
 					"grok_default_text_model": "grok-4.6",
@@ -903,7 +893,6 @@ func TestAPIContracts(t *testing.T) {
 					FrontendRedirectURL: "/auth/wechat/callback",
 				}
 				deps.settingRepo.SetAll(map[string]string{
-					service.SettingKeyRegistrationEnabled:              "true",
 					service.SettingKeyEmailVerifyEnabled:               "false",
 					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
 				})
@@ -915,20 +904,11 @@ func TestAPIContracts(t *testing.T) {
 				"code": 0,
 				"message": "success",
 				"data": {
-					"registration_enabled": true,
 					"email_verify_enabled": false,
 					"registration_email_suffix_whitelist": [],
 					"registration_email_domain_quota_enabled": false,
-					"password_reset_enabled": false,
 					"frontend_url": "",
-						"invitation_code_enabled": false,
-						"passkey_enabled": false,
-						"passkey_configured": false,
-						"passkey_rp_id": "",
-						"passkey_rp_origins": [],
-						"session_binding_enabled": false,
 						"step_up_enabled": false,
-						"audit_log_retention_days": 180,
 						"login_agreement_enabled": false,
 						"login_agreement_mode": "modal",
 						"login_agreement_updated_at": "2026-09-23",

@@ -60,10 +60,9 @@ func newAuthServiceForRegisterTurnstileTest(settings map[string]string, verifier
 func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
 	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyEmailVerifyEnabled:  "true",
-		SettingKeyTurnstileEnabled:    "true",
-		SettingKeyTurnstileSecretKey:  "secret",
-		SettingKeyRegistrationEnabled: "true",
+		SettingKeyEmailVerifyEnabled: "true",
+		SettingKeyTurnstileEnabled:   "true",
+		SettingKeyTurnstileSecretKey: "secret",
 	}, verifier)
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "123456")
