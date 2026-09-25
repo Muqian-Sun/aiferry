@@ -1,12 +1,11 @@
 <template>
   <div :class="flat ? 'py-4' : 'card p-6'">
     <!-- 左：筛选（可换行）；右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7） -->
-    <div class="flex flex-wrap items-end justify-between gap-4">
+    <div class="flex flex-wrap items-center justify-between gap-3">
       <!-- Left: filters (allowed to wrap to multiple rows) -->
-      <div class="flex flex-1 flex-wrap items-end gap-4">
+      <div class="flex flex-1 flex-wrap items-center gap-2">
         <!-- User Search -->
-        <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-auto sm:min-w-[240px]">
-          <label class="input-label">{{ t('admin.usage.userFilter') }}</label>
+        <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-56" :title="t('admin.usage.userFilter')">
           <input
             v-model="userKeyword"
             type="text"
@@ -19,7 +18,7 @@
             v-if="filters.user_id"
             type="button"
             @click="clearUser"
-            class="absolute right-2 top-9 text-af-ink-3"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
             aria-label="Clear user filter"
           >
             ✕
@@ -42,8 +41,7 @@
         </div>
 
         <!-- API Key Search -->
-        <div ref="apiKeySearchRef" class="usage-filter-dropdown relative w-full sm:w-auto sm:min-w-[240px]">
-          <label class="input-label">{{ t('usage.apiKeyFilter') }}</label>
+        <div ref="apiKeySearchRef" class="usage-filter-dropdown relative w-full sm:w-56" :title="t('usage.apiKeyFilter')">
           <input
             v-model="apiKeyKeyword"
             type="text"
@@ -56,7 +54,7 @@
             v-if="filters.api_key_id"
             type="button"
             @click="onClearApiKey"
-            class="absolute right-2 top-9 text-af-ink-3"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
             aria-label="Clear API key filter"
           >
             ✕
@@ -79,14 +77,12 @@
         </div>
 
         <!-- Model Filter -->
-        <div class="w-full sm:w-auto sm:min-w-[220px]">
-          <label class="input-label">{{ t('usage.model') }}</label>
-          <Select v-model="filters.model" :options="modelOptions" searchable @change="emitChange" />
+        <div class="w-full sm:w-52" :title="t('usage.model')">
+          <Select v-model="filters.model" :options="modelOptions" :placeholder="t('admin.usage.allModels')" searchable @change="emitChange" />
         </div>
 
         <!-- Account Filter -->
-        <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-auto sm:min-w-[220px]">
-          <label class="input-label">{{ t('admin.usage.account') }}</label>
+        <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-52" :title="t('admin.usage.account')">
           <input
             v-model="accountKeyword"
             type="text"
@@ -99,7 +95,7 @@
             v-if="filters.account_id"
             type="button"
             @click="clearAccount"
-            class="absolute right-2 top-9 text-af-ink-3"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-af-ink-3"
             aria-label="Clear account filter"
           >
             ✕
@@ -122,49 +118,41 @@
         </div>
 
         <!-- Request Type Filter (usage only) -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
-          <label class="input-label">{{ t('usage.type') }}</label>
+        <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.type')">
           <Select v-model="filters.request_type" :options="requestTypeOptions" @change="emitChange" />
         </div>
 
         <!-- Native compaction is independent of the transport request type. -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
-          <label class="input-label">{{ t('usage.compactionFilter') }}</label>
+        <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
           <Select v-model="filters.native_compaction_v2" :options="compactionOptions" @change="emitChange" />
         </div>
 
         <!-- Billing Type Filter (usage only) -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-auto sm:min-w-[200px]">
-          <label class="input-label">{{ t('admin.usage.billingType') }}</label>
+        <div v-if="mode !== 'errors'" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
           <Select v-model="filters.billing_type" :options="billingTypeOptions" @change="emitChange" />
         </div>
 
         <!-- Billing Mode Filter (usage only；用户排行的 user-breakdown 接口不支持该维度) -->
-        <div v-if="mode === 'usage'" class="w-full sm:w-auto sm:min-w-[200px]">
-          <label class="input-label">{{ t('admin.usage.billingMode') }}</label>
+        <div v-if="mode === 'usage'" class="w-full sm:w-44" :title="t('admin.usage.billingMode')">
           <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="emitChange" />
         </div>
 
-        <div v-if="mode === 'usage' || mode === 'analysis'" class="w-full sm:w-auto sm:min-w-[220px]">
-          <label class="input-label">{{ t('admin.usage.upstreamModelAudit') }}</label>
+        <div v-if="mode === 'usage' || mode === 'analysis'" class="w-full sm:w-52" :title="t('admin.usage.upstreamModelAudit')">
           <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" @change="emitChange" />
         </div>
 
         <!-- Error Phase Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
-          <label class="input-label">{{ t('admin.ops.errorLog.type') }}</label>
+        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.type')">
           <Select v-model="filters.error_phase" :options="errorPhaseOptions" @change="emitChange" />
         </div>
 
         <!-- Error Category Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
-          <label class="input-label">{{ t('usage.errors.category') }}</label>
+        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('usage.errors.category')">
           <Select v-model="filters.error_category" :options="errorCategoryOptions" @change="emitChange" />
         </div>
 
         <!-- Status Code Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-auto sm:min-w-[180px]">
-          <label class="input-label">{{ t('admin.ops.errorLog.status') }}</label>
+        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.status')">
           <Select v-model="filters.status_code" :options="statusCodeOptions" @change="emitChange" />
         </div>
 

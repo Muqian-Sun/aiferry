@@ -40,7 +40,7 @@
           <div class="text-sm">
             <button
               v-if="row.user?.email"
-              class="font-medium text-af-brand underline decoration-dashed underline-offset-2 transition-colors hover:text-af-brand"
+              class="font-medium text-af-brand underline decoration-dashed underline-offset-2 transition-colors hover:text-af-brand-hover"
               @click="$emit('userClick', row.user_id, row.user?.email)"
               :title="t('admin.usage.clickToViewBalance')"
             >

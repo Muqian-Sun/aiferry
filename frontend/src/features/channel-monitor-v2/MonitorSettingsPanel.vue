@@ -1,18 +1,5 @@
 <template>
   <section class="mx-auto w-full max-w-6xl space-y-5 px-1 py-2 sm:px-2">
-    <!-- 说明在管理站页头（A7 去重复），这里只留保存 -->
-    <header class="flex justify-end">
-      <button
-        type="button"
-        class="btn btn-primary"
-        :disabled="saving || !dirty"
-        @click="save"
-      >
-        <Icon name="check" size="sm" />
-        {{ t('channelMonitorV2.settings.save') }}
-      </button>
-    </header>
-
     <div
       v-if="!featureEnabled"
       class="rounded-lg border border-af-warning/30 bg-af-warning-tint/90 px-4 py-3 text-sm text-af-warning"
@@ -222,6 +209,21 @@
             <li>{{ t('channelMonitorV2.settings.userContract.models') }}</li>
           </ul>
         </div>
+      </div>
+
+      <!-- 与设置页同一种保存栏：贴住视口底边、有改动才可点（A8；说明在管理站页头） -->
+      <div class="sticky bottom-0 z-10 flex items-center justify-end gap-2 border-t border-af-hairline bg-af-sheet py-4">
+        <span v-if="dirty" class="mr-auto text-13 text-af-ink-3">{{ t('admin.settings.unsavedHint') }}</span>
+        <button
+          type="button"
+          class="btn btn-primary"
+          :disabled="saving || !dirty"
+          data-testid="monitor-settings-save"
+          @click="save"
+        >
+          <Icon name="check" size="sm" />
+          {{ t('channelMonitorV2.settings.save') }}
+        </button>
       </div>
     </template>
   </section>

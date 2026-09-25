@@ -24,7 +24,7 @@
               :to="documentRoute(doc)"
               target="_blank"
               rel="noopener noreferrer"
-              class="font-medium text-af-brand underline-offset-4 transition hover:text-af-brand hover:underline"
+              class="font-medium text-af-brand underline-offset-4 transition hover:text-af-brand-hover hover:underline"
             >
               {{ doc.title }}
             </RouterLink>
@@ -63,8 +63,8 @@
         v-if="dialogVisible"
         class="fixed inset-0 z-[140] flex items-center justify-center overflow-y-auto bg-af-ink/60 p-4 backdrop-blur-sm"
       >
-        <div class="w-full max-w-[600px] overflow-hidden rounded-lg bg-white shadow-2xl ring-1 ring-black/10">
-          <div class="border-b border-af-hairline bg-white px-6 py-6">
+        <div class="w-full max-w-[600px] overflow-hidden rounded-lg bg-af-sheet shadow-2xl ring-1 ring-af-ink/10">
+          <div class="border-b border-af-hairline bg-af-sheet px-6 py-6">
             <div class="flex items-start gap-4">
               <span class="flex h-12 w-12 flex-shrink-0 items-center justify-center rounded-md bg-af-brand-tint text-af-brand ring-1 ring-af-brand/20">
                 <Icon name="shield" size="md" />
@@ -105,7 +105,7 @@
                 rel="noopener noreferrer"
                 class="group flex min-h-[72px] w-full items-center gap-3 rounded-md border border-af-hairline bg-af-sunken/70 px-4 py-3 text-left transition-colors hover:border-af-brand/40 hover:bg-af-sheet"
               >
-                <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-white text-af-ink-2 ring-1 ring-af-hairline transition group-hover:bg-af-brand-tint group-hover:text-af-brand group-hover:ring-af-brand/20">
+                <span class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-af-sheet text-af-ink-2 ring-1 ring-af-hairline transition group-hover:bg-af-brand-tint group-hover:text-af-brand group-hover:ring-af-brand/20">
                   <Icon :name="documentIcon(index, doc.title)" size="sm" />
                 </span>
                 <span class="min-w-0 flex-1">
@@ -122,7 +122,7 @@
             <div class="grid grid-cols-2 gap-3">
               <button
                 type="button"
-                class="rounded-md border border-af-hairline bg-white px-4 py-3 text-sm font-semibold text-af-ink-2 transition hover:bg-af-sunken"
+                class="rounded-md border border-af-hairline bg-af-sheet px-4 py-3 text-sm font-semibold text-af-ink-2 transition hover:bg-af-sunken"
                 @click="emit('reject')"
               >
                 {{ t('legal.loginAgreementPrompt.reject') }}

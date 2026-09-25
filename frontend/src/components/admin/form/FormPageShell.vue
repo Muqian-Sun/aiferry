@@ -7,8 +7,12 @@
   -->
   <div v-if="show" class="lg:flex lg:gap-10" data-testid="form-page-shell">
     <!-- 没有分区时（如 OAuth 第二步）lg 以上仍占住导航栏宽度，表单栏不左右跳；窄屏直接不占位 -->
+    <!-- 窄屏：导航是表单上方一行横滑链接，吸在顶栏下面（A8，原来滚走就找不回）；lg 以上由下面的 ul 自己吸顶 -->
     <nav
-      :class="['lg:w-44 lg:shrink-0', sections.length ? 'mb-6 lg:mb-0' : 'hidden lg:block']"
+      :class="[
+        'lg:w-44 lg:shrink-0',
+        sections.length ? 'mb-6 lg:mb-0 max-lg:sticky max-lg:top-[var(--af-topbar-h)] max-lg:z-20 max-lg:bg-af-sheet' : 'hidden lg:block'
+      ]"
       :aria-label="title || undefined"
       data-testid="form-page-nav"
     >

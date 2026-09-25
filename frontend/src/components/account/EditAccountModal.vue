@@ -331,7 +331,7 @@
       </div>
 
       <div>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
@@ -434,7 +434,7 @@
         data-testid="edit-openai-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -472,7 +472,7 @@
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -563,7 +563,7 @@
         v-if="openAIResponsesSettingsVisible"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -643,7 +643,7 @@
         data-testid="edit-anthropic-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -697,7 +697,7 @@
         data-testid="edit-web-search-emulation"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -729,7 +729,7 @@
         data-testid="edit-bedrock-cc-compat"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -799,7 +799,7 @@
         data-testid="edit-openai-compact"
         class="border-t border-af-hairline pt-4 space-y-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -898,26 +898,28 @@
               )
             }}
           </p>
-          <div
-            v-if="account?.type === 'apikey'"
-            class="mt-3 flex items-center justify-between gap-3"
-          >
-            <div class="min-w-0">
-              <p class="text-xs font-medium text-af-ink-2">
-                {{ t('admin.accounts.upstreamBilling.syncRate') }}
-              </p>
-              <p class="mt-1 text-xs text-af-ink-3">
-                {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
-              </p>
-            </div>
-            <Toggle
-              :model-value="upstreamBillingRateSyncEnabled"
-              data-testid="upstream-billing-rate-sync"
-              :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
-              @update:model-value="handleUpstreamBillingRateSyncChange"
-            />
-          </div>
         </div>
+      </div>
+
+      <!-- 同步上游倍率：原来塞在四列网格的倍率格里，说明被挤成窄条（A8）；改成网格下独占一行，左说明右开关 -->
+      <div
+        v-if="account?.type === 'apikey'"
+        class="flex items-center justify-between gap-4"
+      >
+        <div class="min-w-0">
+          <p class="text-sm font-medium text-af-ink">
+            {{ t('admin.accounts.upstreamBilling.syncRate') }}
+          </p>
+          <p class="mt-1 text-xs text-af-ink-3">
+            {{ t('admin.accounts.upstreamBilling.syncRateHint') }}
+          </p>
+        </div>
+        <Toggle
+          :model-value="upstreamBillingRateSyncEnabled"
+          data-testid="upstream-billing-rate-sync"
+          :aria-label="t('admin.accounts.upstreamBilling.syncRate')"
+          @update:model-value="handleUpstreamBillingRateSyncChange"
+        />
       </div>
 
       <!-- 配额控制 (Anthropic apikey/bedrock: 配额限制 + 亲和) -->
@@ -1304,7 +1306,7 @@
         class="border-t border-af-hairline pt-4 space-y-4"
       >
         <div class="space-y-2">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <label class="input-label mb-0">{{ t('admin.accounts.autoPause5hDisabled') }}</label>
             <button
               type="button"
@@ -1340,7 +1342,7 @@
           <p class="input-hint">{{ t('admin.accounts.autoPauseThresholdHint') }}</p>
         </div>
         <div class="space-y-2">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <label class="input-label mb-0">{{ t('admin.accounts.autoPause7dDisabled') }}</label>
             <button
               type="button"
@@ -1879,7 +1881,7 @@
         v-if="account?.platform === 'anthropic' || account?.platform === 'antigravity'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
@@ -1913,7 +1915,7 @@
       >
         <!-- TLS Fingerprint -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -1948,7 +1950,7 @@
 
         <!-- Session ID Masking -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -1975,7 +1977,7 @@
 
         <!-- Cache TTL Override -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2089,7 +2091,7 @@
         v-if="account?.platform === 'openai' && (account?.type === 'oauth' || account?.type === 'setup-token')"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">

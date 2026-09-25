@@ -100,7 +100,7 @@
 
         <!-- OAuth Type Selection (only show when oauth-based is selected) -->
         <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <label class="input-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
             <button
               type="button"
@@ -659,7 +659,7 @@
       </div>
 
       <div>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
@@ -834,7 +834,7 @@
         data-testid="create-openai-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -872,7 +872,7 @@
         v-if="form.platform === 'openai' && form.type === 'oauth'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -904,7 +904,7 @@
         data-testid="create-openai-ws-mode"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -926,7 +926,7 @@
         data-testid="create-anthropic-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -980,7 +980,7 @@
         data-testid="create-web-search-emulation"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1012,7 +1012,7 @@
         data-testid="create-bedrock-cc-compat"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1115,7 +1115,7 @@
         data-testid="create-openai-compact"
         class="border-t border-af-hairline pt-4 space-y-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1964,7 +1964,7 @@
         v-if="form.platform === 'anthropic' || form.platform === 'antigravity'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
@@ -1998,7 +1998,7 @@
       >
         <!-- TLS Fingerprint -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2033,7 +2033,7 @@
 
         <!-- Session ID Masking -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2060,7 +2060,7 @@
 
         <!-- Cache TTL Override -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2103,7 +2103,7 @@
         v-if="form.platform === 'openai' && accountCategory === 'oauth-based'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">

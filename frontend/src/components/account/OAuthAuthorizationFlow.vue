@@ -1,13 +1,9 @@
 <template>
-  <div
-    class="rounded-lg border border-af-hairline bg-af-sunken p-4"
-  >
+  <!-- 授权第二步（A8）：不再是灰底大卡片套步骤卡片；与整页表单同一张面，只有各步骤保留一层描边框 -->
+  <div>
       <div class="flex items-start gap-4">
-      <div class="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-af-ink">
-        <Icon name="link" size="md" class="text-af-on-brand" />
-      </div>
-      <div class="flex-1">
-        <h4 class="mb-3 font-semibold text-af-ink-2">{{ oauthTitle }}</h4>
+      <div class="min-w-0 flex-1">
+        <h4 class="mb-3 text-base font-semibold text-af-ink">{{ oauthTitle }}</h4>
 
         <!-- Auth Method Selection -->
         <div v-if="showMethodSelection" class="mb-4">
@@ -142,7 +138,7 @@
         <!-- Refresh Token Input (OpenAI / Antigravity / Mobile RT) -->
         <div v-if="inputMethod === 'refresh_token' || inputMethod === 'mobile_refresh_token'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t(getOAuthKey('refreshTokenDesc')) }}
@@ -226,7 +222,7 @@
         <!-- SSO Cookie Input (Grok Web -> Grok Build) -->
         <div v-if="inputMethod === 'sso_cookie'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t(getOAuthKey('ssoCookieDesc')) }}
@@ -301,7 +297,7 @@
         <!-- Grok email + password → ephemeral SSO → Build OAuth (password never stored) -->
         <div v-if="inputMethod === 'email_password'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t(getOAuthKey('emailPasswordDesc')) }}
@@ -374,7 +370,7 @@
         <!-- Codex auth.json / session credential batch import -->
         <div v-if="inputMethod === 'codex_session' || inputMethod === 'agent_identity'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t(isAgentIdentityInput ? 'admin.accounts.oauth.openai.agentIdentityDesc' : 'admin.accounts.oauth.openai.codexSessionDesc') }}
@@ -453,7 +449,7 @@
         <!-- Codex Personal Access Token -->
         <div v-if="inputMethod === 'codex_pat'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t('admin.accounts.oauth.openai.codexPatDesc') }}
@@ -526,7 +522,7 @@
         <!-- Cookie Auto-Auth Form -->
         <div v-if="inputMethod === 'cookie'" class="space-y-4">
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <p class="mb-3 text-sm text-af-ink-2">
               {{ t('admin.accounts.oauth.cookieAutoAuthDesc') }}
@@ -663,7 +659,7 @@
 
           <!-- Step 1: Generate Auth URL -->
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <div class="flex items-start gap-3">
               <div
@@ -782,7 +778,7 @@
 
           <!-- Step 2: Open URL and authorize -->
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <div class="flex items-start gap-3">
               <div
@@ -823,7 +819,7 @@
 
           <!-- Step 3: Enter authorization code -->
           <div
-            class="rounded-lg border border-af-hairline bg-af-sheet/80 p-4"
+            class="rounded-lg border border-af-hairline bg-af-sheet p-4"
           >
             <div class="flex items-start gap-3">
               <div
