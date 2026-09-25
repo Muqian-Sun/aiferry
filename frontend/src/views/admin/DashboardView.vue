@@ -1,10 +1,11 @@
 <template>
   <!--
-    管理端概览（A2-1 定内容，A7 改成一张面）：
-    ① 今日 / 累计两行数字；右上角实时 RPM · TPM
+    管理端概览（A2-1 定内容，A7 改成一张面，瘦身方案 2026-09-25 定数字）：
+    ① 今日：请求 / Token / 收入 / 成本 / 利润；累计：收入 / 成本 / 利润 / 用户 / 渠道；右上角实时 RPM · TPM
+       （缓存命中率、平均响应挪到用量页；平均响应原先排在今日行、算的却是全部历史）
     ② 需要处理：只放渠道异常 / 限流 / 过载，点进渠道页带状态筛选；都是 0 时整段不出现
-    ③ 用量趋势单线 + 页签（Token / 请求 / 费用）；模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。全部单色。
-    区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
+    ③ 用量趋势单线 + 页签（Token / 请求 / 收入 / 利润）；模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。
+    全部单色，只有利润为负时标红。区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -42,10 +43,10 @@
             :data-testid="`dashboard-row-${row.key}`"
           >
             <p class="w-16 shrink-0 pt-1 text-13 font-medium text-af-ink-3">{{ row.title }}</p>
-            <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-6">
+            <dl class="grid flex-1 grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3 lg:grid-cols-5">
               <div v-for="cell in row.cells" :key="cell.key" class="min-w-0">
-                <dd class="truncate text-xl font-semibold tabular-nums text-af-ink">{{ cell.value }}</dd>
-                <dt class="mt-0.5 truncate text-xs text-af-ink-3">
+                <dd class="truncate text-xl font-semibold tabular-nums" :class="cell.valueClass || 'text-af-ink'">{{ cell.value }}</dd>
+                <dt class="mt-0.5 truncate text-xs text-af-ink-3" :title="cell.title">
                   {{ cell.label }}<span v-if="cell.hint" class="text-af-ink-4"> · {{ cell.hint }}</span>
                 </dt>
               </div>
@@ -138,6 +139,7 @@ import SheetSection from '@/components/user/shell/SheetSection.vue'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
 import UsageModelTrendRows from '@/components/user/usage/UsageModelTrendRows.vue'
 import { fillTrendBuckets, formatLocalDate, trendBucketKeys, type TrendGranularity } from '@/utils/trendBuckets'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -190,26 +192,18 @@ const formatTokens = (value: number | undefined): string => {
   if (v >= 1_000) return `${(v / 1_000).toFixed(2)}K`
   return v.toLocaleString()
 }
-const formatCost = (value: number | null | undefined): string => {
-  const v = toFiniteNumber(value)
-  if (v >= 1000) return `$${(v / 1000).toFixed(2)}K`
-  if (v >= 1) return `$${v.toFixed(2)}`
-  if (v >= 0.01) return `$${v.toFixed(3)}`
-  return `$${v.toFixed(4)}`
+interface NumberCell { key: string; label: string; value: string; title?: string; hint?: string; valueClass?: string }
+
+/** 收入 / 成本 / 利润三格（今日、累计各一组）；利润为负时标红 */
+const moneyCells = (revenue: number, cost: number): NumberCell[] => {
+  const profit = profitOf(revenue, cost)
+  return [
+    { key: 'revenue', label: t('common.money.revenue'), title: t('common.money.revenueHint'), value: formatMoney(revenue) },
+    { key: 'cost', label: t('common.money.cost'), title: t('common.money.costHint'), value: formatMoney(cost) },
+    { key: 'profit', label: t('common.money.profit'), title: t('common.money.profitHint'), value: formatMoney(profit), valueClass: profitTextClass(profit) }
+  ]
 }
-const formatDuration = (ms: number): string => (ms >= 1000 ? `${(ms / 1000).toFixed(2)}s` : `${Math.round(ms)}ms`)
 
-/** 缓存命中率 = 缓存读 ÷（输入 + 缓存读 + 缓存写）；四类 token 记账时互斥。没有输入侧 token 时显示「—」 */
-const todayCacheHitRate = computed(() => {
-  const s = stats.value
-  if (!s) return '—'
-  const denominator = toFiniteNumber(s.today_input_tokens) + toFiniteNumber(s.today_cache_read_tokens) + toFiniteNumber(s.today_cache_creation_tokens)
-  if (denominator <= 0) return '—'
-  const share = toFiniteNumber(s.today_cache_read_tokens) / denominator
-  return `${(share * 100).toFixed(share > 0 && share < 0.1 ? 1 : 0)}%`
-})
-
-interface NumberCell { key: string; label: string; value: string; hint?: string }
 const numberRows = computed<Array<{ key: string; title: string; cells: NumberCell[] }>>(() => {
   const s = stats.value
   if (!s) return []
@@ -220,27 +214,16 @@ const numberRows = computed<Array<{ key: string; title: string; cells: NumberCel
       cells: [
         { key: 'requests', label: t('admin.dashboard.requests'), value: formatNumber(s.today_requests) },
         { key: 'tokens', label: t('admin.dashboard.tokens'), value: formatTokens(s.today_tokens) },
-        {
-          key: 'charged',
-          label: t('admin.dashboard.charged'),
-          value: formatCost(s.today_actual_cost),
-          hint: t('admin.dashboard.standardHint', { amount: formatCost(s.today_cost) })
-        },
-        { key: 'accountCost', label: t('admin.dashboard.accountCost'), value: formatCost(s.today_account_cost) },
-        { key: 'cacheHitRate', label: t('admin.dashboard.cacheHitRate'), value: todayCacheHitRate.value },
-        { key: 'latency', label: t('admin.dashboard.avgResponse'), value: formatDuration(toFiniteNumber(s.average_duration_ms)) }
+        ...moneyCells(s.today_actual_cost, s.today_account_cost)
       ]
     },
     {
       key: 'total',
       title: t('admin.dashboard.rowTotal'),
       cells: [
-        { key: 'users', label: t('admin.dashboard.users'), value: formatNumber(s.total_users), hint: t('admin.dashboard.newToday', { count: formatNumber(s.today_new_users) }) },
-        { key: 'apiKeys', label: t('admin.dashboard.apiKeys'), value: formatNumber(s.total_api_keys), hint: t('admin.dashboard.enabledCount', { count: formatNumber(s.active_api_keys) }) },
-        { key: 'channels', label: t('admin.dashboard.channels'), value: formatNumber(s.total_accounts), hint: t('admin.dashboard.healthyCount', { count: formatNumber(s.normal_accounts) }) },
-        { key: 'requests', label: t('admin.dashboard.requests'), value: formatNumber(s.total_requests) },
-        { key: 'tokens', label: t('admin.dashboard.tokens'), value: formatTokens(s.total_tokens) },
-        { key: 'charged', label: t('admin.dashboard.charged'), value: formatCost(s.total_actual_cost) }
+        ...moneyCells(s.total_actual_cost, s.total_account_cost),
+        { key: 'users', label: t('admin.dashboard.users'), value: formatNumber(s.total_users) },
+        { key: 'channels', label: t('admin.dashboard.channels'), value: formatNumber(s.total_accounts), hint: t('admin.dashboard.healthyCount', { count: formatNumber(s.normal_accounts) }) }
       ]
     }
   ]
@@ -266,7 +249,8 @@ const trendMetric = ref<UsageTrendMetric>('tokens')
 const trendTabs = computed<Array<{ key: UsageTrendMetric; label: string }>>(() => [
   { key: 'tokens', label: t('admin.dashboard.tokens') },
   { key: 'requests', label: t('admin.dashboard.requests') },
-  { key: 'cost', label: t('admin.dashboard.cost') }
+  { key: 'revenue', label: t('common.money.revenue') },
+  { key: 'profit', label: t('common.money.profit') }
 ])
 
 const bucketKeys = computed(() => trendBucketKeys(startDate.value, endDate.value, granularity.value))

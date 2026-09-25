@@ -10,7 +10,6 @@ export default {
     // Dashboard
     dashboard: {
       description: '系统概览与统计数据',
-      apiKeys: 'API 密钥',
       totalApiKeys: 'API 密钥总数',
       activeApiKeys: '活跃密钥',
       users: '用户',
@@ -75,8 +74,6 @@ export default {
       charged: '实付',
       standardHint: '标准 {amount}',
       cacheHitRate: '缓存命中率',
-      newToday: '今日 +{count}',
-      enabledCount: '{count} 启用',
       channels: '渠道',
       healthyCount: '{count} 正常',
       attentionTitle: '需要处理',
