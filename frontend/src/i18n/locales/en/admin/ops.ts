@@ -89,7 +89,7 @@ export default {
       avgTps: 'Avg TPS',
       avgLatency: 'Avg Request Duration',
       avgTtft: 'Avg TTFT',
-      successCount: 'Successful',
+      successCount: 'Success Count',
       requestErrors: 'Request Errors',
       errorCount: 'Error Count',
       upstreamErrors: 'Upstream Errors',

@@ -75,7 +75,7 @@ export default {
       standardHint: '标准 {amount}',
       cacheHitRate: '缓存命中率',
       channels: '渠道',
-      healthyCount: '{count} 正常',
+      schedulableCount: '{count} 可调度',
       attentionTitle: '需要处理',
       attentionError: '{count} 个渠道异常',
       attentionRateLimited: '{count} 个渠道限流中',

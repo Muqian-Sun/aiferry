@@ -75,7 +75,7 @@ export default {
       standardHint: 'list {amount}',
       cacheHitRate: 'Cache hit rate',
       channels: 'Channels',
-      healthyCount: '{count} healthy',
+      schedulableCount: '{count} schedulable',
       attentionTitle: 'Needs attention',
       attentionError: '{count} channels in error',
       attentionRateLimited: '{count} channels rate-limited',

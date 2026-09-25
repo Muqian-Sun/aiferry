@@ -5,7 +5,7 @@
        （缓存命中率、平均响应挪到用量页；平均响应原先排在今日行、算的却是全部历史）
     ② 需要处理：只放渠道异常 / 限流 / 过载，点进渠道页带状态筛选；都是 0 时整段不出现
     ③ 用量趋势单线 + 页签（Token / 请求 / 收入 / 利润）；模型分布 / 用户消费榜（表格 + 墨色占比条）；Top 12 用户每人一行迷你柱。
-    全部单色，只有利润为负时标红。区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
+    除「需要处理」的状态点外全部单色，另外利润为负时标红。累计行渠道的附注「N 可调度」和渠道页摘要是同一个数（normal_accounts），叫法保持一致。区块之间只用 hairline 分隔，不套卡片；时间范围与粒度在页头，只作用于③（①②是今日 / 累计 / 当前状态）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -223,7 +223,7 @@ const numberRows = computed<Array<{ key: string; title: string; cells: NumberCel
       cells: [
         ...moneyCells(s.total_actual_cost, s.total_account_cost),
         { key: 'users', label: t('admin.dashboard.users'), value: formatNumber(s.total_users) },
-        { key: 'channels', label: t('admin.dashboard.channels'), value: formatNumber(s.total_accounts), hint: t('admin.dashboard.healthyCount', { count: formatNumber(s.normal_accounts) }) }
+        { key: 'channels', label: t('admin.dashboard.channels'), value: formatNumber(s.total_accounts), hint: t('admin.dashboard.schedulableCount', { count: formatNumber(s.normal_accounts) }) }
       ]
     }
   ]
