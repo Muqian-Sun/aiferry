@@ -220,6 +220,16 @@ function getUpstreamErrorRateThresholdLevel(upstreamErrorRatePercent: number | n
   return 'normal'
 }
 
+// CPU 只有这一套阈值：卡片颜色、卡片下方的说明、智能诊断都用它（原来卡片 80 / 95、诊断 80 / 90 各说各的）
+const CPU_WARNING_PERCENT = 80
+const CPU_CRITICAL_PERCENT = 95
+
+function getCPUThresholdLevel(cpuPercent: number): ThresholdLevel {
+  if (cpuPercent >= CPU_CRITICAL_PERCENT) return 'critical'
+  if (cpuPercent >= CPU_WARNING_PERCENT) return 'warning'
+  return 'normal'
+}
+
 function getThresholdColorClass(level: ThresholdLevel): string {
   switch (level) {
     case 'critical':
@@ -458,14 +468,15 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
     }
 
     const cpuPct = sm.cpu_usage_percent ?? 0
-    if (cpuPct > 90) {
+    const cpuLevel = getCPUThresholdLevel(cpuPct)
+    if (cpuLevel === 'critical') {
       report.push({
         type: 'critical',
         message: t('admin.ops.diagnosis.cpuCritical', { usage: cpuPct.toFixed(1) }),
         impact: t('admin.ops.diagnosis.cpuCriticalImpact'),
         action: t('admin.ops.diagnosis.cpuCriticalAction')
       })
-    } else if (cpuPct > 80) {
+    } else if (cpuLevel === 'warning') {
       report.push({
         type: 'warning',
         message: t('admin.ops.diagnosis.cpuHigh', { usage: cpuPct.toFixed(1) }),
@@ -602,9 +613,7 @@ const cpuPercentValue = computed<number | null>(() => {
 const cpuPercentClass = computed(() => {
   const v = cpuPercentValue.value
   if (v == null) return 'text-af-ink'
-  if (v >= 95) return 'text-af-danger'
-  if (v >= 80) return 'text-af-warning'
-  return 'text-af-success'
+  return getThresholdColorClass(getCPUThresholdLevel(v))
 })
 
 const memPercentValue = computed<number | null>(() => {
@@ -1213,8 +1222,8 @@ function handleToolbarRefresh() {
           </div>
           <div class="mt-3 text-xs">
             <div class="flex justify-between">
-              <span class="text-af-ink-3">{{ t('admin.ops.exceptions') }}:</span>
-              <span class="font-bold text-af-ink">{{ formatNumber((overview.request_count_sla ?? 0) - (overview.success_count ?? 0)) }}</span>
+              <span class="text-af-ink-3">{{ t('admin.ops.successCount') }}:</span>
+              <span class="font-bold text-af-ink">{{ formatNumber(overview.success_count ?? 0) }}</span>
             </div>
           </div>
         </div>
@@ -1388,7 +1397,7 @@ function handleToolbarRefresh() {
             {{ cpuPercentValue == null ? '-' : `${cpuPercentValue.toFixed(1)}%` }}
           </div>
           <div v-if="!props.fullscreen" class="mt-1 text-[10px] text-af-ink-3">
-            {{ t('common.warning') }} 80% · {{ t('common.critical') }} 95%
+            {{ t('common.warning') }} {{ CPU_WARNING_PERCENT }}% · {{ t('common.critical') }} {{ CPU_CRITICAL_PERCENT }}%
           </div>
         </div>
 

@@ -88,8 +88,11 @@ type TrendDataPoint struct {
 	CacheCreationTokens int64   `json:"cache_creation_tokens"`
 	CacheReadTokens     int64   `json:"cache_read_tokens"`
 	TotalTokens         int64   `json:"total_tokens"`
-	Cost                float64 `json:"cost"`        // 标准计费
-	ActualCost          float64 `json:"actual_cost"` // 实际扣除
+	Cost                float64 `json:"cost"`        // 标价（token × 目录单价，未乘任何倍率）
+	ActualCost          float64 `json:"actual_cost"` // 收入（标价 × 用户倍率）
+	// 渠道成本（标价 × 渠道成本倍率），管理站概览的利润趋势用。用户站接口不能带出去，
+	// 见 handler.userTrendFromUsageStats。
+	AccountCost float64 `json:"account_cost"`
 }
 
 // ModelTrendPoint 是按「时间桶 + 模型」分组的用量点（用户概览的按模型趋势）。

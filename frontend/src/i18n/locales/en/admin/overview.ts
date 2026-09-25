@@ -10,7 +10,6 @@ export default {
     // Dashboard
     dashboard: {
       description: 'System overview and real-time statistics',
-      apiKeys: 'API Keys',
       totalApiKeys: 'Total API Keys',
       activeApiKeys: 'Active Keys',
       totalAccounts: 'Total Accounts',
@@ -75,10 +74,8 @@ export default {
       charged: 'Charged',
       standardHint: 'list {amount}',
       cacheHitRate: 'Cache hit rate',
-      newToday: '+{count} today',
-      enabledCount: '{count} enabled',
       channels: 'Channels',
-      healthyCount: '{count} healthy',
+      schedulableCount: '{count} schedulable',
       attentionTitle: 'Needs attention',
       attentionError: '{count} channels in error',
       attentionRateLimited: '{count} channels rate-limited',

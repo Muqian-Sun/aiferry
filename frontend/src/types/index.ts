@@ -1544,8 +1544,10 @@ export interface TrendDataPoint {
   cache_creation_tokens: number
   cache_read_tokens: number
   total_tokens: number
-  cost: number // 标准计费
-  actual_cost: number // 实际扣除
+  cost: number // 标价（未乘任何倍率）
+  actual_cost: number // 收入
+  /** 成本（付给渠道：标价 × 渠道成本倍率）；只有管理端趋势接口返回，用户站接口不带 */
+  account_cost?: number
 }
 
 /** 按「时间桶 + 模型」分组的用量点（概览的按模型趋势；模型按请求时的名字） */
