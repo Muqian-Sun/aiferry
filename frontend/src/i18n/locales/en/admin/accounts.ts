@@ -27,10 +27,39 @@ export default {
         modelsEmptyHint: 'Bind this channel to a model on the Models page and it will show up here.',
         diagnose: 'Diagnose',
         goToCatalog: 'Go to Models',
-        bannerError: 'Upstream error: {reason}',
-        bannerRateLimited: 'Rate limited upstream, resumes in {time}',
+        bannerError: 'Error: {reason}',
+        bannerRateLimited: 'Rate limited, resumes in {time}',
         bannerOverloaded: 'Upstream overloaded, resumes in {time}',
-        bannerTempUnsched: 'Temporarily unschedulable until {time}. Reason: {reason}'
+        bannerTempUnsched: 'Temporarily unschedulable until {time}. Reason: {reason}',
+        usageWindows: 'Upstream usage windows',
+        usageWindowsHint: 'Rolling usage limits set by the upstream itself (e.g. ChatGPT or Claude subscriptions). They reset automatically when the window rolls over, cannot be lifted from here, and are unrelated to the models you map.',
+        capacity: 'Capacity',
+        recentUsage: 'Last 30 days'
+      },
+      // The "vendor · access" line under the name; third-party keys with no recognized official vendor show "Relay"
+      vendorRelay: 'Relay',
+      access: {
+        label: 'Access',
+        apikey: 'Third-party key',
+        oauth: 'OAuth',
+        setupToken: 'Setup Token',
+        bedrock: 'AWS Bedrock',
+        serviceAccount: 'Vertex service account',
+        agentIdentity: 'Agent Identity',
+        personalAccessToken: 'Personal access token'
+      },
+      // List "Today" column: requests · revenue · profit
+      today: {
+        requests: '{count} req',
+        tooltip: 'Cost today {cost}',
+        loadFailed: 'Failed to load today\'s usage'
+      },
+      // Durations are spelled out
+      duration: {
+        daysHours: '{d} days {h} hours',
+        hoursMinutes: '{h} hours {m} min',
+        minutes: '{m} min',
+        seconds: '{s} sec'
       },
       createAccount: 'Add Channel',
       autoRefresh: 'Auto Refresh',
@@ -54,7 +83,7 @@ export default {
       dataExportConfirmMessage: 'The exported data contains sensitive account and proxy information. Store it securely.',
       dataExportConfirm: 'Confirm Export',
       dataExported: 'Data exported successfully',
-      dataExportedSkippedShadows: 'Data exported. Skipped {count} spark shadow account(s): their scheduling config is not included in the backup; recreate and re-tune them after restore.',
+      dataExportedSkippedShadows: 'Data exported. Skipped {count} Spark shadow channel(s): their scheduling config is not included in the backup; recreate and re-tune them after restore.',
       dataExportFailed: 'Failed to export data',
       dataImportTitle: 'Import Data',
       dataImportHint: 'Upload the exported JSON file to import accounts and proxies.',
@@ -168,8 +197,6 @@ export default {
       allPlatforms: 'All Platforms',
       allTypes: 'All Types',
       allStatus: 'All Status',
-      oauthType: 'OAuth',
-      setupToken: 'Setup Token',
       apiKey: 'API Key',
       // Schedulable toggle
       schedulable: 'Schedulable',
@@ -220,12 +247,12 @@ export default {
           },
         },
         balance: 'Balance --',
-        window5h: '5h',
-        windowWeekly: '7d',
-        windowMonthly: '30d',
+        window5h: '5 hours',
+        windowWeekly: '7 days',
+        windowMonthly: 'Monthly',
         probe: 'Query',
         probeTooltip: 'Query the provider quota endpoint for 5-hour / weekly rolling window usage',
-        balanceProbeTooltip: 'Query the provider balance endpoint for the account balance',
+        balanceProbeTooltip: 'Query the provider balance endpoint for the upstream balance',
         balanceLow: 'Insufficient balance',
         noBalanceEndpoint: 'This platform has no balance query endpoint',
       },
@@ -258,20 +285,18 @@ export default {
         expired: 'Expired',
         error: 'Error',
         cooldown: 'Cooldown',
-        paused: 'Paused',
         limited: 'Limited',
         rateLimited: 'Rate Limited',
         overloaded: 'Overloaded',
         tempUnschedulable: 'Temp Unschedulable',
         quotaExceeded: 'Quota Exceeded',
-        unschedulable: 'Unschedulable',
+        unschedulable: 'Scheduling paused',
         rateLimitedUntil: 'Rate limited and removed from scheduling. Auto resumes at {time}',
-        rateLimitedAutoResume: 'Auto resumes in {time}',
-        modelRateLimitedUntil: '{model} rate limited until {time}',
-        modelCreditOveragesUntil: '{model} using AI Credits until {time}',
-        creditsExhausted: 'Credits Exhausted',
+        recoverIn: 'resumes in {time}',
+        modelsLimited: '{count} model(s) rate limited',
+        modelRateLimitedUntil: 'rate limited until {time}',
+        modelCreditOveragesUntil: 'using AI Credits until {time}',
         creditsExhaustedUntil: 'AI Credits exhausted, expected recovery at {time}',
-        overloadedUntil: 'Overloaded until {time}',
         viewTempUnschedDetails: 'View temp unschedulable details',
         tempUnschedulableUntil: 'Resumes {time}'
       },
@@ -282,6 +307,7 @@ export default {
         gemini: 'Gemini'
       },
       catalogUnlisted: 'Unlisted',
+      catalogUnlistedCount: '{count} unlisted',
       catalogNone: 'Not bound to any model',
       columns: {
         name: 'Name',
@@ -289,8 +315,6 @@ export default {
         catalog: 'Listed models',
         platformType: 'Vendor/Type',
         platform: 'Platform',
-        type: 'Type',
-        capacity: 'Capacity',
         notes: 'Notes',
         priority: 'Priority',
         billingRateMultiplier: 'Billing Rate',
@@ -298,15 +322,13 @@ export default {
         weight: 'Weight',
         status: 'Status',
         schedulable: 'Schedulable',
-        todayStats: 'Today Stats',
-        usageWindows: 'Usage Windows',
+        today: 'Today',
         proxy: 'Proxy',
         lastUsed: 'Last Used',
         createdAt: 'Created',
         expiresAt: 'Expires At',
         actions: 'Actions'
       },
-      usageWindowsHint: '"5h / 7d" are the upstream account\'s official rolling usage windows (e.g. OpenAI ChatGPT, Claude). They are imposed by the upstream provider on the account itself — not configured by sub2api, and unrelated to the models you map. Usage resets automatically once each window rolls over, and the limit cannot be lifted from within sub2api.',
       ollamaCloud: {
         title: 'Ollama Cloud usage',
         sessionSecurityHint: 'The browser session is encrypted at rest and sent only to the fixed official settings URL.',
@@ -357,7 +379,7 @@ export default {
         }
       },
       upstreamBilling: {
-        trustWarning: 'This rate is declared by the upstream site for the current API key. Sub2API cannot verify that it matches actual charges. The upstream site or an intermediary may return forged, stale, or modified data. Verify it against bills, balance changes, and actual usage.',
+        trustWarning: 'This rate is declared by the upstream site for the current API key. This site cannot verify that it matches actual charges. The upstream site or an intermediary may return forged, stale, or modified data. Verify it against bills, balance changes, and actual usage.',
         autoProbe: 'Automatically probe upstream declared rate',
         autoProbeHint: 'Refresh the upstream declared rate on the global interval. This switch alone does not change the account rate.',
         syncRate: 'Sync upstream declared rate',
@@ -396,6 +418,11 @@ export default {
       allPrivacyModes: 'All Privacy States',
       privacyFilter: 'Privacy',
       privacyUnset: 'Unset',
+      privacyOptions: {
+        trainingOff: 'Training off',
+        cfBlocked: 'Blocked by Cloudflare',
+        failed: 'Failed'
+      },
       privacyTrainingOff: 'Training data sharing disabled',
       privacyCfBlocked: 'Blocked by Cloudflare, training may still be on',
       privacyFailed: 'Failed to disable training',
@@ -404,32 +431,31 @@ export default {
       setPrivacy: 'Set Privacy',
       subscriptionAbnormal: 'Abnormal',
       subscriptionExpires: 'Expires',
-      // Capacity status tooltips
+      // Capacity (detail drawer, Usage tab)
       capacity: {
+        concurrency: 'Concurrency',
         windowCost: {
-          blocked: '5h window cost exceeded, account scheduling paused',
-          stickyOnly: '5h window cost at threshold, only sticky sessions allowed',
-          normal: '5h window cost normal'
+          label: '5-hour window cost',
+          blocked: 'Limit reached; the channel is paused until this 5-hour window ends',
+          normal: 'Accumulated at list price; the channel pauses until the window ends once the limit is reached'
         },
         sessions: {
+          label: 'Active sessions',
           full: 'Active sessions full, new sessions must wait (idle timeout: {idle} min)',
           normal: 'Active sessions normal (idle timeout: {idle} min)'
         },
         rpm: {
+          label: 'Requests per minute (RPM)',
           full: 'RPM limit reached',
           warning: 'RPM approaching limit',
           normal: 'RPM normal',
-          tieredNormal: 'RPM limit (Tiered) - Normal',
-          tieredWarning: 'RPM limit (Tiered) - Approaching limit',
-          tieredStickyOnly: 'RPM limit (Tiered) - Sticky only | Buffer: {buffer}',
-          tieredBlocked: 'RPM limit (Tiered) - Blocked | Buffer: {buffer}',
-          stickyExemptNormal: 'RPM limit (Sticky Exempt) - Normal',
-          stickyExemptWarning: 'RPM limit (Sticky Exempt) - Approaching limit',
-          stickyExemptOver: 'RPM limit (Sticky Exempt) - Over limit, sticky only'
-        },
-        quota: {
-          exceeded: 'Quota exceeded, account paused',
-          normal: 'Quota normal'
+          tieredNormal: 'Tiered: normal',
+          tieredWarning: 'Tiered: approaching the limit',
+          tieredStickyOnly: 'Tiered: limit reached, sticky sessions only (buffer {buffer})',
+          tieredBlocked: 'Tiered: over the {buffer} buffer, scheduling paused',
+          stickyExemptNormal: 'Sticky exempt: normal',
+          stickyExemptWarning: 'Sticky exempt: approaching the limit',
+          stickyExemptOver: 'Sticky exempt: limit reached, sticky sessions only'
         },
       },
       tempUnschedulable: {
@@ -582,9 +608,9 @@ export default {
       revertProxySuccess: 'Successfully reverted to original proxy',
       revertProxyFailed: 'Failed to revert proxy',
       createSparkShadow: 'Create Spark Shadow',
-      createSparkShadowConfirm: 'Create a spark shadow account linked to "{name}"? It shares the parent\'s credentials and serves only spark models.',
-      createSparkShadowSuccess: 'Spark shadow account created',
-      createSparkShadowFailed: 'Failed to create spark shadow account',
+      createSparkShadowConfirm: 'Create a Spark shadow channel linked to "{name}"? It shares the parent channel\'s credentials and serves only Spark models.',
+      createSparkShadowSuccess: 'Spark shadow channel created',
+      createSparkShadowFailed: 'Failed to create Spark shadow channel',
       duplicateAccount: 'Duplicate Channel',
       duplicateSuccess: 'Account duplicated as "{name}" and paused. Review its credentials before enabling it.',
       duplicateFailed: 'Failed to duplicate account',
@@ -1476,8 +1502,6 @@ export default {
         rateLimit: {
           ok: 'Not rate limited',
           unlimited: 'Unlimited',
-          limited: 'Rate limited {time}',
-          now: 'now'
         }
       },
       // Re-Auth Modal
@@ -1533,22 +1557,17 @@ export default {
       audioReceived: 'Received test audio #{count}',
       videoPreview: 'Generated video:',
       videoReceived: 'Received test video #{count}',
-      // Stats Modal
-      viewStats: 'View Stats',
-      usageStatistics: 'Usage Statistics',
+      // Detail drawer, Usage tab
+      viewStats: 'View usage',
       stats: {
-        totalCost: '30-Day Total Cost',
-        standardCost: 'Standard',
-        totalRequests: '30-Day Total Requests',
-        avgDailyCost: 'Daily Avg Cost',
-        basedOnActualDays: 'Based on {days} actual usage days',
-        avgDailyRequests: 'Daily Avg Requests',
         todayOverview: 'Today Overview',
-        cost: 'Cost',
         requests: 'Requests',
         tokens: 'Tokens',
-        highestCostDay: 'Highest Cost Day',
-        highestRequestDay: 'Highest Request Day',
+        highestRevenueDay: 'Highest revenue day',
+        highestRequestDay: 'Busiest day',
+        dailyAverage: 'daily avg {value}',
+        seconds: '{value} s',
+        milliseconds: '{value} ms',
         date: 'Date',
         totalTokens: '30-Day Total',
         dailyAvgTokens: 'Daily Average',
@@ -1560,17 +1579,50 @@ export default {
       usageWindow: {
         statsTitle: '5-Hour Window Usage Statistics',
         statsTitleDaily: 'Daily Usage Statistics',
-        geminiProDaily: 'Pro',
-        geminiFlashDaily: 'Flash',
-        gemini3Pro: 'G3P',
-        gemini3Flash: 'G3F',
-        gemini3Image: 'G31FI',
+        // Window names are spelled out
+        fiveHour: '5 hours',
+        sevenDay: '7 days',
+        sevenDaySonnet: '7 days · Sonnet',
+        sevenDayFable: '7 days · Fable',
+        twentyFourHours: '24 hours',
+        thirtyDays: '30 days',
+        daily: 'Daily',
+        geminiProDaily: 'Pro daily',
+        geminiFlashDaily: 'Flash daily',
+        gemini3Pro: 'Gemini 3 Pro',
+        gemini3Flash: 'Gemini 3 Flash',
+        geminiImage: 'Gemini image',
         claude: 'Claude',
+        quotaDaily: 'Daily quota',
+        quotaWeekly: 'Weekly quota',
+        quotaTotal: 'Total quota',
+        quotaUsedOfLimit: 'Used {used} of {limit} (at cost)',
+        requests: '{count} requests',
+        resetsIn: 'resets in {time}',
+        resetNow: 'Available now',
+        resetPending: 'Pending refresh',
+        noData: 'No usage data yet',
+        noQuota: 'No quota set',
+        none: 'This channel has no upstream usage windows',
+        geminiChannel: {
+          aiStudio: 'AI Studio',
+          codeAssist: 'Code Assist (GCP)',
+          googleOne: 'Google One',
+          client: 'AI Studio client OAuth'
+        },
+        geminiLevel: {
+          free: 'Free',
+          pro: 'Pro',
+          ultra: 'Ultra',
+          standard: 'Standard',
+          enterprise: 'Enterprise',
+          paid: 'Paid'
+        },
         grokRequests: 'Req',
         grokTokens: 'Tok',
-        grokFreeQuota24hHint: 'Estimated from local token usage over the rolling 24-hour window ({limit} limit)',
+        grokFreeQuota24hHint: 'Estimated from this site\'s token usage over the rolling 24-hour window ({limit} limit)',
         grokWeeklyUsage: 'Weekly {percent}%',
-        grokUsed: 'Used $',
+        grokUsed: 'Used this month',
         grokBalance: 'Bal $',
         grokPrepaid: 'Prepaid balance',
         grokMonthlyLimit: 'Monthly used / limit (USD)',
@@ -1588,18 +1640,18 @@ export default {
         grokLastHeadersSeen: 'Headers {time}',
         passiveSampled: 'Passive',
         activeQuery: 'Query',
-        estimatedTotalCost: 'Est. total ${cost}',
-        estimatedTotalCostTooltip: 'Estimated total cost at 100% utilization, based on current window cost and utilization'
+        estimatedTotalCost: 'Est. cost when full {cost}',
+        estimatedTotalCostTooltip: 'Projected cost at 100% utilization, based on the window\'s current cost and utilization'
       },
       openaiQuotaReset: {
-        count: 'Credits',
+        count: 'Reset credits',
         reset: 'Reset',
         countTooltipLoad: 'Click to load the available reset-credit count',
         countTooltipRefresh: 'Click to refresh the available reset-credit count',
         resetTooltipReady: 'Consume 1 reset credit to immediately restore the window',
         resetTooltipNeedQuery: 'Click Credits first to load the available count',
         resetTooltipNoCredits: 'No reset credits available',
-        resetTooltipShadow: 'Spark shadow accounts cannot reset credits; reset on the parent account',
+        resetTooltipShadow: 'Spark shadow channels cannot reset credits; reset on the parent channel',
         expiresAt: 'Expires {time}',
         expiresAtFull: 'Reset credit expires at {time}',
         expandExpirations: 'Expand the other {count} reset credit expiration(s)',

@@ -954,9 +954,9 @@ export type AccountListItem = Account
 export interface WindowStats {
   requests: number
   tokens: number
-  cost: number // Account cost (account multiplier)
+  cost: number // 渠道成本（标价 × 渠道成本倍率）；界面叫「成本」
   standard_cost?: number
-  user_cost?: number
+  user_cost?: number // 收入（actual_cost）；界面叫「收入」
 }
 
 export interface UsageProgress {
@@ -1790,50 +1790,31 @@ export interface UsageQueryParams {
 
 // ==================== Account Usage Statistics ====================
 
+/** 渠道某一天的用量。金额与同一响应里的 models[] 同名同义：actual_cost 是收入，account_cost 是渠道成本。 */
 export interface AccountUsageHistory {
   date: string
   label: string
   requests: number
   tokens: number
-  cost: number
-  actual_cost: number // Account cost (account multiplier)
-  user_cost: number // User/API key billed cost (group multiplier)
+  actual_cost: number // 收入
+  account_cost: number // 渠道成本
 }
 
 export interface AccountUsageSummary {
   days: number
   actual_days_used: number
-  total_cost: number // Account cost (account multiplier)
-  total_user_cost: number
-  total_standard_cost: number
+  total_actual_cost: number // 收入
+  total_account_cost: number // 渠道成本
   total_requests: number
   total_tokens: number
-  avg_daily_cost: number // Account cost
-  avg_daily_user_cost: number
+  avg_daily_actual_cost: number
+  avg_daily_account_cost: number
   avg_daily_requests: number
   avg_daily_tokens: number
   avg_duration_ms: number
-  today: {
-    date: string
-    cost: number
-    user_cost: number
-    requests: number
-    tokens: number
-  } | null
-  highest_cost_day: {
-    date: string
-    label: string
-    cost: number
-    user_cost: number
-    requests: number
-  } | null
-  highest_request_day: {
-    date: string
-    label: string
-    requests: number
-    cost: number
-    user_cost: number
-  } | null
+  today: AccountUsageHistory | null
+  highest_revenue_day: AccountUsageHistory | null
+  highest_request_day: AccountUsageHistory | null
 }
 
 export interface AccountUsageStatsResponse {

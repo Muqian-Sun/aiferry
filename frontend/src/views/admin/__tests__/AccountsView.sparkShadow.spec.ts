@@ -3,7 +3,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 
 import AccountsView from '../AccountsView.vue'
 import AccountActionMenu from '@/components/admin/account/AccountActionMenu.vue'
-import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
+import { getAccountPlanType } from '@/components/admin/account/accountDisplay'
 import ConfirmDialog from '@/components/common/ConfirmDialog.vue'
 
 // 外审 F2:AccountActionMenu emit 'create-spark-shadow',但 AccountsView 此前未监听,
@@ -212,6 +212,19 @@ describe('admin AccountsView — 外审 F2:spark 影子创建接线', () => {
 })
 
 // 账号行展示
+// 使用能透传 row 数据的自定义 DataTable stub，以便渲染 cell 插槽
+const RowDataTableStub = {
+  props: ['data', 'columns', 'loading'],
+  template: `<div>
+    <div v-for="(row, idx) in (data || [])" :key="idx">
+      <slot name="cell-name" :row="row" :value="row.name" />
+      <slot name="cell-platform_type" :row="row" />
+    </div>
+  </div>`
+}
+// 套餐（2026-09-25 起在详情抽屉副标题里显示）按列表行数据推导
+const planTypesOf = (wrapper: ReturnType<typeof mountViewWithRow>) =>
+  (wrapper.getComponent(RowDataTableStub).props('data') as Array<Record<string, unknown>>).map((row) => getAccountPlanType(row))
 const mountViewWithRow = () =>
   mount(AccountsView, {
     global: {
@@ -220,16 +233,7 @@ const mountViewWithRow = () =>
         TablePageLayout: {
           template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>'
         },
-        // 使用能透传 row 数据的自定义 DataTable stub，以便渲染 cell 插槽
-        DataTable: {
-          props: ['data', 'columns', 'loading'],
-          template: `<div>
-            <div v-for="(row, idx) in (data || [])" :key="idx">
-              <slot name="cell-name" :row="row" :value="row.name" />
-              <slot name="cell-platform_type" :row="row" />
-            </div>
-          </div>`
-        },
+        DataTable: RowDataTableStub,
         Pagination: true,
         ConfirmDialog: true,
         AccountTableActions: { template: '<div><slot name="beforeCreate" /><slot name="after" /></div>' },
@@ -273,38 +277,6 @@ describe('admin AccountsView — 账号行展示', () => {
     vi.useRealTimers()
     vi.restoreAllMocks()
     vi.unstubAllGlobals()
-  })
-
-  it('影子行 email 单元格显示 parent_email，PlatformTypeBadge 接收 parent_plan_type/parent_privacy_mode', async () => {
-    const shadowAccount = {
-      id: 100,
-      name: '影子账号',
-      platform: 'openai',
-      type: 'oauth',
-      parent_account_id: 1,
-      parent_email: 'parent@example.com',
-      parent_plan_type: 'plus',
-      parent_privacy_mode: 'false',
-      parent_subscription_expires_at: '2027-01-01T00:00:00Z',
-      parent_chatgpt_account_id: 'chatgpt-abc123',
-    }
-
-    listAccounts.mockResolvedValue({ items: [shadowAccount], total: 1, page: 1, page_size: 20, pages: 1 })
-
-    const wrapper = mountViewWithRow()
-    await flushPromises()
-
-    // 1. email 单元格通过 OR 兜底渲染 parent_email
-    expect(wrapper.text()).toContain('parent@example.com')
-
-    // 2. PlatformTypeBadge 收到 parent_plan_type 和 parent_privacy_mode
-    const badge = wrapper.findComponent(PlatformTypeBadge)
-    expect(badge.exists()).toBe(true)
-    expect(badge.props('planType')).toBe('plus')
-    expect(badge.props('privacyMode')).toBe('false')
-    expect(badge.props('subscriptionExpiresAt')).toBe('2027-01-01T00:00:00Z')
-
-    wrapper.unmount()
   })
 
   it('仅将协议地址安全的 API Key 账号名称链接到站点主页', async () => {
@@ -471,8 +443,8 @@ describe('admin AccountsView — 账号行展示', () => {
     const wrapper = mountViewWithRow()
     await flushPromises()
 
-    const badges = wrapper.findAllComponents(PlatformTypeBadge)
-    expect(badges.map((badge) => badge.props('planType'))).toEqual([
+    const planTypes = planTypesOf(wrapper)
+    expect(planTypes).toEqual([
       'FREE',
       'SuperGrok Heavy',
       'FREE',
@@ -540,7 +512,7 @@ describe('admin AccountsView — 账号行展示', () => {
     const wrapper = mountViewWithRow()
     await flushPromises()
 
-    expect(wrapper.findAllComponents(PlatformTypeBadge).map((badge) => badge.props('planType'))).toEqual([
+    expect(planTypesOf(wrapper)).toEqual([
       'SuperGrok',
       'SuperGrok Heavy',
       undefined,
@@ -573,13 +545,13 @@ describe('admin AccountsView — 账号行展示', () => {
 
     const wrapper = mountViewWithRow()
     await flushPromises()
-    expect(wrapper.findComponent(PlatformTypeBadge).props('planType')).toBe('Free')
+    expect(planTypesOf(wrapper)).toEqual(['Free'])
 
     await vi.advanceTimersByTimeAsync(6000)
     await flushPromises()
 
     expect(listWithEtag).toHaveBeenCalledTimes(1)
-    expect(wrapper.findComponent(PlatformTypeBadge).props('planType')).toBe('SuperGrok')
+    expect(planTypesOf(wrapper)).toEqual(['SuperGrok'])
     wrapper.unmount()
   })
 })

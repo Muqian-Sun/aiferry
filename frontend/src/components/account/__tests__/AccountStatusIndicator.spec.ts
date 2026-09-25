@@ -51,9 +51,10 @@ function makeAccount(overrides: Partial<Account>): Account {
 }
 
 describe('AccountStatusIndicator', () => {
-  it('Claude 5 模型限流时显示 Opus 和 Sonnet 的短别名', () => {
+  it('Claude 5 模型限流时（抽屉）写完整模型名', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           extra: {
             model_rate_limits: {
@@ -76,14 +77,14 @@ describe('AccountStatusIndicator', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('COpus5')
-    expect(wrapper.text()).toContain('CSon5')
-    expect(wrapper.text()).not.toContain('claude-sonnet-5')
+    expect(wrapper.text()).toContain('claude-opus-5')
+    expect(wrapper.text()).toContain('claude-sonnet-5')
   })
 
   it('Grok 账号额度限流时显示自动恢复时间而非临时不可调度', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           id: 5,
           name: 'grok-free-1',
@@ -102,13 +103,14 @@ describe('AccountStatusIndicator', () => {
     })
 
     expect(wrapper.get('[data-testid="account-status-label"]').text()).toBe('admin.accounts.status.rateLimited')
-    expect(wrapper.text()).toContain('admin.accounts.status.rateLimitedAutoResume')
+    expect(wrapper.text()).toContain('admin.accounts.status.recoverIn')
     expect(wrapper.text()).not.toContain('admin.accounts.status.tempUnschedulable')
   })
 
-  it('模型限流 + overages 启用 + 无 AICredits key → 显示 ⚡ (credits_active)', () => {
+  it('模型限流 + overages 启用 + 无 AICredits key → 正在使用 AI Credits (credits_active)', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           id: 1,
           name: 'ag-1',
@@ -130,13 +132,14 @@ describe('AccountStatusIndicator', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('⚡')
-    expect(wrapper.text()).toContain('CSon45')
+    expect(wrapper.text()).toContain('admin.accounts.status.modelCreditOveragesUntil')
+    expect(wrapper.text()).toContain('claude-sonnet-4-5')
   })
 
-  it('模型限流 + overages 未启用 → 普通限流样式（无 ⚡）', () => {
+  it('模型限流 + overages 未启用 → 普通限流样式', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           id: 2,
           name: 'ag-2',
@@ -157,13 +160,14 @@ describe('AccountStatusIndicator', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('CSon45')
-    expect(wrapper.text()).not.toContain('⚡')
+    expect(wrapper.text()).toContain('claude-sonnet-4-5')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.modelCreditOveragesUntil')
   })
 
   it('AICredits key 生效 → 显示积分已用尽 (credits_exhausted)', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           id: 3,
           name: 'ag-3',
@@ -188,9 +192,10 @@ describe('AccountStatusIndicator', () => {
     expect(wrapper.text()).toContain('admin.accounts.status.creditsExhausted')
   })
 
-  it('模型限流 + overages 启用 + AICredits key 生效 → 普通限流样式（积分耗尽，无 ⚡）', () => {
+  it('模型限流 + overages 启用 + AICredits key 生效 → 普通限流样式（积分耗尽）', () => {
     const wrapper = mount(AccountStatusIndicator, {
       props: {
+        detailed: true,
         account: makeAccount({
           id: 4,
           name: 'ag-4',
@@ -216,9 +221,9 @@ describe('AccountStatusIndicator', () => {
       }
     })
 
-    // 模型限流 + 积分耗尽 → 不应显示 ⚡
-    expect(wrapper.text()).toContain('CSon45')
-    expect(wrapper.text()).not.toContain('⚡')
+    // 模型限流 + 积分耗尽 → 不算「正在使用 AI Credits」
+    expect(wrapper.text()).toContain('claude-sonnet-4-5')
+    expect(wrapper.text()).not.toContain('admin.accounts.status.modelCreditOveragesUntil')
     // AICredits 积分耗尽状态应显示
     expect(wrapper.text()).toContain('admin.accounts.status.creditsExhausted')
   })

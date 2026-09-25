@@ -280,7 +280,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('admin.accounts.usageWindow.gemini3Image|70|2026-03-01T09:00:00Z')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.geminiImage|70|2026-03-01T09:00:00Z')
   })
 
   it('Antigravity 会显示 AI Credits 余额信息', async () => {
@@ -375,8 +375,8 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(getUsage).toHaveBeenCalledWith(2000)
-    expect(wrapper.text()).toContain('5h|15|300')
-    expect(wrapper.text()).toContain('7d|77|300')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|15|300')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|77|300')
   })
 
   it('OpenAI OAuth 有 codex 快照时仍然使用 /usage API 数据渲染', async () => {
@@ -437,8 +437,8 @@ describe('AccountUsageCell', () => {
 
     expect(getUsage).toHaveBeenCalledWith(2001)
     // 单一数据源：始终使用 /usage API 返回值，忽略 codex 快照
-    expect(wrapper.text()).toContain('5h|18|900')
-    expect(wrapper.text()).toContain('7d|36|900')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|18|900')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|36|900')
   })
 
   it('仅为 OpenAI OAuth 7d 窗口计算预计总费用', async () => {
@@ -474,8 +474,8 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('5h|none')
-    expect(wrapper.text()).toContain('7d|30')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|none')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|30')
   })
 
   it.each([
@@ -515,78 +515,8 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('7d|none')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|none')
     expect(wrapper.text()).not.toMatch(/Infinity|NaN/)
-  })
-
-  it('OpenAI OAuth 有现成快照时，手动刷新信号会触发 usage 重拉', async () => {
-    getUsage.mockResolvedValue({
-      five_hour: {
-        utilization: 18,
-        resets_at: '2099-03-07T12:00:00Z',
-        remaining_seconds: 3600,
-        window_stats: {
-          requests: 9,
-          tokens: 900,
-          cost: 0.09,
-          standard_cost: 0.09,
-          user_cost: 0.09
-        }
-      },
-      seven_day: {
-        utilization: 36,
-        resets_at: '2099-03-13T12:00:00Z',
-        remaining_seconds: 3600,
-        window_stats: {
-          requests: 9,
-          tokens: 900,
-          cost: 0.09,
-          standard_cost: 0.09,
-          user_cost: 0.09
-        }
-      }
-    })
-
-    const wrapper = mount(AccountUsageCell, {
-      props: {
-        account: makeAccount({
-          id: 2010,
-          platform: 'openai',
-          type: 'oauth',
-          extra: {
-            codex_usage_updated_at: '2099-03-07T10:00:00Z',
-            codex_5h_used_percent: 12,
-            codex_5h_reset_at: '2099-03-07T12:00:00Z',
-            codex_7d_used_percent: 34,
-            codex_7d_reset_at: '2099-03-13T12:00:00Z'
-          },
-          rate_limit_reset_at: null
-        }),
-        manualRefreshToken: 0
-      },
-      global: {
-        stubs: {
-          UsageProgressBar: {
-            props: ['label', 'utilization', 'resetsAt', 'windowStats', 'color'],
-            template: '<div class="usage-bar">{{ label }}|{{ utilization }}|{{ windowStats?.tokens }}</div>'
-          },
-          AccountQuotaInfo: true
-        }
-      }
-    })
-
-    await flushPromises()
-    // mount 时已经拉取一次
-    expect(getUsage).toHaveBeenCalledTimes(1)
-
-    await wrapper.setProps({ manualRefreshToken: 1 })
-    await flushPromises()
-
-    // 手动刷新再拉一次
-    expect(getUsage).toHaveBeenCalledTimes(2)
-    expect(getUsage).toHaveBeenCalledWith(2010)
-    // 单一数据源：始终使用 /usage API 值
-    expect(wrapper.text()).toContain('5h|18|900')
   })
 
   it('OpenAI OAuth 在无 codex 快照时会回退显示 usage 接口窗口', async () => {
@@ -640,8 +570,8 @@ describe('AccountUsageCell', () => {
 	await flushPromises()
 
 	expect(getUsage).toHaveBeenCalledWith(2002)
-	expect(wrapper.text()).toContain('5h|0|27700')
-	expect(wrapper.text()).toContain('7d|0|27700')
+	expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|0|27700')
+	expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|0|27700')
   })
 
   it('OpenAI OAuth 在行数据刷新但仍无 codex 快照时会重新拉取 usage', async () => {
@@ -699,7 +629,7 @@ describe('AccountUsageCell', () => {
 	})
 
 	await flushPromises()
-	expect(wrapper.text()).toContain('5h|0|100')
+	expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|0|100')
 	expect(getUsage).toHaveBeenCalledTimes(1)
 
 	await wrapper.setProps({
@@ -714,7 +644,7 @@ describe('AccountUsageCell', () => {
 
 	await flushPromises()
 	expect(getUsage).toHaveBeenCalledTimes(2)
-	expect(wrapper.text()).toContain('5h|0|200')
+	expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|0|200')
   })
 
   it('OpenAI 重置响应更新账号行后重新拉取 usage', async () => {
@@ -816,44 +746,8 @@ describe('AccountUsageCell', () => {
 	await flushPromises()
 
   expect(getUsage).toHaveBeenCalledWith(2004)
-  expect(wrapper.text()).toContain('5h|100|106540000')
-  expect(wrapper.text()).toContain('7d|100|106540000')
-  })
-
-  it('Key 账号会展示 today stats 徽章并带 A/U 提示', async () => {
-		const wrapper = mount(AccountUsageCell, {
-		  props: {
-		    account: makeAccount({
-		      id: 3001,
-		      platform: 'anthropic',
-		      type: 'apikey'
-		    }),
-		    todayStats: {
-		      requests: 1_000_000,
-		      tokens: 1_000_000_000,
-		      cost: 12.345,
-		      standard_cost: 12.345,
-		      user_cost: 6.789
-		    }
-		  },
-		  global: {
-		    stubs: {
-		      UsageProgressBar: true,
-		      AccountQuotaInfo: true
-		    }
-		  }
-		})
-
-		await flushPromises()
-
-		expect(wrapper.text()).toContain('1.0M req')
-		expect(wrapper.text()).toContain('1.0B')
-		expect(wrapper.text()).toContain('A $12.35')
-		expect(wrapper.text()).toContain('U $6.79')
-
-		const badges = wrapper.findAll('span[title]')
-		expect(badges.some(node => node.attributes('title') === 'usage.accountBilled')).toBe(true)
-		expect(badges.some(node => node.attributes('title') === 'usage.userBilled')).toBe(true)
+  expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|100|106540000')
+  expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|100|106540000')
   })
 
   it('Grok OAuth compact UI drops local chips and header quota bars', async () => {
@@ -924,8 +818,8 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('30d|')
-    expect(wrapper.text()).not.toContain('24h|')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.thirtyDays|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.twentyFourHours|')
   })
 
   it('Grok OAuth uses the official weekly billing percentage when available', async () => {
@@ -964,7 +858,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('7d|37|2026-07-16T03:25:00Z')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|37|2026-07-16T03:25:00Z')
     expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.grokRequests|')
     expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.grokTokens|')
     expect(wrapper.text()).not.toContain('2M|')
@@ -1011,11 +905,11 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain(`24h|${expected}`)
+    expect(wrapper.text()).toContain(`admin.accounts.usageWindow.twentyFourHours|${expected}`)
     expect(wrapper.findAll('.usage-bar')).toHaveLength(1)
     expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.grokRequests|')
     expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.grokTokens|')
-    expect(wrapper.text()).not.toContain('7d|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDay|')
   })
 
   it('Grok Free uses rolling 24h usage instead of today-only usage', async () => {
@@ -1059,8 +953,8 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('24h|75|admin.accounts.usageWindow.grokFreeQuota24hHint')
-    expect(wrapper.text()).not.toContain('7d|')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.twentyFourHours|75|admin.accounts.usageWindow.grokFreeQuota24hHint')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDay|')
     expect(wrapper.text()).not.toContain('200.0K')
     expect(wrapper.text()).not.toContain('250.0K')
   })
@@ -1103,7 +997,7 @@ describe('AccountUsageCell', () => {
     await flushPromises()
 
     expect(wrapper.findAll('.usage-bar')).toHaveLength(0)
-    expect(wrapper.text()).not.toContain('24h|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.twentyFourHours|')
     expect(wrapper.text()).not.toContain('1.0M')
     expect(wrapper.text()).not.toContain('250.0K')
   })
@@ -1142,9 +1036,9 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('24h|')
-    expect(wrapper.text()).not.toContain('7d|')
-    expect(wrapper.text()).not.toContain('30d|')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.twentyFourHours|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDay|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.thirtyDays|')
   })
 
   it('Grok SuperGrok Lite stays on paid 7d bar, not free 24h', async () => {
@@ -1179,8 +1073,8 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('7d|')
-    expect(wrapper.text()).not.toContain('24h|')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.twentyFourHours|')
   })
 
   it('Grok credential Free tier keeps the 1M fallback when billing is unavailable', async () => {
@@ -1212,7 +1106,7 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('24h|100')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.twentyFourHours|100')
   })
 
   it('Grok Free 24h bar shows rolling local usage chips', async () => {
@@ -1250,9 +1144,9 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('24h|75|750000')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.twentyFourHours|75|750000')
     expect(wrapper.text()).not.toContain('|250000')
-    expect(wrapper.text()).not.toContain('7d|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDay|')
   })
 
   it('Grok SuperGrok and Heavy bars show period-aligned local 7d and 30d usage', async () => {
@@ -1309,11 +1203,11 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('7d|37|2200000')
-    expect(wrapper.text()).toContain('30d|12|8000000')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|37|2200000')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.thirtyDays|12|8000000')
     expect(wrapper.text()).not.toContain('|99')
     expect(wrapper.text()).not.toContain('|100')
-    expect(wrapper.text()).not.toContain('24h|')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.twentyFourHours|')
   })
 
   it('Grok paid bars fall back to official seven_day and thirty_day window_stats', async () => {
@@ -1362,8 +1256,8 @@ describe('AccountUsageCell', () => {
     })
 
     await flushPromises()
-    expect(wrapper.text()).toContain('7d|20|1500000')
-    expect(wrapper.text()).toContain('30d|8|4400000')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|20|1500000')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.thirtyDays|8|4400000')
   })
 
   it('Grok paid hides zero prepaid and hides used/limit when monthly limit is 0', async () => {
@@ -1423,7 +1317,7 @@ describe('AccountUsageCell', () => {
     await flushPromises()
     expect(usedOnly.text()).not.toContain('admin.accounts.usageWindow.grokPrepaid')
     expect(usedOnly.text()).toContain('admin.accounts.usageWindow.grokUsed')
-    expect(usedOnly.text()).toContain('3.50/25.0')
+    expect(usedOnly.text()).toContain('$3.50 / $25.00')
 
     getUsage.mockResolvedValueOnce({
       subscription_tier: 'SuperGrok Heavy',
@@ -1454,31 +1348,7 @@ describe('AccountUsageCell', () => {
     expect(prepaidOnly.text()).not.toContain('8.00/0')
   })
 
-  it('Key 账号在 today stats loading 时显示骨架屏', async () => {
-		const wrapper = mount(AccountUsageCell, {
-		  props: {
-		    account: makeAccount({
-		      id: 3002,
-		      platform: 'anthropic',
-		      type: 'apikey'
-		    }),
-		    todayStats: null,
-		    todayStatsLoading: true
-		  },
-		  global: {
-		    stubs: {
-		      UsageProgressBar: true,
-		      AccountQuotaInfo: true
-		    }
-		  }
-		})
-
-		await flushPromises()
-
-		expect(wrapper.findAll('.animate-pulse').length).toBeGreaterThan(0)
-  })
-
-  it('Key 账号在无 today stats 且无配额时显示兜底短横线', async () => {
+  it('Key 账号无配额时写「没有设额度」', async () => {
 		const wrapper = mount(AccountUsageCell, {
 		  props: {
 		    account: makeAccount({
@@ -1489,8 +1359,6 @@ describe('AccountUsageCell', () => {
 		      quota_daily_limit: 0,
 		      quota_weekly_limit: 0
 		    }),
-		    todayStats: null,
-		    todayStatsLoading: false
 		  },
 		  global: {
 		    stubs: {
@@ -1502,46 +1370,7 @@ describe('AccountUsageCell', () => {
 
 		await flushPromises()
 
-		expect(wrapper.text().trim()).toBe('-')
-  })
-
-  it('Vertex 账号会在 Gemini 用量窗口里展示 today stats 徽章', async () => {
-		const wrapper = mount(AccountUsageCell, {
-		  props: {
-		    account: makeAccount({
-		      id: 4001,
-		      platform: 'gemini',
-		      type: 'service_account',
-          credentials: {
-            tier_id: 'vertex',
-            project_id: 'vertex-proj',
-            client_email: 'svc@vertex-proj.iam.gserviceaccount.com',
-            location: 'global'
-          },
-		      extra: {}
-		    }),
-		    todayStats: {
-		      requests: 0,
-		      tokens: 0,
-		      cost: 0,
-		      standard_cost: 0,
-		      user_cost: 0
-		    }
-		  },
-		  global: {
-		    stubs: {
-		      UsageProgressBar: true,
-		      AccountQuotaInfo: true
-		    }
-		  }
-		})
-
-		await flushPromises()
-
-		expect(wrapper.text()).toContain('0 req')
-		expect(wrapper.text()).toContain('0')
-		expect(wrapper.text()).toContain('A $0.00')
-		expect(wrapper.text()).toContain('U $0.00')
+		expect(wrapper.text().trim()).toBe('admin.accounts.usageWindow.noQuota')
   })
 
   it('Anthropic OAuth 会渲染 7d F (Fable) 进度条，且 7d S 逻辑保留', async () => {
@@ -1591,10 +1420,10 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('5h|41')
-    expect(wrapper.text()).toContain('7d|56')
-    expect(wrapper.text()).toContain('7d S|30')
-    expect(wrapper.text()).toContain('7d F|100')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|41')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|56')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDaySonnet|30')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDayFable|100')
   })
 
   it('Anthropic OAuth 无 Fable 数据时不渲染 7d F 进度条', async () => {
@@ -1634,9 +1463,9 @@ describe('AccountUsageCell', () => {
 
     await flushPromises()
 
-    expect(wrapper.text()).toContain('5h|41')
-    expect(wrapper.text()).toContain('7d|56')
-    expect(wrapper.text()).not.toContain('7d S')
-    expect(wrapper.text()).not.toContain('7d F')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.fiveHour|41')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.sevenDay|56')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDaySonnet')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.sevenDayFable')
   })
 })

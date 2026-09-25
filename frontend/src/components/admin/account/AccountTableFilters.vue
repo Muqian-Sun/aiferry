@@ -1,5 +1,5 @@
 <template>
-  <!-- 渠道筛选（A5）：搜索 + 一行筛选标签（厂商 / 类型 / 状态 / 隐私），放在 ListToolbar 里。 -->
+  <!-- 渠道筛选（A5）：搜索 + 一行筛选标签（平台 / 接入方式 / 状态 / 隐私），放在 ListToolbar 里。 -->
   <SearchInput
     :model-value="searchQuery"
     compact
@@ -9,7 +9,7 @@
     @search="$emit('change')"
   />
   <FilterChip :model-value="filters.platform" :label="t('admin.accounts.platform')" :options="pOpts" test-id="filter-platform" @change="update('platform', $event)" />
-  <FilterChip :model-value="filters.type" :label="t('admin.accounts.columns.type')" :options="tOpts" test-id="filter-type" @change="update('type', $event)" />
+  <FilterChip :model-value="filters.type" :label="t('admin.accounts.access.label')" :options="tOpts" test-id="filter-type" @change="update('type', $event)" />
   <FilterChip :model-value="filters.status" :label="t('admin.accounts.columns.status')" :options="sOpts" test-id="filter-status" @change="update('status', $event)" />
   <FilterChip :model-value="filters.privacy_mode" :label="t('admin.accounts.privacyFilter')" :options="privacyOpts" test-id="filter-privacy" @change="update('privacy_mode', $event)" />
 </template>
@@ -32,11 +32,12 @@ function update(key: 'platform' | 'type' | 'status' | 'privacy_mode', value: str
 }
 
 const pOpts = computed<FilterOption[]>(() => [...CONCRETE_PLATFORM_OPTIONS])
+// 接入方式：与列表名称下面那行同一套叫法
 const tOpts = computed<FilterOption[]>(() => [
-  { value: 'oauth', label: t('admin.accounts.oauthType') },
-  { value: 'setup-token', label: t('admin.accounts.setupToken') },
-  { value: 'apikey', label: t('admin.accounts.apiKey') },
-  { value: 'bedrock', label: 'AWS Bedrock' }
+  { value: 'apikey', label: t('admin.accounts.access.apikey') },
+  { value: 'oauth', label: t('admin.accounts.access.oauth') },
+  { value: 'setup-token', label: t('admin.accounts.access.setupToken') },
+  { value: 'bedrock', label: t('admin.accounts.access.bedrock') }
 ])
 const sOpts = computed<FilterOption[]>(() => [
   { value: 'active', label: t('admin.accounts.status.active') },
@@ -48,8 +49,8 @@ const sOpts = computed<FilterOption[]>(() => [
 ])
 const privacyOpts = computed<FilterOption[]>(() => [
   { value: '__unset__', label: t('admin.accounts.privacyUnset') },
-  { value: 'training_off', label: 'Privacy' },
-  { value: 'training_set_cf_blocked', label: 'CF' },
-  { value: 'training_set_failed', label: 'Fail' }
+  { value: 'training_off', label: t('admin.accounts.privacyOptions.trainingOff') },
+  { value: 'training_set_cf_blocked', label: t('admin.accounts.privacyOptions.cfBlocked') },
+  { value: 'training_set_failed', label: t('admin.accounts.privacyOptions.failed') }
 ])
 </script>

@@ -89,12 +89,12 @@ describe('OllamaCloudUsageCell', () => {
     const bars = wrapper.findAllComponents(UsageProgressBar)
     expect(bars).toHaveLength(2)
     expect(bars[0].props()).toMatchObject({
-      label: '5h',
+      label: 'admin.accounts.usageWindow.fiveHour',
       utilization: 5.6,
       resetsAt: '2026-07-23T03:00:00Z'
     })
     expect(bars[1].props()).toMatchObject({
-      label: '7d',
+      label: 'admin.accounts.usageWindow.sevenDay',
       utilization: 14.2,
       resetsAt: '2026-07-29T00:00:00Z'
     })

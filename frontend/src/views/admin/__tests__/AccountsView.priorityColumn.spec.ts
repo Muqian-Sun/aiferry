@@ -113,7 +113,9 @@ describe('admin AccountsView priority column preferences', () => {
     })
   })
 
-  it('shows priority as a sortable column for fresh preferences', async () => {
+  it('shows priority as a sortable column when enabled in column settings', async () => {
+    // 2026-09-25 起优先级默认藏在列设置里
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 
@@ -142,18 +144,5 @@ describe('admin AccountsView priority column preferences', () => {
       'priority',
       'today_stats'
     ])
-  })
-
-  it('keeps priority visible while migrating older saved preferences', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify(['today_stats']))
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.get('[data-column="priority"]').text()).toBe('sortable')
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).toEqual(
-      expect.arrayContaining(['today_stats'])
-    )
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).not.toContain('priority')
   })
 })
