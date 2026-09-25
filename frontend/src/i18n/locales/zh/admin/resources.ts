@@ -1,6 +1,5 @@
 export default {
     scheduledTests: {
-      title: '定时测试',
       addPlan: '添加计划',
       editPlan: '编辑计划',
       deletePlan: '删除计划',

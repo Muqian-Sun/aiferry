@@ -1,12 +1,6 @@
 <template>
-  <!-- layout="page"（/accounts/:id/edit）时外壳换成 FormPageShell：同一套插槽，分区导航读下面的 FormSectionHeading -->
-  <component
-    :is="layout === 'page' ? FormPageShell : BaseDialog"
-    :show="show"
-    :title="t('admin.accounts.editAccount')"
-    width="wide"
-    @close="handleClose"
-  >
+  <!-- /accounts/:id/edit 整页（A5 起不再有弹窗形态）：分区导航读下面的 FormSectionHeading -->
+  <FormPageShell :show="show" :title="t('admin.accounts.editAccount')" @close="handleClose">
     <form
       v-if="account"
       id="edit-account-form"
@@ -2206,7 +2200,7 @@
         </button>
       </div>
     </template>
-  </component>
+  </FormPageShell>
 </template>
 
 <script setup lang="ts">
@@ -2227,7 +2221,6 @@ import type {
   ProtocolEndpoints
 } from '@/types'
 import type { ProtocolDefaultsResponse } from '@/api/admin/accounts'
-import BaseDialog from '@/components/common/BaseDialog.vue'
 import FormPageShell from '@/components/admin/form/FormPageShell.vue'
 import FormSectionHeading from '@/components/admin/form/FormSectionHeading.vue'
 import Select from '@/components/common/Select.vue'
@@ -2308,13 +2301,9 @@ interface Props {
   show: boolean
   account: Account | null
   proxies: Proxy[]
-  /** 'dialog'（默认）：列表页里的弹窗；'page'：/accounts/:id/edit 整页，外壳换成 FormPageShell */
-  layout?: 'dialog' | 'page'
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  layout: 'dialog'
-})
+const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   updated: [account: Account]

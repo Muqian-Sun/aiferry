@@ -2,19 +2,7 @@ export default {
 
   // Subscription Progress (Header component)
   subscriptionProgress: {
-    title: 'My Subscriptions',
-    viewDetails: 'View subscription details',
-    activeCount: '{count} active subscription(s)',
-    daily: 'Daily',
-    weekly: 'Weekly',
-    monthly: 'Monthly',
-    daysRemaining: '{days} days left',
-    expired: 'Expired',
-    expiresToday: 'Expires today',
-    expiresTomorrow: 'Expires tomorrow',
-    viewAll: 'View all subscriptions',
     noSubscriptions: 'No active subscriptions',
-    unlimited: 'Unlimited'
   },
 
 
@@ -225,9 +213,6 @@ export default {
       paymentMethod: 'Payment Method',
       createdAt: 'Created',
       cancel: 'Cancel Order',
-      userId: 'User ID',
-      orderType: 'Order Type',
-      actions: 'Actions',
     },
     result: {
       success: 'Payment Successful',
@@ -366,16 +351,12 @@ export default {
       week: 'week',
       month: 'month',
       searchOrders: 'Search orders...',
-      allStatuses: 'All Statuses',
-      allPaymentTypes: 'All Payment Types',
-      allOrderTypes: 'All Order Types',
       orderDetail: 'Order Detail',
       orderType: 'Order Type',
       orders: 'Orders',
       balanceOrder: 'Balance Top-Up',
       subscriptionOrder: 'Subscription',
       paidAt: 'Paid At',
-      completedAt: 'Completed At',
       expiresAt: 'Expires At',
       feeRate: 'Fee Rate',
       refund: 'Refund',
@@ -388,7 +369,6 @@ export default {
       refundSuccess: 'Refund successful',
       refundPending: 'Refund pending gateway confirmation',
       queryRefundStatus: 'Query refund status',
-      refundInfo: 'Refund Info',
       refundEnabled: 'Refund Enabled',
       allowUserRefund: 'Allow User Refund',
       alreadyRefunded: 'Already Refunded',

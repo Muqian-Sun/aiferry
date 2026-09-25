@@ -1,12 +1,6 @@
 <template>
-  <!-- layout="page"（/accounts/new）时外壳换成 FormPageShell：同一套插槽，分区导航读下面的 FormSectionHeading -->
-  <component
-    :is="layout === 'page' ? FormPageShell : BaseDialog"
-    :show="show"
-    :title="t('admin.accounts.createAccount')"
-    width="wide"
-    @close="handleClose"
-  >
+  <!-- /accounts/new 整页（A5 起不再有弹窗形态）：分区导航读下面的 FormSectionHeading -->
+  <FormPageShell :show="show" :title="t('admin.accounts.createAccount')" @close="handleClose">
     <!-- Step Indicator for OAuth accounts -->
     <div v-if="isOAuthFlow" class="mb-6 flex items-center justify-center">
       <div class="flex items-center space-x-4">
@@ -2304,7 +2298,7 @@
         </button>
       </div>
     </template>
-  </component>
+  </FormPageShell>
 
   <!-- Gemini Help Dialog -->
   <BaseDialog
@@ -2697,13 +2691,9 @@ const apiKeyValuePlaceholder = computed(() => {
 interface Props {
   show: boolean
   proxies: Proxy[]
-  /** 'dialog'（默认）：列表页里的弹窗；'page'：/accounts/new 整页，外壳换成 FormPageShell */
-  layout?: 'dialog' | 'page'
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  layout: 'dialog'
-})
+const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   created: []
@@ -3339,8 +3329,8 @@ watch(
       resetForm()
     }
   },
-  // 弹窗是先挂载再打开；整页（layout="page"）挂载时已经是打开状态，需要立即跑一次打开逻辑
-  { immediate: props.layout === 'page' && props.show }
+  // 整页挂载时已经是打开状态，需要立即跑一次打开逻辑
+  { immediate: props.show }
 )
 
 // Sync form.type based on accountCategory, addMethod, and platform-specific type

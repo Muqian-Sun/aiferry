@@ -2,19 +2,7 @@ export default {
 
   // Subscription Progress (Header component)
   subscriptionProgress: {
-    title: '我的订阅',
-    viewDetails: '查看订阅详情',
-    activeCount: '{count} 个有效订阅',
-    daily: '每日',
-    weekly: '每周',
-    monthly: '每月',
-    daysRemaining: '剩余 {days} 天',
-    expired: '已过期',
-    expiresToday: '今天到期',
-    expiresTomorrow: '明天到期',
-    viewAll: '查看全部订阅',
     noSubscriptions: '暂无有效订阅',
-    unlimited: '无限制'
   },
 
 
@@ -228,9 +216,6 @@ export default {
       paymentMethod: '支付方式',
       createdAt: '创建时间',
       cancel: '取消订单',
-      userId: '用户 ID',
-      orderType: '订单类型',
-      actions: '操作',
     },
     result: {
       success: '支付成功',
@@ -369,16 +354,12 @@ export default {
       week: '周',
       month: '月',
       searchOrders: '搜索订单...',
-      allStatuses: '全部状态',
-      allPaymentTypes: '全部支付方式',
-      allOrderTypes: '全部订单类型',
       orderDetail: '订单详情',
       orderType: '订单类型',
       orders: '订单',
       balanceOrder: '余额充值',
       subscriptionOrder: '订阅',
       paidAt: '支付时间',
-      completedAt: '完成时间',
       expiresAt: '过期时间',
       feeRate: '手续费率',
       refund: '退款',
@@ -391,7 +372,6 @@ export default {
       refundSuccess: '退款成功',
       refundPending: '退款处理中，待网关确认',
       queryRefundStatus: '查询退款状态',
-      refundInfo: '退款信息',
       refundEnabled: '允许退款',
       allowUserRefund: '允许用户退款',
       alreadyRefunded: '已退款',

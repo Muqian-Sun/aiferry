@@ -1,6 +1,5 @@
 export default {
     scheduledTests: {
-      title: 'Scheduled Tests',
       addPlan: 'Add Plan',
       editPlan: 'Edit Plan',
       deletePlan: 'Delete Plan',

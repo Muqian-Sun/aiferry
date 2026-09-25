@@ -1,7 +1,7 @@
 <template>
   <!--
     编辑渠道（A5-c）：原来列表页里的「编辑账号」弹窗改成整页 /accounts/:id/edit。
-    账号详情、代理两路并行加载（承接的模型由表单自己按渠道读）；表单本体仍是 EditAccountModal（layout="page"，外壳换成 FormPageShell）。
+    账号详情、代理两路并行加载（承接的模型由表单自己按渠道读）；表单本体仍是 EditAccountModal（外壳是 FormPageShell）。
     表单保存成功会先 updated 再 close，所以回列表挂在 close 上（取消也走这里）；
     updated 只把最新账号写回来——Ollama Cloud 用量面板也会发 updated（不是保存），那时留在本页。
   -->
@@ -45,7 +45,6 @@
 
     <EditAccountModal
       v-else
-      layout="page"
       :show="!!account"
       :account="account"
       :proxies="proxies"

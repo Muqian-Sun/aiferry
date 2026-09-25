@@ -197,7 +197,6 @@ function mountUsageView() {
         UsageTable: chartStub,
         UserErrorRequestsTable: chartStub,
         ModelUsageTable: chartStub,
-        TokenUsageTrend: chartStub,
         UsageMetricTrend: { template: '<div data-testid="metric-trend" :data-metric="metric" />', props: ['metric', 'trendData', 'loading'] },
         RouterLink: { template: '<a :href="to"><slot /></a>', props: ['to'] },
       },

@@ -78,7 +78,6 @@ describe('ProfileView', () => {
       global: {
         stubs: {
           SiteShell: { template: '<div><slot /></div>' },
-          StatCard: { template: '<div class="stat-card" />' },
           ProfileInfoCard: { template: '<div data-testid="profile-info-card" />' },
           ProfileBalanceNotifyCard: { template: '<div data-testid="profile-balance-notify-card" />' },
           ProfilePasswordForm: { template: '<div data-testid="profile-password-form" />' },
