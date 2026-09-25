@@ -109,9 +109,9 @@ type ModelStat struct {
 	CacheCreationTokens int64   `json:"cache_creation_tokens"`
 	CacheReadTokens     int64   `json:"cache_read_tokens"`
 	TotalTokens         int64   `json:"total_tokens"`
-	Cost                float64 `json:"cost"`         // 标准计费
-	ActualCost          float64 `json:"actual_cost"`  // 实际扣除
-	AccountCost         float64 `json:"account_cost"` // 账号成本
+	Cost                float64 `json:"cost"`         // 标价（token × 目录单价，未乘任何倍率）
+	ActualCost          float64 `json:"actual_cost"`  // 收入（标价 × 用户倍率）；按渠道统计时也是这个口径
+	AccountCost         float64 `json:"account_cost"` // 渠道成本（标价 × 渠道成本倍率）
 }
 
 // EndpointStat represents usage statistics for a single request endpoint.
@@ -119,8 +119,9 @@ type EndpointStat struct {
 	Endpoint    string  `json:"endpoint"`
 	Requests    int64   `json:"requests"`
 	TotalTokens int64   `json:"total_tokens"`
-	Cost        float64 `json:"cost"`        // 标准计费
-	ActualCost  float64 `json:"actual_cost"` // 实际扣除
+	Cost        float64 `json:"cost"`         // 标价（token × 目录单价，未乘任何倍率）
+	ActualCost  float64 `json:"actual_cost"`  // 收入（标价 × 用户倍率，向用户扣的钱）；按渠道统计时也是这个口径
+	AccountCost float64 `json:"account_cost"` // 渠道成本（标价 × 渠道成本倍率）
 }
 
 // UserUsageTrendPoint represents user usage trend data point
