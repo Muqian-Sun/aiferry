@@ -3,7 +3,7 @@ export default {
     featureOff: {
       title: '功能未开启',
       message: '{name} 未开启',
-      hint: '在「设置 › 功能开关」里打开后，侧栏入口会恢复。',
+      hint: '在「设置 › 开关」里打开后，侧栏入口会恢复。',
       goSettings: '去设置打开',
       fallbackName: '这个功能'
     },

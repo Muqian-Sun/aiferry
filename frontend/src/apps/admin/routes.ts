@@ -201,7 +201,8 @@ export const adminRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/settings',
+    // A6：每个小节一个地址，缺省落到第一节（settings/sections.ts）
+    path: '/settings/:section?',
     name: 'AdminSettings',
     component: () => import('@/views/admin/SettingsView.vue'),
     meta: {

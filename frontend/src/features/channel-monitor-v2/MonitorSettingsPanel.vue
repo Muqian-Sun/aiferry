@@ -21,7 +21,7 @@
       role="status"
     >
       {{ t('channelMonitorV2.settings.disabledBanner') }}
-      <router-link class="ml-1 font-medium underline" to="/settings">{{ t('admin.settings.tabs.features') }}</router-link>
+      <router-link class="ml-1 font-medium underline" to="/settings/features">{{ t('admin.featureOff.goSettings') }}</router-link>
     </div>
 
     <div

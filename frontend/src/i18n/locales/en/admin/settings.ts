@@ -1,17 +1,31 @@
 export default {
     settings: {
-      title: 'System Settings',
-      description: 'Manage registration, email verification, default values, and SMTP settings',
-      tabs: {
-        general: 'General',
-        agreement: 'Agreement',
-        features: 'Feature Switches',
-        security: 'Security',
+      navLabel: 'Settings sections',
+      sectionGroups: {
+        site: 'Site',
         users: 'Users',
+        security: 'Security',
         gateway: 'Gateway',
-        email: 'Email',
-        payment: 'Payment',
+        payment: 'Payments',
+        notify: 'Notifications',
+        features: 'Features',
       },
+      sections: {
+        site: { title: 'Brand & home', description: 'Site name, logo, home page and custom menu.' },
+        agreement: { title: 'Terms', description: 'Documents users confirm when they sign in or register.' },
+        registration: { title: 'Sign-up & sign-in', description: 'Who can register, how they verify, and sign-in captcha.' },
+        oauth: { title: 'Third-party sign-in', description: 'GitHub / Google, LinuxDo, WeChat, DingTalk and OIDC sign-in.' },
+        defaults: { title: 'New user defaults', description: 'Starting balance, concurrency and subscriptions for new users, per sign-up source.' },
+        security: { title: 'Access & rate limits', description: 'Admin API key, client IP detection and panel API rate limits.' },
+        cooldown: { title: 'Retry & cooldown', description: 'Cooldown after overload / 429, stream timeouts and scheduling thresholds.' },
+        forwarding: { title: 'Forwarding', description: 'Request rectifier, beta headers, OpenAI fast mode, forwarding details and web search emulation.' },
+        clients: { title: 'Claude Code · Codex', description: 'Client version limits and Codex hardening.' },
+        upstream: { title: 'Upstream balance probe', description: 'Scheduled upstream rate probing and Ollama Cloud usage.' },
+        payment: { title: 'Payment methods', description: 'Payment methods, limits and providers for top-ups and subscriptions.' },
+        email: { title: 'Email', description: 'SMTP delivery and reminder emails.' },
+        features: { title: 'Switches', description: 'Master switches for each feature.' },
+      },
+      description: 'Site-wide settings for the site, users, security, gateway, payments and notifications. Each section saves on its own.',
       features: {
         channelMonitor: {
           title: 'Channel health',

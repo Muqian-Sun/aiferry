@@ -152,6 +152,20 @@ vi.mock("@/utils/apiError", () => ({
   extractApiErrorMessage: () => "error",
 }));
 
+// A6：当前小节来自路由 /settings/:section，导航调用 router.push 切换
+vi.mock("vue-router", async () => {
+  const { reactive } = await import("vue");
+  const route = reactive({ params: {} as Record<string, string> });
+  return {
+    useRoute: () => route,
+    useRouter: () => ({
+      push: async (to: { params?: Record<string, string> }) => {
+        route.params = { ...(to.params ?? {}) };
+      },
+    }),
+  };
+});
+
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   const translations: Record<string, string> = {
@@ -494,7 +508,7 @@ function mountView() {
 async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
   const paymentTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.payment"));
+    .find((node) => node.text().includes("admin.settings.sections.payment.title"));
 
   expect(paymentTabButton).toBeDefined();
   await paymentTabButton?.trigger("click");
@@ -504,7 +518,7 @@ async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
 async function openSecurityTab(wrapper: ReturnType<typeof mountView>) {
   const securityTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.security"));
+    .find((node) => node.text().includes("admin.settings.sections.registration.title"));
 
   expect(securityTabButton).toBeDefined();
   await securityTabButton?.trigger("click");
@@ -514,7 +528,7 @@ async function openSecurityTab(wrapper: ReturnType<typeof mountView>) {
 async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
   const gatewayTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.gateway"));
+    .find((node) => node.text().includes("admin.settings.sections.upstream.title"));
 
   expect(gatewayTabButton).toBeDefined();
   await gatewayTabButton?.trigger("click");
@@ -524,7 +538,7 @@ async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
 async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
   const usersTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.users"));
+    .find((node) => node.text().includes("admin.settings.sections.defaults.title"));
 
   expect(usersTabButton).toBeDefined();
   await usersTabButton?.trigger("click");

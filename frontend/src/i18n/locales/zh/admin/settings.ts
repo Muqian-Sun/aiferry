@@ -1,17 +1,31 @@
 export default {
     settings: {
-      title: '系统设置',
-      description: '管理注册、邮箱验证、默认值和 SMTP 设置',
-      tabs: {
-        general: '通用设置',
-        agreement: '登录条款',
-        features: '功能开关',
-        security: '安全与认证',
-        users: '用户默认值',
-        gateway: '网关服务',
-        email: '邮件设置',
-        payment: '支付设置',
+      navLabel: '设置小节',
+      sectionGroups: {
+        site: '站点',
+        users: '用户',
+        security: '安全',
+        gateway: '网关',
+        payment: '收款',
+        notify: '通知',
+        features: '功能',
       },
+      sections: {
+        site: { title: '品牌与首页', description: '站点名称、Logo、首页与自定义菜单。' },
+        agreement: { title: '条款', description: '登录、注册时要用户确认的条款文档。' },
+        registration: { title: '注册与登录', description: '谁能注册、怎么验证、登录时的人机验证。' },
+        oauth: { title: '第三方登录', description: 'GitHub / Google、LinuxDo、微信、钉钉与 OIDC 登录。' },
+        defaults: { title: '新用户默认值', description: '新用户的余额、并发、订阅等初始值，可按注册来源区分。' },
+        security: { title: '访问与限流', description: '管理 API Key、客户端 IP 识别与面板接口限流。' },
+        cooldown: { title: '重试与冷却', description: '渠道过载 / 429 后的冷却、流式超时与调度阈值。' },
+        forwarding: { title: '转发行为', description: '请求整流、Beta 头、OpenAI 快速模式、转发细节与联网搜索模拟。' },
+        clients: { title: 'Claude Code · Codex', description: '客户端版本限制与 Codex 专用加固。' },
+        upstream: { title: '上游余额探测', description: '定时探测上游倍率与 Ollama Cloud 用量。' },
+        payment: { title: '支付方式', description: '充值与订阅的收款方式、限额与服务商。' },
+        email: { title: '邮件', description: 'SMTP 发信与各类提醒邮件。' },
+        features: { title: '开关', description: '各功能的总开关。' },
+      },
+      description: '站点、用户、安全、网关、收款与通知的全局设置，每一节单独保存。',
       features: {
         channelMonitor: {
           title: '渠道健康',

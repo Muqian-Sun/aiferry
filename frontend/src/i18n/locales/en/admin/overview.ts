@@ -3,7 +3,7 @@ export default {
     featureOff: {
       title: 'Feature off',
       message: '{name} is turned off',
-      hint: 'Turn it on under Settings › Features and the sidebar entry comes back.',
+      hint: 'Turn it on under Settings › Switches and the sidebar entry comes back.',
       goSettings: 'Open settings',
       fallbackName: 'This feature'
     },
