@@ -117,16 +117,20 @@
 ### F1 实施结果（muqian 2026-09-25 提，插在 A7 前；给后来者）
 
 - **决策**：key 不选平台；渠道表单里直接勾选目录模型；**模型白名单去掉**（muqian：「去掉」），映射保留为可选的「模型改名」。
-- **新建渠道**（`CreateAccountModal`）：第一块是 `AccessSourcePicker`，来源表在 `components/account/accessSources.ts`。
-  - key 的来源只决定预填哪家的官方地址和厂商专属选项（国产套餐、Gemini 档位、Grok 预设）；**提交时不带平台**，
-    后端 `resolveCreateAccountPlatform` 按地址推导（认得出官方厂商即该厂商，中转按协议归族）。「自定义中转」不预填地址。
-    原「Antigravity 第三方 key」并进自定义中转（后端早就按普通中转对待标签为 antigravity 的 key）。
-  - 成品号：Claude / ChatGPT / Gemini / Antigravity / Grok / AWS Bedrock / Vertex·Claude / Vertex·Gemini。
+- **新建渠道**（`CreateAccountModal`）：第一块是 `AccessSourcePicker`（`components/account/accessSources.ts`）：先选「第三方 key / 成品号」。
+  - **第三方 key 不选平台、也不选来源**（muqian 追问「渠道里面怎么还有来源」后改掉：第一版给 key 做了一排厂商来源，等于换名的平台选择）。
+    只填协议 + 地址 + Key；常用官方地址做一个下拉菜单快捷填入（`KeyAddressPresetMenu` / `keyAddress.ts`：后端官方地址表 +
+    国产国际站 + Grok 区域）。厂商按地址识别：官方域名表由后端随 `protocol-defaults` 下发（`vendor_hosts`，与
+    `OfficialVendorOfURL` 同一张表），认不出就提示「按中转处理」。识别出的厂商才有它的专属选项，都在地址下面：
+    Kimi / 智谱 / MiniMax 的「按量 / Coding 套餐」（地址能分出来就跟地址走，MiniMax 两种套餐同地址要管理员选）、
+    智谱团队版、Gemini 档位；OpenCode 的 Zen / Go 由地址定。**提交时不带平台**，后端 `resolveCreateAccountPlatform` 按地址推导。
+    表单里的 `form.platform` 对 key 只是占位。原「Antigravity 第三方 key」就是普通中转 key。
+  - 成品号要选是哪家的账号（授权流程各家不同）：Claude / ChatGPT / Gemini / Antigravity / Grok / AWS Bedrock / Vertex·Claude / Vertex·Gemini。
   - 所有建号路径（含 OAuth 批量、Grok SSO）走 `createAccountRecord`：映射打 `model_mapping_rename_only`，建好后
     `PUT /admin/accounts/:id/catalog-entries` 写入勾选的模型；绑定失败不回滚建号，提示去编辑页再勾。
 - **一个 key 只承接一个协议**：地址编辑器改成「协议下拉 + 地址」一行（`ProtocolEndpointsEditor`）；官方地址表多协议时只取
   一个（`preferredProtocolFor`：Anthropic→anthropic、OpenAI / Grok→responses、Gemini→gemini、其余→chat_completions）。
-  换来源用新来源的默认协议，同一来源换模式（按量 / 套餐）保留当前协议。修掉了「用默认预填新建 OpenAI / 国产 key 被后端拒」。
+  换套餐时地址还是上一个套餐的官方地址就换成新套餐同协议的官方地址。修掉了「用默认预填新建 OpenAI / 国产 key 被后端拒」。
 - **编辑渠道**（`EditAccountModal`）：「已上架模型」从只读改成可勾选（`CatalogEntryPicker`，按渠道读 / 写绑定，勾选变了才写）；
   五块白名单 / 映射合成一块 `ModelRenameEditor`。旧映射整份按改名行展示，**同名行（旧白名单）保留**：对承接没影响，
   但 Antigravity / xAI 这类自带模型表的上游靠它扩表、批量生图也按映射列模型。spark 影子账号不打标记（后端只放行两个键）。

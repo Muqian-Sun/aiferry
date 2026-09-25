@@ -645,6 +645,8 @@ export interface ProtocolDefaultsResponse {
   protocols: UpstreamProtocol[]
   /** 平台 → 账号模式（default / coding / zen / go）→ 协议 → 官方地址。 */
   defaults: Record<string, Record<string, ProtocolEndpoints>>
+  /** 官方域名 → 厂商（与后端 OfficialVendorOfURL 同一张表）：建第三方 key 时按地址提示厂商。 */
+  vendor_hosts: Record<string, string>
 }
 
 /**

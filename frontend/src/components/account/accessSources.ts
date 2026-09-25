@@ -1,10 +1,10 @@
 import type { AccountPlatform } from '@/types'
 
-// 新建渠道的第一步（muqian 2026-09-25）：先选「第三方 key / 成品号」，再选来源。
+// 新建渠道的第一步（muqian 2026-09-25）：先选「第三方 key / 成品号」。
 //
-// - 第三方 key 不选平台：来源只决定预填哪家的官方地址和厂商专属选项（国产套餐、Gemini 档位等），
-//   提交时不带平台，后端按地址认厂商（认不出的中转按协议归族）。「自定义中转」不预填地址。
-// - 成品号（订阅账号与云账号）只走官方地址，来源就是它的平台。
+// - 第三方 key 不选平台、也不选来源：只填协议 + 地址 + Key，常用官方地址做快捷填入，厂商按地址识别
+//   （keyAddress.ts）；提交时不带平台，后端按地址推导。
+// - 成品号（订阅账号与云账号）只走官方地址，授权流程各家不同，要选是哪家的账号。
 
 export type AccessKind = 'key' | 'subscription'
 
@@ -14,35 +14,24 @@ export type AccessCategory = 'oauth-based' | 'apikey' | 'bedrock' | 'service_acc
 export interface AccessSource {
   id: string
   kind: AccessKind
-  /** 表单内部用的平台：决定预填地址与厂商专属选项；第三方 key 提交时不带它。 */
+  /** 表单内部用的平台：成品号即它的平台；第三方 key 只是占位（提交时不带，厂商看地址）。 */
   platform: AccountPlatform
   category: AccessCategory
-  /** 图标用的平台标识；自定义中转用通用图标。 */
+  /** 图标用的平台标识。 */
   icon: AccountPlatform | 'relay'
-  /** 专名（厂商 / 产品名）直接写，不翻译。 */
-  name?: string
-  /** 需要翻译的名称。 */
-  nameKey?: string
+  /** 专名（厂商 / 产品名），不翻译。 */
+  name: string
   /** 一句话说明的 i18n key。 */
   hintKey: string
 }
 
-export const CUSTOM_RELAY_SOURCE_ID = 'relay'
+/** 第三方 key 只有这一个入口。 */
+export const KEY_SOURCE_ID = 'key'
 
 const hint = (id: string) => `admin.accounts.accessSource.hints.${id}`
 
 export const ACCESS_SOURCES: readonly AccessSource[] = [
-  { id: 'anthropic-key', kind: 'key', platform: 'anthropic', category: 'apikey', icon: 'anthropic', name: 'Anthropic', hintKey: hint('anthropicKey') },
-  { id: 'openai-key', kind: 'key', platform: 'openai', category: 'apikey', icon: 'openai', name: 'OpenAI', hintKey: hint('openaiKey') },
-  { id: 'gemini-key', kind: 'key', platform: 'gemini', category: 'apikey', icon: 'gemini', name: 'Gemini', hintKey: hint('geminiKey') },
-  { id: 'grok-key', kind: 'key', platform: 'grok', category: 'apikey', icon: 'grok', name: 'xAI', hintKey: hint('grokKey') },
-  { id: 'kimi', kind: 'key', platform: 'kimi', category: 'apikey', icon: 'kimi', name: 'Kimi', hintKey: hint('kimi') },
-  { id: 'zhipu', kind: 'key', platform: 'zhipu', category: 'apikey', icon: 'zhipu', name: 'Zhipu GLM', hintKey: hint('zhipu') },
-  { id: 'deepseek', kind: 'key', platform: 'deepseek', category: 'apikey', icon: 'deepseek', name: 'DeepSeek', hintKey: hint('deepseek') },
-  { id: 'minimax', kind: 'key', platform: 'minimax', category: 'apikey', icon: 'minimax', name: 'MiniMax', hintKey: hint('minimax') },
-  { id: 'opencode', kind: 'key', platform: 'opencode_go', category: 'apikey', icon: 'opencode_go', name: 'OpenCode', hintKey: hint('opencode') },
-  // 中转站的 key：平台只影响表单里的提示，地址与协议由管理员自己填。
-  { id: CUSTOM_RELAY_SOURCE_ID, kind: 'key', platform: 'openai', category: 'apikey', icon: 'relay', nameKey: 'admin.accounts.accessSource.relay', hintKey: hint('relay') },
+  { id: KEY_SOURCE_ID, kind: 'key', platform: 'openai', category: 'apikey', icon: 'relay', name: 'API Key', hintKey: hint('key') },
 
   { id: 'claude', kind: 'subscription', platform: 'anthropic', category: 'oauth-based', icon: 'anthropic', name: 'Claude', hintKey: hint('claude') },
   { id: 'chatgpt', kind: 'subscription', platform: 'openai', category: 'oauth-based', icon: 'openai', name: 'ChatGPT', hintKey: hint('chatgpt') },

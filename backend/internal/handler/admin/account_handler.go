@@ -2716,5 +2716,10 @@ func (h *AccountHandler) GetProtocolDefaults(c *gin.Context) {
 			out[platform] = perMode
 		}
 	}
-	response.Success(c, gin.H{"protocols": service.UpstreamProtocols(), "defaults": out})
+	// vendor_hosts：官方域名 → 厂商，建第三方 key 时前端据此按地址提示厂商（key 不选平台）
+	response.Success(c, gin.H{
+		"protocols":    service.UpstreamProtocols(),
+		"defaults":     out,
+		"vendor_hosts": service.OfficialVendorHosts(),
+	})
 }

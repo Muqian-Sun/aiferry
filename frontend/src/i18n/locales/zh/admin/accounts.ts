@@ -95,12 +95,11 @@ export default {
       // 新建渠道第一步：接入方式与来源（2026-09-25）
       accessSource: {
         kindLabel: '接入方式',
-        sourceLabel: '来源',
-        relay: '自定义中转',
+        accountLabel: '哪家的账号',
         kinds: {
           key: {
             title: '第三方 key',
-            description: '厂商官方或中转站的 API Key；不用选平台，按上游地址识别厂商'
+            description: '厂商官方或中转站的 API Key：填协议、地址和 Key，厂商按地址识别'
           },
           subscription: {
             title: '成品号',
@@ -108,16 +107,7 @@ export default {
           }
         },
         hints: {
-          anthropicKey: 'Claude Console API Key',
-          openaiKey: 'OpenAI Platform API Key',
-          geminiKey: 'Google AI Studio API Key',
-          grokKey: 'xAI Console API Key',
-          kimi: '按量付费或 Coding 套餐',
-          zhipu: '按量付费或 Coding 套餐',
-          deepseek: '开放平台 API Key',
-          minimax: '开放平台 API Key',
-          opencode: 'Zen 或 Go',
-          relay: '中转 / 聚合平台，地址与协议自己填',
+          key: '填协议、地址和 Key',
           claude: 'Claude Code OAuth / Setup Token',
           chatgpt: 'ChatGPT 订阅（Codex OAuth）',
           gemini: 'Google One / Code Assist',
@@ -127,6 +117,12 @@ export default {
           vertexClaude: 'GCP 服务账号，调 Vertex 上的 Claude',
           vertexGemini: 'GCP 服务账号，调 Vertex 上的 Gemini'
         }
+      },
+      // 第三方 key 的地址：常用官方地址快捷填入、按地址识别厂商（key 不选平台）
+      keyAddress: {
+        presetPlaceholder: '从常用官方地址填入…',
+        detected: '按地址识别为 {vendor}',
+        relay: '没认出官方厂商：按中转处理，只走标准协议'
       },
       // 渠道承接的目录模型（渠道表单里直接勾选）
       catalogEntries: {
@@ -1433,7 +1429,6 @@ export default {
           }
         },
         accountType: {
-          apiKeyNote: '适合轻量测试。免费层限流严格，数据可能用于训练。',
           apiKeyLink: '获取 API Key',
           quotaLink: '配额说明'
         },

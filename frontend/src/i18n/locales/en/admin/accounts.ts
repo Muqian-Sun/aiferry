@@ -95,12 +95,11 @@ export default {
       // Add channel, step one: access type and source (2026-09-25)
       accessSource: {
         kindLabel: 'Access type',
-        sourceLabel: 'Source',
-        relay: 'Custom relay',
+        accountLabel: 'Whose account',
         kinds: {
           key: {
             title: 'Third-party key',
-            description: 'An API key from a vendor or a relay; no platform to pick, the vendor is detected from the upstream address'
+            description: 'An API key from a vendor or a relay: fill in the protocol, address and key; the vendor is detected from the address'
           },
           subscription: {
             title: 'Subscription account',
@@ -108,16 +107,7 @@ export default {
           }
         },
         hints: {
-          anthropicKey: 'Claude Console API key',
-          openaiKey: 'OpenAI Platform API key',
-          geminiKey: 'Google AI Studio API key',
-          grokKey: 'xAI Console API key',
-          kimi: 'Pay-as-you-go or Coding Plan',
-          zhipu: 'Pay-as-you-go or Coding Plan',
-          deepseek: 'Open platform API key',
-          minimax: 'Open platform API key',
-          opencode: 'Zen or Go',
-          relay: 'Relay or aggregator; fill in the address and protocol',
+          key: 'Protocol, address and key',
           claude: 'Claude Code OAuth / setup token',
           chatgpt: 'ChatGPT subscription (Codex OAuth)',
           gemini: 'Google One / Code Assist',
@@ -127,6 +117,12 @@ export default {
           vertexClaude: 'GCP service account for Claude on Vertex',
           vertexGemini: 'GCP service account for Gemini on Vertex'
         }
+      },
+      // Third-party key address: fill from common official addresses; the vendor is detected from the address
+      keyAddress: {
+        presetPlaceholder: 'Fill from a common official address…',
+        detected: 'Detected from the address: {vendor}',
+        relay: 'No official vendor recognised: treated as a relay, standard protocols only'
       },
       // Catalog models this channel serves (picked right in the channel form)
       catalogEntries: {
@@ -1369,8 +1365,6 @@ export default {
           }
         },
         accountType: {
-          apiKeyNote:
-            'Best for light testing. Free tier has strict rate limits and data may be used for training.',
           apiKeyLink: 'Get API Key',
           quotaLink: 'Quota guide'
         },

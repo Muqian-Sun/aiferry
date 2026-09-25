@@ -108,168 +108,8 @@
         </div>
       </div>
 
-      <!-- OpenCode Zen vs Go -->
-      <div v-if="isOpenCodeGoPlatform">
-        <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <button
-            type="button"
-            @click="openCodeAccountMode = 'zen'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              openCodeAccountMode === 'zen'
-                ? cnAccentActiveClass
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                openCodeAccountMode === 'zen' ? cnAccentIconClass : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="creditCard" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.zen') }}</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.zenDesc') }}</span>
-            </div>
-          </button>
-          <button
-            type="button"
-            @click="openCodeAccountMode = 'go'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              openCodeAccountMode === 'go'
-                ? cnAccentActiveClass
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                openCodeAccountMode === 'go' ? cnAccentIconClass : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="bolt" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.opencodeGo.accountMode.go') }}</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.opencodeGo.accountMode.goDesc') }}</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Account Mode Selection (Kimi / Zhipu / DeepSeek) -->
-      <div v-if="isCNPlatform && !isOpenCodeGoPlatform">
-        <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
-        <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <!-- Pay-as-you-go (token balance) -->
-          <button
-            type="button"
-            @click="accountMode = 'payg'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountMode === 'payg'
-                ? cnAccentActiveClass
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountMode === 'payg'
-                  ? cnAccentIconClass
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="creditCard" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.cnProviders.accountMode.payg') }}</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.cnProviders.accountMode.paygDesc') }}</span>
-            </div>
-          </button>
-          <!-- Coding Plan (kimi / zhipu only — DeepSeek has no coding plan) -->
-          <button
-            v-if="form.platform !== 'deepseek'"
-            type="button"
-            @click="accountMode = 'coding'"
-            :class="[
-              'flex items-center gap-3 rounded-lg border-2 p-3 text-left transition-all',
-              accountMode === 'coding'
-                ? cnAccentActiveClass
-                : 'border-af-hairline hover:border-af-hairline-strong'
-            ]"
-          >
-            <div
-              :class="[
-                'flex h-8 w-8 shrink-0 items-center justify-center rounded-lg',
-                accountMode === 'coding'
-                  ? cnAccentIconClass
-                  : 'bg-af-sunken text-af-ink-3'
-              ]"
-            >
-              <Icon name="bolt" size="sm" />
-            </div>
-            <div>
-              <span class="block text-sm font-medium text-af-ink">{{ t('admin.accounts.cnProviders.accountMode.coding') }}</span>
-              <span class="text-xs text-af-ink-3">{{ t('admin.accounts.cnProviders.accountMode.codingDesc') }}</span>
-            </div>
-          </button>
-        </div>
-      </div>
-
-      <!-- Zhipu 团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
-      <div v-if="form.platform === 'zhipu' && accountMode === 'coding'" class="mt-4">
-        <div class="flex items-center">
-          <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
-          <HelpTooltip trigger="click" width-class="w-80">
-            <p class="mb-1 font-medium">{{ t('admin.accounts.cnProviders.zhipuTeam.help.title') }}</p>
-            <ol class="list-decimal space-y-1 pl-4">
-              <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step1') }}</li>
-              <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step2') }}</li>
-              <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
-              <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
-            </ol>
-            <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
-              {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
-            </p>
-          </HelpTooltip>
-        </div>
-        <div class="mt-2 grid gap-4 sm:grid-cols-2">
-          <div>
-            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.organization') }}</label>
-            <input v-model="zhipuOrganization" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.organizationPlaceholder')" />
-          </div>
-          <div>
-            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.project') }}</label>
-            <input v-model="zhipuProject" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.projectPlaceholder')" />
-          </div>
-        </div>
-        <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
-      </div>
-
-      <!-- Gemini 的附加选项（接入方式在上面的来源里选） -->
+      <!-- Gemini 成品号的附加选项（key 的档位在地址下面，按地址识别出 Gemini 才显示） -->
       <div v-if="form.platform === 'gemini'">
-        <div
-          v-if="accountCategory === 'apikey'"
-          class="mt-3 rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 text-xs text-af-ink-2"
-        >
-          <p>{{ t('admin.accounts.gemini.accountType.apiKeyNote') }}</p>
-          <div class="mt-2 flex flex-wrap gap-2">
-            <a
-              :href="geminiHelpLinks.apiKey"
-              class="font-medium text-af-ink-2 hover:underline"
-              target="_blank"
-              rel="noreferrer"
-            >
-              {{ t('admin.accounts.gemini.accountType.apiKeyLink') }}
-            </a>
-          </div>
-        </div>
-
         <div
           v-if="accountCategory === 'service_account'"
           class="mt-3 rounded-lg border border-af-hairline bg-af-sunken px-3 py-2 text-xs text-af-ink-2"
@@ -629,29 +469,17 @@
         </div>
       </div>
 
-      <!-- API Key 凭证；Gemini key 的档位也在这里 -->
-      <div v-if="form.type === 'apikey'" class="space-y-4">
-        <div>
-          <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
-          <input
-            v-model="apiKeyValue"
-            type="password"
-            required
-            class="input font-mono"
-            :placeholder="apiKeyValuePlaceholder"
-          />
-          <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
-        </div>
-
-        <!-- Gemini API Key tier selection -->
-        <div v-if="form.platform === 'gemini'">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <select v-model="geminiTierAIStudio" class="input">
-            <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-            <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-          </select>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.aiStudioHint') }}</p>
-        </div>
+      <!-- 第三方 key 的 API Key -->
+      <div v-if="form.type === 'apikey'">
+        <label class="input-label">{{ t('admin.accounts.apiKeyRequired') }}</label>
+        <input
+          v-model="apiKeyValue"
+          type="password"
+          required
+          class="input font-mono"
+          :placeholder="apiKeyValuePlaceholder"
+        />
+        <p v-if="apiKeyHint" class="input-hint">{{ apiKeyHint }}</p>
       </div>
 
       <!-- Bedrock 凭证（仅 Anthropic Bedrock 类型） -->
@@ -803,27 +631,101 @@
 
       <FormSectionHeading v-if="showEndpointSection" section="endpoint" :title="t('admin.accounts.formPage.sections.endpoint')" />
 
-      <!-- API Key 类型的协议地址 / 预设 + 上游倍率自动探测 -->
+      <!--
+        第三方 key 的协议地址（muqian 2026-09-25：key 不选平台）：可从常用官方地址里选一条填入，也可直接填中转地址；
+        厂商按地址识别，识别出的厂商才有它的专属选项（Coding 套餐、智谱团队版、Gemini 档位）。
+      -->
       <div v-if="form.type === 'apikey'" class="space-y-4">
         <div>
+          <KeyAddressPresetMenu
+            v-if="keyPresets.length > 0"
+            class="mb-3"
+            :presets="keyPresets"
+            @select="applyKeyAddressPreset"
+          />
           <ProtocolEndpointsEditor
             v-model="protocolEndpoints"
             :protocols="UPSTREAM_PROTOCOLS"
             :official-endpoints="officialProtocolEndpoints"
             :defaults-load-failed="protocolDefaultsLoadFailed"
           />
-          <GrokBaseUrlPresets
-            v-if="form.platform === 'grok'"
-            class="mt-2"
-            @select="applyGrokPreset"
-          />
-          <CnBaseUrlPresets
-            v-if="isCNPlatform && !isOpenCodeGoPlatform"
-            class="mt-2"
-            :platform="cnPresetPlatform"
-            :mode="accountMode"
-            @select="onCnPresetSelect"
-          />
+          <p v-if="keyVendor" class="input-hint" data-testid="key-vendor-detected">
+            {{ t('admin.accounts.keyAddress.detected', { vendor: platformLabel(keyVendor) }) }}
+          </p>
+          <p v-else-if="hasKeyAddress" class="input-hint" data-testid="key-vendor-relay">
+            {{ t('admin.accounts.keyAddress.relay') }}
+          </p>
+        </div>
+
+        <!-- 按量 / Coding 套餐：MiniMax 两种套餐同一个地址，靠地址分不出来，要管理员选 -->
+        <div v-if="keyHasCodingPlan" data-testid="key-plan-mode">
+          <label class="input-label">{{ t('admin.accounts.cnProviders.accountMode.title') }}</label>
+          <div class="mt-2 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <button
+              v-for="mode in CN_PLAN_MODES"
+              :key="mode.value"
+              type="button"
+              :data-testid="`key-plan-mode-${mode.value}`"
+              :class="[
+                'flex items-center gap-3 rounded-lg border p-3 text-left transition-colors',
+                keyPlanMode === mode.value ? 'border-af-brand bg-af-brand-tint' : 'border-af-hairline hover:border-af-hairline-strong'
+              ]"
+              @click="keyPlanMode = mode.value"
+            >
+              <span
+                :class="[
+                  'flex h-8 w-8 shrink-0 items-center justify-center rounded-md',
+                  keyPlanMode === mode.value ? 'bg-af-ink text-af-on-brand' : 'bg-af-sunken text-af-ink-3'
+                ]"
+              >
+                <Icon :name="mode.icon" size="sm" />
+              </span>
+              <span>
+                <span class="block text-sm font-medium text-af-ink">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}`) }}</span>
+                <span class="text-xs text-af-ink-3">{{ t(`admin.accounts.cnProviders.accountMode.${mode.value}Desc`) }}</span>
+              </span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 智谱团队版 Coding Plan：组织/项目 ID（可选，填写后额度探测走团队版端点） -->
+        <div v-if="keyVendor === 'zhipu' && keyPlanMode === 'coding'">
+          <div class="flex items-center">
+            <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.title') }}</label>
+            <HelpTooltip trigger="click" width-class="w-80">
+              <p class="mb-1 font-medium">{{ t('admin.accounts.cnProviders.zhipuTeam.help.title') }}</p>
+              <ol class="list-decimal space-y-1 pl-4">
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step1') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step2') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step3') }}</li>
+                <li>{{ t('admin.accounts.cnProviders.zhipuTeam.help.step4') }}</li>
+              </ol>
+              <p class="mt-2 break-all rounded bg-black/20 p-1.5 font-mono text-[11px] leading-relaxed">
+                {{ t('admin.accounts.cnProviders.zhipuTeam.help.example') }}
+              </p>
+            </HelpTooltip>
+          </div>
+          <div class="mt-2 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.organization') }}</label>
+              <input v-model="zhipuOrganization" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.organizationPlaceholder')" />
+            </div>
+            <div>
+              <label class="input-label">{{ t('admin.accounts.cnProviders.zhipuTeam.project') }}</label>
+              <input v-model="zhipuProject" type="text" class="input" :placeholder="t('admin.accounts.cnProviders.zhipuTeam.projectPlaceholder')" />
+            </div>
+          </div>
+          <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
+        </div>
+
+        <!-- Gemini key 的档位（按地址识别出 Gemini 才有） -->
+        <div v-if="keyVendor === 'gemini'">
+          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
+          <select v-model="geminiTierAIStudio" class="input">
+            <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
+            <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
+          </select>
+          <p class="input-hint">{{ t('admin.accounts.gemini.tier.aiStudioHint') }}</p>
         </div>
 
         <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
@@ -2642,22 +2544,26 @@ import AccessSourcePicker from '@/components/account/AccessSourcePicker.vue'
 import CatalogEntryPicker from '@/components/account/CatalogEntryPicker.vue'
 import ModelRenameEditor from '@/components/account/ModelRenameEditor.vue'
 import {
-  CUSTOM_RELAY_SOURCE_ID,
   DEFAULT_ACCESS_SOURCE_ID,
   findAccessSource
 } from '@/components/account/accessSources'
 import QuotaLimitCard from '@/components/account/QuotaLimitCard.vue'
 import Toggle from '@/components/common/Toggle.vue'
-import GrokBaseUrlPresets from '@/components/account/GrokBaseUrlPresets.vue'
-import CnBaseUrlPresets from '@/components/account/CnBaseUrlPresets.vue'
+import KeyAddressPresetMenu from '@/components/account/KeyAddressPresetMenu.vue'
+import {
+  VENDORS_WITH_CODING_PLAN,
+  detectKeyVendor,
+  keyAddressPresets,
+  modeOfAddress,
+  type KeyAddressPreset
+} from '@/components/account/keyAddress'
+import { platformLabel } from '@/utils/platformLabel'
 import ProtocolEndpointsEditor from '@/components/account/ProtocolEndpointsEditor.vue'
 import {
   UPSTREAM_PROTOCOLS,
-  applyPresetUrl,
   describeProtocolEndpointsIssue,
   currentProtocolOf,
   endpointsAfterDefaultsChange,
-  preferredProtocolFor,
   hasAnthropicEndpoint,
   hasOpenAIEndpoint,
   loadProtocolDefaults,
@@ -2670,14 +2576,10 @@ import {
   applyAntigravityProjectID,
   applyHeaderOverride,
   applyInterceptWarmup,
-  isCNProviderPlatform,
   isHeaderOverrideCapable,
   validateHeaderOverrideRows,
   type CnAccountMode,
-  type CnBaseUrlPreset,
-  type CnProviderPlatform,
-  type HeaderOverrideRow,
-  type OpenCodeAccountMode
+  type HeaderOverrideRow
 } from '@/components/account/credentialsBuilder'
 import {
   formatDateTimeLocalInput,
@@ -2734,34 +2636,34 @@ const withUpstreamRequestIdHeader = <T extends Record<string, unknown> | undefin
   return { ...(extra || {}), upstream_request_id_header: name }
 }
 
+// API Key 的提示与占位跟着按地址识别出的厂商走；中转用通用说法
 const apiKeyHint = computed(() => {
-  if (isCustomRelay.value) return t('admin.accounts.upstream.apiKeyHint')
-  if (form.platform === 'openai') return t('admin.accounts.openai.apiKeyHint')
-  if (form.platform === 'gemini') return t('admin.accounts.gemini.apiKeyHint')
-  if (form.platform === 'grok') return ''
-  return t('admin.accounts.apiKeyHint')
+  switch (keyVendor.value) {
+    case 'anthropic':
+      return t('admin.accounts.apiKeyHint')
+    case 'openai':
+      return t('admin.accounts.openai.apiKeyHint')
+    case 'gemini':
+      return t('admin.accounts.gemini.apiKeyHint')
+    default:
+      return t('admin.accounts.upstream.apiKeyHint')
+  }
 })
 
 const apiKeyValuePlaceholder = computed(() => {
-  if (isCustomRelay.value) return 'sk-...'
-  switch (form.platform) {
+  switch (keyVendor.value) {
+    case 'anthropic':
+      return 'sk-ant-...'
     case 'openai':
       return 'sk-proj-...'
     case 'gemini':
       return 'AIza...'
     case 'grok':
       return 'xai-...'
-    case 'kimi':
-      return 'sk-...'
     case 'zhipu':
       return '<api-key>.<secret>'
-    case 'deepseek':
-      return 'sk-...'
-    case 'minimax':
-    case 'opencode_go':
-      return 'sk-...'
     default:
-      return 'sk-ant-...'
+      return 'sk-...'
   }
 })
 
@@ -2846,26 +2748,18 @@ const addMethod = ref<AddMethod>('oauth') // For oauth-based: 'oauth' or 'setup-
 const apiKeyValue = ref('')
 const upstreamBillingAutoProbeEnabled = ref(true)
 
-// ── 国产供应商（Kimi / Zhipu / DeepSeek）账号类型与端点 ──
-// 转发协议不在这里选：后端按入站协议在已配置的协议地址里挑选。
-const accountMode = ref<CnAccountMode>('payg')
-const openCodeAccountMode = ref<OpenCodeAccountMode>('zen')
 // 智谱团队版 Coding Plan：组织/项目 ID，写入 credentials 供额度探测切换团队端点
 const zhipuOrganization = ref('')
 const zhipuProject = ref('')
-const isCNPlatform = computed(() => isCNProviderPlatform(form.platform))
-const isOpenCodeGoPlatform = computed(() => form.platform === 'opencode_go')
 
-// ── 接入方式与来源（新建渠道第一步，见 accessSources.ts） ──
+// ── 接入方式（新建渠道第一步，见 accessSources.ts） ──
 const accessSourceId = ref(DEFAULT_ACCESS_SOURCE_ID)
 const accessSource = computed(() => findAccessSource(accessSourceId.value))
-// 自定义中转：不预填官方地址，提交时和其它第三方 key 一样不带平台
-const isCustomRelay = computed(() => accessSourceId.value === CUSTOM_RELAY_SOURCE_ID)
-// 承接的模型：来源的厂商族排在最前；中转没有厂商族
-const catalogSuggestedPlatform = computed(() => (isCustomRelay.value ? undefined : accessSource.value.platform))
+// 第三方 key 不选平台：form.platform 只是表单内部占位，提交时不带，厂商按地址识别（keyVendor）
+const isKeyMode = computed(() => accessSource.value.kind === 'key')
 const selectedCatalogEntryIds = ref<number[]>([])
 
-// 选来源 = 切到它的平台与类别。先换平台并等平台 watcher 跑完（它会重置平台相关字段，
+// 选接入方式 / 成品号的厂商 = 切到它的平台与类别。先换平台并等平台 watcher 跑完（它会重置平台相关字段，
 // 部分平台还会把类别复位成成品号），再定类别。
 async function applyAccessSource(sourceId: string) {
   const source = findAccessSource(sourceId)
@@ -2874,27 +2768,69 @@ async function applyAccessSource(sourceId: string) {
     await nextTick()
   }
   accountCategory.value = source.category
-  // DeepSeek 没有 Coding 套餐；OpenCode 默认 Zen
-  if (source.platform === 'deepseek') accountMode.value = 'payg'
-  if (source.platform === 'opencode_go') openCodeAccountMode.value = 'zen'
 }
 watch(accessSourceId, (sourceId) => {
   void applyAccessSource(sourceId)
 })
 
-// ── 第三方 key 协议地址 ──
-// 官方地址由后端 protocol-defaults 预填，存库的就是这份显式地址；管理员可改成中转
-// 地址。切换平台或账号模式时只在地址没被改过时换成新的官方地址。
+// ── 第三方 key 协议地址（muqian 2026-09-25：key 不选平台） ──
+// 存库的就是管理员填的显式地址：可从常用官方地址里选一条填入，也可直接填中转地址。
 const protocolDefaults = ref<ProtocolDefaultsResponse | null>(null)
 const protocolDefaultsLoadFailed = ref(false)
 const protocolEndpoints = ref<ProtocolEndpoints>({})
-const protocolDefaultsMode = computed(() => {
-  if (isOpenCodeGoPlatform.value) return openCodeAccountMode.value
-  if (isCNPlatform.value) return accountMode.value
-  return undefined
+const keyPresets = computed(() => keyAddressPresets(protocolDefaults.value))
+// 按地址识别出的厂商（官方域名表由后端下发，与后端 Account.Vendor 同口径）；认不出的是中转
+const keyVendor = computed(() =>
+  isKeyMode.value ? detectKeyVendor(protocolEndpoints.value, protocolDefaults.value?.vendor_hosts) : null
+)
+const hasKeyAddress = computed(() => Object.values(protocolEndpoints.value).some((url) => !!url?.trim()))
+// 按量 / Coding 套餐：只有 Kimi / 智谱 / MiniMax 有。地址能分出来就跟地址走，分不出来（MiniMax 同地址）由管理员选
+const CN_PLAN_MODES = [
+  { value: 'payg', icon: 'creditCard' },
+  { value: 'coding', icon: 'bolt' }
+] as const
+const keyPlanMode = ref<CnAccountMode>('payg')
+const keyHasCodingPlan = computed(() => !!keyVendor.value && VENDORS_WITH_CODING_PLAN.has(keyVendor.value))
+// 写进 credentials.account_mode 的模式：国产厂商按量 / 套餐，OpenCode 的 Zen / Go 由地址定；中转不写
+const keyAccountMode = computed<string | undefined>(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return undefined
+  if (vendor === 'opencode_go') return modeOfAddress(keyPresets.value, vendor, protocolEndpoints.value) ?? 'zen'
+  if (vendor === 'deepseek') return 'payg'
+  return keyHasCodingPlan.value ? keyPlanMode.value : undefined
 })
-const officialProtocolEndpoints = computed<ProtocolEndpoints>(() =>
-  isCustomRelay.value ? {} : protocolDefaultsFor(protocolDefaults.value, form.platform, protocolDefaultsMode.value)
+watch([keyVendor, protocolEndpoints], () => {
+  const vendor = keyVendor.value
+  if (!vendor || !VENDORS_WITH_CODING_PLAN.has(vendor)) return
+  const mode = modeOfAddress(keyPresets.value, vendor, protocolEndpoints.value)
+  if (mode === 'payg' || mode === 'coding') keyPlanMode.value = mode
+})
+// 换套餐时，地址还是上一个套餐的官方地址（没改过）就换成新套餐同协议的官方地址
+watch(keyPlanMode, (mode, previous) => {
+  const vendor = keyVendor.value
+  const current = currentProtocolOf(protocolEndpoints.value)
+  if (!vendor || !current || mode === previous) return
+  protocolEndpoints.value = endpointsAfterDefaultsChange(
+    protocolEndpoints.value,
+    protocolDefaultsFor(protocolDefaults.value, vendor, previous),
+    protocolDefaultsFor(protocolDefaults.value, vendor, mode),
+    current
+  )
+})
+// 识别出的厂商在当前套餐下的官方地址：给地址编辑器的「填入官方地址」与换协议用
+const officialProtocolEndpoints = computed<ProtocolEndpoints>(() => {
+  const vendor = keyVendor.value
+  if (!vendor) return {}
+  const mode = vendor === 'opencode_go' ? keyAccountMode.value : keyHasCodingPlan.value ? keyPlanMode.value : undefined
+  return protocolDefaultsFor(protocolDefaults.value, vendor, mode)
+})
+function applyKeyAddressPreset(preset: KeyAddressPreset) {
+  protocolEndpoints.value = { [preset.protocol]: preset.url }
+  if (preset.mode === 'payg' || preset.mode === 'coding') keyPlanMode.value = preset.mode
+}
+// 承接的模型：成品号的厂商、或 key 按地址识别出的厂商排在最前；中转没有
+const catalogSuggestedPlatform = computed(() =>
+  isKeyMode.value ? (keyVendor.value ?? undefined) : accessSource.value.platform
 )
 async function ensureProtocolDefaults() {
   try {
@@ -2912,26 +2848,6 @@ function validatedProtocolEndpoints(): ProtocolEndpoints | null {
     return null
   }
   return trimProtocolEndpoints(protocolEndpoints.value)
-}
-// CnBaseUrlPresets 的 platform prop 是平台字面量联合类型，模板里不能写
-// `as` 断言（其中的 `|` 会被 eslint 误判为 Vue2 filter 语法），经此 computed 传递。
-const cnPresetPlatform = computed<CnProviderPlatform>(() => {
-  if (isCNProviderPlatform(form.platform)) {
-    return form.platform
-  }
-  return 'kimi'
-})
-// 选中平台卡片的描边 / 图标底色：统一墨色（原按平台品牌色；muqian 2026-09-24 管理站装饰色收成墨色）
-const cnAccentActiveClass = 'border-af-brand bg-af-brand-tint'
-const cnAccentIconClass = 'bg-af-ink text-af-on-brand'
-// 点击国产供应商预设：回填账号类型和该协议的地址。
-function onCnPresetSelect(preset: CnBaseUrlPreset) {
-  accountMode.value = preset.mode
-  protocolEndpoints.value = { [preset.protocol]: preset.url }
-}
-// Grok 预设地址同时服务 Chat Completions 与 Responses。
-function applyGrokPreset(url: string) {
-  protocolEndpoints.value = applyPresetUrl(protocolEndpoints.value, ['chat_completions', 'responses'], url)
 }
 
 const editQuotaLimit = ref<number | null>(null)
@@ -3218,8 +3134,13 @@ const geminiHelpLinks = {
 }
 
 // 改名快捷项（同名预设只对自带模型表的上游保留，见 renamePresetsFor）
-const renamePresets = computed(() => renamePresetsFor(accountCategory.value === 'bedrock' ? 'bedrock' : form.platform))
-const extendsVendorTable = computed(() => PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(form.platform))
+const renamePresets = computed(() => {
+  if (isKeyMode.value) return keyVendor.value ? renamePresetsFor(keyVendor.value) : []
+  return renamePresetsFor(accountCategory.value === 'bedrock' ? 'bedrock' : form.platform)
+})
+const extendsVendorTable = computed(() =>
+  PLATFORMS_WITH_VENDOR_MODEL_TABLE.has(isKeyMode.value ? (keyVendor.value ?? '') : form.platform)
+)
 const tempUnschedPresets = computed(() => [
   {
     label: t('admin.accounts.tempUnschedulable.presets.overloadLabel'),
@@ -3390,16 +3311,6 @@ watch(
     if (show) void ensureProtocolDefaults()
   },
   { immediate: true }
-)
-// 平台或账号模式切换、官方地址加载完成时预填协议地址（管理员改过的保留）。
-// 换了来源（平台）用新平台的默认协议；同一平台换模式（按量 / 套餐）保留当前协议。
-watch(
-  () => [officialProtocolEndpoints.value, form.platform] as const,
-  ([next, platform], [previous, previousPlatform]) => {
-    const current = currentProtocolOf(protocolEndpoints.value)
-    const preferred = platform === previousPlatform && current ? current : preferredProtocolFor(platform)
-    protocolEndpoints.value = endpointsAfterDefaultsChange(protocolEndpoints.value, previous ?? {}, next, preferred)
-  }
 )
 
 // Reset platform-specific settings when platform changes
@@ -3748,8 +3659,10 @@ const resetForm = () => {
   form.expires_at = null
   accountCategory.value = 'oauth-based'
   addMethod.value = 'oauth'
-  accountMode.value = 'payg'
-  openCodeAccountMode.value = 'zen'
+  keyPlanMode.value = 'payg'
+  protocolEndpoints.value = {}
+  zhipuOrganization.value = ''
+  zhipuProject.value = ''
   apiKeyValue.value = ''
   upstreamRequestIdHeader.value = ''
   upstreamBillingAutoProbeEnabled.value = true
@@ -4121,17 +4034,16 @@ const handleSubmit = async () => {
   const credentials: Record<string, unknown> = {
     api_key: apiKeyValue.value.trim()
   }
-  if (form.platform === 'gemini') {
+  if (keyVendor.value === 'gemini') {
     credentials.tier_id = geminiTierAIStudio.value
   }
 
-  // 国产供应商：账号模式写入凭据，后端按 account_mode 路由额度/余额探测；转发协议由
-  // 协议地址决定。注意 CN apikey 走本函数的通用路径（直接 doCreateAccount），
-  // 不经过 createAccountAndFinish。
-  if (isCNProviderPlatform(form.platform) || form.platform === 'opencode_go') {
-    credentials.account_mode = form.platform === 'opencode_go' ? openCodeAccountMode.value : accountMode.value
+  // 国产厂商 / OpenCode：账号模式写入凭据，后端按 account_mode 路由额度 / 余额探测；
+  // 厂商按地址识别，中转不写。转发协议由协议地址决定。
+  if (keyAccountMode.value) {
+    credentials.account_mode = keyAccountMode.value
     // 智谱团队版 Coding Plan：组织/项目 ID 写入凭据（非空才写）
-    if (form.platform === 'zhipu' && accountMode.value === 'coding') {
+    if (keyVendor.value === 'zhipu' && keyPlanMode.value === 'coding') {
       if (zhipuOrganization.value.trim()) credentials.zhipu_organization = zhipuOrganization.value.trim()
       if (zhipuProject.value.trim()) credentials.zhipu_project = zhipuProject.value.trim()
     }
