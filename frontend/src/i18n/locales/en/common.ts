@@ -212,7 +212,6 @@ export default {
     subscribe: 'Subscription',
     docs: 'Docs',
     orderManagement: 'Orders',
-    paymentDashboard: 'Payment Dashboard',
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',

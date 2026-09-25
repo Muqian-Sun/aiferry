@@ -1,6 +1,10 @@
 <template>
   <div :class="flat ? 'py-4' : 'card p-6'">
-    <!-- 左：筛选（可换行）；右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7） -->
+    <!--
+      左：筛选（可换行）；右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7）。
+      控件上方不写标签（A8，与用户站用量页一致）：标签文字进 title；没选时占位写「全部 xx」——值是 undefined 时
+      下拉匹配不到 null 那一项，不给占位会显示「请选择」。
+    -->
     <div class="flex flex-wrap items-center justify-between gap-3">
       <!-- Left: filters (allowed to wrap to multiple rows) -->
       <div class="flex flex-1 flex-wrap items-center gap-2">
@@ -119,41 +123,41 @@
 
         <!-- Request Type Filter (usage only) -->
         <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.type')">
-          <Select v-model="filters.request_type" :options="requestTypeOptions" @change="emitChange" />
+          <Select v-model="filters.request_type" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
         </div>
 
         <!-- Native compaction is independent of the transport request type. -->
         <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
-          <Select v-model="filters.native_compaction_v2" :options="compactionOptions" @change="emitChange" />
+          <Select v-model="filters.native_compaction_v2" :options="compactionOptions" :placeholder="t('usage.allCompactionTypes')" @change="emitChange" />
         </div>
 
         <!-- Billing Type Filter (usage only) -->
         <div v-if="mode !== 'errors'" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
-          <Select v-model="filters.billing_type" :options="billingTypeOptions" @change="emitChange" />
+          <Select v-model="filters.billing_type" :options="billingTypeOptions" :placeholder="t('admin.usage.allBillingTypes')" @change="emitChange" />
         </div>
 
         <!-- Billing Mode Filter (usage only；用户排行的 user-breakdown 接口不支持该维度) -->
         <div v-if="mode === 'usage'" class="w-full sm:w-44" :title="t('admin.usage.billingMode')">
-          <Select v-model="filters.billing_mode" :options="billingModeOptions" @change="emitChange" />
+          <Select v-model="filters.billing_mode" :options="billingModeOptions" :placeholder="t('admin.usage.allBillingModes')" @change="emitChange" />
         </div>
 
         <div v-if="mode === 'usage' || mode === 'analysis'" class="w-full sm:w-52" :title="t('admin.usage.upstreamModelAudit')">
-          <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" @change="emitChange" />
+          <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" :placeholder="t('admin.usage.allUpstreamModelAudit')" @change="emitChange" />
         </div>
 
         <!-- Error Phase Filter (errors only) -->
         <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.type')">
-          <Select v-model="filters.error_phase" :options="errorPhaseOptions" @change="emitChange" />
+          <Select v-model="filters.error_phase" :options="errorPhaseOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
         </div>
 
         <!-- Error Category Filter (errors only) -->
         <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('usage.errors.category')">
-          <Select v-model="filters.error_category" :options="errorCategoryOptions" @change="emitChange" />
+          <Select v-model="filters.error_category" :options="errorCategoryOptions" :placeholder="t('usage.errors.allCategories')" @change="emitChange" />
         </div>
 
         <!-- Status Code Filter (errors only) -->
         <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.status')">
-          <Select v-model="filters.status_code" :options="statusCodeOptions" @change="emitChange" />
+          <Select v-model="filters.status_code" :options="statusCodeOptions" :placeholder="t('usage.errors.allStatuses')" @change="emitChange" />
         </div>
 
       </div>
