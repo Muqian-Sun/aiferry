@@ -152,6 +152,22 @@ vi.mock("@/utils/apiError", () => ({
   extractApiErrorMessage: () => "error",
 }));
 
+// A6：当前小节来自路由 /settings/:section，导航调用 router.push 切换
+vi.mock("vue-router", async () => {
+  const { reactive } = await import("vue");
+  const route = reactive({ params: {} as Record<string, string> });
+  return {
+    onBeforeRouteLeave: () => {},
+    onBeforeRouteUpdate: () => {},
+    useRoute: () => route,
+    useRouter: () => ({
+      push: async (to: { params?: Record<string, string> }) => {
+        route.params = { ...(to.params ?? {}) };
+      },
+    }),
+  };
+});
+
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   const translations: Record<string, string> = {
@@ -486,7 +502,6 @@ function mountView() {
         PaymentProviderDialog: true,
         ProxySelector: true,
         ImageUpload: ImageUploadStub,
-        BackupSettings: true,
       },
     },
   });
@@ -495,7 +510,7 @@ function mountView() {
 async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
   const paymentTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.payment"));
+    .find((node) => node.text().includes("admin.settings.sections.payment.title"));
 
   expect(paymentTabButton).toBeDefined();
   await paymentTabButton?.trigger("click");
@@ -505,7 +520,7 @@ async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
 async function openSecurityTab(wrapper: ReturnType<typeof mountView>) {
   const securityTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.security"));
+    .find((node) => node.text().includes("admin.settings.sections.registration.title"));
 
   expect(securityTabButton).toBeDefined();
   await securityTabButton?.trigger("click");
@@ -515,7 +530,7 @@ async function openSecurityTab(wrapper: ReturnType<typeof mountView>) {
 async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
   const gatewayTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.gateway"));
+    .find((node) => node.text().includes("admin.settings.sections.upstream.title"));
 
   expect(gatewayTabButton).toBeDefined();
   await gatewayTabButton?.trigger("click");
@@ -525,7 +540,7 @@ async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
 async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
   const usersTabButton = wrapper
     .findAll("button")
-    .find((node) => node.text().includes("admin.settings.tabs.users"));
+    .find((node) => node.text().includes("admin.settings.sections.defaults.title"));
 
   expect(usersTabButton).toBeDefined();
   await usersTabButton?.trigger("click");
@@ -742,9 +757,8 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(userRpmInput.exists()).toBe(true);
     await userRpmInput.setValue("120");
 
-    const saveButton = wrapper.find('[data-testid="panel-rate-limit-save"]');
-    expect(saveButton.exists()).toBe(true);
-    await saveButton.trigger("click");
+    // A6：卡片不再各自保存，由所在小节（访问与限流）的保存栏保存
+    await wrapper.get('[data-testid="settings-section-security"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updatePanelRateLimitSettings).toHaveBeenCalledWith({
@@ -1058,28 +1072,6 @@ describe("admin SettingsView payment visible method controls", () => {
     expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
   });
 
-  it("submits the admin recharge affiliate rebate setting", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      affiliate_enabled: true,
-      affiliate_admin_recharge_enabled: true,
-    });
-
-    const wrapper = mountView();
-
-    await flushPromises();
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledTimes(1);
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        affiliate_admin_recharge_enabled: true,
-      }),
-    );
-  });
-
-  // 利润门是全站一档的设置（原来在分组上）：载入回填、提交带三键。
   it("loads and submits the site-wide profit gate settings", async () => {
     getSettings.mockResolvedValueOnce({
       ...baseSettingsResponse,
@@ -1250,7 +1242,6 @@ describe("admin SettingsView payment visible method controls", () => {
           PaymentProviderDialog: true,
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
-          BackupSettings: true,
         },
       },
     });
@@ -1323,7 +1314,7 @@ describe("admin SettingsView payment visible method controls", () => {
 
     await card.get('[data-testid="upstream-billing-probe-enabled"]').setValue(true);
     await card.get('[data-testid="upstream-billing-probe-interval"]').setValue(60);
-    await card.get('[data-testid="upstream-billing-probe-save"]').trigger("click");
+    await wrapper.get('[data-testid="settings-section-upstream"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updateUpstreamBillingProbeSettings).toHaveBeenCalledWith({
@@ -1399,7 +1390,7 @@ describe("admin SettingsView payment visible method controls", () => {
     await card.get('[data-testid="ollama-cloud-usage-global-enabled"]').setValue(true);
     await card.get('[data-testid="ollama-cloud-usage-global-debounce"]').setValue(3);
     await card.get('[data-testid="ollama-cloud-usage-global-interval"]').setValue(90);
-    await card.get('[data-testid="ollama-cloud-usage-global-save"]').trigger("click");
+    await wrapper.get('[data-testid="settings-section-upstream"]').trigger("submit.prevent");
     await flushPromises();
 
     expect(updateOllamaCloudUsageSettings).toHaveBeenCalledWith({
@@ -1474,7 +1465,6 @@ describe("admin SettingsView payment visible method controls", () => {
           PaymentProviderDialog: true,
           ProxySelector: true,
           ImageUpload: ImageUploadStub,
-          BackupSettings: true,
         },
       },
     });

@@ -74,6 +74,16 @@ export default {
       unranked: '未上榜',
     },
     settings: {
+      visibility: {
+        title: '用户端展示',
+        description: '用户在「渠道状态」页能看到哪些数据。',
+        hideThroughput: '对用户隐藏吞吐速率（RPM / TPM）',
+        hideThroughputHint:
+          '开启后，用户端渠道状态页与用户 API 不返回 RPM/TPM，避免用「速率 × 时间窗」反推集群规模。管理员仍可见完整指标；错误率、延迟、缓存率照常展示。',
+        hideUserRanking: '对用户隐藏用户排行',
+        hideUserRankingHint:
+          '开启后，用户端渠道状态页不再显示「用户排行」，用户 API 也不返回排行数据。管理员仍可查看。',
+      },
       description:
         '配置被动用量汇总维度（平台 / 模型）与刷新频率。健康色与明细在用户端 /monitor 以比例、RPM/TPM 展示，不暴露绝对请求量。',
       save: '保存',
@@ -82,8 +92,8 @@ export default {
       saveSuccess: '配置已保存',
       saveFailed: '配置保存失败',
       enableTitle: '启用汇总',
-      enableHint: '关闭后只停止这里的汇总；整个渠道健康功能的开关在「设置 › 功能开关」',
-      disabledBanner: '渠道健康已在「设置 › 功能开关」关闭，汇总不会运行；这里的配置可以先保存。',
+      enableHint: '关闭后只停止这里的汇总；整个渠道健康功能的开关在「设置 › 开关」',
+      disabledBanner: '渠道健康已在「设置 › 开关」关闭，汇总不会运行；这里的配置可以先保存。',
       refreshTitle: '汇总频率',
       refreshHint: '影响矩阵时间粒度与刷新节奏',
       refreshAria: '汇总频率',
