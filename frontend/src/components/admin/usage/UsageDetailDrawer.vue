@@ -22,7 +22,8 @@
           </div>
         </dl>
         <dl class="mt-4 divide-y divide-af-hairline border-t border-af-hairline">
-          <DetailField :label="t('admin.usage.detail.userRate')" :value="`${formatMultiplier(log.rate_multiplier || 1)}x`" />
+          <!-- 用户倍率 0 = 免费（库里 NOT NULL DEFAULT 1），不能用 || 把 0 当成没记 -->
+          <DetailField :label="t('admin.usage.detail.userRate')" :value="`${formatMultiplier(log.rate_multiplier ?? 1)}x`" />
           <DetailField :label="t('admin.usage.detail.accountRate')" :value="`${formatMultiplier(log.account_rate_multiplier ?? 1)}x`" />
           <DetailField
             :label="t('admin.usage.billingType')"
@@ -142,7 +143,7 @@ import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
 import { formatMoneyExact, profitOf, profitTextClass } from '@/utils/money'
 import { getBillingModeLabel, getDisplayBillingMode, isImageUsage } from '@/utils/billingMode'
-import { formatImageBillingSize } from '@/utils/imageUsage'
+import { formatImageBillingSize, textInputTokens, textOutputTokens } from '@/utils/imageUsage'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import {
   formatDurationMs,
@@ -193,9 +194,10 @@ const moneyItems = computed(() => {
 const tokenLines = computed(() => {
   const log = props.log
   if (!log) return []
+  // input / output_tokens 已含图片 Token，下面图片 Token 单列，这里只写文字部分，各行加起来才等于合计
   const lines: Array<{ key: string; label: string; value: string }> = [
-    { key: 'input', label: t('admin.usage.inputTokens'), value: (log.input_tokens || 0).toLocaleString() },
-    { key: 'output', label: t('admin.usage.outputTokens'), value: (log.output_tokens || 0).toLocaleString() }
+    { key: 'input', label: t('admin.usage.inputTokens'), value: textInputTokens(log).toLocaleString() },
+    { key: 'output', label: t('admin.usage.outputTokens'), value: textOutputTokens(log).toLocaleString() }
   ]
   if (log.image_input_tokens > 0) {
     lines.push({ key: 'imageInput', label: t('usage.imageInputTokens'), value: log.image_input_tokens.toLocaleString() })

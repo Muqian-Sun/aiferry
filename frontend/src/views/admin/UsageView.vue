@@ -394,7 +394,7 @@ const exportToExcel = async () => {
           log.inbound_endpoint || '', log.upstream_endpoint || '', requestTypeLabel(log, t),
           log.input_tokens, log.output_tokens, log.cache_read_tokens, log.cache_creation_tokens,
           formatMoneyExact(revenue), formatMoneyExact(cost), formatMoneyExact(profitOf(revenue, cost)),
-          formatMultiplier(log.rate_multiplier || 1), formatMultiplier(log.account_rate_multiplier ?? 1),
+          formatMultiplier(log.rate_multiplier ?? 1), formatMultiplier(log.account_rate_multiplier ?? 1),
           log.first_token_ms ?? '', log.duration_ms,
           log.request_id || '', log.upstream_request_id || '', log.user_agent || '', log.ip_address || ''
         ]

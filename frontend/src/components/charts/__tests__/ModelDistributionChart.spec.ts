@@ -11,16 +11,10 @@ const messages: Record<string, string> = {
   'admin.dashboard.spendingRankingUser': 'User',
   'admin.dashboard.spendingRankingRequests': 'Requests',
   'admin.dashboard.spendingRankingTokens': 'Tokens',
-  'admin.dashboard.spendingRankingSpend': 'Spend',
   'admin.dashboard.spendingRankingOther': 'Others',
   'admin.dashboard.model': 'Model',
   'admin.dashboard.requests': 'Requests',
   'admin.dashboard.tokens': 'Tokens',
-  'admin.dashboard.actual': 'Actual',
-  'admin.dashboard.accountCost': 'Account Cost',
-  'admin.dashboard.standard': 'Standard',
-  'admin.dashboard.metricTokens': 'By Tokens',
-  'admin.dashboard.metricActualCost': 'By Actual Cost',
   'admin.dashboard.noDataAvailable': 'No data available',
   'admin.redeem.userPrefix': 'User #{id}',
 }
@@ -83,26 +77,6 @@ describe('ModelDistributionChart', () => {
     expect(rows[1].text()).toContain('model-b')
     // 占比按 Token：1000 / 1500
     expect(rows[0].text()).toContain('67%')
-  })
-
-  it('uses actual_cost and reorders rows in actual cost mode', () => {
-    const wrapper = mount(ModelDistributionChart, {
-      props: {
-        modelStats,
-        metric: 'actual_cost',
-      },
-      global: {
-        stubs: {
-          LoadingSpinner: true,
-        },
-      },
-    })
-
-    const rows = wrapper.findAll('tbody tr')
-    expect(rows[0].text()).toContain('model-b')
-    expect(rows[1].text()).toContain('model-a')
-    // 占比按实付：1.4 / 1.6
-    expect(rows[0].text()).toContain('88%')
   })
 
   it('uses the dashboard user label policy and renders an Others row', async () => {

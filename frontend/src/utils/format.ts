@@ -346,16 +346,6 @@ export function formatNumberLocaleString(num: number): string {
 }
 
 /**
- * 格式化金额（固定小数位，不带货币符号）
- * @param amount 金额
- * @param fractionDigits 小数位数，默认 4
- * @returns 格式化后的字符串，如 "1.2345"
- */
-export function formatCostFixed(amount: number, fractionDigits: number = 4): string {
-  return amount.toFixed(fractionDigits)
-}
-
-/**
  * 格式化 token 数量（>=1M 显示为 M，>=1K 显示为 K，保留 1 位小数）
  * @param tokens token 数量
  * @returns 格式化后的字符串，如 "950", "1.2K", "3.5M"

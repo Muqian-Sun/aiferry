@@ -8,66 +8,6 @@
           : t('admin.dashboard.spendingRankingTitle') }}
       </h3>
       <div class="flex flex-wrap items-center justify-end gap-2">
-        <div
-          v-if="showSourceToggle"
-          class="inline-flex rounded-lg border border-af-hairline bg-af-sunken p-0.5"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'requested'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'requested')"
-          >
-            {{ t('usage.requestedModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'upstream'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'upstream')"
-          >
-            {{ t('usage.upstreamModel') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'mapping'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'mapping')"
-          >
-            {{ t('usage.mapping') }}
-          </button>
-        </div>
-        <div
-          v-if="showMetricToggle"
-          class="inline-flex rounded-lg border border-af-hairline bg-af-sunken p-0.5"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'tokens'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:metric', 'tokens')"
-          >
-            {{ t('admin.dashboard.tokens') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'actual_cost'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:metric', 'actual_cost')"
-          >
-            {{ t('common.money.revenue') }}
-          </button>
-        </div>
         <div v-if="enableRankingView" class="inline-flex rounded-lg bg-af-sunken p-1">
           <button
             type="button"
@@ -250,43 +190,30 @@ import type { UserBreakdownLoader } from './userBreakdown'
 
 const { t } = useI18n()
 
-type DistributionMetric = 'tokens' | 'actual_cost'
-type ModelSource = 'requested' | 'upstream' | 'mapping'
 type RankingDisplayItem = UserSpendingRankingItem & { isOther?: boolean }
+// 用量页「分析」页签删了之后，调用方只剩概览（带下钻、消费榜）和渠道抽屉（只看表），
+// 原来给分析页签用的「请求 / 上游 / 映射」来源切换和「Token / 收入」指标切换一并去掉：按请求模型、按 Token 排
 const props = withDefaults(defineProps<{
   modelStats: ModelStat[]
-  upstreamModelStats?: ModelStat[]
-  mappingModelStats?: ModelStat[]
-  source?: ModelSource
   enableRankingView?: boolean
   rankingItems?: UserSpendingRankingItem[]
   rankingTotalActualCost?: number
   rankingTotalRequests?: number
   rankingTotalTokens?: number
   loading?: boolean
-  metric?: DistributionMetric
-  showSourceToggle?: boolean
-  showMetricToggle?: boolean
-  /** 按用户下钻的加载函数；不传则不提供下钻（用户站复用本图表时不传）。 */
+  /** 按用户下钻的加载函数；不传则不提供下钻（渠道抽屉不传）。 */
   loadUserBreakdown?: UserBreakdownLoader
   rankingLoading?: boolean
   rankingError?: boolean
   startDate?: string
   endDate?: string
-  filters?: Record<string, any>
 }>(), {
-  upstreamModelStats: () => [],
-  mappingModelStats: () => [],
-  source: 'requested',
   enableRankingView: false,
   rankingItems: () => [],
   rankingTotalActualCost: 0,
   rankingTotalRequests: 0,
   rankingTotalTokens: 0,
   loading: false,
-  metric: 'tokens',
-  showSourceToggle: false,
-  showMetricToggle: false,
   rankingLoading: false,
   rankingError: false
 })
@@ -309,11 +236,10 @@ const toggleBreakdown = async (type: string, id: string) => {
   breakdownItems.value = []
   try {
     const res = await loadUserBreakdown({
-      ...props.filters,
       start_date: props.startDate,
       end_date: props.endDate,
       model: id,
-      model_source: props.source,
+      model_source: 'requested',
     })
     breakdownItems.value = res.users || []
   } catch {
@@ -324,8 +250,6 @@ const toggleBreakdown = async (type: string, id: string) => {
 }
 
 const emit = defineEmits<{
-  'update:metric': [value: DistributionMetric]
-  'update:source': [value: ModelSource]
   'ranking-click': [item: UserSpendingRankingItem]
 }>()
 
@@ -333,19 +257,12 @@ const enableRankingView = computed(() => props.enableRankingView)
 const activeView = ref<'model_distribution' | 'spending_ranking'>('model_distribution')
 
 const displayModelStats = computed(() => {
-  const sourceStats = props.source === 'upstream'
-    ? props.upstreamModelStats
-    : props.source === 'mapping'
-      ? props.mappingModelStats
-      : props.modelStats
-  if (!sourceStats?.length) return []
-
-  const metricKey = props.metric === 'actual_cost' ? 'actual_cost' : 'total_tokens'
-  return [...sourceStats].sort((a, b) => toFiniteNumber(b[metricKey]) - toFiniteNumber(a[metricKey]))
+  if (!props.modelStats?.length) return []
+  return [...props.modelStats].sort((a, b) => toFiniteNumber(b.total_tokens) - toFiniteNumber(a.total_tokens))
 })
 
-/** 占比条：模型按当前指标（Token / 收入），消费榜按收入 */
-const modelMetricValue = (m: ModelStat) => toFiniteNumber(props.metric === 'actual_cost' ? m.actual_cost : m.total_tokens)
+/** 占比条：模型按 Token，消费榜按收入 */
+const modelMetricValue = (m: ModelStat) => toFiniteNumber(m.total_tokens)
 const modelMetricTotal = computed(() => displayModelStats.value.reduce((sum, m) => sum + modelMetricValue(m), 0))
 const rankingCostTotal = computed(() => rankingDisplayItems.value.reduce((sum, item) => sum + toFiniteNumber(item.actual_cost), 0))
 
