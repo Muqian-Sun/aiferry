@@ -113,7 +113,9 @@ describe('admin AccountsView priority column preferences', () => {
     })
   })
 
-  it('shows priority as a sortable column for fresh preferences', async () => {
+  it('shows priority as a sortable column when enabled in column settings', async () => {
+    // 2026-09-25 起优先级默认藏在列设置里
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 
@@ -128,32 +130,5 @@ describe('admin AccountsView priority column preferences', () => {
       expect.objectContaining({ sort_by: 'priority', sort_order: 'desc' }),
       expect.objectContaining({ signal: expect.any(AbortSignal) })
     )
-  })
-
-  it('preserves an existing preference that explicitly hides priority', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify(['priority', 'today_stats']))
-    localStorage.setItem('account-hidden-columns-version', 'scheduler-score-hidden-by-default')
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.find('[data-column="priority"]').exists()).toBe(false)
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).toEqual([
-      'priority',
-      'today_stats'
-    ])
-  })
-
-  it('keeps priority visible while migrating older saved preferences', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify(['today_stats']))
-
-    const wrapper = mountView()
-    await flushPromises()
-
-    expect(wrapper.get('[data-column="priority"]').text()).toBe('sortable')
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).toEqual(
-      expect.arrayContaining(['today_stats'])
-    )
-    expect(JSON.parse(localStorage.getItem('account-hidden-columns') || '[]')).not.toContain('priority')
   })
 })

@@ -1,9 +1,10 @@
 <template>
   <!--
     渠道（A5 列表模板）：标题右侧是工具菜单（导入导出、按筛选批量编辑、错误透传、TLS 指纹）与「添加渠道」；
-    数字摘要（异常 / 限流可一键筛选）；工具行 = 搜索 + 筛选标签 + 自动刷新 / 刷新 / 列设置；
-    名称下面一行小字写厂商 · 类型 · 协议；行尾「编辑」图标 + 「⋯」；点整行打开详情抽屉；选中行时出现批量条。
-    新建 / 编辑是独立页面（/accounts/new、/accounts/:id/edit）。
+    数字摘要（渠道 / 可调度 / 异常 / 限流中，异常与限流可一键筛选）；工具行 = 搜索 + 筛选标签 + 自动刷新 / 刷新 / 列设置。
+    默认 6 列（方案 2026-09-25）：名称（一行名字 + 一行「厂商 · 接入方式」）、状态（一行，异常写原因）、调度、
+    今日（请求 · 收入 · 利润）、已上架模型数、最近使用；其余列在列设置里。上游用量窗口和容量列表放不下，在详情抽屉「用量」页签。
+    行尾「编辑」图标 + 「⋯」；点整行打开详情抽屉；选中行时出现批量条。新建 / 编辑是独立页面（/accounts/new、/accounts/:id/edit）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -122,7 +123,7 @@
           default-sort-key="name"
           default-sort-order="asc"
           :sort-storage-key="ACCOUNT_SORT_STORAGE_KEY"
-          :estimate-row-height="72"
+          :estimate-row-height="56"
           :overscan="5"
           :virtualize-threshold="50"
         >
@@ -151,67 +152,28 @@
           </template>
           <template #cell-name="{ row, value }">
             <div class="min-w-0 max-w-[22rem]">
-              <div class="flex min-w-0 items-center gap-1.5">
-                <a
-                  v-if="accountHomepageUrl(row)"
-                  :href="accountHomepageUrl(row)"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  class="truncate font-medium text-af-ink hover:underline"
-                  :title="accountHomepageUrl(row)"
-                  @click.stop
-                >
-                  {{ value }}
-                </a>
-                <span v-else class="truncate font-medium text-af-ink">{{ value }}</span>
-                <span
-                  v-if="getOpenAICompactMeta(row)?.label && getOpenAICompactState(row) !== 'auto'"
-                  :class="['shrink-0 text-[11px]', getOpenAICompactMeta(row)?.className]"
-                  :title="getOpenAICompactTitle(row)"
-                >
-                  {{ getOpenAICompactMeta(row)?.label }}
-                </span>
-              </div>
-              <!-- 厂商 · 类型 · 套餐 · 协议，一行小字；悬停协议看主机 -->
-              <div class="mt-0.5 flex min-w-0 flex-wrap items-center gap-x-1 text-xs text-af-ink-3">
-                <PlatformTypeBadge
-                  variant="plain"
-                  :platform="row.platform"
-                  :type="row.type"
-                  :vendor="row.vendor"
-                  :auth-mode="getOpenAIAuthMode(row)"
-                  :plan-type="getAccountPlanType(row)"
-                  :privacy-mode="row.extra?.privacy_mode || row.parent_privacy_mode"
-                  :subscription-expires-at="row.credentials?.subscription_expires_at || row.parent_subscription_expires_at"
-                />
-                <template v-if="getAntigravityTierLabel(row)">
-                  <span aria-hidden="true">·</span>
-                  <span>{{ getAntigravityTierLabel(row) }}</span>
-                </template>
-                <template v-if="keyProtocolChips(row).length">
-                  <span aria-hidden="true">·</span>
-                  <span class="inline-flex flex-wrap items-center gap-x-1" data-testid="key-protocol-chips">
-                    <span v-for="chip in keyProtocolChips(row)" :key="chip.protocol" :title="chip.host">
-                      {{ t(`admin.accounts.protocolShort.${chip.protocol}`) }}
-                    </span>
-                  </span>
-                </template>
-              </div>
-              <div
-                v-if="accountDisplayEmail(row)"
-                class="truncate text-xs text-af-ink-3"
-                :title="accountDisplayEmail(row) + (row.parent_chatgpt_account_id ? ' · ' + row.parent_chatgpt_account_id : '')"
+              <a
+                v-if="accountHomepageUrl(row)"
+                :href="accountHomepageUrl(row)"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="block truncate font-medium text-af-ink hover:underline"
+                :title="accountHomepageUrl(row)"
+                @click.stop
               >
-                {{ accountDisplayEmail(row) }}
+                {{ value }}
+              </a>
+              <span v-else class="block truncate font-medium text-af-ink">{{ value }}</span>
+              <!-- 厂商 · 接入方式；套餐、隐私、到期、邮箱、协议地址在详情抽屉里 -->
+              <div class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-af-ink-3" data-testid="account-vendor-line">
+                <PlatformIcon :platform="accountVendor(row).icon" size="xs" />
+                <span class="truncate">{{ vendorLabel(row) }} · {{ t(accountAccessKey(row)) }}</span>
               </div>
             </div>
           </template>
           <template #cell-notes="{ value }">
             <span v-if="value" :title="value" class="block max-w-xs truncate text-sm text-af-ink-2">{{ value }}</span>
             <span v-else class="text-sm text-af-ink-4">-</span>
-          </template>
-          <template #cell-capacity="{ row }">
-            <AccountCapacityCell :account="row" />
           </template>
           <template #cell-status="{ row }">
             <AccountStatusIndicator :account="row" @show-temp-unsched="handleShowTempUnsched" />
@@ -225,7 +187,7 @@
               @toggle="handleToggleSchedulable(row)"
             />
           </template>
-          <template #cell-today_stats="{ row }">
+          <template #cell-today="{ row }">
             <AccountTodayStatsCell
               :stats="todayStatsByAccountId[String(row.id)] ?? null"
               :loading="todayStatsLoading"
@@ -233,31 +195,7 @@
             />
           </template>
           <template #cell-catalog="{ row }">
-            <span @click.stop>
-              <AccountCatalogCell :entries="catalogEntriesForAccount(row.id)" :max-display="2" @diagnose="openCatalogDiagnosis" />
-            </span>
-          </template>
-          <template #header-usage="{ column }">
-            <div class="flex items-center">
-              <span>{{ column.label }}</span>
-              <HelpTooltip :content="t('admin.accounts.usageWindowsHint')" width-class="w-72" />
-            </div>
-          </template>
-          <template #cell-usage="{ row }">
-            <span @click.stop>
-              <AccountUsageCell
-                :account="row"
-                :today-stats="todayStatsByAccountId[String(row.id)] ?? null"
-                :today-stats-loading="todayStatsLoading"
-                :manual-refresh-token="usageManualRefreshToken"
-                :batched-usage="usageBatchByAccountId[String(row.id)] ?? null"
-                :batched-usage-error="usageBatchErrorByAccountId[String(row.id)] ?? null"
-                :batched-usage-loading="usageBatchLoadingByAccountId[String(row.id)] === true"
-                :request-batched-usage="isDesktopViewport ? queueBatchedUsage : null"
-                @account-updated="handleAccountUpdated"
-                @usage-loaded="handleAccountUsageLoaded(row.id, $event)"
-              />
-            </span>
+            <AccountCatalogCell :entries="catalogEntriesForAccount(row.id)" @open="openDetail(row, 'models')" />
           </template>
           <template #cell-proxy="{ row }">
             <div class="flex flex-col gap-0.5">
@@ -389,8 +327,6 @@
       v-model:tab="detailTab"
       :account="detailAccount"
       :catalog-entries="detailAccount ? catalogEntriesForAccount(detailAccount.id) : []"
-      :today-stats="detailAccount ? todayStatsByAccountId[String(detailAccount.id)] ?? null : null"
-      :today-stats-loading="todayStatsLoading"
       :menu-open="menu.show"
       @close="closeDetail"
       @edit="handleEdit"
@@ -480,16 +416,14 @@ import ReAuthAccountModal from '@/components/admin/account/ReAuthAccountModal.vu
 import AccountTestModal from '@/components/admin/account/AccountTestModal.vue'
 import AccountDetailDrawer from '@/components/admin/account/AccountDetailDrawer.vue'
 import type { AccountDetailTab } from '@/components/admin/account/accountDetail'
-import { accountDisplayEmail, accountHomepageUrl, getAccountPlanType, getOpenAIAuthMode, keyProtocolChips } from '@/components/admin/account/accountDisplay'
+import { accountAccessKey, accountHomepageUrl, accountVendor } from '@/components/admin/account/accountDisplay'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
-import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
 import AccountTodayStatsCell from '@/components/account/AccountTodayStatsCell.vue'
 import AccountCatalogCell from '@/components/account/AccountCatalogCell.vue'
 import CatalogEntryDiagnosisModal from '@/components/admin/catalog/CatalogEntryDiagnosisModal.vue'
 import type { ModelCatalogEntry } from '@/api/admin/modelCatalog'
-import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
 import UpstreamBillingRateCell from '@/components/account/UpstreamBillingRateCell.vue'
-import PlatformTypeBadge from '@/components/common/PlatformTypeBadge.vue'
+import PlatformIcon from '@/components/common/PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
 import ErrorPassthroughRulesModal from '@/components/admin/ErrorPassthroughRulesModal.vue'
 import TLSFingerprintProfilesModal from '@/components/admin/TLSFingerprintProfilesModal.vue'
@@ -499,7 +433,7 @@ import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/form
 import { proxyExpiryBadgeClass, proxyExpiryLabelKey } from '@/utils/proxyExpiry'
 import { extractApiErrorMessage } from '@/utils/apiError'
 import { formatMultiplier } from '@/utils/formatters'
-import type { Account, AccountListItem, AccountPlatform, AccountType, AccountUsageInfo, DashboardStats, Proxy as AccountProxy, WindowStats, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
+import type { Account, AccountListItem, AccountPlatform, AccountType, DashboardStats, Proxy as AccountProxy, WindowStats, ProtocolEndpoints, UpstreamBillingProbeSnapshot } from '@/types'
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import { ColumnSettingsMenu, ListToolbar, MenuItem, MiniSwitch, PopoverMenu } from '@/components/admin/list'
@@ -524,6 +458,10 @@ const catalogEntriesByAccountID = computed(() => {
   return byAccount
 })
 const catalogEntriesForAccount = (accountID: number): ModelCatalogEntry[] => catalogEntriesByAccountID.value.get(accountID) ?? []
+const vendorLabel = (row: AccountListItem): string => {
+  const vendor = accountVendor(row)
+  return vendor.labelKey ? t(vendor.labelKey) : vendor.label ?? ''
+}
 const diagnosisEntry = ref<ModelCatalogEntry | null>(null)
 const openCatalogDiagnosis = (entry: ModelCatalogEntry) => {
   diagnosisEntry.value = entry
@@ -661,172 +599,10 @@ const todayStatsLoading = ref(false)
 const todayStatsError = ref<string | null>(null)
 const todayStatsReqSeq = ref(0)
 const pendingTodayStatsRefresh = ref(false)
-const usageManualRefreshToken = ref(0)
 
-const desktopViewportQuery = '(min-width: 768px)'
-const isDesktopViewport = ref(
-  typeof window === 'undefined' ? true : window.matchMedia(desktopViewportQuery).matches
-)
-let desktopViewportMediaQuery: MediaQueryList | null = null
-let desktopViewportListener: ((event: MediaQueryListEvent) => void) | null = null
-
-const usageBatchByAccountId = ref<Record<string, AccountUsageInfo | null>>({})
-const usageBatchErrorByAccountId = ref<Record<string, string | null>>({})
-const usageBatchLoadingByAccountId = ref<Record<string, boolean>>({})
-const usageBatchRequestTokenByAccountId = ref<Record<string, number>>({})
-const usageBatchCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
-const USAGE_BATCH_CACHE_TTL = 5 * 60 * 1000
-const pendingUsageBatchIds = new Set<number>()
-let usageBatchFlushTimer: ReturnType<typeof setTimeout> | null = null
-let queuedUsageBatchForce = false
-let usageBatchRequestToken = 0
-
-const buildDefaultTodayStats = (): WindowStats => ({
-  requests: 0,
-  tokens: 0,
-  cost: 0,
-  standard_cost: 0,
-  user_cost: 0
-})
-
-const accountSupportsBatchUsage = (account: Account) => {
-  if (account.platform === 'anthropic') {
-    return account.type === 'oauth' || account.type === 'setup-token'
-  }
-  if (account.platform === 'gemini') return true
-  if (account.platform === 'antigravity') return account.type === 'oauth'
-  if (account.platform === 'openai') return account.type === 'oauth'
-  if (account.platform === 'grok') return account.type === 'oauth'
-  return false
-}
-
-const setUsageBatchLoading = (accountID: number, loadingState: boolean) => {
-  usageBatchLoadingByAccountId.value = {
-    ...usageBatchLoadingByAccountId.value,
-    [String(accountID)]: loadingState
-  }
-}
-
-const setUsageBatchState = (accountID: number, usage: AccountUsageInfo | null, error: string | null) => {
-  const key = String(accountID)
-  usageBatchByAccountId.value = {
-    ...usageBatchByAccountId.value,
-    [key]: usage
-  }
-  usageBatchErrorByAccountId.value = {
-    ...usageBatchErrorByAccountId.value,
-    [key]: error
-  }
-}
-
-const handleAccountUsageLoaded = (accountID: number, usage: AccountUsageInfo) => {
-  if (usageBatchByAccountId.value[String(accountID)] === usage) return
-  setUsageBatchState(accountID, usage, null)
-}
-
-const flushQueuedUsageBatch = async () => {
-  usageBatchFlushTimer = null
-  const accountIDs = Array.from(pendingUsageBatchIds)
-  const force = queuedUsageBatchForce
-  pendingUsageBatchIds.clear()
-  queuedUsageBatchForce = false
-
-  if (accountIDs.length === 0) return
-
-  const requestTokensByAccount = accountIDs.reduce<Record<string, number>>((acc, accountID) => {
-    acc[String(accountID)] = usageBatchRequestTokenByAccountId.value[String(accountID)] ?? 0
-    return acc
-  }, {})
-
-  try {
-    const result = await adminAPI.accounts.getBatchUsage(accountIDs, force)
-
-    const usageMap = result.usage ?? {}
-    const errorMap = result.errors ?? {}
-    const now = Date.now()
-    const nextUsage = { ...usageBatchByAccountId.value }
-    const nextErrors = { ...usageBatchErrorByAccountId.value }
-    const nextLoading = { ...usageBatchLoadingByAccountId.value }
-
-    for (const accountID of accountIDs) {
-      const key = String(accountID)
-      if ((usageBatchRequestTokenByAccountId.value[key] ?? 0) !== requestTokensByAccount[key]) {
-        continue
-      }
-      const usage = usageMap[key] ?? null
-      nextUsage[key] = usage
-      nextErrors[key] = errorMap[key] ?? null
-      nextLoading[key] = false
-      if (usage) {
-        usageBatchCache.set(accountID, { data: usage, ts: now })
-      } else {
-        usageBatchCache.delete(accountID)
-      }
-    }
-
-    usageBatchByAccountId.value = nextUsage
-    usageBatchErrorByAccountId.value = nextErrors
-    usageBatchLoadingByAccountId.value = nextLoading
-  } catch (error) {
-    const nextErrors = { ...usageBatchErrorByAccountId.value }
-    const nextLoading = { ...usageBatchLoadingByAccountId.value }
-    for (const accountID of accountIDs) {
-      const key = String(accountID)
-      if ((usageBatchRequestTokenByAccountId.value[key] ?? 0) !== requestTokensByAccount[key]) {
-        continue
-      }
-      nextErrors[key] = 'Failed'
-      nextLoading[key] = false
-    }
-    usageBatchErrorByAccountId.value = nextErrors
-    usageBatchLoadingByAccountId.value = nextLoading
-    console.error('Failed to load account usage batch:', error)
-  }
-}
-
-const queueBatchedUsage = (account: Account, options?: { force?: boolean }) => {
-  if (!isDesktopViewport.value) return
-  if (!accountSupportsBatchUsage(account)) return
-
-  const force = options?.force === true
-  const cacheKey = account.id
-  const key = String(cacheKey)
-
-  if (force) {
-    usageBatchCache.delete(cacheKey)
-  } else {
-    const cached = usageBatchCache.get(cacheKey)
-    if (cached && Date.now() - cached.ts < USAGE_BATCH_CACHE_TTL) {
-      setUsageBatchState(cacheKey, cached.data, null)
-      setUsageBatchLoading(cacheKey, false)
-      return
-    }
-  }
-
-  usageBatchErrorByAccountId.value = {
-    ...usageBatchErrorByAccountId.value,
-    [key]: null
-  }
-  usageBatchRequestTokenByAccountId.value = {
-    ...usageBatchRequestTokenByAccountId.value,
-    [key]: ++usageBatchRequestToken
-  }
-  setUsageBatchLoading(cacheKey, true)
-  pendingUsageBatchIds.add(cacheKey)
-  queuedUsageBatchForce = queuedUsageBatchForce || force
-
-  if (usageBatchFlushTimer !== null) return
-  usageBatchFlushTimer = setTimeout(() => {
-    void flushQueuedUsageBatch()
-  }, 0)
-}
-
+// 「今日」列（请求 · 收入 · 利润）的数据：按当前页批量拉；列被藏起来时不拉
 const refreshTodayStatsBatch = async () => {
-  // Why this checks both columns:
-  // - today_stats column shows dedicated today's metrics.
-  // - usage column also embeds today's stats for Key/Bedrock rows.
-  // So we only skip fetching when BOTH columns are hidden.
-  if (!columnSettings.isVisible('today_stats') && !columnSettings.isVisible('usage')) {
+  if (!columnSettings.isVisible('today')) {
     todayStatsLoading.value = false
     todayStatsError.value = null
     return
@@ -847,16 +623,11 @@ const refreshTodayStatsBatch = async () => {
   try {
     const result = await adminAPI.accounts.getBatchTodayStats(accountIDs)
     if (reqSeq !== todayStatsReqSeq.value) return
-    const serverStats = result.stats ?? {}
-    const nextStats: Record<string, WindowStats> = {}
-    for (const accountID of accountIDs) {
-      const key = String(accountID)
-      nextStats[key] = serverStats[key] ?? buildDefaultTodayStats()
-    }
-    todayStatsByAccountId.value = nextStats
+    // 今天没有请求的渠道后端不返回，单元格写「—」
+    todayStatsByAccountId.value = result.stats ?? {}
   } catch (error) {
     if (reqSeq !== todayStatsReqSeq.value) return
-    todayStatsError.value = 'Failed'
+    todayStatsError.value = t('admin.accounts.today.loadFailed')
     console.error('Failed to load account today stats:', error)
   } finally {
     if (reqSeq === todayStatsReqSeq.value) {
@@ -1029,10 +800,12 @@ const load = async (options: AccountLoadOptions = {}) => {
   if (options.refreshTodayStats !== false) await refreshTodayStatsBatch()
 }
 
+// 增删改之后的重拉：数字摘要一起刷新
 const reload = async () => {
   hasPendingListSync.value = false
   resetAutoRefreshCache()
   pendingTodayStatsRefresh.value = false
+  void loadSummary()
   await baseReload()
   await refreshTodayStatsBatch()
 }
@@ -1196,22 +969,6 @@ watch(loading, (isLoading, wasLoading) => {
   }
 })
 
-watch(accounts, (rows) => {
-  const visibleIDs = new Set(rows.map((row) => String(row.id)))
-  usageBatchByAccountId.value = Object.fromEntries(
-    Object.entries(usageBatchByAccountId.value).filter(([key]) => visibleIDs.has(key))
-  )
-  usageBatchErrorByAccountId.value = Object.fromEntries(
-    Object.entries(usageBatchErrorByAccountId.value).filter(([key]) => visibleIDs.has(key))
-  )
-  usageBatchLoadingByAccountId.value = Object.fromEntries(
-    Object.entries(usageBatchLoadingByAccountId.value).filter(([key]) => visibleIDs.has(key))
-  )
-  usageBatchRequestTokenByAccountId.value = Object.fromEntries(
-    Object.entries(usageBatchRequestTokenByAccountId.value).filter(([key]) => visibleIDs.has(key))
-  )
-})
-
 const isAnyModalOpen = computed(() => {
   return (
     showImportData.value ||
@@ -1319,7 +1076,7 @@ const refreshAccountsIncrementally = async () => {
     }
     upstreamBillingNow.value = Date.now()
 
-    await refreshTodayStatsBatch()
+    await Promise.all([refreshTodayStatsBatch(), loadSummary()])
   } catch (error) {
     console.error('Auto refresh failed:', error)
   } finally {
@@ -1327,10 +1084,9 @@ const refreshAccountsIncrementally = async () => {
   }
 }
 
+// 手动刷新：列表 + 今日 + 数字摘要 + 上游倍率全局开关
 const handleManualRefresh = async () => {
-  await Promise.all([load(), loadUpstreamBillingProbeGlobalState()])
-  // Force usage cells to refetch /usage on explicit user refresh.
-  usageManualRefreshToken.value += 1
+  await Promise.all([load(), loadSummary(), loadUpstreamBillingProbeGlobalState()])
 }
 
 const loadUpstreamBillingProbeGlobalState = async () => {
@@ -1344,9 +1100,7 @@ const loadUpstreamBillingProbeGlobalState = async () => {
 
 const syncPendingListChanges = async () => {
   hasPendingListSync.value = false
-  await load()
-  // Keep behavior consistent with manual refresh.
-  usageManualRefreshToken.value += 1
+  await Promise.all([load(), loadSummary()])
 }
 
 const { pause: pauseAutoRefresh, resume: resumeAutoRefresh } = useIntervalFn(
@@ -1376,128 +1130,40 @@ const { pause: pauseAutoRefresh, resume: resumeAutoRefresh } = useIntervalFn(
   { immediate: false }
 )
 
-// Antigravity 订阅等级辅助函数
-function getAntigravityTierFromRow(row: any): string | null {
-  if (row.platform !== 'antigravity') return null
-  const extra = row.extra as Record<string, unknown> | undefined
-  if (!extra) return null
-  const lca = extra.load_code_assist as Record<string, unknown> | undefined
-  if (!lca) return null
-  const paid = lca.paidTier as Record<string, unknown> | undefined
-  if (paid && typeof paid.id === 'string') return paid.id
-  const current = lca.currentTier as Record<string, unknown> | undefined
-  if (current && typeof current.id === 'string') return current.id
-  return null
-}
-
-function getAntigravityTierLabel(row: any): string | null {
-  const tier = getAntigravityTierFromRow(row)
-  switch (tier) {
-    case 'free-tier': return t('admin.accounts.tier.free')
-    case 'g1-pro-tier': return t('admin.accounts.tier.pro')
-    case 'g1-ultra-tier': return t('admin.accounts.tier.ultra')
-    default: return null
-  }
-}
-
-type OpenAICompactBadgeState = 'active' | 'blocked' | 'auto'
-
-function getOpenAICompactState(row: any): OpenAICompactBadgeState | null {
-  if (row.platform !== 'openai' || (row.type !== 'oauth' && row.type !== 'apikey')) return null
-  const extra = row.extra as Record<string, unknown> | undefined
-  const mode = typeof extra?.openai_compact_mode === 'string' ? extra.openai_compact_mode : 'auto'
-  if (mode === 'force_on') return 'active'
-  if (mode === 'force_off') return 'blocked'
-  if (typeof extra?.openai_compact_supported === 'boolean') {
-    return extra.openai_compact_supported ? 'active' : 'blocked'
-  }
-  return 'auto'
-}
-
-function getOpenAICompactMeta(row: any): { label: string; className: string; dotClass: string } | null {
-  const state = getOpenAICompactState(row)
-  if (!state) return null
-  switch (state) {
-    case 'active':
-      return {
-        label: t('admin.accounts.openai.compactSupported'),
-        className: 'text-af-success',
-        dotClass: 'bg-af-success'
-      }
-    case 'blocked':
-      return {
-        label: t('admin.accounts.openai.compactUnsupported'),
-        className: 'text-af-danger',
-        dotClass: 'bg-af-danger'
-      }
-    case 'auto':
-      return {
-        label: t('admin.accounts.openai.compactAuto'),
-        className: 'text-af-ink-3',
-        dotClass: 'bg-af-ink-4'
-      }
-  }
-}
-
-function getOpenAICompactTitle(row: any): string {
-  const extra = row.extra as Record<string, unknown> | undefined
-  const checkedAt = typeof extra?.openai_compact_checked_at === 'string' ? extra.openai_compact_checked_at : ''
-  const label = getOpenAICompactMeta(row)?.label || ''
-  if (!checkedAt) return label
-  return `${label} | ${t('admin.accounts.openai.compactLastChecked')}: ${formatDateTime(new Date(checkedAt))}`
-}
-
-// 全部列。厂商 / 类型 / 协议并进名称下面那行小字（A5），不再单独占一列。
+// 全部列。默认 6 个数据列（方案 2026-09-25）：名称 / 状态 / 调度 / 今日 / 已上架模型 / 最近使用；
+// 其余进「列设置」（存在本机）。上游用量窗口、容量在详情抽屉「用量」页签，不再占列。
 const allColumns = computed(() => [
   { key: 'select', label: '', sortable: false },
   { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
   { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
   { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
   { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
-  { key: 'capacity', label: t('admin.accounts.columns.capacity'), sortable: false },
+  { key: 'today', label: t('admin.accounts.columns.today'), sortable: false },
   { key: 'catalog', label: t('admin.accounts.columns.catalog'), sortable: false },
-  { key: 'usage', label: t('admin.accounts.columns.usageWindows'), sortable: false },
-  { key: 'today_stats', label: t('admin.accounts.columns.todayStats'), sortable: false },
-  { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
+  { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
   { key: 'priority', label: t('admin.accounts.columns.priority'), sortable: true },
+  { key: 'proxy', label: t('admin.accounts.columns.proxy'), sortable: false },
   { key: 'rate_multiplier', label: t('admin.accounts.columns.billingRateMultiplier'), sortable: true },
   { key: 'upstream_billing_rate', label: t('admin.accounts.columns.upstreamBillingRate'), sortable: true },
-  { key: 'last_used_at', label: t('admin.accounts.columns.lastUsed'), sortable: true },
   { key: 'created_at', label: t('admin.accounts.columns.createdAt'), sortable: true },
   { key: 'expires_at', label: t('admin.accounts.columns.expiresAt'), sortable: true },
   { key: 'notes', label: t('admin.accounts.columns.notes'), sortable: false },
   { key: 'actions', label: t('admin.accounts.columns.actions'), sortable: false }
 ])
 
-// 默认露 名称 / 状态 / 调度 / 并发 / 已上架模型 / 用量窗口 / 优先级 / 最近使用，1440 宽不横向滚动；其余进「列设置」（存在本机）。
-// 上游声明倍率（A2-2 默认露）挪进列设置：厂商类型并进名称后仍放不下，它是可信度存疑的参考值。
-const ACCOUNT_COLUMNS_STORAGE_KEY = 'admin-accounts-columns'
-const LEGACY_HIDDEN_COLUMNS_KEY = 'account-hidden-columns'
-// 旧版列设置（纯数组）只迁一次：管理员自己关过 / 开过的列保留原样
-const migrateLegacyColumnSettings = () => {
-  try {
-    if (localStorage.getItem(ACCOUNT_COLUMNS_STORAGE_KEY)) return
-    const legacy = JSON.parse(localStorage.getItem(LEGACY_HIDDEN_COLUMNS_KEY) || 'null')
-    if (!Array.isArray(legacy)) return
-    const hidden = legacy.filter((key): key is string => typeof key === 'string')
-    localStorage.setItem(ACCOUNT_COLUMNS_STORAGE_KEY, JSON.stringify({ version: 1, hidden }))
-  } catch {
-    // 存储不可用时就用默认列
-  }
-}
-migrateLegacyColumnSettings()
+// 版本 2（2026-09-25 默认列改成 6 个）：本机旧设置作废，回到新默认
 const columnSettings = useColumnSettings({
-  storageKey: ACCOUNT_COLUMNS_STORAGE_KEY,
-  version: 1,
+  storageKey: 'admin-accounts-columns',
+  version: 2,
   columns: allColumns,
-  defaultHidden: ['id', 'today_stats', 'proxy', 'rate_multiplier', 'upstream_billing_rate', 'created_at', 'expires_at', 'notes'],
+  defaultHidden: ['id', 'priority', 'proxy', 'rate_multiplier', 'upstream_billing_rate', 'created_at', 'expires_at', 'notes'],
   alwaysVisible: ['select', 'name', 'actions']
 })
 const cols = columnSettings.visibleColumns
 
-// 今日统计 / 用量窗口两列都藏着时不拉今日统计；重新打开其中一列时补拉
+// 「今日」列藏着时不拉今日统计；重新打开时补拉
 watch(
-  () => columnSettings.isVisible('today_stats') || columnSettings.isVisible('usage'),
+  () => columnSettings.isVisible('today'),
   (visible, wasVisible) => {
     if (visible && !wasVisible) {
       refreshTodayStatsBatch().catch((error) => {
@@ -2014,7 +1680,7 @@ const handleExportData = async () => {
           }
     ))
     const timestamp = formatExportTimestamp()
-    const filename = `sub2api-account-${timestamp}.json`
+    const filename = `aiferry-channels-${timestamp}.json`
     const blob = new Blob([JSON.stringify(dataPayload, null, 2)], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
     const link = document.createElement('a')
@@ -2231,19 +1897,6 @@ const handleScroll = (event: Event) => {
 }
 
 onMounted(async () => {
-  if (typeof window !== 'undefined') {
-    desktopViewportMediaQuery = window.matchMedia(desktopViewportQuery)
-    isDesktopViewport.value = desktopViewportMediaQuery.matches
-    desktopViewportListener = (event: MediaQueryListEvent) => {
-      isDesktopViewport.value = event.matches
-    }
-    if (typeof desktopViewportMediaQuery.addEventListener === 'function') {
-      desktopViewportMediaQuery.addEventListener('change', desktopViewportListener)
-    } else {
-      desktopViewportMediaQuery.addListener(desktopViewportListener)
-    }
-  }
-
   load()
   loadUpstreamBillingProbeGlobalState()
   loadSummary()
@@ -2273,30 +1926,6 @@ onMounted(async () => {
 
 onUnmounted(() => {
   upstreamBillingRateAbortController?.abort()
-  if (usageBatchFlushTimer !== null) {
-    clearTimeout(usageBatchFlushTimer)
-    usageBatchFlushTimer = null
-  }
-  pendingUsageBatchIds.clear()
   window.removeEventListener('scroll', handleScroll, true)
-  if (desktopViewportMediaQuery && desktopViewportListener) {
-    if (typeof desktopViewportMediaQuery.removeEventListener === 'function') {
-      desktopViewportMediaQuery.removeEventListener('change', desktopViewportListener)
-    } else {
-      desktopViewportMediaQuery.removeListener(desktopViewportListener)
-    }
-  }
-  desktopViewportListener = null
-  desktopViewportMediaQuery = null
 })
 </script>
-
-<style scoped>
-.account-tools-menu-item {
-  @apply flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-af-ink-2 transition-colors hover:bg-af-sunken;
-}
-
-.account-tools-menu-icon {
-  @apply inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md;
-}
-</style>

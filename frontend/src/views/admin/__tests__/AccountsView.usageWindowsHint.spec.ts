@@ -179,33 +179,9 @@ describe('admin AccountsView usage windows hint', () => {
     expect(wrapper.get('[data-test="account-catalog"]').attributes('data-entry-count')).toBe('1')
   })
 
-  it('renders an explanatory tooltip next to the usage windows column header', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-
-    const header = wrapper.find('[data-test="usage-header"]')
-    expect(header.exists()).toBe(true)
-    // Column label is still shown alongside the help icon.
-    expect(header.text()).toContain('admin.accounts.columns.usageWindows')
-
-    const hint = wrapper.find('[data-test="usage-windows-hint"]')
-    expect(hint.exists()).toBe(true)
-    expect(hint.text()).toBe('admin.accounts.usageWindowsHint')
-  })
-
-  it('keeps Ollama Cloud in the single usage column and ignores legacy column preferences', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify(['ollama_cloud_usage']))
-    const wrapper = mountView()
-    await flushPromises()
-
-    const columns = wrapper.getComponent(DataTableStub).props('columns') as Array<{ key: string }>
-    expect(columns.filter(column => column.key === 'usage')).toHaveLength(1)
-    expect(columns.some(column => column.key === 'ollama_cloud_usage')).toBe(false)
-  })
-
   it('renders the upstream billing trust warning next to the declared-rate column', async () => {
     // A5 起上游声明倍率默认收在列设置里，这里先打开全部列
-    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 1, hidden: [] }))
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 

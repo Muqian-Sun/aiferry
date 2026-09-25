@@ -1,123 +1,65 @@
 <template>
-  <div ref="rootRef" v-if="showUsageWindows">
-    <!-- Anthropic OAuth and Setup Token accounts: fetch real usage data -->
-    <template
-      v-if="
-        account.platform === 'anthropic' &&
-        (account.type === 'oauth' || account.type === 'setup-token')
-      "
-    >
-      <!-- Loading state -->
+  <!--
+    渠道的上游用量窗口：只在详情抽屉「用量」页签里出现（列表放不下，方案 2026-09-25 挪进抽屉）。
+    按平台各有各的窗口，窗口名都写全（5 小时 / 7 天 / Gemini 3 Pro / 每日额度…）；本站在窗口里的用量写成
+    「请求 · Token · 收入 · 成本」一行小字。今日用量不在这里重复——抽屉下面「近 30 天」里有。
+  -->
+  <div class="space-y-1.5" data-testid="account-usage-cell">
+    <!-- Anthropic OAuth / Setup Token：主动 / 被动采样的 5 小时、7 天窗口 -->
+    <template v-if="isAnthropicOAuthOrSetupToken">
       <div v-if="loading" class="space-y-1.5">
-        <!-- OAuth: 3 rows, Setup Token: 1 row -->
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-        </div>
-        <template v-if="account.type === 'oauth'">
-          <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          </div>
-          <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          </div>
-        </template>
+        <div v-for="n in account.type === 'oauth' ? 3 : 1" :key="n" class="h-3 w-56 animate-pulse rounded bg-af-hairline"></div>
       </div>
-
-      <!-- Error state -->
-      <div v-else-if="error" class="text-xs text-af-danger">
-        {{ error }}
-      </div>
-
-      <!-- Usage data -->
-      <div v-else-if="usageInfo" class="space-y-1">
-        <!-- API error (degraded response) -->
-        <div v-if="usageInfo.error" class="text-xs text-af-warning truncate max-w-[200px]" :title="usageInfo.error">
-          {{ usageInfo.error }}
-        </div>
-        <!-- 5h Window -->
+      <p v-else-if="error" class="text-xs text-af-danger">{{ error }}</p>
+      <div v-else-if="usageInfo" class="space-y-1.5">
+        <p v-if="usageInfo.error" class="truncate text-xs text-af-warning" :title="usageInfo.error">{{ usageInfo.error }}</p>
         <UsageProgressBar
           v-if="usageInfo.five_hour"
-          label="5h"
+          :label="t('admin.accounts.usageWindow.fiveHour')"
           :utilization="usageInfo.five_hour.utilization"
           :resets-at="usageInfo.five_hour.resets_at"
           :window-stats="usageInfo.five_hour.window_stats"
         />
-
-        <!-- 7d Window (OAuth only) -->
         <UsageProgressBar
           v-if="usageInfo.seven_day"
-          label="7d"
+          :label="t('admin.accounts.usageWindow.sevenDay')"
           :utilization="usageInfo.seven_day.utilization"
           :resets-at="usageInfo.seven_day.resets_at"
         />
-
-        <!-- 7d Sonnet Window (OAuth only) -->
         <UsageProgressBar
           v-if="usageInfo.seven_day_sonnet"
-          label="7d S"
+          :label="t('admin.accounts.usageWindow.sevenDaySonnet')"
           :utilization="usageInfo.seven_day_sonnet.utilization"
           :resets-at="usageInfo.seven_day_sonnet.resets_at"
         />
-
-        <!-- 7d Fable Window (7d_oi) -->
         <UsageProgressBar
           v-if="usageInfo.seven_day_fable"
-          label="7d F"
+          :label="t('admin.accounts.usageWindow.sevenDayFable')"
           :utilization="usageInfo.seven_day_fable.utilization"
           :resets-at="usageInfo.seven_day_fable.resets_at"
         />
-
-        <!-- Passive sampling label + active query button -->
-        <div class="flex items-center gap-1.5 mt-0.5">
-          <span
-            v-if="usageInfo.source === 'passive'"
-            class="text-[9px] text-af-ink-3 italic"
-          >
-            {{ t('admin.accounts.usageWindow.passiveSampled') }}
-          </span>
+        <div class="flex items-center gap-2 text-xs text-af-ink-3">
+          <span v-if="usageInfo.source === 'passive'">{{ t('admin.accounts.usageWindow.passiveSampled') }}</span>
           <button
             type="button"
-            class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[9px] font-medium text-af-ink-2 hover:bg-af-sunken transition-colors"
+            class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:opacity-50"
             :disabled="activeQueryLoading"
             @click="loadActiveUsage"
           >
-            <svg
-              class="h-2.5 w-2.5"
-              :class="{ 'animate-spin': activeQueryLoading }"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-              />
-            </svg>
+            <Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" />
             {{ t('admin.accounts.usageWindow.activeQuery') }}
           </button>
         </div>
       </div>
-
-      <!-- No data yet -->
-      <div v-else class="space-y-1">
-        <div class="text-xs text-af-ink-3">-</div>
-      </div>
+      <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.noData') }}</p>
     </template>
 
-    <!-- OpenAI OAuth accounts: single source from /usage API -->
+    <!-- OpenAI OAuth：/usage 的 5 小时、7 天窗口 + 上游重置次数 -->
     <template v-else-if="account.platform === 'openai' && account.type === 'oauth'">
-      <div v-if="hasOpenAIUsageFallback" class="space-y-1">
+      <div v-if="hasOpenAIUsage" class="space-y-1.5">
         <UsageProgressBar
           v-if="usageInfo?.five_hour"
-          label="5h"
+          :label="t('admin.accounts.usageWindow.fiveHour')"
           :utilization="usageInfo.five_hour.utilization"
           :resets-at="usageInfo.five_hour.resets_at"
           :window-stats="usageInfo.five_hour.window_stats"
@@ -125,248 +67,103 @@
         />
         <UsageProgressBar
           v-if="usageInfo?.seven_day"
-          label="7d"
+          :label="t('admin.accounts.usageWindow.sevenDay')"
           :utilization="usageInfo.seven_day.utilization"
           :resets-at="usageInfo.seven_day.resets_at"
           :window-stats="usageInfo.seven_day.window_stats"
           :estimated-total-cost="openAISevenDayEstimatedTotalCost"
           :show-now-when-idle="true"
         />
-        <!--
-          Upstream codex /wham/usage quota query + reset. The local active-sampling
-          refresh button is rendered via the pre-actions slot so the user sees a
-          single row of related buttons instead of two stacked rows.
-        -->
+        <!-- 本地主动采样的「查询」和上游重置次数放在同一排按钮里 -->
         <OpenAIQuotaResetCell :account="account" @account-updated="handleQuotaResetAccountUpdated">
           <template #pre-actions>
             <button
               type="button"
-              class="inline-flex items-center gap-0.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-af-ink-2 hover:bg-af-sunken transition-colors disabled:cursor-not-allowed disabled:opacity-50"
+              class="inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs font-medium text-af-ink-2 transition-colors hover:bg-af-sunken disabled:cursor-not-allowed disabled:opacity-50"
               :disabled="activeQueryLoading"
               @click="loadActiveUsage"
             >
-              <svg
-                class="h-2.5 w-2.5"
-                :class="{ 'animate-spin': activeQueryLoading }"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                />
-              </svg>
+              <Icon name="refresh" size="xs" :class="{ 'animate-spin': activeQueryLoading }" />
               {{ t('admin.accounts.usageWindow.activeQuery') }}
             </button>
           </template>
         </OpenAIQuotaResetCell>
       </div>
       <div v-else-if="loading" class="space-y-1.5">
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-        </div>
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-        </div>
+        <div v-for="n in 2" :key="n" class="h-3 w-56 animate-pulse rounded bg-af-hairline"></div>
       </div>
-      <div v-else>
-        <div class="text-xs text-af-ink-3">-</div>
-        <!-- Always allow on-demand upstream quota query, even before local data exists. -->
-        <OpenAIQuotaResetCell
-          :account="account"
-          class="mt-1"
-          @account-updated="handleQuotaResetAccountUpdated"
-        />
+      <div v-else class="space-y-1">
+        <p class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.noData') }}</p>
+        <!-- 本地还没有数据时也能直接查上游 -->
+        <OpenAIQuotaResetCell :account="account" @account-updated="handleQuotaResetAccountUpdated" />
       </div>
     </template>
 
-    <!-- Antigravity OAuth accounts: fetch usage from API -->
+    <!-- Antigravity OAuth：按模型的配额 -->
     <template v-else-if="account.platform === 'antigravity' && account.type === 'oauth'">
-      <!-- 账户类型徽章 -->
-      <div v-if="antigravityTierLabel" class="mb-1 flex items-center gap-1">
-        <span
-          :class="[
-            'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-            antigravityTierClass
-          ]"
-        >
-          {{ antigravityTierLabel }}
-        </span>
-        <!-- 不合格账户警告图标 -->
-        <span
-          v-if="hasIneligibleTiers"
-          class="group relative cursor-help"
-        >
-          <svg
-            class="h-3.5 w-3.5 text-af-danger"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span
-            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-af-ink px-3 py-2 text-xs leading-relaxed text-af-on-brand opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-          >
-            {{ t('admin.accounts.ineligibleWarning') }}
-          </span>
-        </span>
-      </div>
-
-      <!-- Forbidden state (403) -->
+      <p v-if="hasIneligibleTiers" class="text-xs text-af-danger">{{ t('admin.accounts.ineligibleWarning') }}</p>
       <div v-if="isForbidden" class="space-y-1">
-        <span
-          :class="[
-            'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-            forbiddenBadgeClass
-          ]"
-        >
-          {{ forbiddenLabel }}
-        </span>
-        <div v-if="validationURL" class="flex items-center gap-1">
+        <p :class="['text-xs font-medium', forbiddenType === 'validation' ? 'text-af-warning' : 'text-af-danger']">{{ forbiddenLabel }}</p>
+        <div v-if="validationURL" class="flex items-center gap-2 text-xs">
           <a
             :href="validationURL"
             target="_blank"
             rel="noopener noreferrer"
-            class="text-[10px] text-af-ink-2 hover:text-af-ink hover:underline"
-            :title="t('admin.accounts.openVerification')"
+            class="text-af-ink-2 hover:text-af-ink hover:underline"
           >
             {{ t('admin.accounts.openVerification') }}
           </a>
-          <button
-            type="button"
-            class="text-[10px] text-af-ink-3 hover:text-af-ink-2"
-            :title="t('admin.accounts.copyLink')"
-            @click="copyValidationURL"
-          >
+          <button type="button" class="text-af-ink-3 hover:text-af-ink-2" @click="copyValidationURL">
             {{ linkCopied ? t('admin.accounts.linkCopied') : t('admin.accounts.copyLink') }}
           </button>
         </div>
       </div>
-
-      <!-- Needs reauth (401) -->
-      <div v-else-if="needsReauth" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-af-warning-tint text-af-warning">
-          {{ t('admin.accounts.needsReauth') }}
-        </span>
-      </div>
-
-      <!-- Degraded error (non-403, non-401) -->
-      <div v-else-if="usageInfo?.error" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-af-warning-tint text-af-warning">
-          {{ usageErrorLabel }}
-        </span>
-      </div>
-
-      <!-- Loading state -->
-      <div v-else-if="loading" class="space-y-1.5">
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-        </div>
-      </div>
-
-      <!-- Error state -->
-      <div v-else-if="error" class="text-xs text-af-danger">
-        {{ error }}
-      </div>
-
-      <!-- Usage data from API -->
-      <div v-else-if="hasAntigravityQuotaFromAPI" class="space-y-1">
-        <!-- Gemini 3 Pro -->
+      <p v-else-if="needsReauth" class="text-xs font-medium text-af-warning">{{ t('admin.accounts.needsReauth') }}</p>
+      <p v-else-if="usageInfo?.error" class="text-xs font-medium text-af-warning">{{ usageErrorLabel }}</p>
+      <div v-else-if="loading" class="h-3 w-56 animate-pulse rounded bg-af-hairline"></div>
+      <p v-else-if="error" class="text-xs text-af-danger">{{ error }}</p>
+      <div v-else-if="hasAntigravityQuota" class="space-y-1.5">
         <UsageProgressBar
-          v-if="antigravity3ProUsageFromAPI !== null"
-          :label="t('admin.accounts.usageWindow.gemini3Pro')"
-          :utilization="antigravity3ProUsageFromAPI.utilization"
-          :resets-at="antigravity3ProUsageFromAPI.resetTime"
+          v-for="bar in antigravityBars"
+          :key="bar.key"
+          :label="bar.label"
+          :utilization="bar.utilization"
+          :resets-at="bar.resetTime"
         />
-
-        <!-- Gemini 3 Flash -->
-        <UsageProgressBar
-          v-if="antigravity3FlashUsageFromAPI !== null"
-          :label="t('admin.accounts.usageWindow.gemini3Flash')"
-          :utilization="antigravity3FlashUsageFromAPI.utilization"
-          :resets-at="antigravity3FlashUsageFromAPI.resetTime"
-        />
-
-        <!-- Gemini 3 Image -->
-        <UsageProgressBar
-          v-if="antigravity3ImageUsageFromAPI !== null"
-          :label="t('admin.accounts.usageWindow.gemini3Image')"
-          :utilization="antigravity3ImageUsageFromAPI.utilization"
-          :resets-at="antigravity3ImageUsageFromAPI.resetTime"
-        />
-
-        <!-- Claude -->
-        <UsageProgressBar
-          v-if="antigravityClaudeUsageFromAPI !== null"
-          :label="t('admin.accounts.usageWindow.claude')"
-          :utilization="antigravityClaudeUsageFromAPI.utilization"
-          :resets-at="antigravityClaudeUsageFromAPI.resetTime"
-        />
-
-        <div v-if="aiCreditsDisplay" class="mt-1 text-[10px] text-af-ink-3">
-          💳 {{ t('admin.accounts.aiCreditsBalance') }}: {{ aiCreditsDisplay }}
-        </div>
+        <p v-if="aiCreditsDisplay" class="text-xs text-af-ink-3">
+          {{ t('admin.accounts.aiCreditsBalance') }}{{ t('common.labelSeparator') }}{{ aiCreditsDisplay }}
+        </p>
       </div>
-      <div v-else-if="aiCreditsDisplay" class="text-[10px] text-af-ink-3">
-        💳 {{ t('admin.accounts.aiCreditsBalance') }}: {{ aiCreditsDisplay }}
-      </div>
-      <div v-else class="text-xs text-af-ink-3">-</div>
+      <p v-else-if="aiCreditsDisplay" class="text-xs text-af-ink-3">
+        {{ t('admin.accounts.aiCreditsBalance') }}{{ t('common.labelSeparator') }}{{ aiCreditsDisplay }}
+      </p>
+      <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.noData') }}</p>
     </template>
 
-    <!-- Grok OAuth accounts: passive xAI quota headers + local Sub2API usage -->
+    <!-- Grok OAuth：免费档看滚动 24 小时 Token；付费档看 7 天 / 30 天 + 预付余额 -->
     <template v-else-if="account.platform === 'grok' && account.type === 'oauth'">
-      <div v-if="loading" class="space-y-1.5">
-        <div class="flex items-center gap-1">
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-          <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-        </div>
-      </div>
-      <div v-else-if="error" class="text-xs text-af-danger">
-        {{ error }}
-      </div>
-      <div v-else-if="needsReauth" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-af-warning-tint text-af-warning">
-          {{ t('admin.accounts.needsReauth') }}
-        </span>
-      </div>
-      <div v-else-if="isForbidden" class="space-y-1">
-        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium bg-af-danger-tint text-af-danger">
-          {{ usageInfo?.grok_entitlement_status || t('admin.accounts.forbidden') }}
-        </span>
-      </div>
-      <div v-else-if="usageInfo" class="space-y-1">
-        <!-- Free: only rolling 24h soft-gate bar. Paid: 7d + 30d + prepaid money. -->
+      <div v-if="loading" class="h-3 w-56 animate-pulse rounded bg-af-hairline"></div>
+      <p v-else-if="error" class="text-xs text-af-danger">{{ error }}</p>
+      <p v-else-if="needsReauth" class="text-xs font-medium text-af-warning">{{ t('admin.accounts.needsReauth') }}</p>
+      <p v-else-if="isForbidden" class="text-xs font-medium text-af-danger">
+        {{ usageInfo?.grok_entitlement_status || t('admin.accounts.forbidden') }}
+      </p>
+      <div v-else-if="usageInfo" class="space-y-1.5">
         <template v-if="grokIsFree">
           <UsageProgressBar
             v-if="grokFreeTokenBar"
-            label="24h"
+            :label="t('admin.accounts.usageWindow.twentyFourHours')"
             :title="t('admin.accounts.usageWindow.grokFreeQuota24hHint', { limit: formatCompactNumber(grokFreeTokenBar.limit) })"
             :utilization="grokFreeTokenBar.utilization"
             :window-stats="grokFreeQuotaUsage"
             :show-now-when-idle="true"
           />
-          <div v-else-if="grokQuotaUnknown" class="text-[10px] text-af-ink-3">
-            {{ grokQuotaUnknownLabel }}
-          </div>
+          <p v-else-if="grokQuotaUnknown" class="text-xs text-af-ink-3">{{ grokQuotaUnknownLabel }}</p>
         </template>
         <template v-else>
           <UsageProgressBar
             v-if="grokWeeklyBillingBar"
-            label="7d"
+            :label="t('admin.accounts.usageWindow.sevenDay')"
             :utilization="grokWeeklyBillingBar.utilization"
             :resets-at="grokWeeklyBillingBar.resetsAt"
             :window-stats="grokWeeklyBillingBar.windowStats"
@@ -374,246 +171,119 @@
           />
           <UsageProgressBar
             v-if="grokMonthlyBillingBar"
-            label="30d"
+            :label="t('admin.accounts.usageWindow.thirtyDays')"
             :utilization="grokMonthlyBillingBar.utilization"
             :resets-at="grokMonthlyBillingBar.resetsAt"
             :window-stats="grokMonthlyBillingBar.windowStats"
             :show-now-when-idle="true"
           />
-          <div
-            v-if="grokPrepaidMoneyLine"
-            class="flex flex-wrap items-center gap-1 text-[10px] text-af-ink-3"
-          >
-            <span
-              v-if="grokPrepaidMoneyLine.showPrepaid"
-              class="rounded bg-af-sunken px-1 py-0.5 text-af-ink-2"
-              :title="t('admin.accounts.usageWindow.grokPrepaid')"
-            >
-              {{ t('admin.accounts.usageWindow.grokPrepaid') }} ${{ grokPrepaidMoneyLine.prepaid }}
+          <p v-if="grokPrepaidMoneyLine" class="flex flex-wrap items-center gap-x-2 text-xs text-af-ink-3" data-testid="grok-money-line">
+            <span v-if="grokPrepaidMoneyLine.prepaid !== null">
+              {{ t('admin.accounts.usageWindow.grokPrepaid') }} {{ grokPrepaidMoneyLine.prepaid }}
             </span>
-            <span
-              v-if="grokPrepaidMoneyLine.showUsedLimit"
-              :title="t('admin.accounts.usageWindow.grokMonthlyLimit')"
-            >
-              {{ t('admin.accounts.usageWindow.grokUsed') }}
-              {{ grokPrepaidMoneyLine.used }}/{{ grokPrepaidMoneyLine.limit }}
+            <span v-if="grokPrepaidMoneyLine.used !== null" :title="t('admin.accounts.usageWindow.grokMonthlyLimit')">
+              {{ t('admin.accounts.usageWindow.grokUsed') }} {{ grokPrepaidMoneyLine.used }} / {{ grokPrepaidMoneyLine.limit }}
             </span>
-          </div>
-          <div v-if="grokQuotaUnknown" class="text-[10px] text-af-ink-3">
-            {{ grokQuotaUnknownLabel }}
-          </div>
+          </p>
+          <p v-if="grokQuotaUnknown" class="text-xs text-af-ink-3">{{ grokQuotaUnknownLabel }}</p>
         </template>
-        <div v-if="usageInfo.error" class="truncate text-xs text-af-warning max-w-[200px]" :title="usageInfo.error">
-          {{ usageErrorLabel }}
-        </div>
-        <div v-if="grokRetryAfterLabel" class="text-[10px] text-af-warning">
+        <p v-if="usageInfo.error" class="truncate text-xs text-af-warning" :title="usageInfo.error">{{ usageErrorLabel }}</p>
+        <p v-if="grokRetryAfterLabel" class="text-xs text-af-warning">
           {{ t('admin.accounts.usageWindow.grokRetryAfter', { time: grokRetryAfterLabel }) }}
-        </div>
+        </p>
         <GrokQuotaProbeCell :account="account" compact @probed="handleGrokProbed" />
       </div>
       <div v-else class="space-y-1">
-        <div class="text-xs text-af-ink-3">-</div>
+        <p class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.noData') }}</p>
         <GrokQuotaProbeCell :account="account" compact @probed="handleGrokProbed" />
       </div>
     </template>
 
-    <!-- CN providers (Kimi / Zhipu / DeepSeek): coding-plan quota or payg balance -->
-    <template v-else-if="account.platform === 'kimi' || account.platform === 'zhipu' || account.platform === 'deepseek' || account.platform === 'minimax' || account.platform === 'opencode_go'">
-      <!-- 挂在 CN 平台下的 Ollama Cloud 账号（资格由后端下发 eligible）：用量由
-           Ollama 用量窗口负责。这类账号不是国产厂商订阅，CN 的额度/余额探测端点由
-           base_url 衍生，对 ollama.com 会被后端出站 URL 白名单拒绝，渲染出来只会
-           给用户一行探测报错，因此不再渲染 CN 子单元格与占位符。 -->
+    <!-- 国产平台（Kimi / 智谱 / DeepSeek / MiniMax / OpenCode）：Coding Plan 额度或按量余额 -->
+    <template v-else-if="isCNProvider">
+      <!-- 挂在国产平台下的 Ollama Cloud 渠道（后端下发 eligible）：用量走 Ollama 自己的窗口；
+           国产平台的额度 / 余额端点由 base_url 衍生，对 ollama.com 会被出站白名单拒绝，所以不渲染。 -->
       <OllamaCloudUsageCell
         v-if="account.ollama_cloud_usage?.eligible"
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
       />
-      <div v-else class="space-y-1">
-        <!-- 子单元格各自按 模式×平台 判定可见；两者都不可见时（智谱 payg 无公开
-             余额端点、coding 探测也不适用）才回落到占位符。 -->
-        <div
-          v-if="!cnQuotaCellVisible && !cnBalanceCellVisible"
-          class="text-xs text-af-ink-3"
-          :title="t('admin.accounts.cnProviders.noBalanceEndpoint')"
-        >-</div>
+      <template v-else>
+        <!-- 两个子格按「计费方式 × 平台」各自判定；都不可见时（智谱按量没有公开余额端点）写一句说明 -->
+        <p v-if="!cnQuotaCellVisible && !cnBalanceCellVisible" class="text-xs text-af-ink-3">
+          {{ t('admin.accounts.cnProviders.noBalanceEndpoint') }}
+        </p>
         <CNProviderQuotaCell :account="account" />
         <CNProviderBalanceCell :account="account" />
-      </div>
+      </template>
     </template>
 
-    <!-- Gemini platform: show quota + local usage window -->
+    <!-- Gemini：授权通道与等级 + 本地模拟的每日配额 -->
     <template v-else-if="account.platform === 'gemini'">
-      <!-- Auth Type + Tier Badge (first line) -->
-      <div v-if="geminiAuthTypeLabel" class="mb-1 flex items-center gap-1">
-        <span
-          :class="[
-            'inline-block rounded px-1.5 py-0.5 text-[10px] font-medium',
-            geminiTierClass
-          ]"
-        >
-          {{ geminiAuthTypeLabel }}
-        </span>
-        <!-- Help icon -->
-        <span
-          class="group relative cursor-help"
-        >
-          <svg
-            class="h-3.5 w-3.5 text-af-ink-3 hover:text-af-ink-2"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-8-3a1 1 0 00-.867.5 1 1 0 11-1.731-1A3 3 0 0113 8a3.001 3.001 0 01-2 2.83V11a1 1 0 11-2 0v-1a1 1 0 011-1 1 1 0 100-2zm0 8a1 1 0 100-2 1 1 0 000 2z"
-              clip-rule="evenodd"
-            />
-          </svg>
-          <span
-            class="pointer-events-none absolute left-0 top-full z-50 mt-1 w-80 whitespace-normal break-words rounded bg-af-ink px-3 py-2 text-xs leading-relaxed text-af-on-brand opacity-0 shadow-lg transition-opacity group-hover:opacity-100"
-          >
-            <div class="font-semibold mb-1">{{ t('admin.accounts.gemini.quotaPolicy.title') }}</div>
-            <div class="mb-2 text-af-ink-4">{{ t('admin.accounts.gemini.quotaPolicy.note') }}</div>
-            <div class="space-y-1">
-              <div><strong>{{ geminiQuotaPolicyChannel }}:</strong></div>
-              <div class="pl-2">• {{ geminiQuotaPolicyLimits }}</div>
-              <div class="mt-2">
-                <a :href="geminiQuotaPolicyDocsUrl" target="_blank" rel="noopener noreferrer" class="text-af-ink-2 hover:text-af-ink-3 underline">
-                  {{ t('admin.accounts.gemini.quotaPolicy.columns.docs') }} →
-                </a>
-              </div>
-            </div>
-          </span>
-        </span>
+      <div v-if="geminiAuthTypeLabel" class="space-y-0.5 text-xs text-af-ink-3" data-testid="gemini-quota-policy">
+        <p class="font-medium text-af-ink-2">{{ geminiAuthTypeLabel }}</p>
+        <p>
+          {{ geminiQuotaPolicyLimits }}
+          <a :href="geminiQuotaPolicyDocsUrl" target="_blank" rel="noopener noreferrer" class="ml-1 text-af-ink-2 underline hover:text-af-ink">
+            {{ t('admin.accounts.gemini.quotaPolicy.columns.docs') }}
+          </a>
+        </p>
       </div>
-
-      <!-- Usage data or unlimited flow -->
-      <div class="space-y-1">
-        <!-- 今日：请求 · Token / 渠道计费 · 用户扣费，两行小字（A5：不再是四个灰底小块） -->
-        <div
-          v-if="showGeminiTodayStats && todayStats"
-          class="mb-0.5 flex flex-col text-xs leading-4 tabular-nums text-af-ink-3"
-        >
-          <span class="text-af-ink-2">{{ formatKeyRequests }} req · {{ formatKeyTokens }}</span>
-          <span>
-            <span :title="t('usage.accountBilled')">A ${{ formatKeyCost }}</span>
-            <template v-if="todayStats.user_cost != null"> · <span :title="t('usage.userBilled')">U ${{ formatKeyUserCost }}</span></template>
-          </span>
-        </div>
-        <div
-          v-else-if="showGeminiTodayStats && todayStatsLoading"
-          class="mb-0.5 flex items-center gap-1"
-        >
-          <div class="h-3 w-10 animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-3 w-8 animate-pulse rounded bg-af-hairline"></div>
-          <div class="h-3 w-12 animate-pulse rounded bg-af-hairline"></div>
-        </div>
-        <div v-if="loading" class="space-y-1">
-          <div class="flex items-center gap-1">
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-            <div class="h-1.5 w-8 animate-pulse rounded-full bg-af-hairline"></div>
-            <div class="h-3 w-[32px] animate-pulse rounded bg-af-hairline"></div>
-          </div>
-        </div>
-        <div v-else-if="error" class="text-xs text-af-danger">
-          {{ error }}
-        </div>
-        <!-- Gemini: show daily usage bars when available -->
-        <div v-else-if="geminiUsageAvailable" class="space-y-1">
-          <UsageProgressBar
-            v-for="bar in geminiUsageBars"
-            :key="bar.key"
-            :label="bar.label"
-            :utilization="bar.utilization"
-            :resets-at="bar.resetsAt"
-            :window-stats="bar.windowStats"
-          />
-          <p class="mt-1 text-[9px] leading-tight text-af-ink-3 italic">
-            * {{ t('admin.accounts.gemini.quotaPolicy.simulatedNote') || 'Simulated quota' }}
-          </p>
-        </div>
-        <!-- AI Studio Client OAuth: show unlimited flow (no usage tracking) -->
-        <div v-else class="text-xs text-af-ink-3">
-          {{ t('admin.accounts.gemini.rateLimit.unlimited') }}
-        </div>
+      <div v-if="loading" class="h-3 w-56 animate-pulse rounded bg-af-hairline"></div>
+      <p v-else-if="error" class="text-xs text-af-danger">{{ error }}</p>
+      <div v-else-if="geminiUsageBars.length" class="space-y-1.5">
+        <UsageProgressBar
+          v-for="bar in geminiUsageBars"
+          :key="bar.key"
+          :label="bar.label"
+          :utilization="bar.utilization"
+          :resets-at="bar.resetsAt"
+          :window-stats="bar.windowStats"
+        />
+        <p class="text-xs text-af-ink-3">{{ t('admin.accounts.gemini.quotaPolicy.simulatedNote') }}</p>
       </div>
+      <!-- AI Studio 客户端 OAuth 没有用量追踪 -->
+      <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.gemini.rateLimit.unlimited') }}</p>
     </template>
 
-    <!-- Other accounts: no usage window -->
-    <template v-else>
-      <div class="text-xs text-af-ink-3">-</div>
-    </template>
-  </div>
-
-  <!-- Non-OAuth/Setup-Token accounts -->
-  <div ref="rootRef" v-else>
-    <!-- Gemini API Key accounts: show quota info -->
-    <AccountQuotaInfo v-if="account.platform === 'gemini'" :account="account" />
-    <!-- Key/Bedrock accounts: show today stats + optional quota bars -->
-    <div v-else class="space-y-1">
+    <!-- 其余第三方 key / Bedrock：只有下面的额度进度条；没设额度时写一句 -->
+    <template v-else-if="isQuotaEligible">
       <OllamaCloudUsageCell
         v-if="account.ollama_cloud_usage?.eligible"
         :account="account"
         @updated="handleOllamaCloudUsageUpdated"
       />
-      <!-- Today stats row (requests, tokens, cost, user_cost) -->
-      <div
-        v-if="todayStats"
-        class="mb-0.5 flex flex-col text-xs leading-4 tabular-nums text-af-ink-3"
-      >
-        <span class="text-af-ink-2">{{ formatKeyRequests }} req · {{ formatKeyTokens }}</span>
-        <span>
-          <span :title="t('usage.accountBilled')">A ${{ formatKeyCost }}</span>
-          <template v-if="todayStats.user_cost != null"> · <span :title="t('usage.userBilled')">U ${{ formatKeyUserCost }}</span></template>
-        </span>
-      </div>
-      <!-- Loading skeleton for today stats -->
-      <div
-        v-else-if="todayStatsLoading"
-        class="mb-0.5 flex items-center gap-1"
-      >
-        <div class="h-3 w-10 animate-pulse rounded bg-af-hairline"></div>
-        <div class="h-3 w-8 animate-pulse rounded bg-af-hairline"></div>
-        <div class="h-3 w-12 animate-pulse rounded bg-af-hairline"></div>
-      </div>
+      <p v-if="!quotaBars.length && !account.ollama_cloud_usage?.eligible" class="text-xs text-af-ink-3">
+        {{ t('admin.accounts.usageWindow.noQuota') }}
+      </p>
+    </template>
 
-      <!-- API Key accounts with quota limits: show progress bars -->
-      <UsageProgressBar
-        v-if="quotaDailyBar"
-        label="1d"
-        :utilization="quotaDailyBar.utilization"
-        :resets-at="quotaDailyBar.resetsAt"
-      />
-      <UsageProgressBar
-        v-if="quotaWeeklyBar"
-        label="7d"
-        :utilization="quotaWeeklyBar.utilization"
-        :resets-at="quotaWeeklyBar.resetsAt"
-      />
-      <UsageProgressBar
-        v-if="quotaTotalBar"
-        label="total"
-        :utilization="quotaTotalBar.utilization"
-      />
+    <p v-else class="text-xs text-af-ink-3">{{ t('admin.accounts.usageWindow.none') }}</p>
 
-      <!-- No data at all -->
-      <div
-        v-if="!todayStats && !todayStatsLoading && !hasApiKeyQuota && !account.ollama_cloud_usage?.eligible"
-        class="text-xs text-af-ink-3"
-      >-</div>
-    </div>
+    <!-- 第三方 key / Bedrock 设了配额时的日 / 周 / 总额度（成本口径）。平台标签是 Gemini、国产平台的 key 也能设额度，
+         所以不放进上面按平台分的分支里（容量里已不再重复画额度，这里是唯一一处） -->
+    <UsageProgressBar
+      v-for="bar in quotaBars"
+      :key="bar.key"
+      :label="bar.label"
+      :utilization="bar.utilization"
+      :resets-at="bar.resetsAt"
+      :note="bar.note"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, onUnmounted, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import type { Account, AccountUsageInfo, GeminiCredentials, WindowStats } from '@/types'
+import Icon from '@/components/icons/Icon.vue'
 import { buildOpenAIUsageRefreshKey } from '@/utils/accountUsageRefresh'
 import { enqueueUsageRequest } from '@/utils/usageLoadQueue'
 import { formatCompactNumber } from '@/utils/format'
+import { formatMoney } from '@/utils/money'
 import UsageProgressBar from './UsageProgressBar.vue'
-import AccountQuotaInfo from './AccountQuotaInfo.vue'
 import OpenAIQuotaResetCell from './OpenAIQuotaResetCell.vue'
 import GrokQuotaProbeCell from './GrokQuotaProbeCell.vue'
 import CNProviderQuotaCell from './CNProviderQuotaCell.vue'
@@ -621,39 +291,17 @@ import CNProviderBalanceCell from './CNProviderBalanceCell.vue'
 import OllamaCloudUsageCell from './OllamaCloudUsageCell.vue'
 import { cnQuotaCellVisible as cnQuotaCellVisibleFn, cnBalanceCellVisible as cnBalanceCellVisibleFn } from './credentialsBuilder'
 
-// Module-level cache shared across all AccountUsageCell instances
+// 同一个渠道短时间内反复打开抽屉时复用上次的结果
 const _usageCache = new Map<number, { data: AccountUsageInfo; ts: number }>()
 const USAGE_CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
-const props = withDefaults(
-  defineProps<{
-    account: Account
-    todayStats?: WindowStats | null
-    todayStatsLoading?: boolean
-    manualRefreshToken?: number
-    batchedUsage?: AccountUsageInfo | null
-    batchedUsageError?: string | null
-    batchedUsageLoading?: boolean
-    requestBatchedUsage?: ((account: Account, options?: { force?: boolean }) => void) | null
-  }>(),
-  {
-    todayStats: null,
-    todayStatsLoading: false,
-    manualRefreshToken: 0,
-    batchedUsage: null,
-    batchedUsageError: null,
-    batchedUsageLoading: false,
-    requestBatchedUsage: null
-  }
-)
+const props = defineProps<{ account: Account }>()
 
 const emit = defineEmits<{
   'account-updated': [account: Account]
-  'usage-loaded': [usage: AccountUsageInfo]
 }>()
 
 const { t } = useI18n()
-const desktopViewportQuery = '(min-width: 768px)'
 
 const unmounted = ref(false)
 onBeforeUnmount(() => { unmounted.value = true })
@@ -662,60 +310,23 @@ const loading = ref(false)
 const activeQueryLoading = ref(false)
 const error = ref<string | null>(null)
 const usageInfo = ref<AccountUsageInfo | null>(null)
-watch(usageInfo, (usage) => {
-  if (usage) emit('usage-loaded', usage)
-})
-const rootRef = ref<HTMLElement | null>(null)
-const isDesktopViewport = ref(
-  typeof window === 'undefined' ? true : window.matchMedia(desktopViewportQuery).matches
+
+const CN_PROVIDER_PLATFORMS = new Set(['kimi', 'zhipu', 'deepseek', 'minimax', 'opencode_go'])
+const isCNProvider = computed(() => CN_PROVIDER_PLATFORMS.has(props.account.platform))
+
+const isAnthropicOAuthOrSetupToken = computed(() =>
+  props.account.platform === 'anthropic' && (props.account.type === 'oauth' || props.account.type === 'setup-token')
 )
-const hasEnteredViewport = ref(false)
-const pendingAutoLoad = ref(false)
-const pendingAutoLoadSource = ref<'passive' | 'active' | undefined>(undefined)
 
-let desktopViewportMediaQuery: MediaQueryList | null = null
-let desktopViewportListener: ((event: MediaQueryListEvent) => void) | null = null
-let visibilityObserver: IntersectionObserver | null = null
-
-// Show usage windows for OAuth and Setup Token accounts
-const showUsageWindows = computed(() => {
-  // Gemini: we can always compute local usage windows from DB logs (simulated quotas).
-  if (props.account.platform === 'gemini') return true
-  // CN providers: apikey 账号也有滚动用量窗口（coding plan）或余额（payg），
-  // 由 CNProviderQuotaCell / CNProviderBalanceCell 自行探测与展示。
-  if (
-    props.account.platform === 'kimi' ||
-    props.account.platform === 'zhipu' ||
-    props.account.platform === 'deepseek' ||
-    props.account.platform === 'minimax' ||
-    props.account.platform === 'opencode_go'
-  ) {
-    return true
-  }
-  return props.account.type === 'oauth' || props.account.type === 'setup-token'
-})
-
+// 只有这些渠道有上游用量接口可拉
 const shouldFetchUsage = computed(() => {
-  if (props.account.platform === 'anthropic') {
-    return props.account.type === 'oauth' || props.account.type === 'setup-token'
-  }
-  if (props.account.platform === 'gemini') {
-    return true
-  }
-  if (props.account.platform === 'antigravity') {
-    return props.account.type === 'oauth'
-  }
-  if (props.account.platform === 'grok') {
-    return props.account.type === 'oauth'
-  }
-  if (props.account.platform === 'openai') {
-    return props.account.type === 'oauth'
-  }
+  if (isAnthropicOAuthOrSetupToken.value) return true
+  if (props.account.platform === 'gemini') return true
+  if (['antigravity', 'grok', 'openai'].includes(props.account.platform)) return props.account.type === 'oauth'
   return false
 })
 
-// CN 供应商子单元格可见性（与 CNProviderQuotaCell / CNProviderBalanceCell 共用
-// credentialsBuilder 的单一实现）：都不可见时显示 `-` 占位符。
+// 国产平台两个子格的可见性（与子格共用 credentialsBuilder 的同一实现）
 const cnAccountMode = computed(() => {
   const mode = props.account.credentials?.account_mode
   return typeof mode === 'string' ? mode : ''
@@ -723,28 +334,9 @@ const cnAccountMode = computed(() => {
 const cnQuotaCellVisible = computed(() => cnQuotaCellVisibleFn(props.account.platform, cnAccountMode.value))
 const cnBalanceCellVisible = computed(() => cnBalanceCellVisibleFn(props.account.platform, cnAccountMode.value))
 
-const isBatchManaged = computed(() => typeof props.requestBatchedUsage === 'function')
+const hasOpenAIUsage = computed(() => !!usageInfo.value?.five_hour || !!usageInfo.value?.seven_day)
 
-const showGeminiTodayStats = computed(() => {
-  return props.account.platform === 'gemini' && props.account.type === 'service_account'
-})
-
-const geminiUsageAvailable = computed(() => {
-  return (
-    !!usageInfo.value?.gemini_shared_daily ||
-    !!usageInfo.value?.gemini_pro_daily ||
-    !!usageInfo.value?.gemini_flash_daily ||
-    !!usageInfo.value?.gemini_shared_minute ||
-    !!usageInfo.value?.gemini_pro_minute ||
-    !!usageInfo.value?.gemini_flash_minute
-  )
-})
-
-const hasOpenAIUsageFallback = computed(() => {
-  if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return false
-  return !!usageInfo.value?.five_hour || !!usageInfo.value?.seven_day
-})
-
+// 按 7 天窗口当前的成本和用量，推算用满这个窗口要花多少成本
 const openAISevenDayEstimatedTotalCost = computed(() => {
   const sevenDay = usageInfo.value?.seven_day
   const utilization = sevenDay?.utilization
@@ -759,92 +351,64 @@ const openAISevenDayEstimatedTotalCost = computed(() => {
   ) {
     return null
   }
-
   const estimate = (currentCost * 100) / utilization
   return Number.isFinite(estimate) && estimate > 0 ? estimate : null
 })
 
 const openAIUsageRefreshKey = computed(() => buildOpenAIUsageRefreshKey(props.account))
 
-const shouldAutoLoadUsageOnMount = computed(() => {
-  return shouldFetchUsage.value
-})
+// ===== Antigravity：按模型组取最高使用率、最早重置时间 =====
 
-const shouldLazyLoadOnMobile = computed(() => {
-  return shouldFetchUsage.value && !isDesktopViewport.value
-})
-
-// Antigravity quota types (用于 API 返回的数据)
 interface AntigravityUsageResult {
   utilization: number
   resetTime: string | null
 }
 
-// ===== Antigravity quota from API (usageInfo.antigravity_quota) =====
-
-// 检查是否有从 API 获取的配额数据
-const hasAntigravityQuotaFromAPI = computed(() => {
-  return usageInfo.value?.antigravity_quota && Object.keys(usageInfo.value.antigravity_quota).length > 0
+const hasAntigravityQuota = computed(() => {
+  return !!usageInfo.value?.antigravity_quota && Object.keys(usageInfo.value.antigravity_quota).length > 0
 })
 
-// 从 API 配额数据中获取使用率（多模型取最高使用率）
-const getAntigravityUsageFromAPI = (
-  modelNames: string[]
-): AntigravityUsageResult | null => {
+const getAntigravityUsage = (modelNames: string[]): AntigravityUsageResult | null => {
   const quota = usageInfo.value?.antigravity_quota
   if (!quota) return null
 
   let maxUtilization = 0
   let earliestReset: string | null = null
-
   for (const model of modelNames) {
     const modelQuota = quota[model]
     if (!modelQuota) continue
-
-    if (modelQuota.utilization > maxUtilization) {
-      maxUtilization = modelQuota.utilization
-    }
-    if (modelQuota.reset_time) {
-      if (!earliestReset || modelQuota.reset_time < earliestReset) {
-        earliestReset = modelQuota.reset_time
-      }
+    if (modelQuota.utilization > maxUtilization) maxUtilization = modelQuota.utilization
+    if (modelQuota.reset_time && (!earliestReset || modelQuota.reset_time < earliestReset)) {
+      earliestReset = modelQuota.reset_time
     }
   }
 
-  // 如果没有找到任何匹配的模型
-  if (maxUtilization === 0 && earliestReset === null) {
-    const hasAnyData = modelNames.some((m) => quota[m])
-    if (!hasAnyData) return null
-  }
-
-  return {
-    utilization: maxUtilization,
-    resetTime: earliestReset
-  }
+  if (maxUtilization === 0 && earliestReset === null && !modelNames.some((m) => quota[m])) return null
+  return { utilization: maxUtilization, resetTime: earliestReset }
 }
 
-// Gemini 3 Pro from API
-const antigravity3ProUsageFromAPI = computed(() =>
-  getAntigravityUsageFromAPI(['gemini-3-pro-low', 'gemini-3-pro-high', 'gemini-3-pro-preview'])
-)
+const ANTIGRAVITY_MODEL_GROUPS: Array<{ key: string; labelKey: string; models: string[] }> = [
+  { key: 'gemini-3-pro', labelKey: 'admin.accounts.usageWindow.gemini3Pro', models: ['gemini-3-pro-low', 'gemini-3-pro-high', 'gemini-3-pro-preview'] },
+  { key: 'gemini-3-flash', labelKey: 'admin.accounts.usageWindow.gemini3Flash', models: ['gemini-3-flash'] },
+  { key: 'gemini-image', labelKey: 'admin.accounts.usageWindow.geminiImage', models: ['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3-pro-image'] },
+  {
+    key: 'claude',
+    labelKey: 'admin.accounts.usageWindow.claude',
+    models: [
+      'claude-fable-5-1',
+      'claude-fable-5',
+      'claude-sonnet-4-5', 'claude-opus-4-5-thinking',
+      'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-opus-4-6-thinking',
+      'claude-opus-4-7', 'claude-opus-4-8'
+    ]
+  }
+]
 
-// Gemini 3 Flash from API
-const antigravity3FlashUsageFromAPI = computed(() => getAntigravityUsageFromAPI(['gemini-3-flash']))
-
-// Gemini Image from API
-const antigravity3ImageUsageFromAPI = computed(() =>
-  getAntigravityUsageFromAPI(['gemini-2.5-flash-image', 'gemini-3.1-flash-image', 'gemini-3-pro-image'])
-)
-
-// Claude from API (all Claude model variants)
-const antigravityClaudeUsageFromAPI = computed(() =>
-  getAntigravityUsageFromAPI([
-    'claude-fable-5-1',
-    'claude-fable-5',
-    'claude-sonnet-4-5', 'claude-opus-4-5-thinking',
-    'claude-sonnet-4-6', 'claude-opus-4-6', 'claude-opus-4-6-thinking',
-    'claude-opus-4-7', 'claude-opus-4-8',
-  ])
+const antigravityBars = computed(() =>
+  ANTIGRAVITY_MODEL_GROUPS.flatMap((group) => {
+    const usage = getAntigravityUsage(group.models)
+    return usage ? [{ key: group.key, label: t(group.labelKey), ...usage }] : []
+  })
 )
 
 const aiCreditsDisplay = computed(() => {
@@ -855,148 +419,84 @@ const aiCreditsDisplay = computed(() => {
   return total.toFixed(0)
 })
 
-// Antigravity 账户类型（从 load_code_assist 响应中提取）
-const antigravityTier = computed(() => {
-  const extra = props.account.extra as Record<string, unknown> | undefined
-  if (!extra) return null
-
-  const loadCodeAssist = extra.load_code_assist as Record<string, unknown> | undefined
-  if (!loadCodeAssist) return null
-
-  // 优先取 paidTier，否则取 currentTier
-  const paidTier = loadCodeAssist.paidTier as Record<string, unknown> | undefined
-  if (paidTier && typeof paidTier.id === 'string') {
-    return paidTier.id
-  }
-
-  const currentTier = loadCodeAssist.currentTier as Record<string, unknown> | undefined
-  if (currentTier && typeof currentTier.id === 'string') {
-    return currentTier.id
-  }
-
-  return null
+// 没有 Antigravity 使用资格（ineligibleTiers 非空）
+const hasIneligibleTiers = computed(() => {
+  const loadCodeAssist = (props.account.extra as Record<string, unknown> | undefined)?.load_code_assist as
+    | Record<string, unknown>
+    | undefined
+  const ineligibleTiers = loadCodeAssist?.ineligibleTiers as unknown[] | undefined
+  return Array.isArray(ineligibleTiers) && ineligibleTiers.length > 0
 })
 
-// Gemini 账户类型（从 credentials 中提取）
-const geminiTier = computed(() => {
-  if (props.account.platform !== 'gemini') return null
-  const creds = props.account.credentials as GeminiCredentials | undefined
-  return creds?.tier_id || null
-})
+// ===== Gemini：授权通道 · 等级、配额政策 =====
 
-const geminiOAuthType = computed(() => {
-  if (props.account.platform !== 'gemini') return null
-  const creds = props.account.credentials as GeminiCredentials | undefined
-  return (creds?.oauth_type || '').trim() || null
-})
+const geminiCredentials = computed(() => props.account.credentials as GeminiCredentials | undefined)
+const geminiTier = computed(() => geminiCredentials.value?.tier_id || null)
+const geminiOAuthType = computed(() => (geminiCredentials.value?.oauth_type || '').trim() || null)
 
-// Gemini 是否为 Code Assist OAuth
+// project_id 存在即为 Code Assist（与后端一致）
 const isGeminiCodeAssist = computed(() => {
-  if (props.account.platform !== 'gemini') return false
-  const creds = props.account.credentials as GeminiCredentials | undefined
+  const creds = geminiCredentials.value
   return creds?.oauth_type === 'code_assist' || (!creds?.oauth_type && !!creds?.project_id)
 })
 
-const geminiChannelShort = computed((): 'ai studio' | 'gcp' | 'google one' | 'client' | null => {
+type GeminiChannel = 'aiStudio' | 'codeAssist' | 'googleOne' | 'client'
+
+const geminiChannel = computed((): GeminiChannel | null => {
   if (props.account.platform !== 'gemini') return null
-
-  // API Key accounts are AI Studio.
-  if (props.account.type === 'apikey') return 'ai studio'
-
-  if (geminiOAuthType.value === 'google_one') return 'google one'
-  if (isGeminiCodeAssist.value) return 'gcp'
+  if (props.account.type === 'apikey') return 'aiStudio'
+  if (geminiOAuthType.value === 'google_one') return 'googleOne'
+  if (isGeminiCodeAssist.value) return 'codeAssist'
   if (geminiOAuthType.value === 'ai_studio') return 'client'
-
-  // Fallback (unknown legacy data): treat as AI Studio.
-  return 'ai studio'
+  // 旧数据未标类型：按 AI Studio 处理
+  return 'aiStudio'
 })
 
-const geminiUserLevel = computed((): string | null => {
+type GeminiLevel = 'free' | 'pro' | 'ultra' | 'standard' | 'enterprise' | 'paid'
+
+const geminiUserLevel = computed((): GeminiLevel | null => {
   if (props.account.platform !== 'gemini') return null
 
   const tier = (geminiTier.value || '').toString().trim()
   const tierLower = tier.toLowerCase()
   const tierUpper = tier.toUpperCase()
 
-  // Google One: free / pro / ultra
+  // Google One：free / pro / ultra
   if (geminiOAuthType.value === 'google_one') {
     if (tierLower === 'google_one_free') return 'free'
     if (tierLower === 'google_ai_pro') return 'pro'
     if (tierLower === 'google_ai_ultra') return 'ultra'
-
-    // Backward compatibility (legacy tier markers)
+    // 旧等级标记
     if (tierUpper === 'AI_PREMIUM' || tierUpper === 'GOOGLE_ONE_STANDARD') return 'pro'
     if (tierUpper === 'GOOGLE_ONE_UNLIMITED') return 'ultra'
     if (tierUpper === 'FREE' || tierUpper === 'GOOGLE_ONE_BASIC' || tierUpper === 'GOOGLE_ONE_UNKNOWN' || tierUpper === '') return 'free'
-
     return null
   }
 
-  // GCP Code Assist: standard / enterprise
+  // GCP Code Assist：standard / enterprise
   if (isGeminiCodeAssist.value) {
     if (tierLower === 'gcp_enterprise') return 'enterprise'
     if (tierLower === 'gcp_standard') return 'standard'
-
-    // Backward compatibility
     if (tierUpper.includes('ULTRA') || tierUpper.includes('ENTERPRISE')) return 'enterprise'
     return 'standard'
   }
 
-  // AI Studio (API Key) and Client OAuth: free / paid
+  // AI Studio（API Key 与客户端 OAuth）：free / paid
   if (props.account.type === 'apikey' || geminiOAuthType.value === 'ai_studio') {
     if (tierLower === 'aistudio_paid') return 'paid'
     if (tierLower === 'aistudio_free') return 'free'
-
-    // Backward compatibility
     if (tierUpper.includes('PAID') || tierUpper.includes('PAYG') || tierUpper.includes('PAY')) return 'paid'
     if (tierUpper.includes('FREE')) return 'free'
-    if (props.account.type === 'apikey') return 'free'
-    return null
+    return props.account.type === 'apikey' ? 'free' : null
   }
 
   return null
 })
 
-// Gemini 认证类型（按要求：授权方式简称 + 用户等级）
 const geminiAuthTypeLabel = computed(() => {
-  if (props.account.platform !== 'gemini') return null
-  if (!geminiChannelShort.value) return null
-  return geminiUserLevel.value ? `${geminiChannelShort.value} ${geminiUserLevel.value}` : geminiChannelShort.value
-})
-
-// Gemini 账户类型徽章样式（统一样式）
-const geminiTierClass = computed(() => {
-  // Use channel+level to choose a stable color without depending on raw tier_id variants.
-  const channel = geminiChannelShort.value
-  const level = geminiUserLevel.value
-
-  if (channel === 'client' || channel === 'ai studio') {
-    return 'bg-af-sunken text-af-ink-2'
-  }
-
-  if (channel === 'google one') {
-    if (level === 'ultra') return 'bg-af-sunken text-af-ink-2'
-    if (level === 'pro') return 'bg-af-sunken text-af-ink-2'
-    return 'bg-af-sunken text-af-ink-2'
-  }
-
-  if (channel === 'gcp') {
-    if (level === 'enterprise') return 'bg-af-sunken text-af-ink-2'
-    return 'bg-af-sunken text-af-ink-2'
-  }
-
-  return ''
-})
-
-// Gemini 配额政策信息
-const geminiQuotaPolicyChannel = computed(() => {
-  if (geminiOAuthType.value === 'google_one') {
-    return t('admin.accounts.gemini.quotaPolicy.rows.googleOne.channel')
-  }
-  if (isGeminiCodeAssist.value) {
-    return t('admin.accounts.gemini.quotaPolicy.rows.gcp.channel')
-  }
-  return t('admin.accounts.gemini.quotaPolicy.rows.aiStudio.channel')
+  if (!geminiChannel.value) return null
+  const channel = t(`admin.accounts.usageWindow.geminiChannel.${geminiChannel.value}`)
+  return geminiUserLevel.value ? `${channel} · ${t(`admin.accounts.usageWindow.geminiLevel.${geminiUserLevel.value}`)}` : channel
 })
 
 const geminiQuotaPolicyLimits = computed(() => {
@@ -1019,7 +519,6 @@ const geminiQuotaPolicyLimits = computed(() => {
     return t('admin.accounts.gemini.quotaPolicy.rows.gcp.limitsStandard')
   }
 
-  // AI Studio (API Key / custom OAuth)
   if (tierLower === 'aistudio_paid' || geminiUserLevel.value === 'paid') {
     return t('admin.accounts.gemini.quotaPolicy.rows.aiStudio.limitsPaid')
   }
@@ -1033,9 +532,8 @@ const geminiQuotaPolicyDocsUrl = computed(() => {
   return 'https://ai.google.dev/pricing'
 })
 
+// Google One 与 GCP 是共享的每日请求池，不分模型
 const geminiUsesSharedDaily = computed(() => {
-  if (props.account.platform !== 'gemini') return false
-  // Per requirement: Google One & GCP are shared RPD pools (no per-model breakdown).
   return (
     !!usageInfo.value?.gemini_shared_daily ||
     !!usageInfo.value?.gemini_shared_minute ||
@@ -1045,59 +543,46 @@ const geminiUsesSharedDaily = computed(() => {
 })
 
 const geminiUsageBars = computed(() => {
-  if (props.account.platform !== 'gemini') return []
-  if (!usageInfo.value) return []
+  const info = usageInfo.value
+  if (props.account.platform !== 'gemini' || !info) return []
 
-  const bars: Array<{
-    key: string
-    label: string
-    utilization: number
-    resetsAt: string | null
-    windowStats?: WindowStats | null
-    color: 'indigo' | 'emerald'
-  }> = []
-
+  const bars: Array<{ key: string; label: string; utilization: number; resetsAt: string | null; windowStats?: WindowStats | null }> = []
   if (geminiUsesSharedDaily.value) {
-    const sharedDaily = usageInfo.value.gemini_shared_daily
+    const sharedDaily = info.gemini_shared_daily
     if (sharedDaily) {
       bars.push({
         key: 'shared_daily',
-        label: '1d',
+        label: t('admin.accounts.usageWindow.daily'),
         utilization: sharedDaily.utilization,
         resetsAt: sharedDaily.resets_at,
-        windowStats: sharedDaily.window_stats,
-        color: 'indigo'
+        windowStats: sharedDaily.window_stats
       })
     }
     return bars
   }
 
-  const pro = usageInfo.value.gemini_pro_daily
-  if (pro) {
+  if (info.gemini_pro_daily) {
     bars.push({
       key: 'pro_daily',
-      label: 'pro',
-      utilization: pro.utilization,
-      resetsAt: pro.resets_at,
-      windowStats: pro.window_stats,
-      color: 'indigo'
-      })
-  }
-
-  const flash = usageInfo.value.gemini_flash_daily
-  if (flash) {
-    bars.push({
-      key: 'flash_daily',
-      label: 'flash',
-      utilization: flash.utilization,
-      resetsAt: flash.resets_at,
-      windowStats: flash.window_stats,
-      color: 'emerald'
+      label: t('admin.accounts.usageWindow.geminiProDaily'),
+      utilization: info.gemini_pro_daily.utilization,
+      resetsAt: info.gemini_pro_daily.resets_at,
+      windowStats: info.gemini_pro_daily.window_stats
     })
   }
-
+  if (info.gemini_flash_daily) {
+    bars.push({
+      key: 'flash_daily',
+      label: t('admin.accounts.usageWindow.geminiFlashDaily'),
+      utilization: info.gemini_flash_daily.utilization,
+      resetsAt: info.gemini_flash_daily.resets_at,
+      windowStats: info.gemini_flash_daily.window_stats
+    })
+  }
   return bars
 })
+
+// ===== Grok =====
 
 interface GrokQuotaBarInfo {
   utilization: number
@@ -1123,7 +608,7 @@ const grokWeeklyBillingBar = computed((): GrokQuotaBarInfo | null => {
     windowStats: grokLocalUsage7d.value
   }
 })
-// Monthly used/limit % from billing probe (used_percent or derived from cents).
+// 月度已用 / 上限：优先 used_percent，否则按美分换算
 const grokMonthlyBillingBar = computed((): GrokQuotaBarInfo | null => {
   const billing = grokBilling.value
   if (!billing) return null
@@ -1138,7 +623,7 @@ const grokMonthlyBillingBar = computed((): GrokQuotaBarInfo | null => {
     utilization = (billing.used_cents / billing.monthly_limit_cents) * 100
   }
   if (utilization == null) return null
-  // Avoid duplicating the weekly bar when period_type is weekly-only without monthly.
+  // 只有周额度、没有月度上限时不重复画一条
   if (billing.period_type?.toLowerCase() === 'weekly' && billing.monthly_limit_cents == null) {
     return null
   }
@@ -1148,15 +633,7 @@ const grokMonthlyBillingBar = computed((): GrokQuotaBarInfo | null => {
     windowStats: grokLocalUsageMonthly.value
   }
 })
-const formatGrokMoney = (value?: number | null) => {
-  if (value == null || Number.isNaN(value)) return '0'
-  if (value >= 1000) return formatCompactNumber(value)
-  if (value >= 100) return value.toFixed(0)
-  if (value >= 10) return value.toFixed(1)
-  return value.toFixed(2)
-}
-// Prepaid chip only when there is a positive prepaid balance.
-// Used/limit only when monthly limit is a positive number (0 means unlimited / unset).
+// 预付余额只在大于 0 时写；已用 / 上限只在月度上限大于 0 时写（0 表示不限 / 没设）
 const grokPrepaidMoneyLine = computed(() => {
   const billing = grokBilling.value
   if (!billing) return null
@@ -1177,11 +654,9 @@ const grokPrepaidMoneyLine = computed(() => {
         ? billing.used_cents / 100
         : 0
   return {
-    showPrepaid,
-    showUsedLimit,
-    prepaid: showPrepaid ? formatGrokMoney(prepaid) : null,
-    used: showUsedLimit ? formatGrokMoney(used) : null,
-    limit: showUsedLimit ? formatGrokMoney(limitRaw) : null
+    prepaid: showPrepaid ? formatMoney(prepaid) : null,
+    used: showUsedLimit ? formatMoney(used) : null,
+    limit: showUsedLimit ? formatMoney(limitRaw) : null
   }
 })
 const grokPlanLabelIsFree = (value: string) => value.includes('free') || value.includes('basic')
@@ -1202,10 +677,7 @@ const grokIsFree = computed(() => {
     (billing?.monthly_limit_cents != null && billing.monthly_limit_cents > 0)
   ) return false
   if (grokPlanLabelIsPaid(plan)) return false
-  if (
-    grokPlanLabelIsFree(plan) ||
-    grokPlanLabelIsFree(entitlement)
-  ) return true
+  if (grokPlanLabelIsFree(plan) || grokPlanLabelIsFree(entitlement)) return true
   return billing != null
 })
 const grokFreeQuotaUsage = computed(() => usageInfo.value?.grok_local_usage_24h || null)
@@ -1218,12 +690,8 @@ const grokFreeTokenBar = computed(() => {
 })
 const grokQuotaUnknown = computed(() => {
   if (props.account.platform !== 'grok') return false
-  if (grokIsFree.value) {
-    return !grokFreeTokenBar.value
-  }
-  if (grokWeeklyBillingBar.value || grokMonthlyBillingBar.value || grokPrepaidMoneyLine.value) {
-    return false
-  }
+  if (grokIsFree.value) return !grokFreeTokenBar.value
+  if (grokWeeklyBillingBar.value || grokMonthlyBillingBar.value || grokPrepaidMoneyLine.value) return false
   return usageInfo.value?.grok_quota_snapshot_state !== 'observed'
 })
 const grokQuotaUnknownLabel = computed(() => {
@@ -1234,63 +702,19 @@ const grokQuotaUnknownLabel = computed(() => {
 const grokRetryAfterLabel = computed(() => {
   const seconds = usageInfo.value?.grok_retry_after_seconds
   if (seconds == null || seconds <= 0) return null
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.ceil(seconds / 60)
-  return `${minutes}m`
+  if (seconds < 60) return t('admin.accounts.duration.seconds', { s: seconds })
+  return t('admin.accounts.duration.minutes', { m: Math.ceil(seconds / 60) })
 })
 
-// 账户类型显示标签
-const antigravityTierLabel = computed(() => {
-  switch (antigravityTier.value) {
-    case 'free-tier':
-      return t('admin.accounts.tier.free')
-    case 'g1-pro-tier':
-      return t('admin.accounts.tier.pro')
-    case 'g1-ultra-tier':
-      return t('admin.accounts.tier.ultra')
-    default:
-      return null
-  }
-})
+// ===== 403 / 401 / 降级 =====
 
-// 账户类型徽章样式
-const antigravityTierClass = computed(() => {
-  switch (antigravityTier.value) {
-    case 'free-tier':
-      return 'bg-af-sunken text-af-ink-2'
-    case 'g1-pro-tier':
-      return 'bg-af-sunken text-af-ink-2'
-    case 'g1-ultra-tier':
-      return 'bg-af-sunken text-af-ink-2'
-    default:
-      return ''
-  }
-})
-
-// 检测账户是否有不合格状态（ineligibleTiers）
-const hasIneligibleTiers = computed(() => {
-  const extra = props.account.extra as Record<string, unknown> | undefined
-  if (!extra) return false
-
-  const loadCodeAssist = extra.load_code_assist as Record<string, unknown> | undefined
-  if (!loadCodeAssist) return false
-
-  const ineligibleTiers = loadCodeAssist.ineligibleTiers as unknown[] | undefined
-  return Array.isArray(ineligibleTiers) && ineligibleTiers.length > 0
-})
-
-// Antigravity 403 forbidden 状态
 const isForbidden = computed(() => !!usageInfo.value?.is_forbidden)
 const forbiddenType = computed(() => usageInfo.value?.forbidden_type || 'forbidden')
 const validationURL = computed(() => usageInfo.value?.validation_url || '')
-
-// 需要重新授权（401）
 const needsReauth = computed(() => !!usageInfo.value?.needs_reauth)
 
-// 降级错误标签（rate_limited / network_error）
 const usageErrorLabel = computed(() => {
-  const code = usageInfo.value?.error_code
-  if (code === 'rate_limited') return t('admin.accounts.rateLimited')
+  if (usageInfo.value?.error_code === 'rate_limited') return t('admin.accounts.rateLimited')
   return t('admin.accounts.usageError')
 })
 
@@ -1305,13 +729,6 @@ const forbiddenLabel = computed(() => {
   }
 })
 
-const forbiddenBadgeClass = computed(() => {
-  if (forbiddenType.value === 'validation') {
-    return 'bg-af-warning-tint text-af-warning'
-  }
-  return 'bg-af-danger-tint text-af-danger'
-})
-
 const linkCopied = ref(false)
 const copyValidationURL = async () => {
   if (!validationURL.value) return
@@ -1320,34 +737,62 @@ const copyValidationURL = async () => {
     linkCopied.value = true
     setTimeout(() => { linkCopied.value = false }, 2000)
   } catch {
-    // fallback: ignore
+    // 剪贴板不可用时不提示
   }
 }
 
-const isAnthropicOAuthOrSetupToken = computed(() => {
-  return props.account.platform === 'anthropic' && (props.account.type === 'oauth' || props.account.type === 'setup-token')
+// ===== 第三方 key / Bedrock 的配额（按渠道成本累计） =====
+
+interface QuotaBar {
+  key: string
+  label: string
+  utilization: number
+  resetsAt: string | null
+  note: string
+}
+
+const quotaResetsAt = (startKey: 'quota_daily_start' | 'quota_weekly_start'): string | null => {
+  const extra = props.account.extra as Record<string, unknown> | undefined
+  const isDaily = startKey === 'quota_daily_start'
+  const mode = (extra?.[isDaily ? 'quota_daily_reset_mode' : 'quota_weekly_reset_mode'] as string) || 'rolling'
+  // 固定时间重置：后端算好了下次重置时间
+  if (mode === 'fixed') return (extra?.[isDaily ? 'quota_daily_reset_at' : 'quota_weekly_reset_at'] as string) || null
+  // 滚动窗口：起点 + 周期
+  const startStr = extra?.[startKey] as string | undefined
+  if (!startStr) return null
+  const periodMs = isDaily ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
+  return new Date(new Date(startStr).getTime() + periodMs).toISOString()
+}
+
+const isQuotaEligible = computed(() => props.account.type === 'apikey' || props.account.type === 'bedrock')
+
+const quotaBars = computed<QuotaBar[]>(() => {
+  const account = props.account
+  if (!isQuotaEligible.value) return []
+  const dims: Array<{ key: string; labelKey: string; used?: number | null; limit?: number | null; startKey?: 'quota_daily_start' | 'quota_weekly_start' }> = [
+    { key: 'daily', labelKey: 'admin.accounts.usageWindow.quotaDaily', used: account.quota_daily_used, limit: account.quota_daily_limit, startKey: 'quota_daily_start' },
+    { key: 'weekly', labelKey: 'admin.accounts.usageWindow.quotaWeekly', used: account.quota_weekly_used, limit: account.quota_weekly_limit, startKey: 'quota_weekly_start' },
+    { key: 'total', labelKey: 'admin.accounts.usageWindow.quotaTotal', used: account.quota_used, limit: account.quota_limit }
+  ]
+  return dims.flatMap((dim) => {
+    const limit = dim.limit ?? 0
+    if (limit <= 0) return []
+    const used = dim.used ?? 0
+    return [{
+      key: dim.key,
+      label: t(dim.labelKey),
+      utilization: (used / limit) * 100,
+      resetsAt: dim.startKey ? quotaResetsAt(dim.startKey) : null,
+      note: t('admin.accounts.usageWindow.quotaUsedOfLimit', { used: formatMoney(used), limit: formatMoney(limit) })
+    }]
+  })
 })
 
-const requestParentBatchUsage = (options?: { force?: boolean }) => {
-  if (!isBatchManaged.value || !shouldFetchUsage.value) return
-  props.requestBatchedUsage?.(props.account, options)
-}
-
-const syncManagedUsageState = () => {
-  if (!isBatchManaged.value) return
-  usageInfo.value = props.batchedUsage ?? null
-  error.value = props.batchedUsageError ?? null
-  loading.value = props.batchedUsageLoading === true
-}
+// ===== 加载 =====
 
 const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?: boolean }) => {
   if (!shouldFetchUsage.value) return
-  if (isBatchManaged.value) {
-    requestParentBatchUsage({ force: options?.bypassCache === true })
-    return
-  }
 
-  // Check cache
   if (!options?.bypassCache) {
     const cached = _usageCache.get(props.account.id)
     if (cached && Date.now() - cached.ts < USAGE_CACHE_TTL) {
@@ -1359,17 +804,16 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
 
   loading.value = true
   error.value = null
-
   try {
-		const fetchFn = () => options?.source
-			? adminAPI.accounts.getUsage(props.account.id, options.source, options.bypassCache === true)
-			: adminAPI.accounts.getUsage(props.account.id)
+    const fetchFn = () => options?.source
+      ? adminAPI.accounts.getUsage(props.account.id, options.source, options.bypassCache === true)
+      : adminAPI.accounts.getUsage(props.account.id)
     const result = await enqueueUsageRequest(props.account, fetchFn)
     if (!unmounted.value) {
       usageInfo.value = result
       _usageCache.set(props.account.id, { data: result, ts: Date.now() })
     }
-  } catch (e: any) {
+  } catch (e: unknown) {
     if (!unmounted.value) {
       error.value = t('common.error')
       console.error('Failed to load usage:', e)
@@ -1379,137 +823,21 @@ const loadUsage = async (options?: { source?: 'passive' | 'active'; bypassCache?
   }
 }
 
-const flushPendingAutoLoad = () => {
-  if (!pendingAutoLoad.value) return
-  const source = pendingAutoLoadSource.value
-  pendingAutoLoad.value = false
-  pendingAutoLoadSource.value = undefined
-  loadUsage({ source }).catch((e) => {
-    console.error('Failed to load deferred usage:', e)
-  })
-}
-
-const requestAutoLoad = (source?: 'passive' | 'active') => {
-  if (!shouldFetchUsage.value) return
-  if (shouldLazyLoadOnMobile.value && !hasEnteredViewport.value) {
-    pendingAutoLoad.value = true
-    pendingAutoLoadSource.value = source
-    return
-  }
-  loadUsage({ source }).catch((e) => {
-    console.error('Failed to auto load usage:', e)
-  })
-}
-
-const detachVisibilityObserver = () => {
-  visibilityObserver?.disconnect()
-  visibilityObserver = null
-}
-
-const attachVisibilityObserver = () => {
-  detachVisibilityObserver()
-  if (!shouldLazyLoadOnMobile.value || hasEnteredViewport.value) return
-  if (typeof window === 'undefined' || typeof IntersectionObserver === 'undefined') {
-    hasEnteredViewport.value = true
-    flushPendingAutoLoad()
-    return
-  }
-  if (!rootRef.value) return
-
-  visibilityObserver = new IntersectionObserver((entries) => {
-    if (!entries.some((entry) => entry.isIntersecting)) return
-    hasEnteredViewport.value = true
-    detachVisibilityObserver()
-    flushPendingAutoLoad()
-  }, {
-    root: null,
-    rootMargin: '200px 0px',
-    threshold: 0.01
-  })
-  visibilityObserver.observe(rootRef.value)
-}
-
 const loadActiveUsage = async () => {
   activeQueryLoading.value = true
   try {
     usageInfo.value = await adminAPI.accounts.getUsage(props.account.id, 'active', true)
-  } catch (e: any) {
+  } catch (e: unknown) {
     console.error('Failed to load active usage:', e)
   } finally {
     activeQueryLoading.value = false
   }
 }
 
-// The probe persists upstream quota state; refresh this cell so its compact
-// bars and entitlement status reflect the newly observed snapshot.
+// 探测会写回上游配额快照，这里重拉一次让进度条和资格状态跟上
 const handleGrokProbed = async () => {
   await loadUsage({ source: 'active', bypassCache: true })
 }
-
-// ===== API Key quota progress bars =====
-
-interface QuotaBarInfo {
-  utilization: number
-  resetsAt: string | null
-}
-
-const makeQuotaBar = (
-  used: number,
-  limit: number,
-  startKey?: string
-): QuotaBarInfo => {
-  const utilization = limit > 0 ? (used / limit) * 100 : 0
-  let resetsAt: string | null = null
-  if (startKey) {
-    const extra = props.account.extra as Record<string, unknown> | undefined
-    const isDaily = startKey.includes('daily')
-    const mode = isDaily
-      ? (extra?.quota_daily_reset_mode as string) || 'rolling'
-      : (extra?.quota_weekly_reset_mode as string) || 'rolling'
-
-    if (mode === 'fixed') {
-      // Use pre-computed next reset time for fixed mode
-      const resetAtKey = isDaily ? 'quota_daily_reset_at' : 'quota_weekly_reset_at'
-      resetsAt = (extra?.[resetAtKey] as string) || null
-    } else {
-      // Rolling mode: compute from start + period
-      const startStr = extra?.[startKey] as string | undefined
-      if (startStr) {
-        const startDate = new Date(startStr)
-        const periodMs = isDaily ? 24 * 60 * 60 * 1000 : 7 * 24 * 60 * 60 * 1000
-        resetsAt = new Date(startDate.getTime() + periodMs).toISOString()
-      }
-    }
-  }
-  return { utilization, resetsAt }
-}
-
-const hasApiKeyQuota = computed(() => {
-  if (props.account.type !== 'apikey' && props.account.type !== 'bedrock') return false
-  return (
-    (props.account.quota_daily_limit ?? 0) > 0 ||
-    (props.account.quota_weekly_limit ?? 0) > 0 ||
-    (props.account.quota_limit ?? 0) > 0
-  )
-})
-
-const quotaDailyBar = computed((): QuotaBarInfo | null => {
-  const limit = props.account.quota_daily_limit ?? 0
-  if (limit <= 0) return null
-  return makeQuotaBar(props.account.quota_daily_used ?? 0, limit, 'quota_daily_start')
-})
-
-const quotaWeeklyBar = computed((): QuotaBarInfo | null => {
-  const limit = props.account.quota_weekly_limit ?? 0
-  if (limit <= 0) return null
-  return makeQuotaBar(props.account.quota_weekly_used ?? 0, limit, 'quota_weekly_start')
-})
-
-const quotaTotalBar = computed((): QuotaBarInfo | null => {
-  const limit = props.account.quota_limit ?? 0
-  if (limit <= 0) return null
-  return makeQuotaBar(props.account.quota_used ?? 0, limit)
-})
 
 const handleQuotaResetAccountUpdated = (account: Account) => {
   emit('account-updated', account)
@@ -1519,150 +847,34 @@ const handleOllamaCloudUsageUpdated = (state: NonNullable<Account['ollama_cloud_
   emit('account-updated', { ...props.account, ollama_cloud_usage: state })
 }
 
-// ===== Key account today stats formatters =====
-
-const formatKeyRequests = computed(() => {
-  if (!props.todayStats) return ''
-  return formatCompactNumber(props.todayStats.requests, { allowBillions: false })
-})
-
-const formatKeyTokens = computed(() => {
-  if (!props.todayStats) return ''
-  return formatCompactNumber(props.todayStats.tokens)
-})
-
-const formatKeyCost = computed(() => {
-  if (!props.todayStats) return '0.00'
-  return props.todayStats.cost.toFixed(2)
-})
-
-const formatKeyUserCost = computed(() => {
-  if (!props.todayStats || props.todayStats.user_cost == null) return '0.00'
-  return props.todayStats.user_cost.toFixed(2)
-})
+const initialSource = () => (isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined)
 
 onMounted(() => {
-  if (typeof window !== 'undefined') {
-    desktopViewportMediaQuery = window.matchMedia(desktopViewportQuery)
-    isDesktopViewport.value = desktopViewportMediaQuery.matches
-    desktopViewportListener = (event: MediaQueryListEvent) => {
-      isDesktopViewport.value = event.matches
-    }
-    if (typeof desktopViewportMediaQuery.addEventListener === 'function') {
-      desktopViewportMediaQuery.addEventListener('change', desktopViewportListener)
-    } else {
-      desktopViewportMediaQuery.addListener(desktopViewportListener)
-    }
-  }
-
-  if (isBatchManaged.value) {
-    syncManagedUsageState()
-    requestParentBatchUsage()
-    return
-  }
-
-  if (!shouldAutoLoadUsageOnMount.value) return
-  const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
-  requestAutoLoad(source)
+  loadUsage({ source: initialSource() }).catch((e) => {
+    console.error('Failed to load usage:', e)
+  })
 })
 
+// 抽屉换了一个渠道：重新拉
 watch(
-  () => [props.batchedUsage, props.batchedUsageError, props.batchedUsageLoading, isBatchManaged.value] as const,
-  () => {
-    syncManagedUsageState()
-  },
-  { immediate: true, deep: true }
-)
-
-watch(isBatchManaged, (managed, wasManaged) => {
-  if (managed && !wasManaged) {
-    syncManagedUsageState()
-    requestParentBatchUsage()
-  }
-})
-
-watch(
-  () => [props.account.id, props.account.platform, props.account.type, isBatchManaged.value] as const,
-  ([accountID, platform, accountType, managed], [previousAccountID, previousPlatform, previousAccountType]) => {
-    if (
-      accountID === previousAccountID &&
-      platform === previousPlatform &&
-      accountType === previousAccountType
-    ) {
-      return
-    }
-    if (!managed || !shouldFetchUsage.value) return
-    syncManagedUsageState()
-    requestParentBatchUsage()
-  },
-  { flush: 'post' }
-)
-
-watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
-  if (!prevKey || nextKey === prevKey) return
-  if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return
-
-  if (isBatchManaged.value) {
-    requestParentBatchUsage({ force: true })
-    return
-  }
-
-  _usageCache.delete(props.account.id)
-  requestAutoLoad()
-})
-
-watch(
-  () => props.manualRefreshToken,
-  (nextToken, prevToken) => {
-    if (nextToken === prevToken) return
-    if (!shouldFetchUsage.value) return
-
-    if (isBatchManaged.value) {
-      requestParentBatchUsage({ force: true })
-      return
-    }
-
-    const source = isAnthropicOAuthOrSetupToken.value ? 'passive' : undefined
-    _usageCache.delete(props.account.id)
-    loadUsage({ source, bypassCache: true }).catch((e) => {
-      console.error('Failed to refresh usage after manual refresh:', e)
+  () => props.account.id,
+  (id, previousId) => {
+    if (id === previousId) return
+    usageInfo.value = null
+    error.value = null
+    loadUsage({ source: initialSource() }).catch((e) => {
+      console.error('Failed to load usage:', e)
     })
   }
 )
 
-watch(
-  [rootRef, shouldLazyLoadOnMobile],
-  () => {
-    if (shouldLazyLoadOnMobile.value) {
-      attachVisibilityObserver()
-      return
-    }
-    detachVisibilityObserver()
-  },
-  { immediate: true, flush: 'post' }
-)
-
-watch(isDesktopViewport, (isDesktop) => {
-  if (isDesktop) {
-    detachVisibilityObserver()
-    hasEnteredViewport.value = true
-    flushPendingAutoLoad()
-    return
-  }
-  hasEnteredViewport.value = false
-  attachVisibilityObserver()
-})
-
-onUnmounted(() => {
-  detachVisibilityObserver()
-  if (desktopViewportMediaQuery && desktopViewportListener) {
-    if (typeof desktopViewportMediaQuery.removeEventListener === 'function') {
-      desktopViewportMediaQuery.removeEventListener('change', desktopViewportListener)
-    } else {
-      desktopViewportMediaQuery.removeListener(desktopViewportListener)
-    }
-  }
-  desktopViewportListener = null
-  desktopViewportMediaQuery = null
+// OpenAI 快照变了（重置、自动刷新）：绕过缓存重拉
+watch(openAIUsageRefreshKey, (nextKey, prevKey) => {
+  if (!prevKey || nextKey === prevKey) return
+  if (props.account.platform !== 'openai' || props.account.type !== 'oauth') return
+  _usageCache.delete(props.account.id)
+  loadUsage().catch((e) => {
+    console.error('Failed to reload usage:', e)
+  })
 })
 </script>

@@ -321,52 +321,36 @@ type BatchAPIKeyUsageStats struct {
 	TotalActualCost float64 `json:"total_actual_cost"`
 }
 
-// AccountUsageHistory represents daily usage history for an account
+// AccountUsageHistory 是渠道某一天的用量（/admin/accounts/:id/stats 的 history[]，也用于 summary 的今日 / 峰值日）。
+// 金额与同一响应里的 models[] / endpoints[] 同名同义：actual_cost 恒为收入，account_cost 恒为渠道成本。
 type AccountUsageHistory struct {
-	Date       string  `json:"date"`
-	Label      string  `json:"label"`
-	Requests   int64   `json:"requests"`
-	Tokens     int64   `json:"tokens"`
-	Cost       float64 `json:"cost"`        // 标准计费（total_cost）
-	ActualCost float64 `json:"actual_cost"` // 账号口径费用（total_cost * account_rate_multiplier）
-	UserCost   float64 `json:"user_cost"`   // 用户口径费用（actual_cost，受分组倍率影响）
+	Date        string  `json:"date"`
+	Label       string  `json:"label"`
+	Requests    int64   `json:"requests"`
+	Tokens      int64   `json:"tokens"`
+	ActualCost  float64 `json:"actual_cost"`  // 收入：Σ actual_cost（标价 × 用户倍率，向用户收的钱）
+	AccountCost float64 `json:"account_cost"` // 渠道成本：Σ total_cost × 渠道成本倍率
 }
 
-// AccountUsageSummary represents summary statistics for an account
+// AccountUsageSummary 是渠道在统计区间内的汇总；金额口径同 AccountUsageHistory。
 type AccountUsageSummary struct {
-	Days              int     `json:"days"`
-	ActualDaysUsed    int     `json:"actual_days_used"`
-	TotalCost         float64 `json:"total_cost"`      // 账号口径费用
-	TotalUserCost     float64 `json:"total_user_cost"` // 用户口径费用
-	TotalStandardCost float64 `json:"total_standard_cost"`
-	TotalRequests     int64   `json:"total_requests"`
-	TotalTokens       int64   `json:"total_tokens"`
-	AvgDailyCost      float64 `json:"avg_daily_cost"` // 账号口径日均
-	AvgDailyUserCost  float64 `json:"avg_daily_user_cost"`
-	AvgDailyRequests  float64 `json:"avg_daily_requests"`
-	AvgDailyTokens    float64 `json:"avg_daily_tokens"`
-	AvgDurationMs     float64 `json:"avg_duration_ms"`
-	Today             *struct {
-		Date     string  `json:"date"`
-		Cost     float64 `json:"cost"`
-		UserCost float64 `json:"user_cost"`
-		Requests int64   `json:"requests"`
-		Tokens   int64   `json:"tokens"`
-	} `json:"today"`
-	HighestCostDay *struct {
-		Date     string  `json:"date"`
-		Label    string  `json:"label"`
-		Cost     float64 `json:"cost"`
-		UserCost float64 `json:"user_cost"`
-		Requests int64   `json:"requests"`
-	} `json:"highest_cost_day"`
-	HighestRequestDay *struct {
-		Date     string  `json:"date"`
-		Label    string  `json:"label"`
-		Requests int64   `json:"requests"`
-		Cost     float64 `json:"cost"`
-		UserCost float64 `json:"user_cost"`
-	} `json:"highest_request_day"`
+	Days                int     `json:"days"`
+	ActualDaysUsed      int     `json:"actual_days_used"`
+	TotalActualCost     float64 `json:"total_actual_cost"`  // 收入
+	TotalAccountCost    float64 `json:"total_account_cost"` // 渠道成本
+	TotalRequests       int64   `json:"total_requests"`
+	TotalTokens         int64   `json:"total_tokens"`
+	AvgDailyActualCost  float64 `json:"avg_daily_actual_cost"`  // 收入 ÷ 有用量的天数
+	AvgDailyAccountCost float64 `json:"avg_daily_account_cost"` // 渠道成本 ÷ 有用量的天数
+	AvgDailyRequests    float64 `json:"avg_daily_requests"`
+	AvgDailyTokens      float64 `json:"avg_daily_tokens"`
+	AvgDurationMs       float64 `json:"avg_duration_ms"`
+	// 今日；今天没有用量时为 null
+	Today *AccountUsageHistory `json:"today"`
+	// 收入最高的一天（并列取最早）；区间内没有用量时为 null
+	HighestRevenueDay *AccountUsageHistory `json:"highest_revenue_day"`
+	// 请求最多的一天（并列取最早）；区间内没有用量时为 null
+	HighestRequestDay *AccountUsageHistory `json:"highest_request_day"`
 }
 
 // AccountUsageStatsResponse represents the full usage statistics response for an account

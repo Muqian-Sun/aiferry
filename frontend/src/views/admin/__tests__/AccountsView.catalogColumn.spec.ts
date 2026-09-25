@@ -74,6 +74,11 @@ const DiagnosisModalStub = defineComponent({
   template: '<div data-test="diagnosis" :data-show="show" :data-entry-id="entryId ?? \'\'" :data-model-id="modelId" />'
 })
 
+const DetailDrawerStub = defineComponent({
+  props: { account: { type: Object, default: null }, tab: { type: String, default: '' }, catalogEntries: { type: Array, default: () => [] } },
+  template: '<div data-test="detail-drawer" :data-account-id="account?.id ?? \'\'" :data-tab="tab" :data-entry-count="catalogEntries.length" />'
+})
+
 function mountView() {
   return mount(AccountsView, {
     global: {
@@ -82,6 +87,7 @@ function mountView() {
         TablePageLayout: { template: '<div><slot name="filters" /><slot name="table" /><slot name="bulk" /><slot name="pagination" /></div>' },
         DataTable: DataTableStub,
         CatalogEntryDiagnosisModal: DiagnosisModalStub,
+        AccountDetailDrawer: DetailDrawerStub,
         AccountTableActions: true,
         AccountTableFilters: true,
         AccountBulkActionsBar: true,
@@ -146,28 +152,30 @@ describe('AccountsView listed-models column', () => {
     ])
   })
 
-  it('derives each account\'s catalog entries from the entries\' bindings and opens the diagnosis on click', async () => {
+  // 2026-09-25 起列表只写已上架模型数，点开是详情抽屉的「上架模型」页签（诊断在抽屉里）
+  it('derives each account\'s catalog entries from the entries\' bindings and opens the models tab on click', async () => {
     const wrapper = mountView()
     await flushPromises()
 
     expect(wrapper.find('[data-column="catalog"]').exists()).toBe(true)
 
     const k1 = wrapper.get('[data-account-id="1"]')
-    const chips = k1.findAll('[data-testid="account-catalog-chip"]')
-    expect(chips.map((chip) => chip.text())).toEqual(['gpt-5.6', 'gpt-5.6-mini'])
-    expect(chips[1].classes()).toContain('line-through')
+    const cell = k1.get('[data-testid="account-catalog-cell"]')
+    expect(cell.get('[data-testid="account-catalog-count"]').text()).toBe('1')
+    expect(cell.get('[data-testid="account-catalog-unlisted"]').text()).toBe('admin.accounts.catalogUnlistedCount')
+    expect(cell.attributes('title')).toBe('gpt-5.6\ngpt-5.6-mini')
     expect(k1.find('[data-testid="account-catalog-none"]').exists()).toBe(false)
 
     const k2 = wrapper.get('[data-account-id="2"]')
-    expect(k2.findAll('[data-testid="account-catalog-chip"]')).toHaveLength(0)
+    expect(k2.find('[data-testid="account-catalog-cell"]').exists()).toBe(false)
     expect(k2.find('[data-testid="account-catalog-none"]').exists()).toBe(true)
 
-    const modal = wrapper.get('[data-test="diagnosis"]')
-    expect(modal.attributes('data-show')).toBe('false')
-    await chips[0].trigger('click')
-    expect(modal.attributes('data-show')).toBe('true')
-    expect(modal.attributes('data-entry-id')).toBe('199')
-    expect(modal.attributes('data-model-id')).toBe('gpt-5.6')
+    const drawer = wrapper.get('[data-test="detail-drawer"]')
+    expect(drawer.attributes('data-account-id')).toBe('')
+    await cell.trigger('click')
+    expect(drawer.attributes('data-account-id')).toBe('1')
+    expect(drawer.attributes('data-tab')).toBe('models')
+    expect(drawer.attributes('data-entry-count')).toBe('2')
   })
 
   // 分组随目录下线：渠道页不再有「分组」列，目录列是唯一的归属信息

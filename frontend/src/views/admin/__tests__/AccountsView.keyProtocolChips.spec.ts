@@ -132,27 +132,16 @@ describe('AccountsView vendor/type cell follows the address-based model', () => 
     getAllProxies.mockReset().mockResolvedValue([])
   })
 
-  it('passes the identified vendor to the badge and lists configured protocols with their hosts', async () => {
+  // 2026-09-25 起名称下面只写「厂商 · 接入方式」；协议地址在详情抽屉「概况」里
+  it('shows the identified vendor and the access type under the name', async () => {
     const wrapper = mountView()
     await flushPromises()
 
-    const deepseek = wrapper.get('[data-account-id="1"]')
-    expect(deepseek.get('[data-test="badge"]').attributes('data-vendor')).toBe('deepseek')
-    const chips = deepseek.findAll('[data-testid="key-protocol-chips"] span')
-    expect(chips.map((chip) => chip.text())).toEqual([
-      'admin.accounts.protocolShort.anthropic',
-      'admin.accounts.protocolShort.chat_completions'
-    ])
-    expect(chips.map((chip) => chip.attributes('title'))).toEqual(['api.deepseek.com', 'api.deepseek.com'])
-
-    const relay = wrapper.get('[data-account-id="2"]')
-    expect(relay.get('[data-test="badge"]').attributes('data-vendor')).toBe('')
-    expect(relay.findAll('[data-testid="key-protocol-chips"] span').map((chip) => chip.text())).toEqual([
-      'admin.accounts.protocolShort.responses'
-    ])
-
-    const oauth = wrapper.get('[data-account-id="3"]')
-    expect(oauth.find('[data-testid="key-protocol-chips"]').exists()).toBe(false)
+    const line = (id: number) => wrapper.get(`[data-account-id="${id}"]`).get('[data-testid="account-vendor-line"]').text()
+    expect(line(1)).toBe('DeepSeek · admin.accounts.access.apikey')
+    // 没认出官方厂商的第三方 key 是中转，不看平台标签
+    expect(line(2)).toBe('admin.accounts.vendorRelay · admin.accounts.access.apikey')
+    expect(line(3)).toBe('Anthropic · admin.accounts.access.oauth')
     wrapper.unmount()
   })
 })

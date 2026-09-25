@@ -74,7 +74,7 @@
       >
         {{ autoResetStateLabel }}
         <span v-if="autoResetState.trigger_window" class="ml-1 tabular-nums">
-          {{ autoResetState.trigger_window }}
+          {{ triggerWindowLabel(autoResetState.trigger_window) }}
         </span>
       </span>
       <span v-if="autoResetState.checked_at" class="text-af-ink-3">
@@ -206,6 +206,16 @@ const autoResetState = computed<AutoResetCreditState | null>(() => {
   if (!state || typeof state !== 'object' || !validAutoResetStatuses.has(String(state.status))) return null
   return state
 })
+// 触发重置的窗口：后端给 5h / 7d / 5h+7d，界面写成字
+const triggerWindowLabel = (value: string): string =>
+  value
+    .split('+')
+    .map((part) => {
+      if (part === '5h') return t('admin.accounts.usageWindow.fiveHour')
+      if (part === '7d') return t('admin.accounts.usageWindow.sevenDay')
+      return part
+    })
+    .join(' + ')
 const autoResetStateLabel = computed(() => {
   if (!autoResetState.value?.status) return ''
   const keyByStatus: Record<string, string> = {

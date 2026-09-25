@@ -32,8 +32,8 @@ describe('UsageProgressBar', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('usage.resetNow')
-    expect(wrapper.text()).not.toContain('2h 30m')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.resetNow')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetsIn')
   })
 
   it('showNowWhenIdle=true 但利用率大于 0 时显示倒计时', () => {
@@ -46,9 +46,9 @@ describe('UsageProgressBar', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('2h 30m')
-    expect(wrapper.text()).not.toContain('usage.resetNow')
-    expect(wrapper.text()).not.toContain('usage.resetPending')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.resetsIn')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetNow')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetPending')
   })
 
   it('showNowWhenIdle=false 时保持原有倒计时行为', () => {
@@ -61,8 +61,8 @@ describe('UsageProgressBar', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('2h 30m')
-    expect(wrapper.text()).not.toContain('usage.resetNow')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.resetsIn')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetNow')
   })
 
   it('resetsAt 已过期且利用率大于 0 时显示「待刷新」', () => {
@@ -75,8 +75,8 @@ describe('UsageProgressBar', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('usage.resetPending')
-    expect(wrapper.text()).not.toContain('usage.resetNow')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.resetPending')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetNow')
   })
 
   it('resetsAt 已过期且利用率为 0 时仍显示「现在」', () => {
@@ -88,42 +88,8 @@ describe('UsageProgressBar', () => {
       }
     })
 
-    expect(wrapper.text()).toContain('usage.resetNow')
-    expect(wrapper.text()).not.toContain('usage.resetPending')
-  })
-
-  it('剩余容量模式在 100% 时显示满格绿色', () => {
-    const wrapper = mount(UsageProgressBar, {
-      props: {
-        label: 'Req',
-        utilization: 100,
-        remainingCapacity: true
-      }
-    })
-
-    expect(wrapper.text()).toContain('100%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 100%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-success')
-  })
-
-  it('剩余容量模式在低量和耗尽时缩短并变红', async () => {
-    const wrapper = mount(UsageProgressBar, {
-      props: {
-        label: 'Req',
-        utilization: 15,
-        remainingCapacity: true
-      }
-    })
-
-    expect(wrapper.text()).toContain('15%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 15%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
-
-    await wrapper.setProps({ utilization: 0 })
-
-    expect(wrapper.text()).toContain('0%')
-    expect(wrapper.get('.h-1\\.5 > div').attributes('style')).toContain('width: 0%')
-    expect(wrapper.get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
+    expect(wrapper.text()).toContain('admin.accounts.usageWindow.resetNow')
+    expect(wrapper.text()).not.toContain('admin.accounts.usageWindow.resetPending')
   })
 
   it('默认利用率模式仍把超限显示为满格红色', () => {
@@ -145,8 +111,8 @@ describe('UsageProgressBar', () => {
         props: { label: '5h', utilization }
       })
 
-    // 条形配色：74 绿 / 75 与 89 黄 / 90 红
-    expect(mountAt(74).get('.h-1\\.5 > div').classes()).toContain('bg-af-success')
+    // 条形配色：74 墨色 / 75 与 89 黄 / 90 红
+    expect(mountAt(74).get('.h-1\\.5 > div').classes()).toContain('bg-af-ink-3')
     expect(mountAt(75).get('.h-1\\.5 > div').classes()).toContain('bg-af-warning')
     expect(mountAt(89).get('.h-1\\.5 > div').classes()).toContain('bg-af-warning')
     expect(mountAt(90).get('.h-1\\.5 > div').classes()).toContain('bg-af-danger')
@@ -156,42 +122,5 @@ describe('UsageProgressBar', () => {
     expect(mountAt(75).get('.h-1\\.5 + span').classes()).toContain('text-af-warning')
     expect(mountAt(89).get('.h-1\\.5 + span').classes()).toContain('text-af-warning')
     expect(mountAt(90).get('.h-1\\.5 + span').classes()).toContain('text-af-danger')
-  })
-
-  it('labelWidth 默认 fixed：标签保持定宽居中，百分比列不变', () => {
-    const wrapper = mount(UsageProgressBar, {
-      props: { label: '5h', utilization: 30 }
-    })
-
-    const label = wrapper.get('.gap-1 > span')
-    expect(label.classes()).toContain('w-[32px]')
-    expect(label.classes()).toContain('text-center')
-    expect(label.classes()).not.toContain('max-w-[72px]')
-
-    const percent = wrapper.get('.h-1\\.5 + span')
-    expect(percent.classes()).toContain('w-[32px]')
-    expect(percent.classes()).toContain('text-right')
-  })
-
-  it('labelWidth=auto 时标签限宽截断左对齐，百分比列保持不变', () => {
-    const wrapper = mount(UsageProgressBar, {
-      props: {
-        label: 'Pro/7 天',
-        utilization: 30,
-        labelWidth: 'auto'
-      }
-    })
-
-    const label = wrapper.get('.gap-1 > span')
-    expect(label.text()).toBe('Pro/7 天')
-    expect(label.classes()).toContain('max-w-[72px]')
-    expect(label.classes()).toContain('truncate')
-    expect(label.classes()).toContain('text-left')
-    expect(label.classes()).not.toContain('w-[32px]')
-    expect(label.classes()).not.toContain('text-center')
-
-    const percent = wrapper.get('.h-1\\.5 + span')
-    expect(percent.classes()).toContain('w-[32px]')
-    expect(percent.classes()).toContain('text-right')
   })
 })

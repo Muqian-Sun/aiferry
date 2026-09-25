@@ -1549,16 +1549,18 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	// Create logs on different days
+	accountRate := 0.5
 	log1 := &service.UsageLog{
-		UserID:       user.ID,
-		APIKeyID:     apiKey.ID,
-		AccountID:    account.ID,
-		Model:        "claude-3-opus",
-		InputTokens:  100,
-		OutputTokens: 200,
-		TotalCost:    0.5,
-		ActualCost:   0.4,
-		CreatedAt:    base.Add(12 * time.Hour),
+		UserID:                user.ID,
+		APIKeyID:              apiKey.ID,
+		AccountID:             account.ID,
+		Model:                 "claude-3-opus",
+		InputTokens:           100,
+		OutputTokens:          200,
+		TotalCost:             0.5,
+		ActualCost:            0.4,
+		AccountRateMultiplier: &accountRate,
+		CreatedAt:             base.Add(12 * time.Hour),
 	}
 	_, err := s.repo.Create(s.ctx, log1)
 	s.Require().NoError(err)
@@ -1587,6 +1589,16 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().Equal(int64(2), resp.Summary.TotalRequests)
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
 	s.Require().Len(resp.Models, 2)
+
+	// 金额与 models[] 同名同义：actual_cost = 收入（Σ actual_cost），account_cost = 渠道成本（Σ total_cost × 渠道倍率，缺省按 1）。
+	s.Require().InDelta(0.4, resp.History[0].ActualCost, 1e-9)
+	s.Require().InDelta(0.25, resp.History[0].AccountCost, 1e-9)
+	s.Require().InDelta(0.15, resp.History[1].ActualCost, 1e-9)
+	s.Require().InDelta(0.2, resp.History[1].AccountCost, 1e-9)
+	s.Require().InDelta(0.55, resp.Summary.TotalActualCost, 1e-9)
+	s.Require().InDelta(0.45, resp.Summary.TotalAccountCost, 1e-9)
+	s.Require().NotNil(resp.Summary.HighestRevenueDay)
+	s.Require().Equal("2025-01-15", resp.Summary.HighestRevenueDay.Date)
 }
 
 func (s *UsageLogRepoSuite) TestGetAccountUsageStats_EmptyRange() {

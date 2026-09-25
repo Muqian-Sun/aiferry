@@ -1,7 +1,8 @@
 // 渠道的展示辅助（A5 从 AccountsView 挪出）：列表名称那行小字和详情抽屉共用。
-import type { Account } from '@/types'
+import type { Account, AccountPlatform } from '@/types'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import { sanitizeUrl } from '@/utils/url'
+import { platformLabel, RELAY_PLATFORM } from '@/utils/platformLabel'
 
 const GROK_QUOTA_SIGNAL_MAX_AGE_MS = 24 * 60 * 60 * 1000
 const GROK_QUOTA_SIGNAL_MAX_FUTURE_SKEW_MS = 5 * 60 * 1000
@@ -115,25 +116,68 @@ export function getOpenAIAuthMode(row: any): string | undefined {
 }
 
 
-// 账号显示邮箱:优先账号自身(extra/credentials),影子账号回退母账号 parent_email。
-// 供名称单元格 v-if/标题/文本三处共用,避免同一回退链在模板里重复三次。
+// 渠道显示邮箱：优先渠道自身（extra / credentials），影子渠道回退母渠道的 parent_email。
 export function accountDisplayEmail(row: any): string {
   return row.extra?.email_address || row.extra?.email || row.credentials?.email || row.parent_email || ''
 }
 
-// 第三方 key 配了哪些协议地址，按固定协议顺序；成品号没有协议地址（后端校验禁止），自然为空。
-export function keyProtocolChips(row: Account): Array<{ protocol: string; host: string }> {
-  return UPSTREAM_PROTOCOLS.flatMap((protocol) => {
-    const url = row.protocol_endpoints?.[protocol]?.trim()
-    if (!url) return []
-    let host = url
-    try {
-      host = new URL(url).host
-    } catch {
-      // 非法地址原样展示，后端会在保存时拒绝
-    }
-    return [{ protocol, host }]
-  })
+// 列表名称下面那行「厂商 · 接入方式」（方案 2026-09-25）：厂商用图标 + 名称；第三方 key 看按地址识别的厂商，
+// 没识别出来的是中转。套餐、隐私、到期、协议地址都在详情抽屉里看。
+export function accountVendor(
+  row: Pick<Account, 'platform' | 'type' | 'vendor'>
+): { icon: AccountPlatform | typeof RELAY_PLATFORM; labelKey?: string; label?: string } {
+  if (row.type !== 'apikey') return { icon: row.platform, label: platformLabel(row.platform) }
+  if (row.vendor) return { icon: row.vendor as AccountPlatform, label: platformLabel(row.vendor) }
+  return { icon: RELAY_PLATFORM, labelKey: 'admin.accounts.vendorRelay' }
+}
+
+/** 接入方式的 i18n key：第三方 key / OAuth 授权 / Setup Token / AWS Bedrock / Vertex 服务账号…… */
+export function accountAccessKey(row: Pick<Account, 'platform' | 'type' | 'credentials'>): string {
+  const mode = String(row.credentials?.auth_mode || '').trim().toLowerCase().replace(/[\s_-]+/g, '')
+  if (row.platform === 'openai' && row.type === 'oauth') {
+    if (mode === 'agentidentity') return 'admin.accounts.access.agentIdentity'
+    if (mode === 'personalaccesstoken') return 'admin.accounts.access.personalAccessToken'
+  }
+  switch (row.type) {
+    case 'apikey':
+      return 'admin.accounts.access.apikey'
+    case 'setup-token':
+      return 'admin.accounts.access.setupToken'
+    case 'bedrock':
+      return 'admin.accounts.access.bedrock'
+    case 'service_account':
+      return 'admin.accounts.access.serviceAccount'
+    default:
+      return 'admin.accounts.access.oauth'
+  }
+}
+
+/** Antigravity 订阅等级（load_code_assist 里优先 paidTier，否则 currentTier），对应 admin.accounts.tier.* */
+export function antigravityTierKey(row: Pick<Account, 'platform' | 'extra'>): 'free' | 'pro' | 'ultra' | null {
+  if (row.platform !== 'antigravity') return null
+  const lca = row.extra?.load_code_assist as Record<string, any> | undefined
+  const tier = [lca?.paidTier?.id, lca?.currentTier?.id].find((id): id is string => typeof id === 'string')
+  switch (tier) {
+    case 'free-tier':
+      return 'free'
+    case 'g1-pro-tier':
+      return 'pro'
+    case 'g1-ultra-tier':
+      return 'ultra'
+    default:
+      return null
+  }
+}
+
+/** OpenAI 的 Compact 支持：强制开 / 关，或探测结果；都没有时是 auto（不写）。非 OpenAI 返回 null。 */
+export function openAICompactState(row: Pick<Account, 'platform' | 'type' | 'extra'>): 'active' | 'blocked' | 'auto' | null {
+  if (row.platform !== 'openai' || (row.type !== 'oauth' && row.type !== 'apikey')) return null
+  const extra = row.extra as Record<string, unknown> | undefined
+  const mode = typeof extra?.openai_compact_mode === 'string' ? extra.openai_compact_mode : 'auto'
+  if (mode === 'force_on') return 'active'
+  if (mode === 'force_off') return 'blocked'
+  if (typeof extra?.openai_compact_supported === 'boolean') return extra.openai_compact_supported ? 'active' : 'blocked'
+  return 'auto'
 }
 
 // 第三方 key 名称链接到上游站点主页：地址只在协议映射里，按协议顺序取第一个已配置的。

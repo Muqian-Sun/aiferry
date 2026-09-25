@@ -369,7 +369,7 @@ describe('OpenAIQuotaResetCell 自动用卡运行态', () => {
     const wrapper = mount(OpenAIQuotaResetCell, { props: { account } })
     const state = wrapper.get('[data-testid="auto-reset-credit-state"]')
     expect(state.text()).toContain(`admin.accounts.openaiQuotaReset.autoStatus.${labelKey}`)
-    expect(state.text()).toContain('5h')
+    expect(state.text()).toContain('admin.accounts.usageWindow.fiveHour')
     expect(state.text()).not.toContain('credit_id')
     wrapper.unmount()
   })
