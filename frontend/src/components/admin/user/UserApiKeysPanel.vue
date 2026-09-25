@@ -28,7 +28,7 @@
             {{ t('admin.users.detail.keyLastUsed', { time: formatRelativeTime(key.last_used_at) }) }}
           </span>
           <span v-else>{{ t('admin.users.detail.keyNeverUsed') }}</span>
-          <span v-if="key.quota > 0">{{ t('admin.users.detail.keyQuota', { used: key.quota_used.toFixed(2), quota: key.quota.toFixed(2) }) }}</span>
+          <span v-if="key.quota > 0">{{ t('admin.users.detail.keyQuota', { used: formatMoney(key.quota_used), quota: formatMoney(key.quota) }) }}</span>
           <span v-if="key.expires_at" :title="formatDateTime(key.expires_at)">
             {{ t('admin.users.detail.keyExpires', { date: formatDateOnly(key.expires_at) }) }}
           </span>
@@ -43,6 +43,7 @@ import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import { formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
+import { formatMoney } from '@/utils/money'
 import type { ApiKey } from '@/types'
 import StatusState from '@/components/user/shell/StatusState.vue'
 
@@ -78,7 +79,10 @@ function maskKey(key: string): string {
   return key.length > 28 ? `${key.substring(0, 20)}…${key.substring(key.length - 8)}` : key
 }
 
+// 启用 / 禁用和用户状态用同一对词（用户站密钥页把 active 叫「活跃」，在这页会和「最近活跃」= 调用过 API 混）
 function keyStatusLabel(status: string): string {
+  if (status === 'active') return t('common.active')
+  if (status === 'inactive') return t('common.inactive')
   const key = `keys.status.${status}`
   return te(key) ? t(key) : status
 }

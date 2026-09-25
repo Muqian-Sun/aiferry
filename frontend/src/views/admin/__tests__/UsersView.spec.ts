@@ -269,7 +269,7 @@ describe('admin UsersView', () => {
     wrapper.unmount()
   })
 
-  it('shows active, used, and created activity columns in order and requests last_used_at sort', async () => {
+  it('shows the default columns in order and requests last_used_at sort', async () => {
     const wrapper = mount(UsersView, {
       global: {
         stubs: {
@@ -301,8 +301,8 @@ describe('admin UsersView', () => {
 
     const columns = wrapper.get('[data-test="columns"]').text()
     const visibleColumns = columns.split(',')
-    expect(visibleColumns.slice(-4, -1)).toEqual(['last_active_at', 'last_used_at', 'created_at'])
-    expect(visibleColumns).not.toContain('last_login_at')
+    // 管理站瘦身方案：用户、余额、计费倍率、近 30 天消费、状态、最近活跃（last_used_at）+ 操作
+    expect(visibleColumns).toEqual(['email', 'balance', 'rate_multiplier', 'usage', 'status', 'last_used_at', 'actions'])
 
     await wrapper.get('[data-test="sort-last-used"]').trigger('click')
     await flushPromises()
@@ -320,22 +320,7 @@ describe('admin UsersView', () => {
 
   it('clears usage current-page sort when switching to last_used_at server sort', async () => {
     vi.useFakeTimers()
-    // 共用列设置（A4）：存「隐藏了哪些列」+ 版本号；这里把「用量」列打开
-    localStorage.setItem(
-      'admin-users-columns',
-      JSON.stringify({
-        version: 1,
-        hidden: [
-          'notes',
-          'subscriptions',
-          'concurrency',
-          'usage_anthropic',
-          'usage_openai',
-          'usage_gemini',
-          'usage_antigravity'
-        ]
-      })
-    )
+    // 「近 30 天消费」列默认显示，不用再改列设置
 
     listUsers.mockResolvedValue({
       items: [
@@ -389,11 +374,9 @@ describe('admin UsersView', () => {
 
     await wrapper.get('[data-test="usage-sort-trigger-usage"]').trigger('click')
     await flushPromises()
-    await wrapper.get('[data-test="usage-sort-usage-today"]').trigger('click')
-    await flushPromises()
 
     expect(wrapper.get('[data-test="row-order"]').text()).toBe('usage-first@example.com,last-used-first@example.com')
-    expect(localStorage.getItem('admin-users-usage-sort')).toContain('"key":"usage"')
+    expect(localStorage.getItem('admin-users-usage-sort')).toBe('desc')
 
     await wrapper.get('[data-test="sort-last-used"]').trigger('click')
     await flushPromises()

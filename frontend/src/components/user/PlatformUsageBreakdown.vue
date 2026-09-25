@@ -1,42 +1,27 @@
 <template>
-  <div class="group/usage relative text-sm">
-    <div class="flex items-center gap-1.5">
-      <span class="text-af-ink-3">{{ t('admin.users.today') }}:</span>
-      <span class="font-medium text-af-ink">${{ today.toFixed(4) }}</span>
-      <Icon
-        v-if="hasBreakdown"
-        name="infoCircle"
-        size="xs"
-        class="text-af-ink-4"
-      />
-    </div>
-    <div class="mt-0.5 flex items-center gap-1.5">
-      <span class="text-af-ink-3">{{ t('admin.users.total') }}:</span>
-      <span class="font-medium text-af-ink">${{ total.toFixed(4) }}</span>
-    </div>
+  <!--
+    管理站用户列表「近 30 天消费」一格：收入口径（actual_cost），两位小数。
+    花在两个及以上平台时带 ⓘ，悬停看按平台拆分（平台不写死，后端给几个列几个）。
+  -->
+  <div class="group/usage relative inline-flex items-center gap-1.5 text-sm">
+    <span class="font-medium tabular-nums text-af-ink">{{ formatMoney(total) }}</span>
+    <Icon v-if="showBreakdown" name="infoCircle" size="xs" class="text-af-ink-4" />
 
     <div
-      v-if="hasBreakdown"
-      class="pointer-events-none absolute left-full top-0 z-50 ml-2 min-w-[220px] whitespace-nowrap rounded-md bg-af-ink px-3 py-2 text-xs text-af-on-brand opacity-0 shadow-xl transition-opacity duration-100 group-hover/usage:opacity-100"
+      v-if="showBreakdown"
+      class="pointer-events-none absolute left-full top-0 z-50 ml-2 min-w-[180px] whitespace-nowrap rounded-md bg-af-ink px-3 py-2 text-xs text-af-on-brand opacity-0 shadow-xl transition-opacity duration-100 group-hover/usage:opacity-100"
     >
-      <div class="mb-1.5 flex items-center justify-between gap-3 border-b border-af-sheet/10 pb-1 text-[11px] opacity-80">
-        <span>{{ t('admin.users.platformBreakdown') }}</span>
-        <span class="font-mono">{{ t('admin.users.today') }} / {{ t('admin.users.total') }}</span>
+      <div class="mb-1.5 border-b border-af-sheet/10 pb-1 text-[11px] opacity-80">
+        {{ t('admin.users.platformBreakdown') }}
       </div>
       <div
-        v-for="item in sortedBreakdown"
+        v-for="item in breakdown"
         :key="item.platform"
         class="flex items-center justify-between gap-3 py-0.5"
         :class="{ 'opacity-70 italic': item.isOther }"
       >
-        <span class="capitalize">
-          {{ item.isOther ? t('admin.users.platformOther') : platformLabel(item.platform) }}
-        </span>
-        <span class="font-mono">
-          ${{ item.today_actual_cost.toFixed(4) }}
-          <span class="opacity-50">/</span>
-          ${{ item.total_actual_cost.toFixed(4) }}
-        </span>
+        <span>{{ item.isOther ? t('admin.users.platformOther') : platformLabel(item.platform) }}</span>
+        <span class="tabular-nums">{{ formatMoney(item.cost) }}</span>
       </div>
     </div>
   </div>
@@ -47,62 +32,36 @@ import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Icon from '@/components/icons/Icon.vue'
 import type { PlatformUsage } from '@/api/admin/dashboard'
+import { formatMoney } from '@/utils/money'
+import { platformLabel } from '@/utils/platformLabel'
 
 const props = defineProps<{
-  today: number
+  /** 近 30 天收入（actual_cost） */
   total: number
   byPlatform?: PlatformUsage[]
 }>()
 
 const { t } = useI18n()
 
-// 与 UserDashboardStats 保持一致：把"总值 - 各平台之和"的差作为"其他"行展示，
-// 避免 tooltip 内各平台费用加总与列首总值对不上。
+// 「总值 − 各平台之和」的差（没记上平台的请求）单列一行「其他」，免得悬停里的加总和格子里的数对不上
 const OTHER_THRESHOLD = 0.0001
 
 interface BreakdownRow {
   platform: string
-  today_actual_cost: number
-  total_actual_cost: number
+  cost: number
   isOther?: boolean
 }
 
-const sortedBreakdown = computed<BreakdownRow[]>(() => {
-  const list = props.byPlatform ?? []
-  const rows: BreakdownRow[] = [...list]
-    .sort((a, b) => b.total_actual_cost - a.total_actual_cost)
-    .map((p) => ({ ...p }))
-
-  const sumTotal = rows.reduce((s, r) => s + r.total_actual_cost, 0)
-  const sumToday = rows.reduce((s, r) => s + r.today_actual_cost, 0)
-  const diffTotal = Math.max(0, props.total - sumTotal)
-  const diffToday = Math.max(0, props.today - sumToday)
-  if (diffTotal > OTHER_THRESHOLD || diffToday > OTHER_THRESHOLD) {
-    rows.push({
-      platform: '__other__',
-      today_actual_cost: diffToday,
-      total_actual_cost: diffTotal,
-      isOther: true
-    })
-  }
+const breakdown = computed<BreakdownRow[]>(() => {
+  const rows: BreakdownRow[] = (props.byPlatform ?? [])
+    .map((p) => ({ platform: p.platform, cost: p.total_actual_cost }))
+    .filter((row) => row.cost > 0)
+    .sort((a, b) => b.cost - a.cost)
+  const other = props.total - rows.reduce((sum, row) => sum + row.cost, 0)
+  if (other > OTHER_THRESHOLD) rows.push({ platform: '__other__', cost: other, isOther: true })
   return rows
 })
 
-const hasBreakdown = computed(() => sortedBreakdown.value.length > 0)
-
-const PLATFORM_LABELS: Record<string, string> = {
-  anthropic: 'Claude',
-  openai: 'OpenAI',
-  gemini: 'Gemini',
-  antigravity: 'Antigravity',
-  grok: 'Grok',
-  kimi: 'Kimi',
-  zhipu: 'Zhipu GLM',
-  deepseek: 'DeepSeek',
-  minimax: 'MiniMax',
-}
-
-function platformLabel(platform: string): string {
-  return PLATFORM_LABELS[platform] ?? platform
-}
+// 只花在一个平台上时，拆分和格子里的数一样，不必悬停
+const showBreakdown = computed(() => breakdown.value.length > 1)
 </script>

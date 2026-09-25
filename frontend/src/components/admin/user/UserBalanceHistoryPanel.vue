@@ -1,6 +1,6 @@
 <template>
   <!--
-    用户余额流水（A5）：兑换、返利转入、管理员调整、并发与订阅变动，按类型筛选、分页；工具行写累计充值。
+    用户余额流水（A5）：兑换 / 在线充值、返利转入、管理员调整（充值 / 扣减余额）、并发与订阅变动，按类型筛选、分页；工具行写累计充值。
     用户详情抽屉的「余额流水」页签与用量页的余额记录弹窗共用这一块。
   -->
   <div class="space-y-3" data-testid="user-balance-history">
@@ -14,7 +14,7 @@
       />
       <span class="text-13 text-af-ink-3">
         {{ t('admin.users.totalRecharged') }}
-        <span class="ml-1 font-medium tabular-nums text-af-ink" data-testid="balance-history-total">${{ totalRecharged.toFixed(2) }}</span>
+        <span class="ml-1 font-medium tabular-nums text-af-ink" data-testid="balance-history-total">{{ formatMoney(totalRecharged) }}</span>
       </span>
       <div v-if="!hideActions" class="ml-auto flex items-center gap-2">
         <button type="button" class="btn btn-secondary btn-sm" @click="emit('deposit')">
@@ -72,6 +72,8 @@ import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
+import { formatMoney } from '@/utils/money'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import { FilterChip } from '@/components/admin/list'
@@ -101,13 +103,14 @@ let requestSeq = 0
 
 const totalPages = computed(() => Math.ceil(total.value / PAGE_SIZE) || 1)
 
+// 订阅功能由代码关着时（SITE_FEATURES.subscription = false）不给「订阅」这个筛选项；已有的订阅流水在「全部」里照常列出
 const typeOptions = computed<FilterOption[]>(() => [
   { value: 'balance', label: t('admin.users.typeBalance') },
   { value: 'affiliate_balance', label: t('admin.users.typeAffiliateBalance') },
   { value: 'admin_balance', label: t('admin.users.typeAdminBalance') },
   { value: 'concurrency', label: t('admin.users.typeConcurrency') },
   { value: 'admin_concurrency', label: t('admin.users.typeAdminConcurrency') },
-  { value: 'subscription', label: t('admin.users.typeSubscription') }
+  ...(SITE_FEATURES.subscription ? [{ value: 'subscription', label: t('admin.users.typeSubscription') }] : [])
 ])
 
 async function loadHistory(page: number) {
@@ -147,10 +150,14 @@ watch(
 const isAdminType = (type: string) => type === 'admin_balance' || type === 'admin_concurrency'
 const isBalanceType = (type: string) => type === 'balance' || type === 'admin_balance' || type === 'affiliate_balance'
 
+// 在线支付到账也记成 balance 型兑换码，码是下单时生成的「PAY-订单号-…」（backend service/payment_order.go），
+// 按前缀和真正的兑换码分开叫
+const isOnlineRecharge = (item: BalanceHistoryItem) => item.type === 'balance' && item.code.startsWith('PAY-')
+
 function getItemTitle(item: BalanceHistoryItem): string {
   switch (item.type) {
     case 'balance':
-      return t('redeem.balanceAddedRedeem')
+      return isOnlineRecharge(item) ? t('admin.users.detail.historyOnlineRecharge') : t('redeem.balanceAddedRedeem')
     case 'affiliate_balance':
       return t('redeem.balanceAddedAffiliate')
     case 'admin_balance':
@@ -167,8 +174,8 @@ function getItemTitle(item: BalanceHistoryItem): string {
 }
 
 function formatValue(item: BalanceHistoryItem): string {
-  if (isBalanceType(item.type)) return `${item.value < 0 ? '-' : '+'}$${Math.abs(item.value).toFixed(2)}`
-  if (item.type === 'subscription') return `${item.validity_days || Math.round(item.value)}d`
+  if (isBalanceType(item.type)) return item.value < 0 ? formatMoney(item.value) : `+${formatMoney(item.value)}`
+  if (item.type === 'subscription') return t('redeem.subscriptionDays', { days: item.validity_days || Math.round(item.value) })
   return `${item.value < 0 ? '' : '+'}${item.value}`
 }
 </script>

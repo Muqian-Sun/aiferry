@@ -3,7 +3,7 @@
     <form v-if="user" id="balance-form" @submit.prevent="handleBalanceSubmit" class="space-y-5">
       <div class="flex items-center gap-3 rounded-xl bg-af-sunken p-4">
         <div class="flex h-10 w-10 items-center justify-center rounded-full bg-af-brand-tint"><span class="text-lg font-medium text-af-brand">{{ user.email.charAt(0).toUpperCase() }}</span></div>
-        <div class="flex-1"><p class="font-medium text-af-ink">{{ user.email }}</p><p class="text-sm text-af-ink-3">{{ t('admin.users.currentBalance') }}: ${{ formatBalance(user.balance) }}</p></div>
+        <div class="flex-1"><p class="font-medium text-af-ink">{{ user.email }}</p><p class="text-sm text-af-ink-3">{{ t('admin.users.currentBalance') }}: {{ formatMoneyExact(user.balance) }}</p></div>
       </div>
       <div>
         <label class="input-label">{{ operation === 'add' ? t('admin.users.depositAmount') : t('admin.users.withdrawAmount') }}</label>
@@ -13,7 +13,7 @@
         </div>
       </div>
       <div><label class="input-label">{{ t('admin.users.notes') }}</label><textarea v-model="form.notes" rows="3" class="input"></textarea></div>
-      <div v-if="form.amount > 0" class="rounded-xl border border-af-hairline bg-af-sunken p-4"><div class="flex items-center justify-between text-sm"><span class="text-af-ink-2">{{ t('admin.users.newBalance') }}:</span><span class="font-bold text-af-ink">${{ formatBalance(calculateNewBalance()) }}</span></div></div>
+      <div v-if="form.amount > 0" class="rounded-xl border border-af-hairline bg-af-sunken p-4"><div class="flex items-center justify-between text-sm"><span class="text-af-ink-2">{{ t('admin.users.newBalance') }}:</span><span class="font-bold text-af-ink">{{ formatMoneyExact(calculateNewBalance()) }}</span></div></div>
     </form>
     <template #footer>
       <div class="flex justify-end gap-3">
@@ -31,24 +31,14 @@ import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import type { AdminUser } from '@/types'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+// 调余额的对话框要看准到分以下的余额（「全部」扣减会填满精确值），用精确格式而不是汇总的两位小数
+import { formatMoneyExact } from '@/utils/money'
 
 const props = defineProps<{ show: boolean, user: AdminUser | null, operation: 'add' | 'subtract' }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n(); const appStore = useAppStore()
 
 const submitting = ref(false); const form = reactive({ amount: 0, notes: '' })
 watch(() => props.show, (v) => { if(v) { form.amount = 0; form.notes = '' } })
-
-// 格式化余额：显示完整精度，去除尾部多余的0
-const formatBalance = (value: number) => {
-  if (value === 0) return '0.00'
-  // 最多保留8位小数，去除尾部的0
-  const formatted = value.toFixed(8).replace(/\.?0+$/, '')
-  // 确保至少有2位小数
-  const parts = formatted.split('.')
-  if (parts.length === 1) return formatted + '.00'
-  if (parts[1].length === 1) return formatted + '0'
-  return formatted
-}
 
 // 填入全部余额
 const fillAllBalance = () => {
@@ -69,7 +59,7 @@ const handleBalanceSubmit = async () => {
     appStore.showError(t('admin.users.amountRequired'))
     return
   }
-  // 退款时验证金额不超过实际余额
+  // 扣减余额时验证金额不超过实际余额
   if (props.operation === 'subtract' && form.amount > props.user.balance) {
     appStore.showError(t('admin.users.insufficientBalance'))
     return
