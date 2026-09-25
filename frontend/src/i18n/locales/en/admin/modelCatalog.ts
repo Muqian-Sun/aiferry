@@ -1,9 +1,11 @@
 export default {
   modelCatalog: {
-    description: 'Canonical model prices and aliases. Billing reads from here.',
+    description: 'Model list prices and aliases; revenue and cost are both the list price times a multiplier.',
     search: 'Search by model id, display name, vendor or alias',
     create: 'New model',
     noMatch: 'No entries match',
+    noneListed: 'No models are listed yet',
+    showAll: 'Show all models',
     summaryStats: {
       total: 'Models',
       listed: 'Listed',
@@ -18,14 +20,18 @@ export default {
       withoutResources: 'Without channels'
     },
     columns: {
+      model: 'Model',
       price: 'List price',
-      perMillion: '$ / 1M tokens',
+      channels: 'Serving channels',
+      status: 'Status',
+      perMillion: 'input / output · per 1M tokens',
       perUnit: {
         per_request: 'per request',
         image: 'per image',
         video: 'per second'
       },
-      tiers: '{count} tiers'
+      tiers: '{count} tiers',
+      unpriced: 'No price'
     },
     bulk: {
       list: 'List',
@@ -76,7 +82,7 @@ export default {
       saved: 'Model saved'
     },
     edit: 'Edit model',
-    empty: 'The catalog is empty. Seed it or create an entry.',
+    empty: 'The catalog is empty. Import from the price file or create an entry.',
     // Model detail drawer (A5)
     drawer: {
       eyebrow: 'Model #{id}',
@@ -88,12 +94,11 @@ export default {
       unboundBanner: 'Listed without channels: user calls to this model will fail.',
       listedDone: 'Listed {model}',
       unlistedDone: 'Unlisted {model}',
-      protocols: 'Protocols',
       aliases: 'Aliases',
       notes: 'Notes',
       updatedAt: 'Updated',
-      prices: 'Prices',
-      perMillionHint: 'Token prices in $ / 1M tokens',
+      prices: 'List price',
+      perMillionHint: 'Token list prices, in $ / 1M tokens',
       price: {
         input: 'Input',
         output: 'Output',
@@ -105,20 +110,26 @@ export default {
         imageCacheRead: 'Image cache read',
         audioInput: 'Audio input',
         audioOutput: 'Audio output',
-        inputPriority: 'Priority · input',
-        outputPriority: 'Priority · output',
-        cacheWritePriority: 'Priority · cache write',
-        cacheReadPriority: 'Priority · cache read',
+        // Service tier: the priority tier is the Fast tier (same name as the user site's service tier), not the scheduling priority
+        inputPriority: 'Fast tier · input',
+        outputPriority: 'Fast tier · output',
+        cacheWritePriority: 'Fast tier · cache write',
+        cacheReadPriority: 'Fast tier · cache read',
         perRequest: 'Per request',
-        perCall: '{price} / call',
+        per: {
+          per_request: '{price} / request',
+          image: '{price} / image',
+          video: '{price} / second'
+        },
         searchPerCall: 'Built-in search',
         longContext: 'Long context {op} {threshold}',
-        defaultPrice: 'Default price',
-        fast: 'Fast multiplier',
-        flex: 'Flex multiplier',
+        listPrice: 'List price',
+        fast: 'Fast tier multiplier',
+        flex: 'Flex tier multiplier',
         maxReasoning: 'Max reasoning multiplier'
       },
       tiers: 'Tiers',
+      mediaTiersHint: 'A matching tier uses its own price; otherwise the list price above applies.',
       tokenTier: '{min} – {max} tokens',
       tokenTierOpen: '{min}+ tokens',
       timePricing: 'Time-of-day pricing',
@@ -127,13 +138,14 @@ export default {
       bind: 'Bind channels',
       priority: 'Priority {value}',
       notSchedulable: 'Not schedulable',
+      channelsHint: 'Whether each channel can be scheduled right now; use Diagnose to check each inbound protocol.',
       channelsFallback: 'Could not load channel status; showing the bound channels only.'
     },
     diagnose: 'Diagnose',
     diagnosis: {
       title: 'Channel diagnosis · {model}',
       empty: 'No channels are bound to this model.',
-      followAccount: 'Follows account',
+      followAccount: 'Follows channel',
       columns: {
         account: 'Channel',
         priority: 'Priority',
@@ -155,13 +167,13 @@ export default {
         quota_exceeded: 'Quota exhausted'
       }
     },
-    seed: 'Seed from pricing file',
-    seeding: 'Seeding…',
-    seedDone: 'Seed finished: inserted {inserted}, refreshed {refreshed}, skipped admin-edited {skipped}',
+    seed: 'Import from price file',
+    seeding: 'Importing…',
+    seedDone: 'Import finished: {inserted} added, {refreshed} updated, {skipped} skipped (edited by hand)',
     seedPartial: '{summary}; {failed} rows failed to write: {errors}',
     deleteTitle: 'Delete catalog entry',
     deleteConfirm: 'Aliases, intervals, and time pricing will be deleted with it. Continue?',
-    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, priority prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
+    fullReplaceHint: 'Save replaces the whole entry. Fields not shown here (token context intervals, time pricing, Fast tier prices, long-context and multipliers) are written back unchanged; image / video tiers are edited above.',
     listedRequiresPrice: 'A listed model must have a price before users can see and call it.',
     noResources: 'No channels',
     fields: {
@@ -170,13 +182,12 @@ export default {
       vendor: 'Vendor',
       billingMode: 'Billing mode',
       status: 'Listing status',
-      managedBy: 'Managed by',
-      resources: 'Channels',
+      resources: 'Serving channels',
       inputPrice: 'Input price',
       outputPrice: 'Output price',
-      perRequestPrice: 'Default price per request',
-      perImagePrice: 'Default price per image (used when no tier matches)',
-      perSecondPrice: 'Default price per second (used when no tier matches)',
+      perRequestPrice: 'List price per request',
+      perImagePrice: 'List price per image (used when no tier matches)',
+      perSecondPrice: 'List price per second (used when no tier matches)',
       searchPricePerCall: 'Built-in search price per call (empty = built-in 0.01)',
       cacheWritePrice: 'Cache write · 5 min',
       cacheWrite1hPrice: 'Cache write · 1 hour',
@@ -190,14 +201,14 @@ export default {
     tiers: {
       title: 'Tier prices',
       hint: {
-        image: 'Per image by output size; a listed entry must have the default price.',
-        video: 'Per second by resolution; a listed entry must have the default price.'
+        image: 'Per image by output size; a listed entry must have the list price per image.',
+        video: 'Per second by resolution; a listed entry must have the list price per second.'
       },
       tier: 'Tier',
       price: 'Price ($)',
       add: 'Add tier',
       remove: 'Remove',
-      empty: 'No tiers; the default price applies.'
+      empty: 'No tiers; the list price applies.'
     },
     bindings: {
       title: 'Channels serving this model',
@@ -216,17 +227,13 @@ export default {
     },
     status: {
       listed: 'Listed',
-      unlisted: 'Unlisted'
+      unlisted: 'Not listed'
     },
     billingModes: {
       token: 'Per token',
       per_request: 'Per request',
       image: 'Per image',
       video: 'Per video'
-    },
-    managedBy: {
-      seed: 'Seed',
-      admin: 'Admin'
     }
   }
 }

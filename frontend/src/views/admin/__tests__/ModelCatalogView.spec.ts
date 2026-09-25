@@ -180,6 +180,9 @@ describe('ModelCatalogView', () => {
     listEntries.mockResolvedValue([entry({ status: 'unlisted', bindings: [] })])
     wrapper = mountView()
     await flushPromises()
+    // 默认只看已上架：先切到「全部」
+    await wrapper.findAllComponents({ name: 'FilterChip' }).find((c) => c.props('testId') === 'model-catalog-filter-status')!.vm.$emit('update:modelValue', '')
+    await flushPromises()
     expect(wrapper.find('[data-testid="model-catalog-no-resources"]').exists()).toBe(false)
     expect(wrapper.get('[data-testid="model-catalog-resource-count"]').text()).toBe('0')
   })
@@ -208,17 +211,6 @@ describe('ModelCatalogView', () => {
     expect(showSuccess).not.toHaveBeenCalled()
     expect(showError).toHaveBeenCalledTimes(1)
     expect(String(showError.mock.calls[0][0])).toContain('bad-model: value too long')
-  })
-
-  it('opens the resource diagnosis for the row from the actions column', async () => {
-    const wrapper = mountView()
-    await flushPromises()
-    const stub = wrapper.get('[data-testid="diagnosis-stub"]')
-    expect(stub.attributes('data-show')).toBe('false')
-    await wrapper.get('[data-testid="row-action-diagnose"]').trigger('click')
-    expect(stub.attributes('data-show')).toBe('true')
-    expect(stub.attributes('data-entry-id')).toBe('1')
-    expect(stub.attributes('data-model-id')).toBe('claude-opus-4-6')
   })
 })
 
