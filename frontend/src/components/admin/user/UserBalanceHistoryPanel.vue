@@ -73,6 +73,7 @@ import { useI18n } from 'vue-i18n'
 import { adminAPI, type BalanceHistoryItem } from '@/api/admin'
 import { formatDateTime } from '@/utils/format'
 import { formatMoney } from '@/utils/money'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import { FilterChip } from '@/components/admin/list'
@@ -102,13 +103,14 @@ let requestSeq = 0
 
 const totalPages = computed(() => Math.ceil(total.value / PAGE_SIZE) || 1)
 
+// 订阅功能由代码关着时（SITE_FEATURES.subscription = false）不给「订阅」这个筛选项；已有的订阅流水在「全部」里照常列出
 const typeOptions = computed<FilterOption[]>(() => [
   { value: 'balance', label: t('admin.users.typeBalance') },
   { value: 'affiliate_balance', label: t('admin.users.typeAffiliateBalance') },
   { value: 'admin_balance', label: t('admin.users.typeAdminBalance') },
   { value: 'concurrency', label: t('admin.users.typeConcurrency') },
   { value: 'admin_concurrency', label: t('admin.users.typeAdminConcurrency') },
-  { value: 'subscription', label: t('admin.users.typeSubscription') }
+  ...(SITE_FEATURES.subscription ? [{ value: 'subscription', label: t('admin.users.typeSubscription') }] : [])
 ])
 
 async function loadHistory(page: number) {

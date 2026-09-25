@@ -165,14 +165,14 @@ export default {
         nonNegativeNumber: 'Enter a non-negative number.',
         unlimited: 'Unlimited',
         nonNegativeInteger: 'Enter a non-negative whole number.',
-        apply: 'Apply limits',
+        apply: 'Apply',
         applying: 'Applying...',
         concurrencyValue: 'Concurrency: {value}',
         rpmValue: 'RPM: {value}',
         rpmUnlimitedValue: 'RPM: Unlimited',
-        confirm: 'Overwrite limits for {count} users?\n{fields}',
-        success: 'Updated limits for {count} users',
-        failed: 'Failed to update user limits'
+        confirm: 'Apply these settings to {count} users?\n{fields}',
+        success: 'Updated {count} users',
+        failed: 'Bulk update failed'
       },
       editUser: 'Edit User',
       deleteUser: 'Delete User',

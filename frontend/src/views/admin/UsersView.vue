@@ -439,6 +439,10 @@ import { formatAttributeValue } from '@/components/admin/user/attributeValue'
 
 const appStore = useAppStore()
 
+// 自定义属性定义与本页用户的属性值（放在最前：列定义和排序恢复都要读它）
+const attributeDefinitions = ref<UserAttributeDefinition[]>([])
+const userAttributeValues = ref<Record<number, Record<number, string>>>({})
+
 // Generate dynamic attribute columns from enabled definitions
 const attributeColumns = computed<Column[]>(() =>
   attributeDefinitions.value
@@ -512,7 +516,9 @@ const searchQuery = ref('')
 const USER_SORT_STORAGE_KEY = 'admin-users-table-sort'
 const loadInitialSortState = (): { sort_by: string; sort_order: 'asc' | 'desc' } => {
   const fallback = { sort_by: 'created_at', sort_order: 'desc' as 'asc' | 'desc' }
-  const sortable = new Set(['email', 'id', 'username', 'role', 'balance', 'concurrency', 'status', 'last_used_at', 'last_active_at', 'created_at'])
+  // 能恢复的排序键 = 列定义里可排序的列。DataTable 按同一份列定义恢复排序指示，两边不一致会出现
+  // 「表头显示按计费倍率排、数据却按创建时间排」（原来手写的清单漏了 rate_multiplier）
+  const sortable = new Set(allColumns.value.filter((col) => col.sortable).map((col) => col.key))
   try {
     const raw = localStorage.getItem(USER_SORT_STORAGE_KEY)
     if (!raw) return fallback
@@ -670,9 +676,6 @@ const handleSelectedKeysUpdate = (keys: Array<string | number>) => {
 const getUserSelectionLabel = (user: AdminUser) =>
   t('admin.users.bulkLimits.selectUser', { email: user.email })
 
-// User attribute definitions and values
-const attributeDefinitions = ref<UserAttributeDefinition[]>([])
-const userAttributeValues = ref<Record<number, Record<number, string>>>({})
 const pagination = reactive({
   page: 1,
   page_size: getPersistedPageSize(),
@@ -857,7 +860,7 @@ const subscriptionDaysClass = (days: number): string => {
   const base = 'rounded px-1 py-0.5 text-[10px] font-semibold'
   if (days <= 3) return `${base} bg-af-danger-tint/80 text-af-danger`
   if (days <= 7) return `${base} bg-af-warning-tint/80 text-af-warning`
-  return `${base} bg-black/10`
+  return `${base} bg-af-hairline`
 }
 
 const loadAttributeDefinitions = async () => {

@@ -165,14 +165,14 @@ export default {
         nonNegativeNumber: '请输入非负数。',
         unlimited: '不限制',
         nonNegativeInteger: '请输入非负整数。',
-        apply: '应用限制',
+        apply: '应用',
         applying: '应用中...',
         concurrencyValue: '并发数：{value}',
         rpmValue: 'RPM：{value}',
         rpmUnlimitedValue: 'RPM：不限制',
-        confirm: '确定覆盖 {count} 个用户的限制吗？\n{fields}',
-        success: '已更新 {count} 个用户的限制',
-        failed: '批量更新用户限制失败'
+        confirm: '确定把 {count} 个用户改成以下设置吗？\n{fields}',
+        success: '已更新 {count} 个用户',
+        failed: '批量更新失败'
       },
       editUser: '编辑用户',
       deleteUser: '删除用户',
