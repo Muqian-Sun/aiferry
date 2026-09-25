@@ -471,7 +471,7 @@ func normalizePositiveInt64IDs(ids []int64) []int64 {
 }
 
 // GetBatchUserUsageStats gets today and total actual_cost for multiple users within a time range.
-// If startTime is zero, defaults to 30 days ago.
+// If startTime is zero, defaults to the last 30 calendar days (today + the 29 days before, site timezone).
 func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs []int64, startTime, endTime time.Time) (map[int64]*BatchUserUsageStats, error) {
 	result := make(map[int64]*BatchUserUsageStats)
 	normalizedUserIDs := normalizePositiveInt64IDs(userIDs)
@@ -479,9 +479,10 @@ func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs
 		return result, nil
 	}
 
-	// 默认最近 30 天
+	// 默认近 30 天 = 今天 + 前 29 天（按站点时区的自然日），和用户抽屉、用量页的日期范围同口径；
+	// 以前是「现在往前 30×24 小时」，同一页上列表和抽屉的「近 30 天」数对不上。
 	if startTime.IsZero() {
-		startTime = time.Now().AddDate(0, 0, -30)
+		startTime = timezone.Today().AddDate(0, 0, -29)
 	}
 	if endTime.IsZero() {
 		endTime = time.Now()

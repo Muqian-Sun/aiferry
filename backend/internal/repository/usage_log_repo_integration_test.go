@@ -1117,6 +1117,23 @@ func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats() {
 	s.Require().NotNil(stats[user2.ID])
 }
 
+// 默认窗口是 30 个自然日：29 天前那天零点之后的算进去，零点前一分钟的不算
+// （旧的「现在往前 30×24 小时」会把后者也算进去）。
+func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats_DefaultWindowIsThirtyCalendarDays() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "batch30d@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-batch30d", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-batch30d"})
+
+	windowStart := timezone.Today().AddDate(0, 0, -29)
+	s.createUsageLog(user, apiKey, account, 10, 20, 1.25, windowStart.Add(time.Minute))
+	s.createUsageLog(user, apiKey, account, 10, 20, 7.5, windowStart.Add(-time.Minute))
+
+	stats, err := s.repo.GetBatchUserUsageStats(s.ctx, []int64{user.ID}, time.Time{}, time.Time{})
+	s.Require().NoError(err)
+	s.Require().NotNil(stats[user.ID])
+	s.Require().InDelta(1.25, stats[user.ID].TotalActualCost, 1e-9)
+}
+
 func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats_Empty() {
 	stats, err := s.repo.GetBatchUserUsageStats(s.ctx, []int64{}, time.Time{}, time.Time{})
 	s.Require().NoError(err)

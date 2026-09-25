@@ -106,18 +106,13 @@ const formatDuration = (ms: number): string =>
 const summaryItems = computed<StatItem[]>(() => {
   const s = stats.value?.summary
   if (!s) return []
-  const dailyHint = (value: string) => t('admin.accounts.stats.dailyAverage', { value })
+  // 抽屉窄，四个数后面再挂小字会被截成「日…」：摘要只放数，日均放到下面「30 天合计」里
+  const profit = profitOf(s.total_actual_cost, s.total_account_cost)
   return [
-    { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(s.total_actual_cost), hint: dailyHint(formatMoney(s.avg_daily_actual_cost)) },
-    { key: 'cost', label: t('common.money.cost'), value: formatMoney(s.total_account_cost), hint: dailyHint(formatMoney(s.avg_daily_account_cost)) },
-    {
-      key: 'profit',
-      label: t('common.money.profit'),
-      value: formatMoney(profitOf(s.total_actual_cost, s.total_account_cost)),
-      hint: t('common.money.profitHint'),
-      valueClass: profitTextClass(profitOf(s.total_actual_cost, s.total_account_cost))
-    },
-    { key: 'requests', label: t('admin.accounts.stats.requests'), value: formatCount(s.total_requests), hint: dailyHint(formatCount(Math.round(s.avg_daily_requests))) }
+    { key: 'revenue', label: t('common.money.revenue'), value: formatMoney(s.total_actual_cost) },
+    { key: 'cost', label: t('common.money.cost'), value: formatMoney(s.total_account_cost) },
+    { key: 'profit', label: t('common.money.profit'), value: formatMoney(profit), valueClass: profitTextClass(profit) },
+    { key: 'requests', label: t('admin.accounts.stats.requests'), value: formatCount(s.total_requests) }
   ]
 })
 
@@ -182,6 +177,9 @@ const detailGroups = computed(() => {
       key: 'totals',
       title: t('admin.accounts.stats.totalTokens'),
       rows: [
+        { label: t('admin.accounts.stats.dailyAvgRevenue'), value: formatMoney(s.avg_daily_actual_cost) },
+        { label: t('admin.accounts.stats.dailyAvgCost'), value: formatMoney(s.avg_daily_account_cost) },
+        { label: t('admin.accounts.stats.dailyAvgRequests'), value: formatCount(Math.round(s.avg_daily_requests)) },
         { label: t('admin.accounts.stats.tokens'), value: formatTokens(s.total_tokens) },
         { label: t('admin.accounts.stats.dailyAvgTokens'), value: formatTokens(Math.round(s.avg_daily_tokens)) },
         { label: t('admin.accounts.stats.avgResponseTime'), value: formatDuration(s.avg_duration_ms) },

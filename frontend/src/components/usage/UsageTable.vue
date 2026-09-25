@@ -202,8 +202,8 @@
         </template>
 
         <template #cell-cost="{ row }">
-          <!-- 管理站：这一列是收入（单笔精确金额）；成本、利润在详情抽屉 -->
-          <span v-if="isAdmin" class="text-sm font-medium tabular-nums text-af-ink">{{ formatMoneyExact(row.actual_cost) }}</span>
+          <!-- 管理站：这一列是收入，按方案两位小数（不足一分写 <$0.01）；单笔精确金额、成本、利润在详情抽屉 -->
+          <span v-if="isAdmin" class="text-sm font-medium tabular-nums text-af-ink" :title="formatMoneyExact(row.actual_cost)">{{ formatMoney(row.actual_cost) }}</span>
           <div v-else class="text-sm">
             <div class="flex items-center gap-1.5">
               <span class="font-medium tabular-nums text-af-ink">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
@@ -508,7 +508,7 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { formatMoneyExact } from '@/utils/money'
+import { formatMoney, formatMoneyExact } from '@/utils/money'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
 import { formatTokenPricePerMillion } from '@/utils/usagePricing'

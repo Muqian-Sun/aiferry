@@ -5,18 +5,24 @@
   -->
   <div v-if="loading && !stats" class="h-3 w-40 animate-pulse rounded bg-af-hairline"></div>
   <span v-else-if="error && !stats" class="text-xs text-af-danger">{{ error }}</span>
+  <!-- 间距用 gap 定，不靠模板里的空白（跨行的空白文本节点会被 Vue 压掉，间距就时有时无） -->
   <span
     v-else-if="stats && stats.requests > 0"
-    class="whitespace-nowrap text-sm tabular-nums text-af-ink-2"
+    class="inline-flex items-baseline gap-1.5 whitespace-nowrap text-sm tabular-nums text-af-ink-2"
     :title="t('admin.accounts.today.tooltip', { cost: formatMoney(cost) })"
     data-testid="account-today"
   >
-    {{ t('admin.accounts.today.requests', { count: formatNumber(stats.requests) }) }}
+    <span>{{ t('admin.accounts.today.requests', { count: formatNumber(stats.requests) }) }}</span>
     <span class="text-af-ink-4" aria-hidden="true">·</span>
-    <span class="text-af-ink-3">{{ t('common.money.revenue') }}</span> {{ formatMoney(revenue) }}
+    <span class="inline-flex items-baseline gap-1">
+      <span class="text-af-ink-3">{{ t('common.money.revenue') }}</span>
+      <span>{{ formatMoney(revenue) }}</span>
+    </span>
     <span class="text-af-ink-4" aria-hidden="true">·</span>
-    <span class="text-af-ink-3">{{ t('common.money.profit') }}</span>
-    <span :class="profitTextClass(profit)" data-testid="account-today-profit">{{ formatMoney(profit) }}</span>
+    <span class="inline-flex items-baseline gap-1">
+      <span class="text-af-ink-3">{{ t('common.money.profit') }}</span>
+      <span :class="profitTextClass(profit)" data-testid="account-today-profit">{{ formatMoney(profit) }}</span>
+    </span>
   </span>
   <span v-else class="text-sm text-af-ink-4">—</span>
 </template>
