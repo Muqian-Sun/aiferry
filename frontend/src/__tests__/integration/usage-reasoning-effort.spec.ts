@@ -274,6 +274,7 @@ describe('usage reasoning effort page display', () => {
           UserTokenRanking: true,
           OpsErrorLogTable: true,
           OpsErrorDetailModal: true,
+          Teleport: true,
         },
       },
     })
@@ -281,8 +282,8 @@ describe('usage reasoning effort page display', () => {
 
     expect(wrapper.find('[data-testid="reasoning-effort-cell"]').exists()).toBe(false)
 
-    await wrapper.get('[data-testid="usage-column-settings"]').trigger('click')
-    await wrapper.get('[data-testid="usage-column-toggle-reasoning_effort"]').trigger('click')
+    await wrapper.get('[data-testid="column-settings"]').trigger('click')
+    await wrapper.get('[data-testid="column-toggle-reasoning_effort"]').trigger('click')
     await flushPromises()
 
     const cell = reasoningCellText(wrapper)
@@ -309,13 +310,14 @@ describe('usage reasoning effort page display', () => {
           UserTokenRanking: true,
           OpsErrorLogTable: true,
           OpsErrorDetailModal: true,
+          Teleport: true,
         },
       },
     })
     await flushPromises()
 
-    await wrapper.get('[data-testid="usage-column-settings"]').trigger('click')
-    await wrapper.get('[data-testid="usage-column-toggle-reasoning_effort"]').trigger('click')
+    await wrapper.get('[data-testid="column-settings"]').trigger('click')
+    await wrapper.get('[data-testid="column-toggle-reasoning_effort"]').trigger('click')
     await flushPromises()
 
     const cell = reasoningCellText(wrapper)
