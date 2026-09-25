@@ -1574,7 +1574,10 @@ export interface EndpointStat {
   requests: number
   total_tokens: number
   cost: number
+  /** 收入 */
   actual_cost: number
+  /** 成本（付给渠道：标价 × 渠道成本倍率） */
+  account_cost: number
 }
 
 export interface UserBreakdownItem {

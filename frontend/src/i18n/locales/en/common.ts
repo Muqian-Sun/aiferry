@@ -1,5 +1,14 @@
 export default {
   common: {
+    // Three money figures site-wide; format with utils/money.ts
+    money: {
+      revenue: 'Revenue',
+      cost: 'Cost',
+      profit: 'Profit',
+      revenueHint: 'Charged to users: list price × user rate',
+      costHint: 'Paid to upstream channels: list price × channel cost rate',
+      profitHint: 'Revenue − cost'
+    },
     labelSeparator: ': ',
     selectedItems: '{count} selected',
     columnSettings: 'Columns',
