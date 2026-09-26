@@ -45,10 +45,6 @@ type SystemSettings struct {
 	MinClaudeCodeVersion string `json:"min_claude_code_version"`
 	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
 
-	// 分组隔离
-
-	// Backend Mode
-
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         string `json:"openai_ttft_mode"`
 	EnableFingerprintUnification           bool   `json:"enable_fingerprint_unification"`
@@ -77,14 +73,8 @@ type SystemSettings struct {
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool `json:"web_search_emulation_enabled"`
 
-	// OpenAI account scheduling
-
-	// Cancel rate limit
-
 	// Force Alipay mobile clients to use QR code payment instead of mobile redirect
 	// Use Alipay face-to-face precreate and an app deep link on mobile clients.
-
-	// 余额、订阅到期与账号限额通知
 
 	// Channel Monitor feature switch
 	ChannelMonitorMode                   string `json:"channel_monitor_mode"`
@@ -97,8 +87,6 @@ type SystemSettings struct {
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
-
-	// Available Channels feature switch (user-facing aggregate view)
 
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
@@ -118,8 +106,6 @@ type SystemSettings struct {
 
 	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds,omitempty"`
-
-	// 允许终端用户在用量页查看自己的失败请求
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool    `json:"profit_control_enabled"`

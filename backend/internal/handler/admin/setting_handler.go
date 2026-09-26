@@ -21,8 +21,6 @@ type SettingHandler struct {
 	emailService             *service.EmailService
 	opsService               *service.OpsService
 	notificationEmailService *service.NotificationEmailService
-	totpService              *service.TotpService
-	userService              *service.UserService
 }
 
 // NewSettingHandler 创建系统设置处理器
@@ -38,15 +36,6 @@ func NewSettingHandler(settingService *service.SettingService, emailService *ser
 // the constructor signature used by existing unit tests.
 func (h *SettingHandler) SetNotificationEmailService(notificationEmailService *service.NotificationEmailService) {
 	h.notificationEmailService = notificationEmailService
-}
-
-// SetStepUpDeps attaches the services backing the step-up switch preconditions
-// (enable requires the acting admin to have TOTP enabled; disable is itself a
-// step-up gated operation), without changing the constructor signature used by
-// existing unit tests.
-func (h *SettingHandler) SetStepUpDeps(totpService *service.TotpService, userService *service.UserService) {
-	h.totpService = totpService
-	h.userService = userService
 }
 
 // GetSettings 获取所有系统设置

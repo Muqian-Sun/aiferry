@@ -43,8 +43,6 @@ type SystemSettings struct {
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
 
-	// Available Channels feature (user-facing aggregate view)
-
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
@@ -78,20 +76,8 @@ type SystemSettings struct {
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
 
-	// Payment visible method routing
-
-	// OpenAI 账号调度
-
-	// 余额不足提醒
-
-	// 订阅到期提醒
-
-	// 账号限额通知
-
 	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
-
-	// 允许终端用户在用量页查看自己的失败请求
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool
@@ -170,8 +156,6 @@ type PublicSettings struct {
 	GrokDefaultTextModel           string `json:"grok_default_text_model"`
 	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
-
-	// Available Channels feature (user-facing aggregate view)
 
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
