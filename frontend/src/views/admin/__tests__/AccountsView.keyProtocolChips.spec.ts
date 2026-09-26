@@ -4,13 +4,12 @@ import { defineComponent } from 'vue'
 
 import AccountsView from '../AccountsView.vue'
 
-const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies } =
+const { listAccounts, listWithEtag, getById, getBatchTodayStats, getAllProxies } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listWithEtag: vi.fn(),
     getById: vi.fn(),
     getBatchTodayStats: vi.fn(),
-    getUpstreamBillingProbeSettings: vi.fn(),
     getAllProxies: vi.fn(),
   }))
 
@@ -30,7 +29,6 @@ vi.mock('@/api/admin', () => ({
       getById,
       listWithEtag,
       getBatchTodayStats,
-      getUpstreamBillingProbeSettings,
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
@@ -128,7 +126,6 @@ describe('AccountsView vendor/type cell follows the address-based model', () => 
     listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: 'e', data: null })
     getById.mockReset()
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
-    getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: false })
     getAllProxies.mockReset().mockResolvedValue([])
   })
 

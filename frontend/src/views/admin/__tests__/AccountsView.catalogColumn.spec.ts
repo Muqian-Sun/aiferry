@@ -4,13 +4,12 @@ import { defineComponent } from 'vue'
 
 import AccountsView from '../AccountsView.vue'
 
-const { listAccounts, listWithEtag, getById, getBatchTodayStats, getUpstreamBillingProbeSettings, getAllProxies, listCatalogEntries } =
+const { listAccounts, listWithEtag, getById, getBatchTodayStats, getAllProxies, listCatalogEntries } =
   vi.hoisted(() => ({
     listAccounts: vi.fn(),
     listWithEtag: vi.fn(),
     getById: vi.fn(),
     getBatchTodayStats: vi.fn(),
-    getUpstreamBillingProbeSettings: vi.fn(),
     getAllProxies: vi.fn(),
     listCatalogEntries: vi.fn()
   }))
@@ -31,7 +30,6 @@ vi.mock('@/api/admin', () => ({
       getById,
       listWithEtag,
       getBatchTodayStats,
-      getUpstreamBillingProbeSettings,
       delete: vi.fn(),
       batchClearError: vi.fn(),
       batchRefresh: vi.fn(),
@@ -143,7 +141,6 @@ describe('AccountsView listed-models column', () => {
     listWithEtag.mockReset().mockResolvedValue({ notModified: true, etag: 'e', data: null })
     getById.mockReset()
     getBatchTodayStats.mockReset().mockResolvedValue({ stats: {} })
-    getUpstreamBillingProbeSettings.mockReset().mockResolvedValue({ enabled: false })
     getAllProxies.mockReset().mockResolvedValue([])
     listCatalogEntries.mockReset().mockResolvedValue([
       entry(199, 'gpt-5.6', 'listed', [1]),

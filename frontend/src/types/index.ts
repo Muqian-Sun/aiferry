@@ -726,11 +726,6 @@ export interface UpstreamBillingProbeSnapshot {
   synced_rate_multiplier?: number
 }
 
-export interface UpstreamBillingProbeSettings {
-  enabled: boolean
-  interval_minutes: number
-}
-
 export interface UpstreamBillingProbeResult {
   account_id: number
   snapshot?: UpstreamBillingProbeSnapshot
@@ -789,14 +784,6 @@ export interface OllamaCloudUsageState {
   auto_refresh_enabled: boolean
   encryption_key_configured: boolean
   snapshot?: OllamaCloudUsageSnapshot
-}
-
-export interface OllamaCloudUsageSettings {
-  enabled: boolean
-  /** Max wait while model requests keep arriving (minutes). */
-  interval_minutes: number
-  /** Trailing quiet period after the latest model request (minutes). */
-  debounce_minutes: number
 }
 
 /** 第三方 key 可配置地址的上游协议，与后端 service.UpstreamProtocols() 一致。 */

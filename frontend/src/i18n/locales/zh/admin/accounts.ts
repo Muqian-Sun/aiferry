@@ -309,7 +309,6 @@ export default {
         hoursAgo: '{count} 小时',
         daysAgo: '{count} 天',
         accountProbeState: '当前渠道自动检测：',
-        globalProbeState: '全局探测开关：',
         enabled: '打开',
         disabled: '关闭',
         probeFailed: '探测上游倍率失败',

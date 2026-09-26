@@ -20,7 +20,7 @@
           :key="section.key"
           :data-testid="`settings-section-${section.key}`"
           novalidate
-          @submit.prevent="saveSection(section.key)"
+          @submit.prevent="saveSection()"
         >
           <header class="mb-6">
             <h2 class="text-xl font-semibold text-af-ink">{{ t(`admin.settings.sections.${section.key}.title`) }}</h2>

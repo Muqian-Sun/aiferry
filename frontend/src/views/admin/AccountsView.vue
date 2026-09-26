@@ -237,7 +237,6 @@
             <span @click.stop>
               <UpstreamBillingRateCell
                 :account="row"
-                :global-probe-enabled="upstreamBillingProbeGloballyEnabled"
                 :now="upstreamBillingNow"
                 :probing="probingUpstreamBilling.has(row.id)"
                 @probe="handleProbeUpstreamBilling(row)"
@@ -533,7 +532,6 @@ const togglingSchedulable = ref<number | null>(null)
 const menu = reactive<{show:boolean, acc:Account|null, anchorRect:DOMRect|null}>({ show: false, acc: null, anchorRect: null })
 const exportingData = ref(false)
 const probingUpstreamBilling = reactive(new Set<number>())
-const upstreamBillingProbeGloballyEnabled = ref<boolean | undefined>(undefined)
 const upstreamBillingNow = ref(Date.now())
 const upstreamBillingRateETag = ref<string | null>(null)
 const upstreamBillingRateRefreshing = ref(false)
@@ -1081,18 +1079,9 @@ const refreshAccountsIncrementally = async () => {
   }
 }
 
-// 手动刷新：列表 + 今日 + 数字摘要 + 上游倍率全局开关
+// 手动刷新：列表 + 今日 + 数字摘要
 const handleManualRefresh = async () => {
-  await Promise.all([load(), loadSummary(), loadUpstreamBillingProbeGlobalState()])
-}
-
-const loadUpstreamBillingProbeGlobalState = async () => {
-  try {
-    const settings = await adminAPI.accounts.getUpstreamBillingProbeSettings()
-    upstreamBillingProbeGloballyEnabled.value = settings.enabled
-  } catch (error) {
-    console.error('Failed to load upstream billing probe settings:', error)
-  }
+  await Promise.all([load(), loadSummary()])
 }
 
 const syncPendingListChanges = async () => {
@@ -1895,7 +1884,6 @@ const handleScroll = (event: Event) => {
 
 onMounted(async () => {
   load()
-  loadUpstreamBillingProbeGlobalState()
   loadSummary()
   const [proxiesResult, catalogResult] = await Promise.allSettled([
     adminAPI.proxies.getAll(),

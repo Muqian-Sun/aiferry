@@ -404,7 +404,6 @@ export default {
         hoursAgo: '{count} hours',
         daysAgo: '{count} days',
         accountProbeState: 'Automatic detection for this channel:',
-        globalProbeState: 'Global probe switch:',
         enabled: 'On',
         disabled: 'Off',
         probeFailed: 'Failed to probe upstream rate',

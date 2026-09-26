@@ -214,53 +214,6 @@ describe('UpstreamBillingRateCell', () => {
     wrapper.unmount()
   })
 
-  it('stacks the global-off state below the account state and hides it when globally enabled', async () => {
-    const wrapper = mount(UpstreamBillingRateCell, {
-      attachTo: document.body,
-      props: {
-        account: makeAccount({
-          extra: {
-            upstream_billing_probe_enabled: true,
-            upstream_billing_probe: {
-              status: 'unsupported',
-              last_attempt_at: '2026-07-13T00:00:00Z',
-              next_probe_at: '2026-07-13T01:00:00Z'
-            }
-          }
-        }),
-        globalProbeEnabled: false,
-        now: Date.now()
-      }
-    })
-
-    await wrapper.get('[data-testid="upstream-billing-details"]').trigger('mouseenter')
-    await flushPromises()
-
-    const tooltips = document.body.querySelectorAll('[role="tooltip"]')
-    const tooltip = tooltips[tooltips.length - 1] as HTMLElement
-    const accountState = tooltip.querySelector('[data-testid="upstream-billing-probe-state"]')
-    const globalState = tooltip.querySelector('[data-testid="upstream-billing-global-probe-state"]')
-    expect(accountState?.querySelector('span')?.className).toContain('text-af-success')
-    expect(globalState?.textContent).toContain('admin.accounts.upstreamBilling.globalProbeState')
-    expect(globalState?.querySelector('span')?.className).toContain('text-af-danger')
-    expect(tooltip.querySelector('[data-testid="upstream-billing-next-probe"]')).toBeNull()
-
-    await wrapper.setProps({ globalProbeEnabled: true })
-    expect(tooltip.querySelector('[data-testid="upstream-billing-global-probe-state"]')).toBeNull()
-    expect(tooltip.querySelector('[data-testid="upstream-billing-next-probe"]')).not.toBeNull()
-
-    await wrapper.setProps({
-      globalProbeEnabled: false,
-      account: makeAccount({
-        extra: { upstream_billing_probe_enabled: false }
-      })
-    })
-    expect(accountState?.querySelector('span')?.className).toContain('text-af-danger')
-    expect(tooltip.querySelector('[data-testid="upstream-billing-global-probe-state"]')).not.toBeNull()
-    expect(tooltip.querySelector('[data-testid="upstream-billing-next-probe"]')).toBeNull()
-    wrapper.unmount()
-  })
-
   it('emits manual probe commands only for eligible accounts', async () => {
     const wrapper = mount(UpstreamBillingRateCell, {
       props: { account: makeAccount(), now: Date.now() }
