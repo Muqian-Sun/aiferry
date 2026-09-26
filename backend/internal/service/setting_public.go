@@ -135,13 +135,13 @@ func buildLoginAgreementRevision(updatedAt string, docs []LoginAgreementDocument
 	return hex.EncodeToString(sum[:])[:16]
 }
 
-// GetFrontendURL 获取前端基础URL（数据库优先，fallback 到配置文件）
+// GetFrontendURL 用户站地址：部署时由 SERVER_FRONTEND_URL 配置，后台不再能改。
+// API 与用户站同一个域名，邮件链接、第三方登录回调、给用户看的 API 地址都从它来。
 func (s *SettingService) GetFrontendURL(ctx context.Context) string {
-	val, err := s.settingRepo.GetValue(ctx, SettingKeyFrontendURL)
-	if err == nil && strings.TrimSpace(val) != "" {
-		return strings.TrimSpace(val)
+	if s == nil || s.cfg == nil {
+		return ""
 	}
-	return s.cfg.Server.FrontendURL
+	return strings.TrimSpace(s.cfg.Server.FrontendURL)
 }
 
 // GetPublicSettings 获取公开设置（无需登录）
@@ -165,19 +165,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAliyunCaptchaPrefix,
 		SettingKeyAliyunCaptchaRegion,
 		SettingKeyAPIKeyACLTrustForwardedIP,
-		SettingKeySiteName,
-		SettingKeySiteLogo,
-		SettingKeySiteSubtitle,
-		SettingKeyAPIBaseURL,
-		SettingKeyContactInfo,
-		SettingKeyDocURL,
-		SettingKeyHomeContent,
-		SettingKeyCompactHomeEnabled,
-		SettingKeyHideCcsImportButton,
-		SettingKeyTableDefaultPageSize,
-		SettingKeyTablePageSizeOptions,
-		SettingKeyCustomMenuItems,
-		SettingKeyCustomEndpoints,
 		SettingKeyLinuxDoConnectEnabled,
 		SettingKeyDingTalkConnectEnabled,
 		SettingKeyWeChatConnectEnabled,
@@ -196,7 +183,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyWeChatConnectScopes,
 		SettingKeyWeChatConnectRedirectURL,
 		SettingKeyWeChatConnectFrontendRedirectURL,
-		SettingKeyBackendModeEnabled,
 		SettingPaymentEnabled,
 		SettingKeyOIDCConnectEnabled,
 		SettingKeyOIDCConnectProviderName,
@@ -261,10 +247,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	registrationEmailSuffixWhitelist := ParseRegistrationEmailSuffixWhitelist(
 		settings[SettingKeyRegistrationEmailSuffixWhitelist],
 	)
-	tableDefaultPageSize, tablePageSizeOptions := parseTablePreferences(
-		settings[SettingKeyTableDefaultPageSize],
-		settings[SettingKeyTablePageSizeOptions],
-	)
 	loginAgreementDocuments := parseLoginAgreementDocuments(settings[SettingKeyLoginAgreementDocuments])
 	loginAgreementUpdatedAt := strings.TrimSpace(settings[SettingKeyLoginAgreementUpdatedAt])
 	if loginAgreementUpdatedAt == "" {
@@ -299,35 +281,33 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		AliyunCaptchaSceneID:                settings[SettingKeyAliyunCaptchaSceneID],
 		AliyunCaptchaPrefix:                 settings[SettingKeyAliyunCaptchaPrefix],
 		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-		SiteName:                            s.getStringOrDefault(settings, SettingKeySiteName, defaultSiteName),
-		SiteLogo:                            settings[SettingKeySiteLogo],
-		SiteSubtitle:                        s.getStringOrDefault(settings, SettingKeySiteSubtitle, defaultSiteSubtitle),
-		APIBaseURL:                          settings[SettingKeyAPIBaseURL],
-		ContactInfo:                         settings[SettingKeyContactInfo],
-		DocURL:                              settings[SettingKeyDocURL],
-		HomeContent:                         settings[SettingKeyHomeContent],
-		CompactHomeEnabled:                  settings[SettingKeyCompactHomeEnabled] == "true",
-		HideCcsImportButton:                 settings[SettingKeyHideCcsImportButton] == "true",
-		TableDefaultPageSize:                tableDefaultPageSize,
-		TablePageSizeOptions:                tablePageSizeOptions,
-		CustomMenuItems:                     settings[SettingKeyCustomMenuItems],
-		CustomEndpoints:                     settings[SettingKeyCustomEndpoints],
-		LinuxDoOAuthEnabled:                 linuxDoEnabled,
-		DingTalkOAuthEnabled:                dingTalkEnabled,
-		WeChatOAuthEnabled:                  weChatEnabled,
-		WeChatOAuthOpenEnabled:              weChatOpenEnabled,
-		WeChatOAuthMPEnabled:                weChatMPEnabled,
-		WeChatOAuthMobileEnabled:            weChatMobileEnabled,
-		BackendModeEnabled:                  settings[SettingKeyBackendModeEnabled] == "true",
-		PaymentEnabled:                      settings[SettingPaymentEnabled] == "true",
-		OIDCOAuthEnabled:                    oidcEnabled,
-		OIDCOAuthProviderName:               oidcProviderName,
-		GitHubOAuthEnabled:                  gitHubEnabled,
-		GoogleOAuthEnabled:                  googleEnabled,
-		BalanceLowNotifyEnabled:             settings[SettingKeyBalanceLowNotifyEnabled] == "true",
-		AccountQuotaNotifyEnabled:           settings[SettingKeyAccountQuotaNotifyEnabled] == "true",
-		BalanceLowNotifyThreshold:           balanceLowNotifyThreshold,
-		BalanceLowNotifyRechargeURL:         settings[SettingKeyBalanceLowNotifyRechargeURL],
+		// 站点相关由代码决定（site_features.go）；API 地址就是用户站地址，没配时前端用当前域名。
+		SiteName:                    SiteName,
+		SiteLogo:                    SiteLogo,
+		SiteSubtitle:                defaultSiteSubtitle,
+		APIBaseURL:                  s.GetFrontendURL(ctx),
+		ContactInfo:                 SiteContactInfo,
+		DocURL:                      SiteDocURL,
+		TableDefaultPageSize:        TableDefaultPageSize,
+		TablePageSizeOptions:        TablePageSizeOptions(),
+		CustomMenuItems:             "[]",
+		CustomEndpoints:             "[]",
+		LinuxDoOAuthEnabled:         linuxDoEnabled,
+		DingTalkOAuthEnabled:        dingTalkEnabled,
+		WeChatOAuthEnabled:          weChatEnabled,
+		WeChatOAuthOpenEnabled:      weChatOpenEnabled,
+		WeChatOAuthMPEnabled:        weChatMPEnabled,
+		WeChatOAuthMobileEnabled:    weChatMobileEnabled,
+		BackendModeEnabled:          BackendModeEnabled,
+		PaymentEnabled:              settings[SettingPaymentEnabled] == "true",
+		OIDCOAuthEnabled:            oidcEnabled,
+		OIDCOAuthProviderName:       oidcProviderName,
+		GitHubOAuthEnabled:          gitHubEnabled,
+		GoogleOAuthEnabled:          googleEnabled,
+		BalanceLowNotifyEnabled:     settings[SettingKeyBalanceLowNotifyEnabled] == "true",
+		AccountQuotaNotifyEnabled:   settings[SettingKeyAccountQuotaNotifyEnabled] == "true",
+		BalanceLowNotifyThreshold:   balanceLowNotifyThreshold,
+		BalanceLowNotifyRechargeURL: settings[SettingKeyBalanceLowNotifyRechargeURL],
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorMode:                   ChannelMonitorModeV2,
@@ -443,13 +423,9 @@ func (s *SettingService) GetChannelMonitorRuntime(ctx context.Context) ChannelMo
 	}
 }
 
-// GetModelPlazaDescription 读模型广场顶部的 Markdown 说明；读不到按空处理（说明只是文案，不影响目录本身）。
+// GetModelPlazaDescription 模型广场顶部的 Markdown 说明：由代码决定（site_features.go）。
 func (s *SettingService) GetModelPlazaDescription(ctx context.Context) string {
-	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyModelPlazaDescription})
-	if err != nil {
-		return ""
-	}
-	return vals[SettingKeyModelPlazaDescription]
+	return ModelPlazaDescription
 }
 
 // IsUserErrorViewAllowed reads the user-facing error-requests visibility switch

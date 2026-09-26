@@ -165,7 +165,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyRegistrationEmailSuffixWhitelist] = string(registrationEmailSuffixWhitelistJSON)
 	updates[SettingKeyRegistrationEmailDomainQuotaEnabled] = strconv.FormatBool(settings.RegistrationEmailDomainQuotaEnabled)
-	updates[SettingKeyFrontendURL] = settings.FrontendURL
 	updates[SettingKeyStepUpEnabled] = strconv.FormatBool(settings.StepUpEnabled)
 	settings.LoginAgreementMode = normalizeLoginAgreementMode(settings.LoginAgreementMode)
 	settings.LoginAgreementUpdatedAt = strings.TrimSpace(settings.LoginAgreementUpdatedAt)
@@ -323,29 +322,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 		updates[SettingKeyWeChatConnectMobileAppSecret] = settings.WeChatConnectMobileAppSecret
 	}
 
-	// OEM设置
-	updates[SettingKeySiteName] = settings.SiteName
-	updates[SettingKeySiteLogo] = settings.SiteLogo
-	updates[SettingKeySiteSubtitle] = settings.SiteSubtitle
-	updates[SettingKeyAPIBaseURL] = settings.APIBaseURL
-	updates[SettingKeyContactInfo] = settings.ContactInfo
-	updates[SettingKeyDocURL] = settings.DocURL
-	updates[SettingKeyHomeContent] = settings.HomeContent
-	updates[SettingKeyCompactHomeEnabled] = strconv.FormatBool(settings.CompactHomeEnabled)
-	updates[SettingKeyHideCcsImportButton] = strconv.FormatBool(settings.HideCcsImportButton)
-	tableDefaultPageSize, tablePageSizeOptions := normalizeTablePreferences(
-		settings.TableDefaultPageSize,
-		settings.TablePageSizeOptions,
-	)
-	updates[SettingKeyTableDefaultPageSize] = strconv.Itoa(tableDefaultPageSize)
-	tablePageSizeOptionsJSON, err := json.Marshal(tablePageSizeOptions)
-	if err != nil {
-		return nil, fmt.Errorf("marshal table page size options: %w", err)
-	}
-	updates[SettingKeyTablePageSizeOptions] = string(tablePageSizeOptionsJSON)
-	updates[SettingKeyCustomMenuItems] = settings.CustomMenuItems
-	updates[SettingKeyCustomEndpoints] = settings.CustomEndpoints
-
 	// 默认配置
 	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
 	updates[SettingKeyDefaultBalance] = strconv.FormatFloat(settings.DefaultBalance, 'f', 8, 64)
@@ -412,7 +388,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// Available channels feature switch
 
 	// Model plaza feature switches + description
-	updates[SettingKeyModelPlazaDescription] = settings.ModelPlazaDescription
 	updates[SettingKeyPluginManagementEnabled] = strconv.FormatBool(settings.PluginManagementEnabled)
 
 	// Affiliate (邀请返利) feature switch
@@ -434,7 +409,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	// 分组隔离
 
 	// Backend Mode
-	updates[SettingKeyBackendModeEnabled] = strconv.FormatBool(settings.BackendModeEnabled)
 
 	// Gateway forwarding behavior
 	mode := normalizeOpenAITTFTMode(settings.OpenAITTFTMode)
@@ -611,11 +585,6 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 		min:       settings.MinClaudeCodeVersion,
 		max:       settings.MaxClaudeCodeVersion,
 		expiresAt: time.Now().Add(versionBoundsCacheTTL).UnixNano(),
-	})
-	backendModeSF.Forget("backend_mode")
-	backendModeCache.Store(&cachedBackendMode{
-		value:     settings.BackendModeEnabled,
-		expiresAt: time.Now().Add(backendModeCacheTTL).UnixNano(),
 	})
 	gatewayForwardingSF.Forget("gateway_forwarding")
 	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{

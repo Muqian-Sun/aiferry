@@ -15,7 +15,6 @@ type SystemSettings struct {
 	EmailVerifyEnabled                  bool
 	RegistrationEmailSuffixWhitelist    []string
 	RegistrationEmailDomainQuotaEnabled bool // 白名单非空时放行非白名单域名限量注册（默认关闭）
-	FrontendURL                         string
 	StepUpEnabled                       bool // 敏感操作 step-up 2FA 门控
 	LoginAgreementEnabled               bool
 	LoginAgreementMode                  string
@@ -141,20 +140,6 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string
 	GoogleOAuthFrontendRedirectURL    string
 
-	SiteName             string
-	SiteLogo             string
-	SiteSubtitle         string
-	APIBaseURL           string
-	ContactInfo          string
-	DocURL               string
-	HomeContent          string
-	CompactHomeEnabled   bool
-	HideCcsImportButton  bool
-	TableDefaultPageSize int
-	TablePageSizeOptions []int
-	CustomMenuItems      string // JSON array of custom menu items
-	CustomEndpoints      string // JSON array of custom endpoints
-
 	DefaultConcurrency           int
 	DefaultBalance               float64
 	RiskControlEnabled           bool
@@ -195,15 +180,11 @@ type SystemSettings struct {
 	// Available Channels feature (user-facing aggregate view)
 
 	// Model Plaza feature (public group/model pricing showcase)
-	ModelPlazaDescription   string `json:"model_plaza_description"`
-	PluginManagementEnabled bool   `json:"plugin_management_enabled"`
+	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
 	// Claude Code version check
 	MinClaudeCodeVersion string
 	MaxClaudeCodeVersion string
-
-	// Backend 模式：禁用用户注册和自助服务，仅管理员可登录
-	BackendModeEnabled bool
 
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         string // Responses first_token_ms 统计口径（默认 semantic）

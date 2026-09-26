@@ -41,9 +41,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.RegistrationEmailDomainQuotaEnabled != after.RegistrationEmailDomainQuotaEnabled {
 		changed = append(changed, "registration_email_domain_quota_enabled")
 	}
-	if before.FrontendURL != after.FrontendURL {
-		changed = append(changed, "frontend_url")
-	}
 	if before.StepUpEnabled != after.StepUpEnabled {
 		changed = append(changed, "step_up_enabled")
 	}
@@ -296,33 +293,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.OIDCConnectUserInfoUsernamePath != after.OIDCConnectUserInfoUsernamePath {
 		changed = append(changed, "oidc_connect_userinfo_username_path")
 	}
-	if before.SiteName != after.SiteName {
-		changed = append(changed, "site_name")
-	}
-	if before.SiteLogo != after.SiteLogo {
-		changed = append(changed, "site_logo")
-	}
-	if before.SiteSubtitle != after.SiteSubtitle {
-		changed = append(changed, "site_subtitle")
-	}
-	if before.APIBaseURL != after.APIBaseURL {
-		changed = append(changed, "api_base_url")
-	}
-	if before.ContactInfo != after.ContactInfo {
-		changed = append(changed, "contact_info")
-	}
-	if before.DocURL != after.DocURL {
-		changed = append(changed, "doc_url")
-	}
-	if before.HomeContent != after.HomeContent {
-		changed = append(changed, "home_content")
-	}
-	if before.CompactHomeEnabled != after.CompactHomeEnabled {
-		changed = append(changed, "compact_home_enabled")
-	}
-	if before.HideCcsImportButton != after.HideCcsImportButton {
-		changed = append(changed, "hide_ccs_import_button")
-	}
 	if before.DefaultConcurrency != after.DefaultConcurrency {
 		changed = append(changed, "default_concurrency")
 	}
@@ -388,21 +358,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.CodexCLIOnlyWhitelist != after.CodexCLIOnlyWhitelist {
 		changed = append(changed, "codex_cli_only_whitelist")
-	}
-	if before.BackendModeEnabled != after.BackendModeEnabled {
-		changed = append(changed, "backend_mode_enabled")
-	}
-	if before.TableDefaultPageSize != after.TableDefaultPageSize {
-		changed = append(changed, "table_default_page_size")
-	}
-	if !equalIntSlice(before.TablePageSizeOptions, after.TablePageSizeOptions) {
-		changed = append(changed, "table_page_size_options")
-	}
-	if before.CustomMenuItems != after.CustomMenuItems {
-		changed = append(changed, "custom_menu_items")
-	}
-	if before.CustomEndpoints != after.CustomEndpoints {
-		changed = append(changed, "custom_endpoints")
 	}
 	if before.EnableFingerprintUnification != after.EnableFingerprintUnification {
 		changed = append(changed, "enable_fingerprint_unification")
@@ -482,9 +437,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.ChannelMonitorDefaultIntervalSeconds != after.ChannelMonitorDefaultIntervalSeconds {
 		changed = append(changed, "channel_monitor_default_interval_seconds")
-	}
-	if before.ModelPlazaDescription != after.ModelPlazaDescription {
-		changed = append(changed, "model_plaza_description")
 	}
 	if before.AffiliateEnabled != after.AffiliateEnabled {
 		changed = append(changed, "affiliate_enabled")

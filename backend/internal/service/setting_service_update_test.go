@@ -226,16 +226,6 @@ func (s *defaultSubPlanReaderStub) GetByID(ctx context.Context, id int64) (*Subs
 	return nil, ErrPlanNotFound
 }
 
-func TestSettingService_UpdateSettings_PersistsCompactHomeEnabled(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{CompactHomeEnabled: true})
-
-	require.NoError(t, err)
-	require.Equal(t, "true", repo.updates[SettingKeyCompactHomeEnabled])
-}
-
 func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidPlan(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
 	planReader := &defaultSubPlanReaderStub{
@@ -360,27 +350,6 @@ func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
 		{PlanID: 11, ValidityDays: 60},
 		{PlanID: 12, ValidityDays: MaxValidityDays},
 	}, got)
-}
-
-func TestSettingService_UpdateSettings_TablePreferences(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	svc := NewSettingService(repo, &config.Config{})
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		TableDefaultPageSize: 50,
-		TablePageSizeOptions: []int{20, 50, 100},
-	})
-	require.NoError(t, err)
-	require.Equal(t, "50", repo.updates[SettingKeyTableDefaultPageSize])
-	require.Equal(t, "[20,50,100]", repo.updates[SettingKeyTablePageSizeOptions])
-
-	err = svc.UpdateSettings(context.Background(), &SystemSettings{
-		TableDefaultPageSize: 1000,
-		TablePageSizeOptions: []int{20, 100},
-	})
-	require.NoError(t, err)
-	require.Equal(t, "1000", repo.updates[SettingKeyTableDefaultPageSize])
-	require.Equal(t, "[20,100]", repo.updates[SettingKeyTablePageSizeOptions])
 }
 
 func TestSettingService_UpdateSettings_PaymentVisibleMethods(t *testing.T) {

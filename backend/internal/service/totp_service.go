@@ -93,7 +93,7 @@ const (
 	totpLoginTTL    = 5 * time.Minute
 	totpAttemptsTTL = 15 * time.Minute
 	maxTotpAttempts = 5
-	totpIssuer      = defaultSiteName
+	totpIssuer      = SiteName
 )
 
 // TotpService handles TOTP operations
@@ -553,9 +553,6 @@ func (s *TotpService) SendVerifyCode(ctx context.Context, userID int64, locale .
 		return fmt.Errorf("get user: %w", err)
 	}
 
-	// Get site name for email
-	siteName := s.settingService.GetSiteName(ctx)
-
 	// Send verification code via queue
-	return s.emailQueueService.EnqueueVerifyCode(user.Email, siteName, firstEmailLocale(locale))
+	return s.emailQueueService.EnqueueVerifyCode(user.Email, SiteName, firstEmailLocale(locale))
 }

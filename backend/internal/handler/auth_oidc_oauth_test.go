@@ -1043,53 +1043,6 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 	require.Zero(t, pendingCount)
 }
 
-func TestOIDCOAuthCallbackVerifiedEmailFastPathBackendModeBlocksBeforeUserCreation(t *testing.T) {
-	cfg, cleanup := newOIDCTestProvider(t, oidcProviderFixture{
-		Subject:           "oidc-fast-backend-mode-subject",
-		PreferredUsername: "oidc_backend_mode",
-		DisplayName:       "OIDC Backend Mode",
-		Email:             "oidc-backend-mode@example.com",
-		EmailVerified:     true,
-	})
-	defer cleanup()
-
-	handler, client := newOIDCOAuthHandlerAndClientWithSettings(t, false, cfg, map[string]string{
-		service.SettingKeyBackendModeEnabled: "true",
-	})
-	t.Cleanup(func() { _ = client.Close() })
-
-	recorder := httptest.NewRecorder()
-	c, _ := gin.CreateTestContext(recorder)
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/auth/oauth/oidc/callback?code=oidc-code&state=state-backend-mode", nil)
-	req.AddCookie(encodedCookie(oidcOAuthStateCookieName, "state-backend-mode"))
-	req.AddCookie(encodedCookie(oidcOAuthRedirectCookie, "/dashboard"))
-	req.AddCookie(encodedCookie(oidcOAuthVerifierCookie, "verifier-backend-mode"))
-	req.AddCookie(encodedCookie(oidcOAuthNonceCookie, "nonce-oidc-fast-backend-mode-subject"))
-	req.AddCookie(encodedCookie(oidcOAuthIntentCookieName, oauthIntentLogin))
-	req.AddCookie(encodedCookie(oauthPendingBrowserCookieName, "browser-backend-mode"))
-	c.Request = req
-
-	handler.OIDCOAuthCallback(c)
-
-	require.Equal(t, http.StatusFound, recorder.Code)
-	assertOAuthRedirectError(t, recorder.Header().Get("Location"), "login_blocked", "BACKEND_MODE_ADMIN_ONLY")
-	requireCookieCleared(t, recorder, oauthPendingSessionCookieName)
-	requireCookieCleared(t, recorder, oauthPendingBrowserCookieName)
-
-	ctx := context.Background()
-	userCount, err := client.User.Query().Where(dbuser.EmailEQ("oidc-backend-mode@example.com")).Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, userCount)
-	identityCount, err := client.AuthIdentity.Query().
-		Where(authidentity.ProviderSubjectEQ("oidc-fast-backend-mode-subject")).
-		Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, identityCount)
-	pendingCount, err := client.PendingAuthSession.Query().Count(ctx)
-	require.NoError(t, err)
-	require.Zero(t, pendingCount)
-}
-
 func TestTryOIDCVerifiedEmailFastPathSkippedWhenForceEmailEnabled(t *testing.T) {
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
 		settingValues: map[string]string{

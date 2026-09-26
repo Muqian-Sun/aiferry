@@ -314,13 +314,7 @@ func (s *AuthService) SendVerifyCode(ctx context.Context, email string, locale .
 		return errors.New("email service not configured")
 	}
 
-	// 获取网站名称
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-
-	return s.emailService.SendVerifyCode(ctx, email, siteName, firstEmailLocale(locale))
+	return s.emailService.SendVerifyCode(ctx, email, SiteName, firstEmailLocale(locale))
 }
 
 // SendVerifyCodeAsync 异步发送邮箱验证码并返回倒计时
@@ -356,15 +350,9 @@ func (s *AuthService) SendVerifyCodeAsync(ctx context.Context, email string, loc
 		return nil, errors.New("email queue service not configured")
 	}
 
-	// 获取网站名称
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-
 	// 异步发送
 	logger.LegacyPrintf("service.auth", "[Auth] Enqueueing verify code for: %s", email)
-	if err := s.emailQueueService.EnqueueVerifyCode(email, siteName, firstEmailLocale(locale)); err != nil {
+	if err := s.emailQueueService.EnqueueVerifyCode(email, SiteName, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to enqueue: %v", err)
 		return nil, fmt.Errorf("enqueue verify code: %w", err)
 	}
@@ -1457,37 +1445,31 @@ func (s *AuthService) IsPasswordResetEnabled(ctx context.Context) bool {
 }
 
 // preparePasswordReset validates the password reset request and returns necessary data
-// Returns (siteName, resetURL, shouldProceed)
+// Returns (resetURL, shouldProceed)
 // shouldProceed is false when we should silently return success (to prevent enumeration)
-func (s *AuthService) preparePasswordReset(ctx context.Context, email, frontendBaseURL string) (string, string, bool) {
+func (s *AuthService) preparePasswordReset(ctx context.Context, email, frontendBaseURL string) (string, bool) {
 	// Check if user exists (but don't reveal this to the caller)
 	user, err := s.userRepo.GetByEmail(ctx, email)
 	if err != nil {
 		if errors.Is(err, ErrUserNotFound) {
 			// Security: Log but don't reveal that user doesn't exist
 			logger.LegacyPrintf("service.auth", "[Auth] Password reset requested for non-existent email: %s", email)
-			return "", "", false
+			return "", false
 		}
 		logger.LegacyPrintf("service.auth", "[Auth] Database error checking email for password reset: %v", err)
-		return "", "", false
+		return "", false
 	}
 
 	// Check if user is active
 	if !user.IsActive() {
 		logger.LegacyPrintf("service.auth", "[Auth] Password reset requested for inactive user: %s", email)
-		return "", "", false
-	}
-
-	// Get site name
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
+		return "", false
 	}
 
 	// Build reset URL base
 	resetURL := fmt.Sprintf("%s/reset-password", strings.TrimSuffix(frontendBaseURL, "/"))
 
-	return siteName, resetURL, true
+	return resetURL, true
 }
 
 // RequestPasswordReset 请求密码重置（同步发送）
@@ -1500,12 +1482,12 @@ func (s *AuthService) RequestPasswordReset(ctx context.Context, email, frontendB
 		return ErrServiceUnavailable
 	}
 
-	siteName, resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
+	resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
 	if !shouldProceed {
 		return nil // Silent success to prevent enumeration
 	}
 
-	if err := s.emailService.SendPasswordResetEmail(ctx, email, siteName, resetURL, firstEmailLocale(locale)); err != nil {
+	if err := s.emailService.SendPasswordResetEmail(ctx, email, SiteName, resetURL, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to send password reset email to %s: %v", email, err)
 		return nil // Silent success to prevent enumeration
 	}
@@ -1524,12 +1506,12 @@ func (s *AuthService) RequestPasswordResetAsync(ctx context.Context, email, fron
 		return ErrServiceUnavailable
 	}
 
-	siteName, resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
+	resetURL, shouldProceed := s.preparePasswordReset(ctx, email, frontendBaseURL)
 	if !shouldProceed {
 		return nil // Silent success to prevent enumeration
 	}
 
-	if err := s.emailQueueService.EnqueuePasswordReset(email, siteName, resetURL, firstEmailLocale(locale)); err != nil {
+	if err := s.emailQueueService.EnqueuePasswordReset(email, SiteName, resetURL, firstEmailLocale(locale)); err != nil {
 		logger.LegacyPrintf("service.auth", "[Auth] Failed to enqueue password reset email for %s: %v", email, err)
 		return nil // Silent success to prevent enumeration
 	}

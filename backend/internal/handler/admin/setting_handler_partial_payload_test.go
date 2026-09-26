@@ -19,8 +19,6 @@ import (
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySiteName:         "Example Gateway",
-		service.SettingKeySiteSubtitle:     "Example Gateway Platform",
 		service.SettingKeySMTPHost:         "smtp.example.com",
 		service.SettingKeySMTPFrom:         "noreply@example.com",
 		service.SettingKeyTurnstileEnabled: "true",
@@ -32,8 +30,6 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "true", repo.values[service.SettingKeyRiskControlEnabled],
 		"the field the caller actually sent must be written")
 
-	require.Equal(t, "Example Gateway", repo.values[service.SettingKeySiteName])
-	require.Equal(t, "Example Gateway Platform", repo.values[service.SettingKeySiteSubtitle])
 	require.Equal(t, "smtp.example.com", repo.values[service.SettingKeySMTPHost])
 	require.Equal(t, "noreply@example.com", repo.values[service.SettingKeySMTPFrom])
 	require.Equal(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
@@ -43,13 +39,13 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 // zero value are still cleared.
 func TestUpdateSettingsFullPayloadStillClearsSentEmptyFields(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySiteName: "Example Gateway",
+		service.SettingKeyMinClaudeCodeVersion: "2.0.0",
 	})
 
-	rec := doUpdateSettings(t, h, map[string]any{"site_name": ""}, nil)
+	rec := doUpdateSettings(t, h, map[string]any{"min_claude_code_version": ""}, nil)
 	require.Equal(t, http.StatusOK, rec.Code)
 
-	require.Equal(t, "", repo.values[service.SettingKeySiteName],
+	require.Equal(t, "", repo.values[service.SettingKeyMinClaudeCodeVersion],
 		"an explicitly sent empty value is a deliberate clear, not an omission")
 }
 

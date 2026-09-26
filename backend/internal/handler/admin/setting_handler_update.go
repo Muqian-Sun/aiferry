@@ -25,8 +25,7 @@ type UpdateSettingsRequest struct {
 	EmailVerifyEnabled                  bool                         `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string                     `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailDomainQuotaEnabled *bool                        `json:"registration_email_domain_quota_enabled"` // 非白名单域名限量注册开关（省略=保持现值）
-	FrontendURL                         string                       `json:"frontend_url"`
-	StepUpEnabled                       *bool                        `json:"step_up_enabled"` // 敏感操作 step-up 2FA（省略=保持现值）
+	StepUpEnabled                       *bool                        `json:"step_up_enabled"`                         // 敏感操作 step-up 2FA（省略=保持现值）
 	LoginAgreementEnabled               bool                         `json:"login_agreement_enabled"`
 	LoginAgreementMode                  string                       `json:"login_agreement_mode"`
 	LoginAgreementUpdatedAt             string                       `json:"login_agreement_updated_at"`
@@ -144,19 +143,6 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName             string                `json:"site_name"`
-	SiteLogo             string                `json:"site_logo"`
-	SiteSubtitle         string                `json:"site_subtitle"`
-	APIBaseURL           string                `json:"api_base_url"`
-	ContactInfo          string                `json:"contact_info"`
-	DocURL               string                `json:"doc_url"`
-	HomeContent          string                `json:"home_content"`
-	CompactHomeEnabled   bool                  `json:"compact_home_enabled"`
-	HideCcsImportButton  bool                  `json:"hide_ccs_import_button"`
-	TableDefaultPageSize int                   `json:"table_default_page_size"`
-	TablePageSizeOptions []int                 `json:"table_page_size_options"`
-	CustomMenuItems      *[]dto.CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints      *[]dto.CustomEndpoint `json:"custom_endpoints"`
 
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
@@ -221,7 +207,6 @@ type UpdateSettingsRequest struct {
 	// 分组隔离
 
 	// Backend Mode
-	BackendModeEnabled bool `json:"backend_mode_enabled"`
 
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         *string `json:"openai_ttft_mode"`
@@ -307,7 +292,6 @@ type UpdateSettingsRequest struct {
 	// Available Channels feature switch (user-facing)
 
 	// Model Plaza feature switches + description
-	ModelPlazaDescription *string `json:"model_plaza_description"`
 
 	// Plugin management menu visibility switch; plugin runtime is unaffected.
 	PluginManagementEnabled *bool `json:"plugin_management_enabled"`
@@ -537,13 +521,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	adminRechargeRebateEnabled := previousSettings.AdminRechargeRebateEnabled
 	if req.AdminRechargeRebateEnabled != nil {
 		adminRechargeRebateEnabled = *req.AdminRechargeRebateEnabled
-	}
-	// 通用表格配置：兼容旧客户端未传字段时保留当前值。
-	if req.TableDefaultPageSize <= 0 {
-		req.TableDefaultPageSize = previousSettings.TableDefaultPageSize
-	}
-	if req.TablePageSizeOptions == nil {
-		req.TablePageSizeOptions = previousSettings.TablePageSizeOptions
 	}
 	req.SMTPHost = strings.TrimSpace(req.SMTPHost)
 	req.SMTPUsername = strings.TrimSpace(req.SMTPUsername)
@@ -1147,152 +1124,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	// Frontend URL 验证
-	req.FrontendURL = strings.TrimSpace(req.FrontendURL)
-	if req.FrontendURL != "" {
-		if err := config.ValidateAbsoluteHTTPURL(req.FrontendURL); err != nil {
-			response.BadRequest(c, "Frontend URL must be an absolute http(s) URL")
-			return
-		}
-	}
-
-	// 自定义菜单项验证
-	const (
-		maxCustomMenuItems    = 20
-		maxMenuItemLabelLen   = 50
-		maxMenuItemURLLen     = 2048
-		maxMenuItemIconSVGLen = 10 * 1024 // 10KB
-		maxMenuItemIDLen      = 32
-	)
-
-	customMenuJSON := previousSettings.CustomMenuItems
-	if req.CustomMenuItems != nil {
-		items := *req.CustomMenuItems
-		if len(items) > maxCustomMenuItems {
-			response.BadRequest(c, "Too many custom menu items (max 20)")
-			return
-		}
-		for i, item := range items {
-			if strings.TrimSpace(item.Label) == "" {
-				response.BadRequest(c, "Custom menu item label is required")
-				return
-			}
-			if len(item.Label) > maxMenuItemLabelLen {
-				response.BadRequest(c, "Custom menu item label is too long (max 50 characters)")
-				return
-			}
-			urlTrimmed := strings.TrimSpace(item.URL)
-			if strings.HasPrefix(urlTrimmed, "md:") {
-				// Markdown page mode: URL = "md:<slug>"
-				slug := strings.TrimPrefix(urlTrimmed, "md:")
-				if slug == "" {
-					response.BadRequest(c, "Custom menu item markdown slug cannot be empty (use md:slug format)")
-					return
-				}
-			} else {
-				if urlTrimmed == "" {
-					response.BadRequest(c, "Custom menu item URL is required (use md:slug for markdown pages)")
-					return
-				}
-				if len(item.URL) > maxMenuItemURLLen {
-					response.BadRequest(c, "Custom menu item URL is too long (max 2048 characters)")
-					return
-				}
-				if err := config.ValidateAbsoluteHTTPURL(urlTrimmed); err != nil {
-					response.BadRequest(c, "Custom menu item URL must be an absolute http(s) URL or md:<slug>")
-					return
-				}
-			}
-			if item.Visibility != "user" && item.Visibility != "admin" {
-				response.BadRequest(c, "Custom menu item visibility must be 'user' or 'admin'")
-				return
-			}
-			if len(item.IconSVG) > maxMenuItemIconSVGLen {
-				response.BadRequest(c, "Custom menu item icon SVG is too large (max 10KB)")
-				return
-			}
-			// Auto-generate ID if missing
-			if strings.TrimSpace(item.ID) == "" {
-				id, err := generateMenuItemID()
-				if err != nil {
-					response.Error(c, http.StatusInternalServerError, "Failed to generate menu item ID")
-					return
-				}
-				items[i].ID = id
-			} else if len(item.ID) > maxMenuItemIDLen {
-				response.BadRequest(c, "Custom menu item ID is too long (max 32 characters)")
-				return
-			} else if !menuItemIDPattern.MatchString(item.ID) {
-				response.BadRequest(c, "Custom menu item ID contains invalid characters (only a-z, A-Z, 0-9, - and _ are allowed)")
-				return
-			}
-		}
-		// ID uniqueness check
-		seen := make(map[string]struct{}, len(items))
-		for _, item := range items {
-			if _, exists := seen[item.ID]; exists {
-				response.BadRequest(c, "Duplicate custom menu item ID: "+item.ID)
-				return
-			}
-			seen[item.ID] = struct{}{}
-		}
-		menuBytes, err := json.Marshal(items)
-		if err != nil {
-			response.BadRequest(c, "Failed to serialize custom menu items")
-			return
-		}
-		customMenuJSON = string(menuBytes)
-	}
-
-	// 自定义端点验证
-	const (
-		maxCustomEndpoints        = 10
-		maxEndpointNameLen        = 50
-		maxEndpointURLLen         = 2048
-		maxEndpointDescriptionLen = 200
-	)
-
-	customEndpointsJSON := previousSettings.CustomEndpoints
-	if req.CustomEndpoints != nil {
-		endpoints := *req.CustomEndpoints
-		if len(endpoints) > maxCustomEndpoints {
-			response.BadRequest(c, "Too many custom endpoints (max 10)")
-			return
-		}
-		for _, ep := range endpoints {
-			if strings.TrimSpace(ep.Name) == "" {
-				response.BadRequest(c, "Custom endpoint name is required")
-				return
-			}
-			if len(ep.Name) > maxEndpointNameLen {
-				response.BadRequest(c, "Custom endpoint name is too long (max 50 characters)")
-				return
-			}
-			if strings.TrimSpace(ep.Endpoint) == "" {
-				response.BadRequest(c, "Custom endpoint URL is required")
-				return
-			}
-			if len(ep.Endpoint) > maxEndpointURLLen {
-				response.BadRequest(c, "Custom endpoint URL is too long (max 2048 characters)")
-				return
-			}
-			if err := config.ValidateAbsoluteHTTPURL(strings.TrimSpace(ep.Endpoint)); err != nil {
-				response.BadRequest(c, "Custom endpoint URL must be an absolute http(s) URL")
-				return
-			}
-			if len(ep.Description) > maxEndpointDescriptionLen {
-				response.BadRequest(c, "Custom endpoint description is too long (max 200 characters)")
-				return
-			}
-		}
-		endpointBytes, err := json.Marshal(endpoints)
-		if err != nil {
-			response.BadRequest(c, "Failed to serialize custom endpoints")
-			return
-		}
-		customEndpointsJSON = string(endpointBytes)
-	}
-
 	// Ops metrics collector interval validation (seconds).
 	if req.OpsMetricsIntervalSeconds != nil {
 		v := *req.OpsMetricsIntervalSeconds
@@ -1402,7 +1233,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EmailVerifyEnabled:                  req.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:    req.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled: registrationEmailDomainQuotaEnabled,
-		FrontendURL:                         req.FrontendURL,
 		StepUpEnabled:                       stepUpEnabled,
 		LoginAgreementEnabled:               req.LoginAgreementEnabled,
 		LoginAgreementMode:                  loginAgreementMode,
@@ -1505,19 +1335,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GoogleOAuthClientSecret:                req.GoogleOAuthClientSecret,
 		GoogleOAuthRedirectURL:                 req.GoogleOAuthRedirectURL,
 		GoogleOAuthFrontendRedirectURL:         req.GoogleOAuthFrontendRedirectURL,
-		SiteName:                               req.SiteName,
-		SiteLogo:                               req.SiteLogo,
-		SiteSubtitle:                           req.SiteSubtitle,
-		APIBaseURL:                             req.APIBaseURL,
-		ContactInfo:                            req.ContactInfo,
-		DocURL:                                 req.DocURL,
-		HomeContent:                            req.HomeContent,
-		CompactHomeEnabled:                     req.CompactHomeEnabled,
-		HideCcsImportButton:                    req.HideCcsImportButton,
-		TableDefaultPageSize:                   req.TableDefaultPageSize,
-		TablePageSizeOptions:                   req.TablePageSizeOptions,
-		CustomMenuItems:                        customMenuJSON,
-		CustomEndpoints:                        customEndpointsJSON,
 		DefaultConcurrency:                     req.DefaultConcurrency,
 		DefaultBalance:                         req.DefaultBalance,
 		AffiliateRebateRate:                    affiliateRebateRate,
@@ -1531,7 +1348,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		IdentityPatchPrompt:                    req.IdentityPatchPrompt,
 		MinClaudeCodeVersion:                   req.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                   req.MaxClaudeCodeVersion,
-		BackendModeEnabled:                     req.BackendModeEnabled,
 		AllowUserViewErrorRequests: func() bool {
 			if req.AllowUserViewErrorRequests != nil {
 				return *req.AllowUserViewErrorRequests
@@ -1791,12 +1607,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.GrokDefaultBaseURLMode
 		}(),
-		ModelPlazaDescription: func() string {
-			if req.ModelPlazaDescription != nil {
-				return *req.ModelPlazaDescription
-			}
-			return previousSettings.ModelPlazaDescription
-		}(),
 		PluginManagementEnabled: func() bool {
 			if req.PluginManagementEnabled != nil {
 				return *req.PluginManagementEnabled
@@ -1968,7 +1778,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		EmailVerifyEnabled:                     updatedSettings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled:    updatedSettings.RegistrationEmailDomainQuotaEnabled,
-		FrontendURL:                            updatedSettings.FrontendURL,
 		StepUpEnabled:                          updatedSettings.StepUpEnabled,
 		LoginAgreementEnabled:                  updatedSettings.LoginAgreementEnabled,
 		LoginAgreementMode:                     updatedSettings.LoginAgreementMode,
@@ -2066,19 +1875,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GoogleOAuthClientSecretConfigured:      updatedSettings.GoogleOAuthClientSecretConfigured,
 		GoogleOAuthRedirectURL:                 updatedSettings.GoogleOAuthRedirectURL,
 		GoogleOAuthFrontendRedirectURL:         updatedSettings.GoogleOAuthFrontendRedirectURL,
-		SiteName:                               updatedSettings.SiteName,
-		SiteLogo:                               updatedSettings.SiteLogo,
-		SiteSubtitle:                           updatedSettings.SiteSubtitle,
-		APIBaseURL:                             updatedSettings.APIBaseURL,
-		ContactInfo:                            updatedSettings.ContactInfo,
-		DocURL:                                 updatedSettings.DocURL,
-		HomeContent:                            updatedSettings.HomeContent,
-		CompactHomeEnabled:                     updatedSettings.CompactHomeEnabled,
-		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
-		TableDefaultPageSize:                   updatedSettings.TableDefaultPageSize,
-		TablePageSizeOptions:                   updatedSettings.TablePageSizeOptions,
-		CustomMenuItems:                        dto.ParseCustomMenuItems(updatedSettings.CustomMenuItems),
-		CustomEndpoints:                        dto.ParseCustomEndpoints(updatedSettings.CustomEndpoints),
 		DefaultConcurrency:                     updatedSettings.DefaultConcurrency,
 		DefaultBalance:                         updatedSettings.DefaultBalance,
 		AffiliateRebateRate:                    updatedSettings.AffiliateRebateRate,
@@ -2096,7 +1892,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		OpsMetricsIntervalSeconds:              updatedSettings.OpsMetricsIntervalSeconds,
 		MinClaudeCodeVersion:                   updatedSettings.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                   updatedSettings.MaxClaudeCodeVersion,
-		BackendModeEnabled:                     updatedSettings.BackendModeEnabled,
 		EnableFingerprintUnification:           updatedSettings.EnableFingerprintUnification,
 		EnableMetadataPassthrough:              updatedSettings.EnableMetadataPassthrough,
 		EnableCCHSigning:                       updatedSettings.EnableCCHSigning,
@@ -2160,7 +1955,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         updatedSettings.GrokDefaultBaseURLMode,
 
-		ModelPlazaDescription:   updatedSettings.ModelPlazaDescription,
 		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
 
 		AffiliateEnabled: updatedSettings.AffiliateEnabled,

@@ -123,11 +123,7 @@ func (s *AuthService) SendEmailIdentityBindCode(ctx context.Context, userID int6
 		return err
 	}
 
-	siteName := defaultSiteName
-	if s.settingService != nil {
-		siteName = s.settingService.GetSiteName(ctx)
-	}
-	return s.emailService.SendVerifyCode(ctx, normalizedEmail, siteName, firstEmailLocale(locale))
+	return s.emailService.SendVerifyCode(ctx, normalizedEmail, SiteName, firstEmailLocale(locale))
 }
 
 // ensureEmailIdentityAvailableForUser 在发码 / 提交换绑前做快速查重。

@@ -52,13 +52,9 @@ func (s *SettingService) IsInvitationCodeEnabled(ctx context.Context) bool {
 	return InvitationCodeRequired
 }
 
-// GetCustomMenuItemsRaw returns the raw JSON string of custom_menu_items setting.
+// GetCustomMenuItemsRaw 自定义菜单：前端不再展示（方案定：删），恒为空；读菜单的功能代码保留。
 func (s *SettingService) GetCustomMenuItemsRaw(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyCustomMenuItems)
-	if err != nil {
-		return "[]"
-	}
-	return value
+	return "[]"
 }
 
 // IsAffiliateEnabled 检查是否启用邀请返利功能（总开关）
@@ -183,15 +179,6 @@ func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
 		return false // 默认关闭
 	}
 	return value == "true"
-}
-
-// GetSiteName 获取网站名称
-func (s *SettingService) GetSiteName(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
-	if err != nil || value == "" {
-		return defaultSiteName
-	}
-	return value
 }
 
 // GetDefaultConcurrency 获取默认并发量

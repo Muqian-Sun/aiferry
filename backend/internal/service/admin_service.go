@@ -96,12 +96,12 @@ type AdminService interface {
 }
 
 type CreateUserInput struct {
-	Email       string
-	Password    string
-	Username    string
-	Notes       string
-	Role        string // 空字符串表示使用默认角色(user);合法值 admin/user
-	Balance     *float64
+	Email    string
+	Password string
+	Username string
+	Notes    string
+	Role     string // 空字符串表示使用默认角色(user);合法值 admin/user
+	Balance  *float64
 	// Concurrency / RPMLimit 为 nil 时取「新用户默认值」，与自助注册一致。
 	Concurrency *int
 	RPMLimit    *int

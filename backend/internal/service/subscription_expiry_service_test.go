@@ -173,7 +173,7 @@ func TestSubscriptionExpiryService_ExpiryReminderDisabledSkipsSubscriptionScan(t
 	}
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, nil))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, nil, nil))
 
 	svc.sendExpiryReminders(context.Background())
 
@@ -193,7 +193,7 @@ func TestSubscriptionExpiryService_MissingSMTPSkipsReminderScanAndLogsOncePerInt
 	emailService := NewEmailService(settingRepo, nil)
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService, nil))
 
 	var logs bytes.Buffer
 	previousWriter := log.Writer()
@@ -221,7 +221,7 @@ func TestSubscriptionExpiryService_SMTPConfigReadErrorSkipsReminderScan(t *testi
 	emailService := NewEmailService(settingRepo, nil)
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, emailService, nil))
 
 	svc.sendExpiryReminders(context.Background())
 

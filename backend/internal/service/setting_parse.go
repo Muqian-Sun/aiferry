@@ -20,8 +20,8 @@ import (
 
 // InitializeDefaultSettings 初始化默认设置
 func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
-	// 检查是否已有设置（站点名一定在默认值里写入，用它当「已初始化」的标记）
-	_, err := s.settingRepo.GetValue(ctx, SettingKeySiteName)
+	// 检查是否已有设置（最低毛利率一定在默认值里写入、后台也一直保留，用它当「已初始化」的标记）
+	_, err := s.settingRepo.GetValue(ctx, SettingKeyProfitMinMargin)
 	if err == nil {
 		// 已有设置，不需要初始化
 		return nil
@@ -65,12 +65,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAPIKeyACLTrustForwardedIP:                 "true",
 		SettingKeyForwardedClientIPHeaders:                  string(forwardedClientIPHeadersJSON),
 		settingKeyForwardedClientIPModeV2:                   "true",
-		SettingKeySiteName:                                  defaultSiteName,
-		SettingKeySiteLogo:                                  "",
-		SettingKeyTableDefaultPageSize:                      "20",
-		SettingKeyTablePageSizeOptions:                      "[10,20,50,100]",
-		SettingKeyCustomMenuItems:                           "[]",
-		SettingKeyCustomEndpoints:                           "[]",
 		SettingKeyWeChatConnectEnabled:                      "false",
 		SettingKeyWeChatConnectAppID:                        "",
 		SettingKeyWeChatConnectAppSecret:                    "",
@@ -191,7 +185,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 		// Available channels feature (default disabled; opt-in)
 
-		SettingKeyModelPlazaDescription:   "",
 		SettingKeyPluginManagementEnabled: "false",
 
 		// Affiliate (邀请返利) feature (default disabled; opt-in)
@@ -287,7 +280,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		EmailVerifyEnabled:                     emailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
 		RegistrationEmailDomainQuotaEnabled:    settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
-		FrontendURL:                            settings[SettingKeyFrontendURL],
 		StepUpEnabled:                          settings[SettingKeyStepUpEnabled] == "true", // 默认关闭
 		LoginAgreementEnabled:                  settings[SettingKeyLoginAgreementEnabled] == "true",
 		LoginAgreementMode:                     normalizeLoginAgreementMode(settings[SettingKeyLoginAgreementMode]),
@@ -316,23 +308,7 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		AliyunCaptchaRegion:                    normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
 		APIKeyACLTrustForwardedIP:              apiKeyACLTrustForwardedIP,
 		ForwardedClientIPHeaders:               forwardedClientIPHeaders,
-		SiteName:                               s.getStringOrDefault(settings, SettingKeySiteName, defaultSiteName),
-		SiteLogo:                               settings[SettingKeySiteLogo],
-		SiteSubtitle:                           s.getStringOrDefault(settings, SettingKeySiteSubtitle, defaultSiteSubtitle),
-		APIBaseURL:                             settings[SettingKeyAPIBaseURL],
-		ContactInfo:                            settings[SettingKeyContactInfo],
-		DocURL:                                 settings[SettingKeyDocURL],
-		HomeContent:                            settings[SettingKeyHomeContent],
-		CompactHomeEnabled:                     settings[SettingKeyCompactHomeEnabled] == "true",
-		HideCcsImportButton:                    settings[SettingKeyHideCcsImportButton] == "true",
-		CustomMenuItems:                        settings[SettingKeyCustomMenuItems],
-		CustomEndpoints:                        settings[SettingKeyCustomEndpoints],
-		BackendModeEnabled:                     settings[SettingKeyBackendModeEnabled] == "true",
 	}
-	result.TableDefaultPageSize, result.TablePageSizeOptions = parseTablePreferences(
-		settings[SettingKeyTableDefaultPageSize],
-		settings[SettingKeyTablePageSizeOptions],
-	)
 
 	// 解析整数类型
 	if port, err := strconv.Atoi(settings[SettingKeySMTPPort]); err == nil {
@@ -774,7 +750,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// Available channels feature (default: disabled; strict true)
 
-	result.ModelPlazaDescription = settings[SettingKeyModelPlazaDescription]
 	result.PluginManagementEnabled = settings[SettingKeyPluginManagementEnabled] == "true"
 
 	// Affiliate (邀请返利) feature (default: disabled; strict true)

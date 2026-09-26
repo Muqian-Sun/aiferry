@@ -980,12 +980,10 @@ func (h *AuthHandler) getWeChatOAuthConfig(ctx context.Context, rawMode string, 
 		return wechatOAuthConfig{}, infraerrors.ServiceUnavailable("CONFIG_NOT_READY", "wechat oauth settings service not ready")
 	}
 
+	// API 与用户站同一个域名，回调地址按用户站地址拼。
 	apiBaseURL := ""
 	if h != nil && h.settingSvc != nil {
-		settings, err := h.settingSvc.GetAllSettings(ctx)
-		if err == nil && settings != nil {
-			apiBaseURL = strings.TrimSpace(settings.APIBaseURL)
-		}
+		apiBaseURL = strings.TrimSpace(h.settingSvc.GetFrontendURL(ctx))
 	}
 
 	effective, err := h.settingSvc.GetWeChatConnectOAuthConfig(ctx)
@@ -1303,9 +1301,7 @@ func normalizeWeChatPaymentRedirectPath(path string) string {
 func (h *AuthHandler) resolveWeChatPaymentOAuthCallbackURL(ctx context.Context, c *gin.Context) string {
 	apiBaseURL := ""
 	if h != nil && h.settingSvc != nil {
-		if settings, err := h.settingSvc.GetAllSettings(ctx); err == nil && settings != nil {
-			apiBaseURL = strings.TrimSpace(settings.APIBaseURL)
-		}
+		apiBaseURL = strings.TrimSpace(h.settingSvc.GetFrontendURL(ctx))
 	}
 	return resolveWeChatOAuthAbsoluteURL(apiBaseURL, c, "/api/v1/auth/oauth/wechat/payment/callback")
 }

@@ -18,7 +18,7 @@ import (
 
 func TestNotificationEmailPreviewEscapesHTMLAndSanitizesSubject(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	preview, err := svc.PreviewTemplate(ctx, NotificationEmailPreviewInput{
 		Event:   NotificationEmailEventBalanceLow,
@@ -42,7 +42,7 @@ func TestNotificationEmailPreviewEscapesHTMLAndSanitizesSubject(t *testing.T) {
 func TestNotificationEmailTemplateOverrideAndRestore(t *testing.T) {
 	ctx := context.Background()
 	repo := newNotificationEmailMemorySettingRepo()
-	svc := NewNotificationEmailService(repo, nil)
+	svc := NewNotificationEmailService(repo, nil, nil)
 
 	official, err := svc.GetTemplate(ctx, NotificationEmailEventBalanceRechargeSuccess, "en")
 	require.NoError(t, err)
@@ -71,7 +71,7 @@ func TestNotificationEmailTemplateOverrideAndRestore(t *testing.T) {
 
 func TestNotificationEmailTemplateRejectsUnsupportedPlaceholder(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	_, err := svc.UpdateTemplate(
 		ctx,
@@ -86,7 +86,7 @@ func TestNotificationEmailTemplateRejectsUnsupportedPlaceholder(t *testing.T) {
 
 func TestNotificationEmailAuthTemplatesAreListedAndPreviewable(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	infos := svc.ListEventInfos()
 	events := make(map[string]NotificationEmailEventInfo, len(infos))
@@ -127,7 +127,7 @@ func TestNotificationEmailAuthTemplatesAreListedAndPreviewable(t *testing.T) {
 
 func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	infos := svc.ListEventInfos()
 	events := make(map[string]NotificationEmailEventInfo, len(infos))
@@ -163,7 +163,7 @@ func TestNotificationEmailAdditionalEventsAreListedAndPreviewable(t *testing.T) 
 
 func TestCyberPolicyNoticeTemplateWrapsLongUpstreamMessages(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 	longMessage := strings.Repeat("0123456789abcdef", 256)
 
 	for _, locale := range []string{"en", "zh"} {
@@ -184,7 +184,7 @@ func TestCyberPolicyNoticeTemplateWrapsLongUpstreamMessages(t *testing.T) {
 
 func TestOpsScheduledReportTemplateExposesEditableSummaryMetrics(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	requiredPlaceholders := []string{
 		"report_summary_display",
@@ -235,7 +235,7 @@ func TestOpsScheduledReportTemplateExposesEditableSummaryMetrics(t *testing.T) {
 
 func TestOpsScheduledReportRuntimeVariablesDoNotLeakPreviewSamples(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	variables := svc.runtimeVariables(ctx, NotificationEmailEventOpsScheduledReport, "en", NotificationEmailSendInput{})
 	require.Equal(t, "none", variables["report_summary_display"])
@@ -333,7 +333,7 @@ func TestOpsScheduledReportDeliverySourceIDIncludesReportIdentity(t *testing.T) 
 
 func TestNotificationEmailUnsubscribeOnlyAllowsOptionalEvents(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	token, err := svc.createUnsubscribeToken(ctx, "User@Example.com", NotificationEmailEventBalanceLow)
 	require.NoError(t, err)
@@ -360,7 +360,7 @@ func TestNotificationEmailUnsubscribeOnlyAllowsOptionalEvents(t *testing.T) {
 
 func TestNotificationEmailLocaleMemoryNormalizesAcceptLanguage(t *testing.T) {
 	ctx := context.Background()
-	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil)
+	svc := NewNotificationEmailService(newNotificationEmailMemorySettingRepo(), nil, nil)
 
 	svc.RememberRecipientLocale(ctx, 42, "User@Example.com", "zh-CN,zh;q=0.9,en;q=0.8")
 	require.Equal(t, "zh", svc.ResolveRecipientLocale(ctx, 42, "user@example.com"))
@@ -406,7 +406,7 @@ func TestNotificationEmailDeliveryKeyUsesShortStableHash(t *testing.T) {
 func TestNotificationEmailPreferenceKeyUsesShortStableHashAndReadsLegacyKey(t *testing.T) {
 	ctx := context.Background()
 	repo := newNotificationEmailMemorySettingRepo()
-	svc := NewNotificationEmailService(repo, nil)
+	svc := NewNotificationEmailService(repo, nil, nil)
 
 	key := notificationEmailPreferenceKey(NotificationEmailEventSubscriptionExpiryReminder, "User@Example.com")
 	require.NotEmpty(t, key)
@@ -430,7 +430,7 @@ func TestNotificationEmailSendDeduplicatesSubscriptionExpiryReminder(t *testing.
 	require.NoError(t, repo.SetMultiple(ctx, smtpServer.settings()))
 
 	emailSvc := NewEmailService(repo, nil)
-	svc := NewNotificationEmailService(repo, emailSvc)
+	svc := NewNotificationEmailService(repo, emailSvc, nil)
 	input := NotificationEmailSendInput{
 		Event:          NotificationEmailEventSubscriptionExpiryReminder,
 		RecipientEmail: "User@Example.com",
@@ -461,7 +461,7 @@ func TestNotificationEmailSendDeduplicatesSubscriptionExpiryReminder(t *testing.
 func TestNotificationEmailSendRespectsLegacyDeliveryKey(t *testing.T) {
 	ctx := context.Background()
 	repo := newNotificationEmailMemorySettingRepo()
-	svc := NewNotificationEmailService(repo, nil)
+	svc := NewNotificationEmailService(repo, nil, nil)
 	input := NotificationEmailSendInput{
 		Event:          NotificationEmailEventSubscriptionExpiryReminder,
 		RecipientEmail: "user@example.com",

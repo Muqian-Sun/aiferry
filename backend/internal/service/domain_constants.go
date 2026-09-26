@@ -186,7 +186,6 @@ const (
 	// 白名单非空时，是否放行非白名单域名按主域名限量注册（每域名 1 个账户）。
 	// 默认 false：非白名单域名直接拒绝（白名单严格模式）。
 	SettingKeyRegistrationEmailDomainQuotaEnabled = "registration_email_domain_quota_enabled"
-	SettingKeyFrontendURL                         = "frontend_url"                     // 前端基础URL，用于生成邮件中的重置密码链接
 	SettingKeyAffiliateEnabled                    = "affiliate_enabled"                // 邀请返利功能总开关
 	SettingKeyAffiliateRebateRate                 = "affiliate_rebate_rate"            // 邀请返利比例（百分比，0-100）
 	SettingKeyAffiliateRebateFreezeHours          = "affiliate_rebate_freeze_hours"    // 返利冻结期（小时，0=不冻结）
@@ -320,21 +319,6 @@ const (
 	SettingKeyGoogleOAuthClientSecret        = "google_oauth_client_secret"
 	SettingKeyGoogleOAuthRedirectURL         = "google_oauth_redirect_url"
 	SettingKeyGoogleOAuthFrontendRedirectURL = "google_oauth_frontend_redirect_url"
-
-	// OEM设置
-	SettingKeySiteName             = "site_name"               // 网站名称
-	SettingKeySiteLogo             = "site_logo"               // 网站Logo (base64)
-	SettingKeySiteSubtitle         = "site_subtitle"           // 网站副标题
-	SettingKeyAPIBaseURL           = "api_base_url"            // API端点地址（用于客户端配置和导入）
-	SettingKeyContactInfo          = "contact_info"            // 客服联系方式
-	SettingKeyDocURL               = "doc_url"                 // 文档链接
-	SettingKeyHomeContent          = "home_content"            // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
-	SettingKeyCompactHomeEnabled   = "compact_home_enabled"    // 是否启用内置简洁首页
-	SettingKeyHideCcsImportButton  = "hide_ccs_import_button"  // 是否隐藏 API Keys 页面的导入 CCS 按钮
-	SettingKeyTableDefaultPageSize = "table_default_page_size" // 表格默认每页条数
-	SettingKeyTablePageSizeOptions = "table_page_size_options" // 表格可选每页条数（JSON 数组）
-	SettingKeyCustomMenuItems      = "custom_menu_items"       // 自定义菜单项（JSON 数组）
-	SettingKeyCustomEndpoints      = "custom_endpoints"        // 自定义端点列表（JSON 数组）
 
 	// 默认配置
 	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量
@@ -471,8 +455,6 @@ const (
 
 	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).
-	// 模型广场本身没有开关：上架模型的目录对所有人（含未登录）可见。
-	SettingKeyModelPlazaDescription = "model_plaza_description"
 
 	// SettingKeyPluginManagementEnabled controls sidebar visibility only; it does
 	// not stop or otherwise change already loaded plugin runtimes.
@@ -550,9 +532,6 @@ const (
 
 	// SettingKeyMaxClaudeCodeVersion 最高 Claude Code 版本号限制 (semver, 如 "3.0.0"，空值=不检查)
 	SettingKeyMaxClaudeCodeVersion = "max_claude_code_version"
-
-	// SettingKeyBackendModeEnabled Backend 模式：禁用用户注册和自助服务，仅管理员可登录
-	SettingKeyBackendModeEnabled = "backend_mode_enabled"
 
 	// Gateway Forwarding Behavior
 	// SettingKeyOpenAITTFTMode 控制 first_token_ms 的统计口径。

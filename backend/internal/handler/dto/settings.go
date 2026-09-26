@@ -29,7 +29,6 @@ type SystemSettings struct {
 	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string                 `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailDomainQuotaEnabled bool                     `json:"registration_email_domain_quota_enabled"`
-	FrontendURL                         string                   `json:"frontend_url"`
 	StepUpEnabled                       bool                     `json:"step_up_enabled"` // 敏感操作 step-up 2FA
 	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
 	LoginAgreementMode                  string                   `json:"login_agreement_mode"`
@@ -135,20 +134,6 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName             string           `json:"site_name"`
-	SiteLogo             string           `json:"site_logo"`
-	SiteSubtitle         string           `json:"site_subtitle"`
-	APIBaseURL           string           `json:"api_base_url"`
-	ContactInfo          string           `json:"contact_info"`
-	DocURL               string           `json:"doc_url"`
-	HomeContent          string           `json:"home_content"`
-	CompactHomeEnabled   bool             `json:"compact_home_enabled"`
-	HideCcsImportButton  bool             `json:"hide_ccs_import_button"`
-	TableDefaultPageSize int              `json:"table_default_page_size"`
-	TablePageSizeOptions []int            `json:"table_page_size_options"`
-	CustomMenuItems      []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints      []CustomEndpoint `json:"custom_endpoints"`
-
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
 	AffiliateRebateRate          float64                      `json:"affiliate_rebate_rate"`
@@ -175,7 +160,6 @@ type SystemSettings struct {
 	// 分组隔离
 
 	// Backend Mode
-	BackendModeEnabled bool `json:"backend_mode_enabled"`
 
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         string `json:"openai_ttft_mode"`
@@ -265,8 +249,7 @@ type SystemSettings struct {
 	// Available Channels feature switch (user-facing aggregate view)
 
 	// Model Plaza feature (public group/model pricing showcase)
-	ModelPlazaDescription   string `json:"model_plaza_description"`
-	PluginManagementEnabled bool   `json:"plugin_management_enabled"`
+	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
 	// 风控中心功能开关
 	RiskControlEnabled bool `json:"risk_control_enabled"`

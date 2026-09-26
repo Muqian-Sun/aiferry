@@ -136,7 +136,7 @@ func initializeApplication(buildInfo handler.BuildInfo) (*Application, error) {
 	modelCatalogCachePubSub := repository.NewModelCatalogCache(redisClient)
 	modelCatalogService := service.ProvideModelCatalogService(modelCatalogRepository, modelCatalogCachePubSub, pricingService, billingService)
 	modelPricingResolver := service.NewModelPricingResolver(modelCatalogService, billingService)
-	notificationEmailService := service.NewNotificationEmailService(settingRepository, emailService)
+	notificationEmailService := service.NewNotificationEmailService(settingRepository, emailService, configConfig)
 	balanceNotifyService := service.ProvideBalanceNotifyService(emailService, settingRepository, accountRepository, notificationEmailService)
 	gatewayService := service.NewGatewayService(accountRepository, usageLogRepository, usageBillingRepository, userRepository, userSubscriptionRepository, gatewayCache, configConfig, schedulerSnapshotService, concurrencyService, billingService, rateLimitService, billingCacheService, identityService, httpUpstream, deferredService, claudeTokenProvider, sessionLimitCache, rpmCache, digestSessionStore, settingService, tlsFingerprintProfileService, modelPricingResolver, balanceNotifyService)
 	openAIOAuthClient := repository.NewOpenAIOAuthClient()

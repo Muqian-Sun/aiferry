@@ -152,7 +152,7 @@ func (h *SettingHandler) SendTestEmail(c *gin.Context) {
 		UseTLS:   resolveSMTPUseTLS(req.SMTPUseTLS, savedConfig),
 	}
 
-	siteName := h.settingService.GetSiteName(c.Request.Context())
+	siteName := service.SiteName
 	subject := "[" + siteName + "] Test Email"
 	body := `
 <!DOCTYPE html>

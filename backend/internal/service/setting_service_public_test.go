@@ -66,40 +66,6 @@ func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelis
 	require.Equal(t, []string{"@example.com", "@foo.bar", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
 }
 
-func TestSettingService_GetPublicSettings_ExposesTablePreferences(t *testing.T) {
-	repo := &settingPublicRepoStub{
-		values: map[string]string{
-			SettingKeyTableDefaultPageSize: "50",
-			SettingKeyTablePageSizeOptions: "[20,50,100]",
-		},
-	}
-	svc := NewSettingService(repo, &config.Config{})
-
-	settings, err := svc.GetPublicSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, 50, settings.TableDefaultPageSize)
-	require.Equal(t, []int{20, 50, 100}, settings.TablePageSizeOptions)
-}
-
-func TestSettingService_GetPublicSettings_ExposesCompactHomeEnabled(t *testing.T) {
-	repo := &settingPublicRepoStub{
-		values: map[string]string{
-			SettingKeyCompactHomeEnabled: "true",
-		},
-	}
-	svc := NewSettingService(repo, &config.Config{})
-
-	settings, err := svc.GetPublicSettings(context.Background())
-
-	require.NoError(t, err)
-	require.True(t, settings.CompactHomeEnabled)
-
-	missingSettings, err := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).
-		GetPublicSettings(context.Background())
-	require.NoError(t, err)
-	require.False(t, missingSettings.CompactHomeEnabled)
-}
-
 func TestSettingService_ChannelMonitorHideThroughputDefaultsToPrivate(t *testing.T) {
 	missing := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, &config.Config{}).GetChannelMonitorRuntime(context.Background())
 	require.True(t, missing.HideThroughput)
@@ -250,4 +216,38 @@ func TestSettingService_IsTotpEnabled_FollowsEncryptionKeyOnly(t *testing.T) {
 	staleOn := &settingPublicRepoStub{values: map[string]string{"totp_enabled": "true"}}
 	withoutKey := NewSettingService(staleOn, &config.Config{})
 	require.False(t, withoutKey.IsTotpEnabled(), "没配密钥：库里的旧开关开着也不可用")
+}
+
+// 站点相关由代码决定（site_features.go）：库里旧设置行不再影响公开设置。
+func TestSettingService_GetPublicSettings_SiteFieldsComeFromCode(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			"site_name":               "Stale Name",
+			"site_logo":               "https://stale.example/logo.png",
+			"contact_info":            "stale@example.com",
+			"doc_url":                 "https://stale.example/docs",
+			"home_content":            "<h1>stale</h1>",
+			"compact_home_enabled":    "true",
+			"table_default_page_size": "50",
+			"table_page_size_options": "[5]",
+			"custom_menu_items":       `[{"id":"x","label":"x","url":"https://stale.example"}]`,
+			"custom_endpoints":        `[{"name":"x","endpoint":"https://stale.example"}]`,
+			"api_base_url":            "https://stale.example",
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{Server: config.ServerConfig{FrontendURL: "https://user.example"}})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.Equal(t, SiteName, settings.SiteName)
+	require.Equal(t, SiteLogo, settings.SiteLogo)
+	require.Equal(t, SiteContactInfo, settings.ContactInfo)
+	require.Equal(t, SiteDocURL, settings.DocURL)
+	require.Empty(t, settings.HomeContent)
+	require.False(t, settings.CompactHomeEnabled)
+	require.Equal(t, TableDefaultPageSize, settings.TableDefaultPageSize)
+	require.Equal(t, TablePageSizeOptions(), settings.TablePageSizeOptions)
+	require.Equal(t, "[]", settings.CustomMenuItems)
+	require.Equal(t, "[]", settings.CustomEndpoints)
+	require.Equal(t, "https://user.example", settings.APIBaseURL)
 }
