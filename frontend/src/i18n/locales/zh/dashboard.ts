@@ -234,6 +234,7 @@ export default {
     customDate: '自定义',
     expirationDate: '过期时间',
     expirationDateHint: '选择此 API 密钥的过期时间。',
+    expirationDateRequired: '请选择过期时间，或关闭有效期',
     currentExpiration: '当前过期时间',
     expiresAt: '过期时间',
     noExpiration: '永久有效',

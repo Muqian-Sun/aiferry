@@ -232,6 +232,7 @@ export default {
     customDate: 'Custom',
     expirationDate: 'Expiration Date',
     expirationDateHint: 'Select when this API key should expire.',
+    expirationDateRequired: 'Choose an expiration time, or turn expiration off',
     currentExpiration: 'Current expiration',
     expiresAt: 'Expires',
     noExpiration: 'Never',
