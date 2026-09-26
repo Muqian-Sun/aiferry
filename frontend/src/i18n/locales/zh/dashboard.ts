@@ -430,21 +430,6 @@ export default {
     updatedAt: '更新于 {time}',
   },
 
-  // Channel Status (user-facing read-only view)
-  channelStatus: {
-    title: '渠道状态',
-    description: '查看渠道可用性、延迟和近期状态',
-    searchPlaceholder: '搜索渠道...',
-    allProviders: '全部供应商',
-    columns: {
-      name: '名称',
-      provider: '供应商',
-      primaryModel: '主模型',
-      availability7d: '7 天可用率',
-      latency: '延迟 (ms)'
-    },
-  },
-
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
     title: '模型广场',

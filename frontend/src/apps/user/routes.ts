@@ -396,16 +396,19 @@ export const userRoutes: RouteRecordRaw[] = [
     }
   },
   {
-    path: '/monitor',
-    name: 'ChannelStatus',
-    component: () => import('@/views/user/ChannelStatusV2View.vue'),
+    // 服务状态（原「渠道监控」/monitor，站长 2026-09-26 改名并放进侧栏）：各模型的可用率与首字延迟
+    path: '/status',
+    name: 'ServiceStatus',
+    component: () => import('@/views/user/ServiceStatusView.vue'),
     meta: {
       requiresAuth: true,
       requiresAdmin: false,
-      title: 'Channel Status',
-      titleKey: 'nav.channelStatus'
+      title: 'Service Status',
+      titleKey: 'userUi.serviceStatus.title',
+      descriptionKey: 'userUi.serviceStatus.description'
     }
   },
+  { path: '/monitor', redirect: '/status' },
 
   // ==================== 404 Not Found ====================
   {

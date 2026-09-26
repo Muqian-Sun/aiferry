@@ -428,21 +428,6 @@ export default {
     updatedAt: 'Updated {time}',
   },
 
-  // Channel Status (user-facing read-only view)
-  channelStatus: {
-    title: 'Channel Status',
-    description: 'Inspect channel availability, latency and recent status',
-    searchPlaceholder: 'Search channels...',
-    allProviders: 'All Providers',
-    columns: {
-      name: 'Name',
-      provider: 'Provider',
-      primaryModel: 'Primary Model',
-      availability7d: '7d Availability',
-      latency: 'Latency (ms)'
-    },
-  },
-
   // Model Plaza (public group/model pricing showcase)
   modelPlaza: {
     title: 'Model Plaza',

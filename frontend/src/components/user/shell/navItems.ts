@@ -2,11 +2,11 @@
  * 用户站导航集合（纯函数，便于单测）。
  *
  * 控制台是左侧分组栏（muqian 2026-09-23 定）：
- * - 主组：概览（落地页）· 密钥 · 用量明细 · 模型 · 批量生图（按权限）
+ * - 主组：概览（落地页）· 密钥 · 用量明细 · 模型 · 服务状态（按功能开关）· 批量生图（按权限）
  * - 账务组：充值 / 订阅，按功能开关出现（由调用方按 billingTabs 算好传入）；两个都关着时整组不出现
  * - 账户组
  * - 更多：管理员配置的自定义页
- * simple mode 下去掉模型 / 账务 / 批量生图；backend mode 下没有任何控制台导航。
+ * simple mode 下去掉模型 / 服务状态 / 账务 / 批量生图；backend mode 下没有任何控制台导航。
  * 顶栏在控制台与公开站是同一组页签（产品 / 模型与价格 / 文档）。
  */
 import type { CustomMenuItem } from '@/types'
@@ -17,6 +17,7 @@ export type NavIcon =
   | 'key'
   | 'chartBar'
   | 'cube'
+  | 'checkCircle'
   | 'sparkles'
   | 'creditCard'
   | 'badge'
@@ -51,6 +52,8 @@ export interface ConsoleNavContext {
   simpleMode: boolean
   backendMode: boolean
   batchImageEnabled: boolean
+  /** 服务状态页（各模型可用率与首字延迟）跟着站长的「渠道健康」功能开关 */
+  serviceStatusEnabled: boolean
   /** 账务子页（已按功能开关过滤，见 views/user/billing/billingTabs.ts） */
   billingItems: NavTab[]
   /** 管理员开了余额不足提醒时，账户组才有「通知」 */
@@ -70,6 +73,8 @@ export function buildConsoleNav(ctx: ConsoleNavContext): ConsoleNavSection[] {
   ]
   // 模型广场没有开关，对所有人开放；「仅充值」模式下控制台只留概览 / 密钥 / 用量 / 账户
   if (!ctx.simpleMode) main.push({ path: '/model-plaza', label: ctx.t('userUi.nav.models'), icon: 'cube' })
+  // 服务状态紧跟模型：先看有哪些模型，再看它们现在能不能用
+  if (!ctx.simpleMode && ctx.serviceStatusEnabled) main.push({ path: '/status', label: ctx.t('userUi.nav.status'), icon: 'checkCircle' })
   if (!ctx.simpleMode && ctx.batchImageEnabled) main.push({ path: '/batch-image', label: ctx.t('userUi.nav.batchImage'), icon: 'sparkles' })
 
   const sections: ConsoleNavSection[] = [{ key: 'main', items: main }]

@@ -227,7 +227,6 @@ export default {
     paymentConfig: '支付配置',
     paymentPlans: '订阅套餐',
     channelManagement: '渠道管理',
-    channelStatus: '渠道状态',
     riskControl: '风控中心',
     auditLogs: '操作日志',
   },

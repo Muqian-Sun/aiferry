@@ -227,7 +227,6 @@ export default {
     paymentConfig: 'Payment Config',
     paymentPlans: 'Plans',
     channelManagement: 'Channels',
-    channelStatus: 'Channel Status',
     riskControl: 'Risk Control',
     auditLogs: 'Audit Logs',
   },
