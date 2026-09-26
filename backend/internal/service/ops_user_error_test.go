@@ -17,9 +17,9 @@ func TestMapUserErrorCategory(t *testing.T) {
 		{"request", "subscription_error", "quota"},
 		{"request", "invalid_request_error", "invalid_request"},
 		{"routing", "api_error", "service_unavailable"},
-		{"account_auth", "upstream_error", "upstream"},
-		{"upstream", "upstream_error", "upstream"},
-		{"network", "api_error", "upstream"},
+		{"account_auth", "upstream_error", "server"},
+		{"upstream", "upstream_error", "server"},
+		{"network", "api_error", "server"},
 		{"internal", "api_error", "internal"},
 		{"weird", "weird", "other"},
 	}
@@ -43,8 +43,13 @@ func TestCategoryToFilter(t *testing.T) {
 	if len(phases) != 1 || phases[0] != "routing" || len(types) != 0 {
 		t.Fatalf("service_unavailable => phases=%v types=%v", phases, types)
 	}
-	phases, types = CategoryToFilter("upstream")
+	phases, types = CategoryToFilter("server")
 	if len(phases) != 3 || phases[0] != "account_auth" || phases[1] != "upstream" || phases[2] != "network" || len(types) != 0 {
+		t.Fatalf("server => phases=%v types=%v", phases, types)
+	}
+	// 旧分类码 upstream 已不存在，等价于不过滤
+	phases, types = CategoryToFilter("upstream")
+	if len(phases) != 0 || len(types) != 0 {
 		t.Fatalf("upstream => phases=%v types=%v", phases, types)
 	}
 	phases, types = CategoryToFilter("internal")
@@ -90,7 +95,7 @@ func TestToUserErrorRequest_RedactsSensitiveFields(t *testing.T) {
 	if out.Category != "rate_limit" {
 		t.Errorf("category=%q", out.Category)
 	}
-	if out.StatusCode != 429 || out.InboundEndpoint != "/v1/chat/completions" || out.Platform != "openai" {
+	if out.StatusCode != 429 || out.InboundEndpoint != "/v1/chat/completions" {
 		t.Errorf("basic fields wrong: %+v", out)
 	}
 	if out.Message != "rate limit exceeded" {
@@ -104,7 +109,7 @@ func TestToUserErrorRequest_RedactsSensitiveFields(t *testing.T) {
 	}
 }
 
-func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
+func TestToUserErrorRequest_DetailWhitelistAndRedacts(t *testing.T) {
 	uid := int64(42)
 	upstreamStatus := 503
 	src := &OpsErrorLogDetail{
@@ -126,11 +131,11 @@ func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
 			UserAgent:        "codex_cli_rs/0.125.0",
 			Stream:           true,
 		},
-		ErrorBody:          `{"error":{"message":"upstream failed","type":"server_error"}}`,
+		ErrorBody:          "session_block_key=sk-internal-123",
 		UpstreamStatusCode: &upstreamStatus,
 	}
 
-	out := ToUserErrorRequestDetail(src)
+	out := ToUserErrorRequest(&src.OpsErrorLog)
 	if out == nil {
 		t.Fatal("expected non-nil detail")
 	}
@@ -142,11 +147,8 @@ func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
 	if out.Message != "upstream error" {
 		t.Errorf("want message=%q, got %q", "upstream error", out.Message)
 	}
-	if out.ErrorBody != src.ErrorBody {
-		t.Errorf("ErrorBody mismatch")
-	}
-	if out.UpstreamStatusCode == nil || *out.UpstreamStatusCode != 503 {
-		t.Errorf("UpstreamStatusCode mismatch")
+	if out.Category != "server" {
+		t.Errorf("want category=server, got %q", out.Category)
 	}
 
 	// client_ip / user_agent / group_name / stream 经产品决策开放（与用量明细口径对齐）
@@ -166,15 +168,16 @@ func TestToUserErrorRequestDetail_WhitelistAndRedacts(t *testing.T) {
 		t.Fatalf("json.Marshal failed: %v", err)
 	}
 	raw := string(b)
-	for _, forbidden := range []string{"user_email", "upstream_endpoint"} {
+	// 用户站不能看出渠道 / 上游：平台、上游正文（含会话屏蔽 key）、上游状态码都不给
+	for _, forbidden := range []string{"user_email", "upstream_endpoint", "platform", "error_body", "upstream_status_code", "session_block_key", "openai"} {
 		if strings.Contains(raw, forbidden) {
 			t.Errorf("sensitive field %q leaked in JSON output: %s", forbidden, raw)
 		}
 	}
 }
 
-func TestToUserErrorRequestDetail_Nil(t *testing.T) {
-	if out := ToUserErrorRequestDetail(nil); out != nil {
+func TestToUserErrorRequest_Nil(t *testing.T) {
+	if out := ToUserErrorRequest(nil); out != nil {
 		t.Errorf("expected nil for nil input, got %+v", out)
 	}
 }

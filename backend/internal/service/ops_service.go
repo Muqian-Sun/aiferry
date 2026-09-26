@@ -765,9 +765,9 @@ func (s *OpsService) GetErrorLogByID(ctx context.Context, id int64) (*OpsErrorLo
 	return detail, nil
 }
 
-// GetUserErrorRequestDetail 返回某用户自己某条错误请求的脱敏详情(含 error_body)。
+// GetUserErrorRequestDetail 返回某用户自己某条错误请求的脱敏视图(与列表同一份白名单)。
 // 安全:强制按用户归属校验;非本人记录一律返回 NotFound(不泄露存在性)。
-func (s *OpsService) GetUserErrorRequestDetail(ctx context.Context, userID, id int64) (*UserErrorRequestDetail, error) {
+func (s *OpsService) GetUserErrorRequestDetail(ctx context.Context, userID, id int64) (*UserErrorRequest, error) {
 	if s.opsRepo == nil {
 		return nil, infraerrors.NotFound("OPS_ERROR_NOT_FOUND", "ops error log not found")
 	}
@@ -786,7 +786,7 @@ func (s *OpsService) GetUserErrorRequestDetail(ctx context.Context, userID, id i
 	if !ownedDirectly {
 		return nil, infraerrors.NotFound("OPS_ERROR_NOT_FOUND", "ops error log not found")
 	}
-	return ToUserErrorRequestDetail(detail), nil
+	return ToUserErrorRequest(&detail.OpsErrorLog), nil
 }
 
 func (s *OpsService) UpdateErrorResolution(ctx context.Context, errorID int64, resolved bool, resolvedByUserID *int64) error {

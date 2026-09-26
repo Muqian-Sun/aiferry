@@ -399,19 +399,17 @@ export default {
     tabs: { usage: 'Usage', errors: 'Error Requests',  },
     errors: {
       time: 'Time', model: 'Model', endpoint: 'Endpoint', status: 'Status',
-      category: 'Category', platform: 'Platform', message: 'Message',
+      category: 'Category', message: 'Message',
       keyName: 'Key Name', keyDeleted: 'Deleted', allKeys: 'All keys',
       modelPlaceholder: 'Search model', allCategories: 'All categories', allStatuses: 'All status codes',
       empty: 'No error requests', failedToLoad: 'Failed to load error requests',
       categories: {
         auth: 'Auth failed', rate_limit: 'Rate limited', quota: 'Balance/Subscription',
         invalid_request: 'Invalid request', service_unavailable: 'Service unavailable',
-        upstream: 'Upstream error', internal: 'Platform error', other: 'Other', cyber: 'Cyber policy',
+        server: 'Model service error', internal: 'Platform error', other: 'Other', cyber: 'Cyber policy',
       },
       detail: {
         title: 'Error Request Detail',
-        responseBody: 'Response Body',
-        upstreamStatus: 'Upstream Status',
         loadFailed: 'Failed to load detail, please try again',
       },
     },

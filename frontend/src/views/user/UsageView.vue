@@ -444,7 +444,7 @@ const errorModelOptions = computed<FilterOption[]>(() => {
   return [...seen].sort().map((model) => ({ value: model, label: model }))
 })
 
-const errorCategoryCodes = ['auth', 'rate_limit', 'quota', 'invalid_request', 'service_unavailable', 'upstream', 'internal', 'cyber']
+const errorCategoryCodes = ['auth', 'rate_limit', 'quota', 'invalid_request', 'service_unavailable', 'server', 'internal', 'cyber']
 
 const errorCategoryOptions = computed<FilterOption[]>(() =>
   errorCategoryCodes.map((c) => ({ value: c, label: t('usage.errors.categories.' + c) }))
@@ -878,7 +878,6 @@ const errAllColumns = computed<Column[]>(() => [
   { key: 'endpoint', label: t('usage.errors.endpoint') },
   { key: 'client_ip', label: 'IP' },
   { key: 'type', label: t('usage.type') },
-  { key: 'platform', label: t('usage.errors.platform') },
   { key: 'category', label: t('usage.errors.category') },
   { key: 'status', label: t('usage.errors.status') },
   { key: 'message', label: t('usage.errors.message') },
