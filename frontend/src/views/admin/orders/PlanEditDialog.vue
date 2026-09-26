@@ -189,9 +189,13 @@ function entryLabel(entry: Pick<ModelCatalogEntry, 'model_id' | 'display_name'>)
   return entry.display_name && entry.display_name !== entry.model_id ? `${entry.display_name} (${entry.model_id})` : entry.model_id
 }
 
+// 已选模型的名字：先用目录里已上架的条目，没上架的用套餐自带的模型集（后端的 entry_ids 就是由模型集算出来的，两边一一对应）
 const selectedEntries = computed(() => {
-  const byID = new Map(listedEntries.value.map(e => [e.id, e]))
-  return planForm.entry_ids.map(id => byID.get(id) ?? { id, model_id: `#${id}`, display_name: '' })
+  const byID = new Map<number, Pick<ModelCatalogEntry, 'id' | 'model_id' | 'display_name'>>(
+    (props.plan?.models ?? []).map(m => [m.entry_id, { id: m.entry_id, model_id: m.model_id, display_name: m.display_name }])
+  )
+  for (const entry of listedEntries.value) byID.set(entry.id, entry)
+  return planForm.entry_ids.flatMap(id => byID.get(id) ?? [])
 })
 
 const filteredEntries = computed(() => {

@@ -31,9 +31,6 @@
 
       <template #table>
         <DataTable :columns="planColumns" :data="plans" :loading="plansLoading">
-          <template #cell-id="{ value }">
-            <span class="tabular-nums text-af-ink-3">{{ value }}</span>
-          </template>
           <template #cell-name="{ value }">
             <span class="font-medium text-af-ink">{{ value }}</span>
           </template>
@@ -158,7 +155,6 @@ const editingPlan = ref<SubscriptionPlan | null>(null)
 const deletingPlanId = ref<number | null>(null)
 
 const planColumns = computed((): Column[] => [
-  { key: 'id', label: 'ID' },
   { key: 'name', label: t('payment.admin.planName') },
   { key: 'limits', label: t('payment.admin.limits') },
   { key: 'models', label: t('payment.admin.models') },

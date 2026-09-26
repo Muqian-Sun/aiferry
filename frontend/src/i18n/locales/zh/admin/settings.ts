@@ -1007,7 +1007,6 @@ export default {
         userSearchPlaceholder: '输入用户邮箱搜索',
         userSearchEmpty: '未找到匹配用户',
         userDeleted: '（已删除）',
-        userIdFallback: '用户 #{id}',
         removeUser: '移除用户',
         errorMessage: '错误消息',
         errorMessagePlaceholder: '拦截时返回的自定义错误消息',

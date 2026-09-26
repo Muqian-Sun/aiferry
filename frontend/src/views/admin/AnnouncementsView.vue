@@ -54,10 +54,9 @@
           default-sort-order="desc"
           @sort="handleSort"
         >
-          <template #cell-title="{ value, row }">
+          <template #cell-title="{ value }">
             <div class="min-w-0 max-w-md">
               <div class="truncate font-medium text-af-ink" :title="value">{{ value }}</div>
-              <div class="mt-0.5 text-xs tabular-nums text-af-ink-4">#{{ row.id }}</div>
             </div>
           </template>
 

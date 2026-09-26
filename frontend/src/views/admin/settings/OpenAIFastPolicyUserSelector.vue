@@ -9,7 +9,6 @@
         <span class="max-w-64 truncate font-medium" :title="selectedUserLabel(userId)">
           {{ selectedUserLabel(userId) }}
         </span>
-        <span class="shrink-0 text-af-ink-3">#{{ userId }}</span>
         <span
           v-if="selectedUsers[userId]?.deleted"
           class="shrink-0 text-af-ink-3"
@@ -72,7 +71,6 @@
               {{ t("admin.settings.openaiFastPolicy.userDeleted") }}
             </span>
           </span>
-          <span class="shrink-0 text-xs text-af-ink-3">#{{ user.id }}</span>
         </button>
       </template>
     </div>
@@ -101,6 +99,7 @@ const searchResults = ref<SimpleUser[]>([]);
 const searchLoading = ref(false);
 const showDropdown = ref(false);
 const selectedUsers = ref<Record<number, SimpleUser>>({});
+const unresolvedUsers = ref<Record<number, "missing" | "failed">>({});
 let searchTimer: ReturnType<typeof setTimeout> | null = null;
 let searchSequence = 0;
 
@@ -115,9 +114,14 @@ const availableResults = computed(() => {
     .sort((a, b) => Number(a.deleted) - Number(b.deleted));
 });
 
+// 已选用户写邮箱；查无此人（404，已被删除）写「（已删除）」，查询出错写「未知」，还在查时写「加载中」——不露内部编号
 function selectedUserLabel(userId: number): string {
-  return selectedUsers.value[userId]?.email ||
-    t("admin.settings.openaiFastPolicy.userIdFallback", { id: userId });
+  const email = selectedUsers.value[userId]?.email;
+  if (email) return email;
+  const unresolved = unresolvedUsers.value[userId];
+  if (unresolved === "missing") return t("admin.settings.openaiFastPolicy.userDeleted");
+  if (unresolved === "failed") return t("common.unknown");
+  return t("common.loading");
 }
 
 function clearPendingSearch(): void {
@@ -179,28 +183,35 @@ async function hydrateSelectedUsers(userIds: number[]): Promise<void> {
   const missing = userIds.filter((id) => !selectedUsers.value[id]);
   if (missing.length === 0) return;
 
-  const users = await Promise.all(
-    missing.map(async (id) => {
+  type Lookup =
+    | { id: number; user: SimpleUser }
+    | { id: number; unresolved: "missing" | "failed" };
+  const lookups = await Promise.all(
+    missing.map(async (id): Promise<Lookup> => {
       try {
         const user = await adminAPI.users.getById(id, true);
         return {
-          id: user.id,
-          email: user.email,
-          deleted: Boolean(user.deleted_at),
-        } satisfies SimpleUser;
-      } catch {
-        return null;
+          id,
+          user: { id: user.id, email: user.email, deleted: Boolean(user.deleted_at) },
+        };
+      } catch (error) {
+        const status = (error as { status?: number } | null)?.status;
+        return { id, unresolved: status === 404 ? "missing" : "failed" };
       }
     }),
   );
 
   const next = { ...selectedUsers.value };
-  for (const user of users) {
-    if (user && props.modelValue.includes(user.id)) {
-      next[user.id] = user;
+  const nextUnresolved = { ...unresolvedUsers.value };
+  for (const lookup of lookups) {
+    if ("unresolved" in lookup) {
+      nextUnresolved[lookup.id] = lookup.unresolved;
+    } else if (props.modelValue.includes(lookup.user.id)) {
+      next[lookup.user.id] = lookup.user;
     }
   }
   selectedUsers.value = next;
+  unresolvedUsers.value = nextUnresolved;
 }
 
 function handleDocumentClick(event: MouseEvent): void {
