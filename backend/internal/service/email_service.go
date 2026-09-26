@@ -9,7 +9,6 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"html"
 	"log/slog"
 	"math/big"
@@ -19,6 +18,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
 )

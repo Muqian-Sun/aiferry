@@ -52,17 +52,24 @@ func (s *settingPublicRepoStub) Delete(ctx context.Context, key string) error {
 	panic("unexpected Delete call")
 }
 
-func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelist(t *testing.T) {
+// 注册邮箱白名单、域名限量由代码决定：库里旧设置不生效。
+func TestSettingService_GetPublicSettings_RegistrationWhitelistComesFromCode(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
-			SettingKeyRegistrationEmailSuffixWhitelist: `["@EXAMPLE.com"," @foo.bar ","*.EDU.CN","@invalid_domain",""]`,
+			"registration_email_suffix_whitelist":     `["@example.com"]`,
+			"registration_email_domain_quota_enabled": "true",
+			"step_up_enabled":                         "true",
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
 
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
-	require.Equal(t, []string{"@example.com", "@foo.bar", "*.edu.cn"}, settings.RegistrationEmailSuffixWhitelist)
+	require.Equal(t, RegistrationEmailSuffixWhitelist(), settings.RegistrationEmailSuffixWhitelist)
+	require.Equal(t, RegistrationEmailDomainQuotaEnabled, settings.RegistrationEmailDomainQuotaEnabled)
+	require.Equal(t, RegistrationEmailSuffixWhitelist(), svc.GetRegistrationEmailSuffixWhitelist(context.Background()))
+	require.Equal(t, RegistrationEmailDomainQuotaEnabled, svc.IsRegistrationEmailDomainQuotaEnabled(context.Background()))
+	require.Equal(t, StepUpEnabled, svc.IsStepUpEnabled(context.Background()))
 }
 
 func TestSettingService_ChannelMonitorHideThroughputDefaultsToPrivate(t *testing.T) {

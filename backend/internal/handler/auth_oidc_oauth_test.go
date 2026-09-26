@@ -946,7 +946,7 @@ func TestTryOIDCVerifiedEmailFastPathCreatesUserAndIdentity(t *testing.T) {
 		"/auth/oidc/callback",
 		"/dashboard",
 		identity,
-		"fastpath@example.com",
+		"fastpath@qq.com",
 		"fastpath_user",
 		map[string]any{
 			"suggested_display_name": "Fast Path",
@@ -962,7 +962,7 @@ func TestTryOIDCVerifiedEmailFastPathCreatesUserAndIdentity(t *testing.T) {
 	require.Contains(t, location, "refresh_token=")
 	require.Contains(t, location, "token_type=Bearer")
 
-	user, err := client.User.Query().Where(dbuser.EmailEQ("fastpath@example.com")).Only(ctx)
+	user, err := client.User.Query().Where(dbuser.EmailEQ("fastpath@qq.com")).Only(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "fastpath_user", user.Username)
 	require.Equal(t, "oidc", user.SignupSource)
@@ -974,7 +974,7 @@ func TestTryOIDCVerifiedEmailFastPathCreatesUserAndIdentity(t *testing.T) {
 		authidentity.UserIDEQ(user.ID),
 	).Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "fastpath@example.com", identityRecord.Metadata["email"])
+	require.Equal(t, "fastpath@qq.com", identityRecord.Metadata["email"])
 	require.Equal(t, true, identityRecord.Metadata["email_verified"])
 
 	pendingCount, err := client.PendingAuthSession.Query().Count(ctx)
@@ -988,7 +988,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 		PreferredUsername: "oidc_fast_callback",
 		DisplayName:       "OIDC Fast Callback",
 		AvatarURL:         "https://cdn.example/oidc-fast.png",
-		Email:             "oidc-fast-callback@example.com",
+		Email:             "oidc-fast-callback@qq.com",
 		EmailVerified:     true,
 	})
 	defer cleanup()
@@ -1021,7 +1021,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 	requireCookieCleared(t, recorder, oauthPendingBrowserCookieName)
 
 	ctx := context.Background()
-	user, err := client.User.Query().Where(dbuser.EmailEQ("oidc-fast-callback@example.com")).Only(ctx)
+	user, err := client.User.Query().Where(dbuser.EmailEQ("oidc-fast-callback@qq.com")).Only(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "oidc_fast_callback", user.Username)
 	require.Equal(t, "oidc", user.SignupSource)
@@ -1033,7 +1033,7 @@ func TestOIDCOAuthCallbackVerifiedEmailFastPathIssuesTokenWithoutPendingSession(
 		authidentity.UserIDEQ(user.ID),
 	).Only(ctx)
 	require.NoError(t, err)
-	require.Equal(t, "oidc-fast-callback@example.com", identity.Metadata["email"])
+	require.Equal(t, "oidc-fast-callback@qq.com", identity.Metadata["email"])
 	require.Equal(t, true, identity.Metadata["email_verified"])
 	require.Equal(t, "OIDC Fast Callback", identity.Metadata["suggested_display_name"])
 	require.NotEqual(t, identity.Metadata["email"], identity.Metadata["synthetic_email"])

@@ -132,9 +132,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 	}
 
 	payload := dto.SystemSettings{
-		RegistrationEmailSuffixWhitelist:       settings.RegistrationEmailSuffixWhitelist,
-		RegistrationEmailDomainQuotaEnabled:    settings.RegistrationEmailDomainQuotaEnabled,
-		StepUpEnabled:                          settings.StepUpEnabled,
 		TurnstileEnabled:                       settings.TurnstileEnabled,
 		TurnstileSiteKey:                       settings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:           settings.TurnstileSecretKeyConfigured,
@@ -150,8 +147,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AliyunCaptchaSceneID:                   settings.AliyunCaptchaSceneID,
 		AliyunCaptchaPrefix:                    settings.AliyunCaptchaPrefix,
 		AliyunCaptchaRegion:                    settings.AliyunCaptchaRegion,
-		APIKeyACLTrustForwardedIP:              settings.APIKeyACLTrustForwardedIP,
-		ForwardedClientIPHeaders:               settings.ForwardedClientIPHeaders,
 		LinuxDoConnectEnabled:                  settings.LinuxDoConnectEnabled,
 		LinuxDoConnectClientID:                 settings.LinuxDoConnectClientID,
 		LinuxDoConnectClientSecretConfigured:   settings.LinuxDoConnectClientSecretConfigured,

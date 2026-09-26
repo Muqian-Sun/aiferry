@@ -145,14 +145,14 @@ func TestAuthServiceBindEmailIdentity_UpdatesEmailAndAppliesFirstBindDefaults(t 
 		Save(ctx)
 	require.NoError(t, err)
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "  NewEmail@Example.com  ", "123456", "new-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "  NewEmail@QQ.com  ", "123456", "new-password")
 	require.NoError(t, err)
 	require.NotNil(t, updatedUser)
-	require.Equal(t, "newemail@example.com", updatedUser.Email)
+	require.Equal(t, "newemail@qq.com", updatedUser.Email)
 
 	storedUser, err := client.User.Get(ctx, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, "newemail@example.com", storedUser.Email)
+	require.Equal(t, "newemail@qq.com", storedUser.Email)
 	require.Equal(t, 11.0, storedUser.Balance)
 	require.Equal(t, 5, storedUser.Concurrency)
 	require.True(t, svc.CheckPassword("new-password", storedUser.PasswordHash))
@@ -162,7 +162,7 @@ func TestAuthServiceBindEmailIdentity_UpdatesEmailAndAppliesFirstBindDefaults(t 
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("newemail@example.com"),
+			authidentity.ProviderSubjectEQ("newemail@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -197,7 +197,7 @@ func TestAuthServiceBindEmailIdentity_RejectsExistingEmailOnAnotherUser(t *testi
 		Save(ctx)
 	require.NoError(t, err)
 	_, err = client.User.Create().
-		SetEmail("taken@example.com").
+		SetEmail("taken@qq.com").
 		SetUsername("taken-user").
 		SetPasswordHash("hash").
 		SetBalance(1).
@@ -207,7 +207,7 @@ func TestAuthServiceBindEmailIdentity_RejectsExistingEmailOnAnotherUser(t *testi
 		Save(ctx)
 	require.NoError(t, err)
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, sourceUser.ID, "taken@example.com", "123456", "new-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, sourceUser.ID, "taken@qq.com", "123456", "new-password")
 	require.ErrorIs(t, err, service.ErrEmailExists)
 	require.Nil(t, updatedUser)
 
@@ -383,7 +383,7 @@ func TestAuthServiceBindEmailIdentity_RollsBackWhenFirstBindDefaultsFail(t *test
 		Save(ctx)
 	require.NoError(t, err)
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "rollback@example.com", "123456", "new-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "rollback@qq.com", "123456", "new-password")
 	require.ErrorContains(t, err, "apply email first bind defaults")
 	require.ErrorContains(t, err, "temporary assign failure")
 	require.Nil(t, updatedUser)
@@ -400,7 +400,7 @@ func TestAuthServiceBindEmailIdentity_RollsBackWhenFirstBindDefaultsFail(t *test
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("rollback@example.com"),
+			authidentity.ProviderSubjectEQ("rollback@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -458,7 +458,7 @@ func TestAuthServiceBindEmailIdentity_ReplacesBoundEmailAndSkipsFirstBindDefault
 	require.NoError(t, err)
 
 	user, err := client.User.Create().
-		SetEmail("current@example.com").
+		SetEmail("current@qq.com").
 		SetUsername("bound-user").
 		SetPasswordHash(hashedPassword).
 		SetBalance(7.5).
@@ -471,19 +471,19 @@ func TestAuthServiceBindEmailIdentity_ReplacesBoundEmailAndSkipsFirstBindDefault
 		SetUserID(user.ID).
 		SetProviderType("email").
 		SetProviderKey("email").
-		SetProviderSubject("current@example.com").
+		SetProviderSubject("current@qq.com").
 		SetVerifiedAt(time.Now().UTC()).
 		SetMetadata(map[string]any{"source": "test"}).
 		Exec(ctx))
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "new@example.com", "123456", "current-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "new@qq.com", "123456", "current-password")
 	require.NoError(t, err)
 	require.NotNil(t, updatedUser)
-	require.Equal(t, "new@example.com", updatedUser.Email)
+	require.Equal(t, "new@qq.com", updatedUser.Email)
 
 	storedUser, err := client.User.Get(ctx, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, "new@example.com", storedUser.Email)
+	require.Equal(t, "new@qq.com", storedUser.Email)
 	require.Equal(t, 7.5, storedUser.Balance)
 	require.Equal(t, 3, storedUser.Concurrency)
 	require.True(t, svc.CheckPassword("current-password", storedUser.PasswordHash))
@@ -493,7 +493,7 @@ func TestAuthServiceBindEmailIdentity_ReplacesBoundEmailAndSkipsFirstBindDefault
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("new@example.com"),
+			authidentity.ProviderSubjectEQ("new@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -504,7 +504,7 @@ func TestAuthServiceBindEmailIdentity_ReplacesBoundEmailAndSkipsFirstBindDefault
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("current@example.com"),
+			authidentity.ProviderSubjectEQ("current@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -529,7 +529,7 @@ func TestAuthServiceBindEmailIdentity_RejectsWrongCurrentPasswordForBoundEmail(t
 	require.NoError(t, err)
 
 	user, err := client.User.Create().
-		SetEmail("current@example.com").
+		SetEmail("current@qq.com").
 		SetUsername("bound-user").
 		SetPasswordHash(hashedPassword).
 		SetBalance(1).
@@ -542,18 +542,18 @@ func TestAuthServiceBindEmailIdentity_RejectsWrongCurrentPasswordForBoundEmail(t
 		SetUserID(user.ID).
 		SetProviderType("email").
 		SetProviderKey("email").
-		SetProviderSubject("current@example.com").
+		SetProviderSubject("current@qq.com").
 		SetVerifiedAt(time.Now().UTC()).
 		SetMetadata(map[string]any{"source": "test"}).
 		Exec(ctx))
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "new@example.com", "123456", "wrong-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "new@qq.com", "123456", "wrong-password")
 	require.ErrorIs(t, err, service.ErrPasswordIncorrect)
 	require.Nil(t, updatedUser)
 
 	storedUser, err := client.User.Get(ctx, user.ID)
 	require.NoError(t, err)
-	require.Equal(t, "current@example.com", storedUser.Email)
+	require.Equal(t, "current@qq.com", storedUser.Email)
 	require.True(t, svc.CheckPassword("current-password", storedUser.PasswordHash))
 
 	oldIdentityCount, err := client.AuthIdentity.Query().
@@ -561,7 +561,7 @@ func TestAuthServiceBindEmailIdentity_RejectsWrongCurrentPasswordForBoundEmail(t
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("current@example.com"),
+			authidentity.ProviderSubjectEQ("current@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -572,7 +572,7 @@ func TestAuthServiceBindEmailIdentity_RejectsWrongCurrentPasswordForBoundEmail(t
 			authidentity.UserIDEQ(user.ID),
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("new@example.com"),
+			authidentity.ProviderSubjectEQ("new@qq.com"),
 		).
 		Count(ctx)
 	require.NoError(t, err)
@@ -643,17 +643,15 @@ func TestAuthServiceEmailIdentityBinding_RejectsEmailOutsideRegistrationSuffixWh
 			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
 		},
 	}
-	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
-		service.SettingKeyRegistrationEmailSuffixWhitelist: `["@qq.com"]`,
-	}, cache, nil)
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
 	user := createEmailBindTestUser(t, client, "legacy-user"+service.OIDCConnectSyntheticEmailDomain, "legacy-user", "old-hash")
 
-	err := svc.SendEmailIdentityBindCode(ctx, user.ID, "intruder@gmail.com")
+	err := svc.SendEmailIdentityBindCode(ctx, user.ID, "intruder@example.com")
 	require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
 	require.Empty(t, cache.setEmails)
 
-	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "intruder@gmail.com", "123456", "new-password")
+	updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "intruder@example.com", "123456", "new-password")
 	require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
 	require.Nil(t, updatedUser)
 
@@ -671,9 +669,7 @@ func TestAuthServiceBindEmailIdentity_AllowsEmailInsideRegistrationSuffixWhiteli
 			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
 		},
 	}
-	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
-		service.SettingKeyRegistrationEmailSuffixWhitelist: `["@qq.com"]`,
-	}, cache, nil)
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
 	user := createEmailBindTestUser(t, client, "legacy-qq"+service.LinuxDoConnectSyntheticEmailDomain, "legacy-qq", "old-hash")
 
@@ -687,51 +683,6 @@ func TestAuthServiceBindEmailIdentity_AllowsEmailInsideRegistrationSuffixWhiteli
 	require.Equal(t, "member@qq.com", storedUser.Email)
 }
 
-func TestAuthServiceBindEmailIdentity_RegistrationSuffixWhitelistWildcard(t *testing.T) {
-	ctx := context.Background()
-
-	t.Run("allows wildcard suffix", func(t *testing.T) {
-		cache := &emailBindCacheStub{
-			data: &service.VerificationCodeData{
-				Code:      "123456",
-				CreatedAt: time.Now().UTC(),
-				ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
-			},
-		}
-		svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
-			service.SettingKeyRegistrationEmailSuffixWhitelist: `["*.edu.cn"]`,
-		}, cache, nil)
-		user := createEmailBindTestUser(t, client, "legacy-student"+service.OIDCConnectSyntheticEmailDomain, "legacy-student", "old-hash")
-
-		updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "student@cs.edu.cn", "123456", "new-password")
-		require.NoError(t, err)
-		require.NotNil(t, updatedUser)
-		require.Equal(t, "student@cs.edu.cn", updatedUser.Email)
-	})
-
-	t.Run("rejects outside wildcard suffix", func(t *testing.T) {
-		cache := &emailBindCacheStub{
-			data: &service.VerificationCodeData{
-				Code:      "123456",
-				CreatedAt: time.Now().UTC(),
-				ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
-			},
-		}
-		svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
-			service.SettingKeyRegistrationEmailSuffixWhitelist: `["*.edu.cn"]`,
-		}, cache, nil)
-		user := createEmailBindTestUser(t, client, "legacy-wildcard"+service.OIDCConnectSyntheticEmailDomain, "legacy-wildcard", "old-hash")
-
-		updatedUser, err := svc.BindEmailIdentity(ctx, user.ID, "foo@gmail.com", "123456", "new-password")
-		require.ErrorIs(t, err, service.ErrEmailSuffixNotAllowed)
-		require.Nil(t, updatedUser)
-
-		storedUser, err := client.User.Get(ctx, user.ID)
-		require.NoError(t, err)
-		require.Equal(t, "legacy-wildcard"+service.OIDCConnectSyntheticEmailDomain, storedUser.Email)
-	})
-}
-
 func TestAuthServiceBindEmailIdentity_AllowsAnyEmailWhenRegistrationSuffixWhitelistEmpty(t *testing.T) {
 	ctx := context.Background()
 	cache := &emailBindCacheStub{
@@ -741,9 +692,7 @@ func TestAuthServiceBindEmailIdentity_AllowsAnyEmailWhenRegistrationSuffixWhitel
 			ExpiresAt: time.Now().UTC().Add(10 * time.Minute),
 		},
 	}
-	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{
-		service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
-	}, cache, nil)
+	svc, _, client := newAuthServiceForEmailBind(t, map[string]string{}, cache, nil)
 
 	user := createEmailBindTestUser(t, client, "legacy-empty"+service.LinuxDoConnectSyntheticEmailDomain, "legacy-empty", "old-hash")
 

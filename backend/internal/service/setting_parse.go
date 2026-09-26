@@ -39,22 +39,8 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 			oidcValidateIDTokenDefault = s.cfg.OIDC.ValidateIDToken
 		}
 	}
-	forwardedClientIPHeaders := []string{}
-	if s != nil && s.cfg != nil {
-		forwardedClientIPHeaders = s.cfg.ForwardedClientIPSettings().Headers
-	}
-	forwardedClientIPHeadersJSON, err := json.Marshal(forwardedClientIPHeaders)
-	if err != nil {
-		return fmt.Errorf("marshal default forwarded client IP headers: %w", err)
-	}
-
 	// 初始化默认设置
 	defaults := map[string]string{
-		SettingKeyRegistrationEmailSuffixWhitelist:          "[]",
-		SettingKeyRegistrationEmailDomainQuotaEnabled:       "false",
-		SettingKeyAPIKeyACLTrustForwardedIP:                 "true",
-		SettingKeyForwardedClientIPHeaders:                  string(forwardedClientIPHeadersJSON),
-		settingKeyForwardedClientIPModeV2:                   "true",
 		SettingKeyWeChatConnectEnabled:                      "false",
 		SettingKeyWeChatConnectAppID:                        "",
 		SettingKeyWeChatConnectAppSecret:                    "",
@@ -220,47 +206,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 	return s.settingRepo.SetMultiple(ctx, defaults)
 }
 
-func parseForwardedClientIPHeadersSetting(value string) ([]string, error) {
-	var headers []string
-	if err := json.Unmarshal([]byte(value), &headers); err != nil {
-		return nil, fmt.Errorf("parse forwarded_client_ip_headers: %w", err)
-	}
-	if headers == nil {
-		return nil, fmt.Errorf("parse forwarded_client_ip_headers: value must be a JSON array")
-	}
-	normalized, err := config.NormalizeForwardedClientIPHeaders(headers)
-	if err != nil {
-		return nil, fmt.Errorf("parse forwarded_client_ip_headers: %w", err)
-	}
-	return normalized, nil
-}
-
 // parseSettings 解析设置到结构体
 func (s *SettingService) parseSettings(settings map[string]string) *SystemSettings {
-	apiKeyACLTrustForwardedIP := false
-	forwardedClientIPHeaders := []string{}
-	if s != nil && s.cfg != nil {
-		runtimeSettings := s.cfg.ForwardedClientIPSettings()
-		apiKeyACLTrustForwardedIP = runtimeSettings.TrustForwardedIP
-		forwardedClientIPHeaders = runtimeSettings.Headers
-	}
-	if value, ok := settings[SettingKeyAPIKeyACLTrustForwardedIP]; ok {
-		apiKeyACLTrustForwardedIP = value == "true"
-	}
-	if value, ok := settings[SettingKeyForwardedClientIPHeaders]; ok {
-		parsed, err := parseForwardedClientIPHeadersSetting(value)
-		if err != nil {
-			slog.Error("invalid persisted forwarded client IP headers; forwarded trust disabled", "error", err)
-			apiKeyACLTrustForwardedIP = false
-			forwardedClientIPHeaders = []string{}
-		} else {
-			forwardedClientIPHeaders = parsed
-		}
-	}
 	result := &SystemSettings{
-		RegistrationEmailSuffixWhitelist:       ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
-		RegistrationEmailDomainQuotaEnabled:    settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
-		StepUpEnabled:                          settings[SettingKeyStepUpEnabled] == "true", // 默认关闭
 		TurnstileEnabled:                       settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                       settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured:           settings[SettingKeyTurnstileSecretKey] != "",
@@ -276,8 +224,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		AliyunCaptchaSceneID:                   settings[SettingKeyAliyunCaptchaSceneID],
 		AliyunCaptchaPrefix:                    settings[SettingKeyAliyunCaptchaPrefix],
 		AliyunCaptchaRegion:                    normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-		APIKeyACLTrustForwardedIP:              apiKeyACLTrustForwardedIP,
-		ForwardedClientIPHeaders:               forwardedClientIPHeaders,
 	}
 
 	// 解析整数类型

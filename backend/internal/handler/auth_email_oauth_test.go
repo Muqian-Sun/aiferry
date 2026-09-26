@@ -22,7 +22,7 @@ func TestEmailOAuthCallbackExistingEmailLogsInWhenInvitationEnabled(t *testing.T
 	ctx := context.Background()
 
 	user, err := client.User.Create().
-		SetEmail("existing@example.com").
+		SetEmail("existing@qq.com").
 		SetUsername("existing").
 		SetPasswordHash("hash").
 		SetRole(service.RoleUser).
@@ -42,7 +42,7 @@ func TestEmailOAuthCallbackExistingEmailLogsInWhenInvitationEnabled(t *testing.T
 		FrontendRedirectURL: "/auth/oauth/callback",
 	}, "/auth/oauth/callback", "/dashboard", &emailOAuthProfile{
 		Subject:       "google-123",
-		Email:         "existing@example.com",
+		Email:         "existing@qq.com",
 		EmailVerified: true,
 		Username:      "existing",
 	})
@@ -137,11 +137,11 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 		SetProviderType("google").
 		SetProviderKey("google").
 		SetProviderSubject("google-aff-user").
-		SetResolvedEmail("pending-aff@example.com").
+		SetResolvedEmail("pending-aff@qq.com").
 		SetRedirectTo("/dashboard").
 		SetBrowserSessionKey("browser-aff-key").
 		SetUpstreamIdentityClaims(map[string]any{
-			"email":            "pending-aff@example.com",
+			"email":            "pending-aff@qq.com",
 			"email_verified":   true,
 			"username":         "pending-aff",
 			"provider":         "google",
@@ -159,7 +159,7 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/google/complete-registration", strings.NewReader(`{"password":"secret-123","email":"tampered@example.com"}`))
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/google/complete-registration", strings.NewReader(`{"password":"secret-123","email":"tampered@qq.com"}`))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(&http.Cookie{Name: oauthPendingSessionCookieName, Value: encodeCookieValue(session.SessionToken)})
 	req.AddCookie(&http.Cookie{Name: oauthPendingBrowserCookieName, Value: encodeCookieValue("browser-aff-key")})
@@ -168,11 +168,11 @@ func TestCompleteEmailOAuthRegistrationUsesAffiliateCodeFromPendingSession(t *te
 	handler.completeEmailOAuthRegistration(c, "google")
 
 	require.Equal(t, http.StatusOK, recorder.Code)
-	user, err := client.User.Query().Where(dbuser.EmailEQ("pending-aff@example.com")).Only(ctx)
+	user, err := client.User.Query().Where(dbuser.EmailEQ("pending-aff@qq.com")).Only(ctx)
 	require.NoError(t, err)
 	require.NotEmpty(t, user.PasswordHash)
 	require.NotEqual(t, "secret-123", user.PasswordHash)
-	tamperedCount, err := client.User.Query().Where(dbuser.EmailEQ("tampered@example.com")).Count(ctx)
+	tamperedCount, err := client.User.Query().Where(dbuser.EmailEQ("tampered@qq.com")).Count(ctx)
 	require.NoError(t, err)
 	require.Zero(t, tamperedCount)
 	require.Equal(t, []oauthEmailAffiliateBindCall{{userID: user.ID, inviterID: 2002}}, affiliateRepo.bindCalls)

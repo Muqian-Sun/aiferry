@@ -56,6 +56,36 @@ const (
 // rechargePagePath 用户站充值页，余额提醒邮件里的「立即充值」指向它（前面拼用户站地址）。
 const rechargePagePath = "/billing/recharge"
 
+// 注册与安全（2026-09-26 定：注册在代码里配置）。
+const (
+	// RegistrationEmailDomainQuotaEnabled 白名单之外的域名按主域名限量注册（方案定：删，写死关）。
+	RegistrationEmailDomainQuotaEnabled = false
+	// StepUpEnabled 敏感操作（导出、备份、提升管理员等）要求二次验证（拍板第 9 条：用不到，写死关）。
+	StepUpEnabled = false
+	// ForceEmailOnThirdPartySignup 第三方注册强制补邮箱：只留 Google / GitHub 两种本来就带邮箱的登录，写死关。
+	ForceEmailOnThirdPartySignup = false
+)
+
+// registrationEmailSuffixWhitelist 注册邮箱域名白名单：不在单里的直接拒绝注册（2026-09-26 定，名单是我拟的、muqian 选用）。
+// 启动时按注册校验的规则规整一遍，写错了直接启动失败。
+var registrationEmailSuffixWhitelist = mustNormalizeRegistrationEmailSuffixWhitelist([]string{
+	"@gmail.com", "@outlook.com", "@hotmail.com", "@live.com", "@icloud.com",
+	"@qq.com", "@foxmail.com", "@163.com", "@126.com", "@yeah.net", "@sina.com", "@aliyun.com",
+})
+
+// RegistrationEmailSuffixWhitelist 注册邮箱域名白名单（副本）。
+func RegistrationEmailSuffixWhitelist() []string {
+	return append([]string(nil), registrationEmailSuffixWhitelist...)
+}
+
+func mustNormalizeRegistrationEmailSuffixWhitelist(raw []string) []string {
+	normalized, err := NormalizeRegistrationEmailSuffixWhitelist(raw)
+	if err != nil {
+		panic("site_features: invalid registration email suffix whitelist: " + err.Error())
+	}
+	return normalized
+}
+
 // TablePageSizeOptions 列表可选的每页条数。
 func TablePageSizeOptions() []int { return []int{10, 20, 50, 100} }
 

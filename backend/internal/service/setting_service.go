@@ -2,8 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
 	"fmt"
 	"strings"
 	"sync/atomic"
@@ -148,11 +146,6 @@ type SettingService struct {
 	cyberSessionBlockRuntimeCache atomic.Value // *cachedCyberSessionBlockRuntime
 	cyberSessionBlockRuntimeSF    singleflight.Group
 
-	// panelRateLimitCache 面板 API 限流配置进程内缓存（*cachedPanelRateLimitSettings）。
-	// 面板每个认证请求都会读取，禁止在热路径上直接访问 DB。
-	panelRateLimitCache atomic.Value
-	panelRateLimitSF    singleflight.Group
-
 	// openAIQuotaAutoPauseSettingsCache holds the most recently observed quota auto-pause
 	// settings. GetOpenAIQuotaAutoPauseSettings reads this atomic.Value on the request hot
 	// path without ever blocking on the DB; when the cached entry expires, a background
@@ -281,68 +274,6 @@ func (s *SettingService) SetDefaultSubscriptionPlanReader(reader DefaultSubscrip
 // SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.
 func (s *SettingService) SetProxyRepository(repo ProxyRepository) {
 	s.proxyRepo = repo
-}
-
-func (s *SettingService) LoadForwardedClientIPSettings(ctx context.Context) error {
-	if s == nil || s.cfg == nil || s.settingRepo == nil {
-		return nil
-	}
-
-	values, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyAPIKeyACLTrustForwardedIP,
-		SettingKeyForwardedClientIPHeaders,
-		settingKeyForwardedClientIPModeV2,
-	})
-	if err != nil {
-		s.cfg.SetForwardedClientIPSettings(false, nil)
-		return fmt.Errorf("get forwarded client ip settings: %w", err)
-	}
-
-	enabled := s.cfg.Security.TrustForwardedIPForAPIKeyACL
-	headers := s.cfg.ForwardedClientIPSettings().Headers
-	storedValue, hasStoredValue := values[SettingKeyAPIKeyACLTrustForwardedIP]
-	if hasStoredValue {
-		enabled = storedValue == "true"
-	}
-
-	var headersErr error
-	if storedHeaders, ok := values[SettingKeyForwardedClientIPHeaders]; ok {
-		headers, headersErr = parseForwardedClientIPHeadersSetting(storedHeaders)
-		if headersErr != nil {
-			enabled = false
-			headers = []string{}
-			headersErr = fmt.Errorf("load forwarded client ip headers: %w", headersErr)
-		}
-	}
-
-	updates := make(map[string]string)
-	if _, hasStoredHeaders := values[SettingKeyForwardedClientIPHeaders]; !hasStoredHeaders {
-		headersJSON, marshalErr := json.Marshal(headers)
-		if marshalErr != nil {
-			headers = []string{}
-			headersErr = errors.Join(headersErr, fmt.Errorf("marshal forwarded client ip headers: %w", marshalErr))
-			headersJSON = []byte("[]")
-		}
-		updates[SettingKeyForwardedClientIPHeaders] = string(headersJSON)
-	}
-	if values[settingKeyForwardedClientIPModeV2] != "true" {
-		updates[settingKeyForwardedClientIPModeV2] = "true"
-		// Before this migration, new installations persisted false by default.
-		// Restore compatibility only when no trusted-proxy policy was configured.
-		if headersErr == nil && hasStoredValue && !enabled && !s.cfg.Server.TrustedProxiesConfigured {
-			enabled = true
-			updates[SettingKeyAPIKeyACLTrustForwardedIP] = "true"
-		}
-	}
-	if len(updates) > 0 {
-		if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
-			s.cfg.SetForwardedClientIPSettings(enabled, headers)
-			return errors.Join(headersErr, fmt.Errorf("migrate forwarded client ip setting: %w", err))
-		}
-	}
-
-	s.cfg.SetForwardedClientIPSettings(enabled, headers)
-	return headersErr
 }
 
 // GetAllSettings 获取所有系统设置

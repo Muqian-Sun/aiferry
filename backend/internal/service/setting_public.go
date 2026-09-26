@@ -110,8 +110,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
 		SettingKeyForceEmailOnThirdPartySignup,
-		SettingKeyRegistrationEmailSuffixWhitelist,
-		SettingKeyRegistrationEmailDomainQuotaEnabled,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
 		SettingKeyTencentCaptchaEnabled,
@@ -121,7 +119,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyAliyunCaptchaSceneID,
 		SettingKeyAliyunCaptchaPrefix,
 		SettingKeyAliyunCaptchaRegion,
-		SettingKeyAPIKeyACLTrustForwardedIP,
 		SettingKeyLinuxDoConnectEnabled,
 		SettingKeyDingTalkConnectEnabled,
 		SettingKeyWeChatConnectEnabled,
@@ -193,13 +190,9 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	googleEnabled := s.emailOAuthPublicEnabled(settings, "google")
 	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilitiesFromSettings(settings)
 
-	// 忘记密码跟着邮箱验证走
 	// 邮箱验证、忘记密码都跟着 SMTP 走（能发信才开）
 	emailVerifyEnabled := s.smtpConfigured()
 	passwordResetEnabled := emailVerifyEnabled
-	registrationEmailSuffixWhitelist := ParseRegistrationEmailSuffixWhitelist(
-		settings[SettingKeyRegistrationEmailSuffixWhitelist],
-	)
 	loginAgreementDocuments := LoginAgreementDocuments()
 
 	// 通知跟着 SMTP 走，阈值与充值页由代码决定
@@ -213,8 +206,8 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		RegistrationEnabled:                 RegistrationOpen,
 		EmailVerifyEnabled:                  emailVerifyEnabled,
 		ForceEmailOnThirdPartySignup:        settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
-		RegistrationEmailSuffixWhitelist:    registrationEmailSuffixWhitelist,
-		RegistrationEmailDomainQuotaEnabled: settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
+		RegistrationEmailSuffixWhitelist:    RegistrationEmailSuffixWhitelist(),
+		RegistrationEmailDomainQuotaEnabled: RegistrationEmailDomainQuotaEnabled,
 		PasswordResetEnabled:                passwordResetEnabled,
 		InvitationCodeEnabled:               InvitationCodeRequired,
 		PasskeyEnabled:                      s.PasskeyEnabled(),

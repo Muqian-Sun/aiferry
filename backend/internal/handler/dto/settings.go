@@ -26,27 +26,21 @@ type CustomEndpoint struct {
 
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
-	RegistrationEmailSuffixWhitelist    []string `json:"registration_email_suffix_whitelist"`
-	RegistrationEmailDomainQuotaEnabled bool     `json:"registration_email_domain_quota_enabled"`
-	StepUpEnabled                       bool     `json:"step_up_enabled"` // 敏感操作 step-up 2FA
-
-	TurnstileEnabled                       bool     `json:"turnstile_enabled"`
-	TurnstileSiteKey                       string   `json:"turnstile_site_key"`
-	TurnstileSecretKeyConfigured           bool     `json:"turnstile_secret_key_configured"`
-	TencentCaptchaEnabled                  bool     `json:"tencent_captcha_enabled"`
-	TencentCaptchaAppID                    string   `json:"tencent_captcha_app_id"`
-	TencentCaptchaAppSecretKeyConfigured   bool     `json:"tencent_captcha_app_secret_key_configured"`
-	TencentCaptchaCloudSecretIDConfigured  bool     `json:"tencent_captcha_cloud_secret_id_configured"`
-	TencentCaptchaCloudSecretKeyConfigured bool     `json:"tencent_captcha_cloud_secret_key_configured"`
-	TencentCaptchaRegion                   string   `json:"tencent_captcha_region"`
-	AliyunCaptchaEnabled                   bool     `json:"aliyun_captcha_enabled"`
-	AliyunCaptchaAccessKeyID               string   `json:"aliyun_captcha_access_key_id"`
-	AliyunCaptchaAccessKeySecretConfigured bool     `json:"aliyun_captcha_access_key_secret_configured"`
-	AliyunCaptchaSceneID                   string   `json:"aliyun_captcha_scene_id"`
-	AliyunCaptchaPrefix                    string   `json:"aliyun_captcha_prefix"`
-	AliyunCaptchaRegion                    string   `json:"aliyun_captcha_region"`
-	APIKeyACLTrustForwardedIP              bool     `json:"api_key_acl_trust_forwarded_ip"`
-	ForwardedClientIPHeaders               []string `json:"forwarded_client_ip_headers"`
+	TurnstileEnabled                       bool   `json:"turnstile_enabled"`
+	TurnstileSiteKey                       string `json:"turnstile_site_key"`
+	TurnstileSecretKeyConfigured           bool   `json:"turnstile_secret_key_configured"`
+	TencentCaptchaEnabled                  bool   `json:"tencent_captcha_enabled"`
+	TencentCaptchaAppID                    string `json:"tencent_captcha_app_id"`
+	TencentCaptchaAppSecretKeyConfigured   bool   `json:"tencent_captcha_app_secret_key_configured"`
+	TencentCaptchaCloudSecretIDConfigured  bool   `json:"tencent_captcha_cloud_secret_id_configured"`
+	TencentCaptchaCloudSecretKeyConfigured bool   `json:"tencent_captcha_cloud_secret_key_configured"`
+	TencentCaptchaRegion                   string `json:"tencent_captcha_region"`
+	AliyunCaptchaEnabled                   bool   `json:"aliyun_captcha_enabled"`
+	AliyunCaptchaAccessKeyID               string `json:"aliyun_captcha_access_key_id"`
+	AliyunCaptchaAccessKeySecretConfigured bool   `json:"aliyun_captcha_access_key_secret_configured"`
+	AliyunCaptchaSceneID                   string `json:"aliyun_captcha_scene_id"`
+	AliyunCaptchaPrefix                    string `json:"aliyun_captcha_prefix"`
+	AliyunCaptchaRegion                    string `json:"aliyun_captcha_region"`
 
 	LinuxDoConnectEnabled                bool   `json:"linuxdo_connect_enabled"`
 	LinuxDoConnectClientID               string `json:"linuxdo_connect_client_id"`
@@ -355,15 +349,6 @@ type RateLimit429CooldownSettings struct {
 
 type OpenAIImagesOAuthUnavailableCooldownSettings struct {
 	CooldownMinutes int `json:"cooldown_minutes"`
-}
-
-// PanelRateLimitSettings 面板 API 限流配置 DTO
-type PanelRateLimitSettings struct {
-	Enabled     bool `json:"enabled"`
-	UserRPM     int  `json:"user_rpm"`
-	HeavyRPM    int  `json:"heavy_rpm"`
-	ExemptAdmin bool `json:"exempt_admin"`
-	PublicIPRPM int  `json:"public_ip_rpm"`
 }
 
 // StreamTimeoutSettings 流超时处理配置 DTO

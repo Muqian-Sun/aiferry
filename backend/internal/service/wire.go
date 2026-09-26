@@ -790,9 +790,6 @@ func ProvideSettingService(settingRepo SettingRepository, planRepo SubscriptionP
 	svc := NewSettingService(settingRepo, cfg)
 	svc.SetDefaultSubscriptionPlanReader(planRepo)
 	svc.SetProxyRepository(proxyRepo)
-	if err := svc.LoadForwardedClientIPSettings(context.Background()); err != nil {
-		logger.LegacyPrintf("service.setting", "Warning: load forwarded client IP settings failed: %v", err)
-	}
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
 	}

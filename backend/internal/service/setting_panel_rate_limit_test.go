@@ -95,88 +95,19 @@ func newPanelRateLimitTestService(repo SettingRepository) *SettingService {
 	return NewSettingService(repo, &config.Config{})
 }
 
-func TestGetPanelRateLimitSettingsDefaults(t *testing.T) {
-	svc := newPanelRateLimitTestService(&panelRateLimitSettingRepo{})
-
-	settings, err := svc.GetPanelRateLimitSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, DefaultPanelRateLimitSettings(), settings)
-}
-
-func TestGetPanelRateLimitSettingsInvalidJSONFallsBack(t *testing.T) {
+// 面板限流由代码决定（DefaultPanelRateLimitSettings）：库里旧配置不生效，也不读库。
+func TestGetPanelRateLimitSettingsCachedIgnoresStoredSettings(t *testing.T) {
 	repo := &panelRateLimitSettingRepo{values: map[string]string{
-		SettingKeyPanelRateLimitSettings: "{not-json",
+		"panel_rate_limit_settings": `{"enabled":false,"user_rpm":1,"heavy_rpm":1,"exempt_admin":false,"public_ip_rpm":1}`,
 	}}
-	svc := newPanelRateLimitTestService(repo)
+	svc := NewSettingService(repo, &config.Config{})
 
-	settings, err := svc.GetPanelRateLimitSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, DefaultPanelRateLimitSettings(), settings)
-}
-
-func TestGetPanelRateLimitSettingsNormalizesValues(t *testing.T) {
-	repo := &panelRateLimitSettingRepo{values: map[string]string{
-		SettingKeyPanelRateLimitSettings: `{"enabled":true,"user_rpm":-5,"heavy_rpm":999999999,"exempt_admin":false,"public_ip_rpm":10}`,
-	}}
-	svc := newPanelRateLimitTestService(repo)
-
-	settings, err := svc.GetPanelRateLimitSettings(context.Background())
-	require.NoError(t, err)
-	require.True(t, settings.Enabled)
-	require.Equal(t, 0, settings.UserRPM)
-	require.Equal(t, panelRateLimitRPMMax, settings.HeavyRPM)
-	require.Equal(t, 10, settings.PublicIPRPM)
-	require.False(t, settings.ExemptAdmin)
-}
-
-func TestSetPanelRateLimitSettingsValidation(t *testing.T) {
-	svc := newPanelRateLimitTestService(&panelRateLimitSettingRepo{})
-
-	require.Error(t, svc.SetPanelRateLimitSettings(context.Background(), nil))
-	require.Error(t, svc.SetPanelRateLimitSettings(context.Background(), &PanelRateLimitSettings{UserRPM: -1}))
-	require.Error(t, svc.SetPanelRateLimitSettings(context.Background(), &PanelRateLimitSettings{HeavyRPM: panelRateLimitRPMMax + 1}))
-}
-
-func TestSetPanelRateLimitSettingsRoundTripAndCacheRefresh(t *testing.T) {
-	repo := &panelRateLimitSettingRepo{}
-	svc := newPanelRateLimitTestService(repo)
-
-	// 先填充缓存（默认值）
-	cached := svc.GetPanelRateLimitSettingsCached(context.Background())
-	require.Equal(t, *DefaultPanelRateLimitSettings(), cached)
-
-	want := &PanelRateLimitSettings{
-		Enabled:     true,
-		UserRPM:     120,
-		HeavyRPM:    30,
-		ExemptAdmin: false,
-		PublicIPRPM: 60,
-	}
-	require.NoError(t, svc.SetPanelRateLimitSettings(context.Background(), want))
-
-	// 写入后无需等待 TTL，缓存立即反映新值
-	cached = svc.GetPanelRateLimitSettingsCached(context.Background())
-	require.Equal(t, *want, cached)
-
-	// DB 中持久化的值可直读
-	stored, err := svc.GetPanelRateLimitSettings(context.Background())
-	require.NoError(t, err)
-	require.Equal(t, want, stored)
-}
-
-func TestGetPanelRateLimitSettingsCachedAvoidsRepeatedDBReads(t *testing.T) {
-	repo := &panelRateLimitSettingRepo{values: map[string]string{
-		SettingKeyPanelRateLimitSettings: `{"enabled":true,"user_rpm":100,"heavy_rpm":20,"exempt_admin":true,"public_ip_rpm":50}`,
-	}}
-	svc := newPanelRateLimitTestService(repo)
-
-	for i := 0; i < 5; i++ {
-		settings := svc.GetPanelRateLimitSettingsCached(context.Background())
-		require.Equal(t, 100, settings.UserRPM)
-	}
-
-	repo.mu.Lock()
-	calls := repo.getValueCalls
-	repo.mu.Unlock()
-	require.Equal(t, 1, calls, "TTL 内应只读一次 DB")
+	got := svc.GetPanelRateLimitSettingsCached(context.Background())
+	require.Equal(t, *DefaultPanelRateLimitSettings(), got)
+	require.True(t, got.Enabled)
+	require.Equal(t, 240, got.UserRPM)
+	require.Equal(t, 60, got.HeavyRPM)
+	require.True(t, got.ExemptAdmin)
+	require.Equal(t, 300, got.PublicIPRPM)
+	require.Zero(t, repo.getValueCalls)
 }

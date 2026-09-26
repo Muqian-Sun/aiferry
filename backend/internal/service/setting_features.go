@@ -29,23 +29,14 @@ func (s *SettingService) smtpConfigured() bool {
 	return s != nil && s.cfg != nil && s.cfg.SMTP.Configured()
 }
 
-// IsRegistrationEmailDomainQuotaEnabled 检查白名单非空时是否放行非白名单域名限量注册。
-// 安全默认：设置缺失或查询出错时按关闭处理（保持白名单严格模式）。
+// IsRegistrationEmailDomainQuotaEnabled 白名单之外的域名限量注册：由代码决定（site_features.go）。
 func (s *SettingService) IsRegistrationEmailDomainQuotaEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEmailDomainQuotaEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
+	return RegistrationEmailDomainQuotaEnabled
 }
 
-// GetRegistrationEmailSuffixWhitelist returns normalized registration email suffix whitelist.
+// GetRegistrationEmailSuffixWhitelist 注册邮箱域名白名单：由代码决定（site_features.go）。
 func (s *SettingService) GetRegistrationEmailSuffixWhitelist(ctx context.Context) []string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyRegistrationEmailSuffixWhitelist)
-	if err != nil {
-		return []string{}
-	}
-	return ParseRegistrationEmailSuffixWhitelist(value)
+	return RegistrationEmailSuffixWhitelist()
 }
 
 // IsInvitationCodeEnabled 注册是否要邀请码：由代码决定（site_features.go），不再有后台开关。
@@ -171,15 +162,10 @@ func (s *SettingService) IsSessionBindingEnabled(ctx context.Context) bool {
 	return SessionBindingEnabled
 }
 
-// IsStepUpEnabled 检查敏感操作 step-up 2FA 门控是否启用（默认关闭）。
-// 开启时账号/代理导出、备份创建/下载、S3 配置修改、提升管理员等操作
-// 要求当前会话在有效期内完成过 TOTP step-up 验证。
+// IsStepUpEnabled 敏感操作（账号/代理导出、备份、S3 配置、提升管理员等）是否要求 TOTP 二次验证：
+// 由代码决定（site_features.go），不再有后台开关。
 func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyStepUpEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+	return StepUpEnabled
 }
 
 // GetDefaultConcurrency 获取默认并发量

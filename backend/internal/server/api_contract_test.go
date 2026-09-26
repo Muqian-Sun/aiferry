@@ -549,7 +549,6 @@ func TestAPIContracts(t *testing.T) {
 			setup: func(t *testing.T, deps *contractDeps) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
-					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
 
 					service.SettingKeyTurnstileEnabled:   "true",
 					service.SettingKeyTurnstileSiteKey:   "site-key",
@@ -597,9 +596,6 @@ func TestAPIContracts(t *testing.T) {
 				"code": 0,
 				"message": "success",
 				"data": {
-					"registration_email_suffix_whitelist": [],
-					"registration_email_domain_quota_enabled": false,
-						"step_up_enabled": false,
 					"turnstile_enabled": true,
 					"turnstile_site_key": "site-key",
 					"turnstile_secret_key_configured": true,
@@ -671,8 +667,6 @@ func TestAPIContracts(t *testing.T) {
 						"ops_realtime_monitoring_enabled": true,
 						"ops_query_mode_default": "auto",
 						"ops_metrics_interval_seconds": 60,
-						"api_key_acl_trust_forwarded_ip": false,
-					"forwarded_client_ip_headers": [],
 					"auth_source_default_email_balance": 0,
 					"auth_source_default_email_concurrency": 5,
 					"auth_source_default_email_subscriptions": [],
@@ -837,9 +831,7 @@ func TestAPIContracts(t *testing.T) {
 					Scopes:              "snsapi_login",
 					FrontendRedirectURL: "/auth/wechat/callback",
 				}
-				deps.settingRepo.SetAll(map[string]string{
-					service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
-				})
+				deps.settingRepo.SetAll(map[string]string{})
 			},
 			method:     http.MethodGet,
 			path:       "/api/v1/admin/settings",
@@ -848,9 +840,6 @@ func TestAPIContracts(t *testing.T) {
 				"code": 0,
 				"message": "success",
 				"data": {
-					"registration_email_suffix_whitelist": [],
-					"registration_email_domain_quota_enabled": false,
-						"step_up_enabled": false,
 					"turnstile_enabled": false,
 					"turnstile_site_key": "",
 					"turnstile_secret_key_configured": false,
@@ -918,8 +907,6 @@ func TestAPIContracts(t *testing.T) {
 					"google_oauth_client_secret_configured": false,
 					"google_oauth_redirect_url": "",
 					"google_oauth_frontend_redirect_url": "/auth/oauth/callback",
-					"api_key_acl_trust_forwarded_ip": false,
-					"forwarded_client_ip_headers": [],
 					"grok_default_text_model": "grok-4.6",
 					"grok_default_base_url_mode": "cli",
 					"grok_cross_client_model_map_enabled": true,

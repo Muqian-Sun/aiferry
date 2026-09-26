@@ -583,7 +583,7 @@ func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing
 	}))
 	defer upstream.Close()
 
-	handler, client := newLinuxDoOAuthHandlerAndClientWithEmailVerification(t, false, "fresh@example.com", "246810", config.LinuxDoConnectConfig{
+	handler, client := newLinuxDoOAuthHandlerAndClientWithEmailVerification(t, false, "fresh@qq.com", "246810", config.LinuxDoConnectConfig{
 		Enabled:             true,
 		ClientID:            "linuxdo-client",
 		ClientSecret:        "linuxdo-secret",
@@ -636,7 +636,7 @@ func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing
 
 	createRecorder := httptest.NewRecorder()
 	createCtx, _ := gin.CreateTestContext(createRecorder)
-	body := bytes.NewBufferString(`{"email":"fresh@example.com","verify_code":"246810","password":"secret-123","adopt_display_name":false,"adopt_avatar":false}`)
+	body := bytes.NewBufferString(`{"email":"fresh@qq.com","verify_code":"246810","password":"secret-123","adopt_display_name":false,"adopt_avatar":false}`)
 	createReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/pending/create-account", body)
 	createReq.Header.Set("Content-Type", "application/json")
 	createReq.AddCookie(sessionCookie)
@@ -650,7 +650,7 @@ func TestLinuxDoOAuthCallbackEmailVerificationCompletesWithBoundEmail(t *testing
 	require.NotEmpty(t, responseData["access_token"])
 
 	userEntity, err := client.User.Query().
-		Where(dbuser.EmailEQ("fresh@example.com")).
+		Where(dbuser.EmailEQ("fresh@qq.com")).
 		Only(ctx)
 	require.NoError(t, err)
 	require.Equal(t, "linuxdo", userEntity.SignupSource)

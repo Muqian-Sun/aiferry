@@ -145,7 +145,7 @@ func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
 	svc, _, client := newAuthServiceWithEnt(t, map[string]string{}, nil)
 	ctx := context.Background()
 
-	token, user, err := svc.Register(ctx, "user@example.com", "password")
+	token, user, err := svc.Register(ctx, "user@qq.com", "password")
 	require.NoError(t, err)
 	require.NotEmpty(t, token)
 	require.NotNil(t, user)
@@ -160,7 +160,7 @@ func TestAuthServiceRegisterDualWritesEmailIdentity(t *testing.T) {
 		Where(
 			authidentity.ProviderTypeEQ("email"),
 			authidentity.ProviderKeyEQ("email"),
-			authidentity.ProviderSubjectEQ("user@example.com"),
+			authidentity.ProviderSubjectEQ("user@qq.com"),
 		).
 		Only(ctx)
 	require.NoError(t, err)

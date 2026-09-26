@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"context"
 	"errors"
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"io"
 	"mime/quotedprintable"
 	"net"
@@ -14,6 +13,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"testing"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 
 	"github.com/stretchr/testify/require"
 )

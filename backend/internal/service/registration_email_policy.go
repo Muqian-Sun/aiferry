@@ -1,7 +1,6 @@
 package service
 
 import (
-	"encoding/json"
 	"fmt"
 	"regexp"
 	"strings"
@@ -77,24 +76,6 @@ func IsRegistrationEmailSuffixLimited(email string, whitelist []string) bool {
 // NormalizeRegistrationEmailSuffixWhitelist normalizes and validates suffix whitelist items.
 func NormalizeRegistrationEmailSuffixWhitelist(raw []string) ([]string, error) {
 	return normalizeRegistrationEmailSuffixWhitelist(raw, true)
-}
-
-// ParseRegistrationEmailSuffixWhitelist parses persisted JSON into normalized suffixes.
-// Invalid entries are ignored to keep old misconfigurations from breaking runtime reads.
-func ParseRegistrationEmailSuffixWhitelist(raw string) []string {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return []string{}
-	}
-	var items []string
-	if err := json.Unmarshal([]byte(raw), &items); err != nil {
-		return []string{}
-	}
-	normalized, _ := normalizeRegistrationEmailSuffixWhitelist(items, false)
-	if len(normalized) == 0 {
-		return []string{}
-	}
-	return normalized
 }
 
 func normalizeRegistrationEmailSuffixWhitelist(raw []string, strict bool) ([]string, error) {

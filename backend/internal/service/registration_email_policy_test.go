@@ -24,11 +24,6 @@ func TestNormalizeRegistrationEmailSuffixWhitelist_Invalid(t *testing.T) {
 	}
 }
 
-func TestParseRegistrationEmailSuffixWhitelist(t *testing.T) {
-	got := ParseRegistrationEmailSuffixWhitelist(`["example.com","@foo.bar","*.EDU.CN","@invalid_domain","*.foo"]`)
-	require.Equal(t, []string{"@example.com", "@foo.bar", "*.edu.cn"}, got)
-}
-
 func TestIsRegistrationEmailSuffixAllowed(t *testing.T) {
 	require.True(t, IsRegistrationEmailSuffixAllowed("user@example.com", []string{"@example.com"}))
 	require.True(t, IsRegistrationEmailSuffixAllowed("user@example.com.", []string{"@example.com"}))
@@ -45,17 +40,25 @@ func TestIsRegistrationEmailSuffixAllowed(t *testing.T) {
 	require.True(t, IsRegistrationEmailSuffixAllowed("user@any.com", []string{}))
 }
 
-func TestRegistrationEmailQuotaRejectsMalformedDomainWhenWhitelistConfigured(t *testing.T) {
+func TestRegistrationRejectsMalformedEmailUnderCodeWhitelist(t *testing.T) {
 	repo := &userRepoStub{}
-	svc := newAuthService(repo, map[string]string{
-		SettingKeyRegistrationEmailSuffixWhitelist:    `["@example.com"]`,
-		SettingKeyRegistrationEmailDomainQuotaEnabled: "true",
-	}, nil)
+	svc := newAuthService(repo, map[string]string{}, nil)
 
 	_, _, err := svc.Register(context.Background(), "malformed-email", "password")
 
 	require.ErrorIs(t, err, ErrEmailSuffixNotAllowed)
 	require.Empty(t, repo.created)
+}
+
+// 代码里的白名单写的都是规整后的形式（启动时还会再规整一遍，写错直接启动失败）。
+func TestRegistrationEmailSuffixWhitelistIsNormalized(t *testing.T) {
+	list := RegistrationEmailSuffixWhitelist()
+	require.NotEmpty(t, list)
+	normalized, err := NormalizeRegistrationEmailSuffixWhitelist(list)
+	require.NoError(t, err)
+	require.Equal(t, list, normalized)
+	require.True(t, IsRegistrationEmailSuffixAllowed("user@gmail.com", list))
+	require.False(t, IsRegistrationEmailSuffixAllowed("user@example.com", list))
 }
 
 func TestIsRegistrationEmailSuffixLimited(t *testing.T) {

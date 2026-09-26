@@ -32,15 +32,6 @@ func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.Sys
 
 func diffSettings(before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) []string {
 	changed := make([]string, 0, 20)
-	if !equalStringSlice(before.RegistrationEmailSuffixWhitelist, after.RegistrationEmailSuffixWhitelist) {
-		changed = append(changed, "registration_email_suffix_whitelist")
-	}
-	if before.RegistrationEmailDomainQuotaEnabled != after.RegistrationEmailDomainQuotaEnabled {
-		changed = append(changed, "registration_email_domain_quota_enabled")
-	}
-	if before.StepUpEnabled != after.StepUpEnabled {
-		changed = append(changed, "step_up_enabled")
-	}
 	if before.TurnstileEnabled != after.TurnstileEnabled {
 		changed = append(changed, "turnstile_enabled")
 	}
@@ -85,12 +76,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AliyunCaptchaRegion != after.AliyunCaptchaRegion {
 		changed = append(changed, "aliyun_captcha_region")
-	}
-	if before.APIKeyACLTrustForwardedIP != after.APIKeyACLTrustForwardedIP {
-		changed = append(changed, "api_key_acl_trust_forwarded_ip")
-	}
-	if !equalStringSlice(before.ForwardedClientIPHeaders, after.ForwardedClientIPHeaders) {
-		changed = append(changed, "forwarded_client_ip_headers")
 	}
 	if before.LinuxDoConnectEnabled != after.LinuxDoConnectEnabled {
 		changed = append(changed, "linuxdo_connect_enabled")
@@ -518,36 +503,12 @@ func defaultSubscriptionsValueOrDefault(input *[]dto.DefaultSubscriptionSetting,
 	return result
 }
 
-func equalStringSlice(a, b []string) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
 func equalDefaultSubscriptions(a, b []service.DefaultSubscriptionSetting) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i := range a {
 		if a[i].PlanID != b[i].PlanID || a[i].ValidityDays != b[i].ValidityDays {
-			return false
-		}
-	}
-	return true
-}
-
-func equalIntSlice(a, b []int) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i] != b[i] {
 			return false
 		}
 	}

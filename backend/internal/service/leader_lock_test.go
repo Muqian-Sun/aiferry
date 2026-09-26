@@ -2,10 +2,11 @@ package service
 
 import (
 	"context"
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/Wei-Shaw/sub2api/internal/config"
 
 	"github.com/stretchr/testify/require"
 )
