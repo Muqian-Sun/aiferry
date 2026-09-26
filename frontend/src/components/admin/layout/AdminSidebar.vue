@@ -47,7 +47,8 @@ const flagRiskControl = makeSidebarFlag(FeatureFlags.riskControl)
 const flagOpsMonitoring = () => adminSettingsStore.opsMonitoringEnabled
 const flagAdminPayment = () => adminSettingsStore.paymentEnabled
 
-// 设置里的功能开关没开时入口变灰（applyFeatureFlags）；简易模式再收起 hideInSimpleMode 的项。
+// 设置里有开关的功能（风控）没开时入口变灰；由代码 / 部署配置决定的功能（支付、运维、渠道监控）关着时入口直接不出现
+// （applyFeatureFlags）；简易模式再收起 hideInSimpleMode 的项。
 function visibleItems(items: NavItem[]): NavItem[] {
   const visible = applyFeatureFlags(items)
   return authStore.isSimpleMode ? visible.filter((item) => !item.hideInSimpleMode) : visible
@@ -55,7 +56,8 @@ function visibleItems(items: NavItem[]): NavItem[] {
 
 // A3 导航（管理站改造方案，muqian 2026-09-24「渠道在前」）：概览 / 供给 / 用户 / 运营 / 安全 / 设置。
 // 订阅、订单、审查各是一个入口，同组的页面在页头页签里切（activePaths 让同组页面都点亮这一项）；
-// 账号安全只在右上角头像菜单里。功能没开时入口不消失，显示为灰色，点进去是「未开启 · 去设置打开」。
+// 账号安全只在右上角头像菜单里。后台有开关的功能没开时入口显示为灰色，点进去是「未开启 · 去设置打开」；
+// 代码或部署配置关掉的功能入口直接不出现。
 const sections = computed((): NavSection[] => {
   const groups: NavSection[] = [
     {
@@ -63,7 +65,7 @@ const sections = computed((): NavSection[] => {
       title: t('nav.sections.overview'),
       items: [
         { path: '/dashboard', label: t('nav.overview'), icon: DashboardIcon },
-        { path: '/ops', label: t('nav.ops'), icon: ChartIcon, featureFlag: flagOpsMonitoring },
+        { path: '/ops', label: t('nav.ops'), icon: ChartIcon, presentWhen: flagOpsMonitoring },
       ],
     },
     {
@@ -73,7 +75,7 @@ const sections = computed((): NavSection[] => {
         // 渠道 = 资源（成品号 / 第三方 key）；模型决定上架与标价
         { path: '/accounts', label: t('nav.channels'), icon: GlobeIcon },
         { path: '/model-catalog', label: t('nav.models'), icon: PriceTagIcon },
-        { path: '/channels/monitor', label: t('nav.channelHealth'), icon: SignalIcon, featureFlag: flagChannelMonitor },
+        { path: '/channels/monitor', label: t('nav.channelHealth'), icon: SignalIcon, presentWhen: flagChannelMonitor },
         { path: '/proxies', label: t('nav.proxies'), icon: ServerIcon },
       ],
     },
@@ -86,7 +88,7 @@ const sections = computed((): NavSection[] => {
         ...(SITE_FEATURES.subscription
           ? [{ path: '/subscriptions', label: t('nav.subscriptions'), icon: CreditCardIcon, hideInSimpleMode: true, activePaths: ['/orders/plans'] }]
           : []),
-        { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, featureFlag: flagAdminPayment, activePaths: ['/orders/dashboard'] },
+        { path: '/orders', label: t('nav.orders'), icon: OrderIcon, hideInSimpleMode: true, presentWhen: flagAdminPayment, activePaths: ['/orders/dashboard'] },
       ],
     },
     {

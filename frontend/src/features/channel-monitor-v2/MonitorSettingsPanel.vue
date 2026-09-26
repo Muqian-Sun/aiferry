@@ -1,15 +1,6 @@
 <template>
   <section class="mx-auto w-full max-w-6xl space-y-5 px-1 py-2 sm:px-2">
     <div
-      v-if="!featureEnabled"
-      class="rounded-lg border border-af-warning/30 bg-af-warning-tint/90 px-4 py-3 text-sm text-af-warning"
-      role="status"
-    >
-      {{ t('channelMonitorV2.settings.disabledBanner') }}
-      <router-link class="ml-1 font-medium underline" to="/settings/features">{{ t('admin.featureOff.goSettings') }}</router-link>
-    </div>
-
-    <div
       v-if="loading"
       class="card flex min-h-[200px] items-center justify-center !rounded-lg !border-0 text-sm text-af-ink-3 ring-1 ring-af-hairline"
     >
@@ -237,7 +228,6 @@ import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores/app'
 import { adminAPI } from '@/api/admin'
 import { extractApiErrorMessage } from '@/utils/apiError'
-import { isChannelMonitorRouteEnabled } from '@/utils/featureFlags'
 import {
   getConfig,
   updateConfig,
@@ -279,7 +269,6 @@ const countedErrorCategoryCount = computed(
   () => errorCategories.length - (draft.value?.ignored_error_categories?.length || 0)
 )
 /** 功能开关（设置 › 功能开关）关着时汇总不跑；配置仍可先保存。 */
-const featureEnabled = computed(() => isChannelMonitorRouteEnabled())
 const defaultThresholds = {
   minimum_sample: 50,
   warning_error_rate: 0.05,

@@ -23,7 +23,6 @@ export default {
       enableTitle: 'Enable aggregation',
       enableHint:
         'Turning this off only stops this aggregation; the switch for the whole channel health feature is under Settings › Switches.',
-      disabledBanner: 'Channel health is turned off under Settings › Switches, so aggregation will not run. You can still save this config now.',
       refreshTitle: 'Aggregation interval',
       refreshHint: 'Affects matrix time granularity and refresh cadence',
       refreshAria: 'Aggregation interval',
