@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"io"
 	"mime/quotedprintable"
 	"net"
 	"net/mail"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -427,9 +429,8 @@ func TestNotificationEmailSendDeduplicatesSubscriptionExpiryReminder(t *testing.
 	ctx := context.Background()
 	repo := newNotificationEmailMemorySettingRepo()
 	smtpServer := startNotificationEmailTestSMTPServer(t)
-	require.NoError(t, repo.SetMultiple(ctx, smtpServer.settings()))
 
-	emailSvc := NewEmailService(repo, nil)
+	emailSvc := NewEmailService(repo, nil, smtpServer.config())
 	svc := NewNotificationEmailService(repo, emailSvc, nil)
 	input := NotificationEmailSendInput{
 		Event:          NotificationEmailEventSubscriptionExpiryReminder,
@@ -575,17 +576,17 @@ func startNotificationEmailTestSMTPServer(t *testing.T) *notificationEmailTestSM
 	return server
 }
 
-func (s *notificationEmailTestSMTPServer) settings() map[string]string {
-	host, port, _ := net.SplitHostPort(s.listener.Addr().String())
-	return map[string]string{
-		SettingKeySMTPHost:     host,
-		SettingKeySMTPPort:     port,
-		SettingKeySMTPUsername: "user",
-		SettingKeySMTPPassword: "password",
-		SettingKeySMTPFrom:     "noreply@example.com",
-		SettingKeySMTPFromName: "Sub2API",
-		SettingKeySMTPUseTLS:   "false",
-	}
+// config SMTP 走部署配置（cfg.SMTP），指向这台测试服务器。
+func (s *notificationEmailTestSMTPServer) config() *config.Config {
+	host, portText, _ := net.SplitHostPort(s.listener.Addr().String())
+	port, _ := strconv.Atoi(portText)
+	return &config.Config{SMTP: config.SMTPConfig{
+		Host:     host,
+		Port:     port,
+		Username: "user",
+		Password: "password",
+		From:     "noreply@example.com",
+	}}
 }
 
 func (s *notificationEmailTestSMTPServer) messageCount() int64 {

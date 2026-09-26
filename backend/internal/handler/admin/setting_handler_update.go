@@ -22,19 +22,11 @@ import (
 
 // UpdateSettingsRequest 更新设置请求
 type UpdateSettingsRequest struct {
-	EmailVerifyEnabled                  bool     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailDomainQuotaEnabled *bool    `json:"registration_email_domain_quota_enabled"` // 非白名单域名限量注册开关（省略=保持现值）
 	StepUpEnabled                       *bool    `json:"step_up_enabled"`                         // 敏感操作 step-up 2FA（省略=保持现值）
 
 	// 邮件服务设置
-	SMTPHost     string `json:"smtp_host"`
-	SMTPPort     int    `json:"smtp_port"`
-	SMTPUsername string `json:"smtp_username"`
-	SMTPPassword string `json:"smtp_password"`
-	SMTPFrom     string `json:"smtp_from_email"`
-	SMTPFromName string `json:"smtp_from_name"`
-	SMTPUseTLS   bool   `json:"smtp_use_tls"`
 
 	// Cloudflare Turnstile 设置
 	TurnstileEnabled   bool   `json:"turnstile_enabled"`
@@ -237,12 +229,6 @@ type UpdateSettingsRequest struct {
 	// OpenAI account scheduling
 
 	// 余额不足提醒
-	BalanceLowNotifyEnabled         *bool                   `json:"balance_low_notify_enabled"`
-	BalanceLowNotifyThreshold       *float64                `json:"balance_low_notify_threshold"`
-	BalanceLowNotifyRechargeURL     *string                 `json:"balance_low_notify_recharge_url"`
-	SubscriptionExpiryNotifyEnabled *bool                   `json:"subscription_expiry_notify_enabled"`
-	AccountQuotaNotifyEnabled       *bool                   `json:"account_quota_notify_enabled"`
-	AccountQuotaNotifyEmails        *[]dto.NotifyEmailEntry `json:"account_quota_notify_emails"`
 
 	// Payment configuration (integrated into settings, full replace)
 	PaymentEnabled           *bool    `json:"payment_enabled"`
@@ -308,8 +294,6 @@ type UpdateSettingsRequest struct {
 	// 各平台账号自动停调阈值（整体替换语义：nil = 不修改，non-nil = 整体覆盖）。
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
 
-	AllowUserViewErrorRequests *bool `json:"allow_user_view_error_requests"`
-
 	// 利润门（全站一档；nil = 不修改）
 	ProfitControlEnabled *bool    `json:"profit_control_enabled"`
 	ProfitMinMargin      *float64 `json:"profit_min_margin"`
@@ -353,13 +337,6 @@ func (h *SettingHandler) ensureActorTotpForStepUp(c *gin.Context) bool {
 	return true
 }
 
-// settingKeyJSONAliases covers the request fields whose JSON name differs from
-// the setting key they persist to. Every other field of UpdateSettingsRequest
-// is named after its setting key.
-var settingKeyJSONAliases = map[string]string{
-	"smtp_from_email": service.SettingKeySMTPFrom,
-}
-
 // settingKeyByJSONName maps the value-typed top-level JSON fields of
 // UpdateSettingsRequest to the setting key each one writes. Resolved once from
 // the struct tags so new fields are covered without touching this file.
@@ -381,10 +358,6 @@ func buildSettingKeyByJSONName() map[string]string {
 		}
 		name, _, _ := strings.Cut(field.Tag.Get("json"), ",")
 		if name == "" || name == "-" {
-			continue
-		}
-		if alias, ok := settingKeyJSONAliases[name]; ok {
-			out[name] = alias
 			continue
 		}
 		out[name] = name
@@ -518,35 +491,16 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	if req.AdminRechargeRebateEnabled != nil {
 		adminRechargeRebateEnabled = *req.AdminRechargeRebateEnabled
 	}
-	req.SMTPHost = strings.TrimSpace(req.SMTPHost)
-	req.SMTPUsername = strings.TrimSpace(req.SMTPUsername)
-	req.SMTPPassword = strings.TrimSpace(req.SMTPPassword)
-	req.SMTPFrom = strings.TrimSpace(req.SMTPFrom)
-	req.SMTPFromName = strings.TrimSpace(req.SMTPFromName)
 	req.TencentCaptchaAppID = strings.TrimSpace(req.TencentCaptchaAppID)
 	req.TencentCaptchaAppSecretKey = strings.TrimSpace(req.TencentCaptchaAppSecretKey)
 	req.TencentCaptchaCloudSecretID = strings.TrimSpace(req.TencentCaptchaCloudSecretID)
 	req.TencentCaptchaCloudSecretKey = strings.TrimSpace(req.TencentCaptchaCloudSecretKey)
-	if req.SMTPPort <= 0 {
-		req.SMTPPort = 587
-	}
 	req.DefaultSubscriptions = normalizeDefaultSubscriptions(req.DefaultSubscriptions)
 	req.AuthSourceDefaultEmailSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultEmailSubscriptions)
 	req.AuthSourceDefaultLinuxDoSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultLinuxDoSubscriptions)
 	req.AuthSourceDefaultOIDCSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultOIDCSubscriptions)
 	req.AuthSourceDefaultWeChatSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultWeChatSubscriptions)
 	req.AuthSourceDefaultDingTalkSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultDingTalkSubscriptions)
-
-	// SMTP 配置保护：如果请求中 smtp_host 为空但数据库中已有配置，则保留已有 SMTP 配置
-	// 防止前端加载设置失败时空表单覆盖已保存的 SMTP 配置
-	if req.SMTPHost == "" && previousSettings.SMTPHost != "" {
-		req.SMTPHost = previousSettings.SMTPHost
-		req.SMTPPort = previousSettings.SMTPPort
-		req.SMTPUsername = previousSettings.SMTPUsername
-		req.SMTPFrom = previousSettings.SMTPFrom
-		req.SMTPFromName = previousSettings.SMTPFromName
-		req.SMTPUseTLS = previousSettings.SMTPUseTLS
-	}
 
 	turnstileEnabled := req.TurnstileEnabled
 	if _, sent := sentFields["turnstile_enabled"]; !sent {
@@ -1187,17 +1141,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	settings := &service.SystemSettings{
 		AccountSchedulingThresholds: req.AccountSchedulingThresholds,
 
-		EmailVerifyEnabled:                  req.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:    req.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled: registrationEmailDomainQuotaEnabled,
 		StepUpEnabled:                       stepUpEnabled,
-		SMTPHost:                            req.SMTPHost,
-		SMTPPort:                            req.SMTPPort,
-		SMTPUsername:                        req.SMTPUsername,
-		SMTPPassword:                        req.SMTPPassword,
-		SMTPFrom:                            req.SMTPFrom,
-		SMTPFromName:                        req.SMTPFromName,
-		SMTPUseTLS:                          req.SMTPUseTLS,
 		TurnstileEnabled:                    req.TurnstileEnabled,
 		TurnstileSiteKey:                    req.TurnstileSiteKey,
 		TurnstileSecretKey:                  req.TurnstileSecretKey,
@@ -1301,12 +1247,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		IdentityPatchPrompt:                    req.IdentityPatchPrompt,
 		MinClaudeCodeVersion:                   req.MinClaudeCodeVersion,
 		MaxClaudeCodeVersion:                   req.MaxClaudeCodeVersion,
-		AllowUserViewErrorRequests: func() bool {
-			if req.AllowUserViewErrorRequests != nil {
-				return *req.AllowUserViewErrorRequests
-			}
-			return previousSettings.AllowUserViewErrorRequests
-		}(),
 		ProfitControlEnabled: func() bool {
 			if req.ProfitControlEnabled != nil {
 				return *req.ProfitControlEnabled
@@ -1469,42 +1409,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 				return *req.PaymentVisibleMethodWxpayEnabled
 			}
 			return previousSettings.PaymentVisibleMethodWxpayEnabled
-		}(),
-		BalanceLowNotifyEnabled: func() bool {
-			if req.BalanceLowNotifyEnabled != nil {
-				return *req.BalanceLowNotifyEnabled
-			}
-			return previousSettings.BalanceLowNotifyEnabled
-		}(),
-		BalanceLowNotifyThreshold: func() float64 {
-			if req.BalanceLowNotifyThreshold != nil {
-				return *req.BalanceLowNotifyThreshold
-			}
-			return previousSettings.BalanceLowNotifyThreshold
-		}(),
-		BalanceLowNotifyRechargeURL: func() string {
-			if req.BalanceLowNotifyRechargeURL != nil {
-				return *req.BalanceLowNotifyRechargeURL
-			}
-			return previousSettings.BalanceLowNotifyRechargeURL
-		}(),
-		SubscriptionExpiryNotifyEnabled: func() bool {
-			if req.SubscriptionExpiryNotifyEnabled != nil {
-				return *req.SubscriptionExpiryNotifyEnabled
-			}
-			return previousSettings.SubscriptionExpiryNotifyEnabled
-		}(),
-		AccountQuotaNotifyEnabled: func() bool {
-			if req.AccountQuotaNotifyEnabled != nil {
-				return *req.AccountQuotaNotifyEnabled
-			}
-			return previousSettings.AccountQuotaNotifyEnabled
-		}(),
-		AccountQuotaNotifyEmails: func() []service.NotifyEmailEntry {
-			if req.AccountQuotaNotifyEmails != nil {
-				return dto.NotifyEmailEntriesToService(*req.AccountQuotaNotifyEmails)
-			}
-			return previousSettings.AccountQuotaNotifyEmails
 		}(),
 		ChannelMonitorEnabled: func() bool {
 			if req.ChannelMonitorEnabled != nil {
@@ -1728,17 +1632,9 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	}
 
 	payload := dto.SystemSettings{
-		EmailVerifyEnabled:                     updatedSettings.EmailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled:    updatedSettings.RegistrationEmailDomainQuotaEnabled,
 		StepUpEnabled:                          updatedSettings.StepUpEnabled,
-		SMTPHost:                               updatedSettings.SMTPHost,
-		SMTPPort:                               updatedSettings.SMTPPort,
-		SMTPUsername:                           updatedSettings.SMTPUsername,
-		SMTPPasswordConfigured:                 updatedSettings.SMTPPasswordConfigured,
-		SMTPFrom:                               updatedSettings.SMTPFrom,
-		SMTPFromName:                           updatedSettings.SMTPFromName,
-		SMTPUseTLS:                             updatedSettings.SMTPUseTLS,
 		TurnstileEnabled:                       updatedSettings.TurnstileEnabled,
 		TurnstileSiteKey:                       updatedSettings.TurnstileSiteKey,
 		TurnstileSecretKeyConfigured:           updatedSettings.TurnstileSecretKeyConfigured,
@@ -1865,12 +1761,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentVisibleMethodWxpaySource:        updatedSettings.PaymentVisibleMethodWxpaySource,
 		PaymentVisibleMethodAlipayEnabled:      updatedSettings.PaymentVisibleMethodAlipayEnabled,
 		PaymentVisibleMethodWxpayEnabled:       updatedSettings.PaymentVisibleMethodWxpayEnabled,
-		BalanceLowNotifyEnabled:                updatedSettings.BalanceLowNotifyEnabled,
-		BalanceLowNotifyThreshold:              updatedSettings.BalanceLowNotifyThreshold,
-		BalanceLowNotifyRechargeURL:            updatedSettings.BalanceLowNotifyRechargeURL,
-		SubscriptionExpiryNotifyEnabled:        updatedSettings.SubscriptionExpiryNotifyEnabled,
-		AccountQuotaNotifyEnabled:              updatedSettings.AccountQuotaNotifyEnabled,
-		AccountQuotaNotifyEmails:               dto.NotifyEmailEntriesFromService(updatedSettings.AccountQuotaNotifyEmails),
 		PaymentEnabled:                         updatedPaymentCfg.Enabled,
 		PaymentMinAmount:                       updatedPaymentCfg.MinAmount,
 		PaymentMaxAmount:                       updatedPaymentCfg.MaxAmount,
@@ -1912,7 +1802,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		CyberSessionBlockEnabled:    updatedSettings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds: updatedSettings.CyberSessionBlockTTLSeconds,
 		AccountSchedulingThresholds: updatedSettings.AccountSchedulingThresholds,
-		AllowUserViewErrorRequests:  updatedSettings.AllowUserViewErrorRequests,
 		ProfitControlEnabled:        updatedSettings.ProfitControlEnabled,
 		ProfitMinMargin:             updatedSettings.ProfitMinMargin,
 		ProfitSafetyBuffer:          updatedSettings.ProfitSafetyBuffer,

@@ -975,8 +975,8 @@ func ProvideSubscriptionService(planRepo SubscriptionPlanRepository, userSubRepo
 }
 
 // ProvideBalanceNotifyService creates BalanceNotifyService
-func ProvideBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountRepository, notificationEmailService *NotificationEmailService) *BalanceNotifyService {
-	svc := NewBalanceNotifyService(emailService, settingRepo, accountRepo)
+func ProvideBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountRepository, notificationEmailService *NotificationEmailService, userRepo UserRepository, cfg *config.Config) *BalanceNotifyService {
+	svc := NewBalanceNotifyService(emailService, settingRepo, accountRepo, userRepo, cfg)
 	svc.SetNotificationEmailService(notificationEmailService)
 	return svc
 }

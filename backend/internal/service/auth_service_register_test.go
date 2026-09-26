@@ -189,6 +189,11 @@ func (s *emailCacheStub) IncrNotifyCodeUserRate(ctx context.Context, userID int6
 }
 
 func newAuthService(repo *userRepoStub, settings map[string]string, emailCache EmailCache) *AuthService {
+	return newAuthServiceWithSMTP(repo, settings, emailCache, false)
+}
+
+// newAuthServiceWithSMTP smtpConfigured 为真时配了 SMTP，注册就要验证邮箱。
+func newAuthServiceWithSMTP(repo *userRepoStub, settings map[string]string, emailCache EmailCache, smtpConfigured bool) *AuthService {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
 			Secret:     "test-secret",
@@ -200,6 +205,10 @@ func newAuthService(repo *userRepoStub, settings map[string]string, emailCache E
 		},
 	}
 
+	if smtpConfigured {
+		cfg.SMTP = testSMTPConfigured
+	}
+
 	var settingService *SettingService
 	if settings != nil {
 		settingService = NewSettingService(&settingRepoStub{values: settings}, cfg)
@@ -207,7 +216,7 @@ func newAuthService(repo *userRepoStub, settings map[string]string, emailCache E
 
 	var emailService *EmailService
 	if emailCache != nil {
-		emailService = NewEmailService(&settingRepoStub{values: settings}, emailCache)
+		emailService = NewEmailService(&settingRepoStub{values: settings}, emailCache, cfg)
 	}
 
 	return NewAuthService(
@@ -237,9 +246,7 @@ func TestAuthService_Register_DisabledByDefault(t *testing.T) {
 func TestAuthService_Register_EmailVerifyEnabledButServiceNotConfigured(t *testing.T) {
 	repo := &userRepoStub{}
 	// 邮件验证开启但 emailCache 为 nil（emailService 未配置）
-	service := newAuthService(repo, map[string]string{
-		SettingKeyEmailVerifyEnabled: "true",
-	}, nil)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, nil, true)
 
 	// 应返回服务不可用错误，而不是允许绕过验证
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "any-code", "", "")
@@ -249,9 +256,7 @@ func TestAuthService_Register_EmailVerifyEnabledButServiceNotConfigured(t *testi
 func TestAuthService_Register_EmailVerifyRequired(t *testing.T) {
 	repo := &userRepoStub{}
 	cache := &emailCacheStub{} // 配置 emailService
-	service := newAuthService(repo, map[string]string{
-		SettingKeyEmailVerifyEnabled: "true",
-	}, cache)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, cache, true)
 
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "", "", "")
 	require.ErrorIs(t, err, ErrEmailVerifyRequired)
@@ -262,9 +267,7 @@ func TestAuthService_Register_EmailVerifyInvalid(t *testing.T) {
 	cache := &emailCacheStub{
 		data: &VerificationCodeData{Code: "expected", Attempts: 0},
 	}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyEmailVerifyEnabled: "true",
-	}, cache)
+	service := newAuthServiceWithSMTP(repo, map[string]string{}, cache, true)
 
 	_, _, err := service.RegisterWithVerification(context.Background(), "user@test.com", "password", "wrong", "", "")
 	require.ErrorIs(t, err, ErrInvalidVerifyCode)

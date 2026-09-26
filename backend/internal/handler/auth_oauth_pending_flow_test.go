@@ -2223,8 +2223,11 @@ CREATE TABLE IF NOT EXISTS user_affiliates (
 		},
 		Totp: config.TotpConfig{EncryptionKeyConfigured: options.totpKeyConfigured},
 	}
+	// 邮箱验证跟着 SMTP 走：要验证邮箱的用例就配上 SMTP
+	if options.emailVerifyEnabled {
+		cfg.SMTP = config.SMTPConfig{Host: "smtp.example.com", From: "noreply@example.com"}
+	}
 	settingValues := map[string]string{
-		service.SettingKeyEmailVerifyEnabled:               boolSettingValue(options.emailVerifyEnabled),
 		service.SettingKeyRegistrationEmailSuffixWhitelist: "[]",
 	}
 	for key, value := range options.settingValues {
@@ -2243,10 +2246,9 @@ CREATE TABLE IF NOT EXISTS user_affiliates (
 	var emailService *service.EmailService
 	if options.emailCache != nil {
 		emailService = service.NewEmailService(&oauthPendingFlowSettingRepoStub{
-			values: map[string]string{
-				service.SettingKeyEmailVerifyEnabled: boolSettingValue(options.emailVerifyEnabled),
-			},
-		}, options.emailCache)
+			values: map[string]string{},
+		}, options.emailCache, cfg)
+
 	}
 	authSvc := service.NewAuthService(
 		client,

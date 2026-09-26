@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"html"
 	"log/slog"
 	"strconv"
@@ -38,20 +39,30 @@ type AccountQuotaReader interface {
 	GetByID(ctx context.Context, id int64) (*Account, error)
 }
 
+// AdminEmailReader 渠道额度提醒的收件人：首个在用的管理员账号。
+type AdminEmailReader interface {
+	GetFirstAdmin(ctx context.Context) (*User, error)
+}
+
 // BalanceNotifyService handles balance and quota threshold notifications.
+// 通知由代码决定（site_features.go）：配了 SMTP 就开，阈值、收件人都不再从后台设置读。
 type BalanceNotifyService struct {
 	emailService             *EmailService
 	settingRepo              SettingRepository
 	accountRepo              AccountQuotaReader
+	admins                   AdminEmailReader
+	cfg                      *config.Config
 	notificationEmailService *NotificationEmailService
 }
 
 // NewBalanceNotifyService creates a new BalanceNotifyService.
-func NewBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountQuotaReader) *BalanceNotifyService {
+func NewBalanceNotifyService(emailService *EmailService, settingRepo SettingRepository, accountRepo AccountQuotaReader, admins AdminEmailReader, cfg *config.Config) *BalanceNotifyService {
 	return &BalanceNotifyService{
 		emailService: emailService,
 		settingRepo:  settingRepo,
 		accountRepo:  accountRepo,
+		admins:       admins,
+		cfg:          cfg,
 	}
 }
 
@@ -250,46 +261,34 @@ func (s *BalanceNotifyService) asyncSendQuotaAlert(adminEmails []string, account
 	}()
 }
 
-// getBalanceNotifyConfig reads global balance notification settings.
+// getBalanceNotifyConfig 余额提醒：配了 SMTP 就开，默认阈值与「立即充值」地址由代码决定。
 func (s *BalanceNotifyService) getBalanceNotifyConfig(ctx context.Context) (enabled bool, threshold float64, rechargeURL string) {
-	keys := []string{SettingKeyBalanceLowNotifyEnabled, SettingKeyBalanceLowNotifyThreshold, SettingKeyBalanceLowNotifyRechargeURL}
-	settings, err := s.settingRepo.GetMultiple(ctx, keys)
-	if err != nil {
+	if !s.emailService.Configured() {
 		return false, 0, ""
 	}
-	enabled = settings[SettingKeyBalanceLowNotifyEnabled] == "true"
-	if v := settings[SettingKeyBalanceLowNotifyThreshold]; v != "" {
-		if f, err := strconv.ParseFloat(v, 64); err == nil {
-			threshold = f
+	if s.cfg != nil {
+		if base := strings.TrimRight(strings.TrimSpace(s.cfg.Server.FrontendURL), "/"); base != "" {
+			rechargeURL = base + rechargePagePath
 		}
 	}
-	rechargeURL = settings[SettingKeyBalanceLowNotifyRechargeURL]
-	return
+	return true, BalanceLowNotifyThreshold, rechargeURL
 }
 
-// isAccountQuotaNotifyEnabled checks the global account quota notification toggle.
+// isAccountQuotaNotifyEnabled 渠道额度提醒：配了 SMTP 就开。
 func (s *BalanceNotifyService) isAccountQuotaNotifyEnabled(ctx context.Context) bool {
-	val, err := s.settingRepo.GetValue(ctx, SettingKeyAccountQuotaNotifyEnabled)
-	if err != nil {
-		return false
-	}
-	return val == "true"
+	return s.emailService.Configured()
 }
 
-// getAccountQuotaNotifyEmails reads admin notification emails from settings,
-// filtering out disabled and unverified entries.
+// getAccountQuotaNotifyEmails 渠道额度提醒发给管理员账号邮箱（首个在用的管理员）。
 func (s *BalanceNotifyService) getAccountQuotaNotifyEmails(ctx context.Context) []string {
-	raw, err := s.settingRepo.GetValue(ctx, SettingKeyAccountQuotaNotifyEmails)
-	if err != nil || strings.TrimSpace(raw) == "" || raw == "[]" {
+	if s.admins == nil {
 		return nil
 	}
-
-	entries := ParseNotifyEmails(raw)
-	if len(entries) == 0 {
+	admin, err := s.admins.GetFirstAdmin(ctx)
+	if err != nil || admin == nil || isReservedEmail(admin.Email) {
 		return nil
 	}
-
-	return filterVerifiedEmails(entries)
+	return filterVerifiedEmails([]NotifyEmailEntry{{Email: admin.Email, Verified: true}})
 }
 
 // filterVerifiedEmails returns deduplicated, non-disabled, verified emails.

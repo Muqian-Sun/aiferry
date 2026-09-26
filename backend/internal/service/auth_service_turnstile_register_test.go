@@ -60,10 +60,10 @@ func newAuthServiceForRegisterTurnstileTest(settings map[string]string, verifier
 func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
 	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyEmailVerifyEnabled: "true",
 		SettingKeyTurnstileEnabled:   "true",
 		SettingKeyTurnstileSecretKey: "secret",
 	}, verifier)
+	service.cfg.SMTP = testSMTPConfigured // 配了 SMTP：注册要验证邮箱
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "123456")
 	require.NoError(t, err)
@@ -73,10 +73,10 @@ func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(
 func TestAuthService_VerifyTurnstileForRegister_RequireWhenVerifyCodeMissing(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
 	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyEmailVerifyEnabled: "true",
 		SettingKeyTurnstileEnabled:   "true",
 		SettingKeyTurnstileSecretKey: "secret",
 	}, verifier)
+	service.cfg.SMTP = testSMTPConfigured // 配了 SMTP：注册要验证邮箱
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "")
 	require.ErrorIs(t, err, ErrTurnstileVerificationFailed)
@@ -85,7 +85,6 @@ func TestAuthService_VerifyTurnstileForRegister_RequireWhenVerifyCodeMissing(t *
 func TestAuthService_VerifyTurnstileForRegister_NoSkipWhenEmailVerifyDisabled(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
 	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyEmailVerifyEnabled: "false",
 		SettingKeyTurnstileEnabled:   "true",
 		SettingKeyTurnstileSecretKey: "secret",
 	}, verifier)

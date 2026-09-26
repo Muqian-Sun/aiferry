@@ -19,9 +19,8 @@ import (
 
 func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySMTPHost:         "smtp.example.com",
-		service.SettingKeySMTPFrom:         "noreply@example.com",
-		service.SettingKeyTurnstileEnabled: "true",
+		service.SettingKeyMinClaudeCodeVersion: "2.0.0",
+		service.SettingKeyMaxClaudeCodeVersion: "3.0.0",
 	})
 
 	rec := doUpdateSettings(t, h, map[string]any{"risk_control_enabled": true}, nil)
@@ -30,9 +29,8 @@ func TestUpdateSettingsPartialPayloadKeepsUnsentKeys(t *testing.T) {
 	require.Equal(t, "true", repo.values[service.SettingKeyRiskControlEnabled],
 		"the field the caller actually sent must be written")
 
-	require.Equal(t, "smtp.example.com", repo.values[service.SettingKeySMTPHost])
-	require.Equal(t, "noreply@example.com", repo.values[service.SettingKeySMTPFrom])
-	require.Equal(t, "true", repo.values[service.SettingKeyTurnstileEnabled])
+	require.Equal(t, "2.0.0", repo.values[service.SettingKeyMinClaudeCodeVersion])
+	require.Equal(t, "3.0.0", repo.values[service.SettingKeyMaxClaudeCodeVersion])
 }
 
 // A full payload keeps whole-document semantics: fields explicitly set to their
@@ -47,19 +45,6 @@ func TestUpdateSettingsFullPayloadStillClearsSentEmptyFields(t *testing.T) {
 
 	require.Equal(t, "", repo.values[service.SettingKeyMinClaudeCodeVersion],
 		"an explicitly sent empty value is a deliberate clear, not an omission")
-}
-
-// smtp_from_email is the one request field whose JSON name differs from its
-// setting key; the alias keeps it from being treated as always-omitted.
-func TestUpdateSettingsSMTPFromAliasIsWritable(t *testing.T) {
-	h, repo := newStepUpSwitchTestHandler(t, map[string]string{
-		service.SettingKeySMTPFrom: "old@example.com",
-	})
-
-	rec := doUpdateSettings(t, h, map[string]any{"smtp_from_email": "new@example.com"}, nil)
-	require.Equal(t, http.StatusOK, rec.Code)
-
-	require.Equal(t, "new@example.com", repo.values[service.SettingKeySMTPFrom])
 }
 
 func TestUpdateSettingsGrokDefaultBaseURLModeIsWritable(t *testing.T) {

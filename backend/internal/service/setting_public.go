@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
-	"log/slog"
 	"net/url"
 	"strconv"
 	"strings"
@@ -110,7 +109,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingKeyEmailVerifyEnabled,
 		SettingKeyForceEmailOnThirdPartySignup,
 		SettingKeyRegistrationEmailSuffixWhitelist,
 		SettingKeyRegistrationEmailDomainQuotaEnabled,
@@ -151,10 +149,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyGoogleOAuthEnabled,
 		SettingKeyGoogleOAuthClientID,
 		SettingKeyGoogleOAuthClientSecret,
-		SettingKeyBalanceLowNotifyEnabled,
-		SettingKeyBalanceLowNotifyThreshold,
-		SettingKeyBalanceLowNotifyRechargeURL,
-		SettingKeyAccountQuotaNotifyEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
 		SettingKeyChannelMonitorHideThroughput,
@@ -163,7 +157,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyPluginManagementEnabled,
 		SettingKeyAffiliateEnabled,
 		SettingKeyRiskControlEnabled,
-		SettingKeyAllowUserViewErrorRequests,
 	}
 
 	settings, err := s.settingRepo.GetMultiple(ctx, keys)
@@ -201,16 +194,19 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	weChatEnabled, weChatOpenEnabled, weChatMPEnabled, weChatMobileEnabled := s.weChatOAuthCapabilitiesFromSettings(settings)
 
 	// 忘记密码跟着邮箱验证走
-	emailVerifyEnabled := settings[SettingKeyEmailVerifyEnabled] == "true"
+	// 邮箱验证、忘记密码都跟着 SMTP 走（能发信才开）
+	emailVerifyEnabled := s.smtpConfigured()
 	passwordResetEnabled := emailVerifyEnabled
 	registrationEmailSuffixWhitelist := ParseRegistrationEmailSuffixWhitelist(
 		settings[SettingKeyRegistrationEmailSuffixWhitelist],
 	)
 	loginAgreementDocuments := LoginAgreementDocuments()
 
-	var balanceLowNotifyThreshold float64
-	if v, err := strconv.ParseFloat(settings[SettingKeyBalanceLowNotifyThreshold], 64); err == nil && v >= 0 {
-		balanceLowNotifyThreshold = v
+	// 通知跟着 SMTP 走，阈值与充值页由代码决定
+	notifyEnabled := s.smtpConfigured()
+	rechargeURL := ""
+	if base := strings.TrimRight(s.GetFrontendURL(ctx), "/"); base != "" {
+		rechargeURL = base + rechargePagePath
 	}
 
 	return &PublicSettings{
@@ -259,10 +255,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		OIDCOAuthProviderName:       oidcProviderName,
 		GitHubOAuthEnabled:          gitHubEnabled,
 		GoogleOAuthEnabled:          googleEnabled,
-		BalanceLowNotifyEnabled:     settings[SettingKeyBalanceLowNotifyEnabled] == "true",
-		AccountQuotaNotifyEnabled:   settings[SettingKeyAccountQuotaNotifyEnabled] == "true",
-		BalanceLowNotifyThreshold:   balanceLowNotifyThreshold,
-		BalanceLowNotifyRechargeURL: settings[SettingKeyBalanceLowNotifyRechargeURL],
+		BalanceLowNotifyEnabled:     notifyEnabled,
+		AccountQuotaNotifyEnabled:   notifyEnabled,
+		BalanceLowNotifyThreshold:   BalanceLowNotifyThreshold,
+		BalanceLowNotifyRechargeURL: rechargeURL,
 
 		ChannelMonitorEnabled:                !isFalseSettingValue(settings[SettingKeyChannelMonitorEnabled]),
 		ChannelMonitorMode:                   ChannelMonitorModeV2,
@@ -277,7 +273,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 
 		RiskControlEnabled: settings[SettingKeyRiskControlEnabled] == "true",
 
-		AllowUserViewErrorRequests: settings[SettingKeyAllowUserViewErrorRequests] == "true",
+		AllowUserViewErrorRequests: AllowUserViewErrorRequests,
 	}, nil
 }
 
@@ -386,12 +382,7 @@ func (s *SettingService) GetModelPlazaDescription(ctx context.Context) string {
 // IsUserErrorViewAllowed reads the user-facing error-requests visibility switch
 // directly from the settings store. Fail-closed: on error returns false (opt-in default).
 func (s *SettingService) IsUserErrorViewAllowed(ctx context.Context) bool {
-	vals, err := s.settingRepo.GetMultiple(ctx, []string{SettingKeyAllowUserViewErrorRequests})
-	if err != nil {
-		slog.Warn("failed to get allow_user_view_error_requests setting, defaulting to false", "error", err)
-		return false
-	}
-	return vals[SettingKeyAllowUserViewErrorRequests] == "true"
+	return AllowUserViewErrorRequests
 }
 
 // PublicSettingsInjectionPayload is the JSON shape embedded into HTML as

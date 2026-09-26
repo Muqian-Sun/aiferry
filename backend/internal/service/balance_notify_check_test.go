@@ -4,23 +4,31 @@ package service
 
 import (
 	"context"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"testing"
 
 	"github.com/stretchr/testify/require"
 )
 
-// newBalanceNotifyServiceForTest constructs a BalanceNotifyService with an
-// in-memory settings repo and a non-nil emailService so that the guard-clause
-// nil-checks pass. The emailService is intentionally minimal — tests must
-// avoid crossing scenarios that would actually dispatch emails.
+// newBalanceNotifyServiceForTest 未配 SMTP 的余额提醒服务：提醒一律关着。
 func newBalanceNotifyServiceForTest() (*BalanceNotifyService, *mockSettingRepo) {
-	repo := newMockSettingRepo()
-	// EmailService is a concrete type; construct with the same repo so that
-	// any accidental fallback reads still succeed. Tests should not trigger a
-	// crossing that reaches SendEmail.
-	email := NewEmailService(repo, nil)
-	return NewBalanceNotifyService(email, repo, nil), repo
+	return newBalanceNotifyServiceWith(nil, nil)
 }
+
+// newBalanceNotifyServiceWith cfg 决定配没配 SMTP、用户站地址；admins 给渠道额度提醒找收件人。
+// 用例要避开真正会发信的越线场景（发信走 goroutine，会去连 cfg 里的 SMTP）。
+func newBalanceNotifyServiceWith(cfg *config.Config, admins AdminEmailReader) (*BalanceNotifyService, *mockSettingRepo) {
+	repo := newMockSettingRepo()
+	email := NewEmailService(repo, nil, cfg)
+	return NewBalanceNotifyService(email, repo, nil, admins, cfg), repo
+}
+
+type firstAdminStub struct {
+	user *User
+	err  error
+}
+
+func (s firstAdminStub) GetFirstAdmin(context.Context) (*User, error) { return s.user, s.err }
 
 // ---------- guard clauses ----------
 
@@ -31,55 +39,46 @@ func TestCheckBalanceAfterDeduction_NilUser(t *testing.T) {
 }
 
 func TestCheckBalanceAfterDeduction_UserNotifyDisabled(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "10"
+	s, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
 	u := &User{ID: 1, BalanceNotifyEnabled: false}
 	// Even with a crossing, disabled flag short-circuits.
-	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 15)
+	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 0.5)
 }
 
-func TestCheckBalanceAfterDeduction_GlobalDisabled(t *testing.T) {
+func TestCheckBalanceAfterDeduction_SMTPNotConfigured(t *testing.T) {
 	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "false"
+	repo.data["balance_low_notify_enabled"] = "true" // 旧后台开关留下的行，不再生效
 	u := &User{ID: 1, BalanceNotifyEnabled: true}
-	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 15)
+	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 19.5)
 }
 
-func TestCheckBalanceAfterDeduction_ThresholdZero(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "0"
-	u := &User{ID: 1, BalanceNotifyEnabled: true}
-	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 15)
+func TestCheckBalanceAfterDeduction_UserThresholdZero(t *testing.T) {
+	s, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
+	zero := 0.0
+	u := &User{ID: 1, BalanceNotifyEnabled: true, BalanceNotifyThreshold: &zero}
+	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 19.5)
 }
 
 func TestCheckBalanceAfterDeduction_UserThresholdOverride(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "100" // global default
+	s, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
 	customThreshold := 5.0
 	u := &User{
 		ID:                     1,
 		BalanceNotifyEnabled:   true,
 		BalanceNotifyThreshold: &customThreshold,
 	}
-	// User's 5.0 threshold takes precedence over global 100. 20 -> 15 does not
-	// cross 5, so nothing fires (verified by absence of panic).
-	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 15)
+	// 用户自己的 5.0 覆盖默认阈值；20 -> 15 没跨过 5，不发（以不 panic 为准）。
+	s.CheckBalanceAfterDeduction(context.Background(), u, 20, 5)
 }
 
 func TestCheckBalanceAfterDeduction_NoCrossingNotFired(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "10"
+	s, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
 	u := &User{ID: 1, BalanceNotifyEnabled: true}
 
-	// 100 -> 95, both remain above threshold=10, no crossing.
+	// 100 -> 95，都在默认阈值之上，没越线。
 	s.CheckBalanceAfterDeduction(context.Background(), u, 100, 5)
-	// 5 -> 3, both already below threshold, no crossing (only fires on first
-	// cross from above-to-below).
-	s.CheckBalanceAfterDeduction(context.Background(), u, 5, 2)
+	// 0.5 -> 0.3，已经在阈值之下，不算越线（只在从上往下第一次越过时发）。
+	s.CheckBalanceAfterDeduction(context.Background(), u, 0.5, 0.2)
 }
 
 // ---------- nil-service guards on CheckAccountQuotaAfterIncrement ----------
@@ -102,9 +101,9 @@ func TestCheckAccountQuotaAfterIncrement_NegativeCost(t *testing.T) {
 	s.CheckAccountQuotaAfterIncrement(context.Background(), a, -5, nil)
 }
 
-func TestCheckAccountQuotaAfterIncrement_GlobalDisabled(t *testing.T) {
+func TestCheckAccountQuotaAfterIncrement_SMTPNotConfigured(t *testing.T) {
 	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyAccountQuotaNotifyEnabled] = "false"
+	repo.data["account_quota_notify_enabled"] = "true" // 旧后台开关留下的行，不再生效
 	a := &Account{
 		ID:       1,
 		Platform: PlatformAnthropic,
@@ -117,55 +116,62 @@ func TestCheckAccountQuotaAfterIncrement_GlobalDisabled(t *testing.T) {
 		},
 		ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"},
 	}
-	// Global disabled → no processing even if a dim would cross.
+	// 没配 SMTP → 即使越线也不处理。
 	s.CheckAccountQuotaAfterIncrement(context.Background(), a, 100, nil)
 }
 
-// ---------- sanity: internal helpers still work ----------
+// ---------- 通知由代码决定：跟着 SMTP 走，阈值与充值页写死 ----------
 
-func TestGetBalanceNotifyConfig_AllFields(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "12.5"
-	repo.data[SettingKeyBalanceLowNotifyRechargeURL] = "https://example.com/pay"
+func TestGetBalanceNotifyConfig_FollowsSMTPAndCode(t *testing.T) {
+	cfg := smtpConfiguredForTest()
+	cfg.Server.FrontendURL = "https://user.example/"
+	s, repo := newBalanceNotifyServiceWith(cfg, nil)
+	// 旧后台设置留下的行都不再生效
+	repo.data["balance_low_notify_enabled"] = "false"
+	repo.data["balance_low_notify_threshold"] = "12.5"
+	repo.data["balance_low_notify_recharge_url"] = "https://admin.example/pay"
 
 	enabled, threshold, url := s.getBalanceNotifyConfig(context.Background())
 	require.True(t, enabled)
-	require.Equal(t, 12.5, threshold)
-	require.Equal(t, "https://example.com/pay", url)
+	require.Equal(t, BalanceLowNotifyThreshold, threshold)
+	require.Equal(t, "https://user.example/billing/recharge", url)
 }
 
-func TestGetBalanceNotifyConfig_Disabled(t *testing.T) {
+func TestGetBalanceNotifyConfig_DisabledWithoutSMTP(t *testing.T) {
 	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "false"
+	repo.data["balance_low_notify_enabled"] = "true"
 
 	enabled, _, _ := s.getBalanceNotifyConfig(context.Background())
 	require.False(t, enabled)
 }
 
-func TestGetBalanceNotifyConfig_InvalidThreshold(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
-	repo.data[SettingKeyBalanceLowNotifyEnabled] = "true"
-	repo.data[SettingKeyBalanceLowNotifyThreshold] = "not-a-number"
+func TestGetBalanceNotifyConfig_NoFrontendURLNoRechargeLink(t *testing.T) {
+	s, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
 
-	enabled, threshold, _ := s.getBalanceNotifyConfig(context.Background())
+	enabled, _, url := s.getBalanceNotifyConfig(context.Background())
 	require.True(t, enabled)
-	require.Equal(t, 0.0, threshold)
+	require.Empty(t, url)
 }
 
-func TestIsAccountQuotaNotifyEnabled(t *testing.T) {
-	s, repo := newBalanceNotifyServiceForTest()
+func TestIsAccountQuotaNotifyEnabled_FollowsSMTP(t *testing.T) {
+	off, repo := newBalanceNotifyServiceForTest()
+	repo.data["account_quota_notify_enabled"] = "true"
+	require.False(t, off.isAccountQuotaNotifyEnabled(context.Background()))
 
-	// Missing key → false
-	require.False(t, s.isAccountQuotaNotifyEnabled(context.Background()))
+	on, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), nil)
+	require.True(t, on.isAccountQuotaNotifyEnabled(context.Background()))
+}
 
-	// Explicit "false"
-	repo.data[SettingKeyAccountQuotaNotifyEnabled] = "false"
-	require.False(t, s.isAccountQuotaNotifyEnabled(context.Background()))
+func TestGetAccountQuotaNotifyEmails_FirstAdmin(t *testing.T) {
+	s, repo := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{user: &User{Email: "admin@example.com"}})
+	repo.data["account_quota_notify_emails"] = `[{"email":"stale@example.com","verified":true}]`
+	require.Equal(t, []string{"admin@example.com"}, s.getAccountQuotaNotifyEmails(context.Background()))
 
-	// Explicit "true"
-	repo.data[SettingKeyAccountQuotaNotifyEnabled] = "true"
-	require.True(t, s.isAccountQuotaNotifyEnabled(context.Background()))
+	none, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{err: ErrUserNotFound})
+	require.Empty(t, none.getAccountQuotaNotifyEmails(context.Background()))
+
+	synthetic, _ := newBalanceNotifyServiceWith(smtpConfiguredForTest(), firstAdminStub{user: &User{Email: "7" + OIDCConnectSyntheticEmailDomain}})
+	require.Empty(t, synthetic.getAccountQuotaNotifyEmails(context.Background()))
 }
 
 // ---------- crossedDownward ----------

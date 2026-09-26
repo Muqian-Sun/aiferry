@@ -19,13 +19,14 @@ func (s *SettingService) IsRegistrationEnabled(ctx context.Context) bool {
 	return RegistrationOpen
 }
 
-// IsEmailVerifyEnabled 检查是否开启邮件验证
+// IsEmailVerifyEnabled 注册要不要验证邮箱：配了 SMTP 就要（能发信才能验证），不再有后台开关。
 func (s *SettingService) IsEmailVerifyEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyEmailVerifyEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
+	return s.smtpConfigured()
+}
+
+// smtpConfigured 部署时配了 SMTP（主机与发件人）。
+func (s *SettingService) smtpConfigured() bool {
+	return s != nil && s.cfg != nil && s.cfg.SMTP.Configured()
 }
 
 // IsRegistrationEmailDomainQuotaEnabled 检查白名单非空时是否放行非白名单域名限量注册。

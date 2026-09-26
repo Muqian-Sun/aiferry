@@ -32,9 +32,6 @@ func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.Sys
 
 func diffSettings(before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) []string {
 	changed := make([]string, 0, 20)
-	if before.EmailVerifyEnabled != after.EmailVerifyEnabled {
-		changed = append(changed, "email_verify_enabled")
-	}
 	if !equalStringSlice(before.RegistrationEmailSuffixWhitelist, after.RegistrationEmailSuffixWhitelist) {
 		changed = append(changed, "registration_email_suffix_whitelist")
 	}
@@ -43,27 +40,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.StepUpEnabled != after.StepUpEnabled {
 		changed = append(changed, "step_up_enabled")
-	}
-	if before.SMTPHost != after.SMTPHost {
-		changed = append(changed, "smtp_host")
-	}
-	if before.SMTPPort != after.SMTPPort {
-		changed = append(changed, "smtp_port")
-	}
-	if before.SMTPUsername != after.SMTPUsername {
-		changed = append(changed, "smtp_username")
-	}
-	if req.SMTPPassword != "" {
-		changed = append(changed, "smtp_password")
-	}
-	if before.SMTPFrom != after.SMTPFrom {
-		changed = append(changed, "smtp_from_email")
-	}
-	if before.SMTPFromName != after.SMTPFromName {
-		changed = append(changed, "smtp_from_name")
-	}
-	if before.SMTPUseTLS != after.SMTPUseTLS {
-		changed = append(changed, "smtp_use_tls")
 	}
 	if before.TurnstileEnabled != after.TurnstileEnabled {
 		changed = append(changed, "turnstile_enabled")
@@ -402,24 +378,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 		changed = append(changed, "payment_visible_method_wxpay_enabled")
 	}
 	// 余额、订阅到期与账号限额通知
-	if before.BalanceLowNotifyEnabled != after.BalanceLowNotifyEnabled {
-		changed = append(changed, "balance_low_notify_enabled")
-	}
-	if before.BalanceLowNotifyThreshold != after.BalanceLowNotifyThreshold {
-		changed = append(changed, "balance_low_notify_threshold")
-	}
-	if before.BalanceLowNotifyRechargeURL != after.BalanceLowNotifyRechargeURL {
-		changed = append(changed, "balance_low_notify_recharge_url")
-	}
-	if before.SubscriptionExpiryNotifyEnabled != after.SubscriptionExpiryNotifyEnabled {
-		changed = append(changed, "subscription_expiry_notify_enabled")
-	}
-	if before.AccountQuotaNotifyEnabled != after.AccountQuotaNotifyEnabled {
-		changed = append(changed, "account_quota_notify_enabled")
-	}
-	if !equalNotifyEmailEntries(before.AccountQuotaNotifyEmails, after.AccountQuotaNotifyEmails) {
-		changed = append(changed, "account_quota_notify_emails")
-	}
 	if before.ChannelMonitorEnabled != after.ChannelMonitorEnabled {
 		changed = append(changed, "channel_monitor_enabled")
 	}
@@ -590,18 +548,6 @@ func equalIntSlice(a, b []int) bool {
 	}
 	for i := range a {
 		if a[i] != b[i] {
-			return false
-		}
-	}
-	return true
-}
-
-func equalNotifyEmailEntries(a, b []service.NotifyEmailEntry) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].Email != b[i].Email || a[i].Verified != b[i].Verified || a[i].Disabled != b[i].Disabled {
 			return false
 		}
 	}

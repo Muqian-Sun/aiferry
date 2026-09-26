@@ -12,19 +12,9 @@ func firstNonEmpty(values ...string) string {
 }
 
 type SystemSettings struct {
-	EmailVerifyEnabled                  bool
 	RegistrationEmailSuffixWhitelist    []string
 	RegistrationEmailDomainQuotaEnabled bool // 白名单非空时放行非白名单域名限量注册（默认关闭）
 	StepUpEnabled                       bool // 敏感操作 step-up 2FA 门控
-
-	SMTPHost               string
-	SMTPPort               int
-	SMTPUsername           string
-	SMTPPassword           string
-	SMTPPasswordConfigured bool
-	SMTPFrom               string
-	SMTPFromName           string
-	SMTPUseTLS             bool
 
 	TurnstileEnabled                       bool
 	TurnstileSiteKey                       string
@@ -217,22 +207,15 @@ type SystemSettings struct {
 	// OpenAI 账号调度
 
 	// 余额不足提醒
-	BalanceLowNotifyEnabled     bool
-	BalanceLowNotifyThreshold   float64
-	BalanceLowNotifyRechargeURL string
 
 	// 订阅到期提醒
-	SubscriptionExpiryNotifyEnabled bool
 
 	// 账号限额通知
-	AccountQuotaNotifyEnabled bool
-	AccountQuotaNotifyEmails  []NotifyEmailEntry
 
 	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
 
 	// 允许终端用户在用量页查看自己的失败请求
-	AllowUserViewErrorRequests bool
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool

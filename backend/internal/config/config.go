@@ -72,6 +72,7 @@ type Config struct {
 	Security                SecurityConfig                `mapstructure:"security"`
 	Billing                 BillingConfig                 `mapstructure:"billing"`
 	Turnstile               TurnstileConfig               `mapstructure:"turnstile"`
+	SMTP                    SMTPConfig                    `mapstructure:"smtp"`
 	Database                DatabaseConfig                `mapstructure:"database"`
 	Redis                   RedisConfig                   `mapstructure:"redis"`
 	Ops                     OpsConfig                     `mapstructure:"ops"`
@@ -1650,6 +1651,22 @@ type TotpConfig struct {
 	EncryptionKeyConfigured bool `mapstructure:"-"`
 }
 
+// SMTPConfig 发信用的 SMTP 服务器（部署时配置，后台不能改）。host 与 from 都配了才算「配了 SMTP」：
+// 邮箱验证、忘记密码、余额 / 渠道额度 / 订阅到期提醒都跟着它开关。发件人名称用站点名。
+type SMTPConfig struct {
+	Host     string `mapstructure:"host"`
+	Port     int    `mapstructure:"port"`
+	Username string `mapstructure:"username"`
+	Password string `mapstructure:"password"`
+	From     string `mapstructure:"from"`
+	UseTLS   bool   `mapstructure:"use_tls"`
+}
+
+// Configured 主机与发件人都配了。
+func (c SMTPConfig) Configured() bool {
+	return strings.TrimSpace(c.Host) != "" && strings.TrimSpace(c.From) != ""
+}
+
 type TurnstileConfig struct {
 	Required bool `mapstructure:"required"`
 }
@@ -2599,6 +2616,14 @@ func setEnvReachableDefaults() {
 	// called without arguments.
 	_ = viper.BindEnv("server.trusted_proxies", "SERVER_TRUSTED_PROXIES")
 	_ = viper.BindEnv("security.forwarded_client_ip_headers", "SECURITY_FORWARDED_CLIENT_IP_HEADERS")
+
+	// SMTP：部署时由 SMTP_HOST / SMTP_PORT / SMTP_USERNAME / SMTP_PASSWORD / SMTP_FROM / SMTP_USE_TLS 配置。
+	viper.SetDefault("smtp.host", "")
+	viper.SetDefault("smtp.port", 587)
+	viper.SetDefault("smtp.username", "")
+	viper.SetDefault("smtp.password", "")
+	viper.SetDefault("smtp.from", "")
+	viper.SetDefault("smtp.use_tls", false)
 
 	// Third-party login providers. These carry client secrets and are exactly
 	// the settings an operator expects to inject via the environment, but every

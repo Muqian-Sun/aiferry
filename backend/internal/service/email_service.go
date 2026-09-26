@@ -9,6 +9,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"fmt"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"html"
 	"log/slog"
 	"math/big"
@@ -100,13 +101,15 @@ type EmailService struct {
 	settingRepo              SettingRepository
 	cache                    EmailCache
 	notificationEmailService *NotificationEmailService
+	cfg                      *config.Config
 }
 
-// NewEmailService 创建邮件服务实例
-func NewEmailService(settingRepo SettingRepository, cache EmailCache) *EmailService {
+// NewEmailService 创建邮件服务实例；SMTP 取部署配置（cfg.SMTP）。
+func NewEmailService(settingRepo SettingRepository, cache EmailCache, cfg *config.Config) *EmailService {
 	return &EmailService{
 		settingRepo: settingRepo,
 		cache:       cache,
+		cfg:         cfg,
 	}
 }
 
@@ -132,45 +135,30 @@ func emailRecipientName(email string) string {
 	return trimmed
 }
 
-// GetSMTPConfig 从数据库获取SMTP配置
+// Configured 配了 SMTP（主机与发件人）。邮箱验证、忘记密码和各类提醒邮件都跟着它开关。
+func (s *EmailService) Configured() bool {
+	return s != nil && s.cfg != nil && s.cfg.SMTP.Configured()
+}
+
+// GetSMTPConfig 发信配置：部署时由 SMTP_* 环境变量给出（cfg.SMTP），后台不再能改。
+// 主机或发件人没配就当没配 SMTP；发件人名称用站点名。
 func (s *EmailService) GetSMTPConfig(ctx context.Context) (*SMTPConfig, error) {
-	keys := []string{
-		SettingKeySMTPHost,
-		SettingKeySMTPPort,
-		SettingKeySMTPUsername,
-		SettingKeySMTPPassword,
-		SettingKeySMTPFrom,
-		SettingKeySMTPFromName,
-		SettingKeySMTPUseTLS,
-	}
-
-	settings, err := s.settingRepo.GetMultiple(ctx, keys)
-	if err != nil {
-		return nil, fmt.Errorf("get smtp settings: %w", err)
-	}
-
-	host := strings.TrimSpace(settings[SettingKeySMTPHost])
-	if host == "" {
+	if !s.Configured() {
 		return nil, ErrEmailNotConfigured
 	}
-
-	port := 587 // 默认端口
-	if portStr := settings[SettingKeySMTPPort]; portStr != "" {
-		if p, err := strconv.Atoi(portStr); err == nil {
-			port = p
-		}
+	smtpCfg := s.cfg.SMTP
+	port := smtpCfg.Port
+	if port <= 0 {
+		port = 587
 	}
-
-	useTLS := settings[SettingKeySMTPUseTLS] == "true"
-
 	return &SMTPConfig{
-		Host:     host,
+		Host:     strings.TrimSpace(smtpCfg.Host),
 		Port:     port,
-		Username: strings.TrimSpace(settings[SettingKeySMTPUsername]),
-		Password: strings.TrimSpace(settings[SettingKeySMTPPassword]),
-		From:     strings.TrimSpace(settings[SettingKeySMTPFrom]),
-		FromName: strings.TrimSpace(settings[SettingKeySMTPFromName]),
-		UseTLS:   useTLS,
+		Username: strings.TrimSpace(smtpCfg.Username),
+		Password: strings.TrimSpace(smtpCfg.Password),
+		From:     strings.TrimSpace(smtpCfg.From),
+		FromName: SiteName,
+		UseTLS:   smtpCfg.UseTLS,
 	}, nil
 }
 

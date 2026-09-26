@@ -536,7 +536,7 @@ func TestUserHandlerBindEmailIdentityReturnsProfileResponse(t *testing.T) {
 			ExpireHour: 1,
 		},
 	}
-	emailService := service.NewEmailService(nil, emailCache)
+	emailService := service.NewEmailService(nil, emailCache, nil)
 	authService := service.NewAuthService(nil, repo, nil, nil, cfg, nil, emailService, nil, nil, nil, nil)
 	handler := NewUserHandler(service.NewUserService(repo, nil, nil, nil), authService, nil, nil, nil)
 
@@ -741,7 +741,7 @@ func TestUserHandlerBindEmailIdentityRejectsWrongCurrentPasswordForBoundEmail(t 
 			ExpireHour: 1,
 		},
 	}
-	emailService := service.NewEmailService(nil, emailCache)
+	emailService := service.NewEmailService(nil, emailCache, nil)
 	authService := service.NewAuthService(nil, repo, nil, nil, cfg, nil, emailService, nil, nil, nil, nil)
 	handler := NewUserHandler(service.NewUserService(repo, nil, nil, nil), authService, nil, nil, nil)
 

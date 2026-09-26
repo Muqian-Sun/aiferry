@@ -110,7 +110,7 @@ CREATE TABLE IF NOT EXISTS user_provider_default_grants (
 
 	var emailSvc *service.EmailService
 	if emailCache != nil {
-		emailSvc = service.NewEmailService(settingRepo, emailCache)
+		emailSvc = service.NewEmailService(settingRepo, emailCache, nil)
 	}
 
 	svc := service.NewAuthService(client, repo, nil, refreshTokenCache, cfg, settingSvc, emailSvc, nil, nil, defaultSubAssigner, nil)
@@ -606,7 +606,7 @@ func TestAuthServiceBindEmailIdentity_RevokesExistingAccessAndRefreshTokens(t *t
 			RefreshTokenExpireDays:   7,
 		},
 	}
-	emailService := service.NewEmailService(nil, cache)
+	emailService := service.NewEmailService(nil, cache, nil)
 	svc := service.NewAuthService(nil, userRepo, nil, refreshTokenCache, cfg, nil, emailService, nil, nil, nil, nil)
 
 	oldTokenPair, err := svc.GenerateTokenPair(ctx, &service.User{

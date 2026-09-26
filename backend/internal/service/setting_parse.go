@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"sort"
 	"strconv"
 	"strings"
 
@@ -51,7 +50,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 	// 初始化默认设置
 	defaults := map[string]string{
-		SettingKeyEmailVerifyEnabled:                        "false",
 		SettingKeyRegistrationEmailSuffixWhitelist:          "[]",
 		SettingKeyRegistrationEmailDomainQuotaEnabled:       "false",
 		SettingKeyAPIKeyACLTrustForwardedIP:                 "true",
@@ -149,8 +147,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAuthSourceDefaultDingTalkGrantOnSignup:    "false",
 		SettingKeyAuthSourceDefaultDingTalkGrantOnFirstBind: "false",
 		SettingKeyForceEmailOnThirdPartySignup:              "false",
-		SettingKeySMTPPort:                                  "587",
-		SettingKeySMTPUseTLS:                                "false",
 		// Identity patch defaults
 		SettingKeyEnableIdentityPatch: "true",
 		SettingKeyIdentityPatchPrompt: "",
@@ -216,10 +212,9 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingPaymentVisibleMethodAlipayEnabled:     "false",
 		SettingPaymentVisibleMethodWxpayEnabled:      "false",
 
-		SettingKeyAllowUserViewErrorRequests: "false",
-		SettingKeyProfitControlEnabled:       "false",
-		SettingKeyProfitMinMargin:            "0",
-		SettingKeyProfitSafetyBuffer:         "0",
+		SettingKeyProfitControlEnabled: "false",
+		SettingKeyProfitMinMargin:      "0",
+		SettingKeyProfitSafetyBuffer:   "0",
 	}
 
 	return s.settingRepo.SetMultiple(ctx, defaults)
@@ -242,7 +237,6 @@ func parseForwardedClientIPHeadersSetting(value string) ([]string, error) {
 
 // parseSettings 解析设置到结构体
 func (s *SettingService) parseSettings(settings map[string]string) *SystemSettings {
-	emailVerifyEnabled := settings[SettingKeyEmailVerifyEnabled] == "true"
 	apiKeyACLTrustForwardedIP := false
 	forwardedClientIPHeaders := []string{}
 	if s != nil && s.cfg != nil {
@@ -264,16 +258,9 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		}
 	}
 	result := &SystemSettings{
-		EmailVerifyEnabled:                     emailVerifyEnabled,
 		RegistrationEmailSuffixWhitelist:       ParseRegistrationEmailSuffixWhitelist(settings[SettingKeyRegistrationEmailSuffixWhitelist]),
 		RegistrationEmailDomainQuotaEnabled:    settings[SettingKeyRegistrationEmailDomainQuotaEnabled] == "true",
 		StepUpEnabled:                          settings[SettingKeyStepUpEnabled] == "true", // 默认关闭
-		SMTPHost:                               settings[SettingKeySMTPHost],
-		SMTPUsername:                           settings[SettingKeySMTPUsername],
-		SMTPFrom:                               settings[SettingKeySMTPFrom],
-		SMTPFromName:                           settings[SettingKeySMTPFromName],
-		SMTPUseTLS:                             settings[SettingKeySMTPUseTLS] == "true",
-		SMTPPasswordConfigured:                 settings[SettingKeySMTPPassword] != "",
 		TurnstileEnabled:                       settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                       settings[SettingKeyTurnstileSiteKey],
 		TurnstileSecretKeyConfigured:           settings[SettingKeyTurnstileSecretKey] != "",
@@ -294,11 +281,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	}
 
 	// 解析整数类型
-	if port, err := strconv.Atoi(settings[SettingKeySMTPPort]); err == nil {
-		result.SMTPPort = port
-	} else {
-		result.SMTPPort = 587
-	}
 
 	if concurrency, err := strconv.Atoi(settings[SettingKeyDefaultConcurrency]); err == nil {
 		result.DefaultConcurrency = concurrency
@@ -340,7 +322,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.DefaultSubscriptions = parseDefaultSubscriptions(settings[SettingKeyDefaultSubscriptions])
 
 	// 敏感信息直接返回，方便测试连接时使用
-	result.SMTPPassword = settings[SettingKeySMTPPassword]
 	result.TurnstileSecretKey = settings[SettingKeyTurnstileSecretKey]
 	result.TencentCaptchaAppSecretKey = settings[SettingKeyTencentCaptchaAppSecretKey]
 	result.TencentCaptchaCloudSecretID = settings[SettingKeyTencentCaptchaCloudSecretID]
@@ -817,23 +798,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.PaymentVisibleMethodAlipayEnabled = settings[SettingPaymentVisibleMethodAlipayEnabled] == "true"
 	result.PaymentVisibleMethodWxpayEnabled = settings[SettingPaymentVisibleMethodWxpayEnabled] == "true"
 
-	// 余额、订阅到期与账号限额通知
-	result.BalanceLowNotifyEnabled = settings[SettingKeyBalanceLowNotifyEnabled] == "true"
-	if v, err := strconv.ParseFloat(settings[SettingKeyBalanceLowNotifyThreshold], 64); err == nil && v >= 0 {
-		result.BalanceLowNotifyThreshold = v
-	}
-	result.BalanceLowNotifyRechargeURL = settings[SettingKeyBalanceLowNotifyRechargeURL]
-	result.SubscriptionExpiryNotifyEnabled = !isFalseSettingValue(settings[SettingKeySubscriptionExpiryNotifyEnabled])
-
-	// 账号限额通知
-	result.AccountQuotaNotifyEnabled = settings[SettingKeyAccountQuotaNotifyEnabled] == "true"
-	if raw := strings.TrimSpace(settings[SettingKeyAccountQuotaNotifyEmails]); raw != "" {
-		result.AccountQuotaNotifyEmails = ParseNotifyEmails(raw)
-	}
-	if result.AccountQuotaNotifyEmails == nil {
-		result.AccountQuotaNotifyEmails = []NotifyEmailEntry{}
-	}
-
 	result.AccountSchedulingThresholds = defaultAccountSchedulingThresholds()
 	if raw := strings.TrimSpace(settings[SettingKeyAccountSchedulingThresholds]); raw != "" {
 		if thresholds, err := parseAccountSchedulingThresholdsSetting(raw); err != nil {
@@ -842,8 +806,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 			result.AccountSchedulingThresholds = thresholds
 		}
 	}
-
-	result.AllowUserViewErrorRequests = settings[SettingKeyAllowUserViewErrorRequests] == "true" // default false
 
 	result.ProfitControlEnabled = settings[SettingKeyProfitControlEnabled] == "true"
 	result.ProfitMinMargin = parseProfitControlRatio(settings[SettingKeyProfitMinMargin])
@@ -1016,48 +978,4 @@ func mergeProviderDefaultGrantSettings(globalDefaults ProviderDefaultGrantSettin
 	}
 
 	return result
-}
-
-func parseTablePreferences(defaultPageSizeRaw, optionsRaw string) (int, []int) {
-	defaultPageSize := 20
-	if v, err := strconv.Atoi(strings.TrimSpace(defaultPageSizeRaw)); err == nil {
-		defaultPageSize = v
-	}
-
-	var options []int
-	if strings.TrimSpace(optionsRaw) != "" {
-		_ = json.Unmarshal([]byte(optionsRaw), &options)
-	}
-
-	return normalizeTablePreferences(defaultPageSize, options)
-}
-
-func normalizeTablePreferences(defaultPageSize int, options []int) (int, []int) {
-	const minPageSize = 5
-	const maxPageSize = 1000
-	const fallbackPageSize = 20
-
-	seen := make(map[int]struct{}, len(options))
-	normalizedOptions := make([]int, 0, len(options))
-	for _, option := range options {
-		if option < minPageSize || option > maxPageSize {
-			continue
-		}
-		if _, ok := seen[option]; ok {
-			continue
-		}
-		seen[option] = struct{}{}
-		normalizedOptions = append(normalizedOptions, option)
-	}
-	sort.Ints(normalizedOptions)
-
-	if defaultPageSize < minPageSize || defaultPageSize > maxPageSize {
-		defaultPageSize = fallbackPageSize
-	}
-
-	if len(normalizedOptions) == 0 {
-		normalizedOptions = []int{10, 20, 50}
-	}
-
-	return defaultPageSize, normalizedOptions
 }

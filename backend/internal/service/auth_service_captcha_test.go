@@ -97,9 +97,9 @@ func TestVerifyCaptchaRequiredModeAcceptsCompleteTencentProvider(t *testing.T) {
 
 func TestVerifyCaptchaForRegisterSkipsDuplicateTencentTicketAfterEmailCode(t *testing.T) {
 	settings := tencentCaptchaSettings()
-	settings[SettingKeyEmailVerifyEnabled] = "true"
 	verifier := &tencentCaptchaVerifierStub{response: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
 	svc := newAuthServiceForCaptchaTest(settings, true, nil, verifier)
+	svc.cfg.SMTP = testSMTPConfigured // 配了 SMTP：注册要验证邮箱
 
 	err := svc.VerifyCaptchaForRegister(context.Background(), CaptchaProof{}, "203.0.113.10", "123456")
 

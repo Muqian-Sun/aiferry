@@ -43,6 +43,19 @@ const (
 	LoginAgreementUpdatedAt = "2026-09-23"
 )
 
+// 通知（2026-09-26 定：通知在代码里写死，跟着 SMTP 走）。
+// 配了 SMTP（SMTP_HOST + SMTP_FROM）就开：邮箱验证与忘记密码、余额不足提醒（账号邮箱 + 用户另加的邮箱）、
+// 渠道额度提醒（发给管理员账号邮箱）、订阅到期提醒；没配就都不发，用户站也不出现提醒设置。
+const (
+	// BalanceLowNotifyThreshold 余额低于它时提醒（美元，拍的）；用户可在个人设置里改自己的阈值或关掉。
+	BalanceLowNotifyThreshold = 1.0
+	// AllowUserViewErrorRequests 用户能不能在用量页看到自己的错误请求（dev 现值：关）。
+	AllowUserViewErrorRequests = false
+)
+
+// rechargePagePath 用户站充值页，余额提醒邮件里的「立即充值」指向它（前面拼用户站地址）。
+const rechargePagePath = "/billing/recharge"
+
 // TablePageSizeOptions 列表可选的每页条数。
 func TablePageSizeOptions() []int { return []int{10, 20, 50, 100} }
 

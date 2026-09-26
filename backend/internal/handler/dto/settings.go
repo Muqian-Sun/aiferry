@@ -26,18 +26,9 @@ type CustomEndpoint struct {
 
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
-	EmailVerifyEnabled                  bool     `json:"email_verify_enabled"`
 	RegistrationEmailSuffixWhitelist    []string `json:"registration_email_suffix_whitelist"`
 	RegistrationEmailDomainQuotaEnabled bool     `json:"registration_email_domain_quota_enabled"`
 	StepUpEnabled                       bool     `json:"step_up_enabled"` // 敏感操作 step-up 2FA
-
-	SMTPHost               string `json:"smtp_host"`
-	SMTPPort               int    `json:"smtp_port"`
-	SMTPUsername           string `json:"smtp_username"`
-	SMTPPasswordConfigured bool   `json:"smtp_password_configured"`
-	SMTPFrom               string `json:"smtp_from_email"`
-	SMTPFromName           string `json:"smtp_from_name"`
-	SMTPUseTLS             bool   `json:"smtp_use_tls"`
 
 	TurnstileEnabled                       bool     `json:"turnstile_enabled"`
 	TurnstileSiteKey                       string   `json:"turnstile_site_key"`
@@ -222,12 +213,6 @@ type SystemSettings struct {
 	PaymentAlipayMobilePrecreateDeepLink bool `json:"payment_alipay_mobile_precreate_deep_link"`
 
 	// 余额、订阅到期与账号限额通知
-	BalanceLowNotifyEnabled         bool               `json:"balance_low_notify_enabled"`
-	BalanceLowNotifyThreshold       float64            `json:"balance_low_notify_threshold"`
-	BalanceLowNotifyRechargeURL     string             `json:"balance_low_notify_recharge_url"`
-	SubscriptionExpiryNotifyEnabled bool               `json:"subscription_expiry_notify_enabled"`
-	AccountQuotaNotifyEnabled       bool               `json:"account_quota_notify_enabled"`
-	AccountQuotaNotifyEmails        []NotifyEmailEntry `json:"account_quota_notify_emails"`
 
 	// Channel Monitor feature switch
 	ChannelMonitorEnabled                bool   `json:"channel_monitor_enabled"`
@@ -264,7 +249,6 @@ type SystemSettings struct {
 	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds,omitempty"`
 
 	// 允许终端用户在用量页查看自己的失败请求
-	AllowUserViewErrorRequests bool `json:"allow_user_view_error_requests"`
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool    `json:"profit_control_enabled"`

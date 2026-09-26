@@ -55,7 +55,6 @@ func (s *settingPublicRepoStub) Delete(ctx context.Context, key string) error {
 func TestSettingService_GetPublicSettings_ExposesRegistrationEmailSuffixWhitelist(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
-			SettingKeyEmailVerifyEnabled:               "true",
 			SettingKeyRegistrationEmailSuffixWhitelist: `["@EXAMPLE.com"," @foo.bar ","*.EDU.CN","@invalid_domain",""]`,
 		},
 	}
@@ -132,17 +131,47 @@ func TestSettingService_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	require.True(t, settings.ForceEmailOnThirdPartySignup)
 }
 
-func TestSettingService_GetPublicSettings_ExposesAllowUserViewErrorRequests(t *testing.T) {
+// 「允许用户查看自己的错误请求」由代码决定：库里旧开关开着也不生效。
+func TestSettingService_AllowUserViewErrorRequestsComesFromCode(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
-			SettingKeyAllowUserViewErrorRequests: "true",
+			"allow_user_view_error_requests": "true",
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
 
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
-	require.True(t, settings.AllowUserViewErrorRequests)
+	require.Equal(t, AllowUserViewErrorRequests, settings.AllowUserViewErrorRequests)
+	require.Equal(t, AllowUserViewErrorRequests, svc.IsUserErrorViewAllowed(context.Background()))
+}
+
+// 邮箱验证、忘记密码、余额 / 渠道额度提醒跟着 SMTP 走；阈值与充值页由代码决定，库里旧值不生效。
+func TestSettingService_GetPublicSettings_EmailAndNotifyFollowSMTP(t *testing.T) {
+	stale := map[string]string{
+		"email_verify_enabled":            "true",
+		"balance_low_notify_enabled":      "true",
+		"balance_low_notify_threshold":    "9",
+		"balance_low_notify_recharge_url": "https://admin.example/pay",
+		"account_quota_notify_enabled":    "true",
+	}
+
+	off, err := NewSettingService(&settingPublicRepoStub{values: stale}, &config.Config{}).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, off.EmailVerifyEnabled)
+	require.False(t, off.PasswordResetEnabled)
+	require.False(t, off.BalanceLowNotifyEnabled)
+	require.False(t, off.AccountQuotaNotifyEnabled)
+
+	cfg := &config.Config{SMTP: testSMTPConfigured, Server: config.ServerConfig{FrontendURL: "https://user.example"}}
+	on, err := NewSettingService(&settingPublicRepoStub{values: stale}, cfg).GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, on.EmailVerifyEnabled)
+	require.True(t, on.PasswordResetEnabled)
+	require.True(t, on.BalanceLowNotifyEnabled)
+	require.True(t, on.AccountQuotaNotifyEnabled)
+	require.Equal(t, BalanceLowNotifyThreshold, on.BalanceLowNotifyThreshold)
+	require.Equal(t, "https://user.example/billing/recharge", on.BalanceLowNotifyRechargeURL)
 }
 
 func TestSettingService_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {

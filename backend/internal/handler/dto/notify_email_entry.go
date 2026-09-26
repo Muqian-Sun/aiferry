@@ -25,19 +25,3 @@ func NotifyEmailEntriesFromService(entries []service.NotifyEmailEntry) []NotifyE
 	}
 	return result
 }
-
-// NotifyEmailEntriesToService converts DTO entries to service entries.
-func NotifyEmailEntriesToService(entries []NotifyEmailEntry) []service.NotifyEmailEntry {
-	if entries == nil {
-		return nil
-	}
-	result := make([]service.NotifyEmailEntry, len(entries))
-	for i, e := range entries {
-		result[i] = service.NotifyEmailEntry{
-			Email:    e.Email,
-			Disabled: e.Disabled,
-			Verified: e.Verified,
-		}
-	}
-	return result
-}

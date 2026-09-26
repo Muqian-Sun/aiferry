@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"github.com/Wei-Shaw/sub2api/internal/config"
 	"sync"
 	"testing"
 	"time"
@@ -92,10 +93,10 @@ func TestSubscriptionExpiryService_ReminderSkipsScanWhenNotLeader(t *testing.T) 
 	_, _ = cache.TryAcquireLeaderLock(context.Background(), subscriptionExpiryReminderLeaderLockKey, "peer", time.Minute)
 
 	repo := &subscriptionExpiryRepoStub{}
-	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{SettingKeySMTPHost: "smtp.example.com"}}
+	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil), nil))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil, smtpConfiguredForTest()), nil))
 	svc.SetLeaderLock(cache, nil)
 
 	svc.sendExpiryReminders(context.Background())
@@ -105,10 +106,10 @@ func TestSubscriptionExpiryService_ReminderSkipsScanWhenNotLeader(t *testing.T) 
 
 func TestSubscriptionExpiryService_ReminderScansWhenLeader(t *testing.T) {
 	repo := &subscriptionExpiryRepoStub{}
-	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{SettingKeySMTPHost: "smtp.example.com"}}
+	settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
 	svc := NewSubscriptionExpiryService(repo, time.Minute)
 	svc.SetSettingRepository(settingRepo)
-	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil), nil))
+	svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil, smtpConfiguredForTest()), nil))
 	svc.SetLeaderLock(&fakeLeaderLockCache{}, nil)
 
 	svc.sendExpiryReminders(context.Background())
@@ -127,10 +128,10 @@ func TestSubscriptionExpiryService_ReminderRunsEveryCycleSingleInstance(t *testi
 	for name, cache := range cases {
 		t.Run(name, func(t *testing.T) {
 			repo := &subscriptionExpiryRepoStub{}
-			settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{SettingKeySMTPHost: "smtp.example.com"}}
+			settingRepo := &subscriptionExpirySettingRepoStub{values: map[string]string{}}
 			svc := NewSubscriptionExpiryService(repo, time.Minute)
 			svc.SetSettingRepository(settingRepo)
-			svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil), nil))
+			svc.SetNotificationEmailService(NewNotificationEmailService(settingRepo, NewEmailService(settingRepo, nil, smtpConfiguredForTest()), nil))
 			svc.SetLeaderLock(cache, nil)
 
 			// Three consecutive cycles, mimicking the ticker loop.
@@ -141,4 +142,12 @@ func TestSubscriptionExpiryService_ReminderRunsEveryCycleSingleInstance(t *testi
 			require.Equal(t, 3, repo.listCalls, "single instance must run every cycle")
 		})
 	}
+}
+
+// testSMTPConfigured 让「配了 SMTP」成立（主机与发件人都有）：邮箱验证、忘记密码与各类提醒据此打开。
+var testSMTPConfigured = config.SMTPConfig{Host: "smtp.example.com", From: "noreply@example.com"}
+
+// smtpConfiguredForTest 只配了 SMTP 的部署配置。
+func smtpConfiguredForTest() *config.Config {
+	return &config.Config{SMTP: testSMTPConfigured}
 }

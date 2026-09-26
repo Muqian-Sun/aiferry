@@ -113,6 +113,28 @@ func newOAuthEmailFlowAuthService(
 	settings map[string]string,
 	emailCache EmailCache,
 ) *AuthService {
+	return newOAuthEmailFlowAuthServiceWith(userRepo, redeemRepo, refreshTokenCache, settings, emailCache, false)
+}
+
+// newOAuthEmailFlowAuthServiceWithSMTP 配了 SMTP：注册要验证邮箱。
+func newOAuthEmailFlowAuthServiceWithSMTP(
+	userRepo UserRepository,
+	redeemRepo RedeemCodeRepository,
+	refreshTokenCache RefreshTokenCache,
+	settings map[string]string,
+	emailCache EmailCache,
+) *AuthService {
+	return newOAuthEmailFlowAuthServiceWith(userRepo, redeemRepo, refreshTokenCache, settings, emailCache, true)
+}
+
+func newOAuthEmailFlowAuthServiceWith(
+	userRepo UserRepository,
+	redeemRepo RedeemCodeRepository,
+	refreshTokenCache RefreshTokenCache,
+	settings map[string]string,
+	emailCache EmailCache,
+	smtpConfigured bool,
+) *AuthService {
 	cfg := &config.Config{
 		JWT: config.JWTConfig{
 			Secret:                   "test-secret",
@@ -126,8 +148,11 @@ func newOAuthEmailFlowAuthService(
 		},
 	}
 
+	if smtpConfigured {
+		cfg.SMTP = testSMTPConfigured
+	}
 	settingService := NewSettingService(&settingRepoStub{values: settings}, cfg)
-	emailService := NewEmailService(&settingRepoStub{values: settings}, emailCache)
+	emailService := NewEmailService(&settingRepoStub{values: settings}, emailCache, cfg)
 
 	return NewAuthService(
 		nil,
@@ -164,13 +189,11 @@ func TestRegisterOAuthEmailAccountRollsBackCreatedUserWhenTokenPairGenerationFai
 			ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
 		},
 	}
-	authService := newOAuthEmailFlowAuthService(
+	authService := newOAuthEmailFlowAuthServiceWithSMTP(
 		userRepo,
 		redeemRepo,
 		nil,
-		map[string]string{
-			SettingKeyEmailVerifyEnabled: "true",
-		},
+		map[string]string{},
 		emailCache,
 	)
 
@@ -298,13 +321,11 @@ func TestRegisterOAuthEmailAccountSetsNormalizedSignupSourceOnCreatedUser(t *tes
 			ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
 		},
 	}
-	authService := newOAuthEmailFlowAuthService(
+	authService := newOAuthEmailFlowAuthServiceWithSMTP(
 		userRepo,
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
-		map[string]string{
-			SettingKeyEmailVerifyEnabled: "true",
-		},
+		map[string]string{},
 		emailCache,
 	)
 
@@ -356,13 +377,11 @@ func TestRegisterOAuthEmailAccountKeepsGitHubAndGoogleSignupSource(t *testing.T)
 					ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
 				},
 			}
-			authService := newOAuthEmailFlowAuthService(
+			authService := newOAuthEmailFlowAuthServiceWithSMTP(
 				userRepo,
 				&redeemCodeRepoStub{},
 				&refreshTokenCacheStub{},
-				map[string]string{
-					SettingKeyEmailVerifyEnabled: "true",
-				},
+				map[string]string{},
 				emailCache,
 			)
 
@@ -394,13 +413,11 @@ func TestRegisterOAuthEmailAccountFallsBackUnknownSignupSourceToEmail(t *testing
 			ExpiresAt: time.Now().UTC().Add(15 * time.Minute),
 		},
 	}
-	authService := newOAuthEmailFlowAuthService(
+	authService := newOAuthEmailFlowAuthServiceWithSMTP(
 		userRepo,
 		&redeemCodeRepoStub{},
 		&refreshTokenCacheStub{},
-		map[string]string{
-			SettingKeyEmailVerifyEnabled: "true",
-		},
+		map[string]string{},
 		emailCache,
 	)
 
