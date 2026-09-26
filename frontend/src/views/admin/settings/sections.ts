@@ -1,29 +1,21 @@
 /**
  * 系统设置的小节（A6，muqian 2026-09-25 定：13 节，比方案多一节「安全」放管理 API Key / 客户端 IP / 面板限流；
  * 2026-09-26 删「第三方登录」一节——第三方登录只认部署配置，后台不再能配）。
+ * 2026-09-27 删「品牌与首页」「条款」「注册与登录」「新用户默认值」「访问与限流」「支付方式」「邮件」七节：
+ * 站点、条款、注册、新用户默认值、访问限流、通知写进后端代码，SMTP 与人机验证挪到部署配置，在线支付写死关，
+ * /admin/settings 不再返回也不接受这些字段；管理 API Key 前端不再给入口（后端接口保留）。
+ * 「开关」一节只剩风控：渠道监控写死开，运维监控只认部署配置 OPS_ENABLED。
  * 每节一个地址 /settings/<key>；二级导航按组排列。
  */
 import type { Component } from 'vue'
-import SiteSection from './sections/SiteSection.vue'
-import AgreementSection from './sections/AgreementSection.vue'
-import RegistrationSection from './sections/RegistrationSection.vue'
-import DefaultsSection from './sections/DefaultsSection.vue'
-import SecuritySection from './sections/SecuritySection.vue'
 import CooldownSection from './sections/CooldownSection.vue'
 import ForwardingSection from './sections/ForwardingSection.vue'
 import ClientsSection from './sections/ClientsSection.vue'
 import UpstreamSection from './sections/UpstreamSection.vue'
-import PaymentSection from './sections/PaymentSection.vue'
-import EmailSection from './sections/EmailSection.vue'
 import FeaturesSection from './sections/FeaturesSection.vue'
 
 export const SETTINGS_SECTION_GROUPS = [
-  { key: 'site', sections: ['site', 'agreement'] },
-  { key: 'users', sections: ['registration', 'defaults'] },
-  { key: 'security', sections: ['security'] },
   { key: 'gateway', sections: ['cooldown', 'forwarding', 'clients', 'upstream'] },
-  { key: 'payment', sections: ['payment'] },
-  { key: 'notify', sections: ['email'] },
   { key: 'features', sections: ['features'] },
 ] as const
 
@@ -34,17 +26,10 @@ export const SETTINGS_SECTIONS: Array<{ key: SettingsSectionKey }> = SETTINGS_SE
 )
 
 export const SECTION_COMPONENTS: Record<SettingsSectionKey, Component> = {
-  site: SiteSection,
-  agreement: AgreementSection,
-  registration: RegistrationSection,
-  defaults: DefaultsSection,
-  security: SecuritySection,
   cooldown: CooldownSection,
   forwarding: ForwardingSection,
   clients: ClientsSection,
   upstream: UpstreamSection,
-  payment: PaymentSection,
-  email: EmailSection,
   features: FeaturesSection,
 }
 

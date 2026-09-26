@@ -303,7 +303,6 @@ export const useAppStore = defineStore('app', () => {
         balance_low_notify_threshold: 0,
         channel_monitor_enabled: true,
         risk_control_enabled: false,
-        service_quota_enabled: false,
         affiliate_enabled: false,
         allow_user_view_error_requests: false,
       })

@@ -4,17 +4,6 @@
  */
 
 import { apiClient } from "../client";
-import type {
-  CustomEndpoint,
-  CustomMenuItem,
-  LoginAgreementDocument,
-  NotifyEmailEntry,
-} from "@/types";
-
-export interface DefaultSubscriptionSetting {
-  plan_id: number;
-  validity_days: number;
-}
 
 export type SchedulingThresholdPlatformType =
   | "openai"
@@ -58,297 +47,10 @@ export function sanitizeAccountSchedulingThresholdsMap(
   return normalizeAccountSchedulingThresholdsMap(input)
 }
 
-export type AuthSourceType =
-  | "email"
-  | "linuxdo"
-  | "oidc"
-  | "wechat"
-  | "github"
-  | "google"
-  | "dingtalk";
-
-export interface AuthSourceDefaultsValue {
-  balance: number;
-  concurrency: number;
-  subscriptions: DefaultSubscriptionSetting[];
-  grant_on_signup: boolean;
-  grant_on_first_bind: boolean;
-}
-
-export type AuthSourceDefaultsState = Record<
-  AuthSourceType,
-  AuthSourceDefaultsValue
->;
-export type PaymentVisibleMethod = "alipay" | "wxpay";
-export type PaymentVisibleMethodSource =
-  | ""
-  | "official_alipay"
-  | "easypay_alipay"
-  | "official_wxpay"
-  | "easypay_wxpay";
-
-export interface PaymentVisibleMethodSourceOption {
-  value: PaymentVisibleMethodSource;
-  labelZh: string;
-  labelEn: string;
-}
-
-const AUTH_SOURCE_TYPES: AuthSourceType[] = [
-  "email",
-  "linuxdo",
-  "oidc",
-  "wechat",
-  "github",
-  "google",
-  "dingtalk",
-];
-const AUTH_SOURCE_DEFAULT_BALANCE = 0;
-const AUTH_SOURCE_DEFAULT_CONCURRENCY = 5;
-const PAYMENT_VISIBLE_METHOD_SOURCE_OPTIONS: Record<
-  PaymentVisibleMethod,
-  PaymentVisibleMethodSourceOption[]
-> = {
-  alipay: [
-    { value: "", labelZh: "未配置", labelEn: "Not configured" },
-    {
-      value: "official_alipay",
-      labelZh: "支付宝官方",
-      labelEn: "Official Alipay",
-    },
-    {
-      value: "easypay_alipay",
-      labelZh: "易支付支付宝",
-      labelEn: "EasyPay Alipay",
-    },
-  ],
-  wxpay: [
-    { value: "", labelZh: "未配置", labelEn: "Not configured" },
-    {
-      value: "official_wxpay",
-      labelZh: "微信官方",
-      labelEn: "Official WeChat Pay",
-    },
-    {
-      value: "easypay_wxpay",
-      labelZh: "易支付微信",
-      labelEn: "EasyPay WeChat Pay",
-    },
-  ],
-};
-const PAYMENT_VISIBLE_METHOD_SOURCE_ALIASES: Record<
-  PaymentVisibleMethod,
-  Record<string, PaymentVisibleMethodSource>
-> = {
-  alipay: {
-    official_alipay: "official_alipay",
-    alipay: "official_alipay",
-    alipay_direct: "official_alipay",
-    official: "official_alipay",
-    easypay_alipay: "easypay_alipay",
-    easypay: "easypay_alipay",
-  },
-  wxpay: {
-    official_wxpay: "official_wxpay",
-    wxpay: "official_wxpay",
-    wxpay_direct: "official_wxpay",
-    wechat: "official_wxpay",
-    official: "official_wxpay",
-    easypay_wxpay: "easypay_wxpay",
-    easypay: "easypay_wxpay",
-  },
-};
-
-export function normalizeDefaultSubscriptionSettings(
-  subscriptions: DefaultSubscriptionSetting[] | null | undefined,
-): DefaultSubscriptionSetting[] {
-  if (!Array.isArray(subscriptions)) return [];
-
-  return subscriptions
-    .filter((item) => item.plan_id > 0 && item.validity_days > 0)
-    .map((item) => ({
-      plan_id: Math.floor(item.plan_id),
-      validity_days: Math.min(
-        36500,
-        Math.max(1, Math.floor(item.validity_days)),
-      ),
-    }));
-}
-
-export function buildAuthSourceDefaultsState(
-  settings: Partial<SystemSettings>,
-): AuthSourceDefaultsState {
-  const raw = settings as Record<string, unknown>;
-
-  return AUTH_SOURCE_TYPES.reduce((acc, source) => {
-    const subscriptions = raw[`auth_source_default_${source}_subscriptions`];
-    acc[source] = {
-      balance: Number(
-        raw[`auth_source_default_${source}_balance`] ??
-          AUTH_SOURCE_DEFAULT_BALANCE,
-      ),
-      concurrency: Math.max(
-        1,
-        Number(
-          raw[`auth_source_default_${source}_concurrency`] ??
-            AUTH_SOURCE_DEFAULT_CONCURRENCY,
-        ),
-      ),
-      subscriptions: normalizeDefaultSubscriptionSettings(
-        Array.isArray(subscriptions)
-          ? (subscriptions as DefaultSubscriptionSetting[])
-          : [],
-      ),
-      grant_on_signup:
-        raw[`auth_source_default_${source}_grant_on_signup`] === true,
-      grant_on_first_bind:
-        raw[`auth_source_default_${source}_grant_on_first_bind`] === true,
-    };
-    return acc;
-  }, {} as AuthSourceDefaultsState);
-}
-
-export function appendAuthSourceDefaultsToUpdateRequest(
-  payload: UpdateSettingsRequest,
-  authSourceDefaults: AuthSourceDefaultsState,
-): UpdateSettingsRequest {
-  const target = payload as Record<string, unknown>;
-
-  for (const source of AUTH_SOURCE_TYPES) {
-    const current = authSourceDefaults[source];
-    target[`auth_source_default_${source}_balance`] =
-      Number(current.balance) || 0;
-    target[`auth_source_default_${source}_concurrency`] = Math.max(
-      1,
-      Math.floor(
-        Number(current.concurrency) || AUTH_SOURCE_DEFAULT_CONCURRENCY,
-      ),
-    );
-    target[`auth_source_default_${source}_subscriptions`] =
-      normalizeDefaultSubscriptionSettings(current.subscriptions);
-    target[`auth_source_default_${source}_grant_on_signup`] =
-      current.grant_on_signup;
-    target[`auth_source_default_${source}_grant_on_first_bind`] =
-      current.grant_on_first_bind;
-  }
-
-  return payload;
-}
-
-export function getPaymentVisibleMethodSourceOptions(
-  method: PaymentVisibleMethod,
-): PaymentVisibleMethodSourceOption[] {
-  return PAYMENT_VISIBLE_METHOD_SOURCE_OPTIONS[method];
-}
-
-export function normalizePaymentVisibleMethodSource(
-  method: PaymentVisibleMethod,
-  source: unknown,
-): PaymentVisibleMethodSource {
-  if (typeof source !== "string") return "";
-
-  const normalized = source.trim().toLowerCase();
-  if (!normalized) return "";
-
-  return PAYMENT_VISIBLE_METHOD_SOURCE_ALIASES[method][normalized] ?? "";
-}
-
 /**
  * System settings interface
  */
 export interface SystemSettings {
-  // Registration settings
-  email_verify_enabled: boolean;
-  registration_email_suffix_whitelist: string[];
-  registration_email_domain_quota_enabled: boolean;
-  frontend_url: string;
-  step_up_enabled: boolean; // 敏感操作 step-up 2FA
-  login_agreement_enabled: boolean;
-  login_agreement_mode: "modal" | "checkbox" | string;
-  login_agreement_updated_at: string;
-  login_agreement_documents: LoginAgreementDocument[];
-  // Default settings
-  default_balance: number;
-  default_concurrency: number;
-  default_user_rpm_limit: number;
-  default_subscriptions: DefaultSubscriptionSetting[];
-  auth_source_default_email_balance?: number;
-  auth_source_default_email_concurrency?: number;
-  auth_source_default_email_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_email_grant_on_signup?: boolean;
-  auth_source_default_email_grant_on_first_bind?: boolean;
-  auth_source_default_linuxdo_balance?: number;
-  auth_source_default_linuxdo_concurrency?: number;
-  auth_source_default_linuxdo_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_linuxdo_grant_on_signup?: boolean;
-  auth_source_default_linuxdo_grant_on_first_bind?: boolean;
-  auth_source_default_oidc_balance?: number;
-  auth_source_default_oidc_concurrency?: number;
-  auth_source_default_oidc_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_oidc_grant_on_signup?: boolean;
-  auth_source_default_oidc_grant_on_first_bind?: boolean;
-  auth_source_default_wechat_balance?: number;
-  auth_source_default_wechat_concurrency?: number;
-  auth_source_default_wechat_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_wechat_grant_on_signup?: boolean;
-  auth_source_default_wechat_grant_on_first_bind?: boolean;
-  auth_source_default_dingtalk_balance?: number;
-  auth_source_default_dingtalk_concurrency?: number;
-  auth_source_default_dingtalk_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_dingtalk_grant_on_signup?: boolean;
-  auth_source_default_dingtalk_grant_on_first_bind?: boolean;
-  auth_source_default_github_balance?: number;
-  auth_source_default_github_concurrency?: number;
-  auth_source_default_github_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_github_grant_on_signup?: boolean;
-  auth_source_default_github_grant_on_first_bind?: boolean;
-  auth_source_default_google_balance?: number;
-  auth_source_default_google_concurrency?: number;
-  auth_source_default_google_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_google_grant_on_signup?: boolean;
-  auth_source_default_google_grant_on_first_bind?: boolean;
-  force_email_on_third_party_signup?: boolean;
-  // OEM settings
-  site_name: string;
-  site_logo: string;
-  site_subtitle: string;
-  api_base_url: string;
-  contact_info: string;
-  doc_url: string;
-  home_content: string;
-  compact_home_enabled: boolean;
-  hide_ccs_import_button: boolean;
-  table_default_page_size: number;
-  table_page_size_options: number[];
-  backend_mode_enabled: boolean;
-  custom_menu_items: CustomMenuItem[];
-  custom_endpoints: CustomEndpoint[];
-  // SMTP settings
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password_configured: boolean;
-  smtp_from_email: string;
-  smtp_from_name: string;
-  smtp_use_tls: boolean;
-  // Cloudflare Turnstile settings
-  turnstile_enabled: boolean;
-  turnstile_site_key: string;
-  turnstile_secret_key_configured: boolean;
-  tencent_captcha_enabled: boolean;
-  tencent_captcha_app_id: string;
-  tencent_captcha_app_secret_key_configured: boolean;
-  tencent_captcha_cloud_secret_id_configured: boolean;
-  tencent_captcha_cloud_secret_key_configured: boolean;
-  tencent_captcha_region: string;
-  aliyun_captcha_enabled: boolean;
-  aliyun_captcha_access_key_id: string;
-  aliyun_captcha_access_key_secret_configured: boolean;
-  aliyun_captcha_scene_id: string;
-  aliyun_captcha_prefix: string;
-  aliyun_captcha_region: string;
-  api_key_acl_trust_forwarded_ip: boolean;
-  forwarded_client_ip_headers: string[];
-
   grok_default_text_model: string;
   grok_cross_client_model_map_enabled: boolean;
   grok_default_base_url_mode: string;
@@ -361,7 +63,7 @@ export interface SystemSettings {
   identity_patch_prompt: string;
 
   // Ops Monitoring (vNext)
-  ops_monitoring_enabled: boolean;
+  ops_monitoring_enabled: boolean; // 只读：取部署配置 OPS_ENABLED，PUT 不接受
   ops_realtime_monitoring_enabled: boolean;
   ops_query_mode_default: "auto" | "raw" | "preagg" | string;
   ops_metrics_interval_seconds: number;
@@ -397,64 +99,23 @@ export interface SystemSettings {
   codex_cli_only_engine_fingerprint_signals: string;
   web_search_emulation_enabled?: boolean;
 
-  // Payment configuration
-  payment_enabled: boolean;
+  // 风控中心功能开关
   risk_control_enabled: boolean;
 
   // Cyber session block
   cyber_session_block_enabled: boolean;
   cyber_session_block_ttl_seconds: number;
 
-  payment_min_amount: number;
-  payment_max_amount: number;
-  payment_daily_limit: number;
-  payment_order_timeout_minutes: number;
-  payment_max_pending_orders: number;
-  payment_enabled_types: string[];
-  payment_usd_to_cny_rate: number;
-  payment_recharge_fee_rate: number;
-  payment_load_balance_strategy: string;
-  payment_product_name_prefix: string;
-  payment_product_name_suffix: string;
-  payment_help_image_url: string;
-  payment_help_text: string;
-  payment_cancel_rate_limit_enabled: boolean;
-  payment_cancel_rate_limit_max: number;
-  payment_cancel_rate_limit_window: number;
-  payment_cancel_rate_limit_unit: string;
-  payment_cancel_rate_limit_window_mode: string;
-  payment_alipay_force_qrcode?: boolean;
-  payment_alipay_mobile_precreate_deep_link?: boolean;
-  payment_visible_method_alipay_source?: string;
-  payment_visible_method_wxpay_source?: string;
-  payment_visible_method_alipay_enabled?: boolean;
-  payment_visible_method_wxpay_enabled?: boolean;
-
-  // 余额、订阅到期与账号限额通知
-  balance_low_notify_enabled: boolean;
-  balance_low_notify_threshold: number;
-  balance_low_notify_recharge_url: string;
-  subscription_expiry_notify_enabled: boolean;
-  account_quota_notify_enabled: boolean;
-  account_quota_notify_emails: NotifyEmailEntry[];
-
   // Channel Monitor feature switch
-  channel_monitor_enabled: boolean;
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_hide_user_ranking?: boolean;
 
   // Available Channels feature switch
 
-  // Model Plaza feature switches + description
-  model_plaza_description: string;
-
   // Affiliate (邀请返利) feature switch
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
-
-  // Allow user view error requests
-  allow_user_view_error_requests: boolean;
 
   // 利润门（全站一档）：账号倍率 > 用户倍率 × (1 − min_margin − safety_buffer) 的资源不派
   profit_control_enabled: boolean;
@@ -463,100 +124,12 @@ export interface SystemSettings {
 }
 
 export interface UpdateSettingsRequest {
-  email_verify_enabled?: boolean;
-  registration_email_suffix_whitelist?: string[];
-  registration_email_domain_quota_enabled?: boolean;
-  frontend_url?: string;
-  step_up_enabled?: boolean; // 敏感操作 step-up 2FA
-  login_agreement_enabled?: boolean;
-  login_agreement_mode?: "modal" | "checkbox" | string;
-  login_agreement_updated_at?: string;
-  login_agreement_documents?: LoginAgreementDocument[];
-  default_balance?: number;
-  default_concurrency?: number;
-  default_user_rpm_limit?: number;
-  default_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_email_balance?: number;
-  auth_source_default_email_concurrency?: number;
-  auth_source_default_email_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_email_grant_on_signup?: boolean;
-  auth_source_default_email_grant_on_first_bind?: boolean;
-  auth_source_default_linuxdo_balance?: number;
-  auth_source_default_linuxdo_concurrency?: number;
-  auth_source_default_linuxdo_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_linuxdo_grant_on_signup?: boolean;
-  auth_source_default_linuxdo_grant_on_first_bind?: boolean;
-  auth_source_default_oidc_balance?: number;
-  auth_source_default_oidc_concurrency?: number;
-  auth_source_default_oidc_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_oidc_grant_on_signup?: boolean;
-  auth_source_default_oidc_grant_on_first_bind?: boolean;
-  auth_source_default_wechat_balance?: number;
-  auth_source_default_wechat_concurrency?: number;
-  auth_source_default_wechat_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_wechat_grant_on_signup?: boolean;
-  auth_source_default_wechat_grant_on_first_bind?: boolean;
-  auth_source_default_dingtalk_balance?: number;
-  auth_source_default_dingtalk_concurrency?: number;
-  auth_source_default_dingtalk_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_dingtalk_grant_on_signup?: boolean;
-  auth_source_default_dingtalk_grant_on_first_bind?: boolean;
-  auth_source_default_github_balance?: number;
-  auth_source_default_github_concurrency?: number;
-  auth_source_default_github_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_github_grant_on_signup?: boolean;
-  auth_source_default_github_grant_on_first_bind?: boolean;
-  auth_source_default_google_balance?: number;
-  auth_source_default_google_concurrency?: number;
-  auth_source_default_google_subscriptions?: DefaultSubscriptionSetting[];
-  auth_source_default_google_grant_on_signup?: boolean;
-  auth_source_default_google_grant_on_first_bind?: boolean;
-  force_email_on_third_party_signup?: boolean;
-  site_name?: string;
-  site_logo?: string;
-  site_subtitle?: string;
-  api_base_url?: string;
-  contact_info?: string;
-  doc_url?: string;
-  home_content?: string;
-  compact_home_enabled?: boolean;
-  hide_ccs_import_button?: boolean;
-  table_default_page_size?: number;
-  table_page_size_options?: number[];
-  backend_mode_enabled?: boolean;
-  custom_menu_items?: CustomMenuItem[];
-  custom_endpoints?: CustomEndpoint[];
-  smtp_host?: string;
-  smtp_port?: number;
-  smtp_username?: string;
-  smtp_password?: string;
-  smtp_from_email?: string;
-  smtp_from_name?: string;
-  smtp_use_tls?: boolean;
-  turnstile_enabled?: boolean;
-  turnstile_site_key?: string;
-  turnstile_secret_key?: string;
-  tencent_captcha_enabled?: boolean;
-  tencent_captcha_app_id?: string;
-  tencent_captcha_app_secret_key?: string;
-  tencent_captcha_cloud_secret_id?: string;
-  tencent_captcha_cloud_secret_key?: string;
-  tencent_captcha_region?: string;
-  aliyun_captcha_enabled?: boolean;
-  aliyun_captcha_access_key_id?: string;
-  aliyun_captcha_access_key_secret?: string;
-  aliyun_captcha_scene_id?: string;
-  aliyun_captcha_prefix?: string;
-  aliyun_captcha_region?: string;
-  api_key_acl_trust_forwarded_ip?: boolean;
-  forwarded_client_ip_headers?: string[];
   grok_default_text_model?: string;
   grok_cross_client_model_map_enabled?: boolean;
   grok_default_base_url_mode?: string;
   account_scheduling_thresholds?: AccountSchedulingThresholdsMap;
   enable_identity_patch?: boolean;
   identity_patch_prompt?: string;
-  ops_monitoring_enabled?: boolean;
   ops_realtime_monitoring_enabled?: boolean;
   ops_query_mode_default?: "auto" | "raw" | "preagg" | string;
   ops_metrics_interval_seconds?: number;
@@ -583,62 +156,23 @@ export interface UpdateSettingsRequest {
   codex_cli_only_whitelist?: string;
   codex_cli_only_allow_app_server_clients?: boolean;
   codex_cli_only_engine_fingerprint_signals?: string;
-  // Payment configuration
-  payment_enabled?: boolean;
+  // 风控中心功能开关
   risk_control_enabled?: boolean;
 
   // Cyber session block
   cyber_session_block_enabled?: boolean;
   cyber_session_block_ttl_seconds?: number;
 
-  payment_min_amount?: number;
-  payment_max_amount?: number;
-  payment_daily_limit?: number;
-  payment_order_timeout_minutes?: number;
-  payment_max_pending_orders?: number;
-  payment_enabled_types?: string[];
-  payment_usd_to_cny_rate?: number;
-  payment_recharge_fee_rate?: number;
-  payment_load_balance_strategy?: string;
-  payment_product_name_prefix?: string;
-  payment_product_name_suffix?: string;
-  payment_help_image_url?: string;
-  payment_help_text?: string;
-  payment_cancel_rate_limit_enabled?: boolean;
-  payment_cancel_rate_limit_max?: number;
-  payment_cancel_rate_limit_window?: number;
-  payment_cancel_rate_limit_unit?: string;
-  payment_cancel_rate_limit_window_mode?: string;
-  payment_alipay_force_qrcode?: boolean;
-  payment_alipay_mobile_precreate_deep_link?: boolean;
-  payment_visible_method_alipay_source?: string;
-  payment_visible_method_wxpay_source?: string;
-  payment_visible_method_alipay_enabled?: boolean;
-  payment_visible_method_wxpay_enabled?: boolean;
-  // 余额、订阅到期与账号限额通知
-  balance_low_notify_enabled?: boolean;
-  balance_low_notify_threshold?: number;
-  balance_low_notify_recharge_url?: string;
-  subscription_expiry_notify_enabled?: boolean;
-  account_quota_notify_enabled?: boolean;
-  account_quota_notify_emails?: NotifyEmailEntry[];
-
   // Channel Monitor feature switch
-  channel_monitor_enabled?: boolean;
   channel_monitor_hide_throughput?: boolean;
   channel_monitor_hide_user_ranking?: boolean;
 
   // Available Channels feature switch
 
-  // Model Plaza feature switches + description
-  model_plaza_description?: string;
-
   // Affiliate (邀请返利) feature switch
 
   // OpenAI fast/flex policy
   openai_fast_policy_settings?: OpenAIFastPolicySettings;
-
-  allow_user_view_error_requests?: boolean;
 
   profit_control_enabled?: boolean;
   profit_min_margin?: number;
@@ -665,203 +199,6 @@ export async function updateSettings(
   const { data } = await apiClient.put<SystemSettings>(
     "/admin/settings",
     settings,
-  );
-  return data;
-}
-
-/**
- * Test SMTP connection request
- */
-export interface TestSmtpRequest {
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password: string;
-  smtp_use_tls: boolean;
-}
-
-/**
- * Test SMTP connection with provided config
- * @param config - SMTP configuration to test
- * @returns Test result message
- */
-export async function testSmtpConnection(
-  config: TestSmtpRequest,
-): Promise<{ message: string }> {
-  const { data } = await apiClient.post<{ message: string }>(
-    "/admin/settings/test-smtp",
-    config,
-  );
-  return data;
-}
-
-/**
- * Send test email request
- */
-export interface SendTestEmailRequest {
-  email: string;
-  smtp_host: string;
-  smtp_port: number;
-  smtp_username: string;
-  smtp_password: string;
-  smtp_from_email: string;
-  smtp_from_name: string;
-  smtp_use_tls: boolean;
-}
-
-/**
- * Send test email with provided SMTP config
- * @param request - Email address and SMTP config
- * @returns Test result message
- */
-export async function sendTestEmail(
-  request: SendTestEmailRequest,
-): Promise<{ message: string }> {
-  const { data } = await apiClient.post<{ message: string }>(
-    "/admin/settings/send-test-email",
-    request,
-  );
-  return data;
-}
-
-// ==================== Email Template Settings ====================
-
-export interface EmailTemplateOption {
-  value: string;
-  label?: string;
-  description?: string;
-  category?: string;
-  optional?: boolean;
-}
-
-export type EmailTemplateEventOption = string | EmailTemplateOption;
-
-export interface EmailTemplateSummary {
-  event: string;
-  locale: string;
-  subject: string;
-  is_custom?: boolean;
-  updated_at?: string;
-}
-
-export interface EmailTemplateListResponse {
-  events: EmailTemplateEventOption[];
-  locales: string[];
-  templates?: EmailTemplateSummary[];
-  placeholders?: string[];
-}
-
-export interface EmailTemplateDetail {
-  event: string;
-  locale: string;
-  subject: string;
-  html: string;
-  is_custom?: boolean;
-  updated_at?: string;
-  placeholders?: string[];
-}
-
-export interface UpdateEmailTemplateRequest {
-  subject: string;
-  html: string;
-}
-
-export interface PreviewEmailTemplateRequest extends UpdateEmailTemplateRequest {
-  event: string;
-  locale: string;
-}
-
-export interface EmailTemplatePreviewResponse {
-  subject: string;
-  html: string;
-}
-
-export async function getEmailTemplates(): Promise<EmailTemplateListResponse> {
-  const { data } = await apiClient.get<EmailTemplateListResponse>(
-    "/admin/settings/email-templates",
-  );
-  return data;
-}
-
-export async function getEmailTemplate(
-  event: string,
-  locale: string,
-): Promise<EmailTemplateDetail> {
-  const { data } = await apiClient.get<EmailTemplateDetail>(
-    `/admin/settings/email-templates/${encodeURIComponent(event)}/${encodeURIComponent(locale)}`,
-  );
-  return data;
-}
-
-export async function updateEmailTemplate(
-  event: string,
-  locale: string,
-  request: UpdateEmailTemplateRequest,
-): Promise<EmailTemplateDetail> {
-  const { data } = await apiClient.put<EmailTemplateDetail>(
-    `/admin/settings/email-templates/${encodeURIComponent(event)}/${encodeURIComponent(locale)}`,
-    request,
-  );
-  return data;
-}
-
-export async function restoreOfficialEmailTemplate(
-  event: string,
-  locale: string,
-): Promise<EmailTemplateDetail> {
-  const { data } = await apiClient.post<EmailTemplateDetail>(
-    `/admin/settings/email-templates/${encodeURIComponent(event)}/${encodeURIComponent(locale)}/restore-official`,
-  );
-  return data;
-}
-
-export async function previewEmailTemplate(
-  request: PreviewEmailTemplateRequest,
-): Promise<EmailTemplatePreviewResponse> {
-  const { data } = await apiClient.post<EmailTemplatePreviewResponse>(
-    "/admin/settings/email-template-preview",
-    request,
-  );
-  return data;
-}
-
-/**
- * Admin API Key status response
- */
-export interface AdminApiKeyStatus {
-  exists: boolean;
-  masked_key: string;
-}
-
-/**
- * Get admin API key status
- * @returns Status indicating if key exists and masked version
- */
-export async function getAdminApiKey(): Promise<AdminApiKeyStatus> {
-  const { data } = await apiClient.get<AdminApiKeyStatus>(
-    "/admin/settings/admin-api-key",
-  );
-  return data;
-}
-
-/**
- * Regenerate admin API key
- * @returns The new full API key (only shown once)
- */
-export async function regenerateAdminApiKey(): Promise<{ key: string }> {
-  const { data } = await apiClient.post<{ key: string }>(
-    "/admin/settings/admin-api-key/regenerate",
-  );
-  return data;
-}
-
-/**
- * Delete admin API key
- * @returns Success message
- */
-export async function deleteAdminApiKey(): Promise<{ message: string }> {
-  const { data } = await apiClient.delete<{ message: string }>(
-    "/admin/settings/admin-api-key",
   );
   return data;
 }
@@ -912,38 +249,6 @@ export async function updateRateLimit429CooldownSettings(
 ): Promise<RateLimit429CooldownSettings> {
   const { data } = await apiClient.put<RateLimit429CooldownSettings>(
     "/admin/settings/rate-limit-429-cooldown",
-    settings,
-  );
-  return data;
-}
-
-// ==================== Panel Rate Limit Settings ====================
-
-/**
- * Panel API rate limit settings.
- * Authenticated panel endpoints are limited per user account (reverse-proxy
- * safe); public endpoints are limited per publicly routable client IP.
- */
-export interface PanelRateLimitSettings {
-  enabled: boolean;
-  user_rpm: number;
-  heavy_rpm: number;
-  exempt_admin: boolean;
-  public_ip_rpm: number;
-}
-
-export async function getPanelRateLimitSettings(): Promise<PanelRateLimitSettings> {
-  const { data } = await apiClient.get<PanelRateLimitSettings>(
-    "/admin/settings/panel-rate-limit",
-  );
-  return data;
-}
-
-export async function updatePanelRateLimitSettings(
-  settings: PanelRateLimitSettings,
-): Promise<PanelRateLimitSettings> {
-  const { data } = await apiClient.put<PanelRateLimitSettings>(
-    "/admin/settings/panel-rate-limit",
     settings,
   );
   return data;
@@ -1162,22 +467,10 @@ export async function resetWebSearchUsage(payload: {
 export const settingsAPI = {
   getSettings,
   updateSettings,
-  testSmtpConnection,
-  sendTestEmail,
-  getEmailTemplates,
-  getEmailTemplate,
-  updateEmailTemplate,
-  restoreOfficialEmailTemplate,
-  previewEmailTemplate,
-  getAdminApiKey,
-  regenerateAdminApiKey,
-  deleteAdminApiKey,
   getOverloadCooldownSettings,
   updateOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
-  getPanelRateLimitSettings,
-  updatePanelRateLimitSettings,
   getStreamTimeoutSettings,
   updateStreamTimeoutSettings,
   getRectifierSettings,

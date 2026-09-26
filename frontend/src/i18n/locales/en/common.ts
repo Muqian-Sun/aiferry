@@ -350,7 +350,6 @@ export default {
       wechatBrowserOnly: 'This WeChat sign-in flow is only available inside the WeChat browser.',
       wechatNotConfigured: 'WeChat sign-in is not configured yet.'
     },
-    dingtalkProviderName: 'DingTalk',
     oauthCallbackPageTitle: 'OAuth Callback',
     wechatProviderName: 'WeChat',
     wechatCallbackPageTitle: 'WeChat Sign-In Callback',

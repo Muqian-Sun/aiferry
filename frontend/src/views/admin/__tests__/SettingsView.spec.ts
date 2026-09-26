@@ -2,10 +2,6 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { defineComponent, h } from "vue";
 import { flushPromises, mount } from "@vue/test-utils";
 
-import enCommon from "@/i18n/locales/en/common";
-import enSettings from "@/i18n/locales/en/admin/settings";
-import zhCommon from "@/i18n/locales/zh/common";
-import zhSettings from "@/i18n/locales/zh/admin/settings";
 import SettingsView from "../SettingsView.vue";
 
 const {
@@ -13,12 +9,9 @@ const {
   updateSettings,
   getWebSearchEmulationConfig,
   updateWebSearchEmulationConfig,
-  getAdminApiKey,
   getOverloadCooldownSettings,
   getRateLimit429CooldownSettings,
   updateRateLimit429CooldownSettings,
-  getPanelRateLimitSettings,
-  updatePanelRateLimitSettings,
   getStreamTimeoutSettings,
   getRectifierSettings,
   getBetaPolicySettings,
@@ -28,12 +21,7 @@ const {
   updateOllamaCloudUsageSettings,
   getGroups,
   listProxies,
-  getProviders,
-  updateProvider,
-  createProvider,
-  deleteProvider,
   fetchPublicSettings,
-  adminSettingsFetch,
   showError,
   showSuccess,
 } = vi.hoisted(() => ({
@@ -41,18 +29,9 @@ const {
   updateSettings: vi.fn(),
   getWebSearchEmulationConfig: vi.fn(),
   updateWebSearchEmulationConfig: vi.fn(),
-  getAdminApiKey: vi.fn(),
   getOverloadCooldownSettings: vi.fn(),
   getRateLimit429CooldownSettings: vi.fn(),
   updateRateLimit429CooldownSettings: vi.fn(),
-  getPanelRateLimitSettings: vi.fn().mockResolvedValue({
-    enabled: true,
-    user_rpm: 240,
-    heavy_rpm: 60,
-    exempt_admin: true,
-    public_ip_rpm: 300,
-  }),
-  updatePanelRateLimitSettings: vi.fn().mockImplementation(async (payload) => payload),
   getStreamTimeoutSettings: vi.fn(),
   getRectifierSettings: vi.fn(),
   getBetaPolicySettings: vi.fn(),
@@ -69,24 +48,12 @@ const {
   updateOllamaCloudUsageSettings: vi.fn().mockImplementation(async (payload) => payload),
   getGroups: vi.fn(),
   listProxies: vi.fn(),
-  getProviders: vi.fn(),
-  updateProvider: vi.fn(),
-  createProvider: vi.fn(),
-  deleteProvider: vi.fn(),
   fetchPublicSettings: vi.fn(),
-  adminSettingsFetch: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
 }));
 
 const localeRef = vi.hoisted(() => ({ value: "zh-CN" }));
-
-const getPlans = vi.fn();
-vi.mock("@/api/admin/payment", () => ({
-  adminPaymentAPI: {
-    getPlans: () => getPlans(),
-  },
-}));
 
 vi.mock("@/api/admin", () => ({
   adminAPI: {
@@ -95,12 +62,9 @@ vi.mock("@/api/admin", () => ({
       updateSettings,
       getWebSearchEmulationConfig,
       updateWebSearchEmulationConfig,
-      getAdminApiKey,
       getOverloadCooldownSettings,
       getRateLimit429CooldownSettings,
       updateRateLimit429CooldownSettings,
-      getPanelRateLimitSettings,
-      updatePanelRateLimitSettings,
       getStreamTimeoutSettings,
       getRectifierSettings,
       getBetaPolicySettings,
@@ -117,12 +81,6 @@ vi.mock("@/api/admin", () => ({
     proxies: {
       list: listProxies,
     },
-    payment: {
-      getProviders,
-      updateProvider,
-      createProvider,
-      deleteProvider,
-    },
   },
 }));
 
@@ -133,12 +91,6 @@ vi.mock("@/stores", () => ({
     showWarning: vi.fn(),
     showInfo: vi.fn(),
     fetchPublicSettings,
-  }),
-}));
-
-vi.mock("@/stores/adminSettings", () => ({
-  useAdminSettingsStore: () => ({
-    fetch: adminSettingsFetch,
   }),
 }));
 
@@ -171,31 +123,6 @@ vi.mock("vue-router", async () => {
 vi.mock("vue-i18n", async () => {
   const actual = await vi.importActual<typeof import("vue-i18n")>("vue-i18n");
   const translations: Record<string, string> = {
-    "admin.settings.authSourceDefaults.title": "认证来源默认值",
-    "admin.settings.authSourceDefaults.description": "按注册来源配置新用户默认余额、并发、订阅与授权策略。",
-    "admin.settings.authSourceDefaults.requireEmailLabel": "第三方注册强制补充邮箱",
-    "admin.settings.authSourceDefaults.requireEmailHint": "启用后，Linux DO、OIDC、微信注册缺少邮箱时必须先补充邮箱地址。",
-    "admin.settings.authSourceDefaults.enabledHint": "以下默认值会在该来源注册新用户时发放；首次绑定时授权仅作用于已有账号绑定该来源。",
-    "admin.settings.authSourceDefaults.sources.email.title": "邮箱注册",
-    "admin.settings.authSourceDefaults.sources.email.description": "适用于邮箱密码注册的新用户默认配额。",
-    "admin.settings.authSourceDefaults.sources.linuxdo.title": "Linux DO 登录",
-    "admin.settings.authSourceDefaults.sources.linuxdo.description": "适用于 Linux DO 第三方注册的新用户默认配额。",
-    "admin.settings.authSourceDefaults.sources.oidc.title": "OIDC 登录",
-    "admin.settings.authSourceDefaults.sources.oidc.description": "适用于 OIDC 第三方注册的新用户默认配额。",
-    "admin.settings.authSourceDefaults.sources.wechat.title": "微信登录",
-    "admin.settings.authSourceDefaults.sources.wechat.description": "适用于微信第三方注册的新用户默认配额。",
-    "admin.settings.authSourceDefaults.grantOnFirstBindLabel": "首次绑定时授权",
-    "admin.settings.authSourceDefaults.grantOnFirstBindHint": "已有账号首次绑定该来源时发放默认权益。",
-    "admin.settings.authSourceDefaults.defaultSubscriptionsLabel": "默认订阅",
-    "admin.settings.authSourceDefaults.defaultSubscriptionsHint": "仅对当前认证来源生效，未配置时不追加来源专属订阅。",
-    "admin.settings.authSourceDefaults.noSourceSubscriptions": "当前来源未配置专属默认订阅。",
-    "admin.settings.paymentVisibleMethods.methodLabel": "{title} 可见方式",
-    "admin.settings.paymentVisibleMethods.methodHint": "控制前台结算页是否展示该方式，以及展示时使用的来源键。",
-    "admin.settings.paymentVisibleMethods.sourceLabel": "支付来源",
-    "admin.settings.paymentVisibleMethods.sourceHint": "启用后必须明确选择一个来源；未配置状态不会对外展示该支付方式。",
-    "admin.settings.paymentVisibleMethods.sourceRequiredError": "{title} 已启用，请先选择支付来源。",
-    "admin.settings.payment.configGuide": "查看支付配置说明",
-    "admin.settings.payment.findProvider": "查看支持的支付方式",
     "admin.settings.upstreamBillingProbe.title": "上游倍率自动探测",
     "admin.settings.upstreamBillingProbe.description": "定期获取 OpenAI API Key 所连接上游 Sub2API 站点声明的计费倍率。",
     "admin.settings.upstreamBillingProbe.enabled": "启用全局自动探测",
@@ -209,10 +136,6 @@ vi.mock("vue-i18n", async () => {
     "admin.settings.openaiFastPolicy.summaryOtherModels": "其他模型",
     "admin.settings.openaiFastPolicy.summaryAction.filter": "过滤",
     "admin.settings.openaiFastPolicy.summaryAction.pass": "透传",
-    "admin.settings.security.passkeyDeploymentHint":
-      "请由服务器运维在部署配置中将 webauthn.enabled 设为 true，填写 webauthn.rp_id（仅域名）与 webauthn.rp_origins（完整 HTTPS 来源），然后重启服务。",
-    "admin.settings.site.uploadImage": "上传图片",
-    "admin.settings.site.remove": "移除",
   };
   return {
     ...actual,
@@ -298,84 +221,7 @@ const SelectStub = defineComponent({
   },
 });
 
-const ImageUploadStub = defineComponent({
-  props: {
-    modelValue: {
-      type: String,
-      default: "",
-    },
-    uploadLabel: {
-      type: String,
-      default: "",
-    },
-    removeLabel: {
-      type: String,
-      default: "",
-    },
-    placeholder: {
-      type: String,
-      default: "",
-    },
-  },
-  setup(props) {
-    return () =>
-      h("div", {
-        class: "image-upload-stub",
-        "data-model-value": props.modelValue,
-        "data-upload-label": props.uploadLabel,
-        "data-remove-label": props.removeLabel,
-        "data-placeholder": props.placeholder,
-      });
-  },
-});
-
 const baseSettingsResponse = {
-  registration_enabled: true,
-  email_verify_enabled: false,
-  registration_email_suffix_whitelist: [],
-  invitation_code_enabled: false,
-  password_reset_enabled: false,
-  totp_enabled: false,
-  totp_encryption_key_configured: false,
-  passkey_enabled: true,
-  passkey_configured: true,
-  passkey_rp_id: "sub3.nebula-spaces.com",
-  passkey_rp_origins: ["https://sub3.nebula-spaces.com"],
-  default_balance: 0,
-  default_concurrency: 1,
-  default_subscriptions: [],
-  site_name: "Sub2API",
-  site_logo: "",
-  site_subtitle: "",
-  api_base_url: "",
-  contact_info: "",
-  doc_url: "",
-  home_content: "",
-  compact_home_enabled: false,
-  hide_ccs_import_button: false,
-  table_default_page_size: 20,
-  table_page_size_options: [10, 20, 50, 100],
-  backend_mode_enabled: false,
-  custom_menu_items: [],
-  custom_endpoints: [],
-  frontend_url: "",
-  smtp_host: "",
-  smtp_port: 587,
-  smtp_username: "",
-  smtp_password_configured: false,
-  smtp_from_email: "",
-  smtp_from_name: "",
-  smtp_use_tls: true,
-  turnstile_enabled: false,
-  turnstile_site_key: "",
-  turnstile_secret_key_configured: false,
-  tencent_captcha_enabled: false,
-  tencent_captcha_app_id: "",
-  tencent_captcha_app_secret_key_configured: false,
-  tencent_captcha_cloud_secret_id_configured: false,
-  tencent_captcha_cloud_secret_key_configured: false,
-  api_key_acl_trust_forwarded_ip: true,
-  forwarded_client_ip_headers: [],
   grok_default_text_model: "grok-4.5",
   grok_cross_client_model_map_enabled: false,
   enable_identity_patch: false,
@@ -398,35 +244,6 @@ const baseSettingsResponse = {
   enable_client_dateline_normalization: true,
   antigravity_user_agent_version: "",
   openai_codex_user_agent: "",
-  payment_enabled: true,
-  payment_min_amount: 1,
-  payment_max_amount: 10000,
-  payment_daily_limit: 50000,
-  payment_order_timeout_minutes: 30,
-  payment_max_pending_orders: 3,
-  payment_enabled_types: [],
-  payment_usd_to_cny_rate: 0,
-  payment_recharge_fee_rate: 0,
-  payment_load_balance_strategy: "round-robin",
-  payment_product_name_prefix: "",
-  payment_product_name_suffix: "",
-  payment_help_image_url: "",
-  payment_help_text: "",
-  payment_cancel_rate_limit_enabled: false,
-  payment_cancel_rate_limit_max: 10,
-  payment_cancel_rate_limit_window: 1,
-  payment_cancel_rate_limit_unit: "day",
-  payment_cancel_rate_limit_window_mode: "rolling",
-  payment_visible_method_alipay_source: "alipay_direct",
-  payment_visible_method_wxpay_source: "invalid-source",
-  payment_visible_method_alipay_enabled: true,
-  payment_visible_method_wxpay_enabled: true,
-  balance_low_notify_enabled: false,
-  balance_low_notify_threshold: 0,
-  balance_low_notify_recharge_url: "",
-  subscription_expiry_notify_enabled: true,
-  account_quota_notify_enabled: false,
-  account_quota_notify_emails: [],
 };
 
 function mountView() {
@@ -438,33 +255,10 @@ function mountView() {
         Toggle: ToggleStub,
         Icon: true,
         ConfirmDialog: true,
-        PaymentProviderList: true,
-        PaymentProviderDialog: true,
         ProxySelector: true,
-        ImageUpload: ImageUploadStub,
       },
     },
   });
-}
-
-async function openPaymentTab(wrapper: ReturnType<typeof mountView>) {
-  const paymentTabButton = wrapper
-    .findAll("button")
-    .find((node) => node.text().includes("admin.settings.sections.payment.title"));
-
-  expect(paymentTabButton).toBeDefined();
-  await paymentTabButton?.trigger("click");
-  await flushPromises();
-}
-
-async function openSecurityTab(wrapper: ReturnType<typeof mountView>) {
-  const securityTabButton = wrapper
-    .findAll("button")
-    .find((node) => node.text().includes("admin.settings.sections.registration.title"));
-
-  expect(securityTabButton).toBeDefined();
-  await securityTabButton?.trigger("click");
-  await flushPromises();
 }
 
 async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
@@ -477,45 +271,12 @@ async function openGatewayTab(wrapper: ReturnType<typeof mountView>) {
   await flushPromises();
 }
 
-async function openUsersTab(wrapper: ReturnType<typeof mountView>) {
-  const usersTabButton = wrapper
-    .findAll("button")
-    .find((node) => node.text().includes("admin.settings.sections.defaults.title"));
-
-  expect(usersTabButton).toBeDefined();
-  await usersTabButton?.trigger("click");
-  await flushPromises();
-}
-
-describe("admin SettingsView email domain quota copy", () => {
-  it("documents the email domain quota and empty-whitelist behavior in both locales", () => {
-    expect(zhCommon.auth.emailDomainRegistrationLimit).toContain("主流邮箱");
-    expect(zhCommon.auth.emailDomainRegistrationLimit).toContain("联系客服");
-    expect(enCommon.auth.emailDomainRegistrationLimit).toContain("mainstream email");
-    expect(enCommon.auth.emailDomainRegistrationLimit).toContain("contact support");
-
-    // 白名单 hint 描述严格默认语义；额度语义移入独立开关的 hint。
-    const zhWhitelistHint = zhSettings.settings.registration.emailSuffixWhitelistHint;
-    const enWhitelistHint = enSettings.settings.registration.emailSuffixWhitelistHint;
-    expect(zhWhitelistHint).toContain("留空则不限制");
-    expect(enWhitelistHint).toContain("leave empty for no restriction");
-
-    const zhQuotaHint = zhSettings.settings.registration.emailDomainQuotaHint;
-    const enQuotaHint = enSettings.settings.registration.emailDomainQuotaHint;
-    expect(zhQuotaHint).toContain("其他可注册主域名各限注册一个账户");
-    expect(zhQuotaHint).toContain("关闭时非白名单域名直接拒绝");
-    expect(enQuotaHint).toContain("one account");
-    expect(enQuotaHint).toContain("When disabled");
-  });
-});
-
-describe("admin SettingsView payment visible method controls", () => {
+describe("admin SettingsView", () => {
   beforeEach(() => {
     getSettings.mockReset();
     updateSettings.mockReset();
     getWebSearchEmulationConfig.mockReset();
     updateWebSearchEmulationConfig.mockReset();
-    getAdminApiKey.mockReset();
     getOverloadCooldownSettings.mockReset();
     getRateLimit429CooldownSettings.mockReset();
     updateRateLimit429CooldownSettings.mockReset();
@@ -528,12 +289,7 @@ describe("admin SettingsView payment visible method controls", () => {
     updateOllamaCloudUsageSettings.mockReset();
     getGroups.mockReset();
     listProxies.mockReset();
-    getProviders.mockReset();
-    updateProvider.mockReset();
-    createProvider.mockReset();
-    deleteProvider.mockReset();
     fetchPublicSettings.mockReset();
-    adminSettingsFetch.mockReset();
     showError.mockReset();
     showSuccess.mockReset();
     localeRef.value = "zh-CN";
@@ -550,10 +306,6 @@ describe("admin SettingsView payment visible method controls", () => {
     updateWebSearchEmulationConfig.mockResolvedValue({
       enabled: false,
       providers: [],
-    });
-    getAdminApiKey.mockResolvedValue({
-      exists: false,
-      masked_key: "",
     });
     getOverloadCooldownSettings.mockResolvedValue({
       enabled: true,
@@ -596,373 +348,7 @@ describe("admin SettingsView payment visible method controls", () => {
     listProxies.mockResolvedValue({
       items: [],
     });
-    getProviders.mockResolvedValue({
-      data: [],
-    });
     fetchPublicSettings.mockResolvedValue(undefined);
-    adminSettingsFetch.mockResolvedValue(undefined);
-  });
-
-  it("loads and saves the open button visibility for each custom menu", async () => {
-    const menuItems = [
-      { id: "docs", label: "Docs", url: "https://example.com/docs", icon_svg: "", visibility: "user", sort_order: 0 },
-      { id: "help", label: "Help", url: "https://example.com/help", icon_svg: "", visibility: "user", sort_order: 1, hide_open_button: true },
-    ];
-    getSettings.mockResolvedValue({ ...baseSettingsResponse, custom_menu_items: menuItems });
-    const wrapper = mountView();
-    await flushPromises();
-
-    const toggles = wrapper.findAll<HTMLInputElement>('[data-testid="custom-menu-hide-open-button"]');
-    expect(toggles.map(toggle => toggle.element.checked)).toEqual([false, true]);
-    await toggles[0].setValue(true);
-    await toggles[1].setValue(false);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(expect.objectContaining({
-      custom_menu_items: [
-        { ...menuItems[0], hide_open_button: true },
-        { ...menuItems[1], hide_open_button: false },
-      ],
-    }));
-    wrapper.unmount();
-  });
-
-  it("allows at most one default subscription per list and submits plan_id", async () => {
-    getPlans.mockResolvedValue({
-      data: [
-        { id: 1, name: "Pro", models: [], daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null },
-        { id: 2, name: "Max", models: [], daily_limit_usd: null, weekly_limit_usd: null, monthly_limit_usd: null },
-      ],
-    });
-    const wrapper = mountView();
-    await flushPromises();
-
-    const addButton = () =>
-      wrapper
-        .findAll("button")
-        .find((node) => node.text().includes("admin.settings.defaults.addDefaultSubscription"));
-    expect(addButton()).toBeDefined();
-    expect((addButton()!.element as HTMLButtonElement).disabled).toBe(false);
-
-    await addButton()!.trigger("click");
-    await flushPromises();
-    expect((addButton()!.element as HTMLButtonElement).disabled).toBe(true);
-
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        default_subscriptions: [{ plan_id: 1, validity_days: 30 }],
-      }),
-    );
-  });
-
-  it("submits the compact home page toggle", async () => {
-    const wrapper = mountView();
-    await flushPromises();
-
-    const toggle = wrapper.get('[data-testid="compact-home-toggle"]');
-    expect((toggle.element as HTMLInputElement).checked).toBe(false);
-
-    await toggle.setValue(true);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ compact_home_enabled: true }),
-    );
-  });
-
-  it("renders panel rate limit card and saves settings", async () => {
-    getPanelRateLimitSettings.mockClear();
-    updatePanelRateLimitSettings.mockClear();
-    getPanelRateLimitSettings.mockResolvedValue({
-      enabled: true,
-      user_rpm: 240,
-      heavy_rpm: 60,
-      exempt_admin: true,
-      public_ip_rpm: 300,
-    });
-    updatePanelRateLimitSettings.mockImplementation(async (payload) => payload);
-
-    const wrapper = mountView();
-    await flushPromises();
-
-    expect(getPanelRateLimitSettings).toHaveBeenCalled();
-    expect(wrapper.text()).toContain("admin.settings.panelRateLimit.title");
-    expect(wrapper.text()).toContain("admin.settings.panelRateLimit.proxySafeNote");
-
-    const userRpmInput = wrapper.find('[data-testid="panel-rate-limit-user-rpm"]');
-    expect(userRpmInput.exists()).toBe(true);
-    await userRpmInput.setValue("120");
-
-    // A6：卡片不再各自保存，由所在小节（访问与限流）的保存栏保存
-    await wrapper.get('[data-testid="settings-section-security"]').trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updatePanelRateLimitSettings).toHaveBeenCalledWith({
-      enabled: true,
-      user_rpm: 120,
-      heavy_rpm: 60,
-      exempt_admin: true,
-      public_ip_rpm: 300,
-    });
-    expect(showSuccess).toHaveBeenCalled();
-  });
-
-  it("does not render legacy visible payment method controls", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    expect(wrapper.text()).not.toContain("可见方式");
-    expect(wrapper.text()).not.toContain("支付来源");
-  });
-
-  it("人机验证切换到腾讯天御并保存四项配置", async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const masterToggle = wrapper.get('[data-testid="captcha-enabled-toggle"]');
-    await masterToggle.setValue(true);
-    // 默认选中 Turnstile
-    expect(wrapper.text()).toContain("admin.settings.turnstile.siteKey");
-
-    await wrapper.get('[data-testid="captcha-provider-tencent"]').trigger("click");
-    await flushPromises();
-
-    const card = wrapper
-      .findAll(".card")
-      .find((node) => node.text().includes("admin.settings.captcha.title"));
-    expect(card).toBeDefined();
-    expect(card!.text()).not.toContain("admin.settings.turnstile.siteKey");
-    expect(card!.get('a[href="https://console.cloud.tencent.com/captcha"]').exists()).toBe(true);
-    expect(card!.get('a[href="https://console.cloud.tencent.com/cam/capi"]').exists()).toBe(true);
-    expect(
-      card!.get('a[href="https://cloud.tencent.com/document/product/1110/36841"]').exists(),
-    ).toBe(true);
-    const inputs = card!.findAll("input").filter((input) => input.attributes("type") !== "checkbox");
-    await inputs[0]!.setValue("123456789");
-    await inputs[1]!.setValue("app-secret-value");
-    await inputs[2]!.setValue("cloud-secret-id-value");
-    await inputs[3]!.setValue("cloud-secret-key-value");
-
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        turnstile_enabled: false,
-        tencent_captcha_enabled: true,
-        aliyun_captcha_enabled: false,
-        tencent_captcha_app_id: "123456789",
-        tencent_captcha_app_secret_key: "app-secret-value",
-        tencent_captcha_cloud_secret_id: "cloud-secret-id-value",
-        tencent_captcha_cloud_secret_key: "cloud-secret-key-value",
-        tencent_captcha_region: "cn",
-      }),
-    );
-  });
-
-  it("腾讯天御切换到国际站后保存站点并更新控制台入口", async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    await wrapper.get('[data-testid="captcha-enabled-toggle"]').setValue(true);
-    await wrapper.get('[data-testid="captcha-provider-tencent"]').trigger("click");
-    await wrapper.get('[data-testid="tencent-captcha-region-intl"]').trigger("click");
-
-    const card = wrapper
-      .findAll(".card")
-      .find((node) => node.text().includes("admin.settings.captcha.title"));
-    expect(card).toBeDefined();
-    expect(card!.get('a[href="https://console.tencentcloud.com/captcha/graphical"]').exists()).toBe(
-      true,
-    );
-    expect(card!.get('a[href="https://console.tencentcloud.com/cam/capi"]').exists()).toBe(true);
-
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        tencent_captcha_enabled: true,
-        tencent_captcha_region: "intl",
-      }),
-    );
-  });
-
-  it("人机验证切换到阿里云并保存配置", async () => {
-    const wrapper = mountView();
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const masterToggle = wrapper.get('[data-testid="captcha-enabled-toggle"]');
-    await masterToggle.setValue(true);
-
-    await wrapper.get('[data-testid="captcha-provider-aliyun"]').trigger("click");
-    await flushPromises();
-
-    const card = wrapper
-      .findAll(".card")
-      .find((node) => node.text().includes("admin.settings.captcha.title"));
-    expect(card).toBeDefined();
-    expect(card!.text()).toContain("admin.settings.aliyunCaptcha.region");
-    expect(card!.text()).not.toContain("admin.settings.turnstile.siteKey");
-    const inputs = card!.findAll("input").filter((input) => input.attributes("type") !== "checkbox");
-    await inputs[0]!.setValue("prefix-1");
-    await inputs[1]!.setValue("scene-1");
-    await inputs[2]!.setValue("ak-id");
-    await inputs[3]!.setValue("ak-secret-value");
-
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        turnstile_enabled: false,
-        tencent_captcha_enabled: false,
-        aliyun_captcha_enabled: true,
-        aliyun_captcha_prefix: "prefix-1",
-        aliyun_captcha_scene_id: "scene-1",
-        aliyun_captcha_access_key_id: "ak-id",
-        aliyun_captcha_access_key_secret: "ak-secret-value",
-        aliyun_captcha_region: "cn",
-      }),
-    );
-  });
-
-  it("关闭人机验证总开关会同时关闭所有服务商", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      tencent_captcha_enabled: true,
-      tencent_captcha_app_id: "123456789",
-      tencent_captcha_app_secret_key_configured: true,
-      tencent_captcha_cloud_secret_id_configured: true,
-      tencent_captcha_cloud_secret_key_configured: true,
-    });
-    const wrapper = mountView();
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const masterToggle = wrapper.get('[data-testid="captcha-enabled-toggle"]');
-    expect((masterToggle.element as HTMLInputElement).checked).toBe(true);
-    // 加载后选中项跟随已启用的服务商
-    expect(wrapper.text()).toContain("admin.settings.tencentCaptcha.appId");
-
-    await masterToggle.setValue(false);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        turnstile_enabled: false,
-        tencent_captcha_enabled: false,
-        aliyun_captcha_enabled: false,
-      }),
-    );
-  });
-
-  it("loads, edits, validates, and saves forwarded client-IP headers", async () => {
-    getSettings.mockResolvedValueOnce({
-      ...baseSettingsResponse,
-      api_key_acl_trust_forwarded_ip: false,
-      forwarded_client_ip_headers: ["cf-connecting-ip", "X-Real-IP"],
-    });
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openSecurityTab(wrapper);
-
-    const card = wrapper
-      .findAll(".card")
-      .find((node) => node.text().includes("admin.settings.apiKeyAcl.title"));
-    expect(card).toBeDefined();
-    const toggle = card!.get('input[type="checkbox"]');
-    expect((toggle.element as HTMLInputElement).checked).toBe(false);
-    expect(card!.find('[data-testid="forwarded-client-ip-headers-input"]').exists()).toBe(false);
-
-    await toggle.setValue(true);
-    expect(card!.findAll('[data-testid="forwarded-client-ip-header-tag"]')).toHaveLength(2);
-    expect(card!.text()).toContain("Cf-Connecting-Ip");
-    expect(card!.text()).toContain("X-Real-Ip");
-    showError.mockClear();
-
-    const input = card!.get('[data-testid="forwarded-client-ip-headers-input"]');
-    await input.setValue("x-client-ip");
-    await input.trigger("keydown", { key: "Enter" });
-    await input.setValue("X-CLIENT-IP");
-    await input.trigger("keydown", { key: "Enter" });
-    await input.setValue("invalid header");
-    await input.trigger("keydown", { key: "Enter" });
-    expect(showError).toHaveBeenCalledTimes(1);
-    expect(card!.findAll('[data-testid="forwarded-client-ip-header-tag"]')).toHaveLength(3);
-
-    const realIpTag = card!
-      .findAll('[data-testid="forwarded-client-ip-header-tag"]')
-      .find((tag) => tag.text().includes("X-Real-Ip"));
-    expect(realIpTag).toBeDefined();
-    await realIpTag!.get("button").trigger("click");
-    expect(card!.text()).not.toContain("X-Real-Ip");
-
-    await toggle.setValue(false);
-    expect(card!.find('[data-testid="forwarded-client-ip-headers-input"]').exists()).toBe(false);
-    await toggle.setValue(true);
-    expect(card!.text()).toContain("X-Client-Ip");
-
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        api_key_acl_trust_forwarded_ip: true,
-        forwarded_client_ip_headers: ["Cf-Connecting-Ip", "X-Client-Ip"],
-      }),
-    );
-  });
-
-  it("links payment guidance to README sections instead of removed payment docs", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    const paymentLinks = wrapper
-      .findAll("a")
-      .filter((node) =>
-        ["查看支付配置说明", "查看支持的支付方式"].includes(node.text()),
-      );
-
-    expect(paymentLinks).toHaveLength(2);
-    expect(paymentLinks[0]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md",
-    );
-    expect(paymentLinks[1]?.attributes("href")).toBe(
-      "https://github.com/Wei-Shaw/sub2api/blob/main/docs/PAYMENT_CN.md#支持的支付方式",
-    );
-    for (const link of paymentLinks) {
-      expect(link.attributes("href")).toContain("docs/PAYMENT");
-    }
-  });
-
-  it("does not submit legacy visible payment method settings", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-    await wrapper.find("form").trigger("submit.prevent");
-    await flushPromises();
-
-    expect(updateSettings).toHaveBeenCalledTimes(1);
-    const payload = updateSettings.mock.calls[0]?.[0];
-    expect(payload).not.toHaveProperty("payment_visible_method_alipay_source");
-    expect(payload).not.toHaveProperty("payment_visible_method_wxpay_source");
-    expect(payload).not.toHaveProperty("payment_visible_method_alipay_enabled");
-    expect(payload).not.toHaveProperty("payment_visible_method_wxpay_enabled");
   });
 
   it("loads and submits the site-wide profit gate settings", async () => {
@@ -1086,66 +472,6 @@ describe("admin SettingsView payment visible method controls", () => {
         antigravity_user_agent_version: "1.23.2",
       }),
     );
-  });
-
-  it("updates provider enablement immediately and reloads providers", async () => {
-    const provider = {
-      id: 7,
-      provider_key: "alipay",
-      name: "Official Alipay",
-      config: {},
-      supported_types: ["alipay"],
-      enabled: false,
-      payment_mode: "",
-      refund_enabled: false,
-      allow_user_refund: false,
-      limits: "",
-      sort_order: 0,
-    };
-    getProviders.mockReset();
-    getProviders
-      .mockResolvedValueOnce({ data: [provider] })
-      .mockResolvedValueOnce({ data: [{ ...provider, enabled: true }] });
-    updateProvider.mockResolvedValue({ data: { ...provider, enabled: true } });
-
-    const PaymentProviderListStub = defineComponent({
-      emits: ["toggleField"],
-      setup(_, { emit }) {
-        return () =>
-          h(
-            "button",
-            {
-              class: "provider-toggle-stub",
-              onClick: () => emit("toggleField", provider, "enabled"),
-            },
-            "toggle provider",
-          );
-      },
-    });
-
-    const wrapper = mount(SettingsView, {
-      global: {
-        stubs: {
-          AppLayout: AppLayoutStub,
-          Select: SelectStub,
-          Toggle: ToggleStub,
-          Icon: true,
-          ConfirmDialog: true,
-          PaymentProviderList: PaymentProviderListStub,
-          PaymentProviderDialog: true,
-          ProxySelector: true,
-          ImageUpload: ImageUploadStub,
-        },
-      },
-    });
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-    await wrapper.get(".provider-toggle-stub").trigger("click");
-    await flushPromises();
-
-    expect(updateProvider).toHaveBeenCalledWith(7, { enabled: true });
-    expect(getProviders).toHaveBeenCalledTimes(2);
   });
 
   it("summarizes target and other-model actions, then switches to all models", async () => {
@@ -1291,194 +617,5 @@ describe("admin SettingsView payment visible method controls", () => {
       interval_minutes: 90,
       debounce_minutes: 3,
     });
-  });
-
-  it("passes translated upload and remove labels to the payment help image uploader", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    const imageUploads = wrapper.findAll(".image-upload-stub");
-    expect(imageUploads.length).toBeGreaterThan(0);
-
-    const paymentHelpImageUpload = imageUploads.find(
-      (node) => node.attributes("data-placeholder") === "admin.settings.payment.helpImagePlaceholder",
-    );
-
-    expect(paymentHelpImageUpload).toBeDefined();
-    expect(paymentHelpImageUpload?.attributes("data-upload-label")).toBe("上传图片");
-    expect(paymentHelpImageUpload?.attributes("data-remove-label")).toBe("移除");
-  });
-
-  it("normalizes null supported_types from API so provider card stays visible", async () => {
-    // Backend returns null for supported_types when the list is empty
-    // (Go nil slice → JSON null). Without normalization, ProviderCard's
-    // isSelected() throws TypeError on null.includes(), causing the card
-    // to vanish from the list.
-    const providerWithNullTypes = {
-      id: 42,
-      provider_key: "easypay",
-      name: "EasyPay",
-      config: {},
-      supported_types: null as unknown as string[],
-      enabled: true,
-      payment_mode: "",
-      refund_enabled: false,
-      allow_user_refund: false,
-      limits: "",
-      sort_order: 0,
-    };
-    getProviders.mockReset();
-    getProviders.mockResolvedValue({ data: [providerWithNullTypes] });
-
-    let receivedProviders: Array<Record<string, unknown>> = [];
-    const PaymentProviderListCapture = defineComponent({
-      props: {
-        providers: {
-          type: Array,
-          default: () => [],
-        },
-      },
-      setup(props) {
-        receivedProviders = props.providers as Array<Record<string, unknown>>;
-        return () => h("div", { class: "provider-list-capture" });
-      },
-    });
-
-    const wrapper = mount(SettingsView, {
-      global: {
-        stubs: {
-          AppLayout: AppLayoutStub,
-          Select: SelectStub,
-          Toggle: ToggleStub,
-          Icon: true,
-          ConfirmDialog: true,
-          PaymentProviderList: PaymentProviderListCapture,
-          PaymentProviderDialog: true,
-          ProxySelector: true,
-          ImageUpload: ImageUploadStub,
-        },
-      },
-    });
-
-    await flushPromises();
-    await openPaymentTab(wrapper);
-
-    // The provider should still be in the list
-    expect(receivedProviders.length).toBe(1);
-    // supported_types should be normalized to an empty array, not null
-    expect(Array.isArray(receivedProviders[0].supported_types)).toBe(true);
-    expect(receivedProviders[0].supported_types).toEqual([]);
-  });
-});
-
-describe("admin SettingsView auth source defaults", () => {
-  beforeEach(() => {
-    getSettings.mockReset();
-    updateSettings.mockReset();
-    getWebSearchEmulationConfig.mockReset();
-    updateWebSearchEmulationConfig.mockReset();
-    getAdminApiKey.mockReset();
-    getOverloadCooldownSettings.mockReset();
-    getRateLimit429CooldownSettings.mockReset();
-    updateRateLimit429CooldownSettings.mockReset();
-    getStreamTimeoutSettings.mockReset();
-    getRectifierSettings.mockReset();
-    getBetaPolicySettings.mockReset();
-    getGroups.mockReset();
-    listProxies.mockReset();
-    getProviders.mockReset();
-    updateProvider.mockReset();
-    createProvider.mockReset();
-    deleteProvider.mockReset();
-    fetchPublicSettings.mockReset();
-    adminSettingsFetch.mockReset();
-    showError.mockReset();
-    showSuccess.mockReset();
-
-    getSettings.mockResolvedValue({
-      ...baseSettingsResponse,
-      payment_visible_method_wxpay_source: "official_wxpay",
-    });
-    updateSettings.mockImplementation(async (payload) => ({
-      ...baseSettingsResponse,
-      payment_visible_method_wxpay_source: "official_wxpay",
-      ...payload,
-    }));
-    getWebSearchEmulationConfig.mockResolvedValue({
-      enabled: false,
-      providers: [],
-    });
-    updateWebSearchEmulationConfig.mockResolvedValue({
-      enabled: false,
-      providers: [],
-    });
-    getAdminApiKey.mockResolvedValue({
-      exists: false,
-      masked_key: "",
-    });
-    getOverloadCooldownSettings.mockResolvedValue({
-      enabled: true,
-      cooldown_minutes: 10,
-    });
-    getRateLimit429CooldownSettings.mockResolvedValue({
-      enabled: true,
-      cooldown_seconds: 5,
-    });
-    updateRateLimit429CooldownSettings.mockImplementation(async (payload) => payload);
-    getStreamTimeoutSettings.mockResolvedValue({
-      enabled: true,
-      action: "temp_unsched",
-      temp_unsched_minutes: 5,
-      threshold_count: 3,
-      threshold_window_minutes: 10,
-    });
-    getRectifierSettings.mockResolvedValue({
-      enabled: true,
-      thinking_signature_enabled: true,
-      thinking_budget_enabled: true,
-      apikey_signature_enabled: false,
-      apikey_signature_patterns: [],
-    });
-    getBetaPolicySettings.mockResolvedValue({
-      rules: [],
-    });
-    getGroups.mockResolvedValue([]);
-    listProxies.mockResolvedValue({
-      items: [],
-    });
-    getProviders.mockResolvedValue({
-      data: [],
-    });
-    fetchPublicSettings.mockResolvedValue(undefined);
-    adminSettingsFetch.mockResolvedValue(undefined);
-  });
-
-  it("collapses auth source defaults until the source is enabled", async () => {
-    const wrapper = mountView();
-
-    await flushPromises();
-    await openUsersTab(wrapper);
-
-    expect(
-      (
-        wrapper.get('[data-testid="auth-source-email-enabled"]')
-          .element as HTMLInputElement
-      ).checked,
-    ).toBe(false);
-    expect(
-      wrapper.find('[data-testid="auth-source-email-panel"]').exists(),
-    ).toBe(false);
-    expect(wrapper.text()).not.toContain("注册即授权");
-
-    await wrapper
-      .get('[data-testid="auth-source-email-enabled"]')
-      .setValue(true);
-
-    expect(
-      wrapper.find('[data-testid="auth-source-email-panel"]').exists(),
-    ).toBe(true);
-    expect(wrapper.text()).toContain("首次绑定时授权");
   });
 });

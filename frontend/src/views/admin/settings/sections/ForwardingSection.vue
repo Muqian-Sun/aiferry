@@ -1786,35 +1786,6 @@
         </div>
       </div>
     </div>
-
-    <!-- Usage Records Settings -->
-    <div class="card">
-      <div class="border-b border-af-hairline px-6 py-4">
-        <h2 class="text-lg font-semibold text-af-ink">
-          {{ t('admin.settings.usageRecords.title') }}
-        </h2>
-        <p class="mt-1 text-sm text-af-ink-3">
-          {{ t('admin.settings.usageRecords.description') }}
-        </p>
-      </div>
-      <div class="space-y-4 p-6">
-        <!-- User error requests visibility -->
-        <div class="flex items-center justify-between">
-          <div>
-            <label class="text-sm font-medium text-af-ink-2">
-              {{ t('admin.settings.user_error_view.label') }}
-            </label>
-            <p class="text-xs text-af-ink-3">
-              {{ t('admin.settings.user_error_view.description') }}
-            </p>
-          </div>
-          <label class="toggle">
-            <input v-model="form.allow_user_view_error_requests" type="checkbox" />
-            <span class="toggle-slider"></span>
-          </label>
-        </div>
-      </div>
-    </div>
   </div>
 </template>
 

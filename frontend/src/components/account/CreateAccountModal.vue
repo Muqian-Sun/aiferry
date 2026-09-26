@@ -2988,7 +2988,6 @@ const webSearchGlobalEnabled = ref(false)
 const {
   globalEnabled: quotaNotifyGlobalEnabled,
   state: quotaNotifyState,
-  loadGlobalState: loadQuotaNotifyGlobal,
   writeToExtra: writeQuotaNotifyToExtra,
 } = useQuotaNotifyState()
 
@@ -2997,7 +2996,6 @@ adminAPI.settings.getWebSearchEmulationConfig().then(cfg => {
   webSearchGlobalEnabled.value = cfg?.enabled === true && (cfg?.providers?.length ?? 0) > 0
 }).catch(() => { webSearchGlobalEnabled.value = false })
 
-loadQuotaNotifyGlobal()
 const allowOverages = ref(false) // For antigravity accounts: enable AI Credits overages
 const antigravityProjectId = ref('')
 

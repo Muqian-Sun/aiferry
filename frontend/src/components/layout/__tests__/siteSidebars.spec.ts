@@ -21,7 +21,6 @@ const { appStore, authStore, adminSettingsStore } = vi.hoisted(() => ({
   },
   authStore: { isSimpleMode: false, isAdmin: false },
   adminSettingsStore: {
-    customMenuItems: [] as unknown[],
     opsMonitoringEnabled: true,
     paymentEnabled: true,
     fetch: vi.fn(),
