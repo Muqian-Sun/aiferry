@@ -166,13 +166,10 @@ func (s *SettingService) IsPasswordResetEnabled(ctx context.Context) bool {
 	return value == "true"
 }
 
-// IsTotpEnabled 检查是否启用 TOTP 双因素认证功能
-func (s *SettingService) IsTotpEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTotpEnabled)
-	if err != nil {
-		return false // 默认关闭
-	}
-	return value == "true"
+// IsTotpEnabled 双因素认证是否可用：配了 TOTP_ENCRYPTION_KEY 就开，不再有后台开关。
+// 以前是设置表里的开关，关掉后已绑 TOTP 的账号（含管理员）登录就不再要验证码。
+func (s *SettingService) IsTotpEnabled() bool {
+	return s.IsTotpEncryptionKeyConfigured()
 }
 
 // PasskeyEnabled reports the effective runtime switch. WebAuthn deployment

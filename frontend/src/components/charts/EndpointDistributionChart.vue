@@ -1,73 +1,14 @@
 <template>
-  <!-- 不带卡片外框（A7）：由调用方用 hairline 分节。原多色环形图换成与模型分布同一种单色占比列 -->
+  <!--
+    不带卡片外框（A7）：由调用方用 hairline 分节。原多色环形图换成与模型分布同一种单色占比列。
+    调用方只剩渠道抽屉（入站 / 上游端点各一张，只看表）；原来给用量页「分析」页签用的来源切换、指标切换、
+    按用户下钻随那个页签一起删了。按 Token 排、占比按 Token。
+  -->
   <div>
-    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+    <div class="mb-4">
       <h3 class="text-base font-semibold text-af-ink">
         {{ title || t('usage.endpointDistribution') }}
       </h3>
-      <div class="flex flex-wrap items-center justify-end gap-2">
-        <div
-          v-if="showSourceToggle"
-          class="inline-flex rounded-lg border border-af-hairline bg-af-sunken p-0.5"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'inbound'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'inbound')"
-          >
-            {{ t('usage.inbound') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'upstream'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'upstream')"
-          >
-            {{ t('usage.upstream') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="source === 'path'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:source', 'path')"
-          >
-            {{ t('usage.path') }}
-          </button>
-        </div>
-
-        <div
-          v-if="showMetricToggle"
-          class="inline-flex rounded-lg border border-af-hairline bg-af-sunken p-0.5"
-        >
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'tokens'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:metric', 'tokens')"
-          >
-            {{ t('admin.dashboard.metricTokens') }}
-          </button>
-          <button
-            type="button"
-            class="rounded-md px-2.5 py-1 text-xs font-medium transition-colors"
-            :class="metric === 'actual_cost'
-              ? 'bg-af-sheet text-af-ink'
-              : 'text-af-ink-3 hover:text-af-ink-2'"
-            @click="emit('update:metric', 'actual_cost')"
-          >
-            {{ t('admin.dashboard.metricActualCost') }}
-          </button>
-        </div>
-      </div>
     </div>
     <div v-if="loading" class="flex h-48 items-center justify-center">
       <LoadingSpinner />
@@ -81,49 +22,39 @@
               <th class="pb-2 pl-3 text-left">{{ t('admin.dashboard.share') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.requests') }}</th>
               <th class="pb-2 text-right">{{ t('admin.dashboard.tokens') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.actual') }}</th>
-              <th class="pb-2 text-right">{{ t('admin.dashboard.standard') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.revenueHint')">{{ t('common.money.revenue') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.costHint')">{{ t('common.money.cost') }}</th>
+              <th class="pb-2 text-right" :title="t('common.money.profitHint')">{{ t('common.money.profit') }}</th>
             </tr>
           </thead>
           <tbody>
-            <template v-for="item in displayEndpointStats" :key="item.endpoint">
-              <tr
-                class="border-t border-af-hairline transition-colors"
-                :class="enableBreakdown ? 'cursor-pointer hover:bg-af-sunken' : ''"
-                @click="enableBreakdown && toggleBreakdown(item.endpoint)"
-              >
-                <td class="max-w-[180px] truncate py-1.5 font-medium" :class="enableBreakdown ? 'text-af-ink-2 hover:text-af-ink' : 'text-af-ink'" :title="item.endpoint">
-                  <span class="inline-flex items-center gap-1">
-                    <svg v-if="enableBreakdown && expandedKey === item.endpoint" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
-                    <svg v-else-if="enableBreakdown" class="h-3 w-3 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
-                    {{ item.endpoint }}
-                  </span>
-                </td>
-                <td class="w-32 py-1.5 pl-3">
-                  <ShareBar :value="metricValue(item)" :total="metricTotal" />
-                </td>
-                <td class="py-1.5 text-right text-af-ink-2">
-                  {{ formatNumber(item.requests) }}
-                </td>
-                <td class="py-1.5 text-right text-af-ink-2">
-                  {{ formatTokens(item.total_tokens) }}
-                </td>
-                <td class="py-1.5 text-right text-af-ink">
-                  ${{ formatCost(item.actual_cost) }}
-                </td>
-                <td class="py-1.5 text-right text-af-ink-3">
-                  ${{ formatCost(item.cost) }}
-                </td>
-              </tr>
-              <tr v-if="expandedKey === item.endpoint">
-                <td colspan="6" class="p-0">
-                  <UserBreakdownSubTable
-                    :items="breakdownItems"
-                    :loading="breakdownLoading"
-                  />
-                </td>
-              </tr>
-            </template>
+            <tr
+              v-for="item in displayEndpointStats"
+              :key="item.endpoint"
+              class="border-t border-af-hairline"
+            >
+              <td class="max-w-[180px] truncate py-1.5 font-medium text-af-ink" :title="item.endpoint">
+                {{ item.endpoint }}
+              </td>
+              <td class="w-32 py-1.5 pl-3">
+                <ShareBar :value="item.total_tokens" :total="tokenTotal" />
+              </td>
+              <td class="py-1.5 text-right text-af-ink-2">
+                {{ formatNumber(item.requests) }}
+              </td>
+              <td class="py-1.5 text-right text-af-ink-2">
+                {{ formatTokens(item.total_tokens) }}
+              </td>
+              <td class="py-1.5 text-right tabular-nums text-af-ink">
+                {{ formatMoney(item.actual_cost) }}
+              </td>
+              <td class="py-1.5 text-right tabular-nums text-af-ink-3">
+                {{ formatMoney(item.account_cost) }}
+              </td>
+              <td class="py-1.5 text-right tabular-nums" :class="profitTextClass(profitOf(item.actual_cost, item.account_cost)) || 'text-af-ink-2'">
+                {{ formatMoney(profitOf(item.actual_cost, item.account_cost)) }}
+              </td>
+            </tr>
           </tbody>
         </table>
       </div>
@@ -135,99 +66,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import LoadingSpinner from '@/components/common/LoadingSpinner.vue'
-import UserBreakdownSubTable from './UserBreakdownSubTable.vue'
 import ShareBar from './ShareBar.vue'
-import type { EndpointStat, UserBreakdownItem } from '@/types'
-import type { UserBreakdownLoader } from './userBreakdown'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
+import type { EndpointStat } from '@/types'
 
 const { t } = useI18n()
-
-type DistributionMetric = 'tokens' | 'actual_cost'
-type EndpointSource = 'inbound' | 'upstream' | 'path'
 
 const props = withDefaults(
   defineProps<{
     endpointStats: EndpointStat[]
-    upstreamEndpointStats?: EndpointStat[]
-    endpointPathStats?: EndpointStat[]
     loading?: boolean
     title?: string
-    metric?: DistributionMetric
-    source?: EndpointSource
-    showMetricToggle?: boolean
-    showSourceToggle?: boolean
-    /** 按用户下钻的加载函数；不传则不提供下钻（用户站复用本图表时不传）。 */
-    loadUserBreakdown?: UserBreakdownLoader
-    startDate?: string
-    endDate?: string
-    filters?: Record<string, any>
   }>(),
   {
-    upstreamEndpointStats: () => [],
-    endpointPathStats: () => [],
     loading: false,
-    title: '',
-    metric: 'tokens',
-    source: 'inbound',
-    showMetricToggle: false,
-    showSourceToggle: false
+    title: ''
   }
 )
 
-const emit = defineEmits<{
-  'update:metric': [value: DistributionMetric]
-  'update:source': [value: EndpointSource]
-}>()
-
-const enableBreakdown = computed(() => props.loadUserBreakdown !== undefined)
-const expandedKey = ref<string | null>(null)
-const breakdownItems = ref<UserBreakdownItem[]>([])
-const breakdownLoading = ref(false)
-
-const toggleBreakdown = async (endpoint: string) => {
-  const loadUserBreakdown = props.loadUserBreakdown
-  if (!loadUserBreakdown) return
-  if (expandedKey.value === endpoint) {
-    expandedKey.value = null
-    return
-  }
-  expandedKey.value = endpoint
-  breakdownLoading.value = true
-  breakdownItems.value = []
-  try {
-    const res = await loadUserBreakdown({
-      ...props.filters,
-      start_date: props.startDate,
-      end_date: props.endDate,
-      endpoint,
-      endpoint_type: props.source,
-    })
-    breakdownItems.value = res.users || []
-  } catch {
-    breakdownItems.value = []
-  } finally {
-    breakdownLoading.value = false
-  }
-}
-
 const displayEndpointStats = computed(() => {
-  const sourceStats = props.source === 'upstream'
-    ? props.upstreamEndpointStats
-    : props.source === 'path'
-      ? props.endpointPathStats
-      : props.endpointStats
-  if (!sourceStats?.length) return []
-
-  const metricKey = props.metric === 'actual_cost' ? 'actual_cost' : 'total_tokens'
-  return [...sourceStats].sort((a, b) => b[metricKey] - a[metricKey])
+  if (!props.endpointStats?.length) return []
+  return [...props.endpointStats].sort((a, b) => b.total_tokens - a.total_tokens)
 })
 
-/** 占比按当前指标（Token / 实付） */
-const metricValue = (item: EndpointStat) => (props.metric === 'actual_cost' ? item.actual_cost : item.total_tokens)
-const metricTotal = computed(() => displayEndpointStats.value.reduce((sum, item) => sum + metricValue(item), 0))
+const tokenTotal = computed(() => displayEndpointStats.value.reduce((sum, item) => sum + item.total_tokens, 0))
 
 const formatTokens = (value: number): string => {
   if (value >= 1_000_000_000) {
@@ -242,16 +107,5 @@ const formatTokens = (value: number): string => {
 
 const formatNumber = (value: number): string => {
   return value.toLocaleString()
-}
-
-const formatCost = (value: number): string => {
-  if (value >= 1000) {
-    return (value / 1000).toFixed(2) + 'K'
-  } else if (value >= 1) {
-    return value.toFixed(2)
-  } else if (value >= 0.01) {
-    return value.toFixed(3)
-  }
-  return value.toFixed(4)
 }
 </script>

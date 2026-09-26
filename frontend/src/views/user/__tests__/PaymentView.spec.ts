@@ -123,7 +123,6 @@ function checkoutInfoFixture(overrides: Partial<CheckoutInfoResponse> = {}) {
     global_min: 0,
     global_max: 0,
     plans: [],
-    balance_disabled: false,
     usd_to_cny_rate: 7.2,
     recharge_fee_rate: 0,
     help_text: '',
@@ -842,60 +841,11 @@ describe('PaymentView mode availability (mode comes from the route, no in-page s
       .filter((text) => text === 'payment.tabTopUp' || text === 'payment.tabSubscribe')
   }
 
-  it('renders the plan list in subscription mode when subscription_enabled is absent (opt-out default)', async () => {
+  it('renders the plan list in subscription mode', async () => {
     const wrapper = await mountSubscriptionPlanList(2)
 
     expect(switcherLabels(wrapper)).toEqual([])
     expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(2)
     expect(wrapper.text()).not.toContain('payment.rechargeAccount')
-  })
-
-  it('shows the no-plans notice when subscriptions are disabled', async () => {
-    appStoreState.setPublicSettings({ subscription_enabled: false })
-    const wrapper = await mountSubscriptionConfirm()
-
-    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
-    expect(wrapper.text()).toContain('payment.noPlans')
-    expect(wrapper.text()).not.toContain('payment.createOrder')
-    wrapper.unmount()
-  })
-
-  it('shows an unavailable notice instead of a doomed top-up form when balance recharge is disabled', async () => {
-    getCheckoutInfo.mockReset().mockResolvedValue(checkoutInfoFixture({ balance_disabled: true }))
-    const wrapper = shallowMount(PaymentView, {
-      props: { mode: 'recharge' },
-      global: { stubs: { SiteShell: { template: '<div><slot /></div>' }, Teleport: true, Transition: false } },
-    })
-    await flushPromises()
-    await flushPromises()
-
-    expect(wrapper.text()).toContain('payment.notAvailable')
-    expect(wrapper.text()).not.toContain('payment.rechargeAccount')
-    wrapper.unmount()
-  })
-
-  it('drops the plan list when the subscription flag flips off after mount', async () => {
-    const wrapper = await mountSubscriptionPlanList(2)
-    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(2)
-
-    appStoreState.setPublicSettings({ subscription_enabled: false })
-    await flushPromises()
-
-    expect(wrapper.findAllComponents(SubscriptionPlanCard)).toHaveLength(0)
-    expect(wrapper.text()).toContain('payment.noPlans')
-    wrapper.unmount()
-  })
-
-  it('shows the plans again when a subscription-only site turns subscriptions back on', async () => {
-    appStoreState.setPublicSettings({ subscription_enabled: false })
-    const wrapper = await mountSubscriptionConfirm({ checkout: { balance_disabled: true } })
-    expect(wrapper.text()).toContain('payment.noPlans')
-
-    appStoreState.setPublicSettings({ subscription_enabled: true })
-    await flushPromises()
-
-    expect(wrapper.text()).not.toContain('payment.noPlans')
-    expect(wrapper.findAllComponents(SubscriptionPlanCard).length).toBeGreaterThan(0)
-    wrapper.unmount()
   })
 })

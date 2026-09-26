@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { RouteLocation, RouteRecordRaw } from 'vue-router'
 
 vi.mock('@/utils/featureFlags', () => ({
-  FeatureFlags: { payment: 'payment_enabled', subscription: 'subscription_enabled', affiliate: 'affiliate_enabled' },
+  FeatureFlags: { payment: 'payment_enabled', affiliate: 'affiliate_enabled' },
   isFeatureFlagEnabled: () => true,
   resolveFeatureFlag: () => true,
 }))
@@ -43,11 +43,8 @@ describe('legacy billing redirects', () => {
     expect(redirectOf('/purchase')(to('/purchase', query))).toEqual({ path: '/billing/subscriptions', query })
   })
 
-  it.each([
-    ['/subscriptions', '/billing/subscriptions'],
-    ['/redeem', '/billing/redeem']
-  ])('maps %s to %s keeping the query', (from, target) => {
-    expect(redirectOf(from)(to(from, { page: '2' }))).toEqual({ path: target, query: { page: '2' } })
+  it('maps /subscriptions to /billing/subscriptions keeping the query', () => {
+    expect(redirectOf('/subscriptions')(to('/subscriptions', { page: '2' }))).toEqual({ path: '/billing/subscriptions', query: { page: '2' } })
   })
 
   it('mounts the recharge tab as the payment engine in recharge mode', () => {

@@ -1,63 +1,45 @@
 <template>
+  <!--
+    一个上游用量窗口（渠道详情抽屉「用量」页签）：窗口名写全（5 小时 / 7 天 / Gemini 3 Pro…），
+    进度条 + 百分比 + 多久后重置；本站在这个窗口里的用量另起一行小字：请求 · Token · 收入 · 成本。
+    进度条平时是墨色，≥75% 黄、≥90% 红（颜色只表示状态）。
+  -->
   <div>
-    <!-- Window stats row (above progress bar) -->
-    <div
-      v-if="windowStats && (windowStats.requests > 0 || windowStats.tokens > 0)"
-      class="mb-0.5 flex items-center"
-    >
-      <div class="flex items-center gap-1.5 text-[9px] text-af-ink-3">
-        <span class="rounded bg-af-sunken px-1.5 py-0.5">
-          {{ formatRequests }} req
-        </span>
-        <span class="rounded bg-af-sunken px-1.5 py-0.5">
-          {{ formatTokens }}
-        </span>
-        <span class="rounded bg-af-sunken px-1.5 py-0.5" :title="t('usage.accountBilled')">
-          A ${{ formatAccountCost }}
-        </span>
-        <span
-          v-if="windowStats?.user_cost != null"
-          class="rounded bg-af-sunken px-1.5 py-0.5"
-          :title="t('usage.userBilled')"
-        >
-          U ${{ formatUserCost }}
-        </span>
-        <span
-          v-if="estimatedTotalCost != null"
-          data-test="estimated-total-cost"
-          class="rounded bg-af-sunken px-1.5 py-0.5"
-          :title="t('admin.accounts.usageWindow.estimatedTotalCostTooltip')"
-        >
-          {{ t('admin.accounts.usageWindow.estimatedTotalCost', { cost: estimatedTotalCost.toFixed(2) }) }}
-        </span>
+    <div class="flex items-center gap-2">
+      <span class="w-28 shrink-0 truncate text-xs text-af-ink-2" :title="label" data-testid="usage-window-label">{{ label }}</span>
+      <div class="h-1.5 w-24 shrink-0 overflow-hidden rounded-full bg-af-hairline">
+        <div :class="['h-full transition-all duration-300', barClass]" :style="{ width: barWidth }"></div>
       </div>
-    </div>
-
-    <!-- Progress bar row -->
-    <div class="flex items-center gap-1">
-      <!-- Label badge (label-width: fixed = 定宽居中, auto = 限宽截断左对齐) -->
-      <span :class="[labelSizeClass, labelClass]">
-        {{ label }}
-      </span>
-
-      <!-- Progress bar container -->
-      <div class="h-1.5 w-8 shrink-0 overflow-hidden rounded-full bg-af-hairline">
-        <div
-          :class="['h-full transition-all duration-300', barClass]"
-          :style="{ width: barWidth }"
-        ></div>
-      </div>
-
-      <!-- Percentage -->
-      <span :class="['w-[32px] shrink-0 text-right text-[10px] font-medium', textClass]">
+      <span :class="['w-10 shrink-0 text-right text-xs font-medium tabular-nums', textClass]">
         {{ displayPercent }}
       </span>
-
-      <!-- Reset time -->
-      <span v-if="shouldShowResetTime" class="shrink-0 text-[10px] text-af-ink-3">
-        {{ formatResetTime }}
+      <span v-if="resetText" class="min-w-0 truncate text-xs text-af-ink-3" data-testid="usage-window-reset">
+        {{ resetText }}
       </span>
     </div>
+
+    <p
+      v-if="windowStats && (windowStats.requests > 0 || windowStats.tokens > 0)"
+      class="mt-0.5 pl-[7.5rem] text-xs leading-4 tabular-nums text-af-ink-3"
+      data-testid="usage-window-stats"
+    >
+      {{ t('admin.accounts.usageWindow.requests', { count: formatRequests }) }}
+      · {{ formatTokens }} Token
+      <template v-if="windowStats.user_cost != null">
+        · {{ t('common.money.revenue') }} {{ formatMoney(windowStats.user_cost) }}
+      </template>
+      · {{ t('common.money.cost') }} {{ formatMoney(windowStats.cost) }}
+      <span
+        v-if="estimatedTotalCost != null"
+        data-test="estimated-total-cost"
+        :title="t('admin.accounts.usageWindow.estimatedTotalCostTooltip')"
+      >
+        · {{ t('admin.accounts.usageWindow.estimatedTotalCost', { cost: formatMoney(estimatedTotalCost) }) }}
+      </span>
+    </p>
+    <p v-else-if="note" class="mt-0.5 pl-[7.5rem] text-xs leading-4 tabular-nums text-af-ink-3" data-testid="usage-window-note">
+      {{ note }}
+    </p>
   </div>
 </template>
 
@@ -67,26 +49,25 @@ import { useIntervalFn } from '@vueuse/core'
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
 import { formatCompactNumber } from '@/utils/format'
+import { formatMoney } from '@/utils/money'
+import { durationUntilWords } from './durationWords'
 
-const props = withDefaults(
-  defineProps<{
-    label: string
-    utilization: number // Percentage (0-100+)
-    resetsAt?: string | null
-    windowStats?: WindowStats | null
-    estimatedTotalCost?: number | null
-    showNowWhenIdle?: boolean
-    remainingCapacity?: boolean
-    /** fixed: 定宽居中徽章（账号页纵向对齐）；auto: 限宽截断左对齐（监控页组合标签） */
-    labelWidth?: 'fixed' | 'auto'
-  }>(),
-  { labelWidth: 'fixed' }
-)
+const props = defineProps<{
+  label: string
+  utilization: number // Percentage (0-100+)
+  resetsAt?: string | null
+  /** 本站在这个窗口里的用量；cost 是渠道成本，user_cost 是收入 */
+  windowStats?: WindowStats | null
+  /** 按当前成本和用量推算的「用满这个窗口的成本」 */
+  estimatedTotalCost?: number | null
+  showNowWhenIdle?: boolean
+  /** 没有窗口用量时，第二行写的一句说明（如配额「已用 $x / 限额 $y」） */
+  note?: string
+}>()
 
 const { t } = useI18n()
 
-// Reactive clock for countdown — only runs when a reset time is shown,
-// to avoid creating many idle timers across large account lists.
+// 倒计时只在有重置时间时走表，避免抽屉里多个窗口各起一个空转的定时器
 const now = ref(new Date())
 const { pause: pauseClock, resume: resumeClock } = useIntervalFn(
   () => {
@@ -108,125 +89,36 @@ watch(
   },
 )
 
-// 窗口标签一律灰底墨字（原按窗口类型配色，muqian 2026-09-24 装饰色收成墨色；用量高低看进度条的阈值色）
-const labelClass = 'bg-af-sunken text-af-ink-2'
-
-// Label badge width mode: fixed 定宽保证账号页纵向对齐；auto 限宽截断适配
-// 监控页「Pro/7 天」类组合标签。百分比列在两种模式下保持不变。
-const labelSizeClass = computed(() =>
-  props.labelWidth === 'auto'
-    ? 'max-w-[72px] shrink-0 truncate rounded px-1 text-left text-[10px] font-medium'
-    : 'w-[32px] shrink-0 rounded px-1 text-center text-[10px] font-medium'
-)
-
-// Progress bar color based on utilization
 const barClass = computed(() => {
-  if (props.remainingCapacity) {
-    if (props.utilization <= 20) {
-      return 'bg-af-danger'
-    } else if (props.utilization <= 50) {
-      return 'bg-af-warning'
-    }
-    return 'bg-af-success'
-  }
-  if (props.utilization >= 90) {
-    return 'bg-af-danger'
-  } else if (props.utilization >= 75) {
-    return 'bg-af-warning'
-  } else {
-    return 'bg-af-success'
-  }
+  if (props.utilization >= 90) return 'bg-af-danger'
+  if (props.utilization >= 75) return 'bg-af-warning'
+  return 'bg-af-ink-3'
 })
 
-// Text color based on utilization
 const textClass = computed(() => {
-  if (props.remainingCapacity) {
-    if (props.utilization <= 20) {
-      return 'text-af-danger'
-    } else if (props.utilization <= 50) {
-      return 'text-af-warning'
-    }
-    return 'text-af-ink-2'
-  }
-  if (props.utilization >= 90) {
-    return 'text-af-danger'
-  } else if (props.utilization >= 75) {
-    return 'text-af-warning'
-  } else {
-    return 'text-af-ink-2'
-  }
+  if (props.utilization >= 90) return 'text-af-danger'
+  if (props.utilization >= 75) return 'text-af-warning'
+  return 'text-af-ink-2'
 })
 
-// Bar width (capped at 100%)
-const barWidth = computed(() => {
-  return `${Math.min(Math.max(props.utilization, 0), 100)}%`
-})
+const barWidth = computed(() => `${Math.min(Math.max(props.utilization, 0), 100)}%`)
 
-// Display percentage (cap at 999% for readability)
+// 超过 999% 就不再写具体数
 const displayPercent = computed(() => {
-  const percent = Math.round(
-    props.remainingCapacity
-      ? Math.min(Math.max(props.utilization, 0), 100)
-      : props.utilization
-  )
+  const percent = Math.round(props.utilization)
   return percent > 999 ? '>999%' : `${percent}%`
 })
 
-const shouldShowResetTime = computed(() => {
-  if (props.resetsAt) return true
-  return Boolean(props.showNowWhenIdle && props.utilization <= 0)
+const resetText = computed(() => {
+  // 滚动窗口用量为 0：现在就能用
+  if (props.showNowWhenIdle && props.utilization <= 0) return t('admin.accounts.usageWindow.resetNow')
+  if (!props.resetsAt) return ''
+  const remaining = durationUntilWords(props.resetsAt, t, now.value)
+  if (remaining) return t('admin.accounts.usageWindow.resetsIn', { time: remaining })
+  // 重置时间已过但用量还 > 0：后端窗口数据还没刷新
+  return props.utilization > 0 ? t('admin.accounts.usageWindow.resetPending') : t('admin.accounts.usageWindow.resetNow')
 })
 
-// Format reset time
-const formatResetTime = computed(() => {
-  // For rolling windows, when utilization is 0%, treat as immediately available.
-  if (props.showNowWhenIdle && props.utilization <= 0) {
-    return t('usage.resetNow')
-  }
-
-  if (!props.resetsAt) return '-'
-
-  const date = new Date(props.resetsAt)
-  const diffMs = date.getTime() - now.value.getTime()
-
-  // resetsAt 已过期：utilization>0 说明后端窗口数据还没刷新（active poll 没回写），
-  // 显示「待刷新」以区别于真正可用的「现在」。
-  if (diffMs <= 0) {
-    return props.utilization > 0 ? t('usage.resetPending') : t('usage.resetNow')
-  }
-
-  const diffHours = Math.floor(diffMs / (1000 * 60 * 60))
-  const diffMins = Math.floor((diffMs % (1000 * 60 * 60)) / (1000 * 60))
-
-  if (diffHours >= 24) {
-    const days = Math.floor(diffHours / 24)
-    return `${days}d ${diffHours % 24}h`
-  } else if (diffHours > 0) {
-    return `${diffHours}h ${diffMins}m`
-  } else {
-    return `${diffMins}m`
-  }
-})
-
-// Window stats formatters
-const formatRequests = computed(() => {
-  if (!props.windowStats) return ''
-  return formatCompactNumber(props.windowStats.requests, { allowBillions: false })
-})
-
-const formatTokens = computed(() => {
-  if (!props.windowStats) return ''
-  return formatCompactNumber(props.windowStats.tokens)
-})
-
-const formatAccountCost = computed(() => {
-  if (!props.windowStats) return '0.00'
-  return props.windowStats.cost.toFixed(2)
-})
-
-const formatUserCost = computed(() => {
-  if (!props.windowStats || props.windowStats.user_cost == null) return '0.00'
-  return props.windowStats.user_cost.toFixed(2)
-})
-
+const formatRequests = computed(() => formatCompactNumber(props.windowStats?.requests ?? 0, { allowBillions: false }))
+const formatTokens = computed(() => formatCompactNumber(props.windowStats?.tokens ?? 0))
 </script>

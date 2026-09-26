@@ -38,14 +38,6 @@ import type {
 } from "@/types";
 import type { ProviderInstance, SubscriptionPlan } from "@/types/payment";
 import { adminPaymentAPI } from "@/api/admin/payment";
-import { type SelectOption } from "@/components/common/Select.vue";
-import {
-  SITE_BILLING_MODES,
-  SITE_BILLING_MODE_I18N_KEYS,
-  billingModeToSettings,
-  resolveSiteBillingMode,
-  type SiteBillingMode,
-} from "@/utils/siteBillingMode";
 import PaymentProviderDialog from "@/components/admin/payment/providers/PaymentProviderDialog.vue";
 import { useClipboard } from "@/composables/useClipboard";
 import {
@@ -677,8 +669,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     registration_email_domain_quota_enabled: false,
     invitation_code_enabled: false,
     password_reset_enabled: false,
-    totp_enabled: false,
-    totp_encryption_key_configured: false,
     passkey_enabled: false,
     passkey_configured: false,
     passkey_rp_id: "",
@@ -713,7 +703,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     payment_daily_limit: 50000,
     payment_max_pending_orders: 3,
     payment_order_timeout_minutes: 30,
-    payment_balance_disabled: false,
     payment_usd_to_cny_rate: 0,
     payment_recharge_fee_rate: 0,
     payment_enabled_types: [],
@@ -906,8 +895,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
     // Channel Monitor feature switch
     channel_monitor_enabled: true,
     // Available Channels feature switch
-    // Subscription feature switch (user sidebar "My Subscriptions" entry)
-    subscription_enabled: true,
     // Model Plaza feature switches + description
     model_plaza_description: '',
     // Allow user view error requests
@@ -1965,24 +1952,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
   }
 
 
-  // 站点类型：由 subscription_enabled 与 payment_balance_disabled 两个开关派生的单选，
-  // 保存时同时写回两者，避免出现「既无充值也无订阅」的组合。
-  const siteBillingModeOptions = computed<SelectOption[]>(() =>
-    SITE_BILLING_MODES.map((mode) => ({
-      value: mode,
-      label: t(`admin.settings.features.siteBillingMode.options.${SITE_BILLING_MODE_I18N_KEYS[mode]}`),
-    })),
-  );
-  const siteBillingMode = computed<SiteBillingMode>({
-    get: () => resolveSiteBillingMode(form),
-    set: (mode) => {
-      Object.assign(form, billingModeToSettings(mode));
-    },
-  });
-  const siteBillingModeHint = computed(() =>
-    t(`admin.settings.features.siteBillingMode.hints.${SITE_BILLING_MODE_I18N_KEYS[siteBillingMode.value]}`),
-  );
-
   async function saveSettings(): Promise<boolean> {
     saving.value = true;
     try {
@@ -2118,7 +2087,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
           form.registration_email_domain_quota_enabled,
         invitation_code_enabled: form.invitation_code_enabled,
         password_reset_enabled: form.password_reset_enabled,
-        totp_enabled: form.totp_enabled,
         passkey_enabled: form.passkey_enabled,
         session_binding_enabled: form.session_binding_enabled,
         step_up_enabled: form.step_up_enabled,
@@ -2321,7 +2289,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         payment_max_pending_orders: Number(form.payment_max_pending_orders) || 0,
         payment_order_timeout_minutes:
           Number(form.payment_order_timeout_minutes) || 0,
-        payment_balance_disabled: form.payment_balance_disabled,
         payment_usd_to_cny_rate: Number(form.payment_usd_to_cny_rate) || 0,
         payment_recharge_fee_rate: Number(form.payment_recharge_fee_rate) || 0,
         payment_enabled_types: form.payment_enabled_types,
@@ -2358,8 +2325,6 @@ IMPORTANT: You must NEVER generate or guess URLs for the user unless you are con
         // Ops monitoring feature switch
         ops_monitoring_enabled: form.ops_monitoring_enabled,
         // Available Channels feature switch
-        // Subscription feature switch
-        subscription_enabled: form.subscription_enabled,
         // Model Plaza feature switches + description
         model_plaza_description: form.model_plaza_description,
         allow_user_view_error_requests: form.allow_user_view_error_requests,
@@ -3799,9 +3764,6 @@ return {
     settingsStepUp,
     showDeleteProviderDialog,
     showProviderDialog,
-    siteBillingMode,
-    siteBillingModeHint,
-    siteBillingModeOptions,
     smtpPasswordManuallyEdited,
     streamTimeoutForm,
     streamTimeoutLoading,

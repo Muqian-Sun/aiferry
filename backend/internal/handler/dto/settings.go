@@ -33,8 +33,6 @@ type SystemSettings struct {
 	PasswordResetEnabled                bool                     `json:"password_reset_enabled"`
 	FrontendURL                         string                   `json:"frontend_url"`
 	InvitationCodeEnabled               bool                     `json:"invitation_code_enabled"`
-	TotpEnabled                         bool                     `json:"totp_enabled"`                   // TOTP 双因素认证
-	TotpEncryptionKeyConfigured         bool                     `json:"totp_encryption_key_configured"` // TOTP 加密密钥是否已配置
 	PasskeyEnabled                      bool                     `json:"passkey_enabled"`
 	PasskeyConfigured                   bool                     `json:"passkey_configured"`
 	PasskeyRPID                         string                   `json:"passkey_rp_id"`
@@ -146,21 +144,19 @@ type SystemSettings struct {
 	GoogleOAuthRedirectURL            string `json:"google_oauth_redirect_url"`
 	GoogleOAuthFrontendRedirectURL    string `json:"google_oauth_frontend_redirect_url"`
 
-	SiteName                    string           `json:"site_name"`
-	SiteLogo                    string           `json:"site_logo"`
-	SiteSubtitle                string           `json:"site_subtitle"`
-	APIBaseURL                  string           `json:"api_base_url"`
-	ContactInfo                 string           `json:"contact_info"`
-	DocURL                      string           `json:"doc_url"`
-	HomeContent                 string           `json:"home_content"`
-	CompactHomeEnabled          bool             `json:"compact_home_enabled"`
-	HideCcsImportButton         bool             `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled bool             `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     string           `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int              `json:"table_default_page_size"`
-	TablePageSizeOptions        []int            `json:"table_page_size_options"`
-	CustomMenuItems             []CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             []CustomEndpoint `json:"custom_endpoints"`
+	SiteName             string           `json:"site_name"`
+	SiteLogo             string           `json:"site_logo"`
+	SiteSubtitle         string           `json:"site_subtitle"`
+	APIBaseURL           string           `json:"api_base_url"`
+	ContactInfo          string           `json:"contact_info"`
+	DocURL               string           `json:"doc_url"`
+	HomeContent          string           `json:"home_content"`
+	CompactHomeEnabled   bool             `json:"compact_home_enabled"`
+	HideCcsImportButton  bool             `json:"hide_ccs_import_button"`
+	TableDefaultPageSize int              `json:"table_default_page_size"`
+	TablePageSizeOptions []int            `json:"table_page_size_options"`
+	CustomMenuItems      []CustomMenuItem `json:"custom_menu_items"`
+	CustomEndpoints      []CustomEndpoint `json:"custom_endpoints"`
 
 	DefaultConcurrency           int                          `json:"default_concurrency"`
 	DefaultBalance               float64                      `json:"default_balance"`
@@ -234,7 +230,6 @@ type SystemSettings struct {
 	PaymentOrderTimeoutMin   int      `json:"payment_order_timeout_minutes"`
 	PaymentMaxPendingOrders  int      `json:"payment_max_pending_orders"`
 	PaymentEnabledTypes      []string `json:"payment_enabled_types"`
-	PaymentBalanceDisabled   bool     `json:"payment_balance_disabled"`
 	PaymentUSDToCNYRate      float64  `json:"payment_usd_to_cny_rate"`
 	PaymentRechargeFeeRate   float64  `json:"payment_recharge_fee_rate"`
 	PaymentLoadBalanceStrat  string   `json:"payment_load_balance_strategy"`
@@ -278,10 +273,6 @@ type SystemSettings struct {
 
 	// Available Channels feature switch (user-facing aggregate view)
 
-	// Subscription feature switch: gates the whole user-facing subscription surface
-	// (sidebar entries, purchase-page subscription tab, header badge, /subscriptions route).
-	SubscriptionEnabled bool `json:"subscription_enabled"`
-
 	// Model Plaza feature (public group/model pricing showcase)
 	ModelPlazaDescription   string `json:"model_plaza_description"`
 	PluginManagementEnabled bool   `json:"plugin_management_enabled"`
@@ -324,7 +315,6 @@ type PublicSettings struct {
 	RegistrationEmailDomainQuotaEnabled bool                     `json:"registration_email_domain_quota_enabled"`
 	PasswordResetEnabled                bool                     `json:"password_reset_enabled"`
 	InvitationCodeEnabled               bool                     `json:"invitation_code_enabled"`
-	TotpEnabled                         bool                     `json:"totp_enabled"` // TOTP 双因素认证
 	PasskeyEnabled                      bool                     `json:"passkey_enabled"`
 	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
 	LoginAgreementMode                  string                   `json:"login_agreement_mode"`
@@ -349,8 +339,6 @@ type PublicSettings struct {
 	HomeContent                         string                   `json:"home_content"`
 	CompactHomeEnabled                  bool                     `json:"compact_home_enabled"`
 	HideCcsImportButton                 bool                     `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled         bool                     `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL             string                   `json:"purchase_subscription_url"`
 	TableDefaultPageSize                int                      `json:"table_default_page_size"`
 	TablePageSizeOptions                []int                    `json:"table_page_size_options"`
 	CustomMenuItems                     []CustomMenuItem         `json:"custom_menu_items"`
@@ -367,11 +355,7 @@ type PublicSettings struct {
 	GoogleOAuthEnabled                  bool                     `json:"google_oauth_enabled"`
 	BackendModeEnabled                  bool                     `json:"backend_mode_enabled"`
 	PaymentEnabled                      bool                     `json:"payment_enabled"`
-	// PaymentBalanceDisabled mirrors the payment-config BALANCE_PAYMENT_DISABLED switch so the
-	// user shell can derive the site billing mode (recharge & subscription / recharge only /
-	// subscription only) before any authenticated checkout call.
-	PaymentBalanceDisabled bool   `json:"payment_balance_disabled"`
-	Version                string `json:"version"`
+	Version                             string                   `json:"version"`
 	// 服务器全局时区（IANA 名称与当前 UTC 偏移，如 "Asia/Shanghai" / "+08:00"）。
 	// 高峰时段等按服务器本地时间判定的窗口，前端展示时据此标注，避免用户按浏览器本地时间误读。
 	ServerTimezone              string  `json:"server_timezone"`
@@ -387,8 +371,6 @@ type PublicSettings struct {
 	ChannelMonitorHideThroughput         bool   `json:"channel_monitor_hide_throughput"`
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
-
-	SubscriptionEnabled bool `json:"subscription_enabled"`
 
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 

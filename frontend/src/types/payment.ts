@@ -32,7 +32,6 @@ export interface PaymentConfig {
   daily_limit: number
   max_pending_orders: number
   order_timeout_minutes: number
-  balance_disabled: boolean
   usd_to_cny_rate: number
   enabled_payment_types: PaymentType[]
   help_image_url: string
@@ -65,7 +64,6 @@ export interface CheckoutInfoResponse {
   global_min: number
   global_max: number
   plans: SubscriptionPlan[]
-  balance_disabled: boolean
   /** 美元汇率（1 USD = X CNY）；0 = 未配置，人民币通道不能下单 */
   usd_to_cny_rate: number
   recharge_fee_rate: number

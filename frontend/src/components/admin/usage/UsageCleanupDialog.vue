@@ -5,6 +5,7 @@
         v-model="localFilters"
         v-model:startDate="localStartDate"
         v-model:endDate="localEndDate"
+        mode="cleanup"
         :show-actions="false"
         @change="noop"
       />
@@ -157,8 +158,11 @@ let pollTimer: number | null = null
 
 const noop = () => {}
 
+// 只带入清理接口认、且弹窗里能原样显示的条件。用户 / Key / 渠道在页面上是按名字选的，
+// 弹窗拿到的只有 id、显示不出名字，所以不带入，要删某个用户的记录在弹窗里重新选。
 const resetFilters = () => {
-  localFilters.value = { ...props.filters }
+  const { model, request_type, stream, billing_type } = props.filters
+  localFilters.value = { model, request_type, stream, billing_type }
   localStartDate.value = props.startDate
   localEndDate.value = props.endDate
   localFilters.value.start_date = localStartDate.value

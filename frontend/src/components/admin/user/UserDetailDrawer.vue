@@ -1,8 +1,8 @@
 <template>
   <!--
-    用户详情抽屉（A5）：用户列表点行打开，看完即关。五个页签：概况（余额 + 充值 / 退款、资料、自定义属性）、
-    余额流水、API 密钥、订阅、用量（近 30 天）。改资料点「编辑」，停用 / 删除在「⋯」里；
-    这些动作都 emit 给列表页，由列表页弹原有的对话框，改完刷新列表和抽屉。
+    用户详情抽屉（A5）：用户列表点行打开，看完即关。页签：概况（余额 + 充值 / 扣减余额、资料、自定义属性）、
+    余额流水、API 密钥、订阅（SITE_FEATURES.subscription 关着时不出现）、用量（近 30 天：请求、Token、收入 / 成本 / 利润）。
+    改资料点「编辑」，停用 / 删除在「⋯」里；这些动作都 emit 给列表页，由列表页弹原有的对话框，改完刷新列表和抽屉。
   -->
   <DetailDrawer
     :show="show && !!user"
@@ -59,10 +59,10 @@
           <div>
             <p class="text-13 text-af-ink-3">{{ t('admin.users.columns.balance') }}</p>
             <p class="mt-1 text-3xl font-semibold tracking-[-0.01em] tabular-nums text-af-ink" data-testid="user-drawer-balance">
-              ${{ (user.balance ?? 0).toFixed(2) }}
+              {{ formatMoney(user.balance) }}
             </p>
             <p v-if="user.frozen_balance" class="mt-1 text-xs tabular-nums text-af-ink-3">
-              {{ t('admin.users.detail.frozen', { amount: user.frozen_balance.toFixed(2) }) }}
+              {{ t('admin.users.detail.frozen', { amount: formatMoney(user.frozen_balance) }) }}
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -77,9 +77,8 @@
           </div>
         </section>
 
+        <!-- 邮箱、用户名已在抽屉标题和副标题里，这里不再列一遍 -->
         <dl class="divide-y divide-af-hairline border-t border-af-hairline">
-          <DetailField :label="t('admin.users.email')" :value="user.email" />
-          <DetailField :label="t('admin.users.username')" :value="user.username" />
           <DetailField :label="t('admin.users.columns.role')" :value="t('admin.users.roles.' + user.role)" />
           <DetailField :label="t('admin.users.columns.status')">
             <span class="inline-flex items-center gap-1.5">
@@ -103,12 +102,13 @@
           <DetailField :label="t('admin.users.columns.created')">
             <span class="tabular-nums">{{ formatDateTime(user.created_at) }}</span>
           </DetailField>
-          <DetailField :label="t('admin.users.columns.lastActive')">
-            <span v-if="user.last_active_at" :title="formatDateTime(user.last_active_at)">{{ formatRelativeTime(user.last_active_at) }}</span>
+          <!-- 最近活跃 = 最近一次调用 API（last_used_at）；最近访问控制台 = 登录 / 打开控制台（last_active_at） -->
+          <DetailField :label="t('admin.users.columns.lastUsed')" :title="t('admin.users.columns.lastUsedHint')">
+            <span v-if="user.last_used_at" :title="formatDateTime(user.last_used_at)">{{ formatRelativeTime(user.last_used_at) }}</span>
             <template v-else>—</template>
           </DetailField>
-          <DetailField :label="t('admin.users.columns.lastUsed')">
-            <span v-if="user.last_used_at" :title="formatDateTime(user.last_used_at)">{{ formatRelativeTime(user.last_used_at) }}</span>
+          <DetailField :label="t('admin.users.columns.lastActive')">
+            <span v-if="user.last_active_at" :title="formatDateTime(user.last_active_at)">{{ formatRelativeTime(user.last_active_at) }}</span>
             <template v-else>—</template>
           </DetailField>
           <DetailField :label="t('admin.users.notes')">
@@ -174,10 +174,10 @@
               <template v-if="usageWindows(sub).length">
                 <span v-for="w in usageWindows(sub)" :key="w.key">
                   <span class="text-af-ink-3">{{ w.label }}</span>
-                  ${{ w.used.toFixed(2) }}<span class="text-af-ink-4"> / ${{ w.limit.toFixed(2) }}</span>
+                  {{ formatMoney(w.used) }}<span class="text-af-ink-4"> / {{ formatMoney(w.limit) }}</span>
                 </span>
               </template>
-              <span v-else class="text-af-ink-3">∞ {{ t('admin.subscriptions.unlimited') }}</span>
+              <span v-else class="text-af-ink-3">{{ t('admin.users.detail.unlimited') }}</span>
             </p>
           </li>
         </ul>
@@ -208,7 +208,23 @@
           :action-label="t('admin.users.detail.retry')"
           @action="loadUsage"
         />
-        <StatRow v-else-if="usageItems" :items="usageItems" />
+        <template v-else-if="usageStats">
+          <StatRow :items="usageItems" />
+          <!-- 金额只剩三个数：收入（actual_cost）、成本（标价 × 渠道成本倍率）、利润（为负标红） -->
+          <dl class="mt-6 divide-y divide-af-hairline border-t border-af-hairline" data-testid="user-drawer-usage-money">
+            <DetailField :label="t('common.money.revenue')" :title="t('common.money.revenueHint')">
+              <span class="tabular-nums">{{ formatMoney(usageStats.total_actual_cost) }}</span>
+            </DetailField>
+            <DetailField :label="t('common.money.cost')" :title="t('common.money.costHint')">
+              <span class="tabular-nums">{{ formatMoney(usageStats.total_account_cost) }}</span>
+            </DetailField>
+            <DetailField :label="t('common.money.profit')" :title="t('common.money.profitHint')">
+              <span class="tabular-nums" :class="profitTextClass(usageProfit)" data-testid="user-drawer-usage-profit">
+                {{ formatMoney(usageProfit) }}
+              </span>
+            </DetailField>
+          </dl>
+        </template>
       </SheetSection>
     </template>
   </DetailDrawer>
@@ -221,6 +237,8 @@ import { adminAPI } from '@/api/admin'
 import type { AdminUsageStatsResponse } from '@/api/admin/usage'
 import type { AdminUser, UserAttributeDefinition, UserSubscription } from '@/types'
 import { formatCompactNumber, formatDateOnly, formatDateTime, formatRelativeTime } from '@/utils/format'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import Icon from '@/components/icons/Icon.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
 import StatRow from '@/components/user/shell/StatRow.vue'
@@ -256,11 +274,12 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
+// 订阅功能由代码关着时（SITE_FEATURES.subscription = false）不出「订阅」页签
 const tabs = computed<SectionTab[]>(() => [
   { key: 'overview', label: t('admin.users.detail.tabs.overview') },
   { key: 'balance', label: t('admin.users.detail.tabs.balance') },
   { key: 'keys', label: t('admin.users.detail.tabs.keys') },
-  { key: 'subscriptions', label: t('admin.users.detail.tabs.subscriptions') },
+  ...(SITE_FEATURES.subscription ? [{ key: 'subscriptions', label: t('admin.users.detail.tabs.subscriptions') }] : []),
   { key: 'usage', label: t('admin.users.detail.tabs.usage') }
 ])
 
@@ -369,22 +388,14 @@ async function loadUsage() {
   }
 }
 
-const usageItems = computed<StatItem[] | null>(() => {
+const usageItems = computed<StatItem[]>(() => {
   const stats = usageStats.value
-  if (!stats) return null
-  const cost = stats.total_actual_cost ?? 0
-  const standard = stats.total_cost ?? 0
   return [
-    { key: 'requests', label: t('admin.users.detail.usageRequests'), value: (stats.total_requests ?? 0).toLocaleString() },
-    { key: 'tokens', label: t('admin.users.detail.usageTokens'), value: formatCompactNumber(stats.total_tokens ?? 0) },
-    {
-      key: 'cost',
-      label: t('admin.users.detail.usageCost'),
-      value: `$${cost.toFixed(2)}`,
-      hint: Math.abs(standard - cost) >= 0.005 ? t('admin.users.detail.usageStandardCost', { amount: standard.toFixed(2) }) : undefined
-    }
+    { key: 'requests', label: t('admin.users.detail.usageRequests'), value: (stats?.total_requests ?? 0).toLocaleString() },
+    { key: 'tokens', label: t('admin.users.detail.usageTokens'), value: formatCompactNumber(stats?.total_tokens ?? 0) }
   ]
 })
+const usageProfit = computed(() => profitOf(usageStats.value?.total_actual_cost, usageStats.value?.total_account_cost))
 
 // 打开、换用户、换页签、外面刷新：只取当前页签要的数据（余额流水 / 密钥由面板自己取）
 watch(

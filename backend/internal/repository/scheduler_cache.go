@@ -718,7 +718,19 @@ func filterSchedulerCredentials(credentials map[string]any) map[string]any {
 	}
 	// Candidate-list admission evaluates the account override before hydrating
 	// the full account. Dropping it silently falls back to the platform threshold.
-	keys := []string{"model_mapping", "compact_model_mapping", "api_key", "project_id", "oauth_type", "plan_type", "account_scheduling_threshold"}
+	// 选号阶段（candidateAdmits 等）在本投影上判断，读到的键漏了就按零值静默放行 / 误拒；
+	// scheduler_cache_admission_keys_test.go 用 AST 扫描选号路径守着这份清单。
+	keys := []string{
+		"model_mapping", "compact_model_mapping", "api_key", "project_id", "oauth_type", "plan_type", "account_scheduling_threshold",
+		// 「只改名」标记：漏了映射就变成白名单，没列进映射的目录模型被判不支持
+		"model_mapping_rename_only",
+		// 端点能力集与 OpenAI 认证方式（live / chat 等能力门）
+		"openai_capabilities", "auth_mode", "openai_auth_mode",
+		// Grok：免费档判断（生图门）与团队级模型限流
+		"subscription_tier", "team_id",
+		// Bedrock：模型 ID 按区域解析（模型支持判断）
+		"aws_region", "aws_force_global",
+	}
 	filtered := make(map[string]any)
 	for _, key := range keys {
 		if value, ok := credentials[key]; ok && value != nil {
@@ -759,6 +771,13 @@ func filterSchedulerExtra(extra map[string]any) map[string]any {
 		"quota_reset_timezone",
 		"window_cost_limit",
 		"window_cost_sticky_reserve",
+		// RPM 限制：漏了 base_rpm 就是 0，快照命中时 RPM 不限
+		"base_rpm",
+		"rpm_strategy",
+		"rpm_sticky_buffer",
+		// Compact 分级：手动开关与探测结果
+		"openai_compact_mode",
+		"openai_compact_supported",
 		"max_sessions",
 		"session_idle_timeout_minutes",
 		"openai_oauth_responses_websockets_v2_enabled",

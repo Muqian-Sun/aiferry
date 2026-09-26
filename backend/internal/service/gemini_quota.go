@@ -374,6 +374,11 @@ func geminiQuotaTierKeyForAccount(account *Account) string {
 	if account == nil || account.Vendor() != PlatformGemini {
 		return ""
 	}
+	// 官方 API Key 一律按付费档：不在本地模拟免费档的 2 RPM / 50 RPD，限流只认上游 429。
+	// 不看 credentials.tier_id——免费档是否还在用由上游说了算，站里不再让人选。
+	if account.Type == AccountTypeAPIKey {
+		return GeminiTierAIStudioPaid
+	}
 
 	// Note: GeminiOAuthType() already defaults legacy (project_id present) to code_assist.
 	oauthType := strings.ToLower(strings.TrimSpace(account.GeminiOAuthType()))
@@ -390,10 +395,8 @@ func geminiQuotaTierKeyForAccount(account *Account) string {
 		return GeminiTierGoogleOneFree
 	case "code_assist":
 		return GeminiTierGCPStandard
-	case "ai_studio":
-		return GeminiTierAIStudioFree
 	default:
-		// API Key accounts (type=apikey) have empty oauth_type and are treated as AI Studio.
+		// ai_studio（自定义授权）没有档位时按免费档
 		return GeminiTierAIStudioFree
 	}
 }
@@ -413,11 +416,11 @@ func geminiAggregateUsage(stats []usagestats.ModelStat) GeminiUsageTotals {
 		case geminiModelFlash:
 			totals.FlashRequests += stat.Requests
 			totals.FlashTokens += stat.TotalTokens
-			totals.FlashCost += stat.ActualCost
+			totals.FlashCost += stat.AccountCost
 		default:
 			totals.ProRequests += stat.Requests
 			totals.ProTokens += stat.TotalTokens
-			totals.ProCost += stat.ActualCost
+			totals.ProCost += stat.AccountCost
 		}
 	}
 	return totals

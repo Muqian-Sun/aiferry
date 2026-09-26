@@ -183,6 +183,7 @@ import { useAppStore } from '@/stores/app'
 import { useAuthStore } from '@/stores/auth'
 import { useClipboard } from '@/composables/useClipboard'
 import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
 import { maskApiKey } from '@/utils/maskApiKey'
 import { fillTrendBuckets, formatLocalDate, trendBucketKeys } from '@/utils/trendBuckets'
@@ -224,7 +225,8 @@ const greeting = computed(() => {
 })
 
 const simpleMode = computed(() => authStore.isSimpleMode)
-const subscriptionEnabled = computed(() => !simpleMode.value && resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
+// 订阅显不显示由代码决定（SITE_FEATURES），不再读设置
+const subscriptionEnabled = computed(() => !simpleMode.value && SITE_FEATURES.subscription)
 const canRecharge = computed(() => !simpleMode.value && resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.payment))
 const errorViewEnabled = computed(() => appStore.cachedPublicSettings?.allow_user_view_error_requests ?? false)
 

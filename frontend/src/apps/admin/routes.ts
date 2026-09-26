@@ -149,7 +149,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       title: 'Subscription Management',
       titleKey: 'admin.subscriptions.title',
       descriptionKey: 'admin.subscriptions.description',
-      pageGroup: 'subscriptions'
+      pageGroup: 'subscriptions',
+      requiresSubscription: true
     }
   },
   {
@@ -209,18 +210,6 @@ export const adminRoutes: RouteRecordRaw[] = [
       title: 'Proxy Management',
       titleKey: 'nav.proxies',
       descriptionKey: 'admin.proxies.description'
-    }
-  },
-  {
-    path: '/redeem',
-    name: 'AdminRedeem',
-    component: () => import('@/views/admin/RedeemView.vue'),
-    meta: {
-      requiresAuth: true,
-      requiresAdmin: true,
-      title: 'Redeem Code Management',
-      titleKey: 'nav.redeemCodes',
-      descriptionKey: 'admin.redeem.description'
     }
   },
   {
@@ -314,7 +303,8 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAdmin: true,
       title: 'Subscription Plans',
       titleKey: 'nav.paymentPlans',
-      pageGroup: 'subscriptions'
+      pageGroup: 'subscriptions',
+      requiresSubscription: true
     }
   },
 

@@ -503,6 +503,7 @@ describe('user KeysView column settings', () => {
     expect(JSON.parse(localStorage.getItem('user-keys-columns')!)).toEqual({
       version: 1,
       hidden: ['id', 'last_used_ip', 'created_at'],
+      shown: [],
     })
   })
 

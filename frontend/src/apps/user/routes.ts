@@ -173,7 +173,7 @@ export const userRoutes: RouteRecordRaw[] = [
 
   // ==================== User Routes ====================
   // 控制台五个页签：用量（落地页）· 密钥 · 模型 · 账务 · 账户。
-  // 旧路径（/dashboard /purchase /subscriptions /redeem）长期保留 redirect，
+  // 旧路径（/purchase /subscriptions）长期保留 redirect，
   // 书签、邮件、支付回跳都不断。
   {
     path: '/',
@@ -241,7 +241,7 @@ export const userRoutes: RouteRecordRaw[] = [
       descriptionKey: 'userUi.billing.description'
     },
     children: [
-      // 索引落到第一个可见页签（支付关闭时是兑换码，不会被 requiresPayment 守卫弹走）
+      // 索引落到第一个可见页签（不会被 requiresPayment / requiresSubscription 守卫弹走）
       { path: '', redirect: () => firstBillingPath(readBillingFlags()) },
       {
         // 路由名沿用 PurchaseSubscription：resolveRouteMetaKeys 据此按计费模式切换标题
@@ -270,18 +270,6 @@ export const userRoutes: RouteRecordRaw[] = [
           descriptionKey: 'userSubscriptions.description',
           requiresSubscription: true
         }
-      },
-      {
-        path: 'redeem',
-        name: 'Redeem',
-        component: () => import('@/views/user/RedeemView.vue'),
-        meta: {
-          requiresAuth: true,
-          requiresAdmin: false,
-          title: 'Redeem Code',
-          titleKey: 'redeem.title',
-          descriptionKey: 'redeem.description'
-        }
       }
     ]
   },
@@ -297,7 +285,6 @@ export const userRoutes: RouteRecordRaw[] = [
     }
   },
   { path: '/subscriptions', redirect: (to) => ({ path: '/billing/subscriptions', query: to.query }) },
-  { path: '/redeem', redirect: (to) => ({ path: '/billing/redeem', query: to.query }) },
   {
     // 账户拆成三个子页（muqian 2026-09-23：侧栏「账户」组），共用 ProfileView 按 section 渲染
     path: '/profile',

@@ -1,7 +1,9 @@
 <template>
   <div :class="flat ? 'py-4' : 'card p-6'">
     <!--
-      左：筛选（可换行）；右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7）。
+      第一行只露四个：用户、API 密钥、模型、渠道；其余（请求类型、计费…；错误页签是错误类型 / 分类 / 状态码）
+      收在「更多筛选」里，点开才出现，收起时按钮上写着其中生效了几个。清理弹窗要把删除范围全摆出来，不收。
+      右：重置 + 调用方插槽（列设置）。刷新 / 导出 / 清理是页面级操作，在页头（A7）。
       控件上方不写标签（A8，与用户站用量页一致）：标签文字进 title；没选时占位写「全部 xx」——值是 undefined 时
       下拉匹配不到 null 那一项，不给占位会显示「请选择」。
     -->
@@ -9,7 +11,7 @@
       <!-- Left: filters (allowed to wrap to multiple rows) -->
       <div class="flex flex-1 flex-wrap items-center gap-2">
         <!-- User Search -->
-        <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-56" :title="t('admin.usage.userFilter')">
+        <div ref="userSearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('admin.usage.userFilter')">
           <input
             v-model="userKeyword"
             type="text"
@@ -45,7 +47,7 @@
         </div>
 
         <!-- API Key Search -->
-        <div ref="apiKeySearchRef" class="usage-filter-dropdown relative w-full sm:w-56" :title="t('usage.apiKeyFilter')">
+        <div ref="apiKeySearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('usage.apiKeyFilter')">
           <input
             v-model="apiKeyKeyword"
             type="text"
@@ -81,12 +83,12 @@
         </div>
 
         <!-- Model Filter -->
-        <div class="w-full sm:w-52" :title="t('usage.model')">
+        <div class="w-full sm:w-48" :title="t('usage.model')">
           <Select v-model="filters.model" :options="modelOptions" :placeholder="t('admin.usage.allModels')" searchable @change="emitChange" />
         </div>
 
-        <!-- Account Filter -->
-        <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-52" :title="t('admin.usage.account')">
+        <!-- Channel Filter -->
+        <div ref="accountSearchRef" class="usage-filter-dropdown relative w-full sm:w-48" :title="t('admin.usage.account')">
           <input
             v-model="accountKeyword"
             type="text"
@@ -121,45 +123,18 @@
           </div>
         </div>
 
-        <!-- Request Type Filter (usage only) -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.type')">
-          <Select v-model="filters.request_type" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
-        </div>
-
-        <!-- Native compaction is independent of the transport request type. -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
-          <Select v-model="filters.native_compaction_v2" :options="compactionOptions" :placeholder="t('usage.allCompactionTypes')" @change="emitChange" />
-        </div>
-
-        <!-- Billing Type Filter (usage only) -->
-        <div v-if="mode !== 'errors'" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
-          <Select v-model="filters.billing_type" :options="billingTypeOptions" :placeholder="t('admin.usage.allBillingTypes')" @change="emitChange" />
-        </div>
-
-        <!-- Billing Mode Filter (usage only；用户排行的 user-breakdown 接口不支持该维度) -->
-        <div v-if="mode === 'usage'" class="w-full sm:w-44" :title="t('admin.usage.billingMode')">
-          <Select v-model="filters.billing_mode" :options="billingModeOptions" :placeholder="t('admin.usage.allBillingModes')" @change="emitChange" />
-        </div>
-
-        <div v-if="mode === 'usage' || mode === 'analysis'" class="w-full sm:w-52" :title="t('admin.usage.upstreamModelAudit')">
-          <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" :placeholder="t('admin.usage.allUpstreamModelAudit')" @change="emitChange" />
-        </div>
-
-        <!-- Error Phase Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.type')">
-          <Select v-model="filters.error_phase" :options="errorPhaseOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
-        </div>
-
-        <!-- Error Category Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('usage.errors.category')">
-          <Select v-model="filters.error_category" :options="errorCategoryOptions" :placeholder="t('usage.errors.allCategories')" @change="emitChange" />
-        </div>
-
-        <!-- Status Code Filter (errors only) -->
-        <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.status')">
-          <Select v-model="filters.status_code" :options="statusCodeOptions" :placeholder="t('usage.errors.allStatuses')" @change="emitChange" />
-        </div>
-
+        <button
+          v-if="mode !== 'cleanup'"
+          type="button"
+          class="inline-flex h-8 items-center gap-1 rounded-full px-2.5 text-13 transition-colors hover:bg-af-sunken hover:text-af-ink"
+          :class="moreOpen || activeMoreCount > 0 ? 'text-af-ink' : 'text-af-ink-3'"
+          :aria-expanded="moreOpen"
+          data-testid="usage-filter-more"
+          @click="moreOpen = !moreOpen"
+        >
+          <Icon :name="moreOpen ? 'chevronUp' : 'plus'" size="xs" :stroke-width="2" />
+          {{ activeMoreCount > 0 ? t('admin.usage.moreFiltersActive', { count: activeMoreCount }) : t('admin.usage.moreFilters') }}
+        </button>
       </div>
 
       <!-- Right: actions -->
@@ -170,6 +145,48 @@
         <slot name="after-reset" />
       </div>
     </div>
+
+    <!-- 更多筛选：点开才出现（清理弹窗一直摆着） -->
+    <div v-show="mode === 'cleanup' || moreOpen" class="mt-3 flex flex-wrap items-center gap-2" data-testid="usage-filter-more-row">
+      <!-- Request Type Filter (usage only) -->
+      <div v-if="mode !== 'errors'" class="w-full sm:w-40" :title="t('usage.type')">
+        <Select v-model="filters.request_type" :options="requestTypeOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
+      </div>
+
+      <!-- Native compaction is independent of the transport request type. -->
+      <div v-if="mode === 'usage'" class="w-full sm:w-40" :title="t('usage.compactionFilter')">
+        <Select v-model="filters.native_compaction_v2" :options="compactionOptions" :placeholder="t('usage.allCompactionTypes')" @change="emitChange" />
+      </div>
+
+      <!-- Billing Type Filter (usage only) -->
+      <div v-if="mode !== 'errors'" class="w-full sm:w-44" :title="t('admin.usage.billingType')">
+        <Select v-model="filters.billing_type" :options="billingTypeOptions" :placeholder="t('admin.usage.allBillingTypes')" @change="emitChange" />
+      </div>
+
+      <!-- Billing Mode Filter (usage only) -->
+      <div v-if="mode === 'usage'" class="w-full sm:w-44" :title="t('admin.usage.billingMode')">
+        <Select v-model="filters.billing_mode" :options="billingModeOptions" :placeholder="t('admin.usage.allBillingModes')" @change="emitChange" />
+      </div>
+
+      <div v-if="mode === 'usage'" class="w-full sm:w-52" :title="t('admin.usage.upstreamModelAudit')">
+        <Select v-model="filters.upstream_model_mismatch" :options="upstreamModelMismatchOptions" :placeholder="t('admin.usage.allUpstreamModelAudit')" @change="emitChange" />
+      </div>
+
+      <!-- Error Phase Filter (errors only) -->
+      <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.type')">
+        <Select v-model="filters.error_phase" :options="errorPhaseOptions" :placeholder="t('admin.usage.allTypes')" @change="emitChange" />
+      </div>
+
+      <!-- Error Category Filter (errors only) -->
+      <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('usage.errors.category')">
+        <Select v-model="filters.error_category" :options="errorCategoryOptions" :placeholder="t('usage.errors.allCategories')" @change="emitChange" />
+      </div>
+
+      <!-- Status Code Filter (errors only) -->
+      <div v-if="mode === 'errors'" class="w-full sm:w-40" :title="t('admin.ops.errorLog.status')">
+        <Select v-model="filters.status_code" :options="statusCodeOptions" :placeholder="t('usage.errors.allStatuses')" @change="emitChange" />
+      </div>
+    </div>
   </div>
 </template>
 
@@ -178,6 +195,7 @@ import { ref, onMounted, onUnmounted, toRef, watch, computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { adminAPI } from '@/api/admin'
 import Select, { type SelectOption } from '@/components/common/Select.vue'
+import Icon from '@/components/icons/Icon.vue'
 import { COMMON_ERROR_STATUS_CODES } from '@/utils/errorBadges'
 import type { SimpleApiKey, SimpleUser } from '@/api/admin/usage'
 
@@ -190,11 +208,11 @@ interface Props {
   showActions?: boolean
   modelOptions?: string[]
   /**
-   * errors 模式:隐藏用量专属字段,显示错误类型+状态码(错误请求 tab 用)
-   * ranking 模式:同 usage 但隐藏计费模式与上游模型审计(用户排行 tab 用,下钻接口不支持这两个维度)
-   * analysis 模式:同 usage 但隐藏计费模式(分析 tab 的趋势 / 分布接口不支持该维度)
+   * usage 模式:明细页签的全部条件
+   * errors 模式:隐藏用量专属字段,显示错误类型 / 分类 / 状态码(错误页签用)
+   * cleanup 模式:只留清理接口认的条件(用户 / Key / 模型 / 渠道 / 请求类型 / 计费类型),弹窗里显示的就是要删的范围
    */
-  mode?: 'usage' | 'errors' | 'ranking' | 'analysis'
+  mode?: 'usage' | 'errors' | 'cleanup'
   /** 嵌入页面内使用：去掉自身卡片外观 */
   flat?: boolean
 }
@@ -301,6 +319,20 @@ const upstreamModelMismatchOptions = ref<SelectOption[]>([
 ])
 
 const emitChange = () => emit('change')
+
+// 「更多筛选」：默认收起；收起时按钮上写着里面生效了几个，免得看不见的条件悄悄起作用
+const moreOpen = ref(false)
+const MORE_FILTER_KEYS: Record<'usage' | 'errors', string[]> = {
+  usage: ['request_type', 'native_compaction_v2', 'billing_type', 'billing_mode', 'upstream_model_mismatch'],
+  errors: ['error_phase', 'error_category', 'status_code'],
+}
+const activeMoreCount = computed(() => {
+  if (props.mode === 'cleanup') return 0
+  return MORE_FILTER_KEYS[props.mode].filter((key) => {
+    const value = filters.value[key]
+    return value !== null && value !== undefined && value !== ''
+  }).length
+})
 
 const clearPendingUserSearch = () => {
   if (userSearchTimeout) {

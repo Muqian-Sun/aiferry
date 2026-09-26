@@ -30,7 +30,6 @@ type UpdateSettingsRequest struct {
 	PasswordResetEnabled                bool                         `json:"password_reset_enabled"`
 	FrontendURL                         string                       `json:"frontend_url"`
 	InvitationCodeEnabled               bool                         `json:"invitation_code_enabled"`
-	TotpEnabled                         bool                         `json:"totp_enabled"`             // TOTP 双因素认证
 	PasskeyEnabled                      *bool                        `json:"passkey_enabled"`          // Passkey 登录（省略=保持现值）
 	SessionBindingEnabled               *bool                        `json:"session_binding_enabled"`  // 会话 IP/UA 绑定（省略=保持现值）
 	StepUpEnabled                       *bool                        `json:"step_up_enabled"`          // 敏感操作 step-up 2FA（省略=保持现值）
@@ -152,21 +151,19 @@ type UpdateSettingsRequest struct {
 	GoogleOAuthFrontendRedirectURL string `json:"google_oauth_frontend_redirect_url"`
 
 	// OEM设置
-	SiteName                    string                `json:"site_name"`
-	SiteLogo                    string                `json:"site_logo"`
-	SiteSubtitle                string                `json:"site_subtitle"`
-	APIBaseURL                  string                `json:"api_base_url"`
-	ContactInfo                 string                `json:"contact_info"`
-	DocURL                      string                `json:"doc_url"`
-	HomeContent                 string                `json:"home_content"`
-	CompactHomeEnabled          bool                  `json:"compact_home_enabled"`
-	HideCcsImportButton         bool                  `json:"hide_ccs_import_button"`
-	PurchaseSubscriptionEnabled *bool                 `json:"purchase_subscription_enabled"`
-	PurchaseSubscriptionURL     *string               `json:"purchase_subscription_url"`
-	TableDefaultPageSize        int                   `json:"table_default_page_size"`
-	TablePageSizeOptions        []int                 `json:"table_page_size_options"`
-	CustomMenuItems             *[]dto.CustomMenuItem `json:"custom_menu_items"`
-	CustomEndpoints             *[]dto.CustomEndpoint `json:"custom_endpoints"`
+	SiteName             string                `json:"site_name"`
+	SiteLogo             string                `json:"site_logo"`
+	SiteSubtitle         string                `json:"site_subtitle"`
+	APIBaseURL           string                `json:"api_base_url"`
+	ContactInfo          string                `json:"contact_info"`
+	DocURL               string                `json:"doc_url"`
+	HomeContent          string                `json:"home_content"`
+	CompactHomeEnabled   bool                  `json:"compact_home_enabled"`
+	HideCcsImportButton  bool                  `json:"hide_ccs_import_button"`
+	TableDefaultPageSize int                   `json:"table_default_page_size"`
+	TablePageSizeOptions []int                 `json:"table_page_size_options"`
+	CustomMenuItems      *[]dto.CustomMenuItem `json:"custom_menu_items"`
+	CustomEndpoints      *[]dto.CustomEndpoint `json:"custom_endpoints"`
 
 	// 默认配置
 	DefaultConcurrency                        int                               `json:"default_concurrency"`
@@ -281,7 +278,6 @@ type UpdateSettingsRequest struct {
 	PaymentOrderTimeoutMin   *int     `json:"payment_order_timeout_minutes"`
 	PaymentMaxPendingOrders  *int     `json:"payment_max_pending_orders"`
 	PaymentEnabledTypes      []string `json:"payment_enabled_types"`
-	PaymentBalanceDisabled   *bool    `json:"payment_balance_disabled"`
 	PaymentUSDToCNYRate      *float64 `json:"payment_usd_to_cny_rate"`
 	PaymentRechargeFeeRate   *float64 `json:"payment_recharge_fee_rate"`
 	PaymentLoadBalanceStrat  *string  `json:"payment_load_balance_strategy"`
@@ -316,9 +312,6 @@ type UpdateSettingsRequest struct {
 	GrokDefaultBaseURLMode         *string `json:"grok_default_base_url_mode"`
 
 	// Available Channels feature switch (user-facing)
-
-	// Subscription feature switch (user-facing subscription surface; see SettingKeySubscriptionEnabled)
-	SubscriptionEnabled *bool `json:"subscription_enabled"`
 
 	// Model Plaza feature switches + description
 	ModelPlazaDescription *string `json:"model_plaza_description"`
@@ -745,15 +738,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	// TOTP 双因素认证参数验证
-	// 只有手动配置了加密密钥才允许启用 TOTP 功能
-	if req.TotpEnabled && !previousSettings.TotpEnabled {
-		// 尝试启用 TOTP，检查加密密钥是否已手动配置
-		if !h.settingService.IsTotpEncryptionKeyConfigured() {
-			response.BadRequest(c, "Cannot enable TOTP: TOTP_ENCRYPTION_KEY environment variable must be configured first. Generate a key with 'openssl rand -hex 32' and set it in your environment.")
-			return
-		}
-	}
 	loginAgreementMode := strings.ToLower(strings.TrimSpace(req.LoginAgreementMode))
 	if loginAgreementMode == "" {
 		loginAgreementMode = strings.ToLower(strings.TrimSpace(previousSettings.LoginAgreementMode))
@@ -1185,34 +1169,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	// “购买订阅”页面配置验证
-	purchaseEnabled := previousSettings.PurchaseSubscriptionEnabled
-	if req.PurchaseSubscriptionEnabled != nil {
-		purchaseEnabled = *req.PurchaseSubscriptionEnabled
-	}
-	purchaseURL := previousSettings.PurchaseSubscriptionURL
-	if req.PurchaseSubscriptionURL != nil {
-		purchaseURL = strings.TrimSpace(*req.PurchaseSubscriptionURL)
-	}
-
-	// - 启用时要求 URL 合法且非空
-	// - 禁用时允许为空；若提供了 URL 也做基本校验，避免误配置
-	if purchaseEnabled {
-		if purchaseURL == "" {
-			response.BadRequest(c, "Purchase Subscription URL is required when enabled")
-			return
-		}
-		if err := config.ValidateAbsoluteHTTPURL(purchaseURL); err != nil {
-			response.BadRequest(c, "Purchase Subscription URL must be an absolute http(s) URL")
-			return
-		}
-	} else if purchaseURL != "" {
-		if err := config.ValidateAbsoluteHTTPURL(purchaseURL); err != nil {
-			response.BadRequest(c, "Purchase Subscription URL must be an absolute http(s) URL")
-			return
-		}
-	}
-
 	// Frontend URL 验证
 	req.FrontendURL = strings.TrimSpace(req.FrontendURL)
 	if req.FrontendURL != "" {
@@ -1472,7 +1428,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PasswordResetEnabled:                req.PasswordResetEnabled,
 		FrontendURL:                         req.FrontendURL,
 		InvitationCodeEnabled:               req.InvitationCodeEnabled,
-		TotpEnabled:                         req.TotpEnabled,
 		PasskeyEnabled:                      passkeyEnabled,
 		SessionBindingEnabled:               sessionBindingEnabled,
 		StepUpEnabled:                       stepUpEnabled,
@@ -1587,8 +1542,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeContent:                            req.HomeContent,
 		CompactHomeEnabled:                     req.CompactHomeEnabled,
 		HideCcsImportButton:                    req.HideCcsImportButton,
-		PurchaseSubscriptionEnabled:            purchaseEnabled,
-		PurchaseSubscriptionURL:                purchaseURL,
 		TableDefaultPageSize:                   req.TableDefaultPageSize,
 		TablePageSizeOptions:                   req.TablePageSizeOptions,
 		CustomMenuItems:                        customMenuJSON,
@@ -1866,12 +1819,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			}
 			return previousSettings.GrokDefaultBaseURLMode
 		}(),
-		SubscriptionEnabled: func() bool {
-			if req.SubscriptionEnabled != nil {
-				return *req.SubscriptionEnabled
-			}
-			return previousSettings.SubscriptionEnabled
-		}(),
 		ModelPlazaDescription: func() string {
 			if req.ModelPlazaDescription != nil {
 				return *req.ModelPlazaDescription
@@ -1989,7 +1936,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 			OrderTimeoutMin:               req.PaymentOrderTimeoutMin,
 			MaxPendingOrders:              req.PaymentMaxPendingOrders,
 			EnabledTypes:                  req.PaymentEnabledTypes,
-			BalanceDisabled:               req.PaymentBalanceDisabled,
 			USDToCNYRate:                  req.PaymentUSDToCNYRate,
 			RechargeFeeRate:               req.PaymentRechargeFeeRate,
 			LoadBalanceStrategy:           req.PaymentLoadBalanceStrat,
@@ -2055,8 +2001,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PasswordResetEnabled:                   updatedSettings.PasswordResetEnabled,
 		FrontendURL:                            updatedSettings.FrontendURL,
 		InvitationCodeEnabled:                  updatedSettings.InvitationCodeEnabled,
-		TotpEnabled:                            updatedSettings.TotpEnabled,
-		TotpEncryptionKeyConfigured:            h.settingService.IsTotpEncryptionKeyConfigured(),
 		PasskeyEnabled:                         updatedSettings.PasskeyEnabled,
 		PasskeyConfigured:                      passkeyConfigured,
 		PasskeyRPID:                            passkeyRPID,
@@ -2169,8 +2113,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		HomeContent:                            updatedSettings.HomeContent,
 		CompactHomeEnabled:                     updatedSettings.CompactHomeEnabled,
 		HideCcsImportButton:                    updatedSettings.HideCcsImportButton,
-		PurchaseSubscriptionEnabled:            updatedSettings.PurchaseSubscriptionEnabled,
-		PurchaseSubscriptionURL:                updatedSettings.PurchaseSubscriptionURL,
 		TableDefaultPageSize:                   updatedSettings.TableDefaultPageSize,
 		TablePageSizeOptions:                   updatedSettings.TablePageSizeOptions,
 		CustomMenuItems:                        dto.ParseCustomMenuItems(updatedSettings.CustomMenuItems),
@@ -2230,7 +2172,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		PaymentOrderTimeoutMin:                 updatedPaymentCfg.OrderTimeoutMin,
 		PaymentMaxPendingOrders:                updatedPaymentCfg.MaxPendingOrders,
 		PaymentEnabledTypes:                    updatedPaymentCfg.EnabledTypes,
-		PaymentBalanceDisabled:                 updatedPaymentCfg.BalanceDisabled,
 		PaymentUSDToCNYRate:                    updatedPaymentCfg.USDToCNYRate,
 		PaymentRechargeFeeRate:                 updatedPaymentCfg.RechargeFeeRate,
 		PaymentLoadBalanceStrat:                updatedPaymentCfg.LoadBalanceStrategy,
@@ -2256,8 +2197,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		GrokDefaultTextModel:           updatedSettings.GrokDefaultTextModel,
 		GrokCrossClientModelMapEnabled: updatedSettings.GrokCrossClientModelMapEnabled,
 		GrokDefaultBaseURLMode:         updatedSettings.GrokDefaultBaseURLMode,
-
-		SubscriptionEnabled: updatedSettings.SubscriptionEnabled,
 
 		ModelPlazaDescription:   updatedSettings.ModelPlazaDescription,
 		PluginManagementEnabled: updatedSettings.PluginManagementEnabled,
@@ -2298,7 +2237,7 @@ func hasPaymentFields(req UpdateSettingsRequest) bool {
 	return req.PaymentEnabled != nil || req.PaymentMinAmount != nil ||
 		req.PaymentMaxAmount != nil || req.PaymentDailyLimit != nil ||
 		req.PaymentOrderTimeoutMin != nil || req.PaymentMaxPendingOrders != nil ||
-		req.PaymentEnabledTypes != nil || req.PaymentBalanceDisabled != nil ||
+		req.PaymentEnabledTypes != nil ||
 		req.PaymentUSDToCNYRate != nil ||
 		req.PaymentRechargeFeeRate != nil ||
 		req.PaymentLoadBalanceStrat != nil || req.PaymentProductNamePrefix != nil ||

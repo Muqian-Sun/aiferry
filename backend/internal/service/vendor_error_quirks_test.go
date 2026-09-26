@@ -285,7 +285,14 @@ func TestGeminiQuotaForAccount_FollowsVendor(t *testing.T) {
 	require.Equal(t, PlatformGemini, official.Vendor())
 	_, ok = quotaSvc.QuotaForAccount(context.Background(), official)
 	require.True(t, ok)
-	require.Equal(t, GeminiTierAIStudioFree, geminiQuotaTierKeyForAccount(official))
+	require.Equal(t, GeminiTierAIStudioPaid, geminiQuotaTierKeyForAccount(official))
+
+	// 官方 key 的档位由代码决定：库里存着免费档也按付费档，不在本地卡 2 RPM
+	official.Credentials = map[string]any{"tier_id": GeminiTierAIStudioFree}
+	require.Equal(t, GeminiTierAIStudioPaid, geminiQuotaTierKeyForAccount(official))
+	quota, ok := quotaSvc.QuotaForAccount(context.Background(), official)
+	require.True(t, ok)
+	require.EqualValues(t, -1, quota.ProRPD)
 }
 
 type geminiPrecheckUsageRepoStub struct {

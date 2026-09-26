@@ -30,13 +30,8 @@
       />
 
       <template v-else>
-        <!-- 当前模式不可用：余额充值被关 / 订阅被关 -->
-        <p v-if="!modeAvailable" class="py-12 text-center text-sm text-af-ink-3">
-          {{ mode === 'recharge' ? t('payment.notAvailable') : t('payment.noPlans') }}
-        </p>
-
         <!-- ===== 充值 ===== -->
-        <template v-else-if="mode === 'recharge'">
+        <template v-if="mode === 'recharge'">
           <dl class="grid grid-cols-2 divide-x divide-af-hairline pb-4">
             <div class="min-w-0 pr-6">
               <dt class="text-13 text-af-ink-3">{{ t('payment.rechargeAccount') }}</dt>
@@ -233,7 +228,7 @@ import { useAuthStore } from '@/stores/auth'
 import { usePaymentStore } from '@/stores/payment'
 import { useSubscriptionStore } from '@/stores/subscriptions'
 import { useAppStore } from '@/stores'
-import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { paymentAPI } from '@/api/payment'
 import { extractApiErrorMessage, extractI18nErrorMessage } from '@/utils/apiError'
 import { isMobileDevice } from '@/utils/device'
@@ -464,25 +459,12 @@ function onPaymentSettled() {
 // All checkout data from single API call
 const checkout = ref<CheckoutInfoResponse>({
   methods: {}, global_min: 0, global_max: 0,
-  plans: [], balance_disabled: false, usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
+  plans: [], usd_to_cny_rate: 0, recharge_fee_rate: 0, help_text: '', help_image_url: '', stripe_publishable_key: '',
 })
 
 const renderedHelpText = computed(() => DOMPurify.sanitize(
   marked.parse(checkout.value.help_text || '', { async: false, gfm: true, breaks: false }),
 ))
-
-// 订阅功能开关（public settings 的 subscription_enabled，opt-out）。
-const subscriptionEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
-
-// 当前模式是否可用：充值看 checkout 的 balance_disabled，订阅看功能开关。不可用时模板只显示一句提示。
-const modeAvailable = computed(() =>
-  props.mode === 'recharge' ? !checkout.value.balance_disabled : subscriptionEnabled.value
-)
-
-// 订阅在页面打开期间被关掉：清掉已选套餐，避免残留确认态
-watch(subscriptionEnabled, (enabled) => {
-  if (!enabled) selectedPlan.value = null
-})
 
 const visibleMethods = computed(() => getVisibleMethods(checkout.value.methods))
 const enabledMethods = computed(() => Object.keys(visibleMethods.value))
@@ -1084,8 +1066,8 @@ onMounted(async () => {
     await resumeWechatPaymentFromQuery()
   } catch (err: unknown) { appStore.showError(extractI18nErrorMessage(err, t, 'payment.errors', t('common.error'))) }
   finally { loading.value = false }
-  // Fetch active subscriptions (uses cache, non-blocking); skipped when the subscription feature is off
-  if (subscriptionEnabled.value) {
+  // Fetch active subscriptions (uses cache, non-blocking); skipped while subscriptions are hidden
+  if (SITE_FEATURES.subscription) {
     subscriptionStore.fetchActiveSubscriptions().catch(() => {})
   }
 })

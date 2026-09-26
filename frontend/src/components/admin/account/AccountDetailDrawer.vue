@@ -1,7 +1,9 @@
 <template>
   <!--
-    渠道详情抽屉（A5）：点列表行打开。原来散在「统计」「定时测试」两个对话框里的内容成了页签；
-    测试连接、重新授权等动作仍走原来的对话框（盖在抽屉上面）。⋯ 菜单复用列表行的 AccountActionMenu。
+    渠道详情抽屉：点列表行打开。四个页签：概况 / 上架模型 / 用量 / 定时测试。
+    列表只放一行名字 + 一行「厂商 · 接入方式」，套餐、隐私、到期、邮箱、协议地址、Compact 都在这里看；
+    上游用量窗口和容量（列表放不下）在「用量」页签。测试连接、重新授权等动作仍走原来的对话框（盖在抽屉上面），
+    ⋯ 菜单复用列表行的 AccountActionMenu。
   -->
   <DetailDrawer
     :show="account !== null"
@@ -15,16 +17,22 @@
     @close="emit('close')"
   >
     <template v-if="account" #subtitle>
-      <PlatformTypeBadge
-        variant="plain"
-        :platform="account.platform"
-        :type="account.type"
-        :vendor="account.vendor"
-        :auth-mode="getOpenAIAuthMode(account)"
-        :plan-type="getAccountPlanType(account)"
-        :privacy-mode="privacyMode"
-        :subscription-expires-at="subscriptionExpiresAt"
-      />
+      <span class="inline-flex flex-wrap items-center gap-x-1">
+        <PlatformTypeBadge
+          variant="plain"
+          :platform="account.platform"
+          :type="account.type"
+          :vendor="account.vendor"
+          :auth-mode="getOpenAIAuthMode(account)"
+          :plan-type="getAccountPlanType(account)"
+          :privacy-mode="privacyMode"
+          :subscription-expires-at="subscriptionExpiresAt"
+        />
+        <template v-if="antigravityTierLabel">
+          <span class="text-xs text-af-ink-3" aria-hidden="true">·</span>
+          <span class="text-xs text-af-ink-3" data-testid="account-detail-tier">{{ antigravityTierLabel }}</span>
+        </template>
+      </span>
     </template>
 
     <template v-if="account" #actions>
@@ -66,7 +74,7 @@
       <!-- 概况 -->
       <dl v-if="tab === 'overview'" class="divide-y divide-af-hairline" data-testid="account-detail-overview">
         <DetailField :label="t('admin.accounts.columns.status')">
-          <AccountStatusIndicator :account="account" @show-temp-unsched="emit('show-temp-unsched', account)" />
+          <AccountStatusIndicator :account="account" detailed @show-temp-unsched="emit('show-temp-unsched', account)" />
         </DetailField>
         <DetailField :label="t('admin.accounts.columns.schedulable')">
           <span class="inline-flex items-center gap-2">
@@ -88,7 +96,12 @@
             </li>
           </ul>
         </DetailField>
-        <DetailField v-if="email" :label="t('admin.accounts.detail.email')" :value="email" />
+        <DetailField v-if="email" :label="t('admin.accounts.detail.email')">
+          <span :title="account.parent_chatgpt_account_id || undefined">{{ email }}</span>
+        </DetailField>
+        <DetailField v-if="compactText" label="Compact">
+          <span :title="compactTitle">{{ compactText }}</span>
+        </DetailField>
         <DetailField :label="t('admin.accounts.detail.concurrency')">
           <span class="tabular-nums">{{ account.current_concurrency ?? 0 }} / {{ account.concurrency }}</span>
         </DetailField>
@@ -136,17 +149,15 @@
         </RouterLink>
       </div>
 
-      <!-- 用量：用量窗口 + 近 30 天统计 -->
+      <!-- 用量：上游用量窗口 + 容量 + 近 30 天 -->
       <div v-else-if="tab === 'usage'" class="space-y-6" data-testid="account-detail-usage">
-        <SheetSection :title="t('admin.accounts.columns.usageWindows')">
-          <AccountUsageCell
-            :account="account"
-            :today-stats="todayStats"
-            :today-stats-loading="todayStatsLoading"
-            @account-updated="emit('account-updated', $event)"
-          />
+        <SheetSection :title="t('admin.accounts.detail.usageWindows')" :description="t('admin.accounts.detail.usageWindowsHint')">
+          <AccountUsageCell :account="account" @account-updated="emit('account-updated', $event)" />
         </SheetSection>
-        <SheetSection :title="t('admin.accounts.usageStatistics')">
+        <SheetSection :title="t('admin.accounts.detail.capacity')">
+          <AccountCapacityCell :account="account" />
+        </SheetSection>
+        <SheetSection :title="t('admin.accounts.detail.recentUsage')">
           <AccountUsagePanel :account="account" />
         </SheetSection>
       </div>
@@ -173,14 +184,17 @@ import type { SelectOption } from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
 import AccountStatusIndicator from '@/components/account/AccountStatusIndicator.vue'
 import AccountUsageCell from '@/components/account/AccountUsageCell.vue'
+import AccountCapacityCell from '@/components/account/AccountCapacityCell.vue'
+import { durationUntilWords } from '@/components/account/durationWords'
+import { tempUnschedReasonText } from '@/components/account/tempUnschedReason'
 import { UPSTREAM_PROTOCOLS } from '@/components/account/protocolEndpoints'
 import AccountUsagePanel from './AccountUsagePanel.vue'
 import ScheduledTestsPanel from './ScheduledTestsPanel.vue'
-import { accountDisplayEmail, getAccountPlanType, getOpenAIAuthMode } from './accountDisplay'
+import { accountDisplayEmail, antigravityTierKey, getAccountPlanType, getOpenAIAuthMode, openAICompactState } from './accountDisplay'
 import type { AccountDetailTab } from './accountDetail'
-import { formatCountdown, formatDateTime, formatRelativeTime } from '@/utils/format'
+import { formatDateTime, formatRelativeTime } from '@/utils/format'
 import { formatMultiplier } from '@/utils/formatters'
-import type { Account, AccountListItem, ClaudeModel, WindowStats } from '@/types'
+import type { Account, AccountListItem, ClaudeModel } from '@/types'
 
 const props = withDefaults(
   defineProps<{
@@ -189,11 +203,8 @@ const props = withDefaults(
     tab?: AccountDetailTab
     /** 行尾 ⋯ 菜单开着（它自己处理 Esc） */
     menuOpen?: boolean
-    /** 列表已经批量拉好的今日统计，第三方 key 的用量窗口用它 */
-    todayStats?: WindowStats | null
-    todayStatsLoading?: boolean
   }>(),
-  { catalogEntries: () => [], tab: 'overview', menuOpen: false, todayStats: null, todayStatsLoading: false }
+  { catalogEntries: () => [], tab: 'overview', menuOpen: false }
 )
 
 const emit = defineEmits<{
@@ -223,6 +234,23 @@ const privacyMode = computed(() => asText(props.account?.extra?.privacy_mode) ??
 const subscriptionExpiresAt = computed(
   () => asText(props.account?.credentials?.subscription_expires_at) ?? asText(props.account?.parent_subscription_expires_at)
 )
+
+const antigravityTierLabel = computed(() => {
+  const key = props.account ? antigravityTierKey(props.account) : null
+  return key ? t(`admin.accounts.tier.${key}`) : ''
+})
+
+// OpenAI 的 Compact 支持情况：自动（未探测）时不写
+const compactText = computed(() => {
+  const state = props.account ? openAICompactState(props.account) : null
+  if (state === 'active') return t('admin.accounts.openai.compactSupported')
+  if (state === 'blocked') return t('admin.accounts.openai.compactUnsupported')
+  return ''
+})
+const compactTitle = computed(() => {
+  const checkedAt = asText(props.account?.extra?.openai_compact_checked_at)
+  return checkedAt ? `${t('admin.accounts.openai.compactLastChecked')}${t('common.labelSeparator')}${formatDateTime(new Date(checkedAt))}` : undefined
+})
 
 const protocolRows = computed(() => {
   const endpoints = props.account?.protocol_endpoints
@@ -259,17 +287,17 @@ const banner = computed<{ tone: 'danger' | 'warning'; text: string } | null>(() 
     }
   }
   if (isFuture(account.rate_limit_reset_at)) {
-    return { tone: 'warning', text: t('admin.accounts.detail.bannerRateLimited', { time: formatCountdown(account.rate_limit_reset_at) }) }
+    return { tone: 'warning', text: t('admin.accounts.detail.bannerRateLimited', { time: durationUntilWords(account.rate_limit_reset_at, t) }) }
   }
   if (isFuture(account.overload_until)) {
-    return { tone: 'danger', text: t('admin.accounts.detail.bannerOverloaded', { time: formatCountdown(account.overload_until) }) }
+    return { tone: 'danger', text: t('admin.accounts.detail.bannerOverloaded', { time: durationUntilWords(account.overload_until, t) }) }
   }
   if (isFuture(account.temp_unschedulable_until)) {
     return {
       tone: 'warning',
       text: t('admin.accounts.detail.bannerTempUnsched', {
         time: formatDateTime(account.temp_unschedulable_until),
-        reason: account.temp_unschedulable_reason || '—'
+        reason: tempUnschedReasonText(account.temp_unschedulable_reason) || '—'
       })
     }
   }

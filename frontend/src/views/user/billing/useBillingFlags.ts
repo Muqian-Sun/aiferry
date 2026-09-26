@@ -1,12 +1,13 @@
 import { computed } from 'vue'
 import { FeatureFlags, isFeatureFlagEnabled } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import type { BillingFlags } from './billingTabs'
 
-/** 账务相关的两个功能开关（宽容语义：设置未加载时按各自默认值）。 */
+/** 账务页签的开关：支付看公开设置（宽容语义：未加载时按默认值），订阅由代码决定。 */
 export function useBillingFlags() {
   return computed<BillingFlags>(() => ({
     payment: isFeatureFlagEnabled(FeatureFlags.payment),
-    subscription: isFeatureFlagEnabled(FeatureFlags.subscription)
+    subscription: SITE_FEATURES.subscription
   }))
 }
 
@@ -14,6 +15,6 @@ export function useBillingFlags() {
 export function readBillingFlags(): BillingFlags {
   return {
     payment: isFeatureFlagEnabled(FeatureFlags.payment),
-    subscription: isFeatureFlagEnabled(FeatureFlags.subscription)
+    subscription: SITE_FEATURES.subscription
   }
 }

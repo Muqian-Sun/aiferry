@@ -1117,6 +1117,23 @@ func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats() {
 	s.Require().NotNil(stats[user2.ID])
 }
 
+// 默认窗口是 30 个自然日：29 天前那天零点之后的算进去，零点前一分钟的不算
+// （旧的「现在往前 30×24 小时」会把后者也算进去）。
+func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats_DefaultWindowIsThirtyCalendarDays() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "batch30d@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-batch30d", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-batch30d"})
+
+	windowStart := timezone.Today().AddDate(0, 0, -29)
+	s.createUsageLog(user, apiKey, account, 10, 20, 1.25, windowStart.Add(time.Minute))
+	s.createUsageLog(user, apiKey, account, 10, 20, 7.5, windowStart.Add(-time.Minute))
+
+	stats, err := s.repo.GetBatchUserUsageStats(s.ctx, []int64{user.ID}, time.Time{}, time.Time{})
+	s.Require().NoError(err)
+	s.Require().NotNil(stats[user.ID])
+	s.Require().InDelta(1.25, stats[user.ID].TotalActualCost, 1e-9)
+}
+
 func (s *UsageLogRepoSuite) TestGetBatchUserUsageStats_Empty() {
 	stats, err := s.repo.GetBatchUserUsageStats(s.ctx, []int64{}, time.Time{}, time.Time{})
 	s.Require().NoError(err)
@@ -1438,6 +1455,51 @@ func (s *UsageLogRepoSuite) TestGetUsageTrendWithFilters_HourlyGranularity() {
 	s.Require().Len(trend, 2)
 }
 
+// 趋势点要带渠道成本（标价 × 渠道成本倍率；历史数据没有倍率快照按 1）——管理站概览的利润趋势靠它。
+// 明细表、按用户、两张预聚合表四条查询都核；预聚合查询出错时上层会静默回落到明细表，所以直接调 getUsageTrendFromAggregates。
+func (s *UsageLogRepoSuite) TestUsageTrend_AccountCost() {
+	user := mustCreateUser(s.T(), s.client, &service.User{Email: "trend-account-cost@test.com"})
+	apiKey := mustCreateApiKey(s.T(), s.client, &service.APIKey{UserID: user.ID, Key: "sk-trend-account-cost", Name: "k"})
+	account := mustCreateAccount(s.T(), s.client, &service.Account{Name: "acc-trend-account-cost"})
+
+	// 用一个别的测试不会碰的日期，天级预聚合桶里只有这里写的两条
+	hour := time.Date(2031, 3, 7, 5, 0, 0, 0, time.UTC)
+	half := 0.5
+	for i, log := range []*service.UsageLog{
+		{TotalCost: 1.0, ActualCost: 1.2, AccountRateMultiplier: &half},
+		{TotalCost: 0.4, ActualCost: 0.5}, // 没有倍率快照，按 1
+	} {
+		log.UserID, log.APIKeyID, log.AccountID = user.ID, apiKey.ID, account.ID
+		log.RequestID = uuid.New().String()
+		log.Model = "claude-3"
+		log.InputTokens, log.OutputTokens = 10, 20
+		log.CreatedAt = hour.Add(time.Duration(i+1) * time.Minute)
+		_, err := s.repo.Create(s.ctx, log)
+		s.Require().NoError(err)
+	}
+	const wantActual, wantAccount = 1.7, 0.9 // 1.0×0.5 + 0.4×1
+
+	start, end := hour.Add(-time.Hour), hour.Add(24*time.Hour)
+	assertOneBucket := func(name string, trend []TrendDataPoint, err error) {
+		s.Require().NoError(err, name)
+		s.Require().Len(trend, 1, name)
+		s.Require().InDelta(wantActual, trend[0].ActualCost, 1e-9, name)
+		s.Require().InDelta(wantAccount, trend[0].AccountCost, 1e-9, name)
+	}
+
+	trend, err := s.repo.GetUsageTrendWithFilters(s.ctx, start, end, "hour", user.ID, 0, 0, "", nil, nil, nil)
+	assertOneBucket("usage_logs", trend, err)
+	trend, err = s.repo.GetUserUsageTrendByUserID(s.ctx, user.ID, start, end, "hour")
+	assertOneBucket("by user", trend, err)
+
+	aggRepo := newDashboardAggregationRepositoryWithSQL(s.tx)
+	s.Require().NoError(aggRepo.AggregateRange(s.ctx, hour, hour.Add(time.Hour)))
+	for _, granularity := range []string{"hour", "day"} {
+		trend, err = s.repo.getUsageTrendFromAggregates(s.ctx, start, end, granularity)
+		assertOneBucket("aggregate "+granularity, trend, err)
+	}
+}
+
 // --- GetModelStatsWithFilters ---
 
 func (s *UsageLogRepoSuite) TestGetModelStatsWithFilters() {
@@ -1504,16 +1566,18 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	base := time.Date(2025, 1, 15, 0, 0, 0, 0, time.UTC)
 
 	// Create logs on different days
+	accountRate := 0.5
 	log1 := &service.UsageLog{
-		UserID:       user.ID,
-		APIKeyID:     apiKey.ID,
-		AccountID:    account.ID,
-		Model:        "claude-3-opus",
-		InputTokens:  100,
-		OutputTokens: 200,
-		TotalCost:    0.5,
-		ActualCost:   0.4,
-		CreatedAt:    base.Add(12 * time.Hour),
+		UserID:                user.ID,
+		APIKeyID:              apiKey.ID,
+		AccountID:             account.ID,
+		Model:                 "claude-3-opus",
+		InputTokens:           100,
+		OutputTokens:          200,
+		TotalCost:             0.5,
+		ActualCost:            0.4,
+		AccountRateMultiplier: &accountRate,
+		CreatedAt:             base.Add(12 * time.Hour),
 	}
 	_, err := s.repo.Create(s.ctx, log1)
 	s.Require().NoError(err)
@@ -1542,6 +1606,16 @@ func (s *UsageLogRepoSuite) TestGetAccountUsageStats() {
 	s.Require().Equal(int64(2), resp.Summary.TotalRequests)
 	s.Require().Equal(int64(450), resp.Summary.TotalTokens)
 	s.Require().Len(resp.Models, 2)
+
+	// 金额与 models[] 同名同义：actual_cost = 收入（Σ actual_cost），account_cost = 渠道成本（Σ total_cost × 渠道倍率，缺省按 1）。
+	s.Require().InDelta(0.4, resp.History[0].ActualCost, 1e-9)
+	s.Require().InDelta(0.25, resp.History[0].AccountCost, 1e-9)
+	s.Require().InDelta(0.15, resp.History[1].ActualCost, 1e-9)
+	s.Require().InDelta(0.2, resp.History[1].AccountCost, 1e-9)
+	s.Require().InDelta(0.55, resp.Summary.TotalActualCost, 1e-9)
+	s.Require().InDelta(0.45, resp.Summary.TotalAccountCost, 1e-9)
+	s.Require().NotNil(resp.Summary.HighestRevenueDay)
+	s.Require().Equal("2025-01-15", resp.Summary.HighestRevenueDay.Date)
 }
 
 func (s *UsageLogRepoSuite) TestGetAccountUsageStats_EmptyRange() {

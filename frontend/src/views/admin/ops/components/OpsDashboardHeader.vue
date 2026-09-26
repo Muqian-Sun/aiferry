@@ -176,12 +176,25 @@ function openErrorDetails(kind: 'request' | 'upstream') {
 }
 
 // --- Threshold checking helpers ---
+// 卡片颜色和下面的智能诊断共用这一套判断，不再各写各的数（原来诊断里写死了另一套：
+// 错误率 0.5% / 3%、上游 2% / 5%、SLA 98% / 90%、TTFT 只看 500ms，和卡片读的设置阈值对不上）。
 type ThresholdLevel = 'normal' | 'warning' | 'critical'
+
+// 阈值接口没取到时的兜底，和后端 defaultOpsMetricThresholds 同值
+const DEFAULT_METRIC_THRESHOLDS: Record<keyof OpsMetricThresholds, number> = {
+  sla_percent_min: 99.5,
+  ttft_p99_ms_max: 500,
+  request_error_rate_percent_max: 5,
+  upstream_error_rate_percent_max: 5
+}
+
+function metricThreshold(key: keyof OpsMetricThresholds): number {
+  return props.thresholds?.[key] ?? DEFAULT_METRIC_THRESHOLDS[key]
+}
 
 function getSLAThresholdLevel(slaPercent: number | null): ThresholdLevel {
   if (slaPercent == null) return 'normal'
-  const threshold = props.thresholds?.sla_percent_min
-  if (threshold == null) return 'normal'
+  const threshold = metricThreshold('sla_percent_min')
 
   // SLA is "higher is better":
   // - below threshold => critical
@@ -195,8 +208,7 @@ function getSLAThresholdLevel(slaPercent: number | null): ThresholdLevel {
 
 function getTTFTThresholdLevel(ttftMs: number | null): ThresholdLevel {
   if (ttftMs == null) return 'normal'
-  const threshold = props.thresholds?.ttft_p99_ms_max
-  if (threshold == null) return 'normal'
+  const threshold = metricThreshold('ttft_p99_ms_max')
   if (ttftMs >= threshold) return 'critical'
   if (ttftMs >= threshold * 0.8) return 'warning'
   return 'normal'
@@ -204,8 +216,7 @@ function getTTFTThresholdLevel(ttftMs: number | null): ThresholdLevel {
 
 function getRequestErrorRateThresholdLevel(errorRatePercent: number | null): ThresholdLevel {
   if (errorRatePercent == null) return 'normal'
-  const threshold = props.thresholds?.request_error_rate_percent_max
-  if (threshold == null) return 'normal'
+  const threshold = metricThreshold('request_error_rate_percent_max')
   if (errorRatePercent >= threshold) return 'critical'
   if (errorRatePercent >= threshold * 0.8) return 'warning'
   return 'normal'
@@ -213,10 +224,29 @@ function getRequestErrorRateThresholdLevel(errorRatePercent: number | null): Thr
 
 function getUpstreamErrorRateThresholdLevel(upstreamErrorRatePercent: number | null): ThresholdLevel {
   if (upstreamErrorRatePercent == null) return 'normal'
-  const threshold = props.thresholds?.upstream_error_rate_percent_max
-  if (threshold == null) return 'normal'
+  const threshold = metricThreshold('upstream_error_rate_percent_max')
   if (upstreamErrorRatePercent >= threshold) return 'critical'
   if (upstreamErrorRatePercent >= threshold * 0.8) return 'warning'
+  return 'normal'
+}
+
+// CPU 只有这一套阈值：卡片颜色、卡片下方的说明、智能诊断都用它（原来卡片 80 / 95、诊断 80 / 90 各说各的）
+const CPU_WARNING_PERCENT = 80
+const CPU_CRITICAL_PERCENT = 95
+
+function getCPUThresholdLevel(cpuPercent: number): ThresholdLevel {
+  if (cpuPercent >= CPU_CRITICAL_PERCENT) return 'critical'
+  if (cpuPercent >= CPU_WARNING_PERCENT) return 'warning'
+  return 'normal'
+}
+
+// 内存同理只有一套（原来卡片 85 / 95、诊断 85 / 90）
+const MEMORY_WARNING_PERCENT = 85
+const MEMORY_CRITICAL_PERCENT = 95
+
+function getMemoryThresholdLevel(memPercent: number): ThresholdLevel {
+  if (memPercent >= MEMORY_CRITICAL_PERCENT) return 'critical'
+  if (memPercent >= MEMORY_WARNING_PERCENT) return 'warning'
   return 'normal'
 }
 
@@ -458,14 +488,15 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
     }
 
     const cpuPct = sm.cpu_usage_percent ?? 0
-    if (cpuPct > 90) {
+    const cpuLevel = getCPUThresholdLevel(cpuPct)
+    if (cpuLevel === 'critical') {
       report.push({
         type: 'critical',
         message: t('admin.ops.diagnosis.cpuCritical', { usage: cpuPct.toFixed(1) }),
         impact: t('admin.ops.diagnosis.cpuCriticalImpact'),
         action: t('admin.ops.diagnosis.cpuCriticalAction')
       })
-    } else if (cpuPct > 80) {
+    } else if (cpuLevel === 'warning') {
       report.push({
         type: 'warning',
         message: t('admin.ops.diagnosis.cpuHigh', { usage: cpuPct.toFixed(1) }),
@@ -475,14 +506,15 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
     }
 
     const memPct = sm.memory_usage_percent ?? 0
-    if (memPct > 90) {
+    const memLevel = getMemoryThresholdLevel(memPct)
+    if (memLevel === 'critical') {
       report.push({
         type: 'critical',
         message: t('admin.ops.diagnosis.memoryCritical', { usage: memPct.toFixed(1) }),
         impact: t('admin.ops.diagnosis.memoryCriticalImpact'),
         action: t('admin.ops.diagnosis.memoryCriticalAction')
       })
-    } else if (memPct > 85) {
+    } else if (memLevel === 'warning') {
       report.push({
         type: 'warning',
         message: t('admin.ops.diagnosis.memoryHigh', { usage: memPct.toFixed(1) }),
@@ -493,25 +525,27 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
   }
 
   const ttftP99 = ov.ttft?.p99_ms ?? 0
-  if (ttftP99 > 500) {
+  const ttftLevel = getTTFTThresholdLevel(ttftP99)
+  if (ttftLevel !== 'normal') {
     report.push({
-      type: 'warning',
+      type: ttftLevel,
       message: t('admin.ops.diagnosis.ttftHigh', { ttft: ttftP99.toFixed(0) }),
       impact: t('admin.ops.diagnosis.ttftHighImpact'),
       action: t('admin.ops.diagnosis.ttftHighAction')
     })
   }
 
-  // Error rate diagnostics (adjusted thresholds)
+  // 错误率：和卡片同一套阈值
   const upstreamRatePct = (ov.upstream_error_rate ?? 0) * 100
-  if (upstreamRatePct > 5) {
+  const upstreamLevel = getUpstreamErrorRateThresholdLevel(upstreamRatePct)
+  if (upstreamLevel === 'critical') {
     report.push({
       type: 'critical',
       message: t('admin.ops.diagnosis.upstreamCritical', { rate: upstreamRatePct.toFixed(2) }),
       impact: t('admin.ops.diagnosis.upstreamCriticalImpact'),
       action: t('admin.ops.diagnosis.upstreamCriticalAction')
     })
-  } else if (upstreamRatePct > 2) {
+  } else if (upstreamLevel === 'warning') {
     report.push({
       type: 'warning',
       message: t('admin.ops.diagnosis.upstreamHigh', { rate: upstreamRatePct.toFixed(2) }),
@@ -521,14 +555,15 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
   }
 
   const errorPct = (ov.error_rate ?? 0) * 100
-  if (errorPct > 3) {
+  const errorLevel = getRequestErrorRateThresholdLevel(errorPct)
+  if (errorLevel === 'critical') {
     report.push({
       type: 'critical',
       message: t('admin.ops.diagnosis.errorHigh', { rate: errorPct.toFixed(2) }),
       impact: t('admin.ops.diagnosis.errorHighImpact'),
       action: t('admin.ops.diagnosis.errorHighAction')
     })
-  } else if (errorPct > 0.5) {
+  } else if (errorLevel === 'warning') {
     report.push({
       type: 'warning',
       message: t('admin.ops.diagnosis.errorElevated', { rate: errorPct.toFixed(2) }),
@@ -537,16 +572,17 @@ const diagnosisReport = computed<DiagnosisItem[]>(() => {
     })
   }
 
-  // SLA diagnostics
-  const slaPct = (ov.sla ?? 0) * 100
-  if (slaPct < 90) {
+  // SLA：和卡片同一套阈值；没有计入 SLA 的请求时（slaPercent 为空）不诊断，卡片同样不上色
+  const slaPct = slaPercent.value ?? 100
+  const slaLevel = getSLAThresholdLevel(slaPercent.value)
+  if (slaLevel === 'critical') {
     report.push({
       type: 'critical',
       message: t('admin.ops.diagnosis.slaCritical', { sla: slaPct.toFixed(2) }),
       impact: t('admin.ops.diagnosis.slaCriticalImpact'),
       action: t('admin.ops.diagnosis.slaCriticalAction')
     })
-  } else if (slaPct < 98) {
+  } else if (slaLevel === 'warning') {
     report.push({
       type: 'warning',
       message: t('admin.ops.diagnosis.slaLow', { sla: slaPct.toFixed(2) }),
@@ -602,9 +638,7 @@ const cpuPercentValue = computed<number | null>(() => {
 const cpuPercentClass = computed(() => {
   const v = cpuPercentValue.value
   if (v == null) return 'text-af-ink'
-  if (v >= 95) return 'text-af-danger'
-  if (v >= 80) return 'text-af-warning'
-  return 'text-af-success'
+  return getThresholdColorClass(getCPUThresholdLevel(v))
 })
 
 const memPercentValue = computed<number | null>(() => {
@@ -615,9 +649,7 @@ const memPercentValue = computed<number | null>(() => {
 const memPercentClass = computed(() => {
   const v = memPercentValue.value
   if (v == null) return 'text-af-ink'
-  if (v >= 95) return 'text-af-danger'
-  if (v >= 85) return 'text-af-warning'
-  return 'text-af-success'
+  return getThresholdColorClass(getMemoryThresholdLevel(v))
 })
 
 const dbConnActiveValue = computed<number | null>(() => {
@@ -1213,8 +1245,8 @@ function handleToolbarRefresh() {
           </div>
           <div class="mt-3 text-xs">
             <div class="flex justify-between">
-              <span class="text-af-ink-3">{{ t('admin.ops.exceptions') }}:</span>
-              <span class="font-bold text-af-ink">{{ formatNumber((overview.request_count_sla ?? 0) - (overview.success_count ?? 0)) }}</span>
+              <span class="text-af-ink-3">{{ t('admin.ops.successCount') }}:</span>
+              <span class="font-bold text-af-ink">{{ formatNumber(overview.success_count ?? 0) }}</span>
             </div>
           </div>
         </div>
@@ -1388,7 +1420,7 @@ function handleToolbarRefresh() {
             {{ cpuPercentValue == null ? '-' : `${cpuPercentValue.toFixed(1)}%` }}
           </div>
           <div v-if="!props.fullscreen" class="mt-1 text-[10px] text-af-ink-3">
-            {{ t('common.warning') }} 80% · {{ t('common.critical') }} 95%
+            {{ t('common.warning') }} {{ CPU_WARNING_PERCENT }}% · {{ t('common.critical') }} {{ CPU_CRITICAL_PERCENT }}%
           </div>
         </div>
 

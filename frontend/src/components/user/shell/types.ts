@@ -9,6 +9,8 @@ export interface StatItem {
   link?: { to: string; label: string }
   /** 数值旁的页内动作（不跳路由），如列表页摘要「上架但无渠道 3 · 筛选」 */
   action?: { label: string; onClick: () => void }
+  /** 数值的文字色，不传是正文色；只用于状态（如利润为负时 text-af-danger） */
+  valueClass?: string
 }
 
 /** 页内页签（账务四页签、记录 / 错误页签）。 */

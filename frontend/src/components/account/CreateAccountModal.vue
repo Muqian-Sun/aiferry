@@ -800,16 +800,6 @@
           <p class="input-hint mt-2">{{ t('admin.accounts.cnProviders.zhipuTeam.hint') }}</p>
         </div>
 
-        <!-- Gemini key 的档位（按地址识别出 Gemini 才有） -->
-        <div v-if="keyVendor === 'gemini'">
-          <label class="input-label">{{ t('admin.accounts.gemini.tier.label') }}</label>
-          <select v-model="geminiTierAIStudio" class="input">
-            <option value="aistudio_free">{{ t('admin.accounts.gemini.tier.aiStudio.free') }}</option>
-            <option value="aistudio_paid">{{ t('admin.accounts.gemini.tier.aiStudio.paid') }}</option>
-          </select>
-          <p class="input-hint">{{ t('admin.accounts.gemini.tier.aiStudioHint') }}</p>
-        </div>
-
         <!-- 上游倍率自动探测：全部 API-key 平台可用（所在区块已限定 apikey 类型） -->
         <div
           class="flex items-center justify-between gap-4 border-t border-af-hairline pt-4"
@@ -4085,9 +4075,6 @@ const handleSubmit = async () => {
   const credentials: Record<string, unknown> = {
     api_key: apiKeyValue.value.trim()
   }
-  if (keyVendor.value === 'gemini') {
-    credentials.tier_id = geminiTierAIStudio.value
-  }
 
   // 国产厂商 / OpenCode：账号模式写入凭据，后端按 account_mode 路由额度 / 余额探测；
   // 厂商按地址识别，中转不写。转发协议由协议地址决定。
@@ -4144,7 +4131,7 @@ const handleSubmit = async () => {
   await doCreateAccount({
     ...form,
     protocol_endpoints: apiKeyEndpoints,
-    extra: withUpstreamRequestIdHeader(extra),
+    extra: withQuotaExtra(withUpstreamRequestIdHeader(extra)),
     upstream_billing_probe_enabled: upstreamBillingAutoProbeEnabled.value,
     auto_pause_on_expired: autoPauseOnExpired.value
   })
@@ -4196,6 +4183,37 @@ const handleValidateSessionToken = (_sessionToken: string) => {
 const formatDateTimeLocal = formatDateTimeLocalInput
 const parseDateTimeLocal = parseDateTimeLocalInput
 
+// 限额（日 / 周 / 总）、重置方式与提醒写进 extra。第三方 key 的提交分支和 Bedrock / Vertex 共用，
+// 任何一条漏调，界面上填的限额就会被静默丢掉。
+const withQuotaExtra = (extra?: Record<string, unknown>): Record<string, unknown> | undefined => {
+  const quotaExtra: Record<string, unknown> = { ...(extra || {}) }
+  if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
+    quotaExtra.quota_limit = editQuotaLimit.value
+  }
+  if (editQuotaDailyLimit.value != null && editQuotaDailyLimit.value > 0) {
+    quotaExtra.quota_daily_limit = editQuotaDailyLimit.value
+  }
+  if (editQuotaWeeklyLimit.value != null && editQuotaWeeklyLimit.value > 0) {
+    quotaExtra.quota_weekly_limit = editQuotaWeeklyLimit.value
+  }
+  // Quota reset mode config
+  if (editDailyResetMode.value === 'fixed') {
+    quotaExtra.quota_daily_reset_mode = 'fixed'
+    quotaExtra.quota_daily_reset_hour = editDailyResetHour.value ?? 0
+  }
+  if (editWeeklyResetMode.value === 'fixed') {
+    quotaExtra.quota_weekly_reset_mode = 'fixed'
+    quotaExtra.quota_weekly_reset_day = editWeeklyResetDay.value ?? 1
+    quotaExtra.quota_weekly_reset_hour = editWeeklyResetHour.value ?? 0
+  }
+  if (editDailyResetMode.value === 'fixed' || editWeeklyResetMode.value === 'fixed') {
+    quotaExtra.quota_reset_timezone = editResetTimezone.value || 'UTC'
+  }
+  // Quota notify config
+  writeQuotaNotifyToExtra(quotaExtra, 'create')
+  return Object.keys(quotaExtra).length > 0 ? quotaExtra : extra
+}
+
 // Create account and handle success/failure
 const createAccountAndFinish = async (
   platform: AccountPlatform,
@@ -4210,34 +4228,7 @@ const createAccountAndFinish = async (
   // Inject quota limits for apikey/bedrock accounts
   let finalExtra = withUpstreamRequestIdHeader(extra)
   if (type === 'apikey' || type === 'bedrock') {
-    const quotaExtra: Record<string, unknown> = { ...(finalExtra || {}) }
-    if (editQuotaLimit.value != null && editQuotaLimit.value > 0) {
-      quotaExtra.quota_limit = editQuotaLimit.value
-    }
-    if (editQuotaDailyLimit.value != null && editQuotaDailyLimit.value > 0) {
-      quotaExtra.quota_daily_limit = editQuotaDailyLimit.value
-    }
-    if (editQuotaWeeklyLimit.value != null && editQuotaWeeklyLimit.value > 0) {
-      quotaExtra.quota_weekly_limit = editQuotaWeeklyLimit.value
-    }
-    // Quota reset mode config
-    if (editDailyResetMode.value === 'fixed') {
-      quotaExtra.quota_daily_reset_mode = 'fixed'
-      quotaExtra.quota_daily_reset_hour = editDailyResetHour.value ?? 0
-    }
-    if (editWeeklyResetMode.value === 'fixed') {
-      quotaExtra.quota_weekly_reset_mode = 'fixed'
-      quotaExtra.quota_weekly_reset_day = editWeeklyResetDay.value ?? 1
-      quotaExtra.quota_weekly_reset_hour = editWeeklyResetHour.value ?? 0
-    }
-    if (editDailyResetMode.value === 'fixed' || editWeeklyResetMode.value === 'fixed') {
-      quotaExtra.quota_reset_timezone = editResetTimezone.value || 'UTC'
-    }
-    // Quota notify config
-    writeQuotaNotifyToExtra(quotaExtra, 'create')
-    if (Object.keys(quotaExtra).length > 0) {
-      finalExtra = quotaExtra
-    }
+    finalExtra = withQuotaExtra(finalExtra)
   }
   // 端点能力按协议地址判定，不看平台标签。
   if (openAIKeySettingsVisible.value) {

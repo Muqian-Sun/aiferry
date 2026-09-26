@@ -242,7 +242,6 @@ const (
 	settingKeyForwardedClientIPModeV2   = "forwarded_client_ip_mode_v2_migrated"
 
 	// TOTP 双因素认证设置
-	SettingKeyTotpEnabled    = "totp_enabled"    // 是否启用 TOTP 2FA 功能
 	SettingKeyPasskeyEnabled = "passkey_enabled" // 是否启用 Passkey 登录（仍要求有效的 WebAuthn 部署配置）
 
 	// 会话安全设置
@@ -336,21 +335,19 @@ const (
 	SettingKeyGoogleOAuthFrontendRedirectURL = "google_oauth_frontend_redirect_url"
 
 	// OEM设置
-	SettingKeySiteName                    = "site_name"                     // 网站名称
-	SettingKeySiteLogo                    = "site_logo"                     // 网站Logo (base64)
-	SettingKeySiteSubtitle                = "site_subtitle"                 // 网站副标题
-	SettingKeyAPIBaseURL                  = "api_base_url"                  // API端点地址（用于客户端配置和导入）
-	SettingKeyContactInfo                 = "contact_info"                  // 客服联系方式
-	SettingKeyDocURL                      = "doc_url"                       // 文档链接
-	SettingKeyHomeContent                 = "home_content"                  // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
-	SettingKeyCompactHomeEnabled          = "compact_home_enabled"          // 是否启用内置简洁首页
-	SettingKeyHideCcsImportButton         = "hide_ccs_import_button"        // 是否隐藏 API Keys 页面的导入 CCS 按钮
-	SettingKeyPurchaseSubscriptionEnabled = "purchase_subscription_enabled" // 是否展示"购买订阅"页面入口
-	SettingKeyPurchaseSubscriptionURL     = "purchase_subscription_url"     // "购买订阅"页面 URL（作为 iframe src）
-	SettingKeyTableDefaultPageSize        = "table_default_page_size"       // 表格默认每页条数
-	SettingKeyTablePageSizeOptions        = "table_page_size_options"       // 表格可选每页条数（JSON 数组）
-	SettingKeyCustomMenuItems             = "custom_menu_items"             // 自定义菜单项（JSON 数组）
-	SettingKeyCustomEndpoints             = "custom_endpoints"              // 自定义端点列表（JSON 数组）
+	SettingKeySiteName             = "site_name"               // 网站名称
+	SettingKeySiteLogo             = "site_logo"               // 网站Logo (base64)
+	SettingKeySiteSubtitle         = "site_subtitle"           // 网站副标题
+	SettingKeyAPIBaseURL           = "api_base_url"            // API端点地址（用于客户端配置和导入）
+	SettingKeyContactInfo          = "contact_info"            // 客服联系方式
+	SettingKeyDocURL               = "doc_url"                 // 文档链接
+	SettingKeyHomeContent          = "home_content"            // 首页内容（支持 Markdown/HTML，或 URL 作为 iframe src）
+	SettingKeyCompactHomeEnabled   = "compact_home_enabled"    // 是否启用内置简洁首页
+	SettingKeyHideCcsImportButton  = "hide_ccs_import_button"  // 是否隐藏 API Keys 页面的导入 CCS 按钮
+	SettingKeyTableDefaultPageSize = "table_default_page_size" // 表格默认每页条数
+	SettingKeyTablePageSizeOptions = "table_page_size_options" // 表格可选每页条数（JSON 数组）
+	SettingKeyCustomMenuItems      = "custom_menu_items"       // 自定义菜单项（JSON 数组）
+	SettingKeyCustomEndpoints      = "custom_endpoints"        // 自定义端点列表（JSON 数组）
 
 	// 默认配置
 	SettingKeyDefaultConcurrency   = "default_concurrency"    // 新用户默认并发量
@@ -484,15 +481,6 @@ const (
 	// SettingKeyGrokDefaultBaseURLMode selects the official xAI host used by
 	// all Grok OAuth accounts (accounts have no per-account address override).
 	SettingKeyGrokDefaultBaseURLMode = "grok_default_base_url_mode"
-
-	// SettingKeySubscriptionEnabled is a DB-backed soft switch for the user-facing
-	// subscription surface: sidebar entries, purchase-page subscription tab, header
-	// progress badge, usage billing-type filter and the /subscriptions route. When
-	// false users can no longer buy or browse subscriptions from the UI; the
-	// subscriptions API, existing subscription billing and admin subscription
-	// management are unaffected. Together with BALANCE_PAYMENT_DISABLED it forms the
-	// admin "site billing mode" selector. Defaults to true (opt-out feature).
-	SettingKeySubscriptionEnabled = "subscription_enabled"
 
 	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).

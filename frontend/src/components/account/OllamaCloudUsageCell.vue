@@ -6,14 +6,14 @@
   >
     <UsageProgressBar
       v-if="snapshot?.data?.five_hour"
-      label="5h"
+      :label="t('admin.accounts.usageWindow.fiveHour')"
       :utilization="snapshot.data.five_hour.used_percent"
       :resets-at="snapshot.data.five_hour.reset_at"
       data-testid="ollama-cloud-five-hour"
     />
     <UsageProgressBar
       v-if="snapshot?.data?.seven_day"
-      label="7d"
+      :label="t('admin.accounts.usageWindow.sevenDay')"
       :utilization="snapshot.data.seven_day.used_percent"
       :resets-at="snapshot.data.seven_day.reset_at"
       data-testid="ollama-cloud-seven-day"

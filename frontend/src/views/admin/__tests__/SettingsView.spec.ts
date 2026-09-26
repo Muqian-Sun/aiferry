@@ -464,7 +464,6 @@ const baseSettingsResponse = {
   payment_order_timeout_minutes: 30,
   payment_max_pending_orders: 3,
   payment_enabled_types: [],
-  payment_balance_disabled: false,
   payment_usd_to_cny_rate: 0,
   payment_recharge_fee_rate: 0,
   payment_load_balance_strategy: "round-robin",

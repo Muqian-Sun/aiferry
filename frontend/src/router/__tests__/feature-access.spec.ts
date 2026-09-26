@@ -20,7 +20,6 @@ const appStore = vi.hoisted(() => ({
   cachedPublicSettings: null as null | {
     payment_enabled?: boolean
     risk_control_enabled?: boolean
-    subscription_enabled?: boolean
   },
   fetchPublicSettings: vi.fn(),
 }))
@@ -81,7 +80,6 @@ describe('feature route guard', () => {
   it.each<[string, AppSite, Record<string, unknown>, string]>([
     ['payment', 'user', { requiresPayment: true }, '/purchase'],
     ['risk control', 'admin', { requiresRiskControl: true }, '/risk-control'],
-    ['subscription', 'user', { requiresSubscription: true }, '/subscriptions'],
   ])('does not treat a failed %s settings load as explicitly disabled', async (_name, site, meta, path) => {
     appStore.fetchPublicSettings.mockResolvedValue(null)
 
@@ -97,8 +95,6 @@ describe('feature route guard', () => {
     ['payment on the user site', 'user', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
     ['payment on the admin console', 'admin', { requiresPayment: true }, { payment_enabled: false }, '/dashboard'],
     ['risk control on the admin console', 'admin', { requiresRiskControl: true }, { risk_control_enabled: false }, '/settings'],
-    ['subscription on the user site', 'user', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
-    ['subscription on the admin console', 'admin', { requiresSubscription: true }, { subscription_enabled: false }, '/dashboard'],
   ])('redirects when loaded settings explicitly disable %s', async (_name, site, meta, settings, target) => {
     appStore.cachedPublicSettings = settings
     appStore.publicSettingsLoaded = true
@@ -112,23 +108,21 @@ describe('feature route guard', () => {
   })
 })
 
-describe('subscription route guard (opt-out flag)', () => {
+// 订阅显不显示由代码决定（SITE_FEATURES.subscription，现在是 false），与公开设置无关
+describe('subscription route guard (hidden in code)', () => {
   beforeEach(() => {
     authStore.isSimpleMode = false
     appStore.publicSettingsLoaded = true
+    appStore.cachedPublicSettings = {}
     appStore.fetchPublicSettings.mockReset()
   })
 
-  it.each([
-    ['missing key', {}],
-    ['explicit true', { subscription_enabled: true }],
-  ])('lets /subscriptions through when the flag is %s', async (_name, settings) => {
-    appStore.cachedPublicSettings = settings
-
-    const { navigation, next } = runGuard('user', { requiresSubscription: true }, '/subscriptions')
+  it.each<[AppSite]>([['user'], ['admin']])('sends %s-site subscription pages home', async (site) => {
+    const { navigation, next } = runGuard(site, { requiresSubscription: true }, '/subscriptions')
     await navigation
 
+    expect(appStore.fetchPublicSettings).not.toHaveBeenCalled()
     expect(next).toHaveBeenCalledOnce()
-    expect(next).toHaveBeenCalledWith()
+    expect(next).toHaveBeenCalledWith('/dashboard')
   })
 })

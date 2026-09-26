@@ -34,21 +34,6 @@ export default {
           enabled: 'Enable channel health',
           enabledHint: 'Turning this off stops aggregation; existing config and history are kept.',
         },
-        siteBillingMode: {
-          title: 'Site Billing Mode',
-          description: 'Controls which purchase options users see. Defaults to "Recharge & Subscription".',
-          label: 'Purchase options',
-          options: {
-            rechargeAndSubscription: 'Recharge & Subscription',
-            rechargeOnly: 'Recharge only',
-            subscriptionOnly: 'Subscription only',
-          },
-          hints: {
-            rechargeAndSubscription: 'Users can both top up their balance and buy subscription plans.',
-            rechargeOnly: 'Hides "My Subscriptions", the purchase-page subscription tab, the header subscription badge and the usage billing-type filter; direct visits to "My Subscriptions" return to the dashboard. The admin sidebar also hides the "Subscription Management" entry (the page stays reachable by URL). Existing subscription billing and redeem-code subscriptions are unaffected.',
-            subscriptionOnly: 'The purchase page only offers subscription plans and the sidebar entry reads "Subscription"; balance top-up orders are rejected. Redeem codes, affiliate payouts and other balance credits are unaffected.',
-          },
-        },
         modelPlaza: {
           title: 'Model Plaza',
           description: 'The public page (/model-plaza) listing every listed model with its list price; open to everyone.',
@@ -87,10 +72,6 @@ export default {
         frontendUrl: 'Frontend URL',
         frontendUrlPlaceholder: 'https://example.com',
         frontendUrlHint: 'Used to generate password reset links in emails. Example: https://example.com',
-        totp: 'Two-Factor Authentication (2FA)',
-        totpHint: 'Allow users to use authenticator apps like Google Authenticator',
-        totpKeyNotConfigured:
-          'Please configure TOTP_ENCRYPTION_KEY in environment variables first. Generate a key with: openssl rand -hex 32'
       },
       security: {
         passkey: 'Passkey Sign-in',

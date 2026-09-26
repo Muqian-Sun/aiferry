@@ -170,10 +170,10 @@
                 </span>
               </div>
 
-              <!-- Auto Recover Badge -->
+              <!-- 自动恢复：是计划的一个属性，不是状态，用中性灰底（绿色只表示成功） -->
               <span
                 v-if="plan.auto_recover"
-                class="inline-flex items-center rounded-full bg-af-success-tint px-2 py-0.5 text-xs font-medium text-af-success"
+                class="inline-flex items-center rounded-full bg-af-sunken px-2 py-0.5 text-xs font-medium text-af-ink-2"
               >
                 {{ t('admin.scheduledTests.autoRecover') }}
               </span>

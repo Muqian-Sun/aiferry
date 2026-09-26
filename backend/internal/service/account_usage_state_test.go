@@ -149,9 +149,9 @@ func TestApplyAccountUsageState_GeminiLocalRPDSetsModelRateLimit(t *testing.T) {
 	repo := &geminiLocalQuotaRepoStub{}
 	rl := NewRateLimitService(repo, usage, &config.Config{}, quotaSvc, nil)
 
-	official := vendorTestKey(PlatformOpenAI, vendorTestGemini)
-	official.ID = 3007
-	official.Status, official.Schedulable = StatusActive, true
+	// 本地按天限流只对免费档成立：官方 API Key 一律按付费档（geminiQuotaTierKeyForAccount），这里用 AI Studio 授权的免费档成品号
+	official := &Account{ID: 3007, Platform: PlatformGemini, Type: AccountTypeOAuth, Status: StatusActive, Schedulable: true,
+		Credentials: map[string]any{"oauth_type": "ai_studio", "tier_id": GeminiTierAIStudioFree}}
 	require.Equal(t, PlatformGemini, official.Vendor())
 
 	rl.ApplyAccountUsageState(context.Background(), official, "gemini-2.5-pro", 0)

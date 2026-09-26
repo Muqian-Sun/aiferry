@@ -1,62 +1,38 @@
 <template>
-  <div>
-    <!-- Loading state -->
-    <div v-if="props.loading && !props.stats" class="space-y-0.5">
-      <div class="h-3 w-12 animate-pulse rounded bg-af-hairline"></div>
-      <div class="h-3 w-16 animate-pulse rounded bg-af-hairline"></div>
-      <div class="h-3 w-10 animate-pulse rounded bg-af-hairline"></div>
-    </div>
-
-    <!-- Error state -->
-    <div v-else-if="props.error && !props.stats" class="text-xs text-af-danger">
-      {{ props.error }}
-    </div>
-
-    <!-- Stats data -->
-    <div v-else-if="props.stats" class="space-y-0.5 text-xs">
-      <!-- Requests -->
-      <div class="flex items-center gap-1">
-        <span class="text-af-ink-3"
-          >{{ t('admin.accounts.stats.requests') }}:</span
-        >
-        <span class="font-medium text-af-ink-2">{{
-          formatNumber(props.stats.requests)
-        }}</span>
-      </div>
-      <!-- Tokens -->
-      <div class="flex items-center gap-1">
-        <span class="text-af-ink-3"
-          >{{ t('admin.accounts.stats.tokens') }}:</span
-        >
-        <span class="font-medium text-af-ink-2">{{
-          formatTokens(props.stats.tokens)
-        }}</span>
-      </div>
-      <!-- Cost (Account) -->
-      <div class="flex items-center gap-1">
-        <span class="text-af-ink-3">{{ t('usage.accountBilled') }}:</span>
-        <span class="font-medium text-af-ink">{{
-          formatCurrency(props.stats.cost)
-        }}</span>
-      </div>
-      <!-- Cost (User/API Key) -->
-      <div v-if="props.stats.user_cost != null" class="flex items-center gap-1">
-        <span class="text-af-ink-3">{{ t('usage.userBilled') }}:</span>
-        <span class="font-medium text-af-ink-2">{{
-          formatCurrency(props.stats.user_cost)
-        }}</span>
-      </div>
-    </div>
-
-    <!-- No data -->
-    <div v-else class="text-xs text-af-ink-3">-</div>
-  </div>
+  <!--
+    渠道列表「今日」列：一行「N 次 · 收入 $x · 利润 $y」。收入 = 用户付的钱，利润 = 收入 − 渠道成本，亏本标红。
+    数据是列表批量拉的今日统计（window_stats：user_cost 是收入，cost 是渠道成本）。
+  -->
+  <div v-if="loading && !stats" class="h-3 w-40 animate-pulse rounded bg-af-hairline"></div>
+  <span v-else-if="error && !stats" class="text-xs text-af-danger">{{ error }}</span>
+  <!-- 间距用 gap 定，不靠模板里的空白（跨行的空白文本节点会被 Vue 压掉，间距就时有时无） -->
+  <span
+    v-else-if="stats && stats.requests > 0"
+    class="inline-flex items-baseline gap-1.5 whitespace-nowrap text-sm tabular-nums text-af-ink-2"
+    :title="t('admin.accounts.today.tooltip', { cost: formatMoney(cost) })"
+    data-testid="account-today"
+  >
+    <span>{{ t('admin.accounts.today.requests', { count: formatNumber(stats.requests) }) }}</span>
+    <span class="text-af-ink-4" aria-hidden="true">·</span>
+    <span class="inline-flex items-baseline gap-1">
+      <span class="text-af-ink-3">{{ t('common.money.revenue') }}</span>
+      <span>{{ formatMoney(revenue) }}</span>
+    </span>
+    <span class="text-af-ink-4" aria-hidden="true">·</span>
+    <span class="inline-flex items-baseline gap-1">
+      <span class="text-af-ink-3">{{ t('common.money.profit') }}</span>
+      <span :class="profitTextClass(profit)" data-testid="account-today-profit">{{ formatMoney(profit) }}</span>
+    </span>
+  </span>
+  <span v-else class="text-sm text-af-ink-4">—</span>
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { WindowStats } from '@/types'
-import { formatNumber, formatCurrency } from '@/utils/format'
+import { formatNumber } from '@/utils/format'
+import { formatMoney, profitOf, profitTextClass } from '@/utils/money'
 
 const props = withDefaults(
   defineProps<{
@@ -64,22 +40,12 @@ const props = withDefaults(
     loading?: boolean
     error?: string | null
   }>(),
-  {
-    stats: null,
-    loading: false,
-    error: null
-  }
+  { stats: null, loading: false, error: null }
 )
 
 const { t } = useI18n()
 
-// Format large token numbers (e.g., 1234567 -> 1.23M)
-const formatTokens = (tokens: number): string => {
-  if (tokens >= 1000000) {
-    return `${(tokens / 1000000).toFixed(2)}M`
-  } else if (tokens >= 1000) {
-    return `${(tokens / 1000).toFixed(1)}K`
-  }
-  return tokens.toString()
-}
+const revenue = computed(() => props.stats?.user_cost ?? 0)
+const cost = computed(() => props.stats?.cost ?? 0)
+const profit = computed(() => profitOf(revenue.value, cost.value))
 </script>

@@ -213,7 +213,7 @@ describe('admin AccountsView bulk edit scope', () => {
   })
 
   it('renders the created_at column when enabled in column settings (hidden by default since A2-2)', async () => {
-    localStorage.setItem('account-hidden-columns', JSON.stringify([]))
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
     listAccounts.mockResolvedValue({
       items: [
         {

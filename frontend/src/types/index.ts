@@ -239,10 +239,6 @@ export interface PublicSettings {
   channel_monitor_hide_throughput?: boolean
   /** When true, user monitor hides the user ranking tab and /users payload. */
   channel_monitor_hide_user_ranking?: boolean
-  /** When false, the whole user-facing subscription surface is hidden. Default true. */
-  subscription_enabled: boolean
-  /** Mirrors payment config BALANCE_PAYMENT_DISABLED; true = balance top-up closed (subscription-only site). */
-  payment_balance_disabled: boolean
   service_quota_enabled: boolean
   affiliate_enabled: boolean
   allow_user_view_error_requests?: boolean
@@ -958,9 +954,9 @@ export type AccountListItem = Account
 export interface WindowStats {
   requests: number
   tokens: number
-  cost: number // Account cost (account multiplier)
+  cost: number // 渠道成本（标价 × 渠道成本倍率）；界面叫「成本」
   standard_cost?: number
-  user_cost?: number
+  user_cost?: number // 收入（actual_cost）；界面叫「收入」
 }
 
 export interface UsageProgress {
@@ -1548,8 +1544,10 @@ export interface TrendDataPoint {
   cache_creation_tokens: number
   cache_read_tokens: number
   total_tokens: number
-  cost: number // 标准计费
-  actual_cost: number // 实际扣除
+  cost: number // 标价（未乘任何倍率）
+  actual_cost: number // 收入
+  /** 成本（付给渠道：标价 × 渠道成本倍率）；只有管理端趋势接口返回，用户站接口不带 */
+  account_cost?: number
 }
 
 /** 按「时间桶 + 模型」分组的用量点（概览的按模型趋势；模型按请求时的名字） */
@@ -1578,7 +1576,10 @@ export interface EndpointStat {
   requests: number
   total_tokens: number
   cost: number
+  /** 收入 */
   actual_cost: number
+  /** 成本（付给渠道：标价 × 渠道成本倍率） */
+  account_cost: number
 }
 
 export interface UserBreakdownItem {
@@ -1791,50 +1792,31 @@ export interface UsageQueryParams {
 
 // ==================== Account Usage Statistics ====================
 
+/** 渠道某一天的用量。金额与同一响应里的 models[] 同名同义：actual_cost 是收入，account_cost 是渠道成本。 */
 export interface AccountUsageHistory {
   date: string
   label: string
   requests: number
   tokens: number
-  cost: number
-  actual_cost: number // Account cost (account multiplier)
-  user_cost: number // User/API key billed cost (group multiplier)
+  actual_cost: number // 收入
+  account_cost: number // 渠道成本
 }
 
 export interface AccountUsageSummary {
   days: number
   actual_days_used: number
-  total_cost: number // Account cost (account multiplier)
-  total_user_cost: number
-  total_standard_cost: number
+  total_actual_cost: number // 收入
+  total_account_cost: number // 渠道成本
   total_requests: number
   total_tokens: number
-  avg_daily_cost: number // Account cost
-  avg_daily_user_cost: number
+  avg_daily_actual_cost: number
+  avg_daily_account_cost: number
   avg_daily_requests: number
   avg_daily_tokens: number
   avg_duration_ms: number
-  today: {
-    date: string
-    cost: number
-    user_cost: number
-    requests: number
-    tokens: number
-  } | null
-  highest_cost_day: {
-    date: string
-    label: string
-    cost: number
-    user_cost: number
-    requests: number
-  } | null
-  highest_request_day: {
-    date: string
-    label: string
-    requests: number
-    cost: number
-    user_cost: number
-  } | null
+  today: AccountUsageHistory | null
+  highest_revenue_day: AccountUsageHistory | null
+  highest_request_day: AccountUsageHistory | null
 }
 
 export interface AccountUsageStatsResponse {

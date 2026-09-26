@@ -181,31 +181,6 @@
           </p>
         </div>
 
-        <!-- TOTP 2FA -->
-        <div
-          class="flex items-center justify-between border-t border-af-hairline pt-4"
-        >
-          <div>
-            <label class="font-medium text-af-ink">{{
-              t("admin.settings.registration.totp")
-            }}</label>
-            <p class="text-sm text-af-ink-3">
-              {{ t("admin.settings.registration.totpHint") }}
-            </p>
-            <!-- Warning when encryption key not configured -->
-            <p
-              v-if="!form.totp_encryption_key_configured"
-              class="mt-2 text-sm text-af-warning"
-            >
-              {{ t("admin.settings.registration.totpKeyNotConfigured") }}
-            </p>
-          </div>
-          <Toggle
-            v-model="form.totp_enabled"
-            :disabled="!form.totp_encryption_key_configured"
-          />
-        </div>
-
         <!-- Passkey sign-in -->
         <div
           class="border-t border-af-hairline pt-4"

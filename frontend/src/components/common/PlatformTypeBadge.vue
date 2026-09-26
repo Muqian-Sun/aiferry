@@ -2,16 +2,16 @@
   <!-- plain：一行小字「厂商 · 类型 · 套餐 · 隐私 · 到期」，给渠道列表名称下面那行用（A5）；只有异常才上色 -->
   <span v-if="variant === 'plain'" class="inline-flex min-w-0 flex-wrap items-center gap-x-1 text-xs text-af-ink-3" data-testid="platform-plain">
     <PlatformIcon :platform="displayPlatform" size="xs" class="shrink-0" />
-    <span :title="platformTitle" data-testid="platform-badge">{{ platformLabel }}</span>
+    <span :title="platformTitle" data-testid="platform-badge">{{ plainPlatformLabel }}</span>
     <span aria-hidden="true">·</span>
-    <span>{{ typeLabel }}</span>
+    <span>{{ plainTypeLabel }}</span>
     <template v-if="planLabel">
       <span aria-hidden="true">·</span>
       <span :class="normalizedPlanType === 'abnormal' ? 'text-af-danger' : ''">{{ planLabel }}</span>
     </template>
     <template v-if="privacyBadge">
       <span aria-hidden="true">·</span>
-      <span :class="privacyBadge.plainClass" :title="privacyBadge.title">{{ privacyBadge.label }}</span>
+      <span :class="privacyBadge.plainClass" :title="privacyBadge.title">{{ privacyBadge.plainLabel }}</span>
     </template>
     <template v-if="expiresLabel">
       <span aria-hidden="true">·</span>
@@ -89,6 +89,7 @@ import { useI18n } from 'vue-i18n'
 import type { AccountPlatform, AccountType } from '@/types'
 import { RELAY_PLATFORM, platformLabel as sharedPlatformLabel } from '@/utils/platformLabel'
 import { normalizePlanType, openAIPlanTypeLabel } from '@/utils/planType'
+import { accountAccessKey } from '@/components/admin/account/accountAccess'
 import GrokFreeIcon from './GrokFreeIcon.vue'
 import PlatformIcon from './PlatformIcon.vue'
 import Icon from '@/components/icons/Icon.vue'
@@ -122,6 +123,13 @@ const displayPlatform = computed<AccountPlatform | typeof RELAY_PLATFORM>(() => 
 })
 
 const platformLabel = computed(() => sharedPlatformLabel(displayPlatform.value))
+// plain 形态写字、不写缩写，和渠道列表名称行（accountDisplay）同一套叫法：中转 / 第三方 key / OAuth 授权……
+const plainPlatformLabel = computed(() =>
+  displayPlatform.value === RELAY_PLATFORM ? t('admin.accounts.vendorRelay') : platformLabel.value
+)
+const plainTypeLabel = computed(() =>
+  t(accountAccessKey({ platform: props.platform, type: props.type, credentials: { auth_mode: props.authMode ?? '' } }))
+)
 
 const platformTitle = computed(() => {
   if (!isThirdPartyKey.value) return undefined
@@ -259,16 +267,16 @@ const privacyBadge = computed(() => {
   switch (props.privacyMode) {
     // OpenAI states
     case 'training_off':
-      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyTrainingOff'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
+      return { label: 'Private', plainLabel: t('admin.accounts.privacyOptions.trainingOff'), icon: shieldCheck, title: t('admin.accounts.privacyTrainingOff'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
     case 'training_set_cf_blocked':
-      return { label: 'CF', icon: shieldX, title: t('admin.accounts.privacyCfBlocked'), class: 'bg-af-warning-tint text-af-warning', plainClass: 'text-af-warning' }
+      return { label: 'CF', plainLabel: t('admin.accounts.privacyOptions.cfBlocked'), icon: shieldX, title: t('admin.accounts.privacyCfBlocked'), class: 'bg-af-warning-tint text-af-warning', plainClass: 'text-af-warning' }
     case 'training_set_failed':
-      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
+      return { label: 'Fail', plainLabel: t('admin.accounts.privacyOptions.failed'), icon: shieldX, title: t('admin.accounts.privacyFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
     // Antigravity states
     case 'privacy_set':
-      return { label: 'Private', icon: shieldCheck, title: t('admin.accounts.privacyAntigravitySet'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
+      return { label: 'Private', plainLabel: t('admin.accounts.privacyAntigravitySet'), icon: shieldCheck, title: t('admin.accounts.privacyAntigravitySet'), class: 'bg-af-success-tint text-af-success', plainClass: '' }
     case 'privacy_set_failed':
-      return { label: 'Fail', icon: shieldX, title: t('admin.accounts.privacyAntigravityFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
+      return { label: 'Fail', plainLabel: t('admin.accounts.privacyAntigravityFailed'), icon: shieldX, title: t('admin.accounts.privacyAntigravityFailed'), class: 'bg-af-danger-tint text-af-danger', plainClass: 'text-af-danger' }
     default:
       return null
   }

@@ -1,7 +1,7 @@
 <template>
   <!--
-    单指标趋势（Token 总量 / 请求数 / 实付费用）：一份 trend 数据，只画一条墨色线 + 很淡的面积。
-    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；管理站概览与用量「分析」也用它（A7 起管理端也不再画多色折线）。
+    单指标趋势（Token / 请求 / 费用 / 收入 / 利润）：一份 trend 数据，只画一条墨色线 + 很淡的面积（利润为负时线走到 0 以下）。
+    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；两站共用：用户站概览、密钥详情，管理站概览、用量页、渠道抽屉。
   -->
   <div v-if="loading" class="flex h-48 items-center justify-center">
     <span class="spinner text-af-ink-3" />
@@ -20,12 +20,17 @@ import { useI18n } from 'vue-i18n'
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler } from 'chart.js'
 import { Line } from 'vue-chartjs'
 import { useChartTheme } from '@/composables/useChartTheme'
-import { formatCurrency, formatNumber, formatTokensK } from '@/utils/format'
+import { formatNumber, formatTokensK } from '@/utils/format'
+import { formatMoney, profitOf } from '@/utils/money'
 import type { TrendDataPoint } from '@/types'
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
-export type UsageTrendMetric = 'tokens' | 'requests' | 'cost'
+/**
+ * cost = 用户站「费用」（用户实付 actual_cost）；revenue = 管理站「收入」（同一个 actual_cost，站在平台这边叫法不同）；
+ * profit = 利润（actual_cost − account_cost，只有管理端的趋势数据带 account_cost）。
+ */
+export type UsageTrendMetric = 'tokens' | 'requests' | 'cost' | 'revenue' | 'profit'
 
 const props = defineProps<{
   trendData: TrendDataPoint[]
@@ -41,14 +46,31 @@ function shortLabel(date: string): string {
   return /^\d{4}-\d{2}-\d{2}(?: \d{2}:00)?$/.test(date) ? date.slice(5) : date
 }
 
+const labelKeys: Record<UsageTrendMetric, string> = {
+  tokens: 'userUi.usage.trend.tokens',
+  requests: 'userUi.usage.trend.requests',
+  cost: 'userUi.usage.trend.cost',
+  revenue: 'common.money.revenue',
+  profit: 'common.money.profit'
+}
+const metricLabel = computed(() => t(labelKeys[props.metric]))
+
 function valueOf(point: TrendDataPoint): number {
-  if (props.metric === 'tokens') return point.total_tokens
-  return props.metric === 'requests' ? point.requests : point.actual_cost
+  switch (props.metric) {
+    case 'tokens':
+      return point.total_tokens
+    case 'requests':
+      return point.requests
+    case 'profit':
+      return profitOf(point.actual_cost, point.account_cost)
+    default:
+      return point.actual_cost
+  }
 }
 
 function formatValue(value: number): string {
   if (props.metric === 'tokens') return formatTokensK(value)
-  return props.metric === 'requests' ? formatNumber(value) : formatCurrency(value)
+  return props.metric === 'requests' ? formatNumber(value) : formatMoney(value)
 }
 
 const chartData = computed(() => {
@@ -57,7 +79,7 @@ const chartData = computed(() => {
     labels: props.trendData.map((d) => shortLabel(d.date)),
     datasets: [
       {
-        label: t(`userUi.usage.trend.${props.metric}`),
+        label: metricLabel.value,
         data: props.trendData.map(valueOf),
         borderColor: theme.value.ink,
         backgroundColor: theme.value.inkFill,
@@ -83,7 +105,7 @@ const lineOptions = computed(() => ({
     tooltip: {
       callbacks: {
         label: (context: { parsed: { y: number | null } }) =>
-          `${t(`userUi.usage.trend.${props.metric}`)}: ${formatValue(context.parsed.y ?? 0)}`
+          `${metricLabel.value}: ${formatValue(context.parsed.y ?? 0)}`
       }
     }
   },

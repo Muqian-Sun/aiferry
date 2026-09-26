@@ -1,5 +1,14 @@
 export default {
   common: {
+    // 金额只剩三个数（方案 2026-09-25）：全站统一这三个叫法，格式化用 utils/money.ts
+    money: {
+      revenue: '收入',
+      cost: '成本',
+      profit: '利润',
+      revenueHint: '向用户收的钱：标价 × 用户倍率',
+      costHint: '付给上游渠道的钱：标价 × 渠道成本倍率',
+      profitHint: '收入 − 成本'
+    },
     labelSeparator: '：',
     selectedItems: '已选 {count} 项',
     columnSettings: '列设置',
@@ -209,7 +218,6 @@ export default {
     mySubscriptions: '我的订阅',
     buySubscription: '充值/订阅',
     recharge: '充值',
-    subscribe: '订阅',
     docs: '文档',
     orderManagement: '订单管理',
     paymentConfig: '支付配置',

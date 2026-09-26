@@ -89,7 +89,7 @@ describe('AdminSidebar', () => {
     expect(sectionPaths(wrapper)).toEqual({
       overview: ['/dashboard', '/ops'],
       supply: ['/accounts', '/model-catalog', '/channels/monitor', '/proxies'],
-      users: ['/users', '/subscriptions', '/orders', '/redeem'],
+      users: ['/users', '/orders'],
       operations: ['/usage', '/announcements'],
       security: ['/risk-control', '/audit-logs'],
       settings: ['/settings'],

@@ -1,7 +1,7 @@
 <template>
   <!--
-    一条用量记录的费用明细（各项费用、单价、图片计费、倍率、原价与实付，管理端再加账号成本）。
-    用量表的悬停提示和用户站的请求详情抽屉共用这一份。单价原来写的是 text-af-on-brand（白底上看不见），统一成墨色。
+    一条用量记录的费用明细（各项费用、单价、图片计费、倍率、原价与实付）。
+    只有用户站用：用量表的悬停提示和请求详情抽屉共用这一份（管理站的成本 / 利润在管理端详情抽屉）。单价原来写的是 text-af-on-brand（白底上看不见），统一成墨色。
   -->
   <div class="space-y-1.5">
     <!-- Cost Breakdown -->
@@ -106,29 +106,13 @@
       <span class="text-af-ink-3">{{ t('usage.userBilled') }}</span>
       <span class="font-semibold text-af-ink">${{ row?.actual_cost?.toFixed(8) || '0.00000000' }}</span>
     </div>
-    <!-- Account billing (separated from user billing) -->
-    <template v-if="showAccountBilling">
-      <div class="flex items-center justify-between gap-6 border-t border-af-hairline-strong pt-1.5">
-        <span class="text-af-ink-3">{{ t('usage.accountMultiplier') }}</span>
-        <span class="font-semibold text-af-brand">{{ formatMultiplier(row?.account_rate_multiplier ?? 1) }}x</span>
-      </div>
-      <div class="flex items-center justify-between gap-6">
-        <span class="text-af-ink-3">{{ t('usage.accountBilled') }}</span>
-        <span class="font-semibold text-af-success">
-          ${{ accountBilled({
-            total_cost: row?.total_cost,
-            account_rate_multiplier: row?.account_rate_multiplier,
-          }).toFixed(8) }}
-        </span>
-      </div>
-    </template>
   </div>
 </template>
 
 <script setup lang="ts">
 import { useI18n } from 'vue-i18n'
 import { formatMultiplier } from '@/utils/formatters'
-import { accountBilled, formatTokenPricePerMillion } from '@/utils/usagePricing'
+import { formatTokenPricePerMillion } from '@/utils/usagePricing'
 import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
 import { BILLING_MODE_TOKEN, imageUnitPrice, isImageUsage } from '@/utils/billingMode'
 import {
@@ -147,10 +131,7 @@ import {
 import type { AdminUsageLog } from '@/types'
 
 /** showTitle：悬停提示里自带小标题；抽屉里由外面的分节标题代替 */
-withDefaults(defineProps<{ row: AdminUsageLog; showAccountBilling?: boolean; showTitle?: boolean }>(), {
-  showAccountBilling: false,
-  showTitle: true
-})
+withDefaults(defineProps<{ row: AdminUsageLog; showTitle?: boolean }>(), { showTitle: true })
 
 const { t } = useI18n()
 </script>

@@ -5,7 +5,7 @@
 | 文件 | 作用 |
 | --- | --- |
 | `createSiteRouter.ts` | 建 router：history、滚动到顶、导航进度条、chunk 失败重载、`beforeProtectedRoute` 钩子 |
-| `siteGuard.ts` | 全局守卫：登录态与站点角色匹配、功能开关门（`requiresPayment` / `requiresSubscription` / `requiresAffiliate` / `requiresRiskControl`）、simple mode、backend mode、`/setup` |
+| `siteGuard.ts` | 全局守卫：登录态与站点角色匹配、功能开关门（`requiresPayment` / `requiresAffiliate` / `requiresRiskControl` 看公开设置；`requiresSubscription` 看代码常量 `utils/siteFeatures.ts`）、simple mode、backend mode、`/setup` |
 | `defaultAuthedPath.ts` | 登录后落地页：两站都是 `/dashboard`（用户站 = 概览，管理站 = 仪表盘） |
 | `setupRedirect.ts` | 安装向导跳转 |
 | `title.ts` | 按路由 meta 的 `titleKey` 设页面标题 |
@@ -24,10 +24,10 @@
 | 用量（落地页） | `/usage` |
 | 密钥 | `/keys` |
 | 模型 | `/model-plaza` |
-| 账务 | `/billing` → `/billing/recharge` `/billing/subscriptions` `/billing/orders` `/billing/redeem` `/billing/affiliate`（按开关出现） |
+| 账务 | `/billing` → `/billing/recharge` `/billing/subscriptions`（按开关出现） |
 | 账户 | `/profile` |
 
-旧路径 `/dashboard` `/purchase` `/subscriptions` `/orders` `/redeem` `/affiliate` 都 redirect 到上面。
+旧路径 `/purchase` `/subscriptions` 都 redirect 到上面。
 
 ## 管理站（`apps/admin/routes.ts`）
 

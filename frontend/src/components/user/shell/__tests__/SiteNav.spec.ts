@@ -81,7 +81,7 @@ describe('SiteNav console', () => {
     const wrapper = mountNav('console')
     const paths = new Set(linkPaths(wrapper))
     expect([...paths]).toEqual(
-      expect.arrayContaining(['/home', '/model-plaza', '/dashboard', '/keys', '/usage', '/billing/redeem', '/profile'])
+      expect.arrayContaining(['/home', '/model-plaza', '/dashboard', '/keys', '/usage', '/billing/recharge', '/profile'])
     )
     expect(paths.has('/purchase')).toBe(false)
     expect(paths.has('/accounts')).toBe(false)

@@ -2,24 +2,19 @@
   <!-- 无外框：外观由调用方决定（用户站随页滚动、管理端套在 card 里） -->
   <div>
     <!--
-      只有真有待查归属地的 IP 时才出现（原来 IP 列一显示就常驻一条空条，两站都去掉）。
-      用户站：一行小字 + 墨色文字链接、无底线；管理端保持原来的描边条与品牌色按钮。
+      只有真有待查归属地的 IP 时才出现（原来 IP 列一显示就常驻一条空条）。一行小字 + 墨色文字链接、无底线。
+      只有用户站有 IP 列；管理站的 IP 在明细详情抽屉里，逐条「获取地区」。
     -->
     <div
       v-if="showIpGeoToolbar && (pendingIpCount > 0 || ipGeoBatchLoading)"
-      :class="['flex items-center justify-end text-xs', IS_ADMIN_SITE ? 'gap-2 border-b border-af-hairline px-4 py-2' : 'gap-3 px-6 pb-3']"
+      class="flex items-center justify-end gap-3 px-6 pb-3 text-xs"
     >
       <span v-if="pendingIpCount > 0" class="text-af-ink-3">
         {{ t('usage.ipGeo.pending', { count: pendingIpCount }) }}
       </span>
       <button
         type="button"
-        :class="[
-          'font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50',
-          IS_ADMIN_SITE
-            ? 'inline-flex items-center gap-1 rounded px-2 py-1 text-af-brand hover:bg-af-brand-tint'
-            : 'text-af-ink underline-offset-4 hover:underline'
-        ]"
+        class="font-medium text-af-ink underline-offset-4 transition-colors hover:underline disabled:cursor-not-allowed disabled:opacity-50"
         :disabled="ipGeoBatchLoading || pendingIpCount === 0"
         @click="handleBatchFetchIpGeo"
       >
@@ -34,9 +29,9 @@
         :server-side-sort="serverSideSort"
         :default-sort-key="defaultSortKey"
         :default-sort-order="defaultSortOrder"
-        :clickable-rows="clickableRows"
+        :clickable-rows="isAdmin || clickableRows"
         @sort="(key, order) => $emit('sort', key, order)"
-        @row-click="(row) => $emit('rowClick', row)"
+        @row-click="(row: AdminUsageLog) => $emit('rowClick', row)"
       >
         <template #cell-user="{ row }">
           <div class="text-sm">
@@ -114,24 +109,13 @@
               <span class="font-medium text-af-ink-3">{{ t('usage.inbound') }}:</span>
               <span class="ml-1">{{ row.inbound_endpoint?.trim() || '-' }}</span>
             </div>
-            <div v-if="showUpstreamEndpoint" class="break-all text-af-ink-2">
-              <span class="font-medium text-af-ink-3">{{ t('usage.upstream') }}:</span>
-              <span class="ml-1">{{ row.upstream_endpoint?.trim() || '-' }}</span>
-            </div>
           </div>
-        </template>
-
-        <template #cell-group="{ row }">
-          <span v-if="row.group" class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium bg-af-brand-tint text-af-brand">
-            {{ row.group.name }}
-          </span>
-          <span v-else class="text-sm text-af-ink-4">-</span>
         </template>
 
         <template #cell-stream="{ row }">
           <div class="flex flex-wrap items-center gap-1">
             <span data-testid="request-type-badge" class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium" :class="getRequestTypeBadgeClass(row)">
-              {{ getRequestTypeLabel(row) }}
+              {{ requestTypeLabel(row, t) }}
             </span>
             <span
               v-if="row.native_compaction_v2"
@@ -150,8 +134,16 @@
         </template>
 
         <template #cell-tokens="{ row }">
+          <!-- 管理站：一格只写一个数（按次计费的图片请求写张数），悬停看输入 / 输出 / 缓存 -->
+          <span
+            v-if="isAdmin"
+            class="cursor-help text-sm font-medium tabular-nums text-af-ink"
+            data-testid="usage-token-total"
+            @mouseenter="showTokenTooltip($event, row)"
+            @mouseleave="hideTokenTooltip"
+          >{{ isImageUsage(row) ? `${row.image_count}${t('usage.imageUnit')}` : totalTokens(row).toLocaleString() }}</span>
           <!-- 图片生成请求（仅按次计费时显示图片格式） -->
-          <div v-if="isImageUsage(row)" class="flex items-center gap-1.5">
+          <div v-else-if="isImageUsage(row)" class="flex items-center gap-1.5">
             <svg class="h-4 w-4 text-af-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
@@ -210,7 +202,9 @@
         </template>
 
         <template #cell-cost="{ row }">
-          <div class="text-sm">
+          <!-- 管理站：这一列是收入，按方案两位小数（不足一分写 <$0.01）；单笔精确金额、成本、利润在详情抽屉 -->
+          <span v-if="isAdmin" class="text-sm font-medium tabular-nums text-af-ink" :title="formatMoneyExact(row.actual_cost)">{{ formatMoney(row.actual_cost) }}</span>
+          <div v-else class="text-sm">
             <div class="flex items-center gap-1.5">
               <span class="font-medium tabular-nums text-af-ink">${{ row.actual_cost?.toFixed(6) || '0.000000' }}</span>
               <span
@@ -229,15 +223,19 @@
                 </div>
               </div>
             </div>
-            <div v-if="showAccountBilling && row.account_rate_multiplier != null" class="mt-0.5 text-[11px] text-af-warning">
-              A ${{ accountBilled(row).toFixed(6) }}
-            </div>
           </div>
         </template>
 
         <!-- 合并首字/总耗时的健康度列：左侧色条上半随首字档、下半随总耗时档，便于纵向扫视整体健康状况 -->
         <template #cell-latency="{ row }">
-          <div class="flex items-stretch gap-2">
+          <!-- 管理站：只写总耗时（按档着色），首字耗时在 title 与详情抽屉里 -->
+          <span
+            v-if="isAdmin"
+            class="text-sm font-medium tabular-nums"
+            :class="LATENCY_TEXT_CLASSES[durationSeverity(row.duration_ms ?? 0)]"
+            :title="row.first_token_ms != null ? `${t('usage.latencyFirstToken')} ${formatDuration(row.first_token_ms)}` : undefined"
+          >{{ formatDuration(row.duration_ms) }}</span>
+          <div v-else class="flex items-stretch gap-2">
             <span class="flex w-1 shrink-0 flex-col overflow-hidden rounded-full" aria-hidden="true">
               <span class="flex-1" :class="LATENCY_BAR_CLASSES[row.first_token_ms != null ? firstTokenSeverity(row.first_token_ms) : durationSeverity(row.duration_ms ?? 0)]"></span>
               <span class="flex-1" :class="LATENCY_BAR_CLASSES[durationSeverity(row.duration_ms ?? 0)]"></span>
@@ -256,24 +254,7 @@
           <span class="text-sm text-af-ink-2">{{ formatDateTime(value) }}</span>
         </template>
 
-        <template #cell-request_id="{ row }">
-          <div v-if="row.request_id" class="flex max-w-[160px] items-center gap-1.5">
-            <span class="truncate font-mono text-xs text-af-ink-3" :title="row.request_id">
-              {{ row.request_id }}
-            </span>
-            <button
-              type="button"
-              class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
-              :class="copiedRequestId === row.request_id ? 'text-af-success hover:text-af-success' : ''"
-              :title="copiedRequestId === row.request_id ? t('keys.copied') : t('keys.copyToClipboard')"
-              @click.stop="copyRequestId(row.request_id)"
-            >
-              <Icon :name="copiedRequestId === row.request_id ? 'check' : 'copy'" size="sm" class="h-3.5 w-3.5" />
-            </button>
-          </div>
-          <span v-else class="text-sm text-af-ink-4">-</span>
-        </template>
-
+        <!-- 只有管理站有这一列（列设置里，默认关）；请求 ID 在详情抽屉 -->
         <template #cell-upstream_request_id="{ row }">
           <div v-if="row.upstream_request_id" class="flex max-w-[160px] items-center gap-1.5">
             <span class="truncate font-mono text-xs text-af-ink-3" :title="row.upstream_request_id">
@@ -293,7 +274,7 @@
         </template>
 
         <template #cell-user_agent="{ row }">
-          <span v-if="row.user_agent" class="text-sm text-af-ink-2 block max-w-[320px] truncate" :title="row.user_agent">{{ formatUserAgent(row.user_agent) }}</span>
+          <span v-if="row.user_agent" class="text-sm text-af-ink-2 block max-w-[320px] truncate" :title="row.user_agent">{{ row.user_agent }}</span>
           <span v-else class="text-sm text-af-ink-4">-</span>
         </template>
 
@@ -321,7 +302,22 @@
       }"
     >
       <div class="whitespace-nowrap rounded-lg border border-af-hairline-strong bg-af-sheet px-3 py-2.5 text-xs text-af-ink shadow-xl">
-        <UsageTokenBreakdown v-if="tokenTooltipData" :row="tokenTooltipData" />
+        <!-- 管理站：只列输入 / 输出 / 缓存（5 分钟 / 1 小时缓存、图片 Token 在详情抽屉） -->
+        <div v-if="isAdmin && tokenTooltipData" class="space-y-1.5" data-testid="usage-token-tooltip-admin">
+          <div>
+            <div class="text-xs font-semibold text-af-ink-3 mb-1">{{ t('usage.tokenDetails') }}</div>
+            <div v-for="line in adminTokenLines(tokenTooltipData)" :key="line.key" class="flex items-center justify-between gap-4">
+              <span class="text-af-ink-3">{{ line.label }}</span>
+              <span class="font-medium tabular-nums text-af-ink">{{ line.value.toLocaleString() }}</span>
+            </div>
+          </div>
+          <div class="flex items-center justify-between gap-6 border-t border-af-hairline-strong pt-1.5">
+            <span class="text-af-ink-3">{{ t('usage.totalTokens') }}</span>
+            <span class="font-semibold text-af-brand">{{ totalTokens(tokenTooltipData).toLocaleString() }}</span>
+          </div>
+        </div>
+        <!-- 用户站：和请求详情抽屉共用一份明细 -->
+        <UsageTokenBreakdown v-else-if="tokenTooltipData" :row="tokenTooltipData" />
         <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-af-hairline-strong border-t-transparent"></div>
       </div>
     </div>
@@ -338,7 +334,8 @@
       }"
     >
       <div class="whitespace-nowrap rounded-lg border border-af-hairline-strong bg-af-sheet px-3 py-2.5 text-xs text-af-ink shadow-xl">
-        <UsageCostBreakdown v-if="tooltipData" :row="tooltipData" :show-account-billing="showAccountBilling" />
+        <!-- 只有用户站有费用悬浮框（管理站这一列是收入，明细在详情抽屉） -->
+        <UsageCostBreakdown v-if="tooltipData" :row="tooltipData" />
         <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-af-hairline-strong border-t-transparent"></div>
       </div>
     </div>
@@ -349,10 +346,9 @@
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { IS_ADMIN_SITE } from '@/app/site'
-import { formatDateTime, formatReasoningEffort, reasoningEffortValuesEqual } from '@/utils/format'
+import { formatMoney, formatMoneyExact } from '@/utils/money'
+import { formatDateTime, formatReasoningEffort } from '@/utils/format'
 import { formatCacheTokens } from '@/utils/formatters'
-import { accountBilled } from '@/utils/usagePricing'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import {
   LATENCY_BAR_CLASSES,
@@ -363,8 +359,6 @@ import {
 import { getBillingModeLabel, isImageUsage, getDisplayBillingMode } from '@/utils/billingMode'
 import { formatImageBillingSize, hasImageOutputTokens, hasImageInputTokens } from '@/utils/imageUsage'
 
-
-
 import DataTable from '@/components/common/DataTable.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
@@ -372,6 +366,14 @@ import Icon from '@/components/icons/Icon.vue'
 import UsageTokenBreakdown from './UsageTokenBreakdown.vue'
 import UsageCostBreakdown from './UsageCostBreakdown.vue'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
+import {
+  formatDurationMs,
+  hasReasoningEffortMapping,
+  isLikelyModelVariant,
+  requestTypeLabel,
+  sentUpstreamModel,
+  totalTokens,
+} from './usageRow'
 import type { AdminUsageLog } from '@/types'
 import type { Column } from '@/components/common/types'
 
@@ -382,9 +384,12 @@ interface Props {
   serverSideSort?: boolean
   defaultSortKey?: string
   defaultSortOrder?: 'asc' | 'desc'
-  showAccountBilling?: boolean
-  showUpstreamEndpoint?: boolean
-  /** 点行打开详情（用户站请求明细）；行里的提示图标、复制按钮都已 stop，不会误触 */
+  /**
+   * user：用户站（Token 分行、费用列带悬浮明细、延迟列两行）。
+   * admin：管理站（Token 一个数、这一列是收入、耗时一个数；点行 emit rowClick，由页面打开详情抽屉）。
+   */
+  mode?: 'user' | 'admin'
+  /** 用户站点行打开请求详情（管理站 mode=admin 时总是可点）；行里的提示图标、复制按钮都已 stop，不会误触 */
   clickableRows?: boolean
 }
 
@@ -393,45 +398,22 @@ const props = withDefaults(defineProps<Props>(), {
   serverSideSort: false,
   defaultSortKey: '',
   defaultSortOrder: 'asc',
-  showAccountBilling: true,
-  showUpstreamEndpoint: true,
+  mode: 'user',
   clickableRows: false
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]
+  rowClick: [row: AdminUsageLog]
   sort: [key: string, order: 'asc' | 'desc']
   ipGeoBatchFailed: []
-  rowClick: [row: AdminUsageLog]
 }>()
 const { t } = useI18n()
 const appStore = useAppStore()
 const copiedRequestId = ref<string | null>(null)
-const showAccountBilling = props.showAccountBilling
-const showUpstreamEndpoint = props.showUpstreamEndpoint
+const isAdmin = computed(() => props.mode === 'admin')
 const ipGeoBatchLoading = ref(false)
 
 const showIpGeoToolbar = computed(() => props.columns.some((col) => col.key === 'ip_address'))
-
-const hasReasoningEffortMapping = (row: AdminUsageLog): boolean => {
-  const requested = row.reasoning_effort?.trim() || ''
-  const forwarded = row.upstream_reasoning_effort?.trim() || ''
-  return requested !== '' && forwarded !== '' && !reasoningEffortValuesEqual(requested, forwarded)
-}
-
-const sentUpstreamModel = (row: AdminUsageLog): string => row.upstream_model?.trim() || row.model?.trim() || ''
-
-const normalizeModelVariant = (model: string): string => model
-  .trim()
-  .toLowerCase()
-  .replace(/-latest$/, '')
-  .replace(/-\d{4}-\d{2}-\d{2}$/, '')
-  .replace(/-\d{8}$/, '')
-
-const isLikelyModelVariant = (row: AdminUsageLog): boolean => {
-  const sent = sentUpstreamModel(row)
-  const response = row.upstream_response_model?.trim() || ''
-  return sent !== '' && response !== '' && normalizeModelVariant(sent) === normalizeModelVariant(response)
-}
 
 const modelAuditTitle = (row: AdminUsageLog): string => [
   `${t('usage.requestedModel')}: ${row.model || '-'}`,
@@ -474,7 +456,6 @@ const copyIdentifier = async (value: string, copiedMessage: string) => {
   }
 }
 
-const copyRequestId = (requestId: string) => copyIdentifier(requestId, t('admin.usage.requestIdCopied'))
 const copyUpstreamRequestId = (upstreamRequestId: string) =>
   copyIdentifier(upstreamRequestId, t('admin.usage.upstreamRequestIdCopied'))
 
@@ -488,36 +469,19 @@ const tokenTooltipVisible = ref(false)
 const tokenTooltipPosition = ref({ x: 0, y: 0 })
 const tokenTooltipData = ref<AdminUsageLog | null>(null)
 
-const getRequestTypeLabel = (row: AdminUsageLog): string => {
-  const requestType = resolveUsageRequestType(row)
-  if (requestType === 'cyber') return t('usage.cyber')
-  if (requestType === 'live') return t('usage.live')
-  if (requestType === 'ws_v2') return t('usage.ws')
-  if (requestType === 'stream') return t('usage.stream')
-  if (requestType === 'sync') return t('usage.sync')
-  return t('usage.unknown')
-}
-
 /** 请求类型标签：只有 Cyber（被安全策略拦下）标红，其余一律中性（控制台单色为主，muqian 2026-09-23） */
 const getRequestTypeBadgeClass = (row: AdminUsageLog): string =>
   resolveUsageRequestType(row) === 'cyber' ? 'bg-af-danger-tint text-af-danger' : 'bg-af-sunken text-af-ink-2'
 
+/** 管理站 Token 悬浮框：输入 / 输出一定列出，缓存只在有时列出。 */
+const adminTokenLines = (row: AdminUsageLog): Array<{ key: string; label: string; value: number }> => [
+  { key: 'input', label: t('admin.usage.inputTokens'), value: row.input_tokens || 0 },
+  { key: 'output', label: t('admin.usage.outputTokens'), value: row.output_tokens || 0 },
+  ...(row.cache_read_tokens > 0 ? [{ key: 'cacheRead', label: t('admin.usage.cacheReadTokens'), value: row.cache_read_tokens }] : []),
+  ...(row.cache_creation_tokens > 0 ? [{ key: 'cacheCreation', label: t('admin.usage.cacheCreationTokens'), value: row.cache_creation_tokens }] : []),
+]
 
-
-
-const formatUserAgent = (ua: string): string => {
-  return ua
-}
-
-// 超过 1 分钟简化为 "Xm Ys"，免去人工换算（超过 1 小时再进位为 "Xh Ym"）
-const formatDuration = (ms: number | null | undefined): string => {
-  if (ms == null) return '-'
-  if (ms < 1000) return `${ms}ms`
-  if (ms < 60_000) return `${(ms / 1000).toFixed(2)}s`
-  const totalSec = Math.round(ms / 1000)
-  if (totalSec < 3600) return `${Math.floor(totalSec / 60)}m ${totalSec % 60}s`
-  return `${Math.floor(totalSec / 3600)}h ${Math.floor((totalSec % 3600) / 60)}m`
-}
+const formatDuration = (ms: number | null | undefined): string => (ms == null ? '-' : formatDurationMs(ms))
 
 // Cost tooltip functions
 const showTooltip = (event: MouseEvent, row: AdminUsageLog) => {

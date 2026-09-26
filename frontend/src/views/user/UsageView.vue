@@ -121,8 +121,6 @@
                 :loading="loading"
                 :columns="columnSettings.visibleColumns.value"
                 :server-side-sort="true"
-                :show-account-billing="false"
-                :show-upstream-endpoint="false"
                 :clickable-rows="true"
                 default-sort-key="created_at"
                 default-sort-order="desc"
@@ -223,7 +221,7 @@
 
         <section class="text-13">
           <h3 class="mb-2 font-semibold text-af-ink">{{ t('usage.costDetails') }}</h3>
-          <UsageCostBreakdown :row="detailLog" :show-account-billing="false" :show-title="false" />
+          <UsageCostBreakdown :row="detailLog" :show-title="false" />
         </section>
       </div>
     </DetailDrawer>
@@ -235,7 +233,7 @@ import { computed, onMounted, onUnmounted, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter, type LocationQuery } from 'vue-router'
 import { useAppStore } from '@/stores/app'
-import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { keysAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import SheetSection from '@/components/user/shell/SheetSection.vue'
@@ -495,8 +493,8 @@ const requestTypeOptions = computed<FilterOption[]>(() => [
 const compactionOptions = computed<FilterOption[]>(() => [
   { value: 'only', label: t('usage.compactionOnly') },
 ])
-// 订阅功能关闭后只剩余额计费，「计费类型」筛选（余额/订阅）失去意义，整块隐藏。
-const subscriptionFeatureEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
+// 订阅不显示时只剩余额计费，「计费类型」筛选（余额/订阅）失去意义，整块隐藏。
+const subscriptionFeatureEnabled = SITE_FEATURES.subscription
 const billingTypeOptions = computed<FilterOption[]>(() => [
   { value: 0, label: t('admin.usage.billingTypeBalance') },
   { value: 1, label: t('admin.usage.billingTypeSubscription') },

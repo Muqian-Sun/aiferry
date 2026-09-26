@@ -34,21 +34,6 @@ export default {
           enabled: '启用渠道健康',
           enabledHint: '关闭后汇总任务停止；已有配置与历史保留。',
         },
-        siteBillingMode: {
-          title: '站点类型',
-          description: '决定用户端提供哪些购买方式。默认「充值 & 订阅」。',
-          label: '购买方式',
-          options: {
-            rechargeAndSubscription: '充值 & 订阅',
-            rechargeOnly: '仅充值',
-            subscriptionOnly: '仅订阅',
-          },
-          hints: {
-            rechargeAndSubscription: '用户端同时提供余额充值与订阅套餐。',
-            rechargeOnly: '用户端隐藏「我的订阅」、购买页订阅套餐、顶栏订阅进度与用量页「计费类型」筛选，直接访问「我的订阅」会跳回仪表盘；管理端侧边栏同时隐藏「订阅管理」入口（页面仍可通过地址访问）。已有订阅的计费与兑换码发放的订阅不受影响。',
-            subscriptionOnly: '用户端购买页只保留订阅套餐，侧边栏入口显示为「订阅」，余额充值下单会被拒绝；兑换码、返利等余额入账不受影响。',
-          },
-        },
         modelPlaza: {
           title: '模型广场',
           description: '列出已上架模型与标价的公开页面（/model-plaza），对所有人开放。',
@@ -87,10 +72,6 @@ export default {
         frontendUrl: '前端地址',
         frontendUrlPlaceholder: 'https://example.com',
         frontendUrlHint: '用于生成邮件中的密码重置链接，例如 https://example.com',
-        totp: '双因素认证 (2FA)',
-        totpHint: '允许用户使用 Google Authenticator 等应用进行二次验证',
-        totpKeyNotConfigured:
-          '请先在环境变量中配置 TOTP_ENCRYPTION_KEY。使用命令 openssl rand -hex 32 生成密钥。'
       },
       security: {
         passkey: 'Passkey 登录',

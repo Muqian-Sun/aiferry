@@ -471,7 +471,7 @@ func normalizePositiveInt64IDs(ids []int64) []int64 {
 }
 
 // GetBatchUserUsageStats gets today and total actual_cost for multiple users within a time range.
-// If startTime is zero, defaults to 30 days ago.
+// If startTime is zero, defaults to the last 30 calendar days (today + the 29 days before, site timezone).
 func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs []int64, startTime, endTime time.Time) (map[int64]*BatchUserUsageStats, error) {
 	result := make(map[int64]*BatchUserUsageStats)
 	normalizedUserIDs := normalizePositiveInt64IDs(userIDs)
@@ -479,9 +479,10 @@ func (r *usageLogRepository) GetBatchUserUsageStats(ctx context.Context, userIDs
 		return result, nil
 	}
 
-	// 默认最近 30 天
+	// 默认近 30 天 = 今天 + 前 29 天（按站点时区的自然日），和用户抽屉、用量页的日期范围同口径；
+	// 以前是「现在往前 30×24 小时」，同一页上列表和抽屉的「近 30 天」数对不上。
 	if startTime.IsZero() {
-		startTime = time.Now().AddDate(0, 0, -30)
+		startTime = timezone.Today().AddDate(0, 0, -29)
 	}
 	if endTime.IsZero() {
 		endTime = time.Now()
@@ -731,7 +732,6 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 
 	stats := &UsageStats{}
 	var totalAccountCost float64
-	useAccountCostForEndpoint := filters.AccountID > 0 && filters.UserID == 0 && filters.APIKeyID == 0
 	rows, err := r.sql.QueryContext(ctx, query, args...)
 	if err != nil {
 		return nil, err
@@ -764,10 +764,6 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 		}
 
 		totalTokens := inputTokens + outputTokens + cacheCreationTokens + cacheReads
-		endpointActualCost := actualCost
-		if useAccountCostForEndpoint {
-			endpointActualCost = accountCost
-		}
 
 		switch {
 		case inboundGrouped == 1 && upstreamGrouped == 1:
@@ -784,17 +780,17 @@ func (r *usageLogRepository) GetStatsWithFilters(ctx context.Context, filters Us
 		case inboundGrouped == 0 && upstreamGrouped == 1:
 			stats.Endpoints = append(stats.Endpoints, EndpointStat{
 				Endpoint: inboundEndpoint.String, Requests: requests, TotalTokens: totalTokens,
-				Cost: cost, ActualCost: endpointActualCost,
+				Cost: cost, ActualCost: actualCost, AccountCost: accountCost,
 			})
 		case inboundGrouped == 1 && upstreamGrouped == 0:
 			stats.UpstreamEndpoints = append(stats.UpstreamEndpoints, EndpointStat{
 				Endpoint: upstreamEndpoint.String, Requests: requests, TotalTokens: totalTokens,
-				Cost: cost, ActualCost: endpointActualCost,
+				Cost: cost, ActualCost: actualCost, AccountCost: accountCost,
 			})
 		case inboundGrouped == 0 && upstreamGrouped == 0:
 			stats.EndpointPaths = append(stats.EndpointPaths, EndpointStat{
 				Endpoint: inboundEndpoint.String + " -> " + upstreamEndpoint.String,
-				Requests: requests, TotalTokens: totalTokens, Cost: cost, ActualCost: endpointActualCost,
+				Requests: requests, TotalTokens: totalTokens, Cost: cost, ActualCost: actualCost, AccountCost: accountCost,
 			})
 		}
 	}
@@ -833,21 +829,18 @@ type AccountUsageStatsResponse = usagestats.AccountUsageStatsResponse
 type EndpointStat = usagestats.EndpointStat
 
 func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Context, endpointColumn string, startTime, endTime time.Time, userID, apiKeyID, accountID int64, model string, modelSource string, requestType *int16, stream *bool, billingType *int8, billingMode string) (results []EndpointStat, err error) {
-	actualCostExpr := "COALESCE(SUM(actual_cost), 0) as actual_cost"
-	if accountID > 0 && userID == 0 && apiKeyID == 0 {
-		actualCostExpr = "COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost"
-	}
-
+	// actual_cost 恒为收入、account_cost 为渠道成本（原来仅按 account_id 聚合时把 actual_cost 换成渠道成本，已去掉）
 	query := fmt.Sprintf(`
 		SELECT
 			COALESCE(NULLIF(TRIM(%s), ''), 'unknown') AS endpoint,
 			COUNT(*) AS requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) AS total_tokens,
 			COALESCE(SUM(total_cost), 0) as cost,
-			%s
+			COALESCE(SUM(actual_cost), 0) as actual_cost,
+			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
 		FROM usage_logs
 		WHERE created_at >= $1 AND created_at < $2
-	`, endpointColumn, actualCostExpr)
+	`, endpointColumn)
 
 	args := []any{startTime, endTime}
 	if userID > 0 {
@@ -885,7 +878,7 @@ func (r *usageLogRepository) getEndpointStatsByColumnWithFilters(ctx context.Con
 	results = make([]EndpointStat, 0)
 	for rows.Next() {
 		var row EndpointStat
-		if err := rows.Scan(&row.Endpoint, &row.Requests, &row.TotalTokens, &row.Cost, &row.ActualCost); err != nil {
+		if err := rows.Scan(&row.Endpoint, &row.Requests, &row.TotalTokens, &row.Cost, &row.ActualCost, &row.AccountCost); err != nil {
 			return nil, err
 		}
 		results = append(results, row)
@@ -913,14 +906,14 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		daysCount = 30
 	}
 
+	// 金额与 models[] / endpoints[] 同名同义：actual_cost = 收入，account_cost = 渠道成本。
 	query := `
 		SELECT
 			TO_CHAR(created_at, 'YYYY-MM-DD') as date,
 			COUNT(*) as requests,
 			COALESCE(SUM(input_tokens + output_tokens + cache_creation_tokens + cache_read_tokens), 0) as tokens,
-			COALESCE(SUM(total_cost), 0) as cost,
-			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as actual_cost,
-			COALESCE(SUM(actual_cost), 0) as user_cost
+			COALESCE(SUM(actual_cost), 0) as actual_cost,
+			COALESCE(SUM(total_cost * COALESCE(account_rate_multiplier, 1)), 0) as account_cost
 		FROM usage_logs
 		WHERE account_id = $1 AND created_at >= $2 AND created_at < $3
 		GROUP BY date
@@ -942,53 +935,16 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 
 	history := make([]AccountUsageHistory, 0)
 	for rows.Next() {
-		var date string
-		var requests int64
-		var tokens int64
-		var cost float64
-		var actualCost float64
-		var userCost float64
-		if err = rows.Scan(&date, &requests, &tokens, &cost, &actualCost, &userCost); err != nil {
+		var day AccountUsageHistory
+		if err = rows.Scan(&day.Date, &day.Requests, &day.Tokens, &day.ActualCost, &day.AccountCost); err != nil {
 			return nil, err
 		}
-		t, _ := time.Parse("2006-01-02", date)
-		history = append(history, AccountUsageHistory{
-			Date:       date,
-			Label:      t.Format("01/02"),
-			Requests:   requests,
-			Tokens:     tokens,
-			Cost:       cost,
-			ActualCost: actualCost,
-			UserCost:   userCost,
-		})
+		t, _ := time.Parse("2006-01-02", day.Date)
+		day.Label = t.Format("01/02")
+		history = append(history, day)
 	}
 	if err = rows.Err(); err != nil {
 		return nil, err
-	}
-
-	var totalAccountCost, totalUserCost, totalStandardCost float64
-	var totalRequests, totalTokens int64
-	var highestCostDay, highestRequestDay *AccountUsageHistory
-
-	for i := range history {
-		h := &history[i]
-		totalAccountCost += h.ActualCost
-		totalUserCost += h.UserCost
-		totalStandardCost += h.Cost
-		totalRequests += h.Requests
-		totalTokens += h.Tokens
-
-		if highestCostDay == nil || h.ActualCost > highestCostDay.ActualCost {
-			highestCostDay = h
-		}
-		if highestRequestDay == nil || h.Requests > highestRequestDay.Requests {
-			highestRequestDay = h
-		}
-	}
-
-	actualDaysUsed := len(history)
-	if actualDaysUsed == 0 {
-		actualDaysUsed = 1
 	}
 
 	avgQuery := "SELECT COALESCE(AVG(duration_ms), 0) as avg_duration_ms FROM usage_logs WHERE account_id = $1 AND created_at >= $2 AND created_at < $3"
@@ -997,72 +953,7 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		return nil, err
 	}
 
-	summary := AccountUsageSummary{
-		Days:              daysCount,
-		ActualDaysUsed:    actualDaysUsed,
-		TotalCost:         totalAccountCost,
-		TotalUserCost:     totalUserCost,
-		TotalStandardCost: totalStandardCost,
-		TotalRequests:     totalRequests,
-		TotalTokens:       totalTokens,
-		AvgDailyCost:      totalAccountCost / float64(actualDaysUsed),
-		AvgDailyUserCost:  totalUserCost / float64(actualDaysUsed),
-		AvgDailyRequests:  float64(totalRequests) / float64(actualDaysUsed),
-		AvgDailyTokens:    float64(totalTokens) / float64(actualDaysUsed),
-		AvgDurationMs:     avgDuration,
-	}
-
-	todayStr := timezone.Now().Format("2006-01-02")
-	for i := range history {
-		if history[i].Date == todayStr {
-			summary.Today = &struct {
-				Date     string  `json:"date"`
-				Cost     float64 `json:"cost"`
-				UserCost float64 `json:"user_cost"`
-				Requests int64   `json:"requests"`
-				Tokens   int64   `json:"tokens"`
-			}{
-				Date:     history[i].Date,
-				Cost:     history[i].ActualCost,
-				UserCost: history[i].UserCost,
-				Requests: history[i].Requests,
-				Tokens:   history[i].Tokens,
-			}
-			break
-		}
-	}
-
-	if highestCostDay != nil {
-		summary.HighestCostDay = &struct {
-			Date     string  `json:"date"`
-			Label    string  `json:"label"`
-			Cost     float64 `json:"cost"`
-			UserCost float64 `json:"user_cost"`
-			Requests int64   `json:"requests"`
-		}{
-			Date:     highestCostDay.Date,
-			Label:    highestCostDay.Label,
-			Cost:     highestCostDay.ActualCost,
-			UserCost: highestCostDay.UserCost,
-			Requests: highestCostDay.Requests,
-		}
-	}
-
-	if highestRequestDay != nil {
-		summary.HighestRequestDay = &struct {
-			Date     string  `json:"date"`
-			Label    string  `json:"label"`
-			Requests int64   `json:"requests"`
-			Cost     float64 `json:"cost"`
-			UserCost float64 `json:"user_cost"`
-		}{
-			Date:     highestRequestDay.Date,
-			Label:    highestRequestDay.Label,
-			Requests: highestRequestDay.Requests,
-			Cost:     highestRequestDay.ActualCost,
-			UserCost: highestRequestDay.UserCost,
-		}
-	}
+	summary := summarizeAccountUsageHistory(history, daysCount, avgDuration, timezone.Now().Format("2006-01-02"))
 
 	models, err := r.GetModelStatsWithFilters(ctx, startTime, endTime, 0, 0, accountID, nil, nil, nil)
 	if err != nil {
@@ -1087,4 +978,48 @@ func (r *usageLogRepository) GetAccountUsageStats(ctx context.Context, accountID
 		UpstreamEndpoints: upstreamEndpoints,
 	}
 	return resp, nil
+}
+
+// summarizeAccountUsageHistory 把按天的渠道用量汇总成 summary：合计、日均（按有用量的天数）、今日、
+// 收入最高日与请求最多日（并列取最早的一天）。today 是业务时区的 YYYY-MM-DD。
+func summarizeAccountUsageHistory(history []AccountUsageHistory, days int, avgDurationMs float64, today string) AccountUsageSummary {
+	summary := AccountUsageSummary{Days: days, AvgDurationMs: avgDurationMs}
+	var highestRevenueDay, highestRequestDay *AccountUsageHistory
+	for i := range history {
+		h := &history[i]
+		summary.TotalActualCost += h.ActualCost
+		summary.TotalAccountCost += h.AccountCost
+		summary.TotalRequests += h.Requests
+		summary.TotalTokens += h.Tokens
+		if highestRevenueDay == nil || h.ActualCost > highestRevenueDay.ActualCost {
+			highestRevenueDay = h
+		}
+		if highestRequestDay == nil || h.Requests > highestRequestDay.Requests {
+			highestRequestDay = h
+		}
+		if h.Date == today {
+			day := *h
+			summary.Today = &day
+		}
+	}
+
+	summary.ActualDaysUsed = len(history)
+	if summary.ActualDaysUsed == 0 {
+		summary.ActualDaysUsed = 1
+	}
+	usedDays := float64(summary.ActualDaysUsed)
+	summary.AvgDailyActualCost = summary.TotalActualCost / usedDays
+	summary.AvgDailyAccountCost = summary.TotalAccountCost / usedDays
+	summary.AvgDailyRequests = float64(summary.TotalRequests) / usedDays
+	summary.AvgDailyTokens = float64(summary.TotalTokens) / usedDays
+
+	if highestRevenueDay != nil {
+		day := *highestRevenueDay
+		summary.HighestRevenueDay = &day
+	}
+	if highestRequestDay != nil {
+		day := *highestRequestDay
+		summary.HighestRequestDay = &day
+	}
+	return summary
 }

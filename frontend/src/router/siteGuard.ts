@@ -9,6 +9,7 @@ import type { AppSite } from '@/app/site'
 import type { CustomMenuItem } from '@/types'
 import { useAuthStore } from '@/stores/auth'
 import { useAppStore } from '@/stores/app'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import { getSetupStatus } from '@/api/setup'
 import { resolveCompletedSetupRedirectPath } from './setupRedirect'
 import { resolveRouteDocumentTitle } from './title'
@@ -35,9 +36,9 @@ const BACKEND_MODE_CALLBACK_PATHS = [
 ]
 const BACKEND_MODE_PENDING_AUTH_PATHS = ['/register', '/email-verify']
 
-// 简易模式下隐藏的页面：用户站整个账务区（含旧路径 /subscriptions /redeem 的 redirect 入口），
-// 管理后台的订阅/兑换管理路径与旧用户站相同
-const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions', '/redeem']
+// 简易模式下隐藏的页面：用户站整个账务区（含旧路径 /subscriptions 的 redirect 入口），
+// 管理后台的订阅管理路径与旧用户站相同
+const SIMPLE_MODE_RESTRICTED_PATHS = ['/billing', '/subscriptions']
 
 
 export function isBackendModePublicRouteAllowed(path: string, hasPendingAuthSession: boolean): boolean {
@@ -135,7 +136,7 @@ export function createSiteGuard(options: SiteGuardOptions) {
     // 公共设置可能尚未加载（根组件 onMounted 异步拉取晚于首次导航，且纯静态部署
     // 无 __APP_CONFIG__ 注入）。此时 cachedPublicSettings 为空会把 payment/risk_control
     // 误判为“未启用”而错误拦截，故这里先确保设置加载完成。
-    if ((to.meta.requiresPayment || to.meta.requiresRiskControl || to.meta.requiresSubscription) && !appStore.publicSettingsLoaded) {
+    if ((to.meta.requiresPayment || to.meta.requiresRiskControl) && !appStore.publicSettingsLoaded) {
       try {
         await appStore.fetchPublicSettings()
       } catch (error) {
@@ -153,8 +154,8 @@ export function createSiteGuard(options: SiteGuardOptions) {
       next(isUserSite ? homePath : '/settings')
       return
     }
-    // 订阅功能是 opt-out 开关：只有显式 false 才拦截「我的订阅」页直达。
-    if (to.meta.requiresSubscription && appStore.publicSettingsLoaded && appStore.cachedPublicSettings?.subscription_enabled === false) {
+    // 订阅显不显示由代码决定（utils/siteFeatures.ts）；不显示时两站的订阅页都拦回首页。
+    if (to.meta.requiresSubscription && !SITE_FEATURES.subscription) {
       next(homePath)
       return
     }

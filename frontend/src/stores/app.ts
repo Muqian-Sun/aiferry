@@ -305,8 +305,6 @@ export const useAppStore = defineStore('app', () => {
         account_quota_notify_enabled: false,
         balance_low_notify_threshold: 0,
         channel_monitor_enabled: true,
-        subscription_enabled: true,
-        payment_balance_disabled: false,
         risk_control_enabled: false,
         service_quota_enabled: false,
         affiliate_enabled: false,

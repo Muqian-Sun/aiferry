@@ -354,7 +354,7 @@
 import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores'
-import { FeatureFlags, resolveFeatureFlag } from '@/utils/featureFlags'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
 import { useTheme } from '@/composables/useTheme'
 import { useChartTheme } from '@/composables/useChartTheme'
@@ -363,7 +363,6 @@ import { formatDateLocalInput } from '@/utils/format'
 
 const { t, locale } = useI18n()
 const appStore = useAppStore()
-const subscriptionFeatureEnabled = computed(() => resolveFeatureFlag(appStore.cachedPublicSettings, FeatureFlags.subscription))
 
 // ==================== Site Settings (same as HomeView) ====================
 
@@ -648,8 +647,8 @@ const detailRows = computed<DetailRow[]>(() => {
   } else {
     rows.push({
       iconBg: 'bg-emerald-500/10', iconColor: 'text-emerald-500', iconSvg: ICON_CHECK,
-      // 订阅功能关闭后这一行只会是「钱包余额」，标签改用不带「订阅」字样的「计费方式」。
-      label: subscriptionFeatureEnabled.value ? t('keyUsage.subscriptionType') : t('keyUsage.billingType'),
+      // 订阅不显示时这一行只会是「钱包余额」，标签改用不带「订阅」字样的「计费方式」。
+      label: SITE_FEATURES.subscription ? t('keyUsage.subscriptionType') : t('keyUsage.billingType'),
       value: data.planName || t('keyUsage.walletBalance'), valueClass: '',
     })
 

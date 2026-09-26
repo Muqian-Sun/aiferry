@@ -13,7 +13,7 @@
     >
       <dt class="truncate text-13 text-af-ink-3">{{ item.label }}</dt>
       <dd class="mt-1.5 flex items-baseline gap-2">
-        <span class="text-2xl font-semibold tracking-[-0.01em] tabular-nums text-af-ink">{{ item.value }}</span>
+        <span class="text-2xl font-semibold tracking-[-0.01em] tabular-nums" :class="item.valueClass || 'text-af-ink'">{{ item.value }}</span>
         <span v-if="item.hint" class="truncate text-xs text-af-ink-3">{{ item.hint }}</span>
         <RouterLink v-if="item.link" :to="item.link.to" class="text-xs font-medium text-af-brand hover:text-af-brand-hover">
           {{ item.link.label }}
