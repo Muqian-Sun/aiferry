@@ -8,7 +8,6 @@
   <DetailDrawer
     :show="account !== null"
     :title="account?.name ?? ''"
-    :eyebrow="account ? t('admin.accounts.detail.eyebrow', { id: account.id }) : ''"
     :tabs="tabs"
     :tab="tab"
     width="lg"
@@ -96,9 +95,7 @@
             </li>
           </ul>
         </DetailField>
-        <DetailField v-if="email" :label="t('admin.accounts.detail.email')">
-          <span :title="account.parent_chatgpt_account_id || undefined">{{ email }}</span>
-        </DetailField>
+        <DetailField v-if="email" :label="t('admin.accounts.detail.email')" :value="email" />
         <DetailField v-if="compactText" label="Compact">
           <span :title="compactTitle">{{ compactText }}</span>
         </DetailField>

@@ -97,6 +97,7 @@
           selectable
           row-key="id"
           :selected-keys="selectedIds"
+          :selection-label="(entry: ModelCatalogEntry) => t('admin.modelCatalog.bulk.selectEntry', { model: entry.model_id })"
           clickable-rows
           @update:selected-keys="handleSelectionChange"
           @row-click="openDrawer($event)"
@@ -208,7 +209,7 @@
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"
       :entry-id="diagnosisEntry?.id ?? null"
-      :model-id="diagnosisEntry?.model_id"
+      :model-id="diagnosisEntry?.model_id ?? ''"
       @close="diagnosisEntry = null"
     />
 

@@ -115,7 +115,7 @@ describe('admin AccountsView priority column preferences', () => {
 
   it('shows priority as a sortable column when enabled in column settings', async () => {
     // 2026-09-25 起优先级默认藏在列设置里
-    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 2, hidden: [] }))
+    localStorage.setItem('admin-accounts-columns', JSON.stringify({ version: 3, hidden: [] }))
     const wrapper = mountView()
     await flushPromises()
 

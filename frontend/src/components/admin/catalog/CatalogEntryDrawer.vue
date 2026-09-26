@@ -8,7 +8,6 @@
   <DetailDrawer
     :show="show && !!entry"
     :title="entry?.model_id ?? ''"
-    :eyebrow="entry ? t('admin.modelCatalog.drawer.eyebrow', { id: entry.id }) : ''"
     :subtitle="subtitle"
     :tabs="tabs"
     :tab="tab"
@@ -174,17 +173,13 @@
             >
               <div class="min-w-0">
                 <p class="truncate text-sm font-medium text-af-ink">{{ channel.name }}</p>
-                <p class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-af-ink-3">
-                  <span class="shrink-0 tabular-nums">#{{ channel.id }}</span>
-                  <template v-if="channel.platform">
-                    <span aria-hidden="true">·</span>
-                    <PlatformTypeBadge
-                      variant="plain"
-                      :platform="channel.platform as AccountPlatform"
-                      :type="channel.type as AccountType"
-                      :vendor="channel.vendor"
-                    />
-                  </template>
+                <p v-if="channel.platform" class="mt-0.5 flex min-w-0 items-center gap-1 text-xs text-af-ink-3">
+                  <PlatformTypeBadge
+                    variant="plain"
+                    :platform="channel.platform as AccountPlatform"
+                    :type="channel.type as AccountType"
+                    :vendor="channel.vendor"
+                  />
                 </p>
               </div>
               <div class="shrink-0 text-right text-xs">
@@ -472,7 +467,7 @@ async function loadChannels(entryId: number) {
   }
 }
 
-/** 诊断拿到了就用诊断结果；拿不到就只列目录条目里的渠道 ID */
+/** 诊断拿到了就用诊断结果；拿不到就只列目录条目里绑定的渠道（渠道已不在就写「已删除渠道」） */
 const channelRows = computed<ChannelRow[]>(() => {
   const entry = props.entry
   if (!entry) return []
@@ -490,7 +485,7 @@ const channelRows = computed<ChannelRow[]>(() => {
   }
   return (entry.bindings ?? []).map((binding) => ({
     id: binding.account_id,
-    name: binding.account?.name ?? `#${binding.account_id}`,
+    name: binding.account?.name ?? t('common.deletedChannel'),
     platform: binding.account?.platform ?? '',
     type: binding.account?.type ?? '',
     vendor: binding.account?.vendor ?? '',

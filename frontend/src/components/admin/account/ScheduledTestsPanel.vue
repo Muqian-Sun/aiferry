@@ -152,7 +152,7 @@
               <!-- Model -->
               <div class="min-w-0">
                 <div class="text-sm font-medium text-af-ink">
-                  {{ plan.model_id }}
+                  {{ modelLabel(plan.model_id) }}
                 </div>
                 <div class="mt-0.5 font-mono text-xs text-af-ink-3">
                   {{ plan.cron_expression }}
@@ -505,6 +505,10 @@ const newPlan = reactive({
   enabled: true,
   auto_recover: false
 })
+
+// 计划标题：渠道模型有显示名就写显示名，否则写模型名
+const modelLabel = (modelId: string): string =>
+  props.modelOptions.find((option) => option.value === modelId)?.label ?? modelId
 
 const resetNewPlan = () => {
   newPlan.model_id = ''

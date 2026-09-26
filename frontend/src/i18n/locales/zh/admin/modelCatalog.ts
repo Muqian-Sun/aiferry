@@ -38,6 +38,7 @@ export default {
     bulk: {
       list: '上架',
       unlist: '下架',
+      selectEntry: '选择 {model}',
       nothingToDo: '选中的条目已经是目标状态',
       listedDone: '已上架 {count} 个模型',
       unlistedDone: '已下架 {count} 个模型',
@@ -78,14 +79,13 @@ export default {
       backToList: '模型',
       backToListAction: '返回模型列表',
       loading: '正在加载模型…',
-      notFound: '找不到模型 #{id}，可能已被删除。',
+      notFound: '该模型不存在或已被删除。',
       loadFailed: '模型加载失败：{message}',
       retry: '重试',
       saved: '模型已保存'
     },
     // 模型详情抽屉（A5）
     drawer: {
-      eyebrow: '模型 #{id}',
       tabs: {
         overview: '概况',
         channels: '渠道'
@@ -214,7 +214,7 @@ export default {
       title: '承接这个模型的渠道',
       hint: '勾上的渠道承接这个模型的请求；优先级留空则跟随渠道自身的优先级。',
       selected: '已选 {count} 个',
-      search: '搜索渠道名称或 ID',
+      search: '搜索渠道名称',
       boundOnly: '只看已选',
       loading: '正在加载渠道…',
       loadFailed: '渠道列表加载失败',

@@ -31,8 +31,6 @@
             <td class="px-3 py-2">
               <div class="font-medium text-af-ink">{{ account.name }}</div>
               <div class="flex items-center gap-1 text-xs text-af-ink-3">
-                <span class="shrink-0 tabular-nums">#{{ account.id }}</span>
-                <span aria-hidden="true">·</span>
                 <PlatformTypeBadge
                   variant="plain"
                   :platform="account.platform as AccountPlatform"
@@ -90,8 +88,8 @@ import { extractApiErrorMessage } from '@/utils/apiError'
 const props = defineProps<{
   show: boolean
   entryId: number | null
-  /** 只用于标题；不传就只显示条目 ID。 */
-  modelId?: string
+  /** 标题里的模型名 */
+  modelId: string
 }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
@@ -102,9 +100,7 @@ const loading = ref(false)
 const error = ref('')
 const accounts = ref<ModelCatalogDiagnosisAccount[]>([])
 
-const dialogTitle = computed(() =>
-  t('admin.modelCatalog.diagnosis.title', { model: props.modelId || (props.entryId !== null ? `#${props.entryId}` : '') })
-)
+const dialogTitle = computed(() => t('admin.modelCatalog.diagnosis.title', { model: props.modelId }))
 
 const blockedReasonLabel = (reason?: string): string => {
   if (!reason) return ''

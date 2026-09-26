@@ -147,9 +147,6 @@
               @change="toggleSel(row.id)"
             />
           </template>
-          <template #cell-id="{ value }">
-            <span class="font-mono text-xs text-af-ink-3">#{{ value }}</span>
-          </template>
           <template #cell-name="{ row, value }">
             <div class="min-w-0 max-w-[22rem]">
               <a
@@ -340,7 +337,7 @@
     <CatalogEntryDiagnosisModal
       :show="diagnosisEntry !== null"
       :entry-id="diagnosisEntry?.id ?? null"
-      :model-id="diagnosisEntry?.model_id"
+      :model-id="diagnosisEntry?.model_id ?? ''"
       @close="diagnosisEntry = null"
     />
     <ReAuthAccountModal :show="showReAuth" :account="reAuthAcc" @close="closeReAuthModal" @reauthorized="handleAccountUpdated" />
@@ -555,7 +552,6 @@ type AccountSortState = {
   sort_order: AccountSortOrder
 }
 const ACCOUNT_SORTABLE_KEYS = new Set([
-  'id',
   'name',
   'status',
   'schedulable',
@@ -1136,7 +1132,6 @@ const { pause: pauseAutoRefresh, resume: resumeAutoRefresh } = useIntervalFn(
 const allColumns = computed(() => [
   { key: 'select', label: '', sortable: false },
   { key: 'name', label: t('admin.accounts.columns.name'), sortable: true },
-  { key: 'id', label: t('admin.accounts.columns.id'), sortable: true },
   { key: 'status', label: t('admin.accounts.columns.status'), sortable: true },
   { key: 'schedulable', label: t('admin.accounts.columns.schedulable'), sortable: true },
   { key: 'today', label: t('admin.accounts.columns.today'), sortable: false },
@@ -1153,11 +1148,12 @@ const allColumns = computed(() => [
 ])
 
 // 版本 2（2026-09-25 默认列改成 6 个）：本机旧设置作废，回到新默认
+// 版本 3（2026-09-26 删掉内部 ID 列，管理站不显示数字 ID）
 const columnSettings = useColumnSettings({
   storageKey: 'admin-accounts-columns',
-  version: 2,
+  version: 3,
   columns: allColumns,
-  defaultHidden: ['id', 'priority', 'proxy', 'rate_multiplier', 'upstream_billing_rate', 'created_at', 'expires_at', 'notes'],
+  defaultHidden: ['priority', 'proxy', 'rate_multiplier', 'upstream_billing_rate', 'created_at', 'expires_at', 'notes'],
   alwaysVisible: ['select', 'name', 'actions']
 })
 const cols = columnSettings.visibleColumns

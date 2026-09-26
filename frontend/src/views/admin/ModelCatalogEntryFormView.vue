@@ -28,7 +28,7 @@
       <p class="text-base text-af-ink">
         {{
           loadError === 'not-found'
-            ? t('admin.modelCatalog.formPage.notFound', { id: routeId })
+            ? t('admin.modelCatalog.formPage.notFound')
             : t('admin.modelCatalog.formPage.loadFailed', { message: loadError })
         }}
       </p>
