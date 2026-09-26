@@ -196,6 +196,7 @@ import type {
 import type { SubscriptionPlan } from '@/types/payment'
 import Select from '@/components/common/Select.vue'
 import Icon from '@/components/icons/Icon.vue'
+import { SITE_FEATURES } from '@/utils/siteFeatures'
 
 const { t } = useI18n()
 
@@ -213,8 +214,11 @@ const anyOf = computed(() => props.modelValue?.any_of ?? [])
 type Mode = 'all' | 'custom'
 const mode = computed<Mode>(() => (anyOf.value.length === 0 ? 'all' : 'custom'))
 
+// 订阅隐藏期间只能按余额定向
 const conditionTypeOptions = computed(() => [
-  { value: 'subscription', label: t('admin.announcements.form.conditionSubscription') },
+  ...(SITE_FEATURES.subscription
+    ? [{ value: 'subscription', label: t('admin.announcements.form.conditionSubscription') }]
+    : []),
   { value: 'balance', label: t('admin.announcements.form.conditionBalance') }
 ])
 
@@ -232,7 +236,7 @@ function setMode(next: Mode) {
     return
   }
   if (anyOf.value.length === 0) {
-    emit('update:modelValue', { any_of: [{ all_of: [defaultSubscriptionCondition()] }] })
+    emit('update:modelValue', { any_of: [{ all_of: [defaultCondition()] }] })
   }
 }
 
@@ -242,6 +246,11 @@ function defaultSubscriptionCondition(): AnnouncementCondition {
     operator: 'in' as AnnouncementOperator,
     plan_ids: []
   }
+}
+
+// 新增条件的默认类型：订阅隐藏期间只剩余额
+function defaultCondition(): AnnouncementCondition {
+  return SITE_FEATURES.subscription ? defaultSubscriptionCondition() : defaultBalanceCondition()
 }
 
 function defaultBalanceCondition(): AnnouncementCondition {
@@ -266,7 +275,7 @@ function updateTargeting(mutator: (draft: TargetingDraft) => void) {
 function addOrGroup() {
   updateTargeting((draft) => {
     if (draft.any_of.length >= 50) return
-    draft.any_of.push({ all_of: [defaultSubscriptionCondition()] })
+    draft.any_of.push({ all_of: [defaultCondition()] })
   })
 }
 
@@ -281,7 +290,7 @@ function addAndCondition(groupIndex: number) {
     const group = draft.any_of[groupIndex]
     if (!group.all_of) group.all_of = []
     if (group.all_of.length >= 50) return
-    group.all_of.push(defaultSubscriptionCondition())
+    group.all_of.push(defaultCondition())
   })
 }
 
