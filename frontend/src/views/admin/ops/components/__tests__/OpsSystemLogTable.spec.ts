@@ -19,6 +19,9 @@ vi.mock('@/api/admin/ops', () => ({
   },
 }))
 
+// 用户 / 密钥 / 渠道筛选的 EntityPicker 从 @/api/admin 取搜索接口；本用例不走它
+vi.mock('@/api/admin', () => ({ adminAPI: {} }))
+
 vi.mock('@/stores', () => ({
   useAppStore: () => ({
     showError: vi.fn(),
