@@ -39,18 +39,25 @@
         </div>
         <div>
           <label class="input-label">{{ t('admin.users.columns.concurrency') }}</label>
-          <input v-model.number="form.concurrency" type="number" class="input" />
+          <input
+            v-model="form.concurrency"
+            type="number"
+            min="0"
+            step="1"
+            class="input"
+            :placeholder="t('admin.users.form.newUserDefaultPlaceholder')"
+          />
         </div>
       </div>
       <div>
         <label class="input-label">{{ t('admin.users.form.rpmLimit') }}</label>
         <input
-          v-model.number="form.rpm_limit"
+          v-model="form.rpm_limit"
           type="number"
           min="0"
           step="1"
           class="input"
-          :placeholder="t('admin.users.form.rpmLimitPlaceholder')"
+          :placeholder="t('admin.users.form.newUserDefaultPlaceholder')"
         />
         <p class="input-hint">{{ t('admin.users.form.rpmLimitHint') }}</p>
       </div>
@@ -93,7 +100,8 @@ const props = defineProps<{ show: boolean }>()
 const emit = defineEmits(['close', 'success']); const { t } = useI18n()
 const appStore = useAppStore()
 
-const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: 1, rpm_limit: 0, rate_multiplier: 1 })
+// 余额 / 并发 / RPM 留空 = 按「新用户默认值」，和自助注册一致（之前并发写死 1、RPM 写死 0）
+const form = reactive({ email: '', password: '', username: '', notes: '', role: 'user' as 'user' | 'admin', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: 1 })
 
 const stepUp = useStepUp()
 const loading = ref(false)
@@ -102,12 +110,15 @@ const submit = async () => {
   if (loading.value) return
   loading.value = true
   try {
-    const { balance: rawBalance, ...rest } = { ...form }
-    const balance = String(rawBalance).trim()
-    const payload: typeof rest & { balance?: number } = { ...rest }
-    if (balance !== '') {
-      payload.balance = Number(balance)
+    const { balance, concurrency, rpm_limit, ...rest } = { ...form }
+    const payload: typeof rest & { balance?: number; concurrency?: number; rpm_limit?: number } = { ...rest }
+    const optionalNumber = (raw: string | number) => {
+      const text = String(raw).trim()
+      return text === '' ? undefined : Number(text)
     }
+    payload.balance = optionalNumber(balance)
+    payload.concurrency = optionalNumber(concurrency)
+    payload.rpm_limit = optionalNumber(rpm_limit)
     // 创建管理员属敏感操作：后端返回 STEP_UP_REQUIRED 时弹 TOTP 验证并重试
     await stepUp.run(() => adminAPI.users.create(payload))
     appStore.showSuccess(t('admin.users.userCreated'))
@@ -127,7 +138,7 @@ const submit = async () => {
   } finally { loading.value = false }
 }
 
-watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: 1, rpm_limit: 0, rate_multiplier: 1 }) })
+watch(() => props.show, (v) => { if(v) Object.assign(form, { email: '', password: '', username: '', notes: '', role: 'user', balance: '', concurrency: '', rpm_limit: '', rate_multiplier: 1 }) })
 
 const generateRandomPassword = () => {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789!@#$%^&*'

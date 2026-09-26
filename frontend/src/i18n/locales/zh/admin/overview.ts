@@ -270,6 +270,7 @@ export default {
         concurrencyHint: '该用户的最大并发请求数，0 = 不限制',
         rpmLimitPlaceholder: '0 表示不限制',
         rpmLimitHint: '该用户每分钟最大请求数，0 = 不限制',
+        newUserDefaultPlaceholder: '留空按新用户默认值',
         rateMultiplier: '计费倍率',
         rateMultiplierHint: '用户价 = 目录价 × 倍率；0 为免费'
       },

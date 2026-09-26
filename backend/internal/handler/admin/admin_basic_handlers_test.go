@@ -122,6 +122,34 @@ func TestUserHandlerEndpoints(t *testing.T) {
 	require.Equal(t, http.StatusOK, rec.Code)
 }
 
+// 并发 / RPM 不传就交给服务层取「新用户默认值」；负数直接 400。
+func TestUserHandlerCreateLimits(t *testing.T) {
+	router, adminSvc := setupAdminRouter()
+	post := func(body string) int {
+		rec := httptest.NewRecorder()
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/admin/users", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		router.ServeHTTP(rec, req)
+		return rec.Code
+	}
+
+	require.Equal(t, http.StatusOK, post(`{"email":"omit@example.com","password":"pass123"}`))
+	require.Len(t, adminSvc.createdUsers, 1)
+	require.Nil(t, adminSvc.createdUsers[0].Concurrency)
+	require.Nil(t, adminSvc.createdUsers[0].RPMLimit)
+
+	require.Equal(t, http.StatusOK, post(`{"email":"zero@example.com","password":"pass123","concurrency":0,"rpm_limit":0}`))
+	require.Len(t, adminSvc.createdUsers, 2)
+	require.NotNil(t, adminSvc.createdUsers[1].Concurrency)
+	require.Equal(t, 0, *adminSvc.createdUsers[1].Concurrency)
+	require.NotNil(t, adminSvc.createdUsers[1].RPMLimit)
+	require.Equal(t, 0, *adminSvc.createdUsers[1].RPMLimit)
+
+	require.Equal(t, http.StatusBadRequest, post(`{"email":"neg@example.com","password":"pass123","concurrency":-1}`))
+	require.Equal(t, http.StatusBadRequest, post(`{"email":"neg2@example.com","password":"pass123","rpm_limit":-5}`))
+	require.Len(t, adminSvc.createdUsers, 2)
+}
+
 func TestUserHandlerBindAuthIdentityMapsRequest(t *testing.T) {
 	router, adminSvc := setupAdminRouter()
 

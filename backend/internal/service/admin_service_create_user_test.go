@@ -22,7 +22,7 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 		Username:    "tester",
 		Notes:       "note",
 		Balance:     &balance,
-		Concurrency: 7,
+		Concurrency: ptrInt(7),
 	}
 
 	user, err := svc.CreateUser(context.Background(), input)
@@ -33,7 +33,7 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.Equal(t, input.Username, user.Username)
 	require.Equal(t, input.Notes, user.Notes)
 	require.Equal(t, balance, user.Balance)
-	require.Equal(t, input.Concurrency, user.Concurrency)
+	require.Equal(t, 7, user.Concurrency)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
 	require.True(t, user.CheckPassword(input.Password))
@@ -89,6 +89,47 @@ func TestAdminService_CreateUser_ExplicitZeroBalanceOverridesDefault(t *testing.
 	require.Equal(t, 0.0, user.Balance)
 	require.Len(t, repo.created, 1)
 	require.Equal(t, 0.0, repo.created[0].Balance)
+}
+
+// 管理员新建用户不传并发 / RPM 时，和自助注册一样取「新用户默认值」（之前前端写死并发 1、RPM 0）。
+func TestAdminService_CreateUser_UsesDefaultLimitsWhenOmitted(t *testing.T) {
+	repo := &userRepoStub{nextID: 13}
+	cfg := &config.Config{Default: config.DefaultConfig{UserConcurrency: 1}}
+	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
+		SettingKeyDefaultConcurrency:  "8",
+		SettingKeyDefaultUserRPMLimit: "30",
+	}}, cfg)
+	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
+
+	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email:    "default-limits@test.com",
+		Password: "strong-pass",
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 8, user.Concurrency)
+	require.Equal(t, 30, user.RPMLimit)
+}
+
+func TestAdminService_CreateUser_ExplicitZeroLimitsOverrideDefault(t *testing.T) {
+	repo := &userRepoStub{nextID: 14}
+	cfg := &config.Config{Default: config.DefaultConfig{UserConcurrency: 1}}
+	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
+		SettingKeyDefaultConcurrency:  "8",
+		SettingKeyDefaultUserRPMLimit: "30",
+	}}, cfg)
+	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
+
+	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email:       "zero-limits@test.com",
+		Password:    "strong-pass",
+		Concurrency: ptrInt(0),
+		RPMLimit:    ptrInt(0),
+	})
+
+	require.NoError(t, err)
+	require.Equal(t, 0, user.Concurrency)
+	require.Equal(t, 0, user.RPMLimit)
 }
 
 func TestAdminService_CreateUser_EmailExists(t *testing.T) {

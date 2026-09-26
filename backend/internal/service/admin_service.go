@@ -102,8 +102,9 @@ type CreateUserInput struct {
 	Notes       string
 	Role        string // 空字符串表示使用默认角色(user);合法值 admin/user
 	Balance     *float64
-	Concurrency int
-	RPMLimit    int
+	// Concurrency / RPMLimit 为 nil 时取「新用户默认值」，与自助注册一致。
+	Concurrency *int
+	RPMLimit    *int
 	// RateMultiplier 用户级计费倍率；nil 表示默认 1。
 	RateMultiplier *float64
 	// ActorAdminID 执行本次操作的管理员ID(来自JWT)，仅用于权限敏感操作的审计日志。

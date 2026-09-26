@@ -95,14 +95,27 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		rateMultiplier = *input.RateMultiplier
 	}
 
+	// 没传就按「新用户默认值」，和自助注册同一个来源（之前前端写死并发 1、RPM 0）。
+	var concurrency, rpmLimit int
+	if input.Concurrency != nil {
+		concurrency = *input.Concurrency
+	} else if s.settingService != nil {
+		concurrency = s.settingService.GetDefaultConcurrency(ctx)
+	}
+	if input.RPMLimit != nil {
+		rpmLimit = *input.RPMLimit
+	} else if s.settingService != nil {
+		rpmLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
+	}
+
 	user := &User{
 		Email:          input.Email,
 		Username:       input.Username,
 		Notes:          input.Notes,
 		Role:           role,
 		Balance:        balance,
-		Concurrency:    input.Concurrency,
-		RPMLimit:       input.RPMLimit,
+		Concurrency:    concurrency,
+		RPMLimit:       rpmLimit,
 		RateMultiplier: rateMultiplier,
 		Status:         StatusActive,
 	}
