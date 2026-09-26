@@ -66,7 +66,7 @@
                 class="w-full px-3 py-1.5 text-left text-sm hover:bg-af-sunken"
               >
                 <span class="text-af-ink">{{ user.email }}</span>
-                <span class="ml-2 tabular-nums text-af-ink-3">#{{ user.id }}</span>
+                <span v-if="user.deleted" class="ml-1 text-xs text-af-ink-3">（{{ t('admin.usage.userDeletedBadge') }}）</span>
               </button>
             </div>
           </div>
@@ -154,10 +154,7 @@
               :to="{ path: '/usage', query: { user_id: row.user_id } }"
               class="block max-w-[15rem] truncate rounded font-medium text-af-ink hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-af-brand focus-visible:ring-offset-2"
             >
-              {{ userColumnMode === 'email'
-                ? (row.user?.email || t('admin.redeem.userPrefix', { id: row.user_id }))
-                : (row.user?.username || t('admin.redeem.userPrefix', { id: row.user_id }))
-              }}
+              {{ userColumnLabel(row) }}
             </RouterLink>
           </template>
 
@@ -419,7 +416,6 @@
                 class="w-full px-4 py-2 text-left text-sm hover:bg-af-sunken disabled:opacity-50"
               >
                 <span class="font-medium text-af-ink">{{ user.email }}</span>
-                <span class="ml-2 text-af-ink-3">#{{ user.id }}</span>
               </button>
             </div>
           </div>
@@ -429,7 +425,7 @@
             </p>
             <ul class="max-h-40 space-y-1 overflow-y-auto">
               <li v-for="user in assignUsers" :key="user.id" class="flex items-center justify-between gap-2 rounded-lg bg-af-sunken px-3 py-1 text-sm">
-                <span class="truncate">{{ user.email }} <span class="text-af-ink-3">#{{ user.id }}</span></span>
+                <span class="truncate">{{ user.email }}</span>
                 <button
                   type="button"
                   :disabled="submitting"
@@ -459,8 +455,8 @@
         </div>
         <div v-if="batchAssignResult" class="space-y-2 text-sm" role="status" data-test="batch-assign-result">
           <p>{{ t('admin.subscriptions.batchAssign.result', { success: batchAssignResult.success_count, failed: batchAssignResult.failed_count }) }}</p>
-          <ul v-if="batchAssignResult.errors.length" class="max-h-40 space-y-1 overflow-y-auto text-af-danger">
-            <li v-for="(error, index) in batchAssignResult.errors" :key="index">{{ error }}</li>
+          <ul v-if="batchAssignErrors.length" class="max-h-40 space-y-1 overflow-y-auto text-af-danger">
+            <li v-for="(error, index) in batchAssignErrors" :key="index">{{ error }}</li>
           </ul>
           <p v-if="batchAssignResult.failed_count > 0" class="input-hint">{{ t('admin.subscriptions.batchAssign.retryHint') }}</p>
         </div>
@@ -519,7 +515,7 @@
           <p class="text-sm text-af-ink-2">
             {{ t('admin.subscriptions.adjustingFor') }}
             <span class="font-medium text-af-ink">{{
-              extendingSubscription.user?.email
+              extendingSubscription.user?.email || t('common.deletedUser')
             }}</span>
           </p>
           <p class="mt-1 text-sm text-af-ink-2">
@@ -574,7 +570,7 @@
     <ConfirmDialog
       :show="showRevokeDialog"
       :title="t('admin.subscriptions.revokeSubscription')"
-      :message="t('admin.subscriptions.revokeConfirm', { user: revokingSubscription?.user?.email })"
+      :message="t('admin.subscriptions.revokeConfirm', { user: revokingSubscription?.user?.email || t('common.deletedUser') })"
       :confirm-text="t('admin.subscriptions.revoke')"
       :cancel-text="t('common.cancel')"
       :danger="true"
@@ -586,7 +582,7 @@
     <ConfirmDialog
       :show="showRestoreDialog"
       :title="t('admin.subscriptions.restoreSubscription')"
-      :message="t('admin.subscriptions.restoreConfirm', { user: restoringSubscription?.user?.email })"
+      :message="t('admin.subscriptions.restoreConfirm', { user: restoringSubscription?.user?.email || t('common.deletedUser') })"
       :confirm-text="t('admin.subscriptions.restore')"
       :cancel-text="t('common.cancel')"
       @confirm="confirmRestore"
@@ -597,7 +593,7 @@
     <ConfirmDialog
       :show="showResetQuotaConfirm"
       :title="t('admin.subscriptions.resetQuotaTitle')"
-      :message="t('admin.subscriptions.resetQuotaConfirm', { user: resettingSubscription?.user?.email })"
+      :message="t('admin.subscriptions.resetQuotaConfirm', { user: resettingSubscription?.user?.email || t('common.deletedUser') })"
       :confirm-text="t('admin.subscriptions.resetQuota')"
       :cancel-text="t('common.cancel')"
       @confirm="confirmResetQuota"
@@ -671,6 +667,13 @@ const setUserColumnMode = (mode: 'email' | 'username') => {
   saveUserColumnMode()
 }
 
+// 用户名没填就写邮箱；用户已经不在了写「已删除用户」，不拿内部编号兜底
+const userColumnLabel = (subscription: UserSubscription): string => {
+  const user = subscription.user
+  if (!user) return t('common.deletedUser')
+  return userColumnMode.value === 'email' ? user.email : (user.username || user.email)
+}
+
 // All available columns
 const allColumns = computed<Column[]>(() => [
   {
@@ -739,7 +742,10 @@ const bulkTargets = computed(() => {
   }
 })
 const getSubscriptionSelectionLabel = (subscription: UserSubscription) =>
-  t('admin.subscriptions.bulk.selectSubscription', { id: subscription.id })
+  t('admin.subscriptions.bulk.selectSubscription', {
+    user: subscription.user?.email || t('common.deletedUser'),
+    plan: subscription.plan?.name || t('common.deletedPlan')
+  })
 const handleSelectedKeysUpdate = (keys: Array<string | number>) => {
   const visibleIds = new Set(subscriptions.value.map((subscription) => subscription.id))
   setSelectedIds(keys.filter((key): key is number => typeof key === 'number' && visibleIds.has(key)))
@@ -771,6 +777,16 @@ const selectedUser = ref<AdminUser | null>(null)
 const batchAssignEnabled = ref(false)
 const assignUsers = ref<AdminUser[]>([])
 const batchAssignResult = ref<BulkAssignSubscriptionResult | null>(null)
+// 提交那一刻的「用户 → 邮箱」：后端的失败原因写成「user 12: 原因」，展示时换成邮箱，不露内部编号
+const batchAssignEmails = ref(new Map<number, string>())
+const batchAssignErrors = computed(() =>
+  (batchAssignResult.value?.errors ?? []).map((error) => {
+    const match = /^user (\d+): ([\s\S]*)$/.exec(error)
+    if (!match) return error
+    const email = batchAssignEmails.value.get(Number(match[1])) ?? t('common.deletedUser')
+    return `${email}${t('common.labelSeparator')}${match[2]}`
+  })
+)
 let userSearchTimeout: ReturnType<typeof setTimeout> | null = null
 
 const filters = reactive({
@@ -1064,6 +1080,7 @@ const handleAssignSubscription = async () => {
   submitting.value = true
   try {
     if (batchAssignEnabled.value) {
+      batchAssignEmails.value = new Map(assignUsers.value.map((user) => [user.id, user.email]))
       batchAssignResult.value = await adminAPI.subscriptions.bulkAssign({
         user_ids: assignUsers.value.map((user) => user.id),
         plan_id: assignForm.plan_id,

@@ -14,13 +14,8 @@
         </p>
         <ul class="max-h-48 divide-y divide-af-hairline overflow-y-auto rounded-lg border border-af-hairline">
           <li v-for="subscription in targets" :key="subscription.id" class="px-3 py-2 text-sm">
-            <div class="break-all text-af-ink">
-              {{ subscription.email || `#${subscription.id}` }}
-            </div>
-            <div class="break-words text-xs text-af-ink-3">
-              {{ subscription.plan || t('admin.subscriptions.bulk.planFallback', { id: subscription.planId }) }}
-              <span v-if="subscription.email" class="ml-2">#{{ subscription.id }}</span>
-            </div>
+            <div class="break-all text-af-ink">{{ subscription.email }}</div>
+            <div class="break-words text-xs text-af-ink-3">{{ subscription.plan }}</div>
           </li>
         </ul>
       </div>
@@ -142,7 +137,8 @@ const submitting = ref(false)
 const requestError = ref('')
 const result = shallowRef<SubscriptionBulkActionResult | null>(null)
 const pendingOperation = shallowRef<BulkSubscriptionOperation | null>(null)
-const targets = ref<{ id: number; email?: string; plan?: string; planId: number }[]>([])
+// 一条订阅 = 邮箱 + 套餐名；用户 / 套餐不在了写「已删除用户 / 已删除套餐」，不露内部编号
+const targets = ref<{ id: number; email: string; plan: string }[]>([])
 const submittedAction = ref<SubscriptionBulkAction | null>(null)
 
 const currentAction = computed(() => submittedAction.value ?? props.action)
@@ -168,9 +164,8 @@ watch(() => props.subscriptions, subscriptions => {
   if (parametersLocked.value) return
   targets.value = subscriptions.map(subscription => ({
     id: subscription.id,
-    email: subscription.user?.email,
-    plan: subscription.plan?.name,
-    planId: subscription.plan_id
+    email: subscription.user?.email || t('common.deletedUser'),
+    plan: subscription.plan?.name || t('common.deletedPlan')
   }))
 }, { immediate: true })
 
@@ -180,7 +175,7 @@ function handleClose() {
 
 function failedTargetLabel(id: number) {
   const target = targets.value.find(item => item.id === id)
-  return target?.email ? `${target.email} · #${id}` : `#${id}`
+  return target ? `${target.email} · ${target.plan}` : t('admin.subscriptions.bulk.itemFailed')
 }
 
 async function submit() {

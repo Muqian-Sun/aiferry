@@ -105,6 +105,10 @@ export default {
     today: '今天',
     tomorrow: '明天',
     unknown: '未知',
+    // 引用的用户 / 渠道 / 套餐已经找不到（被删除）时的称呼；管理站不拿内部编号兜底
+    deletedUser: '已删除用户',
+    deletedChannel: '已删除渠道',
+    deletedPlan: '已删除套餐',
     minutes: '分钟',
     time: {
       never: '从未',

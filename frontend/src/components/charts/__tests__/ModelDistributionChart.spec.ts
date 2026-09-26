@@ -16,7 +16,7 @@ const messages: Record<string, string> = {
   'admin.dashboard.requests': 'Requests',
   'admin.dashboard.tokens': 'Tokens',
   'admin.dashboard.noDataAvailable': 'No data available',
-  'admin.redeem.userPrefix': 'User #{id}',
+  'common.deletedUser': 'Deleted user',
 }
 
 vi.mock('vue-i18n', async () => {
@@ -109,7 +109,7 @@ describe('ModelDistributionChart', () => {
     expect(rows[0].text()).toContain('alpha')
     expect(rows[0].text()).not.toContain('alpha@example.com')
     expect(rows[1].text()).toContain('beta@example.com')
-    expect(rows[2].text()).toContain('User #3')
+    expect(rows[2].text()).toContain('Deleted user')
     expect(rows[3].text()).toContain('Others')
     expect(rows[3].text()).toContain('4')
     expect(rows[3].text()).toContain('400')

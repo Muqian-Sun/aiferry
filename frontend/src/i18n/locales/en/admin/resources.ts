@@ -254,7 +254,6 @@ export default {
         expiresAt: 'Expires At',
         actions: 'Actions'
       },
-      userPrefix: 'User #{id}',
       exportCsv: 'Export CSV',
       batchUpdate: 'Batch Update',
       batchUpdateTitle: 'Batch Update Redeem Codes',

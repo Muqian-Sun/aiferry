@@ -7,7 +7,7 @@
   <DetailDrawer
     :show="show && !!user"
     :title="user?.email ?? ''"
-    :eyebrow="user ? t('admin.users.detail.eyebrow', { id: user.id }) : ''"
+    :eyebrow="eyebrow"
     :subtitle="user?.username ?? ''"
     :tabs="tabs"
     :tab="tab"
@@ -156,7 +156,7 @@
         <ul v-else class="divide-y divide-af-hairline">
           <li v-for="sub in subscriptions" :key="sub.id" class="py-3 first:pt-0" data-testid="user-drawer-subscription">
             <div class="flex items-baseline justify-between gap-4">
-              <span class="truncate font-medium text-af-ink">{{ sub.plan?.name || `#${sub.plan_id}` }}</span>
+              <span class="truncate font-medium text-af-ink">{{ sub.plan?.name || t('common.deletedPlan') }}</span>
               <span class="inline-flex shrink-0 items-center gap-1.5 text-xs">
                 <span class="inline-block h-2 w-2 rounded-full" :class="subscriptionTone(sub.status).dot"></span>
                 <span :class="subscriptionTone(sub.status).text">{{ t(`admin.subscriptions.status.${sub.status}`) }}</span>
@@ -273,6 +273,14 @@ const emit = defineEmits<{
 }>()
 
 const { t } = useI18n()
+
+// 眉题写「角色 · 状态」（和列表的角色、状态两列同样的叫法），不写内部编号
+const eyebrow = computed(() => {
+  const user = props.user
+  if (!user) return ''
+  const status = user.status === 'active' ? t('common.active') : t('admin.users.disabled')
+  return `${t('admin.users.roles.' + user.role)} · ${status}`
+})
 
 // 订阅功能由代码关着时（SITE_FEATURES.subscription = false）不出「订阅」页签
 const tabs = computed<SectionTab[]>(() => [

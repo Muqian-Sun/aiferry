@@ -19,7 +19,7 @@
       data-testid="user-breakdown-row"
     >
       <td colspan="2" class="max-w-[180px] truncate py-1 pl-6 text-af-ink-2" :title="user.email">
-        {{ user.email || `#${user.user_id}` }}
+        {{ user.email || t('common.deletedUser') }}
       </td>
       <td class="py-1 text-right tabular-nums text-af-ink-3">{{ user.requests.toLocaleString() }}</td>
       <td class="py-1 text-right tabular-nums text-af-ink-3">{{ formatTokens(user.total_tokens) }}</td>

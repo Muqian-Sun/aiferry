@@ -113,7 +113,6 @@ export default {
       },
       // 用户详情抽屉（A5）
       detail: {
-        eyebrow: '用户 #{id}',
         tabs: {
           overview: '概况',
           balance: '余额流水',
@@ -198,7 +197,6 @@ export default {
       updating: '更新中...',
       columns: {
         user: '用户',
-        id: 'ID',
         email: '邮箱',
         username: '用户名',
         notes: '备注',

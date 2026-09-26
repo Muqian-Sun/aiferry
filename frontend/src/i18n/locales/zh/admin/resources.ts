@@ -296,7 +296,6 @@ export default {
       codeDeleted: '兑换码删除成功',
       codesDeleted: '成功删除 {count} 个未使用的兑换码',
       noUnusedCodes: '没有未使用的兑换码可删除',
-      userPrefix: '用户 #{id}',
       failedToExport: '导出兑换码失败',
       failedToDeleteUnused: '删除未使用的兑换码失败',
       failedToCopy: '复制失败',

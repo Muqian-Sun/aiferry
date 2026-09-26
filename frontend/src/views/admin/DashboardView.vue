@@ -257,7 +257,7 @@ const bucketKeys = computed(() => trendBucketKeys(startDate.value, endDate.value
 const trendFilled = computed(() => fillTrendBuckets(trendData.value, bucketKeys.value))
 
 const userDisplayName = (point: UserUsageTrendPoint): string =>
-  point.username?.trim() || point.email?.trim() || t('admin.redeem.userPrefix', { id: point.user_id })
+  point.username?.trim() || point.email?.trim() || t('common.deletedUser')
 
 /** Top 12 用户：按用户 id 分组（同名不合并），显示名字；值用 Token */
 const userTrendRows = computed(() =>
