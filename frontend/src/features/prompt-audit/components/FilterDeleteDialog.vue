@@ -164,7 +164,7 @@ async function showInheritedUser() {
   try {
     label = (await adminAPI.users.getById(userId, true)).email
   } catch {
-    label = t('admin.entity.deletedUser')
+    label = t('common.deletedUser')
   }
   // 查的过程中用户已经改了条件，就不回填
   if (selectedUserId.value !== userId || userPickerRef.value?.getRevision() !== revision) return

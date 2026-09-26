@@ -236,7 +236,7 @@ describe('admin UsageView route filters', () => {
     await flushPromises()
 
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ user_id: 42 }), expect.anything())
-    expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('admin.entity.deletedUser')
+    expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('common.deletedUser')
   })
 })
 

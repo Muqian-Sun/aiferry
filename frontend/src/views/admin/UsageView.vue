@@ -259,7 +259,7 @@ const loadRouteUserFilterLabel = async () => {
     usageFiltersRef.value?.setUserKeyword?.(user.email)
   } catch {
     if (!routeUserFilterIsCurrent()) return
-    usageFiltersRef.value?.setUserKeyword?.(t('admin.entity.deletedUser'))
+    usageFiltersRef.value?.setUserKeyword?.(t('common.deletedUser'))
   }
 }
 
@@ -392,7 +392,7 @@ const exportToExcel = async () => {
         const revenue = log.actual_cost ?? 0
         const cost = rowAccountCost(log)
         return [
-          log.created_at, log.user?.email || t('admin.entity.deletedUser'), log.api_key?.name || t('admin.entity.deletedKey'), log.account?.name || t('admin.entity.deletedChannel'), log.model,
+          log.created_at, log.user?.email || t('common.deletedUser'), log.api_key?.name || t('common.deletedKey'), log.account?.name || t('common.deletedChannel'), log.model,
           log.upstream_model || log.model, log.upstream_response_model || '', log.upstream_model_mismatch == null ? '' : t(log.upstream_model_mismatch ? 'common.yes' : 'common.no'), formatReasoningEffort(log.reasoning_effort), formatReasoningEffort(log.upstream_reasoning_effort || log.reasoning_effort),
           log.inbound_endpoint || '', log.upstream_endpoint || '', requestTypeLabel(log, t),
           log.input_tokens, log.output_tokens, log.cache_read_tokens, log.cache_creation_tokens,

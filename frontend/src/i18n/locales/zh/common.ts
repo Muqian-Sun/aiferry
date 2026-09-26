@@ -109,6 +109,7 @@ export default {
     deletedUser: '已删除用户',
     deletedChannel: '已删除渠道',
     deletedPlan: '已删除套餐',
+    deletedKey: '已删除密钥',
     minutes: '分钟',
     time: {
       never: '从未',

@@ -265,9 +265,9 @@
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">{{ formatDateTime(row.created_at) }}</td>
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
                       <!-- 不露内部 id：有 id 却没名字就是已删除，没有 id 写 - -->
-                      <div>{{ row.user_email || (row.user_id ? t('admin.entity.deletedUser') : '-') }}</div>
+                      <div>{{ row.user_email || (row.user_id ? t('common.deletedUser') : '-') }}</div>
                     </td>
-                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">{{ row.api_key_name || (row.api_key_id ? t('admin.entity.deletedKey') : '-') }}</td>
+                    <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">{{ row.api_key_name || (row.api_key_id ? t('common.deletedKey') : '-') }}</td>
                     <td class="whitespace-nowrap px-5 py-4 text-sm text-af-ink-2">
                       <div>{{ row.endpoint || '-' }}</div>
                       <div class="text-xs text-af-ink-3">{{ row.provider || '-' }} / {{ row.model || '-' }}</div>

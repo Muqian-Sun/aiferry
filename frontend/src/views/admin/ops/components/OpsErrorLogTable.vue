@@ -63,14 +63,14 @@
               {{ row.user_email }}
             </button>
             <span v-else-if="row.user_email" class="font-medium text-af-ink">{{ row.user_email }}</span>
-            <span v-else class="font-medium text-af-ink-3">{{ t('admin.entity.deletedUser') }}</span>
+            <span v-else class="font-medium text-af-ink-3">{{ t('common.deletedUser') }}</span>
           </div>
           <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 
         <template #cell-api_key="{ row }">
           <div v-if="row.api_key_id || row.api_key_name" class="text-sm">
-            <span class="text-af-ink">{{ row.api_key_name || t('admin.entity.deletedKey') }}</span>
+            <span class="text-af-ink">{{ row.api_key_name || t('common.deletedKey') }}</span>
             <span
               v-if="row.api_key_deleted"
               class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30"
@@ -80,7 +80,7 @@
         </template>
 
         <template #cell-account="{ row }">
-          <span v-if="row.account_id" class="text-sm text-af-ink">{{ row.account_name || t('admin.entity.deletedChannel') }}</span>
+          <span v-if="row.account_id" class="text-sm text-af-ink">{{ row.account_name || t('common.deletedChannel') }}</span>
           <span v-else class="text-sm text-af-ink-3">-</span>
         </template>
 

@@ -512,7 +512,7 @@ const modelOptionValues = ref<string[]>(queryModel ? [queryModel] : [])
 
 const apiKeyOptions = computed<FilterOption[]>(() => apiKeys.value.map((key) => ({ value: key.id, label: key.name })))
 // 从密钥抽屉跳来（/usage?key=…）时密钥清单可能还没到，或那把密钥已删：筛选标签不显示内部 ID
-const missingKeyLabel = computed(() => (apiKeysLoaded.value ? t('usage.deletedKey') : t('common.loading')))
+const missingKeyLabel = computed(() => (apiKeysLoaded.value ? t('common.deletedKey') : t('common.loading')))
 const modelOptions = computed<FilterOption[]>(() => modelOptionValues.value.map((model) => ({ value: model, label: model })))
 
 const keyChip = numberChip(() => filters.value.api_key_id, (value) => { filters.value.api_key_id = value ?? undefined })

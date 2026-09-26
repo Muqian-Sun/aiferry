@@ -44,7 +44,7 @@
               {{ row.user.email }}
             </button>
             <!-- 用户列只有管理站有；查不到用户（已被彻底删除）时写「已删除用户」，不露内部 id -->
-            <span v-else class="font-medium text-af-ink-3">{{ t('admin.entity.deletedUser') }}</span>
+            <span v-else class="font-medium text-af-ink-3">{{ t('common.deletedUser') }}</span>
             <span v-if="row.user?.deleted_at" class="ml-1 inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger-tint text-af-danger ring-1 ring-inset ring-af-danger/30">
               {{ t('admin.usage.userDeletedBadge') }}
             </span>
@@ -53,11 +53,11 @@
 
         <!-- 管理站：密钥 / 渠道查不到名字就是已删除；用户站保持原样 -->
         <template #cell-api_key="{ row }">
-          <span class="text-sm text-af-ink">{{ row.api_key?.name || (isAdmin ? t('admin.entity.deletedKey') : '-') }}</span>
+          <span class="text-sm text-af-ink">{{ row.api_key?.name || (isAdmin ? t('common.deletedKey') : '-') }}</span>
         </template>
 
         <template #cell-account="{ row }">
-          <span class="text-sm text-af-ink">{{ row.account?.name || (isAdmin ? t('admin.entity.deletedChannel') : '-') }}</span>
+          <span class="text-sm text-af-ink">{{ row.account?.name || (isAdmin ? t('common.deletedChannel') : '-') }}</span>
         </template>
 
         <template #cell-model="{ row }">

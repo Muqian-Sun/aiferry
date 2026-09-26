@@ -47,10 +47,10 @@
           <div class="mt-1 text-sm font-medium text-af-ink">
             <!-- 有 id 却查不到名字就是已删除，不回退成数字 id -->
             <template v-if="isUpstreamError(detail)">
-              {{ detail.account_name || (detail.account_id != null ? t('admin.entity.deletedChannel') : '—') }}
+              {{ detail.account_name || (detail.account_id != null ? t('common.deletedChannel') : '—') }}
             </template>
             <template v-else>
-              {{ detail.user_email || (detail.user_id != null ? t('admin.entity.deletedUser') : '—') }}
+              {{ detail.user_email || (detail.user_id != null ? t('common.deletedUser') : '—') }}
             </template>
           </div>
         </div>
