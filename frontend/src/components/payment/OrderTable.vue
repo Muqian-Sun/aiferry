@@ -1,14 +1,11 @@
 <template>
   <DataTable :columns="columns" :data="orders" :loading="loading">
-    <template #cell-id="{ value }">
-      <span class="font-mono text-sm">#{{ value }}</span>
-    </template>
     <template #cell-out_trade_no="{ value }">
       <span class="text-sm text-af-ink">{{ value }}</span>
     </template>
     <template v-if="showUser" #cell-user_email="{ value, row }">
       <div class="text-sm">
-        <span class="text-af-ink">{{ value || row.user_name || '#' + row.user_id }}</span>
+        <span class="text-af-ink">{{ value || row.user_name || t('common.deletedUser') }}</span>
         <span v-if="row.user_notes" class="ml-1 text-xs text-af-ink-4">({{ row.user_notes }})</span>
       </div>
     </template>
@@ -68,8 +65,8 @@ function paymentAmountSymbol(order: PaymentOrder): string {
 }
 
 const columns = computed((): Column[] => {
+  // 订单只认订单编号（和支付宝 / 微信账单对得上的那个），不放内部 ID 列
   const cols: Column[] = [
-    { key: 'id', label: t('payment.orders.orderId') },
     { key: 'out_trade_no', label: t('payment.orders.orderNo') },
   ]
   if (props.showUser) {

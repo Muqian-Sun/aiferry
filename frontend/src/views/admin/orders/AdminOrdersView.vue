@@ -73,8 +73,23 @@
     <BaseDialog :show="showDetailDialog" :title="t('payment.admin.orderDetail')" width="wide" @close="showDetailDialog = false">
       <div v-if="selectedOrder" class="space-y-4">
         <div class="grid grid-cols-2 gap-4">
-          <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.orderId') }}</p><p class="font-mono text-sm font-medium text-af-ink">#{{ selectedOrder.id }}</p></div>
-          <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.orderNo') }}</p><p class="text-sm font-medium text-af-ink">{{ selectedOrder.out_trade_no }}</p></div>
+          <!-- 订单只认订单编号（和支付宝 / 微信账单对得上），不写内部 ID；编号可复制 -->
+          <div class="col-span-2">
+            <p class="text-xs text-af-ink-3">{{ t('payment.orders.orderNo') }}</p>
+            <p class="inline-flex max-w-full items-center gap-1.5 text-sm font-medium text-af-ink">
+              <span class="break-all font-mono" data-testid="order-detail-out-trade-no">{{ selectedOrder.out_trade_no }}</span>
+              <button
+                type="button"
+                class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
+                :title="t('keys.copyToClipboard')"
+                :aria-label="t('keys.copyToClipboard')"
+                data-testid="order-detail-copy-out-trade-no"
+                @click="copyToClipboard(selectedOrder.out_trade_no)"
+              >
+                <Icon name="copy" size="sm" />
+              </button>
+            </p>
+          </div>
           <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.status') }}</p><OrderStatusBadge :status="selectedOrder.status" /></div>
           <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.amount') }}</p><p class="text-sm font-medium text-af-ink">{{ creditedAmountSymbol }}{{ selectedOrder.amount.toFixed(2) }}</p></div>
           <div><p class="text-xs text-af-ink-3">{{ t('payment.orders.payAmount') }}</p><p class="text-sm font-medium text-af-ink">{{ paymentAmountSymbol(selectedOrder) }}{{ selectedOrder.pay_amount.toFixed(2) }}</p></div>
@@ -95,7 +110,7 @@
               </div>
               <div>
                 <p class="text-xs text-af-ink-3">{{ t('payment.admin.refundRequestedBy') }}</p>
-                <p class="text-sm text-af-ink-2">#{{ selectedOrder.refund_requested_by }}</p>
+                <p class="text-sm text-af-ink-2">{{ refundRequesterLabel(selectedOrder) }}</p>
               </div>
               <div class="col-span-2">
                 <p class="text-xs text-af-ink-3">{{ t('payment.admin.refundRequestReason') }}</p>
@@ -114,7 +129,7 @@
                 <span class="text-xs text-af-ink-3">{{ formatDateTime(log.created_at) }}</span>
               </div>
               <div v-if="log.detail" class="mt-1 break-all text-xs text-af-ink-3">{{ log.detail }}</div>
-              <div v-if="log.operator" class="mt-1 text-xs text-af-ink-3">{{ t('payment.admin.operator') }}: {{ log.operator }}</div>
+              <div v-if="log.operator" class="mt-1 text-xs text-af-ink-3">{{ t('payment.admin.operator') }}: {{ operatorLabel(selectedOrder, log.operator) }}</div>
             </div>
           </div>
         </div>
@@ -129,6 +144,7 @@
 import { ref, reactive, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
+import { useClipboard } from '@/composables/useClipboard'
 import { adminPaymentAPI } from '@/api/admin/payment'
 import { extractI18nErrorMessage } from '@/utils/apiError'
 import { formatOrderDateTime } from '@/components/payment/orderUtils'
@@ -155,8 +171,9 @@ interface AuditLog {
   created_at: string
 }
 
-const { t } = useI18n()
+const { t, te } = useI18n()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
 
 const ordersLoading = ref(false)
 const orders = ref<PaymentOrder[]>([])
@@ -348,6 +365,29 @@ async function handleQueryRefund(order: PaymentOrder) {
 }
 
 function formatDateTime(dateStr: string): string { return formatOrderDateTime(dateStr) }
+
+// 订单里出现的「某个用户」只可能是下单用户本人（下单、取消、申请退款都只能本人操作），用下单时记下的邮箱；
+// 对不上就只写「用户」，不露内部编号
+function orderUserEmail(order: PaymentOrder, userId: string): string {
+  return userId === String(order.user_id) ? order.user_email || '' : ''
+}
+
+function refundRequesterLabel(order: PaymentOrder): string {
+  return orderUserEmail(order, order.refund_requested_by ?? '') || t('payment.admin.operatorUser')
+}
+
+// 操作日志的操作人：后端写 user:<编号> / admin / system / 支付服务商标识（易支付、Stripe…），翻成人话
+function operatorLabel(order: PaymentOrder, operator: string): string {
+  if (operator === 'admin') return t('payment.admin.operatorAdmin')
+  if (operator === 'system') return t('payment.admin.operatorSystem')
+  const user = /^user:(\d+)$/.exec(operator)
+  if (user) {
+    const email = orderUserEmail(order, user[1])
+    return email ? t('payment.admin.operatorUserWithEmail', { email }) : t('payment.admin.operatorUser')
+  }
+  const methodKey = `payment.methods.${operator}`
+  return te(methodKey) ? t(methodKey) : operator
+}
 
 onMounted(() => loadOrders())
 </script>
