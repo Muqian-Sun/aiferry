@@ -42,15 +42,11 @@ type SystemSettings struct {
 	AliyunCaptchaPrefix                    string `json:"aliyun_captcha_prefix"`
 	AliyunCaptchaRegion                    string `json:"aliyun_captcha_region"`
 
-	DefaultConcurrency           int                          `json:"default_concurrency"`
-	DefaultBalance               float64                      `json:"default_balance"`
-	AffiliateRebateRate          float64                      `json:"affiliate_rebate_rate"`
-	AffiliateRebateFreezeHours   int                          `json:"affiliate_rebate_freeze_hours"`
-	AffiliateRebateDurationDays  int                          `json:"affiliate_rebate_duration_days"`
-	AffiliateRebatePerInviteeCap float64                      `json:"affiliate_rebate_per_invitee_cap"`
-	AdminRechargeRebateEnabled   bool                         `json:"affiliate_admin_recharge_enabled"`
-	DefaultUserRPMLimit          int                          `json:"default_user_rpm_limit"`
-	DefaultSubscriptions         []DefaultSubscriptionSetting `json:"default_subscriptions"`
+	AffiliateRebateRate          float64 `json:"affiliate_rebate_rate"`
+	AffiliateRebateFreezeHours   int     `json:"affiliate_rebate_freeze_hours"`
+	AffiliateRebateDurationDays  int     `json:"affiliate_rebate_duration_days"`
+	AffiliateRebatePerInviteeCap float64 `json:"affiliate_rebate_per_invitee_cap"`
+	AdminRechargeRebateEnabled   bool    `json:"affiliate_admin_recharge_enabled"`
 
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
@@ -175,11 +171,6 @@ type SystemSettings struct {
 	ProfitControlEnabled bool    `json:"profit_control_enabled"`
 	ProfitMinMargin      float64 `json:"profit_min_margin"`
 	ProfitSafetyBuffer   float64 `json:"profit_safety_buffer"`
-}
-
-type DefaultSubscriptionSetting struct {
-	PlanID       int64 `json:"plan_id"`
-	ValidityDays int   `json:"validity_days"`
 }
 
 type PublicSettings struct {

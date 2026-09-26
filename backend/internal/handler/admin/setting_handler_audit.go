@@ -3,19 +3,18 @@ package admin
 import (
 	"log/slog"
 
-	"github.com/Wei-Shaw/sub2api/internal/handler/dto"
 	"github.com/Wei-Shaw/sub2api/internal/server/middleware"
 	"github.com/Wei-Shaw/sub2api/internal/service"
 
 	"github.com/gin-gonic/gin"
 )
 
-func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) {
+func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.SystemSettings, after *service.SystemSettings, req UpdateSettingsRequest) {
 	if before == nil || after == nil {
 		return
 	}
 
-	changed := diffSettings(before, after, beforeAuthSourceDefaults, afterAuthSourceDefaults, req)
+	changed := diffSettings(before, after, req)
 	if len(changed) == 0 {
 		return
 	}
@@ -30,7 +29,7 @@ func (h *SettingHandler) auditSettingsUpdate(c *gin.Context, before *service.Sys
 	)
 }
 
-func diffSettings(before *service.SystemSettings, after *service.SystemSettings, beforeAuthSourceDefaults *service.AuthSourceDefaultSettings, afterAuthSourceDefaults *service.AuthSourceDefaultSettings, req UpdateSettingsRequest) []string {
+func diffSettings(before *service.SystemSettings, after *service.SystemSettings, req UpdateSettingsRequest) []string {
 	changed := make([]string, 0, 20)
 	if before.TurnstileEnabled != after.TurnstileEnabled {
 		changed = append(changed, "turnstile_enabled")
@@ -77,12 +76,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.AliyunCaptchaRegion != after.AliyunCaptchaRegion {
 		changed = append(changed, "aliyun_captcha_region")
 	}
-	if before.DefaultConcurrency != after.DefaultConcurrency {
-		changed = append(changed, "default_concurrency")
-	}
-	if before.DefaultBalance != after.DefaultBalance {
-		changed = append(changed, "default_balance")
-	}
 	if before.AffiliateRebateRate != after.AffiliateRebateRate {
 		changed = append(changed, "affiliate_rebate_rate")
 	}
@@ -97,9 +90,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	}
 	if before.AdminRechargeRebateEnabled != after.AdminRechargeRebateEnabled {
 		changed = append(changed, "affiliate_admin_recharge_enabled")
-	}
-	if !equalDefaultSubscriptions(before.DefaultSubscriptions, after.DefaultSubscriptions) {
-		changed = append(changed, "default_subscriptions")
 	}
 	if before.EnableIdentityPatch != after.EnableIdentityPatch {
 		changed = append(changed, "enable_identity_patch")
@@ -228,123 +218,7 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.ProfitSafetyBuffer != after.ProfitSafetyBuffer {
 		changed = append(changed, service.SettingKeyProfitSafetyBuffer)
 	}
-	changed = appendAuthSourceDefaultChanges(changed, beforeAuthSourceDefaults, afterAuthSourceDefaults)
 	return changed
-}
-
-func appendAuthSourceDefaultChanges(changed []string, before *service.AuthSourceDefaultSettings, after *service.AuthSourceDefaultSettings) []string {
-	if before == nil {
-		before = &service.AuthSourceDefaultSettings{}
-	}
-	if after == nil {
-		after = &service.AuthSourceDefaultSettings{}
-	}
-
-	type providerDefaultGrantField struct {
-		name   string
-		before service.ProviderDefaultGrantSettings
-		after  service.ProviderDefaultGrantSettings
-	}
-
-	fields := []providerDefaultGrantField{
-		{name: "email", before: before.Email, after: after.Email},
-		{name: "wechat", before: before.WeChat, after: after.WeChat},
-		{name: "github", before: before.GitHub, after: after.GitHub},
-		{name: "google", before: before.Google, after: after.Google},
-	}
-	for _, field := range fields {
-		if field.before.Balance != field.after.Balance {
-			changed = append(changed, "auth_source_default_"+field.name+"_balance")
-		}
-		if field.before.Concurrency != field.after.Concurrency {
-			changed = append(changed, "auth_source_default_"+field.name+"_concurrency")
-		}
-		if !equalDefaultSubscriptions(field.before.Subscriptions, field.after.Subscriptions) {
-			changed = append(changed, "auth_source_default_"+field.name+"_subscriptions")
-		}
-		if field.before.GrantOnSignup != field.after.GrantOnSignup {
-			changed = append(changed, "auth_source_default_"+field.name+"_grant_on_signup")
-		}
-		if field.before.GrantOnFirstBind != field.after.GrantOnFirstBind {
-			changed = append(changed, "auth_source_default_"+field.name+"_grant_on_first_bind")
-		}
-	}
-	if before.ForceEmailOnThirdPartySignup != after.ForceEmailOnThirdPartySignup {
-		changed = append(changed, "force_email_on_third_party_signup")
-	}
-	return changed
-}
-
-func normalizeDefaultSubscriptions(input []dto.DefaultSubscriptionSetting) []dto.DefaultSubscriptionSetting {
-	if len(input) == 0 {
-		return nil
-	}
-	normalized := make([]dto.DefaultSubscriptionSetting, 0, len(input))
-	for _, item := range input {
-		if item.PlanID <= 0 || item.ValidityDays <= 0 {
-			continue
-		}
-		if item.ValidityDays > service.MaxValidityDays {
-			item.ValidityDays = service.MaxValidityDays
-		}
-		normalized = append(normalized, item)
-	}
-	return normalized
-}
-
-func normalizeOptionalDefaultSubscriptions(input *[]dto.DefaultSubscriptionSetting) *[]dto.DefaultSubscriptionSetting {
-	if input == nil {
-		return nil
-	}
-	normalized := normalizeDefaultSubscriptions(*input)
-	return &normalized
-}
-
-func float64ValueOrDefault(value *float64, fallback float64) float64 {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func intValueOrDefault(value *int, fallback int) int {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func boolValueOrDefault(value *bool, fallback bool) bool {
-	if value == nil {
-		return fallback
-	}
-	return *value
-}
-
-func defaultSubscriptionsValueOrDefault(input *[]dto.DefaultSubscriptionSetting, fallback []service.DefaultSubscriptionSetting) []service.DefaultSubscriptionSetting {
-	if input == nil {
-		return fallback
-	}
-	result := make([]service.DefaultSubscriptionSetting, 0, len(*input))
-	for _, item := range *input {
-		result = append(result, service.DefaultSubscriptionSetting{
-			PlanID:       item.PlanID,
-			ValidityDays: item.ValidityDays,
-		})
-	}
-	return result
-}
-
-func equalDefaultSubscriptions(a, b []service.DefaultSubscriptionSetting) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].PlanID != b[i].PlanID || a[i].ValidityDays != b[i].ValidityDays {
-			return false
-		}
-	}
-	return true
 }
 
 func equalAccountSchedulingThresholds(before, after map[string]int) bool {

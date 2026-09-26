@@ -986,14 +986,7 @@ default:
   admin_email: "admin@example.com"
   admin_password: "admin123"
 
-  # Default settings for new users
-  # 新用户默认设置
-  # Max concurrent requests per user
-  # 每用户最大并发请求数
-  user_concurrency: 5
-  # Initial balance for new users
-  # 新用户初始余额
-  user_balance: 0
+  # 新用户默认值（并发 / 余额 / RPM）由代码决定（backend/internal/service/site_features.go），这里不再配置。
 
   # API key settings
   # API 密钥设置

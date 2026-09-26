@@ -125,17 +125,18 @@ func TestSettingService_ChannelMonitorHideUserRankingDefaultsToVisible(t *testin
 	}
 }
 
-func TestSettingService_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t *testing.T) {
+// 「第三方注册强制补邮箱」由代码决定：库里旧开关开着也不生效。
+func TestSettingService_GetPublicSettings_ForceEmailOnThirdPartySignupComesFromCode(t *testing.T) {
 	repo := &settingPublicRepoStub{
 		values: map[string]string{
-			SettingKeyForceEmailOnThirdPartySignup: "true",
+			"force_email_on_third_party_signup": "true",
 		},
 	}
 	svc := NewSettingService(repo, &config.Config{})
 
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
-	require.True(t, settings.ForceEmailOnThirdPartySignup)
+	require.Equal(t, ForceEmailOnThirdPartySignup, settings.ForceEmailOnThirdPartySignup)
 }
 
 // 「允许用户查看自己的错误请求」由代码决定：库里旧开关开着也不生效。

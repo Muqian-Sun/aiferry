@@ -1692,115 +1692,6 @@ func TestBindPendingOAuthLoginReclaimsIdentityOwnedBySoftDeletedUser(t *testing.
 	require.Equal(t, newOwner.ID, identity.UserID)
 }
 
-func TestBindPendingOAuthLoginAppliesFirstBindGrantOnce(t *testing.T) {
-	defaultSubAssigner := &oauthPendingFlowDefaultSubAssignerStub{}
-	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
-		settingValues: map[string]string{
-			service.SettingKeyAuthSourceDefaultGitHubBalance:          "12.5",
-			service.SettingKeyAuthSourceDefaultGitHubConcurrency:      "3",
-			service.SettingKeyAuthSourceDefaultGitHubSubscriptions:    `[{"plan_id":101,"validity_days":30}]`,
-			service.SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind: "true",
-		},
-		defaultSubAssigner: defaultSubAssigner,
-	})
-	ctx := context.Background()
-
-	passwordHash, err := handler.authService.HashPassword("secret-123")
-	require.NoError(t, err)
-
-	existingUser, err := client.User.Create().
-		SetEmail("owner@example.com").
-		SetUsername("owner-user").
-		SetPasswordHash(passwordHash).
-		SetBalance(5).
-		SetConcurrency(2).
-		SetRole(service.RoleUser).
-		SetStatus(service.StatusActive).
-		Save(ctx)
-	require.NoError(t, err)
-
-	firstSession, err := client.PendingAuthSession.Create().
-		SetSessionToken("first-bind-session-token").
-		SetIntent("adopt_existing_user_by_email").
-		SetProviderType("github").
-		SetProviderKey("github").
-		SetProviderSubject("github-bind-first-123").
-		SetTargetUserID(existingUser.ID).
-		SetResolvedEmail(existingUser.Email).
-		SetBrowserSessionKey("first-bind-browser-session-key").
-		SetUpstreamIdentityClaims(map[string]any{
-			"suggested_display_name": "Bound GitHub User",
-			"suggested_avatar_url":   "https://cdn.example/bound.png",
-		}).
-		SetRedirectTo("/profile").
-		SetExpiresAt(time.Now().UTC().Add(10 * time.Minute)).
-		Save(ctx)
-	require.NoError(t, err)
-
-	firstBody := bytes.NewBufferString(`{"email":"owner@example.com","password":"secret-123","adopt_display_name":false,"adopt_avatar":false}`)
-	firstRecorder := httptest.NewRecorder()
-	firstGinCtx, _ := gin.CreateTestContext(firstRecorder)
-	firstReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/pending/bind-login", firstBody)
-	firstReq.Header.Set("Content-Type", "application/json")
-	firstReq.AddCookie(&http.Cookie{Name: oauthPendingSessionCookieName, Value: encodeCookieValue(firstSession.SessionToken)})
-	firstReq.AddCookie(&http.Cookie{Name: oauthPendingBrowserCookieName, Value: encodeCookieValue("first-bind-browser-session-key")})
-	firstGinCtx.Request = firstReq
-
-	handler.BindPendingOAuthLogin(firstGinCtx)
-
-	require.Equal(t, http.StatusOK, firstRecorder.Code)
-
-	storedUser, err := client.User.Get(ctx, existingUser.ID)
-	require.NoError(t, err)
-	require.Equal(t, 17.5, storedUser.Balance)
-	require.Equal(t, 5, storedUser.Concurrency)
-	require.Zero(t, storedUser.TotalRecharged)
-	require.Len(t, defaultSubAssigner.calls, 1)
-	require.Equal(t, int64(existingUser.ID), defaultSubAssigner.calls[0].UserID)
-	require.Equal(t, int64(101), defaultSubAssigner.calls[0].PlanID)
-	require.Equal(t, 30, defaultSubAssigner.calls[0].ValidityDays)
-	require.Equal(t, 1, countProviderGrantRecords(t, client, existingUser.ID, "github", "first_bind"))
-
-	secondSession, err := client.PendingAuthSession.Create().
-		SetSessionToken("second-bind-session-token").
-		SetIntent("adopt_existing_user_by_email").
-		SetProviderType("github").
-		SetProviderKey("github").
-		SetProviderSubject("github-bind-second-456").
-		SetTargetUserID(existingUser.ID).
-		SetResolvedEmail(existingUser.Email).
-		SetBrowserSessionKey("second-bind-browser-session-key").
-		SetUpstreamIdentityClaims(map[string]any{
-			"suggested_display_name": "Second GitHub User",
-			"suggested_avatar_url":   "https://cdn.example/second.png",
-		}).
-		SetRedirectTo("/profile").
-		SetExpiresAt(time.Now().UTC().Add(10 * time.Minute)).
-		Save(ctx)
-	require.NoError(t, err)
-
-	secondBody := bytes.NewBufferString(`{"email":"owner@example.com","password":"secret-123","adopt_display_name":false,"adopt_avatar":false}`)
-	secondRecorder := httptest.NewRecorder()
-	secondGinCtx, _ := gin.CreateTestContext(secondRecorder)
-	secondReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/oauth/pending/bind-login", secondBody)
-	secondReq.Header.Set("Content-Type", "application/json")
-	secondReq.AddCookie(&http.Cookie{Name: oauthPendingSessionCookieName, Value: encodeCookieValue(secondSession.SessionToken)})
-	secondReq.AddCookie(&http.Cookie{Name: oauthPendingBrowserCookieName, Value: encodeCookieValue("second-bind-browser-session-key")})
-	secondGinCtx.Request = secondReq
-
-	handler.BindPendingOAuthLogin(secondGinCtx)
-
-	require.Equal(t, http.StatusOK, secondRecorder.Code)
-
-	storedUser, err = client.User.Get(ctx, existingUser.ID)
-	require.NoError(t, err)
-	require.Equal(t, 17.5, storedUser.Balance)
-	require.Equal(t, 5, storedUser.Concurrency)
-	require.Zero(t, storedUser.TotalRecharged)
-	require.Len(t, defaultSubAssigner.calls, 1)
-	require.Equal(t, 1, countProviderGrantRecords(t, client, existingUser.ID, "github", "first_bind"))
-}
-
 func TestResolvePendingOAuthTargetUserIDNormalizesLegacySpacingAndCase(t *testing.T) {
 	handler, client := newOAuthPendingFlowTestHandler(t, false)
 	_ = handler
@@ -1919,17 +1810,10 @@ func TestBindPendingOAuthLoginReturns2FAChallengeWhenUserHasTotp(t *testing.T) {
 
 func TestLogin2FACompletesPendingOAuthBindAndConsumesSession(t *testing.T) {
 	totpCache := &oauthPendingFlowTotpCacheStub{}
-	defaultSubAssigner := &oauthPendingFlowDefaultSubAssignerStub{}
 	handler, client := newOAuthPendingFlowTestHandlerWithDependencies(t, oauthPendingFlowTestHandlerOptions{
-		settingValues: map[string]string{
-			service.SettingKeyAuthSourceDefaultGitHubBalance:          "8",
-			service.SettingKeyAuthSourceDefaultGitHubConcurrency:      "2",
-			service.SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind: "true",
-		},
-		defaultSubAssigner: defaultSubAssigner,
-		totpKeyConfigured:  true,
-		totpCache:          totpCache,
-		totpEncryptor:      oauthPendingFlowTotpEncryptorStub{},
+		totpKeyConfigured: true,
+		totpCache:         totpCache,
+		totpEncryptor:     oauthPendingFlowTotpEncryptorStub{},
 	})
 	ctx := context.Background()
 
@@ -1942,8 +1826,6 @@ func TestLogin2FACompletesPendingOAuthBindAndConsumesSession(t *testing.T) {
 		SetEmail("owner@example.com").
 		SetUsername("owner-user").
 		SetPasswordHash(passwordHash).
-		SetBalance(1.5).
-		SetConcurrency(4).
 		SetRole(service.RoleUser).
 		SetStatus(service.StatusActive).
 		SetTotpEnabled(true).
@@ -2029,13 +1911,6 @@ func TestLogin2FACompletesPendingOAuthBindAndConsumesSession(t *testing.T) {
 	loginSession, err := totpCache.GetLoginSession(ctx, tempToken)
 	require.NoError(t, err)
 	require.Nil(t, loginSession)
-
-	storedUser, err := client.User.Get(ctx, existingUser.ID)
-	require.NoError(t, err)
-	require.Equal(t, 9.5, storedUser.Balance)
-	require.Equal(t, 6, storedUser.Concurrency)
-	require.Equal(t, 1, countProviderGrantRecords(t, client, existingUser.ID, "github", "first_bind"))
-	require.Empty(t, defaultSubAssigner.calls)
 }
 
 func newOAuthPendingFlowTestHandler(t *testing.T, invitationEnabled bool) (*AuthHandler, *dbent.Client) {
@@ -2106,16 +1981,6 @@ func newOAuthPendingFlowTestHandlerWithDependencies(
 	_, err = db.Exec("PRAGMA foreign_keys = ON")
 	require.NoError(t, err)
 	_, err = db.Exec(`
-CREATE TABLE IF NOT EXISTS user_provider_default_grants (
-	id INTEGER PRIMARY KEY AUTOINCREMENT,
-	user_id INTEGER NOT NULL,
-	provider_type TEXT NOT NULL,
-	grant_reason TEXT NOT NULL DEFAULT 'first_bind',
-	created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-	UNIQUE(user_id, provider_type, grant_reason)
-)`)
-	require.NoError(t, err)
-	_, err = db.Exec(`
 CREATE TABLE IF NOT EXISTS user_avatars (
 	user_id INTEGER PRIMARY KEY,
 	storage_provider TEXT NOT NULL,
@@ -2152,10 +2017,6 @@ CREATE TABLE IF NOT EXISTS user_affiliates (
 			ExpireHour:               1,
 			AccessTokenExpireMinutes: 60,
 			RefreshTokenExpireDays:   7,
-		},
-		Default: config.DefaultConfig{
-			UserBalance:     0,
-			UserConcurrency: 1,
 		},
 		Totp: config.TotpConfig{EncryptionKeyConfigured: options.totpKeyConfigured},
 	}
@@ -2533,32 +2394,6 @@ func loadUserAvatarRecord(t *testing.T, client *dbent.Client, userID int64) *oau
 	require.NoError(t, rows.Scan(&record.StorageProvider, &record.URL))
 	require.NoError(t, rows.Err())
 	return &record
-}
-
-func countProviderGrantRecords(
-	t *testing.T,
-	client *dbent.Client,
-	userID int64,
-	providerType string,
-	grantReason string,
-) int {
-	t.Helper()
-
-	var rows entsql.Rows
-	err := client.Driver().Query(
-		context.Background(),
-		`SELECT COUNT(*) FROM user_provider_default_grants WHERE user_id = ? AND provider_type = ? AND grant_reason = ?`,
-		[]any{userID, providerType, grantReason},
-		&rows,
-	)
-	require.NoError(t, err)
-	defer func() { _ = rows.Close() }()
-
-	require.True(t, rows.Next())
-	var count int
-	require.NoError(t, rows.Scan(&count))
-	require.False(t, rows.Next())
-	return count
 }
 
 type oauthPendingFlowUserRepo struct {
@@ -2964,20 +2799,6 @@ func oauthPendingFlowServiceUser(entity *dbent.User) *service.User {
 		CreatedAt:           entity.CreatedAt,
 		UpdatedAt:           entity.UpdatedAt,
 	}
-}
-
-type oauthPendingFlowDefaultSubAssignerStub struct {
-	calls []service.AssignSubscriptionInput
-}
-
-func (s *oauthPendingFlowDefaultSubAssignerStub) AssignOrExtendSubscription(
-	_ context.Context,
-	input *service.AssignSubscriptionInput,
-) (*service.UserSubscription, bool, error) {
-	if input != nil {
-		s.calls = append(s.calls, *input)
-	}
-	return nil, false, nil
 }
 
 type oauthPendingFlowTotpCacheStub struct {

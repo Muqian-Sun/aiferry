@@ -142,10 +142,6 @@ func newOAuthEmailFlowAuthServiceWith(
 			AccessTokenExpireMinutes: 60,
 			RefreshTokenExpireDays:   7,
 		},
-		Default: config.DefaultConfig{
-			UserBalance:     3.5,
-			UserConcurrency: 2,
-		},
 	}
 
 	if smtpConfigured {

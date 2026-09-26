@@ -19,8 +19,6 @@ import (
 // UpdateSettingsRequest 更新设置请求
 type UpdateSettingsRequest struct {
 
-	// 邮件服务设置
-
 	// Cloudflare Turnstile 设置
 	TurnstileEnabled   bool   `json:"turnstile_enabled"`
 	TurnstileSiteKey   string `json:"turnstile_site_key"`
@@ -42,41 +40,12 @@ type UpdateSettingsRequest struct {
 	AliyunCaptchaPrefix          string `json:"aliyun_captcha_prefix"`
 	AliyunCaptchaRegion          string `json:"aliyun_captcha_region"`
 
-	// API Key IP 访问控制设置
-
-	// OEM设置
-
 	// 默认配置
-	DefaultConcurrency                      int                               `json:"default_concurrency"`
-	DefaultBalance                          float64                           `json:"default_balance"`
-	AffiliateRebateRate                     *float64                          `json:"affiliate_rebate_rate"`
-	AffiliateRebateFreezeHours              *int                              `json:"affiliate_rebate_freeze_hours"`
-	AffiliateRebateDurationDays             *int                              `json:"affiliate_rebate_duration_days"`
-	AffiliateRebatePerInviteeCap            *float64                          `json:"affiliate_rebate_per_invitee_cap"`
-	AdminRechargeRebateEnabled              *bool                             `json:"affiliate_admin_recharge_enabled"`
-	DefaultUserRPMLimit                     int                               `json:"default_user_rpm_limit"`
-	DefaultSubscriptions                    []dto.DefaultSubscriptionSetting  `json:"default_subscriptions"`
-	AuthSourceDefaultEmailBalance           *float64                          `json:"auth_source_default_email_balance"`
-	AuthSourceDefaultEmailConcurrency       *int                              `json:"auth_source_default_email_concurrency"`
-	AuthSourceDefaultEmailSubscriptions     *[]dto.DefaultSubscriptionSetting `json:"auth_source_default_email_subscriptions"`
-	AuthSourceDefaultEmailGrantOnSignup     *bool                             `json:"auth_source_default_email_grant_on_signup"`
-	AuthSourceDefaultEmailGrantOnFirstBind  *bool                             `json:"auth_source_default_email_grant_on_first_bind"`
-	AuthSourceDefaultWeChatBalance          *float64                          `json:"auth_source_default_wechat_balance"`
-	AuthSourceDefaultWeChatConcurrency      *int                              `json:"auth_source_default_wechat_concurrency"`
-	AuthSourceDefaultWeChatSubscriptions    *[]dto.DefaultSubscriptionSetting `json:"auth_source_default_wechat_subscriptions"`
-	AuthSourceDefaultWeChatGrantOnSignup    *bool                             `json:"auth_source_default_wechat_grant_on_signup"`
-	AuthSourceDefaultWeChatGrantOnFirstBind *bool                             `json:"auth_source_default_wechat_grant_on_first_bind"`
-	AuthSourceDefaultGitHubBalance          *float64                          `json:"auth_source_default_github_balance"`
-	AuthSourceDefaultGitHubConcurrency      *int                              `json:"auth_source_default_github_concurrency"`
-	AuthSourceDefaultGitHubSubscriptions    *[]dto.DefaultSubscriptionSetting `json:"auth_source_default_github_subscriptions"`
-	AuthSourceDefaultGitHubGrantOnSignup    *bool                             `json:"auth_source_default_github_grant_on_signup"`
-	AuthSourceDefaultGitHubGrantOnFirstBind *bool                             `json:"auth_source_default_github_grant_on_first_bind"`
-	AuthSourceDefaultGoogleBalance          *float64                          `json:"auth_source_default_google_balance"`
-	AuthSourceDefaultGoogleConcurrency      *int                              `json:"auth_source_default_google_concurrency"`
-	AuthSourceDefaultGoogleSubscriptions    *[]dto.DefaultSubscriptionSetting `json:"auth_source_default_google_subscriptions"`
-	AuthSourceDefaultGoogleGrantOnSignup    *bool                             `json:"auth_source_default_google_grant_on_signup"`
-	AuthSourceDefaultGoogleGrantOnFirstBind *bool                             `json:"auth_source_default_google_grant_on_first_bind"`
-	ForceEmailOnThirdPartySignup            *bool                             `json:"force_email_on_third_party_signup"`
+	AffiliateRebateRate          *float64 `json:"affiliate_rebate_rate"`
+	AffiliateRebateFreezeHours   *int     `json:"affiliate_rebate_freeze_hours"`
+	AffiliateRebateDurationDays  *int     `json:"affiliate_rebate_duration_days"`
+	AffiliateRebatePerInviteeCap *float64 `json:"affiliate_rebate_per_invitee_cap"`
+	AdminRechargeRebateEnabled   *bool    `json:"affiliate_admin_recharge_enabled"`
 
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
@@ -90,10 +59,6 @@ type UpdateSettingsRequest struct {
 
 	MinClaudeCodeVersion string `json:"min_claude_code_version"`
 	MaxClaudeCodeVersion string `json:"max_claude_code_version"`
-
-	// 分组隔离
-
-	// Backend Mode
 
 	// Gateway forwarding behavior
 	OpenAITTFTMode                         *string `json:"openai_ttft_mode"`
@@ -124,10 +89,6 @@ type UpdateSettingsRequest struct {
 	PaymentVisibleMethodWxpaySource   *string `json:"payment_visible_method_wxpay_source"`
 	PaymentVisibleMethodAlipayEnabled *bool   `json:"payment_visible_method_alipay_enabled"`
 	PaymentVisibleMethodWxpayEnabled  *bool   `json:"payment_visible_method_wxpay_enabled"`
-
-	// OpenAI account scheduling
-
-	// 余额不足提醒
 
 	// Payment configuration (integrated into settings, full replace)
 	PaymentEnabled           *bool    `json:"payment_enabled"`
@@ -169,10 +130,6 @@ type UpdateSettingsRequest struct {
 	GrokDefaultTextModel           *string `json:"grok_default_text_model"`
 	GrokCrossClientModelMapEnabled *bool   `json:"grok_cross_client_model_map_enabled"`
 	GrokDefaultBaseURLMode         *string `json:"grok_default_base_url_mode"`
-
-	// Available Channels feature switch (user-facing)
-
-	// Model Plaza feature switches + description
 
 	// Plugin management menu visibility switch; plugin runtime is unaffected.
 	PluginManagementEnabled *bool `json:"plugin_management_enabled"`
@@ -267,19 +224,8 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	previousAuthSourceDefaults, err := h.settingService.GetAuthSourceDefaultSettings(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 
 	// 验证参数
-	if req.DefaultConcurrency < 1 {
-		req.DefaultConcurrency = 1
-	}
-	if req.DefaultBalance < 0 {
-		req.DefaultBalance = 0
-	}
 	affiliateRebateRate := previousSettings.AffiliateRebateRate
 	if req.AffiliateRebateRate != nil {
 		affiliateRebateRate = *req.AffiliateRebateRate
@@ -325,9 +271,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	req.TencentCaptchaAppSecretKey = strings.TrimSpace(req.TencentCaptchaAppSecretKey)
 	req.TencentCaptchaCloudSecretID = strings.TrimSpace(req.TencentCaptchaCloudSecretID)
 	req.TencentCaptchaCloudSecretKey = strings.TrimSpace(req.TencentCaptchaCloudSecretKey)
-	req.DefaultSubscriptions = normalizeDefaultSubscriptions(req.DefaultSubscriptions)
-	req.AuthSourceDefaultEmailSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultEmailSubscriptions)
-	req.AuthSourceDefaultWeChatSubscriptions = normalizeOptionalDefaultSubscriptions(req.AuthSourceDefaultWeChatSubscriptions)
 
 	turnstileEnabled := req.TurnstileEnabled
 	if _, sent := sentFields["turnstile_enabled"]; !sent {
@@ -481,13 +424,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 		req.OpsMetricsIntervalSeconds = &v
 	}
-	defaultSubscriptions := make([]service.DefaultSubscriptionSetting, 0, len(req.DefaultSubscriptions))
-	for _, sub := range req.DefaultSubscriptions {
-		defaultSubscriptions = append(defaultSubscriptions, service.DefaultSubscriptionSetting{
-			PlanID:       sub.PlanID,
-			ValidityDays: sub.ValidityDays,
-		})
-	}
 
 	// 验证最低版本号格式（空字符串=禁用，或合法 semver）
 	if req.MinClaudeCodeVersion != "" {
@@ -591,15 +527,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AliyunCaptchaSceneID:         req.AliyunCaptchaSceneID,
 		AliyunCaptchaPrefix:          req.AliyunCaptchaPrefix,
 		AliyunCaptchaRegion:          req.AliyunCaptchaRegion,
-		DefaultConcurrency:           req.DefaultConcurrency,
-		DefaultBalance:               req.DefaultBalance,
 		AffiliateRebateRate:          affiliateRebateRate,
 		AffiliateRebateFreezeHours:   affiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:  affiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap: affiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:   adminRechargeRebateEnabled,
-		DefaultUserRPMLimit:          req.DefaultUserRPMLimit,
-		DefaultSubscriptions:         defaultSubscriptions,
 		EnableIdentityPatch:          req.EnableIdentityPatch,
 		IdentityPatchPrompt:          req.IdentityPatchPrompt,
 		MinClaudeCodeVersion:         req.MinClaudeCodeVersion,
@@ -853,38 +785,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}(),
 	}
 
-	authSourceDefaults := &service.AuthSourceDefaultSettings{
-		Email: service.ProviderDefaultGrantSettings{
-			Balance:          float64ValueOrDefault(req.AuthSourceDefaultEmailBalance, previousAuthSourceDefaults.Email.Balance),
-			Concurrency:      intValueOrDefault(req.AuthSourceDefaultEmailConcurrency, previousAuthSourceDefaults.Email.Concurrency),
-			Subscriptions:    defaultSubscriptionsValueOrDefault(req.AuthSourceDefaultEmailSubscriptions, previousAuthSourceDefaults.Email.Subscriptions),
-			GrantOnSignup:    boolValueOrDefault(req.AuthSourceDefaultEmailGrantOnSignup, previousAuthSourceDefaults.Email.GrantOnSignup),
-			GrantOnFirstBind: boolValueOrDefault(req.AuthSourceDefaultEmailGrantOnFirstBind, previousAuthSourceDefaults.Email.GrantOnFirstBind),
-		},
-		WeChat: service.ProviderDefaultGrantSettings{
-			Balance:          float64ValueOrDefault(req.AuthSourceDefaultWeChatBalance, previousAuthSourceDefaults.WeChat.Balance),
-			Concurrency:      intValueOrDefault(req.AuthSourceDefaultWeChatConcurrency, previousAuthSourceDefaults.WeChat.Concurrency),
-			Subscriptions:    defaultSubscriptionsValueOrDefault(req.AuthSourceDefaultWeChatSubscriptions, previousAuthSourceDefaults.WeChat.Subscriptions),
-			GrantOnSignup:    boolValueOrDefault(req.AuthSourceDefaultWeChatGrantOnSignup, previousAuthSourceDefaults.WeChat.GrantOnSignup),
-			GrantOnFirstBind: boolValueOrDefault(req.AuthSourceDefaultWeChatGrantOnFirstBind, previousAuthSourceDefaults.WeChat.GrantOnFirstBind),
-		},
-		GitHub: service.ProviderDefaultGrantSettings{
-			Balance:          float64ValueOrDefault(req.AuthSourceDefaultGitHubBalance, previousAuthSourceDefaults.GitHub.Balance),
-			Concurrency:      intValueOrDefault(req.AuthSourceDefaultGitHubConcurrency, previousAuthSourceDefaults.GitHub.Concurrency),
-			Subscriptions:    defaultSubscriptionsValueOrDefault(req.AuthSourceDefaultGitHubSubscriptions, previousAuthSourceDefaults.GitHub.Subscriptions),
-			GrantOnSignup:    boolValueOrDefault(req.AuthSourceDefaultGitHubGrantOnSignup, previousAuthSourceDefaults.GitHub.GrantOnSignup),
-			GrantOnFirstBind: boolValueOrDefault(req.AuthSourceDefaultGitHubGrantOnFirstBind, previousAuthSourceDefaults.GitHub.GrantOnFirstBind),
-		},
-		Google: service.ProviderDefaultGrantSettings{
-			Balance:          float64ValueOrDefault(req.AuthSourceDefaultGoogleBalance, previousAuthSourceDefaults.Google.Balance),
-			Concurrency:      intValueOrDefault(req.AuthSourceDefaultGoogleConcurrency, previousAuthSourceDefaults.Google.Concurrency),
-			Subscriptions:    defaultSubscriptionsValueOrDefault(req.AuthSourceDefaultGoogleSubscriptions, previousAuthSourceDefaults.Google.Subscriptions),
-			GrantOnSignup:    boolValueOrDefault(req.AuthSourceDefaultGoogleGrantOnSignup, previousAuthSourceDefaults.Google.GrantOnSignup),
-			GrantOnFirstBind: boolValueOrDefault(req.AuthSourceDefaultGoogleGrantOnFirstBind, previousAuthSourceDefaults.Google.GrantOnFirstBind),
-		},
-		ForceEmailOnThirdPartySignup: boolValueOrDefault(req.ForceEmailOnThirdPartySignup, previousAuthSourceDefaults.ForceEmailOnThirdPartySignup),
-	}
-	if err := h.settingService.UpdateSettingsWithAuthSourceDefaultsOmitting(c.Request.Context(), settings, authSourceDefaults, omitted); err != nil {
+	if err := h.settingService.UpdateSettingsOmitting(c.Request.Context(), settings, omitted); err != nil {
 		response.ErrorFrom(c, err)
 		return
 	}
@@ -936,25 +837,13 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	h.auditSettingsUpdate(c, previousSettings, settings, previousAuthSourceDefaults, authSourceDefaults, auditReq)
+	h.auditSettingsUpdate(c, previousSettings, settings, auditReq)
 
 	// 重新获取设置返回
 	updatedSettings, err := h.settingService.GetAllSettings(c.Request.Context())
 	if err != nil {
 		response.ErrorFrom(c, err)
 		return
-	}
-	updatedAuthSourceDefaults, err := h.settingService.GetAuthSourceDefaultSettings(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	updatedDefaultSubscriptions := make([]dto.DefaultSubscriptionSetting, 0, len(updatedSettings.DefaultSubscriptions))
-	for _, sub := range updatedSettings.DefaultSubscriptions {
-		updatedDefaultSubscriptions = append(updatedDefaultSubscriptions, dto.DefaultSubscriptionSetting{
-			PlanID:       sub.PlanID,
-			ValidityDays: sub.ValidityDays,
-		})
 	}
 
 	// Reload payment config for response
@@ -982,15 +871,11 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		AliyunCaptchaSceneID:                   updatedSettings.AliyunCaptchaSceneID,
 		AliyunCaptchaPrefix:                    updatedSettings.AliyunCaptchaPrefix,
 		AliyunCaptchaRegion:                    updatedSettings.AliyunCaptchaRegion,
-		DefaultConcurrency:                     updatedSettings.DefaultConcurrency,
-		DefaultBalance:                         updatedSettings.DefaultBalance,
 		AffiliateRebateRate:                    updatedSettings.AffiliateRebateRate,
 		AffiliateRebateFreezeHours:             updatedSettings.AffiliateRebateFreezeHours,
 		AffiliateRebateDurationDays:            updatedSettings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           updatedSettings.AffiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:             updatedSettings.AdminRechargeRebateEnabled,
-		DefaultUserRPMLimit:                    updatedSettings.DefaultUserRPMLimit,
-		DefaultSubscriptions:                   updatedDefaultSubscriptions,
 		EnableIdentityPatch:                    updatedSettings.EnableIdentityPatch,
 		IdentityPatchPrompt:                    updatedSettings.IdentityPatchPrompt,
 		OpsMonitoringEnabled:                   updatedSettings.OpsMonitoringEnabled,
@@ -1073,7 +958,7 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 	} else if fastPolicy != nil {
 		payload.OpenAIFastPolicySettings = openaiFastPolicySettingsToDTO(fastPolicy)
 	}
-	response.Success(c, systemSettingsResponseData(payload, updatedAuthSourceDefaults))
+	response.Success(c, payload)
 }
 
 func hasPaymentFields(req UpdateSettingsRequest) bool {

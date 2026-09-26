@@ -378,7 +378,7 @@ func (h *AuthHandler) legacyCompleteRegistrationSessionStatus(
 	}
 
 	emailVerificationRequired := h != nil && h.authService != nil && h.authService.IsEmailVerifyEnabled(c.Request.Context())
-	forceEmailOnSignup := h.isForceEmailOnThirdPartySignup(c.Request.Context())
+	forceEmailOnSignup := service.ForceEmailOnThirdPartySignup
 	if !emailVerificationRequired && !forceEmailOnSignup {
 		return session, false, nil
 	}
@@ -453,17 +453,6 @@ func (h *AuthHandler) entClient() *dbent.Client {
 		return nil
 	}
 	return h.authService.EntClient()
-}
-
-func (h *AuthHandler) isForceEmailOnThirdPartySignup(ctx context.Context) bool {
-	if h == nil || h.settingSvc == nil {
-		return false
-	}
-	defaults, err := h.settingSvc.GetAuthSourceDefaultSettings(ctx)
-	if err != nil || defaults == nil {
-		return false
-	}
-	return defaults.ForceEmailOnThirdPartySignup
 }
 
 func (h *AuthHandler) findOAuthIdentityUser(ctx context.Context, identity service.PendingAuthIdentityKey) (*dbent.User, error) {
@@ -1032,7 +1021,6 @@ func applyPendingOAuthBinding(
 	decision *dbent.IdentityAdoptionDecision,
 	overrideUserID *int64,
 	forceBind bool,
-	applyFirstBindDefaults bool,
 ) error {
 	if client == nil || session == nil {
 		return nil
@@ -1042,7 +1030,7 @@ func applyPendingOAuthBinding(
 	}
 
 	if tx := dbent.TxFromContext(ctx); tx != nil {
-		return applyPendingOAuthBindingTx(ctx, tx, authService, userService, session, decision, overrideUserID, forceBind, applyFirstBindDefaults)
+		return applyPendingOAuthBindingTx(ctx, tx, authService, userService, session, decision, overrideUserID, forceBind)
 	}
 
 	tx, err := client.Tx(ctx)
@@ -1052,7 +1040,7 @@ func applyPendingOAuthBinding(
 	defer func() { _ = tx.Rollback() }()
 
 	txCtx := dbent.NewTxContext(ctx, tx)
-	if err := applyPendingOAuthBindingTx(txCtx, tx, authService, userService, session, decision, overrideUserID, forceBind, applyFirstBindDefaults); err != nil {
+	if err := applyPendingOAuthBindingTx(txCtx, tx, authService, userService, session, decision, overrideUserID, forceBind); err != nil {
 		return err
 	}
 	return tx.Commit()
@@ -1067,7 +1055,6 @@ func applyPendingOAuthBindingTx(
 	decision *dbent.IdentityAdoptionDecision,
 	overrideUserID *int64,
 	forceBind bool,
-	applyFirstBindDefaults bool,
 ) error {
 	if tx == nil || session == nil {
 		return nil
@@ -1153,12 +1140,6 @@ func applyPendingOAuthBindingTx(
 		}
 	}
 
-	if applyFirstBindDefaults && authService != nil {
-		if err := authService.ApplyProviderDefaultSettingsOnFirstBind(ctx, targetUserID, session.ProviderType); err != nil {
-			return err
-		}
-	}
-
 	if shouldAdoptAvatar && userService != nil {
 		if _, err := userService.SetAvatar(ctx, targetUserID, adoptedAvatarURL); err != nil {
 			return err
@@ -1225,9 +1206,8 @@ func applyPendingOAuthAdoption(
 		session,
 		decision,
 		overrideUserID,
-		false,
-		strings.EqualFold(strings.TrimSpace(session.Intent), "bind_current_user"),
-	)
+		false)
+
 }
 
 func applySuggestedProfileToCompletionResponse(payload map[string]any, upstream map[string]any) {
@@ -1526,7 +1506,7 @@ func (h *AuthHandler) bindPendingOAuthLogin(c *gin.Context, provider string) {
 		})
 		return
 	}
-	if err := applyPendingOAuthBinding(c.Request.Context(), h.entClient(), h.authService, h.userService, session, decision, &user.ID, true, true); err != nil {
+	if err := applyPendingOAuthBinding(c.Request.Context(), h.entClient(), h.authService, h.userService, session, decision, &user.ID, true); err != nil {
 		respondPendingOAuthBindingApplyError(c, err)
 		return
 	}
@@ -1681,7 +1661,7 @@ func (h *AuthHandler) createPendingOAuthAccount(c *gin.Context, provider string)
 	defer func() { _ = tx.Rollback() }()
 	txCtx := dbent.NewTxContext(c.Request.Context(), tx)
 
-	if err := applyPendingOAuthBinding(txCtx, client, h.authService, h.userService, session, decision, &user.ID, true, false); err != nil {
+	if err := applyPendingOAuthBinding(txCtx, client, h.authService, h.userService, session, decision, &user.ID, true); err != nil {
 		_ = tx.Rollback()
 		if rollbackCreatedUser(err) {
 			return

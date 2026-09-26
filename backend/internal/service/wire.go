@@ -785,10 +785,9 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 	return aggregator
 }
 
-// ProvideSettingService wires SettingService with plan reader and proxy repo.
-func ProvideSettingService(settingRepo SettingRepository, planRepo SubscriptionPlanRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
+// ProvideSettingService wires SettingService with proxy repo.
+func ProvideSettingService(settingRepo SettingRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
-	svc.SetDefaultSubscriptionPlanReader(planRepo)
 	svc.SetProxyRepository(proxyRepo)
 	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
 		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)

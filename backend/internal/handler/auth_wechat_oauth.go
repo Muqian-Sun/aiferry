@@ -290,7 +290,7 @@ func (h *AuthHandler) WeChatOAuthCallback(c *gin.Context) {
 		return
 	}
 
-	if h.isForceEmailOnThirdPartySignup(c.Request.Context()) {
+	if service.ForceEmailOnThirdPartySignup {
 		if err := h.createWeChatChoicePendingSession(
 			c,
 			identityRef,

@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"log/slog"
 	"strconv"
@@ -49,36 +48,6 @@ func (s *SettingService) UpdateSettingsOmitting(ctx context.Context, settings *S
 	return nil
 }
 
-// UpdateSettingsWithAuthSourceDefaults persists system settings and auth-source defaults in a single write.
-func (s *SettingService) UpdateSettingsWithAuthSourceDefaults(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings) error {
-	return s.UpdateSettingsWithAuthSourceDefaultsOmitting(ctx, settings, authDefaults, nil)
-}
-
-// UpdateSettingsWithAuthSourceDefaultsOmitting persists system settings and
-// auth-source defaults in a single write, leaving the keys in omitted at their
-// stored value.
-func (s *SettingService) UpdateSettingsWithAuthSourceDefaultsOmitting(ctx context.Context, settings *SystemSettings, authDefaults *AuthSourceDefaultSettings, omitted OmittedSettingKeys) error {
-	updates, err := s.buildSystemSettingsUpdates(ctx, settings)
-	if err != nil {
-		return err
-	}
-
-	authSourceUpdates, err := s.buildAuthSourceDefaultUpdates(ctx, authDefaults)
-	if err != nil {
-		return err
-	}
-	for key, value := range authSourceUpdates {
-		updates[key] = value
-	}
-	omitted.dropFrom(updates)
-
-	if err := s.settingRepo.SetMultiple(ctx, updates); err != nil {
-		return err
-	}
-	s.refreshCachedSettingsAfterWrite(ctx, settings, omitted)
-	return nil
-}
-
 // refreshCachedSettingsAfterWrite keeps the in-process caches in step with the
 // write that just landed. A partial payload carries zero values for the fields
 // it omitted, so in that case the caches are rebuilt from storage rather than
@@ -97,9 +66,6 @@ func (s *SettingService) refreshCachedSettingsAfterWrite(ctx context.Context, se
 }
 
 func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, settings *SystemSettings) (map[string]string, error) {
-	if err := s.validateDefaultSubscriptionPlans(ctx, settings.DefaultSubscriptions); err != nil {
-		return nil, err
-	}
 	alipaySource, err := normalizeVisibleMethodSettingSource("alipay", settings.PaymentVisibleMethodAlipaySource, settings.PaymentVisibleMethodAlipayEnabled)
 	if err != nil {
 		return nil, err
@@ -142,8 +108,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyAliyunCaptchaRegion] = normalizeAliyunCaptchaRegion(settings.AliyunCaptchaRegion)
 
 	// 默认配置
-	updates[SettingKeyDefaultConcurrency] = strconv.Itoa(settings.DefaultConcurrency)
-	updates[SettingKeyDefaultBalance] = strconv.FormatFloat(settings.DefaultBalance, 'f', 8, 64)
 	settings.AffiliateRebateRate = clampAffiliateRebateRate(settings.AffiliateRebateRate)
 	updates[SettingKeyAffiliateRebateRate] = strconv.FormatFloat(settings.AffiliateRebateRate, 'f', 8, 64)
 	if settings.AffiliateRebateFreezeHours < 0 {
@@ -165,12 +129,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	}
 	updates[SettingKeyAffiliateRebatePerInviteeCap] = strconv.FormatFloat(settings.AffiliateRebatePerInviteeCap, 'f', 8, 64)
 	updates[SettingKeyAffiliateAdminRechargeEnabled] = strconv.FormatBool(settings.AdminRechargeRebateEnabled)
-	updates[SettingKeyDefaultUserRPMLimit] = strconv.Itoa(settings.DefaultUserRPMLimit)
-	defaultSubsJSON, err := json.Marshal(settings.DefaultSubscriptions)
-	if err != nil {
-		return nil, fmt.Errorf("marshal default subscriptions: %w", err)
-	}
-	updates[SettingKeyDefaultSubscriptions] = string(defaultSubsJSON)
 
 	// Identity patch configuration (Claude -> Gemini)
 	updates[SettingKeyEnableIdentityPatch] = strconv.FormatBool(settings.EnableIdentityPatch)
@@ -352,31 +310,6 @@ func cloneAccountSchedulingThresholds(input map[string]int) map[string]int {
 	return cloned
 }
 
-func (s *SettingService) buildAuthSourceDefaultUpdates(ctx context.Context, settings *AuthSourceDefaultSettings) (map[string]string, error) {
-	if settings == nil {
-		return nil, nil
-	}
-
-	for _, subscriptions := range [][]DefaultSubscriptionSetting{
-		settings.Email.Subscriptions,
-		settings.WeChat.Subscriptions,
-		settings.GitHub.Subscriptions,
-		settings.Google.Subscriptions,
-	} {
-		if err := s.validateDefaultSubscriptionPlans(ctx, subscriptions); err != nil {
-			return nil, err
-		}
-	}
-
-	updates := make(map[string]string, 36)
-	writeProviderDefaultGrantUpdates(updates, emailAuthSourceDefaultKeys, settings.Email)
-	writeProviderDefaultGrantUpdates(updates, weChatAuthSourceDefaultKeys, settings.WeChat)
-	writeProviderDefaultGrantUpdates(updates, gitHubAuthSourceDefaultKeys, settings.GitHub)
-	writeProviderDefaultGrantUpdates(updates, googleAuthSourceDefaultKeys, settings.Google)
-	updates[SettingKeyForceEmailOnThirdPartySignup] = strconv.FormatBool(settings.ForceEmailOnThirdPartySignup)
-	return updates, nil
-}
-
 func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 	if settings == nil {
 		return
@@ -461,34 +394,4 @@ func (s *SettingService) refreshCachedSettings(settings *SystemSettings) {
 
 func (s *SettingService) defaultRewriteMessageCacheControl() bool {
 	return false
-}
-
-// validateDefaultSubscriptionPlans 默认订阅列表：最多一项（同一时间只允许一条有效订阅），套餐必须存在。
-func (s *SettingService) validateDefaultSubscriptionPlans(ctx context.Context, items []DefaultSubscriptionSetting) error {
-	if len(items) == 0 {
-		return nil
-	}
-	if len(items) > 1 {
-		return ErrDefaultSubTooMany
-	}
-
-	for _, item := range items {
-		if item.PlanID <= 0 {
-			continue
-		}
-		if s.defaultSubPlanReader == nil {
-			continue
-		}
-
-		if _, err := s.defaultSubPlanReader.GetByID(ctx, item.PlanID); err != nil {
-			if errors.Is(err, ErrPlanNotFound) {
-				return ErrDefaultSubPlanInvalid.WithMetadata(map[string]string{
-					"plan_id": strconv.FormatInt(item.PlanID, 10),
-				})
-			}
-			return fmt.Errorf("get default subscription plan %d: %w", item.PlanID, err)
-		}
-	}
-
-	return nil
 }

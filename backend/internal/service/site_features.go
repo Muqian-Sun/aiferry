@@ -62,9 +62,28 @@ const (
 	RegistrationEmailDomainQuotaEnabled = false
 	// StepUpEnabled 敏感操作（导出、备份、提升管理员等）要求二次验证（拍板第 9 条：用不到，写死关）。
 	StepUpEnabled = false
-	// ForceEmailOnThirdPartySignup 第三方注册强制补邮箱：只留 Google / GitHub 两种本来就带邮箱的登录，写死关。
+	// ForceEmailOnThirdPartySignup 第三方注册强制补邮箱：写死关（Google / GitHub 本来就带邮箱，微信注册用合成邮箱）。
 	ForceEmailOnThirdPartySignup = false
 )
+
+// 新用户默认值（2026-09-26 定：写进代码，后台不再能改；不按注册来源区分，也不在首次绑定第三方时额外发放）。
+const (
+	// NewUserConcurrency 新用户默认并发。
+	NewUserConcurrency = 5
+	// NewUserBalance 新用户初始余额（美元）：注册不送余额。
+	NewUserBalance = 0.0
+	// NewUserRPMLimit 新用户默认每分钟请求数上限，0 = 不限。
+	NewUserRPMLimit = 0
+)
+
+// newUserDefaultSubscriptions 新用户（自助注册、后台新建）自动赠送的订阅：写死为空（2026-09-26 定）。
+// 赠送代码保留，订阅功能打开后要送再在这里填；测试里临时改它来覆盖赠送逻辑。
+var newUserDefaultSubscriptions []DefaultSubscriptionSetting
+
+// NewUserDefaultSubscriptions 新用户自动赠送的订阅（副本）。
+func NewUserDefaultSubscriptions() []DefaultSubscriptionSetting {
+	return append([]DefaultSubscriptionSetting(nil), newUserDefaultSubscriptions...)
+}
 
 // registrationEmailSuffixWhitelist 注册邮箱域名白名单：不在单里的直接拒绝注册（2026-09-26 定，名单是我拟的、muqian 选用）。
 // 启动时按注册校验的规则规整一遍，写错了直接启动失败。

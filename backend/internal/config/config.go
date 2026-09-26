@@ -1570,12 +1570,10 @@ type TurnstileConfig struct {
 }
 
 type DefaultConfig struct {
-	AdminEmail      string  `mapstructure:"admin_email"`
-	AdminPassword   string  `mapstructure:"admin_password"`
-	UserConcurrency int     `mapstructure:"user_concurrency"`
-	UserBalance     float64 `mapstructure:"user_balance"`
-	APIKeyPrefix    string  `mapstructure:"api_key_prefix"`
-	RateMultiplier  float64 `mapstructure:"rate_multiplier"`
+	AdminEmail     string  `mapstructure:"admin_email"`
+	AdminPassword  string  `mapstructure:"admin_password"`
+	APIKeyPrefix   string  `mapstructure:"api_key_prefix"`
+	RateMultiplier float64 `mapstructure:"rate_multiplier"`
 }
 
 type RateLimitConfig struct {
@@ -2099,8 +2097,6 @@ func setDefaults() {
 	// Do not ship fixed defaults here to avoid insecure "known credentials" in production.
 	viper.SetDefault("default.admin_email", "")
 	viper.SetDefault("default.admin_password", "")
-	viper.SetDefault("default.user_concurrency", 5)
-	viper.SetDefault("default.user_balance", 0)
 	viper.SetDefault("default.api_key_prefix", "sk-")
 	viper.SetDefault("default.rate_multiplier", 1.0)
 

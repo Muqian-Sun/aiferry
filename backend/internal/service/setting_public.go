@@ -109,7 +109,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingKeyForceEmailOnThirdPartySignup,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
 		SettingKeyTencentCaptchaEnabled,
@@ -155,7 +154,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	return &PublicSettings{
 		RegistrationEnabled:                 RegistrationOpen,
 		EmailVerifyEnabled:                  emailVerifyEnabled,
-		ForceEmailOnThirdPartySignup:        settings[SettingKeyForceEmailOnThirdPartySignup] == "true",
+		ForceEmailOnThirdPartySignup:        ForceEmailOnThirdPartySignup,
 		RegistrationEmailSuffixWhitelist:    RegistrationEmailSuffixWhitelist(),
 		RegistrationEmailDomainQuotaEnabled: RegistrationEmailDomainQuotaEnabled,
 		PasswordResetEnabled:                passwordResetEnabled,

@@ -1460,10 +1460,6 @@ func newWeChatOAuthTestHandlerWithConfig(t *testing.T, invitationEnabled bool, w
 			AccessTokenExpireMinutes: 60,
 			RefreshTokenExpireDays:   7,
 		},
-		Default: config.DefaultConfig{
-			UserBalance:     0,
-			UserConcurrency: 1,
-		},
 		WeChat: wechat,
 	}
 	settingSvc := service.NewSettingService(&wechatOAuthSettingRepoStub{values: map[string]string{}}, cfg)

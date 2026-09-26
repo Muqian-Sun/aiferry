@@ -1,10 +1,6 @@
 package admin
 
 import (
-	"crypto/rand"
-	"encoding/hex"
-	"encoding/json"
-	"fmt"
 	"log/slog"
 	"regexp"
 	"strings"
@@ -18,18 +14,6 @@ import (
 
 // semverPattern 预编译 semver 格式校验正则
 var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
-
-// menuItemIDPattern validates custom menu item IDs: alphanumeric, hyphens, underscores only.
-var menuItemIDPattern = regexp.MustCompile(`^[a-zA-Z0-9_-]+$`)
-
-// generateMenuItemID generates a short random hex ID for a custom menu item.
-func generateMenuItemID() (string, error) {
-	b := make([]byte, 8)
-	if _, err := rand.Read(b); err != nil {
-		return "", fmt.Errorf("generate menu item ID: %w", err)
-	}
-	return hex.EncodeToString(b), nil
-}
 
 // SettingHandler 系统设置处理器
 type SettingHandler struct {
@@ -86,21 +70,9 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		response.ErrorFrom(c, err)
 		return
 	}
-	authSourceDefaults, err := h.settingService.GetAuthSourceDefaultSettings(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
 
 	// Check if ops monitoring is enabled (respects config.ops.enabled)
 	opsEnabled := h.opsService != nil && h.opsService.IsMonitoringEnabled(c.Request.Context())
-	defaultSubscriptions := make([]dto.DefaultSubscriptionSetting, 0, len(settings.DefaultSubscriptions))
-	for _, sub := range settings.DefaultSubscriptions {
-		defaultSubscriptions = append(defaultSubscriptions, dto.DefaultSubscriptionSetting{
-			PlanID:       sub.PlanID,
-			ValidityDays: sub.ValidityDays,
-		})
-	}
 
 	// Load payment config
 	var paymentCfg *service.PaymentConfig
@@ -127,8 +99,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AliyunCaptchaSceneID:                   settings.AliyunCaptchaSceneID,
 		AliyunCaptchaPrefix:                    settings.AliyunCaptchaPrefix,
 		AliyunCaptchaRegion:                    settings.AliyunCaptchaRegion,
-		DefaultConcurrency:                     settings.DefaultConcurrency,
-		DefaultBalance:                         settings.DefaultBalance,
 		RiskControlEnabled:                     settings.RiskControlEnabled,
 		CyberSessionBlockEnabled:               settings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds:            settings.CyberSessionBlockTTLSeconds,
@@ -137,8 +107,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		AffiliateRebateDurationDays:            settings.AffiliateRebateDurationDays,
 		AffiliateRebatePerInviteeCap:           settings.AffiliateRebatePerInviteeCap,
 		AdminRechargeRebateEnabled:             settings.AdminRechargeRebateEnabled,
-		DefaultUserRPMLimit:                    settings.DefaultUserRPMLimit,
-		DefaultSubscriptions:                   defaultSubscriptions,
 		EnableIdentityPatch:                    settings.EnableIdentityPatch,
 		IdentityPatchPrompt:                    settings.IdentityPatchPrompt,
 		OpsMonitoringEnabled:                   opsEnabled && settings.OpsMonitoringEnabled,
@@ -223,7 +191,7 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 		payload.OpenAIFastPolicySettings = openaiFastPolicySettingsToDTO(fastPolicy)
 	}
 
-	response.Success(c, systemSettingsResponseData(payload, authSourceDefaults))
+	response.Success(c, payload)
 }
 
 // openaiFastPolicySettingsToDTO converts service -> dto for OpenAI fast policy.
@@ -258,39 +226,4 @@ func openaiFastPolicySettingsFromDTO(s *dto.OpenAIFastPolicySettings) *service.O
 		rules[i].ServiceTier = tier
 	}
 	return &service.OpenAIFastPolicySettings{Rules: rules}
-}
-
-func systemSettingsResponseData(settings dto.SystemSettings, authSourceDefaults *service.AuthSourceDefaultSettings) map[string]any {
-	data := make(map[string]any)
-	raw, err := json.Marshal(settings)
-	if err == nil {
-		_ = json.Unmarshal(raw, &data)
-	}
-	if authSourceDefaults == nil {
-		authSourceDefaults = &service.AuthSourceDefaultSettings{}
-	}
-
-	data["auth_source_default_email_balance"] = authSourceDefaults.Email.Balance
-	data["auth_source_default_email_concurrency"] = authSourceDefaults.Email.Concurrency
-	data["auth_source_default_email_subscriptions"] = authSourceDefaults.Email.Subscriptions
-	data["auth_source_default_email_grant_on_signup"] = authSourceDefaults.Email.GrantOnSignup
-	data["auth_source_default_email_grant_on_first_bind"] = authSourceDefaults.Email.GrantOnFirstBind
-	data["auth_source_default_wechat_balance"] = authSourceDefaults.WeChat.Balance
-	data["auth_source_default_wechat_concurrency"] = authSourceDefaults.WeChat.Concurrency
-	data["auth_source_default_wechat_subscriptions"] = authSourceDefaults.WeChat.Subscriptions
-	data["auth_source_default_wechat_grant_on_signup"] = authSourceDefaults.WeChat.GrantOnSignup
-	data["auth_source_default_wechat_grant_on_first_bind"] = authSourceDefaults.WeChat.GrantOnFirstBind
-	data["auth_source_default_github_balance"] = authSourceDefaults.GitHub.Balance
-	data["auth_source_default_github_concurrency"] = authSourceDefaults.GitHub.Concurrency
-	data["auth_source_default_github_subscriptions"] = authSourceDefaults.GitHub.Subscriptions
-	data["auth_source_default_github_grant_on_signup"] = authSourceDefaults.GitHub.GrantOnSignup
-	data["auth_source_default_github_grant_on_first_bind"] = authSourceDefaults.GitHub.GrantOnFirstBind
-	data["auth_source_default_google_balance"] = authSourceDefaults.Google.Balance
-	data["auth_source_default_google_concurrency"] = authSourceDefaults.Google.Concurrency
-	data["auth_source_default_google_subscriptions"] = authSourceDefaults.Google.Subscriptions
-	data["auth_source_default_google_grant_on_signup"] = authSourceDefaults.Google.GrantOnSignup
-	data["auth_source_default_google_grant_on_first_bind"] = authSourceDefaults.Google.GrantOnFirstBind
-	data["force_email_on_third_party_signup"] = authSourceDefaults.ForceEmailOnThirdPartySignup
-
-	return data
 }

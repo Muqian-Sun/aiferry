@@ -178,7 +178,7 @@ func newStepUpSwitchTestHandler(t *testing.T, stored map[string]string) (*Settin
 	t.Helper()
 	gin.SetMode(gin.TestMode)
 	repo := &settingHandlerRepoStub{values: stored}
-	svc := service.NewSettingService(repo, &config.Config{Default: config.DefaultConfig{UserConcurrency: 5}})
+	svc := service.NewSettingService(repo, &config.Config{})
 	return NewSettingHandler(svc, nil, nil, nil, nil, nil), repo
 }
 

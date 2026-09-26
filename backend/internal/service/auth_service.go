@@ -221,13 +221,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		return "", nil, fmt.Errorf("hash password: %w", err)
 	}
 
-	grantPlan := s.resolveSignupGrantPlan(ctx, "email")
-
-	// 新用户默认 RPM（0 = 不限制）。注册时写入，后续作为用户级兜底。
-	var defaultRPMLimit int
-	if s.settingService != nil {
-		defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-	}
+	grantPlan := s.newSignupGrantPlan()
 
 	// 创建用户
 	user := &User{
@@ -237,7 +231,7 @@ func (s *AuthService) RegisterWithVerification(ctx context.Context, email, passw
 		Balance:        grantPlan.Balance,
 		Concurrency:    grantPlan.Concurrency,
 		RateMultiplier: grantPlan.RateMultiplier,
-		RPMLimit:       defaultRPMLimit,
+		RPMLimit:       NewUserRPMLimit,
 		Status:         StatusActive,
 	}
 
@@ -572,12 +566,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 			}
 
 			signupSource := inferLegacySignupSource(email)
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
-			var defaultRPMLimit int
-			if s.settingService != nil {
-				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-			}
-
+			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
 				Email:          email,
 				Username:       username,
@@ -586,7 +575,7 @@ func (s *AuthService) LoginOrRegisterOAuth(ctx context.Context, email, username 
 				Balance:        grantPlan.Balance,
 				Concurrency:    grantPlan.Concurrency,
 				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       defaultRPMLimit,
+				RPMLimit:       NewUserRPMLimit,
 				Status:         StatusActive,
 				SignupSource:   signupSource,
 			}
@@ -696,12 +685,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 			if strings.TrimSpace(signupSource) == "" {
 				signupSource = inferLegacySignupSource(email)
 			}
-			grantPlan := s.resolveSignupGrantPlan(ctx, signupSource)
-			var defaultRPMLimit int
-			if s.settingService != nil {
-				defaultRPMLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
-			}
-
+			grantPlan := s.newSignupGrantPlan()
 			newUser := &User{
 				Email:          email,
 				Username:       username,
@@ -710,7 +694,7 @@ func (s *AuthService) LoginOrRegisterOAuthWithTokenPair(ctx context.Context, ema
 				Balance:        grantPlan.Balance,
 				Concurrency:    grantPlan.Concurrency,
 				RateMultiplier: grantPlan.RateMultiplier,
-				RPMLimit:       defaultRPMLimit,
+				RPMLimit:       NewUserRPMLimit,
 				Status:         StatusActive,
 				SignupSource:   signupSource,
 			}
@@ -813,56 +797,18 @@ func (s *AuthService) assignSubscriptions(ctx context.Context, userID int64, ite
 	}
 }
 
-func (s *AuthService) resolveSignupGrantPlan(ctx context.Context, signupSource string) signupGrantPlan {
-	plan := signupGrantPlan{RateMultiplier: 1}
-	if s != nil && s.cfg != nil {
-		plan.Balance = s.cfg.Default.UserBalance
-		plan.Concurrency = s.cfg.Default.UserConcurrency
-		if s.cfg.Default.RateMultiplier > 0 {
-			plan.RateMultiplier = s.cfg.Default.RateMultiplier
-		}
+// newSignupGrantPlan 新用户注册时的初始值：由代码决定（site_features.go），不分注册来源。
+func (s *AuthService) newSignupGrantPlan() signupGrantPlan {
+	plan := signupGrantPlan{
+		Balance:        NewUserBalance,
+		Concurrency:    NewUserConcurrency,
+		RateMultiplier: 1,
+		Subscriptions:  NewUserDefaultSubscriptions(),
 	}
-	if s == nil || s.settingService == nil {
-		return plan
+	if s != nil && s.cfg != nil && s.cfg.Default.RateMultiplier > 0 {
+		plan.RateMultiplier = s.cfg.Default.RateMultiplier
 	}
-
-	plan.Balance = s.settingService.GetDefaultBalance(ctx)
-	plan.Concurrency = s.settingService.GetDefaultConcurrency(ctx)
-	plan.Subscriptions = s.settingService.GetDefaultSubscriptions(ctx)
-
-	resolved, enabled, err := s.settingService.ResolveAuthSourceGrantSettings(ctx, signupSource, false)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to load auth source signup defaults for %s: %v", signupSource, err)
-		return plan
-	}
-	if !enabled {
-		return plan
-	}
-
-	plan.Balance = resolved.Balance
-	plan.Concurrency = resolved.Concurrency
-	plan.Subscriptions = resolved.Subscriptions
-
 	return plan
-}
-
-func authSourceSignupSettings(defaults *AuthSourceDefaultSettings, signupSource string) (ProviderDefaultGrantSettings, bool) {
-	if defaults == nil {
-		return ProviderDefaultGrantSettings{}, false
-	}
-
-	switch strings.ToLower(strings.TrimSpace(signupSource)) {
-	case "email":
-		return defaults.Email, true
-	case "wechat":
-		return defaults.WeChat, true
-	case "github":
-		return defaults.GitHub, true
-	case "google":
-		return defaults.Google, true
-	default:
-		return ProviderDefaultGrantSettings{}, false
-	}
 }
 
 // bindOAuthAffiliate initializes the affiliate profile and binds the inviter
@@ -927,75 +873,7 @@ func (s *AuthService) backfillEmailIdentityOnSuccessfulLogin(ctx context.Context
 	if s == nil || user == nil || user.ID <= 0 {
 		return
 	}
-	identity, created := s.ensureEmailAuthIdentity(ctx, user, "auth_service_login_backfill")
-	if s.shouldApplyEmailFirstBindDefaults(ctx, user.ID, identity, created) {
-		if err := s.ApplyProviderDefaultSettingsOnFirstBind(ctx, user.ID, "email"); err != nil {
-			logger.LegacyPrintf("service.auth", "[Auth] Failed to apply email first bind defaults: user_id=%d err=%v", user.ID, err)
-		}
-	}
-}
-
-func (s *AuthService) shouldApplyEmailFirstBindDefaults(
-	ctx context.Context,
-	userID int64,
-	identity *dbent.AuthIdentity,
-	created bool,
-) bool {
-	source := emailAuthIdentitySource(identity.Metadata)
-	if source == "auth_service_login_backfill" {
-		return false
-	}
-	if created {
-		return true
-	}
-	if s == nil || s.entClient == nil || userID <= 0 || identity == nil || identity.UserID != userID {
-		return false
-	}
-	if source != "auth_service_dual_write" {
-		return false
-	}
-
-	hasGrant, err := s.hasProviderGrantRecord(ctx, userID, "email", "first_bind")
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "[Auth] Failed to inspect email first bind grant state: user_id=%d err=%v", userID, err)
-		return false
-	}
-	return !hasGrant
-}
-
-func emailAuthIdentitySource(metadata map[string]any) string {
-	if len(metadata) == 0 {
-		return ""
-	}
-	raw, ok := metadata["source"]
-	if !ok {
-		return ""
-	}
-	return strings.TrimSpace(fmt.Sprint(raw))
-}
-
-func (s *AuthService) hasProviderGrantRecord(
-	ctx context.Context,
-	userID int64,
-	providerType string,
-	grantReason string,
-) (bool, error) {
-	if s == nil || s.entClient == nil || userID <= 0 {
-		return false, nil
-	}
-
-	rows, err := s.entClient.QueryContext(
-		ctx,
-		`SELECT 1 FROM user_provider_default_grants WHERE user_id = $1 AND provider_type = $2 AND grant_reason = $3 LIMIT 1`,
-		userID,
-		strings.TrimSpace(providerType),
-		strings.TrimSpace(grantReason),
-	)
-	if err != nil {
-		return false, err
-	}
-	defer func() { _ = rows.Close() }()
-	return rows.Next(), rows.Err()
+	s.ensureEmailAuthIdentity(ctx, user, "auth_service_login_backfill")
 }
 
 func (s *AuthService) ensureEmailAuthIdentity(ctx context.Context, user *User, source string) (*dbent.AuthIdentity, bool) {

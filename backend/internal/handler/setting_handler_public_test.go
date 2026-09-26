@@ -53,12 +53,13 @@ func (s *settingHandlerPublicRepoStub) Delete(ctx context.Context, key string) e
 	panic("unexpected Delete call")
 }
 
-func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t *testing.T) {
+// 「第三方注册强制补邮箱」照常下发给前端，但值由代码决定：库里旧开关开着也不生效。
+func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignupFromCode(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
 	repo := &settingHandlerPublicRepoStub{
 		values: map[string]string{
-			service.SettingKeyForceEmailOnThirdPartySignup: "true",
+			"force_email_on_third_party_signup": "true",
 		},
 	}
 	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
@@ -74,12 +75,13 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignup(t 
 	var resp struct {
 		Code int `json:"code"`
 		Data struct {
-			ForceEmailOnThirdPartySignup bool `json:"force_email_on_third_party_signup"`
+			ForceEmailOnThirdPartySignup *bool `json:"force_email_on_third_party_signup"`
 		} `json:"data"`
 	}
 	require.NoError(t, json.Unmarshal(recorder.Body.Bytes(), &resp))
 	require.Equal(t, 0, resp.Code)
-	require.True(t, resp.Data.ForceEmailOnThirdPartySignup)
+	require.NotNil(t, resp.Data.ForceEmailOnThirdPartySignup)
+	require.Equal(t, service.ForceEmailOnThirdPartySignup, *resp.Data.ForceEmailOnThirdPartySignup)
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *testing.T) {

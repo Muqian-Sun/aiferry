@@ -33,8 +33,6 @@ type SystemSettings struct {
 	AliyunCaptchaPrefix                    string
 	AliyunCaptchaRegion                    string
 
-	DefaultConcurrency           int
-	DefaultBalance               float64
 	RiskControlEnabled           bool
 	CyberSessionBlockEnabled     bool
 	CyberSessionBlockTTLSeconds  int
@@ -44,8 +42,6 @@ type SystemSettings struct {
 	AffiliateRebateDurationDays  int
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
-	DefaultUserRPMLimit          int
-	DefaultSubscriptions         []DefaultSubscriptionSetting
 
 	// Identity patch configuration (Claude -> Gemini)
 	EnableIdentityPatch bool   `json:"enable_identity_patch"`
@@ -130,7 +126,7 @@ type SystemSettings struct {
 	ProfitSafetyBuffer   float64
 }
 
-// DefaultSubscriptionSetting 注册 / 认证来源默认订阅：一个列表最多一项（同一时间只允许一条有效订阅）
+// DefaultSubscriptionSetting 新用户自动赠送的一条订阅（见 site_features.go 的 newUserDefaultSubscriptions）。
 type DefaultSubscriptionSetting struct {
 	PlanID       int64 `json:"plan_id"`
 	ValidityDays int   `json:"validity_days"`

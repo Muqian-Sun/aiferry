@@ -38,13 +38,6 @@ var (
 	)
 )
 
-type ProviderGrantReason string
-
-const (
-	ProviderGrantReasonSignup    ProviderGrantReason = "signup"
-	ProviderGrantReasonFirstBind ProviderGrantReason = "first_bind"
-)
-
 type AuthIdentityKey struct {
 	ProviderType    string
 	ProviderKey     string
@@ -104,12 +97,6 @@ type UserAuthIdentityLookup struct {
 	User     *dbent.User
 	Identity *dbent.AuthIdentity
 	Channel  *dbent.AuthIdentityChannel
-}
-
-type ProviderGrantRecordInput struct {
-	UserID       int64
-	ProviderType string
-	GrantReason  ProviderGrantReason
 }
 
 type IdentityAdoptionDecisionInput struct {
@@ -614,30 +601,6 @@ func hasCompatibleChannelConflict(records []*dbent.AuthIdentityChannel, userID i
 		}
 	}
 	return false
-}
-
-func (r *userRepository) RecordProviderGrant(ctx context.Context, input ProviderGrantRecordInput) (bool, error) {
-	exec := txAwareSQLExecutor(ctx, r.sql, r.client)
-	if exec == nil {
-		return false, fmt.Errorf("sql executor is not configured")
-	}
-
-	result, err := exec.ExecContext(ctx, `
-INSERT INTO user_provider_default_grants (user_id, provider_type, grant_reason)
-VALUES ($1, $2, $3)
-ON CONFLICT (user_id, provider_type, grant_reason) DO NOTHING`,
-		input.UserID,
-		strings.TrimSpace(input.ProviderType),
-		string(input.GrantReason),
-	)
-	if err != nil {
-		return false, err
-	}
-	affected, err := result.RowsAffected()
-	if err != nil {
-		return false, err
-	}
-	return affected > 0, nil
 }
 
 func (r *userRepository) UpsertIdentityAdoptionDecision(ctx context.Context, input IdentityAdoptionDecisionInput) (*dbent.IdentityAdoptionDecision, error) {

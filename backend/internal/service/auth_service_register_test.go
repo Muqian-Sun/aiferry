@@ -199,10 +199,6 @@ func newAuthServiceWithSMTP(repo *userRepoStub, settings map[string]string, emai
 			Secret:     "test-secret",
 			ExpireHour: 1,
 		},
-		Default: config.DefaultConfig{
-			UserBalance:     3.5,
-			UserConcurrency: 2,
-		},
 	}
 
 	if smtpConfigured {
@@ -377,9 +373,7 @@ func TestAuthService_Register_CreateEmailExistsRace(t *testing.T) {
 
 func TestAuthService_Register_Success(t *testing.T) {
 	repo := &userRepoStub{nextID: 5}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 
 	token, user, err := service.Register(context.Background(), "user@qq.com", "password")
 	require.NoError(t, err)
@@ -389,8 +383,8 @@ func TestAuthService_Register_Success(t *testing.T) {
 	require.Equal(t, "user@qq.com", user.Email)
 	require.Equal(t, RoleUser, user.Role)
 	require.Equal(t, StatusActive, user.Status)
-	require.Equal(t, 3.5, user.Balance)
-	require.Equal(t, 2, user.Concurrency)
+	require.Equal(t, NewUserBalance, user.Balance)
+	require.Equal(t, NewUserConcurrency, user.Concurrency)
 	require.Len(t, repo.created, 1)
 	require.True(t, user.CheckPassword("password"))
 }
@@ -522,12 +516,13 @@ func TestAuthService_GenerateToken_UsesMinutesWhenConfigured(t *testing.T) {
 }
 
 func TestAuthService_Register_AssignsDefaultSubscriptions(t *testing.T) {
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{
+		{PlanID: 11, ValidityDays: 30},
+		{PlanID: 12, ValidityDays: 7},
+	})
 	repo := &userRepoStub{nextID: 42}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":11,"validity_days":30},{"plan_id":12,"validity_days":7}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 
 	_, user, err := service.Register(context.Background(), "default-sub@qq.com", "password")
@@ -541,92 +536,23 @@ func TestAuthService_Register_AssignsDefaultSubscriptions(t *testing.T) {
 	require.Equal(t, 7, assigner.calls[1].ValidityDays)
 }
 
-func TestAuthService_Register_UsesEmailAuthSourceDefaultsWhenGrantEnabled(t *testing.T) {
-	repo := &userRepoStub{nextID: 52}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":91,"validity_days":3}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "12.5",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "7",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":11,"validity_days":30}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "true",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-defaults@qq.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 12.5, user.Balance)
-	require.Equal(t, 7, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(11), assigner.calls[0].PlanID)
-	require.Equal(t, 30, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_Register_GrantOnSignupFalseFallsBackToGlobalDefaults(t *testing.T) {
-	repo := &userRepoStub{nextID: 53}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":31,"validity_days":5}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "99",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "88",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[{"plan_id":32,"validity_days":9}]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "false",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-global@qq.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 3.5, user.Balance)
-	require.Equal(t, 2, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(31), assigner.calls[0].PlanID)
-	require.Equal(t, 5, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_Register_GrantOnSignupMergesSourceOverridesWithGlobalDefaults(t *testing.T) {
-	repo := &userRepoStub{nextID: 54}
-	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                `[{"plan_id":31,"validity_days":5}]`,
-		SettingKeyAuthSourceDefaultEmailBalance:       "9.5",
-		SettingKeyAuthSourceDefaultEmailConcurrency:   "5",
-		SettingKeyAuthSourceDefaultEmailSubscriptions: `[]`,
-		SettingKeyAuthSourceDefaultEmailGrantOnSignup: "true",
-	}, nil)
-	service.defaultSubAssigner = assigner
-
-	_, user, err := service.Register(context.Background(), "email-merged@qq.com", "password")
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 9.5, user.Balance)
-	require.Equal(t, 5, user.Concurrency)
-	require.Len(t, assigner.calls, 1)
-	require.Equal(t, int64(31), assigner.calls[0].PlanID)
-	require.Equal(t, 5, assigner.calls[0].ValidityDays)
-}
-
-func TestAuthService_LoginOrRegisterOAuthWithTokenPair_UsesWeChatAuthSourceDefaultsOnSignup(t *testing.T) {
+// 第三方登录首次建号：余额 / 并发 / RPM / 赠送套餐都取新用户默认值，不分注册来源。
+func TestAuthService_LoginOrRegisterOAuthWithTokenPair_NewUserUsesNewUserDefaults(t *testing.T) {
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{{PlanID: 22, ValidityDays: 14}})
 	repo := &userRepoStub{nextID: 61}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyDefaultSubscriptions:                 `[{"plan_id":81,"validity_days":1}]`,
-		SettingKeyAuthSourceDefaultWeChatBalance:       "21.75",
-		SettingKeyAuthSourceDefaultWeChatConcurrency:   "9",
-		SettingKeyAuthSourceDefaultWeChatSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultWeChatGrantOnSignup: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 
 	tokenPair, user, err := service.LoginOrRegisterOAuthWithTokenPair(context.Background(), "wechat-123@wechat-connect.invalid", "wechat_user", "", "", "wechat")
 	require.NoError(t, err)
 	require.NotNil(t, tokenPair)
-	require.NotNil(t, user)
 	require.Equal(t, int64(61), user.ID)
-	require.Equal(t, 21.75, user.Balance)
-	require.Equal(t, 9, user.Concurrency)
+	require.Equal(t, NewUserBalance, user.Balance)
+	require.Equal(t, NewUserConcurrency, user.Concurrency)
+	require.Equal(t, NewUserRPMLimit, user.RPMLimit)
+	require.Equal(t, "wechat", user.SignupSource)
 	require.Len(t, repo.created, 1)
 	require.Len(t, assigner.calls, 1)
 	require.Equal(t, int64(22), assigner.calls[0].PlanID)
@@ -644,14 +570,11 @@ func TestAuthService_LoginOrRegisterOAuthWithTokenPair_ExistingUserDoesNotGrantA
 		Concurrency:  1,
 		TokenVersion: 2,
 	}
+	// 有默认赠送套餐时，已有用户登录也不应再发一次
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{{PlanID: 22, ValidityDays: 14}})
 	repo := &userRepoStub{user: existing}
 	assigner := &defaultSubscriptionAssignerStub{}
-	service := newAuthService(repo, map[string]string{
-		SettingKeyAuthSourceDefaultWeChatBalance:       "21.75",
-		SettingKeyAuthSourceDefaultWeChatConcurrency:   "9",
-		SettingKeyAuthSourceDefaultWeChatSubscriptions: `[{"plan_id":22,"validity_days":14}]`,
-		SettingKeyAuthSourceDefaultWeChatGrantOnSignup: "true",
-	}, nil)
+	service := newAuthService(repo, map[string]string{}, nil)
 	service.defaultSubAssigner = assigner
 	service.refreshTokenCache = &refreshTokenCacheStub{}
 

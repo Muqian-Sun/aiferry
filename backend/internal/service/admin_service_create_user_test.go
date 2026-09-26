@@ -7,7 +7,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -41,65 +40,10 @@ func TestAdminService_CreateUser_Success(t *testing.T) {
 	require.Equal(t, user, repo.created[0])
 }
 
-func TestAdminService_CreateUser_UsesDefaultBalanceWhenBalanceOmitted(t *testing.T) {
+// 管理员新建用户不传余额 / 并发 / RPM 时，和自助注册一样取「新用户默认值」（site_features.go）。
+func TestAdminService_CreateUser_UsesNewUserDefaultsWhenOmitted(t *testing.T) {
 	repo := &userRepoStub{nextID: 11}
-	cfg := &config.Config{
-		Default: config.DefaultConfig{
-			UserBalance: 0,
-		},
-	}
-	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
-		SettingKeyDefaultBalance: "0.02",
-	}}, cfg)
-	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
-
-	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
-		Email:    "default-balance@test.com",
-		Password: "strong-pass",
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 0.02, user.Balance)
-	require.Len(t, repo.created, 1)
-	require.Equal(t, 0.02, repo.created[0].Balance)
-}
-
-func TestAdminService_CreateUser_ExplicitZeroBalanceOverridesDefault(t *testing.T) {
-	repo := &userRepoStub{nextID: 12}
-	cfg := &config.Config{
-		Default: config.DefaultConfig{
-			UserBalance: 0,
-		},
-	}
-	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
-		SettingKeyDefaultBalance: "0.02",
-	}}, cfg)
-	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
-	balance := 0.0
-
-	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
-		Email:    "zero-balance@test.com",
-		Password: "strong-pass",
-		Balance:  &balance,
-	})
-
-	require.NoError(t, err)
-	require.NotNil(t, user)
-	require.Equal(t, 0.0, user.Balance)
-	require.Len(t, repo.created, 1)
-	require.Equal(t, 0.0, repo.created[0].Balance)
-}
-
-// 管理员新建用户不传并发 / RPM 时，和自助注册一样取「新用户默认值」（之前前端写死并发 1、RPM 0）。
-func TestAdminService_CreateUser_UsesDefaultLimitsWhenOmitted(t *testing.T) {
-	repo := &userRepoStub{nextID: 13}
-	cfg := &config.Config{Default: config.DefaultConfig{UserConcurrency: 1}}
-	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
-		SettingKeyDefaultConcurrency:  "8",
-		SettingKeyDefaultUserRPMLimit: "30",
-	}}, cfg)
-	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
+	svc := &adminServiceImpl{userRepo: repo}
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
 		Email:    "default-limits@test.com",
@@ -107,29 +51,30 @@ func TestAdminService_CreateUser_UsesDefaultLimitsWhenOmitted(t *testing.T) {
 	})
 
 	require.NoError(t, err)
-	require.Equal(t, 8, user.Concurrency)
-	require.Equal(t, 30, user.RPMLimit)
+	require.Equal(t, NewUserBalance, user.Balance)
+	require.Equal(t, NewUserConcurrency, user.Concurrency)
+	require.Equal(t, NewUserRPMLimit, user.RPMLimit)
+	require.Len(t, repo.created, 1)
+	require.Equal(t, NewUserConcurrency, repo.created[0].Concurrency)
 }
 
-func TestAdminService_CreateUser_ExplicitZeroLimitsOverrideDefault(t *testing.T) {
-	repo := &userRepoStub{nextID: 14}
-	cfg := &config.Config{Default: config.DefaultConfig{UserConcurrency: 1}}
-	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
-		SettingKeyDefaultConcurrency:  "8",
-		SettingKeyDefaultUserRPMLimit: "30",
-	}}, cfg)
-	svc := &adminServiceImpl{userRepo: repo, settingService: settingService}
+func TestAdminService_CreateUser_ExplicitValuesOverrideNewUserDefaults(t *testing.T) {
+	repo := &userRepoStub{nextID: 12}
+	svc := &adminServiceImpl{userRepo: repo}
+	balance := 1.5
 
 	user, err := svc.CreateUser(context.Background(), &CreateUserInput{
-		Email:       "zero-limits@test.com",
+		Email:       "explicit-limits@test.com",
 		Password:    "strong-pass",
+		Balance:     &balance,
 		Concurrency: ptrInt(0),
-		RPMLimit:    ptrInt(0),
+		RPMLimit:    ptrInt(30),
 	})
 
 	require.NoError(t, err)
+	require.Equal(t, 1.5, user.Balance)
 	require.Equal(t, 0, user.Concurrency)
-	require.Equal(t, 0, user.RPMLimit)
+	require.Equal(t, 30, user.RPMLimit)
 }
 
 func TestAdminService_CreateUser_EmailExists(t *testing.T) {
@@ -157,23 +102,11 @@ func TestAdminService_CreateUser_CreateError(t *testing.T) {
 	require.Empty(t, repo.created)
 }
 
-func TestAdminService_CreateUser_AssignsDefaultSubscriptions(t *testing.T) {
+func TestAdminService_CreateUser_AssignsNewUserDefaultSubscriptions(t *testing.T) {
+	withNewUserDefaultSubscriptions(t, []DefaultSubscriptionSetting{{PlanID: 5, ValidityDays: 30}})
 	repo := &userRepoStub{nextID: 21}
 	assigner := &defaultSubscriptionAssignerStub{}
-	cfg := &config.Config{
-		Default: config.DefaultConfig{
-			UserBalance:     0,
-			UserConcurrency: 1,
-		},
-	}
-	settingService := NewSettingService(&settingRepoStub{values: map[string]string{
-		SettingKeyDefaultSubscriptions: `[{"plan_id":5,"validity_days":30}]`,
-	}}, cfg)
-	svc := &adminServiceImpl{
-		userRepo:           repo,
-		settingService:     settingService,
-		defaultSubAssigner: assigner,
-	}
+	svc := &adminServiceImpl{userRepo: repo, defaultSubAssigner: assigner}
 
 	_, err := svc.CreateUser(context.Background(), &CreateUserInput{
 		Email:    "new-user@test.com",
@@ -184,4 +117,26 @@ func TestAdminService_CreateUser_AssignsDefaultSubscriptions(t *testing.T) {
 	require.Equal(t, int64(21), assigner.calls[0].UserID)
 	require.Equal(t, int64(5), assigner.calls[0].PlanID)
 	require.Equal(t, 30, assigner.calls[0].ValidityDays)
+}
+
+// 默认赠送套餐写死为空：新建用户不发任何订阅。
+func TestAdminService_CreateUser_NoDefaultSubscriptionsByDefault(t *testing.T) {
+	repo := &userRepoStub{nextID: 22}
+	assigner := &defaultSubscriptionAssignerStub{}
+	svc := &adminServiceImpl{userRepo: repo, defaultSubAssigner: assigner}
+
+	_, err := svc.CreateUser(context.Background(), &CreateUserInput{
+		Email:    "no-subs@test.com",
+		Password: "password",
+	})
+	require.NoError(t, err)
+	require.Empty(t, assigner.calls)
+}
+
+// withNewUserDefaultSubscriptions 临时改「新用户默认赠送套餐」（代码里写死为空），测完恢复。
+func withNewUserDefaultSubscriptions(t *testing.T, items []DefaultSubscriptionSetting) {
+	t.Helper()
+	previous := newUserDefaultSubscriptions
+	newUserDefaultSubscriptions = items
+	t.Cleanup(func() { newUserDefaultSubscriptions = previous })
 }

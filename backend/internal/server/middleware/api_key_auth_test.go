@@ -1227,41 +1227,6 @@ type stubUserSubscriptionRepo struct {
 	resetMonthly   func(ctx context.Context, id int64, start time.Time) error
 }
 
-type fakeSettingRepo struct {
-	values map[string]string
-}
-
-func (r fakeSettingRepo) Get(ctx context.Context, key string) (*service.Setting, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetValue(ctx context.Context, key string) (string, error) {
-	if v, ok := r.values[key]; ok {
-		return v, nil
-	}
-	return "", service.ErrSettingNotFound
-}
-
-func (r fakeSettingRepo) Set(ctx context.Context, key, value string) error {
-	return errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetMultiple(ctx context.Context, keys []string) (map[string]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) SetMultiple(ctx context.Context, settings map[string]string) error {
-	return errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) GetAll(ctx context.Context) (map[string]string, error) {
-	return nil, errors.New("not implemented")
-}
-
-func (r fakeSettingRepo) Delete(ctx context.Context, key string) error {
-	return errors.New("not implemented")
-}
-
 func (r *stubUserSubscriptionRepo) Create(ctx context.Context, sub *service.UserSubscription) error {
 	return errors.New("not implemented")
 }

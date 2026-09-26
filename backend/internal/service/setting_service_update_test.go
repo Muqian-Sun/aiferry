@@ -4,7 +4,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"testing"
 
 	"github.com/Wei-Shaw/sub2api/internal/config"
@@ -177,12 +176,6 @@ func (s *settingAntigravityUARepoStub) Delete(ctx context.Context, key string) e
 	panic("unexpected Delete call")
 }
 
-type defaultSubPlanReaderStub struct {
-	byID  map[int64]*SubscriptionPlan
-	errBy map[int64]error
-	calls []int64
-}
-
 func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	t.Run("missing value defaults to disabled", func(t *testing.T) {
 		svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{}}, &config.Config{})
@@ -214,89 +207,6 @@ func TestSettingService_AffiliateAdminRechargeSetting(t *testing.T) {
 	})
 }
 
-func (s *defaultSubPlanReaderStub) GetByID(ctx context.Context, id int64) (*SubscriptionPlan, error) {
-	s.calls = append(s.calls, id)
-	if err, ok := s.errBy[id]; ok {
-		return nil, err
-	}
-	if g, ok := s.byID[id]; ok {
-		return g, nil
-	}
-	return nil, ErrPlanNotFound
-}
-
-func TestSettingService_UpdateSettings_DefaultSubscriptions_ValidPlan(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	planReader := &defaultSubPlanReaderStub{
-		byID: map[int64]*SubscriptionPlan{
-			11: {ID: 11, Name: "Pro"},
-		},
-	}
-	svc := NewSettingService(repo, &config.Config{})
-	svc.SetDefaultSubscriptionPlanReader(planReader)
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		DefaultSubscriptions: []DefaultSubscriptionSetting{
-			{PlanID: 11, ValidityDays: 30},
-		},
-	})
-	require.NoError(t, err)
-	require.Equal(t, []int64{11}, planReader.calls)
-
-	raw, ok := repo.updates[SettingKeyDefaultSubscriptions]
-	require.True(t, ok)
-
-	var got []DefaultSubscriptionSetting
-	require.NoError(t, json.Unmarshal([]byte(raw), &got))
-	require.Equal(t, []DefaultSubscriptionSetting{
-		{PlanID: 11, ValidityDays: 30},
-	}, got)
-}
-
-func TestSettingService_UpdateSettings_DefaultSubscriptions_RejectsNotFoundPlan(t *testing.T) {
-	repo := &settingUpdateRepoStub{}
-	planReader := &defaultSubPlanReaderStub{
-		errBy: map[int64]error{
-			13: ErrPlanNotFound,
-		},
-	}
-	svc := NewSettingService(repo, &config.Config{})
-	svc.SetDefaultSubscriptionPlanReader(planReader)
-
-	err := svc.UpdateSettings(context.Background(), &SystemSettings{
-		DefaultSubscriptions: []DefaultSubscriptionSetting{
-			{PlanID: 13, ValidityDays: 7},
-		},
-	})
-	require.Error(t, err)
-	require.Equal(t, "DEFAULT_SUBSCRIPTION_PLAN_INVALID", infraerrors.Reason(err))
-	require.Equal(t, "13", infraerrors.FromError(err).Metadata["plan_id"])
-	require.Nil(t, repo.updates)
-}
-
-// 同一时间只允许一条有效订阅：默认订阅列表最多一项，多了直接拒（不看套餐读者）。
-func TestSettingService_UpdateSettings_DefaultSubscriptions_RejectsMoreThanOne(t *testing.T) {
-	for _, withReader := range []bool{true, false} {
-		repo := &settingUpdateRepoStub{}
-		svc := NewSettingService(repo, &config.Config{})
-		planReader := &defaultSubPlanReaderStub{byID: map[int64]*SubscriptionPlan{11: {ID: 11}, 12: {ID: 12}}}
-		if withReader {
-			svc.SetDefaultSubscriptionPlanReader(planReader)
-		}
-
-		err := svc.UpdateSettings(context.Background(), &SystemSettings{
-			DefaultSubscriptions: []DefaultSubscriptionSetting{
-				{PlanID: 11, ValidityDays: 30},
-				{PlanID: 12, ValidityDays: 60},
-			},
-		})
-		require.Error(t, err)
-		require.Equal(t, "DEFAULT_SUB_TOO_MANY", infraerrors.Reason(err))
-		require.Nil(t, repo.updates)
-		require.Empty(t, planReader.calls, "数量校验在读套餐之前")
-	}
-}
-
 // D2：利润门三键写入；margin + buffer 超过 ProfitControlRatioMax 是客户端错误（400），不是 500。
 func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	repo := &settingUpdateRepoStub{}
@@ -318,15 +228,6 @@ func TestSettingService_UpdateSettings_ProfitControl(t *testing.T) {
 	require.Error(t, err)
 	require.Equal(t, "INVALID_PROFIT_CONTROL", infraerrors.Reason(err))
 	require.Nil(t, repo.updates)
-}
-
-func TestParseDefaultSubscriptions_NormalizesValues(t *testing.T) {
-	got := parseDefaultSubscriptions(`[{"plan_id":11,"validity_days":30},{"plan_id":11,"validity_days":60},{"plan_id":0,"validity_days":10},{"plan_id":12,"validity_days":99999}]`)
-	require.Equal(t, []DefaultSubscriptionSetting{
-		{PlanID: 11, ValidityDays: 30},
-		{PlanID: 11, ValidityDays: 60},
-		{PlanID: 12, ValidityDays: MaxValidityDays},
-	}, got)
 }
 
 func TestSettingService_UpdateSettings_PaymentVisibleMethods(t *testing.T) {

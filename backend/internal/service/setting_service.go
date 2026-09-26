@@ -94,16 +94,8 @@ func (s *SettingService) ResolveGrokBaseURL(ctx context.Context, account *Accoun
 }
 
 var (
-	ErrRegistrationDisabled  = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
-	ErrSettingNotFound       = infraerrors.NotFound("SETTING_NOT_FOUND", "setting not found")
-	ErrDefaultSubPlanInvalid = infraerrors.BadRequest(
-		"DEFAULT_SUBSCRIPTION_PLAN_INVALID",
-		"default subscription plan must exist",
-	)
-	ErrDefaultSubTooMany = infraerrors.BadRequest(
-		"DEFAULT_SUB_TOO_MANY",
-		"at most one default subscription per list",
-	)
+	ErrRegistrationDisabled = infraerrors.Forbidden("REGISTRATION_DISABLED", "registration is currently disabled")
+	ErrSettingNotFound      = infraerrors.NotFound("SETTING_NOT_FOUND", "setting not found")
 )
 
 type SettingRepository interface {
@@ -116,11 +108,6 @@ type SettingRepository interface {
 	Delete(ctx context.Context, key string) error
 }
 
-// DefaultSubscriptionPlanReader validates plan references used by default subscriptions.
-type DefaultSubscriptionPlanReader interface {
-	GetByID(ctx context.Context, id int64) (*SubscriptionPlan, error)
-}
-
 // WebSearchManagerBuilder creates a websearch.Manager from config (injected by infra layer).
 // proxyURLs maps proxy ID to resolved URL for provider-level proxy support.
 type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[int64]string)
@@ -128,7 +115,6 @@ type WebSearchManagerBuilder func(cfg *WebSearchEmulationConfig, proxyURLs map[i
 // SettingService 系统设置服务
 type SettingService struct {
 	settingRepo                 SettingRepository
-	defaultSubPlanReader        DefaultSubscriptionPlanReader
 	proxyRepo                   ProxyRepository // for resolving websearch provider proxy URLs
 	cfg                         *config.Config
 	onUpdate                    func() // Callback when settings are updated (for cache invalidation)
@@ -160,64 +146,7 @@ type SettingService struct {
 	channelMonitorRuntimeListeners   []func()
 }
 
-type ProviderDefaultGrantSettings struct {
-	Balance          float64
-	Concurrency      int
-	Subscriptions    []DefaultSubscriptionSetting
-	GrantOnSignup    bool
-	GrantOnFirstBind bool
-}
-
-type AuthSourceDefaultSettings struct {
-	Email                        ProviderDefaultGrantSettings
-	WeChat                       ProviderDefaultGrantSettings
-	GitHub                       ProviderDefaultGrantSettings
-	Google                       ProviderDefaultGrantSettings
-	ForceEmailOnThirdPartySignup bool
-}
-
-type authSourceDefaultKeySet struct {
-	balance          string
-	concurrency      string
-	subscriptions    string
-	grantOnSignup    string
-	grantOnFirstBind string
-}
-
-var (
-	emailAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultEmailBalance,
-		concurrency:      SettingKeyAuthSourceDefaultEmailConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultEmailSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultEmailGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultEmailGrantOnFirstBind,
-	}
-	weChatAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultWeChatBalance,
-		concurrency:      SettingKeyAuthSourceDefaultWeChatConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultWeChatSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultWeChatGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultWeChatGrantOnFirstBind,
-	}
-	gitHubAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultGitHubBalance,
-		concurrency:      SettingKeyAuthSourceDefaultGitHubConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultGitHubSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultGitHubGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultGitHubGrantOnFirstBind,
-	}
-	googleAuthSourceDefaultKeys = authSourceDefaultKeySet{
-		balance:          SettingKeyAuthSourceDefaultGoogleBalance,
-		concurrency:      SettingKeyAuthSourceDefaultGoogleConcurrency,
-		subscriptions:    SettingKeyAuthSourceDefaultGoogleSubscriptions,
-		grantOnSignup:    SettingKeyAuthSourceDefaultGoogleGrantOnSignup,
-		grantOnFirstBind: SettingKeyAuthSourceDefaultGoogleGrantOnFirstBind,
-	}
-)
-
 const (
-	defaultAuthSourceBalance     = 0
-	defaultAuthSourceConcurrency = 5
 	defaultWeChatConnectMode     = "open"
 	defaultWeChatConnectScopes   = "snsapi_login"
 	defaultWeChatConnectFrontend = "/auth/wechat/callback"
@@ -240,11 +169,6 @@ func NewSettingService(settingRepo SettingRepository, cfg *config.Config) *Setti
 		settingRepo: settingRepo,
 		cfg:         cfg,
 	}
-}
-
-// SetDefaultSubscriptionPlanReader injects an optional plan reader for default subscription validation.
-func (s *SettingService) SetDefaultSubscriptionPlanReader(reader DefaultSubscriptionPlanReader) {
-	s.defaultSubPlanReader = reader
 }
 
 // SetProxyRepository injects a proxy repo for resolving websearch provider proxy URLs.

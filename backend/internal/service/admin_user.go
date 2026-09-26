@@ -74,11 +74,9 @@ func normalizeUserRole(role, fallback string) (string, error) {
 }
 
 func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInput) (*User, error) {
-	balance := 0.0
+	balance := NewUserBalance
 	if input.Balance != nil {
 		balance = *input.Balance
-	} else if s.settingService != nil {
-		balance = s.settingService.GetDefaultBalance(ctx)
 	}
 
 	// 角色可由管理员在创建时指定(admin/user);未提供时默认 user。
@@ -95,17 +93,13 @@ func (s *adminServiceImpl) CreateUser(ctx context.Context, input *CreateUserInpu
 		rateMultiplier = *input.RateMultiplier
 	}
 
-	// 没传就按「新用户默认值」，和自助注册同一个来源（之前前端写死并发 1、RPM 0）。
-	var concurrency, rpmLimit int
+	// 没传就按「新用户默认值」，和自助注册同一个来源（site_features.go）。
+	concurrency, rpmLimit := NewUserConcurrency, NewUserRPMLimit
 	if input.Concurrency != nil {
 		concurrency = *input.Concurrency
-	} else if s.settingService != nil {
-		concurrency = s.settingService.GetDefaultConcurrency(ctx)
 	}
 	if input.RPMLimit != nil {
 		rpmLimit = *input.RPMLimit
-	} else if s.settingService != nil {
-		rpmLimit = s.settingService.GetDefaultUserRPMLimit(ctx)
 	}
 
 	user := &User{
@@ -153,10 +147,10 @@ func (s *adminServiceImpl) ensureNotLastAdmin(ctx context.Context) error {
 }
 
 func (s *adminServiceImpl) assignDefaultSubscriptions(ctx context.Context, userID int64) {
-	if s.settingService == nil || s.defaultSubAssigner == nil || userID <= 0 {
+	if s.defaultSubAssigner == nil || userID <= 0 {
 		return
 	}
-	items := s.settingService.GetDefaultSubscriptions(ctx)
+	items := NewUserDefaultSubscriptions()
 	for _, item := range items {
 		if _, _, err := s.defaultSubAssigner.AssignOrExtendSubscription(ctx, &AssignSubscriptionInput{
 			UserID:       userID,

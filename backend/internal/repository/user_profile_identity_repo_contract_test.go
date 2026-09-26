@@ -303,7 +303,7 @@ func (s *UserProfileIdentityRepoSuite) TestBindAuthIdentityToUser_RejectsChannel
 	s.Require().ErrorIs(err, ErrAuthIdentityChannelProviderMismatch)
 }
 
-func (s *UserProfileIdentityRepoSuite) TestWithUserProfileIdentityTx_RollsBackIdentityAndGrantOnError() {
+func (s *UserProfileIdentityRepoSuite) TestWithUserProfileIdentityTx_RollsBackIdentityOnError() {
 	user := s.mustCreateUser("tx-rollback")
 	expectedErr := errors.New("rollback")
 
@@ -311,79 +311,22 @@ func (s *UserProfileIdentityRepoSuite) TestWithUserProfileIdentityTx_RollsBackId
 		_, err := s.repo.CreateAuthIdentity(txCtx, CreateAuthIdentityInput{
 			UserID: user.ID,
 			Canonical: AuthIdentityKey{
-				ProviderType:    "oidc",
-				ProviderKey:     "https://issuer.example",
+				ProviderType:    "github",
+				ProviderKey:     "github",
 				ProviderSubject: "subject-rollback",
 			},
 		})
 		s.Require().NoError(err)
-
-		inserted, err := s.repo.RecordProviderGrant(txCtx, ProviderGrantRecordInput{
-			UserID:       user.ID,
-			ProviderType: "oidc",
-			GrantReason:  ProviderGrantReasonFirstBind,
-		})
-		s.Require().NoError(err)
-		s.Require().True(inserted)
 		return expectedErr
 	})
 	s.Require().ErrorIs(err, expectedErr)
 
 	_, err = s.repo.GetUserByCanonicalIdentity(s.ctx, AuthIdentityKey{
-		ProviderType:    "oidc",
-		ProviderKey:     "https://issuer.example",
+		ProviderType:    "github",
+		ProviderKey:     "github",
 		ProviderSubject: "subject-rollback",
 	})
 	s.Require().True(dbent.IsNotFound(err))
-
-	var count int
-	s.Require().NoError(integrationDB.QueryRowContext(s.ctx, `
-SELECT COUNT(*)
-FROM user_provider_default_grants
-WHERE user_id = $1 AND provider_type = $2 AND grant_reason = $3`,
-		user.ID,
-		"oidc",
-		string(ProviderGrantReasonFirstBind),
-	).Scan(&count))
-	s.Require().Zero(count)
-}
-
-func (s *UserProfileIdentityRepoSuite) TestRecordProviderGrant_IsIdempotentPerReason() {
-	user := s.mustCreateUser("grant")
-
-	inserted, err := s.repo.RecordProviderGrant(s.ctx, ProviderGrantRecordInput{
-		UserID:       user.ID,
-		ProviderType: "wechat",
-		GrantReason:  ProviderGrantReasonFirstBind,
-	})
-	s.Require().NoError(err)
-	s.Require().True(inserted)
-
-	inserted, err = s.repo.RecordProviderGrant(s.ctx, ProviderGrantRecordInput{
-		UserID:       user.ID,
-		ProviderType: "wechat",
-		GrantReason:  ProviderGrantReasonFirstBind,
-	})
-	s.Require().NoError(err)
-	s.Require().False(inserted)
-
-	inserted, err = s.repo.RecordProviderGrant(s.ctx, ProviderGrantRecordInput{
-		UserID:       user.ID,
-		ProviderType: "wechat",
-		GrantReason:  ProviderGrantReasonSignup,
-	})
-	s.Require().NoError(err)
-	s.Require().True(inserted)
-
-	var count int
-	s.Require().NoError(integrationDB.QueryRowContext(s.ctx, `
-SELECT COUNT(*)
-FROM user_provider_default_grants
-WHERE user_id = $1 AND provider_type = $2`,
-		user.ID,
-		"wechat",
-	).Scan(&count))
-	s.Require().Equal(2, count)
 }
 
 func (s *UserProfileIdentityRepoSuite) TestUpsertIdentityAdoptionDecision_PersistsAndLinksIdentity() {
