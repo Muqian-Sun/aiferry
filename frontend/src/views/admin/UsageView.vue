@@ -2,7 +2,8 @@
   <!--
     用量：区间数字摘要 + 页签（明细 · 错误）。「排行」「分析」两个页签和概览重复，已删（站长 2026-09-25 拍板）。
     时间范围、刷新、导出 / 清理在页头，作用于整页。筛选第一行只露用户 / 密钥 / 模型 / 渠道，其余在「更多筛选」。
-    明细默认 7 列（时间、用户、模型、渠道、Token、收入、耗时），另 5 列在列设置里；点行开详情抽屉看其余一切。
+    明细默认 7 列（时间、用户、模型、渠道、Token、收入、耗时），另 4 列在列设置里；点行开详情抽屉看其余一切
+    （请求 ID、上游请求 ID 只在抽屉里、可复制；列表不放内部编号）。
   -->
   <AppLayout>
     <template #header-actions>
@@ -251,13 +252,14 @@ const loadRouteUserFilterLabel = async () => {
     && usageFiltersRef.value?.getUserSearchRevision?.() === userSearchRevision
   )
 
+  // 连已删用户一起查（include_deleted），仍查不到就是已被彻底删除：写「已删除用户」，不回填数字 id
   try {
     const user = await adminAPI.users.getById(requestedUserId, true)
     if (!routeUserFilterIsCurrent()) return
-    usageFiltersRef.value?.setUserKeyword?.(user.email || String(requestedUserId))
+    usageFiltersRef.value?.setUserKeyword?.(user.email)
   } catch {
     if (!routeUserFilterIsCurrent()) return
-    usageFiltersRef.value?.setUserKeyword?.(String(requestedUserId))
+    usageFiltersRef.value?.setUserKeyword?.(t('admin.entity.deletedUser'))
   }
 }
 
@@ -359,7 +361,8 @@ const handleIpGeoBatchFailed = () => {
 const cancelExport = () => exportAbortController?.abort()
 const openCleanupDialog = () => { cleanupDialogVisible.value = true }
 
-// 导出：金额只导收入 / 成本 / 利润三个数（单笔精确金额），不再导标准价与它的分项
+// 导出：金额只导收入 / 成本 / 利润三个数（单笔精确金额），不再导标准价与它的分项。
+// 请求 ID、上游请求 ID 两列保留（对账、给上游提工单用）；名字查不到的写「已删除…」，不导内部 id
 const exportToExcel = async () => {
   if (exporting.value) return; exporting.value = true; exportProgress.show = true
   const c = new AbortController(); exportAbortController = c
@@ -389,7 +392,7 @@ const exportToExcel = async () => {
         const revenue = log.actual_cost ?? 0
         const cost = rowAccountCost(log)
         return [
-          log.created_at, log.user?.email || '', log.api_key?.name || '', log.account?.name || '', log.model,
+          log.created_at, log.user?.email || t('admin.entity.deletedUser'), log.api_key?.name || t('admin.entity.deletedKey'), log.account?.name || t('admin.entity.deletedChannel'), log.model,
           log.upstream_model || log.model, log.upstream_response_model || '', log.upstream_model_mismatch == null ? '' : t(log.upstream_model_mismatch ? 'common.yes' : 'common.no'), formatReasoningEffort(log.reasoning_effort), formatReasoningEffort(log.upstream_reasoning_effort || log.reasoning_effort),
           log.inbound_endpoint || '', log.upstream_endpoint || '', requestTypeLabel(log, t),
           log.input_tokens, log.output_tokens, log.cache_read_tokens, log.cache_creation_tokens,
@@ -418,7 +421,7 @@ const exportToExcel = async () => {
 }
 
 // ---------- 列设置（A4 共用实现） ----------
-// 明细：默认 7 列；API 密钥、推理强度、类型、计费模式、上游 ID 在列设置里（默认关）；端点、请求 ID、IP、UA 在详情抽屉
+// 明细：默认 7 列；API 密钥、推理强度、类型、计费模式在列设置里（默认关）；端点、请求 ID、上游请求 ID、IP、UA 在详情抽屉
 const usageColumns = computed<Column[]>(() => [
   { key: 'created_at', label: t('usage.time'), sortable: true },
   { key: 'user', label: t('admin.usage.user') },
@@ -431,13 +434,13 @@ const usageColumns = computed<Column[]>(() => [
   { key: 'tokens', label: t('usage.tokens') },
   { key: 'cost', label: t('common.money.revenue') },
   { key: 'latency', label: t('usage.duration') },
-  { key: 'upstream_request_id', label: t('admin.usage.upstreamRequestId') },
 ])
 const usageColumnSettings = useColumnSettings({
   storageKey: 'admin-usage-columns',
-  version: 1,
+  // 2：上游请求 ID 列从列表里拿掉（只在详情抽屉），本机存过的旧设置作废
+  version: 2,
   columns: usageColumns,
-  defaultHidden: ['api_key', 'reasoning_effort', 'stream', 'billing_mode', 'upstream_request_id'],
+  defaultHidden: ['api_key', 'reasoning_effort', 'stream', 'billing_mode'],
   alwaysVisible: ['created_at', 'user']
 })
 

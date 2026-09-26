@@ -1,5 +1,6 @@
 <template>
-  <BaseDialog :show="show" :title="title" width="full" :close-on-click-outside="true" @close="close">
+  <!-- 标题统一「错误详情」，不写内部编号；请求 ID 在摘要第一格，可复制 -->
+  <BaseDialog :show="show" :title="t('admin.ops.errorDetail.title')" width="full" :close-on-click-outside="true" @close="close">
     <div v-if="loading" class="flex items-center justify-center py-16">
       <div class="flex flex-col items-center gap-3">
         <div class="h-8 w-8 animate-spin rounded-full border-b-2 border-af-brand"></div>
@@ -16,9 +17,20 @@
       <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div class="rounded-xl bg-af-sunken p-4">
           <div class="text-xs font-bold uppercase tracking-wider text-af-ink-3">{{ t('admin.ops.errorDetail.requestId') }}</div>
-          <div class="mt-1 break-all font-mono text-sm font-medium text-af-ink">
-            {{ requestId || '—' }}
+          <div v-if="requestId" class="mt-1 flex items-start gap-1.5">
+            <span class="min-w-0 break-all font-mono text-sm font-medium text-af-ink">{{ requestId }}</span>
+            <button
+              type="button"
+              class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sheet hover:text-af-ink-2"
+              :title="t('common.copy')"
+              :aria-label="t('common.copy')"
+              data-testid="error-detail-copy-request-id"
+              @click="copyToClipboard(requestId, t('admin.usage.requestIdCopied'))"
+            >
+              <Icon name="copy" size="sm" />
+            </button>
           </div>
+          <div v-else class="mt-1 text-sm font-medium text-af-ink">—</div>
         </div>
 
         <div class="rounded-xl bg-af-sunken p-4">
@@ -33,11 +45,12 @@
             {{ isUpstreamError(detail) ? t('admin.ops.errorDetail.account') : t('admin.ops.errorDetail.user') }}
           </div>
           <div class="mt-1 text-sm font-medium text-af-ink">
+            <!-- 有 id 却查不到名字就是已删除，不回退成数字 id -->
             <template v-if="isUpstreamError(detail)">
-              {{ detail.account_name || (detail.account_id != null ? String(detail.account_id) : '—') }}
+              {{ detail.account_name || (detail.account_id != null ? t('admin.entity.deletedChannel') : '—') }}
             </template>
             <template v-else>
-              {{ detail.user_email || (detail.user_id != null ? String(detail.user_id) : '—') }}
+              {{ detail.user_email || (detail.user_id != null ? t('admin.entity.deletedUser') : '—') }}
             </template>
           </div>
         </div>
@@ -224,6 +237,7 @@ import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useAppStore } from '@/stores'
+import { useClipboard } from '@/composables/useClipboard'
 import { opsAPI, type OpsErrorDetail } from '@/api/admin/ops'
 import { formatDateTime } from '@/utils/format'
 import { resolveUpstreamPayload } from '../utils/errorDetailResponse'
@@ -245,6 +259,7 @@ const emit = defineEmits<Emits>()
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
 const detail = ref<OpsErrorDetail | null>(null)
@@ -288,11 +303,6 @@ function meaningfulPayload(candidate: unknown): string {
 function diagnosticPayloadLabel(key: DiagnosticPayloadKey): string {
   return t(`admin.ops.errorDetail.payloads.${key}`)
 }
-
-const title = computed(() => {
-  if (!props.errorId) return t('admin.ops.errorDetail.title')
-  return t('admin.ops.errorDetail.titleWithId', { id: String(props.errorId) })
-})
 
 const emptyText = computed(() => t('admin.ops.errorDetail.noErrorSelected'))
 

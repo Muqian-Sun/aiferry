@@ -228,7 +228,7 @@ describe('admin UsageView route filters', () => {
     expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('new-search@test.com')
   })
 
-  it('shows the routed user ID when its label lookup fails', async () => {
+  it('shows a deleted-user label (not the numeric ID) when the routed user lookup fails', async () => {
     routeQuery.user_id = '42'
     getById.mockRejectedValue(new Error('lookup failed'))
 
@@ -236,7 +236,7 @@ describe('admin UsageView route filters', () => {
     await flushPromises()
 
     expect(list).toHaveBeenCalledWith(expect.objectContaining({ user_id: 42 }), expect.anything())
-    expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('42')
+    expect(wrapper.find('[data-test="user-filter-label"]').text()).toBe('admin.entity.deletedUser')
   })
 })
 
@@ -313,7 +313,7 @@ describe('admin UsageView request ID column visibility', () => {
     vi.useRealTimers()
   })
 
-  it('keeps upstream ID hidden by default and allows enabling it from column settings', async () => {
+  it('does not offer the upstream ID as a list column (it lives in the detail drawer)', async () => {
     const wrapper = mount(UsageView, {
       global: {
         stubs: {
@@ -345,11 +345,7 @@ describe('admin UsageView request ID column visibility', () => {
     )
 
     await wrapper.get('[data-testid="column-settings"]').trigger('click')
-    await wrapper.get('[data-testid="column-toggle-upstream_request_id"]').trigger('click')
-
-    expect(usageTable.props('columns')).toEqual(
-      expect.arrayContaining([expect.objectContaining({ key: 'upstream_request_id', label: 'Upstream ID' })]),
-    )
+    expect(wrapper.find('[data-testid="column-toggle-upstream_request_id"]').exists()).toBe(false)
   })
 })
 
