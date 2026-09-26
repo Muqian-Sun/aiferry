@@ -83,10 +83,6 @@
         default-sort-order="desc"
         @sort="handleSort"
       >
-        <template #cell-id="{ value }">
-          <span class="font-mono text-xs text-af-ink-3">#{{ value }}</span>
-        </template>
-
         <template #cell-key="{ value, row }">
           <div class="flex items-center gap-2">
             <code class="code text-xs">
@@ -689,7 +685,6 @@ const route = useRoute() as ReturnType<typeof useRoute> | undefined
 // ---------- 列 ----------
 const allColumns = computed<Column[]>(() => [
   { key: 'name', label: t('common.name'), sortable: true },
-  { key: 'id', label: t('keys.id'), sortable: true },
   { key: 'key', label: t('keys.apiKey'), sortable: false },
   { key: 'status', label: t('common.status'), sortable: true },
   { key: 'usage', label: t('keys.usageAndLimit'), sortable: false },
@@ -701,12 +696,13 @@ const allColumns = computed<Column[]>(() => [
   { key: 'actions', label: t('common.actions'), sortable: false }
 ])
 
-// 默认只留判断「能不能用」的列；ID / 并发 / 最近 IP / 创建时间在详情抽屉里（muqian 2026-09-25）
+// 默认只留判断「能不能用」的列；并发 / 最近 IP / 创建时间在详情抽屉里（muqian 2026-09-25）。
+// 用户站不显示内部 ID：ID 列已删，version 2 让本机存的旧列设置回到新默认。
 const columnSettings = useColumnSettings({
   storageKey: 'user-keys-columns',
-  version: 1,
+  version: 2,
   columns: allColumns,
-  defaultHidden: ['id', 'current_concurrency', 'last_used_ip', 'created_at'],
+  defaultHidden: ['current_concurrency', 'last_used_ip', 'created_at'],
   alwaysVisible: ['name', 'actions']
 })
 

@@ -26,7 +26,7 @@
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
                 <h3 class="text-lg font-semibold tracking-[-0.01em] text-af-ink">
-                  {{ subscription.plan?.name || `Plan #${subscription.plan_id}` }}
+                  {{ subscription.plan?.name || t('userSubscriptions.unnamedPlan') }}
                 </h3>
                 <span
                   :class="[

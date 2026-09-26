@@ -30,6 +30,7 @@ export default {
     filters: {
       searchTaskName: 'Search task name',
       allApiKeys: 'All API keys',
+      unnamedApiKey: 'Unnamed key',
       allStatuses: 'All statuses',
       allDownloadStates: 'All download states',
       downloaded: 'Downloaded',

@@ -108,7 +108,7 @@
         <p>{{ t('keys.bulkEdit.failureHint') }}</p>
         <ul class="max-h-40 space-y-1 overflow-y-auto">
           <li v-for="failure in failures" :key="failure.id" class="break-words">
-            #{{ failure.id }} {{ failure.name }}: {{ failure.message }}
+            {{ failure.name }}: {{ failure.message }}
           </li>
         </ul>
       </div>

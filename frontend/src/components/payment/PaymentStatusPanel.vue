@@ -12,10 +12,6 @@
           <p class="text-lg font-bold text-af-ink">{{ props.orderType === 'subscription' ? t('payment.result.subscriptionSuccess') : t('payment.result.success') }}</p>
           <div v-if="paidOrder" class="w-full rounded-md bg-af-sunken p-4">
             <div class="space-y-2 text-sm">
-              <div class="flex justify-between">
-                <span class="text-af-ink-3">{{ t('payment.orders.orderId') }}</span>
-                <span class="font-medium text-af-ink">#{{ paidOrder.id }}</span>
-              </div>
               <div v-if="paidOrder.out_trade_no" class="flex justify-between">
                 <span class="text-af-ink-3">{{ t('payment.orders.orderNo') }}</span>
                 <span class="font-medium text-af-ink">{{ paidOrder.out_trade_no }}</span>
@@ -117,10 +113,11 @@
                 <span class="text-af-ink-3">{{ t('payment.orders.payAmount') }}</span>
                 <span class="font-semibold text-af-ink">{{ displayPaymentAmount }}</span>
               </div>
-              <div class="flex items-start justify-between gap-4">
+              <!-- 只显示订单编号；没有编号就不显示这一行（不拿内部订单 ID 顶替） -->
+              <div v-if="props.outTradeNo" class="flex items-start justify-between gap-4">
                 <span class="text-af-ink-3">{{ t('payment.orders.orderNo') }}</span>
                 <span class="max-w-[70%] break-all text-right font-mono text-xs text-af-ink">
-                  {{ displayOrderNumber }}
+                  {{ props.outTradeNo }}
                 </span>
               </div>
               <div class="flex items-start justify-between gap-4">
@@ -334,7 +331,6 @@ const countdownDisplay = computed(() => {
 })
 
 const displayPaymentAmount = computed(() => formatGatewayAmount(props.payAmount || props.amount || 0))
-const displayOrderNumber = computed(() => props.outTradeNo || `#${props.orderId}`)
 
 function formatGatewayAmount(value: number, currency?: string | null): string {
   return formatPaymentAmount(value, currency || paymentCurrency.value, localeCode.value)
@@ -387,7 +383,7 @@ function saveQRCode() {
   if (!canvas) return
   const link = document.createElement('a')
   link.href = canvas.toDataURL('image/png')
-  link.download = `alipay-${props.outTradeNo || props.orderId}.png`
+  link.download = `alipay-${props.outTradeNo || 'qrcode'}.png`
   document.body.appendChild(link)
   link.click()
   link.remove()

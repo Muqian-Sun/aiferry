@@ -128,7 +128,6 @@
           <DetailField :label="t('keys.lastUsedIP')" :value="apiKey.last_used_ip" />
           <DetailField :label="t('keys.currentConcurrency')" :value="apiKey.current_concurrency ?? 0" />
           <DetailField :label="t('keys.created')" :value="formatDateTime(apiKey.created_at)" />
-          <DetailField :label="t('keys.id')" :value="`#${apiKey.id}`" />
         </dl>
       </section>
 

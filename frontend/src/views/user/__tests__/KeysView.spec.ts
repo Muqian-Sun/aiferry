@@ -501,20 +501,10 @@ describe('user KeysView column settings', () => {
 
     expect(visibleColumnKeys(wrapper)).toContain('current_concurrency')
     expect(JSON.parse(localStorage.getItem('user-keys-columns')!)).toEqual({
-      version: 1,
-      hidden: ['id', 'last_used_ip', 'created_at'],
+      version: 2,
+      hidden: ['last_used_ip', 'created_at'],
       shown: [],
     })
-  })
-
-  it('shows the API key ID column when toggled', async () => {
-    const wrapper = await mountView()
-
-    await toggleColumn(wrapper, 'id')
-
-    expect(visibleColumnKeys(wrapper)).toContain('id')
-    expect(wrapper.get('[data-test="key-id"]').text()).toBe('#1')
-    expect(visibleColumnMeta(wrapper).find((column) => column.key === 'id')?.sortable).toBe(true)
   })
 
   it('shows the last used IP column when toggled', async () => {
@@ -534,12 +524,11 @@ describe('user KeysView column settings', () => {
   })
 
   it('restores column preferences from localStorage on mount and ignores other versions', async () => {
-    localStorage.setItem('user-keys-columns', JSON.stringify({ version: 1, hidden: ['created_at'] }))
+    localStorage.setItem('user-keys-columns', JSON.stringify({ version: 2, hidden: ['created_at'] }))
     const wrapper = await mountView()
 
     expect(visibleColumnKeys(wrapper)).toEqual([
       'name',
-      'id',
       'key',
       'status',
       'usage',
@@ -565,7 +554,7 @@ describe('user KeysView column settings', () => {
 
     const toggles = wrapper.findAll('[data-testid^="column-toggle-"]').map((item) => item.attributes('data-testid'))
     expect(toggles).toContain('column-toggle-key')
-    expect(toggles).toContain('column-toggle-id')
+    expect(toggles).not.toContain('column-toggle-id')
     expect(toggles).toContain('column-toggle-current_concurrency')
     expect(toggles).toContain('column-toggle-last_used_ip')
     expect(toggles).not.toContain('column-toggle-name')

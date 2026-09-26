@@ -65,7 +65,7 @@
 
         <!-- 筛选标签：没选是虚线、选了实心带 ✕；低频维度收在「更多筛选」后面，选了就一直露着 -->
         <div v-if="activeTab === 'errors'" class="mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
-          <FilterChip v-model="errorKeyChip" :label="t('usage.errors.keyName')" :options="apiKeyOptions" test-id="error-filter-key" @change="applyErrorFilters" />
+          <FilterChip v-model="errorKeyChip" :label="t('usage.errors.keyName')" :options="apiKeyOptions" :missing-label="missingKeyLabel" test-id="error-filter-key" @change="applyErrorFilters" />
           <FilterChip v-model="errorModelChip" :label="t('usage.errors.model')" :options="errorModelOptions" test-id="error-filter-model" @change="applyErrorFilters" />
           <FilterChip v-model="errorFilter.category" :label="t('usage.errors.category')" :options="errorCategoryOptions" test-id="error-filter-category" @change="applyErrorFilters" />
           <FilterChip v-model="errorStatusChip" :label="t('usage.errors.status')" :options="errorStatusOptions" test-id="error-filter-status" @change="applyErrorFilters" />
@@ -74,7 +74,7 @@
           </button>
         </div>
         <div v-else class="mb-4 flex flex-wrap items-center gap-2" data-testid="usage-filters">
-          <FilterChip v-model="keyChip" :label="t('usage.apiKeyFilter')" :options="apiKeyOptions" test-id="usage-filter-key" @change="applyFilters" />
+          <FilterChip v-model="keyChip" :label="t('usage.apiKeyFilter')" :options="apiKeyOptions" :missing-label="missingKeyLabel" test-id="usage-filter-key" @change="applyFilters" />
           <FilterChip v-model="modelChip" :label="t('usage.model')" :options="modelOptions" test-id="usage-filter-model" @change="applyFilters" />
           <template v-if="showMoreFilters">
             <FilterChip v-model="requestTypeChip" :label="t('usage.type')" :options="requestTypeOptions" test-id="usage-filter-type" @change="applyFilters" />
@@ -507,9 +507,12 @@ const billingModeOptions = computed<FilterOption[]>(() => [
 ])
 
 const apiKeys = ref<ApiKey[]>([])
+const apiKeysLoaded = ref(false)
 const modelOptionValues = ref<string[]>(queryModel ? [queryModel] : [])
 
 const apiKeyOptions = computed<FilterOption[]>(() => apiKeys.value.map((key) => ({ value: key.id, label: key.name })))
+// 从密钥抽屉跳来（/usage?key=…）时密钥清单可能还没到，或那把密钥已删：筛选标签不显示内部 ID
+const missingKeyLabel = computed(() => (apiKeysLoaded.value ? t('usage.deletedKey') : t('common.loading')))
 const modelOptions = computed<FilterOption[]>(() => modelOptionValues.value.map((model) => ({ value: model, label: model })))
 
 const keyChip = numberChip(() => filters.value.api_key_id, (value) => { filters.value.api_key_id = value ?? undefined })
@@ -907,6 +910,7 @@ const loadApiKeys = async () => {
 const loadFilterOptions = async () => {
   try {
     apiKeys.value = await loadApiKeys()
+    apiKeysLoaded.value = true
   } catch (error) {
     console.error('Failed to load usage filter options:', error)
   }
