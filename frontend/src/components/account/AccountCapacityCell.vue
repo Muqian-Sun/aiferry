@@ -18,7 +18,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import type { Account } from '@/types'
-import DetailField from '@/components/admin/list/DetailField.vue'
+import DetailField from '@/components/common/DetailField.vue'
 import { formatMoney } from '@/utils/money'
 
 const props = defineProps<{ account: Account }>()

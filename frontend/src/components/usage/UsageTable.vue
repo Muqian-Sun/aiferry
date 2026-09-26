@@ -29,7 +29,7 @@
         :server-side-sort="serverSideSort"
         :default-sort-key="defaultSortKey"
         :default-sort-order="defaultSortOrder"
-        :clickable-rows="isAdmin"
+        :clickable-rows="isAdmin || clickableRows"
         @sort="(key, order) => $emit('sort', key, order)"
         @row-click="(row: AdminUsageLog) => $emit('rowClick', row)"
       >
@@ -302,75 +302,13 @@
       }"
     >
       <div class="whitespace-nowrap rounded-lg border border-af-hairline-strong bg-af-sheet px-3 py-2.5 text-xs text-af-ink shadow-xl">
-        <div class="space-y-1.5">
-          <!-- 管理站：只列输入 / 输出 / 缓存（5 分钟 / 1 小时缓存、图片 Token 在详情抽屉） -->
-          <div v-if="isAdmin && tokenTooltipData" data-testid="usage-token-tooltip-admin">
+        <!-- 管理站：只列输入 / 输出 / 缓存（5 分钟 / 1 小时缓存、图片 Token 在详情抽屉） -->
+        <div v-if="isAdmin && tokenTooltipData" class="space-y-1.5" data-testid="usage-token-tooltip-admin">
+          <div>
             <div class="text-xs font-semibold text-af-ink-3 mb-1">{{ t('usage.tokenDetails') }}</div>
             <div v-for="line in adminTokenLines(tokenTooltipData)" :key="line.key" class="flex items-center justify-between gap-4">
               <span class="text-af-ink-3">{{ line.label }}</span>
               <span class="font-medium tabular-nums text-af-ink">{{ line.value.toLocaleString() }}</span>
-            </div>
-          </div>
-          <div v-else>
-            <div class="text-xs font-semibold text-af-ink-3 mb-1">{{ t('usage.tokenDetails') }}</div>
-            <div v-if="tokenTooltipData && tokenTooltipData.input_tokens > 0 && !hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.inputTokens') }}</span>
-              <span class="font-medium text-af-ink">{{ tokenTooltipData.input_tokens.toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData) && textInputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.inputTokens') }}</span>
-              <span class="font-medium text-af-ink">{{ textInputTokens(tokenTooltipData).toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && hasImageInputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('usage.imageInputTokens') }}</span>
-              <span class="font-medium text-af-ink-2">{{ tokenTooltipData.image_input_tokens.toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.output_tokens > 0 && !hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.outputTokens') }}</span>
-              <span class="font-medium text-af-ink">{{ tokenTooltipData.output_tokens.toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData) && textOutputTokens(tokenTooltipData) > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.outputTokens') }}</span>
-              <span class="font-medium text-af-ink">{{ textOutputTokens(tokenTooltipData).toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && hasImageOutputTokens(tokenTooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('usage.imageOutputTokens') }}</span>
-              <span class="font-medium text-af-ink-2">{{ tokenTooltipData.image_output_tokens.toLocaleString() }}</span>
-            </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_creation_tokens > 0">
-              <!-- 有 5m/1h 明细时，展开显示 -->
-              <template v-if="tokenTooltipData.cache_creation_5m_tokens > 0 || tokenTooltipData.cache_creation_1h_tokens > 0">
-                <div v-if="tokenTooltipData.cache_creation_5m_tokens > 0" class="flex items-center justify-between gap-4">
-                  <span class="text-af-ink-3 flex items-center gap-1.5">
-                    {{ t('admin.usage.cacheCreation5mTokens') }}
-                    <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-sunken text-af-ink-2">5m</span>
-                  </span>
-                  <span class="font-medium text-af-ink">{{ tokenTooltipData.cache_creation_5m_tokens.toLocaleString() }}</span>
-                </div>
-                <div v-if="tokenTooltipData.cache_creation_1h_tokens > 0" class="flex items-center justify-between gap-4">
-                  <span class="text-af-ink-3 flex items-center gap-1.5">
-                    {{ t('admin.usage.cacheCreation1hTokens') }}
-                    <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-sunken text-af-ink-2">1h</span>
-                  </span>
-                  <span class="font-medium text-af-ink">{{ tokenTooltipData.cache_creation_1h_tokens.toLocaleString() }}</span>
-                </div>
-              </template>
-              <!-- 无明细时，只显示聚合值 -->
-              <div v-else class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('admin.usage.cacheCreationTokens') }}</span>
-                <span class="font-medium text-af-ink">{{ tokenTooltipData.cache_creation_tokens.toLocaleString() }}</span>
-              </div>
-            </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_ttl_overridden" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3 flex items-center gap-1.5">
-                {{ t('usage.cacheTtlOverriddenLabel') }}
-                <span class="inline-flex items-center rounded px-1 py-px text-[10px] font-medium leading-tight bg-af-danger/20 text-af-danger ring-1 ring-inset ring-af-danger/30">R-{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? '5m' : '1H' }}</span>
-              </span>
-              <span class="font-medium text-af-danger">{{ tokenTooltipData.cache_creation_1h_tokens > 0 ? t('usage.cacheTtlOverridden1h') : t('usage.cacheTtlOverridden5m') }}</span>
-            </div>
-            <div v-if="tokenTooltipData && tokenTooltipData.cache_read_tokens > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.cacheReadTokens') }}</span>
-              <span class="font-medium text-af-ink">{{ tokenTooltipData.cache_read_tokens.toLocaleString() }}</span>
             </div>
           </div>
           <div class="flex items-center justify-between gap-6 border-t border-af-hairline-strong pt-1.5">
@@ -378,6 +316,8 @@
             <span class="font-semibold text-af-brand">{{ totalTokens(tokenTooltipData).toLocaleString() }}</span>
           </div>
         </div>
+        <!-- 用户站：和请求详情抽屉共用一份明细 -->
+        <UsageTokenBreakdown v-else-if="tokenTooltipData" :row="tokenTooltipData" />
         <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-af-hairline-strong border-t-transparent"></div>
       </div>
     </div>
@@ -394,110 +334,8 @@
       }"
     >
       <div class="whitespace-nowrap rounded-lg border border-af-hairline-strong bg-af-sheet px-3 py-2.5 text-xs text-af-ink shadow-xl">
-        <div class="space-y-1.5">
-          <!-- Cost Breakdown -->
-          <div class="mb-2 border-b border-af-hairline-strong pb-1.5">
-            <div class="text-xs font-semibold text-af-ink-3 mb-1">{{ t('usage.costDetails') }}</div>
-            <div v-if="tooltipData && tooltipData.input_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.inputCost') }}</span>
-              <span class="font-medium text-af-ink">${{ tooltipData.input_cost.toFixed(8) }}</span>
-            </div>
-            <div v-if="tooltipData && hasImageInputCost(tooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('usage.imageInputCost') }}</span>
-              <span class="font-medium text-af-ink-2">${{ tooltipData.image_input_cost.toFixed(8) }}</span>
-            </div>
-            <div v-if="tooltipData && tooltipData.output_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.outputCost') }}</span>
-              <span class="font-medium text-af-ink">${{ tooltipData.output_cost.toFixed(8) }}</span>
-            </div>
-            <div v-if="tooltipData && hasImageOutputCost(tooltipData)" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('usage.imageOutputCost') }}</span>
-              <span class="font-medium text-af-ink-2">${{ tooltipData.image_output_cost.toFixed(8) }}</span>
-            </div>
-            <!-- Token billing: show unit prices per 1M tokens -->
-            <template v-if="tooltipData && !isImageUsage(tooltipData) && (!tooltipData.billing_mode || tooltipData.billing_mode === BILLING_MODE_TOKEN)">
-              <div v-if="tooltipData && textInputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.inputTokenPrice') }}</span>
-                <span class="font-medium text-af-ink">{{ formatTokenPricePerMillion(tooltipData.input_cost, textInputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
-              </div>
-              <div v-if="tooltipData && hasImageInputTokens(tooltipData)" class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageInputTokenPrice') }}</span>
-                <span class="font-medium text-af-ink-2">{{ formatTokenPricePerMillion(tooltipData.image_input_cost ?? 0, tooltipData.image_input_tokens) }} {{ t('usage.perMillionTokens') }}</span>
-              </div>
-              <div v-if="tooltipData && tooltipData.output_cost > 0 && textOutputTokens(tooltipData) > 0" class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.outputTokenPrice') }}</span>
-                <span class="font-medium text-af-ink">{{ formatTokenPricePerMillion(tooltipData.output_cost, textOutputTokens(tooltipData)) }} {{ t('usage.perMillionTokens') }}</span>
-              </div>
-              <div v-if="tooltipData && hasImageOutputTokens(tooltipData)" class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageOutputTokenPrice') }}</span>
-                <span class="font-medium text-af-ink-2">{{ formatTokenPricePerMillion(tooltipData.image_output_cost ?? 0, tooltipData.image_output_tokens) }} {{ t('usage.perMillionTokens') }}</span>
-              </div>
-            </template>
-            <template v-else-if="tooltipData && isImageUsage(tooltipData)">
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageCount') }}</span>
-                <span class="font-medium text-af-ink">{{ tooltipData.image_count }}{{ t('usage.imageUnit') }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageBillingSize') }}</span>
-                <span class="font-medium text-af-ink">{{ formatImageBillingSize(tooltipData, t) }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageSizeSource') }}</span>
-                <span class="font-medium text-af-ink">{{ formatImageSizeSource(tooltipData, t) }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageInputSize') }}</span>
-                <span class="font-medium text-af-ink">{{ formatImageInputSize(tooltipData, t) }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageOutputSize') }}</span>
-                <span class="font-medium text-af-ink">{{ formatImageOutputSize(tooltipData, t) }}</span>
-              </div>
-              <div v-if="formatImageSizeBreakdown(tooltipData)" class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageSizeBreakdown') }}</span>
-                <span class="font-medium text-af-ink">{{ formatImageSizeBreakdown(tooltipData) }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageUnitPrice') }}</span>
-                <span class="font-medium text-af-ink">${{ imageUnitPrice(tooltipData).toFixed(8) }}</span>
-              </div>
-              <div class="flex items-center justify-between gap-4">
-                <span class="text-af-ink-3">{{ t('usage.imageTotalPrice') }}</span>
-                <span class="font-medium text-af-ink">${{ tooltipData.total_cost?.toFixed(8) || '0.00000000' }}</span>
-              </div>
-            </template>
-            <div v-else class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('usage.unitPrice') }}</span>
-              <span class="font-medium text-af-ink">${{ tooltipData?.total_cost?.toFixed(8) || '0.00000000' }}</span>
-            </div>
-            <div v-if="tooltipData && tooltipData.cache_creation_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.cacheCreationCost') }}</span>
-              <span class="font-medium text-af-ink">${{ tooltipData.cache_creation_cost.toFixed(8) }}</span>
-            </div>
-            <div v-if="tooltipData && tooltipData.cache_read_cost > 0" class="flex items-center justify-between gap-4">
-              <span class="text-af-ink-3">{{ t('admin.usage.cacheReadCost') }}</span>
-              <span class="font-medium text-af-ink">${{ tooltipData.cache_read_cost.toFixed(8) }}</span>
-            </div>
-          </div>
-          <!-- Rate and Summary -->
-          <div class="flex items-center justify-between gap-6">
-            <span class="text-af-ink-3">{{ t('usage.serviceTier') }}</span>
-            <span class="font-semibold text-af-ink">{{ getUsageServiceTierLabel(tooltipData?.service_tier, t) }}</span>
-          </div>
-          <div class="flex items-center justify-between gap-6">
-            <span class="text-af-ink-3">{{ t('usage.rate') }}</span>
-            <span class="font-semibold text-af-brand">{{ formatMultiplier(tooltipData?.rate_multiplier || 1) }}x</span>
-          </div>
-          <div class="flex items-center justify-between gap-6">
-            <span class="text-af-ink-3">{{ t('usage.original') }}</span>
-            <span class="font-medium text-af-ink">${{ tooltipData?.total_cost?.toFixed(8) || '0.00000000' }}</span>
-          </div>
-          <div class="flex items-center justify-between gap-6">
-            <span class="text-af-ink-3">{{ t('usage.userBilled') }}</span>
-            <span class="font-semibold text-af-ink">${{ tooltipData?.actual_cost?.toFixed(8) || '0.00000000' }}</span>
-          </div>
-        </div>
+        <!-- 只有用户站有费用悬浮框（管理站这一列是收入，明细在详情抽屉） -->
+        <UsageCostBreakdown v-if="tooltipData" :row="tooltipData" />
         <div class="absolute right-full top-1/2 h-0 w-0 -translate-y-1/2 border-b-[6px] border-r-[6px] border-t-[6px] border-b-transparent border-r-af-hairline-strong border-t-transparent"></div>
       </div>
     </div>
@@ -510,9 +348,7 @@ import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
 import { formatMoney, formatMoneyExact } from '@/utils/money'
 import { formatDateTime, formatReasoningEffort } from '@/utils/format'
-import { formatCacheTokens, formatMultiplier } from '@/utils/formatters'
-import { formatTokenPricePerMillion } from '@/utils/usagePricing'
-import { getUsageServiceTierLabel } from '@/utils/usageServiceTier'
+import { formatCacheTokens } from '@/utils/formatters'
 import { resolveUsageRequestType } from '@/utils/usageRequestType'
 import {
   LATENCY_BAR_CLASSES,
@@ -520,31 +356,15 @@ import {
   durationSeverity,
   firstTokenSeverity,
 } from '@/utils/latencyHealth'
-import {
-  BILLING_MODE_TOKEN,
-  getBillingModeLabel,
-  isImageUsage,
-  getDisplayBillingMode,
-  imageUnitPrice,
-} from '@/utils/billingMode'
-import {
-  formatImageBillingSize,
-  formatImageInputSize,
-  formatImageOutputSize,
-  formatImageSizeBreakdown,
-  formatImageSizeSource,
-  hasImageOutputTokens,
-  textOutputTokens,
-  hasImageOutputCost,
-  hasImageInputTokens,
-  textInputTokens,
-  hasImageInputCost,
-} from '@/utils/imageUsage'
+import { getBillingModeLabel, isImageUsage, getDisplayBillingMode } from '@/utils/billingMode'
+import { formatImageBillingSize, hasImageOutputTokens, hasImageInputTokens } from '@/utils/imageUsage'
 
 import DataTable from '@/components/common/DataTable.vue'
 import EmptyState from '@/components/common/EmptyState.vue'
 import IpGeoCell from '@/components/common/IpGeoCell.vue'
 import Icon from '@/components/icons/Icon.vue'
+import UsageTokenBreakdown from './UsageTokenBreakdown.vue'
+import UsageCostBreakdown from './UsageCostBreakdown.vue'
 import { fetchBatch, getEntry } from '@/utils/ipGeoLookup'
 import {
   formatDurationMs,
@@ -569,6 +389,8 @@ interface Props {
    * admin：管理站（Token 一个数、这一列是收入、耗时一个数；点行 emit rowClick，由页面打开详情抽屉）。
    */
   mode?: 'user' | 'admin'
+  /** 用户站点行打开请求详情（管理站 mode=admin 时总是可点）；行里的提示图标、复制按钮都已 stop，不会误触 */
+  clickableRows?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -576,7 +398,8 @@ const props = withDefaults(defineProps<Props>(), {
   serverSideSort: false,
   defaultSortKey: '',
   defaultSortOrder: 'asc',
-  mode: 'user'
+  mode: 'user',
+  clickableRows: false
 })
 const emit = defineEmits<{
   userClick: [userID: number, email?: string]

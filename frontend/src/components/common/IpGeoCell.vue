@@ -3,7 +3,7 @@
     <button
       type="button"
       class="text-af-ink-3 underline decoration-dashed underline-offset-2 transition-colors hover:text-af-ink"
-      @click="handleFetch"
+      @click.stop="handleFetch"
     >
       {{ t('usage.ipGeo.fetch') }}
     </button>
@@ -29,7 +29,7 @@
       type="button"
       class="truncate text-af-ink-3 underline decoration-dotted underline-offset-2 transition-colors hover:text-af-ink"
       :title="tooltipText"
-      @click="handleOpenDetail"
+      @click.stop="handleOpenDetail"
     >
       {{ entry.label }}
     </button>
@@ -37,7 +37,7 @@
       type="button"
       class="text-af-ink-4 transition-colors hover:text-af-ink"
       :title="t('usage.ipGeo.refreshTitle')"
-      @click="handleRefresh"
+      @click.stop="handleRefresh"
     >
       <Icon name="refresh" size="xs" />
     </button>
@@ -47,7 +47,7 @@
     <button
       type="button"
       class="text-af-danger underline decoration-dashed underline-offset-2 transition-colors hover:text-af-danger/80"
-      @click="handleFetch"
+      @click.stop="handleFetch"
     >
       {{ t('usage.ipGeo.failed') }}
     </button>

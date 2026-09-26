@@ -1,7 +1,7 @@
 <template>
   <!--
-    单指标趋势（Token / 请求 / 收入 / 利润）：一份 trend 数据，只画一条墨色线 + 很淡的面积（利润为负时线走到 0 以下）。
-    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；管理站概览、用量页、渠道抽屉都用它。
+    单指标趋势（Token / 请求 / 费用 / 收入 / 利润）：一份 trend 数据，只画一条墨色线 + 很淡的面积（利润为负时线走到 0 以下）。
+    控制台配色单色为主（muqian 2026-09-23），不再用分类彩色；两站共用：用户站概览、密钥详情，管理站概览、用量页、渠道抽屉。
   -->
   <div v-if="loading" class="flex h-48 items-center justify-center">
     <span class="spinner text-af-ink-3" />
@@ -27,9 +27,10 @@ import type { TrendDataPoint } from '@/types'
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Tooltip, Filler)
 
 /**
- * revenue = 收入（actual_cost）；profit = 利润（actual_cost − account_cost，只有管理端的趋势数据带 account_cost）。
+ * cost = 用户站「费用」（用户实付 actual_cost）；revenue = 管理站「收入」（同一个 actual_cost，站在平台这边叫法不同）；
+ * profit = 利润（actual_cost − account_cost，只有管理端的趋势数据带 account_cost）。
  */
-export type UsageTrendMetric = 'tokens' | 'requests' | 'revenue' | 'profit'
+export type UsageTrendMetric = 'tokens' | 'requests' | 'cost' | 'revenue' | 'profit'
 
 const props = defineProps<{
   trendData: TrendDataPoint[]
@@ -48,6 +49,7 @@ function shortLabel(date: string): string {
 const labelKeys: Record<UsageTrendMetric, string> = {
   tokens: 'userUi.usage.trend.tokens',
   requests: 'userUi.usage.trend.requests',
+  cost: 'userUi.usage.trend.cost',
   revenue: 'common.money.revenue',
   profit: 'common.money.profit'
 }

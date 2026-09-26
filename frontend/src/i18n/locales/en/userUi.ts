@@ -100,18 +100,57 @@ export default {
         total: 'Tokens, all time'
       },
       models: {
-        title: 'By model',
         other: 'Other',
         empty: 'No usage in this range'
       },
-      composition: {
-        title: 'Token mix',
-        input: 'Input',
-        output: 'Output',
-        cacheRead: 'Cache read',
-        cacheWrite: 'Cache write',
-        hitRate: 'Cache hit rate',
-        empty: 'No usage in this range'
+      trend: {
+        title: 'Usage trend'
+      },
+      attention: {
+        title: 'Needs attention',
+        view: 'View',
+        recharge: 'Top up',
+        renew: 'Renew',
+        keyExpiredOne: 'Key “{name}” has expired',
+        keyExpired: '{count} keys have expired',
+        keyQuotaOne: 'Key “{name}” has used up its quota',
+        keyQuota: '{count} keys have used up their quota',
+        keyQuotaNearOne: 'Key “{name}” has used {percent}% of its quota',
+        keyNearLimitOne: 'Key “{name}” has used {percent}% of its {limit} limit',
+        keyNearLimit: '{count} keys are close to a limit',
+        keyExpiringOne: 'Key “{name}” expires in {days} days',
+        keyExpiring: '{count} keys expire within 7 days',
+        balanceEmpty: 'Your balance is used up',
+        balanceRunway: 'Balance {balance} lasts about {days} more days at the last 7 days’ pace',
+        balanceBelowThreshold: 'Balance {balance} is below your alert threshold of {threshold}',
+        subscriptionQuota: 'Subscription “{name}”: {percent}% of the quota used ({window})',
+        subscriptionExpiring: 'Subscription “{name}” expires in {days} days',
+        failuresToday: '{count} failed requests today'
+      },
+      subscriptions: {
+        title: 'Subscription quota',
+        manage: 'Manage',
+        unlimited: 'No limit',
+        daily: 'Today',
+        weekly: 'This week',
+        monthly: 'This month',
+        fallbackName: 'Subscription',
+        noExpiry: 'No expiry',
+        expiresIn: 'Expires in {days} days'
+      },
+      gettingStarted: {
+        title: 'Get started',
+        description: 'Put the base URL and a key into your SDK or client and start calling. After your first request this page switches to your usage overview.',
+        baseUrl: 'Base URL',
+        key: 'Your key',
+        noKey: 'No active key yet',
+        allKeys: 'All keys',
+        createKey: 'Create a key',
+        copy: 'Copy',
+        copied: 'Copied',
+        example: 'Example',
+        exampleHint: 'Replace $API_KEY with the key copied above, or export API_KEY=your-key first',
+        exampleMessage: 'Hello'
       }
     },
     billing: {
@@ -124,26 +163,38 @@ export default {
     },
     usage: {
       title: 'Usage details',
-      description: 'Model usage and every request, by date range',
+      description: 'Where the money went, and what happened to each request',
+      moreActions: 'More actions',
+      moreFilters: 'More filters',
+      clearFilters: 'Clear filters',
+      costShare: 'Share of spend',
       stats: {
         requests: 'Requests',
         tokens: 'Tokens',
-        cost: 'Cost',
+        actualCost: 'Billed',
         standardCost: 'List price',
-        totalCost: 'Total spent',
-        todayCost: 'Today cost',
-        avgLatency: 'Avg latency'
+        cacheHitRate: 'Cache hit rate',
+        avgLatency: 'Avg latency',
+        failures: 'Failed requests',
+        viewFailures: 'View'
       },
       sections: {
-        models: 'Usage by model',
+        spend: 'Spend by model',
         records: 'Request details'
+      },
+      detail: {
+        eyebrow: 'Request',
+        request: 'Request info',
+        requestId: 'Request ID',
+        requestIdCopied: 'Request ID copied',
+        copy: 'Copy'
       },
       trend: {
         tokens: 'Tokens',
         requests: 'Requests',
+        cost: 'Cost',
         empty: 'No data in this period'
       },
-      share: 'Share',
       retry: 'Retry',
       loadFailed: 'This section did not load',
       loadFailedHint: 'The endpoint is temporarily unavailable. Other sections are unaffected.',
@@ -170,8 +221,6 @@ export default {
       }
     },
     summary: {
-      keys: 'Keys',
-      activeKeys: 'Active',
       redeemHistoryDesc: 'Redemptions and admin adjustments'
     },
     models: {

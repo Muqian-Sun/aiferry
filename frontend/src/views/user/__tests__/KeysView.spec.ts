@@ -4,6 +4,7 @@ import { nextTick } from 'vue'
 
 import type { ApiKey } from '@/types'
 import { keysAPI } from '@/api'
+import FilterChip from '@/components/common/FilterChip.vue'
 import KeysView from '../KeysView.vue'
 
 const {
@@ -11,6 +12,7 @@ const {
   updateKey,
   getPublicSettings,
   getDashboardApiKeysUsage,
+  getMyApiKeyDailyUsage,
   showError,
   showSuccess,
   copyToClipboard,
@@ -21,6 +23,7 @@ const {
   updateKey: vi.fn(),
   getPublicSettings: vi.fn(),
   getDashboardApiKeysUsage: vi.fn(),
+  getMyApiKeyDailyUsage: vi.fn(),
   showError: vi.fn(),
   showSuccess: vi.fn(),
   copyToClipboard: vi.fn(),
@@ -65,6 +68,7 @@ vi.mock('@/api', () => ({
   },
   usageAPI: {
     getDashboardApiKeysUsage,
+    getMyApiKeyDailyUsage,
   },
 }))
 
@@ -137,7 +141,7 @@ const SiteShellStub = {
 const DataTableStub = {
   name: 'DataTable',
   props: { columns: Array, data: Array, selectedKeys: Array, selectable: Boolean },
-  emits: ['sort', 'update:selectedKeys'],
+  emits: ['sort', 'update:selectedKeys', 'rowClick'],
   template: `
     <div>
       <div data-test="columns">{{ columns.map((col) => col.key).join(',') }}</div>
@@ -145,7 +149,8 @@ const DataTableStub = {
       <button data-test="sort-current-concurrency" @click="$emit('sort', 'current_concurrency', 'asc')">
         Sort Current Concurrency
       </button>
-      <div v-for="row in data" :key="row.id">
+      <div v-for="row in data" :key="row.id" data-test="row">
+        <button data-test="row-open" @click="$emit('rowClick', row)">Open {{ row.name }}</button>
         <div
           v-if="columns.some((col) => col.key === 'id')"
           data-test="key-id"
@@ -217,6 +222,8 @@ const mountView = async () => {
         SearchInput: SearchInputStub,
         Icon: IconStub,
         UseKeyModal: true,
+        UsageMetricTrend: true,
+        RouterLink: { props: ['to'], template: '<a data-test="router-link" :data-to="JSON.stringify(to)"><slot /></a>' },
         BulkEditKeysModal: true,
         EndpointPopover: true,
         Teleport: true,
@@ -234,12 +241,11 @@ const visibleColumnKeys = (wrapper: VueWrapper) =>
 const visibleColumnMeta = (wrapper: VueWrapper): Array<{ key: string; sortable: boolean }> =>
   JSON.parse(wrapper.get('[data-test="columns-meta"]').text())
 
-const getButtonByText = (wrapper: VueWrapper, text: string) => {
-  const button = wrapper.findAll('button').find((item) => item.text().includes(text))
-  if (!button) {
-    throw new Error(`Button not found: ${text}`)
-  }
-  return button
+const toggleColumn = async (wrapper: VueWrapper, key: string) => {
+  await wrapper.get('[data-testid="column-settings"]').trigger('click')
+  await nextTick()
+  await wrapper.get(`[data-testid="column-toggle-${key}"]`).trigger('click')
+  await nextTick()
 }
 
 describe('user KeysView column settings', () => {
@@ -251,6 +257,7 @@ describe('user KeysView column settings', () => {
     vi.mocked(keysAPI.create).mockReset()
     getPublicSettings.mockReset()
     getDashboardApiKeysUsage.mockReset()
+    getMyApiKeyDailyUsage.mockReset().mockResolvedValue({ items: [], days: 30, start_date: '', end_date: '' })
     showError.mockReset()
     showSuccess.mockReset()
     copyToClipboard.mockReset()
@@ -269,40 +276,117 @@ describe('user KeysView column settings', () => {
     isCurrentStep.mockReturnValue(false)
   })
 
-  it.each([
-    { initialStatus: 'quota_exhausted', status: 'active', formStatus: 'active' },
-    { initialStatus: 'inactive', status: 'inactive', formStatus: 'inactive' },
-    { initialStatus: 'active', status: 'active', formStatus: 'inactive' },
-  ] as const)('syncs quota reset from $initialStatus to $status with form status $formStatus', async ({ initialStatus, status, formStatus }) => {
-    const key: ApiKey = {
-      ...createApiKey(), quota: 10, quota_used: 10,
-      status: initialStatus,
-    }
-    listKeys.mockResolvedValueOnce({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
-    updateKey.mockResolvedValue({ ...key, status, quota_used: 0 })
+  // 额度 / 速率的「已用」与重置在详情抽屉里（muqian 2026-09-25），编辑表单只放设置
+  it('resets used quota from the key drawer and updates the row in place', async () => {
+    const key: ApiKey = { ...createApiKey(), quota: 10, quota_used: 10, status: 'quota_exhausted' }
+    listKeys.mockResolvedValue({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+    updateKey.mockResolvedValue({ ...key, status: 'active', quota_used: 0 })
     const wrapper = await mountView()
-    await wrapper.get('[data-testid="edit-key"]').trigger('click')
-    await wrapper.get('[data-tour="key-form-name"]').setValue('Unsaved name')
-    const statusSelect = wrapper.findAllComponents({ name: 'Select' })
-      .find((select) => select.props('options').length === 2 &&
-        select.props('options')[0].value === 'active')!
-    statusSelect.vm.$emit('update:modelValue', 'inactive')
-    await wrapper.get('button[title="keys.resetQuotaUsed"]').trigger('click')
+
+    await wrapper.get('[data-test="row-open"]').trigger('click')
+    await flushPromises()
+    expect(getMyApiKeyDailyUsage).toHaveBeenCalledWith(key.id, 30)
+    expect(wrapper.get('[data-testid="key-drawer-limit-quota"]').text()).toContain('$10.00')
+
+    await wrapper.get('[data-testid="key-drawer-reset-quota"]').trigger('click')
     const confirmation = wrapper.findAllComponents({ name: 'ConfirmDialog' })
       .find((dialog) => dialog.props('title') === 'keys.resetQuotaTitle')!
+    expect(confirmation.props('show')).toBe(true)
     confirmation.vm.$emit('confirm')
     await flushPromises()
 
-    expect(updateKey).toHaveBeenNthCalledWith(1, key.id, { reset_quota: true })
-    expect(wrapper.findComponent({ name: 'DataTable' }).props('data')[0])
-      .toMatchObject({ status, quota_used: 0 })
-    expect(statusSelect.props('modelValue')).toBe(formStatus)
-    expect((wrapper.get('[data-tour="key-form-name"]').element as HTMLInputElement).value)
-      .toBe('Unsaved name')
+    expect(updateKey).toHaveBeenCalledWith(key.id, { reset_quota: true })
+    expect(wrapper.findComponent({ name: 'DataTable' }).props('data')[0]).toMatchObject({ status: 'active', quota_used: 0 })
+    // 已用归零后抽屉里不再提供重置
+    expect(wrapper.find('[data-testid="key-drawer-reset-quota"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
 
+  it('keeps usage and reset controls out of the edit form and submits the settings', async () => {
+    const key: ApiKey = { ...createApiKey(), quota: 10, quota_used: 4, rate_limit_5h: 5, usage_5h: 1 }
+    listKeys.mockResolvedValue({ items: [key], total: 1, page: 1, page_size: 20, pages: 1 })
+    updateKey.mockResolvedValue(key)
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-testid="edit-key"]').trigger('click')
+    expect(wrapper.find('button[title="keys.resetQuotaUsed"]').exists()).toBe(false)
+    expect(wrapper.find('[data-testid="key-form-more"]').exists()).toBe(false)
+    await wrapper.get('[data-tour="key-form-name"]').setValue('Renamed')
     await wrapper.get('#key-form').trigger('submit')
     await flushPromises()
-    expect(updateKey).toHaveBeenNthCalledWith(2, key.id, expect.objectContaining({ name: 'Unsaved name', status: formStatus }))
+
+    expect(updateKey).toHaveBeenCalledWith(key.id, expect.objectContaining({ name: 'Renamed', status: 'active', quota: 10, rate_limit_5h: 5 }))
+    wrapper.unmount()
+  })
+
+  it('opens the drawer on the usage-instructions tab from the row action', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-testid="use-key"]').trigger('click')
+    await flushPromises()
+
+    const useKey = wrapper.findComponent({ name: 'UseKeyModal' })
+    expect(useKey.props('show')).toBe(true)
+    expect(useKey.props('layout')).toBe('inline')
+    expect(useKey.props('apiKey')).toBe('sk-test-key')
+    expect(wrapper.find('[data-testid="key-drawer-overview"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('links the drawer to the usage page filtered by this key', async () => {
+    const wrapper = await mountView()
+
+    await wrapper.get('[data-test="row-open"]').trigger('click')
+    await flushPromises()
+
+    const link = wrapper.get('[data-testid="key-drawer-usage-link"]')
+    expect(JSON.parse(link.attributes('data-to')!)).toEqual({ path: '/usage', query: { key: '1' } })
+    wrapper.unmount()
+  })
+
+  it('offers near-limit / expiring in the status filter and filters to them', async () => {
+    const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
+    const keys: ApiKey[] = [
+      { ...createApiKey(), id: 1, name: 'fine' },
+      { ...createApiKey(), id: 2, name: 'expired', status: 'expired' },
+      { ...createApiKey(), id: 3, name: 'near-limit', quota: 10, quota_used: 9 },
+      { ...createApiKey(), id: 4, name: 'expiring', expires_at: soon },
+    ]
+    listKeys.mockResolvedValue({ items: keys, total: 4, page: 1, page_size: 20, pages: 1 })
+    const wrapper = await mountView()
+
+    // 没有筛选且一页装得下：直接用这一页，不再多拉
+    expect(listKeys).toHaveBeenCalledTimes(1)
+    const statusChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-status')!
+    expect(statusChip.props('options').map((option: { value: string }) => option.value)).toEqual(
+      expect.arrayContaining(['expired', 'quota_exhausted', 'near_limit', 'expiring'])
+    )
+
+    // 限额将满：没有后端筛选，从全部密钥里挑出来，不分页
+    statusChip.vm.$emit('update:modelValue', 'near_limit')
+    await flushPromises()
+    const table = wrapper.findComponent({ name: 'DataTable' })
+    expect(table.props('data').map((key: ApiKey) => key.name)).toEqual(['near-limit'])
+    expect(wrapper.findComponent({ name: 'Pagination' }).exists()).toBe(false)
+    expect(statusChip.props('modelValue')).toBe('near_limit')
+
+    // 已过期：走后端状态筛选
+    listKeys.mockClear()
+    statusChip.vm.$emit('update:modelValue', 'expired')
+    await flushPromises()
+    expect(listKeys).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ status: 'expired' }), expect.anything())
+    wrapper.unmount()
+  })
+
+  it('loads every key for the near-limit / expiring filters when the list is paged', async () => {
+    listKeys.mockImplementation((page: number, pageSize: number) =>
+      Promise.resolve({ items: [{ ...createApiKey(), id: page * 1000 + pageSize, status: 'expired' }], total: 30, page, page_size: pageSize, pages: pageSize === 100 ? 1 : 2 })
+    )
+    const wrapper = await mountView()
+
+    expect(listKeys).toHaveBeenCalledWith(1, 100)
+    const statusChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-status')!
+    expect(statusChip.props('options').map((option: { value: string }) => option.value)).toContain('near_limit')
     wrapper.unmount()
   })
 
@@ -338,15 +422,14 @@ describe('user KeysView column settings', () => {
     expect(visibleColumnKeys(wrapper)).toEqual([
       'name',
       'key',
-      'current_concurrency',
-      'usage',
-      'expires_at',
       'status',
-      'created_at',
+      'usage',
+      'last_used_at',
+      'expires_at',
       'actions',
     ])
-    expect(visibleColumnKeys(wrapper)).not.toContain('rate_limit')
-    expect(visibleColumnKeys(wrapper)).not.toContain('last_used_at')
+    expect(visibleColumnKeys(wrapper)).not.toContain('current_concurrency')
+    expect(visibleColumnKeys(wrapper)).not.toContain('created_at')
     expect(visibleColumnKeys(wrapper)).not.toContain('last_used_ip')
     expect(visibleColumnKeys(wrapper)).not.toContain('id')
   })
@@ -414,23 +497,20 @@ describe('user KeysView column settings', () => {
   it('shows a hidden column when toggled and persists the preference', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'Rate Limit').trigger('click')
-    await nextTick()
+    await toggleColumn(wrapper, 'current_concurrency')
 
-    expect(visibleColumnKeys(wrapper)).toContain('rate_limit')
-    expect(localStorage.getItem('api-key-hidden-columns')).toBe(
-      JSON.stringify(['id', 'last_used_at', 'last_used_ip'])
-    )
-    expect(localStorage.getItem('api-key-column-settings-version')).toBe('3')
+    expect(visibleColumnKeys(wrapper)).toContain('current_concurrency')
+    expect(JSON.parse(localStorage.getItem('user-keys-columns')!)).toEqual({
+      version: 1,
+      hidden: ['id', 'last_used_ip', 'created_at'],
+      shown: [],
+    })
   })
 
   it('shows the API key ID column when toggled', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'ID').trigger('click')
-    await nextTick()
+    await toggleColumn(wrapper, 'id')
 
     expect(visibleColumnKeys(wrapper)).toContain('id')
     expect(wrapper.get('[data-test="key-id"]').text()).toBe('#1')
@@ -438,7 +518,7 @@ describe('user KeysView column settings', () => {
   })
 
   it('shows the last used IP column when toggled', async () => {
-    listKeys.mockResolvedValueOnce({
+    listKeys.mockResolvedValue({
       items: [{ ...createApiKey(), last_used_ip: '203.0.113.10' }],
       total: 1,
       page: 1,
@@ -447,52 +527,49 @@ describe('user KeysView column settings', () => {
     })
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
-    await getButtonByText(wrapper, 'Last Used IP').trigger('click')
-    await nextTick()
+    await toggleColumn(wrapper, 'last_used_ip')
 
     expect(visibleColumnKeys(wrapper)).toContain('last_used_ip')
     expect(wrapper.get('[data-test="last-used-ip"]').text()).toBe('203.0.113.10')
   })
 
-  it('restores column preferences from localStorage on mount', async () => {
-    // 分组列已不存在：旧偏好里的 'group' 被当作未知列丢弃
-    localStorage.setItem('api-key-hidden-columns', JSON.stringify(['group', 'created_at']))
-    localStorage.setItem('api-key-column-settings-version', '1')
-
+  it('restores column preferences from localStorage on mount and ignores other versions', async () => {
+    localStorage.setItem('user-keys-columns', JSON.stringify({ version: 1, hidden: ['created_at'] }))
     const wrapper = await mountView()
 
     expect(visibleColumnKeys(wrapper)).toEqual([
       'name',
+      'id',
       'key',
-      'current_concurrency',
-      'usage',
-      'rate_limit',
-      'expires_at',
       'status',
+      'usage',
+      'current_concurrency',
       'last_used_at',
+      'last_used_ip',
+      'expires_at',
       'actions',
     ])
-    expect(localStorage.getItem('api-key-hidden-columns')).toBe(
-      JSON.stringify(['created_at', 'last_used_ip', 'id'])
-    )
-    expect(localStorage.getItem('api-key-column-settings-version')).toBe('3')
+    wrapper.unmount()
+
+    localStorage.setItem('user-keys-columns', JSON.stringify({ version: 0, hidden: [] }))
+    const fresh = await mountView()
+    expect(visibleColumnKeys(fresh)).not.toContain('created_at')
+    expect(visibleColumnKeys(fresh)).not.toContain('id')
   })
 
   it('does not include always-visible columns in the toggleable menu', async () => {
     const wrapper = await mountView()
 
-    await wrapper.get('button[title="Column Settings"]').trigger('click')
+    await wrapper.get('[data-testid="column-settings"]').trigger('click')
     await nextTick()
 
-    const columnMenuText = wrapper.text()
-    expect(columnMenuText).toContain('API Key')
-    expect(columnMenuText).toContain('ID')
-    expect(columnMenuText).toContain('Current Concurrency')
-    expect(columnMenuText).toContain('Rate Limit')
-    expect(columnMenuText).toContain('Last Used IP')
-    expect(columnMenuText).not.toContain('Name')
-    expect(columnMenuText).not.toContain('Actions')
+    const toggles = wrapper.findAll('[data-testid^="column-toggle-"]').map((item) => item.attributes('data-testid'))
+    expect(toggles).toContain('column-toggle-key')
+    expect(toggles).toContain('column-toggle-id')
+    expect(toggles).toContain('column-toggle-current_concurrency')
+    expect(toggles).toContain('column-toggle-last_used_ip')
+    expect(toggles).not.toContain('column-toggle-name')
+    expect(toggles).not.toContain('column-toggle-actions')
   })
 
   it('renders the current concurrency value', async () => {
@@ -503,6 +580,7 @@ describe('user KeysView column settings', () => {
 
   it('marks current concurrency as sortable', async () => {
     const wrapper = await mountView()
+    await toggleColumn(wrapper, 'current_concurrency')
 
     const currentConcurrencyColumn = visibleColumnMeta(wrapper).find(
       (column) => column.key === 'current_concurrency'
@@ -520,8 +598,8 @@ describe('user KeysView column settings', () => {
     await wrapper.findComponent({ name: 'SearchInput' }).vm.$emit('search')
     await flushPromises()
 
-    const selects = wrapper.findAllComponents({ name: 'Select' })
-    await selects[0].vm.$emit('update:modelValue', 'active')
+    const statusChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-status')!
+    await statusChip.vm.$emit('update:modelValue', 'active')
     await flushPromises()
 
     listKeys.mockClear()
