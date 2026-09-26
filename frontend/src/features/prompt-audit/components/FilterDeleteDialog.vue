@@ -64,18 +64,17 @@
             <span>{{ t('admin.promptAudit.events.keyword') }}</span>
             <input v-model="local.keyword" type="text" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.keyword')" @input="criteriaChanged" />
           </label>
-          <label class="text-xs text-af-ink-2">
-            <span>{{ t('admin.promptAudit.events.userId') }}</span>
-            <input v-model="local.user_id" type="number" class="input mt-1 w-full" :aria-label="t('admin.promptAudit.events.userId')" @input="criteriaChanged" />
-          </label>
+          <!-- 按邮箱选用户，不让人手填内部 id -->
+          <div class="text-xs text-af-ink-2">
+            <span>{{ t('admin.promptAudit.events.filterUser') }}</span>
+            <EntityPicker ref="userPickerRef" kind="user" class="mt-1" :model-value="selectedUserId" @update:model-value="setUser" />
+          </div>
         </div>
       </details>
 
       <div v-if="preview" class="rounded-xl border border-af-danger/30 bg-af-danger-tint/60 px-4 py-3" data-test="delete-preview-result">
         <p class="text-sm font-semibold text-af-danger">{{ t('admin.promptAudit.events.filterDeleteCount', { count: preview.matched_count }) }}</p>
         <dl class="mt-2 grid grid-cols-[auto_1fr] gap-x-3 gap-y-1 text-xs text-af-ink-2">
-          <dt>{{ t('admin.promptAudit.events.snapshotMax') }}</dt>
-          <dd>{{ preview.snapshot_max_id }}</dd>
           <dt>Filter SHA-256</dt>
           <dd class="break-all font-mono">{{ preview.filter_hash }}</dd>
           <dt>{{ t('admin.promptAudit.events.expiresAt') }}</dt>
@@ -113,9 +112,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from 'vue'
+import { computed, nextTick, reactive, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import EntityPicker from '@/components/admin/form/EntityPicker.vue'
+import { adminAPI } from '@/api/admin'
 import type { PromptDeletePreview, PromptEventFilters } from '../types'
 import {
   DELETE_RANGE_PRESETS,
@@ -144,6 +145,32 @@ const { t, locale } = useI18n()
 const preset = ref<DeleteRangePreset>('7d')
 const local = reactive<PromptEventFilters>(emptyEventFilters())
 
+// 用户条件：按邮箱选；从列表筛选继承来的只有 id，打开时查出邮箱显示（查不到就是已删除用户），不显示数字
+const userPickerRef = ref<InstanceType<typeof EntityPicker> | null>(null)
+const selectedUserId = computed(() => {
+  const id = Number(local.user_id)
+  return Number.isInteger(id) && id > 0 ? id : undefined
+})
+function setUser(userId: number | undefined) {
+  local.user_id = userId ? String(userId) : ''
+  criteriaChanged()
+}
+async function showInheritedUser() {
+  const userId = selectedUserId.value
+  if (!userId) return
+  await nextTick()
+  const revision = userPickerRef.value?.getRevision()
+  let label: string
+  try {
+    label = (await adminAPI.users.getById(userId, true)).email
+  } catch {
+    label = t('admin.entity.deletedUser')
+  }
+  // 查的过程中用户已经改了条件，就不回填
+  if (selectedUserId.value !== userId || userPickerRef.value?.getRevision() !== revision) return
+  userPickerRef.value?.setKeyword(label)
+}
+
 watch(
   () => props.show,
   (visible) => {
@@ -153,6 +180,7 @@ watch(
     // seven-day preset so a careless click can never target everything.
     preset.value = hasExplicitDeleteRange(initial) ? 'custom' : '7d'
     Object.assign(local, initial)
+    void showInheritedUser()
   },
   { immediate: true },
 )

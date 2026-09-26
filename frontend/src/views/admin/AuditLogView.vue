@@ -145,13 +145,11 @@
             </div>
           </template>
 
+          <!-- 列表只写动作；请求方法与路径（路径里带资源的内部 id）在详情里 -->
           <template #cell-action="{ row }">
             <div class="min-w-0 max-w-xs">
               <div class="truncate font-mono text-sm text-af-ink" :title="row.action">
                 {{ row.action }}
-              </div>
-              <div class="mt-0.5 truncate font-mono text-xs text-af-ink-3" :title="`${row.method} ${row.path}`">
-                {{ row.method }} {{ row.path }}
               </div>
             </div>
           </template>
@@ -242,6 +240,16 @@
             <span v-if="detail.request_id" class="inline-flex items-center gap-1">
               {{ t('admin.audit.detail.requestId') }}
               <span class="break-all font-mono">{{ detail.request_id }}</span>
+              <button
+                type="button"
+                class="shrink-0 rounded p-0.5 text-af-ink-4 transition-colors hover:bg-af-sunken hover:text-af-ink-2"
+                :title="t('common.copy')"
+                :aria-label="t('common.copy')"
+                data-testid="audit-detail-copy-request-id"
+                @click="copyToClipboard(detail.request_id, t('admin.usage.requestIdCopied'))"
+              >
+                <Icon name="copy" size="xs" />
+              </button>
             </span>
           </div>
         </div>
@@ -390,9 +398,11 @@ import Icon from '@/components/icons/Icon.vue'
 import { FilterChip, ListToolbar, MenuItem, PopoverMenu, RowActions } from '@/components/admin/list'
 import type { FilterOption, RowAction } from '@/components/admin/list'
 import { useAppStore } from '@/stores'
+import { useClipboard } from '@/composables/useClipboard'
 
 const { t } = useI18n()
 const appStore = useAppStore()
+const { copyToClipboard } = useClipboard()
 
 const loading = ref(false)
 const logs = ref<AuditLog[]>([])

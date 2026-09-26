@@ -20,7 +20,7 @@
 
         <main>
           <div v-show="activeTab === 'config'" data-test="tab-panel-config">
-            <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" @refresh="loadRuntime" />
+            <RuntimeOverview :runtime="runtime" :loading="loading.runtime" :error="loadErrors.runtime" :endpoint-names="endpointNames" @refresh="loadRuntime" />
 
             <template v-if="draft">
               <EndpointPool
@@ -123,7 +123,7 @@
       @confirm="confirmFilterDelete"
       @criteria-change="clearDeletePreview"
     />
-    <EventDetailDialog :show="showEventDetail" :event="activeEvent" :loading="loading.detail" @close="closeEventDetail" />
+    <EventDetailDialog :show="showEventDetail" :event="activeEvent" :loading="loading.detail" :endpoint-names="endpointNames" @close="closeEventDetail" />
   </AppLayout>
 </template>
 
@@ -186,6 +186,10 @@ const deleteRequest = reactive<{ mode: '' | 'single' | 'batch'; ids: number[] }>
 const loading = reactive({ config: false, runtime: false, events: false, saving: false, detail: false, deleting: false, previewing: false })
 const loadErrors = reactive<PromptLoadErrors>({ config: '', runtime: '', events: '' })
 const dirty = computed(() => draftFingerprint(draft.value) !== draftFingerprint(serverConfig.value))
+// Guard 节点在运行态、事件详情里写名称（按已保存的配置），不写内部节点 id
+const endpointNames = computed<Record<string, string> | undefined>(() =>
+  serverConfig.value ? Object.fromEntries(serverConfig.value.endpoints.map((endpoint) => [endpoint.id, endpoint.name])) : undefined
+)
 
 const SaveToggle = defineComponent({
   inheritAttrs: false,

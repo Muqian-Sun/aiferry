@@ -36,8 +36,15 @@
         </select>
       </label>
       <FilterInput v-model="localFilters.endpoint" :label="t('admin.promptAudit.events.endpoint')" @change="filtersChanged" />
-      <FilterInput v-model="localFilters.user_id" :label="t('admin.promptAudit.events.userId')" type="number" @change="filtersChanged" />
-      <FilterInput v-model="localFilters.api_key_id" :label="t('admin.promptAudit.events.apiKeyId')" type="number" @change="filtersChanged" />
+      <!-- 用户 / 密钥按名字选（与用量页筛选同一个选择器），不让人手填内部 id；先选了用户时密钥只列该用户的 -->
+      <div class="text-xs text-af-ink-2">
+        <span>{{ t('admin.promptAudit.events.filterUser') }}</span>
+        <EntityPicker kind="user" class="mt-1" :model-value="idFilterValue(localFilters.user_id)" @update:model-value="setUserFilter" />
+      </div>
+      <div class="text-xs text-af-ink-2">
+        <span>{{ t('admin.promptAudit.events.filterApiKey') }}</span>
+        <EntityPicker kind="apiKey" class="mt-1" :user-id="idFilterValue(localFilters.user_id)" :model-value="idFilterValue(localFilters.api_key_id)" @update:model-value="setApiKeyFilter" />
+      </div>
       <FilterInput v-model="localFilters.request_id" :label="t('admin.promptAudit.events.requestId')" @change="filtersChanged" />
       <FilterInput v-model="localFilters.prompt_hash" :label="t('admin.promptAudit.events.promptHash')" @change="filtersChanged" />
       <FilterInput v-model="localFilters.keyword" :label="t('admin.promptAudit.events.keyword')" @change="filtersChanged" />
@@ -72,7 +79,7 @@
           <tr v-if="loading"><td colspan="8" class="px-4 py-12 text-center text-af-ink-3" aria-busy="true">{{ t('common.loading') }}</td></tr>
           <tr v-else-if="events.length === 0"><td colspan="8" class="px-4 py-12 text-center text-af-ink-3">{{ t('admin.promptAudit.events.empty') }}</td></tr>
           <tr v-for="event in events" v-else :key="event.id" :data-test="`event-${event.id}`" class="align-top hover:bg-af-sunken/70">
-            <td class="px-3 py-3"><input type="checkbox" :checked="selectedIds.includes(event.id)" :aria-label="t('admin.promptAudit.events.selectEvent', { id: event.id })" @change="toggleOne(event.id)" /></td>
+            <td class="px-3 py-3"><input type="checkbox" :checked="selectedIds.includes(event.id)" :aria-label="t('admin.promptAudit.events.selectEvent', { time: formatDate(event.created_at) })" @change="toggleOne(event.id)" /></td>
             <td class="whitespace-nowrap px-3 py-3 text-xs text-af-ink-2">{{ formatDate(event.created_at) }}</td>
             <td class="px-3 py-3">
               <CopyLine :label="t('admin.promptAudit.events.user')" :value="event.snapshot.username" />
@@ -104,6 +111,7 @@
 import { computed, defineComponent, h, reactive, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import Pagination from '@/components/common/Pagination.vue'
+import EntityPicker from '@/components/admin/form/EntityPicker.vue'
 import type { PromptAuditEvent, PromptEventFilters } from '../types'
 import { cloneData, emptyEventFilters, SCANNER_CATALOG } from '../viewModel'
 
@@ -126,6 +134,22 @@ const { t, locale } = useI18n()
 const localFilters = reactive<PromptEventFilters>(cloneData(props.filters))
 watch(() => props.filters, (value) => Object.assign(localFilters, cloneData(value)), { deep: true })
 const allSelected = computed(() => props.events.length > 0 && props.events.every((event) => props.selectedIds.includes(event.id)))
+
+// 筛选里的用户 / 密钥 id 按字符串存（接口参数由 eventQueryParams 转数字），选择器用数字
+function idFilterValue(value: string): number | undefined {
+  const id = Number(value)
+  return Number.isInteger(id) && id > 0 ? id : undefined
+}
+function setUserFilter(userId: number | undefined) {
+  localFilters.user_id = userId ? String(userId) : ''
+  // 换了用户，原来选的密钥不一定属于新用户
+  localFilters.api_key_id = ''
+  filtersChanged()
+}
+function setApiKeyFilter(apiKeyId: number | undefined) {
+  localFilters.api_key_id = apiKeyId ? String(apiKeyId) : ''
+  filtersChanged()
+}
 
 const FilterInput = defineComponent({
   props: { modelValue: { type: String, required: true }, label: { type: String, required: true }, type: { type: String, default: 'text' } },
