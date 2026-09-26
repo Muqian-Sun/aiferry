@@ -1,12 +1,6 @@
 <template>
-  <!-- layout="page"（/accounts/new）时外壳换成 FormPageShell：同一套插槽，分区导航读下面的 FormSectionHeading -->
-  <component
-    :is="layout === 'page' ? FormPageShell : BaseDialog"
-    :show="show"
-    :title="t('admin.accounts.createAccount')"
-    width="wide"
-    @close="handleClose"
-  >
+  <!-- /accounts/new 整页（A5 起不再有弹窗形态）：分区导航读下面的 FormSectionHeading -->
+  <FormPageShell :show="show" :title="t('admin.accounts.createAccount')" @close="handleClose">
     <!-- Step Indicator for OAuth accounts -->
     <div v-if="isOAuthFlow" class="mb-6 flex items-center justify-center">
       <div class="flex items-center space-x-4">
@@ -106,7 +100,7 @@
 
         <!-- OAuth Type Selection (only show when oauth-based is selected) -->
         <div v-if="accountCategory === 'oauth-based'" class="mt-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <label class="input-label">{{ t('admin.accounts.oauth.gemini.oauthTypeLabel') }}</label>
             <button
               type="button"
@@ -665,7 +659,7 @@
       </div>
 
       <div>
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.autoPauseOnExpired')
@@ -840,7 +834,7 @@
         data-testid="create-openai-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.oauthPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -878,7 +872,7 @@
         v-if="form.platform === 'openai' && form.type === 'oauth'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.flattenNamespaces') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -910,7 +904,7 @@
         data-testid="create-openai-ws-mode"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.wsMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -932,7 +926,7 @@
         data-testid="create-anthropic-passthrough"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.apiKeyPassthrough') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -986,7 +980,7 @@
         data-testid="create-web-search-emulation"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.webSearchEmulation') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1018,7 +1012,7 @@
         data-testid="create-bedrock-cc-compat"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.anthropic.bedrockCCCompat') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1121,7 +1115,7 @@
         data-testid="create-openai-compact"
         class="border-t border-af-hairline pt-4 space-y-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.compactMode') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -1970,7 +1964,7 @@
         v-if="form.platform === 'anthropic' || form.platform === 'antigravity'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{
               t('admin.accounts.interceptWarmupRequests')
@@ -2004,7 +1998,7 @@
       >
         <!-- TLS Fingerprint -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.tlsFingerprint.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2039,7 +2033,7 @@
 
         <!-- Session ID Masking -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.sessionIdMasking.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2066,7 +2060,7 @@
 
         <!-- Cache TTL Override -->
         <div class="rounded-lg border border-af-hairline p-4">
-          <div class="flex items-center justify-between">
+          <div class="flex items-center justify-between gap-4">
             <div>
               <label class="input-label mb-0">{{ t('admin.accounts.quotaControl.cacheTTLOverride.label') }}</label>
               <p class="mt-1 text-xs text-af-ink-3">
@@ -2109,7 +2103,7 @@
         v-if="form.platform === 'openai' && accountCategory === 'oauth-based'"
         class="border-t border-af-hairline pt-4"
       >
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div>
             <label class="input-label mb-0">{{ t('admin.accounts.openai.codexCLIOnly') }}</label>
             <p class="mt-1 text-xs text-af-ink-3">
@@ -2304,7 +2298,7 @@
         </button>
       </div>
     </template>
-  </component>
+  </FormPageShell>
 
   <!-- Gemini Help Dialog -->
   <BaseDialog
@@ -2697,13 +2691,9 @@ const apiKeyValuePlaceholder = computed(() => {
 interface Props {
   show: boolean
   proxies: Proxy[]
-  /** 'dialog'（默认）：列表页里的弹窗；'page'：/accounts/new 整页，外壳换成 FormPageShell */
-  layout?: 'dialog' | 'page'
 }
 
-const props = withDefaults(defineProps<Props>(), {
-  layout: 'dialog'
-})
+const props = defineProps<Props>()
 const emit = defineEmits<{
   close: []
   created: []
@@ -3339,8 +3329,8 @@ watch(
       resetForm()
     }
   },
-  // 弹窗是先挂载再打开；整页（layout="page"）挂载时已经是打开状态，需要立即跑一次打开逻辑
-  { immediate: props.layout === 'page' && props.show }
+  // 整页挂载时已经是打开状态，需要立即跑一次打开逻辑
+  { immediate: props.show }
 )
 
 // Sync form.type based on accountCategory, addMethod, and platform-specific type

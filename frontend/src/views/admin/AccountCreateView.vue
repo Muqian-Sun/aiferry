@@ -1,7 +1,7 @@
 <template>
   <!--
     添加渠道（A5-c）：原来列表页里的「添加账号」弹窗改成整页 /accounts/new。
-    表单本体仍是 CreateAccountModal（layout="page"，外壳换成 FormPageShell：左侧分区导航 + 底部保存条），
+    表单本体仍是 CreateAccountModal（外壳是 FormPageShell：左侧分区导航 + 底部保存条），
     校验、OAuth 两步流程、提交与提示都在组件里，和弹窗完全一样。
     表单每次完整成功都会先 created（成功提示已由表单弹出）再 close；OAuth 批量部分失败时只发 created、
     留在第二步显示错误。所以回列表挂在 close 上（取消也走这里），不监听 created。
@@ -19,7 +19,6 @@
     </div>
 
     <CreateAccountModal
-      layout="page"
       :show="true"
       :proxies="proxies"
       @close="back"

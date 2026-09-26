@@ -376,7 +376,7 @@ const eventDisplayMeta: Record<string, EventDisplayMeta> = {
     categoryLabel: "计费",
   },
   "account.quota_alert": {
-    label: "账号限额告警",
+    label: "渠道限额告警",
     timing: "上游账号的用量达到配置的额度告警阈值时发送给管理员通知邮箱。",
     categoryLabel: "管理告警",
   },

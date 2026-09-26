@@ -133,7 +133,7 @@ export default {
     diagnosis: {
       title: '渠道诊断 · {model}',
       empty: '该模型没有绑定渠道。',
-      followAccount: '跟随账号',
+      followAccount: '跟随渠道',
       columns: {
         account: '渠道',
         priority: '优先级',

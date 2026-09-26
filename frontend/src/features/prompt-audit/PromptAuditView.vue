@@ -70,7 +70,11 @@
       </template>
     </div>
 
-    <div v-if="draft && activeTab === 'config'" class="fixed inset-x-0 bottom-0 z-30 border-t border-af-hairline bg-af-sheet/95 px-4 py-3 shadow-[0_-12px_35px_rgba(15,23,42,0.08)] backdrop-blur lg:left-64">
+    <div
+      v-if="draft && activeTab === 'config'"
+      class="fixed inset-x-0 bottom-0 z-30 border-t border-af-hairline bg-af-sheet/95 px-4 py-3 backdrop-blur"
+      :class="appStore.sidebarCollapsed ? 'lg:left-16' : 'lg:left-60'"
+    >
       <div class="mx-auto flex max-w-[1600px] flex-wrap items-center justify-between gap-3">
         <div class="flex flex-wrap items-center gap-x-5 gap-y-2">
           <SaveToggle :label="t('admin.promptAudit.saveBar.enabled')" :model-value="draft.enabled" data-test="enabled-toggle" @update:model-value="setEnabled" />

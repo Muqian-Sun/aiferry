@@ -1,15 +1,18 @@
 <template>
   <!--
-    表单页壳（A5-c）：插槽与 BaseDialog 一致（默认插槽 = 表单体，#footer = 按钮），
-    表单组件用 <component :is="layout === 'page' ? FormPageShell : BaseDialog"> 在弹窗和整页之间切换。
+    表单页壳（A5-c）：默认插槽 = 表单体，#footer = 按钮（与 BaseDialog 同一组插槽，渠道表单原是弹窗，A8 删掉了弹窗形态）。
     lg 以上两栏：左侧分区导航（sticky），右侧表单栏（max-w-3xl）；lg 以下导航变成表单上方一行可横滑的链接。
     导航从表单体里的 data-form-section 标记生成：字段随平台 / 类型出现消失时重新扫描，只列出页面上真有的分区。
     底部保存条贴住视口底边（sticky bottom-0），和表单栏同宽。一张面、hairline 分隔，不画卡片。
   -->
   <div v-if="show" class="lg:flex lg:gap-10" data-testid="form-page-shell">
     <!-- 没有分区时（如 OAuth 第二步）lg 以上仍占住导航栏宽度，表单栏不左右跳；窄屏直接不占位 -->
+    <!-- 窄屏：导航是表单上方一行横滑链接，吸在顶栏下面（A8，原来滚走就找不回）；lg 以上由下面的 ul 自己吸顶 -->
     <nav
-      :class="['lg:w-44 lg:shrink-0', sections.length ? 'mb-6 lg:mb-0' : 'hidden lg:block']"
+      :class="[
+        'lg:w-44 lg:shrink-0',
+        sections.length ? 'mb-6 lg:mb-0 max-lg:sticky max-lg:top-[var(--af-topbar-h)] max-lg:z-20 max-lg:bg-af-sheet' : 'hidden lg:block'
+      ]"
       :aria-label="title || undefined"
       data-testid="form-page-nav"
     >
@@ -60,8 +63,6 @@ interface Props {
   show: boolean
   /** 与 BaseDialog 同名：页面标题在页头，这里只拿来给导航做 aria-label */
   title?: string
-  /** 与 BaseDialog 同名，整页布局不用 */
-  width?: string
 }
 
 interface SectionItem {

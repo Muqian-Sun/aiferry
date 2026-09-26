@@ -153,7 +153,7 @@
 
       <!-- 定时测试 -->
       <div v-else-if="tab === 'schedule'" data-testid="account-detail-schedule">
-        <ScheduledTestsPanel layout="inline" :show="true" :account-id="account.id" :model-options="scheduleModelOptions" />
+        <ScheduledTestsPanel :account-id="account.id" :model-options="scheduleModelOptions" />
       </div>
     </template>
   </DetailDrawer>

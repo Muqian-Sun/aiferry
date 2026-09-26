@@ -88,7 +88,6 @@ function mountView() {
         ImportDataModal: true,
         ReAuthAccountModal: true,
         AccountTestModal: true,
-        AccountStatsModal: true,
         ScheduledTestsPanel: true,
         TempUnschedStatusModal: true,
         ErrorPassthroughRulesModal: true,

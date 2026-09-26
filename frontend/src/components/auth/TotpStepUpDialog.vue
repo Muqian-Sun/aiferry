@@ -3,7 +3,7 @@
     <div class="flex min-h-full items-center justify-center p-4">
       <div class="fixed inset-0 bg-black/50 transition-opacity" @click="handleCancel"></div>
 
-      <div class="relative w-full max-w-md transform rounded-md bg-white p-6 shadow-xl transition-all">
+      <div class="relative w-full max-w-md transform rounded-md bg-af-sheet p-6 shadow-xl transition-all">
         <div class="mb-6 text-center">
           <div class="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-af-brand-tint">
             <svg class="h-6 w-6 text-af-brand" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">

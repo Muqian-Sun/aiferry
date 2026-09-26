@@ -212,7 +212,6 @@ export default {
     subscribe: '订阅',
     docs: '文档',
     orderManagement: '订单管理',
-    paymentDashboard: '支付概览',
     paymentConfig: '支付配置',
     paymentPlans: '订阅套餐',
     channelManagement: '渠道管理',

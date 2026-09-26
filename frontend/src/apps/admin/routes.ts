@@ -287,7 +287,7 @@ export const adminRoutes: RouteRecordRaw[] = [
       requiresAuth: true,
       requiresAdmin: true,
       title: 'Payment Dashboard',
-      titleKey: 'nav.paymentDashboard',
+      titleKey: 'nav.tabs.collections',
       requiresPayment: true,
       pageGroup: 'orders'
     }

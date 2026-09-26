@@ -2,8 +2,10 @@
 /**
  * 管理站换皮 codemod（A1）：把旧调色类换成 af-* 设计 token。
  *
- * 用法：node scripts/codemod-af-tokens.mjs [--write | --check] <文件或目录>...
+ * 用法：node scripts/codemod-af-tokens.mjs [--write | --check] [--admin-bundle] [<文件或目录>...]
  *   不带参数只报告；--write 写回；--check 用于构建检查：还有要改写的类名串也判失败。
+ *   --admin-bundle：再加上「管理站打包会用到的全部文件」——从 src/apps/admin/main.ts 出发沿 import 图
+ *   （静态 import / export from / 动态 import() / import 类型）收集（A8），新加的共用文件自动纳入，不靠目录清单。
  *   映射不了的类逐条打印（文件:行 类名），存在时退出码 1——fail-closed，不静默跳过。
  *
  * 只动这些位置（全部走 AST，不做全文正则）：
@@ -22,13 +24,14 @@ import postcss from 'postcss'
 const args = process.argv.slice(2)
 const WRITE = args.includes('--write')
 const CHECK = args.includes('--check')
-const targets = args.filter((a) => a !== '--write' && a !== '--check')
+const ADMIN_BUNDLE = args.includes('--admin-bundle')
+const targets = args.filter((a) => a !== '--write' && a !== '--check' && a !== '--admin-bundle')
 if (WRITE && CHECK) {
   console.error('--write 与 --check 不能同时用')
   process.exit(2)
 }
-if (!targets.length) {
-  console.error('usage: codemod-af-tokens.mjs [--write | --check] <file|dir>...')
+if (!ADMIN_BUNDLE && !targets.length) {
+  console.error('usage: codemod-af-tokens.mjs [--write | --check] [--admin-bundle] [<file|dir>...]')
   process.exit(2)
 }
 
@@ -389,10 +392,82 @@ function applyEdits(source, edits) {
 }
 
 // ---------------------------------------------------------------------------
+// 管理站打包范围（--admin-bundle）
+// ---------------------------------------------------------------------------
+/** 一个 .ts / .vue 里引用的模块路径；非字面量的动态 import 无法静态确定，直接失败 */
+function importSpecifiers(file) {
+  const source = readFileSync(file, 'utf8')
+  let scripts = [source]
+  if (file.endsWith('.vue')) {
+    const { descriptor, errors } = parseSfc(source, { filename: file })
+    if (errors.length) throw new Error(`SFC parse failed: ${file}`)
+    scripts = [descriptor.script?.content, descriptor.scriptSetup?.content].filter(Boolean)
+  }
+  const out = []
+  for (const code of scripts) {
+    const ast = babelParse(code, { sourceType: 'module', plugins: ['typescript'] })
+    walkBabel(ast.program ?? ast, (node) => {
+      if ((node.type === 'ImportDeclaration' || node.type === 'ExportAllDeclaration' || node.type === 'ExportNamedDeclaration') && node.source) {
+        out.push(node.source.value)
+      } else if (node.type === 'CallExpression' && node.callee.type === 'Import') {
+        const arg = node.arguments[0]
+        if (arg?.type === 'StringLiteral') out.push(arg.value)
+        else if (arg?.type === 'TemplateLiteral' && arg.expressions.length === 0) out.push(arg.quasis[0].value.cooked)
+        else throw new Error(`non-literal dynamic import in ${file}`)
+      } else if (node.type === 'TSImportType' && node.argument?.type === 'StringLiteral') {
+        out.push(node.argument.value)
+      }
+    })
+  }
+  return out
+}
+
+function adminBundleFiles() {
+  const src = resolve(process.cwd(), 'src')
+  const resolveSpec = (from, spec) => {
+    const clean = spec.split('?')[0]
+    let base
+    if (clean.startsWith('@/')) base = join(src, clean.slice(2))
+    else if (clean.startsWith('.')) base = resolve(from, '..', clean)
+    else return null // 包
+    for (const candidate of [base, `${base}.ts`, `${base}.vue`, `${base}.js`, join(base, 'index.ts')]) {
+      try {
+        if (statSync(candidate).isFile()) return candidate
+      } catch {
+        // 试下一个
+      }
+    }
+    throw new Error(`unresolved import ${spec} from ${relative(process.cwd(), from)}`)
+  }
+  const seen = new Set()
+  const stack = [join(src, 'apps/admin/main.ts')]
+  while (stack.length) {
+    const file = stack.pop()
+    if (seen.has(file)) continue
+    seen.add(file)
+    if (!/\.(ts|vue)$/.test(file)) continue
+    for (const spec of importSpecifiers(file)) {
+      const next = resolveSpec(file, spec)
+      if (next && !seen.has(next)) stack.push(next)
+    }
+  }
+  // 语言包只有文案、没有类名，跳过省时间
+  return [...seen].filter((f) => /\.(ts|vue)$/.test(f) && !f.endsWith('.d.ts') && !f.includes('/i18n/locales/'))
+}
+
+// ---------------------------------------------------------------------------
 // 主流程
 // ---------------------------------------------------------------------------
 const cwd = process.cwd()
 const files = []
+if (ADMIN_BUNDLE) {
+  try {
+    files.push(...adminBundleFiles())
+  } catch (error) {
+    console.error(`admin bundle scan failed: ${error.message}`)
+    process.exit(2)
+  }
+}
 for (const target of targets) {
   const full = resolve(cwd, target)
   const st = statSync(full)
@@ -433,7 +508,7 @@ for (const file of [...new Set(files)].sort()) {
   }
 }
 
-console.log(`${WRITE ? 'wrote' : 'would change'} ${changedFiles} files, ${totalEdits} class strings; scanned ${files.length}`)
+console.log(`${WRITE ? 'wrote' : 'would change'} ${changedFiles} files, ${totalEdits} class strings; scanned ${new Set(files).size}`)
 if (failures.length) {
   console.log(`\n${failures.length} files FAILED to process:`)
   failures.forEach((f) => console.log(`  ${f}`))

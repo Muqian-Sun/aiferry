@@ -283,7 +283,7 @@
 
       <!-- Intercept warmup requests (Anthropic only) -->
       <div class="border-t border-af-hairline pt-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-intercept-warmup-label"
@@ -325,7 +325,7 @@
 
       <!-- Header Override (eligible API-key platforms + grok OAuth) -->
       <div v-if="allHeaderOverrideCapable" class="border-t border-af-hairline pt-4">
-        <div class="flex items-center justify-between">
+        <div class="flex items-center justify-between gap-4">
           <div class="flex-1 pr-4">
             <label
               id="bulk-edit-header-override-label"
