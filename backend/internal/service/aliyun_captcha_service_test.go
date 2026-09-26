@@ -32,14 +32,15 @@ func (s *aliyunVerifierSpy) VerifyCaptcha(_ context.Context, cred AliyunCaptchaC
 	return &AliyunCaptchaVerifyResult{VerifyResult: true}, nil
 }
 
-func aliyunEnabledSettings() map[string]string {
-	return map[string]string{
-		SettingKeyAliyunCaptchaEnabled:         "true",
-		SettingKeyAliyunCaptchaAccessKeyID:     "ak-id",
-		SettingKeyAliyunCaptchaAccessKeySecret: "ak-secret",
-		SettingKeyAliyunCaptchaSceneID:         "scene-1",
-		SettingKeyAliyunCaptchaPrefix:          "prefix-1",
+// withAliyunCaptcha 部署配置里配齐阿里云验证码（人机验证只认部署配置）。
+func withAliyunCaptcha(cfg *config.Config) *config.Config {
+	cfg.AliyunCaptcha = config.AliyunCaptchaConfig{
+		AccessKeyID:     "ak-id",
+		AccessKeySecret: "ak-secret",
+		SceneID:         "scene-1",
+		Prefix:          "prefix-1",
 	}
+	return cfg
 }
 
 func aliyunTestConfig() AliyunCaptchaConfig {
@@ -52,8 +53,8 @@ func aliyunTestConfig() AliyunCaptchaConfig {
 	}
 }
 
-func newAliyunAuthServiceForTest(cfg *config.Config, settings map[string]string, aliyunSpy *aliyunVerifierSpy) *AuthService {
-	settingService := NewSettingService(&settingPublicRepoStub{values: settings}, cfg)
+func newAliyunAuthServiceForTest(cfg *config.Config, aliyunSpy *aliyunVerifierSpy) *AuthService {
+	settingService := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, cfg)
 	authService := NewAuthService(
 		nil, // entClient
 		nil, // userRepo
@@ -137,37 +138,9 @@ func TestAliyunCaptchaServiceRejectsEmptyParam(t *testing.T) {
 	require.Zero(t, spy.called)
 }
 
-func TestAliyunCaptchaServiceValidateCredentials(t *testing.T) {
-	t.Run("invalid credential code", func(t *testing.T) {
-		spy := &aliyunVerifierSpy{err: &AliyunCaptchaAPIError{Code: "SignatureDoesNotMatch", Message: "bad sk"}}
-		svc := NewAliyunCaptchaService(nil, spy)
-
-		err := svc.ValidateCredentials(context.Background(), "id", "sk", "scene", "cn")
-		require.ErrorIs(t, err, ErrCaptchaInvalidCredentials)
-	})
-
-	t.Run("network error surfaces", func(t *testing.T) {
-		spy := &aliyunVerifierSpy{err: errors.New("timeout")}
-		svc := NewAliyunCaptchaService(nil, spy)
-
-		err := svc.ValidateCredentials(context.Background(), "id", "sk", "scene", "cn")
-		require.Error(t, err)
-		require.NotErrorIs(t, err, ErrCaptchaInvalidCredentials)
-	})
-
-	t.Run("verify result false means credentials valid", func(t *testing.T) {
-		spy := &aliyunVerifierSpy{result: &AliyunCaptchaVerifyResult{VerifyResult: false}}
-		svc := NewAliyunCaptchaService(nil, spy)
-
-		err := svc.ValidateCredentials(context.Background(), "id", "sk", "scene", "sgp")
-		require.NoError(t, err)
-		require.Equal(t, "captcha.ap-southeast-1.aliyuncs.com", spy.lastCred.Endpoint)
-	})
-}
-
 func TestAuthServiceVerifyCaptchaDispatchesAliyun(t *testing.T) {
 	spy := &aliyunVerifierSpy{}
-	authService := newAliyunAuthServiceForTest(&config.Config{}, aliyunEnabledSettings(), spy)
+	authService := newAliyunAuthServiceForTest(withAliyunCaptcha(&config.Config{}), spy)
 
 	// 阿里云 captchaVerifyParam 复用 turnstile_token 请求字段
 	err := authService.VerifyCaptcha(context.Background(), CaptchaProof{TurnstileToken: "captcha-verify-param"}, "127.0.0.1")
@@ -177,26 +150,13 @@ func TestAuthServiceVerifyCaptchaDispatchesAliyun(t *testing.T) {
 	require.Equal(t, "captcha-verify-param", spy.lastParam)
 }
 
-func TestAuthServiceVerifyCaptchaRejectsProviderConflict(t *testing.T) {
-	settings := aliyunEnabledSettings()
-	settings[SettingKeyTurnstileEnabled] = "true"
-	settings[SettingKeyTurnstileSecretKey] = "secret"
-	spy := &aliyunVerifierSpy{}
-	authService := newAliyunAuthServiceForTest(&config.Config{}, settings, spy)
-
-	err := authService.VerifyCaptcha(context.Background(), CaptchaProof{TurnstileToken: "param"}, "127.0.0.1")
-
-	require.ErrorIs(t, err, ErrCaptchaProviderConflict)
-	require.Zero(t, spy.called)
-}
-
 func TestAuthServiceVerifyCaptchaRequiredModeWithAliyun(t *testing.T) {
 	cfg := &config.Config{
 		Server:    config.ServerConfig{Mode: "release"},
 		Turnstile: config.TurnstileConfig{Required: true},
 	}
 	spy := &aliyunVerifierSpy{}
-	authService := newAliyunAuthServiceForTest(cfg, aliyunEnabledSettings(), spy)
+	authService := newAliyunAuthServiceForTest(withAliyunCaptcha(cfg), spy)
 
 	// required 模式 + 阿里云启用且凭证齐全：不误报 NOT_CONFIGURED，正常走阿里云校验
 	err := authService.VerifyCaptcha(context.Background(), CaptchaProof{TurnstileToken: "captcha-verify-param"}, "127.0.0.1")
@@ -207,7 +167,7 @@ func TestAuthServiceVerifyCaptchaRequiredModeWithAliyun(t *testing.T) {
 
 func TestAuthServiceVerifyActionCaptchaIfEnabledDispatchesAliyun(t *testing.T) {
 	spy := &aliyunVerifierSpy{}
-	authService := newAliyunAuthServiceForTest(&config.Config{}, aliyunEnabledSettings(), spy)
+	authService := newAliyunAuthServiceForTest(withAliyunCaptcha(&config.Config{}), spy)
 
 	err := authService.VerifyActionCaptchaIfEnabled(context.Background(), CaptchaProof{TurnstileToken: "captcha-verify-param"}, "127.0.0.1")
 
@@ -218,9 +178,8 @@ func TestAuthServiceVerifyActionCaptchaIfEnabledDispatchesAliyun(t *testing.T) {
 
 func TestAuthServiceVerifyActionCaptchaIfEnabledSkipsWhenOnlyTurnstile(t *testing.T) {
 	spy := &aliyunVerifierSpy{}
-	authService := newAliyunAuthServiceForTest(&config.Config{}, map[string]string{
-		SettingKeyTurnstileEnabled:   "true",
-		SettingKeyTurnstileSecretKey: "secret",
+	authService := newAliyunAuthServiceForTest(&config.Config{
+		Turnstile: config.TurnstileConfig{SiteKey: "site-key", SecretKey: "secret"},
 	}, spy)
 
 	// Turnstile 不扩大既有覆盖：扩展入口不拦截

@@ -2533,3 +2533,99 @@ func TestLoadEmailOAuthProvidersFromEnv(t *testing.T) {
 		t.Fatalf("github oauth not loaded from env: %+v", cfg.GitHubOAuth)
 	}
 }
+
+// 人机验证只认部署配置：每家凭证要么配齐要么全空；地域只认已支持的值；同一时间最多一家。
+func TestValidateCaptchaConfig(t *testing.T) {
+	turnstile := TurnstileConfig{SiteKey: "site", SecretKey: "secret"}
+	tencent := TencentCaptchaConfig{AppID: "123456789", AppSecretKey: "a", CloudSecretID: "b", CloudSecretKey: "c"}
+	aliyun := AliyunCaptchaConfig{AccessKeyID: "ak", AccessKeySecret: "sk", SceneID: "scene", Prefix: "prefix"}
+	cases := []struct {
+		name    string
+		mutate  func(*Config)
+		wantErr string
+	}{
+		{name: "none configured", mutate: func(c *Config) {}},
+		{name: "turnstile only", mutate: func(c *Config) { c.Turnstile.SiteKey, c.Turnstile.SecretKey = turnstile.SiteKey, turnstile.SecretKey }},
+		{name: "tencent only intl", mutate: func(c *Config) { c.TencentCaptcha = tencent; c.TencentCaptcha.Region = "intl" }},
+		{name: "aliyun only sgp", mutate: func(c *Config) { c.AliyunCaptcha = aliyun; c.AliyunCaptcha.Region = "sgp" }},
+		{
+			name:    "turnstile half configured",
+			mutate:  func(c *Config) { c.Turnstile.SiteKey = "site" },
+			wantErr: "turnstile.site_key and turnstile.secret_key must be both set or both empty",
+		},
+		{
+			name:    "tencent half configured",
+			mutate:  func(c *Config) { c.TencentCaptcha = TencentCaptchaConfig{AppID: "123456789"} },
+			wantErr: "tencent_captcha.app_id, app_secret_key, cloud_secret_id and cloud_secret_key must be all set or all empty",
+		},
+		{
+			name:    "tencent app id not a number",
+			mutate:  func(c *Config) { c.TencentCaptcha = tencent; c.TencentCaptcha.AppID = "not-a-number" },
+			wantErr: "tencent_captcha.app_id must be a positive integer",
+		},
+		{
+			name:    "tencent unknown region",
+			mutate:  func(c *Config) { c.TencentCaptcha.Region = "sgp" },
+			wantErr: "tencent_captcha.region must be cn or intl",
+		},
+		{
+			name: "aliyun half configured",
+			mutate: func(c *Config) {
+				c.AliyunCaptcha = AliyunCaptchaConfig{AccessKeyID: "ak", AccessKeySecret: "sk", SceneID: "scene"}
+			},
+			wantErr: "aliyun_captcha.access_key_id, access_key_secret, scene_id and prefix must be all set or all empty",
+		},
+		{
+			name:    "aliyun unknown region",
+			mutate:  func(c *Config) { c.AliyunCaptcha.Region = "intl" },
+			wantErr: "aliyun_captcha.region must be cn or sgp",
+		},
+		{
+			name: "two providers configured",
+			mutate: func(c *Config) {
+				c.Turnstile.SiteKey, c.Turnstile.SecretKey = turnstile.SiteKey, turnstile.SecretKey
+				c.TencentCaptcha = tencent
+			},
+			wantErr: "only one captcha provider (turnstile / tencent_captcha / aliyun_captcha) can be configured",
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			resetViperWithJWTSecret(t)
+			cfg, err := Load()
+			if err != nil {
+				t.Fatalf("Load() error: %v", err)
+			}
+			tc.mutate(cfg)
+			err = cfg.Validate()
+			if tc.wantErr == "" {
+				if err != nil {
+					t.Fatalf("Validate() unexpected error: %v", err)
+				}
+				return
+			}
+			if err == nil || !strings.Contains(err.Error(), tc.wantErr) {
+				t.Fatalf("Validate() error = %v, want contains %q", err, tc.wantErr)
+			}
+		})
+	}
+}
+
+// TURNSTILE_* / TENCENT_CAPTCHA_* / ALIYUN_CAPTCHA_* 环境变量要能读进来（部署时只靠环境变量打开人机验证）。
+func TestLoadCaptchaProvidersFromEnv(t *testing.T) {
+	resetViperWithJWTSecret(t)
+	t.Setenv("TURNSTILE_SITE_KEY", "env-site")
+	t.Setenv("TURNSTILE_SECRET_KEY", "env-secret")
+	t.Setenv("TENCENT_CAPTCHA_REGION", "intl")
+	cfg, err := Load()
+	if err != nil {
+		t.Fatalf("Load() error: %v", err)
+	}
+	if !cfg.Turnstile.Configured() || cfg.Turnstile.SiteKey != "env-site" {
+		t.Fatalf("turnstile not loaded from env: %+v", cfg.Turnstile)
+	}
+	// 单独配地域不算配了天御
+	if cfg.TencentCaptcha.Region != "intl" || cfg.TencentCaptcha.Configured() {
+		t.Fatalf("tencent captcha env not loaded as expected: %+v", cfg.TencentCaptcha)
+	}
+}

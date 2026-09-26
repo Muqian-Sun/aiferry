@@ -109,23 +109,7 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 
 // parseSettings 解析设置到结构体
 func (s *SettingService) parseSettings(settings map[string]string) *SystemSettings {
-	result := &SystemSettings{
-		TurnstileEnabled:                       settings[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSiteKey:                       settings[SettingKeyTurnstileSiteKey],
-		TurnstileSecretKeyConfigured:           settings[SettingKeyTurnstileSecretKey] != "",
-		TencentCaptchaEnabled:                  settings[SettingKeyTencentCaptchaEnabled] == "true",
-		TencentCaptchaAppID:                    settings[SettingKeyTencentCaptchaAppID],
-		TencentCaptchaAppSecretKeyConfigured:   settings[SettingKeyTencentCaptchaAppSecretKey] != "",
-		TencentCaptchaCloudSecretIDConfigured:  settings[SettingKeyTencentCaptchaCloudSecretID] != "",
-		TencentCaptchaCloudSecretKeyConfigured: settings[SettingKeyTencentCaptchaCloudSecretKey] != "",
-		TencentCaptchaRegion:                   normalizeTencentCaptchaRegion(settings[SettingKeyTencentCaptchaRegion]),
-		AliyunCaptchaEnabled:                   settings[SettingKeyAliyunCaptchaEnabled] == "true",
-		AliyunCaptchaAccessKeyID:               settings[SettingKeyAliyunCaptchaAccessKeyID],
-		AliyunCaptchaAccessKeySecretConfigured: settings[SettingKeyAliyunCaptchaAccessKeySecret] != "",
-		AliyunCaptchaSceneID:                   settings[SettingKeyAliyunCaptchaSceneID],
-		AliyunCaptchaPrefix:                    settings[SettingKeyAliyunCaptchaPrefix],
-		AliyunCaptchaRegion:                    normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
-	}
+	result := &SystemSettings{}
 
 	// 解析浮点数类型
 	if rebateRate, err := strconv.ParseFloat(settings[SettingKeyAffiliateRebateRate], 64); err == nil {
@@ -151,11 +135,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.AdminRechargeRebateEnabled = settings[SettingKeyAffiliateAdminRechargeEnabled] == "true"
 
 	// 敏感信息直接返回，方便测试连接时使用
-	result.TurnstileSecretKey = settings[SettingKeyTurnstileSecretKey]
-	result.TencentCaptchaAppSecretKey = settings[SettingKeyTencentCaptchaAppSecretKey]
-	result.TencentCaptchaCloudSecretID = settings[SettingKeyTencentCaptchaCloudSecretID]
-	result.TencentCaptchaCloudSecretKey = settings[SettingKeyTencentCaptchaCloudSecretKey]
-	result.AliyunCaptchaAccessKeySecret = settings[SettingKeyAliyunCaptchaAccessKeySecret]
 
 	// Identity patch settings (default: enabled, to preserve existing behavior)
 	if v, ok := settings[SettingKeyEnableIdentityPatch]; ok && v != "" {

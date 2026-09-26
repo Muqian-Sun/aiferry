@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"strings"
 
@@ -13,8 +12,6 @@ import (
 var (
 	ErrAliyunCaptchaVerificationFailed = infraerrors.BadRequest("ALIYUN_CAPTCHA_VERIFICATION_FAILED", "aliyun captcha verification failed")
 	ErrAliyunCaptchaNotConfigured      = infraerrors.ServiceUnavailable("ALIYUN_CAPTCHA_NOT_CONFIGURED", "aliyun captcha not configured")
-	// ErrCaptchaInvalidCredentials 阿里云验证码凭证无效（仅后台保存校验时返回，公开接口错误码不变）
-	ErrCaptchaInvalidCredentials = infraerrors.BadRequest("CAPTCHA_INVALID_CREDENTIALS", "invalid aliyun captcha credentials")
 )
 
 // AliyunCaptchaCredentials 阿里云验证码 2.0 服务端校验所需的完整凭证
@@ -73,20 +70,6 @@ func normalizeAliyunCaptchaRegion(value string) string {
 	return AliyunCaptchaRegionCN
 }
 
-// aliyunCredentialValidationParam 用于后台保存时探测凭证有效性的假验证参数
-const aliyunCredentialValidationParam = "sub2api-credential-validation"
-
-// aliyunInvalidCredentialCodes 表示 AK/SK 本身无效的阿里云错误码；
-// 其余错误码（如 param 无效）说明签名已通过、凭证可用。
-var aliyunInvalidCredentialCodes = map[string]struct{}{
-	"InvalidAccessKeyId.NotFound":  {},
-	"InvalidAccessKeyId.Inactive":  {},
-	"SignatureDoesNotMatch":        {},
-	"Forbidden.AccessKeyDisabled":  {},
-	"IncompleteSignature":          {},
-	"InvalidSecurityToken.Expired": {},
-}
-
 // AliyunCaptchaService 阿里云验证码 2.0 服务端校验
 type AliyunCaptchaService struct {
 	settingService *SettingService
@@ -139,33 +122,5 @@ func (s *AliyunCaptchaService) VerifyParamWithConfig(ctx context.Context, config
 		}
 		return ErrAliyunCaptchaVerificationFailed
 	}
-	return nil
-}
-
-// ValidateCredentials 用假验证参数探测阿里云 AK/SK 是否可用（后台保存设置时调用）。
-// 凭证类错误码返回 ErrCaptchaInvalidCredentials；正常响应（包括 param 无效导致的
-// VerifyResult=false）说明签名通过、凭证有效；其余错误原样返回给管理员排查。
-func (s *AliyunCaptchaService) ValidateCredentials(ctx context.Context, accessKeyID, accessKeySecret, sceneID, region string) error {
-	if s.verifier == nil {
-		return ErrAliyunCaptchaNotConfigured
-	}
-	cred := AliyunCaptchaCredentials{
-		AccessKeyID:     accessKeyID,
-		AccessKeySecret: accessKeySecret,
-		SceneID:         sceneID,
-		Endpoint:        aliyunCaptchaEndpoint(region),
-	}
-
-	_, err := s.verifier.VerifyCaptcha(ctx, cred, aliyunCredentialValidationParam)
-	if err != nil {
-		var apiErr *AliyunCaptchaAPIError
-		if errors.As(err, &apiErr) {
-			if _, invalid := aliyunInvalidCredentialCodes[apiErr.Code]; invalid {
-				return ErrCaptchaInvalidCredentials
-			}
-		}
-		return fmt.Errorf("validate aliyun captcha credentials: %w", err)
-	}
-
 	return nil
 }

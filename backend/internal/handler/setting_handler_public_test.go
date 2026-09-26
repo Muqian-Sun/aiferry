@@ -87,14 +87,17 @@ func TestSettingHandler_GetPublicSettings_ExposesForceEmailOnThirdPartySignupFro
 func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
-	repo := &settingHandlerPublicRepoStub{
-		values: map[string]string{
-			service.SettingKeyTencentCaptchaEnabled: "true",
-			service.SettingKeyTencentCaptchaAppID:   "123456789",
-			service.SettingKeyTencentCaptchaRegion:  service.TencentCaptchaRegionINTL,
+	// 人机验证只认部署配置：配齐天御四项凭证就开
+	repo := &settingHandlerPublicRepoStub{values: map[string]string{}}
+	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{
+		TencentCaptcha: config.TencentCaptchaConfig{
+			AppID:          "123456789",
+			AppSecretKey:   "app-secret-value",
+			CloudSecretID:  "cloud-secret-id-value",
+			CloudSecretKey: "cloud-secret-key-value",
+			Region:         service.TencentCaptchaRegionINTL,
 		},
-	}
-	h := NewSettingHandler(service.NewSettingService(repo, &config.Config{}), "test-version")
+	}), "test-version")
 
 	recorder := httptest.NewRecorder()
 	c, _ := gin.CreateTestContext(recorder)
@@ -117,6 +120,10 @@ func TestSettingHandler_GetPublicSettings_ExposesTencentCaptchaConfiguration(t *
 	require.True(t, resp.Data.TencentCaptchaEnabled)
 	require.Equal(t, "123456789", resp.Data.TencentCaptchaAppID)
 	require.Equal(t, service.TencentCaptchaRegionINTL, resp.Data.TencentCaptchaRegion)
+	// 密钥只在服务端校验时用，不能出现在公开设置里
+	for _, secret := range []string{"app-secret-value", "cloud-secret-id-value", "cloud-secret-key-value"} {
+		require.NotContains(t, recorder.Body.String(), secret)
+	}
 }
 
 func TestSettingHandler_GetPublicSettings_ExposesWeChatOAuthModeCapabilities(t *testing.T) {

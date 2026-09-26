@@ -86,16 +86,13 @@ func newTencentProtectedPasskeyHandler(t *testing.T) (*PasskeyHandler, *passkeyC
 		RPID:          "sub2api.example.com",
 		RPOrigins:     []string{"https://sub2api.example.com"},
 	}}
-	repo := &passkeySwitchSettingRepo{
-		value: "true",
-		values: map[string]string{
-			service.SettingKeyTencentCaptchaEnabled:        "true",
-			service.SettingKeyTencentCaptchaAppID:          "123456789",
-			service.SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-			service.SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-			service.SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-		},
+	cfg.TencentCaptcha = config.TencentCaptchaConfig{
+		AppID:          "123456789",
+		AppSecretKey:   "app-secret",
+		CloudSecretID:  "cloud-secret-id",
+		CloudSecretKey: "cloud-secret-key",
 	}
+	repo := &passkeySwitchSettingRepo{value: "true", values: map[string]string{}}
 	settings := service.NewSettingService(repo, cfg)
 	verifier := &passkeyCaptchaVerifierStub{}
 	authService := service.NewAuthService(nil, nil, nil, nil, cfg, settings, nil, nil, nil, nil, nil)

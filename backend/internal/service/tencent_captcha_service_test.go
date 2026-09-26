@@ -7,7 +7,6 @@ import (
 	"errors"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/stretchr/testify/require"
 )
 
@@ -33,17 +32,7 @@ func newTencentCaptchaTestService(verifier TencentCaptchaVerifier) *TencentCaptc
 }
 
 func newTencentCaptchaTestServiceWithRegion(verifier TencentCaptchaVerifier, region string) *TencentCaptchaService {
-	values := map[string]string{
-		SettingKeyTencentCaptchaEnabled:        "true",
-		SettingKeyTencentCaptchaAppID:          "123456789",
-		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-		SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-	}
-	if region != "" {
-		values[SettingKeyTencentCaptchaRegion] = region
-	}
-	settings := NewSettingService(&settingPublicRepoStub{values: values}, &config.Config{})
+	settings := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, tencentCaptchaTestConfig(region))
 	return NewTencentCaptchaService(settings, verifier)
 }
 
@@ -117,26 +106,12 @@ func TestTencentCaptchaServiceFailsClosedOnVerifierError(t *testing.T) {
 }
 
 func TestTencentCaptchaServiceRejectsIncompleteConfiguration(t *testing.T) {
-	settings := NewSettingService(&settingPublicRepoStub{values: map[string]string{
-		SettingKeyTencentCaptchaEnabled: "true",
-		SettingKeyTencentCaptchaAppID:   "123456789",
-	}}, &config.Config{})
+	// 部署配置启动时已拒绝半截凭证；这里验证校验入口本身的兜底：凭证不全不调用上游。
 	verifier := &tencentCaptchaVerifierStub{response: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
-	svc := NewTencentCaptchaService(settings, verifier)
+	svc := NewTencentCaptchaService(nil, verifier)
 
-	err := svc.VerifyTicket(context.Background(), "ticket", "@rand", "203.0.113.10")
+	err := svc.VerifyTicketWithConfig(context.Background(), TencentCaptchaConfig{Enabled: true, AppID: "123456789"}, "ticket", "@rand", "203.0.113.10")
 
 	require.ErrorIs(t, err, ErrTencentCaptchaNotConfigured)
-	require.Zero(t, verifier.calls)
-}
-
-func TestTencentCaptchaServiceFailsClosedOnSettingsReadError(t *testing.T) {
-	settings := NewSettingService(&settingPublicRepoStub{err: errors.New("settings unavailable")}, &config.Config{})
-	verifier := &tencentCaptchaVerifierStub{response: &TencentCaptchaVerifyResponse{CaptchaCode: 1}}
-	svc := NewTencentCaptchaService(settings, verifier)
-
-	err := svc.VerifyTicket(context.Background(), "ticket", "@rand", "203.0.113.10")
-
-	require.ErrorIs(t, err, ErrServiceUnavailable)
 	require.Zero(t, verifier.calls)
 }

@@ -472,10 +472,6 @@ func TestAPIContracts(t *testing.T) {
 				t.Helper()
 				deps.settingRepo.SetAll(map[string]string{
 
-					service.SettingKeyTurnstileEnabled:   "true",
-					service.SettingKeyTurnstileSiteKey:   "site-key",
-					service.SettingKeyTurnstileSecretKey: "secret-key",
-
 					service.SettingKeyOpsMonitoringEnabled:           "false",
 					service.SettingKeyOpsRealtimeMonitoringEnabled:   "true",
 					service.SettingKeyOpsQueryModeDefault:            "auto",
@@ -493,21 +489,6 @@ func TestAPIContracts(t *testing.T) {
 				"code": 0,
 				"message": "success",
 				"data": {
-					"turnstile_enabled": true,
-					"turnstile_site_key": "site-key",
-					"turnstile_secret_key_configured": true,
-					"tencent_captcha_enabled": false,
-					"tencent_captcha_app_id": "",
-					"tencent_captcha_app_secret_key_configured": false,
-					"tencent_captcha_cloud_secret_id_configured": false,
-					"tencent_captcha_cloud_secret_key_configured": false,
-					"tencent_captcha_region": "cn",
-					"aliyun_captcha_enabled": false,
-					"aliyun_captcha_access_key_id": "",
-					"aliyun_captcha_access_key_secret_configured": false,
-					"aliyun_captcha_scene_id": "",
-					"aliyun_captcha_prefix": "",
-					"aliyun_captcha_region": "cn",
 						"ops_monitoring_enabled": false,
 						"ops_realtime_monitoring_enabled": true,
 						"ops_query_mode_default": "auto",
@@ -698,7 +679,7 @@ func newContractDeps(t *testing.T) *contractDeps {
 	authHandler := handler.NewAuthHandler(cfg, nil, userService, settingService, redeemService, nil)
 	apiKeyHandler := handler.NewAPIKeyHandler(apiKeyService)
 	usageHandler := handler.NewUsageHandler(usageService, apiKeyService, nil, nil)
-	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil, nil)
+	adminSettingHandler := adminhandler.NewSettingHandler(settingService, nil, nil, nil, nil)
 	adminAccountHandler := adminhandler.NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 
 	jwtAuth := func(c *gin.Context) {

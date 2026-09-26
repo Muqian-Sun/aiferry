@@ -11,37 +11,19 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestSettingService_ParseSettingsMasksTencentCaptchaCredentials(t *testing.T) {
-	svc := NewSettingService(&settingGetAllRepoStub{values: map[string]string{
-		SettingKeyTencentCaptchaEnabled:        "true",
-		SettingKeyTencentCaptchaAppID:          "123456789",
-		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-		SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-	}}, &config.Config{})
-
-	settings, err := svc.GetAllSettings(context.Background())
-
-	require.NoError(t, err)
-	require.True(t, settings.TencentCaptchaEnabled)
-	require.Equal(t, "123456789", settings.TencentCaptchaAppID)
-	require.True(t, settings.TencentCaptchaAppSecretKeyConfigured)
-	require.True(t, settings.TencentCaptchaCloudSecretIDConfigured)
-	require.True(t, settings.TencentCaptchaCloudSecretKeyConfigured)
-	require.Equal(t, "app-secret", settings.TencentCaptchaAppSecretKey)
-	require.Equal(t, "cloud-secret-id", settings.TencentCaptchaCloudSecretID)
-	require.Equal(t, "cloud-secret-key", settings.TencentCaptchaCloudSecretKey)
+// tencentCaptchaTestConfig 部署配置里配齐腾讯天御（人机验证只认部署配置）。
+func tencentCaptchaTestConfig(region string) *config.Config {
+	return &config.Config{TencentCaptcha: config.TencentCaptchaConfig{
+		AppID:          "123456789",
+		AppSecretKey:   "app-secret",
+		CloudSecretID:  "cloud-secret-id",
+		CloudSecretKey: "cloud-secret-key",
+		Region:         region,
+	}}
 }
 
 func TestSettingService_GetPublicSettingsExposesOnlyTencentCaptchaAppID(t *testing.T) {
-	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
-		SettingKeyTencentCaptchaEnabled:        "true",
-		SettingKeyTencentCaptchaAppID:          "123456789",
-		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-		SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-		SettingKeyTencentCaptchaRegion:         TencentCaptchaRegionINTL,
-	}}, &config.Config{})
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, tencentCaptchaTestConfig(TencentCaptchaRegionINTL))
 
 	settings, err := svc.GetPublicSettings(context.Background())
 	require.NoError(t, err)
@@ -57,25 +39,46 @@ func TestSettingService_GetPublicSettingsExposesOnlyTencentCaptchaAppID(t *testi
 	require.NotContains(t, string(raw), "cloud-secret-key")
 }
 
-func TestSettingService_GetTencentCaptchaConfig(t *testing.T) {
-	repo := &settingPublicRepoStub{values: map[string]string{
-		SettingKeyTencentCaptchaEnabled:        "true",
-		SettingKeyTencentCaptchaAppID:          "123456789",
-		SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-		SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-		SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
-	}}
-	svc := NewSettingService(repo, &config.Config{})
+func TestSettingService_CaptchaProviderConfigReadsTencentFromDeploymentConfig(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{}}, tencentCaptchaTestConfig(""))
 
-	got := svc.GetTencentCaptchaConfig(context.Background())
+	got := svc.CaptchaProviderConfig()
 
+	require.False(t, got.TurnstileEnabled)
+	require.False(t, got.Aliyun.Enabled)
 	require.Equal(t, TencentCaptchaConfig{
 		Enabled:        true,
 		AppID:          "123456789",
 		AppSecretKey:   "app-secret",
 		CloudSecretID:  "cloud-secret-id",
 		CloudSecretKey: "cloud-secret-key",
-		// 未配置站点时回落中国站，保持存量部署行为不变
+		// 未配置站点时回落中国站
 		Region: TencentCaptchaRegionCN,
-	}, got)
+	}, got.Tencent)
+}
+
+// 数据库里旧的人机验证设置行（后台曾经能改）一律不读，只认部署配置。
+func TestSettingService_CaptchaProviderConfigIgnoresDatabaseRows(t *testing.T) {
+	svc := NewSettingService(&settingPublicRepoStub{values: map[string]string{
+		"tencent_captcha_enabled":          "true",
+		"tencent_captcha_app_id":           "987654321",
+		"tencent_captcha_app_secret_key":   "db-app-secret",
+		"tencent_captcha_cloud_secret_id":  "db-cloud-secret-id",
+		"tencent_captcha_cloud_secret_key": "db-cloud-secret-key",
+		"turnstile_enabled":                "true",
+		"turnstile_site_key":               "db-site-key",
+		"turnstile_secret_key":             "db-secret-key",
+	}}, &config.Config{})
+
+	got := svc.CaptchaProviderConfig()
+	require.False(t, got.TurnstileEnabled)
+	require.False(t, got.Tencent.Enabled)
+	require.False(t, got.Aliyun.Enabled)
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.False(t, settings.TurnstileEnabled)
+	require.Empty(t, settings.TurnstileSiteKey)
+	require.False(t, settings.TencentCaptchaEnabled)
+	require.Empty(t, settings.TencentCaptchaAppID)
 }

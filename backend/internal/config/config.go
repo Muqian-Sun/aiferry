@@ -10,6 +10,7 @@ import (
 	"net/textproto"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"sync/atomic"
 	"time"
@@ -72,6 +73,8 @@ type Config struct {
 	Security                SecurityConfig                `mapstructure:"security"`
 	Billing                 BillingConfig                 `mapstructure:"billing"`
 	Turnstile               TurnstileConfig               `mapstructure:"turnstile"`
+	TencentCaptcha          TencentCaptchaConfig          `mapstructure:"tencent_captcha"`
+	AliyunCaptcha           AliyunCaptchaConfig           `mapstructure:"aliyun_captcha"`
 	SMTP                    SMTPConfig                    `mapstructure:"smtp"`
 	Database                DatabaseConfig                `mapstructure:"database"`
 	Redis                   RedisConfig                   `mapstructure:"redis"`
@@ -1565,8 +1568,103 @@ func (c SMTPConfig) Configured() bool {
 	return strings.TrimSpace(c.Host) != "" && strings.TrimSpace(c.From) != ""
 }
 
+// 人机验证（Cloudflare Turnstile / 腾讯天御 / 阿里云验证码 2.0）只认部署配置：配齐了哪家就开哪家，
+// 同一时间最多一家；后台不再能配。
+
+// TurnstileConfig Cloudflare Turnstile：配了 site_key 和 secret_key 就开（TURNSTILE_SITE_KEY / TURNSTILE_SECRET_KEY）。
+// Required=true 时 release 模式下注册必须过人机验证，哪家都没配就拒绝注册。
 type TurnstileConfig struct {
-	Required bool `mapstructure:"required"`
+	Required  bool   `mapstructure:"required"`
+	SiteKey   string `mapstructure:"site_key"`
+	SecretKey string `mapstructure:"secret_key"`
+}
+
+func (c TurnstileConfig) Configured() bool {
+	return strings.TrimSpace(c.SiteKey) != "" && strings.TrimSpace(c.SecretKey) != ""
+}
+
+func (c TurnstileConfig) anySet() bool {
+	return strings.TrimSpace(c.SiteKey) != "" || strings.TrimSpace(c.SecretKey) != ""
+}
+
+// TencentCaptchaConfig 腾讯天御：四项凭证都配了就开（TENCENT_CAPTCHA_APP_ID / _APP_SECRET_KEY /
+// _CLOUD_SECRET_ID / _CLOUD_SECRET_KEY）；地域 TENCENT_CAPTCHA_REGION = cn（默认）| intl。
+type TencentCaptchaConfig struct {
+	AppID          string `mapstructure:"app_id"`
+	AppSecretKey   string `mapstructure:"app_secret_key"`
+	CloudSecretID  string `mapstructure:"cloud_secret_id"`
+	CloudSecretKey string `mapstructure:"cloud_secret_key"`
+	Region         string `mapstructure:"region"`
+}
+
+func (c TencentCaptchaConfig) Configured() bool {
+	return strings.TrimSpace(c.AppID) != "" && strings.TrimSpace(c.AppSecretKey) != "" &&
+		strings.TrimSpace(c.CloudSecretID) != "" && strings.TrimSpace(c.CloudSecretKey) != ""
+}
+
+func (c TencentCaptchaConfig) anySet() bool {
+	return strings.TrimSpace(c.AppID) != "" || strings.TrimSpace(c.AppSecretKey) != "" ||
+		strings.TrimSpace(c.CloudSecretID) != "" || strings.TrimSpace(c.CloudSecretKey) != ""
+}
+
+// AliyunCaptchaConfig 阿里云验证码 2.0：四项都配了就开（ALIYUN_CAPTCHA_ACCESS_KEY_ID / _ACCESS_KEY_SECRET /
+// _SCENE_ID / _PREFIX）；地域 ALIYUN_CAPTCHA_REGION = cn（默认）| sgp。
+type AliyunCaptchaConfig struct {
+	AccessKeyID     string `mapstructure:"access_key_id"`
+	AccessKeySecret string `mapstructure:"access_key_secret"`
+	SceneID         string `mapstructure:"scene_id"`
+	Prefix          string `mapstructure:"prefix"`
+	Region          string `mapstructure:"region"`
+}
+
+func (c AliyunCaptchaConfig) Configured() bool {
+	return strings.TrimSpace(c.AccessKeyID) != "" && strings.TrimSpace(c.AccessKeySecret) != "" &&
+		strings.TrimSpace(c.SceneID) != "" && strings.TrimSpace(c.Prefix) != ""
+}
+
+func (c AliyunCaptchaConfig) anySet() bool {
+	return strings.TrimSpace(c.AccessKeyID) != "" || strings.TrimSpace(c.AccessKeySecret) != "" ||
+		strings.TrimSpace(c.SceneID) != "" || strings.TrimSpace(c.Prefix) != ""
+}
+
+// validateCaptchaConfig 每家凭证要么配齐要么全空；地域只认已支持的值；同一时间最多一家。
+func (c *Config) validateCaptchaConfig() error {
+	configured := 0
+	if c.Turnstile.anySet() {
+		if !c.Turnstile.Configured() {
+			return fmt.Errorf("turnstile.site_key and turnstile.secret_key must be both set or both empty")
+		}
+		configured++
+	}
+	if c.TencentCaptcha.anySet() {
+		if !c.TencentCaptcha.Configured() {
+			return fmt.Errorf("tencent_captcha.app_id, app_secret_key, cloud_secret_id and cloud_secret_key must be all set or all empty")
+		}
+		if appID, err := strconv.ParseUint(strings.TrimSpace(c.TencentCaptcha.AppID), 10, 64); err != nil || appID == 0 {
+			return fmt.Errorf("tencent_captcha.app_id must be a positive integer")
+		}
+		configured++
+	}
+	switch strings.TrimSpace(c.TencentCaptcha.Region) {
+	case "", "cn", "intl":
+	default:
+		return fmt.Errorf("tencent_captcha.region must be cn or intl")
+	}
+	if c.AliyunCaptcha.anySet() {
+		if !c.AliyunCaptcha.Configured() {
+			return fmt.Errorf("aliyun_captcha.access_key_id, access_key_secret, scene_id and prefix must be all set or all empty")
+		}
+		configured++
+	}
+	switch strings.TrimSpace(c.AliyunCaptcha.Region) {
+	case "", "cn", "sgp":
+	default:
+		return fmt.Errorf("aliyun_captcha.region must be cn or sgp")
+	}
+	if configured > 1 {
+		return fmt.Errorf("only one captcha provider (turnstile / tencent_captcha / aliyun_captcha) can be configured")
+	}
+	return nil
 }
 
 type DefaultConfig struct {
@@ -1959,6 +2057,18 @@ func setDefaults() {
 
 	// Turnstile
 	viper.SetDefault("turnstile.required", false)
+	viper.SetDefault("turnstile.site_key", "")
+	viper.SetDefault("turnstile.secret_key", "")
+	viper.SetDefault("tencent_captcha.app_id", "")
+	viper.SetDefault("tencent_captcha.app_secret_key", "")
+	viper.SetDefault("tencent_captcha.cloud_secret_id", "")
+	viper.SetDefault("tencent_captcha.cloud_secret_key", "")
+	viper.SetDefault("tencent_captcha.region", "cn")
+	viper.SetDefault("aliyun_captcha.access_key_id", "")
+	viper.SetDefault("aliyun_captcha.access_key_secret", "")
+	viper.SetDefault("aliyun_captcha.scene_id", "")
+	viper.SetDefault("aliyun_captcha.prefix", "")
+	viper.SetDefault("aliyun_captcha.region", "cn")
 
 	// WeChat Connect OAuth 登录
 	viper.SetDefault("wechat_connect.enabled", false)
@@ -2674,6 +2784,9 @@ func (c *Config) Validate() error {
 	}
 	if c.Security.CSP.Enabled && strings.TrimSpace(c.Security.CSP.Policy) == "" {
 		return fmt.Errorf("security.csp.policy is required when CSP is enabled")
+	}
+	if err := c.validateCaptchaConfig(); err != nil {
+		return err
 	}
 	for _, provider := range []struct {
 		key string

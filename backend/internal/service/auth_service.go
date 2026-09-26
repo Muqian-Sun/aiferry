@@ -47,7 +47,6 @@ var (
 	ErrInvitationCodeRequired  = infraerrors.BadRequest("INVITATION_CODE_REQUIRED", "invitation code is required")
 	ErrInvitationCodeInvalid   = infraerrors.BadRequest("INVITATION_CODE_INVALID", "invalid or used invitation code")
 	ErrOAuthInvitationRequired = infraerrors.Forbidden("OAUTH_INVITATION_REQUIRED", "invitation code required to complete oauth registration")
-	ErrCaptchaProviderConflict = infraerrors.ServiceUnavailable("CAPTCHA_PROVIDER_CONFLICT", "multiple captcha providers are enabled")
 )
 
 // maxTokenLength 限制 token 大小，避免超长 header 触发解析时的异常内存分配。
@@ -377,17 +376,10 @@ func (s *AuthService) VerifyCaptcha(ctx context.Context, proof CaptchaProof, rem
 		return nil
 	}
 
-	providerConfig, err := s.settingService.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "%s", "[Auth] Failed to read captcha provider settings")
-		return ErrServiceUnavailable
-	}
+	providerConfig := s.settingService.CaptchaProviderConfig()
 	turnstileEnabled := providerConfig.TurnstileEnabled
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
-	if captchaProvidersConflict(turnstileEnabled, tencentEnabled, aliyunEnabled) {
-		return ErrCaptchaProviderConflict
-	}
 	if tencentEnabled {
 		if s.tencentCaptchaService == nil {
 			return ErrTencentCaptchaNotConfigured
@@ -412,17 +404,6 @@ func (s *AuthService) VerifyCaptcha(ctx context.Context, proof CaptchaProof, rem
 	return nil
 }
 
-// captchaProvidersConflict 同一时间仅允许启用一家人机验证服务商
-func captchaProvidersConflict(enabled ...bool) bool {
-	count := 0
-	for _, e := range enabled {
-		if e {
-			count++
-		}
-	}
-	return count > 1
-}
-
 // VerifyActionCaptchaIfEnabled 仅保护动作触发的扩展入口（OAuth 登录启动、passkey 登录），
 // 腾讯天御与阿里云验证码启用时拦截；不扩大 Cloudflare Turnstile 的既有覆盖范围。
 func (s *AuthService) VerifyActionCaptchaIfEnabled(ctx context.Context, proof CaptchaProof, remoteIP string) error {
@@ -430,18 +411,11 @@ func (s *AuthService) VerifyActionCaptchaIfEnabled(ctx context.Context, proof Ca
 		return ErrServiceUnavailable
 	}
 
-	providerConfig, err := s.settingService.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		logger.LegacyPrintf("service.auth", "%s", "[Auth] Failed to read captcha provider settings")
-		return ErrServiceUnavailable
-	}
+	providerConfig := s.settingService.CaptchaProviderConfig()
 	tencentEnabled := providerConfig.Tencent.Enabled
 	aliyunEnabled := providerConfig.Aliyun.Enabled
 	if !tencentEnabled && !aliyunEnabled {
 		return nil
-	}
-	if captchaProvidersConflict(providerConfig.TurnstileEnabled, tencentEnabled, aliyunEnabled) {
-		return ErrCaptchaProviderConflict
 	}
 	if aliyunEnabled {
 		if s.aliyunCaptchaService == nil {

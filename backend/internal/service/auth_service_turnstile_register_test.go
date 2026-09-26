@@ -29,17 +29,20 @@ func (s *turnstileVerifierSpy) VerifyToken(_ context.Context, _ string, token, _
 	return &TurnstileVerifyResponse{Success: true}, nil
 }
 
-func newAuthServiceForRegisterTurnstileTest(settings map[string]string, verifier TurnstileVerifier) *AuthService {
+// newAuthServiceForRegisterTurnstileTest 部署配置里配了 Turnstile（人机验证只认部署配置），release + required。
+func newAuthServiceForRegisterTurnstileTest(verifier TurnstileVerifier) *AuthService {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			Mode: "release",
 		},
 		Turnstile: config.TurnstileConfig{
-			Required: true,
+			Required:  true,
+			SiteKey:   "site-key",
+			SecretKey: "secret",
 		},
 	}
 
-	settingService := NewSettingService(&settingRepoStub{values: settings}, cfg)
+	settingService := NewSettingService(&settingRepoStub{values: map[string]string{}}, cfg)
 	turnstileService := NewTurnstileService(settingService, verifier)
 
 	return NewAuthService(
@@ -59,10 +62,7 @@ func newAuthServiceForRegisterTurnstileTest(settings map[string]string, verifier
 
 func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
-	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyTurnstileEnabled:   "true",
-		SettingKeyTurnstileSecretKey: "secret",
-	}, verifier)
+	service := newAuthServiceForRegisterTurnstileTest(verifier)
 	service.cfg.SMTP = testSMTPConfigured // 配了 SMTP：注册要验证邮箱
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "123456")
@@ -72,10 +72,7 @@ func TestAuthService_VerifyTurnstileForRegister_SkipWhenEmailVerifyCodeProvided(
 
 func TestAuthService_VerifyTurnstileForRegister_RequireWhenVerifyCodeMissing(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
-	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyTurnstileEnabled:   "true",
-		SettingKeyTurnstileSecretKey: "secret",
-	}, verifier)
+	service := newAuthServiceForRegisterTurnstileTest(verifier)
 	service.cfg.SMTP = testSMTPConfigured // 配了 SMTP：注册要验证邮箱
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "", "127.0.0.1", "")
@@ -84,10 +81,7 @@ func TestAuthService_VerifyTurnstileForRegister_RequireWhenVerifyCodeMissing(t *
 
 func TestAuthService_VerifyTurnstileForRegister_NoSkipWhenEmailVerifyDisabled(t *testing.T) {
 	verifier := &turnstileVerifierSpy{}
-	service := newAuthServiceForRegisterTurnstileTest(map[string]string{
-		SettingKeyTurnstileEnabled:   "true",
-		SettingKeyTurnstileSecretKey: "secret",
-	}, verifier)
+	service := newAuthServiceForRegisterTurnstileTest(verifier)
 
 	err := service.VerifyTurnstileForRegister(context.Background(), "turnstile-token", "127.0.0.1", "123456")
 	require.NoError(t, err)

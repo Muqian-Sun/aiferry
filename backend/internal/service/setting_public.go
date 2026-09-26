@@ -109,15 +109,6 @@ func (s *SettingService) GetFrontendURL(ctx context.Context) string {
 // GetPublicSettings 获取公开设置（无需登录）
 func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings, error) {
 	keys := []string{
-		SettingKeyTurnstileEnabled,
-		SettingKeyTurnstileSiteKey,
-		SettingKeyTencentCaptchaEnabled,
-		SettingKeyTencentCaptchaAppID,
-		SettingKeyTencentCaptchaRegion,
-		SettingKeyAliyunCaptchaEnabled,
-		SettingKeyAliyunCaptchaSceneID,
-		SettingKeyAliyunCaptchaPrefix,
-		SettingKeyAliyunCaptchaRegion,
 		SettingPaymentEnabled,
 		SettingKeyChannelMonitorEnabled,
 		SettingKeyChannelMonitorDefaultIntervalSeconds,
@@ -143,6 +134,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	emailVerifyEnabled := s.smtpConfigured()
 	passwordResetEnabled := emailVerifyEnabled
 	loginAgreementDocuments := LoginAgreementDocuments()
+	captcha := s.CaptchaProviderConfig()
 
 	// 通知跟着 SMTP 走，阈值与充值页由代码决定
 	notifyEnabled := s.smtpConfigured()
@@ -165,15 +157,16 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		LoginAgreementUpdatedAt:             LoginAgreementUpdatedAt,
 		LoginAgreementRevision:              buildLoginAgreementRevision(LoginAgreementUpdatedAt, loginAgreementDocuments),
 		LoginAgreementDocuments:             loginAgreementDocuments,
-		TurnstileEnabled:                    settings[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSiteKey:                    settings[SettingKeyTurnstileSiteKey],
-		TencentCaptchaEnabled:               settings[SettingKeyTencentCaptchaEnabled] == "true",
-		TencentCaptchaAppID:                 settings[SettingKeyTencentCaptchaAppID],
-		TencentCaptchaRegion:                normalizeTencentCaptchaRegion(settings[SettingKeyTencentCaptchaRegion]),
-		AliyunCaptchaEnabled:                settings[SettingKeyAliyunCaptchaEnabled] == "true",
-		AliyunCaptchaSceneID:                settings[SettingKeyAliyunCaptchaSceneID],
-		AliyunCaptchaPrefix:                 settings[SettingKeyAliyunCaptchaPrefix],
-		AliyunCaptchaRegion:                 normalizeAliyunCaptchaRegion(settings[SettingKeyAliyunCaptchaRegion]),
+		// 人机验证只认部署配置（CaptchaProviderConfig），这里只给前端公开字段，密钥不出去。
+		TurnstileEnabled:      captcha.TurnstileEnabled,
+		TurnstileSiteKey:      captcha.TurnstileSiteKey,
+		TencentCaptchaEnabled: captcha.Tencent.Enabled,
+		TencentCaptchaAppID:   captcha.Tencent.AppID,
+		TencentCaptchaRegion:  captcha.Tencent.Region,
+		AliyunCaptchaEnabled:  captcha.Aliyun.Enabled,
+		AliyunCaptchaSceneID:  captcha.Aliyun.SceneID,
+		AliyunCaptchaPrefix:   captcha.Aliyun.Prefix,
+		AliyunCaptchaRegion:   captcha.Aliyun.Region,
 		// 站点相关由代码决定（site_features.go）；API 地址就是用户站地址，没配时前端用当前域名。
 		SiteName:                    SiteName,
 		SiteLogo:                    SiteLogo,

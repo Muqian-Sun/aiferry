@@ -12,27 +12,6 @@ func firstNonEmpty(values ...string) string {
 }
 
 type SystemSettings struct {
-	TurnstileEnabled                       bool
-	TurnstileSiteKey                       string
-	TurnstileSecretKey                     string
-	TurnstileSecretKeyConfigured           bool
-	TencentCaptchaEnabled                  bool
-	TencentCaptchaAppID                    string
-	TencentCaptchaAppSecretKey             string
-	TencentCaptchaAppSecretKeyConfigured   bool
-	TencentCaptchaCloudSecretID            string
-	TencentCaptchaCloudSecretIDConfigured  bool
-	TencentCaptchaCloudSecretKey           string
-	TencentCaptchaCloudSecretKeyConfigured bool
-	TencentCaptchaRegion                   string
-	AliyunCaptchaEnabled                   bool
-	AliyunCaptchaAccessKeyID               string
-	AliyunCaptchaAccessKeySecret           string
-	AliyunCaptchaAccessKeySecretConfigured bool
-	AliyunCaptchaSceneID                   string
-	AliyunCaptchaPrefix                    string
-	AliyunCaptchaRegion                    string
-
 	RiskControlEnabled           bool
 	CyberSessionBlockEnabled     bool
 	CyberSessionBlockTTLSeconds  int

@@ -19,8 +19,6 @@ var semverPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 type SettingHandler struct {
 	settingService           *service.SettingService
 	emailService             *service.EmailService
-	turnstileService         *service.TurnstileService
-	aliyunCaptchaService     *service.AliyunCaptchaService
 	opsService               *service.OpsService
 	paymentConfigService     *service.PaymentConfigService
 	paymentService           *service.PaymentService
@@ -30,11 +28,10 @@ type SettingHandler struct {
 }
 
 // NewSettingHandler 创建系统设置处理器
-func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, turnstileService *service.TurnstileService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService) *SettingHandler {
+func NewSettingHandler(settingService *service.SettingService, emailService *service.EmailService, opsService *service.OpsService, paymentConfigService *service.PaymentConfigService, paymentService *service.PaymentService) *SettingHandler {
 	return &SettingHandler{
 		settingService:       settingService,
 		emailService:         emailService,
-		turnstileService:     turnstileService,
 		opsService:           opsService,
 		paymentConfigService: paymentConfigService,
 		paymentService:       paymentService,
@@ -45,12 +42,6 @@ func NewSettingHandler(settingService *service.SettingService, emailService *ser
 // the constructor signature used by existing unit tests.
 func (h *SettingHandler) SetNotificationEmailService(notificationEmailService *service.NotificationEmailService) {
 	h.notificationEmailService = notificationEmailService
-}
-
-// SetAliyunCaptchaService attaches the Aliyun captcha credential validator without
-// changing the constructor signature used by existing unit tests.
-func (h *SettingHandler) SetAliyunCaptchaService(aliyunCaptchaService *service.AliyunCaptchaService) {
-	h.aliyunCaptchaService = aliyunCaptchaService
 }
 
 // SetStepUpDeps attaches the services backing the step-up switch preconditions
@@ -84,21 +75,6 @@ func (h *SettingHandler) GetSettings(c *gin.Context) {
 	}
 
 	payload := dto.SystemSettings{
-		TurnstileEnabled:                       settings.TurnstileEnabled,
-		TurnstileSiteKey:                       settings.TurnstileSiteKey,
-		TurnstileSecretKeyConfigured:           settings.TurnstileSecretKeyConfigured,
-		TencentCaptchaEnabled:                  settings.TencentCaptchaEnabled,
-		TencentCaptchaAppID:                    settings.TencentCaptchaAppID,
-		TencentCaptchaAppSecretKeyConfigured:   settings.TencentCaptchaAppSecretKeyConfigured,
-		TencentCaptchaCloudSecretIDConfigured:  settings.TencentCaptchaCloudSecretIDConfigured,
-		TencentCaptchaCloudSecretKeyConfigured: settings.TencentCaptchaCloudSecretKeyConfigured,
-		TencentCaptchaRegion:                   settings.TencentCaptchaRegion,
-		AliyunCaptchaEnabled:                   settings.AliyunCaptchaEnabled,
-		AliyunCaptchaAccessKeyID:               settings.AliyunCaptchaAccessKeyID,
-		AliyunCaptchaAccessKeySecretConfigured: settings.AliyunCaptchaAccessKeySecretConfigured,
-		AliyunCaptchaSceneID:                   settings.AliyunCaptchaSceneID,
-		AliyunCaptchaPrefix:                    settings.AliyunCaptchaPrefix,
-		AliyunCaptchaRegion:                    settings.AliyunCaptchaRegion,
 		RiskControlEnabled:                     settings.RiskControlEnabled,
 		CyberSessionBlockEnabled:               settings.CyberSessionBlockEnabled,
 		CyberSessionBlockTTLSeconds:            settings.CyberSessionBlockTTLSeconds,

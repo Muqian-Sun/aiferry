@@ -77,7 +77,7 @@ func TestSettingHandler_UpdateSettings_PersistsPaymentVisibleMethods(t *testing.
 		values: map[string]string{},
 	}
 	svc := service.NewSettingService(repo, &config.Config{})
-	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil)
+	handler := NewSettingHandler(svc, nil, nil, nil, nil)
 
 	body := map[string]any{
 		"invitation_code_enabled":               true,
@@ -123,7 +123,7 @@ func TestSettingHandler_UpdateSettings_PreservesLegacyBlankPaymentVisibleMethodS
 		},
 	}
 	svc := service.NewSettingService(repo, &config.Config{})
-	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil)
+	handler := NewSettingHandler(svc, nil, nil, nil, nil)
 
 	body := map[string]any{
 		"invitation_code_enabled": false,
@@ -149,7 +149,7 @@ func TestSettingHandler_UpdateSettings_RejectsInvalidPaymentVisibleMethodSource(
 		values: map[string]string{},
 	}
 	svc := service.NewSettingService(repo, &config.Config{})
-	handler := NewSettingHandler(svc, nil, nil, nil, nil, nil)
+	handler := NewSettingHandler(svc, nil, nil, nil, nil)
 
 	body := map[string]any{
 		"invitation_code_enabled":              true,

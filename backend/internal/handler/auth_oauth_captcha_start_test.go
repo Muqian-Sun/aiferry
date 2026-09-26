@@ -59,18 +59,17 @@ func (v *oauthCaptchaVerifier) VerifyTicket(_ context.Context, _ service.Tencent
 }
 
 func newOAuthCaptchaTestHandler(enabled bool) (*AuthHandler, *oauthCaptchaVerifier) {
-	values := map[string]string{}
+	cfg := &config.Config{}
 	if enabled {
-		values = map[string]string{
-			service.SettingKeyTencentCaptchaEnabled:        "true",
-			service.SettingKeyTencentCaptchaAppID:          "123456789",
-			service.SettingKeyTencentCaptchaAppSecretKey:   "app-secret",
-			service.SettingKeyTencentCaptchaCloudSecretID:  "cloud-secret-id",
-			service.SettingKeyTencentCaptchaCloudSecretKey: "cloud-secret-key",
+		// 人机验证只认部署配置：配齐天御凭证就开
+		cfg.TencentCaptcha = config.TencentCaptchaConfig{
+			AppID:          "123456789",
+			AppSecretKey:   "app-secret",
+			CloudSecretID:  "cloud-secret-id",
+			CloudSecretKey: "cloud-secret-key",
 		}
 	}
-	cfg := &config.Config{}
-	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: values}, cfg)
+	settings := service.NewSettingService(&oauthCaptchaSettingRepo{values: map[string]string{}}, cfg)
 	verifier := &oauthCaptchaVerifier{}
 	authService := service.NewAuthService(nil, nil, nil, nil, cfg, settings, nil, nil, nil, nil, nil)
 	authService.SetTencentCaptchaService(service.NewTencentCaptchaService(settings, verifier))

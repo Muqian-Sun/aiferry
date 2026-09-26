@@ -1091,13 +1091,32 @@ billing:
   user_platform_quota_cache_ttl_seconds: 86400
 
 # =============================================================================
-# Turnstile Configuration
-# Turnstile 人机验证配置
+# Captcha (deployment config only; cannot be changed from admin UI)
+# 人机验证（只认部署配置，后台不能开也不能改）
 # =============================================================================
+# 配齐了哪家就开哪家，同一时间最多一家（配了两家启动失败）；每家的凭证要么配齐、要么全空。
+# 环境变量按「段_键」：TURNSTILE_SITE_KEY、TENCENT_CAPTCHA_APP_ID、ALIYUN_CAPTCHA_SCENE_ID …
 turnstile:
-  # Require Turnstile in release mode (when enabled, login/register will fail if not configured)
-  # 在 release 模式下要求 Turnstile 验证（启用后，若未配置则登录/注册会失败）
+  # 在 release 模式下要求注册必须过人机验证（哪家都没配时注册会失败）
   required: false
+  site_key: ""
+  secret_key: ""
+
+# 腾讯天御：四项凭证都配了就开；region = cn（默认）| intl
+tencent_captcha:
+  app_id: ""
+  app_secret_key: ""
+  cloud_secret_id: ""
+  cloud_secret_key: ""
+  region: "cn"
+
+# 阿里云验证码 2.0：四项都配了就开；region = cn（默认）| sgp
+aliyun_captcha:
+  access_key_id: ""
+  access_key_secret: ""
+  scene_id: ""
+  prefix: ""
+  region: "cn"
 
 # =============================================================================
 # Gemini OAuth (Required for Gemini accounts)

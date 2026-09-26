@@ -168,24 +168,6 @@ func (s *SettingService) IsStepUpEnabled(ctx context.Context) bool {
 	return StepUpEnabled
 }
 
-// IsTurnstileEnabled 检查是否启用 Turnstile 验证
-func (s *SettingService) IsTurnstileEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTurnstileEnabled)
-	if err != nil {
-		return false
-	}
-	return value == "true"
-}
-
-// GetTurnstileSecretKey 获取 Turnstile Secret Key
-func (s *SettingService) GetTurnstileSecretKey(ctx context.Context) string {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTurnstileSecretKey)
-	if err != nil {
-		return ""
-	}
-	return value
-}
-
 // TencentCaptchaConfig contains the credentials required by Tencent Cloud's
 // ticket verification API. It must never be returned by a public handler.
 type TencentCaptchaConfig struct {
@@ -204,67 +186,45 @@ type AliyunCaptchaConfig struct {
 	AccessKeyID     string
 	AccessKeySecret string
 	SceneID         string
+	Prefix          string
 	Region          string
 }
 
 type CaptchaProviderConfig struct {
 	TurnstileEnabled   bool
+	TurnstileSiteKey   string
 	TurnstileSecretKey string
 	Tencent            TencentCaptchaConfig
 	Aliyun             AliyunCaptchaConfig
 }
 
-func (s *SettingService) GetCaptchaProviderConfig(ctx context.Context) (CaptchaProviderConfig, error) {
-	values, err := s.settingRepo.GetMultiple(ctx, []string{
-		SettingKeyTurnstileEnabled,
-		SettingKeyTurnstileSecretKey,
-		SettingKeyTencentCaptchaEnabled,
-		SettingKeyTencentCaptchaAppID,
-		SettingKeyTencentCaptchaAppSecretKey,
-		SettingKeyTencentCaptchaCloudSecretID,
-		SettingKeyTencentCaptchaCloudSecretKey,
-		SettingKeyTencentCaptchaRegion,
-		SettingKeyAliyunCaptchaEnabled,
-		SettingKeyAliyunCaptchaAccessKeyID,
-		SettingKeyAliyunCaptchaAccessKeySecret,
-		SettingKeyAliyunCaptchaSceneID,
-		SettingKeyAliyunCaptchaRegion,
-	})
-	if err != nil {
-		return CaptchaProviderConfig{}, fmt.Errorf("read captcha provider settings: %w", err)
+// CaptchaProviderConfig 人机验证只认部署配置：配齐了哪家就开哪家（启动时已校验同一时间最多一家）。
+func (s *SettingService) CaptchaProviderConfig() CaptchaProviderConfig {
+	if s == nil || s.cfg == nil {
+		return CaptchaProviderConfig{}
 	}
+	turnstile, tencent, aliyun := s.cfg.Turnstile, s.cfg.TencentCaptcha, s.cfg.AliyunCaptcha
 	return CaptchaProviderConfig{
-		TurnstileEnabled:   values[SettingKeyTurnstileEnabled] == "true",
-		TurnstileSecretKey: values[SettingKeyTurnstileSecretKey],
+		TurnstileEnabled:   turnstile.Configured(),
+		TurnstileSiteKey:   strings.TrimSpace(turnstile.SiteKey),
+		TurnstileSecretKey: strings.TrimSpace(turnstile.SecretKey),
 		Tencent: TencentCaptchaConfig{
-			Enabled:        values[SettingKeyTencentCaptchaEnabled] == "true",
-			AppID:          values[SettingKeyTencentCaptchaAppID],
-			AppSecretKey:   values[SettingKeyTencentCaptchaAppSecretKey],
-			CloudSecretID:  values[SettingKeyTencentCaptchaCloudSecretID],
-			CloudSecretKey: values[SettingKeyTencentCaptchaCloudSecretKey],
-			Region:         normalizeTencentCaptchaRegion(values[SettingKeyTencentCaptchaRegion]),
+			Enabled:        tencent.Configured(),
+			AppID:          strings.TrimSpace(tencent.AppID),
+			AppSecretKey:   strings.TrimSpace(tencent.AppSecretKey),
+			CloudSecretID:  strings.TrimSpace(tencent.CloudSecretID),
+			CloudSecretKey: strings.TrimSpace(tencent.CloudSecretKey),
+			Region:         normalizeTencentCaptchaRegion(strings.TrimSpace(tencent.Region)),
 		},
 		Aliyun: AliyunCaptchaConfig{
-			Enabled:         values[SettingKeyAliyunCaptchaEnabled] == "true",
-			AccessKeyID:     values[SettingKeyAliyunCaptchaAccessKeyID],
-			AccessKeySecret: values[SettingKeyAliyunCaptchaAccessKeySecret],
-			SceneID:         values[SettingKeyAliyunCaptchaSceneID],
-			Region:          normalizeAliyunCaptchaRegion(values[SettingKeyAliyunCaptchaRegion]),
+			Enabled:         aliyun.Configured(),
+			AccessKeyID:     strings.TrimSpace(aliyun.AccessKeyID),
+			AccessKeySecret: strings.TrimSpace(aliyun.AccessKeySecret),
+			SceneID:         strings.TrimSpace(aliyun.SceneID),
+			Prefix:          strings.TrimSpace(aliyun.Prefix),
+			Region:          normalizeAliyunCaptchaRegion(strings.TrimSpace(aliyun.Region)),
 		},
-	}, nil
-}
-
-func (s *SettingService) IsTencentCaptchaEnabled(ctx context.Context) bool {
-	value, err := s.settingRepo.GetValue(ctx, SettingKeyTencentCaptchaEnabled)
-	return err == nil && value == "true"
-}
-
-func (s *SettingService) GetTencentCaptchaConfig(ctx context.Context) TencentCaptchaConfig {
-	config, err := s.GetCaptchaProviderConfig(ctx)
-	if err != nil {
-		return TencentCaptchaConfig{}
 	}
-	return config.Tencent
 }
 
 // IsIdentityPatchEnabled 检查是否启用身份补丁（Claude -> Gemini systemInstruction 注入）

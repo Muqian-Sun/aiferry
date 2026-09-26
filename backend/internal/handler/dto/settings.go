@@ -26,22 +26,6 @@ type CustomEndpoint struct {
 
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
-	TurnstileEnabled                       bool   `json:"turnstile_enabled"`
-	TurnstileSiteKey                       string `json:"turnstile_site_key"`
-	TurnstileSecretKeyConfigured           bool   `json:"turnstile_secret_key_configured"`
-	TencentCaptchaEnabled                  bool   `json:"tencent_captcha_enabled"`
-	TencentCaptchaAppID                    string `json:"tencent_captcha_app_id"`
-	TencentCaptchaAppSecretKeyConfigured   bool   `json:"tencent_captcha_app_secret_key_configured"`
-	TencentCaptchaCloudSecretIDConfigured  bool   `json:"tencent_captcha_cloud_secret_id_configured"`
-	TencentCaptchaCloudSecretKeyConfigured bool   `json:"tencent_captcha_cloud_secret_key_configured"`
-	TencentCaptchaRegion                   string `json:"tencent_captcha_region"`
-	AliyunCaptchaEnabled                   bool   `json:"aliyun_captcha_enabled"`
-	AliyunCaptchaAccessKeyID               string `json:"aliyun_captcha_access_key_id"`
-	AliyunCaptchaAccessKeySecretConfigured bool   `json:"aliyun_captcha_access_key_secret_configured"`
-	AliyunCaptchaSceneID                   string `json:"aliyun_captcha_scene_id"`
-	AliyunCaptchaPrefix                    string `json:"aliyun_captcha_prefix"`
-	AliyunCaptchaRegion                    string `json:"aliyun_captcha_region"`
-
 	AffiliateRebateRate          float64 `json:"affiliate_rebate_rate"`
 	AffiliateRebateFreezeHours   int     `json:"affiliate_rebate_freeze_hours"`
 	AffiliateRebateDurationDays  int     `json:"affiliate_rebate_duration_days"`
