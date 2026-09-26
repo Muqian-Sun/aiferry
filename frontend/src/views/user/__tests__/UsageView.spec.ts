@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { flushPromises, mount } from '@vue/test-utils'
 
 import UsageView from '../UsageView.vue'
-import Select, { type SelectOption } from '@/components/common/Select.vue'
+import FilterChip from '@/components/common/FilterChip.vue'
 import DateRangePicker from '@/components/common/DateRangePicker.vue'
 import UsageTable from '@/components/usage/UsageTable.vue'
 import ModelUsageTable from '@/components/user/usage/ModelUsageTable.vue'
@@ -72,7 +72,22 @@ const messages: Record<string, string> = {
   'usage.exportFailed': 'Export failed',
   'common.refresh': 'Refresh',
   'common.reset': 'Reset',
+  'userUi.usage.moreFilters': 'More filters',
+  'userUi.usage.stats.failures': 'Failed requests',
+  'userUi.usage.stats.viewFailures': 'View',
 }
+
+const routeState = vi.hoisted(() => ({ query: {} as Record<string, string> }))
+const routerReplace = vi.hoisted(() => vi.fn())
+
+vi.mock('vue-router', async () => {
+  const actual = await vi.importActual<typeof import('vue-router')>('vue-router')
+  return {
+    ...actual,
+    useRoute: () => routeState,
+    useRouter: () => ({ replace: routerReplace }),
+  }
+})
 
 vi.mock('@/api', () => ({
   usageAPI: {
@@ -185,6 +200,10 @@ const usageLog = {
   native_compaction_v2: false,
 }
 
+function chip(wrapper: ReturnType<typeof mountUsageView>, testId: string) {
+  return wrapper.findAllComponents(FilterChip).find((item) => item.props('testId') === testId)
+}
+
 function mountUsageView() {
   return mount(UsageView, {
     global: {
@@ -213,6 +232,8 @@ describe('user UsageView', () => {
     getDashboardSnapshotV2.mockReset()
     listMyErrorRequests.mockReset()
     list.mockReset()
+    routerReplace.mockReset().mockResolvedValue(undefined)
+    routeState.query = {}
     showError.mockReset()
     showWarning.mockReset()
     showSuccess.mockReset()
@@ -304,15 +325,13 @@ describe('user UsageView', () => {
     await flushPromises()
 
     expect(list.mock.calls).toEqual([[1, 100], [2, 100]])
-    const usageKeySelect = wrapper.findAllComponents(Select).find((select) =>
-      select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
-    )!
-    expect(usageKeySelect.props('options')).toHaveLength(102)
-    expect(usageKeySelect.props('options')).toContainEqual({ value: laterKey.id, label: laterKey.name })
+    const usageKeyChip = chip(wrapper, 'usage-filter-key')!
+    expect(usageKeyChip.props('options')).toHaveLength(101)
+    expect(usageKeyChip.props('options')).toContainEqual({ value: laterKey.id, label: laterKey.name })
 
     query.mockClear()
-    usageKeySelect.vm.$emit('update:modelValue', laterKey.id)
-    usageKeySelect.vm.$emit('change', laterKey.id)
+    usageKeyChip.vm.$emit('update:modelValue', laterKey.id)
+    usageKeyChip.vm.$emit('change', laterKey.id)
     await flushPromises()
 
     expect(query).toHaveBeenCalledWith(
@@ -323,19 +342,19 @@ describe('user UsageView', () => {
     await wrapper.findAll('button').find((button) => button.text() === 'Error records')!.trigger('click')
     await flushPromises()
 
-    const errorKeySelect = wrapper.findAllComponents(Select).find((select) =>
-      select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
-    )!
-    expect(errorKeySelect.props('options')).toHaveLength(102)
-    expect(errorKeySelect.props('options')).toContainEqual({ value: laterKey.id, label: laterKey.name })
+    const errorKeyChip = chip(wrapper, 'error-filter-key')!
+    expect(errorKeyChip.props('options')).toHaveLength(101)
+    expect(errorKeyChip.props('options')).toContainEqual({ value: laterKey.id, label: laterKey.name })
+    // 切到错误页签时带上用量页签选中的密钥
+    expect(errorKeyChip.props('modelValue')).toBe(laterKey.id)
 
     listMyErrorRequests.mockClear()
-    errorKeySelect.vm.$emit('update:modelValue', laterKey.id)
-    errorKeySelect.vm.$emit('change', laterKey.id)
+    errorKeyChip.vm.$emit('update:modelValue', 1)
+    errorKeyChip.vm.$emit('change', 1)
     await flushPromises()
 
     expect(listMyErrorRequests).toHaveBeenCalledWith(
-      expect.objectContaining({ api_key_id: laterKey.id, page: 1 })
+      expect.objectContaining({ api_key_id: 1, page: 1 })
     )
     expect(list).toHaveBeenCalledTimes(2)
     wrapper.unmount()
@@ -348,10 +367,7 @@ describe('user UsageView', () => {
     await flushPromises()
 
     expect(list.mock.calls).toEqual([[1, 100]])
-    const keySelect = wrapper.findAllComponents(Select).find((select) =>
-      select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
-    )!
-    expect(keySelect.props('options')).toEqual([{ value: null, label: 'All API Keys' }])
+    expect(chip(wrapper, 'usage-filter-key')!.props('options')).toEqual([])
     wrapper.unmount()
   })
 
@@ -368,11 +384,9 @@ describe('user UsageView', () => {
     await flushPromises()
 
     expect(list.mock.calls).toEqual([[1, 100], [2, 100]])
-    const keySelect = wrapper.findAllComponents(Select).find((select) =>
-      select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
-    )!
-    expect(keySelect.props('options')).toHaveLength(101)
-    expect(keySelect.props('options')).toContainEqual({ value: 100, label: 'key-100' })
+    const keyChip = chip(wrapper, 'usage-filter-key')!
+    expect(keyChip.props('options')).toHaveLength(100)
+    expect(keyChip.props('options')).toContainEqual({ value: 100, label: 'key-100' })
     wrapper.unmount()
   })
 
@@ -381,8 +395,7 @@ describe('user UsageView', () => {
     await flushPromises()
 
     expect((wrapper.vm as any).compactionOptions).toEqual([
-      { value: null, label: 'All Requests' },
-      { value: true, label: 'Compaction Only' },
+      { value: 'only', label: 'Compaction Only' },
     ])
 
     query.mockClear()
@@ -495,18 +508,19 @@ describe('user UsageView', () => {
     })
 
     try {
-      await wrapper.findAll('button').find((button) => button.text() === 'Export CSV')!.trigger('click')
+      // 导出在页头「⋯」菜单里（菜单挂到 body 上）
+      await wrapper.get('[data-testid="usage-more-menu"]').trigger('click')
+      await flushPromises()
+      ;(document.body.querySelector('[data-testid="usage-export"]') as HTMLButtonElement).click()
       const initialParams = { ...query.mock.calls[0][0] }
       expect(initialParams).toMatchObject({
         page: 1, page_size: 100, start_date: '2026-03-01', end_date: '2026-03-08',
         sort_by: 'created_at', sort_order: 'desc',
       })
 
-      const keySelect = wrapper.findAllComponents(Select).find((select) =>
-        select.props('options').some((option: SelectOption) => option.label === 'All API Keys')
-      )!
-      keySelect.vm.$emit('update:modelValue', 1)
-      keySelect.vm.$emit('change', 1)
+      const keyChip = chip(wrapper, 'usage-filter-key')!
+      keyChip.vm.$emit('update:modelValue', 1)
+      keyChip.vm.$emit('change', 1)
       datePicker.vm.$emit('change', { startDate: '2026-04-01', endDate: '2026-04-08', preset: null })
       wrapper.findComponent(UsageTable).vm.$emit('sort', 'actual_cost', 'asc')
       await flushPromises()
@@ -594,6 +608,85 @@ describe('user UsageView', () => {
     wrapper.unmount()
   })
 
+  it('filters the request list by a model picked in the spend table, and a second pick clears it', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+    query.mockClear()
+
+    wrapper.findComponent(ModelUsageTable).vm.$emit('select', 'gpt-5.4')
+    await flushPromises()
+    expect(query).toHaveBeenLastCalledWith(expect.objectContaining({ model: 'gpt-5.4', page: 1 }), expect.anything())
+    expect(chip(wrapper, 'usage-filter-model')!.props('modelValue')).toBe('gpt-5.4')
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: { model: 'gpt-5.4' } })
+
+    wrapper.findComponent(ModelUsageTable).vm.$emit('select', 'gpt-5.4')
+    await flushPromises()
+    expect(query.mock.calls.at(-1)![0].model).toBeUndefined()
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: {} })
+    wrapper.unmount()
+  })
+
+  it('takes the date range, key and model from the address bar (links from the overview and keys page)', async () => {
+    routeState.query = { start: '2026-03-01', end: '2026-03-08', key: '7', model: 'claude-x', from: 'overview' }
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(query).toHaveBeenCalledWith(
+      expect.objectContaining({ start_date: '2026-03-01', end_date: '2026-03-08', api_key_id: 7, model: 'claude-x' }),
+      expect.anything()
+    )
+    expect(getStats).toHaveBeenCalledWith(expect.objectContaining({ api_key_id: 7, model: 'claude-x' }))
+    expect(chip(wrapper, 'usage-filter-model')!.props('options')).toContainEqual({ value: 'claude-x', label: 'claude-x' })
+
+    // 清掉筛选：时间范围留着，其他地址栏参数原样保留
+    await wrapper.get('[data-testid="usage-filters-clear"]').trigger('click')
+    await flushPromises()
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: { from: 'overview', start: '2026-03-01', end: '2026-03-08' } })
+    wrapper.unmount()
+  })
+
+  it('counts failed requests in the summary and jumps to the error tab from it', async () => {
+    listMyErrorRequests.mockResolvedValue({ items: [], total: 3, page: 1, page_size: 1, pages: 3 })
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(listMyErrorRequests).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 1 }))
+    expect(wrapper.get('[data-testid="stat-range-failures"]').text()).toContain('3')
+
+    listMyErrorRequests.mockClear()
+    await wrapper.get('[data-testid="stat-range-failures-action"]').trigger('click')
+    await flushPromises()
+    expect(listMyErrorRequests).toHaveBeenCalledWith(expect.objectContaining({ page: 1, page_size: 20 }))
+    expect(chip(wrapper, 'error-filter-key')).toBeDefined()
+    expect(routerReplace).toHaveBeenLastCalledWith({ query: { tab: 'errors' } })
+    wrapper.unmount()
+  })
+
+  it('leaves failures out of the summary when users may not see error requests', async () => {
+    appStoreState.cachedPublicSettings = { allow_user_view_error_requests: false }
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    expect(listMyErrorRequests).not.toHaveBeenCalled()
+    expect(wrapper.find('[data-testid="usage-range-summary"]').exists()).toBe(true)
+    expect(wrapper.find('[data-testid="stat-range-failures"]').exists()).toBe(false)
+    wrapper.unmount()
+  })
+
+  it('opens a request in the detail drawer with its request id', async () => {
+    const wrapper = mountUsageView()
+    await flushPromises()
+
+    wrapper.findComponent(UsageTable).vm.$emit('rowClick', usageLog)
+    await flushPromises()
+
+    const drawer = document.body.querySelector('[data-testid="usage-detail"]')
+    expect(drawer).not.toBeNull()
+    expect(drawer!.textContent).toContain('req-user-export')
+    expect(drawer!.textContent).toContain('demo-key')
+    wrapper.unmount()
+  })
+
 })
 
 describe('UsageView subscription feature flag', () => {
@@ -601,19 +694,20 @@ describe('UsageView subscription feature flag', () => {
     appStoreState.cachedPublicSettings = { allow_user_view_error_requests: true }
   })
 
-  function billingTypeSelect(wrapper: ReturnType<typeof mountUsageView>) {
-    return wrapper.findAllComponents(Select).find((select) =>
-      select.props('options').some((option: SelectOption) => option.label === 'Subscription')
-    )
+  async function billingTypeChip(wrapper: ReturnType<typeof mountUsageView>) {
+    // 计费类型属于低频维度，收在「更多筛选」后面
+    await wrapper.get('[data-testid="usage-more-filters"]').trigger('click')
+    return chip(wrapper, 'usage-filter-billing-type')
   }
 
   it('offers the balance / subscription billing-type filter by default', async () => {
     const wrapper = mountUsageView()
     await flushPromises()
 
-    expect(billingTypeSelect(wrapper)).toBeDefined()
-    // 筛选行不再写可见标签，标签文字在下拉的 title 上
-    expect(billingTypeSelect(wrapper)?.attributes('title')).toBe('Billing type')
+    const billingType = await billingTypeChip(wrapper)
+    expect(billingType).toBeDefined()
+    expect(billingType!.props('label')).toBe('Billing type')
+    expect(billingType!.props('options').map((option: { label: string }) => option.label)).toEqual(['Balance', 'Subscription'])
     wrapper.unmount()
   })
 
@@ -623,8 +717,8 @@ describe('UsageView subscription feature flag', () => {
     const wrapper = mountUsageView()
     await flushPromises()
 
-    expect(billingTypeSelect(wrapper)).toBeUndefined()
-    expect(wrapper.find('[title="Billing type"]').exists()).toBe(false)
+    expect(await billingTypeChip(wrapper)).toBeUndefined()
+    expect(chip(wrapper, 'usage-filter-billing-mode')).toBeDefined()
     wrapper.unmount()
   })
 })

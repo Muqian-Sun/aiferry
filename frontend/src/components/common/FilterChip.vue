@@ -35,15 +35,18 @@
         <Icon v-else name="chevronDown" size="xs" class="text-af-ink-3" />
       </button>
     </template>
-    <MenuItem
-      v-for="option in options"
-      :key="String(option.value)"
-      :checked="String(option.value) === String(modelValue ?? '')"
-      :data-testid="testId ? `${testId}-option-${option.value}` : undefined"
-      @click="select(option.value)"
-    >
-      {{ option.label }}
-    </MenuItem>
+    <!-- 选项多（模型、密钥）时面板内滚动，不撑出视口 -->
+    <div class="max-h-72 overflow-y-auto">
+      <MenuItem
+        v-for="option in options"
+        :key="String(option.value)"
+        :checked="String(option.value) === String(modelValue ?? '')"
+        :data-testid="testId ? `${testId}-option-${option.value}` : undefined"
+        @click="select(option.value)"
+      >
+        {{ option.label }}
+      </MenuItem>
+    </div>
   </PopoverMenu>
 </template>
 

@@ -47,3 +47,9 @@ export function formatTokenPricePerMillion(
   const formatted = pricePerMillion.toFixed(fractionDigits)
   return options.withCurrencySymbol == false ? formatted : `$${formatted}`
 }
+
+/** 账号成本 = total_cost × 账号倍率（渠道统计价卡已删，没有别的基数）。 */
+export function accountBilled(row: { total_cost?: number | null; account_rate_multiplier?: number | null }): number {
+  const result = (row.total_cost ?? 0) * (row.account_rate_multiplier ?? 1)
+  return Number.isNaN(result) ? 0 : result
+}

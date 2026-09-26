@@ -1,5 +1,7 @@
 <template>
-  <BaseDialog
+  <!-- layout="inline"：放进密钥详情抽屉的「使用方法」页签，只渲染正文（InlineShell 与 BaseDialog 同接口） -->
+  <component
+    :is="layout === 'inline' ? InlineShell : BaseDialog"
     :show="show"
     :title="t('keys.useKeyModal.title')"
     width="wide"
@@ -234,7 +236,7 @@
         </button>
       </div>
     </template>
-  </BaseDialog>
+  </component>
 </template>
 
 <script setup lang="ts">
@@ -242,6 +244,7 @@ import { ref, computed, h, watch, type Component } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { saveAs } from 'file-saver'
 import BaseDialog from '@/components/common/BaseDialog.vue'
+import InlineShell from '@/components/common/InlineShell.vue'
 import Icon from '@/components/icons/Icon.vue'
 import { useClipboard } from '@/composables/useClipboard'
 import { fetchCodexModelsManifest } from '@/api/codex'
@@ -260,6 +263,7 @@ interface Props {
   baseUrl: string
   /** 生成配置里的显示名（provider name / 注释）用站名，不写死品牌 */
   siteName?: string
+  layout?: 'dialog' | 'inline'
 }
 
 interface Emits {
@@ -279,7 +283,7 @@ interface FileConfig {
   highlighted?: string
 }
 
-const props = withDefaults(defineProps<Props>(), { siteName: DEFAULT_SITE_NAME })
+const props = withDefaults(defineProps<Props>(), { siteName: DEFAULT_SITE_NAME, layout: 'dialog' })
 const emit = defineEmits<Emits>()
 const siteName = computed(() => props.siteName?.trim() || DEFAULT_SITE_NAME)
 

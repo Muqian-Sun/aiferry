@@ -59,7 +59,7 @@ import EndpointDistributionChart from '@/components/charts/EndpointDistributionC
 import StatRow from '@/components/user/shell/StatRow.vue'
 import type { StatItem } from '@/components/user/shell/types'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
-import DetailField from '@/components/admin/list/DetailField.vue'
+import DetailField from '@/components/common/DetailField.vue'
 import { adminAPI } from '@/api/admin'
 import type { Account, AccountUsageStatsResponse, TrendDataPoint } from '@/types'
 
