@@ -87,23 +87,13 @@ func addMessageCacheBreakpoints(body []byte) []byte {
 	return body
 }
 
-// rewriteMessageCacheControlIfEnabled 按系统设置决定是否执行旧版 messages 缓存断点改写。
+// rewriteMessageCacheControlIfEnabled 按代码开关（gateway_features.go）决定是否执行旧版 messages 缓存断点改写。
 func (s *GatewayService) rewriteMessageCacheControlIfEnabled(ctx context.Context, body []byte) []byte {
-	if s == nil || !s.isRewriteMessageCacheControlEnabled(ctx) {
+	if !RewriteMessageCacheControlEnabled {
 		return body
 	}
 	body = stripMessageCacheControl(body)
 	return addMessageCacheBreakpoints(body)
-}
-
-func (s *GatewayService) isRewriteMessageCacheControlEnabled(ctx context.Context) bool {
-	if s == nil {
-		return false
-	}
-	if s.settingService != nil {
-		return s.settingService.IsRewriteMessageCacheControlEnabled(ctx)
-	}
-	return false
 }
 
 // injectCacheControlOnLastContentBlock 把 cache_control 断点打在 messages[idx]

@@ -1,7 +1,6 @@
 package antigravity
 
 import (
-	"context"
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
@@ -59,15 +58,8 @@ const (
 
 var userAgentVersionPattern = regexp.MustCompile(`^\d+\.\d+\.\d+$`)
 
-// UserAgentVersionResolver 提供运行时 User-Agent 版本号覆盖能力。
-type UserAgentVersionResolver func(ctx context.Context) string
-
-var (
-	// defaultUserAgentVersion 可通过环境变量 ANTIGRAVITY_USER_AGENT_VERSION 配置。
-	defaultUserAgentVersion  = DefaultUserAgentVersion
-	userAgentVersionMu       sync.RWMutex
-	userAgentVersionResolver UserAgentVersionResolver
-)
+// defaultUserAgentVersion 可通过环境变量 ANTIGRAVITY_USER_AGENT_VERSION 配置。
+var defaultUserAgentVersion = DefaultUserAgentVersion
 
 // defaultClientSecret 可通过环境变量 ANTIGRAVITY_OAUTH_CLIENT_SECRET 配置
 var defaultClientSecret = "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"
@@ -97,29 +89,6 @@ func GetDefaultUserAgentVersion() string {
 	return defaultUserAgentVersion
 }
 
-// SetUserAgentVersionResolver 设置运行时版本号解析器，通常由后台 settings 注入。
-func SetUserAgentVersionResolver(resolver UserAgentVersionResolver) {
-	userAgentVersionMu.Lock()
-	defer userAgentVersionMu.Unlock()
-	userAgentVersionResolver = resolver
-}
-
-// GetUserAgentVersionForContext 返回当前请求应使用的 Antigravity 版本号。
-func GetUserAgentVersionForContext(ctx context.Context) string {
-	if ctx == nil {
-		ctx = context.Background()
-	}
-	userAgentVersionMu.RLock()
-	resolver := userAgentVersionResolver
-	userAgentVersionMu.RUnlock()
-	if resolver != nil {
-		if version := NormalizeUserAgentVersion(resolver(ctx)); version != "" {
-			return version
-		}
-	}
-	return defaultUserAgentVersion
-}
-
 // BuildUserAgent 使用指定版本号构造 User-Agent；版本为空或非法时回退默认值。
 func BuildUserAgent(version string) string {
 	if normalized := NormalizeUserAgentVersion(version); normalized != "" {
@@ -128,14 +97,9 @@ func BuildUserAgent(version string) string {
 	return fmt.Sprintf("antigravity/%s windows/amd64", defaultUserAgentVersion)
 }
 
-// GetUserAgentForContext 返回当前请求应使用的 User-Agent。
-func GetUserAgentForContext(ctx context.Context) string {
-	return BuildUserAgent(GetUserAgentVersionForContext(ctx))
-}
-
 // GetUserAgent 返回当前配置的 User-Agent。
 func GetUserAgent() string {
-	return GetUserAgentForContext(context.Background())
+	return BuildUserAgent(defaultUserAgentVersion)
 }
 
 func getClientSecret() (string, error) {

@@ -1643,8 +1643,8 @@ type OpenAIFastBlockedError struct {
 func (e *OpenAIFastBlockedError) Error() string { return e.Message }
 
 // evaluateOpenAIFastPolicy returns the action and error message that should be
-// applied for a request with the given account/model/service_tier. When the
-// policy service is unavailable or no rule matches, it returns
+// applied for a request with the given account/model/service_tier, using the
+// code-defined policy (gateway_features.go). When no rule matches, it returns
 // (BetaPolicyActionPass, "") so callers can short-circuit safely.
 //
 // Matching rules:
@@ -1665,22 +1665,11 @@ func (e *OpenAIFastBlockedError) Error() string { return e.Message }
 //     发生重叠，admin 可通过规则顺序明确意图。因此采用 first-match 而
 //     非 BetaPolicy 那样的"block 覆盖 filter 覆盖 pass"语义。
 func (s *OpenAIGatewayService) evaluateOpenAIFastPolicy(ctx context.Context, account *Account, model, serviceTier string) (action, errMsg string) {
-	if s == nil || s.settingService == nil {
-		return BetaPolicyActionPass, ""
-	}
 	tier := strings.ToLower(strings.TrimSpace(serviceTier))
 	if tier == "" {
 		return BetaPolicyActionPass, ""
 	}
-	settings := openAIFastPolicySettingsFromContext(ctx)
-	if settings == nil {
-		fetched, err := s.settingService.GetOpenAIFastPolicySettings(ctx)
-		if err != nil || fetched == nil {
-			return BetaPolicyActionPass, ""
-		}
-		settings = fetched
-	}
-	return evaluateOpenAIFastPolicyWithSettings(settings, openAIFastPolicyUserID(ctx), account, model, tier)
+	return evaluateOpenAIFastPolicyWithSettings(&openAIFastPolicy, openAIFastPolicyUserID(ctx), account, model, tier)
 }
 
 // shouldForceOpenAIFastPriorityForMissingTier reports whether a request that
@@ -1695,10 +1684,7 @@ func (s *OpenAIGatewayService) shouldForceOpenAIFastPriorityForMissingTier(ctx c
 	return action == OpenAIFastPolicyActionForcePriority
 }
 
-// evaluateOpenAIFastPolicyWithSettings is the pure-function core extracted so
-// long-lived sessions (e.g. WS) can prefetch settings once and avoid hitting
-// the settingService on every frame. See WSSession entry and
-// openAIFastPolicySettingsFromContext for the caching glue.
+// evaluateOpenAIFastPolicyWithSettings is the pure-function core of evaluateOpenAIFastPolicy.
 func evaluateOpenAIFastPolicyWithSettings(settings *OpenAIFastPolicySettings, userID int64, account *Account, model, tier string) (action, errMsg string) {
 	if settings == nil {
 		return BetaPolicyActionPass, ""
@@ -1758,36 +1744,6 @@ func openAIFastPolicyUserMatches(ruleUserIDs []int64, userID int64) bool {
 		}
 	}
 	return false
-}
-
-// openAIFastPolicyCtxKey 是 context 中预取的 OpenAIFastPolicySettings 缓存
-// 键，仅用于 WebSocket 长会话内多帧复用同一份策略快照，避免每帧 DB 命中。
-//
-// Trade-off：策略变更不会影响当前 WS session（只影响新 session）。这是
-// 有意为之 —— 对长会话来说，"策略一致性"比"立刻生效"更重要，且 Claude
-// BetaPolicy 的 gin.Context 缓存也是同样取舍。需要 hot-reload 时管理员
-// 可以通过踢断 session 强制刷新。
-type openAIFastPolicyCtxKeyType struct{}
-
-var openAIFastPolicyCtxKey = openAIFastPolicyCtxKeyType{}
-
-// withOpenAIFastPolicyContext 将一份 settings 快照绑定到 context，供该 ctx
-// 衍生 goroutine 中的 evaluateOpenAIFastPolicy 复用。
-func withOpenAIFastPolicyContext(ctx context.Context, settings *OpenAIFastPolicySettings) context.Context {
-	if ctx == nil || settings == nil {
-		return ctx
-	}
-	return context.WithValue(ctx, openAIFastPolicyCtxKey, settings)
-}
-
-func openAIFastPolicySettingsFromContext(ctx context.Context) *OpenAIFastPolicySettings {
-	if ctx == nil {
-		return nil
-	}
-	if v, ok := ctx.Value(openAIFastPolicyCtxKey).(*OpenAIFastPolicySettings); ok {
-		return v
-	}
-	return nil
 }
 
 // applyOpenAIFastPolicyToBody applies the OpenAI fast policy to a raw request

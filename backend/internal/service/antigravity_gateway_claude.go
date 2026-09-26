@@ -145,7 +145,7 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 		// 优先检测 thinking block 的 signature 相关错误（400）并重试一次：
 		// Antigravity /v1internal 链路在部分场景会对 thought/thinking signature 做严格校验，
 		// 当历史消息携带的 signature 不合法时会直接 400；去除 thinking 后可继续完成请求。
-		if resp.StatusCode == http.StatusBadRequest && isSignatureRelatedError(respBody) && s.settingService.IsSignatureRectifierEnabled(ctx) {
+		if resp.StatusCode == http.StatusBadRequest && isSignatureRelatedError(respBody) && signatureRectifierEnabled() {
 			upstreamMsg := strings.TrimSpace(extractAntigravityErrorMessage(respBody))
 			upstreamMsg = sanitizeUpstreamErrorMessage(upstreamMsg)
 			logBody, maxBytes := s.getLogConfig()
@@ -287,7 +287,7 @@ func (s *AntigravityGatewayService) Forward(ctx context.Context, c *gin.Context,
 		// Budget 整流：检测 budget_tokens 约束错误并自动修正重试
 		if resp.StatusCode == http.StatusBadRequest && respBody != nil && !isSignatureRelatedError(respBody) {
 			errMsg := strings.TrimSpace(extractAntigravityErrorMessage(respBody))
-			if isThinkingBudgetConstraintError(errMsg) && s.settingService.IsBudgetRectifierEnabled(ctx) {
+			if isThinkingBudgetConstraintError(errMsg) && budgetRectifierEnabled() {
 				appendOpsUpstreamError(c, OpsUpstreamErrorEvent{
 					ProxyID:            opsUpstreamProxyID(account),
 					ProxyName:          opsUpstreamProxyName(account),

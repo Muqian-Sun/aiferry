@@ -9,7 +9,6 @@ import (
 	dbent "github.com/Wei-Shaw/sub2api/ent"
 	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/payment"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/logger"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 	"github.com/google/wire"
@@ -789,16 +788,6 @@ func ProvideOpsIngressRejectAggregator(opsRepo OpsRepository, opsService *OpsSer
 func ProvideSettingService(settingRepo SettingRepository, proxyRepo ProxyRepository, cfg *config.Config) *SettingService {
 	svc := NewSettingService(settingRepo, cfg)
 	svc.SetProxyRepository(proxyRepo)
-	if err := svc.MigrateOpenAIAllowClaudeCodeCodexPluginSetting(context.Background()); err != nil {
-		logger.LegacyPrintf("service.setting", "Warning: migrate openai allow Claude Code Codex plugin setting failed: %v", err)
-	}
-	if err := svc.MigrateCodexBodyFingerprintToSignals(context.Background()); err != nil {
-		logger.LegacyPrintf("service.setting", "Warning: migrate codex body fingerprint to signals failed: %v", err)
-	}
-	if err := svc.MigrateGrokDefaultTextModel(context.Background()); err != nil {
-		logger.LegacyPrintf("service.setting", "Warning: migrate Grok default text model failed: %v", err)
-	}
-	antigravity.SetUserAgentVersionResolver(svc.GetAntigravityUserAgentVersion)
 	// enforceCodexIdentityHeaders 是所有 Codex 出站路径共用的纯函数收口点，拿不到 ctx，
 	// 故注入无参解析器；解析器内部自带 60s TTL 缓存，热路径不触库。
 	SetCodexCanonicalUserAgentResolver(func() string {

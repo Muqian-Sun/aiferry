@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"testing"
 
@@ -57,16 +56,16 @@ func (s *openAIFastPolicyRepoStub) Delete(ctx context.Context, key string) error
 	panic("unexpected Delete call")
 }
 
-func newOpenAIGatewayServiceWithSettings(t *testing.T, settings *OpenAIFastPolicySettings) *OpenAIGatewayService {
+// newOpenAIGatewayServiceWithFastPolicy 构造网关；policy 非 nil 时在本测试里临时替换代码里的
+// openAIFastPolicy（gateway_features.go），nil = 用代码值。settingService 挂一个空库，
+// 与生产里「库里没有任何设置」一致。
+func newOpenAIGatewayServiceWithFastPolicy(t *testing.T, policy *OpenAIFastPolicySettings) *OpenAIGatewayService {
 	t.Helper()
-	repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
-	if settings != nil {
-		raw, err := json.Marshal(settings)
-		require.NoError(t, err)
-		repo.values[SettingKeyOpenAIFastPolicySettings] = string(raw)
+	if policy != nil {
+		setGatewayPolicyForTest(t, &openAIFastPolicy, *policy)
 	}
 	return &OpenAIGatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
+		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 }
 
@@ -83,9 +82,9 @@ func openAIFastFilterPriorityPolicy() *OpenAIFastPolicySettings {
 }
 
 func TestEvaluateOpenAIFastPolicy_DefaultPassesKnownTiers(t *testing.T) {
-	require.Empty(t, DefaultOpenAIFastPolicySettings().Rules, "default policy must not rewrite service_tier unless admin configured rules")
+	require.Empty(t, openAIFastPolicy.Rules, "code policy must not rewrite service_tier: no rules configured")
 
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	action, _ := svc.evaluateOpenAIFastPolicy(context.Background(), account, "gpt-5.5", OpenAIFastTierPriority)
@@ -119,7 +118,7 @@ func TestEvaluateOpenAIFastPolicy_BlockRuleCarriesMessage(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	action, msg := svc.evaluateOpenAIFastPolicy(context.Background(), account, "gpt-5.5", OpenAIFastTierPriority)
@@ -135,7 +134,7 @@ func TestEvaluateOpenAIFastPolicy_ScopeFiltersOAuth(t *testing.T) {
 			Scope:       BetaPolicyScopeOAuth,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 
 	// OAuth account → rule matches
 	oauthAccount := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
@@ -164,7 +163,7 @@ func TestEvaluateOpenAIFastPolicy_UserScopedRuleOverridesGlobalRule(t *testing.T
 			},
 		},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	allowedUserCtx := context.WithValue(context.Background(), ctxkey.UserID, int64(42))
@@ -180,7 +179,7 @@ func TestEvaluateOpenAIFastPolicy_UserScopedRuleOverridesGlobalRule(t *testing.T
 }
 
 func TestApplyOpenAIFastPolicyToBody_DefaultPassesPriorityAndFast(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	body := []byte(`{"model":"gpt-5.5","service_tier":"priority","messages":[]}`)
@@ -214,7 +213,7 @@ func TestApplyOpenAIFastPolicyToBody_ForcePriorityInjectsMissingTier(t *testing.
 			UserIDs:     []int64{42},
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	body := []byte(`{"model":"gpt-5.5"}`)
 
@@ -237,7 +236,7 @@ func TestApplyOpenAIFastPolicyToBody_LegacyAllRuleDoesNotInjectMissingTier(t *te
 			Scope:       BetaPolicyScopeAll,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	body := []byte(`{"model":"gpt-5.5"}`)
 
@@ -254,7 +253,7 @@ func TestApplyOpenAIFastPolicyToBody_LegacyAllRuleDoesNotInjectMissingTier(t *te
 }
 
 func TestApplyOpenAIFastPolicyToBody_MissingTierIgnoresNonForceRule(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	body := []byte(`{"model":"gpt-5.5"}`)
 
@@ -264,7 +263,7 @@ func TestApplyOpenAIFastPolicyToBody_MissingTierIgnoresNonForceRule(t *testing.T
 }
 
 func TestApplyOpenAIFastPolicyToBody_ExplicitFilterRemovesField(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	body := []byte(`{"model":"gpt-5.5","service_tier":"priority","messages":[]}`)
@@ -294,7 +293,7 @@ func TestApplyOpenAIFastPolicyToBody_UserScopedRuleOverridesGlobalRule(t *testin
 			},
 		},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	body := []byte(`{"model":"gpt-5.5","service_tier":"priority"}`)
 
@@ -310,7 +309,7 @@ func TestApplyOpenAIFastPolicyToBody_UserScopedRuleOverridesGlobalRule(t *testin
 }
 
 func TestApplyOpenAIFastPolicyToBody_PriorityFilterLeavesUltrafast(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 	body := []byte(`{"model":"gpt-5.6-sol","service_tier":"ultrafast"}`)
 
@@ -327,7 +326,7 @@ func TestApplyOpenAIFastPolicyToBody_ForcePriorityRewritesKnownTier(t *testing.T
 			Scope:       BetaPolicyScopeAll,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	for _, tier := range []string{"flex", "auto", "default", "scale", "fast", "priority", "ultrafast"} {
@@ -340,7 +339,7 @@ func TestApplyOpenAIFastPolicyToBody_ForcePriorityRewritesKnownTier(t *testing.T
 }
 
 func TestApplyOpenAIFastPolicyToBody_GroupForceStillHonorsGlobalPolicy(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	ctx := context.Background()
 
@@ -351,7 +350,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceStillHonorsGlobalPolicy(t *testin
 }
 
 func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresHydratedGroup(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}
 	body := []byte(`{"model":"gpt-5.6-sol"}`)
 	ctx := context.Background()
@@ -362,7 +361,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresHydratedGroup(t *testing.
 }
 
 func TestApplyOpenAIFastPolicyToBody_GroupForceOnlyTargetsOpenAIAccounts(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	body := []byte(`{"model":"grok-4.1"}`)
 	ctx := context.Background()
 
@@ -377,7 +376,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceOnlyTargetsOpenAIAccounts(t *test
 }
 
 func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresSupportedGroupPlatform(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	body := []byte(`{"model":"gpt-5.6-sol"}`)
 	ctx := context.Background()
 
@@ -394,7 +393,7 @@ func TestApplyOpenAIFastPolicyToBody_GroupForceRequiresSupportedGroupPlatform(t 
 // TestApplyOpenAIFastPolicyToBody_OfficialTiersBypassDefaultRule 验证默认配置
 // 下客户端显式发送的 OpenAI 官方合法 tier 能透传到上游而不被静默剥离。
 func TestApplyOpenAIFastPolicyToBody_OfficialTiersBypassDefaultRule(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	for _, tier := range []string{"auto", "default", "scale"} {
@@ -423,7 +422,7 @@ func TestApplyOpenAIFastPolicyToBody_AllRuleStripsOfficialTiers(t *testing.T) {
 			Scope:       BetaPolicyScopeAll,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	for _, tier := range []string{"auto", "default", "scale", "priority", "flex"} {
@@ -440,7 +439,7 @@ func TestApplyOpenAIFastPolicyToBody_AllRuleStripsOfficialTiers(t *testing.T) {
 // applyOpenAIFastPolicyToBody 在 normTier 为空时直接 no-op，因为字段已不可能存在
 // 于经过前置归一化的请求里。这里直接调 apply 验证它对未识别值不会异常）。
 func TestApplyOpenAIFastPolicyToBody_UnknownTierStripped(t *testing.T) {
-	svc := newOpenAIGatewayServiceWithSettings(t, DefaultOpenAIFastPolicySettings())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, nil)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	// normalize 阶段会将未知值剥离
@@ -465,7 +464,7 @@ func TestApplyOpenAIFastPolicyToBody_BlockReturnsTypedError(t *testing.T) {
 			FallbackAction: BetaPolicyActionPass,
 		}},
 	}
-	svc := newOpenAIGatewayServiceWithSettings(t, settings)
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, settings)
 	account := &Account{Platform: PlatformOpenAI, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolChatCompletions: "https://api.openai.com", APIProtocolResponses: "https://api.openai.com"}}
 
 	body := []byte(`{"model":"gpt-5.5","service_tier":"priority"}`)
@@ -475,84 +474,4 @@ func TestApplyOpenAIFastPolicyToBody_BlockReturnsTypedError(t *testing.T) {
 	require.True(t, errors.As(err, &blocked))
 	require.Contains(t, blocked.Message, "fast mode is blocked")
 	require.Equal(t, string(body), string(updated)) // body not mutated on block
-}
-
-func TestSetOpenAIFastPolicySettings_Validation(t *testing.T) {
-	repo := &openAIFastPolicyRepoStub{values: map[string]string{}}
-	svc := NewSettingService(repo, &config.Config{})
-
-	// Invalid action rejected
-	err := svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{{
-			ServiceTier: OpenAIFastTierPriority,
-			Action:      "bogus",
-			Scope:       BetaPolicyScopeAll,
-		}},
-	})
-	require.Error(t, err)
-
-	// Invalid service_tier rejected
-	err = svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{{
-			ServiceTier: "turbo",
-			Action:      BetaPolicyActionPass,
-			Scope:       BetaPolicyScopeAll,
-		}},
-	})
-	require.Error(t, err)
-
-	// Non-positive and duplicate user IDs are rejected.
-	err = svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{{
-			ServiceTier: OpenAIFastTierPriority,
-			Action:      BetaPolicyActionPass,
-			Scope:       BetaPolicyScopeAll,
-			UserIDs:     []int64{0},
-		}},
-	})
-	require.Error(t, err)
-
-	err = svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{{
-			ServiceTier: OpenAIFastTierPriority,
-			Action:      BetaPolicyActionPass,
-			Scope:       BetaPolicyScopeAll,
-			UserIDs:     []int64{42, 42},
-		}},
-	})
-	require.Error(t, err)
-
-	// Valid settings persisted
-	err = svc.SetOpenAIFastPolicySettings(context.Background(), &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{
-			{
-				ServiceTier: OpenAIFastTierPriority,
-				Action:      OpenAIFastPolicyActionForcePriority,
-				Scope:       BetaPolicyScopeAll,
-				UserIDs:     []int64{42, 43},
-			},
-			{
-				ServiceTier: OpenAIFastTierUltrafast,
-				Action:      BetaPolicyActionPass,
-				Scope:       BetaPolicyScopeAll,
-			},
-			{
-				ServiceTier: OpenAIFastTierMissing,
-				Action:      OpenAIFastPolicyActionForcePriority,
-				Scope:       BetaPolicyScopeAll,
-			},
-		},
-	})
-	require.NoError(t, err)
-
-	got, err := svc.GetOpenAIFastPolicySettings(context.Background())
-	require.NoError(t, err)
-	require.Len(t, got.Rules, 3)
-	require.Equal(t, OpenAIFastTierPriority, got.Rules[0].ServiceTier)
-	require.Equal(t, OpenAIFastTierUltrafast, got.Rules[1].ServiceTier)
-	require.Equal(t, OpenAIFastTierMissing, got.Rules[2].ServiceTier)
-	require.Equal(t, OpenAIFastPolicyActionForcePriority, got.Rules[0].Action)
-	require.Equal(t, []int64{42, 43}, got.Rules[0].UserIDs)
-	require.Equal(t, BetaPolicyActionPass, got.Rules[1].Action)
-	require.Equal(t, OpenAIFastPolicyActionForcePriority, got.Rules[2].Action)
 }

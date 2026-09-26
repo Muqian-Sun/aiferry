@@ -71,11 +71,6 @@ type geminiUsageCacheEntry struct {
 const geminiPrecheckCacheTTL = time.Minute
 
 const (
-	defaultRateLimit429CooldownSeconds = 5
-	maxRateLimit429CooldownSeconds     = 7200
-)
-
-const (
 	openAIImageRateLimitDefaultCooldown = time.Minute
 	openAIImageRateLimitReason          = "openai_image_rate_limited"
 	openAIImageCapabilityLossCooldown   = 30 * time.Minute
@@ -153,7 +148,7 @@ func (s *RateLimitService) notifyAccountSchedulingBlockCleared(accountID int64) 
 // unschedulable until the winning window resets. Returns true when the account
 // is blocked (either newly or already paused for the same threshold reason).
 func (s *RateLimitService) ApplyAccountSchedulingThreshold(ctx context.Context, account *Account) bool {
-	if s == nil || s.settingService == nil || s.accountRepo == nil || account == nil || account.ID <= 0 {
+	if s == nil || s.accountRepo == nil || account == nil || account.ID <= 0 {
 		return false
 	}
 	if !account.IsActive() || !account.Schedulable {
@@ -161,7 +156,7 @@ func (s *RateLimitService) ApplyAccountSchedulingThreshold(ctx context.Context, 
 	}
 
 	now := time.Now().UTC()
-	thresholds := s.settingService.GetAccountSchedulingThresholds(ctx)
+	thresholds := accountSchedulingThresholds
 	decision := EvaluateAccountSchedulingThreshold(account, thresholds, now)
 	if !decision.ShouldPause || decision.Until == nil || !decision.Until.After(now) {
 		s.applyAnthropicFableSchedulingThreshold(ctx, account, thresholds, now)
@@ -986,7 +981,7 @@ func (s *RateLimitService) handle429(ctx context.Context, account *Account, head
 }
 
 func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, account *Account, reason string) {
-	cooldown, enabled := s.get429FallbackCooldown(ctx, account)
+	cooldown, enabled := rateLimit429FallbackCooldown()
 	if !enabled {
 		slog.Info("rate_limit_429_fallback_ignored", "account_id", account.ID, "platform", account.Platform, "reason", reason)
 		return
@@ -1000,32 +995,9 @@ func (s *RateLimitService) apply429FallbackRateLimit(ctx context.Context, accoun
 	}
 }
 
-func (s *RateLimitService) get429FallbackCooldown(ctx context.Context, account *Account) (time.Duration, bool) {
-	if s.settingService != nil {
-		settings, err := s.settingService.GetRateLimit429CooldownSettings(ctx)
-		if err == nil && settings != nil {
-			if !settings.Enabled {
-				return 0, false
-			}
-			seconds := clampRateLimit429CooldownSeconds(settings.CooldownSeconds)
-			return time.Duration(seconds) * time.Second, true
-		}
-		slog.Warn("rate_limit_429_settings_read_failed", "account_id", account.ID, "error", err)
-	}
-
-	seconds := defaultRateLimit429CooldownSeconds
-	seconds = clampRateLimit429CooldownSeconds(seconds)
-	return time.Duration(seconds) * time.Second, true
-}
-
-func clampRateLimit429CooldownSeconds(seconds int) int {
-	if seconds < 1 {
-		return 1
-	}
-	if seconds > maxRateLimit429CooldownSeconds {
-		return maxRateLimit429CooldownSeconds
-	}
-	return seconds
+// rateLimit429FallbackCooldown 429 算不出重置时间时的默认回避（gateway_features.go）；第二个返回值是开关。
+func rateLimit429FallbackCooldown() (time.Duration, bool) {
+	return RateLimit429FallbackSeconds * time.Second, RateLimit429FallbackEnabled
 }
 
 // calculateOpenAI429ResetTime 从 OpenAI 429 响应头计算正确的重置时间
@@ -1217,7 +1189,7 @@ func (s *RateLimitService) persistAnthropicFableCreditsRequired(ctx context.Cont
 	now := time.Now()
 	resetAt, ok := parseAnthropicResetTimestamp(headers.Get("anthropic-ratelimit-unified-reset"), now, 366*24*time.Hour)
 	if !ok {
-		cooldown, enabled := s.get429FallbackCooldown(ctx, account)
+		cooldown, enabled := rateLimit429FallbackCooldown()
 		if !enabled {
 			slog.Info("anthropic_fable_credits_required_cooldown_ignored", "account_id", account.ID)
 			return true
@@ -1612,38 +1584,14 @@ func persistOpenAI429PlanType(ctx context.Context, repo AccountRepository, accou
 	slog.Info("openai_429_plan_type_synced", "account_id", account.ID, "previous_plan_type", current, "plan_type", planType)
 }
 
-// handle529 处理529过载错误
-// 根据配置决定是否暂停账号调度及冷却时长
+// handle529 处理529过载错误：是否暂停调度、暂停多久由代码决定（gateway_features.go）
 func (s *RateLimitService) handle529(ctx context.Context, account *Account) {
-	var settings *OverloadCooldownSettings
-	if s.settingService != nil {
-		var err error
-		settings, err = s.settingService.GetOverloadCooldownSettings(ctx)
-		if err != nil {
-			slog.Warn("overload_settings_read_failed", "account_id", account.ID, "error", err)
-			settings = nil
-		}
-	}
-	// 回退到配置文件
-	if settings == nil {
-		cooldown := s.cfg.RateLimit.OverloadCooldownMinutes
-		if cooldown <= 0 {
-			cooldown = 10
-		}
-		settings = &OverloadCooldownSettings{Enabled: true, CooldownMinutes: cooldown}
-	}
-
-	if !settings.Enabled {
+	if !OverloadCooldownEnabled {
 		slog.Info("account_529_ignored", "account_id", account.ID, "reason", "overload_cooldown_disabled")
 		return
 	}
 
-	cooldownMinutes := settings.CooldownMinutes
-	if cooldownMinutes <= 0 {
-		cooldownMinutes = 10
-	}
-
-	until := time.Now().Add(time.Duration(cooldownMinutes) * time.Minute)
+	until := time.Now().Add(OverloadCooldownMinutes * time.Minute)
 	s.notifyAccountSchedulingBlocked(account, until, "529")
 	if err := s.accountRepo.SetOverloaded(ctx, account.ID, until); err != nil {
 		slog.Warn("overload_set_failed", "account_id", account.ID, "error", err)
@@ -2013,11 +1961,8 @@ func (s *RateLimitService) HandleOpenAICodexSparkRateLimit(ctx context.Context, 
 		resetAt = nil
 	}
 	if resetAt == nil || !resetAt.After(now) {
-		cooldown, ok := s.get429FallbackCooldown(ctx, account)
-		if !ok || cooldown <= 0 {
-			cooldown = time.Duration(defaultRateLimit429CooldownSeconds) * time.Second
-		}
-		reset := now.Add(cooldown)
+		// Spark 一定要回避一下，429 默认回避关着也按默认时长
+		reset := now.Add(RateLimit429FallbackSeconds * time.Second)
 		resetAt = &reset
 	}
 	if err := s.accountRepo.SetModelRateLimit(ctx, account.ID, modelKey, *resetAt, openAICodexSparkRateLimitReason); err != nil {
@@ -2439,18 +2384,7 @@ func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Acc
 		return false
 	}
 
-	// 获取系统设置
-	if s.settingService == nil {
-		slog.Warn("stream_timeout_setting_service_missing", "account_id", account.ID)
-		return false
-	}
-
-	settings, err := s.settingService.GetStreamTimeoutSettings(ctx)
-	if err != nil {
-		slog.Warn("stream_timeout_get_settings_failed", "account_id", account.ID, "error", err)
-		return false
-	}
-
+	settings := streamTimeoutPolicy
 	if !settings.Enabled {
 		return false
 	}
@@ -2462,6 +2396,7 @@ func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Acc
 	// 增加超时计数
 	var count int64 = 1
 	if s.timeoutCounterCache != nil {
+		var err error
 		count, err = s.timeoutCounterCache.IncrementTimeoutCount(ctx, account.ID, settings.ThresholdWindowMinutes)
 		if err != nil {
 			slog.Warn("stream_timeout_increment_count_failed", "account_id", account.ID, "error", err)
@@ -2480,7 +2415,7 @@ func (s *RateLimitService) HandleStreamTimeout(ctx context.Context, account *Acc
 	// 达到阈值，执行相应操作
 	switch settings.Action {
 	case StreamTimeoutActionTempUnsched:
-		return s.triggerStreamTimeoutTempUnsched(ctx, account, settings, model)
+		return s.triggerStreamTimeoutTempUnsched(ctx, account, &settings, model)
 	case StreamTimeoutActionError:
 		return s.triggerStreamTimeoutError(ctx, account, model)
 	default:

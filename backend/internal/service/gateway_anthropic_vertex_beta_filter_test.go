@@ -2,13 +2,11 @@ package service
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/require"
 	"github.com/tidwall/gjson"
@@ -125,7 +123,7 @@ func TestVertexBetaFilter_BodySanitizeKeysOnFinalBeta(t *testing.T) {
 
 // BetaPolicy block 规则在 Vertex 路径同样生效：管理员 block 某 token，客户端带它 → 直接报错。
 func TestVertexBetaFilter_BlocksViaBetaPolicy(t *testing.T) {
-	settings := &BetaPolicySettings{
+	setGatewayPolicyForTest(t, &betaPolicy, BetaPolicySettings{
 		Rules: []BetaPolicyRule{
 			{
 				BetaToken:    "context-management-2025-06-27",
@@ -134,24 +132,15 @@ func TestVertexBetaFilter_BlocksViaBetaPolicy(t *testing.T) {
 				ErrorMessage: "context management is blocked",
 			},
 		},
-	}
-	raw, err := json.Marshal(settings)
-	require.NoError(t, err)
+	})
 
-	svc := &GatewayService{
-		settingService: NewSettingService(
-			&betaPolicySettingRepoStub{values: map[string]string{
-				SettingKeyBetaPolicySettings: string(raw),
-			}},
-			&config.Config{},
-		),
-	}
+	svc := &GatewayService{}
 
 	c := newVertexBetaTestContext(t,
 		"interleaved-thinking-2025-05-14,context-management-2025-06-27")
 	body := []byte(`{"model":"claude-opus-4-7","max_tokens":32,"messages":[{"role":"user","content":"hi"}]}`)
 
-	_, _, err = svc.buildUpstreamRequest(
+	_, _, err := svc.buildUpstreamRequest(
 		context.Background(), c, newVertexServiceAccount(404), body,
 		"vertex-token", "service_account", "claude-opus-4-7@20260417", false, false,
 	)

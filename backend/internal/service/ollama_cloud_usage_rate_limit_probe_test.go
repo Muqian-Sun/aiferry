@@ -43,7 +43,7 @@ func TestOllamaCloudProbeUsageBodiesParse(t *testing.T) {
 // and reset decisions are deterministic.
 func ollamaCloudProbeFixture(t *testing.T, repo AccountRepository, upstream HTTPUpstream, fixedNow time.Time) *OllamaCloudUsageService {
 	t.Helper()
-	svc := NewOllamaCloudUsageService(repo, upstream, NewSettingService(&upstreamBillingProbeSettingRepo{}, nil), ollamaUsageTestEncryptor{}, true)
+	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { return fixedNow }
 	svc.Start()
 	t.Cleanup(svc.Stop)
@@ -345,7 +345,7 @@ func TestOllamaCloudUsageRateLimitProbeSlowFetchDoesNotReportExpiredReset(t *tes
 			advanced = true
 		}
 	}}
-	svc := NewOllamaCloudUsageService(repo, upstream, NewSettingService(&upstreamBillingProbeSettingRepo{}, nil), ollamaUsageTestEncryptor{}, true)
+	svc := NewOllamaCloudUsageService(repo, upstream, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { mu.Lock(); defer mu.Unlock(); return cur }
 	svc.Start()
 	t.Cleanup(svc.Stop)
@@ -384,7 +384,7 @@ func TestOllamaCloudUsageRateLimitProbeQueueFullStillMergesExistingAccount(t *te
 		upstreamBillingProbeAccountRepo: &upstreamBillingProbeAccountRepo{accounts: map[int64]*Account{}},
 	}, entered: make(chan struct{}), release: make(chan struct{})}
 	repo.gating.Store(true)
-	svc := NewOllamaCloudUsageService(repo, &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(100, base.Add(time.Hour).Format(time.RFC3339))}, NewSettingService(&upstreamBillingProbeSettingRepo{}, nil), ollamaUsageTestEncryptor{}, true)
+	svc := NewOllamaCloudUsageService(repo, &ollamaUsageHTTPStub{body: ollamaCloudProbeUsageBody(100, base.Add(time.Hour).Format(time.RFC3339))}, ollamaUsageTestEncryptor{}, true)
 	svc.now = func() time.Time { return base }
 	svc.Start()
 	t.Cleanup(svc.Stop)

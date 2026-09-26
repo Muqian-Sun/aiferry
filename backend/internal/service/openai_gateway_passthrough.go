@@ -1245,18 +1245,6 @@ func openAIStreamDataStartsSemanticTTFT(data, eventType string) bool {
 	}
 }
 
-func (s *OpenAIGatewayService) openAITTFTMode(ctx context.Context) string {
-	mode := OpenAITTFTModeSemantic
-	if s != nil && s.settingService != nil {
-		mode = s.settingService.GetOpenAITTFTMode(ctx)
-	} else if cached, ok := gatewayForwardingCache.Load().(*cachedGatewayForwardingSettings); ok && cached != nil {
-		if cached.expiresAt == 0 || time.Now().UnixNano() < cached.expiresAt {
-			mode = normalizeOpenAITTFTMode(cached.openAITTFTMode)
-		}
-	}
-	return normalizeOpenAITTFTMode(mode)
-}
-
 func openAIStreamDataStartsTTFT(data, eventType string, forceOutput bool, mode string) bool {
 	if mode == OpenAITTFTModeVisible {
 		return openAIStreamDataStartsVisibleOutput(data, eventType)
@@ -1842,7 +1830,7 @@ func (s *OpenAIGatewayService) handleStreamingResponsePassthrough(
 	imageCounter := newOpenAIImageOutputCounter()
 	var firstTokenMs *int
 	responseID := ""
-	ttftMode := s.openAITTFTMode(ctx)
+	ttftMode := OpenAITTFTMode
 	clientDisconnected := false
 	sawDone := false
 	sawTerminalEvent := false

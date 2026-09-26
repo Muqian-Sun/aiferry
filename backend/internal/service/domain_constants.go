@@ -201,10 +201,6 @@ const (
 	// Gemini 配额策略（JSON）
 	SettingKeyGeminiQuotaPolicy = "gemini_quota_policy"
 
-	// Request identity patch (Claude -> Gemini systemInstruction injection)
-	SettingKeyEnableIdentityPatch = "enable_identity_patch"
-	SettingKeyIdentityPatchPrompt = "identity_patch_prompt"
-
 	// =========================
 	// Ops Monitoring (vNext)
 	// =========================
@@ -264,19 +260,6 @@ const (
 	// Default false (keep the current ranking tab). Admin endpoints always keep it.
 	SettingKeyChannelMonitorHideUserRanking = "channel_monitor_hide_user_ranking"
 
-	// SettingKeyGrokDefaultTextModel is the fallback Grok text model for empty
-	// request models and built-in Grok aliases (e.g. "grok" → this id). Default grok-4.5.
-	SettingKeyGrokDefaultTextModel = "grok_default_text_model"
-
-	// SettingKeyGrokCrossClientModelMapEnabled, when true, includes gpt-*/codex-*/o*/claude-*
-	// wildcards in the default Grok account model_mapping so foreign client model names
-	// can reach Grok groups. Default false (no silent cross-vendor rewrite).
-	SettingKeyGrokCrossClientModelMapEnabled = "grok_cross_client_model_map_enabled"
-
-	// SettingKeyGrokDefaultBaseURLMode selects the official xAI host used by
-	// all Grok OAuth accounts (accounts have no per-account address override).
-	SettingKeyGrokDefaultBaseURLMode = "grok_default_base_url_mode"
-
 	// SettingKeyModelPlazaDescription stores the Markdown blurb rendered at the top of
 	// the Model Plaza page (global pricing notes, exchange rate, promotions, ...).
 
@@ -284,128 +267,16 @@ const (
 	// not stop or otherwise change already loaded plugin runtimes.
 	SettingKeyPluginManagementEnabled = "plugin_management_enabled"
 
-	// SettingKeyUpstreamBillingProbeSettings stores the global enable switch and interval
-	// for probing remote Sub2API API-key billing metadata.
-	SettingKeyUpstreamBillingProbeSettings = "upstream_billing_probe_settings"
-
-	// SettingKeyOllamaCloudUsageSettings stores the opt-in global runner switch and interval.
-	SettingKeyOllamaCloudUsageSettings = "ollama_cloud_usage_settings"
-
-	// =========================
-	// Overload Cooldown (529)
-	// =========================
-
-	// SettingKeyOverloadCooldownSettings stores JSON config for 529 overload cooldown handling.
-	SettingKeyOverloadCooldownSettings = "overload_cooldown_settings"
-
-	// SettingKeyRateLimit429CooldownSettings stores JSON config for 429 fallback cooldown handling.
-	SettingKeyRateLimit429CooldownSettings = "rate_limit_429_cooldown_settings"
-	// SettingKeyOpenAIImagesOAuthUnavailableCooldownSettings stores the cooldown applied when the OAuth image tool is unavailable.
-	SettingKeyOpenAIImagesOAuthUnavailableCooldownSettings = "openai_images_oauth_unavailable_cooldown_settings"
 	// SettingKeyOpenAIAPIKeyHealthBreakerSettings stores the opt-in OpenAI pool API-key breaker config.
 	SettingKeyOpenAIAPIKeyHealthBreakerSettings = "openai_apikey_health_breaker_settings"
 
-	// =========================
-	// Stream Timeout Handling
-	// =========================
+	// OpenAI Responses first_token_ms 的统计口径（取值见 gateway_features.go 的 OpenAITTFTMode）。
+	OpenAITTFTModeSemantic = "semantic"
+	OpenAITTFTModeVisible  = "visible"
 
-	// SettingKeyStreamTimeoutSettings stores JSON config for stream timeout handling.
-	SettingKeyStreamTimeoutSettings = "stream_timeout_settings"
-
-	// =========================
-	// Request Rectifier (请求整流器)
-	// =========================
-
-	// SettingKeyRectifierSettings stores JSON config for rectifier settings (thinking signature + budget).
-	SettingKeyRectifierSettings = "rectifier_settings"
-
-	// =========================
-	// Beta Policy Settings
-	// =========================
-
-	// SettingKeyBetaPolicySettings stores JSON config for beta policy rules.
-	SettingKeyBetaPolicySettings = "beta_policy_settings"
-
-	// SettingKeyOpenAIFastPolicySettings stores JSON config for OpenAI
-	// service_tier (fast/flex) policy rules. Mirrors BetaPolicySettings but
-	// targets OpenAI's body-level service_tier field instead of Claude's
-	// anthropic-beta header.
-	SettingKeyOpenAIFastPolicySettings = "openai_fast_policy_settings"
-
-	// =========================
-	// Claude Code Version Check
-	// =========================
-
-	// SettingKeyMinClaudeCodeVersion 最低 Claude Code 版本号要求 (semver, 如 "2.1.0"，空值=不检查)
-	SettingKeyMinClaudeCodeVersion = "min_claude_code_version"
-	// SettingKeyMinCodexVersion 最低 Codex 引擎版本要求 (semver, 如 "0.141.0"，空值=不检查)
-	SettingKeyMinCodexVersion = "min_codex_version"
-	// SettingKeyMaxCodexVersion 最高 Codex 引擎版本限制 (semver, 如 "0.200.0"，空值=不检查)
-	SettingKeyMaxCodexVersion = "max_codex_version"
-	// SettingKeyCodexCLIOnlyBlacklist codex_cli_only 全局黑名单（[]AllowedClientEntry JSON，OR deny）。
-	SettingKeyCodexCLIOnlyBlacklist = "codex_cli_only_blacklist"
-	// SettingKeyCodexCLIOnlyWhitelist codex_cli_only 全局白名单（[]AllowedClientEntry JSON，双因子 AND allow）。
-	SettingKeyCodexCLIOnlyWhitelist = "codex_cli_only_whitelist"
-	// SettingKeyCodexCLIOnlyAllowAppServerClients App Server 开关：对未列名客户端开闸（默认 false；仅显式 "true" 开）。
-	SettingKeyCodexCLIOnlyAllowAppServerClients = "codex_cli_only_allow_app_server_clients"
-	// SettingKeyCodexCLIOnlyAllowBodyEngineFingerprint 引擎门 body 通道开关：接受 client_metadata 引擎指纹（默认 false；仅显式 "true" 开）。(已废弃，迁移并入信号列表)
-	SettingKeyCodexCLIOnlyAllowBodyEngineFingerprint = "codex_cli_only_allow_body_engine_fingerprint"
-	// SettingKeyCodexCLIOnlyEngineFingerprintSignals codex_cli_only 引擎指纹门信号列表（[]EngineFingerprintSignal JSON）。
-	// 勾选(required)信号之间 AND;每条 match 变体行内 OR;缺失/空/非法 → 默认种子(只勾 x-codex-)。
-	SettingKeyCodexCLIOnlyEngineFingerprintSignals = "codex_cli_only_engine_fingerprint_signals"
-
-	// SettingKeyMaxClaudeCodeVersion 最高 Claude Code 版本号限制 (semver, 如 "3.0.0"，空值=不检查)
-	SettingKeyMaxClaudeCodeVersion = "max_claude_code_version"
-
-	// Gateway Forwarding Behavior
-	// SettingKeyOpenAITTFTMode 控制 first_token_ms 的统计口径。
-	SettingKeyOpenAITTFTMode = "openai_ttft_mode"
-	OpenAITTFTModeSemantic   = "semantic"
-	OpenAITTFTModeVisible    = "visible"
-	// SettingKeyEnableFingerprintUnification 是否统一 OAuth 账号的 X-Stainless-* 指纹头（默认 true）
-	SettingKeyEnableFingerprintUnification = "enable_fingerprint_unification"
-	// SettingKeyEnableMetadataPassthrough 是否透传客户端原始 metadata.user_id（默认 false）
-	SettingKeyEnableMetadataPassthrough = "enable_metadata_passthrough"
-	// SettingKeyEnableCCHSigning 已废弃（no-op）：新版 Claude Code CLI 已取消 cch 签名字段，
-	// 网关随之不再注入/签名 cch（见 buildBillingAttributionText）。保留该 key 仅为向后兼容，
-	// 开关不再产生任何效果。
-	SettingKeyEnableCCHSigning = "enable_cch_signing"
-	// SettingKeyEnableClaudeOAuthSystemPromptInjection 是否对 Claude OAuth mimic 路径注入 Claude Code system blocks（默认 true）
-	SettingKeyEnableClaudeOAuthSystemPromptInjection = "enable_claude_oauth_system_prompt_injection"
-	// SettingKeyClaudeOAuthSystemPrompt Claude OAuth mimic 路径注入的通用扩展 system prompt（空值使用内置默认）
-	SettingKeyClaudeOAuthSystemPrompt = "claude_oauth_system_prompt"
-	// SettingKeyClaudeOAuthSystemPromptBlocks Claude OAuth mimic 路径注入的 system blocks JSON 配置（空值使用内置默认）
-	SettingKeyClaudeOAuthSystemPromptBlocks = "claude_oauth_system_prompt_blocks"
-	// SettingKeyEnableAnthropicCacheTTL1hInjection 是否对 Anthropic OAuth/SetupToken 请求体注入 1h cache_control ttl（默认 false）
-	SettingKeyEnableAnthropicCacheTTL1hInjection = "enable_anthropic_cache_ttl_1h_injection"
-	// SettingKeyEnableClientDatelineNormalization 是否对 Anthropic OAuth/SetupToken 账号
-	// 的 /v1/messages 请求体做客户端 dateline 归一化（默认 true）。
-	// 归一化把 system prompt / <system-reminder> 块中 "Today's date is …" 语句里的
-	// 非 ASCII 撇号与 "/" 日期分隔符还原为 ASCII 撇号 + "-" 分隔符，抹除某些客户端
-	// 在检测到非官方 base URL 时注入的 3 bit 隐写指纹。仅适用于 Anthropic OAuth/SetupToken
-	// 账号；API Key 账号不受影响。
-	SettingKeyEnableClientDatelineNormalization = "enable_client_dateline_normalization"
-	// SettingKeyRewriteMessageCacheControl 是否改写 messages[*].content[*].cache_control（默认 false）
-	SettingKeyRewriteMessageCacheControl = "rewrite_message_cache_control"
-	// SettingKeyAntigravityUserAgentVersion Antigravity 上游 User-Agent 版本号（空值使用环境变量/默认值）
-	SettingKeyAntigravityUserAgentVersion = "antigravity_user_agent_version"
-	// SettingKeyOpenAICodexUserAgent OpenAI Codex 完整 User-Agent（空值使用内置默认）
-	// 当客户端 UA 被识别为浏览器（Chrome/Firefox/Safari/Edge 等）时，转发给 OpenAI 上游前会替换为此值，
-	// 用于避免 Cloudflare 对浏览器型 UA 的质询拦截。
-	SettingKeyOpenAICodexUserAgent = "openai_codex_user_agent"
-	// SettingKeyOpenAICodexClientVersion 网关对 ChatGPT 上游声明的 Codex 客户端版本号（管理员覆写）。
-	// 空值表示跟随自动同步值；自动同步也没有结果时回退到内置常量。
-	// 上游在容量紧张时按客户端身份分优先级降载，陈旧版本会被优先丢弃，故该值需保持跟随官方发布。
-	SettingKeyOpenAICodexClientVersion = "openai_codex_client_version"
 	// SettingKeyOpenAICodexClientVersionSynced 自动同步任务写入的官方 Codex 最新稳定版版本号。
-	// 由 OpenAICodexVersionSyncService 独占写入，面板只读展示；管理员覆写请用
-	// SettingKeyOpenAICodexClientVersion。
+	// 由 OpenAICodexVersionSyncService 独占写入；出站身份按它拼（没有时用内置常量）。
 	SettingKeyOpenAICodexClientVersionSynced = "openai_codex_client_version_synced"
-	// SettingKeyOpenAICodexVersionAutoSyncEnabled 是否启用 Codex 客户端版本号自动同步（默认 true）。
-	SettingKeyOpenAICodexVersionAutoSyncEnabled = "openai_codex_version_auto_sync_enabled"
-	// SettingKeyOpenAIAllowClaudeCodeCodexPlugin 已废弃：历史全局开关只作为升级迁移输入读取。
-	// 迁移后等价规则写入 SettingKeyCodexCLIOnlyWhitelist，不再参与运行时判定。
-	SettingKeyOpenAIAllowClaudeCodeCodexPlugin = "openai_allow_claude_code_codex_plugin"
 
 	// Web Search Emulation
 	SettingKeyWebSearchEmulationConfig = "web_search_emulation_config" // JSON 配置
@@ -418,10 +289,6 @@ const (
 	SettingKeyProfitSafetyBuffer   = "profit_safety_buffer" // 安全余量，小数
 	ProfitControlRatioMax          = 0.99                   // margin + buffer 必须 < 1，否则阈值 ≤ 0 全池不可派
 )
-
-// SettingKeyAccountSchedulingThresholds —— 系统全局：按平台自动停调阈值（JSON map）。
-// 值为 map[platform]percent，1..100；100 = 禁用该平台自动停调。
-const SettingKeyAccountSchedulingThresholds = "account_scheduling_thresholds"
 
 // QuotaDimension constants for spark shadow accounts.
 const (

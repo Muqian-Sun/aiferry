@@ -111,19 +111,18 @@ func (s *GatewayService) shouldRectifySignatureError(ctx context.Context, accoun
 		return false
 	}
 	if account.Type == AccountTypeAPIKey {
-		// API Key 账号：独立开关，一次读取配置
-		settings, err := s.settingService.GetRectifierSettings(ctx)
-		if err != nil || !settings.Enabled || !settings.APIKeySignatureEnabled {
+		// API Key 账号：独立开关
+		if !rectifierPolicy.Enabled || !rectifierPolicy.APIKeySignatureEnabled {
 			return false
 		}
 		// 先检查内置模式（同 OAuth），再检查自定义关键词
 		if s.isThinkingBlockSignatureError(respBody) {
 			return true
 		}
-		return matchSignaturePatterns(respBody, settings.APIKeySignaturePatterns)
+		return matchSignaturePatterns(respBody, rectifierPolicy.APIKeySignaturePatterns)
 	}
-	// OAuth/SetupToken/Upstream/Bedrock 等：保持原有行为（内置模式 + 原开关）
-	return s.isThinkingBlockSignatureError(respBody) && s.settingService.IsSignatureRectifierEnabled(ctx)
+	// OAuth/SetupToken/Upstream/Bedrock 等：内置模式 + 签名整流开关
+	return s.isThinkingBlockSignatureError(respBody) && signatureRectifierEnabled()
 }
 
 // isSignatureErrorPattern 仅做模式匹配，不检查开关。
@@ -133,11 +132,7 @@ func (s *GatewayService) isSignatureErrorPattern(ctx context.Context, account *A
 		return true
 	}
 	if account.Type == AccountTypeAPIKey {
-		settings, err := s.settingService.GetRectifierSettings(ctx)
-		if err != nil {
-			return false
-		}
-		return matchSignaturePatterns(respBody, settings.APIKeySignaturePatterns)
+		return matchSignaturePatterns(respBody, rectifierPolicy.APIKeySignaturePatterns)
 	}
 	return false
 }
@@ -1381,7 +1376,7 @@ func (s *GatewayService) resolveCacheTTLUsageOverrideTarget(ctx context.Context,
 	if account.IsCacheTTLOverrideEnabled() {
 		return account.GetCacheTTLOverrideTarget(), true
 	}
-	if account.IsAnthropicOAuthOrSetupToken() && s != nil && s.settingService != nil && s.settingService.IsAnthropicCacheTTL1hInjectionEnabled(ctx) {
+	if AnthropicCacheTTL1hInjectionEnabled && account.IsAnthropicOAuthOrSetupToken() {
 		return cacheTTLTarget5m, true
 	}
 	return "", false

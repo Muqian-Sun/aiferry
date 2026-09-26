@@ -877,10 +877,7 @@ func (s *AccountTestService) buildGrokOAuthUpstreamModelsRequest(ctx context.Con
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)
 	}
-	baseURL := account.GetGrokBaseURL()
-	if s.settingService != nil {
-		baseURL = s.settingService.ResolveGrokBaseURL(ctx, account)
-	}
+	baseURL := resolveGrokBaseURL(account)
 	normalizedBaseURL, err := validator(baseURL)
 	if err != nil {
 		return nil, newUpstreamModelSyncConfigError("Invalid Grok base URL", err)

@@ -1675,7 +1675,6 @@ type DefaultConfig struct {
 }
 
 type RateLimitConfig struct {
-	OverloadCooldownMinutes int `mapstructure:"overload_cooldown_minutes"`  // 529过载冷却时间(分钟)
 	OAuth401CooldownMinutes int `mapstructure:"oauth_401_cooldown_minutes"` // OAuth 401临时不可调度冷却(分钟)
 }
 
@@ -2211,7 +2210,6 @@ func setDefaults() {
 	viper.SetDefault("default.rate_multiplier", 1.0)
 
 	// RateLimit
-	viper.SetDefault("rate_limit.overload_cooldown_minutes", 10)
 	viper.SetDefault("rate_limit.oauth_401_cooldown_minutes", 10)
 
 	// Pricing - 从 model-price-repo main 分支同步模型定价和上下文窗口数据

@@ -3,7 +3,6 @@ package service
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"net/http"
@@ -729,15 +728,12 @@ func TestForward_ServiceTierFilteredByPolicyBillsStandard(t *testing.T) {
 	c.Request = httptest.NewRequest(http.MethodPost, "/v1/responses", bytes.NewReader(body))
 	c.Request.Header.Set("Content-Type", "application/json")
 
-	// 管理员配置 priority → filter：字段在出站前被删除。
-	settings := &OpenAIFastPolicySettings{Rules: []OpenAIFastPolicyRule{{
+	// 策略配成 priority → filter：字段在出站前被删除。
+	setGatewayPolicyForTest(t, &openAIFastPolicy, OpenAIFastPolicySettings{Rules: []OpenAIFastPolicyRule{{
 		ServiceTier: OpenAIFastTierPriority,
 		Action:      BetaPolicyActionFilter,
 		Scope:       BetaPolicyScopeAll,
-	}}}
-	raw, err := json.Marshal(settings)
-	require.NoError(t, err)
-	repo := &openAIFastPolicyRepoStub{values: map[string]string{SettingKeyOpenAIFastPolicySettings: string(raw)}}
+	}}})
 
 	upstream := &httpUpstreamRecorder{resp: &http.Response{
 		StatusCode: http.StatusOK,
@@ -750,7 +746,7 @@ func TestForward_ServiceTierFilteredByPolicyBillsStandard(t *testing.T) {
 	svc := &OpenAIGatewayService{
 		cfg:            &config.Config{Security: config.SecurityConfig{URLAllowlist: config.URLAllowlistConfig{Enabled: false}}},
 		httpUpstream:   upstream,
-		settingService: NewSettingService(repo, &config.Config{}),
+		settingService: NewSettingService(&openAIFastPolicyRepoStub{values: map[string]string{}}, &config.Config{}),
 	}
 	account := &Account{
 		ProtocolEndpoints: map[string]string{

@@ -71,10 +71,7 @@ func (s *GrokQuotaService) syncGrokObservedModels(ctx context.Context, account *
 	if token == "" {
 		return nil
 	}
-	baseURL := strings.TrimSpace(account.GetGrokBaseURL())
-	if s.settingService != nil {
-		baseURL = strings.TrimSpace(s.settingService.ResolveGrokBaseURL(ctx, account))
-	}
+	baseURL := strings.TrimSpace(resolveGrokBaseURL(account))
 	if baseURL == "" {
 		baseURL = xai.DefaultCLIBaseURL
 	}

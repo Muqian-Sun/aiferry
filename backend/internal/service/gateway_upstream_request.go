@@ -45,10 +45,7 @@ func (s *GatewayService) buildUpstreamRequest(ctx context.Context, c *gin.Contex
 
 	// OAuth账号：应用统一指纹和metadata重写（受设置开关控制）
 	var fingerprint *Fingerprint
-	enableFP, enableMPT := true, false
-	if s.settingService != nil {
-		enableFP, enableMPT, _ = s.settingService.GetGatewayForwardingSettings(ctx)
-	}
+	enableFP, enableMPT := FingerprintUnificationEnabled, MetadataPassthroughEnabled
 	if account.IsOAuth() && s.identityService != nil {
 		// 1. 获取或创建指纹（包含随机生成的ClientID）
 		fp, err := s.identityService.GetOrCreateFingerprint(ctx, account.ID, clientHeaders)
@@ -615,19 +612,12 @@ type betaPolicyResult struct {
 	filterSet map[string]struct{} // tokens to filter (may be nil)
 }
 
-// evaluateBetaPolicy loads settings once and evaluates all rules against the given request.
+// evaluateBetaPolicy evaluates the code-defined beta policy rules (gateway_features.go) against the given request.
 func (s *GatewayService) evaluateBetaPolicy(ctx context.Context, betaHeader string, account *Account, model string) betaPolicyResult {
-	if s.settingService == nil {
-		return betaPolicyResult{}
-	}
-	settings, err := s.settingService.GetBetaPolicySettings(ctx)
-	if err != nil || settings == nil {
-		return betaPolicyResult{}
-	}
 	isOAuth := account.IsOAuth()
 	isBedrock := account.IsBedrock()
 	var result betaPolicyResult
-	for _, rule := range settings.Rules {
+	for _, rule := range betaPolicy.Rules {
 		if !betaPolicyScopeMatches(rule.Scope, isOAuth, isBedrock) {
 			continue
 		}
@@ -799,17 +789,13 @@ func (s *GatewayService) resolveBedrockBetaTokensForRequest(
 // checkBetaPolicyBlockForTokens 检查 token 列表中是否有被管理员 block 规则命中的 token。
 // 用于补充 evaluateBetaPolicy 对 header 的检查，覆盖 body 自动注入的 token。
 func (s *GatewayService) checkBetaPolicyBlockForTokens(ctx context.Context, tokens []string, account *Account, model string) *BetaBlockedError {
-	if s.settingService == nil || len(tokens) == 0 {
-		return nil
-	}
-	settings, err := s.settingService.GetBetaPolicySettings(ctx)
-	if err != nil || settings == nil {
+	if len(tokens) == 0 {
 		return nil
 	}
 	isOAuth := account.IsOAuth()
 	isBedrock := account.IsBedrock()
 	tokenSet := buildBetaTokenSet(tokens)
-	for _, rule := range settings.Rules {
+	for _, rule := range betaPolicy.Rules {
 		effectiveAction, effectiveErrMsg := resolveRuleAction(rule, model)
 		if effectiveAction != BetaPolicyActionBlock {
 			continue

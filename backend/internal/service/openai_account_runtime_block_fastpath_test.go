@@ -72,29 +72,9 @@ func TestOpenAI429FastPath_BlocksOAuthOnlyAfterRetryWindow(t *testing.T) {
 	require.False(t, svc.shouldRetryOpenAIOAuth429OnSameAccount(account, http.StatusTooManyRequests, false))
 }
 
-func TestOpenAI429FastPath_DoesNotBlockOAuthWhenFallbackDisabled(t *testing.T) {
+func TestOpenAI429FastPath_QuotaWindowNotExhaustedUsesFallbackCooldown(t *testing.T) {
 	repo := &oauth429RateLimitRepo{}
-	settingRepo := newMockSettingRepo()
-	settingRepo.data[SettingKeyRateLimit429CooldownSettings] = `{"enabled":false,"cooldown_seconds":12}`
 	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-	rateLimitService.SetSettingService(NewSettingService(settingRepo, &config.Config{}))
-	svc := &OpenAIGatewayService{rateLimitService: rateLimitService}
-	rateLimitService.SetAccountRuntimeBlocker(svc)
-	account := &Account{ID: 425, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
-	svc.openaiOAuth429RetryStartedAt.Store(account.ID, time.Now().Add(-openAIOAuth429RetryWindow-time.Second))
-
-	svc.markOpenAIOAuth429RateLimited(context.Background(), account, http.Header{}, []byte(`{"detail":"Rate limit exceeded"}`))
-
-	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account), "disabled 429 fallback must not create an OAuth runtime cooldown")
-	require.Zero(t, repo.setRateLimitedCalls, "disabled 429 fallback must not persist a scheduler cooldown")
-}
-
-func TestOpenAI429FastPath_DoesNotBlockOAuthWhenQuotaWindowIsNotExhausted(t *testing.T) {
-	repo := &oauth429RateLimitRepo{}
-	settingRepo := newMockSettingRepo()
-	settingRepo.data[SettingKeyRateLimit429CooldownSettings] = `{"enabled":false,"cooldown_seconds":12}`
-	rateLimitService := NewRateLimitService(repo, nil, &config.Config{}, nil, nil)
-	rateLimitService.SetSettingService(NewSettingService(settingRepo, &config.Config{}))
 	svc := &OpenAIGatewayService{rateLimitService: rateLimitService}
 	rateLimitService.SetAccountRuntimeBlocker(svc)
 	account := &Account{ID: 426, Platform: PlatformOpenAI, Type: AccountTypeOAuth}
@@ -107,10 +87,21 @@ func TestOpenAI429FastPath_DoesNotBlockOAuthWhenQuotaWindowIsNotExhausted(t *tes
 	headers.Set("x-codex-secondary-reset-after-seconds", "3600")
 	headers.Set("x-codex-secondary-window-minutes", "300")
 
+	before := time.Now()
 	svc.handleOpenAIAccountUpstreamError(context.Background(), account, http.StatusTooManyRequests, headers, []byte(`{"detail":"Rate limit exceeded"}`))
+	after := time.Now()
 
-	require.False(t, svc.isOpenAIAccountRuntimeBlocked(account), "non-exhausted quota headers must use the configurable fallback")
-	require.Zero(t, repo.setRateLimitedCalls, "disabled 429 fallback must not persist a scheduler cooldown")
+	// 配额没用完时 reset-after 只是窗口信息：按 429 默认回避 5 秒，不能停到 7 天窗口重置。
+	require.True(t, svc.isOpenAIAccountRuntimeBlocked(account), "non-exhausted quota headers must use the 429 fallback cooldown")
+	value, ok := svc.openaiAccountRuntimeBlockUntil.Load(account.ID)
+	require.True(t, ok)
+	blockedUntil, ok := value.(time.Time)
+	require.True(t, ok)
+	require.False(t, blockedUntil.Before(before.Add(5*time.Second)))
+	require.False(t, blockedUntil.After(after.Add(5*time.Second)))
+	require.Equal(t, 1, repo.setRateLimitedCalls, "the 429 fallback persists a scheduler cooldown")
+	require.False(t, repo.lastRateLimitedUntil.Before(before.Add(5*time.Second)))
+	require.False(t, repo.lastRateLimitedUntil.After(after.Add(5*time.Second)))
 }
 
 func TestOpenAI429FastPath_BlocksOAuthImmediatelyWhenSevenDayQuotaIsExhausted(t *testing.T) {

@@ -22,10 +22,6 @@ type SystemSettings struct {
 	AffiliateRebatePerInviteeCap float64
 	AdminRechargeRebateEnabled   bool
 
-	// Identity patch configuration (Claude -> Gemini)
-	EnableIdentityPatch bool   `json:"enable_identity_patch"`
-	IdentityPatchPrompt string `json:"identity_patch_prompt"`
-
 	// Ops monitoring (vNext)
 	OpsRealtimeMonitoringEnabled bool
 	OpsQueryModeDefault          string
@@ -38,46 +34,11 @@ type SystemSettings struct {
 	ChannelMonitorShowQuota              bool   `json:"channel_monitor_show_quota"`
 	ChannelMonitorHideUserRanking        bool   `json:"channel_monitor_hide_user_ranking"`
 
-	// Grok model mapping policy (admin settings; empty mapping falls back to these).
-	GrokDefaultTextModel           string `json:"grok_default_text_model"`
-	GrokCrossClientModelMapEnabled bool   `json:"grok_cross_client_model_map_enabled"`
-	GrokDefaultBaseURLMode         string `json:"grok_default_base_url_mode"`
-
 	// Model Plaza feature (public group/model pricing showcase)
 	PluginManagementEnabled bool `json:"plugin_management_enabled"`
 
-	// Claude Code version check
-	MinClaudeCodeVersion string
-	MaxClaudeCodeVersion string
-
-	// Gateway forwarding behavior
-	OpenAITTFTMode                         string // Responses first_token_ms 统计口径（默认 semantic）
-	EnableFingerprintUnification           bool   // 是否统一 OAuth 账号的指纹头（默认 true）
-	EnableMetadataPassthrough              bool   // 是否透传客户端原始 metadata（默认 false）
-	EnableCCHSigning                       bool   // 已废弃 no-op：新版 CLI 取消 cch 签名后网关不再注入/签名 cch，开关无效果
-	EnableClaudeOAuthSystemPromptInjection bool   // 是否对 Claude OAuth mimic 路径注入 Claude Code system blocks（默认 true）
-	ClaudeOAuthSystemPrompt                string // Claude OAuth mimic 路径注入的通用扩展 system prompt；空值使用内置默认
-	ClaudeOAuthSystemPromptBlocks          string // Claude OAuth mimic 路径注入的 system blocks JSON 配置；空值使用内置默认
-	EnableAnthropicCacheTTL1hInjection     bool   // 是否对 Anthropic OAuth/SetupToken 请求体注入 1h cache_control ttl（默认 false）
-	EnableClientDatelineNormalization      bool   // 是否对 Anthropic OAuth/SetupToken 请求体做客户端 dateline 归一化（默认 true）
-	RewriteMessageCacheControl             bool   // 是否改写 messages[*].content[*].cache_control（默认 false）
-	AntigravityUserAgentVersion            string // Antigravity 上游 User-Agent 版本号；空值使用配置/默认值
-	OpenAICodexUserAgent                   string // OpenAI Codex 上游完整 User-Agent；空值由 Codex 客户端版本号拼出标准 TUI UA
-	OpenAICodexClientVersion               string // 出站声明的 Codex 客户端版本号（管理员覆写）；空值跟随自动同步值
-	OpenAICodexClientVersionSynced         string // 自动同步到的官方最新稳定版版本号（只读展示）
-	OpenAICodexVersionAutoSyncEnabled      bool   // 是否启用 Codex 客户端版本号自动同步（默认 true）
-	MinCodexVersion                        string // codex_cli_only 最低 Codex 引擎版本；空=不检查
-	MaxCodexVersion                        string // codex_cli_only 最高 Codex 引擎版本；空=不检查
-	CodexCLIOnlyBlacklist                  string // codex_cli_only 全局黑名单 JSON（[]AllowedClientEntry，OR deny）
-	CodexCLIOnlyWhitelist                  string // codex_cli_only 全局白名单 JSON（[]AllowedClientEntry，AND allow）
-	CodexCLIOnlyAllowAppServerClients      bool   // codex_cli_only App Server 开关：对未列名客户端开闸（默认 false）
-	CodexCLIOnlyEngineFingerprintSignals   string // codex_cli_only 引擎指纹门信号列表 JSON（[]EngineFingerprintSignal）
-
 	// Web Search Emulation
 	WebSearchEmulationEnabled bool // 是否启用 web search 模拟
-
-	// 系统全局账号自动停调阈值（key = platform，100 = disabled）
-	AccountSchedulingThresholds map[string]int `json:"account_scheduling_thresholds"`
 
 	// 利润门（全站一档）
 	ProfitControlEnabled bool
@@ -257,17 +218,6 @@ const (
 	StreamTimeoutActionNone        = "none"         // 不处理
 )
 
-// DefaultStreamTimeoutSettings 返回默认的流超时配置
-func DefaultStreamTimeoutSettings() *StreamTimeoutSettings {
-	return &StreamTimeoutSettings{
-		Enabled:                false,
-		Action:                 StreamTimeoutActionTempUnsched,
-		TempUnschedMinutes:     5,
-		ThresholdCount:         3,
-		ThresholdWindowMinutes: 10,
-	}
-}
-
 // RectifierSettings 请求整流器配置
 type RectifierSettings struct {
 	Enabled                  bool     `json:"enabled"`                    // 总开关
@@ -275,15 +225,6 @@ type RectifierSettings struct {
 	ThinkingBudgetEnabled    bool     `json:"thinking_budget_enabled"`    // Thinking Budget 整流
 	APIKeySignatureEnabled   bool     `json:"apikey_signature_enabled"`   // API Key 签名整流开关
 	APIKeySignaturePatterns  []string `json:"apikey_signature_patterns"`  // API Key 自定义匹配关键词
-}
-
-// DefaultRectifierSettings 返回默认的整流器配置（全部启用）
-func DefaultRectifierSettings() *RectifierSettings {
-	return &RectifierSettings{
-		Enabled:                  true,
-		ThinkingSignatureEnabled: true,
-		ThinkingBudgetEnabled:    true,
-	}
 }
 
 // Beta Policy 策略常量
@@ -314,32 +255,6 @@ type BetaPolicySettings struct {
 	Rules []BetaPolicyRule `json:"rules"`
 }
 
-// OverloadCooldownSettings 529过载冷却配置
-type OverloadCooldownSettings struct {
-	// Enabled 是否在收到529时暂停账号调度
-	Enabled bool `json:"enabled"`
-	// CooldownMinutes 冷却时长（分钟）
-	CooldownMinutes int `json:"cooldown_minutes"`
-}
-
-// RateLimit429CooldownSettings 429默认回避配置
-type RateLimit429CooldownSettings struct {
-	// Enabled 是否在无法解析上游重置时间时应用默认429回避
-	Enabled bool `json:"enabled"`
-	// CooldownSeconds 默认回避时长（秒）
-	CooldownSeconds int `json:"cooldown_seconds"`
-}
-
-// OpenAIImagesOAuthUnavailableCooldownSettings controls how long an OAuth account's image capability is paused when unavailable.
-type OpenAIImagesOAuthUnavailableCooldownSettings struct {
-	CooldownMinutes int `json:"cooldown_minutes"`
-}
-
-const (
-	openAIImagesOAuthUnavailableDefaultCooldownMinutes = 30
-	openAIImagesOAuthUnavailableMaxCooldownMinutes     = 120
-)
-
 // OpenAIAPIKeyHealthBreakerSettings controls cross-instance failure counting for OpenAI pool API keys.
 type OpenAIAPIKeyHealthBreakerSettings struct {
 	Enabled          bool `json:"enabled"`
@@ -354,79 +269,6 @@ func DefaultOpenAIAPIKeyHealthBreakerSettings() *OpenAIAPIKeyHealthBreakerSettin
 		WindowMinutes:    2,
 		FailureThreshold: 10,
 		CooldownMinutes:  5,
-	}
-}
-
-// DefaultOverloadCooldownSettings 返回默认的过载冷却配置（启用，10分钟）
-func DefaultOverloadCooldownSettings() *OverloadCooldownSettings {
-	return &OverloadCooldownSettings{
-		Enabled:         true,
-		CooldownMinutes: 10,
-	}
-}
-
-// DefaultRateLimit429CooldownSettings 返回默认的429回避配置（启用，5秒）
-func DefaultRateLimit429CooldownSettings() *RateLimit429CooldownSettings {
-	return &RateLimit429CooldownSettings{
-		Enabled:         true,
-		CooldownSeconds: 5,
-	}
-}
-
-func DefaultOpenAIImagesOAuthUnavailableCooldownSettings() *OpenAIImagesOAuthUnavailableCooldownSettings {
-	return &OpenAIImagesOAuthUnavailableCooldownSettings{CooldownMinutes: openAIImagesOAuthUnavailableDefaultCooldownMinutes}
-}
-
-// DefaultBetaPolicySettings 返回默认的 Beta 策略配置
-//
-// context-1m-2025-08-07 的默认策略：
-//   - 仅 claude-sonnet-5 及后续版本（如 claude-sonnet-5-*）在上游默认支持 1M 上下文。
-//   - Sonnet 4.x 及以下、Opus、Haiku 上游都不支持该 beta，透传上去会被上游 400 或降级。
-//   - 因此默认对 sonnet-5* 放行、其余全部过滤，与上游能力保持一致。
-//
-// 白名单需要覆盖每个上游路径的模型 ID 变形：
-//   - 直连 Anthropic API（OAuth mimic / API Key / SetupToken）：模型保持客户端原样
-//     （如 "claude-sonnet-5"、"claude-sonnet-5-YYYYMMDD"、"claude-sonnet-5-thinking"）。
-//   - Vertex AI：normalizeVertexAnthropicModelID 会把 "-YYYYMMDD" 后缀转成 "@YYYYMMDD"
-//     （如 "claude-sonnet-5@YYYYMMDD"）。
-//   - AWS Bedrock：ResolveBedrockModelID 会输出带跨区域前缀的模型 ID
-//     （us./eu./apac./jp./au./us-gov./global. 或无前缀的 "anthropic." 形式）。
-//
-// 白名单只用后缀通配符（matchModelPattern 语义），因此每个路径都需要显式列出前缀。
-// 精确匹配 "claude-sonnet-5" + 后缀 "-*" 与 "@*"，可覆盖直连/Vertex 场景，同时避免误伤
-// 未来可能出现的 "claude-sonnet-50" 或 "claude-sonnet-5.x" 之类的意外命名。
-func DefaultBetaPolicySettings() *BetaPolicySettings {
-	return &BetaPolicySettings{
-		Rules: []BetaPolicyRule{
-			{
-				BetaToken: "fast-mode-2026-02-01",
-				Action:    BetaPolicyActionFilter,
-				Scope:     BetaPolicyScopeAll,
-			},
-			{
-				BetaToken: "context-1m-2025-08-07",
-				Action:    BetaPolicyActionPass,
-				Scope:     BetaPolicyScopeAll,
-				ModelWhitelist: []string{
-					// 直连 Anthropic API（客户端请求 model 原样）
-					"claude-sonnet-5",
-					"claude-sonnet-5-*",
-					// Vertex AI 走 normalizeVertexAnthropicModelID 后 "@YYYYMMDD" 格式
-					"claude-sonnet-5@*",
-					// AWS Bedrock cross-region inference profile
-					"us.anthropic.claude-sonnet-5*",
-					"eu.anthropic.claude-sonnet-5*",
-					"apac.anthropic.claude-sonnet-5*",
-					"jp.anthropic.claude-sonnet-5*",
-					"au.anthropic.claude-sonnet-5*",
-					"us-gov.anthropic.claude-sonnet-5*",
-					"global.anthropic.claude-sonnet-5*",
-					// AWS Bedrock 无 cross-region 前缀
-					"anthropic.claude-sonnet-5*",
-				},
-				FallbackAction: BetaPolicyActionFilter,
-			},
-		},
 	}
 }
 
@@ -466,13 +308,4 @@ type OpenAIFastPolicyRule struct {
 // OpenAIFastPolicySettings OpenAI fast 策略配置
 type OpenAIFastPolicySettings struct {
 	Rules []OpenAIFastPolicyRule `json:"rules"`
-}
-
-// DefaultOpenAIFastPolicySettings 返回默认的 OpenAI fast 策略配置。
-// 默认不配置任何规则，保留 OpenAI 上游 service_tier 语义；管理员如需
-// 限制 priority/flex，可以在 admin UI 中显式配置 filter 或 block 规则。
-func DefaultOpenAIFastPolicySettings() *OpenAIFastPolicySettings {
-	return &OpenAIFastPolicySettings{
-		Rules: []OpenAIFastPolicyRule{},
-	}
 }

@@ -119,7 +119,7 @@ func (s *OpenAIGatewayService) handleStreamingResponseWithReasoning(ctx context.
 		maxLineSize = s.cfg.Gateway.MaxLineSize
 	}
 	var firstTokenMs *int
-	ttftMode := s.openAITTFTMode(ctx)
+	ttftMode := OpenAITTFTMode
 	firstOutputProgressObserved := false
 	bufferedWriter := bufio.NewWriterSize(w, 4*1024)
 	var firstOutputStage *openAIFirstOutputStage

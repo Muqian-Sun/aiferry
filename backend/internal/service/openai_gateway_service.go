@@ -971,17 +971,8 @@ func SnapshotOpenAICompatibilityFallbackMetrics() OpenAICompatibilityFallbackMet
 }
 
 func (s *OpenAIGatewayService) detectCodexClientRestriction(c *gin.Context, account *Account, body []byte) CodexClientRestrictionDetectionResult {
-	// 安全默认：即便缺 settingService（仅测试/误配可达）也保持指纹门为默认种子，
-	// 避免零值 policy（nil 信号）让指纹门失败开放。有 settingService 时整体覆盖为全局策略。
-	policy := CodexRestrictionPolicy{EngineFingerprintSignals: openai.DefaultEngineFingerprintSignals}
-	if account != nil && account.IsCodexCLIOnlyEnabled() && s != nil && s.settingService != nil {
-		ctx := context.Background()
-		if c != nil && c.Request != nil {
-			ctx = c.Request.Context()
-		}
-		policy = s.settingService.GetCodexRestrictionPolicy(ctx)
-	}
-	return s.getCodexClientRestrictionDetector().Detect(c, account, policy, body)
+	// codex_cli_only 的全局加固策略写在代码里（gateway_features.go）
+	return s.getCodexClientRestrictionDetector().Detect(c, account, codexRestrictionPolicy, body)
 }
 
 func getAPIKeyIDFromContext(c *gin.Context) int64 {

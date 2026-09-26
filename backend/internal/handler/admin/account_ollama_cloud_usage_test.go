@@ -67,7 +67,7 @@ func (r *ollamaCloudUsageHandlerTestRepo) ListDueOllamaCloudUsageAccounts(contex
 
 func newOllamaCloudUsageHandlerTestService(t *testing.T) *service.OllamaCloudUsageService {
 	t.Helper()
-	svc := service.NewOllamaCloudUsageService(nil, nil, nil, nil, false)
+	svc := service.NewOllamaCloudUsageService(nil, nil, nil, false)
 	t.Cleanup(svc.Stop)
 	return svc
 }
@@ -136,7 +136,7 @@ func TestOllamaCloudUsageEncryptionKeyStateConsistentAcrossAccountResponses(t *t
 			adminService.accounts = []service.Account{*account}
 			adminService.getAccountResult = account
 			usageService := service.NewOllamaCloudUsageService(
-				&ollamaCloudUsageHandlerTestRepo{account: account}, nil, nil, nil, configured,
+				&ollamaCloudUsageHandlerTestRepo{account: account}, nil, nil, configured,
 			)
 			t.Cleanup(usageService.Stop)
 
@@ -221,7 +221,7 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 	adminService := newStubAdminService()
 	adminService.accounts = []service.Account{*source, *sibling}
 	adminService.getAccountResult = sibling
-	usageService := service.NewOllamaCloudUsageService(repo, nil, nil, nil, true)
+	usageService := service.NewOllamaCloudUsageService(repo, nil, nil, true)
 	t.Cleanup(usageService.Stop)
 	handler := NewAccountHandler(adminService, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil)
 	handler.SetOllamaCloudUsageService(usageService)
@@ -272,17 +272,4 @@ func TestOllamaCloudUsageSharedStateMatchesListDetailAndSpecialEndpointWithoutLi
 		require.NotContains(t, body, "shared-secret-key")
 		require.NotContains(t, body, "ciphertext-secret")
 	}
-}
-
-func TestGetOllamaCloudUsageSettingsHandlerSuccess(t *testing.T) {
-	gin.SetMode(gin.TestMode)
-	ctx, recorder := newOllamaCloudUsageHandlerContext(http.MethodGet, "/admin/accounts/ollama-cloud-usage/settings", "", "")
-	handler := &AccountHandler{ollamaCloudUsage: newOllamaCloudUsageHandlerTestService(t)}
-
-	handler.GetOllamaCloudUsageSettings(ctx)
-
-	require.Equal(t, http.StatusOK, recorder.Code)
-	require.Contains(t, recorder.Body.String(), `"enabled":false`)
-	require.Contains(t, recorder.Body.String(), `"interval_minutes":60`)
-	require.Contains(t, recorder.Body.String(), `"debounce_minutes":1`)
 }

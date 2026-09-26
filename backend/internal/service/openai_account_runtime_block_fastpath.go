@@ -11,7 +11,6 @@ import (
 
 const (
 	openAIAccountStateUpdateTimeout       = 5 * time.Second
-	openAIOAuth429FallbackCooldown        = 5 * time.Second
 	openAIOAuth429RetryWindow             = 2 * time.Minute
 	openAIOAuth429RetryDelay              = 500 * time.Millisecond
 	openAIOAuth429MaxRetryDelay           = 8 * time.Second
@@ -247,12 +246,12 @@ func (s *OpenAIGatewayService) markOpenAIOAuth429RateLimited(ctx context.Context
 	}
 
 	now := time.Now()
-	cooldownUntil := now.Add(openAIOAuth429FallbackCooldown)
+	var cooldownUntil time.Time
 	if resetAt != nil && resetAt.After(now) {
 		cooldownUntil = *resetAt
-	} else if s.rateLimitService != nil {
-		cooldown, ok := s.rateLimitService.get429FallbackCooldown(ctx, account)
-		if !ok || cooldown <= 0 {
+	} else {
+		cooldown, ok := rateLimit429FallbackCooldown()
+		if !ok {
 			s.openaiOAuth429RetryStartedAt.Delete(account.ID)
 			return
 		}

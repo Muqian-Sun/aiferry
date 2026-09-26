@@ -997,7 +997,7 @@ func TestOpenAIGatewayService_OAuthLegacy_GroupForceStillHonorsGlobalFilter(t *t
 		Header:     http.Header{"Content-Type": []string{"text/event-stream"}, "x-request-id": []string{"rid_group_fast_filter"}},
 		Body:       io.NopCloser(strings.NewReader("data: [DONE]\n\n")),
 	}}
-	svc := newOpenAIGatewayServiceWithSettings(t, openAIFastFilterPriorityPolicy())
+	svc := newOpenAIGatewayServiceWithFastPolicy(t, openAIFastFilterPriorityPolicy())
 	svc.cfg = &config.Config{Gateway: config.GatewayConfig{ForceCodexCLI: false}}
 	svc.httpUpstream = upstream
 	account := &Account{
@@ -1614,11 +1614,10 @@ func TestOpenAIGatewayService_OpenAIPassthrough_RetryableStatusesTriggerFailover
 			}
 			upstream := &httpUpstreamRecorder{resp: resp}
 			repo := &openAIPassthroughFailoverRepo{}
+			// 529 暂停时长是代码常量 OverloadCooldownMinutes（10 分钟），见下面 apikey_529_overload 的断言。
 			rateSvc := &RateLimitService{
 				accountRepo: repo,
-				cfg: &config.Config{
-					RateLimit: config.RateLimitConfig{OverloadCooldownMinutes: 10},
-				},
+				cfg:         &config.Config{},
 			}
 
 			svc := &OpenAIGatewayService{
@@ -2337,9 +2336,9 @@ func TestOpenAIGatewayService_CodexCLIOnly_AllowOfficialClientFamilies(t *testin
 			if tt.originator != "" {
 				c.Request.Header.Set("originator", tt.originator)
 			}
-			// 引擎指纹头：真实官方客户端必带。本测试用 nil settingService 构造 gateway，
-			// detectCodexClientRestriction 会兜底默认种子指纹信号（只勾 x-codex-），与生产默认策略一致，
-			// 故官方家族也须携带 x-codex-* 才能过门（对齐 TestDetect_EngineFingerprintSignals）。
+			// 引擎指纹头：真实官方客户端必带。detectCodexClientRestriction 用代码里的 codexRestrictionPolicy，
+			// 指纹门是默认种子信号（只勾 x-codex-），故官方家族也须携带 x-codex-* 才能过门
+			// （对齐 TestDetect_EngineFingerprintSignals）。
 			c.Request.Header.Set("x-codex-window-id", "1")
 
 			inputBody := []byte(`{"model":"gpt-5.2","stream":false,"store":true,"input":[{"type":"text","text":"hi"}]}`)

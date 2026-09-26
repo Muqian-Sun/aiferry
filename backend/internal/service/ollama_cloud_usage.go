@@ -39,23 +39,18 @@ const (
 	// floor inside the SQL due filter.
 	OllamaCloudUsageMinFetchInterval = ollamaCloudUsageMinIntervalMinutes * time.Minute
 
-	ollamaCloudUsageSettingsURL            = "https://ollama.com/settings"
-	ollamaCloudUsageDefaultIntervalMinutes = 60
-	ollamaCloudUsageMinIntervalMinutes     = 15
-	ollamaCloudUsageMaxIntervalMinutes     = 24 * 60
-	ollamaCloudUsageDefaultDebounceMinutes = 1
-	ollamaCloudUsageMinDebounceMinutes     = 1
-	ollamaCloudUsageMaxDebounceMinutes     = 60
-	ollamaCloudUsageCycleInterval          = time.Minute
-	ollamaCloudUsageManualRefreshInterval  = 30 * time.Second
-	ollamaCloudUsageRequestTimeout         = 15 * time.Second
-	ollamaCloudUsageMaxBodyBytes           = 512 * 1024
-	ollamaCloudUsageMaxSessionBytes        = 16 * 1024
-	ollamaCloudUsageMaxPerCycle            = 20
-	ollamaCloudUsageConcurrency            = 4
-	ollamaCloudUsageMaxDelay               = 24 * time.Hour
-	ollamaCloudUsageLeaderLockKey          = "ollama:cloud:usage:leader"
-	ollamaCloudUsageLeaderLockTTL          = 2 * time.Minute
+	ollamaCloudUsageSettingsURL           = "https://ollama.com/settings"
+	ollamaCloudUsageMinIntervalMinutes    = 15
+	ollamaCloudUsageCycleInterval         = time.Minute
+	ollamaCloudUsageManualRefreshInterval = 30 * time.Second
+	ollamaCloudUsageRequestTimeout        = 15 * time.Second
+	ollamaCloudUsageMaxBodyBytes          = 512 * 1024
+	ollamaCloudUsageMaxSessionBytes       = 16 * 1024
+	ollamaCloudUsageMaxPerCycle           = 20
+	ollamaCloudUsageConcurrency           = 4
+	ollamaCloudUsageMaxDelay              = 24 * time.Hour
+	ollamaCloudUsageLeaderLockKey         = "ollama:cloud:usage:leader"
+	ollamaCloudUsageLeaderLockTTL         = 2 * time.Minute
 )
 
 var (
@@ -85,17 +80,6 @@ const (
 	OllamaCloudUsageStatusUnauthorized = "unauthorized"
 	OllamaCloudUsageStatusFailed       = "failed"
 )
-
-// OllamaCloudUsageSettings controls the opt-in request-driven refresh runner.
-//
-// IntervalMinutes is the max-wait bound: when model requests keep arriving and
-// the trailing debounce keeps sliding, a refresh is forced after this long.
-// DebounceMinutes is the quiet period after the latest request in a group.
-type OllamaCloudUsageSettings struct {
-	Enabled         bool `json:"enabled"`
-	IntervalMinutes int  `json:"interval_minutes"` // max wait while requests continue
-	DebounceMinutes int  `json:"debounce_minutes"` // trailing quiet period after last request
-}
 
 // OllamaCloudUsageWindow is a narrow, sanitized view of one official usage window.
 type OllamaCloudUsageWindow struct {
@@ -166,110 +150,9 @@ type ollamaCloudUsageRepository interface {
 	ListDueOllamaCloudUsageAccounts(context.Context, time.Time, time.Duration, time.Duration, int) ([]Account, error)
 }
 
-// GetOllamaCloudUsageSettings returns fail-safe defaults when the setting is absent.
-func (s *SettingService) GetOllamaCloudUsageSettings(ctx context.Context) (*OllamaCloudUsageSettings, error) {
-	defaults := defaultOllamaCloudUsageSettings()
-	if s == nil || s.settingRepo == nil {
-		return defaults, nil
-	}
-	raw, err := s.settingRepo.GetValue(ctx, SettingKeyOllamaCloudUsageSettings)
-	if err != nil {
-		if errors.Is(err, ErrSettingNotFound) {
-			return defaults, nil
-		}
-		return nil, fmt.Errorf("get Ollama Cloud usage settings: %w", err)
-	}
-	if strings.TrimSpace(raw) == "" {
-		return defaults, nil
-	}
-	settings := *defaults
-	if err := json.Unmarshal([]byte(raw), &settings); err != nil {
-		return nil, fmt.Errorf("parse Ollama Cloud usage settings: %w", err)
-	}
-	if settings.IntervalMinutes == 0 {
-		settings.IntervalMinutes = defaults.IntervalMinutes
-	}
-	if settings.DebounceMinutes == 0 {
-		settings.DebounceMinutes = defaults.DebounceMinutes
-	}
-	normalizeOllamaCloudUsageSettings(&settings)
-	return &settings, nil
-}
-
-func (s *SettingService) SetOllamaCloudUsageSettings(ctx context.Context, settings *OllamaCloudUsageSettings) error {
-	if s == nil || s.settingRepo == nil {
-		return ErrOllamaCloudUsageUnavailable
-	}
-	if settings == nil {
-		return infraerrors.BadRequest("INVALID_OLLAMA_CLOUD_USAGE_SETTINGS", "settings cannot be nil")
-	}
-	if settings.DebounceMinutes == 0 {
-		// Legacy clients that omit debounce_minutes keep the fail-safe default.
-		settings.DebounceMinutes = ollamaCloudUsageDefaultDebounceMinutes
-	}
-	if settings.IntervalMinutes < ollamaCloudUsageMinIntervalMinutes || settings.IntervalMinutes > ollamaCloudUsageMaxIntervalMinutes {
-		return infraerrors.BadRequest(
-			"INVALID_OLLAMA_CLOUD_USAGE_INTERVAL",
-			fmt.Sprintf("interval_minutes must be between %d and %d", ollamaCloudUsageMinIntervalMinutes, ollamaCloudUsageMaxIntervalMinutes),
-		)
-	}
-	if settings.DebounceMinutes < ollamaCloudUsageMinDebounceMinutes || settings.DebounceMinutes > ollamaCloudUsageMaxDebounceMinutes {
-		return infraerrors.BadRequest(
-			"INVALID_OLLAMA_CLOUD_USAGE_DEBOUNCE",
-			fmt.Sprintf("debounce_minutes must be between %d and %d", ollamaCloudUsageMinDebounceMinutes, ollamaCloudUsageMaxDebounceMinutes),
-		)
-	}
-	// The due time is min(lastUsed+debounce, fetchedAt+maxWait). Once the debounce
-	// reaches the max wait the debounce term can never win, so the knob would be
-	// silently inert instead of doing what the operator asked for.
-	if settings.DebounceMinutes >= settings.IntervalMinutes {
-		return infraerrors.BadRequest(
-			"INVALID_OLLAMA_CLOUD_USAGE_DEBOUNCE",
-			fmt.Sprintf("debounce_minutes (%d) must be less than interval_minutes (%d)", settings.DebounceMinutes, settings.IntervalMinutes),
-		)
-	}
-	normalizeOllamaCloudUsageSettings(settings)
-	data, err := json.Marshal(settings)
-	if err != nil {
-		return fmt.Errorf("marshal Ollama Cloud usage settings: %w", err)
-	}
-	return s.settingRepo.Set(ctx, SettingKeyOllamaCloudUsageSettings, string(data))
-}
-
-func defaultOllamaCloudUsageSettings() *OllamaCloudUsageSettings {
-	return &OllamaCloudUsageSettings{
-		Enabled:         false,
-		IntervalMinutes: ollamaCloudUsageDefaultIntervalMinutes,
-		DebounceMinutes: ollamaCloudUsageDefaultDebounceMinutes,
-	}
-}
-
-func normalizeOllamaCloudUsageSettings(settings *OllamaCloudUsageSettings) {
-	if settings.IntervalMinutes < ollamaCloudUsageMinIntervalMinutes {
-		settings.IntervalMinutes = ollamaCloudUsageMinIntervalMinutes
-	}
-	if settings.IntervalMinutes > ollamaCloudUsageMaxIntervalMinutes {
-		settings.IntervalMinutes = ollamaCloudUsageMaxIntervalMinutes
-	}
-	if settings.DebounceMinutes <= 0 {
-		settings.DebounceMinutes = ollamaCloudUsageDefaultDebounceMinutes
-	}
-	if settings.DebounceMinutes < ollamaCloudUsageMinDebounceMinutes {
-		settings.DebounceMinutes = ollamaCloudUsageMinDebounceMinutes
-	}
-	if settings.DebounceMinutes > ollamaCloudUsageMaxDebounceMinutes {
-		settings.DebounceMinutes = ollamaCloudUsageMaxDebounceMinutes
-	}
-}
-
-func ollamaCloudUsageDurations(settings *OllamaCloudUsageSettings) (debounce, maxWait time.Duration) {
-	normalized := defaultOllamaCloudUsageSettings()
-	if settings != nil {
-		*normalized = *settings
-	}
-	normalizeOllamaCloudUsageSettings(normalized)
-	return time.Duration(normalized.DebounceMinutes) * time.Minute,
-		time.Duration(normalized.IntervalMinutes) * time.Minute
+// ollamaCloudUsageDurations 自动刷新的防抖与最长等待（gateway_features.go）。
+func ollamaCloudUsageDurations() (debounce, maxWait time.Duration) {
+	return OllamaCloudUsageDebounceMinutes * time.Minute, OllamaCloudUsageIntervalMinutes * time.Minute
 }
 
 // ollamaCloudUsageIsAutoRefreshDue decides whether a configured auto-refresh
@@ -299,10 +182,10 @@ func ollamaCloudUsageAutoRefreshDueAt(
 	debounce, maxWait time.Duration,
 ) (time.Time, bool) {
 	if debounce <= 0 {
-		debounce = time.Duration(ollamaCloudUsageDefaultDebounceMinutes) * time.Minute
+		debounce = OllamaCloudUsageDebounceMinutes * time.Minute
 	}
 	if maxWait <= 0 {
-		maxWait = time.Duration(ollamaCloudUsageDefaultIntervalMinutes) * time.Minute
+		maxWait = OllamaCloudUsageIntervalMinutes * time.Minute
 	}
 	if snapshot == nil {
 		return time.Time{}, true
@@ -376,7 +259,6 @@ func scheduleOllamaCloudUsageActivity(deferred *DeferredService, account *Accoun
 type OllamaCloudUsageService struct {
 	accountRepo             AccountRepository
 	httpUpstream            HTTPUpstream
-	settingService          *SettingService
 	encryptor               SecretEncryptor
 	encryptionKeyConfigured bool
 
@@ -408,7 +290,6 @@ type OllamaCloudUsageService struct {
 func NewOllamaCloudUsageService(
 	accountRepo AccountRepository,
 	httpUpstream HTTPUpstream,
-	settingService *SettingService,
 	encryptor SecretEncryptor,
 	encryptionKeyConfigured bool,
 ) *OllamaCloudUsageService {
@@ -416,7 +297,6 @@ func NewOllamaCloudUsageService(
 	return &OllamaCloudUsageService{
 		accountRepo:             accountRepo,
 		httpUpstream:            httpUpstream,
-		settingService:          settingService,
 		encryptor:               encryptor,
 		encryptionKeyConfigured: encryptionKeyConfigured,
 		parentCtx:               ctx,
@@ -432,14 +312,13 @@ func NewOllamaCloudUsageService(
 func ProvideOllamaCloudUsageService(
 	accountRepo AccountRepository,
 	httpUpstream HTTPUpstream,
-	settingService *SettingService,
 	encryptor SecretEncryptor,
 	cfg *config.Config,
 	lockCache LeaderLockCache,
 	db *sql.DB,
 ) *OllamaCloudUsageService {
 	keyConfigured := cfg != nil && cfg.Totp.EncryptionKeyConfigured
-	svc := NewOllamaCloudUsageService(accountRepo, httpUpstream, settingService, encryptor, keyConfigured)
+	svc := NewOllamaCloudUsageService(accountRepo, httpUpstream, encryptor, keyConfigured)
 	svc.lockCache = lockCache
 	svc.db = db
 	svc.Start()
@@ -492,20 +371,6 @@ func (s *OllamaCloudUsageService) runLoop() {
 			}
 		}
 	}
-}
-
-func (s *OllamaCloudUsageService) GetSettings(ctx context.Context) (*OllamaCloudUsageSettings, error) {
-	if s == nil || s.settingService == nil {
-		return defaultOllamaCloudUsageSettings(), nil
-	}
-	return s.settingService.GetOllamaCloudUsageSettings(ctx)
-}
-
-func (s *OllamaCloudUsageService) UpdateSettings(ctx context.Context, settings *OllamaCloudUsageSettings) error {
-	if s == nil || s.settingService == nil {
-		return ErrOllamaCloudUsageUnavailable
-	}
-	return s.settingService.SetOllamaCloudUsageSettings(ctx, settings)
 }
 
 func (s *OllamaCloudUsageService) GetState(ctx context.Context, accountID int64) (*OllamaCloudUsageState, error) {
@@ -706,11 +571,7 @@ func (s *OllamaCloudUsageService) SetAutoRefresh(ctx context.Context, accountID 
 }
 
 func (s *OllamaCloudUsageService) Refresh(ctx context.Context, accountID int64) (*OllamaCloudUsageState, error) {
-	settings, err := s.GetSettings(ctx)
-	if err != nil {
-		return nil, err
-	}
-	if _, err := s.refreshAccount(ctx, accountID, settings, false); err != nil {
+	if _, err := s.refreshAccount(ctx, accountID, false); err != nil {
 		return nil, err
 	}
 	return s.GetState(ctx, accountID)
@@ -722,11 +583,7 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 	}
 	s.cycleMu.Lock()
 	defer s.cycleMu.Unlock()
-	settings, err := s.GetSettings(ctx)
-	if err != nil {
-		return err
-	}
-	if !settings.Enabled {
+	if !ollamaCloudUsageEnabled {
 		return nil
 	}
 	release, acquired := tryAcquireSingletonLeaderLock(ctx, s.lockCache, s.db, ollamaCloudUsageLeaderLockKey, s.instanceID, ollamaCloudUsageLeaderLockTTL)
@@ -740,7 +597,7 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 		return ErrOllamaCloudUsageUnavailable
 	}
 	now := s.currentTime()
-	debounce, maxWait := ollamaCloudUsageDurations(settings)
+	debounce, maxWait := ollamaCloudUsageDurations()
 	accounts, err := writer.ListDueOllamaCloudUsageAccounts(ctx, now, debounce, maxWait, ollamaCloudUsageMaxPerCycle)
 	if err != nil {
 		return fmt.Errorf("list due Ollama Cloud usage accounts: %w", err)
@@ -765,7 +622,7 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 		accountID := account.ID
 		expected := account
 		group.Go(func() error {
-			if _, refreshErr := s.refreshAccount(ctx, accountID, settings, true); refreshErr != nil {
+			if _, refreshErr := s.refreshAccount(ctx, accountID, true); refreshErr != nil {
 				if errors.Is(refreshErr, ErrOllamaCloudUsageIdentityChanged) {
 					if disableErr := writer.DisableOllamaCloudUsageAutoRefresh(ctx, &expected); disableErr != nil {
 						logger.LegacyPrintf("service.ollama_cloud_usage", "disable_auto_refresh_failed: account_id=%d err=%v", accountID, disableErr)
@@ -780,15 +637,12 @@ func (s *OllamaCloudUsageService) RunDue(ctx context.Context) error {
 	return group.Wait()
 }
 
-func (s *OllamaCloudUsageService) refreshAccount(ctx context.Context, accountID int64, settings *OllamaCloudUsageSettings, requireEnabled bool) (*OllamaCloudUsageSnapshot, error) {
+func (s *OllamaCloudUsageService) refreshAccount(ctx context.Context, accountID int64, requireEnabled bool) (*OllamaCloudUsageSnapshot, error) {
 	if s == nil || s.accountRepo == nil {
 		return nil, ErrOllamaCloudUsageUnavailable
 	}
-	if settings == nil {
-		settings = defaultOllamaCloudUsageSettings()
-	}
-	intervalMinutes := settings.IntervalMinutes
-	debounce, maxWait := ollamaCloudUsageDurations(settings)
+	intervalMinutes := OllamaCloudUsageIntervalMinutes
+	debounce, maxWait := ollamaCloudUsageDurations()
 	anchor, err := s.accountRepo.GetByID(ctx, accountID)
 	if err != nil {
 		return nil, err

@@ -4,55 +4,31 @@ import (
 	"context"
 	"testing"
 
-	"github.com/Wei-Shaw/sub2api/internal/config"
 	"github.com/Wei-Shaw/sub2api/internal/pkg/anthropicfp"
 	"github.com/stretchr/testify/require"
 )
 
-// TestGatewayClientDatelineNormalization_Scope covers the account/switch matrix
-// for the shouldNormalizeClientDateline gate: Anthropic OAuth/SetupToken pass
-// only when the switch is on; API-Key and non-Anthropic platforms are excluded
-// unconditionally.
+// TestGatewayClientDatelineNormalization_Scope covers the account matrix for
+// the shouldNormalizeClientDateline gate under the code value
+// (ClientDatelineNormalizationEnabled = true): Anthropic OAuth/SetupToken
+// qualify; API-Key and non-Anthropic platforms are excluded unconditionally.
 func TestGatewayClientDatelineNormalization_Scope(t *testing.T) {
-	repo := &gatewayTTLSettingRepo{data: map[string]string{}}
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	svc := &GatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
-	}
+	svc := &GatewayService{}
 	ctx := context.Background()
 
-	// Default (missing key): fallback in parseSettings/cache loader is true.
 	require.True(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
 	require.True(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}))
 	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeAPIKey, ProtocolEndpoints: map[string]string{APIProtocolAnthropic: "https://api.anthropic.com"}}))
 	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformOpenAI, Type: AccountTypeOAuth}))
-
-	// Switch off: no account qualifies.
-	repo.data[SettingKeyEnableClientDatelineNormalization] = "false"
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
-	require.False(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}))
-
-	// Switch back on: OAuth qualifies again.
-	repo.data[SettingKeyEnableClientDatelineNormalization] = "true"
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	require.True(t, svc.shouldNormalizeClientDateline(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}))
 }
 
 // TestGatewayClientDatelineNormalization_HelperNoRewrite exercises the code
-// path used by Forward: the helper must return ok=false when the switch is
-// off, when the account is API-Key, when the account is nil, and when the
-// body carries no fingerprinted dateline. It must return ok=true and a
-// rewritten body when both the switch is on and the account is Anthropic
-// OAuth/SetupToken and a rewrite actually happened.
+// path used by Forward: the helper must return ok=false when the account is
+// API-Key, when the account is nil, and when the body carries no
+// fingerprinted dateline. It must return ok=true and a rewritten body when the
+// account is Anthropic OAuth/SetupToken and a rewrite actually happened.
 func TestGatewayClientDatelineNormalization_HelperNoRewrite(t *testing.T) {
-	repo := &gatewayTTLSettingRepo{data: map[string]string{
-		SettingKeyEnableClientDatelineNormalization: "true",
-	}}
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	svc := &GatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
-	}
+	svc := &GatewayService{}
 	ctx := context.Background()
 
 	dirty := []byte(`{"messages":[{"role":"user","content":"<system-reminder>\nToday’s date is 2026/07/01.\n</system-reminder>"}]}`)
@@ -85,13 +61,6 @@ func TestGatewayClientDatelineNormalization_HelperNoRewrite(t *testing.T) {
 	next, ok = svc.normalizeClientDatelineIfEnabled(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeSetupToken}, dirty)
 	require.True(t, ok)
 	require.Contains(t, string(next), "Today's date is 2026-07-01.")
-
-	// Switch off: even OAuth account is not rewritten.
-	repo.data[SettingKeyEnableClientDatelineNormalization] = "false"
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	next, ok = svc.normalizeClientDatelineIfEnabled(ctx, &Account{Platform: PlatformAnthropic, Type: AccountTypeOAuth}, dirty)
-	require.False(t, ok)
-	require.Nil(t, next)
 }
 
 // TestGatewayClientDatelineNormalization_LeavesUserProseUntouched double-checks
@@ -99,13 +68,7 @@ func TestGatewayClientDatelineNormalization_HelperNoRewrite(t *testing.T) {
 // blocks. This is an integration guard between the switch-gated helper and
 // the pkg/anthropicfp scope contract, tripped by anyone who broadens scope.
 func TestGatewayClientDatelineNormalization_LeavesUserProseUntouched(t *testing.T) {
-	repo := &gatewayTTLSettingRepo{data: map[string]string{
-		SettingKeyEnableClientDatelineNormalization: "true",
-	}}
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{})
-	svc := &GatewayService{
-		settingService: NewSettingService(repo, &config.Config{}),
-	}
+	svc := &GatewayService{}
 	ctx := context.Background()
 
 	// User prose that happens to include a fingerprint-looking sentence

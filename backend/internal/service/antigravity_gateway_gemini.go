@@ -204,8 +204,7 @@ func (s *AntigravityGatewayService) ForwardGemini(ctx context.Context, c *gin.Co
 			signatureCheckBody = unwrapped
 		}
 		if resp.StatusCode == http.StatusBadRequest &&
-			s.settingService != nil &&
-			s.settingService.IsSignatureRectifierEnabled(ctx) &&
+			signatureRectifierEnabled() &&
 			isSignatureRelatedError(signatureCheckBody) &&
 			bytes.Contains(injectedBody, []byte(`"thoughtSignature"`)) {
 			upstreamMsg := sanitizeUpstreamErrorMessage(strings.TrimSpace(extractAntigravityErrorMessage(signatureCheckBody)))

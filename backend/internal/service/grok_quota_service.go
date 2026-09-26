@@ -163,7 +163,7 @@ func (s *GrokQuotaService) probeUsage(ctx context.Context, accountID int64) (*Gr
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadRequest, "GROK_QUOTA_PROBE_BODY_ERROR", "failed to build probe body: %v", err)
 	}
-	targetURL, err := buildGrokResponsesURL(account, s.cfg, s.settingService)
+	targetURL, err := buildGrokResponsesURL(account, s.cfg)
 	if err != nil {
 		return nil, infraerrors.Newf(http.StatusBadRequest, "GROK_QUOTA_BASE_URL_INVALID", "invalid Grok base_url: %v", err)
 	}

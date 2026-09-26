@@ -5,15 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log/slog"
 	"math"
 	"strconv"
 	"strings"
 
-	"github.com/Wei-Shaw/sub2api/internal/pkg/antigravity"
 	infraerrors "github.com/Wei-Shaw/sub2api/internal/pkg/errors"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/openai"
-	"github.com/Wei-Shaw/sub2api/internal/pkg/xai"
 )
 
 // InitializeDefaultSettings 初始化默认设置
@@ -34,9 +30,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyAffiliateRebateFreezeHours:   strconv.Itoa(AffiliateRebateFreezeHoursDefault),
 		SettingKeyAffiliateRebateDurationDays:  strconv.Itoa(AffiliateRebateDurationDaysDefault),
 		SettingKeyAffiliateRebatePerInviteeCap: strconv.FormatFloat(AffiliateRebatePerInviteeCapDefault, 'f', 2, 64),
-		// Identity patch defaults
-		SettingKeyEnableIdentityPatch: "true",
-		SettingKeyIdentityPatchPrompt: "",
 
 		// Ops monitoring defaults (vNext)
 		SettingKeyOpsRealtimeMonitoringEnabled: "true",
@@ -49,12 +42,6 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyChannelMonitorHideThroughput:         "true",
 		SettingKeyChannelMonitorShowQuota:              "false",
 		SettingKeyChannelMonitorHideUserRanking:        "false",
-
-		// Grok compatibility defaults: cross-client mapping stays enabled unless
-		// operators explicitly disable it.
-		SettingKeyGrokDefaultTextModel:           "grok-4.6",
-		SettingKeyGrokCrossClientModelMapEnabled: "true",
-		SettingKeyGrokDefaultBaseURLMode:         GrokDefaultBaseURLModeCLI,
 
 		// Available channels feature (default disabled; opt-in)
 
@@ -71,31 +58,10 @@ func (s *SettingService) InitializeDefaultSettings(ctx context.Context) error {
 		SettingKeyCyberSessionBlockEnabled:    "false",
 		SettingKeyCyberSessionBlockTTLSeconds: "3600",
 
-		// Claude Code version check (default: empty = disabled)
-		SettingKeyMinClaudeCodeVersion: "",
-		SettingKeyMaxClaudeCodeVersion: "",
-
-		// codex_cli_only 加固（默认：版本不检查、名单空、默认种子指纹信号）
-		SettingKeyMinCodexVersion:                      "",
-		SettingKeyMaxCodexVersion:                      "",
-		SettingKeyCodexCLIOnlyBlacklist:                "",
-		SettingKeyCodexCLIOnlyWhitelist:                "",
-		SettingKeyCodexCLIOnlyAllowAppServerClients:    "false",
-		SettingKeyCodexCLIOnlyEngineFingerprintSignals: openai.DefaultEngineFingerprintSignalsJSON(),
-
-		// 分组隔离（默认不允许未分组 Key 调度）
-		SettingKeyEnableAnthropicCacheTTL1hInjection: "false",
-		SettingKeyRewriteMessageCacheControl:         strconv.FormatBool(s.defaultRewriteMessageCacheControl()),
-		SettingKeyEnableClientDatelineNormalization:  "true",
-		SettingKeyAntigravityUserAgentVersion:        "",
-		SettingKeyOpenAICodexUserAgent:               "",
-		SettingKeyOpenAICodexClientVersion:           "",
-		SettingKeyOpenAICodexClientVersionSynced:     "",
-		SettingKeyOpenAICodexVersionAutoSyncEnabled:  "true",
-		SettingPaymentVisibleMethodAlipaySource:      "",
-		SettingPaymentVisibleMethodWxpaySource:       "",
-		SettingPaymentVisibleMethodAlipayEnabled:     "false",
-		SettingPaymentVisibleMethodWxpayEnabled:      "false",
+		SettingPaymentVisibleMethodAlipaySource:  "",
+		SettingPaymentVisibleMethodWxpaySource:   "",
+		SettingPaymentVisibleMethodAlipayEnabled: "false",
+		SettingPaymentVisibleMethodWxpayEnabled:  "false",
 
 		SettingKeyProfitControlEnabled: "false",
 		SettingKeyProfitMinMargin:      "0",
@@ -134,14 +100,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 
 	// 敏感信息直接返回，方便测试连接时使用
 
-	// Identity patch settings (default: enabled, to preserve existing behavior)
-	if v, ok := settings[SettingKeyEnableIdentityPatch]; ok && v != "" {
-		result.EnableIdentityPatch = v == "true"
-	} else {
-		result.EnableIdentityPatch = true
-	}
-	result.IdentityPatchPrompt = settings[SettingKeyIdentityPatchPrompt]
-
 	// Ops monitoring settings (default: enabled, fail-open)
 	result.OpsRealtimeMonitoringEnabled = !isFalseSettingValue(settings[SettingKeyOpsRealtimeMonitoringEnabled])
 	result.OpsQueryModeDefault = string(ParseOpsQueryMode(settings[SettingKeyOpsQueryModeDefault]))
@@ -171,16 +129,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 	result.ChannelMonitorShowQuota = settings[SettingKeyChannelMonitorShowQuota] == "true"
 	result.ChannelMonitorHideUserRanking = isTrueSettingValue(settings[SettingKeyChannelMonitorHideUserRanking])
 
-	// Grok default mapping policy
-	result.GrokDefaultTextModel = strings.TrimSpace(settings[SettingKeyGrokDefaultTextModel])
-	if result.GrokDefaultTextModel == "" {
-		result.GrokDefaultTextModel = "grok-4.6"
-	}
-	// Default true (missing/empty → enabled) so Claude/Codex→Grok mapping keeps working.
-	// Operators can set false to disable silent cross-client rewrite.
-	result.GrokCrossClientModelMapEnabled = !isFalseSettingValue(settings[SettingKeyGrokCrossClientModelMapEnabled])
-	result.GrokDefaultBaseURLMode = normalizeGrokDefaultBaseURLMode(settings[SettingKeyGrokDefaultBaseURLMode])
-
 	// Available channels feature (default: disabled; strict true)
 
 	result.PluginManagementEnabled = settings[SettingKeyPluginManagementEnabled] == "true"
@@ -199,62 +147,6 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		result.CyberSessionBlockTTLSeconds = 3600
 	}
 
-	// Claude Code version check
-	result.MinClaudeCodeVersion = settings[SettingKeyMinClaudeCodeVersion]
-	result.MaxClaudeCodeVersion = settings[SettingKeyMaxClaudeCodeVersion]
-
-	// 分组隔离
-
-	// Gateway forwarding behavior (defaults: fingerprint=true, metadata_passthrough=false,
-	// cch_signing=false, claude_oauth_system_prompt_injection=true)
-	result.OpenAITTFTMode = normalizeOpenAITTFTMode(settings[SettingKeyOpenAITTFTMode])
-	if v, ok := settings[SettingKeyEnableFingerprintUnification]; ok && v != "" {
-		result.EnableFingerprintUnification = v == "true"
-	} else {
-		result.EnableFingerprintUnification = true // default: enabled (current behavior)
-	}
-	result.EnableMetadataPassthrough = settings[SettingKeyEnableMetadataPassthrough] == "true"
-	result.EnableCCHSigning = settings[SettingKeyEnableCCHSigning] == "true"
-	if v, ok := settings[SettingKeyEnableClaudeOAuthSystemPromptInjection]; ok && v != "" {
-		result.EnableClaudeOAuthSystemPromptInjection = v == "true"
-	} else {
-		result.EnableClaudeOAuthSystemPromptInjection = true
-	}
-	result.ClaudeOAuthSystemPrompt = settings[SettingKeyClaudeOAuthSystemPrompt]
-	result.ClaudeOAuthSystemPromptBlocks = settings[SettingKeyClaudeOAuthSystemPromptBlocks]
-	result.EnableAnthropicCacheTTL1hInjection = settings[SettingKeyEnableAnthropicCacheTTL1hInjection] == "true"
-	if v, ok := settings[SettingKeyRewriteMessageCacheControl]; ok && v != "" {
-		result.RewriteMessageCacheControl = v == "true"
-	} else {
-		result.RewriteMessageCacheControl = s.defaultRewriteMessageCacheControl()
-	}
-	if v, ok := settings[SettingKeyEnableClientDatelineNormalization]; ok && v != "" {
-		result.EnableClientDatelineNormalization = v == "true"
-	} else {
-		result.EnableClientDatelineNormalization = true
-	}
-	result.AntigravityUserAgentVersion = antigravity.NormalizeUserAgentVersion(settings[SettingKeyAntigravityUserAgentVersion])
-	result.OpenAICodexUserAgent = strings.TrimSpace(settings[SettingKeyOpenAICodexUserAgent])
-	result.OpenAICodexClientVersion = NormalizeCodexClientVersion(settings[SettingKeyOpenAICodexClientVersion])
-	result.OpenAICodexClientVersionSynced = NormalizeCodexClientVersion(settings[SettingKeyOpenAICodexClientVersionSynced])
-	// 自动同步默认开启：缺失/空值一律视为开启，与 enable_client_dateline_normalization 同一惯例。
-	if v, ok := settings[SettingKeyOpenAICodexVersionAutoSyncEnabled]; ok && v != "" {
-		result.OpenAICodexVersionAutoSyncEnabled = v == "true"
-	} else {
-		result.OpenAICodexVersionAutoSyncEnabled = true
-	}
-	// codex_cli_only 加固
-	result.MinCodexVersion = settings[SettingKeyMinCodexVersion]
-	result.MaxCodexVersion = settings[SettingKeyMaxCodexVersion]
-	result.CodexCLIOnlyBlacklist = settings[SettingKeyCodexCLIOnlyBlacklist]
-	result.CodexCLIOnlyWhitelist = settings[SettingKeyCodexCLIOnlyWhitelist]
-	result.CodexCLIOnlyAllowAppServerClients = settings[SettingKeyCodexCLIOnlyAllowAppServerClients] == "true"
-	if raw := strings.TrimSpace(settings[SettingKeyCodexCLIOnlyEngineFingerprintSignals]); raw != "" {
-		result.CodexCLIOnlyEngineFingerprintSignals = raw
-	} else {
-		result.CodexCLIOnlyEngineFingerprintSignals = openai.DefaultEngineFingerprintSignalsJSON() // 缺失/空 → 展示默认种子
-	}
-
 	// Web search emulation: quick enabled check from the JSON config
 	if raw := settings[SettingKeyWebSearchEmulationConfig]; raw != "" {
 		var wsCfg WebSearchEmulationConfig
@@ -263,33 +155,11 @@ func (s *SettingService) parseSettings(settings map[string]string) *SystemSettin
 		}
 	}
 
-	result.AccountSchedulingThresholds = defaultAccountSchedulingThresholds()
-	if raw := strings.TrimSpace(settings[SettingKeyAccountSchedulingThresholds]); raw != "" {
-		if thresholds, err := parseAccountSchedulingThresholdsSetting(raw); err != nil {
-			slog.Warn("[Setting] parseSettings: unmarshal account_scheduling_thresholds failed", "error", err)
-		} else {
-			result.AccountSchedulingThresholds = thresholds
-		}
-	}
-
 	result.ProfitControlEnabled = settings[SettingKeyProfitControlEnabled] == "true"
 	result.ProfitMinMargin = parseProfitControlRatio(settings[SettingKeyProfitMinMargin])
 	result.ProfitSafetyBuffer = parseProfitControlRatio(settings[SettingKeyProfitSafetyBuffer])
 
-	// Publish Grok default model_mapping options for accounts with empty mapping.
-	xai.SetRuntimeModelMappingOptions(xai.ModelMappingOptions{
-		DefaultText:          result.GrokDefaultTextModel,
-		EnableCrossClientMap: result.GrokCrossClientModelMapEnabled,
-	})
-
 	return result
-}
-
-func normalizeOpenAITTFTMode(mode string) string {
-	if strings.EqualFold(strings.TrimSpace(mode), OpenAITTFTModeVisible) {
-		return OpenAITTFTModeVisible
-	}
-	return OpenAITTFTModeSemantic
 }
 
 // parseProfitControlRatio 解析利润门的 margin / buffer：非法或越界回 0（= 不扣减）。

@@ -59,7 +59,7 @@ func (s *RateLimitService) handleOllamaCloudUsage429(ctx context.Context, accoun
 	now := time.Now()
 	if d := retryAfter(headers, now); d > 0 {
 		shortReset = now.Add(d)
-	} else if cooldown, enabled := s.get429FallbackCooldown(ctx, account); enabled {
+	} else if cooldown, enabled := rateLimit429FallbackCooldown(); enabled {
 		shortReset = now.Add(cooldown)
 	} else {
 		slog.Info("rate_limit_ollama_429_fallback_ignored", "account_id", account.ID, "platform", account.Platform)

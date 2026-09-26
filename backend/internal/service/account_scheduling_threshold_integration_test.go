@@ -35,11 +35,7 @@ func (r *thresholdSelectionAccountRepoStub) ListSchedulingCandidatesByGroupID(ct
 }
 
 func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThresholdPlatforms(t *testing.T) {
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
-
-	settingsRepo := newMockSettingRepo()
-	settingsRepo.data[SettingKeyAccountSchedulingThresholds] = `{"openai":90}`
+	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 90, PlatformAnthropic: 100, PlatformGrok: 100})
 
 	accountRepo := &thresholdSelectionAccountRepoStub{
 		accounts: []Account{
@@ -70,7 +66,6 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 	}
 
 	rateLimitService := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
-	rateLimitService.SetSettingService(NewSettingService(settingsRepo, &config.Config{}))
 	svc := &GatewayService{
 		accountRepo:      accountRepo,
 		cfg:              &config.Config{},
@@ -89,11 +84,7 @@ func TestGatewayService_ListSchedulableAccounts_DoesNotFilterUnsupportedThreshol
 // 阈值评估不在选号路径上：候选装载不评估阈值、不写状态（tempCalls 为 0）；
 // 已被状态服务停调的账号由选号循环按 SchedulingState 跳过（见 *_LoadBalanceTopKExcludesTempUnschedulable）。
 func TestGatewayService_ListSchedulableAccounts_OpenAIPool_ReadsStateNotThresholds(t *testing.T) {
-	accountSchedulingThresholdsSF.Forget(SettingKeyAccountSchedulingThresholds)
-	accountSchedulingThresholdsCache.Store(&cachedAccountSchedulingThresholds{})
-
-	settingsRepo := newMockSettingRepo()
-	settingsRepo.data[SettingKeyAccountSchedulingThresholds] = `{"openai":85}`
+	setGatewayPolicyForTest(t, &accountSchedulingThresholds, map[string]int{PlatformOpenAI: 85, PlatformAnthropic: 100, PlatformGrok: 100})
 
 	accountRepo := &thresholdSelectionAccountRepoStub{
 		accounts: []Account{
@@ -129,7 +120,6 @@ func TestGatewayService_ListSchedulableAccounts_OpenAIPool_ReadsStateNotThreshol
 	}
 
 	rateLimitService := NewRateLimitService(accountRepo, nil, &config.Config{}, nil, nil)
-	rateLimitService.SetSettingService(NewSettingService(settingsRepo, &config.Config{}))
 	svc := &GatewayService{
 		accountRepo:      accountRepo,
 		cfg:              &config.Config{},

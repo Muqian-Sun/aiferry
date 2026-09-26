@@ -16,41 +16,6 @@ type ollamaCloudUsageAutoRefreshRequest struct {
 	Enabled *bool `json:"enabled" binding:"required"`
 }
 
-func (h *AccountHandler) GetOllamaCloudUsageSettings(c *gin.Context) {
-	if h.ollamaCloudUsage == nil {
-		response.ErrorFrom(c, service.ErrOllamaCloudUsageUnavailable)
-		return
-	}
-	settings, err := h.ollamaCloudUsage.GetSettings(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, settings)
-}
-
-func (h *AccountHandler) UpdateOllamaCloudUsageSettings(c *gin.Context) {
-	if h.ollamaCloudUsage == nil {
-		response.ErrorFrom(c, service.ErrOllamaCloudUsageUnavailable)
-		return
-	}
-	var req service.OllamaCloudUsageSettings
-	if err := c.ShouldBindJSON(&req); err != nil {
-		response.BadRequest(c, "Invalid request: "+err.Error())
-		return
-	}
-	if err := h.ollamaCloudUsage.UpdateSettings(c.Request.Context(), &req); err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	settings, err := h.ollamaCloudUsage.GetSettings(c.Request.Context())
-	if err != nil {
-		response.ErrorFrom(c, err)
-		return
-	}
-	response.Success(c, settings)
-}
-
 func (h *AccountHandler) GetOllamaCloudUsage(c *gin.Context) {
 	if !h.requireOllamaCloudUsage(c) {
 		return

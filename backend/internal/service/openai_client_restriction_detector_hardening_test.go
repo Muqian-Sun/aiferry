@@ -36,10 +36,10 @@ func TestDetect_N1_StrictOfficialUA(t *testing.T) {
 	require.Equal(t, CodexClientRestrictionReasonNotMatchedUA, r.Reason)
 }
 
-func TestDetectCodexClientRestriction_NilSettingServiceFailsClosed(t *testing.T) {
+func TestDetectCodexClientRestriction_DefaultPolicyFailsClosed(t *testing.T) {
 	gin.SetMode(gin.TestMode)
-	// settingService 缺失（仅测试/误配可达）：账号已开 codex_cli_only、官方 UA、但无 x-codex- 指纹头。
-	// 零值 policy 不得让指纹门失败开放——gateway 应回退默认种子指纹信号并拒（MissingEngineFingerprint）。
+	// 代码里的 codexRestrictionPolicy（gateway_features.go）：账号已开 codex_cli_only、官方 UA、但无 x-codex- 指纹头。
+	// 默认策略的指纹门用默认种子信号，不得失败开放——应拒（MissingEngineFingerprint）。
 	s := &OpenAIGatewayService{}
 	r := s.detectCodexClientRestriction(hdrCtx(map[string]string{"User-Agent": "codex_cli_rs/0.141.0 (x)"}), codexOnlyAccount(), nil)
 	require.True(t, r.Enabled)

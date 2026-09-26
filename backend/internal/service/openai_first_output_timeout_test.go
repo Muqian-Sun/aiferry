@@ -430,16 +430,6 @@ func assertOpenAINativeLargeOpenEventTimesOutWithoutLeak(t *testing.T, line stri
 }
 
 func TestOpenAINativeFirstOutputEOFDispatchesTerminalEventWithoutBlankLine(t *testing.T) {
-	gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
-		openAITTFTMode: OpenAITTFTModeVisible,
-		expiresAt:      time.Now().Add(time.Minute).UnixNano(),
-	})
-	t.Cleanup(func() {
-		gatewayForwardingCache.Store(&cachedGatewayForwardingSettings{
-			openAITTFTMode: OpenAITTFTModeSemantic,
-			expiresAt:      time.Now().Add(time.Minute).UnixNano(),
-		})
-	})
 	cfg := &config.Config{Gateway: config.GatewayConfig{
 		OpenAIFirstOutputTimeoutSeconds: 1,
 		MaxLineSize:                     defaultMaxLineSize,
@@ -462,7 +452,9 @@ func TestOpenAINativeFirstOutputEOFDispatchesTerminalEventWithoutBlankLine(t *te
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
-	require.Nil(t, result.firstTokenMs, "usage-only terminal event is not visible output")
+	// 首 token 口径是代码常量 OpenAITTFTMode（semantic）：终止事件不是 preamble，算首个语义事件。
+	// （原先这里钉 visible 口径断言 Nil；visible 分支运行时已走不到。）
+	require.NotNil(t, result.firstTokenMs, "semantic TTFT: the terminal event is the first semantic event")
 	require.Equal(t, "resp_eof", result.responseID)
 	require.Equal(t, 3, result.usage.InputTokens)
 	require.Equal(t, 2, result.usage.OutputTokens)
