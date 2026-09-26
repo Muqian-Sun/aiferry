@@ -100,11 +100,9 @@ export default {
         total: 'Tokens, all time'
       },
       models: {
-        title: 'By model',
         other: 'Other',
         empty: 'No usage in this range'
       },
-      share: 'Share',
       trend: {
         title: 'Usage trend'
       },
@@ -153,16 +151,6 @@ export default {
         example: 'Example',
         exampleHint: 'Replace $API_KEY with the key copied above, or export API_KEY=your-key first',
         exampleMessage: 'Hello'
-      },
-      composition: {
-        title: 'Token mix',
-        kind: 'Type',
-        input: 'Input',
-        output: 'Output',
-        cacheRead: 'Cache read',
-        cacheWrite: 'Cache write',
-        hitRate: 'Cache hit rate',
-        empty: 'No usage in this range'
       }
     },
     billing: {

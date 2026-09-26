@@ -100,11 +100,9 @@ export default {
         total: '累计 Token'
       },
       models: {
-        title: '模型用量',
         other: '其他',
         empty: '这段时间没有用量'
       },
-      share: '占比',
       trend: {
         title: '用量趋势'
       },
@@ -153,16 +151,6 @@ export default {
         example: '调用示例',
         exampleHint: '把 $API_KEY 换成上面复制的密钥，或先 export API_KEY=你的密钥',
         exampleMessage: '你好'
-      },
-      composition: {
-        title: 'Token 构成',
-        kind: '类型',
-        input: '输入',
-        output: '输出',
-        cacheRead: '缓存读',
-        cacheWrite: '缓存写',
-        hitRate: '缓存命中率',
-        empty: '这段时间没有用量'
       }
     },
     billing: {

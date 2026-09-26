@@ -5,9 +5,10 @@
     ② 需要处理：密钥过期 / 用尽 / 限额将满 / 快到期、余额快用完、订阅快到期或额度将满、今天的失败请求；没事整块不出现
     ③ 订阅额度：有生效中的订阅才出现，一个订阅一行
     ④ 用量趋势：一条墨线 + 淡面积（Token / 实付切换），替代原来每个模型一行的迷你柱
-    ⑤ 模型用量 + Token 构成：并排两张「表格 + 墨色占比条」；点模型去用量明细筛这个模型
-    新用户（还没有任何请求）把 ①④⑤ 换成「开始使用」：接口地址 → 密钥 → 调用示例。
-    右上角 7 / 30 天只作用于区间数与 ④⑤。全部单色，只有异常用色；每块独立加载与重试，任一接口失败不把别的块显示成零。
+    一类信息只放一页（muqian 2026-09-26）：按模型的分布只在用量明细（费用分布），这里不再放模型用量表；
+    Token 构成删掉（只能解释「Token 多、钱少是因为缓存读」，用户据此做不了什么；缓存命中率在用量明细摘要里）。
+    新用户（还没有任何请求）把 ①④ 换成「开始使用」：接口地址 → 密钥 → 调用示例。
+    右上角 7 / 30 天只作用于区间数与 ④。全部单色，只有异常用色；每块独立加载与重试，任一接口失败不把别的块显示成零。
     公告不在这里列——登录后弹窗（AnnouncementNotice）。
   -->
   <SiteShell :title="greeting">
@@ -165,32 +166,6 @@
           />
           <UsageMetricTrend v-else :trend-data="trend" :metric="trendMetric" :loading="snapshotLoading" />
         </SheetSection>
-
-        <!-- ⑤ 模型用量 + Token 构成：并排两张占比表，窄屏上下叠 -->
-        <section class="grid gap-x-12 gap-y-10 border-t border-af-hairline pt-6 lg:grid-cols-2">
-          <div class="min-w-0">
-            <h2 class="mb-4 text-base font-semibold text-af-ink">{{ t('userUi.overview.models.title') }}</h2>
-            <StatusState
-              v-if="snapshotError"
-              kind="error"
-              :title="t('userUi.usage.loadFailed')"
-              :action-label="t('userUi.usage.retry')"
-              @action="loadSnapshot"
-            />
-            <ModelTokenShare v-else :models="modelStats" :range-query="rangeQuery" :loading="snapshotLoading" />
-          </div>
-          <div class="min-w-0">
-            <h2 class="mb-4 text-base font-semibold text-af-ink">{{ t('userUi.overview.composition.title') }}</h2>
-            <StatusState
-              v-if="snapshotError"
-              kind="error"
-              :title="t('userUi.usage.loadFailed')"
-              :action-label="t('userUi.usage.retry')"
-              @action="loadSnapshot"
-            />
-            <UsageTokenComposition v-else :totals="composition" :loading="snapshotLoading" />
-          </div>
-        </section>
       </template>
     </div>
   </SiteShell>
@@ -219,11 +194,9 @@ import SectionTabs from '@/components/user/shell/SectionTabs.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
 import type { SectionTab } from '@/components/user/shell/types'
 import UsageMetricTrend, { type UsageTrendMetric } from '@/components/user/usage/UsageMetricTrend.vue'
-import ModelTokenShare from '@/components/user/usage/ModelTokenShare.vue'
-import UsageTokenComposition from '@/components/user/usage/UsageTokenComposition.vue'
 import { daysUntilExpiry, keyAttention, limitLevel, loadAllKeys, tightestLimit, type KeyAttention } from '@/components/user/keys/keyAttention'
 import Icon from '@/components/icons/Icon.vue'
-import type { ApiKey, ModelStat, TrendDataPoint, UserSubscription } from '@/types'
+import type { ApiKey, TrendDataPoint, UserSubscription } from '@/types'
 
 const { t } = useI18n()
 const appStore = useAppStore()
@@ -293,9 +266,8 @@ async function loadStats() {
 /** 还没有任何请求：换成「开始使用」 */
 const isNewUser = computed(() => stats.value !== null && stats.value.total_requests === 0)
 
-// ---------- 区间：趋势 + 模型用量（一次请求） ----------
+// ---------- 区间趋势 ----------
 const trend = ref<TrendDataPoint[]>([])
-const modelStats = ref<ModelStat[]>([])
 const snapshotLoading = ref(false)
 const snapshotError = ref(false)
 let snapshotSeq = 0
@@ -312,12 +284,11 @@ async function loadSnapshot() {
       granularity: 'day',
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       include_trend: true,
-      include_model_stats: true,
+      include_model_stats: false,
       include_model_trend: false
     })
     if (seq !== snapshotSeq) return
     trend.value = fillTrendBuckets(snapshot.trend || [], trendBucketKeys(start, end, 'day'))
-    modelStats.value = snapshot.models || []
   } catch (error) {
     if (seq !== snapshotSeq) return
     console.error('Failed to load usage snapshot:', error)
@@ -334,18 +305,6 @@ const trendMetricOptions = computed<Array<{ key: UsageTrendMetric; label: string
   { key: 'tokens', label: t('userUi.usage.trend.tokens') },
   { key: 'cost', label: t('userUi.usage.stats.actualCost') }
 ])
-
-const composition = computed(() =>
-  trend.value.reduce(
-    (acc, point) => ({
-      input: acc.input + point.input_tokens,
-      output: acc.output + point.output_tokens,
-      cacheRead: acc.cacheRead + point.cache_read_tokens,
-      cacheWrite: acc.cacheWrite + point.cache_creation_tokens
-    }),
-    { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 }
-  )
-)
 
 // ---------- 三个数 ----------
 const numbers = computed(() => {

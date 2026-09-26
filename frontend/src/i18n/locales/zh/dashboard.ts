@@ -243,10 +243,6 @@ export default {
     moreSettings: '更多设置',
     moreSettingsHint: '自定义密钥、额度、速率限制、到期时间、IP 限制；不填就是不限',
     attention: {
-      filterLabel: '需要处理',
-      filter: '筛选',
-      expired: '已过期',
-      quotaExhausted: '额度用尽',
       nearLimit: '限额将满',
       expiringSoon: '7 天内到期'
     },

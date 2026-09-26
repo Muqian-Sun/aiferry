@@ -53,7 +53,6 @@ const messages: Record<string, string> = {
   'keys.status.inactive': 'Inactive',
   'keys.status.quota_exhausted': 'Quota exhausted',
   'keys.usage': 'Usage',
-  'keys.attention.filter': 'Filter',
 }
 
 vi.mock('@/api', () => ({
@@ -345,13 +344,7 @@ describe('user KeysView column settings', () => {
     wrapper.unmount()
   })
 
-  it('shows no attention line when every key is fine', async () => {
-    const wrapper = await mountView()
-    expect(wrapper.find('[data-testid="keys-attention"]').exists()).toBe(false)
-    wrapper.unmount()
-  })
-
-  it('lists keys that need attention and filters to them', async () => {
+  it('offers near-limit / expiring in the status filter and filters to them', async () => {
     const soon = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000).toISOString()
     const keys: ApiKey[] = [
       { ...createApiKey(), id: 1, name: 'fine' },
@@ -362,40 +355,38 @@ describe('user KeysView column settings', () => {
     listKeys.mockResolvedValue({ items: keys, total: 4, page: 1, page_size: 20, pages: 1 })
     const wrapper = await mountView()
 
-    // 没有筛选且一页装得下：直接用这一页算，不再多拉
+    // 没有筛选且一页装得下：直接用这一页，不再多拉
     expect(listKeys).toHaveBeenCalledTimes(1)
-    expect(wrapper.get('[data-testid="stat-attention-expired"]').text()).toContain('1')
-    expect(wrapper.get('[data-testid="stat-attention-near-limit"]').text()).toContain('1')
-    expect(wrapper.get('[data-testid="stat-attention-expiring"]').text()).toContain('1')
-    expect(wrapper.find('[data-testid="stat-attention-quota"]').exists()).toBe(false)
+    const statusChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-status')!
+    expect(statusChip.props('options').map((option: { value: string }) => option.value)).toEqual(
+      expect.arrayContaining(['expired', 'quota_exhausted', 'near_limit', 'expiring'])
+    )
 
     // 限额将满：没有后端筛选，从全部密钥里挑出来，不分页
-    await wrapper.get('[data-testid="stat-attention-near-limit-action"]').trigger('click')
+    statusChip.vm.$emit('update:modelValue', 'near_limit')
     await flushPromises()
     const table = wrapper.findComponent({ name: 'DataTable' })
     expect(table.props('data').map((key: ApiKey) => key.name)).toEqual(['near-limit'])
     expect(wrapper.findComponent({ name: 'Pagination' }).exists()).toBe(false)
-    const attentionChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-attention')!
-    attentionChip.vm.$emit('update:modelValue', '')
-    await flushPromises()
-    expect(table.props('data')).toHaveLength(4)
+    expect(statusChip.props('modelValue')).toBe('near_limit')
 
     // 已过期：走后端状态筛选
     listKeys.mockClear()
-    await wrapper.get('[data-testid="stat-attention-expired-action"]').trigger('click')
+    statusChip.vm.$emit('update:modelValue', 'expired')
     await flushPromises()
     expect(listKeys).toHaveBeenLastCalledWith(1, 20, expect.objectContaining({ status: 'expired' }), expect.anything())
     wrapper.unmount()
   })
 
-  it('loads every key for the attention line when the list is paged or filtered', async () => {
+  it('loads every key for the near-limit / expiring filters when the list is paged', async () => {
     listKeys.mockImplementation((page: number, pageSize: number) =>
       Promise.resolve({ items: [{ ...createApiKey(), id: page * 1000 + pageSize, status: 'expired' }], total: 30, page, page_size: pageSize, pages: pageSize === 100 ? 1 : 2 })
     )
     const wrapper = await mountView()
 
     expect(listKeys).toHaveBeenCalledWith(1, 100)
-    expect(wrapper.get('[data-testid="stat-attention-expired"]').text()).toContain('1')
+    const statusChip = wrapper.findAllComponents(FilterChip).find((chip) => chip.props('testId') === 'keys-filter-status')!
+    expect(statusChip.props('options').map((option: { value: string }) => option.value)).toContain('near_limit')
     wrapper.unmount()
   })
 

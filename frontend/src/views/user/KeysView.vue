@@ -1,7 +1,8 @@
 <template>
   <!--
     密钥（muqian 2026-09-25 定）：回答「每把 key 还能不能用、怎么用」。
-    页头一个实心主操作（创建）；「需要处理」一行只在有事时出现（已过期 / 额度用尽 / 限额将满 / 7 天内到期，点「筛选」看是哪几把）；
+    页头一个实心主操作（创建）；「需要处理」只在概览出现（muqian 2026-09-26：一类信息只放一页），这里不再摆一行摘要——
+    已过期 / 额度用尽 / 限额将满 / 7 天内到期都是「状态」筛选里的选项，概览的提醒点进来就带着对应筛选；
     接口地址条常驻；表格只放判断能不能用的列（用量与最紧的一项限额合成一列），点行开右侧详情抽屉（趋势、限额与重置、使用方法）。
     配色单色为主：状态用小圆点 + 文字，只有用尽 / 过期 / 超限用橙红。
   -->
@@ -23,8 +24,6 @@
     </template>
 
     <div class="space-y-4">
-      <!-- 需要处理：只在有事时出现；接口失败或密钥太多数不全就不出现，不摆零 -->
-      <StatRow v-if="attentionItems.length" :items="attentionItems" class="border-b border-af-hairline pb-6" data-testid="keys-attention" />
       <!-- 接口地址条：表格上方常驻；地址与「使用方法」同一口径——设置留空就是当前站点 -->
       <EndpointPopover
         class="border-b border-af-hairline pb-4"
@@ -41,20 +40,11 @@
             @search="onFilterChange"
           />
           <FilterChip
-            :model-value="filterStatus"
+            :model-value="attentionFilter || filterStatus"
             :label="t('common.status')"
             :options="statusFilterOptions"
             test-id="keys-filter-status"
             @update:model-value="onStatusFilterChange"
-          />
-          <!-- 「限额将满」「7 天内到期」没有后端筛选：在已拉到的全部密钥里挑出来，关掉即回到分页列表 -->
-          <FilterChip
-            v-if="attentionFilter"
-            :model-value="attentionFilter"
-            :label="t('keys.attention.filterLabel')"
-            :options="attentionFilterOptions"
-            test-id="keys-filter-attention"
-            @update:model-value="setAttentionFilter($event === '' ? '' : ($event as AttentionFilter))"
           />
         </div>
         <div v-if="selectedIds.length" class="flex flex-wrap items-center gap-3 text-sm">
@@ -647,9 +637,7 @@ import { getPersistedPageSize } from '@/composables/usePersistedPageSize'
 import { DEFAULT_SITE_NAME } from '@/utils/branding'
 import { keysAPI, authAPI, usageAPI } from '@/api'
 import SiteShell from '@/components/user/shell/SiteShell.vue'
-import StatRow from '@/components/user/shell/StatRow.vue'
 import StatusState from '@/components/user/shell/StatusState.vue'
-import type { StatItem } from '@/components/user/shell/types'
 import BulkEditKeysModal from '@/components/keys/BulkEditKeysModal.vue'
 import EndpointPopover from '@/components/keys/EndpointPopover.vue'
 import DataTable from '@/components/common/DataTable.vue'
@@ -669,7 +657,6 @@ import {
   daysUntilExpiry,
   isExpiringSoon,
   isNearLimit,
-  keyAttention,
   loadAllKeys,
   tightestLimit,
   type KeyLimitMeter
@@ -781,53 +768,20 @@ const publicSettings = ref<PublicSettings | null>(null)
 // 设置里的 API 端点地址留空 = 当前站点（与「使用方法」的回落一致）
 const apiBaseUrl = computed(() => publicSettings.value?.api_base_url || window.location.origin)
 
-// ---------- 需要处理 ----------
-// 全部密钥（最多 500 把）：「需要处理」按它算；不全就不出数字
+// ---------- 限额将满 / 7 天内到期 ----------
+// 这两种没有后端筛选：在全部密钥（最多 500 把）里挑出来；拉不全就不提供这两个选项
 const allKeys = ref<ApiKey[] | null>(null)
-const attention = computed(() => (allKeys.value ? keyAttention(allKeys.value, now.value) : null))
 
 type AttentionFilter = 'near_limit' | 'expiring'
 const attentionFilter = ref<AttentionFilter | ''>('')
-const attentionFilterOptions = computed<FilterOption[]>(() => [
-  { value: 'near_limit', label: t('keys.attention.nearLimit') },
-  { value: 'expiring', label: t('keys.attention.expiringSoon') }
-])
 
-function filterByStatus(status: string) {
-  attentionFilter.value = ''
-  filterStatus.value = status
-  onFilterChange()
-}
-
-function setAttentionFilter(value: AttentionFilter | '') {
+function setAttentionFilter(value: AttentionFilter) {
   selectedIds.value = []
   attentionFilter.value = value
-  if (value) {
-    filterSearch.value = ''
-    filterStatus.value = ''
-    void loadUsageStats(attentionRows.value.map((key) => key.id))
-  }
+  filterSearch.value = ''
+  filterStatus.value = ''
+  void loadUsageStats(attentionRows.value.map((key) => key.id))
 }
-
-const attentionItems = computed<StatItem[]>(() => {
-  const a = attention.value
-  if (!a) return []
-  const items: StatItem[] = []
-  const filterAction = (onClick: () => void) => ({ label: t('keys.attention.filter'), onClick })
-  if (a.expired.length) {
-    items.push({ key: 'attention-expired', label: t('keys.attention.expired'), value: String(a.expired.length), action: filterAction(() => filterByStatus('expired')) })
-  }
-  if (a.quotaExhausted.length) {
-    items.push({ key: 'attention-quota', label: t('keys.attention.quotaExhausted'), value: String(a.quotaExhausted.length), action: filterAction(() => filterByStatus('quota_exhausted')) })
-  }
-  if (a.nearLimit.length) {
-    items.push({ key: 'attention-near-limit', label: t('keys.attention.nearLimit'), value: String(a.nearLimit.length), action: filterAction(() => setAttentionFilter('near_limit')) })
-  }
-  if (a.expiringSoon.length) {
-    items.push({ key: 'attention-expiring', label: t('keys.attention.expiringSoon'), value: String(a.expiringSoon.length), action: filterAction(() => setAttentionFilter('expiring')) })
-  }
-  return items
-})
 
 const attentionRows = computed<ApiKey[]>(() => {
   if (!attentionFilter.value || !allKeys.value) return []
@@ -946,7 +900,13 @@ const statusFilterOptions = computed<FilterOption[]>(() => [
   { value: 'active', label: t('keys.status.active') },
   { value: 'inactive', label: t('keys.status.inactive') },
   { value: 'quota_exhausted', label: t('keys.status.quota_exhausted') },
-  { value: 'expired', label: t('keys.status.expired') }
+  { value: 'expired', label: t('keys.status.expired') },
+  ...(allKeys.value
+    ? [
+        { value: 'near_limit', label: t('keys.attention.nearLimit') },
+        { value: 'expiring', label: t('keys.attention.expiringSoon') }
+      ]
+    : [])
 ])
 
 const onFilterChange = () => {
@@ -957,6 +917,10 @@ const onFilterChange = () => {
 }
 
 const onStatusFilterChange = (value: string | number) => {
+  if (value === 'near_limit' || value === 'expiring') {
+    setAttentionFilter(value)
+    return
+  }
   filterStatus.value = value
   onFilterChange()
 }
@@ -991,7 +955,7 @@ async function loadUsageStats(ids: number[], signal?: AbortSignal) {
 }
 
 /**
- * 拉当前页。refreshAttention：同时重算「需要处理」（首次进入、刷新、任何改动之后）；
+ * 拉当前页。refreshAttention：同时重拉全部密钥，给「限额将满 / 7 天内到期」筛选用（首次进入、刷新、任何改动之后）；
  * 没有筛选且一页就装得下时直接用这一页，不再多拉一次。
  */
 const loadApiKeys = async (options: { refreshAttention?: boolean } = {}) => {

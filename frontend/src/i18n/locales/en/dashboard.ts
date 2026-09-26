@@ -241,10 +241,6 @@ export default {
     moreSettings: 'More settings',
     moreSettingsHint: 'Custom key, quota, rate limits, expiry and IP rules — leave empty for no limit',
     attention: {
-      filterLabel: 'Needs attention',
-      filter: 'Filter',
-      expired: 'Expired',
-      quotaExhausted: 'Quota used up',
       nearLimit: 'Close to a limit',
       expiringSoon: 'Expires within 7 days'
     },
