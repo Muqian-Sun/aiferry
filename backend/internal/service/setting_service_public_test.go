@@ -251,3 +251,24 @@ func TestSettingService_GetPublicSettings_SiteFieldsComeFromCode(t *testing.T) {
 	require.Equal(t, "[]", settings.CustomEndpoints)
 	require.Equal(t, "https://user.example", settings.APIBaseURL)
 }
+
+// 条款由代码决定：库里残留的旧开关 / 旧正文不生效，一律用 legal/*.md 与代码里的日期。
+func TestSettingService_GetPublicSettings_LoginAgreementComesFromCode(t *testing.T) {
+	repo := &settingPublicRepoStub{
+		values: map[string]string{
+			"login_agreement_enabled":    "false",
+			"login_agreement_mode":       "checkbox",
+			"login_agreement_updated_at": "2020-01-01",
+			"login_agreement_documents":  `[{"id":"stale","title":"旧条款","content_md":"stale"}]`,
+		},
+	}
+	svc := NewSettingService(repo, &config.Config{})
+
+	settings, err := svc.GetPublicSettings(context.Background())
+	require.NoError(t, err)
+	require.True(t, settings.LoginAgreementEnabled)
+	require.Equal(t, LoginAgreementMode, settings.LoginAgreementMode)
+	require.Equal(t, LoginAgreementUpdatedAt, settings.LoginAgreementUpdatedAt)
+	require.Equal(t, LoginAgreementDocuments(), settings.LoginAgreementDocuments)
+	require.Equal(t, buildLoginAgreementRevision(LoginAgreementUpdatedAt, LoginAgreementDocuments()), settings.LoginAgreementRevision)
+}

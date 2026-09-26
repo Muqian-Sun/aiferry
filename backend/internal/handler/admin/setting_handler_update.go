@@ -22,14 +22,10 @@ import (
 
 // UpdateSettingsRequest 更新设置请求
 type UpdateSettingsRequest struct {
-	EmailVerifyEnabled                  bool                         `json:"email_verify_enabled"`
-	RegistrationEmailSuffixWhitelist    []string                     `json:"registration_email_suffix_whitelist"`
-	RegistrationEmailDomainQuotaEnabled *bool                        `json:"registration_email_domain_quota_enabled"` // 非白名单域名限量注册开关（省略=保持现值）
-	StepUpEnabled                       *bool                        `json:"step_up_enabled"`                         // 敏感操作 step-up 2FA（省略=保持现值）
-	LoginAgreementEnabled               bool                         `json:"login_agreement_enabled"`
-	LoginAgreementMode                  string                       `json:"login_agreement_mode"`
-	LoginAgreementUpdatedAt             string                       `json:"login_agreement_updated_at"`
-	LoginAgreementDocuments             []dto.LoginAgreementDocument `json:"login_agreement_documents"`
+	EmailVerifyEnabled                  bool     `json:"email_verify_enabled"`
+	RegistrationEmailSuffixWhitelist    []string `json:"registration_email_suffix_whitelist"`
+	RegistrationEmailDomainQuotaEnabled *bool    `json:"registration_email_domain_quota_enabled"` // 非白名单域名限量注册开关（省略=保持现值）
+	StepUpEnabled                       *bool    `json:"step_up_enabled"`                         // 敏感操作 step-up 2FA（省略=保持现值）
 
 	// 邮件服务设置
 	SMTPHost     string `json:"smtp_host"`
@@ -693,45 +689,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		}
 	}
 
-	loginAgreementMode := strings.ToLower(strings.TrimSpace(req.LoginAgreementMode))
-	if loginAgreementMode == "" {
-		loginAgreementMode = strings.ToLower(strings.TrimSpace(previousSettings.LoginAgreementMode))
-	}
-	switch loginAgreementMode {
-	case "", "modal":
-		loginAgreementMode = "modal"
-	case "checkbox":
-	default:
-		response.BadRequest(c, "Login agreement mode must be modal or checkbox")
-		return
-	}
-	loginAgreementUpdatedAt := strings.TrimSpace(req.LoginAgreementUpdatedAt)
-	if loginAgreementUpdatedAt == "" {
-		loginAgreementUpdatedAt = strings.TrimSpace(previousSettings.LoginAgreementUpdatedAt)
-	}
-	loginAgreementDocuments := loginAgreementDocumentsToService(req.LoginAgreementDocuments)
-	if len(loginAgreementDocuments) == 0 {
-		loginAgreementDocuments = previousSettings.LoginAgreementDocuments
-	}
-	for _, doc := range loginAgreementDocuments {
-		if strings.TrimSpace(doc.Title) == "" {
-			response.BadRequest(c, "Login agreement document title is required")
-			return
-		}
-		if len(doc.Title) > 80 {
-			response.BadRequest(c, "Login agreement document title is too long (max 80 characters)")
-			return
-		}
-		if len(doc.ContentMD) > 200*1024 {
-			response.BadRequest(c, "Login agreement document content is too large (max 200KB)")
-			return
-		}
-	}
-	if req.LoginAgreementEnabled && len(loginAgreementDocuments) == 0 {
-		response.BadRequest(c, "Login agreement documents are required when enabled")
-		return
-	}
-
 	// LinuxDo Connect 参数验证
 	if req.LinuxDoConnectEnabled {
 		req.LinuxDoConnectClientID = strings.TrimSpace(req.LinuxDoConnectClientID)
@@ -1234,10 +1191,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RegistrationEmailSuffixWhitelist:    req.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled: registrationEmailDomainQuotaEnabled,
 		StepUpEnabled:                       stepUpEnabled,
-		LoginAgreementEnabled:               req.LoginAgreementEnabled,
-		LoginAgreementMode:                  loginAgreementMode,
-		LoginAgreementUpdatedAt:             loginAgreementUpdatedAt,
-		LoginAgreementDocuments:             loginAgreementDocuments,
 		SMTPHost:                            req.SMTPHost,
 		SMTPPort:                            req.SMTPPort,
 		SMTPUsername:                        req.SMTPUsername,
@@ -1779,10 +1732,6 @@ func (h *SettingHandler) UpdateSettings(c *gin.Context) {
 		RegistrationEmailSuffixWhitelist:       updatedSettings.RegistrationEmailSuffixWhitelist,
 		RegistrationEmailDomainQuotaEnabled:    updatedSettings.RegistrationEmailDomainQuotaEnabled,
 		StepUpEnabled:                          updatedSettings.StepUpEnabled,
-		LoginAgreementEnabled:                  updatedSettings.LoginAgreementEnabled,
-		LoginAgreementMode:                     updatedSettings.LoginAgreementMode,
-		LoginAgreementUpdatedAt:                updatedSettings.LoginAgreementUpdatedAt,
-		LoginAgreementDocuments:                loginAgreementDocumentsToDTO(updatedSettings.LoginAgreementDocuments),
 		SMTPHost:                               updatedSettings.SMTPHost,
 		SMTPPort:                               updatedSettings.SMTPPort,
 		SMTPUsername:                           updatedSettings.SMTPUsername,

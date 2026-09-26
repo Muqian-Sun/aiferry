@@ -26,14 +26,10 @@ type CustomEndpoint struct {
 
 // SystemSettings represents the admin settings API response payload.
 type SystemSettings struct {
-	EmailVerifyEnabled                  bool                     `json:"email_verify_enabled"`
-	RegistrationEmailSuffixWhitelist    []string                 `json:"registration_email_suffix_whitelist"`
-	RegistrationEmailDomainQuotaEnabled bool                     `json:"registration_email_domain_quota_enabled"`
-	StepUpEnabled                       bool                     `json:"step_up_enabled"` // 敏感操作 step-up 2FA
-	LoginAgreementEnabled               bool                     `json:"login_agreement_enabled"`
-	LoginAgreementMode                  string                   `json:"login_agreement_mode"`
-	LoginAgreementUpdatedAt             string                   `json:"login_agreement_updated_at"`
-	LoginAgreementDocuments             []LoginAgreementDocument `json:"login_agreement_documents"`
+	EmailVerifyEnabled                  bool     `json:"email_verify_enabled"`
+	RegistrationEmailSuffixWhitelist    []string `json:"registration_email_suffix_whitelist"`
+	RegistrationEmailDomainQuotaEnabled bool     `json:"registration_email_domain_quota_enabled"`
+	StepUpEnabled                       bool     `json:"step_up_enabled"` // 敏感操作 step-up 2FA
 
 	SMTPHost               string `json:"smtp_host"`
 	SMTPPort               int    `json:"smtp_port"`

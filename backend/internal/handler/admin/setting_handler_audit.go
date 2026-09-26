@@ -44,18 +44,6 @@ func diffSettings(before *service.SystemSettings, after *service.SystemSettings,
 	if before.StepUpEnabled != after.StepUpEnabled {
 		changed = append(changed, "step_up_enabled")
 	}
-	if before.LoginAgreementEnabled != after.LoginAgreementEnabled {
-		changed = append(changed, "login_agreement_enabled")
-	}
-	if before.LoginAgreementMode != after.LoginAgreementMode {
-		changed = append(changed, "login_agreement_mode")
-	}
-	if before.LoginAgreementUpdatedAt != after.LoginAgreementUpdatedAt {
-		changed = append(changed, "login_agreement_updated_at")
-	}
-	if !equalLoginAgreementDocuments(before.LoginAgreementDocuments, after.LoginAgreementDocuments) {
-		changed = append(changed, "login_agreement_documents")
-	}
 	if before.SMTPHost != after.SMTPHost {
 		changed = append(changed, "smtp_host")
 	}
@@ -590,18 +578,6 @@ func equalDefaultSubscriptions(a, b []service.DefaultSubscriptionSetting) bool {
 	}
 	for i := range a {
 		if a[i].PlanID != b[i].PlanID || a[i].ValidityDays != b[i].ValidityDays {
-			return false
-		}
-	}
-	return true
-}
-
-func equalLoginAgreementDocuments(a, b []service.LoginAgreementDocument) bool {
-	if len(a) != len(b) {
-		return false
-	}
-	for i := range a {
-		if a[i].ID != b[i].ID || a[i].Title != b[i].Title || a[i].ContentMD != b[i].ContentMD {
 			return false
 		}
 	}

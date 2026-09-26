@@ -32,6 +32,17 @@ const (
 	BackendModeEnabled = false
 )
 
+// 登录条款（2026-09-26 定：条款在代码里配置）。正文是 legal/usage-policy.md、legal/privacy.md。
+const (
+	// LoginAgreementEnabled 登录 / 注册前要确认条款。
+	LoginAgreementEnabled = true
+	// LoginAgreementMode 条款的展示形式：modal 弹窗 / checkbox 复选框。
+	LoginAgreementMode = "modal"
+	// LoginAgreementUpdatedAt 条款更新日期，显示给用户。改了 legal/*.md 的正文要同时改它；
+	// 用户要不要重新确认看的是修订号（日期 + 正文哈希），忘改日期也会要求重新确认。
+	LoginAgreementUpdatedAt = "2026-09-23"
+)
+
 // TablePageSizeOptions 列表可选的每页条数。
 func TablePageSizeOptions() []int { return []int{10, 20, 50, 100} }
 

@@ -14,17 +14,8 @@ import (
 	"github.com/Wei-Shaw/sub2api/internal/pkg/timezone"
 )
 
-func normalizeLoginAgreementMode(raw string) string {
-	switch strings.ToLower(strings.TrimSpace(raw)) {
-	case "checkbox":
-		return "checkbox"
-	default:
-		return defaultLoginAgreementMode
-	}
-}
-
-// DefaultLoginAgreementDocuments 是站点没配置登录协议文档时的默认两份文档（使用政策 / 隐私政策），正文见 legal/*.md。
-func DefaultLoginAgreementDocuments() []LoginAgreementDocument {
+// LoginAgreementDocuments 登录条款：正文是仓库里的 legal/*.md，由代码决定，后台不能改。
+func LoginAgreementDocuments() []LoginAgreementDocument {
 	return []LoginAgreementDocument{
 		{
 			ID:        "usage-policy",
@@ -91,34 +82,6 @@ func normalizeLoginAgreementDocuments(docs []LoginAgreementDocument) []LoginAgre
 	return normalized
 }
 
-func parseLoginAgreementDocuments(raw string) []LoginAgreementDocument {
-	raw = strings.TrimSpace(raw)
-	if raw == "" {
-		return DefaultLoginAgreementDocuments()
-	}
-	var docs []LoginAgreementDocument
-	if err := json.Unmarshal([]byte(raw), &docs); err != nil {
-		return DefaultLoginAgreementDocuments()
-	}
-	docs = normalizeLoginAgreementDocuments(docs)
-	if len(docs) == 0 {
-		return DefaultLoginAgreementDocuments()
-	}
-	return docs
-}
-
-func marshalLoginAgreementDocuments(docs []LoginAgreementDocument) (string, error) {
-	normalized := normalizeLoginAgreementDocuments(docs)
-	if len(normalized) == 0 {
-		normalized = DefaultLoginAgreementDocuments()
-	}
-	b, err := json.Marshal(normalized)
-	if err != nil {
-		return "", fmt.Errorf("marshal login agreement documents: %w", err)
-	}
-	return string(b), nil
-}
-
 func buildLoginAgreementRevision(updatedAt string, docs []LoginAgreementDocument) string {
 	normalized := normalizeLoginAgreementDocuments(docs)
 	payload, err := json.Marshal(struct {
@@ -151,10 +114,6 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		SettingKeyForceEmailOnThirdPartySignup,
 		SettingKeyRegistrationEmailSuffixWhitelist,
 		SettingKeyRegistrationEmailDomainQuotaEnabled,
-		SettingKeyLoginAgreementEnabled,
-		SettingKeyLoginAgreementMode,
-		SettingKeyLoginAgreementUpdatedAt,
-		SettingKeyLoginAgreementDocuments,
 		SettingKeyTurnstileEnabled,
 		SettingKeyTurnstileSiteKey,
 		SettingKeyTencentCaptchaEnabled,
@@ -247,11 +206,7 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 	registrationEmailSuffixWhitelist := ParseRegistrationEmailSuffixWhitelist(
 		settings[SettingKeyRegistrationEmailSuffixWhitelist],
 	)
-	loginAgreementDocuments := parseLoginAgreementDocuments(settings[SettingKeyLoginAgreementDocuments])
-	loginAgreementUpdatedAt := strings.TrimSpace(settings[SettingKeyLoginAgreementUpdatedAt])
-	if loginAgreementUpdatedAt == "" {
-		loginAgreementUpdatedAt = defaultLoginAgreementDate
-	}
+	loginAgreementDocuments := LoginAgreementDocuments()
 
 	var balanceLowNotifyThreshold float64
 	if v, err := strconv.ParseFloat(settings[SettingKeyBalanceLowNotifyThreshold], 64); err == nil && v >= 0 {
@@ -267,10 +222,10 @@ func (s *SettingService) GetPublicSettings(ctx context.Context) (*PublicSettings
 		PasswordResetEnabled:                passwordResetEnabled,
 		InvitationCodeEnabled:               InvitationCodeRequired,
 		PasskeyEnabled:                      s.PasskeyEnabled(),
-		LoginAgreementEnabled:               settings[SettingKeyLoginAgreementEnabled] == "true" && len(loginAgreementDocuments) > 0,
-		LoginAgreementMode:                  normalizeLoginAgreementMode(settings[SettingKeyLoginAgreementMode]),
-		LoginAgreementUpdatedAt:             loginAgreementUpdatedAt,
-		LoginAgreementRevision:              buildLoginAgreementRevision(loginAgreementUpdatedAt, loginAgreementDocuments),
+		LoginAgreementEnabled:               LoginAgreementEnabled && len(loginAgreementDocuments) > 0,
+		LoginAgreementMode:                  LoginAgreementMode,
+		LoginAgreementUpdatedAt:             LoginAgreementUpdatedAt,
+		LoginAgreementRevision:              buildLoginAgreementRevision(LoginAgreementUpdatedAt, loginAgreementDocuments),
 		LoginAgreementDocuments:             loginAgreementDocuments,
 		TurnstileEnabled:                    settings[SettingKeyTurnstileEnabled] == "true",
 		TurnstileSiteKey:                    settings[SettingKeyTurnstileSiteKey],

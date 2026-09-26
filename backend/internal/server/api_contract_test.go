@@ -5,14 +5,12 @@ package server_test
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"errors"
 	"io"
 	"math"
 	"net/http"
 	"net/http/httptest"
 	"sort"
-	"strings"
 	"testing"
 	"time"
 
@@ -612,10 +610,6 @@ func TestAPIContracts(t *testing.T) {
 					"registration_email_suffix_whitelist": [],
 					"registration_email_domain_quota_enabled": false,
 						"step_up_enabled": false,
-						"login_agreement_enabled": false,
-						"login_agreement_mode": "modal",
-						"login_agreement_updated_at": "2026-09-23",
-						"login_agreement_documents": "__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__",
 						"smtp_host": "smtp.example.com",
 						"smtp_port": 587,
 						"smtp_username": "user",
@@ -883,10 +877,6 @@ func TestAPIContracts(t *testing.T) {
 					"registration_email_suffix_whitelist": [],
 					"registration_email_domain_quota_enabled": false,
 						"step_up_enabled": false,
-						"login_agreement_enabled": false,
-						"login_agreement_mode": "modal",
-						"login_agreement_updated_at": "2026-09-23",
-						"login_agreement_documents": "__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__",
 						"smtp_host": "",
 						"smtp_port": 587,
 						"smtp_username": "",
@@ -1145,18 +1135,9 @@ func TestAPIContracts(t *testing.T) {
 
 			status, body := doRequest(t, deps.router, tt.method, tt.path, tt.body, tt.headers)
 			require.Equal(t, tt.wantStatus, status)
-			require.JSONEq(t, withDefaultLoginAgreementDocuments(t, tt.wantJSON), body)
+			require.JSONEq(t, tt.wantJSON, body)
 		})
 	}
-}
-
-// withDefaultLoginAgreementDocuments 把期望里的占位符换成默认条款的实际序列化结果：
-// 条款正文来自 legal/*.md、篇幅很长，不在契约字面量里重抄一份；id / 标题 / 正文非空由 service 的单测钉住。
-func withDefaultLoginAgreementDocuments(t *testing.T, want string) string {
-	t.Helper()
-	docs, err := json.Marshal(service.DefaultLoginAgreementDocuments())
-	require.NoError(t, err)
-	return strings.ReplaceAll(want, `"__DEFAULT_LOGIN_AGREEMENT_DOCUMENTS__"`, string(docs))
 }
 
 type contractDeps struct {

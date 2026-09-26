@@ -166,19 +166,6 @@ func (s *SettingService) buildSystemSettingsUpdates(ctx context.Context, setting
 	updates[SettingKeyRegistrationEmailSuffixWhitelist] = string(registrationEmailSuffixWhitelistJSON)
 	updates[SettingKeyRegistrationEmailDomainQuotaEnabled] = strconv.FormatBool(settings.RegistrationEmailDomainQuotaEnabled)
 	updates[SettingKeyStepUpEnabled] = strconv.FormatBool(settings.StepUpEnabled)
-	settings.LoginAgreementMode = normalizeLoginAgreementMode(settings.LoginAgreementMode)
-	settings.LoginAgreementUpdatedAt = strings.TrimSpace(settings.LoginAgreementUpdatedAt)
-	if settings.LoginAgreementUpdatedAt == "" {
-		settings.LoginAgreementUpdatedAt = defaultLoginAgreementDate
-	}
-	loginAgreementDocumentsJSON, err := marshalLoginAgreementDocuments(settings.LoginAgreementDocuments)
-	if err != nil {
-		return nil, err
-	}
-	updates[SettingKeyLoginAgreementEnabled] = strconv.FormatBool(settings.LoginAgreementEnabled)
-	updates[SettingKeyLoginAgreementMode] = settings.LoginAgreementMode
-	updates[SettingKeyLoginAgreementUpdatedAt] = settings.LoginAgreementUpdatedAt
-	updates[SettingKeyLoginAgreementDocuments] = loginAgreementDocumentsJSON
 
 	// 邮件服务设置（只有非空才更新密码）
 	updates[SettingKeySMTPHost] = settings.SMTPHost

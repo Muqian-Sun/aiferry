@@ -10,7 +10,7 @@ import (
 )
 
 func TestDefaultLoginAgreementDocumentsCarryWrittenTerms(t *testing.T) {
-	docs := DefaultLoginAgreementDocuments()
+	docs := LoginAgreementDocuments()
 	ids := make([]string, 0, len(docs))
 	titles := make([]string, 0, len(docs))
 	for _, doc := range docs {
